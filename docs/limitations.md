@@ -1,0 +1,12 @@
+# Known current limitations
+
+*[← Documentation index](README.md) · [Version française](limitations_fr.md)*
+
+---
+
+- `auto_worker_on_open` (auto-launching the worker) only triggers on Blender startup and on active-project switch, not continuously.
+- Per-shot casting JSON (a fixed list of the asset versions built into a shot, with build/rebuild and diff) is part of the roadmap but not yet implemented — see `CODE.md`.
+- **Only Ctrl+S is guarded**, not the File menu's Save button or the top bar's save icon: those call `bpy.ops.wm.save_mainfile()` directly, bypassing the read-only/stable checks entirely (see "Want to save" in `graph.md`). Ctrl+S remains the safe way to save. A "READ-ONLY" indicator in the top bar (next to File/Edit/Render, same row as those risky buttons — see [Interface](interface.md#top-bar-menu)) warns before the click happens; it doesn't block it. See [Versions: wip and stable](versions.md#versions-wip-and-stable) for what the guard normally does.
+- **Unreachable project folder is only fully handled at startup**: if the active project's folder can't be reached (NAS disconnected, drive unmapped), a startup check deactivates it before any panel tries to touch it. If the NAS drops out *while Blender is already open and running*, that protection doesn't apply. A few user-triggered actions (activating a project, creating an asset/shot) now fail with a clean error instead of crashing outright, but panels that only need an active project (no file open), like the Farm panel, can still hang repeatedly stat-ing the now-dead path — that part isn't fixed.
+- **Shot blocks (multishot)**: creation and the render-time split into per-shot jobs have been exercised in real Blender sessions (several rough edges found and fixed along the way). Preview and Branch block aren't yet — still only checked via standalone logic, not a live create → render → preview → branch run. See [Shot blocks (multishot)](multishot.md).
+- **Very long shot blocks on a deep network path could hit Windows' MAX_PATH** (260 characters): a block's `.blend`/`.wipmeta` names include every shot number it covers, so an 8+ shot block combined with a long UNC server path is the theoretical risk case (the common 1-2 shot case has a large margin). Not yet tested against a real UNC path; the mitigation (dropping the redundant base name from `.meta` files) is designed but not implemented pending that test.

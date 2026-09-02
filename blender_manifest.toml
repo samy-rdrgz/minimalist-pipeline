@@ -1,0 +1,16 @@
+schema_version = "1.0.1"
+
+id = "minimalist_pipeline"
+version = "1.0.1"
+name = "Minimalist Pipeline"
+tagline = "Lightweight file pipeline for solo artists and small teams"
+maintainer = "Samy RODRIGUEZ samy.rodriguez@proton.me"
+type = "add-on"
+
+blender_version_min = "4.2.0"
+
+license = ["SPDX:GPL-3.0-or-later"]
+
+category = "Pipeline"
+tags = ["Pipeline", "Render", "System"]
+files = "Create/Edit Blender files and JSON files (Addon structure and farm instructions)"

@@ -1,0 +1,196 @@
+"""Top bar "Pipeline" menu, plus a prepended read-only indicator on the
+same row -- see read_only_indicator() below."""
+
+import bpy
+
+from ..farm import get_monitor_cache
+from ..lib import (
+    ConfigCache,
+    RecentFilesCache,
+    addon_pref,
+    file_in_active_project,
+    get_active_project_root,
+    get_opened_as_read_only,
+    type_by_folder,
+)
+from ..operators import project_ops
+
+
+class PIPELINE_MT_topbar_menu(bpy.types.Menu):
+    """Pipeline actions, mirroring the sidebar panels."""
+
+    bl_idname = "PIPELINE_MT_topbar_menu"
+    bl_label = "Pipeline"
+
+    def draw(self, context):
+        layout = self.layout
+        # Menu.draw() defaults to EXEC_DEFAULT, which skips invoke() entirely --
+        # nearly every operator here opens a dialog from invoke(), so without
+        # this every click would silently run with default property values.
+        layout.operator_context = "INVOKE_DEFAULT"
+
+        project_root = get_active_project_root()
+        if not project_root:
+            prefs = addon_pref(context)
+            if not prefs:
+                return
+            projects = [item for item in prefs.opened_projects]
+            if projects:
+                for item in projects:
+                    layout.operator(
+                        project_ops.PIPELINE_OT_set_active_project.bl_idname,
+                        text=item.name.upper(),
+                        icon="DOT",
+                    ).project_path_selected = item.path
+                layout.separator()
+
+            layout.operator(
+                "pipeline.create_project", text="New project", icon="FILE_NEW"
+            )
+            layout.operator(
+                "pipeline.find_project",
+                text="Find existing project...",
+                icon="ZOOM_ALL",
+            )
+            return
+
+        layout.operator("pipeline.open_file", text="Open file", icon="FILE_BLEND")
+        recent = RecentFilesCache.get()
+        if recent:
+            col = layout.column()
+            col.active = False
+            col.label(text="Recent:")
+            for name, recent_filepath in recent:
+                layout.operator(
+                    "pipeline.open_file_version", text=name, icon="FILE_BLEND"
+                ).filepath = recent_filepath
+        layout.separator()
+        layout.operator("pipeline.create_asset", text="New asset", icon="ADD")
+        layout.operator("pipeline.create_shot", text="New shot", icon="BLANK1")
+        layout.operator(
+            "pipeline.batch_create", text="Batch create from CSV", icon="BLANK1"
+        )
+        layout.separator()
+
+        layout.operator(
+            "pipeline.tracking_monitor", text="Tracking monitor", icon="BLANK1"
+        )
+
+        filepath = bpy.data.filepath
+        if filepath and file_in_active_project(filepath, str(project_root)):
+            f_type = type_by_folder(filepath, str(project_root))
+            if f_type in ("asset", "library", "shot"):
+                layout.separator()
+                layout.operator("wm.safe_save", text="Save", icon="FILE_TICK")
+                layout.operator(
+                    "pipeline.increment_version",
+                    text="Increment version",
+                    icon="DUPLICATE",
+                )
+                layout.operator(
+                    "pipeline.increment_version",
+                    text="Mark as stable",
+                    icon="CHECKMARK",
+                ).tag = "stable"
+                layout.operator(
+                    "pipeline.farm_request_render",
+                    text="Render this file",
+                    icon="RENDER_STILL",
+                ).filepath = filepath
+
+        layout.separator()
+        layout.operator(
+            "pipeline.edit_project", text="Project settings", icon="OPTIONS"
+        ).project_path_selected = str(project_root)
+        layout.operator(
+            "wm.open_folder", text="Open project folder", icon="BLANK1"
+        ).filepath = str(project_root)
+
+        layout.separator()
+        layout.operator(
+            "pipeline.farm_request_render", text="Render", icon="RENDER_RESULT"
+        )
+        layout.operator("pipeline.farm_monitor", text="Farm monitor", icon="BLANK1")
+        monitor_lock = ConfigCache.get_path("monitor_file")
+        if not monitor_lock.exists():
+            layout.operator(
+                "pipeline.farm_launch_monitor",
+                text="Launch farm",
+                icon="BLANK1",
+            )
+        else:
+            status = get_monitor_cache().get("status")
+            if status == "running":
+                layout.operator(
+                    "pipeline.farm_kill_monitor",
+                    text="Stop farm",
+                    icon="BLANK1",
+                )
+            else:
+                # stale/dead/unread lock -- always safe to offer: the
+                # operator re-checks live and confirms before taking over.
+                layout.operator(
+                    "pipeline.farm_launch_monitor",
+                    text="Launch farm",
+                    icon="BLANK1",
+                )
+                if status == "stale":
+                    layout.operator(
+                        "pipeline.farm_kill_monitor",
+                        text="Stop farm",
+                        icon="BLANK1",
+                    )
+
+        if context.scene.is_worker:
+            layout.operator(
+                "pipeline.farm_kill_self_worker",
+                text="Stop this worker",
+                icon="BLANK1",
+            )
+        else:
+            layout.operator(
+                "pipeline.farm_add_self_worker",
+                text="Add this machine as worker",
+                icon="BLANK1",
+            )
+
+        layout.separator()
+        layout.operator(
+            "pipeline.unset_active_project",
+            text="Unset active project",
+            icon="PANEL_CLOSE",
+        )
+
+
+def top_bar_menu(self, context):
+    layout = self.layout
+    layout.menu(PIPELINE_MT_topbar_menu.bl_idname)
+
+
+def read_only_indicator(self, context):
+    """Persistent "READ-ONLY" warning, prepended to TOPBAR_MT_editor_menus --
+    lands before its native draw() entirely, so before the Blender icon too
+    (no hook point exists between the icon and "File", both hardcoded in
+    the same native draw() -- see NOTES.md). Reuses saving.py's own
+    read-only flag; draws nothing when the file isn't read-only."""
+    filepath = bpy.data.filepath
+    if not filepath or get_opened_as_read_only() != filepath:
+        return
+    row = self.layout.row()
+    row.alert = True
+    row.label(text="READ-ONLY", icon="LOCKED")
+    self.layout.separator()
+
+
+def register():
+    if top_bar_menu not in bpy.types.TOPBAR_MT_editor_menus._dyn_ui_initialize():
+        bpy.types.TOPBAR_MT_editor_menus.append(top_bar_menu)
+    if read_only_indicator not in bpy.types.TOPBAR_MT_editor_menus._dyn_ui_initialize():
+        bpy.types.TOPBAR_MT_editor_menus.prepend(read_only_indicator)
+
+
+def unregister():
+    if top_bar_menu in bpy.types.TOPBAR_MT_editor_menus._dyn_ui_initialize():
+        bpy.types.TOPBAR_MT_editor_menus.remove(top_bar_menu)
+    if read_only_indicator in bpy.types.TOPBAR_MT_editor_menus._dyn_ui_initialize():
+        bpy.types.TOPBAR_MT_editor_menus.remove(read_only_indicator)

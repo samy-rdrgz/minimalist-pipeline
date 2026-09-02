@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -m py_compile lib/config.py lib/libraries.py lib/operators.py lib/tracking.py lib/handlers.py lib/logs.py lib/saving.py lib/session.py lib/browser.py farm/monitor.py farm/dispatch.py farm/loop.py farm/post_render.py farm/queue.py farm/setup.py farm/workers.py farm/__init__.py operators/asset_ops.py operators/shot_ops.py operators/file_ops.py operators/farm_ops.py operators/tracking_ops.py panels/shot_panel.py panels/tracking_panel.py __init__.py)"
+    ]
+  }
+}

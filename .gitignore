@@ -1,0 +1,10 @@
+__pycache__/
+*.blend1
+*.blend2
+.vscode/
+.idea/
+.DS_Store
+*.zip
+*.gz
+tests/
+CLAUDE.md

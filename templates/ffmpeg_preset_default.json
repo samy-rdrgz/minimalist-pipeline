@@ -1,0 +1,1 @@
+{"codec": "libx265", "preset": "medium", "crf": 20, "pix_fmt": "yuv420p", "extra_args": ["-movflags", "+faststart"]}
