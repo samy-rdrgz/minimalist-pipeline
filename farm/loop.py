@@ -10,6 +10,7 @@ from ..lib import ConfigCache, addon_pref, json_get, locked_json, now, to_absolu
 from .post_render import _EXTENSION_MAP
 
 _registered_tick_fn = None
+_registered_status_tick_fn = None
 _registered_loop_tick_fn = None
 
 _farm_running_project: Path | None = None
@@ -99,11 +100,10 @@ def clear_popup_regions() -> None:
 
 
 def refresh_monitor_cache(*, force_rescan: bool = False) -> None:
-    """Recompute the monitor snapshot immediately instead of waiting for the
-    next _refresh_tick. Call on project change so the cache doesn't show the
-    previous project's status/jobs. force_rescan also drops the actives/
-    incomings mtime cache, in case the new project's dirs share an mtime
-    with the old one's."""
+    """Recompute the full monitor snapshot (status + jobs) immediately.
+    Call on project change so the cache doesn't show the previous project's
+    status/jobs. force_rescan also drops the actives/incomings mtime cache,
+    in case the new project's dirs share an mtime with the old one's."""
     prefs = addon_pref()
     if not prefs or not prefs.active_project_root:
         return
@@ -114,19 +114,27 @@ def refresh_monitor_cache(*, force_rescan: bool = False) -> None:
         _jobs_scan_cache["actives_mtime"] = None
         _jobs_scan_cache["incomings_mtime"] = None
 
-    m_cache = get_monitor_cache()
-    m_cache.update(_compute_snapshot(counter=m_cache["counter"] + 1))
+    get_monitor_cache().update(_compute_snapshot())
+
+
+def refresh_monitor_status() -> None:
+    """Cheap counterpart to refresh_monitor_cache: re-reads monitor.lock only,
+    no jobs directory scan. Enough to keep the sidebar's collapsed header
+    live without the cost of the full snapshot."""
+    prefs = addon_pref()
+    if not prefs or not prefs.active_project_root:
+        return
+
+    from .monitor import get_monitor_cache
+
+    get_monitor_cache().update(_read_monitor_status())
 
 
 def _refresh_tick() -> float:
-    """UI-only timer: recompute the monitor snapshot and redraw 3D viewports
-    plus any open farm-monitor popup (see register_popup_region)."""
+    """UI-only timer: recompute the full monitor snapshot and redraw 3D
+    viewports plus any open farm-monitor popup (see register_popup_region)."""
 
     try:
-        prefs = addon_pref()
-        if not prefs or not prefs.active_project_root:
-            return _REFRESH_INTERVAL
-
         refresh_monitor_cache()
 
         for window in bpy.context.window_manager.windows:
@@ -143,6 +151,20 @@ def _refresh_tick() -> float:
                 # region freed (popup closed) without going through
                 # clear_popup_regions() -- drop the stale reference
                 _popup_regions.discard(region)
+    except Exception:
+        pass
+    return _REFRESH_INTERVAL
+
+
+def _status_tick() -> float:
+    """UI-only timer: cheap status-only refresh, redraws 3D viewports so the
+    sidebar's farm header stays live even collapsed."""
+    try:
+        refresh_monitor_status()
+        for window in bpy.context.window_manager.windows:
+            for area in window.screen.areas:
+                if area.type == "VIEW_3D":
+                    area.tag_redraw()
     except Exception:
         pass
     return _REFRESH_INTERVAL
@@ -246,59 +268,53 @@ def _build_incoming_entry(req: dict) -> dict:
     }
 
 
-def _compute_snapshot(
-    *,
-    stale_threshold: float | None = None,
-    dead_threshold: float | None = None,
-    counter: int = 0,
-) -> dict:
-    """Read the filesystem, producing the dict that draw() will display.
-    farm_actives/farm_incomings are only re-scanned when their own mtime
-    changed since the last tick (every write here bumps it via atomic
-    rename/lock), so a stale mtime just delays noticing a change by one tick,
-    never hides it permanently.
-
-    Thresholds default to the project config (farm.stale_monitor_seconds,
-    farm.dead_monitor_seconds) when not given. "stale" is a missed heartbeat
-    that may still recover on its own; "dead" is well past that and treated
-    as safe to relaunch over without much doubt."""
-    if stale_threshold is None:
-        stale_threshold = json_get(ConfigCache.get(), "farm.stale_monitor_seconds", 90)
-    if dead_threshold is None:
-        dead_threshold = json_get(
-            ConfigCache.get(), "farm.dead_monitor_seconds", stale_threshold * 4
-        )
-
-    snapshot = {
+def _read_monitor_status() -> dict:
+    """Read monitor.lock only, no jobs directory scan. "stale" is a missed
+    heartbeat that may still recover on its own; "dead" is well past that
+    and treated as safe to relaunch over without much doubt."""
+    status = {
         "status": "not running",
         "lock_user": "",
         "lock_machine": "",
         "last_tick": None,
-        "jobs": [],
-        "counter": counter,
     }
 
     lock_path = ConfigCache.get_path("monitor_file")
-    if lock_path.exists():
-        with locked_json(lock_path) as box:
-            try:
-                data = box["data"] or {}
-                last_tick = datetime.fromisoformat(data.get("update_tick", ""))
-                age = (now(False) - last_tick).total_seconds()
-                if age > dead_threshold:
-                    snapshot["status"] = "dead"
-                elif age > stale_threshold:
-                    snapshot["status"] = "stale"
-                else:
-                    snapshot["status"] = "running"
-                snapshot["lock_user"] = data.get("user", "")
-                snapshot["lock_machine"] = data.get("machine", "")
-                snapshot["last_tick"] = last_tick
-                snapshot["counter"] = counter
-            except Exception:
-                snapshot["status"] = "not running"
-    else:
-        snapshot["status"] = "not running"
+    if not lock_path.exists():
+        return status
+
+    stale_threshold = json_get(ConfigCache.get(), "farm.stale_monitor_seconds", 90)
+    dead_threshold = json_get(
+        ConfigCache.get(), "farm.dead_monitor_seconds", stale_threshold * 4
+    )
+
+    with locked_json(lock_path) as box:
+        try:
+            data = box["data"] or {}
+            last_tick = datetime.fromisoformat(data.get("update_tick", ""))
+            age = (now(False) - last_tick).total_seconds()
+            if age > dead_threshold:
+                status["status"] = "dead"
+            elif age > stale_threshold:
+                status["status"] = "stale"
+            else:
+                status["status"] = "running"
+            status["lock_user"] = data.get("user", "")
+            status["lock_machine"] = data.get("machine", "")
+            status["last_tick"] = last_tick
+        except Exception:
+            pass
+    return status
+
+
+def _compute_snapshot() -> dict:
+    """Full snapshot for draw(): monitor status plus the job lists.
+    farm_actives/farm_incomings are only re-scanned when their own mtime
+    changed since the last tick (every write here bumps it via atomic
+    rename/lock), so a stale mtime just delays noticing a change by one
+    tick, never hides it permanently."""
+    snapshot = {"jobs": []}
+    snapshot.update(_read_monitor_status())
 
     jobs_dir = ConfigCache.get_path("farm_actives")
     incomings_dir = ConfigCache.get_path("farm_incomings")
@@ -347,4 +363,23 @@ def unregister_refresh_timer() -> None:
     ):
         bpy.app.timers.unregister(_registered_tick_fn)
     _registered_tick_fn = None
+
+
+def register_status_timer() -> None:
+    """Register _status_tick as a persistent Blender timer (cheap, always on)."""
+    global _registered_status_tick_fn
+    if _registered_status_tick_fn is None:
+        _registered_status_tick_fn = _status_tick
+        bpy.app.timers.register(
+            _registered_status_tick_fn, first_interval=0, persistent=True
+        )
+
+
+def unregister_status_timer() -> None:
+    global _registered_status_tick_fn
+    if _registered_status_tick_fn is not None and bpy.app.timers.is_registered(
+        _registered_status_tick_fn
+    ):
+        bpy.app.timers.unregister(_registered_status_tick_fn)
+    _registered_status_tick_fn = None
     clear_popup_regions()

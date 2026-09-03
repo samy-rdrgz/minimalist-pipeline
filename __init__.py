@@ -28,8 +28,10 @@ if "bpy" in locals():
 from . import addon_data, lib
 from .farm.loop import (
     refresh_monitor_cache,
+    register_status_timer,
     set_running_project,
     unregister_refresh_timer,
+    unregister_status_timer,
 )
 from .lib.saving import override_shortcut, unoverride_shortcut
 from .menus import classes as menu_classes
@@ -43,7 +45,7 @@ from .operators import (
 from .operators import classes as operator_classes
 from .panels import classes as panel_classes
 
-
+'''
 class PIPELINE_PT_main_panel(bpy.types.Panel):
     """Pipeline Manager main panel (header only; every other panel is a child of it)."""
 
@@ -52,6 +54,7 @@ class PIPELINE_PT_main_panel(bpy.types.Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Pipeline"
+    bl_options = {"HIDE_HEADER", "HEADER_LAYOUT_EXPAND"}
 
     def draw(self, context):
         pass
@@ -60,7 +63,7 @@ class PIPELINE_PT_main_panel(bpy.types.Panel):
         self.layout.operator(
             "pipeline.onboarding_popup", text="", icon="QUESTION", emboss=False
         )
-
+'''
 
 # Registration order matters: addon_data before anything reading preferences,
 # everything else before the topbar menu that references their operators.
@@ -68,7 +71,7 @@ classes = (
     *lib.classes,
     addon_data.PipelineProjectItem,
     addon_data.PipelineAddonPreferences,
-    PIPELINE_PT_main_panel,
+    # PIPELINE_PT_main_panel,
     *panel_classes,
     *operator_classes,
     *menu_classes,
@@ -233,6 +236,7 @@ def register():
 
     _seed_user_name()
     set_running_project(None)
+    register_status_timer()
 
     bpy.app.timers.register(_deferred_keymap, first_interval=0.1)
     bpy.app.timers.register(_deferred_project_check, first_interval=0.05)
@@ -264,6 +268,7 @@ def unregister():
 
     try:
         unregister_refresh_timer()
+        unregister_status_timer()
         from .farm.loop import _farm_running_project
         from .farm.monitor import stop_monitor_loop
         from .farm.workers import is_blender_worker, kill_worker

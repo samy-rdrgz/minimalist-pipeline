@@ -27,7 +27,6 @@ _monitor_cache: dict = {
     "lock_machine": "",
     "last_tick": None,
     "jobs": [],  # list of per-job snapshots
-    "counter": 0,
 }
 
 
@@ -46,7 +45,6 @@ def reset_monitor_cache() -> None:
             "lock_machine": "",
             "last_tick": None,
             "jobs": [],
-            "counter": _monitor_cache["counter"] + 1,
         }
     )
 

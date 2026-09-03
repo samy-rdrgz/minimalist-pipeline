@@ -19,8 +19,8 @@ class PIPELINE_PT_farm_panel(bpy.types.Panel):
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Pipeline"
-    bl_parent_id = "PIPELINE_PT_main"
-    bl_options = {"HIDE_HEADER", "HEADER_LAYOUT_EXPAND"}
+
+    bl_options = {"HEADER_LAYOUT_EXPAND", "DEFAULT_CLOSED"}
 
     def _get_jobs(self, jobs_dir: Path) -> list[dict]:
         jobs = []
@@ -37,8 +37,55 @@ class PIPELINE_PT_farm_panel(bpy.types.Panel):
     def poll(cls, context):
         return addon_pref(context) is not None and get_active_project_root()
 
+    def draw_header(self, context):
+        layout = self.layout.row(align=True)
+        layout.separator(factor=0.4)
+
+        monitor = ConfigCache.get_path("monitor_file")
+        is_monitor = monitor.exists()
+
+        if not is_monitor:
+            layout.label(text="Farm : not running", icon="GHOST_DISABLED")
+            layout.operator(
+                "pipeline.farm_launch_monitor",
+                text="",
+                icon="TRIA_RIGHT",
+                emboss=False,
+            )
+
+        else:
+            cache = get_monitor_cache()
+            status = cache["status"]
+            icons = {
+                "running": "CHECKMARK",
+                "stale": "FREEZE",
+                "dead": "GHOST_DISABLED",
+            }
+
+            labels = {
+                "running": "Farm : Running",
+                "stale": "Farm : Stale",
+                "dead": "Farm : Dead",
+                "unknown": "Farm : ...",
+            }
+            layout.label(
+                text=labels.get(status, "Farm : ..."),
+                icon=icons.get(status, "GHOST_DISABLED"),
+            )
+            if status != "running":
+                layout.operator(
+                    "pipeline.farm_launch_monitor",
+                    text="",
+                    icon="TRIA_RIGHT",
+                    emboss=False,
+                )
+        layout.operator(
+            "pipeline.farm_monitor", text="", icon="SEQ_STRIP_MODIFIER", emboss=False
+        )
+        layout.separator(factor=1.5)
+
     def draw(self, context):
-        layout = self.layout
+        layout = self.layout.column(align=True)
 
         draw_box_tip(
             layout,
@@ -48,54 +95,42 @@ class PIPELINE_PT_farm_panel(bpy.types.Panel):
             "files in the project (no server, no network setup).",
         )
 
-        box = layout.box().column(align=True)
-
         monitor = ConfigCache.get_path("monitor_file")
+
         is_monitor = monitor.exists()
 
-        if not is_monitor:
-            box.label(text=" Farm : not running", icon="LAYER_ACTIVE")
-            box.separator()
-            box.operator(
-                "pipeline.farm_launch_monitor", text="Launch farm", icon="TRIA_RIGHT"
-            )
-        else:
+        if is_monitor:
             cache = get_monitor_cache()
-            # Monitor status
             status = cache["status"]
+
+            if status in ("running", "stale"):
+                layout.operator(
+                    "pipeline.farm_kill_monitor", text="Kill farm", icon="X"
+                )
+            if status not in ("running", "stale"):
+                layout.operator(
+                    "pipeline.farm_launch_monitor",
+                    text="Launch farm",
+                    icon="TRIA_RIGHT",
+                )
+
             last_seen = (
                 cache["last_tick"].strftime("%H:%M:%S") if cache["last_tick"] else "?"
             )
-            icons = {"running": "CHECKMARK", "stale": "ERROR", "dead": "PANEL_CLOSE"}
-            loading = (
-                f"{(cache['counter'] % 4) * '.'}{(3 - (cache['counter'] % 4)) * ' '}"
-            )
+
             labels = {
-                "running": f"Farm running {loading} {cache['lock_user']} @ {cache['lock_machine']}",
-                "stale": f"Farm stale: {cache['lock_user']} (last seen {last_seen})",
-                "dead": f"Farm dead: {cache['lock_user']} (last seen {last_seen})",
+                "running": f"Running {cache['lock_user']} @ {cache['lock_machine']}",
+                "stale": f"Stale: {cache['lock_user']} (last seen {last_seen})",
+                "dead": f"Dead: {cache['lock_user']} (last seen {last_seen})",
                 "unknown": "...",
             }
-            box.label(
-                text=labels.get(status, "..."), icon=icons.get(status, "QUESTION")
+            info = layout.row()
+            info.active = False
+            info.label(text=labels.get(status, "..."), icon="DOT")
+        else:
+            layout.operator(
+                "pipeline.farm_launch_monitor", text="Launch farm", icon="TRIA_RIGHT"
             )
-            box.separator()
-            if status == "running":
-                box.operator("pipeline.farm_kill_monitor", text="Kill farm", icon="X")
-            elif status == "stale":
-                # Lock not confirmed dead yet -- offer both: kill in case
-                # it's still ticking, or take over outright.
-                box.operator("pipeline.farm_kill_monitor", text="Kill farm", icon="X")
-                box.operator(
-                    "pipeline.farm_launch_monitor",
-                    text="Take over",
-                    icon="TRIA_RIGHT",
-                )
-            elif status == "dead":
-                box.operator(
-                    "pipeline.farm_launch_monitor",
-                    text="Launch Farm",
-                    icon="TRIA_RIGHT",
-                )
-
-        box.operator("pipeline.farm_monitor", text="Farm monitor", icon="CONSOLE")
+        layout.operator(
+            "pipeline.farm_monitor", text="Farm monitor", icon="SEQ_STRIP_MODIFIER"
+        )

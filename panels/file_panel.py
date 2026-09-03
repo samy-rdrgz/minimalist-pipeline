@@ -19,13 +19,12 @@ from .tracking_panel import ENTRIES_INDENT_FACTOR, draw_tracking_data
 class PIPELINE_PT_file_panel(bpy.types.Panel):
     """File creation and versioning."""
 
-    bl_label = "Shot"
+    bl_label = ""
     bl_idname = "PIPELINE_PT_file_panel"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Pipeline"
-    bl_parent_id = "PIPELINE_PT_main"
-    bl_options = {"HIDE_HEADER", "HEADER_LAYOUT_EXPAND"}
+    bl_options = {"HEADER_LAYOUT_EXPAND"}
 
     @classmethod
     def poll(cls, context):
@@ -38,29 +37,33 @@ class PIPELINE_PT_file_panel(bpy.types.Panel):
             return False
         return True
 
+    def draw_header(self, context):
+        from .tracking_panel import TYPE_ICON
+
+        filepath = bpy.data.filepath
+        layout = self.layout.row(align=True)
+        layout.separator(factor=0.4)
+        layout.label(
+            text=f"Actions on {Path(filepath).stem.rsplit('_', 1)[0].upper()}",
+            icon=TYPE_ICON.get(Path(filepath).stem.split("_", 1)[0], "ASSET_MANAGER"),
+        )
+
     def draw(self, context):
 
         filepath = bpy.data.filepath
-
-        layout = self.layout
+        layout = self.layout.column(align=True)
 
         if not get_active_project_root():
             layout.label(text="No active project. Set one first.", icon="ERROR")
             return
 
-        box = layout.box().column(align=True)
-        box.label(
-            text=f"Actions on {Path(filepath).stem.rsplit('_', 1)[0]}",
-            icon="OUTLINER_OB_CAMERA",
-        )
-
         required = TrackingStatusCache.get(bpy.data.filepath).get(
             "departments_required", []
         )
         if required:
-            box.separator(factor=0.1)
+            layout.separator(factor=0.1)
             worked = get_session_worked_departments(Path(bpy.data.filepath))
-            row = box.row(align=True)
+            row = layout.row(align=True)
             txt = row.row(align=True)
             txt.enabled = False
             txt.label(text="Worked this session:", icon="BLANK1")
@@ -74,48 +77,46 @@ class PIPELINE_PT_file_panel(bpy.types.Panel):
                 )
                 op.department = d
             draw_box_tip(
-                box,
+                layout,
                 context,
                 "Toggle the departments you worked on this session. This "
                 "only feeds tracking and time stats. It changes nothing "
                 "in your file.",
             )
-            box.separator()
-            box.separator(type="LINE")
-            box.separator()
-        else:
-            box.separator()
+            layout.separator()
+            layout.separator(type="LINE")
+            layout.separator()
 
-        box.operator(
+        layout.operator(
             "pipeline.increment_version", text="Increment version", icon="DUPLICATE"
         )
         draw_box_tip(
-            box,
+            layout,
             context,
             "A version is a dated snapshot of your work. Incrementing "
             "makes a fresh working copy instead of overwriting. You "
             "never lose the previous state.",
         )
-        box.operator(
+        layout.operator(
             "pipeline.increment_version", text="Mark as stable", icon="CHECKMARK"
         ).tag = "stable"
         draw_box_tip(
-            box,
+            layout,
             context,
             '"Stable" marks a validated version other files can link '
             "to. It opens read-only so nobody breaks it under you. "
             "Increment when you want to work again.",
         )
 
-        box.separator()
-        box.operator(
+        layout.separator()
+        layout.operator(
             "pipeline.farm_request_render",
             text="Render",
             icon="RENDER_RESULT",
         ).filepath = bpy.data.filepath
 
-        box.separator()
-        row = box.row(align=True)
+        layout.separator()
+        row = layout.row(align=True)
         op = row.operator(
             "pipeline.compile_preview", text="Preview block", icon="SEQUENCE"
         )
@@ -127,7 +128,7 @@ class PIPELINE_PT_file_panel(bpy.types.Panel):
         op.scope = "sequence"
         op.filepath = bpy.data.filepath
         draw_box_tip(
-            box,
+            layout,
             context,
             "A preview compiles a disposable playback mp4 on the farm, "
             "not a final render. Block covers just this block's shots; "
@@ -136,16 +137,16 @@ class PIPELINE_PT_file_panel(bpy.types.Panel):
 
         parsed = parse_filename(Path(filepath).name)
         if parsed and parsed.get("shot"):
-            box.separator()
-            box.operator(
+            layout.separator()
+            layout.operator(
                 "pipeline.branch_shot", text="Branch block", icon="UV_SYNC_SELECT"
             ).filepath = bpy.data.filepath
 
-        box.separator()
-        box.operator(
+        layout.separator()
+        layout.operator(
             "wm.open_folder", text="Open folder", icon="FOLDER_REDIRECT"
         ).filepath = str(Path(bpy.data.filepath).parent)
 
-        box.separator()
+        layout.separator()
         width = int(region_char_budget(context) * ENTRIES_INDENT_FACTOR)
-        draw_tracking_data(box, filepath, required, width=width)
+        draw_tracking_data(layout, filepath, required, width=width)
