@@ -93,7 +93,7 @@ Plusieurs choix délibérés structurent tout l'addon — tout en JSON plutôt q
 
 ## Limites connues actuelles
 
-- Seul Ctrl+S est gardé, pas le bouton Save du menu File ni l'icône save de la barre du haut — ceux-ci contournent complètement la vérification lecture-seule/stable. Un avertissement "READ-ONLY" dans la barre du haut atténue ça (visible, ne bloque pas).
+- Seul Ctrl+S est gardé, pas le bouton Save du menu File ni l'icône save de la barre du haut — ceux-ci contournent complètement la vérification lecture-seule/stable. Un avertissement "READ-ONLY" dans la barre du haut atténue ça (visible, ne bloque pas, cliquable pour voir la raison et incrémenter en un clic).
 - Un NAS/lecteur qui se déconnecte *pendant que Blender tourne déjà* n'est pas entièrement géré — seul le check au démarrage l'est.
 - Preview et Branch block du multishot ne sont pas encore éprouvés dans un vrai passage create → render → preview → branch.
 - La casting JSON par shot (roadmap) n'est pas encore implémentée.

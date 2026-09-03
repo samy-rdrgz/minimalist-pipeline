@@ -94,20 +94,27 @@ reconfirm each time, not an immutable historical snapshot.
 │            reload each library, then wipmeta_update_libraries() to rewrite
 │            the linked-libs paths recorded in this version's .wipmeta)
 │
-├── always_read_only pref, OR opened_as_read_only == this_file already,
-│   OR filename tag == "-stable" ?
-│   ├── yes : set_opened_as_read_only(this_file)
-│   │         PipelineAction "Opened as Read-Only"
-│   │         -> "Continue read-only" | "Increment outside stable" (opened
-│   │            deferred one timer tick, same precaution as the save-guard
-│   │            popups -- pipeline.increment_version INVOKE_DEFAULT)
+├── reason = "stable" if filename tag == "-stable"
+│         else "profile" if always_read_only pref
+│         else "reopened" if opened_as_read_only == this_file already
+│         else "" ?
+│   ├── reason set : set_opened_as_read_only(this_file, reason) -- no popup.
+│   │         The top bar's red READ-ONLY indicator (see menus/top_bar.py,
+│   │         Interface) carries the reason + an Increment button on demand
+│   │         instead; these three don't change mid-session, so an
+│   │         interrupt-every-open popup was dropped in favor of that
+│   │         always-there, non-blocking indicator.
 │   │         return
-│   └── no  : continue
+│   └── reason == "" : continue
 │
 ├── acquire_lock(this_file, machine_id)   [kept alive afterwards by heartbeat_30s, see Clocks]
 │   ├── failed (another machine's lock is live) :
-│   │     set_opened_as_read_only(this_file)
+│   │     set_opened_as_read_only(this_file, "locked")
 │   │     informative popup "Opened as Read-Only" (who holds it, from the lock file) : return
+│   │     -- kept as an interrupting popup, unlike the three reasons above:
+│   │     who's holding the file is live information a static indicator
+│   │     can't carry, and there's no Increment offered here since
+│   │     incrementing doesn't get you past someone else's lock.
 │   └── acquired : continue
 │
 └── pipeline.auto_version (INVOKE_DEFAULT)
@@ -132,15 +139,19 @@ reconfirm each time, not an immutable historical snapshot.
     │         └── cancel  : do nothing, stays open on this older (still-locked-by-us) file
 ```
 
-Note: the read-only and library-update proposals above used to be dedicated
-`invoke_confirm`-based operators (`read_only_notice`, `library_update_notice`),
-kept off the shared `PipelineAction`/`pipeline.action_popup` mechanism because
-`action_popup`'s `invoke_popup` didn't reliably auto-close when a choice button
-was clicked (see `PIPELINE_OT_action_popup._force_close()`). Now that that's
-fixed, both were converted to plain `PipelineAction`s (`_propose_read_only_increment`
-in `handlers.py`, inlined in `tracking.check_library_update()`) like everything
-else in this file. `pipeline.auto_version` above still uses `invoke_confirm` --
-not converted yet, since its own `execute()` does the real work directly off
+Note: the library-update proposal above used to be a dedicated
+`invoke_confirm`-based operator (`library_update_notice`), kept off the shared
+`PipelineAction`/`pipeline.action_popup` mechanism because `action_popup`'s
+`invoke_popup` didn't reliably auto-close when a choice button was clicked
+(see `PIPELINE_OT_action_popup._force_close()`). Now that that's fixed, it
+was converted to a plain `PipelineAction`, inlined in
+`tracking.check_library_update()`. The read-only case went through the same
+conversion at first (`_propose_read_only_increment` in `handlers.py`), then
+was dropped entirely once the top bar's read-only indicator grew a reason +
+Increment button of its own (see above) -- the popup was redundant with it
+for the three static reasons, only the lock case still needs one.
+`pipeline.auto_version` above still uses `invoke_confirm` -- not converted
+yet, since its own `execute()` does the real work directly off
 `self.is_branch`, not just a delegated `bpy.ops` call.
 
 ---
@@ -343,6 +354,9 @@ Each caller still does its own `save_project_data(prefs)` + `opened_projects` li
 │   ever tears them down
 ├── register the pipeline_farm_list collection + a few Scene bools (UI collapse state)
 ├── set_running_project(None) : this Blender instance owns no farm role yet
+├── register_status_timer() : starts _status_tick (see Clocks) unconditionally,
+│   for as long as the addon is enabled -- unlike _refresh_tick, not gated
+│   behind the farm monitor popup being open
 ├── deferred (0.1s later, once the addon keyconfig exists) : override_shortcut()
 │   installs the Ctrl+S -> wm.safe_save keymap override
 ├── deferred (0.05s later) : active_project_root was restored non-empty AND its
@@ -370,6 +384,7 @@ Addon disabled, or Blender quitting.
 ├── unregister all classes
 ├── unregister_refresh_timer() : defensive only -- normally already stopped
 │   by the farm monitor popup's own execute()/cancel() (see Clocks)
+├── unregister_status_timer() : stops _status_tick, always running until here
 ├── if this instance was running the monitor : stop_monitor_loop()
 │   (terminates any local render subprocesses first)
 ├── if this instance was running as a worker : kill_worker()
@@ -408,9 +423,24 @@ open -- registered in its `invoke()`, unregistered in `execute()`/`cancel()`.
 Not running the rest of the time; never touches farm state, UI only.
 
 ```
-└── recompute the monitor snapshot (jobs/workers), tag_redraw() the popup's
-    own region (via context.region_popup, captured every draw()) and any
-    open 3D viewports.
+└── recompute the full monitor snapshot (status + jobs/workers), tag_redraw()
+    the popup's own region (via context.region_popup, captured every
+    draw()) and any open 3D viewports.
+```
+
+### _status_tick
+
+Every ~2s, for as long as the addon is enabled (`register_status_timer()`,
+addon `register()`/`unregister()`) -- unlike `_refresh_tick`, not gated
+behind the farm monitor popup. Cheap counterpart: re-reads `monitor.lock`
+only, no jobs-directory scan, so the sidebar's farm panel header (status
+label, collapsed or not) stays live without paying for a full snapshot on
+every tick.
+
+```
+└── refresh_monitor_status() : re-reads monitor.lock into status/lock_user/
+    lock_machine/last_tick only (jobs list untouched), tag_redraw() any
+    open 3D viewport.
 ```
 
 ### farm_tick

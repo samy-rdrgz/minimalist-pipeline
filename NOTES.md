@@ -339,6 +339,84 @@ A plain stored list (e.g. in addon prefs) was the first idea, and the problem wi
 
 **Full forward scan, not a backward tail-read** — raised directly: since JSONL is append-only, the most recent entries sit at the end of the file, so reading backward from EOF and stopping once `limit` distinct folders are found is more the shape of "give me the last 3" than a full forward pass is. Turned down anyway: the scan is mtime-cached (not run per redraw), `sessions_log.jsonl` grows slowly enough that it's realistically small for a project's entire lifetime, and it's hard-capped at `LOG_ROTATE_MAX_BYTES` regardless. A backward chunked reader (handling lines split across block boundaries, encoding-safe) is real code for a saving that doesn't show up at this scale. Consistency with `WorkTimeCache`'s own scan shape won over an optimization nothing currently needs.
 
+## Read-only reason: from a popup on every open to an on-demand menu
+
+`post_load_handler` used to fire a `PipelineAction` popup every time a file
+opened `-stable`, `always_read_only`, or already-flagged-this-session read-
+only — "Continue read-only" / "Increment outside stable". Once the top
+bar's red READ-ONLY label existed as a permanent, un-missable indicator for
+the whole time the file stays open, the popup started duplicating it: the
+same information, shown once as an interruption instead of always available
+on demand. Dropped for those three reasons — `set_opened_as_read_only()`
+just records why, silently, and `PIPELINE_MT_read_only_menu` (a click away
+off the label) shows it plus an Increment button whenever the artist
+actually wants it. The lock case (another machine has the file open right
+now) kept its popup: it's live information, not a static property of the
+file, and worth surfacing the moment it's discovered rather than only on
+demand.
+
+**Why the indicator is `label() + menu()`, not one clickable menu.** First
+attempt: the whole "READ-ONLY" text as a `row.menu(...)` pulldown. Broke
+three ways at once — a pulldown button doesn't pick up `row.alert`'s red
+styling (only "solid" button types do), a menu-bar pulldown gets its label
+squeezed/truncated by the top bar's own width algorithm the way an ordinary
+button isn't, and reusing `draw_box_tip()` inside the menu's `draw()` broke
+its layout (its `box().column()` wrapper doesn't play well inside a `Menu`
+the way it does inside a `Panel`/popover). Second attempt swapped the
+pulldown for a `wm.call_menu` operator button (`text="READ-ONLY"`) — fixed
+red + truncation (it's a real button, not a pulldown), but `wm.call_menu`
+invoked from a button pops the menu up through the same path as a
+right-click context menu: a floating, draggable popup that also redraws the
+menu's own `bl_label` as a first row inside itself, both wrong for
+something meant to look anchored in the header like `top_bar_menu`'s own
+"Pipeline" pulldown. Landed on splitting the two: a plain `row.label()`
+carries the always-visible red text (labels do respect `alert`, and never
+truncate), and a separate icon-only `row.menu()` right after it opens the
+actual dropdown — `layout.menu()` used directly in a header row is exactly
+the mechanism `top_bar_menu` already relies on for an anchored,
+non-draggable pulldown with no duplicate title; it just isn't stylable red,
+which no longer matters once the red text lives in the label next to it.
+`draw_box_tip()`'s BEGINNER-only gate got reimplemented by hand in the
+menu's `draw()`, calling `text_to_lines()` flat on `layout` instead of
+through the box-wrapped helper, to dodge the same layout break.
+
+---
+
+## Farm status: two redraw timers, split by cost
+
+The N-panel's farm section used to show its status only inside its
+expandable body, refreshed opportunistically whenever Blender happened to
+redraw that region — in practice, close to never on an idle session, since
+nothing was tagging that region for redraw on its own. `_refresh_tick`
+(`farm/loop.py`) does call `area.tag_redraw()` on every VIEW_3D area every
+~2s, but it was (and still is) only registered while the farm monitor popup
+is open — `register_refresh_timer()`/`unregister_refresh_timer()` live in
+that popup's own `invoke()`/`execute()`/`cancel()`. So even the "loading"
+dots once drawn from `cache['counter']` were only ever animating while that
+popup happened to be open too; elsewhere they just sat on whatever value
+the cache last held. That coupling was invisible as long as the status text
+lived buried in a body most people left collapsed; once it moved into the
+panel's `draw_header()` (visible whether collapsed or not, so the
+N-panel-declutter pass in progress at the same time wouldn't hide it) the
+staleness became obvious.
+
+The fix isn't "just always run `_refresh_tick`": that recomputes the *full*
+snapshot, including a jobs-directory scan (`farm_actives`/`farm_incomings`,
+mtime-guarded but still real `stat()` calls, potentially over a NAS mount)
+that only the farm monitor popup's dashboard actually needs. Running that
+continuously in the background for a label nobody's looking at most of the
+time isn't worth the cost. So `_compute_snapshot()`'s monitor.lock read got
+split out into its own `_read_monitor_status()` — one `locked_json` read,
+no jobs scan — reused by both: `_compute_snapshot()` still calls it as its
+first step for the full snapshot, and a new `refresh_monitor_status()` /
+`_status_tick()` pair calls it alone. `_status_tick`, registered
+unconditionally from addon `register()` (mirroring `heartbeat_30s`, not
+gated behind any popup), keeps the N-panel header's status live at the
+cheap end; `_refresh_tick` stays popup-gated for the expensive end (jobs).
+`counter` (the field the old loading-dots animation read) was dropped from
+`_monitor_cache` entirely once nothing displayed it anymore — dead state,
+not worth carrying just in case.
+
 <!-- Next feature with rationale worth keeping gets its own "## " section
      here, same shape as the ones above: what was tried, what was
      rejected and why, anything a docstring is too short to hold. -->

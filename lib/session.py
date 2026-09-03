@@ -267,7 +267,7 @@ def scan_sessions():
             pass
 
 
-_opened_as_read_only: dict = {"value": ""}
+_opened_as_read_only: dict = {"value": "", "reason": ""}
 
 
 def get_opened_as_read_only() -> str:
@@ -275,7 +275,13 @@ def get_opened_as_read_only() -> str:
     return _opened_as_read_only["value"]
 
 
-def set_opened_as_read_only(value: str = ""):
+def get_read_only_reason() -> str:
+    """Why that filepath is read-only: "stable" | "profile" | "reopened" | "locked" | "" ."""
+    return _opened_as_read_only["reason"]
+
+
+def set_opened_as_read_only(value: str = "", reason: str = ""):
     """Flag filepath as read-only for this session (empty string clears it)."""
     global _opened_as_read_only
     _opened_as_read_only["value"] = value
+    _opened_as_read_only["reason"] = reason

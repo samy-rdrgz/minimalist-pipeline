@@ -6,8 +6,6 @@ import bpy
 
 from .actions import (
     LOCKED_FILE_EXPLANATION,
-    READ_ONLY_EXPLANATION,
-    STABLE_FILE_EXPLANATION,
     PipelineAction,
     set_pending_action,
 )
@@ -73,38 +71,6 @@ def _propose_project_switch(project_path: str):
         bpy.ops.pipeline.action_popup("INVOKE_DEFAULT")
 
 
-def _propose_read_only_increment(msg: str, explanation: str = ""):
-    """Build and show a PipelineAction offering to increment out of a
-    read-only file, or keep working read-only."""
-
-    def _increment():
-        # Deferred one timer tick: increment_version opens its own
-        # invoke_props_dialog -- calling it synchronously from inside this
-        # popup's own execute() risks the popup-chaining issue documented in
-        # saving.py's WM_OT_safe_save._open_popup.
-        bpy.app.timers.register(
-            lambda: bpy.ops.pipeline.increment_version("INVOKE_DEFAULT"),
-            first_interval=0.05,
-        )
-
-    action = PipelineAction(
-        title="Opened as Read-Only",
-        message=msg,
-        severity="warning",
-        choices=[
-            ("Continue read-only", lambda: None, "Keep working as-is."),
-            (
-                "Increment outside stable",
-                _increment,
-                "Get a writable copy via increment.",
-            ),
-        ],
-        explanation=explanation,
-    )
-    set_pending_action(action)
-    bpy.ops.pipeline.action_popup("INVOKE_DEFAULT")
-
-
 @bpy.app.handlers.persistent
 def post_load_handler(*args):
     """After file load: log, then gate all further pipeline behavior to the
@@ -138,21 +104,25 @@ def post_load_handler(*args):
         tag = path.stem.rsplit("-", 1)
         is_stable = len(tag) == 2 and tag[1] == "stable"
         already_flagged = get_opened_as_read_only() == bpy.data.filepath
-        if addon_pref().always_read_only or already_flagged or is_stable:
-            set_opened_as_read_only(bpy.data.filepath)
-            msg = (
-                "This is a stable version, opened read-only. Increment or continue in read-only."
-                if is_stable
-                else "This file is opened read-only. Increment or continue in read-only."
-            )
-            _propose_read_only_increment(
-                msg, STABLE_FILE_EXPLANATION if is_stable else READ_ONLY_EXPLANATION
-            )
+        if is_stable:
+            reason = "stable"
+        elif addon_pref().always_read_only:
+            reason = "profile"
+        elif already_flagged:
+            reason = "reopened"
+        else:
+            reason = ""
+        if reason:
+            # No popup here: the top bar's READ-ONLY indicator (see
+            # menus/top_bar.py) already carries the reason and the way out,
+            # non-blocking. Static reasons don't change mid-session, unlike
+            # the lock case below.
+            set_opened_as_read_only(bpy.data.filepath, reason)
             return
 
         free = acquire_lock(Path(bpy.data.filepath), get_machine_id())
         if not free:
-            set_opened_as_read_only(bpy.data.filepath)
+            set_opened_as_read_only(bpy.data.filepath, "locked")
             with locked_json(path.parent / f".{path.name}.lock") as box:
                 data = box.get("data", {})
             lines = ["File is lock by another user :"] + [

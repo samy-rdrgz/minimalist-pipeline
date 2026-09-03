@@ -108,6 +108,7 @@ from .saving import WM_OT_safe_save, get_save_shortcut
 from .session import (
     close_session,
     get_opened_as_read_only,
+    get_read_only_reason,
     get_user,
     get_user_data,
     load_project_data,

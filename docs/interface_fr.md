@@ -31,7 +31,7 @@ Un menu "Pipeline" apparaît dans la barre du haut (à côté de File/Edit/Rende
 
 Sous "Open file", jusqu'à 3 fichiers récemment ouverts — les tiens, pas ceux d'un collègue, et jamais le fichier déjà ouvert. Pas une liste séparée : dérivée de `sessions_log.jsonl` à chaque fois, donc automatiquement cantonnée au projet actif et ne peut pas en dériver. Un clic rouvre, pas de popup.
 
-Même ligne, tout à gauche — avant l'icône Blender, avant File/Edit/Render, avant "Pipeline" aussi : un label rouge "READ-ONLY" apparaît dès que le fichier courant est en lecture seule pour cette session (`-stable`, verrouillé par quelqu'un d'autre, ou `always_read_only`) — toujours visible quel que soit l'onglet de la sidebar ouvert, là où sont le bouton Save du menu File et l'icône save de la barre du haut, les deux façons de sauvegarder qui ne passent pas par la garde Ctrl+S (voir [Limites connues actuelles](limitations_fr.md)).
+Même ligne, tout à gauche — avant l'icône Blender, avant File/Edit/Render, avant "Pipeline" aussi : un label rouge "READ-ONLY" apparaît dès que le fichier courant est en lecture seule pour cette session (`-stable`, verrouillé par quelqu'un d'autre, `always_read_only`, ou déjà en lecture seule plus tôt dans cette même session) — toujours visible quel que soit l'onglet de la sidebar ouvert, là où sont le bouton Save du menu File et l'icône save de la barre du haut, les deux façons de sauvegarder qui ne passent pas par la garde Ctrl+S (voir [Limites connues actuelles](limitations_fr.md)). La petite flèche juste après ouvre la raison (laquelle des raisons ci-dessus) et, sauf si c'est un verrou posé par quelqu'un d'autre, un bouton Incrémenter pour obtenir une copie modifiable sur-le-champ.
 
 ---
 

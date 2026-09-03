@@ -11,8 +11,29 @@ from ..lib import (
     file_in_active_project,
     get_active_project_root,
     get_opened_as_read_only,
+    get_read_only_reason,
+    region_char_budget,
+    text_to_lines,
     type_by_folder,
 )
+from ..lib.actions import (
+    LOCKED_FILE_EXPLANATION,
+    READ_ONLY_EXPLANATION,
+    STABLE_FILE_EXPLANATION,
+)
+
+READ_ONLY_REASON_LABELS = {
+    "stable": "Stable version",
+    "profile": "Read-only profile enabled",
+    "reopened": "Already opened read-only this session",
+    "locked": "Locked by another user",
+}
+READ_ONLY_REASON_EXPLANATIONS = {
+    "stable": STABLE_FILE_EXPLANATION,
+    "profile": READ_ONLY_EXPLANATION,
+    "reopened": READ_ONLY_EXPLANATION,
+    "locked": LOCKED_FILE_EXPLANATION,
+}
 from ..operators import project_ops
 
 
@@ -167,6 +188,39 @@ def top_bar_menu(self, context):
     layout.menu(PIPELINE_MT_topbar_menu.bl_idname)
 
 
+class PIPELINE_MT_read_only_menu(bpy.types.Menu):
+    """Why the current file opened read-only, plus a way out."""
+
+    bl_idname = "PIPELINE_MT_read_only_menu"
+    bl_label = "READ-ONLY"
+
+    def draw(self, context):
+        layout = self.layout
+        reason = get_read_only_reason()
+
+        layout.label(text=READ_ONLY_REASON_LABELS.get(reason, "Read-only"), icon="INFO")
+        layout.separator()
+
+        pref = addon_pref(context)
+        if pref and getattr(pref, "experience_level", "BEGINNER") == "BEGINNER":
+            text_to_lines(
+                layout,
+                READ_ONLY_REASON_EXPLANATIONS.get(reason, READ_ONLY_EXPLANATION),
+                max_width=region_char_budget(context, width_px=200),
+                max_lines=8,
+                scale_y=0.8,
+                icon="NONE",
+            )
+            layout.separator()
+
+        if reason != "locked":
+            layout.operator(
+                "pipeline.increment_version",
+                text="Increment version",
+                icon="DUPLICATE",
+            )
+
+
 def read_only_indicator(self, context):
     """Persistent "READ-ONLY" warning, prepended to TOPBAR_MT_editor_menus --
     lands before its native draw() entirely, so before the Blender icon too
@@ -176,9 +230,10 @@ def read_only_indicator(self, context):
     filepath = bpy.data.filepath
     if not filepath or get_opened_as_read_only() != filepath:
         return
-    row = self.layout.row()
+    row = self.layout.row(align=True)
     row.alert = True
     row.label(text="READ-ONLY", icon="LOCKED")
+    row.menu("PIPELINE_MT_read_only_menu", text="", icon="DOWNARROW_HLT")
     self.layout.separator()
 
 

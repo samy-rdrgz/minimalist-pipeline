@@ -93,7 +93,7 @@ A handful of deliberate calls shape the whole addon — everything in JSON rathe
 
 ## Known current limitations
 
-- Only Ctrl+S is guarded against saving over a read-only/stable file — the File menu's Save button and the top bar's save icon bypass the check entirely. A "READ-ONLY" warning in the top bar mitigates this (visible, doesn't block).
+- Only Ctrl+S is guarded against saving over a read-only/stable file — the File menu's Save button and the top bar's save icon bypass the check entirely. A "READ-ONLY" warning in the top bar mitigates this (visible, doesn't block, click it for why and a one-click Increment).
 - A NAS/drive disconnecting *while Blender is already running* isn't fully handled — only the startup check is.
 - Multishot's Preview and Branch block aren't yet exercised in a real create → render → preview → branch run.
 - Per-shot casting JSON (roadmap) isn't implemented yet.

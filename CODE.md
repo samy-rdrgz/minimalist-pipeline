@@ -116,7 +116,8 @@ Access via `ConfigCache.get()` — cached, invalidated on the config file's `st_
 ```
 minimalist_pipeline/
 ├── __init__.py               # Registration: classes = (*lib.classes, *data_classes,
-│                              #   PIPELINE_PT_main_panel, *panel_classes, *operator_classes)
+│                              #   *panel_classes, *operator_classes) -- no shared
+│                              #   PIPELINE_PT_main wrapper panel anymore, see below
 ├── addon_data.py              # PipelineProjectItem, PipelineAddonPreferences (has draw())
 ├── lib/                       # Core logic, package (not a single file anymore)
 │   ├── __init__.py            # Re-exports every public symbol; classes = (4 core operators)
@@ -167,23 +168,31 @@ minimalist_pipeline/
 │   └── tracking_ops.py         # entry CRUD, CSV import, tracking dashboard
 ├── panels/
 │   ├── __init__.py            # Exposes `classes` tuple
-│   ├── project_panel.py
+│   ├── project_panel.py         # own draw_header(): active project name + edit/unset buttons
 │   ├── file_panel.py            # per-file actions (asset or shot alike): version, render,
-│   │                            #   preview, branch (shot only), open folder
-│   ├── farm_panel.py
+│   │                            #   preview, branch (shot only), open folder; own draw_header()
+│   ├── farm_panel.py            # own draw_header(): monitor status, live even collapsed
 │   └── tracking_panel.py
+│   # Project/File/Farm are standalone panels (no bl_parent_id, no shared
+│   # PIPELINE_PT_main wrapper) -- each has its own header (no HIDE_HEADER),
+│   # so each collapses independently; Farm defaults DEFAULT_CLOSED to keep
+│   # the N-panel from stacking three full boxes while working inside a file.
 ├── menus/
 │   ├── __init__.py            # Exposes `classes` + register_topbar_menu/unregister_topbar_menu
 │   └── top_bar.py              # PIPELINE_MT_topbar_menu: same actions as the panels, condensed
 │                                # into a "Pipeline" entry in the top bar (TOPBAR_MT_editor_menus);
-│                                # read_only_indicator(): plain "READ-ONLY" label PREPENDED to
-│                                # TOPBAR_MT_editor_menus (before the Blender icon itself), not a menu -- see below
+│                                # read_only_indicator(): "READ-ONLY" label PREPENDED to
+│                                # TOPBAR_MT_editor_menus (before the Blender icon itself),
+│                                # plus a small arrow opening PIPELINE_MT_read_only_menu
+│                                # (reason + Increment) -- see below
 └── templates/                 # Bundled defaults copied into new projects, and farm subprocess entry scripts
 ```
 
 `menus/`'s registration doesn't fit the plain `classes`-tuple pattern alone: appending/removing the draw callback to `bpy.types.TOPBAR_MT_editor_menus` is a side effect outside class registration, called explicitly from the root `register()`/`unregister()` (same shape as `override_shortcut()`/`unoverride_shortcut()` for the keymap). `Menu.draw()` defaults to `EXEC_DEFAULT` — every operator call inside `PIPELINE_MT_topbar_menu.draw()` needs `layout.operator_context = "INVOKE_DEFAULT"` set first, or every click skips `invoke()` (and therefore every dialog) silently.
 
 `read_only_indicator(self, context)` is a plain function (not a menu class method) prepended to the same `bpy.types.TOPBAR_MT_editor_menus` as `top_bar_menu`, above. `.prepend()`, not `.append()`: prepended callbacks run before the class's own native `draw()` entirely — which means before the Blender icon too, not just before "File". There's no clean way to land it *between* the icon and "File": both are hardcoded, back to back, inside that one native `draw()`, with no hook point between them (confirmed against Blender's own source) — `.append()`/`.prepend()` can only add content before or after that whole block, never inside it. Getting exactly "icon, then warning, then File" would need monkey-patching `TOPBAR_MT_editor_menus.draw()` itself; turned down as too fragile (depends on Blender's own internal draw code, could silently drift on a future version) for a cosmetic one-slot difference — see NOTES.md. Checks `get_opened_as_read_only() == bpy.data.filepath` (the same in-memory flag `lib/saving.py`'s Ctrl+S guard already relies on, no new state) and draws nothing when the file isn't read-only. Placed in the top bar rather than a panel because it needs to be visible without the sidebar open, right where the two saves that bypass the guard entirely live (File menu's Save, the top bar's save icon).
+
+The red text itself is a plain `row.label()`, not the button opening the menu: a `layout.menu()` pulldown doesn't pick up `row.alert`'s red styling, and a `wm.call_menu` operator button (which does) pops the menu as a floating, draggable popup with its own `bl_label` redrawn inside it -- both wrong here. So the row is `label("READ-ONLY", alert red) + menu(icon-only arrow)`: `layout.menu()` used directly in a header row (same mechanism `top_bar_menu` already relies on) is what actually gives an anchored, non-draggable pulldown with no duplicate title, it's just not stylable red -- hence keeping it icon-only right after the label instead of carrying the text itself. `PIPELINE_MT_read_only_menu` reads `get_read_only_reason()` (`lib/session.py` -- `"stable"` | `"profile"` | `"reopened"` | `"locked"`, stored alongside the filepath by `set_opened_as_read_only()`) to show why, plus an Increment button (hidden for `"locked"`, since incrementing doesn't get you past someone else's lock). Its `draw()` reimplements `draw_box_tip()`'s BEGINNER-only gate manually instead of calling it: `draw_box_tip()`'s own `box().column()` wrapper breaks a `Menu`'s layout (menus are more restrictive than panels/popovers about nested box/column layouts) -- `text_to_lines()` drawn flat on `layout` sidesteps it.
 
 **Convention**: each sub-package's `__init__.py` re-exports a `classes` tuple; the root `__init__.py` assembles them with `*lib.classes`, `*panel_classes`, `*operator_classes` — never hand-duplicate a class list, that's exactly how a stale/renamed reference goes unnoticed (happened once already).
 
@@ -199,7 +208,7 @@ minimalist_pipeline/
 - `PIPELINE_OT_action_popup` — generic popup, reads pending action, executes chosen callback inside `try/except PipelineError` (logs + reports on failure — this is the single safety net for every `PipelineAction` callback in the codebase). `description()` classmethod returns each choice's optional 3rd tuple element as that button's tooltip. `cancel()` handles Escape/click-away: clears the pending action and runs `on_dismiss` if set, so dismissing without clicking a choice cleans up the same as clicking one (e.g. `wm.safe_save` releasing its lock — see below). `execute()` calls `_force_close()` (`context.window.screen = context.window.screen`) before returning: `invoke_popup` doesn't auto-close just because a button inside it ran an operator to completion — a known Blender quirk (blender.stackexchange.com/q/202550), not specific to this addon.
 - `PIPELINE_OT_text_popup` — simple message popup
 - `PIPELINE_OT_auto_version` — on file open, checks mtime vs today / whether it's the latest version, proposes increment or branch. Still `invoke_confirm`-based (not converted to `PipelineAction`/`action_popup`): its own `execute()` does the real work directly off `self.is_branch`, not a delegated `bpy.ops` call, so converting it isn't a drop-in change like the two below were.
-- Read-only-on-open and library-update-available used to be dedicated `invoke_confirm`-based operators (`read_only_notice`, `library_update_notice`), kept off `PipelineAction`/`action_popup` because of the same auto-close quirk `_force_close()` now fixes. Converted to plain `PipelineAction`s: `_propose_read_only_increment()` in `handlers.py`, inlined in `tracking.check_library_update()` (closes over its `update` list directly — the old `_pending_library_update` global/`get_pending_library_update()` indirection is gone).
+- Library-update-available used to be a dedicated `invoke_confirm`-based operator (`library_update_notice`), kept off `PipelineAction`/`action_popup` because of the same auto-close quirk `_force_close()` now fixes. Converted to a plain `PipelineAction`, inlined in `tracking.check_library_update()` (closes over its `update` list directly — the old `_pending_library_update` global/`get_pending_library_update()` indirection is gone). Read-only-on-open went through the same conversion (`_propose_read_only_increment()`) and was then dropped entirely — the top bar's `PIPELINE_MT_read_only_menu` (see `menus/top_bar.py`, above) now carries the reason + Increment on demand instead of an interrupting popup on every open, for the three static reasons; only the lock case (dynamic, not knowable ahead of time) still pops up, via `PIPELINE_OT_text_popup`.
 
 ### Utilities (`core.py`, `config.py`)
 - `addon_pref(context=None)` — returns addon preferences
@@ -235,6 +244,7 @@ minimalist_pipeline/
 - `get_user(context=None)` / `get_user_data(user)` — identity for logs/sessions: prefs.user_name > OS login > "unknown"
 - `save_project_data(prefs)` / `load_project_data(prefs)` — backs up `opened_projects` + `active_project_root` to Blender's user config dir
 - `set_active_project_root(prefs, new_root)` — the ONE place that changes `active_project_root`: stops this instance's farm role for the project being left (`stop_farm_role_for_project`), then auto-launches a worker for the new one if `auto_worker_on_open` is on. Every operator that can switch projects calls this instead of assigning the field directly.
+- `get_opened_as_read_only()` / `set_opened_as_read_only(value, reason)` / `get_read_only_reason()` — in-memory (not persisted) flag for the current session: which filepath is read-only, and why (`"stable"` | `"profile"` | `"reopened"` | `"locked"`). `get_read_only_reason()` alone isn't scoped to the current file — always pair it with `get_opened_as_read_only() == bpy.data.filepath` (the flag is never cleared on a normal file open, only ever overwritten by the next read-only one).
 
 ### Creation (`creation.py`)
 - `create_asset_file(project_root, *, prefix, name, departments=None, description="")` — folder/version resolution, preset, save, tracking init
@@ -254,7 +264,7 @@ minimalist_pipeline/
 - **Branch (§5)**: `copy_entries(from_filepath, to_filepath)` — appends the old block's entries onto the new one's, as-is (author/created_at untouched). `is_block_archived(shot_dir)` / `list_active_blocks(project_root, sequence_label=None)` — the one point of truth every block enumeration goes through instead of its own raw glob (already wired into `shot_items()` in `browser.py` and `TrackingStatusCache.get_all()`). The `archived: true` flag itself is set inline in `PIPELINE_OT_branch_shot.execute()` (`operators/shot_ops.py`) — a 5-line `locked_json` write with exactly one caller, not worth its own lib function.
 
 ### Handlers (`handlers.py`)
-- `post_load_handler` — session, library-update check (always, even read-only), lock (+ its heartbeat refresh), read-only gating (now a `PipelineAction` popup, not silent), auto-version proposal
+- `post_load_handler` — session, library-update check (always, even read-only), lock (+ its heartbeat refresh), read-only gating (silent for `stable`/`profile`/`reopened` — flags the reason via `set_opened_as_read_only()`, the top bar indicator carries it; still a `PIPELINE_OT_text_popup` for the lock case), auto-version proposal
 - `on_quit_handler` — closes the session
 - `save_post_handler`, `import_post_handler`
 - `heartbeat_30s()` — timer; refreshes session + (if held) the current file's lock
@@ -285,7 +295,7 @@ Two roles, coordinated purely through JSON files under `config/.farm/` on the sh
 - **Dispatch** (`dispatch.py`) — `render_dispatch()`: `single` (one machine) vs `placeholder`/`auto` (all available machines attempt the same range, self-arbitrated via Blender's own `use_placeholder` + `use_overwrite=False`; `render_mode_auto` falls back to `single` if the last placeholder attempt on that file left corrupted frames, tracked in `render_history.json`)
 - **Setup** (`setup.py`) — `compute_output_path()`, `resolve_job_context()` (`shot_override` routes to `shots/<sequence>/<shot_override>/` instead of the target file's own folder — how a block's per-shot jobs, all pointing at the same block file, land in separate output folders), `run_render_setup()` (launches the headless setup subprocess — deliberately doesn't compute the output path itself anymore: a possible block might split instead of rendering, only knowable once the file is genuinely open), `run_render_setup_entry()` (runs inside that subprocess — the file is only ever genuinely open here, so this is where a block gets detected and split via `_split_into_shot_jobs()` if `shot_override` isn't already set; a child's frame range is already absolute from split time, no marker re-read needed), `resolve_override_range()` (public: also used by the split to resolve each shot's override against its own sub-range instead of the whole file's)
 - **Post-render** (`post_render.py`) — `checks_images()` (ffmpeg frame-corruption pass), `compilation()` (ffmpeg → video, via the project's ffmpeg presets), `build_concat_command()` / `run_preview_compile()` (§1.6 — concatenates a preview's resolved sources via ffmpeg's concat *filter*, decoding and re-encoding every input to the project's own resolution/fps, never the concat demuxer's `-c copy`: a block's shots can come from different render sessions and are never assumed to already match)
-- **Loop** (`loop.py`) — `farm_tick()` (the shared timer both roles run through), `register_farm_loop()`, `stop_farm_role_for_project()` (used when the active project changes without quitting Blender), `_refresh_tick()` (UI-only, redraws the farm panel; `_build_job_entry()` also projects `skipped_shots`/`absorbed_shots` into the dashboard snapshot)
+- **Loop** (`loop.py`) — `farm_tick()` (the shared timer both roles run through), `register_farm_loop()`, `stop_farm_role_for_project()` (used when the active project changes without quitting Blender); two UI-only redraw timers, split by cost: `_refresh_tick()`/`register_refresh_timer()` (full snapshot incl. jobs, `refresh_monitor_cache()` → `_compute_snapshot()`, only while the farm monitor popup is open — `_build_job_entry()` also projects `skipped_shots`/`absorbed_shots` into the dashboard snapshot) and `_status_tick()`/`register_status_timer()` (status only — `refresh_monitor_status()` → `_read_monitor_status()`, just `monitor.lock`, no jobs-directory scan — always running while the addon is enabled, so the N-panel farm header stays live even collapsed without paying for a jobs scan on every tick)
 
 Job stage machine: `queued → setup_start/finished/failed → render_start/finished/failed → checks_images_start/finished/failed → compilation_start/finished/failed → finished → archived` (plus `orphaned`, detected on monitor startup for jobs stuck mid-stage with no matching local process). `"archived"` is a stage_history marker, not a location: `scan_queue()` appends it right after `finished`/`*_failed` so it stops touching the job again, but the file stays in `queue/actives/` (and keeps showing in the dashboard) until someone clicks "Archive" (`PIPELINE_OT_farm_archive_job` → `archive()`).
 
@@ -365,9 +375,9 @@ action = PipelineAction(
 )
 set_pending_action(action)
 bpy.ops.pipeline.action_popup("INVOKE_DEFAULT")
-# ^ works from a handler/timer too (see check_library_update,
-# _propose_read_only_increment) -- PIPELINE_OT_action_popup._force_close()
-# handles the invoke_popup auto-close quirk regardless of caller.
+# ^ works from a handler/timer too (see check_library_update) --
+# PIPELINE_OT_action_popup._force_close() handles the invoke_popup
+# auto-close quirk regardless of caller.
 
 # Reading config safely
 config = ConfigCache.get()

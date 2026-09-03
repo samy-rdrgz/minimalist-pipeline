@@ -9,6 +9,8 @@ from ..lib import (
     draw_box_tip,
     file_in_active_project,
     get_active_project_root,
+    get_opened_as_read_only,
+    get_read_only_reason,
     get_session_worked_departments,
     parse_filename,
     region_char_budget,
@@ -52,6 +54,9 @@ class PIPELINE_PT_file_panel(bpy.types.Panel):
 
         filepath = bpy.data.filepath
         layout = self.layout.column(align=True)
+        is_stable_ro = (
+            get_opened_as_read_only() == filepath and get_read_only_reason() == "stable"
+        )
 
         if not get_active_project_root():
             layout.label(text="No active project. Set one first.", icon="ERROR")
@@ -97,16 +102,19 @@ class PIPELINE_PT_file_panel(bpy.types.Panel):
             "makes a fresh working copy instead of overwriting. You "
             "never lose the previous state.",
         )
-        layout.operator(
-            "pipeline.increment_version", text="Mark as stable", icon="CHECKMARK"
-        ).tag = "stable"
-        draw_box_tip(
-            layout,
-            context,
-            '"Stable" marks a validated version other files can link '
-            "to. It opens read-only so nobody breaks it under you. "
-            "Increment when you want to work again.",
-        )
+        if not is_stable_ro:
+            # Already the stable version -- marking it stable again is a
+            # no-op offer, and confusing next to the read-only indicator.
+            layout.operator(
+                "pipeline.increment_version", text="Mark as stable", icon="CHECKMARK"
+            ).tag = "stable"
+            draw_box_tip(
+                layout,
+                context,
+                '"Stable" marks a validated version other files can link '
+                "to. It opens read-only so nobody breaks it under you. "
+                "Increment when you want to work again.",
+            )
 
         layout.separator()
         layout.operator(
