@@ -4,15 +4,13 @@
 
 ---
 
-All the panels live in the 3D viewport sidebar (`N` > **Pipeline** tab), plus a few popups for overview views.
+All the panels live in the 3D viewport sidebar (`N` > **Pipeline** tab). Each has its own collapsible header — click to fold it away without losing it, same as any native Blender panel; Farm starts folded, Project and File start open.
 
 | Panel | Always visible? | Content |
 |---|---|---|
-| **Project** | Yes | Active project (name, folder, config), New asset / New shot / Batch create from CSV / Open file / Render / Open folder buttons, Monitoring button (see below). Collapsible list of other known projects (activate / edit / remove each), New project / Find existing project. |
-| **Asset** | If the open file is an asset/library | Worked-this-session department toggles (if the file has required departments), Increment version, Mark as stable, Render, Open folder. |
-| **Shot** | If the open file is a shot | Same actions as the Asset panel, plus Preview block / Preview sequence, and Branch block (see [Shot blocks (multishot)](multishot.md)). |
-| **Tracking** | If the open file belongs to the active project | Per-department status of the current file, its notes/todos/rtk list right there, with direct editing/validation. The "always visible" version of the detail popup described below. See [Tracking & reviews](tracking-and-reviews.md). |
-| **Farm** | If a project is active | Header: monitor status (stopped / running / stale) with a Launch/Kill button. Body: a button opening the farm dashboard (see below). See [Rendering (farm)](farm.md). |
+| **Project** | Yes | Active project (name, folder), New asset / New shot / Batch create from CSV / Open file / Render / Open folder buttons, Monitoring button (see below). Collapsible list of other known projects (activate / edit / remove each), New project / Find existing project. |
+| **File** | If the open file belongs to the active project | One panel for both assets and shots — worked-this-session department toggles (if the file has required departments), Increment version, Mark as stable (hidden once the open file already is the stable version), Render, Open folder. For a shot specifically, also Preview block / Preview sequence and Branch block (see [Shot blocks (multishot)](multishot.md)). Further down, inline (not a separate panel): per-department status of this file and its notes/todos/rtk, with direct editing/validation — the "always visible" version of the detail popup described below. See [Tracking & reviews](tracking-and-reviews.md). |
+| **Farm** | If a project is active | Header: monitor status (not running / running / stale / dead) and a Launch button, or the dashboard's console icon once it's running. Body: the same Launch/Kill, the full "Farm monitor" dashboard button, and a status detail line. See [Rendering (farm)](farm.md). |
 
 <br>
 

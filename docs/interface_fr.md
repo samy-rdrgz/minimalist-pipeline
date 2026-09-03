@@ -4,15 +4,13 @@
 
 ---
 
-Tous les panneaux vivent dans la sidebar de la vue 3D (`N` > onglet **Pipeline**), plus quelques popups pour les vues d'ensemble.
+Tous les panneaux vivent dans la sidebar de la vue 3D (`N` > onglet **Pipeline**). Chacun a son propre en-tête repliable — un clic le replie sans le perdre, comme n'importe quel panneau natif de Blender ; Farm démarre replié, Project et File démarrent ouverts.
 
 | Panneau | Toujours visible ? | Contenu |
 |---|---|---|
-| **Project** | Oui | Projet actif (nom, dossier, config), boutons New asset / New shot / Batch create from CSV / Open file / Render / Open folder, bouton Monitoring (voir plus bas). Liste dépliable des autres projets connus (activer / éditer / retirer chacun), New project / Find existing project. |
-| **Asset** | Si le fichier ouvert est un asset/library | Boutons bascule "départements travaillés cette session" (si le fichier a des départements requis), Increment version, Mark as stable, Render, Open folder. |
-| **Shot** | Si le fichier ouvert est un shot | Mêmes actions que le panneau Asset, plus Preview block / Preview sequence, et Branch block (voir [Blocs de shots (multishot)](multishot_fr.md)). |
-| **Tracking** | Si le fichier ouvert appartient au projet actif | État par département du fichier courant, liste de ses notes/todos/rtk en place, avec édition/validation directe. Version "toujours visible" du popup de détail décrit plus bas. Voir [Suivi & revues](tracking-and-reviews_fr.md). |
-| **Farm** | Si un projet est actif | En-tête : statut du monitor (arrêté / tournant / périmé) avec bouton Lancer/Tuer. Corps : bouton ouvrant le dashboard farm (voir plus bas). Voir [Rendu (farm)](farm_fr.md). |
+| **Project** | Oui | Projet actif (nom, dossier), boutons New asset / New shot / Batch create from CSV / Open file / Render / Open folder, bouton Monitoring (voir plus bas). Liste dépliable des autres projets connus (activer / éditer / retirer chacun), New project / Find existing project. |
+| **File** | Si le fichier ouvert appartient au projet actif | Un seul panneau pour les assets et les shots — boutons bascule "départements travaillés cette session" (si le fichier a des départements requis), Increment version, Mark as stable (masqué une fois que le fichier ouvert est déjà la version stable), Render, Open folder. Pour un shot spécifiquement, aussi Preview block / Preview sequence et Branch block (voir [Blocs de shots (multishot)](multishot_fr.md)). Plus bas, à même le panneau (pas un panneau séparé) : état par département de ce fichier et ses notes/todos/rtk, avec édition/validation directe — la version "toujours visible" du popup de détail décrit plus bas. Voir [Suivi & revues](tracking-and-reviews_fr.md). |
+| **Farm** | Si un projet est actif | En-tête : statut du monitor (arrêté / tournant / périmé / mort) et un bouton Lancer, ou l'icône console du dashboard une fois lancé. Corps : les mêmes Lancer/Tuer, le bouton complet "Farm monitor" du dashboard, et une ligne de détail du statut. Voir [Rendu (farm)](farm_fr.md). |
 
 <br>
 
