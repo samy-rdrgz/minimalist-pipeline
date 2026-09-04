@@ -219,7 +219,7 @@ The flag won anyway, for one reason: it turns branch into a metadata-only operat
   there was no clean way to apply the filter there without a larger change;
   left as a known gap, not silently "handled".
 
-### §6 — MAX_PATH (deferred, not implemented)
+### §6 — MAX_PATH (`.meta` mitigation implemented, `.blend` still deferred)
 
 A block's `.blend`/`.pipeline/*.meta` filenames grow with the number of
 shots (every number is in the name). Theoretical worst case, mirroring the
@@ -243,9 +243,13 @@ the block's full segment.
 
 The designed mitigation — drop the redundant base filename from `.meta`
 files (`v004.wipmeta` instead of `sq040_sh030-...-080_v004.wipmeta`, since
-the base is already implied by the parent folder) — has **not** been
-implemented. Decision explicitly left pending a real UNC-path test rather
-than acted on from the theoretical numbers alone.
+the base is already implied by the parent folder) — **is now implemented**
+(`_meta_stem()` in `lib/tracking.py`), ahead of the real UNC-path test this
+was originally left pending on: it turned out to matter on its own, for
+readability of the `.pipeline/` folder, independent of MAX_PATH risk. The
+`.blend` filename itself is untouched — every shot number a block covers
+still lives in the `.blend` name — so the table above still holds for that
+half of the concern.
 
 ---
 
@@ -379,6 +383,38 @@ which no longer matters once the red text lives in the label next to it.
 `draw_box_tip()`'s BEGINNER-only gate got reimplemented by hand in the
 menu's `draw()`, calling `text_to_lines()` flat on `layout` instead of
 through the box-wrapped helper, to dodge the same layout break.
+
+---
+
+## `.wipmeta` writes tolerate a missing sidecar; the panel doesn't trust the flag alone
+
+`wipmeta_add_work()`, `wipmeta_add_link()` and `wipmeta_update_libraries()`
+(`lib/tracking.py`) used to raise `PipelineError("Error meta file not
+exists.")` when the target `.wipmeta` was missing — which a `-stable` file
+always is, by design (only a `.stablemeta`). That read like a defensive
+check, but it was reachable through an entirely ordinary flow, not just a
+hypothetically-broken flag: `check_library_update()` runs on *any* open
+file, `-stable` included, and its "Update libraries" choice calls
+`library_updates()`, which repoints/reloads the linked libraries first —
+that part succeeds — then calls `wipmeta_update_libraries()` to log it,
+which raised. The user saw a confusing `PipelineError` popup after an
+action that had actually mostly worked. `wipmeta_add_link()` had the same
+shape (linking into an open `-stable` file is legal in Blender — only Save
+is guarded, not in-memory edits). Fixed by mirroring `wipmeta_touch()`'s
+existing convention one door down in the same file: a missing `.wipmeta`
+on a `-stable` file isn't an error condition, there's simply nothing to
+track, so all three now no-op silently instead of raising.
+
+Separately, `PIPELINE_PT_file_panel.draw()` (`panels/file_panel.py`) used
+to gate "Working on" and "Mark as stable" purely on
+`get_opened_as_read_only()` — a session-level flag set once at file-load
+time (`post_load_handler`) or at addon `register()`
+(`refresh_read_only_flag()`), never re-derived on each draw. The write-side
+fix above makes a stale flag harmless if clicked, but the button still
+shouldn't be there to click. Added a second, independent signal —
+`parse_filename(filepath)["tag"] == "stable"`, read straight from the open
+file's own name — and hide on either signal being true, not just the
+cached one.
 
 ---
 

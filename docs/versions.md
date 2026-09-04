@@ -16,9 +16,9 @@ Publishing = tagging `-stable`, not a separate file to overwrite. Links point to
 
 ## Data structures: `.wipmeta` and `.stablemeta`
 
-Every asset/shot has a `.pipeline/` folder next to its `.blend` files, holding one of these per version (see [Tracking & reviews](tracking-and-reviews.md) for the third file in that folder, `tracking.json`).
+Every asset/shot has a `.pipeline/` folder next to its `.blend` files, holding one of these per version (see [Tracking & reviews](tracking-and-reviews.md) for the third file in that folder, `tracking.json`). The sidecar's own filename drops the asset/shot base name — it's already implied by the parent folder — and keeps just version+tag, so `ch_bob_v004.blend` tracks as `.pipeline/v004.wipmeta`, not `.pipeline/ch_bob_v004.wipmeta`. This matters most on multishot blocks, where the base name grows with every shot number it covers.
 
-**`.pipeline/ch_bob_v004.wipmeta`** — one per work version:
+**`.pipeline/v004.wipmeta`** — one per work version:
 
 ```json
 {
@@ -38,7 +38,7 @@ Every asset/shot has a `.pipeline/` folder next to its `.blend` files, holding o
 
 <br>
 
-**`.pipeline/ch_bob_v005-stable.stablemeta`** — one per version marked stable:
+**`.pipeline/v005-stable.stablemeta`** — one per version marked stable:
 
 ```json
 {

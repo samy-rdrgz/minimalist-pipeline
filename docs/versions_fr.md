@@ -16,9 +16,9 @@ Publier = tagger `-stable`, pas un fichier séparé à écraser. Les links point
 
 ## Structures de données : `.wipmeta` et `.stablemeta`
 
-Chaque asset/shot a un dossier `.pipeline/` à côté de ses fichiers `.blend`, contenant un de ces fichiers par version (voir [Suivi & revues](tracking-and-reviews_fr.md) pour le troisième fichier de ce dossier, `tracking.json`).
+Chaque asset/shot a un dossier `.pipeline/` à côté de ses fichiers `.blend`, contenant un de ces fichiers par version (voir [Suivi & revues](tracking-and-reviews_fr.md) pour le troisième fichier de ce dossier, `tracking.json`). Le nom du fichier sidecar lui-même retire le nom de base de l'asset/shot — déjà porté par le dossier parent — et ne garde que version+tag : `ch_bob_v004.blend` se suit donc via `.pipeline/v004.wipmeta`, pas `.pipeline/ch_bob_v004.wipmeta`. Ça compte surtout sur les blocs multishot, où le nom de base grandit avec chaque numéro de shot couvert.
 
-**`.pipeline/ch_bob_v004.wipmeta`** — une par version de travail :
+**`.pipeline/v004.wipmeta`** — une par version de travail :
 
 ```json
 {
@@ -38,7 +38,7 @@ Chaque asset/shot a un dossier `.pipeline/` à côté de ses fichiers `.blend`, 
 
 <br>
 
-**`.pipeline/ch_bob_v005-stable.stablemeta`** — une par version marquée stable :
+**`.pipeline/v005-stable.stablemeta`** — une par version marquée stable :
 
 ```json
 {

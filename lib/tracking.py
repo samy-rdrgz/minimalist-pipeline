@@ -14,6 +14,7 @@ from .config import (
     file_in_active_project,
     get_active_project_root,
     get_base_filename,
+    parse_filename,
     prefix_to_parent_folder,
     to_relative,
 )
@@ -22,6 +23,20 @@ from .errors import PipelineError
 from .logs import log
 from .session import get_user
 from .versioning import get_version_number
+
+
+def _meta_stem(filepath: Path) -> str:
+    """Short .pipeline/ sidecar stem for filepath -- "v004" or "v004-stable",
+    version+tag only, since the base name is already implied by the parent
+    folder (dropping it keeps sidecar paths short on deep multishot blocks,
+    see NOTES.md §6). Falls back to the full stem for a non-conforming
+    filepath (e.g. hand-renamed outside the addon)."""
+    parsed = parse_filename(filepath.name)
+    if not parsed:
+        return filepath.stem
+    v_prefix = json_get(ConfigCache.get(), "naming.version.prefix", "v")
+    stem = f"{v_prefix}{parsed['number']}"
+    return f"{stem}-{parsed['tag']}" if parsed.get("tag") else stem
 
 
 class TrackingStatusCache:
@@ -83,7 +98,7 @@ class TrackingStatusCache:
         worked_departments: dict[str, list[dict]] = {}
 
         if filepath.is_file():
-            wipmeta_path = asset_dir / ".pipeline" / f"{filepath.stem}.wipmeta"
+            wipmeta_path = asset_dir / ".pipeline" / f"{_meta_stem(filepath)}.wipmeta"
             with locked_json(wipmeta_path, read_only=True) as box:
                 data = box["data"] or {}
                 wipmetas = [data]
@@ -388,7 +403,7 @@ def create_wipmeta(
             "departments_worked": {},
             "linked": (last or {}).get("linked", []),
         }
-        path = filepath.parent / ".pipeline" / (filepath.stem + ".wipmeta")
+        path = filepath.parent / ".pipeline" / (_meta_stem(filepath) + ".wipmeta")
         path.parent.mkdir(parents=True, exist_ok=True)
         with locked_json(path) as box:
             box["data"] = data
@@ -403,7 +418,7 @@ def wipmeta_touch(filepath: Path):
     Called from save_post_handler on every save, so PIPELINE_OT_auto_version
     can tell a same-day re-open by a different user from the file's own
     author. Never raises: handler-called, same rule as check_library_update()."""
-    path = filepath.parent / ".pipeline" / (filepath.stem + ".wipmeta")
+    path = filepath.parent / ".pipeline" / (_meta_stem(filepath) + ".wipmeta")
     if not path.exists():
         return
     try:
@@ -425,11 +440,14 @@ def wipmeta_add_work(
     """Record, in this version's .wipmeta, which departments were worked
     this session, and resync linked-libs against the file's actual links.
     linked_libs: pass a pre-captured list when filepath's file is already
-    closed (bpy.data no longer refers to it)."""
+    closed (bpy.data no longer refers to it). No-op, doesn't raise, if
+    filepath has no .wipmeta -- a -stable file has none by design (only a
+    .stablemeta), and there's nothing to track on it; same rule as
+    wipmeta_touch()."""
     id = f"{os.getpid()}_{get_machine_id()}"
-    path = filepath.parent / ".pipeline" / (filepath.stem + ".wipmeta")
+    path = filepath.parent / ".pipeline" / (_meta_stem(filepath) + ".wipmeta")
     if not path.exists():
-        raise PipelineError("Error meta file not exists.")
+        return
     else:
         if linked_libs is None:
             linked_libs = [
@@ -453,7 +471,7 @@ def get_session_worked_departments(filepath: Path) -> list[str]:
     filepath's .wipmeta. In-memory cache kept in sync by wipmeta_add_work(),
     so draw() never hits disk past the first read. [] by default -- an
     untouched file never claims work that wasn't done."""
-    path = filepath.parent / ".pipeline" / (filepath.stem + ".wipmeta")
+    path = filepath.parent / ".pipeline" / (_meta_stem(filepath) + ".wipmeta")
     key = str(path)
     if key in _session_worked_cache:
         return _session_worked_cache[key]
@@ -469,10 +487,14 @@ def get_session_worked_departments(filepath: Path) -> list[str]:
 
 
 def wipmeta_add_link(filepath: Path, link: list[dict]):
-    """Append freshly linked libraries to this version's .wipmeta linked list."""
-    path = filepath.parent / ".pipeline" / (filepath.stem + ".wipmeta")
+    """Append freshly linked libraries to this version's .wipmeta linked
+    list. No-op, doesn't raise, if filepath has no .wipmeta -- linking into
+    an open -stable file is legal (Blender doesn't block it in memory, only
+    Save is guarded), and a -stable file has nothing to track it in; same
+    rule as wipmeta_touch()."""
+    path = filepath.parent / ".pipeline" / (_meta_stem(filepath) + ".wipmeta")
     if not path.exists():
-        raise PipelineError("Error meta file not exists.")
+        return
     else:
         with locked_json(path) as box:
             data = box["data"] or {}
@@ -491,10 +513,11 @@ def create_stablemeta(
     inherited linked libs, any conflict warning. Keyword-only: filepath/
     original_filepath are both Path, a positional call risks swapping them."""
     try:
+        original_stem = _meta_stem(original_filepath)
         original_name = (
-            f"{original_filepath.stem}.wipmeta"
+            f"{original_stem}.wipmeta"
             if not "-stable.blend" in original_filepath.name
-            else f"{original_filepath.stem}.stablemeta"
+            else f"{original_stem}.stablemeta"
         )
         with locked_json(
             original_filepath.parent / ".pipeline" / original_name, read_only=True
@@ -512,7 +535,7 @@ def create_stablemeta(
             "linked": (wipdata or {}).get("linked", []),
             "conflict_warning": conflict_warnings,
         }
-        path = filepath.parent / ".pipeline" / (filepath.stem + ".stablemeta")
+        path = filepath.parent / ".pipeline" / (_meta_stem(filepath) + ".stablemeta")
         path.parent.mkdir(parents=True, exist_ok=True)
 
         with locked_json(path) as box:
@@ -533,7 +556,7 @@ def set_department_validated(filepath: Path, department: str, validated: bool) -
         raise PipelineError(
             "Mark at least one version as stable before validating individual departments."
         )
-    path = asset_dir / ".pipeline" / (Path(last["file"]).stem + ".stablemeta")
+    path = asset_dir / ".pipeline" / (_meta_stem(Path(last["file"])) + ".stablemeta")
     with locked_json(path) as box:
         data = box["data"] or {}
         data.setdefault("departments_validated", {})[department] = validated
@@ -1225,10 +1248,15 @@ def library_updates(update: list[tuple[bpy.types.Library, str]]):
 
 def wipmeta_update_libraries(filepath: Path, update):
     """Rewrite linked-lib paths in this version's .wipmeta after a library
-    reload (old path -> new stable path)."""
-    path = filepath.parent / ".pipeline" / (filepath.stem + ".wipmeta")
+    reload (old path -> new stable path). No-op, doesn't raise, if filepath
+    has no .wipmeta: check_library_update() runs (and "Update libraries" can
+    be clicked) on any open file, -stable included -- by the time this
+    runs, library_updates() has already repointed/reloaded the libraries
+    themselves, so there's nothing left to roll back, just no wipmeta to
+    log it in; same rule as wipmeta_touch()."""
+    path = filepath.parent / ".pipeline" / (_meta_stem(filepath) + ".wipmeta")
     if not path.exists():
-        raise PipelineError("Error meta file not exists.")
+        return
     else:
         with locked_json(path) as box:
             data = box["data"] or {}

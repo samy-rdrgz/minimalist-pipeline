@@ -55,7 +55,9 @@ class PIPELINE_PT_file_panel(bpy.types.Panel):
 
         filepath = bpy.data.filepath
         layout = self.layout.column(align=True)
-        is_stable_ro = (
+        parsed = parse_filename(Path(filepath).name) if filepath else None
+        is_stable_file = bool(parsed and parsed.get("tag") == "stable")
+        is_stable_ro = is_stable_file or (
             get_opened_as_read_only() == filepath and get_read_only_reason() == "stable"
         )
 
@@ -66,7 +68,7 @@ class PIPELINE_PT_file_panel(bpy.types.Panel):
         required = TrackingStatusCache.get(bpy.data.filepath).get(
             "departments_required", []
         )
-        if get_opened_as_read_only() != filepath and required:
+        if get_opened_as_read_only() != filepath and not is_stable_file and required:
             layout.separator(factor=0.1)
             worked = get_session_worked_departments(Path(bpy.data.filepath))
             work = responsive_layout(context, layout.box(), 200)
@@ -124,10 +126,8 @@ class PIPELINE_PT_file_panel(bpy.types.Panel):
         ).filepath = bpy.data.filepath
 
         # Preview compile and block branching only make sense for shots --
-        # parse_filename() falls back to the asset regex first, which has
-        # no "shot" group, so an asset file's parsed dict simply won't have
-        # one here (no KeyError, unlike indexing ["sequence"] downstream).
-        parsed = parse_filename(Path(filepath).name)
+        # an asset file's parsed dict simply won't have a "shot" key here
+        # (no KeyError, unlike indexing ["sequence"] downstream).
         if parsed and parsed.get("shot"):
             layout.separator()
             row = layout.row(align=True)
