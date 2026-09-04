@@ -378,6 +378,7 @@ class PIPELINE_OT_edit_project(bpy.types.Operator):
     resolution_x: bpy.props.IntProperty(name="", min=128, max=8192, default=1920)
     resolution_y: bpy.props.IntProperty(name="", min=128, max=8192, default=1080)
     default_fps: bpy.props.IntProperty(name="", min=4, max=120, default=30)
+    default_frame_start: bpy.props.IntProperty(name="", min=0, default=1001)
 
     sequence_prefix: bpy.props.StringProperty(name="", default="sq")
     shot_prefix: bpy.props.StringProperty(name="", default="sh")
@@ -432,6 +433,10 @@ class PIPELINE_OT_edit_project(bpy.types.Operator):
         row = box.row(align=True)
         row.label(text="FRAME RATE", icon="PREVIEW_RANGE")
         row.prop(self, "default_fps")
+        row.label(text="")
+        row = box.row(align=True)
+        row.label(text="SHOT START", icon="DECORATE_KEYFRAME")
+        row.prop(self, "default_frame_start")
         row.label(text="")
 
         # Naming
@@ -510,6 +515,7 @@ class PIPELINE_OT_edit_project(bpy.types.Operator):
         self.resolution_x = int(res.get("x", 1920))
         self.resolution_y = int(res.get("y", 1080))
         self.default_fps = int(config.get("default_fps", 30))
+        self.default_frame_start = int(config.get("default_frame_start", 1001))
 
         naming = config.get("naming", {})
         for key in ("sequence", "shot", "version", "frame"):
@@ -557,6 +563,7 @@ class PIPELINE_OT_edit_project(bpy.types.Operator):
                 "blender_version": self.project_bl_version,
                 "resolution": {"x": self.resolution_x, "y": self.resolution_y},
                 "default_fps": self.default_fps,
+                "default_frame_start": self.default_frame_start,
                 "naming": {
                     "sequence": {
                         "prefix": self.sequence_prefix,

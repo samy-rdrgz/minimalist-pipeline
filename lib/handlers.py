@@ -71,6 +71,39 @@ def _propose_project_switch(project_path: str):
         bpy.ops.pipeline.action_popup("INVOKE_DEFAULT")
 
 
+def _static_read_only_reason(filepath: str) -> str:
+    """"stable"/"profile" if filepath's name or the addon profile calls for
+    read-only, "" otherwise. Deliberately excludes "locked" (needs an actual
+    lock attempt) and "reopened" (needs the in-memory already-flagged state)
+    -- both are load-time only, not safe to redo outside post_load_handler."""
+    tag = Path(filepath).stem.rsplit("-", 1)
+    is_stable = len(tag) == 2 and tag[1] == "stable"
+    if is_stable:
+        return "stable"
+    elif addon_pref().always_read_only:
+        return "profile"
+    return ""
+
+
+def refresh_read_only_flag():
+    """Re-apply the read-only flag to the currently open file if it's a
+    -stable (or always-read-only profile) file. The flag itself lives in an
+    in-memory global (session.py) that a script/addon reload wipes even
+    though the file stays open, so a reload with a -stable file open
+    silently drops its read-only state -- see post_load_handler for the
+    normal on-open path. Call at register(). Never touches locking or
+    triggers auto_version -- this isn't a file-open event."""
+    filepath = bpy.data.filepath
+    if not filepath or bpy.app.background:
+        return
+    project_root = get_active_project_root()
+    if not project_root or not file_in_active_project(filepath, str(project_root)):
+        return
+    reason = _static_read_only_reason(filepath)
+    if reason:
+        set_opened_as_read_only(filepath, reason)
+
+
 @bpy.app.handlers.persistent
 def post_load_handler(*args):
     """After file load: log, then gate all further pipeline behavior to the
@@ -100,18 +133,10 @@ def post_load_handler(*args):
         session_update()
         check_library_update()
 
-        path = Path(bpy.data.filepath)
-        tag = path.stem.rsplit("-", 1)
-        is_stable = len(tag) == 2 and tag[1] == "stable"
+        reason = _static_read_only_reason(bpy.data.filepath)
         already_flagged = get_opened_as_read_only() == bpy.data.filepath
-        if is_stable:
-            reason = "stable"
-        elif addon_pref().always_read_only:
-            reason = "profile"
-        elif already_flagged:
+        if not reason and already_flagged:
             reason = "reopened"
-        else:
-            reason = ""
         if reason:
             # No popup here: the top bar's READ-ONLY indicator (see
             # menus/top_bar.py) already carries the reason and the way out,
@@ -120,7 +145,8 @@ def post_load_handler(*args):
             set_opened_as_read_only(bpy.data.filepath, reason)
             return
 
-        free = acquire_lock(Path(bpy.data.filepath), get_machine_id())
+        path = Path(bpy.data.filepath)
+        free = acquire_lock(path, get_machine_id())
         if not free:
             set_opened_as_read_only(bpy.data.filepath, "locked")
             with locked_json(path.parent / f".{path.name}.lock") as box:

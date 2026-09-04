@@ -65,6 +65,7 @@ from .core import (
     read_csv,
     region_char_budget,
     resolve_bpy_path,
+    responsive_layout,
     text_to_lines,
 )
 from .creation import (
@@ -79,6 +80,7 @@ from .handlers import (
     heartbeat_30s,
     on_quit_handler,
     post_load_handler,
+    refresh_read_only_flag,
     register_handlers,
     unregister_handlers,
 )

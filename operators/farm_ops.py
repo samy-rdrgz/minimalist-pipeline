@@ -365,11 +365,11 @@ class PIPELINE_OT_farm_request_render(bpy.types.Operator):
 
             else:
                 return context.window_manager.invoke_props_dialog(
-                    self, width=360, confirm_text="Submit"
+                    self, width=300, confirm_text="Submit"
                 )
         else:
             return context.window_manager.invoke_props_dialog(
-                self, width=360, confirm_text="Submit all"
+                self, width=300, confirm_text="Submit all"
             )
 
     def _panel_setting(self, context, col, is_block=False):
@@ -435,11 +435,11 @@ class PIPELINE_OT_farm_request_render(bpy.types.Operator):
             select.separator()
 
             if self.file_type == "asset":
-                row = select.split(align=True, factor=0.2)
+                row = select.split(align=True, factor=0.33)
                 row.prop(self, "asset_prefix", text="")
                 row.prop(self, "asset_folder", text="")
             elif self.file_type == "shot":
-                row = select.split(align=True, factor=0.5)
+                row = select.split(align=True, factor=0.33)
                 row.prop(self, "sequence", text="")
                 row.prop(self, "shot", text="")
 
@@ -474,7 +474,7 @@ class PIPELINE_OT_farm_request_render(bpy.types.Operator):
                 f_list.scale_y = 0.75
                 for f in context.scene.pipeline_farm_list:
                     f_row = f_list.row()
-                    f_row.label(text=f.filepath.replace(self.project_root, ""))
+                    f_row.label(text=Path(f.filepath).stem)
                     f_row.operator(
                         "pipeline.farm_list_delete", icon="TRASH", text="", emboss=False
                     ).filepath = f.filepath
@@ -828,10 +828,10 @@ class PIPELINE_OT_farm_monitor(bpy.types.Operator):
         jobs = (
             cache["jobs"]
             if len(cache["jobs"]) >= 5
-            else cache["jobs"] + ["empty" for _ in range(4 - len(cache["jobs"]))]
+            else cache["jobs"] + ["empty" for _ in range(5 - len(cache["jobs"]))]
         )
         for j in jobs:
-            row = layout.column()
+            row = layout.column(align=True)
             row.separator(factor=0.1, type="LINE")
             if j == "empty":
                 row.label(text="", icon="BLANK1")
@@ -926,6 +926,14 @@ class PIPELINE_OT_farm_monitor(bpy.types.Operator):
         btn = title_list.row()
         btn.alignment = "LEFT"
         btn.label(text="Machine", icon="BLANK1")
+        if bpy.context.scene.is_worker:
+            btn.operator(
+                "pipeline.farm_kill_self_worker", text="Kill this worker", icon="X"
+            )
+        else:
+            btn.operator(
+                "pipeline.farm_add_self_worker", text="Add this machine", icon="ADD"
+            )
 
         title_list.row().label(text="Jobs")
 
@@ -934,8 +942,8 @@ class PIPELINE_OT_farm_monitor(bpy.types.Operator):
         machines = [j for i, j in workers.items()]
 
         monitor_cache = get_monitor_cache()
-        layout.separator(factor=0.3, type="LINE")
-        row = layout.column()
+        layout.separator(factor=0.1, type="LINE")
+        row = layout.column(align=True)
         if monitor_cache.get("status") == "not running":
             row.label(
                 text="Farm not running",
@@ -954,7 +962,7 @@ class PIPELINE_OT_farm_monitor(bpy.types.Operator):
                 text=monitor_label,
                 icon="KEYTYPE_BREAKDOWN_VEC" if monitor_jobs else "KEYTYPE_JITTER_VEC",
             )
-            jobs_col = split.column()
+            jobs_col = split.column(align=True)
             if monitor_jobs:
                 for job in monitor_jobs:
                     jobs_col.row().label(text=f"{job['stage']}: {job['job_id']}")
@@ -969,7 +977,7 @@ class PIPELINE_OT_farm_monitor(bpy.types.Operator):
 
         machines = machines + ["empty" for _ in range(4 - len(machines))]
         for m in machines:
-            row = layout.column()
+            row = layout.column(align=True)
             row.separator(factor=0.1, type="LINE")
 
             if m == "empty":
@@ -998,12 +1006,3 @@ class PIPELINE_OT_farm_monitor(bpy.types.Operator):
                     op.target_uuid = m.get("uuid", "")
             else:
                 jobs.label(text="idle")
-
-        if bpy.context.scene.is_worker:
-            layout.operator(
-                "pipeline.farm_kill_self_worker", text="Kill this worker", icon="X"
-            )
-        else:
-            layout.operator(
-                "pipeline.farm_add_self_worker", text="Add this machine", icon="ADD"
-            )

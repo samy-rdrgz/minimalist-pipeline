@@ -51,42 +51,56 @@ class PIPELINE_OT_create_asset(bpy.types.Operator):
 
     asset_prefix: bpy.props.EnumProperty(items=_get_prefix_items)
     asset_name: bpy.props.StringProperty(name="Name", default="")
-    asset_description: bpy.props.StringProperty(
-        name="Description",
+    description: bpy.props.StringProperty(
         description="What this asset is, shown in its tracking panel.",
         default="",
     )
     create_clean: bpy.props.BoolProperty(
-        name="Start with a new clean file", default=False
+        description="Start with a new clean file", default=False
     )
-    asset_departments: bpy.props.EnumProperty(
+    required_departments: bpy.props.EnumProperty(
         items=asset_department_items,
         options={"ENUM_FLAG"},
-        name="Departments",
         default=0,
     )
 
     def draw(self, context):
-        layout = self.layout
-        layout.label(text="Create new asset", icon="ASSET_MANAGER")
-        layout.separator()
-        layout.prop(self, "asset_prefix")
-        layout.prop(self, "asset_name")
-        layout.textbox(self, "asset_description")
-        layout.prop(self, "create_clean")
-        layout.prop_menu_enum(self, "asset_departments")
+        TITLE_WIDTH = 0.35
+        layout = self.layout.column(align=True)
+
+        row = layout.split(factor=TITLE_WIDTH, align=True)
+        row.label(text="Prefix", icon="TAG")
+        row.prop(self, "asset_prefix", text="")
+        row = layout.split(factor=TITLE_WIDTH, align=True)
+        row.label(text="Name", icon="BLANK1")
+        row.prop(self, "asset_name", text="")
+
+        layout.separator(type="LINE", factor=3)
+
+        row = layout.split(factor=TITLE_WIDTH, align=True)
+        row.label(text="Description", icon="TEXT")
+        row.textbox(self, "description", initial_visible_lines=1)
+        row = layout.split(factor=TITLE_WIDTH, align=True)
+        row.label(text="Departments", icon="COLOR")
+        row.prop_menu_enum(self, "required_departments")
+        row = layout.split(factor=TITLE_WIDTH, align=True)
+        row.label(text="Clean file", icon="FILE_BLANK")
+        row.prop(self, "create_clean", text="")
+
+        layout.separator(type="LINE", factor=3)
 
         safe = sanitize_name(self.asset_name)
         v_digits = self._get_v_digits(context)
         full_name = f"{self.asset_prefix}_{safe}_v{1:0{v_digits}d}.blend"
         parent = self._get_parent_folder_name(context)
 
-        layout.separator()
-        col = layout.column()
-        col.active = False
-        col.scale_y = 0.5
-        col.label(text=f"File: {full_name}", icon="FILE")
-        col.label(text=f"In: {parent}/{self.asset_prefix}_{safe}/", icon="FILE_FOLDER")
+        preview_col = layout.column(align=True)
+        preview_col.active = False
+        preview_col.scale_y = 0.65
+        preview_col.label(text=f"File: {full_name}", icon="FILE_BLEND")
+        preview_col.label(
+            text=f"In: {parent}/{self.asset_prefix}_{safe}/", icon="BLANK1"
+        )
 
     def invoke(self, context, event):
         if not get_active_project_root():
@@ -94,9 +108,13 @@ class PIPELINE_OT_create_asset(bpy.types.Operator):
             return {"CANCELLED"}
         config = ConfigCache.get()
         deps = config.get("assets_departments", ["modeling", "rigging", "texturing"])
-        self.asset_departments = {d for d in deps}
+        self.required_departments = {d for d in deps}
         self.asset_name = "new-asset"
-        return context.window_manager.invoke_props_dialog(self, width=300)
+        return context.window_manager.invoke_props_dialog(
+            self,
+            width=300,
+            confirm_text="Create",
+        )
 
     def execute(self, context):
         project_root = get_active_project_root()
@@ -123,8 +141,8 @@ class PIPELINE_OT_create_asset(bpy.types.Operator):
                 project_root,
                 prefix=self.asset_prefix,
                 name=self.asset_name,
-                departments=list(self.asset_departments),
-                description=self.asset_description,
+                departments=list(self.required_departments),
+                description=self.description,
             )
         except PipelineError as e:
             log(e.level, "create_asset", e.message)

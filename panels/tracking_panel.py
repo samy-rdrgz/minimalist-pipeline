@@ -18,6 +18,7 @@ from ..lib import (
     get_entries_grouped,
     json_get,
     region_char_budget,
+    responsive_layout,
     text_to_lines,
     to_absolute,
     to_relative,
@@ -39,13 +40,15 @@ TYPE_ICON = {
 }
 
 
-def draw_tracking_data(box, filepath, required, width: int | None = None):
+def draw_tracking_data(context, box, filepath, required, width: int | None = None):
 
     if required:
         box.separator(factor=1)
         data = TrackingStatusCache.get(filepath)
         validated = get_current_departments(Path(filepath))
-        col = box.box().column(align=True)
+        deps = responsive_layout(context, box.box(), 200)
+        deps.label(text="Finished :", icon="COLOR")
+        col = deps.column(align=True)
         col.scale_y = 0.7
         for d in required:
             row = col.row()
@@ -53,10 +56,11 @@ def draw_tracking_data(box, filepath, required, width: int | None = None):
             # Read-only here (toggling lives in the file_details popup):
             # enabled=False blocks clicks, the tooltip still shows on hover.
             row.enabled = False
+            row.alignment = "LEFT"
             row.operator(
                 "pipeline.department_status_info",
                 text=d,
-                icon="CHECKMARK" if d in validated else "BLANK1",
+                icon="CHECKMARK" if d in validated else "CHECKBOX_DEHLT",
                 emboss=False,
             ).custom_tooltip = department_status_tooltip(data, d)
         box.separator(factor=2)

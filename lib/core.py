@@ -205,6 +205,13 @@ def text_to_lines(
     return layout
 
 
+def responsive_layout(context, layout, threshold, align=True):
+    if context.region.width > (threshold * context.preferences.system.ui_scale):
+        return layout.row(align=align)
+    else:
+        return layout.column(align=align)
+
+
 def draw_box_tip(
     layout: bpy.types.Layout,
     context: bpy.types.Context,

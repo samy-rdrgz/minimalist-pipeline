@@ -71,6 +71,7 @@ De nouveaux assets/shots peuvent aussi être créés en masse depuis un fichier 
   "blender_version": "(4, 2, 0)",
   "resolution": {"x": 1920, "y": 1080},
   "default_fps": 30,
+  "default_frame_start": 1001,
   "naming": {
     "sequence": {"prefix": "sq", "digits": 3},
     "shot": {"prefix": "sh", "digits": 3},

@@ -13,7 +13,6 @@ from ..lib import (
     get_active_project_root,
     get_departments_required,
     json_get,
-    lines_budget,
     locked_json,
     log,
     parse_filename,
@@ -66,45 +65,49 @@ class PIPELINE_OT_remove_multishot_item(bpy.types.Operator):
         return {"FINISHED"}
 
 
-def _draw_shot_list(layout, context, op, config):
+def _draw_shot_list(layout, context, op, config, TITLE_WIDTH):
     """Shared shot-list editor (rows + end frame). op needs its own
     "end_frame" IntProperty. Returns the shots collection."""
     shots = context.window_manager.shots_list_creation
+
+    tabl = layout.split(factor=TITLE_WIDTH)
+    tabl.label(text="Shot(s)", icon="CAMERA_DATA")
+    tabl = tabl.column(align=True)
     if shots:
-        tabl = layout.split(factor=0.25, align=True)
-        col = tabl.column(align=True)
-        col.box().label(text="Shot number", icon="CAMERA_DATA")
-        col.box().label(text="Timeline", icon="ACTION")
-        tabl = tabl.row(align=True)
+        row = tabl.row(align=True).box().row(align=True)
+        row.scale_y = 0.55
+        row.label(text="Number")
+        row.label(text="Timeline")
+
+        cols = tabl.row(align=True)
+        number_col = cols.column(align=True)
+        timeline_col = cols.column(align=True)
 
         for idx, s in enumerate(shots):
-            col = tabl.column(align=True)
-            row_number = col.box().row(align=False)
-            row_number.prop(s, "shot_number", emboss=False, text=" ")
-            btn = row_number.row(align=True)
-            btn.scale_x = 0.5
-            btn.operator(
-                "pipeline.remove_multishot_item",
-                text="",
-                icon="REMOVE",
-                emboss=False,
-            ).index = idx
-            col.box().prop(s, "start_frame", emboss=False, text=" ")
+            number_col.prop(s, "shot_number", text=" ")
+            timeline_col.prop(s, "start_frame", text=" " if idx != 0 else "Start")
+
+        timeline_col.prop(op, "end_frame", text="End")
+
         last = shots[-1]
-        col = tabl.column(align=True)
-        btn_row = col.box().row()
-        btn_row.active = False
-        btn_row.alignment = "RIGHT"
-        add_op = btn_row.operator(
-            "pipeline.add_multishot_item", emboss=False, icon="ADD", text=""
-        )
-        add_op.shot_number = last.shot_number
-        add_op.start_frame = last.start_frame
-        col.box().prop(op, "end_frame", emboss=False, text="END")
+        btns_row = number_col.row(align=True)
+        btns_row.active = False
+
+        btn_row = btns_row.row(align=True)
+        btn_row.enabled = len(shots) > 1
+        btn_row.operator(
+            "pipeline.remove_multishot_item", text="", icon="REMOVE"
+        ).index = len(shots) - 1
+
+        add_op = btns_row.operator("pipeline.add_multishot_item", icon="ADD", text="")
+        add_op.shot_number = last.shot_number + 10
+        add_op.start_frame = last.start_frame + 20
+
     else:
-        layout.operator(
+        tabl.operator(
             "pipeline.add_multishot_item", text="Add shot(s) number"
         ).start_frame = json_get(config, "default_frame_start", 1001)
+
     return shots
 
 
@@ -112,12 +115,14 @@ def _draw_block_warning(layout, context, shots):
     """Reminder of what a block is for, shown once there's an actual block
     (2+ shots)."""
     if len(shots) <= 1:
+        layout.separator(type="LINE", factor=3)
         return
     text = (
-        f"A block is for cuts sharing DECOR and LIGHTING, worked by ONE "
-        f"person. This locks all {len(shots)} shots together as a single "
-        f"unit. Different needs (fx on one, separate lighting on another)? "
-        f"Use separate shots instead."
+        f"A block is ONE continuous action (like a character's move) played across "
+        f"several cameras (not just successive shots in the same decor)."
+        f"\nIt's worked by ONE person at a time and will lock these {len(shots)} "
+        f"shots together.\nNot one continuous action? Use separate shots "
+        f"instead."
     )
     # PIPELINE_OT_create_shot draws this inside its own invoke_props_dialog
     # (width=500) -- context.region there isn't that dialog's own region,
@@ -125,17 +130,20 @@ def _draw_block_warning(layout, context, shots):
     # Pass the dialog's own real width instead -- see region_char_budget()'s
     # docstring / POPUP_WIDTH_SCALE in lib/core.py for why it still needs
     # correcting.
-    layout = layout.box().column(align=True)
-    layout.alert = True
-    layout.enabled = False
-    layout.scale_y = 0.65
-    text_to_lines(
-        layout,
-        text,
-        max_width=region_char_budget(context, width_px=500),
-        max_lines=lines_budget(text),
-        icon="INFO",
-    )
+    layout.separator()
+    box = layout.box().column(align=True)
+    box.alert = True
+    box.enabled = False
+    box.scale_y = 0.65
+    for idx, t in enumerate(text.split("\n")):
+        text_to_lines(
+            box,
+            t,
+            max_width=region_char_budget(context, width_px=320),
+            max_lines=6,
+            icon="INFO" if idx == 0 else "NONE",
+        )
+    layout.separator(factor=2)
 
 
 def _draw_timeline_warnings(layout, shots, end_frame):
@@ -173,12 +181,11 @@ def _draw_naming_preview(layout, sequence_number, shots, config):
     v = f"{naming['version']['prefix']}{1:0{naming['version']['digits']}d}"
     full_name = f"{sq}_{sh}_{v}.blend"
 
-    layout.separator()
-    col = layout.column()
-    col.active = False
-    col.scale_y = 0.75
-    col.label(text=f"File: {full_name}", icon="FILE")
-    col.label(text=f"In: shots/{sq}/{sh}/", icon="FILE_FOLDER")
+    preview_col = layout.column(align=True)
+    preview_col.active = False
+    preview_col.scale_y = 0.65
+    preview_col.label(text=f"File: {full_name}", icon="FILE_BLEND")
+    preview_col.label(text=f"In: shots/{sq}/{sh}/", icon="BLANK1")
     return sq, sh
 
 
@@ -190,8 +197,8 @@ class PIPELINE_OT_create_shot(bpy.types.Operator):
     bl_description = "Create a new versioned shot in the active project."
 
     sequence_number: bpy.props.IntProperty(name="Sequence", default=10, min=0, step=10)
-    end_frame: bpy.props.IntProperty(name="End frame", default=10, min=0, step=1)
-    shot_description: bpy.props.StringProperty(
+    end_frame: bpy.props.IntProperty(name="End frame", default=1001, min=0, step=1)
+    description: bpy.props.StringProperty(
         name="Description",
         description="What this shot is, shown in its tracking panel.",
         default="",
@@ -199,7 +206,7 @@ class PIPELINE_OT_create_shot(bpy.types.Operator):
     create_clean: bpy.props.BoolProperty(
         name="Start with a new clean scene", default=False
     )
-    shot_departments: bpy.props.EnumProperty(
+    required_departments: bpy.props.EnumProperty(
         items=shot_department_items,
         options={"ENUM_FLAG"},
         name="Departments",
@@ -207,27 +214,29 @@ class PIPELINE_OT_create_shot(bpy.types.Operator):
     )
 
     def draw(self, context):
+        TITLE_WIDTH = 0.35
         layout = self.layout.column(align=True)
         config = ConfigCache.get()
 
-        row = layout.split(factor=0.25, align=True)
-        row.box().label(text="Sequence number", icon="SEQUENCE")
-        row.box().prop(self, "sequence_number", emboss=False, text=" ")
-        shots = _draw_shot_list(layout, context, self, config)
-        _draw_block_warning(layout, context, shots)
+        row = layout.split(factor=TITLE_WIDTH, align=True)
+        row.label(text="Sequence", icon="SEQUENCE")
+        row.prop(self, "sequence_number", text=" ")
         layout.separator()
+        shots = _draw_shot_list(layout, context, self, config, TITLE_WIDTH)
+        _draw_block_warning(layout, context, shots)
 
-        row = layout.split(factor=0.25, align=True)
-        row.box().label(text="File description", icon="FILE_BLEND")
-        row.box().textbox(self, "shot_description")
-        row = layout.split(factor=0.25, align=True)
-        row.box().label(text="Start w/ clean file", icon="FILE_BACKUP")
-        row.box().prop(self, "create_clean", text="")
-        row = layout.split(factor=0.25, align=True)
-        row.box().label(text="Departments", icon="COPY_ID")
-        row.box().prop_menu_enum(self, "shot_departments")
+        row = layout.split(factor=TITLE_WIDTH, align=True)
+        row.label(text="Description", icon="TEXT")
+        row.textbox(self, "description", initial_visible_lines=1)
+        row = layout.split(factor=TITLE_WIDTH, align=True)
+        row.label(text="Departments", icon="COLOR")
+        row.prop_menu_enum(self, "required_departments")
+        row = layout.split(factor=TITLE_WIDTH, align=True)
+        row.label(text="Clean file", icon="FILE_BLANK")
+        row.prop(self, "create_clean", text="")
 
-        layout.separator(factor=3)
+        layout.separator(type="LINE", factor=3)
+
         _draw_timeline_warnings(layout, shots, self.end_frame)
         _draw_naming_preview(layout, self.sequence_number, shots, config)
 
@@ -239,9 +248,9 @@ class PIPELINE_OT_create_shot(bpy.types.Operator):
         deps = config.get(
             "shots_departments", ["layout", "animation", "lighting", "render"]
         )
-        self.shot_departments = {d for d in deps}
+        self.required_departments = {d for d in deps}
         default_start = json_get(config, "default_frame_start", 1001)
-        self.end_frame = default_start
+        self.end_frame = default_start + 100
 
         # shots_list_creation is a WindowManager collection -- shared and
         # never cleared on its own, so without this it either starts empty
@@ -256,7 +265,7 @@ class PIPELINE_OT_create_shot(bpy.types.Operator):
         item = shots.add()
         item.start_frame = default_start
 
-        return context.window_manager.invoke_props_dialog(self, width=500)
+        return context.window_manager.invoke_props_dialog(self, width=300)
 
     def execute(self, context):
         project_root = get_active_project_root()
@@ -288,8 +297,8 @@ class PIPELINE_OT_create_shot(bpy.types.Operator):
                 sequence_number=self.sequence_number,
                 shot_number=[s.shot_number for s in shots],
                 timeline=[s.start_frame for s in shots] + [self.end_frame],
-                departments=list(self.shot_departments),
-                description=self.shot_description,
+                departments=list(self.required_departments),
+                description=self.description,
             )
         except PipelineError as e:
             log(e.level, "create_shot", e.message)
@@ -316,7 +325,7 @@ class PIPELINE_OT_branch_shot(bpy.types.Operator):
 
     filepath: bpy.props.StringProperty(default="")
     end_frame: bpy.props.IntProperty(name="End frame", default=10, min=0, step=1)
-    shot_description: bpy.props.StringProperty(
+    description: bpy.props.StringProperty(
         name="Description",
         description="What this shot is, shown in its tracking panel.",
         default="",
@@ -324,7 +333,7 @@ class PIPELINE_OT_branch_shot(bpy.types.Operator):
     create_clean: bpy.props.BoolProperty(
         name="Start with a new clean scene", default=False
     )
-    shot_departments: bpy.props.EnumProperty(
+    required_departments: bpy.props.EnumProperty(
         items=shot_department_items,
         options={"ENUM_FLAG"},
         name="Departments",
@@ -332,6 +341,7 @@ class PIPELINE_OT_branch_shot(bpy.types.Operator):
     )
 
     def draw(self, context):
+        TITLE_WIDTH = 0.35
         layout = self.layout
         config = ConfigCache.get()
         layout.label(text="Branch block", icon="UV_SYNC_SELECT")
@@ -341,12 +351,12 @@ class PIPELINE_OT_branch_shot(bpy.types.Operator):
         col.label(text=f"Archiving: {Path(self.filepath).name}", icon="INFO")
         layout.separator()
 
-        shots = _draw_shot_list(layout, context, self, config)
+        shots = _draw_shot_list(layout, context, self, config, TITLE_WIDTH)
         _draw_block_warning(layout, context, shots)
 
-        layout.textbox(self, "shot_description")
+        layout.textbox(self, "description", initial_visible_lines=1)
         layout.prop(self, "create_clean")
-        layout.prop_menu_enum(self, "shot_departments")
+        layout.prop_menu_enum(self, "required_departments")
 
         _draw_timeline_warnings(layout, shots, self.end_frame)
         parsed = parse_filename(Path(self.filepath).name)
@@ -370,7 +380,7 @@ class PIPELINE_OT_branch_shot(bpy.types.Operator):
         required = get_departments_required(Path(self.filepath)) or config.get(
             "shots_departments", ["layout", "animation", "lighting", "render"]
         )
-        self.shot_departments = {d for d in required}
+        self.required_departments = {d for d in required}
         default_start = json_get(config, "default_frame_start", 1001)
         self.end_frame = default_start
 
@@ -406,8 +416,8 @@ class PIPELINE_OT_branch_shot(bpy.types.Operator):
                 sequence_number=int(parsed["sequence"]),
                 shot_number=[s.shot_number for s in shots],
                 timeline=[s.start_frame for s in shots] + [self.end_frame],
-                departments=list(self.shot_departments),
-                description=self.shot_description,
+                departments=list(self.required_departments),
+                description=self.description,
                 start_version=int(parsed["number"]) + 1,
             )
             # Flag only -- name/path untouched.

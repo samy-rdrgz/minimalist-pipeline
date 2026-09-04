@@ -14,6 +14,7 @@ from ..lib import (
     get_session_worked_departments,
     parse_filename,
     region_char_budget,
+    responsive_layout,
 )
 from .tracking_panel import ENTRIES_INDENT_FACTOR, draw_tracking_data
 
@@ -65,17 +66,16 @@ class PIPELINE_PT_file_panel(bpy.types.Panel):
         required = TrackingStatusCache.get(bpy.data.filepath).get(
             "departments_required", []
         )
-        if required:
+        if get_opened_as_read_only() != filepath and required:
             layout.separator(factor=0.1)
             worked = get_session_worked_departments(Path(bpy.data.filepath))
-            row = layout.row(align=True)
-            txt = row.row(align=True)
-            txt.enabled = False
-            txt.label(text="Worked this session:", icon="BLANK1")
+            work = responsive_layout(context, layout.box(), 200)
+            work.label(text="Working on :", icon="MOD_DYNAMICPAINT")
+            col = work.column(align=True)
+            col.scale_y = 0.7
 
-            row.label(icon="BLANK1")
             for d in required:
-                op = row.operator(
+                op = col.operator(
                     "pipeline.toggle_worked_department",
                     text=d,
                     depress=d in worked,
@@ -123,28 +123,32 @@ class PIPELINE_PT_file_panel(bpy.types.Panel):
             icon="RENDER_RESULT",
         ).filepath = bpy.data.filepath
 
-        layout.separator()
-        row = layout.row(align=True)
-        op = row.operator(
-            "pipeline.compile_preview", text="Preview block", icon="SEQUENCE"
-        )
-        op.scope = "block"
-        op.filepath = bpy.data.filepath
-        op = row.operator(
-            "pipeline.compile_preview", text="Preview sequence", icon="SEQUENCE"
-        )
-        op.scope = "sequence"
-        op.filepath = bpy.data.filepath
-        draw_box_tip(
-            layout,
-            context,
-            "A preview compiles a disposable playback mp4 on the farm, "
-            "not a final render. Block covers just this block's shots; "
-            "sequence covers the whole sequence.",
-        )
-
+        # Preview compile and block branching only make sense for shots --
+        # parse_filename() falls back to the asset regex first, which has
+        # no "shot" group, so an asset file's parsed dict simply won't have
+        # one here (no KeyError, unlike indexing ["sequence"] downstream).
         parsed = parse_filename(Path(filepath).name)
         if parsed and parsed.get("shot"):
+            layout.separator()
+            row = layout.row(align=True)
+            op = row.operator(
+                "pipeline.compile_preview", text="Preview block", icon="SEQUENCE"
+            )
+            op.scope = "block"
+            op.filepath = bpy.data.filepath
+            op = row.operator(
+                "pipeline.compile_preview", text="Preview sequence", icon="SEQUENCE"
+            )
+            op.scope = "sequence"
+            op.filepath = bpy.data.filepath
+            draw_box_tip(
+                layout,
+                context,
+                "A preview compiles a disposable playback mp4 on the farm, "
+                "not a final render. Block covers just this block's shots; "
+                "sequence covers the whole sequence.",
+            )
+
             layout.separator()
             layout.operator(
                 "pipeline.branch_shot", text="Branch block", icon="UV_SYNC_SELECT"
@@ -157,4 +161,4 @@ class PIPELINE_PT_file_panel(bpy.types.Panel):
 
         layout.separator()
         width = int(region_char_budget(context) * ENTRIES_INDENT_FACTOR)
-        draw_tracking_data(layout, filepath, required, width=width)
+        draw_tracking_data(context, layout, filepath, required, width=width)

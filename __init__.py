@@ -225,6 +225,14 @@ def register():
 
     register_topbar_menu()
     lib.register_handlers()
+    # A script/addon reload wipes the in-memory read-only flag (session.py)
+    # even though a -stable file stays open -- post_load_handler only runs
+    # on an actual file open, so without this the READ-ONLY indicator (and
+    # the guards behind it) silently drop on reload. bpy.data is a
+    # _RestrictData stub for the duration of register() itself (seen live
+    # via the VS Code dev-extension's enable flow) -- defer one tick with a
+    # timer so it runs once bpy.data is the real thing.
+    bpy.app.timers.register(lib.refresh_read_only_flag, first_interval=0.0)
 
     try:
         lib.load_project_data(lib.addon_pref())

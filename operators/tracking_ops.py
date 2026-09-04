@@ -194,7 +194,7 @@ class PIPELINE_OT_create_entry(bpy.types.Operator):
         col_txt.scale_y = 1.4
         for idx, entry in enumerate(entries):
             row = col_txt.row(align=True)
-            row.textbox(entry, "text")
+            row.textbox(entry, "text", initial_visible_lines=1)
             row.operator(
                 "pipeline.remove_entry_line", text="", icon="REMOVE"
             ).index = idx
@@ -237,7 +237,7 @@ class PIPELINE_OT_create_entry(bpy.types.Operator):
         for idx, entry in enumerate(entries):
             row = col.row(align=True)
             row.scale_y = 1.4
-            row.textbox(entry, "text")
+            row.textbox(entry, "text", initial_visible_lines=1)
             row.operator(
                 "pipeline.remove_entry_line", text="", icon="REMOVE"
             ).index = idx
@@ -422,7 +422,7 @@ class PIPELINE_OT_edit_entry(bpy.types.Operator):
     def draw(self, context):
         layout = self.layout
         layout.label(text=f"id : {self.id}")
-        layout.textbox(self, "text")
+        layout.textbox(self, "text", initial_visible_lines=1)
         row = layout.row()
         row.prop(self, "type")
         row.prop(self, "frame_reference")
@@ -853,7 +853,7 @@ class PIPELINE_OT_edit_description(bpy.types.Operator):
 
     def draw(self, context):
         layout = self.layout
-        layout.textbox(self, "description")
+        layout.textbox(self, "description", initial_visible_lines=1)
 
     def execute(self, context):
         try:

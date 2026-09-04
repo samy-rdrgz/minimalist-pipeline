@@ -237,15 +237,27 @@ def read_only_indicator(self, context):
     self.layout.separator()
 
 
+def _purge_stale(name: str):
+    """Remove every draw callback named `name`, not just one identity match.
+    A dev-reload (VS Code extension, "Reload Scripts") replaces top_bar_menu/
+    read_only_indicator with fresh function objects, so an `in`/`remove`
+    identity check misses leftovers from a previous register() that
+    registered fine but then crashed before its own unregister() ever ran
+    (e.g. the register()-time _RestrictData issue) -- those orphans stack up
+    as visible duplicate menus across reloads. Matching by __name__ instead
+    self-heals on the next register(), no Blender restart needed."""
+    menus = bpy.types.TOPBAR_MT_editor_menus._dyn_ui_initialize()
+    for f in [f for f in menus if getattr(f, "__name__", None) == name]:
+        menus.remove(f)
+
+
 def register():
-    if top_bar_menu not in bpy.types.TOPBAR_MT_editor_menus._dyn_ui_initialize():
-        bpy.types.TOPBAR_MT_editor_menus.append(top_bar_menu)
-    if read_only_indicator not in bpy.types.TOPBAR_MT_editor_menus._dyn_ui_initialize():
-        bpy.types.TOPBAR_MT_editor_menus.prepend(read_only_indicator)
+    _purge_stale("top_bar_menu")
+    _purge_stale("read_only_indicator")
+    bpy.types.TOPBAR_MT_editor_menus.append(top_bar_menu)
+    bpy.types.TOPBAR_MT_editor_menus.prepend(read_only_indicator)
 
 
 def unregister():
-    if top_bar_menu in bpy.types.TOPBAR_MT_editor_menus._dyn_ui_initialize():
-        bpy.types.TOPBAR_MT_editor_menus.remove(top_bar_menu)
-    if read_only_indicator in bpy.types.TOPBAR_MT_editor_menus._dyn_ui_initialize():
-        bpy.types.TOPBAR_MT_editor_menus.remove(read_only_indicator)
+    _purge_stale("top_bar_menu")
+    _purge_stale("read_only_indicator")
