@@ -33,7 +33,7 @@ def compute_output_path(
     # Relative to project_root/"shots", not project_root itself -- shot_root
     # is always .../shots/<sq>/<sh>, and every reader (lib/preview.py's
     # resolve_sequence_sources()/latest_shot_mp4(), the /old archiving in
-    # PIPELINE_OT_edit_block_structure, "Open folder") expects the result
+    # M_PIPELINE_OT_edit_block_structure, "Open folder") expects the result
     # at renders/<sq>/<sh>/, not renders/shots/<sq>/<sh>/.
     base = project_root / "renders" / shot_root.relative_to(project_root / "shots")
     i = 1

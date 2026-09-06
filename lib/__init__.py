@@ -87,11 +87,11 @@ from .handlers import (
 from .libraries import clean_append_and_relink
 from .logs import log
 from .operators import (
-    PIPELINE_OT_action_popup,
-    PIPELINE_OT_auto_version,
-    PIPELINE_OT_current_frame,
-    PIPELINE_OT_onboarding_popup,
-    PIPELINE_OT_text_popup,
+    M_PIPELINE_OT_action_popup,
+    M_PIPELINE_OT_auto_version,
+    M_PIPELINE_OT_current_frame,
+    M_PIPELINE_OT_onboarding_popup,
+    M_PIPELINE_OT_text_popup,
     WM_OT_open_folder,
 )
 from .presets import (
@@ -162,13 +162,13 @@ from .versioning import (
 )
 
 classes = (
-    PIPELINE_OT_action_popup,
-    PIPELINE_OT_auto_version,
-    PIPELINE_OT_onboarding_popup,
-    PIPELINE_OT_text_popup,
+    M_PIPELINE_OT_action_popup,
+    M_PIPELINE_OT_auto_version,
+    M_PIPELINE_OT_onboarding_popup,
+    M_PIPELINE_OT_text_popup,
     WM_OT_safe_save,
     WM_OT_open_folder,
-    PIPELINE_OT_current_frame,
+    M_PIPELINE_OT_current_frame,
 )
 
 __all__ = ["classes"]

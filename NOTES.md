@@ -29,7 +29,7 @@ The spec is `multishot_spec_v2.md` (§ references below point there).
 ### Creation (`operators/shot_ops.py`)
 
 - `window_manager.shots_list_creation` (a `PipelineShotItem` collection) is
-  shared state, not owned by `PIPELINE_OT_create_shot` — `PIPELINE_OT_edit_block_structure`
+  shared state, not owned by `M_PIPELINE_OT_create_shot` — `M_PIPELINE_OT_edit_block_structure`
   reuses it as-is, along with the same add/remove operators and the four
   shared `_draw_*` helper functions. This is why those helpers take the
   operator instance as a plain parameter instead of being methods.
@@ -60,7 +60,7 @@ No hard cap was added regardless — a warning, not a block, consistent with the
   exact same loop, not a separate branch.
 - Made idempotent (bug fix): it used to `.new()` the CAM/SET/ASSETS
   collections and every camera unconditionally, fine for a genuinely fresh
-  scene but not for `PIPELINE_OT_edit_block_structure` — unless "Start with
+  scene but not for `M_PIPELINE_OT_edit_block_structure` — unless "Start with
   a new clean scene" is ticked, editing structure runs this against the
   very scene the *previous* enumeration already scaffolded (it's a Save
   As, not a fresh file), so every existing camera got a Blender-renamed
@@ -105,7 +105,7 @@ the reasoning doesn't get rediscovered by accident:
    `renders/shots/<sq>/<sh>/...` instead of `renders/<sq>/<sh>/...`. Every
    reader (`lib/preview.py`'s `resolve_sequence_sources()`/
    `latest_shot_mp4()`, the `/old` archiving in
-   `PIPELINE_OT_edit_block_structure`, "Open folder") only ever looked at
+   `M_PIPELINE_OT_edit_block_structure`, "Open folder") only ever looked at
    the latter, so a genuinely rendered shot silently never showed up in a
    preview compile ("No rendered shot found..." despite real renders on
    disk) — this is exactly the kind of thing "unverified until run for
@@ -238,8 +238,8 @@ The race above doesn't apply on this path: the move only runs after `create_shot
   aren't keyed by block identity — not needed anymore, since a dropped
   shot's render folder is just gone.
 
-**Shot-number conflicts, and a rename.** `PIPELINE_OT_branch_shot` became
-`PIPELINE_OT_edit_block_structure` — "branch" read as a one-way archive
+**Shot-number conflicts, and a rename.** `M_PIPELINE_OT_branch_shot` became
+`M_PIPELINE_OT_edit_block_structure` — "branch" read as a one-way archive
 action; the operator is really the general "change which shots this file
 covers" tool (mono → block, block → mono, or just a different selection),
 and the old name gave no hint of that at the button.
@@ -416,7 +416,7 @@ bar's red READ-ONLY label existed as a permanent, un-missable indicator for
 the whole time the file stays open, the popup started duplicating it: the
 same information, shown once as an interruption instead of always available
 on demand. Dropped for those three reasons — `set_opened_as_read_only()`
-just records why, silently, and `PIPELINE_MT_read_only_menu` (a click away
+just records why, silently, and `M_PIPELINE_MT_read_only_menu` (a click away
 off the label) shows it plus an Increment button whenever the artist
 actually wants it. The lock case (another machine has the file open right
 now) kept its popup: it's live information, not a static property of the
@@ -469,7 +469,7 @@ existing convention one door down in the same file: a missing `.wipmeta`
 on a `-stable` file isn't an error condition, there's simply nothing to
 track, so all three now no-op silently instead of raising.
 
-Separately, `PIPELINE_PT_file_panel.draw()` (`panels/file_panel.py`) used
+Separately, `M_PIPELINE_PT_file_panel.draw()` (`panels/file_panel.py`) used
 to gate "Working on" and "Mark as stable" purely on
 `get_opened_as_read_only()` — a session-level flag set once at file-load
 time (`post_load_handler`) or at addon `register()`
@@ -534,7 +534,7 @@ not worth carrying just in case.
 
 ## File details' `file_details_selected` is a folder, not a versioned file
 
-`PIPELINE_OT_tracking_monitor`'s file-details view (`draw_file_details()`,
+`M_PIPELINE_OT_tracking_monitor`'s file-details view (`draw_file_details()`,
 `panels/tracking_panel.py`) reads `context.window_manager.file_details_selected`
 — set by clicking a row in the monitor's own list (`_draw_monitor_row()`),
 via `op.filepath = str(dir)` where `dir` is `TrackingStatusCache.get_all()`'s
@@ -543,11 +543,11 @@ specific versioned file broke twice: `parse_filename(Path(filepath).name)`
 silently returned `None` for a bare folder name like `sh045` (never raised,
 so the Preview buttons just never showed, no error — the actual bug behind
 an earlier "why is nothing displaying" report), and passing that same
-`filepath` straight to `pipeline.compile_preview` failed the exact same
+`filepath` straight to `m_pipeline.compile_preview` failed the exact same
 way inside that operator, since it also calls `parse_filename()`. Fixed at
 both ends: `draw_file_details()` reads the shot/block segment straight off
 the folder's own name (`shots_in_segment()`, no `parse_filename()` needed),
-and `PIPELINE_OT_compile_preview.execute()` now resolves a folder to any
+and `M_PIPELINE_OT_compile_preview.execute()` now resolves a folder to any
 real versioned `.blend` inside it before parsing. Any new code touching
 `file_details_selected` should assume folder, not file.
 
@@ -576,7 +576,7 @@ instead would need the same treatment.
 Found from the read-only "Save & Increment" flow reliably failing to close
 either button: `wm.safe_save`'s `invoke()` returned `{"FINISHED"}` on paper,
 but a click on `action_popup`'s own choices sometimes did nothing. Calling
-`bpy.ops.pipeline.action_popup("INVOKE_DEFAULT")` (or any other
+`bpy.ops.m_pipeline.action_popup("INVOKE_DEFAULT")` (or any other
 `INVOKE_DEFAULT` operator that opens its own `invoke_props_dialog`/
 `invoke_popup`) synchronously from inside another operator's own
 `invoke()`/`execute()` forwards *that inner popup's* `RUNNING_MODAL` back as
@@ -588,10 +588,10 @@ middle of closing (e.g. "Save & Increment" wanting to open a fresh
 
 Fixed the same way everywhere it comes up: never call the second operator
 synchronously — defer it one tick with `bpy.app.timers.register(lambda:
-bpy.ops.pipeline.xxx("INVOKE_DEFAULT"), first_interval=0.05)` instead. Every
-site chaining into a second modal popup follows this: `PIPELINE_OT_create_project`
+bpy.ops.m_pipeline.xxx("INVOKE_DEFAULT"), first_interval=0.05)` instead. Every
+site chaining into a second modal popup follows this: `M_PIPELINE_OT_create_project`
 (into `edit_project`), `wm.safe_save`'s `_increment_and_release`/`_open_popup`
-(into `increment_version`/`action_popup`), and `PIPELINE_OT_farm_launch_monitor`'s
+(into `increment_version`/`action_popup`), and `M_PIPELINE_OT_farm_launch_monitor`'s
 missing-ffmpeg and stale-lock branches (into `action_popup`/`farm_launch_monitor`
 itself). Any new operator that needs to open a modal popup from inside
 another one's lifecycle should use the same 0.05s-deferred-timer shape.

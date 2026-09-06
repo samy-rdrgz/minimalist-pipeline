@@ -39,10 +39,10 @@ def _tag_items(self, context):
         return [("NONE", "(no tag)", ""), ("stable", "stable", "")]
 
 
-class PIPELINE_OT_increment_version(bpy.types.Operator):
+class M_PIPELINE_OT_increment_version(bpy.types.Operator):
     """Save as next version, optionally with a tag."""
 
-    bl_idname = "pipeline.increment_version"
+    bl_idname = "m_pipeline.increment_version"
     bl_label = "Increment version"
     bl_description = "Save current file as next version."
 

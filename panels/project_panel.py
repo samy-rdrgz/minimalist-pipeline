@@ -13,11 +13,11 @@ from ..operators import (
 )
 
 
-class PIPELINE_PT_project_panel(bpy.types.Panel):
+class M_PIPELINE_PT_project_panel(bpy.types.Panel):
     """Project list and management."""
 
     bl_label = ""
-    bl_idname = "PIPELINE_PT_project_panel"
+    bl_idname = "M_PIPELINE_PT_project_panel"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Pipeline"
@@ -38,13 +38,13 @@ class PIPELINE_PT_project_panel(bpy.types.Panel):
                     text=f"Project : {str(active_path.name).upper()}", icon="PINNED"
                 )
                 layout.operator(
-                    project_ops.PIPELINE_OT_edit_project.bl_idname,
+                    project_ops.M_PIPELINE_OT_edit_project.bl_idname,
                     text="",
                     icon="OPTIONS",
                     emboss=False,
                 ).project_path_selected = str(active_path)
                 layout.operator(
-                    project_ops.PIPELINE_OT_unset_active_project.bl_idname,
+                    project_ops.M_PIPELINE_OT_unset_active_project.bl_idname,
                     text="",
                     icon="PANEL_CLOSE",
                     emboss=False,
@@ -63,24 +63,24 @@ class PIPELINE_PT_project_panel(bpy.types.Panel):
 
         if active_path:
             layout.operator(
-                asset_ops.PIPELINE_OT_create_asset.bl_idname,
+                asset_ops.M_PIPELINE_OT_create_asset.bl_idname,
                 text="New asset",
                 icon="ADD",
             )
             layout.operator(
-                shot_ops.PIPELINE_OT_create_shot.bl_idname,
+                shot_ops.M_PIPELINE_OT_create_shot.bl_idname,
                 text="New shot",
                 icon="BLANK1",
             )
             layout.operator(
-                batch_ops.PIPELINE_OT_batch_create.bl_idname,
+                batch_ops.M_PIPELINE_OT_batch_create.bl_idname,
                 text="Batch create from CSV",
                 icon="IMPORT",
             )
 
             layout.separator()
             layout.operator(
-                browser_ops.PIPELINE_OT_open_file.bl_idname,
+                browser_ops.M_PIPELINE_OT_open_file.bl_idname,
                 text="Open file",
                 icon="FILE_BLEND",
             )
@@ -90,14 +90,14 @@ class PIPELINE_PT_project_panel(bpy.types.Panel):
 
             layout.separator()
             layout.operator(
-                farm_ops.PIPELINE_OT_farm_request_render.bl_idname,
+                farm_ops.M_PIPELINE_OT_farm_request_render.bl_idname,
                 text="Render",
                 icon="RENDER_RESULT",
             )
 
             layout.separator()
             layout.operator(
-                "pipeline.tracking_monitor",
+                "m_pipeline.tracking_monitor",
                 icon="DESKTOP",
                 text="Project monitoring",
             )
@@ -110,7 +110,7 @@ class PIPELINE_PT_project_panel(bpy.types.Panel):
                 welcome = layout.column(align=True)
                 welcome.label(text="   First time here?")
                 welcome.operator(
-                    "pipeline.onboarding_popup",
+                    "m_pipeline.onboarding_popup",
                     text="What this addon does",
                     icon="QUESTION",
                 )
@@ -125,19 +125,19 @@ class PIPELINE_PT_project_panel(bpy.types.Panel):
                     row.scale_y = 0.6
                     row.scale_x = 0.8
                     row.operator(
-                        project_ops.PIPELINE_OT_set_active_project.bl_idname,
+                        project_ops.M_PIPELINE_OT_set_active_project.bl_idname,
                         text=item.name.upper(),
                         icon="UNPINNED",
                         emboss=False,
                     ).project_path_selected = item.path
                     row.operator(
-                        project_ops.PIPELINE_OT_edit_project.bl_idname,
+                        project_ops.M_PIPELINE_OT_edit_project.bl_idname,
                         text="",
                         icon="OPTIONS",
                         emboss=False,
                     ).project_path_selected = item.path
                     row.operator(
-                        project_ops.PIPELINE_OT_remove_project.bl_idname,
+                        project_ops.M_PIPELINE_OT_remove_project.bl_idname,
                         text="",
                         icon="PANEL_CLOSE",
                         emboss=False,
@@ -157,12 +157,12 @@ class PIPELINE_PT_project_panel(bpy.types.Panel):
             )
 
             layout.operator(
-                project_ops.PIPELINE_OT_create_project.bl_idname,
+                project_ops.M_PIPELINE_OT_create_project.bl_idname,
                 text="New project",
                 icon="FILE_NEW",
             )
             layout.operator(
-                project_ops.PIPELINE_OT_find_project.bl_idname,
+                project_ops.M_PIPELINE_OT_find_project.bl_idname,
                 text="Find existing project",
                 icon="ZOOM_ALL",
             )

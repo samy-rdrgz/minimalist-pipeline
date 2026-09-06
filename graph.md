@@ -18,7 +18,7 @@ popup queued from `load_pre`/`exit_pre` isn't guaranteed to render -- by
 │   cache keyed by the .wipmeta path, empty until this session has actually
 │   toggled something -- an untouched file records nothing) for which ones
 │   show `depress=True`
-└── click : pipeline.toggle_worked_department(department=d)
+└── click : m_pipeline.toggle_worked_department(department=d)
       -> wipmeta_add_work(this_file, toggled_set) -- writes straight to
          .wipmeta AND updates the in-memory cache in the same call, so no
          redraw ever re-reads the file (see lib/tracking.py's
@@ -30,14 +30,14 @@ popup queued from `load_pre`/`exit_pre` isn't guaranteed to render -- by
 ## Validated departments (live toggle, no new -stable version)
 
 Button rows in `tracking_panel.py`'s sidebar and the monitoring dashboard's
-`pipeline.tracking_file_details` popup, wherever validated departments are
+`m_pipeline.tracking_file_details` popup, wherever validated departments are
 shown. Some departments (e.g. "render") aren't tied to editing the file at
 all -- forcing a new -stable version just to flip one off/on doesn't fit.
 
 ```
 ├── draw() : get_current_departments(file) for depress=True state (reads
 │   TrackingStatusCache -> latest .stablemeta's departments_validated)
-└── click : pipeline.toggle_validated_department(department=d, filepath=file)
+└── click : m_pipeline.toggle_validated_department(department=d, filepath=file)
       -> set_department_validated(file, d, not current) -- mutates the
          *latest* .stablemeta's departments_validated in place
       ├── no .stablemeta exists yet (asset never marked stable) :
@@ -117,7 +117,7 @@ reconfirm each time, not an immutable historical snapshot.
 │   │     incrementing doesn't get you past someone else's lock.
 │   └── acquired : continue
 │
-└── pipeline.auto_version (INVOKE_DEFAULT)
+└── m_pipeline.auto_version (INVOKE_DEFAULT)
     ├── this_file is the latest version on disk ?
     │   ├── yes, and file's mtime date < today :
     │   │        ├── silent_auto_increment pref on : save_as() silently (mode=auto_increment)
@@ -141,16 +141,16 @@ reconfirm each time, not an immutable historical snapshot.
 
 Note: the library-update proposal above used to be a dedicated
 `invoke_confirm`-based operator (`library_update_notice`), kept off the shared
-`PipelineAction`/`pipeline.action_popup` mechanism because `action_popup`'s
+`PipelineAction`/`m_pipeline.action_popup` mechanism because `action_popup`'s
 `invoke_popup` didn't reliably auto-close when a choice button was clicked
-(see `PIPELINE_OT_action_popup._force_close()`). Now that that's fixed, it
+(see `M_PIPELINE_OT_action_popup._force_close()`). Now that that's fixed, it
 was converted to a plain `PipelineAction`, inlined in
 `tracking.check_library_update()`. The read-only case went through the same
 conversion at first (`_propose_read_only_increment` in `handlers.py`), then
 was dropped entirely once the top bar's read-only indicator grew a reason +
 Increment button of its own (see above) -- the popup was redundant with it
 for the three static reasons, only the lock case still needs one.
-`pipeline.auto_version` above still uses `invoke_confirm` -- not converted
+`m_pipeline.auto_version` above still uses `invoke_confirm` -- not converted
 yet, since its own `execute()` does the real work directly off
 `self.is_branch`, not just a delegated `bpy.ops` call.
 
@@ -203,14 +203,14 @@ Save button (NOT overridden) or Ctrl+S (overridden → `wm.safe_save`)
         │   │         -> "Save" (save_mainfile, releases the lock)
         │   │          | "Increment" (releases the lock, then -- deferred one
         │   │            timer tick, same popup-chaining precaution as below --
-        │   │            pipeline.increment_version INVOKE_DEFAULT)
+        │   │            m_pipeline.increment_version INVOKE_DEFAULT)
         │   │          | "Cancel" (releases the lock, no save)
         │   └── no  : popup "Read-Only Origin" (opened deferred one timer
         │         tick too)
         │         -> "Save & Increment" (releases the lock, then -- deferred one
         │            timer tick, same popup-chaining precaution as
-        │            pipeline.create_project's own INVOKE_DEFAULT call below --
-        │            pipeline.increment_version INVOKE_DEFAULT)
+        │            m_pipeline.create_project's own INVOKE_DEFAULT call below --
+        │            m_pipeline.increment_version INVOKE_DEFAULT)
         │          | "Cancel" (releases the lock, no save)
         └── dismissed without clicking (ESC / click-away) : action_popup.cancel()
               runs the action's on_dismiss, which releases the lock too
@@ -230,7 +230,7 @@ Save button (NOT overridden) or Ctrl+S (overridden → `wm.safe_save`)
 
 ## Increment version / Mark as stable
 
-`pipeline.increment_version` — panel button "Increment version" / "Mark as stable", Save-guard's "Save & Increment"/"Increment", or `read_only_notice`'s "Increment outside stable"
+`m_pipeline.increment_version` — panel button "Increment version" / "Mark as stable", Save-guard's "Save & Increment"/"Increment", or `read_only_notice`'s "Increment outside stable"
 
 ```
 ├── invoke() pre-fills:
@@ -276,10 +276,10 @@ No explicit file-lock release here (see `docs/sessions-and-locking.md`, and READ
 Manual or automatic start (`auto_worker_on_open` pref), automatic stop.
 
 ```
-├── pipeline.farm_add_self_worker : launch_worker() -- registers farm_tick via
+├── m_pipeline.farm_add_self_worker : launch_worker() -- registers farm_tick via
 │   register_farm_loop, refuses if another live (non-stale) worker already owns
 │   this machine's worker file
-├── pipeline.farm_kill_self_worker : kill_worker()
+├── m_pipeline.farm_kill_self_worker : kill_worker()
 ├── auto_worker_on_open (Preferences > Add-ons > Minimalist Pipeline) : if on,
 │   launch_worker() also fires from two other places -- see "Activate / deactivate
 │   project" below (switching TO a project) and "addon register()" below (Blender
@@ -295,20 +295,20 @@ Manual or automatic start (`auto_worker_on_open` pref), automatic stop.
 Manual start, automatic stop.
 
 ```
-├── pipeline.farm_launch_monitor :
+├── m_pipeline.farm_launch_monitor :
 │   ├── shutil.which("ffmpeg") not found ?
 │   │   └── yes : PipelineAction "FFmpeg not found" (opened deferred one
 │   │         timer tick, same precaution as its own choices below) ->
 │   │         "Cancel" (stop here) |
-│   │         "Continue anyway" (re-invokes pipeline.farm_launch_monitor,
+│   │         "Continue anyway" (re-invokes m_pipeline.farm_launch_monitor,
 │   │         skip_ffmpeg_check=True, deferred one timer tick -- same
-│   │         popup-chaining precaution as pipeline.create_project's own
+│   │         popup-chaining precaution as m_pipeline.create_project's own
 │   │         INVOKE_DEFAULT call below) -- checks_images/compilation would
 │   │         otherwise fail silently per-job, only surfacing in the log
 │   └── launch_monitor() -- becomes the monitor for the active project,
 │         refuses if monitor.lock is live; if stale, requires a confirm
 │         ("stale lock, take over?") before forcing it
-└── pipeline.farm_kill_monitor : request_monitor_kill() -- writes a kill_*.json request,
+└── m_pipeline.farm_kill_monitor : request_monitor_kill() -- writes a kill_*.json request,
     the CURRENT monitor's own next tick sees it, stops itself and clears monitor.lock
     (this is why it never blocks: the requester never touches the lock directly)
 ```
@@ -317,7 +317,7 @@ Manual start, automatic stop.
 
 ## Activate / deactivate project
 
-`pipeline.set_active_project`, `.unset_active_project`, `.create_project`, `.find_project`, or the "Switch to this project" popup choice — all funnel through `lib.set_active_project_root(prefs, new_root)`:
+`m_pipeline.set_active_project`, `.unset_active_project`, `.create_project`, `.find_project`, or the "Switch to this project" popup choice — all funnel through `lib.set_active_project_root(prefs, new_root)`:
 
 ```
 ├── stop_farm_role_for_project(OLD active_project_root) : if THIS Blender instance
@@ -361,7 +361,7 @@ Each caller still does its own `save_project_data(prefs)` + `opened_projects` li
 │   installs the Ctrl+S -> wm.safe_save keymap override
 ├── deferred (0.05s later) : active_project_root was restored non-empty AND its
 │   folder isn't reachable (Path(root).exists() fails -- NAS disconnected,
-│   drive unmapped) ? pipeline.unset_active_project() + PipelineAction popup
+│   drive unmapped) ? m_pipeline.unset_active_project() + PipelineAction popup
 │   ("Active project unreachable") -- without this, every redraw of
 │   farm_panel.py (poll()s on get_active_project_root() alone, no file needs
 │   to be open) tries to resolve/stat a path under the dead mount and can
@@ -418,7 +418,7 @@ Every 30s, for as long as the addon is enabled.
 
 ### _refresh_tick
 
-Every ~2s, only while the farm monitor popup (`pipeline.farm_monitor`) is
+Every ~2s, only while the farm monitor popup (`m_pipeline.farm_monitor`) is
 open -- registered in its `invoke()`, unregistered in `execute()`/`cancel()`.
 Not running the rest of the time; never touches farm state, UI only.
 

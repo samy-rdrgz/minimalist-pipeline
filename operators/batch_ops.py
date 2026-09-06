@@ -22,11 +22,11 @@ from ..lib import (
 )
 
 
-class PIPELINE_OT_batch_create(bpy.types.Operator):
+class M_PIPELINE_OT_batch_create(bpy.types.Operator):
     """Batch-create assets or shots from a CSV file, skipping any that
     already exist."""
 
-    bl_idname = "pipeline.batch_create"
+    bl_idname = "m_pipeline.batch_create"
     bl_label = "Batch create from CSV"
     bl_description = (
         "Create multiple assets or shots from a CSV file, skipping existing ones."

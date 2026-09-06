@@ -37,10 +37,10 @@ class PipelineShotItem(bpy.types.PropertyGroup):
     start_frame: bpy.props.IntProperty(name="", min=0)
 
 
-class PIPELINE_OT_add_multishot_item(bpy.types.Operator):
+class M_PIPELINE_OT_add_multishot_item(bpy.types.Operator):
     """Append one row (shot number + start frame) to the shot list being built."""
 
-    bl_idname = "pipeline.add_multishot_item"
+    bl_idname = "m_pipeline.add_multishot_item"
     bl_label = "Add"
 
     shot_number: bpy.props.IntProperty(name="", default=10)
@@ -54,10 +54,10 @@ class PIPELINE_OT_add_multishot_item(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class PIPELINE_OT_remove_multishot_item(bpy.types.Operator):
+class M_PIPELINE_OT_remove_multishot_item(bpy.types.Operator):
     """Remove one row from the shot list being built, by index."""
 
-    bl_idname = "pipeline.remove_multishot_item"
+    bl_idname = "m_pipeline.remove_multishot_item"
     bl_label = "Remove line"
 
     index: bpy.props.IntProperty(name="")
@@ -99,16 +99,16 @@ def _draw_shot_list(layout, context, op, config, TITLE_WIDTH):
         btn_row = btns_row.row(align=True)
         btn_row.enabled = len(shots) > 1
         btn_row.operator(
-            "pipeline.remove_multishot_item", text="", icon="REMOVE"
+            "m_pipeline.remove_multishot_item", text="", icon="REMOVE"
         ).index = len(shots) - 1
 
-        add_op = btns_row.operator("pipeline.add_multishot_item", icon="ADD", text="")
+        add_op = btns_row.operator("m_pipeline.add_multishot_item", icon="ADD", text="")
         add_op.shot_number = last.shot_number + 10
         add_op.start_frame = last.start_frame + 20
 
     else:
         tabl.operator(
-            "pipeline.add_multishot_item", text="Add shot(s) number"
+            "m_pipeline.add_multishot_item", text="Add shot(s) number"
         ).start_frame = json_get(config, "default_frame_start", 1001)
 
     return shots
@@ -127,7 +127,7 @@ def _draw_block_warning(layout, context, shots):
         f"shots together.\nNot one continuous action? Use separate shots "
         f"instead."
     )
-    # PIPELINE_OT_create_shot draws this inside its own invoke_props_dialog
+    # M_PIPELINE_OT_create_shot draws this inside its own invoke_props_dialog
     # (width=500) -- context.region there isn't that dialog's own region,
     # so region_char_budget(context) would size off a panel-sized guess.
     # Pass the dialog's own real width instead -- see region_char_budget()'s
@@ -255,10 +255,10 @@ def _draw_shot_conflicts(layout, op, project_root, sq, shots, config, exclude_di
         box.prop(op, "confirm_overlap")
 
 
-class PIPELINE_OT_create_shot(bpy.types.Operator):
+class M_PIPELINE_OT_create_shot(bpy.types.Operator):
     """Create a new shot with proper naming and folder placement."""
 
-    bl_idname = "pipeline.create_shot"
+    bl_idname = "m_pipeline.create_shot"
     bl_label = "New shot"
     bl_description = "Create a new versioned shot in the active project."
 
@@ -333,7 +333,7 @@ class PIPELINE_OT_create_shot(bpy.types.Operator):
         # straight into a shot with no number and no camera/marker at all --
         # see create_shot_file()'s own guard against that) or keeps
         # whatever was left over from the last shot created. Reset it to one
-        # sensible default row every time, same as PIPELINE_OT_edit_block_structure's
+        # sensible default row every time, same as M_PIPELINE_OT_edit_block_structure's
         # own invoke() does.
         shots = context.window_manager.shots_list_creation
         shots.clear()
@@ -405,11 +405,11 @@ class PIPELINE_OT_create_shot(bpy.types.Operator):
 # ---------------------------------------------------------------------------
 # Branch
 # ---------------------------------------------------------------------------
-class PIPELINE_OT_edit_block_structure(bpy.types.Operator):
+class M_PIPELINE_OT_edit_block_structure(bpy.types.Operator):
     """Archive this block's composition and create a new one with a
     different shot enumeration."""
 
-    bl_idname = "pipeline.edit_block_structure"
+    bl_idname = "m_pipeline.edit_block_structure"
     bl_label = "Edit block structure"
     bl_description = (
         "Archive this block and create a new one with a different shot enumeration."

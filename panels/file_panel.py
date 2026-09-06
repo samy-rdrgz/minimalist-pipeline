@@ -20,11 +20,11 @@ from ..lib import (
 from .tracking_panel import ENTRIES_INDENT_FACTOR, draw_tracking_data
 
 
-class PIPELINE_PT_file_panel(bpy.types.Panel):
+class M_PIPELINE_PT_file_panel(bpy.types.Panel):
     """File creation and versioning."""
 
     bl_label = ""
-    bl_idname = "PIPELINE_PT_file_panel"
+    bl_idname = "M_PIPELINE_PT_file_panel"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Pipeline"
@@ -79,7 +79,7 @@ class PIPELINE_PT_file_panel(bpy.types.Panel):
 
             for d in required:
                 op = col.operator(
-                    "pipeline.toggle_worked_department",
+                    "m_pipeline.toggle_worked_department",
                     text=d,
                     depress=d in worked,
                 )
@@ -96,7 +96,7 @@ class PIPELINE_PT_file_panel(bpy.types.Panel):
             layout.separator()
 
         layout.operator(
-            "pipeline.increment_version", text="Increment version", icon="DUPLICATE"
+            "m_pipeline.increment_version", text="Increment version", icon="DUPLICATE"
         )
         draw_box_tip(
             layout,
@@ -109,7 +109,7 @@ class PIPELINE_PT_file_panel(bpy.types.Panel):
             # Already the stable version -- marking it stable again is a
             # no-op offer, and confusing next to the read-only indicator.
             layout.operator(
-                "pipeline.increment_version", text="Mark as stable", icon="CHECKMARK"
+                "m_pipeline.increment_version", text="Mark as stable", icon="CHECKMARK"
             ).tag = "stable"
             draw_box_tip(
                 layout,
@@ -121,7 +121,7 @@ class PIPELINE_PT_file_panel(bpy.types.Panel):
 
         layout.separator()
         layout.operator(
-            "pipeline.farm_request_render",
+            "m_pipeline.farm_request_render",
             text="Render",
             icon="RENDER_RESULT",
         ).filepath = bpy.data.filepath
@@ -138,7 +138,7 @@ class PIPELINE_PT_file_panel(bpy.types.Panel):
             if len(shots_in_segment(parsed["shot"])) > 1:
                 row = layout.row(align=True)
                 op = row.operator(
-                    "pipeline.compile_preview", text="Preview block", icon="SEQUENCE"
+                    "m_pipeline.compile_preview", text="Preview block", icon="SEQUENCE"
                 )
                 op.scope = "block"
                 op.filepath = bpy.data.filepath
@@ -146,11 +146,15 @@ class PIPELINE_PT_file_panel(bpy.types.Panel):
                     "Compile a disposable preview from just this block's own shots."
                 )
                 op = row.operator(
-                    "pipeline.compile_preview", text="Preview sequence", icon="SEQUENCE"
+                    "m_pipeline.compile_preview",
+                    text="Preview sequence",
+                    icon="SEQUENCE",
                 )
             else:
                 op = layout.operator(
-                    "pipeline.compile_preview", text="Preview sequence", icon="SEQUENCE"
+                    "m_pipeline.compile_preview",
+                    text="Preview sequence",
+                    icon="SEQUENCE",
                 )
             op.scope = "sequence"
             op.filepath = bpy.data.filepath
@@ -167,7 +171,7 @@ class PIPELINE_PT_file_panel(bpy.types.Panel):
 
             layout.separator()
             layout.operator(
-                "pipeline.edit_block_structure",
+                "m_pipeline.edit_block_structure",
                 text="Edit block structure",
                 icon="UV_SYNC_SELECT",
             ).filepath = bpy.data.filepath

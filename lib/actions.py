@@ -9,7 +9,7 @@ class PipelineAction:
     these, a single operator (pipeline.action_popup) displays them all.
     severity: "info" (status bar) | "warning" | "critical" (both modal).
     choices: list of (label, callback) or (label, callback, tooltip). Usage:
-    set_pending_action(action), then bpy.ops.pipeline.action_popup('INVOKE_DEFAULT').
+    set_pending_action(action), then bpy.ops.m_pipeline.action_popup('INVOKE_DEFAULT').
     on_dismiss: run by action_popup's cancel() when the popup is dismissed
     without clicking a choice (Escape / click-away) -- for cleanup that must
     happen regardless of which button (if any) was clicked, e.g. releasing a

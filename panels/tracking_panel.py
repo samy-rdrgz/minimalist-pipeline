@@ -40,6 +40,7 @@ TYPE_ICON = {
     "env": "WORLD",
     "gn": "NODETREE",
     "tech": "SCRIPT",
+    "fx": "SHADERFX",
     "asset": "ASSET_MANAGER",
 }
 
@@ -62,7 +63,7 @@ def draw_tracking_data(context, box, filepath, required, width: int | None = Non
             row.enabled = False
             row.alignment = "LEFT"
             row.operator(
-                "pipeline.department_status_info",
+                "m_pipeline.department_status_info",
                 text=d,
                 icon="CHECKMARK" if d in validated else "CHECKBOX_DEHLT",
                 emboss=False,
@@ -77,7 +78,7 @@ def draw_entries(box, filepath, filters=None, width: int | None = None):
     entries_min_version. Defaults to the WindowManager (one shared, global
     filter state) for the sidebar panel -- pass the popup's own operator
     instance instead when draw_entries() is showing a file that may differ
-    from bpy.data.filepath (e.g. PIPELINE_OT_tracking_file_details), so its
+    from bpy.data.filepath (e.g. M_PIPELINE_OT_tracking_file_details), so its
     filters (and department dropdown, via department_filter_items' self.filepath
     fallback) stay scoped to that file instead of leaking into/from the panel."""
     filters = filters or bpy.context.window_manager
@@ -93,9 +94,9 @@ def draw_entries(box, filepath, filters=None, width: int | None = None):
         emboss=False,
     )
     btns = title_row.row(align=True)
-    btn = btns.operator("pipeline.create_entry", icon="ADD", text="", emboss=False)
+    btn = btns.operator("m_pipeline.create_entry", icon="ADD", text="", emboss=False)
     btn.filepath = filepath
-    btns.operator("pipeline.upload_csv", icon="IMPORT", text="", emboss=False)
+    btns.operator("m_pipeline.upload_csv", icon="IMPORT", text="", emboss=False)
 
     if bpy.context.window_manager.entries_collapse:
         draw_box_tip(
@@ -187,7 +188,7 @@ def _draw_entry(e, note, filepath, width: int | None = None):
 
     if e.get("done") is not None:
         btn = body.operator(
-            "pipeline.toggle_entry_task",
+            "m_pipeline.toggle_entry_task",
             text="",
             icon="CHECKMARK" if e["done"] else "CHECKBOX_DEHLT",
             emboss=False,
@@ -252,13 +253,13 @@ def _draw_entry(e, note, filepath, width: int | None = None):
         f_end = e["frame_end"] + base if e.get("frame_end") is not None else None
 
         frames_row.operator(
-            "pipeline.current_frame",
+            "m_pipeline.current_frame",
             text=label.format(f_start),
             emboss=not e.get("done", False),
         ).frame = f_start
         if e.get("frame_end"):
             frames_row.operator(
-                "pipeline.current_frame",
+                "m_pipeline.current_frame",
                 text=label.format(f_end),
                 emboss=not e.get("done", False),
             ).frame = f_end
@@ -270,7 +271,7 @@ def _draw_entry(e, note, filepath, width: int | None = None):
     btns.scale_x = 0.85
 
     btn = btns.operator(
-        "pipeline.generic_entry_button",
+        "m_pipeline.generic_entry_button",
         text="",
         icon="GRIP_CORNER_BOTTOM_RIGHT",
         emboss=False,
@@ -323,7 +324,7 @@ def draw_file_details(self, context, layout):
     row_left = row.box().row(align=True)
     row_left.alignment = "LEFT"
     row_left.operator(
-        "pipeline.tracking_file_details",
+        "m_pipeline.tracking_file_details",
         text="",
         icon="BACK",
         emboss=False,
@@ -359,14 +360,14 @@ def draw_file_details(self, context, layout):
     row_right = row.box().row(align=False)
     row_right.alignment = "RIGHT"
     row_right.operator(
-        "pipeline.edit_description",
+        "m_pipeline.edit_description",
         text="",
         icon="GREASEPENCIL",
         emboss=False,
     ).filepath = filepath
 
     row_right.operator(
-        "pipeline.open_file_version",
+        "m_pipeline.open_file_version",
         text="",
         icon="FILE_ALIAS",
         emboss=False,
@@ -387,7 +388,7 @@ def draw_file_details(self, context, layout):
             is_block = False
         if is_block:
             op = row_right.operator(
-                "pipeline.compile_preview",
+                "m_pipeline.compile_preview",
                 text="",
                 icon="RENDER_ANIMATION",
                 emboss=False,
@@ -399,7 +400,7 @@ def draw_file_details(self, context, layout):
             )
 
         op = row_right.operator(
-            "pipeline.compile_preview", text="", icon="SEQUENCE", emboss=False
+            "m_pipeline.compile_preview", text="", icon="SEQUENCE", emboss=False
         )
         op.scope = "sequence"
         op.filepath = filepath
@@ -435,7 +436,7 @@ def draw_file_details(self, context, layout):
             btn.active = d in validated
             btn.alignment = "LEFT"
             op = btn.operator(
-                "pipeline.toggle_validated_department",
+                "m_pipeline.toggle_validated_department",
                 text=d.upper(),
                 icon="CHECKMARK" if d in validated else "REMOVE",
                 emboss=False,
@@ -480,7 +481,7 @@ def draw_file_details(self, context, layout):
                 row.alignment = "LEFT"
                 row.separator(factor=1.5)
                 op = row.operator(
-                    "pipeline.tracking_file_details",
+                    "m_pipeline.tracking_file_details",
                     text=f"{lib_dir.name} ({len(entries)})"
                     if len(entries) > 1
                     else lib_dir.name,
@@ -498,7 +499,7 @@ def draw_file_details(self, context, layout):
                 row.alignment = "LEFT"
                 row.separator(factor=1.5)
                 op = row.operator(
-                    "pipeline.tracking_file_details",
+                    "m_pipeline.tracking_file_details",
                     text=folder.name,
                     icon="BLANK1",
                     emboss=False,
@@ -507,7 +508,7 @@ def draw_file_details(self, context, layout):
 
     layout.separator(factor=2)
 
-    # draw_file_details() is only ever called from PIPELINE_OT_tracking_monitor's
+    # draw_file_details() is only ever called from M_PIPELINE_OT_tracking_monitor's
     # draw() (invoke_props_dialog(width=800)) -- context.region there isn't
     # that dialog's own region, so region_char_budget(context) would size
     # this off a panel-sized guess. Pass the dialog's own real width instead
@@ -519,7 +520,7 @@ def draw_file_details(self, context, layout):
 
 
 def draw_monitor_table(self, context, layout, columns):
-    """Filtered, paginated file list for PIPELINE_OT_tracking_monitor's main
+    """Filtered, paginated file list for M_PIPELINE_OT_tracking_monitor's main
     view -- self is that operator instance (file_type/asset_prefix/sequence/
     page state lives on it, same convention as draw_file_details() above)."""
     data = TrackingStatusCache.get_all(Path(self.project_root))
@@ -609,7 +610,7 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column):
         else TYPE_ICON.get("sh", "OUTLINER_OB_CAMERA")
     )
     op = name.operator(
-        "pipeline.tracking_file_details",
+        "m_pipeline.tracking_file_details",
         text=file.get("file_name", "Unknown"),
         icon=icon,
         emboss=False,
@@ -621,7 +622,7 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column):
     details.alignment = "RIGHT"
     details.active = False
     details.operator(
-        "pipeline.open_file_version",
+        "m_pipeline.open_file_version",
         text="",
         icon="FILE_ALIAS",
         emboss=False,
@@ -653,7 +654,7 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column):
             else:
                 text, row_icon = "Not started", "CHECKBOX_DEHLT"
             status.operator(
-                "pipeline.department_status_info",
+                "m_pipeline.department_status_info",
                 text=text,
                 icon=row_icon,
                 emboss=False,

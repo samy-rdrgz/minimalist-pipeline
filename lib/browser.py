@@ -320,7 +320,7 @@ _entry_version_items_cache: list = []
 
 def entry_version_items(self, context):
     """Same as dir_version_items, but self.filepath may be the folder or a
-    specific .blend file inside it (PIPELINE_OT_create_entry.filepath follows
+    specific .blend file inside it (M_PIPELINE_OT_create_entry.filepath follows
     the same convention as create_entry() itself: falls back to bpy.data.filepath)."""
     try:
         target = Path(self.filepath) if self.filepath else Path(bpy.data.filepath)

@@ -42,10 +42,10 @@ def _get_prefix_items(self, context):
 # ---------------------------------------------------------------------------
 
 
-class PIPELINE_OT_create_asset(bpy.types.Operator):
+class M_PIPELINE_OT_create_asset(bpy.types.Operator):
     """Create a new asset with proper naming and folder placement."""
 
-    bl_idname = "pipeline.create_asset"
+    bl_idname = "m_pipeline.create_asset"
     bl_label = "New asset"
     bl_description = "Create a new versioned asset in the active project."
 

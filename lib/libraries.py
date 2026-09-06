@@ -107,7 +107,7 @@ def import_warnings(items):
                     explanation=APPEND_DETECTED_EXPLANATION,
                 )
             )
-            return bpy.ops.pipeline.action_popup("INVOKE_DEFAULT")
+            return bpy.ops.m_pipeline.action_popup("INVOKE_DEFAULT")
         else:
             set_pending_action(
                 PipelineAction(
@@ -125,7 +125,7 @@ def import_warnings(items):
                     explanation=APPEND_DETECTED_EXPLANATION,
                 )
             )
-            return bpy.ops.pipeline.action_popup("INVOKE_DEFAULT")
+            return bpy.ops.m_pipeline.action_popup("INVOKE_DEFAULT")
 
     else:
         data = [
@@ -159,7 +159,7 @@ def import_warnings(items):
                     ],
                 )
             )
-            return bpy.ops.pipeline.action_popup("INVOKE_DEFAULT")
+            return bpy.ops.m_pipeline.action_popup("INVOKE_DEFAULT")
         else:
             wipmeta_add_link(Path(bpy.data.filepath), data)
             return

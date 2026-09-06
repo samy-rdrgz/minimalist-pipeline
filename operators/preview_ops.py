@@ -20,10 +20,10 @@ from ..lib import (
 )
 
 
-class PIPELINE_OT_compile_preview(bpy.types.Operator):
+class M_PIPELINE_OT_compile_preview(bpy.types.Operator):
     """Compile a disposable preview mp4 for a block or a whole sequence."""
 
-    bl_idname = "pipeline.compile_preview"
+    bl_idname = "m_pipeline.compile_preview"
     bl_label = "Compile preview"
 
     scope: bpy.props.EnumProperty(

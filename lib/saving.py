@@ -37,7 +37,7 @@ def _increment_and_release(filepath: str, uuid: str):
     timer tick -- see NOTES.md, "Popup-chaining"."""
     try:
         bpy.app.timers.register(
-            lambda: bpy.ops.pipeline.increment_version("INVOKE_DEFAULT"),
+            lambda: bpy.ops.m_pipeline.increment_version("INVOKE_DEFAULT"),
             first_interval=0.05,
         )
     finally:
@@ -163,7 +163,7 @@ class WM_OT_safe_save(bpy.types.Operator):
                 lines = ["File is lock by another user :"] + [
                     f"{n} : {m}" for n, m in data.items()
                 ]
-                bpy.ops.pipeline.text_popup(
+                bpy.ops.m_pipeline.text_popup(
                     "INVOKE_DEFAULT",
                     title="Save Impossible",
                     message="\n".join(lines),
@@ -236,6 +236,6 @@ class WM_OT_safe_save(bpy.types.Operator):
         """Defer opening action_popup by one timer tick -- see NOTES.md,
         "Popup-chaining"."""
         bpy.app.timers.register(
-            lambda: bpy.ops.pipeline.action_popup("INVOKE_DEFAULT"),
+            lambda: bpy.ops.m_pipeline.action_popup("INVOKE_DEFAULT"),
             first_interval=0.05,
         )

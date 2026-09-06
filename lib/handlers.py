@@ -68,7 +68,7 @@ def _propose_project_switch(project_path: str):
     )
     set_pending_action(action)
     if not bpy.app.background:
-        bpy.ops.pipeline.action_popup("INVOKE_DEFAULT")
+        bpy.ops.m_pipeline.action_popup("INVOKE_DEFAULT")
 
 
 def _static_read_only_reason(filepath: str) -> str:
@@ -151,7 +151,7 @@ def post_load_handler(*args):
             lines = ["File is lock by another user :"] + [
                 f"{n} : {m}" for n, m in data.items()
             ]
-            bpy.ops.pipeline.text_popup(
+            bpy.ops.m_pipeline.text_popup(
                 "INVOKE_DEFAULT",
                 title="Opened as Read-Only",
                 message="\n".join(lines),
@@ -160,7 +160,7 @@ def post_load_handler(*args):
             )
             return
 
-        bpy.ops.pipeline.auto_version("INVOKE_DEFAULT")
+        bpy.ops.m_pipeline.auto_version("INVOKE_DEFAULT")
 
 
 @bpy.app.handlers.persistent

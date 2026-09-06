@@ -110,7 +110,7 @@ class PipelineAddonPreferences(bpy.types.AddonPreferences):
         row = layout.row()
         row.prop(self, "experience_level", expand=True)
         row.operator(
-            "pipeline.onboarding_popup",
+            "m_pipeline.onboarding_popup",
             text="What this addon does",
             icon="QUESTION",
         )

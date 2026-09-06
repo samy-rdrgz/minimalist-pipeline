@@ -417,7 +417,7 @@ def create_wipmeta(
 def wipmeta_touch(filepath: Path):
     """Stamp this version's .wipmeta with who/when it was last saved --
     edited_at/edited_by only, doesn't touch departments_worked or linked.
-    Called from save_post_handler on every save, so PIPELINE_OT_auto_version
+    Called from save_post_handler on every save, so M_PIPELINE_OT_auto_version
     can tell a same-day re-open by a different user from the file's own
     author. Never raises: handler-called, same rule as check_library_update()."""
     path = filepath.parent / ".pipeline" / (_meta_stem(filepath) + ".wipmeta")
@@ -1269,7 +1269,7 @@ def check_library_update():
             ),
         )
         set_pending_action(action)
-        bpy.ops.pipeline.action_popup("INVOKE_DEFAULT")
+        bpy.ops.m_pipeline.action_popup("INVOKE_DEFAULT")
 
 
 def get_last_file_stable(filepath: Path) -> Path | None:

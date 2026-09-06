@@ -12,11 +12,11 @@ from ..lib import ConfigCache, addon_pref, draw_box_tip, get_active_project_root
 FIRST_COLUMN = 0.4
 
 
-class PIPELINE_PT_farm_panel(bpy.types.Panel):
+class M_PIPELINE_PT_farm_panel(bpy.types.Panel):
     """Farm monitoring."""
 
     bl_label = ""
-    bl_idname = "PIPELINE_PT_farm_panel"
+    bl_idname = "M_PIPELINE_PT_farm_panel"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Pipeline"
@@ -48,7 +48,7 @@ class PIPELINE_PT_farm_panel(bpy.types.Panel):
         if not is_monitor:
             layout.label(text="Farm : not running", icon="GHOST_DISABLED")
             layout.operator(
-                "pipeline.farm_launch_monitor",
+                "m_pipeline.farm_launch_monitor",
                 text="",
                 icon="TRIA_RIGHT",
                 emboss=False,
@@ -75,13 +75,13 @@ class PIPELINE_PT_farm_panel(bpy.types.Panel):
             )
             if status != "running":
                 layout.operator(
-                    "pipeline.farm_launch_monitor",
+                    "m_pipeline.farm_launch_monitor",
                     text="",
                     icon="TRIA_RIGHT",
                     emboss=False,
                 )
         layout.operator(
-            "pipeline.farm_monitor", text="", icon="SEQ_STRIP_MODIFIER", emboss=False
+            "m_pipeline.farm_monitor", text="", icon="SEQ_STRIP_MODIFIER", emboss=False
         )
         layout.separator(factor=1.5)
 
@@ -106,11 +106,11 @@ class PIPELINE_PT_farm_panel(bpy.types.Panel):
 
             if status in ("running", "stale"):
                 layout.operator(
-                    "pipeline.farm_kill_monitor", text="Kill farm", icon="X"
+                    "m_pipeline.farm_kill_monitor", text="Kill farm", icon="X"
                 )
             if status not in ("running", "stale"):
                 layout.operator(
-                    "pipeline.farm_launch_monitor",
+                    "m_pipeline.farm_launch_monitor",
                     text="Launch farm",
                     icon="TRIA_RIGHT",
                 )
@@ -130,15 +130,15 @@ class PIPELINE_PT_farm_panel(bpy.types.Panel):
             info.label(text=labels.get(status, "..."), icon="DOT")
         else:
             layout.operator(
-                "pipeline.farm_launch_monitor", text="Launch farm", icon="TRIA_RIGHT"
+                "m_pipeline.farm_launch_monitor", text="Launch farm", icon="TRIA_RIGHT"
             )
         layout.operator(
-            "pipeline.farm_monitor", text="Farm monitor", icon="SEQ_STRIP_MODIFIER"
+            "m_pipeline.farm_monitor", text="Farm monitor", icon="SEQ_STRIP_MODIFIER"
         )
 
 
 def draw_farm_jobs(layout):
-    """PIPELINE_OT_farm_monitor's "Jobs" view: every active job, its stage
+    """M_PIPELINE_OT_farm_monitor's "Jobs" view: every active job, its stage
     and progress."""
     cache = get_monitor_cache()
 
@@ -228,7 +228,7 @@ def draw_farm_jobs(layout):
             status.label(text=text)
             if stage == "render_start":
                 status.operator(
-                    "pipeline.farm_cancel_job", text="", icon="X", emboss=False
+                    "m_pipeline.farm_cancel_job", text="", icon="X", emboss=False
                 ).job_id = j["job_id"]
             elif (
                 stage == "finished"
@@ -236,7 +236,7 @@ def draw_farm_jobs(layout):
                 or stage.endswith("failed")
             ):
                 status.operator(
-                    "pipeline.farm_archive_job",
+                    "m_pipeline.farm_archive_job",
                     text="",
                     icon="CHECKMARK",
                     emboss=False,
@@ -244,7 +244,7 @@ def draw_farm_jobs(layout):
 
 
 def draw_farm_workers(layout):
-    """PIPELINE_OT_farm_monitor's "Workers" view: every known machine, idle
+    """M_PIPELINE_OT_farm_monitor's "Workers" view: every known machine, idle
     or what it's currently rendering."""
     title_list = layout.split(factor=FIRST_COLUMN)
     title_list.active = False
@@ -253,11 +253,11 @@ def draw_farm_workers(layout):
     btn.label(text="Machine", icon="BLANK1")
     if bpy.context.scene.is_worker:
         btn.operator(
-            "pipeline.farm_kill_self_worker", text="Kill this worker", icon="X"
+            "m_pipeline.farm_kill_self_worker", text="Kill this worker", icon="X"
         )
     else:
         btn.operator(
-            "pipeline.farm_add_self_worker", text="Add this machine", icon="ADD"
+            "m_pipeline.farm_add_self_worker", text="Add this machine", icon="ADD"
         )
 
     title_list.row().label(text="Jobs")
@@ -325,7 +325,7 @@ def draw_farm_workers(layout):
             job_id = uuid_to_job.get(m.get("uuid"))
             if job_id:
                 op = jobs.operator(
-                    "pipeline.farm_cancel_job", text="", icon="X", emboss=False
+                    "m_pipeline.farm_cancel_job", text="", icon="X", emboss=False
                 )
                 op.job_id = job_id
                 op.target_uuid = m.get("uuid", "")

@@ -70,10 +70,10 @@ DEFAULT_CONFIG = {
 # ---------------------------------------------------------------------------
 
 
-class PIPELINE_OT_create_project(bpy.types.Operator):
+class M_PIPELINE_OT_create_project(bpy.types.Operator):
     """Create a new project with folder structure and config."""
 
-    bl_idname = "pipeline.create_project"
+    bl_idname = "m_pipeline.create_project"
     bl_label = "Create new project"
     bl_description = "Create folder structure and pipeline config."
 
@@ -165,7 +165,7 @@ class PIPELINE_OT_create_project(bpy.types.Operator):
         # Deferred one timer tick -- see NOTES.md, "Popup-chaining".
         project_root_str = str(project_root)
         bpy.app.timers.register(
-            lambda: bpy.ops.pipeline.edit_project(
+            lambda: bpy.ops.m_pipeline.edit_project(
                 "INVOKE_DEFAULT", project_path_selected=project_root_str
             ),
             first_interval=0.05,
@@ -210,10 +210,10 @@ class PIPELINE_OT_create_project(bpy.types.Operator):
 # ---------------------------------------------------------------------------
 
 
-class PIPELINE_OT_find_project(bpy.types.Operator):
+class M_PIPELINE_OT_find_project(bpy.types.Operator):
     """Locate and activate an existing project."""
 
-    bl_idname = "pipeline.find_project"
+    bl_idname = "m_pipeline.find_project"
     bl_label = "Find existing project"
     bl_description = "Select a folder containing a pipeline config."
 
@@ -261,7 +261,7 @@ class PIPELINE_OT_find_project(bpy.types.Operator):
         install_default_preset()
         install_default_ffmpeg_preset()  # backfill for older projects
 
-        bpy.ops.pipeline.text_popup(
+        bpy.ops.m_pipeline.text_popup(
             "INVOKE_DEFAULT", title="Project activated", message=name, icon="CHECKMARK"
         )
         return {"FINISHED"}
@@ -272,10 +272,10 @@ class PIPELINE_OT_find_project(bpy.types.Operator):
 # ---------------------------------------------------------------------------
 
 
-class PIPELINE_OT_set_active_project(bpy.types.Operator):
+class M_PIPELINE_OT_set_active_project(bpy.types.Operator):
     """Set a project from the list as active."""
 
-    bl_idname = "pipeline.set_active_project"
+    bl_idname = "m_pipeline.set_active_project"
     bl_label = "Activate project"
 
     project_path_selected: bpy.props.StringProperty()
@@ -298,10 +298,10 @@ class PIPELINE_OT_set_active_project(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class PIPELINE_OT_unset_active_project(bpy.types.Operator):
+class M_PIPELINE_OT_unset_active_project(bpy.types.Operator):
     """Unset active project (no project active)."""
 
-    bl_idname = "pipeline.unset_active_project"
+    bl_idname = "m_pipeline.unset_active_project"
     bl_label = "Unset active project"
 
     def execute(self, context):
@@ -322,10 +322,10 @@ class PIPELINE_OT_unset_active_project(bpy.types.Operator):
 # ---------------------------------------------------------------------------
 
 
-class PIPELINE_OT_remove_project(bpy.types.Operator):
+class M_PIPELINE_OT_remove_project(bpy.types.Operator):
     """Remove project from list (files stay on disk)."""
 
-    bl_idname = "pipeline.remove_project"
+    bl_idname = "m_pipeline.remove_project"
     bl_label = ""
     bl_description = "Remove this project from your list."
 
@@ -365,10 +365,10 @@ class PIPELINE_OT_remove_project(bpy.types.Operator):
 # ---------------------------------------------------------------------------
 
 
-class PIPELINE_OT_edit_project(bpy.types.Operator):
+class M_PIPELINE_OT_edit_project(bpy.types.Operator):
     """Edit project configuration."""
 
-    bl_idname = "pipeline.edit_project"
+    bl_idname = "m_pipeline.edit_project"
     bl_label = ""
     bl_description = "Edit project settings."
 

@@ -23,10 +23,10 @@ from .versioning import (
 )
 
 
-class PIPELINE_OT_action_popup(bpy.types.Operator):
+class M_PIPELINE_OT_action_popup(bpy.types.Operator):
     """Generic popup that displays any PipelineAction."""
 
-    bl_idname = "pipeline.action_popup"
+    bl_idname = "m_pipeline.action_popup"
     bl_label = "Pipeline"
 
     _POPUP_WIDTH = 300  # invoke_popup()'s own width param, real pixels
@@ -105,10 +105,10 @@ class PIPELINE_OT_action_popup(bpy.types.Operator):
         if self._action.choices:
             for i, choice in enumerate(self._action.choices):
                 label = choice[0]
-                op = ops.operator("pipeline.action_popup", text=label)
+                op = ops.operator("m_pipeline.action_popup", text=label)
                 op.choice_index = i
         else:
-            op = ops.operator("pipeline.action_popup", text="OK")
+            op = ops.operator("m_pipeline.action_popup", text="OK")
             op.choice_index = -1
 
     def execute(self, context):
@@ -135,10 +135,10 @@ class PIPELINE_OT_action_popup(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class PIPELINE_OT_text_popup(bpy.types.Operator):
+class M_PIPELINE_OT_text_popup(bpy.types.Operator):
     """Simple modal popup for messages (temporary, replaced by PipelineAction)."""
 
-    bl_idname = "pipeline.text_popup"
+    bl_idname = "m_pipeline.text_popup"
     bl_label = "Info"
 
     icon: bpy.props.StringProperty(default="INFO")
@@ -182,7 +182,7 @@ class PIPELINE_OT_text_popup(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class PIPELINE_OT_onboarding_popup(bpy.types.Operator):
+class M_PIPELINE_OT_onboarding_popup(bpy.types.Operator):
     """First-launch intro: what the addon does, how it works, what it
     needs, and the one rule. Also reachable anytime from the main panel's
     header (Help icon). Non-blocking, dismissible, no step-by-step flow --
@@ -190,7 +190,7 @@ class PIPELINE_OT_onboarding_popup(bpy.types.Operator):
     hook/detail contrast and the section layout below are one-off, not a
     shape any other popup in the addon reuses."""
 
-    bl_idname = "pipeline.onboarding_popup"
+    bl_idname = "m_pipeline.onboarding_popup"
     bl_label = "Welcome"
 
     _POPUP_WIDTH = 650  # invoke_popup()'s own width param, real pixels
@@ -309,10 +309,10 @@ class PIPELINE_OT_onboarding_popup(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class PIPELINE_OT_auto_version(bpy.types.Operator):
+class M_PIPELINE_OT_auto_version(bpy.types.Operator):
     """Check file date on load, propose version increment."""
 
-    bl_idname = "pipeline.auto_version"
+    bl_idname = "m_pipeline.auto_version"
     bl_label = "Auto Versioning"
 
     skip_confirm: bpy.props.BoolProperty(default=False)
@@ -427,10 +427,10 @@ class WM_OT_open_folder(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class PIPELINE_OT_current_frame(bpy.types.Operator):
+class M_PIPELINE_OT_current_frame(bpy.types.Operator):
     """Jump to specified frame"""
 
-    bl_idname = "pipeline.current_frame"
+    bl_idname = "m_pipeline.current_frame"
     bl_label = ""
 
     frame: bpy.props.IntProperty()

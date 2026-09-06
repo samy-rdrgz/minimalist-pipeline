@@ -65,10 +65,10 @@ class PipelineEntryItem(bpy.types.PropertyGroup):
     frame_end: bpy.props.IntProperty(name="")
 
 
-class PIPELINE_OT_add_entry_line(bpy.types.Operator):
+class M_PIPELINE_OT_add_entry_line(bpy.types.Operator):
     """Append one text line to the note/todo being composed."""
 
-    bl_idname = "pipeline.add_entry_line"
+    bl_idname = "m_pipeline.add_entry_line"
     bl_label = "New line"
 
     department: bpy.props.StringProperty(name="")
@@ -81,10 +81,10 @@ class PIPELINE_OT_add_entry_line(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class PIPELINE_OT_remove_entry_line(bpy.types.Operator):
+class M_PIPELINE_OT_remove_entry_line(bpy.types.Operator):
     """Remove one text line from the note/todo being composed, by index."""
 
-    bl_idname = "pipeline.remove_entry_line"
+    bl_idname = "m_pipeline.remove_entry_line"
     bl_label = "Remove line"
 
     index: bpy.props.IntProperty(name="")
@@ -95,10 +95,10 @@ class PIPELINE_OT_remove_entry_line(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class PIPELINE_OT_create_entry(bpy.types.Operator):
+class M_PIPELINE_OT_create_entry(bpy.types.Operator):
     """Create a note/todo/rtk entry on a file's tracking.json."""
 
-    bl_idname = "pipeline.create_entry"
+    bl_idname = "m_pipeline.create_entry"
     bl_label = "New entry"
     bl_description = "Add a note, todo, or RTK entry to this file's tracking."
 
@@ -186,7 +186,7 @@ class PIPELINE_OT_create_entry(bpy.types.Operator):
         col = layout.column(align=True)
 
         if not entries:
-            col.operator("pipeline.add_entry_line", text="Add text line", icon="ADD")
+            col.operator("m_pipeline.add_entry_line", text="Add text line", icon="ADD")
             return
 
         col_txt = col.column(align=True)
@@ -195,7 +195,7 @@ class PIPELINE_OT_create_entry(bpy.types.Operator):
             row = col_txt.row(align=True)
             row.textbox(entry, "text", initial_visible_lines=1)
             row.operator(
-                "pipeline.remove_entry_line", text="", icon="REMOVE"
+                "m_pipeline.remove_entry_line", text="", icon="REMOVE"
             ).index = idx
 
         row = col.row(align=True)
@@ -228,7 +228,7 @@ class PIPELINE_OT_create_entry(bpy.types.Operator):
         else:
             col4.label()
 
-        col4.operator("pipeline.add_entry_line", text="", icon="ADD")
+        col4.operator("m_pipeline.add_entry_line", text="", icon="ADD")
 
     def _draw_tasks(self, layout, entries):
         col = layout.column(align=True)
@@ -238,7 +238,7 @@ class PIPELINE_OT_create_entry(bpy.types.Operator):
             row.scale_y = 1.4
             row.textbox(entry, "text", initial_visible_lines=1)
             row.operator(
-                "pipeline.remove_entry_line", text="", icon="REMOVE"
+                "m_pipeline.remove_entry_line", text="", icon="REMOVE"
             ).index = idx
 
             row = col.row(align=True)
@@ -276,7 +276,7 @@ class PIPELINE_OT_create_entry(bpy.types.Operator):
         row = row.row()
         row.label()
         row.operator(
-            "pipeline.add_entry_line", icon="ADD", text="New task"
+            "m_pipeline.add_entry_line", icon="ADD", text="New task"
         ).department = entries[-1].department if entries else ""
 
     def execute(self, context):
@@ -338,10 +338,10 @@ class PIPELINE_OT_create_entry(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class PIPELINE_OT_edit_entry(bpy.types.Operator):
+class M_PIPELINE_OT_edit_entry(bpy.types.Operator):
     """Edit an existing tracking entry."""
 
-    bl_idname = "pipeline.edit_entry"
+    bl_idname = "m_pipeline.edit_entry"
     bl_label = "Edit"
 
     id: bpy.props.StringProperty(default="")
@@ -440,7 +440,7 @@ class PIPELINE_OT_edit_entry(bpy.types.Operator):
                 row.prop(self, "frame_end", text="")
 
         op = layout.operator(
-            "pipeline.delete_entry", text=f"Delete this {self.type} ?", icon="TRASH"
+            "m_pipeline.delete_entry", text=f"Delete this {self.type} ?", icon="TRASH"
         )
         op.id = self.id
         op.filepath = self.filepath
@@ -474,10 +474,10 @@ class PIPELINE_OT_edit_entry(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class PIPELINE_OT_generic_entry_button(bpy.types.Operator):
+class M_PIPELINE_OT_generic_entry_button(bpy.types.Operator):
     """One entry's clickable title: click to reply, Ctrl+click to edit."""
 
-    bl_idname = "pipeline.generic_entry_button"
+    bl_idname = "m_pipeline.generic_entry_button"
     bl_label = ""
 
     id: bpy.props.StringProperty()
@@ -494,10 +494,10 @@ class PIPELINE_OT_generic_entry_button(bpy.types.Operator):
 
     def invoke(self, context, event):
         if event.ctrl:
-            return bpy.ops.pipeline.edit_entry(
+            return bpy.ops.m_pipeline.edit_entry(
                 "INVOKE_DEFAULT", id=self.id, filepath=self.filepath
             )
-        return bpy.ops.pipeline.create_entry(
+        return bpy.ops.m_pipeline.create_entry(
             "INVOKE_DEFAULT", response=self.id, filepath=self.filepath
         )
 
@@ -505,10 +505,10 @@ class PIPELINE_OT_generic_entry_button(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class PIPELINE_OT_delete_entry(bpy.types.Operator):
+class M_PIPELINE_OT_delete_entry(bpy.types.Operator):
     """Delete a tracking entry, after confirmation."""
 
-    bl_idname = "pipeline.delete_entry"
+    bl_idname = "m_pipeline.delete_entry"
     bl_label = "Delete"
     bl_description = "Delete this entry."
 
@@ -531,10 +531,10 @@ class PIPELINE_OT_delete_entry(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class PIPELINE_OT_toggle_entry_task(bpy.types.Operator):
+class M_PIPELINE_OT_toggle_entry_task(bpy.types.Operator):
     """Flip a todo/rtk entry between done and not done."""
 
-    bl_idname = "pipeline.toggle_entry_task"
+    bl_idname = "m_pipeline.toggle_entry_task"
     bl_label = ""
     bl_description = "Mark this todo/RTK entry as done, or undo that."
 
@@ -553,10 +553,10 @@ class PIPELINE_OT_toggle_entry_task(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class PIPELINE_OT_upload_csv(bpy.types.Operator):
+class M_PIPELINE_OT_upload_csv(bpy.types.Operator):
     """Bulk-create tracking entries from a .csv file."""
 
-    bl_idname = "pipeline.upload_csv"
+    bl_idname = "m_pipeline.upload_csv"
     bl_label = ""
     bl_description = "Bulk-create tracking entries from a .csv file."
 
@@ -607,10 +607,10 @@ class PIPELINE_OT_upload_csv(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class PIPELINE_OT_tracking_monitor(bpy.types.Operator):
+class M_PIPELINE_OT_tracking_monitor(bpy.types.Operator):
     """Popup dashboard: every tracked asset/shot with its department status, filterable."""
 
-    bl_idname = "pipeline.tracking_monitor"
+    bl_idname = "m_pipeline.tracking_monitor"
     bl_label = ""
     bl_description = (
         "Show a popup view of all files in the project with their tracking status."
@@ -673,10 +673,10 @@ class PIPELINE_OT_tracking_monitor(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class PIPELINE_OT_edit_description(bpy.types.Operator):
+class M_PIPELINE_OT_edit_description(bpy.types.Operator):
     """Edit an asset/shot's free-text description."""
 
-    bl_idname = "pipeline.edit_description"
+    bl_idname = "m_pipeline.edit_description"
     bl_label = "Edit description"
     bl_description = "Edit this asset/shot's description."
 
@@ -707,13 +707,13 @@ class PIPELINE_OT_edit_description(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class PIPELINE_OT_toggle_worked_department(bpy.types.Operator):
+class M_PIPELINE_OT_toggle_worked_department(bpy.types.Operator):
     """Toggle one department on/off in the current file's 'worked this
     session' list. Writes straight to .wipmeta on click -- no popup, no
     batching, safe to click any time during the session (including never,
     if nothing was worked on)."""
 
-    bl_idname = "pipeline.toggle_worked_department"
+    bl_idname = "m_pipeline.toggle_worked_department"
     bl_label = "Toggle department worked"
     bl_description = "Mark/unmark this department as worked on during this session."
     bl_options = {"INTERNAL"}
@@ -733,13 +733,13 @@ class PIPELINE_OT_toggle_worked_department(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class PIPELINE_OT_toggle_validated_department(bpy.types.Operator):
+class M_PIPELINE_OT_toggle_validated_department(bpy.types.Operator):
     """Toggle one department's validated status directly, without cutting a
     new -stable version -- for departments (like "render") that aren't tied
     to editing the file itself. filepath: explicit, since this is also used
     from the monitoring dashboard on files that aren't the one currently open."""
 
-    bl_idname = "pipeline.toggle_validated_department"
+    bl_idname = "m_pipeline.toggle_validated_department"
     bl_label = "Toggle department validated"
     bl_description = (
         "Mark/unmark this department as validated (no new stable version needed)."
@@ -772,14 +772,14 @@ class PIPELINE_OT_toggle_validated_department(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class PIPELINE_OT_department_status_info(bpy.types.Operator):
+class M_PIPELINE_OT_department_status_info(bpy.types.Operator):
     """Read-only tooltip carrier for a department status cell that isn't
     meant to be editable at its call site (the monitor grid, the sidebar's
-    required-departments list) -- see PIPELINE_OT_toggle_validated_department
+    required-departments list) -- see M_PIPELINE_OT_toggle_validated_department
     for the one that actually toggles. Always drawn with enabled=False;
     execute() is unreachable in normal use, kept as a harmless no-op."""
 
-    bl_idname = "pipeline.department_status_info"
+    bl_idname = "m_pipeline.department_status_info"
     bl_label = ""
     bl_options = {"INTERNAL"}
 
@@ -793,10 +793,10 @@ class PIPELINE_OT_department_status_info(bpy.types.Operator):
         return {"CANCELLED"}
 
 
-class PIPELINE_OT_tracking_file_details(bpy.types.Operator):
+class M_PIPELINE_OT_tracking_file_details(bpy.types.Operator):
     """Popup: department status and notes/todos for one tracked file."""
 
-    bl_idname = "pipeline.tracking_file_details"
+    bl_idname = "m_pipeline.tracking_file_details"
     bl_label = ""
 
     filepath: bpy.props.StringProperty()

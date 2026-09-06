@@ -91,10 +91,10 @@ def _get_pre_render_scripts(self, context):
     return _pre_render_scripts
 
 
-class PIPELINE_OT_farm_kill_monitor(bpy.types.Operator):
+class M_PIPELINE_OT_farm_kill_monitor(bpy.types.Operator):
     """Stop the current farm monitor"""
 
-    bl_idname = "pipeline.farm_kill_monitor"
+    bl_idname = "m_pipeline.farm_kill_monitor"
     bl_label = "Kill"
     bl_description = "Stop the current farm monitor so someone else can take over"
 
@@ -140,10 +140,10 @@ class PIPELINE_OT_farm_kill_monitor(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class PIPELINE_OT_farm_launch_monitor(bpy.types.Operator):
+class M_PIPELINE_OT_farm_launch_monitor(bpy.types.Operator):
     """Launch the farm and become its monitor"""
 
-    bl_idname = "pipeline.farm_launch_monitor"
+    bl_idname = "m_pipeline.farm_launch_monitor"
     bl_label = "Launch"
     bl_description = "Launch the farm and become its monitor"
 
@@ -175,7 +175,7 @@ class PIPELINE_OT_farm_launch_monitor(bpy.types.Operator):
             )
             # Deferred one timer tick -- see NOTES.md, "Popup-chaining".
             bpy.app.timers.register(
-                lambda: bpy.ops.pipeline.action_popup("INVOKE_DEFAULT"),
+                lambda: bpy.ops.m_pipeline.action_popup("INVOKE_DEFAULT"),
                 first_interval=0.05,
             )
             return {"FINISHED"}
@@ -217,7 +217,7 @@ class PIPELINE_OT_farm_launch_monitor(bpy.types.Operator):
         NOTES.md, "Popup-chaining". skip_ffmpeg_check=True: already
         confirmed, don't re-ask."""
         bpy.app.timers.register(
-            lambda: bpy.ops.pipeline.farm_launch_monitor(
+            lambda: bpy.ops.m_pipeline.farm_launch_monitor(
                 "INVOKE_DEFAULT", skip_ffmpeg_check=True
             ),
             first_interval=0.05,
@@ -261,10 +261,10 @@ class PIPELINE_PG_render_subshot_item(bpy.types.PropertyGroup):
     include: bpy.props.BoolProperty(name="", default=True)
 
 
-class PIPELINE_OT_farm_request_render(bpy.types.Operator):
+class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
     """Submit a render job (or a batch, via the list) to the farm queue."""
 
-    bl_idname = "pipeline.farm_request_render"
+    bl_idname = "m_pipeline.farm_request_render"
     bl_label = "Render"
     bl_description = "Submit this file (or the pending list) to the render farm queue."
 
@@ -451,7 +451,7 @@ class PIPELINE_OT_farm_request_render(bpy.types.Operator):
             resolved = self._resolve(context)
             if resolved:
                 name.label(text=resolved.name, icon="FILE_BLEND")
-                name.operator("pipeline.farm_add_to_list", icon="ADD").filepath = str(
+                name.operator("m_pipeline.farm_add_to_list", icon="ADD").filepath = str(
                     resolved
                 )
             else:
@@ -470,11 +470,14 @@ class PIPELINE_OT_farm_request_render(bpy.types.Operator):
                     f_row = f_list.row()
                     f_row.label(text=Path(f.filepath).stem)
                     f_row.operator(
-                        "pipeline.farm_list_delete", icon="TRASH", text="", emboss=False
+                        "m_pipeline.farm_list_delete",
+                        icon="TRASH",
+                        text="",
+                        emboss=False,
                     ).filepath = f.filepath
                 box.separator()
                 box.operator(
-                    "pipeline.farm_list_delete", icon="TRASH", text="Clear list"
+                    "m_pipeline.farm_list_delete", icon="TRASH", text="Clear list"
                 ).filepath = ""
 
             ### settings
@@ -619,10 +622,10 @@ class PIPELINE_OT_farm_request_render(bpy.types.Operator):
         return None
 
 
-class PIPELINE_OT_farm_add_to_list(bpy.types.Operator):
+class M_PIPELINE_OT_farm_add_to_list(bpy.types.Operator):
     """Add a resolved file to the pending multi-file render submission list."""
 
-    bl_idname = "pipeline.farm_add_to_list"
+    bl_idname = "m_pipeline.farm_add_to_list"
     bl_label = "Add to list"
 
     filepath: bpy.props.StringProperty(name="Path", default="")
@@ -636,10 +639,10 @@ class PIPELINE_OT_farm_add_to_list(bpy.types.Operator):
             return {"CANCELLED"}
 
 
-class PIPELINE_OT_farm_list_delete(bpy.types.Operator):
+class M_PIPELINE_OT_farm_list_delete(bpy.types.Operator):
     """Remove one entry from the render submission list, or clear it (filepath="")."""
 
-    bl_idname = "pipeline.farm_list_delete"
+    bl_idname = "m_pipeline.farm_list_delete"
     bl_label = ""
 
     filepath: bpy.props.StringProperty(name="filepath", default="")
@@ -660,10 +663,10 @@ class PIPELINE_OT_farm_list_delete(bpy.types.Operator):
             return {"CANCELLED"}
 
 
-class PIPELINE_OT_farm_add_self_worker(bpy.types.Operator):
+class M_PIPELINE_OT_farm_add_self_worker(bpy.types.Operator):
     """Add this computer to the farm machine pool."""
 
-    bl_idname = "pipeline.farm_add_self_worker"
+    bl_idname = "m_pipeline.farm_add_self_worker"
     bl_label = "Add this machine to the farm as worker."
     bl_description = "Register this computer as a farm worker for the active project."
 
@@ -677,10 +680,10 @@ class PIPELINE_OT_farm_add_self_worker(bpy.types.Operator):
         return {"CANCELLED"}
 
 
-class PIPELINE_OT_farm_kill_self_worker(bpy.types.Operator):
+class M_PIPELINE_OT_farm_kill_self_worker(bpy.types.Operator):
     """Remove this computer's worker role from the farm."""
 
-    bl_idname = "pipeline.farm_kill_self_worker"
+    bl_idname = "m_pipeline.farm_kill_self_worker"
     bl_label = "Kill this worker."
     bl_description = "Remove this computer's worker registration."
 
@@ -694,11 +697,11 @@ class PIPELINE_OT_farm_kill_self_worker(bpy.types.Operator):
         return {"CANCELLED"}
 
 
-class PIPELINE_OT_farm_cancel_job(bpy.types.Operator):
+class M_PIPELINE_OT_farm_cancel_job(bpy.types.Operator):
     """Cancel a job's in-progress render, on every machine currently working
     on it (Jobs tab) or on just one (Workers tab, via target_uuid)."""
 
-    bl_idname = "pipeline.farm_cancel_job"
+    bl_idname = "m_pipeline.farm_cancel_job"
     bl_label = "Cancel"
     bl_description = "Cancel this job's render."
 
@@ -730,10 +733,10 @@ class PIPELINE_OT_farm_cancel_job(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class PIPELINE_OT_farm_archive_job(bpy.types.Operator):
+class M_PIPELINE_OT_farm_archive_job(bpy.types.Operator):
     """Move a finished/failed job (and its render logs) out of the active queue."""
 
-    bl_idname = "pipeline.farm_archive_job"
+    bl_idname = "m_pipeline.farm_archive_job"
     bl_label = "Archive"
     bl_description = "Move this job's file and logs to queue/archives/."
 
@@ -751,10 +754,10 @@ class PIPELINE_OT_farm_archive_job(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class PIPELINE_OT_farm_monitor(bpy.types.Operator):
+class M_PIPELINE_OT_farm_monitor(bpy.types.Operator):
     """Popup dashboard: active jobs and worker machines, filterable."""
 
-    bl_idname = "pipeline.farm_monitor"
+    bl_idname = "m_pipeline.farm_monitor"
     bl_label = ""
     bl_description = "Show a popup view of farm."
     project_root: bpy.props.StringProperty()

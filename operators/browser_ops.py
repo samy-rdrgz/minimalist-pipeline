@@ -26,10 +26,10 @@ from ..lib import (
 # ---------------------------------------------------------------------------
 
 
-class PIPELINE_OT_open_file(bpy.types.Operator):
+class M_PIPELINE_OT_open_file(bpy.types.Operator):
     """Browse and open a versioned file from the active project."""
 
-    bl_idname = "pipeline.open_file"
+    bl_idname = "m_pipeline.open_file"
     bl_label = "Open project file"
     bl_description = "Open an asset or shot from the active project."
 
@@ -161,10 +161,10 @@ class PIPELINE_OT_open_file(bpy.types.Operator):
         return None
 
 
-class PIPELINE_OT_open_file_version(bpy.types.Operator):
+class M_PIPELINE_OT_open_file_version(bpy.types.Operator):
     """Open a versioned file from the active project."""
 
-    bl_idname = "pipeline.open_file_version"
+    bl_idname = "m_pipeline.open_file_version"
     bl_label = "Open project file"
     bl_description = "Open an asset or shot from the active project."
 

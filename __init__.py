@@ -46,11 +46,11 @@ from .operators import classes as operator_classes
 from .panels import classes as panel_classes
 
 '''
-class PIPELINE_PT_main_panel(bpy.types.Panel):
+class M_PIPELINE_PT_main_panel(bpy.types.Panel):
     """Pipeline Manager main panel (header only; every other panel is a child of it)."""
 
     bl_label = "Pipeline Manager"
-    bl_idname = "PIPELINE_PT_main"
+    bl_idname = "M_PIPELINE_PT_main"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Pipeline"
@@ -61,7 +61,7 @@ class PIPELINE_PT_main_panel(bpy.types.Panel):
 
     def draw_header(self, context):
         self.layout.operator(
-            "pipeline.onboarding_popup", text="", icon="QUESTION", emboss=False
+            "m_pipeline.onboarding_popup", text="", icon="QUESTION", emboss=False
         )
 '''
 
@@ -71,7 +71,7 @@ classes = (
     *lib.classes,
     addon_data.PipelineProjectItem,
     addon_data.PipelineAddonPreferences,
-    # PIPELINE_PT_main_panel,
+    # M_PIPELINE_PT_main_panel,
     *panel_classes,
     *operator_classes,
     *menu_classes,
@@ -148,7 +148,7 @@ def _deferred_project_check():
         prefs = lib.addon_pref()
         root = prefs.active_project_root if prefs else ""
         if root and not Path(root).exists():
-            bpy.ops.pipeline.unset_active_project()
+            bpy.ops.m_pipeline.unset_active_project()
             lib.set_pending_action(
                 lib.PipelineAction(
                     title="Active project unreachable",
@@ -159,7 +159,7 @@ def _deferred_project_check():
                     severity="warning",
                 )
             )
-            bpy.ops.pipeline.action_popup("INVOKE_DEFAULT")
+            bpy.ops.m_pipeline.action_popup("INVOKE_DEFAULT")
     except Exception as e:
         print(e)
 
@@ -200,7 +200,7 @@ def _deferred_onboarding():
             # Marked seen here, not in the operator -- see NOTES.md,
             # "Addon register()".
             prefs.onboarding_seen = True
-            bpy.ops.pipeline.onboarding_popup("INVOKE_DEFAULT")
+            bpy.ops.m_pipeline.onboarding_popup("INVOKE_DEFAULT")
     except Exception as e:
         print(e)
 
