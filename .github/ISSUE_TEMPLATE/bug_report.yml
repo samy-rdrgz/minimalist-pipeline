@@ -1,0 +1,99 @@
+name: Bug report
+description: Something isn't working as expected
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. A few details below
+        make it much faster to reproduce and fix.
+
+  - type: checkboxes
+    attributes:
+      label: Checked first
+      options:
+        - label: I searched existing issues and didn't find this one already reported
+          required: true
+        - label: I checked the [documentation](https://github.com/samy-rdrgz/minimalist-pipeline/tree/main/docs) and [limitations](https://github.com/samy-rdrgz/minimalist-pipeline/blob/main/docs/limitations.md) page
+          required: false
+
+  - type: input
+    id: addon-version
+    attributes:
+      label: Addon version
+      description: Preferences > Get Extensions, or `version` in the installed extension's blender_manifest.toml
+      placeholder: "1.0.1"
+    validations:
+      required: true
+
+  - type: input
+    id: blender-version
+    attributes:
+      label: Blender version
+      placeholder: "4.2.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS
+        - Linux
+    validations:
+      required: true
+
+  - type: dropdown
+    id: setup
+    attributes:
+      label: Project setup
+      description: Where this happened
+      multiple: true
+      options:
+        - Solo, local drive
+        - Small team, shared network drive
+        - Render farm (monitor/worker) involved
+    validations:
+      required: false
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What you did, and what went wrong.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. ...
+        2. ...
+        3. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error output / log
+      description: >
+        The full traceback from Blender's System Console (Window > Toggle
+        System Console on Windows; run from a terminal on macOS/Linux), or
+        the relevant lines from the active project's
+        config/logs/pipeline_log.jsonl.
+      render: shell
+    validations:
+      required: false
