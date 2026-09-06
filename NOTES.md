@@ -598,15 +598,25 @@ another one's lifecycle should use the same 0.05s-deferred-timer shape.
 
 ## Addon `register()`: three startup-only gotchas
 
+**`bpy.data` is a `_RestrictData` stub for the duration of `register()`
+itself** — any call in there that touches real data (`bpy.data.filepath`,
+etc.) must be deferred one tick via `bpy.app.timers.register(fn,
+first_interval=0.0)`, never called synchronously. Bit twice: once for
+`refresh_read_only_flag()` (see next paragraph), and once for
+`refresh_monitor_cache()` — called right after `load_project_data()`
+because that function bypasses `set_active_project_root()` and leaves the
+monitor cache blank, but calling it synchronously crashed `register()`
+outright (`AttributeError` on `bpy.data.filepath`, deep inside
+`get_active_project_root()`) on any install with an already-active
+project. Both are now deferred the same way. Any new register()-time call
+into project/file-aware code needs the same treatment.
+
 **Hot-reload leaves the read-only flag stale.** The in-memory read-only flag
 (`session.py`) is only ever set by `post_load_handler`, which fires on an
 actual file *open* — a script/addon reload (VS Code dev-extension's enable
 flow, a manual reload) doesn't re-fire it even though a `-stable` file
 stays open throughout, so the top bar's READ-ONLY indicator and the guards
-behind it would silently drop on every reload. Also, `bpy.data` is a
-`_RestrictData` stub for the duration of `register()` itself, so
-`refresh_read_only_flag()` can't run synchronously there — deferred one
-tick (`first_interval=0.0`) so it runs once `bpy.data` is real.
+behind it would silently drop on every reload.
 
 **Onboarding is marked "seen" before it's shown, not after.**
 `invoke_popup()` gives no feedback on whether it actually rendered (behind

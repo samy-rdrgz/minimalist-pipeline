@@ -355,9 +355,12 @@ def to_relative(path: str | Path, project_root: Path | None = None) -> str:
 
 def to_absolute(rel_path: str, project_root: Path | None = None) -> Path:
     """Local resolution - each machine reconstructs the absolute path
-    based on ITS OWN view of the project_root."""
+    based on ITS OWN view of the project_root. Raises PipelineError, not a
+    bare TypeError, if there's no active project to resolve against."""
     if not project_root:
         project_root = get_active_project_root()
+        if not project_root:
+            raise PipelineError("No active project to resolve a relative path against.")
 
     return (
         Path(project_root / str(rel_path)).resolve()

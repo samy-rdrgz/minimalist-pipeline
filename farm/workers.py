@@ -10,6 +10,7 @@ import bpy
 
 from ..lib import (
     ConfigCache,
+    PipelineError,
     get_active_project_root,
     get_machine_id,
     get_user,
@@ -70,8 +71,13 @@ def launch_worker() -> bool:
 
 
 def is_blender_worker() -> bool:
-    """Whether this Blender process (pid) owns this machine's worker file."""
-    worker_path = _worker_path()
+    """Whether this Blender process (pid) owns this machine's worker file.
+    False (no crash) if there's no active project to resolve the file
+    against -- no project, no worker role."""
+    try:
+        worker_path = _worker_path()
+    except PipelineError:
+        return False
     pid = os.getpid()
     try:
         with locked_json(worker_path) as box:
@@ -87,7 +93,10 @@ def kill_worker() -> bool:
     """Remove this machine's worker file, if this process owns it. True if
     this machine ends up with no worker role (removed or none to begin
     with), False if the entry belongs to another process and was left as-is."""
-    worker_path = _worker_path()
+    try:
+        worker_path = _worker_path()
+    except PipelineError:
+        return True  # No active project -- nothing to have been worker for.
     if not worker_path.exists():
         bpy.context.scene.is_worker = False
         return True

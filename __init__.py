@@ -169,7 +169,13 @@ def _deferred_auto_worker():
     project is already active. Deferred like _deferred_keymap: bpy.context.scene
     (and the Scene.is_worker property registered above) aren't reliably ready
     at register() time. Runs after _deferred_project_check so a since-
-    deactivated project never gets a worker launched for it."""
+    deactivated project never gets a worker launched for it. Skipped in
+    background mode, same reason as _deferred_onboarding: this is for an
+    artist's own interactive session opting to double as a worker, not
+    a real headless worker (which launches via templates/worker_render_entry.py
+    instead, already scoped to its own project)."""
+    if bpy.app.background:
+        return
     try:
         prefs = lib.addon_pref()
         if prefs and prefs.auto_worker_on_open and prefs.active_project_root:
@@ -220,8 +226,10 @@ def register():
     try:
         lib.load_project_data(lib.addon_pref())
         # load_project_data() bypasses set_active_project_root(), so the
-        # monitor cache is still blank here -- refresh it once.
-        refresh_monitor_cache()
+        # monitor cache is still blank here -- refresh it once. Deferred
+        # one tick, same as refresh_read_only_flag above -- see NOTES.md,
+        # "Addon register()".
+        bpy.app.timers.register(refresh_monitor_cache, first_interval=0.0)
     except lib.PipelineError:
         pass
 

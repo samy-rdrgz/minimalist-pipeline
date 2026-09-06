@@ -229,7 +229,10 @@ def close_session(session_file: Path | None = None):
     exit_pre (no operator to catch/report) and from scan_sessions's own loop."""
     if not session_file or not session_file.is_file():
         pid = os.getpid()
-        session_file = ConfigCache.get_path("sessions") / f".session_{pid}.json"
+        try:
+            session_file = ConfigCache.get_path("sessions") / f".session_{pid}.json"
+        except Exception:
+            return  # No active project -- nothing was ever tracked to close.
     if session_file.is_file():
         try:
             with locked_json(session_file) as box:
