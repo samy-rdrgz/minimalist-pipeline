@@ -17,8 +17,10 @@ from ..lib import (
     parse_asset_batch_csv,
     parse_shot_batch_csv,
     read_batch_result,
+    region_char_budget,
     sanitize_name,
     shot_batch_exists,
+    text_to_lines,
 )
 
 
@@ -55,30 +57,44 @@ class M_PIPELINE_OT_batch_create(bpy.types.Operator):
     _project_root = None
 
     def draw(self, context):
-        layout = self.layout
-        layout.prop(self, "kind", expand=True)
-        layout.prop(self, "csv_path")
-        layout.separator()
+        TITLE_WIDTH = 0.35
+        layout = self.layout.column(align=True)
+
+        row = layout.split(factor=TITLE_WIDTH, align=True)
+        row.label(text="Type", icon="TAG")
+        row.row(align=True).prop(self, "kind", expand=True)
+        row = layout.split(factor=TITLE_WIDTH, align=True)
+        row.label(text="CSV path", icon="MESH_GRID")
+        row.prop(self, "csv_path", text="")
+
+        layout.separator(type="LINE", factor=3)
+
         col = layout.column(align=True)
         col.active = False
-        col.scale_y = 0.7
         if self.kind == "asset":
-            col.label(text="Columns: prefix, name (required),", icon="INFO")
-            col.label(text="departments, description (both optional).")
+            text = "Columns: prefix (required), name (required), departments (optional), description (optional)."
+
         else:
-            col.label(text="Columns: sequence, shot (required),", icon="INFO")
-            col.label(text="frame_start / frame_end / frame_duration,")
-            col.label(text="departments, description (all optional).")
-        col.label(text="departments: comma-separated, unknown names are")
-        col.label(text="skipped (logged) -- omit for the project's defaults.")
-        col.label(text="Rows matching an existing asset/shot are skipped.")
+            text = "Columns: sequence (required), shot (required), frame_start / frame_end / frame_duration (optional), departments (optional), description (optional)."
+
+        text = f"{text}\ndepartments: comma-separated. \nunknown names are skipped (logged, omit for the project's defaults).\nrows matching an existing asset/shot are skipped."
+        for idx, p in enumerate(text.split("\n")):
+            text_to_lines(
+                col,
+                text=p,
+                icon="INFO" if idx == 0 else "REMOVE",
+                max_width=region_char_budget(context, width_px=300),
+                max_lines=10,
+                scale_y=0.7,
+            )
+        layout.separator(factor=2)
 
     def invoke(self, context, event):
         if not get_active_project_root():
             self.report({"ERROR"}, "No active project.")
             return {"CANCELLED"}
         return context.window_manager.invoke_props_dialog(
-            self, width=420, confirm_text="Start batch"
+            self, width=300, confirm_text="Start batch"
         )
 
     def execute(self, context):

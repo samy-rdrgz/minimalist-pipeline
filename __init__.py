@@ -260,9 +260,9 @@ def unregister():
         except RuntimeError:
             pass
 
-    _unregister_props(bpy.types.WindowManager, _WM_PROPS)
-    _unregister_props(bpy.types.Scene, _SCENE_PROPS)
-
+    # Before unregistering Scene.is_worker below -- is_blender_worker()/
+    # kill_worker() both read/write it, and would otherwise hit
+    # "'Scene' object has no attribute 'is_worker'" on every close.
     try:
         unregister_refresh_timer()
         unregister_status_timer()
@@ -276,6 +276,9 @@ def unregister():
             kill_worker()
     except Exception as e:
         print(e)
+
+    _unregister_props(bpy.types.WindowManager, _WM_PROPS)
+    _unregister_props(bpy.types.Scene, _SCENE_PROPS)
     unoverride_shortcut()
 
 

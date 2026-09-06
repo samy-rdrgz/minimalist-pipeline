@@ -596,7 +596,7 @@ missing-ffmpeg and stale-lock branches (into `action_popup`/`farm_launch_monitor
 itself). Any new operator that needs to open a modal popup from inside
 another one's lifecycle should use the same 0.05s-deferred-timer shape.
 
-## Addon `register()`: three startup-only gotchas
+## Addon `register()`/`unregister()`: four lifecycle gotchas
 
 **`bpy.data` is a `_RestrictData` stub for the duration of `register()`
 itself** — any call in there that touches real data (`bpy.data.filepath`,
@@ -628,6 +628,22 @@ regardless, as the permanent fallback for a missed attempt. Also why it
 fires last of the deferred timers (0.5s, after `_deferred_project_check`'s
 0.05s and `_deferred_auto_worker`'s 0.1s) — Blender only really wants one
 `invoke_popup` fighting for the window at a time.
+
+**`unregister()`'s farm-role cleanup must run before `Scene.is_worker` is
+unregistered, not after.** Found via a headless fixture-building script
+that hit `'Scene' object has no attribute 'is_worker'` on every single
+exit. `is_blender_worker()`/`kill_worker()` (called from `unregister()` to
+release this machine's worker role) both read/write
+`bpy.context.scene.is_worker` — a property the same `unregister()` was
+already removing via `_unregister_props(bpy.types.Scene, _SCENE_PROPS)`
+*before* reaching that farm cleanup block. The `except Exception: print(e)`
+around it swallowed the error, so it never crashed anything visibly, but a
+Blender instance that really was the active worker would silently fail to
+release that role on quit -- caught only later by the 15s heartbeat
+staleness window, not immediately. Fixed by moving the farm cleanup block
+above both `_unregister_props()` calls. Any new unregister()-time code
+touching a registered WindowManager/Scene property needs to run before
+that property's own unregistration, not after.
 
 **User identity uses `getpass`, not `os.getlogin()`** — the latter needs a
 controlling terminal (an `ioctl` on the tty) and reliably raises when

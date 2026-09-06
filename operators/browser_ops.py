@@ -66,47 +66,61 @@ class M_PIPELINE_OT_open_file(bpy.types.Operator):
         if not get_active_project_root():
             self.report({"ERROR"}, "No active project.")
             return {"CANCELLED"}
-        return context.window_manager.invoke_props_dialog(self, width=360)
+        return context.window_manager.invoke_props_dialog(self, width=400)
 
     def draw(self, context):
-        MAX_ROW = 15
-        layout = self.layout
+        MAX_ROW = 10
 
-        row = layout.row()
-        row.prop(self, "file_type", expand=True)
+        TITLE_WIDTH = 0.25
+        layout = self.layout.column(align=True)
+
+        row = layout.split(factor=TITLE_WIDTH, align=True)
+        row.label(text="Type", icon="FILE_BLEND")
+        row.row(align=True).prop(self, "file_type", expand=True)
+
         layout.separator()
+        row = layout.split(factor=TITLE_WIDTH, align=True)
 
         if self.file_type == "asset":
-            row = layout.split(align=True, factor=0.5)
+            row.label(text="Asset", icon="OUTLINER_OB_ARMATURE")
+            row = row.split(align=True, factor=0.5)
+            col = row.column(align=True)
             if len(prefix_items(self, context)) < MAX_ROW:
-                row.column().prop(self, "asset_prefix", expand=True)
+                col.prop(self, "asset_prefix", expand=True)
             else:
-                row.column().prop(self, "asset_prefix", text="")
+                col.prop(self, "asset_prefix", text="")
+            col = row.column(align=True)
             if len(asset_folder_items(self, context)) < MAX_ROW:
-                row.column().prop(self, "asset_folder", expand=True)
+                col.prop(self, "asset_folder", expand=True)
             else:
-                row.column().prop(self, "asset_folder", text="")
+                col.prop(self, "asset_folder", text="")
 
         else:
-            row = layout.split(align=True, factor=0.5)
+            row.label(text="Shot", icon="VIEW_CAMERA")
+            row = row.split(align=True, factor=0.5)
+            col = row.column(align=True)
             if len(sequence_items(self, context)) < MAX_ROW:
-                row.column().prop(self, "sequence", expand=True)
+                col.prop(self, "sequence", expand=True)
             else:
-                row.column().prop(self, "sequence", text="")
-
+                col.prop(self, "sequence", text="")
+            col = row.column(align=True)
             if len(shot_items(self, context)) < MAX_ROW:
-                row.column().prop(self, "shot", expand=True)
+                col.prop(self, "shot", expand=True)
             else:
-                row.column().prop(self, "shot", text="")
+                col.prop(self, "shot", text="")
 
         layout.separator()
 
-        row = layout.row()
-        row.prop(self, "version_mode", expand=True)
+        row = layout.split(factor=TITLE_WIDTH, align=True)
+        row.label(text="Version", icon="COPY_ID")
+        row.row(align=True).prop(self, "version_mode", expand=True)
         if self.version_mode == "custom":
-            layout.prop(self, "custom_version", text="")
+            row = layout.split(factor=TITLE_WIDTH, align=True)
+            row.label(text="", icon="BLANK1")
+            row.prop(self, "custom_version", text="")
 
-        layout.separator()
+        layout.separator(type="LINE", factor=3)
+
         col = layout.column()
         col.scale_y = 0.6
         col.active = False
