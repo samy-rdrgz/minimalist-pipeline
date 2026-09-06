@@ -41,6 +41,7 @@ from ..lib import (
     shots_in_segment,
     version_items,
 )
+from ..panels import draw_farm_jobs, draw_farm_workers
 
 _workers_items_cache: list[tuple[str, str, str]] = []
 _pre_render_scripts: list[tuple[str, str, str]] = []
@@ -172,12 +173,7 @@ class PIPELINE_OT_farm_launch_monitor(bpy.types.Operator):
                     ],
                 )
             )
-            # Deferred one timer tick, not a synchronous call: calling
-            # action_popup synchronously from inside this invoke() would make
-            # invoke() forward the inner popup's RUNNING_MODAL as this
-            # operator's own return value, entangling the two operators'
-            # modal state -- same popup-chaining issue fixed in
-            # saving.py's WM_OT_safe_save._open_popup.
+            # Deferred one timer tick -- see NOTES.md, "Popup-chaining".
             bpy.app.timers.register(
                 lambda: bpy.ops.pipeline.action_popup("INVOKE_DEFAULT"),
                 first_interval=0.05,
@@ -217,11 +213,9 @@ class PIPELINE_OT_farm_launch_monitor(bpy.types.Operator):
         return self.execute(context)
 
     def _continue_without_ffmpeg(self):
-        """Re-invoke via a fresh bpy.ops call, deferred one timer tick --
-        this runs from action_popup's own execute() (a popup still closing),
-        so opening a new dialog synchronously risks the same popup-chaining
-        issue fixed in saving.py's _do_increment. skip_ffmpeg_check=True:
-        already confirmed, don't re-ask."""
+        """Re-invoke via a fresh bpy.ops call, deferred one timer tick -- see
+        NOTES.md, "Popup-chaining". skip_ffmpeg_check=True: already
+        confirmed, don't re-ask."""
         bpy.app.timers.register(
             lambda: bpy.ops.pipeline.farm_launch_monitor(
                 "INVOKE_DEFAULT", skip_ffmpeg_check=True
@@ -757,9 +751,6 @@ class PIPELINE_OT_farm_archive_job(bpy.types.Operator):
         return {"FINISHED"}
 
 
-FIRST_COLUMN = 0.4
-
-
 class PIPELINE_OT_farm_monitor(bpy.types.Operator):
     """Popup dashboard: active jobs and worker machines, filterable."""
 
@@ -812,197 +803,6 @@ class PIPELINE_OT_farm_monitor(bpy.types.Operator):
 
         box = layout.box()
         if self.view == "jobs":
-            self.draw_jobs(context, box)
+            draw_farm_jobs(box)
         else:
-            self.draw_workers(context, box)
-
-    def draw_jobs(self, context, layout):
-        cache = get_monitor_cache()
-
-        title = layout.split(factor=FIRST_COLUMN)
-        title.active = False
-        title.row().label(text="Jobs", icon="BLANK1")
-        title.row().label(text="Status")
-
-        # Job list
-        jobs = (
-            cache["jobs"]
-            if len(cache["jobs"]) >= 5
-            else cache["jobs"] + ["empty" for _ in range(5 - len(cache["jobs"]))]
-        )
-        for j in jobs:
-            row = layout.column(align=True)
-            row.separator(factor=0.1, type="LINE")
-            if j == "empty":
-                row.label(text="", icon="BLANK1")
-                continue
-            else:
-                row = row.split(factor=FIRST_COLUMN)
-                name = Path(j["filepath"]).name
-                stage = j["stage"]
-                # A multishot block split into one job per shot (see
-                # _split_into_shot_jobs() in farm/setup.py) shares that same
-                # filepath across every job -- shot_override ("sh045") tells
-                # a split-off child apart from its siblings; split_finished
-                # (only ever reached by the parent, never a child) tells the
-                # parent apart from an ordinary, unsplit job.
-                if j.get("shot_override"):
-                    name = f"{name}  [{j['shot_override']}]"
-                elif stage == "split_finished":
-                    name = f"{name}  [split]"
-
-                elapsed = j["elapsed_seconds"]
-                text = ""
-                icon = ""
-                elapsed_str = f"{int(elapsed // 60)}m{int(elapsed % 60):02d}s"
-
-                if stage == "pending":
-                    icon = "SORTTIME"
-                elif stage == "queued":
-                    icon = "DECORATE_ANIMATE"
-                elif stage == "finished" or stage == "split_finished":
-                    icon = "KEYTYPE_JITTER_VEC"
-                elif stage.endswith("_finished"):
-                    icon = "HANDLETYPE_FREE_VEC"
-                elif stage.endswith("failed"):
-                    icon = "KEYTYPE_EXTREME_VEC"
-                else:
-                    icon = "KEYTYPE_BREAKDOWN_VEC"
-
-                if stage == "pending":
-                    text = f"waiting for monitor - {elapsed_str}"
-                elif (
-                    stage == "finished"
-                    or stage == "split_finished"
-                    or stage.endswith("failed")
-                ):
-                    # These are terminal once archived (see _build_job_entry():
-                    # an archived job reports its own penultimate stage, not
-                    # "archived", so this is the branch that actually shows --
-                    # a fixed completion time, not elapsed, which would
-                    # otherwise tick up forever against a stage_at that never
-                    # moves again.
-                    text = f"{stage} - {str(datetime.datetime.fromisoformat(j['stage_at'])).replace('-', '·')}"
-
-                elif j["frames_total"] > 0:
-                    pct = j["frames_done"] / j["frames_total"]
-                    remaining = elapsed / pct
-                    remaining_str = (
-                        f"≃ {int(remaining // 60)}m{int(remaining % 60):02d}s remaining"
-                    )
-                    text = f"{stage} - {j['frames_done']}/{j['frames_total']} ({pct:.0%}) - {elapsed_str} ({remaining_str})"
-
-                else:
-                    text = f"{stage} - {elapsed_str}"
-
-                if j.get("skipped_shots"):
-                    text += f" -- missing: {', '.join(j['skipped_shots'])}"
-                if j.get("absorbed_shots"):
-                    text += f" -- absorbed: {', '.join(j['absorbed_shots'])}"
-
-                row.label(text=name, icon=icon)
-                status = row.row()
-                status.label(text=text)
-                if stage == "render_start":
-                    status.operator(
-                        "pipeline.farm_cancel_job", text="", icon="X", emboss=False
-                    ).job_id = j["job_id"]
-                elif (
-                    stage == "finished"
-                    or stage == "split_finished"
-                    or stage.endswith("failed")
-                ):
-                    status.operator(
-                        "pipeline.farm_archive_job",
-                        text="",
-                        icon="CHECKMARK",
-                        emboss=False,
-                    ).job_id = j["job_id"]
-
-    def draw_workers(self, context, layout):
-
-        title_list = layout.split(factor=FIRST_COLUMN)
-        title_list.active = False
-        btn = title_list.row()
-        btn.alignment = "LEFT"
-        btn.label(text="Machine", icon="BLANK1")
-        if bpy.context.scene.is_worker:
-            btn.operator(
-                "pipeline.farm_kill_self_worker", text="Kill this worker", icon="X"
-            )
-        else:
-            btn.operator(
-                "pipeline.farm_add_self_worker", text="Add this machine", icon="ADD"
-            )
-
-        title_list.row().label(text="Jobs")
-
-        workers = scan_workers()
-
-        machines = [j for i, j in workers.items()]
-
-        monitor_cache = get_monitor_cache()
-        layout.separator(factor=0.1, type="LINE")
-        row = layout.column(align=True)
-        if monitor_cache.get("status") == "not running":
-            row.label(
-                text="Farm not running",
-                icon="QUIT",
-            )
-        else:
-            monitor_label = (
-                f"Farm host: {monitor_cache['lock_machine']}"
-                if monitor_cache.get("lock_machine")
-                else "Farm host"
-            )
-            monitor_jobs = monitor_cache["jobs"]
-
-            split = row.split(factor=FIRST_COLUMN)
-            split.row().label(
-                text=monitor_label,
-                icon="KEYTYPE_BREAKDOWN_VEC" if monitor_jobs else "KEYTYPE_JITTER_VEC",
-            )
-            jobs_col = split.column(align=True)
-            if monitor_jobs:
-                for job in monitor_jobs:
-                    jobs_col.row().label(text=f"{job['stage']}: {job['job_id']}")
-            else:
-                jobs_col.row().label(text="idle")
-
-            uuid_to_job = {
-                uuid: job["job_id"] for job in monitor_jobs for uuid in job["machines"]
-            }
-
-        # uuid -> job_id, to let a busy worker's row cancel just its own share
-
-        machines = machines + ["empty" for _ in range(4 - len(machines))]
-        for m in machines:
-            row = layout.column(align=True)
-            row.separator(factor=0.1, type="LINE")
-
-            if m == "empty":
-                row.label(text="", icon="BLANK1")
-                continue
-
-            split = row.split(factor=FIRST_COLUMN)
-
-            info = split.row()
-            busy = m["status"] != "idle" and m["status"] != "not running"
-            info.label(
-                text=m.get("name", "unknown"),
-                icon="KEYTYPE_BREAKDOWN_VEC" if busy else "KEYTYPE_JITTER_VEC",
-            )
-            info.label(text=m["ip"])
-
-            jobs = split.row()
-            if busy:
-                jobs.label(text=f"render: {m['current_job']}")
-                job_id = uuid_to_job.get(m.get("uuid"))
-                if job_id:
-                    op = jobs.operator(
-                        "pipeline.farm_cancel_job", text="", icon="X", emboss=False
-                    )
-                    op.job_id = job_id
-                    op.target_uuid = m.get("uuid", "")
-            else:
-                jobs.label(text="idle")
+            draw_farm_workers(box)

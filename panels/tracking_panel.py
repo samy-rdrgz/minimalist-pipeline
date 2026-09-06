@@ -11,14 +11,18 @@ from ..lib import (
     department_status_tooltip,
     draw_box_tip,
     filter_review_boxes,
+    find_linked_by,
     format_duration,
+    get_active_project_root,
     get_current_departments,
     get_description,
     get_entries,
     get_entries_grouped,
+    get_linked_libraries,
     json_get,
     region_char_budget,
     responsive_layout,
+    shots_in_segment,
     text_to_lines,
     to_absolute,
     to_relative,
@@ -330,16 +334,20 @@ def draw_file_details(self, context, layout):
     data = TrackingStatusCache.get(filepath)
     description = get_description(Path(filepath))
 
-    is_shot = Path(filepath).name.startswith("sh")
+    # file_details_selected is the tracked folder, not a versioned .blend --
+    # see NOTES.md.
+    shot_prefix = json_get(ConfigCache.get(), "naming.shot.prefix", "sh")
+    shot_name = Path(filepath).name
+    is_shot = shot_name.startswith(shot_prefix)
     icon = TYPE_ICON.get(
-        "sh" if is_shot else Path(filepath).name.split("_", 1)[0],
+        "sh" if is_shot else shot_name.split("_", 1)[0],
         "ASSET_MANAGER",
     )
     txt = (
         (
-            f"{Path(filepath).parent.name.upper()} {Path(filepath).name.upper()}"
+            f"{Path(filepath).parent.name.upper()} {shot_name.upper()}"
             if is_shot
-            else Path(filepath).name.upper()
+            else shot_name.upper()
         )
         + " - "
         + description
@@ -372,6 +380,33 @@ def draw_file_details(self, context, layout):
         "wm.open_folder", text="", icon="RENDER_STILL", emboss=False
     ).filepath = str(to_absolute("renders/" + to_relative(Path(filepath))))
 
+    if is_shot:
+        try:
+            is_block = len(shots_in_segment(shot_name[len(shot_prefix) :])) > 1
+        except ValueError:
+            is_block = False
+        if is_block:
+            op = row_right.operator(
+                "pipeline.compile_preview",
+                text="",
+                icon="RENDER_ANIMATION",
+                emboss=False,
+            )
+            op.scope = "block"
+            op.filepath = filepath
+            op.custom_tooltip = (
+                "Compile a disposable preview from just this block's own shots."
+            )
+
+        op = row_right.operator(
+            "pipeline.compile_preview", text="", icon="SEQUENCE", emboss=False
+        )
+        op.scope = "sequence"
+        op.filepath = filepath
+        op.custom_tooltip = (
+            "Compile a disposable preview from every rendered shot in this sequence."
+        )
+
     total_seconds = WorkTimeCache.get(filepath)
     if total_seconds:
         # Total only -- never a per-person/department breakdown, see
@@ -383,10 +418,12 @@ def draw_file_details(self, context, layout):
         )
 
     layout.separator(factor=1)
-    required = data.get("departments_required", [])
+    tabl = layout.row(align=True)
+    tabl.alignment = "LEFT"
 
+    required = data.get("departments_required", [])
     if required:
-        deps_row = layout.column(align=True)
+        deps_row = tabl.column(align=True)
         deps_row.scale_y = 0.8
         validated = get_current_departments(Path(filepath))
         txt = deps_row.row(align=True)
@@ -407,12 +444,66 @@ def draw_file_details(self, context, layout):
             op.filepath = filepath
             op.custom_tooltip = department_status_tooltip(data, d)
     else:
-        deps_row = layout.column()
+        deps_row = tabl.column()
         deps_row.scale_y = 0.5
         deps_row.label(text="No departments required for this file.")
         deps_row.label(
             text="(editable via /.pipeline/tracking.json > departments_required)"
         )
+
+    tabl.separator(factor=4)
+
+    linked = get_linked_libraries(Path(filepath))
+    linked_by = find_linked_by(get_active_project_root(), Path(filepath))
+    if linked or linked_by:
+        links_col = tabl.column(align=True)
+        links_col.scale_y = 0.7
+        if linked:
+            # Group by linked file (one entry per datablock otherwise) and
+            # dedupe (file, type, name) -- see NOTES.md.
+            seen = set()
+            by_folder: dict[Path, list[dict]] = {}
+            for entry in linked:
+                if not entry.get("file"):
+                    continue
+                key = (entry["file"], entry.get("type"), entry.get("name"))
+                if key in seen:
+                    continue
+                seen.add(key)
+                by_folder.setdefault(to_absolute(entry["file"]).parent, []).append(
+                    entry
+                )
+
+            links_col.label(text="Links to:", icon="LINKED")
+            for lib_dir, entries in by_folder.items():
+                row = links_col.row(align=True)
+                row.alignment = "LEFT"
+                row.separator(factor=1.5)
+                op = row.operator(
+                    "pipeline.tracking_file_details",
+                    text=f"{lib_dir.name} ({len(entries)})"
+                    if len(entries) > 1
+                    else lib_dir.name,
+                    icon="BLANK1",
+                    emboss=False,
+                )
+                op.filepath = str(lib_dir)
+                op.custom_tooltip = "\n".join(
+                    f"{e.get('type', '')} '{e.get('name', '')}'" for e in entries
+                )
+        if linked_by:
+            links_col.label(text="Linked by:", icon="LINKED")
+            for folder in linked_by:
+                row = links_col.row(align=True)
+                row.alignment = "LEFT"
+                row.separator(factor=1.5)
+                op = row.operator(
+                    "pipeline.tracking_file_details",
+                    text=folder.name,
+                    icon="BLANK1",
+                    emboss=False,
+                )
+                op.filepath = str(folder)
 
     layout.separator(factor=2)
 
@@ -425,3 +516,170 @@ def draw_file_details(self, context, layout):
     width = int(region_char_budget(context, width_px=800) * ENTRIES_INDENT_FACTOR)
     draw_entries(layout.column(align=True), filepath, filters=self, width=width)
     layout.separator(factor=2)
+
+
+def draw_monitor_table(self, context, layout, columns):
+    """Filtered, paginated file list for PIPELINE_OT_tracking_monitor's main
+    view -- self is that operator instance (file_type/asset_prefix/sequence/
+    page state lives on it, same convention as draw_file_details() above)."""
+    data = TrackingStatusCache.get_all(Path(self.project_root))
+    FIRST_COLUMN = 0.3
+    types = {
+        "asset": json_get(ConfigCache.get(), "structure.asset_prefixes")
+        + json_get(ConfigCache.get(), "structure.library_prefixes"),
+        "shot": json_get(ConfigCache.get(), "naming.sequence.prefix"),
+    }
+
+    matches = []
+    for dir, file in data:
+        if (
+            self.file_type == "asset"
+            and file.get("file_name") is not None
+            and (
+                (file["file_name"].split("_", 1)[0] in types["asset"])
+                if self.asset_prefix == "all" and file["file_name"]
+                else (file["file_name"].split("_", 1)[0] == self.asset_prefix)
+            )
+        ) or (
+            self.file_type == "shot"
+            and file.get("file_name") is not None
+            and (
+                (file["file_name"].startswith(types[self.file_type]))
+                if self.sequence == "all"
+                else (file["file_name"].split("_", 1)[0] == self.sequence)
+            )
+        ):
+            matches.append((dir, file))
+
+    # file_name is zero-padded prefix/sequence/shot numbers (see
+    # naming.sequence/shot in config), so plain alphabetical sort already
+    # gives prefix+alpha order for assets and sequence+shot order for
+    # shots -- no separate sort key needed per file_type.
+    matches.sort(key=lambda m: m[1].get("file_name") or "")
+
+    # Fixed number of rows per page (padded with blanks below) so the
+    # popup's height stays constant across pages and filters -- it would
+    # otherwise resize on every redraw, which reads as the window
+    # jumping around.
+    total = len(matches)
+    total_pages = max(1, -(-total // self.PAGE_SIZE))  # ceil division
+    self.page = max(1, min(self.page, total_pages))
+    page_items = matches[(self.page - 1) * self.PAGE_SIZE : self.page * self.PAGE_SIZE]
+
+    f_list = layout.box()
+    title_list = f_list.split(factor=FIRST_COLUMN)
+    title_list.active = False
+    title_list.label(text="File", icon="RADIOBUT_ON")
+    deps = title_list.row()
+    for c in columns:
+        deps.label(text=c.capitalize(), icon="KEYFRAME_HLT")
+
+    f_list.separator(factor=1)
+
+    for dir, file in page_items:
+        _draw_monitor_row(self, f_list, dir, file, columns, FIRST_COLUMN)
+
+    for _ in range(self.PAGE_SIZE - len(page_items)):
+        _draw_monitor_blank_row(f_list, columns, FIRST_COLUMN)
+
+    footer = f_list.row()
+    footer.active = False
+    if total == 0:
+        footer.label(text="No files found with this filter", icon="ERROR")
+    else:
+        footer.label(text=f"{total} file(s) found", icon="BLANK1")
+        if total_pages > 1:
+            pager = footer.row(align=True)
+            pager.alignment = "RIGHT"
+            pager.label(text=f"Page {self.page} / {total_pages}")
+            pager.prop(self, "page", text="")
+
+
+def _draw_monitor_row(self, f_list, dir, file, columns, first_column):
+    row = f_list.column()
+    split = row.split(factor=first_column)
+    name = split.row()
+    name.alignment = "LEFT"
+    icon = (
+        TYPE_ICON.get(
+            file.get("file_name", "Unknown").split("_", 1)[0],
+            "ASSET_MANAGER",
+        )
+        if self.file_type == "asset"
+        else TYPE_ICON.get("sh", "OUTLINER_OB_CAMERA")
+    )
+    op = name.operator(
+        "pipeline.tracking_file_details",
+        text=file.get("file_name", "Unknown"),
+        icon=icon,
+        emboss=False,
+    )
+    op.filepath = str(dir)
+    op.custom_tooltip = file.get("description", "")
+
+    details = name.row()
+    details.alignment = "RIGHT"
+    details.active = False
+    details.operator(
+        "pipeline.open_file_version",
+        text="",
+        icon="FILE_ALIAS",
+        emboss=False,
+    ).filepath = str(dir)
+    deps_row = split.row()
+    for c in columns:
+        icon_row = deps_row.row()
+        icon_row.label(text="", icon="BLANK1")
+        if c in file.get("departments_required", []):
+            icon_row.alert = _has_rtk(file, c)
+            # Read-only status: enabled=False blocks any click (no
+            # accidental toggling from this grid -- that's file_details'
+            # job), the tooltip is still shown on hover.
+            status = icon_row.row()
+            status.enabled = False
+            tooltip = department_status_tooltip(file, c)
+            if (
+                c in file["validated_departments"]
+                and c not in file["worked_departments"]
+            ):
+                text, row_icon = "Finished", "CHECKMARK"
+            elif c in file["validated_departments"] and c in file["worked_departments"]:
+                text, row_icon = "Under RTK", "CHECKBOX_DEHLT"
+            elif (
+                c not in file["validated_departments"]
+                and c in file["worked_departments"]
+            ):
+                text, row_icon = "Wip", "CHECKBOX_DEHLT"
+            else:
+                text, row_icon = "Not started", "CHECKBOX_DEHLT"
+            status.operator(
+                "pipeline.department_status_info",
+                text=text,
+                icon=row_icon,
+                emboss=False,
+            ).custom_tooltip = tooltip
+        else:
+            icon_row.label(text=" ", icon="BLANK1")
+    f_list.separator(factor=0.5, type="LINE")
+
+
+def _draw_monitor_blank_row(f_list, columns, first_column):
+    """Empty placeholder row, same height as a real one, so a half-filled
+    last page doesn't shrink the popup."""
+    row = f_list.column()
+    row.active = False
+    split = row.split(factor=first_column)
+    split.row().label(text="")
+    deps_row = split.row()
+    for c in columns:
+        deps_row.row().label(text="", icon="BLANK1")
+    f_list.separator(factor=0.5, type="LINE")
+
+
+def _has_rtk(data: dict, department: str) -> bool:
+    """Whether data has an un-done RTK entry tagged with department."""
+    if "entries" in data:
+        for e in data["entries"]:
+            if e.get("department") == department and e.get("done") is False:
+                return True
+    return False

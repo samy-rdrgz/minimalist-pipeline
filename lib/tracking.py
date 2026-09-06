@@ -17,6 +17,7 @@ from .config import (
     parse_filename,
     prefix_to_parent_folder,
     shots_in_segment,
+    to_absolute,
     to_relative,
 )
 from .core import get_machine_id, json_get, locked_json, now, read_csv, resolve_bpy_path
@@ -489,17 +490,26 @@ def get_session_worked_departments(filepath: Path) -> list[str]:
 
 def wipmeta_add_link(filepath: Path, link: list[dict]):
     """Append freshly linked libraries to this version's .wipmeta linked
-    list. No-op, doesn't raise, if filepath has no .wipmeta -- linking into
-    an open -stable file is legal (Blender doesn't block it in memory, only
-    Save is guarded), and a -stable file has nothing to track it in; same
-    rule as wipmeta_touch()."""
+    list, deduped by (file, type, name) -- see NOTES.md. No-op, doesn't
+    raise, if filepath has no .wipmeta -- linking into an open -stable file
+    is legal (Blender doesn't block it in memory, only Save is guarded),
+    and a -stable file has nothing to track it in; same rule as
+    wipmeta_touch()."""
     path = filepath.parent / ".pipeline" / (_meta_stem(filepath) + ".wipmeta")
     if not path.exists():
         return
     else:
         with locked_json(path) as box:
             data = box["data"] or {}
-            data["linked"] = data.get("linked", []) + link
+            seen = set()
+            deduped = []
+            for d in data.get("linked", []) + link:
+                key = (d.get("file"), d.get("type"), d.get("name"))
+                if key in seen:
+                    continue
+                seen.add(key)
+                deduped.append(d)
+            data["linked"] = deduped
             box["action"] = "to_write"
 
 
@@ -1317,3 +1327,41 @@ def clean_libraries(linked: list[dict], libs: list[str]) -> list[dict]:
     """Drop entries from a wipmeta's linked list whose file is no longer in libs."""
     linked = [d for d in linked if d["file"] in libs]
     return linked
+
+
+def get_linked_libraries(filepath: Path) -> list[dict]:
+    """This asset/shot's own linked-libraries list ({file, type, name}
+    dicts) -- the latest wip's if one exists, else the latest stable's."""
+    asset_dir = filepath.parent if filepath.is_file() else filepath
+    wip = get_last_wipmeta(asset_dir)
+    if wip:
+        return wip.get("linked", [])
+    return get_last_stable(asset_dir).get("linked", [])
+
+
+def find_linked_by(project_root: Path, filepath: Path) -> list[Path]:
+    """Every other asset/shot folder in the project with at least one link
+    pointing into filepath's own folder -- matched by folder, not an exact
+    version (see NOTES.md). Derived by an uncached, full-project scan of
+    every .wipmeta/.stablemeta; no index for this exists."""
+    asset_dir = (filepath.parent if filepath.is_file() else filepath).resolve()
+    linkers = set()
+    for meta_path in project_root.rglob(".pipeline/*meta"):
+        if meta_path.suffix not in (".wipmeta", ".stablemeta"):
+            continue
+        try:
+            with locked_json(meta_path, read_only=True) as box:
+                data = box["data"] or {}
+        except PipelineError:
+            continue
+        # Resolved, not a raw string/relative-path compare -- a "file"
+        # written before resolve_bpy_path()'s normpath() fix (see NOTES.md)
+        # can still carry an un-collapsed "../" and wouldn't match otherwise.
+        # A folder can hold many .wipmeta (one per version) -- collect into
+        # a set, or the same linking asset/shot shows up once per version.
+        if any(
+            link.get("file") and to_absolute(link["file"], project_root).parent == asset_dir
+            for link in data.get("linked", [])
+        ):
+            linkers.add(meta_path.parent.parent)
+    return sorted(linkers)

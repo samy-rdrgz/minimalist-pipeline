@@ -110,10 +110,8 @@ def build_shot_scene(
 ):
     """Apply project resolution/fps; ensure one camera + timeline marker per
     shot, all sharing a single CAM/SET/ASSETS collection set. Idempotent --
-    reuses an existing camera/collection/marker by name instead of adding a
-    duplicate, since PIPELINE_OT_edit_block_structure reruns this against
-    the very scene a previous enumeration already scaffolded (Save As,
-    unless "Start with a new clean scene" is ticked)."""
+    reuses an existing camera/collection/marker by name instead of
+    duplicating it (see NOTES.md)."""
     scene = bpy.context.scene
 
     res = json_get(config, "resolution", {"x": 1920, "y": 1080})

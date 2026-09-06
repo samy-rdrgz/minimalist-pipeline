@@ -102,15 +102,9 @@ def now(iso: bool = True) -> str | datetime:
         return datetime.now()
 
 
-# invoke_popup(width=...) / invoke_props_dialog(width=...)'s width argument
-# is real and meaningful -- it's literally what sizes the popup -- but
-# Blender doesn't expose that popup's *rendered* pixel width back to Python
-# (context.region during such a draw() isn't the popup's own region, and
-# there's no public API that is), so the raw argument doesn't map 1:1 to the
-# px/char formula below. This is the one place that gap gets corrected --
-# recalibrate this single constant if popup text is still off, not the
-# characters/line at each call site. Current value derived from an observed
-# popup where text filled roughly 1/3 of the box at scale 1.0.
+# Corrects a popup's declared width= vs its actual rendered content-area
+# width -- see NOTES.md, "Text wrapping in panels". Recalibrate this one
+# constant if popup text still looks off, never the per-call-site formula.
 POPUP_WIDTH_SCALE = 3.0
 
 
@@ -272,17 +266,16 @@ def path_reachable(path: str | Path) -> bool:
 def resolve_bpy_path(filepath: str) -> Path:
     """Absolute Path for a Blender-relative filepath (the "//..." convention
     used by Library.filepath and source_library.filepath) -- pathlib doesn't
-    understand "//" on its own, only bpy.path.abspath() resolves it."""
-    return Path(bpy.path.abspath(filepath))
+    understand "//" on its own, only bpy.path.abspath() resolves it.
+    normpath()'d: bpy.path.abspath() leaves any "../" in place (see
+    NOTES.md), and a stored path is expected clean."""
+    return Path(os.path.normpath(bpy.path.abspath(filepath)))
 
 
 # ---------------------------------------------------------------------------
 # Read Write Json utiles
 # ---------------------------------------------------------------------------
-# 3x the 30s heartbeat interval (heartbeat_30s / refresh_lock): a threshold
-# equal to the heartbeat itself leaves zero margin -- one missed/delayed
-# beat (a slow network write, Blender busy on the main thread) and another
-# machine's acquire_lock() can steal a lock that's still legitimately held.
+# 3x the heartbeat interval, deliberately -- see NOTES.md, "Lock staleness".
 LOCK_STALE_SECONDS = 90
 
 

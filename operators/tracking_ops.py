@@ -12,7 +12,6 @@ from ..lib import (
     create_entry,
     delete_entry,
     department_filter_items,
-    department_status_tooltip,
     edit_entry,
     entry_version_items,
     get_active_project_root,
@@ -35,7 +34,7 @@ from ..lib import (
     upload_csv,
     wipmeta_add_work,
 )
-from ..panels import TYPE_ICON, draw_file_details
+from ..panels import draw_file_details, draw_monitor_table
 
 _file_department_items_cache: list = []
 
@@ -67,7 +66,7 @@ class PipelineEntryItem(bpy.types.PropertyGroup):
 
 
 class PIPELINE_OT_add_entry_line(bpy.types.Operator):
-    """"""
+    """Append one text line to the note/todo being composed."""
 
     bl_idname = "pipeline.add_entry_line"
     bl_label = "New line"
@@ -83,7 +82,7 @@ class PIPELINE_OT_add_entry_line(bpy.types.Operator):
 
 
 class PIPELINE_OT_remove_entry_line(bpy.types.Operator):
-    """"""
+    """Remove one text line from the note/todo being composed, by index."""
 
     bl_idname = "pipeline.remove_entry_line"
     bl_label = "Remove line"
@@ -476,6 +475,8 @@ class PIPELINE_OT_edit_entry(bpy.types.Operator):
 
 
 class PIPELINE_OT_generic_entry_button(bpy.types.Operator):
+    """One entry's clickable title: click to reply, Ctrl+click to edit."""
+
     bl_idname = "pipeline.generic_entry_button"
     bl_label = ""
 
@@ -628,7 +629,7 @@ class PIPELINE_OT_tracking_monitor(bpy.types.Operator):
     # SKIP_SAVE: always reopen the popup on page 1 rather than remembering
     # the last page, since the file list (and thus the page count) can have
     # changed since the popup was last closed.
-    page: bpy.props.IntProperty(default=0, min=0, options={"SKIP_SAVE"})
+    page: bpy.props.IntProperty(default=1, min=1, options={"SKIP_SAVE"})
     PAGE_SIZE = 8
 
     entries_hide_done: bpy.props.BoolProperty(name="", default=True)
@@ -640,6 +641,7 @@ class PIPELINE_OT_tracking_monitor(bpy.types.Operator):
         layout = self.layout
         if context.window_manager.file_details_selected:
             draw_file_details(self, context, layout)
+
         else:
             filters = layout.box().split(factor=0.5)
             filters.label(text="Filters", icon="FILTER")
@@ -656,164 +658,7 @@ class PIPELINE_OT_tracking_monitor(bpy.types.Operator):
 
             layout.separator(factor=0.5)
 
-            self.draw_files(context, layout, columns)
-
-    def draw_files(self, context, layout, columns):
-        data = TrackingStatusCache.get_all(Path(self.project_root))
-        FIRST_COLUMN = 0.3
-        types = {
-            "asset": json_get(ConfigCache.get(), "structure.asset_prefixes")
-            + json_get(ConfigCache.get(), "structure.library_prefixes"),
-            "shot": json_get(ConfigCache.get(), "naming.sequence.prefix"),
-        }
-
-        matches = []
-        for dir, file in data:
-            if (
-                self.file_type == "asset"
-                and file.get("file_name") is not None
-                and (
-                    (file["file_name"].split("_", 1)[0] in types["asset"])
-                    if self.asset_prefix == "all" and file["file_name"]
-                    else (file["file_name"].split("_", 1)[0] == self.asset_prefix)
-                )
-            ) or (
-                self.file_type == "shot"
-                and file["file_name"] is not None
-                and (
-                    (file["file_name"].startswith(types[self.file_type]))
-                    if self.sequence == "all"
-                    else (file["file_name"].split("_", 1)[0] == self.sequence)
-                )
-            ):
-                matches.append((dir, file))
-
-        # file_name is zero-padded prefix/sequence/shot numbers (see
-        # naming.sequence/shot in config), so plain alphabetical sort already
-        # gives prefix+alpha order for assets and sequence+shot order for
-        # shots -- no separate sort key needed per file_type.
-        matches.sort(key=lambda m: m[1].get("file_name") or "")
-
-        # Fixed number of rows per page (padded with blanks below) so the
-        # popup's height stays constant across pages and filters -- it would
-        # otherwise resize on every redraw, which reads as the window
-        # jumping around.
-        total = len(matches)
-        total_pages = max(1, -(-total // self.PAGE_SIZE))  # ceil division
-        self.page = min(self.page, total_pages - 1)
-        page_items = matches[
-            self.page * self.PAGE_SIZE : (self.page + 1) * self.PAGE_SIZE
-        ]
-
-        f_list = layout.box()
-        title_list = f_list.split(factor=FIRST_COLUMN)
-        title_list.active = False
-        title_list.label(text="File", icon="RADIOBUT_ON")
-        deps = title_list.row()
-        for c in columns:
-            deps.label(text=c.capitalize(), icon="KEYFRAME_HLT")
-
-        f_list.separator(factor=1)
-
-        for dir, file in page_items:
-            self._draw_file_row(context, f_list, dir, file, columns, FIRST_COLUMN)
-
-        for _ in range(self.PAGE_SIZE - len(page_items)):
-            self._draw_blank_row(f_list, columns, FIRST_COLUMN)
-
-        footer = f_list.row()
-        footer.active = False
-        if total == 0:
-            footer.label(text="No files found with this filter", icon="ERROR")
-        else:
-            footer.label(text=f"{total} file(s) found", icon="BLANK1")
-            if total_pages > 1:
-                pager = footer.row(align=True)
-                pager.alignment = "RIGHT"
-                pager.label(text=f"Page {self.page + 1} / {total_pages}")
-                pager.prop(self, "page", text="")
-
-    def _draw_file_row(self, context, f_list, dir, file, columns, first_column):
-        row = f_list.column()
-        split = row.split(factor=first_column)
-        name = split.row()
-        name.alignment = "LEFT"
-        icon = (
-            TYPE_ICON.get(
-                file.get("file_name", "Unknown").split("_", 1)[0],
-                "ASSET_MANAGER",
-            )
-            if self.file_type == "asset"
-            else TYPE_ICON.get("sh", "OUTLINER_OB_CAMERA")
-        )
-        op = name.operator(
-            "pipeline.tracking_file_details",
-            text=file.get("file_name", "Unknown"),
-            icon=icon,
-            emboss=False,
-        )
-        op.filepath = str(dir)
-        op.custom_tooltip = file.get("description", "")
-
-        details = name.row()
-        details.alignment = "RIGHT"
-        details.active = False
-        details.operator(
-            "pipeline.open_file_version",
-            text="",
-            icon="FILE_ALIAS",
-            emboss=False,
-        ).filepath = str(dir)
-        deps_row = split.row()
-        for c in columns:
-            icon_row = deps_row.row()
-            icon_row.label(text="", icon="BLANK1")
-            if c in file["departments_required"]:
-                icon_row.alert = self._has_rtk(context, file, c)
-                # Read-only status: enabled=False blocks any click (no
-                # accidental toggling from this grid -- that's file_details'
-                # job), the tooltip is still shown on hover.
-                status = icon_row.row()
-                status.enabled = False
-                tooltip = department_status_tooltip(file, c)
-                if (
-                    c in file["validated_departments"]
-                    and c not in file["worked_departments"]
-                ):
-                    text, icon = "Finished", "CHECKMARK"
-                elif (
-                    c in file["validated_departments"]
-                    and c in file["worked_departments"]
-                ):
-                    text, icon = "Under RTK", "CHECKBOX_DEHLT"
-                elif (
-                    c not in file["validated_departments"]
-                    and c in file["worked_departments"]
-                ):
-                    text, icon = "Wip", "CHECKBOX_DEHLT"
-                else:
-                    text, icon = "Not started", "CHECKBOX_DEHLT"
-                status.operator(
-                    "pipeline.department_status_info",
-                    text=text,
-                    icon=icon,
-                    emboss=False,
-                ).custom_tooltip = tooltip
-            else:
-                icon_row.label(text=" ", icon="BLANK1")
-        f_list.separator(factor=0.5, type="LINE")
-
-    def _draw_blank_row(self, f_list, columns, first_column):
-        """Empty placeholder row, same height as a real one, so a
-        half-filled last page doesn't shrink the popup."""
-        row = f_list.column()
-        row.active = False
-        split = row.split(factor=first_column)
-        split.row().label(text="")
-        deps_row = split.row()
-        for c in columns:
-            deps_row.row().label(text="", icon="BLANK1")
-        f_list.separator(factor=0.5, type="LINE")
+            draw_monitor_table(self, context, layout, columns)
 
     def invoke(self, context, event):
         project_root = get_active_project_root()
@@ -826,13 +671,6 @@ class PIPELINE_OT_tracking_monitor(bpy.types.Operator):
 
     def execute(self, context):
         return {"FINISHED"}
-
-    def _has_rtk(self, context, data: dict, department: str):
-        if "entries" in data:
-            for e in data["entries"]:
-                if e.get("department") == department and e.get("done") is False:
-                    return True
-        return False
 
 
 class PIPELINE_OT_edit_description(bpy.types.Operator):

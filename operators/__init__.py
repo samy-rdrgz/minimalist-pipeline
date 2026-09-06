@@ -35,7 +35,6 @@ from .shot_ops import (
     PipelineShotItem,
 )
 from .tracking_ops import (
-    TYPE_ICON,
     PIPELINE_OT_add_entry_line,
     PIPELINE_OT_create_entry,
     PIPELINE_OT_delete_entry,

@@ -47,12 +47,9 @@ def get_user_data(user: str = "unknown") -> dict:
 
 
 def get_user(context=None) -> str:
-    """Current user login for logging. Priority: prefs.user_name > OS login > "unknown".
-    getpass.getuser(), not os.getlogin(): the latter needs a controlling
-    terminal (ioctl on the tty) and reliably raises when Blender is launched
-    without one -- desktop icon, Steam, the VS Code extension... -- which is
-    the common case, not the exception. getpass checks LOGNAME/USER/USERNAME
-    env vars first, no tty required."""
+    """Current user login for logging. Priority: prefs.user_name > OS login >
+    "unknown". getpass, not os.getlogin() -- see NOTES.md, "Addon
+    register()"."""
     try:
         if bpy.app.background:
             return "cmd"

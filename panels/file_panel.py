@@ -142,6 +142,9 @@ class PIPELINE_PT_file_panel(bpy.types.Panel):
                 )
                 op.scope = "block"
                 op.filepath = bpy.data.filepath
+                op.custom_tooltip = (
+                    "Compile a disposable preview from just this block's own shots."
+                )
                 op = row.operator(
                     "pipeline.compile_preview", text="Preview sequence", icon="SEQUENCE"
                 )
@@ -151,6 +154,9 @@ class PIPELINE_PT_file_panel(bpy.types.Panel):
                 )
             op.scope = "sequence"
             op.filepath = bpy.data.filepath
+            op.custom_tooltip = (
+                "Compile a disposable preview from every rendered shot in this sequence."
+            )
             draw_box_tip(
                 layout,
                 context,

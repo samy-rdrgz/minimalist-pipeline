@@ -38,7 +38,7 @@ class PipelineShotItem(bpy.types.PropertyGroup):
 
 
 class PIPELINE_OT_add_multishot_item(bpy.types.Operator):
-    """"""
+    """Append one row (shot number + start frame) to the shot list being built."""
 
     bl_idname = "pipeline.add_multishot_item"
     bl_label = "Add"
@@ -55,7 +55,7 @@ class PIPELINE_OT_add_multishot_item(bpy.types.Operator):
 
 
 class PIPELINE_OT_remove_multishot_item(bpy.types.Operator):
-    """"""
+    """Remove one row from the shot list being built, by index."""
 
     bl_idname = "pipeline.remove_multishot_item"
     bl_label = "Remove line"
@@ -190,10 +190,8 @@ def _draw_naming_preview(layout, sequence_number, shots, config):
     preview_col.label(text=f"File: {full_name}", icon="FILE_BLEND")
     preview_col.label(text=f"In: shots/{sq}/{sh}/", icon="BLANK1")
 
-    # Worst-case sidecar path (.stablemeta carries _meta_stem()'s "-stable"
-    # tag, longer than .wipmeta) against Windows' 260-char MAX_PATH -- only
-    # this machine's own mount, not a guarantee for every artist's (see
-    # NOTES.md §6). Shown only once it's actually worth a look.
+    # Worst-case .stablemeta path length vs. Windows' 260-char MAX_PATH --
+    # see NOTES.md §6.
     if len(shots) > 2:
         path = (
             get_active_project_root()
@@ -217,10 +215,8 @@ def _draw_naming_preview(layout, sequence_number, shots, config):
 
 def _classify_shot_conflicts(project_root, sq, shots, config, exclude_dir=None):
     """Split shots' numbers against other active files in sq into
-    (blocking, warnings) dicts of {shot_number: owner_folder}. blocking =
-    a mono-shot duplicating another active mono-shot outright -- no
-    legitimate reason for two files to claim the same lone shot. Anything
-    else (a block absorbing a used number, or the reverse) is a warning."""
+    (blocking, warnings) dicts of {shot_number: owner_folder} -- see
+    NOTES.md for which case is which and why."""
     owners = active_shot_owners(project_root, sq, config)
     shot_prefix = json_get(config, "naming.shot.prefix", "sh")
     mono = len(shots) == 1
@@ -496,12 +492,8 @@ class PIPELINE_OT_edit_block_structure(bpy.types.Operator):
         default_start = json_get(config, "default_frame_start", 1001)
         self.confirm_overlap = False
 
-        # Seed from the scene's own live markers where the file being
-        # edited is actually the open one -- derive_shot_subranges() only
-        # makes sense against a genuinely open scene (same rule as the
-        # farm's own split, see NOTES.md "Split at render"). Falls back to
-        # default_start per shot / scene.frame_end for anything a marker
-        # doesn't cover (missing marker, or filepath isn't the open file).
+        # Seed from the scene's live markers when the file being edited is
+        # the open one -- see NOTES.md, "Shot-number conflicts, and a rename".
         naming = config.get("naming", {})
         shot_numbers = shots_in_segment(parsed["shot"])
         ranges = {}
@@ -583,10 +575,7 @@ class PIPELINE_OT_edit_block_structure(bpy.types.Operator):
             archive_folder(old_path.parent)
 
             # Shots dropped from the new enumeration: archive their renders
-            # too (unless some other active block/shot still covers that
-            # number), so "Preview sequence" stops pulling in a dead cut.
-            # archive_folder() above already moved the old block out of
-            # sq/, so its own numbers no longer show up as "still active".
+            # too, unless still covered elsewhere -- see NOTES.md, "Branch".
             shot_prefix = json_get(config, "naming.shot.prefix", "sh")
             shot_digits = json_get(config, "naming.shot.digits", 3)
             active_numbers = active_shot_owners(project_root, sq, config)

@@ -122,14 +122,8 @@ def _unregister_props(owner, props: dict):
 
 
 def _seed_user_name():
-    """Seed user_name from the OS login on first register, so it's never
-    silently blank -- get_user() falls back to the same getpass.getuser() at
-    read time too, but only in memory; leaving the pref itself empty means
-    the Preferences panel shows nothing configured, and a shared-machine
-    login never gets a chance to be corrected to the actual person. getpass,
-    not os.getlogin(): the latter needs a controlling terminal and reliably
-    fails without one (desktop icon, Steam, the VS Code extension...). Only
-    seeds once: never overwrites an already-set name."""
+    """Seed user_name from the OS login on first register, if not already
+    set -- see NOTES.md, "Addon register()"."""
     try:
         prefs = lib.addon_pref()
         if prefs and not prefs.user_name:
@@ -197,13 +191,8 @@ def _deferred_onboarding():
     try:
         prefs = lib.addon_pref()
         if prefs and not prefs.onboarding_seen:
-            # Marked seen here, not in the operator itself: invoke_popup()
-            # gives no feedback on whether it actually rendered, so "seen"
-            # really means "we tried once at startup" -- the empty-state
-            # project panel and the header's Help icon stay available
-            # regardless, as a reliable fallback if this attempt was missed
-            # (behind another window, timing raced with another startup
-            # popup, etc.).
+            # Marked seen here, not in the operator -- see NOTES.md,
+            # "Addon register()".
             prefs.onboarding_seen = True
             bpy.ops.pipeline.onboarding_popup("INVOKE_DEFAULT")
     except Exception as e:
@@ -225,13 +214,7 @@ def register():
 
     register_topbar_menu()
     lib.register_handlers()
-    # A script/addon reload wipes the in-memory read-only flag (session.py)
-    # even though a -stable file stays open -- post_load_handler only runs
-    # on an actual file open, so without this the READ-ONLY indicator (and
-    # the guards behind it) silently drop on reload. bpy.data is a
-    # _RestrictData stub for the duration of register() itself (seen live
-    # via the VS Code dev-extension's enable flow) -- defer one tick with a
-    # timer so it runs once bpy.data is the real thing.
+    # Deferred one tick -- see NOTES.md, "Addon register()".
     bpy.app.timers.register(lib.refresh_read_only_flag, first_interval=0.0)
 
     try:
@@ -249,9 +232,7 @@ def register():
     bpy.app.timers.register(_deferred_keymap, first_interval=0.1)
     bpy.app.timers.register(_deferred_project_check, first_interval=0.05)
     bpy.app.timers.register(_deferred_auto_worker, first_interval=0.1)
-    # After the other startup popups (project_check can pop one of its own),
-    # not concurrent with them -- Blender only really wants one invoke_popup
-    # fighting for the window at a time.
+    # Fires last -- see NOTES.md, "Addon register()".
     bpy.app.timers.register(_deferred_onboarding, first_interval=0.5)
 
 

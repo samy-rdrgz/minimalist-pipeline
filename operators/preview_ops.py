@@ -25,15 +25,19 @@ class PIPELINE_OT_compile_preview(bpy.types.Operator):
 
     bl_idname = "pipeline.compile_preview"
     bl_label = "Compile preview"
-    bl_description = (
-        "Concat the latest rendered mp4 per shot into one disposable preview."
-    )
 
     scope: bpy.props.EnumProperty(
         items=[("block", "Block", ""), ("sequence", "Sequence", "")],
         default="block",
     )
     filepath: bpy.props.StringProperty(default="")
+    custom_tooltip: bpy.props.StringProperty()
+
+    @classmethod
+    def description(cls, context, properties):
+        return properties.custom_tooltip or (
+            "Concat the latest rendered mp4 per shot into one disposable preview."
+        )
 
     def execute(self, context):
         filepath = Path(self.filepath or bpy.data.filepath)
@@ -41,6 +45,20 @@ class PIPELINE_OT_compile_preview(bpy.types.Operator):
         if not str(filepath) or not project_root:
             self.report({"ERROR"}, "No file/project to resolve a preview from.")
             return {"CANCELLED"}
+
+        # A caller can pass a shot's own folder instead of a specific
+        # version (the tracking monitor's file details only knows the
+        # folder, via TrackingStatusCache) -- parse_filename() below needs
+        # a real "..._vNNN.blend" name, so resolve to any one inside it;
+        # sequence/shot don't vary by version.
+        if filepath.is_dir():
+            candidates = sorted(
+                f for f in filepath.glob("*.blend") if parse_filename(f.name)
+            )
+            if not candidates:
+                self.report({"ERROR"}, "No versioned file found in this folder.")
+                return {"CANCELLED"}
+            filepath = candidates[-1]
 
         config = ConfigCache.get()
         naming = config.get("naming", {})

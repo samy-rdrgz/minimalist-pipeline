@@ -87,12 +87,9 @@ def _static_read_only_reason(filepath: str) -> str:
 
 def refresh_read_only_flag():
     """Re-apply the read-only flag to the currently open file if it's a
-    -stable (or always-read-only profile) file. The flag itself lives in an
-    in-memory global (session.py) that a script/addon reload wipes even
-    though the file stays open, so a reload with a -stable file open
-    silently drops its read-only state -- see post_load_handler for the
-    normal on-open path. Call at register(). Never touches locking or
-    triggers auto_version -- this isn't a file-open event."""
+    -stable (or always-read-only profile) file. Called at register() to
+    survive a hot-reload -- see NOTES.md, "Addon register()". Never touches
+    locking or triggers auto_version -- this isn't a file-open event."""
     filepath = bpy.data.filepath
     if not filepath or bpy.app.background:
         return

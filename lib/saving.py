@@ -34,9 +34,7 @@ def _release_only(filepath: str, uuid: str):
 
 def _increment_and_release(filepath: str, uuid: str):
     """Increment instead of overwriting, then release the lock. Deferred one
-    timer tick: this runs from action_popup's own execute() (a popup still
-    closing), and opening a new dialog synchronously there risks the same
-    popup-chaining issue PIPELINE_OT_create_project already works around."""
+    timer tick -- see NOTES.md, "Popup-chaining"."""
     try:
         bpy.app.timers.register(
             lambda: bpy.ops.pipeline.increment_version("INVOKE_DEFAULT"),
@@ -235,12 +233,8 @@ class WM_OT_safe_save(bpy.types.Operator):
         return {"FINISHED"}
 
     def _open_popup(self):
-        """Defer opening action_popup by one timer tick instead of calling it
-        synchronously from inside this invoke(): the synchronous call made
-        invoke() forward the inner popup's RUNNING_MODAL as wm.safe_save's
-        own return value, entangling the two operators' modal state so
-        neither button in the popup would reliably close it. Same
-        popup-chaining precaution as _increment_and_release above."""
+        """Defer opening action_popup by one timer tick -- see NOTES.md,
+        "Popup-chaining"."""
         bpy.app.timers.register(
             lambda: bpy.ops.pipeline.action_popup("INVOKE_DEFAULT"),
             first_interval=0.05,

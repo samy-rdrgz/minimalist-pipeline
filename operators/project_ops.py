@@ -162,6 +162,7 @@ class PIPELINE_OT_create_project(bpy.types.Operator):
         install_default_preset()
         install_default_ffmpeg_preset()
 
+        # Deferred one timer tick -- see NOTES.md, "Popup-chaining".
         project_root_str = str(project_root)
         bpy.app.timers.register(
             lambda: bpy.ops.pipeline.edit_project(

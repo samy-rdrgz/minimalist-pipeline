@@ -355,7 +355,7 @@ The free-text note stays exactly that — words for a human to read, never a fie
 
 **Producing the budget.** `context.region.width` gives the panel's pixel width, divided by an average px/char (`7.0`) scaled by `context.preferences.system.ui_scale`. The `ui_scale` multiplication isn't optional: skip it and the wrap looks right on one machine and overflows on any other display's DPI setting — a real risk on an addon whose whole premise is multiple machines sharing a project. The `7.0` is a calibrated average, not a measurement — Blender's UI font isn't monospace, an `i` and a `W` don't take the same width, so per-character precision would need `blf.dimensions()`, exactly the kind of effort the project's own "over-engineering is the main risk" rule argues against. If wrapping is ever visibly too tight or too loose, that single constant is what gets tuned, never the mechanism around it. A `floor` argument keeps a squeezed-flat panel from computing a budget of 2-3 characters and drawing a wall of one-word lines.
 
-The one real gap `context.region.width` has: it's the *panel's* width, not any nested sub-layout's — Blender doesn't expose a sub-layout's resolved width from inside `draw()` (it doesn't exist yet at that point, only after the C-side layout pass runs). `region_char_budget()` accepts an explicit `width_px` for exactly one such case, a popup/dialog's own `invoke_popup(width=...)`/`invoke_props_dialog(width=...)` value — scaled by `POPUP_WIDTH_SCALE` to correct for a popup's content area rendering narrower than its declared width. A label inside an ordinary panel's own `split()`/nested `column()` isn't covered by this — the caller would need to pass its own fraction of the budget by hand; nothing does that automatically today.
+The one real gap `context.region.width` has: it's the *panel's* width, not any nested sub-layout's — Blender doesn't expose a sub-layout's resolved width from inside `draw()` (it doesn't exist yet at that point, only after the C-side layout pass runs). `region_char_budget()` accepts an explicit `width_px` for exactly one such case, a popup/dialog's own `invoke_popup(width=...)`/`invoke_props_dialog(width=...)` value — scaled by `POPUP_WIDTH_SCALE` to correct for a popup's content area rendering narrower than its declared width — Blender doesn't expose the popup's actual rendered pixel width back to Python (`context.region` during that `draw()` isn't the popup's own region, and there's no public API that is), so the raw `width=` argument doesn't map 1:1 to the px/char formula above; `POPUP_WIDTH_SCALE = 3.0` is the single place that gap gets corrected, calibrated from an observed popup where text filled roughly 1/3 of the box at scale 1.0 — recalibrate that one constant if popup text still looks off, never the per-call-site formula. A label inside an ordinary panel's own `split()`/nested `column()` isn't covered by this — the caller would need to pass its own fraction of the budget by hand; nothing does that automatically today.
 
 **Wrapping at the budget.** `text_to_lines()` splits on spaces and packs words up to the budget, using `_effective_len()` rather than a raw character count — capital letters are weighted heavier (`cap_weight`), since they render visibly wider and a caps-heavy string (an acronym, a `.upper()`'d label) would otherwise wrap later than it visually should. `max_lines` (typically supplied by `lines_budget()` — more source text earns a few more lines before truncating, capped) truncates with a trailing `...`, budgeted at `max_width - 3` and floored at 1 character — plain string slicing, which can't raise the way a `textwrap`-based truncation could on a pathologically narrow budget.
 
@@ -480,6 +480,21 @@ shouldn't be there to click. Added a second, independent signal —
 file's own name — and hide on either signal being true, not just the
 cached one.
 
+**`wipmeta_add_link()` also used to append unconditionally**, found once a
+file-details "linked libraries" view (`draw_file_details()`,
+`panels/tracking_panel.py`) surfaced a `.wipmeta` with the same batch of
+~26 datablocks recorded twice back to back. Blender's import-post handler
+firing more than once for what reads as one link action is real —
+`clean_append_and_relink()` (`lib/libraries.py`) re-imports the "Clean &
+reLink" choice item by item via `bpy.ops.wm.link()` in a loop, each call
+its own import event — and since `create_wipmeta()` inherits the previous
+version's `linked` list wholesale, one duplicated write compounds into
+every later version too, silently. Fixed by deduping on `(file, type,
+name)` at write time (existing + incoming, order preserved). Doesn't
+un-corrupt a `.wipmeta` already written before the fix — `draw_file_details()`
+dedupes the same way at read time so an old file still displays correctly,
+but the JSON on disk stays as-is until that asset gets a new version.
+
 ---
 
 ## Farm status: two redraw timers, split by cost
@@ -516,6 +531,114 @@ cheap end; `_refresh_tick` stays popup-gated for the expensive end (jobs).
 `counter` (the field the old loading-dots animation read) was dropped from
 `_monitor_cache` entirely once nothing displayed it anymore — dead state,
 not worth carrying just in case.
+
+## File details' `file_details_selected` is a folder, not a versioned file
+
+`PIPELINE_OT_tracking_monitor`'s file-details view (`draw_file_details()`,
+`panels/tracking_panel.py`) reads `context.window_manager.file_details_selected`
+— set by clicking a row in the monitor's own list (`_draw_monitor_row()`),
+via `op.filepath = str(dir)` where `dir` is `TrackingStatusCache.get_all()`'s
+own `asset_dir` (a folder, not a `.blend`). Code written assuming it was a
+specific versioned file broke twice: `parse_filename(Path(filepath).name)`
+silently returned `None` for a bare folder name like `sh045` (never raised,
+so the Preview buttons just never showed, no error — the actual bug behind
+an earlier "why is nothing displaying" report), and passing that same
+`filepath` straight to `pipeline.compile_preview` failed the exact same
+way inside that operator, since it also calls `parse_filename()`. Fixed at
+both ends: `draw_file_details()` reads the shot/block segment straight off
+the folder's own name (`shots_in_segment()`, no `parse_filename()` needed),
+and `PIPELINE_OT_compile_preview.execute()` now resolves a folder to any
+real versioned `.blend` inside it before parsing. Any new code touching
+`file_details_selected` should assume folder, not file.
+
+## `resolve_bpy_path()` left "../" uncollapsed in every stored link path
+
+Found via "Linked by" (same feature as above) coming back empty for an
+asset that plenty of shots visibly link. `bpy.path.abspath()` swaps
+Blender's `//` prefix for the current file's own directory but does *not*
+collapse any `../` that follows — a shot linking a sibling asset folder
+(`shots/<sq>/<sh>/` down to `assets/...` always crosses back up through
+`../../../`) got exactly that stored verbatim in its `.wipmeta`'s `linked`
+list, e.g. `shots/sq030/sh040/../../../assets/ch/ch_ball/ch_ball_v003-
+stable.blend`. `to_relative()`'s own `Path.relative_to()` doesn't collapse
+`..` either, so the mess round-tripped straight into the sidecar. Fixed at
+the source: `resolve_bpy_path()` now runs the result through
+`os.path.normpath()` (lexical only, no symlink resolution, unlike
+`.resolve()`) before returning. Existing `.wipmeta`/`.stablemeta` written
+before this fix still carry the uncollapsed form — `find_linked_by()`
+compares `to_absolute(...).parent` (which does resolve) on both sides
+specifically so a pre-fix path still matches; anything reading a stored
+`linked`/`file` path via a raw string or `Path.relative_to()`/`==` compare
+instead would need the same treatment.
+
+## Popup-chaining: a second modal popup always waits one timer tick
+
+Found from the read-only "Save & Increment" flow reliably failing to close
+either button: `wm.safe_save`'s `invoke()` returned `{"FINISHED"}` on paper,
+but a click on `action_popup`'s own choices sometimes did nothing. Calling
+`bpy.ops.pipeline.action_popup("INVOKE_DEFAULT")` (or any other
+`INVOKE_DEFAULT` operator that opens its own `invoke_props_dialog`/
+`invoke_popup`) synchronously from inside another operator's own
+`invoke()`/`execute()` forwards *that inner popup's* `RUNNING_MODAL` back as
+the outer operator's own return value — entangling the two operators'
+modal state so neither one reliably owns the popup afterward. This also
+bites a choice callback fired while `action_popup` itself is still in the
+middle of closing (e.g. "Save & Increment" wanting to open a fresh
+`increment_version` dialog), not just a plain `invoke()`.
+
+Fixed the same way everywhere it comes up: never call the second operator
+synchronously — defer it one tick with `bpy.app.timers.register(lambda:
+bpy.ops.pipeline.xxx("INVOKE_DEFAULT"), first_interval=0.05)` instead. Every
+site chaining into a second modal popup follows this: `PIPELINE_OT_create_project`
+(into `edit_project`), `wm.safe_save`'s `_increment_and_release`/`_open_popup`
+(into `increment_version`/`action_popup`), and `PIPELINE_OT_farm_launch_monitor`'s
+missing-ffmpeg and stale-lock branches (into `action_popup`/`farm_launch_monitor`
+itself). Any new operator that needs to open a modal popup from inside
+another one's lifecycle should use the same 0.05s-deferred-timer shape.
+
+## Addon `register()`: three startup-only gotchas
+
+**Hot-reload leaves the read-only flag stale.** The in-memory read-only flag
+(`session.py`) is only ever set by `post_load_handler`, which fires on an
+actual file *open* — a script/addon reload (VS Code dev-extension's enable
+flow, a manual reload) doesn't re-fire it even though a `-stable` file
+stays open throughout, so the top bar's READ-ONLY indicator and the guards
+behind it would silently drop on every reload. Also, `bpy.data` is a
+`_RestrictData` stub for the duration of `register()` itself, so
+`refresh_read_only_flag()` can't run synchronously there — deferred one
+tick (`first_interval=0.0`) so it runs once `bpy.data` is real.
+
+**Onboarding is marked "seen" before it's shown, not after.**
+`invoke_popup()` gives no feedback on whether it actually rendered (behind
+another window, racing another startup popup...), so `_deferred_onboarding()`
+sets `onboarding_seen = True` right before calling it rather than from the
+popup operator itself — "seen" really means "tried once at startup"; the
+empty-state project panel and the header's Help icon stay reachable
+regardless, as the permanent fallback for a missed attempt. Also why it
+fires last of the deferred timers (0.5s, after `_deferred_project_check`'s
+0.05s and `_deferred_auto_worker`'s 0.1s) — Blender only really wants one
+`invoke_popup` fighting for the window at a time.
+
+**User identity uses `getpass`, not `os.getlogin()`** — the latter needs a
+controlling terminal (an `ioctl` on the tty) and reliably raises when
+Blender is launched without one, which is the common case (desktop icon,
+Steam, the VS Code extension...), not the exception. `getpass.getuser()`
+checks `LOGNAME`/`USER`/`USERNAME` env vars first, no tty required. Used in
+two places for the same reason: `get_user()` (`lib/session.py`) as the
+`prefs.user_name` > OS login > `"unknown"` fallback read at log time, and
+`_seed_user_name()` to write that OS login into the pref itself once, on
+first register, so the Preferences panel never shows nothing configured
+and a shared-machine login gets a chance to be corrected to the real
+person.
+
+## Lock staleness: 3x the heartbeat, not 1x
+
+`LOCK_STALE_SECONDS = 90` (`lib/core.py`) is deliberately 3x the 30s
+heartbeat interval (`heartbeat_30s`/`refresh_lock`), not equal to it — a
+threshold equal to the heartbeat itself leaves zero margin, so one
+missed/delayed beat (a slow network write, Blender busy on the main
+thread) would let another machine's `acquire_lock()` steal a lock that's
+still legitimately held.
 
 <!-- Next feature with rationale worth keeping gets its own "## " section
      here, same shape as the ones above: what was tried, what was
