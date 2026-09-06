@@ -1,4 +1,4 @@
-schema_version = "1.0.1"
+schema_version = "1.0.0"
 
 id = "minimalist_pipeline"
 version = "1.0.1"
@@ -7,6 +7,8 @@ tagline = "Lightweight file pipeline for solo artists and small teams"
 maintainer = "Samy RODRIGUEZ samy.rodriguez@proton.me"
 type = "add-on"
 
+website = "https://github.com/samy-rdrgz/minimalist-pipeline"
+
 blender_version_min = "4.2.0"
 
 license = ["SPDX:GPL-3.0-or-later"]
@@ -14,3 +16,26 @@ license = ["SPDX:GPL-3.0-or-later"]
 category = "Pipeline"
 tags = ["Pipeline", "Render", "System"]
 files = "Create/Edit Blender files and JSON files (Addon structure and farm instructions)"
+
+[build]
+# Declaring this section replaces Blender's own default exclude list
+# (__pycache__/, dot-files, root .zip, .blend backups), so it's repeated
+# here alongside the repo's dev-only files. README.md/README_fr.md are
+# GitHub's own landing page (full of docs/ links that only resolve there)
+# -- excluded here in favor of README_EXTENSION.md, a self-contained stub
+# pointing back to the repo, so the installed package never ships a doc
+# with dead links.
+paths_exclude_pattern = [
+    "__pycache__/",
+    ".*",
+    "/*.zip",
+    "*.blend[1-9]",
+    "*.tar.gz",
+    "/CODE.md",
+    "/NOTES.md",
+    "/graph.md",
+    "/docs/",
+    "/*.code-workspace",
+    "/README.md",
+    "/README_fr.md",
+]

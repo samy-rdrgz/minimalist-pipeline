@@ -8,3 +8,5 @@ __pycache__/
 *.gz
 tests/
 CLAUDE.md
+.claude/
+*.code-workspace
