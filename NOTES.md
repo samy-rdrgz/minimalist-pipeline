@@ -591,10 +591,23 @@ synchronously — defer it one tick with `bpy.app.timers.register(lambda:
 bpy.ops.m_pipeline.xxx("INVOKE_DEFAULT"), first_interval=0.05)` instead. Every
 site chaining into a second modal popup follows this: `M_PIPELINE_OT_create_project`
 (into `edit_project`), `wm.safe_save`'s `_increment_and_release`/`_open_popup`
-(into `increment_version`/`action_popup`), and `M_PIPELINE_OT_farm_launch_monitor`'s
+(into `increment_version`/`action_popup`), `M_PIPELINE_OT_farm_launch_monitor`'s
 missing-ffmpeg and stale-lock branches (into `action_popup`/`farm_launch_monitor`
-itself). Any new operator that needs to open a modal popup from inside
+itself), and `wm.safe_save`'s own `invoke()` for a never-saved file (into
+`wm.save_mainfile` itself, to reach its file-browser prompt -- see next
+paragraph). Any new operator that needs to open a modal popup from inside
 another one's lifecycle should use the same 0.05s-deferred-timer shape.
+
+**A never-saved file (`bpy.data.filepath == ""`) has no read-only/lock/
+stable identity to gate on.** `file_in_active_project("")` is always
+`False`, which used to route straight into `_save_and_release()` ->
+`bpy.ops.wm.save_mainfile("EXEC_DEFAULT")` — a plain EXEC save needs an
+existing filepath, so Ctrl+S on a brand-new scene raised `RuntimeError:
+Unable to save an unsaved file with an empty or unset "filepath" property`
+instead of prompting for one, on every single first save. Fixed with an
+early check in `wm.safe_save.invoke()`: no filepath means defer straight
+to `wm.save_mainfile("INVOKE_DEFAULT")` (Blender's own Save As browser),
+same as an unoverridden Ctrl+S would.
 
 ## Addon `register()`/`unregister()`: four lifecycle gotchas
 
@@ -665,6 +678,63 @@ threshold equal to the heartbeat itself leaves zero margin, so one
 missed/delayed beat (a slow network write, Blender busy on the main
 thread) would let another machine's `acquire_lock()` steal a lock that's
 still legitimately held.
+
+## Copy/paste isn't always under `bpy.app.tempdir`
+
+`_blender_internal_roots()` (`lib/libraries.py`) filters out Blender's own
+copy/paste round-trips (any editor: 3D viewport, node editor, pose
+library...) from the append/link warning, on the assumption every
+`copybuffer*.blend` lands under `bpy.app.tempdir` — a per-session
+subfolder (`/tmp/blender_XXXXXX/` on Linux). Found false: the node
+editor's own copy/paste writes `copybuffer_nodes.blend` straight to the
+bare OS temp root instead, so the directory check missed it and the
+"you just appended data" popup fired on every node copy/paste. Fixed by
+also matching on the filename itself (`copybuffer*.blend`) regardless of
+which temp directory it's actually in, rather than widening the directory
+check to the whole OS temp root — that would also swallow a genuine
+append/link of a real file a user happens to have sitting in `/tmp/`.
+
+## Department filter: three different callers, three different "current file"s
+
+`tracked_department_items()`/`department_filter_items()` (`lib/browser.py`)
+populate a department dropdown from whatever file they're asked about --
+but "the file" means something different depending on who's asking.
+`create_entry`/`edit_entry` have their own explicit `self.filepath` (the
+file being tagged). `M_PIPELINE_OT_tracking_monitor` has no `filepath` of
+its own -- its "current file" in the popup's file-details view is
+`context.window_manager.file_details_selected`, which used to fall through
+the old two-tier fallback (`self.filepath or bpy.data.filepath`) straight
+to `bpy.data.filepath` -- whatever's open in the viewport, unrelated to the
+file actually shown in the popup -- so the department dropdown only ever
+offered "All departments" there. The sidebar's own entries panel has
+neither: `bpy.data.filepath` (the open file) really is the right answer
+for it. Fixed by trying all three in that order: `self.filepath` ->
+`file_details_selected` -> `bpy.data.filepath`.
+
+A first attempt gave `M_PIPELINE_OT_tracking_monitor` its own `filepath`
+`@property` returning `file_details_selected`, reasoning `getattr(self,
+"filepath", "")` would then pick it up like any other operator's real
+`self.filepath`. Measured false: a plain Python `@property` (not a
+`bpy.props` field) doesn't reliably survive attribute lookup on a live
+operator instance during a dynamic `EnumProperty` items() callback --
+`bpy_struct`'s own `__getattribute__` most likely resolves through RNA
+first and never reaches it. Centralizing the fallback in
+`tracked_department_items()` itself sidesteps the question entirely.
+
+## Entries: two fields only ever guaranteed together, never accessed bare
+
+`_draw_entry()`/`_get_entry_tooltip()` (`panels/tracking_panel.py`) each
+had one bare `e["field"]` access sitting right next to a `.get()`-guarded
+sibling on the same line -- both crashed the whole entries panel with a
+`KeyError` the first time an entry didn't fit the assumption. `frame_start`
+and `referenced_version` are independent optional fields (an entry can
+carry a frame tag with no version picked -- routine for anything created
+outside the interactive dialog, e.g. a batch/CSV import or a scripted
+`create_entry()` call); `done` and `done_by`/`done_at` are only stamped
+together by `toggle_entry_task()`, but nothing stops `done` being set some
+other way without them. Both fixed to fall back the same way their
+already-guarded sibling does: no crash, jump buttons/timestamp just read
+as unavailable.
 
 <!-- Next feature with rationale worth keeping gets its own "## " section
      here, same shape as the ones above: what was tried, what was

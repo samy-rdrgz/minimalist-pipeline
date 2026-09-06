@@ -142,6 +142,14 @@ class WM_OT_safe_save(bpy.types.Operator):
         filepath = bpy.data.filepath
         self.filepath = filepath
 
+        if not filepath:
+            # Never saved before -- see NOTES.md, "Popup-chaining".
+            bpy.app.timers.register(
+                lambda: bpy.ops.wm.save_mainfile("INVOKE_DEFAULT"),
+                first_interval=0.05,
+            )
+            return {"FINISHED"}
+
         if not file_in_active_project(filepath):
             _save_and_release(filepath, "")
             return {"FINISHED"}

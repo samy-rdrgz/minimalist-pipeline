@@ -38,8 +38,13 @@ def _blender_internal_roots() -> list[Path]:
 
 def _is_internal_import(filepath: str) -> bool:
     """True if filepath (a source_library.filepath) resolves under one of
-    Blender's own internal roots rather than a real project/user file."""
+    Blender's own internal roots, or is itself a copy/paste buffer file,
+    rather than a real project/user file."""
     resolved = resolve_bpy_path(filepath).resolve()
+    # Matched by name, not just directory -- see NOTES.md, "Copy/paste
+    # isn't always under bpy.app.tempdir".
+    if resolved.name.startswith("copybuffer") and resolved.suffix == ".blend":
+        return True
     for root in _blender_internal_roots():
         try:
             resolved.relative_to(root.resolve())

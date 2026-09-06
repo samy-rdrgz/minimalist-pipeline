@@ -233,9 +233,7 @@ def _draw_entry(e, note, filepath, width: int | None = None):
         frames_row.active = False
         ref = e.get("frame_reference")
         referenced_version = e.get("referenced_version")
-        # No referenced_version at all (a batch/scripted create_entry() call
-        # that never set one) -- can't tell if this frame tag is about the
-        # open file, so don't enable the jump buttons for it.
+        # Independent optional field -- see NOTES.md, "Entries: two fields".
         active_file = bool(referenced_version) and (
             to_absolute(referenced_version).parent == Path(bpy.data.filepath).parent
         )
@@ -315,9 +313,7 @@ def _get_entry_tooltip(e, filepath):
         else:
             text = f"{text}\n\nIn response to a note that cannot be found"
     if e.get("done") is True:
-        # done_by/done_at are only ever stamped together, by
-        # toggle_entry_task() -- but "done" itself can be set through other
-        # paths (CSV import, a hand-edited tracking.json) without them.
+        # Not always stamped -- see NOTES.md, "Entries: two fields".
         done_at = e.get("done_at")
         done_at = done_at.replace("T", " ") if done_at else "//"
         text = f"{text}\n\nDone by : {e.get('done_by', '//')}\nAt : {done_at}"

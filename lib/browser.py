@@ -269,10 +269,7 @@ def file_department_items(self, context):
 def tracked_department_items(self, context):
     """Enum items from the target file's tracked departments (pre-built by
     TrackingStatusCache, already bitflag-encoded), plus a blank "" option.
-    filepath resolution order: an explicit self.filepath (create_entry/
-    edit_entry, tagging a specific file) -> the tracking monitor's own
-    file_details_selected (M_PIPELINE_OT_tracking_monitor has no filepath
-    of its own) -> bpy.data.filepath (the sidebar panel, for the open file)."""
+    filepath fallback order -- see NOTES.md, "Department filter"."""
     filepath = (
         getattr(self, "filepath", "")
         or context.window_manager.file_details_selected
