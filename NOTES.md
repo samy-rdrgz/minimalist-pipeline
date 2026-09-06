@@ -29,7 +29,7 @@ The spec is `multishot_spec_v2.md` (§ references below point there).
 ### Creation (`operators/shot_ops.py`)
 
 - `window_manager.shots_list_creation` (a `PipelineShotItem` collection) is
-  shared state, not owned by `PIPELINE_OT_create_shot` — `PIPELINE_OT_branch_shot`
+  shared state, not owned by `PIPELINE_OT_create_shot` — `PIPELINE_OT_edit_block_structure`
   reuses it as-is, along with the same add/remove operators and the four
   shared `_draw_*` helper functions. This is why those helpers take the
   operator instance as a plain parameter instead of being methods.
@@ -58,6 +58,17 @@ No hard cap was added regardless — a warning, not a block, consistent with the
   a single CAM/SET/ASSETS collection set (a block is one decor/lighting
   setup, never one per shot) — a mono-shot is `shot_numbers=[n]` through the
   exact same loop, not a separate branch.
+- Made idempotent (bug fix): it used to `.new()` the CAM/SET/ASSETS
+  collections and every camera unconditionally, fine for a genuinely fresh
+  scene but not for `PIPELINE_OT_edit_block_structure` — unless "Start with
+  a new clean scene" is ticked, editing structure runs this against the
+  very scene the *previous* enumeration already scaffolded (it's a Save
+  As, not a fresh file), so every existing camera got a Blender-renamed
+  duplicate (`cam_..._v001.001`) alongside the real one. Now looks each
+  camera/collection up by name (marker by its bound camera, not by name)
+  before creating one, so re-running it against an already-scaffolded
+  scene is a no-op past the diff — only a genuinely new shot number gets
+  new datablocks.
 - The camera's own trailing version suffix (`_v001`) is a *different axis*
   from the shot file's own version: it lets an artist keep alternate test
   cameras in the same file (`_v002`, `_v003`...), only one bound to a marker
@@ -87,7 +98,22 @@ the reasoning doesn't get rediscovered by accident:
    own `shots/<sequence>/<shot_override>/` output folder via `resolve_job_context()`).
    A job with `shot_override` already set never re-splits (that's the guard
    against infinite recursion — only a bare submission attempts it).
-3. **Efficiency fix**: a child's `overrided_frame_range` is resolved to
+3. **Bug fix, found against a real render**: `compute_output_path()`
+   (`farm/setup.py`) built its output folder relative to `project_root`
+   instead of `project_root / "shots"` — since `shot_root` is always
+   `.../shots/<sq>/<sh>`, that landed every render (mono or split) at
+   `renders/shots/<sq>/<sh>/...` instead of `renders/<sq>/<sh>/...`. Every
+   reader (`lib/preview.py`'s `resolve_sequence_sources()`/
+   `latest_shot_mp4()`, the `/old` archiving in
+   `PIPELINE_OT_edit_block_structure`, "Open folder") only ever looked at
+   the latter, so a genuinely rendered shot silently never showed up in a
+   preview compile ("No rendered shot found..." despite real renders on
+   disk) — this is exactly the kind of thing "unverified until run for
+   real" (see CODE.md's closing note) was flagging. Fixed by making the
+   relative base `project_root / "shots"`. Doesn't retroactively move
+   anything already rendered under the wrong path — an existing project
+   needs `renders/shots/<sq>/` moved up to `renders/<sq>/` by hand once.
+4. **Efficiency fix**: a child's `overrided_frame_range` is resolved to
    *absolute* frame numbers right there in `_split_into_shot_jobs()`, using
    the same already-open scene — so the child's own later setup never has to
    reopen the file just to re-derive a range the split already computed. This
@@ -193,31 +219,62 @@ place that can answer this honestly every time.
 
 ### Branch (§5)
 
-The alternative to flagging a branched-out composition `archived` was moving its files to an `/old/` folder instead. `/old` is more honest on disk — a dead block is visibly dead, no JSON to open to find out — and it sidesteps a real race: the farm is a ~10s-latency pull model, so a guard that checks "is a job active on this block right now" right before moving files can still lose to a worker that pulled the request 8 seconds earlier, or a request still sitting unpulled in `queue/requests/`. Moving nothing means an in-flight job's path never goes stale underneath it, race or no race.
+The alternative to flagging a branched-out composition `archived` was moving it to an `/old/` folder instead: more honest on disk (a dead block is visibly dead), but riskier against the farm's ~10s-latency pull model — a guard checking "is a job active on this block" can still lose to a worker that already pulled the request. The flag shipped first for that reason: metadata-only, no move, no race.
 
-The flag won anyway, for one reason: it turns branch into a metadata-only operation — no move, no lock spanning several stages, none of the race above — instead of a filesystem transaction that would need to be written as one. The price is real and recurring, not one-time: two blocks now physically coexist in `shots/<sq>/`, and *every* enumeration — monitoring, submit farm's cascade picker, casting, the save-guard — must filter `archived: true` or a dead block resurrects. `list_active_blocks()` exists specifically to be the one place that filter lives (below), so the discipline only has to hold at one call site instead of every one that lists blocks. Missing it anywhere new fails silently — a branched-off block just reappears — not loudly.
+**Revisited, `/old` shipped instead.** The flag never reached a dropped shot's *renders* — only the composition had an `archived` key. A shot pulled from a block's enumeration left its old output in `renders/<sq>/<sh>/` with nothing marking it dead, so "Preview sequence" (`resolve_sequence_sources()`, filesystem-only by design) kept splicing a dead cut into the compiled preview. `/old` fixes both at once: `archive_folder()` (`lib/tracking.py`) moves a folder into an `old/` sibling, used on the branched-out composition and, per dropped shot, its render folder — skipped if that shot number is still covered by some other active block/shot in the sequence, via `active_shot_owners()` (see below). `resolve_sequence_sources()` needed no change: it only sees `renders/<sq>/`'s direct children, and an archived shot no longer lives there.
 
-- `create_shot_file()` for the new composition runs *before* the old block
-  gets flagged archived, not after: if creation fails (naming collision,
-  permissions...), the old block must never end up archived with no
-  successor. The reverse failure mode (new block created, old one somehow
-  fails to archive) is left as an acceptable, safe-by-default outcome —
-  both are just "active", not a broken state.
-- `archive_block()` started as its own `lib/tracking.py` function and was
-  deliberately inlined into `PIPELINE_OT_branch_shot.execute()` instead: it's
-  a 5-line `locked_json` write with exactly one caller — the abstraction
-  wasn't paying for itself. `copy_entries()` / `list_active_blocks()` stayed
-  as real functions because they have (or are meant to have) more than one
-  caller.
-- `list_active_blocks()` is meant to be the *only* place that filters
-  archived blocks out of an enumeration — the spec's own words are "one
-  point of truth, not a filter copied everywhere". Already wired into
-  `shot_items()` (submit farm's cascade picker) and `TrackingStatusCache.get_all()`
-  (monitoring). Not yet wired into the preview providers (`lib/preview.py`)
-  — they scan `renders/` directly, which isn't keyed by block identity at
-  all (a shot folder doesn't know which block last rendered into it), so
-  there was no clean way to apply the filter there without a larger change;
-  left as a known gap, not silently "handled".
+The race above doesn't apply on this path: the move only runs after `create_shot_file()` has already switched the live session to the new file, so the old path is never the one still open. A job already pulled and mid-render against it stays exposed — same as a hand-deleted folder would be, not new risk. Breaking a Blender link still pointing at the moved file is accepted, not a bug: a dead block should fail loudly, not keep resolving as if it were current.
+
+- `create_shot_file()` for the new composition still runs *before* the old
+  block gets archived, not after: a creation failure must never leave it
+  gone with no successor.
+- The `archived` flag write stayed even after the move landed:
+  `TrackingStatusCache.get_all()` finds tracking.json via `rglob()` from
+  the project root, so a block moved under `old/` is still nested under it
+  and would still surface in monitoring without the flag.
+- `list_active_blocks()` now also skips `ARCHIVE_DIRNAME` (`old`) by name,
+  so the archive folder sitting next to a sequence's real shot folders
+  never gets listed as one. The preview providers (`lib/preview.py`) still
+  aren't keyed by block identity — not needed anymore, since a dropped
+  shot's render folder is just gone.
+
+**Shot-number conflicts, and a rename.** `PIPELINE_OT_branch_shot` became
+`PIPELINE_OT_edit_block_structure` — "branch" read as a one-way archive
+action; the operator is really the general "change which shots this file
+covers" tool (mono → block, block → mono, or just a different selection),
+and the old name gave no hint of that at the button.
+
+- Its dialog used to seed every shot's start frame with the same
+  `default_frame_start`, regardless of where that shot actually sits. It
+  now reads the real thing off the currently open file's own markers —
+  `derive_shot_subranges()` (`lib/presets.py`, already built for the
+  farm's split, see "Split at render" above) against the *promised* set
+  parsed from the filename — and falls back to `default_frame_start` only
+  for a shot whose marker is missing, or when `self.filepath` isn't
+  actually the open file (an explicit, non-default caller — the one real
+  call site, `file_panel.py`, always passes the open file).
+- New check, `active_shot_owners()` (`lib/tracking.py`): `{shot_number:
+  owning folder}` across every active file in a sequence. Two other call
+  sites reuse it besides the conflict check below — `list_active_blocks()`
+  used to be walked by hand for the dropped-shot-renders skip above; now
+  that's `active_shot_owners()` too, one less duplicate of the same loop.
+- The dialog (create *and* edit) now flags a shot number already claimed
+  by another active file. Landed as a warning + a `confirm_overlap`
+  checkbox that must be ticked before executing (`_classify_shot_conflicts()`,
+  `operators/shot_ops.py`) — consistent with the addon's "warning, not
+  blocking" stance everywhere else. One case is hard-blocked instead, no
+  checkbox can override it: ending up with a lone shot whose number is
+  *already* another active file's own lone shot. Two files each claiming
+  a whole shot to themselves, under the same number, has no legitimate
+  reading (unlike a block absorbing a number, which might be a deliberate
+  re-branch) — and it's the case that would actually corrupt output: both
+  would render into the exact same `renders/<sq>/<sh>/` folder.
+- A true second confirmation popup (`invoke_confirm` chained off `execute()`)
+  was considered and dropped — its exact re-entry behavior when called
+  with `operator=self` and no `event` couldn't be verified without a live
+  Blender (this environment has none, see CODE.md's own closing note). The
+  checkbox gives the same "must explicitly acknowledge" guarantee without
+  betting on unverified modal-chaining behavior.
 
 ### §6 — MAX_PATH (`.meta` mitigation implemented, `.blend` still deferred)
 
@@ -250,6 +307,13 @@ readability of the `.pipeline/` folder, independent of MAX_PATH risk. The
 `.blend` filename itself is untouched — every shot number a block covers
 still lives in the `.blend` name — so the table above still holds for that
 half of the concern.
+
+A live version of this check was added to the creation/branch popup
+(`_draw_naming_preview()`, `operators/shot_ops.py`): past 2 shots and 60%
+of 260 chars, it shows the worst-case `.stablemeta.tmp` path length as a
+progress bar. Built against `get_active_project_root()` — accurate for
+*this* machine's own mount, not a guarantee for whichever artist has the
+longest UNC prefix, which is exactly the part this doc can't compute.
 
 ---
 
@@ -315,7 +379,7 @@ Only `session_end` is logged now. `session_start` used to log unconditionally on
 
 ### Archived, never deleted — same call as the branch flag
 
-A rotated file moves to `config/logs/archives/<stem>_<timestamp>.jsonl` (a path that already existed in `ConfigCache`'s table, unused, before this) — never trimmed, never deleted. Same reasoning as picking the `archived` flag over physically moving a branched-out multishot block (see "Branch" above): the data stays honestly on disk, readable without the addon, rather than a decision about what's safe to throw away getting made silently by a rotation policy. The cost lands on `WorkTimeCache`, which has to know rotation happened at all.
+A rotated file moves to `config/logs/archives/<stem>_<timestamp>.jsonl` (a path that already existed in `ConfigCache`'s table, unused, before this) — never trimmed, never deleted. Same reasoning as archiving a branched-out multishot block into `old/` instead of deleting it (see "Branch" above): the data stays honestly on disk, readable without the addon, rather than a decision about what's safe to throw away getting made silently by a rotation policy. The cost lands on `WorkTimeCache`, which has to know rotation happened at all.
 
 ### Rotating `sessions_log.jsonl` can't quietly shrink a total
 

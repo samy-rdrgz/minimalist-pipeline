@@ -16,6 +16,7 @@ from .config import (
     get_base_filename,
     parse_filename,
     prefix_to_parent_folder,
+    shots_in_segment,
     to_relative,
 )
 from .core import get_machine_id, json_get, locked_json, now, read_csv, resolve_bpy_path
@@ -660,6 +661,27 @@ def set_description(filepath: Path, description: str) -> None:
 # Branch
 # ---------------------------------------------------------------------------
 
+# Reserved sibling folder name a branched-out block (and a dropped shot's
+# renders) gets moved into -- never a real sequence/shot name, so plain
+# iteration over a sequence has to skip it explicitly (list_active_blocks()).
+ARCHIVE_DIRNAME = "old"
+
+
+def archive_folder(path: Path) -> Path:
+    """Move path into an ARCHIVE_DIRNAME folder next to it, timestamping on
+    a name collision. Deliberately not link-safe (see NOTES.md, "Branch")."""
+    dest_dir = path.parent / ARCHIVE_DIRNAME
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest = dest_dir / path.name
+    if dest.exists():
+        stamp = now(iso=False).strftime("%Y%m%d-%H%M%S")
+        dest = dest_dir / f"{path.name}_{stamp}"
+    try:
+        path.rename(dest)
+    except OSError as e:
+        raise PipelineError(f"Could not archive '{path.name}': {e}")
+    return dest
+
 
 def copy_entries(from_filepath: Path, to_filepath: Path) -> None:
     """Append every entry from from_filepath's tracking.json onto
@@ -716,9 +738,34 @@ def list_active_blocks(
         if not sq_dir.is_dir():
             continue
         for sh_dir in sorted(sq_dir.iterdir()):
-            if sh_dir.is_dir() and not is_block_archived(sh_dir):
+            if (
+                sh_dir.is_dir()
+                and sh_dir.name != ARCHIVE_DIRNAME
+                and not is_block_archived(sh_dir)
+            ):
                 out.append(sh_dir)
     return out
+
+
+def active_shot_owners(
+    project_root: Path, sequence_label: str, config: dict | None = None
+) -> dict[int, Path]:
+    """{shot_number: owning shot/block folder} for every active file in
+    sequence_label -- lets a caller flag a number already claimed
+    elsewhere before creating/branching into it."""
+    config = config if config is not None else ConfigCache.get()
+    shot_prefix = json_get(config, "naming.shot.prefix", "sh")
+    owners = {}
+    for sh_dir in list_active_blocks(project_root, sequence_label):
+        if not sh_dir.name.startswith(shot_prefix):
+            continue
+        try:
+            numbers = shots_in_segment(sh_dir.name[len(shot_prefix) :])
+        except ValueError:
+            continue
+        for n in numbers:
+            owners[n] = sh_dir
+    return owners
 
 
 # ---------------------------------------------------------------------------

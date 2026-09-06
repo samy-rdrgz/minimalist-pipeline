@@ -108,8 +108,12 @@ def _fallback_single_collection(name: str):
 def build_shot_scene(
     sequence_label: str, shot_numbers: list[int], timeline: list[int], config: dict
 ):
-    """Apply project resolution/fps; create one camera + timeline marker per
-    shot, all sharing a single CAM/SET/ASSETS collection set."""
+    """Apply project resolution/fps; ensure one camera + timeline marker per
+    shot, all sharing a single CAM/SET/ASSETS collection set. Idempotent --
+    reuses an existing camera/collection/marker by name instead of adding a
+    duplicate, since PIPELINE_OT_edit_block_structure reruns this against
+    the very scene a previous enumeration already scaffolded (Save As,
+    unless "Start with a new clean scene" is ticked)."""
     scene = bpy.context.scene
 
     res = json_get(config, "resolution", {"x": 1920, "y": 1080})
@@ -117,23 +121,33 @@ def build_shot_scene(
     scene.render.resolution_y = int(res.get("y", 1080))
     scene.render.fps = int(json_get(config, "default_fps", 30))
 
-    cam_col = bpy.data.collections.new("CAM")
-    scene.collection.children.link(cam_col)
+    cam_col = scene.collection.children.get("CAM")
+    if cam_col is None:
+        cam_col = bpy.data.collections.new("CAM")
+        scene.collection.children.link(cam_col)
     for col_name in ("SET", "ASSETS"):
-        scene.collection.children.link(bpy.data.collections.new(col_name))
+        if scene.collection.children.get(col_name) is None:
+            scene.collection.children.link(bpy.data.collections.new(col_name))
 
     first_cam = None
     for i, shot_number in enumerate(shot_numbers):
         cam_name = format_camera_name(sequence_label, shot_number, config)
-        cam_data = bpy.data.cameras.new(cam_name)
-        cam_obj = bpy.data.objects.new(cam_name, cam_data)
-        cam_col.objects.link(cam_obj)
-
         # timeline[i] is this shot's own start frame; clamped defensively
         # if a caller ever passes a short timeline.
         frame = timeline[i] if i < len(timeline) else timeline[-1]
-        marker = scene.timeline_markers.new(cam_name, frame=frame)
-        marker.camera = cam_obj
+
+        cam_obj = bpy.data.objects.get(cam_name)
+        if cam_obj is None or cam_obj.type != "CAMERA":
+            cam_obj = bpy.data.objects.new(cam_name, bpy.data.cameras.new(cam_name))
+        if cam_obj.name not in cam_col.objects:
+            cam_col.objects.link(cam_obj)
+
+        marker = next((m for m in scene.timeline_markers if m.camera == cam_obj), None)
+        if marker is None:
+            marker = scene.timeline_markers.new(cam_name, frame=frame)
+            marker.camera = cam_obj
+        else:
+            marker.frame = frame
 
         if first_cam is None:
             first_cam = cam_obj

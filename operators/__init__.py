@@ -29,8 +29,8 @@ from .project_ops import (
 )
 from .shot_ops import (
     PIPELINE_OT_add_multishot_item,
-    PIPELINE_OT_branch_shot,
     PIPELINE_OT_create_shot,
+    PIPELINE_OT_edit_block_structure,
     PIPELINE_OT_remove_multishot_item,
     PipelineShotItem,
 )
@@ -62,7 +62,7 @@ classes = (
     PIPELINE_OT_compile_preview,
     PIPELINE_OT_create_asset,
     PIPELINE_OT_create_shot,
-    PIPELINE_OT_branch_shot,
+    PIPELINE_OT_edit_block_structure,
     PIPELINE_OT_add_multishot_item,
     PIPELINE_OT_remove_multishot_item,
     PIPELINE_OT_batch_create,

@@ -15,6 +15,7 @@ from ..lib import (
     parse_filename,
     region_char_budget,
     responsive_layout,
+    shots_in_segment,
 )
 from .tracking_panel import ENTRIES_INDENT_FACTOR, draw_tracking_data
 
@@ -130,15 +131,24 @@ class PIPELINE_PT_file_panel(bpy.types.Panel):
         # (no KeyError, unlike indexing ["sequence"] downstream).
         if parsed and parsed.get("shot"):
             layout.separator()
-            row = layout.row(align=True)
-            op = row.operator(
-                "pipeline.compile_preview", text="Preview block", icon="SEQUENCE"
-            )
-            op.scope = "block"
-            op.filepath = bpy.data.filepath
-            op = row.operator(
-                "pipeline.compile_preview", text="Preview sequence", icon="SEQUENCE"
-            )
+            # "Preview block" only means something for an actual block (2+
+            # shots) -- on a mono-shot it would just re-encode that one
+            # shot's own latest render, degenerate and confusing next to
+            # "Preview sequence".
+            if len(shots_in_segment(parsed["shot"])) > 1:
+                row = layout.row(align=True)
+                op = row.operator(
+                    "pipeline.compile_preview", text="Preview block", icon="SEQUENCE"
+                )
+                op.scope = "block"
+                op.filepath = bpy.data.filepath
+                op = row.operator(
+                    "pipeline.compile_preview", text="Preview sequence", icon="SEQUENCE"
+                )
+            else:
+                op = layout.operator(
+                    "pipeline.compile_preview", text="Preview sequence", icon="SEQUENCE"
+                )
             op.scope = "sequence"
             op.filepath = bpy.data.filepath
             draw_box_tip(
@@ -151,7 +161,9 @@ class PIPELINE_PT_file_panel(bpy.types.Panel):
 
             layout.separator()
             layout.operator(
-                "pipeline.branch_shot", text="Branch block", icon="UV_SYNC_SELECT"
+                "pipeline.edit_block_structure",
+                text="Edit block structure",
+                icon="UV_SYNC_SELECT",
             ).filepath = bpy.data.filepath
 
         layout.separator()

@@ -7,8 +7,11 @@ import bpy
 from ..lib import (
     ConfigCache,
     PipelineError,
+    active_shot_owners,
+    archive_folder,
     copy_entries,
     create_shot_file,
+    derive_shot_subranges,
     format_shot_segment,
     get_active_project_root,
     get_departments_required,
@@ -186,7 +189,74 @@ def _draw_naming_preview(layout, sequence_number, shots, config):
     preview_col.scale_y = 0.65
     preview_col.label(text=f"File: {full_name}", icon="FILE_BLEND")
     preview_col.label(text=f"In: shots/{sq}/{sh}/", icon="BLANK1")
+
+    # Worst-case sidecar path (.stablemeta carries _meta_stem()'s "-stable"
+    # tag, longer than .wipmeta) against Windows' 260-char MAX_PATH -- only
+    # this machine's own mount, not a guarantee for every artist's (see
+    # NOTES.md §6). Shown only once it's actually worth a look.
+    if len(shots) > 2:
+        path = (
+            get_active_project_root()
+            / "shots"
+            / sq
+            / sh
+            / ".pipeline"
+            / f"{v}-stable.stablemeta.tmp"
+        )
+        length = len(str(path))
+        factor = length / 260
+        if factor > 0.6:
+            layout.separator()
+            layout.progress(
+                text=f"Path length on this machine: {length} / 260",
+                factor=min(factor, 1.0),
+            )
+
     return sq, sh
+
+
+def _classify_shot_conflicts(project_root, sq, shots, config, exclude_dir=None):
+    """Split shots' numbers against other active files in sq into
+    (blocking, warnings) dicts of {shot_number: owner_folder}. blocking =
+    a mono-shot duplicating another active mono-shot outright -- no
+    legitimate reason for two files to claim the same lone shot. Anything
+    else (a block absorbing a used number, or the reverse) is a warning."""
+    owners = active_shot_owners(project_root, sq, config)
+    shot_prefix = json_get(config, "naming.shot.prefix", "sh")
+    mono = len(shots) == 1
+    blocking, warnings = {}, {}
+    for s in shots:
+        owner = owners.get(s.shot_number)
+        if owner is None or owner == exclude_dir:
+            continue
+        try:
+            owner_mono = len(shots_in_segment(owner.name[len(shot_prefix) :])) == 1
+        except ValueError:
+            owner_mono = False
+        (blocking if mono and owner_mono else warnings)[s.shot_number] = owner
+    return blocking, warnings
+
+
+def _draw_shot_conflicts(layout, op, project_root, sq, shots, config, exclude_dir=None):
+    """Warn about a shot number already claimed elsewhere, or block outright
+    for an exact mono-shot duplicate (see _classify_shot_conflicts)."""
+    blocking, warnings = _classify_shot_conflicts(
+        project_root, sq, shots, config, exclude_dir
+    )
+    if blocking:
+        box = layout.box().column(align=True)
+        box.alert = True
+        for n, owner in sorted(blocking.items()):
+            box.label(
+                text=f"Shot {n:03d} already exists as {owner.name} -- pick another number.",
+                icon="ERROR",
+            )
+    elif warnings:
+        box = layout.box().column(align=True)
+        box.alert = True
+        for n, owner in sorted(warnings.items()):
+            box.label(text=f"Shot {n:03d} already used by {owner.name}.", icon="ERROR")
+        box.prop(op, "confirm_overlap")
 
 
 class PIPELINE_OT_create_shot(bpy.types.Operator):
@@ -211,6 +281,11 @@ class PIPELINE_OT_create_shot(bpy.types.Operator):
         options={"ENUM_FLAG"},
         name="Departments",
         default=0,
+    )
+    confirm_overlap: bpy.props.BoolProperty(
+        name="Create anyway",
+        description="A shot number above is already used by another active file",
+        default=False,
     )
 
     def draw(self, context):
@@ -238,7 +313,10 @@ class PIPELINE_OT_create_shot(bpy.types.Operator):
         layout.separator(type="LINE", factor=3)
 
         _draw_timeline_warnings(layout, shots, self.end_frame)
-        _draw_naming_preview(layout, self.sequence_number, shots, config)
+        naming = _draw_naming_preview(layout, self.sequence_number, shots, config)
+        if naming:
+            sq, _sh = naming
+            _draw_shot_conflicts(layout, self, get_active_project_root(), sq, shots, config)
 
     def invoke(self, context, event):
         if not get_active_project_root():
@@ -251,6 +329,7 @@ class PIPELINE_OT_create_shot(bpy.types.Operator):
         self.required_departments = {d for d in deps}
         default_start = json_get(config, "default_frame_start", 1001)
         self.end_frame = default_start + 100
+        self.confirm_overlap = False
 
         # shots_list_creation is a WindowManager collection -- shared and
         # never cleared on its own, so without this it either starts empty
@@ -258,7 +337,7 @@ class PIPELINE_OT_create_shot(bpy.types.Operator):
         # straight into a shot with no number and no camera/marker at all --
         # see create_shot_file()'s own guard against that) or keeps
         # whatever was left over from the last shot created. Reset it to one
-        # sensible default row every time, same as PIPELINE_OT_branch_shot's
+        # sensible default row every time, same as PIPELINE_OT_edit_block_structure's
         # own invoke() does.
         shots = context.window_manager.shots_list_creation
         shots.clear()
@@ -281,6 +360,23 @@ class PIPELINE_OT_create_shot(bpy.types.Operator):
                 "No shot added. Click Add to add at least one shot before creating.",
             )
             return {"CANCELLED"}
+
+        config = ConfigCache.get()
+        naming = config.get("naming", {})
+        if naming:
+            n_prefix, n_digits = naming["sequence"]["prefix"], naming["sequence"]["digits"]
+            sq = f"{n_prefix}{self.sequence_number:0{n_digits}d}"
+            blocking, warnings = _classify_shot_conflicts(project_root, sq, shots, config)
+            if blocking:
+                n, owner = next(iter(blocking.items()))
+                self.report({"ERROR"}, f"Shot {n:03d} already exists as {owner.name}.")
+                return {"CANCELLED"}
+            if warnings and not self.confirm_overlap:
+                self.report(
+                    {"ERROR"},
+                    "Shot number(s) already used elsewhere -- tick 'Create anyway' to confirm.",
+                )
+                return {"CANCELLED"}
 
         try:
             # create_clean starts from a blank scene; otherwise the file is
@@ -313,12 +409,12 @@ class PIPELINE_OT_create_shot(bpy.types.Operator):
 # ---------------------------------------------------------------------------
 # Branch
 # ---------------------------------------------------------------------------
-class PIPELINE_OT_branch_shot(bpy.types.Operator):
+class PIPELINE_OT_edit_block_structure(bpy.types.Operator):
     """Archive this block's composition and create a new one with a
     different shot enumeration."""
 
-    bl_idname = "pipeline.branch_shot"
-    bl_label = "Branch block"
+    bl_idname = "pipeline.edit_block_structure"
+    bl_label = "Edit block structure"
     bl_description = (
         "Archive this block and create a new one with a different shot enumeration."
     )
@@ -339,12 +435,17 @@ class PIPELINE_OT_branch_shot(bpy.types.Operator):
         name="Departments",
         default=0,
     )
+    confirm_overlap: bpy.props.BoolProperty(
+        name="Branch anyway",
+        description="A shot number above is already used by another active file",
+        default=False,
+    )
 
     def draw(self, context):
         TITLE_WIDTH = 0.35
         layout = self.layout
         config = ConfigCache.get()
-        layout.label(text="Branch block", icon="UV_SYNC_SELECT")
+        layout.label(text="Edit block structure", icon="UV_SYNC_SELECT")
         col = layout.column()
         col.active = False
         col.scale_y = 0.6
@@ -361,7 +462,18 @@ class PIPELINE_OT_branch_shot(bpy.types.Operator):
         _draw_timeline_warnings(layout, shots, self.end_frame)
         parsed = parse_filename(Path(self.filepath).name)
         if parsed:
-            _draw_naming_preview(layout, int(parsed["sequence"]), shots, config)
+            naming = _draw_naming_preview(layout, int(parsed["sequence"]), shots, config)
+            if naming:
+                sq, _sh = naming
+                _draw_shot_conflicts(
+                    layout,
+                    self,
+                    get_active_project_root(),
+                    sq,
+                    shots,
+                    config,
+                    exclude_dir=Path(self.filepath).parent,
+                )
 
     def invoke(self, context, event):
         self.filepath = self.filepath or bpy.data.filepath
@@ -382,15 +494,31 @@ class PIPELINE_OT_branch_shot(bpy.types.Operator):
         )
         self.required_departments = {d for d in required}
         default_start = json_get(config, "default_frame_start", 1001)
-        self.end_frame = default_start
+        self.confirm_overlap = False
 
-        # Seed the shot list from the old block's own enumeration.
+        # Seed from the scene's own live markers where the file being
+        # edited is actually the open one -- derive_shot_subranges() only
+        # makes sense against a genuinely open scene (same rule as the
+        # farm's own split, see NOTES.md "Split at render"). Falls back to
+        # default_start per shot / scene.frame_end for anything a marker
+        # doesn't cover (missing marker, or filepath isn't the open file).
+        naming = config.get("naming", {})
+        shot_numbers = shots_in_segment(parsed["shot"])
+        ranges = {}
+        if naming and bpy.data.filepath == self.filepath:
+            sequence_label = f"{naming['sequence']['prefix']}{parsed['sequence']}"
+            found, _absorbed = derive_shot_subranges(
+                context.scene, sequence_label, set(shot_numbers), config
+            )
+            ranges = {r["shot_number"]: r for r in found}
+        self.end_frame = context.scene.frame_end if ranges else default_start
+
         shots = context.window_manager.shots_list_creation
         shots.clear()
-        for n in shots_in_segment(parsed["shot"]):
+        for n in shot_numbers:
             item = shots.add()
             item.shot_number = n
-            item.start_frame = default_start
+            item.start_frame = ranges[n]["frame_start"] if n in ranges else default_start
 
         return context.window_manager.invoke_props_dialog(self, width=380)
 
@@ -402,13 +530,30 @@ class PIPELINE_OT_branch_shot(bpy.types.Operator):
             self.report({"ERROR"}, "Not a shot file.")
             return {"CANCELLED"}
 
+        shots = context.window_manager.shots_list_creation
+        sq = old_path.parent.parent.name
+        config = ConfigCache.get()
+        blocking, warnings = _classify_shot_conflicts(
+            project_root, sq, shots, config, exclude_dir=old_path.parent
+        )
+        if blocking:
+            n, owner = next(iter(blocking.items()))
+            self.report({"ERROR"}, f"Shot {n:03d} already exists as {owner.name}.")
+            return {"CANCELLED"}
+        if warnings and not self.confirm_overlap:
+            self.report(
+                {"ERROR"},
+                "Shot number(s) already used elsewhere -- tick 'Branch anyway' to confirm.",
+            )
+            return {"CANCELLED"}
+
         try:
             if self.create_clean:
                 bpy.ops.wm.read_homefile(use_empty=True)
             elif bpy.data.filepath and bpy.data.is_dirty:
                 bpy.ops.wm.save_mainfile()
 
-            shots = context.window_manager.shots_list_creation
+            kept_numbers = {s.shot_number for s in shots}
             # Create the new file before archiving the old one, so a
             # failure here never leaves a block archived with no successor.
             dest_path = create_shot_file(
@@ -420,7 +565,9 @@ class PIPELINE_OT_branch_shot(bpy.types.Operator):
                 description=self.description,
                 start_version=int(parsed["number"]) + 1,
             )
-            # Flag only -- name/path untouched.
+            # Flag first -- still needed for TrackingStatusCache.get_all(),
+            # which would otherwise still pick up the tracking.json once
+            # it's moved under old/ below (see NOTES.md, "Branch").
             old_tracking = old_path.parent / ".pipeline" / "tracking.json"
             with locked_json(old_tracking) as box:
                 data = box["data"] or {}
@@ -430,12 +577,33 @@ class PIPELINE_OT_branch_shot(bpy.types.Operator):
                 box["action"] = "to_write"
 
             copy_entries(old_path, dest_path)
+
+            # Physically move the branched-out composition into old/ --
+            # visible outside the addon, and deliberately not link-safe.
+            archive_folder(old_path.parent)
+
+            # Shots dropped from the new enumeration: archive their renders
+            # too (unless some other active block/shot still covers that
+            # number), so "Preview sequence" stops pulling in a dead cut.
+            # archive_folder() above already moved the old block out of
+            # sq/, so its own numbers no longer show up as "still active".
+            shot_prefix = json_get(config, "naming.shot.prefix", "sh")
+            shot_digits = json_get(config, "naming.shot.digits", 3)
+            active_numbers = active_shot_owners(project_root, sq, config)
+            for n in shots_in_segment(parsed["shot"]):
+                if n in kept_numbers or n in active_numbers:
+                    continue
+                render_dir = (
+                    project_root / "renders" / sq / f"{shot_prefix}{n:0{shot_digits}d}"
+                )
+                if render_dir.is_dir():
+                    archive_folder(render_dir)
         except PipelineError as e:
-            log(e.level, "branch_shot", e.message)
+            log(e.level, "edit_block_structure", e.message)
             self.report({e.level}, e.message)
             return {"CANCELLED"}
 
-        log("SUCCESS", "branch_shot", f"{old_path.name} -> {dest_path.name}")
+        log("SUCCESS", "edit_block_structure", f"{old_path.name} -> {dest_path.name}")
         self.report(
             {"INFO"}, f"Branched: {old_path.name} archived, created {dest_path.name}"
         )
