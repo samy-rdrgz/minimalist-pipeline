@@ -15,7 +15,9 @@ license = ["SPDX:GPL-3.0-or-later"]
 
 category = "Pipeline"
 tags = ["Pipeline", "Render", "System"]
-files = "Create/Edit Blender files and JSON files (Addon structure and farm instructions)"
+
+[permissions]
+files = "Manage project files, versions, tracking, and render farm data"
 
 [build]
 # Declaring this section replaces Blender's own default exclude list
