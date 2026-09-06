@@ -232,9 +232,12 @@ def _draw_entry(e, note, filepath, width: int | None = None):
         )
         frames_row.active = False
         ref = e.get("frame_reference")
-        active_file = (
-            to_absolute(e["referenced_version"]).parent
-            == Path(bpy.data.filepath).parent
+        referenced_version = e.get("referenced_version")
+        # No referenced_version at all (a batch/scripted create_entry() call
+        # that never set one) -- can't tell if this frame tag is about the
+        # open file, so don't enable the jump buttons for it.
+        active_file = bool(referenced_version) and (
+            to_absolute(referenced_version).parent == Path(bpy.data.filepath).parent
         )
         frames_row.enabled = active_file
 
@@ -312,7 +315,12 @@ def _get_entry_tooltip(e, filepath):
         else:
             text = f"{text}\n\nIn response to a note that cannot be found"
     if e.get("done") is True:
-        text = f"{text}\n\nDone by : {e.get('done_by', '//')}\nAt : {e['done_at'].replace('T', ' ')}"
+        # done_by/done_at are only ever stamped together, by
+        # toggle_entry_task() -- but "done" itself can be set through other
+        # paths (CSV import, a hand-edited tracking.json) without them.
+        done_at = e.get("done_at")
+        done_at = done_at.replace("T", " ") if done_at else "//"
+        text = f"{text}\n\nDone by : {e.get('done_by', '//')}\nAt : {done_at}"
     return text
 
 
@@ -345,14 +353,10 @@ def draw_file_details(self, context, layout):
         "ASSET_MANAGER",
     )
     txt = (
-        (
-            f"{Path(filepath).parent.name.upper()} {shot_name.upper()}"
-            if is_shot
-            else shot_name.upper()
-        )
-        + " - "
-        + description
-    )
+        f"{Path(filepath).parent.name.upper()} {shot_name.upper()}"
+        if is_shot
+        else shot_name.upper()
+    ) + (f" - {description}" if description else "")
     row_left = row.box().row(align=True)
     row_left.alignment = "EXPAND"
     row_left.label(text=txt, icon=icon)
