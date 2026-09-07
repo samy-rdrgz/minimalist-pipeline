@@ -314,10 +314,10 @@ def draw_farm_workers(layout):
         info = split.row()
         busy = m["status"] != "idle" and m["status"] != "not running"
         info.label(
-            text=m.get("name", "unknown"),
+            text=m.get("user", "unknown"),
             icon="KEYTYPE_BREAKDOWN_VEC" if busy else "KEYTYPE_JITTER_VEC",
         )
-        info.label(text=m["ip"])
+        info.label(text=m.get("machine", "unknown"))
 
         jobs = split.row()
         if busy:

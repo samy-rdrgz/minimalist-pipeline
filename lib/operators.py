@@ -263,6 +263,35 @@ class M_PIPELINE_OT_onboarding_popup(bpy.types.Operator):
         )
         col.separator(factor=3)
 
+        prefs = addon_pref(context)
+        if prefs:
+            name_block = col.column(align=True)
+            name_block.scale_y = 0.8
+            name_row = name_block.box().row(align=True)
+            name_row.alignment = "LEFT"
+            name_row.label(text="YOUR NAME :", icon="USER")
+            name_row.prop(prefs, "user_name", text="")
+            hint_row = name_block.box().column(align=True)
+            hint_row.active = False
+            hint_row.scale_y = 0.5
+            hint_1 = "Name used as the author identifier for notes/tasks and rendering requests."
+            hint_2 = "Pre-filled with a random name - type your own, or change it later in Preferences."
+            text_to_lines(
+                hint_row,
+                hint_1,
+                icon="BLANK1",
+                max_width=max_width,
+                max_lines=lines_budget(hint_1, base=2, cap=4),
+            )
+            text_to_lines(
+                hint_row,
+                hint_2,
+                icon="BLANK1",
+                max_width=max_width,
+                max_lines=lines_budget(hint_2, base=2, cap=4),
+            )
+        col.separator(factor=3)
+
         for idx, text in enumerate(self._SECTIONS):
             title, body = text
             block = col.column(align=True)

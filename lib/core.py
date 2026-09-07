@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import random
 import time
 import uuid
 from contextlib import contextmanager
@@ -247,6 +248,35 @@ def get_machine_id(context: bpy.types.Context | None = None) -> str:
     if not prefs.machine_id:
         prefs.machine_id = uuid.uuid4().hex[:12]
     return prefs.machine_id
+
+
+# Adjectives/colors and animal names, used only to build a locally-generated
+# placeholder display name (random_display_name() below) -- no meaning
+# beyond that, no OS/account info involved, same spirit as machine_id above.
+_ADJECTIVES = [
+    "amber", "azure", "bold", "brisk", "calm", "coral", "crimson", "dusty",
+    "emerald", "faded", "fuzzy", "gentle", "golden", "hazy", "indigo",
+    "ivory", "jolly", "keen", "lively", "lucky", "mellow", "misty", "mossy",
+    "muted", "noble", "olive", "plucky", "quick", "quiet", "rosy", "rusty",
+    "sandy", "scarlet", "silent", "silver", "sleepy", "smoky", "sober",
+    "solar", "spry", "steady", "stormy", "sunny", "swift", "tawny", "teal",
+    "tidy", "vivid", "witty",
+]
+_ANIMALS = [
+    "badger", "beetle", "bison", "dingo", "egret", "finch", "fox", "gecko",
+    "hare", "heron", "ibex", "ibis", "jay", "koala", "kite", "lark", "lemur",
+    "lynx", "mink", "mole", "moth", "newt", "ocelot", "otter", "panda",
+    "puffin", "quail", "raven", "robin", "salmon", "seal", "shrike", "skunk",
+    "sloth", "sparrow", "stork", "swan", "tapir", "tern", "toad", "viper",
+    "vole", "walrus", "weasel", "wombat", "wren", "yak", "zebra",
+]
+
+
+def random_display_name() -> str:
+    """Locally-generated placeholder for prefs.user_name -- picked so several
+    unconfigured teammates don't all show up under the same generic string
+    (e.g. "locked by unknown") before anyone has typed their own name in."""
+    return f"{random.choice(_ADJECTIVES)}-{random.choice(_ANIMALS)}"
 
 
 def path_reachable(path: str | Path) -> bool:

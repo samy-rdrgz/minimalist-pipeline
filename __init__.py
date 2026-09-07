@@ -1,29 +1,18 @@
 bl_info = {
     "name": "Minimalist Pipeline",
     "author": "Samy Rodriguez",
-    "version": (1, 0, 1),
+    "version": (1, 0, 2),
     "blender": (4, 2, 0),
     "location": "View3D > Sidebar > Pipeline",
     "description": "Lightweight pipeline manager for solo/small team Blender projects.",
     "category": "Pipeline",
 }
 
-import getpass
-import importlib
-import sys
 from pathlib import Path
 
 import bpy
 
 addon_name = "minimalist_pipeline"
-if "bpy" in locals():
-    # Addon already loaded: force every already-imported submodule to reload.
-    for module_name in list(sys.modules):
-        if module_name.startswith(addon_name + "."):
-            try:
-                importlib.reload(sys.modules[module_name])
-            except Exception:
-                pass
 
 from . import addon_data, lib
 from .farm.loop import (
@@ -45,33 +34,12 @@ from .operators import (
 from .operators import classes as operator_classes
 from .panels import classes as panel_classes
 
-'''
-class M_PIPELINE_PT_main_panel(bpy.types.Panel):
-    """Pipeline Manager main panel (header only; every other panel is a child of it)."""
-
-    bl_label = "Pipeline Manager"
-    bl_idname = "M_PIPELINE_PT_main"
-    bl_space_type = "VIEW_3D"
-    bl_region_type = "UI"
-    bl_category = "Pipeline"
-    bl_options = {"HIDE_HEADER", "HEADER_LAYOUT_EXPAND"}
-
-    def draw(self, context):
-        pass
-
-    def draw_header(self, context):
-        self.layout.operator(
-            "m_pipeline.onboarding_popup", text="", icon="QUESTION", emboss=False
-        )
-'''
-
 # Registration order matters: addon_data before anything reading preferences,
 # everything else before the topbar menu that references their operators.
 classes = (
     *lib.classes,
     addon_data.PipelineProjectItem,
     addon_data.PipelineAddonPreferences,
-    # M_PIPELINE_PT_main_panel,
     *panel_classes,
     *operator_classes,
     *menu_classes,
@@ -122,12 +90,12 @@ def _unregister_props(owner, props: dict):
 
 
 def _seed_user_name():
-    """Seed user_name from the OS login on first register, if not already
-    set -- see NOTES.md, "Addon register()"."""
+    """Seed user_name with a locally-generated placeholder on first
+    register, if not already set -- see NOTES.md, "Addon register()"."""
     try:
         prefs = lib.addon_pref()
         if prefs and not prefs.user_name:
-            prefs.user_name = getpass.getuser()
+            prefs.user_name = lib.random_display_name()
     except Exception as e:
         print(e)
 

@@ -23,7 +23,7 @@ body:
     attributes:
       label: Addon version
       description: Preferences > Get Extensions, or `version` in the installed extension's blender_manifest.toml
-      placeholder: "1.0.1"
+      placeholder: "1.0.2"
     validations:
       required: true
 

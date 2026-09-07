@@ -67,7 +67,7 @@ Written under a lock and atomically (temp file then rename), like every other pi
 ```json
 {
   "project_name": "my_project",
-  "pipeline_addon_version": "1.0.1",
+  "pipeline_addon_version": "1.0.2",
   "blender_version": "(4, 2, 0)",
   "resolution": {"x": 1920, "y": 1080},
   "default_fps": 30,

@@ -658,17 +658,103 @@ above both `_unregister_props()` calls. Any new unregister()-time code
 touching a registered WindowManager/Scene property needs to run before
 that property's own unregistration, not after.
 
-**User identity uses `getpass`, not `os.getlogin()`** — the latter needs a
-controlling terminal (an `ioctl` on the tty) and reliably raises when
-Blender is launched without one, which is the common case (desktop icon,
-Steam, the VS Code extension...), not the exception. `getpass.getuser()`
-checks `LOGNAME`/`USER`/`USERNAME` env vars first, no tty required. Used in
-two places for the same reason: `get_user()` (`lib/session.py`) as the
-`prefs.user_name` > OS login > `"unknown"` fallback read at log time, and
-`_seed_user_name()` to write that OS login into the pref itself once, on
-first register, so the Preferences panel never shows nothing configured
-and a shared-machine login gets a chance to be corrected to the real
-person.
+**No manual `sys.path` edit in the headless entry scripts.**
+`templates/worker_render_entry.py`, `farm_entry_render_setup.py`, and
+`batch_create_entry.py` each run in a fresh, separate Blender subprocess
+(`bpy.app.binary_path` launched via `subprocess.Popen`, not the process
+that dispatched them) and need to import `minimalist_pipeline` to reach
+shared code. They used to `sys.path.insert(0, ...)` the repo's parent
+directory before `addon_utils.enable("minimalist_pipeline", ...)` --
+flagged by a Blender Extensions Platform review (moderation guidelines:
+manually constructing `sys.path` entries to import into the global
+namespace is disallowed; sub-modules/the addon system must do it instead).
+Removed outright: `addon_utils.enable()` alone is sufficient, since
+Blender's own extension loader already puts an installed extension's
+directory on `sys.path` as part of loading the user's preferences --
+`enable()` couldn't otherwise import the module either. Not yet re-verified
+against a live Blender subprocess (this dev environment can't run one) --
+worth an explicit smoke test (one farm render, one batch CSV row) before
+relying on it.
+
+**User identity no longer reads the OS login.** Used to seed `prefs.user_name`
+via `getpass.getuser()` (`_seed_user_name()`, first register) with the same
+value read back as `get_user()`'s fallback (`lib/session.py`) -- dropped
+after the same review flagged reading OS-level identity (see the
+`sys.path` note above for the other flagged point). Replaced by
+`lib.random_display_name()` (`lib/core.py`, next to
+`get_machine_id()`): two small word lists baked into the addon's own source
+(an adjective/color list and an animal list, ~2350 combinations), combined
+with `random.choice()` -- no OS or account info involved, same spirit as
+`machine_id`'s locally-generated UUID. `_seed_user_name()` writes one into
+`prefs.user_name` once, on first register, so the Preferences panel never
+shows nothing configured, several unconfigured teammates don't all collide
+under the same generic string (`"unknown"`, or a shared-machine OS login),
+and the field stays freely editable by hand at any time. `get_user()`'s
+fallback is now a plain `"unknown"`, kept only for the case prefs aren't
+reachable at all -- effectively defensive-only, since `_seed_user_name()`
+guarantees the pref is set otherwise.
+
+`prefs.user_name` is also drawn directly in `M_PIPELINE_OT_onboarding_popup`
+(`lib/operators.py`), not just in Preferences -- the one interactive field
+in an otherwise read-only, informational popup. Works because the popup is
+opened via `invoke_popup()`, not `invoke_props_dialog()`: `layout.prop()`
+there is bound straight to the real `AddonPreferences` RNA, so every
+keystroke writes `prefs.user_name` immediately, no OK button/`execute()`
+needed to "apply" it -- same as editing any prop in the N-panel. Placed so
+the random placeholder name is the first thing a first-time user can
+replace, before reading the rest of the popup.
+
+**`get_user_data()` no longer reads hostname/IP/OS name.** Same review as
+the two notes above flagged `socket.gethostname()`/`gethostbyname()` and
+`platform.system()` (`lib/session.py`) as OS-level info, alongside the
+username. `"os"` was written but never read back anywhere -- dropped for
+free. `"ip"`/`"machine"` (hostname) were genuinely used for display (the
+farm workers panel, lock/kill confirmation messages) to tell apart two
+machines run by the same person -- `"machine"` is now a short slice
+(`machine_id[:8]`) of the same locally-generated id already used for lock/
+worker ownership, `"uuid"` keeps the full id. `"ip"`'s one consumer
+(`panels/farm_panel.py`, the workers list) now shows `"machine"` instead --
+which, while there, turned up a second, unrelated bug: that same line read
+`m.get("name", ...)`, a key nothing ever wrote (`get_user_data()` has
+always used `"user"`) -- every worker row's name column silently showed
+"unknown" regardless of who it was, `"ip"` was the only thing actually
+telling rows apart. Fixed alongside the `"ip"` removal, since leaving it
+broken would have made the panel useless once `"ip"` was gone too.
+
+**`get_backup_filepath()` uses `extension_path_user()`, not
+`script_path_user()`.** Not flagged by name in this review, but matches the
+moderation guidelines' own example almost verbatim ("constructing paths to
+write to... instead `bpy.utils.extension_path_user` must be used").
+`script_path_user()` is the pre-Extensions, legacy-addon API (a shared
+"scripts" user dir with no per-extension namespacing); `extension_path_user
+(package, path=..., create=...)` is the one meant for this. `package` is
+derived the same way `addon_pref()` (`lib/core.py`) already does --
+`__package__.rsplit(".", 1)[0]` from within `lib/`, stripping only the
+last segment so it still resolves correctly if Blender's real `__package__`
+at runtime is namespaced (`bl_ext.<repo>.minimalist_pipeline.lib`), not
+just the plain `minimalist_pipeline.lib` this reads during local dev.
+Aside: `get_addon_version()` (`lib/core.py`) derives the same root package
+name via `__package__.split(".")[0]` (first segment) instead -- correct
+only for the unnamespaced 2-segment case, likely wrong under the namespaced
+one. Not fixed here (out of scope for this pass), flagged for later.
+
+**No custom submodule-reload loop in `__init__.py`.** An earlier version
+force-reloaded every already-imported `minimalist_pipeline.*` submodule via
+`sys.modules`, gated on `"bpy" in locals()`. Checked in the wrong place
+(after `import bpy`, always true) -- a Blender Extensions Platform review
+flagged it for not matching the documented reload pattern. Traced through
+all three ways this file's top-level code actually re-runs (a real first
+load, Blender's native "Reload Scripts", and the VS Code dev-extension's
+own addon-update flow -- the latter's `dev.update_addon` operator purges
+every `minimalist_pipeline*` entry from `sys.modules` before re-enabling,
+confirmed by reading `blender_vscode/operators/addon_update.py`) and the
+loop was a no-op in every one of them: `sys.modules` never held anything of
+ours left to reload at the point it ran, gated or not. Removed outright
+rather than fixed to match the doc's pattern, since it never did anything
+regardless. Cost: `lib`/`operators`/`panels`/`farm`/`menus` changes no
+longer show up on "Reload Scripts" during dev, only on a full Blender
+restart -- accepted on purpose, not worth the loop's complexity for a
+no-op.
 
 ## Lock staleness: 3x the heartbeat, not 1x
 

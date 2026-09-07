@@ -1,9 +1,6 @@
 """Logging, session tracking, and project backup persistence."""
 
-import getpass
 import os
-import platform
-import socket
 from datetime import datetime
 from pathlib import Path
 
@@ -30,41 +27,36 @@ from .logs import log
 
 
 def get_user_data(user: str = "unknown") -> dict:
-    """Return current user identity for logging. Priority: prefs > OS login."""
-    try:
-        ip = socket.gethostbyname(socket.gethostname())
-    except Exception:
-        ip = "unknown"
-
+    """Return current user identity for logging: display name + a locally-
+    generated machine id (no hostname/IP/OS-name reads -- see NOTES.md,
+    "Addon register()"). "machine" is a short slice of machine_id, just
+    enough to tell two machines apart in a UI label; "uuid" keeps the full
+    id for exact matching (worker/lock ownership lookups)."""
+    machine_id = get_machine_id() or "unknown"
     return {
         "pid": os.getpid(),
-        "machine": socket.gethostname().lower(),
+        "machine": machine_id[:8],
         "user": user,
-        "ip": ip,
-        "os": platform.system(),
-        "uuid": get_machine_id() or "unknown",
+        "uuid": machine_id,
     }
 
 
 def get_user(context=None) -> str:
-    """Current user login for logging. Priority: prefs.user_name > OS login >
-    "unknown". getpass, not os.getlogin() -- see NOTES.md, "Addon
-    register()"."""
+    """Current user login for logging: prefs.user_name, or "unknown" if
+    unset. No OS-login fallback -- see NOTES.md, "Addon register()";
+    prefs.user_name is seeded with a locally-generated placeholder at first
+    register(), so this is effectively defensive-only (prefs unreachable)."""
     try:
         if bpy.app.background:
             return "cmd"
-        else:
-            prefs = addon_pref(context)
-            if prefs:
-                name = getattr(prefs, "user_name", "")
-                if name:
-                    return name.lower()
+        prefs = addon_pref(context)
+        if prefs:
+            name = getattr(prefs, "user_name", "")
+            if name:
+                return name.lower()
     except Exception:
         pass
-    try:
-        return getpass.getuser()
-    except Exception:
-        return "unknown"
+    return "unknown"
 
 
 # ---------------------------------------------------------------------------
@@ -73,8 +65,13 @@ def get_user(context=None) -> str:
 
 
 def get_backup_filepath() -> Path:
-    """Path to addon backup JSON in Blender's user config dir."""
-    return Path(bpy.utils.script_path_user()) / "config" / "pipeline_backup.json"
+    """Path to addon backup JSON, in this extension's own user data
+    directory -- bpy.utils.extension_path_user(), not script_path_user()
+    (assumes a legacy, pre-Extensions addon layout; flagged by a Blender
+    Extensions Platform review, see NOTES.md)."""
+    pkg = __package__.rsplit(".", 1)[0]  # "minimalist_pipeline.lib" -> "minimalist_pipeline"
+    root = bpy.utils.extension_path_user(pkg, path="config", create=True)
+    return Path(root) / "pipeline_backup.json"
 
 
 def save_project_data(prefs) -> bool:

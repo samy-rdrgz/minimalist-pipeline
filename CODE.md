@@ -84,7 +84,7 @@ Routing logic: `prefix_to_parent_folder()` in `lib/config.py`. All paths resolve
 ```json
 {
   "project_name": "my_project",
-  "pipeline_addon_version": "1.0.1",
+  "pipeline_addon_version": "1.0.2",
   "blender_version": "(4, 0, 0)",
   "resolution": {"x": 1920, "y": 1080},
   "default_fps": 30,
@@ -123,7 +123,7 @@ minimalist_pipeline/
 │   ├── __init__.py            # Re-exports every public symbol; classes = (4 core operators)
 │   ├── errors.py              # PipelineError
 │   ├── actions.py             # PipelineAction, set/get_pending_action
-│   ├── core.py                 # addon_pref, json_get, locked_json, lock primitives, get_machine_id
+│   ├── core.py                 # addon_pref, json_get, locked_json, lock primitives, get_machine_id, random_display_name
 │   ├── config.py               # ConfigCache, parse_filename, path helpers, project detection,
 │   │                            #   format_shot_segment/shots_in_segment/format_camera_name/parse_camera_name
 │   ├── browser.py              # dynamic enum callbacks: file cascade + department pickers
@@ -241,7 +241,7 @@ The red text itself is a plain `row.label()`, not the button opening the menu: a
 - `session_update()` — writes/updates `.session_{pid}.json`; never raises (called from timers/handlers with no operator to report through)
 - `close_session(session_file=None)` — logs session_end (`filepath` + `duration_seconds` as their own fields, consumed by `WorkTimeCache`, not parsed back out of the message string), deletes session file; never raises. No `session_start` line is logged — everything it would say is recoverable from the end line alone.
 - `scan_sessions()` — detects orphaned sessions (last_ping > 40s), calls `close_session` on them; wired into `post_load_handler`
-- `get_user(context=None)` / `get_user_data(user)` — identity for logs/sessions: prefs.user_name > OS login > "unknown"
+- `get_user(context=None)` / `get_user_data(user)` — identity for logs/sessions: prefs.user_name (seeded with `lib.random_display_name()` at first register) > "unknown"
 - `save_project_data(prefs)` / `load_project_data(prefs)` — backs up `opened_projects` + `active_project_root` to Blender's user config dir
 - `set_active_project_root(prefs, new_root)` — the ONE place that changes `active_project_root`: stops this instance's farm role for the project being left (`stop_farm_role_for_project`), then auto-launches a worker for the new one if `auto_worker_on_open` is on. Every operator that can switch projects calls this instead of assigning the field directly.
 - `get_opened_as_read_only()` / `set_opened_as_read_only(value, reason)` / `get_read_only_reason()` — in-memory (not persisted) flag for the current session: which filepath is read-only, and why (`"stable"` | `"profile"` | `"reopened"` | `"locked"`). `get_read_only_reason()` alone isn't scoped to the current file — always pair it with `get_opened_as_read_only() == bpy.data.filepath` (the flag is never cleared on a normal file open, only ever overwritten by the next read-only one).

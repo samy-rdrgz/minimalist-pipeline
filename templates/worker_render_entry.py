@@ -1,13 +1,11 @@
 # templates/worker_render_entry.py
 import sys
-from pathlib import Path
 
+import addon_utils
 import bpy
 
-# Fresh subprocess: make the addon importable, then actually registered.
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-import addon_utils
-
+# Fresh subprocess: Blender's own extension loader already makes the addon
+# importable, no manual sys.path edit needed here.
 addon_utils.enable("minimalist_pipeline", default_set=False, persistent=False)
 
 from minimalist_pipeline.farm import apply_custom_preset
