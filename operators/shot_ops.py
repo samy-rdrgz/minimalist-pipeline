@@ -149,7 +149,7 @@ def _draw_block_warning(layout, context, shots):
     layout.separator(factor=2)
 
 
-def _draw_timeline_warnings(layout, shots, end_frame):
+def _draw_timeline_warnings(layout, shots, end_frame, context):
     """Ordering/sign sanity checks -- warnings, never blockers."""
     if not shots:
         return
@@ -158,13 +158,24 @@ def _draw_timeline_warnings(layout, shots, end_frame):
     warning = layout.column(align=True)
     warning.alert = True
     if numbers != sorted(set(numbers)) or timeline != sorted(set(timeline)):
-        warning.box().label(
-            text="Inconsistent timeline ! Shot numbers or start frames are not ordered.",
+        text = (
+            "Inconsistent timeline ! Shot numbers or start frames are not ordered.",
+        )
+        text_to_lines(
+            warning.box(),
+            text=text,
+            max_width=region_char_budget(context, width_px=320),
+            scale_y=0.7,
             icon="ERROR",
         )
     if min(numbers) < 0 or min(timeline) < 0:
-        warning.box().label(
-            text="Invalid numbers! Shot numbers or start frames can't be negative."
+        text = "Invalid numbers! Shot numbers or start frames can't be negative."
+        text_to_lines(
+            warning.box(),
+            text=text,
+            max_width=region_char_budget(context, width_px=320),
+            scale_y=0.7,
+            icon="ERROR",
         )
 
 
@@ -233,7 +244,16 @@ def _classify_shot_conflicts(project_root, sq, shots, config, exclude_dir=None):
     return blocking, warnings
 
 
-def _draw_shot_conflicts(layout, op, project_root, sq, shots, config, exclude_dir=None):
+def _draw_shot_conflicts(
+    layout,
+    op,
+    project_root,
+    sq,
+    shots,
+    config,
+    context,
+    exclude_dir=None,
+):
     """Warn about a shot number already claimed elsewhere, or block outright
     for an exact mono-shot duplicate (see _classify_shot_conflicts)."""
     blocking, warnings = _classify_shot_conflicts(
@@ -243,15 +263,28 @@ def _draw_shot_conflicts(layout, op, project_root, sq, shots, config, exclude_di
         box = layout.box().column(align=True)
         box.alert = True
         for n, owner in sorted(blocking.items()):
-            box.label(
-                text=f"Shot {n:03d} already exists as {owner.name} -- pick another number.",
+            text = (
+                f"Shot {n:03d} already exists as {owner.name} -- pick another number."
+            )
+            text_to_lines(
+                box,
+                text=text,
                 icon="ERROR",
+                max_width=region_char_budget(context, width_px=320),
+                scale_y=0.7,
             )
     elif warnings:
         box = layout.box().column(align=True)
         box.alert = True
         for n, owner in sorted(warnings.items()):
-            box.label(text=f"Shot {n:03d} already used by {owner.name}.", icon="ERROR")
+            text = f"Shot {n:03d} already used by {owner.name}."
+            text_to_lines(
+                box,
+                text=text,
+                icon="ERROR",
+                max_width=region_char_budget(context, width_px=320),
+                scale_y=0.7,
+            )
         box.prop(op, "confirm_overlap")
 
 
@@ -308,11 +341,13 @@ class M_PIPELINE_OT_create_shot(bpy.types.Operator):
 
         layout.separator(type="LINE", factor=3)
 
-        _draw_timeline_warnings(layout, shots, self.end_frame)
+        _draw_timeline_warnings(layout, shots, self.end_frame, context)
         naming = _draw_naming_preview(layout, self.sequence_number, shots, config)
         if naming:
             sq, _sh = naming
-            _draw_shot_conflicts(layout, self, get_active_project_root(), sq, shots, config)
+            _draw_shot_conflicts(
+                layout, self, get_active_project_root(), sq, shots, config, context
+            )
 
     def invoke(self, context, event):
         if not get_active_project_root():
@@ -360,9 +395,14 @@ class M_PIPELINE_OT_create_shot(bpy.types.Operator):
         config = ConfigCache.get()
         naming = config.get("naming", {})
         if naming:
-            n_prefix, n_digits = naming["sequence"]["prefix"], naming["sequence"]["digits"]
+            n_prefix, n_digits = (
+                naming["sequence"]["prefix"],
+                naming["sequence"]["digits"],
+            )
             sq = f"{n_prefix}{self.sequence_number:0{n_digits}d}"
-            blocking, warnings = _classify_shot_conflicts(project_root, sq, shots, config)
+            blocking, warnings = _classify_shot_conflicts(
+                project_root, sq, shots, config
+            )
             if blocking:
                 n, owner = next(iter(blocking.items()))
                 self.report({"ERROR"}, f"Shot {n:03d} already exists as {owner.name}.")
@@ -455,10 +495,12 @@ class M_PIPELINE_OT_edit_block_structure(bpy.types.Operator):
         layout.prop(self, "create_clean")
         layout.prop_menu_enum(self, "required_departments")
 
-        _draw_timeline_warnings(layout, shots, self.end_frame)
+        _draw_timeline_warnings(layout, shots, self.end_frame, context)
         parsed = parse_filename(Path(self.filepath).name)
         if parsed:
-            naming = _draw_naming_preview(layout, int(parsed["sequence"]), shots, config)
+            naming = _draw_naming_preview(
+                layout, int(parsed["sequence"]), shots, config
+            )
             if naming:
                 sq, _sh = naming
                 _draw_shot_conflicts(
@@ -468,6 +510,7 @@ class M_PIPELINE_OT_edit_block_structure(bpy.types.Operator):
                     sq,
                     shots,
                     config,
+                    context,
                     exclude_dir=Path(self.filepath).parent,
                 )
 
@@ -510,7 +553,9 @@ class M_PIPELINE_OT_edit_block_structure(bpy.types.Operator):
         for n in shot_numbers:
             item = shots.add()
             item.shot_number = n
-            item.start_frame = ranges[n]["frame_start"] if n in ranges else default_start
+            item.start_frame = (
+                ranges[n]["frame_start"] if n in ranges else default_start
+            )
 
         return context.window_manager.invoke_props_dialog(self, width=380)
 

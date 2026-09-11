@@ -172,7 +172,8 @@ class M_PIPELINE_OT_create_entry(bpy.types.Operator):
         row.label(text="Entry type : ", icon="TRIA_RIGHT")
         row = row.row()
         row.prop(self, "type", expand=True)
-        layout.prop(self, "shot_tag")
+        if len(shot_tag_items(self, context)) > 2:
+            layout.prop(self, "shot_tag")
         layout.separator(factor=2)
 
         if self.type == "note":
@@ -419,26 +420,56 @@ class M_PIPELINE_OT_edit_entry(bpy.types.Operator):
         return context.window_manager.invoke_props_dialog(self, width=360)
 
     def draw(self, context):
-        layout = self.layout
-        layout.label(text=f"id : {self.id}")
-        layout.textbox(self, "text", initial_visible_lines=1)
-        row = layout.row()
-        row.prop(self, "type")
-        row.prop(self, "frame_reference")
-        layout.prop(self, "department")
-        layout.prop(self, "referenced_version")
-        layout.prop(self, "shot_tag")
+        TITLE_WIDTH = 0.35
+        layout = self.layout.column(align=True)
 
-        row = layout.row()
+        col = layout.column()
+        col.active = False
+        col.scale_y = 0.6
+        col.label(text=f"id : {self.id}", icon="INFO")
+        layout.separator()
+
+        row = layout.split(factor=TITLE_WIDTH, align=True)
+        row.label(text="Text", icon="TEXT")
+        row.textbox(self, "text", initial_visible_lines=1)
+
+        row = layout.split(factor=TITLE_WIDTH, align=True)
+        row.label(text="Type", icon="TRIA_RIGHT")
+        row.prop(self, "type", text="")
+
+        row = layout.split(factor=TITLE_WIDTH, align=True)
+        row.label(text="Department", icon="COLOR")
+        row.prop(self, "department", text="")
+
+        row = layout.split(factor=TITLE_WIDTH, align=True)
+        row.label(text="Version", icon="LINKED")
+        row.prop(self, "referenced_version", text="")
+
+        if len(shot_tag_items(self, context)) > 2:
+            row = layout.split(factor=TITLE_WIDTH, align=True)
+            row.label(text="Shot", icon="CAMERA_DATA")
+            row.prop(self, "shot_tag", text="")
+
+        layout.separator(type="LINE", factor=3)
+
+        row = layout.split(factor=TITLE_WIDTH, align=True)
+        row.label(text="Frame", icon="KEYFRAME")
+        row = row.row(align=True)
         txt = "Tag frame" if not self.is_frame_start else ""
         row.prop(self, "is_frame_start", text=txt)
         if self.is_frame_start:
             row.prop(self, "frame_start", text="")
             txt = "Add end frame" if not self.is_frame_end else ""
+            row.separator()
             row.prop(self, "is_frame_end", text=txt)
             if self.is_frame_end:
                 row.prop(self, "frame_end", text="")
 
+        row = layout.split(factor=TITLE_WIDTH, align=True)
+        row.label(text="Reference", icon="BLANK1")
+        row.prop(self, "frame_reference", text="")
+
+        layout.separator(factor=2)
         op = layout.operator(
             "m_pipeline.delete_entry", text=f"Delete this {self.type} ?", icon="TRASH"
         )

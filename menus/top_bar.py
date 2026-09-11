@@ -123,9 +123,11 @@ class M_PIPELINE_MT_topbar_menu(bpy.types.Menu):
         layout.operator(
             "m_pipeline.edit_project", text="Project settings", icon="OPTIONS"
         ).project_path_selected = str(project_root)
-        layout.operator(
+        op = layout.operator(
             "wm.open_folder", text="Open project folder", icon="BLANK1"
-        ).filepath = str(project_root)
+        )
+        op.filepath = str(project_root)
+        op.custom_tooltip = "Open the project's root folder"
 
         layout.separator()
         layout.operator(

@@ -67,7 +67,7 @@ De nouveaux assets/shots peuvent aussi être créés en masse depuis un fichier 
 ```json
 {
   "project_name": "my_project",
-  "pipeline_addon_version": "1.0.2",
+  "pipeline_addon_version": "1.0.3",
   "blender_version": "(4, 2, 0)",
   "resolution": {"x": 1920, "y": 1080},
   "default_fps": 30,

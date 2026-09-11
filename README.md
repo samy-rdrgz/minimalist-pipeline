@@ -4,7 +4,7 @@
 
 Lightweight pipeline Blender addon for solo artists and small teams (2-5), full Blender, no server to install. FFmpeg is the one optional external dependency — only needed for the render farm's video compilation and image-check stages, everything else works without it.
 
-**Author**: Samy Rodriguez · **Version**: 1.0.2 · **Blender**: 4.2+
+**Author**: Samy Rodriguez · **Version**: 1.0.3 · **Blender**: 4.2+
 
 ---
 
@@ -60,6 +60,7 @@ Settings available in `Preferences > Add-ons > Minimalist Pipeline`:
 | **Auto-launch worker** | This machine automatically becomes a render worker when a project becomes active (on Blender startup, or when switching projects). |
 | **Always open read-only** | Forces all project files to open read-only, regardless of their lock state. Useful on a review/playblast machine. |
 | **Experience level** | *Beginner* shows short inline explanations of pipeline concepts (versions, stable, links...) next to the relevant buttons and popups; *Advanced* hides them. First launch also shows a one-time welcome popup, reopenable anytime from the main panel header's "?". |
+| **FFmpeg path** | Explicit path to the ffmpeg binary, for setups where Blender doesn't find it on PATH (e.g. launched through a sandboxed runtime such as Steam's — PATH search can't route around a sandbox that hides the host's ffmpeg entirely). Leave blank to auto-detect. |
 
 Session, locking, library-update checks, and read-only gating always run whenever a project is active — there's no toggle to pause them as a block. *Silent auto-increment* only controls whether the day's-first-open version proposal is silent or asks for confirmation first.
 

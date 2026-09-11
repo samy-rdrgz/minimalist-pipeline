@@ -66,6 +66,7 @@ from .core import (
     read_csv,
     region_char_budget,
     resolve_bpy_path,
+    resolve_ffmpeg,
     responsive_layout,
     text_to_lines,
 )

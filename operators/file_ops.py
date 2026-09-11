@@ -86,16 +86,23 @@ class M_PIPELINE_OT_increment_version(bpy.types.Operator):
         return context.window_manager.invoke_props_dialog(self, width=350)
 
     def draw(self, context):
-        layout = self.layout
-        layout.prop(self, "tag")
+        TITLE_WIDTH = 0.35
+        layout = self.layout.column(align=True)
 
-        layout.label(text="Select department(s) worked durring this session.")
-        row = layout.row(align=True)
-        row.prop(self, "worked_departments", expand=True)
+        row = layout.split(factor=TITLE_WIDTH, align=True)
+        row.label(text="Tag", icon="BOOKMARKS")
+        row.prop(self, "tag", text="")
+
+        layout.separator(type="LINE", factor=3)
+
+        row = layout.split(factor=TITLE_WIDTH, align=True)
+        row.label(text="Worked on", icon="COLOR")
+        row.row(align=True).prop(self, "worked_departments", expand=True)
+
         if self.tag == "stable":
-            layout.label(text="Select department(s) finished.")
-            row = layout.row(align=True)
-            row.prop(self, "stabled_departments", expand=True)
+            row = layout.split(factor=TITLE_WIDTH, align=True)
+            row.label(text="Finished", icon="CHECKMARK")
+            row.row(align=True).prop(self, "stabled_departments", expand=True)
 
         parsed = parse_filename(Path(bpy.data.filepath).name)
         if parsed:
@@ -109,11 +116,11 @@ class M_PIPELINE_OT_increment_version(bpy.types.Operator):
             else:
                 preview = f"{name}_{v_prefix}{next_v:0{v_digits}d}.blend"
 
-            layout.separator()
-            col = layout.column()
+            layout.separator(type="LINE", factor=3)
+            col = layout.column(align=True)
             col.active = False
-            col.scale_y = 0.5
-            col.label(text=f"File: {preview}", icon="FILE")
+            col.scale_y = 0.65
+            col.label(text=f"File: {preview}", icon="FILE_BLEND")
 
     def execute(self, context):
         try:

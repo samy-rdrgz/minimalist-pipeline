@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import os
 import random
+import shutil
+import sys
 import time
 import uuid
 from contextlib import contextmanager
@@ -47,6 +49,39 @@ def addon_pref(context: bpy.types.Context | None = None):
         return ctx.preferences.addons[pkg].preferences
     except Exception:
         return None
+
+
+# Last-resort fallback for resolve_ffmpeg() -- see NOTES.md, "FFmpeg detection".
+_COMMON_FFMPEG_PATHS = {
+    "linux": ["/usr/bin/ffmpeg", "/usr/local/bin/ffmpeg", "/snap/bin/ffmpeg"],
+    "darwin": [
+        "/opt/homebrew/bin/ffmpeg",
+        "/usr/local/bin/ffmpeg",
+        "/opt/local/bin/ffmpeg",
+    ],
+    "win32": [
+        r"C:\ffmpeg\bin\ffmpeg.exe",
+        r"C:\ProgramData\chocolatey\bin\ffmpeg.exe",
+    ],
+}
+
+
+def resolve_ffmpeg() -> str | None:
+    """Absolute ffmpeg binary, or None. prefs.ffmpeg_path if set (no PATH
+    fallback if it's invalid), else shutil.which(), then
+    _COMMON_FFMPEG_PATHS -- see NOTES.md, "FFmpeg detection"."""
+    prefs = addon_pref()
+    override = getattr(prefs, "ffmpeg_path", "") if prefs else ""
+    if override:
+        path = Path(bpy.path.abspath(override))
+        return str(path) if path.is_file() else None
+    found = shutil.which("ffmpeg")
+    if found:
+        return found
+    for candidate in _COMMON_FFMPEG_PATHS.get(sys.platform, []):
+        if Path(candidate).is_file():
+            return candidate
+    return None
 
 
 def json_get(data, path, default=None):

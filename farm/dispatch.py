@@ -78,8 +78,8 @@ def render_mode_auto(filepath: str) -> str | None:
 
 
 def render_history_path(filepath: str) -> Path:
-    """Path to the render_history.json sitting next to filepath."""
-    return Path(filepath).parent / "render_history.json"
+    """Path to filepath's .pipeline/render_history.json sidecar."""
+    return Path(filepath).parent / ".pipeline" / "render_history.json"
 
 
 def append_render_history(filepath: str, entry: dict) -> None:

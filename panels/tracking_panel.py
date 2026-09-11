@@ -373,13 +373,17 @@ def draw_file_details(self, context, layout):
         emboss=False,
     ).filepath = str(filepath)
 
-    row_right.operator(
+    op = row_right.operator(
         "wm.open_folder", text="", icon="FILE_FOLDER", emboss=False
-    ).filepath = str(filepath)
+    )
+    op.filepath = str(filepath)
+    op.custom_tooltip = "Open this file's folder"
 
-    row_right.operator(
+    op = row_right.operator(
         "wm.open_folder", text="", icon="RENDER_STILL", emboss=False
-    ).filepath = str(to_absolute("renders/" + to_relative(Path(filepath))))
+    )
+    op.filepath = str(to_absolute("renders/" + to_relative(Path(filepath))))
+    op.custom_tooltip = "Open this file's render folder"
 
     if is_shot:
         try:

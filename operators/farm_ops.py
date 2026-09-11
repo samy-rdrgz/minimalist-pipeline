@@ -2,7 +2,6 @@
 
 import datetime
 import os
-import shutil
 from pathlib import Path
 
 import bpy
@@ -35,6 +34,7 @@ from ..lib import (
     now,
     parse_filename,
     prefix_items,
+    resolve_ffmpeg,
     sequence_items,
     set_pending_action,
     shot_items,
@@ -153,14 +153,17 @@ class M_PIPELINE_OT_farm_launch_monitor(bpy.types.Operator):
     skip_ffmpeg_check: bpy.props.BoolProperty(default=False)
 
     def invoke(self, context, event):
-        if not self.skip_ffmpeg_check and not shutil.which("ffmpeg"):
+        if not self.skip_ffmpeg_check and not resolve_ffmpeg():
             set_pending_action(
                 PipelineAction(
                     title="FFmpeg not found",
                     message=(
                         "FFmpeg isn't installed, or not on this machine's PATH.\n"
-                        "Every job this monitor dispatches will fail its\n"
-                        "checks_images and compilation stages."
+                        "Every job this monitor dispatches will fail its "
+                        "checks_images and compilation stages.\n"
+                        "If it IS installed, a sandboxed launch (Steam, "
+                        "Flatpak...) can hide it -- set an explicit path "
+                        "in Preferences > FFmpeg path."
                     ),
                     severity="warning",
                     choices=[

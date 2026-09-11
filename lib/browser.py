@@ -365,6 +365,14 @@ def shot_tag_items(self, context):
     asset, or self.filepath unset) just collapses to the blank option."""
     try:
         target = Path(self.filepath) if self.filepath else Path(bpy.data.filepath)
+        if target.is_dir():
+            # Folder path (e.g. from the tracking monitor's file details
+            # popup, see draw_file_details()) -- target.name is then just
+            # the bare folder name ("sh010-020-030"), which parse_filename
+            # never matches (no sequence/version parts). Read the shot
+            # segment off one of its versioned files instead, same fix as
+            # entry_version_items()'s folder-vs-file handling.
+            target = next(target.glob("*.blend"), target)
         parsed = parse_filename(target.name) if target.name else None
         shot_segment = parsed.get("shot") if parsed else None
         if not shot_segment:

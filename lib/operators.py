@@ -10,6 +10,7 @@ from .core import (
     addon_pref,
     draw_box_tip,
     lines_budget,
+    region_char_budget,
     text_to_lines,
 )
 from .errors import PipelineError
@@ -90,8 +91,14 @@ class M_PIPELINE_OT_action_popup(bpy.types.Operator):
         title.label(text=self._action.title.upper(), icon=icon)
         if self._action.message:
             layout.separator()
+            text_layout = layout.column(align=True)
+            text_layout.scale_y = 0.7
             for line in self._action.message.split("\n"):
-                layout.label(text=line)
+                text_to_lines(
+                    text_layout,
+                    line,
+                    max_width=region_char_budget(context, width_px=self._POPUP_WIDTH),
+                )
 
         if self._action.explanation:
             draw_box_tip(
@@ -433,10 +440,18 @@ import bpy
 
 
 class WM_OT_open_folder(bpy.types.Operator):
+    """Open filepath in the system's file browser."""
+
     bl_idname = "wm.open_folder"
     bl_label = "Open Folder"
+    bl_description = "Open this folder in the system's file browser"
 
     filepath: bpy.props.StringProperty()
+    custom_tooltip: bpy.props.StringProperty()
+
+    @classmethod
+    def description(cls, context, properties):
+        return properties.custom_tooltip or cls.bl_description
 
     def execute(self, context):
         path = Path(self.filepath)

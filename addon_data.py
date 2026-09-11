@@ -55,6 +55,15 @@ class PipelineAddonPreferences(bpy.types.AddonPreferences):
         default=False,
     )
 
+    ffmpeg_path: bpy.props.StringProperty(
+        name="FFmpeg path",
+        subtype="FILE_PATH",
+        default="",
+        description="Optional: explicit path to the ffmpeg binary, for setups "
+        "where it isn't found on Blender's PATH (e.g. Blender launched through "
+        "a sandboxed runtime such as Steam's). Leave blank to auto-detect.",
+    )
+
     onboarding_seen: bpy.props.BoolProperty(
         name="Onboarding seen",
         description="Internal: the first-launch popup has already been shown.",
@@ -83,6 +92,7 @@ class PipelineAddonPreferences(bpy.types.AddonPreferences):
         col_toggles.prop(self, "silent_auto_increment")
         col_toggles.prop(self, "auto_worker_on_open")
         col_toggles.prop(self, "always_read_only")
+        col_toggles.prop(self, "ffmpeg_path")
 
         col_infos = prefs.column()
         col_infos.label(text="User Infos:")

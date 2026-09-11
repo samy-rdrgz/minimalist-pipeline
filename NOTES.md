@@ -158,7 +158,7 @@ Two ways a block's name and its live markers can disagree, both handled
 Both are written onto the split's own parent job (`skipped_shots`/
 `absorbed_shots` keys), shown in the farm dashboard for its brief
 `split_finished → archived` window, and kept for good in the block's
-`render_history.json` (`construct_split_history()`).
+`.pipeline/render_history.json` (`construct_split_history()`).
 
 **Explicitly rejected**: a submit-time or save-time warning popup for either
 case. Two reasons, both the user's call: the win is marginal (saves at most
@@ -531,6 +531,68 @@ cheap end; `_refresh_tick` stays popup-gated for the expensive end (jobs).
 `counter` (the field the old loading-dots animation read) was dropped from
 `_monitor_cache` entirely once nothing displayed it anymore — dead state,
 not worth carrying just in case.
+
+## FFmpeg detection: PATH lookup isn't enough, and an override can't silently fall back
+
+`shutil.which("ffmpeg")` (the whole check, pre-`resolve_ffmpeg()`) assumes a
+missing result means "not installed". Found in practice: Blender launched
+through Steam's Linux Runtime (a `pressure-vessel`/bubblewrap container)
+reports a `PATH` that still lists `/usr/bin`, yet
+`os.path.exists("/usr/bin/ffmpeg")` is `False` from inside that process —
+the container's mount namespace gives it its own minimal `/usr/bin`, not the
+host's. A real ffmpeg install, invisible to the one process that needs it.
+No amount of smarter in-process search routes around that: the sandbox is
+doing exactly its job. Launching Blender's real binary directly (bypassing
+Steam's launcher, e.g. from a terminal or another launcher) sidesteps the
+container entirely and was the actual fix for the reporting user — but
+that's a launch-method choice outside the addon's reach, not a bug in it.
+
+What the addon *can* do: `resolve_ffmpeg()` (`lib/core.py`) adds
+`prefs.ffmpeg_path`, an optional explicit override, checked before falling
+back to `shutil.which()`. Useful beyond the Steam case too — any GUI
+launcher or portable install that doesn't inherit a full shell `PATH`. If
+the override is set but doesn't point at a real file, the function returns
+`None` outright instead of quietly retrying `shutil.which()`: a user who
+bothered to set an explicit path did so *because* auto-detect already
+failed them once, so silently falling back to the same lookup would hide a
+typo/stale path behind an apparent success, or worse, resolve to some
+unrelated `ffmpeg` actually on PATH when they specifically meant a
+different one.
+
+Every call site that shells out to ffmpeg (`checks_images()`,
+`compilation()`, `build_concat_command()`) takes the resolved binary as a
+value now, not the bare `"ffmpeg"` string it used to pass to
+`subprocess.Popen` — the gate check and the actual invocation have to agree
+on which binary was found, or the override would pass the check and then
+silently launch a different ffmpeg anyway via the process's own `PATH`
+lookup at `exec()` time.
+
+`resolve_ffmpeg()` also falls back to `_COMMON_FFMPEG_PATHS`, a short
+per-platform list of well-known install spots, once `shutil.which()` comes
+up empty and no override is set — a portable/Homebrew/Chocolatey ffmpeg
+that never made it onto PATH, or a desktop launcher that doesn't source the
+shell profile that would have set it. Worth having on its own merits (any
+GUI-launched app can hit this, nothing sandbox-specific about it), but it's
+explicitly *not* the fix for the sandboxed case above: same reasoning
+applies — a hardcoded absolute path is still just a path, and a sandbox
+that hides `/usr/bin/ffmpeg` from `os.path.exists()` hides it from this
+list too. The "FFmpeg not found" popup message (`operators/farm_ops.py`)
+spells out the sandboxed-launch possibility and points at the override
+preference, since auto-detect failing silently past this point gives a
+user no next step otherwise.
+
+**Considered and deliberately not built (yet): auto-download a static
+ffmpeg build on demand**, into the extension's own per-user data dir
+(`bpy.utils.extension_path_user()`) — would genuinely reach inside most
+sandboxes (they typically still expose the extension's own config/data
+path, even Flatpak's isolated-home ones), unlike a hardcoded absolute path.
+Not attempted: needs a `network` permission added to
+`blender_manifest.toml` (the addon has none today — adding one after
+publication likely means re-review), a trustworthy per-platform build
+source to depend on, and download+checksum+extract+exec-bit machinery —
+real scope and a real trust-surface increase (fetching and then running a
+third-party binary automatically) for a "manage project files" tool. A
+deliberate call to make, not a default to slide into.
 
 ## File details' `file_details_selected` is a folder, not a versioned file
 

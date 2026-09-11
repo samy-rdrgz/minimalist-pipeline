@@ -177,9 +177,11 @@ class M_PIPELINE_PT_file_panel(bpy.types.Panel):
             ).filepath = bpy.data.filepath
 
         layout.separator()
-        layout.operator(
+        op = layout.operator(
             "wm.open_folder", text="Open folder", icon="FOLDER_REDIRECT"
-        ).filepath = str(Path(bpy.data.filepath).parent)
+        )
+        op.filepath = str(Path(bpy.data.filepath).parent)
+        op.custom_tooltip = "Open this file's folder"
 
         layout.separator()
         width = int(region_char_budget(context) * ENTRIES_INDENT_FACTOR)

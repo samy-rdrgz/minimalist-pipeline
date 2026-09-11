@@ -1,6 +1,5 @@
 """Post-render pipeline stages: frame integrity check and video compilation, both via ffmpeg."""
 
-import shutil
 import subprocess
 from pathlib import Path
 
@@ -11,6 +10,7 @@ from ..lib import (
     locked_json,
     log,
     now,
+    resolve_ffmpeg,
     to_absolute,
 )
 from .dispatch import _active_processes as _active_processes
@@ -38,10 +38,11 @@ def checks_images(job_path: Path):
         global _active_processes
         with locked_json(to_absolute(job_path)) as box:
             data = box["data"] or {}
-            if shutil.which("ffmpeg"):
+            ffmpeg_bin = resolve_ffmpeg()
+            if ffmpeg_bin:
                 path = str(to_absolute(Path(data["output_path"])))
                 cmd = [
-                    "ffmpeg",
+                    ffmpeg_bin,
                     "-v",
                     "error",
                     "-start_number",
@@ -123,11 +124,12 @@ def compilation(*, project_root: Path, job_path: Path, compilation_settings: str
             framerate = data.get("fps") or json_get(
                 ConfigCache.get(), "default_fps", "30"
             )
-            if shutil.which("ffmpeg") is not None:
+            ffmpeg_bin = resolve_ffmpeg()
+            if ffmpeg_bin is not None:
                 abs_path = to_absolute(data["output_path"], project_root)
                 cmd = (
                     [
-                        "ffmpeg",
+                        ffmpeg_bin,
                         "-y",
                         "-r",
                         str(framerate),
@@ -178,16 +180,22 @@ def compilation(*, project_root: Path, job_path: Path, compilation_settings: str
 
 
 def build_concat_command(
-    inputs: list[Path], output: Path, config: dict, compilation_settings: str
+    inputs: list[Path],
+    output: Path,
+    config: dict,
+    compilation_settings: str,
+    ffmpeg_bin: str,
 ) -> list[str]:
     """ffmpeg command concatenating inputs into output via the concat filter
     (re-encodes each to the project's resolution/fps), not the concat
-    demuxer's -c copy."""
+    demuxer's -c copy. ffmpeg_bin: resolved by the caller (resolve_ffmpeg()),
+    not re-resolved here -- there'd be no single place left asserting it was
+    actually found."""
     res = json_get(config, "resolution", {"x": 1920, "y": 1080})
     width, height = int(res.get("x", 1920)), int(res.get("y", 1080))
     fps = json_get(config, "default_fps", 30)
 
-    cmd = ["ffmpeg", "-y"]
+    cmd = [ffmpeg_bin, "-y"]
     for p in inputs:
         cmd += ["-i", str(p)]
 
@@ -214,7 +222,8 @@ def run_preview_compile(job_id: str, project_root: Path) -> None:
     try:
         with locked_json(job_path) as box:
             data = box["data"] or {}
-            if not shutil.which("ffmpeg"):
+            ffmpeg_bin = resolve_ffmpeg()
+            if not ffmpeg_bin:
                 data["stage_history"].append({"stage": "preview_failed", "at": now()})
                 box["action"] = "to_write"
                 raise PipelineError("FFMPEG is not installed")
@@ -225,7 +234,11 @@ def run_preview_compile(job_id: str, project_root: Path) -> None:
             output.parent.mkdir(parents=True, exist_ok=True)
 
             cmd = build_concat_command(
-                inputs, output, config, data.get("compilation_settings", "default")
+                inputs,
+                output,
+                config,
+                data.get("compilation_settings", "default"),
+                ffmpeg_bin,
             )
             proc = [
                 (
