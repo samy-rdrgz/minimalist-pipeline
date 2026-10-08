@@ -22,6 +22,7 @@ from ..lib import (
     json_get,
     region_char_budget,
     responsive_layout,
+    safe_icon,
     shots_in_segment,
     text_to_lines,
     to_absolute,
@@ -274,7 +275,7 @@ def _draw_entry(e, note, filepath, width: int | None = None):
     btn = btns.operator(
         "m_pipeline.generic_entry_button",
         text="",
-        icon="GRIP_CORNER_BOTTOM_RIGHT",
+        icon=safe_icon("GRIP_CORNER_BOTTOM_RIGHT", "GRIP"),
         emboss=False,
     )
     btn.id = e["id"]
@@ -298,7 +299,8 @@ def _get_entry_tooltip(e, filepath):
         text = f"{text}\n\nEdited by : {e['edited_by']}\nAt : {e['edited_at'].replace('T', ' ')}"
     if e.get("department"):
         text = f"{text}\nFor department : {e.get('department')}"
-    text = f"{text}\nId : {e.get('id')}{f' (review_id : {e.get('review_id')})' if e.get('review_id') else ''}"
+    review_id = f" (review_id : {e.get('review_id')})" if e.get("review_id") else ""
+    text = f"{text}\nId : {e.get('id')}{review_id}"
 
     if e.get("response"):
         parent = _get_entry_by_id(get_entries(filepath), e.get("response"))
@@ -369,7 +371,7 @@ def draw_file_details(self, context, layout):
     row_right.operator(
         "m_pipeline.open_file_version",
         text="",
-        icon="FILE_ALIAS",
+        icon=safe_icon("FILE_ALIAS", "FILE_BLEND"),
         emboss=False,
     ).filepath = str(filepath)
 
@@ -628,7 +630,7 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column):
     details.operator(
         "m_pipeline.open_file_version",
         text="",
-        icon="FILE_ALIAS",
+        icon=safe_icon("FILE_ALIAS", "FILE_BLEND"),
         emboss=False,
     ).filepath = str(dir)
     deps_row = split.row()

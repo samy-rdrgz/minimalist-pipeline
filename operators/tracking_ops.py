@@ -28,6 +28,7 @@ from ..lib import (
     set_department_validated,
     set_description,
     shot_tag_items,
+    text_field,
     to_absolute,
     toggle_entry_task,
     tracked_department_items,
@@ -194,7 +195,7 @@ class M_PIPELINE_OT_create_entry(bpy.types.Operator):
         col_txt.scale_y = 1.4
         for idx, entry in enumerate(entries):
             row = col_txt.row(align=True)
-            row.textbox(entry, "text", initial_visible_lines=1)
+            text_field(row, entry, "text", initial_visible_lines=1)
             row.operator(
                 "m_pipeline.remove_entry_line", text="", icon="REMOVE"
             ).index = idx
@@ -237,7 +238,7 @@ class M_PIPELINE_OT_create_entry(bpy.types.Operator):
         for idx, entry in enumerate(entries):
             row = col.row(align=True)
             row.scale_y = 1.4
-            row.textbox(entry, "text", initial_visible_lines=1)
+            text_field(row, entry, "text", initial_visible_lines=1)
             row.operator(
                 "m_pipeline.remove_entry_line", text="", icon="REMOVE"
             ).index = idx
@@ -437,7 +438,7 @@ class M_PIPELINE_OT_edit_entry(bpy.types.Operator):
 
         row = layout.split(factor=TITLE_WIDTH, align=True)
         row.label(text="Text", icon="TEXT")
-        row.textbox(self, "text", initial_visible_lines=1)
+        text_field(row, self, "text", initial_visible_lines=1)
 
         row = layout.split(factor=TITLE_WIDTH, align=True)
         row.label(text="Type", icon="TRIA_RIGHT")
@@ -728,7 +729,7 @@ class M_PIPELINE_OT_edit_description(bpy.types.Operator):
 
     def draw(self, context):
         layout = self.layout
-        layout.textbox(self, "description", initial_visible_lines=1)
+        text_field(layout, self, "description", initial_visible_lines=1)
 
     def execute(self, context):
         try:

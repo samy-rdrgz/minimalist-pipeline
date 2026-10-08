@@ -7,7 +7,13 @@ from pathlib import Path
 import bpy
 
 from ..farm import get_monitor_cache, scan_workers
-from ..lib import ConfigCache, addon_pref, draw_box_tip, get_active_project_root
+from ..lib import (
+    ConfigCache,
+    addon_pref,
+    draw_box_tip,
+    get_active_project_root,
+    safe_icon,
+)
 
 FIRST_COLUMN = 0.4
 
@@ -81,7 +87,10 @@ class M_PIPELINE_PT_farm_panel(bpy.types.Panel):
                     emboss=False,
                 )
         layout.operator(
-            "m_pipeline.farm_monitor", text="", icon="SEQ_STRIP_MODIFIER", emboss=False
+            "m_pipeline.farm_monitor",
+            text="",
+            icon=safe_icon("SEQ_STRIP_MODIFIER", "MODIFIER"),
+            emboss=False,
         )
         layout.separator(factor=1.5)
 
@@ -133,7 +142,9 @@ class M_PIPELINE_PT_farm_panel(bpy.types.Panel):
                 "m_pipeline.farm_launch_monitor", text="Launch farm", icon="TRIA_RIGHT"
             )
         layout.operator(
-            "m_pipeline.farm_monitor", text="Farm monitor", icon="SEQ_STRIP_MODIFIER"
+            "m_pipeline.farm_monitor",
+            text="Farm monitor",
+            icon=safe_icon("SEQ_STRIP_MODIFIER", "MODIFIER"),
         )
 
 

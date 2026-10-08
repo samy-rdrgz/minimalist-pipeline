@@ -217,12 +217,17 @@ def register_handlers():
         bpy.app.timers.register(heartbeat_30s, persistent=True)
     if post_load_handler not in bpy.app.handlers.load_post:
         bpy.app.handlers.load_post.append(post_load_handler)
-    if on_quit_handler not in bpy.app.handlers.exit_pre:
-        bpy.app.handlers.exit_pre.append(on_quit_handler)
+    # exit_pre: Blender 5.1+ only -- older versions leave the session file
+    # behind, cleaned up by the next scan_sessions().
+    exit_pre = getattr(bpy.app.handlers, "exit_pre", None)
+    if exit_pre is not None and on_quit_handler not in exit_pre:
+        exit_pre.append(on_quit_handler)
     if save_post_handler not in bpy.app.handlers.save_post:
         bpy.app.handlers.save_post.append(save_post_handler)
-    if import_post_handler not in bpy.app.handlers.blend_import_post:
-        bpy.app.handlers.blend_import_post.append(import_post_handler)
+    # blend_import_post: Blender 4.3+ only -- no append-vs-link warning on 4.2.
+    import_post = getattr(bpy.app.handlers, "blend_import_post", None)
+    if import_post is not None and import_post_handler not in import_post:
+        import_post.append(import_post_handler)
 
 
 def unregister_handlers():
@@ -231,9 +236,11 @@ def unregister_handlers():
         bpy.app.timers.unregister(heartbeat_30s)
     if post_load_handler in bpy.app.handlers.load_post:
         bpy.app.handlers.load_post.remove(post_load_handler)
-    if on_quit_handler in bpy.app.handlers.exit_pre:
-        bpy.app.handlers.exit_pre.remove(on_quit_handler)
+    exit_pre = getattr(bpy.app.handlers, "exit_pre", None)
+    if exit_pre is not None and on_quit_handler in exit_pre:
+        exit_pre.remove(on_quit_handler)
     if save_post_handler in bpy.app.handlers.save_post:
         bpy.app.handlers.save_post.remove(save_post_handler)
-    if import_post_handler in bpy.app.handlers.blend_import_post:
-        bpy.app.handlers.blend_import_post.remove(import_post_handler)
+    import_post = getattr(bpy.app.handlers, "blend_import_post", None)
+    if import_post is not None and import_post_handler in import_post:
+        import_post.remove(import_post_handler)
