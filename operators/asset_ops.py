@@ -13,6 +13,7 @@ from ..lib import (
     path_reachable,
     prefix_to_parent_folder,
     sanitize_name,
+    text_field,
 )
 
 # ---------------------------------------------------------------------------
@@ -79,7 +80,7 @@ class M_PIPELINE_OT_create_asset(bpy.types.Operator):
 
         row = layout.split(factor=TITLE_WIDTH, align=True)
         row.label(text="Description", icon="TEXT")
-        row.textbox(self, "description", initial_visible_lines=1)
+        text_field(row, self, "description", initial_visible_lines=1)
         row = layout.split(factor=TITLE_WIDTH, align=True)
         row.label(text="Departments", icon="COLOR")
         row.prop_menu_enum(self, "required_departments")

@@ -1,5 +1,7 @@
 """Post-import handling: warn on append vs link, track newly linked libraries."""
 
+from __future__ import annotations
+
 from pathlib import Path
 
 import bpy

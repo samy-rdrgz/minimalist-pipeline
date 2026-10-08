@@ -24,6 +24,7 @@ from ..lib import (
     region_char_budget,
     shot_department_items,
     shots_in_segment,
+    text_field,
     text_to_lines,
 )
 
@@ -336,7 +337,7 @@ class M_PIPELINE_OT_create_shot(bpy.types.Operator):
 
         row = layout.split(factor=TITLE_WIDTH, align=True)
         row.label(text="Description", icon="TEXT")
-        row.textbox(self, "description", initial_visible_lines=1)
+        text_field(row, self, "description", initial_visible_lines=1)
         row = layout.split(factor=TITLE_WIDTH, align=True)
         row.label(text="Departments", icon="COLOR")
         row.prop_menu_enum(self, "required_departments")
@@ -501,7 +502,7 @@ class M_PIPELINE_OT_edit_block_structure(bpy.types.Operator):
         shots = _draw_shot_list(layout, context, self, config, TITLE_WIDTH)
         _draw_block_warning(layout, context, shots)
 
-        layout.textbox(self, "description", initial_visible_lines=1)
+        text_field(layout, self, "description", initial_visible_lines=1)
         layout.prop(self, "create_clean")
         layout.prop_menu_enum(self, "required_departments")
 

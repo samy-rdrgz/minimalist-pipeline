@@ -182,6 +182,22 @@ def lines_budget(text: str, base: int = 2, per_chars: int = 60, cap: int = 6) ->
     return min(base + int(_effective_len(text)) // per_chars, cap)
 
 
+def text_field(layout: bpy.types.UILayout, data, prop: str, **kwargs):
+    """Multi-line text field (UILayout.textbox, Blender 5.1+), or a plain
+    one-line prop on older versions."""
+    if hasattr(layout, "textbox"):
+        layout.textbox(data, prop, **kwargs)
+    else:
+        layout.prop(data, prop, text="")
+
+
+def safe_icon(name: str, fallback: str) -> str:
+    """name if this Blender version has that icon, else fallback (icons get
+    added between versions, and an unknown one makes the draw call raise)."""
+    items = bpy.types.UILayout.bl_rna.functions["label"].parameters["icon"].enum_items
+    return name if name in items else fallback
+
+
 def text_to_lines(
     layout: bpy.types.Layout,
     text: str,
