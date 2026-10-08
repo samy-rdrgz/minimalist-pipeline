@@ -4,7 +4,7 @@
 
 Addon Blender de pipeline léger pour artistes solo et petites équipes (2-5), full Blender, sans serveur à installer. FFmpeg est la seule dépendance externe optionnelle — utile uniquement pour les étapes de compilation vidéo et de vérification d'images du render farm, tout le reste fonctionne sans.
 
-**Auteur** : Samy Rodriguez · **Version** : 1.0.4 · **Blender** : 4.2+
+**Auteur** : Samy Rodriguez · **Version** : 1.0.5 · **Blender** : 4.2+
 
 ---
 
