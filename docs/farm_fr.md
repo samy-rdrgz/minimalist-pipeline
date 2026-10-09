@@ -13,6 +13,21 @@ Un job traverse : `queued → setup → render → checks_images (contrôle ffmp
 
 Soumission (panel "Render", ou bouton par fichier) : priorité, mode de rendu, incrément (nouveau dossier de sortie systématique ou réutilisation), plage de frames avec override relatif (`s+10`, `e-5`...), machines ciblées (vide = auto), preset de script pré-rendu.
 
+**Presets pré-rendu** : tout fichier `.py` ou `.json` déposé dans `config/presets/` (sauf `asset_file_preset.py`) apparaît dans la liste des presets à la soumission, et chaque worker l'applique juste avant de rendre -- par-dessus les réglages du fichier, sans jamais les sauvegarder dedans. Un `.py` définit `override(scene, job_data)` (`job_data` est le JSON du job, à lire seulement) ; un `.json` est une simple liste de chemins à points depuis la scène :
+
+```python
+def override(scene, job_data):
+    scene.render.engine = "CYCLES"
+    scene.cycles.samples = 64
+    scene.render.resolution_percentage = 50
+```
+
+```json
+{"render.engine": "CYCLES", "cycles.samples": 64, "render.resolution_x": 1280, "render.resolution_y": 720}
+```
+
+Un preset cassé ne bloque jamais le rendu : une clé `.json` invalide est ignorée (les autres s'appliquent quand même), un `.py` qui plante ou un preset qui n'existe plus retombe sur les réglages du fichier -- chaque cas est loggé comme avertissement farm. Attention aux identifiants qui changent selon la version si les workers ne tournent pas tous sur la même : EEVEE s'appelle `BLENDER_EEVEE_NEXT` en 4.2–4.5 mais `BLENDER_EEVEE` à partir de 5.0 -- un preset `.py` peut choisir celui qui existe.
+
 **Modes de rendu** :
 - `single` : une seule machine sur toute la plage.
 - `placeholder` : toutes les machines libres attaquent la même plage en parallèle, sans découpage explicite — elles s'auto-arbitrent via les réglages natifs Blender `use_placeholder` + `use_overwrite=False` (chaque frame déjà réclamée/rendue est sautée par les autres). Rapide, mais une frame corrompue par une course entre deux machines reste possible sur un drive lent.

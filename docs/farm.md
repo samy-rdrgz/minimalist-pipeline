@@ -13,6 +13,21 @@ A job goes through: `queued → setup → render → checks_images (ffmpeg check
 
 Submission (the "Render" panel, or a per-file button): priority, render mode, increment (systematic new output folder, or reuse), frame range with relative override (`s+10`, `e-5`...), targeted machines (empty = auto), pre-render script preset.
 
+**Pre-render presets**: any `.py` or `.json` file dropped in `config/presets/` (except `asset_file_preset.py`) shows up in the submission's preset list, and is applied by each worker right before rendering -- on top of the file's own settings, never saved back into it. A `.py` defines `override(scene, job_data)` (`job_data` is the job's JSON, read-only use); a `.json` is a flat map of dot-notation paths from the scene:
+
+```python
+def override(scene, job_data):
+    scene.render.engine = "CYCLES"
+    scene.cycles.samples = 64
+    scene.render.resolution_percentage = 50
+```
+
+```json
+{"render.engine": "CYCLES", "cycles.samples": 64, "render.resolution_x": 1280, "render.resolution_y": 720}
+```
+
+A broken preset never blocks the render: an invalid `.json` key is skipped (the others still apply), a `.py` that raises or a preset name that no longer exists falls back to the file's own settings -- each case logged as a farm warning. Mind version-specific identifiers when workers run different Blender versions: EEVEE is `BLENDER_EEVEE_NEXT` on 4.2–4.5 but `BLENDER_EEVEE` from 5.0 -- a `.py` preset can pick whichever exists.
+
 **Render modes**:
 - `single`: one machine over the whole range.
 - `placeholder`: every free machine attacks the same range in parallel, with no explicit splitting — they self-arbitrate via Blender's native `use_placeholder` + `use_overwrite=False` settings (any frame already claimed/rendered is skipped by the others). Fast, but a frame corrupted by a race between two machines remains possible on a slow drive.
