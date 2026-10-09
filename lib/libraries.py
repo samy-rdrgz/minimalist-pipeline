@@ -68,6 +68,23 @@ _FALLBACK_ID_COLLECTIONS = (
 )
 
 
+def _top_level_ids(lib) -> list[bpy.types.ID]:
+    """Fallback for a library with no root id (e.g. a collection only read
+    by a Collection Info node, an action on a local rig): its direct ids
+    that no other id of the same library uses. A linked collection keeps
+    the collection, not the 50 objects/materials it brings along."""
+    ids = [
+        i
+        for attr in _FALLBACK_ID_COLLECTIONS
+        for i in getattr(bpy.data, attr)
+        if i.library == lib and not i.is_library_indirect
+    ]
+    if not ids:
+        return []
+    users = bpy.data.user_map(subset=ids)
+    return [i for i in ids if not any(u.library == lib for u in users.get(i, ()))]
+
+
 def _root_linked_ids() -> list[bpy.types.ID]:
     """Linked collections/objects this file uses itself -- the same thing a
     link import records: a collection instanced or put in a local
@@ -116,12 +133,7 @@ def scan_linked_libraries() -> list[dict]:
             continue
         ids = by_lib.get(lib.as_pointer())
         if not ids:
-            ids = [
-                i
-                for attr in _FALLBACK_ID_COLLECTIONS
-                for i in getattr(bpy.data, attr)
-                if i.library == lib and not i.is_library_indirect
-            ]
+            ids = _top_level_ids(lib)
         file = to_relative(abs_path)
         out += [{"file": file, "type": i.id_type, "name": i.name} for i in ids]
     return out
