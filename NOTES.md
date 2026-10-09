@@ -1060,6 +1060,12 @@ one-line-per-item list elsewhere. Fixed by dropping the comma.
 
 ## CSV batch: the subprocess couldn't import itself
 
+(The farm's two headless entries, `templates/farm_entry_render_setup.py`
+and `templates/worker_render_entry.py`, had the exact same hardcoded
+import -- every setup/render on an Extensions install failed the same way.
+Same fix: `run_render_setup()` / `execute_render_request()` pass
+`--addon-module`, the entries `importlib.import_module()` it.)
+
 Every batch row failed with a bare "unknown error", no matter the row's
 content -- `templates/batch_create_entry.py` hardcoded `addon_utils.enable
 ("minimalist_pipeline", ...)` and `from minimalist_pipeline.lib import

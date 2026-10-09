@@ -105,6 +105,10 @@ def run_render_setup(job_id: str, config: dict) -> None:
                     "--",
                     "--job-id",
                     job_id,
+                    # Real (possibly namespaced) module name -- see NOTES.md,
+                    # "CSV batch: the subprocess couldn't import itself".
+                    "--addon-module",
+                    __package__.rsplit(".", 1)[0],
                 ],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.PIPE,  # captured for scan_processes() to log on failure

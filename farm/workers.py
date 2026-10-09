@@ -208,6 +208,10 @@ def execute_render_request() -> dict:
                     data["job_id"],
                     "--preset",
                     data.get("prerender_script", ""),
+                    # Real (possibly namespaced) module name -- see NOTES.md,
+                    # "CSV batch: the subprocess couldn't import itself".
+                    "--addon-module",
+                    __package__.rsplit(".", 1)[0],
                 ],
                 stdout=open(log_path, "wb"),
                 stderr=subprocess.STDOUT,
@@ -333,10 +337,10 @@ def _apply_flat_overrides(scene, overrides: dict) -> None:
     E.g. {"render.use_stamp": true, "render.image_settings.quality": 95}"""
     for dotted_key, value in overrides.items():
         *path, attr = dotted_key.split(".")
-        target = scene
-        for part in path:
-            target = getattr(target, part)
         try:
+            target = scene
+            for part in path:
+                target = getattr(target, part)
             setattr(target, attr, value)
         except Exception:
             log(
@@ -347,8 +351,8 @@ def _apply_flat_overrides(scene, overrides: dict) -> None:
 
 
 def apply_custom_preset(preset_name: str, scene, job_id: str) -> None:
-    """Apply a per-job render preset onto scene. Run AFTER apply_default_render_settings. Looks for a .py first
-    (contract: override(scene)), then a .json (flat key/value
+    """Apply a per-job render preset onto scene. Looks for a .py first
+    (contract: override(scene, job_data)), then a .json (flat key/value
     overrides). Any error here is caught: a broken preset must never
     prevent the save+quit that follows."""
     if not preset_name:
