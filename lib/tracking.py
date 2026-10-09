@@ -515,6 +515,40 @@ def wipmeta_add_link(filepath: Path, link: list[dict]):
             box["action"] = "to_write"
 
 
+def wipmeta_sync_links(filepath: Path, links: list[dict]) -> int:
+    """Add to this version's .wipmeta linked list every entry of links
+    ({file, type, name}, see scan_linked_libraries()) it doesn't already
+    have. For links that never went through an import event: a file
+    migrated from outside the pipeline, a library repointed by hand or by a
+    script... Add-only (removal stays clean_libraries()'s job), and writes
+    nothing when there's nothing new, so it's cheap to call on every
+    load/save. Compared on the resolved path, like find_linked_by(): an old
+    entry's un-collapsed "../" must not read as a new link. Returns the
+    number of entries added; 0, no raise, without a .wipmeta (-stable
+    file), same rule as wipmeta_touch()."""
+    path = filepath.parent / ".pipeline" / (_meta_stem(filepath) + ".wipmeta")
+    if not path.exists():
+        return 0
+
+    def key(d):
+        return (str(to_absolute(d["file"])), d.get("type"), d.get("name"))
+
+    with locked_json(path) as box:
+        data = box["data"] or {}
+        current = data.get("linked", [])
+        known = {key(d) for d in current if d.get("file")}
+        new = []
+        for d in links:
+            if d.get("file") and key(d) not in known:
+                known.add(key(d))
+                new.append(d)
+        if new:
+            data["linked"] = current + new
+            box["data"] = data
+            box["action"] = "to_write"
+    return len(new)
+
+
 def create_stablemeta(
     *,
     filepath: Path,

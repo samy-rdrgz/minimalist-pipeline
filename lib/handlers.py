@@ -22,7 +22,7 @@ from .core import (
     refresh_lock,
 )
 from .errors import PipelineError
-from .libraries import import_warnings
+from .libraries import import_warnings, sync_linked_libraries
 from .logs import log
 from .session import (
     close_session,
@@ -128,6 +128,9 @@ def post_load_handler(*args):
     if not bpy.app.background:
         scan_sessions()
         session_update()
+        # Before auto_version: a new version inherits this .wipmeta's
+        # linked list, so it has to be complete first.
+        sync_linked_libraries()
         check_library_update()
 
         reason = _static_read_only_reason(bpy.data.filepath)
@@ -182,6 +185,7 @@ def save_post_handler(*args):
     filepath = bpy.data.filepath
     if filepath and file_in_active_project(filepath):
         wipmeta_touch(Path(filepath))
+        sync_linked_libraries()
 
 
 @bpy.app.handlers.persistent
