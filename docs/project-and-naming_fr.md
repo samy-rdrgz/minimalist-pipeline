@@ -59,6 +59,25 @@ De nouveaux assets/shots peuvent aussi être créés en masse depuis un fichier 
 - `departments` : noms de départements séparés par des virgules. Retombe sur l'ensemble par défaut du projet si la colonne est vide/absente ; tout nom absent des départements réellement configurés dans le projet est ignoré et loggé en warning — ne bloque jamais la ligne.
 - Une ligne correspondant à un asset/shot déjà existant (même prefix+name, ou même sequence+shot) est silencieusement ignorée — la création en masse n'écrase jamais rien.
 
+**Exemple — CSV de batch pour des assets :**
+
+```csv
+prefix,name,departments,description
+ch,bob,"modeling,rigging",Hero character
+pr,chair_oak,,Background prop (departments default to the project's asset set)
+```
+
+**Exemple — CSV de batch pour des shots :**
+
+```csv
+sequence,shot,frame_start,frame_end,frame_duration,timeline,departments,description
+sq010,010,1001,1100,,,,Single shot, explicit range
+sq010,020,,,,,,Single shot, falls back to project defaults
+sq020,"030-035-040",,,,"1001-1021-1051-1076","layout,animation",Multi-shot block, exact per-shot starts
+```
+
+Une cellule vide signifie juste "utiliser le repli pour cette colonne" (départements par défaut du projet, frame de départ par défaut, fin auto-répartie...) — seuls `prefix`+`name` (assets) ou `sequence`+`shot` (shots) doivent réellement être remplis sur chaque ligne.
+
 ---
 
 ## Structure de données : `project_config.json`
@@ -68,7 +87,7 @@ De nouveaux assets/shots peuvent aussi être créés en masse depuis un fichier 
 ```json
 {
   "project_name": "my_project",
-  "pipeline_addon_version": "1.0.5",
+  "pipeline_addon_version": "1.0.6",
   "blender_version": "(4, 2, 0)",
   "resolution": {"x": 1920, "y": 1080},
   "default_fps": 30,

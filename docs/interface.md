@@ -18,7 +18,7 @@ All the panels live in the 3D viewport sidebar (`N` > **Pipeline** tab). Each ha
 
 Reached from the buttons above, not permanent panels:
 
-- **Project monitoring** (the "Monitoring" button on the Project panel): every file in the project with its status per department, filterable by prefix (assets) or sequence (shots). Clicking a file opens its detail — description, total logged work time (all versions, everyone summed — see [Design choices](design.md#work-duration-is-logged-never-surfaced-per-person)), full notes/todos, entry creation, CSV import.
+- **Project monitoring** (the "Monitoring" button on the Project panel): every file in the project with its status per department, filterable by prefix (assets) or sequence (shots). Clicking a file opens its detail — description, total logged work time (all versions, everyone summed — see [Design choices](design.md#work-duration-is-logged-never-surfaced-per-person)), the departments required for that specific file with a toggle to validate/unvalidate each one, full notes/todos, entry creation, CSV import, and the files it links to / is linked by (see [Link vs Append](linking.md)) — each one clickable to jump straight to its own detail.
 - **Farm dashboard** (the Farm panel's button): two views, *Jobs* (each active job with its current stage and progress, an "X" button to cancel an in-progress render, a "✓" button to archive a finished/failed job once it's no longer useful in the list) and *Workers* (every known machine, idle or what it's currently rendering, with the same cancel button targeted at that machine), plus the button to add/remove this machine as a worker.
 
 <br>

@@ -59,6 +59,25 @@ New assets/shots can also be created in bulk from a CSV file (Project panel's "B
 - `departments`: comma-separated department names. Falls back to the project's default set if the column is empty/missing; any name not found in the project's actually configured departments is skipped and logged as a warning — never blocks the row.
 - A row matching an asset/shot that already exists (same prefix+name, or same sequence+shot) is silently skipped — batch creation never overwrites.
 
+**Example — asset batch CSV:**
+
+```csv
+prefix,name,departments,description
+ch,bob,"modeling,rigging",Hero character
+pr,chair_oak,,Background prop (departments default to the project's asset set)
+```
+
+**Example — shot batch CSV:**
+
+```csv
+sequence,shot,frame_start,frame_end,frame_duration,timeline,departments,description
+sq010,010,1001,1100,,,,Single shot, explicit range
+sq010,020,,,,,,Single shot, falls back to project defaults
+sq020,"030-035-040",,,,"1001-1021-1051-1076","layout,animation",Multi-shot block, exact per-shot starts
+```
+
+A cell left empty just means "use the fallback for that column" (project default departments, default frame start, auto-spread end...) — only `prefix`+`name` (assets) or `sequence`+`shot` (shots) actually have to be filled in on every row.
+
 ---
 
 ## Data structure: `project_config.json`
@@ -68,7 +87,7 @@ Written under a lock and atomically (temp file then rename), like every other pi
 ```json
 {
   "project_name": "my_project",
-  "pipeline_addon_version": "1.0.5",
+  "pipeline_addon_version": "1.0.6",
   "blender_version": "(4, 2, 0)",
   "resolution": {"x": 1920, "y": 1080},
   "default_fps": 30,
