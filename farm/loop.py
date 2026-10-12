@@ -15,7 +15,14 @@ _registered_loop_tick_fn = None
 
 _farm_running_project: Path | None = None
 
+# Popup open: the user is actively watching, keep it snappy.
 _REFRESH_INTERVAL = 2.0
+# Always-on header status: the monitor itself only ticks every ~10 s
+# (farm_tick), so polling faster than that only re-reads the same data.
+_STATUS_INTERVAL = 10.0
+
+# Last status _status_tick saw -- a redraw is only requested when it changes.
+_last_status: str | None = None
 
 
 def get_running_project() -> Path | None:
@@ -130,17 +137,27 @@ def refresh_monitor_status() -> None:
     get_monitor_cache().update(_read_monitor_status())
 
 
+def _redraw_sidebars() -> None:
+    """Tag only the 3D views' sidebar (UI) regions, where the farm panel
+    lives. area.tag_redraw() would redraw every region of the area,
+    including the viewport itself -- a full scene redraw just to refresh
+    one label, even with the sidebar hidden."""
+    for window in bpy.context.window_manager.windows:
+        for area in window.screen.areas:
+            if area.type != "VIEW_3D":
+                continue
+            for region in area.regions:
+                if region.type == "UI":
+                    region.tag_redraw()
+
+
 def _refresh_tick() -> float:
-    """UI-only timer: recompute the full monitor snapshot and redraw 3D
-    viewports plus any open farm-monitor popup (see register_popup_region)."""
+    """UI-only timer: recompute the full monitor snapshot and redraw the 3D
+    views' sidebars plus any open farm-monitor popup (see register_popup_region)."""
 
     try:
         refresh_monitor_cache()
-
-        for window in bpy.context.window_manager.windows:
-            for area in window.screen.areas:
-                if area.type == "VIEW_3D":
-                    area.tag_redraw()
+        _redraw_sidebars()
 
         for region in list(_popup_regions):
             try:
@@ -157,17 +174,22 @@ def _refresh_tick() -> float:
 
 
 def _status_tick() -> float:
-    """UI-only timer: cheap status-only refresh, redraws 3D viewports so the
-    sidebar's farm header stays live even collapsed."""
+    """UI-only timer: cheap status-only refresh so the sidebar's farm header
+    stays live even collapsed. Redraws the sidebars only when the status
+    actually changed -- an idle farm reads "not running" for hours, which
+    then costs one stat per tick and zero redraws."""
+    global _last_status
     try:
         refresh_monitor_status()
-        for window in bpy.context.window_manager.windows:
-            for area in window.screen.areas:
-                if area.type == "VIEW_3D":
-                    area.tag_redraw()
+        from .monitor import get_monitor_cache
+
+        status = get_monitor_cache().get("status")
+        if status != _last_status:
+            _last_status = status
+            _redraw_sidebars()
     except Exception:
         pass
-    return _REFRESH_INTERVAL
+    return _STATUS_INTERVAL
 
 
 _jobs_scan_cache = {
@@ -288,23 +310,39 @@ def _read_monitor_status() -> dict:
         ConfigCache.get(), "farm.dead_monitor_seconds", stale_threshold * 4
     )
 
-    with locked_json(lock_path) as box:
-        try:
-            data = box["data"] or {}
-            last_tick = datetime.fromisoformat(data.get("update_tick", ""))
-            age = (now(False) - last_tick).total_seconds()
-            if age > dead_threshold:
-                status["status"] = "dead"
-            elif age > stale_threshold:
-                status["status"] = "stale"
-            else:
-                status["status"] = "running"
-            status["lock_user"] = data.get("user", "")
-            status["lock_machine"] = data.get("machine", "")
-            status["last_tick"] = last_tick
-        except Exception:
-            pass
+    # Read-only, zero retries: a status read never takes the writer lock nor
+    # sleeps on the UI thread. If the monitor is mid-write we just read the
+    # previous version (writes are atomic via os.replace). Without the lock,
+    # the file can vanish between exists() and the read (monitor stopping):
+    # treat that as "not running" instead of raising into the caller.
+    try:
+        with locked_json(lock_path, read_only=True, retries=0) as box:
+            _parse_monitor_lock(box["data"], status, stale_threshold, dead_threshold)
+    except (OSError, ValueError):
+        pass
     return status
+
+
+def _parse_monitor_lock(
+    data: dict | None, status: dict, stale_threshold: float, dead_threshold: float
+) -> None:
+    """Fill status in place from monitor.lock's parsed content. A corrupt
+    or incomplete lock leaves status as-is ("not running")."""
+    try:
+        data = data or {}
+        last_tick = datetime.fromisoformat(data.get("update_tick", ""))
+        age = (now(False) - last_tick).total_seconds()
+        if age > dead_threshold:
+            status["status"] = "dead"
+        elif age > stale_threshold:
+            status["status"] = "stale"
+        else:
+            status["status"] = "running"
+        status["lock_user"] = data.get("user", "")
+        status["lock_machine"] = data.get("machine", "")
+        status["last_tick"] = last_tick
+    except Exception:
+        pass
 
 
 def _compute_snapshot() -> dict:
