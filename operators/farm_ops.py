@@ -271,7 +271,14 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
     bl_label = "Render"
     bl_description = "Submit this file (or the pending list) to the render farm queue."
 
-    filepath: bpy.props.StringProperty(name="filepath", default="")
+    # SKIP_SAVE: otherwise Blender remembers the last value across
+    # invocations (its redo-panel memory), so the project panel's/top bar's
+    # plain "Render" button -- which never sets filepath itself, meaning to
+    # show the list/picker -- would inherit whatever file "Render this
+    # file"/file_panel.py's own "Render" last submitted.
+    filepath: bpy.props.StringProperty(
+        name="filepath", default="", options={"SKIP_SAVE"}
+    )
 
     file_type: bpy.props.EnumProperty(
         items=[("asset", "Asset / Library", ""), ("shot", "Shot", "")],
