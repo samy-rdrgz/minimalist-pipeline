@@ -1092,6 +1092,141 @@ resulting `.blend`'s camera markers) rather than by re-reading the code --
 see [[no-live-blender-verify-via-stubs]], headless Blender turned out to
 be reachable from here after all.
 
+## Network-share redraw cost: caching disk reads off draw()/poll()/enum callbacks
+
+Reported as "the farm works fine on my machine, but lags/crashes at the
+studio" -- the studio's project lives on an SMB share, read concurrently by
+several Windows machines; a home setup is one machine on local NVMe. Every
+`stat`/`exists`/`iterdir`/JSON read that's cheap (microseconds) locally
+becomes a network round-trip on a share, and `draw()`/`poll()`/an
+enum-items callback all re-run on *every redraw* -- dozens of times a
+second while the mouse moves over an open popup/dropdown. Any disk access
+at those call sites is multiplied accordingly; none of it is Windows- or
+SMB-specific in how it was fixed (plain mtime/TTL caching, no platform
+branch), it's just where the cost is large enough to notice.
+
+Found and fixed, worst first:
+
+- **Orphaned stale locks, the one factor unique to the studio.**
+  `check_lock()` (`lib/core.py`, the read path of `locked_json`) used to
+  poll blindly for up to `retries*delay` (default ~1s) as long as a
+  `.xxx.json.lock` file existed, without ever checking its age --
+  `_is_unlock()` (the staleness check) was read-path-blind, only the writer
+  side (`acquire_lock`) called it, to steal a stale lock. A crash mid-write
+  (the very freeze being reported) leaves an orphaned lock behind, which no
+  reader ever cleans up (only a writer passing by, 90s later, and only if
+  one does) -- so every UI-thread read of that file, on every machine,
+  pays the full ~1s sleep indefinitely after. A home setup never crashes
+  mid-write under normal use, so it never sees an orphaned lock, hence no
+  symptom. Fixed: `check_lock()` now checks `_is_unlock()` on every poll and
+  returns immediately once a lock reads as stale, instead of waiting out
+  the rest of the budget. `locked_json`'s own docstring already documented
+  "UI-thread readers pass `retries=0`" as the convention -- true in spirit
+  (safe: writes go through `os.replace`, so a stale read only ever sees the
+  previous version, never a half-written file) but not one call site
+  actually did, so every UI-facing `read_only=True` call in the hot path
+  (`TrackingStatusCache._scan_and_compute`, `find_linked_by`'s index
+  refresh, `is_block_archived`, `scan_workers`, the farm jobs scans) now
+  passes it explicitly too.
+- **`find_linked_by()`'s full-project scan.** Used to `project_root.rglob(
+  ".pipeline/*meta")` on every redraw of the tracking popup's file-details
+  view (its own docstring called this out: "uncached, full-project scan")
+  -- that walk descends into `renders/` too, by far the largest subtree
+  (every rendered frame, of every version, ever). Fixed in two parts: an
+  inverse index (`_linked_by_index`, target folder -> linker folders) built
+  once per popup open (`refresh_linked_by_index()`, called from
+  `M_PIPELINE_OT_tracking_monitor.invoke()` alongside its existing
+  `TrackingStatusCache.get_all(force_reload=True)`) so `draw()` only ever
+  does a dict lookup; and `_iter_pipeline_files()`, which walks `assets/`,
+  `library/`, `shots/` individually instead of the whole `project_root` --
+  structurally sound regardless of exact nesting depth (handles the
+  branch-archive `old/` folder wherever it lives), and never touches
+  `renders/` or `config/` at all. `TrackingStatusCache.get_all()` reuses the
+  same helper for the same reason.
+- **Browser enum callbacks re-listing folders every redraw.**
+  `asset_folder_items`/`sequence_items`/`shot_items`/`version_items`
+  (`lib/browser.py`) used `Path.iterdir()` + `Path.is_dir()` per entry --
+  on a share, that's a second round-trip per entry beyond the directory
+  read itself. `cached_scandir()` (`lib/core.py`) replaces both: it caches
+  `os.scandir()`'s `DirEntry` list on the directory's own mtime (changes
+  exactly when a direct child is added/removed/renamed, which is exactly
+  what these listings show), and `DirEntry.is_dir()` reads the stat info
+  `scandir()` already fetched instead of stat-ing again. `list_active_blocks()`
+  (`lib/tracking.py`) uses it too; `is_block_archived()` got its own
+  mtime-keyed cache alongside it (one `stat()` per call instead of a
+  lock+read every time, every shot, every redraw).
+- **`TrackingStatusCache.get()` re-validating on every call.** Even with a
+  warm cache, confirming it's still warm costs `is_file()` + `exists()` +
+  two `stat()`s (`_pipeline_mtime()`) -- and one redraw of the file panel
+  calls `.get()` several times (`draw()`, `get_description()`,
+  `get_current_departments()`, the department enum...). Added a short TTL
+  (`_VALIDATE_TTL`, `time.monotonic()`, ~1.5s) that skips re-validation
+  within the window: worst case, a change made on another machine takes up
+  to that long to show up here, the same tradeoff every other mtime-keyed
+  cache in this module already makes.
+- **`WorkTimeCache` re-scanning rotated archives on every `session_end`.**
+  Archives (`sessions_log_*.jsonl`) are rotated out once and never written
+  to again, but the cache's only invalidation key was the *current* log's
+  mtime -- so every session end (which only touches the current log)
+  forced a full re-read of every archive too. Split into two caches: the
+  archive set, keyed on which archive files exist (so it's built once and
+  never rebuilt unless a new archive actually appears), and the current
+  log, re-scanned on its own mtime as before.
+- **`scan_workers()`/the farm job scans taking a write lock to read.**
+  `scan_workers()` (`farm/workers.py`, called directly from
+  `draw_farm_workers()`) and `_scan_active_jobs()`/`_scan_incoming_jobs()`
+  (`farm/loop.py`) all called `locked_json()` without `read_only=True` --
+  an exclusive O_CREAT|O_EXCL lock file created and removed per job/worker
+  file, per scan, for something that never writes anything back. Now
+  `read_only=True, retries=0` throughout. `scan_workers()` additionally got
+  a ~1.5s TTL cache (`time.monotonic()`): `draw_farm_workers()` re-runs it
+  on every redraw of the farm popup's Workers tab, far more often than a
+  heartbeat (refreshed once per `farm_tick`, ~10s) can meaningfully change.
+  The jobs scans were already gated on their directory's own mtime
+  (`_jobs_scan_cache`, unchanged) -- only the lock mode needed fixing there.
+- **`file_in_active_project()`'s double `resolve()` per poll.**
+  `M_PIPELINE_PT_file_panel.poll()` calls it with the same
+  `(bpy.data.filepath, project_root)` pair on every sidebar redraw
+  candidate between file opens; `Path.resolve()` walks symlinks component
+  by component, a round-trip per component on a mounted share. A
+  single-slot memo (not a dict -- there's only ever one "current" pair
+  worth remembering) keyed on the exact pair short-circuits every repeat.
+
+Rejected: funneling `is_block_archived()` through `TrackingStatusCache.get()`
+instead of its own small cache, since the cache already exposes an
+`archived` key (it passes `global_data` through from `tracking.json`
+mostly unmodified). Rejected because `TrackingStatusCache._scan_and_compute()`
+does much more than read one flag -- it also walks every `.wipmeta` since
+the last stable to compute worked/validated departments -- so the first
+(uncached) check of each shot while enumerating a whole sequence would do
+strictly more disk work than the direct read it replaced, just to get one
+boolean. A dedicated cache, mtime-keyed the same way, avoided that without
+coupling the two further.
+
+## "Render" button opening pre-filled: an operator property's own redo memory
+
+`M_PIPELINE_OT_farm_request_render.filepath` decides which dialog `invoke()`
+shows: a specific file's render settings if set, the file list/picker if
+empty (`project_panel.py`'s and the top bar's plain "Render" buttons rely
+on this, neither sets `.filepath` at all). Reported as that picker opening
+pre-filled with whatever file was last rendered through `file_panel.py`'s
+own "Render" or the top bar's "Render this file" (both of which do set
+`.filepath = bpy.data.filepath` deliberately) instead of showing the list.
+
+Not a logic bug in `invoke()`/`draw()` -- `self.filepath` really was
+non-empty. The property itself was the bug: a plain `StringProperty`
+without `options={"SKIP_SAVE"}` is remembered by Blender across
+invocations (the same mechanism behind an operator's redo panel/F9) --
+a button that never touches that property doesn't get the field's own
+`default=""`, it gets whatever the *last* call set it to, regardless of
+which button fired it. `M_PIPELINE_OT_create_entry.filepath` already
+carries `SKIP_SAVE` for exactly this reason (`operators/tracking_ops.py`);
+this operator's own `filepath` had simply been missed. Same risk applies
+to any operator property meant to mean "nothing selected" by default
+while also having another call site that deliberately passes a real value
+-- `SKIP_SAVE` is the fix, not resetting it by hand in `invoke()` (that
+would also wipe a value a caller *did* just pass in).
+
 <!-- Next feature with rationale worth keeping gets its own "## " section
      here, same shape as the ones above: what was tried, what was
      rejected and why, anything a docstring is too short to hold. -->

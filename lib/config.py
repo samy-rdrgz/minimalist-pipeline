@@ -293,21 +293,36 @@ def type_by_folder(filepath: str, project_root: str) -> str:
     }.get(top_folder, "other")
 
 
+_file_in_active_project_cache: tuple[str, str, bool] | None = None
+
+
 def file_in_active_project(filepath: str, project_root: str | None = None) -> bool:
     """True if filepath resolves inside project_path. Case-insensitive via a
     plain .lower() on both resolved strings -- os.path.normcase() is a no-op
     on POSIX (macOS included), so it wouldn't actually protect against a
-    casing mismatch there despite its name."""
+    casing mismatch there despite its name.
+    Memoized on the exact (filepath, project_root) pair: this is
+    M_PIPELINE_PT_file_panel.poll()'s own check, called on every sidebar
+    redraw candidate with the same two values between file opens -- each
+    Path.resolve() walks symlinks component by component, a network
+    round-trip per component on a mounted share."""
+    global _file_in_active_project_cache
     if project_root is None:
         project_root = get_active_project_root()
     if not filepath or not project_root:
         return False
+    project_root = str(project_root)
+    cached = _file_in_active_project_cache
+    if cached is not None and cached[0] == filepath and cached[1] == project_root:
+        return cached[2]
     try:
         fp = Path(filepath).resolve()
         pp = Path(project_root).resolve()
     except OSError:
         return False
-    return str(fp).lower().startswith(str(pp).lower())
+    result = str(fp).lower().startswith(str(pp).lower())
+    _file_in_active_project_cache = (filepath, project_root, result)
+    return result
 
 
 def find_known_project_for_file(filepath: str, opened_projects) -> str | None:

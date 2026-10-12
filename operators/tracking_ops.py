@@ -24,6 +24,7 @@ from ..lib import (
     log,
     now,
     prefix_items,
+    refresh_linked_by_index,
     sequence_items,
     set_department_validated,
     set_description,
@@ -703,6 +704,7 @@ class M_PIPELINE_OT_tracking_monitor(bpy.types.Operator):
 
         if project_root:
             TrackingStatusCache.get_all(project_root, force_reload=True)
+            refresh_linked_by_index(project_root)
             self.project_root = str(project_root)
 
             return context.window_manager.invoke_props_dialog(self, width=800)

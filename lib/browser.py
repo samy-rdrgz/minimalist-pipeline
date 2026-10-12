@@ -12,7 +12,7 @@ from .config import (
     parse_filename,
     shots_in_segment,
 )
-from .core import json_get
+from .core import cached_scandir, json_get
 from .logs import log
 from .tracking import TrackingStatusCache, get_departments_required, list_active_blocks
 
@@ -99,13 +99,14 @@ def asset_folder_items(self, context) -> list[tuple]:
                     "library_prefixes", []
                 ):
                     prefix_path = project_root / parent / p
-                    if not prefix_path.exists():
-                        continue
-                    items += [
-                        (str(d), d.name, "")
-                        for d in sorted(prefix_path.iterdir())
-                        if d.is_dir() and d.name.startswith(f"{p}_")
-                    ]
+                    items += sorted(
+                        (
+                            (d.path, d.name, "")
+                            for d in cached_scandir(prefix_path)
+                            if d.is_dir() and d.name.startswith(f"{p}_")
+                        ),
+                        key=lambda t: t[1],
+                    )
         else:
             if prefix in structure.get("asset_prefixes", []):
                 parent = project_root / "assets" / prefix
@@ -114,14 +115,13 @@ def asset_folder_items(self, context) -> list[tuple]:
             else:
                 return [("NONE", "Unknown prefix", "")]
 
-            items = (
-                [
-                    (str(d), d.name, "")
-                    for d in sorted(parent.iterdir())
+            items = sorted(
+                (
+                    (d.path, d.name, "")
+                    for d in cached_scandir(parent)
                     if d.is_dir() and d.name.startswith(f"{prefix}_")
-                ]
-                if parent.exists()
-                else []
+                ),
+                key=lambda t: t[1],
             )
 
         return _stable_items(
@@ -137,11 +137,14 @@ def sequence_items(self, context) -> list[tuple]:
     try:
         project_root = get_active_project_root()
         shots_dir = project_root / "shots"
-        if not shots_dir.exists():
-            return [("NONE", "No sequences", "")]
-        items = [("all", "All", "")] + [
-            (d.name, d.name, "") for d in sorted(shots_dir.iterdir()) if d.is_dir()
-        ]
+        items = [("all", "All", "")] + sorted(
+            (
+                (d.name, d.name, "")
+                for d in cached_scandir(shots_dir)
+                if d.is_dir()
+            ),
+            key=lambda t: t[1],
+        )
         return _stable_items(
             _sequence_items_cache, items or [("NONE", "No sequences", "")]
         )
@@ -182,8 +185,8 @@ def version_items(self, context):
             return [("NONE", "—", "")]
 
         candidates = []
-        for f in folder.iterdir():
-            if f.suffix != ".blend":
+        for f in cached_scandir(folder):
+            if not f.name.endswith(".blend"):
                 continue
             parsed = parse_filename(f.name)
             if not parsed:
@@ -191,7 +194,7 @@ def version_items(self, context):
             v = int(parsed["number"])
             tag = parsed.get("tag") or ""
             label = f"v{v:03d}" + (f"  [{tag}]" if tag else "")
-            candidates.append((str(f), label, f.name, v))
+            candidates.append((f.path, label, f.name, v))
 
         candidates.sort(key=lambda x: x[3], reverse=True)
         items = [(val, lbl, desc) for val, lbl, desc, _ in candidates]
@@ -300,8 +303,8 @@ def dir_version_items(self, context):
             return [("NONE", "—", "")]
 
         candidates = []
-        for f in folder.iterdir():
-            if f.suffix != ".blend":
+        for f in cached_scandir(folder):
+            if not f.name.endswith(".blend"):
                 continue
             parsed = parse_filename(f.name)
             if not parsed:
@@ -309,7 +312,7 @@ def dir_version_items(self, context):
             v = int(parsed["number"])
             tag = parsed.get("tag") or ""
             label = f"v{v:03d}" + (f"  [{tag}]" if tag else "")
-            candidates.append((str(f), label, f.name, v))
+            candidates.append((f.path, label, f.name, v))
 
         candidates.sort(key=lambda x: x[3], reverse=True)
         items = [(val, lbl, desc) for val, lbl, desc, _ in candidates]
@@ -334,8 +337,8 @@ def entry_version_items(self, context):
             return [("NONE", "—", "")]
 
         candidates = []
-        for f in folder.iterdir():
-            if f.suffix != ".blend":
+        for f in cached_scandir(folder):
+            if not f.name.endswith(".blend"):
                 continue
             parsed = parse_filename(f.name)
             if not parsed:
@@ -343,7 +346,7 @@ def entry_version_items(self, context):
             v = int(parsed["number"])
             tag = parsed.get("tag") or ""
             label = f"v{v:03d}" + (f"  [{tag}]" if tag else "")
-            candidates.append((str(f), label, f.name, v))
+            candidates.append((f.path, label, f.name, v))
 
         candidates.sort(key=lambda x: x[3], reverse=True)
         items = [(val, lbl, desc) for val, lbl, desc, _ in candidates]

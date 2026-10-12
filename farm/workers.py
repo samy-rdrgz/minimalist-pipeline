@@ -3,6 +3,7 @@
 import importlib.util
 import os
 import subprocess
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -119,17 +120,32 @@ def update_worker_heartbeat():
         box["action"] = "to_write"
 
 
-def scan_workers():
-    """Return {uuid: worker_data} for every worker with a recent heartbeat."""
+_workers_cache: tuple[float, dict] | None = None
+# draw_farm_workers() calls this on every redraw of the farm popup's Workers
+# tab -- far more often than a heartbeat (refreshed once per farm_tick,
+# ~10s) can meaningfully change. Collapses that into at most one scan per
+# this many seconds (time.monotonic()), well under STALE_WORKER_SECONDS.
+_WORKERS_CACHE_TTL = 1.5
+
+
+def scan_workers() -> dict:
+    """Return {uuid: worker_data} for every worker with a recent heartbeat.
+    Read-only, zero retries: never takes or waits on a worker file's write
+    lock from the UI thread -- see _WORKERS_CACHE_TTL above for the
+    redraw-rate cache."""
+    global _workers_cache
+    checked_at = time.monotonic()
+    if _workers_cache and checked_at - _workers_cache[0] < _WORKERS_CACHE_TTL:
+        return _workers_cache[1]
     workers = {}
     workers_dir = _worker_path(as_dir=True)
-    if not workers_dir.exists():
-        return workers
-    for w in _worker_path(as_dir=True).glob("worker_*.json"):
-        with locked_json(w) as box:
-            data = box["data"] or {}
-            if _heartbeat_age(data.get("last_heartbeat", "")) < STALE_WORKER_SECONDS:
-                workers[data.get("uuid", "unknown")] = data
+    if workers_dir.exists():
+        for w in workers_dir.glob("worker_*.json"):
+            with locked_json(w, read_only=True, retries=0) as box:
+                data = box["data"] or {}
+                if _heartbeat_age(data.get("last_heartbeat", "")) < STALE_WORKER_SECONDS:
+                    workers[data.get("uuid", "unknown")] = data
+    _workers_cache = (checked_at, workers)
     return workers
 
 

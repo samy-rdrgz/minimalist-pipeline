@@ -344,6 +344,37 @@ def path_reachable(path: str | Path) -> bool:
         return False
 
 
+_scandir_cache: dict[str, tuple[float, list]] = {}
+
+
+def cached_scandir(path: Path) -> list:
+    """os.scandir(path) results, cached while path's own mtime is unchanged --
+    a directory's mtime changes exactly when a direct child is added,
+    removed, or renamed, which is precisely what a folder listing shows.
+    Meant for enum-items callbacks and list_active_blocks(), which Blender
+    re-invokes on every redraw: without this, every redraw re-lists the
+    folder from disk, even when nothing changed.
+    Returns os.DirEntry objects, not Path: entry.is_dir() reads the stat
+    info scandir() already fetched in the same syscall, instead of
+    Path.iterdir() + Path.is_dir(), which stats every entry a second time
+    -- on a network share that second stat is a second round-trip per entry.
+    [] on any OSError (missing/unreadable directory)."""
+    try:
+        mtime = path.stat().st_mtime
+    except OSError:
+        return []
+    key = str(path)
+    cached = _scandir_cache.get(key)
+    if cached and cached[0] == mtime:
+        return cached[1]
+    try:
+        entries = list(os.scandir(path))
+    except OSError:
+        entries = []
+    _scandir_cache[key] = (mtime, entries)
+    return entries
+
+
 def resolve_bpy_path(filepath: str) -> Path:
     """Absolute Path for a Blender-relative filepath (the "//..." convention
     used by Library.filepath and source_library.filepath) -- pathlib doesn't
@@ -402,16 +433,19 @@ def acquire_lock(
 def check_lock(path: Path, retries: int = 10, delay: float = 0.1) -> bool:
     """Poll up to `retries` * `delay` seconds for the lock on `path` to
     clear, without ever taking, stealing, or removing it -- only observes.
-    Used by read-only access, which must yield briefly to an in-flight write
-    but never block one. True if still held after all retries, False if cleared."""
+    Used by read-only access, which must yield briefly to an in-flight
+    *live* write but never block one -- a lock _is_unlock() already judges
+    stale is treated as cleared immediately rather than waited out: a dead
+    writer (crashed mid-write, common after a client-machine crash) would
+    otherwise cost every reader, on every machine, up to retries*delay for
+    as long as the lock file sits there. True if still held (and fresh)
+    after all retries, False if cleared or found stale."""
     lockpath = path.parent / f".{path.name}.lock"
-    lockpath.parent.mkdir(parents=True, exist_ok=True)
     for _ in range(retries):
-        if lockpath.exists():
-            time.sleep(delay)
-        else:
+        if not lockpath.exists() or _is_unlock(lockpath):
             return False
-    return True
+        time.sleep(delay)
+    return lockpath.exists() and not _is_unlock(lockpath)
 
 
 def release_lock(path: Path, machine_id: str) -> None:

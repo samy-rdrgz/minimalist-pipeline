@@ -154,6 +154,7 @@ from .tracking import (
     group_entries_by_review,
     is_block_archived,
     list_active_blocks,
+    refresh_linked_by_index,
     set_department_validated,
     set_description,
     toggle_entry_task,

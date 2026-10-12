@@ -209,10 +209,13 @@ def _dir_mtime(path: Path) -> float:
 
 
 def _scan_active_jobs(jobs_dir: Path) -> list[dict]:
-    """Full scan: open+lock every job_*.json in farm_actives/."""
+    """Full scan: open every job_*.json in farm_actives/. Read-only, zero
+    retries: this only ever reads box["data"], never writes back, and runs
+    off the UI-ish _refresh_tick timer -- it must never wait on, let alone
+    take, another process's write lock."""
     raw = []
     for job_file in sorted(jobs_dir.glob("job_*.json")):
-        with locked_json(job_file) as box:
+        with locked_json(job_file, read_only=True, retries=0) as box:
             try:
                 job = box["data"] or {}
                 if job:
@@ -223,10 +226,11 @@ def _scan_active_jobs(jobs_dir: Path) -> list[dict]:
 
 
 def _scan_incoming_jobs(incomings_dir: Path) -> list[dict]:
-    """Full scan: open+lock every job_*.json in farm_incomings/."""
+    """Full scan: open every job_*.json in farm_incomings/. Read-only, zero
+    retries -- see _scan_active_jobs()."""
     raw = []
     for req_file in sorted(incomings_dir.glob("job_*.json")):
-        with locked_json(req_file) as box:
+        with locked_json(req_file, read_only=True, retries=0) as box:
             try:
                 req = box["data"] or {}
                 if req:
