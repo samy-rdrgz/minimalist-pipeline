@@ -6,7 +6,15 @@ from pathlib import Path
 
 import bpy
 
-from ..lib import ConfigCache, addon_pref, json_get, locked_json, now, to_absolute
+from ..lib import (
+    ConfigCache,
+    addon_pref,
+    get_active_project_root,
+    json_get,
+    locked_json,
+    now,
+)
+from ..lib.core import cached_scandir
 from .post_render import _EXTENSION_MAP
 
 _registered_tick_fn = None
@@ -242,11 +250,43 @@ def _scan_incoming_jobs(incomings_dir: Path) -> list[dict]:
     return raw
 
 
+def _output_dir(job: dict) -> Path | None:
+    """Absolute folder a job renders into, or None before setup has set it.
+    A plain join on the project root, never to_absolute()/resolve() -- this
+    runs for every job on every popup refresh, and a resolve is two network
+    round-trips on Windows."""
+    output_path = job.get("output_path", "")
+    root = get_active_project_root()
+    if not output_path or not root:
+        return None
+    path = Path(output_path)
+    return (path if path.is_absolute() else Path(root) / path).parent
+
+
+def _count_rendered_frames(folder: Path, ext: str) -> int:
+    """Frames actually written in folder: files with this extension and a
+    non-zero size. Renders run with placeholders (worker_render_entry.py),
+    which create an empty file per frame when it *starts* -- counting those
+    showed frames claimed, not done. cached_scandir() re-lists the folder
+    only when its mtime changes, and DirEntry.stat() reads the size the
+    listing already returned (Windows) instead of one stat per frame."""
+    suffix = f".{ext}".lower()
+    done = 0
+    for entry in cached_scandir(folder):
+        if not entry.name.lower().endswith(suffix):
+            continue
+        try:
+            if entry.stat().st_size > 0:
+                done += 1
+        except OSError:
+            pass
+    return done
+
+
 def _build_job_entry(job: dict) -> dict:
     """UI-facing entry for one active job. elapsed_seconds/frames_done are
-    always recomputed fresh (cheap: one glob on the output folder) even when
-    job came from a cached scan -- progress lives elsewhere, its mtime never
-    reflects it."""
+    recomputed fresh even when job came from a cached scan -- progress
+    lives in the output folder, the job file's mtime never reflects it."""
     stage = job["stage_history"][-1]
     if stage["stage"] == "archived":
         stage = job["stage_history"][-2]
@@ -255,12 +295,11 @@ def _build_job_entry(job: dict) -> dict:
 
     frames_done = 0
     frames_total = 0
-    output_path = job.get("output_path", "")
+    output_dir = _output_dir(job)
     resolved = job.get("resolved_frame_range")
-    if stage["stage"] == "render_start" and output_path and resolved:
+    if stage["stage"] == "render_start" and output_dir and resolved:
         ext = _EXTENSION_MAP.get(job.get("output_extension"), "png")
-        pattern = f"*.{ext}"
-        frames_done = len(list(Path(to_absolute(output_path)).parent.glob(pattern)))
+        frames_done = _count_rendered_frames(output_dir, ext)
         frames_total = resolved[1] - resolved[0] + 1
 
     return {
@@ -275,6 +314,7 @@ def _build_job_entry(job: dict) -> dict:
         "skipped_shots": job.get("skipped_shots", []),
         "absorbed_shots": job.get("absorbed_shots", []),
         "shot_override": job.get("shot_override", ""),
+        "output_dir": str(output_dir) if output_dir else "",
     }
 
 
@@ -342,18 +382,18 @@ def _read_monitor_status() -> dict:
     }
 
     lock_path = ConfigCache.get_path("monitor_file")
-    if not lock_path.exists():
-        return status
 
-    # Read-only, zero retries: a status read never takes the writer lock nor
+    # No exists() first (a missing file just reads as None below). Read-only, zero retries: a status read never takes the writer lock nor
     # sleeps on the UI thread. The file can vanish between the check and the
     # read (monitor stopping): treat that as "not running" instead of
     # raising into the caller.
     try:
         with locked_json(lock_path, read_only=True, retries=0) as box:
-            data = box["data"] or {}
+            data = box["data"]
     except (OSError, ValueError):
         return status
+    if not data:
+        return status  # no monitor.lock: not running
     last_tick = monitor_last_tick(lock_path, data)
     if last_tick is None:
         return status
@@ -373,6 +413,14 @@ def _compute_snapshot() -> dict:
     tick, never hides it permanently."""
     snapshot = {"jobs": []}
     snapshot.update(_read_monitor_status())
+    # Workers too, so the popup's draw() only ever reads memory: draw() runs
+    # on every hover/redraw of the popup, this runs once per refresh tick.
+    try:
+        from .workers import scan_workers
+
+        snapshot["workers"] = scan_workers()
+    except Exception:
+        snapshot["workers"] = {}
 
     jobs_dir = ConfigCache.get_path("farm_actives")
     incomings_dir = ConfigCache.get_path("farm_incomings")

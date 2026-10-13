@@ -635,12 +635,21 @@ def locked_json(
     mustn't stall its caller."""
     machine_id = get_machine_id()
     if read_only:
-        check_lock(path, retries=retries)
+        # retries=0 reads regardless of any lock (writes are atomic, see
+        # above), so looking at the lock file first would only cost a
+        # network round-trip for nothing.
+        if retries > 0:
+            check_lock(path, retries=retries)
     else:
         if not acquire_lock(path, machine_id, retries=retries):
             raise PipelineError(f"{path} is locked by another process.")
     try:
-        data = json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
+        # Read directly, no exists() first: one disk call instead of two
+        # (each is a network round-trip on a share).
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            data = None
         box = {"data": data, "action": ""}
         yield box
         if box["action"] != "" and read_only:

@@ -1468,6 +1468,50 @@ with a frame range, `text_to_lines()` rewrapping every note on every
 redraw -- ~28 ms of pure CPU per redraw at 100 notes), and `heartbeat_30s`
 (~0.5 s of locked session/lock-file writes every 30 s on that share).
 
+## Farm popup: worker state, open-folder button, refresh cost
+
+**"Add this machine" showed the wrong state.** Whether this Blender
+instance is the worker lived in `Scene.is_worker` -- a scene property, so
+it's *saved into the .blend*: a file saved while its instance was a worker
+reopened showing "worker" when it wasn't. On top of that,
+`is_blender_worker()` set it True as soon as the machine's worker file
+existed, before even comparing its pid -- any leftover worker file (another
+instance, a crash) flipped it on. Now it's runtime state in memory
+(`this_instance_is_worker()`, `farm/workers.py`), set by `launch_worker()`/
+`kill_worker()` and by `is_blender_worker()`'s actual pid comparison. The
+property is no longer registered; old files keep a harmless stale ID
+property. `is_blender_worker()` also reads read-only now (no writer lock
+every tick) and keeps its last answer on a failed read, like
+`is_blender_monitor()`.
+
+**Open-folder button per job**: `_build_job_entry()` carries `output_dir`
+(the folder the job renders into, a plain join on the project root -- no
+`resolve()`), and each row with one gets a `wm.open_folder` button.
+
+**Refresh cost** (the popup's `_refresh_tick()`, every 2 s, UI thread):
+
+- Frame progress listed the whole render folder with `glob()` through
+  `to_absolute()` (a `resolve()`) on every refresh. Now `cached_scandir()`
+  (re-lists only when the folder's mtime changed) and no resolve.
+- It also counted placeholders: renders run with `use_placeholder`, which
+  writes an empty file per frame when it *starts*. Only non-empty files
+  count now (`DirEntry.stat()` -- free on Windows, the listing already has
+  the size).
+- Workers are read once per refresh into the snapshot
+  (`_compute_snapshot()` → `cache["workers"]`); `draw_farm_workers()` no
+  longer calls `scan_workers()` -- `draw()` reruns on every hover.
+- `locked_json(read_only=True, retries=0)` is now one disk call (just the
+  read): it used to look at the lock file first (result unused when not
+  waiting) and `exists()` before reading.
+
+Measured with call counting (2 rendering jobs, 3 workers): per popup redraw
+1-3 disk calls before → 0; per refresh 7 + 2 resolves + the workers read
+from draw → 9 in total.
+
+Also fixed in the Jobs view: 0 frames done divided by zero and broke the
+whole popup's draw; and "remaining" showed the estimated *total* time
+(`elapsed / pct`) -- now `elapsed / pct - elapsed`.
+
 <!-- Next feature with rationale worth keeping gets its own "## " section
      here, same shape as the ones above: what was tried, what was
      rejected and why, anything a docstring is too short to hold. -->

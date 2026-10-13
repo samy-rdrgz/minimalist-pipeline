@@ -3,7 +3,7 @@ same row -- see read_only_indicator() below."""
 
 import bpy
 
-from ..farm import get_monitor_cache
+from ..farm import get_monitor_cache, this_instance_is_worker
 from ..lib import (
     RecentFilesCache,
     addon_pref,
@@ -163,7 +163,7 @@ class M_PIPELINE_MT_topbar_menu(bpy.types.Menu):
                         icon="BLANK1",
                     )
 
-        if context.scene.is_worker:
+        if this_instance_is_worker():
             layout.operator(
                 "m_pipeline.farm_kill_self_worker",
                 text="Stop this worker",

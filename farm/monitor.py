@@ -34,6 +34,7 @@ _monitor_cache: dict = {
     "lock_machine": "",
     "last_tick": None,
     "jobs": [],  # list of per-job snapshots
+    "workers": {},  # {uuid: worker data}, see _compute_snapshot()
 }
 
 
@@ -52,6 +53,7 @@ def reset_monitor_cache() -> None:
             "lock_machine": "",
             "last_tick": None,
             "jobs": [],
+            "workers": {},
         }
     )
 

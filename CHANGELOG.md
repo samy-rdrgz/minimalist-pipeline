@@ -15,6 +15,21 @@ All notable changes to this addon. Dates are release dates.
 - The farm header no longer checks the disk on every redraw; it reads the
   farm status the addon already refreshes every 10 seconds.
 
+### Farm monitor
+
+- **Open-folder button on each job** in the farm monitor, to go straight
+  to its render folder.
+- **"Add this machine" / "Kill this worker" now shows the right state.** It
+  could show a machine as a worker when it wasn't — the state was saved
+  inside the .blend file, and set on just from a leftover worker file.
+- Render progress counts frames actually written, not frames just started
+  by a machine.
+- The remaining-time estimate showed the total estimated time instead; and
+  a render at 0 frames done broke the whole Jobs view.
+- The farm monitor window reads the disk less: nothing at all while it
+  redraws, and less on each 2-second refresh (no full re-listing of render
+  folders that didn't change).
+
 ## 1.0.8 — 2026-10-13
 
 ### Fixed — render farm on a Windows network share

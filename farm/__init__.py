@@ -48,4 +48,5 @@ from .workers import (
     kill_worker,
     launch_worker,
     scan_workers,
+    this_instance_is_worker,
 )
