@@ -108,6 +108,18 @@ def post_load_handler(*args):
     auto-version); a *different* known project's: propose a switch, stop;
     unknown file: total silence, no popup. *args (unused): load_post's arity
     isn't a contract we control, stays robust either way."""
+    # A file load frees every window region of the previous file, popups
+    # included -- but the farm popup's refresh timer is persistent and would
+    # survive it, still holding the popup's (now freed) region: tag_redraw()
+    # on it crashes Blender. Stop it here, before anything else. Lazy import:
+    # farm imports lib, not the other way around.
+    try:
+        from ..farm.loop import unregister_refresh_timer
+
+        unregister_refresh_timer()
+    except Exception:
+        pass
+
     if not bpy.data.filepath:
         return
 
