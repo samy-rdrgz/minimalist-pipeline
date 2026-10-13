@@ -240,6 +240,7 @@ def execute_render_request() -> dict:
                     stdin=subprocess.DEVNULL,
                 )
             p.log_path = log_path
+            p.dispatch_id = data.get("dispatch_id")
         except Exception as e:
             # Malformed request: drop it instead of retrying every tick.
             box["action"] = "to_delete"
@@ -285,6 +286,13 @@ def worker_tick():
         log("ERROR", "farm", f"Error during worker tick: {e}")
 
 
+def local_render_running() -> bool:
+    """Whether this Blender instance, as a worker, is rendering right now --
+    lets the monitor role in the same instance hold back a job's setup,
+    which loads a whole second .blend alongside the render's own."""
+    return any(p.poll() is None for p in _worker_active_processes.values())
+
+
 def scan_worker_processes() -> None:
     """Poll this worker's active render subprocesses; publish last_job_result
     for each one that finished."""
@@ -312,6 +320,7 @@ def scan_worker_processes() -> None:
                 "current_job": None,
                 "last_job_result": {
                     "job_id": job_id,
+                    "dispatch_id": getattr(p, "dispatch_id", None),
                     "success": ret == 0,
                     "at": now(),
                 },
@@ -349,6 +358,7 @@ def scan_cancel_requests() -> None:
                                 "current_job": None,
                                 "last_job_result": {
                                     "job_id": job_id,
+                                    "dispatch_id": getattr(p, "dispatch_id", None),
                                     "success": False,
                                     "cancelled": True,
                                     "at": now(),

@@ -3,6 +3,7 @@ several, depending on render_mode."""
 
 import json
 import subprocess
+from uuid import uuid4
 from pathlib import Path
 
 from ..lib import ConfigCache, locked_json, log, now, retry_shared_io, to_absolute
@@ -125,6 +126,13 @@ def render_dispatch(job_path: Path) -> None:
         )
 
         cmd_flags = ["-s", str(fs), "-e", str(fe)]
+        # Identifies this render, not the job: a job id is a hash of
+        # file + preset + shot, so re-rendering the same file reuses it, and
+        # a worker's last_job_result from the previous render would read as
+        # this one already done (check_render_completion()). Copied into
+        # each render request (render_request() merges job_data), echoed
+        # back by the worker in last_job_result.
+        job_data["dispatch_id"] = uuid4().hex[:12]
         if single_machine:
             render_request(job_data, list(avaliable_machines)[0], cmd_flags)
         else:

@@ -29,6 +29,13 @@ All notable changes to this addon. Dates are release dates.
   job ends well and kept when something failed, for inspection.
 - One unreadable or deleted job file no longer stops the farm from noticing
   that the other jobs' processes have finished.
+- **Re-rendering the same file no longer reports it finished right away.**
+  The farm recognized the previous render's result as the new one's and
+  started the frame check and video compilation on frames still being
+  rendered. Each render now carries its own id.
+- On the machine that is both farm host and worker, a job's setup now waits
+  for the current render to end instead of loading a second scene alongside
+  it. Frame checks and compilations still run right away.
 
 ## 1.0.7 — 2026-10-12
 

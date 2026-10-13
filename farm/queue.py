@@ -15,7 +15,7 @@ from .dispatch import (
     render_dispatch,
 )
 from .post_render import checks_images, compilation
-from .workers import scan_workers
+from .workers import local_render_running, scan_workers
 
 
 def scan_requests() -> bool:
@@ -118,7 +118,11 @@ def scan_queue(project_root: Path) -> None:
                 pass
 
             elif stage == "queued":
-                if not local_slot_busy():
+                # Setup also waits for a render this same instance runs as a
+                # worker: both load the whole .blend. Only setup -- the
+                # ffmpeg stages are light and must not queue behind a whole
+                # render (see NOTES.md, "Re-rendering a file...").
+                if not local_slot_busy() and not local_render_running():
                     from .setup import run_render_setup
 
                     run_render_setup(data["job_id"], config)
@@ -328,6 +332,25 @@ def construct_split_history(job: dict) -> None:
     append_render_history(job["filepath"], entry)
 
 
+def _is_this_render(result: dict | None, data: dict) -> bool:
+    """Whether a worker's last_job_result is about *this* render of the job,
+    not an earlier one: re-rendering the same file reuses its job id (a
+    hash of file + preset + shot), so the job id alone matched the previous
+    render's result and marked the new one finished right away."""
+    if not result or result.get("job_id") != data.get("job_id"):
+        return False
+    if result.get("dispatch_id") and data.get("dispatch_id"):
+        return result["dispatch_id"] == data["dispatch_id"]
+    # A side without dispatch_id (worker or monitor on an older version):
+    # fall back to "finished after this render was dispatched". Two
+    # machines' clocks -- see now().
+    started = _last_stage_time(data.get("stage_history", []), "render_start")
+    try:
+        return started is None or datetime.datetime.fromisoformat(result["at"]) >= started
+    except (KeyError, TypeError, ValueError):
+        return False
+
+
 def check_render_completion(job_path: Path) -> None:
     """Monitor-only: cross-check used_machines against each worker's declared
     state. No worker ever writes this job file for this stage."""
@@ -345,7 +368,7 @@ def check_render_completion(job_path: Path) -> None:
         for uuid in data.get("used_machines", []):
             w = workers.get(uuid)
             result = (w or {}).get("last_job_result")
-            if result and result["job_id"] == data["job_id"]:
+            if _is_this_render(result, data):
                 if not result["success"]:
                     any_failed = True
                 # else: this worker did finish THIS job successfully, treat it

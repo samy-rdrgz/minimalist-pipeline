@@ -1339,6 +1339,40 @@ Found alongside, fixed in the same pass:
   inside its own `locked_json(job_path)` -- waiting on its own lock, then
   raising. Now records the failure in the same transaction.
 
+## Re-rendering a file: match the render, not the job
+
+A job id is `_file_key()` = hash(file + preset + shot_override), on
+purpose: it's the dedup key, so a double submit of a file already in
+flight waits instead of rendering twice. Putting the submit time in it
+would drop that protection.
+
+The catch: re-rendering the same file later reuses the id. The worker's
+`last_job_result` still said `{job_id: X, success: True}` from the
+previous render, and `check_render_completion()` matched on `job_id`
+alone -- so the tick after dispatching the new render saw "done", moved to
+`render_finished`, and ran the frame check and compilation on frames
+still being rendered.
+
+Fix: `render_dispatch()` stamps a `dispatch_id` (random, per dispatch) on
+the job; `render_request()` copies it into every request; the worker
+echoes it back in `last_job_result` (and in a cancelled result).
+`_is_this_render()` compares `dispatch_id`. If either side has none
+(a worker or monitor on an older version), it falls back to "result
+stamped after this job's `render_start`" -- two machines' clocks, same
+caveat as everywhere else (`now()`).
+
+### Setup waits for a local render; ffmpeg stages don't
+
+`local_slot_busy()` only counts the monitor's own processes, not a render
+the same Blender instance runs as a worker -- so on the machine that is
+both, a setup (a whole second `.blend` loaded) could start mid-render.
+`scan_queue()` now also holds `queued` → setup while
+`local_render_running()`. Only setup: making the frame check/compilation
+wait too would queue job A's post-render steps behind job B's entire
+render (B gets dispatched to the freed worker in the same tick). Only
+covers a worker in the same instance as the monitor -- a worker in a
+second Blender on the same machine isn't visible from here.
+
 <!-- Next feature with rationale worth keeping gets its own "## " section
      here, same shape as the ones above: what was tried, what was
      rejected and why, anything a docstring is too short to hold. -->
