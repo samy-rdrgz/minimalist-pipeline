@@ -35,6 +35,10 @@ Un preset cassé ne bloque jamais le rendu : une clé `.json` invalide est ignor
 
 Un bloc de shots (multishot, voir [Blocs de shots (multishot)](multishot_fr.md)) se soumet et se comporte exactement comme n'importe quel fichier de ce côté-là — le découpage en un job par shot se fait automatiquement une fois le fichier pris en charge, pas quelque chose à faire différemment à la soumission.
 
+**Logs** : chaque processus de la farm écrit sa sortie dans un fichier de `config/.farm/queue/requests/` -- `request_<job_id>.log` pour le setup, la vérification des frames, la compilation et la preview d'un job, plus un `request_<job_id>_<machine>.log` par rendu de worker. Supprimés quand le job se termine bien, conservés (et archivés avec le job) en cas d'échec : c'est le premier endroit où regarder.
+
+**Après un crash** : si le Blender qui fait tourner le moniteur de la farm ou un worker crashe, ses jobs sont repris au relancement -- une étape encore en cours est attendue, une étape interrompue est refaite, un rendu interrompu est renvoyé (les frames déjà rendues sont gardées, seules les manquantes sont rendues). Un rendu dont le worker ne répond plus pendant 3 minutes est envoyé à une autre machine.
+
 Toute la farm se coordonne sur le drive partagé du projet, sans SSH ni connexion directe entre machines — voir [Choix de conception](design_fr.md#pas-de-ssh-coordination-push-pull-sur-le-drive-partagé) pour le mécanisme push-pull et ses compromis.
 
 ---

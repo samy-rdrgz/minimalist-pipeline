@@ -79,7 +79,7 @@ class M_PIPELINE_OT_batch_create(bpy.types.Operator):
         else:
             text = "Columns: sequence (required), shot (required), frame_start / frame_end / frame_duration / timeline (optional), departments (optional), description (optional)."
             text += (
-                '\nshot: a single number, or dash-joined for a multi-shot block '
+                "\nshot: a single number, or dash-joined for a multi-shot block "
                 '("030-035-040"). Frame priority if several are filled in: '
                 'timeline (exact, e.g. "1001-1021-1076") > frame_end > '
                 "frame_duration > frame_start alone."

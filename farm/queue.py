@@ -234,13 +234,15 @@ def scan_processes():
     whole job ends well (scan_queue())."""
     path = ConfigCache.get_path("farm_actives")
     for job_id, procs in list(_active_processes.items()):
-        # One job's failure must never stop the others from being polled --
-        # without this, a single unreadable job file raised every tick
-        # before the rest were reached, and none of them ever advanced.
+        # One job's failure must never stop the others from being polled.
         try:
             _finish_job_processes(job_id, procs, path / f"{job_id}.json")
         except Exception as e:
-            log("ERROR", "farm", f"Could not update job {job_id} after its process ended: {e}")
+            log(
+                "ERROR",
+                "farm",
+                f"Could not update job {job_id} after its process ended: {e}",
+            )
 
 
 def _finish_job_processes(job_id: str, procs: list, job_path: Path) -> None:
@@ -269,7 +271,11 @@ def _finish_job_processes(job_id: str, procs: list, job_path: Path) -> None:
         # Archived or deleted by hand while its process ran: nothing left
         # to update, and retrying would fail every tick forever.
         _active_processes.pop(job_id, None)
-        log("WARNING", "farm", f"Job {job_id}: process ended but its job file is gone -- stopped tracking it.")
+        log(
+            "WARNING",
+            "farm",
+            f"Job {job_id}: process ended but its job file is gone -- stopped tracking it.",
+        )
         return
 
     with locked_json(job_path) as box:
@@ -277,10 +283,8 @@ def _finish_job_processes(job_id: str, procs: list, job_path: Path) -> None:
         stage = data["stage_history"][-1]["stage"]
 
         if not stage.endswith("_start"):
-            # The job file moved on without us (hand-edited, or an
-            # older stage left behind) -- appending "<stage>_finished"
-            # to e.g. "queued" would invent a stage nothing handles
-            # ("queued_finished"), stuck forever. Just stop tracking.
+            # The job file moved on without us (hand-edited...): don't
+            # invent a "<stage>_finished" nothing handles, stop tracking.
             log(
                 "WARNING",
                 "farm",
@@ -400,7 +404,9 @@ def _is_this_render(result: dict | None, data: dict) -> bool:
     # machines' clocks -- see now().
     started = _last_stage_time(data.get("stage_history", []), "render_start")
     try:
-        return started is None or datetime.datetime.fromisoformat(result["at"]) >= started
+        return (
+            started is None or datetime.datetime.fromisoformat(result["at"]) >= started
+        )
     except (KeyError, TypeError, ValueError):
         return False
 
@@ -443,7 +449,7 @@ def check_render_completion(job_path: Path) -> None:
         if data["stage_history"][-1]["stage"] != "render_start":
             return data
 
-        workers = scan_workers()  # read-only, cached -- see its docstring
+        workers = scan_workers()
         still_running = []
         lost = []
         any_failed = False
@@ -469,13 +475,20 @@ def check_render_completion(job_path: Path) -> None:
             # A request the lost worker never picked up would otherwise run
             # whenever it comes back, for a dispatch nobody waits on anymore.
             for uuid in lost:
-                request = ConfigCache.get_path("farm_requests") / f"request_{data['job_id']}_{uuid}.json"
+                request = (
+                    ConfigCache.get_path("farm_requests")
+                    / f"request_{data['job_id']}_{uuid}.json"
+                )
                 try:
                     retry_shared_io(request.unlink)
                 except OSError:
                     pass
             data["stage_history"].append(
-                {"stage": "setup_finished", "at": now(), "resumed": "render lost by a worker"}
+                {
+                    "stage": "setup_finished",
+                    "at": now(),
+                    "resumed": "render lost by a worker",
+                }
             )
             data["used_machines"] = []
             data.pop("dispatch_id", None)

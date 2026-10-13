@@ -5,12 +5,12 @@ from pathlib import Path
 import bpy
 
 from ..lib import (
-    resolve_version_file,
     asset_folder_items,
     dir_version_items,
     get_active_project_root,
     get_folder,
     prefix_items,
+    resolve_version_file,
     sequence_items,
     shot_items,
     version_items,

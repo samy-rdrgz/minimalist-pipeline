@@ -24,12 +24,11 @@ from ..farm import (
     unregister_refresh_timer,
 )
 from ..lib import (
-    cached_scandir,
-    resolve_version_file,
     ConfigCache,
     PipelineAction,
     PipelineError,
     asset_folder_items,
+    cached_scandir,
     get_active_project_root,
     get_folder,
     get_user,
@@ -39,6 +38,7 @@ from ..lib import (
     parse_filename,
     prefix_items,
     resolve_ffmpeg,
+    resolve_version_file,
     sequence_items,
     set_pending_action,
     shot_items,
@@ -58,9 +58,7 @@ def _get_workers_items(self, context):
 
         items = []
         for uuid, d in workers.items():
-            # Worker files carry get_user_data()'s fields (user/machine/uuid)
-            # -- there never was a "name" or "ip" key, so this used to
-            # KeyError and the picker always showed "No worker found".
+            # Worker files carry get_user_data()'s fields (user/machine/uuid).
             user = d.get("user", "unknown")
             machine = d.get("machine", uuid[:8])
             tag = " (used)" if d.get("status") != "idle" else ""
@@ -88,7 +86,11 @@ def _get_pre_render_scripts(self, context):
         # Render dialog; DirEntry.is_file() needs no extra stat.
         for f in cached_scandir(presets_dir):
             suffix = Path(f.name).suffix
-            if f.is_file() and suffix in (".py", ".json") and f.name != "asset_file_preset.py":
+            if (
+                f.is_file()
+                and suffix in (".py", ".json")
+                and f.name != "asset_file_preset.py"
+            ):
                 names.add(Path(f.name).stem)
         for name in sorted(names):
             items.append((name, name, f"Apply preset '{name}' before render."))
@@ -197,7 +199,9 @@ class M_PIPELINE_OT_farm_launch_monitor(bpy.types.Operator):
                 with locked_json(lock_path, read_only=True, retries=0) as box:
                     data = box["data"] or {}
                     # Heartbeat: mtime or in-file update_tick (see monitor_tick()).
-                    last_tick = monitor_last_tick(lock_path, data) or datetime.datetime.min
+                    last_tick = (
+                        monitor_last_tick(lock_path, data) or datetime.datetime.min
+                    )
                     is_stale = monitor_age_status(last_tick) != "running"
 
                     if not is_stale:

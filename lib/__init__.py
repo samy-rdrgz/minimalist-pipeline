@@ -15,7 +15,6 @@ from .batch import (
     shot_batch_exists,
 )
 from .browser import (
-    resolve_version_file,
     asset_department_items,
     asset_folder_items,
     department_filter_items,
@@ -24,6 +23,7 @@ from .browser import (
     file_department_items,
     get_folder,
     prefix_items,
+    resolve_version_file,
     sequence_items,
     shot_department_items,
     shot_items,
@@ -32,7 +32,6 @@ from .browser import (
     version_items,
 )
 from .config import (
-    project_path,
     ConfigCache,
     file_in_active_project,
     find_known_project_for_file,
@@ -46,6 +45,7 @@ from .config import (
     parse_filename,
     parse_timeline,
     prefix_to_parent_folder,
+    project_path,
     read_project_config,
     sanitize_name,
     set_daemon_active_project_root,
@@ -70,6 +70,7 @@ from .core import (
     process_alive,
     random_display_name,
     read_csv,
+    read_json_quiet,
     region_char_budget,
     resolve_bpy_path,
     resolve_ffmpeg,
@@ -133,9 +134,8 @@ from .session import (
     set_opened_as_read_only,
 )
 from .tracking import (
-    get_linked_libraries_cached,
-    RecentFilesCache,
     ProjectScan,
+    RecentFilesCache,
     TrackingStatusCache,
     WorkTimeCache,
     active_shot_owners,
@@ -158,14 +158,15 @@ from .tracking import (
     get_entries_grouped,
     get_last_stable,
     get_linked_libraries,
+    get_linked_libraries_cached,
     get_session_worked_departments,
     group_entries_by_review,
     is_block_archived,
     list_active_blocks,
-    refresh_linked_by_index,
     set_department_validated,
     set_description,
     toggle_entry_task,
+    tracking_json_path,
     upload_csv,
     wipmeta_add_link,
     wipmeta_add_work,

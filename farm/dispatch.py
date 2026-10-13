@@ -3,8 +3,8 @@ several, depending on render_mode."""
 
 import json
 import subprocess
-from uuid import uuid4
 from pathlib import Path
+from uuid import uuid4
 
 from ..lib import (
     ConfigCache,
@@ -22,18 +22,10 @@ _active_processes: dict[str, list[tuple[subprocess.Popen, str]]] = {}
 # ---------------------------------------------------------------------------
 # Per-job process log
 # ---------------------------------------------------------------------------
-# Every farm subprocess writes its output to a file, never to a PIPE: a pipe
-# nobody reads while the process runs fills up (~4 KB on Windows) and the
-# child blocks on its next write, forever -- a setup subprocess sat in
-# setup_start that way, stuck on a page of rig/driver warnings.
-# One file per job, request_<job_id>.log: every stage this machine runs
-# (setup, checks_images, compilation, preview) appends to it under its own
-# header -- they're sequential, never two at once. Deleted when the job ends
-# well (discard_job_log(), from scan_queue()), kept on any failure. Worker
-# renders keep one file per machine (request_<job_id>_<uuid>.log): several
-# machines may render the same job at once, and concurrent appends from
-# different machines into one file on a share interleave. archive() moves
-# both. See NOTES.md, "Farm subprocess output: files, never pipes".
+# Farm subprocesses write to a file, never a PIPE (a full pipe blocks the
+# child forever). One log per job for this machine's stages; worker renders
+# keep one per machine. See NOTES.md, "Farm subprocess output: files, never
+# pipes".
 
 
 def job_log_path(job_id: str) -> Path:
@@ -147,12 +139,9 @@ def render_dispatch(job_path: Path) -> None:
         )
 
         cmd_flags = ["-s", str(fs), "-e", str(fe)]
-        # Identifies this render, not the job: a job id is a hash of
-        # file + preset + shot, so re-rendering the same file reuses it, and
-        # a worker's last_job_result from the previous render would read as
-        # this one already done (check_render_completion()). Copied into
-        # each render request (render_request() merges job_data), echoed
-        # back by the worker in last_job_result.
+        # Identifies this render, not the job (whose id a re-render reuses);
+        # echoed back in the worker's last_job_result -- see NOTES.md,
+        # "Re-rendering a file".
         job_data["dispatch_id"] = uuid4().hex[:12]
         if single_machine:
             render_request(job_data, list(avaliable_machines)[0], cmd_flags)

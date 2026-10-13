@@ -64,7 +64,12 @@ def _is_internal_import(filepath: str) -> bool:
 # Datablock kinds looked at when a library has no root collection/object
 # (e.g. only a world or a node group linked).
 _FALLBACK_ID_COLLECTIONS = (
-    "collections", "objects", "node_groups", "materials", "worlds", "actions",
+    "collections",
+    "objects",
+    "node_groups",
+    "materials",
+    "worlds",
+    "actions",
 )
 
 

@@ -34,7 +34,7 @@ _monitor_cache: dict = {
     "lock_machine": "",
     "last_tick": None,
     "jobs": [],  # list of per-job snapshots
-    "workers": {},  # {uuid: worker data}, see _compute_snapshot()
+    "workers": {},  # {uuid: worker data}, see _apply_farm_snapshot()
 }
 
 
@@ -99,11 +99,8 @@ _last_is_monitor = False
 
 def is_blender_monitor() -> bool:
     """Whether this Blender process (pid + machine uuid) owns monitor.lock.
-    Read-only: monitor.lock's content never changes while a monitor runs, so
-    there's nothing to lock against. A read that fails (network hiccup,
-    Windows refusing an open for a moment) keeps the previous answer instead
-    of returning False -- farm_tick() stops the whole loop on False, and
-    "couldn't check this tick" must never mean "not the monitor anymore"."""
+    A read that fails keeps the previous answer: farm_tick() stops the whole
+    loop on False, and "couldn't check" must never mean "not the monitor"."""
     global _last_is_monitor
     try:
         lock_path = ConfigCache.get_path("monitor_file")
@@ -140,10 +137,8 @@ def monitor_tick(project_root: Path):
             log("ERROR", "farm", f"Error while clearing monitor.lock on stop: {e}")
         return
 
-    # Each step in its own try: one failing step (typically a file another
-    # machine holds open for a moment, see retry_shared_io()) must never
-    # skip the others -- a failed heartbeat used to skip scan_processes()/
-    # scan_queue() too, freezing every job at its current stage.
+    # Each step in its own try: one failing step must never skip the others
+    # (see NOTES.md, "Windows: replace/delete refused...").
     path = ConfigCache.get_path("monitor_file")
     kill_received = False
     try:
@@ -161,14 +156,9 @@ def monitor_tick(project_root: Path):
             log("ERROR", "farm", f"Error while clearing monitor.lock on kill: {e}")
         return
 
-    # Heartbeat, two layers. The content's "update_tick" is still rewritten
-    # every tick -- readable by eye, and what addons older than this read --
-    # but best effort only: one lock attempt, one replace attempt, failure
-    # ignored, since a reader on another machine holding the file open makes
-    # Windows refuse the replace now and then (WinError 5/32, see NOTES.md).
-    # The authoritative heartbeat is the file's mtime, bumped by os.utime()
-    # right after: attribute-only access, which no reader's open handle can
-    # refuse. Readers take the newer of the two (monitor_last_tick()).
+    # Heartbeat, two layers: "update_tick" rewritten best effort (one
+    # attempt, failure ignored), then os.utime() -- which no reader can
+    # refuse. Readers take the newer (monitor_last_tick()).
     try:
         with locked_json(path, retries=1, io_attempts=1) as box:
             data = box["data"] or {}
@@ -375,22 +365,11 @@ def archive(job_path: Path) -> None:
 
 
 def recover_interrupted_jobs() -> None:
-    """Called once at monitor launch. A job at a local *_start stage with
-    no tracked process means the Blender instance that ran the previous
-    monitor went away mid-stage (crash, kill). Its process may well have
-    survived -- child processes outlive their parent on every OS -- so:
-
-    - still running on this machine (PID recorded at launch, checked with
-      process_alive()): adopt it, and decide once it ends
-      (_finish_job_processes() -> resume_interrupted_stage());
-    - gone, or recorded on another machine: resume right away -- rewind to
-      the stage before, so the queue redoes it (resume_interrupted_stage()).
-
-    render_start is left alone: renders belong to workers, recovered from
-    their side (launch_worker() -> "lost" result) and by
-    check_render_completion(). Used to mark all of these "orphaned" -- a
-    dead end needing a manual resubmit, even when the process had finished
-    fine -- and missed preview_start entirely (stuck for good)."""
+    """Called once at monitor launch, for jobs left at a local *_start stage
+    by a previous monitor that went away (crash, kill): adopt the process
+    by PID if it still runs on this machine, else rewind the job so the
+    queue redoes the stage (resume_interrupted_stage()). render_start is
+    the workers' side. See NOTES.md, "Crash recovery"."""
     from .dispatch import _active_processes
     from .queue import resume_interrupted_stage
 

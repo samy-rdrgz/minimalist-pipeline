@@ -1,12 +1,12 @@
 """Versioning: increment, save_as."""
 
+import os
 from pathlib import Path
 
 import bpy
 
-from .core import cached_scandir
 from .config import ConfigCache, get_active_project_root, parse_filename
-from .core import json_get
+from .core import cached_scandir, json_get
 from .errors import PipelineError
 from .logs import log
 
@@ -22,8 +22,11 @@ def get_version_number(filepath: str = "") -> int | None:
     return int(parsed["number"])
 
 
-def get_last_version_number(filepath: str = "") -> int:
-    """Scan sibling blend files and return highest version number, or -1."""
+def get_last_version_number(filepath: str = "", cached: bool = False) -> int:
+    """Scan sibling blend files and return highest version number, or -1.
+    cached=True (draw() only) lists through cached_scandir(); anything that
+    picks a filename to write must not -- see NOTES.md, "Next version
+    number: never from a cached listing"."""
     fp = Path(filepath or bpy.data.filepath)
 
     parsed = parse_filename(fp.name)
@@ -38,9 +41,14 @@ def get_last_version_number(filepath: str = "") -> int:
     else:
         return -1
 
-    # cached_scandir(): drawn by the increment-version dialog on every redraw;
-    # a missing folder just lists as [] (returns -1 below).
-    for f in cached_scandir(fp.parent):
+    if cached:
+        entries = cached_scandir(fp.parent)  # missing folder: [] -> -1 below
+    else:
+        try:
+            entries = list(os.scandir(fp.parent))
+        except OSError:
+            entries = []
+    for f in entries:
         if not f.name.endswith(".blend"):
             continue
         m = pattern.match(f.name)

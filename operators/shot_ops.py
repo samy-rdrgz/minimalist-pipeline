@@ -26,6 +26,7 @@ from ..lib import (
     shots_in_segment,
     text_field,
     text_to_lines,
+    tracking_json_path,
 )
 
 
@@ -625,10 +626,10 @@ class M_PIPELINE_OT_edit_block_structure(bpy.types.Operator):
                 description=self.description,
                 start_version=int(parsed["number"]) + 1,
             )
-            # Flag first -- still needed for TrackingStatusCache.get_all(),
-            # which would otherwise still pick up the tracking.json once
-            # it's moved under old/ below (see NOTES.md, "Branch").
-            old_tracking = old_path.parent / ".pipeline" / "tracking.json"
+            # Flag first -- Project monitoring's scan (ProjectScan) would
+            # otherwise still pick up the tracking.json once it's moved
+            # under old/ below (see NOTES.md, "Branch").
+            old_tracking = tracking_json_path(old_path, must_exist=True)
             with locked_json(old_tracking) as box:
                 data = box["data"] or {}
                 if not data:

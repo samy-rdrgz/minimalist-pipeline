@@ -19,7 +19,6 @@ from ..lib import (
     to_absolute,
     to_relative,
 )
-from .dispatch import _active_processes as _active_processes
 from .dispatch import popen_logged, track_local_processes
 
 
@@ -79,7 +78,6 @@ def resolve_job_context(
 def run_render_setup(job_id: str, config: dict) -> None:
     """Launch the headless setup subprocess for a queued job. Doesn't
     compute the output path itself -- see run_render_setup_entry()."""
-    global _active_processes
     job_path = ConfigCache.get_path("farm_actives") / f"{job_id}.json"
     data = None
 

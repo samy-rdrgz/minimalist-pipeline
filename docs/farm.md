@@ -35,6 +35,10 @@ A broken preset never blocks the render: an invalid `.json` key is skipped (the 
 
 A multishot block (see [Shot blocks (multishot)](multishot.md)) submits and behaves exactly like any file from this side — the split into one job per shot happens automatically once the file is picked up, not something you do differently at submission.
 
+**Logs**: every farm process writes its output to a file in `config/.farm/queue/requests/` -- `request_<job_id>.log` for a job's setup, frame check, compilation and preview, plus one `request_<job_id>_<machine>.log` per worker render. Deleted when the job ends well, kept (and archived with the job) when something failed: that's the first place to look.
+
+**After a crash**: if the Blender running the farm monitor or a worker crashes, its jobs are picked up again on relaunch -- a step still running is waited for, a step cut short is redone, an interrupted render is sent out again (frames already rendered are kept, only the missing ones are rendered). A render whose worker stops responding for 3 minutes is sent to another machine.
+
 The whole farm coordinates over the shared project drive, no SSH or direct machine-to-machine connection — see [Design choices](design.md#no-ssh-push-pull-coordination-over-the-shared-drive) for the push-pull mechanism and its trade-offs.
 
 ---

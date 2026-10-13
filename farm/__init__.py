@@ -2,7 +2,6 @@
 
 from .dispatch import render_dispatch
 from .loop import (
-    _compute_snapshot,
     _refresh_tick,
     get_running_project,
     monitor_age_status,

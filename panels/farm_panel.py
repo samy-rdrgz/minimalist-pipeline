@@ -213,7 +213,9 @@ def draw_farm_jobs(layout):
                     # that minus what already elapsed. (pct == 0 used to
                     # divide by zero and break the whole popup's draw.)
                     remaining = elapsed / pct - elapsed
-                    remaining_str = f"≃ {int(remaining // 60)}m{int(remaining % 60):02d}s remaining"
+                    remaining_str = (
+                        f"≃ {int(remaining // 60)}m{int(remaining % 60):02d}s remaining"
+                    )
                 else:
                     remaining_str = "estimating..."
                 text = f"{stage} - {j['frames_done']}/{j['frames_total']} ({pct:.0%}) - {elapsed_str} ({remaining_str})"
@@ -272,7 +274,7 @@ def draw_farm_workers(layout):
     title_list.row().label(text="Jobs")
 
     monitor_cache = get_monitor_cache()
-    # From the snapshot the refresh timer builds (_compute_snapshot()), never
+    # From the snapshot the refresh timer builds (_apply_farm_snapshot()), never
     # scan_workers() here: draw() reruns on every hover of the popup, and
     # each worker file read is a network round-trip on a share.
     workers = monitor_cache.get("workers") or {}

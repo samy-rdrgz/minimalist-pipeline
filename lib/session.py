@@ -69,7 +69,9 @@ def get_backup_filepath() -> Path:
     directory -- bpy.utils.extension_path_user(), not script_path_user()
     (assumes a legacy, pre-Extensions addon layout; flagged by a Blender
     Extensions Platform review, see NOTES.md)."""
-    pkg = __package__.rsplit(".", 1)[0]  # "minimalist_pipeline.lib" -> "minimalist_pipeline"
+    pkg = __package__.rsplit(".", 1)[
+        0
+    ]  # "minimalist_pipeline.lib" -> "minimalist_pipeline"
     root = bpy.utils.extension_path_user(pkg, path="config", create=True)
     return Path(root) / "pipeline_backup.json"
 

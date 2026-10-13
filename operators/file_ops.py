@@ -109,7 +109,7 @@ class M_PIPELINE_OT_increment_version(bpy.types.Operator):
             config = ConfigCache.get()
             v_digits = json_get(config, "naming.version.digits", 3)
             v_prefix = json_get(config, "naming.version.prefix", "v")
-            next_v = get_last_version_number() + 1
+            next_v = get_last_version_number(cached=True) + 1  # preview only
             name, _ = Path(bpy.data.filepath).name.rsplit("_v", 1)
             if self.tag != "NONE":
                 preview = f"{name}_{v_prefix}{next_v:0{v_digits}d}-{self.tag}.blend"

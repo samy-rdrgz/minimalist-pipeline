@@ -43,7 +43,9 @@ def get_folder(self, context) -> Path | None:
         return None
 
 
-def resolve_version_file(folder: Path | None, version_mode: str, custom_version: str = "") -> Path | None:
+def resolve_version_file(
+    folder: Path | None, version_mode: str, custom_version: str = ""
+) -> Path | None:
     """The .blend in folder matching version_mode ("last" | "stable" |
     "custom"), or None. Shared by the Open file and Render dialogs, whose
     draw() calls it on every redraw to preview the pick: lists the folder
@@ -57,7 +59,9 @@ def resolve_version_file(folder: Path | None, version_mode: str, custom_version:
             continue
         parsed = parse_filename(entry.name)
         if parsed:
-            candidates.append((Path(entry.path), int(parsed["number"]), parsed.get("tag")))
+            candidates.append(
+                (Path(entry.path), int(parsed["number"]), parsed.get("tag"))
+            )
     if not candidates:
         return None
     if version_mode == "last":
@@ -167,11 +171,7 @@ def sequence_items(self, context) -> list[tuple]:
         project_root = get_active_project_root()
         shots_dir = project_root / "shots"
         items = [("all", "All", "")] + sorted(
-            (
-                (d.name, d.name, "")
-                for d in cached_scandir(shots_dir)
-                if d.is_dir()
-            ),
+            ((d.name, d.name, "") for d in cached_scandir(shots_dir) if d.is_dir()),
             key=lambda t: t[1],
         )
         return _stable_items(
@@ -290,7 +290,9 @@ def file_department_items(self, context):
         # TrackingStatusCache, not get_departments_required(): that one reads
         # tracking.json from disk on every call, and this enum is evaluated
         # on every redraw of the increment-version dialog.
-        deps = TrackingStatusCache.get(bpy.data.filepath).get("departments_required") or []
+        deps = (
+            TrackingStatusCache.get(bpy.data.filepath).get("departments_required") or []
+        )
         if _files_deps_items_cache and deps == _files_deps_items_cache[0]:
             return _files_deps_items_cache[1]
         items = _department_items(deps)
@@ -412,7 +414,11 @@ def shot_tag_items(self, context):
             # segment off one of its versioned files instead, same fix as
             # entry_version_items()'s folder-vs-file handling.
             target = next(
-                (Path(e.path) for e in cached_scandir(target) if e.name.endswith(".blend")),
+                (
+                    Path(e.path)
+                    for e in cached_scandir(target)
+                    if e.name.endswith(".blend")
+                ),
                 target,
             )
         parsed = parse_filename(target.name) if target.name else None

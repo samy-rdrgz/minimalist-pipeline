@@ -1515,8 +1515,8 @@ whole popup's draw; and "remaining" showed the estimated *total* time
 ## Popups on a network share: nothing on disk in draw(), heavy reads off the UI thread
 
 Studio profiles: the Open file dialog spent 32 of 43 profiled seconds in
-6745 `is_block_archived()` + 2446 `cached_scandir()` calls; Project monitoring froze Blender for minutes on open (it never even
-showed up). Each disk call on that share costs ~10-15 ms. Two rules came
+6745 `is_block_archived()` + 2446 `cached_scandir()` calls; Project
+monitoring froze Blender for minutes on open (it never even showed up). Each disk call on that share costs ~10-15 ms. Two rules came
 out of it:
 
 **1. Enum callbacks and draw() never wait on the disk.** Blender evaluates
@@ -1608,6 +1608,58 @@ move), and the farm popup forgets its regions after each redraw (a live
 popup re-registers from its draw(), a closed one can't) and on close
 (`unregister_refresh_timer()` -- it used to be cleared only with the status
 timer, so reopening the popup redrew the previous, freed one).
+
+## Next version number: never from a cached listing
+
+`get_last_version_number()` went through `cached_scandir()` so the
+increment dialog's filename preview cost nothing per redraw -- but
+`save_as()` uses the same function to pick the name it *writes*. Once
+`cached_scandir()` stopped re-checking the folder's mtime within
+`SCANDIR_TTL` (2 s, see "Popups on a network share"), a version saved in
+that window -- by another machine, or a second increment right after the
+first -- was invisible, and `save_as()` would have reused its number and
+overwritten it. Now `cached=True` is opt-in, passed by the dialog's
+`draw()` only; every other caller lists the folder fresh. Same rule for
+any future use of `cached_scandir()`: it may feed what's *shown*, never
+what gets *written*.
+
+## One farm snapshot reader, sync or threaded
+
+When the farm popup's refresh moved to a reader thread, the original
+synchronous path (`_compute_snapshot()` and its `_scan_active_jobs()`/
+`_scan_incoming_jobs()`/`_read_monitor_status()`, still used on project
+switch and right after a launch) stayed alongside it: two implementations
+of the same snapshot, already drifting (only one counted frames from the
+thread's results). `refresh_monitor_cache()`/`refresh_monitor_status()` now
+run the thread's own pure functions (`_read_farm_snapshot()`,
+`_read_farm_raw()`) inline and apply them the same way; worker files are
+read by one function (`read_workers()`) for both `scan_workers()` and the
+thread. Same cleanup in `lib/tracking.py`: `ProjectScan` had replaced
+`TrackingStatusCache.get_all()` and `refresh_linked_by_index()`, which
+stayed behind unused with their own copy of the project walk -- removed,
+`ProjectScan` walks through `_walk_owner_dirs()`.
+
+## tracking.json: one path, never created by a write
+
+Follow-up to "Project walk": the scan now ignores a stray `.pipeline/`, but
+what *wrote* in the wrong place was still possible. A dozen functions
+rebuilt the path by hand as `filepath.parent if filepath.is_file() else
+filepath`:
+
+- `is_file()` is a disk call, and it's False for a `.blend` not saved yet
+  *or* on a network hiccup -- the `.blend` path itself was then taken for
+  the folder, and the write's lock created `ch_ball_v001.blend/.pipeline/`.
+- `create_tracking()` always took `.parent`: given a folder, it wrote into
+  the prefix folder.
+- Writers did `box["data"] or {}`: a write aimed at the wrong folder
+  *created* a tracking.json there, with nothing but the new entry -- a
+  note that seems lost, and a fake asset for the scan.
+
+Now `tracking_json_path()` is the only way to that path, decided from the
+name like `_owner_dir()`. Writers pass `must_exist=True` (raise, checked
+before the lock -- so not even an empty `.pipeline/` gets created);
+`create_tracking()` is the only one allowed to start a tracking.json, and
+like `_meta_path()` it only accepts a `.blend`.
 
 <!-- Next feature with rationale worth keeping gets its own "## " section
      here, same shape as the ones above: what was tried, what was

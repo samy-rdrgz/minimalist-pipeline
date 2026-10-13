@@ -84,9 +84,7 @@ class M_PIPELINE_PT_project_panel(bpy.types.Panel):
                 text="Open file",
                 icon="FILE_BLEND",
             )
-            op = layout.operator(
-                "wm.open_folder", text="Open folder", icon="BLANK1"
-            )
+            op = layout.operator("wm.open_folder", text="Open folder", icon="BLANK1")
             op.filepath = str(active_path)
             op.custom_tooltip = "Open the project's root folder"
 

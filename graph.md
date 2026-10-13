@@ -60,6 +60,9 @@ reconfirm each time, not an immutable historical snapshot.
 `bpy.app.handlers.load_post` → `post_load_handler`
 
 ```
+├── unregister_refresh_timer() : stop the farm popup's refresh timer first --
+│   a file load frees every popup region, and that persistent timer would
+│   still tag_redraw() the freed one (crash)
 ├── no filepath (new/unsaved scene) : return
 ├── log("file_open")
 │
@@ -83,6 +86,11 @@ reconfirm each time, not an immutable historical snapshot.
 │       (session_end, with duration, logged to sessions_log.jsonl) before
 │       opening the new one -- otherwise it'd sit frozen and get swept much
 │       later by scan_sessions(), misreported as a crash
+│
+├── sync_linked_libraries() : record in this version's .wipmeta the links the
+│   file already holds but no import event ever reported (file migrated from
+│   outside, library repointed by a script) -- before auto_version below, so
+│   a new version inherits a complete linked list
 │
 ├── check_library_update() : for every bpy.data.libraries entry inside the active
 │   project, compare against get_last_file_stable() of its asset folder --
@@ -223,7 +231,10 @@ Save button (NOT overridden) or Ctrl+S (overridden → `wm.safe_save`)
 `bpy.app.handlers.save_post` → `save_post_handler`
 
 ```
-└── session_update()   (same file-in-active-project guard as above; no read-only check here)
+├── session_update()
+└── file in active project :
+    ├── wipmeta_touch() : stamp edited_at/edited_by in this version's .wipmeta
+    └── sync_linked_libraries() : same as on load (see "File opened")
 ```
 
 ---
@@ -418,29 +429,45 @@ Every 30s, for as long as the addon is enabled.
 
 ### _refresh_tick
 
-Every ~2s, only while the farm monitor popup (`m_pipeline.farm_monitor`) is
-open -- registered in its `invoke()`, unregistered in `execute()`/`cancel()`.
-Not running the rest of the time; never touches farm state, UI only.
+Every 0.25s, only while the farm monitor popup (`m_pipeline.farm_monitor`) is
+open -- registered in its `invoke()`, unregistered in `execute()`/`cancel()`
+and on file load. Never touches farm state, UI only, and never the disk itself.
 
 ```
-└── recompute the full monitor snapshot (status + jobs/workers), tag_redraw()
-    the popup's own region (via context.region_popup, captured every
-    draw()) and any open 3D viewports.
+├── a background read finished ? _apply_farm_snapshot() (status + jobs +
+│   frame counts + workers into the monitor cache), then tag_redraw() the
+│   3D views' sidebars and the popup regions registered since the last
+│   redraw (each forgotten right after: a closed popup's region is freed)
+└── none running and >= 2s since the last one started ? start the next
+    _read_farm_snapshot() on the reader thread
 ```
 
 ### _status_tick
 
-Every ~2s, for as long as the addon is enabled (`register_status_timer()`,
+Every ~10s, for as long as the addon is enabled (`register_status_timer()`,
 addon `register()`/`unregister()`) -- unlike `_refresh_tick`, not gated
-behind the farm monitor popup. Cheap counterpart: re-reads `monitor.lock`
-only, no jobs-directory scan, so the sidebar's farm panel header (status
-label, collapsed or not) stays live without paying for a full snapshot on
-every tick.
+behind the farm monitor popup. Cheap counterpart: `monitor.lock` only, so
+the sidebar's farm panel header (status label, collapsed or not) stays live.
 
 ```
-└── refresh_monitor_status() : re-reads monitor.lock into status/lock_user/
-    lock_machine/last_tick only (jobs list untouched), tag_redraw() any
-    open 3D viewport.
+├── a background read finished ? status/lock_user/lock_machine/last_tick
+│   into the monitor cache (jobs list untouched); tag_redraw() the 3D views'
+│   sidebars only if the status changed
+└── else : start the monitor.lock read on the reader thread, come back in 0.5s
+```
+
+### ProjectScan._tick
+
+Every 0.1s while a Project monitoring scan runs (started by the popup's
+`invoke()`, its Refresh button, or `find_linked_by()` finding no index for
+the project), then stops itself.
+
+```
+├── drain what the reader thread posted (≤10 ms per tick) : found folders,
+│   raw tracking data -> TrackingStatusCache, link targets
+└── scan done : drop folders gone since the last scan, rebuild the linked-by
+    index. No redraw: the popup refreshes on the next mouse move (holding
+    its region across ticks would crash Blender once it's closed)
 ```
 
 ### farm_tick

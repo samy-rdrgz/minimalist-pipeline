@@ -5,10 +5,8 @@ from pathlib import Path
 import bpy
 
 from ..lib import (
-    ProjectScan,
-    get_linked_libraries_cached,
-    project_path,
     ConfigCache,
+    ProjectScan,
     TrackingStatusCache,
     WorkTimeCache,
     department_status_tooltip,
@@ -21,7 +19,9 @@ from ..lib import (
     get_description,
     get_entries,
     get_entries_grouped,
+    get_linked_libraries_cached,
     json_get,
+    project_path,
     region_char_budget,
     responsive_layout,
     safe_icon,
@@ -376,9 +376,7 @@ def draw_file_details(self, context, layout):
         emboss=False,
     ).filepath = str(filepath)
 
-    op = row_right.operator(
-        "wm.open_folder", text="", icon="FILE_FOLDER", emboss=False
-    )
+    op = row_right.operator("wm.open_folder", text="", icon="FILE_FOLDER", emboss=False)
     op.filepath = str(filepath)
     op.custom_tooltip = "Open this file's folder"
 
@@ -602,10 +600,11 @@ def draw_monitor_table(self, context, layout, columns):
 
     footer = f_list.row()
     footer.active = False
-    # The table is the scan made when the popup opened (get_all() no longer
-    # re-walks the project on every redraw) -- refresh on demand.
+    # The table is what ProjectScan last found -- refresh on demand.
     if ProjectScan.done:
-        footer.operator("m_pipeline.tracking_refresh", text="", icon="FILE_REFRESH", emboss=False)
+        footer.operator(
+            "m_pipeline.tracking_refresh", text="", icon="FILE_REFRESH", emboss=False
+        )
     else:
         progress = (
             f"Scanning project... {ProjectScan.owners_found} folders found"

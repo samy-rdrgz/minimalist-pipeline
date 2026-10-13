@@ -6,9 +6,9 @@ from pathlib import Path
 import bpy
 
 from ..lib import (
-    ProjectScan,
     ConfigCache,
     PipelineError,
+    ProjectScan,
     TrackingStatusCache,
     create_entry,
     delete_entry,
@@ -33,6 +33,7 @@ from ..lib import (
     to_absolute,
     toggle_entry_task,
     tracked_department_items,
+    tracking_json_path,
     upload_csv,
     wipmeta_add_work,
 )
@@ -137,11 +138,7 @@ class M_PIPELINE_OT_create_entry(bpy.types.Operator):
             return {"CANCELLED"}
 
         target = Path(self.filepath)
-        tracking_file = (
-            (target.parent if target.is_file() else target)
-            / ".pipeline"
-            / "tracking.json"
-        )
+        tracking_file = tracking_json_path(target)
         if not tracking_file.exists():
             self.report(
                 {"WARNING"},
@@ -660,7 +657,7 @@ class M_PIPELINE_OT_tracking_refresh(bpy.types.Operator):
     def execute(self, context):
         project_root = get_active_project_root()
         if project_root:
-            # Time-sliced, never blocks -- the table fills in as it goes.
+            # Background scan, never blocks -- the table fills in as it goes.
             ProjectScan.start(project_root)
         return {"FINISHED"}
 

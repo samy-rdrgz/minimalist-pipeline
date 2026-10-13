@@ -72,7 +72,7 @@ def _propose_project_switch(project_path: str):
 
 
 def _static_read_only_reason(filepath: str) -> str:
-    """"stable"/"profile" if filepath's name or the addon profile calls for
+    """ "stable"/"profile" if filepath's name or the addon profile calls for
     read-only, "" otherwise. Deliberately excludes "locked" (needs an actual
     lock attempt) and "reopened" (needs the in-memory already-flagged state)
     -- both are load-time only, not safe to redo outside post_load_handler."""

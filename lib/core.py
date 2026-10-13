@@ -307,21 +307,105 @@ def get_machine_id(context: bpy.types.Context | None = None) -> str:
 # placeholder display name (random_display_name() below) -- no meaning
 # beyond that, no OS/account info involved, same spirit as machine_id above.
 _ADJECTIVES = [
-    "amber", "azure", "bold", "brisk", "calm", "coral", "crimson", "dusty",
-    "emerald", "faded", "fuzzy", "gentle", "golden", "hazy", "indigo",
-    "ivory", "jolly", "keen", "lively", "lucky", "mellow", "misty", "mossy",
-    "muted", "noble", "olive", "plucky", "quick", "quiet", "rosy", "rusty",
-    "sandy", "scarlet", "silent", "silver", "sleepy", "smoky", "sober",
-    "solar", "spry", "steady", "stormy", "sunny", "swift", "tawny", "teal",
-    "tidy", "vivid", "witty",
+    "amber",
+    "azure",
+    "bold",
+    "brisk",
+    "calm",
+    "coral",
+    "crimson",
+    "dusty",
+    "emerald",
+    "faded",
+    "fuzzy",
+    "gentle",
+    "golden",
+    "hazy",
+    "indigo",
+    "ivory",
+    "jolly",
+    "keen",
+    "lively",
+    "lucky",
+    "mellow",
+    "misty",
+    "mossy",
+    "muted",
+    "noble",
+    "olive",
+    "plucky",
+    "quick",
+    "quiet",
+    "rosy",
+    "rusty",
+    "sandy",
+    "scarlet",
+    "silent",
+    "silver",
+    "sleepy",
+    "smoky",
+    "sober",
+    "solar",
+    "spry",
+    "steady",
+    "stormy",
+    "sunny",
+    "swift",
+    "tawny",
+    "teal",
+    "tidy",
+    "vivid",
+    "witty",
 ]
 _ANIMALS = [
-    "badger", "beetle", "bison", "dingo", "egret", "finch", "fox", "gecko",
-    "hare", "heron", "ibex", "ibis", "jay", "koala", "kite", "lark", "lemur",
-    "lynx", "mink", "mole", "moth", "newt", "ocelot", "otter", "panda",
-    "puffin", "quail", "raven", "robin", "salmon", "seal", "shrike", "skunk",
-    "sloth", "sparrow", "stork", "swan", "tapir", "tern", "toad", "viper",
-    "vole", "walrus", "weasel", "wombat", "wren", "yak", "zebra",
+    "badger",
+    "beetle",
+    "bison",
+    "dingo",
+    "egret",
+    "finch",
+    "fox",
+    "gecko",
+    "hare",
+    "heron",
+    "ibex",
+    "ibis",
+    "jay",
+    "koala",
+    "kite",
+    "lark",
+    "lemur",
+    "lynx",
+    "mink",
+    "mole",
+    "moth",
+    "newt",
+    "ocelot",
+    "otter",
+    "panda",
+    "puffin",
+    "quail",
+    "raven",
+    "robin",
+    "salmon",
+    "seal",
+    "shrike",
+    "skunk",
+    "sloth",
+    "sparrow",
+    "stork",
+    "swan",
+    "tapir",
+    "tern",
+    "toad",
+    "viper",
+    "vole",
+    "walrus",
+    "weasel",
+    "wombat",
+    "wren",
+    "yak",
+    "zebra",
 ]
 
 
@@ -352,23 +436,12 @@ SCANDIR_TTL = 2.0
 
 
 def cached_scandir(path: Path) -> list:
-    """os.scandir(path) results, cached while path's own mtime is unchanged --
-    a directory's mtime changes exactly when a direct child is added,
-    removed, or renamed, which is precisely what a folder listing shows.
-    Meant for enum-items callbacks and list_active_blocks(), which Blender
-    re-invokes on every redraw: without this, every redraw re-lists the
-    folder from disk, even when nothing changed.
-    Returns os.DirEntry objects, not Path: entry.is_dir() reads the stat
-    info scandir() already fetched in the same syscall, instead of
-    Path.iterdir() + Path.is_dir(), which stats every entry a second time
-    -- on a network share that second stat is a second round-trip per entry.
-    [] on any OSError (missing/unreadable directory).
-    The mtime itself is re-checked at most every SCANDIR_TTL seconds: enum
-    callbacks run many times per redraw (once per draw, again on every read
-    of the property, once more per expanded item), and even one stat per
-    call added up to thousands of network round-trips in a few seconds
-    (6745 is_block_archived() + 2446 cached_scandir() calls in an 11 s
-    studio profile of the Open file dialog)."""
+    """os.scandir(path) as a list of os.DirEntry (is_dir()/stat() need no
+    extra disk call), cached while path's own mtime is unchanged -- which
+    re-checks at most every SCANDIR_TTL seconds. [] if missing/unreadable.
+    For draw()/enum callbacks only: a listing up to SCANDIR_TTL old must
+    never decide what gets written. See NOTES.md, "Popups on a network
+    share"."""
     key = str(path)
     now_t = time.monotonic()
     cached = _scandir_cache.get(key)
@@ -400,10 +473,8 @@ def resolve_bpy_path(filepath: str) -> Path:
 
 
 # ---------------------------------------------------------------------------
-# Read Write Json utiles
+# Processes
 # ---------------------------------------------------------------------------
-# 3x the heartbeat interval, deliberately -- see NOTES.md, "Lock staleness".
-LOCK_STALE_SECONDS = 90
 
 
 def process_alive(pid: int | None, name_hint: str = "") -> bool:
@@ -502,6 +573,13 @@ class AdoptedProcess:
         return -1
 
 
+# ---------------------------------------------------------------------------
+# Read Write Json utiles
+# ---------------------------------------------------------------------------
+# 3x the heartbeat interval, deliberately -- see NOTES.md, "Lock staleness".
+LOCK_STALE_SECONDS = 90
+
+
 def read_json_quiet(path):
     """Parsed JSON at path, or None if missing/unreadable/corrupt. Pure
     os/json -- no bpy, no lock, no log -- so it can run on a background
@@ -516,13 +594,9 @@ def read_json_quiet(path):
 
 def retry_shared_io(fn, *args, attempts: int = 5, delay: float = 0.1):
     """Call fn(*args), retrying on PermissionError up to `attempts` times,
-    `delay` seconds apart; re-raises the last error. Windows only refuses
-    these transiently: replacing (os.replace) or deleting (os.remove/unlink)
-    a file fails with WinError 5/32 while any other process -- another
-    machine's reader, over SMB possibly a handle the client keeps open a
-    little past Python's own close() -- still has it open, since Python
-    never opens files with FILE_SHARE_DELETE. Not a permissions problem:
-    the same call succeeds a moment later. See NOTES.md, "Windows: replace/
+    `delay` seconds apart; re-raises the last error. For os.replace/remove/
+    unlink on a shared file, which Windows refuses (WinError 5/32) while
+    another process still has it open -- see NOTES.md, "Windows: replace/
     delete refused while a reader has the file open"."""
     for i in range(attempts):
         try:
@@ -587,13 +661,9 @@ def acquire_lock(
 def check_lock(path: Path, retries: int = 10, delay: float = 0.1) -> bool:
     """Poll up to `retries` * `delay` seconds for the lock on `path` to
     clear, without ever taking, stealing, or removing it -- only observes.
-    Used by read-only access, which must yield briefly to an in-flight
-    *live* write but never block one -- a lock _is_unlock() already judges
-    stale is treated as cleared immediately rather than waited out: a dead
-    writer (crashed mid-write, common after a client-machine crash) would
-    otherwise cost every reader, on every machine, up to retries*delay for
-    as long as the lock file sits there. True if still held (and fresh)
-    after all retries, False if cleared or found stale."""
+    A stale lock (_is_unlock()) counts as cleared at once, never waited out
+    (see NOTES.md, "Network-share redraw cost"). True if still held (and
+    fresh) after all retries, False if cleared or found stale."""
     lockpath = path.parent / f".{path.name}.lock"
     for _ in range(retries):
         if not lockpath.exists() or _is_unlock(lockpath):
@@ -616,10 +686,8 @@ def release_lock(path: Path, machine_id: str) -> None:
     except FileNotFoundError:
         pass
     except (OSError, ValueError) as e:
-        # Never raise from here: called from locked_json()'s finally, it
-        # would mask whatever the caller was doing. A lock left behind just
-        # goes stale (LOCK_STALE_SECONDS) -- readers skip a stale lock, the
-        # next writer steals it.
+        # Never raise from locked_json()'s finally: it would mask the
+        # caller's own outcome. A lock left behind just goes stale.
         log("WARNING", "lock", f"Could not release lock {lockpath.name}: {e}")
 
 
@@ -641,9 +709,7 @@ def refresh_lock(path: Path, machine_id: str) -> bool:
 
 
 @contextmanager
-def locked_json(
-    path: Path, read_only=False, retries: int = 10, io_attempts: int = 5
-):
+def locked_json(path: Path, read_only=False, retries: int = 10, io_attempts: int = 5):
     """Read/write a JSON file under a cross-process lock. Yields a mutable
     box {"data": <parsed JSON or None>, "action": ""} -- set action to
     "to_write" (atomic tmp + os.replace) or "to_delete" to commit on exit,
@@ -652,26 +718,19 @@ def locked_json(
     steal a stale one); read_only=True never takes/steals/releases it --
     waits briefly for an in-flight write, then reads regardless (a write
     attempt is refused and logged, not silently dropped).
-    retries: lock polls, 0.1 s apart. UI-thread readers pass 0 -- never
-    sleep, just read: writes go through os.replace, so a read can't see a
-    half-written file, only the previous version.
-    io_attempts: tries for the final replace/remove on a Windows "file in
-    use" refusal (retry_shared_io()). 1 for a best-effort write that
-    mustn't stall its caller."""
+    retries: lock polls, 0.1 s apart; UI-thread readers pass 0 (writes are
+    atomic, a read sees the old or the new file, never half of one).
+    io_attempts: tries for the final replace/remove (retry_shared_io()); 1
+    for a best-effort write that mustn't stall its caller."""
     machine_id = get_machine_id()
     if read_only:
-        # retries=0 reads regardless of any lock (writes are atomic, see
-        # above), so looking at the lock file first would only cost a
-        # network round-trip for nothing.
-        if retries > 0:
+        if retries > 0:  # 0: don't even look at the lock file
             check_lock(path, retries=retries)
     else:
         if not acquire_lock(path, machine_id, retries=retries):
             raise PipelineError(f"{path} is locked by another process.")
     try:
-        # Read directly, no exists() first: one disk call instead of two
-        # (each is a network round-trip on a share).
-        try:
+        try:  # no exists() first: one disk call, not two
             data = json.loads(path.read_text(encoding="utf-8"))
         except FileNotFoundError:
             data = None
@@ -702,9 +761,7 @@ def locked_json(
             except FileNotFoundError:
                 pass
             except OSError as e:
-                # Still swallowed (callers never expected a raise here), but
-                # no longer silent: an incoming request that fails to delete
-                # gets picked up again later as a duplicate job.
+                # Swallowed (callers never expected a raise), but logged.
                 log("WARNING", "JSON_writing", f"Could not delete {path}: {e}")
     finally:
         if not read_only:

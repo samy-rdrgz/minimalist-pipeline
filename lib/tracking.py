@@ -3,6 +3,8 @@
 import hashlib
 import json
 import os
+import queue
+import threading
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -23,13 +25,13 @@ from .config import (
 )
 from .core import (
     SCANDIR_TTL,
-    read_json_quiet,
     cached_scandir,
     get_machine_id,
     json_get,
     locked_json,
     now,
     read_csv,
+    read_json_quiet,
     resolve_bpy_path,
 )
 from .errors import PipelineError
@@ -52,11 +54,8 @@ def _meta_stem(filepath: Path) -> str:
     return f"{stem}-{parsed['tag']}" if parsed.get("tag") else stem
 
 
-# Top-level project folders that can hold tracked assets/shots -- never
-# "renders" (holds every rendered frame, by far the largest, slowest-to-walk
-# subtree on a network share) or "config". Scanning these three individually
-# instead of project_root.rglob(...) is what keeps a full-project scan from
-# ever descending into renders/.
+# Top-level folders that can hold tracked assets/shots -- never renders/
+# (every rendered frame, by far the slowest subtree to walk) or config/.
 _DATA_ROOTS = ("assets", "library", "shots")
 
 
@@ -67,13 +66,13 @@ _DATA_ROOTS = ("assets", "library", "shots")
 _MIN_OWNER_DEPTH = 2
 
 
-def _is_tracked_owner(folder: Path, entries: list, depth: int = _MIN_OWNER_DEPTH) -> bool:
-    """Whether a folder (given its own listing) is a tracked asset/shot: it
-    has a .pipeline/ *with a tracking.json in it*. A bare or stray .pipeline/
-    doesn't count -- one sitting in a prefix folder (assets/ch/.pipeline,
-    found on a real project) used to stop the walk there, hiding every asset
-    below it from Project monitoring. One extra stat, only for folders that
-    have a .pipeline/ at all. Thread-safe (pure os)."""
+def _is_tracked_owner(
+    folder: Path, entries: list, depth: int = _MIN_OWNER_DEPTH
+) -> bool:
+    """Whether a folder (given its own listing) is a tracked asset/shot: deep
+    enough, and a .pipeline/ *with a tracking.json in it* -- a stray, empty
+    .pipeline/ doesn't count (see NOTES.md, "Project walk"). Thread-safe
+    (pure os)."""
     if depth < _MIN_OWNER_DEPTH:
         return False
     if not any(e.name == ".pipeline" and e.is_dir() for e in entries):
@@ -86,12 +85,11 @@ def _is_tracked_owner(folder: Path, entries: list, depth: int = _MIN_OWNER_DEPTH
 
 
 def _walk_owner_dirs(folder: Path, depth: int = 0):
-    """Yield every tracked folder under `folder` (a .pipeline/ with a
-    tracking.json -- see _is_tracked_owner()), without descending into it: one directory listing
-    per folder visited. Path.rglob() walked *every* subfolder (textures,
-    caches...) -- each listing a network round-trip on a share."""
+    """Yield every tracked folder under `folder` (see _is_tracked_owner()),
+    in name order, without descending into one: one listing per folder
+    visited, never into an asset's textures/caches. Thread-safe (pure os)."""
     try:
-        entries = list(os.scandir(folder))
+        entries = sorted(os.scandir(folder), key=lambda e: e.name)
     except OSError:
         return
     if _is_tracked_owner(folder, entries, depth):
@@ -102,38 +100,10 @@ def _walk_owner_dirs(folder: Path, depth: int = 0):
             yield from _walk_owner_dirs(Path(e.path), depth + 1)
 
 
-# (project root, owner dirs, walked at -- time.monotonic()): the monitoring
-# popup's open walks once for get_all() and once for the links index, back
-# to back -- the second reuses the first.
-_owner_dirs_walk: tuple[str, list[Path], float] | None = None
-
-
-def _iter_owner_dirs(project_root: Path) -> list[Path]:
-    """Every asset/shot folder owning a .pipeline/, under assets/library/
-    shots only -- never renders/ (see _DATA_ROOTS). Reuses a walk made
-    within SCANDIR_TTL for the same project."""
-    global _owner_dirs_walk
-    now_t = time.monotonic()
-    if (
-        _owner_dirs_walk
-        and _owner_dirs_walk[0] == str(project_root)
-        and now_t - _owner_dirs_walk[2] < SCANDIR_TTL
-    ):
-        return _owner_dirs_walk[1]
-    owners = []
-    for top in _DATA_ROOTS:
-        owners.extend(_walk_owner_dirs(Path(project_root) / top))
-    _owner_dirs_walk = (str(project_root), owners, now_t)
-    return owners
-
-
 def _meta_path(filepath: Path, suffix: str) -> Path:
     """<folder>/.pipeline/<version stem><suffix> for a versioned .blend.
-    Refuses anything else: given an asset *folder*, filepath.parent is the
-    prefix folder (assets/ch/) -- reading or writing there created a stray,
-    empty assets/ch/.pipeline/ on a real project (a lock attempt creates the
-    directory), which then hid every asset of that prefix from Project
-    monitoring. Raises PipelineError instead of touching the wrong folder."""
+    Raises PipelineError for anything else: given a folder, .parent would be
+    the prefix folder (see NOTES.md, "Project walk")."""
     filepath = Path(filepath)
     if filepath.suffix.lower() != ".blend":
         raise PipelineError(f"Expected a .blend file, got {filepath}")
@@ -142,9 +112,27 @@ def _meta_path(filepath: Path, suffix: str) -> Path:
 
 def _owner_dir(filepath: Path) -> Path:
     """The asset/shot folder owning filepath: its parent for a .blend, the
-    path itself for a folder. Decided from the name, not Path.is_file() --
-    that's a disk call, and this runs on every tracking-cache check."""
+    path itself for a folder. Decided from the name (no disk call)."""
     return filepath.parent if filepath.suffix.lower() == ".blend" else filepath
+
+
+def tracking_json_path(filepath: Path | str, must_exist: bool = False) -> Path:
+    """.pipeline/tracking.json of the asset/shot owning filepath (a .blend
+    or its folder, see _owner_dir()). must_exist (every writer but
+    create_tracking()): raise PipelineError rather than create a tracking.json
+    where there was none -- see NOTES.md, "tracking.json: one path, never
+    created by a write"."""
+    path = _owner_dir(Path(filepath)) / ".pipeline" / "tracking.json"
+    if must_exist and not path.is_file():
+        raise PipelineError(f"Tracking file not found: {path}")
+    return path
+
+
+def _is_under(key: str, project_root: Path | str) -> bool:
+    """Whether cache key `key` (a folder path) lies inside project_root --
+    a plain prefix test would also match a sibling "<root>2" project."""
+    root = str(project_root).rstrip("/\\")
+    return key.startswith(root) and key[len(root) : len(root) + 1] in ("/", "\\")
 
 
 class TrackingStatusCache:
@@ -152,19 +140,12 @@ class TrackingStatusCache:
     when .pipeline/ (or its tracking.json) changes on disk."""
 
     _cache: dict[str, tuple[float, dict]] = {}
-    # Project root the last full get_all() walk covered -- see get_all().
-    _walked_root: str | None = None
-    # Last time (time.monotonic()) a given raw filepath argument's mtime was
-    # re-checked against disk -- see get()'s _VALIDATE_TTL below.
+    # Last time (time.monotonic()) a given filepath argument was re-checked
+    # against disk, and the cache key it maps to.
     _validated_at: dict[str, float] = {}
     _key_of: dict[str, str] = {}
-    # One redraw of the file panel calls get() several times (draw,
-    # get_description, get_current_departments, the department enum...),
-    # and Blender redraws constantly. Skipping re-validation within this
-    # window turns N stat-based checks per redraw into roughly one per
-    # _VALIDATE_TTL seconds -- the tradeoff is a change made on another
-    # machine can take up to this long to show up here, same as every
-    # other mtime-keyed cache in this module.
+    # get() is called several times per redraw: within this window it
+    # doesn't re-stat at all (see NOTES.md, "Sidebar redraw").
     _VALIDATE_TTL = 2.0
 
     @classmethod
@@ -208,10 +189,16 @@ class TrackingStatusCache:
         """Read tracking.json and derive worked/validated departments since
         the last stable (_collect_folder() + _status_from_raw())."""
         asset_dir = _owner_dir(Path(filepath))
-        wip_stem = _meta_stem(Path(filepath)) if Path(filepath).suffix.lower() == ".blend" else None
+        wip_stem = (
+            _meta_stem(Path(filepath))
+            if Path(filepath).suffix.lower() == ".blend"
+            else None
+        )
         raw = _collect_folder(asset_dir, wip_stem=wip_stem)
         if raw is None:
-            raise PipelineError(f"Tracking file not found: {asset_dir / '.pipeline' / 'tracking.json'}")
+            raise PipelineError(
+                f"Tracking file not found: {asset_dir / '.pipeline' / 'tracking.json'}"
+            )
         return _status_from_raw(raw)
 
     @staticmethod
@@ -229,84 +216,22 @@ class TrackingStatusCache:
         return max(mtimes)
 
     @classmethod
-    def get_all(
-        cls, project_root: Path, force_reload: bool = False, rescan: bool = False
-    ) -> list[tuple[str, dict]]:
-        """Return (asset_dir, status) for every tracked asset in the project.
-        Default: the snapshot of the last walk for this project, no disk at
-        all -- draw_monitor_table() calls this on every redraw. rescan=True
-        (the popup's invoke() and Refresh button): re-walk the project and
-        recompute only the folders whose .pipeline/ changed since. force_reload
-        also drops every cached status (recomputes everything -- slow on a
-        share, only for a cache suspected wrong)."""
-        if force_reload:
-            cls._cache.clear()
-            rescan = True
-        if not rescan and cls._walked_root == str(project_root):
-            return cls._snapshot()
-
-        for asset_dir in _iter_owner_dirs(project_root):
-            cls._refresh_folder(asset_dir)
-
-        cls._walked_root = str(project_root)
-        return cls._snapshot()
-
-    @classmethod
-    def _refresh_folder(cls, asset_dir: Path) -> None:
-        """Recompute one folder's status if its .pipeline/ changed since it
-        was cached: two stats when unchanged, nothing read."""
-        pipeline_dir = asset_dir / ".pipeline"
-        try:
-            tracking_mtime = os.stat(pipeline_dir / "tracking.json").st_mtime
-        except OSError:
-            return  # an owner folder with no tracking.json isn't tracked
-        try:
-            mtime = max(os.stat(pipeline_dir).st_mtime, tracking_mtime)
-        except OSError:
-            mtime = tracking_mtime
-        key = str(asset_dir)
-        if key in cls._cache and cls._cache[key][0] == mtime:
-            return
-        try:
-            cls._cache[key] = (mtime, cls._scan_and_compute(asset_dir))
-        except Exception as e:
-            log("WARNING", "tracking", f"Could not compute tracking for {asset_dir}: {e}")
-
-    @classmethod
     def known(cls, project_root: Path) -> list[tuple[str, dict]]:
-        """What's cached for project_root right now -- memory only, never
-        touches the disk. For draw(): ProjectScan fills it in the background."""
-        prefix = str(project_root)
-        return [(k, d) for k, d in cls._snapshot() if k.startswith(prefix)]
-
-    @classmethod
-    def _snapshot(cls) -> list[tuple[str, dict]]:
-        # Archived blocks filtered here, not at scan time.
+        """(asset_dir, status) for every non-archived folder cached under
+        project_root -- memory only, for draw(). ProjectScan fills it."""
         return [
             (key, data)
             for key, (_, data) in cls._cache.items()
-            if not data.get("archived")
+            if _is_under(key, project_root) and not data.get("archived")
         ]
 
 
 class ProjectScan:
-    """Background refresh of the whole project for Project monitoring: find
-    every folder owning a .pipeline/ under assets/library/shots, refresh its
-    tracking status, rebuild the linked-by index.
-
-    On a network share every disk call costs ~10-15 ms and a project holds
-    hundreds of folders -- done in one go from the popup's invoke(), this
-    froze Blender for minutes (the popup never even opened). Now:
-
-    - a reader thread does all the disk work: walking, stats, reading JSON
-      (_collect_folder(), _read_link_targets() -- pure os/json, they never
-      touch bpy, locks or the log, so running off the main thread is safe);
-    - a bpy.app.timers tick on the main thread drains its results and
-      applies them to the caches (memory only, a few ms), then redraws the
-      popup. Blender stays fully responsive; the table fills in as it goes.
-
-    Folders whose .pipeline/ is unchanged since they were last cached cost
-    two stats, nothing read."""
+    """Background refresh of the whole project for Project monitoring: every
+    tracked folder's status, and the linked-by index. A reader thread does
+    the disk work (pure os/json); a main-thread timer applies its results to
+    the caches. Folders whose .pipeline/ is unchanged since last cached cost
+    two stats, nothing read. See NOTES.md, "Popups on a network share"."""
 
     done = True
     owners_found = 0
@@ -321,11 +246,12 @@ class ProjectScan:
     def start(cls, project_root: Path) -> None:
         """Start a scan of project_root -- no-op if one for the same project
         is already running."""
-        if cls._thread is not None and cls._thread.is_alive() and cls._root == str(project_root):
+        if (
+            cls._thread is not None
+            and cls._thread.is_alive()
+            and cls._root == str(project_root)
+        ):
             return
-        import queue
-        import threading
-
         cls._root = str(project_root)
         cls._queue = queue.SimpleQueue()
         cls._owners = []
@@ -345,35 +271,15 @@ class ProjectScan:
         if not bpy.app.timers.is_registered(cls._tick):
             bpy.app.timers.register(cls._tick, first_interval=0.1)
 
-    @classmethod
-    def register_region(cls, region) -> None:
-        """Kept for API compatibility -- does nothing. Holding a popup's
-        region (context.region_popup) across timer ticks is unsafe: Blender
-        frees it when the popup closes, and tag_redraw() on a freed region
-        doesn't raise, it crashes Blender. The popup refreshes itself on the
-        next mouse move instead."""
-
     @staticmethod
     def _read_project(root: Path, known: dict, links: dict, out) -> None:
         """Reader thread: disk work only, results posted to `out`."""
         try:
             owners = []
-            stack = [(root / top, 0) for top in reversed(_DATA_ROOTS)]
-            while stack:
-                folder, depth = stack.pop()
-                try:
-                    entries = list(os.scandir(folder))
-                except OSError:
-                    continue
-                if _is_tracked_owner(folder, entries, depth):
-                    owners.append(folder)
+            for top in _DATA_ROOTS:
+                for owner in _walk_owner_dirs(root / top):
+                    owners.append(owner)
                     out.put(("found", len(owners)))
-                    continue
-                stack.extend(
-                    (Path(e.path), depth + 1)
-                    for e in sorted(entries, key=lambda e: e.name, reverse=True)
-                    if e.is_dir() and not e.name.startswith(".")
-                )
             out.put(("owners", owners))
 
             for owner in owners:
@@ -388,24 +294,43 @@ class ProjectScan:
                     tracking_mtime = os.stat(pipeline_dir / "tracking.json").st_mtime
                 except OSError:
                     tracking_mtime = None
-                status_mtime = None if tracking_mtime is None else max(dir_mtime, tracking_mtime)
-                need_status = tracking_mtime is not None and known.get(key) != status_mtime
+                status_mtime = (
+                    None if tracking_mtime is None else max(dir_mtime, tracking_mtime)
+                )
+                need_status = (
+                    tracking_mtime is not None and known.get(key) != status_mtime
+                )
                 need_links = links.get(key) != dir_mtime
-                entries = _pipeline_entries(owner) if (need_status or need_links) else []
+                entries = (
+                    _pipeline_entries(owner) if (need_status or need_links) else []
+                )
                 raw = _collect_folder(owner, entries) if need_status else None
-                targets = _read_link_targets(owner, root, entries) if need_links else None
-                out.put(("folder", key, status_mtime, raw, tracking_mtime is not None, dir_mtime, targets))
+                targets = (
+                    _read_link_targets(owner, root, entries) if need_links else None
+                )
+                out.put(
+                    (
+                        "folder",
+                        key,
+                        status_mtime,
+                        raw,
+                        tracking_mtime is not None,
+                        dir_mtime,
+                        targets,
+                    )
+                )
             out.put(("done",))
         except Exception as e:  # never die silently: the tick reports it
             out.put(("error", repr(e)))
 
     @classmethod
     def _tick(cls):
-        """Main thread: apply what the reader thread posted (memory only)."""
-        global _owner_dirs_walk, _linked_by_index, _linked_by_project
+        """Main thread: apply what the reader thread posted (memory only).
+        Never redraws the popup: holding its region across ticks crashes
+        Blender once it's closed (see NOTES.md, "Project walk")."""
+        global _linked_by_index, _linked_by_project
         if cls._queue is None:
             return None
-        import queue
 
         deadline = time.monotonic() + 0.01
         finished = False
@@ -421,14 +346,20 @@ class ProjectScan:
                 cls._owners = msg[1]
                 cls.owners_found = len(msg[1])
                 cls.phase = "status"
-                TrackingStatusCache._walked_root = cls._root
             elif kind == "folder":
                 _, key, status_mtime, raw, tracked, dir_mtime, targets = msg
                 if raw is not None:
                     try:
-                        TrackingStatusCache._cache[key] = (status_mtime, _status_from_raw(raw))
+                        TrackingStatusCache._cache[key] = (
+                            status_mtime,
+                            _status_from_raw(raw),
+                        )
                     except Exception as e:
-                        log("WARNING", "tracking", f"Could not compute tracking for {key}: {e}")
+                        log(
+                            "WARNING",
+                            "tracking",
+                            f"Could not compute tracking for {key}: {e}",
+                        )
                 elif not tracked:
                     TrackingStatusCache._cache.pop(key, None)
                 if targets is not None:
@@ -447,7 +378,11 @@ class ProjectScan:
             owner_keys = {str(o) for o in cls._owners}
             if owner_keys:
                 # Folders gone since an earlier scan of this project.
-                for key in [k for k in TrackingStatusCache._cache if k.startswith(root) and k not in owner_keys]:
+                for key in [
+                    k
+                    for k in TrackingStatusCache._cache
+                    if _is_under(k, root) and k not in owner_keys
+                ]:
                     del TrackingStatusCache._cache[key]
             index: dict[str, set[str]] = {}
             for key in owner_keys:
@@ -455,7 +390,6 @@ class ProjectScan:
                     index.setdefault(target, set()).add(key)
             _linked_by_index = index
             _linked_by_project = root
-            _owner_dirs_walk = (root, list(cls._owners), time.monotonic())
             cls.done = True
             cls.phase = ""
             cls._queue = None
@@ -608,8 +542,10 @@ def create_tracking(filepath: Path, departments: list, description: str = ""):
     folder. Safe to call again on one that already has one (e.g. adding a
     version): entries/departments_required are preserved, description is
     appended (not duplicated) rather than overwritten."""
+    if Path(filepath).suffix.lower() != ".blend":
+        raise PipelineError(f"Expected a .blend file, got {filepath}")
     try:
-        path = filepath.parent / ".pipeline" / "tracking.json"
+        path = tracking_json_path(filepath)
         path.parent.mkdir(parents=True, exist_ok=True)
         name = get_base_filename(filepath.name)
 
@@ -643,11 +579,7 @@ def create_tracking(filepath: Path, departments: list, description: str = ""):
 def get_departments_required(filepath: Path) -> list:
     """Return required departments stored in .pipeline/tracking.json."""
     try:
-        path = (
-            (filepath.parent if filepath.is_file() else filepath)
-            / ".pipeline"
-            / "tracking.json"
-        )
+        path = tracking_json_path(filepath)
         with locked_json(path, read_only=True) as box:
             data = box["data"] or {}
         return data.get("departments_required")
@@ -657,7 +589,7 @@ def get_departments_required(filepath: Path) -> list:
 
 def get_last_wipmeta(filepath: Path) -> dict | None:
     """Return last wipmeta file content of the pointing asset folder."""
-    path = (filepath.parent if filepath.is_file() else filepath) / ".pipeline"
+    path = _owner_dir(Path(filepath)) / ".pipeline"
     wipmetas = []
     for p in path.glob("*.wipmeta"):
         try:
@@ -855,14 +787,11 @@ def create_stablemeta(
     inherited linked libs, any conflict warning. Keyword-only: filepath/
     original_filepath are both Path, a positional call risks swapping them."""
     try:
-        original_stem = _meta_stem(original_filepath)
-        original_name = (
-            f"{original_stem}.wipmeta"
-            if not "-stable.blend" in original_filepath.name
-            else f"{original_stem}.stablemeta"
+        original_suffix = (
+            ".stablemeta" if "-stable.blend" in original_filepath.name else ".wipmeta"
         )
         with locked_json(
-            original_filepath.parent / ".pipeline" / original_name, read_only=True
+            _meta_path(original_filepath, original_suffix), read_only=True
         ) as box:
             wipdata = box["data"]
 
@@ -892,7 +821,7 @@ def set_department_validated(filepath: Path, department: str, validated: bool) -
     not tied to file content), mutating the *latest* .stablemeta in place.
     Raises PipelineError if the asset has no stable version yet -- nothing
     to mutate until create_stablemeta() has run at least once."""
-    asset_dir = filepath.parent if filepath.is_file() else filepath
+    asset_dir = _owner_dir(Path(filepath))
     last = get_last_stable(asset_dir)
     if "file" not in last:
         raise PipelineError(
@@ -928,10 +857,6 @@ def _entry_mtime(entry) -> datetime:
         return datetime.max  # unknown: never skipped
 
 
-# Pure reader, safe off the main thread -- see read_json_quiet().
-_read_json = read_json_quiet
-
-
 _DEFAULT_STABLE = {
     "created_at": datetime.min.isoformat(),
     "departments_validated": {},
@@ -944,7 +869,7 @@ def _latest_stable(entries: list) -> dict | None:
     Reads newest-first by file mtime and stops as soon as the remaining files
     are all older than the best created_at found (a meta's created_at can't
     be later than its own file's mtime) -- usually one read instead of one
-    per stable version ever made. Thread-safe (see _read_json())."""
+    per stable version ever made. Thread-safe (see read_json_quiet())."""
     stables = sorted(
         (e for e in entries if e.name.endswith(".stablemeta")),
         key=_entry_mtime,
@@ -953,9 +878,11 @@ def _latest_stable(entries: list) -> dict | None:
     best = None
     best_date = None
     for entry in stables:
-        if best_date is not None and _entry_mtime(entry) < best_date - timedelta(seconds=_CLOCK_MARGIN_SECONDS):
+        if best_date is not None and _entry_mtime(entry) < best_date - timedelta(
+            seconds=_CLOCK_MARGIN_SECONDS
+        ):
             break
-        data = _read_json(Path(entry.path))
+        data = read_json_quiet(Path(entry.path))
         if not data:
             continue
         try:
@@ -975,14 +902,16 @@ def get_last_stable(filepath: Path, entries: list | None = None) -> dict:
     return _latest_stable(entries) or dict(_DEFAULT_STABLE)
 
 
-def _collect_folder(asset_dir: Path, entries: list | None = None, wip_stem: str | None = None) -> dict | None:
+def _collect_folder(
+    asset_dir: Path, entries: list | None = None, wip_stem: str | None = None
+) -> dict | None:
     """Everything a folder's tracking status is computed from, read from
     disk: tracking.json, the latest stable, and only the wipmetas that can
     matter (changed after that stable -- the others are skipped by file
     mtime, never opened). None if there's no readable tracking.json.
-    Thread-safe (see _read_json()); wip_stem restricts to one version's
+    Thread-safe (see read_json_quiet()); wip_stem restricts to one version's
     wipmeta (TrackingStatusCache.get() on a .blend)."""
-    tracking = _read_json(asset_dir / ".pipeline" / "tracking.json")
+    tracking = read_json_quiet(asset_dir / ".pipeline" / "tracking.json")
     if tracking is None:
         return None
     if entries is None:
@@ -993,7 +922,7 @@ def _collect_folder(asset_dir: Path, entries: list | None = None, wip_stem: str 
     except ValueError:
         stable_date = datetime.min
     if wip_stem is not None:
-        wip = _read_json(asset_dir / ".pipeline" / f"{wip_stem}.wipmeta")
+        wip = read_json_quiet(asset_dir / ".pipeline" / f"{wip_stem}.wipmeta")
         wipmetas = [wip or {}]
     else:
         skip_before = (
@@ -1005,7 +934,7 @@ def _collect_folder(asset_dir: Path, entries: list | None = None, wip_stem: str 
         for entry in entries:
             if not entry.name.endswith(".wipmeta") or _entry_mtime(entry) < skip_before:
                 continue
-            data = _read_json(Path(entry.path))
+            data = read_json_quiet(Path(entry.path))
             if data:
                 wipmetas.append(data)
     return {"tracking": tracking, "last_stable": last_stable, "wipmetas": wipmetas}
@@ -1017,7 +946,9 @@ def _status_from_raw(raw: dict) -> dict:
     global_data = raw["tracking"]
     last_stable = raw["last_stable"]
     stable_date_str = last_stable.get("created_at")
-    stable_date = datetime.fromisoformat(stable_date_str) if stable_date_str else datetime.min
+    stable_date = (
+        datetime.fromisoformat(stable_date_str) if stable_date_str else datetime.min
+    )
 
     # Departments validated at the latest stable
     validated_departments = {
@@ -1112,11 +1043,7 @@ def set_description(filepath: Path, description: str) -> None:
     create_tracking()'s append-on-recreate behavior, this is a direct edit,
     it replaces whatever text was there."""
     try:
-        path = (
-            (filepath.parent if filepath.is_file() else filepath)
-            / ".pipeline"
-            / "tracking.json"
-        )
+        path = tracking_json_path(filepath, must_exist=True)
         with locked_json(path) as box:
             data = box["data"] or {}
             if not data:
@@ -1160,20 +1087,12 @@ def copy_entries(from_filepath: Path, to_filepath: Path) -> None:
     """Append every entry from from_filepath's tracking.json onto
     to_filepath's, as-is. from_filepath's own entries are untouched."""
     try:
-        old_path = (
-            (from_filepath.parent if from_filepath.is_file() else from_filepath)
-            / ".pipeline"
-            / "tracking.json"
-        )
+        old_path = tracking_json_path(from_filepath)
         with locked_json(old_path, read_only=True) as box:
             old_entries = (box["data"] or {}).get("entries", [])
         if not old_entries:
             return
-        new_path = (
-            (to_filepath.parent if to_filepath.is_file() else to_filepath)
-            / ".pipeline"
-            / "tracking.json"
-        )
+        new_path = tracking_json_path(to_filepath, must_exist=True)
         with locked_json(new_path) as box:
             data = box["data"] or {}
             data["entries"] = data.get("entries", []) + old_entries
@@ -1290,11 +1209,7 @@ def create_entry(
     shot: free-text tag (e.g. "045"), not validated against anything."""
     try:
         print(f"Creating entry {type} for {filepath} : {text} ({department})")
-        path = (
-            (filepath.parent if filepath.is_file() else filepath)
-            / ".pipeline"
-            / "tracking.json"
-        )
+        path = tracking_json_path(filepath, must_exist=True)
         with locked_json(path) as box:
             data = box["data"] or {}
 
@@ -1358,11 +1273,7 @@ def edit_entry(
     passing f_start=None clears a previously tagged frame_start/frame_end/
     frame_reference rather than leaving the old values in place."""
     try:
-        path = (
-            (filepath.parent if filepath.is_file() else filepath)
-            / ".pipeline"
-            / "tracking.json"
-        )
+        path = tracking_json_path(filepath, must_exist=True)
         with locked_json(path) as box:
             data = box["data"] or {}
             entries = data.get("entries")
@@ -1422,11 +1333,7 @@ def delete_entry(filepath: Path, id: str):
     longer exists, so they'd never resolve to any root and would never be
     shown again anyway -- dead data left behind in the JSON forever."""
     try:
-        path = (
-            (filepath.parent if filepath.is_file() else filepath)
-            / ".pipeline"
-            / "tracking.json"
-        )
+        path = tracking_json_path(filepath, must_exist=True)
         with locked_json(path) as box:
             data = box["data"] or {}
             entries = data["entries"]
@@ -1612,11 +1519,7 @@ def filter_review_boxes(
 def toggle_entry_task(filepath: Path, id: str, user: str):
     """Flip a todo/rtk entry (matched by id) between done and not done."""
     try:
-        path = (
-            (filepath.parent if filepath.is_file() else filepath)
-            / ".pipeline"
-            / "tracking.json"
-        )
+        path = tracking_json_path(filepath, must_exist=True)
         with locked_json(path) as box:
             data = box["data"] or {}
             entries = data["entries"]
@@ -1765,7 +1668,7 @@ def check_library_update():
 
 def get_last_file_stable(filepath: Path) -> Path | None:
     """Return the highest-numbered *-stable.blend in the owning asset folder, or None."""
-    path = filepath.parent if filepath.is_file() else filepath
+    path = _owner_dir(Path(filepath))
     stables = list(path.glob("*-stable.blend"))
     if stables:
         if len(stables) == 1:
@@ -1823,7 +1726,7 @@ def clean_libraries(linked: list[dict], libs: list[str]) -> list[dict]:
 def get_linked_libraries(filepath: Path) -> list[dict]:
     """This asset/shot's own linked-libraries list ({file, type, name}
     dicts) -- the latest wip's if one exists, else the latest stable's."""
-    asset_dir = filepath.parent if filepath.is_file() else filepath
+    asset_dir = _owner_dir(Path(filepath))
     wip = get_last_wipmeta(asset_dir)
     if wip:
         return wip.get("linked", [])
@@ -1837,8 +1740,7 @@ _linked_cache: dict[str, tuple[float, list, float]] = {}
 def get_linked_libraries_cached(filepath: Path) -> list[dict]:
     """get_linked_libraries() for draw(): keyed on the same .pipeline/ mtime
     as TrackingStatusCache (a new .wipmeta/.stablemeta bumps it), checked at
-    most every SCANDIR_TTL. Uncached, the file details popup globbed and read
-    every .wipmeta/.stablemeta of the folder on every redraw."""
+    most every SCANDIR_TTL."""
     folder = _owner_dir(Path(filepath))
     key = str(folder)
     now_t = time.monotonic()
@@ -1857,6 +1759,8 @@ def get_linked_libraries_cached(filepath: Path) -> list[dict]:
     return linked
 
 
+# Inverse links index, target folder key -> linker folders -- built by
+# ProjectScan, read by find_linked_by().
 _linked_by_index: dict[str, set[str]] = {}
 _linked_by_project: str | None = None
 # linker folder -> (.pipeline/ mtime, set of target folder keys it links to)
@@ -1865,20 +1769,19 @@ _linker_targets: dict[str, tuple[float, set[str]]] = {}
 
 def _path_key(path: Path | str) -> str:
     """Comparable form of a folder path: normpath (collapses "../" -- see
-    NOTES.md on resolve_bpy_path()) + normcase (case-insensitive on Windows).
-    Pure string work: resolve() did the "../" collapsing too, at two network
-    round-trips per call on Windows."""
+    NOTES.md on resolve_bpy_path()) + normcase (case-insensitive on
+    Windows). Pure string work, no resolve()."""
     return os.path.normcase(os.path.normpath(str(path)))
 
 
 def _read_link_targets(owner: Path, project_root: Path, entries: list) -> set[str]:
     """Target folder keys every .wipmeta/.stablemeta of `owner` links into.
-    Thread-safe (see _read_json())."""
+    Thread-safe (see read_json_quiet())."""
     targets: set[str] = set()
     for meta in entries:
         if not meta.name.endswith((".wipmeta", ".stablemeta")):
             continue
-        data = _read_json(Path(meta.path)) or {}
+        data = read_json_quiet(Path(meta.path)) or {}
         for link in data.get("linked", []):
             if link.get("file"):
                 file = Path(link["file"])
@@ -1887,51 +1790,19 @@ def _read_link_targets(owner: Path, project_root: Path, entries: list) -> set[st
     return targets
 
 
-def _folder_link_targets(owner: Path, project_root: Path) -> set[str]:
-    """_read_link_targets(), cached on owner's .pipeline/ mtime (any meta
-    written there replaces a file in it, which bumps it)."""
-    try:
-        mtime = os.stat(owner / ".pipeline").st_mtime
-    except OSError:
-        return set()
-    key = str(owner)
-    cached = _linker_targets.get(key)
-    if cached and cached[0] == mtime:
-        return cached[1]
-    targets = _read_link_targets(owner, project_root, _pipeline_entries(owner))
-    _linker_targets[key] = (mtime, targets)
-    return targets
-
-
-def refresh_linked_by_index(project_root: Path) -> None:
-    """Rebuild find_linked_by()'s inverse-links index (target folder ->
-    set of folders linking into it). Call once per popup open
-    (M_PIPELINE_OT_tracking_monitor.invoke(), alongside its
-    TrackingStatusCache.get_all(rescan=True)) -- find_linked_by() itself
-    only reads this index. Shares get_all()'s walk (_iter_owner_dirs()),
-    and only re-reads the metas of folders whose .pipeline/ changed."""
-    global _linked_by_index, _linked_by_project
-    index: dict[str, set[str]] = {}
-    for owner in _iter_owner_dirs(project_root):
-        for target in _folder_link_targets(owner, project_root):
-            index.setdefault(target, set()).add(str(owner))
-    _linked_by_index = index
-    _linked_by_project = str(project_root)
-
-
 def find_linked_by(project_root: Path, filepath: Path) -> list[Path]:
     """Every other asset/shot folder in the project with at least one link
     pointing into filepath's own folder -- matched by folder, not an exact
-    version (see NOTES.md). Reads refresh_linked_by_index()'s cached inverse
-    index; falls back to building it here (first use, or a stale project)
-    rather than returning nothing, but callers on a redraw path should
-    always have refreshed it once up front instead of relying on this."""
+    version (see NOTES.md). Memory only (called by draw()): reads the index
+    ProjectScan builds, and starts one -- returning [] -- if there's none
+    for this project yet."""
     if _linked_by_project != str(project_root):
-        # Never scan from here (it's called by draw()): the index comes from
-        # ProjectScan, started when the monitoring popup opens.
         ProjectScan.start(project_root)
         return []
     # A folder can hold many .wipmeta (one per version) -- the index already
     # collapses those into one set entry, so the same linking asset/shot
     # shows up once no matter how many of its versions link in.
-    return sorted(Path(p) for p in _linked_by_index.get(_path_key(_owner_dir(Path(filepath))), set()))
+    return sorted(
+        Path(p)
+        for p in _linked_by_index.get(_path_key(_owner_dir(Path(filepath))), set())
+    )

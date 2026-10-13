@@ -21,6 +21,7 @@ from ..lib import (
     log,
     now,
     process_alive,
+    read_json_quiet,
     retry_shared_io,
     to_absolute,
 )
@@ -47,13 +48,9 @@ def _heartbeat_age(heartbeat: str) -> int:
         return 10**9
 
 
-# Whether *this Blender instance* currently holds this machine's worker
-# role. Runtime state, in memory only. It used to live in Scene.is_worker:
-# a scene property is saved into the .blend, so a file saved while its
-# instance was a worker reopened showing "worker" when it wasn't -- and
-# is_blender_worker() set it True whenever the machine's worker file merely
-# existed, whoever owned it. Read by the UI through this_instance_is_worker(),
-# never from disk in a draw().
+# Whether *this Blender instance* holds this machine's worker role. Runtime
+# state, in memory only -- never a scene property, which would be saved into
+# the .blend (see NOTES.md, "Farm popup").
 _this_instance_worker = False
 
 
@@ -70,33 +67,48 @@ def this_instance_is_worker() -> bool:
 
 def _recover_previous_render(previous: dict) -> dict:
     """Worker file fields to start with, given what the previous worker of
-    this machine left in it. If it was mid-render (a Blender crash: no
-    clean status update ever came): the render process may well still be
-    running on its own -- adopt it by PID and keep "render" until it ends;
-    otherwise report it lost right away. Either way the monitor gets a
-    last_job_result "lost" for that dispatch, and re-dispatches the job
-    (check_render_completion()) -- the exit code of a process we didn't
-    start is unknowable, and placeholders make a re-render only fill in
-    what's missing."""
+    this machine left in it. If it was mid-render (a crash): adopt the
+    render by PID while it still runs, else report it "lost" right away --
+    either way the monitor re-dispatches it (see NOTES.md, "Crash
+    recovery")."""
     pid = previous.get("current_pid")
     job_id = previous.get("current_job_id")
     if previous.get("status") != "render" or not pid or not job_id:
         return {}
     dispatch_id = previous.get("current_dispatch_id")
     if process_alive(pid, "blender"):
-        _worker_active_processes[job_id] = AdoptedProcess(pid, "blender", dispatch_id=dispatch_id)
-        log("WARNING", "farm", f"Render of {job_id} outlived a crash (pid {pid}) -- waiting for it.")
-        return {key: previous.get(key) for key in (
-            "status", "current_job", "current_file", "current_pid",
-            "current_job_id", "current_dispatch_id",
-        )}
+        _worker_active_processes[job_id] = AdoptedProcess(
+            pid, "blender", dispatch_id=dispatch_id
+        )
+        log(
+            "WARNING",
+            "farm",
+            f"Render of {job_id} outlived a crash (pid {pid}) -- waiting for it.",
+        )
+        return {
+            key: previous.get(key)
+            for key in (
+                "status",
+                "current_job",
+                "current_file",
+                "current_pid",
+                "current_job_id",
+                "current_dispatch_id",
+            )
+        }
     log("WARNING", "farm", f"Render of {job_id} was lost in a crash -- reporting it.")
     return {"last_job_result": _lost_result(job_id, dispatch_id)}
 
 
 def _lost_result(job_id: str, dispatch_id: str | None) -> dict:
     """last_job_result for a render whose outcome can't be known."""
-    return {"job_id": job_id, "dispatch_id": dispatch_id, "success": False, "lost": True, "at": now()}
+    return {
+        "job_id": job_id,
+        "dispatch_id": dispatch_id,
+        "success": False,
+        "lost": True,
+        "at": now(),
+    }
 
 
 def launch_worker() -> bool:
@@ -115,11 +127,15 @@ def launch_worker() -> bool:
             if existing_pid and existing_pid != pid and not stale:
                 return False  # another Blender instance is already the worker
 
-        box["data"] = get_user_data(get_user()) | {
-            "status": "idle",
-            "current_job": None,
-            "last_heartbeat": now(),
-        } | _recover_previous_render(data)
+        box["data"] = (
+            get_user_data(get_user())
+            | {
+                "status": "idle",
+                "current_job": None,
+                "last_heartbeat": now(),
+            }
+            | _recover_previous_render(data)
+        )
         box["action"] = "to_write"
         register_farm_loop(get_active_project_root())
     _set_this_instance_worker(True)
@@ -129,10 +145,9 @@ def launch_worker() -> bool:
 def is_blender_worker() -> bool:
     """Whether this Blender process (pid) owns this machine's worker file.
     False (no crash) if there's no active project to resolve the file
-    against -- no project, no worker role. Read-only: it's polled every
-    farm tick and never writes. A read that fails (share hiccup, Windows
-    refusing an open for a moment) keeps the previous answer -- farm_tick()
-    stops the loop on False, same reasoning as is_blender_monitor()."""
+    against -- no project, no worker role. A read that fails keeps the
+    previous answer: farm_tick() stops the loop on False (same as
+    is_blender_monitor())."""
     try:
         worker_path = _worker_path()
     except PipelineError:
@@ -180,31 +195,39 @@ def update_worker_heartbeat():
         box["action"] = "to_write"
 
 
+def read_workers(workers_dir: Path) -> dict:
+    """{uuid: worker_data} for every worker file in workers_dir with a
+    recent heartbeat. Pure os/json, no lock (writes are atomic) -- safe on
+    a reader thread (farm.loop._read_farm_raw())."""
+    workers = {}
+    try:
+        files = [
+            e.path
+            for e in os.scandir(workers_dir)
+            if e.name.startswith("worker_") and e.name.endswith(".json")
+        ]
+    except OSError:
+        return workers
+    for f in files:
+        data = read_json_quiet(f) or {}
+        if _heartbeat_age(data.get("last_heartbeat", "")) < STALE_WORKER_SECONDS:
+            workers[data.get("uuid", "unknown")] = data
+    return workers
+
+
 _workers_cache: tuple[float, dict] | None = None
-# draw_farm_workers() calls this on every redraw of the farm popup's Workers
-# tab -- far more often than a heartbeat (refreshed once per farm_tick,
-# ~10s) can meaningfully change. Collapses that into at most one scan per
-# this many seconds (time.monotonic()), well under STALE_WORKER_SECONDS.
+# scan_workers() is also read by the Render dialog's machine enum (every
+# redraw): at most one scan per this many seconds, well under a heartbeat.
 _WORKERS_CACHE_TTL = 1.5
 
 
 def scan_workers() -> dict:
-    """Return {uuid: worker_data} for every worker with a recent heartbeat.
-    Read-only, zero retries: never takes or waits on a worker file's write
-    lock from the UI thread -- see _WORKERS_CACHE_TTL above for the
-    redraw-rate cache."""
+    """read_workers() for this project, cached _WORKERS_CACHE_TTL seconds."""
     global _workers_cache
     checked_at = time.monotonic()
     if _workers_cache and checked_at - _workers_cache[0] < _WORKERS_CACHE_TTL:
         return _workers_cache[1]
-    workers = {}
-    workers_dir = _worker_path(as_dir=True)
-    if workers_dir.exists():
-        for w in workers_dir.glob("worker_*.json"):
-            with locked_json(w, read_only=True, retries=0) as box:
-                data = box["data"] or {}
-                if _heartbeat_age(data.get("last_heartbeat", "")) < STALE_WORKER_SECONDS:
-                    workers[data.get("uuid", "unknown")] = data
+    workers = read_workers(_worker_path(as_dir=True))
     _workers_cache = (checked_at, workers)
     return workers
 
@@ -265,9 +288,8 @@ def execute_render_request() -> dict:
             project_root = get_active_project_root()
             templates_dir = Path(__file__).parent.parent / "templates"
             entry = templates_dir / "worker_render_entry.py"
-            # The parent's handle is closed as soon as the child has its own
-            # copy (the with block) -- it used to stay open for good, which
-            # on Windows also keeps the file from being deleted or moved.
+            # Closed as soon as the child has its own copy: an open handle
+            # keeps Windows from deleting or moving the file.
             log_file = open(log_path, "wb")
             with log_file:
                 p = subprocess.Popen(

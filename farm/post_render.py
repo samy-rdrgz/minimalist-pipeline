@@ -12,7 +12,6 @@ from ..lib import (
     resolve_ffmpeg,
     to_absolute,
 )
-from .dispatch import _active_processes as _active_processes
 from .dispatch import popen_logged, track_local_processes
 
 _EXTENSION_MAP = {
@@ -35,7 +34,6 @@ _EXTENSION_MAP = {
 def checks_images(job_path: Path):
     """Launch an ffmpeg pass over the rendered frame sequence to detect corrupted frames."""
     try:
-        global _active_processes
         with locked_json(to_absolute(job_path)) as box:
             data = box["data"] or {}
             ffmpeg_bin = resolve_ffmpeg()
@@ -115,7 +113,6 @@ def compilation(*, project_root: Path, job_path: Path, compilation_settings: str
     Keyword-only: project_root and job_path are both Path, a positional call
     risks silently swapping them."""
     try:
-        global _active_processes
         with locked_json(job_path) as box:
             data = box["data"] or {}
             # data["fps"]: the render's actual scene fps, captured at setup
@@ -216,7 +213,6 @@ def build_concat_command(
 
 def run_preview_compile(job_id: str, project_root: Path) -> None:
     """Launch ffmpeg to concat a preview job's resolved sources."""
-    global _active_processes
     job_path = ConfigCache.get_path("farm_actives") / f"{job_id}.json"
     try:
         with locked_json(job_path) as box:

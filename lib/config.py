@@ -34,9 +34,7 @@ def read_project_config(project_root: str) -> dict:
     config_file = get_config_filepath(project_root)
 
     try:
-        # Read-only, no wait, no exists() first: reading never needed the
-        # writer lock (it created and deleted a .lock file on the share just
-        # to read) -- writes are atomic (os.replace), see locked_json().
+        # Read-only, no wait: writes are atomic (see locked_json()).
         with locked_json(config_file, read_only=True, retries=0) as box:
             data = box["data"]
         if data is None:
@@ -98,11 +96,8 @@ class ConfigCache:
     _path: Path | None = None
     _checked_at: float = 0.0
     _path_cache: dict[tuple[str, str], Path] = {}
-    # get() is called many times per sidebar redraw (parse_filename(), the
-    # tag enum, every json_get(ConfigCache.get(), ...)), and each call used
-    # to stat() the config file -- a network round-trip on a share. Within
-    # this window the cached config is returned without touching the disk;
-    # a config edited on another machine shows up at most this much later.
+    # get() is called many times per redraw: within this window it returns
+    # the cached config without a stat (see NOTES.md, "Sidebar redraw").
     _VALIDATE_TTL = 2.0
 
     @classmethod
@@ -214,19 +209,13 @@ class ConfigCache:
             "monitor_file": f"{farm}/monitor.lock",
             "asset_preset_file": f"{presets}/asset_file_preset.py",
         }
+        # project_path(), not to_absolute(): a fixed sub-path of the root has
+        # nothing to resolve(). Memoized: called dozens of times per redraw.
         project_root = get_active_project_root()
-        if not project_root:
-            raise PipelineError("No active project to resolve a relative path against.")
-        # Plain join + normpath, no to_absolute()/Path.resolve(): resolve()
-        # costs two network round-trips on Windows (_getfinalpathname) on a
-        # share, and these are fixed sub-paths of the project root -- there
-        # is nothing to resolve. Memoized per (root, name): called dozens of
-        # times per sidebar redraw (ConfigCache.get(), parse_filename(),
-        # every lock/log path). See NOTES.md, "Sidebar redraw: 341 ms...".
         key = (str(project_root), name)
         path = cls._path_cache.get(key)
         if path is None:
-            path = Path(os.path.normpath(Path(project_root) / dictionary[name]))
+            path = project_path(dictionary[name], project_root)
             cls._path_cache[key] = path
         return path
 
@@ -346,12 +335,10 @@ def file_in_active_project(filepath: str, project_root: str | None = None) -> bo
     """True if filepath resolves inside project_path. Case-insensitive via a
     plain .lower() on both resolved strings -- os.path.normcase() is a no-op
     on POSIX (macOS included), so it wouldn't actually protect against a
-    casing mismatch there despite its name.
-    Memoized on the exact (filepath, project_root) pair: this is
-    M_PIPELINE_PT_file_panel.poll()'s own check, called on every sidebar
-    redraw candidate with the same two values between file opens -- each
-    Path.resolve() walks symlinks component by component, a network
-    round-trip per component on a mounted share."""
+    casing mismatch there despite its name. Memoized on the last
+    (filepath, project_root) pair: the file panel's poll() asks the same
+    thing on every redraw, and resolve() is a round-trip per component on
+    a share."""
     global _file_in_active_project_cache
     if project_root is None:
         project_root = get_active_project_root()
@@ -423,10 +410,8 @@ def to_relative(path: str | Path, project_root: Path | None = None) -> str:
 
 def project_path(rel_path: str | Path, project_root: Path | None = None) -> Path:
     """Absolute path for a project-relative one, by plain join + normpath --
-    pure string work, no disk access. For draw()/poll()/enum callbacks:
-    to_absolute() resolve()s, and a resolve is two network round-trips on
-    Windows (_getfinalpathname) on a share. Same result as to_absolute() for
-    anything inside the project that isn't reached through a symlink."""
+    no disk access, unlike to_absolute()'s resolve(). Same result for
+    anything inside the project not reached through a symlink."""
     path = Path(rel_path)
     if path.is_absolute():
         return Path(os.path.normpath(path))

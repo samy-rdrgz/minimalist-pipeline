@@ -37,7 +37,9 @@ try:
     config = lib.ConfigCache.get()
 
     if request["kind"] == "asset":
-        valid = lib.json_get(config, "assets_departments", lib.DEFAULT_ASSET_DEPARTMENTS)
+        valid = lib.json_get(
+            config, "assets_departments", lib.DEFAULT_ASSET_DEPARTMENTS
+        )
         departments = lib.resolve_batch_departments(
             row.get("departments", ""),
             default=lib.DEFAULT_ASSET_DEPARTMENTS,
