@@ -2,6 +2,54 @@
 
 All notable changes to this addon. Dates are release dates.
 
+## 1.0.8 — 2026-10-13
+
+### Fixed — render farm on a Windows network share
+
+- **Jobs no longer freeze mid-queue** (e.g. stuck in `setup_start`). On a
+  shared drive, Windows refused the monitor's heartbeat write whenever
+  another machine was reading `monitor.lock` (`WinError 5`/`32` in the log),
+  and that failure skipped the rest of the tick — job progress included.
+  Each tick step is now independent, and the heartbeat no longer depends
+  on that write: the file's own timestamp is refreshed every tick too, in
+  a way other machines' reads can't block, and the farm status reads
+  whichever is newer.
+- Shared-file writes and deletes retry briefly when Windows reports the file
+  as in use, instead of failing on the first attempt.
+- A monitor no longer stops silently after a single failed read of its own
+  lock file.
+- The render dialog's machine picker listed no worker at all ("Could not
+  list machines: 'name'" in the log).
+- **A job's setup could hang forever** on a production file: the setup
+  subprocess's error output went to a buffer nobody read until the process
+  ended, so a page of rig/driver warnings on load filled it and blocked
+  the process. Every farm process now writes to a log file instead — one
+  per job (`config/.farm/queue/requests/request_<job_id>.log`, all stages
+  in order), plus one per machine for renders. Logs are deleted when the
+  job ends well and kept when something failed, for inspection.
+- One unreadable or deleted job file no longer stops the farm from noticing
+  that the other jobs' processes have finished.
+- **Re-rendering the same file no longer reports it finished right away.**
+  The farm recognized the previous render's result as the new one's and
+  started the frame check and video compilation on frames still being
+  rendered. Each render now carries its own id.
+- On the machine that is both farm host and worker, a job's setup now waits
+  for the current render to end instead of loading a second scene alongside
+  it. Frame checks and compilations still run right away.
+
+### Changed — render farm after a crash
+
+- **A crash no longer leaves jobs to resubmit by hand.** When the Blender
+  running the farm or a worker crashes, the jobs it was handling are picked
+  up again on relaunch: a step still running is waited for, a step that
+  was cut short is redone, and an interrupted render is sent out again —
+  frames already rendered are kept, only the missing ones are rendered.
+  Previously these jobs were marked "orphaned" (setup, frame check,
+  compilation) or stayed stuck for good (preview, render). Works on
+  Windows, Linux and macOS.
+- A render whose worker stops responding for 3 minutes is sent to another
+  machine.
+
 ## 1.0.7 — 2026-10-12
 
 *Note: 1.0.5 and 1.0.6 were version-string bumps only — neither was tagged

@@ -3,16 +3,19 @@
 import datetime
 from pathlib import Path
 
-from ..lib import ConfigCache, log, now, to_relative
+from ..lib import ConfigCache, log, now, retry_shared_io, to_relative
 from .dispatch import (
     _active_processes,
     append_render_history,
+    discard_job_log,
+    job_log_path,
     local_slot_busy,
     locked_json,
+    read_process_log,
     render_dispatch,
 )
 from .post_render import checks_images, compilation
-from .workers import scan_workers
+from .workers import local_render_running, scan_workers
 
 
 def scan_requests() -> bool:
@@ -115,7 +118,11 @@ def scan_queue(project_root: Path) -> None:
                 pass
 
             elif stage == "queued":
-                if not local_slot_busy():
+                # Setup also waits for a render this same instance runs as a
+                # worker: both load the whole .blend. Only setup -- the
+                # ffmpeg stages are light and must not queue behind a whole
+                # render (see NOTES.md, "Re-rendering a file...").
+                if not local_slot_busy() and not local_render_running():
                     from .setup import run_render_setup
 
                     run_render_setup(data["job_id"], config)
@@ -130,6 +137,8 @@ def scan_queue(project_root: Path) -> None:
             elif stage in ("preview_finished", "preview_failed"):
                 # Before the generic "*failed" branch below.
                 mark_stage(job, "archived")
+                if stage == "preview_finished":
+                    discard_job_log(data["job_id"])
 
             elif stage == "setup_finished":
                 # A block fans out into one job per shot instead of rendering itself.
@@ -140,6 +149,7 @@ def scan_queue(project_root: Path) -> None:
             elif stage == "split_finished":
                 construct_split_history(data)
                 mark_stage(job, "archived")
+                discard_job_log(data["job_id"])  # the shots carry on as their own jobs
             elif stage == "render_start":
                 check_render_completion(job)
             elif stage == "render_finished":
@@ -158,6 +168,10 @@ def scan_queue(project_root: Path) -> None:
                 mark_stage(job, "finished")
                 construct_history(data, status="finished")
                 mark_stage(job, "archived")
+                # Ended well -- unless the frame check flagged corrupted
+                # frames: that list only lives in the log, keep it.
+                if not data.get("frames_corrupted"):
+                    discard_job_log(data["job_id"])
 
             elif stage.endswith("failed"):
                 construct_history(data, status="failed")
@@ -174,77 +188,150 @@ def scan_queue(project_root: Path) -> None:
             log("ERROR", "farm", f"Active job error: {e} ({job.name}).")
 
 
+# Where a job goes when the process running its *_start stage was lost (a
+# crash of the Blender instance tracking it) -- every one of these stages
+# is safe to redo: ffmpeg overwrites its own output, and setup is checked
+# on disk first (see resume_interrupted_stage()). render_start isn't here:
+# a render runs on a worker, recovered through its own last_job_result
+# ("lost") or its heartbeat -- see check_render_completion().
+_RESUME_STAGE = {
+    "checks_images_start": "render_finished",
+    "compilation_start": "checks_images_finished",
+    "preview_start": "preview_queued",
+}
+
+
+def resume_interrupted_stage(data: dict, reason: str) -> str | None:
+    """Rewind a job whose *_start stage lost its process, so the queue picks
+    it up again instead of leaving it stuck or "orphaned". Mutates data
+    (caller writes it back); returns the stage resumed to, or None if the
+    job wasn't in a resumable stage. A setup that got as far as writing its
+    result counts as finished -- redoing it would create a new output
+    folder (increment) for nothing."""
+    stage = data["stage_history"][-1]["stage"]
+    if stage == "setup_start":
+        resolved = data.get("resolved_frame_range")
+        done = data.get("split_into") or (resolved and tuple(resolved) != (0, 0))
+        target = "setup_finished" if done else "queued"
+    elif stage in _RESUME_STAGE:
+        target = _RESUME_STAGE[stage]
+    else:
+        return None
+    data["stage_history"].append({"stage": target, "at": now(), "resumed": reason})
+    data.pop("local_processes", None)
+    log(
+        "WARNING",
+        "farm",
+        f"Job {data.get('job_id')}: {stage} interrupted ({reason}) -- resumed at {target}.",
+    )
+    return target
+
+
 def scan_processes():
     """Poll all locally-tracked Popen processes; advance each job's stage
-    once its whole process group has finished."""
+    once its whole process group has finished. Output is read back from the
+    job's log (popen_logged()); the log itself is only deleted once the
+    whole job ends well (scan_queue())."""
     path = ConfigCache.get_path("farm_actives")
     for job_id, procs in list(_active_processes.items()):
-        errors = []
-        for p, ip in procs:
-            if p.poll() is None:  # not finished
-                break
-            else:
-                if p.poll() != 0:
-                    errors.append(ip)
+        # One job's failure must never stop the others from being polled --
+        # without this, a single unreadable job file raised every tick
+        # before the rest were reached, and none of them ever advanced.
+        try:
+            _finish_job_processes(job_id, procs, path / f"{job_id}.json")
+        except Exception as e:
+            log("ERROR", "farm", f"Could not update job {job_id} after its process ended: {e}")
 
-        else:
-            job_path = path / f"{job_id}.json"
+
+def _finish_job_processes(job_id: str, procs: list, job_path: Path) -> None:
+    """scan_processes() for one job: advance its stage once all of its
+    processes have exited. Raises on an unreadable/unwritable job file --
+    the processes stay tracked, so the next tick retries."""
+    if any(p.poll() is None for p, _ in procs):
+        return  # not finished yet
+
+    if any(getattr(p, "adopted", False) for p, _ in procs):
+        # Found again by PID after a crash (recover_interrupted_jobs()): its
+        # exit code is unknowable, so judge by what's on disk, not by it.
+        if job_path.exists():
             with locked_json(job_path) as box:
                 data = box["data"] or {}
-                stage = data["stage_history"][-1]["stage"]
+                if data.get("stage_history") and resume_interrupted_stage(
+                    data, "process outlived a crash"
+                ):
+                    box["action"] = "to_write"
+        _active_processes.pop(job_id, None)
+        return
 
-                if stage == "checks_images_start":
-                    for p, ip in procs:
-                        stderr_output = p.stderr.read() if p.stderr else ""
-                        corrupted = len(
-                            [
-                                line
-                                for line in stderr_output.splitlines()
-                                if line.strip()
-                            ]
-                        )
-                    data["frames_corrupted"] = corrupted
+    errors = [ip for p, ip in procs if p.poll() != 0]
 
-                elif stage == "setup_start":
-                    # exit code 0 doesn't guarantee the script ran fine --
-                    # check the frame range actually got written.
-                    resolved = data.get("resolved_frame_range")
-                    if not resolved or tuple(resolved) == (0, 0):
-                        errors.append("setup")
-                        stderr_output = "\n".join(
-                            p.stderr.read() if p.stderr else "" for p, _ in procs
-                        ).strip()
-                        log(
-                            "ERROR",
-                            "farm",
-                            f"Setup for job {job_id} never wrote a frame range "
-                            f"(subprocess likely failed before that point) -- "
-                            f"stderr: {stderr_output or '(empty)'}",
-                        )
+    if not job_path.exists():
+        # Archived or deleted by hand while its process ran: nothing left
+        # to update, and retrying would fail every tick forever.
+        _active_processes.pop(job_id, None)
+        log("WARNING", "farm", f"Job {job_id}: process ended but its job file is gone -- stopped tracking it.")
+        return
 
-                if not errors:  # job finished well
-                    data["stage_history"].append(
-                        {
-                            "stage": f"{stage.replace('_start', '')}_finished",
-                            "at": now(),
-                        }
-                    )
+    with locked_json(job_path) as box:
+        data = box["data"] or {}
+        stage = data["stage_history"][-1]["stage"]
 
-                else:  # job finished with errors
-                    data["stage_history"].append(
-                        {"stage": f"{stage.replace('_start', '')}_failed", "at": now()}
-                    )
+        if not stage.endswith("_start"):
+            # The job file moved on without us (hand-edited, or an
+            # older stage left behind) -- appending "<stage>_finished"
+            # to e.g. "queued" would invent a stage nothing handles
+            # ("queued_finished"), stuck forever. Just stop tracking.
+            log(
+                "WARNING",
+                "farm",
+                f"Job {job_id}: process finished but the job is at '{stage}', "
+                f"not a *_start stage -- result ignored.",
+            )
+        else:
+            if stage == "checks_images_start":
+                # ffmpeg -v error: one non-empty line per corrupted frame.
+                corrupted = sum(
+                    1
+                    for p, _ in procs
+                    for line in read_process_log(p).splitlines()
+                    if line.strip()
+                )
+                data["frames_corrupted"] = corrupted
 
+            elif stage == "setup_start":
+                # exit code 0 doesn't guarantee the script ran fine --
+                # check the frame range actually got written.
+                resolved = data.get("resolved_frame_range")
+                if not resolved or tuple(resolved) == (0, 0):
+                    errors.append("setup")
+                    tail = "\n".join(read_process_log(p) for p, _ in procs).strip()
                     log(
-                        "WARNING",
+                        "ERROR",
                         "farm",
-                        f"Stage {stage} ends with errors for job_id {job_id}.",
+                        f"Setup for job {job_id} never wrote a frame range "
+                        f"(subprocess likely failed before that point) -- "
+                        f"last output: {tail[-1500:] or '(empty)'}",
                     )
 
-                data["used_machines"] = []
-                box["action"] = "to_write"
+            outcome = "failed" if errors else "finished"
+            data["stage_history"].append(
+                {"stage": f"{stage.replace('_start', '')}_{outcome}", "at": now()}
+            )
+            if errors:
+                log(
+                    "WARNING",
+                    "farm",
+                    f"Stage {stage} ends with errors for job_id {job_id} "
+                    f"-- see {job_log_path(job_id).name}.",
+                )
 
-                _active_processes.pop(job_id)
+            data["used_machines"] = []
+            data.pop("local_processes", None)
+            box["action"] = "to_write"
+
+    # Only once the job file is actually written: if that write fails,
+    # the processes stay tracked and the next tick tries again.
+    _active_processes.pop(job_id, None)
 
 
 def _stage_time(stage_history: list, stage_name: str) -> datetime.datetime | None:
@@ -299,34 +386,106 @@ def construct_split_history(job: dict) -> None:
     append_render_history(job["filepath"], entry)
 
 
+def _is_this_render(result: dict | None, data: dict) -> bool:
+    """Whether a worker's last_job_result is about *this* render of the job,
+    not an earlier one: re-rendering the same file reuses its job id (a
+    hash of file + preset + shot), so the job id alone matched the previous
+    render's result and marked the new one finished right away."""
+    if not result or result.get("job_id") != data.get("job_id"):
+        return False
+    if result.get("dispatch_id") and data.get("dispatch_id"):
+        return result["dispatch_id"] == data["dispatch_id"]
+    # A side without dispatch_id (worker or monitor on an older version):
+    # fall back to "finished after this render was dispatched". Two
+    # machines' clocks -- see now().
+    started = _last_stage_time(data.get("stage_history", []), "render_start")
+    try:
+        return started is None or datetime.datetime.fromisoformat(result["at"]) >= started
+    except (KeyError, TypeError, ValueError):
+        return False
+
+
+# A worker silent this long is gone (crashed, machine off), not just slow --
+# well past STALE_WORKER_SECONDS (a missed beat or two) and a Blender
+# restart, so a worker that comes back quickly reports its own lost render
+# instead (launch_worker() -> last_job_result "lost").
+WORKER_GONE_SECONDS = 180
+
+
+def _worker_gone(uuid: str) -> bool:
+    """Whether worker uuid hasn't heartbeat for WORKER_GONE_SECONDS (or its
+    file is gone). Reads the file directly: scan_workers() drops a worker
+    after only STALE_WORKER_SECONDS."""
+    path = ConfigCache.get_path("workers") / f"worker_{uuid}.json"
+    try:
+        with locked_json(path, read_only=True, retries=0) as box:
+            data = box["data"] or {}
+    except (OSError, ValueError):
+        return False  # can't tell this tick -- don't act on it
+    if not data:
+        return True
+    try:
+        last = datetime.datetime.fromisoformat(data.get("last_heartbeat", ""))
+    except ValueError:
+        return True
+    return (now(False) - last).total_seconds() > WORKER_GONE_SECONDS
+
+
 def check_render_completion(job_path: Path) -> None:
     """Monitor-only: cross-check used_machines against each worker's declared
-    state. No worker ever writes this job file for this stage."""
+    state. No worker ever writes this job file for this stage. A render
+    whose worker lost it (crashed and came back -> result "lost", or never
+    came back -> WORKER_GONE_SECONDS) is sent back to setup_finished and
+    re-dispatched: renders run with placeholders and no overwrite, so the
+    new one only renders the frames still missing."""
     with locked_json(job_path) as box:
         data = box["data"]
         if data["stage_history"][-1]["stage"] != "render_start":
             return data
 
-        workers = (
-            scan_workers()
-        )  # read-only, each worker file is already locked individually
+        workers = scan_workers()  # read-only, cached -- see its docstring
         still_running = []
+        lost = []
         any_failed = False
 
         for uuid in data.get("used_machines", []):
             w = workers.get(uuid)
             result = (w or {}).get("last_job_result")
-            if result and result["job_id"] == data["job_id"]:
-                if not result["success"]:
+            if _is_this_render(result, data):
+                if result.get("lost"):
+                    lost.append(uuid)
+                elif not result["success"]:
                     any_failed = True
-                # else: this worker did finish THIS job successfully, treat it
-                # as handled and don't put it back in still_running
+                # else: this worker did finish THIS render successfully
+            elif w is None and _worker_gone(uuid):
+                lost.append(uuid)
             else:
-                still_running.append(uuid)  # worker not found/stale -- see reconcile
+                still_running.append(uuid)
 
         if any_failed:
             data["stage_history"].append({"stage": "render_failed", "at": now()})
             box["action"] = "to_write"
+        elif lost:
+            # A request the lost worker never picked up would otherwise run
+            # whenever it comes back, for a dispatch nobody waits on anymore.
+            for uuid in lost:
+                request = ConfigCache.get_path("farm_requests") / f"request_{data['job_id']}_{uuid}.json"
+                try:
+                    retry_shared_io(request.unlink)
+                except OSError:
+                    pass
+            data["stage_history"].append(
+                {"stage": "setup_finished", "at": now(), "resumed": "render lost by a worker"}
+            )
+            data["used_machines"] = []
+            data.pop("dispatch_id", None)
+            box["action"] = "to_write"
+            log(
+                "WARNING",
+                "farm",
+                f"Job {data['job_id']}: render lost on {', '.join(u[:8] for u in lost)} "
+                f"-- re-dispatching (frames already rendered are kept).",
+            )
         elif not still_running:
             data["stage_history"].append({"stage": "render_finished", "at": now()})
             box["action"] = "to_write"

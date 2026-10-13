@@ -53,6 +53,7 @@ from .config import (
     type_by_folder,
 )
 from .core import (
+    AdoptedProcess,
     addon_pref,
     draw_box_tip,
     get_addon_version,
@@ -63,12 +64,14 @@ from .core import (
     locked_json,
     now,
     path_reachable,
+    process_alive,
     random_display_name,
     read_csv,
     region_char_budget,
     resolve_bpy_path,
     resolve_ffmpeg,
     responsive_layout,
+    retry_shared_io,
     safe_icon,
     text_field,
     text_to_lines,

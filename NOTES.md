@@ -1227,6 +1227,205 @@ while also having another call site that deliberately passes a real value
 -- `SKIP_SAVE` is the fix, not resetting it by hand in `invoke()` (that
 would also wipe a value a caller *did* just pass in).
 
+## Windows: replace/delete refused while a reader has the file open
+
+Studio-only symptom (never at home): the farm monitor logged `[WinError 5]
+Accès refusé: 'monitor.lock.tmp' -> 'monitor.lock'` and `[WinError 32] ...
+'.monitor.lock.lock'` every few ticks, and a job sat in `setup_start` long
+after its setup subprocess had finished.
+
+**Not a permissions problem** -- the same write succeeds a tick later.
+Python maps both `ERROR_ACCESS_DENIED` (5) and `ERROR_SHARING_VIOLATION`
+(32) to `PermissionError`. `os.replace()` has to open the *target* with
+DELETE access (the old file goes away), and Python's `open()` never passes
+`FILE_SHARE_DELETE`, so any reader holding the target open at that moment
+makes the rename fail -- and Windows reports that case as 5, not 32. Over
+SMB the window is wider than Python's own `open()`/`close()`: the client
+may keep the handle open server-side a little after `close()` (handle
+caching under SMB2 leases), so even millisecond reads every 2 s from a few
+machines' farm popups collided with the monitor's every-10 s rewrite most
+of the time. A local disk has none of this, hence "works at home".
+
+**Why the job froze**: `monitor_tick()` ran the heartbeat write and then
+`scan_processes()`/`scan_queue()` in one `try` -- a failed heartbeat
+skipped both, and `scan_processes()` is what moves `setup_start` to
+`setup_finished`. The loop kept ticking, it just did almost nothing.
+
+What changed, cheapest to most structural:
+
+- **Each tick step has its own `try`** (requests, heartbeat, processes,
+  queue). A failed heartbeat now costs at most a "stale" label, never the
+  queue.
+- **Heartbeat in two layers.** The content's `update_tick` is still
+  rewritten every tick -- readable by eye, and what older addons read --
+  but best effort: one lock attempt, one replace attempt
+  (`locked_json(..., retries=1, io_attempts=1)`), failure ignored. Right
+  after, `os.utime()` bumps the file's mtime: attribute-only access,
+  which Windows' share-mode check ignores, so no reader's open handle can
+  refuse it. Readers take the newer of the two (`monitor_last_tick()` in
+  `farm/loop.py`, status thresholds in `monitor_age_status()`). Rejected:
+  mtime only, content written once -- would have made the file's own
+  `update_tick` meaningless to anyone reading it, and shown a running farm
+  as stale to any machine on an older version. Same clock caveat either
+  way: both stamps come from the monitor machine's clock.
+- **`retry_shared_io()`** (`lib/core.py`): `os.replace`/`os.remove`/lock
+  `unlink` retry on `PermissionError` (5 x 0.1 s) before giving up --
+  covers the other shared files with the same exposure (job files written
+  by the setup subprocess while popups read them, incoming requests).
+  A failed replace no longer leaves its `.tmp` behind.
+- **`release_lock()` never raises** (it runs from `locked_json()`'s
+  `finally`, a raise there masked the caller's own outcome) -- a lock it
+  couldn't delete just goes stale.
+- **`_is_unlock()`**: a lock file that raises `PermissionError` on read is
+  "held", not "corrupt" -- treating it as stale let a writer steal a live
+  lock mid-deletion.
+- **`is_blender_monitor()`** keeps its previous answer when the read fails
+  instead of returning False: `farm_tick()` deregisters the whole loop on
+  False, so one refused read used to kill the monitor silently (header
+  went Stale then Dead, nothing in the log).
+
+## Farm subprocess output: files, never pipes
+
+Studio symptom: a block's setup sat in `setup_start` for good, its
+`blender -b` subprocess still alive (`poll()` → `None`) and the job JSON
+never written. Reading `p.stderr` by hand from the console unblocked it and
+it finished cleanly -- the process had been **blocked writing to a full
+pipe**. `run_render_setup()` captured stderr with `PIPE` "for
+`scan_processes()` to log on failure", but nothing reads a pipe until the
+process has exited; a pipe holds ~4 KB on Windows, and a production block
+with linked rigs prints a page of depsgraph/driver warnings on load
+("Failed to add relation 'Copy Transforms'", "Error in PyDriver"). Over
+the limit, the child's next write blocks forever. Test scenes at home
+never print that much, so it never showed there. `checks_images()` had
+the same exposure (ffmpeg writes one stderr line per corrupted frame).
+
+Fix: every farm subprocess writes to a file (`popen_logged()`,
+`farm/dispatch.py`); `scan_processes()` reads it back once the process has
+exited (`read_process_log()`).
+
+- **One log per job**, `requests/request_<job_id>.log`: setup,
+  checks_images, compilation and preview all append to it under a
+  `===== <stage> <time> =====` header (they run one at a time on the
+  monitor machine). Each Popen remembers the offset its own section starts
+  at, so the frame check counts only its own lines.
+- **Worker renders keep one file per machine**,
+  `request_<job_id>_<uuid>.log`: several machines can render one job at the
+  same time, and concurrent appends from different machines to one file on
+  a share interleave. The worker used to leave its handle on that file open
+  for good (`stdout=open(...)` inline) -- now closed right after `Popen`.
+- **Deleted when it ended well, kept otherwise**: the job log on `finished`
+  (unless the frame check found corrupted frames -- that list lives only in
+  the log), `split_finished` and `preview_finished`; a worker's render log
+  when its render exits 0. Anything failed keeps its log, and `archive()`
+  moves `request_<job_id>*.log` along with the job.
+- The parent closes its handle as soon as the child has its own copy --
+  otherwise Windows can't delete the file afterwards.
+
+Found alongside, fixed in the same pass:
+
+- `scan_processes()` appended `"<last stage minus _start>_finished"`
+  whatever the last stage was -- a job hand-edited back to `queued` while
+  its old setup process was still tracked became `queued_finished`, a stage
+  nothing handles. It now only advances a `*_start` stage, and stops
+  tracking the process otherwise.
+- It popped the job from `_active_processes` *before* its job-file write
+  committed; a refused write lost the process for good and froze the job.
+  Now popped only after the write.
+- No `try` per job: one unreadable job file raised every tick before the
+  other jobs were reached, so none of their processes was ever seen to
+  finish. Each job now goes through `_finish_job_processes()` in its own
+  `try`; a job whose file is gone just stops being tracked.
+- `run_render_setup()` called `mark_stage(job_path, "setup_failed")` from
+  inside its own `locked_json(job_path)` -- waiting on its own lock, then
+  raising. Now records the failure in the same transaction.
+
+## Re-rendering a file: match the render, not the job
+
+A job id is `_file_key()` = hash(file + preset + shot_override), on
+purpose: it's the dedup key, so a double submit of a file already in
+flight waits instead of rendering twice. Putting the submit time in it
+would drop that protection.
+
+The catch: re-rendering the same file later reuses the id. The worker's
+`last_job_result` still said `{job_id: X, success: True}` from the
+previous render, and `check_render_completion()` matched on `job_id`
+alone -- so the tick after dispatching the new render saw "done", moved to
+`render_finished`, and ran the frame check and compilation on frames
+still being rendered.
+
+Fix: `render_dispatch()` stamps a `dispatch_id` (random, per dispatch) on
+the job; `render_request()` copies it into every request; the worker
+echoes it back in `last_job_result` (and in a cancelled result).
+`_is_this_render()` compares `dispatch_id`. If either side has none
+(a worker or monitor on an older version), it falls back to "result
+stamped after this job's `render_start`" -- two machines' clocks, same
+caveat as everywhere else (`now()`).
+
+### Setup waits for a local render; ffmpeg stages don't
+
+`local_slot_busy()` only counts the monitor's own processes, not a render
+the same Blender instance runs as a worker -- so on the machine that is
+both, a setup (a whole second `.blend` loaded) could start mid-render.
+`scan_queue()` now also holds `queued` → setup while
+`local_render_running()`. Only setup: making the frame check/compilation
+wait too would queue job A's post-render steps behind job B's entire
+render (B gets dispatched to the freed worker in the same tick). Only
+covers a worker in the same instance as the monitor -- a worker in a
+second Blender on the same machine isn't visible from here.
+
+## Crash recovery: resume, don't orphan
+
+When the Blender instance running the farm dies (crash, kill), its child
+processes don't: on Windows, Linux and macOS alike a child outlives its
+parent. Setup, ffmpeg and renders finish their work and write it to disk --
+only the *tracking* is lost (`_active_processes`,
+`_worker_active_processes`, both in memory). What happened at relaunch
+before:
+
+| stage at the crash | then |
+|---|---|
+| `setup_start`, `checks_images_start`, `compilation_start` | marked `orphaned` -- terminal, manual resubmit, even if the process had finished fine |
+| `preview_start` | not in that list: stuck for good |
+| `render_start`, worker in the crashed instance | nobody ever publishes its `last_job_result`: stuck for good |
+
+Now:
+
+- **PIDs are recorded** in the job file at launch
+  (`track_local_processes()`: `local_processes = {machine, pids:
+  [[pid, name]]}`) and in the worker file for a render (`current_pid`,
+  `current_job_id`, `current_dispatch_id`).
+- **`process_alive(pid, name_hint)`** (`lib/core.py`), stdlib only:
+  Windows `OpenProcess`/`GetExitCodeProcess` via `ctypes`, POSIX
+  `os.kill(pid, 0)` + `ps` (zombie = dead). The name hint ("blender",
+  "ffmpeg") guards against PID reuse by an unrelated program. A PID
+  recorded on another machine can't be checked -- treated as gone.
+- **Monitor relaunch** (`recover_interrupted_jobs()`, replaces
+  `detect_orphaned_jobs()`): a local `*_start` job whose process is still
+  alive is **adopted** (`AdoptedProcess`, polled by PID) and judged when it
+  ends; otherwise it's **resumed** right away
+  (`resume_interrupted_stage()`): setup → `setup_finished` if it already
+  wrote its result (frame range or split), else `queued`; checks →
+  `render_finished`; compilation → `checks_images_finished`; preview →
+  `preview_queued`. All of these are safe to redo -- ffmpeg overwrites its
+  own output; setup is checked on disk first because redoing it would
+  create a new output folder (increment). An adopted process's exit code
+  can't be known (it isn't our child), so its end goes through the same
+  resume rule, never straight to finished/failed.
+- **Worker relaunch** (`_recover_previous_render()` in `launch_worker()`):
+  if the previous worker of this machine was mid-render, adopt the render
+  by PID while it runs, then (or right away if it's gone) publish
+  `last_job_result = {lost: True, dispatch_id}`.
+- **Monitor side** (`check_render_completion()`): a `lost` result for this
+  dispatch, or a worker silent for `WORKER_GONE_SECONDS` (180 s -- well past
+  a missed beat or a Blender restart), sends the job back to
+  `setup_finished`: it's re-dispatched. Renders run with placeholders and
+  no overwrite (`worker_render_entry.py`), so the new render only fills in
+  the frames still missing -- no need to know whether the lost one
+  finished. A pending request the lost worker never picked up is deleted,
+  so it can't run later for a dispatch nobody waits on.
+
+Old jobs already marked `orphaned` stay that way (terminal).
+
 <!-- Next feature with rationale worth keeping gets its own "## " section
      here, same shape as the ones above: what was tried, what was
      rejected and why, anything a docstring is too short to hold. -->

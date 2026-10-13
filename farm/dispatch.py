@@ -3,11 +3,105 @@ several, depending on render_mode."""
 
 import json
 import subprocess
+from uuid import uuid4
 from pathlib import Path
 
-from ..lib import locked_json, log, now, to_absolute
+from ..lib import (
+    ConfigCache,
+    get_machine_id,
+    locked_json,
+    log,
+    now,
+    retry_shared_io,
+    to_absolute,
+)
 
 _active_processes: dict[str, list[tuple[subprocess.Popen, str]]] = {}
+
+
+# ---------------------------------------------------------------------------
+# Per-job process log
+# ---------------------------------------------------------------------------
+# Every farm subprocess writes its output to a file, never to a PIPE: a pipe
+# nobody reads while the process runs fills up (~4 KB on Windows) and the
+# child blocks on its next write, forever -- a setup subprocess sat in
+# setup_start that way, stuck on a page of rig/driver warnings.
+# One file per job, request_<job_id>.log: every stage this machine runs
+# (setup, checks_images, compilation, preview) appends to it under its own
+# header -- they're sequential, never two at once. Deleted when the job ends
+# well (discard_job_log(), from scan_queue()), kept on any failure. Worker
+# renders keep one file per machine (request_<job_id>_<uuid>.log): several
+# machines may render the same job at once, and concurrent appends from
+# different machines into one file on a share interleave. archive() moves
+# both. See NOTES.md, "Farm subprocess output: files, never pipes".
+
+
+def job_log_path(job_id: str) -> Path:
+    """The job's own log, shared by every stage this machine runs for it."""
+    return ConfigCache.get_path("farm_requests") / f"request_{job_id}.log"
+
+
+def popen_logged(cmd: list, job_id: str, stage: str, *, merge_stdout: bool = True):
+    """subprocess.Popen with the child's stderr (and stdout, if merge_stdout)
+    appended to job_log_path(job_id), after a header naming the stage. The
+    parent's own handle is closed right away -- the child has its own copy
+    -- so Windows can delete the file once the child exits. Keeps the path
+    and the offset where this stage's output starts on the Popen
+    (.log_path/.log_offset) for read_process_log()."""
+    log_path = job_log_path(job_id)
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(log_path, "ab") as f:
+        f.write(f"\n===== {stage} {now()} =====\n".encode("utf-8"))
+        f.flush()
+        offset = f.tell()
+        proc = subprocess.Popen(
+            [str(c) for c in cmd],
+            stdout=f if merge_stdout else subprocess.DEVNULL,
+            stderr=subprocess.STDOUT if merge_stdout else f,
+            stdin=subprocess.DEVNULL,
+        )
+    proc.log_path = log_path
+    proc.log_offset = offset
+    proc.name_hint = Path(str(cmd[0])).stem.lower()  # "blender", "ffmpeg"
+    return proc
+
+
+def track_local_processes(data: dict, procs: list) -> None:
+    """Start tracking a job's local processes: in memory for
+    scan_processes(), and in the job's own data (caller writes it back) so
+    a monitor restarted after a crash can find them again by PID instead of
+    assuming them dead -- see recover_interrupted_jobs()."""
+    _active_processes[data["job_id"]] = procs
+    data["local_processes"] = {
+        "machine": get_machine_id(),
+        "pids": [[p.pid, getattr(p, "name_hint", "")] for p, _ in procs],
+    }
+
+
+def read_process_log(proc) -> str:
+    """Text a finished popen_logged() process wrote -- its own stage only,
+    not the earlier ones in the same job log. "" if none/unreadable."""
+    path = getattr(proc, "log_path", None)
+    if not path:
+        return ""
+    try:
+        with open(path, "rb") as f:
+            f.seek(getattr(proc, "log_offset", 0))
+            return f.read().decode("utf-8", errors="replace")
+    except OSError:
+        return ""
+
+
+def discard_job_log(job_id: str) -> None:
+    """Delete the job's log -- it ended well. Best effort: a log that can't
+    be deleted is just left behind (archive() still moves it)."""
+    try:
+        retry_shared_io(job_log_path(job_id).unlink)
+    except FileNotFoundError:
+        pass
+    except OSError as e:
+        log("WARNING", "farm", f"Could not delete log for {job_id}: {e}")
+
 
 from .workers import render_request, scan_render_requests, scan_workers
 
@@ -53,6 +147,13 @@ def render_dispatch(job_path: Path) -> None:
         )
 
         cmd_flags = ["-s", str(fs), "-e", str(fe)]
+        # Identifies this render, not the job: a job id is a hash of
+        # file + preset + shot, so re-rendering the same file reuses it, and
+        # a worker's last_job_result from the previous render would read as
+        # this one already done (check_render_completion()). Copied into
+        # each render request (render_request() merges job_data), echoed
+        # back by the worker in last_job_result.
+        job_data["dispatch_id"] = uuid4().hex[:12]
         if single_machine:
             render_request(job_data, list(avaliable_machines)[0], cmd_flags)
         else:

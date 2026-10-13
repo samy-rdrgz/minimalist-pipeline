@@ -8,17 +8,24 @@ from datetime import datetime
 from pathlib import Path
 
 from ..lib import (
+    AdoptedProcess,
     ConfigCache,
     PipelineError,
     get_machine_id,
     get_user_data,
-    json_get,
     locked_json,
     log,
     now,
+    process_alive,
     to_relative,
 )
-from .loop import get_running_project, register_farm_loop, set_running_project
+from .loop import (
+    get_running_project,
+    monitor_age_status,
+    monitor_last_tick,
+    register_farm_loop,
+    set_running_project,
+)
 from .queue import scan_processes, scan_queue, scan_requests
 
 _monitor_cache: dict = {
@@ -63,11 +70,8 @@ def launch_monitor(
     with locked_json(path) as box:
         data = box["data"]
         if data:  # lock exists
-            last_tick = datetime.fromisoformat(data.get("update_tick", ""))
-            stale_threshold = json_get(
-                ConfigCache.get(), "farm.stale_monitor_seconds", 90
-            )
-            is_stale = (now(False) - last_tick).total_seconds() > stale_threshold
+            last_tick = monitor_last_tick(path, data) or datetime.min
+            is_stale = monitor_age_status(last_tick) != "running"
 
             if not is_stale:
                 raise PipelineError(f"Monitor role already taken by {data['user']}.")
@@ -80,25 +84,43 @@ def launch_monitor(
 
         register_farm_loop(project_root, interval)
 
-        detect_orphaned_jobs()
+        recover_interrupted_jobs()
 
+        # Heartbeat from here on: see monitor_tick() (best-effort rewrite of
+        # update_tick + os.utime() on this file).
         box["data"] = get_user_data(user) | {"start_time": now(), "update_tick": now()}
         box["action"] = "to_write"
 
 
+_last_is_monitor = False
+
+
 def is_blender_monitor() -> bool:
-    """Whether this Blender process (pid + machine uuid) owns monitor.lock."""
-    lock_path = ConfigCache.get_path("monitor_file")
-    pid = os.getpid()
-    uuid = get_machine_id()
+    """Whether this Blender process (pid + machine uuid) owns monitor.lock.
+    Read-only: monitor.lock's content never changes while a monitor runs, so
+    there's nothing to lock against. A read that fails (network hiccup,
+    Windows refusing an open for a moment) keeps the previous answer instead
+    of returning False -- farm_tick() stops the whole loop on False, and
+    "couldn't check this tick" must never mean "not the monitor anymore"."""
+    global _last_is_monitor
     try:
-        if lock_path.exists():
-            with locked_json(lock_path) as box:
-                data = box["data"] or {}
-                return data.get("pid", "") == pid and data.get("uuid", "") == uuid
+        lock_path = ConfigCache.get_path("monitor_file")
+    except PipelineError:
+        _last_is_monitor = False  # no active project, no monitor role
         return False
-    except Exception:
-        return False
+    try:
+        if not lock_path.exists():
+            _last_is_monitor = False
+            return False
+        with locked_json(lock_path, read_only=True, retries=0) as box:
+            data = box["data"] or {}
+        _last_is_monitor = (
+            data.get("pid", "") == os.getpid()
+            and data.get("uuid", "") == get_machine_id()
+        )
+    except (OSError, ValueError) as e:
+        log("WARNING", "farm", f"Could not read monitor.lock, keeping last state: {e}")
+    return _last_is_monitor
 
 
 def monitor_tick(project_root: Path):
@@ -116,22 +138,58 @@ def monitor_tick(project_root: Path):
             log("ERROR", "farm", f"Error while clearing monitor.lock on stop: {e}")
         return
 
+    # Each step in its own try: one failing step (typically a file another
+    # machine holds open for a moment, see retry_shared_io()) must never
+    # skip the others -- a failed heartbeat used to skip scan_processes()/
+    # scan_queue() too, freezing every job at its current stage.
+    path = ConfigCache.get_path("monitor_file")
+    kill_received = False
     try:
-        path = ConfigCache.get_path("monitor_file")
-        with locked_json(path) as box:
-            kill_received = scan_requests()
-            if kill_received:
-                stop_monitor_loop()
+        kill_received = scan_requests()
+    except Exception as e:
+        log("ERROR", "farm", f"Error while scanning farm requests: {e}")
+    if kill_received:
+        stop_monitor_loop()
+        try:
+            with locked_json(path) as box:
                 box["action"] = "to_delete"
-            else:
-                data = box["data"] or {}
-                data["update_tick"] = now()
-                box["action"] = "to_write"
+        except Exception as e:
+            # Not fatal: the next farm_tick() sees the loop stopped and
+            # retries the delete via the branch at the top of this function.
+            log("ERROR", "farm", f"Error while clearing monitor.lock on kill: {e}")
+        return
 
+    # Heartbeat, two layers. The content's "update_tick" is still rewritten
+    # every tick -- readable by eye, and what addons older than this read --
+    # but best effort only: one lock attempt, one replace attempt, failure
+    # ignored, since a reader on another machine holding the file open makes
+    # Windows refuse the replace now and then (WinError 5/32, see NOTES.md).
+    # The authoritative heartbeat is the file's mtime, bumped by os.utime()
+    # right after: attribute-only access, which no reader's open handle can
+    # refuse. Readers take the newer of the two (monitor_last_tick()).
+    try:
+        with locked_json(path, retries=1, io_attempts=1) as box:
+            data = box["data"] or {}
+            if data.get("pid") == os.getpid():  # never touch a taken-over lock
+                data["update_tick"] = now()
+                box["data"] = data
+                box["action"] = "to_write"
+    except Exception:
+        pass
+    try:
+        os.utime(path)
+    except OSError as e:
+        log("ERROR", "farm", f"Could not refresh the monitor heartbeat: {e}")
+
+    try:
         scan_processes()
+    except Exception as e:
+        log("ERROR", "farm", f"Error while polling farm processes: {e}")
+
+    try:
         scan_queue(project_root)
     except Exception as e:
-        log("ERROR", "farm", f"Error during farm tick: {e}")
+        log("ERROR", "farm", f"Error while advancing the farm queue: {e}")
 
 
 def stop_monitor_loop() -> None:
@@ -301,8 +359,10 @@ def archive(job_path: Path) -> None:
     archives_dir.mkdir(parents=True, exist_ok=True)
 
     job_id = job_path.stem
+    # request_<job_id>.log (this machine's stages) + request_<job_id>_<uuid>.log
+    # (each worker's render) -- job ids are fixed-length hashes, no prefix clash.
     for log_file in ConfigCache.get_path("farm_requests").glob(
-        f"request_{job_id}_*.log"
+        f"request_{job_id}*.log"
     ):
         try:
             log_file.rename(archives_dir / log_file.name)
@@ -312,26 +372,55 @@ def archive(job_path: Path) -> None:
     job_path.rename(archives_dir / job_path.name)
 
 
-def detect_orphaned_jobs() -> None:
-    """Called once at launch_farm startup. A job stuck in-progress with no
-    entry in the (fresh) _active_processes dict means the previous monitor
-    crashed mid-render -- we can't tell if the process finished or died
-    with it, so it's never silently resumed."""
+def recover_interrupted_jobs() -> None:
+    """Called once at monitor launch. A job at a local *_start stage with
+    no tracked process means the Blender instance that ran the previous
+    monitor went away mid-stage (crash, kill). Its process may well have
+    survived -- child processes outlive their parent on every OS -- so:
 
+    - still running on this machine (PID recorded at launch, checked with
+      process_alive()): adopt it, and decide once it ends
+      (_finish_job_processes() -> resume_interrupted_stage());
+    - gone, or recorded on another machine: resume right away -- rewind to
+      the stage before, so the queue redoes it (resume_interrupted_stage()).
+
+    render_start is left alone: renders belong to workers, recovered from
+    their side (launch_worker() -> "lost" result) and by
+    check_render_completion(). Used to mark all of these "orphaned" -- a
+    dead end needing a manual resubmit, even when the process had finished
+    fine -- and missed preview_start entirely (stuck for good)."""
     from .dispatch import _active_processes
+    from .queue import resume_interrupted_stage
 
+    me = get_machine_id()
     for job_path in ConfigCache.get_path("farm_actives").glob("job_*.json"):
-        with locked_json(job_path) as box:
-            data = box["data"] or {}
-            stage = data["stage_history"][-1]["stage"]
-            if (
-                stage in ("setup_start", "checks_images_start", "compilation_start")
-                and data["job_id"] not in _active_processes
-            ):
-                data["stage_history"].append({"stage": "orphaned", "at": now()})
-                box["action"] = "to_write"
-                log(
-                    "WARNING",
-                    "farm",
-                    f"Job '{data['job_id']}' orphaned by a previous crash, check manually.",
-                )
+        try:
+            with locked_json(job_path) as box:
+                data = box["data"] or {}
+                history = data.get("stage_history") or []
+                if not history or data.get("job_id") in _active_processes:
+                    continue
+                stage = history[-1]["stage"]
+                if not stage.endswith("_start") or stage == "render_start":
+                    continue
+
+                recorded = data.get("local_processes") or {}
+                alive = [
+                    (pid, hint)
+                    for pid, hint in recorded.get("pids", [])
+                    if recorded.get("machine") == me and process_alive(pid, hint)
+                ]
+                if alive:
+                    _active_processes[data["job_id"]] = [
+                        (AdoptedProcess(pid, hint), "local") for pid, hint in alive
+                    ]
+                    log(
+                        "WARNING",
+                        "farm",
+                        f"Job {data['job_id']}: {stage} still running after a restart "
+                        f"(pid {', '.join(str(pid) for pid, _ in alive)}) -- waiting for it.",
+                    )
+                elif resume_interrupted_stage(data, "monitor restarted"):
+                    box["action"] = "to_write"
+        except Exception as e:
+            log("ERROR", "farm", f"Could not recover {job_path.name}: {e}")

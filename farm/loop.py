@@ -294,10 +294,46 @@ def _build_incoming_entry(req: dict) -> dict:
     }
 
 
+def monitor_last_tick(lock_path: Path, data: dict | None = None) -> datetime | None:
+    """The monitor's last heartbeat: the newer of monitor.lock's mtime
+    (bumped every tick by os.utime(), never refused) and its content's
+    "update_tick" (rewritten every tick too, but best effort -- see
+    monitor_tick()). Pass `data` if the content is already read; mtime alone
+    otherwise, which is enough since every content write bumps it as well.
+    None if the file is gone or can't be stat'd. Clock caveat: the monitor
+    machine's clock vs the reader's (see now())."""
+    try:
+        last = datetime.fromtimestamp(lock_path.stat().st_mtime)
+    except OSError:
+        return None
+    try:
+        in_file = datetime.fromisoformat((data or {}).get("update_tick", ""))
+        last = max(last, in_file)
+    except (TypeError, ValueError):
+        pass
+    return last
+
+
+def monitor_age_status(last_tick: datetime) -> str:
+    """"running" | "stale" | "dead" for a heartbeat timestamp. "stale" is a
+    missed heartbeat that may still recover on its own; "dead" is well past
+    that and treated as safe to relaunch over without much doubt."""
+    stale_threshold = json_get(ConfigCache.get(), "farm.stale_monitor_seconds", 90)
+    dead_threshold = json_get(
+        ConfigCache.get(), "farm.dead_monitor_seconds", stale_threshold * 4
+    )
+    age = (now(False) - last_tick).total_seconds()
+    if age > dead_threshold:
+        return "dead"
+    if age > stale_threshold:
+        return "stale"
+    return "running"
+
+
 def _read_monitor_status() -> dict:
-    """Read monitor.lock only, no jobs directory scan. "stale" is a missed
-    heartbeat that may still recover on its own; "dead" is well past that
-    and treated as safe to relaunch over without much doubt."""
+    """Read monitor.lock only, no jobs directory scan: owner from its
+    content, liveness from monitor_last_tick() (mtime or in-file
+    update_tick, whichever is newer)."""
     status = {
         "status": "not running",
         "lock_user": "",
@@ -309,44 +345,24 @@ def _read_monitor_status() -> dict:
     if not lock_path.exists():
         return status
 
-    stale_threshold = json_get(ConfigCache.get(), "farm.stale_monitor_seconds", 90)
-    dead_threshold = json_get(
-        ConfigCache.get(), "farm.dead_monitor_seconds", stale_threshold * 4
-    )
-
     # Read-only, zero retries: a status read never takes the writer lock nor
-    # sleeps on the UI thread. If the monitor is mid-write we just read the
-    # previous version (writes are atomic via os.replace). Without the lock,
-    # the file can vanish between exists() and the read (monitor stopping):
-    # treat that as "not running" instead of raising into the caller.
+    # sleeps on the UI thread. The file can vanish between the check and the
+    # read (monitor stopping): treat that as "not running" instead of
+    # raising into the caller.
     try:
         with locked_json(lock_path, read_only=True, retries=0) as box:
-            _parse_monitor_lock(box["data"], status, stale_threshold, dead_threshold)
+            data = box["data"] or {}
     except (OSError, ValueError):
-        pass
+        return status
+    last_tick = monitor_last_tick(lock_path, data)
+    if last_tick is None:
+        return status
+
+    status["status"] = monitor_age_status(last_tick)
+    status["lock_user"] = data.get("user", "")
+    status["lock_machine"] = data.get("machine", "")
+    status["last_tick"] = last_tick
     return status
-
-
-def _parse_monitor_lock(
-    data: dict | None, status: dict, stale_threshold: float, dead_threshold: float
-) -> None:
-    """Fill status in place from monitor.lock's parsed content. A corrupt
-    or incomplete lock leaves status as-is ("not running")."""
-    try:
-        data = data or {}
-        last_tick = datetime.fromisoformat(data.get("update_tick", ""))
-        age = (now(False) - last_tick).total_seconds()
-        if age > dead_threshold:
-            status["status"] = "dead"
-        elif age > stale_threshold:
-            status["status"] = "stale"
-        else:
-            status["status"] = "running"
-        status["lock_user"] = data.get("user", "")
-        status["lock_machine"] = data.get("machine", "")
-        status["last_tick"] = last_tick
-    except Exception:
-        pass
 
 
 def _compute_snapshot() -> dict:

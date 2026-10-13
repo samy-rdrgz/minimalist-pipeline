@@ -10,6 +10,7 @@ from pathlib import Path
 import bpy
 
 from ..lib import (
+    AdoptedProcess,
     ConfigCache,
     PipelineError,
     get_active_project_root,
@@ -19,6 +20,8 @@ from ..lib import (
     locked_json,
     log,
     now,
+    process_alive,
+    retry_shared_io,
     to_absolute,
 )
 from .loop import register_farm_loop
@@ -44,6 +47,37 @@ def _heartbeat_age(heartbeat: str) -> int:
         return 10**9
 
 
+def _recover_previous_render(previous: dict) -> dict:
+    """Worker file fields to start with, given what the previous worker of
+    this machine left in it. If it was mid-render (a Blender crash: no
+    clean status update ever came): the render process may well still be
+    running on its own -- adopt it by PID and keep "render" until it ends;
+    otherwise report it lost right away. Either way the monitor gets a
+    last_job_result "lost" for that dispatch, and re-dispatches the job
+    (check_render_completion()) -- the exit code of a process we didn't
+    start is unknowable, and placeholders make a re-render only fill in
+    what's missing."""
+    pid = previous.get("current_pid")
+    job_id = previous.get("current_job_id")
+    if previous.get("status") != "render" or not pid or not job_id:
+        return {}
+    dispatch_id = previous.get("current_dispatch_id")
+    if process_alive(pid, "blender"):
+        _worker_active_processes[job_id] = AdoptedProcess(pid, "blender", dispatch_id=dispatch_id)
+        log("WARNING", "farm", f"Render of {job_id} outlived a crash (pid {pid}) -- waiting for it.")
+        return {key: previous.get(key) for key in (
+            "status", "current_job", "current_file", "current_pid",
+            "current_job_id", "current_dispatch_id",
+        )}
+    log("WARNING", "farm", f"Render of {job_id} was lost in a crash -- reporting it.")
+    return {"last_job_result": _lost_result(job_id, dispatch_id)}
+
+
+def _lost_result(job_id: str, dispatch_id: str | None) -> dict:
+    """last_job_result for a render whose outcome can't be known."""
+    return {"job_id": job_id, "dispatch_id": dispatch_id, "success": False, "lost": True, "at": now()}
+
+
 def launch_worker() -> bool:
     """Become the worker for this machine. Fails if another live (non-stale)
     Blender instance already holds the role."""
@@ -64,7 +98,7 @@ def launch_worker() -> bool:
             "status": "idle",
             "current_job": None,
             "last_heartbeat": now(),
-        }
+        } | _recover_previous_render(data)
         box["action"] = "to_write"
         register_farm_loop(get_active_project_root())
     bpy.context.scene.is_worker = True
@@ -205,34 +239,41 @@ def execute_render_request() -> dict:
             project_root = get_active_project_root()
             templates_dir = Path(__file__).parent.parent / "templates"
             entry = templates_dir / "worker_render_entry.py"
-            p = subprocess.Popen(
-                [
-                    bpy.app.binary_path,
-                    "-b",
-                    str(to_absolute(data["filepath"], project_root)),
-                    "-o",
-                    str(to_absolute(data["output_path"], project_root)),
-                    "-F",
-                    data["output_extension"],
-                ]
-                + data["cmd_flags"]
-                + [
-                    "--python",
-                    str(entry),
-                    "--",
-                    "--job-id",
-                    data["job_id"],
-                    "--preset",
-                    data.get("prerender_script", ""),
-                    # Real (possibly namespaced) module name -- see NOTES.md,
-                    # "CSV batch: the subprocess couldn't import itself".
-                    "--addon-module",
-                    __package__.rsplit(".", 1)[0],
-                ],
-                stdout=open(log_path, "wb"),
-                stderr=subprocess.STDOUT,
-                stdin=subprocess.DEVNULL,
-            )
+            # The parent's handle is closed as soon as the child has its own
+            # copy (the with block) -- it used to stay open for good, which
+            # on Windows also keeps the file from being deleted or moved.
+            log_file = open(log_path, "wb")
+            with log_file:
+                p = subprocess.Popen(
+                    [
+                        bpy.app.binary_path,
+                        "-b",
+                        str(to_absolute(data["filepath"], project_root)),
+                        "-o",
+                        str(to_absolute(data["output_path"], project_root)),
+                        "-F",
+                        data["output_extension"],
+                    ]
+                    + data["cmd_flags"]
+                    + [
+                        "--python",
+                        str(entry),
+                        "--",
+                        "--job-id",
+                        data["job_id"],
+                        "--preset",
+                        data.get("prerender_script", ""),
+                        # Real (possibly namespaced) module name -- see NOTES.md,
+                        # "CSV batch: the subprocess couldn't import itself".
+                        "--addon-module",
+                        __package__.rsplit(".", 1)[0],
+                    ],
+                    stdout=log_file,
+                    stderr=subprocess.STDOUT,
+                    stdin=subprocess.DEVNULL,
+                )
+            p.log_path = log_path
+            p.dispatch_id = data.get("dispatch_id")
         except Exception as e:
             # Malformed request: drop it instead of retrying every tick.
             box["action"] = "to_delete"
@@ -253,6 +294,11 @@ def execute_render_request() -> dict:
             "status": "render",
             "current_job": str(request_path),
             "current_file": data["filepath"],
+            # So a worker restarted after a crash can find this render
+            # again (_recover_previous_render()).
+            "current_pid": p.pid,
+            "current_job_id": data["job_id"],
+            "current_dispatch_id": data.get("dispatch_id"),
         }
 
 
@@ -278,6 +324,13 @@ def worker_tick():
         log("ERROR", "farm", f"Error during worker tick: {e}")
 
 
+def local_render_running() -> bool:
+    """Whether this Blender instance, as a worker, is rendering right now --
+    lets the monitor role in the same instance hold back a job's setup,
+    which loads a whole second .blend alongside the render's own."""
+    return any(p.poll() is None for p in _worker_active_processes.values())
+
+
 def scan_worker_processes() -> None:
     """Poll this worker's active render subprocesses; publish last_job_result
     for each one that finished."""
@@ -290,15 +343,33 @@ def scan_worker_processes() -> None:
             continue
         finished.append(job_id)
 
+        # Rendered fine: its log has nothing left to tell. Kept on failure
+        # (archive() moves it with the job). Best effort.
+        log_path = getattr(p, "log_path", None)
+        if ret == 0 and log_path:
+            try:
+                retry_shared_io(Path(log_path).unlink)
+            except OSError:
+                pass
+
+        if getattr(p, "adopted", False):
+            # Picked up again after a crash: its exit code is unknowable.
+            result = _lost_result(job_id, getattr(p, "dispatch_id", None))
+        else:
+            result = {
+                "job_id": job_id,
+                "dispatch_id": getattr(p, "dispatch_id", None),
+                "success": ret == 0,
+                "at": now(),
+            }
         update_worker(
             {
                 "status": "idle",
                 "current_job": None,
-                "last_job_result": {
-                    "job_id": job_id,
-                    "success": ret == 0,
-                    "at": now(),
-                },
+                "current_pid": None,
+                "current_job_id": None,
+                "current_dispatch_id": None,
+                "last_job_result": result,
             }
         )
 
@@ -331,8 +402,12 @@ def scan_cancel_requests() -> None:
                             {
                                 "status": "idle",
                                 "current_job": None,
+                                "current_pid": None,
+                                "current_job_id": None,
+                                "current_dispatch_id": None,
                                 "last_job_result": {
                                     "job_id": job_id,
+                                    "dispatch_id": getattr(p, "dispatch_id", None),
                                     "success": False,
                                     "cancelled": True,
                                     "at": now(),
