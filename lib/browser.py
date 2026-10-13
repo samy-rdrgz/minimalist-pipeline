@@ -14,7 +14,7 @@ from .config import (
 )
 from .core import cached_scandir, json_get
 from .logs import log
-from .tracking import TrackingStatusCache, get_departments_required, list_active_blocks
+from .tracking import TrackingStatusCache, list_active_blocks
 
 
 def get_folder(self, context) -> Path | None:
@@ -287,7 +287,10 @@ def file_department_items(self, context):
     """Enum items from the current file's required departments, cached until they change."""
     global _files_deps_items_cache
     try:
-        deps = get_departments_required(Path(bpy.data.filepath))
+        # TrackingStatusCache, not get_departments_required(): that one reads
+        # tracking.json from disk on every call, and this enum is evaluated
+        # on every redraw of the increment-version dialog.
+        deps = TrackingStatusCache.get(bpy.data.filepath).get("departments_required") or []
         if _files_deps_items_cache and deps == _files_deps_items_cache[0]:
             return _files_deps_items_cache[1]
         items = _department_items(deps)
@@ -398,14 +401,20 @@ def shot_tag_items(self, context):
     asset, or self.filepath unset) just collapses to the blank option."""
     try:
         target = Path(self.filepath) if self.filepath else Path(bpy.data.filepath)
-        if target.is_dir():
+        # Folder vs file from the name, not is_dir(); listing through
+        # cached_scandir(), not glob() -- this enum is re-evaluated many
+        # times per redraw of the entry dialogs and the file details popup.
+        if target.suffix.lower() != ".blend":
             # Folder path (e.g. from the tracking monitor's file details
             # popup, see draw_file_details()) -- target.name is then just
             # the bare folder name ("sh010-020-030"), which parse_filename
             # never matches (no sequence/version parts). Read the shot
             # segment off one of its versioned files instead, same fix as
             # entry_version_items()'s folder-vs-file handling.
-            target = next(target.glob("*.blend"), target)
+            target = next(
+                (Path(e.path) for e in cached_scandir(target) if e.name.endswith(".blend")),
+                target,
+            )
         parsed = parse_filename(target.name) if target.name else None
         shot_segment = parsed.get("shot") if parsed else None
         if not shot_segment:

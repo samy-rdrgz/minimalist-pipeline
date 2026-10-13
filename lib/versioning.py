@@ -4,6 +4,7 @@ from pathlib import Path
 
 import bpy
 
+from .core import cached_scandir
 from .config import ConfigCache, get_active_project_root, parse_filename
 from .core import json_get
 from .errors import PipelineError
@@ -24,8 +25,6 @@ def get_version_number(filepath: str = "") -> int | None:
 def get_last_version_number(filepath: str = "") -> int:
     """Scan sibling blend files and return highest version number, or -1."""
     fp = Path(filepath or bpy.data.filepath)
-    if not fp.parent.exists():
-        return -1
 
     parsed = parse_filename(fp.name)
     if not parsed:
@@ -39,8 +38,10 @@ def get_last_version_number(filepath: str = "") -> int:
     else:
         return -1
 
-    for f in fp.parent.iterdir():
-        if f.suffix != ".blend":
+    # cached_scandir(): drawn by the increment-version dialog on every redraw;
+    # a missing folder just lists as [] (returns -1 below).
+    for f in cached_scandir(fp.parent):
+        if not f.name.endswith(".blend"):
             continue
         m = pattern.match(f.name)
         if "sequence" in parsed and "shot" in parsed:  # Shot: match sequence + shot nb

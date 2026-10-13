@@ -81,6 +81,8 @@ class TrackingStatusCache:
     when .pipeline/ (or its tracking.json) changes on disk."""
 
     _cache: dict[str, tuple[float, dict]] = {}
+    # Project root the last full get_all() walk covered -- see get_all().
+    _walked_root: str | None = None
     # Last time (time.monotonic()) a given raw filepath argument's mtime was
     # re-checked against disk -- see get()'s _VALIDATE_TTL below.
     _validated_at: dict[str, float] = {}
@@ -230,6 +232,15 @@ class TrackingStatusCache:
         refreshing whatever is missing or stale."""
         if force_reload:
             cls._cache.clear()
+        elif cls._walked_root == str(project_root):
+            # Already walked for this project: serve the snapshot. The walk
+            # (rglob over assets/library/shots + 2 stats per asset) costs
+            # seconds on a network share, and draw_monitor_table() calls
+            # this on every redraw of the Project monitoring popup. Fresh
+            # data comes from the popup's invoke() (force_reload) and its
+            # Refresh button; get() keeps updating single entries (e.g. the
+            # file details view) in the same cache in between.
+            return cls._snapshot()
 
         # Walks every tracking.json, filling in whatever is missing or stale
         for tracking_file in _iter_pipeline_files(project_root, "tracking.json"):
@@ -247,6 +258,11 @@ class TrackingStatusCache:
                         f"Could not compute tracking for {asset_dir}: {e}",
                     )
 
+        cls._walked_root = str(project_root)
+        return cls._snapshot()
+
+    @classmethod
+    def _snapshot(cls) -> list[tuple[str, dict]]:
         # Archived blocks filtered here, not at scan time.
         return [
             (key, data)
@@ -270,11 +286,19 @@ class WorkTimeCache:
     _archives_cache: dict[str, float] = {}
     _archives_signature: frozenset[str] | None = None
 
+    _checked_at: float = -1e9
+
     @classmethod
     def get(cls, folder) -> float:
         """Total seconds for folder, across every version and everyone --
         live log plus rotated archives/sessions_log_*.jsonl (see NOTES.md).
         0.0 if unreadable. Never raises: read by draw()."""
+        now_t = time.monotonic()
+        if now_t - cls._checked_at < SCANDIR_TTL:
+            # Read by draw() on every redraw: re-stat the log at most every
+            # SCANDIR_TTL (a network round-trip each on a share).
+            return cls._cache.get(str(Path(folder)), 0.0)
+        cls._checked_at = now_t
         log_path = ConfigCache.get_path("sessions_log_file")
         try:
             mtime = log_path.stat().st_mtime
@@ -1478,6 +1502,33 @@ def get_linked_libraries(filepath: Path) -> list[dict]:
     return get_last_stable(asset_dir).get("linked", [])
 
 
+# owner folder -> (.pipeline mtime, linked list, last checked -- time.monotonic())
+_linked_cache: dict[str, tuple[float, list, float]] = {}
+
+
+def get_linked_libraries_cached(filepath: Path) -> list[dict]:
+    """get_linked_libraries() for draw(): keyed on the same .pipeline/ mtime
+    as TrackingStatusCache (a new .wipmeta/.stablemeta bumps it), checked at
+    most every SCANDIR_TTL. Uncached, the file details popup globbed and read
+    every .wipmeta/.stablemeta of the folder on every redraw."""
+    folder = _owner_dir(Path(filepath))
+    key = str(folder)
+    now_t = time.monotonic()
+    cached = _linked_cache.get(key)
+    if cached and now_t - cached[2] < SCANDIR_TTL:
+        return cached[1]
+    mtime = TrackingStatusCache._pipeline_mtime(folder)
+    if cached and cached[0] == mtime:
+        _linked_cache[key] = (mtime, cached[1], now_t)
+        return cached[1]
+    try:
+        linked = get_linked_libraries(folder)
+    except Exception:
+        linked = []
+    _linked_cache[key] = (mtime, linked, now_t)
+    return linked
+
+
 _linked_by_index: dict[str, set[str]] = {}
 _linked_by_project: str | None = None
 
@@ -1513,6 +1564,21 @@ def refresh_linked_by_index(project_root: Path) -> None:
     _linked_by_project = str(project_root)
 
 
+_resolved_keys: dict[str, str] = {}
+
+
+def _resolved_key(folder: Path) -> str:
+    """str(folder.resolve()), memoized: the linked-by index is keyed on
+    resolved paths (refresh_linked_by_index()), but find_linked_by() runs in
+    the file details popup's draw() -- one resolve() per redraw is two
+    network round-trips on Windows. A folder's resolved form doesn't change
+    during a session."""
+    key = str(folder)
+    if key not in _resolved_keys:
+        _resolved_keys[key] = str(folder.resolve())
+    return _resolved_keys[key]
+
+
 def find_linked_by(project_root: Path, filepath: Path) -> list[Path]:
     """Every other asset/shot folder in the project with at least one link
     pointing into filepath's own folder -- matched by folder, not an exact
@@ -1522,7 +1588,7 @@ def find_linked_by(project_root: Path, filepath: Path) -> list[Path]:
     always have refreshed it once up front instead of relying on this."""
     if _linked_by_project != str(project_root):
         refresh_linked_by_index(project_root)
-    asset_dir = str((filepath.parent if filepath.is_file() else filepath).resolve())
+    asset_dir = _resolved_key(_owner_dir(Path(filepath)))
     # A folder can hold many .wipmeta (one per version) -- the index already
     # collapses those into one set entry, so the same linking asset/shot
     # shows up once no matter how many of its versions link in.

@@ -32,6 +32,7 @@ from .browser import (
     version_items,
 )
 from .config import (
+    project_path,
     ConfigCache,
     file_in_active_project,
     find_known_project_for_file,
@@ -132,6 +133,7 @@ from .session import (
     set_opened_as_read_only,
 )
 from .tracking import (
+    get_linked_libraries_cached,
     RecentFilesCache,
     TrackingStatusCache,
     WorkTimeCache,

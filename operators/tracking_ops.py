@@ -646,6 +646,25 @@ class M_PIPELINE_OT_upload_csv(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class M_PIPELINE_OT_tracking_refresh(bpy.types.Operator):
+    """Re-scan the whole project for Project monitoring."""
+
+    bl_idname = "m_pipeline.tracking_refresh"
+    bl_label = "Refresh"
+    bl_description = (
+        "Re-scan the project's tracking data. The monitoring view otherwise "
+        "shows what was found when it opened -- a full scan costs seconds "
+        "on a network share, too much for every redraw."
+    )
+
+    def execute(self, context):
+        project_root = get_active_project_root()
+        if project_root:
+            TrackingStatusCache.get_all(project_root, force_reload=True)
+            refresh_linked_by_index(project_root)
+        return {"FINISHED"}
+
+
 class M_PIPELINE_OT_tracking_monitor(bpy.types.Operator):
     """Popup dashboard: every tracked asset/shot with its department status, filterable."""
 
