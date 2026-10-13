@@ -2,7 +2,7 @@
 
 All notable changes to this addon. Dates are release dates.
 
-## Unreleased
+## 1.0.9 — 2026-10-13
 
 ### Performance — sidebar on a network share
 
