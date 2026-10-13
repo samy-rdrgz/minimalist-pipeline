@@ -107,7 +107,7 @@ Routing logic: `prefix_to_parent_folder()` in `lib/config.py`. All paths resolve
 }
 ```
 
-Access via `ConfigCache.get()` — cached, invalidated on the config file's `st_mtime`. Dot-notation helper: `json_get(config, "naming.version.digits", 3)`.
+Access via `ConfigCache.get()` — cached, invalidated on the config file's `st_mtime`, which is re-checked at most every `_VALIDATE_TTL` (2 s): `get()` is hit dozens of times per sidebar redraw (see NOTES.md, "Sidebar redraw: 341 ms…"). Dot-notation helper: `json_get(config, "naming.version.digits", 3)`.
 
 ---
 
@@ -203,7 +203,7 @@ The red text itself is a plain `row.label()`, not the button opening the menu: a
 
 ### Infrastructure
 - `PipelineError(message, level)` — raise from core functions, catch once in operators
-- `ConfigCache` — `.get()`, `.invalidate()`, `.get_asset_regex()`, `.get_shot_regex()`, `.get_path(name)` (central path table for every project-relative file/folder)
+- `ConfigCache` — `.get()`, `.invalidate()`, `.get_asset_regex()`, `.get_shot_regex()`, `.get_path(name)` (central path table for every project-relative file/folder — plain join on the project root, memoized, never `resolve()`d: a resolve is two network round-trips on Windows)
 - `PipelineAction` dataclass — `title`, `message`, `severity`, `choices: list[tuple[str, Callable] | tuple[str, Callable, str]]` (label, callback, optional tooltip), `on_dismiss` (optional callback for Escape/click-away, see below), `explanation` (optional beginner-mode concept text, rendered via `draw_box_tip()` below the message — gated on the `experience_level` addon preference, no-op for `ADVANCED`)
 - `set_pending_action()` / `get_pending_action()` — global store for the popup
 - `M_PIPELINE_OT_action_popup` — generic popup, reads pending action, executes chosen callback inside `try/except PipelineError` (logs + reports on failure — this is the single safety net for every `PipelineAction` callback in the codebase). `description()` classmethod returns each choice's optional 3rd tuple element as that button's tooltip. `cancel()` handles Escape/click-away: clears the pending action and runs `on_dismiss` if set, so dismissing without clicking a choice cleans up the same as clicking one (e.g. `wm.safe_save` releasing its lock — see below). `execute()` calls `_force_close()` (`context.window.screen = context.window.screen`) before returning: `invoke_popup` doesn't auto-close just because a button inside it ran an operator to completion — a known Blender quirk (blender.stackexchange.com/q/202550), not specific to this addon.
