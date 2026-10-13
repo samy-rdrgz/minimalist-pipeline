@@ -1574,6 +1574,35 @@ many. Checked against a full read of every meta: identical statuses.
 Also: `read_project_config()` took the config's *writer* lock (creating and
 deleting a `.lock` file on the share) just to read it; now read-only.
 
+## Project walk: a stray .pipeline/ hid every asset below it; popup regions must not outlive their popup
+
+**Stray `.pipeline/`.** 1.0.9's walk (`_walk_owner_dirs()`, `ProjectScan`)
+stopped descending at the first folder holding a `.pipeline/` -- to stay
+out of textures/caches below an asset. A real project had
+`assets/ch/.pipeline/` next to `ch_ball/` and `ch_tailball/`: the walk took
+`assets/ch` for an asset and never saw the assets inside it (`ch_ball`
+still showed only because the File panel had cached it while open). The old
+`rglob` found every `tracking.json` at any depth, so it didn't hit this.
+Now (`_is_tracked_owner()`): a folder is an owner only if its `.pipeline/`
+holds a `tracking.json`, *and* it's at least `_MIN_OWNER_DEPTH` (2) below
+assets/library/shots -- a prefix or sequence folder is never an asset or a
+shot by convention, whatever it contains. Still open: which code path
+wrote a `.pipeline/` into a prefix folder (a writer given an asset *folder*
+instead of a `.blend` computes `folder.parent / ".pipeline"`, and
+`locked_json()`'s lock creates the directory).
+
+**Popup regions.** `ProjectScan` kept `context.region_popup` to redraw the
+monitoring popup as results came in, and the farm popup did the same
+(`_popup_regions`). Blender frees that region when the popup closes; a
+Python reference to it doesn't know, and `tag_redraw()` on a freed region
+doesn't raise -- it crashes Blender, or not, depending on whether the
+memory was reused yet (reported: "scanning crashes Blender", then not). Now
+`ProjectScan` keeps no region at all (the popup refreshes on the next mouse
+move), and the farm popup forgets its regions after each redraw (a live
+popup re-registers from its draw(), a closed one can't) and on close
+(`unregister_refresh_timer()` -- it used to be cleared only with the status
+timer, so reopening the popup redrew the previous, freed one).
+
 <!-- Next feature with rationale worth keeping gets its own "## " section
      here, same shape as the ones above: what was tried, what was
      rejected and why, anything a docstring is too short to hold. -->
