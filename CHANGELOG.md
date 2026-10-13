@@ -6,41 +6,39 @@ All notable changes to this addon. Dates are release dates.
 
 ### Production snapshot
 
-- **Export prod snapshot** (Project panel): one HTML file showing every
-  asset and shot's status per department and all open notes, readable
-  offline without Blender or the studio share — made to be sent to
-  production by mail. Filters by name, group, department and state, open
-  RTKs or notes; each row jumps to its notes.
+- **Export prod snapshot** (Project panel and Pipeline menu): one HTML file
+  showing every asset and shot's status per department and all open
+  notes, readable offline without Blender or the studio share — made to
+  be sent to production by mail. Filters by name, group, department and
+  state, open RTKs or notes; each row jumps to its notes. It carries a
+  review spreadsheet to download and fill in. The scan and the file
+  writing run in the background: Blender never freezes.
 - **Import prod review** (Project panel and Pipeline menu): reads the
   filled-in spreadsheet back. One line of text = one note, so several
   retakes on a shot each get their own checkbox. Importing the same file
   twice, or a re-sent one with more notes, never duplicates. A popup
   sums up what was imported and what wasn't (and why). Imported notes are
   marked as coming from a prod review.
-- **Thumbnails** in the snapshot, from the middle frame of each asset or
-  shot's latest render, any aspect ratio. The farm makes one when a render
-  is done; the export makes any missing or outdated one from the frames
-  already on disk, in the background. Made by Blender itself — only a
-  multilayer EXR needs ffmpeg; without it, the export says which
-  thumbnails it couldn't make. Can be turned off in the export's options.
-  The thumbnail also shows in Project monitoring's file details.
-- Both are also in the Pipeline menu, under Tracking monitor.
+- **Thumbnails**, from the middle frame of each asset or shot's latest
+  render, any aspect ratio — in the snapshot and in Project monitoring's
+  file details. The farm makes one when a render is done; the export
+  makes any missing or outdated one from the frames already on disk, in
+  the background. Made by Blender itself — only a multilayer EXR needs
+  ffmpeg; without it, the export says which thumbnails it couldn't make.
+  Can be turned off in the export's options.
 
 ### Removed
 
-- The CSV import of notes, replaced by the review spreadsheet. It carries a review spreadsheet to download and
-  fill in. The scan and the file writing run in the background: Blender
-  never freezes.
+- The CSV import of notes, replaced by the review spreadsheet. Batch
+  creation keeps its CSV.
 
 ### Fixes
-
-- Project monitoring's "Open render folder" button (file details) opened
-  a folder that doesn't exist for a shot (`renders/shots/...`).
 
 - **Rendering an asset or library file on the farm works.** The job used
   to fail at setup; its frames now go to `renders/assets/<prefix>/<asset>/`
   (or `renders/library/...`).
-
+- Project monitoring's "Open render folder" button (file details) opened
+  a folder that doesn't exist for a shot (`renders/shots/...`).
 - The addon version stamped into the project config read "0.0.0" when
   the addon was installed as an extension.
 - Batch creation CSV files saved by Excel with a ";" separator (French
