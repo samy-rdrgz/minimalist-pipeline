@@ -195,8 +195,8 @@ class M_PIPELINE_OT_farm_launch_monitor(bpy.types.Operator):
             try:
                 with locked_json(lock_path, read_only=True, retries=0) as box:
                     data = box["data"] or {}
-                    # Heartbeat = the file's mtime (see monitor_tick()).
-                    last_tick = monitor_last_tick(lock_path) or datetime.datetime.min
+                    # Heartbeat: mtime or in-file update_tick (see monitor_tick()).
+                    last_tick = monitor_last_tick(lock_path, data) or datetime.datetime.min
                     is_stale = monitor_age_status(last_tick) != "running"
 
                     if not is_stale:

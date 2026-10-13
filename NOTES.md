@@ -1256,19 +1256,18 @@ What changed, cheapest to most structural:
 - **Each tick step has its own `try`** (requests, heartbeat, processes,
   queue). A failed heartbeat now costs at most a "stale" label, never the
   queue.
-- **Heartbeat = `monitor.lock`'s mtime**, bumped with `os.utime()`; the
-  content (user/machine/pid/uuid/start_time) is written once at launch and
-  never rewritten while running. `utime()` only asks for attribute access,
-  which Windows' share-mode check ignores, so a reader's open handle can't
-  refuse it; readers `stat()` for liveness (`monitor_last_tick()`,
-  `monitor_age_status()` in `farm/loop.py`) and only read the content for
-  the owner's name. Same clock caveat as before (`utime()` stamps the
-  monitor machine's clock, readers compare against their own -- the old
-  in-file `update_tick` had the identical skew). No more lock-file churn
-  per tick either: the tick no longer takes `monitor.lock`'s writer lock.
-  **Mixed versions**: an addon older than this reads `update_tick` from
-  the content, which no longer moves -- it would show a running monitor
-  as stale after 90 s. Every machine needs the same version.
+- **Heartbeat in two layers.** The content's `update_tick` is still
+  rewritten every tick -- readable by eye, and what older addons read --
+  but best effort: one lock attempt, one replace attempt
+  (`locked_json(..., retries=1, io_attempts=1)`), failure ignored. Right
+  after, `os.utime()` bumps the file's mtime: attribute-only access,
+  which Windows' share-mode check ignores, so no reader's open handle can
+  refuse it. Readers take the newer of the two (`monitor_last_tick()` in
+  `farm/loop.py`, status thresholds in `monitor_age_status()`). Rejected:
+  mtime only, content written once -- would have made the file's own
+  `update_tick` meaningless to anyone reading it, and shown a running farm
+  as stale to any machine on an older version. Same clock caveat either
+  way: both stamps come from the monitor machine's clock.
 - **`retry_shared_io()`** (`lib/core.py`): `os.replace`/`os.remove`/lock
   `unlink` retry on `PermissionError` (5 x 0.1 s) before giving up --
   covers the other shared files with the same exposure (job files written

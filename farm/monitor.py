@@ -68,7 +68,7 @@ def launch_monitor(
     with locked_json(path) as box:
         data = box["data"]
         if data:  # lock exists
-            last_tick = monitor_last_tick(path) or datetime.min
+            last_tick = monitor_last_tick(path, data) or datetime.min
             is_stale = monitor_age_status(last_tick) != "running"
 
             if not is_stale:
@@ -84,9 +84,9 @@ def launch_monitor(
 
         detect_orphaned_jobs()
 
-        # Written once: from here on the heartbeat is this file's mtime only
-        # (os.utime() in monitor_tick()), the content is never rewritten.
-        box["data"] = get_user_data(user) | {"start_time": now()}
+        # Heartbeat from here on: see monitor_tick() (best-effort rewrite of
+        # update_tick + os.utime() on this file).
+        box["data"] = get_user_data(user) | {"start_time": now(), "update_tick": now()}
         box["action"] = "to_write"
 
 
@@ -157,12 +157,24 @@ def monitor_tick(project_root: Path):
             log("ERROR", "farm", f"Error while clearing monitor.lock on kill: {e}")
         return
 
+    # Heartbeat, two layers. The content's "update_tick" is still rewritten
+    # every tick -- readable by eye, and what addons older than this read --
+    # but best effort only: one lock attempt, one replace attempt, failure
+    # ignored, since a reader on another machine holding the file open makes
+    # Windows refuse the replace now and then (WinError 5/32, see NOTES.md).
+    # The authoritative heartbeat is the file's mtime, bumped by os.utime()
+    # right after: attribute-only access, which no reader's open handle can
+    # refuse. Readers take the newer of the two (monitor_last_tick()).
     try:
-        # Heartbeat = monitor.lock's mtime, not a rewrite of its content.
-        # os.utime() only asks for attribute access, which Windows never
-        # refuses over another process's open handle -- os.replace() on a
-        # file every machine's sidebar reads did, every few ticks (WinError
-        # 5/32). Readers only stat() it for liveness (monitor_last_tick()).
+        with locked_json(path, retries=1, io_attempts=1) as box:
+            data = box["data"] or {}
+            if data.get("pid") == os.getpid():  # never touch a taken-over lock
+                data["update_tick"] = now()
+                box["data"] = data
+                box["action"] = "to_write"
+    except Exception:
+        pass
+    try:
         os.utime(path)
     except OSError as e:
         log("ERROR", "farm", f"Could not refresh the monitor heartbeat: {e}")

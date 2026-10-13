@@ -294,15 +294,24 @@ def _build_incoming_entry(req: dict) -> dict:
     }
 
 
-def monitor_last_tick(lock_path: Path) -> datetime | None:
-    """The monitor's last heartbeat: monitor.lock's own mtime, bumped every
-    tick by os.utime() (see monitor_tick()). None if the file is gone or
-    can't be stat'd. Same clock caveat as the old in-file "update_tick":
-    the monitor machine's clock vs the reader's (see now())."""
+def monitor_last_tick(lock_path: Path, data: dict | None = None) -> datetime | None:
+    """The monitor's last heartbeat: the newer of monitor.lock's mtime
+    (bumped every tick by os.utime(), never refused) and its content's
+    "update_tick" (rewritten every tick too, but best effort -- see
+    monitor_tick()). Pass `data` if the content is already read; mtime alone
+    otherwise, which is enough since every content write bumps it as well.
+    None if the file is gone or can't be stat'd. Clock caveat: the monitor
+    machine's clock vs the reader's (see now())."""
     try:
-        return datetime.fromtimestamp(lock_path.stat().st_mtime)
+        last = datetime.fromtimestamp(lock_path.stat().st_mtime)
     except OSError:
         return None
+    try:
+        in_file = datetime.fromisoformat((data or {}).get("update_tick", ""))
+        last = max(last, in_file)
+    except (TypeError, ValueError):
+        pass
+    return last
 
 
 def monitor_age_status(last_tick: datetime) -> str:
@@ -322,9 +331,9 @@ def monitor_age_status(last_tick: datetime) -> str:
 
 
 def _read_monitor_status() -> dict:
-    """Read monitor.lock only, no jobs directory scan: liveness from its
-    mtime (a stat, never an open), owner from its content (written once at
-    launch, never rewritten while running)."""
+    """Read monitor.lock only, no jobs directory scan: owner from its
+    content, liveness from monitor_last_tick() (mtime or in-file
+    update_tick, whichever is newer)."""
     status = {
         "status": "not running",
         "lock_user": "",
@@ -333,18 +342,20 @@ def _read_monitor_status() -> dict:
     }
 
     lock_path = ConfigCache.get_path("monitor_file")
-    last_tick = monitor_last_tick(lock_path)
-    if last_tick is None:
+    if not lock_path.exists():
         return status
 
     # Read-only, zero retries: a status read never takes the writer lock nor
-    # sleeps on the UI thread. The file can vanish between the stat and the
+    # sleeps on the UI thread. The file can vanish between the check and the
     # read (monitor stopping): treat that as "not running" instead of
     # raising into the caller.
     try:
         with locked_json(lock_path, read_only=True, retries=0) as box:
             data = box["data"] or {}
     except (OSError, ValueError):
+        return status
+    last_tick = monitor_last_tick(lock_path, data)
+    if last_tick is None:
         return status
 
     status["status"] = monitor_age_status(last_tick)

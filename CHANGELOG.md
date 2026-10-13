@@ -10,10 +10,10 @@ All notable changes to this addon. Dates are release dates.
   shared drive, Windows refused the monitor's heartbeat write whenever
   another machine was reading `monitor.lock` (`WinError 5`/`32` in the log),
   and that failure skipped the rest of the tick — job progress included.
-  Each tick step is now independent, and the heartbeat no longer rewrites
-  the file at all (it bumps its modification time instead, which other
-  machines' reads can't block). **All machines need this version**: an
-  older one would show a running farm as "stale".
+  Each tick step is now independent, and the heartbeat no longer depends
+  on that write: the file's own timestamp is refreshed every tick too, in
+  a way other machines' reads can't block, and the farm status reads
+  whichever is newer.
 - Shared-file writes and deletes retry briefly when Windows reports the file
   as in use, instead of failing on the first attempt.
 - A monitor no longer stops silently after a single failed read of its own

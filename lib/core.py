@@ -518,7 +518,9 @@ def refresh_lock(path: Path, machine_id: str) -> bool:
 
 
 @contextmanager
-def locked_json(path: Path, read_only=False, retries: int = 10):
+def locked_json(
+    path: Path, read_only=False, retries: int = 10, io_attempts: int = 5
+):
     """Read/write a JSON file under a cross-process lock. Yields a mutable
     box {"data": <parsed JSON or None>, "action": ""} -- set action to
     "to_write" (atomic tmp + os.replace) or "to_delete" to commit on exit,
@@ -529,7 +531,10 @@ def locked_json(path: Path, read_only=False, retries: int = 10):
     attempt is refused and logged, not silently dropped).
     retries: lock polls, 0.1 s apart. UI-thread readers pass 0 -- never
     sleep, just read: writes go through os.replace, so a read can't see a
-    half-written file, only the previous version."""
+    half-written file, only the previous version.
+    io_attempts: tries for the final replace/remove on a Windows "file in
+    use" refusal (retry_shared_io()). 1 for a best-effort write that
+    mustn't stall its caller."""
     machine_id = get_machine_id()
     if read_only:
         check_lock(path, retries=retries)
@@ -551,7 +556,7 @@ def locked_json(path: Path, read_only=False, retries: int = 10):
             tmp = path.with_suffix(path.suffix + ".tmp")
             tmp.write_text(json.dumps(box["data"], indent=4), encoding="utf-8")
             try:
-                retry_shared_io(os.replace, tmp, path)
+                retry_shared_io(os.replace, tmp, path, attempts=io_attempts)
             except OSError:
                 # Don't leave the .tmp behind -- the caller still gets the error.
                 try:
@@ -561,7 +566,7 @@ def locked_json(path: Path, read_only=False, retries: int = 10):
                 raise
         elif box["action"] == "to_delete":
             try:
-                retry_shared_io(os.remove, path)
+                retry_shared_io(os.remove, path, attempts=io_attempts)
             except FileNotFoundError:
                 pass
             except OSError as e:
