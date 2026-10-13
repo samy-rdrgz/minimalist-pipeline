@@ -457,10 +457,6 @@ def draw_file_details(self, context, layout):
             "Compile a disposable preview from every rendered shot in this sequence."
         )
 
-    icon_id = _preview_ids.get(filepath)
-    if icon_id:
-        layout.template_icon(icon_value=icon_id, scale=7)
-
     total_seconds = WorkTimeCache.get(filepath)
     if total_seconds:
         # Total only -- never a per-person/department breakdown, see
@@ -474,6 +470,11 @@ def draw_file_details(self, context, layout):
     layout.separator(factor=1)
     tabl = layout.row(align=True)
     tabl.alignment = "LEFT"
+
+    icon_id = _preview_ids.get(filepath)
+    if icon_id:
+        tabl.template_icon(icon_value=icon_id, scale=6)
+        tabl.separator(factor=2)
 
     required = data.get("departments_required", [])
     if required:
