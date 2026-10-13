@@ -22,6 +22,7 @@ from .config import (
     to_relative,
 )
 from .core import (
+    SCANDIR_TTL,
     cached_scandir,
     get_machine_id,
     json_get,
@@ -829,7 +830,8 @@ def copy_entries(from_filepath: Path, to_filepath: Path) -> None:
         raise PipelineError(f"Error copying entries: {e}")
 
 
-_archived_cache: dict[str, tuple[float, bool]] = {}
+# tracking.json path -> (mtime or None, archived, last checked -- time.monotonic())
+_archived_cache: dict[str, tuple[float | None, bool, float]] = {}
 
 
 def is_block_archived(shot_dir: Path) -> bool:
@@ -838,20 +840,27 @@ def is_block_archived(shot_dir: Path) -> bool:
     calls this once per shot in a sequence, and Blender re-invokes the enum
     callbacks that walk sequences/shots on every redraw."""
     tracking_file = shot_dir / ".pipeline" / "tracking.json"
+    key = str(tracking_file)
+    now_t = time.monotonic()
+    cached = _archived_cache.get(key)
+    # Same TTL as cached_scandir(): within it, no disk call at all -- the
+    # mtime check alone was one network round-trip per shot per call.
+    if cached and now_t - cached[2] < SCANDIR_TTL:
+        return cached[1]
     try:
         mtime = tracking_file.stat().st_mtime
     except OSError:
+        _archived_cache[key] = (None, False, now_t)
         return False
-    key = str(tracking_file)
-    cached = _archived_cache.get(key)
     if cached and cached[0] == mtime:
+        _archived_cache[key] = (mtime, cached[1], now_t)
         return cached[1]
     try:
         with locked_json(tracking_file, read_only=True, retries=0) as box:
             archived = bool((box["data"] or {}).get("archived"))
     except Exception:
         archived = False
-    _archived_cache[key] = (mtime, archived)
+    _archived_cache[key] = (mtime, archived, now_t)
     return archived
 
 
@@ -871,8 +880,8 @@ def list_active_blocks(
     )
     out = []
     for sq_dir in sequences:
-        if not sq_dir.is_dir():
-            continue
+        # No is_dir() check: a missing folder lists as [] in cached_scandir(),
+        # and is_dir() would be one more network call per sequence per call.
         for sh_dir in sorted(
             (Path(e.path) for e in cached_scandir(sq_dir) if e.is_dir()),
             key=lambda p: p.name,

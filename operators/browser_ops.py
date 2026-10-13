@@ -5,11 +5,11 @@ from pathlib import Path
 import bpy
 
 from ..lib import (
+    resolve_version_file,
     asset_folder_items,
     dir_version_items,
     get_active_project_root,
     get_folder,
-    parse_filename,
     prefix_items,
     sequence_items,
     shot_items,
@@ -144,35 +144,10 @@ class M_PIPELINE_OT_open_file(bpy.types.Operator):
         return {"FINISHED"}
 
     def _resolve(self, context) -> Path | None:
-        """Return the Path of the file matching current selections, or None."""
+        """Return the Path of the file matching current selections, or None.
+        Called from draw() on every redraw -- see resolve_version_file()."""
         folder = get_folder(self, context)
-        if not folder or not folder.exists():
-            return None
-
-        candidates = []
-        for f in folder.iterdir():
-            if f.suffix != ".blend":
-                continue
-            parsed = parse_filename(f.name)
-            if parsed:
-                candidates.append((f, int(parsed["number"]), parsed.get("tag")))
-
-        if not candidates:
-            return None
-
-        if self.version_mode == "last":
-            return max(candidates, key=lambda x: x[1])[0]
-
-        if self.version_mode == "stable":
-            stable = [(f, v, t) for f, v, t in candidates if t == "stable"]
-            return max(stable, key=lambda x: x[1])[0] if stable else None
-
-        if self.version_mode == "custom":
-            if self.custom_version and self.custom_version != "NONE":
-                p = Path(self.custom_version)
-                return p if p.exists() else None
-
-        return None
+        return resolve_version_file(folder, self.version_mode, self.custom_version)
 
 
 class M_PIPELINE_OT_open_file_version(bpy.types.Operator):
@@ -241,32 +216,7 @@ class M_PIPELINE_OT_open_file_version(bpy.types.Operator):
         return {"FINISHED"}
 
     def _resolve(self, context) -> Path | None:
-        """Return the Path of the file matching current selections, or None."""
+        """Return the Path of the file matching current selections, or None.
+        Called from draw() on every redraw -- see resolve_version_file()."""
         folder = Path(self.filepath)
-        if not folder or not folder.exists():
-            return None
-
-        candidates = []
-        for f in folder.iterdir():
-            if f.suffix != ".blend":
-                continue
-            parsed = parse_filename(f.name)
-            if parsed:
-                candidates.append((f, int(parsed["number"]), parsed.get("tag")))
-
-        if not candidates:
-            return None
-
-        if self.version_mode == "last":
-            return max(candidates, key=lambda x: x[1])[0]
-
-        if self.version_mode == "stable":
-            stable = [(f, v, t) for f, v, t in candidates if t == "stable"]
-            return max(stable, key=lambda x: x[1])[0] if stable else None
-
-        if self.version_mode == "custom":
-            if self.custom_version and self.custom_version != "NONE":
-                p = Path(self.custom_version)
-                return p if p.exists() else None
-
-        return None
+        return resolve_version_file(folder, self.version_mode, self.custom_version)

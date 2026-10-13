@@ -346,7 +346,9 @@ def path_reachable(path: str | Path) -> bool:
         return False
 
 
-_scandir_cache: dict[str, tuple[float, list]] = {}
+# path -> (mtime or None if missing, entries, last checked at -- time.monotonic())
+_scandir_cache: dict[str, tuple[float | None, list, float]] = {}
+SCANDIR_TTL = 2.0
 
 
 def cached_scandir(path: Path) -> list:
@@ -360,20 +362,31 @@ def cached_scandir(path: Path) -> list:
     info scandir() already fetched in the same syscall, instead of
     Path.iterdir() + Path.is_dir(), which stats every entry a second time
     -- on a network share that second stat is a second round-trip per entry.
-    [] on any OSError (missing/unreadable directory)."""
+    [] on any OSError (missing/unreadable directory).
+    The mtime itself is re-checked at most every SCANDIR_TTL seconds: enum
+    callbacks run many times per redraw (once per draw, again on every read
+    of the property, once more per expanded item), and even one stat per
+    call added up to thousands of network round-trips in a few seconds
+    (6745 is_block_archived() + 2446 cached_scandir() calls in an 11 s
+    studio profile of the Open file dialog)."""
+    key = str(path)
+    now_t = time.monotonic()
+    cached = _scandir_cache.get(key)
+    if cached and now_t - cached[2] < SCANDIR_TTL:
+        return cached[1]
     try:
         mtime = path.stat().st_mtime
     except OSError:
+        _scandir_cache[key] = (None, [], now_t)
         return []
-    key = str(path)
-    cached = _scandir_cache.get(key)
     if cached and cached[0] == mtime:
+        _scandir_cache[key] = (mtime, cached[1], now_t)
         return cached[1]
     try:
         entries = list(os.scandir(path))
     except OSError:
         entries = []
-    _scandir_cache[key] = (mtime, entries)
+    _scandir_cache[key] = (mtime, entries, now_t)
     return entries
 
 

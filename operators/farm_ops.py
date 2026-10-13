@@ -24,6 +24,8 @@ from ..farm import (
     unregister_refresh_timer,
 )
 from ..lib import (
+    cached_scandir,
+    resolve_version_file,
     ConfigCache,
     PipelineAction,
     PipelineError,
@@ -82,14 +84,12 @@ def _get_pre_render_scripts(self, context):
     try:
         presets_dir = ConfigCache.get_path("presets")
         names = set()
-        if presets_dir.exists():
-            for f in presets_dir.iterdir():
-                if (
-                    f.is_file()
-                    and f.suffix in (".py", ".json")
-                    and f.name != "asset_file_preset.py"
-                ):
-                    names.add(f.stem)
+        # cached_scandir(): this enum is re-evaluated on every redraw of the
+        # Render dialog; DirEntry.is_file() needs no extra stat.
+        for f in cached_scandir(presets_dir):
+            suffix = Path(f.name).suffix
+            if f.is_file() and suffix in (".py", ".json") and f.name != "asset_file_preset.py":
+                names.add(Path(f.name).stem)
         for name in sorted(names):
             items.append((name, name, f"Apply preset '{name}' before render."))
     except Exception as e:
@@ -609,35 +609,10 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
         return {"FINISHED"}
 
     def _resolve(self, context) -> Path | None:
-        """Return the Path of the file matching current selections, or None."""
+        """Return the Path of the file matching current selections, or None.
+        Called from draw() on every redraw -- see resolve_version_file()."""
         folder = get_folder(self, context)
-        if not folder or not folder.exists():
-            return None
-
-        candidates = []
-        for f in folder.iterdir():
-            if f.suffix != ".blend":
-                continue
-            parsed = parse_filename(f.name)
-            if parsed:
-                candidates.append((f, int(parsed["number"]), parsed.get("tag")))
-
-        if not candidates:
-            return None
-
-        if self.version_mode == "last":
-            return max(candidates, key=lambda x: x[1])[0]
-
-        if self.version_mode == "stable":
-            stable = [(f, v, t) for f, v, t in candidates if t == "stable"]
-            return max(stable, key=lambda x: x[1])[0] if stable else None
-
-        if self.version_mode == "custom":
-            if self.custom_version and self.custom_version != "NONE":
-                p = Path(self.custom_version)
-                return p if p.exists() else None
-
-        return None
+        return resolve_version_file(folder, self.version_mode, self.custom_version)
 
 
 class M_PIPELINE_OT_farm_add_to_list(bpy.types.Operator):

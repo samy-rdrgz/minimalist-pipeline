@@ -15,6 +15,7 @@ from .batch import (
     shot_batch_exists,
 )
 from .browser import (
+    resolve_version_file,
     asset_department_items,
     asset_folder_items,
     department_filter_items,
@@ -55,6 +56,7 @@ from .config import (
 from .core import (
     AdoptedProcess,
     addon_pref,
+    cached_scandir,
     draw_box_tip,
     get_addon_version,
     get_machine_id,

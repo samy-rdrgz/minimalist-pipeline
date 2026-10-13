@@ -43,6 +43,35 @@ def get_folder(self, context) -> Path | None:
         return None
 
 
+def resolve_version_file(folder: Path | None, version_mode: str, custom_version: str = "") -> Path | None:
+    """The .blend in folder matching version_mode ("last" | "stable" |
+    "custom"), or None. Shared by the Open file and Render dialogs, whose
+    draw() calls it on every redraw to preview the pick: lists the folder
+    through cached_scandir() -- no exists(), no iterdir(), nothing on disk
+    within its TTL -- instead of one full listing per redraw."""
+    if not folder:
+        return None
+    candidates = []
+    for entry in cached_scandir(Path(folder)):
+        if not entry.name.endswith(".blend"):
+            continue
+        parsed = parse_filename(entry.name)
+        if parsed:
+            candidates.append((Path(entry.path), int(parsed["number"]), parsed.get("tag")))
+    if not candidates:
+        return None
+    if version_mode == "last":
+        return max(candidates, key=lambda x: x[1])[0]
+    if version_mode == "stable":
+        stable = [c for c in candidates if c[2] == "stable"]
+        return max(stable, key=lambda x: x[1])[0] if stable else None
+    if version_mode == "custom" and custom_version and custom_version != "NONE":
+        # Picked from version_items(), i.e. from this same listing.
+        target = Path(custom_version)
+        return target if any(c[0] == target for c in candidates) else None
+    return None
+
+
 # ---------------------------------------------------------------------------
 # Dynamic enum callbacks
 # ---------------------------------------------------------------------------
@@ -181,7 +210,7 @@ def version_items(self, context):
     """All versioned blend files in the selected folder, newest first."""
     try:
         folder = get_folder(self, context)
-        if not folder or not folder.exists():
+        if not folder:  # missing folder: cached_scandir() returns [] below
             return [("NONE", "—", "")]
 
         candidates = []
@@ -299,7 +328,7 @@ def dir_version_items(self, context):
     """Same as version_items, but reads the folder from self.filepath directly (no cascade)."""
     try:
         folder = Path(self.filepath)
-        if not folder or not folder.exists():
+        if not folder:  # missing folder: cached_scandir() returns [] below
             return [("NONE", "—", "")]
 
         candidates = []
@@ -332,8 +361,9 @@ def entry_version_items(self, context):
     the same convention as create_entry() itself: falls back to bpy.data.filepath)."""
     try:
         target = Path(self.filepath) if self.filepath else Path(bpy.data.filepath)
-        folder = target.parent if target.is_file() else target
-        if not folder or not folder.exists():
+        # From the name, not is_file() (a disk call per redraw).
+        folder = target.parent if target.suffix.lower() == ".blend" else target
+        if not folder:  # missing folder: cached_scandir() returns [] below
             return [("NONE", "—", "")]
 
         candidates = []
