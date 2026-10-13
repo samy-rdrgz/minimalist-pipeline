@@ -14,7 +14,7 @@ from .config import (
 )
 from .core import cached_scandir, json_get
 from .logs import log
-from .tracking import TrackingStatusCache, get_departments_required, list_active_blocks
+from .tracking import TrackingStatusCache, list_active_blocks
 
 
 def get_folder(self, context) -> Path | None:
@@ -41,6 +41,35 @@ def get_folder(self, context) -> Path | None:
                 return project_root / "shots" / self.sequence / self.shot
     except Exception:
         return None
+
+
+def resolve_version_file(folder: Path | None, version_mode: str, custom_version: str = "") -> Path | None:
+    """The .blend in folder matching version_mode ("last" | "stable" |
+    "custom"), or None. Shared by the Open file and Render dialogs, whose
+    draw() calls it on every redraw to preview the pick: lists the folder
+    through cached_scandir() -- no exists(), no iterdir(), nothing on disk
+    within its TTL -- instead of one full listing per redraw."""
+    if not folder:
+        return None
+    candidates = []
+    for entry in cached_scandir(Path(folder)):
+        if not entry.name.endswith(".blend"):
+            continue
+        parsed = parse_filename(entry.name)
+        if parsed:
+            candidates.append((Path(entry.path), int(parsed["number"]), parsed.get("tag")))
+    if not candidates:
+        return None
+    if version_mode == "last":
+        return max(candidates, key=lambda x: x[1])[0]
+    if version_mode == "stable":
+        stable = [c for c in candidates if c[2] == "stable"]
+        return max(stable, key=lambda x: x[1])[0] if stable else None
+    if version_mode == "custom" and custom_version and custom_version != "NONE":
+        # Picked from version_items(), i.e. from this same listing.
+        target = Path(custom_version)
+        return target if any(c[0] == target for c in candidates) else None
+    return None
 
 
 # ---------------------------------------------------------------------------
@@ -181,7 +210,7 @@ def version_items(self, context):
     """All versioned blend files in the selected folder, newest first."""
     try:
         folder = get_folder(self, context)
-        if not folder or not folder.exists():
+        if not folder:  # missing folder: cached_scandir() returns [] below
             return [("NONE", "—", "")]
 
         candidates = []
@@ -258,7 +287,10 @@ def file_department_items(self, context):
     """Enum items from the current file's required departments, cached until they change."""
     global _files_deps_items_cache
     try:
-        deps = get_departments_required(Path(bpy.data.filepath))
+        # TrackingStatusCache, not get_departments_required(): that one reads
+        # tracking.json from disk on every call, and this enum is evaluated
+        # on every redraw of the increment-version dialog.
+        deps = TrackingStatusCache.get(bpy.data.filepath).get("departments_required") or []
         if _files_deps_items_cache and deps == _files_deps_items_cache[0]:
             return _files_deps_items_cache[1]
         items = _department_items(deps)
@@ -299,7 +331,7 @@ def dir_version_items(self, context):
     """Same as version_items, but reads the folder from self.filepath directly (no cascade)."""
     try:
         folder = Path(self.filepath)
-        if not folder or not folder.exists():
+        if not folder:  # missing folder: cached_scandir() returns [] below
             return [("NONE", "—", "")]
 
         candidates = []
@@ -332,8 +364,9 @@ def entry_version_items(self, context):
     the same convention as create_entry() itself: falls back to bpy.data.filepath)."""
     try:
         target = Path(self.filepath) if self.filepath else Path(bpy.data.filepath)
-        folder = target.parent if target.is_file() else target
-        if not folder or not folder.exists():
+        # From the name, not is_file() (a disk call per redraw).
+        folder = target.parent if target.suffix.lower() == ".blend" else target
+        if not folder:  # missing folder: cached_scandir() returns [] below
             return [("NONE", "—", "")]
 
         candidates = []
@@ -368,14 +401,20 @@ def shot_tag_items(self, context):
     asset, or self.filepath unset) just collapses to the blank option."""
     try:
         target = Path(self.filepath) if self.filepath else Path(bpy.data.filepath)
-        if target.is_dir():
+        # Folder vs file from the name, not is_dir(); listing through
+        # cached_scandir(), not glob() -- this enum is re-evaluated many
+        # times per redraw of the entry dialogs and the file details popup.
+        if target.suffix.lower() != ".blend":
             # Folder path (e.g. from the tracking monitor's file details
             # popup, see draw_file_details()) -- target.name is then just
             # the bare folder name ("sh010-020-030"), which parse_filename
             # never matches (no sequence/version parts). Read the shot
             # segment off one of its versioned files instead, same fix as
             # entry_version_items()'s folder-vs-file handling.
-            target = next(target.glob("*.blend"), target)
+            target = next(
+                (Path(e.path) for e in cached_scandir(target) if e.name.endswith(".blend")),
+                target,
+            )
         parsed = parse_filename(target.name) if target.name else None
         shot_segment = parsed.get("shot") if parsed else None
         if not shot_segment:

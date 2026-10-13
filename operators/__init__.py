@@ -48,6 +48,7 @@ from .tracking_ops import (
     M_PIPELINE_OT_toggle_worked_department,
     M_PIPELINE_OT_tracking_file_details,
     M_PIPELINE_OT_tracking_monitor,
+    M_PIPELINE_OT_tracking_refresh,
     M_PIPELINE_OT_upload_csv,
     PipelineEntryItem,
 )
@@ -86,6 +87,7 @@ classes = (
     M_PIPELINE_OT_toggle_entry_task,
     M_PIPELINE_OT_upload_csv,
     M_PIPELINE_OT_tracking_monitor,
+    M_PIPELINE_OT_tracking_refresh,
     M_PIPELINE_OT_open_file_version,
     M_PIPELINE_OT_tracking_file_details,
     M_PIPELINE_OT_farm_add_self_worker,

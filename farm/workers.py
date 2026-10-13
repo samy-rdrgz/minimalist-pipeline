@@ -47,6 +47,27 @@ def _heartbeat_age(heartbeat: str) -> int:
         return 10**9
 
 
+# Whether *this Blender instance* currently holds this machine's worker
+# role. Runtime state, in memory only. It used to live in Scene.is_worker:
+# a scene property is saved into the .blend, so a file saved while its
+# instance was a worker reopened showing "worker" when it wasn't -- and
+# is_blender_worker() set it True whenever the machine's worker file merely
+# existed, whoever owned it. Read by the UI through this_instance_is_worker(),
+# never from disk in a draw().
+_this_instance_worker = False
+
+
+def _set_this_instance_worker(value: bool) -> None:
+    global _this_instance_worker
+    _this_instance_worker = bool(value)
+
+
+def this_instance_is_worker() -> bool:
+    """Whether this Blender instance is the worker for this machine -- what
+    the UI shows ("Add this machine" vs "Kill this worker")."""
+    return _this_instance_worker
+
+
 def _recover_previous_render(previous: dict) -> dict:
     """Worker file fields to start with, given what the previous worker of
     this machine left in it. If it was mid-render (a Blender crash: no
@@ -101,27 +122,32 @@ def launch_worker() -> bool:
         } | _recover_previous_render(data)
         box["action"] = "to_write"
         register_farm_loop(get_active_project_root())
-    bpy.context.scene.is_worker = True
+    _set_this_instance_worker(True)
     return True
 
 
 def is_blender_worker() -> bool:
     """Whether this Blender process (pid) owns this machine's worker file.
     False (no crash) if there's no active project to resolve the file
-    against -- no project, no worker role."""
+    against -- no project, no worker role. Read-only: it's polled every
+    farm tick and never writes. A read that fails (share hiccup, Windows
+    refusing an open for a moment) keeps the previous answer -- farm_tick()
+    stops the loop on False, same reasoning as is_blender_monitor()."""
     try:
         worker_path = _worker_path()
     except PipelineError:
+        _set_this_instance_worker(False)
         return False
-    pid = os.getpid()
     try:
-        with locked_json(worker_path) as box:
+        if not worker_path.exists():
+            _set_this_instance_worker(False)
+            return False
+        with locked_json(worker_path, read_only=True, retries=0) as box:
             data = box["data"] or {}
-            bpy.context.scene.is_worker = True
-            return data.get("pid") == pid
-    except Exception:
-        bpy.context.scene.is_worker = False
-        return False
+        _set_this_instance_worker(data.get("pid") == os.getpid())
+    except (OSError, ValueError):
+        pass
+    return _this_instance_worker
 
 
 def kill_worker() -> bool:
@@ -133,7 +159,7 @@ def kill_worker() -> bool:
     except PipelineError:
         return True  # No active project -- nothing to have been worker for.
     if not worker_path.exists():
-        bpy.context.scene.is_worker = False
+        _set_this_instance_worker(False)
         return True
     pid = os.getpid()
     uuid = get_machine_id()
@@ -142,7 +168,7 @@ def kill_worker() -> bool:
         owned = data.get("pid", "") == pid and data.get("uuid", "") == uuid
         if owned:
             box["action"] = "to_delete"
-    bpy.context.scene.is_worker = False
+    _set_this_instance_worker(False)
     return owned
 
 

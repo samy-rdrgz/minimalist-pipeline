@@ -67,8 +67,10 @@ _WM_PROPS = {
     ),
     "entries_min_version": bpy.props.IntProperty(name="", default=0, min=0),
 }
+# No Scene.is_worker anymore: whether this instance is the worker is runtime
+# state (farm.workers.this_instance_is_worker()) -- a scene property is saved
+# into the .blend and reopened stale.
 _SCENE_PROPS = {
-    "is_worker": bpy.props.BoolProperty(name="", default=False),
     "pipeline_farm_list": bpy.props.CollectionProperty(type=PIPELINE_PG_farm_list_item),
 }
 
@@ -135,8 +137,7 @@ def _deferred_project_check():
 def _deferred_auto_worker():
     """Launch the worker role on startup if auto_worker_on_open is on and a
     project is already active. Deferred like _deferred_keymap: bpy.context.scene
-    (and the Scene.is_worker property registered above) aren't reliably ready
-    at register() time. Runs after _deferred_project_check so a since-
+    isn't reliably ready at register() time. Runs after _deferred_project_check so a since-
     deactivated project never gets a worker launched for it. Skipped in
     background mode, same reason as _deferred_onboarding: this is for an
     artist's own interactive session opting to double as a worker, not
@@ -228,9 +229,7 @@ def unregister():
         except RuntimeError:
             pass
 
-    # Before unregistering Scene.is_worker below -- is_blender_worker()/
-    # kill_worker() both read/write it, and would otherwise hit
-    # "'Scene' object has no attribute 'is_worker'" on every close.
+    # Stop the farm roles before the rest of unregister() tears things down.
     try:
         unregister_refresh_timer()
         unregister_status_timer()

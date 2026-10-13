@@ -1,12 +1,22 @@
 """Blender-side timers: the monitor/worker tick loop, and the UI refresh loop."""
 
 import functools
+import os
+import time
 from datetime import datetime
 from pathlib import Path
 
 import bpy
 
-from ..lib import ConfigCache, addon_pref, json_get, locked_json, now, to_absolute
+from ..lib import (
+    ConfigCache,
+    addon_pref,
+    get_active_project_root,
+    json_get,
+    locked_json,
+    now,
+)
+from ..lib.core import cached_scandir, read_json_quiet
 from .post_render import _EXTENSION_MAP
 
 _registered_tick_fn = None
@@ -137,6 +147,183 @@ def refresh_monitor_status() -> None:
     get_monitor_cache().update(_read_monitor_status())
 
 
+class _BackgroundRead:
+    """One disk read at a time on a daemon thread; the caller polls take()
+    from a bpy.app.timers tick. The function run must be pure I/O -- no bpy
+    -- see _read_farm_raw()."""
+
+    def __init__(self):
+        self._thread = None
+        self._result = None
+        self.started_at = 0.0
+
+    def busy(self) -> bool:
+        return self._thread is not None and self._thread.is_alive()
+
+    def start(self, fn, *args) -> None:
+        import threading
+
+        def run():
+            try:
+                self._result = ("ok", fn(*args))
+            except Exception as e:  # reported by take()
+                self._result = ("error", e)
+
+        self._result = None
+        self.started_at = time.monotonic()
+        self._thread = threading.Thread(target=run, daemon=True, name="pipeline-farm-read")
+        self._thread.start()
+
+    def take(self):
+        """("ok", value) / ("error", exc) once the read finished, else None."""
+        if self.busy() or self._result is None:
+            return None
+        result, self._result = self._result, None
+        return result
+
+
+_refresh_reader = _BackgroundRead()
+_status_reader = _BackgroundRead()
+
+
+def _farm_paths() -> dict | None:
+    """Every path the farm snapshot reads -- resolved on the main thread
+    (ConfigCache/prefs are bpy), handed to the reader thread as plain data."""
+    root = get_active_project_root()
+    if not root:
+        return None
+    return {
+        "root": Path(root),
+        "monitor_file": ConfigCache.get_path("monitor_file"),
+        "farm_actives": ConfigCache.get_path("farm_actives"),
+        "farm_incomings": ConfigCache.get_path("farm_incomings"),
+        "workers": ConfigCache.get_path("workers"),
+    }
+
+
+def _read_farm_raw(paths: dict, want_jobs: bool, scanned: dict) -> dict:
+    """Reader thread: everything the farm UI shows, straight from disk, as
+    plain data. Pure os/json (read_json_quiet()) -- never bpy, never a lock.
+    scanned: the actives/incomings dir mtimes already scanned, so unchanged
+    job folders aren't re-read."""
+    from .workers import STALE_WORKER_SECONDS, _heartbeat_age
+
+    raw: dict = {}
+    monitor_file = paths["monitor_file"]
+    data = read_json_quiet(monitor_file)
+    try:
+        mtime = os.stat(monitor_file).st_mtime if data else None
+    except OSError:
+        mtime = None
+    raw["monitor"] = (data, mtime)
+    if not want_jobs:
+        return raw
+
+    for name in ("farm_actives", "farm_incomings"):
+        folder = paths[name]
+        dir_mtime = _dir_mtime(folder)
+        if dir_mtime == scanned.get(name):
+            raw[name] = (dir_mtime, None)  # unchanged: keep what's cached
+            continue
+        items = []
+        try:
+            files = sorted(e.path for e in os.scandir(folder) if e.name.startswith("job_") and e.name.endswith(".json"))
+        except OSError:
+            files = []
+        for f in files:
+            item = read_json_quiet(f)
+            if item:
+                if name == "farm_incomings":
+                    item = dict(item)
+                    item["_job_id"] = Path(f).stem
+                items.append(item)
+        raw[name] = (dir_mtime, items)
+
+    workers = {}
+    try:
+        worker_files = [e.path for e in os.scandir(paths["workers"]) if e.name.startswith("worker_") and e.name.endswith(".json")]
+    except OSError:
+        worker_files = []
+    for f in worker_files:
+        w = read_json_quiet(f) or {}
+        if _heartbeat_age(w.get("last_heartbeat", "")) < STALE_WORKER_SECONDS:
+            workers[w.get("uuid", "unknown")] = w
+    raw["workers"] = workers
+    return raw
+
+
+def _frames_for_jobs(root: Path, jobs: list) -> dict:
+    """Reader thread: rendered-frame counts for the jobs being rendered."""
+    frames = {}
+    for job in jobs:
+        try:
+            stage = job["stage_history"][-1]["stage"]
+        except (KeyError, IndexError, TypeError):
+            continue
+        out = _output_dir(job, root)
+        if stage == "render_start" and out and job.get("resolved_frame_range"):
+            ext = _EXTENSION_MAP.get(job.get("output_extension"), "png")
+            frames[job.get("job_id", "")] = _count_rendered_frames(out, ext)
+    return frames
+
+
+def _read_farm_snapshot(paths: dict, scanned: dict, cached_actives: list) -> dict:
+    """Reader thread, full popup refresh: _read_farm_raw() + frame counts."""
+    raw = _read_farm_raw(paths, True, scanned)
+    actives = raw["farm_actives"][1]
+    raw["frames"] = _frames_for_jobs(paths["root"], actives if actives is not None else cached_actives)
+    return raw
+
+
+def _status_from_monitor_raw(monitor: tuple) -> dict:
+    """Main thread: the sidebar/popup status fields from (lock content, mtime)."""
+    data, mtime = monitor
+    status = {"status": "not running", "lock_user": "", "lock_machine": "", "last_tick": None}
+    if not data:
+        return status
+    last = datetime.fromtimestamp(mtime) if mtime else None
+    try:
+        in_file = datetime.fromisoformat(data.get("update_tick", ""))
+        last = max(last, in_file) if last else in_file
+    except (TypeError, ValueError):
+        pass
+    if last is None:
+        return status
+    status["status"] = monitor_age_status(last)
+    status["lock_user"] = data.get("user", "")
+    status["lock_machine"] = data.get("machine", "")
+    status["last_tick"] = last
+    return status
+
+
+def _apply_farm_snapshot(raw: dict) -> None:
+    """Main thread: fold a reader-thread snapshot into the monitor cache
+    (memory only)."""
+    from .monitor import get_monitor_cache
+
+    snapshot = _status_from_monitor_raw(raw["monitor"])
+    for name, key in (("farm_actives", "actives"), ("farm_incomings", "incomings")):
+        dir_mtime, items = raw[name]
+        if items is not None:
+            _jobs_scan_cache[f"{key}_raw"] = items
+        _jobs_scan_cache[f"{key}_mtime"] = dir_mtime
+    frames = raw.get("frames", {})
+    jobs = []
+    for job in _jobs_scan_cache["actives_raw"]:
+        try:
+            jobs.append(_build_job_entry(job, frames.get(job.get("job_id", ""))))
+        except Exception:
+            pass
+    for req in _jobs_scan_cache["incomings_raw"]:
+        try:
+            jobs.append(_build_incoming_entry(req))
+        except Exception:
+            pass
+    snapshot["jobs"] = jobs
+    snapshot["workers"] = raw.get("workers", {})
+    get_monitor_cache().update(snapshot)
+
+
 def _redraw_sidebars() -> None:
     """Tag only the 3D views' sidebar (UI) regions, where the farm panel
     lives. area.tag_redraw() would redraw every region of the area,
@@ -151,42 +338,68 @@ def _redraw_sidebars() -> None:
                     region.tag_redraw()
 
 
+def _redraw_popups() -> None:
+    for region in list(_popup_regions):
+        try:
+            region.tag_redraw()
+            if hasattr(region, "tag_refresh_ui"):
+                region.tag_refresh_ui()
+        except Exception:
+            # region freed (popup closed) without going through
+            # clear_popup_regions() -- drop the stale reference
+            _popup_regions.discard(region)
+
+
 def _refresh_tick() -> float:
-    """UI-only timer: recompute the full monitor snapshot and redraw the 3D
-    views' sidebars plus any open farm-monitor popup (see register_popup_region)."""
-
+    """UI-only timer while the farm popup is open. Never touches the disk
+    itself: every _REFRESH_INTERVAL it starts a background read
+    (_read_farm_snapshot()), and when one has finished it applies it to the
+    monitor cache and redraws -- a refresh used to block the UI for every
+    disk call it made (~10 network round-trips each 2 s on a share)."""
     try:
-        refresh_monitor_cache()
-        _redraw_sidebars()
-
-        for region in list(_popup_regions):
-            try:
-                region.tag_redraw()
-                if hasattr(region, "tag_refresh_ui"):
-                    region.tag_refresh_ui()
-            except Exception:
-                # region freed (popup closed) without going through
-                # clear_popup_regions() -- drop the stale reference
-                _popup_regions.discard(region)
+        result = _refresh_reader.take()
+        if result is not None and result[0] == "ok":
+            _apply_farm_snapshot(result[1])
+            _redraw_sidebars()
+            _redraw_popups()
+        if not _refresh_reader.busy() and time.monotonic() - _refresh_reader.started_at >= _REFRESH_INTERVAL:
+            paths = _farm_paths()
+            if paths:
+                scanned = {
+                    "farm_actives": _jobs_scan_cache["actives_mtime"],
+                    "farm_incomings": _jobs_scan_cache["incomings_mtime"],
+                }
+                _refresh_reader.start(
+                    _read_farm_snapshot, paths, scanned, list(_jobs_scan_cache["actives_raw"])
+                )
     except Exception:
         pass
-    return _REFRESH_INTERVAL
+    return 0.25
 
 
 def _status_tick() -> float:
-    """UI-only timer: cheap status-only refresh so the sidebar's farm header
-    stays live even collapsed. Redraws the sidebars only when the status
-    actually changed -- an idle farm reads "not running" for hours, which
-    then costs one stat per tick and zero redraws."""
+    """UI-only timer: status-only refresh so the sidebar's farm header stays
+    live even collapsed. The read runs on a background thread (monitor.lock
+    only); this tick applies the last result and redraws the sidebars only
+    when the status actually changed -- an idle farm reads "not running" for
+    hours and costs zero redraws, and zero disk calls on the UI thread."""
     global _last_status
     try:
-        refresh_monitor_status()
-        from .monitor import get_monitor_cache
+        result = _status_reader.take()
+        if result is not None and result[0] == "ok":
+            from .monitor import get_monitor_cache
 
-        status = get_monitor_cache().get("status")
-        if status != _last_status:
-            _last_status = status
-            _redraw_sidebars()
+            get_monitor_cache().update(_status_from_monitor_raw(result[1]["monitor"]))
+            status = get_monitor_cache().get("status")
+            if status != _last_status:
+                _last_status = status
+                _redraw_sidebars()
+            return _STATUS_INTERVAL
+        if not _status_reader.busy():
+            paths = _farm_paths()
+            if paths:
+                _status_reader.start(_read_farm_raw, paths, False, {})
+                return 0.5  # come back for the result shortly
     except Exception:
         pass
     return _STATUS_INTERVAL
@@ -242,26 +455,58 @@ def _scan_incoming_jobs(incomings_dir: Path) -> list[dict]:
     return raw
 
 
-def _build_job_entry(job: dict) -> dict:
+def _output_dir(job: dict, root: Path | None = None) -> Path | None:
+    """Absolute folder a job renders into, or None before setup has set it.
+    A plain join on the project root, never to_absolute()/resolve() -- this
+    runs for every job on every popup refresh, and a resolve is two network
+    round-trips on Windows."""
+    output_path = job.get("output_path", "")
+    root = root or get_active_project_root()
+    if not output_path or not root:
+        return None
+    path = Path(output_path)
+    return (path if path.is_absolute() else Path(root) / path).parent
+
+
+def _count_rendered_frames(folder: Path, ext: str) -> int:
+    """Frames actually written in folder: files with this extension and a
+    non-zero size. Renders run with placeholders (worker_render_entry.py),
+    which create an empty file per frame when it *starts* -- counting those
+    showed frames claimed, not done. cached_scandir() re-lists the folder
+    only when its mtime changes, and DirEntry.stat() reads the size the
+    listing already returned (Windows) instead of one stat per frame."""
+    suffix = f".{ext}".lower()
+    done = 0
+    for entry in cached_scandir(folder):
+        if not entry.name.lower().endswith(suffix):
+            continue
+        try:
+            if entry.stat().st_size > 0:
+                done += 1
+        except OSError:
+            pass
+    return done
+
+
+def _build_job_entry(job: dict, frames_done: int | None = None) -> dict:
     """UI-facing entry for one active job. elapsed_seconds/frames_done are
-    always recomputed fresh (cheap: one glob on the output folder) even when
-    job came from a cached scan -- progress lives elsewhere, its mtime never
-    reflects it."""
+    recomputed fresh even when job came from a cached scan -- progress
+    lives in the output folder, the job file's mtime never reflects it."""
     stage = job["stage_history"][-1]
     if stage["stage"] == "archived":
         stage = job["stage_history"][-2]
     stage_time = datetime.fromisoformat(stage["at"])
     elapsed = (now(False) - stage_time).total_seconds()
 
-    frames_done = 0
     frames_total = 0
-    output_path = job.get("output_path", "")
+    output_dir = _output_dir(job)
     resolved = job.get("resolved_frame_range")
-    if stage["stage"] == "render_start" and output_path and resolved:
-        ext = _EXTENSION_MAP.get(job.get("output_extension"), "png")
-        pattern = f"*.{ext}"
-        frames_done = len(list(Path(to_absolute(output_path)).parent.glob(pattern)))
+    if stage["stage"] == "render_start" and output_dir and resolved:
+        if frames_done is None:  # synchronous path (refresh_monitor_cache())
+            ext = _EXTENSION_MAP.get(job.get("output_extension"), "png")
+            frames_done = _count_rendered_frames(output_dir, ext)
         frames_total = resolved[1] - resolved[0] + 1
+    frames_done = frames_done or 0
 
     return {
         "job_id": job.get("job_id", ""),
@@ -275,6 +520,7 @@ def _build_job_entry(job: dict) -> dict:
         "skipped_shots": job.get("skipped_shots", []),
         "absorbed_shots": job.get("absorbed_shots", []),
         "shot_override": job.get("shot_override", ""),
+        "output_dir": str(output_dir) if output_dir else "",
     }
 
 
@@ -342,18 +588,18 @@ def _read_monitor_status() -> dict:
     }
 
     lock_path = ConfigCache.get_path("monitor_file")
-    if not lock_path.exists():
-        return status
 
-    # Read-only, zero retries: a status read never takes the writer lock nor
+    # No exists() first (a missing file just reads as None below). Read-only, zero retries: a status read never takes the writer lock nor
     # sleeps on the UI thread. The file can vanish between the check and the
     # read (monitor stopping): treat that as "not running" instead of
     # raising into the caller.
     try:
         with locked_json(lock_path, read_only=True, retries=0) as box:
-            data = box["data"] or {}
+            data = box["data"]
     except (OSError, ValueError):
         return status
+    if not data:
+        return status  # no monitor.lock: not running
     last_tick = monitor_last_tick(lock_path, data)
     if last_tick is None:
         return status
@@ -373,6 +619,14 @@ def _compute_snapshot() -> dict:
     tick, never hides it permanently."""
     snapshot = {"jobs": []}
     snapshot.update(_read_monitor_status())
+    # Workers too, so the popup's draw() only ever reads memory: draw() runs
+    # on every hover/redraw of the popup, this runs once per refresh tick.
+    try:
+        from .workers import scan_workers
+
+        snapshot["workers"] = scan_workers()
+    except Exception:
+        snapshot["workers"] = {}
 
     jobs_dir = ConfigCache.get_path("farm_actives")
     incomings_dir = ConfigCache.get_path("farm_incomings")

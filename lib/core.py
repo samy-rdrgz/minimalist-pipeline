@@ -346,7 +346,9 @@ def path_reachable(path: str | Path) -> bool:
         return False
 
 
-_scandir_cache: dict[str, tuple[float, list]] = {}
+# path -> (mtime or None if missing, entries, last checked at -- time.monotonic())
+_scandir_cache: dict[str, tuple[float | None, list, float]] = {}
+SCANDIR_TTL = 2.0
 
 
 def cached_scandir(path: Path) -> list:
@@ -360,20 +362,31 @@ def cached_scandir(path: Path) -> list:
     info scandir() already fetched in the same syscall, instead of
     Path.iterdir() + Path.is_dir(), which stats every entry a second time
     -- on a network share that second stat is a second round-trip per entry.
-    [] on any OSError (missing/unreadable directory)."""
+    [] on any OSError (missing/unreadable directory).
+    The mtime itself is re-checked at most every SCANDIR_TTL seconds: enum
+    callbacks run many times per redraw (once per draw, again on every read
+    of the property, once more per expanded item), and even one stat per
+    call added up to thousands of network round-trips in a few seconds
+    (6745 is_block_archived() + 2446 cached_scandir() calls in an 11 s
+    studio profile of the Open file dialog)."""
+    key = str(path)
+    now_t = time.monotonic()
+    cached = _scandir_cache.get(key)
+    if cached and now_t - cached[2] < SCANDIR_TTL:
+        return cached[1]
     try:
         mtime = path.stat().st_mtime
     except OSError:
+        _scandir_cache[key] = (None, [], now_t)
         return []
-    key = str(path)
-    cached = _scandir_cache.get(key)
     if cached and cached[0] == mtime:
+        _scandir_cache[key] = (mtime, cached[1], now_t)
         return cached[1]
     try:
         entries = list(os.scandir(path))
     except OSError:
         entries = []
-    _scandir_cache[key] = (mtime, entries)
+    _scandir_cache[key] = (mtime, entries, now_t)
     return entries
 
 
@@ -487,6 +500,18 @@ class AdoptedProcess:
                 raise subprocess.TimeoutExpired(str(self.pid), timeout)
             time.sleep(0.1)
         return -1
+
+
+def read_json_quiet(path):
+    """Parsed JSON at path, or None if missing/unreadable/corrupt. Pure
+    os/json -- no bpy, no lock, no log -- so it can run on a background
+    reader thread (ProjectScan, the farm snapshot). No lock is needed to
+    read: every write is an atomic os.replace(), a reader sees the old or
+    the new file, never half of one."""
+    try:
+        return json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
 
 
 def retry_shared_io(fn, *args, attempts: int = 5, delay: float = 0.1):
@@ -635,12 +660,21 @@ def locked_json(
     mustn't stall its caller."""
     machine_id = get_machine_id()
     if read_only:
-        check_lock(path, retries=retries)
+        # retries=0 reads regardless of any lock (writes are atomic, see
+        # above), so looking at the lock file first would only cost a
+        # network round-trip for nothing.
+        if retries > 0:
+            check_lock(path, retries=retries)
     else:
         if not acquire_lock(path, machine_id, retries=retries):
             raise PipelineError(f"{path} is locked by another process.")
     try:
-        data = json.loads(path.read_text(encoding="utf-8")) if path.exists() else None
+        # Read directly, no exists() first: one disk call instead of two
+        # (each is a network round-trip on a share).
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except FileNotFoundError:
+            data = None
         box = {"data": data, "action": ""}
         yield box
         if box["action"] != "" and read_only:

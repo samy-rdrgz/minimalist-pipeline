@@ -33,12 +33,17 @@ def read_project_config(project_root: str) -> dict:
 
     config_file = get_config_filepath(project_root)
 
-    if not config_file.exists():
-        raise PipelineError(f"Config not found: {config_file}")
-
     try:
-        with locked_json(config_file) as box:
-            return box["data"] or {}
+        # Read-only, no wait, no exists() first: reading never needed the
+        # writer lock (it created and deleted a .lock file on the share just
+        # to read) -- writes are atomic (os.replace), see locked_json().
+        with locked_json(config_file, read_only=True, retries=0) as box:
+            data = box["data"]
+        if data is None:
+            raise PipelineError(f"Config not found: {config_file}")
+        return data
+    except PipelineError:
+        raise
     except json.JSONDecodeError:
         raise PipelineError("Config file corrupted (invalid JSON).")
     except Exception as e:
@@ -414,6 +419,22 @@ def to_relative(path: str | Path, project_root: Path | None = None) -> str:
     except ValueError:
         rel = p  # already relative, or outside the project -- left as-is
     return rel.as_posix()
+
+
+def project_path(rel_path: str | Path, project_root: Path | None = None) -> Path:
+    """Absolute path for a project-relative one, by plain join + normpath --
+    pure string work, no disk access. For draw()/poll()/enum callbacks:
+    to_absolute() resolve()s, and a resolve is two network round-trips on
+    Windows (_getfinalpathname) on a share. Same result as to_absolute() for
+    anything inside the project that isn't reached through a symlink."""
+    path = Path(rel_path)
+    if path.is_absolute():
+        return Path(os.path.normpath(path))
+    if not project_root:
+        project_root = get_active_project_root()
+        if not project_root:
+            raise PipelineError("No active project to resolve a relative path against.")
+    return Path(os.path.normpath(Path(project_root) / path))
 
 
 def to_absolute(rel_path: str, project_root: Path | None = None) -> Path:

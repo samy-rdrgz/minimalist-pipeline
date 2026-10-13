@@ -1,12 +1,11 @@
 """Farm management panel in the 3D View sidebar."""
 
 import datetime
-import json
 from pathlib import Path
 
 import bpy
 
-from ..farm import get_monitor_cache, scan_workers
+from ..farm import get_monitor_cache, this_instance_is_worker
 from ..lib import (
     addon_pref,
     draw_box_tip,
@@ -27,17 +26,6 @@ class M_PIPELINE_PT_farm_panel(bpy.types.Panel):
     bl_category = "Pipeline"
 
     bl_options = {"HEADER_LAYOUT_EXPAND", "DEFAULT_CLOSED"}
-
-    def _get_jobs(self, jobs_dir: Path) -> list[dict]:
-        jobs = []
-        for i in jobs_dir.glob("job_*.json"):
-            filepath = jobs_dir / i.name
-            try:
-                data = json.loads(filepath.read_text(encoding="utf-8"))
-                jobs.append(data)
-            except Exception:
-                pass
-        return jobs
 
     @classmethod
     def poll(cls, context):
@@ -220,10 +208,14 @@ def draw_farm_jobs(layout):
 
             elif j["frames_total"] > 0:
                 pct = j["frames_done"] / j["frames_total"]
-                remaining = elapsed / pct
-                remaining_str = (
-                    f"≃ {int(remaining // 60)}m{int(remaining % 60):02d}s remaining"
-                )
+                if pct > 0:
+                    # elapsed / pct is the estimated *total*; what's left is
+                    # that minus what already elapsed. (pct == 0 used to
+                    # divide by zero and break the whole popup's draw.)
+                    remaining = elapsed / pct - elapsed
+                    remaining_str = f"≃ {int(remaining // 60)}m{int(remaining % 60):02d}s remaining"
+                else:
+                    remaining_str = "estimating..."
                 text = f"{stage} - {j['frames_done']}/{j['frames_total']} ({pct:.0%}) - {elapsed_str} ({remaining_str})"
 
             else:
@@ -237,6 +229,12 @@ def draw_farm_jobs(layout):
             row.label(text=name, icon=icon)
             status = row.row()
             status.label(text=text)
+            if j.get("output_dir"):
+                op = status.operator(
+                    "wm.open_folder", text="", icon="FILE_FOLDER", emboss=False
+                )
+                op.filepath = j["output_dir"]
+                op.custom_tooltip = "Open this job's render folder"
             if stage == "render_start":
                 status.operator(
                     "m_pipeline.farm_cancel_job", text="", icon="X", emboss=False
@@ -262,7 +260,7 @@ def draw_farm_workers(layout):
     btn = title_list.row()
     btn.alignment = "LEFT"
     btn.label(text="Machine", icon="BLANK1")
-    if bpy.context.scene.is_worker:
+    if this_instance_is_worker():
         btn.operator(
             "m_pipeline.farm_kill_self_worker", text="Kill this worker", icon="X"
         )
@@ -273,11 +271,14 @@ def draw_farm_workers(layout):
 
     title_list.row().label(text="Jobs")
 
-    workers = scan_workers()
-
-    machines = [j for i, j in workers.items()]
-
     monitor_cache = get_monitor_cache()
+    # From the snapshot the refresh timer builds (_compute_snapshot()), never
+    # scan_workers() here: draw() reruns on every hover of the popup, and
+    # each worker file read is a network round-trip on a share.
+    workers = monitor_cache.get("workers") or {}
+
+    machines = list(workers.values())
+
     layout.separator(factor=0.1, type="LINE")
     row = layout.column(align=True)
     if monitor_cache.get("status") == "not running":

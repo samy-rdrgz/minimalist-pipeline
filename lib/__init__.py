@@ -15,6 +15,7 @@ from .batch import (
     shot_batch_exists,
 )
 from .browser import (
+    resolve_version_file,
     asset_department_items,
     asset_folder_items,
     department_filter_items,
@@ -31,6 +32,7 @@ from .browser import (
     version_items,
 )
 from .config import (
+    project_path,
     ConfigCache,
     file_in_active_project,
     find_known_project_for_file,
@@ -55,6 +57,7 @@ from .config import (
 from .core import (
     AdoptedProcess,
     addon_pref,
+    cached_scandir,
     draw_box_tip,
     get_addon_version,
     get_machine_id,
@@ -130,7 +133,9 @@ from .session import (
     set_opened_as_read_only,
 )
 from .tracking import (
+    get_linked_libraries_cached,
     RecentFilesCache,
+    ProjectScan,
     TrackingStatusCache,
     WorkTimeCache,
     active_shot_owners,
