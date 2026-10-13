@@ -473,7 +473,13 @@ def draw_file_details(self, context, layout):
 
     icon_id = _preview_ids.get(filepath)
     if icon_id:
-        tabl.template_icon(icon_value=icon_id, scale=6)
+        # A template_icon is always square, the frame centered in it: sized
+        # on the departments list next to it (~one 0.8-scaled line per
+        # department + its title), boxed so the centering reads as intended.
+        lines = len(data.get("departments_required", [])) + 1
+        tabl.box().template_icon(
+            icon_value=icon_id, scale=max(4.0, min(8.0, lines * 0.8 + 0.6))
+        )
         tabl.separator(factor=2)
 
     required = data.get("departments_required", [])

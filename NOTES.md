@@ -1791,7 +1791,10 @@ carries its prefix). Overwritten in place, made by `lib/thumbnails.py` +
   `bpy.utils.previews` collection (`panels/tracking_panel.py`): loaded when
   the file is clicked (the details operator's `execute()`, one stat), keyed
   on the thumbnail's mtime so a remade one shows up -- `draw()` only reads
-  the cached icon id. Freed in `unregister()`.
+  the cached icon id. Freed in `unregister()`. A `template_icon` is always
+  square and centers a non-square frame in it -- kept as is (the
+  thumbnail's own ratio is never altered), sized on the departments list
+  next to it and drawn in a box so the centering reads as intended.
 - **Blocks**: a block row shows its first shot's thumbnail; every shot still
   gets its own, since the farm renders a block shot by shot.
 - **Asset renders** had never worked on the farm: `compute_output_path()`
