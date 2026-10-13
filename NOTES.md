@@ -1586,10 +1586,16 @@ still showed only because the File panel had cached it while open). The old
 Now (`_is_tracked_owner()`): a folder is an owner only if its `.pipeline/`
 holds a `tracking.json`, *and* it's at least `_MIN_OWNER_DEPTH` (2) below
 assets/library/shots -- a prefix or sequence folder is never an asset or a
-shot by convention, whatever it contains. Still open: which code path
-wrote a `.pipeline/` into a prefix folder (a writer given an asset *folder*
-instead of a `.blend` computes `folder.parent / ".pipeline"`, and
-`locked_json()`'s lock creates the directory).
+shot by convention, whatever it contains. Where the stray came from: it
+was *empty*, so nothing wrote a meta in it -- a lock attempt or a read on a
+path computed from an asset *folder* instead of a `.blend`
+(`folder.parent / ".pipeline" / ...` is the prefix folder) created the
+directory: `acquire_lock()` creates the lock file's parent, and until
+1.0.7's cleanup `check_lock()` did too, on plain reads. Every current
+caller passes a `.blend`, so the source was likely an older version; to
+make it impossible now, every meta path goes through `_meta_path()`,
+which refuses anything but a `.blend` (PipelineError) -- and
+`get_session_worked_departments()`, read by draw(), returns [] instead.
 
 **Popup regions.** `ProjectScan` kept `context.region_popup` to redraw the
 monitoring popup as results came in, and the farm popup did the same

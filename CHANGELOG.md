@@ -8,7 +8,9 @@ All notable changes to this addon. Dates are release dates.
 
 - **Project monitoring could miss assets**: a stray `.pipeline` folder
   inside a prefix folder (e.g. `assets/ch/.pipeline`) hid every asset of
-  that prefix. Only real asset/shot folders count now.
+  that prefix. Only real asset/shot folders count now, and the addon can
+  no longer create such a folder (version metadata is only ever written
+  next to a `.blend` file).
 - **Possible Blender crash** when the Project monitoring or farm monitor
   window was closed (or reopened) while it was refreshing: the addon could
   redraw a window that Blender had already closed.
