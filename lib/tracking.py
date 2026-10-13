@@ -60,21 +60,46 @@ def _meta_stem(filepath: Path) -> str:
 _DATA_ROOTS = ("assets", "library", "shots")
 
 
-def _walk_owner_dirs(folder: Path):
-    """Yield every folder under `folder` that owns a .pipeline/ (an asset or
-    shot/block folder), without descending into it: one directory listing
+# Depth below assets/, library/ or shots/ at which a folder can be an asset
+# or a shot: <prefix>/<asset> and <sequence>/<shot> are depth 2 (an archived
+# block, <sequence>/old/<shot>, is 3). Depth 0-1 -- the top folder itself, a
+# prefix or a sequence folder -- is never one, even with a .pipeline/ in it.
+_MIN_OWNER_DEPTH = 2
+
+
+def _is_tracked_owner(folder: Path, entries: list, depth: int = _MIN_OWNER_DEPTH) -> bool:
+    """Whether a folder (given its own listing) is a tracked asset/shot: it
+    has a .pipeline/ *with a tracking.json in it*. A bare or stray .pipeline/
+    doesn't count -- one sitting in a prefix folder (assets/ch/.pipeline,
+    found on a real project) used to stop the walk there, hiding every asset
+    below it from Project monitoring. One extra stat, only for folders that
+    have a .pipeline/ at all. Thread-safe (pure os)."""
+    if depth < _MIN_OWNER_DEPTH:
+        return False
+    if not any(e.name == ".pipeline" and e.is_dir() for e in entries):
+        return False
+    try:
+        os.stat(folder / ".pipeline" / "tracking.json")
+        return True
+    except OSError:
+        return False
+
+
+def _walk_owner_dirs(folder: Path, depth: int = 0):
+    """Yield every tracked folder under `folder` (a .pipeline/ with a
+    tracking.json -- see _is_tracked_owner()), without descending into it: one directory listing
     per folder visited. Path.rglob() walked *every* subfolder (textures,
     caches...) -- each listing a network round-trip on a share."""
     try:
         entries = list(os.scandir(folder))
     except OSError:
         return
-    if any(e.name == ".pipeline" and e.is_dir() for e in entries):
+    if _is_tracked_owner(folder, entries, depth):
         yield folder
         return
     for e in entries:
         if e.is_dir() and not e.name.startswith("."):
-            yield from _walk_owner_dirs(Path(e.path))
+            yield from _walk_owner_dirs(Path(e.path), depth + 1)
 
 
 # (project root, owner dirs, walked at -- time.monotonic()): the monitoring
@@ -100,6 +125,19 @@ def _iter_owner_dirs(project_root: Path) -> list[Path]:
         owners.extend(_walk_owner_dirs(Path(project_root) / top))
     _owner_dirs_walk = (str(project_root), owners, now_t)
     return owners
+
+
+def _meta_path(filepath: Path, suffix: str) -> Path:
+    """<folder>/.pipeline/<version stem><suffix> for a versioned .blend.
+    Refuses anything else: given an asset *folder*, filepath.parent is the
+    prefix folder (assets/ch/) -- reading or writing there created a stray,
+    empty assets/ch/.pipeline/ on a real project (a lock attempt creates the
+    directory), which then hid every asset of that prefix from Project
+    monitoring. Raises PipelineError instead of touching the wrong folder."""
+    filepath = Path(filepath)
+    if filepath.suffix.lower() != ".blend":
+        raise PipelineError(f"Expected a .blend file, got {filepath}")
+    return filepath.parent / ".pipeline" / (_meta_stem(filepath) + suffix)
 
 
 def _owner_dir(filepath: Path) -> Path:
@@ -278,7 +316,6 @@ class ProjectScan:
     _thread = None
     _queue = None
     _owners: list = []
-    _regions: set = set()
 
     @classmethod
     def start(cls, project_root: Path) -> None:
@@ -310,28 +347,30 @@ class ProjectScan:
 
     @classmethod
     def register_region(cls, region) -> None:
-        """Redraw this region (a popup's own, from its draw()) on progress."""
-        if region is not None:
-            cls._regions.add(region)
+        """Kept for API compatibility -- does nothing. Holding a popup's
+        region (context.region_popup) across timer ticks is unsafe: Blender
+        frees it when the popup closes, and tag_redraw() on a freed region
+        doesn't raise, it crashes Blender. The popup refreshes itself on the
+        next mouse move instead."""
 
     @staticmethod
     def _read_project(root: Path, known: dict, links: dict, out) -> None:
         """Reader thread: disk work only, results posted to `out`."""
         try:
             owners = []
-            stack = [root / top for top in reversed(_DATA_ROOTS)]
+            stack = [(root / top, 0) for top in reversed(_DATA_ROOTS)]
             while stack:
-                folder = stack.pop()
+                folder, depth = stack.pop()
                 try:
                     entries = list(os.scandir(folder))
                 except OSError:
                     continue
-                if any(e.name == ".pipeline" and e.is_dir() for e in entries):
+                if _is_tracked_owner(folder, entries, depth):
                     owners.append(folder)
                     out.put(("found", len(owners)))
                     continue
                 stack.extend(
-                    Path(e.path)
+                    (Path(e.path), depth + 1)
                     for e in sorted(entries, key=lambda e: e.name, reverse=True)
                     if e.is_dir() and not e.name.startswith(".")
                 )
@@ -421,11 +460,6 @@ class ProjectScan:
             cls.phase = ""
             cls._queue = None
 
-        for region in list(cls._regions):
-            try:
-                region.tag_redraw()
-            except Exception:
-                cls._regions.discard(region)  # popup closed
         return None if finished else 0.1
 
 
@@ -664,7 +698,7 @@ def create_wipmeta(
             "departments_worked": {},
             "linked": (last or {}).get("linked", []),
         }
-        path = filepath.parent / ".pipeline" / (_meta_stem(filepath) + ".wipmeta")
+        path = _meta_path(filepath, ".wipmeta")
         path.parent.mkdir(parents=True, exist_ok=True)
         with locked_json(path) as box:
             box["data"] = data
@@ -679,7 +713,7 @@ def wipmeta_touch(filepath: Path):
     Called from save_post_handler on every save, so M_PIPELINE_OT_auto_version
     can tell a same-day re-open by a different user from the file's own
     author. Never raises: handler-called, same rule as check_library_update()."""
-    path = filepath.parent / ".pipeline" / (_meta_stem(filepath) + ".wipmeta")
+    path = _meta_path(filepath, ".wipmeta")
     if not path.exists():
         return
     try:
@@ -706,7 +740,7 @@ def wipmeta_add_work(
     .stablemeta), and there's nothing to track on it; same rule as
     wipmeta_touch()."""
     id = f"{os.getpid()}_{get_machine_id()}"
-    path = filepath.parent / ".pipeline" / (_meta_stem(filepath) + ".wipmeta")
+    path = _meta_path(filepath, ".wipmeta")
     if not path.exists():
         return
     else:
@@ -731,8 +765,12 @@ def get_session_worked_departments(filepath: Path) -> list[str]:
     """Departments already recorded for *this* session (pid + machine) in
     filepath's .wipmeta. In-memory cache kept in sync by wipmeta_add_work(),
     so draw() never hits disk past the first read. [] by default -- an
-    untouched file never claims work that wasn't done."""
-    path = filepath.parent / ".pipeline" / (_meta_stem(filepath) + ".wipmeta")
+    untouched file never claims work that wasn't done. Read by draw():
+    never raises -- [] for anything that isn't a versioned .blend."""
+    try:
+        path = _meta_path(filepath, ".wipmeta")
+    except PipelineError:
+        return []
     key = str(path)
     if key in _session_worked_cache:
         return _session_worked_cache[key]
@@ -754,7 +792,7 @@ def wipmeta_add_link(filepath: Path, link: list[dict]):
     is legal (Blender doesn't block it in memory, only Save is guarded),
     and a -stable file has nothing to track it in; same rule as
     wipmeta_touch()."""
-    path = filepath.parent / ".pipeline" / (_meta_stem(filepath) + ".wipmeta")
+    path = _meta_path(filepath, ".wipmeta")
     if not path.exists():
         return
     else:
@@ -783,7 +821,7 @@ def wipmeta_sync_links(filepath: Path, links: list[dict]) -> int:
     entry's un-collapsed "../" must not read as a new link. Returns the
     number of entries added; 0, no raise, without a .wipmeta (-stable
     file), same rule as wipmeta_touch()."""
-    path = filepath.parent / ".pipeline" / (_meta_stem(filepath) + ".wipmeta")
+    path = _meta_path(filepath, ".wipmeta")
     if not path.exists():
         return 0
 
@@ -839,7 +877,7 @@ def create_stablemeta(
             "linked": (wipdata or {}).get("linked", []),
             "conflict_warning": conflict_warnings,
         }
-        path = filepath.parent / ".pipeline" / (_meta_stem(filepath) + ".stablemeta")
+        path = _meta_path(filepath, ".stablemeta")
         path.parent.mkdir(parents=True, exist_ok=True)
 
         with locked_json(path) as box:
@@ -1764,7 +1802,7 @@ def wipmeta_update_libraries(filepath: Path, update):
     runs, library_updates() has already repointed/reloaded the libraries
     themselves, so there's nothing left to roll back, just no wipmeta to
     log it in; same rule as wipmeta_touch()."""
-    path = filepath.parent / ".pipeline" / (_meta_stem(filepath) + ".wipmeta")
+    path = _meta_path(filepath, ".wipmeta")
     if not path.exists():
         return
     else:

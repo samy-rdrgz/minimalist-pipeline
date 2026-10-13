@@ -339,15 +339,20 @@ def _redraw_sidebars() -> None:
 
 
 def _redraw_popups() -> None:
-    for region in list(_popup_regions):
+    """Redraw the popup regions registered by draw() since the last call,
+    then forget them: a live popup re-registers on the redraw this
+    triggers, a closed one never does -- so a region is never touched more
+    than one tick after its popup's last draw (see unregister_refresh_timer()
+    for why a stale region must never be touched)."""
+    regions = list(_popup_regions)
+    _popup_regions.clear()
+    for region in regions:
         try:
             region.tag_redraw()
             if hasattr(region, "tag_refresh_ui"):
                 region.tag_refresh_ui()
         except Exception:
-            # region freed (popup closed) without going through
-            # clear_popup_regions() -- drop the stale reference
-            _popup_regions.discard(region)
+            pass
 
 
 def _refresh_tick() -> float:
@@ -668,13 +673,19 @@ def register_refresh_timer() -> None:
 
 
 def unregister_refresh_timer() -> None:
-    """Unregister the UI redraw timer and drop any tracked popup regions."""
+    """Unregister the UI redraw timer and drop any tracked popup regions.
+    Called when the farm popup closes (its execute()/cancel()): the region
+    is freed with the popup, and tag_redraw() on a freed region crashes
+    Blender instead of raising -- it must never outlive the popup. (It used
+    to be cleared only with the status timer, so reopening the popup
+    redrew the previous, freed one.)"""
     global _registered_tick_fn
     if _registered_tick_fn is not None and bpy.app.timers.is_registered(
         _registered_tick_fn
     ):
         bpy.app.timers.unregister(_registered_tick_fn)
     _registered_tick_fn = None
+    clear_popup_regions()
 
 
 def register_status_timer() -> None:

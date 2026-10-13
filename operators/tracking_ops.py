@@ -695,10 +695,6 @@ class M_PIPELINE_OT_tracking_monitor(bpy.types.Operator):
     entries_min_version: bpy.props.IntProperty(name="", default=0, min=0)
 
     def draw(self, context):
-        # This popup's own region (Blender 4.2+, only valid while drawing), so
-        # ProjectScan can redraw it as results come in.
-        ProjectScan.register_region(getattr(context, "region_popup", None))
-
         layout = self.layout
         if context.window_manager.file_details_selected:
             draw_file_details(self, context, layout)

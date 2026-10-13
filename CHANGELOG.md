@@ -28,6 +28,13 @@ All notable changes to this addon. Dates are release dates.
 - The farm monitor and the sidebar's farm status read the disk in the
   background; Blender never waits on them.
 
+### Fixed
+
+- Stray, empty `.pipeline` folders could appear in a prefix folder (e.g.
+  `assets/ch/.pipeline`). Version metadata is now only ever written next to
+  a `.blend` file, and Project monitoring ignores such folders — they hid
+  the assets next to them. An existing one can simply be deleted.
+
 ### Farm monitor
 
 - **Open-folder button on each job** in the farm monitor, to go straight
