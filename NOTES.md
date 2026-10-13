@@ -1514,9 +1514,8 @@ whole popup's draw; and "remaining" showed the estimated *total* time
 
 ## Popups on a network share: nothing on disk in draw(), heavy reads off the UI thread
 
-Studio profiles: the Open file dialog spent 32 s of an 11 s window... of
-43 s profiled in 6745 `is_block_archived()` + 2446 `cached_scandir()`
-calls; Project monitoring froze Blender for minutes on open (it never even
+Studio profiles: the Open file dialog spent 32 of 43 profiled seconds in
+6745 `is_block_archived()` + 2446 `cached_scandir()` calls; Project monitoring froze Blender for minutes on open (it never even
 showed up). Each disk call on that share costs ~10-15 ms. Two rules came
 out of it:
 
