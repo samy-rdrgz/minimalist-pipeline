@@ -34,6 +34,9 @@ All notable changes to this addon. Dates are release dates.
   `assets/ch/.pipeline`). Version metadata is now only ever written next to
   a `.blend` file, and Project monitoring ignores such folders — they hid
   the assets next to them. An existing one can simply be deleted.
+- Blender could crash when Project monitoring was closed during its
+  background scan, or when a file was opened while the farm monitor was
+  refreshing.
 
 ### Farm monitor
 
