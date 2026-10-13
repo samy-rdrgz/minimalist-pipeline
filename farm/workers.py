@@ -19,6 +19,7 @@ from ..lib import (
     locked_json,
     log,
     now,
+    retry_shared_io,
     to_absolute,
 )
 from .loop import register_farm_loop
@@ -205,34 +206,40 @@ def execute_render_request() -> dict:
             project_root = get_active_project_root()
             templates_dir = Path(__file__).parent.parent / "templates"
             entry = templates_dir / "worker_render_entry.py"
-            p = subprocess.Popen(
-                [
-                    bpy.app.binary_path,
-                    "-b",
-                    str(to_absolute(data["filepath"], project_root)),
-                    "-o",
-                    str(to_absolute(data["output_path"], project_root)),
-                    "-F",
-                    data["output_extension"],
-                ]
-                + data["cmd_flags"]
-                + [
-                    "--python",
-                    str(entry),
-                    "--",
-                    "--job-id",
-                    data["job_id"],
-                    "--preset",
-                    data.get("prerender_script", ""),
-                    # Real (possibly namespaced) module name -- see NOTES.md,
-                    # "CSV batch: the subprocess couldn't import itself".
-                    "--addon-module",
-                    __package__.rsplit(".", 1)[0],
-                ],
-                stdout=open(log_path, "wb"),
-                stderr=subprocess.STDOUT,
-                stdin=subprocess.DEVNULL,
-            )
+            # The parent's handle is closed as soon as the child has its own
+            # copy (the with block) -- it used to stay open for good, which
+            # on Windows also keeps the file from being deleted or moved.
+            log_file = open(log_path, "wb")
+            with log_file:
+                p = subprocess.Popen(
+                    [
+                        bpy.app.binary_path,
+                        "-b",
+                        str(to_absolute(data["filepath"], project_root)),
+                        "-o",
+                        str(to_absolute(data["output_path"], project_root)),
+                        "-F",
+                        data["output_extension"],
+                    ]
+                    + data["cmd_flags"]
+                    + [
+                        "--python",
+                        str(entry),
+                        "--",
+                        "--job-id",
+                        data["job_id"],
+                        "--preset",
+                        data.get("prerender_script", ""),
+                        # Real (possibly namespaced) module name -- see NOTES.md,
+                        # "CSV batch: the subprocess couldn't import itself".
+                        "--addon-module",
+                        __package__.rsplit(".", 1)[0],
+                    ],
+                    stdout=log_file,
+                    stderr=subprocess.STDOUT,
+                    stdin=subprocess.DEVNULL,
+                )
+            p.log_path = log_path
         except Exception as e:
             # Malformed request: drop it instead of retrying every tick.
             box["action"] = "to_delete"
@@ -289,6 +296,15 @@ def scan_worker_processes() -> None:
         if ret is None:
             continue
         finished.append(job_id)
+
+        # Rendered fine: its log has nothing left to tell. Kept on failure
+        # (archive() moves it with the job). Best effort.
+        log_path = getattr(p, "log_path", None)
+        if ret == 0 and log_path:
+            try:
+                retry_shared_io(Path(log_path).unlink)
+            except OSError:
+                pass
 
         update_worker(
             {

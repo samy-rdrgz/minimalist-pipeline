@@ -1284,6 +1284,57 @@ What changed, cheapest to most structural:
   False, so one refused read used to kill the monitor silently (header
   went Stale then Dead, nothing in the log).
 
+## Farm subprocess output: files, never pipes
+
+Studio symptom: a block's setup sat in `setup_start` for good, its
+`blender -b` subprocess still alive (`poll()` → `None`) and the job JSON
+never written. Reading `p.stderr` by hand from the console unblocked it and
+it finished cleanly -- the process had been **blocked writing to a full
+pipe**. `run_render_setup()` captured stderr with `PIPE` "for
+`scan_processes()` to log on failure", but nothing reads a pipe until the
+process has exited; a pipe holds ~4 KB on Windows, and a production block
+with linked rigs prints a page of depsgraph/driver warnings on load
+("Failed to add relation 'Copy Transforms'", "Error in PyDriver"). Over
+the limit, the child's next write blocks forever. Test scenes at home
+never print that much, so it never showed there. `checks_images()` had
+the same exposure (ffmpeg writes one stderr line per corrupted frame).
+
+Fix: every farm subprocess writes to a file (`popen_logged()`,
+`farm/dispatch.py`); `scan_processes()` reads it back once the process has
+exited (`read_process_log()`).
+
+- **One log per job**, `requests/request_<job_id>.log`: setup,
+  checks_images, compilation and preview all append to it under a
+  `===== <stage> <time> =====` header (they run one at a time on the
+  monitor machine). Each Popen remembers the offset its own section starts
+  at, so the frame check counts only its own lines.
+- **Worker renders keep one file per machine**,
+  `request_<job_id>_<uuid>.log`: several machines can render one job at the
+  same time, and concurrent appends from different machines to one file on
+  a share interleave. The worker used to leave its handle on that file open
+  for good (`stdout=open(...)` inline) -- now closed right after `Popen`.
+- **Deleted when it ended well, kept otherwise**: the job log on `finished`
+  (unless the frame check found corrupted frames -- that list lives only in
+  the log), `split_finished` and `preview_finished`; a worker's render log
+  when its render exits 0. Anything failed keeps its log, and `archive()`
+  moves `request_<job_id>*.log` along with the job.
+- The parent closes its handle as soon as the child has its own copy --
+  otherwise Windows can't delete the file afterwards.
+
+Found alongside, fixed in the same pass:
+
+- `scan_processes()` appended `"<last stage minus _start>_finished"`
+  whatever the last stage was -- a job hand-edited back to `queued` while
+  its old setup process was still tracked became `queued_finished`, a stage
+  nothing handles. It now only advances a `*_start` stage, and stops
+  tracking the process otherwise.
+- It popped the job from `_active_processes` *before* its job-file write
+  committed; a refused write lost the process for good and froze the job.
+  Now popped only after the write.
+- `run_render_setup()` called `mark_stage(job_path, "setup_failed")` from
+  inside its own `locked_json(job_path)` -- waiting on its own lock, then
+  raising. Now records the failure in the same transaction.
+
 <!-- Next feature with rationale worth keeping gets its own "## " section
      here, same shape as the ones above: what was tried, what was
      rejected and why, anything a docstring is too short to hold. -->

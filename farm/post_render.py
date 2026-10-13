@@ -1,6 +1,5 @@
 """Post-render pipeline stages: frame integrity check and video compilation, both via ffmpeg."""
 
-import subprocess
 from pathlib import Path
 
 from ..lib import (
@@ -14,6 +13,7 @@ from ..lib import (
     to_absolute,
 )
 from .dispatch import _active_processes as _active_processes
+from .dispatch import popen_logged
 
 _EXTENSION_MAP = {
     "PNG": "png",
@@ -59,13 +59,14 @@ def checks_images(job_path: Path):
                 )
                 box["action"] = "to_write"
 
+                # ffmpeg -v error writes one line per corrupted frame to
+                # stderr -- counted by scan_processes(). A file, never a
+                # PIPE: a badly damaged sequence would fill it and hang
+                # ffmpeg for good (see popen_logged()).
                 proc = [
                     (
-                        subprocess.Popen(
-                            cmd,
-                            stdout=subprocess.DEVNULL,
-                            stderr=subprocess.PIPE,
-                            text=True,
+                        popen_logged(
+                            cmd, data["job_id"], "checks_images", merge_stdout=False
                         ),
                         "local",
                     )
@@ -152,9 +153,7 @@ def compilation(*, project_root: Path, job_path: Path, compilation_settings: str
                 )
                 proc = [
                     (
-                        subprocess.Popen(
-                            cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-                        ),
+                        popen_logged(cmd, data["job_id"], "compilation"),
                         "local",
                     )
                 ]
@@ -242,9 +241,7 @@ def run_preview_compile(job_id: str, project_root: Path) -> None:
             )
             proc = [
                 (
-                    subprocess.Popen(
-                        cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-                    ),
+                    popen_logged(cmd, data["job_id"], "preview"),
                     "local",
                 )
             ]

@@ -20,6 +20,13 @@ All notable changes to this addon. Dates are release dates.
   lock file.
 - The render dialog's machine picker listed no worker at all ("Could not
   list machines: 'name'" in the log).
+- **A job's setup could hang forever** on a production file: the setup
+  subprocess's error output went to a buffer nobody read until the process
+  ended, so a page of rig/driver warnings on load filled it and blocked
+  the process. Every farm process now writes to a log file instead — one
+  per job (`config/.farm/queue/requests/request_<job_id>.log`, all stages
+  in order), plus one per machine for renders. Logs are deleted when the
+  job ends well and kept when something failed, for inspection.
 
 ## 1.0.7 — 2026-10-12
 

@@ -1,7 +1,6 @@
 """Per-job render setup: output path, default + custom render settings, frame range."""
 
 import re
-import subprocess
 from pathlib import Path
 
 import bpy
@@ -21,7 +20,7 @@ from ..lib import (
     to_relative,
 )
 from .dispatch import _active_processes as _active_processes
-from .queue import mark_stage
+from .dispatch import popen_logged
 
 
 def compute_output_path(
@@ -95,7 +94,7 @@ def run_render_setup(job_id: str, config: dict) -> None:
                 / "templates"
                 / "farm_entry_render_setup.py"
             )
-            process = subprocess.Popen(
+            process = popen_logged(
                 [
                     resolve_local_binary(config),
                     "-b",
@@ -110,16 +109,20 @@ def run_render_setup(job_id: str, config: dict) -> None:
                     "--addon-module",
                     __package__.rsplit(".", 1)[0],
                 ],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.PIPE,  # captured for scan_processes() to log on failure
-                text=True,
+                # The job's log, never a PIPE: see popen_logged().
+                job_id,
+                "setup",
             )
             _active_processes[job_id] = [(process, "local")]
 
         except Exception as e:
-            mark_stage(
-                job_path, "setup_failed"
-            )  # separate transaction, actually commits
+            # Still inside this job file's own lock: record the failure in
+            # the same transaction. mark_stage() here would wait on our own
+            # lock for its full retry budget, then raise.
+            if data is not None and "stage_history" in data:
+                data["stage_history"].append({"stage": "setup_failed", "at": now()})
+                box["data"] = data
+                box["action"] = "to_write"
             log("ERROR", "farm", f"Setup failed for {job_id}: {e}")
 
 

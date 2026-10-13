@@ -357,8 +357,10 @@ def archive(job_path: Path) -> None:
     archives_dir.mkdir(parents=True, exist_ok=True)
 
     job_id = job_path.stem
+    # request_<job_id>.log (this machine's stages) + request_<job_id>_<uuid>.log
+    # (each worker's render) -- job ids are fixed-length hashes, no prefix clash.
     for log_file in ConfigCache.get_path("farm_requests").glob(
-        f"request_{job_id}_*.log"
+        f"request_{job_id}*.log"
     ):
         try:
             log_file.rename(archives_dir / log_file.name)
