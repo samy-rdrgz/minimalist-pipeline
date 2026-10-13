@@ -1661,6 +1661,147 @@ before the lock -- so not even an empty `.pipeline/` gets created);
 `create_tracking()` is the only one allowed to start a tracking.json, and
 like `_meta_path()` it only accepts a `.blend`.
 
+## Production snapshot: one HTML file, a spreadsheet inside it
+
+Production (outside the studio: no Blender, no NAS) needs a picture of the
+project at a given moment and a way to send review notes back.
+`lib/snapshot.py`, Project panel > "Export prod snapshot".
+
+- **One self-contained HTML file**, CSS/JS inline: sent by mail, opens
+  offline. Not Markdown (browsers don't render it), not an XLSX report.
+  Zero dependencies by choice -- stdlib only, even though an extension
+  could bundle wheels.
+- **The review template is an XLSX embedded in the HTML** (`data:` link
+  with `download`) rather than an HTML form: a form under `file://` loses
+  everything on close (localStorage isn't reliable there), a spreadsheet
+  persists and is a tool the prod already uses. Hand-written minimal
+  OOXML, cells as `t="inlineStr"` (no sharedStrings to write).
+  - One row per asset/shot; `filename` is the most recent version the
+    snapshot shows (wip or stable, whichever has the higher number -- a
+    stable can be newer than every wip), which the import resolves with
+    `find_file_by_name()` and stores as the note's `referenced_version`:
+    the note stays anchored on what the prod actually saw.
+  - Locked columns through sheet protection *without a password* -- it
+    only stops accidental edits. Version columns hidden; `schema_version`
+    in a hidden cell, since the format will grow (priority, deadline...).
+  - Layout: a merged left column per prefix/sequence (only its top cell
+    holds the value -- the import ignores that column), filenames without
+    `.blend` (added back on import), type pre-filled `rtk` (a row only
+    counts once its text is filled). One font size, weight and grey only;
+    grey fill = locked, white = to fill in.
+  - Department dropdown per row = that item's `departments_required`
+    (inline list, 255-char Excel limit -- skipped past it); type = note/
+    todo/rtk.
+- **Department state: four values, not two** -- the monitor's own split:
+  not started / wip / validated / validated *and worked since*. The last
+  one is never shown as plain "validated".
+- **Open notes** reuse `filter_review_boxes(hide_done=True)`, not a second
+  filter: a done root with a pending reply stays. Notes have no `done`, so
+  every note counts as open.
+- **Collect / model / render kept apart**: `read_snapshot_raw()` (disk,
+  pure os/json, on a thread), `build_snapshot()` (memory, main thread --
+  `_status_from_raw()` reaches `ConfigCache` through
+  `get_version_number()`, so it can't run on the thread), then
+  `write_snapshot()` (render + write, on a thread: the target folder can be
+  on the share). Blender only ever waits on the few ms of the middle step.
+  Renderers take the plain dict: testable without Blender.
+- **Raw source one element per line** (table row, note, section) and the
+  embedded XLSX's base64 wrapped at 76 columns: a browser drops a URL's
+  newlines, so the link still works, and the file stays readable in an
+  editor and diffable between two snapshots.
+- **Filters are client-side** (inline vanilla JS, no library): rows and
+  note cards carry the same `data-*` (`_item_attrs()`), so one predicate
+  filters both and the section counts follow. Department + state match on
+  the same department ("animation *is* validated"), not two independent
+  conditions. The sticky bar is only sticky from 700 px up -- with its
+  filter row it would eat a phone screen.
+- Measured on a small real project (2 assets, 18 shots): 0.75 s read on
+  the thread, 3 ms on the main thread, 23 KB of HTML.
+
+### Review import, and the CSV entry import it replaced
+
+Project panel / Pipeline menu > "Import prod review" reads the template
+back straight from the .xlsx (`zipfile` + `ElementTree`: sharedStrings or
+inline strings, first sheet resolved through the workbook rels -- not
+always `sheet1.xml` once a spreadsheet app has re-saved it). No "save as
+CSV" step asked of the prod. The CSV entry import (`upload_csv`) is gone:
+the template does the same job with the filename locked in. `read_csv()`
+stays, for batch creation.
+
+- **One line of a text cell = one entry**: several retakes on the same
+  shot are several lines (Alt+Enter), each its own checkbox in Blender --
+  same rule as "Batched review input, still one entry each" above. They
+  share the import's `review_id`, so they're drawn under one review
+  header. A typed bullet (`-`, `*`, `•`, `1.`) is dropped. The price: one
+  retake can't span two lines, fine for a retake.
+- **Re-importing never duplicates**: a line is skipped when the target
+  file already has an entry from a review with the same text and author.
+  Covers the same file imported twice and a re-sent file with notes added
+  (only the new lines come in). Checked per line rather than by a file
+  hash for exactly that second case.
+- **`source: "prod_review"`** on every imported entry, absent on one typed
+  in Blender: shown in the entry's tooltip and as a tag in the snapshot,
+  and what the duplicate check keys on. Author defaults to "prod".
+- Review date: a typed date arrives as an Excel serial number
+  (`1899-12-30 + days`), or text in a common format; empty = import time.
+  `create_entry(created_at=...)` stamps it.
+- A row whose file can't be found (renamed, branched, archived since the
+  snapshot) is skipped and listed in the end-of-import popup, never
+  re-pointed at another version: the note was written about what the prod
+  saw, guessing another file would misplace it silently.
+
+### Not done, on purpose
+
+- **Priority / deadline**: not in the review channel. Kitsu/ftrack-level
+  production steering is out of scope (and "Status is derived, not a
+  dropdown" above applies). `schema_version` leaves room if that changes.
+
+### Thumbnails
+
+`renders/<seq>/<shot>/<seq>_<shot>_thumbnail.jpg`, or
+`renders/assets/<prefix>/<asset>/<asset>_thumbnail.jpg` -- named after the
+file's base name (a shot folder is only `sh040`, an asset folder already
+carries its prefix). Overwritten in place, made by `lib/thumbnails.py` +
+`templates/make_thumbnails.py`.
+
+- **Blender, not ffmpeg**: not every machine has ffmpeg, every one has the
+  Blender it runs. The frame is loaded, shrunk and saved as JPEG in a
+  disposable headless Blender (`--factory-startup`, plain bpy) -- never in
+  the artist's session, where image scaling would run on the main thread.
+  A float frame (EXR) goes through AgX, a byte one (PNG...) through
+  Standard, so neither comes out washed out or double-transformed.
+- **Multilayer EXR is the one exception**: Blender loads it as an empty
+  image (no layer/pass to read). ffmpeg reads it when told the layer, which
+  `exr_layer()` finds in the EXR header (pure Python, prefers a `Combined`
+  layer), with `-apply_trc` for linear -> sRGB. Without ffmpeg on that
+  machine, that thumbnail isn't made and the export says so: another
+  machine that has ffmpeg can fill the gap with its own export.
+- **Size**: longest side 240 px, any aspect ratio (a 9:16 render gives
+  135x240); JPEG q70 -- 2-3 KB on the test project, ~10 KB for a busy
+  frame. Shown whole in a fixed box in the HTML (`object-fit: contain`).
+- **Which frame**: the middle one of the latest render increment (folder
+  name order, same rule as `latest_shot_mp4()`, now `latest_render_dir()`);
+  the first is often a hold. Empty placeholder frames are skipped.
+- **When**: the farm remakes it at `compilation_finished` (detached
+  process, the monitor never waits), and the snapshot export catches up on
+  any missing or older than its source frame (file mtimes, nothing
+  stored). A thumbnail deleted by mistake comes back at the next export
+  from the frames on disk -- no re-render; only deleted frames lose it.
+- **Project monitoring > file details** shows it too, through a
+  `bpy.utils.previews` collection (`panels/tracking_panel.py`): loaded when
+  the file is clicked (the details operator's `execute()`, one stat), keyed
+  on the thumbnail's mtime so a remade one shows up -- `draw()` only reads
+  the cached icon id. Freed in `unregister()`.
+- **Blocks**: a block row shows its first shot's thumbnail; every shot still
+  gets its own, since the farm renders a block shot by shot.
+- **Asset renders** had never worked on the farm: `compute_output_path()`
+  took the file's folder relative to `shots/`, a ValueError for anything
+  under `assets/` or `library/`, so the job failed at setup -- though the
+  render dialog offers "Asset / Library". `render_root()` now sends them to
+  `renders/assets/<prefix>/<asset>/` (mirroring the source tree, so asset
+  prefixes and sequences never share a level); shots keep
+  `renders/<seq>/<shot>/`, which every shot reader depends on.
+
 <!-- Next feature with rationale worth keeping gets its own "## " section
      here, same shape as the ones above: what was tried, what was
      rejected and why, anything a docstring is too short to hold. -->
