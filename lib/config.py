@@ -33,12 +33,17 @@ def read_project_config(project_root: str) -> dict:
 
     config_file = get_config_filepath(project_root)
 
-    if not config_file.exists():
-        raise PipelineError(f"Config not found: {config_file}")
-
     try:
-        with locked_json(config_file) as box:
-            return box["data"] or {}
+        # Read-only, no wait, no exists() first: reading never needed the
+        # writer lock (it created and deleted a .lock file on the share just
+        # to read) -- writes are atomic (os.replace), see locked_json().
+        with locked_json(config_file, read_only=True, retries=0) as box:
+            data = box["data"]
+        if data is None:
+            raise PipelineError(f"Config not found: {config_file}")
+        return data
+    except PipelineError:
+        raise
     except json.JSONDecodeError:
         raise PipelineError("Config file corrupted (invalid JSON).")
     except Exception as e:

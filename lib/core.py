@@ -502,6 +502,18 @@ class AdoptedProcess:
         return -1
 
 
+def read_json_quiet(path):
+    """Parsed JSON at path, or None if missing/unreadable/corrupt. Pure
+    os/json -- no bpy, no lock, no log -- so it can run on a background
+    reader thread (ProjectScan, the farm snapshot). No lock is needed to
+    read: every write is an atomic os.replace(), a reader sees the old or
+    the new file, never half of one."""
+    try:
+        return json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
 def retry_shared_io(fn, *args, attempts: int = 5, delay: float = 0.1):
     """Call fn(*args), retrying on PermissionError up to `attempts` times,
     `delay` seconds apart; re-raises the last error. Windows only refuses

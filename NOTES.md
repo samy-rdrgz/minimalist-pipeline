@@ -1512,6 +1512,69 @@ Also fixed in the Jobs view: 0 frames done divided by zero and broke the
 whole popup's draw; and "remaining" showed the estimated *total* time
 (`elapsed / pct`) -- now `elapsed / pct - elapsed`.
 
+## Popups on a network share: nothing on disk in draw(), heavy reads off the UI thread
+
+Studio profiles: the Open file dialog spent 32 s of an 11 s window... of
+43 s profiled in 6745 `is_block_archived()` + 2446 `cached_scandir()`
+calls; Project monitoring froze Blender for minutes on open (it never even
+showed up). Each disk call on that share costs ~10-15 ms. Two rules came
+out of it:
+
+**1. Enum callbacks and draw() never wait on the disk.** Blender evaluates
+an EnumProperty's items callback on every redraw, on every read of the
+property (`self.shot` in `get_folder()`), and once per expanded item -- an
+mtime-keyed cache still costs one stat per call. `cached_scandir()`,
+`is_block_archived()`, `ConfigCache.get()`, `TrackingStatusCache.get()` and
+the worker scan all re-check their key at most every 2 s (`SCANDIR_TTL` /
+`_VALIDATE_TTL`); `exists()`/`is_dir()`/`is_file()` before a listing are
+gone (`cached_scandir()` returns [] for a missing folder; a `.blend` vs
+folder is decided from the name). The three identical `_resolve()` (Open
+file, Open file version, Render) share `resolve_version_file()`.
+Measured: Open file, 60 shots, sequence "All": 70 disk calls per redraw →
+0.
+
+**2. A scan that has to read many files runs on a reader thread.** Not
+time-slicing on the main thread: one folder's status is 5-10 reads, so a
+"small" step was already 100-160 ms at studio latency (tested). Instead:
+
+- `ProjectScan` (Project monitoring): a daemon thread walks
+  assets/library/shots (stopping at each folder owning a `.pipeline/` --
+  `rglob` used to descend into every textures/cache subfolder), stats each
+  `.pipeline/`, and reads only what changed (`_collect_folder()`,
+  `_read_link_targets()`); a `bpy.app.timers` tick on the main thread
+  applies the results (`_status_from_raw()`, memory only) and redraws the
+  popup. The popup opens at once on what's known and fills in ("Scanning
+  project... N folders"); file details shows "Linked by: scanning..." until
+  the index is built. `find_linked_by()` never builds the index from a
+  draw() anymore.
+- Farm popup refresh (every 2 s) and the sidebar's farm status (every
+  10 s): `_BackgroundRead` runs `_read_farm_raw()` / `_read_farm_snapshot()`
+  on a thread; the tick only applies (`_apply_farm_snapshot()`).
+
+The thread-side functions are **pure os/json** (`read_json_quiet()`): no
+`bpy`, no `ConfigCache`/prefs (paths are resolved on the main thread and
+passed in), no `locked_json()` (it calls `get_machine_id()` → prefs), no
+`log()`. Reading never needs a lock -- every write is an atomic
+`os.replace()`. Anything that needs `bpy` (thresholds from the config,
+`log()`) happens in the tick.
+
+Measured at 14 ms per disk call (simulated): Project monitoring scan, 60
+folders: 806 reads in the background, **longest UI stall 1 ms**, 0 disk
+calls on the UI thread; reopening with nothing changed: 186 calls (all in
+the background). Farm popup: 0 farm-related disk calls on the UI thread
+(only `ConfigCache`'s one stat per 2 s remains).
+
+**Fewer reads per folder** (exact, not approximate): the latest stable is
+found by reading stablemetas newest-first by file mtime and stopping once
+the rest are older than the best `created_at` found; wipmetas whose file is
+older than that stable are skipped unopened (a meta's dates can't be later
+than its own file's mtime). `_CLOCK_MARGIN_SECONDS` (10 min) absorbs clock
+skew between machines -- it only ever makes the scan read one file too
+many. Checked against a full read of every meta: identical statuses.
+
+Also: `read_project_config()` took the config's *writer* lock (creating and
+deleting a `.lock` file on the share) just to read it; now read-only.
+
 <!-- Next feature with rationale worth keeping gets its own "## " section
      here, same shape as the ones above: what was tried, what was
      rejected and why, anything a docstring is too short to hold. -->

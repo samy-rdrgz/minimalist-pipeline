@@ -135,6 +135,7 @@ from .session import (
 from .tracking import (
     get_linked_libraries_cached,
     RecentFilesCache,
+    ProjectScan,
     TrackingStatusCache,
     WorkTimeCache,
     active_shot_owners,

@@ -15,6 +15,19 @@ All notable changes to this addon. Dates are release dates.
 - The farm header no longer checks the disk on every redraw; it reads the
   farm status the addon already refreshes every 10 seconds.
 
+### Performance — popups on a network share
+
+- **Project monitoring opens instantly.** It used to re-read every tracking
+  file of every asset and shot before showing anything — minutes on the
+  studio share, Blender frozen. It now opens on what's already known and
+  refreshes in the background ("Scanning project…"), reading only what
+  changed since the last time, without ever blocking Blender.
+- **The Open file and Render windows no longer lag.** They re-checked every
+  shot folder on disk many times per redraw; now nothing touches the disk
+  while they redraw.
+- The farm monitor and the sidebar's farm status read the disk in the
+  background; Blender never waits on them.
+
 ### Farm monitor
 
 - **Open-folder button on each job** in the farm monitor, to go straight

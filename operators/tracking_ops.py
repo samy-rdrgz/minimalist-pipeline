@@ -6,6 +6,7 @@ from pathlib import Path
 import bpy
 
 from ..lib import (
+    ProjectScan,
     ConfigCache,
     PipelineError,
     TrackingStatusCache,
@@ -24,7 +25,6 @@ from ..lib import (
     log,
     now,
     prefix_items,
-    refresh_linked_by_index,
     sequence_items,
     set_department_validated,
     set_description,
@@ -660,8 +660,8 @@ class M_PIPELINE_OT_tracking_refresh(bpy.types.Operator):
     def execute(self, context):
         project_root = get_active_project_root()
         if project_root:
-            TrackingStatusCache.get_all(project_root, force_reload=True)
-            refresh_linked_by_index(project_root)
+            # Time-sliced, never blocks -- the table fills in as it goes.
+            ProjectScan.start(project_root)
         return {"FINISHED"}
 
 
@@ -695,6 +695,9 @@ class M_PIPELINE_OT_tracking_monitor(bpy.types.Operator):
     entries_min_version: bpy.props.IntProperty(name="", default=0, min=0)
 
     def draw(self, context):
+        # This popup's own region (Blender 4.2+, only valid while drawing), so
+        # ProjectScan can redraw it as results come in.
+        ProjectScan.register_region(getattr(context, "region_popup", None))
 
         layout = self.layout
         if context.window_manager.file_details_selected:
@@ -722,8 +725,10 @@ class M_PIPELINE_OT_tracking_monitor(bpy.types.Operator):
         project_root = get_active_project_root()
 
         if project_root:
-            TrackingStatusCache.get_all(project_root, force_reload=True)
-            refresh_linked_by_index(project_root)
+            # Opens at once on what's already known; ProjectScan refreshes the
+            # whole project in the background (see its docstring) -- a
+            # blocking scan froze Blender for minutes on a network share.
+            ProjectScan.start(project_root)
             self.project_root = str(project_root)
 
             return context.window_manager.invoke_props_dialog(self, width=800)

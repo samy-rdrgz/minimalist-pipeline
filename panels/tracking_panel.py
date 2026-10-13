@@ -5,6 +5,9 @@ from pathlib import Path
 import bpy
 
 from ..lib import (
+    ProjectScan,
+    get_linked_libraries_cached,
+    project_path,
     ConfigCache,
     TrackingStatusCache,
     WorkTimeCache,
@@ -18,14 +21,12 @@ from ..lib import (
     get_description,
     get_entries,
     get_entries_grouped,
-    get_linked_libraries,
     json_get,
     region_char_budget,
     responsive_layout,
     safe_icon,
     shots_in_segment,
     text_to_lines,
-    to_absolute,
     to_relative,
 )
 
@@ -236,7 +237,7 @@ def _draw_entry(e, note, filepath, width: int | None = None):
         referenced_version = e.get("referenced_version")
         # Independent optional field -- see NOTES.md, "Entries: two fields".
         active_file = bool(referenced_version) and (
-            to_absolute(referenced_version).parent == Path(bpy.data.filepath).parent
+            project_path(referenced_version).parent == Path(bpy.data.filepath).parent
         )
         frames_row.enabled = active_file
 
@@ -384,7 +385,8 @@ def draw_file_details(self, context, layout):
     op = row_right.operator(
         "wm.open_folder", text="", icon="RENDER_STILL", emboss=False
     )
-    op.filepath = str(to_absolute("renders/" + to_relative(Path(filepath))))
+    # project_path(), not to_absolute(): no resolve() in a draw().
+    op.filepath = str(project_path("renders/" + to_relative(Path(filepath))))
     op.custom_tooltip = "Open this file's render folder"
 
     if is_shot:
@@ -460,8 +462,14 @@ def draw_file_details(self, context, layout):
 
     tabl.separator(factor=4)
 
-    linked = get_linked_libraries(Path(filepath))
+    linked = get_linked_libraries_cached(Path(filepath))
     linked_by = find_linked_by(get_active_project_root(), Path(filepath))
+    if not ProjectScan.done and not linked_by:
+        # The "Linked by" index is built by the background scan -- say so
+        # rather than show "nothing links here" before it's known.
+        pending = tabl.row()
+        pending.active = False
+        pending.label(text="Linked by: scanning project...", icon="SORTTIME")
     if linked or linked_by:
         links_col = tabl.column(align=True)
         links_col.scale_y = 0.7
@@ -477,7 +485,7 @@ def draw_file_details(self, context, layout):
                 if key in seen:
                     continue
                 seen.add(key)
-                by_folder.setdefault(to_absolute(entry["file"]).parent, []).append(
+                by_folder.setdefault(project_path(entry["file"]).parent, []).append(
                     entry
                 )
 
@@ -529,11 +537,14 @@ def draw_monitor_table(self, context, layout, columns):
     """Filtered, paginated file list for M_PIPELINE_OT_tracking_monitor's main
     view -- self is that operator instance (file_type/asset_prefix/sequence/
     page state lives on it, same convention as draw_file_details() above)."""
-    data = TrackingStatusCache.get_all(Path(self.project_root))
+    # Memory only: ProjectScan fills the cache in the background.
+    data = TrackingStatusCache.known(Path(self.project_root))
     FIRST_COLUMN = 0.3
     types = {
-        "asset": json_get(ConfigCache.get(), "structure.asset_prefixes")
-        + json_get(ConfigCache.get(), "structure.library_prefixes"),
+        # Defaults: a config without library_prefixes (or asset_prefixes)
+        # used to raise None + list here and break the whole popup.
+        "asset": json_get(ConfigCache.get(), "structure.asset_prefixes", [])
+        + json_get(ConfigCache.get(), "structure.library_prefixes", []),
         "shot": json_get(ConfigCache.get(), "naming.sequence.prefix"),
     }
 
@@ -591,6 +602,19 @@ def draw_monitor_table(self, context, layout, columns):
 
     footer = f_list.row()
     footer.active = False
+    # The table is the scan made when the popup opened (get_all() no longer
+    # re-walks the project on every redraw) -- refresh on demand.
+    if ProjectScan.done:
+        footer.operator("m_pipeline.tracking_refresh", text="", icon="FILE_REFRESH", emboss=False)
+    else:
+        progress = (
+            f"Scanning project... {ProjectScan.owners_found} folders found"
+            if ProjectScan.phase == "walk"
+            else f"Updating... {ProjectScan.statuses_done}/{ProjectScan.owners_found}"
+            if ProjectScan.phase == "status"
+            else "Updating links..."
+        )
+        footer.label(text=progress, icon="SORTTIME")
     if total == 0:
         footer.label(text="No files found with this filter", icon="ERROR")
     else:
