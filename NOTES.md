@@ -1331,6 +1331,10 @@ Found alongside, fixed in the same pass:
 - It popped the job from `_active_processes` *before* its job-file write
   committed; a refused write lost the process for good and froze the job.
   Now popped only after the write.
+- No `try` per job: one unreadable job file raised every tick before the
+  other jobs were reached, so none of their processes was ever seen to
+  finish. Each job now goes through `_finish_job_processes()` in its own
+  `try`; a job whose file is gone just stops being tracked.
 - `run_render_setup()` called `mark_stage(job_path, "setup_failed")` from
   inside its own `locked_json(job_path)` -- waiting on its own lock, then
   raising. Now records the failure in the same transaction.

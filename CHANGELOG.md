@@ -27,6 +27,8 @@ All notable changes to this addon. Dates are release dates.
   per job (`config/.farm/queue/requests/request_<job_id>.log`, all stages
   in order), plus one per machine for renders. Logs are deleted when the
   job ends well and kept when something failed, for inspection.
+- One unreadable or deleted job file no longer stops the farm from noticing
+  that the other jobs' processes have finished.
 
 ## 1.0.7 — 2026-10-12
 

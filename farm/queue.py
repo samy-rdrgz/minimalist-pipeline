@@ -191,70 +191,89 @@ def scan_processes():
     whole job ends well (scan_queue())."""
     path = ConfigCache.get_path("farm_actives")
     for job_id, procs in list(_active_processes.items()):
-        if any(p.poll() is None for p, _ in procs):
-            continue  # not finished yet
-        errors = [ip for p, ip in procs if p.poll() != 0]
+        # One job's failure must never stop the others from being polled --
+        # without this, a single unreadable job file raised every tick
+        # before the rest were reached, and none of them ever advanced.
+        try:
+            _finish_job_processes(job_id, procs, path / f"{job_id}.json")
+        except Exception as e:
+            log("ERROR", "farm", f"Could not update job {job_id} after its process ended: {e}")
 
-        job_path = path / f"{job_id}.json"
-        with locked_json(job_path) as box:
-            data = box["data"] or {}
-            stage = data["stage_history"][-1]["stage"]
 
-            if not stage.endswith("_start"):
-                # The job file moved on without us (hand-edited, or an
-                # older stage left behind) -- appending "<stage>_finished"
-                # to e.g. "queued" would invent a stage nothing handles
-                # ("queued_finished"), stuck forever. Just stop tracking.
+def _finish_job_processes(job_id: str, procs: list, job_path: Path) -> None:
+    """scan_processes() for one job: advance its stage once all of its
+    processes have exited. Raises on an unreadable/unwritable job file --
+    the processes stay tracked, so the next tick retries."""
+    if any(p.poll() is None for p, _ in procs):
+        return  # not finished yet
+    errors = [ip for p, ip in procs if p.poll() != 0]
+
+    if not job_path.exists():
+        # Archived or deleted by hand while its process ran: nothing left
+        # to update, and retrying would fail every tick forever.
+        _active_processes.pop(job_id, None)
+        log("WARNING", "farm", f"Job {job_id}: process ended but its job file is gone -- stopped tracking it.")
+        return
+
+    with locked_json(job_path) as box:
+        data = box["data"] or {}
+        stage = data["stage_history"][-1]["stage"]
+
+        if not stage.endswith("_start"):
+            # The job file moved on without us (hand-edited, or an
+            # older stage left behind) -- appending "<stage>_finished"
+            # to e.g. "queued" would invent a stage nothing handles
+            # ("queued_finished"), stuck forever. Just stop tracking.
+            log(
+                "WARNING",
+                "farm",
+                f"Job {job_id}: process finished but the job is at '{stage}', "
+                f"not a *_start stage -- result ignored.",
+            )
+        else:
+            if stage == "checks_images_start":
+                # ffmpeg -v error: one non-empty line per corrupted frame.
+                corrupted = sum(
+                    1
+                    for p, _ in procs
+                    for line in read_process_log(p).splitlines()
+                    if line.strip()
+                )
+                data["frames_corrupted"] = corrupted
+
+            elif stage == "setup_start":
+                # exit code 0 doesn't guarantee the script ran fine --
+                # check the frame range actually got written.
+                resolved = data.get("resolved_frame_range")
+                if not resolved or tuple(resolved) == (0, 0):
+                    errors.append("setup")
+                    tail = "\n".join(read_process_log(p) for p, _ in procs).strip()
+                    log(
+                        "ERROR",
+                        "farm",
+                        f"Setup for job {job_id} never wrote a frame range "
+                        f"(subprocess likely failed before that point) -- "
+                        f"last output: {tail[-1500:] or '(empty)'}",
+                    )
+
+            outcome = "failed" if errors else "finished"
+            data["stage_history"].append(
+                {"stage": f"{stage.replace('_start', '')}_{outcome}", "at": now()}
+            )
+            if errors:
                 log(
                     "WARNING",
                     "farm",
-                    f"Job {job_id}: process finished but the job is at '{stage}', "
-                    f"not a *_start stage -- result ignored.",
+                    f"Stage {stage} ends with errors for job_id {job_id} "
+                    f"-- see {job_log_path(job_id).name}.",
                 )
-            else:
-                if stage == "checks_images_start":
-                    # ffmpeg -v error: one non-empty line per corrupted frame.
-                    corrupted = sum(
-                        1
-                        for p, _ in procs
-                        for line in read_process_log(p).splitlines()
-                        if line.strip()
-                    )
-                    data["frames_corrupted"] = corrupted
 
-                elif stage == "setup_start":
-                    # exit code 0 doesn't guarantee the script ran fine --
-                    # check the frame range actually got written.
-                    resolved = data.get("resolved_frame_range")
-                    if not resolved or tuple(resolved) == (0, 0):
-                        errors.append("setup")
-                        tail = "\n".join(read_process_log(p) for p, _ in procs).strip()
-                        log(
-                            "ERROR",
-                            "farm",
-                            f"Setup for job {job_id} never wrote a frame range "
-                            f"(subprocess likely failed before that point) -- "
-                            f"last output: {tail[-1500:] or '(empty)'}",
-                        )
+            data["used_machines"] = []
+            box["action"] = "to_write"
 
-                outcome = "failed" if errors else "finished"
-                data["stage_history"].append(
-                    {"stage": f"{stage.replace('_start', '')}_{outcome}", "at": now()}
-                )
-                if errors:
-                    log(
-                        "WARNING",
-                        "farm",
-                        f"Stage {stage} ends with errors for job_id {job_id} "
-                        f"-- see {job_log_path(job_id).name}.",
-                    )
-
-                data["used_machines"] = []
-                box["action"] = "to_write"
-
-        # Only once the job file is actually written: if that write fails,
-        # the processes stay tracked and the next tick tries again.
-        _active_processes.pop(job_id, None)
+    # Only once the job file is actually written: if that write fails,
+    # the processes stay tracked and the next tick tries again.
+    _active_processes.pop(job_id, None)
 
 
 def _stage_time(stage_history: list, stage_name: str) -> datetime.datetime | None:
