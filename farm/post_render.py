@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+import bpy
+
 from ..lib import (
     ConfigCache,
     PipelineError,
@@ -10,6 +12,8 @@ from ..lib import (
     log,
     now,
     resolve_ffmpeg,
+    run_thumbnail_jobs,
+    thumbnail_jobs,
     to_absolute,
 )
 from .dispatch import popen_logged, track_local_processes
@@ -29,6 +33,27 @@ _EXTENSION_MAP = {
     "DPX": "dpx",
     "WEBP": "webp",
 }
+
+
+def refresh_shot_thumbnail(data: dict, project_root: Path) -> None:
+    """Remake the shot's thumbnail from the render that just finished, in a
+    detached headless Blender -- fire and forget, never blocks the monitor.
+    Never raises: a missing thumbnail must not fail a good render (the
+    snapshot export catches up on it)."""
+    try:
+        output = Path(data.get("output_path") or "")
+        if not output.name:
+            return
+        output = output if output.is_absolute() else Path(project_root) / output
+        # renders/<seq>/<shot>/<v004-stable_002>/<frame> -> renders/<seq>/<shot>
+        jobs = thumbnail_jobs(
+            [output.parent.parent],
+            json_get(ConfigCache.get(), "naming.version.prefix", "v"),
+            force=True,
+        )
+        run_thumbnail_jobs(jobs, bpy.app.binary_path, resolve_ffmpeg(), wait=False)
+    except Exception as e:
+        log("WARNING", "farm", f"Thumbnail not refreshed for {data.get('job_id')}: {e}")
 
 
 def checks_images(job_path: Path):

@@ -15,6 +15,7 @@ from ..lib import (
     log,
     now,
     parse_filename,
+    render_root,
     shots_in_segment,
     to_absolute,
     to_relative,
@@ -28,12 +29,9 @@ def compute_output_path(
     """Compute (and create) the output folder for a render job. version_label
     e.g. "v003". increment=True forces a new folder (_001, _002...) every
     time; False (normal dispatch) reuses the latest existing one."""
-    # Relative to project_root/"shots", not project_root itself -- shot_root
-    # is always .../shots/<sq>/<sh>, and every reader (lib/preview.py's
-    # resolve_sequence_sources()/latest_shot_mp4(), the /old archiving in
-    # M_PIPELINE_OT_edit_block_structure, "Open folder") expects the result
-    # at renders/<sq>/<sh>/, not renders/shots/<sq>/<sh>/.
-    base = project_root / "renders" / shot_root.relative_to(project_root / "shots")
+    # renders/<sq>/<sh>/ for a shot, renders/assets/<prefix>/<asset>/ for an
+    # asset -- see render_root().
+    base = render_root(project_root, shot_root)
     i = 1
     while True:
         dir_name = f"{version_label}_{i:03d}"

@@ -35,6 +35,10 @@ Un preset cassé ne bloque jamais le rendu : une clé `.json` invalide est ignor
 
 Un bloc de shots (multishot, voir [Blocs de shots (multishot)](multishot_fr.md)) se soumet et se comporte exactement comme n'importe quel fichier de ce côté-là — le découpage en un job par shot se fait automatiquement une fois le fichier pris en charge, pas quelque chose à faire différemment à la soumission.
 
+**Dossiers de sortie** : un plan se rend dans `renders/<seq>/<plan>/<version>_<n>/`, un fichier d'asset ou de library dans `renders/assets/<préfixe>/<asset>/<version>_<n>/` (ou `renders/library/...`).
+
+**Vignette** : une fois un rendu compilé, la farm écrit une vignette à côté de ses dossiers — `renders/<seq>/<plan>/<seq>_<plan>_thumbnail.jpg`, `renders/assets/ch/ch_bob/ch_bob_thumbnail.jpg` (frame du milieu, 240 px), utilisée par le snapshot de prod. Faite par Blender lui-même ; seul un EXR multicouche demande ffmpeg.
+
 **Logs** : chaque processus de la farm écrit sa sortie dans un fichier de `config/.farm/queue/requests/` -- `request_<job_id>.log` pour le setup, la vérification des frames, la compilation et la preview d'un job, plus un `request_<job_id>_<machine>.log` par rendu de worker. Supprimés quand le job se termine bien, conservés (et archivés avec le job) en cas d'échec : c'est le premier endroit où regarder.
 
 **Après un crash** : si le Blender qui fait tourner le moniteur de la farm ou un worker crashe, ses jobs sont repris au relancement -- une étape encore en cours est attendue, une étape interrompue est refaite, un rendu interrompu est renvoyé (les frames déjà rendues sont gardées, seules les manquantes sont rendues). Un rendu dont le worker ne répond plus pendant 3 minutes est envoyé à une autre machine.

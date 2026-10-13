@@ -74,7 +74,7 @@ Overview below — each links to a dedicated page with the full explanation, edg
 - **[Shot blocks (multishot)](docs/multishot.md)** — one file for camera cuts on a single continuous piece of animation that can't be split without breaking the seams. Splits automatically into one render job per shot.
 - **[Versions: wip and stable](docs/versions.md)** — publishing = tagging `-stable`, not overwriting a file. Auto-increment on open, and a save guard keep you from silently clobbering a stable version.
 - **[Sessions and locking](docs/sessions-and-locking.md)** — who has what open, right now; locks that self-expire instead of needing a central server to arbitrate.
-- **[Tracking & reviews](docs/tracking-and-reviews.md)** — notes/todos/rtk per asset/shot, per-department validation, two project-wide monitoring popups.
+- **[Tracking & reviews](docs/tracking-and-reviews.md)** — notes/todos/rtk per asset/shot, per-department validation, two project-wide monitoring popups, and a production snapshot (one offline HTML page with a review spreadsheet to send back).
 - **[Link vs Append](docs/linking.md)** — link is the pipeline's native mode; an append gets detected and offered a cleanup.
 - **[Rendering (farm)](docs/farm.md)** — a monitor + any number of workers coordinate render jobs over the shared project drive, no SSH or server required.
 

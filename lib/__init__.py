@@ -115,6 +115,8 @@ from .presets import (
     install_default_preset,
 )
 from .preview import (
+    latest_render_dir,
+    render_root,
     latest_shot_mp4,
     resolve_block_sources,
     resolve_sequence_sources,
@@ -132,6 +134,23 @@ from .session import (
     session_update,
     set_active_project_root,
     set_opened_as_read_only,
+)
+from .snapshot import (
+    REVIEW_SOURCE,
+    SnapshotJob,
+    build_snapshot,
+    import_review_xlsx,
+    read_snapshot_data,
+    read_snapshot_raw,
+    render_html,
+    snapshot_filename,
+    write_snapshot,
+)
+from .thumbnails import (
+    owner_render_dir,
+    run_thumbnail_jobs,
+    thumbnail_jobs,
+    thumbnail_path,
 )
 from .tracking import (
     ProjectScan,
@@ -167,7 +186,6 @@ from .tracking import (
     set_description,
     toggle_entry_task,
     tracking_json_path,
-    upload_csv,
     wipmeta_add_link,
     wipmeta_add_work,
 )

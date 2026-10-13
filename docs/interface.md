@@ -18,14 +18,14 @@ All the panels live in the 3D viewport sidebar (`N` > **Pipeline** tab). Each ha
 
 Reached from the buttons above, not permanent panels:
 
-- **Project monitoring** (the "Monitoring" button on the Project panel): every file in the project with its status per department, filterable by prefix (assets) or sequence (shots). It opens at once on what's already known and refreshes in the background ("Scanning project…" in its footer, then a refresh button to re-scan on demand). Clicking a file opens its detail — description, total logged work time (all versions, everyone summed — see [Design choices](design.md#work-duration-is-logged-never-surfaced-per-person)), the departments required for that specific file with a toggle to validate/unvalidate each one, full notes/todos, entry creation, CSV import, and the files it links to / is linked by (see [Link vs Append](linking.md)) — each one clickable to jump straight to its own detail.
+- **Project monitoring** (the "Monitoring" button on the Project panel): every file in the project with its status per department, filterable by prefix (assets) or sequence (shots). It opens at once on what's already known and refreshes in the background ("Scanning project…" in its footer, then a refresh button to re-scan on demand). Clicking a file opens its detail — its thumbnail (from its latest render, see [Tracking & reviews](tracking-and-reviews.md)), description, total logged work time (all versions, everyone summed — see [Design choices](design.md#work-duration-is-logged-never-surfaced-per-person)), the departments required for that specific file with a toggle to validate/unvalidate each one, full notes/todos, entry creation, and the files it links to / is linked by (see [Link vs Append](linking.md)) — each one clickable to jump straight to its own detail.
 - **Farm dashboard** (the Farm panel's button): two views, *Jobs* (each active job with its current stage and progress, a folder button to open its render folder, an "X" button to cancel an in-progress render, a "✓" button to archive a finished/failed job once it's no longer useful in the list) and *Workers* (every known machine, idle or what it's currently rendering, with the same cancel button targeted at that machine), plus the button to add/remove this machine as a worker.
 
 <br>
 
 ## Top bar menu
 
-A "Pipeline" menu appears in the top bar (next to File/Edit/Render...), so you don't have to open the sidebar for common actions — same content as the panels above (create, open, render, save/increment/mark-stable on the current file, farm roles), condensed into a single menu.
+A "Pipeline" menu appears in the top bar (next to File/Edit/Render...), so you don't have to open the sidebar for common actions — same content as the panels above (create, open, render, save/increment/mark-stable on the current file, prod snapshot export and review import, farm roles), condensed into a single menu.
 
 Under "Open file", up to 3 recently opened files — your own, not a teammate's, and never the file already open. Not a separate list: derived from `sessions_log.jsonl` each time, so it's automatically scoped to the active project and can't drift from it. One click reopens, no dialog.
 

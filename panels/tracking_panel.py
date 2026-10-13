@@ -1,11 +1,14 @@
 """Tracking panel in the 3D View sidebar: current file's department status and notes/todos."""
 
+import os
 from pathlib import Path
 
 import bpy
+import bpy.utils.previews
 
 from ..lib import (
     ConfigCache,
+    REVIEW_SOURCE,
     ProjectScan,
     TrackingStatusCache,
     WorkTimeCache,
@@ -20,6 +23,8 @@ from ..lib import (
     get_entries,
     get_entries_grouped,
     get_linked_libraries_cached,
+    owner_render_dir,
+    render_root,
     json_get,
     project_path,
     region_char_budget,
@@ -27,7 +32,7 @@ from ..lib import (
     safe_icon,
     shots_in_segment,
     text_to_lines,
-    to_relative,
+    thumbnail_path,
 )
 
 # Fudge factor: entries end up nested a few columns/rows deep (see
@@ -98,7 +103,6 @@ def draw_entries(box, filepath, filters=None, width: int | None = None):
     btns = title_row.row(align=True)
     btn = btns.operator("m_pipeline.create_entry", icon="ADD", text="", emboss=False)
     btn.filepath = filepath
-    btns.operator("m_pipeline.upload_csv", icon="IMPORT", text="", emboss=False)
 
     if bpy.context.window_manager.entries_collapse:
         draw_box_tip(
@@ -300,6 +304,8 @@ def _get_entry_tooltip(e, filepath):
         text = f"{text}\n\nEdited by : {e['edited_by']}\nAt : {e['edited_at'].replace('T', ' ')}"
     if e.get("department"):
         text = f"{text}\nFor department : {e.get('department')}"
+    if e.get("source") == REVIEW_SOURCE:
+        text = f"{text}\nImported from a prod review"
     review_id = f" (review_id : {e.get('review_id')})" if e.get("review_id") else ""
     text = f"{text}\nId : {e.get('id')}{review_id}"
 
@@ -321,6 +327,40 @@ def _get_entry_tooltip(e, filepath):
         done_at = done_at.replace("T", " ") if done_at else "//"
         text = f"{text}\n\nDone by : {e.get('done_by', '//')}\nAt : {done_at}"
     return text
+
+
+# File details' thumbnail: loaded when a file is clicked (the details
+# operator's execute()), never in draw() -- nothing on disk while drawing.
+_previews = None
+_preview_ids: dict[str, int] = {}
+
+
+def load_file_thumbnail(folder: str) -> None:
+    """Load (or reuse) folder's thumbnail into the preview collection, keyed
+    on its mtime so a remade one shows up. No thumbnail: nothing drawn."""
+    global _previews
+    _preview_ids.pop(folder, None)
+    root = get_active_project_root()
+    if not root or not folder:
+        return
+    path = thumbnail_path(owner_render_dir(root, Path(folder)))
+    try:
+        mtime = os.stat(path).st_mtime
+    except OSError:
+        return
+    if _previews is None:
+        _previews = bpy.utils.previews.new()
+    key = f"{folder}|{mtime}"
+    preview = _previews.get(key) or _previews.load(key, str(path), "IMAGE")
+    _preview_ids[folder] = preview.icon_id
+
+
+def unregister_thumbnail_previews() -> None:
+    global _previews
+    if _previews is not None:
+        bpy.utils.previews.remove(_previews)
+        _previews = None
+    _preview_ids.clear()
 
 
 def draw_file_details(self, context, layout):
@@ -380,12 +420,15 @@ def draw_file_details(self, context, layout):
     op.filepath = str(filepath)
     op.custom_tooltip = "Open this file's folder"
 
-    op = row_right.operator(
-        "wm.open_folder", text="", icon="RENDER_STILL", emboss=False
-    )
-    # project_path(), not to_absolute(): no resolve() in a draw().
-    op.filepath = str(project_path("renders/" + to_relative(Path(filepath))))
-    op.custom_tooltip = "Open this file's render folder"
+    root = get_active_project_root()
+    if root:
+        op = row_right.operator(
+            "wm.open_folder", text="", icon="RENDER_STILL", emboss=False
+        )
+        # Pure path work, no resolve() in a draw(): renders/<seq>/<shot> for
+        # a shot, renders/assets/... for an asset.
+        op.filepath = str(render_root(root, Path(filepath)))
+        op.custom_tooltip = "Open this file's render folder"
 
     if is_shot:
         try:
@@ -413,6 +456,10 @@ def draw_file_details(self, context, layout):
         op.custom_tooltip = (
             "Compile a disposable preview from every rendered shot in this sequence."
         )
+
+    icon_id = _preview_ids.get(filepath)
+    if icon_id:
+        layout.template_icon(icon_value=icon_id, scale=7)
 
     total_seconds = WorkTimeCache.get(filepath)
     if total_seconds:

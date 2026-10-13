@@ -9,6 +9,8 @@ from .tracking_panel import (
     draw_file_details,
     draw_monitor_table,
     draw_tracking_data,
+    load_file_thumbnail,
+    unregister_thumbnail_previews,
 )
 
 classes = (

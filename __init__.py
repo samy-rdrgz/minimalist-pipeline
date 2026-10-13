@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Minimalist Pipeline",
     "author": "Samy Rodriguez",
-    "version": (1, 0, 9),
+    "version": (1, 0, 10),
     "blender": (4, 2, 0),
     "location": "View3D > Sidebar > Pipeline",
     "description": "Lightweight pipeline manager for solo/small team Blender projects.",
@@ -33,6 +33,7 @@ from .operators import (
 )
 from .operators import classes as operator_classes
 from .panels import classes as panel_classes
+from .panels import unregister_thumbnail_previews
 
 # Registration order matters: addon_data before anything reading preferences,
 # everything else before the topbar menu that references their operators.
@@ -247,6 +248,7 @@ def unregister():
     _unregister_props(bpy.types.WindowManager, _WM_PROPS)
     _unregister_props(bpy.types.Scene, _SCENE_PROPS)
     unoverride_shortcut()
+    unregister_thumbnail_previews()
 
 
 if __name__ == "__main__":

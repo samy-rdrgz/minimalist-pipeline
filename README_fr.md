@@ -74,7 +74,7 @@ Vue d'ensemble ci-dessous — chaque entrée pointe vers une page dédiée avec 
 - **[Blocs de shots (multishot)](docs/multishot_fr.md)** — un seul fichier pour des cuts caméra sur une animation continue qu'on ne peut pas séparer sans casser les raccords. Se découpe automatiquement en un job de rendu par shot.
 - **[Versions : wip et stable](docs/versions_fr.md)** — publier = tagger `-stable`, pas écraser un fichier. Auto-incrément à l'ouverture et garde à la sauvegarde évitent d'écraser une version stable par erreur.
 - **[Sessions et verrouillage](docs/sessions-and-locking_fr.md)** — qui a quoi d'ouvert, en ce moment ; des verrous qui expirent d'eux-mêmes plutôt que de nécessiter un serveur central arbitre.
-- **[Suivi & revues](docs/tracking-and-reviews_fr.md)** — notes/todos/rtk par asset/shot, validation par département, deux popups de monitoring project-wide.
+- **[Suivi & revues](docs/tracking-and-reviews_fr.md)** — notes/todos/rtk par asset/shot, validation par département, deux popups de monitoring project-wide, et un snapshot de prod (une page HTML hors ligne avec un tableur de review à renvoyer).
 - **[Link vs Append](docs/linking_fr.md)** — link est le mode natif du pipeline ; un append est détecté et une action de nettoyage est proposée.
 - **[Rendu (farm)](docs/farm_fr.md)** — un monitor + un nombre quelconque de workers coordonnent les jobs de rendu sur le drive partagé du projet, sans SSH ni serveur.
 
