@@ -2,19 +2,6 @@
 
 All notable changes to this addon. Dates are release dates.
 
-## Unreleased
-
-### Fixed
-
-- **Project monitoring could miss assets**: a stray `.pipeline` folder
-  inside a prefix folder (e.g. `assets/ch/.pipeline`) hid every asset of
-  that prefix. Only real asset/shot folders count now, and the addon can
-  no longer create such a folder (version metadata is only ever written
-  next to a `.blend` file).
-- **Possible Blender crash** when the Project monitoring or farm monitor
-  window was closed (or reopened) while it was refreshing: the addon could
-  redraw a window that Blender had already closed.
-
 ## 1.0.9 — 2026-10-13
 
 ### Performance — sidebar on a network share
@@ -40,6 +27,13 @@ All notable changes to this addon. Dates are release dates.
   while they redraw.
 - The farm monitor and the sidebar's farm status read the disk in the
   background; Blender never waits on them.
+
+### Fixed
+
+- Stray, empty `.pipeline` folders could appear in a prefix folder (e.g.
+  `assets/ch/.pipeline`). Version metadata is now only ever written next to
+  a `.blend` file, and Project monitoring ignores such folders — they hid
+  the assets next to them. An existing one can simply be deleted.
 
 ### Farm monitor
 
