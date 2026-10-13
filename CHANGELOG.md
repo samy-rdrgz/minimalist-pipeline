@@ -2,6 +2,19 @@
 
 All notable changes to this addon. Dates are release dates.
 
+## Unreleased
+
+### Performance — sidebar on a network share
+
+- **The Pipeline sidebar no longer lags on a shared drive.** Each redraw
+  of the File panel made a dozen network calls (about a third of a second
+  on the studio share) just to locate and re-check the project config.
+  Config paths are now built without touching the disk, and the config
+  and tracking data are re-checked at most every 2 seconds, whatever the
+  redraw rate.
+- The farm header no longer checks the disk on every redraw; it reads the
+  farm status the addon already refreshes every 10 seconds.
+
 ## 1.0.8 — 2026-10-13
 
 ### Fixed — render farm on a Windows network share

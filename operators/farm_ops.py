@@ -16,6 +16,7 @@ from ..farm import (
     launch_worker,
     monitor_age_status,
     monitor_last_tick,
+    refresh_monitor_status,
     register_popup_region,
     register_refresh_timer,
     request_monitor_kill,
@@ -248,6 +249,11 @@ class M_PIPELINE_OT_farm_launch_monitor(bpy.types.Operator):
             log(e.level, "farm_launch_monitor", e.message)
             self.report({"ERROR"}, str(e))
             return {"CANCELLED"}
+        # The sidebar reads the farm status from a cache refreshed every
+        # 10 s -- refresh it now so the header doesn't show "not running"
+        # right after a launch. (Kill is asynchronous: nothing to refresh
+        # until the monitor's own next tick.)
+        refresh_monitor_status()
         self.report({"INFO"}, "Farm monitor launched.")
         return {"FINISHED"}
 

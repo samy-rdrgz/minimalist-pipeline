@@ -68,6 +68,13 @@ def _iter_pipeline_files(project_root: Path, pattern: str):
             yield from top_dir.rglob(f".pipeline/{pattern}")
 
 
+def _owner_dir(filepath: Path) -> Path:
+    """The asset/shot folder owning filepath: its parent for a .blend, the
+    path itself for a folder. Decided from the name, not Path.is_file() --
+    that's a disk call, and this runs on every tracking-cache check."""
+    return filepath.parent if filepath.suffix.lower() == ".blend" else filepath
+
+
 class TrackingStatusCache:
     """Cache of computed department/tracking status per asset folder, invalidated
     when .pipeline/ (or its tracking.json) changes on disk."""
@@ -84,7 +91,7 @@ class TrackingStatusCache:
     # _VALIDATE_TTL seconds -- the tradeoff is a change made on another
     # machine can take up to this long to show up here, same as every
     # other mtime-keyed cache in this module.
-    _VALIDATE_TTL = 1.5
+    _VALIDATE_TTL = 2.0
 
     @classmethod
     def get(cls, filepath: str, force_reload: bool = False) -> dict:
@@ -106,7 +113,7 @@ class TrackingStatusCache:
         fp = Path(filepath)
         # Normalize the key to the asset folder, consistent whether we're
         # passed a .blend file or the folder directly
-        key = str(fp.parent if fp.is_file() else fp)
+        key = str(_owner_dir(fp))
         mtime = cls._pipeline_mtime(fp)
         cls._validated_at[filepath] = checked_at
         cls._key_of[filepath] = key
@@ -202,17 +209,17 @@ class TrackingStatusCache:
 
     @staticmethod
     def _pipeline_mtime(filepath: Path) -> float:
-        """Latest mtime of .pipeline/ and its tracking.json, used as the cache key."""
-        pipeline_dir = (
-            filepath.parent if filepath.is_file() else filepath
-        ) / ".pipeline"
-        if not pipeline_dir.exists():
-            return 0.0
-        tracking = pipeline_dir / "tracking.json"
-        return max(
-            os.stat(pipeline_dir).st_mtime,
-            os.stat(tracking).st_mtime if tracking.exists() else 0.0,
-        )
+        """Latest mtime of .pipeline/ and its tracking.json, used as the cache
+        key. Two stats, no exists() first -- a missing one just counts as 0:
+        each disk call is a network round-trip on a share."""
+        pipeline_dir = _owner_dir(filepath) / ".pipeline"
+        mtimes = [0.0]
+        for path in (pipeline_dir, pipeline_dir / "tracking.json"):
+            try:
+                mtimes.append(os.stat(path).st_mtime)
+            except OSError:
+                pass
+        return max(mtimes)
 
     @classmethod
     def get_all(

@@ -5,7 +5,6 @@ import bpy
 
 from ..farm import get_monitor_cache
 from ..lib import (
-    ConfigCache,
     RecentFilesCache,
     addon_pref,
     file_in_active_project,
@@ -134,8 +133,8 @@ class M_PIPELINE_MT_topbar_menu(bpy.types.Menu):
             "m_pipeline.farm_request_render", text="Render", icon="RENDER_RESULT"
         )
         layout.operator("m_pipeline.farm_monitor", text="Farm monitor", icon="BLANK1")
-        monitor_lock = ConfigCache.get_path("monitor_file")
-        if not monitor_lock.exists():
+        # Status cache, not monitor.lock.exists() -- see farm_panel.draw_header().
+        if get_monitor_cache().get("status") in ("not running", "unknown"):
             layout.operator(
                 "m_pipeline.farm_launch_monitor",
                 text="Launch farm",

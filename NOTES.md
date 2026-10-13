@@ -1426,6 +1426,48 @@ Now:
 
 Old jobs already marked `orphaned` stay that way (terminal).
 
+## Sidebar redraw: 341 ms of network calls, 0 notes on screen
+
+Studio profile (cProfile, 11 s of hovering the sidebar, 0 notes): 24
+redraws of the File panel cost 8.2 s -- **341 ms each**. Every disk call on
+that share took ~13-15 ms, and a redraw made dozens:
+
+- `ConfigCache.get_path()` built every path through `to_absolute()`, i.e.
+  `Path.resolve()` -- on Windows two `_getfinalpathname` calls, two network
+  round-trips, just to append `"config/..."` to the project root. 175 calls,
+  41 ms each.
+- `ConfigCache.get()` called `get_path()` plus a `stat()` of the config,
+  every call -- and it's reached from everywhere: `parse_filename()` (twice
+  per redraw, through the regex getters), `_meta_stem()`, the tag enum,
+  every `json_get(ConfigCache.get(), ...)`. 148 calls, 52 ms each.
+- `TrackingStatusCache` revalidated with `is_file()` + `exists()` + `stat()`
+  + `exists()` + `stat()`.
+- The farm panel header did `monitor.lock.exists()` on every redraw.
+
+Fixed:
+
+- `get_path()`: plain join + `normpath`, memoized per (project root, name).
+  Nothing to resolve in a fixed sub-path of the root.
+- `ConfigCache.get()`: re-stat the config at most every `_VALIDATE_TTL`
+  (2 s); keep serving the last good config if the stat fails (share
+  hiccup) instead of raising into `draw()`. `invalidate()` resets the
+  window, so an edit made from this machine shows at once.
+- `TrackingStatusCache`: owner folder decided from the file name
+  (`_owner_dir()`: `.blend` → parent), not `is_file()`; `_pipeline_mtime()`
+  is two `stat()`s, no `exists()` first. TTL 2 s.
+- Farm header/panel and the top bar menu read the status cache
+  (`_status_tick()`, every 10 s) instead of `exists()`; launching the farm
+  refreshes that cache immediately.
+
+Measured on the real `draw()` (File panel + farm header) with call
+counting: 6 `stat` + 6 `resolve` per redraw before, 0 after -- the only
+disk calls left are ~3 `stat` every 2 s, whatever the redraw rate.
+
+Still open, lower priority: the notes list (one `to_absolute()` per note
+with a frame range, `text_to_lines()` rewrapping every note on every
+redraw -- ~28 ms of pure CPU per redraw at 100 notes), and `heartbeat_30s`
+(~0.5 s of locked session/lock-file writes every 30 s on that share).
+
 <!-- Next feature with rationale worth keeping gets its own "## " section
      here, same shape as the ones above: what was tried, what was
      rejected and why, anything a docstring is too short to hold. -->

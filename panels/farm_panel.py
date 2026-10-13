@@ -8,7 +8,6 @@ import bpy
 
 from ..farm import get_monitor_cache, scan_workers
 from ..lib import (
-    ConfigCache,
     addon_pref,
     draw_box_tip,
     get_active_project_root,
@@ -48,8 +47,10 @@ class M_PIPELINE_PT_farm_panel(bpy.types.Panel):
         layout = self.layout.row(align=True)
         layout.separator(factor=0.4)
 
-        monitor = ConfigCache.get_path("monitor_file")
-        is_monitor = monitor.exists()
+        # From the status cache (refreshed by _status_tick() every 10 s),
+        # never monitor.lock.exists() here: a disk call per redraw is a
+        # network round-trip on a share, even with this panel collapsed.
+        is_monitor = get_monitor_cache().get("status") not in ("not running", "unknown")
 
         if not is_monitor:
             layout.label(text="Farm : not running", icon="GHOST_DISABLED")
@@ -105,9 +106,8 @@ class M_PIPELINE_PT_farm_panel(bpy.types.Panel):
             "files in the project (no server, no network setup).",
         )
 
-        monitor = ConfigCache.get_path("monitor_file")
-
-        is_monitor = monitor.exists()
+        # Status cache, not monitor.lock.exists() -- see draw_header().
+        is_monitor = get_monitor_cache().get("status") not in ("not running", "unknown")
 
         if is_monitor:
             cache = get_monitor_cache()

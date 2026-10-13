@@ -1,7 +1,9 @@
 """Project config: cache, reading, filename parsing, file routing utilities."""
 
 import json
+import os
 import re
+import time
 from pathlib import Path
 
 import bpy
@@ -89,16 +91,40 @@ class ConfigCache:
     _cache: dict | None = None
     _mtime: float | None = None
     _path: Path | None = None
+    _checked_at: float = 0.0
+    _path_cache: dict[tuple[str, str], Path] = {}
+    # get() is called many times per sidebar redraw (parse_filename(), the
+    # tag enum, every json_get(ConfigCache.get(), ...)), and each call used
+    # to stat() the config file -- a network round-trip on a share. Within
+    # this window the cached config is returned without touching the disk;
+    # a config edited on another machine shows up at most this much later.
+    _VALIDATE_TTL = 2.0
 
     @classmethod
     def get(cls) -> dict:
-        """Return config dict, re-reading only if file changed on disk."""
+        """Return config dict, re-reading only if file changed on disk
+        (checked at most every _VALIDATE_TTL seconds)."""
         project_root = get_active_project_root()
         if not project_root:
             cls.invalidate()
             return {}
         config_file = get_config_filepath()
-        current_mtime = config_file.stat().st_mtime
+        checked_at = time.monotonic()
+        if (
+            cls._cache is not None
+            and cls._path == config_file
+            and checked_at - cls._checked_at < cls._VALIDATE_TTL
+        ):
+            return cls._cache
+        try:
+            current_mtime = config_file.stat().st_mtime
+        except OSError:
+            # Share unreachable for a moment: keep serving the last good
+            # config rather than raising into a draw() call.
+            if cls._cache is not None and cls._path == config_file:
+                return cls._cache
+            raise
+        cls._checked_at = checked_at
         if cls._path != config_file or cls._mtime != current_mtime:
             cls._cache = read_project_config(project_root)
             cls._mtime = current_mtime
@@ -150,6 +176,7 @@ class ConfigCache:
         cls._cache = None
         cls._mtime = None
         cls._path = None
+        cls._checked_at = 0.0
 
     @classmethod
     def get_path(cls, name: str) -> Path:
@@ -182,7 +209,21 @@ class ConfigCache:
             "monitor_file": f"{farm}/monitor.lock",
             "asset_preset_file": f"{presets}/asset_file_preset.py",
         }
-        return to_absolute(dictionary[name])
+        project_root = get_active_project_root()
+        if not project_root:
+            raise PipelineError("No active project to resolve a relative path against.")
+        # Plain join + normpath, no to_absolute()/Path.resolve(): resolve()
+        # costs two network round-trips on Windows (_getfinalpathname) on a
+        # share, and these are fixed sub-paths of the project root -- there
+        # is nothing to resolve. Memoized per (root, name): called dozens of
+        # times per sidebar redraw (ConfigCache.get(), parse_filename(),
+        # every lock/log path). See NOTES.md, "Sidebar redraw: 341 ms...".
+        key = (str(project_root), name)
+        path = cls._path_cache.get(key)
+        if path is None:
+            path = Path(os.path.normpath(Path(project_root) / dictionary[name]))
+            cls._path_cache[key] = path
+        return path
 
 
 # ---------------------------------------------------------------------------
