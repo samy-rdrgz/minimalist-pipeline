@@ -2,6 +2,25 @@
 
 All notable changes to this addon. Dates are release dates.
 
+## Unreleased
+
+### Fixed — render farm on a Windows network share
+
+- **Jobs no longer freeze mid-queue** (e.g. stuck in `setup_start`). On a
+  shared drive, Windows refused the monitor's heartbeat write whenever
+  another machine was reading `monitor.lock` (`WinError 5`/`32` in the log),
+  and that failure skipped the rest of the tick — job progress included.
+  Each tick step is now independent, and the heartbeat no longer rewrites
+  the file at all (it bumps its modification time instead, which other
+  machines' reads can't block). **All machines need this version**: an
+  older one would show a running farm as "stale".
+- Shared-file writes and deletes retry briefly when Windows reports the file
+  as in use, instead of failing on the first attempt.
+- A monitor no longer stops silently after a single failed read of its own
+  lock file.
+- The render dialog's machine picker listed no worker at all ("Could not
+  list machines: 'name'" in the log).
+
 ## 1.0.7 — 2026-10-12
 
 *Note: 1.0.5 and 1.0.6 were version-string bumps only — neither was tagged

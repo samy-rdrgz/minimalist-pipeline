@@ -391,6 +391,25 @@ def resolve_bpy_path(filepath: str) -> Path:
 LOCK_STALE_SECONDS = 90
 
 
+def retry_shared_io(fn, *args, attempts: int = 5, delay: float = 0.1):
+    """Call fn(*args), retrying on PermissionError up to `attempts` times,
+    `delay` seconds apart; re-raises the last error. Windows only refuses
+    these transiently: replacing (os.replace) or deleting (os.remove/unlink)
+    a file fails with WinError 5/32 while any other process -- another
+    machine's reader, over SMB possibly a handle the client keeps open a
+    little past Python's own close() -- still has it open, since Python
+    never opens files with FILE_SHARE_DELETE. Not a permissions problem:
+    the same call succeeds a moment later. See NOTES.md, "Windows: replace/
+    delete refused while a reader has the file open"."""
+    for i in range(attempts):
+        try:
+            return fn(*args)
+        except PermissionError:
+            if i == attempts - 1:
+                raise
+            time.sleep(delay)
+
+
 def _is_unlock(lockpath: Path) -> bool:
     """Whether a lock file is stale (older than LOCK_STALE_SECONDS) or
     unreadable/corrupt -- fail-open, so garbage never freezes the resource
@@ -399,6 +418,11 @@ def _is_unlock(lockpath: Path) -> bool:
         data = json.loads(lockpath.read_text(encoding="utf-8"))
         age = (now(iso=False) - datetime.fromisoformat(data["at"])).total_seconds()
         return age > LOCK_STALE_SECONDS
+    except PermissionError:
+        # Unreadable *right now* (Windows: being deleted, or another
+        # process's handle refuses us) is not corrupt -- treating it as
+        # stale would let a writer steal a live lock. Assume held.
+        return False
     except Exception:
         return True
 
@@ -423,9 +447,16 @@ def acquire_lock(
             if _is_unlock(lockpath):
                 try:
                     lockpath.unlink()
+                    continue
                 except FileNotFoundError:
-                    pass  # someone else already picked it up meanwhile, loop back
-                continue
+                    continue  # someone else already picked it up meanwhile, loop back
+                except PermissionError:
+                    pass  # still open somewhere (see retry_shared_io) -- wait, retry
+            time.sleep(delay)
+        except PermissionError:
+            # Lock file mid-deletion by its previous holder (Windows
+            # "delete pending": refuses every open until the last handle
+            # closes) -- same as held, wait and retry.
             time.sleep(delay)
     return False
 
@@ -458,9 +489,15 @@ def release_lock(path: Path, machine_id: str) -> None:
     try:
         data = json.loads(lockpath.read_text(encoding="utf-8"))
         if data.get("machine_id") == machine_id:
-            lockpath.unlink()
+            retry_shared_io(lockpath.unlink)
     except FileNotFoundError:
         pass
+    except (OSError, ValueError) as e:
+        # Never raise from here: called from locked_json()'s finally, it
+        # would mask whatever the caller was doing. A lock left behind just
+        # goes stale (LOCK_STALE_SECONDS) -- readers skip a stale lock, the
+        # next writer steals it.
+        log("WARNING", "lock", f"Could not release lock {lockpath.name}: {e}")
 
 
 def refresh_lock(path: Path, machine_id: str) -> bool:
@@ -513,12 +550,25 @@ def locked_json(path: Path, read_only=False, retries: int = 10):
         elif box["action"] == "to_write":
             tmp = path.with_suffix(path.suffix + ".tmp")
             tmp.write_text(json.dumps(box["data"], indent=4), encoding="utf-8")
-            os.replace(tmp, path)
+            try:
+                retry_shared_io(os.replace, tmp, path)
+            except OSError:
+                # Don't leave the .tmp behind -- the caller still gets the error.
+                try:
+                    tmp.unlink()
+                except OSError:
+                    pass
+                raise
         elif box["action"] == "to_delete":
             try:
-                os.remove(path)
-            except OSError:
+                retry_shared_io(os.remove, path)
+            except FileNotFoundError:
                 pass
+            except OSError as e:
+                # Still swallowed (callers never expected a raise here), but
+                # no longer silent: an incoming request that fails to delete
+                # gets picked up again later as a duplicate job.
+                log("WARNING", "JSON_writing", f"Could not delete {path}: {e}")
     finally:
         if not read_only:
             release_lock(path, machine_id)

@@ -14,6 +14,8 @@ from ..farm import (
     kill_worker,
     launch_monitor,
     launch_worker,
+    monitor_age_status,
+    monitor_last_tick,
     register_popup_region,
     register_refresh_timer,
     request_monitor_kill,
@@ -31,7 +33,6 @@ from ..lib import (
     json_get,
     locked_json,
     log,
-    now,
     parse_filename,
     prefix_items,
     resolve_ffmpeg,
@@ -54,8 +55,13 @@ def _get_workers_items(self, context):
 
         items = []
         for uuid, d in workers.items():
-            tag = " (used)" if d["status"] != "idle" else ""
-            items.append((uuid, d["name"], f"{d['name']} ({d['ip']}){tag}"))
+            # Worker files carry get_user_data()'s fields (user/machine/uuid)
+            # -- there never was a "name" or "ip" key, so this used to
+            # KeyError and the picker always showed "No worker found".
+            user = d.get("user", "unknown")
+            machine = d.get("machine", uuid[:8])
+            tag = " (used)" if d.get("status") != "idle" else ""
+            items.append((uuid, user, f"{user} ({machine}){tag}"))
 
         _workers_items_cache[:] = items
         return _workers_items_cache
@@ -108,7 +114,7 @@ class M_PIPELINE_OT_farm_kill_monitor(bpy.types.Operator):
             self.report({"WARNING"}, "No active farm monitor found.")
             return {"CANCELLED"}
         try:
-            with locked_json(lock_path) as box:
+            with locked_json(lock_path, read_only=True, retries=0) as box:
                 data = box["data"] or {}
                 self.lock_user = data.get("user", "unknown")
                 self.lock_machine = data.get("machine", "unknown")
@@ -187,15 +193,11 @@ class M_PIPELINE_OT_farm_launch_monitor(bpy.types.Operator):
 
         if lock_path.exists():
             try:
-                with locked_json(lock_path) as box:
+                with locked_json(lock_path, read_only=True, retries=0) as box:
                     data = box["data"] or {}
-                    last_tick = datetime.datetime.fromisoformat(data["update_tick"])
-                    stale_threshold = json_get(
-                        ConfigCache.get(), "farm.stale_monitor_seconds", 90
-                    )
-                    is_stale = (
-                        now(False) - last_tick
-                    ).total_seconds() > stale_threshold
+                    # Heartbeat = the file's mtime (see monitor_tick()).
+                    last_tick = monitor_last_tick(lock_path) or datetime.datetime.min
+                    is_stale = monitor_age_status(last_tick) != "running"
 
                     if not is_stale:
                         self.report(

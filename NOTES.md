@@ -1227,6 +1227,64 @@ while also having another call site that deliberately passes a real value
 -- `SKIP_SAVE` is the fix, not resetting it by hand in `invoke()` (that
 would also wipe a value a caller *did* just pass in).
 
+## Windows: replace/delete refused while a reader has the file open
+
+Studio-only symptom (never at home): the farm monitor logged `[WinError 5]
+Accès refusé: 'monitor.lock.tmp' -> 'monitor.lock'` and `[WinError 32] ...
+'.monitor.lock.lock'` every few ticks, and a job sat in `setup_start` long
+after its setup subprocess had finished.
+
+**Not a permissions problem** -- the same write succeeds a tick later.
+Python maps both `ERROR_ACCESS_DENIED` (5) and `ERROR_SHARING_VIOLATION`
+(32) to `PermissionError`. `os.replace()` has to open the *target* with
+DELETE access (the old file goes away), and Python's `open()` never passes
+`FILE_SHARE_DELETE`, so any reader holding the target open at that moment
+makes the rename fail -- and Windows reports that case as 5, not 32. Over
+SMB the window is wider than Python's own `open()`/`close()`: the client
+may keep the handle open server-side a little after `close()` (handle
+caching under SMB2 leases), so even millisecond reads every 2 s from a few
+machines' farm popups collided with the monitor's every-10 s rewrite most
+of the time. A local disk has none of this, hence "works at home".
+
+**Why the job froze**: `monitor_tick()` ran the heartbeat write and then
+`scan_processes()`/`scan_queue()` in one `try` -- a failed heartbeat
+skipped both, and `scan_processes()` is what moves `setup_start` to
+`setup_finished`. The loop kept ticking, it just did almost nothing.
+
+What changed, cheapest to most structural:
+
+- **Each tick step has its own `try`** (requests, heartbeat, processes,
+  queue). A failed heartbeat now costs at most a "stale" label, never the
+  queue.
+- **Heartbeat = `monitor.lock`'s mtime**, bumped with `os.utime()`; the
+  content (user/machine/pid/uuid/start_time) is written once at launch and
+  never rewritten while running. `utime()` only asks for attribute access,
+  which Windows' share-mode check ignores, so a reader's open handle can't
+  refuse it; readers `stat()` for liveness (`monitor_last_tick()`,
+  `monitor_age_status()` in `farm/loop.py`) and only read the content for
+  the owner's name. Same clock caveat as before (`utime()` stamps the
+  monitor machine's clock, readers compare against their own -- the old
+  in-file `update_tick` had the identical skew). No more lock-file churn
+  per tick either: the tick no longer takes `monitor.lock`'s writer lock.
+  **Mixed versions**: an addon older than this reads `update_tick` from
+  the content, which no longer moves -- it would show a running monitor
+  as stale after 90 s. Every machine needs the same version.
+- **`retry_shared_io()`** (`lib/core.py`): `os.replace`/`os.remove`/lock
+  `unlink` retry on `PermissionError` (5 x 0.1 s) before giving up --
+  covers the other shared files with the same exposure (job files written
+  by the setup subprocess while popups read them, incoming requests).
+  A failed replace no longer leaves its `.tmp` behind.
+- **`release_lock()` never raises** (it runs from `locked_json()`'s
+  `finally`, a raise there masked the caller's own outcome) -- a lock it
+  couldn't delete just goes stale.
+- **`_is_unlock()`**: a lock file that raises `PermissionError` on read is
+  "held", not "corrupt" -- treating it as stale let a writer steal a live
+  lock mid-deletion.
+- **`is_blender_monitor()`** keeps its previous answer when the read fails
+  instead of returning False: `farm_tick()` deregisters the whole loop on
+  False, so one refused read used to kill the monitor silently (header
+  went Stale then Dead, nothing in the log).
+
 <!-- Next feature with rationale worth keeping gets its own "## " section
      here, same shape as the ones above: what was tried, what was
      rejected and why, anything a docstring is too short to hold. -->

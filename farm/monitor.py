@@ -12,13 +12,18 @@ from ..lib import (
     PipelineError,
     get_machine_id,
     get_user_data,
-    json_get,
     locked_json,
     log,
     now,
     to_relative,
 )
-from .loop import get_running_project, register_farm_loop, set_running_project
+from .loop import (
+    get_running_project,
+    monitor_age_status,
+    monitor_last_tick,
+    register_farm_loop,
+    set_running_project,
+)
 from .queue import scan_processes, scan_queue, scan_requests
 
 _monitor_cache: dict = {
@@ -63,11 +68,8 @@ def launch_monitor(
     with locked_json(path) as box:
         data = box["data"]
         if data:  # lock exists
-            last_tick = datetime.fromisoformat(data.get("update_tick", ""))
-            stale_threshold = json_get(
-                ConfigCache.get(), "farm.stale_monitor_seconds", 90
-            )
-            is_stale = (now(False) - last_tick).total_seconds() > stale_threshold
+            last_tick = monitor_last_tick(path) or datetime.min
+            is_stale = monitor_age_status(last_tick) != "running"
 
             if not is_stale:
                 raise PipelineError(f"Monitor role already taken by {data['user']}.")
@@ -82,23 +84,41 @@ def launch_monitor(
 
         detect_orphaned_jobs()
 
-        box["data"] = get_user_data(user) | {"start_time": now(), "update_tick": now()}
+        # Written once: from here on the heartbeat is this file's mtime only
+        # (os.utime() in monitor_tick()), the content is never rewritten.
+        box["data"] = get_user_data(user) | {"start_time": now()}
         box["action"] = "to_write"
 
 
+_last_is_monitor = False
+
+
 def is_blender_monitor() -> bool:
-    """Whether this Blender process (pid + machine uuid) owns monitor.lock."""
-    lock_path = ConfigCache.get_path("monitor_file")
-    pid = os.getpid()
-    uuid = get_machine_id()
+    """Whether this Blender process (pid + machine uuid) owns monitor.lock.
+    Read-only: monitor.lock's content never changes while a monitor runs, so
+    there's nothing to lock against. A read that fails (network hiccup,
+    Windows refusing an open for a moment) keeps the previous answer instead
+    of returning False -- farm_tick() stops the whole loop on False, and
+    "couldn't check this tick" must never mean "not the monitor anymore"."""
+    global _last_is_monitor
     try:
-        if lock_path.exists():
-            with locked_json(lock_path) as box:
-                data = box["data"] or {}
-                return data.get("pid", "") == pid and data.get("uuid", "") == uuid
+        lock_path = ConfigCache.get_path("monitor_file")
+    except PipelineError:
+        _last_is_monitor = False  # no active project, no monitor role
         return False
-    except Exception:
-        return False
+    try:
+        if not lock_path.exists():
+            _last_is_monitor = False
+            return False
+        with locked_json(lock_path, read_only=True, retries=0) as box:
+            data = box["data"] or {}
+        _last_is_monitor = (
+            data.get("pid", "") == os.getpid()
+            and data.get("uuid", "") == get_machine_id()
+        )
+    except (OSError, ValueError) as e:
+        log("WARNING", "farm", f"Could not read monitor.lock, keeping last state: {e}")
+    return _last_is_monitor
 
 
 def monitor_tick(project_root: Path):
@@ -116,22 +136,46 @@ def monitor_tick(project_root: Path):
             log("ERROR", "farm", f"Error while clearing monitor.lock on stop: {e}")
         return
 
+    # Each step in its own try: one failing step (typically a file another
+    # machine holds open for a moment, see retry_shared_io()) must never
+    # skip the others -- a failed heartbeat used to skip scan_processes()/
+    # scan_queue() too, freezing every job at its current stage.
+    path = ConfigCache.get_path("monitor_file")
+    kill_received = False
     try:
-        path = ConfigCache.get_path("monitor_file")
-        with locked_json(path) as box:
-            kill_received = scan_requests()
-            if kill_received:
-                stop_monitor_loop()
+        kill_received = scan_requests()
+    except Exception as e:
+        log("ERROR", "farm", f"Error while scanning farm requests: {e}")
+    if kill_received:
+        stop_monitor_loop()
+        try:
+            with locked_json(path) as box:
                 box["action"] = "to_delete"
-            else:
-                data = box["data"] or {}
-                data["update_tick"] = now()
-                box["action"] = "to_write"
+        except Exception as e:
+            # Not fatal: the next farm_tick() sees the loop stopped and
+            # retries the delete via the branch at the top of this function.
+            log("ERROR", "farm", f"Error while clearing monitor.lock on kill: {e}")
+        return
 
+    try:
+        # Heartbeat = monitor.lock's mtime, not a rewrite of its content.
+        # os.utime() only asks for attribute access, which Windows never
+        # refuses over another process's open handle -- os.replace() on a
+        # file every machine's sidebar reads did, every few ticks (WinError
+        # 5/32). Readers only stat() it for liveness (monitor_last_tick()).
+        os.utime(path)
+    except OSError as e:
+        log("ERROR", "farm", f"Could not refresh the monitor heartbeat: {e}")
+
+    try:
         scan_processes()
+    except Exception as e:
+        log("ERROR", "farm", f"Error while polling farm processes: {e}")
+
+    try:
         scan_queue(project_root)
     except Exception as e:
-        log("ERROR", "farm", f"Error during farm tick: {e}")
+        log("ERROR", "farm", f"Error while advancing the farm queue: {e}")
 
 
 def stop_monitor_loop() -> None:
