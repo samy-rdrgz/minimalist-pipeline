@@ -2,7 +2,7 @@
 
 All notable changes to this addon. Dates are release dates.
 
-## Unreleased
+## 1.0.8 — 2026-10-13
 
 ### Fixed — render farm on a Windows network share
 
@@ -36,6 +36,19 @@ All notable changes to this addon. Dates are release dates.
 - On the machine that is both farm host and worker, a job's setup now waits
   for the current render to end instead of loading a second scene alongside
   it. Frame checks and compilations still run right away.
+
+### Changed — render farm after a crash
+
+- **A crash no longer leaves jobs to resubmit by hand.** When the Blender
+  running the farm or a worker crashes, the jobs it was handling are picked
+  up again on relaunch: a step still running is waited for, a step that
+  was cut short is redone, and an interrupted render is sent out again —
+  frames already rendered are kept, only the missing ones are rendered.
+  Previously these jobs were marked "orphaned" (setup, frame check,
+  compilation) or stayed stuck for good (preview, render). Works on
+  Windows, Linux and macOS.
+- A render whose worker stops responding for 3 minutes is sent to another
+  machine.
 
 ## 1.0.7 — 2026-10-12
 
