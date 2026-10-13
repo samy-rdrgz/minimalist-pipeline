@@ -20,7 +20,7 @@ from ..lib import (
     to_relative,
 )
 from .dispatch import _active_processes as _active_processes
-from .dispatch import popen_logged
+from .dispatch import popen_logged, track_local_processes
 
 
 def compute_output_path(
@@ -113,7 +113,7 @@ def run_render_setup(job_id: str, config: dict) -> None:
                 job_id,
                 "setup",
             )
-            _active_processes[job_id] = [(process, "local")]
+            track_local_processes(data, [(process, "local")])
 
         except Exception as e:
             # Still inside this job file's own lock: record the failure in

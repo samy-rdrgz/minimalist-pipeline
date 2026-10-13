@@ -6,7 +6,15 @@ import subprocess
 from uuid import uuid4
 from pathlib import Path
 
-from ..lib import ConfigCache, locked_json, log, now, retry_shared_io, to_absolute
+from ..lib import (
+    ConfigCache,
+    get_machine_id,
+    locked_json,
+    log,
+    now,
+    retry_shared_io,
+    to_absolute,
+)
 
 _active_processes: dict[str, list[tuple[subprocess.Popen, str]]] = {}
 
@@ -54,7 +62,20 @@ def popen_logged(cmd: list, job_id: str, stage: str, *, merge_stdout: bool = Tru
         )
     proc.log_path = log_path
     proc.log_offset = offset
+    proc.name_hint = Path(str(cmd[0])).stem.lower()  # "blender", "ffmpeg"
     return proc
+
+
+def track_local_processes(data: dict, procs: list) -> None:
+    """Start tracking a job's local processes: in memory for
+    scan_processes(), and in the job's own data (caller writes it back) so
+    a monitor restarted after a crash can find them again by PID instead of
+    assuming them dead -- see recover_interrupted_jobs()."""
+    _active_processes[data["job_id"]] = procs
+    data["local_processes"] = {
+        "machine": get_machine_id(),
+        "pids": [[p.pid, getattr(p, "name_hint", "")] for p, _ in procs],
+    }
 
 
 def read_process_log(proc) -> str:

@@ -13,7 +13,7 @@ from ..lib import (
     to_absolute,
 )
 from .dispatch import _active_processes as _active_processes
-from .dispatch import popen_logged
+from .dispatch import popen_logged, track_local_processes
 
 _EXTENSION_MAP = {
     "PNG": "png",
@@ -71,7 +71,7 @@ def checks_images(job_path: Path):
                         "local",
                     )
                 ]
-                _active_processes[data["job_id"]] = proc
+                track_local_processes(data, proc)
             else:
                 data["stage_history"].append(
                     {"stage": "checks_images_failed", "at": now()}
@@ -161,7 +161,7 @@ def compilation(*, project_root: Path, job_path: Path, compilation_settings: str
                     {"stage": "compilation_start", "at": now()}
                 )
                 box["action"] = "to_write"
-                _active_processes[data["job_id"]] = proc
+                track_local_processes(data, proc)
 
             else:
                 data["stage_history"].append(
@@ -247,7 +247,7 @@ def run_preview_compile(job_id: str, project_root: Path) -> None:
             ]
             data["stage_history"].append({"stage": "preview_start", "at": now()})
             box["action"] = "to_write"
-            _active_processes[data["job_id"]] = proc
+            track_local_processes(data, proc)
 
     except Exception as e:
         from .queue import mark_stage

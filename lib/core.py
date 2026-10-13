@@ -6,6 +6,8 @@ import json
 import os
 import random
 import shutil
+import signal
+import subprocess
 import sys
 import time
 import uuid
@@ -389,6 +391,102 @@ def resolve_bpy_path(filepath: str) -> Path:
 # ---------------------------------------------------------------------------
 # 3x the heartbeat interval, deliberately -- see NOTES.md, "Lock staleness".
 LOCK_STALE_SECONDS = 90
+
+
+def process_alive(pid: int | None, name_hint: str = "") -> bool:
+    """Whether process `pid` is still running on *this* machine -- Windows,
+    Linux and macOS, stdlib only. name_hint (e.g. "blender", "ffmpeg"),
+    if given, must appear in the running executable's name: a PID can be
+    reused by an unrelated program once the original exits, and a farm
+    process adopted after a crash must never be confused with one. If the
+    name can't be read, the PID alone decides."""
+    if not pid:
+        return False
+    if sys.platform == "win32":
+        import ctypes
+        from ctypes import wintypes
+
+        k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        k32.OpenProcess.restype = wintypes.HANDLE
+        handle = k32.OpenProcess(0x1000, False, int(pid))  # QUERY_LIMITED_INFORMATION
+        if not handle:
+            return ctypes.get_last_error() == 5  # access denied: it exists
+        try:
+            code = wintypes.DWORD()
+            if not k32.GetExitCodeProcess(handle, ctypes.byref(code)):
+                return False
+            if code.value != 259:  # STILL_ACTIVE
+                return False
+            if name_hint:
+                buf = ctypes.create_unicode_buffer(32768)
+                size = wintypes.DWORD(len(buf))
+                if k32.QueryFullProcessImageNameW(handle, 0, buf, ctypes.byref(size)):
+                    return name_hint.lower() in Path(buf.value).name.lower()
+            return True
+        finally:
+            k32.CloseHandle(handle)
+
+    # Linux / macOS
+    try:
+        os.kill(int(pid), 0)  # signal 0: existence check only, nothing sent
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        pass  # exists, owned by another user
+    except OSError:
+        return False
+    try:
+        out = subprocess.run(
+            ["ps", "-p", str(int(pid)), "-o", "stat=", "-o", "comm="],
+            capture_output=True,
+            text=True,
+            timeout=2,
+        ).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return True
+    if not out:
+        return False
+    stat, _, comm = out.partition(" ")
+    if stat.startswith("Z"):
+        return False  # zombie: exited, just not reaped yet
+    if name_hint and comm.strip():
+        return name_hint.lower() in Path(comm.strip()).name.lower()
+    return True
+
+
+class AdoptedProcess:
+    """Stand-in for a subprocess.Popen this Blender instance didn't start
+    (or lost track of after a crash) but still needs to wait on, by PID.
+    poll() is None while the process runs, then -1: its real exit code
+    can't be known for a process that isn't our own child, so callers treat
+    an adopted process's end as "interrupted, check the result on disk",
+    never as success or failure."""
+
+    adopted = True
+
+    def __init__(self, pid: int, name_hint: str = "", **attrs):
+        self.pid = pid
+        self.name_hint = name_hint
+        self.__dict__.update(attrs)
+
+    def poll(self):
+        return None if process_alive(self.pid, self.name_hint) else -1
+
+    def terminate(self):
+        try:
+            os.kill(self.pid, signal.SIGTERM)
+        except OSError:
+            pass
+
+    kill = terminate
+
+    def wait(self, timeout=None):
+        end = None if timeout is None else time.monotonic() + timeout
+        while self.poll() is None:
+            if end is not None and time.monotonic() > end:
+                raise subprocess.TimeoutExpired(str(self.pid), timeout)
+            time.sleep(0.1)
+        return -1
 
 
 def retry_shared_io(fn, *args, attempts: int = 5, delay: float = 0.1):

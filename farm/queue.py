@@ -3,7 +3,7 @@
 import datetime
 from pathlib import Path
 
-from ..lib import ConfigCache, log, now, to_relative
+from ..lib import ConfigCache, log, now, retry_shared_io, to_relative
 from .dispatch import (
     _active_processes,
     append_render_history,
@@ -188,6 +188,45 @@ def scan_queue(project_root: Path) -> None:
             log("ERROR", "farm", f"Active job error: {e} ({job.name}).")
 
 
+# Where a job goes when the process running its *_start stage was lost (a
+# crash of the Blender instance tracking it) -- every one of these stages
+# is safe to redo: ffmpeg overwrites its own output, and setup is checked
+# on disk first (see resume_interrupted_stage()). render_start isn't here:
+# a render runs on a worker, recovered through its own last_job_result
+# ("lost") or its heartbeat -- see check_render_completion().
+_RESUME_STAGE = {
+    "checks_images_start": "render_finished",
+    "compilation_start": "checks_images_finished",
+    "preview_start": "preview_queued",
+}
+
+
+def resume_interrupted_stage(data: dict, reason: str) -> str | None:
+    """Rewind a job whose *_start stage lost its process, so the queue picks
+    it up again instead of leaving it stuck or "orphaned". Mutates data
+    (caller writes it back); returns the stage resumed to, or None if the
+    job wasn't in a resumable stage. A setup that got as far as writing its
+    result counts as finished -- redoing it would create a new output
+    folder (increment) for nothing."""
+    stage = data["stage_history"][-1]["stage"]
+    if stage == "setup_start":
+        resolved = data.get("resolved_frame_range")
+        done = data.get("split_into") or (resolved and tuple(resolved) != (0, 0))
+        target = "setup_finished" if done else "queued"
+    elif stage in _RESUME_STAGE:
+        target = _RESUME_STAGE[stage]
+    else:
+        return None
+    data["stage_history"].append({"stage": target, "at": now(), "resumed": reason})
+    data.pop("local_processes", None)
+    log(
+        "WARNING",
+        "farm",
+        f"Job {data.get('job_id')}: {stage} interrupted ({reason}) -- resumed at {target}.",
+    )
+    return target
+
+
 def scan_processes():
     """Poll all locally-tracked Popen processes; advance each job's stage
     once its whole process group has finished. Output is read back from the
@@ -210,6 +249,20 @@ def _finish_job_processes(job_id: str, procs: list, job_path: Path) -> None:
     the processes stay tracked, so the next tick retries."""
     if any(p.poll() is None for p, _ in procs):
         return  # not finished yet
+
+    if any(getattr(p, "adopted", False) for p, _ in procs):
+        # Found again by PID after a crash (recover_interrupted_jobs()): its
+        # exit code is unknowable, so judge by what's on disk, not by it.
+        if job_path.exists():
+            with locked_json(job_path) as box:
+                data = box["data"] or {}
+                if data.get("stage_history") and resume_interrupted_stage(
+                    data, "process outlived a crash"
+                ):
+                    box["action"] = "to_write"
+        _active_processes.pop(job_id, None)
+        return
+
     errors = [ip for p, ip in procs if p.poll() != 0]
 
     if not job_path.exists():
@@ -273,6 +326,7 @@ def _finish_job_processes(job_id: str, procs: list, job_path: Path) -> None:
                 )
 
             data["used_machines"] = []
+            data.pop("local_processes", None)
             box["action"] = "to_write"
 
     # Only once the job file is actually written: if that write fails,
@@ -351,34 +405,87 @@ def _is_this_render(result: dict | None, data: dict) -> bool:
         return False
 
 
+# A worker silent this long is gone (crashed, machine off), not just slow --
+# well past STALE_WORKER_SECONDS (a missed beat or two) and a Blender
+# restart, so a worker that comes back quickly reports its own lost render
+# instead (launch_worker() -> last_job_result "lost").
+WORKER_GONE_SECONDS = 180
+
+
+def _worker_gone(uuid: str) -> bool:
+    """Whether worker uuid hasn't heartbeat for WORKER_GONE_SECONDS (or its
+    file is gone). Reads the file directly: scan_workers() drops a worker
+    after only STALE_WORKER_SECONDS."""
+    path = ConfigCache.get_path("workers") / f"worker_{uuid}.json"
+    try:
+        with locked_json(path, read_only=True, retries=0) as box:
+            data = box["data"] or {}
+    except (OSError, ValueError):
+        return False  # can't tell this tick -- don't act on it
+    if not data:
+        return True
+    try:
+        last = datetime.datetime.fromisoformat(data.get("last_heartbeat", ""))
+    except ValueError:
+        return True
+    return (now(False) - last).total_seconds() > WORKER_GONE_SECONDS
+
+
 def check_render_completion(job_path: Path) -> None:
     """Monitor-only: cross-check used_machines against each worker's declared
-    state. No worker ever writes this job file for this stage."""
+    state. No worker ever writes this job file for this stage. A render
+    whose worker lost it (crashed and came back -> result "lost", or never
+    came back -> WORKER_GONE_SECONDS) is sent back to setup_finished and
+    re-dispatched: renders run with placeholders and no overwrite, so the
+    new one only renders the frames still missing."""
     with locked_json(job_path) as box:
         data = box["data"]
         if data["stage_history"][-1]["stage"] != "render_start":
             return data
 
-        workers = (
-            scan_workers()
-        )  # read-only, each worker file is already locked individually
+        workers = scan_workers()  # read-only, cached -- see its docstring
         still_running = []
+        lost = []
         any_failed = False
 
         for uuid in data.get("used_machines", []):
             w = workers.get(uuid)
             result = (w or {}).get("last_job_result")
             if _is_this_render(result, data):
-                if not result["success"]:
+                if result.get("lost"):
+                    lost.append(uuid)
+                elif not result["success"]:
                     any_failed = True
-                # else: this worker did finish THIS job successfully, treat it
-                # as handled and don't put it back in still_running
+                # else: this worker did finish THIS render successfully
+            elif w is None and _worker_gone(uuid):
+                lost.append(uuid)
             else:
-                still_running.append(uuid)  # worker not found/stale -- see reconcile
+                still_running.append(uuid)
 
         if any_failed:
             data["stage_history"].append({"stage": "render_failed", "at": now()})
             box["action"] = "to_write"
+        elif lost:
+            # A request the lost worker never picked up would otherwise run
+            # whenever it comes back, for a dispatch nobody waits on anymore.
+            for uuid in lost:
+                request = ConfigCache.get_path("farm_requests") / f"request_{data['job_id']}_{uuid}.json"
+                try:
+                    retry_shared_io(request.unlink)
+                except OSError:
+                    pass
+            data["stage_history"].append(
+                {"stage": "setup_finished", "at": now(), "resumed": "render lost by a worker"}
+            )
+            data["used_machines"] = []
+            data.pop("dispatch_id", None)
+            box["action"] = "to_write"
+            log(
+                "WARNING",
+                "farm",
+                f"Job {data['job_id']}: render lost on {', '.join(u[:8] for u in lost)} "
+                f"-- re-dispatching (frames already rendered are kept).",
+            )
         elif not still_running:
             data["stage_history"].append({"stage": "render_finished", "at": now()})
             box["action"] = "to_write"

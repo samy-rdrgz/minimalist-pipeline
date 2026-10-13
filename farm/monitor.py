@@ -8,6 +8,7 @@ from datetime import datetime
 from pathlib import Path
 
 from ..lib import (
+    AdoptedProcess,
     ConfigCache,
     PipelineError,
     get_machine_id,
@@ -15,6 +16,7 @@ from ..lib import (
     locked_json,
     log,
     now,
+    process_alive,
     to_relative,
 )
 from .loop import (
@@ -82,7 +84,7 @@ def launch_monitor(
 
         register_farm_loop(project_root, interval)
 
-        detect_orphaned_jobs()
+        recover_interrupted_jobs()
 
         # Heartbeat from here on: see monitor_tick() (best-effort rewrite of
         # update_tick + os.utime() on this file).
@@ -370,26 +372,55 @@ def archive(job_path: Path) -> None:
     job_path.rename(archives_dir / job_path.name)
 
 
-def detect_orphaned_jobs() -> None:
-    """Called once at launch_farm startup. A job stuck in-progress with no
-    entry in the (fresh) _active_processes dict means the previous monitor
-    crashed mid-render -- we can't tell if the process finished or died
-    with it, so it's never silently resumed."""
+def recover_interrupted_jobs() -> None:
+    """Called once at monitor launch. A job at a local *_start stage with
+    no tracked process means the Blender instance that ran the previous
+    monitor went away mid-stage (crash, kill). Its process may well have
+    survived -- child processes outlive their parent on every OS -- so:
 
+    - still running on this machine (PID recorded at launch, checked with
+      process_alive()): adopt it, and decide once it ends
+      (_finish_job_processes() -> resume_interrupted_stage());
+    - gone, or recorded on another machine: resume right away -- rewind to
+      the stage before, so the queue redoes it (resume_interrupted_stage()).
+
+    render_start is left alone: renders belong to workers, recovered from
+    their side (launch_worker() -> "lost" result) and by
+    check_render_completion(). Used to mark all of these "orphaned" -- a
+    dead end needing a manual resubmit, even when the process had finished
+    fine -- and missed preview_start entirely (stuck for good)."""
     from .dispatch import _active_processes
+    from .queue import resume_interrupted_stage
 
+    me = get_machine_id()
     for job_path in ConfigCache.get_path("farm_actives").glob("job_*.json"):
-        with locked_json(job_path) as box:
-            data = box["data"] or {}
-            stage = data["stage_history"][-1]["stage"]
-            if (
-                stage in ("setup_start", "checks_images_start", "compilation_start")
-                and data["job_id"] not in _active_processes
-            ):
-                data["stage_history"].append({"stage": "orphaned", "at": now()})
-                box["action"] = "to_write"
-                log(
-                    "WARNING",
-                    "farm",
-                    f"Job '{data['job_id']}' orphaned by a previous crash, check manually.",
-                )
+        try:
+            with locked_json(job_path) as box:
+                data = box["data"] or {}
+                history = data.get("stage_history") or []
+                if not history or data.get("job_id") in _active_processes:
+                    continue
+                stage = history[-1]["stage"]
+                if not stage.endswith("_start") or stage == "render_start":
+                    continue
+
+                recorded = data.get("local_processes") or {}
+                alive = [
+                    (pid, hint)
+                    for pid, hint in recorded.get("pids", [])
+                    if recorded.get("machine") == me and process_alive(pid, hint)
+                ]
+                if alive:
+                    _active_processes[data["job_id"]] = [
+                        (AdoptedProcess(pid, hint), "local") for pid, hint in alive
+                    ]
+                    log(
+                        "WARNING",
+                        "farm",
+                        f"Job {data['job_id']}: {stage} still running after a restart "
+                        f"(pid {', '.join(str(pid) for pid, _ in alive)}) -- waiting for it.",
+                    )
+                elif resume_interrupted_stage(data, "monitor restarted"):
+                    box["action"] = "to_write"
+        except Exception as e:
+            log("ERROR", "farm", f"Could not recover {job_path.name}: {e}")

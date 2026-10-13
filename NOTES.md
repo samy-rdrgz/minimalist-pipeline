@@ -1373,6 +1373,59 @@ render (B gets dispatched to the freed worker in the same tick). Only
 covers a worker in the same instance as the monitor -- a worker in a
 second Blender on the same machine isn't visible from here.
 
+## Crash recovery: resume, don't orphan
+
+When the Blender instance running the farm dies (crash, kill), its child
+processes don't: on Windows, Linux and macOS alike a child outlives its
+parent. Setup, ffmpeg and renders finish their work and write it to disk --
+only the *tracking* is lost (`_active_processes`,
+`_worker_active_processes`, both in memory). What happened at relaunch
+before:
+
+| stage at the crash | then |
+|---|---|
+| `setup_start`, `checks_images_start`, `compilation_start` | marked `orphaned` -- terminal, manual resubmit, even if the process had finished fine |
+| `preview_start` | not in that list: stuck for good |
+| `render_start`, worker in the crashed instance | nobody ever publishes its `last_job_result`: stuck for good |
+
+Now:
+
+- **PIDs are recorded** in the job file at launch
+  (`track_local_processes()`: `local_processes = {machine, pids:
+  [[pid, name]]}`) and in the worker file for a render (`current_pid`,
+  `current_job_id`, `current_dispatch_id`).
+- **`process_alive(pid, name_hint)`** (`lib/core.py`), stdlib only:
+  Windows `OpenProcess`/`GetExitCodeProcess` via `ctypes`, POSIX
+  `os.kill(pid, 0)` + `ps` (zombie = dead). The name hint ("blender",
+  "ffmpeg") guards against PID reuse by an unrelated program. A PID
+  recorded on another machine can't be checked -- treated as gone.
+- **Monitor relaunch** (`recover_interrupted_jobs()`, replaces
+  `detect_orphaned_jobs()`): a local `*_start` job whose process is still
+  alive is **adopted** (`AdoptedProcess`, polled by PID) and judged when it
+  ends; otherwise it's **resumed** right away
+  (`resume_interrupted_stage()`): setup → `setup_finished` if it already
+  wrote its result (frame range or split), else `queued`; checks →
+  `render_finished`; compilation → `checks_images_finished`; preview →
+  `preview_queued`. All of these are safe to redo -- ffmpeg overwrites its
+  own output; setup is checked on disk first because redoing it would
+  create a new output folder (increment). An adopted process's exit code
+  can't be known (it isn't our child), so its end goes through the same
+  resume rule, never straight to finished/failed.
+- **Worker relaunch** (`_recover_previous_render()` in `launch_worker()`):
+  if the previous worker of this machine was mid-render, adopt the render
+  by PID while it runs, then (or right away if it's gone) publish
+  `last_job_result = {lost: True, dispatch_id}`.
+- **Monitor side** (`check_render_completion()`): a `lost` result for this
+  dispatch, or a worker silent for `WORKER_GONE_SECONDS` (180 s -- well past
+  a missed beat or a Blender restart), sends the job back to
+  `setup_finished`: it's re-dispatched. Renders run with placeholders and
+  no overwrite (`worker_render_entry.py`), so the new render only fills in
+  the frames still missing -- no need to know whether the lost one
+  finished. A pending request the lost worker never picked up is deleted,
+  so it can't run later for a dispatch nobody waits on.
+
+Old jobs already marked `orphaned` stay that way (terminal).
+
 <!-- Next feature with rationale worth keeping gets its own "## " section
      here, same shape as the ones above: what was tried, what was
      rejected and why, anything a docstring is too short to hold. -->
