@@ -101,6 +101,16 @@ class M_PIPELINE_PT_project_panel(bpy.types.Panel):
                 icon="DESKTOP",
                 text="Project monitoring",
             )
+            layout.operator(
+                "m_pipeline.export_snapshot",
+                icon="EXPORT",
+                text="Export prod snapshot",
+            )
+            layout.operator(
+                "m_pipeline.import_review",
+                icon="IMPORT",
+                text="Import prod review",
+            )
         else:
             others = [
                 item for item in prefs.opened_projects if item.path != str(active_path)

@@ -30,7 +30,6 @@ from .core import (
     json_get,
     locked_json,
     now,
-    read_csv,
     read_json_quiet,
     resolve_bpy_path,
 )
@@ -1202,18 +1201,22 @@ def create_entry(
     review_id: str | None = None,
     referenced_version: str | None = None,
     shot: str | None = None,
+    created_at: str | None = None,
+    source: str | None = None,
 ):
     """Append a note/todo/rtk entry to the owning asset's tracking.json.
     text/department/author/type are keyword-only: all plain strings, a
     positional call risks silently swapping department and author.
-    shot: free-text tag (e.g. "045"), not validated against anything."""
+    shot: free-text tag (e.g. "045"), not validated against anything.
+    created_at: ISO date to stamp instead of now() (an imported review's
+    own date). source: where it came from when not typed in Blender
+    ("prod_review"); absent = created by hand."""
     try:
-        print(f"Creating entry {type} for {filepath} : {text} ({department})")
         path = tracking_json_path(filepath, must_exist=True)
         with locked_json(path) as box:
             data = box["data"] or {}
 
-            nw = now()
+            nw = created_at or now()
             entry = {
                 # text folded into the hash (not just nw) so entries created
                 # in the same execute() loop -- same nw, different text --
@@ -1241,6 +1244,8 @@ def create_entry(
                 entry["referenced_version"] = to_relative(Path(referenced_version))
             if shot:
                 entry["shot"] = shot
+            if source:
+                entry["source"] = source
 
             data["entries"].append(entry)
             box["action"] = "to_write"
@@ -1539,46 +1544,6 @@ def toggle_entry_task(filepath: Path, id: str, user: str):
                 raise PipelineError("No entry found with this ID.")
     except Exception as e:
         raise PipelineError(f"Error during editing file entries : {e}")
-
-
-def valid_csv(row: dict) -> bool:
-    """Whether a CSV row has the required 'text' and 'filename' columns."""
-    return "text" in row and "filename" in row
-
-
-def upload_csv(filepath: Path, user: str) -> tuple[int, int]:
-    """Bulk-create entries from a CSV: one row -> one create_entry() call. A
-    failing row (unknown file, bad department...) is logged and skipped, the
-    rest continues. Returns (imported_count, total_rows) -- a partial
-    import is not raised as an error."""
-    data = read_csv(filepath)
-    if data and not valid_csv(data[0]):
-        raise PipelineError(
-            "CSV header seems to miss 'text' and/or 'filename' to identify columns"
-        )
-    count = 0
-    for row in data:
-        try:
-            keys = row.keys()
-            select_filepath = find_file_by_name(row["filename"])
-            if not select_filepath:
-                log("WARNING", "csv_import", f"CSV row {row}, filename unknow.")
-
-            department = valid_department(select_filepath, row["department"])
-            create_entry(
-                select_filepath,
-                text=row["text"],
-                department=department,
-                author=row["author"] if "authors" in keys else user,
-                type=row["type"]
-                if "type" in keys and row["type"] in ["note", "todo", "rtk"]
-                else "note",
-                shot=row.get("shot") or None,
-            )
-            count += 1
-        except Exception as e:
-            log("WARNING", "csv_import", f"CSV row {row} can't be imported : {e}")
-    return count, len(data)
 
 
 def find_file_by_name(filename: str) -> Path | None:
