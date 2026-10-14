@@ -27,6 +27,7 @@ my_project/
 ├── shots/
 │   └── sq010/sh010/
 ├── renders/
+├── snapshots/
 └── exports/
 ```
 

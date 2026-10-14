@@ -51,10 +51,10 @@ from ..lib import (
     version_items,
 )
 from ..panels import (
-    MONITOR_POPUP_WIDTH,
     draw_farm_job_details,
     draw_farm_jobs,
     draw_farm_workers,
+    popup_width,
 )
 
 _workers_items_cache: list[tuple[str, str, str]] = []
@@ -910,7 +910,7 @@ class M_PIPELINE_OT_farm_monitor(bpy.types.Operator):
         register_refresh_timer()
 
         return context.window_manager.invoke_props_dialog(
-            self, width=MONITOR_POPUP_WIDTH
+            self, width=popup_width(context)
         )
 
     def execute(self, context):

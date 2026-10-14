@@ -144,6 +144,7 @@ from .snapshot import (
     read_snapshot_data,
     read_snapshot_raw,
     render_html,
+    review_description_changes,
     snapshot_filename,
     write_snapshot,
 )

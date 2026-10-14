@@ -37,9 +37,19 @@ from ..lib import (
     thumbnail_path,
 )
 
-# Project monitoring's popup width (M_PIPELINE_OT_tracking_monitor), also
-# what draw_file_details() wraps its text on.
-MONITOR_POPUP_WIDTH = 1200
+# Monitoring popups' width: this share of the Blender window, never under
+# MONITOR_POPUP_MIN_WIDTH (unless the window itself is smaller).
+MONITOR_POPUP_SHARE = 0.8
+MONITOR_POPUP_MIN_WIDTH = 900
+
+
+def popup_width(context) -> int:
+    """Width for a monitoring popup's invoke_props_dialog(), from the
+    window it opens in. A dialog's width is unscaled px (Blender applies
+    the UI scale to it), the window's is real px."""
+    scale = context.preferences.system.ui_scale or 1.0
+    window = context.window.width / scale
+    return int(min(window, max(MONITOR_POPUP_MIN_WIDTH, window * MONITOR_POPUP_SHARE)))
 
 # Fudge factor: entries end up nested a few columns/rows deep (see
 # _draw_entry), and Blender doesn't expose a sub-layout's resolved width.
@@ -669,7 +679,7 @@ def draw_file_details(self, context, layout):
     # Drawn in M_PIPELINE_OT_tracking_monitor's dialog, whose region isn't
     # context.region: pass the dialog's real width -- see
     # region_char_budget() / POPUP_WIDTH_SCALE in lib/core.py.
-    budget = region_char_budget(context, width_px=MONITOR_POPUP_WIDTH)
+    budget = region_char_budget(context, width_px=self.popup_width)
     width = int(budget * ENTRIES_INDENT_FACTOR)
     draw_entries(layout.column(align=True), filepath, filters=self, width=width)
     layout.separator(factor=2)

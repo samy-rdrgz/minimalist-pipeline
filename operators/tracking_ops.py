@@ -33,6 +33,7 @@ from ..lib import (
     prefix_items,
     read_json_quiet,
     read_snapshot_data,
+    review_description_changes,
     resolve_ffmpeg,
     sequence_items,
     set_department_validated,
@@ -50,11 +51,11 @@ from ..lib import (
 )
 from ..farm import archive
 from ..panels import (
-    MONITOR_POPUP_WIDTH,
     draw_file_details,
     draw_monitor_table,
     load_file_renders,
     load_file_thumbnail,
+    popup_width,
 )
 
 _file_department_items_cache: list = []
@@ -647,6 +648,20 @@ class M_PIPELINE_OT_import_review(bpy.types.Operator):
             f"{path.name}: {result['imported']} imported, "
             f"{result['duplicates']} already there, {len(result['skipped'])} skipped",
         )
+        try:
+            _description_changes[:] = review_description_changes(path)
+        except PipelineError as e:
+            log(e.level, "review_import", e.message)
+            _description_changes.clear()
+        if not (any(result.values()) or _description_changes):
+            # Nothing at all: most likely the blank template, not the
+            # filled-in one sent back.
+            _show_import_summary(
+                f"Nothing to import in {path.name}: no note and no description "
+                "change.\nIs it the filled-in file sent back?",
+                "QUESTION",
+            )
+            return {"FINISHED"}
         lines = [f"{result['imported']} note(s) imported"]
         if result["duplicates"]:
             lines.append(f"{result['duplicates']} already imported before, skipped")
@@ -659,14 +674,91 @@ class M_PIPELINE_OT_import_review(bpy.types.Operator):
         icon = "ERROR" if result["skipped"] else "CHECKMARK"
         # Deferred one tick: chaining a popup from execute() -- see NOTES.md,
         # "Popup-chaining".
-        bpy.app.timers.register(
-            lambda: bpy.ops.m_pipeline.text_popup(
-                "INVOKE_DEFAULT", title="Review import", message=message, icon=icon
+        if _description_changes:
+            bpy.app.timers.register(
+                lambda: bpy.ops.m_pipeline.review_descriptions(
+                    "INVOKE_DEFAULT", summary=message, icon=icon
+                )
+                and None,
+                first_interval=0.05,
             )
-            and None,
-            first_interval=0.05,
-        )
+        else:
+            _show_import_summary(message, icon)
         return {"FINISHED"}
+
+
+def _show_import_summary(message: str, icon: str) -> None:
+    """The review import's result popup, one tick later (popup-chaining)."""
+    bpy.app.timers.register(
+        lambda: bpy.ops.m_pipeline.text_popup(
+            "INVOKE_DEFAULT", title="Review import", message=message, icon=icon
+        )
+        and None,
+        first_interval=0.05,
+    )
+
+
+# Descriptions a review import would change, waiting for the confirm
+# dialog (M_PIPELINE_OT_review_descriptions): all applied, or none.
+_description_changes: list[dict] = []
+# Lines the confirm dialog lists; the rest is counted, applied all the same.
+_DESCRIPTIONS_SHOWN = 20
+
+
+class M_PIPELINE_OT_review_descriptions(bpy.types.Operator):
+    """Confirm the description changes of an imported review: all or none."""
+
+    bl_idname = "m_pipeline.review_descriptions"
+    bl_label = ""
+    bl_options = {"INTERNAL"}
+
+    summary: bpy.props.StringProperty()  # the notes import's result
+    icon: bpy.props.StringProperty(default="CHECKMARK")
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(
+            self,
+            width=700,
+            title="Review import: descriptions changed",
+            confirm_text=f"Apply {len(_description_changes)} description(s)",
+        )
+
+    def draw(self, context):
+        col = self.layout.column(align=True)
+        col.label(text="The review changes these descriptions. Apply them all?")
+        col.label(text="(To leave one out, fix it in the spreadsheet and re-import.)")
+        col.separator()
+        for change in _description_changes[:_DESCRIPTIONS_SHOWN]:
+            col.label(text=change["name"], icon="GREASEPENCIL")
+            was = col.row()
+            was.active = False
+            was.label(text=f"     was: {change['old'][:140] or '(empty)'}")
+            col.label(text=f"     now: {change['new'][:140]}")
+        rest = len(_description_changes) - _DESCRIPTIONS_SHOWN
+        if rest > 0:
+            col.label(text=f"... and {rest} more", icon="BLANK1")
+
+    def execute(self, context):
+        applied, failed = 0, []
+        for change in _description_changes:
+            try:
+                set_description(Path(change["filepath"]), change["new"])
+                TrackingStatusCache.get(change["filepath"], force_reload=True)
+                applied += 1
+            except PipelineError as e:
+                failed.append(change["name"])
+                log(e.level, "review_import", f"{change['name']}: {e.message}")
+        log("INFO", "review_import", f"{applied} description(s) updated")
+        _description_changes.clear()
+        summary = f"{self.summary}\n{applied} description(s) updated"
+        if failed:
+            summary += f"\nNot updated (see log): {', '.join(failed)}"
+        _show_import_summary(summary, "ERROR" if failed else self.icon)
+        return {"FINISHED"}
+
+    def cancel(self, context):
+        _description_changes.clear()
+        _show_import_summary(f"{self.summary}\nDescriptions left unchanged", self.icon)
 
 
 class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
@@ -703,8 +795,13 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
             self.report({"ERROR"}, "No active project.")
             return {"CANCELLED"}
         meta = {"project": json_get(ConfigCache.get(), "project_name") or root.name}
-        # Same folder as last time, fresh dated name.
-        folder = Path(self.filepath).parent if self.filepath else Path.home()
+        # The project's snapshots/ folder, fresh dated name -- the browser
+        # can still go elsewhere.
+        folder = ConfigCache.get_path("snapshots")
+        try:
+            folder.mkdir(exist_ok=True)
+        except OSError:
+            folder = Path(root)
         self.filepath = str(
             folder / snapshot_filename({"meta": {**meta, "scan_started_at": now()}})
         )
@@ -827,6 +924,8 @@ class M_PIPELINE_OT_tracking_monitor(bpy.types.Operator):
     # changed since the popup was last closed.
     page: bpy.props.IntProperty(default=1, min=1, options={"SKIP_SAVE"})
     PAGE_SIZE = 8
+    # Set by invoke() from the window (panels.popup_width()).
+    popup_width: bpy.props.IntProperty(options={"SKIP_SAVE", "HIDDEN"})
 
     entries_hide_done: bpy.props.BoolProperty(name="", default=True)
     entries_department_filter: bpy.props.EnumProperty(items=department_filter_items)
@@ -881,8 +980,10 @@ class M_PIPELINE_OT_tracking_monitor(bpy.types.Operator):
             ProjectScan.start(project_root)
             self.project_root = str(project_root)
 
+            # Kept: draw_file_details() wraps its text on it.
+            self.popup_width = popup_width(context)
             return context.window_manager.invoke_props_dialog(
-                self, width=MONITOR_POPUP_WIDTH
+                self, width=self.popup_width
             )
 
     def execute(self, context):

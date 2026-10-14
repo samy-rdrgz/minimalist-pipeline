@@ -2,6 +2,45 @@
 
 All notable changes to this addon. Dates are release dates.
 
+## 1.0.12 — 2026-10-14
+
+### Production snapshot
+
+- **How far along each asset/shot is**: a "Done" column (bar and %, last
+  column), the % of each sequence / asset prefix on its group row, an
+  "All" row closing each table (the section's total and each
+  department's own %) and two totals at the top -- assets & libraries,
+  shots. Each required department counts in thirds: work in progress
+  1/3, validated but reworked since or with an open RTK 2/3, validated
+  3/3. A validated department with an open RTK is outlined in red.
+- **Closed notes are kept in the snapshot**: done todos/RTKs (with no
+  reply still pending) used to be left out of the file. They're in it
+  now, hidden until "Show closed" is ticked in the filters; counts and
+  progress still only look at open ones. A done todo/RTK shows a green
+  tick on its type ("✓ RTK") instead of a grey "done" tag that read like
+  a department.
+- **Saved in the project's `snapshots/` folder by default**, named with
+  the time too (`<project>_snapshot_2026-10-14_18-04.html`): several
+  exports a day no longer overwrite each other.
+
+### Review import
+
+- **Importing a review also updates the descriptions** the production
+  edited in the spreadsheet: a dialog lists every change (was / now) to
+  apply all at once, or none. Only a cell the production changed counts
+  -- a description changed in the project since the export is never
+  reverted -- and an empty cell changes nothing. The template's
+  description column is editable for that (it was locked); a template
+  exported by an older version has its descriptions ignored, and an
+  older version refuses to import a new template.
+- Importing a file with no note and no description change says so ("Is
+  it the filled-in file sent back?") instead of "0 note(s) imported".
+
+### Monitoring popups
+
+- Project monitoring, Farm monitoring and the Pipeline log take 80 % of
+  the Blender window's width (at least 900 px), instead of a fixed 1200.
+
 ## 1.0.11 — 2026-10-14
 
 ### Fixes — farm

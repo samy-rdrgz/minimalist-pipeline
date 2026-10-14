@@ -25,7 +25,6 @@ from .tracking import (
     _status_from_raw,
     _walk_owner_dirs,
     create_entry,
-    filter_review_boxes,
     find_file_by_name,
     tracking_json_path,
     valid_department,
@@ -40,7 +39,7 @@ from .thumbnails import (
 
 # Bumped whenever the review template's columns change -- the import refuses
 # a template made by a newer addon.
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2  # 2: hidden description_exported column
 
 ENTRY_TYPES = ("note", "todo", "rtk")
 
@@ -99,14 +98,14 @@ def read_render_state(root: Path, kind: str, owner: Path, v_prefix: str = "v") -
     has several, anything else one): [{"shot", "file", "folder", "path"}],
     path the render folder's absolute path. From the
     folder's render_history.json -- its last finished render of that shot,
-    file = the .blend it rendered -- else (entries older than source_file,
-    or no history) from the latest render folder's own name
-    (renders/<seq>/<shot>/v004-stable_002). Pure os/json: thread-safe."""
+    file = the .blend it rendered -- else (no such entry, or an entry from
+    before source_file came after it) from the latest render folder's own
+    name (renders/<seq>/<shot>/v004-stable_002). Pure os/json: thread-safe."""
     history = read_json_quiet(owner / ".pipeline" / "render_history.json") or {}
     finished = [
         e
         for e in history.get("entries", [])
-        if isinstance(e, dict) and e.get("status") == "finished" and e.get("source_file")
+        if isinstance(e, dict) and e.get("status") == "finished"
     ]
     base = render_root(root, owner)
     shots = _owner_shots(owner) if kind == "shot" else [""]
@@ -115,14 +114,21 @@ def read_render_state(root: Path, kind: str, owner: Path, v_prefix: str = "v") -
     for shot in shots:
         # A block's history holds every shot it rendered, told apart by
         # shot_override; a mono shot's or an asset's is all its own.
-        mine = [e for e in finished if not block or e.get("shot_override") == shot]
-        if mine:
-            output = mine[-1].get("output_path")
+        mine = [
+            i
+            for i, e in enumerate(finished)
+            if e.get("source_file") and (not block or e.get("shot_override") == shot)
+        ]
+        # An older version's entry (no source_file, no shot_override) after
+        # it may be a newer render of this shot: the folder name knows.
+        if mine and all(e.get("source_file") for e in finished[mine[-1] + 1 :]):
+            last = finished[mine[-1]]
+            output = last.get("output_path")
             folder = (Path(root) / output).parent if output else None
             out.append(
                 {
                     "shot": shot,
-                    "file": Path(mine[-1]["source_file"]).name,
+                    "file": Path(last["source_file"]).name,
                     "folder": folder.name if folder else None,
                     "path": str(folder) if folder else None,
                 }
@@ -247,20 +253,29 @@ def build_snapshot(data, config: dict, meta: dict) -> dict:
             r["file_number"] is not None and r["file_number"] < stable_n
             for r in renders
         )
+        # Every thread: the snapshot is a record. Closed ones are only
+        # hidden by the page (_JS, "Show closed").
         threads = [
-            _thread_dict(name, t)
-            for box in filter_review_boxes(
-                status.get("entries_grouped", []), hide_done=True
-            )
+            _thread_dict(name, t, closed=_thread_closed(t))
+            for box in status.get("entries_grouped", [])
             for t in box["threads"]
         ]
+        open_threads = [t for t in threads if not t["closed"]]
         item["open_rtk"] = sum(
             1
-            for t in threads
+            for t in open_threads
             for e in [t, *t["replies"]]
             if e["type"] == "rtk" and e["done"] is False
         )
-        item["open_notes"] = len(threads)
+        item["open_notes"] = len(open_threads)
+        rtk_departments = {
+            e["department"]
+            for t in open_threads
+            for e in [t, *t["replies"]]
+            if e["type"] == "rtk" and e["done"] is False
+        }
+        item["rtk_departments"] = sorted(rtk_departments)
+        item["progress"] = _progress(item["departments"], rtk_departments)
         items[kind].append(item)
         notes.extend(threads)
 
@@ -271,6 +286,7 @@ def build_snapshot(data, config: dict, meta: dict) -> dict:
     meta.setdefault("schema_version", SCHEMA_VERSION)
     meta["thumbnail_warnings"] = list(data["thumb_warnings"])
     meta["thumbnail_size"] = thumbnail_size(config)
+    meta["progress"] = {k: average_progress(v) for k, v in items.items()}
     meta["asset_departments"] = _columns(
         json_get(config, "assets_departments", []), items["asset"]
     )
@@ -295,6 +311,46 @@ def _department_state(status: dict, department: str) -> str:
     if validated:
         return "rework" if worked else "done"
     return "wip" if worked else "todo"
+
+
+def _progress(departments: dict, rtk_departments: set) -> float | None:
+    """Share of an asset/shot's work done, 0..1: each required department
+    weighs 1/n and counts in thirds -- not started 0, work in progress 1/3,
+    validated but reworked since or with an open RTK 2/3, validated 1.
+    None without any required department."""
+    if not departments:
+        return None
+    scores = [_department_score(d, st, rtk_departments) for d, st in departments.items()]
+    return sum(scores) / len(scores)
+
+
+def _department_score(department: str, state: str, rtk_departments) -> float:
+    """One department's share done, in thirds -- see _progress()."""
+    if state == "done":
+        return 2 / 3 if department in rtk_departments else 1.0
+    return {"rework": 2 / 3, "wip": 1 / 3}.get(state, 0.0)
+
+
+def department_progress(items: list, department: str) -> float | None:
+    """Mean of one department over the items requiring it, None if none
+    does -- the snapshot table's per-department footer."""
+    values = [
+        _department_score(department, i["departments"][department], i["rtk_departments"])
+        for i in items
+        if department in i["departments"]
+    ]
+    return sum(values) / len(values) if values else None
+
+
+def average_progress(items: list) -> float | None:
+    """Mean progress of items, each weighing the same; those without any
+    required department left out. None if none is left."""
+    values = [i["progress"] for i in items if i.get("progress") is not None]
+    return sum(values) / len(values) if values else None
+
+
+def _pct(value: float | None) -> str:
+    return "–" if value is None else f"{round(value * 100)} %"
 
 
 def _columns(configured: list, items: list) -> list:
@@ -323,12 +379,21 @@ def _entry_dict(e: dict) -> dict:
     }
 
 
-def _thread_dict(item_name: str, thread: dict) -> dict:
+def _thread_closed(thread: dict) -> bool:
+    """Done root and no reply still pending: what filter_review_boxes()'s
+    hide_done drops (see its docstring)."""
+    return thread["root"].get("done") is True and not any(
+        r.get("done") is False for r in thread["replies"]
+    )
+
+
+def _thread_dict(item_name: str, thread: dict, closed: bool = False) -> dict:
     return {
         "item": item_name,
         **_entry_dict(thread["root"]),
         "replies": [_entry_dict(r) for r in thread["replies"]],
         "last_activity": thread["meta"]["date_end"],
+        "closed": closed,
     }
 
 
@@ -362,11 +427,12 @@ def write_snapshot(snapshot: dict, filepath: Path) -> Path:
 
 
 def snapshot_filename(snapshot: dict, ext: str = "html", kind: str = "snapshot") -> str:
-    """<project>_<kind>_<YYYY-MM-DD>.<ext>, dated from the scan's start."""
+    """<project>_<kind>_<YYYY-MM-DD>_<HH-MM>.<ext>, from the scan's start --
+    several exports a day never overwrite each other."""
     meta = snapshot["meta"]
     project = re.sub(r"[^\w\-]+", "_", meta.get("project") or "").strip("_") or "project"
-    day = (meta.get("scan_started_at") or now())[:10]
-    return f"{project}_{kind}_{day}.{ext}"
+    stamp = (meta.get("scan_started_at") or now())[:16].replace("T", "_").replace(":", "-")
+    return f"{project}_{kind}_{stamp}.{ext}"
 
 
 # ---------------------------------------------------------------------------
@@ -391,6 +457,7 @@ def render_html(snapshot: dict) -> str:
         f'<span class="pill {cls}">{_e(label)}</span>' for label, cls in STATES.values()
     ) + (
         '<span class="pill st-none">Not required</span>'
+        '<span class="pill st-done rtk-open">Validated, open RTK</span>'
         '<span class="pill behind">⚠ Render older than the stable</span>'
     )
 
@@ -399,6 +466,9 @@ def render_html(snapshot: dict) -> str:
         f"<h1>{_e(meta.get('project'))}</h1>",
         '<dl class="meta">',
         f"<div><dt>Snapshot</dt><dd>{_e(scan_date)}</dd></div>",
+        "<div><dt>Done</dt><dd>"
+        f"Assets &amp; libraries {_pct(meta['progress']['asset'])} · "
+        f"Shots {_pct(meta['progress']['shot'])}</dd></div>",
         f"<div><dt>Exported by</dt><dd>{_e(meta.get('exported_by'))}</dd></div>",
         f"<div><dt>Addon</dt><dd>Minimalist Pipeline {_e(meta.get('addon_version'))}</dd></div>",
         "</dl>",
@@ -414,11 +484,15 @@ def render_html(snapshot: dict) -> str:
         "<nav>",
         '<div class="links"><a href="#assets">Assets <span id="c-assets">'
         f'{len(snapshot["assets"])}</span></a><a href="#shots">Shots <span id="c-shots">'
-        f'{len(snapshot["shots"])}</span></a><a href="#notes">Open notes <span id="c-notes">'
-        f'{len(snapshot["notes"])}</span></a></div>',
+        f'{len(snapshot["shots"])}</span></a><a href="#notes">Notes <span id="c-notes">'
+        f'{sum(not n["closed"] for n in snapshot["notes"])}</span></a></div>',
         _render_filters(snapshot),
         "</nav>",
         f'<p class="legend">{legend}</p>',
+        '<p class="legend muted">Done: each required department counts for an '
+        "equal share, in thirds: work in progress 1/3, validated but reworked "
+        "since or with an open RTK 2/3, validated 3/3. Totals and groups "
+        "average their assets/shots.</p>",
         _render_table("assets", "Assets", snapshot["assets"], meta["asset_departments"]),
         _render_table("shots", "Shots", snapshot["shots"], meta["shot_departments"]),
         _render_notes(snapshot["notes"], snapshot["assets"] + snapshot["shots"]),
@@ -463,6 +537,8 @@ def _render_filters(snapshot: dict) -> str:
         f'<select id="f-state" aria-label="State"><option value="">Any state</option>{states}</select>'
         '<label><input id="f-rtk" type="checkbox"> Open RTK</label>'
         '<label><input id="f-notes" type="checkbox"> Has open notes</label>'
+        '<label title="Done todos/RTKs, kept in the snapshot but hidden">'
+        '<input id="f-closed" type="checkbox"> Show closed</label>'
         '<button id="f-reset" type="button">Reset</button>'
         "</div>"
     )
@@ -489,6 +565,7 @@ def _render_table(anchor: str, title: str, items: list, columns: list) -> str:
             f'<section id="{anchor}"><h2>{title}</h2>'
             '<p class="empty">Nothing tracked yet.</p></section>'
         )
+    title += f' <span class="pct">{_pct(average_progress(items))} done</span>'
     with_thumbs = any(i.get("thumbnail") for i in items)
     head = (
         ("<th></th>" if with_thumbs else "")
@@ -498,15 +575,22 @@ def _render_table(anchor: str, title: str, items: list, columns: list) -> str:
         + '<th title="Output folder of the last render: vXXX_YYY, XXX the '
         'Blender file version rendered, YYY the render increment">Last render</th>'
         + "".join(f"<th>{_e(c.capitalize())}</th>" for c in columns)
+        + '<th title="Share of the required departments done (see the legend)">'
+        "Done</th>"
     )
+    groups: dict[str, list] = {}
+    for item in items:
+        groups.setdefault(item["group"], []).append(item)
     rows = []
     group = None
     for item in items:
         if item["group"] != group:
             group = item["group"]
+            done = _pct(average_progress(groups[group]))
             rows.append(
                 f'<tr class="group" data-group="{_e(group)}">'
-                f'<th colspan="{len(columns) + 3 + with_thumbs}">{_e(group)}</th></tr>'
+                f'<th colspan="{len(columns) + 4 + with_thumbs}">{_e(group)}'
+                f' <span class="pct">{done}</span></th></tr>'
             )
         cells = []
         for c in columns:
@@ -515,7 +599,12 @@ def _render_table(anchor: str, title: str, items: list, columns: list) -> str:
                 cells.append('<td><span class="na" title="Not required">–</span></td>')
             else:
                 label, cls = STATES[state]
-                cells.append(f'<td><span class="pill {cls}">{_e(label)}</span></td>')
+                tip = ""
+                if state == "done" and c in item["rtk_departments"]:
+                    # Validated, then sent back: the RTK is the news.
+                    cls += " rtk-open"
+                    tip = ' title="Validated, then an RTK was opened on it"'
+                cells.append(f'<td><span class="pill {cls}"{tip}>{_e(label)}</span></td>')
         versions = " · ".join(
             label + _short_version(item["name"], v)
             for label, v in (("wip ", item["wip_version"]), ("stable ", item["stable_version"]))
@@ -544,15 +633,37 @@ def _render_table(anchor: str, title: str, items: list, columns: list) -> str:
             f'{thumb}<td class="name"><b>{_e(item["name"])}</b>{flags}{jump}'
             f'<small>{_e(item["description"])}</small></td>'
             f'<td class="ver">{_e(versions)}</td>'
-            f'<td class="ver">{_render_cell(item)}</td>{"".join(cells)}</tr>'
+            f'<td class="ver">{_render_cell(item)}</td>{"".join(cells)}'
+            f'<td class="done">{_progress_cell(item["progress"])}</td></tr>'
         )
+    # Whole section, whatever the filters show.
+    foot = (
+        ("<td></td>" if with_thumbs else "")
+        + '<td class="name"><b>All</b></td><td></td><td></td>'
+        + "".join(
+            f'<td class="done">{_progress_cell(department_progress(items, c))}</td>'
+            for c in columns
+        )
+        + f'<td class="done">{_progress_cell(average_progress(items))}</td>'
+    )
     return (
         f'<section id="{anchor}"><h2>{title}</h2>'
         '<p class="empty nomatch" hidden>Nothing matches the filters.</p>'
         '<div class="scroll"><table>'
         f"<thead><tr>{head}</tr></thead>"
-        f"<tbody>\n{nl.join(rows)}\n</tbody></table></div></section>"
+        f"<tbody>\n{nl.join(rows)}\n</tbody>"
+        f'<tfoot title="Whole section, filters aside"><tr>{foot}</tr></tfoot>'
+        "</table></div></section>"
     )
+
+
+def _progress_cell(progress: float | None) -> str:
+    """ "Done" cell: a bar and its percentage, "–" without any required
+    department."""
+    if progress is None:
+        return '<span class="na" title="No department required">–</span>'
+    width = round(progress * 100)
+    return f'<span class="bar"><i style="width:{width}%"></i></span>{width} %'
 
 
 def _render_cell(item: dict) -> str:
@@ -588,18 +699,22 @@ def _short_version(name: str, filename: str) -> str:
     return stem.split("-", 1)[0]
 
 
-def _render_entry(e: dict, reply: bool = False) -> str:
-    tags = [f'<span class="type t-{_e(e["type"])}">{_e(e["type"])}</span>']
+def _render_entry(e: dict, reply: bool = False, closed: bool = False) -> str:
     if e["done"] is True:
-        tags.append('<span class="tag">done</span>')
+        # The type's own pill, green and ticked like "Validated" -- a
+        # separate "done" tag read like one more department.
+        tags = [f'<span class="type t-done" title="Done">✓ {_e(e["type"])}</span>']
+    else:
+        tags = [f'<span class="type t-{_e(e["type"])}">{_e(e["type"])}</span>']
     if e["from_review"]:
         tags.append('<span class="tag">prod review</span>')
     for key in ("department", "shot", "version"):
         if e[key]:
             tags.append(f'<span class="tag">{_e(e[key])}</span>')
     who = f'{_e(e["author"])} · {_e(e["date"][:10])}'
+    cls = ("reply" if reply else "root") + (" closed" if closed else "")
     return (
-        f'<li class="{"reply" if reply else "root"}"><div class="head">'
+        f'<li class="{cls}"><div class="head">'
         f'{"".join(tags)}<span class="who">{who}</span></div>'
         f'<p>{_e(e["text"])}</p></li>'
     )
@@ -608,8 +723,8 @@ def _render_entry(e: dict, reply: bool = False) -> str:
 def _render_notes(notes: list, items: list) -> str:
     if not notes:
         return (
-            '<section id="notes"><h2>Open notes</h2>'
-            '<p class="empty">No open notes.</p></section>'
+            '<section id="notes"><h2>Notes</h2>'
+            '<p class="empty">No notes.</p></section>'
         )
     attrs = {i["name"]: _item_attrs(i) for i in items}
     by_item: dict[str, list] = {}
@@ -619,19 +734,24 @@ def _render_notes(notes: list, items: list) -> str:
     for name, threads in by_item.items():
         threads = sorted(threads, key=lambda t: t["last_activity"], reverse=True)
         lis = "\n".join(
-            "\n".join([_render_entry(t)] + [_render_entry(r, True) for r in t["replies"]])
+            "\n".join(
+                [_render_entry(t, closed=t["closed"])]
+                + [_render_entry(r, True, t["closed"]) for r in t["replies"]]
+            )
             for t in threads
         )
         slug = _e(_slug(name))
+        open_count = sum(not t["closed"] for t in threads)
         cards.append(
             f'<article class="item" id="n-{slug}" data-threads="{len(threads)}" '
-            f'{attrs.get(name, "")}><h3>{_e(name)}'
+            f'data-open="{open_count}" {attrs.get(name, "")}><h3>{_e(name)}'
             f'<a class="back" href="#i-{slug}" title="Back to its row">↑</a></h3>'
             f"<ul>\n{lis}\n</ul></article>"
         )
     return (
-        '<section id="notes"><h2>Open notes</h2>'
-        '<p class="empty nomatch" hidden>Nothing matches the filters.</p>'
+        '<section id="notes"><h2>Notes</h2>'
+        '<p class="empty nomatch" hidden>Nothing matches the filters '
+        '(closed notes are hidden: tick "Show closed").</p>'
         + "\n".join(cards)
         + "</section>"
     )
@@ -702,6 +822,16 @@ white-space:nowrap;border:1px solid transparent}
 .st-none{color:var(--muted);border:1px dashed var(--line)}
 .na{color:var(--muted);opacity:.5}
 .behind{color:var(--rtk);font-weight:600}.norender{opacity:.6}
+.pill.rtk-open{border-color:var(--rtk);box-shadow:0 0 0 1px var(--rtk) inset}
+.pct{margin-left:8px;font-size:.8em;font-weight:600;color:var(--done)}
+.legend.muted{color:var(--muted);font-size:12px}
+td.done{white-space:nowrap}
+body:not(.show-closed) li.closed{display:none}
+li.closed{opacity:.6}
+tfoot td{border-top:2px solid var(--line);font-weight:600}
+.bar{display:inline-block;width:56px;height:6px;margin-right:6px;vertical-align:middle;
+border-radius:3px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--done)}
 td.ver .shot{font-weight:600}
 td.th{width:1px;padding-right:0}
 /* Any aspect ratio: shown whole inside a fixed box, never cropped. */
@@ -724,6 +854,7 @@ article li p{margin:4px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
 .type{font-weight:600;text-transform:uppercase}
 .t-rtk{color:var(--rtk);background:var(--rtk-bg);border-color:transparent}
 .t-todo{color:var(--wip);background:var(--wip-bg);border-color:transparent}
+.t-done{color:var(--done);background:var(--done-bg);border-color:transparent}
 .empty{color:var(--muted)}
 section:last-of-type{padding-bottom:40px}
 @media print{nav,.review,.jump,.back{display:none}.scroll{overflow:visible}}
@@ -733,7 +864,7 @@ _JS = """
 (function(){
 var $=function(id){return document.getElementById(id);};
 var nav=document.querySelector('nav'),bar=document.querySelector('.filters');
-var ctl=['f-name','f-group','f-dep','f-state','f-rtk','f-notes'].map($);
+var ctl=['f-name','f-group','f-dep','f-state','f-rtk','f-notes','f-closed'].map($);
 function navHeight(){var sticky=getComputedStyle(nav).position==='sticky';
 document.documentElement.style.setProperty('--nav-h',
 (sticky?nav.offsetHeight:0)+16+'px');}
@@ -750,10 +881,12 @@ return true;}
 function apply(){
 var on=ctl.some(function(c){return c.type==='checkbox'?c.checked:c.value;});
 bar.classList.toggle('active',on);
+var closed=ctl[6].checked;document.body.classList.toggle('show-closed',closed);
 ['assets','shots','notes'].forEach(function(id){
 var sec=$(id),n=0,items=sec.querySelectorAll('.item');
-items.forEach(function(el){el.hidden=!match(el);
-if(!el.hidden)n+=id==='notes'?+el.dataset.threads:1;});
+items.forEach(function(el){var notes=id==='notes';
+el.hidden=!match(el)||(notes&&!closed&&el.dataset.open==='0');
+if(!el.hidden)n+=notes?+(closed?el.dataset.threads:el.dataset.open):1;});
 sec.querySelectorAll('tr.group').forEach(function(row){
 var next=row.nextElementSibling,any=false;
 while(next&&!next.classList.contains('group')){if(!next.hidden)any=true;
@@ -787,13 +920,18 @@ _REVIEW_COLUMNS = (
     ("text", 70, False),
     ("wip_version", 10, True),
     ("stable_version", 10, True),
+    # The description as exported: a cell differing from it is the prod's
+    # edit; one equal to it is no change, even if the file's moved on since.
+    ("description_exported", 30, True),
 )
 _COL = {h: chr(65 + i) for i, (h, _, _) in enumerate(_REVIEW_COLUMNS)}
 _HEADER_ROW = 6
 _META_COL = chr(65 + len(_REVIEW_COLUMNS))  # hidden cell holding schema_version=N
 
 # cellXfs indexes in _STYLES_XML
-_S_TITLE, _S_LABEL, _S_HINT, _S_HEADER, _S_LOCKED, _S_LOCKED_MUTED = 1, 2, 3, 4, 5, 6
+_S_TITLE, _S_LABEL, _S_HINT, _S_HEADER, _S_LOCKED = 1, 2, 3, 4, 5
+# 6: locked and muted, the description's until it became editable -- kept
+# in _STYLES_XML so the indexes below don't move.
 _S_INPUT, _S_INPUT_DATE, _S_INPUT_TEXT, _S_GROUP = 7, 8, 9, 10
 
 _XML_ILLEGAL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
@@ -827,6 +965,7 @@ def _stem(filename: str | None) -> str | None:
 def render_review_xlsx(snapshot: dict) -> bytes:
     """Review template: one row per asset/shot, grouped by prefix/sequence
     in a merged left column, filename and known versions locked in,
+    description editable (imported, see review_description_changes()),
     department/type dropdowns, Author/Review date at the top."""
     meta = snapshot["meta"]
     items = snapshot["assets"] + snapshot["shots"]
@@ -838,7 +977,7 @@ def render_review_xlsx(snapshot: dict) -> bytes:
     intro = (
         f"Snapshot of {scan_date}. Write in the white cells. One line of text "
         "= one note (Alt+Enter for the next one); rows with an empty text are "
-        "ignored."
+        "ignored. Edit a description to change it."
     )
     rows = [
         '<row r="1">'
@@ -865,13 +1004,14 @@ def render_review_xlsx(snapshot: dict) -> bytes:
     styles = {
         "group": _S_GROUP,
         "filename": _S_LOCKED,
-        "description": _S_LOCKED_MUTED,
+        "description": _S_INPUT,  # edits are imported (confirm dialog)
         "department": _S_INPUT,
         "type": _S_INPUT,
         "shot": _S_INPUT_TEXT,
         "text": _S_INPUT,
         "wip_version": _S_LOCKED,
         "stable_version": _S_LOCKED,
+        "description_exported": _S_LOCKED,
     }
     dep_lists: dict[str, list[str]] = {}
     merges = []
@@ -891,6 +1031,7 @@ def render_review_xlsx(snapshot: dict) -> bytes:
             "type": "rtk",
             "wip_version": _stem(item["wip_version"]),
             "stable_version": _stem(item["stable_version"]),
+            "description_exported": item["description"],
         }
         cells = "".join(
             _cell(f"{_COL[h]}{r}", values.get(h), styles[h]) for h, _, _ in _REVIEW_COLUMNS
@@ -1149,8 +1290,8 @@ def parse_review_date(value: str) -> datetime | None:
 
 
 def read_review_xlsx(path: Path) -> dict:
-    """{"schema_version", "author", "review_date", "rows"} from a filled
-    review template; rows keyed by the header row's names."""
+    """{"schema_version", "author", "review_date", "columns", "rows"} from a
+    filled review template; rows keyed by the header row's names."""
     grid = read_xlsx_grid(path)
     schema = None
     author = date = ""
@@ -1188,6 +1329,7 @@ def read_review_xlsx(path: Path) -> dict:
         "schema_version": schema,
         "author": author.strip(),
         "review_date": parse_review_date(date),
+        "columns": set(header.values()),
         "rows": rows,
     }
 
@@ -1267,3 +1409,41 @@ def import_review_xlsx(path: Path) -> dict:
             except PipelineError as e:
                 result["skipped"].append((f"{name}: {line[:40]}", e.message))
     return result
+
+
+def review_description_changes(path: Path) -> list[dict]:
+    """[{"name", "filepath", "old", "new"}] for every row of a review
+    template whose description the prod edited -- the cell differs from
+    the description exported with it (description_exported) -- and that
+    still differs from the file's current one. A template without that
+    column (schema 1, description locked) has none: comparing with the
+    current description would revert every one changed since the export.
+    An empty cell is no change: the prod not writing one must never wipe a
+    description out."""
+    review = read_review_xlsx(path)
+    if "description_exported" not in review["columns"]:
+        return []
+    changes, seen = [], set()
+    for row in review["rows"]:
+        name = row.get("filename")
+        new = (row.get("description") or "").strip()
+        if not name or not new or name in seen:
+            continue
+        seen.add(name)
+        try:
+            filepath = find_file_by_name(
+                name if name.endswith(".blend") else f"{name}.blend"
+            )
+        except PipelineError:
+            filepath = None
+        if not filepath:
+            continue  # reported by import_review_xlsx() already
+        tracking = read_json_quiet(tracking_json_path(filepath)) or {}
+        old = (tracking.get("description") or "").strip()
+        if new == (row.get("description_exported") or "").strip():
+            continue  # untouched by the prod, whatever happened since
+        if new != old:
+            changes.append(
+                {"name": name, "filepath": str(filepath), "old": old, "new": new}
+            )
+    return changes

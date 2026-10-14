@@ -1890,6 +1890,42 @@ carries its prefix). Overwritten in place, made by `lib/thumbnails.py` +
   `renders/assets/<prefix>/<asset>/` (mirroring the source tree, so asset
   prefixes and sequences never share a level); shots keep
   `renders/<seq>/<shot>/`, which every shot reader depends on.
+- **Done %**: per asset/shot, each required department weighs 1/n;
+  it counts in thirds, one step per stage: not started 0, work in
+  progress 1/3, validated but reworked since -- or with an open RTK
+  tagged on that department, outlined red in the table: the RTK is the
+  news -- 2/3, validated 1. Groups and the two totals average their items,
+  each weighing the same: a 2-department prop and a 5-department
+  character are one item each. Items with no required department are
+  left out rather than counted 0 or 100.
+- **Closed notes exported, hidden**: the snapshot used to drop closed
+  threads (`filter_review_boxes(hide_done=True)`), so the record lost them.
+  It exports every thread now; `_thread_closed()` applies the same rule
+  and the page hides them (`li.closed`, "Show closed"). Counts, the red
+  outline and Done % keep using open threads only.
+- **Default folder `snapshots/`**, time in the name: exports used to go
+  to the last folder used (possibly another project's) under a name dated
+  to the day, so a second export the same day overwrote the first.
+- **Review descriptions**: the template's description column used to be
+  ignored on import. Now a differing, non-empty cell is a change, shown
+  in a confirm dialog and applied all or none -- a per-line selection was
+  judged too heavy: a wrong one is fixed in the spreadsheet and the file
+  re-imported (notes already imported are skipped). An empty cell never
+  clears a description. The template's description column, locked while
+  it was ignored, is an input cell now. The first version compared the
+  cell with the *current* description: an old template re-imported (or
+  one sent back late) reverted every description changed since. The
+  template now carries `description_exported` (hidden, schema 2): only a
+  cell differing from it is the prod's edit. A schema-1 template has no
+  such column and its descriptions are ignored -- they were locked then.
+- **Last render** (`read_render_state()`, also File details' "Last
+  render"): from render_history.json's last finished entry with a
+  `source_file` (1.0.11+), else from the latest render folder's name. An
+  older entry (no `source_file`, no `shot_override`) coming *after* that
+  one makes the history untrustworthy: a farm still on an older version
+  may have rendered the shot again since, and its entry can't say which
+  shot or which file -- the folder name is used then. Mixed histories are
+  real: a dev build on part of the machines, or a farm updated mid-project.
 
 <!-- Next feature with rationale worth keeping gets its own "## " section
      here, same shape as the ones above: what was tried, what was

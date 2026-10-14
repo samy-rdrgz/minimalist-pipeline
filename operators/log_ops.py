@@ -5,11 +5,11 @@ import bpy
 from ..farm import clear_popup_regions, register_popup_region
 from ..lib import get_active_project_root
 from ..panels import (
-    MONITOR_POPUP_WIDTH,
     draw_pipeline_logs,
     load_pipeline_log,
     log_read_at,
     log_values,
+    popup_width,
 )
 
 # Enum items must outlive the callback (Blender keeps no reference), and
@@ -72,7 +72,7 @@ class M_PIPELINE_OT_pipeline_logs(bpy.types.Operator):
         clear_popup_regions()
         load_pipeline_log()
         return context.window_manager.invoke_props_dialog(
-            self, width=MONITOR_POPUP_WIDTH
+            self, width=popup_width(context)
         )
 
     def draw(self, context):

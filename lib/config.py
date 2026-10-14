@@ -208,6 +208,8 @@ class ConfigCache:
             "sessions_log_file": f"{logs}/sessions_log.jsonl",
             "monitor_file": f"{farm}/monitor.lock",
             "asset_preset_file": f"{presets}/asset_file_preset.py",
+            # Production snapshots' default folder (Export prod snapshot).
+            "snapshots": "snapshots",
         }
         # project_path(), not to_absolute(): a fixed sub-path of the root has
         # nothing to resolve(). Memoized: called dozens of times per redraw.
