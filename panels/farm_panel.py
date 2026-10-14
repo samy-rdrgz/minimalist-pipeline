@@ -5,11 +5,21 @@ from pathlib import Path
 
 import bpy
 
-from ..farm import get_job_details, get_monitor_cache, this_instance_is_worker
+from ..farm import (
+    RETRYABLE_STAGES,
+    failed_stage,
+    get_job_details,
+    get_job_details_logs,
+    get_job_details_path,
+    get_monitor_cache,
+    job_state,
+    this_instance_is_worker,
+)
 from ..lib import (
     addon_pref,
     draw_box_tip,
     get_active_project_root,
+    get_user,
     safe_icon,
 )
 
@@ -136,25 +146,64 @@ class M_PIPELINE_PT_farm_panel(bpy.types.Panel):
         )
 
 
-def draw_farm_jobs(layout):
+def _job_time(iso: str) -> datetime.datetime | None:
+    try:
+        return datetime.datetime.fromisoformat(iso)
+    except (TypeError, ValueError):
+        return None
+
+
+def _duration(seconds: float) -> str:
+    seconds = int(seconds)
+    if seconds >= 3600:
+        return f"{seconds // 3600}h{seconds % 3600 // 60:02d}m"
+    return f"{seconds // 60}m{seconds % 60:02d}s"
+
+
+def _job_matches(self, job: dict, user: str) -> bool:
+    if self.state != "all" and job_state(job["stage"]) != self.state:
+        return False
+    if self.only_mine and job.get("user") != user:
+        return False
+    search = self.search.strip().lower()
+    if search:
+        name = f"{Path(job['filepath']).name} {job.get('shot_override', '')}"
+        if search not in name.lower():
+            return False
+    return True
+
+
+def draw_farm_jobs(self, layout):
     """M_PIPELINE_OT_farm_monitor's "Jobs" view: every active job, its stage
-    and progress."""
+    and progress -- filtered and paginated by self (that operator), same
+    convention as draw_monitor_table()."""
     cache = get_monitor_cache()
 
     title = layout.split(factor=FIRST_COLUMN)
     title.active = False
     title.row().label(text="Jobs", icon="BLANK1")
     title.row().label(text="Status")
+    layout.separator(factor=1)
 
-    # Job list
-    jobs = (
-        cache["jobs"]
-        if len(cache["jobs"]) >= 5
-        else cache["jobs"] + ["empty" for _ in range(5 - len(cache["jobs"]))]
-    )
+    user = get_user()
+    matches = [j for j in cache["jobs"] if _job_matches(self, j, user)]
+    # Newest submit first: the order the reader thread lists files in is
+    # arbitrary, it would shuffle jobs across pages between refreshes.
+    matches.sort(key=lambda j: j.get("submitted_at") or "", reverse=True)
+
+    # Fixed number of rows per page, padded with blanks -- see
+    # draw_monitor_table().
+    total = len(matches)
+    total_pages = max(1, -(-total // self.PAGE_SIZE))
+    self.page = max(1, min(self.page, total_pages))
+    start = (self.page - 1) * self.PAGE_SIZE
+    page_items = matches[start : start + self.PAGE_SIZE]
+    jobs = page_items + ["empty"] * (self.PAGE_SIZE - len(page_items))
     for j in jobs:
-        row = layout.column(align=True)
-        row.separator(factor=0.1, type="LINE")
+        row = layout.column()
+        # Line *after* the row, never before it inside an aligned column:
+        # that glues it to the text -- same spacing as draw_monitor_table().
+        layout.separator(factor=0.5, type="LINE")
         if j == "empty":
             row.label(text="", icon="BLANK1")
             continue
@@ -162,27 +211,21 @@ def draw_farm_jobs(layout):
             row = row.split(factor=FIRST_COLUMN)
             name = Path(j["filepath"]).name
             stage = j["stage"]
-            # A multishot block split into one job per shot (see
-            # _split_into_shot_jobs() in farm/setup.py) shares that same
-            # filepath across every job -- shot_override ("sh045") tells
-            # a split-off child apart from its siblings; split_finished
-            # (only ever reached by the parent, never a child) tells the
-            # parent apart from an ordinary, unsplit job.
+            # A split block's jobs share its filepath: shot_override marks
+            # each child, split_finished the parent.
             if j.get("shot_override"):
                 name = f"{name}  [{j['shot_override']}]"
             elif stage == "split_finished":
                 name = f"{name}  [split]"
 
             elapsed = j["elapsed_seconds"]
-            text = ""
-            icon = ""
-            elapsed_str = f"{int(elapsed // 60)}m{int(elapsed % 60):02d}s"
+            elapsed_str = _duration(elapsed)
 
             if stage == "pending":
                 icon = "SORTTIME"
             elif stage == "queued":
                 icon = "DECORATE_ANIMATE"
-            elif stage == "finished" or stage == "split_finished":
+            elif job_state(stage) == "finished":
                 icon = "KEYTYPE_JITTER_VEC"
             elif stage.endswith("_finished"):
                 icon = "HANDLETYPE_FREE_VEC"
@@ -193,32 +236,23 @@ def draw_farm_jobs(layout):
 
             if stage == "pending":
                 text = f"waiting for monitor - {elapsed_str}"
-            elif (
-                stage == "finished"
-                or stage == "split_finished"
-                or stage.endswith("failed")
-            ):
-                # These are terminal once archived (see _build_job_entry():
-                # an archived job reports its own penultimate stage, not
-                # "archived", so this is the branch that actually shows --
-                # a fixed completion time, not elapsed, which would
-                # otherwise tick up forever against a stage_at that never
-                # moves again.
-                text = f"{stage} - {str(datetime.datetime.fromisoformat(j['stage_at'])).replace('-', '·')}"
+            elif job_state(stage) != "running":
+                # When it ended, not elapsed: stage_at never moves again.
+                at = _job_time(j["stage_at"])
+                text = f"{stage} - {at:%d/%m %H:%M}" if at else stage
 
             elif j["frames_total"] > 0:
                 pct = j["frames_done"] / j["frames_total"]
                 if pct > 0:
-                    # elapsed / pct is the estimated *total*; what's left is
-                    # that minus what already elapsed. (pct == 0 used to
-                    # divide by zero and break the whole popup's draw.)
-                    remaining = elapsed / pct - elapsed
-                    remaining_str = (
-                        f"≃ {int(remaining // 60)}m{int(remaining % 60):02d}s remaining"
-                    )
+                    # elapsed / pct is the estimated total.
+                    remaining = _duration(elapsed / pct - elapsed)
+                    remaining_str = f"≃ {remaining} remaining"
                 else:
                     remaining_str = "estimating..."
-                text = f"{stage} - {j['frames_done']}/{j['frames_total']} ({pct:.0%}) - {elapsed_str} ({remaining_str})"
+                text = (
+                    f"{stage} - {j['frames_done']}/{j['frames_total']} ({pct:.0%})"
+                    f" - {elapsed_str} ({remaining_str})"
+                )
 
             else:
                 text = f"{stage} - {elapsed_str}"
@@ -248,17 +282,50 @@ def draw_farm_jobs(layout):
                 status.operator(
                     "m_pipeline.farm_cancel_job", text="", icon="X", emboss=False
                 ).job_id = j["job_id"]
-            elif (
-                stage == "finished"
-                or stage == "split_finished"
-                or stage.endswith("failed")
-            ):
+            elif job_state(stage) != "running":
+                if stage in RETRYABLE_STAGES:
+                    status.operator(
+                        "m_pipeline.farm_retry_job",
+                        text="",
+                        icon="LOOP_BACK",
+                        emboss=False,
+                    ).job_id = j["job_id"]
                 status.operator(
                     "m_pipeline.farm_archive_job",
                     text="",
                     icon="CHECKMARK",
                     emboss=False,
                 ).job_id = j["job_id"]
+
+    footer = layout.row()
+    footer.active = False
+    if total == 0:
+        footer.label(
+            text="No job with this filter" if cache["jobs"] else "No job",
+            icon="BLANK1",
+        )
+    else:
+        footer.label(text=f"{total} job(s)", icon="BLANK1")
+        if total_pages > 1:
+            pager = footer.row(align=True)
+            pager.alignment = "RIGHT"
+            pager.label(text=f"Page {self.page} / {total_pages}")
+            pager.prop(self, "page", text="")
+    # Every job of that state, not just this filter's.
+    bulk = footer.row(align=True)
+    bulk.alignment = "RIGHT"
+    for state in ("finished", "failed"):
+        count = sum(
+            1
+            for j in cache["jobs"]
+            if j["stage"] != "pending" and job_state(j["stage"]) == state
+        )
+        if count:
+            bulk.operator(
+                "m_pipeline.farm_archive_jobs",
+                text=f"Archive {state} ({count})",
+                icon="CHECKMARK",
+            ).state = state
 
 
 def draw_farm_workers(layout):
@@ -279,6 +346,7 @@ def draw_farm_workers(layout):
         )
 
     title_list.row().label(text="Jobs")
+    layout.separator(factor=1)
 
     monitor_cache = get_monitor_cache()
     # From the snapshot the refresh timer builds (_apply_farm_snapshot()), never
@@ -288,8 +356,8 @@ def draw_farm_workers(layout):
 
     machines = list(workers.values())
 
-    layout.separator(factor=0.1, type="LINE")
-    row = layout.column(align=True)
+    row = layout.column()
+    layout.separator(factor=0.5, type="LINE")
     # uuid -> job_id, to let a busy worker's row cancel just its own share.
     # Empty when the monitor is stopped: a worker file can still say busy.
     uuid_to_job = {}
@@ -311,17 +379,29 @@ def draw_farm_workers(layout):
             job for job in monitor_jobs if job.get("stage", "").endswith("_start")
         ]
 
+        status = monitor_cache.get("status")
         split = row.split(factor=FIRST_COLUMN)
-        split.row().label(
-            text=monitor_label,
-            icon="KEYTYPE_BREAKDOWN_VEC" if running_jobs else "KEYTYPE_JITTER_VEC",
-        )
-        jobs_col = split.column(align=True)
-        if running_jobs:
-            for job in running_jobs:
-                jobs_col.row().label(text=f"{job['stage']}: {job['job_id']}")
+        if status in ("stale", "dead"):
+            # Its jobs' stages are frozen where it left them: never list
+            # them as running. Same icons as the sidebar's header.
+            split.row().label(
+                text=monitor_label,
+                icon="FREEZE" if status == "stale" else "GHOST_DISABLED",
+            )
+            last = monitor_cache.get("last_tick")
+            seen = f" (last seen {last:%d/%m %H:%M:%S})" if last else ""
+            split.row().label(text=status + seen)
         else:
-            jobs_col.row().label(text="idle")
+            split.row().label(
+                text=monitor_label,
+                icon="KEYTYPE_BREAKDOWN_VEC" if running_jobs else "KEYTYPE_JITTER_VEC",
+            )
+            jobs_col = split.column(align=True)
+            if running_jobs:
+                for job in running_jobs:
+                    jobs_col.row().label(text=f"{job['stage']}: {job['job_id']}")
+            else:
+                jobs_col.row().label(text="idle")
 
         uuid_to_job = {
             uuid: job["job_id"]
@@ -331,8 +411,8 @@ def draw_farm_workers(layout):
 
     machines = machines + ["empty" for _ in range(4 - len(machines))]
     for m in machines:
-        row = layout.column(align=True)
-        row.separator(factor=0.1, type="LINE")
+        row = layout.column()
+        layout.separator(factor=0.5, type="LINE")
 
         if m == "empty":
             row.label(text="", icon="BLANK1")
@@ -363,20 +443,6 @@ def draw_farm_workers(layout):
             jobs.label(text="idle")
 
 
-def _job_time(iso: str) -> datetime.datetime | None:
-    try:
-        return datetime.datetime.fromisoformat(iso)
-    except (TypeError, ValueError):
-        return None
-
-
-def _duration(seconds: float) -> str:
-    seconds = int(seconds)
-    if seconds >= 3600:
-        return f"{seconds // 3600}h{seconds % 3600 // 60:02d}m"
-    return f"{seconds // 60}m{seconds % 60:02d}s"
-
-
 def draw_farm_job_details(layout, context):
     """M_PIPELINE_OT_farm_monitor's detail view of one job: its file as read
     by M_PIPELINE_OT_farm_job_details on click (get_job_details()) -- never
@@ -385,8 +451,8 @@ def draw_farm_job_details(layout, context):
     job_id = context.window_manager.farm_job_selected
     data = get_job_details()
 
-    header = layout.row(align=True)
-    back = header.row(align=True)
+    header = layout.row()
+    back = header.row()
     back.alignment = "LEFT"
     back.operator(
         "m_pipeline.farm_job_details", text="", icon="BACK", emboss=False
@@ -395,13 +461,30 @@ def draw_farm_job_details(layout, context):
     if data.get("shot_override"):
         name = f"{name}  [{data['shot_override']}]"
     header.label(text=name, icon="RENDER_ANIMATION")
-    reload = header.row(align=True)
-    reload.alignment = "RIGHT"
-    op = reload.operator(
+    actions = header.row(align=True)
+    actions.alignment = "RIGHT"
+    if failed_stage(data):
+        actions.operator(
+            "m_pipeline.farm_retry_job", text="Retry", icon="LOOP_BACK"
+        ).job_id = job_id
+        actions.separator(factor=2)  # apart from reload: both read as "redo"
+    op = actions.operator(
         "m_pipeline.farm_job_details", text="", icon="FILE_REFRESH", emboss=False
     )
     op.job_id = job_id
     op.reload = True
+    job_file = get_job_details_path()
+    if job_file:
+        op = actions.operator(
+            "wm.open_folder", text="", icon="FILE_TEXT", emboss=False
+        )
+        op.filepath = str(job_file)
+        op.custom_tooltip = (
+            f"Open this job's file ({job_file.parent.name}/{job_file.name})"
+        )
+    actions.operator(
+        "m_pipeline.pipeline_logs", text="", icon="TEXT", emboss=False
+    ).search = job_id
 
     if not data:
         layout.label(text="Job file not found.", icon="ERROR")
@@ -421,7 +504,7 @@ def draw_farm_job_details(layout, context):
         left.label(text=label)
         split.label(text=str(value), icon=icon)
 
-    layout.separator(factor=0.1, type="LINE")
+    layout.separator(factor=0.5, type="LINE")
     col = layout.column(align=True)
     field(col, "Job", job_id)
     field(col, "Submitted by", data.get("user", "-"))
@@ -430,7 +513,8 @@ def draw_farm_job_details(layout, context):
 
     frames = data.get("resolved_frame_range")
     if frames and len(frames) == 2:
-        field(col, "Frames", f"{frames[0]} - {frames[1]} ({frames[1] - frames[0] + 1})")
+        count = frames[1] - frames[0] + 1
+        field(col, "Frames", f"{frames[0]} - {frames[1]} ({count})")
     else:
         field(col, "Frames", "not resolved yet")
     field(col, "Format", data.get("output_extension", "-"))
@@ -463,7 +547,29 @@ def draw_farm_job_details(layout, context):
     if data.get("absorbed_shots"):
         field(col, "Absorbed shots", ", ".join(data["absorbed_shots"]))
 
-    layout.separator(factor=0.1, type="LINE")
+    logs = get_job_details_logs()
+    if logs:
+        split = col.split(factor=FIRST_COLUMN)
+        left = split.row()
+        left.active = False
+        left.label(text="Logs")
+        buttons = split.row(align=True)
+        buttons.alignment = "LEFT"
+        prefix = f"request_{job_id}_"
+        for log_file in logs:
+            # request_<job_id>.log is this machine's stages, the others a
+            # worker's render (request_<job_id>_<uuid>.log).
+            stem = log_file.stem
+            uuid = stem[len(prefix) :] if stem.startswith(prefix) else ""
+            op = buttons.operator(
+                "wm.open_folder",
+                text=machine_names([uuid]) if uuid else "farm host",
+                icon="TEXT",
+            )
+            op.filepath = str(log_file)
+            op.custom_tooltip = f"Open {log_file.name}"
+
+    layout.separator(factor=0.5, type="LINE")
     col = layout.column(align=True)
     title = col.row()
     title.active = False
@@ -474,7 +580,9 @@ def draw_farm_job_details(layout, context):
         stage = entry.get("stage", "?")
         if entry.get("resumed"):
             stage += f" ({entry['resumed']})"
-        delta = f"+{_duration((at - previous).total_seconds())}" if at and previous else ""
+        delta = (
+            f"+{_duration((at - previous).total_seconds())}" if at and previous else ""
+        )
         split = col.split(factor=FIRST_COLUMN)
         left = split.row()
         left.active = False

@@ -30,6 +30,7 @@ from ..lib import (
     log,
     now,
     prefix_items,
+    read_json_quiet,
     read_snapshot_data,
     resolve_ffmpeg,
     sequence_items,
@@ -46,10 +47,12 @@ from ..lib import (
     wipmeta_add_work,
     write_snapshot,
 )
+from ..farm import archive
 from ..panels import (
     MONITOR_POPUP_WIDTH,
     draw_file_details,
     draw_monitor_table,
+    load_file_renders,
     load_file_thumbnail,
 )
 
@@ -720,7 +723,6 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
         thumbnails = None
         if self.include_thumbnails:
             thumbnails = {
-                "v_prefix": v_prefix,
                 "size": thumbnail_size(ConfigCache.get()),
                 "blender": bpy.app.binary_path,
                 "ffmpeg": resolve_ffmpeg(),
@@ -796,6 +798,10 @@ class M_PIPELINE_OT_tracking_refresh(bpy.types.Operator):
         return {"FINISHED"}
 
 
+def _back_to_first_page(self, context):
+    self.page = 1
+
+
 class M_PIPELINE_OT_tracking_monitor(bpy.types.Operator):
     """Popup dashboard: every tracked asset/shot with its department status, filterable."""
 
@@ -829,6 +835,13 @@ class M_PIPELINE_OT_tracking_monitor(bpy.types.Operator):
         default=False,
         description="Only the files with a farm render waiting to be checked",
     )
+    # SKIP_SAVE: a search left over from last time would silently hide files.
+    search: bpy.props.StringProperty(
+        name="",
+        description="Filter by file name or description",
+        options={"SKIP_SAVE"},
+        update=_back_to_first_page,
+    )
 
     def draw(self, context):
         layout = self.layout
@@ -836,7 +849,7 @@ class M_PIPELINE_OT_tracking_monitor(bpy.types.Operator):
             draw_file_details(self, context, layout)
 
         else:
-            filters = layout.box().split(factor=0.5)
+            filters = layout.box().split(factor=0.3)
             filters.label(text="Filters", icon="FILTER")
             filters_btn = filters.row()
             filters_btn.prop(self, "file_type", expand=True)
@@ -849,7 +862,9 @@ class M_PIPELINE_OT_tracking_monitor(bpy.types.Operator):
                 filters_btn.prop(self, "sequence", text="")
                 columns = json_get(ConfigCache.get(), "shots_departments", [])
 
-            filters_btn.prop(self, "only_to_check", text="To check", icon="HIDE_OFF")
+            filters_btn.prop(self, "search", text="", icon="VIEWZOOM")
+            # Icon only: the property's description is the tooltip.
+            filters_btn.prop(self, "only_to_check", text="", icon="HIDE_OFF")
 
             layout.separator(factor=0.5)
 
@@ -1012,14 +1027,77 @@ class M_PIPELINE_OT_render_checked(bpy.types.Operator):
 
     def execute(self, context):
         try:
-            clear_render_to_check(self.filepath, None if self.all_shots else self.shot)
+            job_ids = clear_render_to_check(
+                self.filepath, None if self.all_shots else self.shot
+            )
         except PipelineError as e:
             log(e.level, "render_checked", e.message)
             self.report({e.level}, e.message)
             return {"CANCELLED"}
         # The table only reads the cache: refresh this one folder now.
         TrackingStatusCache.get(self.filepath, force_reload=True)
+        for job_id in job_ids:
+            _archive_checked_job(job_id)
         return {"FINISHED"}
+
+
+_VIDEO_EXTS = (".mp4", ".mov", ".mkv", ".webm", ".avi")
+
+
+class M_PIPELINE_OT_open_render_video(bpy.types.Operator):
+    """Play a farm render's compiled video with the system's player."""
+
+    bl_idname = "m_pipeline.open_render_video"
+    bl_label = ""
+
+    render: bpy.props.StringProperty()  # its folder, project-relative
+    video: bpy.props.StringProperty()  # the job's compiled_output_path
+    custom_tooltip: bpy.props.StringProperty()
+
+    @classmethod
+    def description(cls, context, properties):
+        return properties.custom_tooltip or "Play this render's video."
+
+    def execute(self, context):
+        try:
+            video = self._find()
+        except (PipelineError, OSError) as e:
+            self.report({"ERROR"}, f"Could not look for the video: {e}")
+            return {"CANCELLED"}
+        if not video:
+            self.report({"WARNING"}, "No video found for this render.")
+            return {"CANCELLED"}
+        return bpy.ops.wm.open_folder(filepath=str(video))
+
+    def _find(self) -> Path | None:
+        video = to_absolute(self.video) if self.video else None
+        if video and video.is_file():
+            return video
+        if not self.render:
+            return None
+        # Flagged before the video was recorded: the newest one in the
+        # render's folder.
+        folder = to_absolute(self.render)
+        if not folder.is_dir():
+            return None
+        videos = [f for f in folder.iterdir() if f.suffix.lower() in _VIDEO_EXTS]
+        return max(videos, key=lambda f: f.stat().st_mtime, default=None)
+
+
+def _archive_checked_job(job_id: str) -> None:
+    """A checked render's job leaves the Farm popup's list too -- if it's
+    still in active/ and done. Never raises: the check itself went through."""
+    job_path = ConfigCache.get_path("farm_actives") / f"{job_id}.json"
+    data = read_json_quiet(job_path)
+    if not data:
+        return  # already archived by hand, or never there
+    stages = [s.get("stage") for s in data.get("stage_history") or []]
+    if "finished" not in stages:
+        return
+    try:
+        archive(job_path)
+    except OSError as e:
+        log("WARNING", "render_checked", f"Could not archive {job_id}: {e}")
 
 
 class M_PIPELINE_OT_tracking_file_details(bpy.types.Operator):
@@ -1043,4 +1121,5 @@ class M_PIPELINE_OT_tracking_file_details(bpy.types.Operator):
         else:
             context.window_manager.file_details_selected = self.filepath
             load_file_thumbnail(self.filepath)
+            load_file_renders(self.filepath)
         return {"FINISHED"}

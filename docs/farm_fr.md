@@ -41,9 +41,11 @@ Un bloc de shots (multishot, voir [Blocs de shots (multishot)](multishot_fr.md))
 
 **Vignette** : une fois un rendu compilé, la farm écrit une vignette à côté de ses dossiers — `renders/<seq>/<plan>/<seq>_<plan>_thumbnail.jpg`, `renders/assets/ch/ch_bob/ch_bob_thumbnail.jpg` (frame du milieu, 240 px sur son plus grand côté par défaut — "Thumbnails" dans Edit project), utilisée par le snapshot de prod. Faite par Blender lui-même ; seul un EXR multicouche demande ffmpeg.
 
-**Après le rendu** : une fois un job terminé (frames vérifiées, vidéo compilée), son rendu apparaît dans la colonne "To check" du Project monitoring jusqu'à ce que quelqu'un le marque vérifié -- voir [Suivi & revues](tracking-and-reviews_fr.md).
+**Après le rendu** : une fois un job terminé (frames vérifiées, vidéo compilée), son rendu apparaît dans la colonne "To check" du Project monitoring jusqu'à ce que quelqu'un le marque vérifié (bouton vidéo pour la lire, case à cocher pour la valider), ce qui archive aussi le job (il quitte la liste du Farm monitoring) -- voir [Suivi & revues](tracking-and-reviews_fr.md).
 
 **Logs** : chaque processus de la farm écrit sa sortie dans un fichier de `config/.farm/queue/requests/` -- `request_<job_id>.log` pour le setup, la vérification des frames, la compilation et la preview d'un job, plus un `request_<job_id>_<machine>.log` par rendu de worker. Supprimés quand le job se termine bien, conservés (et archivés avec le job) en cas d'échec : c'est le premier endroit où regarder.
+
+**Relancer** : un job en échec a un bouton retry (dans la liste du Farm monitoring et dans son détail). Il repart de l'étape qui a échoué -- même dossier de sortie, mêmes frames, même preset, pas de nouvelle version. Un rendu ne rend que les frames manquantes : les fichiers vides laissés par le rendu échoué sont d'abord supprimés.
 
 **Après un crash** : si le Blender qui fait tourner le moniteur de la farm ou un worker crashe, ses jobs sont repris au relancement -- une étape encore en cours est attendue, une étape interrompue est refaite, un rendu interrompu est renvoyé (les frames déjà rendues sont gardées, seules les manquantes sont rendues). Un rendu dont le worker ne répond plus pendant 3 minutes est envoyé à une autre machine.
 

@@ -96,7 +96,8 @@ def _owner_shots(owner: Path) -> list[str]:
 
 def read_render_state(root: Path, kind: str, owner: Path, v_prefix: str = "v") -> list:
     """What was last rendered for an asset/shot folder, per shot (a block
-    has several, anything else one): [{"shot", "file", "folder"}]. From the
+    has several, anything else one): [{"shot", "file", "folder", "path"}],
+    path the render folder's absolute path. From the
     folder's render_history.json -- its last finished render of that shot,
     file = the .blend it rendered -- else (entries older than source_file,
     or no history) from the latest render folder's own name
@@ -117,16 +118,25 @@ def read_render_state(root: Path, kind: str, owner: Path, v_prefix: str = "v") -
         mine = [e for e in finished if not block or e.get("shot_override") == shot]
         if mine:
             output = mine[-1].get("output_path")
+            folder = (Path(root) / output).parent if output else None
             out.append(
                 {
                     "shot": shot,
                     "file": Path(mine[-1]["source_file"]).name,
-                    "folder": Path(output).parent.name if output else None,
+                    "folder": folder.name if folder else None,
+                    "path": str(folder) if folder else None,
                 }
             )
             continue
         latest = latest_render_dir(base.with_name(shot) if shot else base, v_prefix)
-        out.append({"shot": shot, "file": None, "folder": latest.name if latest else None})
+        out.append(
+            {
+                "shot": shot,
+                "file": None,
+                "folder": latest.name if latest else None,
+                "path": str(latest) if latest else None,
+            }
+        )
     return out
 
 
@@ -136,8 +146,8 @@ def read_snapshot_data(
     """read_snapshot_raw() plus each folder's last render
     (read_render_state()) and thumbnails: those missing or older than
     their latest render are remade first (one headless Blender, waited on
-    -- run this on a thread). thumbnails: {"v_prefix", "blender",
-    "ffmpeg"}, None to skip them. Returns {"raws", "renders": {owner:
+    -- run this on a thread). thumbnails: {"size", "blender", "ffmpeg"},
+    None to skip them. Returns {"raws", "renders": {owner:
     [...]}, "thumbs": {owner: base64 JPEG}, "thumb_warnings": [...]}."""
     raws = read_snapshot_raw(root)
     renders = {
@@ -152,7 +162,7 @@ def read_snapshot_data(
             if not raw["tracking"].get("archived"):
                 dirs[str(owner)] = owner_render_dir(root, owner)
         size = thumbnails.get("size") or thumbnail_size({})
-        jobs = thumbnail_jobs(dirs.values(), thumbnails.get("v_prefix", "v"), size=size)
+        jobs = thumbnail_jobs(dirs.values(), v_prefix, size=size)
         results = run_thumbnail_jobs(
             jobs, thumbnails["blender"], thumbnails.get("ffmpeg"), size=size
         )
@@ -275,7 +285,8 @@ def collect_snapshot(
 ) -> dict:
     """read_snapshot_data() + build_snapshot() in one go (no thread)."""
     meta = {"scan_started_at": now(), **meta}
-    return build_snapshot(read_snapshot_data(root, thumbnails), config, meta)
+    v_prefix = json_get(config, "naming.version.prefix", "v")
+    return build_snapshot(read_snapshot_data(root, thumbnails, v_prefix), config, meta)
 
 
 def _department_state(status: dict, department: str) -> str:

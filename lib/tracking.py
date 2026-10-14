@@ -1553,18 +1553,25 @@ def mark_render_to_check(
     render_dir: str,
     job_id: str,
     project_root: Path | None = None,
-) -> None:
+    video: str | None = None,
+) -> bool:
     """Flag a finished render as waiting for its artist's check, in the
-    owning folder's tracking.json: "to_check" {shot or "": {"render", "at",
-    "job_id"}} -- a block keeps one per shot, a newer render of the same
-    shot replaces the older. Cleared by hand (clear_render_to_check()).
-    Never raises: a render that went well must not fail on this."""
+    owning folder's tracking.json: "to_check" {shot or "": {"render",
+    "video", "at", "job_id"}} -- a block keeps one per shot, a newer render
+    of the same shot replaces the older. Cleared by hand
+    (clear_render_to_check()). Never raises. False: not written, worth
+    retrying; a folder without tracking.json is True (nothing to flag)."""
     try:
         path = tracking_json_path(to_absolute(filepath, project_root), must_exist=True)
+    except PipelineError as e:
+        log("WARNING", "tracking", f"Render of {filepath} not flagged to check: {e}")
+        return True
+    try:
         with locked_json(path) as box:
             data = box["data"] or {}
             data.setdefault("to_check", {})[shot or ""] = {
                 "render": render_dir,
+                "video": video,
                 "at": now(),
                 "job_id": job_id,
             }
@@ -1572,25 +1579,30 @@ def mark_render_to_check(
             box["action"] = "to_write"
     except Exception as e:
         log("WARNING", "tracking", f"Could not flag the render of {filepath} to check: {e}")
+        return False
+    return True
 
 
-def clear_render_to_check(filepath: Path | str, shot: str | None = None) -> None:
+def clear_render_to_check(filepath: Path | str, shot: str | None = None) -> list[str]:
     """Mark a render checked: drop shot's "to_check" entry ("" for an asset
-    or a mono shot), or every one of the folder's if shot is None."""
+    or a mono shot), or every one of the folder's if shot is None. Returns
+    the dropped entries' job ids."""
     path = tracking_json_path(filepath, must_exist=True)
     with locked_json(path) as box:
         data = box["data"] or {}
         to_check = data.get("to_check") or {}
         if shot is None:
+            dropped = list(to_check.values())
             to_check.clear()
         else:
-            to_check.pop(shot, None)
+            dropped = [to_check.pop(shot)] if shot in to_check else []
         if to_check:
             data["to_check"] = to_check
         else:
             data.pop("to_check", None)
         box["data"] = data
         box["action"] = "to_write"
+    return [d["job_id"] for d in dropped if isinstance(d, dict) and d.get("job_id")]
 
 
 def render_to_check_label(shot: str, info: dict) -> str:

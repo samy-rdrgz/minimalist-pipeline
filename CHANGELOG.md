@@ -2,14 +2,10 @@
 
 All notable changes to this addon. Dates are release dates.
 
-## Unreleased
+## 1.0.11 — 2026-10-14
 
 ### Fixes — farm
 
-- **A worker no longer stays stuck in "render" when its heartbeat fails.**
-  The heartbeat, cancel check and finished-render check now run
-  independently: one failing (a locked file on the share) no longer skips
-  the others every tick.
 - **A job no longer sits at 100 % after its render ended.** The monitor
   ignored the result of a worker whose heartbeat was a few seconds late
   (frequent on a share); once that worker finished its next render, the
@@ -19,12 +15,13 @@ All notable changes to this addon. Dates are release dates.
   handed its share while it was starting another job: the others rendered
   everything, and the job waited for that other render to end. Once one
   machine has finished, shares not yet picked up are dropped.
+- **A worker no longer stays stuck in "render" when its heartbeat fails.**
+  The heartbeat, cancel check and finished-render check now run
+  independently: one failing (a locked file on the share) no longer skips
+  the others every tick.
 - **A render or setup whose script crashes is now reported as failed.**
   Blender exited with 0 even after a Python error in its entry script, so
   the render counted as a success.
-- **The Farm monitoring popup no longer crashes when the farm is stopped**
-  while a worker file still says it's busy.
-- The "Farm host" line only shows the step it's running right now.
 - **Output format and fps come from the file plus its preset.** The setup
   applies the preset too (in memory, never saved) before reading them: a
   preset changing the format no longer breaks the frame check and the
@@ -33,29 +30,73 @@ All notable changes to this addon. Dates are release dates.
   that rendered it, and which file and output folder were rendered
   (`source_file`, `output_path`, `shot_override`).
 
+### Farm monitoring popup
+
+- **Retry** a failed job (list and detail): it restarts from the stage
+  that failed, with the same output folder, frames and preset -- no new
+  version. A render keeps the frames already rendered; the empty ones the
+  failed render left are deleted first so they get rendered again. Works
+  on a failed job already archived too (it comes back to the list).
+- **Job detail**: click a job's name for its stage history with
+  timestamps, frame range, output folder, format, fps, preset, machines
+  and split shots, with buttons to open its JSON file, each of its logs
+  (farm host, each worker's render) and the pipeline log filtered on it.
+- **Filters and pages**: a search field (file name or shot), a state
+  filter (All / Running / Finished / Failed) and "Mine" (the jobs I
+  submitted). 8 jobs per page, newest submit first.
+- **Archive finished / Archive failed**: every job of that state in one
+  click (bottom of the list).
+- The popup is 1200 px wide (was 800), like Project monitoring.
+- Durations read in hours past an hour ("1h06m", not "66m00s"), and a
+  finished job shows its end time ("14/10 18:04").
+- The "Farm host" line only shows the step it's running right now, and
+  says so when the monitor is stale or dead (with when it was last seen)
+  instead of "idle".
+- A finished preview compilation (`preview_finished`) is shown as
+  finished, with its end time and the archive button.
+- No more crash when the farm is stopped while a worker file still says
+  it's busy.
+
 ### Renders to check
 
-- **Every farm render that finishes now waits for a check**: Project
-  monitoring has a "To check" column (the render's folder, or "3 renders"
-  for a block) and a "To check" filter to list only those. One click marks
-  a row checked; the file's details list each render with its folder
-  button and its own "Checked" button. A newer render of the same shot
-  replaces the older one. Stored in the folder's tracking.json
-  (`to_check`), set by the farm when the job is finished (compilation
-  done).
+- **Every farm render that finishes now waits for a check.** Project
+  monitoring has a "To check" column: a video button per render (plays
+  the compiled video with the system's player) and a checkbox to mark them
+  checked. An eye icon in the filters lists only those files. A newer
+  render of the same shot replaces the older one.
+- **Marking a render checked also archives its farm job**, if it's still
+  in the Farm monitoring list.
+- **File details**: the renders to check get their own box under the
+  thumbnail (date, video, folder and "Checked" each), and the last render
+  of each shot, checked or not, is listed next to the departments with
+  its video and folder buttons.
+- A job is only marked finished once its render is flagged to check: a
+  failed write (locked tracking.json on the share) is retried on the next
+  ticks instead of losing the flag.
+- Stored in the folder's tracking.json (`to_check`, one entry per shot for
+  a block).
 
 ### Project monitoring
 
+- **Search field**, next to the other filters: file name or description.
 - The popup is 1200 px wide (was 800).
 - **Thumbnail size is a project setting** ("Thumbnails" in Edit project,
   240 px on the longest side by default). After a change, the next
   snapshot export remakes the existing ones at the new size; the
   snapshot's hover zoom shows them at that size.
 
-### Farm monitoring popup
+### Pipeline log
 
-- Click a job's name for its detail: stage history with timestamps, frame
-  range, output folder, format, fps, preset, machines, split shots.
+- **Pipeline log popup** (icon in the Project panel's header, next to the
+  project settings; also in the Pipeline menu): the project's log, newest
+  first, filterable by level (all, warnings, errors), action, user and
+  text, 20 lines per page. Click a line to copy it whole (time, level,
+  user, action, message and any extra field). Read in the background:
+  Blender never waits on the share.
+- **Less noise in the log**: it no longer gets two lines every time a
+  Blender (or a farm subprocess) starts or quits -- the per-machine
+  backup of the projects list is no longer logged when it works. It was
+  most of the log.
 
 ### Production snapshot
 

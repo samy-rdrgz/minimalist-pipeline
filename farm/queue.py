@@ -165,16 +165,13 @@ def scan_queue(project_root: Path) -> None:
                     )
 
             elif stage == "compilation_finished":
+                # Waits for its artist's check in Project monitoring. Never
+                # finished without it: a failed write is retried next tick.
+                if data.get("output_path") and not _flag_to_check(
+                    job, data, project_root
+                ):
+                    continue
                 refresh_shot_thumbnail(data, project_root)
-                if data.get("output_path"):
-                    # Waits for its artist's check in Project monitoring.
-                    mark_render_to_check(
-                        data["filepath"],
-                        data.get("shot_override", ""),
-                        Path(data["output_path"]).parent.as_posix(),
-                        data["job_id"],
-                        project_root,
-                    )
                 mark_stage(job, "finished")
                 construct_history(data, status="finished")
                 mark_stage(job, "archived")
@@ -209,6 +206,90 @@ _RESUME_STAGE = {
     "compilation_start": "checks_images_finished",
     "preview_start": "preview_queued",
 }
+
+
+# Where a failed job restarts on a retry: the stage before the one that
+# failed. Same output folder, frame range and preset -- no new increment.
+_RETRY_STAGE = {
+    "setup_failed": "queued",
+    "render_failed": "setup_finished",
+    "checks_images_failed": "render_finished",
+    "compilation_failed": "checks_images_finished",
+}
+RETRYABLE_STAGES = frozenset(_RETRY_STAGE)
+
+
+def failed_stage(data: dict) -> str | None:
+    """The *_failed stage a job ended on (before "archived"), if retryable."""
+    stages = [s.get("stage") for s in data.get("stage_history") or []]
+    while stages and stages[-1] == "archived":
+        stages.pop()
+    return stages[-1] if stages and stages[-1] in _RETRY_STAGE else None
+
+
+def retry_job(data: dict, project_root: Path) -> str | None:
+    """Rewind a failed job to _RETRY_STAGE so the queue runs it again.
+    Mutates data (caller writes it back); returns the stage resumed to, or
+    None if it didn't fail. A render retry first deletes the empty frames
+    left by the failed one: a placeholder is skipped, never re-rendered."""
+    failed = failed_stage(data)
+    if not failed:
+        return None
+    target = _RETRY_STAGE[failed]
+    if failed == "render_failed" and data.get("output_path"):
+        _delete_placeholders(project_root / Path(data["output_path"]).parent)
+    data.pop("rendered_by", None)
+    data.pop("local_processes", None)
+    data["stage_history"].append({"stage": target, "at": now(), "resumed": "retry"})
+    log("INFO", "farm", f"Job {data.get('job_id')}: retried at {target}.")
+    return target
+
+
+def _delete_placeholders(folder: Path) -> None:
+    """Delete the empty files a render leaves for every frame it started."""
+    try:
+        entries = list(folder.iterdir())
+    except OSError:
+        return
+    for entry in entries:
+        try:
+            if entry.is_file() and entry.stat().st_size == 0:
+                entry.unlink()
+        except OSError:
+            pass
+
+
+# How many ticks compilation_finished retries flagging the render to check
+# before giving up on it (~5 min at the 10 s tick).
+_TO_CHECK_ATTEMPTS = 30
+
+
+def _flag_to_check(job: Path, data: dict, project_root: Path) -> bool:
+    """mark_render_to_check() for a finished job. False: not written this
+    tick, try again -- counted in the job file, given up (True) after
+    _TO_CHECK_ATTEMPTS."""
+    if mark_render_to_check(
+        data["filepath"],
+        data.get("shot_override", ""),
+        Path(data["output_path"]).parent.as_posix(),
+        data["job_id"],
+        project_root,
+        video=data.get("compiled_output_path"),
+    ):
+        return True
+    with locked_json(job) as box:
+        attempts = box["data"].get("to_check_attempts", 0) + 1
+        box["data"]["to_check_attempts"] = attempts
+        box["action"] = "to_write"
+    if attempts < _TO_CHECK_ATTEMPTS:
+        return False
+    log(
+        "ERROR",
+        "farm",
+        f"Job {data['job_id']}: render never flagged to check "
+        f"({attempts} attempts) -- finished without it.",
+    )
+    return True
 
 
 def resume_interrupted_stage(data: dict, reason: str) -> str | None:

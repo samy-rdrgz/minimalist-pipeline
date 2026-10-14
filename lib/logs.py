@@ -65,3 +65,28 @@ def _rotate_if_needed(log_file: Path, archives_dir: Path, now) -> None:
         log_file.rename(archived)
     except OSError:
         pass
+
+
+def read_log_tail(path: Path, max_bytes: int = 1_000_000) -> tuple[list[dict], bool]:
+    """The log's entries in its last max_bytes, oldest first, and whether
+    older ones were left out. A malformed line is skipped. Never raises."""
+    try:
+        with open(path, "rb") as f:
+            size = f.seek(0, 2)
+            f.seek(max(0, size - max_bytes))
+            raw = f.read()
+    except OSError:
+        return [], False
+    lines = raw.decode("utf-8", errors="replace").splitlines()
+    truncated = size > max_bytes
+    if truncated:
+        lines = lines[1:]  # cut in the middle
+    entries = []
+    for line in lines:
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(entry, dict):
+            entries.append(entry)
+    return entries, truncated

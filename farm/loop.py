@@ -103,10 +103,11 @@ _popup_regions: set = set()
 
 
 def register_popup_region(region) -> None:
-    """Track a farm-monitor popup's own floating region so _refresh_tick can
-    force its redraw. Call from the popup's draw() -- context.region_popup
-    (4.2+) only exists while actually drawing, not yet at invoke() time,
-    and the popup draws in its own floating region tag_redraw() can't reach."""
+    """Track a popup's own floating region (Farm monitoring, Pipeline log)
+    so a timer can force its redraw (redraw_popups()). Call from the
+    popup's draw() -- context.region_popup (4.2+) only exists while
+    actually drawing, not yet at invoke() time, and the popup draws in its
+    own floating region tag_redraw() can't reach."""
     if region is not None:
         _popup_regions.add(region)
 
@@ -346,7 +347,7 @@ def _redraw_sidebars() -> None:
                     region.tag_redraw()
 
 
-def _redraw_popups() -> None:
+def redraw_popups() -> None:
     """Redraw the popup regions registered by draw() since the last call,
     then forget them: a live popup re-registers on the redraw this
     triggers, a closed one never does -- so a region is never touched more
@@ -372,7 +373,7 @@ def _refresh_tick() -> float:
         if result is not None and result[0] == "ok":
             _apply_farm_snapshot(result[1])
             _redraw_sidebars()
-            _redraw_popups()
+            redraw_popups()
         if (
             not _refresh_reader.busy()
             and time.monotonic() - _refresh_reader.started_at >= _REFRESH_INTERVAL
@@ -460,6 +461,16 @@ def _count_rendered_frames(folder: Path, ext: str) -> int:
     return done
 
 
+def job_state(stage: str) -> str:
+    """The Farm popup's state filter bucket for a job stage. preview_finished
+    ends a preview-compile job (§1.6), like finished ends a render's."""
+    if stage in ("finished", "split_finished", "preview_finished"):
+        return "finished"
+    if stage.endswith("failed"):
+        return "failed"
+    return "running"
+
+
 def _build_job_entry(job: dict, frames_done: int | None = None) -> dict:
     """UI-facing entry for one active job. frames_done comes from
     _frames_for_jobs(), fresh every refresh even when job came from a cached
@@ -490,6 +501,8 @@ def _build_job_entry(job: dict, frames_done: int | None = None) -> dict:
         "absorbed_shots": job.get("absorbed_shots", []),
         "shot_override": job.get("shot_override", ""),
         "output_dir": str(output_dir) if output_dir else "",
+        "user": job.get("user", ""),
+        "submitted_at": job["stage_history"][0]["at"],
     }
 
 
@@ -506,6 +519,8 @@ def _build_incoming_entry(req: dict) -> dict:
         "frames_total": 0,
         "machines": [],
         "shot_override": req.get("shot_override", ""),
+        "user": req.get("user", ""),
+        "submitted_at": req["submitted_at"],
     }
 
 

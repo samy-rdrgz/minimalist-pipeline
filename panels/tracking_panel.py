@@ -27,6 +27,7 @@ from ..lib import (
     render_root,
     json_get,
     project_path,
+    read_render_state,
     region_char_budget,
     render_to_check_label,
     responsive_layout,
@@ -338,6 +339,8 @@ def _get_entry_tooltip(e, filepath):
 # operator's execute()), never in draw() -- nothing on disk while drawing.
 _previews = None
 _preview_ids: dict[str, int] = {}
+# Folder -> read_render_state(), filled on click (load_file_renders()).
+_last_renders: dict[str, list] = {}
 
 
 def load_file_thumbnail(folder: str) -> None:
@@ -360,12 +363,91 @@ def load_file_thumbnail(folder: str) -> None:
     _preview_ids[folder] = preview.icon_id
 
 
+def load_file_renders(folder: str) -> None:
+    """Read folder's last render per shot (read_render_state()) for its
+    details -- on click, never in draw()."""
+    _last_renders.pop(folder, None)
+    root = get_active_project_root()
+    if not root or not folder:
+        return
+    owner = Path(folder)
+    kind = "shot" if owner.parent.parent == Path(root) / "shots" else "asset"
+    v_prefix = json_get(ConfigCache.get(), "naming.version.prefix", "v")
+    renders = read_render_state(Path(root), kind, owner, v_prefix)
+    if any(r["path"] for r in renders):
+        _last_renders[folder] = renders
+
+
+def _draw_last_renders(layout, filepath: str) -> bool:
+    """File details' column between departments and links: the last
+    render of each shot, with its video and folder. False if never
+    rendered."""
+    last = _last_renders.get(filepath) or []
+    if not last:
+        return False
+    col = layout.column(align=True)
+    col.scale_y = 0.8  # same as the departments column
+    title = col.row()
+    title.label(text="Last render:", icon="RENDER_ANIMATION")
+    block = len(last) > 1
+    for r in last:
+        label = f"{r['shot']} " if block else ""
+        if not r["path"]:
+            _render_row(col, f"{label}not rendered").active = False
+            continue
+        row = _render_row(col, label + r["folder"])
+        _video_button(row, {"render": r["path"]}, label + r["folder"])
+        _folder_button(row, r["path"])
+    return True
+
+
+def _draw_renders_to_check(layout, filepath: str, data: dict) -> None:
+    """File details' "Renders to check" box, full width under the
+    thumbnail row: each render with its date, video, folder and Checked."""
+    to_check = _to_check_lines(data)
+    if not to_check:
+        return
+    col = layout.box().column(align=True)
+    title = col.row()
+    title.alert = True
+    title.label(text="Renders to check:", icon="HIDE_OFF")
+    for shot, info in to_check:
+        label = render_to_check_label(shot, info)
+        row = _render_row(col, f"{label}   {_to_check_at(info)}")
+        _video_button(row, info, label)
+        if info.get("render"):
+            # project_path(): plain join, no disk access in a draw().
+            _folder_button(row, str(project_path(info["render"])))
+        row.separator(factor=1.5)
+        op = row.operator(
+            "m_pipeline.render_checked", text="Checked", icon="CHECKMARK"
+        )
+        op.filepath = filepath
+        op.shot = shot
+        op.custom_tooltip = "Mark this render as checked"
+
+
+def _render_row(col, text: str):
+    row = col.row(align=True)
+    row.alignment = "LEFT"
+    row.separator(factor=2)
+    row.label(text=text)
+    return row
+
+
+def _folder_button(row, path: str) -> None:
+    op = row.operator("wm.open_folder", text="", icon="FILE_FOLDER", emboss=False)
+    op.filepath = path
+    op.custom_tooltip = "Open this render's folder"
+
+
 def unregister_thumbnail_previews() -> None:
     global _previews
     if _previews is not None:
         bpy.utils.previews.remove(_previews)
         _previews = None
     _preview_ids.clear()
+    _last_renders.clear()
 
 
 def draw_file_details(self, context, layout):
@@ -472,32 +554,6 @@ def draw_file_details(self, context, layout):
             text=f"Total work time: {format_duration(total_seconds)}", icon="TIME"
         )
 
-    renders = _to_check_lines(data)
-    if renders:
-        check = layout.column(align=True)
-        title = check.row()
-        title.alert = True
-        title.label(text="Renders to check:", icon="HIDE_OFF")
-        for shot, info in renders:
-            row = check.row(align=True)
-            row.alignment = "LEFT"
-            row.separator(factor=2)
-            at = (info.get("at") or "")[:16].replace("T", " ")
-            row.label(text=f"{render_to_check_label(shot, info)}   {at}")
-            if info.get("render"):
-                op = row.operator(
-                    "wm.open_folder", text="", icon="FILE_FOLDER", emboss=False
-                )
-                # project_path(): plain join, no disk access in a draw().
-                op.filepath = str(project_path(info["render"]))
-                op.custom_tooltip = "Open this render's folder"
-            op = row.operator(
-                "m_pipeline.render_checked", text="Checked", icon="CHECKMARK"
-            )
-            op.filepath = filepath
-            op.shot = shot
-            op.custom_tooltip = "Mark this render as checked"
-
     layout.separator(factor=1)
     tabl = layout.row(align=True)
     tabl.alignment = "LEFT"
@@ -544,6 +600,9 @@ def draw_file_details(self, context, layout):
         )
 
     tabl.separator(factor=4)
+
+    if _draw_last_renders(tabl, filepath):
+        tabl.separator(factor=4)
 
     linked = get_linked_libraries_cached(Path(filepath))
     linked_by = find_linked_by(get_active_project_root(), Path(filepath))
@@ -603,15 +662,15 @@ def draw_file_details(self, context, layout):
                 )
                 op.filepath = str(folder)
 
+    layout.separator(factor=1)
+    _draw_renders_to_check(layout, filepath, data)
     layout.separator(factor=2)
 
-    # draw_file_details() is only ever called from M_PIPELINE_OT_tracking_monitor's
-    # draw() (invoke_props_dialog(width=MONITOR_POPUP_WIDTH)) -- context.region there isn't
-    # that dialog's own region, so region_char_budget(context) would size
-    # this off a panel-sized guess. Pass the dialog's own real width instead
-    # -- see region_char_budget()'s docstring / POPUP_WIDTH_SCALE in
-    # lib/core.py for why it still needs correcting.
-    width = int(region_char_budget(context, width_px=MONITOR_POPUP_WIDTH) * ENTRIES_INDENT_FACTOR)
+    # Drawn in M_PIPELINE_OT_tracking_monitor's dialog, whose region isn't
+    # context.region: pass the dialog's real width -- see
+    # region_char_budget() / POPUP_WIDTH_SCALE in lib/core.py.
+    budget = region_char_budget(context, width_px=MONITOR_POPUP_WIDTH)
+    width = int(budget * ENTRIES_INDENT_FACTOR)
     draw_entries(layout.column(align=True), filepath, filters=self, width=width)
     layout.separator(factor=2)
 
@@ -619,7 +678,7 @@ def draw_file_details(self, context, layout):
 def draw_monitor_table(self, context, layout, columns):
     """Filtered, paginated file list for M_PIPELINE_OT_tracking_monitor's main
     view -- self is that operator instance (file_type/asset_prefix/sequence/
-    page state lives on it, same convention as draw_file_details() above)."""
+    search/page state lives on it, same convention as draw_file_details() above)."""
     # Memory only: ProjectScan fills the cache in the background.
     data = TrackingStatusCache.known(Path(self.project_root))
     FIRST_COLUMN = 0.3
@@ -631,6 +690,7 @@ def draw_monitor_table(self, context, layout, columns):
         "shot": json_get(ConfigCache.get(), "naming.sequence.prefix"),
     }
 
+    search = self.search.strip().lower()
     matches = []
     for dir, file in data:
         if (
@@ -650,8 +710,13 @@ def draw_monitor_table(self, context, layout, columns):
                 else (file["file_name"].split("_", 1)[0] == self.sequence)
             )
         ):
-            if not self.only_to_check or file.get("to_check"):
-                matches.append((dir, file))
+            if self.only_to_check and not file.get("to_check"):
+                continue
+            if search and search not in (
+                f"{file['file_name']} {file.get('description') or ''}".lower()
+            ):
+                continue
+            matches.append((dir, file))
 
     # file_name is zero-padded prefix/sequence/shot numbers (see
     # naming.sequence/shot in config), so plain alphabetical sort already
@@ -672,10 +737,10 @@ def draw_monitor_table(self, context, layout, columns):
     title_list = f_list.split(factor=FIRST_COLUMN)
     title_list.active = False
     title_list.label(text="File", icon="RADIOBUT_ON")
-    deps = title_list.row()
-    for c in columns:
-        deps.label(text=c.capitalize(), icon="KEYFRAME_HLT")
-    deps.label(text="To check", icon="HIDE_OFF")
+    cells = _equal_cells(title_list.row(), len(columns) + 1)
+    for cell, c in zip(cells, columns):
+        cell.label(text=c.capitalize(), icon="KEYFRAME_HLT")
+    cells[-1].label(text="To check", icon="HIDE_OFF")
 
     f_list.separator(factor=1)
 
@@ -743,9 +808,8 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column):
         icon=safe_icon("FILE_ALIAS", "FILE_BLEND"),
         emboss=False,
     ).filepath = str(dir)
-    deps_row = split.row()
-    for c in columns:
-        icon_row = deps_row.row()
+    cells = _equal_cells(split.row(), len(columns) + 1)
+    for icon_row, c in zip(cells, columns):
         icon_row.label(text="", icon="BLANK1")
         if c in file.get("departments_required", []):
             icon_row.alert = _has_rtk(file, c)
@@ -777,14 +841,31 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column):
             ).custom_tooltip = tooltip
         else:
             icon_row.label(text=" ", icon="BLANK1")
-    _draw_to_check_cell(deps_row.row(), dir, file)
+    _draw_to_check_cell(cells[-1], dir, file)
     f_list.separator(factor=0.5, type="LINE")
+
+
+def _equal_cells(layout, count: int) -> list:
+    """count equal-width rows side by side. Splits, not a row: a row sizes
+    its items by their content, so a cell of icons and one of text would
+    no longer line up with the header's."""
+    cells = []
+    for i in range(count - 1):
+        layout = layout.split(factor=1 / (count - i))
+        cells.append(layout.row())
+    cells.append(layout.row())
+    return cells
 
 
 def _to_check_lines(file: dict) -> list[tuple[str, dict]]:
     """(shot, info) of every render waiting for a check, by shot."""
     to_check = file.get("to_check")
     return sorted(to_check.items()) if isinstance(to_check, dict) else []
+
+
+def _to_check_at(info: dict) -> str:
+    """ "2026-10-14 18:04" -- when the render was flagged."""
+    return (info.get("at") or "")[:16].replace("T", " ")
 
 
 def _draw_to_check_cell(cell, dir, file) -> None:
@@ -797,20 +878,31 @@ def _draw_to_check_cell(cell, dir, file) -> None:
         cell.label(text=" ", icon="BLANK1")
         return
     cell.alert = True
-    text = (
-        render_to_check_label(*renders[0])
-        if len(renders) == 1
-        else f"{len(renders)} renders"
-    )
-    op = cell.operator(
-        "m_pipeline.render_checked", text=text, icon="CHECKBOX_DEHLT", emboss=False
+    buttons = cell.row(align=True)
+    buttons.alignment = "LEFT"
+    for shot, info in renders:  # one video per shot of a block
+        _video_button(buttons, info, render_to_check_label(shot, info))
+    buttons.separator(factor=1.5)
+    op = buttons.operator(
+        "m_pipeline.render_checked", text="", icon="CHECKBOX_DEHLT", emboss=False
     )
     op.filepath = str(dir)
     op.all_shots = True
-    op.custom_tooltip = "Click once checked:\n" + "\n".join(
-        f"{render_to_check_label(shot, info)}  ({(info.get('at') or '')[:16].replace('T', ' ')})"
+    op.custom_tooltip = "Mark checked:\n" + "\n".join(
+        f"{render_to_check_label(shot, info)}  ({_to_check_at(info)})"
         for shot, info in renders
     )
+
+
+def _video_button(layout, info: dict, label: str) -> None:
+    """Play a render's video (m_pipeline.open_render_video)."""
+    op = layout.operator(
+        "m_pipeline.open_render_video", text="", icon="FILE_MOVIE", emboss=False
+    )
+    op.render = info.get("render") or ""
+    op.video = info.get("video") or ""
+    at = _to_check_at(info)
+    op.custom_tooltip = f"Play {label}" + (f"  ({at})" if at else "")
 
 
 def _draw_monitor_blank_row(f_list, columns, first_column):
@@ -820,10 +912,8 @@ def _draw_monitor_blank_row(f_list, columns, first_column):
     row.active = False
     split = row.split(factor=first_column)
     split.row().label(text="")
-    deps_row = split.row()
-    for c in columns:
-        deps_row.row().label(text="", icon="BLANK1")
-    deps_row.row().label(text="", icon="BLANK1")  # "To check"
+    for cell in _equal_cells(split.row(), len(columns) + 1):  # + "To check"
+        cell.label(text="", icon="BLANK1")
     f_list.separator(factor=0.5, type="LINE")
 
 

@@ -478,6 +478,34 @@ Landing exactly between the two was considered — monkey-patch `TOPBAR_MT_edito
 
 ---
 
+## Pipeline log: backup noise, viewer
+
+`save_project_data()`/`load_project_data()` (the per-machine backup of the
+projects list, `pipeline_backup.json` in the extension's user folder)
+logged every success into the project's shared log: every Blender start
+and quit, and every farm subprocess (they register the addon too -- user
+"cmd"). On a test project that was 87 % of the lines, each one a lock on
+the share. Successes aren't logged anymore; failures still raise.
+
+The viewer (`m_pipeline.pipeline_logs`) reads only the file's last 1 MB
+(`read_log_tail()`): it can be several MB on a share before rotation, and
+the recent lines are what's looked for -- on a thread, like every other
+popup read. Its timer redraws the popup through the Farm popup's region
+registry, with the same rule: redrawn every tick while reading (a live
+popup re-registers on each draw), and the registry cleared when the popup
+opens, so a region from a closed popup is never touched. Action and user
+filters list what was read rather than a fixed list -- any `log()` call
+adds its own action.
+
+**Redraw cost.** A popup redraws on every mouse move. The first version
+re-filtered every line and rebuilt the action/user enum items on each
+redraw; now both are built once per read (`_filtered`, keyed on the read
+and the filters, so a page change is a slice; `_items_cache`, keyed on the
+read). Messages are drawn as their first line, cut at `_SHORT`: some farm
+errors carry 1000+ chars of subprocess output, and Blender re-clips a
+button's whole text on each redraw. The full line is the tooltip, and a
+click copies it.
+
 ## Recent files: derived from the log, not a stored list
 
 The top bar's "Recent" entries (`RecentFilesCache`, `lib/tracking.py`) don't store anything of their own — they're computed from `sessions_log.jsonl`'s own `session_end` lines, the same file `WorkTimeCache` already reads, on the same mtime-cached full-scan pattern.
@@ -1487,6 +1515,48 @@ every tick) and keeps its last answer on a failed read, like
 **Open-folder button per job**: `_build_job_entry()` carries `output_dir`
 (the folder the job renders into, a plain join on the project root -- no
 `resolve()`), and each row with one gets a `wm.open_folder` button.
+
+**Filters and pages.** The jobs list is filtered and paginated in
+`draw_farm_jobs()`, like Project monitoring's table: everything is already
+in the monitor cache, so filtering costs no disk call. Sorted on
+`submitted_at` (first stage of `stage_history`, or the request's
+`submitted_at` for a pending one), newest first: the reader thread lists
+files in arbitrary order, which would shuffle jobs across pages between
+two refreshes. Never `stage_at`, which moves on every stage. The search
+fields are `SKIP_SAVE` -- a search remembered from last time would hide
+jobs/files without saying why -- and any filter change goes back to page 1.
+The job detail's JSON button reuses `wm.open_folder` on the file itself
+(`os.startfile`/`open`/`xdg-open` open a file with its default app too).
+
+**Retry.** A failed job is rewound in place (`retry_job()`,
+`farm/queue.py`), the same way crash recovery resumes one: a stage entry
+`{"resumed": "retry"}` back to the stage before the failure
+(`_RETRY_STAGE`). Resubmitting would have gone through setup again, which
+increments the output folder -- the point is the same folder, frames and
+preset. A render retry deletes the empty files first: renders run with
+placeholders, and a frame started then interrupted stays an empty file
+that the next render skips. Only `*_failed` stages are retryable; a job
+already archived by hand is moved back to `actives/` first (checked as
+failed before moving).
+
+**To check is never lost.** `compilation_finished` used to call
+`mark_render_to_check()` (never raises, logs) and move on: one locked
+tracking.json on the share and the render never showed up to check. It now
+only marks the job finished once the flag is written (`_flag_to_check()`),
+retrying on the next ticks; after `_TO_CHECK_ATTEMPTS` (~5 min) it gives up
+with an ERROR log rather than hold the job forever. A folder with no
+tracking.json counts as done (nothing to flag). The thumbnail refresh moved
+after it: it would otherwise launch a Blender on every retried tick. The
+entry also records the compiled `video`, for the To check column's play
+button; older entries fall back to the newest video in the render folder,
+looked up on click, never in draw().
+
+**"Checked" archives the job.** Once a render is checked in Project
+monitoring, its job has nothing left to show in the Farm popup: the
+operator archives it (`_archive_checked_job()`, `operators/tracking_ops.py`)
+-- only if it is still in `actives/` and reached `finished`, never a job
+in flight. A split block's parent job (`split_finished`) has no
+`to_check` entry of its own and stays in the list.
 
 **Refresh cost** (the popup's `_refresh_tick()`, every 2 s, UI thread):
 

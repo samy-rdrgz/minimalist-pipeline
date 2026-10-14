@@ -368,16 +368,29 @@ def archive(job_path: Path) -> None:
 # The job the Farm monitoring popup shows in detail: read once, on click
 # (load_job_details()), never from draw().
 _job_details: dict = {}
+# Where that job's file was found, and its logs (archive() moves both).
+_job_files: dict = {"path": None, "logs": []}
 
 
 def load_job_details(job_id: str) -> dict | None:
-    """Read a job's file -- active/, else archives/ (archive() moves it
-    there) -- into the detail cache. None, cache emptied, if it's in neither."""
+    """Read a job's file -- active/, else archives/ -- and list its logs
+    into the detail cache. None, cache emptied, if it's in neither."""
     _job_details.clear()
+    _job_files.update(path=None, logs=[])
     for folder in ("farm_actives", "farm_archives"):
-        data = read_json_quiet(ConfigCache.get_path(folder) / f"{job_id}.json")
+        path = ConfigCache.get_path(folder) / f"{job_id}.json"
+        data = read_json_quiet(path)
         if data:
             _job_details.update(data)
+            _job_files["path"] = path
+            # request_<job_id>.log (this machine's stages) and
+            # request_<job_id>_<uuid>.log (each worker's render).
+            pattern = f"request_{job_id}*.log"
+            _job_files["logs"] = sorted(
+                log_file
+                for logs in ("farm_requests", "farm_archives")
+                for log_file in ConfigCache.get_path(logs).glob(pattern)
+            )
             return data
     return None
 
@@ -385,6 +398,16 @@ def load_job_details(job_id: str) -> dict | None:
 def get_job_details() -> dict:
     """The job last read by load_job_details()."""
     return _job_details
+
+
+def get_job_details_path() -> Path | None:
+    """The file load_job_details() read that job from."""
+    return _job_files["path"]
+
+
+def get_job_details_logs() -> list[Path]:
+    """That job's log files, as found by load_job_details()."""
+    return _job_files["logs"]
 
 
 def recover_interrupted_jobs() -> None:

@@ -8,7 +8,9 @@ import bpy
 
 from ..farm import (
     archive,
+    failed_stage,
     get_monitor_cache,
+    job_state,
     job_cancel_request,
     job_request,
     kill_worker,
@@ -21,6 +23,7 @@ from ..farm import (
     register_popup_region,
     register_refresh_timer,
     request_monitor_kill,
+    retry_job,
     scan_workers,
     unregister_refresh_timer,
 )
@@ -37,6 +40,7 @@ from ..lib import (
     locked_json,
     log,
     parse_filename,
+    read_json_quiet,
     prefix_items,
     resolve_ffmpeg,
     resolve_version_file,
@@ -46,7 +50,12 @@ from ..lib import (
     shots_in_segment,
     version_items,
 )
-from ..panels import draw_farm_job_details, draw_farm_jobs, draw_farm_workers
+from ..panels import (
+    MONITOR_POPUP_WIDTH,
+    draw_farm_job_details,
+    draw_farm_jobs,
+    draw_farm_workers,
+)
 
 _workers_items_cache: list[tuple[str, str, str]] = []
 _pre_render_scripts: list[tuple[str, str, str]] = []
@@ -752,6 +761,79 @@ class M_PIPELINE_OT_farm_archive_job(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class M_PIPELINE_OT_farm_archive_jobs(bpy.types.Operator):
+    """Archive every finished, or every failed, job of the Farm popup."""
+
+    bl_idname = "m_pipeline.farm_archive_jobs"
+    bl_label = "Archive all"
+
+    state: bpy.props.EnumProperty(
+        items=[("finished", "Finished", ""), ("failed", "Failed", "")]
+    )
+
+    @classmethod
+    def description(cls, context, properties):
+        return f"Archive every {properties.state} job (moved to queue/archives/)."
+
+    def execute(self, context):
+        actives = ConfigCache.get_path("farm_actives")
+        cache = get_monitor_cache()
+        archived = set()
+        for job in cache["jobs"]:
+            if job["stage"] == "pending" or job_state(job["stage"]) != self.state:
+                continue
+            try:
+                archive(actives / f"{job['job_id']}.json")
+                archived.add(job["job_id"])
+            except OSError as e:
+                log("ERROR", "farm_archive_jobs", f"{job['job_id']}: {e}")
+        # Off the list now, not at the next refresh.
+        cache["jobs"] = [j for j in cache["jobs"] if j["job_id"] not in archived]
+        self.report({"INFO"}, f"{len(archived)} job(s) archived.")
+        return {"FINISHED"}
+
+
+class M_PIPELINE_OT_farm_retry_job(bpy.types.Operator):
+    """Run a failed job again from the stage that failed."""
+
+    bl_idname = "m_pipeline.farm_retry_job"
+    bl_label = "Retry"
+    bl_description = (
+        "Run this job again from the stage that failed: same output folder, "
+        "frames and preset (no new version). A render keeps the frames "
+        "already rendered."
+    )
+
+    job_id: bpy.props.StringProperty()
+
+    def execute(self, context):
+        actives = ConfigCache.get_path("farm_actives")
+        job_path = actives / f"{self.job_id}.json"
+        archived = ConfigCache.get_path("farm_archives") / job_path.name
+        try:
+            if not job_path.exists() and archived.exists():
+                if not failed_stage(read_json_quiet(archived) or {}):
+                    self.report({"WARNING"}, "This job didn't fail: nothing to retry.")
+                    return {"CANCELLED"}
+                archived.rename(job_path)  # archived by hand: back in the queue
+            with locked_json(job_path) as box:
+                data = box["data"] or {}
+                target = retry_job(data, get_active_project_root())
+                if target:
+                    box["action"] = "to_write"
+        except Exception as e:
+            log("ERROR", "farm_retry_job", str(e))
+            self.report({"ERROR"}, f"Could not retry the job: {e}")
+            return {"CANCELLED"}
+        if not target:
+            self.report({"WARNING"}, "This job didn't fail: nothing to retry.")
+            return {"CANCELLED"}
+        if context.window_manager.farm_job_selected == self.job_id:
+            load_job_details(self.job_id)
+        self.report({"INFO"}, f"Job sent back to {target}.")
+        return {"FINISHED"}
+
+
 class M_PIPELINE_OT_farm_job_details(bpy.types.Operator):
     """Farm monitoring popup: switch to one job's detail view, or back to
     the list. Reads the job file here, once per click -- never in draw()."""
@@ -776,37 +858,60 @@ class M_PIPELINE_OT_farm_job_details(bpy.types.Operator):
         return {"FINISHED"}
 
 
+def _back_to_first_page(self, context):
+    self.page = 1
+
+
 class M_PIPELINE_OT_farm_monitor(bpy.types.Operator):
     """Popup dashboard: active jobs and worker machines, filterable."""
 
     bl_idname = "m_pipeline.farm_monitor"
     bl_label = ""
     bl_description = "Show a popup view of farm."
-    project_root: bpy.props.StringProperty()
 
     view: bpy.props.EnumProperty(
         items=[("jobs", "Jobs", ""), ("workers", "Workers", "")],
         default="jobs",
     )
 
-    asset_prefix: bpy.props.EnumProperty(items=prefix_items)
-
-    # Shot cascade: sequence → shot
-    sequence: bpy.props.EnumProperty(items=sequence_items)
+    # Jobs view filters. A filter change goes back to page 1.
+    state: bpy.props.EnumProperty(
+        items=[
+            ("all", "All", "Every job"),
+            ("running", "Running", "Pending, queued or in progress"),
+            ("finished", "Finished", "Finished jobs"),
+            ("failed", "Failed", "Failed jobs"),
+        ],
+        default="all",
+        update=_back_to_first_page,
+    )
+    only_mine: bpy.props.BoolProperty(
+        name="",
+        default=False,
+        description="Only the jobs I submitted",
+        update=_back_to_first_page,
+    )
+    search: bpy.props.StringProperty(
+        name="",
+        description="Filter by file name or shot",
+        options={"SKIP_SAVE"},
+        update=_back_to_first_page,
+    )
+    # SKIP_SAVE: reopen on page 1, see M_PIPELINE_OT_tracking_monitor.page.
+    page: bpy.props.IntProperty(default=1, min=1, options={"SKIP_SAVE"})
+    PAGE_SIZE = 8
 
     def invoke(self, context, event):
-        project_root = get_active_project_root()
-
-        if not project_root:
+        if not get_active_project_root():
             self.report({"ERROR"}, "No active project.")
             return {"CANCELLED"}
 
-        get_monitor_cache()
-        self.project_root = str(project_root)
         context.window_manager.farm_job_selected = ""  # always open on the list
         register_refresh_timer()
 
-        return context.window_manager.invoke_props_dialog(self, width=800)
+        return context.window_manager.invoke_props_dialog(
+            self, width=MONITOR_POPUP_WIDTH
+        )
 
     def execute(self, context):
         unregister_refresh_timer()
@@ -826,13 +931,20 @@ class M_PIPELINE_OT_farm_monitor(bpy.types.Operator):
             draw_farm_job_details(layout.box(), context)
             return
 
-        filters = layout.box().split(factor=0.5)
+        filter_box = layout.box()
+        filters = filter_box.split(factor=0.5)
         filters.label(text="Filters", icon="FILTER")
         filters_btn = filters.row()
         filters_btn.prop(self, "view", expand=True)
+        if self.view == "jobs":
+            job_filters = filter_box.split(factor=0.5)
+            job_filters.prop(self, "search", text="", icon="VIEWZOOM")
+            job_btn = job_filters.row()
+            job_btn.prop(self, "state", expand=True)
+            job_btn.prop(self, "only_mine", text="Mine", icon="USER")
 
         box = layout.box()
         if self.view == "jobs":
-            draw_farm_jobs(box)
+            draw_farm_jobs(self, box)
         else:
             draw_farm_workers(box)

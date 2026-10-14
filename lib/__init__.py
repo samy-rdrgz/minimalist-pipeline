@@ -98,7 +98,7 @@ from .handlers import (
     unregister_handlers,
 )
 from .libraries import clean_append_and_relink
-from .logs import log
+from .logs import log, read_log_tail
 from .operators import (
     M_PIPELINE_OT_action_popup,
     M_PIPELINE_OT_auto_version,
@@ -140,6 +140,7 @@ from .snapshot import (
     SnapshotJob,
     build_snapshot,
     import_review_xlsx,
+    read_render_state,
     read_snapshot_data,
     read_snapshot_raw,
     render_html,

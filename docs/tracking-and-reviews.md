@@ -12,11 +12,13 @@ Every asset/shot has a `.pipeline/` folder next to its `.blend` files:
 
 **Prod review import** (Project panel or Pipeline menu > *Import prod review*): reads back the review spreadsheet from a snapshot, as is. Each line of a *text* cell becomes its own entry — several retakes on the same shot go on several lines (Alt+Enter), each one with its own checkbox. Author and date come from the top of the sheet (`prod` and the import day when left empty); each note is anchored on the version the snapshot showed. Importing the same file again, or a re-sent one with notes added, never duplicates: lines already imported are skipped. A popup lists what came in and what couldn't (e.g. a file renamed or branched since). Imported entries say so in their tooltip.
 
-**Production snapshot** (Project panel > *Export prod snapshot*): writes one HTML file — `<project>_snapshot_<YYYY-MM-DD>.html` — showing every asset/shot's status per department and every open note, for people outside the studio (no Blender, no access to the share needed: it opens offline in any browser, and can be sent by mail). Each department reads *Not started*, *Work in progress*, *Validated*, or *Validated, reworked since* (validated at the last stable, but worked on again after it). Each asset/shot shows a thumbnail from its latest render (the farm makes it when a render ends; the export makes any that are missing or out of date, from the frames already on disk). It can be filtered by name, group (prefix/sequence), department and state, open RTKs or open notes; each row with notes links straight to them. The page carries a review spreadsheet (.xlsx) to download, one row per asset/shot, for production to fill in and send back. The scan runs in the background; Blender stays usable meanwhile.
+**Production snapshot** (Project panel > *Export prod snapshot*): writes one HTML file — `<project>_snapshot_<YYYY-MM-DD>.html` — showing every asset/shot's status per department and every open note, for people outside the studio (no Blender, no access to the share needed: it opens offline in any browser, and can be sent by mail). Each department reads *Not started*, *Work in progress*, *Validated*, or *Validated, reworked since* (validated at the last stable, but worked on again after it). A "Last render" column gives the output folder of each asset/shot's last render (vXXX_YYY: the .blend version rendered, then the render increment), in red when it was rendered from a version older than the last stable. Each asset/shot shows a thumbnail from its latest render (the farm makes it when a render ends; the export makes any that are missing or out of date, from the frames already on disk). It can be filtered by name, group (prefix/sequence), department and state, open RTKs or open notes; each row with notes links straight to them. The page carries a review spreadsheet (.xlsx) to download, one row per asset/shot, for production to fill in and send back. The scan runs in the background; Blender stays usable meanwhile.
 
 Two project-wide monitoring popups (Project menu): the list of every file with its status per department, and a file's detail (notes/todos, with a click to validate an `rtk`, and its total logged work time — see [Design choices](design.md#work-duration-is-logged-never-surfaced-per-person) for what that total is and isn't). Both are described in [Interface](interface.md#overview-popups).
 
 Multishot blocks can tag a note/todo with which shot in the block it's about — see [Shot blocks (multishot)](multishot.md).
+
+**Renders to check**: when a farm job finishes (frames checked, video compiled), its render waits for a check. Project monitoring shows it in its "To check" column — a video button plays it, the checkbox marks it checked — and an eye icon in its filters lists only the files with one waiting. The file's detail lists them in their own box (date, video, folder, "Checked"), next to the last render of each shot, checked or not. Marking a render checked also archives its farm job. A block keeps one per shot; a newer render of a shot replaces the older one.
 
 ---
 
@@ -45,6 +47,8 @@ Multishot blocks can tag a note/todo with which shot in the block it's about —
 ```
 
 `type` is `note` (`done: null`, never checkable), `todo`, or `rtk` (fix requested — `done: true/false`, with `done_by`/`done_at` once validated).
+
+A finished farm render adds a `to_check` key, until it's marked checked: `{"<shot>": {"render", "video", "at", "job_id"}}` — the shot is `""` for an asset or a single shot, one key per shot for a block.
 
 ---
 

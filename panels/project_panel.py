@@ -44,6 +44,9 @@ class M_PIPELINE_PT_project_panel(bpy.types.Panel):
                     emboss=False,
                 ).project_path_selected = str(active_path)
                 layout.operator(
+                    "m_pipeline.pipeline_logs", text="", icon="TEXT", emboss=False
+                )
+                layout.operator(
                     project_ops.M_PIPELINE_OT_unset_active_project.bl_idname,
                     text="",
                     icon="PANEL_CLOSE",

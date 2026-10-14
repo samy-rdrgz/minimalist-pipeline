@@ -95,6 +95,7 @@ class M_PIPELINE_MT_topbar_menu(bpy.types.Menu):
         layout.operator(
             "m_pipeline.tracking_monitor", text="Tracking monitor", icon="BLANK1"
         )
+        layout.operator("m_pipeline.pipeline_logs", text="Pipeline log", icon="BLANK1")
         layout.operator(
             "m_pipeline.export_snapshot", text="Export prod snapshot", icon="BLANK1"
         )

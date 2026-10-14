@@ -93,7 +93,8 @@ def save_project_data(prefs) -> bool:
         with locked_json(filepath) as box:
             box["data"] = data
             box["action"] = "to_write"
-        log("INFO", "backup", f"Backup saved: {filepath}")
+        # No success log: a per-machine file has no place in the project's
+        # shared log, written on every launch and farm subprocess (NOTES.md).
         return True
     except Exception as e:
         raise PipelineError(f"Backup save failed: {e}")
@@ -123,7 +124,6 @@ def load_project_data(prefs) -> bool:
             if not prefs.user_name and data.get("user_name"):
                 prefs.user_name = data["user_name"]
 
-            log("INFO", "backup", "Project data loaded.")
             return True
     except Exception as e:
         raise PipelineError(f"Backup load failed: {e}")
