@@ -95,6 +95,12 @@ class M_PIPELINE_MT_topbar_menu(bpy.types.Menu):
         layout.operator(
             "m_pipeline.tracking_monitor", text="Tracking monitor", icon="BLANK1"
         )
+        layout.operator(
+            "m_pipeline.export_snapshot", text="Export prod snapshot", icon="BLANK1"
+        )
+        layout.operator(
+            "m_pipeline.import_review", text="Import prod review", icon="BLANK1"
+        )
 
         filepath = bpy.data.filepath
         if filepath and file_in_active_project(filepath, str(project_root)):

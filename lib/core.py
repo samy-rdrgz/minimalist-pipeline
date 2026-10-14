@@ -28,9 +28,9 @@ def get_addon_version() -> str:
     Falls back to "0.0.0" rather than raising -- metadata, never worth blocking on."""
     import addon_utils
 
-    addon_name = __package__.split(".")[
-        0
-    ]  # "minimalist_pipeline.lib" → "minimalist_pipeline"
+    # "bl_ext.<repo>.minimalist_pipeline.lib" -> "bl_ext.<repo>.minimalist_pipeline"
+    # (an extension install is namespaced, same as addon_pref() below).
+    addon_name = __package__.rsplit(".", 1)[0]
     try:
         for mod in addon_utils.modules():
             if mod.__name__ == addon_name:
@@ -107,9 +107,11 @@ def read_csv(filepath: Path) -> list[dict]:
         # utf-8-sig transparently strips a BOM if present (Excel writes one
         # when saving "CSV UTF-8" on Windows) and behaves like plain utf-8
         # otherwise -- needed for accented text (descriptions, names...).
-        with open(filepath, mode="r", encoding="utf-8-sig") as file:
-            # Excel FR saves with ";", not ",". Sniffed on the header line
-            # only: free text in the rows (commas in a note) can't mislead it.
+        with open(filepath, mode="r", encoding="utf-8-sig", newline="") as file:
+            # Excel writes ";" in a French locale -- sniffed, never a "sep="
+            # line (DictReader would take it for the header). On the header
+            # line only: free text in the rows (commas in a description)
+            # can't mislead it.
             try:
                 dialect = csv.Sniffer().sniff(file.readline(), delimiters=",;\t")
             except csv.Error:

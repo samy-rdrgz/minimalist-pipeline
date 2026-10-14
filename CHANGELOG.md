@@ -29,21 +29,61 @@ All notable changes to this addon. Dates are release dates.
   applies the preset too (in memory, never saved) before reading them: a
   preset changing the format no longer breaks the frame check and the
   compilation.
+- `render_history.json` now records the render's duration, the machines
+  that rendered it, and which file and output folder were rendered
+  (`source_file`, `output_path`, `shot_override`).
 
 ### Farm monitoring popup
 
 - Click a job's name for its detail: stage history with timestamps, frame
   range, output folder, format, fps, preset, machines, split shots.
-- `render_history.json` now records the render's duration, the machines
-  that rendered it, and which file and output folder were rendered
-  (`source_file`, `output_path`, `shot_override`).
 
-### Fixes — tracking
+### Fixes — batch creation
 
-- **CSV import**: the `author` column was ignored, a missing `department`
-  column failed every row, a file that wasn't found still got through, and
-  `;`-separated files (French Excel) couldn't be read. An empty author cell
-  now gives `prod`.
+- The CSV separator is detected on the header line only: a description
+  with commas could make a `;` file read as `,`.
+
+## 1.0.10 — 2026-10-13
+
+### Production snapshot
+
+- **Export prod snapshot** (Project panel and Pipeline menu): one HTML file
+  showing every asset and shot's status per department and all open
+  notes, readable offline without Blender or the studio share — made to
+  be sent to production by mail. Filters by name, group, department and
+  state, open RTKs or notes; each row jumps to its notes. It carries a
+  review spreadsheet to download and fill in. The scan and the file
+  writing run in the background: Blender never freezes.
+- **Import prod review** (Project panel and Pipeline menu): reads the
+  filled-in spreadsheet back. One line of text = one note, so several
+  retakes on a shot each get their own checkbox. Importing the same file
+  twice, or a re-sent one with more notes, never duplicates. A popup
+  sums up what was imported and what wasn't (and why). Imported notes are
+  marked as coming from a prod review.
+- **Thumbnails**, from the middle frame of each asset or shot's latest
+  render, any aspect ratio — in the snapshot and in Project monitoring's
+  file details. The farm makes one when a render is done; the export
+  makes any missing or outdated one from the frames already on disk, in
+  the background. Made by Blender itself — only a multilayer EXR needs
+  ffmpeg; without it, the export says which thumbnails it couldn't make.
+  Can be turned off in the export's options.
+
+### Removed
+
+- The CSV import of notes, replaced by the review spreadsheet. Batch
+  creation keeps its CSV.
+
+### Fixes
+
+- **Rendering an asset or library file on the farm works.** The job used
+  to fail at setup; its frames now go to `renders/assets/<prefix>/<asset>/`
+  (or `renders/library/...`).
+- Project monitoring's "Open render folder" button (file details) opened
+  a folder that doesn't exist for a shot (`renders/shots/...`).
+- The addon version stamped into the project config read "0.0.0" when
+  the addon was installed as an extension.
+- Batch creation CSV files saved by Excel with a ";" separator (French
+  locale) are read correctly.
 
 ## 1.0.9 — 2026-10-13
 

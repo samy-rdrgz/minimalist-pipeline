@@ -50,7 +50,8 @@ from .tracking_ops import (
     M_PIPELINE_OT_tracking_file_details,
     M_PIPELINE_OT_tracking_monitor,
     M_PIPELINE_OT_tracking_refresh,
-    M_PIPELINE_OT_upload_csv,
+    M_PIPELINE_OT_export_snapshot,
+    M_PIPELINE_OT_import_review,
     PipelineEntryItem,
 )
 
@@ -86,7 +87,8 @@ classes = (
     M_PIPELINE_OT_edit_description,
     M_PIPELINE_OT_edit_entry,
     M_PIPELINE_OT_toggle_entry_task,
-    M_PIPELINE_OT_upload_csv,
+    M_PIPELINE_OT_export_snapshot,
+    M_PIPELINE_OT_import_review,
     M_PIPELINE_OT_tracking_monitor,
     M_PIPELINE_OT_tracking_refresh,
     M_PIPELINE_OT_open_file_version,

@@ -14,7 +14,7 @@ from .dispatch import (
     read_process_log,
     render_dispatch,
 )
-from .post_render import checks_images, compilation
+from .post_render import checks_images, compilation, refresh_shot_thumbnail
 from .workers import local_render_running
 
 
@@ -165,6 +165,7 @@ def scan_queue(project_root: Path) -> None:
                     )
 
             elif stage == "compilation_finished":
+                refresh_shot_thumbnail(data, project_root)
                 mark_stage(job, "finished")
                 construct_history(data, status="finished")
                 mark_stage(job, "archived")

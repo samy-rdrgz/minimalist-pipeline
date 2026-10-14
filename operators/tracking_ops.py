@@ -1,4 +1,4 @@
-"""Tracking operators: CRUD on note/todo/rtk entries, CSV import, monitoring popups."""
+"""Tracking operators: CRUD on note/todo/rtk entries, prod snapshot export and review import, monitoring popups."""
 
 import hashlib
 from pathlib import Path
@@ -9,35 +9,42 @@ from ..lib import (
     ConfigCache,
     PipelineError,
     ProjectScan,
+    SnapshotJob,
     TrackingStatusCache,
+    build_snapshot,
     create_entry,
     delete_entry,
     department_filter_items,
     edit_entry,
     entry_version_items,
     get_active_project_root,
+    get_addon_version,
     get_current_departments,
     get_departments_required,
     get_description,
     get_session_worked_departments,
     get_user,
+    import_review_xlsx,
     json_get,
     log,
     now,
     prefix_items,
+    read_snapshot_data,
+    resolve_ffmpeg,
     sequence_items,
     set_department_validated,
     set_description,
     shot_tag_items,
+    snapshot_filename,
     text_field,
     to_absolute,
     toggle_entry_task,
     tracked_department_items,
     tracking_json_path,
-    upload_csv,
     wipmeta_add_work,
+    write_snapshot,
 )
-from ..panels import draw_file_details, draw_monitor_table
+from ..panels import draw_file_details, draw_monitor_table, load_file_thumbnail
 
 _file_department_items_cache: list = []
 
@@ -589,57 +596,175 @@ class M_PIPELINE_OT_toggle_entry_task(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class M_PIPELINE_OT_upload_csv(bpy.types.Operator):
-    """Bulk-create tracking entries from a .csv file."""
+class M_PIPELINE_OT_import_review(bpy.types.Operator):
+    """Import the notes from a filled-in snapshot review spreadsheet."""
 
-    bl_idname = "m_pipeline.upload_csv"
-    bl_label = ""
-    bl_description = "Bulk-create tracking entries from a .csv file."
-
-    csv_path: bpy.props.StringProperty(
-        name="CSV file",
-        subtype="FILE_PATH",
-        description="Select your .csv file.",
-        default="//",
+    bl_idname = "m_pipeline.import_review"
+    bl_label = "Import review"
+    bl_description = (
+        "Create notes from a review spreadsheet sent back by production "
+        "(the .xlsx downloaded from a snapshot). Lines already imported are "
+        "skipped"
     )
 
-    def draw(self, context):
-        layout = self.layout
-        layout.label(text="Select your CSV file:", icon="FILE_FOLDER")
-        layout.prop(self, "csv_path", text="")
-        layout.label(
-            text="Must contain at least 'text' and 'filename' in the header.",
-            icon="INFO",
-        )
-        layout.label(
-            text="('author', 'department' and 'type' can be specified in other columns.)",
-            icon="INFO",
-        )
+    filepath: bpy.props.StringProperty(subtype="FILE_PATH")
+    filter_glob: bpy.props.StringProperty(default="*.xlsx", options={"HIDDEN"})
 
     def invoke(self, context, event):
-        return context.window_manager.invoke_props_dialog(self, width=400)
+        if not get_active_project_root():
+            self.report({"ERROR"}, "No active project.")
+            return {"CANCELLED"}
+        context.window_manager.fileselect_add(self)
+        return {"RUNNING_MODAL"}
 
     def execute(self, context):
-        path = Path(bpy.path.abspath(self.csv_path))
-
-        if not path.exists() or path.is_dir() or path.suffix != ".csv":
-            self.report({"ERROR"}, "No valid CSV file selected.")
+        path = Path(bpy.path.abspath(self.filepath))
+        if not path.is_file() or path.suffix.lower() != ".xlsx":
+            self.report({"ERROR"}, "No valid .xlsx file selected.")
             return {"CANCELLED"}
         try:
-            imported, total = upload_csv(path, get_user(context))
+            result = import_review_xlsx(path)
         except PipelineError as e:
-            log(e.level, "csv_import", e.message)
+            log(e.level, "review_import", e.message)
             self.report({e.level}, e.message)
             return {"CANCELLED"}
-        if imported < total:
+        for label, reason in result["skipped"]:
+            log("WARNING", "review_import", f"{path.name}: {label} -- {reason}")
+        log(
+            "INFO",
+            "review_import",
+            f"{path.name}: {result['imported']} imported, "
+            f"{result['duplicates']} already there, {len(result['skipped'])} skipped",
+        )
+        lines = [f"{result['imported']} note(s) imported"]
+        if result["duplicates"]:
+            lines.append(f"{result['duplicates']} already imported before, skipped")
+        if result["skipped"]:
+            lines.append(f"{len(result['skipped'])} not imported:")
+            lines += [f"   {label} -- {reason}" for label, reason in result["skipped"][:8]]
+            if len(result["skipped"]) > 8:
+                lines.append(f"   ... and {len(result['skipped']) - 8} more (see log)")
+        message = "\n".join(lines)
+        icon = "ERROR" if result["skipped"] else "CHECKMARK"
+        # Deferred one tick: chaining a popup from execute() -- see NOTES.md,
+        # "Popup-chaining".
+        bpy.app.timers.register(
+            lambda: bpy.ops.m_pipeline.text_popup(
+                "INVOKE_DEFAULT", title="Review import", message=message, icon=icon
+            )
+            and None,
+            first_interval=0.05,
+        )
+        return {"FINISHED"}
+
+
+class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
+    """Write a self-contained HTML snapshot of the project's state."""
+
+    bl_idname = "m_pipeline.export_snapshot"
+    bl_label = "Export snapshot"
+    bl_description = (
+        "Write one HTML file showing every asset/shot's status and open notes, "
+        "readable offline without Blender, with a review spreadsheet inside "
+        "to send back"
+    )
+
+    filepath: bpy.props.StringProperty(subtype="FILE_PATH")
+    filter_glob: bpy.props.StringProperty(default="*.html", options={"HIDDEN"})
+    include_thumbnails: bpy.props.BoolProperty(
+        name="Thumbnails",
+        default=True,
+        description=(
+            "Show a thumbnail per asset/shot, from its latest render. Missing "
+            "or outdated ones are made first, in the background"
+        ),
+    )
+
+    _job = None
+    _warnings: list = []
+    _timer = None
+    _root = None
+    _writing = False
+
+    def invoke(self, context, event):
+        root = get_active_project_root()
+        if not root:
+            self.report({"ERROR"}, "No active project.")
+            return {"CANCELLED"}
+        meta = {"project": json_get(ConfigCache.get(), "project_name") or root.name}
+        # Same folder as last time, fresh dated name.
+        folder = Path(self.filepath).parent if self.filepath else Path.home()
+        self.filepath = str(
+            folder / snapshot_filename({"meta": {**meta, "scan_started_at": now()}})
+        )
+        context.window_manager.fileselect_add(self)
+        return {"RUNNING_MODAL"}
+
+    def execute(self, context):
+        self._root = get_active_project_root()
+        if not self._root:
+            self.report({"ERROR"}, "No active project.")
+            return {"CANCELLED"}
+        if not self.filepath.lower().endswith(".html"):
+            self.filepath += ".html"
+        # Disk reads, then render+write, each on a thread: a full walk takes
+        # seconds on a share, and the target folder can be on it too.
+        thumbnails = None
+        if self.include_thumbnails:
+            thumbnails = {
+                "v_prefix": json_get(ConfigCache.get(), "naming.version.prefix", "v"),
+                "blender": bpy.app.binary_path,
+                "ffmpeg": resolve_ffmpeg(),
+            }
+        self._job = SnapshotJob(read_snapshot_data, self._root, thumbnails)
+        self._writing = False
+        wm = context.window_manager
+        self._timer = wm.event_timer_add(0.2, window=context.window)
+        wm.modal_handler_add(self)
+        self.report({"INFO"}, "Scanning project for the snapshot...")
+        return {"RUNNING_MODAL"}
+
+    def modal(self, context, event):
+        if event.type != "TIMER" or not self._job.done:
+            return {"PASS_THROUGH"}
+        if self._job.error:
+            context.window_manager.event_timer_remove(self._timer)
+            log("ERROR", "snapshot", f"Snapshot failed: {self._job.error}")
+            self.report({"ERROR"}, "Snapshot failed (see log).")
+            return {"CANCELLED"}
+        if not self._writing:
+            config = ConfigCache.get()
+            meta = {
+                "project": json_get(config, "project_name") or self._root.name,
+                "scan_started_at": self._job.started_at,
+                "exported_by": get_user(context),
+                "addon_version": get_addon_version(),
+            }
+            try:
+                snapshot = build_snapshot(self._job.result, config, meta)
+            except Exception as e:
+                context.window_manager.event_timer_remove(self._timer)
+                log("ERROR", "snapshot", f"Snapshot failed: {e}")
+                self.report({"ERROR"}, "Snapshot failed (see log).")
+                return {"CANCELLED"}
+            self._warnings = snapshot["meta"]["thumbnail_warnings"]
+            self._job = SnapshotJob(write_snapshot, snapshot, Path(self.filepath))
+            self._writing = True
+            return {"PASS_THROUGH"}
+        context.window_manager.event_timer_remove(self._timer)
+        log("INFO", "snapshot", f"Snapshot written to {self.filepath}")
+        for w in self._warnings:
+            log("WARNING", "snapshot", f"Thumbnail not made: {w}")
+        if self._warnings:
+            # A multilayer EXR needs ffmpeg: another machine that has it
+            # can fill the gaps with a new export.
             self.report(
                 {"WARNING"},
-                f"Imported {imported}/{total} entries (see log for skipped rows).",
+                f"Snapshot written: {Path(self.filepath).name} -- "
+                f"{len(self._warnings)} thumbnail(s) could not be made (see log)",
             )
         else:
-            self.report(
-                {"INFO"}, f"Imported {imported} entr{'y' if imported == 1 else 'ies'}."
-            )
+            self.report({"INFO"}, f"Snapshot written: {Path(self.filepath).name}")
         return {"FINISHED"}
 
 
@@ -870,4 +995,5 @@ class M_PIPELINE_OT_tracking_file_details(bpy.types.Operator):
             context.window_manager.file_details_selected = ""
         else:
             context.window_manager.file_details_selected = self.filepath
+            load_file_thumbnail(self.filepath)
         return {"FINISHED"}
