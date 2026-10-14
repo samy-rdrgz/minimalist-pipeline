@@ -151,6 +151,7 @@ from .thumbnails import (
     run_thumbnail_jobs,
     thumbnail_jobs,
     thumbnail_path,
+    thumbnail_size,
 )
 from .tracking import (
     ProjectScan,

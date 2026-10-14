@@ -1776,9 +1776,15 @@ carries its prefix). Overwritten in place, made by `lib/thumbnails.py` +
   layer), with `-apply_trc` for linear -> sRGB. Without ffmpeg on that
   machine, that thumbnail isn't made and the export says so: another
   machine that has ffmpeg can fill the gap with its own export.
-- **Size**: longest side 240 px, any aspect ratio (a 9:16 render gives
-  135x240); JPEG q70 -- 2-3 KB on the test project, ~10 KB for a busy
-  frame. Shown whole in a fixed box in the HTML (`object-fit: contain`).
+- **Size**: longest side 240 px by default, any aspect ratio (a 9:16
+  render gives 135x240); JPEG q70 -- 2-3 KB on the test project, ~10 KB
+  for a busy frame. Shown whole in a fixed box in the HTML (`object-fit:
+  contain`), at its own size on hover. The size is the project's
+  `thumbnails.size` (Edit project, `thumbnail_size()`). A thumbnail's
+  longest side is always exactly the size it was made at, so
+  `thumbnail_jobs()` spots one made before the setting changed by its
+  JPEG header (`jpeg_size()`, SOF segment) and remakes it at the next
+  export -- no sidecar to keep in sync.
 - **Which frame**: the middle one of the latest render increment (folder
   name order, same rule as `latest_shot_mp4()`, now `latest_render_dir()`);
   the first is often a hold. Empty placeholder frames are skipped.

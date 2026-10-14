@@ -22,6 +22,7 @@ from ..lib import (
     read_project_config,
     save_project_data,
     set_active_project_root,
+    thumbnail_size,
 )
 
 # ---------------------------------------------------------------------------
@@ -57,6 +58,7 @@ DEFAULT_CONFIG = {
     "tags": ["stable"],
     "assets_departments": ["modeling", "texturing", "rigging", "tech"],
     "shots_departments": ["layout", "animation", "lighting", "render"],
+    "thumbnails": {"size": 240},
     "farm": {
         "max_concurrent_local": 1,
         "stale_monitor_seconds": 90,
@@ -380,6 +382,17 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
     resolution_y: bpy.props.IntProperty(name="", min=128, max=8192, default=1080)
     default_fps: bpy.props.IntProperty(name="", min=4, max=120, default=30)
     default_frame_start: bpy.props.IntProperty(name="", min=0, default=1001)
+    thumbnail_size: bpy.props.IntProperty(
+        name="",
+        min=32,
+        max=2048,
+        default=240,
+        subtype="PIXEL",
+        description=(
+            "Longest side of the render thumbnails (snapshot, file details). "
+            "Existing ones are remade at the next snapshot export"
+        ),
+    )
 
     sequence_prefix: bpy.props.StringProperty(name="", default="sq")
     shot_prefix: bpy.props.StringProperty(name="", default="sh")
@@ -438,6 +451,10 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         row = box.row(align=True)
         row.label(text="SHOT START", icon="DECORATE_KEYFRAME")
         row.prop(self, "default_frame_start")
+        row.label(text="")
+        row = box.row(align=True)
+        row.label(text="THUMBNAILS", icon="IMAGE_DATA")
+        row.prop(self, "thumbnail_size")
         row.label(text="")
 
         # Naming
@@ -517,6 +534,7 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         self.resolution_y = int(res.get("y", 1080))
         self.default_fps = int(config.get("default_fps", 30))
         self.default_frame_start = int(config.get("default_frame_start", 1001))
+        self.thumbnail_size = thumbnail_size(config)
 
         naming = config.get("naming", {})
         for key in ("sequence", "shot", "version", "frame"):
@@ -586,6 +604,8 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
                 "assets_departments": self._csv_to_list(self.assets_departments),
                 "shots_departments": self._csv_to_list(self.shots_departments),
                 # "farm" is never touched here -- stays as read from the loaded config
+                "thumbnails": (config.get("thumbnails") or {})
+                | {"size": self.thumbnail_size},
             }
         )
         try:

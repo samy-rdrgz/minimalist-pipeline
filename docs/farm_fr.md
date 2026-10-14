@@ -39,7 +39,7 @@ Un bloc de shots (multishot, voir [Blocs de shots (multishot)](multishot_fr.md))
 
 **Dossiers de sortie** : un plan se rend dans `renders/<seq>/<plan>/<version>_<n>/`, un fichier d'asset ou de library dans `renders/assets/<préfixe>/<asset>/<version>_<n>/` (ou `renders/library/...`).
 
-**Vignette** : une fois un rendu compilé, la farm écrit une vignette à côté de ses dossiers — `renders/<seq>/<plan>/<seq>_<plan>_thumbnail.jpg`, `renders/assets/ch/ch_bob/ch_bob_thumbnail.jpg` (frame du milieu, 240 px), utilisée par le snapshot de prod. Faite par Blender lui-même ; seul un EXR multicouche demande ffmpeg.
+**Vignette** : une fois un rendu compilé, la farm écrit une vignette à côté de ses dossiers — `renders/<seq>/<plan>/<seq>_<plan>_thumbnail.jpg`, `renders/assets/ch/ch_bob/ch_bob_thumbnail.jpg` (frame du milieu, 240 px sur son plus grand côté par défaut — "Thumbnails" dans Edit project), utilisée par le snapshot de prod. Faite par Blender lui-même ; seul un EXR multicouche demande ffmpeg.
 
 **Après le rendu** : une fois un job terminé (frames vérifiées, vidéo compilée), son rendu apparaît dans la colonne "To check" du Project monitoring jusqu'à ce que quelqu'un le marque vérifié -- voir [Suivi & revues](tracking-and-reviews_fr.md).
 

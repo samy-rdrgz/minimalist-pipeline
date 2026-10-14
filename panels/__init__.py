@@ -9,6 +9,7 @@ from .farm_panel import (
 from .file_panel import M_PIPELINE_PT_file_panel
 from .project_panel import M_PIPELINE_PT_project_panel
 from .tracking_panel import (
+    MONITOR_POPUP_WIDTH,
     TYPE_ICON,
     draw_entries,
     draw_file_details,

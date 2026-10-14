@@ -38,6 +38,7 @@ from ..lib import (
     shot_tag_items,
     snapshot_filename,
     text_field,
+    thumbnail_size,
     to_absolute,
     toggle_entry_task,
     tracked_department_items,
@@ -45,7 +46,12 @@ from ..lib import (
     wipmeta_add_work,
     write_snapshot,
 )
-from ..panels import draw_file_details, draw_monitor_table, load_file_thumbnail
+from ..panels import (
+    MONITOR_POPUP_WIDTH,
+    draw_file_details,
+    draw_monitor_table,
+    load_file_thumbnail,
+)
 
 _file_department_items_cache: list = []
 
@@ -715,6 +721,7 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
         if self.include_thumbnails:
             thumbnails = {
                 "v_prefix": v_prefix,
+                "size": thumbnail_size(ConfigCache.get()),
                 "blender": bpy.app.binary_path,
                 "ffmpeg": resolve_ffmpeg(),
             }
@@ -858,7 +865,9 @@ class M_PIPELINE_OT_tracking_monitor(bpy.types.Operator):
             ProjectScan.start(project_root)
             self.project_root = str(project_root)
 
-            return context.window_manager.invoke_props_dialog(self, width=800)
+            return context.window_manager.invoke_props_dialog(
+                self, width=MONITOR_POPUP_WIDTH
+            )
 
     def execute(self, context):
         return {"FINISHED"}

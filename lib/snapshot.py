@@ -35,6 +35,7 @@ from .thumbnails import (
     run_thumbnail_jobs,
     thumbnail_jobs,
     thumbnail_path,
+    thumbnail_size,
 )
 
 # Bumped whenever the review template's columns change -- the import refuses
@@ -150,9 +151,10 @@ def read_snapshot_data(
         for _, owner, raw, _ in raws:
             if not raw["tracking"].get("archived"):
                 dirs[str(owner)] = owner_render_dir(root, owner)
-        jobs = thumbnail_jobs(dirs.values(), thumbnails.get("v_prefix", "v"))
+        size = thumbnails.get("size") or thumbnail_size({})
+        jobs = thumbnail_jobs(dirs.values(), thumbnails.get("v_prefix", "v"), size=size)
         results = run_thumbnail_jobs(
-            jobs, thumbnails["blender"], thumbnails.get("ffmpeg")
+            jobs, thumbnails["blender"], thumbnails.get("ffmpeg"), size=size
         )
         for owner, d in dirs.items():
             dst = thumbnail_path(d)
@@ -258,6 +260,7 @@ def build_snapshot(data, config: dict, meta: dict) -> dict:
     meta = dict(meta)
     meta.setdefault("schema_version", SCHEMA_VERSION)
     meta["thumbnail_warnings"] = list(data["thumb_warnings"])
+    meta["thumbnail_size"] = thumbnail_size(config)
     meta["asset_departments"] = _columns(
         json_get(config, "assets_departments", []), items["asset"]
     )
@@ -410,12 +413,15 @@ def render_html(snapshot: dict) -> str:
         _render_notes(snapshot["notes"], snapshot["assets"] + snapshot["shots"]),
     ]
     title = f"{meta.get('project') or 'Project'} snapshot {scan_date[:10]}"
+    # Hover shows a thumbnail at its own size (the project setting), from
+    # its 112 px wide cell.
+    zoom = max(1.0, round((meta.get("thumbnail_size") or 240) / 112, 2))
     # One element per line: readable/diffable raw source, same rendering.
     nl = "\n"
     return (
         "<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\">"
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
-        f"<title>{_e(title)}</title>\n<style>{_CSS}</style>\n</head>"
+        f"<title>{_e(title)}</title>\n<style>{_CSS}:root{{--thumb-zoom:{zoom}}}</style>\n</head>"
         f"<body>\n{nl.join(body)}\n<script>{_JS}</script>\n</body></html>\n"
     )
 
@@ -691,7 +697,7 @@ td.th{width:1px;padding-right:0}
 .thumb{display:block;width:112px;height:63px;object-fit:contain;border-radius:4px;
 background:var(--bg);transition:transform .15s}
 .nothumb{width:112px}
-img.thumb:hover{transform:scale(2.4);transform-origin:left top;position:relative;
+img.thumb:hover{transform:scale(var(--thumb-zoom,2.4));transform-origin:left top;position:relative;
 z-index:3;box-shadow:0 4px 18px rgba(0,0,0,.35)}
 .flag{margin-left:8px;font-size:11px;font-weight:600;color:var(--rtk);
 background:var(--rtk-bg);padding:1px 6px;border-radius:999px}

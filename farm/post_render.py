@@ -14,6 +14,7 @@ from ..lib import (
     resolve_ffmpeg,
     run_thumbnail_jobs,
     thumbnail_jobs,
+    thumbnail_size,
     to_absolute,
 )
 from .dispatch import popen_logged, track_local_processes
@@ -46,12 +47,17 @@ def refresh_shot_thumbnail(data: dict, project_root: Path) -> None:
             return
         output = output if output.is_absolute() else Path(project_root) / output
         # renders/<seq>/<shot>/<v004-stable_002>/<frame> -> renders/<seq>/<shot>
+        config = ConfigCache.get()
+        size = thumbnail_size(config)
         jobs = thumbnail_jobs(
             [output.parent.parent],
-            json_get(ConfigCache.get(), "naming.version.prefix", "v"),
+            json_get(config, "naming.version.prefix", "v"),
             force=True,
+            size=size,
         )
-        run_thumbnail_jobs(jobs, bpy.app.binary_path, resolve_ffmpeg(), wait=False)
+        run_thumbnail_jobs(
+            jobs, bpy.app.binary_path, resolve_ffmpeg(), size=size, wait=False
+        )
     except Exception as e:
         log("WARNING", "farm", f"Thumbnail not refreshed for {data.get('job_id')}: {e}")
 

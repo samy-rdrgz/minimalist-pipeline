@@ -44,6 +44,14 @@ All notable changes to this addon. Dates are release dates.
   (`to_check`), set by the farm when the job is finished (compilation
   done).
 
+### Project monitoring
+
+- The popup is 1200 px wide (was 800).
+- **Thumbnail size is a project setting** ("Thumbnails" in Edit project,
+  240 px on the longest side by default). After a change, the next
+  snapshot export remakes the existing ones at the new size; the
+  snapshot's hover zoom shows them at that size.
+
 ### Farm monitoring popup
 
 - Click a job's name for its detail: stage history with timestamps, frame
