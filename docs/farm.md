@@ -37,6 +37,8 @@ The preset is also applied once at setup, in that throwaway session (never saved
 
 A multishot block (see [Shot blocks (multishot)](multishot.md)) submits and behaves exactly like any file from this side — the split into one job per shot happens automatically once the file is picked up, not something you do differently at submission.
 
+**After the render**: once a job is finished (frames checked, video compiled), its render shows up in Project monitoring's "To check" column until someone marks it checked -- see [Tracking & reviews](tracking-and-reviews.md).
+
 **Logs**: every farm process writes its output to a file in `config/.farm/queue/requests/` -- `request_<job_id>.log` for a job's setup, frame check, compilation and preview, plus one `request_<job_id>_<machine>.log` per worker render. Deleted when the job ends well, kept (and archived with the job) when something failed: that's the first place to look.
 
 **After a crash**: if the Blender running the farm monitor or a worker crashes, its jobs are picked up again on relaunch -- a step still running is waited for, a step cut short is redone, an interrupted render is sent out again (frames already rendered are kept, only the missing ones are rendered). A render whose worker stops responding for 3 minutes is sent to another machine.

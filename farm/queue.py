@@ -3,7 +3,7 @@
 import datetime
 from pathlib import Path
 
-from ..lib import ConfigCache, log, now, retry_shared_io, to_relative
+from ..lib import ConfigCache, log, mark_render_to_check, now, retry_shared_io, to_relative
 from .dispatch import (
     _active_processes,
     append_render_history,
@@ -166,6 +166,15 @@ def scan_queue(project_root: Path) -> None:
 
             elif stage == "compilation_finished":
                 refresh_shot_thumbnail(data, project_root)
+                if data.get("output_path"):
+                    # Waits for its artist's check in Project monitoring.
+                    mark_render_to_check(
+                        data["filepath"],
+                        data.get("shot_override", ""),
+                        Path(data["output_path"]).parent.as_posix(),
+                        data["job_id"],
+                        project_root,
+                    )
                 mark_stage(job, "finished")
                 construct_history(data, status="finished")
                 mark_stage(job, "archived")

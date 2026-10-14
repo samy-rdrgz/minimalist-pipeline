@@ -12,6 +12,7 @@ from ..lib import (
     SnapshotJob,
     TrackingStatusCache,
     build_snapshot,
+    clear_render_to_check,
     create_entry,
     delete_entry,
     department_filter_items,
@@ -816,6 +817,11 @@ class M_PIPELINE_OT_tracking_monitor(bpy.types.Operator):
     entries_hide_done: bpy.props.BoolProperty(name="", default=True)
     entries_department_filter: bpy.props.EnumProperty(items=department_filter_items)
     entries_min_version: bpy.props.IntProperty(name="", default=0, min=0)
+    only_to_check: bpy.props.BoolProperty(
+        name="",
+        default=False,
+        description="Only the files with a farm render waiting to be checked",
+    )
 
     def draw(self, context):
         layout = self.layout
@@ -835,6 +841,8 @@ class M_PIPELINE_OT_tracking_monitor(bpy.types.Operator):
             elif self.file_type == "shot":
                 filters_btn.prop(self, "sequence", text="")
                 columns = json_get(ConfigCache.get(), "shots_departments", [])
+
+            filters_btn.prop(self, "only_to_check", text="To check", icon="HIDE_OFF")
 
             layout.separator(factor=0.5)
 
@@ -974,6 +982,35 @@ class M_PIPELINE_OT_department_status_info(bpy.types.Operator):
 
     def execute(self, context):
         return {"CANCELLED"}
+
+
+class M_PIPELINE_OT_render_checked(bpy.types.Operator):
+    """Mark a farm render as checked: it leaves the "To check" column."""
+
+    bl_idname = "m_pipeline.render_checked"
+    bl_label = ""
+
+    filepath: bpy.props.StringProperty()
+    shot: bpy.props.StringProperty()
+    all_shots: bpy.props.BoolProperty(options={"SKIP_SAVE"})
+    custom_tooltip: bpy.props.StringProperty()
+
+    @classmethod
+    def description(cls, context, properties):
+        if properties.custom_tooltip:
+            return properties.custom_tooltip
+        return "Mark this render as checked."
+
+    def execute(self, context):
+        try:
+            clear_render_to_check(self.filepath, None if self.all_shots else self.shot)
+        except PipelineError as e:
+            log(e.level, "render_checked", e.message)
+            self.report({e.level}, e.message)
+            return {"CANCELLED"}
+        # The table only reads the cache: refresh this one folder now.
+        TrackingStatusCache.get(self.filepath, force_reload=True)
+        return {"FINISHED"}
 
 
 class M_PIPELINE_OT_tracking_file_details(bpy.types.Operator):

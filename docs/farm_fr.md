@@ -37,6 +37,8 @@ Le preset est aussi appliqué une fois au setup, dans cette session jetable (jam
 
 Un bloc de shots (multishot, voir [Blocs de shots (multishot)](multishot_fr.md)) se soumet et se comporte exactement comme n'importe quel fichier de ce côté-là — le découpage en un job par shot se fait automatiquement une fois le fichier pris en charge, pas quelque chose à faire différemment à la soumission.
 
+**Après le rendu** : une fois un job terminé (frames vérifiées, vidéo compilée), son rendu apparaît dans la colonne "To check" du Project monitoring jusqu'à ce que quelqu'un le marque vérifié -- voir [Suivi & revues](tracking-and-reviews_fr.md).
+
 **Logs** : chaque processus de la farm écrit sa sortie dans un fichier de `config/.farm/queue/requests/` -- `request_<job_id>.log` pour le setup, la vérification des frames, la compilation et la preview d'un job, plus un `request_<job_id>_<machine>.log` par rendu de worker. Supprimés quand le job se termine bien, conservés (et archivés avec le job) en cas d'échec : c'est le premier endroit où regarder.
 
 **Après un crash** : si le Blender qui fait tourner le moniteur de la farm ou un worker crashe, ses jobs sont repris au relancement -- une étape encore en cours est attendue, une étape interrompue est refaite, un rendu interrompu est renvoyé (les frames déjà rendues sont gardées, seules les manquantes sont rendues). Un rendu dont le worker ne répond plus pendant 3 minutes est envoyé à une autre machine.
