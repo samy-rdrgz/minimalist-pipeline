@@ -238,8 +238,6 @@ def draw_farm_jobs(layout):
                 ).job_id = j["job_id"]
             status = row.row()
             status.label(text=text)
-            if j.get("warnings"):
-                status.label(text="", icon="ERROR")
             if j.get("output_dir"):
                 op = status.operator(
                     "wm.open_folder", text="", icon="FILE_FOLDER", emboss=False
@@ -464,9 +462,6 @@ def draw_farm_job_details(layout, context):
         field(col, "Missing shots", ", ".join(data["skipped_shots"]), icon="ERROR")
     if data.get("absorbed_shots"):
         field(col, "Absorbed shots", ", ".join(data["absorbed_shots"]))
-
-    for warning in data.get("warnings") or []:
-        field(col, "Warning", warning, icon="ERROR")
 
     layout.separator(factor=0.1, type="LINE")
     col = layout.column(align=True)

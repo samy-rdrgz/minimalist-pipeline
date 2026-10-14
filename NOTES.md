@@ -1669,9 +1669,32 @@ like `_meta_path()` it only accepts a `.blend`.
 
 Symptom: every frame written, the popup at 100 %, the job still at
 `render_start`; on the worker, no leftover Blender -- just one rendering
-another job.
+another job. Seen on a single-machine job (`job_4074e92294`, sq110 sh040):
+one machine in `used_machines`, no `resumed` stage, the worker's render
+log deleted (= exit 0). So the worker did publish its `last_job_result`;
+the monitor didn't take it.
 
-`check_render_completion()` waits for a result from *every* machine in
+### The result was there, the worker was "stale"
+
+`check_render_completion()` read workers through `scan_workers()`, which
+drops any worker whose heartbeat is older than `STALE_WORKER_SECONDS`
+(15 s). The heartbeat is written once per tick, every 10 s *after the
+previous tick returns* -- so its age when the monitor looks is 10 s plus
+however long the ticks take. On a share, `scan_queue()` alone (an
+exclusive lock + read per job file, finished jobs included until someone
+archives them) can eat the remaining 5 s. A dropped worker counted as
+"still running" (gone only after 180 s), its published result ignored.
+Once that worker finished its *next* render, `last_job_result` was
+overwritten and this job could never finish.
+
+Fix: `check_render_completion()` reads each used machine's file directly
+(`_read_worker()`). A result stamped with this render's `dispatch_id` is
+final whatever the heartbeat's age; staleness only matters for "is it
+gone" (180 s, unchanged).
+
+### A share nobody was going to render
+
+Second way to the same symptom, with several machines: `check_render_completion()` waits for a result from *every* machine in
 `used_machines`. In placeholder mode a worker can be in that list without
 ever starting: `render_dispatch()` picks "idle" workers from
 `scan_workers()`, cached ~1.5 s, and a worker flashes idle between its

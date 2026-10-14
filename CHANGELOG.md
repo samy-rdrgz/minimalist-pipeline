@@ -10,6 +10,10 @@ All notable changes to this addon. Dates are release dates.
   The heartbeat, cancel check and finished-render check now run
   independently: one failing (a locked file on the share) no longer skips
   the others every tick.
+- **A job no longer sits at 100 % after its render ended.** The monitor
+  ignored the result of a worker whose heartbeat was a few seconds late
+  (frequent on a share); once that worker finished its next render, the
+  result was gone for good. Results now count whatever the heartbeat.
 - **A job no longer sits at 100 % waiting for a machine that had nothing
   left to render.** With several machines on a render, one could be
   handed its share while it was starting another job: the others rendered
@@ -25,15 +29,11 @@ All notable changes to this addon. Dates are release dates.
   applies the preset too (in memory, never saved) before reading them: a
   preset changing the format no longer breaks the frame check and the
   compilation.
-- **Resolution warning**: a render whose output size differs from the
-  project's (another percentage, a preset at 50 %...) or with non-square
-  pixels is flagged on the job -- never changed.
 
 ### Farm monitoring popup
 
 - Click a job's name for its detail: stage history with timestamps, frame
-  range, output folder, format, fps, preset, machines, warnings, split
-  shots.
+  range, output folder, format, fps, preset, machines, split shots.
 - `render_history.json` now records the render's duration, the machines
   that rendered it, and which file and output folder were rendered
   (`source_file`, `output_path`, `shot_override`).

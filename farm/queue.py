@@ -15,7 +15,7 @@ from .dispatch import (
     render_dispatch,
 )
 from .post_render import checks_images, compilation
-from .workers import local_render_running, scan_workers
+from .workers import local_render_running
 
 
 def scan_requests() -> bool:
@@ -426,21 +426,27 @@ def _is_this_render(result: dict | None, data: dict) -> bool:
 WORKER_GONE_SECONDS = 180
 
 
-def _worker_gone(uuid: str) -> bool:
-    """Whether worker uuid hasn't heartbeat for WORKER_GONE_SECONDS (or its
-    file is gone). Reads the file directly: scan_workers() drops a worker
-    after only STALE_WORKER_SECONDS."""
+def _read_worker(uuid: str) -> dict | None:
+    """Worker uuid's file as it is on disk: {} if it's gone, None if it
+    can't be read this tick. Never through scan_workers(), which drops a
+    worker whose heartbeat is a few seconds late -- and with it the result
+    it published (see NOTES.md, "Render stuck at 100 %")."""
     path = ConfigCache.get_path("workers") / f"worker_{uuid}.json"
     try:
         with locked_json(path, read_only=True, retries=0) as box:
-            data = box["data"] or {}
+            return box["data"] or {}
     except (OSError, ValueError):
-        return False  # can't tell this tick -- don't act on it
-    if not data:
+        return None
+
+
+def _worker_gone(worker: dict) -> bool:
+    """Whether a worker file (_read_worker()) is gone or hasn't heartbeat
+    for WORKER_GONE_SECONDS."""
+    if not worker:
         return True
     try:
-        last = datetime.datetime.fromisoformat(data.get("last_heartbeat", ""))
-    except ValueError:
+        last = datetime.datetime.fromisoformat(worker.get("last_heartbeat", ""))
+    except (TypeError, ValueError):
         return True
     return (now(False) - last).total_seconds() > WORKER_GONE_SECONDS
 
@@ -475,15 +481,19 @@ def check_render_completion(job_path: Path) -> None:
         if data["stage_history"][-1]["stage"] != "render_start":
             return data
 
-        workers = scan_workers()
         still_running = []
         lost = []
         any_failed = False
         any_succeeded = False
 
         for uuid in data.get("used_machines", []):
-            w = workers.get(uuid)
-            result = (w or {}).get("last_job_result")
+            # Its file, whatever its heartbeat's age: a result for this
+            # render is final even from a worker a few seconds late.
+            w = _read_worker(uuid)
+            if w is None:
+                still_running.append(uuid)  # can't tell this tick
+                continue
+            result = w.get("last_job_result")
             if _is_this_render(result, data):
                 if result.get("lost"):
                     lost.append(uuid)
@@ -491,7 +501,7 @@ def check_render_completion(job_path: Path) -> None:
                     any_failed = True
                 else:
                     any_succeeded = True  # finished THIS render successfully
-            elif w is None and _worker_gone(uuid):
+            elif _worker_gone(w):
                 lost.append(uuid)
             else:
                 still_running.append(uuid)

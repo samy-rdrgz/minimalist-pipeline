@@ -28,7 +28,7 @@ def override(scene, job_data):
 
 A broken preset never blocks the render: an invalid `.json` key is skipped (the others still apply), a `.py` that raises or a preset name that no longer exists falls back to the file's own settings -- each case logged as a farm warning.
 
-The preset is also applied once at setup, in that throwaway session (never saved either), to read what the render will actually produce: the output format (what the frame check and compilation look for) and the fps (what the compilation encodes at) come from the file *plus* its preset. The output size is checked there too: if it differs from the project's resolution (another percentage, a preset at 50 %...) or the pixels aren't square, the job carries a warning (⚠ in the Jobs list, spelled out in the job's detail) -- never corrected, only flagged. Mind version-specific identifiers when workers run different Blender versions: EEVEE is `BLENDER_EEVEE_NEXT` on 4.2–4.5 but `BLENDER_EEVEE` from 5.0 -- a `.py` preset can pick whichever exists.
+The preset is also applied once at setup, in that throwaway session (never saved either), to read what the render will actually produce: the output format (what the frame check and compilation look for) and the fps (what the compilation encodes at) come from the file *plus* its preset. Mind version-specific identifiers when workers run different Blender versions: EEVEE is `BLENDER_EEVEE_NEXT` on 4.2–4.5 but `BLENDER_EEVEE` from 5.0 -- a `.py` preset can pick whichever exists.
 
 **Render modes**:
 - `single`: one machine over the whole range.
