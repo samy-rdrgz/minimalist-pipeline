@@ -38,6 +38,15 @@ All notable changes to this addon. Dates are release dates.
 - Click a job's name for its detail: stage history with timestamps, frame
   range, output folder, format, fps, preset, machines, split shots.
 
+### Production snapshot
+
+- **The last render's version** shows next to the wip and stable ones
+  ("render v003"; per shot for a block whose shots differ, "not rendered"
+  for a shot never rendered). A render made from an older version than
+  the last stable is flagged in red: the picture lags the validated work.
+  Read from the render history, or from the render folder's name for
+  renders made before this version.
+
 ### Fixes — batch creation
 
 - The CSV separator is detected on the header line only: a description

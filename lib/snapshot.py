@@ -17,6 +17,7 @@ from xml.sax.saxutils import escape as xml_escape
 
 from .core import json_get, now, read_json_quiet
 from .errors import PipelineError
+from .preview import latest_render_dir, render_root
 from .tracking import (
     _DATA_ROOTS,
     _collect_folder,
@@ -82,13 +83,67 @@ def read_snapshot_raw(root: Path) -> list[tuple[str, Path, dict, list[str]]]:
     return out
 
 
-def read_snapshot_data(root: Path, thumbnails: dict | None = None) -> dict:
-    """read_snapshot_raw() plus thumbnails: those missing or older than
+def _owner_shots(owner: Path) -> list[str]:
+    """A shot folder's shots: ["sh040"], or ["sh040", "sh050", "sh060"] for
+    a block "sh040-050-060". Name parsing only, no config."""
+    first, *rest = owner.name.split("-")
+    m = re.match(r"(\D*)(\d+)$", first)
+    if not m:
+        return [owner.name]
+    return [first] + [f"{m[1]}{n.zfill(len(m[2]))}" for n in rest]
+
+
+def read_render_state(root: Path, kind: str, owner: Path, v_prefix: str = "v") -> list:
+    """What was last rendered for an asset/shot folder, per shot (a block
+    has several, anything else one): [{"shot", "file", "folder"}]. From the
+    folder's render_history.json -- its last finished render of that shot,
+    file = the .blend it rendered -- else (entries older than source_file,
+    or no history) from the latest render folder's own name
+    (renders/<seq>/<shot>/v004-stable_002). Pure os/json: thread-safe."""
+    history = read_json_quiet(owner / ".pipeline" / "render_history.json") or {}
+    finished = [
+        e
+        for e in history.get("entries", [])
+        if isinstance(e, dict) and e.get("status") == "finished" and e.get("source_file")
+    ]
+    base = render_root(root, owner)
+    shots = _owner_shots(owner) if kind == "shot" else [""]
+    block = len(shots) > 1
+    out = []
+    for shot in shots:
+        # A block's history holds every shot it rendered, told apart by
+        # shot_override; a mono shot's or an asset's is all its own.
+        mine = [e for e in finished if not block or e.get("shot_override") == shot]
+        if mine:
+            output = mine[-1].get("output_path")
+            out.append(
+                {
+                    "shot": shot,
+                    "file": Path(mine[-1]["source_file"]).name,
+                    "folder": Path(output).parent.name if output else None,
+                }
+            )
+            continue
+        latest = latest_render_dir(base.with_name(shot) if shot else base, v_prefix)
+        out.append({"shot": shot, "file": None, "folder": latest.name if latest else None})
+    return out
+
+
+def read_snapshot_data(
+    root: Path, thumbnails: dict | None = None, v_prefix: str = "v"
+) -> dict:
+    """read_snapshot_raw() plus each folder's last render
+    (read_render_state()) and thumbnails: those missing or older than
     their latest render are remade first (one headless Blender, waited on
     -- run this on a thread). thumbnails: {"v_prefix", "blender",
-    "ffmpeg"}, None to skip them. Returns {"raws", "thumbs": {owner:
-    base64 JPEG}, "thumb_warnings": [...]}."""
+    "ffmpeg"}, None to skip them. Returns {"raws", "renders": {owner:
+    [...]}, "thumbs": {owner: base64 JPEG}, "thumb_warnings": [...]}."""
     raws = read_snapshot_raw(root)
+    renders = {
+        str(owner): read_render_state(root, kind, owner, v_prefix)
+        for kind, owner, raw, _ in raws
+        if not raw["tracking"].get("archived")
+    }
     thumbs, warnings = {}, []
     if thumbnails is not None:
         dirs = {}
@@ -107,7 +162,12 @@ def read_snapshot_data(root: Path, thumbnails: dict | None = None) -> dict:
                 thumbs[owner] = base64.b64encode(dst.read_bytes()).decode("ascii")
             except OSError:
                 pass
-    return {"raws": raws, "thumbs": thumbs, "thumb_warnings": warnings}
+    return {
+        "raws": raws,
+        "renders": renders,
+        "thumbs": thumbs,
+        "thumb_warnings": warnings,
+    }
 
 
 def build_snapshot(data, config: dict, meta: dict) -> dict:
@@ -119,6 +179,7 @@ def build_snapshot(data, config: dict, meta: dict) -> dict:
     raws = data["raws"]
     v_prefix = json_get(config, "naming.version.prefix", "v")
     version_re = re.compile(rf"_{re.escape(v_prefix)}(\d+)(-[a-z]+)?\.blend$")
+    folder_re = re.compile(rf"^{re.escape(v_prefix)}(\d+)(-[a-z]+)?_\d+$")
     items = {"asset": [], "shot": []}
     notes = []
     for kind, owner, raw, blends in raws:
@@ -153,6 +214,23 @@ def build_snapshot(data, config: dict, meta: dict) -> dict:
             "current_version": wip_name if wip_n > stable_n else stable_name or wip_name,
             "thumbnail": data["thumbs"].get(str(owner)),
         }
+        renders = []
+        for r in data.get("renders", {}).get(str(owner), []):
+            m = version_re.search(r["file"] or "") or folder_re.match(r["folder"] or "")
+            renders.append(
+                {
+                    "shot": r["shot"],
+                    "version": f"{v_prefix}{m[1]}" if m else None,
+                    "number": int(m[1]) if m else None,
+                    "source": r["file"] or r["folder"],
+                }
+            )
+        item["renders"] = renders
+        # What the prod must see: a render made from an older version than
+        # the last stable -- the picture lags the validated work.
+        item["render_behind"] = stable_n >= 0 and any(
+            r["number"] is not None and r["number"] < stable_n for r in renders
+        )
         threads = [
             _thread_dict(name, t)
             for box in filter_review_boxes(
@@ -410,11 +488,14 @@ def _render_table(anchor: str, title: str, items: list, columns: list) -> str:
             else:
                 label, cls = STATES[state]
                 cells.append(f'<td><span class="pill {cls}">{_e(label)}</span></td>')
-        versions = " · ".join(
-            label + _short_version(item["name"], v)
+        versions = [
+            _e(label + _short_version(item["name"], v))
             for label, v in (("", item["wip_version"]), ("stable ", item["stable_version"]))
             if v
-        )
+        ]
+        render = _render_versions(item)
+        if render:
+            versions.append(render)
         flags = (
             f'<span class="flag">{item["open_rtk"]} RTK</span>' if item["open_rtk"] else ""
         )
@@ -437,7 +518,7 @@ def _render_table(anchor: str, title: str, items: list, columns: list) -> str:
             f'<tr class="item" id="i-{_e(_slug(item["name"]))}" {_item_attrs(item)}>'
             f'{thumb}<td class="name"><b>{_e(item["name"])}</b>{flags}{jump}'
             f'<small>{_e(item["description"])}</small></td>'
-            f'<td class="ver">{_e(versions)}</td>{"".join(cells)}</tr>'
+            f'<td class="ver">{" · ".join(versions)}</td>{"".join(cells)}</tr>'
         )
     return (
         f'<section id="{anchor}"><h2>{title}</h2>'
@@ -446,6 +527,27 @@ def _render_table(anchor: str, title: str, items: list, columns: list) -> str:
         f"<thead><tr>{head}</tr></thead>"
         f"<tbody>\n{nl.join(rows)}\n</tbody></table></div></section>"
     )
+
+
+def _render_versions(item: dict) -> str:
+    """ "render v003" -- per shot for a block whose shots differ -- flagged
+    when older than the last stable. "not rendered" for a shot never
+    rendered; nothing for an asset never rendered (most never are)."""
+    renders = item.get("renders") or []
+    if not any(r["version"] for r in renders):
+        return '<span class="norender">not rendered</span>' if item["kind"] == "shot" else ""
+    labels = {r["version"] for r in renders}
+    if len(labels) == 1:
+        text = f"render {renders[0]['version']}"
+    else:
+        text = "render " + ", ".join(f"{r['shot']} {r['version'] or '–'}" for r in renders)
+    sources = ", ".join(r["source"] for r in renders if r["source"])
+    if item.get("render_behind"):
+        return (
+            f'<span class="behind" title="Rendered from an older version than the '
+            f'last stable ({_e(sources)})">⚠ {_e(text)}</span>'
+        )
+    return f'<span title="Last render: {_e(sources)}">{_e(text)}</span>'
 
 
 def _short_version(name: str, filename: str) -> str:
@@ -568,6 +670,7 @@ white-space:nowrap;border:1px solid transparent}
 .st-todo{color:var(--todo);border-color:var(--line)}
 .st-none{color:var(--muted);border:1px dashed var(--line)}
 .na{color:var(--muted);opacity:.5}
+.behind{color:var(--rtk);font-weight:600}.norender{opacity:.6}
 td.th{width:1px;padding-right:0}
 /* Any aspect ratio: shown whole inside a fixed box, never cropped. */
 .thumb{display:block;width:112px;height:63px;object-fit:contain;border-radius:4px;

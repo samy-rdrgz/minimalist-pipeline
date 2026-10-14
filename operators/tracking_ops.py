@@ -709,14 +709,15 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
             self.filepath += ".html"
         # Disk reads, then render+write, each on a thread: a full walk takes
         # seconds on a share, and the target folder can be on it too.
+        v_prefix = json_get(ConfigCache.get(), "naming.version.prefix", "v")
         thumbnails = None
         if self.include_thumbnails:
             thumbnails = {
-                "v_prefix": json_get(ConfigCache.get(), "naming.version.prefix", "v"),
+                "v_prefix": v_prefix,
                 "blender": bpy.app.binary_path,
                 "ffmpeg": resolve_ffmpeg(),
             }
-        self._job = SnapshotJob(read_snapshot_data, self._root, thumbnails)
+        self._job = SnapshotJob(read_snapshot_data, self._root, thumbnails, v_prefix)
         self._writing = False
         wm = context.window_manager
         self._timer = wm.event_timer_add(0.2, window=context.window)
