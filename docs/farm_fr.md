@@ -26,7 +26,9 @@ def override(scene, job_data):
 {"render.engine": "CYCLES", "cycles.samples": 64, "render.resolution_x": 1280, "render.resolution_y": 720}
 ```
 
-Un preset cassé ne bloque jamais le rendu : une clé `.json` invalide est ignorée (les autres s'appliquent quand même), un `.py` qui plante ou un preset qui n'existe plus retombe sur les réglages du fichier -- chaque cas est loggé comme avertissement farm. Attention aux identifiants qui changent selon la version si les workers ne tournent pas tous sur la même : EEVEE s'appelle `BLENDER_EEVEE_NEXT` en 4.2–4.5 mais `BLENDER_EEVEE` à partir de 5.0 -- un preset `.py` peut choisir celui qui existe.
+Un preset cassé ne bloque jamais le rendu : une clé `.json` invalide est ignorée (les autres s'appliquent quand même), un `.py` qui plante ou un preset qui n'existe plus retombe sur les réglages du fichier -- chaque cas est loggé comme avertissement farm.
+
+Le preset est aussi appliqué une fois au setup, dans cette session jetable (jamais sauvegardée non plus), pour lire ce que le rendu va vraiment produire : le format de sortie (ce que cherchent la vérification des frames et la compilation) et le fps (celui de l'encodage de la compilation) viennent du fichier *plus* son preset. La taille de sortie y est aussi vérifiée : si elle diffère de la résolution du projet (autre pourcentage, preset à 50 %...) ou si les pixels ne sont pas carrés, le job porte un avertissement (⚠ dans la liste Jobs, détaillé dans la vue du job) -- jamais corrigé, seulement signalé. Attention aux identifiants qui changent selon la version si les workers ne tournent pas tous sur la même : EEVEE s'appelle `BLENDER_EEVEE_NEXT` en 4.2–4.5 mais `BLENDER_EEVEE` à partir de 5.0 -- un preset `.py` peut choisir celui qui existe.
 
 **Modes de rendu** :
 - `single` : une seule machine sur toute la plage.

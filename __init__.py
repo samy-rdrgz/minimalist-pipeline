@@ -57,6 +57,8 @@ _WM_PROPS = {
         type=PIPELINE_PG_render_subshot_item
     ),
     "file_details_selected": bpy.props.StringProperty(),
+    # Job id the Farm monitoring popup shows in detail, "" for the lists.
+    "farm_job_selected": bpy.props.StringProperty(),
     "file_selected_departments": bpy.props.StringProperty(),
     # entries_department_filter is the addon's one Scene/WM-level EnumProperty
     # used as a live filter (everything else here is a toggle/buffer) -- see

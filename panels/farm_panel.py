@@ -5,7 +5,7 @@ from pathlib import Path
 
 import bpy
 
-from ..farm import get_monitor_cache, this_instance_is_worker
+from ..farm import get_job_details, get_monitor_cache, this_instance_is_worker
 from ..lib import (
     addon_pref,
     draw_box_tip,
@@ -228,9 +228,18 @@ def draw_farm_jobs(layout):
             if j.get("absorbed_shots"):
                 text += f" -- absorbed: {', '.join(j['absorbed_shots'])}"
 
-            row.label(text=name, icon=icon)
+            name_row = row.row()
+            name_row.alignment = "LEFT"
+            if stage == "pending":
+                name_row.label(text=name, icon=icon)  # no job file yet
+            else:
+                name_row.operator(
+                    "m_pipeline.farm_job_details", text=name, icon=icon, emboss=False
+                ).job_id = j["job_id"]
             status = row.row()
             status.label(text=text)
+            if j.get("warnings"):
+                status.label(text="", icon="ERROR")
             if j.get("output_dir"):
                 op = status.operator(
                     "wm.open_folder", text="", icon="FILE_FOLDER", emboss=False
@@ -354,3 +363,126 @@ def draw_farm_workers(layout):
                 op.target_uuid = m.get("uuid", "")
         else:
             jobs.label(text="idle")
+
+
+def _job_time(iso: str) -> datetime.datetime | None:
+    try:
+        return datetime.datetime.fromisoformat(iso)
+    except (TypeError, ValueError):
+        return None
+
+
+def _duration(seconds: float) -> str:
+    seconds = int(seconds)
+    if seconds >= 3600:
+        return f"{seconds // 3600}h{seconds % 3600 // 60:02d}m"
+    return f"{seconds // 60}m{seconds % 60:02d}s"
+
+
+def draw_farm_job_details(layout, context):
+    """M_PIPELINE_OT_farm_monitor's detail view of one job: its file as read
+    by M_PIPELINE_OT_farm_job_details on click (get_job_details()) -- never
+    read from here. Every key with .get(): the file is hand-editable and
+    older jobs lack the newer fields."""
+    job_id = context.window_manager.farm_job_selected
+    data = get_job_details()
+
+    header = layout.row(align=True)
+    back = header.row(align=True)
+    back.alignment = "LEFT"
+    back.operator(
+        "m_pipeline.farm_job_details", text="", icon="BACK", emboss=False
+    ).job_id = job_id
+    name = Path(data.get("filepath", "")).name or job_id
+    if data.get("shot_override"):
+        name = f"{name}  [{data['shot_override']}]"
+    header.label(text=name, icon="RENDER_ANIMATION")
+    reload = header.row(align=True)
+    reload.alignment = "RIGHT"
+    op = reload.operator(
+        "m_pipeline.farm_job_details", text="", icon="FILE_REFRESH", emboss=False
+    )
+    op.job_id = job_id
+    op.reload = True
+
+    if not data:
+        layout.label(text="Job file not found.", icon="ERROR")
+        return
+
+    workers = get_monitor_cache().get("workers") or {}
+
+    def machine_names(uuids) -> str:
+        return ", ".join(
+            (workers.get(u) or {}).get("machine") or u[:8] for u in uuids or []
+        ) or "-"
+
+    def field(col, label: str, value, icon: str = "NONE"):
+        split = col.split(factor=FIRST_COLUMN)
+        left = split.row()
+        left.active = False
+        left.label(text=label)
+        split.label(text=str(value), icon=icon)
+
+    layout.separator(factor=0.1, type="LINE")
+    col = layout.column(align=True)
+    field(col, "Job", job_id)
+    field(col, "Submitted by", data.get("user", "-"))
+    field(col, "Render mode", data.get("render_mode", "-"))
+    field(col, "Preset", data.get("prerender_script") or "none")
+
+    frames = data.get("resolved_frame_range")
+    if frames and len(frames) == 2:
+        field(col, "Frames", f"{frames[0]} - {frames[1]} ({frames[1] - frames[0] + 1})")
+    else:
+        field(col, "Frames", "not resolved yet")
+    field(col, "Format", data.get("output_extension", "-"))
+    field(col, "fps", data.get("fps", "-"))
+
+    output = data.get("output_path")
+    split = col.split(factor=FIRST_COLUMN)
+    left = split.row()
+    left.active = False
+    left.label(text="Output")
+    out = split.row()
+    out.label(text=output or "-")
+    root = get_active_project_root()
+    if output and root:
+        path = Path(output)
+        op = out.operator("wm.open_folder", text="", icon="FILE_FOLDER", emboss=False)
+        op.filepath = str((path if path.is_absolute() else Path(root) / path).parent)
+        op.custom_tooltip = "Open this job's render folder"
+
+    field(col, "Machines", machine_names(data.get("used_machines")))
+    if data.get("rendered_by"):
+        field(col, "Rendered by", machine_names(data["rendered_by"]))
+    if data.get("frames_corrupted"):
+        field(col, "Corrupted frames", data["frames_corrupted"], icon="ERROR")
+
+    if data.get("split_into"):
+        field(col, "Split into", ", ".join(data["split_into"]))
+    if data.get("skipped_shots"):
+        field(col, "Missing shots", ", ".join(data["skipped_shots"]), icon="ERROR")
+    if data.get("absorbed_shots"):
+        field(col, "Absorbed shots", ", ".join(data["absorbed_shots"]))
+
+    for warning in data.get("warnings") or []:
+        field(col, "Warning", warning, icon="ERROR")
+
+    layout.separator(factor=0.1, type="LINE")
+    col = layout.column(align=True)
+    title = col.row()
+    title.active = False
+    title.label(text="Stages")
+    previous = None
+    for entry in data.get("stage_history") or []:
+        at = _job_time(entry.get("at"))
+        stage = entry.get("stage", "?")
+        if entry.get("resumed"):
+            stage += f" ({entry['resumed']})"
+        delta = f"+{_duration((at - previous).total_seconds())}" if at and previous else ""
+        split = col.split(factor=FIRST_COLUMN)
+        left = split.row()
+        left.active = False
+        left.label(text=f"{at:%d/%m %H:%M:%S}  {delta}" if at else "?")
+        split.label(text=stage)
+        previous = at or previous

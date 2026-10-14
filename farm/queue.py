@@ -445,6 +445,24 @@ def _worker_gone(uuid: str) -> bool:
     return (now(False) - last).total_seconds() > WORKER_GONE_SECONDS
 
 
+def _drop_pending_request(job_id: str, uuid: str) -> bool:
+    """Delete worker uuid's render request for job_id if it's still waiting
+    to be picked up. True if it was (and is now gone); False if the worker
+    already took it (it's running), or the request can't be locked this
+    tick -- then the caller keeps waiting, as before."""
+    request = ConfigCache.get_path("farm_requests") / f"request_{job_id}_{uuid}.json"
+    if not request.exists():
+        return False
+    try:
+        with locked_json(request, retries=1) as box:
+            if not box["data"]:
+                return False
+            box["action"] = "to_delete"
+    except Exception:
+        return False
+    return not request.exists()
+
+
 def check_render_completion(job_path: Path) -> None:
     """Monitor-only: cross-check used_machines against each worker's declared
     state. No worker ever writes this job file for this stage. A render
@@ -461,6 +479,7 @@ def check_render_completion(job_path: Path) -> None:
         still_running = []
         lost = []
         any_failed = False
+        any_succeeded = False
 
         for uuid in data.get("used_machines", []):
             w = workers.get(uuid)
@@ -470,11 +489,39 @@ def check_render_completion(job_path: Path) -> None:
                     lost.append(uuid)
                 elif not result["success"]:
                     any_failed = True
-                # else: this worker did finish THIS render successfully
+                else:
+                    any_succeeded = True  # finished THIS render successfully
             elif w is None and _worker_gone(uuid):
                 lost.append(uuid)
             else:
                 still_running.append(uuid)
+
+        if any_succeeded and still_running and not any_failed and not lost:
+            # A worker that ended this render successfully went through the
+            # whole range (placeholders, no overwrite): every frame is
+            # rendered or being rendered. One that never picked up its
+            # request has nothing left to do -- drop the request rather than
+            # wait for it: busy on another job, it held this one at 100 %
+            # for that job's whole render. See NOTES.md, "Render stuck at
+            # 100 %".
+            dropped = [
+                uuid
+                for uuid in still_running
+                if _drop_pending_request(data["job_id"], uuid)
+            ]
+            if dropped:
+                still_running = [u for u in still_running if u not in dropped]
+                data["used_machines"] = [
+                    u for u in data["used_machines"] if u not in dropped
+                ]
+                box["action"] = "to_write"
+                log(
+                    "INFO",
+                    "farm",
+                    f"Job {data['job_id']}: rendered before "
+                    f"{', '.join(u[:8] for u in dropped)} picked up its share "
+                    f"-- request dropped.",
+                )
 
         if any_failed:
             data["rendered_by"] = list(data.get("used_machines", []))

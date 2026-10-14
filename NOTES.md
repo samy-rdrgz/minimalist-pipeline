@@ -1664,3 +1664,34 @@ like `_meta_path()` it only accepts a `.blend`.
 <!-- Next feature with rationale worth keeping gets its own "## " section
      here, same shape as the ones above: what was tried, what was
      rejected and why, anything a docstring is too short to hold. -->
+
+## Render stuck at 100 %: a share nobody was going to render
+
+Symptom: every frame written, the popup at 100 %, the job still at
+`render_start`; on the worker, no leftover Blender -- just one rendering
+another job.
+
+`check_render_completion()` waits for a result from *every* machine in
+`used_machines`. In placeholder mode a worker can be in that list without
+ever starting: `render_dispatch()` picks "idle" workers from
+`scan_workers()`, cached ~1.5 s, and a worker flashes idle between its
+render ending and its next request being picked up -- so it can get a
+request while it is in fact starting another render. The other machines
+render the whole range; this job then waits for that unrelated render to
+end, and for the late worker to open the file only to find nothing left.
+
+Fix: once one machine has finished *this* render successfully, every
+frame is rendered or being rendered (placeholders, no overwrite). A
+machine whose request is still waiting in `requests/` has started
+nothing, so its request is deleted (`_drop_pending_request()`, under the
+request's lock) and it leaves `used_machines`. A machine that already
+picked its request up is still waited for: it may be mid-frame. Worker
+side, `execute_render_request()` no longer launches a request that
+vanished between its scan and its lock (it used to fall back to the
+scanned copy).
+
+Same occasion: `worker_tick()` runs heartbeat, cancel scan and process
+scan each in its own `try` (a heartbeat raising every tick used to skip
+the process scan forever -- the worker stayed "render"), and renders/setup
+run with `--python-exit-code 1` (an exception in the entry script used to
+exit 0, i.e. a successful render).

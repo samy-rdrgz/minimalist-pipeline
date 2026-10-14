@@ -489,6 +489,7 @@ def _build_job_entry(job: dict, frames_done: int | None = None) -> dict:
         "skipped_shots": job.get("skipped_shots", []),
         "absorbed_shots": job.get("absorbed_shots", []),
         "shot_override": job.get("shot_override", ""),
+        "warnings": job.get("warnings", []),
         "output_dir": str(output_dir) if output_dir else "",
     }
 

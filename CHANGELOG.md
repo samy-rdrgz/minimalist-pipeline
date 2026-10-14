@@ -10,12 +10,30 @@ All notable changes to this addon. Dates are release dates.
   The heartbeat, cancel check and finished-render check now run
   independently: one failing (a locked file on the share) no longer skips
   the others every tick.
+- **A job no longer sits at 100 % waiting for a machine that had nothing
+  left to render.** With several machines on a render, one could be
+  handed its share while it was starting another job: the others rendered
+  everything, and the job waited for that other render to end. Once one
+  machine has finished, shares not yet picked up are dropped.
 - **A render or setup whose script crashes is now reported as failed.**
   Blender exited with 0 even after a Python error in its entry script, so
   the render counted as a success.
 - **The Farm monitoring popup no longer crashes when the farm is stopped**
   while a worker file still says it's busy.
 - The "Farm host" line only shows the step it's running right now.
+- **Output format and fps come from the file plus its preset.** The setup
+  applies the preset too (in memory, never saved) before reading them: a
+  preset changing the format no longer breaks the frame check and the
+  compilation.
+- **Resolution warning**: a render whose output size differs from the
+  project's (another percentage, a preset at 50 %...) or with non-square
+  pixels is flagged on the job -- never changed.
+
+### Farm monitoring popup
+
+- Click a job's name for its detail: stage history with timestamps, frame
+  range, output folder, format, fps, preset, machines, warnings, split
+  shots.
 - `render_history.json` now records the render's duration, the machines
   that rendered it, and which file and output folder were rendered
   (`source_file`, `output_path`, `shot_override`).

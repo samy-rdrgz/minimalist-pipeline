@@ -17,6 +17,7 @@ from ..lib import (
     log,
     now,
     process_alive,
+    read_json_quiet,
     to_relative,
 )
 from .loop import (
@@ -362,6 +363,28 @@ def archive(job_path: Path) -> None:
             pass
 
     job_path.rename(archives_dir / job_path.name)
+
+
+# The job the Farm monitoring popup shows in detail: read once, on click
+# (load_job_details()), never from draw().
+_job_details: dict = {}
+
+
+def load_job_details(job_id: str) -> dict | None:
+    """Read a job's file -- active/, else archives/ (archive() moves it
+    there) -- into the detail cache. None, cache emptied, if it's in neither."""
+    _job_details.clear()
+    for folder in ("farm_actives", "farm_archives"):
+        data = read_json_quiet(ConfigCache.get_path(folder) / f"{job_id}.json")
+        if data:
+            _job_details.update(data)
+            return data
+    return None
+
+
+def get_job_details() -> dict:
+    """The job last read by load_job_details()."""
+    return _job_details
 
 
 def recover_interrupted_jobs() -> None:

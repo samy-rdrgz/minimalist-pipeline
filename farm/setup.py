@@ -234,12 +234,52 @@ def run_render_setup_entry(job_id: str) -> None:
         # an already-shifted frame_start instead of the scene's own).
         data["file_frame_range"] = (frame_start, frame_end)
         data["resolved_frame_range"] = (frame_start, frame_end)
+        # The render applies the preset on top of the .blend, never saved
+        # into it. Apply it here too -- this session never saves the .blend
+        # either -- so what's read below is what the render will write:
+        # checks_images and the compilation look for output_extension, the
+        # compilation encodes at fps.
+        preset = data.get("prerender_script", "")
+        if preset:
+            from .workers import apply_custom_preset  # local: import cycle
+
+            apply_custom_preset(preset, scene, job_id, job_data=dict(data))
+
         # fps_base handles fractional rates (e.g. 24/1.001 = 23.976...);
         # captured here (not from project config) so a shot that overrides
         # its own scene fps compiles at the fps it was actually rendered at.
         data["fps"] = round(scene.render.fps / scene.render.fps_base, 3)
         data["output_extension"] = scene.render.image_settings.file_format
+        data["warnings"] = _resolution_warnings(scene, config)
+        for warning in data["warnings"]:
+            log("WARNING", "farm", f"Job {job_id}: {warning}")
         box["action"] = "to_write"
+
+
+def _resolution_warnings(scene: "bpy.types.Scene", config: dict) -> list[str]:
+    """What the render's output size will differ in from the project's
+    resolution -- warned, never overwritten: build_shot_scene() only sets
+    resolution_x/y at the shot's creation, percentage and pixel aspect come
+    from whatever the scene had."""
+    res = json_get(config, "resolution", {"x": 1920, "y": 1080})
+    want = (int(res.get("x", 1920)), int(res.get("y", 1080)))
+    r = scene.render
+    # Same integer math as Blender's own output size.
+    got = (
+        r.resolution_x * r.resolution_percentage // 100,
+        r.resolution_y * r.resolution_percentage // 100,
+    )
+    warnings = []
+    if got != want:
+        warnings.append(
+            f"Renders at {got[0]}x{got[1]} ({r.resolution_x}x{r.resolution_y} "
+            f"at {r.resolution_percentage}%), project is {want[0]}x{want[1]}."
+        )
+    if r.pixel_aspect_x != r.pixel_aspect_y:
+        warnings.append(
+            f"Non-square pixels ({r.pixel_aspect_x:g}:{r.pixel_aspect_y:g})."
+        )
+    return warnings
 
 
 def _split_into_shot_jobs(
