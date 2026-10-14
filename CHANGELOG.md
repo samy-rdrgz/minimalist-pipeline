@@ -40,10 +40,12 @@ All notable changes to this addon. Dates are release dates.
 
 ### Production snapshot
 
-- **The last render's version** shows next to the wip and stable ones
-  ("render v003"; per shot for a block whose shots differ, "not rendered"
-  for a shot never rendered). A render made from an older version than
-  the last stable is flagged in red: the picture lags the validated work.
+- **Last render column**, next to the Blender file's versions (now
+  labelled "wip v004 · stable v003"): the render's output folder — its
+  own version, a new one per render — and the .blend version it was
+  rendered from ("v003_002 from .blend v003"); one line per shot for a
+  block whose shots differ, "not rendered" for a shot never rendered. A
+  render made from an older .blend than the last stable is flagged in red.
   Read from the render history, or from the render folder's name for
   renders made before this version.
 

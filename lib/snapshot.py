@@ -214,22 +214,29 @@ def build_snapshot(data, config: dict, meta: dict) -> dict:
             "current_version": wip_name if wip_n > stable_n else stable_name or wip_name,
             "thumbnail": data["thumbs"].get(str(owner)),
         }
+        # Two versions per render, never mixed up: the render's own (its
+        # output folder, v003_002 -- a new increment per render) and the
+        # .blend version it was rendered from (v003). The folder's name
+        # starts with the latter, the fallback when the history doesn't say.
         renders = []
         for r in data.get("renders", {}).get(str(owner), []):
             m = version_re.search(r["file"] or "") or folder_re.match(r["folder"] or "")
             renders.append(
                 {
                     "shot": r["shot"],
-                    "version": f"{v_prefix}{m[1]}" if m else None,
-                    "number": int(m[1]) if m else None,
-                    "source": r["file"] or r["folder"],
+                    "folder": r["folder"],
+                    "file_version": f"{v_prefix}{m[1]}{m[2] or ''}" if m else None,
+                    "file_number": int(m[1]) if m else None,
+                    "file": r["file"],
                 }
             )
         item["renders"] = renders
-        # What the prod must see: a render made from an older version than
+        # What the prod must see: a render made from an older .blend than
         # the last stable -- the picture lags the validated work.
+        item["stable_number"] = stable_n
         item["render_behind"] = stable_n >= 0 and any(
-            r["number"] is not None and r["number"] < stable_n for r in renders
+            r["file_number"] is not None and r["file_number"] < stable_n
+            for r in renders
         )
         threads = [
             _thread_dict(name, t)
@@ -468,7 +475,11 @@ def _render_table(anchor: str, title: str, items: list, columns: list) -> str:
     with_thumbs = any(i.get("thumbnail") for i in items)
     head = (
         ("<th></th>" if with_thumbs else "")
-        + "<th>Name</th><th>Versions</th>"
+        + "<th>Name</th>"
+        + '<th title="Latest work-in-progress and stable versions of the .blend">'
+        "Blender file</th>"
+        + '<th title="Its output folder (a new one per render), and the .blend '
+        'version it was rendered from">Last render</th>'
         + "".join(f"<th>{_e(c.capitalize())}</th>" for c in columns)
     )
     rows = []
@@ -478,7 +489,7 @@ def _render_table(anchor: str, title: str, items: list, columns: list) -> str:
             group = item["group"]
             rows.append(
                 f'<tr class="group" data-group="{_e(group)}">'
-                f'<th colspan="{len(columns) + 2 + with_thumbs}">{_e(group)}</th></tr>'
+                f'<th colspan="{len(columns) + 3 + with_thumbs}">{_e(group)}</th></tr>'
             )
         cells = []
         for c in columns:
@@ -488,14 +499,11 @@ def _render_table(anchor: str, title: str, items: list, columns: list) -> str:
             else:
                 label, cls = STATES[state]
                 cells.append(f'<td><span class="pill {cls}">{_e(label)}</span></td>')
-        versions = [
-            _e(label + _short_version(item["name"], v))
-            for label, v in (("", item["wip_version"]), ("stable ", item["stable_version"]))
+        versions = " · ".join(
+            label + _short_version(item["name"], v)
+            for label, v in (("wip ", item["wip_version"]), ("stable ", item["stable_version"]))
             if v
-        ]
-        render = _render_versions(item)
-        if render:
-            versions.append(render)
+        )
         flags = (
             f'<span class="flag">{item["open_rtk"]} RTK</span>' if item["open_rtk"] else ""
         )
@@ -518,7 +526,8 @@ def _render_table(anchor: str, title: str, items: list, columns: list) -> str:
             f'<tr class="item" id="i-{_e(_slug(item["name"]))}" {_item_attrs(item)}>'
             f'{thumb}<td class="name"><b>{_e(item["name"])}</b>{flags}{jump}'
             f'<small>{_e(item["description"])}</small></td>'
-            f'<td class="ver">{" · ".join(versions)}</td>{"".join(cells)}</tr>'
+            f'<td class="ver">{_e(versions)}</td>'
+            f'<td class="ver">{_render_cell(item)}</td>{"".join(cells)}</tr>'
         )
     return (
         f'<section id="{anchor}"><h2>{title}</h2>'
@@ -529,25 +538,36 @@ def _render_table(anchor: str, title: str, items: list, columns: list) -> str:
     )
 
 
-def _render_versions(item: dict) -> str:
-    """ "render v003" -- per shot for a block whose shots differ -- flagged
-    when older than the last stable. "not rendered" for a shot never
-    rendered; nothing for an asset never rendered (most never are)."""
-    renders = item.get("renders") or []
-    if not any(r["version"] for r in renders):
+def _render_cell(item: dict) -> str:
+    """ "Last render" cell: the output folder (the render's own version,
+    v003_002) over "from v003" (the .blend it was rendered from), the
+    latter flagged when older than the last stable. One line per shot when
+    a block's shots differ. "not rendered" for a shot never rendered,
+    empty for an asset never rendered (most never are)."""
+    renders = [r for r in item.get("renders") or [] if r["folder"] or r["file_version"]]
+    if not renders:
         return '<span class="norender">not rendered</span>' if item["kind"] == "shot" else ""
-    labels = {r["version"] for r in renders}
-    if len(labels) == 1:
-        text = f"render {renders[0]['version']}"
-    else:
-        text = "render " + ", ".join(f"{r['shot']} {r['version'] or '–'}" for r in renders)
-    sources = ", ".join(r["source"] for r in renders if r["source"])
-    if item.get("render_behind"):
-        return (
-            f'<span class="behind" title="Rendered from an older version than the '
-            f'last stable ({_e(sources)})">⚠ {_e(text)}</span>'
+    stable = _short_version(item["name"], item["stable_version"] or "")
+    same = len({(r["folder"], r["file_version"]) for r in item["renders"]}) == 1
+    lines = []
+    for r in item["renders"][:1] if same else item["renders"]:
+        shot = "" if same else f'<span class="shot">{_e(r["shot"])}</span> '
+        if not (r["folder"] or r["file_version"]):
+            lines.append(f'<div>{shot}<span class="norender">not rendered</span></div>')
+            continue
+        source = f"from .blend {r['file_version'] or '?'}"
+        if r["file_number"] is not None and r["file_number"] < item["stable_number"]:
+            source = (
+                f'<span class="behind" title="Rendered from an older .blend than '
+                f'the last stable ({_e(stable)})">⚠ {_e(source)}, stable is {_e(stable)}</span>'
+            )
+        else:
+            source = f"<small>{_e(source)}</small>"
+        title = f' title="{_e(r["file"])}"' if r["file"] else ""
+        lines.append(
+            f'<div{title}>{shot}<span class="rv">{_e(r["folder"] or "?")}</span> {source}</div>'
         )
-    return f'<span title="Last render: {_e(sources)}">{_e(text)}</span>'
+    return "".join(lines)
 
 
 def _short_version(name: str, filename: str) -> str:
@@ -671,6 +691,7 @@ white-space:nowrap;border:1px solid transparent}
 .st-none{color:var(--muted);border:1px dashed var(--line)}
 .na{color:var(--muted);opacity:.5}
 .behind{color:var(--rtk);font-weight:600}.norender{opacity:.6}
+td.ver .rv{color:var(--fg)}td.ver small{font-size:inherit}td.ver .shot{font-weight:600}
 td.th{width:1px;padding-right:0}
 /* Any aspect ratio: shown whole inside a fixed box, never cropped. */
 .thumb{display:block;width:112px;height:63px;object-fit:contain;border-radius:4px;
