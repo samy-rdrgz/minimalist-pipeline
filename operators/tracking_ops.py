@@ -22,6 +22,7 @@ from ..lib import (
     get_addon_version,
     get_current_departments,
     get_departments_required,
+    get_last_stable,
     get_description,
     get_session_worked_departments,
     get_user,
@@ -1008,8 +1009,18 @@ class M_PIPELINE_OT_department_status_info(bpy.types.Operator):
         return {"CANCELLED"}
 
 
+class PIPELINE_PG_department_check_item(bpy.types.PropertyGroup):
+    """One department "Checked" offers to validate along with the render --
+    a checklist row, like the Render dialog's shots (a dynamic ENUM_FLAG
+    draws as an empty box in a dialog)."""
+
+    department: bpy.props.StringProperty()
+    validate: bpy.props.BoolProperty(name="", default=False)
+
+
 class M_PIPELINE_OT_render_checked(bpy.types.Operator):
-    """Mark a farm render as checked: it leaves the "To check" column."""
+    """Mark a farm render as checked: it leaves the "To check" column. Asks
+    first which of the file's departments to validate along with it."""
 
     bl_idname = "m_pipeline.render_checked"
     bl_label = ""
@@ -1025,6 +1036,34 @@ class M_PIPELINE_OT_render_checked(bpy.types.Operator):
             return properties.custom_tooltip
         return "Mark this render as checked."
 
+    def invoke(self, context, event):
+        # The checklist: the required departments not validated yet.
+        checklist = context.window_manager.render_checked_departments
+        checklist.clear()
+        folder = Path(self.filepath)
+        try:
+            required = get_departments_required(folder) or []
+        except PipelineError:
+            required = []
+        current = get_current_departments(folder)
+        todo = [d for d in required if not current.get(d)]
+        # Validating needs a stable version (set_department_validated()).
+        if not todo or "file" not in get_last_stable(folder):
+            return self.execute(context)
+        for department in todo:
+            item = checklist.add()
+            item.department = department
+            item.validate = department == "render"
+        return context.window_manager.invoke_props_dialog(
+            self, width=300, title="Render checked", confirm_text="Mark checked"
+        )
+
+    def draw(self, context):
+        col = self.layout.column(align=True)
+        col.label(text="Validate as well:")
+        for item in context.window_manager.render_checked_departments:
+            col.prop(item, "validate", text=item.department.upper())
+
     def execute(self, context):
         try:
             job_ids = clear_render_to_check(
@@ -1034,10 +1073,18 @@ class M_PIPELINE_OT_render_checked(bpy.types.Operator):
             log(e.level, "render_checked", e.message)
             self.report({e.level}, e.message)
             return {"CANCELLED"}
+        checklist = context.window_manager.render_checked_departments
+        for department in [i.department for i in checklist if i.validate]:
+            try:
+                set_department_validated(Path(self.filepath), department, True)
+            except PipelineError as e:
+                log(e.level, "render_checked", e.message)
+                self.report({e.level}, e.message)
         # The table only reads the cache: refresh this one folder now.
         TrackingStatusCache.get(self.filepath, force_reload=True)
         for job_id in job_ids:
             _archive_checked_job(job_id)
+        checklist.clear()  # filled again by the next invoke()
         return {"FINISHED"}
 
 

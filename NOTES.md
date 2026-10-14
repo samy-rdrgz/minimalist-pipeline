@@ -1551,6 +1551,16 @@ entry also records the compiled `video`, for the To check column's play
 button; older entries fall back to the newest video in the render folder,
 looked up on click, never in draw().
 
+**"Checked" can validate departments.** Checking a render is usually the
+moment its department is done, so "Checked" asks which of the file's
+required, not-yet-validated departments to validate along with it
+("render" preselected) -- the same `set_department_validated()` as the
+file detail's toggles, so it needs a stable version; without one, or with
+nothing left to validate, no dialog: it just marks the render checked.
+The checklist is a WindowManager collection (like the Render dialog's
+shots), not a dynamic ENUM_FLAG: that one drew as an empty box in the
+dialog.
+
 **"Checked" archives the job.** Once a render is checked in Project
 monitoring, its job has nothing left to show in the Farm popup: the
 operator archives it (`_archive_checked_job()`, `operators/tracking_ops.py`)

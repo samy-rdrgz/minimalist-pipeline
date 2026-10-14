@@ -18,7 +18,7 @@ Two project-wide monitoring popups (Project menu): the list of every file with i
 
 Multishot blocks can tag a note/todo with which shot in the block it's about — see [Shot blocks (multishot)](multishot.md).
 
-**Renders to check**: when a farm job finishes (frames checked, video compiled), its render waits for a check. Project monitoring shows it in its "To check" column — a video button plays it, the checkbox marks it checked — and an eye icon in its filters lists only the files with one waiting. The file's detail lists them in their own box (date, video, folder, "Checked"), next to the last render of each shot, checked or not. Marking a render checked also archives its farm job. A block keeps one per shot; a newer render of a shot replaces the older one.
+**Renders to check**: when a farm job finishes (frames checked, video compiled), its render waits for a check. Project monitoring shows it in its "To check" column — a video button plays it, the checkbox marks it checked — and an eye icon in its filters lists only the files with one waiting. The file's detail lists them in their own box (date, video, folder, "Checked"), next to the last render of each shot, checked or not. Marking a render checked also archives its farm job, and offers to validate the file's departments not validated yet ("render" ticked by default; needs a stable version, like any department validated by hand). A block keeps one per shot; a newer render of a shot replaces the older one.
 
 ---
 

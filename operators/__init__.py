@@ -61,6 +61,7 @@ from .tracking_ops import (
     M_PIPELINE_OT_tracking_file_details,
     M_PIPELINE_OT_tracking_monitor,
     M_PIPELINE_OT_tracking_refresh,
+    PIPELINE_PG_department_check_item,
     PipelineEntryItem,
 )
 
@@ -102,6 +103,7 @@ classes = (
     M_PIPELINE_OT_tracking_refresh,
     M_PIPELINE_OT_open_file_version,
     M_PIPELINE_OT_tracking_file_details,
+    PIPELINE_PG_department_check_item,
     M_PIPELINE_OT_render_checked,
     M_PIPELINE_OT_open_render_video,
     M_PIPELINE_OT_pipeline_logs,

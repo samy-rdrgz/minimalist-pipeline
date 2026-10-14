@@ -26,6 +26,7 @@ from .lib.saving import override_shortcut, unoverride_shortcut
 from .menus import classes as menu_classes
 from .menus import register_topbar_menu, unregister_topbar_menu
 from .operators import (
+    PIPELINE_PG_department_check_item,
     PIPELINE_PG_farm_list_item,
     PIPELINE_PG_render_subshot_item,
     PipelineEntryItem,
@@ -56,6 +57,10 @@ _WM_PROPS = {
     "shots_list_creation": bpy.props.CollectionProperty(type=PipelineShotItem),
     "render_subshots": bpy.props.CollectionProperty(
         type=PIPELINE_PG_render_subshot_item
+    ),
+    # "Checked"'s checklist of departments to validate with the render.
+    "render_checked_departments": bpy.props.CollectionProperty(
+        type=PIPELINE_PG_department_check_item
     ),
     "file_details_selected": bpy.props.StringProperty(),
     # Job id the Farm monitoring popup shows in detail, "" for the lists.

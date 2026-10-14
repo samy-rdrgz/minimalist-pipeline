@@ -18,7 +18,7 @@ Deux popups de monitoring project-wide (menu Projet) : la liste de tous les fich
 
 Un bloc multishot peut taguer une note/todo avec le shot du bloc concerné — voir [Blocs de shots (multishot)](multishot_fr.md).
 
-**Rendus à vérifier** : quand un job farm se termine (frames vérifiées, vidéo compilée), son rendu attend une vérification. Le Project monitoring l'affiche dans sa colonne "To check" — un bouton vidéo le lit, la case à cocher le marque vérifié — et une icône œil dans ses filtres n'affiche que les fichiers qui en ont un en attente. Le détail du fichier les liste dans leur propre box (date, vidéo, dossier, "Checked"), à côté du dernier rendu de chaque shot, vérifié ou non. Marquer un rendu vérifié archive aussi son job farm. Un bloc en garde un par shot ; un rendu plus récent d'un shot remplace l'ancien.
+**Rendus à vérifier** : quand un job farm se termine (frames vérifiées, vidéo compilée), son rendu attend une vérification. Le Project monitoring l'affiche dans sa colonne "To check" — un bouton vidéo le lit, la case à cocher le marque vérifié — et une icône œil dans ses filtres n'affiche que les fichiers qui en ont un en attente. Le détail du fichier les liste dans leur propre box (date, vidéo, dossier, "Checked"), à côté du dernier rendu de chaque shot, vérifié ou non. Marquer un rendu vérifié archive aussi son job farm, et propose de valider les départements du fichier pas encore validés ("render" coché par défaut ; il faut une version stable, comme pour toute validation de département à la main). Un bloc en garde un par shot ; un rendu plus récent d'un shot remplace l'ancien.
 
 ---
 

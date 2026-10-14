@@ -66,6 +66,12 @@ All notable changes to this addon. Dates are release dates.
   render of the same shot replaces the older one.
 - **Marking a render checked also archives its farm job**, if it's still
   in the Farm monitoring list.
+- **Validate departments while marking a render checked.** "Checked"
+  (the To check column's checkbox, or the file detail's button) asks which
+  of the file's required departments not validated yet to validate along
+  with it -- "render" ticked by default. No dialog when they're all
+  validated already, or when the file has no stable version yet (needed to
+  validate a department).
 - **File details**: the renders to check get their own box under the
   thumbnail (date, video, folder and "Checked" each), and the last render
   of each shot, checked or not, is listed next to the departments with
