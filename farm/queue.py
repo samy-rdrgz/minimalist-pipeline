@@ -356,14 +356,22 @@ def _last_stage_time(stage_history: list, prefix: str) -> datetime.datetime | No
 
 def construct_history(job: dict, status):
     """Build and append a completed/failed-job entry to the job's render_history.json."""
-    start_time = _stage_time(job["stage_history"], "render")
-    end_time = _last_stage_time(job["stage_history"], "render")
+    # First render_start (a lost render re-dispatches, adding more) to the
+    # last render_finished.
+    start_time = _stage_time(job["stage_history"], "render_start")
+    end_time = _last_stage_time(job["stage_history"], "render_finished")
     entry = {
         "job_id": job["job_id"],
         "completed_at": now(),
         "user": job["user"],
         "render_mode": job["render_mode"],
-        "machines_used": job.get("used_machines", []),
+        # Which .blend version, and which vNNN_inc output folder.
+        "source_file": job.get("filepath"),
+        "output_path": job.get("output_path"),
+        "shot_override": job.get("shot_override", ""),
+        # used_machines is emptied at the end of every local stage, long
+        # before this: rendered_by is its copy from render_finished.
+        "machines_used": job.get("rendered_by") or job.get("used_machines", []),
         "frame_range_rendered": job.get("resolved_frame_range"),
         "frames_corrupted": job.get("frames_corrupted", 0),
         "duration_seconds": (end_time - start_time).total_seconds()
@@ -469,6 +477,7 @@ def check_render_completion(job_path: Path) -> None:
                 still_running.append(uuid)
 
         if any_failed:
+            data["rendered_by"] = list(data.get("used_machines", []))
             data["stage_history"].append({"stage": "render_failed", "at": now()})
             box["action"] = "to_write"
         elif lost:
@@ -500,6 +509,9 @@ def check_render_completion(job_path: Path) -> None:
                 f"-- re-dispatching (frames already rendered are kept).",
             )
         elif not still_running:
+            # Kept for construct_history(): used_machines is reset by the
+            # next local stages (_finish_job_processes()).
+            data["rendered_by"] = list(data.get("used_machines", []))
             data["stage_history"].append({"stage": "render_finished", "at": now()})
             box["action"] = "to_write"
         return data

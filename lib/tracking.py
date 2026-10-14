@@ -1562,14 +1562,21 @@ def upload_csv(filepath: Path, user: str) -> tuple[int, int]:
             keys = row.keys()
             select_filepath = find_file_by_name(row["filename"])
             if not select_filepath:
-                log("WARNING", "csv_import", f"CSV row {row}, filename unknow.")
+                log("WARNING", "csv_import", f"CSV row {row}, filename unknown.")
+                continue
 
-            department = valid_department(select_filepath, row["department"])
+            # Optional column, like author/type/shot.
+            department = valid_department(
+                select_filepath, (row.get("department") or "").strip()
+            )
             create_entry(
                 select_filepath,
                 text=row["text"],
                 department=department,
-                author=row["author"] if "authors" in keys else user,
+                # Column present but cell empty: a note from the production.
+                author=(row["author"] or "").strip() or "prod"
+                if "author" in keys
+                else user,
                 type=row["type"]
                 if "type" in keys and row["type"] in ["note", "todo", "rtk"]
                 else "note",

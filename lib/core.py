@@ -108,7 +108,14 @@ def read_csv(filepath: Path) -> list[dict]:
         # when saving "CSV UTF-8" on Windows) and behaves like plain utf-8
         # otherwise -- needed for accented text (descriptions, names...).
         with open(filepath, mode="r", encoding="utf-8-sig") as file:
-            csv_reader = csv.DictReader(file)  # Create DictReader
+            # Excel FR saves with ";", not ",". Sniffed on the header line
+            # only: free text in the rows (commas in a note) can't mislead it.
+            try:
+                dialect = csv.Sniffer().sniff(file.readline(), delimiters=",;\t")
+            except csv.Error:
+                dialect = csv.excel  # a single column: nothing to detect
+            file.seek(0)
+            csv_reader = csv.DictReader(file, dialect=dialect)
             data_list = []  # List to store dictionaries
             for row in csv_reader:
                 data_list.append(row)

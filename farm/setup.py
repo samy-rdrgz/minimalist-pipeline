@@ -97,6 +97,9 @@ def run_render_setup(job_id: str, config: dict) -> None:
                     resolve_local_binary(config),
                     "-b",
                     str(to_absolute(data["filepath"])),
+                    # Exit 1 on an exception in the entry script, not 0.
+                    "--python-exit-code",
+                    "1",
                     "--python",
                     str(entry),
                     "--",

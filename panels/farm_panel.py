@@ -283,6 +283,9 @@ def draw_farm_workers(layout):
 
     layout.separator(factor=0.1, type="LINE")
     row = layout.column(align=True)
+    # uuid -> job_id, to let a busy worker's row cancel just its own share.
+    # Empty when the monitor is stopped: a worker file can still say busy.
+    uuid_to_job = {}
     if monitor_cache.get("status") == "not running":
         row.label(
             text="Farm not running",
@@ -294,25 +297,30 @@ def draw_farm_workers(layout):
             if monitor_cache.get("lock_machine")
             else "Farm host"
         )
-        monitor_jobs = monitor_cache["jobs"]
+        monitor_jobs = monitor_cache.get("jobs") or []
+        # Only the process the host is running right now, same definition
+        # as _finish_job_processes() (farm/queue.py).
+        running_jobs = [
+            job for job in monitor_jobs if job.get("stage", "").endswith("_start")
+        ]
 
         split = row.split(factor=FIRST_COLUMN)
         split.row().label(
             text=monitor_label,
-            icon="KEYTYPE_BREAKDOWN_VEC" if monitor_jobs else "KEYTYPE_JITTER_VEC",
+            icon="KEYTYPE_BREAKDOWN_VEC" if running_jobs else "KEYTYPE_JITTER_VEC",
         )
         jobs_col = split.column(align=True)
-        if monitor_jobs:
-            for job in monitor_jobs:
+        if running_jobs:
+            for job in running_jobs:
                 jobs_col.row().label(text=f"{job['stage']}: {job['job_id']}")
         else:
             jobs_col.row().label(text="idle")
 
         uuid_to_job = {
-            uuid: job["job_id"] for job in monitor_jobs for uuid in job["machines"]
+            uuid: job["job_id"]
+            for job in monitor_jobs
+            for uuid in job.get("machines", [])
         }
-
-    # uuid -> job_id, to let a busy worker's row cancel just its own share
 
     machines = machines + ["empty" for _ in range(4 - len(machines))]
     for m in machines:
@@ -326,7 +334,8 @@ def draw_farm_workers(layout):
         split = row.split(factor=FIRST_COLUMN)
 
         info = split.row()
-        busy = m["status"] != "idle" and m["status"] != "not running"
+        # Read from disk: never trust a key to be there.
+        busy = m.get("status") not in ("idle", "not running", None)
         info.label(
             text=m.get("user", "unknown"),
             icon="KEYTYPE_BREAKDOWN_VEC" if busy else "KEYTYPE_JITTER_VEC",
@@ -335,7 +344,7 @@ def draw_farm_workers(layout):
 
         jobs = split.row()
         if busy:
-            jobs.label(text=f"render: {m['current_job']}")
+            jobs.label(text=f"render: {m.get('current_job')}")
             job_id = uuid_to_job.get(m.get("uuid"))
             if job_id:
                 op = jobs.operator(

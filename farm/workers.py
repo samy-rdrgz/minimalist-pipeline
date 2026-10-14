@@ -304,6 +304,10 @@ def execute_render_request() -> dict:
                     ]
                     + data["cmd_flags"]
                     + [
+                        # Otherwise an exception in the entry script still
+                        # exits 0, reported as a successful render.
+                        "--python-exit-code",
+                        "1",
                         "--python",
                         str(entry),
                         "--",
@@ -354,11 +358,16 @@ def worker_tick():
     """Per-tick worker work: heartbeat, cancel/finished-process bookkeeping,
     then pick up a render request if idle. Never raises: called from the
     farm_tick timer, an uncaught exception here would silently deregister it."""
-    try:
-        update_worker_heartbeat()
-        scan_cancel_requests()
-        scan_worker_processes()
+    # Each step in its own try: one failing step must never skip the others
+    # -- a heartbeat refused every tick (NAS lock) would otherwise also skip
+    # scan_worker_processes(), and the worker would stay in "render" forever.
+    for step in (update_worker_heartbeat, scan_cancel_requests, scan_worker_processes):
+        try:
+            step()
+        except Exception as e:
+            log("ERROR", "farm", f"Error during worker tick ({step.__name__}): {e}")
 
+    try:
         with locked_json(_worker_path()) as box:
             data = box["data"] or {}
             if data.get("status") != "idle":

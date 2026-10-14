@@ -2,6 +2,31 @@
 
 All notable changes to this addon. Dates are release dates.
 
+## Unreleased
+
+### Fixes — farm
+
+- **A worker no longer stays stuck in "render" when its heartbeat fails.**
+  The heartbeat, cancel check and finished-render check now run
+  independently: one failing (a locked file on the share) no longer skips
+  the others every tick.
+- **A render or setup whose script crashes is now reported as failed.**
+  Blender exited with 0 even after a Python error in its entry script, so
+  the render counted as a success.
+- **The Farm monitoring popup no longer crashes when the farm is stopped**
+  while a worker file still says it's busy.
+- The "Farm host" line only shows the step it's running right now.
+- `render_history.json` now records the render's duration, the machines
+  that rendered it, and which file and output folder were rendered
+  (`source_file`, `output_path`, `shot_override`).
+
+### Fixes — tracking
+
+- **CSV import**: the `author` column was ignored, a missing `department`
+  column failed every row, a file that wasn't found still got through, and
+  `;`-separated files (French Excel) couldn't be read. An empty author cell
+  now gives `prod`.
+
 ## 1.0.9 — 2026-10-13
 
 ### Performance — sidebar on a network share
