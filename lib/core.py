@@ -109,13 +109,14 @@ def read_csv(filepath: Path) -> list[dict]:
         # otherwise -- needed for accented text (descriptions, names...).
         with open(filepath, mode="r", encoding="utf-8-sig", newline="") as file:
             # Excel writes ";" in a French locale -- sniffed, never a "sep="
-            # line (DictReader would take it for the header).
-            sample = file.read(4096)
-            file.seek(0)
+            # line (DictReader would take it for the header). On the header
+            # line only: free text in the rows (commas in a description)
+            # can't mislead it.
             try:
-                dialect = csv.Sniffer().sniff(sample, delimiters=",;\t")
+                dialect = csv.Sniffer().sniff(file.readline(), delimiters=",;\t")
             except csv.Error:
-                dialect = csv.excel
+                dialect = csv.excel  # a single column: nothing to detect
+            file.seek(0)
             csv_reader = csv.DictReader(file, dialect=dialect)
             data_list = []  # List to store dictionaries
             for row in csv_reader:

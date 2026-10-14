@@ -14,6 +14,7 @@ from ..farm import (
     kill_worker,
     launch_monitor,
     launch_worker,
+    load_job_details,
     monitor_age_status,
     monitor_last_tick,
     refresh_monitor_status,
@@ -45,7 +46,7 @@ from ..lib import (
     shots_in_segment,
     version_items,
 )
-from ..panels import draw_farm_jobs, draw_farm_workers
+from ..panels import draw_farm_job_details, draw_farm_jobs, draw_farm_workers
 
 _workers_items_cache: list[tuple[str, str, str]] = []
 _pre_render_scripts: list[tuple[str, str, str]] = []
@@ -751,6 +752,30 @@ class M_PIPELINE_OT_farm_archive_job(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class M_PIPELINE_OT_farm_job_details(bpy.types.Operator):
+    """Farm monitoring popup: switch to one job's detail view, or back to
+    the list. Reads the job file here, once per click -- never in draw()."""
+
+    bl_idname = "m_pipeline.farm_job_details"
+    bl_label = ""
+    bl_description = "Show this job's details."
+
+    job_id: bpy.props.StringProperty()
+    reload: bpy.props.BoolProperty(options={"SKIP_SAVE"})
+
+    def execute(self, context):
+        wm = context.window_manager
+        if wm.farm_job_selected == self.job_id and not self.reload:
+            wm.farm_job_selected = ""  # back to the list
+            return {"FINISHED"}
+        if load_job_details(self.job_id) is None:
+            wm.farm_job_selected = ""
+            self.report({"WARNING"}, "Job file not found (deleted?).")
+            return {"CANCELLED"}
+        wm.farm_job_selected = self.job_id
+        return {"FINISHED"}
+
+
 class M_PIPELINE_OT_farm_monitor(bpy.types.Operator):
     """Popup dashboard: active jobs and worker machines, filterable."""
 
@@ -778,6 +803,7 @@ class M_PIPELINE_OT_farm_monitor(bpy.types.Operator):
 
         get_monitor_cache()
         self.project_root = str(project_root)
+        context.window_manager.farm_job_selected = ""  # always open on the list
         register_refresh_timer()
 
         return context.window_manager.invoke_props_dialog(self, width=800)
@@ -796,6 +822,10 @@ class M_PIPELINE_OT_farm_monitor(bpy.types.Operator):
         register_popup_region(getattr(context, "region_popup", None))
 
         layout = self.layout
+        if context.window_manager.farm_job_selected:
+            draw_farm_job_details(layout.box(), context)
+            return
+
         filters = layout.box().split(factor=0.5)
         filters.label(text="Filters", icon="FILTER")
         filters_btn = filters.row()

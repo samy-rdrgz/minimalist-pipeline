@@ -1776,9 +1776,15 @@ carries its prefix). Overwritten in place, made by `lib/thumbnails.py` +
   layer), with `-apply_trc` for linear -> sRGB. Without ffmpeg on that
   machine, that thumbnail isn't made and the export says so: another
   machine that has ffmpeg can fill the gap with its own export.
-- **Size**: longest side 240 px, any aspect ratio (a 9:16 render gives
-  135x240); JPEG q70 -- 2-3 KB on the test project, ~10 KB for a busy
-  frame. Shown whole in a fixed box in the HTML (`object-fit: contain`).
+- **Size**: longest side 240 px by default, any aspect ratio (a 9:16
+  render gives 135x240); JPEG q70 -- 2-3 KB on the test project, ~10 KB
+  for a busy frame. Shown whole in a fixed box in the HTML (`object-fit:
+  contain`), at its own size on hover. The size is the project's
+  `thumbnails.size` (Edit project, `thumbnail_size()`). A thumbnail's
+  longest side is always exactly the size it was made at, so
+  `thumbnail_jobs()` spots one made before the setting changed by its
+  JPEG header (`jpeg_size()`, SOF segment) and remakes it at the next
+  export -- no sidecar to keep in sync.
 - **Which frame**: the middle one of the latest render increment (folder
   name order, same rule as `latest_shot_mp4()`, now `latest_render_dir()`);
   the first is often a hold. Empty placeholder frames are skipped.
@@ -1808,3 +1814,57 @@ carries its prefix). Overwritten in place, made by `lib/thumbnails.py` +
 <!-- Next feature with rationale worth keeping gets its own "## " section
      here, same shape as the ones above: what was tried, what was
      rejected and why, anything a docstring is too short to hold. -->
+
+## Render stuck at 100 %: a share nobody was going to render
+
+Symptom: every frame written, the popup at 100 %, the job still at
+`render_start`; on the worker, no leftover Blender -- just one rendering
+another job. Seen on a single-machine job (`job_4074e92294`, sq110 sh040):
+one machine in `used_machines`, no `resumed` stage, the worker's render
+log deleted (= exit 0). So the worker did publish its `last_job_result`;
+the monitor didn't take it.
+
+### The result was there, the worker was "stale"
+
+`check_render_completion()` read workers through `scan_workers()`, which
+drops any worker whose heartbeat is older than `STALE_WORKER_SECONDS`
+(15 s). The heartbeat is written once per tick, every 10 s *after the
+previous tick returns* -- so its age when the monitor looks is 10 s plus
+however long the ticks take. On a share, `scan_queue()` alone (an
+exclusive lock + read per job file, finished jobs included until someone
+archives them) can eat the remaining 5 s. A dropped worker counted as
+"still running" (gone only after 180 s), its published result ignored.
+Once that worker finished its *next* render, `last_job_result` was
+overwritten and this job could never finish.
+
+Fix: `check_render_completion()` reads each used machine's file directly
+(`_read_worker()`). A result stamped with this render's `dispatch_id` is
+final whatever the heartbeat's age; staleness only matters for "is it
+gone" (180 s, unchanged).
+
+### A share nobody was going to render
+
+Second way to the same symptom, with several machines: `check_render_completion()` waits for a result from *every* machine in
+`used_machines`. In placeholder mode a worker can be in that list without
+ever starting: `render_dispatch()` picks "idle" workers from
+`scan_workers()`, cached ~1.5 s, and a worker flashes idle between its
+render ending and its next request being picked up -- so it can get a
+request while it is in fact starting another render. The other machines
+render the whole range; this job then waits for that unrelated render to
+end, and for the late worker to open the file only to find nothing left.
+
+Fix: once one machine has finished *this* render successfully, every
+frame is rendered or being rendered (placeholders, no overwrite). A
+machine whose request is still waiting in `requests/` has started
+nothing, so its request is deleted (`_drop_pending_request()`, under the
+request's lock) and it leaves `used_machines`. A machine that already
+picked its request up is still waited for: it may be mid-frame. Worker
+side, `execute_render_request()` no longer launches a request that
+vanished between its scan and its lock (it used to fall back to the
+scanned copy).
+
+Same occasion: `worker_tick()` runs heartbeat, cancel scan and process
+scan each in its own `try` (a heartbeat raising every tick used to skip
+the process scan forever -- the worker stayed "render"), and renders/setup
+run with `--python-exit-code 1` (an exception in the entry script used to
+exit 0, i.e. a successful render).

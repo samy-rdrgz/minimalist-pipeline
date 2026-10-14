@@ -26,7 +26,9 @@ def override(scene, job_data):
 {"render.engine": "CYCLES", "cycles.samples": 64, "render.resolution_x": 1280, "render.resolution_y": 720}
 ```
 
-A broken preset never blocks the render: an invalid `.json` key is skipped (the others still apply), a `.py` that raises or a preset name that no longer exists falls back to the file's own settings -- each case logged as a farm warning. Mind version-specific identifiers when workers run different Blender versions: EEVEE is `BLENDER_EEVEE_NEXT` on 4.2–4.5 but `BLENDER_EEVEE` from 5.0 -- a `.py` preset can pick whichever exists.
+A broken preset never blocks the render: an invalid `.json` key is skipped (the others still apply), a `.py` that raises or a preset name that no longer exists falls back to the file's own settings -- each case logged as a farm warning.
+
+The preset is also applied once at setup, in that throwaway session (never saved either), to read what the render will actually produce: the output format (what the frame check and compilation look for) and the fps (what the compilation encodes at) come from the file *plus* its preset. Mind version-specific identifiers when workers run different Blender versions: EEVEE is `BLENDER_EEVEE_NEXT` on 4.2–4.5 but `BLENDER_EEVEE` from 5.0 -- a `.py` preset can pick whichever exists.
 
 **Render modes**:
 - `single`: one machine over the whole range.
@@ -37,7 +39,9 @@ A multishot block (see [Shot blocks (multishot)](multishot.md)) submits and beha
 
 **Output folders**: a shot renders into `renders/<seq>/<shot>/<version>_<n>/`, an asset or library file into `renders/assets/<prefix>/<asset>/<version>_<n>/` (or `renders/library/...`).
 
-**Thumbnail**: once a render is compiled, the farm writes a thumbnail next to its folders — `renders/<seq>/<shot>/<seq>_<shot>_thumbnail.jpg`, `renders/assets/ch/ch_bob/ch_bob_thumbnail.jpg` (middle frame, 240 px), used by the production snapshot. Made by Blender itself; only a multilayer EXR needs ffmpeg.
+**Thumbnail**: once a render is compiled, the farm writes a thumbnail next to its folders — `renders/<seq>/<shot>/<seq>_<shot>_thumbnail.jpg`, `renders/assets/ch/ch_bob/ch_bob_thumbnail.jpg` (middle frame, 240 px on its longest side by default — "Thumbnails" in Edit project), used by the production snapshot. Made by Blender itself; only a multilayer EXR needs ffmpeg.
+
+**After the render**: once a job is finished (frames checked, video compiled), its render shows up in Project monitoring's "To check" column until someone marks it checked -- see [Tracking & reviews](tracking-and-reviews.md).
 
 **Logs**: every farm process writes its output to a file in `config/.farm/queue/requests/` -- `request_<job_id>.log` for a job's setup, frame check, compilation and preview, plus one `request_<job_id>_<machine>.log` per worker render. Deleted when the job ends well, kept (and archived with the job) when something failed: that's the first place to look.
 

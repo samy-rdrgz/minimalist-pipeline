@@ -17,10 +17,12 @@ from .loop import (
 )
 from .monitor import (
     archive,
+    get_job_details,
     get_monitor_cache,
     job_cancel_request,
     job_request,
     launch_monitor,
+    load_job_details,
     monitor_request,
     register_farm_loop,
     request_monitor_kill,

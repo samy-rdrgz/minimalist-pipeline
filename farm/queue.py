@@ -3,7 +3,7 @@
 import datetime
 from pathlib import Path
 
-from ..lib import ConfigCache, log, now, retry_shared_io, to_relative
+from ..lib import ConfigCache, log, mark_render_to_check, now, retry_shared_io, to_relative
 from .dispatch import (
     _active_processes,
     append_render_history,
@@ -15,7 +15,7 @@ from .dispatch import (
     render_dispatch,
 )
 from .post_render import checks_images, compilation, refresh_shot_thumbnail
-from .workers import local_render_running, scan_workers
+from .workers import local_render_running
 
 
 def scan_requests() -> bool:
@@ -166,6 +166,15 @@ def scan_queue(project_root: Path) -> None:
 
             elif stage == "compilation_finished":
                 refresh_shot_thumbnail(data, project_root)
+                if data.get("output_path"):
+                    # Waits for its artist's check in Project monitoring.
+                    mark_render_to_check(
+                        data["filepath"],
+                        data.get("shot_override", ""),
+                        Path(data["output_path"]).parent.as_posix(),
+                        data["job_id"],
+                        project_root,
+                    )
                 mark_stage(job, "finished")
                 construct_history(data, status="finished")
                 mark_stage(job, "archived")
@@ -357,14 +366,22 @@ def _last_stage_time(stage_history: list, prefix: str) -> datetime.datetime | No
 
 def construct_history(job: dict, status):
     """Build and append a completed/failed-job entry to the job's render_history.json."""
-    start_time = _stage_time(job["stage_history"], "render")
-    end_time = _last_stage_time(job["stage_history"], "render")
+    # First render_start (a lost render re-dispatches, adding more) to the
+    # last render_finished.
+    start_time = _stage_time(job["stage_history"], "render_start")
+    end_time = _last_stage_time(job["stage_history"], "render_finished")
     entry = {
         "job_id": job["job_id"],
         "completed_at": now(),
         "user": job["user"],
         "render_mode": job["render_mode"],
-        "machines_used": job.get("used_machines", []),
+        # Which .blend version, and which vNNN_inc output folder.
+        "source_file": job.get("filepath"),
+        "output_path": job.get("output_path"),
+        "shot_override": job.get("shot_override", ""),
+        # used_machines is emptied at the end of every local stage, long
+        # before this: rendered_by is its copy from render_finished.
+        "machines_used": job.get("rendered_by") or job.get("used_machines", []),
         "frame_range_rendered": job.get("resolved_frame_range"),
         "frames_corrupted": job.get("frames_corrupted", 0),
         "duration_seconds": (end_time - start_time).total_seconds()
@@ -419,23 +436,47 @@ def _is_this_render(result: dict | None, data: dict) -> bool:
 WORKER_GONE_SECONDS = 180
 
 
-def _worker_gone(uuid: str) -> bool:
-    """Whether worker uuid hasn't heartbeat for WORKER_GONE_SECONDS (or its
-    file is gone). Reads the file directly: scan_workers() drops a worker
-    after only STALE_WORKER_SECONDS."""
+def _read_worker(uuid: str) -> dict | None:
+    """Worker uuid's file as it is on disk: {} if it's gone, None if it
+    can't be read this tick. Never through scan_workers(), which drops a
+    worker whose heartbeat is a few seconds late -- and with it the result
+    it published (see NOTES.md, "Render stuck at 100 %")."""
     path = ConfigCache.get_path("workers") / f"worker_{uuid}.json"
     try:
         with locked_json(path, read_only=True, retries=0) as box:
-            data = box["data"] or {}
+            return box["data"] or {}
     except (OSError, ValueError):
-        return False  # can't tell this tick -- don't act on it
-    if not data:
+        return None
+
+
+def _worker_gone(worker: dict) -> bool:
+    """Whether a worker file (_read_worker()) is gone or hasn't heartbeat
+    for WORKER_GONE_SECONDS."""
+    if not worker:
         return True
     try:
-        last = datetime.datetime.fromisoformat(data.get("last_heartbeat", ""))
-    except ValueError:
+        last = datetime.datetime.fromisoformat(worker.get("last_heartbeat", ""))
+    except (TypeError, ValueError):
         return True
     return (now(False) - last).total_seconds() > WORKER_GONE_SECONDS
+
+
+def _drop_pending_request(job_id: str, uuid: str) -> bool:
+    """Delete worker uuid's render request for job_id if it's still waiting
+    to be picked up. True if it was (and is now gone); False if the worker
+    already took it (it's running), or the request can't be locked this
+    tick -- then the caller keeps waiting, as before."""
+    request = ConfigCache.get_path("farm_requests") / f"request_{job_id}_{uuid}.json"
+    if not request.exists():
+        return False
+    try:
+        with locked_json(request, retries=1) as box:
+            if not box["data"]:
+                return False
+            box["action"] = "to_delete"
+    except Exception:
+        return False
+    return not request.exists()
 
 
 def check_render_completion(job_path: Path) -> None:
@@ -450,26 +491,60 @@ def check_render_completion(job_path: Path) -> None:
         if data["stage_history"][-1]["stage"] != "render_start":
             return data
 
-        workers = scan_workers()
         still_running = []
         lost = []
         any_failed = False
+        any_succeeded = False
 
         for uuid in data.get("used_machines", []):
-            w = workers.get(uuid)
-            result = (w or {}).get("last_job_result")
+            # Its file, whatever its heartbeat's age: a result for this
+            # render is final even from a worker a few seconds late.
+            w = _read_worker(uuid)
+            if w is None:
+                still_running.append(uuid)  # can't tell this tick
+                continue
+            result = w.get("last_job_result")
             if _is_this_render(result, data):
                 if result.get("lost"):
                     lost.append(uuid)
                 elif not result["success"]:
                     any_failed = True
-                # else: this worker did finish THIS render successfully
-            elif w is None and _worker_gone(uuid):
+                else:
+                    any_succeeded = True  # finished THIS render successfully
+            elif _worker_gone(w):
                 lost.append(uuid)
             else:
                 still_running.append(uuid)
 
+        if any_succeeded and still_running and not any_failed and not lost:
+            # A worker that ended this render successfully went through the
+            # whole range (placeholders, no overwrite): every frame is
+            # rendered or being rendered. One that never picked up its
+            # request has nothing left to do -- drop the request rather than
+            # wait for it: busy on another job, it held this one at 100 %
+            # for that job's whole render. See NOTES.md, "Render stuck at
+            # 100 %".
+            dropped = [
+                uuid
+                for uuid in still_running
+                if _drop_pending_request(data["job_id"], uuid)
+            ]
+            if dropped:
+                still_running = [u for u in still_running if u not in dropped]
+                data["used_machines"] = [
+                    u for u in data["used_machines"] if u not in dropped
+                ]
+                box["action"] = "to_write"
+                log(
+                    "INFO",
+                    "farm",
+                    f"Job {data['job_id']}: rendered before "
+                    f"{', '.join(u[:8] for u in dropped)} picked up its share "
+                    f"-- request dropped.",
+                )
+
         if any_failed:
+            data["rendered_by"] = list(data.get("used_machines", []))
             data["stage_history"].append({"stage": "render_failed", "at": now()})
             box["action"] = "to_write"
         elif lost:
@@ -501,6 +576,9 @@ def check_render_completion(job_path: Path) -> None:
                 f"-- re-dispatching (frames already rendered are kept).",
             )
         elif not still_running:
+            # Kept for construct_history(): used_machines is reset by the
+            # next local stages (_finish_job_processes()).
+            data["rendered_by"] = list(data.get("used_machines", []))
             data["stage_history"].append({"stage": "render_finished", "at": now()})
             box["action"] = "to_write"
         return data

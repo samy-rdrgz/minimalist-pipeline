@@ -12,6 +12,7 @@ from ..lib import (
     SnapshotJob,
     TrackingStatusCache,
     build_snapshot,
+    clear_render_to_check,
     create_entry,
     delete_entry,
     department_filter_items,
@@ -37,6 +38,7 @@ from ..lib import (
     shot_tag_items,
     snapshot_filename,
     text_field,
+    thumbnail_size,
     to_absolute,
     toggle_entry_task,
     tracked_department_items,
@@ -44,7 +46,12 @@ from ..lib import (
     wipmeta_add_work,
     write_snapshot,
 )
-from ..panels import draw_file_details, draw_monitor_table, load_file_thumbnail
+from ..panels import (
+    MONITOR_POPUP_WIDTH,
+    draw_file_details,
+    draw_monitor_table,
+    load_file_thumbnail,
+)
 
 _file_department_items_cache: list = []
 
@@ -709,14 +716,16 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
             self.filepath += ".html"
         # Disk reads, then render+write, each on a thread: a full walk takes
         # seconds on a share, and the target folder can be on it too.
+        v_prefix = json_get(ConfigCache.get(), "naming.version.prefix", "v")
         thumbnails = None
         if self.include_thumbnails:
             thumbnails = {
-                "v_prefix": json_get(ConfigCache.get(), "naming.version.prefix", "v"),
+                "v_prefix": v_prefix,
+                "size": thumbnail_size(ConfigCache.get()),
                 "blender": bpy.app.binary_path,
                 "ffmpeg": resolve_ffmpeg(),
             }
-        self._job = SnapshotJob(read_snapshot_data, self._root, thumbnails)
+        self._job = SnapshotJob(read_snapshot_data, self._root, thumbnails, v_prefix)
         self._writing = False
         wm = context.window_manager
         self._timer = wm.event_timer_add(0.2, window=context.window)
@@ -815,6 +824,11 @@ class M_PIPELINE_OT_tracking_monitor(bpy.types.Operator):
     entries_hide_done: bpy.props.BoolProperty(name="", default=True)
     entries_department_filter: bpy.props.EnumProperty(items=department_filter_items)
     entries_min_version: bpy.props.IntProperty(name="", default=0, min=0)
+    only_to_check: bpy.props.BoolProperty(
+        name="",
+        default=False,
+        description="Only the files with a farm render waiting to be checked",
+    )
 
     def draw(self, context):
         layout = self.layout
@@ -835,6 +849,8 @@ class M_PIPELINE_OT_tracking_monitor(bpy.types.Operator):
                 filters_btn.prop(self, "sequence", text="")
                 columns = json_get(ConfigCache.get(), "shots_departments", [])
 
+            filters_btn.prop(self, "only_to_check", text="To check", icon="HIDE_OFF")
+
             layout.separator(factor=0.5)
 
             draw_monitor_table(self, context, layout, columns)
@@ -849,7 +865,9 @@ class M_PIPELINE_OT_tracking_monitor(bpy.types.Operator):
             ProjectScan.start(project_root)
             self.project_root = str(project_root)
 
-            return context.window_manager.invoke_props_dialog(self, width=800)
+            return context.window_manager.invoke_props_dialog(
+                self, width=MONITOR_POPUP_WIDTH
+            )
 
     def execute(self, context):
         return {"FINISHED"}
@@ -973,6 +991,35 @@ class M_PIPELINE_OT_department_status_info(bpy.types.Operator):
 
     def execute(self, context):
         return {"CANCELLED"}
+
+
+class M_PIPELINE_OT_render_checked(bpy.types.Operator):
+    """Mark a farm render as checked: it leaves the "To check" column."""
+
+    bl_idname = "m_pipeline.render_checked"
+    bl_label = ""
+
+    filepath: bpy.props.StringProperty()
+    shot: bpy.props.StringProperty()
+    all_shots: bpy.props.BoolProperty(options={"SKIP_SAVE"})
+    custom_tooltip: bpy.props.StringProperty()
+
+    @classmethod
+    def description(cls, context, properties):
+        if properties.custom_tooltip:
+            return properties.custom_tooltip
+        return "Mark this render as checked."
+
+    def execute(self, context):
+        try:
+            clear_render_to_check(self.filepath, None if self.all_shots else self.shot)
+        except PipelineError as e:
+            log(e.level, "render_checked", e.message)
+            self.report({e.level}, e.message)
+            return {"CANCELLED"}
+        # The table only reads the cache: refresh this one folder now.
+        TrackingStatusCache.get(self.filepath, force_reload=True)
+        return {"FINISHED"}
 
 
 class M_PIPELINE_OT_tracking_file_details(bpy.types.Operator):

@@ -10,9 +10,11 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+from .core import json_get
 from .preview import latest_render_dir, render_root
 
-# Longest side, any aspect ratio (a 9:16 render gives 135x240).
+# Longest side, any aspect ratio (a 9:16 render gives 135x240) -- the
+# project's "thumbnails.size" (Edit project), this when it has none.
 THUMB_SIZE = 240
 THUMB_QUALITY = 70
 
@@ -22,6 +24,45 @@ _FRAME_EXTS = {
 }  # fmt: skip
 
 _ENTRY = Path(__file__).resolve().parent.parent / "templates" / "make_thumbnails.py"
+
+
+def thumbnail_size(config: dict) -> int:
+    """The project's thumbnail size (longest side, px), kept sane."""
+    try:
+        size = int(json_get(config, "thumbnails.size", THUMB_SIZE))
+    except (TypeError, ValueError):
+        return THUMB_SIZE
+    return max(32, min(2048, size))
+
+
+def jpeg_size(path: Path) -> tuple[int, int] | None:
+    """(width, height) from a JPEG's header (its SOF segment), or None.
+    Reads the first 64 KB only."""
+    try:
+        with open(path, "rb") as f:
+            data = f.read(65536)
+    except OSError:
+        return None
+    if data[:2] != b"\xff\xd8":
+        return None
+    i = 2
+    try:
+        while i + 9 < len(data):
+            if data[i] != 0xFF:
+                return None
+            marker = data[i + 1]
+            if marker in (0xD8, 0x01) or 0xD0 <= marker <= 0xD7:
+                i += 2
+                continue
+            (length,) = struct.unpack(">H", data[i + 2 : i + 4])
+            # SOF0..SOF15, minus DHT (C4), JPG (C8) and DAC (CC)
+            if 0xC0 <= marker <= 0xCF and marker not in (0xC4, 0xC8, 0xCC):
+                h, w = struct.unpack(">HH", data[i + 5 : i + 9])
+                return w, h
+            i += 2 + length
+    except struct.error:
+        return None
+    return None
 
 
 def thumbnail_path(render_dir: Path) -> Path:
@@ -99,10 +140,15 @@ def exr_layer(path: Path) -> str | None:
 
 
 def thumbnail_jobs(
-    shot_render_dirs, v_prefix: str = "v", force: bool = False
+    shot_render_dirs,
+    v_prefix: str = "v",
+    force: bool = False,
+    size: int = THUMB_SIZE,
 ) -> list[dict]:
-    """{"src", "dst", "layer"} for every shot whose thumbnail is missing or
-    older than its source frame (all of them with force)."""
+    """{"src", "dst", "layer"} for every shot whose thumbnail is missing,
+    older than its source frame, or not at `size` -- the project setting
+    changed; a thumbnail's longest side is always exactly the size it was
+    made at (all of them with force)."""
     jobs = []
     for shot_dir in shot_render_dirs:
         src = source_frame(shot_dir, v_prefix)
@@ -111,7 +157,9 @@ def thumbnail_jobs(
         dst = thumbnail_path(shot_dir)
         if not force:
             try:
-                if os.stat(dst).st_mtime >= os.stat(src).st_mtime:
+                if os.stat(dst).st_mtime >= os.stat(src).st_mtime and max(
+                    jpeg_size(dst) or (0, 0)
+                ) == size:
                     continue
             except OSError:
                 pass  # no thumbnail yet
@@ -130,6 +178,7 @@ def run_thumbnail_jobs(
     blender_bin: str,
     ffmpeg_bin: str | None = None,
     *,
+    size: int = THUMB_SIZE,
     wait: bool = True,
     timeout: float = 900,
 ) -> dict[str, str]:
@@ -145,7 +194,7 @@ def run_thumbnail_jobs(
         json.dump(
             {
                 "jobs": jobs,
-                "size": THUMB_SIZE,
+                "size": size,
                 "quality": THUMB_QUALITY,
                 "ffmpeg": ffmpeg_bin,
                 "detach": not wait,

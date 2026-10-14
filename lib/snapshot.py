@@ -17,6 +17,7 @@ from xml.sax.saxutils import escape as xml_escape
 
 from .core import json_get, now, read_json_quiet
 from .errors import PipelineError
+from .preview import latest_render_dir, render_root
 from .tracking import (
     _DATA_ROOTS,
     _collect_folder,
@@ -34,6 +35,7 @@ from .thumbnails import (
     run_thumbnail_jobs,
     thumbnail_jobs,
     thumbnail_path,
+    thumbnail_size,
 )
 
 # Bumped whenever the review template's columns change -- the import refuses
@@ -82,22 +84,77 @@ def read_snapshot_raw(root: Path) -> list[tuple[str, Path, dict, list[str]]]:
     return out
 
 
-def read_snapshot_data(root: Path, thumbnails: dict | None = None) -> dict:
-    """read_snapshot_raw() plus thumbnails: those missing or older than
+def _owner_shots(owner: Path) -> list[str]:
+    """A shot folder's shots: ["sh040"], or ["sh040", "sh050", "sh060"] for
+    a block "sh040-050-060". Name parsing only, no config."""
+    first, *rest = owner.name.split("-")
+    m = re.match(r"(\D*)(\d+)$", first)
+    if not m:
+        return [owner.name]
+    return [first] + [f"{m[1]}{n.zfill(len(m[2]))}" for n in rest]
+
+
+def read_render_state(root: Path, kind: str, owner: Path, v_prefix: str = "v") -> list:
+    """What was last rendered for an asset/shot folder, per shot (a block
+    has several, anything else one): [{"shot", "file", "folder"}]. From the
+    folder's render_history.json -- its last finished render of that shot,
+    file = the .blend it rendered -- else (entries older than source_file,
+    or no history) from the latest render folder's own name
+    (renders/<seq>/<shot>/v004-stable_002). Pure os/json: thread-safe."""
+    history = read_json_quiet(owner / ".pipeline" / "render_history.json") or {}
+    finished = [
+        e
+        for e in history.get("entries", [])
+        if isinstance(e, dict) and e.get("status") == "finished" and e.get("source_file")
+    ]
+    base = render_root(root, owner)
+    shots = _owner_shots(owner) if kind == "shot" else [""]
+    block = len(shots) > 1
+    out = []
+    for shot in shots:
+        # A block's history holds every shot it rendered, told apart by
+        # shot_override; a mono shot's or an asset's is all its own.
+        mine = [e for e in finished if not block or e.get("shot_override") == shot]
+        if mine:
+            output = mine[-1].get("output_path")
+            out.append(
+                {
+                    "shot": shot,
+                    "file": Path(mine[-1]["source_file"]).name,
+                    "folder": Path(output).parent.name if output else None,
+                }
+            )
+            continue
+        latest = latest_render_dir(base.with_name(shot) if shot else base, v_prefix)
+        out.append({"shot": shot, "file": None, "folder": latest.name if latest else None})
+    return out
+
+
+def read_snapshot_data(
+    root: Path, thumbnails: dict | None = None, v_prefix: str = "v"
+) -> dict:
+    """read_snapshot_raw() plus each folder's last render
+    (read_render_state()) and thumbnails: those missing or older than
     their latest render are remade first (one headless Blender, waited on
     -- run this on a thread). thumbnails: {"v_prefix", "blender",
-    "ffmpeg"}, None to skip them. Returns {"raws", "thumbs": {owner:
-    base64 JPEG}, "thumb_warnings": [...]}."""
+    "ffmpeg"}, None to skip them. Returns {"raws", "renders": {owner:
+    [...]}, "thumbs": {owner: base64 JPEG}, "thumb_warnings": [...]}."""
     raws = read_snapshot_raw(root)
+    renders = {
+        str(owner): read_render_state(root, kind, owner, v_prefix)
+        for kind, owner, raw, _ in raws
+        if not raw["tracking"].get("archived")
+    }
     thumbs, warnings = {}, []
     if thumbnails is not None:
         dirs = {}
         for _, owner, raw, _ in raws:
             if not raw["tracking"].get("archived"):
                 dirs[str(owner)] = owner_render_dir(root, owner)
-        jobs = thumbnail_jobs(dirs.values(), thumbnails.get("v_prefix", "v"))
+        size = thumbnails.get("size") or thumbnail_size({})
+        jobs = thumbnail_jobs(dirs.values(), thumbnails.get("v_prefix", "v"), size=size)
         results = run_thumbnail_jobs(
-            jobs, thumbnails["blender"], thumbnails.get("ffmpeg")
+            jobs, thumbnails["blender"], thumbnails.get("ffmpeg"), size=size
         )
         for owner, d in dirs.items():
             dst = thumbnail_path(d)
@@ -107,7 +164,12 @@ def read_snapshot_data(root: Path, thumbnails: dict | None = None) -> dict:
                 thumbs[owner] = base64.b64encode(dst.read_bytes()).decode("ascii")
             except OSError:
                 pass
-    return {"raws": raws, "thumbs": thumbs, "thumb_warnings": warnings}
+    return {
+        "raws": raws,
+        "renders": renders,
+        "thumbs": thumbs,
+        "thumb_warnings": warnings,
+    }
 
 
 def build_snapshot(data, config: dict, meta: dict) -> dict:
@@ -119,6 +181,7 @@ def build_snapshot(data, config: dict, meta: dict) -> dict:
     raws = data["raws"]
     v_prefix = json_get(config, "naming.version.prefix", "v")
     version_re = re.compile(rf"_{re.escape(v_prefix)}(\d+)(-[a-z]+)?\.blend$")
+    folder_re = re.compile(rf"^{re.escape(v_prefix)}(\d+)(-[a-z]+)?_\d+$")
     items = {"asset": [], "shot": []}
     notes = []
     for kind, owner, raw, blends in raws:
@@ -153,6 +216,27 @@ def build_snapshot(data, config: dict, meta: dict) -> dict:
             "current_version": wip_name if wip_n > stable_n else stable_name or wip_name,
             "thumbnail": data["thumbs"].get(str(owner)),
         }
+        # A render's folder is vXXX_YYY: XXX the .blend version rendered,
+        # YYY the render increment. The history's source_file says XXX
+        # first-hand; the folder name is the fallback.
+        renders = []
+        for r in data.get("renders", {}).get(str(owner), []):
+            m = version_re.search(r["file"] or "") or folder_re.match(r["folder"] or "")
+            renders.append(
+                {
+                    "shot": r["shot"],
+                    "folder": r["folder"],
+                    "file_number": int(m[1]) if m else None,
+                }
+            )
+        item["renders"] = renders
+        # What the prod must see: a render made from an older .blend than
+        # the last stable -- the picture lags the validated work.
+        item["stable_number"] = stable_n
+        item["render_behind"] = stable_n >= 0 and any(
+            r["file_number"] is not None and r["file_number"] < stable_n
+            for r in renders
+        )
         threads = [
             _thread_dict(name, t)
             for box in filter_review_boxes(
@@ -176,6 +260,7 @@ def build_snapshot(data, config: dict, meta: dict) -> dict:
     meta = dict(meta)
     meta.setdefault("schema_version", SCHEMA_VERSION)
     meta["thumbnail_warnings"] = list(data["thumb_warnings"])
+    meta["thumbnail_size"] = thumbnail_size(config)
     meta["asset_departments"] = _columns(
         json_get(config, "assets_departments", []), items["asset"]
     )
@@ -293,7 +378,10 @@ def render_html(snapshot: dict) -> str:
     scan_date = (meta.get("scan_started_at") or "").replace("T", " ")
     legend = "".join(
         f'<span class="pill {cls}">{_e(label)}</span>' for label, cls in STATES.values()
-    ) + '<span class="pill st-none">Not required</span>'
+    ) + (
+        '<span class="pill st-none">Not required</span>'
+        '<span class="pill behind">⚠ Render older than the stable</span>'
+    )
 
     body = [
         "<header>",
@@ -325,12 +413,15 @@ def render_html(snapshot: dict) -> str:
         _render_notes(snapshot["notes"], snapshot["assets"] + snapshot["shots"]),
     ]
     title = f"{meta.get('project') or 'Project'} snapshot {scan_date[:10]}"
+    # Hover shows a thumbnail at its own size (the project setting), from
+    # its 112 px wide cell.
+    zoom = max(1.0, round((meta.get("thumbnail_size") or 240) / 112, 2))
     # One element per line: readable/diffable raw source, same rendering.
     nl = "\n"
     return (
         "<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\">"
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
-        f"<title>{_e(title)}</title>\n<style>{_CSS}</style>\n</head>"
+        f"<title>{_e(title)}</title>\n<style>{_CSS}:root{{--thumb-zoom:{zoom}}}</style>\n</head>"
         f"<body>\n{nl.join(body)}\n<script>{_JS}</script>\n</body></html>\n"
     )
 
@@ -390,7 +481,11 @@ def _render_table(anchor: str, title: str, items: list, columns: list) -> str:
     with_thumbs = any(i.get("thumbnail") for i in items)
     head = (
         ("<th></th>" if with_thumbs else "")
-        + "<th>Name</th><th>Versions</th>"
+        + "<th>Name</th>"
+        + '<th title="Latest work-in-progress and stable versions of the .blend">'
+        "Blender file</th>"
+        + '<th title="Output folder of the last render: vXXX_YYY, XXX the '
+        'Blender file version rendered, YYY the render increment">Last render</th>'
         + "".join(f"<th>{_e(c.capitalize())}</th>" for c in columns)
     )
     rows = []
@@ -400,7 +495,7 @@ def _render_table(anchor: str, title: str, items: list, columns: list) -> str:
             group = item["group"]
             rows.append(
                 f'<tr class="group" data-group="{_e(group)}">'
-                f'<th colspan="{len(columns) + 2 + with_thumbs}">{_e(group)}</th></tr>'
+                f'<th colspan="{len(columns) + 3 + with_thumbs}">{_e(group)}</th></tr>'
             )
         cells = []
         for c in columns:
@@ -412,7 +507,7 @@ def _render_table(anchor: str, title: str, items: list, columns: list) -> str:
                 cells.append(f'<td><span class="pill {cls}">{_e(label)}</span></td>')
         versions = " · ".join(
             label + _short_version(item["name"], v)
-            for label, v in (("", item["wip_version"]), ("stable ", item["stable_version"]))
+            for label, v in (("wip ", item["wip_version"]), ("stable ", item["stable_version"]))
             if v
         )
         flags = (
@@ -437,7 +532,8 @@ def _render_table(anchor: str, title: str, items: list, columns: list) -> str:
             f'<tr class="item" id="i-{_e(_slug(item["name"]))}" {_item_attrs(item)}>'
             f'{thumb}<td class="name"><b>{_e(item["name"])}</b>{flags}{jump}'
             f'<small>{_e(item["description"])}</small></td>'
-            f'<td class="ver">{_e(versions)}</td>{"".join(cells)}</tr>'
+            f'<td class="ver">{_e(versions)}</td>'
+            f'<td class="ver">{_render_cell(item)}</td>{"".join(cells)}</tr>'
         )
     return (
         f'<section id="{anchor}"><h2>{title}</h2>'
@@ -446,6 +542,32 @@ def _render_table(anchor: str, title: str, items: list, columns: list) -> str:
         f"<thead><tr>{head}</tr></thead>"
         f"<tbody>\n{nl.join(rows)}\n</tbody></table></div></section>"
     )
+
+
+def _render_cell(item: dict) -> str:
+    """ "Last render" cell: the render's output folder, vXXX_YYY (XXX the
+    .blend version rendered, YYY the render increment), in red when XXX is
+    older than the last stable. One line per shot when a block's shots
+    differ. "not rendered" for a shot never rendered, empty for an asset
+    never rendered (most never are)."""
+    renders = item.get("renders") or []
+    if not any(r["folder"] for r in renders):
+        return '<span class="norender">not rendered</span>' if item["kind"] == "shot" else ""
+    stable = _short_version(item["name"], item["stable_version"] or "")
+    same = len({r["folder"] for r in renders}) == 1
+    lines = []
+    for r in renders[:1] if same else renders:
+        shot = "" if same else f'<span class="shot">{_e(r["shot"])}</span> '
+        if not r["folder"]:
+            lines.append(f'<div>{shot}<span class="norender">not rendered</span></div>')
+        elif r["file_number"] is not None and r["file_number"] < item["stable_number"]:
+            lines.append(
+                f'<div>{shot}<span class="behind" title="Rendered from an older '
+                f'version than the last stable ({_e(stable)})">⚠ {_e(r["folder"])}</span></div>'
+            )
+        else:
+            lines.append(f"<div>{shot}{_e(r['folder'])}</div>")
+    return "".join(lines)
 
 
 def _short_version(name: str, filename: str) -> str:
@@ -568,12 +690,14 @@ white-space:nowrap;border:1px solid transparent}
 .st-todo{color:var(--todo);border-color:var(--line)}
 .st-none{color:var(--muted);border:1px dashed var(--line)}
 .na{color:var(--muted);opacity:.5}
+.behind{color:var(--rtk);font-weight:600}.norender{opacity:.6}
+td.ver .shot{font-weight:600}
 td.th{width:1px;padding-right:0}
 /* Any aspect ratio: shown whole inside a fixed box, never cropped. */
 .thumb{display:block;width:112px;height:63px;object-fit:contain;border-radius:4px;
 background:var(--bg);transition:transform .15s}
 .nothumb{width:112px}
-img.thumb:hover{transform:scale(2.4);transform-origin:left top;position:relative;
+img.thumb:hover{transform:scale(var(--thumb-zoom,2.4));transform-origin:left top;position:relative;
 z-index:3;box-shadow:0 4px 18px rgba(0,0,0,.35)}
 .flag{margin-left:8px;font-size:11px;font-weight:600;color:var(--rtk);
 background:var(--rtk-bg);padding:1px 6px;border-radius:999px}

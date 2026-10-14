@@ -95,6 +95,9 @@ def run_render_setup(job_id: str, config: dict) -> None:
                     resolve_local_binary(config),
                     "-b",
                     str(to_absolute(data["filepath"])),
+                    # Exit 1 on an exception in the entry script, not 0.
+                    "--python-exit-code",
+                    "1",
                     "--python",
                     str(entry),
                     "--",
@@ -229,6 +232,17 @@ def run_render_setup_entry(job_id: str) -> None:
         # an already-shifted frame_start instead of the scene's own).
         data["file_frame_range"] = (frame_start, frame_end)
         data["resolved_frame_range"] = (frame_start, frame_end)
+        # The render applies the preset on top of the .blend, never saved
+        # into it. Apply it here too -- this session never saves the .blend
+        # either -- so what's read below is what the render will write:
+        # checks_images and the compilation look for output_extension, the
+        # compilation encodes at fps.
+        preset = data.get("prerender_script", "")
+        if preset:
+            from .workers import apply_custom_preset  # local: import cycle
+
+            apply_custom_preset(preset, scene, job_id, job_data=dict(data))
+
         # fps_base handles fractional rates (e.g. 24/1.001 = 23.976...);
         # captured here (not from project config) so a shot that overrides
         # its own scene fps compiles at the fps it was actually rendered at.

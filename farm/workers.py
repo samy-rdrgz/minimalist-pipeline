@@ -282,7 +282,11 @@ def execute_render_request() -> dict:
     request_path = ConfigCache.get_path("farm_requests") / request_path
 
     with locked_json(request_path) as box:
-        data = box["data"] or data
+        if not box["data"]:
+            # Gone since the scan: dropped by the monitor (render already
+            # done, see _drop_pending_request()) or cancelled. Never launch it.
+            return {}
+        data = box["data"]
         try:
             log_path = request_path.parent / f"{request_path.stem}.log"
             project_root = get_active_project_root()
@@ -304,6 +308,10 @@ def execute_render_request() -> dict:
                     ]
                     + data["cmd_flags"]
                     + [
+                        # Otherwise an exception in the entry script still
+                        # exits 0, reported as a successful render.
+                        "--python-exit-code",
+                        "1",
                         "--python",
                         str(entry),
                         "--",
@@ -354,11 +362,16 @@ def worker_tick():
     """Per-tick worker work: heartbeat, cancel/finished-process bookkeeping,
     then pick up a render request if idle. Never raises: called from the
     farm_tick timer, an uncaught exception here would silently deregister it."""
-    try:
-        update_worker_heartbeat()
-        scan_cancel_requests()
-        scan_worker_processes()
+    # Each step in its own try: one failing step must never skip the others
+    # -- a heartbeat refused every tick (NAS lock) would otherwise also skip
+    # scan_worker_processes(), and the worker would stay in "render" forever.
+    for step in (update_worker_heartbeat, scan_cancel_requests, scan_worker_processes):
+        try:
+            step()
+        except Exception as e:
+            log("ERROR", "farm", f"Error during worker tick ({step.__name__}): {e}")
 
+    try:
         with locked_json(_worker_path()) as box:
             data = box["data"] or {}
             if data.get("status") != "idle":
@@ -489,11 +502,15 @@ def _apply_flat_overrides(scene, overrides: dict) -> None:
             )
 
 
-def apply_custom_preset(preset_name: str, scene, job_id: str) -> None:
+def apply_custom_preset(
+    preset_name: str, scene, job_id: str, job_data: dict | None = None
+) -> None:
     """Apply a per-job render preset onto scene. Looks for a .py first
     (contract: override(scene, job_data)), then a .json (flat key/value
     overrides). Any error here is caught: a broken preset must never
-    prevent the save+quit that follows."""
+    prevent the save+quit that follows. job_data: the job, for a caller
+    that already holds its file's lock (the setup) -- read from the job
+    file otherwise."""
     if not preset_name:
         return
 
@@ -507,9 +524,12 @@ def apply_custom_preset(preset_name: str, scene, job_id: str) -> None:
             spec = importlib.util.spec_from_file_location("pipeline_prerender", py_path)
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
-            with locked_json(job_path) as box:
-                data = box["data"] or {}
-                module.override(scene, data)
+            if job_data is not None:
+                module.override(scene, job_data)
+            else:
+                with locked_json(job_path) as box:
+                    data = box["data"] or {}
+                    module.override(scene, data)
         elif json_path.exists():
             with locked_json(json_path) as box:
                 overrides = box["data"] or {}

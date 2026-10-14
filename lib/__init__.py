@@ -151,6 +151,7 @@ from .thumbnails import (
     run_thumbnail_jobs,
     thumbnail_jobs,
     thumbnail_path,
+    thumbnail_size,
 )
 from .tracking import (
     ProjectScan,
@@ -159,6 +160,7 @@ from .tracking import (
     WorkTimeCache,
     active_shot_owners,
     archive_folder,
+    clear_render_to_check,
     copy_entries,
     create_entry,
     create_stablemeta,
@@ -182,6 +184,8 @@ from .tracking import (
     group_entries_by_review,
     is_block_archived,
     list_active_blocks,
+    mark_render_to_check,
+    render_to_check_label,
     set_department_validated,
     set_description,
     toggle_entry_task,

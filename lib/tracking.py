@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import queue
+import re
 import threading
 import time
 from datetime import datetime, timedelta
@@ -1544,6 +1545,59 @@ def toggle_entry_task(filepath: Path, id: str, user: str):
                 raise PipelineError("No entry found with this ID.")
     except Exception as e:
         raise PipelineError(f"Error during editing file entries : {e}")
+
+
+def mark_render_to_check(
+    filepath: Path | str,
+    shot: str,
+    render_dir: str,
+    job_id: str,
+    project_root: Path | None = None,
+) -> None:
+    """Flag a finished render as waiting for its artist's check, in the
+    owning folder's tracking.json: "to_check" {shot or "": {"render", "at",
+    "job_id"}} -- a block keeps one per shot, a newer render of the same
+    shot replaces the older. Cleared by hand (clear_render_to_check()).
+    Never raises: a render that went well must not fail on this."""
+    try:
+        path = tracking_json_path(to_absolute(filepath, project_root), must_exist=True)
+        with locked_json(path) as box:
+            data = box["data"] or {}
+            data.setdefault("to_check", {})[shot or ""] = {
+                "render": render_dir,
+                "at": now(),
+                "job_id": job_id,
+            }
+            box["data"] = data
+            box["action"] = "to_write"
+    except Exception as e:
+        log("WARNING", "tracking", f"Could not flag the render of {filepath} to check: {e}")
+
+
+def clear_render_to_check(filepath: Path | str, shot: str | None = None) -> None:
+    """Mark a render checked: drop shot's "to_check" entry ("" for an asset
+    or a mono shot), or every one of the folder's if shot is None."""
+    path = tracking_json_path(filepath, must_exist=True)
+    with locked_json(path) as box:
+        data = box["data"] or {}
+        to_check = data.get("to_check") or {}
+        if shot is None:
+            to_check.clear()
+        else:
+            to_check.pop(shot, None)
+        if to_check:
+            data["to_check"] = to_check
+        else:
+            data.pop("to_check", None)
+        box["data"] = data
+        box["action"] = "to_write"
+
+
+def render_to_check_label(shot: str, info: dict) -> str:
+    """ "sh040 v002-stable_001" -- the render's output folder, prefixed by
+    the shot for a block's."""
+    name = re.split(r"[\\/]", (info.get("render") or "").rstrip("\\/"))[-1] or "?"
+    return f"{shot} {name}" if shot else name
 
 
 def find_file_by_name(filename: str) -> Path | None:

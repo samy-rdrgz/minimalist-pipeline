@@ -28,12 +28,17 @@ from ..lib import (
     json_get,
     project_path,
     region_char_budget,
+    render_to_check_label,
     responsive_layout,
     safe_icon,
     shots_in_segment,
     text_to_lines,
     thumbnail_path,
 )
+
+# Project monitoring's popup width (M_PIPELINE_OT_tracking_monitor), also
+# what draw_file_details() wraps its text on.
+MONITOR_POPUP_WIDTH = 1200
 
 # Fudge factor: entries end up nested a few columns/rows deep (see
 # _draw_entry), and Blender doesn't expose a sub-layout's resolved width.
@@ -467,6 +472,32 @@ def draw_file_details(self, context, layout):
             text=f"Total work time: {format_duration(total_seconds)}", icon="TIME"
         )
 
+    renders = _to_check_lines(data)
+    if renders:
+        check = layout.column(align=True)
+        title = check.row()
+        title.alert = True
+        title.label(text="Renders to check:", icon="HIDE_OFF")
+        for shot, info in renders:
+            row = check.row(align=True)
+            row.alignment = "LEFT"
+            row.separator(factor=2)
+            at = (info.get("at") or "")[:16].replace("T", " ")
+            row.label(text=f"{render_to_check_label(shot, info)}   {at}")
+            if info.get("render"):
+                op = row.operator(
+                    "wm.open_folder", text="", icon="FILE_FOLDER", emboss=False
+                )
+                # project_path(): plain join, no disk access in a draw().
+                op.filepath = str(project_path(info["render"]))
+                op.custom_tooltip = "Open this render's folder"
+            op = row.operator(
+                "m_pipeline.render_checked", text="Checked", icon="CHECKMARK"
+            )
+            op.filepath = filepath
+            op.shot = shot
+            op.custom_tooltip = "Mark this render as checked"
+
     layout.separator(factor=1)
     tabl = layout.row(align=True)
     tabl.alignment = "LEFT"
@@ -575,12 +606,12 @@ def draw_file_details(self, context, layout):
     layout.separator(factor=2)
 
     # draw_file_details() is only ever called from M_PIPELINE_OT_tracking_monitor's
-    # draw() (invoke_props_dialog(width=800)) -- context.region there isn't
+    # draw() (invoke_props_dialog(width=MONITOR_POPUP_WIDTH)) -- context.region there isn't
     # that dialog's own region, so region_char_budget(context) would size
     # this off a panel-sized guess. Pass the dialog's own real width instead
     # -- see region_char_budget()'s docstring / POPUP_WIDTH_SCALE in
     # lib/core.py for why it still needs correcting.
-    width = int(region_char_budget(context, width_px=800) * ENTRIES_INDENT_FACTOR)
+    width = int(region_char_budget(context, width_px=MONITOR_POPUP_WIDTH) * ENTRIES_INDENT_FACTOR)
     draw_entries(layout.column(align=True), filepath, filters=self, width=width)
     layout.separator(factor=2)
 
@@ -619,7 +650,8 @@ def draw_monitor_table(self, context, layout, columns):
                 else (file["file_name"].split("_", 1)[0] == self.sequence)
             )
         ):
-            matches.append((dir, file))
+            if not self.only_to_check or file.get("to_check"):
+                matches.append((dir, file))
 
     # file_name is zero-padded prefix/sequence/shot numbers (see
     # naming.sequence/shot in config), so plain alphabetical sort already
@@ -643,6 +675,7 @@ def draw_monitor_table(self, context, layout, columns):
     deps = title_list.row()
     for c in columns:
         deps.label(text=c.capitalize(), icon="KEYFRAME_HLT")
+    deps.label(text="To check", icon="HIDE_OFF")
 
     f_list.separator(factor=1)
 
@@ -744,7 +777,40 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column):
             ).custom_tooltip = tooltip
         else:
             icon_row.label(text=" ", icon="BLANK1")
+    _draw_to_check_cell(deps_row.row(), dir, file)
     f_list.separator(factor=0.5, type="LINE")
+
+
+def _to_check_lines(file: dict) -> list[tuple[str, dict]]:
+    """(shot, info) of every render waiting for a check, by shot."""
+    to_check = file.get("to_check")
+    return sorted(to_check.items()) if isinstance(to_check, dict) else []
+
+
+def _draw_to_check_cell(cell, dir, file) -> None:
+    """Project monitoring's "To check" column: the render(s) a farm job
+    finished and nobody checked yet -- one click marks them all checked
+    (one by one in the file's details)."""
+    cell.label(text="", icon="BLANK1")
+    renders = _to_check_lines(file)
+    if not renders:
+        cell.label(text=" ", icon="BLANK1")
+        return
+    cell.alert = True
+    text = (
+        render_to_check_label(*renders[0])
+        if len(renders) == 1
+        else f"{len(renders)} renders"
+    )
+    op = cell.operator(
+        "m_pipeline.render_checked", text=text, icon="CHECKBOX_DEHLT", emboss=False
+    )
+    op.filepath = str(dir)
+    op.all_shots = True
+    op.custom_tooltip = "Click once checked:\n" + "\n".join(
+        f"{render_to_check_label(shot, info)}  ({(info.get('at') or '')[:16].replace('T', ' ')})"
+        for shot, info in renders
+    )
 
 
 def _draw_monitor_blank_row(f_list, columns, first_column):
@@ -757,6 +823,7 @@ def _draw_monitor_blank_row(f_list, columns, first_column):
     deps_row = split.row()
     for c in columns:
         deps_row.row().label(text="", icon="BLANK1")
+    deps_row.row().label(text="", icon="BLANK1")  # "To check"
     f_list.separator(factor=0.5, type="LINE")
 
 

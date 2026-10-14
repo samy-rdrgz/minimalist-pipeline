@@ -2,6 +2,77 @@
 
 All notable changes to this addon. Dates are release dates.
 
+## Unreleased
+
+### Fixes — farm
+
+- **A worker no longer stays stuck in "render" when its heartbeat fails.**
+  The heartbeat, cancel check and finished-render check now run
+  independently: one failing (a locked file on the share) no longer skips
+  the others every tick.
+- **A job no longer sits at 100 % after its render ended.** The monitor
+  ignored the result of a worker whose heartbeat was a few seconds late
+  (frequent on a share); once that worker finished its next render, the
+  result was gone for good. Results now count whatever the heartbeat.
+- **A job no longer sits at 100 % waiting for a machine that had nothing
+  left to render.** With several machines on a render, one could be
+  handed its share while it was starting another job: the others rendered
+  everything, and the job waited for that other render to end. Once one
+  machine has finished, shares not yet picked up are dropped.
+- **A render or setup whose script crashes is now reported as failed.**
+  Blender exited with 0 even after a Python error in its entry script, so
+  the render counted as a success.
+- **The Farm monitoring popup no longer crashes when the farm is stopped**
+  while a worker file still says it's busy.
+- The "Farm host" line only shows the step it's running right now.
+- **Output format and fps come from the file plus its preset.** The setup
+  applies the preset too (in memory, never saved) before reading them: a
+  preset changing the format no longer breaks the frame check and the
+  compilation.
+- `render_history.json` now records the render's duration, the machines
+  that rendered it, and which file and output folder were rendered
+  (`source_file`, `output_path`, `shot_override`).
+
+### Renders to check
+
+- **Every farm render that finishes now waits for a check**: Project
+  monitoring has a "To check" column (the render's folder, or "3 renders"
+  for a block) and a "To check" filter to list only those. One click marks
+  a row checked; the file's details list each render with its folder
+  button and its own "Checked" button. A newer render of the same shot
+  replaces the older one. Stored in the folder's tracking.json
+  (`to_check`), set by the farm when the job is finished (compilation
+  done).
+
+### Project monitoring
+
+- The popup is 1200 px wide (was 800).
+- **Thumbnail size is a project setting** ("Thumbnails" in Edit project,
+  240 px on the longest side by default). After a change, the next
+  snapshot export remakes the existing ones at the new size; the
+  snapshot's hover zoom shows them at that size.
+
+### Farm monitoring popup
+
+- Click a job's name for its detail: stage history with timestamps, frame
+  range, output folder, format, fps, preset, machines, split shots.
+
+### Production snapshot
+
+- **Last render column**, next to the Blender file's versions (now
+  labelled "wip v004 · stable v003"): the render's output folder,
+  vXXX_YYY (XXX the Blender file version rendered, YYY the render
+  increment); one line per shot for a block whose shots differ, "not
+  rendered" for a shot never rendered. In red when XXX is older than the
+  last stable: the picture lags the validated work. Read from the render
+  history, or from the render folder's name for renders made before this
+  version.
+
+### Fixes — batch creation
+
+- The CSV separator is detected on the header line only: a description
+  with commas could make a `;` file read as `,`.
+
 ## 1.0.10 — 2026-10-13
 
 ### Production snapshot
