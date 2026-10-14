@@ -68,9 +68,11 @@ my_project/
 ├── shots/
 │   └── sq010/sh010/                     ← a block's own folder is named after its full shot segment (sh030-040-045-050)
 ├── renders/
-│   └── sq010/
-│       ├── sh010/{version}_{i}/         ← always per-shot, even for a block: a block's own folder is never used for output
-│       └── _preview/{scope}_{date}.mp4  ← disposable, never authoritative (see "Multishot blocks")
+│   ├── sq010/
+│   │   ├── sh010/{version}_{i}/         ← always per-shot, even for a block: a block's own folder is never used for output
+│   │   ├── sh010/sq010_sh010_thumbnail.jpg  ← see NOTES.md "Thumbnails"
+│   │   └── _preview/{scope}_{date}.mp4  ← disposable, never authoritative (see "Multishot blocks")
+│   └── assets/ch/ch_bob/{version}_{i}/  ← an asset/library render mirrors its source path (render_root())
 └── exports/
 ```
 
@@ -166,7 +168,7 @@ minimalist_pipeline/
 │   ├── browser_ops.py          # open_file, open_file_version
 │   ├── farm_ops.py             # submit render (incl. a block's per-shot checklist),
 │   │                            #   monitor/worker role buttons, farm dashboard
-│   └── tracking_ops.py         # entry CRUD, CSV import, tracking dashboard
+│   └── tracking_ops.py         # entry CRUD, prod snapshot export / review import, tracking dashboard
 ├── panels/
 │   ├── __init__.py            # Exposes `classes` tuple
 │   ├── project_panel.py         # own draw_header(): active project name + edit/unset buttons
@@ -261,7 +263,7 @@ The red text itself is a plain `row.label()`, not the button opening the menu: a
 - `TrackingStatusCache` — per-asset cache of computed status, invalidated on `.pipeline/`'s mtime; `.get()` never raises (read by `draw()`/enum callbacks with no way to report an error). Re-checking that mtime is itself a handful of syscalls, so `.get()` also skips it within a short TTL (`_VALIDATE_TTL`, `time.monotonic()`) of the last check — one redraw calls `.get()` several times (draw, `get_description`, `get_current_departments`, the department enum...), this collapses that into roughly one disk check per TTL window instead of one per call. `.known(project_root)` is what Project monitoring's draw() reads: memory only, archived blocks (§5) filtered out, filled by `ProjectScan` below.
 - `create_tracking`, `get_departments_required`, `create_wipmeta` (original_filepath is `None` for a brand-new file; stamps `edited_by`/`edited_at`), `wipmeta_add_work`, `wipmeta_touch` (edited_at/edited_by only, no departments/linked changes -- called from `save_post_handler` on every save so `M_PIPELINE_OT_auto_version` can tell a same-day re-open by a different user from the file's own author), `get_session_worked_departments` (in-memory cache of the current session's own worked-departments toggle state, kept in sync by `wipmeta_add_work` -- backs the toggle row in `file_panel.py`), `wipmeta_add_link`, `create_stablemeta`, `get_last_stable`, `get_last_wipmeta`, `get_current_departments`
 - Entries: `create_entry`, `edit_entry`, `delete_entry`, `get_entries`, `valid_task`, `unvalid_task`, `toggle_entry_task` — all take an optional `shot` string (§1.5): a plain-text tag (e.g. `"045"`), not validated against anything real, displayed as a `[sh045]` prefix by `tracking_panel.py`. No filter, no groupby, no selector — a written convention only.
-- CSV: `upload_csv(filepath, user)` → `(imported_count, total_rows)`
+- `create_entry(..., created_at=None, source=None)` — `created_at` overrides now() (an imported review's own date), `source` marks where a non-hand-typed entry came from (`"prod_review"`).
 - `check_library_update()` — compares every linked library against `get_last_file_stable()` of its folder, proposes a batch update via a `PipelineAction` (closes over the `update` list directly); wired into `post_load_handler` (runs unconditionally, before the read-only gate — a `-stable` file still gets checked), never raises
 - `library_updates`, `wipmeta_update_libraries`, `clean_libraries`
 - `set_department_validated(filepath, department, validated)` — toggles one department's validated status directly, mutating the latest `.stablemeta` in place, no new `-stable` version needed (for departments like "render" that aren't tied to editing the file); raises `PipelineError` if the asset has no stable version yet. Backs the toggle buttons in `tracking_panel.py` and `m_pipeline.tracking_file_details`.
@@ -271,6 +273,17 @@ The red text itself is a plain `row.label()`, not the button opening the menu: a
 - **Sidecar paths** (`lib/tracking.py`): `tracking_json_path(filepath, must_exist=False)` and `_meta_path(filepath, suffix)` are the only places a `tracking.json` / `.wipmeta` / `.stablemeta` path is built. Owner folder decided from the name (`_owner_dir()`: `.blend` → parent, else the folder itself), never `is_file()`. Every writer but `create_tracking()` passes `must_exist=True`; `create_tracking()` and `_meta_path()` only accept a `.blend`. See NOTES.md "tracking.json: one path, never created by a write".
 - `ProjectScan` (`lib/tracking.py`) — background refresh for Project monitoring, started by the popup's `invoke()` and its Refresh button (`m_pipeline.tracking_refresh`): reader thread (pure os/json: `_walk_owner_dirs()` — only `assets/`, `library/`, `shots/`, never `renders/`, and never below a tracked folder — `_collect_folder()`, `_read_link_targets()`, `read_json_quiet()`) + main-thread timer applying results to `TrackingStatusCache` and the linked-by index. See NOTES.md "Popups on a network share…".
 - `find_linked_by(project_root, filepath)` — every folder linking into filepath's own, for `m_pipeline.tracking_file_details`'s "Linked by" list. Reads an inverse index (`_linked_by_index`, target folder → set of linker folders) built by `ProjectScan` — memory only, called by `draw()`; with no index for this project yet it starts a scan and returns `[]` (the popup shows "Linked by: scanning project...").
+
+### Snapshot (`snapshot.py`)
+- Production snapshot export, see NOTES.md "Production snapshot". `read_snapshot_raw(root)` (disk only, thread-safe) → `build_snapshot(raws, config, meta)` (memory, main thread) → `render_html(snapshot)` / `render_review_xlsx(snapshot)` (dict → str/bytes, no bpy). `write_snapshot()` = render + write, run on a thread. `collect_snapshot()` chains the first two synchronously (tests).
+- `SnapshotJob(fn, *args)` — runs one step on a thread, polled by `M_PIPELINE_OT_export_snapshot.modal()` (`operators/tracking_ops.py`).
+- Snapshot dict: `{"meta", "assets", "shots", "notes"}`; each item carries `departments` (`done`/`rework`/`wip`/`todo`, absent = not required), `wip_version`, `stable_version`, `current_version`.
+- Review import: `read_xlsx_grid(path)` (first sheet → `{row: {col: text}}`), `read_review_xlsx(path)` (schema/author/date/rows), `import_review_xlsx(path)` → `{"imported", "duplicates", "skipped": [(label, reason)]}` — one entry per text line, skips lines already imported (same file/text/author, `source == REVIEW_SOURCE`). Backs `M_PIPELINE_OT_import_review`.
+
+### Thumbnails (`thumbnails.py`)
+- Asset/shot thumbnails, see NOTES.md "Thumbnails". `thumbnail_path(shot_render_dir)`, `source_frame()` (middle frame of the latest render), `exr_layer()` (layer of a multilayer EXR, header only), `thumbnail_jobs(dirs, v_prefix, force=False)` (missing/stale only) — all pure os. `run_thumbnail_jobs(jobs, blender_bin, ffmpeg_bin, wait=True)` runs `templates/make_thumbnails.py` in one headless Blender: waited on (snapshot thread, returns `{dst: "ok" | reason}`) or detached (`farm/post_render.py`'s `refresh_shot_thumbnail()`, at `compilation_finished`).
+- `owner_render_dir(project_root, owner)` — the render folder whose thumbnail stands for an asset/shot (a block → its first shot). File details: `load_file_thumbnail(folder)` / `unregister_thumbnail_previews()` (`panels/tracking_panel.py`), a `bpy.utils.previews` collection filled on click, never in `draw()`.
+- Snapshot side: `read_snapshot_data(root, thumbnails)` (`snapshot.py`) = `read_snapshot_raw()` + thumbnails brought up to date + read as base64.
 
 ### Handlers (`handlers.py`)
 - `post_load_handler` — session, library-update check (always, even read-only), lock (+ its heartbeat refresh), read-only gating (silent for `stable`/`profile`/`reopened` — flags the reason via `set_opened_as_read_only()`, the top bar indicator carries it; still a `M_PIPELINE_OT_text_popup` for the lock case), auto-version proposal
@@ -286,7 +299,7 @@ The red text itself is a plain `row.label()`, not the button opening the menu: a
 - `derive_shot_subranges(scene, sequence_label, promised, config=None)` — the read-back counterpart, live off `scene.timeline_markers`: derives each shot's frame sub-range (one ends where the next *promised* one's marker begins). `promised` (the file's own name enumeration) decides which markers count as real boundaries — a marker not in it doesn't start its own range, its frames are absorbed into the preceding promised shot instead (§2). Returns `(ranges, absorbed)` — `absorbed` is never silent, see "Multishot blocks" below.
 
 ### Preview (`preview.py`)
-- `latest_shot_mp4(project_root, sequence_label, shot_label, config=None)` — a shot's most recently rendered mp4, "most recent" read from the render increment folder's own name (`vNNN_MMM`), never mtime
+- `render_root(project_root, owner_dir)` — the render folder of an asset/shot folder: `renders/<seq>/<shot>` for a shot, `renders/assets/<prefix>/<asset>` (or `library/...`) otherwise; used by the farm's `compute_output_path()` and the snapshot. `latest_render_dir(shot_dir, v_prefix)` — a shot's most recent render increment folder, read from its name (`vNNN_MMM`), never mtime; pure os. `latest_shot_mp4(project_root, sequence_label, shot_label, config=None)` — the mp4 in it
 - `resolve_block_sources(filepath, project_root, config=None)` / `resolve_sequence_sources(filepath, project_root, config=None)` — the two providers behind §1.6's "one button, two scopes": `(shot_label, mp4)` pairs for a block's own enumeration, or for every shot ever rendered under the file's sequence. Filesystem-only, no `bpy` — works for any file, open or not.
 
 ### Saving (`saving.py`)
@@ -335,7 +348,7 @@ Full design rationale: `NOTES.md` (§ references below point to `multishot_spec_
   - `absorbed_shots` — a marker found but not in the name; its frames merge into the preceding *promised* shot's range instead of getting their own (native Blender behavior: a camera switch with no boundary of its own just continues the previous shot).
   Both live on the parent job (visible in the farm dashboard for its brief `split_finished → archived` window) and permanently in the block's own `.pipeline/render_history.json` (`construct_split_history()`).
 - **Preview compile (§1.6)**: `M_PIPELINE_OT_compile_preview` (block or sequence scope) always goes through a farm request (`request_preview_compile()` → `run_preview_compile()`), never runs ffmpeg synchronously in the interactive session. Concat always uses ffmpeg's concat *filter* (decode + re-encode every source to the project's own resolution/fps), never the concat demuxer's `-c copy` — a block's shots can come from different render sessions and are never assumed to already share codec/fps/resolution. **Manual only, never auto-triggered** by a block's renders finishing (explicit decision): an auto-trigger would re-introduce the "continuous review" mechanism multishot_spec_v2.md's own §7 already walked back to a disposable, manual preview, and risks compiling a preview mid-flight on a partial/overridden sub-range.
-- **Entries `shot` tag (§1.5)**: `create_entry()`/`edit_entry()`/CSV import take an optional `shot` string, stored and displayed (`[sh045]` prefix) as-is — no selector, no filter, no groupby, no validation against real shots.
+- **Entries `shot` tag (§1.5)**: `create_entry()`/`edit_entry()`/the review import take an optional `shot` string, stored and displayed (`[sh045]` prefix) as-is — no selector, no filter, no groupby, no validation against real shots.
 - **Branch (§5)**: `M_PIPELINE_OT_edit_block_structure` (`shot_ops.py`, renamed from `branch_shot` for clarity) — its dialog pre-fills the shot list from the old block's own live `scene.timeline_markers` (`derive_shot_subranges()`) when the file being edited is the one currently open, `default_frame_start` otherwise. Blocks outright if the result would be a mono-shot exactly duplicating another active mono-shot's number; warns (behind a `confirm_overlap` checkbox) for any other shot-number overlap with an active file (`_classify_shot_conflicts()`, backed by `active_shot_owners()`). On execute: creates the new file first (so a failure there never leaves a block archived with no successor), flags the old block's `tracking.json` `archived: true` in place, `copy_entries()`, then moves the old composition into `old/` (`archive_folder()`) — deliberately not link-safe — and, per shot dropped from the new enumeration, its render folder too, unless another active file still covers that number. Version lineage continues (`start_version`) instead of restarting at v001. `list_active_blocks()` is the one filter point every block enumeration goes through instead of its own raw glob (wired into `shot_items()`), and skips the `old/` folder itself by name.
 
 **Deferred, not implemented**: §6's MAX_PATH mitigation (shortening `.meta` filenames to drop the redundant base name) — a theoretical worst-case calculation was done (a UNC prefix over ~140 chars makes an 8-9 shot block's `.wipmeta.tmp` cross Windows' 260-char limit; the dominant 1-2 shot case has a large margin everywhere), but no real UNC test has been run, and the mitigation itself hasn't been coded pending that decision.

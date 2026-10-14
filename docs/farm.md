@@ -37,6 +37,10 @@ The preset is also applied once at setup, in that throwaway session (never saved
 
 A multishot block (see [Shot blocks (multishot)](multishot.md)) submits and behaves exactly like any file from this side — the split into one job per shot happens automatically once the file is picked up, not something you do differently at submission.
 
+**Output folders**: a shot renders into `renders/<seq>/<shot>/<version>_<n>/`, an asset or library file into `renders/assets/<prefix>/<asset>/<version>_<n>/` (or `renders/library/...`).
+
+**Thumbnail**: once a render is compiled, the farm writes a thumbnail next to its folders — `renders/<seq>/<shot>/<seq>_<shot>_thumbnail.jpg`, `renders/assets/ch/ch_bob/ch_bob_thumbnail.jpg` (middle frame, 240 px), used by the production snapshot. Made by Blender itself; only a multilayer EXR needs ffmpeg.
+
 **After the render**: once a job is finished (frames checked, video compiled), its render shows up in Project monitoring's "To check" column until someone marks it checked -- see [Tracking & reviews](tracking-and-reviews.md).
 
 **Logs**: every farm process writes its output to a file in `config/.farm/queue/requests/` -- `request_<job_id>.log` for a job's setup, frame check, compilation and preview, plus one `request_<job_id>_<machine>.log` per worker render. Deleted when the job ends well, kept (and archived with the job) when something failed: that's the first place to look.
