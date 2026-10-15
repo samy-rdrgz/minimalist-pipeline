@@ -25,6 +25,7 @@ from ..farm import (
     register_popup_region,
     register_refresh_timer,
     request_monitor_kill,
+    request_worker_stop,
     retry_job,
     scan_workers,
     stop_worker,
@@ -39,13 +40,14 @@ from ..lib import (
     cached_scandir,
     get_active_project_root,
     get_folder,
+    get_machine_id,
     get_user,
     json_get,
     locked_json,
     log,
     parse_filename,
-    read_json_quiet,
     prefix_items,
+    read_json_quiet,
     resolve_ffmpeg,
     resolve_version_file,
     sequence_items,
@@ -743,6 +745,71 @@ class M_PIPELINE_OT_farm_kill_self_worker(bpy.types.Operator):
             {"WARNING"}, "This worker entry belongs to another machine/process."
         )
         return {"CANCELLED"}
+
+
+class M_PIPELINE_OT_farm_stop_worker(bpy.types.Operator):
+    """Stop any machine's worker from the Workers tab."""
+
+    bl_idname = "m_pipeline.farm_stop_worker"
+    bl_label = "Stop worker"
+    bl_description = (
+        "Stop this machine's worker. If it's rendering, choose whether its "
+        "render is interrupted or finishes first."
+    )
+
+    target_uuid: bpy.props.StringProperty()
+    machine: bpy.props.StringProperty()
+    busy: bpy.props.BoolProperty()
+    kill_render: bpy.props.BoolProperty(
+        description="Scripted call only: interrupt its render in progress"
+    )
+
+    def invoke(self, context, event):
+        if self.target_uuid == get_machine_id():
+            return bpy.ops.m_pipeline.farm_kill_self_worker("INVOKE_DEFAULT")
+        if not self.busy:
+            return self.execute(context)
+        user = get_user(context)
+        uuid, name = self.target_uuid, self.machine or self.target_uuid[:8]
+        set_pending_action(
+            PipelineAction(
+                title=f"Stop worker {name}",
+                message=(
+                    f"{name} is rendering a job right now.\n\n"
+                    "Stop the render too: it's interrupted now, the job carries "
+                    "on with its other machines (or is sent out again for the "
+                    "frames left).\n"
+                    "Let it finish: no new render is picked up, the worker "
+                    "stops once this one is done.\n\n"
+                    "Takes effect on its next tick (about 10 s)."
+                ),
+                severity="warning",
+                choices=[
+                    (
+                        "Stop the render too",
+                        lambda: request_worker_stop(uuid, True, user),
+                        "Interrupt its render now and stop the worker.",
+                    ),
+                    (
+                        "Let it finish",
+                        lambda: request_worker_stop(uuid, False, user),
+                        "Finish its current render, then stop the worker.",
+                    ),
+                    ("Cancel", None, "Keep the worker running."),
+                ],
+            )
+        )
+        return bpy.ops.m_pipeline.action_popup("INVOKE_DEFAULT")
+
+    def execute(self, context):
+        if not self.target_uuid:
+            return {"CANCELLED"}
+        request_worker_stop(self.target_uuid, self.kill_render, get_user(context))
+        self.report(
+            {"INFO"},
+            f"Stop requested for {self.machine or self.target_uuid[:8]} (next tick).",
+        )
+        return {"FINISHED"}
 
 
 class M_PIPELINE_OT_farm_cancel_job(bpy.types.Operator):
