@@ -20,7 +20,7 @@ from .post_render import (
     compilation,
     refresh_shot_thumbnail,
 )
-from .workers import local_render_running
+from .workers import local_render_running, scan_workers
 
 
 def scan_requests() -> bool:
@@ -239,7 +239,8 @@ def retry_job(data: dict, project_root: Path) -> str | None:
     """Rewind a failed job to _RETRY_STAGE so the queue runs it again.
     Mutates data (caller writes it back); returns the stage resumed to, or
     None if it didn't fail. A render retry first deletes the empty frames
-    left by the failed one: a placeholder is skipped, never re-rendered."""
+    left by the failed one (a placeholder is skipped, never re-rendered),
+    and is pointed at the workers that didn't fail it."""
     failed = failed_stage(data)
     if not failed:
         return None
@@ -247,8 +248,10 @@ def retry_job(data: dict, project_root: Path) -> str | None:
     if failed == "render_failed" and frames_complete(data, project_root):
         # Rendered in full by the other machines: nothing left to render.
         target = "render_finished"
-    elif failed == "render_failed" and data.get("output_path"):
-        _delete_placeholders(project_root / Path(data["output_path"]).parent)
+    elif failed == "render_failed":
+        if data.get("output_path"):
+            _delete_placeholders(project_root / Path(data["output_path"]).parent)
+        _reassign_away_from_failed(data)
     data.pop("rendered_by", None)
     data.pop("local_processes", None)
     data["stage_history"].append({"stage": target, "at": now(), "resumed": "retry"})
@@ -290,6 +293,32 @@ def recompile_job(data: dict) -> bool:
     )
     log("INFO", "farm", f"Job {data.get('job_id')}: compilation requested again.")
     return True
+
+
+def _reassign_away_from_failed(data: dict) -> None:
+    """Point a failed render at the workers that didn't fail it: its
+    assigned machines (or every known worker, for an "auto" job) minus
+    failed_machines. Left as is when no other worker is left."""
+    failed = set(data.get("failed_machines") or [])
+    if not failed:
+        return
+    pool = set(data.get("assigned_machines") or scan_workers())
+    others = sorted(pool - failed)
+    if not others:
+        log(
+            "WARNING",
+            "farm",
+            f"Job {data.get('job_id')}: no other worker than the one(s) that "
+            f"failed it -- retried on the same machine(s).",
+        )
+        return
+    data["assigned_machines"] = others
+    log(
+        "INFO",
+        "farm",
+        f"Job {data.get('job_id')}: retried on {', '.join(u[:8] for u in others)} "
+        f"(without {', '.join(u[:8] for u in sorted(failed))}).",
+    )
 
 
 def _delete_placeholders(folder: Path) -> None:
@@ -700,8 +729,8 @@ def check_render_completion(job_path: Path, project_root: Path | None = None) ->
             pass
         elif any_failed:
             data["rendered_by"] = list(data.get("used_machines", []))
-            # Kept across retries: render_dispatch() avoids these machines
-            # while another worker can take the job.
+            # Kept across retries: retry_job() reassigns the job to the
+            # other workers.
             data["failed_machines"] = sorted(
                 set(data.get("failed_machines", [])) | set(failed)
             )
