@@ -49,10 +49,18 @@ class M_PIPELINE_OT_action_popup(bpy.types.Operator):
         if self._action.severity == "info" and not self._action.choices:
             self.report({"INFO"}, self._action.message)
             return {"FINISHED"}
-        # invoke_popup, not invoke_props_dialog: draw() already draws every
-        # choice as its own button -- invoke_props_dialog would also add its
-        # own native Cancel/OK footer on top, duplicating "Cancel".
-        return context.window_manager.invoke_popup(self, width=self._POPUP_WIDTH)
+        # A dialog, not invoke_popup(): a popup closes as soon as the mouse
+        # leaves it, and these were missed (append warning...) -- a dialog
+        # stays until a button or Escape. Its own footer (Close / Cancel)
+        # both just close it, like Escape; cancel_default so Enter never
+        # picks anything. See NOTES.md, "Action popups: dialogs".
+        return context.window_manager.invoke_props_dialog(
+            self,
+            width=self._POPUP_WIDTH,
+            title="Pipeline",
+            confirm_text="Close",
+            cancel_default=True,
+        )
 
     def cancel(self, context):
         """Dismissed without clicking a choice (Escape / click-away): no
@@ -61,9 +69,15 @@ class M_PIPELINE_OT_action_popup(bpy.types.Operator):
         on_dismiss cleanup, if any, so it fires the same whether the popup
         was dismissed or a neutral choice was clicked. No _force_close here:
         Blender is already tearing the popup down to get here."""
-        action = self._action
+        self._dismiss(self._action)
+
+    @staticmethod
+    def _dismiss(action) -> None:
+        """Closed without a choice (Escape, Cancel, Close): clear it and run
+        its on_dismiss -- unless a choice already ran."""
         get_pending_action(clear=True)
-        if action and action.on_dismiss:
+        if action and action.on_dismiss and not action.resolved:
+            action.resolved = True
             try:
                 action.on_dismiss()
             except Exception as e:
@@ -109,25 +123,23 @@ class M_PIPELINE_OT_action_popup(bpy.types.Operator):
         ops = layout.row() if len(self._action.choices) < 3 else layout.column()
         ops.operator_context = "EXEC_DEFAULT"
 
-        if self._action.choices:
-            for i, choice in enumerate(self._action.choices):
-                label = choice[0]
-                op = ops.operator("m_pipeline.action_popup", text=label)
-                op.choice_index = i
-        else:
-            op = ops.operator("m_pipeline.action_popup", text="OK")
-            op.choice_index = -1
+        # No "OK" of our own: the dialog's footer closes it.
+        for i, choice in enumerate(self._action.choices):
+            label = choice[0]
+            op = ops.operator("m_pipeline.action_popup", text=label)
+            op.choice_index = i
 
     def execute(self, context):
         if self.choice_index < 0:
-            get_pending_action(clear=True)
-            self._force_close(context)
+            # The dialog's own "Close": same as dismissing it.
+            self._dismiss(self._action or get_pending_action(clear=False))
             return {"FINISHED"}
         action = get_pending_action(clear=True)
         if not action:
             self._force_close(context)
             return {"CANCELLED"}
 
+        action.resolved = True  # the dialog closing next won't dismiss it
         choice = action.choices[self.choice_index]
         callback = choice[1]
         if callback:

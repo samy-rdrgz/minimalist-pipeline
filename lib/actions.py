@@ -26,6 +26,9 @@ class PipelineAction:
     """Beginner-mode-only concept explanation, drawn below message() as a
     dimmed, capped block (see draw_box_tip() in core.py) -- action_popup
     renders it itself, callers just fill this in like any other field."""
+    resolved: bool = False
+    """Set by action_popup once a choice ran: closing the dialog afterwards
+    must not also run on_dismiss."""
 
 
 # Shared copy for the popups that repeat across more than one call site
