@@ -6,7 +6,8 @@ from pathlib import Path
 
 import bpy
 
-from ..farm import (    archive,
+from ..farm import (
+    archive,
     failed_stage,
     get_monitor_cache,
     job_cancel_request,
