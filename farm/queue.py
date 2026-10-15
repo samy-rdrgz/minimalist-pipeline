@@ -9,6 +9,7 @@ from .dispatch import (
     append_render_history,
     discard_job_log,
     job_log_path,
+    join_running_renders,
     local_slot_busy,
     locked_json,
     read_process_log,
@@ -101,6 +102,11 @@ def scan_queue(project_root: Path) -> None:
             x[1].get("submitted_at", ""),  # ascending date at equal priority
         )
     )
+    # Before any new job: idle workers first reinforce renders in progress.
+    try:
+        join_running_renders(jobs, project_root)
+    except Exception as e:
+        log("ERROR", "farm", f"Could not send idle workers to running renders: {e}")
     for job, data in jobs:
         try:
             config = ConfigCache.get()
