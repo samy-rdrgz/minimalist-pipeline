@@ -14,8 +14,13 @@ from .dispatch import (
     read_process_log,
     render_dispatch,
 )
-from .post_render import checks_images, compilation, refresh_shot_thumbnail
-from .workers import local_render_running
+from .post_render import (
+    _EXTENSION_MAP,
+    checks_images,
+    compilation,
+    refresh_shot_thumbnail,
+)
+from .workers import local_render_running, scan_workers
 
 
 def scan_requests() -> bool:
@@ -151,7 +156,7 @@ def scan_queue(project_root: Path) -> None:
                 mark_stage(job, "archived")
                 discard_job_log(data["job_id"])  # the shots carry on as their own jobs
             elif stage == "render_start":
-                check_render_completion(job)
+                check_render_completion(job, project_root)
             elif stage == "render_finished":
                 if not local_slot_busy():
                     checks_images(job)
@@ -173,7 +178,10 @@ def scan_queue(project_root: Path) -> None:
                     continue
                 refresh_shot_thumbnail(data, project_root)
                 mark_stage(job, "finished")
-                construct_history(data, status="finished")
+                # A recompile rendered nothing: its render is already in
+                # render_history.json.
+                if not _is_recompile(data):
+                    construct_history(data, status="finished")
                 mark_stage(job, "archived")
                 # Ended well -- unless the frame check flagged corrupted
                 # frames: that list only lives in the log, keep it.
@@ -231,18 +239,87 @@ def retry_job(data: dict, project_root: Path) -> str | None:
     """Rewind a failed job to _RETRY_STAGE so the queue runs it again.
     Mutates data (caller writes it back); returns the stage resumed to, or
     None if it didn't fail. A render retry first deletes the empty frames
-    left by the failed one: a placeholder is skipped, never re-rendered."""
+    left by the failed one (a placeholder is skipped, never re-rendered),
+    and is pointed at the workers that didn't fail it."""
     failed = failed_stage(data)
     if not failed:
         return None
     target = _RETRY_STAGE[failed]
-    if failed == "render_failed" and data.get("output_path"):
-        _delete_placeholders(project_root / Path(data["output_path"]).parent)
+    if failed == "render_failed" and frames_complete(data, project_root):
+        # Rendered in full by the other machines: nothing left to render.
+        target = "render_finished"
+    elif failed == "render_failed":
+        if data.get("output_path"):
+            _delete_placeholders(project_root / Path(data["output_path"]).parent)
+        _reassign_away_from_failed(data)
     data.pop("rendered_by", None)
     data.pop("local_processes", None)
+    data.pop("refill_rounds", None)  # a manual retry starts a fresh count
     data["stage_history"].append({"stage": target, "at": now(), "resumed": "retry"})
     log("INFO", "farm", f"Job {data.get('job_id')}: retried at {target}.")
     return target
+
+
+def recompilable(data: dict) -> bool:
+    """A render job that ended well (before "archived"): its frames are on
+    disk, so its video can be compiled again without rendering anything."""
+    stages = [s.get("stage") for s in data.get("stage_history") or []]
+    while stages and stages[-1] == "archived":
+        stages.pop()
+    return bool(
+        stages
+        and stages[-1] == "finished"
+        and data.get("output_path")
+        and data.get("compiled_output_path")
+    )
+
+
+def _is_recompile(data: dict) -> bool:
+    """Whether the job's current pass is a recompile (recompile_job())."""
+    for stage in reversed(data.get("stage_history") or []):
+        if stage.get("stage") == "checks_images_finished":
+            return stage.get("resumed") == "recompile"
+    return False
+
+
+def recompile_job(data: dict) -> bool:
+    """Rewind a finished job to checks_images_finished: the queue runs only
+    the compilation again (local ffmpeg, no worker, no Blender), then flags
+    the render to check again. Mutates data (caller writes it back)."""
+    if not recompilable(data):
+        return False
+    data.pop("to_check_attempts", None)
+    data["stage_history"].append(
+        {"stage": "checks_images_finished", "at": now(), "resumed": "recompile"}
+    )
+    log("INFO", "farm", f"Job {data.get('job_id')}: compilation requested again.")
+    return True
+
+
+def _reassign_away_from_failed(data: dict) -> None:
+    """Point a failed render at the workers that didn't fail it: its
+    assigned machines (or every known worker, for an "auto" job) minus
+    failed_machines. Left as is when no other worker is left."""
+    failed = set(data.get("failed_machines") or [])
+    if not failed:
+        return
+    pool = set(data.get("assigned_machines") or scan_workers())
+    others = sorted(pool - failed)
+    if not others:
+        log(
+            "WARNING",
+            "farm",
+            f"Job {data.get('job_id')}: no other worker than the one(s) that "
+            f"failed it -- retried on the same machine(s).",
+        )
+        return
+    data["assigned_machines"] = others
+    log(
+        "INFO",
+        "farm",
+        f"Job {data.get('job_id')}: retried on {', '.join(u[:8] for u in others)} "
+        f"(without {', '.join(u[:8] for u in sorted(failed))}).",
+    )
 
 
 def _delete_placeholders(folder: Path) -> None:
@@ -590,13 +667,53 @@ def cancel_pending_renders(job_id: str, machines: list) -> list:
     return [uuid for uuid in machines if uuid not in dropped]
 
 
-def check_render_completion(job_path: Path) -> None:
+def frames_complete(data: dict, project_root: Path) -> bool:
+    """Every frame of the job's resolved range is on disk, non-empty (an
+    empty file is a placeholder: a frame started, never finished)."""
+    output_path = data.get("output_path")
+    frame_range = data.get("resolved_frame_range") or (0, 0)
+    if not output_path or not project_root or tuple(frame_range) == (0, 0):
+        return False
+    pattern = Path(project_root) / output_path
+    digits = pattern.name.count("#")
+    stem = pattern.name.split("#")[0]
+    ext = _EXTENSION_MAP.get(data.get("output_extension"), "png")
+    for frame in range(int(frame_range[0]), int(frame_range[1]) + 1):
+        path = pattern.parent / f"{stem}{frame:0{digits}d}.{ext}"
+        try:
+            if path.stat().st_size == 0:
+                return False
+        except OSError:
+            return False
+    return True
+
+
+# How many times a render whose machines all stopped with frames still
+# missing is sent out again for them before giving up (render_failed).
+MAX_REFILL_ROUNDS = 3
+
+
+def _render_folder(data: dict, project_root: Path | None) -> Path | None:
+    output_path = data.get("output_path")
+    if not output_path or not project_root:
+        return None
+    return (Path(project_root) / output_path).parent
+
+
+def check_render_completion(job_path: Path, project_root: Path | None = None) -> None:
     """Monitor-only: cross-check used_machines against each worker's declared
-    state. No worker ever writes this job file for this stage. A render
-    whose worker lost it (crashed and came back -> result "lost", or never
-    came back -> WORKER_GONE_SECONDS) is sent back to setup_finished and
-    re-dispatched: renders run with placeholders and no overwrite, so the
-    new one only renders the frames still missing."""
+    state. No worker ever writes this job file for this stage.
+
+    While any machine still renders it, the job stays render_start -- a
+    machine that failed, crashed ("lost", or gone for WORKER_GONE_SECONDS),
+    was cancelled or stopped doesn't end it: the others may still render
+    every frame (placeholders + no overwrite). Once none is left, it's
+    judged on the frames on disk: all there -> render_finished; a real
+    failure with frames missing -> render_failed; every machine cancelled
+    (the job's Cancel) -> render_failed (cancelled); otherwise frames are
+    missing because a machine stopped early -> the placeholders it left are
+    deleted (safe now: nobody renders this job) and the job goes back to
+    setup_finished for them, at most MAX_REFILL_ROUNDS times."""
     with locked_json(job_path) as box:
         data = box["data"]
         if data["stage_history"][-1]["stage"] != "render_start":
@@ -604,7 +721,9 @@ def check_render_completion(job_path: Path) -> None:
 
         still_running = []
         lost = []
-        any_failed = False
+        failed = []
+        cancelled = []
+        stopped = []
         any_succeeded = False
 
         for uuid in data.get("used_machines", []):
@@ -618,16 +737,20 @@ def check_render_completion(job_path: Path) -> None:
             if _is_this_render(result, data):
                 if result.get("lost"):
                     lost.append(uuid)
+                elif result.get("stopped"):
+                    stopped.append(uuid)  # its worker was stopped: neutral
+                elif result.get("cancelled"):
+                    cancelled.append(uuid)  # not the machine's fault
                 elif not result["success"]:
-                    any_failed = True
+                    failed.append(uuid)
                 else:
                     any_succeeded = True  # finished THIS render successfully
-            elif _worker_gone(w):
+            elif _worker_gone(w) or w.get("status") == "stopped":
                 lost.append(uuid)
             else:
                 still_running.append(uuid)
 
-        if any_succeeded and still_running and not any_failed and not lost:
+        if any_succeeded and still_running:
             # A worker that ended this render successfully went through the
             # whole range (placeholders, no overwrite): every frame is
             # rendered or being rendered. One that never picked up its
@@ -654,44 +777,89 @@ def check_render_completion(job_path: Path) -> None:
                     f"-- request dropped.",
                 )
 
-        if any_failed:
-            data["rendered_by"] = list(data.get("used_machines", []))
-            data["stage_history"].append({"stage": "render_failed", "at": now()})
-            box["action"] = "to_write"
-        elif lost:
-            # A request the lost worker never picked up would otherwise run
-            # whenever it comes back, for a dispatch nobody waits on anymore.
-            for uuid in lost:
-                request = (
-                    ConfigCache.get_path("farm_requests")
-                    / f"request_{data['job_id']}_{uuid}.json"
+        if still_running:
+            return data  # the others may still render every frame
+
+        # A request a lost/stopped worker never picked up would otherwise
+        # run whenever it comes back, for a dispatch nobody waits on anymore.
+        for uuid in lost + stopped:
+            request = (
+                ConfigCache.get_path("farm_requests")
+                / f"request_{data['job_id']}_{uuid}.json"
+            )
+            try:
+                retry_shared_io(request.unlink)
+            except OSError:
+                pass
+
+        # Kept for construct_history(): used_machines is reset by the next
+        # local stages (_finish_job_processes()).
+        data["rendered_by"] = list(data.get("used_machines", []))
+        box["action"] = "to_write"
+        if failed:
+            # Kept across retries: retry_job() reassigns the job to the
+            # other workers.
+            data["failed_machines"] = sorted(
+                set(data.get("failed_machines", [])) | set(failed)
+            )
+
+        if frames_complete(data, project_root):
+            entry = {"stage": "render_finished", "at": now()}
+            if failed or lost or stopped or cancelled:
+                entry["resumed"] = "a machine stopped early, every frame on disk"
+                log(
+                    "WARNING",
+                    "farm",
+                    f"Job {data['job_id']}: a machine stopped early, but every "
+                    f"frame is on disk -- carrying on.",
                 )
-                try:
-                    retry_shared_io(request.unlink)
-                except OSError:
-                    pass
+            data["stage_history"].append(entry)
+        elif failed:
+            data["stage_history"].append({"stage": "render_failed", "at": now()})
+        elif cancelled and not (any_succeeded or lost or stopped):
+            # The job's own Cancel: stop here, never sent out again.
+            data["stage_history"].append(
+                {"stage": "render_failed", "at": now(), "cancelled": True}
+            )
+        elif data.get("refill_rounds", 0) >= MAX_REFILL_ROUNDS:
+            data["stage_history"].append(
+                {
+                    "stage": "render_failed",
+                    "at": now(),
+                    "resumed": f"frames still missing after {MAX_REFILL_ROUNDS} rounds",
+                }
+            )
+            log(
+                "ERROR",
+                "farm",
+                f"Job {data['job_id']}: frames still missing after "
+                f"{MAX_REFILL_ROUNDS} re-dispatches -- failed.",
+            )
+        else:
+            # Frames missing because machines stopped early (crash, worker
+            # stopped, one machine cancelled): nobody renders this job now,
+            # so any empty file is a frame abandoned mid-render -- delete
+            # them and send the job out again for what's left.
+            folder = _render_folder(data, project_root)
+            if folder:
+                _delete_placeholders(folder)
+            data["refill_rounds"] = data.get("refill_rounds", 0) + 1
             data["stage_history"].append(
                 {
                     "stage": "setup_finished",
                     "at": now(),
-                    "resumed": "render lost by a worker",
+                    "resumed": "frames left after machines stopped",
                 }
             )
             data["used_machines"] = []
             data.pop("dispatch_id", None)
-            box["action"] = "to_write"
             log(
                 "WARNING",
                 "farm",
-                f"Job {data['job_id']}: render lost on {', '.join(u[:8] for u in lost)} "
-                f"-- re-dispatching (frames already rendered are kept).",
+                f"Job {data['job_id']}: frames missing after "
+                f"{', '.join(u[:8] for u in lost + stopped + cancelled)} stopped "
+                f"-- sent out again for them.",
             )
-        elif not still_running:
-            # Kept for construct_history(): used_machines is reset by the
-            # next local stages (_finish_job_processes()).
-            data["rendered_by"] = list(data.get("used_machines", []))
-            data["stage_history"].append({"stage": "render_finished", "at": now()})
-            box["action"] = "to_write"
         return data
 
 

@@ -11,22 +11,27 @@ from ..farm import (
     cancel_pending_renders,
     failed_stage,
     get_monitor_cache,
-    job_state,
     job_cancel_request,
     job_request,
+    job_state,
     kill_worker,
     launch_monitor,
     launch_worker,
     load_job_details,
     monitor_age_status,
     monitor_last_tick,
+    recompilable,
+    recompile_job,
     refresh_monitor_status,
     register_popup_region,
     register_refresh_timer,
     request_monitor_kill,
+    request_worker_stop,
     retry_job,
     scan_workers,
+    stop_worker,
     unregister_refresh_timer,
+    worker_rendering,
 )
 from ..lib import (
     ConfigCache,
@@ -36,13 +41,14 @@ from ..lib import (
     cached_scandir,
     get_active_project_root,
     get_folder,
+    get_machine_id,
     get_user,
     json_get,
     locked_json,
     log,
     parse_filename,
-    read_json_quiet,
     prefix_items,
+    read_json_quiet,
     resolve_ffmpeg,
     resolve_version_file,
     sequence_items,
@@ -695,7 +701,44 @@ class M_PIPELINE_OT_farm_kill_self_worker(bpy.types.Operator):
     bl_label = "Kill this worker."
     bl_description = "Remove this computer's worker registration."
 
+    def invoke(self, context, event):
+        if not worker_rendering():
+            return self.execute(context)
+        # Rendering right now: the artist decides what happens to it.
+        set_pending_action(
+            PipelineAction(
+                title="Stop this worker",
+                message=(
+                    "This machine is rendering a job right now.\n\n"
+                    "Stop the render too: it's interrupted now, the job carries "
+                    "on with its other machines (or is sent out again for the "
+                    "frames left).\n"
+                    "Let it finish: no new render is picked up, the worker "
+                    "stops once this one is done."
+                ),
+                severity="warning",
+                choices=[
+                    (
+                        "Stop the render too",
+                        lambda: stop_worker(kill_render=True),
+                        "Interrupt the render now and stop the worker.",
+                    ),
+                    (
+                        "Let it finish",
+                        lambda: stop_worker(kill_render=False),
+                        "Finish the current render, then stop the worker.",
+                    ),
+                    ("Cancel", None, "Keep the worker running."),
+                ],
+            )
+        )
+        return bpy.ops.m_pipeline.action_popup("INVOKE_DEFAULT")
+
     def execute(self, context):
+        if worker_rendering():
+            stop_worker(kill_render=True)  # scripted call: no popup to ask
+            self.report({"INFO"}, "Render stopped, worker stopped.")
+            return {"FINISHED"}
         if kill_worker():
             self.report({"INFO"}, "This machine is no longer a farm worker.")
             return {"FINISHED"}
@@ -703,6 +746,71 @@ class M_PIPELINE_OT_farm_kill_self_worker(bpy.types.Operator):
             {"WARNING"}, "This worker entry belongs to another machine/process."
         )
         return {"CANCELLED"}
+
+
+class M_PIPELINE_OT_farm_stop_worker(bpy.types.Operator):
+    """Stop any machine's worker from the Workers tab."""
+
+    bl_idname = "m_pipeline.farm_stop_worker"
+    bl_label = "Stop worker"
+    bl_description = (
+        "Stop this machine's worker. If it's rendering, choose whether its "
+        "render is interrupted or finishes first."
+    )
+
+    target_uuid: bpy.props.StringProperty()
+    machine: bpy.props.StringProperty()
+    busy: bpy.props.BoolProperty()
+    kill_render: bpy.props.BoolProperty(
+        description="Scripted call only: interrupt its render in progress"
+    )
+
+    def invoke(self, context, event):
+        if self.target_uuid == get_machine_id():
+            return bpy.ops.m_pipeline.farm_kill_self_worker("INVOKE_DEFAULT")
+        if not self.busy:
+            return self.execute(context)
+        user = get_user(context)
+        uuid, name = self.target_uuid, self.machine or self.target_uuid[:8]
+        set_pending_action(
+            PipelineAction(
+                title=f"Stop worker {name}",
+                message=(
+                    f"{name} is rendering a job right now.\n\n"
+                    "Stop the render too: it's interrupted now, the job carries "
+                    "on with its other machines (or is sent out again for the "
+                    "frames left).\n"
+                    "Let it finish: no new render is picked up, the worker "
+                    "stops once this one is done.\n\n"
+                    "Takes effect on its next tick (about 10 s)."
+                ),
+                severity="warning",
+                choices=[
+                    (
+                        "Stop the render too",
+                        lambda: request_worker_stop(uuid, True, user),
+                        "Interrupt its render now and stop the worker.",
+                    ),
+                    (
+                        "Let it finish",
+                        lambda: request_worker_stop(uuid, False, user),
+                        "Finish its current render, then stop the worker.",
+                    ),
+                    ("Cancel", None, "Keep the worker running."),
+                ],
+            )
+        )
+        return bpy.ops.m_pipeline.action_popup("INVOKE_DEFAULT")
+
+    def execute(self, context):
+        if not self.target_uuid:
+            return {"CANCELLED"}
+        request_worker_stop(self.target_uuid, self.kill_render, get_user(context))
+        self.report(
+            {"INFO"},
+            f"Stop requested for {self.machine or self.target_uuid[:8]} (next tick).",
+        )
+        return {"FINISHED"}
 
 
 class M_PIPELINE_OT_farm_cancel_job(bpy.types.Operator):
@@ -835,6 +943,48 @@ class M_PIPELINE_OT_farm_retry_job(bpy.types.Operator):
         if context.window_manager.farm_job_selected == self.job_id:
             load_job_details(self.job_id)
         self.report({"INFO"}, f"Job sent back to {target}.")
+        return {"FINISHED"}
+
+
+class M_PIPELINE_OT_farm_recompile_job(bpy.types.Operator):
+    """Compile a finished job's video again from the frames already on disk."""
+
+    bl_idname = "m_pipeline.farm_recompile_job"
+    bl_label = "Recompile"
+    bl_description = (
+        "Compile this job's video again from the frames already rendered: "
+        "no render, no worker -- just ffmpeg on the monitor's machine. The "
+        "render goes back to To check once done."
+    )
+
+    job_id: bpy.props.StringProperty()
+
+    def execute(self, context):
+        actives = ConfigCache.get_path("farm_actives")
+        job_path = actives / f"{self.job_id}.json"
+        archived = ConfigCache.get_path("farm_archives") / job_path.name
+        done = False
+        try:
+            if not job_path.exists() and archived.exists():
+                if not recompilable(read_json_quiet(archived) or {}):
+                    self.report({"WARNING"}, "Only a finished render can be recompiled.")
+                    return {"CANCELLED"}
+                archived.rename(job_path)  # archived by hand: back in the queue
+            with locked_json(job_path) as box:
+                data = box["data"] or {}
+                done = recompile_job(data)
+                if done:
+                    box["action"] = "to_write"
+        except Exception as e:
+            log("ERROR", "farm_recompile_job", str(e))
+            self.report({"ERROR"}, f"Could not recompile the job: {e}")
+            return {"CANCELLED"}
+        if not done:
+            self.report({"WARNING"}, "Only a finished render can be recompiled.")
+            return {"CANCELLED"}
+        if context.window_manager.farm_job_selected == self.job_id:
+            load_job_details(self.job_id)
+        self.report({"INFO"}, "Compilation requested again.")
         return {"FINISHED"}
 
 

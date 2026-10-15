@@ -40,6 +40,8 @@ from .queue import (
     RETRYABLE_STAGES,
     cancel_pending_renders,
     failed_stage,
+    recompilable,
+    recompile_job,
     retry_job,
     scan_processes,
     scan_queue,
@@ -57,6 +59,9 @@ from .workers import (
     is_blender_worker,
     kill_worker,
     launch_worker,
+    request_worker_stop,
+    stop_worker,
+    worker_rendering,
     scan_workers,
     this_instance_is_worker,
 )

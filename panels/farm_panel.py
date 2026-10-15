@@ -8,6 +8,7 @@ import bpy
 from ..farm import (
     RETRYABLE_STAGES,
     failed_stage,
+    recompilable,
     get_job_details,
     get_job_details_logs,
     get_job_details_path,
@@ -290,6 +291,13 @@ def draw_farm_jobs(self, layout):
                         icon="LOOP_BACK",
                         emboss=False,
                     ).job_id = j["job_id"]
+                elif stage == "finished" and j.get("output_dir"):
+                    status.operator(
+                        "m_pipeline.farm_recompile_job",
+                        text="",
+                        icon="FILE_MOVIE",
+                        emboss=False,
+                    ).job_id = j["job_id"]
                 status.operator(
                     "m_pipeline.farm_archive_job",
                     text="",
@@ -422,7 +430,7 @@ def draw_farm_workers(layout):
 
         info = split.row()
         # Read from disk: never trust a key to be there.
-        busy = m.get("status") not in ("idle", "not running", None)
+        busy = m.get("status") not in ("idle", "not running", "stopped", None)
         info.label(
             text=m.get("user", "unknown"),
             icon="KEYTYPE_BREAKDOWN_VEC" if busy else "KEYTYPE_JITTER_VEC",
@@ -430,8 +438,14 @@ def draw_farm_workers(layout):
         info.label(text=m.get("machine", "unknown"))
 
         jobs = split.row()
+        if m.get("status") == "stopped":
+            jobs.label(text="stopped")
+            continue
         if busy:
-            jobs.label(text=f"render: {m.get('current_job')}")
+            text = f"render: {m.get('current_job')}"
+            if m.get("stopping"):
+                text += "  (stops after this render)"
+            jobs.label(text=text)
             job_id = uuid_to_job.get(m.get("uuid"))
             if job_id:
                 op = jobs.operator(
@@ -441,6 +455,13 @@ def draw_farm_workers(layout):
                 op.target_uuid = m.get("uuid", "")
         else:
             jobs.label(text="idle")
+        if not m.get("stopping"):
+            op = jobs.operator(
+                "m_pipeline.farm_stop_worker", text="", icon="PAUSE", emboss=False
+            )
+            op.target_uuid = m.get("uuid", "")
+            op.machine = m.get("machine", "")
+            op.busy = busy
 
 
 def draw_farm_job_details(layout, context):
@@ -468,6 +489,11 @@ def draw_farm_job_details(layout, context):
             "m_pipeline.farm_retry_job", text="Retry", icon="LOOP_BACK"
         ).job_id = job_id
         actions.separator(factor=2)  # apart from reload: both read as "redo"
+    elif recompilable(data):
+        actions.operator(
+            "m_pipeline.farm_recompile_job", text="Recompile", icon="FILE_MOVIE"
+        ).job_id = job_id
+        actions.separator(factor=2)
     op = actions.operator(
         "m_pipeline.farm_job_details", text="", icon="FILE_REFRESH", emboss=False
     )
@@ -534,9 +560,16 @@ def draw_farm_job_details(layout, context):
         op.filepath = str((path if path.is_absolute() else Path(root) / path).parent)
         op.custom_tooltip = "Open this job's render folder"
 
+    field(
+        col,
+        "Assigned to",
+        machine_names(data["assigned_machines"]) if data.get("assigned_machines") else "auto",
+    )
     field(col, "Machines", machine_names(data.get("used_machines")))
     if data.get("rendered_by"):
         field(col, "Rendered by", machine_names(data["rendered_by"]))
+    if data.get("failed_machines"):
+        field(col, "Failed on", machine_names(data["failed_machines"]))
     if data.get("frames_corrupted"):
         field(col, "Corrupted frames", data["frames_corrupted"], icon="ERROR")
 
