@@ -17,6 +17,7 @@ from .farm_ops import (
     M_PIPELINE_OT_farm_monitor,
     M_PIPELINE_OT_farm_request_render,
     M_PIPELINE_OT_farm_retry_job,
+    M_PIPELINE_OT_farm_recompile_job,
     PIPELINE_PG_farm_list_item,
     PIPELINE_PG_render_subshot_item,
 )
@@ -119,6 +120,7 @@ classes = (
     M_PIPELINE_OT_farm_job_details,
     M_PIPELINE_OT_farm_archive_jobs,
     M_PIPELINE_OT_farm_retry_job,
+    M_PIPELINE_OT_farm_recompile_job,
     PipelineEntryItem,
     M_PIPELINE_OT_add_entry_line,
     M_PIPELINE_OT_remove_entry_line,

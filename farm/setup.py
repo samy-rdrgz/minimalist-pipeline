@@ -41,7 +41,11 @@ def compute_output_path(
             return dir_path
         except FileExistsError:
             if not increment:
-                return dir_path
+                # The latest existing folder, not always _001.
+                existing = sorted(
+                    p for p in base.glob(f"{version_label}_[0-9][0-9][0-9]") if p.is_dir()
+                )
+                return existing[-1] if existing else dir_path
             i += 1
         except PermissionError:
             raise PipelineError(f"Permission denied: unable to create '{dir_path}'.")

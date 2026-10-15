@@ -8,6 +8,7 @@ import bpy
 from ..farm import (
     RETRYABLE_STAGES,
     failed_stage,
+    recompilable,
     get_job_details,
     get_job_details_logs,
     get_job_details_path,
@@ -290,6 +291,13 @@ def draw_farm_jobs(self, layout):
                         icon="LOOP_BACK",
                         emboss=False,
                     ).job_id = j["job_id"]
+                elif stage == "finished" and j.get("output_dir"):
+                    status.operator(
+                        "m_pipeline.farm_recompile_job",
+                        text="",
+                        icon="FILE_MOVIE",
+                        emboss=False,
+                    ).job_id = j["job_id"]
                 status.operator(
                     "m_pipeline.farm_archive_job",
                     text="",
@@ -468,6 +476,11 @@ def draw_farm_job_details(layout, context):
             "m_pipeline.farm_retry_job", text="Retry", icon="LOOP_BACK"
         ).job_id = job_id
         actions.separator(factor=2)  # apart from reload: both read as "redo"
+    elif recompilable(data):
+        actions.operator(
+            "m_pipeline.farm_recompile_job", text="Recompile", icon="FILE_MOVIE"
+        ).job_id = job_id
+        actions.separator(factor=2)
     op = actions.operator(
         "m_pipeline.farm_job_details", text="", icon="FILE_REFRESH", emboss=False
     )

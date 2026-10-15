@@ -39,6 +39,8 @@ from .post_render import checks_images, compilation, run_preview_compile
 from .queue import (
     RETRYABLE_STAGES,
     failed_stage,
+    recompilable,
+    recompile_job,
     retry_job,
     scan_processes,
     scan_queue,
