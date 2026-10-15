@@ -642,6 +642,7 @@ def check_render_completion(job_path: Path, project_root: Path | None = None) ->
 
         still_running = []
         lost = []
+        failed = []
         any_failed = False
         any_succeeded = False
 
@@ -658,6 +659,7 @@ def check_render_completion(job_path: Path, project_root: Path | None = None) ->
                     lost.append(uuid)
                 elif not result["success"]:
                     any_failed = True
+                    failed.append(uuid)
                 else:
                     any_succeeded = True  # finished THIS render successfully
             elif _worker_gone(w):
@@ -698,6 +700,11 @@ def check_render_completion(job_path: Path, project_root: Path | None = None) ->
             pass
         elif any_failed:
             data["rendered_by"] = list(data.get("used_machines", []))
+            # Kept across retries: render_dispatch() avoids these machines
+            # while another worker can take the job.
+            data["failed_machines"] = sorted(
+                set(data.get("failed_machines", [])) | set(failed)
+            )
             if frames_complete(data, project_root):
                 data["stage_history"].append(
                     {

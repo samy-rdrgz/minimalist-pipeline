@@ -125,6 +125,20 @@ def render_dispatch(job_path: Path) -> None:
                 for k, v in idle_machines.items()
                 if k in job_data["assigned_machines"]
             }
+        # A machine that already failed this job (crashed mid-render...) is
+        # left out while another eligible worker exists -- busy or idle: the
+        # job then waits for it rather than going back to the one that
+        # failed. With no other worker at all, it's used again.
+        failed = set(job_data.get("failed_machines", []))
+        eligible = {
+            k
+            for k in machines
+            if not job_data["assigned_machines"] or k in job_data["assigned_machines"]
+        }
+        if failed and eligible - failed:
+            avaliable_machines = {
+                k: v for k, v in avaliable_machines.items() if k not in failed
+            }
         if not avaliable_machines:
             log(
                 "INFO",

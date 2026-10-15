@@ -550,6 +550,8 @@ def draw_farm_job_details(layout, context):
     field(col, "Machines", machine_names(data.get("used_machines")))
     if data.get("rendered_by"):
         field(col, "Rendered by", machine_names(data["rendered_by"]))
+    if data.get("failed_machines"):
+        field(col, "Failed on", machine_names(data["failed_machines"]))
     if data.get("frames_corrupted"):
         field(col, "Corrupted frames", data["frames_corrupted"], icon="ERROR")
 
