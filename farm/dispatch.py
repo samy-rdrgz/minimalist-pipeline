@@ -158,6 +158,108 @@ def render_dispatch(job_path: Path) -> None:
         box["action"] = "to_write"
 
 
+# A worker that turns idle joins a render already in progress (rather than
+# starting a new job) only while it would still get more frames than this.
+JOIN_MIN_FRAMES_LEFT = 10
+
+
+def frames_not_started(job_data: dict, project_root: Path) -> int | None:
+    """Frames of the job's range with no file at all -- not even a
+    placeholder (an empty file = a frame some machine already took). None
+    if the job has no output to look at yet."""
+    from .post_render import _EXTENSION_MAP  # local: post_render imports dispatch
+
+    output_path = job_data.get("output_path")
+    frame_range = job_data.get("resolved_frame_range") or (0, 0)
+    if not output_path or tuple(frame_range) == (0, 0):
+        return None
+    pattern = to_absolute(output_path, project_root)
+    digits = pattern.name.count("#")
+    stem = pattern.name.split("#")[0]
+    ext = _EXTENSION_MAP.get(job_data.get("output_extension"), "png")
+    try:
+        existing = {entry.name for entry in pattern.parent.iterdir()}
+    except OSError:
+        existing = set()
+    start, end = int(frame_range[0]), int(frame_range[1])
+    return sum(
+        1
+        for frame in range(start, end + 1)
+        if f"{stem}{frame:0{digits}d}.{ext}" not in existing
+    )
+
+
+def join_running_renders(jobs: list, project_root: Path) -> None:
+    """Send each idle worker to a render already in progress before any new
+    job gets dispatched: jobs is scan_queue()'s (path, data) list, already in
+    priority order. A job is joined only if it renders on several machines
+    (not "single", nor an "auto" fallen back to single), the worker is
+    allowed on it (no assigned machines, or in the list) and never failed
+    it (failed_machines), and each joining
+    worker still has more than JOIN_MIN_FRAMES_LEFT untouched frames for
+    itself (78 frames left: up to 7 join). The new worker gets the same
+    render request (same dispatch_id): placeholders + no overwrite, it only
+    renders the frames nobody took."""
+    machines = scan_workers()
+    targeted = {r.get("target_uuid") for r in scan_render_requests().values()}
+    idle = [
+        uuid
+        for uuid, w in machines.items()
+        if w.get("status") == "idle" and uuid not in targeted
+    ]
+    for job_path, data in jobs:
+        if not idle:
+            return
+        stages = data.get("stage_history") or []
+        if not stages or stages[-1].get("stage") != "render_start":
+            continue
+        mode = data.get("render_mode", "auto")
+        if mode == "single" or (
+            mode == "auto" and render_mode_auto(data["filepath"]) == "single"
+        ):
+            continue
+        assigned = data.get("assigned_machines") or []
+        # Already in it, or already failed it (a crash...): never sent back.
+        excluded = set(data.get("used_machines") or []) | set(
+            data.get("failed_machines") or []
+        )
+        candidates = [
+            u for u in idle if u not in excluded and (not assigned or u in assigned)
+        ]
+        if not candidates:
+            continue
+        left = frames_not_started(data, project_root)
+        if left is None:
+            continue
+        joining = candidates[: left // (JOIN_MIN_FRAMES_LEFT + 1)]
+        if not joining:
+            continue
+        with locked_json(job_path) as box:
+            job_data = box["data"] or {}
+            now_stages = job_data.get("stage_history") or []
+            if not now_stages or now_stages[-1].get("stage") != "render_start":
+                continue  # moved on meanwhile
+            used_now = list(job_data.get("used_machines") or [])
+            joining = [u for u in joining if u not in used_now]
+            fs, fe = job_data["resolved_frame_range"]
+            for uuid in joining:
+                render_request(job_data, uuid, ["-s", str(fs), "-e", str(fe)])
+            job_data["used_machines"] = used_now + joining
+            box["action"] = "to_write"
+        for uuid in joining:
+            idle.remove(uuid)
+        if joining:
+            names = ", ".join(
+                (machines.get(u) or {}).get("machine") or u[:8] for u in joining
+            )
+            log(
+                "INFO",
+                "farm",
+                f"Job {data.get('job_id')}: {names} join(s) the render "
+                f"({left} frames not started yet).",
+            )
+
+
 def render_mode_auto(filepath: str) -> str | None:
     """Resolve render_mode="auto": fall back to "single" if the last placeholder
     render on this file had corrupted frames, else let the caller decide (None)."""

@@ -35,6 +35,8 @@ The preset is also applied once at setup, in that throwaway session (never saved
 - `placeholder`: every free machine attacks the same range in parallel, with no explicit splitting — they self-arbitrate via Blender's native `use_placeholder` + `use_overwrite=False` settings (any frame already claimed/rendered is skipped by the others). Fast, but a frame corrupted by a race between two machines remains possible on a slow drive.
 - `auto`: like `placeholder`, unless the last placeholder render of this file left corrupted frames (remembered in `.pipeline/render_history.json` next to the file) — in that case, automatically falls back to `single` for this job.
 
+**Idle workers join renders in progress first**: before any new job is sent out, a worker that is (or becomes) idle joins a render already running -- highest priority first -- if that render is `placeholder` or `auto` (not `single`, nor an `auto` fallen back to it), the worker is allowed on it (no machine assigned, or in its list) and never failed it, and more than 10 frames nobody has started yet are left *per joining worker* (78 left: up to 7 join; 10 or fewer: none). It gets the same render request, so it only takes the frames still free. A new job only gets the workers left over.
+
 A multishot block (see [Shot blocks (multishot)](multishot.md)) submits and behaves exactly like any file from this side — the split into one job per shot happens automatically once the file is picked up, not something you do differently at submission.
 
 **Output folders**: a shot renders into `renders/<seq>/<shot>/<version>_<n>/`, an asset or library file into `renders/assets/<prefix>/<asset>/<version>_<n>/` (or `renders/library/...`).
