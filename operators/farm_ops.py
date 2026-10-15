@@ -21,6 +21,8 @@ from ..farm import (
     monitor_last_tick,
     refresh_monitor_status,
     register_popup_region,
+    recompilable,
+    recompile_job,
     register_refresh_timer,
     request_monitor_kill,
     retry_job,
@@ -831,6 +833,48 @@ class M_PIPELINE_OT_farm_retry_job(bpy.types.Operator):
         if context.window_manager.farm_job_selected == self.job_id:
             load_job_details(self.job_id)
         self.report({"INFO"}, f"Job sent back to {target}.")
+        return {"FINISHED"}
+
+
+class M_PIPELINE_OT_farm_recompile_job(bpy.types.Operator):
+    """Compile a finished job's video again from the frames already on disk."""
+
+    bl_idname = "m_pipeline.farm_recompile_job"
+    bl_label = "Recompile"
+    bl_description = (
+        "Compile this job's video again from the frames already rendered: "
+        "no render, no worker -- just ffmpeg on the monitor's machine. The "
+        "render goes back to To check once done."
+    )
+
+    job_id: bpy.props.StringProperty()
+
+    def execute(self, context):
+        actives = ConfigCache.get_path("farm_actives")
+        job_path = actives / f"{self.job_id}.json"
+        archived = ConfigCache.get_path("farm_archives") / job_path.name
+        done = False
+        try:
+            if not job_path.exists() and archived.exists():
+                if not recompilable(read_json_quiet(archived) or {}):
+                    self.report({"WARNING"}, "Only a finished render can be recompiled.")
+                    return {"CANCELLED"}
+                archived.rename(job_path)  # archived by hand: back in the queue
+            with locked_json(job_path) as box:
+                data = box["data"] or {}
+                done = recompile_job(data)
+                if done:
+                    box["action"] = "to_write"
+        except Exception as e:
+            log("ERROR", "farm_recompile_job", str(e))
+            self.report({"ERROR"}, f"Could not recompile the job: {e}")
+            return {"CANCELLED"}
+        if not done:
+            self.report({"WARNING"}, "Only a finished render can be recompiled.")
+            return {"CANCELLED"}
+        if context.window_manager.farm_job_selected == self.job_id:
+            load_job_details(self.job_id)
+        self.report({"INFO"}, "Compilation requested again.")
         return {"FINISHED"}
 
 

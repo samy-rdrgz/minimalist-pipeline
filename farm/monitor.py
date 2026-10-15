@@ -358,11 +358,15 @@ def archive(job_path: Path) -> None:
         f"request_{job_id}*.log"
     ):
         try:
-            log_file.rename(archives_dir / log_file.name)
+            log_file.replace(archives_dir / log_file.name)
         except OSError:
             pass
 
-    job_path.rename(archives_dir / job_path.name)
+    # replace(), not rename(): a re-rendered file reuses its job id (hash of
+    # file + preset + shot), so its previous run's archive is often already
+    # there -- rename() overwrites it on Linux/macOS but raises on Windows
+    # (WinError 183). The previous run is still in render_history.json.
+    job_path.replace(archives_dir / job_path.name)
 
 
 # The job the Farm monitoring popup shows in detail: read once, on click
