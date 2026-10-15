@@ -6,7 +6,8 @@ from pathlib import Path
 
 import bpy
 
-from ..farm import (    archive,
+from ..farm import (
+    archive,
     failed_stage,
     get_monitor_cache,
     job_cancel_request,
@@ -31,7 +32,8 @@ from ..farm import (    archive,
     unregister_refresh_timer,
     worker_rendering,
 )
-from ..lib import (    ConfigCache,
+from ..lib import (
+    ConfigCache,
     PipelineAction,
     PipelineError,
     asset_folder_items,
