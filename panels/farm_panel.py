@@ -430,7 +430,7 @@ def draw_farm_workers(layout):
 
         info = split.row()
         # Read from disk: never trust a key to be there.
-        busy = m.get("status") not in ("idle", "not running", None)
+        busy = m.get("status") not in ("idle", "not running", "stopped", None)
         info.label(
             text=m.get("user", "unknown"),
             icon="KEYTYPE_BREAKDOWN_VEC" if busy else "KEYTYPE_JITTER_VEC",
@@ -438,8 +438,14 @@ def draw_farm_workers(layout):
         info.label(text=m.get("machine", "unknown"))
 
         jobs = split.row()
+        if m.get("status") == "stopped":
+            jobs.label(text="stopped")
+            continue
         if busy:
-            jobs.label(text=f"render: {m.get('current_job')}")
+            text = f"render: {m.get('current_job')}"
+            if m.get("stopping"):
+                text += "  (stops after this render)"
+            jobs.label(text=text)
             job_id = uuid_to_job.get(m.get("uuid"))
             if job_id:
                 op = jobs.operator(
@@ -449,6 +455,13 @@ def draw_farm_workers(layout):
                 op.target_uuid = m.get("uuid", "")
         else:
             jobs.label(text="idle")
+        if not m.get("stopping"):
+            op = jobs.operator(
+                "m_pipeline.farm_stop_worker", text="", icon="PAUSE", emboss=False
+            )
+            op.target_uuid = m.get("uuid", "")
+            op.machine = m.get("machine", "")
+            op.busy = busy
 
 
 def draw_farm_job_details(layout, context):
