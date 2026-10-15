@@ -323,9 +323,24 @@ def _apply_farm_snapshot(raw: dict) -> None:
             jobs.append(_build_job_entry(job, frames.get(job.get("job_id", ""))))
         except Exception:
             pass
+    # A request for a job still in flight waits in incoming/ until that job
+    # ends (scan_requests() never clobbers it): say so, or it looks stuck.
+    in_flight = {}
+    for job in _jobs_scan_cache["actives_raw"]:
+        try:
+            last = job["stage_history"][-1]["stage"]
+        except (KeyError, IndexError, TypeError):
+            continue
+        if last not in ("finished", "archived", "orphaned") and not last.endswith(
+            "failed"
+        ):
+            in_flight[job.get("job_id", "")] = last
     for req in _jobs_scan_cache["incomings_raw"]:
         try:
-            jobs.append(_build_incoming_entry(req))
+            entry = _build_incoming_entry(req)
+            if entry["job_id"] in in_flight:
+                entry["blocked_by_stage"] = in_flight[entry["job_id"]]
+            jobs.append(entry)
         except Exception:
             pass
     snapshot["jobs"] = jobs

@@ -42,6 +42,10 @@ All notable changes to this addon. Dates are release dates.
 - New **Waiting** filter: Running now only lists steps actually in
   progress; queued jobs and jobs between two steps are under Waiting.
 - The farm host row no longer lists renders (the workers' part).
+- **A re-submitted shot whose previous job is still in the farm** shows
+  "waiting for this shot's job in progress (stage)" instead of "waiting
+  for monitor" -- it goes out by itself once that job ends. Click it to
+  open the job holding it back.
 - Project and Farm monitoring show **12 rows per page** instead of 8.
 
 ### Popups and warnings
