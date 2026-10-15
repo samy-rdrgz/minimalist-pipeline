@@ -194,7 +194,8 @@ def join_running_renders(jobs: list, project_root: Path) -> None:
     job gets dispatched: jobs is scan_queue()'s (path, data) list, already in
     priority order. A job is joined only if it renders on several machines
     (not "single", nor an "auto" fallen back to single), the worker is
-    allowed on it (no assigned machines, or in the list), and each joining
+    allowed on it (no assigned machines, or in the list) and never failed
+    it (failed_machines), and each joining
     worker still has more than JOIN_MIN_FRAMES_LEFT untouched frames for
     itself (78 frames left: up to 7 join). The new worker gets the same
     render request (same dispatch_id): placeholders + no overwrite, it only
@@ -218,8 +219,13 @@ def join_running_renders(jobs: list, project_root: Path) -> None:
         ):
             continue
         assigned = data.get("assigned_machines") or []
-        used = set(data.get("used_machines") or [])
-        candidates = [u for u in idle if u not in used and (not assigned or u in assigned)]
+        # Already in it, or already failed it (a crash...): never sent back.
+        excluded = set(data.get("used_machines") or []) | set(
+            data.get("failed_machines") or []
+        )
+        candidates = [
+            u for u in idle if u not in excluded and (not assigned or u in assigned)
+        ]
         if not candidates:
             continue
         left = frames_not_started(data, project_root)
