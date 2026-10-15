@@ -923,7 +923,7 @@ class M_PIPELINE_OT_tracking_monitor(bpy.types.Operator):
     # the last page, since the file list (and thus the page count) can have
     # changed since the popup was last closed.
     page: bpy.props.IntProperty(default=1, min=1, options={"SKIP_SAVE"})
-    PAGE_SIZE = 8
+    PAGE_SIZE = 12
     # Set by invoke() from the window (panels.popup_width()).
     popup_width: bpy.props.IntProperty(options={"SKIP_SAVE", "HIDDEN"})
 
