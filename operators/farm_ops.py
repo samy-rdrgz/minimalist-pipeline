@@ -1058,7 +1058,7 @@ class M_PIPELINE_OT_farm_monitor(bpy.types.Operator):
     )
     # SKIP_SAVE: reopen on page 1, see M_PIPELINE_OT_tracking_monitor.page.
     page: bpy.props.IntProperty(default=1, min=1, options={"SKIP_SAVE"})
-    PAGE_SIZE = 8
+    PAGE_SIZE = 12
 
     def invoke(self, context, event):
         if not get_active_project_root():
