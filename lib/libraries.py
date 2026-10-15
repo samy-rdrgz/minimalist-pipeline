@@ -268,6 +268,9 @@ def import_warnings(items):
                             "Remove the linked data.",
                         ),
                     ],
+                    # Closed without choosing: the link stays, so record it
+                    # like "Ignore" does.
+                    on_dismiss=lambda: wipmeta_add_link(Path(bpy.data.filepath), data),
                 )
             )
             return bpy.ops.m_pipeline.action_popup("INVOKE_DEFAULT")
