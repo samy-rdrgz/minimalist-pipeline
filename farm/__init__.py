@@ -38,6 +38,7 @@ from .monitor import (
 from .post_render import checks_images, compilation, run_preview_compile
 from .queue import (
     RETRYABLE_STAGES,
+    cancel_pending_renders,
     failed_stage,
     retry_job,
     scan_processes,

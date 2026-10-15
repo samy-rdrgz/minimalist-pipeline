@@ -560,6 +560,36 @@ def _drop_pending_request(job_id: str, uuid: str) -> bool:
     return not request.exists()
 
 
+def cancel_pending_renders(job_id: str, machines: list) -> list:
+    """Cancel side for the machines that haven't picked up their render
+    request for job_id yet: the request is deleted (a cancel file would find
+    nothing to kill, and the request would still run later) and the machine
+    leaves the job's used_machines -- a job left with none fails as
+    cancelled. Returns the machines still to cancel through a cancel file
+    (their render is running)."""
+    dropped = [uuid for uuid in machines if _drop_pending_request(job_id, uuid)]
+    if dropped:
+        job_path = ConfigCache.get_path("farm_actives") / f"{job_id}.json"
+        with locked_json(job_path) as box:
+            data = box["data"] or {}
+            if data and data["stage_history"][-1]["stage"] == "render_start":
+                data["used_machines"] = [
+                    u for u in data.get("used_machines", []) if u not in dropped
+                ]
+                if not data["used_machines"]:
+                    data["stage_history"].append(
+                        {"stage": "render_failed", "at": now(), "cancelled": True}
+                    )
+                box["action"] = "to_write"
+        log(
+            "INFO",
+            "farm",
+            f"Job {job_id}: render request withdrawn from "
+            f"{', '.join(u[:8] for u in dropped)} before it started.",
+        )
+    return [uuid for uuid in machines if uuid not in dropped]
+
+
 def check_render_completion(job_path: Path) -> None:
     """Monitor-only: cross-check used_machines against each worker's declared
     state. No worker ever writes this job file for this stage. A render
