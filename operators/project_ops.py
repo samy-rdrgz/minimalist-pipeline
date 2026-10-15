@@ -7,7 +7,8 @@ from pathlib import Path
 
 import bpy
 
-from ..lib import (    ConfigCache,
+from ..lib import (
+    ConfigCache,
     PipelineError,
     addon_pref,
     find_project_root,
