@@ -584,6 +584,13 @@ def scan_cancel_requests() -> None:
                             }
                         )
                         _worker_active_processes.pop(job_id, None)
+                    else:
+                        log(
+                            "INFO",
+                            "farm",
+                            f"Cancel for {job_id}: no render of it running on "
+                            f"this machine (already finished?).",
+                        )
                 box["action"] = (
                     "to_delete"  # no leftover if the job was already finished
                 )

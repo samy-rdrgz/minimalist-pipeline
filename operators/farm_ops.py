@@ -8,6 +8,7 @@ import bpy
 
 from ..farm import (
     archive,
+    cancel_pending_renders,
     failed_stage,
     get_monitor_cache,
     job_cancel_request,
@@ -842,9 +843,12 @@ class M_PIPELINE_OT_farm_cancel_job(bpy.types.Operator):
             return {"CANCELLED"}
 
         user = get_user(context)
-        for uuid in machines:
+        # A machine that hasn't picked up its render yet has nothing to
+        # kill: its request is withdrawn instead (else it renders later).
+        running = cancel_pending_renders(self.job_id, machines)
+        for uuid in running:
             job_cancel_request(job_id=self.job_id, target_uuid=uuid, user=user)
-        self.report({"INFO"}, f"Cancel request sent ({len(machines)} machine(s)).")
+        self.report({"INFO"}, f"Cancel requested ({len(machines)} machine(s)).")
         return {"FINISHED"}
 
 
