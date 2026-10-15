@@ -2,6 +2,81 @@
 
 All notable changes to this addon. Dates are release dates.
 
+## 1.0.14 — 2026-10-15
+
+### Project monitoring
+
+- **"Farm" column instead of "To check"**: one icon per render, shot by
+  shot (a block's sub-shots side by side) -- a render to check (an
+  embossed button: plays the video), or the Farm popup's icon for its
+  job's stage; shot, version and step (rendering 45/120, compiling...) in
+  the tooltip. A check mark button marks the renders to check checked; a
+  legend of the icons sits next to the file count.
+- Its filter (camera icon) lists the files with a render to check or a
+  job in the farm.
+- The file's details get an "In the farm" box under "Renders to check":
+  each job with its shot, version and step.
+- Read from the farm monitor's cache, refreshed in the background when
+  the popup opens or on its refresh button: no extra disk access per
+  file.
+- A job archived but still in `actives/` no longer shows (the cache entry
+  showed the stage before "archived").
+
+### Production snapshot
+
+- **Farm status in the "Last render" column**: every render line starts
+  with its status pill -- *to check*, then the farm's at export time:
+  *queued* (grey, whatever it waits for), its step in blue (*rendering
+  45/120*, *compiling*...), *failed* in red -- so the statuses line up
+  down the table. A "Farm" filter lists only those rows.
+- **"Done" weights per project** (Project settings > Snapshot done): the
+  share of a department counted as done while in progress (33 % by
+  default), validated then reworked (67 %), validated with an open RTK
+  (67 %) -- were fixed thirds. The page's legend states the values used.
+- **Wider and denser page** for six departments and more: up to 1600 px,
+  table text 13 px, department cells in short (*WIP*, *Reworked*; the full
+  label in the tooltip and the legend), and a **Columns** menu to hide the
+  thumbnail, Blender file, last render, any department or Done --
+  remembered by the browser.
+
+### Sequence previews
+
+- **Render dialog > Preview** (a third choice next to Asset / Shot): tick
+  sequences, Submit -- one sequence preview each; a sequence with nothing
+  rendered yet is skipped and named in the report. The File panel's
+  block/sequence preview buttons are unchanged.
+
+### Interface
+
+- **Sidebar, Project panel**: New asset / New shot side by side, and
+  Snapshot / Import review (renamed from "Export prod snapshot" / "Import
+  prod review", in the top bar menu too), when the sidebar is wide
+  enough. Project monitoring gets the top bar's icon. Batch create from
+  CSV leaves the sidebar (top bar menu only).
+- **Sidebar, Farm panel**: the Farm monitor button leaves the header and
+  comes first in the panel, with the top bar's icon; new "Add this machine
+  as worker" / "Stop this worker" button.
+- **Top bar menu**: Pipeline log moves under Open project folder; Tracking
+  monitor and Farm monitor get an icon, recent files lose theirs; Batch
+  create, Pipeline log and Unset active project are greyed (still
+  clickable).
+- **Render dialog** (no file given): the render list box shows even
+  empty, saying so.
+- **Project settings**: wider (450 px); Thumbnails and Snapshot done in
+  their own box at the bottom; every line starts its values at the same
+  place (a third of the width) -- the resolution, frame rate, shot start
+  and naming lines were rows, sized by their label's length.
+
+### Code
+
+- One `frame_paths()` for the frame files of a job's range, shared by
+  `frames_not_started()` (join a render in progress) and
+  `frames_complete()` (render judged on disk) -- they each had their own
+  copy, one with `to_absolute()`, one with a plain join.
+- `resolve_sequence_sources()` takes a sequence name instead of a file of
+  that sequence; `submit_preview()` / `request_sequence_preview()` shared
+  by the File panel's buttons and the Render dialog.
+
 ## 1.0.13 — 2026-10-15
 
 ### Farm — renders

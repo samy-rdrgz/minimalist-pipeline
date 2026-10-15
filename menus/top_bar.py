@@ -82,25 +82,24 @@ class M_PIPELINE_MT_topbar_menu(bpy.types.Menu):
             col.label(text="Recent:")
             for name, recent_filepath in recent:
                 layout.operator(
-                    "m_pipeline.open_file_version", text=name, icon="FILE_BLEND"
+                    "m_pipeline.open_file_version", text=name
                 ).filepath = recent_filepath
         layout.separator()
         layout.operator("m_pipeline.create_asset", text="New asset", icon="ADD")
         layout.operator("m_pipeline.create_shot", text="New shot", icon="BLANK1")
-        layout.operator(
+        _secondary(layout).operator(
             "m_pipeline.batch_create", text="Batch create from CSV", icon="BLANK1"
         )
         layout.separator()
 
         layout.operator(
-            "m_pipeline.tracking_monitor", text="Tracking monitor", icon="BLANK1"
-        )
-        layout.operator("m_pipeline.pipeline_logs", text="Pipeline log", icon="BLANK1")
-        layout.operator(
-            "m_pipeline.export_snapshot", text="Export prod snapshot", icon="BLANK1"
+            "m_pipeline.tracking_monitor", text="Tracking monitor", icon="WORKSPACE"
         )
         layout.operator(
-            "m_pipeline.import_review", text="Import prod review", icon="BLANK1"
+            "m_pipeline.export_snapshot", text="Snapshot", icon="BLANK1"
+        )
+        layout.operator(
+            "m_pipeline.import_review", text="Import review", icon="BLANK1"
         )
 
         filepath = bpy.data.filepath
@@ -134,12 +133,15 @@ class M_PIPELINE_MT_topbar_menu(bpy.types.Menu):
         )
         op.filepath = str(project_root)
         op.custom_tooltip = "Open the project's root folder"
+        _secondary(layout).operator(
+            "m_pipeline.pipeline_logs", text="Pipeline log", icon="BLANK1"
+        )
 
         layout.separator()
         layout.operator(
             "m_pipeline.farm_request_render", text="Render", icon="RENDER_RESULT"
         )
-        layout.operator("m_pipeline.farm_monitor", text="Farm monitor", icon="BLANK1")
+        layout.operator("m_pipeline.farm_monitor", text="Farm monitor", icon="WORKSPACE")
         # Status cache, not monitor.lock.exists() -- see farm_panel.draw_header().
         if get_monitor_cache().get("status") in ("not running", "unknown"):
             layout.operator(
@@ -184,11 +186,18 @@ class M_PIPELINE_MT_topbar_menu(bpy.types.Menu):
             )
 
         layout.separator()
-        layout.operator(
+        _secondary(layout).operator(
             "m_pipeline.unset_active_project",
             text="Unset active project",
             icon="PANEL_CLOSE",
         )
+
+
+def _secondary(layout):
+    """A greyed (still clickable) line, for the menu's rarely used items."""
+    sub = layout.column()
+    sub.active = False
+    return sub
 
 
 def top_bar_menu(self, context):

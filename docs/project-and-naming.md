@@ -52,7 +52,7 @@ A shot's multishot variant (several cuts sharing one file) extends this pattern 
 
 ## Batch creation
 
-New assets/shots can also be created in bulk from a CSV file (Project panel's "Batch create from CSV", or the top bar menu). Each row is built in its own disposable headless Blender process — never the current session — so nothing accumulates between rows (no leftover collections from a previous one) and the artist's own work is never reset or touched. Rows are processed strictly one at a time, never in parallel.
+New assets/shots can also be created in bulk from a CSV file (top bar menu > "Batch create from CSV"). Each row is built in its own disposable headless Blender process — never the current session — so nothing accumulates between rows (no leftover collections from a previous one) and the artist's own work is never reset or touched. Rows are processed strictly one at a time, never in parallel.
 
 - **Assets**: `prefix`, `name` required; `departments`, `description` optional.
 - **Shots**: `sequence`, `shot` required; `frame_start`/`frame_end`/`frame_duration`/`timeline`, `departments`, `description` optional. `shot` can also be a dash-joined block (e.g. `"030-035-040"`, in any order, any digit padding — `"3-10-020"` is just as valid) to create a multi-shot in one row — its shots are then spread evenly across the block instead of landing on one single frame.

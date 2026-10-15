@@ -63,6 +63,7 @@ from ..panels import (
     draw_farm_workers,
     popup_width,
 )
+from .preview_ops import request_sequence_preview
 
 _workers_items_cache: list[tuple[str, str, str]] = []
 _pre_render_scripts: list[tuple[str, str, str]] = []
@@ -293,6 +294,13 @@ class PIPELINE_PG_render_subshot_item(bpy.types.PropertyGroup):
     include: bpy.props.BoolProperty(name="", default=True)
 
 
+class PIPELINE_PG_preview_sequence_item(bpy.types.PropertyGroup):
+    """One sequence of the Render dialog's Preview checklist."""
+
+    name: bpy.props.StringProperty()
+    include: bpy.props.BoolProperty(name="", default=False)
+
+
 class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
     """Submit a render job (or a batch, via the list) to the farm queue."""
 
@@ -310,7 +318,15 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
     )
 
     file_type: bpy.props.EnumProperty(
-        items=[("asset", "Asset / Library", ""), ("shot", "Shot", "")],
+        items=[
+            ("asset", "Asset / Library", ""),
+            ("shot", "Shot", ""),
+            (
+                "preview",
+                "Preview",
+                "Sequence previews: each shot's latest video, end to end",
+            ),
+        ],
         default="shot",
     )
 
@@ -401,6 +417,7 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
                     self, width=300, confirm_text="Submit"
                 )
         else:
+            self._populate_sequences(context)
             return context.window_manager.invoke_props_dialog(
                 self, width=300, confirm_text="Submit all"
             )
@@ -466,6 +483,9 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
             row.prop(self, "file_type", expand=False, text="")
 
             select.separator()
+            if self.file_type == "preview":
+                self._draw_sequences(layout, context.window_manager.preview_sequences)
+                return
 
             if self.file_type == "asset":
                 row = select.split(align=True, factor=0.33)
@@ -496,13 +516,17 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
             else:
                 name.label(text="No matching file found.", icon="ERROR")
 
-            ### list
-            if len(context.scene.pipeline_farm_list) > 0:
-                layout.separator(factor=2)
-                box = layout.box().column(align=True)
-                box.label(text="Render list :")
-                box.separator(type="LINE", factor=0.5)
-                box.separator()
+            ### list -- shown even empty, so it's clear where "Add" goes
+            layout.separator(factor=2)
+            box = layout.box().column(align=True)
+            box.label(text="Render list :")
+            box.separator(type="LINE", factor=0.5)
+            box.separator()
+            if not context.scene.pipeline_farm_list:
+                empty = box.row()
+                empty.active = False
+                empty.label(text="Empty -- add files with the button above.", icon="INFO")
+            else:
                 f_list = box.column(align=True)
                 f_list.scale_y = 0.75
                 for f in context.scene.pipeline_farm_list:
@@ -537,6 +561,8 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
 
         if self.filepath:
             return self.single(context)
+        if self.file_type == "preview":
+            return self._submit_previews(context)
 
         user = get_user(context)
         start, end = self._override_strings()
@@ -606,6 +632,56 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
             item = subshots.add()
             item.shot_number = n
             item.include = True
+
+    def _populate_sequences(self, context) -> None:
+        """Refill window_manager.preview_sequences with the project's
+        sequences, none checked."""
+        sequences = context.window_manager.preview_sequences
+        sequences.clear()
+        shots_dir = Path(self.project_root) / "shots"
+        try:
+            names = sorted(e.name for e in os.scandir(shots_dir) if e.is_dir())
+        except OSError:
+            names = []
+        for name in names:
+            sequences.add().name = name
+
+    def _draw_sequences(self, layout, sequences) -> None:
+        box = layout.box().column(align=True)
+        box.label(text="Sequences to preview:", icon="SEQUENCE")
+        if not sequences:
+            empty = box.row()
+            empty.active = False
+            empty.label(text="No sequence in this project.", icon="INFO")
+        for item in sequences:
+            box.row(align=True).prop(item, "include", text=item.name)
+        info = layout.row()
+        info.active = False
+        info.label(text="Each shot's latest video, end to end.", icon="INFO")
+
+    def _submit_previews(self, context):
+        """One preview compile request per checked sequence."""
+        chosen = [s.name for s in context.window_manager.preview_sequences if s.include]
+        if not chosen:
+            self.report({"ERROR"}, "No sequence selected.")
+            return {"CANCELLED"}
+        user = get_user(context)
+        sent, empty = [], []
+        try:
+            for name in chosen:
+                (sent if request_sequence_preview(name, user) else empty).append(name)
+        except PipelineError as e:
+            log(e.level, "farm_request_render", e.message)
+            self.report({e.level}, e.message)
+            return {"CANCELLED"}
+        if not sent:
+            self.report({"WARNING"}, "Nothing rendered yet in the selected sequence(s).")
+            return {"CANCELLED"}
+        message = f"Preview requested: {', '.join(sent)}."
+        if empty:
+            message += f" Nothing rendered yet in {', '.join(empty)}."
+        self.report({"WARNING" if empty else "INFO"}, message)
+        return {"FINISHED"}
 
     def single(self, context):
         user = get_user(context)

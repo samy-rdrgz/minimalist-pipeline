@@ -4,6 +4,7 @@ from .dispatch import render_dispatch
 from .loop import (
     _refresh_tick,
     clear_popup_regions,
+    farm_activity,
     get_running_project,
     job_state,
     monitor_age_status,
@@ -14,6 +15,7 @@ from .loop import (
     register_popup_region,
     register_refresh_timer,
     register_status_timer,
+    request_monitor_refresh,
     stop_farm_role_for_project,
     unregister_refresh_timer,
     unregister_status_timer,
@@ -60,8 +62,8 @@ from .workers import (
     kill_worker,
     launch_worker,
     request_worker_stop,
-    stop_worker,
-    worker_rendering,
     scan_workers,
+    stop_worker,
     this_instance_is_worker,
+    worker_rendering,
 )

@@ -2002,3 +2002,36 @@ Closing without choosing runs the action's `on_dismiss`, once -- `PipelineAction
 `register()` defers its UI work to timers (one tick or a fraction of a second later): `refresh_read_only_flag`, `refresh_monitor_cache`, `_deferred_keymap`, `_deferred_project_check`, `_deferred_auto_worker` and `_deferred_onboarding` (last, so its popup opens over everything else), plus two persistent ones -- the farm status timer (`register_status_timer()`, the sidebar header) and the session `heartbeat_30s` (registered by `register_handlers()`).
 
 None of them is registered in background mode (`bpy.app.background`): the farm's setup/render subprocesses and the CSV batch rows load the addon too, and have no UI, keymap, session or lock to keep alive -- a background process's liveness is tracked by PID by whoever launched it. `blender -b ... --python` never runs timers anyway, but Blender loaded as a Python module (`bpy`) waited on the pending ones at exit: 25 s on 4.2/5.0, forever on 4.5, 3 s once they're gone.
+
+## Project monitoring's Farm column: the monitor cache, not the project scan
+
+The column needs to know which files have a job queued or rendering. Not
+read per file: `farm_activity()` groups the farm monitor's cache (the
+jobs the Farm popup lists, already in memory) by owner folder, keyed by
+`owner_key()` -- the same `_owner_dir()` rule `mark_render_to_check()`
+uses to find a job's tracking.json, normalised so a job's relative
+`filepath` joined on the root matches a `TrackingStatusCache` key. So
+`ProjectScan` costs the same as before, whatever the farm does.
+
+That cache is only kept fresh while the Farm popup is open. Project
+monitoring and the snapshot export call `request_monitor_refresh()`
+instead: the same threaded read, once, applied by a timer that stops
+itself. It keeps no popup region (see "Project walk"): Project monitoring
+shows the result on its next redraw, like `ProjectScan`'s. The snapshot
+starts it with its own scan, which takes longer, so it's in by the time
+`build_snapshot()` runs; if not, the snapshot uses what the cache had.
+
+## Snapshot width: short state labels, hideable columns
+
+Six departments of full-label pills ("Validated, reworked since", "Work in
+progress", nowrap) plus thumbnail, versions, last render and Done no longer
+fit the 1200 px page: the table scrolled sideways. The page is 1600 px
+(`--page`), the table 13 px, and a cell shows `SHORT_STATES` -- the full
+label stays in its tooltip and in the legend. The *Columns* menu hides any
+column but the name: every cell carries `data-col`, the menu's checkboxes a
+matching `data-key` (not `data-col`, or hiding a column hid its own
+checkbox), and the script writes one `display:none` rule per hidden key
+into a `<style>` -- no per-cell work on toggle. The choice is per browser
+(localStorage, try/catch: a page opened from a mail attachment may have
+none), never in the file: the prod's view is their own.
+

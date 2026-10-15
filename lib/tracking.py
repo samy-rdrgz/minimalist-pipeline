@@ -116,6 +116,12 @@ def _owner_dir(filepath: Path) -> Path:
     return filepath.parent if filepath.suffix.lower() == ".blend" else filepath
 
 
+def owner_key(filepath: Path | str) -> str:
+    """_owner_dir() as a comparable string: matches a farm job's .blend
+    against a TrackingStatusCache key or a snapshot folder. No disk call."""
+    return os.path.normcase(os.path.normpath(_owner_dir(Path(filepath))))
+
+
 def tracking_json_path(filepath: Path | str, must_exist: bool = False) -> Path:
     """.pipeline/tracking.json of the asset/shot owning filepath (a .blend
     or its folder, see _owner_dir()). must_exist (every writer but

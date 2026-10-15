@@ -20,6 +20,7 @@ from .farm_ops import (
     M_PIPELINE_OT_farm_retry_job,
     M_PIPELINE_OT_farm_recompile_job,
     PIPELINE_PG_farm_list_item,
+    PIPELINE_PG_preview_sequence_item,
     PIPELINE_PG_render_subshot_item,
 )
 from .file_ops import M_PIPELINE_OT_increment_version
@@ -90,6 +91,7 @@ classes = (
     M_PIPELINE_OT_farm_launch_monitor,
     M_PIPELINE_OT_farm_request_render,
     PIPELINE_PG_farm_list_item,
+    PIPELINE_PG_preview_sequence_item,
     PIPELINE_PG_render_subshot_item,
     M_PIPELINE_OT_farm_list_delete,
     M_PIPELINE_OT_toggle_worked_department,

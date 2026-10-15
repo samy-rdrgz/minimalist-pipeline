@@ -7,15 +7,19 @@ from ..lib import (
     blender_version_mismatch,
     draw_box_tip,
     get_active_project_root,
+    responsive_layout,
 )
 from ..operators import (
     asset_ops,
-    batch_ops,
     browser_ops,
     farm_ops,
     project_ops,
     shot_ops,
 )
+
+
+# Sidebar width (px, before UI scale) from which two buttons share a row.
+_SIDE_BY_SIDE_WIDTH = 240
 
 
 class M_PIPELINE_PT_project_panel(bpy.types.Panel):
@@ -82,20 +86,17 @@ class M_PIPELINE_PT_project_panel(bpy.types.Panel):
                     icon="ERROR",
                 )
                 layout.separator()
-            layout.operator(
+            # Side by side when the sidebar is wide enough.
+            new = responsive_layout(context, layout, _SIDE_BY_SIDE_WIDTH)
+            new.operator(
                 asset_ops.M_PIPELINE_OT_create_asset.bl_idname,
                 text="New asset",
                 icon="ADD",
             )
-            layout.operator(
+            new.operator(
                 shot_ops.M_PIPELINE_OT_create_shot.bl_idname,
                 text="New shot",
-                icon="BLANK1",
-            )
-            layout.operator(
-                batch_ops.M_PIPELINE_OT_batch_create.bl_idname,
-                text="Batch create from CSV",
-                icon="IMPORT",
+                icon="ADD",
             )
 
             layout.separator()
@@ -118,18 +119,19 @@ class M_PIPELINE_PT_project_panel(bpy.types.Panel):
             layout.separator()
             layout.operator(
                 "m_pipeline.tracking_monitor",
-                icon="DESKTOP",
+                icon="WORKSPACE",
                 text="Project monitoring",
             )
-            layout.operator(
+            prod = responsive_layout(context, layout, _SIDE_BY_SIDE_WIDTH)
+            prod.operator(
                 "m_pipeline.export_snapshot",
                 icon="EXPORT",
-                text="Export prod snapshot",
+                text="Snapshot",
             )
-            layout.operator(
+            prod.operator(
                 "m_pipeline.import_review",
                 icon="IMPORT",
-                text="Import prod review",
+                text="Import review",
             )
         else:
             others = [

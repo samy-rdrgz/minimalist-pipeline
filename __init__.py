@@ -28,6 +28,7 @@ from .menus import register_topbar_menu, unregister_topbar_menu
 from .operators import (
     PIPELINE_PG_department_check_item,
     PIPELINE_PG_farm_list_item,
+    PIPELINE_PG_preview_sequence_item,
     PIPELINE_PG_render_subshot_item,
     PipelineEntryItem,
     PipelineShotItem,
@@ -57,6 +58,10 @@ _WM_PROPS = {
     "shots_list_creation": bpy.props.CollectionProperty(type=PipelineShotItem),
     "render_subshots": bpy.props.CollectionProperty(
         type=PIPELINE_PG_render_subshot_item
+    ),
+    # The Render dialog's Preview checklist.
+    "preview_sequences": bpy.props.CollectionProperty(
+        type=PIPELINE_PG_preview_sequence_item
     ),
     # "Checked"'s checklist of departments to validate with the render.
     "render_checked_departments": bpy.props.CollectionProperty(
@@ -222,8 +227,6 @@ def register():
     set_running_project(None)
     if ui:
         register_status_timer()  # the sidebar's farm status
-
-    if ui:
         bpy.app.timers.register(_deferred_keymap, first_interval=0.1)
         bpy.app.timers.register(_deferred_project_check, first_interval=0.05)
         bpy.app.timers.register(_deferred_auto_worker, first_interval=0.1)

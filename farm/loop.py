@@ -15,6 +15,7 @@ from ..lib import (
     get_active_project_root,
     json_get,
     now,
+    owner_key,
     read_json_quiet,
 )
 from .post_render import _EXTENSION_MAP
@@ -186,6 +187,39 @@ class _BackgroundRead:
 
 _refresh_reader = _BackgroundRead()
 _status_reader = _BackgroundRead()
+_oneshot_reader = _BackgroundRead()
+
+
+def request_monitor_refresh() -> None:
+    """refresh_monitor_cache() without blocking: read on a thread, applied
+    by a short-lived timer. For a reader other than the farm popup (Project
+    monitoring, the snapshot export); a popup shows it on its next redraw --
+    no region kept, see NOTES.md, "Project walk"."""
+    if _oneshot_reader.busy():
+        return
+    paths = _farm_paths()
+    if not paths:
+        return
+    _oneshot_reader.start(
+        _read_farm_snapshot,
+        paths,
+        _scanned_mtimes(),
+        list(_jobs_scan_cache["actives_raw"]),
+    )
+    if not bpy.app.timers.is_registered(_apply_oneshot_read):
+        bpy.app.timers.register(_apply_oneshot_read, first_interval=0.25)
+
+
+def _apply_oneshot_read() -> float | None:
+    try:
+        result = _oneshot_reader.take()
+        if result is None:
+            return 0.25 if _oneshot_reader.busy() else None
+        if result[0] == "ok":
+            _apply_farm_snapshot(result[1])
+    except Exception:
+        pass
+    return None
 
 
 def _farm_paths() -> dict | None:
@@ -491,12 +525,73 @@ def job_state(stage: str) -> str:
     return "waiting"
 
 
+# Project monitoring / snapshot "Farm" column: a job's stage in a few words.
+_STAGE_WORDS = {
+    "pending": "queued",
+    "queued": "queued",
+    "setup_start": "setting up",
+    "setup_finished": "waiting for a worker",
+    "render_start": "rendering",
+    "render_finished": "frame check next",
+    "checks_images_start": "checking frames",
+    "checks_images_finished": "compilation next",
+    "compilation_start": "compiling",
+    "compilation_finished": "finishing",
+    "checks_images_failed": "frame check failed",
+}
+# Most telling first, when one shot has several jobs.
+_STATE_ORDER = {"running": 0, "waiting": 1, "failed": 2}
+
+
+def farm_activity() -> dict[str, list[dict]]:
+    """Render jobs of the monitor cache that aren't finished -- queued, in
+    progress or failed -- by owner folder (lib owner_key()): [{"shot",
+    "stage", "state", "text", "version"}], state job_state()'s ("waiting" for a
+    pending request), version its render folder once set up ("v003_001"),
+    else its .blend's ("v003"); sorted by shot. Memory only: draw()-safe."""
+    from .monitor import get_monitor_cache
+
+    root = get_active_project_root()
+    if not root:
+        return {}
+    out = {}
+    for job in get_monitor_cache().get("jobs") or []:
+        stage = job.get("stage", "")
+        filepath = job.get("filepath") or ""
+        # A preview compile's filepath is a label, not a .blend. Archived:
+        # done, even if its file hasn't left actives/ (yet).
+        if job.get("archived") or stage == "orphaned" or not filepath.endswith(".blend"):
+            continue
+        state = "waiting" if stage == "pending" else job_state(stage)
+        if state == "finished":
+            continue  # its render is in the folder's "to check" by now
+        text = _STAGE_WORDS.get(stage, stage.replace("_", " "))
+        if stage == "render_start" and job.get("frames_total"):
+            text += f" {job['frames_done']}/{job['frames_total']}"
+        output_dir = job.get("output_dir")
+        out.setdefault(owner_key(Path(root) / filepath), []).append(
+            {
+                "shot": job.get("shot_override") or "",
+                "stage": stage,
+                "state": state,
+                "text": text,
+                "version": Path(output_dir).name
+                if output_dir
+                else Path(filepath).stem.rsplit("_", 1)[-1],
+            }
+        )
+    for jobs in out.values():
+        jobs.sort(key=lambda j: (j["shot"], _STATE_ORDER[j["state"]]))
+    return out
+
+
 def _build_job_entry(job: dict, frames_done: int | None = None) -> dict:
     """UI-facing entry for one active job. frames_done comes from
     _frames_for_jobs(), fresh every refresh even when job came from a cached
     scan: progress lives in the output folder, not in the job file."""
     stage = job["stage_history"][-1]
-    if stage["stage"] == "archived":
+    archived = stage["stage"] == "archived"
+    if archived:
         stage = job["stage_history"][-2]
     stage_time = datetime.fromisoformat(stage["at"])
     elapsed = (now(False) - stage_time).total_seconds()
@@ -512,6 +607,7 @@ def _build_job_entry(job: dict, frames_done: int | None = None) -> dict:
         "job_id": job.get("job_id", ""),
         "filepath": job.get("filepath", ""),
         "stage": stage["stage"],
+        "archived": archived,
         "stage_at": stage["at"],
         "elapsed_seconds": elapsed,
         "frames_done": frames_done,

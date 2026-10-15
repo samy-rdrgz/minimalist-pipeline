@@ -163,30 +163,38 @@ def render_dispatch(job_path: Path) -> None:
 JOIN_MIN_FRAMES_LEFT = 10
 
 
-def frames_not_started(job_data: dict, project_root: Path) -> int | None:
-    """Frames of the job's range with no file at all -- not even a
-    placeholder (an empty file = a frame some machine already took). None
+def frame_paths(job_data: dict, project_root: Path | None) -> list[Path] | None:
+    """Every frame file of the job's resolved range, rendered or not. None
     if the job has no output to look at yet."""
     from .post_render import _EXTENSION_MAP  # local: post_render imports dispatch
 
     output_path = job_data.get("output_path")
     frame_range = job_data.get("resolved_frame_range") or (0, 0)
-    if not output_path or tuple(frame_range) == (0, 0):
+    if not output_path or not project_root or tuple(frame_range) == (0, 0):
         return None
     pattern = to_absolute(output_path, project_root)
     digits = pattern.name.count("#")
     stem = pattern.name.split("#")[0]
     ext = _EXTENSION_MAP.get(job_data.get("output_extension"), "png")
+    start, end = int(frame_range[0]), int(frame_range[1])
+    return [
+        pattern.parent / f"{stem}{frame:0{digits}d}.{ext}"
+        for frame in range(start, end + 1)
+    ]
+
+
+def frames_not_started(job_data: dict, project_root: Path) -> int | None:
+    """Frames of the job's range with no file at all -- not even a
+    placeholder (an empty file = a frame some machine already took). None
+    if the job has no output to look at yet."""
+    paths = frame_paths(job_data, project_root)
+    if paths is None:
+        return None
     try:
-        existing = {entry.name for entry in pattern.parent.iterdir()}
+        existing = {entry.name for entry in paths[0].parent.iterdir()}
     except OSError:
         existing = set()
-    start, end = int(frame_range[0]), int(frame_range[1])
-    return sum(
-        1
-        for frame in range(start, end + 1)
-        if f"{stem}{frame:0{digits}d}.{ext}" not in existing
-    )
+    return sum(1 for path in paths if path.name not in existing)
 
 
 def join_running_renders(jobs: list, project_root: Path) -> None:

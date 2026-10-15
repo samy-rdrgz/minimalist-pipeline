@@ -8,12 +8,12 @@ import bpy
 from ..farm import (
     RETRYABLE_STAGES,
     failed_stage,
-    recompilable,
     get_job_details,
     get_job_details_logs,
     get_job_details_path,
     get_monitor_cache,
     job_state,
+    recompilable,
     this_instance_is_worker,
 )
 from ..lib import (
@@ -21,7 +21,6 @@ from ..lib import (
     draw_box_tip,
     get_active_project_root,
     get_user,
-    safe_icon,
 )
 
 FIRST_COLUMN = 0.4
@@ -86,12 +85,6 @@ class M_PIPELINE_PT_farm_panel(bpy.types.Panel):
                     icon="TRIA_RIGHT",
                     emboss=False,
                 )
-        layout.operator(
-            "m_pipeline.farm_monitor",
-            text="",
-            icon=safe_icon("SEQ_STRIP_MODIFIER", "MODIFIER"),
-            emboss=False,
-        )
         layout.separator(factor=1.5)
 
     def draw(self, context):
@@ -104,6 +97,9 @@ class M_PIPELINE_PT_farm_panel(bpy.types.Panel):
             "means this machine renders jobs. Both coordinate through "
             "files in the project (no server, no network setup).",
         )
+
+        layout.operator("m_pipeline.farm_monitor", text="Farm monitor", icon="WORKSPACE")
+        layout.separator()
 
         # Status cache, not monitor.lock.exists() -- see draw_header().
         is_monitor = get_monitor_cache().get("status") not in ("not running", "unknown")
@@ -140,11 +136,32 @@ class M_PIPELINE_PT_farm_panel(bpy.types.Panel):
             layout.operator(
                 "m_pipeline.farm_launch_monitor", text="Launch farm", icon="TRIA_RIGHT"
             )
-        layout.operator(
-            "m_pipeline.farm_monitor",
-            text="Farm monitor",
-            icon=safe_icon("SEQ_STRIP_MODIFIER", "MODIFIER"),
-        )
+        if this_instance_is_worker():
+            layout.operator(
+                "m_pipeline.farm_kill_self_worker", text="Stop this worker", icon="X"
+            )
+        else:
+            layout.operator(
+                "m_pipeline.farm_add_self_worker",
+                text="Add this machine as worker",
+                icon="ADD",
+            )
+
+
+def job_icon(stage: str) -> str:
+    """A job stage's icon -- the Farm popup's list, and Project monitoring's
+    Farm column."""
+    if stage == "pending":
+        return "SORTTIME"
+    if stage == "queued":
+        return "DECORATE_ANIMATE"
+    if job_state(stage) == "finished":
+        return "KEYTYPE_JITTER_VEC"
+    if stage.endswith("_finished"):
+        return "HANDLETYPE_FREE_VEC"
+    if stage.endswith("failed"):
+        return "KEYTYPE_EXTREME_VEC"
+    return "KEYTYPE_BREAKDOWN_VEC"
 
 
 def _job_time(iso: str) -> datetime.datetime | None:
@@ -222,18 +239,7 @@ def draw_farm_jobs(self, layout):
             elapsed = j["elapsed_seconds"]
             elapsed_str = _duration(elapsed)
 
-            if stage == "pending":
-                icon = "SORTTIME"
-            elif stage == "queued":
-                icon = "DECORATE_ANIMATE"
-            elif job_state(stage) == "finished":
-                icon = "KEYTYPE_JITTER_VEC"
-            elif stage.endswith("_finished"):
-                icon = "HANDLETYPE_FREE_VEC"
-            elif stage.endswith("failed"):
-                icon = "KEYTYPE_EXTREME_VEC"
-            else:
-                icon = "KEYTYPE_BREAKDOWN_VEC"
+            icon = job_icon(stage)
 
             if stage == "pending" and j.get("blocked_by_stage"):
                 text = (
