@@ -2,7 +2,12 @@
 
 import bpy
 
-from ..lib import addon_pref, draw_box_tip, get_active_project_root
+from ..lib import (
+    addon_pref,
+    blender_version_mismatch,
+    draw_box_tip,
+    get_active_project_root,
+)
 from ..operators import (
     asset_ops,
     batch_ops,
@@ -65,6 +70,18 @@ class M_PIPELINE_PT_project_panel(bpy.types.Panel):
         active_path = get_active_project_root()
 
         if active_path:
+            try:
+                mismatch = blender_version_mismatch()
+            except Exception:
+                mismatch = None  # config unreadable this redraw: no warning
+            if mismatch:
+                warn = layout.row()
+                warn.alert = True
+                warn.label(
+                    text=f"Blender {mismatch[1]} -- project is {mismatch[0]}",
+                    icon="ERROR",
+                )
+                layout.separator()
             layout.operator(
                 asset_ops.M_PIPELINE_OT_create_asset.bl_idname,
                 text="New asset",

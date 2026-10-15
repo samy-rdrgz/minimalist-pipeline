@@ -6,8 +6,10 @@ from pathlib import Path
 
 import bpy
 
+from .actions import PipelineAction, set_pending_action
 from .config import (
     ConfigCache,
+    blender_version_mismatch,
     file_in_active_project,
     get_active_project_root,
     type_by_folder,
@@ -292,3 +294,34 @@ def set_opened_as_read_only(value: str = "", reason: str = ""):
     global _opened_as_read_only
     _opened_as_read_only["value"] = value
     _opened_as_read_only["reason"] = reason
+
+
+def warn_blender_version_mismatch() -> None:
+    """Red (critical) popup when the active project expects another Blender
+    major.minor than the one running. Never in background mode (farm
+    workers, batch subprocesses). Timer-safe: returns None."""
+    if bpy.app.background:
+        return None
+    try:
+        mismatch = blender_version_mismatch()
+    except Exception:
+        return None  # no active project / unreadable config: nothing to compare
+    if not mismatch:
+        return None
+    project, running = mismatch
+    set_pending_action(
+        PipelineAction(
+            title=f"Wrong Blender version: {running} (project: {project})",
+            message=(
+                f"This project is made with Blender {project}, and this is "
+                f"Blender {running}.\n\n"
+                f"A file saved here may not open, or not look the same, in "
+                f"Blender {project} -- for the rest of the team and for the "
+                f"farm.\n\n"
+                f"Close Blender and reopen the project with Blender {project}."
+            ),
+            severity="critical",
+        )
+    )
+    bpy.ops.m_pipeline.action_popup("INVOKE_DEFAULT")
+    return None

@@ -33,6 +33,7 @@ from .browser import (
 )
 from .config import (
     ConfigCache,
+    blender_version_mismatch,
     file_in_active_project,
     find_known_project_for_file,
     find_project_root,
@@ -134,6 +135,7 @@ from .session import (
     session_update,
     set_active_project_root,
     set_opened_as_read_only,
+    warn_blender_version_mismatch,
 )
 from .snapshot import (
     REVIEW_SOURCE,

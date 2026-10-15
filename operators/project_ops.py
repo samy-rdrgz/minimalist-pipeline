@@ -23,6 +23,7 @@ from ..lib import (
     save_project_data,
     set_active_project_root,
     thumbnail_size,
+    warn_blender_version_mismatch,
 )
 
 # ---------------------------------------------------------------------------
@@ -253,6 +254,8 @@ class M_PIPELINE_OT_find_project(bpy.types.Operator):
 
         prefs = addon_pref(context)
         set_active_project_root(prefs, str(root))
+        # Deferred: a popup can't open from inside this operator's execute().
+        bpy.app.timers.register(warn_blender_version_mismatch, first_interval=0.1)
 
         if not any(item.path == str(root) for item in prefs.opened_projects):
             new_item = prefs.opened_projects.add()
@@ -290,6 +293,8 @@ class M_PIPELINE_OT_set_active_project(bpy.types.Operator):
 
         prefs = addon_pref(context)
         set_active_project_root(prefs, project_root)
+        # Deferred: a popup can't open from inside this operator's execute().
+        bpy.app.timers.register(warn_blender_version_mismatch, first_interval=0.1)
         try:
             save_project_data(prefs)
         except PipelineError as e:
