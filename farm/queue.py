@@ -688,7 +688,10 @@ def check_render_completion(job_path: Path, project_root: Path | None = None) ->
                     lost.append(uuid)
                 elif not result["success"]:
                     any_failed = True
-                    failed.append(uuid)
+                    # A cancel isn't the machine's fault: it stays eligible
+                    # for this job (retry, re-dispatch).
+                    if not result.get("cancelled"):
+                        failed.append(uuid)
                 else:
                     any_succeeded = True  # finished THIS render successfully
             elif _worker_gone(w):
