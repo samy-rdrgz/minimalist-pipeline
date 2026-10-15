@@ -308,6 +308,22 @@ def parse_camera_name(
     return int(m.group("shot")) if m else None
 
 
+def blender_version_mismatch(config: dict | None = None) -> tuple[str, str] | None:
+    """(project's Blender "major.minor", this Blender's) when the project's
+    config names another major.minor than the one running, else None --
+    patch releases (4.5.2 vs 4.5.7) never count, and a project with no
+    version set (or an unparsable one) never warns."""
+    config = config if config is not None else ConfigCache.get()
+    numbers = re.findall(r"\d+", str(config.get("blender_version") or ""))
+    if len(numbers) < 2:
+        return None
+    project = (int(numbers[0]), int(numbers[1]))
+    running = tuple(bpy.app.version[:2])
+    if project == running:
+        return None
+    return f"{project[0]}.{project[1]}", f"{running[0]}.{running[1]}"
+
+
 def prefix_to_parent_folder(prefix: str, config: dict) -> str:
     """Determine parent folder name ('assets' or 'library') from prefix."""
     asset_prefixes = config["structure"]["asset_prefixes"]

@@ -138,6 +138,8 @@ def _deferred_project_check():
                 )
             )
             bpy.ops.m_pipeline.action_popup("INVOKE_DEFAULT")
+        elif root:
+            lib.warn_blender_version_mismatch()
     except Exception as e:
         print(e)
 

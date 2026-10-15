@@ -111,6 +111,8 @@ Une cellule vide signifie juste "utiliser le repli pour cette colonne" (départe
 }
 ```
 
+**Version de Blender** : `blender_version` (fixée à la création, modifiable dans Edit project) est le Blender avec lequel le projet est fait. Ouvrir le projet avec un autre majeur.mineur (5.2 pour un projet 4.5 -- 4.5.2 contre 4.5.7 ne compte pas) affiche un popup d'avertissement rouge au démarrage et à l'activation, plus une ligne rouge dans le panneau Project : un fichier sauvé dans un Blender plus récent peut ne pas s'ouvrir, ou pas pareil, dans celui du projet. Laisser vide pour ne jamais avertir.
+
 Tous les préfixes, tags, départements et digits sont libres — c'est ce fichier qui reconstruit la regex de nommage et le routing par dossier à chaque changement. `pipeline_addon_version` est écrit/rafraîchi à chaque création ou édition du projet — pas de logique de migration automatique pour l'instant, juste de quoi savoir plus tard quelle version de l'addon a touché en dernier un config donné.
 
 ---

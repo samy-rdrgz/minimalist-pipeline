@@ -88,10 +88,13 @@ class M_PIPELINE_OT_action_popup(bpy.types.Operator):
         icon = {"info": "INFO", "warning": "ERROR", "critical": "ERROR"}.get(
             self._action.severity, "INFO"
         )
+        critical = self._action.severity == "critical"
+        title.alert = critical  # red: can't be missed
         title.label(text=self._action.title.upper(), icon=icon)
         if self._action.message:
             layout.separator()
             text_layout = layout.column(align=True)
+            text_layout.alert = critical
             text_layout.scale_y = 0.7
             for line in self._action.message.split("\n"):
                 text_to_lines(
