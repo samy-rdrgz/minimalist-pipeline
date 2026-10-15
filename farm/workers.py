@@ -187,6 +187,68 @@ def kill_worker() -> bool:
     return owned
 
 
+def _terminate(p) -> None:
+    """Stop a render subprocess: terminate, then kill if it hangs."""
+    p.terminate()
+    try:
+        p.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        p.kill()
+
+
+# Worker file fields once the role is given up: "stopped" and no pid, so
+# is_blender_worker() turns False (the farm loop stops) while the file --
+# and its last_job_result -- stay readable by the monitor, which would
+# otherwise take the render for "lost".
+_STOPPED_FIELDS = {
+    "status": "stopped",
+    "pid": None,
+    "stopping": False,
+    "current_job": None,
+    "current_file": None,
+    "current_pid": None,
+    "current_job_id": None,
+    "current_dispatch_id": None,
+}
+
+
+def worker_rendering() -> bool:
+    """Whether this instance, as a worker, has a render running right now."""
+    return any(p.poll() is None for p in _worker_active_processes.values())
+
+
+def stop_worker(kill_render: bool) -> str:
+    """Give up this machine's worker role. kill_render=True: the render in
+    progress is terminated and reported "stopped" -- neutral for the
+    monitor, which carries on with the job's other machines or sends it out
+    again (never a failure); the role ends now. kill_render=False: no new
+    render is picked up, the current one finishes and reports as usual,
+    then the role ends (worker_tick()). Returns "stopped" or "draining"."""
+    running = [(j, p) for j, p in _worker_active_processes.items() if p.poll() is None]
+    if running and not kill_render:
+        update_worker({"stopping": True})
+        log("INFO", "farm", "Worker stopping once its current render is done.")
+        return "draining"
+    result = None
+    for job_id, p in running:
+        _terminate(p)
+        result = {
+            "job_id": job_id,
+            "dispatch_id": getattr(p, "dispatch_id", None),
+            "success": False,
+            "stopped": True,
+            "at": now(),
+        }
+        log("INFO", "farm", f"Worker stopped: render of {job_id} interrupted.")
+    _worker_active_processes.clear()
+    fields = dict(_STOPPED_FIELDS, last_heartbeat=now())
+    if result:
+        fields["last_job_result"] = result
+    update_worker(fields)
+    _set_this_instance_worker(False)
+    return "stopped"
+
+
 def update_worker_heartbeat():
     """Refresh this machine's worker last_heartbeat timestamp."""
     path = _worker_path()
@@ -372,15 +434,26 @@ def worker_tick():
             log("ERROR", "farm", f"Error during worker tick ({step.__name__}): {e}")
 
     try:
+        stopped = False
         with locked_json(_worker_path()) as box:
             data = box["data"] or {}
-            if data.get("status") != "idle":
+            if data.get("stopping"):
+                # "Let it finish": once the render is done, give up the role
+                # instead of picking up the next one.
+                if not worker_rendering():
+                    box["data"] = data | _STOPPED_FIELDS | {"last_heartbeat": now()}
+                    box["action"] = "to_write"
+                    stopped = True
+            elif data.get("status") != "idle":
                 return  # already busy, nothing to do this tick
             else:
                 result = execute_render_request()
                 box["data"] = data | result
                 box["action"] = "to_write" if result else ""
                 return
+        if stopped:
+            _set_this_instance_worker(False)
+            log("INFO", "farm", "Worker stopped after its last render.")
     except Exception as e:
         log("ERROR", "farm", f"Error during worker tick: {e}")
 

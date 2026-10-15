@@ -10,24 +10,26 @@ from ..farm import (
     archive,
     failed_stage,
     get_monitor_cache,
-    job_state,
     job_cancel_request,
     job_request,
+    job_state,
     kill_worker,
     launch_monitor,
     launch_worker,
     load_job_details,
     monitor_age_status,
     monitor_last_tick,
-    refresh_monitor_status,
-    register_popup_region,
     recompilable,
     recompile_job,
+    refresh_monitor_status,
+    register_popup_region,
     register_refresh_timer,
     request_monitor_kill,
     retry_job,
     scan_workers,
+    stop_worker,
     unregister_refresh_timer,
+    worker_rendering,
 )
 from ..lib import (
     ConfigCache,
@@ -696,7 +698,44 @@ class M_PIPELINE_OT_farm_kill_self_worker(bpy.types.Operator):
     bl_label = "Kill this worker."
     bl_description = "Remove this computer's worker registration."
 
+    def invoke(self, context, event):
+        if not worker_rendering():
+            return self.execute(context)
+        # Rendering right now: the artist decides what happens to it.
+        set_pending_action(
+            PipelineAction(
+                title="Stop this worker",
+                message=(
+                    "This machine is rendering a job right now.\n\n"
+                    "Stop the render too: it's interrupted now, the job carries "
+                    "on with its other machines (or is sent out again for the "
+                    "frames left).\n"
+                    "Let it finish: no new render is picked up, the worker "
+                    "stops once this one is done."
+                ),
+                severity="warning",
+                choices=[
+                    (
+                        "Stop the render too",
+                        lambda: stop_worker(kill_render=True),
+                        "Interrupt the render now and stop the worker.",
+                    ),
+                    (
+                        "Let it finish",
+                        lambda: stop_worker(kill_render=False),
+                        "Finish the current render, then stop the worker.",
+                    ),
+                    ("Cancel", None, "Keep the worker running."),
+                ],
+            )
+        )
+        return bpy.ops.m_pipeline.action_popup("INVOKE_DEFAULT")
+
     def execute(self, context):
+        if worker_rendering():
+            stop_worker(kill_render=True)  # scripted call: no popup to ask
+            self.report({"INFO"}, "Render stopped, worker stopped.")
+            return {"FINISHED"}
         if kill_worker():
             self.report({"INFO"}, "This machine is no longer a farm worker.")
             return {"FINISHED"}
