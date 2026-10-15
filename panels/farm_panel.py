@@ -547,9 +547,16 @@ def draw_farm_job_details(layout, context):
         op.filepath = str((path if path.is_absolute() else Path(root) / path).parent)
         op.custom_tooltip = "Open this job's render folder"
 
+    field(
+        col,
+        "Assigned to",
+        machine_names(data["assigned_machines"]) if data.get("assigned_machines") else "auto",
+    )
     field(col, "Machines", machine_names(data.get("used_machines")))
     if data.get("rendered_by"):
         field(col, "Rendered by", machine_names(data["rendered_by"]))
+    if data.get("failed_machines"):
+        field(col, "Failed on", machine_names(data["failed_machines"]))
     if data.get("frames_corrupted"):
         field(col, "Corrupted frames", data["frames_corrupted"], icon="ERROR")
 
