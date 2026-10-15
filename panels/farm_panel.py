@@ -237,7 +237,7 @@ def draw_farm_jobs(self, layout):
 
             if stage == "pending":
                 text = f"waiting for monitor - {elapsed_str}"
-            elif job_state(stage) != "running":
+            elif job_state(stage) in ("finished", "failed"):
                 # When it ended, not elapsed: stage_at never moves again.
                 at = _job_time(j["stage_at"])
                 text = f"{stage} - {at:%d/%m %H:%M}" if at else stage
@@ -283,7 +283,7 @@ def draw_farm_jobs(self, layout):
                 status.operator(
                     "m_pipeline.farm_cancel_job", text="", icon="X", emboss=False
                 ).job_id = j["job_id"]
-            elif job_state(stage) != "running":
+            elif job_state(stage) in ("finished", "failed"):
                 if stage in RETRYABLE_STAGES:
                     status.operator(
                         "m_pipeline.farm_retry_job",
@@ -382,9 +382,13 @@ def draw_farm_workers(layout):
         )
         monitor_jobs = monitor_cache.get("jobs") or []
         # Only the process the host is running right now, same definition
-        # as _finish_job_processes() (farm/queue.py).
+        # as _finish_job_processes() (farm/queue.py) -- not render_start:
+        # that's the workers' part, listed under each machine below.
         running_jobs = [
-            job for job in monitor_jobs if job.get("stage", "").endswith("_start")
+            job
+            for job in monitor_jobs
+            if job.get("stage", "").endswith("_start")
+            and job.get("stage") != "render_start"
         ]
 
         status = monitor_cache.get("status")

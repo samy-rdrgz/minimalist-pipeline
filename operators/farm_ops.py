@@ -1032,7 +1032,12 @@ class M_PIPELINE_OT_farm_monitor(bpy.types.Operator):
     state: bpy.props.EnumProperty(
         items=[
             ("all", "All", "Every job"),
-            ("running", "Running", "Pending, queued or in progress"),
+            ("running", "Running", "A step in progress: setup, render, frame check, compilation"),
+            (
+                "waiting",
+                "Waiting",
+                "Pending, queued, or between two steps (waiting for a free worker or the farm host)",
+            ),
             ("finished", "Finished", "Finished jobs"),
             ("failed", "Failed", "Failed jobs"),
         ],
