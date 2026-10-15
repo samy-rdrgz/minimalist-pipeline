@@ -2,6 +2,66 @@
 
 All notable changes to this addon. Dates are release dates.
 
+## 1.0.13 — 2026-10-15
+
+### Farm — renders
+
+- **A machine dropping out no longer fails a render.** While any machine
+  still renders a job, it carries on -- whatever happened to the others
+  (crashed, gone, stopped, cancelled). Once none is left, it's judged on
+  the frames on disk: all there, on to the frame check; missing after a
+  real render failure, failed; missing because a machine stopped early,
+  the empty files of the frames it abandoned mid-render are deleted and
+  the job is sent out again for what's left (up to 3 times). Before, one
+  crashed PC failed a job the others had finished.
+- **Idle workers join a render in progress before starting a new job**
+  (auto/placeholder renders only, machines allowed on it, and only while
+  more than 10 untouched frames are left per joining worker).
+- **Cancel no longer misses a render that hadn't started yet**: a machine
+  that hadn't picked up its share yet used to render it anyway after the
+  cancel. Its share is now withdrawn; a job left with no machine stops.
+- Re-rendering without increment reuses the latest `vNNN_xxx` output
+  folder, as intended, instead of always `_001`.
+
+### Farm — retry, recompile, stop
+
+- **Recompile** button on finished jobs: compiles the video again from
+  the frames on disk -- ffmpeg on the farm host only, no worker. The
+  render goes back to "To check".
+- **Retry skips the render when every frame is already on disk**,
+  straight to the frame check and compilation.
+- **A render retry avoids the machine(s) that failed it**: the job is
+  reassigned to the other workers ("Assigned to" / "Failed on" in the
+  job detail). A cancel never counts as a machine failing.
+- **Stopping a worker** while it renders asks: stop the render too, or
+  let it finish first. Any machine can be stopped from the Workers tab
+  (pause button on its row), not just this one.
+
+### Farm monitoring
+
+- New **Waiting** filter: Running now only lists steps actually in
+  progress; queued jobs and jobs between two steps are under Waiting.
+- The farm host row no longer lists renders (the workers' part).
+- Project and Farm monitoring show **12 rows per page** instead of 8.
+
+### Popups and warnings
+
+- **Pipeline popups stay open** until a choice or Close/Escape -- they
+  used to vanish as soon as the mouse left them (the append warning was
+  often never seen). Closing the "external link" warning now records
+  the link like "Ignore" does.
+- **Red warning when the project is opened with another Blender
+  version** (major.minor: 5.2 for a 4.5 project), at startup and on
+  project activation, plus a red line in the Project panel. Leave the
+  project's Blender version empty to never warn.
+
+### Fixes
+
+- Archiving a re-rendered job failed on Windows (`WinError 183`): its
+  previous archive was already there.
+- Background processes (farm setup/render, CSV batch) no longer register
+  the addon's UI timers.
+
 ## 1.0.12 — 2026-10-14
 
 ### Production snapshot

@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Minimalist Pipeline",
     "author": "Samy Rodriguez",
-    "version": (1, 0, 12),
+    "version": (1, 0, 13),
     "blender": (4, 2, 0),
     "location": "View3D > Sidebar > Pipeline",
     "description": "Lightweight pipeline manager for solo/small team Blender projects.",
@@ -199,8 +199,13 @@ def register():
 
     register_topbar_menu()
     lib.register_handlers()
-    # Deferred one tick -- see NOTES.md, "Addon register()".
-    bpy.app.timers.register(lib.refresh_read_only_flag, first_interval=0.0)
+    # Background (farm setup/render, CSV batch subprocesses): no UI, so none
+    # of the startup timers below has anything to do -- see NOTES.md,
+    # "Addon register()".
+    ui = not bpy.app.background
+    if ui:
+        # Deferred one tick -- see NOTES.md, "Addon register()".
+        bpy.app.timers.register(lib.refresh_read_only_flag, first_interval=0.0)
 
     try:
         lib.load_project_data(lib.addon_pref())
@@ -208,19 +213,22 @@ def register():
         # monitor cache is still blank here -- refresh it once. Deferred
         # one tick, same as refresh_read_only_flag above -- see NOTES.md,
         # "Addon register()".
-        bpy.app.timers.register(refresh_monitor_cache, first_interval=0.0)
+        if ui:
+            bpy.app.timers.register(refresh_monitor_cache, first_interval=0.0)
     except lib.PipelineError:
         pass
 
     _seed_user_name()
     set_running_project(None)
-    register_status_timer()
+    if ui:
+        register_status_timer()  # the sidebar's farm status
 
-    bpy.app.timers.register(_deferred_keymap, first_interval=0.1)
-    bpy.app.timers.register(_deferred_project_check, first_interval=0.05)
-    bpy.app.timers.register(_deferred_auto_worker, first_interval=0.1)
-    # Fires last -- see NOTES.md, "Addon register()".
-    bpy.app.timers.register(_deferred_onboarding, first_interval=0.5)
+    if ui:
+        bpy.app.timers.register(_deferred_keymap, first_interval=0.1)
+        bpy.app.timers.register(_deferred_project_check, first_interval=0.05)
+        bpy.app.timers.register(_deferred_auto_worker, first_interval=0.1)
+        # Fires last -- see NOTES.md, "Addon register()".
+        bpy.app.timers.register(_deferred_onboarding, first_interval=0.5)
 
 
 def unregister():
