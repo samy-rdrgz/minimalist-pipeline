@@ -58,6 +58,8 @@ from .workers import (
     is_blender_worker,
     kill_worker,
     launch_worker,
+    stop_worker,
+    worker_rendering,
     scan_workers,
     this_instance_is_worker,
 )
