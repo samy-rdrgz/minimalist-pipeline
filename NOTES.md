@@ -1994,3 +1994,11 @@ exit 0, i.e. a successful render).
 The footer can't be removed from a dialog, so it's made harmless: `confirm_text="Close"` plus the native Cancel, both just close it (execute with `choice_index == -1` / `cancel()`), and `cancel_default=True` so Enter never triggers anything. The first choice can't be wired to the confirm button instead: it isn't always the neutral one (the stable-file save guard's first choice is "Save").
 
 Closing without choosing runs the action's `on_dismiss`, once -- `PipelineAction.resolved` is set as soon as a choice runs, so the dialog closing right after a choice doesn't also dismiss it. The "External project Link done ?" warning now has an `on_dismiss` equal to its "Ignore" (record the link in the `.wipmeta`): before, a popup lost to the mouse silently skipped that record.
+
+---
+
+## Addon register()
+
+`register()` defers its UI work to timers (one tick or a fraction of a second later): `refresh_read_only_flag`, `refresh_monitor_cache`, `_deferred_keymap`, `_deferred_project_check`, `_deferred_auto_worker` and `_deferred_onboarding` (last, so its popup opens over everything else), plus two persistent ones -- the farm status timer (`register_status_timer()`, the sidebar header) and the session `heartbeat_30s` (registered by `register_handlers()`).
+
+None of them is registered in background mode (`bpy.app.background`): the farm's setup/render subprocesses and the CSV batch rows load the addon too, and have no UI, keymap, session or lock to keep alive -- a background process's liveness is tracked by PID by whoever launched it. `blender -b ... --python` never runs timers anyway, but Blender loaded as a Python module (`bpy`) waited on the pending ones at exit: 25 s on 4.2/5.0, forever on 4.5, 3 s once they're gone.

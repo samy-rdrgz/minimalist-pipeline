@@ -229,7 +229,10 @@ def heartbeat_30s() -> float:
 
 def register_handlers():
     """Register post-load handler for auto-versioning."""
-    if not bpy.app.timers.is_registered(heartbeat_30s):
+    # Session heartbeat + lock refresh: an artist's interactive session
+    # only. A background process (farm, batch) has neither, and its
+    # liveness is tracked by PID by whoever launched it.
+    if not bpy.app.background and not bpy.app.timers.is_registered(heartbeat_30s):
         bpy.app.timers.register(heartbeat_30s, persistent=True)
     if post_load_handler not in bpy.app.handlers.load_post:
         bpy.app.handlers.load_post.append(post_load_handler)

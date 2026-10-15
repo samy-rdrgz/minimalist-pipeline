@@ -235,7 +235,12 @@ def draw_farm_jobs(self, layout):
             else:
                 icon = "KEYTYPE_BREAKDOWN_VEC"
 
-            if stage == "pending":
+            if stage == "pending" and j.get("blocked_by_stage"):
+                text = (
+                    f"waiting for this shot's job in progress "
+                    f"({j['blocked_by_stage']}) - {elapsed_str}"
+                )
+            elif stage == "pending":
                 text = f"waiting for monitor - {elapsed_str}"
             elif job_state(stage) in ("finished", "failed"):
                 # When it ended, not elapsed: stage_at never moves again.
@@ -265,7 +270,12 @@ def draw_farm_jobs(self, layout):
 
             name_row = row.row()
             name_row.alignment = "LEFT"
-            if stage == "pending":
+            if stage == "pending" and j.get("blocked_by_stage"):
+                # Same job id as the job holding it back: open that one.
+                name_row.operator(
+                    "m_pipeline.farm_job_details", text=name, icon=icon, emboss=False
+                ).job_id = j["job_id"]
+            elif stage == "pending":
                 name_row.label(text=name, icon=icon)  # no job file yet
             else:
                 name_row.operator(
