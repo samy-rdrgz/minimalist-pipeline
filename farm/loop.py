@@ -463,12 +463,17 @@ def _count_rendered_frames(folder: Path, ext: str) -> int:
 
 def job_state(stage: str) -> str:
     """The Farm popup's state filter bucket for a job stage. preview_finished
-    ends a preview-compile job (§1.6), like finished ends a render's."""
+    ends a preview-compile job (§1.6), like finished ends a render's.
+    "running": a step actually in progress (*_start); "waiting": between
+    steps -- pending, queued, or an intermediate *_finished waiting for a
+    free worker or the farm host's next tick."""
     if stage in ("finished", "split_finished", "preview_finished"):
         return "finished"
     if stage.endswith("failed"):
         return "failed"
-    return "running"
+    if stage.endswith("_start"):
+        return "running"
+    return "waiting"
 
 
 def _build_job_entry(job: dict, frames_done: int | None = None) -> dict:
