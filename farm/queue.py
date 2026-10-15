@@ -8,6 +8,7 @@ from .dispatch import (
     _active_processes,
     append_render_history,
     discard_job_log,
+    frame_paths,
     job_log_path,
     join_running_renders,
     local_slot_busy,
@@ -15,12 +16,7 @@ from .dispatch import (
     read_process_log,
     render_dispatch,
 )
-from .post_render import (
-    _EXTENSION_MAP,
-    checks_images,
-    compilation,
-    refresh_shot_thumbnail,
-)
+from .post_render import checks_images, compilation, refresh_shot_thumbnail
 from .workers import local_render_running, scan_workers
 
 
@@ -676,16 +672,10 @@ def cancel_pending_renders(job_id: str, machines: list) -> list:
 def frames_complete(data: dict, project_root: Path) -> bool:
     """Every frame of the job's resolved range is on disk, non-empty (an
     empty file is a placeholder: a frame started, never finished)."""
-    output_path = data.get("output_path")
-    frame_range = data.get("resolved_frame_range") or (0, 0)
-    if not output_path or not project_root or tuple(frame_range) == (0, 0):
+    paths = frame_paths(data, project_root)
+    if not paths:
         return False
-    pattern = Path(project_root) / output_path
-    digits = pattern.name.count("#")
-    stem = pattern.name.split("#")[0]
-    ext = _EXTENSION_MAP.get(data.get("output_extension"), "png")
-    for frame in range(int(frame_range[0]), int(frame_range[1]) + 1):
-        path = pattern.parent / f"{stem}{frame:0{digits}d}.{ext}"
+    for path in paths:
         try:
             if path.stat().st_size == 0:
                 return False

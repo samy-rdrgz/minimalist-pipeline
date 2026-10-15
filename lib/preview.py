@@ -76,16 +76,11 @@ def resolve_block_sources(
 
 
 def resolve_sequence_sources(
-    filepath: Path, project_root: Path, config: dict | None = None
+    sequence_label: str, project_root: Path, config: dict | None = None
 ) -> list[tuple[str, Path]]:
-    """(shot_label, mp4) pairs for every shot ever rendered under filepath's
-    own sequence, by shot number."""
+    """(shot_label, mp4) pairs for every shot ever rendered in the sequence
+    ("sq030"), by shot number."""
     config = config if config is not None else ConfigCache.get()
-    parsed = parse_filename(Path(filepath).name)
-    naming = config.get("naming", {})
-    if not parsed or not naming:
-        return []
-    sequence_label = f"{naming['sequence']['prefix']}{parsed['sequence']}"
     shot_prefix = json_get(config, "naming.shot.prefix", "sh")
     sequence_dir = project_root / "renders" / sequence_label
     if not sequence_dir.is_dir():

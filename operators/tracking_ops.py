@@ -49,7 +49,7 @@ from ..lib import (
     wipmeta_add_work,
     write_snapshot,
 )
-from ..farm import archive
+from ..farm import archive, farm_activity, request_monitor_refresh
 from ..panels import (
     draw_file_details,
     draw_monitor_table,
@@ -826,6 +826,8 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
                 "ffmpeg": resolve_ffmpeg(),
             }
         self._job = SnapshotJob(read_snapshot_data, self._root, thumbnails, v_prefix)
+        # The farm's jobs, fresh by the time the scan is done (seconds).
+        request_monitor_refresh()
         self._writing = False
         wm = context.window_manager
         self._timer = wm.event_timer_add(0.2, window=context.window)
@@ -850,7 +852,9 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
                 "addon_version": get_addon_version(),
             }
             try:
-                snapshot = build_snapshot(self._job.result, config, meta)
+                snapshot = build_snapshot(
+                    self._job.result, config, meta, farm=farm_activity()
+                )
             except Exception as e:
                 context.window_manager.event_timer_remove(self._timer)
                 log("ERROR", "snapshot", f"Snapshot failed: {e}")
@@ -893,6 +897,7 @@ class M_PIPELINE_OT_tracking_refresh(bpy.types.Operator):
         if project_root:
             # Background scan, never blocks -- the table fills in as it goes.
             ProjectScan.start(project_root)
+            request_monitor_refresh()  # the Farm column
         return {"FINISHED"}
 
 
@@ -930,10 +935,13 @@ class M_PIPELINE_OT_tracking_monitor(bpy.types.Operator):
     entries_hide_done: bpy.props.BoolProperty(name="", default=True)
     entries_department_filter: bpy.props.EnumProperty(items=department_filter_items)
     entries_min_version: bpy.props.IntProperty(name="", default=0, min=0)
-    only_to_check: bpy.props.BoolProperty(
+    only_farm: bpy.props.BoolProperty(
         name="",
         default=False,
-        description="Only the files with a farm render waiting to be checked",
+        description=(
+            "Only the files with a render in the farm (queued, in progress, "
+            "failed) or waiting to be checked"
+        ),
     )
     # SKIP_SAVE: a search left over from last time would silently hide files.
     search: bpy.props.StringProperty(
@@ -964,7 +972,7 @@ class M_PIPELINE_OT_tracking_monitor(bpy.types.Operator):
 
             filters_btn.prop(self, "search", text="", icon="VIEWZOOM")
             # Icon only: the property's description is the tooltip.
-            filters_btn.prop(self, "only_to_check", text="", icon="HIDE_OFF")
+            filters_btn.prop(self, "only_farm", text="", icon="VIEW_CAMERA_UNSELECTED")
 
             layout.separator(factor=0.5)
 
@@ -978,6 +986,7 @@ class M_PIPELINE_OT_tracking_monitor(bpy.types.Operator):
             # whole project in the background (see its docstring) -- a
             # blocking scan froze Blender for minutes on a network share.
             ProjectScan.start(project_root)
+            request_monitor_refresh()  # the Farm column, same idea
             self.project_root = str(project_root)
 
             # Kept: draw_file_details() wraps its text on it.
@@ -1093,8 +1102,9 @@ class M_PIPELINE_OT_department_status_info(bpy.types.Operator):
     """Read-only tooltip carrier for a department status cell that isn't
     meant to be editable at its call site (the monitor grid, the sidebar's
     required-departments list) -- see M_PIPELINE_OT_toggle_validated_department
-    for the one that actually toggles. Always drawn with enabled=False;
-    execute() is unreachable in normal use, kept as a harmless no-op."""
+    for the one that actually toggles -- and for the monitor's Farm column.
+    Drawn with enabled=False, except in the Farm column (dimmed, a job in
+    progress would read as stale); execute() is a harmless no-op."""
 
     bl_idname = "m_pipeline.department_status_info"
     bl_label = ""

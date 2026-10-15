@@ -20,6 +20,52 @@ from ..lib import (
 )
 
 
+def submit_preview(
+    scope: str,
+    scope_name: str,
+    sequence_label: str,
+    label: str,
+    sources: list,
+    user: str,
+) -> None:
+    """Send a preview compile request: renders/<seq>/_preview/<scope_name>_
+    <date>.mp4 from sources ((shot_label, mp4) pairs). Raises PipelineError."""
+    project_root = get_active_project_root()
+    date_label = now(False).strftime("%Y%m%d-%H%M")
+    output_path = (
+        project_root
+        / "renders"
+        / sequence_label
+        / "_preview"
+        / f"{scope_name}_{date_label}.mp4"
+    )
+    request_preview_compile(
+        user=user,
+        scope=scope,
+        label=label,
+        sources=sources,
+        output_path=output_path,
+    )
+
+
+def request_sequence_preview(sequence_label: str, user: str) -> list:
+    """A sequence's preview ("sq030"): every shot's latest video, end to
+    end. Returns its sources -- empty: nothing rendered, nothing sent.
+    Raises PipelineError."""
+    project_root = get_active_project_root()
+    sources = resolve_sequence_sources(sequence_label, project_root)
+    if sources:
+        submit_preview(
+            "sequence",
+            sequence_label,
+            sequence_label,
+            str(project_root / "shots" / sequence_label),
+            sources,
+            user,
+        )
+    return sources
+
+
 class M_PIPELINE_OT_compile_preview(bpy.types.Operator):
     """Compile a disposable preview mp4 for a block or a whole sequence."""
 
@@ -68,41 +114,28 @@ class M_PIPELINE_OT_compile_preview(bpy.types.Operator):
             return {"CANCELLED"}
         sequence_label = f"{naming['sequence']['prefix']}{parsed['sequence']}"
 
-        if self.scope == "block":
-            sources = resolve_block_sources(filepath, project_root, config)
-            scope_name = get_base_filename(filepath.name) or filepath.stem
-            label = str(filepath)
-        else:
-            sources = resolve_sequence_sources(filepath, project_root, config)
-            scope_name = sequence_label
-            label = str(project_root / "shots" / sequence_label)
-
+        try:
+            if self.scope == "block":
+                sources = resolve_block_sources(filepath, project_root, config)
+                if sources:
+                    submit_preview(
+                        "block",
+                        get_base_filename(filepath.name) or filepath.stem,
+                        sequence_label,
+                        str(filepath),
+                        sources,
+                        get_user(context),
+                    )
+            else:
+                sources = request_sequence_preview(sequence_label, get_user(context))
+        except PipelineError as e:
+            log(e.level, "compile_preview", e.message)
+            self.report({e.level}, e.message)
+            return {"CANCELLED"}
         if not sources:
             self.report(
                 {"WARNING"}, "No rendered shot found to compile a preview from."
             )
-            return {"CANCELLED"}
-
-        date_label = now(False).strftime("%Y%m%d-%H%M")
-        output_path = (
-            project_root
-            / "renders"
-            / sequence_label
-            / "_preview"
-            / f"{scope_name}_{date_label}.mp4"
-        )
-
-        try:
-            request_preview_compile(
-                user=get_user(context),
-                scope=self.scope,
-                label=label,
-                sources=sources,
-                output_path=output_path,
-            )
-        except PipelineError as e:
-            log(e.level, "compile_preview", e.message)
-            self.report({e.level}, e.message)
             return {"CANCELLED"}
 
         self.report({"INFO"}, f"Preview compile requested ({len(sources)} shot(s)).")

@@ -52,7 +52,7 @@ La variante multishot d'un shot (plusieurs cuts dans un seul fichier) étend ce 
 
 ## Création en masse
 
-De nouveaux assets/shots peuvent aussi être créés en masse depuis un fichier CSV (bouton "Batch create from CSV" du panneau Projet, ou menu top bar). Chaque ligne est construite dans son propre process Blender headless jetable — jamais la session courante — donc rien ne s'accumule entre les lignes (pas de collections résiduelles d'une ligne précédente) et le travail en cours de l'artiste n'est jamais réinitialisé ni touché. Les lignes sont traitées strictement une par une, jamais en parallèle.
+De nouveaux assets/shots peuvent aussi être créés en masse depuis un fichier CSV (menu top bar > "Batch create from CSV"). Chaque ligne est construite dans son propre process Blender headless jetable — jamais la session courante — donc rien ne s'accumule entre les lignes (pas de collections résiduelles d'une ligne précédente) et le travail en cours de l'artiste n'est jamais réinitialisé ni touché. Les lignes sont traitées strictement une par une, jamais en parallèle.
 
 - **Assets** : `prefix`, `name` obligatoires ; `departments`, `description` optionnels.
 - **Shots** : `sequence`, `shot` obligatoires ; `frame_start`/`frame_end`/`frame_duration`/`timeline`, `departments`, `description` optionnels. `shot` peut aussi être un bloc joint par des tirets (ex. `"030-035-040"`, dans n'importe quel ordre, n'importe quel padding — `"3-10-020"` est tout aussi valide) pour créer un multi-shot en une seule ligne — ses shots sont alors répartis uniformément dans le bloc au lieu de tomber sur une seule et même frame.

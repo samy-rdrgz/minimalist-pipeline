@@ -8,6 +8,7 @@ from pathlib import Path
 import bpy
 
 from ..lib import (
+    PROGRESS_WEIGHTS,
     ConfigCache,
     PipelineError,
     addon_pref,
@@ -22,6 +23,7 @@ from ..lib import (
     read_project_config,
     save_project_data,
     set_active_project_root,
+    progress_weights,
     thumbnail_size,
     warn_blender_version_mismatch,
 )
@@ -372,6 +374,15 @@ class M_PIPELINE_OT_remove_project(bpy.types.Operator):
 # ---------------------------------------------------------------------------
 
 
+def _settings_row(box, label: str, icon: str):
+    """One Project settings line: a split, its label on the first third,
+    then each item added shares the rest equally -- a row would size them
+    by their content, and the columns would drift from line to line."""
+    split = box.split(factor=0.33, align=True)
+    split.label(text=label, icon=icon)
+    return split
+
+
 class M_PIPELINE_OT_edit_project(bpy.types.Operator):
     """Edit project configuration."""
 
@@ -397,6 +408,32 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
             "Longest side of the render thumbnails (snapshot, file details). "
             "Existing ones are remade at the next snapshot export"
         ),
+    )
+
+    # Snapshot "Done" weights, see PROGRESS_WEIGHTS (lib/snapshot.py).
+    progress_wip: bpy.props.IntProperty(
+        name="WIP",
+        min=0,
+        max=100,
+        default=PROGRESS_WEIGHTS["wip"],
+        subtype="PERCENTAGE",
+        description="Share of a department counted as done while in progress",
+    )
+    progress_rework: bpy.props.IntProperty(
+        name="Reworked",
+        min=0,
+        max=100,
+        default=PROGRESS_WEIGHTS["rework"],
+        subtype="PERCENTAGE",
+        description="Share counted as done when validated, then reworked since",
+    )
+    progress_rtk: bpy.props.IntProperty(
+        name="Open RTK",
+        min=0,
+        max=100,
+        default=PROGRESS_WEIGHTS["rtk"],
+        subtype="PERCENTAGE",
+        description="Share counted as done when validated, with an open RTK",
     )
 
     sequence_prefix: bpy.props.StringProperty(name="", default="sq")
@@ -433,39 +470,29 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
             ("NAME", "PINNED", self.project_name),
             ("PATH", "BLANK1", self.project_path_selected),
         ]:
-            row = box.split(factor=0.33, align=True)
-            row.label(text=label, icon=icon)
+            row = _settings_row(box, label, icon)
             sub = row.box()
             sub.scale_y = 0.6
             sub.label(text=value, icon="LOCKED")
 
-        row = box.split(factor=0.33, align=True)
-        row.label(text="BLENDER", icon="BLENDER")
+        row = _settings_row(box, "BLENDER", "BLENDER")
         row.prop(self, "project_bl_version")
 
         # Resolution / FPS
         box = layout.box().column(align=False)
-        row = box.row(align=True)
-        row.label(text="RESOLUTION", icon="RESTRICT_VIEW_OFF")
+        row = _settings_row(box, "RESOLUTION", "RESTRICT_VIEW_OFF")
         row.prop(self, "resolution_x")
         row.prop(self, "resolution_y")
-        row = box.row(align=True)
-        row.label(text="FRAME RATE", icon="PREVIEW_RANGE")
+        row = _settings_row(box, "FRAME RATE", "PREVIEW_RANGE")
         row.prop(self, "default_fps")
         row.label(text="")
-        row = box.row(align=True)
-        row.label(text="SHOT START", icon="DECORATE_KEYFRAME")
+        row = _settings_row(box, "SHOT START", "DECORATE_KEYFRAME")
         row.prop(self, "default_frame_start")
-        row.label(text="")
-        row = box.row(align=True)
-        row.label(text="THUMBNAILS", icon="IMAGE_DATA")
-        row.prop(self, "thumbnail_size")
         row.label(text="")
 
         # Naming
         box = layout.box().column(align=False)
-        row = box.row(align=True)
-        row.label(text="")
+        row = _settings_row(box, "", "NONE")
         row.label(text="PREFIX", icon="SYNTAX_OFF")
         row.label(text="DIGITS", icon="SORTBYEXT")
 
@@ -475,8 +502,7 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
             ("VERSION", "CHECKMARK", "version_prefix", "version_digits"),
             ("FRAME", "KEYFRAME_HLT", "frame_prefix", "frame_digits"),
         ]:
-            row = box.row(align=True)
-            row.label(text=label, icon=icon)
+            row = _settings_row(box, label, icon)
             row.prop(self, p_prop)
             row.prop(self, d_prop)
 
@@ -503,9 +529,7 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
             ("ASSETS DEPARTMENTS", "COPY_ID", "assets_departments"),
             ("SHOTS DEPARTMENTS", "COPY_ID", "shots_departments"),
         ]:
-            row = box.split(factor=0.33, align=True)
-            row.label(text=label, icon=icon)
-            row.prop(self, prop)
+            _settings_row(box, label, icon).prop(self, prop)
 
         box.separator(type="LINE")
         col = box.column()
@@ -519,6 +543,17 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
             ),
             icon="BLANK1",
         )
+
+        # Thumbnails / snapshot
+        box = layout.box().column(align=False)
+        row = _settings_row(box, "THUMBNAILS", "IMAGE_DATA")
+        row.prop(self, "thumbnail_size")
+        row.label(text="")
+        # Snapshot "Done" column: validated 100 %, not started 0 %.
+        row = _settings_row(box, "SNAPSHOT DONE", "SORTSIZE")
+        row.prop(self, "progress_wip")
+        row.prop(self, "progress_rework")
+        row.prop(self, "progress_rtk")
 
     def invoke(self, context, event):
         try:
@@ -540,6 +575,10 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         self.default_fps = int(config.get("default_fps", 30))
         self.default_frame_start = int(config.get("default_frame_start", 1001))
         self.thumbnail_size = thumbnail_size(config)
+        weights = progress_weights(config)
+        self.progress_wip = weights["wip"]
+        self.progress_rework = weights["rework"]
+        self.progress_rtk = weights["rtk"]
 
         naming = config.get("naming", {})
         for key in ("sequence", "shot", "version", "frame"):
@@ -571,7 +610,7 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
             ),
         )
 
-        return context.window_manager.invoke_props_dialog(self, width=350)
+        return context.window_manager.invoke_props_dialog(self, width=450)
 
     def execute(self, context):
         try:
@@ -611,6 +650,14 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
                 # "farm" is never touched here -- stays as read from the loaded config
                 "thumbnails": (config.get("thumbnails") or {})
                 | {"size": self.thumbnail_size},
+                "snapshot": (config.get("snapshot") or {})
+                | {
+                    "progress": {
+                        "wip": self.progress_wip,
+                        "rework": self.progress_rework,
+                        "rtk": self.progress_rtk,
+                    }
+                },
             }
         )
         try:

@@ -26,6 +26,8 @@ from .tracking import (
     _walk_owner_dirs,
     create_entry,
     find_file_by_name,
+    owner_key,
+    render_to_check_label,
     tracking_json_path,
     valid_department,
 )
@@ -51,6 +53,14 @@ STATES = {
     "wip": ("Work in progress", "st-wip"),
     "todo": ("Not started", "st-todo"),
 }
+# What a table cell shows: six departments of full labels don't fit a page.
+# The full label is its tooltip and in the legend.
+SHORT_STATES = {"done": "Validated", "rework": "Reworked", "wip": "WIP", "todo": "Not started"}
+
+# Share of a department counted as done per state, in % -- the project's
+# "snapshot.progress" (Edit project) overrides each. Validated counts 100,
+# not started 0. "rtk": validated, with an open RTK.
+PROGRESS_WEIGHTS = {"wip": 33, "rework": 67, "rtk": 67}
 
 # Entry "source" stamped on every note imported from a review template.
 REVIEW_SOURCE = "prod_review"
@@ -188,13 +198,15 @@ def read_snapshot_data(
     }
 
 
-def build_snapshot(data, config: dict, meta: dict) -> dict:
+def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> dict:
     """Neutral snapshot dict from read_snapshot_data()'s result (or a bare
-    read_snapshot_raw() list): {"meta", "assets", "shots", "notes"}.
-    Memory only, main thread (_status_from_raw() reads ConfigCache)."""
+    read_snapshot_raw() list): {"meta", "assets", "shots", "notes"}. farm:
+    the farm's jobs still to go by folder (farm_activity()). Memory only,
+    main thread (_status_from_raw() reads ConfigCache)."""
     if isinstance(data, list):
         data = {"raws": data, "thumbs": {}, "thumb_warnings": []}
     raws = data["raws"]
+    weights = progress_weights(config)
     v_prefix = json_get(config, "naming.version.prefix", "v")
     version_re = re.compile(rf"_{re.escape(v_prefix)}(\d+)(-[a-z]+)?\.blend$")
     folder_re = re.compile(rf"^{re.escape(v_prefix)}(\d+)(-[a-z]+)?_\d+$")
@@ -246,6 +258,16 @@ def build_snapshot(data, config: dict, meta: dict) -> dict:
                 }
             )
         item["renders"] = renders
+        # Rendered, not checked by the team yet / still in the farm.
+        to_check = status.get("to_check")
+        if not isinstance(to_check, dict):
+            to_check = {}
+        item["to_check"] = [
+            render_to_check_label(shot, info)
+            for shot, info in sorted(to_check.items())
+            if isinstance(info, dict)
+        ]
+        item["farm"] = (farm or {}).get(owner_key(owner), [])
         # What the prod must see: a render made from an older .blend than
         # the last stable -- the picture lags the validated work.
         item["stable_number"] = stable_n
@@ -275,7 +297,13 @@ def build_snapshot(data, config: dict, meta: dict) -> dict:
             if e["type"] == "rtk" and e["done"] is False
         }
         item["rtk_departments"] = sorted(rtk_departments)
-        item["progress"] = _progress(item["departments"], rtk_departments)
+        # Per department, then their mean: the footer averages the first.
+        item["scores"] = {
+            d: _department_score(st, d in rtk_departments, weights)
+            for d, st in item["departments"].items()
+        }
+        scores = list(item["scores"].values())
+        item["progress"] = sum(scores) / len(scores) if scores else None
         items[kind].append(item)
         notes.extend(threads)
 
@@ -287,6 +315,7 @@ def build_snapshot(data, config: dict, meta: dict) -> dict:
     meta["thumbnail_warnings"] = list(data["thumb_warnings"])
     meta["thumbnail_size"] = thumbnail_size(config)
     meta["progress"] = {k: average_progress(v) for k, v in items.items()}
+    meta["progress_weights"] = weights
     meta["asset_departments"] = _columns(
         json_get(config, "assets_departments", []), items["asset"]
     )
@@ -313,32 +342,30 @@ def _department_state(status: dict, department: str) -> str:
     return "wip" if worked else "todo"
 
 
-def _progress(departments: dict, rtk_departments: set) -> float | None:
-    """Share of an asset/shot's work done, 0..1: each required department
-    weighs 1/n and counts in thirds -- not started 0, work in progress 1/3,
-    validated but reworked since or with an open RTK 2/3, validated 1.
-    None without any required department."""
-    if not departments:
-        return None
-    scores = [_department_score(d, st, rtk_departments) for d, st in departments.items()]
-    return sum(scores) / len(scores)
+def progress_weights(config: dict) -> dict[str, int]:
+    """PROGRESS_WEIGHTS with the project's own values, each kept 0..100."""
+    out = {}
+    for key, default in PROGRESS_WEIGHTS.items():
+        try:
+            value = int(json_get(config, f"snapshot.progress.{key}", default))
+        except (TypeError, ValueError):
+            value = default
+        out[key] = max(0, min(100, value))
+    return out
 
 
-def _department_score(department: str, state: str, rtk_departments) -> float:
-    """One department's share done, in thirds -- see _progress()."""
+def _department_score(state: str, open_rtk: bool, weights: dict) -> float:
+    """One department's share done, 0..1: validated 1 (its "rtk" weight
+    with an open RTK), not started 0, else its state's weight."""
     if state == "done":
-        return 2 / 3 if department in rtk_departments else 1.0
-    return {"rework": 2 / 3, "wip": 1 / 3}.get(state, 0.0)
+        return weights["rtk"] / 100 if open_rtk else 1.0
+    return weights.get(state, 0) / 100
 
 
 def department_progress(items: list, department: str) -> float | None:
     """Mean of one department over the items requiring it, None if none
     does -- the snapshot table's per-department footer."""
-    values = [
-        _department_score(department, i["departments"][department], i["rtk_departments"])
-        for i in items
-        if department in i["departments"]
-    ]
+    values = [i["scores"][department] for i in items if department in i["scores"]]
     return sum(values) / len(values) if values else None
 
 
@@ -453,12 +480,21 @@ def render_html(snapshot: dict) -> str:
     xlsx = base64.encodebytes(render_review_xlsx(snapshot)).decode("ascii").strip()
     xlsx_name = snapshot_filename(snapshot, "xlsx", "review")
     scan_date = (meta.get("scan_started_at") or "").replace("T", " ")
+    weights = meta.get("progress_weights") or PROGRESS_WEIGHTS
     legend = "".join(
-        f'<span class="pill {cls}">{_e(label)}</span>' for label, cls in STATES.values()
+        f'<span class="pill {cls}">{_e(SHORT_STATES[k])}</span>'
+        + (f'<span class="muted">{_e(label)}</span>' if label != SHORT_STATES[k] else "")
+        for k, (label, cls) in STATES.items()
     ) + (
         '<span class="pill st-none">Not required</span>'
         '<span class="pill st-done rtk-open">Validated, open RTK</span>'
         '<span class="pill behind">⚠ Render older than the stable</span>'
+        '<span class="pill tocheck">to check</span>'
+        '<span class="muted">not checked yet</span>'
+        '<span class="pill farm-waiting">queued</span>'
+        '<span class="pill farm-running">rendering 45/120</span>'
+        '<span class="pill farm-failed">failed</span>'
+        '<span class="muted">in the farm</span>'
     )
 
     body = [
@@ -490,9 +526,10 @@ def render_html(snapshot: dict) -> str:
         "</nav>",
         f'<p class="legend">{legend}</p>',
         '<p class="legend muted">Done: each required department counts for an '
-        "equal share, in thirds: work in progress 1/3, validated but reworked "
-        "since or with an open RTK 2/3, validated 3/3. Totals and groups "
-        "average their assets/shots.</p>",
+        f"equal share: work in progress {weights['wip']} %, validated but "
+        f"reworked since {weights['rework']} %, validated with an open RTK "
+        f"{weights['rtk']} %, validated 100 %. Totals and groups average "
+        "their assets/shots.</p>",
         _render_table("assets", "Assets", snapshot["assets"], meta["asset_departments"]),
         _render_table("shots", "Shots", snapshot["shots"], meta["shot_departments"]),
         _render_notes(snapshot["notes"], snapshot["assets"] + snapshot["shots"]),
@@ -537,11 +574,29 @@ def _render_filters(snapshot: dict) -> str:
         f'<select id="f-state" aria-label="State"><option value="">Any state</option>{states}</select>'
         '<label><input id="f-rtk" type="checkbox"> Open RTK</label>'
         '<label><input id="f-notes" type="checkbox"> Has open notes</label>'
+        '<label title="In the farm, or rendered and not checked yet">'
+        '<input id="f-farm" type="checkbox"> Farm</label>'
         '<label title="Done todos/RTKs, kept in the snapshot but hidden">'
         '<input id="f-closed" type="checkbox"> Show closed</label>'
         '<button id="f-reset" type="button">Reset</button>'
+        f"{_columns_menu(departments)}"
         "</div>"
     )
+
+
+def _columns_menu(departments) -> str:
+    """ "Columns" drop-down: a checkbox per column that can be hidden (_JS
+    hides every cell whose data-col is its data-key; the choice is kept
+    per browser)."""
+    columns = [("thumb", "Thumbnail"), ("file", "Blender file"), ("render", "Last render")]
+    columns += [(f"d:{d}", d.capitalize()) for d in departments]
+    columns.append(("done", "Done"))
+    boxes = "".join(
+        f'<label><input type="checkbox" data-key="{_e(key)}" checked> {_e(label)}</label>'
+        for key, label in columns
+    )
+    return f'<details class="cols"><summary>Columns</summary><div>{boxes}</div></details>'
+
 
 
 def _slug(name: str) -> str:
@@ -554,7 +609,8 @@ def _item_attrs(item: dict) -> str:
     return (
         f'data-name="{_e(item["name"].lower())}" data-group="{_e(item["group"])}" '
         f'data-states="{_e(states)}" data-rtk="{item["open_rtk"]}" '
-        f'data-notes="{item["open_notes"]}"'
+        f'data-notes="{item["open_notes"]}" '
+        f'data-farm="{int(bool(item.get("farm") or item.get("to_check")))}"'
     )
 
 
@@ -568,15 +624,16 @@ def _render_table(anchor: str, title: str, items: list, columns: list) -> str:
     title += f' <span class="pct">{_pct(average_progress(items))} done</span>'
     with_thumbs = any(i.get("thumbnail") for i in items)
     head = (
-        ("<th></th>" if with_thumbs else "")
+        ('<th data-col="thumb"></th>' if with_thumbs else "")
         + "<th>Name</th>"
-        + '<th title="Latest work-in-progress and stable versions of the .blend">'
-        "Blender file</th>"
-        + '<th title="Output folder of the last render: vXXX_YYY, XXX the '
-        'Blender file version rendered, YYY the render increment">Last render</th>'
-        + "".join(f"<th>{_e(c.capitalize())}</th>" for c in columns)
-        + '<th title="Share of the required departments done (see the legend)">'
-        "Done</th>"
+        + '<th data-col="file" title="Latest work-in-progress and stable versions '
+        'of the .blend">Blender file</th>'
+        + '<th data-col="render" title="Output folder of the last render: vXXX_YYY, '
+        "XXX the Blender file version rendered, YYY the render increment -- then "
+        'its farm state">Last render</th>'
+        + "".join(f'<th data-col="d:{_e(c)}">{_e(c.capitalize())}</th>' for c in columns)
+        + '<th data-col="done" title="Share of the required departments done '
+        '(see the legend)">Done</th>'
     )
     groups: dict[str, list] = {}
     for item in items:
@@ -596,15 +653,19 @@ def _render_table(anchor: str, title: str, items: list, columns: list) -> str:
         for c in columns:
             state = item["departments"].get(c)
             if state is None:
-                cells.append('<td><span class="na" title="Not required">–</span></td>')
+                cells.append(
+                    f'<td data-col="d:{_e(c)}"><span class="na" title="Not required">–</span></td>'
+                )
             else:
                 label, cls = STATES[state]
-                tip = ""
                 if state == "done" and c in item["rtk_departments"]:
                     # Validated, then sent back: the RTK is the news.
                     cls += " rtk-open"
-                    tip = ' title="Validated, then an RTK was opened on it"'
-                cells.append(f'<td><span class="pill {cls}"{tip}>{_e(label)}</span></td>')
+                    label = "Validated, then an RTK was opened on it"
+                cells.append(
+                    f'<td data-col="d:{_e(c)}"><span class="pill {cls}" title="{_e(label)}">'
+                    f"{_e(SHORT_STATES[state])}</span></td>"
+                )
         versions = " · ".join(
             label + _short_version(item["name"], v)
             for label, v in (("wip ", item["wip_version"]), ("stable ", item["stable_version"]))
@@ -623,28 +684,30 @@ def _render_table(anchor: str, title: str, items: list, columns: list) -> str:
         thumb = ""
         if with_thumbs:
             thumb = (
-                f'<td class="th"><img class="thumb" alt="" '
+                f'<td class="th" data-col="thumb"><img class="thumb" alt="" '
                 f'src="data:image/jpeg;base64,{item["thumbnail"]}"></td>'
                 if item.get("thumbnail")
-                else '<td class="th"><div class="nothumb"></div></td>'
+                else '<td class="th" data-col="thumb"><div class="nothumb"></div></td>'
             )
         rows.append(
             f'<tr class="item" id="i-{_e(_slug(item["name"]))}" {_item_attrs(item)}>'
             f'{thumb}<td class="name"><b>{_e(item["name"])}</b>{flags}{jump}'
             f'<small>{_e(item["description"])}</small></td>'
-            f'<td class="ver">{_e(versions)}</td>'
-            f'<td class="ver">{_render_cell(item)}</td>{"".join(cells)}'
-            f'<td class="done">{_progress_cell(item["progress"])}</td></tr>'
+            f'<td class="ver" data-col="file">{_e(versions)}</td>'
+            f'<td class="ver" data-col="render">{_render_cell(item)}</td>{"".join(cells)}'
+            f'<td class="done" data-col="done">{_progress_cell(item["progress"])}</td></tr>'
         )
     # Whole section, whatever the filters show.
     foot = (
-        ("<td></td>" if with_thumbs else "")
-        + '<td class="name"><b>All</b></td><td></td><td></td>'
+        ('<td data-col="thumb"></td>' if with_thumbs else "")
+        + '<td class="name"><b>All</b></td><td data-col="file"></td>'
+        '<td data-col="render"></td>'
         + "".join(
-            f'<td class="done">{_progress_cell(department_progress(items, c))}</td>'
+            f'<td class="done" data-col="d:{_e(c)}">'
+            f"{_progress_cell(department_progress(items, c))}</td>"
             for c in columns
         )
-        + f'<td class="done">{_progress_cell(average_progress(items))}</td>'
+        + f'<td class="done" data-col="done">{_progress_cell(average_progress(items))}</td>'
     )
     return (
         f'<section id="{anchor}"><h2>{title}</h2>'
@@ -667,29 +730,84 @@ def _progress_cell(progress: float | None) -> str:
 
 
 def _render_cell(item: dict) -> str:
-    """ "Last render" cell: the render's output folder, vXXX_YYY (XXX the
-    .blend version rendered, YYY the render increment), in red when XXX is
-    older than the last stable. One line per shot when a block's shots
-    differ. "not rendered" for a shot never rendered, empty for an asset
-    never rendered (most never are)."""
+    """ "Last render" cell, one line per render: its status pill on the left
+    -- so every status lines up down the table -- then its output folder,
+    vXXX_YYY (XXX the .blend version rendered, YYY the render increment),
+    in red when XXX is older than the last stable. Pills: "to check" until
+    the team checked it, then the farm's (_farm_pill()) for the jobs still
+    in it -- on their render's line when it's already listed. One line per
+    shot when a block's shots differ. "not rendered" for a shot never
+    rendered, nothing for an asset never rendered (most never are)."""
     renders = item.get("renders") or []
-    if not any(r["folder"] for r in renders):
-        return '<span class="norender">not rendered</span>' if item["kind"] == "shot" else ""
-    stable = _short_version(item["name"], item["stable_version"] or "")
-    same = len({r["folder"] for r in renders}) == 1
-    lines = []
-    for r in renders[:1] if same else renders:
-        shot = "" if same else f'<span class="shot">{_e(r["shot"])}</span> '
-        if not r["folder"]:
-            lines.append(f'<div>{shot}<span class="norender">not rendered</span></div>')
-        elif r["file_number"] is not None and r["file_number"] < item["stable_number"]:
-            lines.append(
-                f'<div>{shot}<span class="behind" title="Rendered from an older '
-                f'version than the last stable ({_e(stable)})">⚠ {_e(r["folder"])}</span></div>'
-            )
+    to_check = list(item.get("to_check") or [])
+    # [labels, pill, text, shot of a "not rendered" line]: labels as
+    # render_to_check_label()'s.
+    rows = []
+    if any(r["folder"] for r in renders):
+        stable = _short_version(item["name"], item["stable_version"] or "")
+        same = len({r["folder"] for r in renders}) == 1
+        block = len(renders) > 1  # a mono shot's labels carry no shot
+        for r in renders[:1] if same else renders:
+            shot = "" if same else f'<span class="shot">{_e(r["shot"])}</span> '
+            labels = {
+                f"{x['shot'] if block else ''} {x['folder']}".strip()
+                for x in (renders if same else [r])
+            }
+            if not r["folder"]:
+                text = f'{shot}<span class="norender">not rendered</span>'
+                rows.append([labels, "", text, r["shot"] if block else ""])
+                continue
+            if r["file_number"] is not None and r["file_number"] < item["stable_number"]:
+                text = (
+                    f'{shot}<span class="behind" title="Rendered from an older '
+                    f'version than the last stable ({_e(stable)})">⚠ {_e(r["folder"])}</span>'
+                )
+            else:
+                text = f"{shot}{_e(r['folder'])}"
+            pill = _TO_CHECK_PILL if labels & set(to_check) else ""
+            to_check = [label for label in to_check if label not in labels]
+            rows.append([labels, pill, text, None])
+    elif item["kind"] == "shot":
+        rows.append([set(), "", '<span class="norender">not rendered</span>', ""])
+    rows += [[{label}, _TO_CHECK_PILL, _e(label), None] for label in to_check]
+    for job in item.get("farm") or []:
+        label = f"{job['shot']} {job['version']}".strip()
+        shot = f'<span class="shot">{_e(job["shot"])}</span> ' if job["shot"] else ""
+        row = next((r for r in rows if label in r[0] and not r[1]), None)
+        if row:
+            row[1] = _farm_pill(job)
+            continue
+        # First render of that shot: it takes its "not rendered" line.
+        row = next((r for r in rows if r[3] == job["shot"] and not r[1]), None)
+        if row:
+            row[:] = [{label}, _farm_pill(job), f"{shot}{_e(job['version'])}", None]
         else:
-            lines.append(f"<div>{shot}{_e(r['folder'])}</div>")
-    return "".join(lines)
+            rows.append([{label}, _farm_pill(job), f"{shot}{_e(job['version'])}", None])
+    if not rows:
+        return ""
+    return (
+        '<div class="rl">'
+        + "".join(f"<span>{pill}</span><span>{text}</span>" for _, pill, text, _ in rows)
+        + "</div>"
+    )
+
+
+_TO_CHECK_PILL = (
+    '<span class="pill tocheck" title="Rendered, not checked by the team yet">'
+    "to check</span>"
+)
+
+
+def _farm_pill(job: dict) -> str:
+    """A job still in the farm: "queued" (grey) whatever it waits for,
+    its step in blue ("rendering 45/120", "compiling"...), "failed" in red
+    -- the exact step in the tooltip."""
+    state = job["state"]
+    text = {"waiting": "queued", "failed": "failed"}.get(state, job["text"])
+    return (
+        f'<span class="pill farm-{_e(state)}" title="In the farm: {_e(job["text"])}">'
+        f"{_e(text)}</span>"
+    )
 
 
 def _short_version(name: str, filename: str) -> str:
@@ -758,7 +876,7 @@ def _render_notes(notes: list, items: list) -> str:
 
 
 _CSS = """
-:root{--bg:#f7f7f5;--fg:#1d1d1b;--muted:#6b6b66;--card:#fff;--line:#e2e1dc;
+:root{--page:1600px;--bg:#f7f7f5;--fg:#1d1d1b;--muted:#6b6b66;--card:#fff;--line:#e2e1dc;
 --accent:#3d5afe;--done:#2e7d32;--done-bg:#e3f2e4;--wip:#8a5a00;--wip-bg:#fff1d6;
 --todo:#6b6b66;--rtk:#c62828;--rtk-bg:#fde7e7;color-scheme:light dark}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161615;
@@ -771,7 +889,7 @@ _CSS = """
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);
 font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-header,section,.legend{max-width:1200px;margin:0 auto;padding:0 16px}
+header,section,.legend{max-width:var(--page);margin:0 auto;padding:0 16px}
 header{padding-top:28px}
 h1{margin:0 0 8px;font-size:26px}
 h2{margin:32px 0 12px;font-size:19px}
@@ -784,7 +902,7 @@ padding:14px 16px}
 .btn{display:inline-block;background:var(--accent);color:#fff;padding:8px 14px;
 border-radius:7px;text-decoration:none;font-weight:600}
 nav{z-index:2;display:flex;flex-direction:column;gap:8px;margin-top:20px;
-padding:10px max(16px,calc((100% - 1200px)/2 + 16px));
+padding:10px max(16px,calc((100% - var(--page))/2 + 16px));
 background:var(--bg);border-bottom:1px solid var(--line)}
 @media (min-width:700px){nav{position:sticky;top:0}}
 .links,.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
@@ -797,6 +915,16 @@ color:var(--fg)}
 .filters input[type=search]{flex:0 1 180px}
 .filters label{display:flex;gap:4px;align-items:center;color:var(--muted);white-space:nowrap}
 .filters button{cursor:pointer;color:var(--muted)}
+.cols{position:relative}
+.cols summary{cursor:pointer;color:var(--muted);padding:4px 8px;border:1px solid var(--line);
+border-radius:6px;background:var(--card);list-style:none}
+.cols summary::-webkit-details-marker{display:none}
+.cols summary::after{content:" ▾"}
+.cols div{position:absolute;right:0;z-index:4;margin-top:4px;padding:8px 12px;display:grid;gap:4px;
+background:var(--card);border:1px solid var(--line);border-radius:8px;
+box-shadow:0 4px 18px rgba(0,0,0,.18)}
+.cols.hiding summary{color:var(--accent);border-color:var(--accent)}
+.legend .muted{color:var(--muted);font-size:12px;margin:0 8px 0 -2px;align-self:center}
 .filters.active button{color:var(--accent);border-color:var(--accent)}
 [id]{scroll-margin-top:var(--nav-h,16px)}
 tr:target td{background:color-mix(in srgb,var(--accent) 12%,transparent)}
@@ -808,7 +936,8 @@ text-decoration:none;white-space:nowrap}
 .legend{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
 .scroll{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:10px}
 table{border-collapse:collapse;width:100%}
-th,td{padding:7px 10px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+th,td{padding:6px 8px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+table{font-size:13px}
 thead th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
 tr.group th{background:var(--bg);font-size:12px;color:var(--muted)}
 td.name{min-width:200px}td.name small{display:block;color:var(--muted);white-space:pre-line}
@@ -822,6 +951,13 @@ white-space:nowrap;border:1px solid transparent}
 .st-none{color:var(--muted);border:1px dashed var(--line)}
 .na{color:var(--muted);opacity:.5}
 .behind{color:var(--rtk);font-weight:600}.norender{opacity:.6}
+.rl{display:grid;grid-template-columns:max-content max-content;gap:3px 6px;align-items:center}
+.rl .pill{padding:0 7px;font-size:11px;font-weight:600}
+.pill.tocheck{color:var(--wip);background:var(--wip-bg);border-color:var(--wip)}
+.pill.farm-running{color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent);
+border-color:var(--accent)}
+.pill.farm-waiting{color:var(--muted);background:color-mix(in srgb,var(--muted) 14%,transparent)}
+.pill.farm-failed{color:var(--rtk);background:var(--rtk-bg);border-color:var(--rtk)}
 .pill.rtk-open{border-color:var(--rtk);box-shadow:0 0 0 1px var(--rtk) inset}
 .pct{margin-left:8px;font-size:.8em;font-weight:600;color:var(--done)}
 .legend.muted{color:var(--muted);font-size:12px}
@@ -864,7 +1000,7 @@ _JS = """
 (function(){
 var $=function(id){return document.getElementById(id);};
 var nav=document.querySelector('nav'),bar=document.querySelector('.filters');
-var ctl=['f-name','f-group','f-dep','f-state','f-rtk','f-notes','f-closed'].map($);
+var ctl=['f-name','f-group','f-dep','f-state','f-rtk','f-notes','f-closed','f-farm'].map($);
 function navHeight(){var sticky=getComputedStyle(nav).position==='sticky';
 document.documentElement.style.setProperty('--nav-h',
 (sticky?nav.offsetHeight:0)+16+'px');}
@@ -874,6 +1010,7 @@ if(q&&el.dataset.name.indexOf(q)<0)return false;
 if(g&&el.dataset.group!==g)return false;
 if(ctl[4].checked&&el.dataset.rtk==='0')return false;
 if(ctl[5].checked&&el.dataset.notes==='0')return false;
+if(ctl[7].checked&&el.dataset.farm==='0')return false;
 if(d||st){var states=el.dataset.states.split(' ').filter(Boolean).map(function(x){
 return x.split(':');});
 if(!states.some(function(p){return(!d||p[0]===d)&&(!st||p[1]===st);}))return false;}
@@ -898,6 +1035,21 @@ ctl.forEach(function(c){c.addEventListener('input',apply);
 c.addEventListener('change',apply);});
 $('f-reset').addEventListener('click',function(){ctl.forEach(function(c){
 if(c.type==='checkbox')c.checked=false;else c.value='';});apply();});
+var cols=[].slice.call(document.querySelectorAll('.cols input')),
+colStyle=document.createElement('style'),colKey='mp-snapshot-hidden-cols';
+document.head.appendChild(colStyle);
+function applyCols(save){var hidden=cols.filter(function(c){return!c.checked;})
+.map(function(c){return c.dataset.key;});
+colStyle.textContent=hidden.map(function(k){
+return '[data-col="'+CSS.escape(k)+'"]{display:none}';}).join('');
+document.querySelector('.cols').classList.toggle('hiding',hidden.length>0);
+if(save){try{localStorage.setItem(colKey,JSON.stringify(hidden));}catch(e){}}}
+try{var saved=JSON.parse(localStorage.getItem(colKey)||'[]');
+cols.forEach(function(c){if(saved.indexOf(c.dataset.key)>=0)c.checked=false;});}catch(e){}
+cols.forEach(function(c){c.addEventListener('change',function(){applyCols(true);});});
+applyCols(false);
+var menu=document.querySelector('.cols');
+document.addEventListener('click',function(e){if(!menu.contains(e.target))menu.open=false;});
 window.addEventListener('resize',navHeight);navHeight();apply();
 })();
 """

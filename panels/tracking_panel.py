@@ -6,6 +6,8 @@ from pathlib import Path
 import bpy
 import bpy.utils.previews
 
+from ..farm import farm_activity
+from .farm_panel import job_icon
 from ..lib import (
     ConfigCache,
     REVIEW_SOURCE,
@@ -29,6 +31,7 @@ from ..lib import (
     project_path,
     read_render_state,
     region_char_budget,
+    owner_key,
     render_to_check_label,
     responsive_layout,
     safe_icon,
@@ -437,6 +440,23 @@ def _draw_renders_to_check(layout, filepath: str, data: dict) -> None:
         op.custom_tooltip = "Mark this render as checked"
 
 
+def _draw_farm_jobs(layout, filepath: str) -> None:
+    """File details' "In the farm" box, under "Renders to check": each job
+    of the file still in the farm (farm_activity()) with its step."""
+    jobs = farm_activity().get(owner_key(filepath))
+    if not jobs:
+        return
+    col = layout.box().column(align=True)
+    col.label(text="In the farm:", icon="RENDER_ANIMATION")
+    for job in jobs:
+        label = " ".join(part for part in (job["shot"], job["version"]) if part)
+        row = col.row(align=True)
+        row.alignment = "LEFT"
+        row.separator(factor=2)  # same indent as _render_row()
+        row.alert = job["state"] == "failed"
+        row.label(text=f"{label}   {job['text']}", icon=job_icon(job["stage"]))
+
+
 def _render_row(col, text: str):
     row = col.row(align=True)
     row.alignment = "LEFT"
@@ -674,6 +694,7 @@ def draw_file_details(self, context, layout):
 
     layout.separator(factor=1)
     _draw_renders_to_check(layout, filepath, data)
+    _draw_farm_jobs(layout, filepath)
     layout.separator(factor=2)
 
     # Drawn in M_PIPELINE_OT_tracking_monitor's dialog, whose region isn't
@@ -689,8 +710,10 @@ def draw_monitor_table(self, context, layout, columns):
     """Filtered, paginated file list for M_PIPELINE_OT_tracking_monitor's main
     view -- self is that operator instance (file_type/asset_prefix/sequence/
     search/page state lives on it, same convention as draw_file_details() above)."""
-    # Memory only: ProjectScan fills the cache in the background.
+    # Memory only: ProjectScan fills the cache in the background, the farm
+    # column comes from the farm monitor's cache.
     data = TrackingStatusCache.known(Path(self.project_root))
+    activity = farm_activity()
     FIRST_COLUMN = 0.3
     types = {
         # Defaults: a config without library_prefixes (or asset_prefixes)
@@ -720,7 +743,11 @@ def draw_monitor_table(self, context, layout, columns):
                 else (file["file_name"].split("_", 1)[0] == self.sequence)
             )
         ):
-            if self.only_to_check and not file.get("to_check"):
+            if (
+                self.only_farm
+                and not file.get("to_check")
+                and owner_key(dir) not in activity
+            ):
                 continue
             if search and search not in (
                 f"{file['file_name']} {file.get('description') or ''}".lower()
@@ -750,21 +777,26 @@ def draw_monitor_table(self, context, layout, columns):
     cells = _equal_cells(title_list.row(), len(columns) + 1)
     for cell, c in zip(cells, columns):
         cell.label(text=c.capitalize(), icon="KEYFRAME_HLT")
-    cells[-1].label(text="To check", icon="HIDE_OFF")
+    cells[-1].label(text="Farm", icon="RENDER_ANIMATION")
 
     f_list.separator(factor=1)
 
     for dir, file in page_items:
-        _draw_monitor_row(self, f_list, dir, file, columns, FIRST_COLUMN)
+        _draw_monitor_row(
+            self, f_list, dir, file, columns, FIRST_COLUMN, activity.get(owner_key(dir))
+        )
 
     for _ in range(self.PAGE_SIZE - len(page_items)):
         _draw_monitor_blank_row(f_list, columns, FIRST_COLUMN)
 
     footer = f_list.row()
-    footer.active = False
+    # Dimmed, except the legend: its colours are the point.
+    status = footer.row()
+    status.alignment = "LEFT"
+    status.active = False
     # The table is what ProjectScan last found -- refresh on demand.
     if ProjectScan.done:
-        footer.operator(
+        status.operator(
             "m_pipeline.tracking_refresh", text="", icon="FILE_REFRESH", emboss=False
         )
     else:
@@ -775,19 +807,25 @@ def draw_monitor_table(self, context, layout, columns):
             if ProjectScan.phase == "status"
             else "Updating links..."
         )
-        footer.label(text=progress, icon="SORTTIME")
+        status.label(text=progress, icon="SORTTIME")
     if total == 0:
-        footer.label(text="No files found with this filter", icon="ERROR")
+        status.label(text="No files found with this filter", icon="ERROR")
     else:
-        footer.label(text=f"{total} file(s) found", icon="BLANK1")
-        if total_pages > 1:
-            pager = footer.row(align=True)
-            pager.alignment = "RIGHT"
-            pager.label(text=f"Page {self.page} / {total_pages}")
-            pager.prop(self, "page", text="")
+        status.label(text=f"{total} file(s) found", icon="BLANK1")
+    legend = footer.row(align=True)
+    legend.alignment = "LEFT"
+    legend.separator(factor=3)
+    for icon, text in _FARM_LEGEND:
+        legend.label(text=text, icon=icon)
+    if total_pages > 1:
+        pager = footer.row(align=True)
+        pager.alignment = "RIGHT"
+        pager.active = False
+        pager.label(text=f"Page {self.page} / {total_pages}")
+        pager.prop(self, "page", text="")
 
 
-def _draw_monitor_row(self, f_list, dir, file, columns, first_column):
+def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None):
     row = f_list.column()
     split = row.split(factor=first_column)
     name = split.row()
@@ -851,7 +889,7 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column):
             ).custom_tooltip = tooltip
         else:
             icon_row.label(text=" ", icon="BLANK1")
-    _draw_to_check_cell(cells[-1], dir, file)
+    _draw_farm_cell(cells[-1], dir, file, jobs or [])
     f_list.separator(factor=0.5, type="LINE")
 
 
@@ -878,30 +916,74 @@ def _to_check_at(info: dict) -> str:
     return (info.get("at") or "")[:16].replace("T", " ")
 
 
-def _draw_to_check_cell(cell, dir, file) -> None:
-    """Project monitoring's "To check" column: the render(s) a farm job
-    finished and nobody checked yet -- one click marks them all checked
-    (one by one in the file's details)."""
+# Farm column: one icon per render, the Farm popup's for its stage
+# (job_icon()); a render to check is a finished job's.
+_TO_CHECK_ICON = job_icon("finished")
+_FARM_LEGEND = (
+    (_TO_CHECK_ICON, "To check"),
+    (job_icon("pending"), "Submitted"),
+    (job_icon("queued"), "Queued"),
+    (job_icon("setup_finished"), "Waiting"),
+    (job_icon("render_start"), "In progress"),
+    (job_icon("render_failed"), "Failed"),
+)
+
+
+def _draw_farm_cell(cell, dir, file, jobs: list) -> None:
+    """Project monitoring's "Farm" column: an icon per render, shot by
+    shot (a block's sub-shots side by side) -- a render to check (a button:
+    plays it), or a job still in the farm (farm_activity()) with the Farm
+    popup's icon for its stage.
+    Details in the tooltips. Then one checkbox marks every render to check
+    checked (one by one in the file's details)."""
     cell.label(text="", icon="BLANK1")
     renders = _to_check_lines(file)
-    if not renders:
+    if not renders and not jobs:
         cell.label(text=" ", icon="BLANK1")
         return
-    cell.alert = True
-    buttons = cell.row(align=True)
-    buttons.alignment = "LEFT"
-    for shot, info in renders:  # one video per shot of a block
-        _video_button(buttons, info, render_to_check_label(shot, info))
-    buttons.separator(factor=1.5)
-    op = buttons.operator(
-        "m_pipeline.render_checked", text="", icon="CHECKBOX_DEHLT", emboss=False
-    )
-    op.filepath = str(dir)
-    op.all_shots = True
-    op.custom_tooltip = "Mark checked:\n" + "\n".join(
-        f"{render_to_check_label(shot, info)}  ({_to_check_at(info)})"
-        for shot, info in renders
-    )
+    icons = cell.row(align=True)
+    icons.alignment = "LEFT"
+    icons.scale_x = 0.9  # icons close together
+    # An older render to check comes before the shot's new job.
+    items = [(shot, 0, info) for shot, info in renders]
+    items += [(job["shot"], 1, job) for job in jobs]
+    # Consecutive to-check buttons share one aligned sub-row (rounded corners
+    # at its ends), set apart from the flat icons around them.
+    group, group_is_job = None, None
+    for shot, is_job, item in sorted(items, key=lambda i: (i[0], i[1])):
+        if is_job != group_is_job:
+            if group is not None:
+                icons.separator(factor=0.3)
+            group, group_is_job = icons.row(align=True), is_job
+        if not is_job:
+            label = render_to_check_label(shot, item)
+            # Embossed: the only clickable ones (play the video).
+            op = group.operator(
+                "m_pipeline.open_render_video", text="", icon=_TO_CHECK_ICON
+            )
+            op.render = item.get("render") or ""
+            op.video = item.get("video") or ""
+            op.custom_tooltip = (
+                f"To check: {label}  ({_to_check_at(item)})\nClick to play it."
+            )
+            continue
+        group.operator(
+            "m_pipeline.department_status_info",
+            text="",
+            icon=job_icon(item["stage"]),
+            emboss=False,
+        ).custom_tooltip = " ".join(
+            part for part in (shot, item["version"], "--", item["text"]) if part
+        )
+    if renders:
+        icons.separator(factor=1.5)
+        op = icons.operator("m_pipeline.render_checked", text="", icon="CHECKMARK")
+        op.filepath = str(dir)
+        op.all_shots = True
+        op.custom_tooltip = "Mark checked:\n" + "\n".join(
+            f"{render_to_check_label(shot, info)}  ({_to_check_at(info)})"
+            for shot, info in renders
+        )
 
 
 def _video_button(layout, info: dict, label: str) -> None:
@@ -922,7 +1004,7 @@ def _draw_monitor_blank_row(f_list, columns, first_column):
     row.active = False
     split = row.split(factor=first_column)
     split.row().label(text="")
-    for cell in _equal_cells(split.row(), len(columns) + 1):  # + "To check"
+    for cell in _equal_cells(split.row(), len(columns) + 1):  # + "Farm"
         cell.label(text="", icon="BLANK1")
     f_list.separator(factor=0.5, type="LINE")
 
