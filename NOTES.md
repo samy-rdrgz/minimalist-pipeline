@@ -2136,7 +2136,11 @@ parent on Windows. The monitor took the gone worker for lost and, once the
 others were done, deleted the empty placeholder of the frame the orphan
 was rendering and sent the job out again -- the same frames rendered
 twice. Both now call `stop_worker(kill_render=True)`: the render is
-killed and reported "stopped" (neutral), the file is kept.
+killed and reported "stopped" (neutral), the file is kept. And in
+`unregister()` the farm block now runs first: it ran after
+`unregister_class()`, when the addon's preferences -- the active project,
+this machine's id -- were already gone, so `is_blender_worker()` said
+False and nothing was ever stopped on quit, `kill_worker()` included.
 
 ### Monitor tick: read without a lock, decide once
 

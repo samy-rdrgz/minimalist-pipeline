@@ -239,18 +239,10 @@ def unregister():
     lib.unregister_handlers()
     unregister_topbar_menu()
 
-    try:
-        lib.save_project_data(lib.addon_pref())
-    except Exception:
-        pass
-
-    for cls in reversed(classes):
-        try:
-            bpy.utils.unregister_class(cls)
-        except RuntimeError:
-            pass
-
-    # Stop the farm roles before the rest of unregister() tears things down.
+    # Farm roles first, while the addon's preferences are still registered:
+    # the worker file's path needs the active project and this machine's id,
+    # both read from them -- after unregister_class() is_blender_worker()
+    # answered False and nothing was stopped.
     try:
         unregister_refresh_timer()
         unregister_status_timer()
@@ -269,6 +261,17 @@ def unregister():
             stop_worker(kill_render=True)
     except Exception as e:
         print(e)
+
+    try:
+        lib.save_project_data(lib.addon_pref())
+    except Exception:
+        pass
+
+    for cls in reversed(classes):
+        try:
+            bpy.utils.unregister_class(cls)
+        except RuntimeError:
+            pass
 
     _unregister_props(bpy.types.WindowManager, _WM_PROPS)
     _unregister_props(bpy.types.Scene, _SCENE_PROPS)
