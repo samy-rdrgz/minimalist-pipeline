@@ -213,9 +213,9 @@ def render_dispatch(job_path: Path, idle: dict) -> None:
         _waiting_logged.discard(job_data.get("job_id", ""))
 
         fs, fe = job_data.get("resolved_frame_range", (None, None))
-        # refill_single: the frames two machines wrote at once, sent out
-        # again (check_render_completion()) -- on one machine, not one that
-        # failed this job while another is free.
+        # refill_single: frames corrupted or written by two machines, sent
+        # out again by the frame check (queue._send_back_bad_frames()) -- on
+        # one machine, not one that failed this job while another is free.
         refill_single = bool(job_data.get("refill_single"))
         if refill_single:
             failed = set(job_data.get("failed_machines") or [])

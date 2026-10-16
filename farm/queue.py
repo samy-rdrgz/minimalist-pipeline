@@ -645,7 +645,8 @@ def construct_history(job: dict, status):
         "status": status,
     }
     # A block rendered whole because the split couldn't cut it (setup);
-    # frames two machines wrote, rendered again (check_render_completion()).
+    # frames corrupted or written by two machines, rendered again at the
+    # end of the frame check (_send_back_bad_frames()).
     for key in (
         "skipped_shots",
         "absorbed_shots",
@@ -1056,8 +1057,8 @@ def corrupted_frames(log_text: str, data: dict) -> list[int]:
         return []
     if expected < total:
         bad.update(range(expected, total))  # the end never decoded
-    elif pending:
-        bad.add(total - 1)
+    elif pending and expected == total:
+        bad.add(total - 1)  # errors after the last frame (not frames past it)
     return sorted(start + i for i in bad if 0 <= i < total)
 
 
