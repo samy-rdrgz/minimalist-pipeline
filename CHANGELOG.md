@@ -19,13 +19,15 @@ NOTES.md, "What a real project's export showed".
   stops the render too**: it outlived Blender, was taken for lost, and its
   frames were sent out again while it still wrote them -- frames rendered
   twice.
-- **A frame written by two machines at once is rendered again**:
-  Blender's placeholder isn't atomic on a network share, and two machines
-  can take the same frame -- a readable frame with garbled colour blocks
-  the frame check can't see. Each worker now records the frames it writes;
-  at the end of the render, a frame written by two machines is deleted and
-  rendered again on a single machine (warning in the log, listed in the
-  render history).
+- **Bad frames are rendered again, in one pass**: the frame check now
+  names the frames ffmpeg finds corrupted (it only counted error lines),
+  and each worker records the frames it writes -- Blender's placeholder
+  isn't atomic on a network share, and two machines can write the same
+  frame at once: readable, garbled colour blocks, not seen by ffmpeg. At
+  the end of the frame check, both kinds are deleted and rendered again
+  together on a single machine, then checked again; a warning names them,
+  Farm monitoring's job detail ("Rendered again") and the render history
+  list them. The frame check needs ffmpeg 4.3 or later.
 - **Workers per job** (Edit project, 0 = no limit): the most machines one
   Auto/Placeholder render gets at once, joining workers included. Fewer
   machines on the same frames, fewer frames taken by two of them at once

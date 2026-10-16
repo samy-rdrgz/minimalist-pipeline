@@ -2081,26 +2081,44 @@ mid-write) is a different case: ffmpeg does flag that one.
 Preventing it -- claiming each frame atomically in the entry script
 (`O_CREAT|O_EXCL` + render to a temp file + `os.replace`) -- means
 replacing Blender's own animation render loop; decided against. Instead
-it's caught and cured:
+it's caught and cured, together with the frames ffmpeg finds corrupted,
+in one pass -- a second frame check costs seconds, a second render on the
+workers far more:
 
 - the render entry (`templates/worker_render_entry.py`) registers a
   `render_write` handler -- called after each frame Blender writes, never
   for one it skips -- appending `"<dispatch_id> <frame>"` to the machine's
   `request_<job>_<uuid>.saved` (`saved_frames_path()`), next to its log;
-- when `check_render_completion()` judges the render (no machine left on
-  it), `frames_written_twice()` reads those records for this dispatch:
-  a frame two machines wrote is deleted -- whether the writes overlapped
-  can't be known, so every such frame goes, a few % of a 6-machine job --
-  recorded in `written_twice` (job, then render_history.json), and the job
-  goes back to `setup_finished` through the ordinary refill, flagged
+- the frame check (`checks_images()`) now names the frames it finds
+  corrupted, not just a count of error lines: `-loglevel level+info`
+  (ffmpeg 4.3+), `-threads 1`, `-vf showinfo`. Decoding single-threaded,
+  every decoder error lands right before the showinfo line of its frame,
+  whose `pts` is the frame's index in the sequence (not `n`, which restarts
+  when the filter graph is rebuilt); a frame ffmpeg can't decode at all
+  has no line -- a gap in pts -- and the errors before the frame after a
+  gap count for both (one frame re-rendered for nothing beats a corrupted
+  one kept). Only the decoder's and input's lines count: a format change
+  mid-sequence rebuilds the graph with `swscaler` warnings that say
+  nothing about a frame's data (`_NOT_INPUT`). An unreadable log tells
+  nothing: no frame blamed. Checked with ffmpeg 6.1 on spliced,
+  interleaved, truncated and garbage JPEGs and a truncated PNG: all named,
+  a clean 60-frame sequence nothing (`corrupted_frames()`);
+- when that check ends, `_send_back_bad_frames()`: corrupted frames plus
+  `frames_written_twice()` (this dispatch's records, machines from
+  `rendered_by` -- `used_machines` is emptied when a local stage ends) are
+  deleted -- whether two writes overlapped can't be known, so every
+  double-written frame goes, a few % of a 6-machine job -- recorded
+  (`frames_rerendered`, `written_twice`, job then render_history.json), and
+  the job goes from the frame check back to `setup_finished`, flagged
   `refill_single`: `render_dispatch()` gives it one machine (not one that
   failed the job, if another is free), `join_running_renders()` leaves it
-  alone -- a handful of frames on six machines would collide again;
-- not after the job's own Cancel, nor once `MAX_REFILL_ROUNDS` is spent
-  (deleting them would fail the job: kept, with a warning naming them);
-  records deleted once the job ends well
+  alone -- a handful of frames on six machines would collide again. The
+  render is judged again, then the frame check runs again, then the
+  compilation;
+- not once `MAX_REFILL_ROUNDS` is spent (deleting them would fail the
+  job: kept, named in a warning); records deleted once the job ends well
   (`discard_saved_frames()`) or with `archive()`. A worker on an older
-  version writes none: nothing detected, nothing broken.
+  version writes none: only ffmpeg's frames are redone.
 
 Also: `farm.max_workers_per_job` (Edit project, 0 = no limit) caps the
 machines one placeholder/auto render gets, joins included -- counted on
