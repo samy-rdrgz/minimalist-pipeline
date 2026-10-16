@@ -20,6 +20,7 @@ from .config import (
     get_base_filename,
     parse_filename,
     prefix_to_parent_folder,
+    project_path,
     shots_in_segment,
     to_absolute,
     to_relative,
@@ -634,7 +635,7 @@ def create_wipmeta(
             "edited_at": nw,
             "edited_by": get_user(),
             "departments_worked": {},
-            "linked": (last or {}).get("linked", []),
+            "linked": compact_linked((last or {}).get("linked", [])),
         }
         path = _meta_path(filepath, ".wipmeta")
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -692,7 +693,9 @@ def wipmeta_add_work(
             data["edited_at"] = now()
             data["edited_by"] = get_user()
             data["departments_worked"][id] = departments
-            data["linked"] = clean_libraries(data["linked"], linked_libs)
+            data["linked"] = compact_linked(
+                clean_libraries(data["linked"], linked_libs)
+            )
             box["action"] = "to_write"
         # Kept in sync here rather than invalidated: this is the only writer
         # of our own session's entry, so the cache can never go stale under it.
@@ -723,12 +726,43 @@ def get_session_worked_departments(filepath: Path) -> list[str]:
     return result
 
 
+# Entries kept per linked file in a meta's "linked" list. Everything that
+# reads the list only needs the file (Linked by, library updates, clean-up);
+# the few root names are for the File details tooltip. Without a cap, one
+# overridden rig or anim library recorded each of its objects -- 2 042
+# entries (370 KB) for 7 files in one shot's .wipmeta, copied into every
+# later version. See NOTES.md, "Linked libraries: one line per root".
+LINKED_PER_FILE = 10
+
+
+def compact_linked(entries: list[dict]) -> list[dict]:
+    """A "linked" list deduped on (file, type, name) and capped at
+    LINKED_PER_FILE entries per file -- collections first, order kept
+    otherwise. Pure data."""
+    seen = set()
+    by_file: dict[str, list[dict]] = {}
+    for d in entries:
+        key = (d.get("file"), d.get("type"), d.get("name"))
+        if key in seen:
+            continue
+        seen.add(key)
+        by_file.setdefault(d.get("file"), []).append(d)
+    out = []
+    for group in by_file.values():
+        if len(group) > LINKED_PER_FILE:
+            # sorted() is stable: collections first, each in its own order.
+            group = sorted(group, key=lambda d: d.get("type") != "COLLECTION")
+            group = group[:LINKED_PER_FILE]
+        out += group
+    return out
+
+
 def wipmeta_add_link(filepath: Path, link: list[dict]):
     """Append freshly linked libraries to this version's .wipmeta linked
-    list, deduped by (file, type, name) -- see NOTES.md. No-op, doesn't
-    raise, if filepath has no .wipmeta -- linking into an open -stable file
-    is legal (Blender doesn't block it in memory, only Save is guarded),
-    and a -stable file has nothing to track it in; same rule as
+    list, deduped and capped by compact_linked() -- see NOTES.md. No-op,
+    doesn't raise, if filepath has no .wipmeta -- linking into an open
+    -stable file is legal (Blender doesn't block it in memory, only Save is
+    guarded), and a -stable file has nothing to track it in; same rule as
     wipmeta_touch()."""
     path = _meta_path(filepath, ".wipmeta")
     if not path.exists():
@@ -736,50 +770,63 @@ def wipmeta_add_link(filepath: Path, link: list[dict]):
     else:
         with locked_json(path) as box:
             data = box["data"] or {}
-            seen = set()
-            deduped = []
-            for d in data.get("linked", []) + link:
-                key = (d.get("file"), d.get("type"), d.get("name"))
-                if key in seen:
-                    continue
-                seen.add(key)
-                deduped.append(d)
-            data["linked"] = deduped
+            data["linked"] = compact_linked(data.get("linked", []) + link)
             box["action"] = "to_write"
 
 
+def _linked_file_key(d: dict) -> str:
+    """Comparable form of a linked entry's file: plain join + normpath
+    (an old entry's un-collapsed "../" must not read as another file), no
+    disk access -- to_absolute()'s resolve() ran per entry, thousands of
+    network round trips on a bloated list."""
+    return _path_key(project_path(d["file"]))
+
+
 def wipmeta_sync_links(filepath: Path, links: list[dict]) -> int:
-    """Add to this version's .wipmeta linked list every entry of links
-    ({file, type, name}, see scan_linked_libraries()) it doesn't already
-    have. For links that never went through an import event: a file
-    migrated from outside the pipeline, a library repointed by hand or by a
-    script... Add-only (removal stays clean_libraries()'s job), and writes
-    nothing when there's nothing new, so it's cheap to call on every
-    load/save. Compared on the resolved path, like find_linked_by(): an old
-    entry's un-collapsed "../" must not read as a new link. Returns the
-    number of entries added; 0, no raise, without a .wipmeta (-stable
-    file), same rule as wipmeta_touch()."""
+    """Bring this version's .wipmeta linked list in line with links
+    ({file, type, name}, see scan_linked_libraries()): for every file the
+    scan found, its entries become the scan's -- what the file uses now,
+    roots only -- which also shrinks a list bloated by an older scan; the
+    entries of other files are left alone (removal stays
+    clean_libraries()'s job). Catches links that never went through an
+    import event: a file migrated from outside the pipeline, a library
+    repointed by hand or by a script... Writes nothing when nothing
+    changed, so it's cheap to call on every load/save. Returns the number
+    of entries added; 0, no raise, without a .wipmeta (-stable file), same
+    rule as wipmeta_touch()."""
     path = _meta_path(filepath, ".wipmeta")
     if not path.exists():
         return 0
 
+    scanned = compact_linked([d for d in links if d.get("file")])
+    scanned_files = {_linked_file_key(d) for d in scanned}
+
     def key(d):
-        return (str(to_absolute(d["file"])), d.get("type"), d.get("name"))
+        return (_linked_file_key(d), d.get("type"), d.get("name"))
 
     with locked_json(path) as box:
         data = box["data"] or {}
         current = data.get("linked", [])
         known = {key(d) for d in current if d.get("file")}
-        new = []
-        for d in links:
-            if d.get("file") and key(d) not in known:
-                known.add(key(d))
-                new.append(d)
-        if new:
-            data["linked"] = current + new
+        kept = [
+            d
+            for d in current
+            if not d.get("file") or _linked_file_key(d) not in scanned_files
+        ]
+        merged = compact_linked(kept + scanned)
+        added = sum(1 for d in scanned if key(d) not in known)
+        if merged != current:
+            data["linked"] = merged
             box["data"] = data
             box["action"] = "to_write"
-    return len(new)
+    if len(merged) < len(current):
+        log(
+            "INFO",
+            "sync_links",
+            f"{path.name}: linked list compacted, "
+            f"{len(current)} -> {len(merged)} entries",
+        )
+    return added
 
 
 def create_stablemeta(
@@ -809,7 +856,7 @@ def create_stablemeta(
             "departments_validated": {
                 d: d in departments for d in get_departments_required(filepath)
             },
-            "linked": (wipdata or {}).get("linked", []),
+            "linked": compact_linked((wipdata or {}).get("linked", [])),
             "conflict_warning": conflict_warnings,
         }
         path = _meta_path(filepath, ".stablemeta")

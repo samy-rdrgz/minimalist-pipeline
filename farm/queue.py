@@ -1,9 +1,21 @@
 """Submission queue: incoming requests -> active jobs, scanned every tick by the monitor."""
 
 import datetime
+import os
 from pathlib import Path
 
-from ..lib import ConfigCache, log, mark_render_to_check, now, retry_shared_io, to_relative
+from ..lib import (
+    ConfigCache,
+    PipelineError,
+    get_machine_id,
+    log,
+    mark_render_to_check,
+    now,
+    read_json_quiet,
+    retry_shared_io,
+    to_absolute,
+    to_relative,
+)
 from .dispatch import (
     _active_processes,
     append_render_history,
@@ -13,11 +25,18 @@ from .dispatch import (
     join_running_renders,
     local_slot_busy,
     locked_json,
+    machines_for,
+    note_waiting,
     read_process_log,
     render_dispatch,
 )
 from .post_render import checks_images, compilation, refresh_shot_thumbnail
-from .workers import local_render_running, scan_workers
+from .workers import (
+    idle_machines,
+    local_render_running,
+    scan_workers,
+    this_instance_is_worker,
+)
 
 
 def scan_requests() -> bool:
@@ -84,28 +103,91 @@ def scan_requests() -> bool:
             log("ERROR", "farm", f"Job request error: {e} ({to_relative(filepath)}).")
 
 
+# Stages a job never moves on from by itself: nothing for scan_queue() to do.
+_TERMINAL_STAGES = ("archived", "orphaned")
+
+# job file path -> its mtime when last read at a terminal stage. Such a job
+# is skipped without being read again until its file changes (a retry, a
+# recompile): they pile up in actives/ until archived, and were re-read --
+# under a lock -- every tick.
+_terminal_jobs: dict[str, float] = {}
+
+
+def _job_stage(data: dict) -> str:
+    try:
+        return data["stage_history"][-1]["stage"]
+    except (KeyError, IndexError, TypeError):
+        return ""
+
+
+def read_active_jobs(scan_dir: Path) -> list[tuple[Path, dict]]:
+    """(path, data) of every job in actives/ that may still need work,
+    read without a lock: writes are atomic (read_json_quiet()), and the
+    lock taken here on every job, every tick, was fought over by the setup
+    and render subprocesses -- some lost it and rendered without their
+    preset -- and its .lock file churn changed actives/'s mtime every tick,
+    so the UI re-read every job every refresh. Whatever acts on a job
+    re-reads it under its own lock. A job unreadable right now (mid-replace
+    on Windows) is just skipped this tick."""
+    jobs = []
+    seen = set()
+    try:
+        entries = [
+            e
+            for e in os.scandir(scan_dir)
+            if e.name.startswith("job_") and e.name.endswith(".json")
+        ]
+    except OSError:
+        return jobs
+    for entry in entries:
+        seen.add(entry.path)
+        try:
+            mtime = entry.stat().st_mtime
+        except OSError:
+            continue
+        if _terminal_jobs.get(entry.path) == mtime:
+            continue
+        data = read_json_quiet(entry.path)
+        if not data:
+            continue
+        if _job_stage(data) in _TERMINAL_STAGES:
+            _terminal_jobs[entry.path] = mtime
+            continue
+        _terminal_jobs.pop(entry.path, None)
+        jobs.append((Path(entry.path), data))
+    for path in set(_terminal_jobs) - seen:
+        del _terminal_jobs[path]
+    return jobs
+
+
 def scan_queue(project_root: Path) -> None:
     """Advance every active job by one step according to its current stage."""
-    scan_dir = ConfigCache.get_path("farm_actives")
-
-    jobs = []
-    for job_file in scan_dir.glob("job_*.json"):
-        try:
-            with locked_json(job_file) as box:
-                data = box["data"] or {}
-                jobs.append((job_file, data))
-        except Exception as e:
-            log("ERROR", "farm", f"Could not read job file {job_file.name}: {e}")
-
+    jobs = read_active_jobs(ConfigCache.get_path("farm_actives"))
     jobs.sort(
         key=lambda x: (
-            x[1].get("priority", 10),  # descending priority
-            x[1].get("submitted_at", ""),  # ascending date at equal priority
+            -int(x[1].get("priority", 10) or 0),  # highest priority first
+            x[1].get("submitted_at", ""),  # then oldest first
         )
     )
+
+    # Idle machines, once for the whole tick: joining and dispatching take
+    # theirs out of it.
+    try:
+        idle = idle_machines()
+    except Exception as e:
+        log("ERROR", "farm", f"Could not list idle machines: {e}")
+        idle = {}
+    if this_instance_is_worker() and any(
+        _job_stage(data) == "queued" for _, data in jobs
+    ):
+        # A setup waits for this instance's own render to end
+        # (local_render_running()): renders of hours held the whole queue
+        # back. Keep it off new renders until the waiting setups are done.
+        idle.pop(get_machine_id(), None)
+
     # Before any new job: idle workers first reinforce renders in progress.
     try:
-        join_running_renders(jobs, project_root)
+        join_running_renders(jobs, project_root, idle)
     except Exception as e:
         log("ERROR", "farm", f"Could not send idle workers to running renders: {e}")
     for job, data in jobs:
@@ -119,7 +201,6 @@ def scan_queue(project_root: Path) -> None:
                 "compilation_start",
                 "preview_start",
                 "finished",
-                "archived",
             ]
             if stage in pass_stage:
                 pass
@@ -151,14 +232,16 @@ def scan_queue(project_root: Path) -> None:
                 # A block fans out into one job per shot instead of rendering itself.
                 if data.get("split_into"):
                     mark_stage(job, "split_finished")
+                elif machines_for(data, idle):
+                    render_dispatch(job, idle)
                 else:
-                    render_dispatch(job)
+                    note_waiting(data)  # no lock, no disk: nothing free
             elif stage == "split_finished":
                 construct_split_history(data)
                 mark_stage(job, "archived")
                 discard_job_log(data["job_id"])  # the shots carry on as their own jobs
             elif stage == "render_start":
-                check_render_completion(job, project_root)
+                check_render_completion(job, project_root, data)
             elif stage == "render_finished":
                 if not local_slot_busy():
                     checks_images(job)
@@ -246,6 +329,13 @@ def retry_job(data: dict, project_root: Path) -> str | None:
     failed = failed_stage(data)
     if not failed:
         return None
+    source = data.get("filepath")
+    if source and not to_absolute(source, project_root).exists():
+        # Every worker would fail at once on it: replaced by a newer
+        # version (a block's old -stable), or moved by hand.
+        raise PipelineError(
+            f"{source} no longer exists -- submit the current version instead."
+        )
     target = _RETRY_STAGE[failed]
     if failed == "render_failed" and frames_complete(data, project_root):
         # Rendered in full by the other machines: nothing left to render.
@@ -549,6 +639,10 @@ def construct_history(job: dict, status):
         else None,
         "status": status,
     }
+    # A block rendered whole because the split couldn't cut it (setup).
+    for key in ("skipped_shots", "absorbed_shots"):
+        if job.get(key):
+            entry[key] = job[key]
 
     append_render_history(job["filepath"], entry)
 
@@ -696,7 +790,47 @@ def _render_folder(data: dict, project_root: Path | None) -> Path | None:
     return (Path(project_root) / output_path).parent
 
 
-def check_render_completion(job_path: Path, project_root: Path | None = None) -> None:
+def _classify_machines(data: dict) -> dict:
+    """Each of the job's used_machines by what its worker file says about
+    this render: still_running / lost / failed / cancelled / stopped (lists
+    of uuids), any_succeeded (bool)."""
+    state = {
+        "still_running": [],
+        "lost": [],
+        "failed": [],
+        "cancelled": [],
+        "stopped": [],
+        "any_succeeded": False,
+    }
+    for uuid in data.get("used_machines", []):
+        # Its file, whatever its heartbeat's age: a result for this
+        # render is final even from a worker a few seconds late.
+        w = _read_worker(uuid)
+        if w is None:
+            state["still_running"].append(uuid)  # can't tell this tick
+            continue
+        result = w.get("last_job_result")
+        if _is_this_render(result, data):
+            if result.get("lost"):
+                state["lost"].append(uuid)
+            elif result.get("stopped"):
+                state["stopped"].append(uuid)  # its worker was stopped: neutral
+            elif result.get("cancelled"):
+                state["cancelled"].append(uuid)  # not the machine's fault
+            elif not result["success"]:
+                state["failed"].append(uuid)
+            else:
+                state["any_succeeded"] = True  # finished THIS render successfully
+        elif _worker_gone(w) or w.get("status") == "stopped":
+            state["lost"].append(uuid)
+        else:
+            state["still_running"].append(uuid)
+    return state
+
+
+def check_render_completion(
+    job_path: Path, project_root: Path | None = None, data: dict | None = None
+) -> None:
     """Monitor-only: cross-check used_machines against each worker's declared
     state. No worker ever writes this job file for this stage.
 
@@ -709,42 +843,28 @@ def check_render_completion(job_path: Path, project_root: Path | None = None) ->
     (the job's Cancel) -> render_failed (cancelled); otherwise frames are
     missing because a machine stopped early -> the placeholders it left are
     deleted (safe now: nobody renders this job) and the job goes back to
-    setup_finished for them, at most MAX_REFILL_ROUNDS times."""
-    with locked_json(job_path) as box:
-        data = box["data"]
-        if data["stage_history"][-1]["stage"] != "render_start":
+    setup_finished for them, at most MAX_REFILL_ROUNDS times.
+
+    data: the job as scan_queue() read it (no lock). While every machine
+    still renders and none has finished, nothing changes: returns without
+    taking the job's lock -- every tick of a render of hours did."""
+    if data is not None:
+        state = _classify_machines(data)
+        if state["still_running"] and not state["any_succeeded"]:
             return data
 
-        still_running = []
-        lost = []
-        failed = []
-        cancelled = []
-        stopped = []
-        any_succeeded = False
+    with locked_json(job_path) as box:
+        data = box["data"]
+        if not data or data["stage_history"][-1]["stage"] != "render_start":
+            return data
 
-        for uuid in data.get("used_machines", []):
-            # Its file, whatever its heartbeat's age: a result for this
-            # render is final even from a worker a few seconds late.
-            w = _read_worker(uuid)
-            if w is None:
-                still_running.append(uuid)  # can't tell this tick
-                continue
-            result = w.get("last_job_result")
-            if _is_this_render(result, data):
-                if result.get("lost"):
-                    lost.append(uuid)
-                elif result.get("stopped"):
-                    stopped.append(uuid)  # its worker was stopped: neutral
-                elif result.get("cancelled"):
-                    cancelled.append(uuid)  # not the machine's fault
-                elif not result["success"]:
-                    failed.append(uuid)
-                else:
-                    any_succeeded = True  # finished THIS render successfully
-            elif _worker_gone(w) or w.get("status") == "stopped":
-                lost.append(uuid)
-            else:
-                still_running.append(uuid)
+        state = _classify_machines(data)
+        still_running = state["still_running"]
+        lost = state["lost"]
+        failed = state["failed"]
+        cancelled = state["cancelled"]
+        stopped = state["stopped"]
+        any_succeeded = state["any_succeeded"]
 
         if any_succeeded and still_running:
             # A worker that ended this render successfully went through the
@@ -860,7 +980,11 @@ def check_render_completion(job_path: Path, project_root: Path | None = None) ->
 
 
 def mark_stage(path, stage):
-    """Append a stage entry to a job file's stage_history (own locked transaction)."""
+    """Append a stage entry to a job file's stage_history (own locked
+    transaction). No-op if the file is gone -- archived from the Farm popup
+    meanwhile (it raised "'NoneType' object is not subscriptable")."""
     with locked_json(path) as box:
+        if not box["data"]:
+            return
         box["data"]["stage_history"].append({"stage": stage, "at": now()})
         box["action"] = "to_write"

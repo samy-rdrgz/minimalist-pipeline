@@ -21,6 +21,9 @@ scene = bpy.context.scene
 
 scene.render.use_placeholder = True
 scene.render.use_overwrite = False
-farm.apply_custom_preset(preset, scene, job_id)
+# strict: a preset that can't be applied raises -- Blender exits with
+# --python-exit-code before rendering anything, and the worker reports the
+# render as failed. Never render with the .blend's own settings instead.
+farm.apply_custom_preset(preset, scene, job_id, strict=True)
 
 bpy.ops.render.render(animation=True)  # renders HERE, after the presets

@@ -114,9 +114,23 @@ def _root_linked_ids() -> list[bpy.types.ID]:
             add(obj.instance_collection)
     for id_ in (*bpy.data.objects, *bpy.data.collections):
         ov = id_.override_library
-        if ov is not None:
-            add(ov.reference)
-    return list(roots.values())
+        if ov is None:
+            continue
+        # Only the root of each override hierarchy: overriding a rig or an
+        # anim library makes every one of its objects (each widget...) an
+        # override -- recorded one by one, that was 1 400 entries for one
+        # library. The root's reference is the collection actually linked.
+        root = getattr(ov, "hierarchy_root", None) or id_
+        root_ov = root.override_library
+        add(root_ov.reference if root_ov is not None else ov.reference)
+    # A root inside another root collection (an object of a linked
+    # collection also put in a local one...) is that collection's content.
+    nested = set()
+    for root in roots.values():
+        if isinstance(root, bpy.types.Collection):
+            nested.update(c.as_pointer() for c in root.children_recursive)
+            nested.update(o.as_pointer() for o in root.all_objects)
+    return [r for key, r in roots.items() if key not in nested]
 
 
 def scan_linked_libraries() -> list[dict]:

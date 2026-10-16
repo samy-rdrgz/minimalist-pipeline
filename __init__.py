@@ -256,12 +256,17 @@ def unregister():
         unregister_status_timer()
         from .farm.loop import _farm_running_project
         from .farm.monitor import stop_monitor_loop
-        from .farm.workers import is_blender_worker, kill_worker
+        from .farm.workers import is_blender_worker, stop_worker
 
         if _farm_running_project is not None:
             stop_monitor_loop()
         if is_blender_worker():
-            kill_worker()
+            # Not kill_worker(): it only deletes the worker file, and the
+            # render subprocess outlives Blender -- the monitor took it for
+            # lost and sent its frames out again while it still wrote them.
+            # stop_worker() kills it and reports "stopped" (see NOTES.md,
+            # "Quitting Blender while its worker renders").
+            stop_worker(kill_render=True)
     except Exception as e:
         print(e)
 

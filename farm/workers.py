@@ -324,7 +324,11 @@ def scan_workers() -> dict:
 
 
 def scan_render_requests(target_uuid: str = "") -> dict:
-    """Return {filename: data} for pending render requests, optionally filtered to target_uuid."""
+    """Return {filename: data} for pending render requests, optionally
+    filtered to target_uuid. Read without a lock (writes are atomic): a
+    lock per request, every tick, only fought with the workers taking them.
+    A request gone (taken) or unreadable since the listing is left out --
+    whoever acts on one re-reads it under its lock (execute_render_request())."""
     requests = {}
     path = ConfigCache.get_path("farm_requests")
     if not path.exists():
@@ -332,9 +336,23 @@ def scan_render_requests(target_uuid: str = "") -> dict:
     for r in path.glob(
         f"request_*_{target_uuid}.json" if target_uuid else "request_*.json"
     ):
-        with locked_json(r) as box:
-            requests[r.name] = box["data"]
+        data = read_json_quiet(r)
+        if data:
+            requests[r.name] = data
     return requests
+
+
+def idle_machines() -> dict:
+    """{uuid: worker} idle right now and not already targeted by a pending
+    render request -- computed once per monitor tick (scan_queue()), then
+    handed out: join_running_renders() and render_dispatch() take the
+    machines they use out of it."""
+    targeted = {r.get("target_uuid") for r in scan_render_requests().values()}
+    return {
+        uuid: w
+        for uuid, w in scan_workers().items()
+        if w.get("status") == "idle" and uuid not in targeted
+    }
 
 
 def update_worker(dict: dict):
@@ -439,7 +457,8 @@ def execute_render_request() -> dict:
         box["action"] = "to_delete"
         return {
             "status": "render",
-            "current_job": str(request_path),
+            # A name, not this machine's absolute path (shared file).
+            "current_job": request_path.name,
             "current_file": data["filepath"],
             # So a worker restarted after a crash can find this render
             # again (_recover_previous_render()).
@@ -617,39 +636,62 @@ def _apply_flat_overrides(scene, overrides: dict) -> None:
             )
 
 
+def _read_job_quiet(job_id: str, attempts: int = 10, delay: float = 0.2) -> dict:
+    """The active job's file, read without a lock (writes are atomic, see
+    read_json_quiet()). A few retries: on Windows a read can be refused
+    while another process replaces the file. Raises if still unreadable."""
+    job_path = ConfigCache.get_path("farm_actives") / f"{job_id}.json"
+    for i in range(attempts):
+        data = read_json_quiet(job_path)
+        if data:
+            return data
+        if i < attempts - 1:
+            time.sleep(delay)
+    raise PipelineError(f"Could not read {job_path.name}.")
+
+
 def apply_custom_preset(
-    preset_name: str, scene, job_id: str, job_data: dict | None = None
+    preset_name: str,
+    scene,
+    job_id: str,
+    job_data: dict | None = None,
+    *,
+    strict: bool = False,
 ) -> None:
     """Apply a per-job render preset onto scene. Looks for a .py first
     (contract: override(scene, job_data)), then a .json (flat key/value
-    overrides). Any error here is caught: a broken preset must never
-    prevent the save+quit that follows. job_data: the job, for a caller
-    that already holds its file's lock (the setup) -- read from the job
-    file otherwise."""
+    overrides). job_data: the job if the caller already has it (the
+    setup) -- else read from its file, without a lock: every worker of a
+    job starts at once, and a lock they all fought over made some of them
+    render without the preset (burn-in, full resolution...).
+    strict=False (the setup): any error is logged and swallowed.
+    strict=True (the render): a preset that can't be applied -- missing,
+    broken, job unreadable -- raises, so the render fails instead of
+    rendering with the .blend's own settings."""
     if not preset_name:
         return
 
     base = ConfigCache.get_path("presets") / preset_name
     py_path = base.with_suffix(".py")
     json_path = base.with_suffix(".json")
-    job_path = ConfigCache.get_path("farm_actives") / f"{job_id}.json"
 
     try:
         if py_path.exists():
             spec = importlib.util.spec_from_file_location("pipeline_prerender", py_path)
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
-            if job_data is not None:
-                module.override(scene, job_data)
-            else:
-                with locked_json(job_path) as box:
-                    data = box["data"] or {}
-                    module.override(scene, data)
+            module.override(
+                scene, job_data if job_data is not None else _read_job_quiet(job_id)
+            )
         elif json_path.exists():
-            with locked_json(json_path) as box:
-                overrides = box["data"] or {}
-                _apply_flat_overrides(scene, overrides)
+            overrides = read_json_quiet(json_path)
+            if overrides is None:
+                raise PipelineError(f"{json_path.name} is unreadable.")
+            _apply_flat_overrides(scene, overrides)
         else:
-            log("WARNING", "farm", f"Render preset '{preset_name}' not found.")
+            raise PipelineError("not found")
     except Exception as e:
-        log("WARNING", "farm", f"Render preset '{preset_name}' failed: {e}")
+        level = "ERROR" if strict else "WARNING"
+        log(level, "farm", f"Render preset '{preset_name}' failed: {e}")
+        if strict:
+            raise
