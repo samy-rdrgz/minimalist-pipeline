@@ -66,6 +66,7 @@ DEFAULT_CONFIG = {
         "max_concurrent_local": 1,
         "stale_monitor_seconds": 90,
         "dead_monitor_seconds": 360,
+        "max_workers_per_job": 0,
     },
 }
 
@@ -410,6 +411,18 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         ),
     )
 
+    max_workers_per_job: bpy.props.IntProperty(
+        name="",
+        min=0,
+        max=64,
+        default=0,
+        description=(
+            "Most machines rendering one job at once (Auto/Placeholder modes), "
+            "joining workers included. 0: no limit. Fewer machines on the same "
+            "frames, fewer of them taking the same frame"
+        ),
+    )
+
     # Snapshot "Done" weights, see PROGRESS_WEIGHTS (lib/snapshot.py).
     progress_wip: bpy.props.IntProperty(
         name="WIP",
@@ -554,6 +567,9 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         row.prop(self, "progress_wip")
         row.prop(self, "progress_rework")
         row.prop(self, "progress_rtk")
+        row = _settings_row(box, "WORKERS PER JOB", "NETWORK_DRIVE")
+        row.prop(self, "max_workers_per_job")
+        row.label(text="0 = no limit" if not self.max_workers_per_job else "")
 
     def invoke(self, context, event):
         try:
@@ -579,6 +595,9 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         self.progress_wip = weights["wip"]
         self.progress_rework = weights["rework"]
         self.progress_rtk = weights["rtk"]
+        self.max_workers_per_job = max(
+            0, int((config.get("farm") or {}).get("max_workers_per_job", 0) or 0)
+        )
 
         naming = config.get("naming", {})
         for key in ("sequence", "shot", "version", "frame"):
@@ -647,7 +666,10 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
                 "tags": self._csv_to_list(self.tags),
                 "assets_departments": self._csv_to_list(self.assets_departments),
                 "shots_departments": self._csv_to_list(self.shots_departments),
-                # "farm" is never touched here -- stays as read from the loaded config
+                # "farm": only max_workers_per_job is edited here, the rest
+                # stays as read from the loaded config.
+                "farm": (config.get("farm") or {})
+                | {"max_workers_per_job": self.max_workers_per_job},
                 "thumbnails": (config.get("thumbnails") or {})
                 | {"size": self.thumbnail_size},
                 "snapshot": (config.get("snapshot") or {})

@@ -2,6 +2,84 @@
 
 All notable changes to this addon. Dates are release dates.
 
+## 1.0.15 — 2026-10-16
+
+From a real production project's export (6 machines, a week): see
+NOTES.md, "What a real project's export showed".
+
+### Farm: renders
+
+- **The render preset is always applied, or the render fails**: some
+  workers rendered with the .blend's own settings (burn-in, full
+  resolution) -- all of a job's machines read its file at once under a
+  lock, the losers skipped the preset with a warning. The job is now read
+  without a lock, and a preset that can't be applied (missing, raising,
+  unreadable) fails that machine's render instead.
+- **Quitting Blender (or switching project) while its worker renders
+  stops the render too**: it outlived Blender, was taken for lost, and its
+  frames were sent out again while it still wrote them -- frames rendered
+  twice.
+- **Bad frames are rendered again, in one pass**: the frame check now
+  names the frames ffmpeg finds corrupted (it only counted error lines),
+  and each worker records the frames it writes -- Blender's placeholder
+  isn't atomic on a network share, and two machines can write the same
+  frame at once: readable, garbled colour blocks, not seen by ffmpeg. At
+  the end of the frame check, both kinds are deleted and rendered again
+  together on a single machine, then checked again; a warning names them,
+  Farm monitoring's job detail ("Rendered again") and the render history
+  list them. The frame check needs ffmpeg 4.3 or later.
+- **Workers per job** (Edit project, 0 = no limit): the most machines one
+  Auto/Placeholder render gets at once, joining workers included. Fewer
+  machines on the same frames, fewer frames taken by two of them at once
+  -- each one a frame to render again (above).
+- **Priority**: the highest now goes first, as documented -- it was the
+  lowest (a priority-50 job waited behind every priority-10 one).
+- The farm host's own worker takes no new render while jobs wait for
+  their setup: setups waited for its renders, one setup per render of
+  hours.
+- A job whose `.blend` no longer exists (a newer version replaced it)
+  fails at once instead of going to every worker, and can't be retried.
+- A block the split can't cut (fewer than two markers bound to a
+  `cam_<seq>_<shot>` camera) still renders whole, but no longer silently:
+  farm warning, the shots it couldn't find on the job and in its render
+  history.
+- Job ids are the same on every machine (project-relative path, not the
+  machine's own mount): a resubmit of a shot already in flight is caught
+  whichever machine sends it. Previews store their label relative.
+
+### Farm: monitor cost, logs, archives
+
+- The monitor reads job and request files without locking them, and no
+  longer re-reads archived jobs every tick; idle machines are listed once
+  per tick; a render in progress is only locked once a machine is done.
+  Gone: the "Could not read job file ... locked", "'NoneType' object is not
+  subscriptable" and "'NoneType' object has no attribute 'get'" errors, and
+  the Farm popup re-reading every job at each refresh.
+- **"No idle machine for job X, will retry." is gone**: it was 99 % of the
+  pipeline log (one line per waiting job per tick); a job's wait is now
+  logged once.
+- Kept farm logs are trimmed once their job is over (Blender's per-frame
+  progress lines dropped, then start + end past 256 KB -- one was 36 MB);
+  archived logs are deleted after 14 days; a job that ended well leaves
+  Farm monitoring on its own 24 h later (failed ones stay).
+  `"farm": {"archive_log_days", "auto_archive_hours"}` in
+  `project_config.json`, 0 = never.
+
+### Linked libraries
+
+- **One entry per linked file**: the list held one entry per linked
+  datablock -- an overridden rig or anim library recorded each of its
+  objects, 2 042 entries (370 KB) for 7 files in one shot's `.wipmeta`,
+  copied into every new version. Nothing used more than the file. An
+  existing `.wipmeta` shrinks on its next open or save; File details
+  shows "asset (2)" when two versions of the same asset are linked.
+
+### Paths
+
+- The sessions log stores project-relative paths (it stored each
+  machine's own `S:\...`): work time and recent files no longer depend on
+  how a machine mounts the project. Older lines still count.
+
 ## 1.0.14 — 2026-10-15
 
 ### Project monitoring

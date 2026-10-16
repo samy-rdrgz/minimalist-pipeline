@@ -72,12 +72,23 @@ def checks_images(job_path: Path):
                 path = str(to_absolute(Path(data["output_path"])))
                 cmd = [
                     ffmpeg_bin,
-                    "-v",
-                    "error",
+                    "-hide_banner",
+                    "-nostats",
+                    # Every line tagged with its level, and a showinfo line
+                    # per decoded frame; decoding single-threaded, an error
+                    # lands right before its frame's line, which names the
+                    # corrupted frames (queue.corrupted_frames()). The
+                    # "level" flag needs ffmpeg 4.3+.
+                    "-loglevel",
+                    "level+info",
+                    "-threads",
+                    "1",
                     "-start_number",
                     str(data["resolved_frame_range"][0]),
                     "-i",
                     f"{path.split('#')[0]}%0{data['output_path'].count('#')}d.{_EXTENSION_MAP.get(data['output_extension'], 'png')}",
+                    "-vf",
+                    "showinfo",
                     "-f",
                     "null",
                     "-",
@@ -88,10 +99,9 @@ def checks_images(job_path: Path):
                 )
                 box["action"] = "to_write"
 
-                # ffmpeg -v error writes one line per corrupted frame to
-                # stderr -- counted by scan_processes(). A file, never a
-                # PIPE: a badly damaged sequence would fill it and hang
-                # ffmpeg for good (see popen_logged()).
+                # Read back by scan_processes() (corrupted_frames()). A
+                # file, never a PIPE: a long sequence would fill it and
+                # hang ffmpeg for good (see popen_logged()).
                 proc = [
                     (
                         popen_logged(

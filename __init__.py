@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Minimalist Pipeline",
     "author": "Samy Rodriguez",
-    "version": (1, 0, 14),
+    "version": (1, 0, 15),
     "blender": (4, 2, 0),
     "location": "View3D > Sidebar > Pipeline",
     "description": "Lightweight pipeline manager for solo/small team Blender projects.",
@@ -239,6 +239,29 @@ def unregister():
     lib.unregister_handlers()
     unregister_topbar_menu()
 
+    # Farm roles first, while the addon's preferences are still registered:
+    # the worker file's path needs the active project and this machine's id,
+    # both read from them -- after unregister_class() is_blender_worker()
+    # answered False and nothing was stopped.
+    try:
+        unregister_refresh_timer()
+        unregister_status_timer()
+        from .farm.loop import _farm_running_project
+        from .farm.monitor import stop_monitor_loop
+        from .farm.workers import is_blender_worker, stop_worker
+
+        if _farm_running_project is not None:
+            stop_monitor_loop()
+        if is_blender_worker():
+            # Not kill_worker(): it only deletes the worker file, and the
+            # render subprocess outlives Blender -- the monitor took it for
+            # lost and sent its frames out again while it still wrote them.
+            # stop_worker() kills it and reports "stopped" (see NOTES.md,
+            # "Quitting Blender while its worker renders").
+            stop_worker(kill_render=True)
+    except Exception as e:
+        print(e)
+
     try:
         lib.save_project_data(lib.addon_pref())
     except Exception:
@@ -249,21 +272,6 @@ def unregister():
             bpy.utils.unregister_class(cls)
         except RuntimeError:
             pass
-
-    # Stop the farm roles before the rest of unregister() tears things down.
-    try:
-        unregister_refresh_timer()
-        unregister_status_timer()
-        from .farm.loop import _farm_running_project
-        from .farm.monitor import stop_monitor_loop
-        from .farm.workers import is_blender_worker, kill_worker
-
-        if _farm_running_project is not None:
-            stop_monitor_loop()
-        if is_blender_worker():
-            kill_worker()
-    except Exception as e:
-        print(e)
 
     _unregister_props(bpy.types.WindowManager, _WM_PROPS)
     _unregister_props(bpy.types.Scene, _SCENE_PROPS)
