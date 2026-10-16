@@ -2088,7 +2088,9 @@ workers far more:
 - the render entry (`templates/worker_render_entry.py`) registers a
   `render_write` handler -- called after each frame Blender writes, never
   for one it skips -- appending `"<dispatch_id> <frame>"` to the machine's
-  `request_<job>_<uuid>.saved` (`saved_frames_path()`), next to its log;
+  `request_<job>_<uuid>.saved` (`saved_frames_path()`), next to its log
+  -- checked on Blender 4.5.2 in background with the farm's placeholder
+  settings: called for every frame written, never for one skipped;
 - the frame check (`checks_images()`) now names the frames it finds
   corrupted, not just a count of error lines: `-loglevel level+info`
   (ffmpeg 4.3+), `-threads 1`, `-vf showinfo`. Decoding single-threaded,
