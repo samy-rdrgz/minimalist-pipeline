@@ -363,6 +363,14 @@ def update_worker(dict: dict):
         box["action"] = "to_write"
 
 
+def saved_frames_path(job_id: str, uuid: str) -> Path:
+    """Worker uuid's record of the frames it wrote for job_id -- one
+    "<dispatch_id> <frame>" line per frame, appended by the render entry's
+    render_write handler (templates/worker_render_entry.py), read by the
+    monitor (frames_written_twice()). Next to the render's own log."""
+    return ConfigCache.get_path("farm_requests") / f"request_{job_id}_{uuid}.saved"
+
+
 def render_request(job_data: dict, uuid: str, cmd_flags: list):
     """Write a render request file targeting worker uuid for this job."""
     request_path = (
@@ -432,6 +440,12 @@ def execute_render_request() -> dict:
                         # "CSV batch: the subprocess couldn't import itself".
                         "--addon-module",
                         __package__.rsplit(".", 1)[0],
+                        # Each frame it writes, for the monitor to spot a
+                        # frame two machines wrote (frames_written_twice()).
+                        "--saved-file",
+                        str(saved_frames_path(data["job_id"], get_machine_id())),
+                        "--dispatch-id",
+                        data.get("dispatch_id") or "",
                     ],
                     stdout=log_file,
                     stderr=subprocess.STDOUT,

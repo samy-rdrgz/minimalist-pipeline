@@ -19,6 +19,13 @@ NOTES.md, "What a real project's export showed".
   stops the render too**: it outlived Blender, was taken for lost, and its
   frames were sent out again while it still wrote them -- frames rendered
   twice.
+- **A frame written by two machines at once is rendered again**:
+  Blender's placeholder isn't atomic on a network share, and two machines
+  can take the same frame -- a readable frame with garbled colour blocks
+  the frame check can't see. Each worker now records the frames it writes;
+  at the end of the render, a frame written by two machines is deleted and
+  rendered again on a single machine (warning in the log, listed in the
+  render history).
 - **Workers per job** (Edit project, 0 = no limit): the most machines one
   Auto/Placeholder render gets at once, joining workers included. Fewer
   machines on the same frames, fewer frames taken by two of them at once

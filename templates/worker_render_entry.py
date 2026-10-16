@@ -11,6 +11,8 @@ preset = argv[argv.index("--preset") + 1]
 # Real (possibly namespaced) module name, passed by execute_render_request()
 # -- see NOTES.md, "CSV batch: the subprocess couldn't import itself".
 addon_module = argv[argv.index("--addon-module") + 1]
+saved_file = argv[argv.index("--saved-file") + 1] if "--saved-file" in argv else ""
+dispatch_id = argv[argv.index("--dispatch-id") + 1] if "--dispatch-id" in argv else ""
 
 # Fresh subprocess: Blender's own extension loader already makes the addon
 # importable, no manual sys.path edit needed here.
@@ -25,5 +27,20 @@ scene.render.use_overwrite = False
 # --python-exit-code before rendering anything, and the worker reports the
 # render as failed. Never render with the .blend's own settings instead.
 farm.apply_custom_preset(preset, scene, job_id, strict=True)
+
+
+def record_saved(scene, *_):
+    """After each frame Blender writes (never one it skips): one line, so the
+    monitor can re-render a frame two machines both wrote -- see NOTES.md,
+    "Frames written by two machines"."""
+    try:
+        with open(saved_file, "a", encoding="utf-8") as f:
+            f.write(f"{dispatch_id} {scene.frame_current}\n")
+    except OSError:
+        pass
+
+
+if saved_file:
+    bpy.app.handlers.render_write.append(record_saved)
 
 bpy.ops.render.render(animation=True)  # renders HERE, after the presets

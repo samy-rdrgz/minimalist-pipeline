@@ -34,6 +34,7 @@ from .post_render import checks_images, compilation, refresh_shot_thumbnail
 from .workers import (
     idle_machines,
     local_render_running,
+    saved_frames_path,
     scan_workers,
     this_instance_is_worker,
 )
@@ -268,6 +269,7 @@ def scan_queue(project_root: Path) -> None:
                 if not _is_recompile(data):
                     construct_history(data, status="finished")
                 mark_stage(job, "archived")
+                discard_saved_frames(data["job_id"])
                 # Ended well -- unless the frame check flagged corrupted
                 # frames: that list only lives in the log, keep it.
                 if not data.get("frames_corrupted"):
@@ -347,6 +349,7 @@ def retry_job(data: dict, project_root: Path) -> str | None:
     data.pop("rendered_by", None)
     data.pop("local_processes", None)
     data.pop("refill_rounds", None)  # a manual retry starts a fresh count
+    data.pop("refill_single", None)
     data["stage_history"].append({"stage": target, "at": now(), "resumed": "retry"})
     log("INFO", "farm", f"Job {data.get('job_id')}: retried at {target}.")
     return target
@@ -639,8 +642,9 @@ def construct_history(job: dict, status):
         else None,
         "status": status,
     }
-    # A block rendered whole because the split couldn't cut it (setup).
-    for key in ("skipped_shots", "absorbed_shots"):
+    # A block rendered whole because the split couldn't cut it (setup);
+    # frames two machines wrote, rendered again (check_render_completion()).
+    for key in ("skipped_shots", "absorbed_shots", "written_twice"):
         if job.get(key):
             entry[key] = job[key]
 
@@ -919,6 +923,35 @@ def check_render_completion(
                 set(data.get("failed_machines", [])) | set(failed)
             )
 
+        # Frames two machines both wrote: Blender's placeholder isn't atomic
+        # on a share, and two writes at once leave a readable frame with
+        # garbled blocks the frame check can't see. Deleted, rendered again
+        # on one machine. Not after the job's own Cancel.
+        all_cancelled = bool(cancelled) and not (any_succeeded or lost or stopped)
+        twice = [] if all_cancelled else frames_written_twice(data)
+        if twice and data.get("refill_rounds", 0) >= MAX_REFILL_ROUNDS:
+            # No round left to render them again: deleting them would fail
+            # the job. Kept, and said.
+            log(
+                "WARNING",
+                "farm",
+                f"Job {data['job_id']}: {len(twice)} frame(s) written by two "
+                f"machines ({_frames_label(twice)}) -- kept, check them "
+                f"(no re-render left).",
+            )
+            twice = []
+        if twice:
+            _delete_frames(data, project_root, twice)
+            data["written_twice"] = sorted(
+                set(data.get("written_twice") or []) | set(twice)
+            )
+            log(
+                "WARNING",
+                "farm",
+                f"Job {data['job_id']}: {len(twice)} frame(s) written by two "
+                f"machines ({_frames_label(twice)}) -- rendered again on one machine.",
+            )
+
         if frames_complete(data, project_root):
             entry = {"stage": "render_finished", "at": now()}
             if failed or lost or stopped or cancelled:
@@ -930,9 +963,9 @@ def check_render_completion(
                     f"frame is on disk -- carrying on.",
                 )
             data["stage_history"].append(entry)
-        elif failed:
+        elif failed and not twice:
             data["stage_history"].append({"stage": "render_failed", "at": now()})
-        elif cancelled and not (any_succeeded or lost or stopped):
+        elif all_cancelled:
             # The job's own Cancel: stop here, never sent out again.
             data["stage_history"].append(
                 {"stage": "render_failed", "at": now(), "cancelled": True}
@@ -960,23 +993,81 @@ def check_render_completion(
             if folder:
                 _delete_placeholders(folder)
             data["refill_rounds"] = data.get("refill_rounds", 0) + 1
+            if twice:
+                # A handful of frames on every free machine would collide again.
+                data["refill_single"] = True
             data["stage_history"].append(
                 {
                     "stage": "setup_finished",
                     "at": now(),
-                    "resumed": "frames left after machines stopped",
+                    "resumed": "frames written twice"
+                    if twice and not (lost or stopped or cancelled)
+                    else "frames left after machines stopped",
                 }
             )
             data["used_machines"] = []
             data.pop("dispatch_id", None)
-            log(
-                "WARNING",
-                "farm",
-                f"Job {data['job_id']}: frames missing after "
-                f"{', '.join(u[:8] for u in lost + stopped + cancelled)} stopped "
-                f"-- sent out again for them.",
-            )
+            if lost or stopped or cancelled:
+                log(
+                    "WARNING",
+                    "farm",
+                    f"Job {data['job_id']}: frames missing after "
+                    f"{', '.join(u[:8] for u in lost + stopped + cancelled)} stopped "
+                    f"-- sent out again for them.",
+                )
         return data
+
+
+def frames_written_twice(data: dict) -> list[int]:
+    """Frames of this render (its dispatch_id) that two of its machines or
+    more wrote, from each machine's saved_frames_path() record. [] for a
+    worker on a version that keeps none."""
+    dispatch_id = data.get("dispatch_id")
+    if not dispatch_id:
+        return []
+    writers: dict[int, set[str]] = {}
+    for uuid in set(data.get("used_machines") or []):
+        try:
+            text = saved_frames_path(data["job_id"], uuid).read_text(encoding="utf-8")
+        except OSError:
+            continue
+        for line in text.splitlines():
+            parts = line.split()
+            if len(parts) == 2 and parts[0] == dispatch_id and parts[1].isdigit():
+                writers.setdefault(int(parts[1]), set()).add(uuid)
+    return sorted(frame for frame, uuids in writers.items() if len(uuids) > 1)
+
+
+def _delete_frames(data: dict, project_root: Path, frames: list[int]) -> None:
+    """Delete these frame numbers' files of the job's output. Best effort: a
+    frame that can't be deleted stays (and is then judged on disk)."""
+    paths = frame_paths(data, project_root) or []
+    start = int((data.get("resolved_frame_range") or (0, 0))[0])
+    for frame in frames:
+        index = frame - start
+        if 0 <= index < len(paths):
+            try:
+                retry_shared_io(paths[index].unlink)
+            except FileNotFoundError:
+                pass
+            except OSError as e:
+                log("WARNING", "farm", f"Could not delete {paths[index].name}: {e}")
+
+
+def _frames_label(frames: list[int], shown: int = 10) -> str:
+    """ "1785, 1807, 1811 (+4)" """
+    text = ", ".join(str(f) for f in frames[:shown])
+    return text + (f" (+{len(frames) - shown})" if len(frames) > shown else "")
+
+
+def discard_saved_frames(job_id: str) -> None:
+    """Delete every machine's saved_frames_path() record of job_id -- only
+    read while its render is judged. Best effort."""
+    for path in ConfigCache.get_path("farm_requests").glob(f"request_{job_id}_*.saved"):
+        try:
+            retry_shared_io(path.unlink)
+        except OSError:
+            pass
 
 
 def mark_stage(path, stage):

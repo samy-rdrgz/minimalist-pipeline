@@ -213,9 +213,20 @@ def render_dispatch(job_path: Path, idle: dict) -> None:
         _waiting_logged.discard(job_data.get("job_id", ""))
 
         fs, fe = job_data.get("resolved_frame_range", (None, None))
-        single_machine = job_data["render_mode"] == "single" or (
-            job_data["render_mode"] == "auto"
-            and render_mode_auto(job_data["filepath"]) == "single"
+        # refill_single: the frames two machines wrote at once, sent out
+        # again (check_render_completion()) -- on one machine, not one that
+        # failed this job while another is free.
+        refill_single = bool(job_data.get("refill_single"))
+        if refill_single:
+            failed = set(job_data.get("failed_machines") or [])
+            available = [u for u in available if u not in failed] or available
+        single_machine = (
+            refill_single
+            or job_data["render_mode"] == "single"
+            or (
+                job_data["render_mode"] == "auto"
+                and render_mode_auto(job_data["filepath"]) == "single"
+            )
         )
         cap = 1 if single_machine else max_workers_per_job()
         used = available[:cap] if cap else available
@@ -294,8 +305,10 @@ def join_running_renders(jobs: list, project_root: Path, idle_by_uuid: dict) -> 
         if not stages or stages[-1].get("stage") != "render_start":
             continue
         mode = data.get("render_mode", "auto")
-        if mode == "single" or (
-            mode == "auto" and render_mode_auto(data["filepath"]) == "single"
+        if (
+            mode == "single"
+            or data.get("refill_single")
+            or (mode == "auto" and render_mode_auto(data["filepath"]) == "single")
         ):
             continue
         assigned = data.get("assigned_machines") or []

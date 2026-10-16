@@ -2060,7 +2060,7 @@ a preset that can't be applied raises, `--python-exit-code 1` ends
 Blender before it renders, the worker reports a failure. The setup stays
 lenient (it only reads what the render will produce).
 
-### Placeholder race: one frame, two machines -- not fixed
+### Frames written by two machines
 
 The worker logs kept for one job (`Saved: '...'` lines) show 9 frames
 saved by two different machines, mid-render, not at start -- a lower bound,
@@ -2075,14 +2075,38 @@ with shifted, washed-out colours, in bands -- JPEG's DC coefficients are
 coded as differences from the previous block, so data from the other
 write, picked up mid-stream, keeps the texture and offsets every colour
 until the next switch. Its markers are valid (one SOI, EOI last), so a
-start/end marker check can't see it; only a "two machines saved this
-frame" record (the workers' `Saved:` lines) can. Claiming each frame
-atomically in the entry script (`O_CREAT|O_EXCL` + render to a temp file + `os.replace`) would fix
-it; decided against for now. Mitigation: `farm.max_workers_per_job`
-(Edit project, 0 = no limit) caps the machines one placeholder/auto render
-gets, joins included -- counted on `used_machines`, so a machine that
-dropped out still counts until the render is judged (a refill starts from
-zero). Also known: the auto -> single fallback never fires,
+start/end marker check can't see it. A truncated frame (a render killed
+mid-write) is a different case: ffmpeg does flag that one.
+
+Preventing it -- claiming each frame atomically in the entry script
+(`O_CREAT|O_EXCL` + render to a temp file + `os.replace`) -- means
+replacing Blender's own animation render loop; decided against. Instead
+it's caught and cured:
+
+- the render entry (`templates/worker_render_entry.py`) registers a
+  `render_write` handler -- called after each frame Blender writes, never
+  for one it skips -- appending `"<dispatch_id> <frame>"` to the machine's
+  `request_<job>_<uuid>.saved` (`saved_frames_path()`), next to its log;
+- when `check_render_completion()` judges the render (no machine left on
+  it), `frames_written_twice()` reads those records for this dispatch:
+  a frame two machines wrote is deleted -- whether the writes overlapped
+  can't be known, so every such frame goes, a few % of a 6-machine job --
+  recorded in `written_twice` (job, then render_history.json), and the job
+  goes back to `setup_finished` through the ordinary refill, flagged
+  `refill_single`: `render_dispatch()` gives it one machine (not one that
+  failed the job, if another is free), `join_running_renders()` leaves it
+  alone -- a handful of frames on six machines would collide again;
+- not after the job's own Cancel, nor once `MAX_REFILL_ROUNDS` is spent
+  (deleting them would fail the job: kept, with a warning naming them);
+  records deleted once the job ends well
+  (`discard_saved_frames()`) or with `archive()`. A worker on an older
+  version writes none: nothing detected, nothing broken.
+
+Also: `farm.max_workers_per_job` (Edit project, 0 = no limit) caps the
+machines one placeholder/auto render gets, joins included -- counted on
+`used_machines`, so a machine that dropped out still counts until the
+render is judged (a refill starts from zero). Fewer machines, fewer
+collisions. Still known: the auto -> single fallback never fires,
 `construct_history()` records the requested mode ("auto"), and
 `last_render_had_collision()` only looks at "placeholder" entries.
 

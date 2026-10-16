@@ -30,7 +30,12 @@ from .loop import (
     register_farm_loop,
     set_running_project,
 )
-from .queue import scan_processes, scan_queue, scan_requests
+from .queue import (
+    discard_saved_frames,
+    scan_processes,
+    scan_queue,
+    scan_requests,
+)
 
 _monitor_cache: dict = {
     "status": "unknown",  # "running" | "stale" | "dead"
@@ -495,6 +500,9 @@ def archive(job_path: Path) -> None:
             log_file.replace(archives_dir / log_file.name)
         except OSError:
             pass
+    # Each machine's frames-written record: only read while the render is
+    # judged (frames_written_twice()), nothing to keep.
+    discard_saved_frames(job_id)
 
     # replace(), not rename(): a re-rendered file reuses its job id (hash of
     # file + preset + shot), so its previous run's archive is often already
