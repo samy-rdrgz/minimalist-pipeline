@@ -59,11 +59,18 @@ NOTES.md, "What a real project's export showed".
 
 ### Linked libraries
 
-- **One entry per linked collection, not per object**: an overridden rig
-  or anim library recorded each of its objects -- 2 042 entries (370 KB)
-  for 7 files in one shot's `.wipmeta`, copied into every new version.
-  Now the root of each override, at most 10 entries per file; an existing
-  `.wipmeta` shrinks on its next open or save.
+- **One entry per linked file**: the list held one entry per linked
+  datablock -- an overridden rig or anim library recorded each of its
+  objects, 2 042 entries (370 KB) for 7 files in one shot's `.wipmeta`,
+  copied into every new version. Nothing used more than the file. An
+  existing `.wipmeta` shrinks on its next open or save; File details
+  shows "asset (2)" when two versions of the same asset are linked.
+
+### Paths
+
+- The sessions log stores project-relative paths (it stored each
+  machine's own `S:\...`): work time and recent files no longer depend on
+  how a machine mounts the project. Older lines still count.
 
 ## 1.0.14 — 2026-10-15
 

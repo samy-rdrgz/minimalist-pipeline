@@ -3,6 +3,7 @@
 import hashlib
 import json
 import os
+import posixpath
 import queue
 import re
 import threading
@@ -404,6 +405,17 @@ class ProjectScan:
         return None if finished else 0.1
 
 
+def _session_folder_key(folder) -> str:
+    """Comparable key of an asset/shot folder in sessions_log.jsonl:
+    project-relative. session_end lines store a relative filepath; older
+    ones the writer's absolute path, made relative here when it's under
+    this machine's own project root. Never raises (read by draw())."""
+    try:
+        return os.path.normcase(to_relative(folder))
+    except Exception:  # no active project to be relative to
+        return os.path.normcase(str(folder))
+
+
 class WorkTimeCache:
     """Total logged work time (session_end duration, everyone summed) per
     asset/shot folder -- total only, never per-person (see design.md).
@@ -430,7 +442,7 @@ class WorkTimeCache:
         if now_t - cls._checked_at < SCANDIR_TTL:
             # Read by draw() on every redraw: re-stat the log at most every
             # SCANDIR_TTL (a network round-trip each on a share).
-            return cls._cache.get(str(Path(folder)), 0.0)
+            return cls._cache.get(_session_folder_key(folder), 0.0)
         cls._checked_at = now_t
         log_path = ConfigCache.get_path("sessions_log_file")
         try:
@@ -451,7 +463,7 @@ class WorkTimeCache:
                 for k in cls._archives_cache.keys() | current.keys()
             }
             cls._mtime = mtime
-        return cls._cache.get(str(Path(folder)), 0.0)
+        return cls._cache.get(_session_folder_key(folder), 0.0)
 
     @staticmethod
     def _scan(log_paths) -> dict[str, float]:
@@ -472,7 +484,7 @@ class WorkTimeCache:
                         duration = entry.get("duration_seconds")
                         if not fp or duration is None:
                             continue
-                        key = str(Path(fp).parent)
+                        key = _session_folder_key(Path(fp).parent)
                         totals[key] = totals.get(key, 0.0) + duration
             except OSError:
                 continue
@@ -525,13 +537,15 @@ class RecentFilesCache:
                     ts = entry.get("ts")
                     if not fp or not ts:
                         continue
-                    folder = str(Path(fp).parent)
+                    folder = _session_folder_key(Path(fp).parent)
                     if folder not in latest or ts > latest[folder][0]:
                         latest[folder] = (ts, fp)
         except OSError:
             pass
         ordered = sorted(latest.values(), key=lambda x: x[0], reverse=True)
-        return [(Path(fp).stem, fp) for _, fp in ordered]
+        # Opened as is: absolute on this machine (a relative line is joined
+        # on this machine's own root).
+        return [(Path(fp).stem, str(project_path(fp))) for _, fp in ordered]
 
 
 def format_duration(seconds: float) -> str:
@@ -726,43 +740,42 @@ def get_session_worked_departments(filepath: Path) -> list[str]:
     return result
 
 
-# Entries kept per linked file in a meta's "linked" list. Everything that
-# reads the list only needs the file (Linked by, library updates, clean-up);
-# the few root names are for the File details tooltip. Without a cap, one
-# overridden rig or anim library recorded each of its objects -- 2 042
-# entries (370 KB) for 7 files in one shot's .wipmeta, copied into every
-# later version. See NOTES.md, "Linked libraries: one line per root".
-LINKED_PER_FILE = 10
+def _linked_key(file: str) -> str:
+    """Comparable form of a linked entry's file: normpath (an old entry's
+    un-collapsed "../" -- see NOTES.md on resolve_bpy_path() -- must not
+    read as another file) + normcase. Pure string work, no disk access."""
+    return os.path.normcase(os.path.normpath(file))
 
 
 def compact_linked(entries: list[dict]) -> list[dict]:
-    """A "linked" list deduped on (file, type, name) and capped at
-    LINKED_PER_FILE entries per file -- collections first, order kept
-    otherwise. Pure data."""
+    """A "linked" list as one {"file"} per linked file, first seen first:
+    everything that reads it only needs the file (Linked by, library
+    updates, clean-up). Turns an older list -- one {file, type, name} per
+    linked datablock, 2 042 entries for 7 files in one shot -- into its
+    files. A relative path is stored collapsed ("../" resolved). Pure data.
+    See NOTES.md, "Linked libraries: one line per file"."""
     seen = set()
-    by_file: dict[str, list[dict]] = {}
+    out = []
     for d in entries:
-        key = (d.get("file"), d.get("type"), d.get("name"))
+        file = d.get("file")
+        if not file:
+            continue
+        if not Path(file).is_absolute():
+            file = posixpath.normpath(file)
+        key = _linked_key(file)
         if key in seen:
             continue
         seen.add(key)
-        by_file.setdefault(d.get("file"), []).append(d)
-    out = []
-    for group in by_file.values():
-        if len(group) > LINKED_PER_FILE:
-            # sorted() is stable: collections first, each in its own order.
-            group = sorted(group, key=lambda d: d.get("type") != "COLLECTION")
-            group = group[:LINKED_PER_FILE]
-        out += group
+        out.append({"file": file})
     return out
 
 
 def wipmeta_add_link(filepath: Path, link: list[dict]):
-    """Append freshly linked libraries to this version's .wipmeta linked
-    list, deduped and capped by compact_linked() -- see NOTES.md. No-op,
-    doesn't raise, if filepath has no .wipmeta -- linking into an open
-    -stable file is legal (Blender doesn't block it in memory, only Save is
-    guarded), and a -stable file has nothing to track it in; same rule as
+    """Add freshly linked files to this version's .wipmeta linked list,
+    one entry per file (compact_linked()) -- see NOTES.md. No-op, doesn't
+    raise, if filepath has no .wipmeta -- linking into an open -stable file
+    is legal (Blender doesn't block it in memory, only Save is guarded),
+    and a -stable file has nothing to track it in; same rule as
     wipmeta_touch()."""
     path = _meta_path(filepath, ".wipmeta")
     if not path.exists():
@@ -774,59 +787,37 @@ def wipmeta_add_link(filepath: Path, link: list[dict]):
             box["action"] = "to_write"
 
 
-def _linked_file_key(d: dict) -> str:
-    """Comparable form of a linked entry's file: plain join + normpath
-    (an old entry's un-collapsed "../" must not read as another file), no
-    disk access -- to_absolute()'s resolve() ran per entry, thousands of
-    network round trips on a bloated list."""
-    return _path_key(project_path(d["file"]))
-
-
 def wipmeta_sync_links(filepath: Path, links: list[dict]) -> int:
-    """Bring this version's .wipmeta linked list in line with links
-    ({file, type, name}, see scan_linked_libraries()): for every file the
-    scan found, its entries become the scan's -- what the file uses now,
-    roots only -- which also shrinks a list bloated by an older scan; the
-    entries of other files are left alone (removal stays
-    clean_libraries()'s job). Catches links that never went through an
-    import event: a file migrated from outside the pipeline, a library
-    repointed by hand or by a script... Writes nothing when nothing
-    changed, so it's cheap to call on every load/save. Returns the number
-    of entries added; 0, no raise, without a .wipmeta (-stable file), same
-    rule as wipmeta_touch()."""
+    """Add to this version's .wipmeta linked list every file of links
+    (see scan_linked_libraries()) it doesn't already have -- for links that
+    never went through an import event: a file migrated from outside the
+    pipeline, a library repointed by hand or by a script... Add-only
+    (removal stays clean_libraries()'s job). Also rewrites an older list
+    (one entry per datablock) as one entry per file. Writes nothing when
+    nothing changed, so it's cheap to call on every load/save. Returns the
+    number of files added; 0, no raise, without a .wipmeta (-stable file),
+    same rule as wipmeta_touch()."""
     path = _meta_path(filepath, ".wipmeta")
     if not path.exists():
         return 0
 
-    scanned = compact_linked([d for d in links if d.get("file")])
-    scanned_files = {_linked_file_key(d) for d in scanned}
-
-    def key(d):
-        return (_linked_file_key(d), d.get("type"), d.get("name"))
-
     with locked_json(path) as box:
         data = box["data"] or {}
         current = data.get("linked", [])
-        known = {key(d) for d in current if d.get("file")}
-        kept = [
-            d
-            for d in current
-            if not d.get("file") or _linked_file_key(d) not in scanned_files
-        ]
-        merged = compact_linked(kept + scanned)
-        added = sum(1 for d in scanned if key(d) not in known)
+        known = compact_linked(current)
+        merged = compact_linked(known + links)
         if merged != current:
             data["linked"] = merged
             box["data"] = data
             box["action"] = "to_write"
-    if len(merged) < len(current):
+    if len(known) < len(current):
         log(
             "INFO",
             "sync_links",
             f"{path.name}: linked list compacted, "
-            f"{len(current)} -> {len(merged)} entries",
+            f"{len(current)} -> {len(known)} entries (one per file)",
         )
-    return added
+    return len(merged) - len(known)
 
 
 def create_stablemeta(
@@ -1795,9 +1786,9 @@ def wipmeta_update_libraries(filepath: Path, update):
     else:
         with locked_json(path) as box:
             data = box["data"] or {}
-            data["linked"] = [
-                d | {"file": update.get(d["file"], d["file"])} for d in data["linked"]
-            ]
+            data["linked"] = compact_linked(
+                [{"file": update.get(d["file"], d["file"])} for d in data["linked"]]
+            )
             box["action"] = "to_write"
 
 
@@ -1808,13 +1799,13 @@ def clean_libraries(linked: list[dict], libs: list[str]) -> list[dict]:
 
 
 def get_linked_libraries(filepath: Path) -> list[dict]:
-    """This asset/shot's own linked-libraries list ({file, type, name}
-    dicts) -- the latest wip's if one exists, else the latest stable's."""
+    """This asset/shot's own linked-libraries list ({file} dicts, one per
+    file) -- the latest wip's if one exists, else the latest stable's."""
     asset_dir = _owner_dir(Path(filepath))
     wip = get_last_wipmeta(asset_dir)
-    if wip:
-        return wip.get("linked", [])
-    return get_last_stable(asset_dir).get("linked", [])
+    linked = (wip or get_last_stable(asset_dir)).get("linked", [])
+    # An old -stable's list is never rewritten: one entry per datablock.
+    return compact_linked(linked)
 
 
 # owner folder -> (.pipeline mtime, linked list, last checked -- time.monotonic())

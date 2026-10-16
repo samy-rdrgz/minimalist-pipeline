@@ -2069,8 +2069,15 @@ the logs of renders that end well are deleted. Blender's placeholder is
 the window; Blender writes the image straight onto its final name, so two
 writes at once give a spliced file: valid header, readable, blocks of
 garbage -- not flagged by `checks_images` (`ffmpeg -v error`), which only
-counts error lines anyway. Claiming each frame atomically in the entry
-script (`O_CREAT|O_EXCL` + render to a temp file + `os.replace`) would fix
+counts error lines anyway. A frame sent from production shows the
+signature: the top rows right, then from one point down the same detail
+with shifted, washed-out colours, in bands -- JPEG's DC coefficients are
+coded as differences from the previous block, so data from the other
+write, picked up mid-stream, keeps the texture and offsets every colour
+until the next switch. Its markers are valid (one SOI, EOI last), so a
+start/end marker check can't see it; only a "two machines saved this
+frame" record (the workers' `Saved:` lines) can. Claiming each frame
+atomically in the entry script (`O_CREAT|O_EXCL` + render to a temp file + `os.replace`) would fix
 it; decided against for now. Mitigation: `farm.max_workers_per_job`
 (Edit project, 0 = no limit) caps the machines one placeholder/auto render
 gets, joins included -- counted on `used_machines`, so a machine that
@@ -2151,18 +2158,36 @@ still write. The same housekeeping archives jobs that ended well more than
 at -- and deletes archived logs older than `farm.archive_log_days` (14).
 Job files are kept: a few KB, and `render_history.json` has the outcome.
 
-### Linked libraries: one line per root
+### Linked libraries: one line per file
 
 One shot's `.wipmeta` listed 2 042 links for 7 files (1 398 for one anim
 library), 370 KB; 51 766 entries over the project's 183 metas, copied into
-every new version and read by `ProjectScan`. `_root_linked_ids()` added
-the reference of every override -- overriding a rig makes each of its
-objects (every widget) an override. Now only each override hierarchy's
-root reference, and a root inside another root collection is dropped.
-`compact_linked()` dedupes and caps a list at `LINKED_PER_FILE` (10)
-entries per file, collections first: everything that reads the list only
-needs the file. `wipmeta_sync_links()` now replaces the entries of the
-files the scan found (it was add-only), which shrinks an existing bloated
-`.wipmeta` on its next load/save; it compares files by plain
-join + normpath instead of a `resolve()` per entry. Old `.stablemeta`s
-keep their long lists (read-only); new versions inherit compact ones.
+every new version and read by `ProjectScan`. The list held one
+`{file, type, name}` per linked datablock, and the scan added the
+reference of every override -- overriding a rig makes each of its objects
+(every widget) an override. Yet everything that reads the list only needs
+the file: "Linked by", the library update check (which reads
+`bpy.data.libraries` anyway), `clean_libraries()`, the File details "Links
+to" (grouped by folder). So it's now one `{"file"}` per linked file:
+`scan_linked_libraries()` lists the direct project libraries
+(`bpy.data.libraries`, `parent is None`) -- no more root detection -- and
+`compact_linked()`, applied by every writer of the list and by
+`get_linked_libraries()` on read, turns an older list into its files
+(`../` collapsed, compared normcased). An existing `.wipmeta` is rewritten
+on its next load/save (`wipmeta_sync_links()`, logged "compacted"); an old
+`.stablemeta` is never rewritten, but reads compact. File details: a folder
+with more than one entry now means several versions of that asset linked.
+
+### Shared logs and JSON: project-relative paths
+
+Besides the job ids and preview labels above: `worker_*.json`'s
+`current_job` held the request's absolute path (now its name), and every
+`session_end` line of `sessions_log.jsonl` (428 of 428) the writer's own
+`S:\...`. It worked because every machine here mounts `S:`; a machine on
+`\\host\share` would have had its work time and recent files keyed on
+another path. `_log_session_end()` now stores `to_relative()`;
+`WorkTimeCache`/`RecentFilesCache` key on `_session_folder_key()` (the
+folder made project-relative -- an old absolute line under this machine's
+root still counts), and the recent files open `project_path()` of it. The
+`.session_<pid>.json` file itself stays absolute: it's this machine's own,
+compared with `bpy.data.filepath`.

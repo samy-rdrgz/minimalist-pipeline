@@ -646,20 +646,14 @@ def draw_file_details(self, context, layout):
         links_col = tabl.column(align=True)
         links_col.scale_y = 0.7
         if linked:
-            # Group by linked file (one entry per datablock otherwise) and
-            # dedupe (file, type, name) -- see NOTES.md.
-            seen = set()
+            # One entry per linked file; grouped by folder -- more than one
+            # means several versions of the same asset linked.
             by_folder: dict[Path, list[dict]] = {}
             for entry in linked:
-                if not entry.get("file"):
-                    continue
-                key = (entry["file"], entry.get("type"), entry.get("name"))
-                if key in seen:
-                    continue
-                seen.add(key)
-                by_folder.setdefault(project_path(entry["file"]).parent, []).append(
-                    entry
-                )
+                if entry.get("file"):
+                    by_folder.setdefault(
+                        project_path(entry["file"]).parent, []
+                    ).append(entry)
 
             links_col.label(text="Links to:", icon="LINKED")
             for lib_dir, entries in by_folder.items():
@@ -676,7 +670,7 @@ def draw_file_details(self, context, layout):
                 )
                 op.filepath = str(lib_dir)
                 op.custom_tooltip = "\n".join(
-                    f"{e.get('type', '')} '{e.get('name', '')}'" for e in entries
+                    Path(e["file"]).name for e in entries
                 )
         if linked_by:
             links_col.label(text="Linked by:", icon="LINKED")
