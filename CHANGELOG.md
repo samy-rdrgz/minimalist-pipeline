@@ -2,7 +2,7 @@
 
 All notable changes to this addon. Dates are release dates.
 
-## Unreleased
+## 1.0.15 — 2026-10-16
 
 From a real production project's export (6 machines, a week): see
 NOTES.md, "What a real project's export showed".
@@ -31,8 +31,7 @@ NOTES.md, "What a real project's export showed".
 - **Workers per job** (Edit project, 0 = no limit): the most machines one
   Auto/Placeholder render gets at once, joining workers included. Fewer
   machines on the same frames, fewer frames taken by two of them at once
-  (Blender's placeholder isn't atomic on a network share: such a frame is
-  readable, with corrupted blocks, and not caught by the frame check).
+  -- each one a frame to render again (above).
 - **Priority**: the highest now goes first, as documented -- it was the
   lowest (a priority-50 job waited behind every priority-10 one).
 - The farm host's own worker takes no new render while jobs wait for
