@@ -916,8 +916,9 @@ def _overview_card(
     by_department = [
         (c.capitalize(), department_progress(items, c), "") for c in columns
     ]
+    # The hairline on the bars, keyed in their panels' heading.
     key = (
-        f'<p class="exp-key"><i></i>Expected at an even pace: {_pct(expected)}</p>'
+        f'<span class="exp-key"><i></i>expected {_pct(expected)}</span>'
         if expected is not None
         else ""
     )
@@ -928,10 +929,10 @@ def _overview_card(
         f'<div class="panel"><h4>State of the {total} department '
         f'task{"" if total == 1 else "s"}</h4>'
         f'<div class="stack" role="img" aria-label="{_e(label)}">{segments}</div>'
-        f'<div class="slegend">{legend}</div></div><div class="split">'
-        f'<div class="panel"><h4>{_e(by)}</h4>{_bar_list(by_group, expected)}</div>'
-        f'<div class="panel"><h4>By department</h4>'
-        f"{_bar_list(by_department, expected)}</div></div>{key}{grid}</div></div>"
+        f'<div class="slegend">{legend}</div></div><div class="prow">'
+        f'<div class="panel"><h4>{_e(by)}{key}</h4>{_bar_list(by_group, expected)}'
+        f'</div><div class="panel"><h4>By department{key}</h4>'
+        f"{_bar_list(by_department, expected)}</div>{grid}</div></div></div>"
     )
 
 
@@ -965,7 +966,7 @@ def _heatmap(axis: str, groups: dict, columns: list, noun: str) -> str:
         return ""
     head = "".join(f"<th>{_e(c.capitalize())}</th>" for c in columns)
     return (
-        f'<div class="panel"><h4>{_e(axis)} × department</h4><div class="hm-wrap">'
+        f'<div class="panel hm-p"><h4>{_e(axis)} × department</h4><div class="hm-wrap">'
         f'<table class="hm"><thead><tr><th></th>{head}</tr></thead>'
         f"<tbody>{''.join(rows)}</tbody></table></div>"
         '<p class="hm-key">0 %<i></i>100 %</p></div>'
@@ -1490,8 +1491,7 @@ font-size:12px;font-weight:600}
 .p-ontrack{background:var(--done-bg);color:var(--done)}
 .p-slip{background:var(--wip-bg);color:var(--wip)}
 .p-behind{background:var(--rtk-bg);color:var(--rtk)}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));
-gap:12px;margin-top:12px}
+.cards{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;margin-top:12px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:10px;
 padding:14px 16px}
 .card h4{margin:14px 0 8px;font-size:12px;font-weight:600;color:var(--muted);
@@ -1505,11 +1505,15 @@ text-transform:uppercase;letter-spacing:.04em}
 .sw{display:inline-block;width:10px;height:10px;margin-right:6px;border-radius:2px;
 vertical-align:-1px}
 /* One panel per chart, on the page's background inside the card. */
-.panels{display:grid;gap:12px;margin-top:12px}
+.panels{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;margin-top:12px}
 .panel{min-width:0;padding:12px 16px 14px;border-radius:8px;background:var(--bg)}
-.card .panel h4{margin:0 0 10px}
-.split{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));
-gap:12px}
+.card .panel h4{display:flex;justify-content:space-between;gap:12px;margin:0 0 10px}
+/* Bars by group, by department and the grid side by side; the grid goes
+under them when it doesn't fit (many departments, narrow screen), and
+scrolls sideways past the screen's width. */
+.prow{display:flex;flex-wrap:wrap;gap:12px}
+.prow>.panel{flex:1 1 260px}
+.prow>.hm-p{flex:1 0 auto;max-width:100%}
 .bars{display:grid;grid-template-columns:max-content minmax(60px,1fr) max-content;
 gap:6px 10px;align-items:center;font-size:12px}
 .bl small{margin-left:6px;color:var(--muted)}
@@ -1518,7 +1522,8 @@ gap:6px 10px;align-items:center;font-size:12px}
 .bt .exp{position:absolute;top:-3px;bottom:-3px;width:2px;margin-left:-1px;
 background:var(--fg);opacity:.55;border-radius:1px}
 .bv{text-align:right;font-variant-numeric:tabular-nums}
-.exp-key{margin:0 4px;font-size:12px;color:var(--muted)}
+.exp-key{font-size:11px;font-weight:400;color:var(--muted);text-transform:none;
+letter-spacing:0;white-space:nowrap}
 .exp-key i{display:inline-block;width:2px;height:12px;margin-right:6px;
 background:var(--fg);opacity:.55;vertical-align:-2px}
 .hm-wrap{overflow-x:auto}
