@@ -924,13 +924,14 @@ def _overview_card(
     grid = _heatmap(by.removeprefix("By ").capitalize(), groups, columns, noun)
     return (
         f'<div class="card"><h3>{_e(title)}<span class="muted">{len(items)} '
-        f'{noun}{"" if len(items) == 1 else "s"}</span></h3><h4>State of the '
-        f'{total} department task{"" if total == 1 else "s"}</h4>'
+        f'{noun}{"" if len(items) == 1 else "s"}</span></h3><div class="panels">'
+        f'<div class="panel"><h4>State of the {total} department '
+        f'task{"" if total == 1 else "s"}</h4>'
         f'<div class="stack" role="img" aria-label="{_e(label)}">{segments}</div>'
-        f'<div class="slegend">{legend}</div><div class="split">'
-        f"<div><h4>{_e(by)}</h4>{_bar_list(by_group, expected)}</div>"
-        f"<div><h4>By department</h4>{_bar_list(by_department, expected)}</div>"
-        f"</div>{key}{grid}</div>"
+        f'<div class="slegend">{legend}</div></div><div class="split">'
+        f'<div class="panel"><h4>{_e(by)}</h4>{_bar_list(by_group, expected)}</div>'
+        f'<div class="panel"><h4>By department</h4>'
+        f"{_bar_list(by_department, expected)}</div></div>{key}{grid}</div></div>"
     )
 
 
@@ -964,9 +965,10 @@ def _heatmap(axis: str, groups: dict, columns: list, noun: str) -> str:
         return ""
     head = "".join(f"<th>{_e(c.capitalize())}</th>" for c in columns)
     return (
-        f'<h4>{_e(axis)} × department</h4><div class="hm-wrap"><table class="hm">'
-        f"<thead><tr><th></th>{head}</tr></thead><tbody>{''.join(rows)}</tbody>"
-        '</table></div><p class="hm-key">0 %<i></i>100 %</p>'
+        f'<div class="panel"><h4>{_e(axis)} × department</h4><div class="hm-wrap">'
+        f'<table class="hm"><thead><tr><th></th>{head}</tr></thead>'
+        f"<tbody>{''.join(rows)}</tbody></table></div>"
+        '<p class="hm-key">0 %<i></i>100 %</p></div>'
     )
 
 
@@ -1329,18 +1331,17 @@ _CSS = """
 :root{--page:1600px;--bg:#f7f7f5;--fg:#1d1d1b;--muted:#6b6b66;--card:#fff;--line:#e2e1dc;
 --accent:#3d5afe;--done:#2e7d32;--done-bg:#e3f2e4;--wip:#8a5a00;--wip-bg:#fff1d6;
 --todo:#6b6b66;--rtk:#c62828;--rtk-bg:#fde7e7;color-scheme:light dark;
---t-rework:#7cb342;--t-wip:#e09a1a;--t-done:var(--done);--t-rtk:var(--rtk);
+--t-rework:#7cb342;--t-wip:#c98a1a;--t-done:var(--done);--t-rtk:var(--rtk);
 --track:color-mix(in srgb,var(--done) 16%,var(--card))}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161615;
 --fg:#ecebe6;--muted:#a3a29c;--card:#20201e;--line:#34332f;--accent:#8c9eff;
 --done:#81c784;--done-bg:#1d3320;--wip:#ffcc80;--wip-bg:#3a2c12;--todo:#a3a29c;
---rtk:#ef9a9a;--rtk-bg:#3a1c1c;--t-done:#267330;--t-rework:#68a91e;
---t-rtk:#b31424;--t-wip:#b88e2e;--track:color-mix(in srgb,var(--done) 16%,var(--card))}}
+--rtk:#ef9a9a;--rtk-bg:#3a1c1c;--t-rework:#4c8c50;--t-wip:#b88e2e;
+--track:color-mix(in srgb,var(--done) 16%,var(--card))}}
 :root[data-theme="dark"]{--bg:#161615;--fg:#ecebe6;--muted:#a3a29c;--card:#20201e;
 --line:#34332f;--accent:#8c9eff;--done:#81c784;--done-bg:#1d3320;--wip:#ffcc80;
---wip-bg:#3a2c12;--todo:#a3a29c;--rtk:#ef9a9a;--rtk-bg:#3a1c1c;--t-done:#267330;
---t-rework:#68a91e;--t-rtk:#b31424;--t-wip:#b88e2e;
---track:color-mix(in srgb,var(--done) 16%,var(--card))}
+--wip-bg:#3a2c12;--todo:#a3a29c;--rtk:#ef9a9a;--rtk-bg:#3a1c1c;--t-rework:#4c8c50;
+--t-wip:#b88e2e;--track:color-mix(in srgb,var(--done) 16%,var(--card))}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);
 font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
@@ -1471,9 +1472,9 @@ margin:0 .6em 0 .15em;border:solid var(--muted);border-width:0 2px 2px 0;
 vertical-align:.18em;transform:rotate(45deg);transition:transform .15s}
 details.sec:not([open])>summary h2::before{transform:rotate(-45deg)}
 details.sec:not([open])>summary h2{margin-bottom:0}
-/* Overview: department tasks in the pills' colours (--t-*: steps of them
-that colour-blind readers can still tell apart side by side), not started
-grey. */
+/* Overview: department tasks in the page's colours -- --done and --rtk as
+everywhere else; WIP an amber and reworked a second green, stepped so that
+colour-blind readers still tell neighbours apart; not started grey. */
 #overview h2 .sub,.card h3 .muted{margin-left:8px;font-size:12px;font-weight:400;
 color:var(--muted)}
 .kpis{display:flex;flex-wrap:wrap;gap:12px}
@@ -1503,8 +1504,12 @@ text-transform:uppercase;letter-spacing:.04em}
 .slegend .muted{color:var(--muted)}
 .sw{display:inline-block;width:10px;height:10px;margin-right:6px;border-radius:2px;
 vertical-align:-1px}
-.split{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));
-gap:0 24px}
+/* One panel per chart, on the page's background inside the card. */
+.panels{display:grid;gap:12px;margin-top:12px}
+.panel{min-width:0;padding:12px 16px 14px;border-radius:8px;background:var(--bg)}
+.card .panel h4{margin:0 0 10px}
+.split{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));
+gap:12px}
 .bars{display:grid;grid-template-columns:max-content minmax(60px,1fr) max-content;
 gap:6px 10px;align-items:center;font-size:12px}
 .bl small{margin-left:6px;color:var(--muted)}
@@ -1513,7 +1518,7 @@ gap:6px 10px;align-items:center;font-size:12px}
 .bt .exp{position:absolute;top:-3px;bottom:-3px;width:2px;margin-left:-1px;
 background:var(--fg);opacity:.55;border-radius:1px}
 .bv{text-align:right;font-variant-numeric:tabular-nums}
-.exp-key{margin:12px 0 0;font-size:12px;color:var(--muted)}
+.exp-key{margin:0 4px;font-size:12px;color:var(--muted)}
 .exp-key i{display:inline-block;width:2px;height:12px;margin-right:6px;
 background:var(--fg);opacity:.55;vertical-align:-2px}
 .hm-wrap{overflow-x:auto}
