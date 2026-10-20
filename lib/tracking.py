@@ -801,6 +801,15 @@ def create_stablemeta(
         ) as box:
             wipdata = box["data"]
 
+        # Before this stable exists: the previous one and the work since.
+        started = set(departments)
+        previous = _collect_folder(_owner_dir(Path(filepath)))
+        if previous:
+            status = _status_from_raw(previous)
+            started |= set(status["started_departments"])
+            started |= set(status["validated_departments"])
+            started |= set(status["worked_departments"])
+
         nw = now()
         data = {
             "file": str(to_relative(filepath)),
@@ -809,6 +818,9 @@ def create_stablemeta(
             "departments_validated": {
                 d: d in departments for d in get_departments_required(filepath)
             },
+            # Validated or worked on at any point so far, cumulative: what
+            # tells "not validated" from "not started" (_collect_folder()).
+            "departments_started": sorted(started),
             "linked": (wipdata or {}).get("linked", []),
             "conflict_warning": conflict_warnings,
         }
@@ -834,9 +846,19 @@ def set_department_validated(filepath: Path, department: str, validated: bool) -
             "Mark at least one version as stable before validating individual departments."
         )
     path = asset_dir / ".pipeline" / (_meta_stem(Path(last["file"])) + ".stablemeta")
+    # A stable made before "departments_started": seeded from every stable's
+    # validations, or recording it here would hide them from then on.
+    seed = None
+    if "departments_started" not in last:
+        seed = _validated_at_any_stable(_pipeline_entries(asset_dir))
     with locked_json(path) as box:
         data = box["data"] or {}
-        data.setdefault("departments_validated", {})[department] = validated
+        current = data.setdefault("departments_validated", {})
+        started = set(data.get("departments_started", seed) or [])
+        if validated or current.get(department):
+            started.add(department)  # validated once: started, even unvalidated
+        current[department] = validated
+        data["departments_started"] = sorted(started)
         box["action"] = "to_write"
 
 
@@ -943,7 +965,81 @@ def _collect_folder(
             data = read_json_quiet(Path(entry.path))
             if data:
                 wipmetas.append(data)
-    return {"tracking": tracking, "last_stable": last_stable, "wipmetas": wipmetas}
+    started = last_stable.get("departments_started")
+    if started is None:  # a stable made before they were recorded
+        started = _started_before(entries, tracking, last_stable, wipmetas, stable_date)
+    return {
+        "tracking": tracking,
+        "last_stable": last_stable,
+        "wipmetas": wipmetas,
+        "started": started,
+    }
+
+
+def _validated_at_any_stable(entries: list) -> set[str]:
+    """Departments validated at any of a folder's stables (one read each)."""
+    validated = set()
+    for entry in entries:
+        if entry.name.endswith(".stablemeta"):
+            data = read_json_quiet(Path(entry.path)) or {}
+            validated |= {
+                d for d, v in (data.get("departments_validated") or {}).items() if v
+            }
+    return validated
+
+
+def _started_before(
+    entries: list, tracking: dict, last_stable: dict, wipmetas: list, stable_date
+) -> list[str]:
+    """ "departments_started" for a latest stable that predates it: those
+    validated at any stable, or worked in a version before the latest one.
+    Only read for the required departments neither validated at the latest
+    stable nor worked since -- the one case it changes (they aren't "not
+    started" then): the older stables, then the older wipmetas, newest
+    first, until each of them is found."""
+    validated = {
+        d for d, v in last_stable.get("departments_validated", {}).items() if v
+    }
+    worked = _worked_departments(wipmetas, stable_date)
+    left = {
+        d
+        for d in tracking.get("departments_required", [])
+        if d not in validated and d not in worked
+    }
+    if not left:
+        return []
+    started = _validated_at_any_stable(entries)
+    older = sorted(
+        (e for e in entries if e.name.endswith(".wipmeta")),
+        key=_entry_mtime,
+        reverse=True,
+    )
+    for entry in older:
+        if left <= started:
+            break
+        data = read_json_quiet(Path(entry.path)) or {}
+        for deps_list in (data.get("departments_worked") or {}).values():
+            started.update(deps_list)
+    return sorted(started)
+
+
+def _worked_departments(wipmetas: list, stable_date: datetime) -> dict[str, list[dict]]:
+    """{department: [{"file", "by"}]} worked on in the wipmetas edited after
+    stable_date (the latest stable's)."""
+    worked: dict[str, list[dict]] = {}
+    for meta in wipmetas:
+        meta_date_str = meta.get("edited_at", "")
+        if not meta_date_str:
+            continue
+        if datetime.fromisoformat(meta_date_str) <= stable_date:
+            continue  # at or before the latest stable, ignored
+        # departments_worked : {session_id: [dep1, dep2, ...]}
+        for deps_list in meta.get("departments_worked", {}).values():
+            for dep in deps_list:
+                worked.setdefault(dep, []).append(
+                    {"file": meta["file"], "by": meta.get("edited_by")}
+                )
+    return worked
 
 
 def _status_from_raw(raw: dict) -> dict:
@@ -962,19 +1058,7 @@ def _status_from_raw(raw: dict) -> dict:
     }
 
     # Departments worked on since the latest stable
-    worked_departments: dict[str, list[dict]] = {}
-    for meta in raw["wipmetas"]:
-        meta_date_str = meta.get("edited_at", "")
-        if not meta_date_str:
-            continue
-        if datetime.fromisoformat(meta_date_str) <= stable_date:
-            continue  # at or before the latest stable, ignored
-        # departments_worked : {session_id: [dep1, dep2, ...]}
-        for deps_list in meta.get("departments_worked", {}).values():
-            for dep in deps_list:
-                worked_departments.setdefault(dep, []).append(
-                    {"file": meta["file"], "by": meta.get("edited_by")}
-                )
+    worked_departments = _worked_departments(raw["wipmetas"], stable_date)
 
     deps_items = [
         (d, d.capitalize(), "", 2**i)
@@ -984,6 +1068,9 @@ def _status_from_raw(raw: dict) -> dict:
     return global_data | {
         "worked_departments": worked_departments,
         "validated_departments": validated_departments,
+        # Validated at an earlier stable, or worked before the latest one:
+        # never "not started", even without validation or work since.
+        "started_departments": sorted(raw.get("started") or []),
         "departments_items": deps_items,
         # Computed here (not in draw()) so a UI redraw -- which Blender
         # fires constantly, e.g. on every mouse move over the viewport --
@@ -1028,6 +1115,8 @@ def department_status_tooltip(data: dict, department: str) -> str:
         ]
     else:
         lines = ["Not validated for the current stable version."]
+        if department in data.get("started_departments", ()):
+            lines.append("Validated or worked on before it: in progress.")
 
     if worked:
         lines.append("")

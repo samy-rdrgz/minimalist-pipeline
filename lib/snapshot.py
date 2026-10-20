@@ -6,11 +6,12 @@ import base64
 import hashlib
 import html
 import io
+import math
 import os
 import re
 import threading
 import zipfile
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from xml.etree import ElementTree as ET
 from xml.sax.saxutils import escape as xml_escape
@@ -316,6 +317,10 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
     meta["thumbnail_size"] = thumbnail_size(config)
     meta["progress"] = {k: average_progress(v) for k, v in items.items()}
     meta["progress_weights"] = weights
+    schedule = project_schedule(config)
+    if schedule:
+        today = datetime.fromisoformat(meta.get("scan_started_at") or now()).date()
+        meta["schedule"] = schedule_progress(schedule, today, meta["progress"])
     meta["asset_departments"] = _columns(
         json_get(config, "assets_departments", []), items["asset"]
     )
@@ -335,11 +340,15 @@ def collect_snapshot(
 
 
 def _department_state(status: dict, department: str) -> str:
+    """done / rework (validated at the latest stable, worked since or not),
+    wip (worked since, or started before: validated at an earlier stable or
+    worked before the latest one), todo (never)."""
     validated = department in status.get("validated_departments", {})
     worked = department in status.get("worked_departments", {})
     if validated:
         return "rework" if worked else "done"
-    return "wip" if worked else "todo"
+    started = department in status.get("started_departments", ())
+    return "wip" if worked or started else "todo"
 
 
 def progress_weights(config: dict) -> dict[str, int]:
@@ -376,8 +385,117 @@ def average_progress(items: list) -> float | None:
     return sum(values) / len(values) if values else None
 
 
+def parse_day(value: str) -> date:
+    """A date typed day first -- 20/10/2026, 20-10-2026, 20.10.2026 -- or ISO
+    (2026-10-20). Raises PipelineError otherwise."""
+    value = value.strip()
+    for fmt in ("%d/%m/%Y", "%d-%m-%Y", "%d.%m.%Y", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(value, fmt).date()
+        except ValueError:
+            continue
+    raise PipelineError(f"'{value}' is not a date (DD/MM/YYYY).")
+
+
+# ISO weekday numbers (1 Monday .. 7 Sunday) a schedule works by default.
+WORK_WEEK = (1, 2, 3, 4, 5)
+
+
+def project_schedule(config: dict) -> dict | None:
+    """The project's "snapshot.schedule" (Edit project): {"start", "end",
+    "days_off" (dates), "worked_days" (ISO weekday numbers, WORK_WEEK when
+    unset)}. None unless start and end are both set, in order, and some
+    day of the week is worked."""
+    raw = json_get(config, "snapshot.schedule", {}) or {}
+    try:
+        start = date.fromisoformat(raw["start"])
+        end = date.fromisoformat(raw["end"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if end < start:
+        return None
+    days_off = set()
+    for day in raw.get("days_off") or []:
+        try:
+            days_off.add(date.fromisoformat(day))
+        except (TypeError, ValueError):
+            pass
+    try:
+        weekdays = sorted(
+            {int(d) for d in raw.get("worked_days", WORK_WEEK)} & set(range(1, 8))
+        )
+    except (TypeError, ValueError):
+        weekdays = list(WORK_WEEK)
+    if not weekdays:
+        return None
+    return {"start": start, "end": end, "days_off": days_off, "worked_days": weekdays}
+
+
+def _is_working_day(schedule: dict, day: date) -> bool:
+    return (
+        day.isoweekday() in schedule["worked_days"] and day not in schedule["days_off"]
+    )
+
+
+def working_days(schedule: dict, start: date, end: date) -> int:
+    """The schedule's working days from start to end, both included: its
+    worked days of the week, its days off left out -- a spreadsheet's
+    NETWORKDAYS.INTL(). 0 when end is before start."""
+    count, day = 0, start
+    while day <= end:
+        count += _is_working_day(schedule, day)
+        day += timedelta(days=1)
+    return count
+
+
+def nth_working_day(schedule: dict, n: int) -> date:
+    """The schedule's n-th working day (1: the first), its end past the last."""
+    count, day = 0, schedule["start"]
+    while day < schedule["end"]:
+        count += _is_working_day(schedule, day)
+        if count >= max(n, 1):
+            return day
+        day += timedelta(days=1)
+    return schedule["end"]
+
+
+def schedule_progress(schedule: dict, today: date, progress: dict) -> dict:
+    """meta["schedule"]: the schedule (ISO dates) and where the project
+    should be on today at an even pace -- "expected" (0..1), its working
+    days so far, today included ("elapsed_days"), over all of them
+    ("total_days"). "at": per section of progress ({kind: Done or None}),
+    the day an even pace reaches its Done and how many working days ahead
+    (+) or behind (-) of today that is."""
+    start, end = schedule["start"], schedule["end"]
+    total = working_days(schedule, start, end)
+    elapsed = working_days(schedule, start, min(today, end))
+    at = {}
+    for kind, done in progress.items():
+        if done is not None:
+            days = done * total
+            at[kind] = {
+                "date": nth_working_day(schedule, math.ceil(days)).isoformat(),
+                "days": round(days - elapsed),
+            }
+    return {
+        "start": start.isoformat(),
+        "end": end.isoformat(),
+        "worked_days": list(schedule["worked_days"]),
+        "days_off": sorted(d.isoformat() for d in schedule["days_off"]),
+        "expected": elapsed / total if total else float(today >= end),
+        "elapsed_days": elapsed,
+        "total_days": total,
+        "at": at,
+    }
+
+
 def _pct(value: float | None) -> str:
     return "–" if value is None else f"{round(value * 100)} %"
+
+
+def _day(iso: str) -> str:
+    """ "2026-10-20..." -> "20/10/2026": day before month."""
+    return f"{datetime.fromisoformat(iso):%d/%m/%Y}"
 
 
 def _columns(configured: list, items: list) -> list:
@@ -471,6 +589,15 @@ def _e(value) -> str:
     return html.escape(str(value or ""), quote=True)
 
 
+def _section(anchor: str, heading: str, body: str) -> str:
+    """A page section, folded and unfolded by a click on its heading -- open
+    at load (_JS opens it again for a link into it, and for printing)."""
+    return (
+        f'<section id="{anchor}"><details class="sec" open><summary><h2>{heading}'
+        f"</h2></summary>{body}</details></section>"
+    )
+
+
 def render_html(snapshot: dict) -> str:
     """The whole snapshot as one offline HTML page (CSS/JS inline, review
     template embedded as a data: link)."""
@@ -487,7 +614,8 @@ def render_html(snapshot: dict) -> str:
         for k, (label, cls) in STATES.items()
     ) + (
         '<span class="pill st-none">Not required</span>'
-        '<span class="pill st-done rtk-open">Validated, open RTK</span>'
+        '<span class="pill st-todo rtk-open">Open RTK</span>'
+        '<span class="muted">red outline, whatever the state</span>'
         '<span class="pill behind">⚠ Render older than the stable</span>'
         '<span class="pill tocheck">to check</span>'
         '<span class="muted">not checked yet</span>'
@@ -497,14 +625,14 @@ def render_html(snapshot: dict) -> str:
         '<span class="muted">in the farm</span>'
     )
 
+    notes: dict[str, list] = {}
+    for thread in snapshot["notes"]:
+        notes.setdefault(thread["item"], []).append(thread)
     body = [
         "<header>",
         f"<h1>{_e(meta.get('project'))}</h1>",
         '<dl class="meta">',
         f"<div><dt>Snapshot</dt><dd>{_e(scan_date)}</dd></div>",
-        "<div><dt>Done</dt><dd>"
-        f"Assets &amp; libraries {_pct(meta['progress']['asset'])} · "
-        f"Shots {_pct(meta['progress']['shot'])}</dd></div>",
         f"<div><dt>Exported by</dt><dd>{_e(meta.get('exported_by'))}</dd></div>",
         f"<div><dt>Addon</dt><dd>Minimalist Pipeline {_e(meta.get('addon_version'))}</dd></div>",
         "</dl>",
@@ -517,11 +645,14 @@ def render_html(snapshot: dict) -> str:
         "the file back as is.</p>",
         "</div>",
         "</header>",
+        _render_overview(snapshot),
         "<nav>",
         '<div class="links"><a href="#assets">Assets <span id="c-assets">'
         f'{len(snapshot["assets"])}</span></a><a href="#shots">Shots <span id="c-shots">'
-        f'{len(snapshot["shots"])}</span></a><a href="#notes">Notes <span id="c-notes">'
-        f'{sum(not n["closed"] for n in snapshot["notes"])}</span></a></div>',
+        f'{len(snapshot["shots"])}</span></a><button type="button" id="all-notes" '
+        'title="Unfold every note under its row, or fold them all">Notes '
+        f'<span id="c-notes">{sum(not n["closed"] for n in snapshot["notes"])}</span>'
+        "</button></div>",
         _render_filters(snapshot),
         "</nav>",
         f'<p class="legend">{legend}</p>',
@@ -530,9 +661,12 @@ def render_html(snapshot: dict) -> str:
         f"reworked since {weights['rework']} %, validated with an open RTK "
         f"{weights['rtk']} %, validated 100 %. Totals and groups average "
         "their assets/shots.</p>",
-        _render_table("assets", "Assets", snapshot["assets"], meta["asset_departments"]),
-        _render_table("shots", "Shots", snapshot["shots"], meta["shot_departments"]),
-        _render_notes(snapshot["notes"], snapshot["assets"] + snapshot["shots"]),
+        _render_table(
+            "assets", "Assets", snapshot["assets"], meta["asset_departments"], notes
+        ),
+        _render_table(
+            "shots", "Shots", snapshot["shots"], meta["shot_departments"], notes
+        ),
     ]
     title = f"{meta.get('project') or 'Project'} snapshot {scan_date[:10]}"
     # Hover shows a thumbnail at its own size (the project setting), from
@@ -546,6 +680,327 @@ def render_html(snapshot: dict) -> str:
         f"<title>{_e(title)}</title>\n<style>{_CSS}:root{{--thumb-zoom:{zoom}}}</style>\n</head>"
         f"<body>\n{nl.join(body)}\n<script>{_JS}</script>\n</body></html>\n"
     )
+
+
+# The overview's stacked bar of department tasks, in this order: their
+# state, or "rtk" for one with an open RTK, whatever its state. Coloured as
+# the table's pills (reworked: a lighter green); the order keeps green away
+# from amber, a pair colour-blind readers can't tell apart.
+_TASK_STATES = ("done", "rework", "rtk", "wip", "todo")
+_TASK_LABELS = {**SHORT_STATES, "rtk": "Open RTK"}
+_TASK_TIPS = {k: label for k, (label, _) in STATES.items()} | {
+    "rtk": "Open RTK, whatever its state"
+}
+_WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+
+
+def _render_overview(snapshot: dict) -> str:
+    """ "Progress" block between the header and the filters -- the whole
+    project at export time, filters aside: stat tiles (each section's Done,
+    against the schedule's expected progress when the project has one; the
+    open RTKs), then a card per section: its departments' states, its Done
+    by group and by department."""
+    meta = snapshot["meta"]
+    day = _day(meta.get("scan_started_at") or now())
+    schedule = meta.get("schedule")
+    expected = schedule["expected"] if schedule else None
+    sections = (
+        ("shot", "Shots", "By sequence", "shot", snapshot["shots"]),
+        ("asset", "Assets & libraries", "By prefix", "file", snapshot["assets"]),
+    )
+    tiles = [
+        _stat_tile(
+            f"{title} done",
+            _pct(meta["progress"][kind]),
+            _schedule_delta(meta["progress"][kind], expected),
+        )
+        for kind, title, _, _, _ in sections
+        if meta["progress"][kind] is not None
+    ]
+    if schedule:
+        tiles.append(
+            _stat_tile(
+                f"Expected on {day}",
+                _pct(expected),
+                f'<span class="delta">{schedule["elapsed_days"]} of '
+                f'{schedule["total_days"]} working days, {_day(schedule["start"])} '
+                f'→ {_day(schedule["end"])}</span>',
+            )
+        )
+    everything = snapshot["assets"] + snapshot["shots"]
+    rtk = sum(i["open_rtk"] for i in everything)
+    files = sum(1 for i in everything if i["open_rtk"])
+    on_files = f'on {files} file{"" if files == 1 else "s"}'
+    tiles.append(
+        _stat_tile(
+            "Open RTKs", str(rtk), f'<span class="delta">{on_files}</span>' if rtk else ""
+        )
+    )
+    cards = "".join(
+        _overview_card(title, by, noun, items, meta[f"{kind}_departments"], expected)
+        for kind, title, by, noun, items in sections
+    )
+    if cards:
+        cards = f'<div class="cards">{cards}</div>'
+    timeline = _render_timeline(meta, sections) if schedule else ""
+    return _section(
+        "overview",
+        f'Progress<span class="sub">whole project on {day}, filters aside</span>',
+        f'<div class="kpis">{"".join(tiles)}</div>{timeline}{cards}',
+    )
+
+
+def _short_day(iso: str, year: bool = False) -> str:
+    """ "2026-10-20..." -> "20/10", "20/10/26" with the year."""
+    return f"{datetime.fromisoformat(iso):{'%d/%m/%y' if year else '%d/%m'}}"
+
+
+def _render_timeline(meta: dict, sections) -> str:
+    """The schedule as one band per section, on a scale of planned progress
+    (0 % at its start, 100 % at its end, in working days): today's
+    expected progress a line across the bands, each section's Done the
+    band's fill -- the stretch between the two light green when ahead,
+    red when behind."""
+    s = meta["schedule"]
+    exp = s["expected"]
+    line = f'<i class="exp" style="left:{exp * 100:.2f}%"></i>'
+    week = ", ".join(_WEEKDAYS[d - 1] for d in s["worked_days"])
+    off = len(s["days_off"])
+    days_off = f", {off} day{'' if off == 1 else 's'} off" if off else ""
+    sub = (
+        f'{_day(s["start"])} → {_day(s["end"])}, {s["total_days"]} working days '
+        f"({week}{days_off})"
+    )
+    # The label is centred on its line, kept inside near either end.
+    side = " l" if exp < 0.15 else " r" if exp > 0.85 else ""
+    today = _short_day(meta.get("scan_started_at") or now())
+    rows = [
+        f'<span></span><span class="tl-mark"><b class="today{side}" '
+        f'style="left:{exp * 100:.2f}%">Expected today ({today}): {_pct(exp)}</b>'
+        "</span><span></span>"
+    ]
+    for kind, title, _, _, _ in sections:
+        at = s["at"].get(kind)
+        if not at:
+            continue
+        done = meta["progress"][kind]
+        pts, days = round((done - exp) * 100), at["days"]
+        # Coloured by the pace's band, as the Done tile's pill.
+        band = _pace_band(done, exp)
+        cls = band[0] if band else "ahead" if done > exp else ""
+        if pts or days:
+            word = "ahead" if done > exp else "behind"
+            rel = (
+                f'{"▲" if word == "ahead" else "▼"} {abs(pts)} '
+                f'pt{"" if abs(pts) == 1 else "s"}, {abs(days)} '
+                f'working day{"" if abs(days) == 1 else "s"} {word}'
+            )
+        else:
+            rel = "on schedule"
+        low, high = min(done, exp), max(done, exp)
+        gap = (
+            f'<i class="gap {cls}" style="left:{low * 100:.2f}%;'
+            f'width:{(high - low) * 100:.2f}%"></i>'
+            if high > low
+            else ""
+        )
+        tip = _e(
+            f"{title}: {_pct(done)} done, {_pct(exp)} expected today -- an even "
+            f"pace gets to {_pct(done)} on {_day(at['date'])}"
+        )
+        rows.append(
+            f'<span class="bl" title="{tip}">{_e(title)}</span><span class="bt" '
+            f'title="{tip}"><i class="f" style="width:{low * 100:.2f}%"></i>{gap}'
+            f'{line}</span><span class="bv" title="{tip}">{_pct(done)}'
+            f'<small class="{cls}">{rel}</small></span>'
+        )
+    years = s["start"][:4] != s["end"][:4]
+    rows.append(
+        f'<span></span><span class="tl-ends"><span>{_short_day(s["start"], years)}'
+        f' · 0 %</span><span>{_short_day(s["end"], years)} · 100 %</span></span>'
+        "<span></span>"
+    )
+    return (
+        f'<div class="card tl"><h3>Schedule<span class="muted">{_e(sub)}</span></h3>'
+        f'<div class="bars">{"".join(rows)}</div></div>'
+    )
+
+
+def _stat_tile(label: str, value: str, line: str = "") -> str:
+    """One figure of the overview: its label, its value, then a line (HTML)."""
+    return (
+        f'<div class="kpi"><span class="kpi-label">{_e(label)}</span>'
+        f'<span class="kpi-value">{_e(value)}</span>{line}</div>'
+    )
+
+
+# A Done's pace (done / expected) -> its band, a spreadsheet's colouring of
+# its "efficiency": (lowest pace, css key, label), highest first.
+_PACE_BANDS = (
+    (1.05, "ahead", "ahead"),
+    (1.0, "ontrack", "on track"),
+    (0.9, "slip", "slightly behind"),
+    (0.0, "behind", "behind"),
+)
+_PACE_TIP = (
+    "Done / expected: 105 % and more ahead, 100 to 105 % on track, "
+    "90 to 100 % slightly behind, under 90 % behind"
+)
+
+
+def _pace_band(done: float, expected: float) -> tuple[str, str] | None:
+    """(css key, label) of done's pace against expected, None before the
+    schedule's first working day (nothing expected yet)."""
+    if expected <= 0:
+        return None
+    pace = done / expected
+    return next((k, label) for floor, k, label in _PACE_BANDS if pace >= floor)
+
+
+def _schedule_delta(progress: float, expected: float | None) -> str:
+    """A Done tile's lines against the expected progress: points ahead or
+    behind, then the pace (done / expected, a spreadsheet's "efficiency")
+    as a pill in its band's colour. Nothing without a schedule."""
+    if expected is None:
+        return ""
+    gap = round((progress - expected) * 100)
+    pts = f'{abs(gap)} pt{"" if abs(gap) == 1 else "s"}'
+    if gap > 0:
+        text = f"▲ {pts} ahead of schedule"
+    elif gap < 0:
+        text = f"▼ {pts} behind schedule"
+    else:
+        text = "on schedule"
+    line = f'<span class="delta">{text}</span>'
+    band = _pace_band(progress, expected)
+    if band:
+        line += (
+            f'<span class="pace p-{band[0]}" title="{_PACE_TIP}">Pace '
+            f"{round(progress / expected * 100)} %, {band[1]}</span>"
+        )
+    return line
+
+
+def _overview_card(
+    title: str, by: str, noun: str, items: list, columns: list, expected
+) -> str:
+    """One section's charts: its department tasks (item x required
+    department) by state, its Done by group and by department. Nothing when
+    none of its items requires a department."""
+    tasks = [
+        "rtk" if d in i["rtk_departments"] else st
+        for i in items
+        for d, st in i["departments"].items()
+    ]
+    if not tasks:
+        return ""
+    total = len(tasks)
+    counts = {s: tasks.count(s) for s in _TASK_STATES}
+    # flex-grow, not a width: the 2px gaps come out of the bar, not on top.
+    segments = "".join(
+        f'<i class="s-{s}" style="flex:{counts[s]} 1 0" title="{_e(_TASK_TIPS[s])}: '
+        f'{counts[s]} ({_pct(counts[s] / total)})"></i>'
+        for s in _TASK_STATES
+        if counts[s]
+    )
+    legend = "".join(
+        f'<span title="{_e(_TASK_TIPS[s])}"><i class="sw s-{s}"></i>'
+        f"{_e(_TASK_LABELS[s])} <b>{counts[s]}</b> "
+        f'<span class="muted">{_pct(counts[s] / total)}</span></span>'
+        for s in _TASK_STATES
+    )
+    label = ", ".join(f"{_TASK_LABELS[s]} {counts[s]}" for s in _TASK_STATES)
+    groups: dict[str, list] = {}
+    for item in items:
+        groups.setdefault(item["group"], []).append(item)
+    by_group = [
+        (g, average_progress(m), f'{len(m)} {noun}{"" if len(m) == 1 else "s"}')
+        for g, m in groups.items()
+    ]
+    by_department = [
+        (c.capitalize(), department_progress(items, c), "") for c in columns
+    ]
+    # The hairline on the bars, keyed in their panels' heading.
+    key = (
+        f'<span class="exp-key"><i></i>expected {_pct(expected)}</span>'
+        if expected is not None
+        else ""
+    )
+    grid = _heatmap(by.removeprefix("By ").capitalize(), groups, columns, noun)
+    return (
+        f'<div class="card"><h3>{_e(title)}<span class="muted">{len(items)} '
+        f'{noun}{"" if len(items) == 1 else "s"}</span></h3><div class="panels">'
+        f'<div class="panel"><h4>State of the {total} department '
+        f'task{"" if total == 1 else "s"}</h4>'
+        f'<div class="stack" role="img" aria-label="{_e(label)}">{segments}</div>'
+        f'<div class="slegend">{legend}</div></div><div class="prow">'
+        f'<div class="panel"><h4>{_e(by)}{key}</h4>{_bar_list(by_group, expected)}'
+        f'</div><div class="panel"><h4>By department{key}</h4>'
+        f"{_bar_list(by_department, expected)}</div>{grid}</div></div></div>"
+    )
+
+
+def _heatmap(axis: str, groups: dict, columns: list, noun: str) -> str:
+    """Group x department grid of Done -- each cell shaded by its value, one
+    green from light to dark, capped so its text stays readable; "–" where
+    none of the group's items requires the department. Nothing when no item
+    requires any."""
+    columns = [
+        c for c in columns if any(c in i["scores"] for m in groups.values() for i in m)
+    ]
+    rows = []
+    for group, members in groups.items():
+        cells = []
+        for c in columns:
+            values = [i["scores"][c] for i in members if c in i["scores"]]
+            if not values:
+                cells.append('<td class="na">–</td>')
+                continue
+            pct = round(sum(values) / len(values) * 100)
+            n = len(values)
+            tip = _e(
+                f"{group}, {c.capitalize()}: {pct} % done "
+                f'({n} {noun}{"" if n == 1 else "s"})'
+            )
+            shade = f"color-mix(in srgb,var(--done) {6 + pct * 0.44:.0f}%,var(--card))"
+            cells.append(f'<td style="background:{shade}" title="{tip}">{pct} %</td>')
+        if any(cell != '<td class="na">–</td>' for cell in cells):
+            rows.append(f"<tr><th>{_e(group)}</th>{''.join(cells)}</tr>")
+    if not rows:
+        return ""
+    head = "".join(f"<th>{_e(c.capitalize())}</th>" for c in columns)
+    return (
+        f'<div class="panel hm-p"><h4>{_e(axis)} × department</h4><div class="hm-wrap">'
+        f'<table class="hm"><thead><tr><th></th>{head}</tr></thead>'
+        f"<tbody>{''.join(rows)}</tbody></table></div>"
+        '<p class="hm-key">0 %<i></i>100 %</p></div>'
+    )
+
+
+def _bar_list(rows: list, expected: float | None) -> str:
+    """One bar per (label, progress, note) row -- the Done of a group or a
+    department, rows without any required department left out -- the
+    expected progress as a hairline across each."""
+    mark = (
+        f'<i class="exp" style="left:{expected * 100:.2f}%"></i>'
+        if expected is not None
+        else ""
+    )
+    cells = []
+    for label, progress, note in rows:
+        if progress is None:
+            continue
+        pct = round(progress * 100)
+        tip = _e(f"{label}: {pct} % done" + (f" ({note})" if note else ""))
+        small = f"<small>{_e(note)}</small>" if note else ""
+        cells.append(
+            f'<span class="bl" title="{tip}">{_e(label)}{small}</span>'
+            f'<span class="bt" title="{tip}"><i class="f" style="width:{pct}%"></i>'
+            f'{mark}</span><span class="bv" title="{tip}">{pct} %</span>'
+        )
+    if not cells:
+        return '<p class="empty">No department required.</p>'
+    return f'<div class="bars">{"".join(cells)}</div>'
 
 
 def _render_filters(snapshot: dict) -> str:
@@ -614,13 +1069,14 @@ def _item_attrs(item: dict) -> str:
     )
 
 
-def _render_table(anchor: str, title: str, items: list, columns: list) -> str:
+def _render_table(
+    anchor: str, title: str, items: list, columns: list, notes: dict
+) -> str:
+    """One section's table, an item per row -- each followed by a row of its
+    notes (notes: {item name: its threads}), folded at load (_JS)."""
     nl = "\n"
     if not items:
-        return (
-            f'<section id="{anchor}"><h2>{title}</h2>'
-            '<p class="empty">Nothing tracked yet.</p></section>'
-        )
+        return _section(anchor, title, '<p class="empty">Nothing tracked yet.</p>')
     title += f' <span class="pct">{_pct(average_progress(items))} done</span>'
     with_thumbs = any(i.get("thumbnail") for i in items)
     head = (
@@ -658,10 +1114,10 @@ def _render_table(anchor: str, title: str, items: list, columns: list) -> str:
                 )
             else:
                 label, cls = STATES[state]
-                if state == "done" and c in item["rtk_departments"]:
-                    # Validated, then sent back: the RTK is the news.
+                if c in item["rtk_departments"]:
+                    # Sent back: the RTK is the news, whatever the state.
                     cls += " rtk-open"
-                    label = "Validated, then an RTK was opened on it"
+                    label += ", with an open RTK"
                 cells.append(
                     f'<td data-col="d:{_e(c)}"><span class="pill {cls}" title="{_e(label)}">'
                     f"{_e(SHORT_STATES[state])}</span></td>"
@@ -674,13 +1130,8 @@ def _render_table(anchor: str, title: str, items: list, columns: list) -> str:
         flags = (
             f'<span class="flag">{item["open_rtk"]} RTK</span>' if item["open_rtk"] else ""
         )
-        n = item["open_notes"]
-        jump = (
-            f'<a class="jump" href="#n-{_e(_slug(item["name"]))}">'
-            f'{n} note{"" if n == 1 else "s"} ↓</a>'
-            if n
-            else ""
-        )
+        threads = notes.get(item["name"], [])
+        toggle = _notes_toggle(item["open_notes"], len(threads)) if threads else ""
         thumb = ""
         if with_thumbs:
             thumb = (
@@ -690,13 +1141,17 @@ def _render_table(anchor: str, title: str, items: list, columns: list) -> str:
                 else '<td class="th" data-col="thumb"><div class="nothumb"></div></td>'
             )
         rows.append(
-            f'<tr class="item" id="i-{_e(_slug(item["name"]))}" {_item_attrs(item)}>'
-            f'{thumb}<td class="name"><b>{_e(item["name"])}</b>{flags}{jump}'
+            f'<tr class="item" id="i-{_e(_slug(item["name"]))}" {_item_attrs(item)} '
+            f'data-threads="{len(threads)}">'
+            f'{thumb}<td class="name"><b>{_e(item["name"])}</b>{flags}{toggle}'
             f'<small>{_e(item["description"])}</small></td>'
             f'<td class="ver" data-col="file">{_e(versions)}</td>'
             f'<td class="ver" data-col="render">{_render_cell(item)}</td>{"".join(cells)}'
             f'<td class="done" data-col="done">{_progress_cell(item["progress"])}</td></tr>'
         )
+        if threads:
+            span = len(columns) + 4 + with_thumbs
+            rows.append(_notes_row(_thread_lis(threads), span, with_thumbs))
     # Whole section, whatever the filters show.
     foot = (
         ('<td data-col="thumb"></td>' if with_thumbs else "")
@@ -709,14 +1164,15 @@ def _render_table(anchor: str, title: str, items: list, columns: list) -> str:
         )
         + f'<td class="done" data-col="done">{_progress_cell(average_progress(items))}</td>'
     )
-    return (
-        f'<section id="{anchor}"><h2>{title}</h2>'
+    return _section(
+        anchor,
+        title,
         '<p class="empty nomatch" hidden>Nothing matches the filters.</p>'
         '<div class="scroll"><table>'
         f"<thead><tr>{head}</tr></thead>"
         f"<tbody>\n{nl.join(rows)}\n</tbody>"
         f'<tfoot title="Whole section, filters aside"><tr>{foot}</tr></tfoot>'
-        "</table></div></section>"
+        "</table></div>",
     )
 
 
@@ -838,54 +1294,59 @@ def _render_entry(e: dict, reply: bool = False, closed: bool = False) -> str:
     )
 
 
-def _render_notes(notes: list, items: list) -> str:
-    if not notes:
-        return (
-            '<section id="notes"><h2>Notes</h2>'
-            '<p class="empty">No notes.</p></section>'
-        )
-    attrs = {i["name"]: _item_attrs(i) for i in items}
-    by_item: dict[str, list] = {}
-    for n in notes:
-        by_item.setdefault(n["item"], []).append(n)
-    cards = []
-    for name, threads in by_item.items():
-        threads = sorted(threads, key=lambda t: t["last_activity"], reverse=True)
-        lis = "\n".join(
-            "\n".join(
-                [_render_entry(t, closed=t["closed"])]
-                + [_render_entry(r, True, t["closed"]) for r in t["replies"]]
-            )
-            for t in threads
-        )
-        slug = _e(_slug(name))
-        open_count = sum(not t["closed"] for t in threads)
-        cards.append(
-            f'<article class="item" id="n-{slug}" data-threads="{len(threads)}" '
-            f'data-open="{open_count}" {attrs.get(name, "")}><h3>{_e(name)}'
-            f'<a class="back" href="#i-{slug}" title="Back to its row">↑</a></h3>'
-            f"<ul>\n{lis}\n</ul></article>"
-        )
+def _notes_toggle(open_count: int, total: int) -> str:
+    """ "2 notes" button unfolding an item's notes row (_JS) -- the count of
+    its open threads, of all of them once "Show closed" is ticked."""
+
+    def count(n: int) -> str:
+        return f'{n} note{"" if n == 1 else "s"}'
+
     return (
-        '<section id="notes"><h2>Notes</h2>'
-        '<p class="empty nomatch" hidden>Nothing matches the filters '
-        '(closed notes are hidden: tick "Show closed").</p>'
-        + "\n".join(cards)
-        + "</section>"
+        f'<button type="button" class="jump" aria-expanded="false" '
+        f'data-open="{open_count}"><span class="n-open">{count(open_count)}</span>'
+        f'<span class="n-all">{count(total)}</span></button>'
+    )
+
+
+def _thread_lis(threads: list) -> str:
+    """An item's threads as list items, the most recently active first."""
+    threads = sorted(threads, key=lambda t: t["last_activity"], reverse=True)
+    return "\n".join(
+        "\n".join(
+            [_render_entry(t, closed=t["closed"])]
+            + [_render_entry(r, True, t["closed"]) for r in t["replies"]]
+        )
+        for t in threads
+    )
+
+
+def _notes_row(lis: str, span: int, thumbs: bool = False) -> str:
+    """The row under an item's own holding its notes, folded at load (_JS),
+    lined up with the name: past a spacer as wide as the thumbnail column
+    (thumbs), hidden with it from the Columns menu. Its text stays in view
+    when a wide table is scrolled sideways."""
+    spacer = '<i class="nspace" data-col="thumb"></i>' if thumbs else ""
+    return (
+        f'<tr class="notes" hidden><td colspan="{span}"><div class="nwrap">{spacer}'
+        f'<div class="nbox"><ul class="threads">\n{lis}\n</ul></div></div></td></tr>'
     )
 
 
 _CSS = """
 :root{--page:1600px;--bg:#f7f7f5;--fg:#1d1d1b;--muted:#6b6b66;--card:#fff;--line:#e2e1dc;
 --accent:#3d5afe;--done:#2e7d32;--done-bg:#e3f2e4;--wip:#8a5a00;--wip-bg:#fff1d6;
---todo:#6b6b66;--rtk:#c62828;--rtk-bg:#fde7e7;color-scheme:light dark}
+--todo:#6b6b66;--rtk:#c62828;--rtk-bg:#fde7e7;color-scheme:light dark;
+--t-rework:#7cb342;--t-wip:#c98a1a;--t-done:var(--done);--t-rtk:var(--rtk);
+--track:color-mix(in srgb,var(--done) 16%,var(--card))}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161615;
 --fg:#ecebe6;--muted:#a3a29c;--card:#20201e;--line:#34332f;--accent:#8c9eff;
 --done:#81c784;--done-bg:#1d3320;--wip:#ffcc80;--wip-bg:#3a2c12;--todo:#a3a29c;
---rtk:#ef9a9a;--rtk-bg:#3a1c1c}}
+--rtk:#ef9a9a;--rtk-bg:#3a1c1c;--t-rework:#4c8c50;--t-wip:#b88e2e;
+--track:color-mix(in srgb,var(--done) 16%,var(--card))}}
 :root[data-theme="dark"]{--bg:#161615;--fg:#ecebe6;--muted:#a3a29c;--card:#20201e;
 --line:#34332f;--accent:#8c9eff;--done:#81c784;--done-bg:#1d3320;--wip:#ffcc80;
---wip-bg:#3a2c12;--todo:#a3a29c;--rtk:#ef9a9a;--rtk-bg:#3a1c1c}
+--wip-bg:#3a2c12;--todo:#a3a29c;--rtk:#ef9a9a;--rtk-bg:#3a1c1c;--t-rework:#4c8c50;
+--t-wip:#b88e2e;--track:color-mix(in srgb,var(--done) 16%,var(--card))}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);
 font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
@@ -906,9 +1367,10 @@ padding:10px max(16px,calc((100% - var(--page))/2 + 16px));
 background:var(--bg);border-bottom:1px solid var(--line)}
 @media (min-width:700px){nav{position:sticky;top:0}}
 .links,.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-.links a{color:var(--fg);text-decoration:none;padding:4px 10px;border-radius:6px;
-border:1px solid var(--line);background:var(--card)}
-.links a span{color:var(--muted);margin-left:4px}
+.links a,.links button{color:var(--fg);text-decoration:none;padding:4px 10px;
+border-radius:6px;border:1px solid var(--line);background:var(--card);font:inherit;
+cursor:pointer}
+.links a span,.links button span{color:var(--muted);margin-left:4px}
 .filters input[type=search],.filters select,.filters button{font:inherit;min-width:0;
 padding:4px 8px;border-radius:6px;border:1px solid var(--line);background:var(--card);
 color:var(--fg)}
@@ -928,13 +1390,19 @@ box-shadow:0 4px 18px rgba(0,0,0,.18)}
 .filters.active button{color:var(--accent);border-color:var(--accent)}
 [id]{scroll-margin-top:var(--nav-h,16px)}
 tr:target td{background:color-mix(in srgb,var(--accent) 12%,transparent)}
-article:target{outline:2px solid var(--accent);outline-offset:-1px}
-.jump{display:inline-block;margin-left:8px;font-size:11px;color:var(--accent);
-text-decoration:none;white-space:nowrap}
-.jump:hover,.back:hover{text-decoration:underline}
-.back{margin-left:8px;font-weight:400;color:var(--accent);text-decoration:none}
+.jump{display:inline-block;margin-left:8px;padding:0;border:0;background:none;
+font:inherit;font-size:11px;color:var(--accent);white-space:nowrap;cursor:pointer}
+.jump::after{content:" ▸"}.jump[aria-expanded="true"]::after{content:" ▾"}
+.jump:hover{text-decoration:underline}
+body:not(.show-closed) .jump[data-open="0"],body:not(.show-closed) .n-all,
+body.show-closed .n-open{display:none}
 .legend{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
 .scroll{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:10px}
+/* A table's header, copied by _JS once the real one has scrolled under the
+nav -- position:sticky can't: inside a scroll box it sticks to the box. */
+.stuck{position:fixed;z-index:1;overflow:hidden;background:var(--card);
+box-shadow:0 1px 0 var(--line),0 4px 10px rgba(0,0,0,.06)}
+.stuck table{table-layout:fixed}
 table{border-collapse:collapse;width:100%}
 th,td{padding:6px 8px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
 table{font-size:13px}
@@ -978,12 +1446,20 @@ img.thumb:hover{transform:scale(var(--thumb-zoom,2.4));transform-origin:left top
 z-index:3;box-shadow:0 4px 18px rgba(0,0,0,.35)}
 .flag{margin-left:8px;font-size:11px;font-weight:600;color:var(--rtk);
 background:var(--rtk-bg);padding:1px 6px;border-radius:999px}
-article{background:var(--card);border:1px solid var(--line);border-radius:10px;
-padding:12px 16px;margin-bottom:12px}
-article ul{list-style:none;margin:0;padding:0}
-article li{padding:8px 0;border-top:1px solid var(--line)}
-article li.reply{margin-left:24px}
-article li p{margin:4px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
+/* An item's notes, in the row under its own. */
+tr.notes>td{padding:0 8px 8px;
+background:color-mix(in srgb,var(--accent) 4%,var(--card))}
+.nwrap{display:flex}
+/* The thumbnail column: its cell's left padding + the thumbnail -- not on a
+narrow screen, where it would push the notes out of it. */
+.nspace{flex:0 0 120px}@media (max-width:640px){.nspace{display:none}}
+.nbox{position:sticky;left:8px;flex:1 1 auto;min-width:0;
+max-width:min(60rem,calc(100vw - 64px))}
+.threads{list-style:none;margin:0;padding:0}
+.threads li{padding:8px 0;border-top:1px solid var(--line)}
+.threads li:first-child{border-top:0}
+.threads li.reply{margin-left:24px}
+.threads li p{margin:4px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
 .head{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .who{margin-left:auto;color:var(--muted);font-size:12px}
 .type,.tag{font-size:11px;padding:1px 7px;border-radius:999px;border:1px solid var(--line)}
@@ -993,7 +1469,97 @@ article li p{margin:4px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
 .t-done{color:var(--done);background:var(--done-bg);border-color:transparent}
 .empty{color:var(--muted)}
 section:last-of-type{padding-bottom:40px}
-@media print{nav,.review,.jump,.back{display:none}.scroll{overflow:visible}}
+details.sec>summary{list-style:none;cursor:pointer}
+details.sec>summary::-webkit-details-marker{display:none}
+/* A chevron drawn as two borders of a square: it turns on its own centre. */
+details.sec>summary h2::before{content:"";display:inline-block;width:.4em;height:.4em;
+margin:0 .6em 0 .15em;border:solid var(--muted);border-width:0 2px 2px 0;
+vertical-align:.18em;transform:rotate(45deg);transition:transform .15s}
+details.sec:not([open])>summary h2::before{transform:rotate(-45deg)}
+details.sec:not([open])>summary h2{margin-bottom:0}
+/* Overview: department tasks in the page's colours -- --done and --rtk as
+everywhere else; WIP an amber and reworked a second green, stepped so that
+colour-blind readers still tell neighbours apart; not started grey. */
+#overview h2 .sub,.card h3 .muted{margin-left:8px;font-size:12px;font-weight:400;
+color:var(--muted)}
+.kpis{display:flex;flex-wrap:wrap;gap:12px}
+.kpi{flex:1 1 200px;display:flex;flex-direction:column;gap:2px;background:var(--card);
+border:1px solid var(--line);border-radius:10px;padding:12px 16px}
+.kpi-label{font-size:12px;color:var(--muted)}
+.kpi-value{font-size:28px;font-weight:600;line-height:1.2}
+.delta{font-size:12px;color:var(--muted)}
+/* Pace bands: a solid green, a light one, amber, red -- each with its label. */
+.pace{align-self:flex-start;margin-top:6px;padding:1px 8px;border-radius:999px;
+font-size:12px;font-weight:600}
+.p-ahead{background:var(--done);color:var(--card)}
+.p-ontrack{background:var(--done-bg);color:var(--done)}
+.p-slip{background:var(--wip-bg);color:var(--wip)}
+.p-behind{background:var(--rtk-bg);color:var(--rtk)}
+.cards{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;margin-top:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;
+padding:14px 16px}
+.card h4{margin:14px 0 8px;font-size:12px;font-weight:600;color:var(--muted);
+text-transform:uppercase;letter-spacing:.04em}
+.stack{display:flex;gap:2px;height:16px}
+.stack i{min-width:2px}.stack i:last-child{border-radius:0 4px 4px 0}
+.s-done{background:var(--t-done)}.s-rework{background:var(--t-rework)}
+.s-rtk{background:var(--t-rtk)}.s-wip{background:var(--t-wip)}.s-todo{background:var(--line)}
+.slegend{display:flex;flex-wrap:wrap;gap:4px 16px;margin-top:8px;font-size:12px}
+.slegend .muted{color:var(--muted)}
+.sw{display:inline-block;width:10px;height:10px;margin-right:6px;border-radius:2px;
+vertical-align:-1px}
+/* One panel per chart, on the page's background inside the card. */
+.panels{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;margin-top:12px}
+.panel{min-width:0;padding:12px 16px 14px;border-radius:8px;background:var(--bg)}
+.card .panel h4{display:flex;justify-content:space-between;gap:12px;margin:0 0 10px}
+/* Bars by group, by department and the grid side by side; the grid goes
+under them when it doesn't fit (many departments, narrow screen), and
+scrolls sideways past the screen's width. */
+.prow{display:flex;flex-wrap:wrap;gap:12px}
+.prow>.panel{flex:1 1 260px}
+.prow>.hm-p{flex:1 0 auto;max-width:100%}
+.bars{display:grid;grid-template-columns:max-content minmax(60px,1fr) max-content;
+gap:6px 10px;align-items:center;font-size:12px}
+.bl small{margin-left:6px;color:var(--muted)}
+.bt{position:relative;height:10px;background:var(--track);border-radius:0 4px 4px 0}
+.bt .f{display:block;height:100%;background:var(--done);border-radius:0 4px 4px 0}
+.bt .exp{position:absolute;top:-3px;bottom:-3px;width:2px;margin-left:-1px;
+background:var(--fg);opacity:.55;border-radius:1px}
+.bv{text-align:right;font-variant-numeric:tabular-nums}
+.exp-key{font-size:11px;font-weight:400;color:var(--muted);text-transform:none;
+letter-spacing:0;white-space:nowrap}
+.exp-key i{display:inline-block;width:2px;height:12px;margin-right:6px;
+background:var(--fg);opacity:.55;vertical-align:-2px}
+.hm-wrap{overflow-x:auto}
+.hm{width:auto;border-collapse:separate;border-spacing:2px;font-size:12px}
+.hm th,.hm td{padding:4px 10px;border:0;text-align:center;white-space:nowrap}
+.hm tbody th{text-align:left;font-weight:600}
+.hm td{min-width:4.5em;border-radius:6px;font-variant-numeric:tabular-nums}
+.hm td.na{color:var(--muted);opacity:.5}
+.hm-key{margin:6px 0 0;font-size:11px;color:var(--muted)}
+.hm-key i{display:inline-block;width:80px;height:8px;margin:0 6px;border-radius:4px;
+vertical-align:middle;background:linear-gradient(to right,
+color-mix(in srgb,var(--done) 6%,var(--card)),color-mix(in srgb,var(--done) 50%,var(--card)))}
+.card.tl{margin-top:12px}
+.tl .bars{row-gap:10px}
+.bv small{display:block;color:var(--muted)}
+.bv small.ahead,.bv small.ontrack{color:var(--done)}.bv small.slip{color:var(--wip)}
+.bv small.behind{color:var(--rtk)}
+.tl .bt{height:12px}.tl .bt .f{border-radius:0}
+.tl .bt .gap{position:absolute;top:0;bottom:0}
+.gap.ahead,.gap.ontrack{background:color-mix(in srgb,var(--done) 40%,var(--card));
+border-radius:0 4px 4px 0}
+.gap.slip{background:color-mix(in srgb,var(--wip) 40%,var(--card))}
+.gap.behind{background:color-mix(in srgb,var(--rtk) 40%,var(--card))}
+.tl .bt .exp{top:-5px;bottom:-5px}
+.tl-mark{position:relative;height:16px}
+.today{position:absolute;bottom:0;font-size:11px;font-weight:600;white-space:nowrap;
+transform:translateX(-50%)}.today.l{transform:none}.today.r{transform:translateX(-100%)}
+.tl-ends{display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}
+/* Narrow: the timeline's bands stack (label, band, value). */
+@media (max-width:640px){.tl .bars{grid-template-columns:1fr;row-gap:4px}
+.tl .bars>span:empty{display:none}.tl .bv{text-align:left;margin-bottom:8px}}
+@media print{nav,.review,.jump,.stuck{display:none}.scroll{overflow:visible}}
 """
 
 _JS = """
@@ -1001,9 +1567,27 @@ _JS = """
 var $=function(id){return document.getElementById(id);};
 var nav=document.querySelector('nav'),bar=document.querySelector('.filters');
 var ctl=['f-name','f-group','f-dep','f-state','f-rtk','f-notes','f-closed','f-farm'].map($);
-function navHeight(){var sticky=getComputedStyle(nav).position==='sticky';
-document.documentElement.style.setProperty('--nav-h',
-(sticky?nav.offsetHeight:0)+16+'px');}
+function navHeight(){var sticky=getComputedStyle(nav).position==='sticky',
+h=sticky?nav.offsetHeight:0,root=document.documentElement.style;
+root.setProperty('--nav-h',h+16+'px');navTop=h;}
+var navTop=0,heads=[].map.call(document.querySelectorAll('.scroll'),function(box){
+var table=box.querySelector('table'),stuck=document.createElement('div'),
+copy=table.cloneNode(false);copy.appendChild(table.tHead.cloneNode(true));
+stuck.className='stuck';stuck.hidden=true;stuck.setAttribute('aria-hidden','true');
+stuck.appendChild(copy);document.body.appendChild(stuck);
+box.addEventListener('scroll',place,{passive:true});
+return{box:box,table:table,stuck:stuck,copy:copy};});
+function size(){heads.forEach(function(h){var src=h.table.tHead.rows[0].cells,
+dst=h.copy.tHead.rows[0].cells,w=function(el){return el.getBoundingClientRect().width+'px';};
+h.copy.style.width=w(h.table);for(var i=0;i<src.length;i++)dst[i].style.width=w(src[i]);});
+place();}
+function place(){heads.forEach(function(h){var b=h.box.getBoundingClientRect(),
+head=h.table.tHead.getBoundingClientRect();
+var show=b.width>0&&head.top<navTop&&b.bottom>navTop+head.height;
+h.stuck.hidden=!show;if(!show)return;
+h.stuck.style.top=navTop+'px';h.stuck.style.left=b.left+h.box.clientLeft+'px';
+h.stuck.style.width=h.box.clientWidth+'px';
+h.copy.style.transform='translateX('+(-h.box.scrollLeft)+'px)';});}
 function match(el){
 var q=ctl[0].value.trim().toLowerCase(),g=ctl[1].value,d=ctl[2].value,st=ctl[3].value;
 if(q&&el.dataset.name.indexOf(q)<0)return false;
@@ -1018,19 +1602,33 @@ return true;}
 function apply(){
 var on=ctl.some(function(c){return c.type==='checkbox'?c.checked:c.value;});
 bar.classList.toggle('active',on);
-var closed=ctl[6].checked;document.body.classList.toggle('show-closed',closed);
-['assets','shots','notes'].forEach(function(id){
-var sec=$(id),n=0,items=sec.querySelectorAll('.item');
-items.forEach(function(el){var notes=id==='notes';
-el.hidden=!match(el)||(notes&&!closed&&el.dataset.open==='0');
-if(!el.hidden)n+=notes?+(closed?el.dataset.threads:el.dataset.open):1;});
+var closed=ctl[6].checked,notes=0;
+document.body.classList.toggle('show-closed',closed);
+['assets','shots'].forEach(function(id){
+var sec=$(id),n=0,items=sec.querySelectorAll('tr.item');
+items.forEach(function(el){el.hidden=!match(el);
+var shown=+(closed?el.dataset.threads:el.dataset.notes),row=el.nextElementSibling,
+b=el.querySelector('button.jump');
+if(row&&row.classList.contains('notes'))row.hidden=el.hidden||!shown||
+!(printing||b.getAttribute('aria-expanded')==='true');
+if(!el.hidden){n++;notes+=shown;}});
 sec.querySelectorAll('tr.group').forEach(function(row){
 var next=row.nextElementSibling,any=false;
-while(next&&!next.classList.contains('group')){if(!next.hidden)any=true;
-next=next.nextElementSibling;}row.hidden=!any;});
+while(next&&!next.classList.contains('group')){
+if(!next.hidden&&next.classList.contains('item'))any=true;next=next.nextElementSibling;}
+row.hidden=!any;});
 var none=sec.querySelector('.nomatch'),table=sec.querySelector('.scroll');
 if(none)none.hidden=!items.length||n>0;if(table)table.hidden=items.length&&!n;
-$('c-'+id).textContent=n;});}
+$('c-'+id).textContent=n;});$('c-notes').textContent=notes;size();}
+var printing=false;
+document.addEventListener('click',function(e){var b=e.target.closest('button.jump');
+if(!b)return;b.setAttribute('aria-expanded',b.getAttribute('aria-expanded')!=='true');
+apply();});
+$('all-notes').addEventListener('click',function(){
+var bs=[].filter.call(document.querySelectorAll('button.jump'),function(b){
+return b.offsetParent;}),open=bs.some(function(b){
+return b.getAttribute('aria-expanded')!=='true';});
+bs.forEach(function(b){b.setAttribute('aria-expanded',open);});apply();});
 ctl.forEach(function(c){c.addEventListener('input',apply);
 c.addEventListener('change',apply);});
 $('f-reset').addEventListener('click',function(){ctl.forEach(function(c){
@@ -1043,14 +1641,28 @@ function applyCols(save){var hidden=cols.filter(function(c){return!c.checked;})
 colStyle.textContent=hidden.map(function(k){
 return '[data-col="'+CSS.escape(k)+'"]{display:none}';}).join('');
 document.querySelector('.cols').classList.toggle('hiding',hidden.length>0);
-if(save){try{localStorage.setItem(colKey,JSON.stringify(hidden));}catch(e){}}}
+if(save){try{localStorage.setItem(colKey,JSON.stringify(hidden));}catch(e){}}size();}
 try{var saved=JSON.parse(localStorage.getItem(colKey)||'[]');
 cols.forEach(function(c){if(saved.indexOf(c.dataset.key)>=0)c.checked=false;});}catch(e){}
 cols.forEach(function(c){c.addEventListener('change',function(){applyCols(true);});});
 applyCols(false);
 var menu=document.querySelector('.cols');
 document.addEventListener('click',function(e){if(!menu.contains(e.target))menu.open=false;});
-window.addEventListener('resize',navHeight);navHeight();apply();
+function unfold(hash){var el=hash&&document.getElementById(hash.slice(1));
+if(!el)return;var own=el.querySelector(':scope>details.sec');if(own)own.open=true;
+for(var d=el.closest('details.sec');d;d=d.parentElement.closest('details.sec'))
+d.open=true;}
+document.addEventListener('click',function(e){var a=e.target.closest('a[href^="#"]');
+if(a)unfold(a.getAttribute('href'));});
+window.addEventListener('hashchange',function(){unfold(location.hash);});
+window.addEventListener('beforeprint',function(){printing=true;
+document.querySelectorAll('details.sec').forEach(function(d){d.open=true;});apply();});
+window.addEventListener('afterprint',function(){printing=false;apply();});
+unfold(location.hash);
+document.querySelectorAll('details.sec').forEach(function(d){
+d.addEventListener('toggle',size);});
+window.addEventListener('scroll',place,{passive:true});
+window.addEventListener('resize',function(){navHeight();size();});navHeight();apply();
 })();
 """
 

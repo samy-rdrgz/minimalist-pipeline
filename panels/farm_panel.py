@@ -352,6 +352,27 @@ def draw_farm_jobs(self, layout):
             ).state = state
 
 
+def _job_name(job: dict) -> str:
+    """A job's name as the Jobs view lists it: its file, plus the shot of a
+    split block's child."""
+    name = Path(job.get("filepath", "")).name
+    if job.get("shot_override"):
+        name = f"{name}  [{job['shot_override']}]"
+    return name
+
+
+def _draw_job_link(layout, job_id: str, text: str) -> None:
+    """text, clicked to open job_id's details -- like a name in the Jobs
+    view. A plain label without a job id."""
+    row = layout.row()
+    row.alignment = "LEFT"
+    if job_id:
+        op = row.operator("m_pipeline.farm_job_details", text=text, emboss=False)
+        op.job_id = job_id
+    else:
+        row.label(text=text)
+
+
 def draw_farm_workers(layout):
     """M_PIPELINE_OT_farm_monitor's "Workers" view: every known machine, idle
     or what it's currently rendering."""
@@ -379,6 +400,13 @@ def draw_farm_workers(layout):
     workers = monitor_cache.get("workers") or {}
 
     machines = list(workers.values())
+    # job_id -> its Jobs view entry, for the names below. Never a pending
+    # one: a re-submit waiting in incoming/ shares its active job's id.
+    jobs_by_id = {
+        job["job_id"]: job
+        for job in monitor_cache.get("jobs") or []
+        if job.get("stage") != "pending"
+    }
 
     row = layout.column()
     layout.separator(factor=0.5, type="LINE")
@@ -427,7 +455,9 @@ def draw_farm_workers(layout):
             jobs_col = split.column(align=True)
             if running_jobs:
                 for job in running_jobs:
-                    jobs_col.row().label(text=f"{job['stage']}: {job['job_id']}")
+                    _draw_job_link(
+                        jobs_col, job["job_id"], f"{job['stage']}: {_job_name(job)}"
+                    )
             else:
                 jobs_col.row().label(text="idle")
 
@@ -462,10 +492,15 @@ def draw_farm_workers(layout):
             jobs.label(text="stopped")
             continue
         if busy:
-            text = f"render: {m.get('current_job')}"
+            current_id = m.get("current_job_id") or ""
+            job = jobs_by_id.get(current_id)
+            # Not in the snapshot (archived meanwhile): the .blend the worker
+            # file names -- current_job is its request's full path.
+            name = _job_name(job) if job else Path(m.get("current_file") or "").name
+            text = f"render: {name or current_id}"
             if m.get("stopping"):
                 text += "  (stops after this render)"
-            jobs.label(text=text)
+            _draw_job_link(jobs, current_id, text)
             job_id = uuid_to_job.get(m.get("uuid"))
             if job_id:
                 op = jobs.operator(
