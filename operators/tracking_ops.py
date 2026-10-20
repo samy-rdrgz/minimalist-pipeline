@@ -943,6 +943,11 @@ class M_PIPELINE_OT_tracking_monitor(bpy.types.Operator):
             "failed) or waiting to be checked"
         ),
     )
+    only_rtk: bpy.props.BoolProperty(
+        name="",
+        default=False,
+        description="Only the files with an open RTK",
+    )
     # SKIP_SAVE: a search left over from last time would silently hide files.
     search: bpy.props.StringProperty(
         name="",
@@ -973,6 +978,7 @@ class M_PIPELINE_OT_tracking_monitor(bpy.types.Operator):
             filters_btn.prop(self, "search", text="", icon="VIEWZOOM")
             # Icon only: the property's description is the tooltip.
             filters_btn.prop(self, "only_farm", text="", icon="VIEW_CAMERA_UNSELECTED")
+            filters_btn.prop(self, "only_rtk", text="", icon="LOOP_BACK")
 
             layout.separator(factor=0.5)
 

@@ -743,6 +743,8 @@ def draw_monitor_table(self, context, layout, columns):
                 and owner_key(dir) not in activity
             ):
                 continue
+            if self.only_rtk and not _has_rtk(file):
+                continue
             if search and search not in (
                 f"{file['file_name']} {file.get('description') or ''}".lower()
             ):
@@ -868,10 +870,10 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None)
                 text, row_icon = "Finished", "CHECKMARK"
             elif c in file["validated_departments"] and c in file["worked_departments"]:
                 text, row_icon = "Under RTK", "CHECKBOX_DEHLT"
-            elif (
-                c not in file["validated_departments"]
-                and c in file["worked_departments"]
+            elif c in file["worked_departments"] or c in file.get(
+                "started_departments", ()
             ):
+                # Worked since, or validated/worked before the latest stable.
                 text, row_icon = "Wip", "CHECKBOX_DEHLT"
             else:
                 text, row_icon = "Not started", "CHECKBOX_DEHLT"
@@ -1003,10 +1005,12 @@ def _draw_monitor_blank_row(f_list, columns, first_column):
     f_list.separator(factor=0.5, type="LINE")
 
 
-def _has_rtk(data: dict, department: str) -> bool:
-    """Whether data has an un-done RTK entry tagged with department."""
-    if "entries" in data:
-        for e in data["entries"]:
-            if e.get("department") == department and e.get("done") is False:
-                return True
-    return False
+def _has_rtk(data: dict, department: str | None = None) -> bool:
+    """Whether data has an un-done RTK entry tagged with department (any
+    department when None). Never a todo: un-done too, not an RTK."""
+    return any(
+        e.get("type") == "rtk"
+        and e.get("done") is False
+        and (department is None or e.get("department") == department)
+        for e in data.get("entries") or []
+    )
