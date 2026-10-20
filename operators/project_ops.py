@@ -9,6 +9,7 @@ import bpy
 
 from ..lib import (
     PROGRESS_WEIGHTS,
+    WORK_WEEK,
     ConfigCache,
     PipelineError,
     addon_pref,
@@ -455,8 +456,14 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         name="",
         description=(
             "Public holidays and days off, left out of the working days -- "
-            "DD/MM/YYYY, comma-separated. Weekends are already left out"
+            "DD/MM/YYYY, comma-separated"
         ),
+    )
+    # Monday first: snapshot.schedule.worked_days holds ISO numbers, 1..7.
+    schedule_worked_days: bpy.props.BoolVectorProperty(
+        size=7,
+        default=[d in WORK_WEEK for d in range(1, 8)],
+        description="Days of the week the project works",
     )
 
     sequence_prefix: bpy.props.StringProperty(name="", default="sq")
@@ -581,6 +588,9 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         row.prop(self, "schedule_start")
         row.prop(self, "schedule_end")
         _settings_row(box, "DAYS OFF", "BLANK1").prop(self, "schedule_days_off")
+        week = _settings_row(box, "WORKED DAYS", "BLANK1").row(align=True)
+        for i, name in enumerate(("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")):
+            week.prop(self, "schedule_worked_days", index=i, text=name, toggle=True)
 
     def invoke(self, context, event):
         try:
@@ -610,6 +620,8 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         self.schedule_start = self._days([schedule["start"]]) if schedule else ""
         self.schedule_end = self._days([schedule["end"]]) if schedule else ""
         self.schedule_days_off = self._days(schedule.get("days_off", []))
+        worked = schedule.get("worked_days", WORK_WEEK)
+        self.schedule_worked_days = [d in worked for d in range(1, 8)]
 
         naming = config.get("naming", {})
         for key in ("sequence", "shot", "version", "frame"):
@@ -726,7 +738,7 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
     def _schedule(self) -> dict:
         """The schedule fields as snapshot.schedule: ISO dates, {} when start
         and end are both empty. Raises PipelineError on a date it can't read,
-        only one of start/end, or an end before the start."""
+        only one of start/end, an end before the start, or no worked day."""
         start, end = self.schedule_start.strip(), self.schedule_end.strip()
         if not start and not end:
             return {}
@@ -738,10 +750,14 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         days_off = sorted(
             {parse_day(d) for d in self.schedule_days_off.split(",") if d.strip()}
         )
+        worked = [i + 1 for i, on in enumerate(self.schedule_worked_days) if on]
+        if not worked:
+            raise PipelineError("no day of the week is worked.")
         return {
             "start": start.isoformat(),
             "end": end.isoformat(),
             "days_off": [d.isoformat() for d in days_off],
+            "worked_days": worked,
         }
 
     @staticmethod

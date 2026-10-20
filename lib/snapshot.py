@@ -6,6 +6,7 @@ import base64
 import hashlib
 import html
 import io
+import math
 import os
 import re
 import threading
@@ -319,11 +320,7 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
     schedule = project_schedule(config)
     if schedule:
         today = datetime.fromisoformat(meta.get("scan_started_at") or now()).date()
-        meta["schedule"] = {
-            "start": schedule["start"].isoformat(),
-            "end": schedule["end"].isoformat(),
-            **schedule_progress(schedule, today),
-        }
+        meta["schedule"] = schedule_progress(schedule, today, meta["progress"])
     meta["asset_departments"] = _columns(
         json_get(config, "assets_departments", []), items["asset"]
     )
@@ -396,9 +393,15 @@ def parse_day(value: str) -> date:
     raise PipelineError(f"'{value}' is not a date (DD/MM/YYYY).")
 
 
+# ISO weekday numbers (1 Monday .. 7 Sunday) a schedule works by default.
+WORK_WEEK = (1, 2, 3, 4, 5)
+
+
 def project_schedule(config: dict) -> dict | None:
-    """The project's "snapshot.schedule" (Edit project) as dates: {"start",
-    "end", "days_off"}. None unless start and end are both set, in order."""
+    """The project's "snapshot.schedule" (Edit project): {"start", "end",
+    "days_off" (dates), "worked_days" (ISO weekday numbers, WORK_WEEK when
+    unset)}. None unless start and end are both set, in order, and some
+    day of the week is worked."""
     raw = json_get(config, "snapshot.schedule", {}) or {}
     try:
         start = date.fromisoformat(raw["start"])
@@ -413,30 +416,83 @@ def project_schedule(config: dict) -> dict | None:
             days_off.add(date.fromisoformat(day))
         except (TypeError, ValueError):
             pass
-    return {"start": start, "end": end, "days_off": days_off}
+    try:
+        weekdays = sorted(
+            {int(d) for d in raw.get("worked_days", WORK_WEEK)} & set(range(1, 8))
+        )
+    except (TypeError, ValueError):
+        weekdays = list(WORK_WEEK)
+    if not weekdays:
+        return None
+    return {"start": start, "end": end, "days_off": days_off, "worked_days": weekdays}
 
 
-def working_days(start: date, end: date, days_off) -> int:
-    """Monday to Friday from start to end, both included, days_off left out
-    -- a spreadsheet's NETWORKDAYS(). 0 when end is before start."""
+def _is_working_day(schedule: dict, day: date) -> bool:
+    return (
+        day.isoweekday() in schedule["worked_days"] and day not in schedule["days_off"]
+    )
+
+
+def working_days(schedule: dict, start: date, end: date) -> int:
+    """The schedule's working days from start to end, both included: its
+    worked days of the week, its days off left out -- a spreadsheet's
+    NETWORKDAYS.INTL(). 0 when end is before start."""
     count, day = 0, start
     while day <= end:
-        if day.weekday() < 5 and day not in days_off:
-            count += 1
+        count += _is_working_day(schedule, day)
         day += timedelta(days=1)
     return count
 
 
-def schedule_progress(schedule: dict, today: date) -> dict:
-    """Where the project should be on today at an even pace: {"expected"
-    (0..1), "worked_days", "total_days"} -- worked days so far over the
-    schedule's, today included."""
-    total = working_days(schedule["start"], schedule["end"], schedule["days_off"])
-    worked = working_days(
-        schedule["start"], min(today, schedule["end"]), schedule["days_off"]
-    )
-    expected = worked / total if total else float(today >= schedule["end"])
-    return {"expected": expected, "worked_days": worked, "total_days": total}
+def nth_working_day(schedule: dict, n: int) -> date:
+    """The schedule's n-th working day (1: the first), its end past the last."""
+    count, day = 0, schedule["start"]
+    while day < schedule["end"]:
+        count += _is_working_day(schedule, day)
+        if count >= max(n, 1):
+            return day
+        day += timedelta(days=1)
+    return schedule["end"]
+
+
+def schedule_progress(schedule: dict, today: date, progress: dict) -> dict:
+    """meta["schedule"]: the schedule (ISO dates) and where the project
+    should be on today at an even pace -- "expected" (0..1), its working
+    days so far, today included ("elapsed_days"), over all of them
+    ("total_days"). "at": per section of progress ({kind: Done or None}),
+    the day an even pace reaches its Done and how many working days ahead
+    (+) or behind (-) of today that is. "ticks": the 1st of each month
+    after the start's, with its place on a timeline of working days."""
+    start, end = schedule["start"], schedule["end"]
+    total = working_days(schedule, start, end)
+    elapsed = working_days(schedule, start, min(today, end))
+    at = {}
+    for kind, done in progress.items():
+        if done is not None:
+            days = done * total
+            at[kind] = {
+                "date": nth_working_day(schedule, math.ceil(days)).isoformat(),
+                "days": round(days - elapsed),
+            }
+    ticks = []
+    month = start.replace(day=1)
+    while True:
+        month = (month + timedelta(days=32)).replace(day=1)
+        if month > end:
+            break
+        before = working_days(schedule, start, month - timedelta(days=1))
+        ticks.append({"date": month.isoformat(), "at": before / total if total else 0})
+    return {
+        "start": start.isoformat(),
+        "end": end.isoformat(),
+        "worked_days": list(schedule["worked_days"]),
+        "days_off": sorted(d.isoformat() for d in schedule["days_off"]),
+        "expected": elapsed / total if total else float(today >= end),
+        "elapsed_days": elapsed,
+        "total_days": total,
+        "at": at,
+        "ticks": ticks,
+    }
 
 
 def _pct(value: float | None) -> str:
@@ -555,7 +611,8 @@ def render_html(snapshot: dict) -> str:
         for k, (label, cls) in STATES.items()
     ) + (
         '<span class="pill st-none">Not required</span>'
-        '<span class="pill st-done rtk-open">Validated, open RTK</span>'
+        '<span class="pill st-todo rtk-open">Open RTK</span>'
+        '<span class="muted">red outline, whatever the state</span>'
         '<span class="pill behind">⚠ Render older than the stable</span>'
         '<span class="pill tocheck">to check</span>'
         '<span class="muted">not checked yet</span>'
@@ -614,9 +671,16 @@ def render_html(snapshot: dict) -> str:
     )
 
 
-# Department states in the overview's stacked bar, most done first -- "todo"
-# is drawn as the bar's bare track.
-_STATE_ORDER = ("done", "rework", "wip", "todo")
+# The overview's stacked bar of department tasks, in this order: their
+# state, or "rtk" for one with an open RTK, whatever its state. Coloured as
+# the table's pills (reworked: a lighter green); the order keeps green away
+# from amber, a pair colour-blind readers can't tell apart.
+_TASK_STATES = ("done", "rework", "rtk", "wip", "todo")
+_TASK_LABELS = {**SHORT_STATES, "rtk": "Open RTK"}
+_TASK_TIPS = {k: label for k, (label, _) in STATES.items()} | {
+    "rtk": "Open RTK, whatever its state"
+}
+_WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 
 
 def _render_overview(snapshot: dict) -> str:
@@ -647,7 +711,7 @@ def _render_overview(snapshot: dict) -> str:
             _stat_tile(
                 f"Expected on {day}",
                 _pct(expected),
-                f'<span class="delta">{schedule["worked_days"]} of '
+                f'<span class="delta">{schedule["elapsed_days"]} of '
                 f'{schedule["total_days"]} working days, {_day(schedule["start"])} '
                 f'→ {_day(schedule["end"])}</span>',
             )
@@ -667,10 +731,78 @@ def _render_overview(snapshot: dict) -> str:
     )
     if cards:
         cards = f'<div class="cards">{cards}</div>'
+    timeline = _render_timeline(meta, sections) if schedule else ""
     return (
         f'<section id="overview"><h2>Progress<span class="sub">whole project on '
         f'{day}, filters aside</span></h2><div class="kpis">{"".join(tiles)}</div>'
-        f"{cards}</section>"
+        f"{timeline}{cards}</section>"
+    )
+
+
+def _short_day(iso: str, year: bool = False) -> str:
+    """ "2026-10-20..." -> "20/10", "20/10/26" with the year."""
+    return f"{datetime.fromisoformat(iso):{'%d/%m/%y' if year else '%d/%m'}}"
+
+
+def _render_timeline(meta: dict, sections) -> str:
+    """The schedule as a timeline of its working days, start to end: today
+    -- the expected progress -- as a line across it, and each section's
+    Done as a bar reaching the day an even pace would have got it to."""
+    s = meta["schedule"]
+    exp = s["expected"] * 100
+    line = f'<i class="exp" style="left:{exp:.2f}%"></i>'
+    week = ", ".join(_WEEKDAYS[d - 1] for d in s["worked_days"])
+    off = len(s["days_off"])
+    days_off = f", {off} day{'' if off == 1 else 's'} off" if off else ""
+    sub = (
+        f'{_day(s["start"])} → {_day(s["end"])}, {s["total_days"]} working days '
+        f"({week}{days_off})"
+    )
+    # Month ticks clear of both ends' dates; at most 8, every n-th month.
+    # Their year too when the schedule spans more than one.
+    years = s["start"][:4] != s["end"][:4]
+    ticks = [t for t in s["ticks"] if 0.1 < t["at"] < 0.9]
+    ticks = ticks[:: -(-len(ticks) // 8) or 1]
+    marks = "".join(
+        f'<i class="tk" style="left:{t["at"] * 100:.2f}%">'
+        f'<span>{_short_day(t["date"], years)}</span></i>'
+        for t in ticks
+    )
+    # The today label is centred on its line, kept inside near either end.
+    side = " l" if exp < 15 else " r" if exp > 85 else ""
+    today = _short_day(meta.get("scan_started_at") or now())
+    axis = (
+        f'<span></span><span class="tl-axis"><i class="el" style="width:{exp:.2f}%">'
+        f'</i>{marks}{line}<b class="today{side}" style="left:{exp:.2f}%">Today '
+        f'{today}, {_pct(s["expected"])} expected</b><span class="end s">'
+        f'{_short_day(s["start"], years)}</span><span class="end e">'
+        f'{_short_day(s["end"], years)}</span></span><span></span>'
+    )
+    lanes = []
+    for kind, title, _, _, _ in sections:
+        at = s["at"].get(kind)
+        if not at:
+            continue
+        done = meta["progress"][kind]
+        days = at["days"]
+        if days:
+            rel = f'{abs(days)} working day{"" if abs(days) == 1 else "s"} '
+            rel += "ahead" if days > 0 else "behind"
+        else:
+            rel = "on schedule"
+        tip = _e(
+            f"{title}: {_pct(done)} done, where an even pace gets on "
+            f"{_day(at['date'])} -- {rel}"
+        )
+        lanes.append(
+            f'<span class="bl" title="{tip}">{_e(title)}</span><span class="bt" '
+            f'title="{tip}"><i class="f" style="width:{done * 100:.2f}%"></i>{line}'
+            f'</span><span class="bv" title="{tip}">{_pct(done)}'
+            f"<small>level of {_short_day(at['date'])}, {rel}</small></span>"
+        )
+    return (
+        f'<div class="card tl"><h3>Schedule<span class="muted">{_e(sub)}</span></h3>'
+        f'<div class="bars">{axis}{"".join(lanes)}</div></div>'
     )
 
 
@@ -706,29 +838,29 @@ def _overview_card(
     """One section's charts: its department tasks (item x required
     department) by state, its Done by group and by department. Nothing when
     none of its items requires a department."""
-    states = [(i, d, st) for i in items for d, st in i["departments"].items()]
-    if not states:
+    tasks = [
+        "rtk" if d in i["rtk_departments"] else st
+        for i in items
+        for d, st in i["departments"].items()
+    ]
+    if not tasks:
         return ""
-    total = len(states)
-    counts = {s: sum(1 for _, _, st in states if st == s) for s in _STATE_ORDER}
-    rtk = sum(1 for i, d, st in states if st == "done" and d in i["rtk_departments"])
+    total = len(tasks)
+    counts = {s: tasks.count(s) for s in _TASK_STATES}
     # flex-grow, not a width: the 2px gaps come out of the bar, not on top.
     segments = "".join(
-        f'<i class="s-{s}" style="flex:{counts[s]} 1 0" title="{_e(STATES[s][0])}: '
+        f'<i class="s-{s}" style="flex:{counts[s]} 1 0" title="{_e(_TASK_TIPS[s])}: '
         f'{counts[s]} ({_pct(counts[s] / total)})"></i>'
-        for s in _STATE_ORDER
+        for s in _TASK_STATES
         if counts[s]
     )
-    legend = []
-    for s in _STATE_ORDER:
-        share = _pct(counts[s] / total)
-        if s == "done" and rtk:
-            share += f", {rtk} with an open RTK"
-        legend.append(
-            f'<span><i class="sw s-{s}"></i>{_e(SHORT_STATES[s])} <b>{counts[s]}</b> '
-            f'<span class="muted">{share}</span></span>'
-        )
-    label = ", ".join(f"{SHORT_STATES[s]} {counts[s]}" for s in _STATE_ORDER)
+    legend = "".join(
+        f'<span title="{_e(_TASK_TIPS[s])}"><i class="sw s-{s}"></i>'
+        f"{_e(_TASK_LABELS[s])} <b>{counts[s]}</b> "
+        f'<span class="muted">{_pct(counts[s] / total)}</span></span>'
+        for s in _TASK_STATES
+    )
+    label = ", ".join(f"{_TASK_LABELS[s]} {counts[s]}" for s in _TASK_STATES)
     groups: dict[str, list] = {}
     for item in items:
         groups.setdefault(item["group"], []).append(item)
@@ -749,7 +881,7 @@ def _overview_card(
         f'{noun}{"" if len(items) == 1 else "s"}</span></h3><h4>State of the '
         f'{total} department task{"" if total == 1 else "s"}</h4>'
         f'<div class="stack" role="img" aria-label="{_e(label)}">{segments}</div>'
-        f'<div class="slegend">{"".join(legend)}</div><div class="split">'
+        f'<div class="slegend">{legend}</div><div class="split">'
         f"<div><h4>{_e(by)}</h4>{_bar_list(by_group, expected)}</div>"
         f"<div><h4>By department</h4>{_bar_list(by_department, expected)}</div>"
         f"</div>{key}</div>"
@@ -892,10 +1024,10 @@ def _render_table(anchor: str, title: str, items: list, columns: list) -> str:
                 )
             else:
                 label, cls = STATES[state]
-                if state == "done" and c in item["rtk_departments"]:
-                    # Validated, then sent back: the RTK is the news.
+                if c in item["rtk_departments"]:
+                    # Sent back: the RTK is the news, whatever the state.
                     cls += " rtk-open"
-                    label = "Validated, then an RTK was opened on it"
+                    label += ", with an open RTK"
                 cells.append(
                     f'<td data-col="d:{_e(c)}"><span class="pill {cls}" title="{_e(label)}">'
                     f"{_e(SHORT_STATES[state])}</span></td>"
@@ -1113,16 +1245,18 @@ _CSS = """
 :root{--page:1600px;--bg:#f7f7f5;--fg:#1d1d1b;--muted:#6b6b66;--card:#fff;--line:#e2e1dc;
 --accent:#3d5afe;--done:#2e7d32;--done-bg:#e3f2e4;--wip:#8a5a00;--wip-bg:#fff1d6;
 --todo:#6b6b66;--rtk:#c62828;--rtk-bg:#fde7e7;color-scheme:light dark;
---g-rework:#4f9a54;--g-wip:#76b87a;--track:color-mix(in srgb,var(--done) 16%,var(--card))}
+--t-rework:#7cb342;--t-wip:#e09a1a;--t-done:var(--done);--t-rtk:var(--rtk);
+--track:color-mix(in srgb,var(--done) 16%,var(--card))}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161615;
 --fg:#ecebe6;--muted:#a3a29c;--card:#20201e;--line:#34332f;--accent:#8c9eff;
 --done:#81c784;--done-bg:#1d3320;--wip:#ffcc80;--wip-bg:#3a2c12;--todo:#a3a29c;
---rtk:#ef9a9a;--rtk-bg:#3a1c1c;--g-rework:#5ea463;--g-wip:#3f8245;
---track:color-mix(in srgb,var(--done) 16%,var(--card))}}
+--rtk:#ef9a9a;--rtk-bg:#3a1c1c;--t-done:#267330;--t-rework:#68a91e;
+--t-rtk:#b31424;--t-wip:#b88e2e;--track:color-mix(in srgb,var(--done) 16%,var(--card))}}
 :root[data-theme="dark"]{--bg:#161615;--fg:#ecebe6;--muted:#a3a29c;--card:#20201e;
 --line:#34332f;--accent:#8c9eff;--done:#81c784;--done-bg:#1d3320;--wip:#ffcc80;
---wip-bg:#3a2c12;--todo:#a3a29c;--rtk:#ef9a9a;--rtk-bg:#3a1c1c;--g-rework:#5ea463;
---g-wip:#3f8245;--track:color-mix(in srgb,var(--done) 16%,var(--card))}
+--wip-bg:#3a2c12;--todo:#a3a29c;--rtk:#ef9a9a;--rtk-bg:#3a1c1c;--t-done:#267330;
+--t-rework:#68a91e;--t-rtk:#b31424;--t-wip:#b88e2e;
+--track:color-mix(in srgb,var(--done) 16%,var(--card))}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);
 font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
@@ -1230,8 +1364,9 @@ article li p{margin:4px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
 .t-done{color:var(--done);background:var(--done-bg);border-color:transparent}
 .empty{color:var(--muted)}
 section:last-of-type{padding-bottom:40px}
-/* Overview: the departments' states are an ordinal green ramp (validated
-darkest; dark mode flips it), not started the bare track. */
+/* Overview: department tasks in the pills' colours (--t-*: steps of them
+that colour-blind readers can still tell apart side by side), not started
+grey. */
 #overview h2 .sub,.card h3 .muted{margin-left:8px;font-size:12px;font-weight:400;
 color:var(--muted)}
 .kpis{display:flex;flex-wrap:wrap;gap:12px}
@@ -1249,8 +1384,8 @@ padding:14px 16px}
 text-transform:uppercase;letter-spacing:.04em}
 .stack{display:flex;gap:2px;height:16px}
 .stack i{min-width:2px}.stack i:last-child{border-radius:0 4px 4px 0}
-.s-done{background:var(--done)}.s-rework{background:var(--g-rework)}
-.s-wip{background:var(--g-wip)}.s-todo{background:var(--track)}
+.s-done{background:var(--t-done)}.s-rework{background:var(--t-rework)}
+.s-rtk{background:var(--t-rtk)}.s-wip{background:var(--t-wip)}.s-todo{background:var(--line)}
 .slegend{display:flex;flex-wrap:wrap;gap:4px 16px;margin-top:8px;font-size:12px}
 .slegend .muted{color:var(--muted)}
 .sw{display:inline-block;width:10px;height:10px;margin-right:6px;border-radius:2px;
@@ -1262,12 +1397,30 @@ gap:6px 10px;align-items:center;font-size:12px}
 .bl small{margin-left:6px;color:var(--muted)}
 .bt{position:relative;height:10px;background:var(--track);border-radius:0 4px 4px 0}
 .bt .f{display:block;height:100%;background:var(--done);border-radius:0 4px 4px 0}
-.bt .exp{position:absolute;top:-3px;bottom:-3px;width:2px;margin-left:-1px;
+.bt .exp,.tl-axis .exp{position:absolute;top:-3px;bottom:-3px;width:2px;margin-left:-1px;
 background:var(--fg);opacity:.55;border-radius:1px}
 .bv{text-align:right;font-variant-numeric:tabular-nums}
 .exp-key{margin:12px 0 0;font-size:12px;color:var(--muted)}
 .exp-key i{display:inline-block;width:2px;height:12px;margin-right:6px;
 background:var(--fg);opacity:.55;vertical-align:-2px}
+.card.tl{margin-top:12px}
+.tl .bars{row-gap:10px}
+.bv small{display:block;color:var(--muted)}
+.tl-axis{position:relative;height:6px;margin:22px 0 20px;background:var(--line);
+border-radius:3px}
+.tl-axis .el{position:absolute;left:0;top:0;bottom:0;border-radius:3px 0 0 3px;
+background:color-mix(in srgb,var(--fg) 30%,transparent)}
+.tl-axis .exp{top:-6px;bottom:-6px}
+.tl-axis .tk{position:absolute;top:100%;width:1px;height:5px;background:var(--muted)}
+.tl-axis .tk span,.tl-axis .end{position:absolute;top:6px;font-size:11px;
+color:var(--muted);font-style:normal;white-space:nowrap;transform:translateX(-50%)}
+.tl-axis .end{top:10px}.tl-axis .end.s{left:0;transform:none}
+.tl-axis .end.e{right:0;transform:none}
+.today{position:absolute;bottom:12px;font-size:11px;font-weight:600;white-space:nowrap;
+transform:translateX(-50%)}.today.l{transform:none}.today.r{transform:translateX(-100%)}
+/* Narrow: the timeline's lanes stack (label, bar, value), no month ticks. */
+@media (max-width:640px){.tl .bars{grid-template-columns:1fr;row-gap:4px}
+.tl .bars>span:empty,.tl-axis .tk{display:none}.tl .bv{text-align:left;margin-bottom:8px}}
 @media print{nav,.review,.jump,.back{display:none}.scroll{overflow:visible}}
 """
 

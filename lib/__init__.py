@@ -140,6 +140,7 @@ from .session import (
 from .snapshot import (
     PROGRESS_WEIGHTS,
     REVIEW_SOURCE,
+    WORK_WEEK,
     SnapshotJob,
     build_snapshot,
     import_review_xlsx,
