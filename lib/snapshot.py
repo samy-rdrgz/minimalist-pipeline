@@ -10,7 +10,7 @@ import os
 import re
 import threading
 import zipfile
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from xml.etree import ElementTree as ET
 from xml.sax.saxutils import escape as xml_escape
@@ -316,6 +316,14 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
     meta["thumbnail_size"] = thumbnail_size(config)
     meta["progress"] = {k: average_progress(v) for k, v in items.items()}
     meta["progress_weights"] = weights
+    schedule = project_schedule(config)
+    if schedule:
+        today = datetime.fromisoformat(meta.get("scan_started_at") or now()).date()
+        meta["schedule"] = {
+            "start": schedule["start"].isoformat(),
+            "end": schedule["end"].isoformat(),
+            **schedule_progress(schedule, today),
+        }
     meta["asset_departments"] = _columns(
         json_get(config, "assets_departments", []), items["asset"]
     )
@@ -376,8 +384,68 @@ def average_progress(items: list) -> float | None:
     return sum(values) / len(values) if values else None
 
 
+def parse_day(value: str) -> date:
+    """A date typed day first -- 20/10/2026, 20-10-2026, 20.10.2026 -- or ISO
+    (2026-10-20). Raises PipelineError otherwise."""
+    value = value.strip()
+    for fmt in ("%d/%m/%Y", "%d-%m-%Y", "%d.%m.%Y", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(value, fmt).date()
+        except ValueError:
+            continue
+    raise PipelineError(f"'{value}' is not a date (DD/MM/YYYY).")
+
+
+def project_schedule(config: dict) -> dict | None:
+    """The project's "snapshot.schedule" (Edit project) as dates: {"start",
+    "end", "days_off"}. None unless start and end are both set, in order."""
+    raw = json_get(config, "snapshot.schedule", {}) or {}
+    try:
+        start = date.fromisoformat(raw["start"])
+        end = date.fromisoformat(raw["end"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if end < start:
+        return None
+    days_off = set()
+    for day in raw.get("days_off") or []:
+        try:
+            days_off.add(date.fromisoformat(day))
+        except (TypeError, ValueError):
+            pass
+    return {"start": start, "end": end, "days_off": days_off}
+
+
+def working_days(start: date, end: date, days_off) -> int:
+    """Monday to Friday from start to end, both included, days_off left out
+    -- a spreadsheet's NETWORKDAYS(). 0 when end is before start."""
+    count, day = 0, start
+    while day <= end:
+        if day.weekday() < 5 and day not in days_off:
+            count += 1
+        day += timedelta(days=1)
+    return count
+
+
+def schedule_progress(schedule: dict, today: date) -> dict:
+    """Where the project should be on today at an even pace: {"expected"
+    (0..1), "worked_days", "total_days"} -- worked days so far over the
+    schedule's, today included."""
+    total = working_days(schedule["start"], schedule["end"], schedule["days_off"])
+    worked = working_days(
+        schedule["start"], min(today, schedule["end"]), schedule["days_off"]
+    )
+    expected = worked / total if total else float(today >= schedule["end"])
+    return {"expected": expected, "worked_days": worked, "total_days": total}
+
+
 def _pct(value: float | None) -> str:
     return "–" if value is None else f"{round(value * 100)} %"
+
+
+def _day(iso: str) -> str:
+    """ "2026-10-20..." -> "20/10/2026": day before month."""
+    return f"{datetime.fromisoformat(iso):%d/%m/%Y}"
 
 
 def _columns(configured: list, items: list) -> list:
@@ -502,9 +570,6 @@ def render_html(snapshot: dict) -> str:
         f"<h1>{_e(meta.get('project'))}</h1>",
         '<dl class="meta">',
         f"<div><dt>Snapshot</dt><dd>{_e(scan_date)}</dd></div>",
-        "<div><dt>Done</dt><dd>"
-        f"Assets &amp; libraries {_pct(meta['progress']['asset'])} · "
-        f"Shots {_pct(meta['progress']['shot'])}</dd></div>",
         f"<div><dt>Exported by</dt><dd>{_e(meta.get('exported_by'))}</dd></div>",
         f"<div><dt>Addon</dt><dd>Minimalist Pipeline {_e(meta.get('addon_version'))}</dd></div>",
         "</dl>",
@@ -517,6 +582,7 @@ def render_html(snapshot: dict) -> str:
         "the file back as is.</p>",
         "</div>",
         "</header>",
+        _render_overview(snapshot),
         "<nav>",
         '<div class="links"><a href="#assets">Assets <span id="c-assets">'
         f'{len(snapshot["assets"])}</span></a><a href="#shots">Shots <span id="c-shots">'
@@ -546,6 +612,174 @@ def render_html(snapshot: dict) -> str:
         f"<title>{_e(title)}</title>\n<style>{_CSS}:root{{--thumb-zoom:{zoom}}}</style>\n</head>"
         f"<body>\n{nl.join(body)}\n<script>{_JS}</script>\n</body></html>\n"
     )
+
+
+# Department states in the overview's stacked bar, most done first -- "todo"
+# is drawn as the bar's bare track.
+_STATE_ORDER = ("done", "rework", "wip", "todo")
+
+
+def _render_overview(snapshot: dict) -> str:
+    """ "Progress" block between the header and the filters -- the whole
+    project at export time, filters aside: stat tiles (each section's Done,
+    against the schedule's expected progress when the project has one; the
+    open RTKs), then a card per section: its departments' states, its Done
+    by group and by department."""
+    meta = snapshot["meta"]
+    day = _day(meta.get("scan_started_at") or now())
+    schedule = meta.get("schedule")
+    expected = schedule["expected"] if schedule else None
+    sections = (
+        ("shot", "Shots", "By sequence", "shot", snapshot["shots"]),
+        ("asset", "Assets & libraries", "By prefix", "file", snapshot["assets"]),
+    )
+    tiles = [
+        _stat_tile(
+            f"{title} done",
+            _pct(meta["progress"][kind]),
+            _schedule_delta(meta["progress"][kind], expected),
+        )
+        for kind, title, _, _, _ in sections
+        if meta["progress"][kind] is not None
+    ]
+    if schedule:
+        tiles.append(
+            _stat_tile(
+                f"Expected on {day}",
+                _pct(expected),
+                f'<span class="delta">{schedule["worked_days"]} of '
+                f'{schedule["total_days"]} working days, {_day(schedule["start"])} '
+                f'→ {_day(schedule["end"])}</span>',
+            )
+        )
+    everything = snapshot["assets"] + snapshot["shots"]
+    rtk = sum(i["open_rtk"] for i in everything)
+    files = sum(1 for i in everything if i["open_rtk"])
+    on_files = f'on {files} file{"" if files == 1 else "s"}'
+    tiles.append(
+        _stat_tile(
+            "Open RTKs", str(rtk), f'<span class="delta">{on_files}</span>' if rtk else ""
+        )
+    )
+    cards = "".join(
+        _overview_card(title, by, noun, items, meta[f"{kind}_departments"], expected)
+        for kind, title, by, noun, items in sections
+    )
+    if cards:
+        cards = f'<div class="cards">{cards}</div>'
+    return (
+        f'<section id="overview"><h2>Progress<span class="sub">whole project on '
+        f'{day}, filters aside</span></h2><div class="kpis">{"".join(tiles)}</div>'
+        f"{cards}</section>"
+    )
+
+
+def _stat_tile(label: str, value: str, line: str = "") -> str:
+    """One figure of the overview: its label, its value, then a line (HTML)."""
+    return (
+        f'<div class="kpi"><span class="kpi-label">{_e(label)}</span>'
+        f'<span class="kpi-value">{_e(value)}</span>{line}</div>'
+    )
+
+
+def _schedule_delta(progress: float, expected: float | None) -> str:
+    """A Done tile's line against the expected progress: points ahead or
+    behind, then the pace (done / expected, a spreadsheet's "efficiency").
+    Nothing without a schedule."""
+    if expected is None:
+        return ""
+    gap = round((progress - expected) * 100)
+    if gap > 0:
+        cls, text = "ahead", f"▲ {gap} pts ahead of schedule"
+    elif gap < 0:
+        cls, text = "behind", f"▼ {-gap} pts behind schedule"
+    else:
+        cls, text = "", "on schedule"
+    if expected > 0:
+        text += f" · pace {round(progress / expected * 100)} %"
+    return f'<span class="delta {cls}">{text}</span>'
+
+
+def _overview_card(
+    title: str, by: str, noun: str, items: list, columns: list, expected
+) -> str:
+    """One section's charts: its department tasks (item x required
+    department) by state, its Done by group and by department. Nothing when
+    none of its items requires a department."""
+    states = [(i, d, st) for i in items for d, st in i["departments"].items()]
+    if not states:
+        return ""
+    total = len(states)
+    counts = {s: sum(1 for _, _, st in states if st == s) for s in _STATE_ORDER}
+    rtk = sum(1 for i, d, st in states if st == "done" and d in i["rtk_departments"])
+    # flex-grow, not a width: the 2px gaps come out of the bar, not on top.
+    segments = "".join(
+        f'<i class="s-{s}" style="flex:{counts[s]} 1 0" title="{_e(STATES[s][0])}: '
+        f'{counts[s]} ({_pct(counts[s] / total)})"></i>'
+        for s in _STATE_ORDER
+        if counts[s]
+    )
+    legend = []
+    for s in _STATE_ORDER:
+        share = _pct(counts[s] / total)
+        if s == "done" and rtk:
+            share += f", {rtk} with an open RTK"
+        legend.append(
+            f'<span><i class="sw s-{s}"></i>{_e(SHORT_STATES[s])} <b>{counts[s]}</b> '
+            f'<span class="muted">{share}</span></span>'
+        )
+    label = ", ".join(f"{SHORT_STATES[s]} {counts[s]}" for s in _STATE_ORDER)
+    groups: dict[str, list] = {}
+    for item in items:
+        groups.setdefault(item["group"], []).append(item)
+    by_group = [
+        (g, average_progress(m), f'{len(m)} {noun}{"" if len(m) == 1 else "s"}')
+        for g, m in groups.items()
+    ]
+    by_department = [
+        (c.capitalize(), department_progress(items, c), "") for c in columns
+    ]
+    key = (
+        f'<p class="exp-key"><i></i>Expected at an even pace: {_pct(expected)}</p>'
+        if expected is not None
+        else ""
+    )
+    return (
+        f'<div class="card"><h3>{_e(title)}<span class="muted">{len(items)} '
+        f'{noun}{"" if len(items) == 1 else "s"}</span></h3><h4>State of the '
+        f'{total} department task{"" if total == 1 else "s"}</h4>'
+        f'<div class="stack" role="img" aria-label="{_e(label)}">{segments}</div>'
+        f'<div class="slegend">{"".join(legend)}</div><div class="split">'
+        f"<div><h4>{_e(by)}</h4>{_bar_list(by_group, expected)}</div>"
+        f"<div><h4>By department</h4>{_bar_list(by_department, expected)}</div>"
+        f"</div>{key}</div>"
+    )
+
+
+def _bar_list(rows: list, expected: float | None) -> str:
+    """One bar per (label, progress, note) row -- the Done of a group or a
+    department, rows without any required department left out -- the
+    expected progress as a hairline across each."""
+    mark = (
+        f'<i class="exp" style="left:{expected * 100:.2f}%"></i>'
+        if expected is not None
+        else ""
+    )
+    cells = []
+    for label, progress, note in rows:
+        if progress is None:
+            continue
+        pct = round(progress * 100)
+        tip = _e(f"{label}: {pct} % done" + (f" ({note})" if note else ""))
+        small = f"<small>{_e(note)}</small>" if note else ""
+        cells.append(
+            f'<span class="bl" title="{tip}">{_e(label)}{small}</span>'
+            f'<span class="bt" title="{tip}"><i class="f" style="width:{pct}%"></i>'
+            f'{mark}</span><span class="bv" title="{tip}">{pct} %</span>'
+        )
+    if not cells:
+        return '<p class="empty">No department required.</p>'
+    return f'<div class="bars">{"".join(cells)}</div>'
 
 
 def _render_filters(snapshot: dict) -> str:
@@ -878,14 +1112,17 @@ def _render_notes(notes: list, items: list) -> str:
 _CSS = """
 :root{--page:1600px;--bg:#f7f7f5;--fg:#1d1d1b;--muted:#6b6b66;--card:#fff;--line:#e2e1dc;
 --accent:#3d5afe;--done:#2e7d32;--done-bg:#e3f2e4;--wip:#8a5a00;--wip-bg:#fff1d6;
---todo:#6b6b66;--rtk:#c62828;--rtk-bg:#fde7e7;color-scheme:light dark}
+--todo:#6b6b66;--rtk:#c62828;--rtk-bg:#fde7e7;color-scheme:light dark;
+--g-rework:#4f9a54;--g-wip:#76b87a;--track:color-mix(in srgb,var(--done) 16%,var(--card))}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161615;
 --fg:#ecebe6;--muted:#a3a29c;--card:#20201e;--line:#34332f;--accent:#8c9eff;
 --done:#81c784;--done-bg:#1d3320;--wip:#ffcc80;--wip-bg:#3a2c12;--todo:#a3a29c;
---rtk:#ef9a9a;--rtk-bg:#3a1c1c}}
+--rtk:#ef9a9a;--rtk-bg:#3a1c1c;--g-rework:#5ea463;--g-wip:#3f8245;
+--track:color-mix(in srgb,var(--done) 16%,var(--card))}}
 :root[data-theme="dark"]{--bg:#161615;--fg:#ecebe6;--muted:#a3a29c;--card:#20201e;
 --line:#34332f;--accent:#8c9eff;--done:#81c784;--done-bg:#1d3320;--wip:#ffcc80;
---wip-bg:#3a2c12;--todo:#a3a29c;--rtk:#ef9a9a;--rtk-bg:#3a1c1c}
+--wip-bg:#3a2c12;--todo:#a3a29c;--rtk:#ef9a9a;--rtk-bg:#3a1c1c;--g-rework:#5ea463;
+--g-wip:#3f8245;--track:color-mix(in srgb,var(--done) 16%,var(--card))}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);
 font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
@@ -993,6 +1230,44 @@ article li p{margin:4px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
 .t-done{color:var(--done);background:var(--done-bg);border-color:transparent}
 .empty{color:var(--muted)}
 section:last-of-type{padding-bottom:40px}
+/* Overview: the departments' states are an ordinal green ramp (validated
+darkest; dark mode flips it), not started the bare track. */
+#overview h2 .sub,.card h3 .muted{margin-left:8px;font-size:12px;font-weight:400;
+color:var(--muted)}
+.kpis{display:flex;flex-wrap:wrap;gap:12px}
+.kpi{flex:1 1 200px;display:flex;flex-direction:column;gap:2px;background:var(--card);
+border:1px solid var(--line);border-radius:10px;padding:12px 16px}
+.kpi-label{font-size:12px;color:var(--muted)}
+.kpi-value{font-size:28px;font-weight:600;line-height:1.2}
+.delta{font-size:12px;color:var(--muted)}
+.delta.ahead{color:var(--done)}.delta.behind{color:var(--rtk)}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));
+gap:12px;margin-top:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;
+padding:14px 16px}
+.card h4{margin:14px 0 8px;font-size:12px;font-weight:600;color:var(--muted);
+text-transform:uppercase;letter-spacing:.04em}
+.stack{display:flex;gap:2px;height:16px}
+.stack i{min-width:2px}.stack i:last-child{border-radius:0 4px 4px 0}
+.s-done{background:var(--done)}.s-rework{background:var(--g-rework)}
+.s-wip{background:var(--g-wip)}.s-todo{background:var(--track)}
+.slegend{display:flex;flex-wrap:wrap;gap:4px 16px;margin-top:8px;font-size:12px}
+.slegend .muted{color:var(--muted)}
+.sw{display:inline-block;width:10px;height:10px;margin-right:6px;border-radius:2px;
+vertical-align:-1px}
+.split{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr));
+gap:0 24px}
+.bars{display:grid;grid-template-columns:max-content minmax(60px,1fr) max-content;
+gap:6px 10px;align-items:center;font-size:12px}
+.bl small{margin-left:6px;color:var(--muted)}
+.bt{position:relative;height:10px;background:var(--track);border-radius:0 4px 4px 0}
+.bt .f{display:block;height:100%;background:var(--done);border-radius:0 4px 4px 0}
+.bt .exp{position:absolute;top:-3px;bottom:-3px;width:2px;margin-left:-1px;
+background:var(--fg);opacity:.55;border-radius:1px}
+.bv{text-align:right;font-variant-numeric:tabular-nums}
+.exp-key{margin:12px 0 0;font-size:12px;color:var(--muted)}
+.exp-key i{display:inline-block;width:2px;height:12px;margin-right:6px;
+background:var(--fg);opacity:.55;vertical-align:-2px}
 @media print{nav,.review,.jump,.back{display:none}.scroll{overflow:visible}}
 """
 

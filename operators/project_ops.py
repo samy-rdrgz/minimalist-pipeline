@@ -17,9 +17,12 @@ from ..lib import (
     get_config_filepath,
     install_default_ffmpeg_preset,
     install_default_preset,
+    json_get,
     list_to_labels,
     log,
+    parse_day,
     path_reachable,
+    project_schedule,
     read_project_config,
     save_project_data,
     set_active_project_root,
@@ -435,6 +438,26 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         subtype="PERCENTAGE",
         description="Share counted as done when validated, with an open RTK",
     )
+    # Snapshot schedule (snapshot.schedule, ISO dates in the config): typed
+    # day first, see parse_day(). Both empty: no schedule.
+    schedule_start: bpy.props.StringProperty(
+        name="Start",
+        description=(
+            "First day of the project (DD/MM/YYYY). With the end date, the "
+            "snapshot compares the progress with where it should be at an "
+            "even pace. Empty: no schedule"
+        ),
+    )
+    schedule_end: bpy.props.StringProperty(
+        name="End", description="Last day of the project (DD/MM/YYYY)"
+    )
+    schedule_days_off: bpy.props.StringProperty(
+        name="",
+        description=(
+            "Public holidays and days off, left out of the working days -- "
+            "DD/MM/YYYY, comma-separated. Weekends are already left out"
+        ),
+    )
 
     sequence_prefix: bpy.props.StringProperty(name="", default="sq")
     shot_prefix: bpy.props.StringProperty(name="", default="sh")
@@ -554,6 +577,10 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         row.prop(self, "progress_wip")
         row.prop(self, "progress_rework")
         row.prop(self, "progress_rtk")
+        row = _settings_row(box, "SCHEDULE", "TIME")
+        row.prop(self, "schedule_start")
+        row.prop(self, "schedule_end")
+        _settings_row(box, "DAYS OFF", "BLANK1").prop(self, "schedule_days_off")
 
     def invoke(self, context, event):
         try:
@@ -579,6 +606,10 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         self.progress_wip = weights["wip"]
         self.progress_rework = weights["rework"]
         self.progress_rtk = weights["rtk"]
+        schedule = project_schedule(config) or {}
+        self.schedule_start = self._days([schedule["start"]]) if schedule else ""
+        self.schedule_end = self._days([schedule["end"]]) if schedule else ""
+        self.schedule_days_off = self._days(schedule.get("days_off", []))
 
         naming = config.get("naming", {})
         for key in ("sequence", "shot", "version", "frame"):
@@ -619,6 +650,14 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
             log("WARNING", "edit_project", f"{e.message} -- writing a fresh config.")
             config = {}
 
+        # A date it can't read leaves the schedule as it was, not the rest.
+        schedule_error = None
+        try:
+            schedule = self._schedule()
+        except PipelineError as e:
+            schedule = json_get(config, "snapshot.schedule", {})
+            schedule_error = e.message
+
         config.update(
             {
                 "project_name": self.project_name,
@@ -656,7 +695,8 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
                         "wip": self.progress_wip,
                         "rework": self.progress_rework,
                         "rtk": self.progress_rtk,
-                    }
+                    },
+                    "schedule": schedule,
                 },
             }
         )
@@ -675,8 +715,39 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
             log(e.level, "edit_project", e.message)
             self.report({"WARNING"}, f"Config saved, but not backed up: {e}")
 
-        self.report({"INFO"}, f"Config saved for {self.project_name}.")
+        if schedule_error:
+            self.report(
+                {"WARNING"}, f"Config saved, schedule left as it was: {schedule_error}"
+            )
+        else:
+            self.report({"INFO"}, f"Config saved for {self.project_name}.")
         return {"FINISHED"}
+
+    def _schedule(self) -> dict:
+        """The schedule fields as snapshot.schedule: ISO dates, {} when start
+        and end are both empty. Raises PipelineError on a date it can't read,
+        only one of start/end, or an end before the start."""
+        start, end = self.schedule_start.strip(), self.schedule_end.strip()
+        if not start and not end:
+            return {}
+        if not start or not end:
+            raise PipelineError("a schedule needs both a start and an end date.")
+        start, end = parse_day(start), parse_day(end)
+        if end < start:
+            raise PipelineError("the end date is before the start date.")
+        days_off = sorted(
+            {parse_day(d) for d in self.schedule_days_off.split(",") if d.strip()}
+        )
+        return {
+            "start": start.isoformat(),
+            "end": end.isoformat(),
+            "days_off": [d.isoformat() for d in days_off],
+        }
+
+    @staticmethod
+    def _days(dates) -> str:
+        """Dates as typed in the schedule fields: DD/MM/YYYY, comma-separated."""
+        return ", ".join(f"{d:%d/%m/%Y}" for d in sorted(dates))
 
     @staticmethod
     def _csv_to_list(csv_str):
