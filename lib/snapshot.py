@@ -1520,10 +1520,10 @@ background:var(--fg);opacity:.55;vertical-align:-2px}
 .hm{width:auto;border-collapse:separate;border-spacing:2px;font-size:12px}
 .hm th,.hm td{padding:4px 10px;border:0;text-align:center;white-space:nowrap}
 .hm tbody th{text-align:left;font-weight:600}
-.hm td{min-width:4.5em;font-variant-numeric:tabular-nums}
+.hm td{min-width:4.5em;border-radius:6px;font-variant-numeric:tabular-nums}
 .hm td.na{color:var(--muted);opacity:.5}
 .hm-key{margin:6px 0 0;font-size:11px;color:var(--muted)}
-.hm-key i{display:inline-block;width:80px;height:8px;margin:0 6px;border-radius:2px;
+.hm-key i{display:inline-block;width:80px;height:8px;margin:0 6px;border-radius:4px;
 vertical-align:middle;background:linear-gradient(to right,
 color-mix(in srgb,var(--done) 6%,var(--card)),color-mix(in srgb,var(--done) 50%,var(--card)))}
 .card.tl{margin-top:12px}
