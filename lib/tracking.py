@@ -856,6 +856,9 @@ def create_stablemeta(
             "departments_validated": {
                 d: d in departments for d in get_departments_required(filepath)
             },
+            # Validated or worked on at any point so far, cumulative: what
+            # tells "not validated" from "not started" (_collect_folder()).
+            "departments_started": sorted(started),
             "linked": compact_linked((wipdata or {}).get("linked", [])),
             "conflict_warning": conflict_warnings,
         }
