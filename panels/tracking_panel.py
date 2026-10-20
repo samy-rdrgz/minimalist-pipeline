@@ -876,10 +876,10 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None)
                 text, row_icon = "Finished", "CHECKMARK"
             elif c in file["validated_departments"] and c in file["worked_departments"]:
                 text, row_icon = "Under RTK", "CHECKBOX_DEHLT"
-            elif (
-                c not in file["validated_departments"]
-                and c in file["worked_departments"]
+            elif c in file["worked_departments"] or c in file.get(
+                "started_departments", ()
             ):
+                # Worked since, or validated/worked before the latest stable.
                 text, row_icon = "Wip", "CHECKBOX_DEHLT"
             else:
                 text, row_icon = "Not started", "CHECKBOX_DEHLT"

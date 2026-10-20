@@ -340,11 +340,15 @@ def collect_snapshot(
 
 
 def _department_state(status: dict, department: str) -> str:
+    """done / rework (validated at the latest stable, worked since or not),
+    wip (worked since, or started before: validated at an earlier stable or
+    worked before the latest one), todo (never)."""
     validated = department in status.get("validated_departments", {})
     worked = department in status.get("worked_departments", {})
     if validated:
         return "rework" if worked else "done"
-    return "wip" if worked else "todo"
+    started = department in status.get("started_departments", ())
+    return "wip" if worked or started else "todo"
 
 
 def progress_weights(config: dict) -> dict[str, int]:
