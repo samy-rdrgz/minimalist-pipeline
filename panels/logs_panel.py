@@ -33,7 +33,16 @@ LEVEL_ICONS = {
 _SHORT = 160
 
 # Column widths of a log line: time, user, action, then the message.
-_TIME, _USER, _ACTION = 0.11, 0.09, 0.13
+_TIME, _USER, _ACTION = 0.16, 0.09, 0.13
+
+
+def _log_time(ts) -> str:
+    """ "20/10/2026 15:20:11" -- day before month, always. The raw value if
+    it isn't an ISO timestamp (a hand-edited line)."""
+    try:
+        return f"{datetime.datetime.fromisoformat(str(ts)):%d/%m/%Y %H:%M:%S}"
+    except ValueError:
+        return str(ts)
 
 
 def load_pipeline_log() -> None:
@@ -70,6 +79,7 @@ def load_pipeline_log() -> None:
             entry["_short"] = first if len(first) <= _SHORT else first[:_SHORT] + "..."
             if first != message and len(first) <= _SHORT:
                 entry["_short"] += " ..."
+            entry["_time"] = _log_time(entry.get("ts") or "")
         _log_cache.update(
             entries=entries,
             truncated=truncated,
@@ -139,9 +149,8 @@ def draw_pipeline_logs(self, layout) -> None:
     for entry in page_items:
         time, user, action, message = _line(col)
         level = entry.get("level", "")
-        ts = str(entry.get("ts", ""))
         icon = LEVEL_ICONS.get(level, "BLANK1")
-        time.label(text=ts[5:19].replace("T", " "), icon=icon)
+        time.label(text=entry["_time"], icon=icon)
         user.label(text=str(entry.get("user", "")))
         action.label(text=str(entry.get("action", "")))
         message.alert = level == "error"
@@ -178,7 +187,8 @@ def _full_line(entry: dict) -> str:
     """The whole log entry as text, for the clipboard: time, level, user,
     action and message, then any extra field (filepath, duration...)."""
     main = ("ts", "level", "user", "action", "message")
-    first = "  ".join(str(entry.get(k, "")) for k in main)
+    # Time as the list shows it: day before month.
+    first = "  ".join([entry["_time"], *(str(entry.get(k, "")) for k in main[1:])])
     extra = [
         f"{k}: {v}"
         for k, v in entry.items()

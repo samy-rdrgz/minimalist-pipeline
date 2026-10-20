@@ -394,8 +394,8 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
 
     project_name: bpy.props.StringProperty()
     project_bl_version: bpy.props.StringProperty(name="")
-    resolution_x: bpy.props.IntProperty(name="", min=128, max=8192, default=1920)
-    resolution_y: bpy.props.IntProperty(name="", min=128, max=8192, default=1080)
+    resolution_x: bpy.props.IntProperty(name="", min=128, default=1920)
+    resolution_y: bpy.props.IntProperty(name="", min=128, default=1080)
     default_fps: bpy.props.IntProperty(name="", min=4, max=120, default=30)
     default_frame_start: bpy.props.IntProperty(name="", min=0, default=1001)
     thumbnail_size: bpy.props.IntProperty(
