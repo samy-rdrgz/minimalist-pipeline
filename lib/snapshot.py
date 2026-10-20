@@ -461,8 +461,7 @@ def schedule_progress(schedule: dict, today: date, progress: dict) -> dict:
     days so far, today included ("elapsed_days"), over all of them
     ("total_days"). "at": per section of progress ({kind: Done or None}),
     the day an even pace reaches its Done and how many working days ahead
-    (+) or behind (-) of today that is. "ticks": the 1st of each month
-    after the start's, with its place on a timeline of working days."""
+    (+) or behind (-) of today that is."""
     start, end = schedule["start"], schedule["end"]
     total = working_days(schedule, start, end)
     elapsed = working_days(schedule, start, min(today, end))
@@ -474,14 +473,6 @@ def schedule_progress(schedule: dict, today: date, progress: dict) -> dict:
                 "date": nth_working_day(schedule, math.ceil(days)).isoformat(),
                 "days": round(days - elapsed),
             }
-    ticks = []
-    month = start.replace(day=1)
-    while True:
-        month = (month + timedelta(days=32)).replace(day=1)
-        if month > end:
-            break
-        before = working_days(schedule, start, month - timedelta(days=1))
-        ticks.append({"date": month.isoformat(), "at": before / total if total else 0})
     return {
         "start": start.isoformat(),
         "end": end.isoformat(),
@@ -491,7 +482,6 @@ def schedule_progress(schedule: dict, today: date, progress: dict) -> dict:
         "elapsed_days": elapsed,
         "total_days": total,
         "at": at,
-        "ticks": ticks,
     }
 
 
@@ -593,6 +583,15 @@ def snapshot_filename(snapshot: dict, ext: str = "html", kind: str = "snapshot")
 
 def _e(value) -> str:
     return html.escape(str(value or ""), quote=True)
+
+
+def _section(anchor: str, heading: str, body: str) -> str:
+    """A page section, folded and unfolded by a click on its heading -- open
+    at load (_JS opens it again for a link into it, and for printing)."""
+    return (
+        f'<section id="{anchor}"><details class="sec" open><summary><h2>{heading}'
+        f"</h2></summary>{body}</details></section>"
+    )
 
 
 def render_html(snapshot: dict) -> str:
@@ -732,10 +731,10 @@ def _render_overview(snapshot: dict) -> str:
     if cards:
         cards = f'<div class="cards">{cards}</div>'
     timeline = _render_timeline(meta, sections) if schedule else ""
-    return (
-        f'<section id="overview"><h2>Progress<span class="sub">whole project on '
-        f'{day}, filters aside</span></h2><div class="kpis">{"".join(tiles)}</div>'
-        f"{timeline}{cards}</section>"
+    return _section(
+        "overview",
+        f'Progress<span class="sub">whole project on {day}, filters aside</span>',
+        f'<div class="kpis">{"".join(tiles)}</div>{timeline}{cards}',
     )
 
 
@@ -745,12 +744,14 @@ def _short_day(iso: str, year: bool = False) -> str:
 
 
 def _render_timeline(meta: dict, sections) -> str:
-    """The schedule as a timeline of its working days, start to end: today
-    -- the expected progress -- as a line across it, and each section's
-    Done as a bar reaching the day an even pace would have got it to."""
+    """The schedule as one band per section, on a scale of planned progress
+    (0 % at its start, 100 % at its end, in working days): today's
+    expected progress a line across the bands, each section's Done the
+    band's fill -- the stretch between the two light green when ahead,
+    red when behind."""
     s = meta["schedule"]
-    exp = s["expected"] * 100
-    line = f'<i class="exp" style="left:{exp:.2f}%"></i>'
+    exp = s["expected"]
+    line = f'<i class="exp" style="left:{exp * 100:.2f}%"></i>'
     week = ", ".join(_WEEKDAYS[d - 1] for d in s["worked_days"])
     off = len(s["days_off"])
     days_off = f", {off} day{'' if off == 1 else 's'} off" if off else ""
@@ -758,51 +759,54 @@ def _render_timeline(meta: dict, sections) -> str:
         f'{_day(s["start"])} → {_day(s["end"])}, {s["total_days"]} working days '
         f"({week}{days_off})"
     )
-    # Month ticks clear of both ends' dates; at most 8, every n-th month.
-    # Their year too when the schedule spans more than one.
-    years = s["start"][:4] != s["end"][:4]
-    ticks = [t for t in s["ticks"] if 0.1 < t["at"] < 0.9]
-    ticks = ticks[:: -(-len(ticks) // 8) or 1]
-    marks = "".join(
-        f'<i class="tk" style="left:{t["at"] * 100:.2f}%">'
-        f'<span>{_short_day(t["date"], years)}</span></i>'
-        for t in ticks
-    )
-    # The today label is centred on its line, kept inside near either end.
-    side = " l" if exp < 15 else " r" if exp > 85 else ""
+    # The label is centred on its line, kept inside near either end.
+    side = " l" if exp < 0.15 else " r" if exp > 0.85 else ""
     today = _short_day(meta.get("scan_started_at") or now())
-    axis = (
-        f'<span></span><span class="tl-axis"><i class="el" style="width:{exp:.2f}%">'
-        f'</i>{marks}{line}<b class="today{side}" style="left:{exp:.2f}%">Today '
-        f'{today}, {_pct(s["expected"])} expected</b><span class="end s">'
-        f'{_short_day(s["start"], years)}</span><span class="end e">'
-        f'{_short_day(s["end"], years)}</span></span><span></span>'
-    )
-    lanes = []
+    rows = [
+        f'<span></span><span class="tl-mark"><b class="today{side}" '
+        f'style="left:{exp * 100:.2f}%">Expected today ({today}): {_pct(exp)}</b>'
+        "</span><span></span>"
+    ]
     for kind, title, _, _, _ in sections:
         at = s["at"].get(kind)
         if not at:
             continue
         done = meta["progress"][kind]
-        days = at["days"]
-        if days:
-            rel = f'{abs(days)} working day{"" if abs(days) == 1 else "s"} '
-            rel += "ahead" if days > 0 else "behind"
+        pts, days = round((done - exp) * 100), at["days"]
+        if pts or days:
+            cls = "ahead" if done > exp else "behind"
+            rel = (
+                f'{"▲" if cls == "ahead" else "▼"} {abs(pts)} pts, {abs(days)} '
+                f'working day{"" if abs(days) == 1 else "s"} {cls}'
+            )
         else:
-            rel = "on schedule"
+            cls, rel = "", "on schedule"
+        low, high = min(done, exp), max(done, exp)
+        gap = (
+            f'<i class="gap {cls}" style="left:{low * 100:.2f}%;'
+            f'width:{(high - low) * 100:.2f}%"></i>'
+            if high > low
+            else ""
+        )
         tip = _e(
-            f"{title}: {_pct(done)} done, where an even pace gets on "
-            f"{_day(at['date'])} -- {rel}"
+            f"{title}: {_pct(done)} done, {_pct(exp)} expected today -- an even "
+            f"pace gets to {_pct(done)} on {_day(at['date'])}"
         )
-        lanes.append(
+        rows.append(
             f'<span class="bl" title="{tip}">{_e(title)}</span><span class="bt" '
-            f'title="{tip}"><i class="f" style="width:{done * 100:.2f}%"></i>{line}'
-            f'</span><span class="bv" title="{tip}">{_pct(done)}'
-            f"<small>level of {_short_day(at['date'])}, {rel}</small></span>"
+            f'title="{tip}"><i class="f" style="width:{low * 100:.2f}%"></i>{gap}'
+            f'{line}</span><span class="bv" title="{tip}">{_pct(done)}'
+            f'<small class="{cls}">{rel}</small></span>'
         )
+    years = s["start"][:4] != s["end"][:4]
+    rows.append(
+        f'<span></span><span class="tl-ends"><span>{_short_day(s["start"], years)}'
+        f' · 0 %</span><span>{_short_day(s["end"], years)} · 100 %</span></span>'
+        "<span></span>"
+    )
     return (
         f'<div class="card tl"><h3>Schedule<span class="muted">{_e(sub)}</span></h3>'
-        f'<div class="bars">{axis}{"".join(lanes)}</div></div>'
+        f'<div class="bars">{"".join(rows)}</div></div>'
     )
 
 
@@ -983,10 +987,7 @@ def _item_attrs(item: dict) -> str:
 def _render_table(anchor: str, title: str, items: list, columns: list) -> str:
     nl = "\n"
     if not items:
-        return (
-            f'<section id="{anchor}"><h2>{title}</h2>'
-            '<p class="empty">Nothing tracked yet.</p></section>'
-        )
+        return _section(anchor, title, '<p class="empty">Nothing tracked yet.</p>')
     title += f' <span class="pct">{_pct(average_progress(items))} done</span>'
     with_thumbs = any(i.get("thumbnail") for i in items)
     head = (
@@ -1075,14 +1076,15 @@ def _render_table(anchor: str, title: str, items: list, columns: list) -> str:
         )
         + f'<td class="done" data-col="done">{_progress_cell(average_progress(items))}</td>'
     )
-    return (
-        f'<section id="{anchor}"><h2>{title}</h2>'
+    return _section(
+        anchor,
+        title,
         '<p class="empty nomatch" hidden>Nothing matches the filters.</p>'
         '<div class="scroll"><table>'
         f"<thead><tr>{head}</tr></thead>"
         f"<tbody>\n{nl.join(rows)}\n</tbody>"
         f'<tfoot title="Whole section, filters aside"><tr>{foot}</tr></tfoot>'
-        "</table></div></section>"
+        "</table></div>",
     )
 
 
@@ -1206,10 +1208,7 @@ def _render_entry(e: dict, reply: bool = False, closed: bool = False) -> str:
 
 def _render_notes(notes: list, items: list) -> str:
     if not notes:
-        return (
-            '<section id="notes"><h2>Notes</h2>'
-            '<p class="empty">No notes.</p></section>'
-        )
+        return _section("notes", "Notes", '<p class="empty">No notes.</p>')
     attrs = {i["name"]: _item_attrs(i) for i in items}
     by_item: dict[str, list] = {}
     for n in notes:
@@ -1232,12 +1231,11 @@ def _render_notes(notes: list, items: list) -> str:
             f'<a class="back" href="#i-{slug}" title="Back to its row">↑</a></h3>'
             f"<ul>\n{lis}\n</ul></article>"
         )
-    return (
-        '<section id="notes"><h2>Notes</h2>'
+    return _section(
+        "notes",
+        "Notes",
         '<p class="empty nomatch" hidden>Nothing matches the filters '
-        '(closed notes are hidden: tick "Show closed").</p>'
-        + "\n".join(cards)
-        + "</section>"
+        '(closed notes are hidden: tick "Show closed").</p>' + "\n".join(cards),
     )
 
 
@@ -1364,6 +1362,12 @@ article li p{margin:4px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
 .t-done{color:var(--done);background:var(--done-bg);border-color:transparent}
 .empty{color:var(--muted)}
 section:last-of-type{padding-bottom:40px}
+details.sec>summary{list-style:none;cursor:pointer}
+details.sec>summary::-webkit-details-marker{display:none}
+details.sec>summary h2::before{content:"▾";display:inline-block;width:1.1em;
+color:var(--muted);transition:transform .15s}
+details.sec:not([open])>summary h2::before{transform:rotate(-90deg)}
+details.sec:not([open])>summary h2{margin-bottom:0}
 /* Overview: department tasks in the pills' colours (--t-*: steps of them
 that colour-blind readers can still tell apart side by side), not started
 grey. */
@@ -1397,7 +1401,7 @@ gap:6px 10px;align-items:center;font-size:12px}
 .bl small{margin-left:6px;color:var(--muted)}
 .bt{position:relative;height:10px;background:var(--track);border-radius:0 4px 4px 0}
 .bt .f{display:block;height:100%;background:var(--done);border-radius:0 4px 4px 0}
-.bt .exp,.tl-axis .exp{position:absolute;top:-3px;bottom:-3px;width:2px;margin-left:-1px;
+.bt .exp{position:absolute;top:-3px;bottom:-3px;width:2px;margin-left:-1px;
 background:var(--fg);opacity:.55;border-radius:1px}
 .bv{text-align:right;font-variant-numeric:tabular-nums}
 .exp-key{margin:12px 0 0;font-size:12px;color:var(--muted)}
@@ -1406,21 +1410,20 @@ background:var(--fg);opacity:.55;vertical-align:-2px}
 .card.tl{margin-top:12px}
 .tl .bars{row-gap:10px}
 .bv small{display:block;color:var(--muted)}
-.tl-axis{position:relative;height:6px;margin:22px 0 20px;background:var(--line);
-border-radius:3px}
-.tl-axis .el{position:absolute;left:0;top:0;bottom:0;border-radius:3px 0 0 3px;
-background:color-mix(in srgb,var(--fg) 30%,transparent)}
-.tl-axis .exp{top:-6px;bottom:-6px}
-.tl-axis .tk{position:absolute;top:100%;width:1px;height:5px;background:var(--muted)}
-.tl-axis .tk span,.tl-axis .end{position:absolute;top:6px;font-size:11px;
-color:var(--muted);font-style:normal;white-space:nowrap;transform:translateX(-50%)}
-.tl-axis .end{top:10px}.tl-axis .end.s{left:0;transform:none}
-.tl-axis .end.e{right:0;transform:none}
-.today{position:absolute;bottom:12px;font-size:11px;font-weight:600;white-space:nowrap;
+.bv small.ahead{color:var(--done)}.bv small.behind{color:var(--rtk)}
+.tl .bt{height:12px}.tl .bt .f{border-radius:0}
+.tl .bt .gap{position:absolute;top:0;bottom:0}
+.gap.ahead{background:color-mix(in srgb,var(--done) 40%,var(--card));
+border-radius:0 4px 4px 0}
+.gap.behind{background:color-mix(in srgb,var(--rtk) 40%,var(--card))}
+.tl .bt .exp{top:-5px;bottom:-5px}
+.tl-mark{position:relative;height:16px}
+.today{position:absolute;bottom:0;font-size:11px;font-weight:600;white-space:nowrap;
 transform:translateX(-50%)}.today.l{transform:none}.today.r{transform:translateX(-100%)}
-/* Narrow: the timeline's lanes stack (label, bar, value), no month ticks. */
+.tl-ends{display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}
+/* Narrow: the timeline's bands stack (label, band, value). */
 @media (max-width:640px){.tl .bars{grid-template-columns:1fr;row-gap:4px}
-.tl .bars>span:empty,.tl-axis .tk{display:none}.tl .bv{text-align:left;margin-bottom:8px}}
+.tl .bars>span:empty{display:none}.tl .bv{text-align:left;margin-bottom:8px}}
 @media print{nav,.review,.jump,.back{display:none}.scroll{overflow:visible}}
 """
 
@@ -1478,6 +1481,16 @@ cols.forEach(function(c){c.addEventListener('change',function(){applyCols(true);
 applyCols(false);
 var menu=document.querySelector('.cols');
 document.addEventListener('click',function(e){if(!menu.contains(e.target))menu.open=false;});
+function unfold(hash){var el=hash&&document.getElementById(hash.slice(1));
+if(!el)return;var own=el.querySelector(':scope>details.sec');if(own)own.open=true;
+for(var d=el.closest('details.sec');d;d=d.parentElement.closest('details.sec'))
+d.open=true;}
+document.addEventListener('click',function(e){var a=e.target.closest('a[href^="#"]');
+if(a)unfold(a.getAttribute('href'));});
+window.addEventListener('hashchange',function(){unfold(location.hash);});
+window.addEventListener('beforeprint',function(){
+document.querySelectorAll('details.sec').forEach(function(d){d.open=true;});});
+unfold(location.hash);
 window.addEventListener('resize',navHeight);navHeight();apply();
 })();
 """
