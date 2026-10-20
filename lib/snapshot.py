@@ -1304,6 +1304,11 @@ text-decoration:none;white-space:nowrap}
 .back{margin-left:8px;font-weight:400;color:var(--accent);text-decoration:none}
 .legend{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
 .scroll{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:10px}
+/* A table's header, copied by _JS once the real one has scrolled under the
+nav -- position:sticky can't: inside a scroll box it sticks to the box. */
+.stuck{position:fixed;z-index:1;overflow:hidden;background:var(--card);
+box-shadow:0 1px 0 var(--line),0 4px 10px rgba(0,0,0,.06)}
+.stuck table{table-layout:fixed}
 table{border-collapse:collapse;width:100%}
 th,td{padding:6px 8px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
 table{font-size:13px}
@@ -1424,7 +1429,7 @@ transform:translateX(-50%)}.today.l{transform:none}.today.r{transform:translateX
 /* Narrow: the timeline's bands stack (label, band, value). */
 @media (max-width:640px){.tl .bars{grid-template-columns:1fr;row-gap:4px}
 .tl .bars>span:empty{display:none}.tl .bv{text-align:left;margin-bottom:8px}}
-@media print{nav,.review,.jump,.back{display:none}.scroll{overflow:visible}}
+@media print{nav,.review,.jump,.back,.stuck{display:none}.scroll{overflow:visible}}
 """
 
 _JS = """
@@ -1432,9 +1437,27 @@ _JS = """
 var $=function(id){return document.getElementById(id);};
 var nav=document.querySelector('nav'),bar=document.querySelector('.filters');
 var ctl=['f-name','f-group','f-dep','f-state','f-rtk','f-notes','f-closed','f-farm'].map($);
-function navHeight(){var sticky=getComputedStyle(nav).position==='sticky';
-document.documentElement.style.setProperty('--nav-h',
-(sticky?nav.offsetHeight:0)+16+'px');}
+function navHeight(){var sticky=getComputedStyle(nav).position==='sticky',
+h=sticky?nav.offsetHeight:0,root=document.documentElement.style;
+root.setProperty('--nav-h',h+16+'px');navTop=h;}
+var navTop=0,heads=[].map.call(document.querySelectorAll('.scroll'),function(box){
+var table=box.querySelector('table'),stuck=document.createElement('div'),
+copy=table.cloneNode(false);copy.appendChild(table.tHead.cloneNode(true));
+stuck.className='stuck';stuck.hidden=true;stuck.setAttribute('aria-hidden','true');
+stuck.appendChild(copy);document.body.appendChild(stuck);
+box.addEventListener('scroll',place,{passive:true});
+return{box:box,table:table,stuck:stuck,copy:copy};});
+function size(){heads.forEach(function(h){var src=h.table.tHead.rows[0].cells,
+dst=h.copy.tHead.rows[0].cells,w=function(el){return el.getBoundingClientRect().width+'px';};
+h.copy.style.width=w(h.table);for(var i=0;i<src.length;i++)dst[i].style.width=w(src[i]);});
+place();}
+function place(){heads.forEach(function(h){var b=h.box.getBoundingClientRect(),
+head=h.table.tHead.getBoundingClientRect();
+var show=b.width>0&&head.top<navTop&&b.bottom>navTop+head.height;
+h.stuck.hidden=!show;if(!show)return;
+h.stuck.style.top=navTop+'px';h.stuck.style.left=b.left+h.box.clientLeft+'px';
+h.stuck.style.width=h.box.clientWidth+'px';
+h.copy.style.transform='translateX('+(-h.box.scrollLeft)+'px)';});}
 function match(el){
 var q=ctl[0].value.trim().toLowerCase(),g=ctl[1].value,d=ctl[2].value,st=ctl[3].value;
 if(q&&el.dataset.name.indexOf(q)<0)return false;
@@ -1461,7 +1484,7 @@ while(next&&!next.classList.contains('group')){if(!next.hidden)any=true;
 next=next.nextElementSibling;}row.hidden=!any;});
 var none=sec.querySelector('.nomatch'),table=sec.querySelector('.scroll');
 if(none)none.hidden=!items.length||n>0;if(table)table.hidden=items.length&&!n;
-$('c-'+id).textContent=n;});}
+$('c-'+id).textContent=n;});size();}
 ctl.forEach(function(c){c.addEventListener('input',apply);
 c.addEventListener('change',apply);});
 $('f-reset').addEventListener('click',function(){ctl.forEach(function(c){
@@ -1474,7 +1497,7 @@ function applyCols(save){var hidden=cols.filter(function(c){return!c.checked;})
 colStyle.textContent=hidden.map(function(k){
 return '[data-col="'+CSS.escape(k)+'"]{display:none}';}).join('');
 document.querySelector('.cols').classList.toggle('hiding',hidden.length>0);
-if(save){try{localStorage.setItem(colKey,JSON.stringify(hidden));}catch(e){}}}
+if(save){try{localStorage.setItem(colKey,JSON.stringify(hidden));}catch(e){}}size();}
 try{var saved=JSON.parse(localStorage.getItem(colKey)||'[]');
 cols.forEach(function(c){if(saved.indexOf(c.dataset.key)>=0)c.checked=false;});}catch(e){}
 cols.forEach(function(c){c.addEventListener('change',function(){applyCols(true);});});
@@ -1491,7 +1514,10 @@ window.addEventListener('hashchange',function(){unfold(location.hash);});
 window.addEventListener('beforeprint',function(){
 document.querySelectorAll('details.sec').forEach(function(d){d.open=true;});});
 unfold(location.hash);
-window.addEventListener('resize',navHeight);navHeight();apply();
+document.querySelectorAll('details.sec').forEach(function(d){
+d.addEventListener('toggle',size);});
+window.addEventListener('scroll',place,{passive:true});
+window.addEventListener('resize',function(){navHeight();size();});navHeight();apply();
 })();
 """
 
