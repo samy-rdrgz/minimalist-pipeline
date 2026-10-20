@@ -1074,7 +1074,7 @@ def _render_table(
         )
         if threads:
             span = len(columns) + 4 + with_thumbs
-            rows.append(_notes_row(_thread_lis(threads), span))
+            rows.append(_notes_row(_thread_lis(threads), span, with_thumbs))
     # Whole section, whatever the filters show.
     foot = (
         ('<td data-col="thumb"></td>' if with_thumbs else "")
@@ -1243,12 +1243,15 @@ def _thread_lis(threads: list) -> str:
     )
 
 
-def _notes_row(lis: str, span: int) -> str:
-    """The row under an item's own holding its notes, folded at load (_JS).
-    Its text stays in view when a wide table is scrolled sideways."""
+def _notes_row(lis: str, span: int, thumbs: bool = False) -> str:
+    """The row under an item's own holding its notes, folded at load (_JS),
+    lined up with the name: past a spacer as wide as the thumbnail column
+    (thumbs), hidden with it from the Columns menu. Its text stays in view
+    when a wide table is scrolled sideways."""
+    spacer = '<i class="nspace" data-col="thumb"></i>' if thumbs else ""
     return (
-        f'<tr class="notes" hidden><td colspan="{span}"><div class="nbox">'
-        f'<ul class="threads">\n{lis}\n</ul></div></td></tr>'
+        f'<tr class="notes" hidden><td colspan="{span}"><div class="nwrap">{spacer}'
+        f'<div class="nbox"><ul class="threads">\n{lis}\n</ul></div></div></td></tr>'
     )
 
 
@@ -1370,7 +1373,12 @@ background:var(--rtk-bg);padding:1px 6px;border-radius:999px}
 /* An item's notes, in the row under its own. */
 tr.notes>td{padding:0 8px 8px;
 background:color-mix(in srgb,var(--accent) 4%,var(--card))}
-.nbox{position:sticky;left:8px;max-width:min(60rem,calc(100vw - 64px))}
+.nwrap{display:flex}
+/* The thumbnail column: its cell's left padding + the thumbnail -- not on a
+narrow screen, where it would push the notes out of it. */
+.nspace{flex:0 0 120px}@media (max-width:640px){.nspace{display:none}}
+.nbox{position:sticky;left:8px;flex:1 1 auto;min-width:0;
+max-width:min(60rem,calc(100vw - 64px))}
 .threads{list-style:none;margin:0;padding:0}
 .threads li{padding:8px 0;border-top:1px solid var(--line)}
 .threads li:first-child{border-top:0}
@@ -1387,9 +1395,11 @@ background:color-mix(in srgb,var(--accent) 4%,var(--card))}
 section:last-of-type{padding-bottom:40px}
 details.sec>summary{list-style:none;cursor:pointer}
 details.sec>summary::-webkit-details-marker{display:none}
-details.sec>summary h2::before{content:"▾";display:inline-block;width:1.1em;
-color:var(--muted);transition:transform .15s}
-details.sec:not([open])>summary h2::before{transform:rotate(-90deg)}
+/* A chevron drawn as two borders of a square: it turns on its own centre. */
+details.sec>summary h2::before{content:"";display:inline-block;width:.4em;height:.4em;
+margin:0 .6em 0 .15em;border:solid var(--muted);border-width:0 2px 2px 0;
+vertical-align:.18em;transform:rotate(45deg);transition:transform .15s}
+details.sec:not([open])>summary h2::before{transform:rotate(-45deg)}
 details.sec:not([open])>summary h2{margin-bottom:0}
 /* Overview: department tasks in the pills' colours (--t-*: steps of them
 that colour-blind readers can still tell apart side by side), not started
