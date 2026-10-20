@@ -2,6 +2,75 @@
 
 All notable changes to this addon. Dates are release dates.
 
+## 1.0.15 — 2026-10-20
+
+### Production snapshot
+
+- **Progress block** at the top, for the whole project (filters aside):
+  Done of the shots and of the assets & libraries, the open RTKs, then a
+  card per section -- its department tasks by state in one bar
+  (validated, reworked, open RTK whatever the state, WIP, not started, in
+  the pills' colours), its Done by sequence / prefix and by department,
+  and a sequence (or prefix) x department grid, each cell shaded by its
+  %. One panel per chart; the bars and the grid side by side when they
+  fit.
+- **Project schedule** (Project settings > Schedule: start and end
+  dates, days off, days of the week worked -- Monday to Friday by
+  default): where the project should be on the export day at an even
+  pace, in working days; each Done tile says how far ahead or behind it
+  is, with its pace (done / expected) in a pill coloured as a progress
+  spreadsheet's: 105 % and more ahead, 100 to 105 % on track, 90 to 100 %
+  slightly behind, under 90 % behind. A Schedule card puts each section
+  on one band of planned progress: the expected progress a line, its
+  Done the fill, the gap between them light green ahead, amber or red
+  behind.
+- **Notes under their row** instead of at the bottom of the page: an
+  "n notes" button unfolds them right under the asset/shot, *Notes* in
+  the bar at the top unfolds (or folds) them all. Printing prints every
+  open note.
+- **Foldable sections**: Progress, Assets and Shots fold on a click on
+  their title; all open at load, a link into a folded one opens it.
+- **Column headers stay on screen** under the filters while the Assets /
+  Shots tables scroll by.
+- **Red outline on any department with an open RTK**, whatever its state
+  -- was only on validated ones.
+
+### Department states
+
+- **Validated at an earlier stable, or worked on before the latest one,
+  but not validated at it: WIP**, no longer *Not started* -- in the
+  snapshot and in Project monitoring (tooltip: "Validated or worked on
+  before it: in progress"). A department reopened, unvalidated from its
+  toggle, or worked on and not finished at the stable read as never
+  started. New stables record the departments started so far; for older
+  ones, the earlier stables and versions are read, only for the
+  departments that would otherwise be *Not started*.
+
+### Project monitoring
+
+- **RTK filter** next to the Farm one: only the files with an open RTK.
+- An open *todo* tagged with a department no longer turns that
+  department's icon red -- only an open RTK does.
+
+### Farm monitoring
+
+- **Workers tab**: a worker rendering shows the job's name, as in the
+  Jobs tab (its file, plus the shot of a block's child), and a click
+  opens the job's detail -- it showed its render request's full path
+  (clipped by Blender, so some rows looked like a name and others like a
+  path). The farm host's step in progress, the same (was its job id).
+
+### Project settings
+
+- No maximum on the resolution (was 8192).
+- Schedule: start, end, days off and worked days (see Production
+  snapshot).
+
+### Pipeline log
+
+- Times read day/month/year (20/10/2026 15:20:11), the copied line too --
+  was month-day with no year.
+
 ## 1.0.14 — 2026-10-15
 
 ### Project monitoring
