@@ -781,14 +781,18 @@ def _render_timeline(meta: dict, sections) -> str:
             continue
         done = meta["progress"][kind]
         pts, days = round((done - exp) * 100), at["days"]
+        # Coloured by the pace's band, as the Done tile's pill.
+        band = _pace_band(done, exp)
+        cls = band[0] if band else "ahead" if done > exp else ""
         if pts or days:
-            cls = "ahead" if done > exp else "behind"
+            word = "ahead" if done > exp else "behind"
             rel = (
-                f'{"▲" if cls == "ahead" else "▼"} {abs(pts)} pts, {abs(days)} '
-                f'working day{"" if abs(days) == 1 else "s"} {cls}'
+                f'{"▲" if word == "ahead" else "▼"} {abs(pts)} '
+                f'pt{"" if abs(pts) == 1 else "s"}, {abs(days)} '
+                f'working day{"" if abs(days) == 1 else "s"} {word}'
             )
         else:
-            cls, rel = "", "on schedule"
+            rel = "on schedule"
         low, high = min(done, exp), max(done, exp)
         gap = (
             f'<i class="gap {cls}" style="left:{low * 100:.2f}%;'
@@ -826,22 +830,51 @@ def _stat_tile(label: str, value: str, line: str = "") -> str:
     )
 
 
+# A Done's pace (done / expected) -> its band, a spreadsheet's colouring of
+# its "efficiency": (lowest pace, css key, label), highest first.
+_PACE_BANDS = (
+    (1.05, "ahead", "ahead"),
+    (1.0, "ontrack", "on track"),
+    (0.9, "slip", "slightly behind"),
+    (0.0, "behind", "behind"),
+)
+_PACE_TIP = (
+    "Done / expected: 105 % and more ahead, 100 to 105 % on track, "
+    "90 to 100 % slightly behind, under 90 % behind"
+)
+
+
+def _pace_band(done: float, expected: float) -> tuple[str, str] | None:
+    """(css key, label) of done's pace against expected, None before the
+    schedule's first working day (nothing expected yet)."""
+    if expected <= 0:
+        return None
+    pace = done / expected
+    return next((k, label) for floor, k, label in _PACE_BANDS if pace >= floor)
+
+
 def _schedule_delta(progress: float, expected: float | None) -> str:
-    """A Done tile's line against the expected progress: points ahead or
-    behind, then the pace (done / expected, a spreadsheet's "efficiency").
-    Nothing without a schedule."""
+    """A Done tile's lines against the expected progress: points ahead or
+    behind, then the pace (done / expected, a spreadsheet's "efficiency")
+    as a pill in its band's colour. Nothing without a schedule."""
     if expected is None:
         return ""
     gap = round((progress - expected) * 100)
+    pts = f'{abs(gap)} pt{"" if abs(gap) == 1 else "s"}'
     if gap > 0:
-        cls, text = "ahead", f"▲ {gap} pts ahead of schedule"
+        text = f"▲ {pts} ahead of schedule"
     elif gap < 0:
-        cls, text = "behind", f"▼ {-gap} pts behind schedule"
+        text = f"▼ {pts} behind schedule"
     else:
-        cls, text = "", "on schedule"
-    if expected > 0:
-        text += f" · pace {round(progress / expected * 100)} %"
-    return f'<span class="delta {cls}">{text}</span>'
+        text = "on schedule"
+    line = f'<span class="delta">{text}</span>'
+    band = _pace_band(progress, expected)
+    if band:
+        line += (
+            f'<span class="pace p-{band[0]}" title="{_PACE_TIP}">Pace '
+            f"{round(progress / expected * 100)} %, {band[1]}</span>"
+        )
+    return line
 
 
 def _overview_card(
@@ -888,6 +921,7 @@ def _overview_card(
         if expected is not None
         else ""
     )
+    grid = _heatmap(by.removeprefix("By ").capitalize(), groups, columns, noun)
     return (
         f'<div class="card"><h3>{_e(title)}<span class="muted">{len(items)} '
         f'{noun}{"" if len(items) == 1 else "s"}</span></h3><h4>State of the '
@@ -896,7 +930,43 @@ def _overview_card(
         f'<div class="slegend">{legend}</div><div class="split">'
         f"<div><h4>{_e(by)}</h4>{_bar_list(by_group, expected)}</div>"
         f"<div><h4>By department</h4>{_bar_list(by_department, expected)}</div>"
-        f"</div>{key}</div>"
+        f"</div>{key}{grid}</div>"
+    )
+
+
+def _heatmap(axis: str, groups: dict, columns: list, noun: str) -> str:
+    """Group x department grid of Done -- each cell shaded by its value, one
+    green from light to dark, capped so its text stays readable; "–" where
+    none of the group's items requires the department. Nothing when no item
+    requires any."""
+    columns = [
+        c for c in columns if any(c in i["scores"] for m in groups.values() for i in m)
+    ]
+    rows = []
+    for group, members in groups.items():
+        cells = []
+        for c in columns:
+            values = [i["scores"][c] for i in members if c in i["scores"]]
+            if not values:
+                cells.append('<td class="na">–</td>')
+                continue
+            pct = round(sum(values) / len(values) * 100)
+            n = len(values)
+            tip = _e(
+                f"{group}, {c.capitalize()}: {pct} % done "
+                f'({n} {noun}{"" if n == 1 else "s"})'
+            )
+            shade = f"color-mix(in srgb,var(--done) {6 + pct * 0.44:.0f}%,var(--card))"
+            cells.append(f'<td style="background:{shade}" title="{tip}">{pct} %</td>')
+        if any(cell != '<td class="na">–</td>' for cell in cells):
+            rows.append(f"<tr><th>{_e(group)}</th>{''.join(cells)}</tr>")
+    if not rows:
+        return ""
+    head = "".join(f"<th>{_e(c.capitalize())}</th>" for c in columns)
+    return (
+        f'<h4>{_e(axis)} × department</h4><div class="hm-wrap"><table class="hm">'
+        f"<thead><tr><th></th>{head}</tr></thead><tbody>{''.join(rows)}</tbody>"
+        '</table></div><p class="hm-key">0 %<i></i>100 %</p>'
     )
 
 
@@ -1412,7 +1482,13 @@ border:1px solid var(--line);border-radius:10px;padding:12px 16px}
 .kpi-label{font-size:12px;color:var(--muted)}
 .kpi-value{font-size:28px;font-weight:600;line-height:1.2}
 .delta{font-size:12px;color:var(--muted)}
-.delta.ahead{color:var(--done)}.delta.behind{color:var(--rtk)}
+/* Pace bands: a solid green, a light one, amber, red -- each with its label. */
+.pace{align-self:flex-start;margin-top:6px;padding:1px 8px;border-radius:999px;
+font-size:12px;font-weight:600}
+.p-ahead{background:var(--done);color:var(--card)}
+.p-ontrack{background:var(--done-bg);color:var(--done)}
+.p-slip{background:var(--wip-bg);color:var(--wip)}
+.p-behind{background:var(--rtk-bg);color:var(--rtk)}
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,460px),1fr));
 gap:12px;margin-top:12px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:10px;
@@ -1440,14 +1516,26 @@ background:var(--fg);opacity:.55;border-radius:1px}
 .exp-key{margin:12px 0 0;font-size:12px;color:var(--muted)}
 .exp-key i{display:inline-block;width:2px;height:12px;margin-right:6px;
 background:var(--fg);opacity:.55;vertical-align:-2px}
+.hm-wrap{overflow-x:auto}
+.hm{width:auto;border-collapse:separate;border-spacing:2px;font-size:12px}
+.hm th,.hm td{padding:4px 10px;border:0;text-align:center;white-space:nowrap}
+.hm tbody th{text-align:left;font-weight:600}
+.hm td{min-width:4.5em;font-variant-numeric:tabular-nums}
+.hm td.na{color:var(--muted);opacity:.5}
+.hm-key{margin:6px 0 0;font-size:11px;color:var(--muted)}
+.hm-key i{display:inline-block;width:80px;height:8px;margin:0 6px;border-radius:2px;
+vertical-align:middle;background:linear-gradient(to right,
+color-mix(in srgb,var(--done) 6%,var(--card)),color-mix(in srgb,var(--done) 50%,var(--card)))}
 .card.tl{margin-top:12px}
 .tl .bars{row-gap:10px}
 .bv small{display:block;color:var(--muted)}
-.bv small.ahead{color:var(--done)}.bv small.behind{color:var(--rtk)}
+.bv small.ahead,.bv small.ontrack{color:var(--done)}.bv small.slip{color:var(--wip)}
+.bv small.behind{color:var(--rtk)}
 .tl .bt{height:12px}.tl .bt .f{border-radius:0}
 .tl .bt .gap{position:absolute;top:0;bottom:0}
-.gap.ahead{background:color-mix(in srgb,var(--done) 40%,var(--card));
+.gap.ahead,.gap.ontrack{background:color-mix(in srgb,var(--done) 40%,var(--card));
 border-radius:0 4px 4px 0}
+.gap.slip{background:color-mix(in srgb,var(--wip) 40%,var(--card))}
 .gap.behind{background:color-mix(in srgb,var(--rtk) 40%,var(--card))}
 .tl .bt .exp{top:-5px;bottom:-5px}
 .tl-mark{position:relative;height:16px}
