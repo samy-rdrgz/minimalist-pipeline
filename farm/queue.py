@@ -1,9 +1,23 @@
 """Submission queue: incoming requests -> active jobs, scanned every tick by the monitor."""
 
 import datetime
+import os
+import re
 from pathlib import Path
 
-from ..lib import ConfigCache, log, mark_render_to_check, now, retry_shared_io, to_relative
+from ..lib import (
+    ConfigCache,
+    PipelineError,
+    get_active_project_root,
+    get_machine_id,
+    log,
+    mark_render_to_check,
+    now,
+    read_json_quiet,
+    retry_shared_io,
+    to_absolute,
+    to_relative,
+)
 from .dispatch import (
     _active_processes,
     append_render_history,
@@ -13,11 +27,19 @@ from .dispatch import (
     join_running_renders,
     local_slot_busy,
     locked_json,
+    machines_for,
+    note_waiting,
     read_process_log,
     render_dispatch,
 )
 from .post_render import checks_images, compilation, refresh_shot_thumbnail
-from .workers import local_render_running, scan_workers
+from .workers import (
+    idle_machines,
+    local_render_running,
+    saved_frames_path,
+    scan_workers,
+    this_instance_is_worker,
+)
 
 
 def scan_requests() -> bool:
@@ -84,28 +106,91 @@ def scan_requests() -> bool:
             log("ERROR", "farm", f"Job request error: {e} ({to_relative(filepath)}).")
 
 
+# Stages a job never moves on from by itself: nothing for scan_queue() to do.
+_TERMINAL_STAGES = ("archived", "orphaned")
+
+# job file path -> its mtime when last read at a terminal stage. Such a job
+# is skipped without being read again until its file changes (a retry, a
+# recompile): they pile up in actives/ until archived, and were re-read --
+# under a lock -- every tick.
+_terminal_jobs: dict[str, float] = {}
+
+
+def _job_stage(data: dict) -> str:
+    try:
+        return data["stage_history"][-1]["stage"]
+    except (KeyError, IndexError, TypeError):
+        return ""
+
+
+def read_active_jobs(scan_dir: Path) -> list[tuple[Path, dict]]:
+    """(path, data) of every job in actives/ that may still need work,
+    read without a lock: writes are atomic (read_json_quiet()), and the
+    lock taken here on every job, every tick, was fought over by the setup
+    and render subprocesses -- some lost it and rendered without their
+    preset -- and its .lock file churn changed actives/'s mtime every tick,
+    so the UI re-read every job every refresh. Whatever acts on a job
+    re-reads it under its own lock. A job unreadable right now (mid-replace
+    on Windows) is just skipped this tick."""
+    jobs = []
+    seen = set()
+    try:
+        entries = [
+            e
+            for e in os.scandir(scan_dir)
+            if e.name.startswith("job_") and e.name.endswith(".json")
+        ]
+    except OSError:
+        return jobs
+    for entry in entries:
+        seen.add(entry.path)
+        try:
+            mtime = entry.stat().st_mtime
+        except OSError:
+            continue
+        if _terminal_jobs.get(entry.path) == mtime:
+            continue
+        data = read_json_quiet(entry.path)
+        if not data:
+            continue
+        if _job_stage(data) in _TERMINAL_STAGES:
+            _terminal_jobs[entry.path] = mtime
+            continue
+        _terminal_jobs.pop(entry.path, None)
+        jobs.append((Path(entry.path), data))
+    for path in set(_terminal_jobs) - seen:
+        del _terminal_jobs[path]
+    return jobs
+
+
 def scan_queue(project_root: Path) -> None:
     """Advance every active job by one step according to its current stage."""
-    scan_dir = ConfigCache.get_path("farm_actives")
-
-    jobs = []
-    for job_file in scan_dir.glob("job_*.json"):
-        try:
-            with locked_json(job_file) as box:
-                data = box["data"] or {}
-                jobs.append((job_file, data))
-        except Exception as e:
-            log("ERROR", "farm", f"Could not read job file {job_file.name}: {e}")
-
+    jobs = read_active_jobs(ConfigCache.get_path("farm_actives"))
     jobs.sort(
         key=lambda x: (
-            x[1].get("priority", 10),  # descending priority
-            x[1].get("submitted_at", ""),  # ascending date at equal priority
+            -int(x[1].get("priority", 10) or 0),  # highest priority first
+            x[1].get("submitted_at", ""),  # then oldest first
         )
     )
+
+    # Idle machines, once for the whole tick: joining and dispatching take
+    # theirs out of it.
+    try:
+        idle = idle_machines()
+    except Exception as e:
+        log("ERROR", "farm", f"Could not list idle machines: {e}")
+        idle = {}
+    if this_instance_is_worker() and any(
+        _job_stage(data) == "queued" for _, data in jobs
+    ):
+        # A setup waits for this instance's own render to end
+        # (local_render_running()): renders of hours held the whole queue
+        # back. Keep it off new renders until the waiting setups are done.
+        idle.pop(get_machine_id(), None)
+
     # Before any new job: idle workers first reinforce renders in progress.
     try:
-        join_running_renders(jobs, project_root)
+        join_running_renders(jobs, project_root, idle)
     except Exception as e:
         log("ERROR", "farm", f"Could not send idle workers to running renders: {e}")
     for job, data in jobs:
@@ -119,7 +204,6 @@ def scan_queue(project_root: Path) -> None:
                 "compilation_start",
                 "preview_start",
                 "finished",
-                "archived",
             ]
             if stage in pass_stage:
                 pass
@@ -151,14 +235,16 @@ def scan_queue(project_root: Path) -> None:
                 # A block fans out into one job per shot instead of rendering itself.
                 if data.get("split_into"):
                     mark_stage(job, "split_finished")
+                elif machines_for(data, idle):
+                    render_dispatch(job, idle)
                 else:
-                    render_dispatch(job)
+                    note_waiting(data)  # no lock, no disk: nothing free
             elif stage == "split_finished":
                 construct_split_history(data)
                 mark_stage(job, "archived")
                 discard_job_log(data["job_id"])  # the shots carry on as their own jobs
             elif stage == "render_start":
-                check_render_completion(job, project_root)
+                check_render_completion(job, project_root, data)
             elif stage == "render_finished":
                 if not local_slot_busy():
                     checks_images(job)
@@ -185,6 +271,7 @@ def scan_queue(project_root: Path) -> None:
                 if not _is_recompile(data):
                     construct_history(data, status="finished")
                 mark_stage(job, "archived")
+                discard_saved_frames(data["job_id"])
                 # Ended well -- unless the frame check flagged corrupted
                 # frames: that list only lives in the log, keep it.
                 if not data.get("frames_corrupted"):
@@ -246,6 +333,13 @@ def retry_job(data: dict, project_root: Path) -> str | None:
     failed = failed_stage(data)
     if not failed:
         return None
+    source = data.get("filepath")
+    if source and not to_absolute(source, project_root).exists():
+        # Every worker would fail at once on it: replaced by a newer
+        # version (a block's old -stable), or moved by hand.
+        raise PipelineError(
+            f"{source} no longer exists -- submit the current version instead."
+        )
     target = _RETRY_STAGE[failed]
     if failed == "render_failed" and frames_complete(data, project_root):
         # Rendered in full by the other machines: nothing left to render.
@@ -257,6 +351,7 @@ def retry_job(data: dict, project_root: Path) -> str | None:
     data.pop("rendered_by", None)
     data.pop("local_processes", None)
     data.pop("refill_rounds", None)  # a manual retry starts a fresh count
+    data.pop("refill_single", None)
     data["stage_history"].append({"stage": target, "at": now(), "resumed": "retry"})
     log("INFO", "farm", f"Job {data.get('job_id')}: retried at {target}.")
     return target
@@ -462,15 +557,14 @@ def _finish_job_processes(job_id: str, procs: list, job_path: Path) -> None:
                 f"not a *_start stage -- result ignored.",
             )
         else:
+            redo = False
             if stage == "checks_images_start":
-                # ffmpeg -v error: one non-empty line per corrupted frame.
-                corrupted = sum(
-                    1
-                    for p, _ in procs
-                    for line in read_process_log(p).splitlines()
-                    if line.strip()
+                corrupted = corrupted_frames(
+                    "\n".join(read_process_log(p) for p, _ in procs), data
                 )
-                data["frames_corrupted"] = corrupted
+                data["frames_corrupted"] = len(corrupted)
+                # With the frames two machines wrote: one re-render for both.
+                redo = not errors and _send_back_bad_frames(data, corrupted)
 
             elif stage == "setup_start":
                 # exit code 0 doesn't guarantee the script ran fine --
@@ -488,9 +582,10 @@ def _finish_job_processes(job_id: str, procs: list, job_path: Path) -> None:
                     )
 
             outcome = "failed" if errors else "finished"
-            data["stage_history"].append(
-                {"stage": f"{stage.replace('_start', '')}_{outcome}", "at": now()}
-            )
+            if not redo:  # else already back at setup_finished
+                data["stage_history"].append(
+                    {"stage": f"{stage.replace('_start', '')}_{outcome}", "at": now()}
+                )
             if errors:
                 log(
                     "WARNING",
@@ -549,6 +644,17 @@ def construct_history(job: dict, status):
         else None,
         "status": status,
     }
+    # A block rendered whole because the split couldn't cut it (setup);
+    # frames corrupted or written by two machines, rendered again at the
+    # end of the frame check (_send_back_bad_frames()).
+    for key in (
+        "skipped_shots",
+        "absorbed_shots",
+        "written_twice",
+        "frames_rerendered",
+    ):
+        if job.get(key):
+            entry[key] = job[key]
 
     append_render_history(job["filepath"], entry)
 
@@ -696,7 +802,47 @@ def _render_folder(data: dict, project_root: Path | None) -> Path | None:
     return (Path(project_root) / output_path).parent
 
 
-def check_render_completion(job_path: Path, project_root: Path | None = None) -> None:
+def _classify_machines(data: dict) -> dict:
+    """Each of the job's used_machines by what its worker file says about
+    this render: still_running / lost / failed / cancelled / stopped (lists
+    of uuids), any_succeeded (bool)."""
+    state = {
+        "still_running": [],
+        "lost": [],
+        "failed": [],
+        "cancelled": [],
+        "stopped": [],
+        "any_succeeded": False,
+    }
+    for uuid in data.get("used_machines", []):
+        # Its file, whatever its heartbeat's age: a result for this
+        # render is final even from a worker a few seconds late.
+        w = _read_worker(uuid)
+        if w is None:
+            state["still_running"].append(uuid)  # can't tell this tick
+            continue
+        result = w.get("last_job_result")
+        if _is_this_render(result, data):
+            if result.get("lost"):
+                state["lost"].append(uuid)
+            elif result.get("stopped"):
+                state["stopped"].append(uuid)  # its worker was stopped: neutral
+            elif result.get("cancelled"):
+                state["cancelled"].append(uuid)  # not the machine's fault
+            elif not result["success"]:
+                state["failed"].append(uuid)
+            else:
+                state["any_succeeded"] = True  # finished THIS render successfully
+        elif _worker_gone(w) or w.get("status") == "stopped":
+            state["lost"].append(uuid)
+        else:
+            state["still_running"].append(uuid)
+    return state
+
+
+def check_render_completion(
+    job_path: Path, project_root: Path | None = None, data: dict | None = None
+) -> None:
     """Monitor-only: cross-check used_machines against each worker's declared
     state. No worker ever writes this job file for this stage.
 
@@ -709,42 +855,28 @@ def check_render_completion(job_path: Path, project_root: Path | None = None) ->
     (the job's Cancel) -> render_failed (cancelled); otherwise frames are
     missing because a machine stopped early -> the placeholders it left are
     deleted (safe now: nobody renders this job) and the job goes back to
-    setup_finished for them, at most MAX_REFILL_ROUNDS times."""
-    with locked_json(job_path) as box:
-        data = box["data"]
-        if data["stage_history"][-1]["stage"] != "render_start":
+    setup_finished for them, at most MAX_REFILL_ROUNDS times.
+
+    data: the job as scan_queue() read it (no lock). While every machine
+    still renders and none has finished, nothing changes: returns without
+    taking the job's lock -- every tick of a render of hours did."""
+    if data is not None:
+        state = _classify_machines(data)
+        if state["still_running"] and not state["any_succeeded"]:
             return data
 
-        still_running = []
-        lost = []
-        failed = []
-        cancelled = []
-        stopped = []
-        any_succeeded = False
+    with locked_json(job_path) as box:
+        data = box["data"]
+        if not data or data["stage_history"][-1]["stage"] != "render_start":
+            return data
 
-        for uuid in data.get("used_machines", []):
-            # Its file, whatever its heartbeat's age: a result for this
-            # render is final even from a worker a few seconds late.
-            w = _read_worker(uuid)
-            if w is None:
-                still_running.append(uuid)  # can't tell this tick
-                continue
-            result = w.get("last_job_result")
-            if _is_this_render(result, data):
-                if result.get("lost"):
-                    lost.append(uuid)
-                elif result.get("stopped"):
-                    stopped.append(uuid)  # its worker was stopped: neutral
-                elif result.get("cancelled"):
-                    cancelled.append(uuid)  # not the machine's fault
-                elif not result["success"]:
-                    failed.append(uuid)
-                else:
-                    any_succeeded = True  # finished THIS render successfully
-            elif _worker_gone(w) or w.get("status") == "stopped":
-                lost.append(uuid)
-            else:
-                still_running.append(uuid)
+        state = _classify_machines(data)
+        still_running = state["still_running"]
+        lost = state["lost"]
+        failed = state["failed"]
+        cancelled = state["cancelled"]
+        stopped = state["stopped"]
+        any_succeeded = state["any_succeeded"]
 
         if any_succeeded and still_running:
             # A worker that ended this render successfully went through the
@@ -859,8 +991,167 @@ def check_render_completion(job_path: Path, project_root: Path | None = None) ->
         return data
 
 
+def frames_written_twice(data: dict) -> list[int]:
+    """Frames of this render (its dispatch_id) that two of its machines or
+    more wrote, from each machine's saved_frames_path() record. [] for a
+    worker on a version that keeps none."""
+    dispatch_id = data.get("dispatch_id")
+    if not dispatch_id:
+        return []
+    writers: dict[int, set[str]] = {}
+    # rendered_by: the render's machines (used_machines is emptied when a
+    # local stage ends -- the frame check included).
+    for uuid in set(data.get("rendered_by") or data.get("used_machines") or []):
+        try:
+            text = saved_frames_path(data["job_id"], uuid).read_text(encoding="utf-8")
+        except OSError:
+            continue
+        for line in text.splitlines():
+            parts = line.split()
+            if len(parts) == 2 and parts[0] == dispatch_id and parts[1].isdigit():
+                writers.setdefault(int(parts[1]), set()).add(uuid)
+    return sorted(frame for frame, uuids in writers.items() if len(uuids) > 1)
+
+
+# The frame check's ffmpeg output (checks_images()): one showinfo line per
+# decoded frame, "pts" being its index in the sequence, and every log line
+# tagged with its level.
+_SHOWINFO_FRAME = re.compile(
+    r"\[Parsed_showinfo[^\]]*\] \[info\] n:\s*\d+\s+pts:\s*(\d+)"
+)
+_LOG_PROBLEM = re.compile(r"\[(error|warning)\]")
+# Not about a frame's data: filters (a format change mid-sequence rebuilds
+# the graph, with swscaler warnings), the muxer. Only the decoder and the
+# input's own lines count.
+_NOT_INPUT = ("Parsed_", "[out#", "[fc#", "[vf#", "[swscaler", "[auto_scale", "[graph")
+
+
+def corrupted_frames(log_text: str, data: dict) -> list[int]:
+    """Frame numbers the frame check found corrupted, read off its ffmpeg
+    output. Decoding single-threaded, every decoder error or warning comes
+    right before the showinfo line of the frame it's about; a frame ffmpeg
+    couldn't decode at all has no line: a gap in pts -- the errors before
+    the frame after a gap count for both (one frame rendered again for
+    nothing beats a corrupted one kept). [] if the output has no frame line
+    at all (unreadable log): nothing can be told. See NOTES.md, "Frames
+    written by two machines"."""
+    start, end = (int(x) for x in data.get("resolved_frame_range") or (0, 0))
+    total = end - start + 1
+    bad: set[int] = set()
+    expected = 0
+    pending = False
+    seen = False
+    for line in log_text.splitlines():
+        m = _SHOWINFO_FRAME.search(line)
+        if m:
+            seen = True
+            index = int(m.group(1))
+            bad.update(range(expected, index))  # never decoded
+            if pending:
+                bad.add(index)
+            pending = False
+            expected = index + 1
+        elif _LOG_PROBLEM.search(line) and not any(s in line for s in _NOT_INPUT):
+            pending = True
+    if not seen:
+        return []
+    if expected < total:
+        bad.update(range(expected, total))  # the end never decoded
+    elif pending and expected == total:
+        bad.add(total - 1)  # errors after the last frame (not frames past it)
+    return sorted(start + i for i in bad if 0 <= i < total)
+
+
+def _send_back_bad_frames(data: dict, corrupted: list[int]) -> bool:
+    """End of the frame check: the frames ffmpeg found corrupted and those
+    two machines wrote (frames_written_twice()) are deleted, and the job
+    goes back to setup_finished for them -- one re-render for both kinds,
+    on one machine (refill_single: a handful of frames on every free
+    machine would collide again). Mutates data. False -- on to the
+    compilation -- when there are none, or no refill round is left (then
+    they're kept and named in a warning)."""
+    twice = frames_written_twice(data)
+    bad = sorted(set(corrupted) | set(twice))
+    if not bad:
+        return False
+    what = []
+    if corrupted:
+        what.append(f"{len(corrupted)} corrupted ({_frames_label(corrupted)})")
+    if twice:
+        what.append(f"{len(twice)} written by two machines ({_frames_label(twice)})")
+    what = ", ".join(what)
+    if data.get("refill_rounds", 0) >= MAX_REFILL_ROUNDS:
+        log(
+            "WARNING",
+            "farm",
+            f"Job {data['job_id']}: frames {what} -- kept, no re-render left: "
+            f"check them.",
+        )
+        return False
+    _delete_frames(data, get_active_project_root(), bad)
+    if twice:
+        data["written_twice"] = sorted(
+            set(data.get("written_twice") or []) | set(twice)
+        )
+    data["frames_rerendered"] = sorted(
+        set(data.get("frames_rerendered") or []) | set(bad)
+    )
+    data["refill_rounds"] = data.get("refill_rounds", 0) + 1
+    data["refill_single"] = True
+    data["stage_history"].append(
+        {
+            "stage": "setup_finished",
+            "at": now(),
+            "resumed": f"{len(bad)} frame(s) to render again",
+        }
+    )
+    data.pop("dispatch_id", None)
+    log(
+        "WARNING",
+        "farm",
+        f"Job {data['job_id']}: frames {what} -- rendered again on one machine.",
+    )
+    return True
+
+
+def _delete_frames(data: dict, project_root: Path, frames: list[int]) -> None:
+    """Delete these frame numbers' files of the job's output. Best effort: a
+    frame that can't be deleted stays (and is then judged on disk)."""
+    paths = frame_paths(data, project_root) or []
+    start = int((data.get("resolved_frame_range") or (0, 0))[0])
+    for frame in frames:
+        index = frame - start
+        if 0 <= index < len(paths):
+            try:
+                retry_shared_io(paths[index].unlink)
+            except FileNotFoundError:
+                pass
+            except OSError as e:
+                log("WARNING", "farm", f"Could not delete {paths[index].name}: {e}")
+
+
+def _frames_label(frames: list[int], shown: int = 10) -> str:
+    """ "1785, 1807, 1811 (+4)" """
+    text = ", ".join(str(f) for f in frames[:shown])
+    return text + (f" (+{len(frames) - shown})" if len(frames) > shown else "")
+
+
+def discard_saved_frames(job_id: str) -> None:
+    """Delete every machine's saved_frames_path() record of job_id -- only
+    read while its render is judged. Best effort."""
+    for path in ConfigCache.get_path("farm_requests").glob(f"request_{job_id}_*.saved"):
+        try:
+            retry_shared_io(path.unlink)
+        except OSError:
+            pass
+
+
 def mark_stage(path, stage):
-    """Append a stage entry to a job file's stage_history (own locked transaction)."""
+    """Append a stage entry to a job file's stage_history (own locked
+    transaction). No-op if the file is gone -- archived from the Farm popup
+    meanwhile (it raised "'NoneType' object is not subscriptable")."""
     with locked_json(path) as box:
+        if not box["data"]:
+            return
         box["data"]["stage_history"].append({"stage": stage, "at": now()})
         box["action"] = "to_write"

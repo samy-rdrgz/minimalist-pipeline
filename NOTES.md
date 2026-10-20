@@ -2035,3 +2035,207 @@ into a `<style>` -- no per-cell work on toggle. The choice is per browser
 (localStorage, try/catch: a page opened from a mail attachment may have
 none), never in the file: the prod's view is their own.
 
+
+## What a real project's export showed (6 machines, a week of production)
+
+An export of a production project (config/, sidecars, logs -- no frames)
+cross-checked against the code. Each item below names its evidence.
+
+### Render preset: read without a lock, fail the render
+
+Some workers rendered with the burn-in a preset turns off (and at full
+resolution, the preset's 50 % skipped). `worker_render_entry.py` called
+`apply_custom_preset()` without the job, which then read it under
+`locked_json()` -- a write lock, 1 s of retries. All of a job's machines
+start at the same tick and reach that read together, while the monitor
+locked every job file every tick too: the losers got "...job_xxx.json is
+locked by another process", caught and logged as a warning, and rendered
+with the .blend's own settings (15 times in the log, 3 machines out of 6
+on one job). `-F JPEG` on the command line kept the extension right, so
+nothing downstream noticed.
+
+Now: the job is read with `read_json_quiet()` (writes are atomic, a few
+retries for a Windows mid-replace), and the render passes `strict=True`:
+a preset that can't be applied raises, `--python-exit-code 1` ends
+Blender before it renders, the worker reports a failure. The setup stays
+lenient (it only reads what the render will produce).
+
+### Frames written by two machines
+
+The worker logs kept for one job (`Saved: '...'` lines) show 9 frames
+saved by two different machines, mid-render, not at start -- a lower bound,
+the logs of renders that end well are deleted. Blender's placeholder is
+"exists?" then "touch", not atomic, and a Windows SMB client's caches widen
+the window; Blender writes the image straight onto its final name, so two
+writes at once give a spliced file: valid header, readable, blocks of
+garbage -- not flagged by `checks_images` (`ffmpeg -v error`), which only
+counts error lines anyway. A frame sent from production shows the
+signature: the top rows right, then from one point down the same detail
+with shifted, washed-out colours, in bands -- JPEG's DC coefficients are
+coded as differences from the previous block, so data from the other
+write, picked up mid-stream, keeps the texture and offsets every colour
+until the next switch. Its markers are valid (one SOI, EOI last), so a
+start/end marker check can't see it. A truncated frame (a render killed
+mid-write) is a different case: ffmpeg does flag that one.
+
+Preventing it -- claiming each frame atomically in the entry script
+(`O_CREAT|O_EXCL` + render to a temp file + `os.replace`) -- means
+replacing Blender's own animation render loop; decided against. Instead
+it's caught and cured, together with the frames ffmpeg finds corrupted,
+in one pass -- a second frame check costs seconds, a second render on the
+workers far more:
+
+- the render entry (`templates/worker_render_entry.py`) registers a
+  `render_write` handler -- called after each frame Blender writes, never
+  for one it skips -- appending `"<dispatch_id> <frame>"` to the machine's
+  `request_<job>_<uuid>.saved` (`saved_frames_path()`), next to its log
+  -- checked on Blender 4.5.2 in background with the farm's placeholder
+  settings: called for every frame written, never for one skipped;
+- the frame check (`checks_images()`) now names the frames it finds
+  corrupted, not just a count of error lines: `-loglevel level+info`
+  (ffmpeg 4.3+), `-threads 1`, `-vf showinfo`. Decoding single-threaded,
+  every decoder error lands right before the showinfo line of its frame,
+  whose `pts` is the frame's index in the sequence (not `n`, which restarts
+  when the filter graph is rebuilt); a frame ffmpeg can't decode at all
+  has no line -- a gap in pts -- and the errors before the frame after a
+  gap count for both (one frame re-rendered for nothing beats a corrupted
+  one kept). Only the decoder's and input's lines count: a format change
+  mid-sequence rebuilds the graph with `swscaler` warnings that say
+  nothing about a frame's data (`_NOT_INPUT`). An unreadable log tells
+  nothing: no frame blamed. Checked with ffmpeg 6.1 on spliced,
+  interleaved, truncated and garbage JPEGs and a truncated PNG: all named,
+  a clean 60-frame sequence nothing (`corrupted_frames()`);
+- when that check ends, `_send_back_bad_frames()`: corrupted frames plus
+  `frames_written_twice()` (this dispatch's records, machines from
+  `rendered_by` -- `used_machines` is emptied when a local stage ends) are
+  deleted -- whether two writes overlapped can't be known, so every
+  double-written frame goes, a few % of a 6-machine job -- recorded
+  (`frames_rerendered`, `written_twice`, job then render_history.json), and
+  the job goes from the frame check back to `setup_finished`, flagged
+  `refill_single`: `render_dispatch()` gives it one machine (not one that
+  failed the job, if another is free), `join_running_renders()` leaves it
+  alone -- a handful of frames on six machines would collide again. The
+  render is judged again, then the frame check runs again, then the
+  compilation;
+- not once `MAX_REFILL_ROUNDS` is spent (deleting them would fail the
+  job: kept, named in a warning); records deleted once the job ends well
+  (`discard_saved_frames()`) or with `archive()`. A worker on an older
+  version writes none: only ffmpeg's frames are redone.
+
+Also: `farm.max_workers_per_job` (Edit project, 0 = no limit) caps the
+machines one placeholder/auto render gets, joins included -- counted on
+`used_machines`, so a machine that dropped out still counts until the
+render is judged (a refill starts from zero). Fewer machines, fewer
+collisions. Still known: the auto -> single fallback never fires,
+`construct_history()` records the requested mode ("auto"), and
+`last_render_had_collision()` only looks at "placeholder" entries.
+
+### Quitting Blender while its worker renders
+
+`unregister()` (called on quit) and a project switch called `kill_worker()`,
+which only deletes the worker file: the render subprocess outlives its
+parent on Windows. The monitor took the gone worker for lost and, once the
+others were done, deleted the empty placeholder of the frame the orphan
+was rendering and sent the job out again -- the same frames rendered
+twice. Both now call `stop_worker(kill_render=True)`: the render is
+killed and reported "stopped" (neutral), the file is kept. And in
+`unregister()` the farm block now runs first: it ran after
+`unregister_class()`, when the addon's preferences -- the active project,
+this machine's id -- were already gone, so `is_blender_worker()` said
+False and nothing was ever stopped on quit, `kill_worker()` included.
+
+### Monitor tick: read without a lock, decide once
+
+The log was 99.3 % "No idle machine for job X, will retry." -- one line
+per waiting job per tick, 362 683 lines, a rotation every few hours, the
+Pipeline log popup showing nothing else. Behind it, every tick:
+`scan_queue()` locked every job file of `actives/` (archived ones
+included), `render_dispatch()` locked each waiting job, then
+`scan_render_requests()` locked every request -- before even knowing
+whether a machine was free. Side effects: the "Could not read job file ...
+locked" errors, the preset failures above, and a `.lock` created/deleted
+in `actives/` every tick, which changed its mtime and defeated the UI's
+`_scanned_mtimes()` cache. `scan_render_requests()` also returned `None`
+for a request taken between its glob and its read ("'NoneType' object is
+not subscriptable").
+
+Now `read_active_jobs()` reads without a lock (whoever acts re-reads under
+its own), skips archived/orphaned jobs without reading them again while
+their file is unchanged, `idle_machines()` is computed once per tick and
+handed out (`join_running_renders()` and `render_dispatch()` take theirs
+out of it), a job with no machine for it is noted once (`note_waiting()`),
+and `check_render_completion()` takes the job's lock only once a machine
+has finished or dropped out. `render_dispatch()` re-checks the stage under
+its lock and fails a job whose `.blend` is gone (a block's old -stable
+replaced by a newer version had been retried onto 6 machines, all failing
+on "Cannot read file"); `retry_job()` refuses it.
+
+Priority sorted ascending (comment: "descending"; docs: "highest
+first"): a p50 job sat in `queued` for 20 h behind later p10 ones. Now
+`-priority`.
+
+The farm host was both monitor and worker: a setup waits for
+`local_render_running()`, so it ran only in the gap between two of its own
+renders -- one setup per render of hours. While a job waits for its
+setup, `scan_queue()` now keeps this instance's own worker out of the idle
+machines.
+
+Job ids hashed `Path(filepath).resolve()`: `S:\...` on the file server,
+`\\host\share\...` elsewhere -- a different id per machine, so a split on
+the farm host and a resubmit from a workstation never deduped. Now the
+project-relative path (the split passes the stored one). Previews stored
+their label absolute; now relative.
+
+A block with fewer than two markers bound to a `cam_<seq>_<shot>` camera
+rendered whole into its own render folder with its `skipped_shots`
+dropped -- three of them in the export. Still rendered whole (never
+block), but the job now carries `skipped_shots`/`absorbed_shots`, a farm
+warning names them, and `construct_history()` keeps them.
+
+### Farm logs: kept small
+
+`queue/archives/` held 145 MB after four days, `requests/` 45 MB: a failed
+or stopped render keeps its log, up to 36 MB / 271 000 lines, 99 % Blender
+progress ("Fra:... Building BVH 45%") and a rig's "Dependency cycle
+detected" blocks. `compact_log()` drops the "Fra:" lines but the last 20,
+then keeps the first 32 KB and the end up to 256 KB. It runs in `archive()`
+and in the monitor's hourly `farm_housekeeping()` (on the farm host, local
+disk) for the big logs of jobs already over -- never one a worker may
+still write. The same housekeeping archives jobs that ended well more than
+`farm.auto_archive_hours` (24) ago -- failed ones stay for someone to look
+at -- and deletes archived logs older than `farm.archive_log_days` (14).
+Job files are kept: a few KB, and `render_history.json` has the outcome.
+
+### Linked libraries: one line per file
+
+One shot's `.wipmeta` listed 2 042 links for 7 files (1 398 for one anim
+library), 370 KB; 51 766 entries over the project's 183 metas, copied into
+every new version and read by `ProjectScan`. The list held one
+`{file, type, name}` per linked datablock, and the scan added the
+reference of every override -- overriding a rig makes each of its objects
+(every widget) an override. Yet everything that reads the list only needs
+the file: "Linked by", the library update check (which reads
+`bpy.data.libraries` anyway), `clean_libraries()`, the File details "Links
+to" (grouped by folder). So it's now one `{"file"}` per linked file:
+`scan_linked_libraries()` lists the direct project libraries
+(`bpy.data.libraries`, `parent is None`) -- no more root detection -- and
+`compact_linked()`, applied by every writer of the list and by
+`get_linked_libraries()` on read, turns an older list into its files
+(`../` collapsed, compared normcased). An existing `.wipmeta` is rewritten
+on its next load/save (`wipmeta_sync_links()`, logged "compacted"); an old
+`.stablemeta` is never rewritten, but reads compact. File details: a folder
+with more than one entry now means several versions of that asset linked.
+
+### Shared logs and JSON: project-relative paths
+
+Besides the job ids and preview labels above: `worker_*.json`'s
+`current_job` held the request's absolute path (now its name), and every
+`session_end` line of `sessions_log.jsonl` (428 of 428) the writer's own
+`S:\...`. It worked because every machine here mounts `S:`; a machine on
+`\\host\share` would have had its work time and recent files keyed on
+another path. `_log_session_end()` now stores `to_relative()`;
+`WorkTimeCache`/`RecentFilesCache` key on `_session_folder_key()` (the
+folder made project-relative -- an old absolute line under this machine's
+root still counts), and the recent files open `project_path()` of it. The
+`.session_<pid>.json` file itself stays absolute: it's this machine's own,
+compared with `bpy.data.filepath`.

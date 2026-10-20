@@ -56,12 +56,14 @@ def stop_farm_role_for_project(project_root) -> None:
         return
 
     from .monitor import is_blender_monitor, stop_monitor_loop
-    from .workers import is_blender_worker, kill_worker
+    from .workers import is_blender_worker, stop_worker
 
     if is_blender_monitor():
         stop_monitor_loop()
     if is_blender_worker():
-        kill_worker()
+        # Kills its render too (a subprocess outlives the role otherwise)
+        # and reports it "stopped" -- see the root unregister().
+        stop_worker(kill_render=True)
 
 
 def farm_tick(project_root: Path, interval: float = 10) -> float | None:

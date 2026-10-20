@@ -4,7 +4,8 @@ queue on a timer. No automatic takeover on a stale lock -- manual kill only."""
 import hashlib
 import os
 import subprocess
-from datetime import datetime
+import time
+from datetime import datetime, timedelta
 from pathlib import Path
 
 from ..lib import (
@@ -13,6 +14,7 @@ from ..lib import (
     PipelineError,
     get_machine_id,
     get_user_data,
+    json_get,
     locked_json,
     log,
     now,
@@ -20,6 +22,7 @@ from ..lib import (
     read_json_quiet,
     to_relative,
 )
+from .dispatch import LOG_KEEP_BYTES, compact_log
 from .loop import (
     get_running_project,
     monitor_age_status,
@@ -27,7 +30,12 @@ from .loop import (
     register_farm_loop,
     set_running_project,
 )
-from .queue import scan_processes, scan_queue, scan_requests
+from .queue import (
+    discard_saved_frames,
+    scan_processes,
+    scan_queue,
+    scan_requests,
+)
 
 _monitor_cache: dict = {
     "status": "unknown",  # "running" | "stale" | "dead"
@@ -184,6 +192,131 @@ def monitor_tick(project_root: Path):
     except Exception as e:
         log("ERROR", "farm", f"Error while advancing the farm queue: {e}")
 
+    try:
+        farm_housekeeping()
+    except Exception as e:
+        log("ERROR", "farm", f"Error during farm housekeeping: {e}")
+
+
+# Finished jobs (render, block split, preview) leave actives/ on their own
+# this long after ending -- failed ones stay until someone looks at them.
+# Archived logs are deleted past ARCHIVE_LOG_DAYS (the job files, a few KB
+# each, are kept: render_history.json has the outcome anyway). Both
+# overridable in project_config.json ("farm": {"auto_archive_hours",
+# "archive_log_days"}, 0 = never). See NOTES.md, "Farm logs: kept small".
+AUTO_ARCHIVE_HOURS = 24
+ARCHIVE_LOG_DAYS = 14
+_HOUSEKEEPING_INTERVAL = 3600  # seconds
+_last_housekeeping = 0.0
+_FINISHED_STAGES = ("finished", "split_finished", "preview_finished")
+
+
+def farm_housekeeping(force: bool = False) -> None:
+    """Monitor, at most once per _HOUSEKEEPING_INTERVAL: archive finished
+    jobs older than AUTO_ARCHIVE_HOURS, delete archived logs older than
+    ARCHIVE_LOG_DAYS. Never raises (called from the farm timer)."""
+    global _last_housekeeping
+    now_t = time.monotonic()
+    if not force and now_t - _last_housekeeping < _HOUSEKEEPING_INTERVAL:
+        return
+    _last_housekeeping = now_t
+    config = ConfigCache.get()
+    try:
+        hours = json_get(config, "farm.auto_archive_hours", AUTO_ARCHIVE_HOURS)
+        if hours:
+            moved = _archive_finished_jobs(hours)
+            if moved:
+                log("INFO", "farm", f"{moved} finished job(s) moved to archives/.")
+    except Exception as e:
+        log("ERROR", "farm", f"Auto-archive failed: {e}")
+    try:
+        _compact_ended_logs()
+    except Exception as e:
+        log("ERROR", "farm", f"Log compaction failed: {e}")
+    try:
+        days = json_get(config, "farm.archive_log_days", ARCHIVE_LOG_DAYS)
+        if days:
+            purged = _purge_archived_logs(days)
+            if purged:
+                log(
+                    "INFO",
+                    "farm",
+                    f"{purged} archived log(s) older than {days} days deleted.",
+                )
+    except Exception as e:
+        log("ERROR", "farm", f"Archived logs purge failed: {e}")
+
+
+def _archive_finished_jobs(hours: float) -> int:
+    """archive() every job of actives/ that ended well (_FINISHED_STAGES,
+    then "archived") more than `hours` ago. Returns how many moved."""
+    moved = 0
+    limit = now(False) - timedelta(hours=hours)
+    for job_path in ConfigCache.get_path("farm_actives").glob("job_*.json"):
+        data = read_json_quiet(job_path) or {}
+        stages = data.get("stage_history") or []
+        if len(stages) < 2 or stages[-1].get("stage") != "archived":
+            continue
+        if stages[-2].get("stage") not in _FINISHED_STAGES:
+            continue
+        try:
+            if datetime.fromisoformat(stages[-1]["at"]) > limit:
+                continue
+            archive(job_path)
+            moved += 1
+        except (KeyError, ValueError, OSError):
+            continue
+    return moved
+
+
+def _compact_ended_logs() -> None:
+    """compact_log() every big log in requests/ whose job has ended (at a
+    terminal stage, or gone from actives/) -- here, on the monitor, rather
+    than on whichever workstation clicks Archive later. Never a log of a
+    job still in flight: a worker may be writing it."""
+    actives = ConfigCache.get_path("farm_actives")
+    try:
+        entries = list(os.scandir(ConfigCache.get_path("farm_requests")))
+    except OSError:
+        return
+    for entry in entries:
+        if not (entry.name.startswith("request_job_") and entry.name.endswith(".log")):
+            continue
+        try:
+            if entry.stat().st_size <= LOG_KEEP_BYTES:
+                continue
+        except OSError:
+            continue
+        # request_<job_id>.log or request_<job_id>_<uuid>.log
+        job_id = "_".join(entry.name[len("request_") : -len(".log")].split("_")[:2])
+        job_path = actives / f"{job_id}.json"
+        data = read_json_quiet(job_path)
+        if data is None and job_path.exists():
+            continue  # unreadable right now (mid-replace): not known to be over
+        stages = (data or {}).get("stage_history") or [{}]
+        if data and stages[-1].get("stage") not in ("archived", "orphaned"):
+            continue
+        compact_log(Path(entry.path))
+
+
+def _purge_archived_logs(days: float) -> int:
+    """Delete the logs in queue/archives/ last written more than `days`
+    ago. Returns how many."""
+    purged = 0
+    limit = time.time() - days * 86400
+    try:
+        entries = list(os.scandir(ConfigCache.get_path("farm_archives")))
+    except OSError:
+        return 0
+    for entry in entries:
+        try:
+            if entry.name.endswith(".log") and entry.stat().st_mtime < limit:
+                os.remove(entry.path)
+                purged += 1
+        except OSError:
+            continue
+    return purged
+
 
 def stop_monitor_loop() -> None:
     """Flip the running flag. The next farm_tick call (already scheduled)
@@ -242,8 +375,11 @@ def request_monitor_kill(user: str = "unknown") -> None:
 
 def _file_key(filepath: str, prerender_script: str, shot_override: str = "") -> str:
     """Hash on file + prerender script + shot_override (if any) -- the
-    request's dedup key."""
-    key = f"{Path(filepath).resolve()}|{prerender_script}".lower()
+    request's dedup key. The project-relative path, not resolve(): that
+    was S:\\... on the file server and \\\\host\\share\\... elsewhere, so the
+    same file got another id per machine and a double submit (a split on
+    the farm host, a resubmit from a workstation) was never caught."""
+    key = f"{to_relative(filepath)}|{prerender_script}".lower()
     if shot_override:
         key += f"|{shot_override}".lower()
     return hashlib.sha1(key.encode("utf-8")).hexdigest()[:10]
@@ -311,7 +447,9 @@ def request_preview_compile(
     compilation_settings: str = "default",
 ) -> None:
     """Submit a preview compile request, picked up by scan_requests().
-    sources: (shot_label, mp4) pairs, already resolved."""
+    sources: (shot_label, mp4) pairs, already resolved. label: the block
+    file or sequence folder -- stored (and hashed) project-relative."""
+    label = to_relative(label)
     try:
         data = get_user_data(user) | {
             "initial_stage": "preview_queued",
@@ -357,10 +495,14 @@ def archive(job_path: Path) -> None:
     for log_file in ConfigCache.get_path("farm_requests").glob(
         f"request_{job_id}*.log"
     ):
+        compact_log(log_file)  # up to 36 MB of render progress otherwise
         try:
             log_file.replace(archives_dir / log_file.name)
         except OSError:
             pass
+    # Each machine's frames-written record: only read while the render is
+    # judged (frames_written_twice()), nothing to keep.
+    discard_saved_frames(job_id)
 
     # replace(), not rename(): a re-rendered file reuses its job id (hash of
     # file + preset + shot), so its previous run's archive is often already

@@ -2,6 +2,7 @@
 several, depending on render_mode."""
 
 import json
+import os
 import subprocess
 from pathlib import Path
 from uuid import uuid4
@@ -9,9 +10,11 @@ from uuid import uuid4
 from ..lib import (
     ConfigCache,
     get_machine_id,
+    json_get,
     locked_json,
     log,
     now,
+    read_json_quiet,
     retry_shared_io,
     to_absolute,
 )
@@ -84,6 +87,51 @@ def read_process_log(proc) -> str:
         return ""
 
 
+# A log kept past its job (a failure, a stop) is read for its start --
+# Blender and the add-ons loading, a file that won't open -- and its end --
+# the error. In between, Blender's render progress ("Fra:..." -- a line per
+# BVH/sample update) made up 99 % of logs of up to 36 MB: dropped but for
+# its last lines, then the middle is cut if still too big. See NOTES.md,
+# "Farm logs: kept small".
+LOG_KEEP_BYTES = 256_000
+_LOG_KEEP_HEAD = 32_000
+_PROGRESS_LINES_KEPT = 20
+
+
+def compact_log(path: Path) -> None:
+    """Shrink a kept log in place (see above). Best effort: never raises,
+    a log left as is just stays big."""
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    try:
+        if path.stat().st_size <= LOG_KEEP_BYTES:
+            return
+        lines = path.read_bytes().decode("utf-8", errors="replace").splitlines(True)
+        progress = [i for i, line in enumerate(lines) if line.startswith("Fra:")]
+        dropped = set(progress[:-_PROGRESS_LINES_KEPT])
+        data = "".join(
+            line for i, line in enumerate(lines) if i not in dropped
+        ).encode("utf-8")
+        if len(data) > LOG_KEEP_BYTES:
+            tail = LOG_KEEP_BYTES - _LOG_KEEP_HEAD
+            cut = len(data) - _LOG_KEEP_HEAD - tail
+            data = (
+                data[:_LOG_KEEP_HEAD]
+                + f"\n[... {cut} bytes cut ...]\n".encode("utf-8")
+                + data[-tail:]
+            )
+        if dropped:
+            header = f"[{len(dropped)} render progress lines (Fra:) dropped]\n"
+            data = header.encode("utf-8") + data
+        tmp.write_bytes(data)
+        retry_shared_io(os.replace, tmp, path)
+    except Exception as e:
+        log("WARNING", "farm", f"Could not compact {path.name}: {e}")
+        try:
+            tmp.unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
 def discard_job_log(job_id: str) -> None:
     """Delete the job's log -- it ended well. Best effort: a log that can't
     be deleted is just left behind (archive() still moves it)."""
@@ -95,66 +143,105 @@ def discard_job_log(job_id: str) -> None:
         log("WARNING", "farm", f"Could not delete log for {job_id}: {e}")
 
 
-from .workers import render_request, scan_render_requests, scan_workers
+from .workers import render_request
 
 
-def render_dispatch(job_path: Path) -> None:
-    """Launch the render for an already-prepared job (output_path/frame_start/
-    frame_end already in the JSON, stage_history at least at 'prerender_script').
-    """
-    global _active_processes
+def max_workers_per_job() -> int:
+    """Project setting farm.max_workers_per_job (Edit project): the most
+    machines one job renders on at once in auto/placeholder mode, joining
+    workers included. 0: no limit."""
+    value = json_get(ConfigCache.get(), "farm.max_workers_per_job", 0)
+    try:
+        return max(0, int(value or 0))
+    except (TypeError, ValueError):
+        return 0
+
+
+def machines_for(job_data: dict, idle: dict) -> list[str]:
+    """The idle machines (idle_machines()) this job may render on: all of
+    them, or only its assigned ones."""
+    assigned = job_data.get("assigned_machines") or []
+    return [uuid for uuid in idle if not assigned or uuid in assigned]
+
+
+# Jobs whose wait for a machine is already in the log: one line when a job
+# starts waiting, not one per job per tick (it was 99 % of the pipeline log
+# -- the Farm popup already shows "waiting for a worker"). Memory only.
+_waiting_logged: set[str] = set()
+
+
+def note_waiting(job_data: dict) -> None:
+    """Log that a set-up job waits for a machine -- once per wait."""
+    job_id = job_data.get("job_id", "")
+    if job_id in _waiting_logged:
+        return
+    _waiting_logged.add(job_id)
+    log("INFO", "farm", f"Job {job_id}: waiting for an idle machine.")
+
+
+def render_dispatch(job_path: Path, idle: dict) -> None:
+    """Launch the render for an already-set-up job (output_path and
+    resolved_frame_range in its file, stage setup_finished). idle:
+    idle_machines() for this tick -- the machines given the job are taken
+    out of it, so the next job of the same tick never gets them too."""
     with locked_json(job_path) as box:
-        job_data = box["data"]
+        job_data = box["data"] or {}
+        history = job_data.get("stage_history") or []
+        if not history or history[-1]["stage"] != "setup_finished":
+            return  # moved on since scan_queue() read it (cancel, retry...)
+
+        source = to_absolute(job_data["filepath"])
+        if not source.exists():
+            # Every worker would fail on it at once ("Cannot read file"):
+            # a newer version replaced it, or it was moved by hand.
+            history.append(
+                {"stage": "render_failed", "at": now(), "reason": "source file missing"}
+            )
+            box["action"] = "to_write"
+            log(
+                "ERROR",
+                "farm",
+                f"Job {job_data.get('job_id')}: {job_data['filepath']} no longer "
+                f"exists -- not rendered.",
+            )
+            return
+
+        available = machines_for(job_data, idle)
+        if not available:
+            note_waiting(job_data)
+            return  # stays in setup_finished, retried on the next tick
+        _waiting_logged.discard(job_data.get("job_id", ""))
 
         fs, fe = job_data.get("resolved_frame_range", (None, None))
-        machines = scan_workers()
-
-        pending = scan_render_requests()
-        targeted_uuids = {r["target_uuid"] for r in pending.values()}
-        idle_machines = {
-            k: v
-            for k, v in machines.items()
-            if v["status"] == "idle" and k not in targeted_uuids
-        }
-
-        if not job_data["assigned_machines"]:
-            avaliable_machines = idle_machines
-        else:
-            avaliable_machines = {
-                k: v
-                for k, v in idle_machines.items()
-                if k in job_data["assigned_machines"]
-            }
-        if not avaliable_machines:
-            log(
-                "INFO",
-                "farm",
-                f"No idle machine for job {job_data.get('job_id')}, will retry.",
+        # refill_single: frames corrupted or written by two machines, sent
+        # out again by the frame check (queue._send_back_bad_frames()) -- on
+        # one machine, not one that failed this job while another is free.
+        refill_single = bool(job_data.get("refill_single"))
+        if refill_single:
+            failed = set(job_data.get("failed_machines") or [])
+            available = [u for u in available if u not in failed] or available
+        single_machine = (
+            refill_single
+            or job_data["render_mode"] == "single"
+            or (
+                job_data["render_mode"] == "auto"
+                and render_mode_auto(job_data["filepath"]) == "single"
             )
-            return  # stays in setup_finished, retried on the next tick
-
-        single_machine = job_data["render_mode"] == "single" or (
-            job_data["render_mode"] == "auto"
-            and render_mode_auto(job_data["filepath"]) == "single"
         )
+        cap = 1 if single_machine else max_workers_per_job()
+        used = available[:cap] if cap else available
 
         cmd_flags = ["-s", str(fs), "-e", str(fe)]
         # Identifies this render, not the job (whose id a re-render reuses);
         # echoed back in the worker's last_job_result -- see NOTES.md,
         # "Re-rendering a file".
         job_data["dispatch_id"] = uuid4().hex[:12]
-        if single_machine:
-            render_request(job_data, list(avaliable_machines)[0], cmd_flags)
-        else:
-            for uuid in avaliable_machines:
-                render_request(job_data, uuid, cmd_flags)
+        for uuid in used:
+            render_request(job_data, uuid, cmd_flags)
+            idle.pop(uuid, None)
 
-        job_data["used_machines"] = (
-            list(avaliable_machines)
-            if not single_machine
-            else [list(avaliable_machines)[0]]
-        )
-        job_data["stage_history"].append({"stage": "render_start", "at": now()})
+        job_data["used_machines"] = used
+        history.append({"stage": "render_start", "at": now()})
         box["action"] = "to_write"
 
 
@@ -197,7 +284,7 @@ def frames_not_started(job_data: dict, project_root: Path) -> int | None:
     return sum(1 for path in paths if path.name not in existing)
 
 
-def join_running_renders(jobs: list, project_root: Path) -> None:
+def join_running_renders(jobs: list, project_root: Path, idle_by_uuid: dict) -> None:
     """Send each idle worker to a render already in progress before any new
     job gets dispatched: jobs is scan_queue()'s (path, data) list, already in
     priority order. A job is joined only if it renders on several machines
@@ -207,14 +294,10 @@ def join_running_renders(jobs: list, project_root: Path) -> None:
     worker still has more than JOIN_MIN_FRAMES_LEFT untouched frames for
     itself (78 frames left: up to 7 join). The new worker gets the same
     render request (same dispatch_id): placeholders + no overwrite, it only
-    renders the frames nobody took."""
-    machines = scan_workers()
-    targeted = {r.get("target_uuid") for r in scan_render_requests().values()}
-    idle = [
-        uuid
-        for uuid, w in machines.items()
-        if w.get("status") == "idle" and uuid not in targeted
-    ]
+    renders the frames nobody took. idle_by_uuid: idle_machines() for this
+    tick -- joining workers are taken out of it."""
+    machines = dict(idle_by_uuid)  # names for the log line
+    idle = list(idle_by_uuid)
     for job_path, data in jobs:
         if not idle:
             return
@@ -222,8 +305,10 @@ def join_running_renders(jobs: list, project_root: Path) -> None:
         if not stages or stages[-1].get("stage") != "render_start":
             continue
         mode = data.get("render_mode", "auto")
-        if mode == "single" or (
-            mode == "auto" and render_mode_auto(data["filepath"]) == "single"
+        if (
+            mode == "single"
+            or data.get("refill_single")
+            or (mode == "auto" and render_mode_auto(data["filepath"]) == "single")
         ):
             continue
         assigned = data.get("assigned_machines") or []
@@ -235,6 +320,12 @@ def join_running_renders(jobs: list, project_root: Path) -> None:
             u for u in idle if u not in excluded and (not assigned or u in assigned)
         ]
         if not candidates:
+            continue
+        # Project's farm.max_workers_per_job: machines given to this render
+        # so far, joins included -- one that dropped out still counts until
+        # the render is judged (a refill starts from zero again).
+        cap = max_workers_per_job()
+        if cap and len(set(data.get("used_machines") or [])) >= cap:
             continue
         left = frames_not_started(data, project_root)
         if left is None:
@@ -249,6 +340,10 @@ def join_running_renders(jobs: list, project_root: Path) -> None:
                 continue  # moved on meanwhile
             used_now = list(job_data.get("used_machines") or [])
             joining = [u for u in joining if u not in used_now]
+            if cap:
+                joining = joining[: max(0, cap - len(set(used_now)))]
+            if not joining:
+                continue
             fs, fe = job_data["resolved_frame_range"]
             for uuid in joining:
                 render_request(job_data, uuid, ["-s", str(fs), "-e", str(fe)])
@@ -256,6 +351,7 @@ def join_running_renders(jobs: list, project_root: Path) -> None:
             box["action"] = "to_write"
         for uuid in joining:
             idle.remove(uuid)
+            idle_by_uuid.pop(uuid, None)
         if joining:
             names = ", ".join(
                 (machines.get(u) or {}).get("machine") or u[:8] for u in joining
@@ -297,22 +393,16 @@ def append_render_history(filepath: str, entry: dict) -> None:
 
 
 def last_render_had_collision(filepath: str) -> bool:
-    """Whether the most recent placeholder-mode render entry reported corrupted frames."""
-    path = to_absolute(render_history_path(filepath))
-    if not path.exists():
+    """Whether the most recent placeholder-mode render entry reported
+    corrupted frames. Read without a lock (append_render_history() writes
+    atomically) -- it was a write lock on every dispatch."""
+    data = read_json_quiet(to_absolute(render_history_path(filepath))) or {}
+    placeholder_entries = [
+        e for e in data.get("entries", []) if e.get("render_mode") == "placeholder"
+    ]
+    if not placeholder_entries:
         return False
-    with locked_json(path) as box:
-        try:
-            data = box["data"] or {}
-            entries = data.get("entries", [])
-        except (json.JSONDecodeError, OSError):
-            return False
-        placeholder_entries = [
-            e for e in entries if e.get("render_mode") == "placeholder"
-        ]
-        if not placeholder_entries:
-            return False
-        return placeholder_entries[-1].get("frames_corrupted", 0) > 0
+    return placeholder_entries[-1].get("frames_corrupted", 0) > 0
 
 
 def local_slot_busy(max_concurrent_local: int = 1) -> bool:

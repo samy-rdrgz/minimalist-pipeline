@@ -627,6 +627,16 @@ def draw_farm_job_details(layout, context):
         field(col, "Failed on", machine_names(data["failed_machines"]))
     if data.get("frames_corrupted"):
         field(col, "Corrupted frames", data["frames_corrupted"], icon="ERROR")
+    if data.get("frames_rerendered"):
+        # Corrupted or written by two machines, then rendered again.
+        frames = data["frames_rerendered"]
+        more = f" (+{len(frames) - 8})" if len(frames) > 8 else ""
+        field(
+            col,
+            "Rendered again",
+            ", ".join(str(f) for f in frames[:8]) + more,
+            icon="FILE_REFRESH",
+        )
 
     if data.get("split_into"):
         field(col, "Split into", ", ".join(data["split_into"]))

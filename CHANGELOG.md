@@ -2,74 +2,83 @@
 
 All notable changes to this addon. Dates are release dates.
 
-## 1.0.15 — 2026-10-20
+## 1.0.15 — 2026-10-16
 
-### Production snapshot
+From a real production project's export (6 machines, a week): see
+NOTES.md, "What a real project's export showed".
 
-- **Progress block** at the top, for the whole project (filters aside):
-  Done of the shots and of the assets & libraries, the open RTKs, then a
-  card per section -- its department tasks by state in one bar
-  (validated, reworked, open RTK whatever the state, WIP, not started, in
-  the pills' colours), its Done by sequence / prefix and by department,
-  and a sequence (or prefix) x department grid, each cell shaded by its
-  %. One panel per chart; the bars and the grid side by side when they
-  fit.
-- **Project schedule** (Project settings > Schedule: start and end
-  dates, days off, days of the week worked -- Monday to Friday by
-  default): where the project should be on the export day at an even
-  pace, in working days; each Done tile says how far ahead or behind it
-  is, with its pace (done / expected) in a pill coloured as a progress
-  spreadsheet's: 105 % and more ahead, 100 to 105 % on track, 90 to 100 %
-  slightly behind, under 90 % behind. A Schedule card puts each section
-  on one band of planned progress: the expected progress a line, its
-  Done the fill, the gap between them light green ahead, amber or red
-  behind.
-- **Notes under their row** instead of at the bottom of the page: an
-  "n notes" button unfolds them right under the asset/shot, *Notes* in
-  the bar at the top unfolds (or folds) them all. Printing prints every
-  open note.
-- **Foldable sections**: Progress, Assets and Shots fold on a click on
-  their title; all open at load, a link into a folded one opens it.
-- **Column headers stay on screen** under the filters while the Assets /
-  Shots tables scroll by.
-- **Red outline on any department with an open RTK**, whatever its state
-  -- was only on validated ones.
+### Farm: renders
 
-### Department states
+- **The render preset is always applied, or the render fails**: some
+  workers rendered with the .blend's own settings (burn-in, full
+  resolution) -- all of a job's machines read its file at once under a
+  lock, the losers skipped the preset with a warning. The job is now read
+  without a lock, and a preset that can't be applied (missing, raising,
+  unreadable) fails that machine's render instead.
+- **Quitting Blender (or switching project) while its worker renders
+  stops the render too**: it outlived Blender, was taken for lost, and its
+  frames were sent out again while it still wrote them -- frames rendered
+  twice.
+- **Bad frames are rendered again, in one pass**: the frame check now
+  names the frames ffmpeg finds corrupted (it only counted error lines),
+  and each worker records the frames it writes -- Blender's placeholder
+  isn't atomic on a network share, and two machines can write the same
+  frame at once: readable, garbled colour blocks, not seen by ffmpeg. At
+  the end of the frame check, both kinds are deleted and rendered again
+  together on a single machine, then checked again; a warning names them,
+  Farm monitoring's job detail ("Rendered again") and the render history
+  list them. The frame check needs ffmpeg 4.3 or later.
+- **Workers per job** (Edit project, 0 = no limit): the most machines one
+  Auto/Placeholder render gets at once, joining workers included. Fewer
+  machines on the same frames, fewer frames taken by two of them at once
+  -- each one a frame to render again (above).
+- **Priority**: the highest now goes first, as documented -- it was the
+  lowest (a priority-50 job waited behind every priority-10 one).
+- The farm host's own worker takes no new render while jobs wait for
+  their setup: setups waited for its renders, one setup per render of
+  hours.
+- A job whose `.blend` no longer exists (a newer version replaced it)
+  fails at once instead of going to every worker, and can't be retried.
+- A block the split can't cut (fewer than two markers bound to a
+  `cam_<seq>_<shot>` camera) still renders whole, but no longer silently:
+  farm warning, the shots it couldn't find on the job and in its render
+  history.
+- Job ids are the same on every machine (project-relative path, not the
+  machine's own mount): a resubmit of a shot already in flight is caught
+  whichever machine sends it. Previews store their label relative.
 
-- **Validated at an earlier stable, or worked on before the latest one,
-  but not validated at it: WIP**, no longer *Not started* -- in the
-  snapshot and in Project monitoring (tooltip: "Validated or worked on
-  before it: in progress"). A department reopened, unvalidated from its
-  toggle, or worked on and not finished at the stable read as never
-  started. New stables record the departments started so far; for older
-  ones, the earlier stables and versions are read, only for the
-  departments that would otherwise be *Not started*.
+### Farm: monitor cost, logs, archives
 
-### Project monitoring
+- The monitor reads job and request files without locking them, and no
+  longer re-reads archived jobs every tick; idle machines are listed once
+  per tick; a render in progress is only locked once a machine is done.
+  Gone: the "Could not read job file ... locked", "'NoneType' object is not
+  subscriptable" and "'NoneType' object has no attribute 'get'" errors, and
+  the Farm popup re-reading every job at each refresh.
+- **"No idle machine for job X, will retry." is gone**: it was 99 % of the
+  pipeline log (one line per waiting job per tick); a job's wait is now
+  logged once.
+- Kept farm logs are trimmed once their job is over (Blender's per-frame
+  progress lines dropped, then start + end past 256 KB -- one was 36 MB);
+  archived logs are deleted after 14 days; a job that ended well leaves
+  Farm monitoring on its own 24 h later (failed ones stay).
+  `"farm": {"archive_log_days", "auto_archive_hours"}` in
+  `project_config.json`, 0 = never.
 
-- **RTK filter** next to the Farm one: only the files with an open RTK.
-- An open *todo* tagged with a department no longer turns that
-  department's icon red -- only an open RTK does.
+### Linked libraries
 
-### Farm monitoring
+- **One entry per linked file**: the list held one entry per linked
+  datablock -- an overridden rig or anim library recorded each of its
+  objects, 2 042 entries (370 KB) for 7 files in one shot's `.wipmeta`,
+  copied into every new version. Nothing used more than the file. An
+  existing `.wipmeta` shrinks on its next open or save; File details
+  shows "asset (2)" when two versions of the same asset are linked.
 
-- **Workers tab**: a worker rendering shows the job's name, as in the
-  Jobs tab (its file, plus the shot of a block's child), and a click
-  opens the job's detail -- it showed its render request's full path
-  (clipped by Blender, so some rows looked like a name and others like a
-  path). The farm host's step in progress, the same (was its job id).
+### Paths
 
-### Project settings
-
-- No maximum on the resolution (was 8192).
-- Schedule: start, end, days off and worked days (see Production
-  snapshot).
-
-### Pipeline log
-
-- Times read day/month/year (20/10/2026 15:20:11), the copied line too --
-  was month-day with no year.
+- The sessions log stores project-relative paths (it stored each
+  machine's own `S:\...`): work time and recent files no longer depend on
+  how a machine mounts the project. Older lines still count.
 
 ## 1.0.14 — 2026-10-15
 

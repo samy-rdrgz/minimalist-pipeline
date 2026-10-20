@@ -12,6 +12,7 @@ from .config import (
     blender_version_mismatch,
     file_in_active_project,
     get_active_project_root,
+    to_relative,
     type_by_folder,
 )
 from .core import (
@@ -220,12 +221,15 @@ def _log_session_end(data: dict) -> None:
         nw = now(iso=False)
         duration = (last_ping - opened_at).total_seconds()
         closing = " (crash)" if (nw - last_ping).total_seconds() > 31 else ""
+        # Project-relative: the log is shared, and each machine mounts the
+        # project its own way (S:\..., \\host\share\...).
+        filepath = to_relative(data["filepath"])
         log(
             "INFO",
             "session_end",
-            f"{data['filepath']} ({duration:.0f}s){closing}",
+            f"{filepath} ({duration:.0f}s){closing}",
             file_type=data.get("file_type", "unknown"),
-            filepath=data["filepath"],
+            filepath=filepath,
             duration_seconds=duration,
             log_file_key="sessions_log_file",
         )

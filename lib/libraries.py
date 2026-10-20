@@ -61,86 +61,21 @@ def _is_internal_import(filepath: str) -> bool:
 # Scan of the links already in the file
 # ---------------------------------------------------------------------------
 
-# Datablock kinds looked at when a library has no root collection/object
-# (e.g. only a world or a node group linked).
-_FALLBACK_ID_COLLECTIONS = (
-    "collections",
-    "objects",
-    "node_groups",
-    "materials",
-    "worlds",
-    "actions",
-)
-
-
-def _top_level_ids(lib) -> list[bpy.types.ID]:
-    """Fallback for a library with no root id (e.g. a collection only read
-    by a Collection Info node, an action on a local rig): its direct ids
-    that no other id of the same library uses. A linked collection keeps
-    the collection, not the 50 objects/materials it brings along."""
-    ids = [
-        i
-        for attr in _FALLBACK_ID_COLLECTIONS
-        for i in getattr(bpy.data, attr)
-        if i.library == lib and not i.is_library_indirect
-    ]
-    if not ids:
-        return []
-    users = bpy.data.user_map(subset=ids)
-    return [i for i in ids if not any(u.library == lib for u in users.get(i, ()))]
-
-
-def _root_linked_ids() -> list[bpy.types.ID]:
-    """Linked collections/objects this file uses itself -- the same thing a
-    link import records: a collection instanced or put in a local
-    collection, an object in a local collection, the reference of a
-    library override. What's nested *inside* one of those (a prop inside a
-    linked env) is left out: it belongs to that library's own meta."""
-    roots: dict[int, bpy.types.ID] = {}
-
-    def add(id_):
-        if id_ is not None and id_.library is not None:
-            roots[id_.as_pointer()] = id_
-
-    local_colls = [c for c in bpy.data.collections if c.library is None]
-    local_colls += [s.collection for s in bpy.data.scenes]
-    for coll in local_colls:
-        for child in coll.children:
-            add(child)
-        for obj in coll.objects:
-            add(obj)
-    for obj in bpy.data.objects:
-        if obj.instance_type == "COLLECTION":
-            add(obj.instance_collection)
-    for id_ in (*bpy.data.objects, *bpy.data.collections):
-        ov = id_.override_library
-        if ov is not None:
-            add(ov.reference)
-    return list(roots.values())
-
 
 def scan_linked_libraries() -> list[dict]:
-    """{file, type, name} for every link of the open file to a project
-    file, as import_warnings() would have recorded it at link time. Only
-    direct libraries (lib.parent is None): an indirect one comes with a
-    linked asset and is already in that asset's own meta. Blender's
-    internal files and files outside the project are skipped."""
-    by_lib: dict[int, list[bpy.types.ID]] = {}
-    for id_ in _root_linked_ids():
-        by_lib.setdefault(id_.library.as_pointer(), []).append(id_)
-
+    """{"file"} for every project file the open file links directly --
+    one entry per file, whatever it brings (see NOTES.md, "Linked
+    libraries: one line per file"). Only direct libraries (lib.parent is
+    None): an indirect one comes with a linked asset and is already in
+    that asset's own meta. Blender's internal files and files outside the
+    project are skipped."""
     out = []
     for lib in bpy.data.libraries:
         if lib.parent is not None or _is_internal_import(lib.filepath):
             continue
         abs_path = resolve_bpy_path(lib.filepath)
-        if not file_in_active_project(str(abs_path)):
-            continue
-        ids = by_lib.get(lib.as_pointer())
-        if not ids:
-            ids = _top_level_ids(lib)
-        file = to_relative(abs_path)
-        out += [{"file": file, "type": i.id_type, "name": i.name} for i in ids]
+        if file_in_active_project(str(abs_path)):
+            out.append({"file": to_relative(abs_path)})
     return out
 
 
@@ -239,12 +174,10 @@ def import_warnings(items):
             return bpy.ops.m_pipeline.action_popup("INVOKE_DEFAULT")
 
     else:
+        # One entry per file (wipmeta_add_link() dedupes): what was linked
+        # from it doesn't matter to anything reading the list.
         data = [
-            {
-                "file": to_relative(resolve_bpy_path(i.source_library.filepath)),
-                "type": i.id_type,
-                "name": i.name,
-            }
+            {"file": to_relative(resolve_bpy_path(i.source_library.filepath))}
             for i in items
             if not i.import_info
         ]

@@ -192,6 +192,20 @@ def run_render_setup_entry(job_id: str) -> None:
                 data["resolved_frame_range"] = (scene.frame_start, scene.frame_end)
                 box["action"] = "to_write"
                 return
+            if skipped or absorbed:
+                # A block the split couldn't cut (fewer than two markers
+                # bound to a cam_<seq>_<shot> camera): it renders whole, into
+                # its own render folder -- never silently. Kept on the job
+                # (Farm popup) and in render_history.json (construct_history()).
+                data["skipped_shots"] = skipped
+                data["absorbed_shots"] = absorbed
+                log(
+                    "WARNING",
+                    "farm",
+                    f"{Path(data['filepath']).name}: not split into shots (no "
+                    f"marker bound to a cam_<seq>_<shot> camera for "
+                    f"{', '.join(skipped) or 'its shots'}) -- rendered whole.",
+                )
 
         # A child's overrided_frame_range is already absolute -- the scene
         # range below only matters for an ordinary job's "n"/"s"/"e" forms.
@@ -306,7 +320,9 @@ def _split_into_shot_jobs(
         )
         try:
             job_request(
-                to_absolute(data["filepath"]),
+                # Project-relative, as stored: the job id is a hash of it,
+                # the same on every machine (see _file_key()).
+                data["filepath"],
                 user=data.get("user", "unknown"),
                 priority=data.get("priority", 10),
                 render_mode=data.get("render_mode", "auto"),
