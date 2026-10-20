@@ -597,6 +597,13 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         row.prop(self, "progress_wip")
         row.prop(self, "progress_rework")
         row.prop(self, "progress_rtk")
+        row = _settings_row(box, "SCHEDULE", "TIME")
+        row.prop(self, "schedule_start")
+        row.prop(self, "schedule_end")
+        _settings_row(box, "DAYS OFF", "BLANK1").prop(self, "schedule_days_off")
+        week = _settings_row(box, "WORKED DAYS", "BLANK1").row(align=True)
+        for i, name in enumerate(("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")):
+            week.prop(self, "schedule_worked_days", index=i, text=name, toggle=True)
         row = _settings_row(box, "WORKERS PER JOB", "NETWORK_DRIVE")
         row.prop(self, "max_workers_per_job")
         row.label(text="0 = no limit" if not self.max_workers_per_job else "")
@@ -625,6 +632,12 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         self.progress_wip = weights["wip"]
         self.progress_rework = weights["rework"]
         self.progress_rtk = weights["rtk"]
+        schedule = project_schedule(config) or {}
+        self.schedule_start = self._days([schedule["start"]]) if schedule else ""
+        self.schedule_end = self._days([schedule["end"]]) if schedule else ""
+        self.schedule_days_off = self._days(schedule.get("days_off", []))
+        worked = schedule.get("worked_days", WORK_WEEK)
+        self.schedule_worked_days = [d in worked for d in range(1, 8)]
         self.max_workers_per_job = max(
             0, int((config.get("farm") or {}).get("max_workers_per_job", 0) or 0)
         )
