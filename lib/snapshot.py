@@ -621,6 +621,9 @@ def render_html(snapshot: dict) -> str:
         '<span class="muted">in the farm</span>'
     )
 
+    notes: dict[str, list] = {}
+    for thread in snapshot["notes"]:
+        notes.setdefault(thread["item"], []).append(thread)
     body = [
         "<header>",
         f"<h1>{_e(meta.get('project'))}</h1>",
@@ -642,8 +645,10 @@ def render_html(snapshot: dict) -> str:
         "<nav>",
         '<div class="links"><a href="#assets">Assets <span id="c-assets">'
         f'{len(snapshot["assets"])}</span></a><a href="#shots">Shots <span id="c-shots">'
-        f'{len(snapshot["shots"])}</span></a><a href="#notes">Notes <span id="c-notes">'
-        f'{sum(not n["closed"] for n in snapshot["notes"])}</span></a></div>',
+        f'{len(snapshot["shots"])}</span></a><button type="button" id="all-notes" '
+        'title="Unfold every note under its row, or fold them all">Notes '
+        f'<span id="c-notes">{sum(not n["closed"] for n in snapshot["notes"])}</span>'
+        "</button></div>",
         _render_filters(snapshot),
         "</nav>",
         f'<p class="legend">{legend}</p>',
@@ -652,9 +657,12 @@ def render_html(snapshot: dict) -> str:
         f"reworked since {weights['rework']} %, validated with an open RTK "
         f"{weights['rtk']} %, validated 100 %. Totals and groups average "
         "their assets/shots.</p>",
-        _render_table("assets", "Assets", snapshot["assets"], meta["asset_departments"]),
-        _render_table("shots", "Shots", snapshot["shots"], meta["shot_departments"]),
-        _render_notes(snapshot["notes"], snapshot["assets"] + snapshot["shots"]),
+        _render_table(
+            "assets", "Assets", snapshot["assets"], meta["asset_departments"], notes
+        ),
+        _render_table(
+            "shots", "Shots", snapshot["shots"], meta["shot_departments"], notes
+        ),
     ]
     title = f"{meta.get('project') or 'Project'} snapshot {scan_date[:10]}"
     # Hover shows a thumbnail at its own size (the project setting), from
@@ -984,7 +992,11 @@ def _item_attrs(item: dict) -> str:
     )
 
 
-def _render_table(anchor: str, title: str, items: list, columns: list) -> str:
+def _render_table(
+    anchor: str, title: str, items: list, columns: list, notes: dict
+) -> str:
+    """One section's table, an item per row -- each followed by a row of its
+    notes (notes: {item name: its threads}), folded at load (_JS)."""
     nl = "\n"
     if not items:
         return _section(anchor, title, '<p class="empty">Nothing tracked yet.</p>')
@@ -1041,13 +1053,8 @@ def _render_table(anchor: str, title: str, items: list, columns: list) -> str:
         flags = (
             f'<span class="flag">{item["open_rtk"]} RTK</span>' if item["open_rtk"] else ""
         )
-        n = item["open_notes"]
-        jump = (
-            f'<a class="jump" href="#n-{_e(_slug(item["name"]))}">'
-            f'{n} note{"" if n == 1 else "s"} ↓</a>'
-            if n
-            else ""
-        )
+        threads = notes.get(item["name"], [])
+        toggle = _notes_toggle(item["open_notes"], len(threads)) if threads else ""
         thumb = ""
         if with_thumbs:
             thumb = (
@@ -1057,13 +1064,17 @@ def _render_table(anchor: str, title: str, items: list, columns: list) -> str:
                 else '<td class="th" data-col="thumb"><div class="nothumb"></div></td>'
             )
         rows.append(
-            f'<tr class="item" id="i-{_e(_slug(item["name"]))}" {_item_attrs(item)}>'
-            f'{thumb}<td class="name"><b>{_e(item["name"])}</b>{flags}{jump}'
+            f'<tr class="item" id="i-{_e(_slug(item["name"]))}" {_item_attrs(item)} '
+            f'data-threads="{len(threads)}">'
+            f'{thumb}<td class="name"><b>{_e(item["name"])}</b>{flags}{toggle}'
             f'<small>{_e(item["description"])}</small></td>'
             f'<td class="ver" data-col="file">{_e(versions)}</td>'
             f'<td class="ver" data-col="render">{_render_cell(item)}</td>{"".join(cells)}'
             f'<td class="done" data-col="done">{_progress_cell(item["progress"])}</td></tr>'
         )
+        if threads:
+            span = len(columns) + 4 + with_thumbs
+            rows.append(_notes_row(_thread_lis(threads), span))
     # Whole section, whatever the filters show.
     foot = (
         ('<td data-col="thumb"></td>' if with_thumbs else "")
@@ -1206,36 +1217,38 @@ def _render_entry(e: dict, reply: bool = False, closed: bool = False) -> str:
     )
 
 
-def _render_notes(notes: list, items: list) -> str:
-    if not notes:
-        return _section("notes", "Notes", '<p class="empty">No notes.</p>')
-    attrs = {i["name"]: _item_attrs(i) for i in items}
-    by_item: dict[str, list] = {}
-    for n in notes:
-        by_item.setdefault(n["item"], []).append(n)
-    cards = []
-    for name, threads in by_item.items():
-        threads = sorted(threads, key=lambda t: t["last_activity"], reverse=True)
-        lis = "\n".join(
-            "\n".join(
-                [_render_entry(t, closed=t["closed"])]
-                + [_render_entry(r, True, t["closed"]) for r in t["replies"]]
-            )
-            for t in threads
+def _notes_toggle(open_count: int, total: int) -> str:
+    """ "2 notes" button unfolding an item's notes row (_JS) -- the count of
+    its open threads, of all of them once "Show closed" is ticked."""
+
+    def count(n: int) -> str:
+        return f'{n} note{"" if n == 1 else "s"}'
+
+    return (
+        f'<button type="button" class="jump" aria-expanded="false" '
+        f'data-open="{open_count}"><span class="n-open">{count(open_count)}</span>'
+        f'<span class="n-all">{count(total)}</span></button>'
+    )
+
+
+def _thread_lis(threads: list) -> str:
+    """An item's threads as list items, the most recently active first."""
+    threads = sorted(threads, key=lambda t: t["last_activity"], reverse=True)
+    return "\n".join(
+        "\n".join(
+            [_render_entry(t, closed=t["closed"])]
+            + [_render_entry(r, True, t["closed"]) for r in t["replies"]]
         )
-        slug = _e(_slug(name))
-        open_count = sum(not t["closed"] for t in threads)
-        cards.append(
-            f'<article class="item" id="n-{slug}" data-threads="{len(threads)}" '
-            f'data-open="{open_count}" {attrs.get(name, "")}><h3>{_e(name)}'
-            f'<a class="back" href="#i-{slug}" title="Back to its row">↑</a></h3>'
-            f"<ul>\n{lis}\n</ul></article>"
-        )
-    return _section(
-        "notes",
-        "Notes",
-        '<p class="empty nomatch" hidden>Nothing matches the filters '
-        '(closed notes are hidden: tick "Show closed").</p>' + "\n".join(cards),
+        for t in threads
+    )
+
+
+def _notes_row(lis: str, span: int) -> str:
+    """The row under an item's own holding its notes, folded at load (_JS).
+    Its text stays in view when a wide table is scrolled sideways."""
+    return (
+        f'<tr class="notes" hidden><td colspan="{span}"><div class="nbox">'
+        f'<ul class="threads">\n{lis}\n</ul></div></td></tr>'
     )
 
 
@@ -1275,9 +1288,10 @@ padding:10px max(16px,calc((100% - var(--page))/2 + 16px));
 background:var(--bg);border-bottom:1px solid var(--line)}
 @media (min-width:700px){nav{position:sticky;top:0}}
 .links,.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
-.links a{color:var(--fg);text-decoration:none;padding:4px 10px;border-radius:6px;
-border:1px solid var(--line);background:var(--card)}
-.links a span{color:var(--muted);margin-left:4px}
+.links a,.links button{color:var(--fg);text-decoration:none;padding:4px 10px;
+border-radius:6px;border:1px solid var(--line);background:var(--card);font:inherit;
+cursor:pointer}
+.links a span,.links button span{color:var(--muted);margin-left:4px}
 .filters input[type=search],.filters select,.filters button{font:inherit;min-width:0;
 padding:4px 8px;border-radius:6px;border:1px solid var(--line);background:var(--card);
 color:var(--fg)}
@@ -1297,11 +1311,12 @@ box-shadow:0 4px 18px rgba(0,0,0,.18)}
 .filters.active button{color:var(--accent);border-color:var(--accent)}
 [id]{scroll-margin-top:var(--nav-h,16px)}
 tr:target td{background:color-mix(in srgb,var(--accent) 12%,transparent)}
-article:target{outline:2px solid var(--accent);outline-offset:-1px}
-.jump{display:inline-block;margin-left:8px;font-size:11px;color:var(--accent);
-text-decoration:none;white-space:nowrap}
-.jump:hover,.back:hover{text-decoration:underline}
-.back{margin-left:8px;font-weight:400;color:var(--accent);text-decoration:none}
+.jump{display:inline-block;margin-left:8px;padding:0;border:0;background:none;
+font:inherit;font-size:11px;color:var(--accent);white-space:nowrap;cursor:pointer}
+.jump::after{content:" ▸"}.jump[aria-expanded="true"]::after{content:" ▾"}
+.jump:hover{text-decoration:underline}
+body:not(.show-closed) .jump[data-open="0"],body:not(.show-closed) .n-all,
+body.show-closed .n-open{display:none}
 .legend{display:flex;flex-wrap:wrap;gap:6px;margin-top:14px}
 .scroll{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:10px}
 /* A table's header, copied by _JS once the real one has scrolled under the
@@ -1352,12 +1367,15 @@ img.thumb:hover{transform:scale(var(--thumb-zoom,2.4));transform-origin:left top
 z-index:3;box-shadow:0 4px 18px rgba(0,0,0,.35)}
 .flag{margin-left:8px;font-size:11px;font-weight:600;color:var(--rtk);
 background:var(--rtk-bg);padding:1px 6px;border-radius:999px}
-article{background:var(--card);border:1px solid var(--line);border-radius:10px;
-padding:12px 16px;margin-bottom:12px}
-article ul{list-style:none;margin:0;padding:0}
-article li{padding:8px 0;border-top:1px solid var(--line)}
-article li.reply{margin-left:24px}
-article li p{margin:4px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
+/* An item's notes, in the row under its own. */
+tr.notes>td{padding:0 8px 8px;
+background:color-mix(in srgb,var(--accent) 4%,var(--card))}
+.nbox{position:sticky;left:8px;max-width:min(60rem,calc(100vw - 64px))}
+.threads{list-style:none;margin:0;padding:0}
+.threads li{padding:8px 0;border-top:1px solid var(--line)}
+.threads li:first-child{border-top:0}
+.threads li.reply{margin-left:24px}
+.threads li p{margin:4px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
 .head{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .who{margin-left:auto;color:var(--muted);font-size:12px}
 .type,.tag{font-size:11px;padding:1px 7px;border-radius:999px;border:1px solid var(--line)}
@@ -1429,7 +1447,7 @@ transform:translateX(-50%)}.today.l{transform:none}.today.r{transform:translateX
 /* Narrow: the timeline's bands stack (label, band, value). */
 @media (max-width:640px){.tl .bars{grid-template-columns:1fr;row-gap:4px}
 .tl .bars>span:empty{display:none}.tl .bv{text-align:left;margin-bottom:8px}}
-@media print{nav,.review,.jump,.back,.stuck{display:none}.scroll{overflow:visible}}
+@media print{nav,.review,.jump,.stuck{display:none}.scroll{overflow:visible}}
 """
 
 _JS = """
@@ -1472,19 +1490,33 @@ return true;}
 function apply(){
 var on=ctl.some(function(c){return c.type==='checkbox'?c.checked:c.value;});
 bar.classList.toggle('active',on);
-var closed=ctl[6].checked;document.body.classList.toggle('show-closed',closed);
-['assets','shots','notes'].forEach(function(id){
-var sec=$(id),n=0,items=sec.querySelectorAll('.item');
-items.forEach(function(el){var notes=id==='notes';
-el.hidden=!match(el)||(notes&&!closed&&el.dataset.open==='0');
-if(!el.hidden)n+=notes?+(closed?el.dataset.threads:el.dataset.open):1;});
+var closed=ctl[6].checked,notes=0;
+document.body.classList.toggle('show-closed',closed);
+['assets','shots'].forEach(function(id){
+var sec=$(id),n=0,items=sec.querySelectorAll('tr.item');
+items.forEach(function(el){el.hidden=!match(el);
+var shown=+(closed?el.dataset.threads:el.dataset.notes),row=el.nextElementSibling,
+b=el.querySelector('button.jump');
+if(row&&row.classList.contains('notes'))row.hidden=el.hidden||!shown||
+!(printing||b.getAttribute('aria-expanded')==='true');
+if(!el.hidden){n++;notes+=shown;}});
 sec.querySelectorAll('tr.group').forEach(function(row){
 var next=row.nextElementSibling,any=false;
-while(next&&!next.classList.contains('group')){if(!next.hidden)any=true;
-next=next.nextElementSibling;}row.hidden=!any;});
+while(next&&!next.classList.contains('group')){
+if(!next.hidden&&next.classList.contains('item'))any=true;next=next.nextElementSibling;}
+row.hidden=!any;});
 var none=sec.querySelector('.nomatch'),table=sec.querySelector('.scroll');
 if(none)none.hidden=!items.length||n>0;if(table)table.hidden=items.length&&!n;
-$('c-'+id).textContent=n;});size();}
+$('c-'+id).textContent=n;});$('c-notes').textContent=notes;size();}
+var printing=false;
+document.addEventListener('click',function(e){var b=e.target.closest('button.jump');
+if(!b)return;b.setAttribute('aria-expanded',b.getAttribute('aria-expanded')!=='true');
+apply();});
+$('all-notes').addEventListener('click',function(){
+var bs=[].filter.call(document.querySelectorAll('button.jump'),function(b){
+return b.offsetParent;}),open=bs.some(function(b){
+return b.getAttribute('aria-expanded')!=='true';});
+bs.forEach(function(b){b.setAttribute('aria-expanded',open);});apply();});
 ctl.forEach(function(c){c.addEventListener('input',apply);
 c.addEventListener('change',apply);});
 $('f-reset').addEventListener('click',function(){ctl.forEach(function(c){
@@ -1511,8 +1543,9 @@ d.open=true;}
 document.addEventListener('click',function(e){var a=e.target.closest('a[href^="#"]');
 if(a)unfold(a.getAttribute('href'));});
 window.addEventListener('hashchange',function(){unfold(location.hash);});
-window.addEventListener('beforeprint',function(){
-document.querySelectorAll('details.sec').forEach(function(d){d.open=true;});});
+window.addEventListener('beforeprint',function(){printing=true;
+document.querySelectorAll('details.sec').forEach(function(d){d.open=true;});apply();});
+window.addEventListener('afterprint',function(){printing=false;apply();});
 unfold(location.hash);
 document.querySelectorAll('details.sec').forEach(function(d){
 d.addEventListener('toggle',size);});
