@@ -627,9 +627,9 @@ Every 30s, for as long as the addon is enabled.
 
 ### _refresh_tick
 
-Every 0.25s, only while the farm monitor popup (`m_pipeline.farm_monitor`) is
-open -- registered in its `invoke()`, unregistered in `execute()`/`cancel()`
-and on file load. Never touches farm state, UI only, and never the disk itself.
+Every 0.25s, only while a Farm monitoring window is open -- registered by
+`_monitoring_tick` (again after a file load, which unregisters it), which
+unregisters it with the last window. Never touches farm state, UI only, and never the disk itself.
 
 ```
 ├── a background read finished ? _apply_farm_snapshot() (status + jobs +
@@ -671,19 +671,22 @@ the project), then stops itself.
 
 ### _monitoring_tick
 
-Every 0.5s while a Project monitoring window is open (`lib/monitoring.py`;
+Every 0.5s while a Project or Farm monitoring window is open (`lib/monitoring.py`;
 started by `open_monitoring_window()`, or by the window's panel when the
 window came back with a .blend saved with it open). Persistent: a file
 opened by the pipeline keeps the window (`open_mainfile()`: no `load_ui`),
 so the timer too.
 
 ```
+├── a Farm monitoring window : register_refresh_timer() (else stop it if it
+│   started it)
 ├── no monitoring window left : stop (return None)
 ├── active project not scanned yet (a switch of project) : ProjectScan.start()
 ├── >= 10s since the last : request_monitor_refresh() (the Farm column)
-└── project / ProjectScan progress / farm_activity() changed : tag_redraw()
-      the window's Properties region -- windows looked up again every
-      tick, never kept
+├── project / ProjectScan progress / farm_activity() changed : tag_redraw()
+│     the Project window's Properties region
+└── farm status or a new jobs/workers read : tag_redraw() the Farm window's
+      -- windows looked up again every tick, never kept
 ```
 
 ### farm_tick

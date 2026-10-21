@@ -10,6 +10,12 @@ All notable changes to this addon. Dates are release dates.
   One list that scrolls instead of pages of 12. Files opened through the
   pipeline keep it open (they open without their own interface layout
   while it is); its filters stay as they were for the session.
+- **Farm monitoring too**: its own window, one list, refreshed every 2 s
+  while open. Both show their content in a "Pipeline : ..." section of
+  the window (Ctrl+click its header folds Blender's own sections).
+- **File details, last render: the machine that rendered a frame is no
+  longer cut** ("rendered by WOR...02"): the answer has its own line
+  under the Frame field (Farm monitoring's job detail too).
 
 ## 1.0.17 — 2026-10-21
 

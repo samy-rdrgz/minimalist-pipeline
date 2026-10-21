@@ -23,14 +23,11 @@ from ..farm import (
     recompilable,
     recompile_job,
     refresh_monitor_status,
-    register_popup_region,
-    register_refresh_timer,
     request_monitor_kill,
     request_worker_stop,
     retry_job,
     scan_workers,
     stop_worker,
-    unregister_refresh_timer,
     worker_rendering,
 )
 from ..lib import (
@@ -40,6 +37,11 @@ from ..lib import (
     asset_folder_items,
     cached_scandir,
     get_active_project_root,
+    memory_enum,
+    memory_prop,
+    monitoring_windows,
+    open_monitoring_window,
+    redraw_monitoring,
     get_folder,
     get_machine_id,
     get_user,
@@ -58,12 +60,6 @@ from ..lib import (
     shot_items,
     shots_in_segment,
     version_items,
-)
-from ..panels import (
-    draw_farm_job_details,
-    draw_farm_jobs,
-    draw_farm_workers,
-    popup_width,
 )
 from .preview_ops import request_sequence_preview
 
@@ -1094,25 +1090,20 @@ class M_PIPELINE_OT_farm_job_details(bpy.types.Operator):
         return {"FINISHED"}
 
 
-def _back_to_first_page(self, context):
-    self.page = 1
+# Farm monitoring's filters: in memory only, see memory_prop().
+_farm_filters: dict = {}
 
 
-class M_PIPELINE_OT_farm_monitor(bpy.types.Operator):
-    """Popup dashboard: active jobs and worker machines, filterable."""
+class PIPELINE_PG_farm_monitoring(bpy.types.PropertyGroup):
+    """Farm monitoring window's filters (WindowManager.pipeline_farm_monitoring)."""
 
-    bl_idname = "m_pipeline.farm_monitor"
-    bl_label = ""
-    bl_description = "Show a popup view of farm."
-
-    view: bpy.props.EnumProperty(
-        items=[("jobs", "Jobs", ""), ("workers", "Workers", "")],
-        default="jobs",
+    view: memory_enum(
+        _farm_filters, "view", [("jobs", "Jobs", ""), ("workers", "Workers", "")]
     )
-
-    # Jobs view filters. A filter change goes back to page 1.
-    state: bpy.props.EnumProperty(
-        items=[
+    state: memory_enum(
+        _farm_filters,
+        "state",
+        [
             ("all", "All", "Every job"),
             ("running", "Running", "A step in progress: setup, render, frame check, compilation"),
             (
@@ -1123,76 +1114,55 @@ class M_PIPELINE_OT_farm_monitor(bpy.types.Operator):
             ("finished", "Finished", "Finished jobs"),
             ("failed", "Failed", "Failed jobs"),
         ],
-        default="all",
-        update=_back_to_first_page,
     )
-    only_mine: bpy.props.BoolProperty(
+    only_mine: memory_prop(
+        _farm_filters,
+        "only_mine",
+        bpy.props.BoolProperty,
+        False,
         name="",
-        default=False,
         description="Only the jobs I submitted",
-        update=_back_to_first_page,
     )
-    search: bpy.props.StringProperty(
+    search: memory_prop(
+        _farm_filters,
+        "search",
+        bpy.props.StringProperty,
+        "",
         name="",
         description="Filter by file name or shot",
-        options={"SKIP_SAVE"},
-        update=_back_to_first_page,
     )
-    # SKIP_SAVE: reopen on page 1, see M_PIPELINE_OT_tracking_monitor.page.
-    page: bpy.props.IntProperty(default=1, min=1, options={"SKIP_SAVE"})
-    PAGE_SIZE = 12
 
-    def invoke(self, context, event):
+
+class M_PIPELINE_OT_farm_monitor(bpy.types.Operator):
+    """Open Farm monitoring in its own window (panels/monitoring_panel.py)."""
+
+    bl_idname = "m_pipeline.farm_monitor"
+    bl_label = "Farm monitoring"
+    bl_description = (
+        "Open a window with the farm's jobs and machines. It stays open, "
+        "resizable, while you work"
+    )
+
+    def execute(self, context):
         if not get_active_project_root():
             self.report({"ERROR"}, "No active project.")
             return {"CANCELLED"}
 
-        # Reopens on the job it showed when closed with OK (Cancel: back to
-        # the list) -- read again, it has moved on since.
+        if monitoring_windows("farm"):
+            # No way to bring a window to the front from Python.
+            redraw_monitoring("farm")
+            self.report({"INFO"}, "Farm monitoring is already open.")
+            return {"FINISHED"}
+
+        # Reopens on the job it showed -- read again, it has moved on since.
         job_id = popup_detail("job")
         if job_id and load_job_details(job_id) is None:
             set_popup_detail("job", "")
-        register_refresh_timer()
+        # A search left over from last time would silently hide jobs.
+        context.window_manager.pipeline_farm_monitoring.search = ""
 
-        return context.window_manager.invoke_props_dialog(
-            self, width=popup_width(context)
-        )
-
-    def execute(self, context):
-        """OK: keeps the job shown in detail for next time."""
-        unregister_refresh_timer()
+        # The farm's refresh timer: started by the window's tick.
+        if not open_monitoring_window(context, "farm"):
+            self.report({"ERROR"}, "Blender could not open a new window.")
+            return {"CANCELLED"}
         return {"FINISHED"}
-
-    def cancel(self, context):
-        """Cancel / Escape: next time opens on the list."""
-        unregister_refresh_timer()
-        set_popup_detail("job", "")
-
-    def draw(self, context):
-        # context.region_popup (Blender 4.2+) only exists while this popup is
-        # actually being drawn -- registering it here (not in invoke()) lets
-        # _refresh_tick force this exact popup's redraw on every timer tick.
-        register_popup_region(getattr(context, "region_popup", None))
-
-        layout = self.layout
-        if popup_detail("job"):
-            draw_farm_job_details(layout.box(), context)
-            return
-
-        filter_box = layout.box()
-        filters = filter_box.split(factor=0.5)
-        filters.label(text="Filters", icon="FILTER")
-        filters_btn = filters.row()
-        filters_btn.prop(self, "view", expand=True)
-        if self.view == "jobs":
-            job_filters = filter_box.split(factor=0.5)
-            job_filters.prop(self, "search", text="", icon="VIEWZOOM")
-            job_btn = job_filters.row()
-            job_btn.prop(self, "state", expand=True)
-            job_btn.prop(self, "only_mine", text="Mine", icon="USER")
-
-        box = layout.box()
-        if self.view == "jobs":
-            draw_farm_jobs(self, box)
-        else:
-            draw_farm_workers(box)

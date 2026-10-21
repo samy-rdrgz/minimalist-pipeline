@@ -2460,7 +2460,19 @@ root still counts), and the recent files open `project_path()` of it. The
 `.session_<pid>.json` file itself stays absolute: it's this machine's own,
 compared with `bpy.data.filepath`.
 
-## Project monitoring: a window, not a popup
+## Monitoring: windows, not popups
+
+Project monitoring first, then Farm monitoring the same way: the screen's
+ID property says which (`"project"` / `"farm"`; `True`, from the first
+version, reads as `"project"`), each panel polls its own. Both panels now
+have a header, "Pipeline : ..." -- a box like Blender's Options and
+Workspace, Ctrl+click folds the others. The price, checked: a panel with a
+header is placed after the Tool tab's own (Options, Workspace), and
+`bl_order` can't go below 0 -- drag it up by its grip. Farm monitoring's
+refresh (`_refresh_tick`, every 2 s, was the popup's) runs while its
+window is open: `_monitoring_tick` starts it, and again after a file load
+(`post_load_handler()` stops it), and stops it with the last window.
+
 
 The popup had grown heavy: 12 rows a page, a pager, a fixed height padded
 with blank rows so it didn't jump around, and it closed as soon as you
@@ -2483,8 +2495,8 @@ Checked in Blender (4.0, under Xvfb):
   to the monitoring window (an ID property on its screen,
   `MONITORING_SCREEN_KEY` -- a screen is an ID, a window isn't), never the
   N panel or another Properties editor. `HIDE_HEADER` puts it first: a
-  headerless panel goes before panels with a header, but after Blender's
-  own headerless active tool (`VIEW3D_PT_active_tool_duplicate`, same
+  headerless panel goes before panels with a header (first version; now
+  with a header, see above), but after Blender's own headerless active tool (`VIEW3D_PT_active_tool_duplicate`, same
   `bl_order` 0 -- `bl_order` can't go below 0). Blender's Tool panels
   (Options, Workspace, a mode's brushes) stay below the list: no API folds
   or hides another panel.
@@ -2507,7 +2519,7 @@ Checked in Blender (4.0, under Xvfb):
   screens aren't temporary, so closing doesn't delete them, and Python
   can't delete a layout -- Blender's own Window > New Window does the same.
 - **Filters**: `WindowManager.pipeline_monitoring`, each property a
-  get/set on a module dict -- drawable with `layout.prop()`, never stored
+  get/set on a module dict (`memory_prop()` / `memory_enum()`) -- drawable with `layout.prop()`, never stored
   in the .blend (a WindowManager property is saved with it; see "The
   detail moved off the WindowManager"). An enum's get/set deal in indices:
   kept by identifier, so prefixes or sequences changing keep the choice.

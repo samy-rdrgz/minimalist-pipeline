@@ -41,7 +41,7 @@ from ..lib import (
     thumbnail_path,
 )
 
-# Monitoring popups' width: this share of the Blender window, never under
+# Popups' width (the Pipeline log): this share of the Blender window, never under
 # MONITOR_POPUP_MIN_WIDTH (unless the window itself is smaller).
 MONITOR_POPUP_SHARE = 0.8
 MONITOR_POPUP_MIN_WIDTH = 900

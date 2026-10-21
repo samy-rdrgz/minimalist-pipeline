@@ -105,7 +105,9 @@ from .logs import log, read_log_tail
 from .monitoring import (
     MONITORING_SCREEN_KEY,
     ensure_monitoring_tick,
-    is_monitoring_screen,
+    memory_enum,
+    memory_prop,
+    monitoring_kind,
     monitoring_windows,
     open_mainfile,
     open_monitoring_window,

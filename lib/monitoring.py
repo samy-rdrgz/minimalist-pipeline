@@ -1,6 +1,6 @@
-"""Project monitoring's own window: a Properties editor on its Tool tab, where
-panels/monitoring_panel.py draws. See NOTES.md, "Project monitoring: a
-window, not a popup"."""
+"""The monitoring windows -- Project monitoring and Farm monitoring: each a
+Properties editor on its Tool tab, where panels/monitoring_panel.py draws.
+See NOTES.md, "Monitoring: windows, not popups"."""
 
 import time
 
@@ -9,33 +9,46 @@ import bpy
 from .config import get_active_project_root
 from .tracking import ProjectScan
 
-# ID property marking the window's screen -- the panel's poll() looks for it,
-# and it survives the .blend being saved with the window open.
+# ID property marking a window's screen with what it shows ("project" or
+# "farm") -- the panels' poll() reads it, and it survives the .blend being
+# saved with the window open.
 MONITORING_SCREEN_KEY = "m_pipeline_monitoring"
+MONITORING_KINDS = ("project", "farm")
 
-# Redraw check, and how often the Farm column is read again.
+# Redraw check, and how often Project monitoring's Farm column is read again.
 _TICK = 0.5
 _FARM_READ_EVERY = 10.0
 
-_last_seen = None
+_last_seen: dict = {}
 _last_farm_read = 0.0
+# Whether _monitoring_tick started the farm's refresh timer (for a Farm
+# monitoring window), so it only stops its own.
+_farm_refresh_ours = False
 
 
-def is_monitoring_screen(screen) -> bool:
-    return bool(screen and screen.get(MONITORING_SCREEN_KEY))
+def monitoring_kind(screen) -> str:
+    """What a screen's monitoring window shows, "" for any other screen."""
+    value = screen.get(MONITORING_SCREEN_KEY) if screen else None
+    if value is True or value == 1:
+        return "project"  # marked before Farm monitoring had a window
+    return value if value in MONITORING_KINDS else ""
 
 
-def monitoring_windows() -> list:
-    """The open Project monitoring windows. Looked up every time, never kept:
-    a window, its areas and regions are freed when it closes or a file loads
-    (see NOTES.md, "Project walk")."""
+def monitoring_windows(kind: str | None = None) -> list:
+    """The open monitoring windows (of that kind). Looked up every time,
+    never kept: a window, its areas and regions are freed when it closes or
+    a file loads (see NOTES.md, "Project walk")."""
     wm = bpy.context.window_manager
     if wm is None:
         return []
-    return [w for w in wm.windows if is_monitoring_screen(w.screen)]
+    return [
+        w
+        for w in wm.windows
+        if monitoring_kind(w.screen) and kind in (None, monitoring_kind(w.screen))
+    ]
 
 
-def open_monitoring_window(context) -> bool:
+def open_monitoring_window(context, kind: str) -> bool:
     """A new window holding one Properties editor, on the Tool tab once it
     has been drawn. False if Blender didn't open it."""
     wm = context.window_manager
@@ -52,7 +65,7 @@ def open_monitoring_window(context) -> bool:
     area.type = "PROPERTIES"
     # No search field: it would filter the table's labels.
     area.spaces.active.show_region_header = False
-    screen[MONITORING_SCREEN_KEY] = True
+    screen[MONITORING_SCREEN_KEY] = kind
     try:
         # The tab column: nothing to switch to here.
         with context.temp_override(window=window, area=area):
@@ -85,8 +98,8 @@ def _show_tool_tab(tries: int = 20):
     return tick
 
 
-def redraw_monitoring() -> None:
-    for window in monitoring_windows():
+def redraw_monitoring(kind: str | None = None) -> None:
+    for window in monitoring_windows(kind):
         for area in window.screen.areas:
             if area.type != "PROPERTIES":
                 continue
@@ -96,8 +109,8 @@ def redraw_monitoring() -> None:
 
 
 def ensure_monitoring_tick() -> None:
-    """Start _monitoring_tick() if it isn't running -- the window's panel
-    calls it too: a window can come back with a .blend saved with it open."""
+    """Start _monitoring_tick() if it isn't running -- the windows' panels
+    call it too: a window can come back with a .blend saved with it open."""
     if not bpy.app.timers.is_registered(_monitoring_tick):
         bpy.app.timers.register(_monitoring_tick, first_interval=0.0, persistent=True)
 
@@ -108,35 +121,97 @@ def stop_monitoring_tick() -> None:
 
 
 def _monitoring_tick():
-    """While a monitoring window is open: scan the active project if it
-    hasn't been (a switch of project, a window reopened with its .blend),
-    read the farm again every _FARM_READ_EVERY, and redraw when what the
-    table shows changed -- a popup redrew on every mouse move, a window
-    only when told to. Stops itself once no window is left."""
-    global _last_seen, _last_farm_read
-    if not monitoring_windows():
-        _last_seen = None
+    """While a monitoring window is open, redraw it when what it shows
+    changed -- a popup redrew on every mouse move, a window only when told
+    to. Project monitoring: scan the active project if it hasn't been (a
+    switch of project, a window reopened with its .blend), read the farm
+    again every _FARM_READ_EVERY. Farm monitoring: keep the farm's own
+    refresh timer running (a file load stops it). Stops itself once no
+    window is left."""
+    global _last_farm_read, _farm_refresh_ours
+    from ..farm import (
+        farm_activity,
+        get_monitor_cache,
+        register_refresh_timer,
+        request_monitor_refresh,
+        unregister_refresh_timer,
+    )
+
+    project = monitoring_windows("project")
+    farm = monitoring_windows("farm")
+
+    if farm:
+        register_refresh_timer()  # no-op while it runs
+        _farm_refresh_ours = True
+    elif _farm_refresh_ours:
+        unregister_refresh_timer()
+        _farm_refresh_ours = False
+
+    if not (project or farm):
+        _last_seen.clear()
         return None
-    from ..farm import farm_activity, request_monitor_refresh
 
     root = get_active_project_root()
-    if root and not ProjectScan.covers(root):
-        ProjectScan.start(root)
-    if time.monotonic() - _last_farm_read >= _FARM_READ_EVERY:
-        _last_farm_read = time.monotonic()
-        request_monitor_refresh()
-    seen = (
-        str(root),
-        ProjectScan.done,
-        ProjectScan.phase,
-        ProjectScan.owners_found,
-        ProjectScan.statuses_done,
-        farm_activity(),
-    )
-    if seen != _last_seen:
-        _last_seen = seen
-        redraw_monitoring()
+    if project:
+        if root and not ProjectScan.covers(root):
+            ProjectScan.start(root)
+        if time.monotonic() - _last_farm_read >= _FARM_READ_EVERY:
+            _last_farm_read = time.monotonic()
+            request_monitor_refresh()
+        seen = (
+            str(root),
+            ProjectScan.done,
+            ProjectScan.phase,
+            ProjectScan.owners_found,
+            ProjectScan.statuses_done,
+            farm_activity(),
+        )
+        if seen != _last_seen.get("project"):
+            _last_seen["project"] = seen
+            redraw_monitoring("project")
+    if farm:
+        cache = get_monitor_cache()
+        # A farm read replaces the cache's lists: their identity is enough.
+        seen = (str(root), cache.get("status"), id(cache.get("jobs")), id(cache.get("workers")))
+        if seen != _last_seen.get("farm"):
+            _last_seen["farm"] = seen
+            redraw_monitoring("farm")
     return _TICK
+
+
+def memory_prop(store: dict, key: str, prop, default, **kwargs):
+    """A property drawable with layout.prop() whose value lives in `store`
+    (memory) -- a monitoring window's filters: a WindowManager property is
+    saved into every .blend and comes back as each opened file had it."""
+
+    def get(self):
+        return store.get(key, default)
+
+    def set(self, value):
+        store[key] = value
+
+    return prop(default=default, get=get, set=set, **kwargs)
+
+
+def memory_enum(store: dict, key: str, items, **kwargs):
+    """memory_prop() for an enum. Its get/set deal in item indices: kept by
+    identifier, so a dynamic list (prefixes, sequences) changing keeps the
+    choice."""
+
+    def item_list(self):
+        return items(self, bpy.context) if callable(items) else items
+
+    def get(self):
+        ids = [item[0] for item in item_list(self)]
+        value = store.get(key)
+        return ids.index(value) if value in ids else 0
+
+    def set(self, index):
+        found = item_list(self)
+        if 0 <= index < len(found):
+            store[key] = found[index][0]
+
+    return bpy.props.EnumProperty(items=items, get=get, set=set, **kwargs)
 
 
 def open_mainfile(filepath: str) -> None:

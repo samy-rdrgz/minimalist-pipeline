@@ -31,6 +31,8 @@ from ..lib import (
     import_review_xlsx,
     json_get,
     log,
+    memory_enum,
+    memory_prop,
     monitoring_windows,
     open_monitoring_window,
     redraw_monitoring,
@@ -903,63 +905,40 @@ class M_PIPELINE_OT_tracking_refresh(bpy.types.Operator):
         return {"FINISHED"}
 
 
-# Project monitoring's filters: in memory only, like popup_detail() -- as
-# plain WindowManager properties they'd be saved into every .blend and come
-# back as each opened file had them (a stale search silently hiding files).
+# Project monitoring's filters: in memory only, like popup_detail() -- see
+# memory_prop() (a stale search coming back with a .blend hid files).
 _monitoring_filters: dict = {}
-
-
-def _memory_prop(prop, key: str, default, **kwargs):
-    def get(self):
-        return _monitoring_filters.get(key, default)
-
-    def set(self, value):
-        _monitoring_filters[key] = value
-
-    return prop(default=default, get=get, set=set, **kwargs)
-
-
-def _memory_enum(key: str, items, **kwargs):
-    """An enum's get/set deal in item indices: kept by identifier, so a
-    dynamic list (prefixes, sequences) changing keeps the choice."""
-
-    def item_list(self):
-        return items(self, bpy.context) if callable(items) else items
-
-    def get(self):
-        ids = [item[0] for item in item_list(self)]
-        value = _monitoring_filters.get(key)
-        return ids.index(value) if value in ids else 0
-
-    def set(self, index):
-        found = item_list(self)
-        if 0 <= index < len(found):
-            _monitoring_filters[key] = found[index][0]
-
-    return bpy.props.EnumProperty(items=items, get=get, set=set, **kwargs)
 
 
 class PIPELINE_PG_monitoring(bpy.types.PropertyGroup):
     """Project monitoring window's filters (WindowManager.pipeline_monitoring),
     and its file detail's notes/tasks filters -- its own, not the sidebar's."""
 
-    file_type: _memory_enum(
-        "file_type", [("asset", "Asset / Library", ""), ("shot", "Shot", "")]
+    file_type: memory_enum(
+        _monitoring_filters,
+        "file_type",
+        [("asset", "Asset / Library", ""), ("shot", "Shot", "")],
     )
-    asset_prefix: _memory_enum("asset_prefix", prefix_items)
-    sequence: _memory_enum("sequence", sequence_items)
-    entries_hide_done: _memory_prop(
-        bpy.props.BoolProperty, "entries_hide_done", True, name=""
+    asset_prefix: memory_enum(_monitoring_filters, "asset_prefix", prefix_items)
+    sequence: memory_enum(_monitoring_filters, "sequence", sequence_items)
+    entries_hide_done: memory_prop(
+        _monitoring_filters, "entries_hide_done", bpy.props.BoolProperty, True, name=""
     )
-    entries_department_filter: _memory_enum(
-        "entries_department_filter", department_filter_items
+    entries_department_filter: memory_enum(
+        _monitoring_filters, "entries_department_filter", department_filter_items
     )
-    entries_min_version: _memory_prop(
-        bpy.props.IntProperty, "entries_min_version", 0, name="", min=0
+    entries_min_version: memory_prop(
+        _monitoring_filters,
+        "entries_min_version",
+        bpy.props.IntProperty,
+        0,
+        name="",
+        min=0,
     )
-    only_farm: _memory_prop(
-        bpy.props.BoolProperty,
+    only_farm: memory_prop(
+        _monitoring_filters,
         "only_farm",
+        bpy.props.BoolProperty,
         False,
         name="",
         description=(
@@ -967,16 +946,18 @@ class PIPELINE_PG_monitoring(bpy.types.PropertyGroup):
             "failed) or waiting to be checked"
         ),
     )
-    only_rtk: _memory_prop(
-        bpy.props.BoolProperty,
+    only_rtk: memory_prop(
+        _monitoring_filters,
         "only_rtk",
+        bpy.props.BoolProperty,
         False,
         name="",
         description="Only the files with an open RTK",
     )
-    search: _memory_prop(
-        bpy.props.StringProperty,
+    search: memory_prop(
+        _monitoring_filters,
         "search",
+        bpy.props.StringProperty,
         "",
         name="",
         description="Filter by file name or description",
@@ -1005,9 +986,9 @@ class M_PIPELINE_OT_tracking_monitor(bpy.types.Operator):
         ProjectScan.start(project_root)
         request_monitor_refresh()  # the Farm column, same idea
 
-        if monitoring_windows():
+        if monitoring_windows("project"):
             # No way to bring a window to the front from Python.
-            redraw_monitoring()
+            redraw_monitoring("project")
             self.report({"INFO"}, "Project monitoring is already open.")
             return {"FINISHED"}
 
@@ -1021,7 +1002,7 @@ class M_PIPELINE_OT_tracking_monitor(bpy.types.Operator):
         # A search left over from last time would silently hide files.
         context.window_manager.pipeline_monitoring.search = ""
 
-        if not open_monitoring_window(context):
+        if not open_monitoring_window(context, "project"):
             self.report({"ERROR"}, "Blender could not open a new window.")
             return {"CANCELLED"}
         return {"FINISHED"}

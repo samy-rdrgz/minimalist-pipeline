@@ -28,6 +28,7 @@ from .menus import register_topbar_menu, unregister_topbar_menu
 from .operators import (
     PIPELINE_PG_department_check_item,
     PIPELINE_PG_farm_list_item,
+    PIPELINE_PG_farm_monitoring,
     PIPELINE_PG_monitoring,
     PIPELINE_PG_preview_sequence_item,
     PIPELINE_PG_render_subshot_item,
@@ -72,8 +73,11 @@ _WM_PROPS = {
     # File details' last render (draw_frame_lookup()).
     "farm_frame_lookup": bpy.props.IntProperty(name="Frame", default=0),
     "file_selected_departments": bpy.props.StringProperty(),
-    # Project monitoring window's filters (in memory, see the PropertyGroup).
+    # The monitoring windows' filters (in memory, see lib memory_prop()).
     "pipeline_monitoring": bpy.props.PointerProperty(type=PIPELINE_PG_monitoring),
+    "pipeline_farm_monitoring": bpy.props.PointerProperty(
+        type=PIPELINE_PG_farm_monitoring
+    ),
     # entries_department_filter is the addon's one Scene/WM-level EnumProperty
     # used as a live filter (everything else here is a toggle/buffer) -- see
     # draw_entries() in panels/tracking_panel.py.
