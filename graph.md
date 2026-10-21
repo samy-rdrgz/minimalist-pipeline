@@ -384,11 +384,11 @@ incomings/job_<id>.json
 │
 ├── render_start : check_render_completion() (see "Render: workers and
 │   completion" below)
-│   ├── a machine still renders it -> stays (progress: non-empty frames)
+│   ├── a machine still on it -> stays (progress: non-empty frames)
 │   └── none left -- judged on the frames on disk:
 │       ├── every frame there, non-empty -> render_finished
 │       ├── a machine failed it -> render_failed (failed_machines kept)
-│       ├── every machine cancelled (the job's Cancel) -> render_failed (cancelled)
+│       ├── the job's Cancel (cancel_requested) -> render_failed (cancelled)
 │       ├── refill_rounds >= MAX_REFILL_ROUNDS (3) -> render_failed
 │       └── else : empty files deleted, refill_rounds + 1
 │                  -> setup_finished ("frames left after machines stopped")  ⟲
@@ -459,22 +459,22 @@ incomings/job_<id>.json
 │       twice, and the pace) -> status "render", current_job_id,
 │       current_dispatch_id
 │
-└── check_render_completion() (monitor) : each used machine, from its worker
-    file read directly (_read_worker()):
-    ├── last_job_result about this render (its dispatch_id) :
-    │   success | failed | cancelled | stopped | lost (crash, see below)
-    ├── worker file gone, silent WORKER_GONE_SECONDS (180 s) or "stopped" : lost
-    ├── not rendering it, no request of it waiting, result about another
-    │   render -- for MOVED_ON_SECONDS (30 s) : moved_on (result overwritten)
-    └── else : still running
-    then:
-    ├── one succeeded, others' requests never picked up : requests deleted
-    │   (_drop_pending_request()), they leave used_machines
-    ├── any still running : wait
-    └── none : _note_frame_seconds() (each machine's mean per frame, from
-        the .saved records), then judged on disk (render_start above) --
-        lost, stopped, cancelled and moved_on are neutral, only "failed"
-        fails it
+└── check_render_completion() (monitor) : is anybody still on it ?
+    (_machines_on(), each used machine's file read directly, _read_worker())
+    ├── on it : its worker rendering this job (status "render",
+    │   current_job_id), alive -- or unreadable this tick, can't tell --
+    │   or its request still waiting, the worker alive
+    ├── done with it : gone (silent WORKER_GONE_SECONDS, 180 s), stopped,
+    │   idle or on another job -- whatever its last_job_result says
+    ├── some waiting, every frame already has a file : their requests
+    │   withdrawn (_withdraw_requests()), they leave used_machines
+    ├── somebody on it : wait (no lock taken)
+    └── nobody, for NOBODY_SECONDS (20 s -- a worker taking up its request
+        deletes it before writing its own file), re-checked under the lock :
+        requests left deleted ; failed_machines = those whose last_job_result
+        says they failed THIS dispatch ; _note_frame_seconds() (each
+        machine's mean per frame, from the .saved records) ; then judged on
+        disk (render_start above)
 ```
 
 ### Ways back
@@ -486,7 +486,7 @@ incomings/job_<id>.json
 │   twice -- deleted, rendered again on ONE machine (refill_single), then the
 │   whole frame check again ; same 3 rounds as the refill
 ├── Retry button (any *_failed, even from archives/) : retry_job() ->
-│   _RETRY_STAGE, refill_rounds reset
+│   _RETRY_STAGE, refill_rounds and cancel_requested reset
 │   ├── setup_failed -> queued
 │   ├── render_failed -> render_finished if every frame is there, else
 │   │   setup_finished (empty frames deleted, steered off failed_machines)
@@ -495,8 +495,9 @@ incomings/job_<id>.json
 ├── Recompile (finished) : recompile_job() -> checks_images_finished
 │   ("recompile") -> the compilation only, no render, no history entry
 ├── Cancel button (render_start) : cancel_pending_renders() -- requests not
-│   picked up deleted (none left -> render_failed, cancelled) ; the machines
-│   rendering get cancel_<job>_<uuid>.json
+│   picked up deleted, cancel_requested set on the job (none left ->
+│   render_failed, cancelled) ; the machines rendering get
+│   cancel_<job>_<uuid>.json ; one machine's cancel (Workers tab): neutral
 └── crash recovery
     ├── monitor relaunched : recover_interrupted_jobs() -- a local *_start
     │   stage (never render_start) whose PID still runs on this machine is

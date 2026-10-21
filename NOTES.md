@@ -2008,29 +2008,48 @@ nothing either: the cancel file reaches a worker with no render of the
 job to kill, which publishes no result. The first section above fixed
 one way to *read* the result too late; this is the result gone.
 
-### "Moved on": nothing of this render left on the machine
+### One question: is anybody still on it?
 
-A live machine that isn't rendering the job (`status` "render" with
-another `current_job_id`, or not rendering at all), has no request of it
-waiting in `requests/`, and whose `last_job_result` is about another
-render, is done with it. Outcome unknown, so it's neutral, like a
-stopped one: once no machine is left, the job is judged on the frames on
-disk (all there: `render_finished`; missing: empty files deleted and
-sent out again; a job-wide Cancel still ends as cancelled).
+First fix: a live machine showing nothing of the render for 30 s counted
+as "moved on", next to success / failed / cancelled / stopped / lost,
+each read from `last_job_result`. Replaced the same day by a single
+rule, which needs no result at all: a render is over once none of its
+machines is *on it* (`_machines_on()`):
+
+- its worker rendering this job (`status` "render", `current_job_id`),
+  alive -- or its file unreadable this tick: can't tell, on it;
+- or its request still waiting in `requests/`, the worker alive.
+
+Gone (silent `WORKER_GONE_SECONDS`), stopped, idle or rendering another
+job: done with it. Then the frames on disk decide, as before. What each
+machine published no longer gates anything; `last_job_result` is only
+read to name a machine that *failed* this render (`_failed_this_render()`,
+its `dispatch_id`): frames missing then end as `render_failed` rather than
+a refill, and `failed_machines` steers a retry away from it. Overwritten
+by a later render, that failure just isn't known -- the refill rounds
+still bound it.
+
+The job's Cancel was read off the machines' results too ("every machine
+cancelled"): it's now a flag on the job, `cancel_requested`, set by
+`cancel_pending_renders(whole_job=True)`; a Retry clears it. One
+machine's cancel (Workers tab) stays neutral: frames missing, sent out
+again.
+
+The "Render stuck at 100 %" drop (above) no longer waits for a machine
+to *succeed*: a request still waiting once every frame of the range has
+a file (rendered or taken) has nothing left to do, withdrawn
+(`_withdraw_requests()`, shared with Cancel).
 
 Not on the first sight: `execute_render_request()` deletes the request,
-then writes the worker's file (`status` "render", `current_job_id`) on
-the way out of the same tick -- a monitor reading in between sees neither
-the request nor the render. So it must hold `MOVED_ON_SECONDS` (30 s,
-three monitor ticks), timed in the monitor's memory per (job,
-`dispatch_id`, machine); any sight of the request or the render resets
-it. A worker on an older version, rendering without `current_job_id`,
-is taken as rendering this job.
+then writes the worker's file on the way out of the same tick -- a
+monitor reading in between sees neither. Nobody must be on the render
+for `NOBODY_SECONDS` (20 s, two ticks), timed per (job, `dispatch_id`) in
+the monitor's memory, re-checked under the job's lock before judging.
 
-Rejected: a per-job history of results in the worker file. It keeps the
-real outcome, but needs every worker updated before it helps; this needs
-only the monitor. Losing a "failed" this way costs at most a refill
-round (`MAX_REFILL_ROUNDS`) instead of `render_failed` right away.
+Gone with it: `_classify_machines()`, `_is_this_render()`'s fallback on
+times for sides without a `dispatch_id` (every worker has one since
+1.0.14), and "every machine cancelled". Both `current_job_id` and
+`dispatch_id` predate 1.0.15: no older worker to tell apart.
 
 ## Time left: per machine, from each frame's time
 

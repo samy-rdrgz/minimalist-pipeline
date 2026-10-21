@@ -925,7 +925,9 @@ class M_PIPELINE_OT_farm_cancel_job(bpy.types.Operator):
         user = get_user(context)
         # A machine that hasn't picked up its render yet has nothing to
         # kill: its request is withdrawn instead (else it renders later).
-        running = cancel_pending_renders(self.job_id, machines)
+        running = cancel_pending_renders(
+            self.job_id, machines, whole_job=not self.target_uuid
+        )
         for uuid in running:
             job_cancel_request(job_id=self.job_id, target_uuid=uuid, user=user)
         self.report({"INFO"}, f"Cancel requested ({len(machines)} machine(s)).")
