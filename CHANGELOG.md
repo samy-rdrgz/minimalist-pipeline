@@ -20,6 +20,9 @@ All notable changes to this addon. Dates are release dates.
   under the Frame field (Farm monitoring's job detail too) -- and names
   the machine by its user, "Alice (a1b2c3d4)", not by its id alone (also
   the job detail's machines).
+- **Increment version / Mark as stable: the dialog widens with the
+  file's departments**, so their names are never cut off (it was a fixed
+  350 px, too narrow past three or four).
 
 ## 1.0.17 — 2026-10-21
 
