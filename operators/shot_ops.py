@@ -103,7 +103,7 @@ def _draw_shot_list(layout, context, op, config, TITLE_WIDTH):
             number_col.prop(s, "shot_number", text=" ")
             timeline_col.prop(s, "start_frame", text=" " if idx != 0 else "Start")
             del_col.operator(
-                "m_pipeline.remove_multishot_item", text="", icon="X", emboss=False
+                "m_pipeline.remove_multishot_item", text="", icon="REMOVE"
             ).index = idx
 
         timeline_col.prop(op, "end_frame", text="End")

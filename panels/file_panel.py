@@ -99,7 +99,7 @@ class M_PIPELINE_PT_file_panel(bpy.types.Panel):
         # Side by side when the sidebar is wide enough, tips under the row.
         versions = responsive_layout(context, layout, SIDE_BY_SIDE_WIDTH)
         versions.operator(
-            "m_pipeline.increment_version", text="Increment version", icon="DUPLICATE"
+            "m_pipeline.increment_version", text="Increment", icon="DUPLICATE"
         )
         if not is_stable_ro:
             # Already the stable version -- marking it stable again is a
@@ -166,11 +166,16 @@ class M_PIPELINE_PT_file_panel(bpy.types.Panel):
             )
 
         layout.separator()
-        op = layout.operator(
+        folder = responsive_layout(context, layout, SIDE_BY_SIDE_WIDTH)
+        op = folder.operator(
             "wm.open_folder", text="Open folder", icon="FOLDER_REDIRECT"
         )
         op.filepath = str(Path(bpy.data.filepath).parent)
         op.custom_tooltip = "Open this file's folder"
+        # Its departments, renders, links: Project monitoring's file detail.
+        folder.operator(
+            "m_pipeline.tracking_monitor", text="Details", icon="INFO"
+        ).open_file = True
 
         layout.separator()
         width = int(region_char_budget(context) * ENTRIES_INDENT_FACTOR)

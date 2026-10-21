@@ -1013,11 +1013,12 @@ class M_PIPELINE_OT_tracking_monitor(bpy.types.Operator):
         "Ctrl+click: the open file's details"
     )
 
-    # Set by invoke() from the click: Ctrl opens on the open file's detail.
+    # Opens on the open file's detail: set by a button (the File panel's
+    # Details), or by invoke() on Ctrl+click.
     open_file: bpy.props.BoolProperty(options={"SKIP_SAVE", "HIDDEN"})
 
     def invoke(self, context, event):
-        self.open_file = event.ctrl
+        self.open_file = self.open_file or event.ctrl
         return self.execute(context)
 
     def execute(self, context):

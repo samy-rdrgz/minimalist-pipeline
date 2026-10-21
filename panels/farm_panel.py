@@ -54,6 +54,9 @@ class M_PIPELINE_PT_farm_panel(bpy.types.Panel):
     def draw_header(self, context):
         layout = self.layout.row(align=True)
         layout.separator(factor=0.4)
+        # A button opening Farm monitoring, its text left-aligned like a label.
+        status_row = layout.row(align=True)
+        status_row.alignment = "LEFT"
 
         # From the status cache (refreshed by _status_tick() every 10 s),
         # never monitor.lock.exists() here: a disk call per redraw is a
@@ -61,7 +64,7 @@ class M_PIPELINE_PT_farm_panel(bpy.types.Panel):
         is_monitor = get_monitor_cache().get("status") not in ("not running", "unknown")
 
         if not is_monitor:
-            layout.operator(
+            status_row.operator(
                 "m_pipeline.farm_monitor",
                 text="Farm : not running",
                 icon="GHOST_DISABLED",
@@ -89,7 +92,7 @@ class M_PIPELINE_PT_farm_panel(bpy.types.Panel):
                 "dead": "Farm : Dead",
                 "unknown": "Farm : ...",
             }
-            layout.operator(
+            status_row.operator(
                 "m_pipeline.farm_monitor",
                 text=labels.get(status, "Farm : ..."),
                 icon=icons.get(status, "GHOST_DISABLED"),
@@ -579,6 +582,7 @@ def draw_farm_workers(context, layout):
             op.target_uuid = m.get("uuid", "")
             op.machine = m.get("machine", "")
             op.busy = busy
+    layout.separator()  # the last row's line off the box's bottom edge
 
 
 def draw_farm_job_details(layout, context):
