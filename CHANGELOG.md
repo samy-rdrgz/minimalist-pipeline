@@ -45,8 +45,8 @@ All notable changes to this addon. Dates are release dates.
 - **"All" choices say what they list**: All prefixes, All sequences, All
   states (Farm monitoring), All levels (Pipeline log).
 - **File panel: Increment (was "Increment version") / Mark as stable
-  side by side, Render / Preview block / Preview sequence too, Open
-  folder / Details**, when the sidebar is wide enough. **Details** opens
+  side by side, Render / Preview block / Preview sequence too**,
+  when the sidebar is wide enough. **Details**, above Open folder, opens
   Project monitoring on the file's detail -- in place of the panel's
   "Finished" departments box. **Edit block structure moves to the
   Pipeline menu** (greyed, a shot file open).

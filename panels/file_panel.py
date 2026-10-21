@@ -166,16 +166,15 @@ class M_PIPELINE_PT_file_panel(bpy.types.Panel):
             )
 
         layout.separator()
-        folder = responsive_layout(context, layout, SIDE_BY_SIDE_WIDTH)
-        op = folder.operator(
+        # Its departments, renders, links: Project monitoring's file detail.
+        layout.operator(
+            "m_pipeline.tracking_monitor", text="Details", icon="INFO"
+        ).open_file = True
+        op = layout.operator(
             "wm.open_folder", text="Open folder", icon="FOLDER_REDIRECT"
         )
         op.filepath = str(Path(bpy.data.filepath).parent)
         op.custom_tooltip = "Open this file's folder"
-        # Its departments, renders, links: Project monitoring's file detail.
-        folder.operator(
-            "m_pipeline.tracking_monitor", text="Details", icon="INFO"
-        ).open_file = True
 
         layout.separator()
         width = int(region_char_budget(context) * ENTRIES_INDENT_FACTOR)
