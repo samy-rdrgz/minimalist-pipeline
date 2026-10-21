@@ -618,9 +618,11 @@ def draw_file_details(state, context, layout):
         deps_row = tabl.column(align=True)
         deps_row.scale_y = 0.8
         validated = get_current_departments(Path(filepath))
+        # Short: in this LEFT-aligned row, the column only gets its label's
+        # estimated width -- "...for this file :" was cut ("...for this fil...").
         txt = deps_row.row(align=True)
         txt.separator(factor=0.5)
-        txt.label(text="Departments required for this file :", icon="TAG")
+        txt.label(text="Departments required :", icon="TAG")
         for d in required:
             btn = deps_row.row(align=True)
             btn.label(text="", icon="BLANK1")
