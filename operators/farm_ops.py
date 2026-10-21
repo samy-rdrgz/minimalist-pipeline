@@ -1105,7 +1105,7 @@ class PIPELINE_PG_farm_monitoring(bpy.types.PropertyGroup):
         _farm_filters,
         "state",
         [
-            ("all", "All", "Every job"),
+            ("all", "All states", "Every job"),
             ("running", "Running", "A step in progress: setup, render, frame check, compilation"),
             (
                 "waiting",

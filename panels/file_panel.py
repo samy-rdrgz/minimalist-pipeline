@@ -5,6 +5,7 @@ from pathlib import Path
 import bpy
 
 from ..lib import (
+    SIDE_BY_SIDE_WIDTH,
     TrackingStatusCache,
     draw_box_tip,
     file_in_active_project,
@@ -95,9 +96,17 @@ class M_PIPELINE_PT_file_panel(bpy.types.Panel):
             layout.separator(type="LINE")
             layout.separator()
 
-        layout.operator(
+        # Side by side when the sidebar is wide enough, tips under the row.
+        versions = responsive_layout(context, layout, SIDE_BY_SIDE_WIDTH)
+        versions.operator(
             "m_pipeline.increment_version", text="Increment version", icon="DUPLICATE"
         )
+        if not is_stable_ro:
+            # Already the stable version -- marking it stable again is a
+            # no-op offer, and confusing next to the read-only indicator.
+            versions.operator(
+                "m_pipeline.increment_version", text="Mark as stable", icon="CHECKMARK"
+            ).tag = "stable"
         draw_box_tip(
             layout,
             context,
@@ -106,11 +115,6 @@ class M_PIPELINE_PT_file_panel(bpy.types.Panel):
             "never lose the previous state.",
         )
         if not is_stable_ro:
-            # Already the stable version -- marking it stable again is a
-            # no-op offer, and confusing next to the read-only indicator.
-            layout.operator(
-                "m_pipeline.increment_version", text="Mark as stable", icon="CHECKMARK"
-            ).tag = "stable"
             draw_box_tip(
                 layout,
                 context,
@@ -120,24 +124,24 @@ class M_PIPELINE_PT_file_panel(bpy.types.Panel):
             )
 
         layout.separator()
-        layout.operator(
+        render = responsive_layout(context, layout, SIDE_BY_SIDE_WIDTH)
+        render.operator(
             "m_pipeline.farm_request_render",
             text="Render",
             icon="RENDER_RESULT",
         ).filepath = bpy.data.filepath
 
-        # Preview compile and block branching only make sense for shots --
-        # an asset file's parsed dict simply won't have a "shot" key here
-        # (no KeyError, unlike indexing ["sequence"] downstream).
+        # Preview compile only makes sense for shots -- an asset file's
+        # parsed dict simply won't have a "shot" key here (no KeyError,
+        # unlike indexing ["sequence"] downstream). Edit block structure:
+        # the top bar menu.
         if parsed and parsed.get("shot"):
-            layout.separator()
             # "Preview block" only means something for an actual block (2+
             # shots) -- on a mono-shot it would just re-encode that one
             # shot's own latest render, degenerate and confusing next to
             # "Preview sequence".
             if len(shots_in_segment(parsed["shot"])) > 1:
-                row = layout.row(align=True)
-                op = row.operator(
+                op = render.operator(
                     "m_pipeline.compile_preview", text="Preview block", icon="SEQUENCE"
                 )
                 op.scope = "block"
@@ -145,17 +149,11 @@ class M_PIPELINE_PT_file_panel(bpy.types.Panel):
                 op.custom_tooltip = (
                     "Compile a disposable preview from just this block's own shots."
                 )
-                op = row.operator(
-                    "m_pipeline.compile_preview",
-                    text="Preview sequence",
-                    icon="SEQUENCE",
-                )
-            else:
-                op = layout.operator(
-                    "m_pipeline.compile_preview",
-                    text="Preview sequence",
-                    icon="SEQUENCE",
-                )
+            op = render.operator(
+                "m_pipeline.compile_preview",
+                text="Preview sequence",
+                icon="SEQUENCE",
+            )
             op.scope = "sequence"
             op.filepath = bpy.data.filepath
             op.custom_tooltip = "Compile a disposable preview from every rendered shot in this sequence."
@@ -166,13 +164,6 @@ class M_PIPELINE_PT_file_panel(bpy.types.Panel):
                 "not a final render. Block covers just this block's shots; "
                 "sequence covers the whole sequence.",
             )
-
-            layout.separator()
-            layout.operator(
-                "m_pipeline.edit_block_structure",
-                text="Edit block structure",
-                icon="UV_SYNC_SELECT",
-            ).filepath = bpy.data.filepath
 
         layout.separator()
         op = layout.operator(

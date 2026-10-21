@@ -45,7 +45,7 @@ class M_PIPELINE_OT_pipeline_logs(bpy.types.Operator):
 
     level: bpy.props.EnumProperty(
         items=[
-            ("all", "All", "Every line"),
+            ("all", "All levels", "Every line"),
             ("warning", "Warnings", "Warnings and errors"),
             ("error", "Errors", "Errors only"),
         ],

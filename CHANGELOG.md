@@ -36,6 +36,22 @@ All notable changes to this addon. Dates are release dates.
 - **Increment version / Mark as stable: the dialog widens with the
   file's departments**, so their names are never cut off (it was a fixed
   350 px, too narrow past three or four).
+- **Ctrl+click on Project monitoring opens the open file's detail** --
+  or says it isn't one of the project's tracked files, with a Back button.
+- **Farm monitoring, Workers: blank rows to the window's height**, like
+  the Jobs list (was always 4 rows).
+- **The Farm panel's header status opens Farm monitoring** on click.
+- **"All" choices say what they list**: All prefixes, All sequences, All
+  states (Farm monitoring), All levels (Pipeline log).
+- **File panel: Increment version / Mark as stable side by side, Render
+  / Preview block / Preview sequence too**, when the sidebar is wide
+  enough. **Edit block structure moves to the Pipeline menu** (a shot file
+  open).
+- **Shot list (New shot, Edit block structure): a delete button at the
+  end of each row** -- only the last row could be removed, so dropping
+  the first meant retyping every row.
+- **New entry opens with a line to type in** (it opened empty, "Add text
+  line" first).
 
 ## 1.0.17 — 2026-10-21
 

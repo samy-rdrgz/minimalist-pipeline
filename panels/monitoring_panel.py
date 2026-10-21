@@ -62,6 +62,16 @@ class M_PIPELINE_PT_monitoring(_MonitoringPanel, bpy.types.Panel):
 
     def draw_content(self, context, layout):
         state = context.window_manager.pipeline_monitoring
+        missing = monitoring_detail("missing_file")
+        if missing:
+            row = layout.row(align=True)
+            row.box().operator(
+                "m_pipeline.tracking_file_details", text="", icon="BACK", emboss=False
+            )
+            row.box().label(
+                text=f"File not found in this project: {missing}", icon="ERROR"
+            )
+            return
         if monitoring_detail("file"):
             draw_file_details(state, context, layout)
             return
@@ -115,4 +125,4 @@ class M_PIPELINE_PT_farm_monitoring(_MonitoringPanel, bpy.types.Panel):
         if state.view == "jobs":
             draw_farm_jobs(state, context, box)
         else:
-            draw_farm_workers(box)
+            draw_farm_workers(context, box)
