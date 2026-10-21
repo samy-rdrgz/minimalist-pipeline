@@ -251,7 +251,7 @@ def memory_enum(store: dict, key: str, items, **kwargs):
 # sized on the window". A list row's height (a widget line, the spacing
 # and the LINE separator under it), in widget units: the one constant to
 # recalibrate if a page overflows the window or leaves a gap.
-ROW_UNITS = 1.8
+ROW_UNITS = 1.9
 # A list never shows fewer rows (blank ones below) -- under that, the
 # window's region scrolls.
 MIN_ROWS = 6
