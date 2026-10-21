@@ -2,6 +2,20 @@
 
 All notable changes to this addon. Dates are release dates.
 
+## Unreleased
+
+### Farm: renders
+
+- **A render no longer stays at "rendering" for good once one of its
+  machines has moved on**: a worker keeps the outcome of its last render
+  only, so a machine that ended this render, then another job, had
+  overwritten it -- the job waited for it forever, even at 100 %, and
+  Cancel did nothing. A machine that shows nothing of the render for 30 s
+  (not rendering it, no request of it waiting) now counts as done with it:
+  the job is judged on the frames on disk (all there: frame check; empty
+  ones: rendered again). Monitor only: the farm host's addon is the one to
+  update; a job already stuck moves on by itself within a minute.
+
 ## 1.0.15 — 2026-10-20
 
 Two sets of changes: farm, logs and linked libraries fixes from a real

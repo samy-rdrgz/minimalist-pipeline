@@ -3,6 +3,7 @@
 import datetime
 import os
 import re
+import time
 from pathlib import Path
 
 from ..lib import (
@@ -802,16 +803,53 @@ def _render_folder(data: dict, project_root: Path | None) -> Path | None:
     return (Path(project_root) / output_path).parent
 
 
+# A machine of a render that shows nothing more of it -- not rendering it,
+# no request of it waiting, its last_job_result about another render --
+# this long is done with it: it went on to another job and ended that one
+# too, overwriting the result it had published for this render, which then
+# waited for it forever. Long enough for a worker picking up its request
+# (request deleted, its own file written right after) to show it meanwhile.
+# See NOTES.md, "Render stuck at render_start: a result overwritten".
+MOVED_ON_SECONDS = 30
+
+# (job_id, dispatch_id, uuid) -> time.monotonic() it was first seen moved on.
+_moved_on_since: dict[tuple, float] = {}
+
+
+def _moved_on(data: dict, uuid: str, worker: dict) -> bool:
+    """Whether machine uuid -- alive, its last_job_result about another
+    render -- has shown nothing of this render for MOVED_ON_SECONDS."""
+    job_id = data.get("job_id")
+    key = (job_id, data.get("dispatch_id"), uuid)
+    current = worker.get("current_job_id")
+    # No current_job_id (a worker on an older version): can't tell, rendering.
+    on_it = worker.get("status") == "render" and current in (job_id, None)
+    if not on_it:
+        request = (
+            ConfigCache.get_path("farm_requests") / f"request_{job_id}_{uuid}.json"
+        )
+        try:
+            on_it = request.exists()  # still waiting to be picked up
+        except OSError:
+            on_it = True  # can't tell this tick
+    if on_it:
+        _moved_on_since.pop(key, None)
+        return False
+    first = _moved_on_since.setdefault(key, time.monotonic())
+    return time.monotonic() - first >= MOVED_ON_SECONDS
+
+
 def _classify_machines(data: dict) -> dict:
     """Each of the job's used_machines by what its worker file says about
-    this render: still_running / lost / failed / cancelled / stopped (lists
-    of uuids), any_succeeded (bool)."""
+    this render: still_running / lost / failed / cancelled / stopped /
+    moved_on (lists of uuids), any_succeeded (bool)."""
     state = {
         "still_running": [],
         "lost": [],
         "failed": [],
         "cancelled": [],
         "stopped": [],
+        "moved_on": [],
         "any_succeeded": False,
     }
     for uuid in data.get("used_machines", []):
@@ -835,6 +873,8 @@ def _classify_machines(data: dict) -> dict:
                 state["any_succeeded"] = True  # finished THIS render successfully
         elif _worker_gone(w) or w.get("status") == "stopped":
             state["lost"].append(uuid)
+        elif _moved_on(data, uuid, w):
+            state["moved_on"].append(uuid)  # outcome unknown: neutral
         else:
             state["still_running"].append(uuid)
     return state
@@ -849,7 +889,9 @@ def check_render_completion(
     While any machine still renders it, the job stays render_start -- a
     machine that failed, crashed ("lost", or gone for WORKER_GONE_SECONDS),
     was cancelled or stopped doesn't end it: the others may still render
-    every frame (placeholders + no overwrite). Once none is left, it's
+    every frame (placeholders + no overwrite). Nor does one that moved on
+    to other renders, its result for this one overwritten (_moved_on()):
+    neutral, like a stopped one. Once none is left, it's
     judged on the frames on disk: all there -> render_finished; a real
     failure with frames missing -> render_failed; every machine cancelled
     (the job's Cancel) -> render_failed (cancelled); otherwise frames are
@@ -876,6 +918,7 @@ def check_render_completion(
         failed = state["failed"]
         cancelled = state["cancelled"]
         stopped = state["stopped"]
+        moved_on = state["moved_on"]
         any_succeeded = state["any_succeeded"]
 
         if any_succeeded and still_running:
@@ -907,6 +950,17 @@ def check_render_completion(
 
         if still_running:
             return data  # the others may still render every frame
+
+        for key in [k for k in _moved_on_since if k[0] == data["job_id"]]:
+            del _moved_on_since[key]
+        if moved_on:
+            log(
+                "WARNING",
+                "farm",
+                f"Job {data['job_id']}: {', '.join(u[:8] for u in moved_on)} "
+                f"went on to other renders, result for this one overwritten "
+                f"-- judged on the frames on disk.",
+            )
 
         # A request a lost/stopped worker never picked up would otherwise
         # run whenever it comes back, for a dispatch nobody waits on anymore.
@@ -985,8 +1039,8 @@ def check_render_completion(
                 "WARNING",
                 "farm",
                 f"Job {data['job_id']}: frames missing after "
-                f"{', '.join(u[:8] for u in lost + stopped + cancelled)} stopped "
-                f"-- sent out again for them.",
+                f"{', '.join(u[:8] for u in lost + stopped + cancelled + moved_on)} "
+                f"stopped -- sent out again for them.",
             )
         return data
 

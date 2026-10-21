@@ -1985,6 +1985,53 @@ the process scan forever -- the worker stayed "render"), and renders/setup
 run with `--python-exit-code 1` (an exception in the entry script used to
 exit 0, i.e. a successful render).
 
+## Render stuck at render_start: a result overwritten
+
+Symptom: `job_97daeba21d` (sq040 sh120, 1443 frames, 3 machines) at
+`render_start` for good, one empty frame in its folder. Copying the frame
+before over it took the popup to 100 %, the job didn't move: the frames
+on disk are only looked at once no machine is left rendering. Two of its
+machines (`6983fd96`, `4abd5c3d`) are also in the next job's
+`used_machines`, `job_2363605ce8`, dispatched 9 h after it -- while it
+still waited on a machine, most likely the one that left the empty frame.
+
+### One slot for a machine's outcome
+
+A worker publishes the outcome of its render in `last_job_result`, a
+single field. Once that machine renders another job to the end, the
+field is about that one. `_classify_machines()` took a live worker whose
+result wasn't about this render for "still running": true while the
+result isn't published yet, false once it has been and then replaced.
+Whatever kept the job waiting meanwhile (another machine mid-frame, hung,
+or slow to be found gone), it then waited forever -- and Cancel did
+nothing either: the cancel file reaches a worker with no render of the
+job to kill, which publishes no result. The first section above fixed
+one way to *read* the result too late; this is the result gone.
+
+### "Moved on": nothing of this render left on the machine
+
+A live machine that isn't rendering the job (`status` "render" with
+another `current_job_id`, or not rendering at all), has no request of it
+waiting in `requests/`, and whose `last_job_result` is about another
+render, is done with it. Outcome unknown, so it's neutral, like a
+stopped one: once no machine is left, the job is judged on the frames on
+disk (all there: `render_finished`; missing: empty files deleted and
+sent out again; a job-wide Cancel still ends as cancelled).
+
+Not on the first sight: `execute_render_request()` deletes the request,
+then writes the worker's file (`status` "render", `current_job_id`) on
+the way out of the same tick -- a monitor reading in between sees neither
+the request nor the render. So it must hold `MOVED_ON_SECONDS` (30 s,
+three monitor ticks), timed in the monitor's memory per (job,
+`dispatch_id`, machine); any sight of the request or the render resets
+it. A worker on an older version, rendering without `current_job_id`,
+is taken as rendering this job.
+
+Rejected: a per-job history of results in the worker file. It keeps the
+real outcome, but needs every worker updated before it helps; this needs
+only the monitor. Losing a "failed" this way costs at most a refill
+round (`MAX_REFILL_ROUNDS`) instead of `render_failed` right away.
+
 ---
 
 ## Action popups: dialogs
