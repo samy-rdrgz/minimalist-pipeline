@@ -194,7 +194,6 @@ class M_PIPELINE_OT_farm_launch_monitor(bpy.types.Operator):
                     ),
                     severity="warning",
                     choices=[
-                        ("Cancel", None, "Don't launch the monitor."),
                         (
                             "Continue anyway",
                             self._continue_without_ffmpeg,
@@ -808,7 +807,6 @@ class M_PIPELINE_OT_farm_kill_self_worker(bpy.types.Operator):
                         lambda: stop_worker(kill_render=True),
                         "Interrupt the render now and stop the worker.",
                     ),
-                    ("Cancel", None, "Keep the worker running."),
                 ],
             )
         )
@@ -876,7 +874,6 @@ class M_PIPELINE_OT_farm_stop_worker(bpy.types.Operator):
                         lambda: request_worker_stop(uuid, True, user),
                         "Interrupt its render now and stop the worker.",
                     ),
-                    ("Cancel", None, "Keep the worker running."),
                 ],
             )
         )

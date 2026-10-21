@@ -2162,7 +2162,7 @@ error at most, on the high side.
 
 `M_PIPELINE_OT_action_popup` used `invoke_popup()`, chosen because it adds no footer of its own (`draw()` already draws every choice as a button). But a popup closes as soon as the mouse leaves it -- the append/link warning, among others, vanished before artists even read it. It's now an `invoke_props_dialog()`: it stays open until a button, Escape, or the footer.
 
-The footer can't be removed from a dialog, so it's made harmless: `confirm_text="Close"` plus the native Cancel, both just close it (execute with `choice_index == -1` / `cancel()`), and `cancel_default=True` so Enter never triggers anything. The first choice can't be wired to the confirm button instead: it isn't always the neutral one (the stable-file save guard's first choice is "Save").
+The footer can't be removed from a dialog, so it's made harmless: `confirm_text="Close"` plus the native Cancel, both just close it (execute with `choice_index == -1` / `cancel()`), and `cancel_default=True` so Enter never triggers anything. The first choice can't be wired to the confirm button instead: it isn't always the neutral one (the stable-file save guard's first choice is "Save"). So an action has no "Cancel" choice of its own: it showed three ways to cancel (the save guards, the stop-worker and FFmpeg warnings) -- its `on_dismiss` is what Cancel does.
 
 Closing without choosing runs the action's `on_dismiss`, once -- `PipelineAction.resolved` is set as soon as a choice runs, so the dialog closing right after a choice doesn't also dismiss it. The "External project Link done ?" warning now has an `on_dismiss` equal to its "Ignore" (record the link in the `.wipmeta`): before, a popup lost to the mouse silently skipped that record.
 

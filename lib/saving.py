@@ -198,11 +198,6 @@ class WM_OT_safe_save(bpy.types.Operator):
                                 partial(_increment_and_release, filepath, uuid),
                                 "Save as a new version instead of overwriting.",
                             ),
-                            (
-                                "Cancel",
-                                partial(_release_only, filepath, uuid),
-                                "Don't save.",
-                            ),
                         ],
                         on_dismiss=partial(_release_only, filepath, uuid),
                         explanation=STABLE_FILE_EXPLANATION,
@@ -222,11 +217,6 @@ class WM_OT_safe_save(bpy.types.Operator):
                                 "Save & Increment",
                                 partial(_increment_and_release, filepath, uuid),
                                 "This file is read-only: save as a new version instead of overwriting.",
-                            ),
-                            (
-                                "Cancel",
-                                partial(_release_only, filepath, uuid),
-                                "Don't save.",
                             ),
                         ],
                         on_dismiss=partial(_release_only, filepath, uuid),

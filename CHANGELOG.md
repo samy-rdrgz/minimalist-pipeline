@@ -16,6 +16,10 @@ All notable changes to this addon. Dates are release dates.
   check; empty ones: rendered again). Cancel is noted on the job itself.
   Monitor only: the farm host's addon is the one to update; a job already
   stuck moves on by itself within a minute.
+- **Popups: one Cancel**: the save guards ("You're on a stable file",
+  "Read-Only Origin"), the stop-worker and FFmpeg warnings had a Cancel of
+  their own on top of the dialog's Cancel and Close -- three buttons doing
+  the same. Theirs is gone.
 - **Stopping a worker: "After this frame" or "Stop now"**: "Let it
   finish" finished the whole render -- every frame still free, hours on a
   long shot -- before a workstation was given back. Now the render stops
