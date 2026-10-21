@@ -3,6 +3,7 @@
 import bpy
 
 from ..lib import (
+    SIDE_BY_SIDE_WIDTH,
     addon_pref,
     blender_version_mismatch,
     draw_box_tip,
@@ -16,10 +17,6 @@ from ..operators import (
     project_ops,
     shot_ops,
 )
-
-
-# Sidebar width (px, before UI scale) from which two buttons share a row.
-_SIDE_BY_SIDE_WIDTH = 240
 
 
 class M_PIPELINE_PT_project_panel(bpy.types.Panel):
@@ -87,7 +84,7 @@ class M_PIPELINE_PT_project_panel(bpy.types.Panel):
                 )
                 layout.separator()
             # Side by side when the sidebar is wide enough.
-            new = responsive_layout(context, layout, _SIDE_BY_SIDE_WIDTH)
+            new = responsive_layout(context, layout, SIDE_BY_SIDE_WIDTH)
             new.operator(
                 asset_ops.M_PIPELINE_OT_create_asset.bl_idname,
                 text="New asset",
@@ -122,7 +119,7 @@ class M_PIPELINE_PT_project_panel(bpy.types.Panel):
                 icon="WORKSPACE",
                 text="Project monitoring",
             )
-            prod = responsive_layout(context, layout, _SIDE_BY_SIDE_WIDTH)
+            prod = responsive_layout(context, layout, SIDE_BY_SIDE_WIDTH)
             prod.operator(
                 "m_pipeline.export_snapshot",
                 icon="EXPORT",

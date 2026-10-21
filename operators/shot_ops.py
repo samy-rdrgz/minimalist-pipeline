@@ -94,22 +94,24 @@ def _draw_shot_list(layout, context, op, config, TITLE_WIDTH):
         cols = tabl.row(align=True)
         number_col = cols.column(align=True)
         timeline_col = cols.column(align=True)
+        # Each row's own delete button -- the last remaining row stays.
+        del_col = cols.column(align=True)
+        del_col.ui_units_x = 1
+        del_col.enabled = len(shots) > 1
 
         for idx, s in enumerate(shots):
             number_col.prop(s, "shot_number", text=" ")
             timeline_col.prop(s, "start_frame", text=" " if idx != 0 else "Start")
+            del_col.operator(
+                "m_pipeline.remove_multishot_item", text="", icon="X", emboss=False
+            ).index = idx
 
         timeline_col.prop(op, "end_frame", text="End")
+        del_col.label(text="")  # the End row
 
         last = shots[-1]
         btns_row = number_col.row(align=True)
         btns_row.active = False
-
-        btn_row = btns_row.row(align=True)
-        btn_row.enabled = len(shots) > 1
-        btn_row.operator(
-            "m_pipeline.remove_multishot_item", text="", icon="REMOVE"
-        ).index = len(shots) - 1
 
         add_op = btns_row.operator("m_pipeline.add_multishot_item", icon="ADD", text="")
         add_op.shot_number = last.shot_number + 10

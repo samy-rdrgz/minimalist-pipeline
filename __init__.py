@@ -234,6 +234,7 @@ def register():
     set_running_project(None)
     if ui:
         register_status_timer()  # the sidebar's farm status
+        lib.hide_active_tool_in_monitoring()
         bpy.app.timers.register(_deferred_keymap, first_interval=0.1)
         bpy.app.timers.register(_deferred_project_check, first_interval=0.05)
         bpy.app.timers.register(_deferred_auto_worker, first_interval=0.1)
@@ -245,6 +246,7 @@ def unregister():
     """Stop handlers/timers/farm roles, back up projects, and unregister all classes."""
     lib.unregister_handlers()
     unregister_topbar_menu()
+    lib.restore_active_tool()
 
     # Farm roles first, while the addon's preferences are still registered:
     # the worker file's path needs the active project and this machine's id,

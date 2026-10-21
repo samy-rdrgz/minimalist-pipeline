@@ -20,6 +20,7 @@ from ..lib import (
     department_filter_items,
     edit_entry,
     entry_version_items,
+    file_in_active_project,
     get_active_project_root,
     get_addon_version,
     get_current_departments,
@@ -35,6 +36,7 @@ from ..lib import (
     memory_prop,
     monitoring_windows,
     open_monitoring_window,
+    page_store,
     redraw_monitoring,
     now,
     prefix_items,
@@ -171,6 +173,9 @@ class M_PIPELINE_OT_create_entry(bpy.types.Operator):
 
         required = get_departments_required(Path(self.filepath))
         context.window_manager.file_selected_departments = ",".join(required or [])
+        # One line ready to type in -- a draft left by a cancelled dialog stays.
+        if not context.window_manager.pipeline_entry_buffer:
+            context.window_manager.pipeline_entry_buffer.add()
         file = (
             Path(self.filepath)
             if Path(self.filepath).is_dir()
@@ -973,6 +978,28 @@ class PIPELINE_PG_monitoring(bpy.types.PropertyGroup):
         name="",
         description="Filter by file name or description",
     )
+    # Its list's page, see paginate() (lib/monitoring.py).
+    page: memory_prop(page_store("project"), "page", bpy.props.IntProperty, 1, name="", min=1)
+
+
+def _show_open_file(project_root: Path) -> None:
+    """Project monitoring on the open file's detail -- or, when it isn't a
+    tracked file of the project (unsaved, outside it, no tracking.json),
+    the "not found" view naming it."""
+    filepath = bpy.data.filepath
+    folder = Path(filepath).parent if filepath else None
+    if (
+        folder
+        and file_in_active_project(filepath, str(project_root))
+        and tracking_json_path(folder).is_file()
+    ):
+        set_monitoring_detail("missing_file", "")
+        set_monitoring_detail("file", str(folder))
+        load_file_thumbnail(str(folder))
+        load_file_renders(str(folder))
+    else:
+        set_monitoring_detail("file", "")
+        set_monitoring_detail("missing_file", Path(filepath).name or "unsaved file")
 
 
 class M_PIPELINE_OT_tracking_monitor(bpy.types.Operator):
@@ -982,8 +1009,16 @@ class M_PIPELINE_OT_tracking_monitor(bpy.types.Operator):
     bl_label = "Project monitoring"
     bl_description = (
         "Open a window listing every file of the project with its tracking "
-        "status. It stays open, resizable, while you work"
+        "status. It stays open, resizable, while you work.\n"
+        "Ctrl+click: the open file's details"
     )
+
+    # Set by invoke() from the click: Ctrl opens on the open file's detail.
+    open_file: bpy.props.BoolProperty(options={"SKIP_SAVE", "HIDDEN"})
+
+    def invoke(self, context, event):
+        self.open_file = event.ctrl
+        return self.execute(context)
 
     def execute(self, context):
         project_root = get_active_project_root()
@@ -997,19 +1032,25 @@ class M_PIPELINE_OT_tracking_monitor(bpy.types.Operator):
         ProjectScan.start(project_root)
         request_monitor_refresh()  # the Farm column, same idea
 
-        if monitoring_windows("project"):
+        is_open = bool(monitoring_windows("project"))
+        if self.open_file:
+            _show_open_file(Path(project_root))
+        elif not is_open:
+            # Reopens on the file it showed -- read again, it may have changed.
+            set_monitoring_detail("missing_file", "")
+            folder = monitoring_detail("file")
+            if folder and not Path(folder).is_dir():
+                set_monitoring_detail("file", "")
+            elif folder:
+                load_file_thumbnail(folder)
+                load_file_renders(folder)
+
+        if is_open:
             # No way to bring a window to the front from Python.
             redraw_monitoring("project")
-            self.report({"INFO"}, "Project monitoring is already open.")
+            if not self.open_file:
+                self.report({"INFO"}, "Project monitoring is already open.")
             return {"FINISHED"}
-
-        # Reopens on the file it showed -- read again, it may have changed.
-        folder = monitoring_detail("file")
-        if folder and not Path(folder).is_dir():
-            set_monitoring_detail("file", "")
-        elif folder:
-            load_file_thumbnail(folder)
-            load_file_renders(folder)
         # A search left over from last time would silently hide files.
         context.window_manager.pipeline_monitoring.search = ""
 
@@ -1307,6 +1348,7 @@ class M_PIPELINE_OT_tracking_file_details(bpy.types.Operator):
         return "Show tracking details for a selected file."
 
     def execute(self, context):
+        set_monitoring_detail("missing_file", "")
         set_monitoring_detail("file", self.filepath)
         if self.filepath:
             load_file_thumbnail(self.filepath)

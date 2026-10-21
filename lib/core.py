@@ -43,13 +43,16 @@ def get_addon_version() -> str:
 
 # Which detail the monitoring windows show: Project monitoring's file
 # ("file", its tracked folder), Farm monitoring's job ("job", its id) --
-# "" for their list. In memory only: as WindowManager properties they were
-# saved into every .blend, and came back as each opened file had them.
-_monitoring_details = {"file": "", "job": ""}
+# "" for their list; "missing_file": the name of an open file Ctrl+click
+# asked for that isn't a tracked file of the project. In memory only: as
+# WindowManager properties they were saved into every .blend, and came
+# back as each opened file had them.
+_monitoring_details = {"file": "", "job": "", "missing_file": ""}
 
 
 def monitoring_detail(kind: str) -> str:
-    """The detail a monitoring window shows ("file" / "job"), "" for its list."""
+    """The detail a monitoring window shows ("file" / "job" / "missing_file"),
+    "" for its list."""
     return _monitoring_details[kind]
 
 
@@ -278,6 +281,10 @@ def text_to_lines(
     for i, wrapped_line in enumerate(wrapped):
         lines.label(text=wrapped_line, icon=(icon if i == 0 else "NONE"))
     return layout
+
+
+# Sidebar width (px, before UI scale) from which two buttons share a row.
+SIDE_BY_SIDE_WIDTH = 240
 
 
 def responsive_layout(context, layout, threshold, align=True):

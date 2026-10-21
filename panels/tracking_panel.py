@@ -9,14 +9,14 @@ import bpy.utils.previews
 from ..farm import farm_activity
 from .farm_panel import draw_frame_lookup, job_icon
 from ..lib import (
-    ConfigCache,
-    monitoring_detail,
     REVIEW_SOURCE,
+    ConfigCache,
     ProjectScan,
     TrackingStatusCache,
     WorkTimeCache,
     department_status_tooltip,
     draw_box_tip,
+    draw_pager,
     filter_review_boxes,
     find_linked_by,
     format_duration,
@@ -29,9 +29,12 @@ from ..lib import (
     owner_render_dir,
     render_root,
     json_get,
+    monitoring_detail,
+    paginate,
     project_path,
     read_render_state,
     region_char_budget,
+    rows_that_fit,
     owner_key,
     render_to_check_label,
     responsive_layout,
@@ -713,16 +716,16 @@ def draw_file_details(state, context, layout):
     layout.separator(factor=2)
 
 
-# Project monitoring's table never has fewer rows (blank ones below).
-MIN_ROWS = 6
+# What Project monitoring's window holds besides its rows (filters,
+# table header, footer, margins), in widget units -- see rows_that_fit().
+_TABLE_RESERVED_UNITS = 6.5
 
 
 def draw_monitor_table(self, context, layout, columns, project_root):
     """Filtered file list, Project monitoring's main view -- self is
     WindowManager.pipeline_monitoring (file_type/asset_prefix/sequence/search
-    filters). One list, no pages: the window's region scrolls -- padded
-    with blank rows to MIN_ROWS, so a filter matching little doesn't
-    shrink the table to nothing."""
+    filters, page). Paged by as many rows as the window fits, padded with
+    blank rows: the footer stays at its bottom."""
     # Memory only: ProjectScan fills the cache in the background, the farm
     # column comes from the farm monitor's cache.
     data = TrackingStatusCache.known(Path(project_root))
@@ -789,11 +792,21 @@ def draw_monitor_table(self, context, layout, columns, project_root):
 
     f_list.separator(factor=1)
 
-    for dir, file in matches:
+    per_page = rows_that_fit(context, _TABLE_RESERVED_UNITS)
+    filters = (
+        self.file_type,
+        self.asset_prefix,
+        self.sequence,
+        search,
+        self.only_farm,
+        self.only_rtk,
+    )
+    shown, page, pages = paginate("project", matches, per_page, filters)
+    for dir, file in shown:
         _draw_monitor_row(
             self, f_list, dir, file, columns, FIRST_COLUMN, activity.get(owner_key(dir))
         )
-    for _ in range(MIN_ROWS - total):
+    for _ in range(per_page - len(shown)):
         _draw_monitor_blank_row(f_list, columns, FIRST_COLUMN)
 
     footer = f_list.row()
@@ -824,6 +837,7 @@ def draw_monitor_table(self, context, layout, columns, project_root):
     legend.separator(factor=3)
     for icon, text in _FARM_LEGEND:
         legend.label(text=text, icon=icon)
+    draw_pager(footer, self, page, pages)
 
 
 def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None):
@@ -999,7 +1013,7 @@ def _video_button(layout, info: dict, label: str) -> None:
 
 
 def _draw_monitor_blank_row(f_list, columns, first_column):
-    """Empty row, same height as a file's -- see MIN_ROWS."""
+    """Empty row, same height as a file's -- a page's padding."""
     row = f_list.column()
     row.active = False
     split = row.split(factor=first_column)

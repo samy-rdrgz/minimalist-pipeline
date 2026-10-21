@@ -2528,9 +2528,10 @@ Checked in Blender (4.0, under Xvfb):
   N panel or another Properties editor. `HIDE_HEADER` puts it first: a
   headerless panel goes before panels with a header (first version; now
   with a header, see above), but after Blender's own headerless active tool (`VIEW3D_PT_active_tool_duplicate`, same
-  `bl_order` 0 -- `bl_order` can't go below 0). Blender's Tool panels
-  (Options, Workspace, a mode's brushes) stay below the list: no API folds
-  or hides another panel.
+  `bl_order` 0 -- `bl_order` can't go below 0; hidden in these windows
+  since, see "Monitoring windows: pages sized on the window"). Blender's
+  Tool panels (Options, Workspace, a mode's brushes) stay below the list,
+  pushed out of sight: no API folds another panel.
 - **Redraws**: a click on a button in the window rebuilds it like in the
   popup (checked); what changes in the background doesn't -- a popup
   redrew on every mouse move, a region doesn't. `_monitoring_tick` redraws
@@ -2557,3 +2558,51 @@ Checked in Blender (4.0, under Xvfb):
   else its index): kept by identifier, so prefixes or sequences changing
   keep the choice.
   The search is cleared when the window opens, as before.
+
+## Monitoring windows: pages sized on the window
+
+Moving Project monitoring into a window dropped its pages for one list
+the region scrolls. The scroll works, but the footer (refresh, file
+count, Farm legend) went below the fold as soon as the list was longer
+than the window -- and a Properties editor's region can't pin anything to
+its bottom. Pages are back, sized on the window instead of a fixed 12:
+`rows_that_fit()` divides `context.region.height` (draw() runs on every
+resize, so pages follow it) less what the window holds besides the rows
+(`_TABLE_RESERVED_UNITS` / `_JOBS_RESERVED_UNITS`: filters, header,
+footer, margins) by one row's height, padded with blank rows so the
+footer sits at the bottom. Never under `MIN_ROWS`: a window too small for
+that scrolls, like before.
+
+- **Row height is estimated, not read**: Python gets neither a layout's
+  height nor a panel's. A row is a widget line (20 px x
+  `preferences.system.ui_scale`, 0 in background) plus the box's item
+  spacing and the 0.5 LINE separator under it. First guessed at 1.35
+  widget units: a full-screen window overflowed by about 9 rows, a
+  half-screen one by 5 -- an error growing with the height (the row) plus
+  a fixed one (the active tool, below). Both points fit a row of 1.6-1.7
+  units; at 1.65, with the active tool hidden, full screen still
+  overflowed by 2-3 rows, still a little at 1.8: `ROW_UNITS` = 1.9, the
+  reserved figures 7 / 8 (6.5 / 7.5 once the panel's outer box went),
+  a small gap rather than an overflow. Every file row is one line high (no
+  wrapping in the cells), so one constant holds -- recalibrate it (or a
+  reserved figure) if a page overflows the window or leaves a gap, never
+  per call site.
+- **Blender's active tool heads the Tool tab** ("Select Box" and its
+  settings, `VIEW3D_PT_active_tool_duplicate`), above the monitoring
+  panel, its height depending on the tool. `hide_active_tool_in_monitoring()`
+  wraps that panel's Python `poll()` (read by name at each draw) to say no
+  in a monitoring window, everywhere else as before; `restore_active_tool()`
+  puts the original classmethod back on unregister. Nothing happens if a
+  later Blender renames the panel or drops its poll().
+- **Options and Workspace stay**, below the panel: they have no poll() to
+  wrap (one Options class per mode, more panels in the paint modes) --
+  hiding them means re-registering Blender's classes. Pushed out of
+  sight instead: a window's height of blank under the panel's content.
+- **The page lives in memory** (`page_store()`, the `page` property a
+  `memory_prop()` on it), like the filters: a WindowManager property
+  would be saved into the .blend. `paginate()` clamps it to the page
+  count (a bigger window, fewer pages) and goes back to page 1 when the
+  filters it was counted for change. It writes the store, not the
+  property: draw() may not write an ID's properties.
+- **Mouse wheel**: left to the region's own scroll (a window under
+  `MIN_ROWS`), not mapped to pages.

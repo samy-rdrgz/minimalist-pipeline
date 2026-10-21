@@ -7,12 +7,16 @@ All notable changes to this addon. Dates are release dates.
 - **Project monitoring opens in a window of its own**: the Monitoring
   button opens a Blender window holding a single Properties editor -- it
   stays open while you work, resizable, on a second screen if you like.
-  One list that scrolls instead of pages of 12. Files opened through the
+  Its list is paged by as many rows as the window holds -- resize it and
+  the pages follow, the footer (refresh, file count, legend) stays at its
+  bottom. Files opened through the
   pipeline keep it open (they open without their own interface layout
   while it is); its filters stay as they were for the session.
-- **Farm monitoring too**: its own window, one list, refreshed every 2 s
-  while open. Both show their content first, in a box; Project
-  monitoring's list always has at least 6 rows, whatever the filters.
+- **Farm monitoring too**: its own window, its Jobs list paged the same
+  way, refreshed every 2 s while open. Both show their content first,
+  Blender's Active Tool hidden, its Options and Workspace pushed out of
+  sight below; Project monitoring's list always has at least 6 rows,
+  whatever the filters.
 - **A monitoring window no longer goes blank when the main window
   switches workspace.**
 - **File details, last render: the machine that rendered a frame is no
@@ -32,6 +36,22 @@ All notable changes to this addon. Dates are release dates.
 - **Increment version / Mark as stable: the dialog widens with the
   file's departments**, so their names are never cut off (it was a fixed
   350 px, too narrow past three or four).
+- **Ctrl+click on Project monitoring opens the open file's detail** --
+  or says it isn't one of the project's tracked files, with a Back button.
+- **Farm monitoring, Workers: blank rows to the window's height**, like
+  the Jobs list (was always 4 rows).
+- **The Farm panel's header status opens Farm monitoring** on click.
+- **"All" choices say what they list**: All prefixes, All sequences, All
+  states (Farm monitoring), All levels (Pipeline log).
+- **File panel: Increment version / Mark as stable side by side, Render
+  / Preview block / Preview sequence too**, when the sidebar is wide
+  enough. **Edit block structure moves to the Pipeline menu** (a shot file
+  open).
+- **Shot list (New shot, Edit block structure): a delete button at the
+  end of each row** -- only the last row could be removed, so dropping
+  the first meant retyping every row.
+- **New entry opens with a line to type in** (it opened empty, "Add text
+  line" first).
 
 ## 1.0.17 — 2026-10-21
 

@@ -20,12 +20,20 @@ from ..farm import (
 from ..lib import (
     addon_pref,
     draw_box_tip,
+    draw_pager,
     get_active_project_root,
     get_user,
     monitoring_detail,
+    paginate,
+    rows_that_fit,
 )
 
 FIRST_COLUMN = 0.4
+# What Farm monitoring's window holds besides the Jobs rows (filters, list
+# header, footer, margins), in widget units -- see rows_that_fit().
+_JOBS_RESERVED_UNITS = 7.5
+# Same for the Workers view: one row of filters, no footer.
+_WORKERS_RESERVED_UNITS = 5.0
 
 
 class M_PIPELINE_PT_farm_panel(bpy.types.Panel):
@@ -53,7 +61,12 @@ class M_PIPELINE_PT_farm_panel(bpy.types.Panel):
         is_monitor = get_monitor_cache().get("status") not in ("not running", "unknown")
 
         if not is_monitor:
-            layout.label(text="Farm : not running", icon="GHOST_DISABLED")
+            layout.operator(
+                "m_pipeline.farm_monitor",
+                text="Farm : not running",
+                icon="GHOST_DISABLED",
+                emboss=False,
+            )
             layout.operator(
                 "m_pipeline.farm_launch_monitor",
                 text="",
@@ -76,9 +89,11 @@ class M_PIPELINE_PT_farm_panel(bpy.types.Panel):
                 "dead": "Farm : Dead",
                 "unknown": "Farm : ...",
             }
-            layout.label(
+            layout.operator(
+                "m_pipeline.farm_monitor",
                 text=labels.get(status, "Farm : ..."),
                 icon=icons.get(status, "GHOST_DISABLED"),
+                emboss=False,
             )
             if status != "running":
                 layout.operator(
@@ -236,11 +251,10 @@ def _job_matches(self, job: dict, user: str) -> bool:
     return True
 
 
-def draw_farm_jobs(self, layout):
+def draw_farm_jobs(self, context, layout):
     """Farm monitoring's "Jobs" view: every active job, its stage and
     progress -- filtered by self (WindowManager.pipeline_farm_monitoring),
-    same convention as draw_monitor_table(). One list, no pages: the
-    window's region scrolls."""
+    paged like draw_monitor_table()."""
     cache = get_monitor_cache()
 
     title = layout.split(factor=FIRST_COLUMN)
@@ -256,11 +270,17 @@ def draw_farm_jobs(self, layout):
     matches.sort(key=lambda j: j.get("submitted_at") or "", reverse=True)
 
     total = len(matches)
-    for j in matches:
+    per_page = rows_that_fit(context, _JOBS_RESERVED_UNITS)
+    filters = (self.state, self.only_mine, self.search.strip().lower())
+    shown, page, pages = paginate("farm", matches, per_page, filters)
+    for j in shown + [None] * (per_page - len(shown)):
         row = layout.column()
         # Line *after* the row, never before it inside an aligned column:
         # that glues it to the text -- same spacing as draw_monitor_table().
         layout.separator(factor=0.5, type="LINE")
+        if j is None:  # a page's padding
+            row.label(text="", icon="BLANK1")
+            continue
         row = row.split(factor=FIRST_COLUMN)
         name = Path(j["filepath"]).name
         stage = j["stage"]
@@ -384,6 +404,7 @@ def draw_farm_jobs(self, layout):
                 text=f"Archive {state} ({count})",
                 icon="CHECKMARK",
             ).state = state
+    draw_pager(footer, self, page, pages)
 
 
 def _job_name(job: dict) -> str:
@@ -407,9 +428,11 @@ def _draw_job_link(layout, job_id: str, text: str) -> None:
         row.label(text=text)
 
 
-def draw_farm_workers(layout):
+def draw_farm_workers(context, layout):
     """M_PIPELINE_OT_farm_monitor's "Workers" view: every known machine, idle
-    or what it's currently rendering."""
+    or what it's currently rendering -- padded with blank rows to the
+    window's height, like the Jobs view (no pages: a farm has few machines,
+    past the window the region scrolls)."""
     title_list = layout.split(factor=FIRST_COLUMN)
     title_list.active = False
     btn = title_list.row()
@@ -501,7 +524,9 @@ def draw_farm_workers(layout):
             for uuid in job.get("machines", [])
         }
 
-    machines = machines + ["empty" for _ in range(4 - len(machines))]
+    # The farm host's row comes first.
+    rows = rows_that_fit(context, _WORKERS_RESERVED_UNITS) - 1
+    machines = machines + ["empty"] * (rows - len(machines))
     for m in machines:
         row = layout.column()
         layout.separator(factor=0.5, type="LINE")

@@ -107,7 +107,7 @@ def prefix_items(self, context) -> list[tuple]:
         prefixes = structure.get("asset_prefixes", []) + structure.get(
             "library_prefixes", []
         )
-        items = [("all", "All", "")] + [(p, p, "") for p in prefixes]
+        items = [("all", "All prefixes", "")] + [(p, p, "") for p in prefixes]
         return _stable_items(_prefix_items_cache, items or [("NONE", "—", "")])
     except Exception:
         return [("NONE", "—", "")]
@@ -170,7 +170,7 @@ def sequence_items(self, context) -> list[tuple]:
     try:
         project_root = get_active_project_root()
         shots_dir = project_root / "shots"
-        items = [("all", "All", "")] + sorted(
+        items = [("all", "All sequences", "")] + sorted(
             ((d.name, d.name, "") for d in cached_scandir(shots_dir) if d.is_dir()),
             key=lambda t: t[1],
         )

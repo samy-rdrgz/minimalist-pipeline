@@ -56,6 +56,7 @@ from .config import (
     type_by_folder,
 )
 from .core import (
+    SIDE_BY_SIDE_WIDTH,
     AdoptedProcess,
     addon_pref,
     monitoring_detail,
@@ -104,14 +105,20 @@ from .libraries import clean_append_and_relink
 from .logs import log, read_log_tail
 from .monitoring import (
     MONITORING_SCREEN_KEY,
+    draw_pager,
     ensure_monitoring_tick,
+    hide_active_tool_in_monitoring,
     memory_enum,
     memory_prop,
     monitoring_kind,
     monitoring_windows,
     open_mainfile,
     open_monitoring_window,
+    page_store,
+    paginate,
     redraw_monitoring,
+    restore_active_tool,
+    rows_that_fit,
     stop_monitoring_tick,
 )
 from .operators import (
