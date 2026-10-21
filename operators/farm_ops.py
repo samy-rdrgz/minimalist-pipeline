@@ -48,15 +48,15 @@ from ..lib import (
     json_get,
     locked_json,
     log,
+    monitoring_detail,
     parse_filename,
-    popup_detail,
     prefix_items,
     read_json_quiet,
     resolve_ffmpeg,
     resolve_version_file,
     sequence_items,
+    set_monitoring_detail,
     set_pending_action,
-    set_popup_detail,
     shot_items,
     shots_in_segment,
     version_items,
@@ -1017,7 +1017,7 @@ class M_PIPELINE_OT_farm_retry_job(bpy.types.Operator):
         if not target:
             self.report({"WARNING"}, "This job didn't fail: nothing to retry.")
             return {"CANCELLED"}
-        if popup_detail("job") == self.job_id:
+        if monitoring_detail("job") == self.job_id:
             load_job_details(self.job_id)
         self.report({"INFO"}, f"Job sent back to {target}.")
         return {"FINISHED"}
@@ -1059,7 +1059,7 @@ class M_PIPELINE_OT_farm_recompile_job(bpy.types.Operator):
         if not done:
             self.report({"WARNING"}, "Only a finished render can be recompiled.")
             return {"CANCELLED"}
-        if popup_detail("job") == self.job_id:
+        if monitoring_detail("job") == self.job_id:
             load_job_details(self.job_id)
         self.report({"INFO"}, "Compilation requested again.")
         return {"FINISHED"}
@@ -1080,13 +1080,13 @@ class M_PIPELINE_OT_farm_job_details(bpy.types.Operator):
 
     def execute(self, context):
         if not self.job_id:
-            set_popup_detail("job", "")  # Back: the list
+            set_monitoring_detail("job", "")  # Back: the list
             return {"FINISHED"}
         if load_job_details(self.job_id) is None:
-            set_popup_detail("job", "")
+            set_monitoring_detail("job", "")
             self.report({"WARNING"}, "Job file not found (deleted?).")
             return {"CANCELLED"}
-        set_popup_detail("job", self.job_id)
+        set_monitoring_detail("job", self.job_id)
         return {"FINISHED"}
 
 
@@ -1155,9 +1155,9 @@ class M_PIPELINE_OT_farm_monitor(bpy.types.Operator):
             return {"FINISHED"}
 
         # Reopens on the job it showed -- read again, it has moved on since.
-        job_id = popup_detail("job")
+        job_id = monitoring_detail("job")
         if job_id and load_job_details(job_id) is None:
-            set_popup_detail("job", "")
+            set_monitoring_detail("job", "")
         # A search left over from last time would silently hide jobs.
         context.window_manager.pipeline_farm_monitoring.search = ""
 

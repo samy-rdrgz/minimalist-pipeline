@@ -6,8 +6,8 @@ from pathlib import Path
 import bpy
 
 from ..lib import (
-    popup_detail,
-    set_popup_detail,
+    monitoring_detail,
+    set_monitoring_detail,
     ConfigCache,
     PipelineError,
     ProjectScan,
@@ -916,7 +916,7 @@ class M_PIPELINE_OT_tracking_refresh(bpy.types.Operator):
         return {"FINISHED"}
 
 
-# Project monitoring's filters: in memory only, like popup_detail() -- see
+# Project monitoring's filters: in memory only, like monitoring_detail() -- see
 # memory_prop() (a stale search coming back with a .blend hid files).
 _monitoring_filters: dict = {}
 
@@ -1004,9 +1004,9 @@ class M_PIPELINE_OT_tracking_monitor(bpy.types.Operator):
             return {"FINISHED"}
 
         # Reopens on the file it showed -- read again, it may have changed.
-        folder = popup_detail("file")
+        folder = monitoring_detail("file")
         if folder and not Path(folder).is_dir():
-            set_popup_detail("file", "")
+            set_monitoring_detail("file", "")
         elif folder:
             load_file_thumbnail(folder)
             load_file_renders(folder)
@@ -1307,7 +1307,7 @@ class M_PIPELINE_OT_tracking_file_details(bpy.types.Operator):
         return "Show tracking details for a selected file."
 
     def execute(self, context):
-        set_popup_detail("file", self.filepath)
+        set_monitoring_detail("file", self.filepath)
         if self.filepath:
             load_file_thumbnail(self.filepath)
             load_file_renders(self.filepath)

@@ -22,7 +22,7 @@ from ..lib import (
     draw_box_tip,
     get_active_project_root,
     get_user,
-    popup_detail,
+    monitoring_detail,
 )
 
 FIRST_COLUMN = 0.4
@@ -561,7 +561,7 @@ def draw_farm_job_details(layout, context):
     by M_PIPELINE_OT_farm_job_details on click (get_job_details()) -- never
     read from here. Every key with .get(): the file is hand-editable and
     older jobs lack the newer fields."""
-    job_id = popup_detail("job")
+    job_id = monitoring_detail("job")
     data = get_job_details()
 
     header = layout.row()

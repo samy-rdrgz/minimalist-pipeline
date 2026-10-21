@@ -9,8 +9,8 @@ from ..lib import (
     ensure_monitoring_tick,
     get_active_project_root,
     json_get,
+    monitoring_detail,
     monitoring_kind,
-    popup_detail,
 )
 from .farm_panel import draw_farm_job_details, draw_farm_jobs, draw_farm_workers
 from .tracking_panel import draw_file_details, draw_monitor_table
@@ -57,7 +57,7 @@ class M_PIPELINE_PT_monitoring(_MonitoringPanel, bpy.types.Panel):
 
     def draw_content(self, context, layout):
         state = context.window_manager.pipeline_monitoring
-        if popup_detail("file"):
+        if monitoring_detail("file"):
             draw_file_details(state, context, layout)
             return
 
@@ -90,7 +90,7 @@ class M_PIPELINE_PT_farm_monitoring(_MonitoringPanel, bpy.types.Panel):
     kind = "farm"
 
     def draw_content(self, context, layout):
-        if popup_detail("job"):
+        if monitoring_detail("job"):
             draw_farm_job_details(layout.box(), context)
             return
 

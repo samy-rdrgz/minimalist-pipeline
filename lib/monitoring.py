@@ -148,13 +148,10 @@ def stop_monitoring_tick() -> None:
 
 
 def _monitoring_tick():
-    """While a monitoring window is open, redraw it when what it shows
-    changed -- a popup redrew on every mouse move, a window only when told
-    to. Project monitoring: scan the active project if it hasn't been (a
-    switch of project, a window reopened with its .blend), read the farm
-    again every _FARM_READ_EVERY. Farm monitoring: keep the farm's own
-    refresh timer running (a file load stops it). Stops itself once no
-    window is left."""
+    """Redraw the open monitoring windows when what they show changed;
+    Project: scan an unscanned project, re-read the farm every
+    _FARM_READ_EVERY; Farm: keep its refresh timer running. Stops with the
+    last window. See NOTES.md, "Monitoring: windows, not popups"."""
     global _last_farm_read, _farm_refresh_ours
     from ..farm import (
         farm_activity,

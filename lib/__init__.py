@@ -58,8 +58,8 @@ from .config import (
 from .core import (
     AdoptedProcess,
     addon_pref,
-    popup_detail,
-    set_popup_detail,
+    monitoring_detail,
+    set_monitoring_detail,
     cached_scandir,
     draw_box_tip,
     get_addon_version,

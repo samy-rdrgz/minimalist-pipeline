@@ -10,7 +10,7 @@ from ..farm import farm_activity
 from .farm_panel import draw_frame_lookup, job_icon
 from ..lib import (
     ConfigCache,
-    popup_detail,
+    monitoring_detail,
     REVIEW_SOURCE,
     ProjectScan,
     TrackingStatusCache,
@@ -493,7 +493,7 @@ def unregister_thumbnail_previews() -> None:
 
 
 def draw_file_details(state, context, layout):
-    """Project monitoring's file detail (popup_detail("file")) -- state is
+    """Project monitoring's file detail (monitoring_detail("file")) -- state is
     WindowManager.pipeline_monitoring (its notes/tasks filters)."""
 
     box = layout
@@ -508,12 +508,12 @@ def draw_file_details(state, context, layout):
         emboss=False,
     )
 
-    filepath = popup_detail("file")
+    filepath = monitoring_detail("file")
 
     data = TrackingStatusCache.get(filepath)
     description = get_description(Path(filepath))
 
-    # popup_detail("file") is the tracked folder, not a versioned .blend --
+    # monitoring_detail("file") is the tracked folder, not a versioned .blend --
     # see NOTES.md.
     shot_prefix = json_get(ConfigCache.get(), "naming.shot.prefix", "sh")
     shot_name = Path(filepath).name
