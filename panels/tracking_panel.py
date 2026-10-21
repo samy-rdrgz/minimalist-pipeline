@@ -37,7 +37,6 @@ from ..lib import (
     rows_that_fit,
     owner_key,
     render_to_check_label,
-    responsive_layout,
     safe_icon,
     shots_in_segment,
     text_to_lines,
@@ -76,30 +75,10 @@ TYPE_ICON = {
 
 
 def draw_tracking_data(context, box, filepath, required, width: int | None = None):
-
+    """The File panel's notes & tasks. Its departments: Project monitoring's
+    file detail (the panel's Details button)."""
     if required:
         box.separator(factor=1)
-        data = TrackingStatusCache.get(filepath)
-        validated = get_current_departments(Path(filepath))
-        deps = responsive_layout(context, box.box(), 200)
-        deps.label(text="Finished :", icon="COLOR")
-        col = deps.column(align=True)
-        col.scale_y = 0.7
-        for d in required:
-            row = col.row()
-            row.active = d in validated
-            # Read-only here (toggling lives in the file_details popup):
-            # enabled=False blocks clicks, the tooltip still shows on hover.
-            row.enabled = False
-            row.alignment = "LEFT"
-            row.operator(
-                "m_pipeline.department_status_info",
-                text=d,
-                icon="CHECKMARK" if d in validated else "CHECKBOX_DEHLT",
-                emboss=False,
-            ).custom_tooltip = department_status_tooltip(data, d)
-        box.separator(factor=2)
-
     draw_entries(box, filepath, width=width)
 
 

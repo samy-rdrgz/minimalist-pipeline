@@ -110,7 +110,7 @@ class M_PIPELINE_MT_topbar_menu(bpy.types.Menu):
                 layout.operator("wm.safe_save", text="Save", icon="FILE_TICK")
                 layout.operator(
                     "m_pipeline.increment_version",
-                    text="Increment version",
+                    text="Increment",
                     icon="DUPLICATE",
                 )
                 layout.operator(
@@ -124,10 +124,10 @@ class M_PIPELINE_MT_topbar_menu(bpy.types.Menu):
                     icon="RENDER_STILL",
                 ).filepath = filepath
                 if f_type == "shot":
-                    layout.operator(
+                    _secondary(layout).operator(
                         "m_pipeline.edit_block_structure",
                         text="Edit block structure",
-                        icon="UV_SYNC_SELECT",
+                        icon="BLANK1",
                     ).filepath = filepath
 
         layout.separator()
@@ -239,7 +239,7 @@ class M_PIPELINE_MT_read_only_menu(bpy.types.Menu):
         if reason != "locked":
             layout.operator(
                 "m_pipeline.increment_version",
-                text="Increment version",
+                text="Increment",
                 icon="DUPLICATE",
             )
 
