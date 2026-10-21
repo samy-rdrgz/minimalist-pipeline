@@ -72,12 +72,82 @@ the workers.
   their own on top of the dialog's Cancel and Close -- three buttons doing
   the same. Theirs is gone.
 
-## 1.0.15 — 2026-10-20
+## 1.0.16 — 2026-10-20
 
-Two sets of changes: farm, logs and linked libraries fixes from a real
-production project's export (6 machines, a week -- see NOTES.md, "What
-a real project's export showed"), then the production snapshot's
-progress charts and schedule, and what came with them.
+The production snapshot's progress charts and schedule, and what came
+with them.
+
+### Production snapshot
+
+- **Progress block** at the top, for the whole project (filters aside):
+  Done of the shots and of the assets & libraries, the open RTKs, then a
+  card per section -- its department tasks by state in one bar
+  (validated, reworked, open RTK whatever the state, WIP, not started, in
+  the pills' colours), its Done by sequence / prefix and by department,
+  and a sequence (or prefix) x department grid, each cell shaded by its
+  %. One panel per chart; the bars and the grid side by side when they
+  fit.
+- **Project schedule** (Project settings > Schedule: start and end
+  dates, days off, days of the week worked -- Monday to Friday by
+  default): where the project should be on the export day at an even
+  pace, in working days; each Done tile says how far ahead or behind it
+  is, with its pace (done / expected) in a pill coloured as a progress
+  spreadsheet's: 105 % and more ahead, 100 to 105 % on track, 90 to 100 %
+  slightly behind, under 90 % behind. A Schedule card puts each section
+  on one band of planned progress: the expected progress a line, its
+  Done the fill, the gap between them light green ahead, amber or red
+  behind.
+- **Notes under their row** instead of at the bottom of the page: an
+  "n notes" button unfolds them right under the asset/shot, *Notes* in
+  the bar at the top unfolds (or folds) them all. Printing prints every
+  open note.
+- **Foldable sections**: Progress, Assets and Shots fold on a click on
+  their title; all open at load, a link into a folded one opens it.
+- **Column headers stay on screen** under the filters while the Assets /
+  Shots tables scroll by.
+- **Red outline on any department with an open RTK**, whatever its state
+  -- was only on validated ones.
+
+### Department states
+
+- **Validated at an earlier stable, or worked on before the latest one,
+  but not validated at it: WIP**, no longer *Not started* -- in the
+  snapshot and in Project monitoring (tooltip: "Validated or worked on
+  before it: in progress"). A department reopened, unvalidated from its
+  toggle, or worked on and not finished at the stable read as never
+  started. New stables record the departments started so far; for older
+  ones, the earlier stables and versions are read, only for the
+  departments that would otherwise be *Not started*.
+
+### Project monitoring
+
+- **RTK filter** next to the Farm one: only the files with an open RTK.
+- An open *todo* tagged with a department no longer turns that
+  department's icon red -- only an open RTK does.
+
+### Farm monitoring
+
+- **Workers tab**: a worker rendering shows the job's name, as in the
+  Jobs tab (its file, plus the shot of a block's child), and a click
+  opens the job's detail -- it showed its render request's full path
+  (clipped by Blender, so some rows looked like a name and others like a
+  path). The farm host's step in progress, the same (was its job id).
+
+### Project settings
+
+- No maximum on the resolution (was 8192).
+- Schedule: start, end, days off and worked days (see Production
+  snapshot).
+
+### Pipeline log
+
+- Times read day/month/year (20/10/2026 15:20:11), the copied line too --
+  was month-day with no year.
+
+## 1.0.15 — 2026-10-16
+
+From a real production project's export (6 machines, a week): see
+NOTES.md, "What a real project's export showed".
 
 ### Farm: renders
 
@@ -152,72 +222,20 @@ progress charts and schedule, and what came with them.
   machine's own `S:\...`): work time and recent files no longer depend on
   how a machine mounts the project. Older lines still count.
 
-### Production snapshot
+### Upgrading
 
-- **Progress block** at the top, for the whole project (filters aside):
-  Done of the shots and of the assets & libraries, the open RTKs, then a
-  card per section -- its department tasks by state in one bar
-  (validated, reworked, open RTK whatever the state, WIP, not started, in
-  the pills' colours), its Done by sequence / prefix and by department,
-  and a sequence (or prefix) x department grid, each cell shaded by its
-  %. One panel per chart; the bars and the grid side by side when they
-  fit.
-- **Project schedule** (Project settings > Schedule: start and end
-  dates, days off, days of the week worked -- Monday to Friday by
-  default): where the project should be on the export day at an even
-  pace, in working days; each Done tile says how far ahead or behind it
-  is, with its pace (done / expected) in a pill coloured as a progress
-  spreadsheet's: 105 % and more ahead, 100 to 105 % on track, 90 to 100 %
-  slightly behind, under 90 % behind. A Schedule card puts each section
-  on one band of planned progress: the expected progress a line, its
-  Done the fill, the gap between them light green ahead, amber or red
-  behind.
-- **Notes under their row** instead of at the bottom of the page: an
-  "n notes" button unfolds them right under the asset/shot, *Notes* in
-  the bar at the top unfolds (or folds) them all. Printing prints every
-  open note.
-- **Foldable sections**: Progress, Assets and Shots fold on a click on
-  their title; all open at load, a link into a folded one opens it.
-- **Column headers stay on screen** under the filters while the Assets /
-  Shots tables scroll by.
-- **Red outline on any department with an open RTK**, whatever its state
-  -- was only on validated ones.
-
-### Department states
-
-- **Validated at an earlier stable, or worked on before the latest one,
-  but not validated at it: WIP**, no longer *Not started* -- in the
-  snapshot and in Project monitoring (tooltip: "Validated or worked on
-  before it: in progress"). A department reopened, unvalidated from its
-  toggle, or worked on and not finished at the stable read as never
-  started. New stables record the departments started so far; for older
-  ones, the earlier stables and versions are read, only for the
-  departments that would otherwise be *Not started*.
-
-### Project monitoring
-
-- **RTK filter** next to the Farm one: only the files with an open RTK.
-- An open *todo* tagged with a department no longer turns that
-  department's icon red -- only an open RTK does.
-
-### Farm monitoring
-
-- **Workers tab**: a worker rendering shows the job's name, as in the
-  Jobs tab (its file, plus the shot of a block's child), and a click
-  opens the job's detail -- it showed its render request's full path
-  (clipped by Blender, so some rows looked like a name and others like a
-  path). The farm host's step in progress, the same (was its job id).
-
-### Project settings
-
-- No maximum on the resolution (was 8192).
-- Schedule: start, end, days off and worked days (see Production
-  snapshot).
-
-### Pipeline log
-
-- Times read day/month/year (20/10/2026 15:20:11), the copied line too --
-  was month-day with no year.
+- Update every machine at once (monitor and workers), ideally with the
+  farm stopped: an older worker still renders without its preset when it
+  loses the lock race, and records no frames for the duplicate check.
+- The frame check needs ffmpeg 4.3 or later on the monitor's machine.
+- Set Edit project > Workers per job (3, for instance, on a 6-machine
+  farm): how many machines one Auto/Placeholder render uses at once,
+  joining workers included.
+- On the monitor's first tick its housekeeping runs once: finished jobs
+  older than 24 h go to the archives, kept logs are trimmed, archived logs
+  older than 14 days deleted.
+- A shot re-submitted while its pre-update job is still in the farm isn't
+  caught as a duplicate (the job ids changed) -- once only.
 
 ## 1.0.14 — 2026-10-15
 
@@ -659,10 +677,6 @@ progress charts and schedule, and what came with them.
 
 ## 1.0.7 — 2026-10-12
 
-*Note: 1.0.5 and 1.0.6 were version-string bumps only — neither was tagged
-or shipped as a release, so everything merged since 1.0.4 is bundled into
-this entry rather than split across changelog sections nobody saw.*
-
 ### Performance — network shares (studio/multi-machine setups)
 
 A project that lives on a shared drive, read concurrently by several
@@ -705,22 +719,114 @@ project, macOS and Linux included.
   file list/picker it's meant to. Caused by an operator property Blender
   remembers between uses; it's now reset every time unless a caller
   explicitly passes a file.
-- Farm setup/render subprocesses failing outright (`ModuleNotFoundError`)
-  on a Blender Extensions install, where the addon's module is namespaced.
-- A render preset's invalid key (missing intermediate path) aborting the
-  whole preset instead of just being skipped.
 - The always-on farm status timer redrawing the full viewport (not just the
   sidebar) and polling `monitor.lock` through the write-lock path, every
   2s, regardless of whether the farm popup was even open.
+
+## 1.0.6 — 2026-10-10
+
+### Fixed
+
+- Farm setup/render subprocesses failing outright (`ModuleNotFoundError`)
+  on a Blender Extensions install, where the addon's module is namespaced
+  (same fix as the CSV batch in 1.0.4).
+- A render preset's invalid key (missing intermediate path) aborting the
+  whole preset instead of just being skipped.
 
 ### Added
 
 - Pre-existing links (files migrated into the pipeline from outside it,
   which never went through an import event) are now recorded in a file's
   `.wipmeta` on load and on save, instead of being invisible to "Linked
-  by"/library-update checks.
+  by"/library-update checks. A library with no root datablock records only
+  its top-level ones.
+- Render preset formats (.py and .json) documented in the Farm page,
+  including the EEVEE identifier change in Blender 5.0.
 
----
+## 1.0.5 — 2026-10-08
 
-*No changelog entries exist for 1.0.1–1.0.6 — this file starts here. See
-`git log` for that history.*
+### Fixed
+
+- Install failing on Blender 4.2 to 5.0 (Python 3.11): a Python 3.12-only
+  f-string, handlers and `BlendImportContextItem` that only exist in later
+  versions (`exit_pre` 5.1+, `blend_import_post` 4.3+), `UILayout.textbox`
+  (5.1+) and newer icons, each now behind a fallback.
+
+## 1.0.4 — 2026-09-13
+
+### Added
+
+- CSV batch: multi-shot rows -- `shot` takes `"030-035-040"` for one block,
+  its shots spread evenly between `frame_start` and `frame_end`, or set
+  exactly with an optional `timeline` column (`"1001-1021-1051-1076"`).
+
+### Fixed
+
+- CSV batch: the headless subprocess couldn't import the addon on an
+  Extensions install (namespaced module).
+- The user name could be lost on an addon reload: it's now kept with the
+  projects list backup.
+- Edit entry crashing when its stored department is no longer one of the
+  project's.
+- Multishot row list: the last row could be removed, and a clean-scene
+  reset during creation invalidated the list.
+- The timeline warnings in the shot dialogs showed as a 1-tuple.
+
+## 1.0.3 — 2026-09-11
+
+### Added
+
+- Preferences > FFmpeg path: an explicit ffmpeg binary, for a Blender that
+  doesn't see it on its PATH (a sandboxed launch such as Steam's). Without
+  it, well-known install folders are tried after the PATH; a path that's
+  set but wrong is reported, never silently replaced.
+
+### Changed
+
+- Increment / mark stable and entry dialogs: labelled rows, aligned.
+- Long warnings and popup messages wrap to the dialog's width.
+- Open folder buttons say which folder they open in their tooltip.
+
+### Fixed
+
+- Shot dialogs opened from Project monitoring's file details (a folder,
+  not a .blend) not finding the block's shots.
+
+## 1.0.2 — 2026-09-07
+
+Changes asked by the Blender Extensions review, plus a week of UI work.
+
+### Changed
+
+- The user name is seeded with a locally generated placeholder name, no
+  longer read from the OS login; sessions no longer record the hostname,
+  IP or OS name.
+- No `sys.path` edits in the headless entry scripts, and no custom
+  submodule reload in `__init__.py`.
+- Operators renamed `m_pipeline.*` (was `pipeline.*`).
+- Sidebar: one File panel for assets and shots (was Asset / Shot /
+  Tracking), collapsible panels, Farm panel header with the monitor's
+  status (not running / running / stale / dead).
+- Opening a read-only file no longer shows a popup: the top bar's red
+  READ-ONLY label says it, its menu gives the reason on demand.
+- "Branch block" is now "Edit block structure", pre-filled from the
+  file's own timeline.
+- Version metadata files are named after the version only
+  (`.pipeline/v004.wipmeta`), shorter paths for long shot blocks.
+- FFmpeg documented as the one optional dependency (farm videos only).
+
+### Fixed
+
+- Stored link paths kept an uncollapsed `../`.
+- A lock was considered stale after one missed heartbeat (now three).
+- A second popup opened from a popup could fail to show (now opened one
+  timer tick later).
+- Pasting from a clipboard file outside Blender's temp folder.
+
+## 1.0.1 — 2026-09-02
+
+First public release: projects, assets and shots with versioned files
+and naming, stable versions and read-only protection, per-department
+tracking with notes/todos/RTKs, shot blocks (multishot), link tracking,
+and a file-based render farm (monitor + workers) with ffmpeg checks and
+videos.

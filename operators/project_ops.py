@@ -23,11 +23,11 @@ from ..lib import (
     log,
     parse_day,
     path_reachable,
+    progress_weights,
     project_schedule,
     read_project_config,
     save_project_data,
     set_active_project_root,
-    progress_weights,
     thumbnail_size,
     warn_blender_version_mismatch,
 )
