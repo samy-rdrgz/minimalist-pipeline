@@ -30,7 +30,11 @@ from .log_ops import (
     M_PIPELINE_OT_pipeline_logs,
     M_PIPELINE_OT_pipeline_logs_refresh,
 )
-from .monitoring_ops import M_PIPELINE_OT_monitoring_back, M_PIPELINE_OT_monitoring_page
+from .monitoring_ops import (
+    M_PIPELINE_OT_monitoring_back,
+    M_PIPELINE_OT_monitoring_page,
+    M_PIPELINE_OT_monitoring_switch,
+)
 from .preview_ops import M_PIPELINE_OT_compile_preview
 from .project_ops import (
     M_PIPELINE_OT_create_project,
@@ -75,6 +79,7 @@ from .tracking_ops import (
 classes = (
     M_PIPELINE_OT_monitoring_back,
     M_PIPELINE_OT_monitoring_page,
+    M_PIPELINE_OT_monitoring_switch,
     M_PIPELINE_OT_create_project,
     M_PIPELINE_OT_find_project,
     M_PIPELINE_OT_set_active_project,

@@ -1,6 +1,6 @@
 """Navigation inside the monitoring windows (lib/monitoring.py): turning a
-list's page, going back from a detail -- their buttons, and the keys
-register_monitoring_keymap() binds."""
+list's page, switching its view, going back from a detail -- their
+buttons, and the keys register_monitoring_keymap() binds."""
 
 import bpy
 
@@ -49,6 +49,30 @@ class M_PIPELINE_OT_monitoring_page(bpy.types.Operator):
 
     def execute(self, context):
         turn_page(monitoring_kind(context.screen), self.step, self.to_end)
+        return {"FINISHED"}
+
+
+class M_PIPELINE_OT_monitoring_switch(bpy.types.Operator):
+    """Project monitoring: assets <-> shots. Farm monitoring: jobs <-> workers (Tab)."""
+
+    bl_idname = "m_pipeline.monitoring_switch"
+    bl_label = "Switch view"
+
+    @classmethod
+    def poll(cls, context):
+        kind = monitoring_kind(context.screen)
+        return bool(kind) and not _showing_detail(kind)
+
+    def execute(self, context):
+        kind = monitoring_kind(context.screen)
+        wm = context.window_manager
+        if kind == "project":
+            state = wm.pipeline_monitoring
+            state.file_type = "asset" if state.file_type == "shot" else "shot"
+        else:
+            state = wm.pipeline_farm_monitoring
+            state.view = "workers" if state.view == "jobs" else "jobs"
+        redraw_monitoring(kind)
         return {"FINISHED"}
 
 

@@ -293,8 +293,25 @@ def paginate(kind: str, items: list, per_page: int, filters: tuple) -> tuple:
     return items[start : start + per_page], page, pages
 
 
+# "< Page 12 / 34 >" with its spacing, in widget units: the footer's right part.
+_PAGER_UNITS = 8
+
+
+def split_footer(context, layout) -> tuple:
+    """(left, right) of a list's footer: right just wide enough for
+    draw_pager(), its content against the window's right edge."""
+    unit = 20 * (context.preferences.system.ui_scale or 1.0)
+    factor = max(0.5, 1 - _PAGER_UNITS * unit / max(context.region.width, 1))
+    split = layout.split(factor=factor)
+    left = split.row()
+    left.alignment = "LEFT"
+    right = split.row()
+    right.alignment = "RIGHT"
+    return left, right
+
+
 def draw_pager(layout, page: int, pages: int) -> None:
-    """ "< Page 2 / 5 >", right-aligned -- nothing for one page. The arrows:
+    """ "< Page 2 / 5 >" -- nothing for one page. The arrows:
     m_pipeline.monitoring_page (Ctrl+click: first / last; the arrow keys
     too, see register_monitoring_keymap())."""
     if pages < 2:
@@ -304,38 +321,78 @@ def draw_pager(layout, page: int, pages: int) -> None:
     prev = pager.row(align=True)
     prev.enabled = page > 1
     prev.operator("m_pipeline.monitoring_page", text="", icon="TRIA_LEFT").step = -1
+    pager.separator(factor=0.5)
     label = pager.row(align=True)
     label.active = False
     label.label(text=f"Page {page} / {pages}")
+    pager.separator(factor=0.5)
     nxt = pager.row(align=True)
     nxt.enabled = page < pages
     nxt.operator("m_pipeline.monitoring_page", text="", icon="TRIA_RIGHT").step = 1
 
 
-# The monitoring windows' keys, in the Properties editor's keymap: their
-# operators' poll() keeps them to those windows.
+# The monitoring windows' keys: (keymap, space, operator, key, ctrl,
+# properties). Their operators' poll() keeps them to those windows. The
+# arrows go in "Frames", whose own Left / Right (frame step, Ctrl: time
+# jump) a region checks before the Properties editor's keymap -- an
+# addon's item wins inside the same keymap. See NOTES.md, "Monitoring
+# windows: pages sized on the window".
 _KEYMAP_ITEMS = (
-    ("m_pipeline.monitoring_page", "LEFT_ARROW", False, {"step": -1}),
-    ("m_pipeline.monitoring_page", "RIGHT_ARROW", False, {"step": 1}),
-    ("m_pipeline.monitoring_page", "LEFT_ARROW", True, {"step": -1, "to_end": True}),
-    ("m_pipeline.monitoring_page", "RIGHT_ARROW", True, {"step": 1, "to_end": True}),
-    ("m_pipeline.monitoring_back", "ESC", False, {}),
+    ("Frames", "EMPTY", "m_pipeline.monitoring_page", "LEFT_ARROW", False, {"step": -1}),
+    ("Frames", "EMPTY", "m_pipeline.monitoring_page", "RIGHT_ARROW", False, {"step": 1}),
+    (
+        "Frames",
+        "EMPTY",
+        "m_pipeline.monitoring_page",
+        "LEFT_ARROW",
+        True,
+        {"step": -1, "to_end": True},
+    ),
+    (
+        "Frames",
+        "EMPTY",
+        "m_pipeline.monitoring_page",
+        "RIGHT_ARROW",
+        True,
+        {"step": 1, "to_end": True},
+    ),
+    ("Property Editor", "PROPERTIES", "m_pipeline.monitoring_back", "ESC", False, {}),
+    ("Property Editor", "PROPERTIES", "m_pipeline.monitoring_switch", "TAB", False, {}),
 )
 _keymap_items: list = []
 
 
 def register_monitoring_keymap() -> None:
     """Arrows: previous / next page (Ctrl: first / last); Esc: back from a
-    detail to the list. Needs the addon keyconfig (not there at register())."""
+    detail to the list; Tab: assets <-> shots, jobs <-> workers. Needs the addon keyconfig (not there at register())."""
     kc = bpy.context.window_manager.keyconfigs.addon
     if not kc or _keymap_items:
         return
-    km = kc.keymaps.new(name="Property Editor", space_type="PROPERTIES")
-    for idname, key, ctrl, props in _KEYMAP_ITEMS:
+    for km_name, space, idname, key, ctrl, props in _KEYMAP_ITEMS:
+        km = kc.keymaps.new(name=km_name, space_type=space)
         kmi = km.keymap_items.new(idname, type=key, value="PRESS", ctrl=ctrl)
         for name, value in props.items():
             setattr(kmi.properties, name, value)
         _keymap_items.append((km, kmi))
+
+
+def draw_addon_keys(context, layout) -> None:
+    """The addon's shortcuts, editable (the user keyconfig's copy, saved
+    with the preferences like any shortcut): Ctrl+S, and the monitoring
+    windows' keys."""
+    import rna_keymap_ui
+
+    kc = context.window_manager.keyconfigs.user
+    wanted = {("Window", "wm.safe_save")} | {
+        (km_name, idname) for km_name, _space, idname, *_rest in _KEYMAP_ITEMS
+    }
+    for km_name in dict.fromkeys(name for name, _ in wanted):
+        km = kc.keymaps.get(km_name)
+        if km is None:
+            continue
+        for kmi in km.keymap_items:
+            if (km_name, kmi.idname) in wanted:
+                rna_keymap_ui.draw_kmi([], kc, km, kmi, layout, 0)
 
 
 def unregister_monitoring_keymap() -> None:

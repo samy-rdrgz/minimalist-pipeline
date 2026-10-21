@@ -35,6 +35,7 @@ from ..lib import (
     read_render_state,
     region_char_budget,
     rows_that_fit,
+    split_footer,
     owner_key,
     render_to_check_label,
     safe_icon,
@@ -794,7 +795,7 @@ def draw_monitor_table(self, context, layout, columns, project_root):
     for _ in range(per_page - len(shown)):
         _draw_monitor_blank_row(f_list, columns, FIRST_COLUMN)
 
-    footer = f_list.row()
+    footer, pager = split_footer(context, f_list.row())
     # Dimmed, except the legend: its colours are the point.
     status = footer.row()
     status.alignment = "LEFT"
@@ -822,7 +823,7 @@ def draw_monitor_table(self, context, layout, columns, project_root):
     legend.separator(factor=3)
     for icon, text in _FARM_LEGEND:
         legend.label(text=text, icon=icon)
-    draw_pager(footer, page, pages)
+    draw_pager(pager, page, pages)
 
 
 def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None):

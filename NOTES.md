@@ -2605,12 +2605,19 @@ that scrolls, like before.
   filters it was counted for change. Turned by arrows, not a number
   field: `m_pipeline.monitoring_page`, -1 / +1, Ctrl+click to the first /
   last, never past either end.
-- **Keys** (`register_monitoring_keymap()`, the Properties editor's
-  keymap, installed with the Ctrl+S override once the addon keyconfig
-  exists): Left / Right turn the page (Ctrl: first / last), Esc goes back
-  from a detail -- a window, not a popup, so Esc closes nothing. The
-  operators' poll() keeps them to a monitoring window's list (or detail):
-  anywhere else the event falls through, and Left / Right still step the
-  frame (Blender's "Frames" keymap, below an editor's own).
+- **Keys** (`register_monitoring_keymap()`, installed with the Ctrl+S
+  override once the addon keyconfig exists): Left / Right turn the page
+  (Ctrl: first / last), Tab switches assets / shots or jobs / workers, Esc
+  goes back from a detail -- a window, not a popup, so Esc closes nothing.
+  The operators' poll() keeps them to a monitoring window's list (or
+  detail): anywhere else the event falls through. First put in the
+  Properties editor's keymap: Esc worked, the arrows never did -- a
+  region runs its default keymaps ("Frames": Left / Right step the frame,
+  Ctrl: time jump) before its editor's own. The arrows are in "Frames"
+  now, where an addon's item wins over Blender's (as the Ctrl+S override
+  does in "Window"); outside a monitoring list they still step the frame.
+  Tab and Esc stay in "Property Editor" (nothing ahead binds them). The
+  addon preferences list them, editable (`draw_addon_keys()`,
+  `rna_keymap_ui` on the user keyconfig: saved like any shortcut).
 - **Mouse wheel**: left to the region's own scroll (a window under
   `MIN_ROWS`), not mapped to pages.
