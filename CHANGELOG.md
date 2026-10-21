@@ -2,7 +2,11 @@
 
 All notable changes to this addon. Dates are release dates.
 
-## Unreleased
+## 1.0.18 — 2026-10-21
+
+Project and Farm monitoring in windows of their own, paged to the
+window's height, with keys to turn pages, switch views and go back; the
+sidebar's File and Farm panels and the Pipeline menu tidied up.
 
 - **Project monitoring opens in a window of its own**: the Monitoring
   button opens a Blender window holding a single Properties editor -- it
