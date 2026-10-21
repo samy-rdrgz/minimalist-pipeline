@@ -2094,13 +2094,35 @@ hours before a workstation was given back. Two ways now:
   file if still empty (`_free_frame_in_progress()`). A machine walking
   the range from its start -- one joining -- renders it; if every machine
   is past it, the end-of-render refill does, as before (one more Blender
-  start, one of `MAX_REFILL_ROUNDS`). A single hole doesn't make a worker
-  join (`JOIN_MIN_FRAMES_LEFT`).
+  start, one of `MAX_REFILL_ROUNDS`) -- unless a worker joins for it
+  (below, "Joining: a matter of time, not of frames").
 
 Both flags are deleted when the render ends (`_clear_render_flags()`),
-and by `discard_saved_frames()` if a crash left them. Not checked in a
-real Blender yet: `render_pre` firing per frame (not once) in a
-background animation render, and `os._exit()` from `render_write`.
+and by `discard_saved_frames()` if a crash left them. Checked in Blender
+4.5.2 LTS, background, the farm's placeholder settings: `render_pre`
+fires once per frame rendered (1, 2, 4, 5, 6 with frame 3 on disk),
+`frame_path()` names it, its empty placeholder already there;
+`os._exit(0)` from `render_write` once the stop file appears during
+frame 2: exit code 0, frames 1-2 on disk, no file at all past them.
+
+## Joining: a matter of time, not of frames
+
+`JOIN_MIN_FRAMES_LEFT` (more than 10 free frames per joining worker)
+stood for "worth opening the .blend". In frames it's wrong both ways:
+10 frames of 5 s aren't, 3 frames of 20 min are -- and a frame freed by
+a *Stop now* behind every machine never got a joiner.
+
+`_joiners_wanted()`, from the `.saved` records (`_render_timing()`):
+- every machine walks the range forward, so a free frame below the
+  furthest-back machine on the render (its last frame written this
+  dispatch; one with none yet sits at the range's start) is a hole only a
+  joiner renders before the end -- one joiner per hole;
+- past those, one more joins while the free frames ahead would keep the
+  machines on it, joiners included, busy longer than a joiner's start
+  (from a `start` line to that machine's first frame, less one frame) plus
+  one frame. Free = no file: a placeholder is a frame being rendered.
+Nothing timed yet (the render's first frames): the frame count as before.
+Still capped by `farm.max_workers_per_job`.
 
 ## Which machine rendered which frame
 

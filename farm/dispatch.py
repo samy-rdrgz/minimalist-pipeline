@@ -245,8 +245,8 @@ def render_dispatch(job_path: Path, idle: dict) -> None:
         box["action"] = "to_write"
 
 
-# A worker that turns idle joins a render already in progress (rather than
-# starting a new job) only while it would still get more frames than this.
+# Until a frame of the render is timed: a worker that turns idle joins a
+# render already in progress only while it would get more frames than this.
 JOIN_MIN_FRAMES_LEFT = 10
 
 
@@ -270,7 +270,7 @@ def frame_paths(job_data: dict, project_root: Path | None) -> list[Path] | None:
     ]
 
 
-def frames_not_started(job_data: dict, project_root: Path) -> int | None:
+def free_frames(job_data: dict, project_root: Path) -> list[int] | None:
     """Frames of the job's range with no file at all -- not even a
     placeholder (an empty file = a frame some machine already took). None
     if the job has no output to look at yet."""
@@ -281,7 +281,83 @@ def frames_not_started(job_data: dict, project_root: Path) -> int | None:
         existing = {entry.name for entry in paths[0].parent.iterdir()}
     except OSError:
         existing = set()
-    return sum(1 for path in paths if path.name not in existing)
+    start = int(job_data["resolved_frame_range"][0])
+    return [start + i for i, path in enumerate(paths) if path.name not in existing]
+
+
+def _render_timing(job_data: dict, machines: list) -> dict:
+    """The render's pace from its machines' saved_frames_path() records:
+    {"frame": the job's mean seconds per frame (None if nothing timed),
+    "startup": a machine's mean time to start rendering (open the .blend
+    -- else one frame's time), "pace": frames per second of these machines
+    together (each one's last frames, the job's mean for one not timed),
+    "behind": the first frame every one of them is past (this render's
+    lines; one with none yet starts at the range's start)}."""
+    from .workers import frame_seconds, parse_saved, startup_seconds
+
+    texts = {}
+    prefix = f"request_{job_data['job_id']}_"
+    for path in ConfigCache.get_path("farm_requests").glob(f"{prefix}*.saved"):
+        try:
+            texts[path.stem[len(prefix) :]] = path.read_text(
+                encoding="utf-8", errors="replace"
+            )
+        except OSError:
+            continue
+    seconds = {uuid: frame_seconds(text) for uuid, text in texts.items()}
+    timed = [s for secs in seconds.values() for s in secs]
+    frame = sum(timed) / len(timed) if timed else None
+    start = int(job_data["resolved_frame_range"][0])
+    timing = {"frame": frame, "startup": frame, "pace": 0.0, "behind": start}
+    if frame is None:
+        return timing
+    startups = [s for text in texts.values() for s in startup_seconds(text, frame)]
+    if startups:
+        timing["startup"] = sum(startups) / len(startups)
+    positions = []
+    for uuid in machines:
+        recent = seconds.get(uuid, [])[-_PACE_FRAMES:]
+        timing["pace"] += 1 / (sum(recent) / len(recent) if recent else frame)
+        done = [
+            f
+            for d, f, _ in parse_saved(texts.get(uuid, ""))
+            if d == job_data.get("dispatch_id") and f is not None
+        ]
+        positions.append(max(done) if done else start)
+    # Nobody on it: every free frame is behind.
+    end = int(job_data["resolved_frame_range"][1])
+    timing["behind"] = min(positions) if positions else end + 1
+    return timing
+
+
+# A machine's pace: the mean of its latest frames, this many (same as the
+# popup's time left, loop._PACE_FRAMES).
+_PACE_FRAMES = 10
+
+
+def _joiners_wanted(
+    job_data: dict, free: list[int], machines: list, offered: int
+) -> int:
+    """How many of `offered` idle workers joining this render helps.
+    Every machine walks the range forward: a free frame behind all of them
+    (one freed by a "Stop now") is only rendered by one joining -- a joiner
+    each. Past those, one more joins while the machines on it, joiners
+    included, would still be busy with the free frames ahead longer than it
+    takes it to start and render one (_render_timing()). Nothing timed
+    yet: JOIN_MIN_FRAMES_LEFT frames each."""
+    timing = _render_timing(job_data, machines)
+    if timing["frame"] is None:
+        return min(offered, len(free) // (JOIN_MIN_FRAMES_LEFT + 1))
+    holes = sum(1 for f in free if f < timing["behind"])
+    ahead = len(free) - holes
+    cost = timing["startup"] + timing["frame"]
+    joining = min(offered, holes)
+    while joining < offered:
+        pace = timing["pace"] + joining / timing["frame"]
+        if ahead <= 0 or (pace and ahead / pace <= cost):
+            break
+        joining += 1
+    return joining
 
 
 def _on_it(job_data: dict) -> int:
@@ -299,9 +375,10 @@ def join_running_renders(jobs: list, project_root: Path, idle_by_uuid: dict) -> 
     priority order. A job is joined only if it renders on several machines
     (not "single", nor an "auto" fallen back to single), the worker is
     allowed on it (no assigned machines, or in the list) and never failed
-    it (failed_machines) -- one that left it may come back --, and each joining
-    worker still has more than JOIN_MIN_FRAMES_LEFT untouched frames for
-    itself (78 frames left: up to 7 join). The new worker gets the same
+    it (failed_machines) -- one that left it may come back --, and joining
+    helps: a frame free behind every machine on it, or free frames ahead
+    for longer than the worker takes to start and render one
+    (_joiners_wanted()). The new worker gets the same
     render request (same dispatch_id): placeholders + no overwrite, it only
     renders the frames nobody took. idle_by_uuid: idle_machines() for this
     tick -- joining workers are taken out of it."""
@@ -335,12 +412,18 @@ def join_running_renders(jobs: list, project_root: Path, idle_by_uuid: dict) -> 
         cap = max_workers_per_job()
         if cap and _on_it(data) >= cap:
             continue
-        left = frames_not_started(data, project_root)
-        if left is None:
+        free = free_frames(data, project_root)
+        if not free:
             continue
-        joining = candidates[: left // (JOIN_MIN_FRAMES_LEFT + 1)]
+        from .queue import _machines_on  # local: queue imports dispatch
+
+        rendering, waiting = _machines_on(data)
+        joining = candidates[
+            : _joiners_wanted(data, free, rendering + waiting, len(candidates))
+        ]
         if not joining:
             continue
+        left = len(free)
         with locked_json(job_path) as box:
             job_data = box["data"] or {}
             now_stages = job_data.get("stage_history") or []

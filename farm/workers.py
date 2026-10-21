@@ -383,6 +383,24 @@ def saved_frames_path(job_id: str, uuid: str) -> Path:
     return ConfigCache.get_path("farm_requests") / f"request_{job_id}_{uuid}.saved"
 
 
+def parse_saved(text: str) -> list[tuple[str, int | None, float | None]]:
+    """A saved_frames_path() record as (dispatch_id, frame, time) lines:
+    frame None for a "start" line (a render of it starting on that
+    machine), time None from a worker on an older version. Pure: safe on a
+    reader thread."""
+    lines = []
+    for line in text.splitlines():
+        parts = line.split()
+        if len(parts) < 2 or not (parts[1].isdigit() or parts[1] == "start"):
+            continue
+        try:
+            at = float(parts[2]) if len(parts) == 3 else None
+        except ValueError:
+            at = None
+        lines.append((parts[0], int(parts[1]) if parts[1].isdigit() else None, at))
+    return lines
+
+
 def frame_seconds(text: str) -> list[float]:
     """Seconds each frame took on one machine, from its saved_frames_path()
     record: the time between two frames it wrote in a row, same render
@@ -391,20 +409,29 @@ def frame_seconds(text: str) -> list[float]:
     it), nor a line with no time. Pure: safe on a reader thread."""
     seconds = []
     previous = None
-    for line in text.splitlines():
-        parts = line.split()
-        try:
-            # "<dispatch_id> start <time>": a render (re)starting, not a frame.
-            at = float(parts[2]) if len(parts) == 3 and parts[1].isdigit() else None
-        except ValueError:
-            at = None
-        if at is None:
+    for dispatch_id, frame, at in parse_saved(text):
+        if frame is None or at is None:
             previous = None
             continue
-        if previous and previous[0] == parts[0] and at > previous[1]:
+        if previous and previous[0] == dispatch_id and at > previous[1]:
             seconds.append(at - previous[1])
-        previous = (parts[0], at)
+        previous = (dispatch_id, at)
     return seconds
+
+
+def startup_seconds(text: str, frame_time: float) -> list[float]:
+    """How long one machine took to start rendering, each time a render
+    started on it: from its "start" line to its first frame, less one
+    frame's time (frame_time, the job's average). Pure."""
+    startups = []
+    started = None
+    for dispatch_id, frame, at in parse_saved(text):
+        if frame is None:
+            started = (dispatch_id, at)
+        elif started and started[0] == dispatch_id and None not in (at, started[1]):
+            startups.append(max(0.0, at - started[1] - frame_time))
+            started = None
+    return startups
 
 
 def render_stop_path(job_id: str) -> Path:

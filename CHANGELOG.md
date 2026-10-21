@@ -27,6 +27,11 @@ All notable changes to this addon. Dates are release dates.
   Blender, a machine's Cancel) deletes the empty file of the frame it was
   on: another machine -- one joining -- can render it, instead of it
   waiting for the end of the render.
+- **Workers join a render when it's worth it, in time**: rather than
+  "more than 10 free frames each", a worker joins while the free frames
+  would keep the render's machines busy longer than it takes it to open
+  the file and render one -- measured on that render -- and for a frame
+  freed by a *Stop now* that every machine is already past.
 - **Which machine rendered a frame**: the job's detail and File details'
   last render have a *Frame* field naming the machine that wrote it (and
   its pace), and each machine's frame count -- kept in the render history

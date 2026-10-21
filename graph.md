@@ -439,8 +439,12 @@ incomings/job_<id>.json
 │   several machines (not single / refill_single), the worker is allowed on
 │   it (assigned_machines), not in failed_machines (one that left the render
 │   and is idle again may come back), machines on it now under
-│   max_workers_per_job, with more than JOIN_MIN_FRAMES_LEFT (10) frames
-│   nobody started per joining worker -> same request, same dispatch_id,
+│   max_workers_per_job, and joining helps (_joiners_wanted(), from the
+│   .saved records): a free frame behind every machine on it -- one joiner
+│   each -- or free frames ahead for longer than a joiner takes to start
+│   and render one, joiners counted ; nothing timed yet: more than
+│   JOIN_MIN_FRAMES_LEFT (10) free frames per joiner -> same request, same
+│   dispatch_id,
 │   added to used_machines (a "start" line in its .saved: the time it was
 │   away is no frame's)
 │

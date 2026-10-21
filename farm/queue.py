@@ -25,7 +25,7 @@ from .dispatch import (
     append_render_history,
     discard_job_log,
     frame_paths,
-    frames_not_started,
+    free_frames,
     job_log_path,
     join_running_renders,
     local_slot_busy,
@@ -40,6 +40,7 @@ from .workers import (
     frame_seconds,
     idle_machines,
     local_render_running,
+    parse_saved,
     saved_frames_path,
     scan_workers,
     this_instance_is_worker,
@@ -886,17 +887,11 @@ def _note_frames(data: dict) -> None:
         if seconds:
             per_machine[uuid] = round(sum(seconds) / len(seconds), 1)
             timed += seconds
-        for line in text.splitlines():
-            parts = line.split()
-            if len(parts) < 2 or not parts[1].isdigit():
+        for line_dispatch, frame, at in parse_saved(text):
+            rank = (line_dispatch == dispatch_id, at or 0.0)
+            if frame is None or not start <= frame <= end:
                 continue
-            try:
-                at = float(parts[2]) if len(parts) == 3 else 0.0
-            except ValueError:
-                at = 0.0
-            rank = (parts[0] == dispatch_id, at)
-            frame = int(parts[1])
-            if start <= frame <= end and rank >= writers.get(frame, ((), ""))[0]:
+            if rank >= writers.get(frame, ((), ""))[0]:
                 writers[frame] = (rank, uuid)
     if timed:
         data["machine_seconds"] = per_machine
@@ -963,7 +958,7 @@ def check_render_completion(
             return None
     key = (data.get("job_id"), data.get("dispatch_id"))
     rendering, waiting = _machines_on(data)
-    if waiting and frames_not_started(data, project_root) == 0:
+    if waiting and free_frames(data, project_root) == []:
         # Every frame taken: a machine that hasn't taken up its request
         # (busy on another job) has nothing left to do here -- dropped
         # rather than waited for. See NOTES.md, "Render stuck at 100 %".
