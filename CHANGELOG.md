@@ -16,6 +16,18 @@ All notable changes to this addon. Dates are release dates.
   check; empty ones: rendered again). Cancel is noted on the job itself.
   Monitor only: the farm host's addon is the one to update; a job already
   stuck moves on by itself within a minute.
+- **Stopping a worker: "After this frame" or "Stop now"**: "Let it
+  finish" finished the whole render -- every frame still free, hours on a
+  long shot -- before a workstation was given back. Now the render stops
+  as soon as the frame it's on is written. "Stop now" (also quitting
+  Blender, a machine's Cancel) deletes the empty file of the frame it was
+  on: another machine -- one joining -- can render it, instead of it
+  waiting for the end of the render.
+- **Which machine rendered a frame**: the job's detail and File details'
+  last render have a *Frame* field naming the machine that wrote it (and
+  its pace), and each machine's frame count -- kept in the render history
+  (one letter per frame, about 1.5 KB for a 1500-frame shot), there once
+  the job is archived.
 - **A machine that left a render can join it again**: a workstation
   stopped as a worker (or Blender quit) mid-render stayed in the job's
   machines until the end -- shut out of the render it left, and still

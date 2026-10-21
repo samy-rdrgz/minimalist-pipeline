@@ -445,10 +445,15 @@ incomings/job_<id>.json
 │   away is no frame's)
 │
 ├── worker_tick() (each worker, every tick)
-│   ├── stop_<uuid>.json : stop_worker() -- render killed (result "stopped"),
-│   │   or left to finish, then the role ends ("stopping")
+│   ├── stop_<uuid>.json : stop_worker()
+│   │   ├── "Stop now" : render killed (result "stopped"), the empty file of
+│   │   │   its frame in progress deleted (request_<job>_<uuid>.frame names
+│   │   │   it), free for another machine ; the role ends
+│   │   └── "After this frame" : request_<job>_<uuid>.stop written, the
+│   │       render exits once its frame is written (render_write handler),
+│   │       then the role ends ("stopping")
 │   ├── heartbeat ; cancel_<job>_<uuid>.json : render terminated, result
-│   │   {cancelled}
+│   │   {cancelled}, its frame in progress freed the same way
 │   ├── render subprocess exited : status idle, last_job_result {job_id,
 │   │   dispatch_id, success: exit == 0} -- ONE slot, the next render
 │   │   overwrites it
@@ -474,9 +479,10 @@ incomings/job_<id>.json
     └── nobody, for NOBODY_SECONDS (20 s -- a worker taking up its request
         deletes it before writing its own file), re-checked under the lock :
         requests left deleted ; failed_machines = those whose last_job_result
-        says they failed THIS dispatch ; _note_frame_seconds() (each
-        machine's mean per frame, from the .saved records) ; then judged on
-        disk (render_start above)
+        says they failed THIS dispatch ; _note_frames() (from the .saved
+        records: each machine's mean per frame, and frame_machines -- one
+        letter per frame, the machine that wrote it) ; then judged on disk
+        (render_start above)
 ```
 
 ### Ways back

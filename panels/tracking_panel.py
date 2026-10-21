@@ -7,7 +7,7 @@ import bpy
 import bpy.utils.previews
 
 from ..farm import farm_activity
-from .farm_panel import job_icon
+from .farm_panel import draw_frame_lookup, job_icon
 from ..lib import (
     ConfigCache,
     REVIEW_SOURCE,
@@ -411,6 +411,17 @@ def _draw_last_renders(layout, filepath: str) -> bool:
         row = _render_row(col, label + r["folder"])
         _video_button(row, {"render": r["path"]}, label + r["folder"])
         _folder_button(row, r["path"])
+    # Which machine wrote frame n -- from render_history.json, there once the
+    # job is archived and gone from Farm monitoring.
+    renders = [
+        (
+            f"{r['shot']} " if block else "",
+            r.get("frame_machines"),
+            r.get("machine_seconds"),
+        )
+        for r in last
+    ]
+    draw_frame_lookup(col, renders)
     return True
 
 

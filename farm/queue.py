@@ -3,6 +3,7 @@
 import datetime
 import os
 import re
+import string
 import time
 from pathlib import Path
 
@@ -657,6 +658,8 @@ def construct_history(job: dict, status):
         "written_twice",
         "frames_rerendered",
         "seconds_per_frame",
+        "machine_seconds",
+        "frame_machines",
     ):
         if job.get(key):
             entry[key] = job[key]
@@ -853,28 +856,90 @@ def _machines_on(data: dict) -> tuple[list, list]:
     return rendering, waiting
 
 
-def _note_frame_seconds(data: dict) -> None:
-    """Each machine's mean seconds per frame on this job (machine_seconds)
-    and the job's (seconds_per_frame), into data -- for its detail and its
-    render history. Every round so far: every machine's
-    saved_frames_path() record still there, not only this round's. Nothing
-    from workers on a version that records no time."""
-    per_machine = {}
-    timed = []
+# One character per machine in frame_machines: 62 machines.
+_MACHINE_LETTERS = string.ascii_uppercase + string.ascii_lowercase + string.digits
+
+
+def _note_frames(data: dict) -> None:
+    """From every machine's saved_frames_path() record of the job -- every
+    round so far, not only this one's -- into data, for its detail and its
+    render history:
+    - machine_seconds / seconds_per_frame: the mean seconds per frame of
+      each machine and of the job (frame_seconds());
+    - frame_machines: which machine wrote each frame, {"start": first
+      frame, "frames": one letter per frame of the range, "." if none is
+      known, "machines": {letter: [uuid, name]}} -- a byte a frame, read
+      through machine_for_frame(). A frame written in several rounds: this
+      round's machine, else the latest line's.
+    Nothing for workers on a version that records no time / no frame."""
+    start, end = (int(x) for x in data.get("resolved_frame_range") or (0, 0))
+    dispatch_id = data.get("dispatch_id")
+    per_machine, timed, writers = {}, [], {}
     prefix = f"request_{data['job_id']}_"
-    for path in ConfigCache.get_path("farm_requests").glob(f"{prefix}*.saved"):
+    for path in sorted(ConfigCache.get_path("farm_requests").glob(f"{prefix}*.saved")):
+        uuid = path.stem[len(prefix) :]
         try:
-            seconds = frame_seconds(path.read_text(encoding="utf-8", errors="replace"))
+            text = path.read_text(encoding="utf-8", errors="replace")
         except OSError:
             continue
+        seconds = frame_seconds(text)
         if seconds:
-            per_machine[path.stem[len(prefix) :]] = round(
-                sum(seconds) / len(seconds), 1
-            )
+            per_machine[uuid] = round(sum(seconds) / len(seconds), 1)
             timed += seconds
+        for line in text.splitlines():
+            parts = line.split()
+            if len(parts) < 2 or not parts[1].isdigit():
+                continue
+            try:
+                at = float(parts[2]) if len(parts) == 3 else 0.0
+            except ValueError:
+                at = 0.0
+            rank = (parts[0] == dispatch_id, at)
+            frame = int(parts[1])
+            if start <= frame <= end and rank >= writers.get(frame, ((), ""))[0]:
+                writers[frame] = (rank, uuid)
     if timed:
         data["machine_seconds"] = per_machine
         data["seconds_per_frame"] = round(sum(timed) / len(timed), 1)
+    if not writers:
+        return
+    previous = (data.get("frame_machines") or {}).get("machines", {})
+    known = {u: n for u, n in previous.values()}
+    letters = {}
+    for frame in sorted(writers):
+        uuid = writers[frame][1]
+        if uuid not in letters and len(letters) < len(_MACHINE_LETTERS):
+            letters[uuid] = _MACHINE_LETTERS[len(letters)]
+    data["frame_machines"] = {
+        "start": start,
+        "frames": "".join(
+            letters.get(writers[f][1], ".") if f in writers else "."
+            for f in range(start, end + 1)
+        ),
+        "machines": {
+            letter: [uuid, _machine_name(uuid, known)]
+            for uuid, letter in letters.items()
+        },
+    }
+
+
+def _machine_name(uuid: str, known: dict) -> str:
+    """Machine uuid's name: its worker file's, else the one recorded before
+    (a worker removed since), else its uuid's start."""
+    return (_read_worker(uuid) or {}).get("machine") or known.get(uuid) or uuid[:8]
+
+
+def machine_for_frame(record: dict | None, frame: int) -> tuple[str, str] | None:
+    """(uuid, name) of the machine that wrote this frame, from a render's
+    frame_machines (_note_frames()); ("", "unknown") if none is known for
+    it, None if it's out of the render's range. Pure: draw()-safe."""
+    if not record or not record.get("frames"):
+        return None
+    index = frame - int(record.get("start", 0))
+    if not 0 <= index < len(record["frames"]):
+        return None
+    machine = record.get("machines", {}).get(record["frames"][index])
+    return tuple(machine) if machine else ("", "unknown")
 
 
 def check_render_completion(
@@ -938,7 +1003,7 @@ def check_render_completion(
         # Kept for construct_history(): used_machines is reset by the next
         # local stages (_finish_job_processes()).
         data["rendered_by"] = list(machines)
-        _note_frame_seconds(data)
+        _note_frames(data)
         box["action"] = "to_write"
         if failed:
             # Kept across retries: retry_job() reassigns the job to the
@@ -1143,12 +1208,15 @@ def _frames_label(frames: list[int], shown: int = 10) -> str:
 
 def discard_saved_frames(job_id: str) -> None:
     """Delete every machine's saved_frames_path() record of job_id -- only
-    read while its render is judged. Best effort."""
-    for path in ConfigCache.get_path("farm_requests").glob(f"request_{job_id}_*.saved"):
-        try:
-            retry_shared_io(path.unlink)
-        except OSError:
-            pass
+    read while its render is judged -- and the .stop/.frame flags a worker
+    that crashed mid-render left (workers.render_stop_path()). Best effort."""
+    requests = ConfigCache.get_path("farm_requests")
+    for ext in ("saved", "stop", "frame"):
+        for path in requests.glob(f"request_{job_id}_*.{ext}"):
+            try:
+                retry_shared_io(path.unlink)
+            except OSError:
+                pass
 
 
 def mark_stage(path, stage):

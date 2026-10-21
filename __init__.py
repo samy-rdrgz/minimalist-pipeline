@@ -70,6 +70,9 @@ _WM_PROPS = {
     "file_details_selected": bpy.props.StringProperty(),
     # Job id the Farm monitoring popup shows in detail, "" for the lists.
     "farm_job_selected": bpy.props.StringProperty(),
+    # "Which machine rendered frame n": Farm monitoring's job detail and
+    # File details' last render (draw_frame_lookup()).
+    "farm_frame_lookup": bpy.props.IntProperty(name="Frame", default=0),
     "file_selected_departments": bpy.props.StringProperty(),
     # entries_department_filter is the addon's one Scene/WM-level EnumProperty
     # used as a live filter (everything else here is a toggle/buffer) -- see

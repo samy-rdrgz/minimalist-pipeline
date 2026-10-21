@@ -713,7 +713,7 @@ def _build_job_entry(
         "frames_total": frames_total,
         "time_left": time_left,
         # Live while it renders; once judged, the job file's own
-        # (queue._note_frame_seconds()).
+        # (queue._note_frames()).
         "seconds_per_frame": average or job.get("seconds_per_frame"),
         "machine_seconds": {u: sum(s) / len(s) for u, s in seconds.items()}
         or job.get("machine_seconds")

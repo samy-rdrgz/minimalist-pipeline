@@ -42,6 +42,7 @@ from .queue import (
     RETRYABLE_STAGES,
     cancel_pending_renders,
     failed_stage,
+    machine_for_frame,
     recompilable,
     recompile_job,
     retry_job,

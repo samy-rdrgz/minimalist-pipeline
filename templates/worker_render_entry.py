@@ -1,5 +1,6 @@
 # templates/worker_render_entry.py
 import importlib
+import os
 import sys
 import time
 
@@ -14,6 +15,8 @@ preset = argv[argv.index("--preset") + 1]
 addon_module = argv[argv.index("--addon-module") + 1]
 saved_file = argv[argv.index("--saved-file") + 1] if "--saved-file" in argv else ""
 dispatch_id = argv[argv.index("--dispatch-id") + 1] if "--dispatch-id" in argv else ""
+stop_file = argv[argv.index("--stop-file") + 1] if "--stop-file" in argv else ""
+frame_file = argv[argv.index("--frame-file") + 1] if "--frame-file" in argv else ""
 
 # Fresh subprocess: Blender's own extension loader already makes the addon
 # importable, no manual sys.path edit needed here.
@@ -53,5 +56,34 @@ if saved_file:
     except OSError:
         pass
     bpy.app.handlers.render_write.append(record_saved)
+
+
+def note_frame(scene, *_):
+    """Before each frame it renders (never one it skips: render_pre comes
+    after the placeholder check): the file it's writing, for the worker to
+    free if it kills this render mid-frame (_free_frame_in_progress())."""
+    try:
+        with open(frame_file, "w", encoding="utf-8") as f:
+            f.write(scene.render.frame_path(frame=scene.frame_current))
+    except OSError:
+        pass
+
+
+def stop_if_asked(scene, *_):
+    """After each frame written: the worker asked this render to stop after
+    its frame (stop_worker(kill_render=False)) -- exit now, the frame on
+    disk, no placeholder taken for the next one. No way to end an
+    animation render cleanly from a handler; os._exit() also skips
+    Blender's own exit, nothing left to save in a background render."""
+    if os.path.exists(stop_file):
+        sys.stdout.flush()
+        os._exit(0)
+
+
+if frame_file:
+    bpy.app.handlers.render_pre.append(note_frame)
+if stop_file:
+    # After record_saved: the frame is recorded before the render exits.
+    bpy.app.handlers.render_write.append(stop_if_asked)
 
 bpy.ops.render.render(animation=True)  # renders HERE, after the presets

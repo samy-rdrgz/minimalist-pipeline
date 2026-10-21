@@ -221,17 +221,26 @@ def stop_worker(kill_render: bool) -> str:
     """Give up this machine's worker role. kill_render=True: the render in
     progress is terminated and reported "stopped" -- neutral for the
     monitor, which carries on with the job's other machines or sends it out
-    again (never a failure); the role ends now. kill_render=False: no new
-    render is picked up, the current one finishes and reports as usual,
-    then the role ends (worker_tick()). Returns "stopped" or "draining"."""
+    again (never a failure) -- and the empty file of the frame it was on is
+    deleted, free again; the role ends now. kill_render=False: the render
+    stops once the frame it's on is written (render_stop_path(), read by
+    the render entry after each frame), then the role ends (worker_tick()).
+    Returns "stopped" or "draining"."""
     running = [(j, p) for j, p in _worker_active_processes.items() if p.poll() is None]
     if running and not kill_render:
+        for job_id, _ in running:
+            try:
+                render_stop_path(job_id).touch()
+            except OSError as e:
+                log("WARNING", "farm", f"Could not ask {job_id}'s render to stop: {e}")
         update_worker({"stopping": True})
-        log("INFO", "farm", "Worker stopping once its current render is done.")
+        log("INFO", "farm", "Worker stopping once its current frame is written.")
         return "draining"
     result = None
     for job_id, p in running:
         _terminate(p)
+        _free_frame_in_progress(job_id)
+        _clear_render_flags(job_id)
         result = {
             "job_id": job_id,
             "dispatch_id": getattr(p, "dispatch_id", None),
@@ -252,7 +261,7 @@ def stop_worker(kill_render: bool) -> str:
 def request_worker_stop(uuid: str, kill_render: bool, user: str = "unknown") -> None:
     """Ask worker uuid -- any machine -- to stop (stop_worker() on its next
     tick): kill_render=True interrupts its render in progress, False lets it
-    finish first."""
+    write the frame it's on first."""
     path = ConfigCache.get_path("farm_requests") / f"stop_{uuid}.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     with locked_json(path) as box:
@@ -398,6 +407,48 @@ def frame_seconds(text: str) -> list[float]:
     return seconds
 
 
+def render_stop_path(job_id: str) -> Path:
+    """This machine's "stop after this frame" flag for its render of job_id:
+    the render entry exits once the frame it's on is written, if it's
+    there (stop_worker(kill_render=False))."""
+    return (
+        ConfigCache.get_path("farm_requests")
+        / f"request_{job_id}_{get_machine_id()}.stop"
+    )
+
+
+def render_frame_path(job_id: str) -> Path:
+    """The frame file this machine's render of job_id is writing right now
+    -- one line, rewritten by the render entry before each frame it renders."""
+    return (
+        ConfigCache.get_path("farm_requests")
+        / f"request_{job_id}_{get_machine_id()}.frame"
+    )
+
+
+def _free_frame_in_progress(job_id: str) -> None:
+    """After killing this machine's render of job_id: delete the empty
+    file of the frame it was on. Left there, every other machine skips it
+    (placeholder: taken) and it waits for the end of the render; gone, the
+    next machine to walk past it -- one joining -- renders it. Best effort."""
+    try:
+        frame = Path(render_frame_path(job_id).read_text(encoding="utf-8").strip())
+        if frame.name and frame.stat().st_size == 0:
+            retry_shared_io(frame.unlink)
+    except OSError:
+        pass
+
+
+def _clear_render_flags(job_id: str) -> None:
+    """Delete this machine's render_stop_path()/render_frame_path() of
+    job_id once its render ended (or before it starts). Best effort."""
+    for path in (render_stop_path(job_id), render_frame_path(job_id)):
+        try:
+            retry_shared_io(path.unlink)
+        except OSError:
+            pass
+
+
 def render_request(job_data: dict, uuid: str, cmd_flags: list):
     """Write a render request file targeting worker uuid for this job."""
     request_path = (
@@ -438,6 +489,7 @@ def execute_render_request() -> dict:
             entry = templates_dir / "worker_render_entry.py"
             # Closed as soon as the child has its own copy: an open handle
             # keeps Windows from deleting or moving the file.
+            _clear_render_flags(data["job_id"])  # a stop left from before
             log_file = open(log_path, "wb")
             with log_file:
                 p = subprocess.Popen(
@@ -473,6 +525,11 @@ def execute_render_request() -> dict:
                         str(saved_frames_path(data["job_id"], get_machine_id())),
                         "--dispatch-id",
                         data.get("dispatch_id") or "",
+                        # Stop after this frame, and the frame it's on.
+                        "--stop-file",
+                        str(render_stop_path(data["job_id"])),
+                        "--frame-file",
+                        str(render_frame_path(data["job_id"])),
                     ],
                     stdout=log_file,
                     stderr=subprocess.STDOUT,
@@ -533,7 +590,7 @@ def worker_tick():
         with locked_json(_worker_path()) as box:
             data = box["data"] or {}
             if data.get("stopping"):
-                # "Let it finish": once the render is done, give up the role
+                # "After this frame": once the render has exited, give up the role
                 # instead of picking up the next one.
                 if not worker_rendering():
                     box["data"] = data | _STOPPED_FIELDS | {"last_heartbeat": now()}
@@ -571,6 +628,7 @@ def scan_worker_processes() -> None:
         if ret is None:
             continue
         finished.append(job_id)
+        _clear_render_flags(job_id)
 
         # Rendered fine: its log has nothing left to tell. Kept on failure
         # (archive() moves it with the job). Best effort.
@@ -627,6 +685,8 @@ def scan_cancel_requests() -> None:
                             p.wait(timeout=5)
                         except subprocess.TimeoutExpired:
                             p.kill()
+                        _free_frame_in_progress(job_id)
+                        _clear_render_flags(job_id)
                         update_worker(
                             {
                                 "status": "idle",

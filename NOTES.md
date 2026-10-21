@@ -2072,6 +2072,52 @@ entry writes a `"<dispatch_id> start <time>"` line first, where
 `frame_seconds()` starts again -- else the hours away were its next
 frame's time.
 
+## Stopping a worker: after this frame, or now
+
+"Let it finish" let the render subprocess run to its end -- and a render
+walks the whole range, taking every frame still free: on a long shot,
+hours before a workstation was given back. Two ways now:
+
+- **After this frame** (`stop_worker(kill_render=False)`): the worker
+  writes `request_<job>_<uuid>.stop`; the render entry's `render_write`
+  handler, after recording the frame, sees it and `os._exit(0)`s -- the
+  frame on disk, no placeholder taken for the next one. A handler can't
+  end an animation render cleanly; nothing is left to save in a
+  background render, and exit 0 is the truth (that machine is done, the
+  monitor only asks whether anybody is still on the render).
+- **Stop now** (also quitting Blender, switching project, a machine's
+  Cancel): killed, and its frame in progress -- an empty placeholder every
+  other machine skips -- used to wait for the end-of-render refill. The
+  render entry's `render_pre` handler (per frame rendered, after
+  Blender's placeholder check: never a skipped one) writes the frame's
+  path to `request_<job>_<uuid>.frame`; on a kill the worker deletes that
+  file if still empty (`_free_frame_in_progress()`). A machine walking
+  the range from its start -- one joining -- renders it; if every machine
+  is past it, the end-of-render refill does, as before (one more Blender
+  start, one of `MAX_REFILL_ROUNDS`). A single hole doesn't make a worker
+  join (`JOIN_MIN_FRAMES_LEFT`).
+
+Both flags are deleted when the render ends (`_clear_render_flags()`),
+and by `discard_saved_frames()` if a crash left them. Not checked in a
+real Blender yet: `render_pre` firing per frame (not once) in a
+background animation render, and `os._exit()` from `render_write`.
+
+## Which machine rendered which frame
+
+`_note_frames()` turns the `.saved` records into `frame_machines`: one
+letter per frame of the range ("." unknown), and the letters' machines
+(uuid, name). Frames interleave between machines (each takes the next
+free one: A 923, B 924, C 925, A 926...), so per-machine ranges barely
+collapse -- ~7 KB for 1443 frames on 3 machines, against 1.5 KB for the
+letters, and `render_history.json` is read on every dispatch
+(`last_render_had_collision()`). Unreadable by eye: the *Frame* field
+(`draw_frame_lookup()`) reads it, in the job's detail and in File
+details' last render (`read_render_state()` hands it over from the
+history -- there once the job is archived). A frame written in several
+rounds goes to this round's machine, else the latest line's. Names from
+the worker files when judged, else the record before (a worker removed
+since).
+
 ## Time left: per machine, from each frame's time
 
 The popup's estimate was `elapsed / progress - elapsed`, elapsed counted
@@ -2103,7 +2149,7 @@ jobs at `render_start` only, each record parsed again only once its mtime
 or size changed: a line per frame, a few dozen KB for a long shot. When
 the render is judged, the monitor stores each machine's mean
 (`machine_seconds`) and the job's (`seconds_per_frame`) in the job file
-(`_note_frame_seconds()`, every round's lines, every machine's file);
+(`_note_frames()`, every round's lines, every machine's file);
 the render history keeps `seconds_per_frame`.
 
 Not done: counting the frame each machine has in progress (its share of

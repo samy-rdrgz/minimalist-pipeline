@@ -106,7 +106,8 @@ def _owner_shots(owner: Path) -> list[str]:
 
 def read_render_state(root: Path, kind: str, owner: Path, v_prefix: str = "v") -> list:
     """What was last rendered for an asset/shot folder, per shot (a block
-    has several, anything else one): [{"shot", "file", "folder", "path"}],
+    has several, anything else one): [{"shot", "file", "folder", "path",
+    "frame_machines", "machine_seconds"}] (the last two None without them),
     path the render folder's absolute path. From the
     folder's render_history.json -- its last finished render of that shot,
     file = the .blend it rendered -- else (no such entry, or an entry from
@@ -142,6 +143,10 @@ def read_render_state(root: Path, kind: str, owner: Path, v_prefix: str = "v") -
                     "file": Path(last["source_file"]).name,
                     "folder": folder.name if folder else None,
                     "path": str(folder) if folder else None,
+                    # Which machine wrote each frame, and their pace
+                    # (farm queue._note_frames()): File details' lookup.
+                    "frame_machines": last.get("frame_machines"),
+                    "machine_seconds": last.get("machine_seconds"),
                 }
             )
             continue

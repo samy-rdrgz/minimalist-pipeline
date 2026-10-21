@@ -790,23 +790,23 @@ class M_PIPELINE_OT_farm_kill_self_worker(bpy.types.Operator):
                 title="Stop this worker",
                 message=(
                     "This machine is rendering a job right now.\n\n"
-                    "Stop the render too: it's interrupted now, the job carries "
-                    "on with its other machines (or is sent out again for the "
-                    "frames left).\n"
-                    "Let it finish: no new render is picked up, the worker "
-                    "stops once this one is done."
+                    "After this frame: the frame it's on is written, then the "
+                    "worker stops -- the job carries on with its other machines "
+                    "(or is sent out again for the frames left).\n"
+                    "Stop now: the render is interrupted, its frame in progress "
+                    "is lost and freed for another machine."
                 ),
                 severity="warning",
                 choices=[
                     (
-                        "Stop the render too",
-                        lambda: stop_worker(kill_render=True),
-                        "Interrupt the render now and stop the worker.",
+                        "After this frame",
+                        lambda: stop_worker(kill_render=False),
+                        "Write the frame in progress, then stop the worker.",
                     ),
                     (
-                        "Let it finish",
-                        lambda: stop_worker(kill_render=False),
-                        "Finish the current render, then stop the worker.",
+                        "Stop now",
+                        lambda: stop_worker(kill_render=True),
+                        "Interrupt the render now and stop the worker.",
                     ),
                     ("Cancel", None, "Keep the worker running."),
                 ],
@@ -835,7 +835,7 @@ class M_PIPELINE_OT_farm_stop_worker(bpy.types.Operator):
     bl_label = "Stop worker"
     bl_description = (
         "Stop this machine's worker. If it's rendering, choose whether its "
-        "render is interrupted or finishes first."
+        "render is interrupted or writes its frame in progress first."
     )
 
     target_uuid: bpy.props.StringProperty()
@@ -857,24 +857,24 @@ class M_PIPELINE_OT_farm_stop_worker(bpy.types.Operator):
                 title=f"Stop worker {name}",
                 message=(
                     f"{name} is rendering a job right now.\n\n"
-                    "Stop the render too: it's interrupted now, the job carries "
-                    "on with its other machines (or is sent out again for the "
-                    "frames left).\n"
-                    "Let it finish: no new render is picked up, the worker "
-                    "stops once this one is done.\n\n"
+                    "After this frame: the frame it's on is written, then the "
+                    "worker stops -- the job carries on with its other machines "
+                    "(or is sent out again for the frames left).\n"
+                    "Stop now: the render is interrupted, its frame in progress "
+                    "is lost and freed for another machine.\n\n"
                     "Takes effect on its next tick (about 10 s)."
                 ),
                 severity="warning",
                 choices=[
                     (
-                        "Stop the render too",
-                        lambda: request_worker_stop(uuid, True, user),
-                        "Interrupt its render now and stop the worker.",
+                        "After this frame",
+                        lambda: request_worker_stop(uuid, False, user),
+                        "Write its frame in progress, then stop the worker.",
                     ),
                     (
-                        "Let it finish",
-                        lambda: request_worker_stop(uuid, False, user),
-                        "Finish its current render, then stop the worker.",
+                        "Stop now",
+                        lambda: request_worker_stop(uuid, True, user),
+                        "Interrupt its render now and stop the worker.",
                     ),
                     ("Cancel", None, "Keep the worker running."),
                 ],
