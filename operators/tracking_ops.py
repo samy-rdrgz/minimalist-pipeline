@@ -786,6 +786,11 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
             "or outdated ones are made first, in the background"
         ),
     )
+    open_when_done: bpy.props.BoolProperty(
+        name="Open when done",
+        default=True,
+        description="Open the snapshot in the browser once it's written",
+    )
 
     _job = None
     _warnings: list = []
@@ -882,6 +887,12 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
             )
         else:
             self.report({"INFO"}, f"Snapshot written: {Path(self.filepath).name}")
+        if self.open_when_done:
+            # The system's app for .html: the browser.
+            try:
+                bpy.ops.wm.path_open(filepath=self.filepath)
+            except RuntimeError as e:
+                log("WARNING", "snapshot", f"Could not open the snapshot: {e}")
         return {"FINISHED"}
 
 

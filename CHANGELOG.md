@@ -23,6 +23,8 @@ All notable changes to this addon. Dates are release dates.
   render history when the render ends (`machine_names`), so it's still
   known once the worker is gone or its id has changed; renders made
   before this version only recorded the id.
+- **The snapshot opens in the browser once written** (*Open when done*,
+  on by default, next to *Thumbnails* in the file browser).
 - **"Checked" lists all the file's departments**, ticked as they're
   validated now ("render" too): untick one the render shows isn't right
   and it's unvalidated -- it only offered to validate the ones not
