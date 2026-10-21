@@ -703,10 +703,10 @@ real scope and a real trust-surface increase (fetching and then running a
 third-party binary automatically) for a "manage project files" tool. A
 deliberate call to make, not a default to slide into.
 
-## File details' `file_details_selected` is a folder, not a versioned file
+## File details' `popup_detail("file")` is a folder, not a versioned file
 
 `M_PIPELINE_OT_tracking_monitor`'s file-details view (`draw_file_details()`,
-`panels/tracking_panel.py`) reads `context.window_manager.file_details_selected`
+`panels/tracking_panel.py`) reads `popup_detail("file")` (was `context.window_manager.file_details_selected`)
 — set by clicking a row in the monitor's own list (`_draw_monitor_row()`),
 via `op.filepath = str(dir)` where `dir` is `TrackingStatusCache.get_all()`'s
 own `asset_dir` (a folder, not a `.blend`). Code written assuming it was a
@@ -720,7 +720,7 @@ both ends: `draw_file_details()` reads the shot/block segment straight off
 the folder's own name (`shots_in_segment()`, no `parse_filename()` needed),
 and `M_PIPELINE_OT_compile_preview.execute()` now resolves a folder to any
 real versioned `.blend` inside it before parsing. Any new code touching
-`file_details_selected` should assume folder, not file.
+`popup_detail("file")` should assume folder, not file.
 
 ## `resolve_bpy_path()` left "../" uncollapsed in every stored link path
 
@@ -982,17 +982,17 @@ but "the file" means something different depending on who's asking.
 `create_entry`/`edit_entry` have their own explicit `self.filepath` (the
 file being tagged). `M_PIPELINE_OT_tracking_monitor` has no `filepath` of
 its own -- its "current file" in the popup's file-details view is
-`context.window_manager.file_details_selected`, which used to fall through
+`popup_detail("file")` (was `context.window_manager.file_details_selected`), which used to fall through
 the old two-tier fallback (`self.filepath or bpy.data.filepath`) straight
 to `bpy.data.filepath` -- whatever's open in the viewport, unrelated to the
 file actually shown in the popup -- so the department dropdown only ever
 offered "All departments" there. The sidebar's own entries panel has
 neither: `bpy.data.filepath` (the open file) really is the right answer
 for it. Fixed by trying all three in that order: `self.filepath` ->
-`file_details_selected` -> `bpy.data.filepath`.
+`popup_detail("file")` -> `bpy.data.filepath`.
 
 A first attempt gave `M_PIPELINE_OT_tracking_monitor` its own `filepath`
-`@property` returning `file_details_selected`, reasoning `getattr(self,
+`@property` returning `popup_detail("file")`, reasoning `getattr(self,
 "filepath", "")` would then pick it up like any other operator's real
 `self.filepath`. Measured false: a plain Python `@property` (not a
 `bpy.props` field) doesn't reliably survive attribute lookup on a live
@@ -2179,6 +2179,22 @@ it is done already). It needs "now" on the worker's clock -- one frame of
 error at most, on the high side.
 
 ---
+
+## Monitoring popups: reopening on the detail, or not
+
+Project monitoring's file detail and Farm monitoring's job detail were
+WindowManager properties (`file_details_selected`, `farm_job_selected`).
+The WindowManager is a datablock *of the .blend*: every Ctrl+S saved the
+detail open at the time into the file, and opening a file (or
+`read_homefile()`) brought back whatever that file had -- the popup
+reopened on a detail or on the list depending on the file last opened.
+Farm monitoring also forced its list on every open.
+
+Now `popup_detail(kind)` / `set_popup_detail()` (`lib/core.py`): memory
+only, never in a file. Closing with OK keeps the detail for next time
+(read again by `invoke()`: a file's thumbnail and last renders, a job's
+file -- gone, back to the list); Cancel or Escape (`cancel()`) clears it,
+next time opens on the list.
 
 ## Action popups: dialogs
 

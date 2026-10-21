@@ -47,12 +47,14 @@ from ..lib import (
     locked_json,
     log,
     parse_filename,
+    popup_detail,
     prefix_items,
     read_json_quiet,
     resolve_ffmpeg,
     resolve_version_file,
     sequence_items,
     set_pending_action,
+    set_popup_detail,
     shot_items,
     shots_in_segment,
     version_items,
@@ -1019,7 +1021,7 @@ class M_PIPELINE_OT_farm_retry_job(bpy.types.Operator):
         if not target:
             self.report({"WARNING"}, "This job didn't fail: nothing to retry.")
             return {"CANCELLED"}
-        if context.window_manager.farm_job_selected == self.job_id:
+        if popup_detail("job") == self.job_id:
             load_job_details(self.job_id)
         self.report({"INFO"}, f"Job sent back to {target}.")
         return {"FINISHED"}
@@ -1061,7 +1063,7 @@ class M_PIPELINE_OT_farm_recompile_job(bpy.types.Operator):
         if not done:
             self.report({"WARNING"}, "Only a finished render can be recompiled.")
             return {"CANCELLED"}
-        if context.window_manager.farm_job_selected == self.job_id:
+        if popup_detail("job") == self.job_id:
             load_job_details(self.job_id)
         self.report({"INFO"}, "Compilation requested again.")
         return {"FINISHED"}
@@ -1079,15 +1081,14 @@ class M_PIPELINE_OT_farm_job_details(bpy.types.Operator):
     reload: bpy.props.BoolProperty(options={"SKIP_SAVE"})
 
     def execute(self, context):
-        wm = context.window_manager
-        if wm.farm_job_selected == self.job_id and not self.reload:
-            wm.farm_job_selected = ""  # back to the list
+        if popup_detail("job") == self.job_id and not self.reload:
+            set_popup_detail("job", "")  # back to the list
             return {"FINISHED"}
         if load_job_details(self.job_id) is None:
-            wm.farm_job_selected = ""
+            set_popup_detail("job", "")
             self.report({"WARNING"}, "Job file not found (deleted?).")
             return {"CANCELLED"}
-        wm.farm_job_selected = self.job_id
+        set_popup_detail("job", self.job_id)
         return {"FINISHED"}
 
 
@@ -1144,7 +1145,11 @@ class M_PIPELINE_OT_farm_monitor(bpy.types.Operator):
             self.report({"ERROR"}, "No active project.")
             return {"CANCELLED"}
 
-        context.window_manager.farm_job_selected = ""  # always open on the list
+        # Reopens on the job it showed when closed with OK (Cancel: back to
+        # the list) -- read again, it has moved on since.
+        job_id = popup_detail("job")
+        if job_id and load_job_details(job_id) is None:
+            set_popup_detail("job", "")
         register_refresh_timer()
 
         return context.window_manager.invoke_props_dialog(
@@ -1152,11 +1157,14 @@ class M_PIPELINE_OT_farm_monitor(bpy.types.Operator):
         )
 
     def execute(self, context):
+        """OK: keeps the job shown in detail for next time."""
         unregister_refresh_timer()
         return {"FINISHED"}
 
     def cancel(self, context):
+        """Cancel / Escape: next time opens on the list."""
         unregister_refresh_timer()
+        set_popup_detail("job", "")
 
     def draw(self, context):
         # context.region_popup (Blender 4.2+) only exists while this popup is
@@ -1165,7 +1173,7 @@ class M_PIPELINE_OT_farm_monitor(bpy.types.Operator):
         register_popup_region(getattr(context, "region_popup", None))
 
         layout = self.layout
-        if context.window_manager.farm_job_selected:
+        if popup_detail("job"):
             draw_farm_job_details(layout.box(), context)
             return
 

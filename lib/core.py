@@ -41,6 +41,24 @@ def get_addon_version() -> str:
     return "0.0.0"
 
 
+# Which detail the monitoring popups show: Project monitoring's file
+# ("file", its tracked folder), Farm monitoring's job ("job", its id) --
+# "" for their list. In memory only: as WindowManager properties they were
+# saved into every .blend, and came back as each opened file had them.
+_popup_details = {"file": "", "job": ""}
+
+
+def popup_detail(kind: str) -> str:
+    """The detail a monitoring popup shows ("file" / "job"), "" for its list."""
+    return _popup_details[kind]
+
+
+def set_popup_detail(kind: str, value: str = "") -> None:
+    """Show this detail in that popup ("" for its list) -- now and when it
+    reopens."""
+    _popup_details[kind] = value
+
+
 def addon_pref(context: bpy.types.Context | None = None):
     """Return addon preferences."""
     try:

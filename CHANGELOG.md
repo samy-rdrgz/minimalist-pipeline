@@ -16,6 +16,15 @@ All notable changes to this addon. Dates are release dates.
   check; empty ones: rendered again). Cancel is noted on the job itself.
   Monitor only: the farm host's addon is the one to update; a job already
   stuck moves on by itself within a minute.
+- **Monitoring popups reopen where you left them -- with OK**: Project
+  monitoring's file detail and Farm monitoring's job detail were saved
+  into each .blend, so the popup reopened on a detail or on the list
+  depending on the file opened last (Farm monitoring: always the list).
+  Now OK keeps the detail open for next time, Cancel goes back to the
+  list.
+- **Read-Only Origin: "Save" when nobody saved the file since you opened
+  it**: overwriting then loses nothing. Saved by someone else meanwhile:
+  still only "Save & Increment", and the popup says why.
 - **Popups: one Cancel**: the save guards ("You're on a stable file",
   "Read-Only Origin"), the stop-worker and FFmpeg warnings had a Cancel of
   their own on top of the dialog's Cancel and Close -- three buttons doing

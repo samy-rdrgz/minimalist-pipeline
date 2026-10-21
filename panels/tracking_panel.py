@@ -10,6 +10,7 @@ from ..farm import farm_activity
 from .farm_panel import draw_frame_lookup, job_icon
 from ..lib import (
     ConfigCache,
+    popup_detail,
     REVIEW_SOURCE,
     ProjectScan,
     TrackingStatusCache,
@@ -505,12 +506,12 @@ def draw_file_details(self, context, layout):
         emboss=False,
     )
 
-    filepath = context.window_manager.file_details_selected
+    filepath = popup_detail("file")
 
     data = TrackingStatusCache.get(filepath)
     description = get_description(Path(filepath))
 
-    # file_details_selected is the tracked folder, not a versioned .blend --
+    # popup_detail("file") is the tracked folder, not a versioned .blend --
     # see NOTES.md.
     shot_prefix = json_get(ConfigCache.get(), "naming.shot.prefix", "sh")
     shot_name = Path(filepath).name

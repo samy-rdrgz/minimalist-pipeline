@@ -14,13 +14,19 @@ from .actions import (
 )
 from .config import file_in_active_project, parse_filename
 from .core import acquire_lock, locked_json, release_lock
-from .session import get_machine_id, get_opened_as_read_only
+from .session import (
+    get_machine_id,
+    get_opened_as_read_only,
+    note_read_only_saved,
+    read_only_unchanged_on_disk,
+)
 
 
 def _save_and_release(filepath: str, uuid: str):
     """Save in place, then release the lock (uuid empty -- none was held)."""
     try:
         bpy.ops.wm.save_mainfile("EXEC_DEFAULT")
+        note_read_only_saved(filepath)
     finally:
         if uuid:
             release_lock(Path(filepath), uuid)
@@ -207,18 +213,40 @@ class WM_OT_safe_save(bpy.types.Operator):
                 return {"FINISHED"}
 
             else:
+                choices = [
+                    (
+                        "Save & Increment",
+                        partial(_increment_and_release, filepath, uuid),
+                        "Save as a new version instead of overwriting.",
+                    )
+                ]
+                # Saving over it is only offered while nobody saved it since
+                # it was opened: else it would wipe out their work.
+                if read_only_unchanged_on_disk(filepath):
+                    message = (
+                        "This file was opened read-only.\n"
+                        "Nobody saved it since: you can save over it, or as a "
+                        "new version."
+                    )
+                    choices.append(
+                        (
+                            "Save",
+                            partial(_save_and_release, filepath, uuid),
+                            "Save over it: nobody saved it since you opened it.",
+                        )
+                    )
+                else:
+                    message = (
+                        "This file was opened read-only, and saved by someone "
+                        "else since.\nSaving over it would lose their work: "
+                        "save as a new version."
+                    )
                 set_pending_action(
                     PipelineAction(
                         title="Read-Only Origin",
-                        message="Are you sure you want to save modifications?\n(It will automatically increment)",
+                        message=message,
                         severity="warning",
-                        choices=[
-                            (
-                                "Save & Increment",
-                                partial(_increment_and_release, filepath, uuid),
-                                "This file is read-only: save as a new version instead of overwriting.",
-                            ),
-                        ],
+                        choices=choices,
                         on_dismiss=partial(_release_only, filepath, uuid),
                         explanation=READ_ONLY_EXPLANATION,
                     )
