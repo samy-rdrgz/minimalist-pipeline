@@ -6,6 +6,8 @@ from pathlib import Path
 import bpy
 
 from ..lib import (
+    popup_detail,
+    set_popup_detail,
     ConfigCache,
     PipelineError,
     ProjectScan,
@@ -958,7 +960,7 @@ class M_PIPELINE_OT_tracking_monitor(bpy.types.Operator):
 
     def draw(self, context):
         layout = self.layout
-        if context.window_manager.file_details_selected:
+        if popup_detail("file"):
             draw_file_details(self, context, layout)
 
         else:
@@ -995,6 +997,14 @@ class M_PIPELINE_OT_tracking_monitor(bpy.types.Operator):
             request_monitor_refresh()  # the Farm column, same idea
             self.project_root = str(project_root)
 
+            # Reopens on the file it showed when closed with OK (Cancel:
+            # back to the list) -- read again, it may have changed.
+            folder = popup_detail("file")
+            if folder and not Path(folder).is_dir():
+                set_popup_detail("file", "")
+            elif folder:
+                load_file_thumbnail(folder)
+                load_file_renders(folder)
             # Kept: draw_file_details() wraps its text on it.
             self.popup_width = popup_width(context)
             return context.window_manager.invoke_props_dialog(
@@ -1002,7 +1012,12 @@ class M_PIPELINE_OT_tracking_monitor(bpy.types.Operator):
             )
 
     def execute(self, context):
+        """OK: keeps the file shown in detail for next time."""
         return {"FINISHED"}
+
+    def cancel(self, context):
+        """Cancel / Escape: next time opens on the list."""
+        set_popup_detail("file", "")
 
 
 class M_PIPELINE_OT_edit_description(bpy.types.Operator):
@@ -1265,13 +1280,18 @@ def _archive_checked_job(job_id: str) -> None:
 
 
 class M_PIPELINE_OT_tracking_file_details(bpy.types.Operator):
-    """Popup: department status and notes/todos for one tracked file."""
+    """Project monitoring: show one tracked file's detail (filepath, its
+    folder), or the list (no filepath: the Back button). Never a toggle:
+    clicking a file already shown -- a "Links to" / "Linked by" row naming
+    it -- went back to the list. SKIP_SAVE: an operator property otherwise
+    keeps its last value for a button that doesn't set it -- the Back
+    button carried the last file clicked, and its description as tooltip."""
 
     bl_idname = "m_pipeline.tracking_file_details"
     bl_label = ""
 
-    filepath: bpy.props.StringProperty()
-    custom_tooltip: bpy.props.StringProperty()
+    filepath: bpy.props.StringProperty(options={"SKIP_SAVE"})
+    custom_tooltip: bpy.props.StringProperty(options={"SKIP_SAVE"})
 
     @classmethod
     def description(cls, context, properties):
@@ -1280,10 +1300,8 @@ class M_PIPELINE_OT_tracking_file_details(bpy.types.Operator):
         return "Show tracking details for a selected file."
 
     def execute(self, context):
-        if context.window_manager.file_details_selected == self.filepath:
-            context.window_manager.file_details_selected = ""
-        else:
-            context.window_manager.file_details_selected = self.filepath
+        set_popup_detail("file", self.filepath)
+        if self.filepath:
             load_file_thumbnail(self.filepath)
             load_file_renders(self.filepath)
         return {"FINISHED"}

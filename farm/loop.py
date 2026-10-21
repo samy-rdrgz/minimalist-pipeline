@@ -235,6 +235,7 @@ def _farm_paths() -> dict | None:
         "monitor_file": ConfigCache.get_path("monitor_file"),
         "farm_actives": ConfigCache.get_path("farm_actives"),
         "farm_incomings": ConfigCache.get_path("farm_incomings"),
+        "farm_requests": ConfigCache.get_path("farm_requests"),
         "workers": ConfigCache.get_path("workers"),
     }
 
@@ -308,13 +309,58 @@ def _frames_for_jobs(root: Path, jobs: list) -> dict:
     return frames
 
 
+# saved_frames_path() records already parsed: path -> ((mtime, size),
+# frame_seconds()). Each one is re-read only once a frame was added to it.
+_frame_seconds_cache: dict[str, tuple] = {}
+
+
+def _frame_seconds_for_jobs(requests_dir: Path | None, jobs: list) -> dict:
+    """{job_id: {uuid: [seconds per frame]}} for the jobs being rendered,
+    from each machine's saved_frames_path() record (thread-safe)."""
+    from .workers import frame_seconds
+
+    rendering = set()
+    for job in jobs:
+        try:
+            if job["stage_history"][-1]["stage"] == "render_start":
+                rendering.add(job["job_id"])
+        except (KeyError, IndexError, TypeError):
+            continue
+    out: dict = {}
+    if not rendering or not requests_dir:
+        return out
+    try:
+        entries = [e for e in os.scandir(requests_dir) if e.name.endswith(".saved")]
+    except OSError:
+        return out
+    for path in set(_frame_seconds_cache) - {e.path for e in entries}:
+        _frame_seconds_cache.pop(path, None)
+    for entry in entries:
+        # request_<job_id>_<uuid>.saved -- no "_" in a machine's uuid.
+        job_id, _, uuid = entry.name[len("request_") : -len(".saved")].rpartition("_")
+        if job_id not in rendering:
+            continue
+        try:
+            stat = entry.stat()
+            key = (stat.st_mtime, stat.st_size)
+            cached = _frame_seconds_cache.get(entry.path)
+            if not cached or cached[0] != key:
+                text = Path(entry.path).read_text(encoding="utf-8", errors="replace")
+                cached = (key, frame_seconds(text))
+                _frame_seconds_cache[entry.path] = cached
+        except OSError:
+            continue
+        out.setdefault(job_id, {})[uuid] = cached[1]
+    return out
+
+
 def _read_farm_snapshot(paths: dict, scanned: dict, cached_actives: list) -> dict:
-    """Full refresh: _read_farm_raw() + frame counts (thread-safe)."""
+    """Full refresh: _read_farm_raw() + frame counts and times (thread-safe)."""
     raw = _read_farm_raw(paths, True, scanned)
     actives = raw["farm_actives"][1]
-    raw["frames"] = _frames_for_jobs(
-        paths["root"], actives if actives is not None else cached_actives
-    )
+    jobs = actives if actives is not None else cached_actives
+    raw["frames"] = _frames_for_jobs(paths["root"], jobs)
+    raw["frame_seconds"] = _frame_seconds_for_jobs(paths.get("farm_requests"), jobs)
     return raw
 
 
@@ -351,12 +397,17 @@ def _apply_farm_snapshot(raw: dict) -> None:
             _jobs_scan_cache[f"{key}_raw"] = items
         _jobs_scan_cache[f"{key}_mtime"] = dir_mtime
     frames = raw.get("frames", {})
+    seconds = raw.get("frame_seconds", {})
+    workers = raw.get("workers", {})
     jobs = []
     # Unclaimed requests are listed too, as "pending": a submit is never
     # invisible, even with the farm stopped.
     for job in _jobs_scan_cache["actives_raw"]:
+        job_id = job.get("job_id", "")
         try:
-            jobs.append(_build_job_entry(job, frames.get(job.get("job_id", ""))))
+            jobs.append(
+                _build_job_entry(job, frames.get(job_id), seconds.get(job_id), workers)
+            )
         except Exception:
             pass
     # A request for a job still in flight waits in incoming/ until that job
@@ -380,7 +431,7 @@ def _apply_farm_snapshot(raw: dict) -> None:
         except Exception:
             pass
     snapshot["jobs"] = jobs
-    snapshot["workers"] = raw.get("workers", {})
+    snapshot["workers"] = workers
     get_monitor_cache().update(snapshot)
 
 
@@ -587,10 +638,41 @@ def farm_activity() -> dict[str, list[dict]]:
     return out
 
 
-def _build_job_entry(job: dict, frames_done: int | None = None) -> dict:
+# A machine's pace for the time left: the mean of its latest frames, this
+# many -- a shot's frames don't all cost the same, and each machine goes
+# through the range in order, so its next frames look like its last ones.
+_PACE_FRAMES = 10
+
+
+def _time_left(
+    job_id: str, frames_left: int, seconds: dict, average: float, workers: dict
+) -> float | None:
+    """Seconds left for a render: the frames still to render over the pace
+    of the machines rendering it *now* (frames per second, summed) -- a
+    machine joining or leaving changes it at once. One with no frame timed
+    yet counts at the job's average. None if no machine renders it now."""
+    if frames_left <= 0:
+        return 0.0
+    pace = 0.0
+    for uuid, worker in workers.items():
+        if worker.get("status") != "render" or worker.get("current_job_id") != job_id:
+            continue
+        recent = (seconds.get(uuid) or [])[-_PACE_FRAMES:]
+        pace += 1 / (sum(recent) / len(recent) if recent else average)
+    return frames_left / pace if pace else None
+
+
+def _build_job_entry(
+    job: dict,
+    frames_done: int | None = None,
+    frame_seconds: dict | None = None,
+    workers: dict | None = None,
+) -> dict:
     """UI-facing entry for one active job. frames_done comes from
     _frames_for_jobs(), fresh every refresh even when job came from a cached
-    scan: progress lives in the output folder, not in the job file."""
+    scan: progress lives in the output folder, not in the job file -- same
+    for frame_seconds (_frame_seconds_for_jobs()), {uuid: [seconds per
+    frame]}, and workers (read_workers()), for the time left."""
     stage = job["stage_history"][-1]
     archived = stage["stage"] == "archived"
     if archived:
@@ -605,6 +687,21 @@ def _build_job_entry(job: dict, frames_done: int | None = None) -> dict:
         frames_total = resolved[1] - resolved[0] + 1
     frames_done = frames_done or 0
 
+    # Nothing timed (first frames, workers on an older version): None, the
+    # popup falls back on elapsed time over progress.
+    seconds = {u: s for u, s in (frame_seconds or {}).items() if s}
+    timed = [s for secs in seconds.values() for s in secs]
+    average = sum(timed) / len(timed) if timed else None
+    time_left = None
+    if average and frames_total:
+        time_left = _time_left(
+            job.get("job_id", ""),
+            frames_total - frames_done,
+            seconds,
+            average,
+            workers or {},
+        )
+
     return {
         "job_id": job.get("job_id", ""),
         "filepath": job.get("filepath", ""),
@@ -614,6 +711,13 @@ def _build_job_entry(job: dict, frames_done: int | None = None) -> dict:
         "elapsed_seconds": elapsed,
         "frames_done": frames_done,
         "frames_total": frames_total,
+        "time_left": time_left,
+        # Live while it renders; once judged, the job file's own
+        # (queue._note_frames()).
+        "seconds_per_frame": average or job.get("seconds_per_frame"),
+        "machine_seconds": {u: sum(s) / len(s) for u, s in seconds.items()}
+        or job.get("machine_seconds")
+        or {},
         "machines": job.get("used_machines", []),
         "skipped_shots": job.get("skipped_shots", []),
         "absorbed_shots": job.get("absorbed_shots", []),

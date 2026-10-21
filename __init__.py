@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Minimalist Pipeline",
     "author": "Samy Rodriguez",
-    "version": (1, 0, 15),
+    "version": (1, 0, 17),
     "blender": (4, 2, 0),
     "location": "View3D > Sidebar > Pipeline",
     "description": "Lightweight pipeline manager for solo/small team Blender projects.",
@@ -67,9 +67,9 @@ _WM_PROPS = {
     "render_checked_departments": bpy.props.CollectionProperty(
         type=PIPELINE_PG_department_check_item
     ),
-    "file_details_selected": bpy.props.StringProperty(),
-    # Job id the Farm monitoring popup shows in detail, "" for the lists.
-    "farm_job_selected": bpy.props.StringProperty(),
+    # "Which machine rendered frame n": Farm monitoring's job detail and
+    # File details' last render (draw_frame_lookup()).
+    "farm_frame_lookup": bpy.props.IntProperty(name="Frame", default=0),
     "file_selected_departments": bpy.props.StringProperty(),
     # entries_department_filter is the addon's one Scene/WM-level EnumProperty
     # used as a live filter (everything else here is a toggle/buffer) -- see

@@ -703,10 +703,10 @@ real scope and a real trust-surface increase (fetching and then running a
 third-party binary automatically) for a "manage project files" tool. A
 deliberate call to make, not a default to slide into.
 
-## File details' `file_details_selected` is a folder, not a versioned file
+## File details' `popup_detail("file")` is a folder, not a versioned file
 
 `M_PIPELINE_OT_tracking_monitor`'s file-details view (`draw_file_details()`,
-`panels/tracking_panel.py`) reads `context.window_manager.file_details_selected`
+`panels/tracking_panel.py`) reads `popup_detail("file")` (was `context.window_manager.file_details_selected`)
 — set by clicking a row in the monitor's own list (`_draw_monitor_row()`),
 via `op.filepath = str(dir)` where `dir` is `TrackingStatusCache.get_all()`'s
 own `asset_dir` (a folder, not a `.blend`). Code written assuming it was a
@@ -720,7 +720,7 @@ both ends: `draw_file_details()` reads the shot/block segment straight off
 the folder's own name (`shots_in_segment()`, no `parse_filename()` needed),
 and `M_PIPELINE_OT_compile_preview.execute()` now resolves a folder to any
 real versioned `.blend` inside it before parsing. Any new code touching
-`file_details_selected` should assume folder, not file.
+`popup_detail("file")` should assume folder, not file.
 
 ## `resolve_bpy_path()` left "../" uncollapsed in every stored link path
 
@@ -982,17 +982,17 @@ but "the file" means something different depending on who's asking.
 `create_entry`/`edit_entry` have their own explicit `self.filepath` (the
 file being tagged). `M_PIPELINE_OT_tracking_monitor` has no `filepath` of
 its own -- its "current file" in the popup's file-details view is
-`context.window_manager.file_details_selected`, which used to fall through
+`popup_detail("file")` (was `context.window_manager.file_details_selected`), which used to fall through
 the old two-tier fallback (`self.filepath or bpy.data.filepath`) straight
 to `bpy.data.filepath` -- whatever's open in the viewport, unrelated to the
 file actually shown in the popup -- so the department dropdown only ever
 offered "All departments" there. The sidebar's own entries panel has
 neither: `bpy.data.filepath` (the open file) really is the right answer
 for it. Fixed by trying all three in that order: `self.filepath` ->
-`file_details_selected` -> `bpy.data.filepath`.
+`popup_detail("file")` -> `bpy.data.filepath`.
 
 A first attempt gave `M_PIPELINE_OT_tracking_monitor` its own `filepath`
-`@property` returning `file_details_selected`, reasoning `getattr(self,
+`@property` returning `popup_detail("file")`, reasoning `getattr(self,
 "filepath", "")` would then pick it up like any other operator's real
 `self.filepath`. Measured false: a plain Python `@property` (not a
 `bpy.props` field) doesn't reliably survive attribute lookup on a live
@@ -1985,13 +1985,233 @@ the process scan forever -- the worker stayed "render"), and renders/setup
 run with `--python-exit-code 1` (an exception in the entry script used to
 exit 0, i.e. a successful render).
 
+## Render stuck at render_start: a result overwritten
+
+Symptom: `job_97daeba21d` (sq040 sh120, 1443 frames, 3 machines) at
+`render_start` for good, one empty frame in its folder. Copying the frame
+before over it took the popup to 100 %, the job didn't move: the frames
+on disk are only looked at once no machine is left rendering. Two of its
+machines (`6983fd96`, `4abd5c3d`) are also in the next job's
+`used_machines`, `job_2363605ce8`, dispatched 9 h after it -- while it
+still waited on a machine, most likely the one that left the empty frame.
+
+### One slot for a machine's outcome
+
+A worker publishes the outcome of its render in `last_job_result`, a
+single field. Once that machine renders another job to the end, the
+field is about that one. `_classify_machines()` took a live worker whose
+result wasn't about this render for "still running": true while the
+result isn't published yet, false once it has been and then replaced.
+Whatever kept the job waiting meanwhile (another machine mid-frame, hung,
+or slow to be found gone), it then waited forever -- and Cancel did
+nothing either: the cancel file reaches a worker with no render of the
+job to kill, which publishes no result. The first section above fixed
+one way to *read* the result too late; this is the result gone.
+
+### One question: is anybody still on it?
+
+First fix: a live machine showing nothing of the render for 30 s counted
+as "moved on", next to success / failed / cancelled / stopped / lost,
+each read from `last_job_result`. Replaced the same day by a single
+rule, which needs no result at all: a render is over once none of its
+machines is *on it* (`_machines_on()`):
+
+- its worker rendering this job (`status` "render", `current_job_id`),
+  alive -- or its file unreadable this tick: can't tell, on it;
+- or its request still waiting in `requests/`, the worker alive.
+
+Gone (silent `WORKER_GONE_SECONDS`), stopped, idle or rendering another
+job: done with it. Then the frames on disk decide, as before. What each
+machine published no longer gates anything; `last_job_result` is only
+read to name a machine that *failed* this render (`_failed_this_render()`,
+its `dispatch_id`): frames missing then end as `render_failed` rather than
+a refill, and `failed_machines` steers a retry away from it. Overwritten
+by a later render, that failure just isn't known -- the refill rounds
+still bound it.
+
+The job's Cancel was read off the machines' results too ("every machine
+cancelled"): it's now a flag on the job, `cancel_requested`, set by
+`cancel_pending_renders(whole_job=True)`; a Retry clears it. One
+machine's cancel (Workers tab) stays neutral: frames missing, sent out
+again.
+
+The "Render stuck at 100 %" drop (above) no longer waits for a machine
+to *succeed*: a request still waiting once every frame of the range has
+a file (rendered or taken) has nothing left to do, withdrawn
+(`_withdraw_requests()`, shared with Cancel).
+
+Not on the first sight: `execute_render_request()` deletes the request,
+then writes the worker's file on the way out of the same tick -- a
+monitor reading in between sees neither. Nobody must be on the render
+for `NOBODY_SECONDS` (20 s, two ticks), timed per (job, `dispatch_id`) in
+the monitor's memory, re-checked under the job's lock before judging.
+
+Gone with it: `_classify_machines()`, `_is_this_render()`'s fallback on
+times for sides without a `dispatch_id` (every worker has one since
+1.0.14), and "every machine cancelled". Both `current_job_id` and
+`dispatch_id` predate 1.0.15: no older worker to tell apart.
+
+## Leaving a render and coming back
+
+The target is workstations: added as workers and taken off all day. A
+machine stayed in `used_machines` until the render was judged, and
+`join_running_renders()` excluded `used_machines` ("already in it") --
+so a PC stopped at noon, back at two, could never rejoin the render it
+left, and kept its place under `farm.max_workers_per_job` meanwhile.
+
+An idle worker with no request waiting is off every render, whatever its
+past (`_machines_on()`): only `failed_machines` keeps a machine out now,
+and the cap counts the machines on the render (`dispatch._on_it()`). It
+gets the same request (same `dispatch_id`) and walks the range from the
+start: placeholders + no overwrite, it takes the frames still free --
+the empty file it may have left when stopped stays taken until the end
+of the render (a refill).
+
+Its `.saved` record carries on with the same `dispatch_id`: the render
+entry writes a `"<dispatch_id> start <time>"` line first, where
+`frame_seconds()` starts again -- else the hours away were its next
+frame's time.
+
+## Stopping a worker: after this frame, or now
+
+"Let it finish" let the render subprocess run to its end -- and a render
+walks the whole range, taking every frame still free: on a long shot,
+hours before a workstation was given back. Two ways now:
+
+- **After this frame** (`stop_worker(kill_render=False)`): the worker
+  writes `request_<job>_<uuid>.stop`; the render entry's `render_write`
+  handler, after recording the frame, sees it and `os._exit(0)`s -- the
+  frame on disk, no placeholder taken for the next one. A handler can't
+  end an animation render cleanly; nothing is left to save in a
+  background render, and exit 0 is the truth (that machine is done, the
+  monitor only asks whether anybody is still on the render).
+- **Stop now** (also quitting Blender, switching project, a machine's
+  Cancel): killed, and its frame in progress -- an empty placeholder every
+  other machine skips -- used to wait for the end-of-render refill. The
+  render entry's `render_pre` handler (per frame rendered, after
+  Blender's placeholder check: never a skipped one) writes the frame's
+  path to `request_<job>_<uuid>.frame`; on a kill the worker deletes that
+  file if still empty (`_free_frame_in_progress()`). A machine walking
+  the range from its start -- one joining -- renders it; if every machine
+  is past it, the end-of-render refill does, as before (one more Blender
+  start, one of `MAX_REFILL_ROUNDS`) -- unless a worker joins for it
+  (below, "Joining: a matter of time, not of frames").
+
+Both flags are deleted when the render ends (`_clear_render_flags()`),
+and by `discard_saved_frames()` if a crash left them. Checked in Blender
+4.5.2 LTS, background, the farm's placeholder settings: `render_pre`
+fires once per frame rendered (1, 2, 4, 5, 6 with frame 3 on disk),
+`frame_path()` names it, its empty placeholder already there;
+`os._exit(0)` from `render_write` once the stop file appears during
+frame 2: exit code 0, frames 1-2 on disk, no file at all past them.
+
+## Joining: a matter of time, not of frames
+
+`JOIN_MIN_FRAMES_LEFT` (more than 10 free frames per joining worker)
+stood for "worth opening the .blend". In frames it's wrong both ways:
+10 frames of 5 s aren't, 3 frames of 20 min are -- and a frame freed by
+a *Stop now* behind every machine never got a joiner.
+
+`_joiners_wanted()`, from the `.saved` records (`_render_timing()`):
+- every machine walks the range forward, so a free frame below the
+  furthest-back machine on the render (its last frame written this
+  dispatch; one with none yet sits at the range's start) is a hole only a
+  joiner renders before the end -- one joiner per hole;
+- past those, one more joins while the free frames ahead would keep the
+  machines on it, joiners included, busy longer than a joiner's start
+  (from a `start` line to that machine's first frame, less one frame) plus
+  one frame. Free = no file: a placeholder is a frame being rendered.
+Nothing timed yet (the render's first frames): the frame count as before.
+Still capped by `farm.max_workers_per_job`.
+
+## Which machine rendered which frame
+
+`_note_frames()` turns the `.saved` records into `frame_machines`: one
+letter per frame of the range ("." unknown), and the letters' machines
+(uuid, name). Frames interleave between machines (each takes the next
+free one: A 923, B 924, C 925, A 926...), so per-machine ranges barely
+collapse -- ~7 KB for 1443 frames on 3 machines, against 1.5 KB for the
+letters, and `render_history.json` is read on every dispatch
+(`last_render_had_collision()`). Unreadable by eye: the *Frame* field
+(`draw_frame_lookup()`) reads it, in the job's detail and in File
+details' last render (`read_render_state()` hands it over from the
+history -- there once the job is archived). A frame written in several
+rounds goes to this round's machine, else the latest line's. Names from
+the worker files when judged, else the record before (a worker removed
+since).
+
+## Time left: per machine, from each frame's time
+
+The popup's estimate was `elapsed / progress - elapsed`, elapsed counted
+from the last `render_start`. Right while the job keeps the machines it
+started with, wrong otherwise: a third machine joining halfway still
+counted the first half's pace; one leaving, the same. And after a refill
+(a new `render_start`) the frames already there made the progress jump,
+the time left near zero.
+
+The `.saved` record each machine keeps (frames written twice, above) now
+carries the time of each write, on that machine's clock:
+`"<dispatch_id> <frame> <time>"`. Two lines in a row of one render are
+one frame's time -- skipping frames already taken costs nothing, and the
+first frame of a render (it includes opening the .blend) has no
+predecessor. One clock per file: no worry about machines' clocks
+disagreeing, nor about the share's file times.
+
+Time left = frames still to render (no file, or empty) / the summed pace
+of the machines rendering the job *now* (worker files: "render" on this
+`job_id`), each at the mean of its last `_PACE_FRAMES` (10) frames --
+every machine goes through the range in order, so its next frames look
+like its last, and a heavy stretch of the shot shows up within ten
+frames. A machine that just joined, nothing timed yet, counts at the
+job's average. None of it (first frames, workers not updated): back to
+the old formula.
+
+Read by the popup's reader thread (`_frame_seconds_for_jobs()`), for the
+jobs at `render_start` only, each record parsed again only once its mtime
+or size changed: a line per frame, a few dozen KB for a long shot. When
+the render is judged, the monitor stores each machine's mean
+(`machine_seconds`) and the job's (`seconds_per_frame`) in the job file
+(`_note_frames()`, every round's lines, every machine's file);
+the render history keeps `seconds_per_frame`.
+
+Not done: counting the frame each machine has in progress (its share of
+it is done already). It needs "now" on the worker's clock -- one frame of
+error at most, on the high side.
+
 ---
+
+## Monitoring popups: reopening on the detail, or not
+
+Symptom: Project monitoring sometimes reopened on the file detail it was
+closed on, sometimes on the list -- the file staying open all along;
+Farm monitoring always reset to its list on open.
+
+The one thing that ever cleared the detail was its own operator, a
+toggle: `tracking_file_details` with the file already shown went back to
+the list. Two ways to hit it without meaning to:
+- a "Links to" / "Linked by" row naming the folder already shown;
+- the Back button, which sets no `filepath`: an operator property not
+  set by its button takes its *last used* value (Blender's remembered
+  operator properties, unless `SKIP_SAVE`), so Back carried whatever
+  was clicked last -- the tooltip too (`custom_tooltip`).
+Now never a toggle: no `filepath` (Back) = the list, a `filepath` = that
+file; both properties `SKIP_SAVE`. Same for `farm_job_details` (no
+`job_id` = the list).
+
+The detail moved off the WindowManager as well, into memory
+(`popup_detail()` / `set_popup_detail()`, `lib/core.py`) -- not
+confirmed as a cause (the first guess, "the WindowManager is saved in
+the .blend", doesn't match a reset with the file open), but nothing of
+Blender's (file load, `read_homefile()`, undo) can touch it there. OK
+keeps the detail for next time, re-read by `invoke()` (a file's
+thumbnail and last renders, a job's file -- gone: the list); Cancel or
+Escape (`cancel()`) clears it.
 
 ## Action popups: dialogs
 
 `M_PIPELINE_OT_action_popup` used `invoke_popup()`, chosen because it adds no footer of its own (`draw()` already draws every choice as a button). But a popup closes as soon as the mouse leaves it -- the append/link warning, among others, vanished before artists even read it. It's now an `invoke_props_dialog()`: it stays open until a button, Escape, or the footer.
 
-The footer can't be removed from a dialog, so it's made harmless: `confirm_text="Close"` plus the native Cancel, both just close it (execute with `choice_index == -1` / `cancel()`), and `cancel_default=True` so Enter never triggers anything. The first choice can't be wired to the confirm button instead: it isn't always the neutral one (the stable-file save guard's first choice is "Save").
+The footer can't be removed from a dialog, so it's made harmless: `confirm_text="Close"` plus the native Cancel, both just close it (execute with `choice_index == -1` / `cancel()`), and `cancel_default=True` so Enter never triggers anything. The first choice can't be wired to the confirm button instead: it isn't always the neutral one (the stable-file save guard's first choice is "Save"). So an action has no "Cancel" choice of its own: it showed three ways to cancel (the save guards, the stop-worker and FFmpeg warnings) -- its `on_dismiss` is what Cancel does.
 
 Closing without choosing runs the action's `on_dismiss`, once -- `PipelineAction.resolved` is set as soon as a choice runs, so the dialog closing right after a choice doesn't also dismiss it. The "External project Link done ?" warning now has an `on_dismiss` equal to its "Ignore" (record the link in the `.wipmeta`): before, a popup lost to the mouse silently skipped that record.
 

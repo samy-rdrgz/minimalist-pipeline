@@ -7,9 +7,10 @@ import bpy
 import bpy.utils.previews
 
 from ..farm import farm_activity
-from .farm_panel import job_icon
+from .farm_panel import draw_frame_lookup, job_icon
 from ..lib import (
     ConfigCache,
+    popup_detail,
     REVIEW_SOURCE,
     ProjectScan,
     TrackingStatusCache,
@@ -411,6 +412,17 @@ def _draw_last_renders(layout, filepath: str) -> bool:
         row = _render_row(col, label + r["folder"])
         _video_button(row, {"render": r["path"]}, label + r["folder"])
         _folder_button(row, r["path"])
+    # Which machine wrote frame n -- from render_history.json, there once the
+    # job is archived and gone from Farm monitoring.
+    renders = [
+        (
+            f"{r['shot']} " if block else "",
+            r.get("frame_machines"),
+            r.get("machine_seconds"),
+        )
+        for r in last
+    ]
+    draw_frame_lookup(col, renders)
     return True
 
 
@@ -494,12 +506,12 @@ def draw_file_details(self, context, layout):
         emboss=False,
     )
 
-    filepath = context.window_manager.file_details_selected
+    filepath = popup_detail("file")
 
     data = TrackingStatusCache.get(filepath)
     description = get_description(Path(filepath))
 
-    # file_details_selected is the tracked folder, not a versioned .blend --
+    # popup_detail("file") is the tracked folder, not a versioned .blend --
     # see NOTES.md.
     shot_prefix = json_get(ConfigCache.get(), "naming.shot.prefix", "sh")
     shot_name = Path(filepath).name

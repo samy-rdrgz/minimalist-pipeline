@@ -13,6 +13,7 @@ from ..farm import (
     get_job_details_path,
     get_monitor_cache,
     job_state,
+    machine_for_frame,
     recompilable,
     this_instance_is_worker,
 )
@@ -21,6 +22,7 @@ from ..lib import (
     draw_box_tip,
     get_active_project_root,
     get_user,
+    popup_detail,
 )
 
 FIRST_COLUMN = 0.4
@@ -178,6 +180,33 @@ def _duration(seconds: float) -> str:
     return f"{seconds // 60}m{seconds % 60:02d}s"
 
 
+def draw_frame_lookup(layout, renders: list) -> None:
+    """ "Frame [n] -> the machine that wrote it", for renders: (label, its
+    frame_machines, its machine_seconds) each -- a block's shots, one field
+    for all (their ranges don't overlap). Out of every range: the ranges.
+    Memory only: draw()-safe."""
+    renders = [r for r in renders if r[1] and r[1].get("frames")]
+    if not renders:
+        return
+    wm = bpy.context.window_manager
+    row = layout.row(align=True)
+    row.prop(wm, "farm_frame_lookup", text="Frame")
+    for label, record, seconds in renders:
+        found = machine_for_frame(record, wm.farm_frame_lookup)
+        if found:
+            uuid, name = found
+            pace = (seconds or {}).get(uuid)
+            text = f"{label}rendered by {name}"
+            row.label(text=text + (f"  ({_duration(pace)}/frame)" if pace else ""))
+            return
+    row.label(
+        text=", ".join(
+            f"{label}{r['start']} - {r['start'] + len(r['frames']) - 1}"
+            for label, r, _ in renders
+        )
+    )
+
+
 def _job_matches(self, job: dict, user: str) -> bool:
     if self.state != "all" and job_state(job["stage"]) != self.state:
         return False
@@ -255,10 +284,14 @@ def draw_farm_jobs(self, layout):
 
             elif j["frames_total"] > 0:
                 pct = j["frames_done"] / j["frames_total"]
-                if pct > 0:
-                    # elapsed / pct is the estimated total.
-                    remaining = _duration(elapsed / pct - elapsed)
-                    remaining_str = f"≃ {remaining} remaining"
+                # Frames left over the pace of the machines on it now
+                # (_time_left(), farm/loop.py) -- else, nothing timed yet,
+                # elapsed / pct as the estimated total.
+                left = j.get("time_left")
+                if left is None and pct > 0:
+                    left = elapsed / pct - elapsed
+                if left is not None:
+                    remaining_str = f"≃ {_duration(left)} remaining"
                 else:
                     remaining_str = "estimating..."
                 text = (
@@ -498,8 +531,11 @@ def draw_farm_workers(layout):
             # file names -- current_job is its request's full path.
             name = _job_name(job) if job else Path(m.get("current_file") or "").name
             text = f"render: {name or current_id}"
+            pace = ((job or {}).get("machine_seconds") or {}).get(m.get("uuid"))
+            if pace:
+                text += f"  ({_duration(pace)}/frame)"
             if m.get("stopping"):
-                text += "  (stops after this render)"
+                text += "  (stops after this frame)"
             _draw_job_link(jobs, current_id, text)
             job_id = uuid_to_job.get(m.get("uuid"))
             if job_id:
@@ -524,15 +560,13 @@ def draw_farm_job_details(layout, context):
     by M_PIPELINE_OT_farm_job_details on click (get_job_details()) -- never
     read from here. Every key with .get(): the file is hand-editable and
     older jobs lack the newer fields."""
-    job_id = context.window_manager.farm_job_selected
+    job_id = popup_detail("job")
     data = get_job_details()
 
     header = layout.row()
     back = header.row()
     back.alignment = "LEFT"
-    back.operator(
-        "m_pipeline.farm_job_details", text="", icon="BACK", emboss=False
-    ).job_id = job_id
+    back.operator("m_pipeline.farm_job_details", text="", icon="BACK", emboss=False)
     name = Path(data.get("filepath", "")).name or job_id
     if data.get("shot_override"):
         name = f"{name}  [{data['shot_override']}]"
@@ -623,6 +657,42 @@ def draw_farm_job_details(layout, context):
     field(col, "Machines", machine_names(data.get("used_machines")))
     if data.get("rendered_by"):
         field(col, "Rendered by", machine_names(data["rendered_by"]))
+    # Live from the monitor cache while it renders, else the job file's.
+    live = next(
+        (j for j in get_monitor_cache().get("jobs") or [] if j.get("job_id") == job_id),
+        {},
+    )
+    average = live.get("seconds_per_frame") or data.get("seconds_per_frame")
+    if average:
+        field(col, "Per frame", f"{_duration(average)} on average")
+    per_machine = live.get("machine_seconds") or data.get("machine_seconds") or {}
+    record = data.get("frame_machines") or {}
+    counts = {}
+    for letter in record.get("frames", ""):
+        uuid = (record.get("machines", {}).get(letter) or [""])[0]
+        if uuid:
+            counts[uuid] = counts.get(uuid, 0) + 1
+    if per_machine or counts:
+        names = {u: n for u, n in record.get("machines", {}).values()}
+
+        def machine_line(u):
+            parts = [f"{counts[u]} frames"] if u in counts else []
+            if u in per_machine:
+                parts.append(f"{_duration(per_machine[u])}/frame")
+            name = names.get(u) if u not in workers else machine_names([u])
+            return f"{name or u[:8]} ({', '.join(parts)})"
+
+        field(
+            col,
+            "Per machine",
+            ", ".join(machine_line(u) for u in sorted(set(per_machine) | set(counts))),
+        )
+    if record:
+        split = col.split(factor=FIRST_COLUMN)
+        left = split.row()
+        left.active = False
+        left.label(text="Who rendered")
+        draw_frame_lookup(split, [("", record, per_machine)])
     if data.get("failed_machines"):
         field(col, "Failed on", machine_names(data["failed_machines"]))
     if data.get("frames_corrupted"):

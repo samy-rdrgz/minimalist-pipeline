@@ -47,12 +47,14 @@ from ..lib import (
     locked_json,
     log,
     parse_filename,
+    popup_detail,
     prefix_items,
     read_json_quiet,
     resolve_ffmpeg,
     resolve_version_file,
     sequence_items,
     set_pending_action,
+    set_popup_detail,
     shot_items,
     shots_in_segment,
     version_items,
@@ -194,7 +196,6 @@ class M_PIPELINE_OT_farm_launch_monitor(bpy.types.Operator):
                     ),
                     severity="warning",
                     choices=[
-                        ("Cancel", None, "Don't launch the monitor."),
                         (
                             "Continue anyway",
                             self._continue_without_ffmpeg,
@@ -790,25 +791,24 @@ class M_PIPELINE_OT_farm_kill_self_worker(bpy.types.Operator):
                 title="Stop this worker",
                 message=(
                     "This machine is rendering a job right now.\n\n"
-                    "Stop the render too: it's interrupted now, the job carries "
-                    "on with its other machines (or is sent out again for the "
-                    "frames left).\n"
-                    "Let it finish: no new render is picked up, the worker "
-                    "stops once this one is done."
+                    "After this frame: the frame it's on is written, then the "
+                    "worker stops -- the job carries on with its other machines "
+                    "(or is sent out again for the frames left).\n"
+                    "Stop now: the render is interrupted, its frame in progress "
+                    "is lost and freed for another machine."
                 ),
                 severity="warning",
                 choices=[
                     (
-                        "Stop the render too",
+                        "After this frame",
+                        lambda: stop_worker(kill_render=False),
+                        "Write the frame in progress, then stop the worker.",
+                    ),
+                    (
+                        "Stop now",
                         lambda: stop_worker(kill_render=True),
                         "Interrupt the render now and stop the worker.",
                     ),
-                    (
-                        "Let it finish",
-                        lambda: stop_worker(kill_render=False),
-                        "Finish the current render, then stop the worker.",
-                    ),
-                    ("Cancel", None, "Keep the worker running."),
                 ],
             )
         )
@@ -835,7 +835,7 @@ class M_PIPELINE_OT_farm_stop_worker(bpy.types.Operator):
     bl_label = "Stop worker"
     bl_description = (
         "Stop this machine's worker. If it's rendering, choose whether its "
-        "render is interrupted or finishes first."
+        "render is interrupted or writes its frame in progress first."
     )
 
     target_uuid: bpy.props.StringProperty()
@@ -857,26 +857,25 @@ class M_PIPELINE_OT_farm_stop_worker(bpy.types.Operator):
                 title=f"Stop worker {name}",
                 message=(
                     f"{name} is rendering a job right now.\n\n"
-                    "Stop the render too: it's interrupted now, the job carries "
-                    "on with its other machines (or is sent out again for the "
-                    "frames left).\n"
-                    "Let it finish: no new render is picked up, the worker "
-                    "stops once this one is done.\n\n"
+                    "After this frame: the frame it's on is written, then the "
+                    "worker stops -- the job carries on with its other machines "
+                    "(or is sent out again for the frames left).\n"
+                    "Stop now: the render is interrupted, its frame in progress "
+                    "is lost and freed for another machine.\n\n"
                     "Takes effect on its next tick (about 10 s)."
                 ),
                 severity="warning",
                 choices=[
                     (
-                        "Stop the render too",
+                        "After this frame",
+                        lambda: request_worker_stop(uuid, False, user),
+                        "Write its frame in progress, then stop the worker.",
+                    ),
+                    (
+                        "Stop now",
                         lambda: request_worker_stop(uuid, True, user),
                         "Interrupt its render now and stop the worker.",
                     ),
-                    (
-                        "Let it finish",
-                        lambda: request_worker_stop(uuid, False, user),
-                        "Finish its current render, then stop the worker.",
-                    ),
-                    ("Cancel", None, "Keep the worker running."),
                 ],
             )
         )
@@ -925,7 +924,9 @@ class M_PIPELINE_OT_farm_cancel_job(bpy.types.Operator):
         user = get_user(context)
         # A machine that hasn't picked up its render yet has nothing to
         # kill: its request is withdrawn instead (else it renders later).
-        running = cancel_pending_renders(self.job_id, machines)
+        running = cancel_pending_renders(
+            self.job_id, machines, whole_job=not self.target_uuid
+        )
         for uuid in running:
             job_cancel_request(job_id=self.job_id, target_uuid=uuid, user=user)
         self.report({"INFO"}, f"Cancel requested ({len(machines)} machine(s)).")
@@ -1020,7 +1021,7 @@ class M_PIPELINE_OT_farm_retry_job(bpy.types.Operator):
         if not target:
             self.report({"WARNING"}, "This job didn't fail: nothing to retry.")
             return {"CANCELLED"}
-        if context.window_manager.farm_job_selected == self.job_id:
+        if popup_detail("job") == self.job_id:
             load_job_details(self.job_id)
         self.report({"INFO"}, f"Job sent back to {target}.")
         return {"FINISHED"}
@@ -1062,33 +1063,34 @@ class M_PIPELINE_OT_farm_recompile_job(bpy.types.Operator):
         if not done:
             self.report({"WARNING"}, "Only a finished render can be recompiled.")
             return {"CANCELLED"}
-        if context.window_manager.farm_job_selected == self.job_id:
+        if popup_detail("job") == self.job_id:
             load_job_details(self.job_id)
         self.report({"INFO"}, "Compilation requested again.")
         return {"FINISHED"}
 
 
 class M_PIPELINE_OT_farm_job_details(bpy.types.Operator):
-    """Farm monitoring popup: switch to one job's detail view, or back to
-    the list. Reads the job file here, once per click -- never in draw()."""
+    """Farm monitoring popup: show one job's detail (job_id; reload: read it
+    again), or the list (no job_id: the Back button). Reads the job file
+    here, once per click -- never in draw()."""
 
     bl_idname = "m_pipeline.farm_job_details"
     bl_label = ""
     bl_description = "Show this job's details."
 
-    job_id: bpy.props.StringProperty()
+    # SKIP_SAVE, never a toggle: see M_PIPELINE_OT_tracking_file_details.
+    job_id: bpy.props.StringProperty(options={"SKIP_SAVE"})
     reload: bpy.props.BoolProperty(options={"SKIP_SAVE"})
 
     def execute(self, context):
-        wm = context.window_manager
-        if wm.farm_job_selected == self.job_id and not self.reload:
-            wm.farm_job_selected = ""  # back to the list
+        if not self.job_id:
+            set_popup_detail("job", "")  # Back: the list
             return {"FINISHED"}
         if load_job_details(self.job_id) is None:
-            wm.farm_job_selected = ""
+            set_popup_detail("job", "")
             self.report({"WARNING"}, "Job file not found (deleted?).")
             return {"CANCELLED"}
-        wm.farm_job_selected = self.job_id
+        set_popup_detail("job", self.job_id)
         return {"FINISHED"}
 
 
@@ -1145,7 +1147,11 @@ class M_PIPELINE_OT_farm_monitor(bpy.types.Operator):
             self.report({"ERROR"}, "No active project.")
             return {"CANCELLED"}
 
-        context.window_manager.farm_job_selected = ""  # always open on the list
+        # Reopens on the job it showed when closed with OK (Cancel: back to
+        # the list) -- read again, it has moved on since.
+        job_id = popup_detail("job")
+        if job_id and load_job_details(job_id) is None:
+            set_popup_detail("job", "")
         register_refresh_timer()
 
         return context.window_manager.invoke_props_dialog(
@@ -1153,11 +1159,14 @@ class M_PIPELINE_OT_farm_monitor(bpy.types.Operator):
         )
 
     def execute(self, context):
+        """OK: keeps the job shown in detail for next time."""
         unregister_refresh_timer()
         return {"FINISHED"}
 
     def cancel(self, context):
+        """Cancel / Escape: next time opens on the list."""
         unregister_refresh_timer()
+        set_popup_detail("job", "")
 
     def draw(self, context):
         # context.region_popup (Blender 4.2+) only exists while this popup is
@@ -1166,7 +1175,7 @@ class M_PIPELINE_OT_farm_monitor(bpy.types.Operator):
         register_popup_region(getattr(context, "region_popup", None))
 
         layout = self.layout
-        if context.window_manager.farm_job_selected:
+        if popup_detail("job"):
             draw_farm_job_details(layout.box(), context)
             return
 

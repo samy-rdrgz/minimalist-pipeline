@@ -126,7 +126,9 @@ class M_PIPELINE_OT_action_popup(bpy.types.Operator):
         ops = layout.row() if len(self._action.choices) < 3 else layout.column()
         ops.operator_context = "EXEC_DEFAULT"
 
-        # No "OK" of our own: the dialog's footer closes it.
+        # No "OK" nor "Cancel" of our own: the dialog's footer (Cancel /
+        # Close) closes it, running on_dismiss -- a "Cancel" choice only
+        # doubled it.
         for i, choice in enumerate(self._action.choices):
             label = choice[0]
             op = ops.operator("m_pipeline.action_popup", text=label)

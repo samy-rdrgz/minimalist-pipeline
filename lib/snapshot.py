@@ -106,7 +106,8 @@ def _owner_shots(owner: Path) -> list[str]:
 
 def read_render_state(root: Path, kind: str, owner: Path, v_prefix: str = "v") -> list:
     """What was last rendered for an asset/shot folder, per shot (a block
-    has several, anything else one): [{"shot", "file", "folder", "path"}],
+    has several, anything else one): [{"shot", "file", "folder", "path",
+    "frame_machines", "machine_seconds"}] (the last two None without them),
     path the render folder's absolute path. From the
     folder's render_history.json -- its last finished render of that shot,
     file = the .blend it rendered -- else (no such entry, or an entry from
@@ -142,6 +143,10 @@ def read_render_state(root: Path, kind: str, owner: Path, v_prefix: str = "v") -
                     "file": Path(last["source_file"]).name,
                     "folder": folder.name if folder else None,
                     "path": str(folder) if folder else None,
+                    # Which machine wrote each frame, and their pace
+                    # (farm queue._note_frames()): File details' lookup.
+                    "frame_machines": last.get("frame_machines"),
+                    "machine_seconds": last.get("machine_seconds"),
                 }
             )
             continue
@@ -386,10 +391,10 @@ def average_progress(items: list) -> float | None:
 
 
 def parse_day(value: str) -> date:
-    """A date typed day first -- 20/10/2026, 20-10-2026, 20.10.2026 -- or ISO
-    (2026-10-20). Raises PipelineError otherwise."""
+    """A date typed day first -- 20/10/2026, 20-10-2026, 20.10.2026 -- or
+    year first (2026-10-20, 2026/10/20). Raises PipelineError otherwise."""
     value = value.strip()
-    for fmt in ("%d/%m/%Y", "%d-%m-%Y", "%d.%m.%Y", "%Y-%m-%d"):
+    for fmt in ("%d/%m/%Y", "%d-%m-%Y", "%d.%m.%Y", "%Y-%m-%d", "%Y/%m/%d"):
         try:
             return datetime.strptime(value, fmt).date()
         except ValueError:
@@ -1053,7 +1058,6 @@ def _columns_menu(departments) -> str:
     return f'<details class="cols"><summary>Columns</summary><div>{boxes}</div></details>'
 
 
-
 def _slug(name: str) -> str:
     return re.sub(r"[^\w\-]", "_", name)
 
@@ -1186,14 +1190,10 @@ def _progress_cell(progress: float | None) -> str:
 
 
 def _render_cell(item: dict) -> str:
-    """ "Last render" cell, one line per render: its status pill on the left
-    -- so every status lines up down the table -- then its output folder,
-    vXXX_YYY (XXX the .blend version rendered, YYY the render increment),
-    in red when XXX is older than the last stable. Pills: "to check" until
-    the team checked it, then the farm's (_farm_pill()) for the jobs still
-    in it -- on their render's line when it's already listed. One line per
-    shot when a block's shots differ. "not rendered" for a shot never
-    rendered, nothing for an asset never rendered (most never are)."""
+    """ "Last render" cell: one line per render (per shot when a block's
+    shots differ), a status pill -- "to check", else _farm_pill() -- then
+    its vXXX_YYY folder, red when older than the last stable. "not
+    rendered" for a shot never rendered, nothing for such an asset."""
     renders = item.get("renders") or []
     to_check = list(item.get("to_check") or [])
     # [labels, pill, text, shot of a "not rendered" line]: labels as
@@ -2042,11 +2042,10 @@ def parse_review_date(value: str) -> datetime | None:
         return datetime(1899, 12, 30) + timedelta(days=float(value))
     except ValueError:
         pass
-    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%d-%m-%Y", "%d.%m.%Y", "%Y/%m/%d"):
-        try:
-            return datetime.strptime(value, fmt)
-        except ValueError:
-            continue
+    try:
+        return datetime.combine(parse_day(value), datetime.min.time())
+    except PipelineError:
+        pass
     try:
         return datetime.fromisoformat(value)
     except ValueError:

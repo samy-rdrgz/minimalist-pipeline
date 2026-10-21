@@ -58,6 +58,8 @@ from .config import (
 from .core import (
     AdoptedProcess,
     addon_pref,
+    popup_detail,
+    set_popup_detail,
     cached_scandir,
     draw_box_tip,
     get_addon_version,
@@ -127,6 +129,8 @@ from .session import (
     close_session,
     get_opened_as_read_only,
     get_read_only_reason,
+    note_read_only_saved,
+    read_only_unchanged_on_disk,
     get_user,
     get_user_data,
     load_project_data,

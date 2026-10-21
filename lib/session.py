@@ -280,7 +280,8 @@ def scan_sessions():
             pass
 
 
-_opened_as_read_only: dict = {"value": "", "reason": ""}
+# mtime: the file's on disk when it was flagged -- what this session opened.
+_opened_as_read_only: dict = {"value": "", "reason": "", "mtime": None}
 
 
 def get_opened_as_read_only() -> str:
@@ -293,11 +294,39 @@ def get_read_only_reason() -> str:
     return _opened_as_read_only["reason"]
 
 
+def _mtime(filepath: str) -> float | None:
+    try:
+        return os.stat(filepath).st_mtime if filepath else None
+    except OSError:
+        return None
+
+
 def set_opened_as_read_only(value: str = "", reason: str = ""):
-    """Flag filepath as read-only for this session (empty string clears it)."""
+    """Flag filepath as read-only for this session (empty string clears it),
+    noting its mtime: the version on disk this session opened."""
     global _opened_as_read_only
     _opened_as_read_only["value"] = value
     _opened_as_read_only["reason"] = reason
+    _opened_as_read_only["mtime"] = _mtime(value)
+
+
+def read_only_unchanged_on_disk(filepath: str) -> bool:
+    """Whether filepath, flagged read-only, is still on disk as this session
+    opened it (or last saved it over): nobody saved it since, so saving
+    over it loses nothing."""
+    recorded = _opened_as_read_only["mtime"]
+    return (
+        _opened_as_read_only["value"] == filepath
+        and recorded is not None
+        and _mtime(filepath) == recorded
+    )
+
+
+def note_read_only_saved(filepath: str) -> None:
+    """This session just saved over filepath, flagged read-only: what's on
+    disk is its own again (read_only_unchanged_on_disk())."""
+    if _opened_as_read_only["value"] == filepath:
+        _opened_as_read_only["mtime"] = _mtime(filepath)
 
 
 def warn_blender_version_mismatch() -> None:
