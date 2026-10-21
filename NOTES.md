@@ -2464,11 +2464,31 @@ compared with `bpy.data.filepath`.
 
 Project monitoring first, then Farm monitoring the same way: the screen's
 ID property says which (`"project"` / `"farm"`; `True`, from the first
-version, reads as `"project"`), each panel polls its own. Both panels now
-have a header, "Pipeline : ..." -- a box like Blender's Options and
-Workspace, Ctrl+click folds the others. The price, checked: a panel with a
-header is placed after the Tool tab's own (Options, Workspace), and
-`bl_order` can't go below 0 -- drag it up by its grip. Farm monitoring's
+version, reads as `"project"`), each panel polls its own. Tried, then
+dropped: a header ("Pipeline : ..." -- a collapsible box like Options and
+Workspace): a panel with a header is placed after the Tool tab's own, and
+`bl_order` can't go below 0. Headerless again, the content in a
+`layout.box()`, first in the tab.
+
+**Child windows follow the main one's workspace.** A window opened by
+`window_new()` is the main window's child: when the main window switches
+workspace (a tab click), Blender switches its children too (only temporary
+screens are spared), each onto a new layout -- without the screen's ID
+property: the monitoring window went blank. Each one's kind is kept by
+window pointer (`_window_kinds`) and `monitoring_windows()` marks its
+screen again. Checked: switch to Modeling, both windows keep their content.
+Also learned there: `window.workspace = ...` from a timer (no window in
+context) switches *every* window; setting a space's property from a timer
+without a window in context crashed Blender (4.0) -- `_show_tool_tab()`
+works in its window's context.
+
+**Workspaces: not added.** A "Project" / "Farm" workspace each was built
+(a duplicate of the active one, its areas closed but one) and works, but a
+workspace belongs to the .blend, not to Blender: every file would need it
+added, and the files opened with their own UI wouldn't have it. The window
+is enough.
+
+Farm monitoring's
 refresh (`_refresh_tick`, every 2 s, was the popup's) runs while its
 window is open: `_monitoring_tick` starts it, and again after a file load
 (`post_load_handler()` stops it), and stops it with the last window.

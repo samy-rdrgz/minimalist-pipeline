@@ -711,10 +711,16 @@ def draw_file_details(state, context, layout):
     layout.separator(factor=2)
 
 
+# Project monitoring's table never has fewer rows (blank ones below).
+MIN_ROWS = 6
+
+
 def draw_monitor_table(self, context, layout, columns, project_root):
     """Filtered file list, Project monitoring's main view -- self is
     WindowManager.pipeline_monitoring (file_type/asset_prefix/sequence/search
-    filters). One list, no pages: the window's region scrolls."""
+    filters). One list, no pages: the window's region scrolls -- padded
+    with blank rows to MIN_ROWS, so a filter matching little doesn't
+    shrink the table to nothing."""
     # Memory only: ProjectScan fills the cache in the background, the farm
     # column comes from the farm monitor's cache.
     data = TrackingStatusCache.known(Path(project_root))
@@ -785,6 +791,8 @@ def draw_monitor_table(self, context, layout, columns, project_root):
         _draw_monitor_row(
             self, f_list, dir, file, columns, FIRST_COLUMN, activity.get(owner_key(dir))
         )
+    for _ in range(MIN_ROWS - total):
+        _draw_monitor_blank_row(f_list, columns, FIRST_COLUMN)
 
     footer = f_list.row()
     # Dimmed, except the legend: its colours are the point.
@@ -986,6 +994,17 @@ def _video_button(layout, info: dict, label: str) -> None:
     op.video = info.get("video") or ""
     at = _to_check_at(info)
     op.custom_tooltip = f"Play {label}" + (f"  ({at})" if at else "")
+
+
+def _draw_monitor_blank_row(f_list, columns, first_column):
+    """Empty row, same height as a file's -- see MIN_ROWS."""
+    row = f_list.column()
+    row.active = False
+    split = row.split(factor=first_column)
+    split.row().label(text="")
+    for cell in _equal_cells(split.row(), len(columns) + 1):  # + "Farm"
+        cell.label(text="", icon="BLANK1")
+    f_list.separator(factor=0.5, type="LINE")
 
 
 def _has_rtk(data: dict, department: str | None = None) -> bool:

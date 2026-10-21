@@ -180,6 +180,17 @@ def _duration(seconds: float) -> str:
     return f"{seconds // 60}m{seconds % 60:02d}s"
 
 
+def machine_label(uuid: str, recorded: str = "") -> str:
+    """A machine as people know it: its worker's user and id ("Alice
+    (a1b2c3d4)") -- a machine is only ever named by its id, no hostname
+    read. Else the name recorded with the render, else the id. Memory
+    only (the monitor cache's workers): draw()-safe."""
+    worker = (get_monitor_cache().get("workers") or {}).get(uuid) or {}
+    if worker.get("user"):
+        return f"{worker['user']} ({worker.get('machine') or uuid[:8]})"
+    return worker.get("machine") or recorded or uuid[:8]
+
+
 def draw_frame_lookup(layout, renders: list) -> None:
     """ "Frame [n] -> the machine that wrote it", for renders: (label, its
     frame_machines, its machine_seconds) each -- a block's shots, one field
@@ -198,6 +209,8 @@ def draw_frame_lookup(layout, renders: list) -> None:
         found = machine_for_frame(record, wm.farm_frame_lookup)
         if found:
             uuid, name = found
+            if uuid:
+                name = machine_label(uuid, name)
             pace = (seconds or {}).get(uuid)
             text = f"{label}rendered by {name}"
             answer.label(text=text + (f"  ({_duration(pace)}/frame)" if pace else ""))
@@ -593,12 +606,8 @@ def draw_farm_job_details(layout, context):
         layout.label(text="Job file not found.", icon="ERROR")
         return
 
-    workers = get_monitor_cache().get("workers") or {}
-
     def machine_names(uuids) -> str:
-        return ", ".join(
-            (workers.get(u) or {}).get("machine") or u[:8] for u in uuids or []
-        ) or "-"
+        return ", ".join(machine_label(u) for u in uuids or []) or "-"
 
     def field(col, label: str, value, icon: str = "NONE"):
         split = col.split(factor=FIRST_COLUMN)
@@ -667,8 +676,7 @@ def draw_farm_job_details(layout, context):
             parts = [f"{counts[u]} frames"] if u in counts else []
             if u in per_machine:
                 parts.append(f"{_duration(per_machine[u])}/frame")
-            name = names.get(u) if u not in workers else machine_names([u])
-            return f"{name or u[:8]} ({', '.join(parts)})"
+            return f"{machine_label(u, names.get(u))} ({', '.join(parts)})"
 
         field(
             col,

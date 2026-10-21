@@ -18,11 +18,13 @@ from .tracking_panel import draw_file_details, draw_monitor_table
 
 class _MonitoringPanel:
     # The Properties editor's Tool tab shows the 3D View sidebar's "Tool"
-    # panels -- the only way into it. A header like Blender's own Options
-    # and Workspace: Ctrl+click it folds every other panel.
+    # panels -- the only way into it. Headerless: drawn first, right under
+    # Blender's own headerless active tool (a panel with a header goes after
+    # the tab's own, Options and Workspace).
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Tool"
+    bl_options = {"HIDE_HEADER"}
     kind = ""
 
     @classmethod
@@ -39,10 +41,11 @@ class _MonitoringPanel:
         # The window may come back with a .blend saved with it open, no
         # operator run: the scan and redraws start from here then.
         ensure_monitoring_tick()
+        layout = self.layout.box()
         if not get_active_project_root():
-            self.layout.label(text="No active project.", icon="ERROR")
+            layout.label(text="No active project.", icon="ERROR")
             return
-        self.draw_content(context, self.layout)
+        self.draw_content(context, layout)
 
 
 class M_PIPELINE_PT_monitoring(_MonitoringPanel, bpy.types.Panel):

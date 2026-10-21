@@ -919,9 +919,14 @@ def _note_frames(data: dict) -> None:
 
 
 def _machine_name(uuid: str, known: dict) -> str:
-    """Machine uuid's name: its worker file's, else the one recorded before
-    (a worker removed since), else its uuid's start."""
-    return (_read_worker(uuid) or {}).get("machine") or known.get(uuid) or uuid[:8]
+    """Machine uuid's name: its worker's user and id ("Alice (a1b2c3d4)" --
+    the id alone, all a worker file says of the machine, told nobody who it
+    was), else the one recorded before (a worker removed since), else its
+    uuid's start."""
+    worker = _read_worker(uuid) or {}
+    if worker.get("user"):
+        return f"{worker['user']} ({worker.get('machine') or uuid[:8]})"
+    return worker.get("machine") or known.get(uuid) or uuid[:8]
 
 
 def machine_for_frame(record: dict | None, frame: int) -> tuple[str, str] | None:

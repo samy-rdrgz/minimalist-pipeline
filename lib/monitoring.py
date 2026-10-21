@@ -19,6 +19,12 @@ MONITORING_KINDS = ("project", "farm")
 _TICK = 0.5
 _FARM_READ_EVERY = 10.0
 
+# Which windows are monitoring windows, by pointer: a window opened by
+# window_new() is the main window's child, and follows it to every workspace
+# it switches to -- on a new screen each time, without the mark. Re-marked
+# from here (monitoring_windows()).
+_window_kinds: dict = {}
+
 _last_seen: dict = {}
 _last_farm_read = 0.0
 # Whether _monitoring_tick started the farm's refresh timer (for a Farm
@@ -41,6 +47,15 @@ def monitoring_windows(kind: str | None = None) -> list:
     wm = bpy.context.window_manager
     if wm is None:
         return []
+    live = {w.as_pointer(): w for w in wm.windows}
+    for ptr in [p for p in _window_kinds if p not in live]:
+        del _window_kinds[ptr]  # closed, or a file load
+    for ptr, window_kind in _window_kinds.items():
+        window = live[ptr]
+        if monitoring_kind(window.screen) != window_kind:
+            window.screen[MONITORING_SCREEN_KEY] = window_kind
+            for area in window.screen.areas:
+                area.tag_redraw()
     return [
         w
         for w in wm.windows
@@ -66,6 +81,7 @@ def open_monitoring_window(context, kind: str) -> bool:
     # No search field: it would filter the table's labels.
     area.spaces.active.show_region_header = False
     screen[MONITORING_SCREEN_KEY] = kind
+    _window_kinds[window.as_pointer()] = kind
     try:
         # The tab column: nothing to switch to here.
         with context.temp_override(window=window, area=area):
@@ -74,21 +90,29 @@ def open_monitoring_window(context, kind: str) -> bool:
         pass
     # The editor's tabs are only known once it has been drawn: "TOOL" isn't
     # a valid value yet.
-    bpy.app.timers.register(_show_tool_tab(), first_interval=0.0)
+    bpy.app.timers.register(_show_tool_tab(window.as_pointer()), first_interval=0.0)
     ensure_monitoring_tick()
     return True
 
 
-def _show_tool_tab(tries: int = 20):
+def _show_tool_tab(window_ptr: int, tries: int = 20):
+    """That window's Properties editor on its Tool tab -- that window only,
+    and in its context: a timer has none, and setting a space's property
+    without one can crash Blender."""
+
     def tick():
         nonlocal tries
         tries -= 1
+        wm = bpy.context.window_manager
+        window = next((w for w in wm.windows if w.as_pointer() == window_ptr), None)
+        if window is None:
+            return None
         pending = False
-        for window in monitoring_windows():
-            for area in window.screen.areas:
-                space = area.spaces.active
-                if area.type != "PROPERTIES" or space.context == "TOOL":
-                    continue
+        for area in window.screen.areas:
+            space = area.spaces.active
+            if area.type != "PROPERTIES" or space.context == "TOOL":
+                continue
+            with bpy.context.temp_override(window=window, screen=window.screen, area=area):
                 try:
                     space.context = "TOOL"
                 except TypeError:

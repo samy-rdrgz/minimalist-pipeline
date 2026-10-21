@@ -11,11 +11,15 @@ All notable changes to this addon. Dates are release dates.
   pipeline keep it open (they open without their own interface layout
   while it is); its filters stay as they were for the session.
 - **Farm monitoring too**: its own window, one list, refreshed every 2 s
-  while open. Both show their content in a "Pipeline : ..." section of
-  the window (Ctrl+click its header folds Blender's own sections).
+  while open. Both show their content first, in a box; Project
+  monitoring's list always has at least 6 rows, whatever the filters.
+- **A monitoring window no longer goes blank when the main window
+  switches workspace.**
 - **File details, last render: the machine that rendered a frame is no
   longer cut** ("rendered by WOR...02"): the answer has its own line
-  under the Frame field (Farm monitoring's job detail too).
+  under the Frame field (Farm monitoring's job detail too) -- and names
+  the machine by its user, "Alice (a1b2c3d4)", not by its id alone (also
+  the job detail's machines).
 
 ## 1.0.17 — 2026-10-21
 
