@@ -10,7 +10,7 @@ from ..farm import farm_activity
 from .farm_panel import draw_frame_lookup, job_icon
 from ..lib import (
     ConfigCache,
-    popup_detail,
+    monitoring_detail,
     REVIEW_SOURCE,
     ProjectScan,
     TrackingStatusCache,
@@ -41,14 +41,14 @@ from ..lib import (
     thumbnail_path,
 )
 
-# Monitoring popups' width: this share of the Blender window, never under
+# Popups' width (the Pipeline log): this share of the Blender window, never under
 # MONITOR_POPUP_MIN_WIDTH (unless the window itself is smaller).
 MONITOR_POPUP_SHARE = 0.8
 MONITOR_POPUP_MIN_WIDTH = 900
 
 
 def popup_width(context) -> int:
-    """Width for a monitoring popup's invoke_props_dialog(), from the
+    """Width for a popup's invoke_props_dialog() (the Pipeline log), from the
     window it opens in. A dialog's width is unscaled px (Blender applies
     the UI scale to it), the window's is real px."""
     scale = context.preferences.system.ui_scale or 1.0
@@ -492,7 +492,9 @@ def unregister_thumbnail_previews() -> None:
     _last_renders.clear()
 
 
-def draw_file_details(self, context, layout):
+def draw_file_details(state, context, layout):
+    """Project monitoring's file detail (monitoring_detail("file")) -- state is
+    WindowManager.pipeline_monitoring (its notes/tasks filters)."""
 
     box = layout
     row = box.row(align=True)
@@ -506,12 +508,12 @@ def draw_file_details(self, context, layout):
         emboss=False,
     )
 
-    filepath = popup_detail("file")
+    filepath = monitoring_detail("file")
 
     data = TrackingStatusCache.get(filepath)
     description = get_description(Path(filepath))
 
-    # popup_detail("file") is the tracked folder, not a versioned .blend --
+    # monitoring_detail("file") is the tracked folder, not a versioned .blend --
     # see NOTES.md.
     shot_prefix = json_get(ConfigCache.get(), "naming.shot.prefix", "sh")
     shot_name = Path(filepath).name
@@ -616,9 +618,11 @@ def draw_file_details(self, context, layout):
         deps_row = tabl.column(align=True)
         deps_row.scale_y = 0.8
         validated = get_current_departments(Path(filepath))
+        # Short: in this LEFT-aligned row, the column only gets its label's
+        # estimated width -- "...for this file :" was cut ("...for this fil...").
         txt = deps_row.row(align=True)
         txt.separator(factor=0.5)
-        txt.label(text="Departments required for this file :", icon="TAG")
+        txt.label(text="Departments required :", icon="TAG")
         for d in required:
             btn = deps_row.row(align=True)
             btn.label(text="", icon="BLANK1")
@@ -703,22 +707,25 @@ def draw_file_details(self, context, layout):
     _draw_farm_jobs(layout, filepath)
     layout.separator(factor=2)
 
-    # Drawn in M_PIPELINE_OT_tracking_monitor's dialog, whose region isn't
-    # context.region: pass the dialog's real width -- see
-    # region_char_budget() / POPUP_WIDTH_SCALE in lib/core.py.
-    budget = region_char_budget(context, width_px=self.popup_width)
-    width = int(budget * ENTRIES_INDENT_FACTOR)
-    draw_entries(layout.column(align=True), filepath, filters=self, width=width)
+    # Drawn in the monitoring window's own region: its real width.
+    width = int(region_char_budget(context) * ENTRIES_INDENT_FACTOR)
+    draw_entries(layout.column(align=True), filepath, filters=state, width=width)
     layout.separator(factor=2)
 
 
-def draw_monitor_table(self, context, layout, columns):
-    """Filtered, paginated file list for M_PIPELINE_OT_tracking_monitor's main
-    view -- self is that operator instance (file_type/asset_prefix/sequence/
-    search/page state lives on it, same convention as draw_file_details() above)."""
+# Project monitoring's table never has fewer rows (blank ones below).
+MIN_ROWS = 6
+
+
+def draw_monitor_table(self, context, layout, columns, project_root):
+    """Filtered file list, Project monitoring's main view -- self is
+    WindowManager.pipeline_monitoring (file_type/asset_prefix/sequence/search
+    filters). One list, no pages: the window's region scrolls -- padded
+    with blank rows to MIN_ROWS, so a filter matching little doesn't
+    shrink the table to nothing."""
     # Memory only: ProjectScan fills the cache in the background, the farm
     # column comes from the farm monitor's cache.
-    data = TrackingStatusCache.known(Path(self.project_root))
+    data = TrackingStatusCache.known(Path(project_root))
     activity = farm_activity()
     FIRST_COLUMN = 0.3
     types = {
@@ -769,14 +776,7 @@ def draw_monitor_table(self, context, layout, columns):
     # shots -- no separate sort key needed per file_type.
     matches.sort(key=lambda m: m[1].get("file_name") or "")
 
-    # Fixed number of rows per page (padded with blanks below) so the
-    # popup's height stays constant across pages and filters -- it would
-    # otherwise resize on every redraw, which reads as the window
-    # jumping around.
     total = len(matches)
-    total_pages = max(1, -(-total // self.PAGE_SIZE))  # ceil division
-    self.page = max(1, min(self.page, total_pages))
-    page_items = matches[(self.page - 1) * self.PAGE_SIZE : self.page * self.PAGE_SIZE]
 
     f_list = layout.box()
     title_list = f_list.split(factor=FIRST_COLUMN)
@@ -789,12 +789,11 @@ def draw_monitor_table(self, context, layout, columns):
 
     f_list.separator(factor=1)
 
-    for dir, file in page_items:
+    for dir, file in matches:
         _draw_monitor_row(
             self, f_list, dir, file, columns, FIRST_COLUMN, activity.get(owner_key(dir))
         )
-
-    for _ in range(self.PAGE_SIZE - len(page_items)):
+    for _ in range(MIN_ROWS - total):
         _draw_monitor_blank_row(f_list, columns, FIRST_COLUMN)
 
     footer = f_list.row()
@@ -825,12 +824,6 @@ def draw_monitor_table(self, context, layout, columns):
     legend.separator(factor=3)
     for icon, text in _FARM_LEGEND:
         legend.label(text=text, icon=icon)
-    if total_pages > 1:
-        pager = footer.row(align=True)
-        pager.alignment = "RIGHT"
-        pager.active = False
-        pager.label(text=f"Page {self.page} / {total_pages}")
-        pager.prop(self, "page", text="")
 
 
 def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None):
@@ -924,7 +917,7 @@ def _to_check_at(info: dict) -> str:
     return (info.get("at") or "")[:16].replace("T", " ")
 
 
-# Farm column: one icon per render, the Farm popup's for its stage
+# Farm column: one icon per render, Farm monitoring's for its stage
 # (job_icon()); a render to check is a finished job's.
 _TO_CHECK_ICON = job_icon("finished")
 _FARM_LEGEND = (
@@ -1006,8 +999,7 @@ def _video_button(layout, info: dict, label: str) -> None:
 
 
 def _draw_monitor_blank_row(f_list, columns, first_column):
-    """Empty placeholder row, same height as a real one, so a half-filled
-    last page doesn't shrink the popup."""
+    """Empty row, same height as a file's -- see MIN_ROWS."""
     row = f_list.column()
     row.active = False
     split = row.split(factor=first_column)

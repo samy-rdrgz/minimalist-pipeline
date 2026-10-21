@@ -703,10 +703,10 @@ real scope and a real trust-surface increase (fetching and then running a
 third-party binary automatically) for a "manage project files" tool. A
 deliberate call to make, not a default to slide into.
 
-## File details' `popup_detail("file")` is a folder, not a versioned file
+## File details' `monitoring_detail("file")` is a folder, not a versioned file
 
 `M_PIPELINE_OT_tracking_monitor`'s file-details view (`draw_file_details()`,
-`panels/tracking_panel.py`) reads `popup_detail("file")` (was `context.window_manager.file_details_selected`)
+`panels/tracking_panel.py`) reads `monitoring_detail("file")` (was `context.window_manager.file_details_selected`)
 — set by clicking a row in the monitor's own list (`_draw_monitor_row()`),
 via `op.filepath = str(dir)` where `dir` is `TrackingStatusCache.get_all()`'s
 own `asset_dir` (a folder, not a `.blend`). Code written assuming it was a
@@ -720,7 +720,7 @@ both ends: `draw_file_details()` reads the shot/block segment straight off
 the folder's own name (`shots_in_segment()`, no `parse_filename()` needed),
 and `M_PIPELINE_OT_compile_preview.execute()` now resolves a folder to any
 real versioned `.blend` inside it before parsing. Any new code touching
-`popup_detail("file")` should assume folder, not file.
+`monitoring_detail("file")` should assume folder, not file.
 
 ## `resolve_bpy_path()` left "../" uncollapsed in every stored link path
 
@@ -982,17 +982,17 @@ but "the file" means something different depending on who's asking.
 `create_entry`/`edit_entry` have their own explicit `self.filepath` (the
 file being tagged). `M_PIPELINE_OT_tracking_monitor` has no `filepath` of
 its own -- its "current file" in the popup's file-details view is
-`popup_detail("file")` (was `context.window_manager.file_details_selected`), which used to fall through
+`monitoring_detail("file")` (was `context.window_manager.file_details_selected`), which used to fall through
 the old two-tier fallback (`self.filepath or bpy.data.filepath`) straight
 to `bpy.data.filepath` -- whatever's open in the viewport, unrelated to the
 file actually shown in the popup -- so the department dropdown only ever
 offered "All departments" there. The sidebar's own entries panel has
 neither: `bpy.data.filepath` (the open file) really is the right answer
 for it. Fixed by trying all three in that order: `self.filepath` ->
-`popup_detail("file")` -> `bpy.data.filepath`.
+`monitoring_detail("file")` -> `bpy.data.filepath`.
 
 A first attempt gave `M_PIPELINE_OT_tracking_monitor` its own `filepath`
-`@property` returning `popup_detail("file")`, reasoning `getattr(self,
+`@property` returning `monitoring_detail("file")`, reasoning `getattr(self,
 "filepath", "")` would then pick it up like any other operator's real
 `self.filepath`. Measured false: a plain Python `@property` (not a
 `bpy.props` field) doesn't reliably survive attribute lookup on a live
@@ -1745,7 +1745,7 @@ like `_meta_path()` it only accepts a `.blend`.
 
 Production (outside the studio: no Blender, no NAS) needs a picture of the
 project at a given moment and a way to send review notes back.
-`lib/snapshot.py`, Project panel > "Export prod snapshot".
+`lib/snapshot.py`, Project panel > "Snapshot".
 
 - **One self-contained HTML file**, CSS/JS inline: sent by mail, opens
   offline. Not Markdown (browsers don't render it), not an XLSX report.
@@ -1800,7 +1800,7 @@ project at a given moment and a way to send review notes back.
 
 ### Review import, and the CSV entry import it replaced
 
-Project panel / Pipeline menu > "Import prod review" reads the template
+Project panel / Pipeline menu > "Import review" reads the template
 back straight from the .xlsx (`zipfile` + `ElementTree`: sharedStrings or
 inline strings, first sheet resolved through the workbook rels -- not
 always `sheet1.xml` once a spreadsheet app has re-saved it). No "save as
@@ -1894,8 +1894,10 @@ carries its prefix). Overwritten in place, made by `lib/thumbnails.py` +
   it counts in thirds, one step per stage: not started 0, work in
   progress 1/3, validated but reworked since -- or with an open RTK
   tagged on that department, outlined red in the table: the RTK is the
-  news -- 2/3, validated 1. Groups and the two totals average their items,
-  each weighing the same: a 2-department prop and a 5-department
+  news -- 2/3, validated 1. (Since 1.0.14 the three middle steps are
+  `PROGRESS_WEIGHTS`, 33/67/67 %, overridable per project:
+  `snapshot.progress`, Project settings > Snapshot done.) Groups and the
+  two totals average their items, each weighing the same: a 2-department prop and a 5-department
   character are one item each. Items with no required department are
   left out rather than counted 0 or 100.
 - **Closed notes exported, hidden**: the snapshot used to drop closed
@@ -2199,7 +2201,7 @@ file; both properties `SKIP_SAVE`. Same for `farm_job_details` (no
 `job_id` = the list).
 
 The detail moved off the WindowManager as well, into memory
-(`popup_detail()` / `set_popup_detail()`, `lib/core.py`) -- not
+(`monitoring_detail()` / `set_monitoring_detail()`, `lib/core.py`) -- not
 confirmed as a cause (the first guess, "the WindowManager is saved in
 the .blend", doesn't match a reset with the file open), but nothing of
 Blender's (file load, `read_homefile()`, undo) can touch it there. OK
@@ -2459,3 +2461,99 @@ folder made project-relative -- an old absolute line under this machine's
 root still counts), and the recent files open `project_path()` of it. The
 `.session_<pid>.json` file itself stays absolute: it's this machine's own,
 compared with `bpy.data.filepath`.
+
+## Monitoring: windows, not popups
+
+Project monitoring first, then Farm monitoring the same way: the screen's
+ID property says which (`"project"` / `"farm"`; `True`, from the first
+version, reads as `"project"`), each panel polls its own. Tried, then
+dropped: a header ("Pipeline : ..." -- a collapsible box like Options and
+Workspace): a panel with a header is placed after the Tool tab's own, and
+`bl_order` can't go below 0. Headerless again, the content in a
+`layout.box()`, first in the tab.
+
+**Child windows follow the main one's workspace.** A window opened by
+`window_new()` is the main window's child: when the main window switches
+workspace (a tab click), Blender switches its children too (only temporary
+screens are spared), each onto a new layout -- without the screen's ID
+property: the monitoring window went blank. Each one's kind is kept by
+window pointer (`_window_kinds`) and `monitoring_windows()` marks its
+screen again. Checked: switch to Modeling, both windows keep their content.
+Also learned there: `window.workspace = ...` from a timer (no window in
+context) switches *every* window; setting a space's property from a timer
+without a window in context crashed Blender (4.0) -- `_show_tool_tab()`
+works in its window's context.
+
+**Machines named by their user.** A machine is only ever known by its id
+(a slice of the prefs' `machine_id` -- no hostname read), meaningless to
+people. `_machine_name()` (render end) records "user (id)" from its
+worker file, into `frame_machines` and `machine_names` (every machine of
+the job, failed ones included), both kept in the job and its render
+history: still readable once the worker is gone, or after the id changed
+(prefs reset). `machine_label()` prefers the live worker, then the
+recorded name, then the id.
+
+**Workspaces: not added.** A "Project" / "Farm" workspace each was built
+(a duplicate of the active one, its areas closed but one) and works, but a
+workspace belongs to the .blend, not to Blender: every file would need it
+added, and the files opened with their own UI wouldn't have it. The window
+is enough.
+
+Farm monitoring's
+refresh (`_refresh_tick`, every 2 s, was the popup's) runs while its
+window is open: `_monitoring_tick` starts it, and again after a file load
+(`post_load_handler()` stops it), and stops it with the last window.
+
+
+The popup had grown heavy: 12 rows a page, a pager, a fixed height padded
+with blank rows so it didn't jump around, and it closed as soon as you
+clicked outside it. `m_pipeline.tracking_monitor` now opens a window
+holding one Properties editor; `M_PIPELINE_PT_monitoring` draws in it.
+Checked in Blender (4.0, under Xvfb):
+
+- **The window**: `bpy.ops.wm.window_new()` opens a normal window (95 % x
+  90 % of the main one, its child) with a single area of the main window's
+  biggest editor type; the area becomes `PROPERTIES`. Its header (the
+  search field, which would filter the table's labels) is hidden, and so
+  is the tab column (`screen.region_toggle(region_type="NAVIGATION_BAR")`).
+  A window's position and size are read-only from Python, and nothing
+  raises a window: clicking the button again while it's open only says so.
+- **The Tool tab**: the editor's tabs only exist once it has been drawn --
+  setting `space.context = "TOOL"` right away raises (`enum "TOOL" not
+  found in ()`); a timer retries until it takes.
+- **Getting in**: an addon can't add a Properties tab; the Tool tab draws
+  the 3D View sidebar's `bl_category = "Tool"` panels. `poll()` keeps ours
+  to the monitoring window (an ID property on its screen,
+  `MONITORING_SCREEN_KEY` -- a screen is an ID, a window isn't), never the
+  N panel or another Properties editor. `HIDE_HEADER` puts it first: a
+  headerless panel goes before panels with a header (first version; now
+  with a header, see above), but after Blender's own headerless active tool (`VIEW3D_PT_active_tool_duplicate`, same
+  `bl_order` 0 -- `bl_order` can't go below 0). Blender's Tool panels
+  (Options, Workspace, a mode's brushes) stay below the list: no API folds
+  or hides another panel.
+- **Redraws**: a click on a button in the window rebuilds it like in the
+  popup (checked); what changes in the background doesn't -- a popup
+  redrew on every mouse move, a region doesn't. `_monitoring_tick` redraws
+  when the scan or the Farm column changed, looking the windows up again
+  every tick (see "Project walk": a kept region crashes once freed).
+- **File loads**: with Load UI (Blender's default), opening a file closes
+  every window the file doesn't have -- the monitoring window at every
+  file opened from it. `open_mainfile()` (Open file, recent files, the
+  window's open buttons) passes `load_ui=False` while it's open: checked,
+  the window stays, size, place and scroll included. The price: those
+  files open in the current interface layout, not their own. Blender's
+  File > Open isn't ours and still closes it.
+- **Saved with the .blend**: a file saved with the window open has it
+  (Load UI brings it back, with its screen's ID property: the panel shows,
+  and starts the scan and the tick itself). Each window also leaves a
+  workspace layout behind once closed ("temp", "temp.001"...): `window_new`
+  screens aren't temporary, so closing doesn't delete them, and Python
+  can't delete a layout -- Blender's own Window > New Window does the same.
+- **Filters**: `WindowManager.pipeline_monitoring`, each property a
+  get/set on a module dict (`memory_prop()` / `memory_enum()`) -- drawable with `layout.prop()`, never stored
+  in the .blend (a WindowManager property is saved with it; see "The
+  detail moved off the WindowManager"). An enum's get/set deal in item values (an
+  item's own number when it has one -- the departments' 1, 2, 4... --,
+  else its index): kept by identifier, so prefixes or sequences changing
+  keep the choice.
+  The search is cleared when the window opens, as before.

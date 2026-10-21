@@ -12,7 +12,7 @@ from .config import (
     parse_filename,
     shots_in_segment,
 )
-from .core import cached_scandir, json_get, popup_detail
+from .core import cached_scandir, json_get, monitoring_detail
 from .logs import log
 from .tracking import TrackingStatusCache, list_active_blocks
 
@@ -308,7 +308,7 @@ def tracked_department_items(self, context):
     TrackingStatusCache, already bitflag-encoded), plus a blank "" option.
     filepath fallback order -- see NOTES.md, "Department filter"."""
     filepath = (
-        getattr(self, "filepath", "") or popup_detail("file") or bpy.data.filepath
+        getattr(self, "filepath", "") or monitoring_detail("file") or bpy.data.filepath
     )
     items = TrackingStatusCache.get(filepath).get("departments_items", [])
     return [("NONE", "—", "No department")] + list(items)

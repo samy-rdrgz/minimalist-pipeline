@@ -196,7 +196,7 @@ def run_render_setup_entry(job_id: str) -> None:
                 # A block the split couldn't cut (fewer than two markers
                 # bound to a cam_<seq>_<shot> camera): it renders whole, into
                 # its own render folder -- never silently. Kept on the job
-                # (Farm popup) and in render_history.json (construct_history()).
+                # (Farm monitoring) and in render_history.json (construct_history()).
                 data["skipped_shots"] = skipped
                 data["absorbed_shots"] = absorbed
                 log(

@@ -13,6 +13,7 @@ from .logs_panel import (
     log_read_at,
     log_values,
 )
+from .monitoring_panel import M_PIPELINE_PT_farm_monitoring, M_PIPELINE_PT_monitoring
 from .project_panel import M_PIPELINE_PT_project_panel
 from .tracking_panel import (
     TYPE_ICON,
@@ -30,6 +31,8 @@ classes = (
     M_PIPELINE_PT_file_panel,
     M_PIPELINE_PT_project_panel,
     M_PIPELINE_PT_farm_panel,
+    M_PIPELINE_PT_monitoring,
+    M_PIPELINE_PT_farm_monitoring,
 )
 
 __all__ = ["classes"]

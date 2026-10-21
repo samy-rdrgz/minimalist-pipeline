@@ -60,9 +60,10 @@ reconfirm each time, not an immutable historical snapshot.
 `bpy.app.handlers.load_post` → `post_load_handler`
 
 ```
-├── unregister_refresh_timer() : stop the farm popup's refresh timer first --
-│   a file load frees every popup region, and that persistent timer would
-│   still tag_redraw() the freed one (crash)
+├── unregister_refresh_timer() : stop the farm's refresh timer first -- a
+│   file load frees every popup region, and that persistent timer would
+│   still tag_redraw() the freed one (crash); _monitoring_tick restarts it
+│   if a Farm monitoring window survived the load
 ├── no filepath (new/unsaved scene) : return
 ├── log("file_open")
 │
@@ -565,7 +566,7 @@ Each caller still does its own `save_project_data(prefs)` + `opened_projects` li
 ├── set_running_project(None) : this Blender instance owns no farm role yet
 ├── register_status_timer() : starts _status_tick (see Clocks) unconditionally,
 │   for as long as the addon is enabled -- unlike _refresh_tick, not gated
-│   behind the farm monitor popup being open
+│   behind a Farm monitoring window being open
 ├── deferred (0.1s later, once the addon keyconfig exists) : override_shortcut()
 │   installs the Ctrl+S -> wm.safe_save keymap override
 ├── deferred (0.05s later) : active_project_root was restored non-empty AND its
@@ -591,8 +592,8 @@ Addon disabled, or Blender quitting.
 ├── unregister_handlers() (safe even if never registered)
 ├── save_project_data(prefs) : best-effort backup, ignored on failure
 ├── unregister all classes
-├── unregister_refresh_timer() : defensive only -- normally already stopped
-│   by the farm monitor popup's own execute()/cancel() (see Clocks)
+├── stop_monitoring_tick(), unregister_refresh_timer() : the monitoring
+│   windows' timers (see Clocks)
 ├── unregister_status_timer() : stops _status_tick, always running until here
 ├── if this instance was running the monitor : stop_monitor_loop()
 │   (terminates any local render subprocesses first)
@@ -627,9 +628,9 @@ Every 30s, for as long as the addon is enabled.
 
 ### _refresh_tick
 
-Every 0.25s, only while the farm monitor popup (`m_pipeline.farm_monitor`) is
-open -- registered in its `invoke()`, unregistered in `execute()`/`cancel()`
-and on file load. Never touches farm state, UI only, and never the disk itself.
+Every 0.25s, only while a Farm monitoring window is open -- registered by
+`_monitoring_tick` (again after a file load, which unregisters it), which
+unregisters it with the last window. Never touches farm state, UI only, and never the disk itself.
 
 ```
 ├── a background read finished ? _apply_farm_snapshot() (status + jobs +
@@ -644,7 +645,7 @@ and on file load. Never touches farm state, UI only, and never the disk itself.
 
 Every ~10s, for as long as the addon is enabled (`register_status_timer()`,
 addon `register()`/`unregister()`) -- unlike `_refresh_tick`, not gated
-behind the farm monitor popup. Cheap counterpart: `monitor.lock` only, so
+behind a Farm monitoring window. Cheap counterpart: `monitor.lock` only, so
 the sidebar's farm panel header (status label, collapsed or not) stays live.
 
 ```
@@ -656,16 +657,37 @@ the sidebar's farm panel header (status label, collapsed or not) stays live.
 
 ### ProjectScan._tick
 
-Every 0.1s while a Project monitoring scan runs (started by the popup's
-`invoke()`, its Refresh button, or `find_linked_by()` finding no index for
+Every 0.1s while a Project monitoring scan runs (started by
+`m_pipeline.tracking_monitor`, the window's Refresh button, `_monitoring_tick`
+for a project not scanned yet, or `find_linked_by()` finding no index for
 the project), then stops itself.
 
 ```
 ├── drain what the reader thread posted (≤10 ms per tick) : found folders,
 │   raw tracking data -> TrackingStatusCache, link targets
 └── scan done : drop folders gone since the last scan, rebuild the linked-by
-    index. No redraw: the popup refreshes on the next mouse move (holding
+    index. No redraw: `_monitoring_tick` below redraws the window (holding
     its region across ticks would crash Blender once it's closed)
+```
+
+### _monitoring_tick
+
+Every 0.5s while a Project or Farm monitoring window is open (`lib/monitoring.py`;
+started by `open_monitoring_window()`, or by the window's panel when the
+window came back with a .blend saved with it open). Persistent: a file
+opened by the pipeline keeps the window (`open_mainfile()`: no `load_ui`),
+so the timer too.
+
+```
+├── a Farm monitoring window : register_refresh_timer() (else stop it if it
+│   started it)
+├── no monitoring window left : stop (return None)
+├── active project not scanned yet (a switch of project) : ProjectScan.start()
+├── >= 10s since the last : request_monitor_refresh() (the Farm column)
+├── project / ProjectScan progress / farm_activity() changed : tag_redraw()
+│     the Project window's Properties region
+└── farm status or a new jobs/workers read : tag_redraw() the Farm window's
+      -- windows looked up again every tick, never kept
 ```
 
 ### farm_tick

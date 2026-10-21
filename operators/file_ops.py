@@ -39,6 +39,23 @@ def _tag_items(self, context):
         return [("NONE", "(no tag)", ""), ("stable", "stable", "")]
 
 
+# The dialog's left column (labels), as a share of its width -- draw()'s
+# split factor.
+_TITLE_WIDTH = 0.35
+_MIN_WIDTH = 350
+
+
+def _dialog_width(context, departments: list[str]) -> int:
+    """Wide enough for every department button side by side in the right
+    column: a fixed 350 cut their names off past three or four. ~7 px a
+    character plus the button's padding (unscaled px, like the dialog's
+    width), never wider than the window."""
+    buttons = sum(len(d) * 7 + 24 for d in departments)
+    width = max(_MIN_WIDTH, int(buttons / (1 - _TITLE_WIDTH)) + 30)
+    scale = context.preferences.system.ui_scale or 1.0
+    return min(width, int(context.window.width / scale))
+
+
 class M_PIPELINE_OT_increment_version(bpy.types.Operator):
     """Save as next version, optionally with a tag."""
 
@@ -83,10 +100,12 @@ class M_PIPELINE_OT_increment_version(bpy.types.Operator):
                     checked.add(d)
             self.stabled_departments = checked
 
-        return context.window_manager.invoke_props_dialog(self, width=350)
+        return context.window_manager.invoke_props_dialog(
+            self, width=_dialog_width(context, requireds)
+        )
 
     def draw(self, context):
-        TITLE_WIDTH = 0.35
+        TITLE_WIDTH = _TITLE_WIDTH
         layout = self.layout.column(align=True)
 
         row = layout.split(factor=TITLE_WIDTH, align=True)

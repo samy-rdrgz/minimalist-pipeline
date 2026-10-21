@@ -65,4 +65,4 @@ The whole farm coordinates over the shared project drive, no SSH or direct machi
 
 ---
 
-**See also**: [Interface](interface.md#overview-popups) for the Jobs/Workers dashboard · [Sessions and locking](sessions-and-locking.md) for the heartbeat/expiration pattern workers and the monitor also follow.
+**See also**: [Interface](interface.md#overview-windows) for the Jobs/Workers dashboard · [Sessions and locking](sessions-and-locking.md) for the heartbeat/expiration pattern workers and the monitor also follow.

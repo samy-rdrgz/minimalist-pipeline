@@ -9,6 +9,7 @@ from ..lib import (
     dir_version_items,
     get_active_project_root,
     get_folder,
+    open_mainfile,
     prefix_items,
     resolve_version_file,
     sequence_items,
@@ -136,7 +137,7 @@ class M_PIPELINE_OT_open_file(bpy.types.Operator):
             self.report({"ERROR"}, "No matching file found.")
             return {"CANCELLED"}
         try:
-            bpy.ops.wm.open_mainfile(filepath=str(resolved))
+            open_mainfile(str(resolved))
         except RuntimeError as e:
             self.report({"ERROR"}, f"Could not open {resolved.name}: {e}")
             return {"CANCELLED"}
@@ -208,7 +209,7 @@ class M_PIPELINE_OT_open_file_version(bpy.types.Operator):
                 return {"CANCELLED"}
 
         try:
-            bpy.ops.wm.open_mainfile(filepath=str(target))
+            open_mainfile(str(target))
         except RuntimeError as e:
             self.report({"ERROR"}, f"Could not open {target.name}: {e}")
             return {"CANCELLED"}

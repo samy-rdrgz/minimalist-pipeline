@@ -2,6 +2,37 @@
 
 All notable changes to this addon. Dates are release dates.
 
+## Unreleased
+
+- **Project monitoring opens in a window of its own**: the Monitoring
+  button opens a Blender window holding a single Properties editor -- it
+  stays open while you work, resizable, on a second screen if you like.
+  One list that scrolls instead of pages of 12. Files opened through the
+  pipeline keep it open (they open without their own interface layout
+  while it is); its filters stay as they were for the session.
+- **Farm monitoring too**: its own window, one list, refreshed every 2 s
+  while open. Both show their content first, in a box; Project
+  monitoring's list always has at least 6 rows, whatever the filters.
+- **A monitoring window no longer goes blank when the main window
+  switches workspace.**
+- **File details, last render: the machine that rendered a frame is no
+  longer cut** ("rendered by WOR...02"): the answer has its own line
+  under the Frame field (Farm monitoring's job detail too) -- and names
+  the machine by its user, "Alice (a1b2c3d4)", not by its id alone (also
+  the job detail's machines). The name is recorded with the job and its
+  render history when the render ends (`machine_names`), so it's still
+  known once the worker is gone or its id has changed; renders made
+  before this version only recorded the id.
+- **The snapshot opens in the browser once written** (*Open when done*,
+  on by default, next to *Thumbnails* in the file browser).
+- **"Checked" lists all the file's departments**, ticked as they're
+  validated now ("render" too): untick one the render shows isn't right
+  and it's unvalidated -- it only offered to validate the ones not
+  validated yet.
+- **Increment version / Mark as stable: the dialog widens with the
+  file's departments**, so their names are never cut off (it was a fixed
+  350 px, too narrow past three or four).
+
 ## 1.0.17 — 2026-10-21
 
 The farm made for workstations that come and go as workers all day:

@@ -20,6 +20,7 @@ from .farm_ops import (
     M_PIPELINE_OT_farm_retry_job,
     M_PIPELINE_OT_farm_recompile_job,
     PIPELINE_PG_farm_list_item,
+    PIPELINE_PG_farm_monitoring,
     PIPELINE_PG_preview_sequence_item,
     PIPELINE_PG_render_subshot_item,
 )
@@ -66,6 +67,7 @@ from .tracking_ops import (
     M_PIPELINE_OT_tracking_monitor,
     M_PIPELINE_OT_tracking_refresh,
     PIPELINE_PG_department_check_item,
+    PIPELINE_PG_monitoring,
     PipelineEntryItem,
 )
 
@@ -104,6 +106,7 @@ classes = (
     M_PIPELINE_OT_toggle_entry_task,
     M_PIPELINE_OT_export_snapshot,
     M_PIPELINE_OT_import_review,
+    PIPELINE_PG_monitoring,
     M_PIPELINE_OT_tracking_monitor,
     M_PIPELINE_OT_tracking_refresh,
     M_PIPELINE_OT_open_file_version,
@@ -116,6 +119,7 @@ classes = (
     M_PIPELINE_OT_pipeline_logs_refresh,
     M_PIPELINE_OT_copy_log_line,
     M_PIPELINE_OT_farm_add_self_worker,
+    PIPELINE_PG_farm_monitoring,
     M_PIPELINE_OT_farm_monitor,
     M_PIPELINE_OT_farm_kill_self_worker,
     M_PIPELINE_OT_farm_stop_worker,

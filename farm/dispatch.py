@@ -166,7 +166,7 @@ def machines_for(job_data: dict, idle: dict) -> list[str]:
 
 # Jobs whose wait for a machine is already in the log: one line when a job
 # starts waiting, not one per job per tick (it was 99 % of the pipeline log
-# -- the Farm popup already shows "waiting for a worker"). Memory only.
+# -- Farm monitoring already shows "waiting for a worker"). Memory only.
 _waiting_logged: set[str] = set()
 
 

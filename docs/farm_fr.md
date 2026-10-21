@@ -65,4 +65,4 @@ Toute la farm se coordonne sur le drive partagé du projet, sans SSH ni connexio
 
 ---
 
-**Voir aussi** : [Interface](interface_fr.md#popups-de-vue-densemble) pour le dashboard Jobs/Workers · [Sessions et verrouillage](sessions-and-locking_fr.md) pour le pattern heartbeat/expiration que suivent aussi les workers et le monitor.
+**Voir aussi** : [Interface](interface_fr.md#fenêtres-de-vue-densemble) pour le dashboard Jobs/Workers · [Sessions et verrouillage](sessions-and-locking_fr.md) pour le pattern heartbeat/expiration que suivent aussi les workers et le monitor.

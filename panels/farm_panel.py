@@ -22,7 +22,7 @@ from ..lib import (
     draw_box_tip,
     get_active_project_root,
     get_user,
-    popup_detail,
+    monitoring_detail,
 )
 
 FIRST_COLUMN = 0.4
@@ -151,7 +151,7 @@ class M_PIPELINE_PT_farm_panel(bpy.types.Panel):
 
 
 def job_icon(stage: str) -> str:
-    """A job stage's icon -- the Farm popup's list, and Project monitoring's
+    """A job stage's icon -- Farm monitoring's list, and Project monitoring's
     Farm column."""
     if stage == "pending":
         return "SORTTIME"
@@ -180,6 +180,17 @@ def _duration(seconds: float) -> str:
     return f"{seconds // 60}m{seconds % 60:02d}s"
 
 
+def machine_label(uuid: str, recorded: str = "") -> str:
+    """A machine as people know it: its worker's user and id ("Alice
+    (a1b2c3d4)") -- a machine is only ever named by its id, no hostname
+    read. Else the name recorded with the render, else the id. Memory
+    only (the monitor cache's workers): draw()-safe."""
+    worker = (get_monitor_cache().get("workers") or {}).get(uuid) or {}
+    if worker.get("user"):
+        return f"{worker['user']} ({worker.get('machine') or uuid[:8]})"
+    return worker.get("machine") or recorded or uuid[:8]
+
+
 def draw_frame_lookup(layout, renders: list) -> None:
     """ "Frame [n] -> the machine that wrote it", for renders: (label, its
     frame_machines, its machine_seconds) each -- a block's shots, one field
@@ -189,17 +200,22 @@ def draw_frame_lookup(layout, renders: list) -> None:
     if not renders:
         return
     wm = bpy.context.window_manager
-    row = layout.row(align=True)
-    row.prop(wm, "farm_frame_lookup", text="Frame")
+    layout.prop(wm, "farm_frame_lookup", text="Frame")
+    # The answer on its own row: next to the field, in an aligned row, it
+    # only got what the field left -- the machine's name cut to "WOR...02".
+    answer = layout.row()
+    answer.alignment = "LEFT"
     for label, record, seconds in renders:
         found = machine_for_frame(record, wm.farm_frame_lookup)
         if found:
             uuid, name = found
+            if uuid:
+                name = machine_label(uuid, name)
             pace = (seconds or {}).get(uuid)
             text = f"{label}rendered by {name}"
-            row.label(text=text + (f"  ({_duration(pace)}/frame)" if pace else ""))
+            answer.label(text=text + (f"  ({_duration(pace)}/frame)" if pace else ""))
             return
-    row.label(
+    answer.label(
         text=", ".join(
             f"{label}{r['start']} - {r['start'] + len(r['frames']) - 1}"
             for label, r, _ in renders
@@ -221,9 +237,10 @@ def _job_matches(self, job: dict, user: str) -> bool:
 
 
 def draw_farm_jobs(self, layout):
-    """M_PIPELINE_OT_farm_monitor's "Jobs" view: every active job, its stage
-    and progress -- filtered and paginated by self (that operator), same
-    convention as draw_monitor_table()."""
+    """Farm monitoring's "Jobs" view: every active job, its stage and
+    progress -- filtered by self (WindowManager.pipeline_farm_monitoring),
+    same convention as draw_monitor_table(). One list, no pages: the
+    window's region scrolls."""
     cache = get_monitor_cache()
 
     title = layout.split(factor=FIRST_COLUMN)
@@ -235,124 +252,113 @@ def draw_farm_jobs(self, layout):
     user = get_user()
     matches = [j for j in cache["jobs"] if _job_matches(self, j, user)]
     # Newest submit first: the order the reader thread lists files in is
-    # arbitrary, it would shuffle jobs across pages between refreshes.
+    # arbitrary, it would shuffle jobs between refreshes.
     matches.sort(key=lambda j: j.get("submitted_at") or "", reverse=True)
 
-    # Fixed number of rows per page, padded with blanks -- see
-    # draw_monitor_table().
     total = len(matches)
-    total_pages = max(1, -(-total // self.PAGE_SIZE))
-    self.page = max(1, min(self.page, total_pages))
-    start = (self.page - 1) * self.PAGE_SIZE
-    page_items = matches[start : start + self.PAGE_SIZE]
-    jobs = page_items + ["empty"] * (self.PAGE_SIZE - len(page_items))
-    for j in jobs:
+    for j in matches:
         row = layout.column()
         # Line *after* the row, never before it inside an aligned column:
         # that glues it to the text -- same spacing as draw_monitor_table().
         layout.separator(factor=0.5, type="LINE")
-        if j == "empty":
-            row.label(text="", icon="BLANK1")
-            continue
+        row = row.split(factor=FIRST_COLUMN)
+        name = Path(j["filepath"]).name
+        stage = j["stage"]
+        # A split block's jobs share its filepath: shot_override marks
+        # each child, split_finished the parent.
+        if j.get("shot_override"):
+            name = f"{name}  [{j['shot_override']}]"
+        elif stage == "split_finished":
+            name = f"{name}  [split]"
+
+        elapsed = j["elapsed_seconds"]
+        elapsed_str = _duration(elapsed)
+
+        icon = job_icon(stage)
+
+        if stage == "pending" and j.get("blocked_by_stage"):
+            text = (
+                f"waiting for this shot's job in progress "
+                f"({j['blocked_by_stage']}) - {elapsed_str}"
+            )
+        elif stage == "pending":
+            text = f"waiting for monitor - {elapsed_str}"
+        elif job_state(stage) in ("finished", "failed"):
+            # When it ended, not elapsed: stage_at never moves again.
+            at = _job_time(j["stage_at"])
+            text = f"{stage} - {at:%d/%m %H:%M}" if at else stage
+
+        elif j["frames_total"] > 0:
+            pct = j["frames_done"] / j["frames_total"]
+            # Frames left over the pace of the machines on it now
+            # (_time_left(), farm/loop.py) -- else, nothing timed yet,
+            # elapsed / pct as the estimated total.
+            left = j.get("time_left")
+            if left is None and pct > 0:
+                left = elapsed / pct - elapsed
+            if left is not None:
+                remaining_str = f"≃ {_duration(left)} remaining"
+            else:
+                remaining_str = "estimating..."
+            text = (
+                f"{stage} - {j['frames_done']}/{j['frames_total']} ({pct:.0%})"
+                f" - {elapsed_str} ({remaining_str})"
+            )
+
         else:
-            row = row.split(factor=FIRST_COLUMN)
-            name = Path(j["filepath"]).name
-            stage = j["stage"]
-            # A split block's jobs share its filepath: shot_override marks
-            # each child, split_finished the parent.
-            if j.get("shot_override"):
-                name = f"{name}  [{j['shot_override']}]"
-            elif stage == "split_finished":
-                name = f"{name}  [split]"
+            text = f"{stage} - {elapsed_str}"
 
-            elapsed = j["elapsed_seconds"]
-            elapsed_str = _duration(elapsed)
+        if j.get("skipped_shots"):
+            text += f" -- missing: {', '.join(j['skipped_shots'])}"
+        if j.get("absorbed_shots"):
+            text += f" -- absorbed: {', '.join(j['absorbed_shots'])}"
 
-            icon = job_icon(stage)
-
-            if stage == "pending" and j.get("blocked_by_stage"):
-                text = (
-                    f"waiting for this shot's job in progress "
-                    f"({j['blocked_by_stage']}) - {elapsed_str}"
-                )
-            elif stage == "pending":
-                text = f"waiting for monitor - {elapsed_str}"
-            elif job_state(stage) in ("finished", "failed"):
-                # When it ended, not elapsed: stage_at never moves again.
-                at = _job_time(j["stage_at"])
-                text = f"{stage} - {at:%d/%m %H:%M}" if at else stage
-
-            elif j["frames_total"] > 0:
-                pct = j["frames_done"] / j["frames_total"]
-                # Frames left over the pace of the machines on it now
-                # (_time_left(), farm/loop.py) -- else, nothing timed yet,
-                # elapsed / pct as the estimated total.
-                left = j.get("time_left")
-                if left is None and pct > 0:
-                    left = elapsed / pct - elapsed
-                if left is not None:
-                    remaining_str = f"≃ {_duration(left)} remaining"
-                else:
-                    remaining_str = "estimating..."
-                text = (
-                    f"{stage} - {j['frames_done']}/{j['frames_total']} ({pct:.0%})"
-                    f" - {elapsed_str} ({remaining_str})"
-                )
-
-            else:
-                text = f"{stage} - {elapsed_str}"
-
-            if j.get("skipped_shots"):
-                text += f" -- missing: {', '.join(j['skipped_shots'])}"
-            if j.get("absorbed_shots"):
-                text += f" -- absorbed: {', '.join(j['absorbed_shots'])}"
-
-            name_row = row.row()
-            name_row.alignment = "LEFT"
-            if stage == "pending" and j.get("blocked_by_stage"):
-                # Same job id as the job holding it back: open that one.
-                name_row.operator(
-                    "m_pipeline.farm_job_details", text=name, icon=icon, emboss=False
-                ).job_id = j["job_id"]
-            elif stage == "pending":
-                name_row.label(text=name, icon=icon)  # no job file yet
-            else:
-                name_row.operator(
-                    "m_pipeline.farm_job_details", text=name, icon=icon, emboss=False
-                ).job_id = j["job_id"]
-            status = row.row()
-            status.label(text=text)
-            if j.get("output_dir"):
-                op = status.operator(
-                    "wm.open_folder", text="", icon="FILE_FOLDER", emboss=False
-                )
-                op.filepath = j["output_dir"]
-                op.custom_tooltip = "Open this job's render folder"
-            if stage == "render_start":
+        name_row = row.row()
+        name_row.alignment = "LEFT"
+        if stage == "pending" and j.get("blocked_by_stage"):
+            # Same job id as the job holding it back: open that one.
+            name_row.operator(
+                "m_pipeline.farm_job_details", text=name, icon=icon, emboss=False
+            ).job_id = j["job_id"]
+        elif stage == "pending":
+            name_row.label(text=name, icon=icon)  # no job file yet
+        else:
+            name_row.operator(
+                "m_pipeline.farm_job_details", text=name, icon=icon, emboss=False
+            ).job_id = j["job_id"]
+        status = row.row()
+        status.label(text=text)
+        if j.get("output_dir"):
+            op = status.operator(
+                "wm.open_folder", text="", icon="FILE_FOLDER", emboss=False
+            )
+            op.filepath = j["output_dir"]
+            op.custom_tooltip = "Open this job's render folder"
+        if stage == "render_start":
+            status.operator(
+                "m_pipeline.farm_cancel_job", text="", icon="X", emboss=False
+            ).job_id = j["job_id"]
+        elif job_state(stage) in ("finished", "failed"):
+            if stage in RETRYABLE_STAGES:
                 status.operator(
-                    "m_pipeline.farm_cancel_job", text="", icon="X", emboss=False
-                ).job_id = j["job_id"]
-            elif job_state(stage) in ("finished", "failed"):
-                if stage in RETRYABLE_STAGES:
-                    status.operator(
-                        "m_pipeline.farm_retry_job",
-                        text="",
-                        icon="LOOP_BACK",
-                        emboss=False,
-                    ).job_id = j["job_id"]
-                elif stage == "finished" and j.get("output_dir"):
-                    status.operator(
-                        "m_pipeline.farm_recompile_job",
-                        text="",
-                        icon="FILE_MOVIE",
-                        emboss=False,
-                    ).job_id = j["job_id"]
-                status.operator(
-                    "m_pipeline.farm_archive_job",
+                    "m_pipeline.farm_retry_job",
                     text="",
-                    icon="CHECKMARK",
+                    icon="LOOP_BACK",
                     emboss=False,
                 ).job_id = j["job_id"]
+            elif stage == "finished" and j.get("output_dir"):
+                status.operator(
+                    "m_pipeline.farm_recompile_job",
+                    text="",
+                    icon="FILE_MOVIE",
+                    emboss=False,
+                ).job_id = j["job_id"]
+            status.operator(
+                "m_pipeline.farm_archive_job",
+                text="",
+                icon="CHECKMARK",
+                emboss=False,
+            ).job_id = j["job_id"]
 
     footer = layout.row()
     footer.active = False
@@ -363,11 +369,6 @@ def draw_farm_jobs(self, layout):
         )
     else:
         footer.label(text=f"{total} job(s)", icon="BLANK1")
-        if total_pages > 1:
-            pager = footer.row(align=True)
-            pager.alignment = "RIGHT"
-            pager.label(text=f"Page {self.page} / {total_pages}")
-            pager.prop(self, "page", text="")
     # Every job of that state, not just this filter's.
     bulk = footer.row(align=True)
     bulk.alignment = "RIGHT"
@@ -560,7 +561,7 @@ def draw_farm_job_details(layout, context):
     by M_PIPELINE_OT_farm_job_details on click (get_job_details()) -- never
     read from here. Every key with .get(): the file is hand-editable and
     older jobs lack the newer fields."""
-    job_id = popup_detail("job")
+    job_id = monitoring_detail("job")
     data = get_job_details()
 
     header = layout.row()
@@ -605,12 +606,14 @@ def draw_farm_job_details(layout, context):
         layout.label(text="Job file not found.", icon="ERROR")
         return
 
-    workers = get_monitor_cache().get("workers") or {}
+    # Names recorded with the job: a machine whose worker is gone.
+    recorded = dict(data.get("machine_names") or {})
+    recorded.update(
+        {u: n for u, n in (data.get("frame_machines") or {}).get("machines", {}).values()}
+    )
 
     def machine_names(uuids) -> str:
-        return ", ".join(
-            (workers.get(u) or {}).get("machine") or u[:8] for u in uuids or []
-        ) or "-"
+        return ", ".join(machine_label(u, recorded.get(u, "")) for u in uuids or []) or "-"
 
     def field(col, label: str, value, icon: str = "NONE"):
         split = col.split(factor=FIRST_COLUMN)
@@ -679,8 +682,7 @@ def draw_farm_job_details(layout, context):
             parts = [f"{counts[u]} frames"] if u in counts else []
             if u in per_machine:
                 parts.append(f"{_duration(per_machine[u])}/frame")
-            name = names.get(u) if u not in workers else machine_names([u])
-            return f"{name or u[:8]} ({', '.join(parts)})"
+            return f"{machine_label(u, names.get(u))} ({', '.join(parts)})"
 
         field(
             col,

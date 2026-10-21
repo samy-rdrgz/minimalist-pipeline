@@ -58,8 +58,8 @@ from .config import (
 from .core import (
     AdoptedProcess,
     addon_pref,
-    popup_detail,
-    set_popup_detail,
+    monitoring_detail,
+    set_monitoring_detail,
     cached_scandir,
     draw_box_tip,
     get_addon_version,
@@ -102,6 +102,18 @@ from .handlers import (
 )
 from .libraries import clean_append_and_relink
 from .logs import log, read_log_tail
+from .monitoring import (
+    MONITORING_SCREEN_KEY,
+    ensure_monitoring_tick,
+    memory_enum,
+    memory_prop,
+    monitoring_kind,
+    monitoring_windows,
+    open_mainfile,
+    open_monitoring_window,
+    redraw_monitoring,
+    stop_monitoring_tick,
+)
 from .operators import (
     M_PIPELINE_OT_action_popup,
     M_PIPELINE_OT_auto_version,

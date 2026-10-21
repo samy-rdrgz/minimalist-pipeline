@@ -62,7 +62,7 @@ def load_pipeline_log() -> None:
     thread.start()
 
     def poll():
-        # Redrawn every tick, like the Farm popup's refresh: a live popup
+        # Redrawn every tick: a live popup
         # re-registers its region, so none is touched a tick after it
         # closed (see farm/loop.py, redraw_popups()).
         redraw_popups()

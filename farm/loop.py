@@ -106,8 +106,7 @@ _popup_regions: set = set()
 
 
 def register_popup_region(region) -> None:
-    """Track a popup's own floating region (Farm monitoring, Pipeline log)
-    so a timer can force its redraw (redraw_popups()). Call from the
+    """Track a popup's own floating region (the Pipeline log) so a timer can force its redraw (redraw_popups()). Call from the
     popup's draw() -- context.region_popup (4.2+) only exists while
     actually drawing, not yet at invoke() time, and the popup draws in its
     own floating region tag_redraw() can't reach."""
@@ -194,9 +193,9 @@ _oneshot_reader = _BackgroundRead()
 
 def request_monitor_refresh() -> None:
     """refresh_monitor_cache() without blocking: read on a thread, applied
-    by a short-lived timer. For a reader other than the farm popup (Project
-    monitoring, the snapshot export); a popup shows it on its next redraw --
-    no region kept, see NOTES.md, "Project walk"."""
+    by a short-lived timer. For a reader other than Farm monitoring (Project
+    monitoring, the snapshot export); shown on their next redraw -- no
+    region kept, see NOTES.md, "Project walk"."""
     if _oneshot_reader.busy():
         return
     paths = _farm_paths()
@@ -467,7 +466,8 @@ def redraw_popups() -> None:
 
 
 def _refresh_tick() -> float:
-    """UI-only timer while the farm popup is open. Never touches the disk
+    """UI-only timer while a Farm monitoring window is open (started and
+    stopped by lib/monitoring.py's _monitoring_tick). Never touches the disk
     itself: every _REFRESH_INTERVAL it starts a background read
     (_read_farm_snapshot()), and applies + redraws once one has finished."""
     try:
@@ -564,7 +564,7 @@ def _count_rendered_frames(folder: Path, ext: str) -> int:
 
 
 def job_state(stage: str) -> str:
-    """The Farm popup's state filter bucket for a job stage. preview_finished
+    """Farm monitoring's state filter bucket for a job stage. preview_finished
     ends a preview-compile job (§1.6), like finished ends a render's.
     "running": a step actually in progress (*_start); "waiting": between
     steps -- pending, queued, or an intermediate *_finished waiting for a
@@ -795,8 +795,8 @@ def register_refresh_timer() -> None:
 
 def unregister_refresh_timer() -> None:
     """Unregister the UI redraw timer and drop any tracked popup regions.
-    Called when the farm popup closes and on file load: a region freed with
-    its popup must never be tag_redraw()n -- that crashes Blender (see
+    Called when the last Farm monitoring window closes and on file load: a
+    region freed with its popup must never be tag_redraw()n -- that crashes Blender (see
     NOTES.md, "Project walk")."""
     global _registered_tick_fn
     if _registered_tick_fn is not None and bpy.app.timers.is_registered(
