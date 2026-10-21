@@ -2482,6 +2482,15 @@ context) switches *every* window; setting a space's property from a timer
 without a window in context crashed Blender (4.0) -- `_show_tool_tab()`
 works in its window's context.
 
+**Machines named by their user.** A machine is only ever known by its id
+(a slice of the prefs' `machine_id` -- no hostname read), meaningless to
+people. `_machine_name()` (render end) records "user (id)" from its
+worker file, into `frame_machines` and `machine_names` (every machine of
+the job, failed ones included), both kept in the job and its render
+history: still readable once the worker is gone, or after the id changed
+(prefs reset). `machine_label()` prefers the live worker, then the
+recorded name, then the id.
+
 **Workspaces: not added.** A "Project" / "Farm" workspace each was built
 (a duplicate of the active one, its areas closed but one) and works, but a
 workspace belongs to the .blend, not to Blender: every file would need it

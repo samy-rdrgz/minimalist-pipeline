@@ -19,7 +19,10 @@ All notable changes to this addon. Dates are release dates.
   longer cut** ("rendered by WOR...02"): the answer has its own line
   under the Frame field (Farm monitoring's job detail too) -- and names
   the machine by its user, "Alice (a1b2c3d4)", not by its id alone (also
-  the job detail's machines).
+  the job detail's machines). The name is recorded with the job and its
+  render history when the render ends (`machine_names`), so it's still
+  known once the worker is gone or its id has changed; renders made
+  before this version only recorded the id.
 - **Increment version / Mark as stable: the dialog widens with the
   file's departments**, so their names are never cut off (it was a fixed
   350 px, too narrow past three or four).

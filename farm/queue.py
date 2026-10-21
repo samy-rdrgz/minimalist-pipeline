@@ -661,6 +661,7 @@ def construct_history(job: dict, status):
         "seconds_per_frame",
         "machine_seconds",
         "frame_machines",
+        "machine_names",
     ):
         if job.get(key):
             entry[key] = job[key]
@@ -918,6 +919,18 @@ def _note_frames(data: dict) -> None:
     }
 
 
+def _note_machine_names(data: dict, uuids) -> None:
+    """machine_names: {uuid: name} of every machine on the job (merged
+    across rounds), stored with it and in its render history -- what the
+    job detail names them by once their worker is gone, or their id has
+    changed (a machine's id is its prefs': reset with them)."""
+    known = dict(data.get("machine_names") or {})
+    known.update({u: n for u, n in (data.get("frame_machines") or {}).get("machines", {}).values()})
+    for uuid in set(uuids) | set(data.get("failed_machines") or []):
+        known[uuid] = _machine_name(uuid, known)
+    data["machine_names"] = known
+
+
 def _machine_name(uuid: str, known: dict) -> str:
     """Machine uuid's name: its worker's user and id ("Alice (a1b2c3d4)" --
     the id alone, all a worker file says of the machine, told nobody who it
@@ -1004,6 +1017,7 @@ def check_render_completion(
         # local stages (_finish_job_processes()).
         data["rendered_by"] = list(machines)
         _note_frames(data)
+        _note_machine_names(data, machines)
         box["action"] = "to_write"
         if failed:
             # Kept across retries: retry_job() reassigns the job to the

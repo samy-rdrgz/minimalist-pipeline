@@ -606,8 +606,14 @@ def draw_farm_job_details(layout, context):
         layout.label(text="Job file not found.", icon="ERROR")
         return
 
+    # Names recorded with the job: a machine whose worker is gone.
+    recorded = dict(data.get("machine_names") or {})
+    recorded.update(
+        {u: n for u, n in (data.get("frame_machines") or {}).get("machines", {}).values()}
+    )
+
     def machine_names(uuids) -> str:
-        return ", ".join(machine_label(u) for u in uuids or []) or "-"
+        return ", ".join(machine_label(u, recorded.get(u, "")) for u in uuids or []) or "-"
 
     def field(col, label: str, value, icon: str = "NONE"):
         split = col.split(factor=FIRST_COLUMN)
