@@ -23,6 +23,10 @@ All notable changes to this addon. Dates are release dates.
   render history when the render ends (`machine_names`), so it's still
   known once the worker is gone or its id has changed; renders made
   before this version only recorded the id.
+- **"Checked" lists all the file's departments**, ticked as they're
+  validated now ("render" too): untick one the render shows isn't right
+  and it's unvalidated -- it only offered to validate the ones not
+  validated yet.
 - **Increment version / Mark as stable: the dialog widens with the
   file's departments**, so their names are never cut off (it was a fixed
   350 px, too narrow past three or four).
