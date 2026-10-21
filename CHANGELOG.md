@@ -13,8 +13,10 @@ All notable changes to this addon. Dates are release dates.
   pipeline keep it open (they open without their own interface layout
   while it is); its filters stay as they were for the session.
 - **Farm monitoring too**: its own window, its Jobs list paged the same
-  way, refreshed every 2 s while open. Both show their content first, in a box; Project
-  monitoring's list always has at least 6 rows, whatever the filters.
+  way, refreshed every 2 s while open. Both show their content first,
+  Blender's Active Tool hidden, its Options and Workspace pushed out of
+  sight below; Project monitoring's list always has at least 6 rows,
+  whatever the filters.
 - **A monitoring window no longer goes blank when the main window
   switches workspace.**
 - **File details, last render: the machine that rendered a frame is no

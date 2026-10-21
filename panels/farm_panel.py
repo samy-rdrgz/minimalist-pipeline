@@ -31,7 +31,7 @@ from ..lib import (
 FIRST_COLUMN = 0.4
 # What Farm monitoring's window holds besides the Jobs rows (filters, list
 # header, footer, margins), in widget units -- see rows_that_fit().
-_JOBS_RESERVED_UNITS = 8.0
+_JOBS_RESERVED_UNITS = 7.5
 
 
 class M_PIPELINE_PT_farm_panel(bpy.types.Panel):

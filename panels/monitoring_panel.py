@@ -41,11 +41,16 @@ class _MonitoringPanel:
         # The window may come back with a .blend saved with it open, no
         # operator run: the scan and redraws start from here then.
         ensure_monitoring_tick()
-        layout = self.layout.box()
+        layout = self.layout
         if not get_active_project_root():
             layout.label(text="No active project.", icon="ERROR")
-            return
-        self.draw_content(context, layout)
+        else:
+            self.draw_content(context, layout)
+        # A window's height of blank below: the Tool tab's other panels
+        # (Options, Workspace) out of sight, even scrolled.
+        spacer = layout.column()
+        spacer.scale_y = context.region.height / (20 * (context.preferences.system.ui_scale or 1.0))
+        spacer.label(text="")
 
 
 class M_PIPELINE_PT_monitoring(_MonitoringPanel, bpy.types.Panel):
