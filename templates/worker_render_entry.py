@@ -1,6 +1,7 @@
 # templates/worker_render_entry.py
 import importlib
 import sys
+import time
 
 import addon_utils
 import bpy
@@ -32,10 +33,12 @@ farm.apply_custom_preset(preset, scene, job_id, strict=True)
 def record_saved(scene, *_):
     """After each frame Blender writes (never one it skips): one line, so the
     monitor can re-render a frame two machines both wrote -- see NOTES.md,
-    "Frames written by two machines"."""
+    "Frames written by two machines" -- and when (this machine's clock):
+    the time between two lines is what a frame took (frame_seconds(),
+    farm/workers.py)."""
     try:
         with open(saved_file, "a", encoding="utf-8") as f:
-            f.write(f"{dispatch_id} {scene.frame_current}\n")
+            f.write(f"{dispatch_id} {scene.frame_current} {time.time():.1f}\n")
     except OSError:
         pass
 

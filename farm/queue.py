@@ -35,6 +35,7 @@ from .dispatch import (
 )
 from .post_render import checks_images, compilation, refresh_shot_thumbnail
 from .workers import (
+    frame_seconds,
     idle_machines,
     local_render_running,
     saved_frames_path,
@@ -653,6 +654,7 @@ def construct_history(job: dict, status):
         "absorbed_shots",
         "written_twice",
         "frames_rerendered",
+        "seconds_per_frame",
     ):
         if job.get(key):
             entry[key] = job[key]
@@ -880,6 +882,30 @@ def _classify_machines(data: dict) -> dict:
     return state
 
 
+def _note_frame_seconds(data: dict) -> None:
+    """Each machine's mean seconds per frame on this job (machine_seconds)
+    and the job's (seconds_per_frame), into data -- for its detail and its
+    render history. Every round so far: every machine's
+    saved_frames_path() record still there, not only this round's. Nothing
+    from workers on a version that records no time."""
+    per_machine = {}
+    timed = []
+    prefix = f"request_{data['job_id']}_"
+    for path in ConfigCache.get_path("farm_requests").glob(f"{prefix}*.saved"):
+        try:
+            seconds = frame_seconds(path.read_text(encoding="utf-8", errors="replace"))
+        except OSError:
+            continue
+        if seconds:
+            per_machine[path.stem[len(prefix) :]] = round(
+                sum(seconds) / len(seconds), 1
+            )
+            timed += seconds
+    if timed:
+        data["machine_seconds"] = per_machine
+        data["seconds_per_frame"] = round(sum(timed) / len(timed), 1)
+
+
 def check_render_completion(
     job_path: Path, project_root: Path | None = None, data: dict | None = None
 ) -> None:
@@ -977,6 +1003,7 @@ def check_render_completion(
         # Kept for construct_history(): used_machines is reset by the next
         # local stages (_finish_job_processes()).
         data["rendered_by"] = list(data.get("used_machines", []))
+        _note_frame_seconds(data)
         box["action"] = "to_write"
         if failed:
             # Kept across retries: retry_job() reassigns the job to the
@@ -1062,7 +1089,7 @@ def frames_written_twice(data: dict) -> list[int]:
             continue
         for line in text.splitlines():
             parts = line.split()
-            if len(parts) == 2 and parts[0] == dispatch_id and parts[1].isdigit():
+            if len(parts) >= 2 and parts[0] == dispatch_id and parts[1].isdigit():
                 writers.setdefault(int(parts[1]), set()).add(uuid)
     return sorted(frame for frame, uuids in writers.items() if len(uuids) > 1)
 

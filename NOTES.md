@@ -2032,6 +2032,44 @@ real outcome, but needs every worker updated before it helps; this needs
 only the monitor. Losing a "failed" this way costs at most a refill
 round (`MAX_REFILL_ROUNDS`) instead of `render_failed` right away.
 
+## Time left: per machine, from each frame's time
+
+The popup's estimate was `elapsed / progress - elapsed`, elapsed counted
+from the last `render_start`. Right while the job keeps the machines it
+started with, wrong otherwise: a third machine joining halfway still
+counted the first half's pace; one leaving, the same. And after a refill
+(a new `render_start`) the frames already there made the progress jump,
+the time left near zero.
+
+The `.saved` record each machine keeps (frames written twice, above) now
+carries the time of each write, on that machine's clock:
+`"<dispatch_id> <frame> <time>"`. Two lines in a row of one render are
+one frame's time -- skipping frames already taken costs nothing, and the
+first frame of a render (it includes opening the .blend) has no
+predecessor. One clock per file: no worry about machines' clocks
+disagreeing, nor about the share's file times.
+
+Time left = frames still to render (no file, or empty) / the summed pace
+of the machines rendering the job *now* (worker files: "render" on this
+`job_id`), each at the mean of its last `_PACE_FRAMES` (10) frames --
+every machine goes through the range in order, so its next frames look
+like its last, and a heavy stretch of the shot shows up within ten
+frames. A machine that just joined, nothing timed yet, counts at the
+job's average. None of it (first frames, workers not updated): back to
+the old formula.
+
+Read by the popup's reader thread (`_frame_seconds_for_jobs()`), for the
+jobs at `render_start` only, each record parsed again only once its mtime
+or size changed: a line per frame, a few dozen KB for a long shot. When
+the render is judged, the monitor stores each machine's mean
+(`machine_seconds`) and the job's (`seconds_per_frame`) in the job file
+(`_note_frame_seconds()`, every round's lines, every machine's file);
+the render history keeps `seconds_per_frame`.
+
+Not done: counting the frame each machine has in progress (its share of
+it is done already). It needs "now" on the worker's clock -- one frame of
+error at most, on the high side.
+
 ---
 
 ## Action popups: dialogs

@@ -41,6 +41,8 @@ The preset is also applied once at setup, in that throwaway session (never saved
 
 A multishot block (see [Shot blocks (multishot)](multishot.md)) submits and behaves exactly like any file from this side — the split into one job per shot happens automatically once the file is picked up, not something you do differently at submission.
 
+**Time left and time per frame**: each worker notes when it writes each frame. The time left is the frames still to render over the pace of the machines rendering the job *right now* -- each one at the speed of its last 10 frames, a machine that just joined at the job's average -- so it follows a machine joining or leaving at once. Until a first frame is timed (or with workers not updated yet), it falls back on elapsed time over progress. The job's detail shows the average time per frame and each machine's; the Workers tab, each machine's pace on its render; the render history keeps the average.
+
 **Output folders**: a shot renders into `renders/<seq>/<shot>/<version>_<n>/`, an asset or library file into `renders/assets/<prefix>/<asset>/<version>_<n>/` (or `renders/library/...`).
 
 **Thumbnail**: once a render is compiled, the farm writes a thumbnail next to its folders — `renders/<seq>/<shot>/<seq>_<shot>_thumbnail.jpg`, `renders/assets/ch/ch_bob/ch_bob_thumbnail.jpg` (middle frame, 240 px on its longest side by default — "Thumbnails" in Edit project), used by the production snapshot. Made by Blender itself; only a multilayer EXR needs ffmpeg.

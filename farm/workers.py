@@ -365,10 +365,35 @@ def update_worker(dict: dict):
 
 def saved_frames_path(job_id: str, uuid: str) -> Path:
     """Worker uuid's record of the frames it wrote for job_id -- one
-    "<dispatch_id> <frame>" line per frame, appended by the render entry's
-    render_write handler (templates/worker_render_entry.py), read by the
-    monitor (frames_written_twice()). Next to the render's own log."""
+    "<dispatch_id> <frame> <time>" line per frame (no time from a worker on
+    an older version), appended by the render entry's render_write handler
+    (templates/worker_render_entry.py), read by the monitor
+    (frames_written_twice()) and for the pace (frame_seconds()). Next to
+    the render's own log."""
     return ConfigCache.get_path("farm_requests") / f"request_{job_id}_{uuid}.saved"
+
+
+def frame_seconds(text: str) -> list[float]:
+    """Seconds each frame took on one machine, from its saved_frames_path()
+    record: the time between two frames it wrote in a row, same render
+    (dispatch_id) -- times from one clock, its own. The first frame of each
+    render has none (it includes opening the .blend), nor a line with no
+    time. Pure: safe on a reader thread."""
+    seconds = []
+    previous = None
+    for line in text.splitlines():
+        parts = line.split()
+        try:
+            at = float(parts[2]) if len(parts) == 3 else None
+        except ValueError:
+            at = None
+        if at is None:
+            previous = None
+            continue
+        if previous and previous[0] == parts[0] and at > previous[1]:
+            seconds.append(at - previous[1])
+        previous = (parts[0], at)
+    return seconds
 
 
 def render_request(job_data: dict, uuid: str, cmd_flags: list):

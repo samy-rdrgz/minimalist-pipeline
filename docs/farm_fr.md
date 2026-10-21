@@ -41,6 +41,8 @@ Le preset est aussi appliqué une fois au setup, dans cette session jetable (jam
 
 Un bloc de shots (multishot, voir [Blocs de shots (multishot)](multishot_fr.md)) se soumet et se comporte exactement comme n'importe quel fichier de ce côté-là — le découpage en un job par shot se fait automatiquement une fois le fichier pris en charge, pas quelque chose à faire différemment à la soumission.
 
+**Temps restant et temps par frame** : chaque worker note quand il écrit chaque frame. Le temps restant, ce sont les frames encore à rendre divisées par la cadence des machines qui rendent le job *en ce moment* -- chacune à la vitesse de ses 10 dernières frames, une machine qui vient de rejoindre à la moyenne du job -- donc il suit tout de suite une machine qui arrive ou qui part. Tant qu'aucune frame n'est chronométrée (ou avec des workers pas encore à jour), il retombe sur le temps écoulé rapporté à la progression. Le détail du job affiche le temps moyen par frame et celui de chaque machine ; l'onglet Workers, la cadence de chaque machine sur son rendu ; l'historique de rendu garde la moyenne.
+
 **Dossiers de sortie** : un plan se rend dans `renders/<seq>/<plan>/<version>_<n>/`, un fichier d'asset ou de library dans `renders/assets/<préfixe>/<asset>/<version>_<n>/` (ou `renders/library/...`).
 
 **Vignette** : une fois un rendu compilé, la farm écrit une vignette à côté de ses dossiers — `renders/<seq>/<plan>/<seq>_<plan>_thumbnail.jpg`, `renders/assets/ch/ch_bob/ch_bob_thumbnail.jpg` (frame du milieu, 240 px sur son plus grand côté par défaut — "Thumbnails" dans Edit project), utilisée par le snapshot de prod. Faite par Blender lui-même ; seul un EXR multicouche demande ffmpeg.

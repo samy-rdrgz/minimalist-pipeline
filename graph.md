@@ -454,7 +454,9 @@ incomings/job_<id>.json
 │       <file> -o <output> -s <start> -e <end> --python worker_render_entry.py
 │       (placeholders on, no overwrite: every machine runs the whole range,
 │       skipping any frame file already there -- empty = taken by someone ;
-│       render preset strict) -> status "render", current_job_id,
+│       render preset strict ; each frame written: "<dispatch_id> <frame>
+│       <time>" appended to request_<job>_<uuid>.saved -- frames written
+│       twice, and the pace) -> status "render", current_job_id,
 │       current_dispatch_id
 │
 └── check_render_completion() (monitor) : each used machine, from its worker
@@ -469,8 +471,10 @@ incomings/job_<id>.json
     ├── one succeeded, others' requests never picked up : requests deleted
     │   (_drop_pending_request()), they leave used_machines
     ├── any still running : wait
-    └── none : judged on disk (render_start above) -- lost, stopped, cancelled
-        and moved_on are neutral, only "failed" fails it
+    └── none : _note_frame_seconds() (each machine's mean per frame, from
+        the .saved records), then judged on disk (render_start above) --
+        lost, stopped, cancelled and moved_on are neutral, only "failed"
+        fails it
 ```
 
 ### Ways back

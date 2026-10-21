@@ -15,6 +15,14 @@ All notable changes to this addon. Dates are release dates.
   the job is judged on the frames on disk (all there: frame check; empty
   ones: rendered again). Monitor only: the farm host's addon is the one to
   update; a job already stuck moves on by itself within a minute.
+- **Time left follows the machines rendering**: each worker notes when it
+  writes each frame; the time left is the frames left over the pace of
+  the machines on the job *now* (each one's last 10 frames) -- a machine
+  joining or leaving halfway no longer skews it, nor the frames already
+  there after a frames-missing round. The job's detail shows the average
+  time per frame and each machine's, the Workers tab each machine's pace,
+  the render history the average. Needs the workers updated; until then
+  (or before a first frame is timed), the previous estimate.
 
 ## 1.0.15 — 2026-10-20
 

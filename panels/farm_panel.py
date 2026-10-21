@@ -255,10 +255,14 @@ def draw_farm_jobs(self, layout):
 
             elif j["frames_total"] > 0:
                 pct = j["frames_done"] / j["frames_total"]
-                if pct > 0:
-                    # elapsed / pct is the estimated total.
-                    remaining = _duration(elapsed / pct - elapsed)
-                    remaining_str = f"≃ {remaining} remaining"
+                # Frames left over the pace of the machines on it now
+                # (_time_left(), farm/loop.py) -- else, nothing timed yet,
+                # elapsed / pct as the estimated total.
+                left = j.get("time_left")
+                if left is None and pct > 0:
+                    left = elapsed / pct - elapsed
+                if left is not None:
+                    remaining_str = f"≃ {_duration(left)} remaining"
                 else:
                     remaining_str = "estimating..."
                 text = (
@@ -498,6 +502,9 @@ def draw_farm_workers(layout):
             # file names -- current_job is its request's full path.
             name = _job_name(job) if job else Path(m.get("current_file") or "").name
             text = f"render: {name or current_id}"
+            pace = ((job or {}).get("machine_seconds") or {}).get(m.get("uuid"))
+            if pace:
+                text += f"  ({_duration(pace)}/frame)"
             if m.get("stopping"):
                 text += "  (stops after this render)"
             _draw_job_link(jobs, current_id, text)
@@ -623,6 +630,24 @@ def draw_farm_job_details(layout, context):
     field(col, "Machines", machine_names(data.get("used_machines")))
     if data.get("rendered_by"):
         field(col, "Rendered by", machine_names(data["rendered_by"]))
+    # Live from the monitor cache while it renders, else the job file's.
+    live = next(
+        (j for j in get_monitor_cache().get("jobs") or [] if j.get("job_id") == job_id),
+        {},
+    )
+    average = live.get("seconds_per_frame") or data.get("seconds_per_frame")
+    if average:
+        field(col, "Per frame", f"{_duration(average)} on average")
+        per_machine = live.get("machine_seconds") or data.get("machine_seconds") or {}
+        if per_machine:
+            field(
+                col,
+                "Per machine",
+                ", ".join(
+                    f"{machine_names([u])} {_duration(s)}"
+                    for u, s in sorted(per_machine.items(), key=lambda x: x[1])
+                ),
+            )
     if data.get("failed_machines"):
         field(col, "Failed on", machine_names(data["failed_machines"]))
     if data.get("frames_corrupted"):
