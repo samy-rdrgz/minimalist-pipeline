@@ -1252,7 +1252,7 @@ class M_PIPELINE_OT_open_render_video(bpy.types.Operator):
 
 
 def _archive_checked_job(job_id: str) -> None:
-    """A checked render's job leaves the Farm popup's list too -- if it's
+    """A checked render's job leaves Farm monitoring's list too -- if it's
     still in active/ and done. Never raises: the check itself went through."""
     job_path = ConfigCache.get_path("farm_actives") / f"{job_id}.json"
     data = read_json_quiet(job_path)

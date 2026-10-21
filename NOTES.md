@@ -2550,6 +2550,8 @@ Checked in Blender (4.0, under Xvfb):
 - **Filters**: `WindowManager.pipeline_monitoring`, each property a
   get/set on a module dict (`memory_prop()` / `memory_enum()`) -- drawable with `layout.prop()`, never stored
   in the .blend (a WindowManager property is saved with it; see "The
-  detail moved off the WindowManager"). An enum's get/set deal in indices:
-  kept by identifier, so prefixes or sequences changing keep the choice.
+  detail moved off the WindowManager"). An enum's get/set deal in item values (an
+  item's own number when it has one -- the departments' 1, 2, 4... --,
+  else its index): kept by identifier, so prefixes or sequences changing
+  keep the choice.
   The search is cleared when the window opens, as before.

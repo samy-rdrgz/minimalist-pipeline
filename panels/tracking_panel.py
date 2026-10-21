@@ -48,7 +48,7 @@ MONITOR_POPUP_MIN_WIDTH = 900
 
 
 def popup_width(context) -> int:
-    """Width for a monitoring popup's invoke_props_dialog(), from the
+    """Width for a popup's invoke_props_dialog() (the Pipeline log), from the
     window it opens in. A dialog's width is unscaled px (Blender applies
     the UI scale to it), the window's is real px."""
     scale = context.preferences.system.ui_scale or 1.0
@@ -917,7 +917,7 @@ def _to_check_at(info: dict) -> str:
     return (info.get("at") or "")[:16].replace("T", " ")
 
 
-# Farm column: one icon per render, the Farm popup's for its stage
+# Farm column: one icon per render, Farm monitoring's for its stage
 # (job_icon()); a render to check is a finished job's.
 _TO_CHECK_ICON = job_icon("finished")
 _FARM_LEGEND = (

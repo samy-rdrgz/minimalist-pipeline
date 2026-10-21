@@ -15,7 +15,7 @@ The table below is the concept reference instead: one page per theme, for when "
 | Tracking & reviews (notes/todos/rtk) | [tracking-and-reviews.md](tracking-and-reviews.md) | [tracking-and-reviews_fr.md](tracking-and-reviews_fr.md) |
 | Link vs Append | [linking.md](linking.md) | [linking_fr.md](linking_fr.md) |
 | Rendering (farm) | [farm.md](farm.md) | [farm_fr.md](farm_fr.md) |
-| Interface (panels & popups) | [interface.md](interface.md) | [interface_fr.md](interface_fr.md) |
+| Interface (panels, windows & popups) | [interface.md](interface.md) | [interface_fr.md](interface_fr.md) |
 | Design choices | [design.md](design.md) | [design_fr.md](design_fr.md) |
 | Known current limitations | [limitations.md](limitations.md) | [limitations_fr.md](limitations_fr.md) |
 

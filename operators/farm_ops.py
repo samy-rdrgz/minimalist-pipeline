@@ -951,7 +951,7 @@ class M_PIPELINE_OT_farm_archive_job(bpy.types.Operator):
 
 
 class M_PIPELINE_OT_farm_archive_jobs(bpy.types.Operator):
-    """Archive every finished, or every failed, job of the Farm popup."""
+    """Archive every finished, or every failed, job of Farm monitoring."""
 
     bl_idname = "m_pipeline.farm_archive_jobs"
     bl_label = "Archive all"
@@ -1066,7 +1066,7 @@ class M_PIPELINE_OT_farm_recompile_job(bpy.types.Operator):
 
 
 class M_PIPELINE_OT_farm_job_details(bpy.types.Operator):
-    """Farm monitoring popup: show one job's detail (job_id; reload: read it
+    """Farm monitoring: show one job's detail (job_id; reload: read it
     again), or the list (no job_id: the Back button). Reads the job file
     here, once per click -- never in draw()."""
 

@@ -14,7 +14,7 @@ Tous les panneaux vivent dans la sidebar de la vue 3D (`N` > onglet **Pipeline**
 
 <br>
 
-## Popups de vue d'ensemble
+## Fenêtres de vue d'ensemble
 
 Accessibles depuis les boutons ci-dessus, pas des panneaux permanents (le Monitoring projet et le Dashboard farm s'ouvrent chacun dans une fenêtre à eux, le Pipeline log en popup) :
 

@@ -511,7 +511,7 @@ def archive(job_path: Path) -> None:
     job_path.replace(archives_dir / job_path.name)
 
 
-# The job the Farm monitoring popup shows in detail: read once, on click
+# The job Farm monitoring shows in detail: read once, on click
 # (load_job_details()), never from draw().
 _job_details: dict = {}
 # Where that job's file was found, and its logs (archive() moves both).

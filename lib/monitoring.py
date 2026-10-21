@@ -41,9 +41,10 @@ def monitoring_kind(screen) -> str:
 
 
 def monitoring_windows(kind: str | None = None) -> list:
-    """The open monitoring windows (of that kind). Looked up every time,
-    never kept: a window, its areas and regions are freed when it closes or
-    a file loads (see NOTES.md, "Project walk")."""
+    """The open monitoring windows (of that kind), their screens marked
+    again first (_window_kinds). Looked up every time, never kept: a window,
+    its areas and regions are freed when it closes or a file loads (see
+    NOTES.md, "Project walk")."""
     wm = bpy.context.window_manager
     if wm is None:
         return []
@@ -112,7 +113,9 @@ def _show_tool_tab(window_ptr: int, tries: int = 20):
             space = area.spaces.active
             if area.type != "PROPERTIES" or space.context == "TOOL":
                 continue
-            with bpy.context.temp_override(window=window, screen=window.screen, area=area):
+            with bpy.context.temp_override(
+                window=window, screen=window.screen, area=area
+            ):
                 try:
                     space.context = "TOOL"
                 except TypeError:
@@ -196,7 +199,12 @@ def _monitoring_tick():
     if farm:
         cache = get_monitor_cache()
         # A farm read replaces the cache's lists: their identity is enough.
-        seen = (str(root), cache.get("status"), id(cache.get("jobs")), id(cache.get("workers")))
+        seen = (
+            str(root),
+            cache.get("status"),
+            id(cache.get("jobs")),
+            id(cache.get("workers")),
+        )
         if seen != _last_seen.get("farm"):
             _last_seen["farm"] = seen
             redraw_monitoring("farm")
@@ -218,22 +226,26 @@ def memory_prop(store: dict, key: str, prop, default, **kwargs):
 
 
 def memory_enum(store: dict, key: str, items, **kwargs):
-    """memory_prop() for an enum. Its get/set deal in item indices: kept by
-    identifier, so a dynamic list (prefixes, sequences) changing keeps the
-    choice."""
+    """memory_prop() for an enum. Its get/set deal in item values -- an
+    item's own number when it has one (the departments': 1, 2, 4...), else
+    its index: kept by identifier, so a dynamic list (prefixes, sequences)
+    changing keeps the choice."""
 
-    def item_list(self):
-        return items(self, bpy.context) if callable(items) else items
+    def values(self) -> dict:
+        found = items(self, bpy.context) if callable(items) else items
+        return {
+            item[0]: item[-1] if len(item) in (4, 5) else i
+            for i, item in enumerate(found)
+        }
 
     def get(self):
-        ids = [item[0] for item in item_list(self)]
-        value = store.get(key)
-        return ids.index(value) if value in ids else 0
+        by_id = values(self)
+        return by_id.get(store.get(key), next(iter(by_id.values()), 0))
 
-    def set(self, index):
-        found = item_list(self)
-        if 0 <= index < len(found):
-            store[key] = found[index][0]
+    def set(self, value):
+        for identifier, item_value in values(self).items():
+            if item_value == value:
+                store[key] = identifier
 
     return bpy.props.EnumProperty(items=items, get=get, set=set, **kwargs)
 

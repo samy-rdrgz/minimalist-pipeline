@@ -60,9 +60,10 @@ reconfirm each time, not an immutable historical snapshot.
 `bpy.app.handlers.load_post` → `post_load_handler`
 
 ```
-├── unregister_refresh_timer() : stop the farm popup's refresh timer first --
-│   a file load frees every popup region, and that persistent timer would
-│   still tag_redraw() the freed one (crash)
+├── unregister_refresh_timer() : stop the farm's refresh timer first -- a
+│   file load frees every popup region, and that persistent timer would
+│   still tag_redraw() the freed one (crash); _monitoring_tick restarts it
+│   if a Farm monitoring window survived the load
 ├── no filepath (new/unsaved scene) : return
 ├── log("file_open")
 │
@@ -565,7 +566,7 @@ Each caller still does its own `save_project_data(prefs)` + `opened_projects` li
 ├── set_running_project(None) : this Blender instance owns no farm role yet
 ├── register_status_timer() : starts _status_tick (see Clocks) unconditionally,
 │   for as long as the addon is enabled -- unlike _refresh_tick, not gated
-│   behind the farm monitor popup being open
+│   behind a Farm monitoring window being open
 ├── deferred (0.1s later, once the addon keyconfig exists) : override_shortcut()
 │   installs the Ctrl+S -> wm.safe_save keymap override
 ├── deferred (0.05s later) : active_project_root was restored non-empty AND its
@@ -591,8 +592,8 @@ Addon disabled, or Blender quitting.
 ├── unregister_handlers() (safe even if never registered)
 ├── save_project_data(prefs) : best-effort backup, ignored on failure
 ├── unregister all classes
-├── unregister_refresh_timer() : defensive only -- normally already stopped
-│   by the farm monitor popup's own execute()/cancel() (see Clocks)
+├── stop_monitoring_tick(), unregister_refresh_timer() : the monitoring
+│   windows' timers (see Clocks)
 ├── unregister_status_timer() : stops _status_tick, always running until here
 ├── if this instance was running the monitor : stop_monitor_loop()
 │   (terminates any local render subprocesses first)
@@ -644,7 +645,7 @@ unregisters it with the last window. Never touches farm state, UI only, and neve
 
 Every ~10s, for as long as the addon is enabled (`register_status_timer()`,
 addon `register()`/`unregister()`) -- unlike `_refresh_tick`, not gated
-behind the farm monitor popup. Cheap counterpart: `monitor.lock` only, so
+behind a Farm monitoring window. Cheap counterpart: `monitor.lock` only, so
 the sidebar's farm panel header (status label, collapsed or not) stays live.
 
 ```

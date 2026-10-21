@@ -925,7 +925,8 @@ def _note_machine_names(data: dict, uuids) -> None:
     job detail names them by once their worker is gone, or their id has
     changed (a machine's id is its prefs': reset with them)."""
     known = dict(data.get("machine_names") or {})
-    known.update({u: n for u, n in (data.get("frame_machines") or {}).get("machines", {}).values()})
+    frames = (data.get("frame_machines") or {}).get("machines", {})
+    known.update({u: n for u, n in frames.values()})
     for uuid in set(uuids) | set(data.get("failed_machines") or []):
         known[uuid] = _machine_name(uuid, known)
     data["machine_names"] = known
@@ -1235,7 +1236,7 @@ def discard_saved_frames(job_id: str) -> None:
 
 def mark_stage(path, stage):
     """Append a stage entry to a job file's stage_history (own locked
-    transaction). No-op if the file is gone -- archived from the Farm popup
+    transaction). No-op if the file is gone -- archived from Farm monitoring
     meanwhile (it raised "'NoneType' object is not subscriptable")."""
     with locked_json(path) as box:
         if not box["data"]:

@@ -151,7 +151,7 @@ class M_PIPELINE_PT_farm_panel(bpy.types.Panel):
 
 
 def job_icon(stage: str) -> str:
-    """A job stage's icon -- the Farm popup's list, and Project monitoring's
+    """A job stage's icon -- Farm monitoring's list, and Project monitoring's
     Farm column."""
     if stage == "pending":
         return "SORTTIME"

@@ -14,7 +14,7 @@ All the panels live in the 3D viewport sidebar (`N` > **Pipeline** tab). Each ha
 
 <br>
 
-## Overview popups
+## Overview windows
 
 Reached from the buttons above, not permanent panels (Project monitoring and the Farm dashboard open in a window of their own, the Pipeline log as a popup):
 
