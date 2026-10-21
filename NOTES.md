@@ -1745,7 +1745,7 @@ like `_meta_path()` it only accepts a `.blend`.
 
 Production (outside the studio: no Blender, no NAS) needs a picture of the
 project at a given moment and a way to send review notes back.
-`lib/snapshot.py`, Project panel > "Export prod snapshot".
+`lib/snapshot.py`, Project panel > "Snapshot".
 
 - **One self-contained HTML file**, CSS/JS inline: sent by mail, opens
   offline. Not Markdown (browsers don't render it), not an XLSX report.
@@ -1800,7 +1800,7 @@ project at a given moment and a way to send review notes back.
 
 ### Review import, and the CSV entry import it replaced
 
-Project panel / Pipeline menu > "Import prod review" reads the template
+Project panel / Pipeline menu > "Import review" reads the template
 back straight from the .xlsx (`zipfile` + `ElementTree`: sharedStrings or
 inline strings, first sheet resolved through the workbook rels -- not
 always `sheet1.xml` once a spreadsheet app has re-saved it). No "save as
@@ -1894,8 +1894,10 @@ carries its prefix). Overwritten in place, made by `lib/thumbnails.py` +
   it counts in thirds, one step per stage: not started 0, work in
   progress 1/3, validated but reworked since -- or with an open RTK
   tagged on that department, outlined red in the table: the RTK is the
-  news -- 2/3, validated 1. Groups and the two totals average their items,
-  each weighing the same: a 2-department prop and a 5-department
+  news -- 2/3, validated 1. (Since 1.0.14 the three middle steps are
+  `PROGRESS_WEIGHTS`, 33/67/67 %, overridable per project:
+  `snapshot.progress`, Project settings > Snapshot done.) Groups and the
+  two totals average their items, each weighing the same: a 2-department prop and a 5-department
   character are one item each. Items with no required department are
   left out rather than counted 0 or 100.
 - **Closed notes exported, hidden**: the snapshot used to drop closed
