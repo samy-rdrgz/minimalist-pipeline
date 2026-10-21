@@ -2,7 +2,15 @@
 
 All notable changes to this addon. Dates are release dates.
 
-## Unreleased
+## 1.0.17 — 2026-10-21
+
+The farm made for workstations that come and go as workers all day:
+a render no longer waits forever on a machine that moved on, a machine
+that left can join it again, stopping a worker leaves no empty frame,
+joining is decided in time, the time left follows the machines on the
+render, and who rendered each frame is kept. Then the monitoring popups
+and the save guards. Update every machine of the farm: the farm host and
+the workers.
 
 ### Farm: renders
 
@@ -14,8 +22,41 @@ All notable changes to this addon. Dates are release dates.
   is on it any more (rendering it, or about to take it up), whatever they
   published; then the frames on disk decide, as before (all there: frame
   check; empty ones: rendered again). Cancel is noted on the job itself.
-  Monitor only: the farm host's addon is the one to update; a job already
-  stuck moves on by itself within a minute.
+  A job already stuck moves on by itself within a minute of the farm host
+  being updated.
+- **A machine that left a render can join it again**: a workstation
+  stopped as a worker (or Blender quit) mid-render stayed in the job's
+  machines until the end -- shut out of the render it left, and still
+  counted under *Workers per job*. Idle again, it now rejoins like any
+  other worker, and only the machines on the render count for the limit.
+- **Stopping a worker: "After this frame" or "Stop now"**: "Let it
+  finish" finished the whole render -- every frame still free, hours on a
+  long shot -- before a workstation was given back. Now the render stops
+  as soon as the frame it's on is written. "Stop now" (also quitting
+  Blender, a machine's Cancel) deletes the empty file of the frame it was
+  on: another machine -- one joining -- can render it, instead of it
+  waiting for the end of the render.
+- **Workers join a render when it's worth it, in time**: rather than
+  "more than 10 free frames each", a worker joins while the free frames
+  would keep the render's machines busy longer than it takes it to open
+  the file and render one -- measured on that render -- and for a frame
+  freed by a *Stop now* that every machine is already past.
+- **Time left follows the machines rendering**: each worker notes when it
+  writes each frame; the time left is the frames left over the pace of
+  the machines on the job *now* (each one's last 10 frames) -- a machine
+  joining or leaving halfway no longer skews it, nor the frames already
+  there after a frames-missing round. The job's detail shows the average
+  time per frame and each machine's, the Workers tab each machine's pace,
+  the render history the average. Needs the workers updated; until then
+  (or before a first frame is timed), the previous estimate.
+- **Which machine rendered a frame**: the job's detail and File details'
+  last render have a *Frame* field naming the machine that wrote it (and
+  its pace), and each machine's frame count -- kept in the render history
+  (one letter per frame, about 1.5 KB for a 1500-frame shot), there once
+  the job is archived.
+
+### Monitoring, save guards
+
 - **Monitoring popups reopen where you left them -- with OK**: Project
   monitoring sometimes fell back to its list on its own -- opening a file
   already shown (a "Links to" / "Linked by" row) toggled its detail off,
@@ -30,36 +71,6 @@ All notable changes to this addon. Dates are release dates.
   "Read-Only Origin"), the stop-worker and FFmpeg warnings had a Cancel of
   their own on top of the dialog's Cancel and Close -- three buttons doing
   the same. Theirs is gone.
-- **Stopping a worker: "After this frame" or "Stop now"**: "Let it
-  finish" finished the whole render -- every frame still free, hours on a
-  long shot -- before a workstation was given back. Now the render stops
-  as soon as the frame it's on is written. "Stop now" (also quitting
-  Blender, a machine's Cancel) deletes the empty file of the frame it was
-  on: another machine -- one joining -- can render it, instead of it
-  waiting for the end of the render.
-- **Workers join a render when it's worth it, in time**: rather than
-  "more than 10 free frames each", a worker joins while the free frames
-  would keep the render's machines busy longer than it takes it to open
-  the file and render one -- measured on that render -- and for a frame
-  freed by a *Stop now* that every machine is already past.
-- **Which machine rendered a frame**: the job's detail and File details'
-  last render have a *Frame* field naming the machine that wrote it (and
-  its pace), and each machine's frame count -- kept in the render history
-  (one letter per frame, about 1.5 KB for a 1500-frame shot), there once
-  the job is archived.
-- **A machine that left a render can join it again**: a workstation
-  stopped as a worker (or Blender quit) mid-render stayed in the job's
-  machines until the end -- shut out of the render it left, and still
-  counted under *Workers per job*. Idle again, it now rejoins like any
-  other worker, and only the machines on the render count for the limit.
-- **Time left follows the machines rendering**: each worker notes when it
-  writes each frame; the time left is the frames left over the pace of
-  the machines on the job *now* (each one's last 10 frames) -- a machine
-  joining or leaving halfway no longer skews it, nor the frames already
-  there after a frames-missing round. The job's detail shows the average
-  time per frame and each machine's, the Workers tab each machine's pace,
-  the render history the average. Needs the workers updated; until then
-  (or before a first frame is timed), the previous estimate.
 
 ## 1.0.15 — 2026-10-20
 
