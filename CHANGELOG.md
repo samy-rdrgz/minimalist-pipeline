@@ -2,6 +2,15 @@
 
 All notable changes to this addon. Dates are release dates.
 
+## Unreleased
+
+- **Project monitoring opens in a window of its own**: the Monitoring
+  button opens a Blender window holding a single Properties editor -- it
+  stays open while you work, resizable, on a second screen if you like.
+  One list that scrolls instead of pages of 12. Files opened through the
+  pipeline keep it open (they open without their own interface layout
+  while it is); its filters stay as they were for the session.
+
 ## 1.0.17 — 2026-10-21
 
 The farm made for workstations that come and go as workers all day:

@@ -656,16 +656,34 @@ the sidebar's farm panel header (status label, collapsed or not) stays live.
 
 ### ProjectScan._tick
 
-Every 0.1s while a Project monitoring scan runs (started by the popup's
-`invoke()`, its Refresh button, or `find_linked_by()` finding no index for
+Every 0.1s while a Project monitoring scan runs (started by
+`m_pipeline.tracking_monitor`, the window's Refresh button, `_monitoring_tick`
+for a project not scanned yet, or `find_linked_by()` finding no index for
 the project), then stops itself.
 
 ```
 ├── drain what the reader thread posted (≤10 ms per tick) : found folders,
 │   raw tracking data -> TrackingStatusCache, link targets
 └── scan done : drop folders gone since the last scan, rebuild the linked-by
-    index. No redraw: the popup refreshes on the next mouse move (holding
+    index. No redraw: `_monitoring_tick` below redraws the window (holding
     its region across ticks would crash Blender once it's closed)
+```
+
+### _monitoring_tick
+
+Every 0.5s while a Project monitoring window is open (`lib/monitoring.py`;
+started by `open_monitoring_window()`, or by the window's panel when the
+window came back with a .blend saved with it open). Persistent: a file
+opened by the pipeline keeps the window (`open_mainfile()`: no `load_ui`),
+so the timer too.
+
+```
+├── no monitoring window left : stop (return None)
+├── active project not scanned yet (a switch of project) : ProjectScan.start()
+├── >= 10s since the last : request_monitor_refresh() (the Farm column)
+└── project / ProjectScan progress / farm_activity() changed : tag_redraw()
+      the window's Properties region -- windows looked up again every
+      tick, never kept
 ```
 
 ### farm_tick

@@ -1,4 +1,4 @@
-"""Tracking operators: CRUD on note/todo/rtk entries, prod snapshot export and review import, monitoring popups."""
+"""Tracking operators: CRUD on note/todo/rtk entries, prod snapshot export and review import, Project monitoring."""
 
 import hashlib
 from pathlib import Path
@@ -31,6 +31,9 @@ from ..lib import (
     import_review_xlsx,
     json_get,
     log,
+    monitoring_windows,
+    open_monitoring_window,
+    redraw_monitoring,
     now,
     prefix_items,
     read_json_quiet,
@@ -53,11 +56,8 @@ from ..lib import (
 )
 from ..farm import archive, farm_activity, request_monitor_refresh
 from ..panels import (
-    draw_file_details,
-    draw_monitor_table,
     load_file_renders,
     load_file_thumbnail,
-    popup_width,
 )
 
 _file_department_items_cache: list = []
@@ -903,121 +903,128 @@ class M_PIPELINE_OT_tracking_refresh(bpy.types.Operator):
         return {"FINISHED"}
 
 
-def _back_to_first_page(self, context):
-    self.page = 1
+# Project monitoring's filters: in memory only, like popup_detail() -- as
+# plain WindowManager properties they'd be saved into every .blend and come
+# back as each opened file had them (a stale search silently hiding files).
+_monitoring_filters: dict = {}
 
 
-class M_PIPELINE_OT_tracking_monitor(bpy.types.Operator):
-    """Popup dashboard: every tracked asset/shot with its department status, filterable."""
+def _memory_prop(prop, key: str, default, **kwargs):
+    def get(self):
+        return _monitoring_filters.get(key, default)
 
-    bl_idname = "m_pipeline.tracking_monitor"
-    bl_label = ""
-    bl_description = (
-        "Show a popup view of all files in the project with their tracking status."
+    def set(self, value):
+        _monitoring_filters[key] = value
+
+    return prop(default=default, get=get, set=set, **kwargs)
+
+
+def _memory_enum(key: str, items, **kwargs):
+    """An enum's get/set deal in item indices: kept by identifier, so a
+    dynamic list (prefixes, sequences) changing keeps the choice."""
+
+    def item_list(self):
+        return items(self, bpy.context) if callable(items) else items
+
+    def get(self):
+        ids = [item[0] for item in item_list(self)]
+        value = _monitoring_filters.get(key)
+        return ids.index(value) if value in ids else 0
+
+    def set(self, index):
+        found = item_list(self)
+        if 0 <= index < len(found):
+            _monitoring_filters[key] = found[index][0]
+
+    return bpy.props.EnumProperty(items=items, get=get, set=set, **kwargs)
+
+
+class PIPELINE_PG_monitoring(bpy.types.PropertyGroup):
+    """Project monitoring window's filters (WindowManager.pipeline_monitoring),
+    and its file detail's notes/tasks filters -- its own, not the sidebar's."""
+
+    file_type: _memory_enum(
+        "file_type", [("asset", "Asset / Library", ""), ("shot", "Shot", "")]
     )
-    project_root: bpy.props.StringProperty()
-
-    file_type: bpy.props.EnumProperty(
-        items=[("asset", "Asset / Library", ""), ("shot", "Shot", "")],
-        default="asset",
+    asset_prefix: _memory_enum("asset_prefix", prefix_items)
+    sequence: _memory_enum("sequence", sequence_items)
+    entries_hide_done: _memory_prop(
+        bpy.props.BoolProperty, "entries_hide_done", True, name=""
     )
-
-    asset_prefix: bpy.props.EnumProperty(items=prefix_items)
-
-    sequence: bpy.props.EnumProperty(items=sequence_items)
-
-    # SKIP_SAVE: always reopen the popup on page 1 rather than remembering
-    # the last page, since the file list (and thus the page count) can have
-    # changed since the popup was last closed.
-    page: bpy.props.IntProperty(default=1, min=1, options={"SKIP_SAVE"})
-    PAGE_SIZE = 12
-    # Set by invoke() from the window (panels.popup_width()).
-    popup_width: bpy.props.IntProperty(options={"SKIP_SAVE", "HIDDEN"})
-
-    entries_hide_done: bpy.props.BoolProperty(name="", default=True)
-    entries_department_filter: bpy.props.EnumProperty(items=department_filter_items)
-    entries_min_version: bpy.props.IntProperty(name="", default=0, min=0)
-    only_farm: bpy.props.BoolProperty(
+    entries_department_filter: _memory_enum(
+        "entries_department_filter", department_filter_items
+    )
+    entries_min_version: _memory_prop(
+        bpy.props.IntProperty, "entries_min_version", 0, name="", min=0
+    )
+    only_farm: _memory_prop(
+        bpy.props.BoolProperty,
+        "only_farm",
+        False,
         name="",
-        default=False,
         description=(
             "Only the files with a render in the farm (queued, in progress, "
             "failed) or waiting to be checked"
         ),
     )
-    only_rtk: bpy.props.BoolProperty(
+    only_rtk: _memory_prop(
+        bpy.props.BoolProperty,
+        "only_rtk",
+        False,
         name="",
-        default=False,
         description="Only the files with an open RTK",
     )
-    # SKIP_SAVE: a search left over from last time would silently hide files.
-    search: bpy.props.StringProperty(
+    search: _memory_prop(
+        bpy.props.StringProperty,
+        "search",
+        "",
         name="",
         description="Filter by file name or description",
-        options={"SKIP_SAVE"},
-        update=_back_to_first_page,
     )
 
-    def draw(self, context):
-        layout = self.layout
-        if popup_detail("file"):
-            draw_file_details(self, context, layout)
 
-        else:
-            filters = layout.box().split(factor=0.3)
-            filters.label(text="Filters", icon="FILTER")
-            filters_btn = filters.row()
-            filters_btn.prop(self, "file_type", expand=True)
+class M_PIPELINE_OT_tracking_monitor(bpy.types.Operator):
+    """Open Project monitoring in its own window (panels/monitoring_panel.py)."""
 
-            if self.file_type == "asset":
-                filters_btn.prop(self, "asset_prefix", text="")
-                columns = json_get(ConfigCache.get(), "assets_departments", [])
-
-            elif self.file_type == "shot":
-                filters_btn.prop(self, "sequence", text="")
-                columns = json_get(ConfigCache.get(), "shots_departments", [])
-
-            filters_btn.prop(self, "search", text="", icon="VIEWZOOM")
-            # Icon only: the property's description is the tooltip.
-            filters_btn.prop(self, "only_farm", text="", icon="VIEW_CAMERA_UNSELECTED")
-            filters_btn.prop(self, "only_rtk", text="", icon="LOOP_BACK")
-
-            layout.separator(factor=0.5)
-
-            draw_monitor_table(self, context, layout, columns)
-
-    def invoke(self, context, event):
-        project_root = get_active_project_root()
-
-        if project_root:
-            # Opens at once on what's already known; ProjectScan refreshes the
-            # whole project in the background (see its docstring) -- a
-            # blocking scan froze Blender for minutes on a network share.
-            ProjectScan.start(project_root)
-            request_monitor_refresh()  # the Farm column, same idea
-            self.project_root = str(project_root)
-
-            # Reopens on the file it showed when closed with OK (Cancel:
-            # back to the list) -- read again, it may have changed.
-            folder = popup_detail("file")
-            if folder and not Path(folder).is_dir():
-                set_popup_detail("file", "")
-            elif folder:
-                load_file_thumbnail(folder)
-                load_file_renders(folder)
-            # Kept: draw_file_details() wraps its text on it.
-            self.popup_width = popup_width(context)
-            return context.window_manager.invoke_props_dialog(
-                self, width=self.popup_width
-            )
+    bl_idname = "m_pipeline.tracking_monitor"
+    bl_label = "Project monitoring"
+    bl_description = (
+        "Open a window listing every file of the project with its tracking "
+        "status. It stays open, resizable, while you work"
+    )
 
     def execute(self, context):
-        """OK: keeps the file shown in detail for next time."""
-        return {"FINISHED"}
+        project_root = get_active_project_root()
+        if not project_root:
+            self.report({"ERROR"}, "No active project.")
+            return {"CANCELLED"}
 
-    def cancel(self, context):
-        """Cancel / Escape: next time opens on the list."""
-        set_popup_detail("file", "")
+        # Opens at once on what's already known; ProjectScan refreshes the
+        # whole project in the background (see its docstring) -- a
+        # blocking scan froze Blender for minutes on a network share.
+        ProjectScan.start(project_root)
+        request_monitor_refresh()  # the Farm column, same idea
+
+        if monitoring_windows():
+            # No way to bring a window to the front from Python.
+            redraw_monitoring()
+            self.report({"INFO"}, "Project monitoring is already open.")
+            return {"FINISHED"}
+
+        # Reopens on the file it showed -- read again, it may have changed.
+        folder = popup_detail("file")
+        if folder and not Path(folder).is_dir():
+            set_popup_detail("file", "")
+        elif folder:
+            load_file_thumbnail(folder)
+            load_file_renders(folder)
+        # A search left over from last time would silently hide files.
+        context.window_manager.pipeline_monitoring.search = ""
+
+        if not open_monitoring_window(context):
+            self.report({"ERROR"}, "Blender could not open a new window.")
+            return {"CANCELLED"}
+        return {"FINISHED"}
 
 
 class M_PIPELINE_OT_edit_description(bpy.types.Operator):

@@ -251,6 +251,11 @@ class ProjectScan:
     _owners: list = []
 
     @classmethod
+    def covers(cls, project_root: Path) -> bool:
+        """Whether the last scan started (running or done) is project_root's."""
+        return cls._root == str(project_root)
+
+    @classmethod
     def start(cls, project_root: Path) -> None:
         """Start a scan of project_root -- no-op if one for the same project
         is already running."""

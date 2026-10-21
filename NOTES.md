@@ -2459,3 +2459,56 @@ folder made project-relative -- an old absolute line under this machine's
 root still counts), and the recent files open `project_path()` of it. The
 `.session_<pid>.json` file itself stays absolute: it's this machine's own,
 compared with `bpy.data.filepath`.
+
+## Project monitoring: a window, not a popup
+
+The popup had grown heavy: 12 rows a page, a pager, a fixed height padded
+with blank rows so it didn't jump around, and it closed as soon as you
+clicked outside it. `m_pipeline.tracking_monitor` now opens a window
+holding one Properties editor; `M_PIPELINE_PT_monitoring` draws in it.
+Checked in Blender (4.0, under Xvfb):
+
+- **The window**: `bpy.ops.wm.window_new()` opens a normal window (95 % x
+  90 % of the main one, its child) with a single area of the main window's
+  biggest editor type; the area becomes `PROPERTIES`. Its header (the
+  search field, which would filter the table's labels) is hidden, and so
+  is the tab column (`screen.region_toggle(region_type="NAVIGATION_BAR")`).
+  A window's position and size are read-only from Python, and nothing
+  raises a window: clicking the button again while it's open only says so.
+- **The Tool tab**: the editor's tabs only exist once it has been drawn --
+  setting `space.context = "TOOL"` right away raises (`enum "TOOL" not
+  found in ()`); a timer retries until it takes.
+- **Getting in**: an addon can't add a Properties tab; the Tool tab draws
+  the 3D View sidebar's `bl_category = "Tool"` panels. `poll()` keeps ours
+  to the monitoring window (an ID property on its screen,
+  `MONITORING_SCREEN_KEY` -- a screen is an ID, a window isn't), never the
+  N panel or another Properties editor. `HIDE_HEADER` puts it first: a
+  headerless panel goes before panels with a header, but after Blender's
+  own headerless active tool (`VIEW3D_PT_active_tool_duplicate`, same
+  `bl_order` 0 -- `bl_order` can't go below 0). Blender's Tool panels
+  (Options, Workspace, a mode's brushes) stay below the list: no API folds
+  or hides another panel.
+- **Redraws**: a click on a button in the window rebuilds it like in the
+  popup (checked); what changes in the background doesn't -- a popup
+  redrew on every mouse move, a region doesn't. `_monitoring_tick` redraws
+  when the scan or the Farm column changed, looking the windows up again
+  every tick (see "Project walk": a kept region crashes once freed).
+- **File loads**: with Load UI (Blender's default), opening a file closes
+  every window the file doesn't have -- the monitoring window at every
+  file opened from it. `open_mainfile()` (Open file, recent files, the
+  window's open buttons) passes `load_ui=False` while it's open: checked,
+  the window stays, size, place and scroll included. The price: those
+  files open in the current interface layout, not their own. Blender's
+  File > Open isn't ours and still closes it.
+- **Saved with the .blend**: a file saved with the window open has it
+  (Load UI brings it back, with its screen's ID property: the panel shows,
+  and starts the scan and the tick itself). Each window also leaves a
+  workspace layout behind once closed ("temp", "temp.001"...): `window_new`
+  screens aren't temporary, so closing doesn't delete them, and Python
+  can't delete a layout -- Blender's own Window > New Window does the same.
+- **Filters**: `WindowManager.pipeline_monitoring`, each property a
+  get/set on a module dict -- drawable with `layout.prop()`, never stored
+  in the .blend (a WindowManager property is saved with it; see "The
+  detail moved off the WindowManager"). An enum's get/set deal in indices:
+  kept by identifier, so prefixes or sequences changing keep the choice.
+  The search is cleared when the window opens, as before.
