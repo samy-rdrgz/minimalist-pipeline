@@ -1114,6 +1114,9 @@ def _status_from_raw(raw: dict) -> dict:
         # Validated at an earlier stable, or worked before the latest one:
         # never "not started", even without validation or work since.
         "started_departments": sorted(raw.get("started") or []),
+        # Its latest version's last save (ISO) -- Project monitoring's
+        # "Oldest work" sort.
+        "last_saved_at": max((m.get("edited_at") or "" for m in raw["wipmetas"]), default=""),
         "departments_items": deps_items,
         # Computed here (not in draw()) so a UI redraw -- which Blender
         # fires constantly, e.g. on every mouse move over the viewport --

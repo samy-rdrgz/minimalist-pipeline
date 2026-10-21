@@ -293,7 +293,7 @@ class M_PIPELINE_OT_onboarding_popup(bpy.types.Operator):
             name_block.scale_y = 0.8
             name_row = name_block.box().row(align=True)
             name_row.alignment = "LEFT"
-            name_row.label(text="YOUR NAME :", icon="USER")
+            name_row.label(text="YOUR NAME:", icon="USER")
             name_row.prop(prefs, "user_name", text="")
             hint_row = name_block.box().column(align=True)
             hint_row.active = False

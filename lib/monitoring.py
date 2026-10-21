@@ -256,14 +256,19 @@ ROW_UNITS = 1.9
 # window's region scrolls.
 MIN_ROWS = 6
 
-# Each window's page, in memory like its filters (memory_prop()), with
-# the filters it was counted for.
+# Each window's page and page count, in memory like its filters, with the
+# filters it was counted for.
 _pages: dict = {kind: {} for kind in MONITORING_KINDS}
 
 
-def page_store(kind: str) -> dict:
-    """The page state of a monitoring window ("project" / "farm")."""
-    return _pages[kind]
+def turn_page(kind: str, step: int, to_end: bool = False) -> None:
+    """step pages on (-1 / +1), or to the first / last with to_end --
+    within the page count last drawn."""
+    store = _pages[kind]
+    pages = store.get("pages", 1)
+    page = (1 if step < 0 else pages) if to_end else store.get("page", 1) + step
+    store["page"] = max(1, min(page, pages))
+    redraw_monitoring(kind)
 
 
 def rows_that_fit(context, reserved_units: float) -> int:
@@ -282,22 +287,64 @@ def paginate(kind: str, items: list, per_page: int, filters: tuple) -> tuple:
     if store.get("filters") != filters:
         store["filters"] = filters
         store["page"] = 1
-    pages = max(1, -(-len(items) // per_page))
+    pages = store["pages"] = max(1, -(-len(items) // per_page))
     page = store["page"] = max(1, min(store.get("page", 1), pages))
     start = (page - 1) * per_page
     return items[start : start + per_page], page, pages
 
 
-def draw_pager(layout, state, page: int, pages: int) -> None:
-    """ "Page 2 / 5" and its field, right-aligned -- nothing for one page.
-    state: the window's filters, holding a memory_prop "page"."""
+def draw_pager(layout, page: int, pages: int) -> None:
+    """ "< Page 2 / 5 >", right-aligned -- nothing for one page. The arrows:
+    m_pipeline.monitoring_page (Ctrl+click: first / last; the arrow keys
+    too, see register_monitoring_keymap())."""
     if pages < 2:
         return
     pager = layout.row(align=True)
     pager.alignment = "RIGHT"
-    pager.active = False
-    pager.label(text=f"Page {page} / {pages}")
-    pager.prop(state, "page", text="")
+    prev = pager.row(align=True)
+    prev.enabled = page > 1
+    prev.operator("m_pipeline.monitoring_page", text="", icon="TRIA_LEFT").step = -1
+    label = pager.row(align=True)
+    label.active = False
+    label.label(text=f"Page {page} / {pages}")
+    nxt = pager.row(align=True)
+    nxt.enabled = page < pages
+    nxt.operator("m_pipeline.monitoring_page", text="", icon="TRIA_RIGHT").step = 1
+
+
+# The monitoring windows' keys, in the Properties editor's keymap: their
+# operators' poll() keeps them to those windows.
+_KEYMAP_ITEMS = (
+    ("m_pipeline.monitoring_page", "LEFT_ARROW", False, {"step": -1}),
+    ("m_pipeline.monitoring_page", "RIGHT_ARROW", False, {"step": 1}),
+    ("m_pipeline.monitoring_page", "LEFT_ARROW", True, {"step": -1, "to_end": True}),
+    ("m_pipeline.monitoring_page", "RIGHT_ARROW", True, {"step": 1, "to_end": True}),
+    ("m_pipeline.monitoring_back", "ESC", False, {}),
+)
+_keymap_items: list = []
+
+
+def register_monitoring_keymap() -> None:
+    """Arrows: previous / next page (Ctrl: first / last); Esc: back from a
+    detail to the list. Needs the addon keyconfig (not there at register())."""
+    kc = bpy.context.window_manager.keyconfigs.addon
+    if not kc or _keymap_items:
+        return
+    km = kc.keymaps.new(name="Property Editor", space_type="PROPERTIES")
+    for idname, key, ctrl, props in _KEYMAP_ITEMS:
+        kmi = km.keymap_items.new(idname, type=key, value="PRESS", ctrl=ctrl)
+        for name, value in props.items():
+            setattr(kmi.properties, name, value)
+        _keymap_items.append((km, kmi))
+
+
+def unregister_monitoring_keymap() -> None:
+    for km, kmi in _keymap_items:
+        try:
+            km.keymap_items.remove(kmi)
+        except (ReferenceError, RuntimeError):
+            pass
+    _keymap_items.clear()
 
 
 # Blender's active tool (its name and settings) heads the Properties

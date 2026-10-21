@@ -41,7 +41,6 @@ from ..lib import (
     memory_prop,
     monitoring_windows,
     open_monitoring_window,
-    page_store,
     redraw_monitoring,
     get_folder,
     get_machine_id,
@@ -449,7 +448,7 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
 
         col.separator()
         col.prop_menu_enum(
-            self, "assigned_machines", text="Assigned machines (Empty : auto)"
+            self, "assigned_machines", text="Assigned machines (empty: auto)"
         )
         col.separator()
         col.prop_menu_enum(self, "pre_render_script", text="Pre_render script")
@@ -521,7 +520,7 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
             ### list -- shown even empty, so it's clear where "Add" goes
             layout.separator(factor=2)
             box = layout.box().column(align=True)
-            box.label(text="Render list :")
+            box.label(text="Render list:")
             box.separator(type="LINE", factor=0.5)
             box.separator()
             if not context.scene.pipeline_farm_list:
@@ -1132,8 +1131,6 @@ class PIPELINE_PG_farm_monitoring(bpy.types.PropertyGroup):
         name="",
         description="Filter by file name or shot",
     )
-    # The Jobs list's page, see paginate() (lib/monitoring.py).
-    page: memory_prop(page_store("farm"), "page", bpy.props.IntProperty, 1, name="", min=1)
 
 
 class M_PIPELINE_OT_farm_monitor(bpy.types.Operator):

@@ -301,11 +301,11 @@ def _get_entry_tooltip(e, filepath):
     file = e.get("referenced_version")
     file = Path(file).stem if file else "unknown version"
 
-    text = f"By : {e.get('author', 'unknown')}\nAt : {e['created_at'].replace('T', ' ')}\nBased on : {file}"
+    text = f"By: {e.get('author', 'unknown')}\nAt: {e['created_at'].replace('T', ' ')}\nBased on: {file}"
     if e.get("edited_by"):
-        text = f"{text}\n\nEdited by : {e['edited_by']}\nAt : {e['edited_at'].replace('T', ' ')}"
+        text = f"{text}\n\nEdited by: {e['edited_by']}\nAt: {e['edited_at'].replace('T', ' ')}"
     if e.get("department"):
-        text = f"{text}\nFor department : {e.get('department')}"
+        text = f"{text}\nFor department: {e.get('department')}"
     if e.get("source") == REVIEW_SOURCE:
         text = f"{text}\nImported from a prod review"
     review_id = f" (review_id : {e.get('review_id')})" if e.get("review_id") else ""
@@ -604,7 +604,7 @@ def draw_file_details(state, context, layout):
         # estimated width -- "...for this file :" was cut ("...for this fil...").
         txt = deps_row.row(align=True)
         txt.separator(factor=0.5)
-        txt.label(text="Departments required :", icon="TAG")
+        txt.label(text="Departments required:", icon="TAG")
         for d in required:
             btn = deps_row.row(align=True)
             btn.label(text="", icon="BLANK1")
@@ -757,6 +757,11 @@ def draw_monitor_table(self, context, layout, columns, project_root):
     # gives prefix+alpha order for assets and sequence+shot order for
     # shots -- no separate sort key needed per file_type.
     matches.sort(key=lambda m: m[1].get("file_name") or "")
+    # Stable sorts: ties stay in name order. No open RTK / never saved last.
+    if self.sort == "rtk":
+        matches.sort(key=lambda m: _oldest_open_rtk(m[1]) or "~")
+    elif self.sort == "work":
+        matches.sort(key=lambda m: m[1].get("last_saved_at") or "~")
 
     total = len(matches)
 
@@ -779,6 +784,7 @@ def draw_monitor_table(self, context, layout, columns, project_root):
         search,
         self.only_farm,
         self.only_rtk,
+        self.sort,
     )
     shown, page, pages = paginate("project", matches, per_page, filters)
     for dir, file in shown:
@@ -816,7 +822,7 @@ def draw_monitor_table(self, context, layout, columns, project_root):
     legend.separator(factor=3)
     for icon, text in _FARM_LEGEND:
         legend.label(text=text, icon=icon)
-    draw_pager(footer, self, page, pages)
+    draw_pager(footer, page, pages)
 
 
 def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None):
@@ -1000,6 +1006,18 @@ def _draw_monitor_blank_row(f_list, columns, first_column):
     for cell in _equal_cells(split.row(), len(columns) + 1):  # + "Farm"
         cell.label(text="", icon="BLANK1")
     f_list.separator(factor=0.5, type="LINE")
+
+
+def _oldest_open_rtk(data: dict) -> str:
+    """created_at (ISO) of data's oldest un-done RTK, "" without one."""
+    return min(
+        (
+            e.get("created_at") or ""
+            for e in data.get("entries") or []
+            if e.get("type") == "rtk" and e.get("done") is False
+        ),
+        default="",
+    )
 
 
 def _has_rtk(data: dict, department: str | None = None) -> bool:

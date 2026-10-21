@@ -123,9 +123,11 @@ def _seed_user_name():
 
 
 def _deferred_keymap():
-    """Install the Ctrl+S override once the addon keyconfig exists (not ready at register() time)."""
+    """Install the Ctrl+S override and the monitoring windows' keys once the
+    addon keyconfig exists (not ready at register() time)."""
     if bpy.context.window_manager.keyconfigs.addon:
         override_shortcut()
+        lib.register_monitoring_keymap()
 
 
 def _deferred_project_check():
@@ -247,6 +249,7 @@ def unregister():
     lib.unregister_handlers()
     unregister_topbar_menu()
     lib.restore_active_tool()
+    lib.unregister_monitoring_keymap()
 
     # Farm roles first, while the addon's preferences are still registered:
     # the worker file's path needs the active project and this machine's id,
