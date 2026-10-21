@@ -1280,13 +1280,18 @@ def _archive_checked_job(job_id: str) -> None:
 
 
 class M_PIPELINE_OT_tracking_file_details(bpy.types.Operator):
-    """Popup: department status and notes/todos for one tracked file."""
+    """Project monitoring: show one tracked file's detail (filepath, its
+    folder), or the list (no filepath: the Back button). Never a toggle:
+    clicking a file already shown -- a "Links to" / "Linked by" row naming
+    it -- went back to the list. SKIP_SAVE: an operator property otherwise
+    keeps its last value for a button that doesn't set it -- the Back
+    button carried the last file clicked, and its description as tooltip."""
 
     bl_idname = "m_pipeline.tracking_file_details"
     bl_label = ""
 
-    filepath: bpy.props.StringProperty()
-    custom_tooltip: bpy.props.StringProperty()
+    filepath: bpy.props.StringProperty(options={"SKIP_SAVE"})
+    custom_tooltip: bpy.props.StringProperty(options={"SKIP_SAVE"})
 
     @classmethod
     def description(cls, context, properties):
@@ -1295,10 +1300,8 @@ class M_PIPELINE_OT_tracking_file_details(bpy.types.Operator):
         return "Show tracking details for a selected file."
 
     def execute(self, context):
-        if popup_detail("file") == self.filepath:
-            set_popup_detail("file", "")
-        else:
-            set_popup_detail("file", self.filepath)
+        set_popup_detail("file", self.filepath)
+        if self.filepath:
             load_file_thumbnail(self.filepath)
             load_file_renders(self.filepath)
         return {"FINISHED"}

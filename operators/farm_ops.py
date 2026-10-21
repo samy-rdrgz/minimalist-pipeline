@@ -1070,19 +1070,21 @@ class M_PIPELINE_OT_farm_recompile_job(bpy.types.Operator):
 
 
 class M_PIPELINE_OT_farm_job_details(bpy.types.Operator):
-    """Farm monitoring popup: switch to one job's detail view, or back to
-    the list. Reads the job file here, once per click -- never in draw()."""
+    """Farm monitoring popup: show one job's detail (job_id; reload: read it
+    again), or the list (no job_id: the Back button). Reads the job file
+    here, once per click -- never in draw()."""
 
     bl_idname = "m_pipeline.farm_job_details"
     bl_label = ""
     bl_description = "Show this job's details."
 
-    job_id: bpy.props.StringProperty()
+    # SKIP_SAVE, never a toggle: see M_PIPELINE_OT_tracking_file_details.
+    job_id: bpy.props.StringProperty(options={"SKIP_SAVE"})
     reload: bpy.props.BoolProperty(options={"SKIP_SAVE"})
 
     def execute(self, context):
-        if popup_detail("job") == self.job_id and not self.reload:
-            set_popup_detail("job", "")  # back to the list
+        if not self.job_id:
+            set_popup_detail("job", "")  # Back: the list
             return {"FINISHED"}
         if load_job_details(self.job_id) is None:
             set_popup_detail("job", "")

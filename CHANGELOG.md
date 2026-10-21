@@ -17,11 +17,12 @@ All notable changes to this addon. Dates are release dates.
   Monitor only: the farm host's addon is the one to update; a job already
   stuck moves on by itself within a minute.
 - **Monitoring popups reopen where you left them -- with OK**: Project
-  monitoring's file detail and Farm monitoring's job detail were saved
-  into each .blend, so the popup reopened on a detail or on the list
-  depending on the file opened last (Farm monitoring: always the list).
-  Now OK keeps the detail open for next time, Cancel goes back to the
-  list.
+  monitoring sometimes fell back to its list on its own -- opening a file
+  already shown (a "Links to" / "Linked by" row) toggled its detail off,
+  and the Back button carried the last file clicked; Farm monitoring
+  always reopened on its list. Now OK keeps the detail open for next
+  time, Cancel goes back to the list, and a click only ever shows what
+  it names.
 - **Read-Only Origin: "Save" when nobody saved the file since you opened
   it**: overwriting then loses nothing. Saved by someone else meanwhile:
   still only "Save & Increment", and the popup says why.

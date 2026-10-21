@@ -566,9 +566,7 @@ def draw_farm_job_details(layout, context):
     header = layout.row()
     back = header.row()
     back.alignment = "LEFT"
-    back.operator(
-        "m_pipeline.farm_job_details", text="", icon="BACK", emboss=False
-    ).job_id = job_id
+    back.operator("m_pipeline.farm_job_details", text="", icon="BACK", emboss=False)
     name = Path(data.get("filepath", "")).name or job_id
     if data.get("shot_override"):
         name = f"{name}  [{data['shot_override']}]"

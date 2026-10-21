@@ -2182,19 +2182,30 @@ error at most, on the high side.
 
 ## Monitoring popups: reopening on the detail, or not
 
-Project monitoring's file detail and Farm monitoring's job detail were
-WindowManager properties (`file_details_selected`, `farm_job_selected`).
-The WindowManager is a datablock *of the .blend*: every Ctrl+S saved the
-detail open at the time into the file, and opening a file (or
-`read_homefile()`) brought back whatever that file had -- the popup
-reopened on a detail or on the list depending on the file last opened.
-Farm monitoring also forced its list on every open.
+Symptom: Project monitoring sometimes reopened on the file detail it was
+closed on, sometimes on the list -- the file staying open all along;
+Farm monitoring always reset to its list on open.
 
-Now `popup_detail(kind)` / `set_popup_detail()` (`lib/core.py`): memory
-only, never in a file. Closing with OK keeps the detail for next time
-(read again by `invoke()`: a file's thumbnail and last renders, a job's
-file -- gone, back to the list); Cancel or Escape (`cancel()`) clears it,
-next time opens on the list.
+The one thing that ever cleared the detail was its own operator, a
+toggle: `tracking_file_details` with the file already shown went back to
+the list. Two ways to hit it without meaning to:
+- a "Links to" / "Linked by" row naming the folder already shown;
+- the Back button, which sets no `filepath`: an operator property not
+  set by its button takes its *last used* value (Blender's remembered
+  operator properties, unless `SKIP_SAVE`), so Back carried whatever
+  was clicked last -- the tooltip too (`custom_tooltip`).
+Now never a toggle: no `filepath` (Back) = the list, a `filepath` = that
+file; both properties `SKIP_SAVE`. Same for `farm_job_details` (no
+`job_id` = the list).
+
+The detail moved off the WindowManager as well, into memory
+(`popup_detail()` / `set_popup_detail()`, `lib/core.py`) -- not
+confirmed as a cause (the first guess, "the WindowManager is saved in
+the .blend", doesn't match a reset with the file open), but nothing of
+Blender's (file load, `read_homefile()`, undo) can touch it there. OK
+keeps the detail for next time, re-read by `invoke()` (a file's
+thumbnail and last renders, a job's file -- gone: the list); Cancel or
+Escape (`cancel()`) clears it.
 
 ## Action popups: dialogs
 
