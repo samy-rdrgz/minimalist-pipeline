@@ -105,6 +105,7 @@ from .libraries import clean_append_and_relink
 from .logs import log, read_log_tail
 from .monitoring import (
     MONITORING_SCREEN_KEY,
+    draw_addon_keys,
     draw_pager,
     ensure_monitoring_tick,
     hide_active_tool_in_monitoring,
@@ -119,6 +120,7 @@ from .monitoring import (
     register_monitoring_keymap,
     restore_active_tool,
     rows_that_fit,
+    split_footer,
     stop_monitoring_tick,
     turn_page,
     unregister_monitoring_keymap,

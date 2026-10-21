@@ -26,6 +26,7 @@ from ..lib import (
     monitoring_detail,
     paginate,
     rows_that_fit,
+    split_footer,
 )
 
 FIRST_COLUMN = 0.4
@@ -383,7 +384,8 @@ def draw_farm_jobs(self, context, layout):
                 emboss=False,
             ).job_id = j["job_id"]
 
-    footer = layout.row()
+    footer, pager = split_footer(context, layout.row())
+    footer.alignment = "EXPAND"  # the bulk buttons at its right end
     footer.active = False
     if total == 0:
         footer.label(
@@ -407,7 +409,7 @@ def draw_farm_jobs(self, context, layout):
                 text=f"Archive {state} ({count})",
                 icon="CHECKMARK",
             ).state = state
-    draw_pager(footer, page, pages)
+    draw_pager(pager, page, pages)
 
 
 def _job_name(job: dict) -> str:

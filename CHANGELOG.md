@@ -55,9 +55,12 @@ All notable changes to this addon. Dates are release dates.
   the first meant retyping every row.
 - **New entry opens with a line to type in** (it opened empty, "Add text
   line" first).
-- **Monitoring pages: arrows and keys** -- "< Page 2 / 5 >" instead of a
-  number field, Ctrl+click to the first / last page; Left / Right turn the
-  page too, Esc goes back from a detail to the list.
+- **Monitoring pages: arrows and keys** -- "< Page 2 / 5 >" at the
+  footer's right end instead of a number field, Ctrl+click to the first /
+  last page; Left / Right turn the page too (Ctrl: first / last), Tab
+  switches assets / shots (jobs / workers in Farm monitoring), Esc goes
+  back from a detail to the list. The addon preferences list these
+  shortcuts (and Ctrl+S), editable.
 - **Project monitoring sorts by oldest open RTK, or oldest work** (the
   sort icon by the filters), besides by name.
 - **Pipeline menu: recent files in a submenu**, 5 of them (was 3, inline).

@@ -2,6 +2,8 @@
 
 import bpy
 
+from .lib import draw_addon_keys
+
 
 class PipelineProjectItem(bpy.types.PropertyGroup):
     """A project in the opened projects list."""
@@ -115,6 +117,10 @@ class PipelineAddonPreferences(bpy.types.AddonPreferences):
                 col.prop(p, "path", text=" • " + p.name)
         else:
             col.label(text=" • No projects")
+
+        layout.separator()
+        layout.label(text="Shortcuts:")
+        draw_addon_keys(context, layout.column())
 
         layout.separator(type="LINE")
         row = layout.row()
