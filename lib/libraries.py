@@ -139,7 +139,7 @@ def import_warnings(items):
         ):
             set_pending_action(
                 PipelineAction(
-                    title="Append done : Link not better ?",
+                    title="Append done: link instead?",
                     message="You appended data from a project file\nconsider linking it instead.",
                     severity="warning",
                     choices=[
@@ -157,7 +157,7 @@ def import_warnings(items):
         else:
             set_pending_action(
                 PipelineAction(
-                    title="Append done : Link not better ?",
+                    title="Append done: link instead?",
                     message="You appended data from a non project file\nconsider moving file in project dir and linking it instead.",
                     severity="warning",
                     choices=[

@@ -74,7 +74,7 @@ class M_PIPELINE_PT_file_panel(bpy.types.Panel):
             layout.separator(factor=0.1)
             worked = get_session_worked_departments(Path(bpy.data.filepath))
             work = responsive_layout(context, layout.box(), 200)
-            work.label(text="Working on :", icon="MOD_DYNAMICPAINT")
+            work.label(text="Working on:", icon="MOD_DYNAMICPAINT")
             col = work.column(align=True)
             col.scale_y = 0.7
 

@@ -41,7 +41,7 @@ class M_PIPELINE_PT_project_panel(bpy.types.Panel):
             active_path = get_active_project_root()
             if active_path:
                 layout.label(
-                    text=f"Project : {str(active_path.name).upper()}", icon="PINNED"
+                    text=f"Project: {str(active_path.name).upper()}", icon="PINNED"
                 )
                 layout.operator(
                     project_ops.M_PIPELINE_OT_edit_project.bl_idname,

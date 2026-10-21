@@ -66,7 +66,7 @@ class M_PIPELINE_PT_farm_panel(bpy.types.Panel):
         if not is_monitor:
             status_row.operator(
                 "m_pipeline.farm_monitor",
-                text="Farm : not running",
+                text="Farm: Not running",
                 icon="GHOST_DISABLED",
                 emboss=False,
             )
@@ -87,14 +87,14 @@ class M_PIPELINE_PT_farm_panel(bpy.types.Panel):
             }
 
             labels = {
-                "running": "Farm : Running",
-                "stale": "Farm : Stale",
-                "dead": "Farm : Dead",
-                "unknown": "Farm : ...",
+                "running": "Farm: Running",
+                "stale": "Farm: Stale",
+                "dead": "Farm: Dead",
+                "unknown": "Farm: ...",
             }
             status_row.operator(
                 "m_pipeline.farm_monitor",
-                text=labels.get(status, "Farm : ..."),
+                text=labels.get(status, "Farm: ..."),
                 icon=icons.get(status, "GHOST_DISABLED"),
                 emboss=False,
             )
@@ -407,7 +407,7 @@ def draw_farm_jobs(self, context, layout):
                 text=f"Archive {state} ({count})",
                 icon="CHECKMARK",
             ).state = state
-    draw_pager(footer, self, page, pages)
+    draw_pager(footer, page, pages)
 
 
 def _job_name(job: dict) -> str:

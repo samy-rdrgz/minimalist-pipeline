@@ -36,7 +36,6 @@ from ..lib import (
     memory_prop,
     monitoring_windows,
     open_monitoring_window,
-    page_store,
     redraw_monitoring,
     now,
     prefix_items,
@@ -196,7 +195,7 @@ class M_PIPELINE_OT_create_entry(bpy.types.Operator):
         entries = context.window_manager.pipeline_entry_buffer
 
         row = layout.box().split(align=True, factor=0.25)
-        row.label(text="Entry type : ", icon="TRIA_RIGHT")
+        row.label(text="Entry type:", icon="TRIA_RIGHT")
         row = row.row()
         row.prop(self, "type", expand=True)
         if len(shot_tag_items(self, context)) > 2:
@@ -245,7 +244,7 @@ class M_PIPELINE_OT_create_entry(bpy.types.Operator):
         if entries[0].is_frame_start:
             col2.prop(entries[0], "frame_start", text="")
 
-            txt = "add end frame" if not entries[0].is_frame_end else ""
+            txt = "Add end frame" if not entries[0].is_frame_end else ""
             col3.prop(entries[0], "is_frame_end", text=txt)
             if entries[0].is_frame_end:
                 col3.prop(entries[0], "frame_end", text="")
@@ -287,7 +286,7 @@ class M_PIPELINE_OT_create_entry(bpy.types.Operator):
             if entry.is_frame_start:
                 col2.prop(entry, "frame_start", text="")
 
-                txt = "add end frame" if not entry.is_frame_end else ""
+                txt = "Add end frame" if not entry.is_frame_end else ""
                 col3.prop(entry, "is_frame_end", text=txt)
                 if entry.is_frame_end:
                     col3.prop(entry, "frame_end", text="")
@@ -459,7 +458,7 @@ class M_PIPELINE_OT_edit_entry(bpy.types.Operator):
         col = layout.column()
         col.active = False
         col.scale_y = 0.6
-        col.label(text=f"id : {self.id}", icon="INFO")
+        col.label(text=f"ID: {self.id}", icon="INFO")
         layout.separator()
 
         row = layout.split(factor=TITLE_WIDTH, align=True)
@@ -962,6 +961,21 @@ class PIPELINE_PG_monitoring(bpy.types.PropertyGroup):
             "failed) or waiting to be checked"
         ),
     )
+    sort: memory_enum(
+        _monitoring_filters,
+        "sort",
+        [
+            ("name", "By name", "Sequence and shot, or prefix and name"),
+            (
+                "rtk",
+                "Oldest open RTK first",
+                "Files with an open RTK first, the one waiting longest on top",
+            ),
+            ("work", "Oldest work first", "The file whose latest save is the oldest on top"),
+        ],
+        name="",
+        description="Order of the list",
+    )
     only_rtk: memory_prop(
         _monitoring_filters,
         "only_rtk",
@@ -978,8 +992,6 @@ class PIPELINE_PG_monitoring(bpy.types.PropertyGroup):
         name="",
         description="Filter by file name or description",
     )
-    # Its list's page, see paginate() (lib/monitoring.py).
-    page: memory_prop(page_store("project"), "page", bpy.props.IntProperty, 1, name="", min=1)
 
 
 def _show_open_file(project_root: Path) -> None:

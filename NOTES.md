@@ -2467,7 +2467,7 @@ compared with `bpy.data.filepath`.
 Project monitoring first, then Farm monitoring the same way: the screen's
 ID property says which (`"project"` / `"farm"`; `True`, from the first
 version, reads as `"project"`), each panel polls its own. Tried, then
-dropped: a header ("Pipeline : ..." -- a collapsible box like Options and
+dropped: a header ("Pipeline: ..." -- a collapsible box like Options and
 Workspace): a panel with a header is placed after the Tool tab's own, and
 `bl_order` can't go below 0. Headerless again, the content in a
 `layout.box()`, first in the tab.
@@ -2598,11 +2598,19 @@ that scrolls, like before.
   wrap (one Options class per mode, more panels in the paint modes) --
   hiding them means re-registering Blender's classes. Pushed out of
   sight instead: a window's height of blank under the panel's content.
-- **The page lives in memory** (`page_store()`, the `page` property a
-  `memory_prop()` on it), like the filters: a WindowManager property
-  would be saved into the .blend. `paginate()` clamps it to the page
-  count (a bigger window, fewer pages) and goes back to page 1 when the
-  filters it was counted for change. It writes the store, not the
-  property: draw() may not write an ID's properties.
+- **The page lives in memory** (`_pages`, lib/monitoring.py), like the
+  filters: a WindowManager property would be saved into the .blend.
+  `paginate()` clamps it to the page count (a bigger window, fewer pages),
+  keeps that count for `turn_page()`, and goes back to page 1 when the
+  filters it was counted for change. Turned by arrows, not a number
+  field: `m_pipeline.monitoring_page`, -1 / +1, Ctrl+click to the first /
+  last, never past either end.
+- **Keys** (`register_monitoring_keymap()`, the Properties editor's
+  keymap, installed with the Ctrl+S override once the addon keyconfig
+  exists): Left / Right turn the page (Ctrl: first / last), Esc goes back
+  from a detail -- a window, not a popup, so Esc closes nothing. The
+  operators' poll() keeps them to a monitoring window's list (or detail):
+  anywhere else the event falls through, and Left / Right still step the
+  frame (Blender's "Frames" keymap, below an editor's own).
 - **Mouse wheel**: left to the region's own scroll (a window under
   `MIN_ROWS`), not mapped to pages.

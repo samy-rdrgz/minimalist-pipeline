@@ -114,12 +114,14 @@ from .monitoring import (
     monitoring_windows,
     open_mainfile,
     open_monitoring_window,
-    page_store,
     paginate,
     redraw_monitoring,
+    register_monitoring_keymap,
     restore_active_tool,
     rows_that_fit,
     stop_monitoring_tick,
+    turn_page,
+    unregister_monitoring_keymap,
 )
 from .operators import (
     M_PIPELINE_OT_action_popup,

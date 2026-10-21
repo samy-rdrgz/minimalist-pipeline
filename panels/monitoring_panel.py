@@ -56,7 +56,7 @@ class _MonitoringPanel:
 class M_PIPELINE_PT_monitoring(_MonitoringPanel, bpy.types.Panel):
     """Project monitoring window's content."""
 
-    bl_label = "Pipeline : Project monitoring"
+    bl_label = "Pipeline: Project monitoring"
     bl_idname = "M_PIPELINE_PT_monitoring"
     kind = "project"
 
@@ -92,6 +92,7 @@ class M_PIPELINE_PT_monitoring(_MonitoringPanel, bpy.types.Panel):
         # Icon only: the property's description is the tooltip.
         filters_btn.prop(state, "only_farm", text="", icon="VIEW_CAMERA_UNSELECTED")
         filters_btn.prop(state, "only_rtk", text="", icon="LOOP_BACK")
+        filters_btn.prop(state, "sort", text="", icon="SORTTIME")
 
         layout.separator(factor=0.5)
         draw_monitor_table(state, context, layout, columns, get_active_project_root())
@@ -100,7 +101,7 @@ class M_PIPELINE_PT_monitoring(_MonitoringPanel, bpy.types.Panel):
 class M_PIPELINE_PT_farm_monitoring(_MonitoringPanel, bpy.types.Panel):
     """Farm monitoring window's content."""
 
-    bl_label = "Pipeline : Farm monitoring"
+    bl_label = "Pipeline: Farm monitoring"
     bl_idname = "M_PIPELINE_PT_farm_monitoring"
     kind = "farm"
 

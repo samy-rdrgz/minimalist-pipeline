@@ -164,7 +164,7 @@ def post_load_handler(*args):
             set_opened_as_read_only(bpy.data.filepath, "locked")
             with locked_json(path.parent / f".{path.name}.lock") as box:
                 data = box.get("data", {})
-            lines = ["File is lock by another user :"] + [
+            lines = ["File is locked by another user:"] + [
                 f"{n} : {m}" for n, m in data.items()
             ]
             bpy.ops.m_pipeline.text_popup(

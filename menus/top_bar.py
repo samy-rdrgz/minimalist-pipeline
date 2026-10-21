@@ -36,6 +36,19 @@ READ_ONLY_REASON_EXPLANATIONS = {
 from ..operators import project_ops
 
 
+class M_PIPELINE_MT_recent_files(bpy.types.Menu):
+    """The Pipeline menu's recent files, most recent first."""
+
+    bl_idname = "M_PIPELINE_MT_recent_files"
+    bl_label = "Recent files"
+
+    def draw(self, context):
+        for name, filepath in RecentFilesCache.get(limit=5):
+            self.layout.operator(
+                "m_pipeline.open_file_version", text=name, icon="FILE_BLEND"
+            ).filepath = filepath
+
+
 class M_PIPELINE_MT_topbar_menu(bpy.types.Menu):
     """Pipeline actions, mirroring the sidebar panels."""
 
@@ -75,15 +88,8 @@ class M_PIPELINE_MT_topbar_menu(bpy.types.Menu):
             return
 
         layout.operator("m_pipeline.open_file", text="Open file", icon="FILE_BLEND")
-        recent = RecentFilesCache.get()
-        if recent:
-            col = layout.column()
-            col.active = False
-            col.label(text="Recent:")
-            for name, recent_filepath in recent:
-                layout.operator(
-                    "m_pipeline.open_file_version", text=name
-                ).filepath = recent_filepath
+        if RecentFilesCache.get():
+            layout.menu(M_PIPELINE_MT_recent_files.bl_idname, icon="RECOVER_LAST")
         layout.separator()
         layout.operator("m_pipeline.create_asset", text="New asset", icon="ADD")
         layout.operator("m_pipeline.create_shot", text="New shot", icon="BLANK1")
