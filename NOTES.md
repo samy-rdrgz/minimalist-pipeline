@@ -2579,8 +2579,9 @@ that scrolls, like before.
   widget units: a full-screen window overflowed by about 9 rows, a
   half-screen one by 5 -- an error growing with the height (the row) plus
   a fixed one (the active tool, below). Both points fit a row of 1.6-1.7
-  units: `ROW_UNITS` = 1.65, the reserved figures a little up (7 / 8), a
-  small gap rather than an overflow. Every file row is one line high (no
+  units; at 1.65, with the active tool hidden, full screen still
+  overflowed by 2-3 rows: `ROW_UNITS` = 1.8, the reserved figures 7 / 8,
+  a small gap rather than an overflow. Every file row is one line high (no
   wrapping in the cells), so one constant holds -- recalibrate it (or a
   reserved figure) if a page overflows the window or leaves a gap, never
   per call site.
