@@ -2051,6 +2051,27 @@ times for sides without a `dispatch_id` (every worker has one since
 1.0.14), and "every machine cancelled". Both `current_job_id` and
 `dispatch_id` predate 1.0.15: no older worker to tell apart.
 
+## Leaving a render and coming back
+
+The target is workstations: added as workers and taken off all day. A
+machine stayed in `used_machines` until the render was judged, and
+`join_running_renders()` excluded `used_machines` ("already in it") --
+so a PC stopped at noon, back at two, could never rejoin the render it
+left, and kept its place under `farm.max_workers_per_job` meanwhile.
+
+An idle worker with no request waiting is off every render, whatever its
+past (`_machines_on()`): only `failed_machines` keeps a machine out now,
+and the cap counts the machines on the render (`dispatch._on_it()`). It
+gets the same request (same `dispatch_id`) and walks the range from the
+start: placeholders + no overwrite, it takes the frames still free --
+the empty file it may have left when stopped stays taken until the end
+of the render (a refill).
+
+Its `.saved` record carries on with the same `dispatch_id`: the render
+entry writes a `"<dispatch_id> start <time>"` line first, where
+`frame_seconds()` starts again -- else the hours away were its next
+frame's time.
+
 ## Time left: per machine, from each frame's time
 
 The popup's estimate was `elapsed / progress - elapsed`, elapsed counted

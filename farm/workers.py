@@ -366,7 +366,8 @@ def update_worker(dict: dict):
 def saved_frames_path(job_id: str, uuid: str) -> Path:
     """Worker uuid's record of the frames it wrote for job_id -- one
     "<dispatch_id> <frame> <time>" line per frame (no time from a worker on
-    an older version), appended by the render entry's render_write handler
+    an older version), plus "<dispatch_id> start <time>" each time a render
+    of it starts on that machine, appended by the render entry's render_write handler
     (templates/worker_render_entry.py), read by the monitor
     (frames_written_twice()) and for the pace (frame_seconds()). Next to
     the render's own log."""
@@ -377,14 +378,15 @@ def frame_seconds(text: str) -> list[float]:
     """Seconds each frame took on one machine, from its saved_frames_path()
     record: the time between two frames it wrote in a row, same render
     (dispatch_id) -- times from one clock, its own. The first frame of each
-    render has none (it includes opening the .blend), nor a line with no
-    time. Pure: safe on a reader thread."""
+    render has none (it includes opening the .blend; a "start" line marks
+    it), nor a line with no time. Pure: safe on a reader thread."""
     seconds = []
     previous = None
     for line in text.splitlines():
         parts = line.split()
         try:
-            at = float(parts[2]) if len(parts) == 3 else None
+            # "<dispatch_id> start <time>": a render (re)starting, not a frame.
+            at = float(parts[2]) if len(parts) == 3 and parts[1].isdigit() else None
         except ValueError:
             at = None
         if at is None:

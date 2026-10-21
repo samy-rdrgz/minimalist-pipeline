@@ -44,6 +44,14 @@ def record_saved(scene, *_):
 
 
 if saved_file:
+    # A machine that left the render and came back appends to the same
+    # record, same dispatch_id: this line keeps the time it was away out of
+    # its first frame's (frame_seconds() starts again after it).
+    try:
+        with open(saved_file, "a", encoding="utf-8") as f:
+            f.write(f"{dispatch_id} start {time.time():.1f}\n")
+    except OSError:
+        pass
     bpy.app.handlers.render_write.append(record_saved)
 
 bpy.ops.render.render(animation=True)  # renders HERE, after the presets

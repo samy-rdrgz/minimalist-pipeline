@@ -16,6 +16,11 @@ All notable changes to this addon. Dates are release dates.
   check; empty ones: rendered again). Cancel is noted on the job itself.
   Monitor only: the farm host's addon is the one to update; a job already
   stuck moves on by itself within a minute.
+- **A machine that left a render can join it again**: a workstation
+  stopped as a worker (or Blender quit) mid-render stayed in the job's
+  machines until the end -- shut out of the render it left, and still
+  counted under *Workers per job*. Idle again, it now rejoins like any
+  other worker, and only the machines on the render count for the limit.
 - **Time left follows the machines rendering**: each worker notes when it
   writes each frame; the time left is the frames left over the pace of
   the machines on the job *now* (each one's last 10 frames) -- a machine

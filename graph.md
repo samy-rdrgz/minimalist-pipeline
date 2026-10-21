@@ -437,10 +437,12 @@ incomings/job_<id>.json
 ├── join_running_renders() (every tick, before any dispatch) : an idle worker
 │   joins a render_start job rather than start a new one if it renders on
 │   several machines (not single / refill_single), the worker is allowed on
-│   it (assigned_machines), not already in it nor in failed_machines, under
+│   it (assigned_machines), not in failed_machines (one that left the render
+│   and is idle again may come back), machines on it now under
 │   max_workers_per_job, with more than JOIN_MIN_FRAMES_LEFT (10) frames
 │   nobody started per joining worker -> same request, same dispatch_id,
-│   added to used_machines
+│   added to used_machines (a "start" line in its .saved: the time it was
+│   away is no frame's)
 │
 ├── worker_tick() (each worker, every tick)
 │   ├── stop_<uuid>.json : stop_worker() -- render killed (result "stopped"),

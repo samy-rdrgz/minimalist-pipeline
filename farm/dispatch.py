@@ -284,13 +284,22 @@ def frames_not_started(job_data: dict, project_root: Path) -> int | None:
     return sum(1 for path in paths if path.name not in existing)
 
 
+def _on_it(job_data: dict) -> int:
+    """How many of the job's machines are on its render right now
+    (queue._machines_on())."""
+    from .queue import _machines_on  # local: queue imports dispatch
+
+    rendering, waiting = _machines_on(job_data)
+    return len(rendering) + len(waiting)
+
+
 def join_running_renders(jobs: list, project_root: Path, idle_by_uuid: dict) -> None:
     """Send each idle worker to a render already in progress before any new
     job gets dispatched: jobs is scan_queue()'s (path, data) list, already in
     priority order. A job is joined only if it renders on several machines
     (not "single", nor an "auto" fallen back to single), the worker is
     allowed on it (no assigned machines, or in the list) and never failed
-    it (failed_machines), and each joining
+    it (failed_machines) -- one that left it may come back --, and each joining
     worker still has more than JOIN_MIN_FRAMES_LEFT untouched frames for
     itself (78 frames left: up to 7 join). The new worker gets the same
     render request (same dispatch_id): placeholders + no overwrite, it only
@@ -312,20 +321,19 @@ def join_running_renders(jobs: list, project_root: Path, idle_by_uuid: dict) -> 
         ):
             continue
         assigned = data.get("assigned_machines") or []
-        # Already in it, or already failed it (a crash...): never sent back.
-        excluded = set(data.get("used_machines") or []) | set(
-            data.get("failed_machines") or []
-        )
+        # One that failed it (a crash...) is never sent back. One that left
+        # it (stopped, quit Blender) and is idle again may come back: idle,
+        # no request of it waiting, it's off the render whatever it did.
+        failed = set(data.get("failed_machines") or [])
         candidates = [
-            u for u in idle if u not in excluded and (not assigned or u in assigned)
+            u for u in idle if u not in failed and (not assigned or u in assigned)
         ]
         if not candidates:
             continue
-        # Project's farm.max_workers_per_job: machines given to this render
-        # so far, joins included -- one that dropped out still counts until
-        # the render is judged (a refill starts from zero again).
+        # Project's farm.max_workers_per_job: machines on this render now,
+        # joins included -- one that left frees its place.
         cap = max_workers_per_job()
-        if cap and len(set(data.get("used_machines") or [])) >= cap:
+        if cap and _on_it(data) >= cap:
             continue
         left = frames_not_started(data, project_root)
         if left is None:
@@ -339,15 +347,16 @@ def join_running_renders(jobs: list, project_root: Path, idle_by_uuid: dict) -> 
             if not now_stages or now_stages[-1].get("stage") != "render_start":
                 continue  # moved on meanwhile
             used_now = list(job_data.get("used_machines") or [])
-            joining = [u for u in joining if u not in used_now]
             if cap:
-                joining = joining[: max(0, cap - len(set(used_now)))]
+                joining = joining[: max(0, cap - _on_it(job_data))]
             if not joining:
                 continue
             fs, fe = job_data["resolved_frame_range"]
             for uuid in joining:
                 render_request(job_data, uuid, ["-s", str(fs), "-e", str(fe)])
-            job_data["used_machines"] = used_now + joining
+            job_data["used_machines"] = used_now + [
+                u for u in joining if u not in used_now
+            ]
             box["action"] = "to_write"
         for uuid in joining:
             idle.remove(uuid)
