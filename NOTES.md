@@ -2575,10 +2575,22 @@ that scrolls, like before.
 - **Row height is estimated, not read**: Python gets neither a layout's
   height nor a panel's. A row is a widget line (20 px x
   `preferences.system.ui_scale`, 0 in background) plus the box's item
-  spacing and the 0.5 LINE separator under it: `ROW_UNITS` = 1.35 widget
-  units. Every file row is one line high (no wrapping in the cells), so
-  one constant holds -- recalibrate it (or a reserved figure) if a page
-  overflows the window or leaves a gap, never per call site.
+  spacing and the 0.5 LINE separator under it. First guessed at 1.35
+  widget units: a full-screen window overflowed by about 9 rows, a
+  half-screen one by 5 -- an error growing with the height (the row) plus
+  a fixed one (the active tool, below). Both points fit a row of 1.6-1.7
+  units: `ROW_UNITS` = 1.65, the reserved figures a little up (7 / 8), a
+  small gap rather than an overflow. Every file row is one line high (no
+  wrapping in the cells), so one constant holds -- recalibrate it (or a
+  reserved figure) if a page overflows the window or leaves a gap, never
+  per call site.
+- **Blender's active tool heads the Tool tab** ("Select Box" and its
+  settings, `VIEW3D_PT_active_tool_duplicate`), above the monitoring
+  panel, its height depending on the tool. `hide_active_tool_in_monitoring()`
+  wraps that panel's Python `poll()` (read by name at each draw) to say no
+  in a monitoring window, everywhere else as before; `restore_active_tool()`
+  puts the original classmethod back on unregister. Nothing happens if a
+  later Blender renames the panel or drops its poll().
 - **The page lives in memory** (`page_store()`, the `page` property a
   `memory_prop()` on it), like the filters: a WindowManager property
   would be saved into the .blend. `paginate()` clamps it to the page

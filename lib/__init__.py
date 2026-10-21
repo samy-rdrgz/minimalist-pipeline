@@ -106,6 +106,7 @@ from .monitoring import (
     MONITORING_SCREEN_KEY,
     draw_pager,
     ensure_monitoring_tick,
+    hide_active_tool_in_monitoring,
     memory_enum,
     memory_prop,
     monitoring_kind,
@@ -115,6 +116,7 @@ from .monitoring import (
     page_store,
     paginate,
     redraw_monitoring,
+    restore_active_tool,
     rows_that_fit,
     stop_monitoring_tick,
 )

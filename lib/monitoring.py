@@ -251,7 +251,7 @@ def memory_enum(store: dict, key: str, items, **kwargs):
 # sized on the window". A list row's height (a widget line, the spacing
 # and the LINE separator under it), in widget units: the one constant to
 # recalibrate if a page overflows the window or leaves a gap.
-ROW_UNITS = 1.35
+ROW_UNITS = 1.65
 # A list never shows fewer rows (blank ones below) -- under that, the
 # window's region scrolls.
 MIN_ROWS = 6
@@ -298,6 +298,37 @@ def draw_pager(layout, state, page: int, pages: int) -> None:
     pager.active = False
     pager.label(text=f"Page {page} / {pages}")
     pager.prop(state, "page", text="")
+
+
+# Blender's active tool (its name and settings) heads the Properties
+# editor's Tool tab, above the monitoring panels: hidden in their windows
+# by wrapping its poll() -- see NOTES.md, "Monitoring windows: pages sized
+# on the window".
+_ACTIVE_TOOL_PANEL = "VIEW3D_PT_active_tool_duplicate"
+
+
+def hide_active_tool_in_monitoring() -> None:
+    """Wrap the active tool panel's poll() to say no in a monitoring
+    window. Nothing if Blender's panel or its poll() isn't there."""
+    cls = getattr(bpy.types, _ACTIVE_TOOL_PANEL, None)
+    if cls is None or "poll" not in cls.__dict__ or "_m_pipeline_poll" in cls.__dict__:
+        return
+    original = cls.poll
+
+    def poll(_cls, context):
+        return not monitoring_kind(context.screen) and original(context)
+
+    cls._m_pipeline_poll = cls.__dict__["poll"]
+    cls.poll = classmethod(poll)
+
+
+def restore_active_tool() -> None:
+    """Undo hide_active_tool_in_monitoring()."""
+    cls = getattr(bpy.types, _ACTIVE_TOOL_PANEL, None)
+    if cls is not None and "_m_pipeline_poll" in cls.__dict__:
+        # From __dict__: the attribute would unwrap the classmethod.
+        cls.poll = cls.__dict__["_m_pipeline_poll"]
+        del cls._m_pipeline_poll
 
 
 def open_mainfile(filepath: str) -> None:
