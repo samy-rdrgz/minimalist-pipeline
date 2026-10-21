@@ -2557,3 +2557,33 @@ Checked in Blender (4.0, under Xvfb):
   else its index): kept by identifier, so prefixes or sequences changing
   keep the choice.
   The search is cleared when the window opens, as before.
+
+## Monitoring windows: pages sized on the window
+
+Moving Project monitoring into a window dropped its pages for one list
+the region scrolls. The scroll works, but the footer (refresh, file
+count, Farm legend) went below the fold as soon as the list was longer
+than the window -- and a Properties editor's region can't pin anything to
+its bottom. Pages are back, sized on the window instead of a fixed 12:
+`rows_that_fit()` divides `context.region.height` (draw() runs on every
+resize, so pages follow it) less what the window holds besides the rows
+(`_TABLE_RESERVED_UNITS` / `_JOBS_RESERVED_UNITS`: filters, header,
+footer, margins) by one row's height, padded with blank rows so the
+footer sits at the bottom. Never under `MIN_ROWS`: a window too small for
+that scrolls, like before.
+
+- **Row height is estimated, not read**: Python gets neither a layout's
+  height nor a panel's. A row is a widget line (20 px x
+  `preferences.system.ui_scale`, 0 in background) plus the box's item
+  spacing and the 0.5 LINE separator under it: `ROW_UNITS` = 1.35 widget
+  units. Every file row is one line high (no wrapping in the cells), so
+  one constant holds -- recalibrate it (or a reserved figure) if a page
+  overflows the window or leaves a gap, never per call site.
+- **The page lives in memory** (`page_store()`, the `page` property a
+  `memory_prop()` on it), like the filters: a WindowManager property
+  would be saved into the .blend. `paginate()` clamps it to the page
+  count (a bigger window, fewer pages) and goes back to page 1 when the
+  filters it was counted for change. It writes the store, not the
+  property: draw() may not write an ID's properties.
+- **Mouse wheel**: left to the region's own scroll (a window under
+  `MIN_ROWS`), not mapped to pages.

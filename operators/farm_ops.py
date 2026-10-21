@@ -41,6 +41,7 @@ from ..lib import (
     memory_prop,
     monitoring_windows,
     open_monitoring_window,
+    page_store,
     redraw_monitoring,
     get_folder,
     get_machine_id,
@@ -1131,6 +1132,8 @@ class PIPELINE_PG_farm_monitoring(bpy.types.PropertyGroup):
         name="",
         description="Filter by file name or shot",
     )
+    # The Jobs list's page, see paginate() (lib/monitoring.py).
+    page: memory_prop(page_store("farm"), "page", bpy.props.IntProperty, 1, name="", min=1)
 
 
 class M_PIPELINE_OT_farm_monitor(bpy.types.Operator):

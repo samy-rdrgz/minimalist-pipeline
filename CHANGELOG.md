@@ -7,11 +7,13 @@ All notable changes to this addon. Dates are release dates.
 - **Project monitoring opens in a window of its own**: the Monitoring
   button opens a Blender window holding a single Properties editor -- it
   stays open while you work, resizable, on a second screen if you like.
-  One list that scrolls instead of pages of 12. Files opened through the
+  Its list is paged by as many rows as the window holds -- resize it and
+  the pages follow, the footer (refresh, file count, legend) stays at its
+  bottom. Files opened through the
   pipeline keep it open (they open without their own interface layout
   while it is); its filters stay as they were for the session.
-- **Farm monitoring too**: its own window, one list, refreshed every 2 s
-  while open. Both show their content first, in a box; Project
+- **Farm monitoring too**: its own window, its Jobs list paged the same
+  way, refreshed every 2 s while open. Both show their content first, in a box; Project
   monitoring's list always has at least 6 rows, whatever the filters.
 - **A monitoring window no longer goes blank when the main window
   switches workspace.**

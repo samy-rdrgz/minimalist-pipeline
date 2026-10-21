@@ -247,6 +247,59 @@ def memory_enum(store: dict, key: str, items, **kwargs):
     return bpy.props.EnumProperty(items=items, get=get, set=set, **kwargs)
 
 
+# Pages sized on the window -- see NOTES.md, "Monitoring windows: pages
+# sized on the window". A list row's height (a widget line, the spacing
+# and the LINE separator under it), in widget units: the one constant to
+# recalibrate if a page overflows the window or leaves a gap.
+ROW_UNITS = 1.35
+# A list never shows fewer rows (blank ones below) -- under that, the
+# window's region scrolls.
+MIN_ROWS = 6
+
+# Each window's page, in memory like its filters (memory_prop()), with
+# the filters it was counted for.
+_pages: dict = {kind: {} for kind in MONITORING_KINDS}
+
+
+def page_store(kind: str) -> dict:
+    """The page state of a monitoring window ("project" / "farm")."""
+    return _pages[kind]
+
+
+def rows_that_fit(context, reserved_units: float) -> int:
+    """List rows that fit the window's region once reserved_units (its
+    filters, header, footer, margins -- widget units) are taken, never
+    under MIN_ROWS."""
+    unit = 20 * (context.preferences.system.ui_scale or 1.0)  # 0 in background
+    return max(MIN_ROWS, int((context.region.height / unit - reserved_units) / ROW_UNITS))
+
+
+def paginate(kind: str, items: list, per_page: int, filters: tuple) -> tuple:
+    """(items on the page, page, page count) of a window's list: its page
+    clamped to the count, back to 1 when filters changed since. draw()-safe:
+    writes the store, not the property."""
+    store = _pages[kind]
+    if store.get("filters") != filters:
+        store["filters"] = filters
+        store["page"] = 1
+    pages = max(1, -(-len(items) // per_page))
+    page = store["page"] = max(1, min(store.get("page", 1), pages))
+    start = (page - 1) * per_page
+    return items[start : start + per_page], page, pages
+
+
+def draw_pager(layout, state, page: int, pages: int) -> None:
+    """ "Page 2 / 5" and its field, right-aligned -- nothing for one page.
+    state: the window's filters, holding a memory_prop "page"."""
+    if pages < 2:
+        return
+    pager = layout.row(align=True)
+    pager.alignment = "RIGHT"
+    pager.active = False
+    pager.label(text=f"Page {page} / {pages}")
+    pager.prop(state, "page", text="")
+
+
 def open_mainfile(filepath: str) -> None:
     """bpy.ops.wm.open_mainfile(), keeping the interface as it is while a
     monitoring window is open: loading the file's own closes every window

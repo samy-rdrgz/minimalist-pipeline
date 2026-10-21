@@ -104,6 +104,7 @@ from .libraries import clean_append_and_relink
 from .logs import log, read_log_tail
 from .monitoring import (
     MONITORING_SCREEN_KEY,
+    draw_pager,
     ensure_monitoring_tick,
     memory_enum,
     memory_prop,
@@ -111,7 +112,10 @@ from .monitoring import (
     monitoring_windows,
     open_mainfile,
     open_monitoring_window,
+    page_store,
+    paginate,
     redraw_monitoring,
+    rows_that_fit,
     stop_monitoring_tick,
 )
 from .operators import (

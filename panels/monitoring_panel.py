@@ -108,6 +108,6 @@ class M_PIPELINE_PT_farm_monitoring(_MonitoringPanel, bpy.types.Panel):
 
         box = layout.box()
         if state.view == "jobs":
-            draw_farm_jobs(state, box)
+            draw_farm_jobs(state, context, box)
         else:
             draw_farm_workers(box)

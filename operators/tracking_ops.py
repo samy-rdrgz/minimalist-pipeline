@@ -35,6 +35,7 @@ from ..lib import (
     memory_prop,
     monitoring_windows,
     open_monitoring_window,
+    page_store,
     redraw_monitoring,
     now,
     prefix_items,
@@ -973,6 +974,8 @@ class PIPELINE_PG_monitoring(bpy.types.PropertyGroup):
         name="",
         description="Filter by file name or description",
     )
+    # Its list's page, see paginate() (lib/monitoring.py).
+    page: memory_prop(page_store("project"), "page", bpy.props.IntProperty, 1, name="", min=1)
 
 
 class M_PIPELINE_OT_tracking_monitor(bpy.types.Operator):
