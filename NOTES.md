@@ -2367,11 +2367,15 @@ window -- `Window` has no method for it, its `x`/`y` are read-only, the
 - Elsewhere (Linux, macOS -- Wayland forbids raising a window anyway), or
   if that failed: a new window opened, in front, then the old one closed
   -- the new one first, so nothing the operator runs in is closed under
-  it. Same content (filters, page, detail are memory, not the window's),
-  but back at Blender's default place and size.
+  it. Same content (filters, page, detail are memory, not the window's).
+  `window_new()` opens at Blender's default place and size, and nothing
+  sets either afterwards: the new one is `screen.area_dupli` of the old
+  one's editor ("Duplicate Area into New Window"), which opens over that
+  area at its size (`_duplicate_window()`); `window_new()` only if that
+  fails. Checked on Linux: the window comes back in front.
 
-Not checked on a screen from here: the Windows path needs a Windows
-machine, the reopen a window manager.
+Not checked from here: the Windows path (needs Windows), the duplicate's
+place and size (needs a screen).
 
 ## Monitoring windows: pages sized on the window
 
@@ -2728,7 +2732,9 @@ unknown ones dropped.
 New entry: one entry per line for every type -- a note joined its lines
 into one entry with the first line's department and frames, the others
 ignored; a shot per line (`PipelineEntryItem.shot_tag`, right of its
-departments, for a block), not one for the whole dialog; RTK by default. Each line keeps its quarters
+departments, for a block), not one for the whole dialog; RTK by default;
+blank lines left out (an empty line, an empty line inside a text), and
+nothing written when every line is. Each line keeps its quarters
 (departments, frame tag and start, end, reference); a block's shot goes
 under its departments, in the same quarter -- side by side, an eighth
 each, neither was readable.

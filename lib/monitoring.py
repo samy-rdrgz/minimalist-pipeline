@@ -104,16 +104,19 @@ def bring_monitoring_to_front(context, kind: str) -> bool:
     the system's own SetForegroundWindow on its handle -- it stays where it
     is, a second screen included; elsewhere, or if that failed, a new one
     opened in front and the old one closed -- same content (filters, page,
-    detail live in memory), back at Blender's default place. False if it
-    couldn't. See NOTES.md, "Monitoring windows: to the front"."""
+    detail live in memory), over the old one, as big (_duplicate_window()).
+    False if it couldn't. See NOTES.md, "Monitoring windows: to the front"."""
     old = monitoring_windows(kind)
     if not old:
         return False
     if sys.platform == "win32" and _raise_win32(old[0]):
         return True
     # The new one first: it takes the focus, and no window this operator
-    # runs in is closed under it.
-    if not open_monitoring_window(context, kind):
+    # runs in is closed under it. A copy of the old one's editor where it
+    # is, as big (_duplicate_window()); a plain new window if that failed.
+    if not _duplicate_window(context, old[0], kind) and not open_monitoring_window(
+        context, kind
+    ):
         return False
     for window in old:
         try:
@@ -121,6 +124,29 @@ def bring_monitoring_to_front(context, kind: str) -> bool:
                 bpy.ops.wm.window_close()
         except (RuntimeError, TypeError):
             pass
+    return True
+
+
+def _duplicate_window(context, window, kind: str) -> bool:
+    """A new window holding a copy of window's editor (screen.area_dupli,
+    "Duplicate Area into New Window"): opened over that area, at its size
+    -- what window_new() can't be told. Marked as a monitoring window of
+    kind. False if Blender didn't open one."""
+    wm = context.window_manager
+    before = {w.as_pointer() for w in wm.windows}
+    area = max(window.screen.areas, key=lambda a: a.width * a.height)
+    try:
+        with context.temp_override(window=window, screen=window.screen, area=area):
+            bpy.ops.screen.area_dupli("INVOKE_DEFAULT")
+    except (RuntimeError, TypeError):
+        return False
+    new = [w for w in wm.windows if w.as_pointer() not in before]
+    if not new:
+        return False
+    new[0].screen[MONITORING_SCREEN_KEY] = kind
+    _window_kinds[new[0].as_pointer()] = kind
+    bpy.app.timers.register(_show_tool_tab(new[0].as_pointer()), first_interval=0.0)
+    ensure_monitoring_tick()
     return True
 
 

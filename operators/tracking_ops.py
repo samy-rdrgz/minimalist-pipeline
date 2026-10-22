@@ -308,13 +308,18 @@ class M_PIPELINE_OT_create_entry(bpy.types.Operator):
         items = _file_department_items(None, context)
 
         for entry in entries:
+            # Blank lines are left out: a line added and never typed in,
+            # an empty line inside a text.
+            text = "\n".join(l for l in entry.text.splitlines() if l.strip()).strip()
+            if not text:
+                continue
             f_start = entry.frame_start if entry.is_frame_start else None
             f_end = (
                 entry.frame_end if entry.is_frame_start and entry.is_frame_end else None
             )
             entries_list.append(
                 (
-                    entry.text,
+                    text,
                     _in_order(entry.departments, items),
                     entry.shot_tag,
                     f_start,
@@ -322,6 +327,9 @@ class M_PIPELINE_OT_create_entry(bpy.types.Operator):
                 )
             )
 
+        if not entries_list:
+            self.report({"WARNING"}, "Nothing to add: every line is empty.")
+            return {"CANCELLED"}
         try:
             nw = now()
             for text, departments, shot, f_start, f_end in entries_list:
