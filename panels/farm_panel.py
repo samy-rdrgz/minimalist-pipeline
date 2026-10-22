@@ -18,6 +18,7 @@ from ..farm import (
     recompilable,
     this_instance_is_worker,
 )
+from ..farm.chunks import chunk_frames
 from ..farm.queue import WORKER_GONE_SECONDS
 from ..lib import (
     ConfigCache,
@@ -473,6 +474,25 @@ def _my_addon_version() -> str:
     return _addon_version[0]
 
 
+def _chunk_label(job: dict, k) -> str:
+    """ "frames 11-15" for chunk k of job (its chunk_size and range)."""
+    try:
+        start, end = (int(x) for x in job["resolved_frame_range"])
+        first, last = chunk_frames(start, end, int(job["chunk_size"]), int(k))
+    except (KeyError, TypeError, ValueError):
+        return f"chunk {k}"
+    return f"frames {first}-{last}"
+
+
+def _claim_progress(claim: dict) -> str:
+    """ "on frame 13" / "starting" from a claim (frame in progress, done)."""
+    if claim.get("frame_in_progress") is not None:
+        return f"on frame {claim['frame_in_progress']}"
+    if claim.get("frames_done"):
+        return f"frame {claim['frames_done'][-1]} done"
+    return "starting"
+
+
 def draw_farm_worker_details(layout, context):
     """M_PIPELINE_OT_farm_monitor's detail view of one worker, from the
     monitor cache (its file as last read, live or silent) -- never read
@@ -546,6 +566,14 @@ def draw_farm_worker_details(layout, context):
         left.label(text="Rendering")
         name = _job_name(job) if job else Path(m.get("current_file") or "").name
         _draw_job_link(split, current, name or current)
+        claims = (cache.get("claims") or {}).get(current) or {}
+        mine = next(
+            ((k, c) for k, c in sorted(claims.items()) if c.get("machine") == uuid),
+            None,
+        )
+        if mine:
+            k, claim = mine
+            field(col, "Chunk", f"{_chunk_label(job, k)}, {_claim_progress(claim)}")
         pace = (job.get("machine_seconds") or {}).get(uuid)
         if pace:
             field(col, "Pace", f"{_duration(pace)} a frame")
@@ -928,6 +956,32 @@ def draw_farm_job_details(layout, context):
         machine_names(data["assigned_machines"]) if data.get("assigned_machines") else "auto",
     )
     field(col, "Machines", machine_names(data.get("used_machines")))
+    if data.get("chunk_size"):
+        field(col, "Chunks", f"{data['chunk_size']} frames each")
+    stage = ((data.get("stage_history") or [{}])[-1]).get("stage")
+    claims = (get_monitor_cache().get("claims") or {}).get(job_id) or {}
+    if stage == "render_start":
+        for i, (k, claim) in enumerate(sorted(claims.items())):
+            field(
+                col,
+                "In progress" if i == 0 else "",
+                f"{_chunk_label(data, k)}: "
+                f"{machine_names([claim.get('machine')]) if claim.get('machine') else 'a machine'}"
+                f", {_claim_progress(claim)}",
+            )
+    for k, machines in sorted(
+        (data.get("chunk_failures") or {}).items(), key=lambda kv: int(kv[0])
+    ):
+        field(
+            col,
+            "Failed chunk",
+            f"{_chunk_label(data, k)} on {machine_names(machines)}",
+            icon="ERROR",
+        )
+    if data.get("fail_reason"):
+        field(col, "Stopped", data["fail_reason"], icon="ERROR")
+    if data.get("left_machines"):
+        field(col, "Taken off", machine_names(data["left_machines"]))
     if data.get("rendered_by"):
         field(col, "Rendered by", machine_names(data["rendered_by"]))
     for stuck in data.get("stuck_frames") or []:
@@ -979,7 +1033,7 @@ def draw_farm_job_details(layout, context):
     if data.get("frames_corrupted"):
         field(col, "Corrupted frames", data["frames_corrupted"], icon="ERROR")
     if data.get("frames_rerendered"):
-        # Corrupted or written by two machines, then rendered again.
+        # Corrupted, then rendered again.
         frames = data["frames_rerendered"]
         more = f" (+{len(frames) - 8})" if len(frames) > 8 else ""
         field(
@@ -1029,6 +1083,10 @@ def draw_farm_job_details(layout, context):
         stage = entry.get("stage", "?")
         if entry.get("resumed"):
             stage += f" ({entry['resumed']})"
+        elif entry.get("reason"):
+            stage += f" ({entry['reason']})"
+        elif entry.get("cancelled"):
+            stage += " (cancelled)"
         delta = (
             f"+{_duration((at - previous).total_seconds())}" if at and previous else ""
         )

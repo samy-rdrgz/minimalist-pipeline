@@ -235,6 +235,7 @@ def _farm_paths() -> dict | None:
         "farm_actives": ConfigCache.get_path("farm_actives"),
         "farm_incomings": ConfigCache.get_path("farm_incomings"),
         "farm_requests": ConfigCache.get_path("farm_requests"),
+        "farm_claims": ConfigCache.get_path("farm_claims"),
         "workers": ConfigCache.get_path("workers"),
     }
 
@@ -354,6 +355,23 @@ def _frame_seconds_for_jobs(requests_dir: Path | None, jobs: list) -> dict:
     return out
 
 
+def _claims_for_jobs(claims_root: Path | None, jobs: list) -> dict:
+    """{job_id: {k: claim}} for the jobs being rendered: who renders which
+    chunk, on which frame (thread-safe)."""
+    from .chunks import read_claims_in
+
+    out = {}
+    if not claims_root:
+        return out
+    for job in jobs:
+        try:
+            if job["stage_history"][-1]["stage"] == "render_start":
+                out[job["job_id"]] = read_claims_in(claims_root / job["job_id"])
+        except (KeyError, IndexError, TypeError):
+            continue
+    return out
+
+
 def _read_farm_snapshot(paths: dict, scanned: dict, cached_actives: list) -> dict:
     """Full refresh: _read_farm_raw() + frame counts and times (thread-safe)."""
     raw = _read_farm_raw(paths, True, scanned)
@@ -361,6 +379,7 @@ def _read_farm_snapshot(paths: dict, scanned: dict, cached_actives: list) -> dic
     jobs = actives if actives is not None else cached_actives
     raw["frames"] = _frames_for_jobs(paths["root"], jobs)
     raw["frame_seconds"] = _frame_seconds_for_jobs(paths.get("farm_requests"), jobs)
+    raw["claims"] = _claims_for_jobs(paths.get("farm_claims"), jobs)
     return raw
 
 
@@ -433,6 +452,7 @@ def _apply_farm_snapshot(raw: dict) -> None:
     snapshot["jobs"] = jobs
     snapshot["workers"] = workers
     snapshot["silent_workers"] = raw.get("silent_workers", {})
+    snapshot["claims"] = raw.get("claims", {})
     get_monitor_cache().update(snapshot)
 
 

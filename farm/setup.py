@@ -325,7 +325,7 @@ def _split_into_shot_jobs(
                 data["filepath"],
                 user=data.get("user", "unknown"),
                 priority=data.get("priority", 10),
-                render_mode=data.get("render_mode", "auto"),
+                render_mode=data.get("render_mode", "all"),
                 assigned_machines=data.get("assigned_machines", []),
                 increment=data.get("increment", True),
                 prerender_script=data.get("prerender_script", "default"),

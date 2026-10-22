@@ -105,16 +105,18 @@ def _get_workers_items(self, context):
         )
 
 
-def _get_pre_render_scripts(self, context):
-    """Enum items for the pre-render script picker: every .py/.json preset
-    directly under config/presets/ (matches apply_custom_preset()'s lookup),
-    excluding asset_file_preset.py and the ffmpeg_presets/ subfolder."""
-    items = [(_NO_SCRIPT, "None", "Don't execute script before render.")]
+def pre_render_script_items(presets_dir: Path | None) -> list[tuple[str, str, str]]:
+    """The pre-render picker's items: "no script", then every .py/.json
+    preset directly under presets_dir (matches apply_custom_preset()'s
+    lookup), excluding asset_file_preset.py and the ffmpeg_presets/
+    subfolder."""
+    items = [(_NO_SCRIPT, "No pre-render script", "Render with the file's own settings")]
+    if presets_dir is None:
+        return items
     try:
-        presets_dir = ConfigCache.get_path("presets")
         names = set()
-        # cached_scandir(): this enum is re-evaluated on every redraw of the
-        # Render dialog; DirEntry.is_file() needs no extra stat.
+        # cached_scandir(): the pickers are re-evaluated on every redraw;
+        # DirEntry.is_file() needs no extra stat.
         for f in cached_scandir(presets_dir):
             suffix = Path(f.name).suffix
             if (
@@ -128,7 +130,24 @@ def _get_pre_render_scripts(self, context):
             items.append((name, name, f"Apply preset '{name}' before render."))
     except Exception as e:
         log("WARNING", "farm", f"Could not list pre-render presets: {e}")
-    return _stable_enum_items(_pre_render_scripts, items)
+    return items
+
+
+def _get_pre_render_scripts(self, context):
+    """The Render dialog's picker: the active project's presets."""
+    try:
+        presets_dir = ConfigCache.get_path("presets")
+    except Exception as e:
+        log("WARNING", "farm", f"Could not list pre-render presets: {e}")
+        presets_dir = None
+    return _stable_enum_items(_pre_render_scripts, pre_render_script_items(presets_dir))
+
+
+def default_pre_render_script(config: dict, items: list) -> str:
+    """config's farm.default_prerender_script (Edit project) if it's still
+    one of the picker's items, else _NO_SCRIPT."""
+    name = json_get(config, "farm.default_prerender_script", "") or ""
+    return name if name in {item[0] for item in items} else _NO_SCRIPT
 
 
 class M_PIPELINE_OT_farm_kill_monitor(bpy.types.Operator):
@@ -371,12 +390,15 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
     )
     render_mode: bpy.props.EnumProperty(
         items=[
-            ("auto", "Auto", "Placeholder first, fallback to single on collision"),
-            ("single", "Single", "One machine, whole shot"),
-            ("placeholder", "Placeholder", "All free machines, self-arbitrated"),
+            (
+                "all",
+                "All machines",
+                "Every free machine takes chunks of frames; more can join any time",
+            ),
+            ("single", "Single", "One machine at a time renders the whole range"),
         ],
         name="Render Mode",
-        default="auto",
+        default="all",
     )
     increment: bpy.props.BoolProperty(
         name="Increment",
@@ -424,6 +446,10 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
             return {"CANCELLED"}
         self.project_root = str(get_active_project_root())
         scan_descriptions(get_active_project_root())  # menu tooltips
+        # Every submit starts from the project's preset, never the last one.
+        self.pre_render_script = default_pre_render_script(
+            ConfigCache.get(), _get_pre_render_scripts(self, context)
+        )
         if self.filepath:
             self._populate_subshots(context)
             if event.ctrl:
@@ -468,7 +494,7 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
         )
         col.separator()
         # A dropdown, not prop_menu_enum(): shows the script picked.
-        col.prop(self, "pre_render_script", text="Pre-render script")
+        col.prop(self, "pre_render_script", text="")
 
     def _draw_subshots(self, layout, subshots):
         naming = ConfigCache.get().get("naming", {})

@@ -83,8 +83,14 @@ def read_claims(job_id: str) -> dict[int, dict]:
     """{k: claim data} of every chunk of job_id claimed right now -- one
     listing of its folder. A claim unreadable this instant (just created,
     not written yet) is {}: claimed all the same, by an unknown machine."""
+    return read_claims_in(claims_dir(job_id))
+
+
+def read_claims_in(folder: Path) -> dict[int, dict]:
+    """read_claims() on a job's claims folder already resolved: pure
+    os/json, safe on a reader thread (the farm snapshot)."""
     try:
-        entries = list(os.scandir(claims_dir(job_id)))
+        entries = list(os.scandir(folder))
     except FileNotFoundError:
         return {}
     claims = {}

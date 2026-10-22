@@ -31,6 +31,22 @@ from ..lib import (
     thumbnail_size,
     warn_blender_version_mismatch,
 )
+from .farm_ops import (
+    _NO_SCRIPT,
+    _stable_enum_items,
+    default_pre_render_script,
+    pre_render_script_items,
+)
+
+_edited_pre_render_scripts: list[tuple[str, str, str]] = []
+
+
+def _edited_project_scripts(self, context):
+    """Pre-render presets of the project being edited -- not necessarily
+    the active one."""
+    root = self.project_path_selected
+    presets = Path(root) / "config" / "presets" if root else None
+    return _stable_enum_items(_edited_pre_render_scripts, pre_render_script_items(presets))
 
 # ---------------------------------------------------------------------------
 # Default config template
@@ -428,6 +444,12 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         ),
     )
 
+    default_prerender_script: bpy.props.EnumProperty(
+        items=_edited_project_scripts,
+        name="",
+        description="Pre-render script the Render dialog starts with",
+    )  # type: ignore
+
     chunk_size: bpy.props.IntProperty(
         name="",
         min=1,
@@ -618,6 +640,7 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
             week.prop(self, "schedule_worked_days", index=i, text=name, toggle=True)
         row = _settings_row(box, "CHUNK SIZE", "RENDER_RESULT")
         row.prop(self, "chunk_size")
+        _settings_row(box, "PRE-RENDER", "SCRIPT").prop(self, "default_prerender_script")
         row = _settings_row(box, "STUCK FRAME", "ERROR")
         row.prop(self, "stuck_frame_factor")
         row.label(
@@ -654,6 +677,9 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         self.schedule_days_off = self._days(schedule.get("days_off", []))
         worked = schedule.get("worked_days", WORK_WEEK)
         self.schedule_worked_days = [d in worked for d in range(1, 8)]
+        self.default_prerender_script = default_pre_render_script(
+            config, _edited_project_scripts(self, context)
+        )
         self.chunk_size = max(
             1, int((config.get("farm") or {}).get("chunk_size", 5) or 5)
         )
@@ -735,12 +761,18 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
                 "tags": self._csv_to_list(self.tags),
                 "assets_departments": self._csv_to_list(self.assets_departments),
                 "shots_departments": self._csv_to_list(self.shots_departments),
-                # "farm": only stuck_frame_factor and chunk_size are edited
-                # here, the rest stays as read from the loaded config.
+                # "farm": only stuck_frame_factor, chunk_size and
+                # default_prerender_script are edited here, the rest stays as
+                # read from the loaded config.
                 "farm": (config.get("farm") or {})
                 | {
                     "stuck_frame_factor": self.stuck_frame_factor,
                     "chunk_size": self.chunk_size,
+                    "default_prerender_script": (
+                        ""
+                        if self.default_prerender_script == _NO_SCRIPT
+                        else self.default_prerender_script
+                    ),
                 },
                 "thumbnails": (config.get("thumbnails") or {})
                 | {"size": self.thumbnail_size},

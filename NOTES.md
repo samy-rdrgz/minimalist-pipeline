@@ -2602,6 +2602,19 @@ The host (`check_render_completion()`, every tick of a job at
   many machines as there are chunks to render (frames sent back by the
   frame check: only theirs).
 
+The UI: the Render dialog's modes are *All machines* and *Single* (a job
+file's older `auto`/`placeholder` reads as all machines: only "single" is
+tested). The claims are read with the rest of the farm snapshot, on its
+reader thread, for the jobs at `render_start` only -- Job details lists
+the chunks in progress (machine, frame) from there, never from `draw()`,
+and the job file's `chunk_failures`, `fail_reason`, `left_machines`;
+Worker details its machine's chunk. The pre-render picker's "None" reads
+"No pre-render script" and needs no label; the dialog opens on the
+project's `farm.default_prerender_script` (Edit project) on every
+`invoke()` -- the enum's own memory kept the last pick, or fell back to
+the first item. Edit project lists the presets of the project it edits,
+which isn't always the active one.
+
 A Retry clears `chunk_failures` and `fail_reason`; `failed_machines` too
 when every live worker allowed on the job is in it (else it would wait
 forever). `max_workers_per_job` is gone: it existed for collisions, and

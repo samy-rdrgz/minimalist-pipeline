@@ -45,6 +45,7 @@ _monitor_cache: dict = {
     "last_tick": None,
     "jobs": [],  # list of per-job snapshots
     "workers": {},  # {uuid: worker data}, see _apply_farm_snapshot()
+    "claims": {},  # {job_id: {chunk: claim}}, jobs being rendered
 }
 
 
@@ -64,6 +65,7 @@ def reset_monitor_cache() -> None:
             "last_tick": None,
             "jobs": [],
             "workers": {},
+            "claims": {},
         }
     )
 
@@ -391,7 +393,7 @@ def job_request(
     *,
     user: str = "unknown",
     priority: int = 10,
-    render_mode: str = "auto",
+    render_mode: str = "all",
     assigned_machines: list | None = None,
     increment: bool = True,
     prerender_script: str = "default",
