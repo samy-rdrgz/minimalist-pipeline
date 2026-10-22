@@ -118,6 +118,7 @@ from .monitoring import (
     monitoring_kind,
     monitoring_windows,
     open_mainfile,
+    bring_monitoring_to_front,
     open_monitoring_window,
     paginate,
     redraw_monitoring,

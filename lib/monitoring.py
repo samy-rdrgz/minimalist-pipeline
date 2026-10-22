@@ -2,6 +2,8 @@
 Properties editor on its Tool tab, where panels/monitoring_panel.py draws.
 See NOTES.md, "Monitoring: windows, not popups"."""
 
+import os
+import sys
 import time
 
 import bpy
@@ -94,6 +96,74 @@ def open_monitoring_window(context, kind: str) -> bool:
     bpy.app.timers.register(_show_tool_tab(window.as_pointer()), first_interval=0.0)
     ensure_monitoring_tick()
     return True
+
+
+def bring_monitoring_to_front(context, kind: str) -> bool:
+    """Bring that kind's open monitoring window to the front. No Blender
+    API does (Window has no such method, its x/y are read-only): on Windows
+    the system's own SetForegroundWindow on its handle -- it stays where it
+    is, a second screen included; elsewhere, or if that failed, a new one
+    opened in front and the old one closed -- same content (filters, page,
+    detail live in memory), back at Blender's default place. False if it
+    couldn't. See NOTES.md, "Monitoring windows: to the front"."""
+    old = monitoring_windows(kind)
+    if not old:
+        return False
+    if sys.platform == "win32" and _raise_win32(old[0]):
+        return True
+    # The new one first: it takes the focus, and no window this operator
+    # runs in is closed under it.
+    if not open_monitoring_window(context, kind):
+        return False
+    for window in old:
+        try:
+            with context.temp_override(window=window):
+                bpy.ops.wm.window_close()
+        except (RuntimeError, TypeError):
+            pass
+    return True
+
+
+def _raise_win32(window) -> bool:
+    """SetForegroundWindow on the native window of this Blender process
+    whose client area is window's size (its position breaking a tie: two
+    monitoring windows alike). Allowed: this process is the foreground one,
+    the click came from it. False on any failure."""
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        user32 = ctypes.windll.user32
+        pid = os.getpid()
+        handles = []
+        enum_proc = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+
+        def visit(hwnd, _lparam):
+            owner = wintypes.DWORD()
+            user32.GetWindowThreadProcessId(hwnd, ctypes.byref(owner))
+            if owner.value == pid and user32.IsWindowVisible(hwnd):
+                handles.append(hwnd)
+            return True
+
+        user32.EnumWindows(enum_proc(visit), 0)
+        best = None
+        for hwnd in handles:
+            rect = wintypes.RECT()
+            corner = wintypes.POINT(0, 0)
+            user32.GetClientRect(hwnd, ctypes.byref(rect))
+            user32.ClientToScreen(hwnd, ctypes.byref(corner))
+            size_gap = abs(rect.right - window.width) + abs(rect.bottom - window.height)
+            score = (size_gap, abs(corner.x - window.x))
+            if best is None or score < best[0]:
+                best = (score, hwnd)
+        if best is None or best[0][0] > 4:
+            return False
+        hwnd = best[1]
+        if user32.IsIconic(hwnd):
+            user32.ShowWindow(hwnd, 9)  # SW_RESTORE
+        return bool(user32.SetForegroundWindow(hwnd))
+    except Exception:
+        return False
 
 
 def _show_tool_tab(window_ptr: int, tries: int = 20):

@@ -2351,6 +2351,28 @@ Checked in Blender (4.0, under Xvfb):
   keep the choice.
   The search is cleared when the window opens, as before.
 
+## Monitoring windows: to the front
+
+Clicking Monitoring with its window already open said so and did nothing:
+the window was usually behind the main one. Blender has no way to raise a
+window -- `Window` has no method for it, its `x`/`y` are read-only, the
+`wm` operators are `window_new`/`window_close`/`window_fullscreen_toggle`
+(checked on 5.2). `bring_monitoring_to_front()`:
+
+- Windows: the system's own `SetForegroundWindow()` (ctypes), on the
+  native window of this process whose client area is the monitoring
+  window's size, its x breaking a tie (Project and Farm monitoring alike).
+  This process is the foreground one -- the click came from it --, so
+  Windows allows it. It stays where it is: a second screen included.
+- Elsewhere (Linux, macOS -- Wayland forbids raising a window anyway), or
+  if that failed: a new window opened, in front, then the old one closed
+  -- the new one first, so nothing the operator runs in is closed under
+  it. Same content (filters, page, detail are memory, not the window's),
+  but back at Blender's default place and size.
+
+Not checked on a screen from here: the Windows path needs a Windows
+machine, the reopen a window manager.
+
 ## Monitoring windows: pages sized on the window
 
 Moving Project monitoring into a window dropped its pages for one list

@@ -38,6 +38,7 @@ from ..lib import (
     memory_enum,
     memory_prop,
     monitoring_windows,
+    bring_monitoring_to_front,
     open_monitoring_window,
     redraw_monitoring,
     now,
@@ -1048,9 +1049,8 @@ class M_PIPELINE_OT_tracking_monitor(bpy.types.Operator):
                 load_file_renders(folder)
 
         if is_open:
-            # No way to bring a window to the front from Python.
             redraw_monitoring("project")
-            if not self.open_file:
+            if not bring_monitoring_to_front(context, "project") and not self.open_file:
                 self.report({"INFO"}, "Project monitoring is already open.")
             return {"FINISHED"}
         # A search left over from last time would silently hide files.

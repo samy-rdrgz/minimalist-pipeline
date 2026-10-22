@@ -41,6 +41,7 @@ from ..lib import (
     memory_enum,
     memory_prop,
     monitoring_windows,
+    bring_monitoring_to_front,
     open_monitoring_window,
     redraw_monitoring,
     get_folder,
@@ -1241,9 +1242,9 @@ class M_PIPELINE_OT_farm_monitor(bpy.types.Operator):
             return {"CANCELLED"}
 
         if monitoring_windows("farm"):
-            # No way to bring a window to the front from Python.
             redraw_monitoring("farm")
-            self.report({"INFO"}, "Farm monitoring is already open.")
+            if not bring_monitoring_to_front(context, "farm"):
+                self.report({"INFO"}, "Farm monitoring is already open.")
             return {"FINISHED"}
 
         # Reopens on the job it showed -- read again, it has moved on since.
