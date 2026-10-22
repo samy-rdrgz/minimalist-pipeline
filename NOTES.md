@@ -2706,10 +2706,10 @@ unknown ones dropped.
 New entry: one entry per line for every type -- a note joined its lines
 into one entry with the first line's department and frames, the others
 ignored; a shot per line (`PipelineEntryItem.shot_tag`, right of its
-departments, for a block), not one for the whole dialog; RTK by default. Each line: its departments
-(and shot) on the left half, its frame tag on the right, the frames on a
-line of their own once tagged -- a quarter each left a department's name
-unreadable; the dialog 560 px wide.
+departments, for a block), not one for the whole dialog; RTK by default. Each line keeps its quarters
+(departments, frame tag and start, end, reference); a block's shot goes
+under its departments, in the same quarter -- side by side, an eighth
+each, neither was readable.
 
 Department order: `create_tracking()` stored `departments_required`
 `sorted()` by name, and every list followed the file -- the file

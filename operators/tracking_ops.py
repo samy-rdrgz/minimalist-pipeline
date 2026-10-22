@@ -219,7 +219,7 @@ class M_PIPELINE_OT_create_entry(bpy.types.Operator):
             else (file.parent.stem + " " + file.stem)
         )
         return context.window_manager.invoke_props_dialog(
-            self, width=560, title=f"New note or tasks for {file}:"
+            self, width=480, title=f"New note or tasks for {file}:"
         )
 
     def draw(self, context):
@@ -241,13 +241,6 @@ class M_PIPELINE_OT_create_entry(bpy.types.Operator):
 
         layout.separator(factor=2)
 
-    def _draw_line_tags(self, layout, entry, multishot: bool) -> None:
-        """A line's departments, then its shot (a block's) on their right."""
-        row = layout.split(factor=0.65, align=True) if multishot else layout.row()
-        row.prop_menu_enum(entry, "departments", text=_departments_label(entry.departments))
-        if multishot:
-            row.prop(entry, "shot_tag", text="")
-
     def _draw_lines(self, layout, entries, multishot: bool):
         col = layout.column(align=True)
 
@@ -259,19 +252,36 @@ class M_PIPELINE_OT_create_entry(bpy.types.Operator):
                 "m_pipeline.remove_entry_line", text="", icon="REMOVE"
             ).index = idx
 
-            # Half the width for its departments (and shot), half for its
-            # frame tag; the frames, once tagged, on a line of their own --
-            # four quarters left a department's name unreadable.
-            row = col.split(factor=0.5, align=True)
-            self._draw_line_tags(row, entry, multishot)
-            row.prop(entry, "is_frame_start", text="Frame tag")
+            row = col.row(align=True)
+            row = row.split(factor=0.5, align=True)
+            row_a = row.split(factor=0.5, align=True)
+            row_b = row.split(factor=0.5, align=True)
+
+            col1 = row_a.column(align=True)
+            col2 = row_a.row(align=True)
+            col3 = row_b.row(align=True)
+            col4 = row_b.row(align=True)
+
+            col1.prop_menu_enum(
+                entry, "departments", text=_departments_label(entry.departments)
+            )
+            if multishot:  # a block: its shot under it, as wide
+                col1.prop(entry, "shot_tag", text="")
+
+            txt = "Add frame tag" if not entry.is_frame_start else ""
+            col2.prop(entry, "is_frame_start", text=txt)
+
             if entry.is_frame_start:
-                frames = col.row(align=True)
-                frames.prop(entry, "frame_start", text="Start")
-                frames.prop(entry, "is_frame_end", text="" if entry.is_frame_end else "End")
+                col2.prop(entry, "frame_start", text="")
+
+                txt = "Add end frame" if not entry.is_frame_end else ""
+                col3.prop(entry, "is_frame_end", text=txt)
                 if entry.is_frame_end:
-                    frames.prop(entry, "frame_end", text="End")
-                frames.prop(self, "frame_reference", text="")
+                    col3.prop(entry, "frame_end", text="")
+
+                col4.separator(factor=0.1)
+                col4.prop(self, "frame_reference", text="")
+                col4.label(icon="BLANK1")
 
             col.separator(factor=2)
 
