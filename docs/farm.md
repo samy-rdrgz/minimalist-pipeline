@@ -38,6 +38,8 @@ The preset is also applied once at setup, in that throwaway session (never saved
 
 **When a chunk fails**: a machine whose render fails on a chunk (Blender error, crash, a frame stuck far longer than usual) gets no more of that job; its chunk goes back to the others, the frames it finished are kept. The same chunk failing on **3 different machines** is the frames themselves, not the machines (a frame too heavy for the RAM, a cache or texture missing there...): the render stops and the job fails with "frames X-Y failed on 3 machines (...)". The job's detail shows the chunks in progress (which machine, which frame), the failed ones and why it stopped.
 
+**Mixed versions**: a worker on an addon older than 1.1.0 gets no render at all (it doesn't know chunks and would write frames twice): it shows in Worker details as "too old", and in the log once. Update every machine of the farm.
+
 A multishot block (see [Shot blocks (multishot)](multishot.md)) submits and behaves exactly like any file from this side — the split into one job per shot happens automatically once the file is picked up, not something you do differently at submission.
 
 **Time left and time per frame**: each worker notes when it writes each frame. The time left is the frames still to render over the pace of the machines rendering the job *right now* -- each one at the speed of its last 10 frames, a machine that just joined at the job's average -- so it follows a machine joining or leaving at once. Until a first frame is timed (or with workers not updated yet), it falls back on elapsed time over progress. The job's detail shows the average time per frame and each machine's; the Workers tab, each machine's pace on its render; the render history keeps the average.

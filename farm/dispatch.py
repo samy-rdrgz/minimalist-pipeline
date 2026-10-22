@@ -249,8 +249,15 @@ def render_dispatch(job_path: Path, idle: dict, project_root: Path) -> None:
         job_data["dispatch_id"] = uuid4().hex[:12]
         job_data["chunk_size"] = size
         job_data["used_machines"] = []
+        names = ", ".join((idle.get(u) or {}).get("machine") or u[:8] for u in used)
         send_render(job_data, used, idle)
         history.append({"stage": "render_start", "at": now()})
+        log(
+            "INFO",
+            "farm",
+            f"Job {job_data.get('job_id')}: rendering on {names or 'no machine yet'} "
+            f"({len(free)} chunk(s) of {size} frames).",
+        )
         box["action"] = "to_write"
 
 

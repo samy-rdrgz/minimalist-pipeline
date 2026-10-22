@@ -20,6 +20,7 @@ from ..farm import (
 )
 from ..farm.chunks import chunk_frames
 from ..farm.queue import WORKER_GONE_SECONDS
+from ..farm.workers import FARM_PROTOCOL
 from ..lib import (
     ConfigCache,
     addon_pref,
@@ -647,6 +648,14 @@ def draw_farm_worker_details(layout, context):
     addon = m.get("addon_version")
     mine = _my_addon_version()
     other = addon and addon != mine
+    if m.get("farm_protocol") != FARM_PROTOCOL:
+        field(
+            col,
+            "Farm",
+            "too old: gets no render until updated",
+            icon="ERROR",
+            alert=True,
+        )
     field(
         col,
         "Addon",

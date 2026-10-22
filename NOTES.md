@@ -2625,6 +2625,17 @@ The host (`check_render_completion()`, every tick of a job at
   many machines as there are chunks to render (frames sent back by the
   frame check: only theirs).
 
+Mixed versions: a 1.0.x worker given a chunks job renders the whole range
+with placeholders, blind to the claims -- the frames written twice back.
+A worker announces `farm_protocol` (2) in its file (`_worker_identity()`);
+`idle_machines()` leaves out any other, logged once, flagged in Worker
+details ("too old: gets no render until updated"). A protocol number,
+not the addon version: a dev build stays 1.0.18 until the bump. The other
+way round, a request with no `chunk_size` (a 1.0.x farm host) is refused
+by the worker and fails its job with that reason (`_chunk_size_of()`).
+The first dispatch is logged too ("rendering on A, B (12 chunks of 5
+frames)"): only the machines sent to a render already started were.
+
 The UI: the Render dialog's modes are *All machines* and *Single* (a job
 file's older `auto`/`placeholder` reads as all machines: only "single" is
 tested). The claims are read with the rest of the farm snapshot, on its

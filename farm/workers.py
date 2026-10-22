@@ -32,6 +32,14 @@ from .loop import register_farm_loop
 
 STALE_WORKER_SECONDS = 15
 
+# How this addon's farm hands out and renders frames: 2, chunks claimed
+# one by one (1.1.0). A worker announces it in its file; the farm host
+# never sends a render to one on another protocol (idle_machines()) --
+# a 1.0.x worker would render the whole range with placeholders, blind to
+# the claims.
+FARM_PROTOCOL = 2
+_old_protocol_logged: set[str] = set()
+
 # A frame taking this many times its usual time is stuck (a hang, not a heavy
 # frame): the worker kills its own render (check_stuck_renders()). Default of
 # the project setting farm.stuck_frame_factor -- 0 there: never.
@@ -131,6 +139,7 @@ def _worker_identity() -> dict:
     return {
         "blender_version": bpy.app.version_string,
         "addon_version": get_addon_version(),
+        "farm_protocol": FARM_PROTOCOL,
         "started_at": now(),
         "renders_done": 0,
         "renders_failed": 0,
@@ -398,13 +407,26 @@ def scan_render_requests(target_uuid: str = "") -> dict:
 def idle_machines() -> dict:
     """{uuid: worker} idle right now and not already targeted by a pending
     render request -- computed once per monitor tick (scan_queue()), then
-    handed out: render_dispatch() takes the machines it uses out of it."""
+    handed out: render_dispatch() takes the machines it uses out of it.
+    Never a worker on another FARM_PROTOCOL (logged once)."""
     targeted = {r.get("target_uuid") for r in scan_render_requests().values()}
-    return {
-        uuid: w
-        for uuid, w in scan_workers().items()
-        if w.get("status") == "idle" and uuid not in targeted
-    }
+    idle = {}
+    for uuid, w in scan_workers().items():
+        if w.get("status") != "idle" or uuid in targeted:
+            continue
+        if w.get("farm_protocol") != FARM_PROTOCOL:
+            if uuid not in _old_protocol_logged:
+                _old_protocol_logged.add(uuid)
+                log(
+                    "WARNING",
+                    "farm",
+                    f"Worker {w.get('user', '?')} ({w.get('machine') or uuid[:8]}) runs "
+                    f"addon {w.get('addon_version') or 'older than 1.0.19'}: no render "
+                    f"sent to it until it's updated.",
+                )
+            continue
+        idle[uuid] = w
+    return idle
 
 
 def update_worker(dict: dict, count: str = ""):
@@ -514,6 +536,16 @@ def render_request(job_data: dict, uuid: str, cmd_flags: list):
 _worker_active_processes: dict[str, subprocess.Popen] = {}
 
 
+def _chunk_size_of(request: dict) -> int:
+    """The request's chunk_size; a request without one comes from a farm
+    host on an older addon (placeholders): refused, its job failed."""
+    if not request.get("chunk_size"):
+        raise PipelineError(
+            "sent by a farm host on an older addon version (no chunks) -- update it"
+        )
+    return int(request["chunk_size"])
+
+
 def execute_render_request() -> dict:
     """Pop the next render request targeting this worker and launch it as a
     subprocess. Returns the worker status patch to apply, or {} if idle."""
@@ -581,7 +613,7 @@ def execute_render_request() -> dict:
                         # Chunks: the job's size, fixed at dispatch -- never
                         # the project's, which may have changed since.
                         "--chunk-size",
-                        str(data["chunk_size"]),
+                        str(_chunk_size_of(data)),
                         "--machine",
                         get_machine_id(),
                     ],
