@@ -379,20 +379,15 @@ incomings/job_<id>.json
 │   │     worker is held back while a job is queued) : note_waiting(), stays
 │   └── render_dispatch()
 │       ├── .blend gone -> render_failed ("source file missing")
-│       └── 1 machine if single / auto fallen back to single / refill_single,
-│           else up to farm.max_workers_per_job ; a new dispatch_id ;
+│       └── 1 machine if single, else up to farm.max_workers_per_job ; a new dispatch_id ;
 │           requests/request_<job>_<uuid>.json per machine -> render_start
 │
 ├── render_start : check_render_completion() (see "Render: workers and
 │   completion" below)
-│   ├── a machine still on it -> stays (progress: non-empty frames)
-│   └── none left -- judged on the frames on disk:
-│       ├── every frame there, non-empty -> render_finished
-│       ├── a machine failed it -> render_failed (failed_machines kept)
-│       ├── the job's Cancel (cancel_requested) -> render_failed (cancelled)
-│       ├── refill_rounds >= MAX_REFILL_ROUNDS (3) -> render_failed
-│       └── else : empty files deleted, refill_rounds + 1
-│                  -> setup_finished ("frames left after machines stopped")  ⟲
+│   ├── a frame missing -> stays (progress: non-empty frames)
+│   └── every frame on disk -> render_finished
+│   (chunks, in progress: claims freed, chunk_failures, dispatch to idle
+│   workers -- farm-chunks-plan.md §5.1)
 │
 ├── render_finished : local slot free ? checks_images() -> checks_images_start
 │   (ffmpeg -vf showinfo -f null over the sequence) ; no ffmpeg ->
@@ -400,9 +395,9 @@ incomings/job_<id>.json
 │
 ├── checks_images_start : once ffmpeg exits
 │   ├── exit != 0 -> checks_images_failed
-│   ├── frames corrupted (corrupted_frames()) or written by two machines
-│   │   (frames_written_twice()), and a refill round left ?
-│   │   └── yes : those frames deleted, refill_single, refill_rounds + 1
+│   ├── frames corrupted (corrupted_frames()), and a round left
+│   │   (MAX_FRAME_CHECK_ROUNDS, 3) ?
+│   │   └── yes : those frames deleted, frame_check_rounds + 1
 │   │             -> setup_finished ("N frame(s) to render again")  ⟲
 │   └── else -> checks_images_finished (frames_corrupted recorded ; bad frames
 │              past the last round are kept, named in a warning)
@@ -435,74 +430,43 @@ incomings/job_<id>.json
 ### Render: workers and completion
 
 ```
-├── join_running_renders() (every tick, before any dispatch) : an idle worker
-│   joins a render_start job rather than start a new one if it renders on
-│   several machines (not single / refill_single), the worker is allowed on
-│   it (assigned_machines), not in failed_machines (one that left the render
-│   and is idle again may come back), machines on it now under
-│   max_workers_per_job, and joining helps (_joiners_wanted(), from the
-│   .saved records): a free frame behind every machine on it -- one joiner
-│   each -- or free frames ahead for longer than a joiner takes to start
-│   and render one, joiners counted ; nothing timed yet: more than
-│   JOIN_MIN_FRAMES_LEFT (10) free frames per joiner -> same request, same
-│   dispatch_id,
-│   added to used_machines (a "start" line in its .saved: the time it was
-│   away is no frame's)
-│
 ├── worker_tick() (each worker, every tick)
 │   ├── stop_<uuid>.json : stop_worker()
-│   │   ├── "Stop now" : render killed (result "stopped"), the empty file of
-│   │   │   its frame in progress deleted (request_<job>_<uuid>.frame names
-│   │   │   it), free for another machine ; the role ends
-│   │   └── "After this frame" : request_<job>_<uuid>.stop written, the
-│   │       render exits once its frame is written (render_write handler),
-│   │       then the role ends ("stopping")
+│   │   ├── "Stop now" : render killed (result "stopped") ; the role ends
+│   │   └── "After this frame" : request_<job>_<uuid>.stop written, read by
+│   │       the render before each frame, then the role ends ("stopping")
 │   ├── heartbeat ; cancel_<job>_<uuid>.json : render terminated, result
-│   │   {cancelled}, its frame in progress freed the same way
+│   │   {cancelled}
+│   ├── check_stuck_renders() : frame in progress past stuck_frame_factor x
+│   │   its usual time -> killed, result {stuck}
 │   ├── render subprocess exited : status idle, last_job_result {job_id,
 │   │   dispatch_id, success: exit == 0} -- ONE slot, the next render
 │   │   overwrites it
 │   └── idle : execute_render_request() -- request deleted ; blender -b
 │       <file> -o <output> -s <start> -e <end> --python worker_render_entry.py
-│       (placeholders on, no overwrite: every machine runs the whole range,
-│       skipping any frame file already there -- empty = taken by someone ;
-│       render preset strict ; each frame written: "<dispatch_id> <frame>
-│       <time>" appended to request_<job>_<uuid>.saved -- frames written
-│       twice, and the pace) -> status "render", current_job_id,
+│       (render preset strict ; "<dispatch_id> <frame> <time>" appended to
+│       request_<job>_<uuid>.saved per frame -- the pace, who rendered what ;
+│       the chunk loop: in progress) -> status "render", current_job_id,
 │       current_dispatch_id
 │
-└── check_render_completion() (monitor) : is anybody still on it ?
-    (_machines_on(), each used machine's file read directly, _read_worker())
-    ├── on it : its worker rendering this job (status "render",
-    │   current_job_id), alive -- or unreadable this tick, can't tell --
-    │   or its request still waiting, the worker alive
-    ├── done with it : gone (silent WORKER_GONE_SECONDS, 180 s), stopped,
-    │   idle or on another job -- whatever its last_job_result says
-    ├── some waiting, every frame already has a file : their requests
-    │   withdrawn (_withdraw_requests()), they leave used_machines
-    ├── somebody on it : wait (no lock taken)
-    └── nobody, for NOBODY_SECONDS (20 s -- a worker taking up its request
-        deletes it before writing its own file), re-checked under the lock :
-        requests left deleted ; failed_machines = those whose last_job_result
-        says they failed THIS dispatch ; _note_frames() (from the .saved
-        records: each machine's mean per frame, and frame_machines -- one
-        letter per frame, the machine that wrote it) ; then judged on disk
-        (render_start above)
+└── check_render_completion() (monitor) : every frame on disk
+    (missing_frames(), one listing of the folder), re-checked under the
+    lock : requests left deleted ; rendered_by ; _note_frames() (from the
+    .saved records: each machine's mean per frame, and frame_machines --
+    one letter per frame, the machine that wrote it) -> render_finished
 ```
 
 ### Ways back
 
 ```
-├── refill (render_start -> setup_finished) : machines stopped early, frames
-│   missing -- empty files deleted, sent out again ; at most 3 rounds
-├── bad frames (checks_images_start -> setup_finished) : corrupted or written
-│   twice -- deleted, rendered again on ONE machine (refill_single), then the
-│   whole frame check again ; same 3 rounds as the refill
+├── bad frames (checks_images_start -> setup_finished) : corrupted --
+│   deleted, rendered again, then the whole frame check again ; at most
+│   MAX_FRAME_CHECK_ROUNDS (3)
 ├── Retry button (any *_failed, even from archives/) : retry_job() ->
-│   _RETRY_STAGE, refill_rounds and cancel_requested reset
+│   _RETRY_STAGE, frame_check_rounds and cancel_requested reset
 │   ├── setup_failed -> queued
 │   ├── render_failed -> render_finished if every frame is there, else
-│   │   setup_finished (empty frames deleted, steered off failed_machines)
+│   │   setup_finished
 │   ├── checks_images_failed -> render_finished
 │   └── compilation_failed -> checks_images_finished
 ├── Recompile (finished) : recompile_job() -> checks_images_finished
