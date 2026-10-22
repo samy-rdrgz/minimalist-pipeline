@@ -157,17 +157,16 @@ def chunk_size() -> int:
         return 5
 
 
-def machines_for(job_data: dict, idle: dict) -> list[str]:
+def machines_for(job_data: dict, idle: dict, with_left: bool = False) -> list[str]:
     """The idle machines (idle_machines()) this job may render on: all of
     them, or only its assigned ones -- never one that failed it
-    (failed_machines)."""
+    (failed_machines), nor one cancelled off it (left_machines) unless
+    with_left: no other job took it this tick."""
     assigned = job_data.get("assigned_machines") or []
-    failed = set(job_data.get("failed_machines") or [])
-    return [
-        uuid
-        for uuid in idle
-        if (not assigned or uuid in assigned) and uuid not in failed
-    ]
+    out = set(job_data.get("failed_machines") or [])
+    if not with_left:
+        out |= set(job_data.get("left_machines") or [])
+    return [uuid for uuid in idle if (not assigned or uuid in assigned) and uuid not in out]
 
 
 def send_render(job_data: dict, machines: list, idle: dict) -> None:
@@ -226,6 +225,8 @@ def render_dispatch(job_path: Path, idle: dict, project_root: Path) -> None:
             )
             return
 
+        # A new render: the machines cancelled off the last one may take it.
+        job_data.pop("left_machines", None)
         available = machines_for(job_data, idle)
         if not available:
             note_waiting(job_data)

@@ -501,7 +501,9 @@ incomings/job_<id>.json
 ├── Cancel button (render_start) : cancel_pending_renders() -- requests not
 │   picked up deleted, cancel_requested set on the job (none left ->
 │   render_failed, cancelled) ; the machines rendering get
-│   cancel_<job>_<uuid>.json ; one machine's cancel (Workers tab): neutral
+│   cancel_<job>_<uuid>.json ; one machine's cancel (Workers tab): neutral,
+│   the machine in left_machines -- other jobs first, back to this one
+│   only if still idle after them (scan_queue()'s second pass)
 └── crash recovery
     ├── monitor relaunched : recover_interrupted_jobs() -- a local *_start
     │   stage (never render_start) whose PID still runs on this machine is

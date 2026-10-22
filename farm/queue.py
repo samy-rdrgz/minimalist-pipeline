@@ -318,6 +318,17 @@ def scan_queue(project_root: Path) -> None:
         except Exception as e:
             log("ERROR", "farm", f"Active job error: {e} ({job.name}).")
 
+    # A machine cancelled off a render (left_machines) goes to the other
+    # jobs first; still idle after them all, back to the render it left.
+    for job, data in jobs:
+        if _job_stage(data) == "render_start" and set(
+            data.get("left_machines") or []
+        ) & set(idle):
+            try:
+                check_render_completion(job, project_root, None, idle, with_left=True)
+            except Exception as e:
+                log("ERROR", "farm", f"Active job error: {e} ({job.name}).")
+
 
 # Where a job goes when the process running its *_start stage was lost (a
 # crash of the Blender instance tracking it) -- every one of these stages
@@ -374,6 +385,7 @@ def retry_job(data: dict, project_root: Path) -> str | None:
         data.pop("failed_machines", None)
     data.pop("chunk_failures", None)
     data.pop("fail_reason", None)
+    data.pop("left_machines", None)
     data.pop("rendered_by", None)
     data.pop("local_processes", None)
     data.pop("frame_check_rounds", None)  # a manual retry starts a fresh count
@@ -765,15 +777,29 @@ def _withdraw_requests(job_id: str, machines: list, cancel: bool = False) -> lis
     return dropped
 
 
+def _leave_job(job_id: str, machines: list) -> None:
+    """Add machines to the render's left_machines (machines_for())."""
+    job_path = ConfigCache.get_path("farm_actives") / f"{job_id}.json"
+    with locked_json(job_path) as box:
+        data = box["data"] or {}
+        if not data or data["stage_history"][-1]["stage"] != "render_start":
+            return
+        data["left_machines"] = sorted(set(data.get("left_machines") or []) | set(machines))
+        box["action"] = "to_write"
+
+
 def cancel_pending_renders(
     job_id: str, machines: list, whole_job: bool = False
 ) -> list:
     """Cancel side for the machines that haven't picked up their render
     request for job_id yet: the request is deleted (a cancel file would find
     nothing to kill, and the request would still run later). whole_job: the
-    job's Cancel, not one machine's (_withdraw_requests()). Returns the
-    machines still to cancel through a cancel file (their render is
-    running)."""
+    job's Cancel, not one machine's (_withdraw_requests()); one machine's
+    takes it off the job (left_machines): not sent back to this render
+    while another job wants it. Returns the machines still to cancel
+    through a cancel file (their render is running)."""
+    if not whole_job:
+        _leave_job(job_id, machines)
     dropped = _withdraw_requests(job_id, machines, cancel=whole_job)
     return [uuid for uuid in machines if uuid not in dropped]
 
@@ -1028,6 +1054,7 @@ def _end_render(job_path: Path, stage: str, **fields) -> dict | None:
         if not data or data["stage_history"][-1]["stage"] != "render_start":
             return data
         data["stage_history"].append({"stage": stage, "at": now()} | fields)
+        data.pop("left_machines", None)
         data["rendered_by"] = list(data.get("used_machines", []))
         _note_frames(data)
         _note_machine_names(data, data["rendered_by"])
@@ -1048,6 +1075,7 @@ def check_render_completion(
     project_root: Path | None = None,
     data: dict | None = None,
     idle: dict | None = None,
+    with_left: bool = False,
 ) -> dict | None:
     """Monitor-only, every tick of a job at render_start (see NOTES.md,
     "Farm 1.1.0: chunks replace placeholders"):
@@ -1058,7 +1086,8 @@ def check_render_completion(
     - chunks free: sent to idle machines (idle: idle_machines() for this
       tick, those given the job taken out of it) -- one at most in "single"
       mode, else one per free chunk, less those already starting on it;
-      none free: requests not taken up withdrawn;
+      none free: requests not taken up withdrawn; with_left: the machines
+      cancelled off it (left_machines) too -- scan_queue()'s second pass;
     - nobody on it, chunks free, every live worker allowed on it failed it:
       render_failed.
 
@@ -1103,7 +1132,7 @@ def check_render_completion(
         log("ERROR", "farm", f"Job {job_id}: {reason}.")
         return _end_render(job_path, "render_failed", reason=reason)
     if idle is not None:
-        _send_to_idle(job_path, data, free, claims, rendering, waiting, idle)
+        _send_to_idle(job_path, data, free, claims, rendering, waiting, idle, with_left)
     return data
 
 
@@ -1115,6 +1144,7 @@ def _send_to_idle(
     rendering: list,
     waiting: list,
     idle: dict,
+    with_left: bool = False,
 ) -> None:
     """check_render_completion()'s dispatch: idle machines allowed on the
     job (machines_for()) sent to its free chunks."""
@@ -1124,7 +1154,7 @@ def _send_to_idle(
         holding = {c.get("machine") for c in claims.values()}
         starting = [u for u in rendering if u not in holding]
         wanted = len(free) - len(starting) - len(waiting)
-    machines = machines_for(data, idle)[: max(0, wanted)]
+    machines = machines_for(data, idle, with_left)[: max(0, wanted)]
     if not machines:
         return
     names = ", ".join((idle.get(u) or {}).get("machine") or u[:8] for u in machines)
@@ -1166,6 +1196,7 @@ def _finish_render(job_path: Path, project_root: Path | None) -> dict | None:
         _note_frames(data)
         _note_machine_names(data, machines)
         data["stage_history"].append({"stage": "render_finished", "at": now()})
+        data.pop("left_machines", None)
         box["action"] = "to_write"
     paths = frame_paths(data, project_root) or []
     if paths:

@@ -2578,6 +2578,13 @@ The host (`check_render_completion()`, every tick of a job at
 - **Cancel** (`cancel_requested`): same stop, `render_failed (cancelled)`.
   With no machine on the job (its chunks waiting for one) the button
   still cancels it -- it used to refuse ("No machine currently assigned").
+- **One machine's Cancel** (Workers tab) is "leave this job", to free a
+  machine for another one: its render killed (neutral), the machine in
+  `left_machines`, which `machines_for()` leaves out -- it goes to the
+  other jobs first. Still idle once every job had its turn this tick,
+  `scan_queue()`'s second pass sends it back to the render it left
+  (`with_left`): an idle machine next to free chunks helps nobody. A new
+  dispatch, a Retry, or the end of the render clear the list.
 - **Finished**: every frame on disk and no claim left -- a claim whose
   last frame is written but not yet released is waited for. The `.tmp`
   files and the claims folder are removed.
