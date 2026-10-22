@@ -128,6 +128,21 @@ def _job_stage(data: dict) -> str:
         return ""
 
 
+def _setup_unblocks_idle(data: dict, jobs: list, idle: dict) -> bool:
+    """Whether setting up queued job data now, beside this instance's own
+    render, puts idle machines to work: some may render it once set up, and
+    no job already set up (setup_finished) can take any of them -- those
+    left idle after this tick's joins and dispatches."""
+    if not machines_for(data, idle):
+        return False
+    return not any(
+        _job_stage(other) == "setup_finished"
+        and not other.get("split_into")
+        and machines_for(other, idle)
+        for _, other in jobs
+    )
+
+
 def read_active_jobs(scan_dir: Path) -> list[tuple[Path, dict]]:
     """(path, data) of every job in actives/ that may still need work,
     read without a lock: writes are atomic (read_json_quiet()), and the
@@ -217,8 +232,14 @@ def scan_queue(project_root: Path) -> None:
                 # Setup also waits for a render this same instance runs as a
                 # worker: both load the whole .blend. Only setup -- the
                 # ffmpeg stages are light and must not queue behind a whole
-                # render (see NOTES.md, "Re-rendering a file...").
-                if not local_slot_busy() and not local_render_running():
+                # render (see NOTES.md, "Re-rendering a file..."). Unless
+                # machines sit idle with nothing else to take: then it runs
+                # alongside, the .blend loaded twice for the setup's length
+                # rather than the farm held back for the whole render.
+                if not local_slot_busy() and (
+                    not local_render_running()
+                    or _setup_unblocks_idle(data, jobs, idle)
+                ):
                     from .setup import run_render_setup
 
                     run_render_setup(data["job_id"], config)
@@ -684,6 +705,13 @@ def construct_split_history(job: dict) -> None:
     append_render_history(job["filepath"], entry)
 
 
+def _stuck_this_render(worker: dict | None) -> dict | None:
+    """The "stuck" part of a worker's last_job_result (frame, seconds,
+    usual), if its render was killed on a stuck frame -- for a worker
+    _failed_this_render() already matched to this render."""
+    return ((worker or {}).get("last_job_result") or {}).get("stuck")
+
+
 def _failed_this_render(worker: dict | None, data: dict) -> bool:
     """Whether a worker's last_job_result says it failed *this* render (its
     dispatch_id: a re-render reuses the job id) -- a real failure, not one
@@ -1013,6 +1041,14 @@ def check_render_completion(
             except OSError:
                 pass
         failed = [u for u in machines if _failed_this_render(_read_worker(u), data)]
+        # Killed on a stuck frame (workers.check_stuck_renders()): never sent
+        # back to it, but no reason to fail the job -- its frames left go to
+        # the other machines, within MAX_REFILL_ROUNDS like any refill.
+        stuck = {u for u in failed if _stuck_this_render(_read_worker(u))}
+        for uuid in sorted(stuck):  # for Job details
+            data.setdefault("stuck_frames", []).append(
+                {"machine": uuid, "at": now()} | _stuck_this_render(_read_worker(uuid))
+            )
 
         # Kept for construct_history(): used_machines is reset by the next
         # local stages (_finish_job_processes()).
@@ -1029,7 +1065,7 @@ def check_render_completion(
 
         if frames_complete(data, project_root):
             data["stage_history"].append({"stage": "render_finished", "at": now()})
-        elif failed:
+        elif set(failed) - stuck:
             data["stage_history"].append({"stage": "render_failed", "at": now()})
         elif data.get("cancel_requested"):
             data["stage_history"].append(
@@ -1057,12 +1093,18 @@ def check_render_completion(
             folder = _render_folder(data, project_root)
             if folder:
                 _delete_placeholders(folder)
+            if stuck:
+                _reassign_away_from_failed(data)
             data["refill_rounds"] = data.get("refill_rounds", 0) + 1
             data["stage_history"].append(
                 {
                     "stage": "setup_finished",
                     "at": now(),
-                    "resumed": "frames left after machines stopped",
+                    "resumed": (
+                        "frames left after a stuck frame"
+                        if stuck
+                        else "frames left after machines stopped"
+                    ),
                 }
             )
             data["used_machines"] = []

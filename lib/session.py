@@ -79,15 +79,45 @@ def get_backup_filepath() -> Path:
     return Path(root) / "pipeline_backup.json"
 
 
+# The addon's own settings (Preferences), kept in the backup JSON too:
+# Blender's storage for them doesn't survive an extension update -- see
+# NOTES.md, "Addon settings lost on update". Saved on every change
+# (save_settings(), their update callback), so the backup is always the
+# latest and restored over whatever Blender kept.
+ADDON_SETTINGS = (
+    "experience_level",
+    "silent_auto_increment",
+    "auto_worker_on_open",
+    "always_read_only",
+    "ffmpeg_path",
+    "onboarding_seen",
+)
+# True while load_project_data() restores them: their update callback would
+# write the backup back while it's being read.
+_restoring = False
+
+
+def save_settings(prefs, _context=None) -> None:
+    """Update callback of the ADDON_SETTINGS properties: write the backup
+    now. Never raises (a property update can't report)."""
+    if _restoring:
+        return
+    try:
+        save_project_data(prefs)
+    except Exception as e:
+        log("WARNING", "session", f"Could not back up the addon settings: {e}")
+
+
 def save_project_data(prefs) -> bool:
-    """Persist opened projects list (and user_name -- see NOTES.md, "Addon
-    register()") to backup JSON."""
+    """Persist opened projects list, user_name and the ADDON_SETTINGS -- see
+    NOTES.md, "Addon register()" -- to backup JSON."""
     data = {
         "active_project_root": prefs.active_project_root,
         "opened_projects": [
             {"name": item.name, "path": item.path} for item in prefs.opened_projects
         ],
         "user_name": prefs.user_name,
+        "settings": {name: getattr(prefs, name) for name in ADDON_SETTINGS},
     }
     filepath = get_backup_filepath()
     filepath.parent.mkdir(parents=True, exist_ok=True)
@@ -104,9 +134,10 @@ def save_project_data(prefs) -> bool:
 
 
 def load_project_data(prefs) -> bool:
-    """Restore opened projects list from backup JSON, and user_name if
-    Blender's own AddonPreferences storage came back empty -- see NOTES.md,
-    "Addon register()"."""
+    """Restore opened projects list and the ADDON_SETTINGS from backup
+    JSON, and user_name if Blender's own AddonPreferences storage came back
+    empty -- see NOTES.md, "Addon register()"."""
+    global _restoring
     filepath = get_backup_filepath()
     if not filepath.exists():
         raise PipelineError("Backup file not found.", level="WARNING")
@@ -114,6 +145,19 @@ def load_project_data(prefs) -> bool:
     try:
         with locked_json(filepath) as box:
             data = box["data"] or {}
+
+            # The backup wins: written on every change, it's the latest. A
+            # backup from before they were kept has none: left as they are.
+            _restoring = True
+            try:
+                for name, value in (data.get("settings") or {}).items():
+                    if name in ADDON_SETTINGS:
+                        try:
+                            setattr(prefs, name, value)
+                        except (TypeError, ValueError, AttributeError):
+                            pass  # renamed enum item, wrong type: keep it
+            finally:
+                _restoring = False
 
             prefs.active_project_root = data.get("active_project_root", "")
             prefs.opened_projects.clear()

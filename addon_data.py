@@ -2,7 +2,7 @@
 
 import bpy
 
-from .lib import draw_addon_keys
+from .lib import draw_addon_keys, save_settings
 
 
 class PipelineProjectItem(bpy.types.PropertyGroup):
@@ -36,12 +36,14 @@ class PipelineAddonPreferences(bpy.types.AddonPreferences):
         description="On the first file open of the day (already on the latest "
         "version), increment silently instead of asking for confirmation.",
         default=False,
+        update=save_settings,
     )
 
     user_name: bpy.props.StringProperty(
         name="User name",
         default="",
         description="Your name (used in logs).",
+        update=save_settings,
     )
 
     auto_worker_on_open: bpy.props.BoolProperty(
@@ -49,12 +51,14 @@ class PipelineAddonPreferences(bpy.types.AddonPreferences):
         description="Automatically make this machine a farm worker when a "
         "project becomes active (on Blender startup, or when switching projects).",
         default=False,
+        update=save_settings,
     )
     always_read_only: bpy.props.BoolProperty(
         name="Always open read-only",
         description="Always open project files as read-only, regardless of "
         "file lock or -stable tag. Safe default for review/playblast machines.",
         default=False,
+        update=save_settings,
     )
 
     ffmpeg_path: bpy.props.StringProperty(
@@ -64,12 +68,14 @@ class PipelineAddonPreferences(bpy.types.AddonPreferences):
         description="Optional: explicit path to the ffmpeg binary, for setups "
         "where it isn't found on Blender's PATH (e.g. Blender launched through "
         "a sandboxed runtime such as Steam's). Leave blank to auto-detect.",
+        update=save_settings,
     )
 
     onboarding_seen: bpy.props.BoolProperty(
         name="Onboarding seen",
         description="Internal: the first-launch popup has already been shown.",
         default=False,
+        update=save_settings,
     )
 
     experience_level: bpy.props.EnumProperty(
@@ -81,6 +87,7 @@ class PipelineAddonPreferences(bpy.types.AddonPreferences):
             ("ADVANCED", "Advanced", "Hide inline concept explanations"),
         ],
         default="BEGINNER",
+        update=save_settings,
     )
 
     def draw(self, context):

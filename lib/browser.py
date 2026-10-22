@@ -14,7 +14,7 @@ from .config import (
 )
 from .core import cached_scandir, json_get, monitoring_detail
 from .logs import log
-from .tracking import TrackingStatusCache, list_active_blocks
+from .tracking import ProjectScan, TrackingStatusCache, list_active_blocks
 
 
 def get_folder(self, context) -> Path | None:
@@ -80,6 +80,21 @@ def resolve_version_file(
 # Dynamic enum callbacks
 # ---------------------------------------------------------------------------
 
+
+def scan_descriptions(project_root: Path | None) -> None:
+    """Start the background project scan (ProjectScan) unless one already
+    covers project_root: it caches every asset/shot's description, which the
+    folder and version menus below show as tooltips (_description()). For
+    the dialogs' invoke(); Project monitoring starts the same scan."""
+    if project_root and not ProjectScan.covers(project_root):
+        ProjectScan.start(project_root)
+
+
+def _description(folder: Path | str) -> str:
+    """The asset/shot's description for an item's tooltip -- from memory
+    only (TrackingStatusCache.known_description()), "" until scanned."""
+    return TrackingStatusCache.known_description(folder)
+
 # NOTE: EnumProperty callbacks must keep returned strings alive across calls
 # (Blender docs) or the active selection can get corrupted - worse with
 # `expand=True`, which re-invokes the callback every redraw.
@@ -134,7 +149,7 @@ def asset_folder_items(self, context) -> list[tuple]:
                     prefix_path = project_root / parent / p
                     items += sorted(
                         (
-                            (d.path, d.name, "")
+                            (d.path, d.name, _description(d.path))
                             for d in cached_scandir(prefix_path)
                             if d.is_dir() and d.name.startswith(f"{p}_")
                         ),
@@ -150,7 +165,7 @@ def asset_folder_items(self, context) -> list[tuple]:
 
             items = sorted(
                 (
-                    (d.path, d.name, "")
+                    (d.path, d.name, _description(d.path))
                     for d in cached_scandir(parent)
                     if d.is_dir() and d.name.startswith(f"{prefix}_")
                 ),
@@ -192,13 +207,13 @@ def shot_items(self, context) -> list[tuple]:
                 (
                     f"{sh_dir.parent.name}_{sh_dir.name}",
                     f"{sh_dir.parent.name} {sh_dir.name}",
-                    "",
+                    _description(sh_dir),
                 )
                 for sh_dir in list_active_blocks(project_root)
             ]
         else:
             items = [
-                (d.name, d.name, "")
+                (d.name, d.name, _description(d))
                 for d in list_active_blocks(project_root, self.sequence)
             ]
         return _stable_items(_shot_items_cache, items or [("NONE", "No shots", "")])
@@ -225,6 +240,13 @@ def version_items(self, context):
             label = f"v{v:03d}" + (f"  [{tag}]" if tag else "")
             candidates.append((f.path, label, f.name, v))
 
+        # The file name, then its asset/shot's description (one per folder).
+        description = _description(folder)
+        if description:
+            candidates = [
+                (path, label, f"{name}\n\n{description}", v)
+                for path, label, name, v in candidates
+            ]
         candidates.sort(key=lambda x: x[3], reverse=True)
         items = [(val, lbl, desc) for val, lbl, desc, _ in candidates]
         return _stable_items(
@@ -346,6 +368,13 @@ def dir_version_items(self, context):
             label = f"v{v:03d}" + (f"  [{tag}]" if tag else "")
             candidates.append((f.path, label, f.name, v))
 
+        # The file name, then its asset/shot's description (one per folder).
+        description = _description(folder)
+        if description:
+            candidates = [
+                (path, label, f"{name}\n\n{description}", v)
+                for path, label, name, v in candidates
+            ]
         candidates.sort(key=lambda x: x[3], reverse=True)
         items = [(val, lbl, desc) for val, lbl, desc, _ in candidates]
         return _stable_items(
@@ -381,6 +410,13 @@ def entry_version_items(self, context):
             label = f"v{v:03d}" + (f"  [{tag}]" if tag else "")
             candidates.append((f.path, label, f.name, v))
 
+        # The file name, then its asset/shot's description (one per folder).
+        description = _description(folder)
+        if description:
+            candidates = [
+                (path, label, f"{name}\n\n{description}", v)
+                for path, label, name, v in candidates
+            ]
         candidates.sort(key=lambda x: x[3], reverse=True)
         items = [(val, lbl, desc) for val, lbl, desc, _ in candidates]
         return _stable_items(

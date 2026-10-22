@@ -1401,6 +1401,16 @@ render (B gets dispatched to the freed worker in the same tick). Only
 covers a worker in the same instance as the monitor -- a worker in a
 second Blender on the same machine isn't visible from here.
 
+Exception (`_setup_unblocks_idle()`): machines idle with nothing to take
+-- the running renders capped (`max_workers_per_job`) or single-machine,
+no set-up job they may render -- while the host renders for hours. Then
+the setup runs alongside: the `.blend` loaded twice for the setup's
+length, against the whole farm held back for the host's render. Only if
+the queued job may itself go to one of them (`assigned_machines`).
+Rejected: stopping the host's worker after its frame to run the setup,
+then relaunching it -- a stop counts as a refill round, a single-machine
+render gets sent out again, for what a setup alongside does without.
+
 ## Crash recovery: resume, don't orphan
 
 When the Blender instance running the farm dies (crash, kill), its child
@@ -2621,3 +2631,45 @@ that scrolls, like before.
   `rna_keymap_ui` on the user keyconfig: saved like any shortcut).
 - **Mouse wheel**: left to the region's own scroll (a window under
   `MIN_ROWS`), not mapped to pages.
+
+## Stuck frame
+
+A render hung on one frame (seen: 2 frames left, the first never ending)
+held its machine and the job forever: its heartbeat went on, so nothing
+looked wrong. The worker now watches its own renders
+(`check_stuck_renders()`, every 30 s): when the frame in progress has
+taken `farm.stuck_frame_factor` (Edit project, default 5, 0 = off) times
+its usual time -- 5 min at least -- it kills the render, frees the frame's
+placeholder and reports `last_job_result.stuck`. Times from the worker's
+own `.saved` record and clock (`time.time()` on both ends): never one
+machine's clock against another's. The usual time: this render's frames
+so far, else the machine's on this job (`machine_seconds`), else the
+job's; the first frame of a render also gets the machine's usual startup
+(scene sync). Unknown (a first render with nothing timed yet): no check.
+
+On the host, a stuck machine goes to `failed_machines` but doesn't fail
+the job: the frames left are sent out again (`refill_rounds`, so at most
+`MAX_REFILL_ROUNDS`), assigned away from it (`_reassign_away_from_failed()`,
+kept on it when it's the only worker). Recorded in `stuck_frames` for Job
+details. A frame that hangs on every machine still ends the job as
+render_failed, after the rounds.
+
+Rejected: the host killing it -- the host only sees the share's file times
+and other machines' clocks, and would need a new kill channel when the
+worker already has its process at hand.
+## Addon settings lost on update
+
+Same root cause as `user_name` above: Blender's storage of an addon's
+preferences goes with its `Addon` entry, rebuilt on every disable/enable --
+each extension update -- unless "Save Preferences" ran in between. The
+projects list and `user_name` already rode in `pipeline_backup.json`; the
+other settings didn't, so "Advanced" fell back to "Beginner" after every
+update (and Auto-launch worker, Always read-only, FFmpeg path, Silent
+auto-increment, the onboarding flag with it).
+
+They're now in that backup too (`ADDON_SETTINGS`, `lib/session.py`),
+written by their `update` callback on every change (`save_settings()`) --
+so, unlike `user_name`'s fallback-only restore, the backup is the latest
+and `load_project_data()` restores them over whatever Blender kept.
+`_restoring` keeps those setattr()s from writing the backup while it's
+read. A backup from before has no `settings`: values left as they are.

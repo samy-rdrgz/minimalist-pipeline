@@ -47,12 +47,12 @@ def get_addon_version() -> str:
 # asked for that isn't a tracked file of the project. In memory only: as
 # WindowManager properties they were saved into every .blend, and came
 # back as each opened file had them.
-_monitoring_details = {"file": "", "job": "", "missing_file": ""}
+_monitoring_details = {"file": "", "job": "", "missing_file": "", "worker": ""}
 
 
 def monitoring_detail(kind: str) -> str:
-    """The detail a monitoring window shows ("file" / "job" / "missing_file"),
-    "" for its list."""
+    """The detail a monitoring window shows ("file" / "job" / "missing_file"
+    / "worker"), "" for its list."""
     return _monitoring_details[kind]
 
 

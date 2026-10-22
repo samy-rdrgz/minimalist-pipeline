@@ -12,6 +12,7 @@ from ..lib import (
     open_mainfile,
     prefix_items,
     resolve_version_file,
+    scan_descriptions,
     sequence_items,
     shot_items,
     version_items,
@@ -67,6 +68,7 @@ class M_PIPELINE_OT_open_file(bpy.types.Operator):
         if not get_active_project_root():
             self.report({"ERROR"}, "No active project.")
             return {"CANCELLED"}
+        scan_descriptions(get_active_project_root())  # menu tooltips
         return context.window_manager.invoke_props_dialog(self, width=400)
 
     def draw(self, context):
@@ -176,6 +178,7 @@ class M_PIPELINE_OT_open_file_version(bpy.types.Operator):
         if not get_active_project_root():
             self.report({"ERROR"}, "No active project.")
             return {"CANCELLED"}
+        scan_descriptions(get_active_project_root())  # menu tooltips
         return context.window_manager.invoke_props_dialog(self, width=360)
 
     def draw(self, context):

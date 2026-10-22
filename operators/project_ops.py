@@ -71,6 +71,7 @@ DEFAULT_CONFIG = {
         "stale_monitor_seconds": 90,
         "dead_monitor_seconds": 360,
         "max_workers_per_job": 0,
+        "stuck_frame_factor": 5,
     },
 }
 
@@ -427,6 +428,18 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         ),
     )
 
+    stuck_frame_factor: bpy.props.IntProperty(
+        name="",
+        min=0,
+        max=100,
+        default=5,
+        description=(
+            "A worker kills its render when the frame it's on takes this many "
+            "times its usual time (5 min at least): the frames left go to the "
+            "other machines. 0: never"
+        ),
+    )
+
     # Snapshot "Done" weights, see PROGRESS_WEIGHTS (lib/snapshot.py).
     progress_wip: bpy.props.IntProperty(
         name="WIP",
@@ -607,6 +620,11 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         row = _settings_row(box, "WORKERS PER JOB", "NETWORK_DRIVE")
         row.prop(self, "max_workers_per_job")
         row.label(text="0 = no limit" if not self.max_workers_per_job else "")
+        row = _settings_row(box, "STUCK FRAME", "ERROR")
+        row.prop(self, "stuck_frame_factor")
+        row.label(
+            text="x usual time: kill" if self.stuck_frame_factor else "0 = never kill"
+        )
 
     def invoke(self, context, event):
         try:
@@ -641,6 +659,8 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         self.max_workers_per_job = max(
             0, int((config.get("farm") or {}).get("max_workers_per_job", 0) or 0)
         )
+        stuck = (config.get("farm") or {}).get("stuck_frame_factor", 5)
+        self.stuck_frame_factor = max(0, int(5 if stuck is None else stuck))
 
         naming = config.get("naming", {})
         for key in ("sequence", "shot", "version", "frame"):
@@ -717,10 +737,13 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
                 "tags": self._csv_to_list(self.tags),
                 "assets_departments": self._csv_to_list(self.assets_departments),
                 "shots_departments": self._csv_to_list(self.shots_departments),
-                # "farm": only max_workers_per_job is edited here, the rest
-                # stays as read from the loaded config.
+                # "farm": only max_workers_per_job and stuck_frame_factor are
+                # edited here, the rest stays as read from the loaded config.
                 "farm": (config.get("farm") or {})
-                | {"max_workers_per_job": self.max_workers_per_job},
+                | {
+                    "max_workers_per_job": self.max_workers_per_job,
+                    "stuck_frame_factor": self.stuck_frame_factor,
+                },
                 "thumbnails": (config.get("thumbnails") or {})
                 | {"size": self.thumbnail_size},
                 "snapshot": (config.get("snapshot") or {})

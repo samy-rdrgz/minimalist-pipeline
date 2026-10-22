@@ -12,7 +12,12 @@ from ..lib import (
     monitoring_detail,
     monitoring_kind,
 )
-from .farm_panel import draw_farm_job_details, draw_farm_jobs, draw_farm_workers
+from .farm_panel import (
+    draw_farm_job_details,
+    draw_farm_jobs,
+    draw_farm_worker_details,
+    draw_farm_workers,
+)
 from .tracking_panel import draw_file_details, draw_monitor_table
 
 
@@ -106,8 +111,11 @@ class M_PIPELINE_PT_farm_monitoring(_MonitoringPanel, bpy.types.Panel):
     kind = "farm"
 
     def draw_content(self, context, layout):
-        if monitoring_detail("job"):
+        if monitoring_detail("job"):  # opened from a worker's too: on top
             draw_farm_job_details(layout.box(), context)
+            return
+        if monitoring_detail("worker"):
+            draw_farm_worker_details(layout.box(), context)
             return
 
         state = context.window_manager.pipeline_farm_monitoring

@@ -1,6 +1,7 @@
 """Farm management panel in the 3D View sidebar."""
 
 import datetime
+import re
 from pathlib import Path
 
 import bpy
@@ -17,10 +18,13 @@ from ..farm import (
     recompilable,
     this_instance_is_worker,
 )
+from ..farm.queue import WORKER_GONE_SECONDS
 from ..lib import (
+    ConfigCache,
     addon_pref,
     draw_box_tip,
     draw_pager,
+    get_addon_version,
     get_active_project_root,
     get_user,
     monitoring_detail,
@@ -433,6 +437,191 @@ def _draw_job_link(layout, job_id: str, text: str) -> None:
         row.label(text=text)
 
 
+def _draw_worker_link(layout, worker: dict, icon: str) -> None:
+    """A worker's user, clicked to open its details."""
+    row = layout.row()
+    row.alignment = "LEFT"
+    op = row.operator(
+        "m_pipeline.farm_worker_details",
+        text=worker.get("user", "unknown"),
+        icon=icon,
+        emboss=False,
+    )
+    op.uuid = worker.get("uuid", "")
+
+
+def _since(iso: str) -> tuple[str, float | None]:
+    """("21/10 13:41" or "13:41" today, seconds ago) of an ISO time, ("-",
+    None) if there's none."""
+    try:
+        at = datetime.datetime.fromisoformat(iso or "")
+    except (TypeError, ValueError):
+        return "-", None
+    today = at.date() == datetime.date.today()
+    when = f"{at:%H:%M}" if today else f"{at:%d/%m %H:%M}"
+    return when, (datetime.datetime.now() - at).total_seconds()
+
+
+_addon_version: list = []
+
+
+def _my_addon_version() -> str:
+    """get_addon_version(), once: it walks addon_utils.modules(), too much
+    for every redraw."""
+    if not _addon_version:
+        _addon_version.append(get_addon_version())
+    return _addon_version[0]
+
+
+def draw_farm_worker_details(layout, context):
+    """M_PIPELINE_OT_farm_monitor's detail view of one worker, from the
+    monitor cache (its file as last read, live or silent) -- never read
+    here. Every key with .get(): a worker on an older version lacks the
+    newer fields."""
+    uuid = monitoring_detail("worker")
+    cache = get_monitor_cache()
+    live = (cache.get("workers") or {}).get(uuid)
+    m = live or (cache.get("silent_workers") or {}).get(uuid) or {}
+
+    header = layout.row()
+    back = header.row()
+    back.alignment = "LEFT"
+    back.operator("m_pipeline.farm_worker_details", text="", icon="BACK", emboss=False)
+    header.label(
+        text=f"{m.get('user', 'unknown')} ({m.get('machine') or uuid[:8]})",
+        icon="DESKTOP",
+    )
+    actions = header.row(align=True)
+    actions.alignment = "RIGHT"
+    if live and m.get("status") not in ("stopped", None) and not m.get("stopping"):
+        op = actions.operator(
+            "m_pipeline.farm_stop_worker", text="Stop", icon="PAUSE"
+        )
+        op.target_uuid = uuid
+        op.machine = m.get("machine", "")
+        op.busy = m.get("status") != "idle"
+    elif not live and m:
+        op = actions.operator(
+            "m_pipeline.farm_forget_worker", text="Forget", icon="TRASH"
+        )
+        op.target_uuid = uuid
+        op.machine = m.get("machine", "")
+    actions.operator(
+        "m_pipeline.pipeline_logs", text="", icon="TEXT", emboss=False
+    ).search = m.get("machine") or uuid[:8]
+
+    if not m:
+        layout.label(text="No worker file for this machine any more.", icon="ERROR")
+        return
+
+    def field(col, label: str, value, icon: str = "NONE", alert: bool = False):
+        split = col.split(factor=FIRST_COLUMN)
+        left = split.row()
+        left.active = False
+        left.label(text=label)
+        right = split.row()
+        right.alert = alert
+        right.label(text=str(value), icon=icon)
+        return right
+
+    layout.separator(factor=0.5, type="LINE")
+    col = layout.column(align=True)
+    field(col, "Machine id", uuid)
+
+    beat, beat_age = _since(m.get("last_heartbeat"))
+    status = m.get("status") or "-"
+    if not live:
+        status = f"silent since {beat} (crashed, closed or asleep?)"
+    elif m.get("stopping"):
+        status += " (stops after this frame)"
+    field(col, "Status", status, icon="ERROR" if not live else "NONE", alert=not live)
+    current = m.get("current_job_id")
+    if current:
+        job = next(
+            (j for j in cache.get("jobs") or [] if j.get("job_id") == current), {}
+        )
+        split = col.split(factor=FIRST_COLUMN)
+        left = split.row()
+        left.active = False
+        left.label(text="Rendering")
+        name = _job_name(job) if job else Path(m.get("current_file") or "").name
+        _draw_job_link(split, current, name or current)
+        pace = (job.get("machine_seconds") or {}).get(uuid)
+        if pace:
+            field(col, "Pace", f"{_duration(pace)} a frame")
+
+    layout.separator(factor=0.5, type="LINE")
+    col = layout.column(align=True)
+    started, up = _since(m.get("started_at"))
+    if up is not None:
+        field(col, "Active since", f"{started}  ({_duration(up)})")
+    else:
+        field(col, "Active since", "unknown (older addon)")
+    if beat_age is not None:
+        field(col, "Last heartbeat", f"{beat}  ({_duration(beat_age)} ago)")
+
+    blender = m.get("blender_version")
+    mismatch = None
+    if blender:
+        want = re.findall(r"\d+", str(ConfigCache.get().get("blender_version") or ""))
+        have = re.findall(r"\d+", blender)
+        if len(want) >= 2 and len(have) >= 2 and want[:2] != have[:2]:
+            mismatch = f"{want[0]}.{want[1]}"
+    field(
+        col,
+        "Blender",
+        f"{blender}  (project: {mismatch})" if mismatch else blender or "unknown (older addon)",
+        icon="ERROR" if mismatch else "BLENDER",
+        alert=bool(mismatch),
+    )
+    addon = m.get("addon_version")
+    mine = _my_addon_version()
+    other = addon and addon != mine
+    field(
+        col,
+        "Addon",
+        f"{addon}  (this machine: {mine})" if other else addon or "unknown (older addon)",
+        icon="ERROR" if other else "PLUGIN",
+        alert=bool(other),
+    )
+    if m.get("pid"):
+        field(col, "Blender pid", m["pid"])
+
+    layout.separator(factor=0.5, type="LINE")
+    col = layout.column(align=True)
+    if "renders_done" in m:
+        field(
+            col,
+            "Since started",
+            f"{m.get('renders_done', 0)} render(s) done, "
+            f"{m.get('renders_failed', 0)} failed",
+        )
+    result = m.get("last_job_result") or {}
+    if result:
+        if result.get("stuck"):
+            stuck = result["stuck"]
+            outcome = (
+                f"killed: stuck on {stuck.get('frame') or 'a frame'} "
+                f"{(stuck.get('seconds') or 0) / 60:.0f} min "
+                f"(usually {stuck.get('usual') or '?'} s)"
+            )
+        elif result.get("success"):
+            outcome = "done"
+        else:
+            outcome = next(
+                (k for k in ("cancelled", "stopped", "lost") if result.get(k)), "failed"
+            )
+        when, _ = _since(result.get("at"))
+        split = col.split(factor=FIRST_COLUMN)
+        left = split.row()
+        left.active = False
+        left.label(text="Last render")
+        right = split.row()
+        right.alert = outcome not in ("done", "cancelled", "stopped")
+        job_id = result.get("job_id") or ""
+        _draw_job_link(right, job_id, f"{job_id}: {outcome}  ({when})")
+
+
 def draw_farm_workers(context, layout):
     """M_PIPELINE_OT_farm_monitor's "Workers" view: every known machine, idle
     or what it's currently rendering -- padded with blank rows to the
@@ -529,8 +718,16 @@ def draw_farm_workers(context, layout):
             for uuid in job.get("machines", [])
         }
 
+    # Silent ones last, latest heard of first: a worker that crashed (or was
+    # closed, its machine asleep, off the share) without saying it stopped.
+    silent = sorted(
+        (monitor_cache.get("silent_workers") or {}).values(),
+        key=lambda m: m.get("last_heartbeat") or "",
+        reverse=True,
+    )
     # The farm host's row comes first.
     rows = rows_that_fit(context, _WORKERS_RESERVED_UNITS) - 1
+    machines = machines + silent
     machines = machines + ["empty"] * (rows - len(machines))
     for m in machines:
         row = layout.column()
@@ -540,13 +737,18 @@ def draw_farm_workers(context, layout):
             row.label(text="", icon="BLANK1")
             continue
 
+        if any(m is s for s in silent):
+            _draw_silent_worker(row, m)
+            continue
+
         split = row.split(factor=FIRST_COLUMN)
 
         info = split.row()
         # Read from disk: never trust a key to be there.
         busy = m.get("status") not in ("idle", "not running", "stopped", None)
-        info.label(
-            text=m.get("user", "unknown"),
+        _draw_worker_link(
+            info,
+            m,
             icon="KEYTYPE_BREAKDOWN_VEC" if busy else "KEYTYPE_JITTER_VEC",
         )
         info.label(text=m.get("machine", "unknown"))
@@ -585,6 +787,43 @@ def draw_farm_workers(context, layout):
             op.machine = m.get("machine", "")
             op.busy = busy
     layout.separator()  # the last row's line off the box's bottom edge
+
+
+def _draw_silent_worker(row, m):
+    """A Workers view row for a worker file with no heartbeat for a while
+    that never said it stopped (read_workers()'s silent): greyed, since
+    when, and a button to forget it. The farm itself already hands its
+    render to other machines past WORKER_GONE_SECONDS."""
+    split = row.split(factor=FIRST_COLUMN)
+    split.active = False
+    info = split.row()
+    try:
+        last = datetime.datetime.fromisoformat(m.get("last_heartbeat") or "")
+        age = (datetime.datetime.now() - last).total_seconds()
+    except (TypeError, ValueError):
+        last, age = None, None
+    gone = age is None or age > WORKER_GONE_SECONDS
+    _draw_worker_link(info, m, icon="ERROR" if gone else "TIME")
+    info.label(text=m.get("machine", "unknown"))
+
+    jobs = split.row()
+    if last is None:
+        text = "no heartbeat"
+    elif gone:
+        today = last.date() == datetime.date.today()
+        when = f"{last:%H:%M}" if today else f"{last:%d/%m %H:%M}"
+        text = f"silent since {when} (crashed, closed or asleep?)"
+    else:
+        text = f"late ({int(age)} s without news)"
+    if m.get("current_job_id"):
+        text += f" -- was on {m['current_job_id']}"
+    jobs.label(text=text)
+    if gone:
+        op = jobs.operator(
+            "m_pipeline.farm_forget_worker", text="", icon="TRASH", emboss=False
+        )
+        op.target_uuid = m.get("uuid", "")
+        op.machine = m.get("machine", "")
 
 
 def draw_farm_job_details(layout, context):
@@ -691,6 +930,15 @@ def draw_farm_job_details(layout, context):
     field(col, "Machines", machine_names(data.get("used_machines")))
     if data.get("rendered_by"):
         field(col, "Rendered by", machine_names(data["rendered_by"]))
+    for stuck in data.get("stuck_frames") or []:
+        field(
+            col,
+            "Stuck frame",
+            f"{stuck.get('frame') or '?'} on {machine_names([stuck.get('machine')])}: "
+            f"killed after {(stuck.get('seconds') or 0) / 60:.0f} min "
+            f"(usually {stuck.get('usual') or '?'} s)",
+            icon="ERROR",
+        )
     # Live from the monitor cache while it renders, else the job file's.
     live = next(
         (j for j in get_monitor_cache().get("jobs") or [] if j.get("job_id") == job_id),

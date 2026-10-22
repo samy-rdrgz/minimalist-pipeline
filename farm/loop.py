@@ -289,7 +289,8 @@ def _read_farm_raw(paths: dict, want_jobs: bool, scanned: dict) -> dict:
                 items.append(item)
         raw[name] = (dir_mtime, items)
 
-    raw["workers"] = read_workers(paths["workers"])
+    raw["silent_workers"] = {}
+    raw["workers"] = read_workers(paths["workers"], raw["silent_workers"])
     return raw
 
 
@@ -431,6 +432,7 @@ def _apply_farm_snapshot(raw: dict) -> None:
             pass
     snapshot["jobs"] = jobs
     snapshot["workers"] = workers
+    snapshot["silent_workers"] = raw.get("silent_workers", {})
     get_monitor_cache().update(snapshot)
 
 
