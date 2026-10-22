@@ -219,7 +219,7 @@ class M_PIPELINE_OT_create_entry(bpy.types.Operator):
             else (file.parent.stem + " " + file.stem)
         )
         return context.window_manager.invoke_props_dialog(
-            self, width=480, title=f"New note or tasks for {file}:"
+            self, width=560, title=f"New note or tasks for {file}:"
         )
 
     def draw(self, context):
@@ -243,7 +243,7 @@ class M_PIPELINE_OT_create_entry(bpy.types.Operator):
 
     def _draw_line_tags(self, layout, entry, multishot: bool) -> None:
         """A line's departments, then its shot (a block's) on their right."""
-        row = layout.row(align=True)
+        row = layout.split(factor=0.65, align=True) if multishot else layout.row()
         row.prop_menu_enum(entry, "departments", text=_departments_label(entry.departments))
         if multishot:
             row.prop(entry, "shot_tag", text="")
@@ -259,32 +259,19 @@ class M_PIPELINE_OT_create_entry(bpy.types.Operator):
                 "m_pipeline.remove_entry_line", text="", icon="REMOVE"
             ).index = idx
 
-            row = col.row(align=True)
-            row = row.split(factor=0.5, align=True)
-            row_a = row.split(factor=0.5, align=True)
-            row_b = row.split(factor=0.5, align=True)
-
-            col1 = row_a.column(align=True)
-            col2 = row_a.row(align=True)
-            col3 = row_b.row(align=True)
-            col4 = row_b.row(align=True)
-
-            self._draw_line_tags(col1, entry, multishot)
-
-            txt = "Add frame tag" if not entry.is_frame_start else ""
-            col2.prop(entry, "is_frame_start", text=txt)
-
+            # Half the width for its departments (and shot), half for its
+            # frame tag; the frames, once tagged, on a line of their own --
+            # four quarters left a department's name unreadable.
+            row = col.split(factor=0.5, align=True)
+            self._draw_line_tags(row, entry, multishot)
+            row.prop(entry, "is_frame_start", text="Frame tag")
             if entry.is_frame_start:
-                col2.prop(entry, "frame_start", text="")
-
-                txt = "Add end frame" if not entry.is_frame_end else ""
-                col3.prop(entry, "is_frame_end", text=txt)
+                frames = col.row(align=True)
+                frames.prop(entry, "frame_start", text="Start")
+                frames.prop(entry, "is_frame_end", text="" if entry.is_frame_end else "End")
                 if entry.is_frame_end:
-                    col3.prop(entry, "frame_end", text="")
-
-                col4.separator(factor=0.1)
-                col4.prop(self, "frame_reference", text="")
-                col4.label(icon="BLANK1")
+                    frames.prop(entry, "frame_end", text="End")
+                frames.prop(self, "frame_reference", text="")
 
             col.separator(factor=2)
 
