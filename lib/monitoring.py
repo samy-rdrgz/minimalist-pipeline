@@ -420,9 +420,14 @@ def draw_pager(layout, page: int, pages: int) -> None:
     prev.enabled = page > 1
     prev.operator("m_pipeline.monitoring_page", text="", icon="TRIA_LEFT").step = -1
     pager.separator(factor=0.5)
+    text = f"Page {page} / {pages}"
     label = pager.row(align=True)
     label.active = False
-    label.label(text=f"Page {page} / {pages}")
+    # Sized on its text and centred: left to Blender, the label came out
+    # far wider than its text, a gap before the right arrow.
+    label.ui_units_x = 0.35 * len(text) + 0.6
+    label.alignment = "CENTER"
+    label.label(text=text)
     pager.separator(factor=0.5)
     nxt = pager.row(align=True)
     nxt.enabled = page < pages

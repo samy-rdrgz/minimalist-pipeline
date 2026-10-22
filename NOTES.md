@@ -2417,7 +2417,11 @@ that scrolls, like before.
   reserved figures 7 / 8 (6.5 / 7.5 once the panel's outer box went),
   a small gap rather than an overflow. Still a row too many in use: one
   row's worth (`ROW_UNITS`) added to each reserved figure -- 8.4 / 9.4,
-  6.9 for the Workers view. Every file row is one line high (no
+  6.9 for the Workers view.
+- **The pager's label**: left to Blender, "Page 2 / 5" got a width far
+  over its text, left-aligned in it -- a gap before the right arrow. Its
+  row is sized on the text (`ui_units_x`, 0.35 a character + 0.6) and
+  centred: what an estimate gets wrong splits on both sides. Every file row is one line high (no
   wrapping in the cells), so one constant holds -- recalibrate it (or a
   reserved figure) if a page overflows the window or leaves a gap, never
   per call site.
