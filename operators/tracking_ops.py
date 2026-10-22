@@ -1292,6 +1292,8 @@ class M_PIPELINE_OT_open_render_video(bpy.types.Operator):
 
     render: bpy.props.StringProperty()  # its folder, project-relative
     video: bpy.props.StringProperty()  # the job's compiled_output_path
+    # The render before this one instead (File details' to check: compare).
+    previous: bpy.props.BoolProperty(options={"SKIP_SAVE"})
     custom_tooltip: bpy.props.StringProperty()
 
     @classmethod
@@ -1300,14 +1302,42 @@ class M_PIPELINE_OT_open_render_video(bpy.types.Operator):
 
     def execute(self, context):
         try:
-            video = self._find()
+            video = self._previous() if self.previous else self._find()
         except (PipelineError, OSError) as e:
             self.report({"ERROR"}, f"Could not look for the video: {e}")
             return {"CANCELLED"}
         if not video:
-            self.report({"WARNING"}, "No video found for this render.")
+            self.report(
+                {"WARNING"},
+                "No earlier render of this shot with a video."
+                if self.previous
+                else "No video found for this render.",
+            )
             return {"CANCELLED"}
         return bpy.ops.wm.open_folder(filepath=str(video))
+
+    def _previous(self) -> Path | None:
+        """The video of the render before this one: the newest video of
+        the shot's other render folders that's older than this render's
+        (its folder's time if it has none). On click only: lists them."""
+        if not self.render:
+            return None
+        folder = to_absolute(self.render)
+        if not folder.parent.is_dir():
+            return None
+        current = self._find()
+        limit = (current or folder).stat().st_mtime
+        best = None
+        for sibling in folder.parent.iterdir():
+            if sibling == folder or not sibling.is_dir():
+                continue
+            for f in sibling.iterdir():
+                if f.suffix.lower() not in _VIDEO_EXTS:
+                    continue
+                mtime = f.stat().st_mtime
+                if mtime < limit and (best is None or mtime > best[0]):
+                    best = (mtime, f)
+        return best[1] if best else None
 
     def _find(self) -> Path | None:
         video = to_absolute(self.video) if self.video else None

@@ -424,6 +424,13 @@ def _draw_renders_to_check(layout, filepath: str, data: dict) -> None:
         row = _render_row(col, f"{label}   {_to_check_at(info)}")
         _video_button(row, info, label)
         if info.get("render"):
+            op = row.operator(
+                "m_pipeline.open_render_video", text="", icon="FRAME_PREV", emboss=False
+            )
+            op.render = info["render"]
+            op.previous = True
+            op.custom_tooltip = f"Play the render before {label}, to compare"
+        if info.get("render"):
             # project_path(): plain join, no disk access in a draw().
             _folder_button(row, str(project_path(info["render"])))
         row.separator(factor=1.5)

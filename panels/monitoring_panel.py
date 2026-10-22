@@ -122,7 +122,12 @@ class M_PIPELINE_PT_farm_monitoring(_MonitoringPanel, bpy.types.Panel):
         filter_box = layout.box()
         filters = filter_box.split(factor=0.5)
         filters.label(text="Filters", icon="FILTER")
-        filters.row().prop(state, "view", expand=True)
+        tabs = filters.row()
+        tabs.prop(state, "view", expand=True)
+        # get_path(): a plain join, memoized -- no disk access in draw().
+        op = tabs.operator("wm.open_folder", text="", icon="FILE_FOLDER", emboss=False)
+        op.filepath = str(ConfigCache.get_path("farm"))
+        op.custom_tooltip = "Open the farm's folder (config/.farm: queue, workers, logs)"
         if state.view == "jobs":
             job_filters = filter_box.split(factor=0.5)
             job_filters.prop(state, "search", text="", icon="VIEWZOOM")

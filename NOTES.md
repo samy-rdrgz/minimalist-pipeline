@@ -2636,3 +2636,15 @@ stale pid, three failures stopping the render then failing it with its
 reason, finished and its leftovers removed, waiting on a claim, single
 mode, machines sent per free chunk, a waiting request withdrawn, an
 unreadable claim, no machine left, a retry, the first dispatch.
+
+## Renders to check: the one before, to compare
+
+File details' "Renders to check" rows have a second play button, the
+render before this one (`open_render_video(previous=True)`): among the
+shot's other render folders, the newest video older than this render's
+(its folder's time if it has none). Times, not folder names: `v004_002`
+vs `v004-stable_001` vs a custom version prefix don't sort by name, and a
+render folder only gets its video once compiled. Looked up on click --
+`draw()` doesn't list folders -- so the button is always there and says
+so when there's no earlier render. A recompile touches an old render's
+video: it then counts as newer.
