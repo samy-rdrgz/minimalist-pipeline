@@ -1973,6 +1973,14 @@ rounds goes to this round's machine, else the latest line's. Names from
 the worker files when judged, else the record before (a worker removed
 since).
 
+The field used to start at 0 and accept anything, answering "1001 -
+1443" until a frame in range was typed: it's now held to the render's
+range (`farm_frame_lookup`'s get/set clamp to bounds `draw_frame_lookup()`
+sets, a block's shots together), so it always shows a frame and its
+answer -- the machine, the frames around it that machine wrote in a row
+(its chunk, or several: `_same_machine_run()`), its pace. Paces under a
+minute read in seconds (`_pace()`: "0.6 s", not "0m00s").
+
 ## Time left: per machine, from each frame's time
 
 The popup's estimate was `elapsed / progress - elapsed`, elapsed counted
@@ -2366,7 +2374,9 @@ that scrolls, like before.
   units; at 1.65, with the active tool hidden, full screen still
   overflowed by 2-3 rows, still a little at 1.8: `ROW_UNITS` = 1.9, the
   reserved figures 7 / 8 (6.5 / 7.5 once the panel's outer box went),
-  a small gap rather than an overflow. Every file row is one line high (no
+  a small gap rather than an overflow. Still a row too many in use: one
+  row's worth (`ROW_UNITS`) added to each reserved figure -- 8.4 / 9.4,
+  6.9 for the Workers view. Every file row is one line high (no
   wrapping in the cells), so one constant holds -- recalibrate it (or a
   reserved figure) if a page overflows the window or leaves a gap, never
   per call site.

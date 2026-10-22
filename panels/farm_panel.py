@@ -37,9 +37,9 @@ from ..lib import (
 FIRST_COLUMN = 0.4
 # What Farm monitoring's window holds besides the Jobs rows (filters, list
 # header, footer, margins), in widget units -- see rows_that_fit().
-_JOBS_RESERVED_UNITS = 7.5
+_JOBS_RESERVED_UNITS = 9.4
 # Same for the Workers view: one row of filters, no footer.
-_WORKERS_RESERVED_UNITS = 5.0
+_WORKERS_RESERVED_UNITS = 6.9
 
 
 class M_PIPELINE_PT_farm_panel(bpy.types.Panel):
@@ -204,6 +204,16 @@ def _duration(seconds: float) -> str:
     return f"{seconds // 60}m{seconds % 60:02d}s"
 
 
+def _pace(seconds: float) -> str:
+    """A frame's time: "0.6 s", "12 s", then _duration() -- "0m00s" said
+    nothing of a fast render."""
+    if seconds < 10:
+        return f"{seconds:.1f} s"
+    if seconds < 60:
+        return f"{seconds:.0f} s"
+    return _duration(seconds)
+
+
 def machine_label(uuid: str, recorded: str = "") -> str:
     """A machine as people know it: its worker's user and id ("Alice
     (a1b2c3d4)") -- a machine is only ever named by its id, no hostname
@@ -215,36 +225,70 @@ def machine_label(uuid: str, recorded: str = "") -> str:
     return worker.get("machine") or recorded or uuid[:8]
 
 
+# The frame lookup's field, held to the range of the render(s) it's drawn
+# for: WindowManager.farm_frame_lookup reads and writes it through
+# frame_lookup_get()/_set(), draw_frame_lookup() sets the bounds.
+_lookup = {"value": 0, "min": 0, "max": 0}
+
+
+def frame_lookup_get(self) -> int:
+    return min(max(_lookup["value"], _lookup["min"]), _lookup["max"])
+
+
+def frame_lookup_set(self, value: int) -> None:
+    _lookup["value"] = min(max(value, _lookup["min"]), _lookup["max"])
+
+
+def _same_machine_run(record: dict, frame: int) -> tuple[int, int]:
+    """(first, last) of the frames around frame written by the same machine
+    in a row: its chunk, or several of them."""
+    letters, start = record["frames"], int(record.get("start", 0))
+    i = j = frame - start
+    while i > 0 and letters[i - 1] == letters[i]:
+        i -= 1
+    while j < len(letters) - 1 and letters[j + 1] == letters[j]:
+        j += 1
+    return start + i, start + j
+
+
 def draw_frame_lookup(layout, renders: list) -> None:
-    """ "Frame [n] -> the machine that wrote it", for renders: (label, its
-    frame_machines, its machine_seconds) each -- a block's shots, one field
-    for all (their ranges don't overlap). Out of every range: the ranges.
-    Memory only: draw()-safe."""
+    """ "Frame [n]" held to the render's range, then the machine that wrote
+    it, the frames around it it wrote too, and its pace -- for renders:
+    (label, its frame_machines, its machine_seconds) each, a block's shots
+    sharing the field (their ranges don't overlap). Memory only:
+    draw()-safe."""
     renders = [r for r in renders if r[1] and r[1].get("frames")]
     if not renders:
         return
+    ranges = [(int(r["start"]), int(r["start"]) + len(r["frames"]) - 1) for _, r, _ in renders]
+    _lookup["min"] = min(first for first, _ in ranges)
+    _lookup["max"] = max(last for _, last in ranges)
     wm = bpy.context.window_manager
+    frame = wm.farm_frame_lookup
     layout.prop(wm, "farm_frame_lookup", text="Frame")
     # The answer on its own row: next to the field, in an aligned row, it
     # only got what the field left -- the machine's name cut to "WOR...02".
     answer = layout.row()
     answer.alignment = "LEFT"
     for label, record, seconds in renders:
-        found = machine_for_frame(record, wm.farm_frame_lookup)
-        if found:
-            uuid, name = found
-            if uuid:
-                name = machine_label(uuid, name)
-            pace = (seconds or {}).get(uuid)
-            text = f"{label}rendered by {name}"
-            answer.label(text=text + (f"  ({_duration(pace)}/frame)" if pace else ""))
+        found = machine_for_frame(record, frame)
+        if not found:
+            continue
+        uuid, name = found
+        if not uuid:
+            answer.label(text=f"{label}frame {frame}: machine not recorded")
             return
-    answer.label(
-        text=", ".join(
-            f"{label}{r['start']} - {r['start'] + len(r['frames']) - 1}"
-            for label, r, _ in renders
-        )
-    )
+        first, last = _same_machine_run(record, frame)
+        parts = [
+            f"{label}{machine_label(uuid, name)}",
+            f"frames {first}-{last}" if first != last else f"frame {first}",
+        ]
+        pace = (seconds or {}).get(uuid)
+        if pace:
+            parts.append(f"{_pace(pace)}/frame")
+        answer.label(text="  ·  ".join(parts), icon="DESKTOP")
+        return
+    answer.label(text=f"frame {frame}: in none of these shots' ranges")
 
 
 def _job_matches(self, job: dict, user: str) -> bool:
@@ -576,7 +620,7 @@ def draw_farm_worker_details(layout, context):
             field(col, "Chunk", f"{_chunk_label(job, k)}, {_claim_progress(claim)}")
         pace = (job.get("machine_seconds") or {}).get(uuid)
         if pace:
-            field(col, "Pace", f"{_duration(pace)} a frame")
+            field(col, "Pace", f"{_pace(pace)} a frame")
 
     layout.separator(factor=0.5, type="LINE")
     col = layout.column(align=True)
@@ -794,7 +838,7 @@ def draw_farm_workers(context, layout):
             text = f"render: {name or current_id}"
             pace = ((job or {}).get("machine_seconds") or {}).get(m.get("uuid"))
             if pace:
-                text += f"  ({_duration(pace)}/frame)"
+                text += f"  ({_pace(pace)}/frame)"
             if m.get("stopping"):
                 text += "  (stops after this frame)"
             _draw_job_link(jobs, current_id, text)
@@ -1000,7 +1044,7 @@ def draw_farm_job_details(layout, context):
     )
     average = live.get("seconds_per_frame") or data.get("seconds_per_frame")
     if average:
-        field(col, "Per frame", f"{_duration(average)} on average")
+        field(col, "Per frame", f"{_pace(average)} on average")
     per_machine = live.get("machine_seconds") or data.get("machine_seconds") or {}
     record = data.get("frame_machines") or {}
     counts = {}
@@ -1014,7 +1058,7 @@ def draw_farm_job_details(layout, context):
         def machine_line(u):
             parts = [f"{counts[u]} frames"] if u in counts else []
             if u in per_machine:
-                parts.append(f"{_duration(per_machine[u])}/frame")
+                parts.append(f"{_pace(per_machine[u])}/frame")
             return f"{machine_label(u, names.get(u))} ({', '.join(parts)})"
 
         field(

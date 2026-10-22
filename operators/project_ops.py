@@ -540,9 +540,13 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         layout = self.layout
         layout.label(text=f"Editing: {self.project_name}", icon="FILE_TEXT")
         layout.separator()
+        # Two columns side by side: one ran past the screen's height.
+        columns = layout.split(factor=0.5)
+        left = columns.column()
+        right = columns.column()
 
         # Read-only
-        box = layout.box()
+        box = left.box()
         for label, icon, value in [
             ("NAME", "PINNED", self.project_name),
             ("PATH", "BLANK1", self.project_path_selected),
@@ -556,7 +560,7 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         row.prop(self, "project_bl_version")
 
         # Resolution / FPS
-        box = layout.box().column(align=False)
+        box = left.box().column(align=False)
         row = _settings_row(box, "RESOLUTION", "RESTRICT_VIEW_OFF")
         row.prop(self, "resolution_x")
         row.prop(self, "resolution_y")
@@ -568,7 +572,7 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         row.label(text="")
 
         # Naming
-        box = layout.box().column(align=False)
+        box = left.box().column(align=False)
         row = _settings_row(box, "", "NONE")
         row.label(text="PREFIX", icon="SYNTAX_OFF")
         row.label(text="DIGITS", icon="SORTBYEXT")
@@ -597,7 +601,7 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         )
 
         # Structure
-        box = layout.box().column(align=False)
+        box = right.box().column(align=False)
         for label, icon, prop in [
             ("FOLDERS", "OUTLINER", "project_folders"),
             ("ASSET PREFIX", "MESH_MONKEY", "asset_prefixes"),
@@ -622,7 +626,7 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         )
 
         # Thumbnails / snapshot
-        box = layout.box().column(align=False)
+        box = left.box().column(align=False)
         row = _settings_row(box, "THUMBNAILS", "IMAGE_DATA")
         row.prop(self, "thumbnail_size")
         row.label(text="")
@@ -631,6 +635,9 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         row.prop(self, "progress_wip")
         row.prop(self, "progress_rework")
         row.prop(self, "progress_rtk")
+
+        # Schedule
+        box = right.box().column(align=False)
         row = _settings_row(box, "SCHEDULE", "TIME")
         row.prop(self, "schedule_start")
         row.prop(self, "schedule_end")
@@ -638,6 +645,9 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         week = _settings_row(box, "WORKED DAYS", "BLANK1").row(align=True)
         for i, name in enumerate(("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")):
             week.prop(self, "schedule_worked_days", index=i, text=name, toggle=True)
+
+        # Farm
+        box = right.box().column(align=False)
         row = _settings_row(box, "CHUNK SIZE", "RENDER_RESULT")
         row.prop(self, "chunk_size")
         _settings_row(box, "PRE-RENDER", "SCRIPT").prop(self, "default_prerender_script")
@@ -716,7 +726,7 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
             ),
         )
 
-        return context.window_manager.invoke_props_dialog(self, width=450)
+        return context.window_manager.invoke_props_dialog(self, width=900)
 
     def execute(self, context):
         try:

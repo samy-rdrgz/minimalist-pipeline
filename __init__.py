@@ -38,6 +38,7 @@ from .operators import (
 from .operators import classes as operator_classes
 from .panels import classes as panel_classes
 from .panels import unregister_thumbnail_previews
+from .panels.farm_panel import frame_lookup_get, frame_lookup_set
 
 # Registration order matters: addon_data before anything reading preferences,
 # everything else before the topbar menu that references their operators.
@@ -71,7 +72,12 @@ _WM_PROPS = {
     ),
     # "Which machine rendered frame n": Farm monitoring's job detail and
     # File details' last render (draw_frame_lookup()).
-    "farm_frame_lookup": bpy.props.IntProperty(name="Frame", default=0),
+    "farm_frame_lookup": bpy.props.IntProperty(
+        name="Frame",
+        description="A frame of the render: which machine wrote it",
+        get=frame_lookup_get,
+        set=frame_lookup_set,
+    ),
     "file_selected_departments": bpy.props.StringProperty(),
     # The monitoring windows' filters (in memory, see lib memory_prop()).
     "pipeline_monitoring": bpy.props.PointerProperty(type=PIPELINE_PG_monitoring),
