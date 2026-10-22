@@ -54,6 +54,7 @@ from ..lib import (
     read_json_quiet,
     resolve_ffmpeg,
     resolve_version_file,
+    scan_descriptions,
     sequence_items,
     set_monitoring_detail,
     set_pending_action,
@@ -408,6 +409,7 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
             self.report({"ERROR"}, "No active project.")
             return {"CANCELLED"}
         self.project_root = str(get_active_project_root())
+        scan_descriptions(get_active_project_root())  # menu tooltips
         if self.filepath:
             self._populate_subshots(context)
             if event.ctrl:
