@@ -2372,10 +2372,10 @@ window -- `Window` has no method for it, its `x`/`y` are read-only, the
   sets either afterwards: the new one is `screen.area_dupli` of the old
   one's editor ("Duplicate Area into New Window"), which opens over that
   area at its size (`_duplicate_window()`); `window_new()` only if that
-  fails. Checked on Linux: the window comes back in front.
+  fails. Checked on Linux: back in front, same place, same size.
 
-Not checked from here: the Windows path (needs Windows), the duplicate's
-place and size (needs a screen).
+Not checked yet: the Windows path (needs Windows) -- if it fails there,
+the duplicate takes over.
 
 ## Monitoring windows: pages sized on the window
 
