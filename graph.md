@@ -448,7 +448,8 @@ incomings/job_<id>.json
 │       <file> -o <output> -s <start> -e <end> --python worker_render_entry.py
 │       --chunk-size <job's> --machine <uuid> -> status "render",
 │       current_job_id, current_dispatch_id ; in that Blender (.blend opened
-│       once, render preset strict), for each chunk k :
+│       once, render preset strict), passes over the chunks while a pass
+│       rendered one ; for each chunk k :
 │       ├── every frame on disk (one listing) : next
 │       ├── try_claim() refused (held elsewhere) : next
 │       ├── claimed : frames still missing (stat), for each :
@@ -459,7 +460,7 @@ incomings/job_<id>.json
 │       │       claim updated
 │       ├── chunk done : claim released
 │       └── a frame fails : exit 1, its claim left for the host
-│       no chunk left to claim -> exit 0
+│       a pass with nothing to claim -> exit 0
 │
 └── check_render_completion() (monitor), every tick : read_claims() and
     missing_frames() (one listing each)

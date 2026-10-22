@@ -2526,7 +2526,11 @@ chunks at once on a local disk: 79/62/59, each chunk won once, each claim
 holding its winner -- on the real share, to check on the farm.
 
 The render entry (`templates/worker_render_entry.py`, `render_chunks()`)
-opens the .blend once and walks the chunks from the first: a chunk whose
+opens the .blend once and walks the chunks from the first -- again and
+again while a pass rendered something: a chunk another machine let go
+behind it (stopped after a frame) is picked up in the same Blender, where
+a single pass ended and the host had to start a new one for three frames
+(seen on the first real test). A chunk whose
 frames are all on disk (one listing of the folder) or that another
 machine holds is skipped; a claimed one is checked again frame by frame
 (the listing may be seconds old on SMB), then each missing frame is

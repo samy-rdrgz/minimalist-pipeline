@@ -89,59 +89,75 @@ def update_claim(k: int, claim: dict) -> bool:
     return True
 
 
+def render_chunk(k: int, start: int, end: int, folder: str) -> str:
+    """Chunk k: "" if it's done or held by another machine, "rendered"
+    once this machine rendered what it was missing, else why the render
+    stops. A frame that fails raises with its claim left in place: the host
+    frees it once the worker reports the failure, and counts it against
+    this machine."""
+    first, last = chunks.chunk_frames(start, end, chunk_size, k)
+    names = files_in(folder)
+    missing = [
+        f for f in range(first, last + 1) if os.path.basename(frame_file(f)) not in names
+    ]
+    if not missing:
+        return ""
+    claim = {
+        "job_id": job_id,
+        "dispatch_id": dispatch_id,
+        "chunk": k,
+        "machine": machine,
+        "pid": os.getpid(),
+        "frames_done": [],
+        "frame_in_progress": None,
+        "frame_in_progress_file": "",
+        "claimed_at": time.time(),
+        "updated_at": time.time(),
+    }
+    if not chunks.try_claim(job_id, k, claim):
+        return ""
+    # The listing may be seconds old (SMB caches it): finished since?
+    missing = [f for f in missing if not os.path.exists(frame_file(f))]
+    for f in missing:
+        if stop_asked():
+            chunks.release_claim(job_id, k)
+            return "stopped after a frame"
+        final = frame_file(f)
+        claim["frame_in_progress"] = f
+        claim["frame_in_progress_file"] = final
+        if not update_claim(k, claim):
+            return f"chunk {k}'s claim freed by the host"
+        render_frame(f, final)
+        record_saved(f)
+        claim["frames_done"].append(f)
+        claim["frame_in_progress"] = None
+        claim["frame_in_progress_file"] = ""
+        if not update_claim(k, claim):
+            return f"chunk {k}'s claim freed by the host"
+    chunks.release_claim(job_id, k)
+    return "rendered"
+
+
 def render_chunks() -> str:
-    """Claim, render and release chunks until each is either complete on
-    disk or held by another machine. Returns why it stopped. A frame that
-    fails raises with its claim left in place: the host frees it once the
-    worker reports the failure, and counts it against this machine."""
+    """Walk the chunks from the first, rendering every one free, again and
+    again while a pass rendered something: a chunk another machine let go
+    behind this one (stopped mid-chunk) is picked up without a new Blender.
+    Ends on a pass that found nothing to claim -- every chunk complete on
+    disk or held elsewhere -- or on a stop. Returns why it stopped."""
     start, end = scene.frame_start, scene.frame_end
     folder = os.path.dirname(frame_file(start))
     os.makedirs(folder, exist_ok=True)
-    for k in range(chunks.chunks_number(start, end, chunk_size)):
-        if stop_asked():
-            return "stopped after a frame"
-        first, last = chunks.chunk_frames(start, end, chunk_size, k)
-        names = files_in(folder)
-        missing = [
-            f
-            for f in range(first, last + 1)
-            if os.path.basename(frame_file(f)) not in names
-        ]
-        if not missing:
-            continue
-        claim = {
-            "job_id": job_id,
-            "dispatch_id": dispatch_id,
-            "chunk": k,
-            "machine": machine,
-            "pid": os.getpid(),
-            "frames_done": [],
-            "frame_in_progress": None,
-            "frame_in_progress_file": "",
-            "claimed_at": time.time(),
-            "updated_at": time.time(),
-        }
-        if not chunks.try_claim(job_id, k, claim):
-            continue
-        # The listing may be seconds old (SMB caches it): finished since?
-        missing = [f for f in missing if not os.path.exists(frame_file(f))]
-        for f in missing:
+    rendered = True
+    while rendered:
+        rendered = False
+        for k in range(chunks.chunks_number(start, end, chunk_size)):
             if stop_asked():
-                chunks.release_claim(job_id, k)
                 return "stopped after a frame"
-            final = frame_file(f)
-            claim["frame_in_progress"] = f
-            claim["frame_in_progress_file"] = final
-            if not update_claim(k, claim):
-                return f"chunk {k}'s claim freed by the host"
-            render_frame(f, final)
-            record_saved(f)
-            claim["frames_done"].append(f)
-            claim["frame_in_progress"] = None
-            claim["frame_in_progress_file"] = ""
-            if not update_claim(k, claim):
-                return f"chunk {k}'s claim freed by the host"
-        chunks.release_claim(job_id, k)
+            outcome = render_chunk(k, start, end, folder)
+            if outcome == "rendered":
+                rendered = True
+            elif outcome:
+                return outcome
     return "nothing left to claim"
 
 
