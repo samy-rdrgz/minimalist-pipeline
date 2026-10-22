@@ -60,8 +60,6 @@ from .core import (
     SIDE_BY_SIDE_WIDTH,
     AdoptedProcess,
     addon_pref,
-    monitoring_detail,
-    set_monitoring_detail,
     cached_scandir,
     draw_box_tip,
     get_addon_version,
@@ -70,6 +68,7 @@ from .core import (
     lines_budget,
     list_to_labels,
     locked_json,
+    monitoring_detail,
     now,
     path_reachable,
     process_alive,
@@ -82,8 +81,10 @@ from .core import (
     responsive_layout,
     retry_shared_io,
     safe_icon,
+    set_monitoring_detail,
     text_field,
     text_to_lines,
+    write_json_atomic,
 )
 from .creation import (
     DEFAULT_ASSET_DEPARTMENTS,
@@ -143,8 +144,8 @@ from .presets import (
 )
 from .preview import (
     latest_render_dir,
-    render_root,
     latest_shot_mp4,
+    render_root,
     resolve_block_sources,
     resolve_sequence_sources,
 )
@@ -153,11 +154,11 @@ from .session import (
     close_session,
     get_opened_as_read_only,
     get_read_only_reason,
-    note_read_only_saved,
-    read_only_unchanged_on_disk,
     get_user,
     get_user_data,
     load_project_data,
+    note_read_only_saved,
+    read_only_unchanged_on_disk,
     save_project_data,
     save_settings,
     scan_sessions,

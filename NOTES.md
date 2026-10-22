@@ -1402,8 +1402,8 @@ covers a worker in the same instance as the monitor -- a worker in a
 second Blender on the same machine isn't visible from here.
 
 Exception (`_setup_unblocks_idle()`): machines idle with nothing to take
--- the running renders capped (`max_workers_per_job`) or single-machine,
-no set-up job they may render -- while the host renders for hours. Then
+-- the running renders single-machine or with no chunk left free, no
+set-up job they may render -- while the host renders for hours. Then
 the setup runs alongside: the `.blend` loaded twice for the setup's
 length, against the whole farm held back for the host's render. Only if
 the queued job may itself go to one of them (`assigned_machines`).
@@ -2135,9 +2135,6 @@ lenient (it only reads what the render will produce).
   `setup_finished`, then rendered, checked again, compiled -- not once
   `MAX_FRAME_CHECK_ROUNDS` is spent (kept, named in a warning).
 
-Also: `farm.max_workers_per_job` (Edit project, 0 = no limit) caps the
-machines one render gets.
-
 ### Quitting Blender while its worker renders
 
 `unregister()` (called on quit) and a project switch called `kill_worker()`,
@@ -2511,6 +2508,22 @@ Kept, still true with chunks:
 - the frame check still deletes the corrupted frames and sends the job
   back (`_send_back_bad_frames()`, now bounded by
   `MAX_FRAME_CHECK_ROUNDS` -- the refill rounds' count was shared with it).
+
+Claims (`farm/chunks.py`): `queue/claims/<job_id>/claim_<k>.json`, a
+folder per job -- the host lists one job's claims in one `scandir` (not
+the whole of `requests/`, its `.saved`, `.log`, `.stop` files) and drops
+the folder with the job. Created with `open(path, "x")`, the same
+`O_CREAT|O_EXCL` the JSON locks have always used on the share
+(`acquire_lock()`); a `PermissionError` there is a claim pending deletion
+on Windows: taken, for now. The file exists before its content is
+written, so a claim the host can't read is still held (`{}`, owner
+unknown), never free. `try_claim()` raises on any other error rather than
+returning False: a render that can't reach the share would otherwise find
+"nothing left to claim", exit 0 and be sent the job again, forever; a
+claim created but not written is removed first (nobody would ever free
+it). Checked headless, three Blender processes claiming the same 200
+chunks at once on a local disk: 79/62/59, each chunk won once, each claim
+holding its winner -- on the real share, to check on the farm.
 
 In progress: `check_render_completion()` only finishes a job whose frames
 are all on disk; the claims, `chunk_failures` and the dispatch to idle

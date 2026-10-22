@@ -70,8 +70,8 @@ DEFAULT_CONFIG = {
         "max_concurrent_local": 1,
         "stale_monitor_seconds": 90,
         "dead_monitor_seconds": 360,
-        "max_workers_per_job": 0,
         "stuck_frame_factor": 5,
+        "chunk_size": 5,
     },
 }
 
@@ -416,18 +416,6 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         ),
     )
 
-    max_workers_per_job: bpy.props.IntProperty(
-        name="",
-        min=0,
-        max=64,
-        default=0,
-        description=(
-            "Most machines rendering one job at once (Auto/Placeholder modes), "
-            "joining workers included. 0: no limit. Fewer machines on the same "
-            "frames, fewer of them taking the same frame"
-        ),
-    )
-
     stuck_frame_factor: bpy.props.IntProperty(
         name="",
         min=0,
@@ -437,6 +425,17 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
             "A worker kills its render when the frame it's on takes this many "
             "times its usual time (5 min at least): the frames left go to the "
             "other machines. 0: never"
+        ),
+    )
+
+    chunk_size: bpy.props.IntProperty(
+        name="",
+        min=1,
+        max=200,
+        default=5,
+        description=(
+            "Frames per chunk: a worker claims this many frames at a time. "
+            "Fixed for a render once it's sent out"
         ),
     )
 
@@ -617,9 +616,8 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         week = _settings_row(box, "WORKED DAYS", "BLANK1").row(align=True)
         for i, name in enumerate(("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")):
             week.prop(self, "schedule_worked_days", index=i, text=name, toggle=True)
-        row = _settings_row(box, "WORKERS PER JOB", "NETWORK_DRIVE")
-        row.prop(self, "max_workers_per_job")
-        row.label(text="0 = no limit" if not self.max_workers_per_job else "")
+        row = _settings_row(box, "CHUNK SIZE", "RENDER_RESULT")
+        row.prop(self, "chunk_size")
         row = _settings_row(box, "STUCK FRAME", "ERROR")
         row.prop(self, "stuck_frame_factor")
         row.label(
@@ -656,8 +654,8 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         self.schedule_days_off = self._days(schedule.get("days_off", []))
         worked = schedule.get("worked_days", WORK_WEEK)
         self.schedule_worked_days = [d in worked for d in range(1, 8)]
-        self.max_workers_per_job = max(
-            0, int((config.get("farm") or {}).get("max_workers_per_job", 0) or 0)
+        self.chunk_size = max(
+            1, int((config.get("farm") or {}).get("chunk_size", 5) or 5)
         )
         stuck = (config.get("farm") or {}).get("stuck_frame_factor", 5)
         self.stuck_frame_factor = max(0, int(5 if stuck is None else stuck))
@@ -737,12 +735,12 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
                 "tags": self._csv_to_list(self.tags),
                 "assets_departments": self._csv_to_list(self.assets_departments),
                 "shots_departments": self._csv_to_list(self.shots_departments),
-                # "farm": only max_workers_per_job and stuck_frame_factor are
-                # edited here, the rest stays as read from the loaded config.
+                # "farm": only stuck_frame_factor and chunk_size are edited
+                # here, the rest stays as read from the loaded config.
                 "farm": (config.get("farm") or {})
                 | {
-                    "max_workers_per_job": self.max_workers_per_job,
                     "stuck_frame_factor": self.stuck_frame_factor,
+                    "chunk_size": self.chunk_size,
                 },
                 "thumbnails": (config.get("thumbnails") or {})
                 | {"size": self.thumbnail_size},

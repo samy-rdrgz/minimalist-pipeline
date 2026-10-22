@@ -379,7 +379,8 @@ incomings/job_<id>.json
 │   │     worker is held back while a job is queued) : note_waiting(), stays
 │   └── render_dispatch()
 │       ├── .blend gone -> render_failed ("source file missing")
-│       └── 1 machine if single, else up to farm.max_workers_per_job ; a new dispatch_id ;
+│       └── 1 machine if single, else every one ; a new dispatch_id and
+│           chunk_size (farm.chunk_size, fixed for this render) ;
 │           requests/request_<job>_<uuid>.json per machine -> render_start
 │
 ├── render_start : check_render_completion() (see "Render: workers and

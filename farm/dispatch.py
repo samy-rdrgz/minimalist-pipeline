@@ -45,7 +45,7 @@ def popen_logged(cmd: list, job_id: str, stage: str, *, merge_stdout: bool = Tru
     log_path = job_log_path(job_id)
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with open(log_path, "ab") as f:
-        f.write(f"\n===== {stage} {now()} =====\n".encode("utf-8"))
+        f.write(f"\n===== {stage} {now()} =====\n".encode())
         f.flush()
         offset = f.tell()
         proc = subprocess.Popen(
@@ -107,15 +107,15 @@ def compact_log(path: Path) -> None:
         lines = path.read_bytes().decode("utf-8", errors="replace").splitlines(True)
         progress = [i for i, line in enumerate(lines) if line.startswith("Fra:")]
         dropped = set(progress[:-_PROGRESS_LINES_KEPT])
-        data = "".join(
-            line for i, line in enumerate(lines) if i not in dropped
-        ).encode("utf-8")
+        data = "".join(line for i, line in enumerate(lines) if i not in dropped).encode(
+            "utf-8"
+        )
         if len(data) > LOG_KEEP_BYTES:
             tail = LOG_KEEP_BYTES - _LOG_KEEP_HEAD
             cut = len(data) - _LOG_KEEP_HEAD - tail
             data = (
                 data[:_LOG_KEEP_HEAD]
-                + f"\n[... {cut} bytes cut ...]\n".encode("utf-8")
+                + f"\n[... {cut} bytes cut ...]\n".encode()
                 + data[-tail:]
             )
         if dropped:
@@ -145,14 +145,15 @@ def discard_job_log(job_id: str) -> None:
 from .workers import render_request
 
 
-def max_workers_per_job() -> int:
-    """Project setting farm.max_workers_per_job (Edit project): the most
-    machines one job renders on at once. 0: no limit."""
-    value = json_get(ConfigCache.get(), "farm.max_workers_per_job", 0)
+def chunk_size() -> int:
+    """Project setting farm.chunk_size (Edit project): frames per chunk, at
+    least 1. Read at dispatch only and stored in the job: every worker of a
+    render must cut it the same way (chunks.chunk_frames())."""
+    value = json_get(ConfigCache.get(), "farm.chunk_size", 5)
     try:
-        return max(0, int(value or 0))
+        return max(1, int(value or 5))
     except (TypeError, ValueError):
-        return 0
+        return 5
 
 
 def machines_for(job_data: dict, idle: dict) -> list[str]:
@@ -212,22 +213,23 @@ def render_dispatch(job_path: Path, idle: dict) -> None:
 
         fs, fe = job_data.get("resolved_frame_range", (None, None))
         # TODO chunks (farm-chunks-plan.md §5.1, step 5): leave out
-        # failed_machines, and count the machines already on the job against
-        # the cap -- this also becomes the dispatch to a job at render_start.
+        # failed_machines -- this also becomes the dispatch to a job at
+        # render_start.
         single_machine = job_data["render_mode"] == "single"
-        cap = 1 if single_machine else max_workers_per_job()
-        used = available[:cap] if cap else available
+        used = available[:1] if single_machine else available
 
         cmd_flags = ["-s", str(fs), "-e", str(fe)]
         # Identifies this render, not the job (whose id a re-render reuses);
         # echoed back in the worker's last_job_result -- see NOTES.md,
         # "Re-rendering a file".
         job_data["dispatch_id"] = uuid4().hex[:12]
+        job_data["chunk_size"] = chunk_size()
         for uuid in used:
             render_request(job_data, uuid, cmd_flags)
             idle.pop(uuid, None)
 
         job_data["used_machines"] = used
+
         history.append({"stage": "render_start", "at": now()})
         box["action"] = "to_write"
 

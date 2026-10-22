@@ -742,6 +742,24 @@ def refresh_lock(path: Path, machine_id: str) -> bool:
         return False
 
 
+def write_json_atomic(path: Path, data, attempts: int = 5) -> None:
+    """Write data as JSON to path atomically: a .tmp, then os.replace() --
+    a reader sees the old file or the new one, never half of one. No lock:
+    for a file with one writer (a chunk claim), or under locked_json()'s.
+    attempts: tries for the replace (retry_shared_io()). Raises if it
+    fails, the .tmp removed."""
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(json.dumps(data, indent=4), encoding="utf-8")
+    try:
+        retry_shared_io(os.replace, tmp, path, attempts=attempts)
+    except OSError:
+        try:
+            tmp.unlink()
+        except OSError:
+            pass
+        raise
+
+
 @contextmanager
 def locked_json(path: Path, read_only=False, retries: int = 10, io_attempts: int = 5):
     """Read/write a JSON file under a cross-process lock. Yields a mutable
@@ -778,17 +796,7 @@ def locked_json(path: Path, read_only=False, retries: int = 10, io_attempts: int
             )
             return
         elif box["action"] == "to_write":
-            tmp = path.with_suffix(path.suffix + ".tmp")
-            tmp.write_text(json.dumps(box["data"], indent=4), encoding="utf-8")
-            try:
-                retry_shared_io(os.replace, tmp, path, attempts=io_attempts)
-            except OSError:
-                # Don't leave the .tmp behind -- the caller still gets the error.
-                try:
-                    tmp.unlink()
-                except OSError:
-                    pass
-                raise
+            write_json_atomic(path, box["data"], attempts=io_attempts)
         elif box["action"] == "to_delete":
             try:
                 retry_shared_io(os.remove, path, attempts=io_attempts)
