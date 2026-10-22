@@ -2657,3 +2657,19 @@ render_failed, after the rounds.
 Rejected: the host killing it -- the host only sees the share's file times
 and other machines' clocks, and would need a new kill channel when the
 worker already has its process at hand.
+## Addon settings lost on update
+
+Same root cause as `user_name` above: Blender's storage of an addon's
+preferences goes with its `Addon` entry, rebuilt on every disable/enable --
+each extension update -- unless "Save Preferences" ran in between. The
+projects list and `user_name` already rode in `pipeline_backup.json`; the
+other settings didn't, so "Advanced" fell back to "Beginner" after every
+update (and Auto-launch worker, Always read-only, FFmpeg path, Silent
+auto-increment, the onboarding flag with it).
+
+They're now in that backup too (`ADDON_SETTINGS`, `lib/session.py`),
+written by their `update` callback on every change (`save_settings()`) --
+so, unlike `user_name`'s fallback-only restore, the backup is the latest
+and `load_project_data()` restores them over whatever Blender kept.
+`_restoring` keeps those setattr()s from writing the backup while it's
+read. A backup from before has no `settings`: values left as they are.

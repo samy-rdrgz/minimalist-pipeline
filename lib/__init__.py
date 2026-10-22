@@ -159,6 +159,7 @@ from .session import (
     get_user_data,
     load_project_data,
     save_project_data,
+    save_settings,
     scan_sessions,
     session_update,
     set_active_project_root,
