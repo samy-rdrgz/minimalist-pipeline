@@ -18,6 +18,8 @@ _items_cache: dict[str, tuple] = {"action": (None, []), "user": (None, [])}
 
 
 def _items(key: str):
+    """An enum items callback for the Pipeline log's key filter ("action",
+    "user"): "all", then every value in the log, cached per log read."""
     def callback(self, context):
         read_at, items = _items_cache[key]
         if read_at != log_read_at() or not items:

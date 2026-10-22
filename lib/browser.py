@@ -336,6 +336,17 @@ def tracked_department_items(self, context):
     return [("NONE", "—", "No department")] + list(items)
 
 
+_department_flag_items_cache: list = []
+
+
+def tracked_department_flag_items(self, context):
+    """tracked_department_items without its blank: an entry's departments,
+    several at once (ENUM_FLAG -- the items are already bitflag-encoded)."""
+    return _stable_items(
+        _department_flag_items_cache, list(tracked_department_items(self, context)[1:])
+    )
+
+
 _department_filter_items_cache: list = []
 
 

@@ -18,7 +18,9 @@ from ..farm import (
     recompilable,
     this_instance_is_worker,
 )
+from ..farm.chunks import chunk_frames
 from ..farm.queue import WORKER_GONE_SECONDS
+from ..farm.workers import FARM_PROTOCOL
 from ..lib import (
     ConfigCache,
     addon_pref,
@@ -36,9 +38,9 @@ from ..lib import (
 FIRST_COLUMN = 0.4
 # What Farm monitoring's window holds besides the Jobs rows (filters, list
 # header, footer, margins), in widget units -- see rows_that_fit().
-_JOBS_RESERVED_UNITS = 7.5
+_JOBS_RESERVED_UNITS = 9.4
 # Same for the Workers view: one row of filters, no footer.
-_WORKERS_RESERVED_UNITS = 5.0
+_WORKERS_RESERVED_UNITS = 6.9
 
 
 class M_PIPELINE_PT_farm_panel(bpy.types.Panel):
@@ -190,6 +192,7 @@ def job_icon(stage: str) -> str:
 
 
 def _job_time(iso: str) -> datetime.datetime | None:
+    """A stage's ISO time, None if unreadable."""
     try:
         return datetime.datetime.fromisoformat(iso)
     except (TypeError, ValueError):
@@ -203,6 +206,16 @@ def _duration(seconds: float) -> str:
     return f"{seconds // 60}m{seconds % 60:02d}s"
 
 
+def _pace(seconds: float) -> str:
+    """A frame's time: "0.6 s", "12 s", then _duration() -- "0m00s" said
+    nothing of a fast render."""
+    if seconds < 10:
+        return f"{seconds:.1f} s"
+    if seconds < 60:
+        return f"{seconds:.0f} s"
+    return _duration(seconds)
+
+
 def machine_label(uuid: str, recorded: str = "") -> str:
     """A machine as people know it: its worker's user and id ("Alice
     (a1b2c3d4)") -- a machine is only ever named by its id, no hostname
@@ -214,39 +227,72 @@ def machine_label(uuid: str, recorded: str = "") -> str:
     return worker.get("machine") or recorded or uuid[:8]
 
 
+# The frame lookup's field, held to the range of the render(s) it's drawn
+# for: WindowManager.farm_frame_lookup reads and writes it through
+# frame_lookup_get()/_set(), draw_frame_lookup() sets the bounds.
+_lookup = {"value": 0, "min": 0, "max": 0}
+
+
+def frame_lookup_get(self) -> int:
+    return min(max(_lookup["value"], _lookup["min"]), _lookup["max"])
+
+
+def frame_lookup_set(self, value: int) -> None:
+    _lookup["value"] = min(max(value, _lookup["min"]), _lookup["max"])
+
+
+def _same_machine_run(record: dict, frame: int) -> tuple[int, int]:
+    """(first, last) of the frames around frame written by the same machine
+    in a row: its chunk, or several of them."""
+    letters, start = record["frames"], int(record.get("start", 0))
+    i = j = frame - start
+    while i > 0 and letters[i - 1] == letters[i]:
+        i -= 1
+    while j < len(letters) - 1 and letters[j + 1] == letters[j]:
+        j += 1
+    return start + i, start + j
+
+
 def draw_frame_lookup(layout, renders: list) -> None:
-    """ "Frame [n] -> the machine that wrote it", for renders: (label, its
-    frame_machines, its machine_seconds) each -- a block's shots, one field
-    for all (their ranges don't overlap). Out of every range: the ranges.
-    Memory only: draw()-safe."""
+    """ "Frame [n]" held to the render's range, then the machine that wrote
+    it, the frames around it it wrote too, and its pace -- for renders:
+    (label, its frame_machines, its machine_seconds) each, a block's shots
+    sharing the field (their ranges don't overlap). Memory only:
+    draw()-safe."""
     renders = [r for r in renders if r[1] and r[1].get("frames")]
     if not renders:
         return
+    ranges = [(int(r["start"]), int(r["start"]) + len(r["frames"]) - 1) for _, r, _ in renders]
+    _lookup["min"] = min(first for first, _ in ranges)
+    _lookup["max"] = max(last for _, last in ranges)
     wm = bpy.context.window_manager
-    layout.prop(wm, "farm_frame_lookup", text="Frame")
-    # The answer on its own row: next to the field, in an aligned row, it
-    # only got what the field left -- the machine's name cut to "WOR...02".
-    answer = layout.row()
-    answer.alignment = "LEFT"
+    frame = wm.farm_frame_lookup
+    # Greyed out: a debugging aid, not something to read every day.
+    col = layout.column(align=False)
+    col.active = False
+    col.prop(wm, "farm_frame_lookup", text="Frame")
     for label, record, seconds in renders:
-        found = machine_for_frame(record, wm.farm_frame_lookup)
-        if found:
-            uuid, name = found
-            if uuid:
-                name = machine_label(uuid, name)
-            pace = (seconds or {}).get(uuid)
-            text = f"{label}rendered by {name}"
-            answer.label(text=text + (f"  ({_duration(pace)}/frame)" if pace else ""))
+        found = machine_for_frame(record, frame)
+        if not found:
+            continue
+        uuid, name = found
+        if not uuid:
+            col.label(text=f"{label}machine not recorded", icon="DESKTOP")
             return
-    answer.label(
-        text=", ".join(
-            f"{label}{r['start']} - {r['start'] + len(r['frames']) - 1}"
-            for label, r, _ in renders
+        first, last = _same_machine_run(record, frame)
+        col.label(text=f"{label}{machine_label(uuid, name)}", icon="DESKTOP")
+        col.label(
+            text=f"frames {first}-{last} in a row" if first != last else "this frame only",
+            icon="RENDER_ANIMATION",
         )
-    )
+        pace = (seconds or {}).get(uuid)
+        col.label(text=f"{_pace(pace)}/frame" if pace else "pace unknown", icon="TIME")
+        return
+    col.label(text=f"frame {frame}: in none of these shots' ranges")
 
 
 def _job_matches(self, job: dict, user: str) -> bool:
+    """Whether a job passes Farm monitoring's filters: state, mine, name."""
     if self.state != "all" and job_state(job["stage"]) != self.state:
         return False
     if self.only_mine and job.get("user") != user:
@@ -473,6 +519,25 @@ def _my_addon_version() -> str:
     return _addon_version[0]
 
 
+def _chunk_label(job: dict, k) -> str:
+    """ "frames 11-15" for chunk k of job (its chunk_size and range)."""
+    try:
+        start, end = (int(x) for x in job["resolved_frame_range"])
+        first, last = chunk_frames(start, end, int(job["chunk_size"]), int(k))
+    except (KeyError, TypeError, ValueError):
+        return f"chunk {k}"
+    return f"frames {first}-{last}"
+
+
+def _claim_progress(claim: dict) -> str:
+    """ "on frame 13" / "starting" from a claim (frame in progress, done)."""
+    if claim.get("frame_in_progress") is not None:
+        return f"on frame {claim['frame_in_progress']}"
+    if claim.get("frames_done"):
+        return f"frame {claim['frames_done'][-1]} done"
+    return "starting"
+
+
 def draw_farm_worker_details(layout, context):
     """M_PIPELINE_OT_farm_monitor's detail view of one worker, from the
     monitor cache (its file as last read, live or silent) -- never read
@@ -546,9 +611,17 @@ def draw_farm_worker_details(layout, context):
         left.label(text="Rendering")
         name = _job_name(job) if job else Path(m.get("current_file") or "").name
         _draw_job_link(split, current, name or current)
+        claims = (cache.get("claims") or {}).get(current) or {}
+        mine = next(
+            ((k, c) for k, c in sorted(claims.items()) if c.get("machine") == uuid),
+            None,
+        )
+        if mine:
+            k, claim = mine
+            field(col, "Chunk", f"{_chunk_label(job, k)}, {_claim_progress(claim)}")
         pace = (job.get("machine_seconds") or {}).get(uuid)
         if pace:
-            field(col, "Pace", f"{_duration(pace)} a frame")
+            field(col, "Pace", f"{_pace(pace)} a frame")
 
     layout.separator(factor=0.5, type="LINE")
     col = layout.column(align=True)
@@ -577,6 +650,14 @@ def draw_farm_worker_details(layout, context):
     addon = m.get("addon_version")
     mine = _my_addon_version()
     other = addon and addon != mine
+    if m.get("farm_protocol") != FARM_PROTOCOL:
+        field(
+            col,
+            "Farm",
+            "too old: gets no render until updated",
+            icon="ERROR",
+            alert=True,
+        )
     field(
         col,
         "Addon",
@@ -766,7 +847,7 @@ def draw_farm_workers(context, layout):
             text = f"render: {name or current_id}"
             pace = ((job or {}).get("machine_seconds") or {}).get(m.get("uuid"))
             if pace:
-                text += f"  ({_duration(pace)}/frame)"
+                text += f"  ({_pace(pace)}/frame)"
             if m.get("stopping"):
                 text += "  (stops after this frame)"
             _draw_job_link(jobs, current_id, text)
@@ -928,6 +1009,32 @@ def draw_farm_job_details(layout, context):
         machine_names(data["assigned_machines"]) if data.get("assigned_machines") else "auto",
     )
     field(col, "Machines", machine_names(data.get("used_machines")))
+    if data.get("chunk_size"):
+        field(col, "Chunks", f"{data['chunk_size']} frames each")
+    stage = ((data.get("stage_history") or [{}])[-1]).get("stage")
+    claims = (get_monitor_cache().get("claims") or {}).get(job_id) or {}
+    if stage == "render_start":
+        for i, (k, claim) in enumerate(sorted(claims.items())):
+            field(
+                col,
+                "In progress" if i == 0 else "",
+                f"{_chunk_label(data, k)}: "
+                f"{machine_names([claim.get('machine')]) if claim.get('machine') else 'a machine'}"
+                f", {_claim_progress(claim)}",
+            )
+    for k, machines in sorted(
+        (data.get("chunk_failures") or {}).items(), key=lambda kv: int(kv[0])
+    ):
+        field(
+            col,
+            "Failed chunk",
+            f"{_chunk_label(data, k)} on {machine_names(machines)}",
+            icon="ERROR",
+        )
+    if data.get("fail_reason"):
+        field(col, "Stopped", data["fail_reason"], icon="ERROR")
+    if data.get("left_machines"):
+        field(col, "Taken off", machine_names(data["left_machines"]))
     if data.get("rendered_by"):
         field(col, "Rendered by", machine_names(data["rendered_by"]))
     for stuck in data.get("stuck_frames") or []:
@@ -946,7 +1053,7 @@ def draw_farm_job_details(layout, context):
     )
     average = live.get("seconds_per_frame") or data.get("seconds_per_frame")
     if average:
-        field(col, "Per frame", f"{_duration(average)} on average")
+        field(col, "Per frame", f"{_pace(average)} on average")
     per_machine = live.get("machine_seconds") or data.get("machine_seconds") or {}
     record = data.get("frame_machines") or {}
     counts = {}
@@ -960,7 +1067,7 @@ def draw_farm_job_details(layout, context):
         def machine_line(u):
             parts = [f"{counts[u]} frames"] if u in counts else []
             if u in per_machine:
-                parts.append(f"{_duration(per_machine[u])}/frame")
+                parts.append(f"{_pace(per_machine[u])}/frame")
             return f"{machine_label(u, names.get(u))} ({', '.join(parts)})"
 
         field(
@@ -979,7 +1086,7 @@ def draw_farm_job_details(layout, context):
     if data.get("frames_corrupted"):
         field(col, "Corrupted frames", data["frames_corrupted"], icon="ERROR")
     if data.get("frames_rerendered"):
-        # Corrupted or written by two machines, then rendered again.
+        # Corrupted, then rendered again.
         frames = data["frames_rerendered"]
         more = f" (+{len(frames) - 8})" if len(frames) > 8 else ""
         field(
@@ -1029,6 +1136,10 @@ def draw_farm_job_details(layout, context):
         stage = entry.get("stage", "?")
         if entry.get("resumed"):
             stage += f" ({entry['resumed']})"
+        elif entry.get("reason"):
+            stage += f" ({entry['reason']})"
+        elif entry.get("cancelled"):
+            stage += " (cancelled)"
         delta = (
             f"+{_duration((at - previous).total_seconds())}" if at and previous else ""
         )

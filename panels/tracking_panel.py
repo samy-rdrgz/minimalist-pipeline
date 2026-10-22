@@ -12,6 +12,7 @@ from ..lib import (
     REVIEW_SOURCE,
     ConfigCache,
     ProjectScan,
+    entry_departments,
     TrackingStatusCache,
     WorkTimeCache,
     department_status_tooltip,
@@ -170,6 +171,7 @@ def draw_entries(box, filepath, filters=None, width: int | None = None):
 
 
 def _draw_thread(thread, note, filepath, width: int | None = None):
+    """A thread: its root entry, then its replies indented, greyed once done."""
     _draw_entry(thread["root"], note, filepath, width)
     done = thread["root"].get("done", False)
 
@@ -292,21 +294,26 @@ def _draw_entry(e, note, filepath, width: int | None = None):
 
 
 def _get_entry_by_id(entries, id):
+    """The entry with this id, None if there's none."""
     for e in entries:
         if e.get("id") == id:
             return e
-    return []
+    return None
 
 
 def _get_entry_tooltip(e, filepath):
+    """An entry's hover text: who and when, the version it's about, edits,
+    departments, review origin, id, the entry it replies to."""
     file = e.get("referenced_version")
     file = Path(file).stem if file else "unknown version"
 
     text = f"By: {e.get('author', 'unknown')}\nAt: {e['created_at'].replace('T', ' ')}\nBased on: {file}"
     if e.get("edited_by"):
         text = f"{text}\n\nEdited by: {e['edited_by']}\nAt: {e['edited_at'].replace('T', ' ')}"
-    if e.get("department"):
-        text = f"{text}\nFor department: {e.get('department')}"
+    departments = entry_departments(e)
+    if departments:
+        plural = "s" if len(departments) > 1 else ""
+        text = f"{text}\nFor department{plural}: {', '.join(departments)}"
     if e.get("source") == REVIEW_SOURCE:
         text = f"{text}\nImported from a prod review"
     review_id = f" (review_id : {e.get('review_id')})" if e.get("review_id") else ""
@@ -424,6 +431,13 @@ def _draw_renders_to_check(layout, filepath: str, data: dict) -> None:
         row = _render_row(col, f"{label}   {_to_check_at(info)}")
         _video_button(row, info, label)
         if info.get("render"):
+            op = row.operator(
+                "m_pipeline.open_render_video", text="", icon="FRAME_PREV", emboss=False
+            )
+            op.render = info["render"]
+            op.previous = True
+            op.custom_tooltip = f"Play the render before {label}, to compare"
+        if info.get("render"):
             # project_path(): plain join, no disk access in a draw().
             _folder_button(row, str(project_path(info["render"])))
         row.separator(factor=1.5)
@@ -467,6 +481,7 @@ def _folder_button(row, path: str) -> None:
 
 
 def unregister_thumbnail_previews() -> None:
+    """Free the thumbnails' preview collection and forget what it held."""
     global _previews
     if _previews is not None:
         bpy.utils.previews.remove(_previews)
@@ -698,7 +713,7 @@ def draw_file_details(state, context, layout):
 
 # What Project monitoring's window holds besides its rows (filters,
 # table header, footer, margins), in widget units -- see rows_that_fit().
-_TABLE_RESERVED_UNITS = 6.5
+_TABLE_RESERVED_UNITS = 8.4
 
 
 def draw_monitor_table(self, context, layout, columns, project_root):
@@ -827,6 +842,8 @@ def draw_monitor_table(self, context, layout, columns, project_root):
 
 
 def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None):
+    """One file's row of Project monitoring: name (opens its detail), a
+    status cell per department column, then its Farm cell."""
     row = f_list.column()
     split = row.split(factor=first_column)
     name = split.row()
@@ -1022,11 +1039,12 @@ def _oldest_open_rtk(data: dict) -> str:
 
 
 def _has_rtk(data: dict, department: str | None = None) -> bool:
-    """Whether data has an un-done RTK entry tagged with department (any
-    department when None). Never a todo: un-done too, not an RTK."""
+    """Whether data has an un-done RTK entry tagged with department --
+    among its departments, an entry may have several -- (any department
+    when None). Never a todo: un-done too, not an RTK."""
     return any(
         e.get("type") == "rtk"
         and e.get("done") is False
-        and (department is None or e.get("department") == department)
+        and (department is None or department in entry_departments(e))
         for e in data.get("entries") or []
     )

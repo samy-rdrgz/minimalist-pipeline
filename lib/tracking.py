@@ -19,6 +19,7 @@ from .config import (
     file_in_active_project,
     get_active_project_root,
     get_base_filename,
+    ordered_departments,
     parse_filename,
     prefix_to_parent_folder,
     project_path,
@@ -585,8 +586,10 @@ def create_tracking(filepath: Path, departments: list, description: str = ""):
 
         with locked_json(path) as box:
             existing = box["data"] or {}
-            merged_departments = sorted(
-                set(existing.get("departments_required", [])) | set(departments)
+            # The project's order (Edit project), not the alphabet's: what
+            # every list of departments shows them in.
+            merged_departments = ordered_departments(
+                dict.fromkeys([*existing.get("departments_required", []), *departments])
             )
             existing_description = existing.get("description", "")
             if description and description not in existing_description:
@@ -616,7 +619,9 @@ def get_departments_required(filepath: Path) -> list:
         path = tracking_json_path(filepath)
         with locked_json(path, read_only=True) as box:
             data = box["data"] or {}
-        return data.get("departments_required")
+        required = data.get("departments_required")
+        # Files written before 1.1.0 kept them sorted by name.
+        return ordered_departments(required) if required is not None else None
     except Exception as e:
         raise PipelineError(f"Error during reading tracking file : {e}")
 
@@ -1096,7 +1101,11 @@ def _worked_departments(wipmetas: list, stable_date: datetime) -> dict[str, list
 def _status_from_raw(raw: dict) -> dict:
     """A folder's tracking status from _collect_folder()'s data -- memory
     only, no disk."""
-    global_data = raw["tracking"]
+    global_data = dict(raw["tracking"])
+    # The project's order, whatever the file's (sorted by name before 1.1.0).
+    global_data["departments_required"] = ordered_departments(
+        global_data.get("departments_required", [])
+    )
     last_stable = raw["last_stable"]
     stable_date_str = last_stable.get("created_at")
     stable_date = (
@@ -1337,11 +1346,38 @@ def active_shot_owners(
 # ---------------------------------------------------------------------------
 
 
+def entry_departments(e: dict) -> list[str]:
+    """An entry's departments: its "departments" (several, 1.1.0+), else
+    its single "department"; [] for none."""
+    if e.get("departments"):
+        return list(e["departments"])
+    return [e["department"]] if e.get("department") else []
+
+
+def _set_entry_departments(e: dict, departments) -> None:
+    """Store departments on entry e: "department" holds the first -- what
+    an addon before 1.1.0 reads --, "departments" all of them when there
+    are several (a one-department entry stays as it always was)."""
+    if isinstance(departments, str):
+        departments = [departments]
+    deps = ordered_departments(
+        d for d in dict.fromkeys(departments or []) if d and d != "NONE"
+    )
+    if deps:
+        e["department"] = deps[0]
+    else:
+        e.pop("department", None)
+    if len(deps) > 1:
+        e["departments"] = deps
+    else:
+        e.pop("departments", None)
+
+
 def create_entry(
     filepath: Path,
     *,
     text: str,
-    department: str,
+    departments: list[str],
     author: str,
     type: str = "note",
     response: str = "",
@@ -1355,8 +1391,9 @@ def create_entry(
     source: str | None = None,
 ):
     """Append a note/todo/rtk entry to the owning asset's tracking.json.
-    text/department/author/type are keyword-only: all plain strings, a
-    positional call risks silently swapping department and author.
+    Keyword-only: text/author/type are plain strings, a positional call
+    risks silently swapping them. departments: none, one or several
+    (_set_entry_departments()).
     shot: free-text tag (e.g. "045"), not validated against anything.
     created_at: ISO date to stamp instead of now() (an imported review's
     own date). source: where it came from when not typed in Blender
@@ -1377,8 +1414,7 @@ def create_entry(
                 "author": author,
                 "created_at": nw,
             }
-            if department and department != "NONE":
-                entry["department"] = department
+            _set_entry_departments(entry, departments)
             if type in ["todo", "rtk"]:
                 entry["done"] = False
             if response:
@@ -1407,7 +1443,7 @@ def edit_entry(
     filepath: Path,
     *,
     text: str,
-    department: str,
+    departments: list[str],
     editor: str,
     type: str = "note",
     id: str = "",
@@ -1419,8 +1455,8 @@ def edit_entry(
 ):
     """Update an existing entry (matched by id) in the owning asset's tracking.json.
 
-    Keyword-only past filepath: text/department/editor are all plain strings,
-    a positional call risks silently swapping department and editor.
+    Keyword-only past filepath: text/editor are plain strings, a positional
+    call risks silently swapping them. departments replaces the entry's.
     editor is stamped as edited_by/edited_at -- unlike create_entry()'s
     author/created_at, it never overwrites who originally wrote the entry
     or when.
@@ -1465,10 +1501,7 @@ def edit_entry(
                         e["referenced_version"] = to_relative(Path(referenced_version))
                     else:
                         e.pop("referenced_version", None)
-                    if department and department != "NONE":
-                        e["department"] = department
-                    else:
-                        e.pop("department", None)
+                    _set_entry_departments(e, departments)
                     if shot:
                         e["shot"] = shot
                     else:
@@ -1598,7 +1631,7 @@ def _thread_meta(thread_entries: list[dict]) -> dict:
         e["referenced_version"] for e in thread_entries if e.get("referenced_version")
     }
     return {
-        "departments": {e["department"] for e in thread_entries if e.get("department")},
+        "departments": {d for e in thread_entries for d in entry_departments(e)},
         "authors": {e["author"] for e in thread_entries if e.get("author")},
         "versions": versions,
         # Parsed once here, not at filter time: version_numbers backs

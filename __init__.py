@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Minimalist Pipeline",
     "author": "Samy Rodriguez",
-    "version": (1, 0, 18),
+    "version": (1, 1, 0),
     "blender": (4, 2, 0),
     "location": "View3D > Sidebar > Pipeline",
     "description": "Lightweight pipeline manager for solo/small team Blender projects.",
@@ -38,6 +38,7 @@ from .operators import (
 from .operators import classes as operator_classes
 from .panels import classes as panel_classes
 from .panels import unregister_thumbnail_previews
+from .panels.farm_panel import frame_lookup_get, frame_lookup_set
 
 # Registration order matters: addon_data before anything reading preferences,
 # everything else before the topbar menu that references their operators.
@@ -71,8 +72,15 @@ _WM_PROPS = {
     ),
     # "Which machine rendered frame n": Farm monitoring's job detail and
     # File details' last render (draw_frame_lookup()).
-    "farm_frame_lookup": bpy.props.IntProperty(name="Frame", default=0),
+    "farm_frame_lookup": bpy.props.IntProperty(
+        name="Frame",
+        description="A frame of the render: which machine wrote it",
+        get=frame_lookup_get,
+        set=frame_lookup_set,
+    ),
     "file_selected_departments": bpy.props.StringProperty(),
+    # The file New entry is for: its lines' shot pickers (a block's shots).
+    "entry_target_file": bpy.props.StringProperty(),
     # The monitoring windows' filters (in memory, see lib memory_prop()).
     "pipeline_monitoring": bpy.props.PointerProperty(type=PIPELINE_PG_monitoring),
     "pipeline_farm_monitoring": bpy.props.PointerProperty(
@@ -96,6 +104,8 @@ _SCENE_PROPS = {
 
 
 def _register_props(owner, props: dict):
+    """Set each property on owner (WindowManager, Scene); one that fails is
+    reported, never stops the others."""
     for name, prop in props.items():
         try:
             setattr(owner, name, prop)

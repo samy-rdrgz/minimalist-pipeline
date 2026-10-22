@@ -1402,14 +1402,14 @@ covers a worker in the same instance as the monitor -- a worker in a
 second Blender on the same machine isn't visible from here.
 
 Exception (`_setup_unblocks_idle()`): machines idle with nothing to take
--- the running renders capped (`max_workers_per_job`) or single-machine,
-no set-up job they may render -- while the host renders for hours. Then
+-- the running renders single-machine or with no chunk left free, no
+set-up job they may render -- while the host renders for hours. Then
 the setup runs alongside: the `.blend` loaded twice for the setup's
 length, against the whole farm held back for the host's render. Only if
 the queued job may itself go to one of them (`assigned_machines`).
 Rejected: stopping the host's worker after its frame to run the setup,
-then relaunching it -- a stop counts as a refill round, a single-machine
-render gets sent out again, for what a setup alongside does without.
+then relaunching it -- a render cut short for what a setup alongside does
+without.
 
 ## Crash recovery: resume, don't orphan
 
@@ -1455,12 +1455,11 @@ Now:
   `last_job_result = {lost: True, dispatch_id}`.
 - **Monitor side** (`check_render_completion()`): a `lost` result for this
   dispatch, or a worker silent for `WORKER_GONE_SECONDS` (180 s -- well past
-  a missed beat or a Blender restart), sends the job back to
-  `setup_finished`: it's re-dispatched. Renders run with placeholders and
-  no overwrite (`worker_render_entry.py`), so the new render only fills in
-  the frames still missing -- no need to know whether the lost one
-  finished. A pending request the lost worker never picked up is deleted,
-  so it can't run later for a dispatch nobody waits on.
+  a missed beat or a Blender restart): its claim is freed, its chunk free
+  again for any machine -- the frames it finished stay, no need to know
+  whether the lost render ended well (see "Farm 1.1.0: chunks replace
+  placeholders"). A pending request the lost worker never picked up is
+  deleted, so it can't run later for a dispatch nobody waits on.
 
 Old jobs already marked `orphaned` stay that way (terminal).
 
@@ -1543,9 +1542,7 @@ The job detail's JSON button reuses `wm.open_folder` on the file itself
 `{"resumed": "retry"}` back to the stage before the failure
 (`_RETRY_STAGE`). Resubmitting would have gone through setup again, which
 increments the output folder -- the point is the same folder, frames and
-preset. A render retry deletes the empty files first: renders run with
-placeholders, and a frame started then interrupted stays an empty file
-that the next render skips. Only `*_failed` stages are retryable; a job
+preset. Only `*_failed` stages are retryable; a job
 already archived by hand is moved back to `actives/` first (checked as
 failed before moving).
 
@@ -1583,9 +1580,9 @@ in flight. A split block's parent job (`split_finished`) has no
 - Frame progress listed the whole render folder with `glob()` through
   `to_absolute()` (a `resolve()`) on every refresh. Now `cached_scandir()`
   (re-lists only when the folder's mtime changed) and no resolve.
-- It also counted placeholders: renders run with `use_placeholder`, which
-  writes an empty file per frame when it *starts*. Only non-empty files
-  count now (`DirEntry.stat()` -- free on Windows, the listing already has
+- It also counted placeholders: renders ran with `use_placeholder` (until
+  1.1.0), which writes an empty file per frame when it *starts*. Only
+  non-empty files count (`DirEntry.stat()` -- free on Windows, the listing already has
   the size).
 - Workers are read once per refresh into the snapshot
   (`_compute_snapshot()` → `cache["workers"]`); `draw_farm_workers()` no
@@ -1943,147 +1940,6 @@ carries its prefix). Overwritten in place, made by `lib/thumbnails.py` +
      here, same shape as the ones above: what was tried, what was
      rejected and why, anything a docstring is too short to hold. -->
 
-## Render stuck at 100 %: a share nobody was going to render
-
-Symptom: every frame written, the popup at 100 %, the job still at
-`render_start`; on the worker, no leftover Blender -- just one rendering
-another job. Seen on a single-machine job (`job_4074e92294`, sq110 sh040):
-one machine in `used_machines`, no `resumed` stage, the worker's render
-log deleted (= exit 0). So the worker did publish its `last_job_result`;
-the monitor didn't take it.
-
-### The result was there, the worker was "stale"
-
-`check_render_completion()` read workers through `scan_workers()`, which
-drops any worker whose heartbeat is older than `STALE_WORKER_SECONDS`
-(15 s). The heartbeat is written once per tick, every 10 s *after the
-previous tick returns* -- so its age when the monitor looks is 10 s plus
-however long the ticks take. On a share, `scan_queue()` alone (an
-exclusive lock + read per job file, finished jobs included until someone
-archives them) can eat the remaining 5 s. A dropped worker counted as
-"still running" (gone only after 180 s), its published result ignored.
-Once that worker finished its *next* render, `last_job_result` was
-overwritten and this job could never finish.
-
-Fix: `check_render_completion()` reads each used machine's file directly
-(`_read_worker()`). A result stamped with this render's `dispatch_id` is
-final whatever the heartbeat's age; staleness only matters for "is it
-gone" (180 s, unchanged).
-
-### A share nobody was going to render
-
-Second way to the same symptom, with several machines: `check_render_completion()` waits for a result from *every* machine in
-`used_machines`. In placeholder mode a worker can be in that list without
-ever starting: `render_dispatch()` picks "idle" workers from
-`scan_workers()`, cached ~1.5 s, and a worker flashes idle between its
-render ending and its next request being picked up -- so it can get a
-request while it is in fact starting another render. The other machines
-render the whole range; this job then waits for that unrelated render to
-end, and for the late worker to open the file only to find nothing left.
-
-Fix: once one machine has finished *this* render successfully, every
-frame is rendered or being rendered (placeholders, no overwrite). A
-machine whose request is still waiting in `requests/` has started
-nothing, so its request is deleted (`_drop_pending_request()`, under the
-request's lock) and it leaves `used_machines`. A machine that already
-picked its request up is still waited for: it may be mid-frame. Worker
-side, `execute_render_request()` no longer launches a request that
-vanished between its scan and its lock (it used to fall back to the
-scanned copy).
-
-Same occasion: `worker_tick()` runs heartbeat, cancel scan and process
-scan each in its own `try` (a heartbeat raising every tick used to skip
-the process scan forever -- the worker stayed "render"), and renders/setup
-run with `--python-exit-code 1` (an exception in the entry script used to
-exit 0, i.e. a successful render).
-
-## Render stuck at render_start: a result overwritten
-
-Symptom: `job_97daeba21d` (sq040 sh120, 1443 frames, 3 machines) at
-`render_start` for good, one empty frame in its folder. Copying the frame
-before over it took the popup to 100 %, the job didn't move: the frames
-on disk are only looked at once no machine is left rendering. Two of its
-machines (`6983fd96`, `4abd5c3d`) are also in the next job's
-`used_machines`, `job_2363605ce8`, dispatched 9 h after it -- while it
-still waited on a machine, most likely the one that left the empty frame.
-
-### One slot for a machine's outcome
-
-A worker publishes the outcome of its render in `last_job_result`, a
-single field. Once that machine renders another job to the end, the
-field is about that one. `_classify_machines()` took a live worker whose
-result wasn't about this render for "still running": true while the
-result isn't published yet, false once it has been and then replaced.
-Whatever kept the job waiting meanwhile (another machine mid-frame, hung,
-or slow to be found gone), it then waited forever -- and Cancel did
-nothing either: the cancel file reaches a worker with no render of the
-job to kill, which publishes no result. The first section above fixed
-one way to *read* the result too late; this is the result gone.
-
-### One question: is anybody still on it?
-
-First fix: a live machine showing nothing of the render for 30 s counted
-as "moved on", next to success / failed / cancelled / stopped / lost,
-each read from `last_job_result`. Replaced the same day by a single
-rule, which needs no result at all: a render is over once none of its
-machines is *on it* (`_machines_on()`):
-
-- its worker rendering this job (`status` "render", `current_job_id`),
-  alive -- or its file unreadable this tick: can't tell, on it;
-- or its request still waiting in `requests/`, the worker alive.
-
-Gone (silent `WORKER_GONE_SECONDS`), stopped, idle or rendering another
-job: done with it. Then the frames on disk decide, as before. What each
-machine published no longer gates anything; `last_job_result` is only
-read to name a machine that *failed* this render (`_failed_this_render()`,
-its `dispatch_id`): frames missing then end as `render_failed` rather than
-a refill, and `failed_machines` steers a retry away from it. Overwritten
-by a later render, that failure just isn't known -- the refill rounds
-still bound it.
-
-The job's Cancel was read off the machines' results too ("every machine
-cancelled"): it's now a flag on the job, `cancel_requested`, set by
-`cancel_pending_renders(whole_job=True)`; a Retry clears it. One
-machine's cancel (Workers tab) stays neutral: frames missing, sent out
-again.
-
-The "Render stuck at 100 %" drop (above) no longer waits for a machine
-to *succeed*: a request still waiting once every frame of the range has
-a file (rendered or taken) has nothing left to do, withdrawn
-(`_withdraw_requests()`, shared with Cancel).
-
-Not on the first sight: `execute_render_request()` deletes the request,
-then writes the worker's file on the way out of the same tick -- a
-monitor reading in between sees neither. Nobody must be on the render
-for `NOBODY_SECONDS` (20 s, two ticks), timed per (job, `dispatch_id`) in
-the monitor's memory, re-checked under the job's lock before judging.
-
-Gone with it: `_classify_machines()`, `_is_this_render()`'s fallback on
-times for sides without a `dispatch_id` (every worker has one since
-1.0.14), and "every machine cancelled". Both `current_job_id` and
-`dispatch_id` predate 1.0.15: no older worker to tell apart.
-
-## Leaving a render and coming back
-
-The target is workstations: added as workers and taken off all day. A
-machine stayed in `used_machines` until the render was judged, and
-`join_running_renders()` excluded `used_machines` ("already in it") --
-so a PC stopped at noon, back at two, could never rejoin the render it
-left, and kept its place under `farm.max_workers_per_job` meanwhile.
-
-An idle worker with no request waiting is off every render, whatever its
-past (`_machines_on()`): only `failed_machines` keeps a machine out now,
-and the cap counts the machines on the render (`dispatch._on_it()`). It
-gets the same request (same `dispatch_id`) and walks the range from the
-start: placeholders + no overwrite, it takes the frames still free --
-the empty file it may have left when stopped stays taken until the end
-of the render (a refill).
-
-Its `.saved` record carries on with the same `dispatch_id`: the render
-entry writes a `"<dispatch_id> start <time>"` line first, where
-`frame_seconds()` starts again -- else the hours away were its next
-frame's time.
-
 ## Stopping a worker: after this frame, or now
 
 "Let it finish" let the render subprocess run to its end -- and a render
@@ -2091,66 +1947,40 @@ walks the whole range, taking every frame still free: on a long shot,
 hours before a workstation was given back. Two ways now:
 
 - **After this frame** (`stop_worker(kill_render=False)`): the worker
-  writes `request_<job>_<uuid>.stop`; the render entry's `render_write`
-  handler, after recording the frame, sees it and `os._exit(0)`s -- the
-  frame on disk, no placeholder taken for the next one. A handler can't
-  end an animation render cleanly; nothing is left to save in a
-  background render, and exit 0 is the truth (that machine is done, the
-  monitor only asks whether anybody is still on the render).
+  writes `request_<job>_<uuid>.stop` (`render_stop_path()`); the render
+  entry checks it before each frame, releases its claim and exits 0 --
+  that machine is done, not failed.
 - **Stop now** (also quitting Blender, switching project, a machine's
-  Cancel): killed, and its frame in progress -- an empty placeholder every
-  other machine skips -- used to wait for the end-of-render refill. The
-  render entry's `render_pre` handler (per frame rendered, after
-  Blender's placeholder check: never a skipped one) writes the frame's
-  path to `request_<job>_<uuid>.frame`; on a kill the worker deletes that
-  file if still empty (`_free_frame_in_progress()`). A machine walking
-  the range from its start -- one joining -- renders it; if every machine
-  is past it, the end-of-render refill does, as before (one more Blender
-  start, one of `MAX_REFILL_ROUNDS`) -- unless a worker joins for it
-  (below, "Joining: a matter of time, not of frames").
+  Cancel): killed, reported "stopped" (neutral). The frame it was on was
+  never under its final name (written to a `.tmp`, then renamed): nothing
+  to clean up; its claim is freed by the host.
 
-Both flags are deleted when the render ends (`_clear_render_flags()`),
-and by `discard_saved_frames()` if a crash left them. Checked in Blender
-4.5.2 LTS, background, the farm's placeholder settings: `render_pre`
-fires once per frame rendered (1, 2, 4, 5, 6 with frame 3 on disk),
-`frame_path()` names it, its empty placeholder already there;
-`os._exit(0)` from `render_write` once the stop file appears during
-frame 2: exit code 0, frames 1-2 on disk, no file at all past them.
-
-## Joining: a matter of time, not of frames
-
-`JOIN_MIN_FRAMES_LEFT` (more than 10 free frames per joining worker)
-stood for "worth opening the .blend". In frames it's wrong both ways:
-10 frames of 5 s aren't, 3 frames of 20 min are -- and a frame freed by
-a *Stop now* behind every machine never got a joiner.
-
-`_joiners_wanted()`, from the `.saved` records (`_render_timing()`):
-- every machine walks the range forward, so a free frame below the
-  furthest-back machine on the render (its last frame written this
-  dispatch; one with none yet sits at the range's start) is a hole only a
-  joiner renders before the end -- one joiner per hole;
-- past those, one more joins while the free frames ahead would keep the
-  machines on it, joiners included, busy longer than a joiner's start
-  (from a `start` line to that machine's first frame, less one frame) plus
-  one frame. Free = no file: a placeholder is a frame being rendered.
-Nothing timed yet (the render's first frames): the frame count as before.
-Still capped by `farm.max_workers_per_job`.
+The flag is deleted when the render ends (`_clear_render_flags()`), and by
+`discard_saved_frames()` if a crash left it.
 
 ## Which machine rendered which frame
 
 `_note_frames()` turns the `.saved` records into `frame_machines`: one
 letter per frame of the range ("." unknown), and the letters' machines
 (uuid, name). Frames interleave between machines (each takes the next
-free one: A 923, B 924, C 925, A 926...), so per-machine ranges barely
-collapse -- ~7 KB for 1443 frames on 3 machines, against 1.5 KB for the
-letters, and `render_history.json` is read on every dispatch
-(`last_render_had_collision()`). Unreadable by eye: the *Frame* field
+free one: A 923, B 924, C 925, A 926... -- before chunks), so
+per-machine ranges barely collapsed -- ~7 KB for 1443 frames on 3
+machines, against 1.5 KB for the letters. Unreadable by eye: the *Frame* field
 (`draw_frame_lookup()`) reads it, in the job's detail and in File
 details' last render (`read_render_state()` hands it over from the
 history -- there once the job is archived). A frame written in several
 rounds goes to this round's machine, else the latest line's. Names from
 the worker files when judged, else the record before (a worker removed
 since).
+
+The field used to start at 0 and accept anything, answering "1001 -
+1443" until a frame in range was typed: it's now held to the render's
+range (`farm_frame_lookup`'s get/set clamp to bounds `draw_frame_lookup()`
+sets, a block's shots together), so it always shows a frame and its
+answer -- the machine, the frames around it that machine wrote in a row
+(its chunk, or several: `_same_machine_run()`), its pace -- three greyed
+lines under the field: a debugging aid, not something read every day.
+Paces under a minute read in seconds (`_pace()`: "0.6 s", not "0m00s").
 
 ## Time left: per machine, from each frame's time
 
@@ -2161,7 +1991,7 @@ counted the first half's pace; one leaving, the same. And after a refill
 (a new `render_start`) the frames already there made the progress jump,
 the time left near zero.
 
-The `.saved` record each machine keeps (frames written twice, above) now
+The `.saved` record each machine keeps now
 carries the time of each write, on that machine's clock:
 `"<dispatch_id> <frame> <time>"`. Two lines in a row of one render are
 one frame's time -- skipping frames already taken costs nothing, and the
@@ -2292,38 +2122,9 @@ a preset that can't be applied raises, `--python-exit-code 1` ends
 Blender before it renders, the worker reports a failure. The setup stays
 lenient (it only reads what the render will produce).
 
-### Frames written by two machines
+### Frame check: naming the corrupted frames
 
-The worker logs kept for one job (`Saved: '...'` lines) show 9 frames
-saved by two different machines, mid-render, not at start -- a lower bound,
-the logs of renders that end well are deleted. Blender's placeholder is
-"exists?" then "touch", not atomic, and a Windows SMB client's caches widen
-the window; Blender writes the image straight onto its final name, so two
-writes at once give a spliced file: valid header, readable, blocks of
-garbage -- not flagged by `checks_images` (`ffmpeg -v error`), which only
-counts error lines anyway. A frame sent from production shows the
-signature: the top rows right, then from one point down the same detail
-with shifted, washed-out colours, in bands -- JPEG's DC coefficients are
-coded as differences from the previous block, so data from the other
-write, picked up mid-stream, keeps the texture and offsets every colour
-until the next switch. Its markers are valid (one SOI, EOI last), so a
-start/end marker check can't see it. A truncated frame (a render killed
-mid-write) is a different case: ffmpeg does flag that one.
-
-Preventing it -- claiming each frame atomically in the entry script
-(`O_CREAT|O_EXCL` + render to a temp file + `os.replace`) -- means
-replacing Blender's own animation render loop; decided against. Instead
-it's caught and cured, together with the frames ffmpeg finds corrupted,
-in one pass -- a second frame check costs seconds, a second render on the
-workers far more:
-
-- the render entry (`templates/worker_render_entry.py`) registers a
-  `render_write` handler -- called after each frame Blender writes, never
-  for one it skips -- appending `"<dispatch_id> <frame>"` to the machine's
-  `request_<job>_<uuid>.saved` (`saved_frames_path()`), next to its log
-  -- checked on Blender 4.5.2 in background with the farm's placeholder
-  settings: called for every frame written, never for one skipped;
-- the frame check (`checks_images()`) now names the frames it finds
+- the frame check (`checks_images()`) names the frames it finds
   corrupted, not just a count of error lines: `-loglevel level+info`
   (ffmpeg 4.3+), `-threads 1`, `-vf showinfo`. Decoding single-threaded,
   every decoder error lands right before the showinfo line of its frame,
@@ -2337,30 +2138,11 @@ workers far more:
   nothing: no frame blamed. Checked with ffmpeg 6.1 on spliced,
   interleaved, truncated and garbage JPEGs and a truncated PNG: all named,
   a clean 60-frame sequence nothing (`corrupted_frames()`);
-- when that check ends, `_send_back_bad_frames()`: corrupted frames plus
-  `frames_written_twice()` (this dispatch's records, machines from
-  `rendered_by` -- `used_machines` is emptied when a local stage ends) are
-  deleted -- whether two writes overlapped can't be known, so every
-  double-written frame goes, a few % of a 6-machine job -- recorded
-  (`frames_rerendered`, `written_twice`, job then render_history.json), and
-  the job goes from the frame check back to `setup_finished`, flagged
-  `refill_single`: `render_dispatch()` gives it one machine (not one that
-  failed the job, if another is free), `join_running_renders()` leaves it
-  alone -- a handful of frames on six machines would collide again. The
-  render is judged again, then the frame check runs again, then the
-  compilation;
-- not once `MAX_REFILL_ROUNDS` is spent (deleting them would fail the
-  job: kept, named in a warning); records deleted once the job ends well
-  (`discard_saved_frames()`) or with `archive()`. A worker on an older
-  version writes none: only ffmpeg's frames are redone.
-
-Also: `farm.max_workers_per_job` (Edit project, 0 = no limit) caps the
-machines one placeholder/auto render gets, joins included -- counted on
-`used_machines`, so a machine that dropped out still counts until the
-render is judged (a refill starts from zero). Fewer machines, fewer
-collisions. Still known: the auto -> single fallback never fires,
-`construct_history()` records the requested mode ("auto"), and
-`last_render_had_collision()` only looks at "placeholder" entries.
+- when that check ends, `_send_back_bad_frames()`: the corrupted frames
+  are deleted, recorded (`frames_rerendered`, job then
+  render_history.json), and the job goes from the frame check back to
+  `setup_finished`, then rendered, checked again, compiled -- not once
+  `MAX_FRAME_CHECK_ROUNDS` is spent (kept, named in a warning).
 
 ### Quitting Blender while its worker renders
 
@@ -2394,10 +2176,10 @@ not subscriptable").
 Now `read_active_jobs()` reads without a lock (whoever acts re-reads under
 its own), skips archived/orphaned jobs without reading them again while
 their file is unchanged, `idle_machines()` is computed once per tick and
-handed out (`join_running_renders()` and `render_dispatch()` take theirs
-out of it), a job with no machine for it is noted once (`note_waiting()`),
-and `check_render_completion()` takes the job's lock only once a machine
-has finished or dropped out. `render_dispatch()` re-checks the stage under
+handed out (`render_dispatch()` takes its machines out of it), a job with
+no machine for it is noted once (`note_waiting()`), and
+`check_render_completion()` takes the job's lock only once every frame is
+on disk. `render_dispatch()` re-checks the stage under
 its lock and fails a job whose `.blend` is gone (a block's old -stable
 replaced by a newer version had been retried onto 6 machines, all failing
 on "Cannot read file"); `retry_job()` refuses it.
@@ -2569,6 +2351,32 @@ Checked in Blender (4.0, under Xvfb):
   keep the choice.
   The search is cleared when the window opens, as before.
 
+## Monitoring windows: to the front
+
+Clicking Monitoring with its window already open said so and did nothing:
+the window was usually behind the main one. Blender has no way to raise a
+window -- `Window` has no method for it, its `x`/`y` are read-only, the
+`wm` operators are `window_new`/`window_close`/`window_fullscreen_toggle`
+(checked on 5.2). `bring_monitoring_to_front()`:
+
+- Windows: the system's own `SetForegroundWindow()` (ctypes), on the
+  native window of this process whose client area is the monitoring
+  window's size, its x breaking a tie (Project and Farm monitoring alike).
+  This process is the foreground one -- the click came from it --, so
+  Windows allows it. It stays where it is: a second screen included.
+- Elsewhere (Linux, macOS -- Wayland forbids raising a window anyway), or
+  if that failed: a new window opened, in front, then the old one closed
+  -- the new one first, so nothing the operator runs in is closed under
+  it. Same content (filters, page, detail are memory, not the window's).
+  `window_new()` opens at Blender's default place and size, and nothing
+  sets either afterwards: the new one is `screen.area_dupli` of the old
+  one's editor ("Duplicate Area into New Window"), which opens over that
+  area at its size (`_duplicate_window()`); `window_new()` only if that
+  fails. Checked on Linux: back in front, same place, same size.
+
+Not checked yet: the Windows path (needs Windows) -- if it fails there,
+the duplicate takes over.
+
 ## Monitoring windows: pages sized on the window
 
 Moving Project monitoring into a window dropped its pages for one list
@@ -2593,7 +2401,9 @@ that scrolls, like before.
   units; at 1.65, with the active tool hidden, full screen still
   overflowed by 2-3 rows, still a little at 1.8: `ROW_UNITS` = 1.9, the
   reserved figures 7 / 8 (6.5 / 7.5 once the panel's outer box went),
-  a small gap rather than an overflow. Every file row is one line high (no
+  a small gap rather than an overflow. Still a row too many in use: one
+  row's worth (`ROW_UNITS`) added to each reserved figure -- 8.4 / 9.4,
+  6.9 for the Workers view. Every file row is one line high (no
   wrapping in the cells), so one constant holds -- recalibrate it (or a
   reserved figure) if a page overflows the window or leaves a gap, never
   per call site.
@@ -2639,8 +2449,8 @@ held its machine and the job forever: its heartbeat went on, so nothing
 looked wrong. The worker now watches its own renders
 (`check_stuck_renders()`, every 30 s): when the frame in progress has
 taken `farm.stuck_frame_factor` (Edit project, default 5, 0 = off) times
-its usual time -- 5 min at least -- it kills the render, frees the frame's
-placeholder and reports `last_job_result.stuck`. Times from the worker's
+its usual time -- 5 min at least -- it kills the render and reports
+`last_job_result.stuck`. Times from the worker's
 own `.saved` record and clock (`time.time()` on both ends): never one
 machine's clock against another's. The usual time: this render's frames
 so far, else the machine's on this job (`machine_seconds`), else the
@@ -2648,11 +2458,12 @@ job's; the first frame of a render also gets the machine's usual startup
 (scene sync). Unknown (a first render with nothing timed yet): no check.
 
 On the host, a stuck machine goes to `failed_machines` but doesn't fail
-the job: the frames left are sent out again (`refill_rounds`, so at most
-`MAX_REFILL_ROUNDS`), assigned away from it (`_reassign_away_from_failed()`,
-kept on it when it's the only worker). Recorded in `stuck_frames` for Job
-details. A frame that hangs on every machine still ends the job as
-render_failed, after the rounds.
+the job: recorded in `stuck_frames` for Job details, its claim freed, the
+chunk counted as failed on it (`chunk_failures`); a chunk that fails on
+`MAX_CHUNK_ATTEMPTS` machines fails the job (see "Farm 1.1.0: chunks
+replace placeholders"). The frame's name comes from the machine's claim
+(`_frame_in_progress()`); its times still from the `.saved`, the same
+worker's clock.
 
 Rejected: the host killing it -- the host only sees the share's file times
 and other machines' clocks, and would need a new kill channel when the
@@ -2673,3 +2484,266 @@ so, unlike `user_name`'s fallback-only restore, the backup is the latest
 and `load_project_data()` restores them over whatever Blender kept.
 `_restoring` keeps those setattr()s from writing the backup while it's
 read. A backup from before has no `settings`: values left as they are.
+
+## Farm 1.1.0: chunks replace placeholders
+
+Every worker used to get the job's whole range and let Blender arbitrate
+(`use_placeholder` + `use_overwrite=False`): a frame was taken by writing
+its empty output file. That token was anonymous (whose, since when?),
+mistaken for a result (empty: in progress, or abandoned?), and only ever
+expired by guessing. Fine on one fast server; with several workers and a
+Windows share's latency, most of 1.0.x's farm fixes came from it:
+placeholders to clean up, frames written twice, a render stuck at 100 %
+or at render_start, `NOBODY_SECONDS`, refill rounds, joins weighed frame
+by frame.
+
+Frames written twice were the worst: Blender's placeholder is "exists?"
+then "touch", not atomic, and an SMB client's caches widen the window;
+Blender writes straight onto the final name, so two writes at once give a
+spliced file -- valid header and markers, readable, then bands of the same
+detail with shifted colours (JPEG's DC coefficients are differences from
+the previous block). `ffmpeg -v error` saw nothing. 1.0.x caught them
+afterwards (`.saved` records compared, then re-rendered on one machine)
+and rejected claiming each frame atomically, as that meant replacing
+Blender's animation loop.
+
+That's the decision reversed: the render entry runs its own loop over
+chunks of frames, each claimed with an exclusive create (`open(path,
+"x")`, atomic on the share), frames written to a `.tmp` then renamed -- a
+frame under its final name is whole, so the disk says what's done. The
+pull model stays: a worker takes the next free chunk, so workers can join
+any time; only the token changes. Design: `farm-chunks-plan.md` (outside
+the repo).
+
+Removed (`main` before 1.1.0, `57ddce6`, has them): `join_running_renders()`
+with `_joiners_wanted()`, `_render_timing()`, `_on_it()`,
+`JOIN_MIN_FRAMES_LEFT`; `render_mode_auto()` and
+`last_render_had_collision()` (no collision left to fall back from);
+`_machines_on()` and `NOBODY_SECONDS`; the refill rounds
+(`MAX_REFILL_ROUNDS`, `refill_single`) and `_reassign_away_from_failed()`;
+`_delete_placeholders()`; `frames_written_twice()`;
+`render_frame_path()` / `_free_frame_in_progress()` and the render
+entry's `render_pre` / `render_write` handlers (`note_frame`,
+`stop_if_asked`: the loop calls them directly).
+
+Kept, still true with chunks:
+
+- a machine's file read directly (`_read_worker()`), never through
+  `scan_workers()`: the heartbeat is written every 10 s *after* the
+  previous tick, so a slow tick puts a live worker past
+  `STALE_WORKER_SECONDS`, and its published result was ignored;
+- `last_job_result` is one slot, overwritten by the machine's next
+  render: matched to a render by its `dispatch_id` (`_failed_this_render()`
+  -- a re-render reuses the job id, see "Re-rendering a file"), never
+  taken as proof the machine is still on it;
+- the job's Cancel is a flag on the job (`cancel_requested`), not read off
+  the machines' results; a Retry clears it;
+- a request a worker hasn't taken up yet is withdrawn under its lock
+  (`_withdraw_requests()`): on Cancel, and when nothing is left to render;
+  `execute_render_request()` never launches a request gone between its
+  scan and its lock;
+- the frame check still deletes the corrupted frames and sends the job
+  back (`_send_back_bad_frames()`, now bounded by
+  `MAX_FRAME_CHECK_ROUNDS` -- the refill rounds' count was shared with it).
+
+Claims (`farm/chunks.py`): `queue/claims/<job_id>/claim_<k>.json`, a
+folder per job -- the host lists one job's claims in one `scandir` (not
+the whole of `requests/`, its `.saved`, `.log`, `.stop` files) and drops
+the folder with the job. Created with `open(path, "x")`, the same
+`O_CREAT|O_EXCL` the JSON locks have always used on the share
+(`acquire_lock()`); a `PermissionError` there is a claim pending deletion
+on Windows: taken, for now. The file exists before its content is
+written, so a claim the host can't read is still held (`{}`, owner
+unknown), never free. `try_claim()` raises on any other error rather than
+returning False: a render that can't reach the share would otherwise find
+"nothing left to claim", exit 0 and be sent the job again, forever; a
+claim created but not written is removed first (nobody would ever free
+it). Checked headless, three Blender processes claiming the same 200
+chunks at once on a local disk: 79/62/59, each chunk won once, each claim
+holding its winner -- on the real share, to check on the farm.
+
+The render entry (`templates/worker_render_entry.py`, `render_chunks()`)
+opens the .blend once and walks the chunks from the first -- again and
+again while a pass rendered something: a chunk another machine let go
+behind it (stopped after a frame) is picked up in the same Blender, where
+a single pass ended and the host had to start a new one for three frames
+(seen on the first real test). A chunk whose
+frames are all on disk (one listing of the folder) or that another
+machine holds is skipped; a claimed one is checked again frame by frame
+(the listing may be seconds old on SMB), then each missing frame is
+rendered by Blender's own animation render over a one-frame range
+(`frame_start = frame_end = f`, `render.render(animation=True)`), written
+to a hidden tmp of this render's own (`render.filepath` =
+`.<machine>_<pid>_#####.tmp`, `use_file_extension` off: never counted as
+a frame, never another machine's) and `os.replace()`d onto its final name
+-- `frame_path()` read for the whole range before the output is switched
+to the tmp: what the frame check and the compilation read.
+
+First done with `render.render()` then `Render Result`'s `save_render()`:
+the same pixels, but a compositor File Output node then writes
+`depth_.exr`, unnumbered, each frame over the last -- only an animation
+render (`-a`, `-f`) numbers them. Checked: `depth_0001.exr`... with the
+one-frame animation; a multilayer EXR with a compositor identical to
+`-a`'s byte for byte but its Date stamp. A File Output file isn't written
+through the tmp, but before the main output: a render killed while
+writing it leaves the frame missing, rendered again, the pass rewritten. The claim is
+rewritten before (frame in progress, its tmp for the host to delete if
+the render dies) and after (frames done) each frame;
+gone when it's about to be rewritten, the host took this machine for dead
+and freed it: the render stops rather than write it back (two machines on
+one chunk). `.stop` is read before each chunk and each frame. A frame that
+fails ends the render (exit 1) with its claim in place, for the host to
+free and count against this machine.
+
+A render that fails with no machine left names what failed: "frames
+11-15 failed on 09d89c9c, fbd54d8e -- no other machine to try"
+(`_no_machine_reason()`), not just "every machine allowed on it failed
+it"; its empty claims folder goes with it (`_end_render()`).
+
+Checked headless, Workbench, 64x36 PNG: 23 frames by one machine -- the
+same names and the same pixels as Blender's own `-a` render; 120 frames
+by three at once -- each written once, none missing, no claim or .tmp
+left; `.stop` -- exit 0, claim released; a render killed mid-chunk -- its
+claim left (`frames_done` and the frame in progress in it), another
+machine rendering everything but that chunk's frames left. Not checked
+yet: memory over hundreds of frames (one Blender per job, as the
+animation render always was), Cycles' persistent data.
+
+The host (`check_render_completion()`, every tick of a job at
+`render_start`; one listing of the claims, one of the frames):
+
+- **Dead claims.** A claim is held while its machine's worker is alive,
+  rendering this job, with the claim's pid (`_dead_claims()`): never a
+  comparison of clocks, never a guess from the claim's age. Otherwise it's
+  deleted, its chunk free again, the frames it finished kept, the `.tmp`
+  of its frame in progress removed. Counted against the machine only when
+  its render *failed* (`_failed_this_render()`: exit != 0, or killed on a
+  stuck frame): `chunk_failures[k]`, `failed_machines` (no more requests
+  of this job for it), `stuck_frames`. Stopped (both kinds, quitting
+  Blender, a project switch), cancelled, lost or gone: neutral -- a
+  workstation taken back or switched off says nothing about the frames,
+  and it may come back to the job. A claim unreadable for 60 s of the
+  host's own clock (a render killed between creating and writing it) is
+  freed too.
+- **Failed everywhere.** A chunk failed on `MAX_CHUNK_ATTEMPTS` (3)
+  different machines is the frames, not the machines: a heavy frame past
+  the RAM, a cache or texture missing on it, a driver erroring there. The
+  render stops (`fail_reason`, then the Cancel path: requests withdrawn,
+  the machines rendering sent a cancel) and ends `render_failed` with
+  "frames X-Y failed on 3 machines (...)" once none is left on it. Also
+  `render_failed`: chunks free, nobody on it, every live worker allowed on
+  the job failed it.
+- **Cancel** (`cancel_requested`): same stop, `render_failed (cancelled)`.
+  With no machine on the job (its chunks waiting for one) the button
+  still cancels it -- it used to refuse ("No machine currently assigned").
+- **One machine's Cancel** (Workers tab) is "leave this job", to free a
+  machine for another one: its render killed (neutral), the machine in
+  `left_machines`, which `machines_for()` leaves out -- it goes to the
+  other jobs first. Still idle once every job had its turn this tick,
+  `scan_queue()`'s second pass sends it back to the render it left
+  (`with_left`): an idle machine next to free chunks helps nobody. A new
+  dispatch, a Retry, or the end of the render clear the list.
+- **Finished**: every frame on disk and no claim left -- a claim whose
+  last frame is written but not yet released is waited for. The `.tmp`
+  files and the claims folder are removed.
+- **Dispatch.** Free chunks (a frame missing, no claim): idle machines
+  allowed on the job sent the same request (`send_render()`, same
+  `dispatch_id` and `chunk_size`), in the queue's priority order -- one
+  per free chunk, less the machines already starting on it (rendering, no
+  claim yet) or with a request waiting; "single": one, only while nobody
+  is on it. No free chunk: requests still waiting withdrawn (the old
+  "Render stuck at 100 %"). `render_dispatch()` (setup_finished) sends as
+  many machines as there are chunks to render (frames sent back by the
+  frame check: only theirs).
+
+Mixed versions: a 1.0.x worker given a chunks job renders the whole range
+with placeholders, blind to the claims -- the frames written twice back.
+A worker announces `farm_protocol` (2) in its file (`_worker_identity()`);
+`idle_machines()` leaves out any other, logged once, flagged in Worker
+details ("too old: gets no render until updated"). A protocol number,
+not the addon version: a dev build keeps its old number until the bump. The other
+way round, a request with no `chunk_size` (a 1.0.x farm host) is refused
+by the worker and fails its job with that reason (`_chunk_size_of()`).
+The first dispatch is logged too ("rendering on A, B (12 chunks of 5
+frames)"): only the machines sent to a render already started were.
+
+The UI: the Render dialog's modes are *All machines* and *Single* (a job
+file's older `auto`/`placeholder` reads as all machines: only "single" is
+tested). The claims are read with the rest of the farm snapshot, on its
+reader thread, for the jobs at `render_start` only -- Job details lists
+the chunks in progress (machine, frame) from there, never from `draw()`,
+and the job file's `chunk_failures`, `fail_reason`, `left_machines`;
+Worker details its machine's chunk. The pre-render picker's "None" reads
+"No pre-render script" and needs no label; the dialog opens on the
+project's `farm.default_prerender_script` (Edit project) on every
+`invoke()` -- the enum's own memory kept the last pick, or fell back to
+the first item. Edit project lists the presets of the project it edits,
+which isn't always the active one.
+
+A Retry clears `chunk_failures` and `fail_reason`; `failed_machines` too
+when every live worker allowed on the job is in it (else it would wait
+forever). `max_workers_per_job` is gone: it existed for collisions, and
+the priority already orders the jobs.
+
+Checked headless on simulated worker files, 27 cases: claims held, freed
+on a failure / stuck frame / stop / cancel / loss / a gone worker / a
+stale pid, three failures stopping the render then failing it with its
+reason, finished and its leftovers removed, waiting on a claim, single
+mode, machines sent per free chunk, a waiting request withdrawn, an
+unreadable claim, no machine left, a retry, the first dispatch.
+
+## Renders to check: the one before, to compare
+
+File details' "Renders to check" rows have a second play button, the
+render before this one (`open_render_video(previous=True)`): among the
+shot's other render folders, the newest video older than this render's
+(its folder's time if it has none). Times, not folder names: `v004_002`
+vs `v004-stable_001` vs a custom version prefix don't sort by name, and a
+render folder only gets its video once compiled. Looked up on click --
+`draw()` doesn't list folders -- so the button is always there and says
+so when there's no earlier render. A recompile touches an old render's
+video: it then counts as newer.
+
+## Entries for several departments
+
+An entry's departments are a list now: one RTK "the ball's contact" is
+animation's and lighting's at once -- written twice before, one per
+department, each ticked done on its own. Kept as one entry, one `done`:
+fixing it is one act. It counts in each department -- the filter, the
+red RTK cell of Project monitoring (`_has_rtk()`), the snapshot's
+`rtk_departments` -- and reads "animation, lighting" as a tag.
+
+Stored next to the old field, not instead of it: `"department"` keeps
+the first one, `"departments"` holds them all only when there are
+several (`_set_entry_departments()`), so a one-department entry is
+written exactly as before and an addon before 1.1.0 on the same project
+-- a team updates machine by machine -- still reads every entry, seeing
+its first department. Readers go through `entry_departments(e)`, which
+takes either shape.
+
+The dialogs pick them with an ENUM_FLAG menu (`prop_menu_enum()`, as the
+Render dialog's assigned machines), labelled with the selection; its
+items are bit-numbered, with no "none" item -- no flag set is none. A
+department the file no longer requires is dropped on Edit rather than
+failing invoke(). A review spreadsheet's department cell splits on `,`
+`;` `/` `+`, each name validated against the file's departments, the
+unknown ones dropped.
+
+New entry: one entry per line for every type -- a note joined its lines
+into one entry with the first line's department and frames, the others
+ignored; a shot per line (`PipelineEntryItem.shot_tag`, right of its
+departments, for a block), not one for the whole dialog; RTK by default;
+blank lines left out (an empty line, an empty line inside a text), and
+nothing written when every line is. Each line keeps its quarters
+(departments, frame tag and start, end, reference); a block's shot goes
+under its departments, in the same quarter -- side by side, an eighth
+each, neither was readable.
+
+Department order: `create_tracking()` stored `departments_required`
+`sorted()` by name, and every list followed the file -- the file
+details, the toggles, the pickers, an entry's tag. Now the project's
+order (Edit project: asset departments, then shot ones; any other after
+them, as given): `ordered_departments()`, applied where they're written
+(`create_tracking()`, `_set_entry_departments()`) and where they're read
+(`get_departments_required()`, `_status_from_raw()`) -- files written
+before stay sorted by name on disk and read in the project's order.

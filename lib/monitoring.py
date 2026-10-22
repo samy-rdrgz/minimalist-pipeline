@@ -2,6 +2,8 @@
 Properties editor on its Tool tab, where panels/monitoring_panel.py draws.
 See NOTES.md, "Monitoring: windows, not popups"."""
 
+import os
+import sys
 import time
 
 import bpy
@@ -96,6 +98,100 @@ def open_monitoring_window(context, kind: str) -> bool:
     return True
 
 
+def bring_monitoring_to_front(context, kind: str) -> bool:
+    """Bring that kind's open monitoring window to the front. No Blender
+    API does (Window has no such method, its x/y are read-only): on Windows
+    the system's own SetForegroundWindow on its handle -- it stays where it
+    is, a second screen included; elsewhere, or if that failed, a new one
+    opened in front and the old one closed -- same content (filters, page,
+    detail live in memory), over the old one, as big (_duplicate_window()).
+    False if it couldn't. See NOTES.md, "Monitoring windows: to the front"."""
+    old = monitoring_windows(kind)
+    if not old:
+        return False
+    if sys.platform == "win32" and _raise_win32(old[0]):
+        return True
+    # The new one first: it takes the focus, and no window this operator
+    # runs in is closed under it. A copy of the old one's editor where it
+    # is, as big (_duplicate_window()); a plain new window if that failed.
+    if not _duplicate_window(context, old[0], kind) and not open_monitoring_window(
+        context, kind
+    ):
+        return False
+    for window in old:
+        try:
+            with context.temp_override(window=window):
+                bpy.ops.wm.window_close()
+        except (RuntimeError, TypeError):
+            pass
+    return True
+
+
+def _duplicate_window(context, window, kind: str) -> bool:
+    """A new window holding a copy of window's editor (screen.area_dupli,
+    "Duplicate Area into New Window"): opened over that area, at its size
+    -- what window_new() can't be told. Marked as a monitoring window of
+    kind. False if Blender didn't open one."""
+    wm = context.window_manager
+    before = {w.as_pointer() for w in wm.windows}
+    area = max(window.screen.areas, key=lambda a: a.width * a.height)
+    try:
+        with context.temp_override(window=window, screen=window.screen, area=area):
+            bpy.ops.screen.area_dupli("INVOKE_DEFAULT")
+    except (RuntimeError, TypeError):
+        return False
+    new = [w for w in wm.windows if w.as_pointer() not in before]
+    if not new:
+        return False
+    new[0].screen[MONITORING_SCREEN_KEY] = kind
+    _window_kinds[new[0].as_pointer()] = kind
+    bpy.app.timers.register(_show_tool_tab(new[0].as_pointer()), first_interval=0.0)
+    ensure_monitoring_tick()
+    return True
+
+
+def _raise_win32(window) -> bool:
+    """SetForegroundWindow on the native window of this Blender process
+    whose client area is window's size (its position breaking a tie: two
+    monitoring windows alike). Allowed: this process is the foreground one,
+    the click came from it. False on any failure."""
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        user32 = ctypes.windll.user32
+        pid = os.getpid()
+        handles = []
+        enum_proc = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+
+        def visit(hwnd, _lparam):
+            owner = wintypes.DWORD()
+            user32.GetWindowThreadProcessId(hwnd, ctypes.byref(owner))
+            if owner.value == pid and user32.IsWindowVisible(hwnd):
+                handles.append(hwnd)
+            return True
+
+        user32.EnumWindows(enum_proc(visit), 0)
+        best = None
+        for hwnd in handles:
+            rect = wintypes.RECT()
+            corner = wintypes.POINT(0, 0)
+            user32.GetClientRect(hwnd, ctypes.byref(rect))
+            user32.ClientToScreen(hwnd, ctypes.byref(corner))
+            size_gap = abs(rect.right - window.width) + abs(rect.bottom - window.height)
+            score = (size_gap, abs(corner.x - window.x))
+            if best is None or score < best[0]:
+                best = (score, hwnd)
+        if best is None or best[0][0] > 4:
+            return False
+        hwnd = best[1]
+        if user32.IsIconic(hwnd):
+            user32.ShowWindow(hwnd, 9)  # SW_RESTORE
+        return bool(user32.SetForegroundWindow(hwnd))
+    except Exception:
+        return False
+
+
 def _show_tool_tab(window_ptr: int, tries: int = 20):
     """That window's Properties editor on its Tool tab -- that window only,
     and in its context: a timer has none, and setting a space's property
@@ -126,6 +222,7 @@ def _show_tool_tab(window_ptr: int, tries: int = 20):
 
 
 def redraw_monitoring(kind: str | None = None) -> None:
+    """Redraw the monitoring windows (of that kind): their editor's main region."""
     for window in monitoring_windows(kind):
         for area in window.screen.areas:
             if area.type != "PROPERTIES":
@@ -143,6 +240,7 @@ def ensure_monitoring_tick() -> None:
 
 
 def stop_monitoring_tick() -> None:
+    """Stop _monitoring_tick (the last monitoring window closed, unregister)."""
     if bpy.app.timers.is_registered(_monitoring_tick):
         bpy.app.timers.unregister(_monitoring_tick)
 
@@ -396,6 +494,7 @@ def draw_addon_keys(context, layout) -> None:
 
 
 def unregister_monitoring_keymap() -> None:
+    """Remove the shortcuts register_monitoring_keymap() added."""
     for km, kmi in _keymap_items:
         try:
             km.keymap_items.remove(kmi)

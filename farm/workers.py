@@ -27,9 +27,18 @@ from ..lib import (
     retry_shared_io,
     to_absolute,
 )
+from .chunks import read_claims
 from .loop import register_farm_loop
 
 STALE_WORKER_SECONDS = 15
+
+# How this addon's farm hands out and renders frames: 2, chunks claimed
+# one by one (1.1.0). A worker announces it in its file; the farm host
+# never sends a render to one on another protocol (idle_machines()) --
+# a 1.0.x worker would render the whole range with placeholders, blind to
+# the claims.
+FARM_PROTOCOL = 2
+_old_protocol_logged: set[str] = set()
 
 # A frame taking this many times its usual time is stuck (a hang, not a heavy
 # frame): the worker kills its own render (check_stuck_renders()). Default of
@@ -130,6 +139,7 @@ def _worker_identity() -> dict:
     return {
         "blender_version": bpy.app.version_string,
         "addon_version": get_addon_version(),
+        "farm_protocol": FARM_PROTOCOL,
         "started_at": now(),
         "renders_done": 0,
         "renders_failed": 0,
@@ -247,8 +257,7 @@ def stop_worker(kill_render: bool) -> str:
     """Give up this machine's worker role. kill_render=True: the render in
     progress is terminated and reported "stopped" -- neutral for the
     monitor, which carries on with the job's other machines or sends it out
-    again (never a failure) -- and the empty file of the frame it was on is
-    deleted, free again; the role ends now. kill_render=False: the render
+    again (never a failure); the role ends now. kill_render=False: the render
     stops once the frame it's on is written (render_stop_path(), read by
     the render entry after each frame), then the role ends (worker_tick()).
     Returns "stopped" or "draining"."""
@@ -265,7 +274,6 @@ def stop_worker(kill_render: bool) -> str:
     result = None
     for job_id, p in running:
         _terminate(p)
-        _free_frame_in_progress(job_id)
         _clear_render_flags(job_id)
         result = {
             "job_id": job_id,
@@ -399,14 +407,26 @@ def scan_render_requests(target_uuid: str = "") -> dict:
 def idle_machines() -> dict:
     """{uuid: worker} idle right now and not already targeted by a pending
     render request -- computed once per monitor tick (scan_queue()), then
-    handed out: join_running_renders() and render_dispatch() take the
-    machines they use out of it."""
+    handed out: render_dispatch() takes the machines it uses out of it.
+    Never a worker on another FARM_PROTOCOL (logged once)."""
     targeted = {r.get("target_uuid") for r in scan_render_requests().values()}
-    return {
-        uuid: w
-        for uuid, w in scan_workers().items()
-        if w.get("status") == "idle" and uuid not in targeted
-    }
+    idle = {}
+    for uuid, w in scan_workers().items():
+        if w.get("status") != "idle" or uuid in targeted:
+            continue
+        if w.get("farm_protocol") != FARM_PROTOCOL:
+            if uuid not in _old_protocol_logged:
+                _old_protocol_logged.add(uuid)
+                log(
+                    "WARNING",
+                    "farm",
+                    f"Worker {w.get('user', '?')} ({w.get('machine') or uuid[:8]}) runs "
+                    f"addon {w.get('addon_version') or 'older than 1.1.0'}: no render "
+                    f"sent to it until it's updated.",
+                )
+            continue
+        idle[uuid] = w
+    return idle
 
 
 def update_worker(dict: dict, count: str = ""):
@@ -423,29 +443,27 @@ def update_worker(dict: dict, count: str = ""):
 
 def saved_frames_path(job_id: str, uuid: str) -> Path:
     """Worker uuid's record of the frames it wrote for job_id -- one
-    "<dispatch_id> <frame> <time>" line per frame (no time from a worker on
-    an older version), plus "<dispatch_id> start <time>" each time a render
-    of it starts on that machine, appended by the render entry's render_write handler
-    (templates/worker_render_entry.py), read by the monitor
-    (frames_written_twice()) and for the pace (frame_seconds()). Next to
-    the render's own log."""
+    "<dispatch_id> <frame> <time>" line per frame, plus "<dispatch_id>
+    start <time>" each time a render of it starts on that machine (its
+    clock), appended by the render entry
+    (templates/worker_render_entry.py), read by the monitor (_note_frames())
+    and for the pace (frame_seconds()). Next to the render's own log."""
     return ConfigCache.get_path("farm_requests") / f"request_{job_id}_{uuid}.saved"
 
 
-def parse_saved(text: str) -> list[tuple[str, int | None, float | None]]:
+def parse_saved(text: str) -> list[tuple[str, int | None, float]]:
     """A saved_frames_path() record as (dispatch_id, frame, time) lines:
     frame None for a "start" line (a render of it starting on that
-    machine), time None from a worker on an older version. Pure: safe on a
-    reader thread."""
+    machine). A malformed line is skipped. Pure: safe on a reader thread."""
     lines = []
     for line in text.splitlines():
         parts = line.split()
-        if len(parts) < 2 or not (parts[1].isdigit() or parts[1] == "start"):
+        if len(parts) != 3 or not (parts[1].isdigit() or parts[1] == "start"):
             continue
         try:
-            at = float(parts[2]) if len(parts) == 3 else None
+            at = float(parts[2])
         except ValueError:
-            at = None
+            continue
         lines.append((parts[0], int(parts[1]) if parts[1].isdigit() else None, at))
     return lines
 
@@ -455,11 +473,11 @@ def frame_seconds(text: str) -> list[float]:
     record: the time between two frames it wrote in a row, same render
     (dispatch_id) -- times from one clock, its own. The first frame of each
     render has none (it includes opening the .blend; a "start" line marks
-    it), nor a line with no time. Pure: safe on a reader thread."""
+    it). Pure: safe on a reader thread."""
     seconds = []
     previous = None
     for dispatch_id, frame, at in parse_saved(text):
-        if frame is None or at is None:
+        if frame is None:
             previous = None
             continue
         if previous and previous[0] == dispatch_id and at > previous[1]:
@@ -477,7 +495,7 @@ def startup_seconds(text: str, frame_time: float) -> list[float]:
     for dispatch_id, frame, at in parse_saved(text):
         if frame is None:
             started = (dispatch_id, at)
-        elif started and started[0] == dispatch_id and None not in (at, started[1]):
+        elif started and started[0] == dispatch_id:
             startups.append(max(0.0, at - started[1] - frame_time))
             started = None
     return startups
@@ -493,36 +511,13 @@ def render_stop_path(job_id: str) -> Path:
     )
 
 
-def render_frame_path(job_id: str) -> Path:
-    """The frame file this machine's render of job_id is writing right now
-    -- one line, rewritten by the render entry before each frame it renders."""
-    return (
-        ConfigCache.get_path("farm_requests")
-        / f"request_{job_id}_{get_machine_id()}.frame"
-    )
-
-
-def _free_frame_in_progress(job_id: str) -> None:
-    """After killing this machine's render of job_id: delete the empty
-    file of the frame it was on. Left there, every other machine skips it
-    (placeholder: taken) and it waits for the end of the render; gone, the
-    next machine to walk past it -- one joining -- renders it. Best effort."""
+def _clear_render_flags(job_id: str) -> None:
+    """Delete this machine's render_stop_path() of job_id once its render
+    ended (or before it starts). Best effort."""
     try:
-        frame = Path(render_frame_path(job_id).read_text(encoding="utf-8").strip())
-        if frame.name and frame.stat().st_size == 0:
-            retry_shared_io(frame.unlink)
+        retry_shared_io(render_stop_path(job_id).unlink)
     except OSError:
         pass
-
-
-def _clear_render_flags(job_id: str) -> None:
-    """Delete this machine's render_stop_path()/render_frame_path() of
-    job_id once its render ended (or before it starts). Best effort."""
-    for path in (render_stop_path(job_id), render_frame_path(job_id)):
-        try:
-            retry_shared_io(path.unlink)
-        except OSError:
-            pass
 
 
 def render_request(job_data: dict, uuid: str, cmd_flags: list):
@@ -538,6 +533,16 @@ def render_request(job_data: dict, uuid: str, cmd_flags: list):
 
 
 _worker_active_processes: dict[str, subprocess.Popen] = {}
+
+
+def _chunk_size_of(request: dict) -> int:
+    """The request's chunk_size; a request without one comes from a farm
+    host on an older addon (placeholders): refused, its job failed."""
+    if not request.get("chunk_size"):
+        raise PipelineError(
+            "sent by a farm host on an older addon version (no chunks) -- update it"
+        )
+    return int(request["chunk_size"])
 
 
 def execute_render_request() -> dict:
@@ -595,17 +600,21 @@ def execute_render_request() -> dict:
                         # "CSV batch: the subprocess couldn't import itself".
                         "--addon-module",
                         __package__.rsplit(".", 1)[0],
-                        # Each frame it writes, for the monitor to spot a
-                        # frame two machines wrote (frames_written_twice()).
+                        # Each frame it writes, and when: who rendered what,
+                        # time per frame (queue._note_frames()).
                         "--saved-file",
                         str(saved_frames_path(data["job_id"], get_machine_id())),
                         "--dispatch-id",
                         data.get("dispatch_id") or "",
-                        # Stop after this frame, and the frame it's on.
+                        # Stop after this frame.
                         "--stop-file",
                         str(render_stop_path(data["job_id"])),
-                        "--frame-file",
-                        str(render_frame_path(data["job_id"])),
+                        # Chunks: the job's size, fixed at dispatch -- never
+                        # the project's, which may have changed since.
+                        "--chunk-size",
+                        str(_chunk_size_of(data)),
+                        "--machine",
+                        get_machine_id(),
                     ],
                     stdout=log_file,
                     stderr=subprocess.STDOUT,
@@ -747,15 +756,13 @@ def scan_worker_processes() -> None:
 
 
 def _kill_render(job_id: str, p, result: dict, count: str = "") -> None:
-    """Kill this machine's render p of job_id, free the frame it was on and
-    publish a failed last_job_result carrying result's fields (cancelled,
-    stuck...)."""
+    """Kill this machine's render p of job_id and publish a failed
+    last_job_result carrying result's fields (cancelled, stuck...)."""
     p.terminate()
     try:
         p.wait(timeout=5)
     except subprocess.TimeoutExpired:
         p.kill()
-    _free_frame_in_progress(job_id)
     _clear_render_flags(job_id)
     update_worker(
         {
@@ -798,7 +805,7 @@ def stuck_frame_check(
     job's. The first frame of a render also gets the machine's usual
     startup (scene sync). None when unknown: nothing written for this
     render yet, no usual time. Pure."""
-    lines = [(f, t) for d, f, t in parse_saved(text) if d == dispatch_id and t is not None]
+    lines = [(f, t) for d, f, t in parse_saved(text) if d == dispatch_id]
     if not lines:
         return None
     own = [
@@ -820,6 +827,15 @@ def stuck_frame_check(
         budget += sum(startups) / len(startups) if startups else usual
     limit = max(factor * budget, STUCK_FRAME_MIN_SECONDS)
     return at - last_at, limit, usual
+
+
+def _frame_in_progress(job_id: str, uuid: str) -> str:
+    """The frame machine uuid's claim on job_id says it's rendering, as a
+    file name; "" if none is known."""
+    for claim in read_claims(job_id).values():
+        if claim.get("machine") == uuid and claim.get("frame_in_progress_file"):
+            return Path(claim["frame_in_progress_file"]).name
+    return ""
 
 
 def check_stuck_renders() -> None:
@@ -851,10 +867,7 @@ def check_stuck_renders() -> None:
         if not found or found[0] <= found[1]:
             continue
         since, _limit, usual = found
-        try:
-            frame = Path(render_frame_path(job_id).read_text(encoding="utf-8").strip()).name
-        except OSError:
-            frame = ""
+        frame = _frame_in_progress(job_id, me)
         log(
             "WARNING",
             "farm",

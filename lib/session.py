@@ -339,6 +339,7 @@ def get_read_only_reason() -> str:
 
 
 def _mtime(filepath: str) -> float | None:
+    """filepath's mtime, None if it has none or can't be read."""
     try:
         return os.stat(filepath).st_mtime if filepath else None
     except OSError:

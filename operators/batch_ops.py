@@ -229,6 +229,8 @@ class M_PIPELINE_OT_batch_create(bpy.types.Operator):
         return {"PASS_THROUGH"}
 
     def _finish(self, context, cancelled=False):
+        """End the batch: stop its timer, kill the row in progress and drop its
+        request if cancelled, then report how many rows were made or skipped."""
         context.window_manager.event_timer_remove(self._timer)
         self._timer = None
 

@@ -26,6 +26,7 @@ from .tracking import (
     _status_from_raw,
     _walk_owner_dirs,
     create_entry,
+    entry_departments,
     find_file_by_name,
     owner_key,
     render_to_check_label,
@@ -297,10 +298,11 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
         )
         item["open_notes"] = len(open_threads)
         rtk_departments = {
-            e["department"]
+            d
             for t in open_threads
             for e in [t, *t["replies"]]
             if e["type"] == "rtk" and e["done"] is False
+            for d in e["departments"]
         }
         item["rtk_departments"] = sorted(rtk_departments)
         # Per department, then their mean: the footer averages the first.
@@ -333,15 +335,6 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
         json_get(config, "shots_departments", []), items["shot"]
     )
     return {"meta": meta, "assets": items["asset"], "shots": items["shot"], "notes": notes}
-
-
-def collect_snapshot(
-    root: Path, config: dict, meta: dict, thumbnails: dict | None = None
-) -> dict:
-    """read_snapshot_data() + build_snapshot() in one go (no thread)."""
-    meta = {"scan_started_at": now(), **meta}
-    v_prefix = json_get(config, "naming.version.prefix", "v")
-    return build_snapshot(read_snapshot_data(root, thumbnails, v_prefix), config, meta)
 
 
 def _department_state(status: dict, department: str) -> str:
@@ -437,6 +430,7 @@ def project_schedule(config: dict) -> dict | None:
 
 
 def _is_working_day(schedule: dict, day: date) -> bool:
+    """Whether day counts in the schedule: a worked weekday, not a day off."""
     return (
         day.isoweekday() in schedule["worked_days"] and day not in schedule["days_off"]
     )
@@ -515,13 +509,16 @@ def _columns(configured: list, items: list) -> list:
 
 
 def _entry_dict(e: dict) -> dict:
+    """An entry as the snapshot page shows it: plain fields, its departments
+    joined for the tag."""
     version = e.get("referenced_version")
     return {
         "type": e.get("type", "note"),
         "text": e.get("text", ""),
         "author": e.get("author", ""),
         "date": e.get("created_at", ""),
-        "department": e.get("department", ""),
+        "department": ", ".join(entry_departments(e)),
+        "departments": entry_departments(e),
         "version": Path(version).name if version else "",
         "shot": e.get("shot", ""),
         "done": e.get("done"),
@@ -538,6 +535,8 @@ def _thread_closed(thread: dict) -> bool:
 
 
 def _thread_dict(item_name: str, thread: dict, closed: bool = False) -> dict:
+    """A thread (root + replies) as the snapshot page shows it, tagged with
+    its item and whether it's closed."""
     return {
         "item": item_name,
         **_entry_dict(thread["root"]),
@@ -1274,6 +1273,8 @@ def _short_version(name: str, filename: str) -> str:
 
 
 def _render_entry(e: dict, reply: bool = False, closed: bool = False) -> str:
+    """One entry's <li>: type pill (ticked once done), tags, author and date,
+    text."""
     if e["done"] is True:
         # The type's own pill, green and ticked like "Validated" -- a
         # separate "done" tag read like one more department.
@@ -1712,6 +1713,7 @@ def _col(n: int) -> str:
 
 
 def _cell(ref: str, value, style: int = 0) -> str:
+    """One inline-string cell of the review sheet's XML; empty for no value."""
     if value in (None, ""):
         return f'<c r="{ref}" s="{style}"/>'
     text = xml_escape(_XML_ILLEGAL.sub("", str(value)))
@@ -2144,11 +2146,14 @@ def import_review_xlsx(path: Path) -> dict:
             for e in (read_json_quiet(tracking_json_path(filepath)) or {}).get("entries", [])
             if e.get("source") == REVIEW_SOURCE and e.get("author") == author
         }
-        department = (row.get("department") or "").lower()
-        try:
-            department = valid_department(filepath, department) if department else ""
-        except PipelineError:
-            department = ""
+        # One department, or several: "layout, animation" ("," ";" "/" "+").
+        departments = []
+        for name in re.split(r"[,;/+]", (row.get("department") or "").lower()):
+            try:
+                if name.strip() and valid_department(filepath, name.strip()):
+                    departments.append(name.strip())
+            except PipelineError:
+                pass
         entry_type = (row.get("type") or "").lower()
         for line in lines:
             if line in known:
@@ -2158,7 +2163,7 @@ def import_review_xlsx(path: Path) -> dict:
                 create_entry(
                     filepath,
                     text=line,
-                    department=department,
+                    departments=departments,
                     author=author,
                     type=entry_type if entry_type in ENTRY_TYPES else "note",
                     shot=row.get("shot") or None,

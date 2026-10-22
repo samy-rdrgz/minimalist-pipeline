@@ -51,23 +51,6 @@ def _increment_and_release(filepath: str, uuid: str):
             release_lock(Path(filepath), uuid)
 
 
-def get_save_shortcut():
-    """Return the active wm.save_mainfile keymap item's key combo, or None."""
-    kc = bpy.context.window_manager.keyconfigs.active
-    km = kc.keymaps.get("Window")
-    if km:
-        for kmi in km.keymap_items:
-            if kmi.idname == "wm.save_mainfile" and kmi.active:
-                return {
-                    "type": kmi.type,  # ex: 'S'
-                    "ctrl": kmi.ctrl,  # True / False
-                    "alt": kmi.alt,  # True / False
-                    "shift": kmi.shift,  # True / False
-                    "oskey": kmi.oskey,  # Cmd on macOS
-                }
-    return None
-
-
 addon_keymaps = []
 
 

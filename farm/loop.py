@@ -212,6 +212,8 @@ def request_monitor_refresh() -> None:
 
 
 def _apply_oneshot_read() -> float | None:
+    """Timer: fold the one-shot farm read in once its thread is done (polls
+    again in 0.25 s while it runs). Never raises: a timer would die."""
     try:
         result = _oneshot_reader.take()
         if result is None:
@@ -235,6 +237,7 @@ def _farm_paths() -> dict | None:
         "farm_actives": ConfigCache.get_path("farm_actives"),
         "farm_incomings": ConfigCache.get_path("farm_incomings"),
         "farm_requests": ConfigCache.get_path("farm_requests"),
+        "farm_claims": ConfigCache.get_path("farm_claims"),
         "workers": ConfigCache.get_path("workers"),
     }
 
@@ -354,6 +357,23 @@ def _frame_seconds_for_jobs(requests_dir: Path | None, jobs: list) -> dict:
     return out
 
 
+def _claims_for_jobs(claims_root: Path | None, jobs: list) -> dict:
+    """{job_id: {k: claim}} for the jobs being rendered: who renders which
+    chunk, on which frame (thread-safe)."""
+    from .chunks import read_claims_in
+
+    out = {}
+    if not claims_root:
+        return out
+    for job in jobs:
+        try:
+            if job["stage_history"][-1]["stage"] == "render_start":
+                out[job["job_id"]] = read_claims_in(claims_root / job["job_id"])
+        except (KeyError, IndexError, TypeError):
+            continue
+    return out
+
+
 def _read_farm_snapshot(paths: dict, scanned: dict, cached_actives: list) -> dict:
     """Full refresh: _read_farm_raw() + frame counts and times (thread-safe)."""
     raw = _read_farm_raw(paths, True, scanned)
@@ -361,6 +381,7 @@ def _read_farm_snapshot(paths: dict, scanned: dict, cached_actives: list) -> dic
     jobs = actives if actives is not None else cached_actives
     raw["frames"] = _frames_for_jobs(paths["root"], jobs)
     raw["frame_seconds"] = _frame_seconds_for_jobs(paths.get("farm_requests"), jobs)
+    raw["claims"] = _claims_for_jobs(paths.get("farm_claims"), jobs)
     return raw
 
 
@@ -433,6 +454,7 @@ def _apply_farm_snapshot(raw: dict) -> None:
     snapshot["jobs"] = jobs
     snapshot["workers"] = workers
     snapshot["silent_workers"] = raw.get("silent_workers", {})
+    snapshot["claims"] = raw.get("claims", {})
     get_monitor_cache().update(snapshot)
 
 
@@ -549,20 +571,10 @@ def _output_dir(job: dict, root: Path | None = None) -> Path | None:
 
 
 def _count_rendered_frames(folder: Path, ext: str) -> int:
-    """Frames actually written in folder: files with this extension and a
-    non-zero size -- renders run with placeholders, an empty file per frame
-    *started* (see NOTES.md, "Farm popup")."""
+    """Frames written in folder: files with this extension -- only ever
+    there whole (renamed from a hidden .tmp)."""
     suffix = f".{ext}".lower()
-    done = 0
-    for entry in cached_scandir(folder):
-        if not entry.name.lower().endswith(suffix):
-            continue
-        try:
-            if entry.stat().st_size > 0:
-                done += 1
-        except OSError:
-            pass
-    return done
+    return sum(1 for entry in cached_scandir(folder) if entry.name.lower().endswith(suffix))
 
 
 def job_state(stage: str) -> str:
@@ -689,8 +701,8 @@ def _build_job_entry(
         frames_total = resolved[1] - resolved[0] + 1
     frames_done = frames_done or 0
 
-    # Nothing timed (first frames, workers on an older version): None, the
-    # popup falls back on elapsed time over progress.
+    # Nothing timed yet (a render's first frames): None, the popup falls
+    # back on elapsed time over progress.
     seconds = {u: s for u, s in (frame_seconds or {}).items() if s}
     timed = [s for secs in seconds.values() for s in secs]
     average = sum(timed) / len(timed) if timed else None
@@ -820,6 +832,8 @@ def register_status_timer() -> None:
 
 
 def unregister_status_timer() -> None:
+    """Stop the farm status timer (register_status_timer()) and forget the
+    popup regions it redrew."""
     global _registered_status_tick_fn
     if _registered_status_tick_fn is not None and bpy.app.timers.is_registered(
         _registered_status_tick_fn

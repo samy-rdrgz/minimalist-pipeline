@@ -107,6 +107,8 @@ def log_read_at():
 
 
 def _matches(self, entry: dict, search: str) -> bool:
+    """Whether a log entry passes the Pipeline log's filters: level, action,
+    user, search."""
     level = entry.get("level", "")
     if self.level == "warning" and level not in ("warning", "error"):
         return False

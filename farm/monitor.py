@@ -22,6 +22,7 @@ from ..lib import (
     read_json_quiet,
     to_relative,
 )
+from .chunks import remove_claims
 from .dispatch import LOG_KEEP_BYTES, compact_log
 from .loop import (
     get_running_project,
@@ -44,6 +45,7 @@ _monitor_cache: dict = {
     "last_tick": None,
     "jobs": [],  # list of per-job snapshots
     "workers": {},  # {uuid: worker data}, see _apply_farm_snapshot()
+    "claims": {},  # {job_id: {chunk: claim}}, jobs being rendered
 }
 
 
@@ -63,6 +65,7 @@ def reset_monitor_cache() -> None:
             "last_tick": None,
             "jobs": [],
             "workers": {},
+            "claims": {},
         }
     )
 
@@ -390,7 +393,7 @@ def job_request(
     *,
     user: str = "unknown",
     priority: int = 10,
-    render_mode: str = "auto",
+    render_mode: str = "all",
     assigned_machines: list | None = None,
     increment: bool = True,
     prerender_script: str = "default",
@@ -501,8 +504,9 @@ def archive(job_path: Path) -> None:
         except OSError:
             pass
     # Each machine's frames-written record: only read while the render is
-    # judged (frames_written_twice()), nothing to keep.
+    # judged (queue._note_frames()), nothing to keep; nor its claims.
     discard_saved_frames(job_id)
+    remove_claims(job_id)
 
     # replace(), not rename(): a re-rendered file reuses its job id (hash of
     # file + preset + shot), so its previous run's archive is often already

@@ -26,7 +26,9 @@ settings.color_mode = "RGB"
 
 
 def _replace(tmp: str, dst: str) -> None:
-    # Atomic: a snapshot reading the thumbnail never sees half a file.
+    """os.replace(tmp, dst) -- atomic: a snapshot reading the thumbnail never
+    sees half a file --, retried while Windows refuses it (a reader has dst
+    open)."""
     for _ in range(5):
         try:
             os.replace(tmp, dst)
@@ -39,6 +41,8 @@ def _replace(tmp: str, dst: str) -> None:
 
 
 def _with_blender(src: str, tmp: str) -> None:
+    """Thumbnail of src into tmp with Blender: scaled, through the view
+    transform a float image needs. Raises on what it can't read."""
     img = bpy.data.images.load(src)
     try:
         w, h = img.size
@@ -55,6 +59,8 @@ def _with_blender(src: str, tmp: str) -> None:
 
 
 def _with_ffmpeg(src: str, tmp: str, layer: str | None) -> None:
+    """Thumbnail of src into tmp with ffmpeg -- a multilayer EXR's layer.
+    Raises with ffmpeg's error."""
     cmd = [ffmpeg, "-v", "error", "-y"]
     if layer:
         cmd += ["-layer", layer]

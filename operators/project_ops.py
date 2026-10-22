@@ -31,6 +31,22 @@ from ..lib import (
     thumbnail_size,
     warn_blender_version_mismatch,
 )
+from .farm_ops import (
+    _NO_SCRIPT,
+    _stable_enum_items,
+    default_pre_render_script,
+    pre_render_script_items,
+)
+
+_edited_pre_render_scripts: list[tuple[str, str, str]] = []
+
+
+def _edited_project_scripts(self, context):
+    """Pre-render presets of the project being edited -- not necessarily
+    the active one."""
+    root = self.project_path_selected
+    presets = Path(root) / "config" / "presets" if root else None
+    return _stable_enum_items(_edited_pre_render_scripts, pre_render_script_items(presets))
 
 # ---------------------------------------------------------------------------
 # Default config template
@@ -70,8 +86,8 @@ DEFAULT_CONFIG = {
         "max_concurrent_local": 1,
         "stale_monitor_seconds": 90,
         "dead_monitor_seconds": 360,
-        "max_workers_per_job": 0,
         "stuck_frame_factor": 5,
+        "chunk_size": 5,
     },
 }
 
@@ -185,6 +201,8 @@ class M_PIPELINE_OT_create_project(bpy.types.Operator):
         return {"FINISHED"}
 
     def _validate(self):
+        """(errors, warnings) of the new project's path and name, each a list of
+        message lines."""
         errors = []
         warnings = []
 
@@ -207,6 +225,8 @@ class M_PIPELINE_OT_create_project(bpy.types.Operator):
         return (errors or None, warnings or None)
 
     def _set_active(self, context, project_root, name):
+        """Make project_root the active project, added to the opened projects if
+        it isn't there, and save the list."""
         prefs = addon_pref(context)
         set_active_project_root(prefs, project_root)
         if not any(item.path == project_root for item in prefs.opened_projects):
@@ -416,18 +436,6 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         ),
     )
 
-    max_workers_per_job: bpy.props.IntProperty(
-        name="",
-        min=0,
-        max=64,
-        default=0,
-        description=(
-            "Most machines rendering one job at once (Auto/Placeholder modes), "
-            "joining workers included. 0: no limit. Fewer machines on the same "
-            "frames, fewer of them taking the same frame"
-        ),
-    )
-
     stuck_frame_factor: bpy.props.IntProperty(
         name="",
         min=0,
@@ -437,6 +445,23 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
             "A worker kills its render when the frame it's on takes this many "
             "times its usual time (5 min at least): the frames left go to the "
             "other machines. 0: never"
+        ),
+    )
+
+    default_prerender_script: bpy.props.EnumProperty(
+        items=_edited_project_scripts,
+        name="",
+        description="Pre-render script the Render dialog starts with",
+    )  # type: ignore
+
+    chunk_size: bpy.props.IntProperty(
+        name="",
+        min=1,
+        max=200,
+        default=5,
+        description=(
+            "Frames per chunk: a worker claims this many frames at a time. "
+            "Fixed for a render once it's sent out"
         ),
     )
 
@@ -519,9 +544,13 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         layout = self.layout
         layout.label(text=f"Editing: {self.project_name}", icon="FILE_TEXT")
         layout.separator()
+        # Two columns side by side: one ran past the screen's height.
+        columns = layout.split(factor=0.5)
+        left = columns.column()
+        right = columns.column()
 
         # Read-only
-        box = layout.box()
+        box = left.box()
         for label, icon, value in [
             ("NAME", "PINNED", self.project_name),
             ("PATH", "BLANK1", self.project_path_selected),
@@ -535,7 +564,8 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         row.prop(self, "project_bl_version")
 
         # Resolution / FPS
-        box = layout.box().column(align=False)
+        left.separator()
+        box = left.box().column(align=False)
         row = _settings_row(box, "RESOLUTION", "RESTRICT_VIEW_OFF")
         row.prop(self, "resolution_x")
         row.prop(self, "resolution_y")
@@ -547,7 +577,8 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         row.label(text="")
 
         # Naming
-        box = layout.box().column(align=False)
+        left.separator()
+        box = left.box().column(align=False)
         row = _settings_row(box, "", "NONE")
         row.label(text="PREFIX", icon="SYNTAX_OFF")
         row.label(text="DIGITS", icon="SORTBYEXT")
@@ -576,7 +607,7 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         )
 
         # Structure
-        box = layout.box().column(align=False)
+        box = right.box().column(align=False)
         for label, icon, prop in [
             ("FOLDERS", "OUTLINER", "project_folders"),
             ("ASSET PREFIX", "MESH_MONKEY", "asset_prefixes"),
@@ -601,7 +632,8 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         )
 
         # Thumbnails / snapshot
-        box = layout.box().column(align=False)
+        left.separator()
+        box = left.box().column(align=False)
         row = _settings_row(box, "THUMBNAILS", "IMAGE_DATA")
         row.prop(self, "thumbnail_size")
         row.label(text="")
@@ -610,6 +642,10 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         row.prop(self, "progress_wip")
         row.prop(self, "progress_rework")
         row.prop(self, "progress_rtk")
+
+        # Schedule
+        right.separator()
+        box = right.box().column(align=False)
         row = _settings_row(box, "SCHEDULE", "TIME")
         row.prop(self, "schedule_start")
         row.prop(self, "schedule_end")
@@ -617,9 +653,13 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         week = _settings_row(box, "WORKED DAYS", "BLANK1").row(align=True)
         for i, name in enumerate(("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")):
             week.prop(self, "schedule_worked_days", index=i, text=name, toggle=True)
-        row = _settings_row(box, "WORKERS PER JOB", "NETWORK_DRIVE")
-        row.prop(self, "max_workers_per_job")
-        row.label(text="0 = no limit" if not self.max_workers_per_job else "")
+
+        # Farm
+        right.separator()
+        box = right.box().column(align=False)
+        row = _settings_row(box, "CHUNK SIZE", "RENDER_RESULT")
+        row.prop(self, "chunk_size")
+        _settings_row(box, "PRE-RENDER", "SCRIPT").prop(self, "default_prerender_script")
         row = _settings_row(box, "STUCK FRAME", "ERROR")
         row.prop(self, "stuck_frame_factor")
         row.label(
@@ -656,8 +696,11 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         self.schedule_days_off = self._days(schedule.get("days_off", []))
         worked = schedule.get("worked_days", WORK_WEEK)
         self.schedule_worked_days = [d in worked for d in range(1, 8)]
-        self.max_workers_per_job = max(
-            0, int((config.get("farm") or {}).get("max_workers_per_job", 0) or 0)
+        self.default_prerender_script = default_pre_render_script(
+            config, _edited_project_scripts(self, context)
+        )
+        self.chunk_size = max(
+            1, int((config.get("farm") or {}).get("chunk_size", 5) or 5)
         )
         stuck = (config.get("farm") or {}).get("stuck_frame_factor", 5)
         self.stuck_frame_factor = max(0, int(5 if stuck is None else stuck))
@@ -692,7 +735,7 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
             ),
         )
 
-        return context.window_manager.invoke_props_dialog(self, width=450)
+        return context.window_manager.invoke_props_dialog(self, width=900)
 
     def execute(self, context):
         try:
@@ -737,12 +780,18 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
                 "tags": self._csv_to_list(self.tags),
                 "assets_departments": self._csv_to_list(self.assets_departments),
                 "shots_departments": self._csv_to_list(self.shots_departments),
-                # "farm": only max_workers_per_job and stuck_frame_factor are
-                # edited here, the rest stays as read from the loaded config.
+                # "farm": only stuck_frame_factor, chunk_size and
+                # default_prerender_script are edited here, the rest stays as
+                # read from the loaded config.
                 "farm": (config.get("farm") or {})
                 | {
-                    "max_workers_per_job": self.max_workers_per_job,
                     "stuck_frame_factor": self.stuck_frame_factor,
+                    "chunk_size": self.chunk_size,
+                    "default_prerender_script": (
+                        ""
+                        if self.default_prerender_script == _NO_SCRIPT
+                        else self.default_prerender_script
+                    ),
                 },
                 "thumbnails": (config.get("thumbnails") or {})
                 | {"size": self.thumbnail_size},

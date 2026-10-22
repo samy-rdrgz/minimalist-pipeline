@@ -29,6 +29,7 @@ from .browser import (
     shot_department_items,
     shot_items,
     shot_tag_items,
+    tracked_department_flag_items,
     tracked_department_items,
     version_items,
 )
@@ -38,6 +39,7 @@ from .config import (
     file_in_active_project,
     find_known_project_for_file,
     find_project_root,
+    ordered_departments,
     format_camera_name,
     format_shot_segment,
     get_active_project_root,
@@ -60,8 +62,6 @@ from .core import (
     SIDE_BY_SIDE_WIDTH,
     AdoptedProcess,
     addon_pref,
-    monitoring_detail,
-    set_monitoring_detail,
     cached_scandir,
     draw_box_tip,
     get_addon_version,
@@ -70,6 +70,7 @@ from .core import (
     lines_budget,
     list_to_labels,
     locked_json,
+    monitoring_detail,
     now,
     path_reachable,
     process_alive,
@@ -82,8 +83,10 @@ from .core import (
     responsive_layout,
     retry_shared_io,
     safe_icon,
+    set_monitoring_detail,
     text_field,
     text_to_lines,
+    write_json_atomic,
 )
 from .creation import (
     DEFAULT_ASSET_DEPARTMENTS,
@@ -115,6 +118,7 @@ from .monitoring import (
     monitoring_kind,
     monitoring_windows,
     open_mainfile,
+    bring_monitoring_to_front,
     open_monitoring_window,
     paginate,
     redraw_monitoring,
@@ -143,21 +147,21 @@ from .presets import (
 )
 from .preview import (
     latest_render_dir,
-    render_root,
     latest_shot_mp4,
+    render_root,
     resolve_block_sources,
     resolve_sequence_sources,
 )
-from .saving import WM_OT_safe_save, get_save_shortcut
+from .saving import WM_OT_safe_save
 from .session import (
     close_session,
     get_opened_as_read_only,
     get_read_only_reason,
-    note_read_only_saved,
-    read_only_unchanged_on_disk,
     get_user,
     get_user_data,
     load_project_data,
+    note_read_only_saved,
+    read_only_unchanged_on_disk,
     save_project_data,
     save_settings,
     scan_sessions,
@@ -207,6 +211,7 @@ from .tracking import (
     delete_entry,
     department_status_tooltip,
     edit_entry,
+    entry_departments,
     filter_review_boxes,
     find_linked_by,
     format_duration,

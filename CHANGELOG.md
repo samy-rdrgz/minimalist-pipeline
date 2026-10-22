@@ -2,6 +2,69 @@
 
 All notable changes to this addon. Dates are release dates.
 
+## 1.1.0 — 2026-10-22
+
+A new render farm: frames handed out in small chunks instead of every
+machine racing over the whole shot -- no more frames written twice or
+renders stuck at the end, machines added or taken off at any time. Notes
+for several departments, and a round of interface fixes.
+
+**Render farm**
+
+- **Renders are cut into chunks of frames** (5 by default, Edit project
+  > *Chunk size*). Each free machine takes the next chunk, one at a time;
+  a machine added mid-render takes the chunks still free, and a machine
+  stopped or switched off simply leaves its chunk to the others. A frame
+  is only ever written whole: two machines never write the same frame
+  again.
+- **A failing chunk no longer takes the job down**: the machine it failed
+  on gets no more of that job, its chunk goes to another. The same frames
+  failing on three machines fail the job, saying which frames and on
+  which machines.
+- **A frame stuck far longer than usual is caught**: the render is
+  stopped and its chunk goes to another machine (Edit project > *Stuck
+  frame*).
+- **Cancel one machine to free it for another job**: it leaves that job
+  for the others, and only comes back to it if nothing else needs it. A
+  job's Cancel stops every machine on it, even with none on it yet.
+- **Render dialog**: two modes, *All machines* and *Single*; the
+  pre-render script menu opens on the project's own (Edit project >
+  *Pre-render*), "No pre-render script" by default. *Workers per job* is
+  gone: the priority orders the jobs.
+- **Farm monitoring**: Job details shows the chunks in progress (which
+  machine, which frame), the failed ones and why a job stopped; a worker's
+  own detail page (its versions, its last render, its chunk); machines
+  that stopped answering are shown, greyed, instead of disappearing; a
+  button opens the farm's folder.
+- **"Who rendered frame X"** stays within the render's range and answers
+  with the machine, the frames it rendered around it and its speed.
+- **A machine on an older version of the addon gets no render** (it
+  would write frames twice): flagged in its detail. Update every machine
+  of the farm.
+- **The compositor's File Output nodes are numbered again** frame by
+  frame.
+- The farm host sets up new jobs alongside its own render when machines
+  sit idle, instead of waiting for its render to end.
+
+**Notes and tasks**
+
+- **An entry can be for several departments**: an RTK turns each of them
+  red. A review spreadsheet's department cell takes several too.
+- **New entry: one entry per line for every type** (notes included),
+  each line with its own departments, frames and -- in a shot block --
+  shot. RTK selected by default, empty lines left out.
+- **Departments always in the project's order**, wherever they're listed.
+
+**Interface**
+
+- **Edit project in two columns**: it ran past the screen.
+- **Clicking Monitoring again brings its window to the front.**
+- **Renders to check: play the render before it**, to compare.
+- File menus show each asset's or shot's description as a tooltip.
+- Addon settings (Advanced mode, worker on open, FFmpeg path...) survive
+  an addon update.
+- Monitoring windows: one row less, the pages no longer overflow.
+
 ## 1.0.18 — 2026-10-21
 
 Project and Farm monitoring in windows of their own, paged to the
