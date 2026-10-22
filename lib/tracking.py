@@ -1485,8 +1485,11 @@ def edit_entry(
                         e.pop("done_by", None)
                         e.pop("done_at", None)
 
-                    else:
-                        e["done"] = e.get("done", False)
+                    elif e.get("done") is None:
+                        # A note turned task: unchecked. Older notes store
+                        # "done": null, which .get(key, False) kept as None --
+                        # no checkbox.
+                        e["done"] = False
                     if f_start is not None:
                         e["frame_start"] = f_start
                         e["frame_reference"] = frame_reference

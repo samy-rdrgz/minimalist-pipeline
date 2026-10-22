@@ -446,8 +446,18 @@ def draw_pager(layout, page: int, pages: int) -> None:
 # sized on the window" and "Shortcuts".
 _PAGE = "m_pipeline.monitoring_page"
 _KEYMAP_ITEMS = (
-    ("Previous page", "Frames", "EMPTY", _PAGE, "LEFT_ARROW", (), {"step": -1}, True),
-    ("Next page", "Frames", "EMPTY", _PAGE, "RIGHT_ARROW", (), {"step": 1}, True),
+    # to_end spelled out: told apart from First / Last page in the preferences.
+    (
+        "Previous page",
+        "Frames",
+        "EMPTY",
+        _PAGE,
+        "LEFT_ARROW",
+        (),
+        {"step": -1, "to_end": False},
+        True,
+    ),
+    ("Next page", "Frames", "EMPTY", _PAGE, "RIGHT_ARROW", (), {"step": 1, "to_end": False}, True),
     (
         "First page",
         "Frames",
@@ -562,6 +572,7 @@ def draw_addon_keys(context, layout) -> None:
             continue
         row = col.row(align=True)
         row.prop(kmi, "active", text="")
+        row.separator(factor=1.5)
         name = row.row()
         name.active = kmi.active
         name.label(text=label)

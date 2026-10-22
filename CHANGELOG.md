@@ -54,6 +54,8 @@ for several departments, and a round of interface fixes.
   each line with its own departments, frames and -- in a shot block --
   shot. RTK selected by default, empty lines left out.
 - **Departments always in the project's order**, wherever they're listed.
+- **A note turned into a todo or an RTK shows its checkbox** -- older
+  notes kept none.
 
 **Interface**
 

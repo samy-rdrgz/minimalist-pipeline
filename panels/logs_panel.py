@@ -44,7 +44,7 @@ _TIME, _USER, _ACTION = 0.16, 0.09, 0.13
 
 # What the window holds besides its lines (filters, column titles, footer,
 # margins), and one line's height, in widget units -- see rows_that_fit().
-_LOG_RESERVED_UNITS = 8.4
+_LOG_RESERVED_UNITS = 7.4
 _LINE_UNITS = 1.0
 
 

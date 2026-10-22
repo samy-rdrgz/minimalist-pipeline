@@ -129,7 +129,9 @@ class PipelineAddonPreferences(bpy.types.AddonPreferences):
             col.label(text=" • No projects")
 
         layout.separator()
-        layout.prop(
+        fold = layout.row()
+        fold.alignment = "LEFT"
+        fold.prop(
             self,
             "show_shortcuts",
             icon="DISCLOSURE_TRI_DOWN" if self.show_shortcuts else "DISCLOSURE_TRI_RIGHT",

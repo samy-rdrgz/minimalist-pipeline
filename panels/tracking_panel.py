@@ -699,7 +699,7 @@ def draw_file_details(state, context, layout):
 
 # What Project monitoring's window holds besides its rows (filters,
 # table header, footer, margins), in widget units -- see rows_that_fit().
-_TABLE_RESERVED_UNITS = 8.4
+_TABLE_RESERVED_UNITS = 6.5
 
 
 def draw_monitor_table(self, context, layout, columns, project_root):
