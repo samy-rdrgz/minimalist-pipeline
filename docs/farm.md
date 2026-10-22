@@ -13,6 +13,8 @@ A job goes through: `queued → setup → render → checks_images (ffmpeg check
 
 Submission (the "Render" panel, or a per-file button): priority (higher goes first, 10 by default; equal priority: oldest first), render mode, increment (systematic new output folder, or reuse), frame range with relative override (`s+10`, `e-5`...), targeted machines (empty = auto), pre-render script preset -- the dialog opens on the project's own (Edit project → *Pre-render*, "No pre-render script" by default), never on the one picked last time.
 
+<img src="images/farm-render-dialog.png" alt="The Render dialog" width="360">
+
 **Pre-render presets**: any `.py` or `.json` file dropped in `config/presets/` (except `asset_file_preset.py`) shows up in the submission's preset list, and is applied by each worker right before rendering -- on top of the file's own settings, never saved back into it. A `.py` defines `override(scene, job_data)` (`job_data` is the job's JSON, read-only use); a `.json` is a flat map of dot-notation paths from the scene:
 
 ```python

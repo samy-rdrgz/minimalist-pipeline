@@ -13,6 +13,8 @@ Un job traverse : `queued → setup → render → checks_images (contrôle ffmp
 
 Soumission (panel "Render", ou bouton par fichier) : priorité (la plus haute passe en premier, 10 par défaut ; à priorité égale : le plus ancien d'abord), mode de rendu, incrément (nouveau dossier de sortie systématique ou réutilisation), plage de frames avec override relatif (`s+10`, `e-5`...), machines ciblées (vide = auto), preset de script pré-rendu -- le dialogue s'ouvre sur celui du projet (Edit project → *Pre-render*, "No pre-render script" par défaut), jamais sur le dernier choisi.
 
+<img src="images/farm-render-dialog.png" alt="Le dialogue Render" width="360">
+
 **Presets pré-rendu** : tout fichier `.py` ou `.json` déposé dans `config/presets/` (sauf `asset_file_preset.py`) apparaît dans la liste des presets à la soumission, et chaque worker l'applique juste avant de rendre -- par-dessus les réglages du fichier, sans jamais les sauvegarder dedans. Un `.py` définit `override(scene, job_data)` (`job_data` est le JSON du job, à lire seulement) ; un `.json` est une simple liste de chemins à points depuis la scène :
 
 ```python

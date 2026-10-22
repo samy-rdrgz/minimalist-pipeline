@@ -19,7 +19,7 @@ By theme; the sections below stay in the order they were written.
 - **Versions, saving, files**: [Read-only reason: from a popup on every open to an on-demand menu](#read-only-reason-from-a-popup-on-every-open-to-an-on-demand-menu) · [Top bar read-only indicator: why it sits before the Blender icon](#top-bar-read-only-indicator-why-it-sits-before-the-blender-icon) · [.wipmeta writes tolerate a missing sidecar; the panel doesn't trust the flag alone](#wipmeta-writes-tolerate-a-missing-sidecar-the-panel-doesnt-trust-the-flag-alone) · [Next version number: never from a cached listing](#next-version-number-never-from-a-cached-listing) · [Recent files: derived from the log, not a stored list](#recent-files-derived-from-the-log-not-a-stored-list) · [resolve_bpy_path() left "../" uncollapsed in every stored link path](#resolve_bpy_path-left--uncollapsed-in-every-stored-link-path) · [Copy/paste isn't always under bpy.app.tempdir](#copypaste-isnt-always-under-bpyapptempdir) · [Project walk: a stray .pipeline/ hid every asset below it; popup regions must not outlive their popup](#project-walk-a-stray-pipeline-hid-every-asset-below-it-popup-regions-must-not-outlive-their-popup)
 - **Monitoring windows, popups, panels**: [Monitoring: windows, not popups](#monitoring-windows-not-popups) · [Monitoring windows: to the front](#monitoring-windows-to-the-front) · [Monitoring windows: pages sized on the window](#monitoring-windows-pages-sized-on-the-window) · [Monitoring popups: reopening on the detail, or not](#monitoring-popups-reopening-on-the-detail-or-not) · [File details' monitoring_detail("file") is a folder, not a versioned file](#file-details-monitoring_detailfile-is-a-folder-not-a-versioned-file) · [Popup-chaining: a second modal popup always waits one timer tick](#popup-chaining-a-second-modal-popup-always-waits-one-timer-tick) · [Action popups: dialogs](#action-popups-dialogs) · ["Render" button opening pre-filled: an operator property's own redo memory](#render-button-opening-pre-filled-an-operator-propertys-own-redo-memory) · [Text wrapping in panels](#text-wrapping-in-panels) · [Pipeline log: backup noise, viewer](#pipeline-log-backup-noise-viewer) · [Shortcuts](#shortcuts)
 - **Shared drive, network cost**: [Network-share redraw cost: caching disk reads off draw()/poll()/enum callbacks](#network-share-redraw-cost-caching-disk-reads-off-drawpollenum-callbacks) · [Popups on a network share: nothing on disk in draw(), heavy reads off the UI thread](#popups-on-a-network-share-nothing-on-disk-in-draw-heavy-reads-off-the-ui-thread) · [Sidebar redraw: 341 ms of network calls, 0 notes on screen](#sidebar-redraw-341-ms-of-network-calls-0-notes-on-screen) · [Windows: replace/delete refused while a reader has the file open](#windows-replacedelete-refused-while-a-reader-has-the-file-open) · [Lock staleness: 3x the heartbeat, not 1x](#lock-staleness-3x-the-heartbeat-not-1x)
-- **Addon lifecycle**: [Addon register()/unregister(): four lifecycle gotchas](#addon-registerunregister-four-lifecycle-gotchas) · [Addon register()](#addon-register) · [Addon settings lost on update](#addon-settings-lost-on-update)
+- **Addon lifecycle**: [Addon register()/unregister(): four lifecycle gotchas](#addon-registerunregister-four-lifecycle-gotchas) · [Addon register()](#addon-register) · [Addon settings lost on update](#addon-settings-lost-on-update) · [Screenshots in the docs](#screenshots-in-the-docs)
 
 ---
 
@@ -2820,3 +2820,13 @@ in a keymap item: `farm_request_render.current_file` makes invoke() read
 it. F5 refreshes a monitoring window (`m_pipeline.monitoring_refresh`).
 Enter to open a file's detail was turned down: too easy to hit by
 accident.
+
+## Screenshots in the docs
+
+`docs/images/` (one set for both languages: the interface is in English),
+shown with `<img src=... width=...>` rather than `![]()`: a sidebar
+panel or a small dialog at its own resolution filled the page width.
+Dialogs and panels get a width, the monitoring windows and the snapshot
+the page's. `docs/` is left out of the extension package
+(`blender_manifest.toml`), so they never weigh on the download. Update a
+capture when its screen changes: an outdated one misleads more than none.

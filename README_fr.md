@@ -65,6 +65,8 @@ Réglages disponibles dans `Preferences > Add-ons > Minimalist Pipeline` :
 
 Session, verrouillage, check des libs périmées et gating read-only tournent toujours dès qu'un projet est actif — pas de toggle pour tout mettre en pause d'un coup. *Silent auto-increment* ne contrôle que le silence (ou pas) de la proposition de version à la première ouverture du jour.
 
+<img src="docs/images/prefs.png" alt="Les préférences de l'addon, Shortcuts dépliés" width="620">
+
 ---
 
 ## Concepts

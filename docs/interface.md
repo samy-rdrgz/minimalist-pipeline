@@ -12,6 +12,8 @@ All the panels live in the 3D viewport sidebar (`N` > **Pipeline** tab). Each ha
 | **File** | If the open file belongs to the active project | One panel for both assets and shots — worked-this-session department toggles (if the file has required departments), Increment and Mark as stable (hidden once the open file already is the stable version) side by side when the sidebar is wide enough, then Render -- for a shot, next to Preview block / Preview sequence --, Details (Project monitoring opened on this file's detail: its departments, renders, links), Open folder. Edit block structure is in the Pipeline menu (see [Shot blocks (multishot)](multishot.md)). Further down, inline (not a separate panel): its notes/todos/rtk, with direct editing/validation. See [Tracking & reviews](tracking-and-reviews.md). |
 | **Farm** | If a project is active | Header: monitor status (not running / running / stale / dead) -- click it to open Farm monitoring -- and a Launch button. Body: the "Farm monitor" dashboard button first, the same Launch/Kill, a status detail line, and "Add this machine as worker" / "Stop this worker". See [Rendering (farm)](farm.md). |
 
+<img src="images/gs-project-panel.png" alt="The Project panel in the sidebar" width="280"> <img src="images/gs-file-panel.png" alt="The File panel of an open shot" width="280">
+
 <br>
 
 ## Overview windows
@@ -24,9 +26,19 @@ Reached from the buttons above, not permanent panels (Project monitoring, the Fa
 
 <br>
 
+<img src="images/ui-project-monitoring.png" alt="Project monitoring: every file and its departments">
+
+<img src="images/ui-file-details.png" alt="A file's detail: departments, last render, renders to check, notes">
+
+<img src="images/ui-farm-jobs.png" alt="Farm monitoring: the jobs">
+
+<img src="images/ui-pipeline-log.png" alt="The Pipeline log window">
+
 ## Top bar menu
 
 A "Pipeline" menu appears in the top bar (next to File/Edit/Render...), so you don't have to open the sidebar for common actions — same content as the panels above (create, open, render, save/increment/mark-stable on the current file, prod snapshot export and review import, farm roles), condensed into a single menu. It also holds what the sidebar no longer shows: Batch create from CSV, and Edit block structure for an open shot file; the rarely used items (Batch create, Edit block structure, Pipeline log, Unset active project) are greyed out, still clickable.
+
+<img src="images/ui-pipeline-menu.png" alt="The Pipeline menu in the top bar" width="260">
 
 Under "Open file", a "Recent files" submenu: up to 5 recently opened files — your own, not a teammate's, and never the file already open. Not a separate list: derived from `sessions_log.jsonl` each time, so it's automatically scoped to the active project and can't drift from it. One click reopens, no dialog.
 

@@ -138,6 +138,8 @@ Written under a lock and atomically (temp file then rename), like every other pi
 
 The other `farm` keys aren't in the dialog: how many local farm processes at once, when a farm host counts as stale / gone, when finished jobs and their logs are archived / deleted (see [Rendering](farm.md)).
 
+<img src="images/project-edit.png" alt="The Edit project dialog">
+
 **Blender version**: `blender_version` (set at creation, editable in Edit project) is the Blender the project is made with. Opening the project with another major.minor (5.2 for a 4.5 project -- 4.5.2 vs 4.5.7 doesn't count) shows a red warning popup at startup and on activation, plus a red line in the Project panel: a file saved in a newer Blender may not open, or not look the same, in the project's one. Leave it empty to never warn.
 
 Every prefix, tag, department, and digit count is free to change — this is the file that rebuilds the naming regex and folder routing on every change. `pipeline_addon_version` is written/refreshed on every project creation or edit — no automatic migration logic yet, just enough to know later which addon version last touched a given config.

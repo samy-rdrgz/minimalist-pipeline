@@ -10,9 +10,13 @@ Cette page n'est volontairement pas une référence de concepts — c'est ce qu'
 
 Menu de la barre du haut (ou panneau Project) → **New project**. Choisir un dossier, donner un nom, et le wizard construit la structure de dossiers pour vous (`assets/`, `shots/`, `library/`, `renders/`...) — rien à monter à la main. Structure complète : [Structure de projet, nommage, création en masse](project-and-naming_fr.md).
 
+<img src="images/gs-create-project.png" alt="Le dialogue New project" width="480"> <img src="images/gs-project-panel.png" alt="Le panneau Project dans la sidebar" width="280">
+
 ## 2. Créer son premier asset ou shot
 
 **New asset** / **New shot**, taper un nom — c'est tout. L'addon construit le bon nom de fichier (`ch_bob_v001.blend`, `sq010_sh010_v001.blend`...) et crée son dossier de suivi juste à côté. On ne tape jamais un numéro de version ou un padding à la main. Plusieurs à créer d'un coup ? **Batch create from CSV** fait la même chose depuis une feuille de calcul.
+
+<img src="images/gs-new-asset.png" alt="Le dialogue New asset" width="400"> <img src="images/gs-new-shot.png" alt="Le dialogue New shot" width="400">
 
 ## 3. Travailler, sauvegarder, laisser l'addon gérer les versions
 
@@ -20,17 +24,25 @@ Ctrl+S comme d'habitude. La plupart du temps, rien de visible ne se passe — l'
 
 Le seul moment où une popup apparaît, c'est quand une vraie décision demande un humain — par exemple sauvegarder par-dessus une version déjà marquée `-stable`. La lire, choisir une option, continuer à travailler. [Versions : wip et stable](versions_fr.md) détaille exactement quand et pourquoi ça arrive.
 
+<img src="images/gs-file-panel.png" alt="Le panneau File d'un shot ouvert" width="280">
+
 ## 4. Marquer quelque chose comme terminé : `-stable`
 
 Quand un asset ou un shot est dans un état sur lequel les autres peuvent s'appuyer, utiliser **Mark as stable** plutôt que simplement incrémenter. C'est ce qu'un link ailleurs dans le projet va réellement pointer — une simple version de travail n'est jamais référencée d'un fichier à l'autre.
+
+<img src="images/gs-increment.png" alt="Le dialogue Increment version" width="460">
 
 ## 5. Laisser des notes, des todos, des retours à corriger
 
 Le panneau **Tracking** sur n'importe quel fichier permet de noter une remarque, ajouter un todo, ou signaler quelque chose à corriger — pas de feuille de calcul, pas d'outil de revue séparé. Voir [Suivi & revues](tracking-and-reviews_fr.md).
 
+<img src="images/tracking-new-entry.png" alt="Le dialogue New entry" width="560">
+
 ## 6. Rendre
 
 Cliquer **Render** sur n'importe quel fichier, choisir une plage de frames (ou garder les valeurs par défaut), et soumettre. N'importe quel poste avec le projet ouvert et Blender lancé peut prendre le job — suivre la progression depuis le dashboard farm. Rien à installer à part Blender. Voir [Rendu (farm)](farm_fr.md).
+
+<img src="images/farm-render-dialog.png" alt="Le dialogue Render" width="360">
 
 ## Travailler avec quelqu'un d'autre
 

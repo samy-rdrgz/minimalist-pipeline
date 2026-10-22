@@ -65,6 +65,8 @@ Settings available in `Preferences > Add-ons > Minimalist Pipeline`:
 
 Session, locking, library-update checks, and read-only gating always run whenever a project is active — there's no toggle to pause them as a block. *Silent auto-increment* only controls whether the day's-first-open version proposal is silent or asks for confirmation first.
 
+<img src="docs/images/prefs.png" alt="The addon's preferences, Shortcuts unfolded" width="620">
+
 ---
 
 ## Concepts
