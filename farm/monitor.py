@@ -22,6 +22,7 @@ from ..lib import (
     read_json_quiet,
     to_relative,
 )
+from .chunks import remove_claims
 from .dispatch import LOG_KEEP_BYTES, compact_log
 from .loop import (
     get_running_project,
@@ -501,8 +502,9 @@ def archive(job_path: Path) -> None:
         except OSError:
             pass
     # Each machine's frames-written record: only read while the render is
-    # judged (queue._note_frames()), nothing to keep.
+    # judged (queue._note_frames()), nothing to keep; nor its claims.
     discard_saved_frames(job_id)
+    remove_claims(job_id)
 
     # replace(), not rename(): a re-rendered file reuses its job id (hash of
     # file + preset + shot), so its previous run's archive is often already

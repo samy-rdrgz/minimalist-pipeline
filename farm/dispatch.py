@@ -142,6 +142,7 @@ def discard_job_log(job_id: str) -> None:
         log("WARNING", "farm", f"Could not delete log for {job_id}: {e}")
 
 
+from .chunks import free_chunks
 from .workers import render_request
 
 
@@ -158,9 +159,27 @@ def chunk_size() -> int:
 
 def machines_for(job_data: dict, idle: dict) -> list[str]:
     """The idle machines (idle_machines()) this job may render on: all of
-    them, or only its assigned ones."""
+    them, or only its assigned ones -- never one that failed it
+    (failed_machines)."""
     assigned = job_data.get("assigned_machines") or []
-    return [uuid for uuid in idle if not assigned or uuid in assigned]
+    failed = set(job_data.get("failed_machines") or [])
+    return [
+        uuid
+        for uuid in idle
+        if (not assigned or uuid in assigned) and uuid not in failed
+    ]
+
+
+def send_render(job_data: dict, machines: list, idle: dict) -> None:
+    """A render request of this job (its dispatch_id, its chunk_size) to
+    each of these machines: taken out of idle, added to used_machines. The
+    caller holds the job's lock and writes it back."""
+    fs, fe = job_data["resolved_frame_range"]
+    for uuid in machines:
+        render_request(job_data, uuid, ["-s", str(fs), "-e", str(fe)])
+        idle.pop(uuid, None)
+    used = list(job_data.get("used_machines") or [])
+    job_data["used_machines"] = used + [u for u in machines if u not in used]
 
 
 # Jobs whose wait for a machine is already in the log: one line when a job
@@ -178,9 +197,11 @@ def note_waiting(job_data: dict) -> None:
     log("INFO", "farm", f"Job {job_id}: waiting for an idle machine.")
 
 
-def render_dispatch(job_path: Path, idle: dict) -> None:
+def render_dispatch(job_path: Path, idle: dict, project_root: Path) -> None:
     """Launch the render for an already-set-up job (output_path and
-    resolved_frame_range in its file, stage setup_finished). idle:
+    resolved_frame_range in its file, stage setup_finished): a new
+    dispatch_id, the project's chunk_size fixed for it, a request to one
+    machine ("single") or to as many as it has chunks to render. idle:
     idle_machines() for this tick -- the machines given the job are taken
     out of it, so the next job of the same tick never gets them too."""
     with locked_json(job_path) as box:
@@ -211,25 +232,23 @@ def render_dispatch(job_path: Path, idle: dict) -> None:
             return  # stays in setup_finished, retried on the next tick
         _waiting_logged.discard(job_data.get("job_id", ""))
 
-        fs, fe = job_data.get("resolved_frame_range", (None, None))
-        # TODO chunks (farm-chunks-plan.md §5.1, step 5): leave out
-        # failed_machines -- this also becomes the dispatch to a job at
-        # render_start.
+        start, end = (int(x) for x in job_data["resolved_frame_range"])
+        size = chunk_size()
+        # Frames sent back by the frame check: only their chunks are left.
+        missing = missing_frames(job_data, project_root)
+        if missing is None:
+            missing = list(range(start, end + 1))
+        free = free_chunks(start, size, missing, ())
         single_machine = job_data["render_mode"] == "single"
-        used = available[:1] if single_machine else available
+        used = available[: 1 if single_machine else len(free)]
 
-        cmd_flags = ["-s", str(fs), "-e", str(fe)]
         # Identifies this render, not the job (whose id a re-render reuses);
         # echoed back in the worker's last_job_result -- see NOTES.md,
         # "Re-rendering a file".
         job_data["dispatch_id"] = uuid4().hex[:12]
-        job_data["chunk_size"] = chunk_size()
-        for uuid in used:
-            render_request(job_data, uuid, cmd_flags)
-            idle.pop(uuid, None)
-
-        job_data["used_machines"] = used
-
+        job_data["chunk_size"] = size
+        job_data["used_machines"] = []
+        send_render(job_data, used, idle)
         history.append({"stage": "render_start", "at": now()})
         box["action"] = "to_write"
 

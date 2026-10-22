@@ -5,6 +5,7 @@ placeholders"."""
 import json
 import os
 import re
+import shutil
 from pathlib import Path
 
 from ..lib import ConfigCache, read_json_quiet, retry_shared_io, write_json_atomic
@@ -25,6 +26,12 @@ def chunk_frames(start: int, end: int, size: int, k: int) -> tuple[int, int] | N
 def chunks_number(start: int, end: int, size: int) -> int:
     """How many chunks the range start-end (inclusive) has. Pure."""
     return (end - start + size) // size
+
+
+def free_chunks(start: int, size: int, missing: list[int], claimed) -> list[int]:
+    """Chunks of a range starting at start with a frame still missing and no
+    claim, in order. Pure."""
+    return sorted({(f - start) // size for f in missing} - set(claimed))
 
 
 def claims_dir(job_id: str) -> Path:
@@ -86,3 +93,8 @@ def read_claims(job_id: str) -> dict[int, dict]:
         if match:
             claims[int(match.group(1))] = read_json_quiet(entry.path) or {}
     return claims
+
+
+def remove_claims(job_id: str) -> None:
+    """Delete job_id's claims folder, once nothing renders it. Best effort."""
+    shutil.rmtree(claims_dir(job_id), ignore_errors=True)

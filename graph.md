@@ -385,10 +385,11 @@ incomings/job_<id>.json
 │
 ├── render_start : check_render_completion() (see "Render: workers and
 │   completion" below)
-│   ├── a frame missing -> stays (progress: non-empty frames)
-│   └── every frame on disk -> render_finished
-│   (chunks, in progress: claims freed, chunk_failures, dispatch to idle
-│   workers -- farm-chunks-plan.md §5.1)
+│   ├── dead claims freed ; a chunk failed on 3 machines, or the Cancel :
+│   │   machines stopped -> render_failed once none is on it
+│   ├── chunks free : idle machines sent to them ; nobody on it and every
+│   │   allowed worker failed it -> render_failed
+│   └── every frame on disk, no claim -> render_finished
 │
 ├── render_finished : local slot free ? checks_images() -> checks_images_start
 │   (ffmpeg -vf showinfo -f null over the sequence) ; no ffmpeg ->
@@ -460,11 +461,25 @@ incomings/job_<id>.json
 │       └── a frame fails : exit 1, its claim left for the host
 │       no chunk left to claim -> exit 0
 │
-└── check_render_completion() (monitor) : every frame on disk
-    (missing_frames(), one listing of the folder), re-checked under the
-    lock : requests left deleted ; rendered_by ; _note_frames() (from the
-    .saved records: each machine's mean per frame, and frame_machines --
-    one letter per frame, the machine that wrote it) -> render_finished
+└── check_render_completion() (monitor), every tick : read_claims() and
+    missing_frames() (one listing each)
+    ├── a claim whose machine isn't alive, rendering this job, with the
+    │   claim's pid : freed (its .tmp removed) ; its render failed or got
+    │   stuck -> chunk_failures[k], failed_machines, stuck_frames ;
+    │   stopped / cancelled / lost / gone -> nothing counted
+    ├── chunk_failures[k] on 3 machines -> fail_reason + cancel_requested
+    ├── cancel_requested : requests withdrawn, cancel_<job>_<uuid>.json to
+    │   the machines rendering ; none left on it -> render_failed
+    │   (reason, or cancelled)
+    ├── every frame on disk, no claim : requests left deleted ;
+    │   rendered_by ; _note_frames() (each machine's mean per frame,
+    │   frame_machines) ; .tmp and claims/<job>/ removed -> render_finished
+    ├── no free chunk : requests still waiting withdrawn
+    ├── free chunks, nobody on it, every live allowed worker failed it ->
+    │   render_failed
+    └── free chunks : machines_for() idle machines (assigned, not failed),
+        one per free chunk less those starting or waiting ("single": one,
+        nobody on it) -> send_render(), same dispatch_id and chunk_size
 ```
 
 ### Ways back
@@ -477,7 +492,8 @@ incomings/job_<id>.json
 │   _RETRY_STAGE, frame_check_rounds and cancel_requested reset
 │   ├── setup_failed -> queued
 │   ├── render_failed -> render_finished if every frame is there, else
-│   │   setup_finished
+│   │   setup_finished ; chunk_failures, fail_reason reset (failed_machines
+│   │   too if every live allowed worker is in it)
 │   ├── checks_images_failed -> render_finished
 │   └── compilation_failed -> checks_images_finished
 ├── Recompile (finished) : recompile_job() -> checks_images_finished

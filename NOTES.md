@@ -2423,10 +2423,10 @@ job's; the first frame of a render also gets the machine's usual startup
 On the host, a stuck machine goes to `failed_machines` but doesn't fail
 the job: recorded in `stuck_frames` for Job details, its claim freed, the
 chunk counted as failed on it (`chunk_failures`); a chunk that fails on
-`MAX_CHUNK_ATTEMPTS` machines fails the job. Being rewritten for chunks:
-until 1.1.0, the frames left went out again in a refill round, assigned
-away from it; with chunks, the times also come from the claim
-(`updated_at`, the worker's own clock) instead of the `.saved`.
+`MAX_CHUNK_ATTEMPTS` machines fails the job (see "Farm 1.1.0: chunks
+replace placeholders"). The frame's name comes from the machine's claim
+(`_frame_in_progress()`); its times still from the `.saved`, the same
+worker's clock.
 
 Rejected: the host killing it -- the host only sees the share's file times
 and other machines' clocks, and would need a new kill channel when the
@@ -2551,6 +2551,52 @@ yet: compositor File Output nodes (they write their own files during
 `render.render()`, not through the .tmp), multilayer EXR, memory over
 hundreds of frames, Cycles' persistent data.
 
-In progress: `check_render_completion()` only finishes a job whose frames
-are all on disk; the claims, `chunk_failures` and the dispatch to idle
-workers come next (`TODO chunks` in the code).
+The host (`check_render_completion()`, every tick of a job at
+`render_start`; one listing of the claims, one of the frames):
+
+- **Dead claims.** A claim is held while its machine's worker is alive,
+  rendering this job, with the claim's pid (`_dead_claims()`): never a
+  comparison of clocks, never a guess from the claim's age. Otherwise it's
+  deleted, its chunk free again, the frames it finished kept, the `.tmp`
+  of its frame in progress removed. Counted against the machine only when
+  its render *failed* (`_failed_this_render()`: exit != 0, or killed on a
+  stuck frame): `chunk_failures[k]`, `failed_machines` (no more requests
+  of this job for it), `stuck_frames`. Stopped (both kinds, quitting
+  Blender, a project switch), cancelled, lost or gone: neutral -- a
+  workstation taken back or switched off says nothing about the frames,
+  and it may come back to the job. A claim unreadable for 60 s of the
+  host's own clock (a render killed between creating and writing it) is
+  freed too.
+- **Failed everywhere.** A chunk failed on `MAX_CHUNK_ATTEMPTS` (3)
+  different machines is the frames, not the machines: a heavy frame past
+  the RAM, a cache or texture missing on it, a driver erroring there. The
+  render stops (`fail_reason`, then the Cancel path: requests withdrawn,
+  the machines rendering sent a cancel) and ends `render_failed` with
+  "frames X-Y failed on 3 machines (...)" once none is left on it. Also
+  `render_failed`: chunks free, nobody on it, every live worker allowed on
+  the job failed it.
+- **Cancel** (`cancel_requested`): same stop, `render_failed (cancelled)`.
+- **Finished**: every frame on disk and no claim left -- a claim whose
+  last frame is written but not yet released is waited for. The `.tmp`
+  files and the claims folder are removed.
+- **Dispatch.** Free chunks (a frame missing, no claim): idle machines
+  allowed on the job sent the same request (`send_render()`, same
+  `dispatch_id` and `chunk_size`), in the queue's priority order -- one
+  per free chunk, less the machines already starting on it (rendering, no
+  claim yet) or with a request waiting; "single": one, only while nobody
+  is on it. No free chunk: requests still waiting withdrawn (the old
+  "Render stuck at 100 %"). `render_dispatch()` (setup_finished) sends as
+  many machines as there are chunks to render (frames sent back by the
+  frame check: only theirs).
+
+A Retry clears `chunk_failures` and `fail_reason`; `failed_machines` too
+when every live worker allowed on the job is in it (else it would wait
+forever). `max_workers_per_job` is gone: it existed for collisions, and
+the priority already orders the jobs.
+
+Checked headless on simulated worker files, 27 cases: claims held, freed
+on a failure / stuck frame / stop / cancel / loss / a gone worker / a
+stale pid, three failures stopping the render then failing it with its
+reason, finished and its leftovers removed, waiting on a claim, single
+mode, machines sent per free chunk, a waiting request withdrawn, an
+unreadable claim, no machine left, a retry, the first dispatch.
