@@ -88,7 +88,7 @@ Une cellule vide signifie juste "utiliser le repli pour cette colonne" (départe
 ```json
 {
   "project_name": "my_project",
-  "pipeline_addon_version": "1.0.6",
+  "pipeline_addon_version": "1.1.0",
   "blender_version": "(4, 2, 0)",
   "resolution": {"x": 1920, "y": 1080},
   "default_fps": 30,
@@ -107,9 +107,36 @@ Une cellule vide signifie juste "utiliser le repli pour cette colonne" (départe
   "tags": ["stable"],
   "assets_departments": ["modeling", "texturing", "rigging", "tech"],
   "shots_departments": ["layout", "animation", "lighting", "render"],
-  "farm": {"max_concurrent_local": 1, "stale_monitor_seconds": 30}
+  "thumbnails": {"size": 240},
+  "snapshot": {
+    "progress": {"wip": 33, "rework": 67, "rtk": 67},
+    "schedule": {"start": "2026-09-01", "end": "2027-03-31", "days_off": ["2026-12-25"], "worked_days": [1, 2, 3, 4, 5]}
+  },
+  "farm": {
+    "chunk_size": 5, "stuck_frame_factor": 5, "default_prerender_script": "",
+    "max_concurrent_local": 1, "stale_monitor_seconds": 90, "dead_monitor_seconds": 360,
+    "auto_archive_hours": 24, "archive_log_days": 14
+  }
 }
 ```
+
+**Edit project** (panneau Project), les réglages sur deux colonnes -- ce que fait chacun :
+
+| Réglage | Rôle |
+|---|---|
+| Blender | La version de Blender du projet : une autre affiche un avertissement (ci-dessous). |
+| Resolution, Frame rate, Shot start | Résolution, fps et première frame des nouveaux shots. |
+| Naming | Préfixe et nombre de chiffres des séquences, shots, versions et frames : les noms de fichiers, et leur relecture. |
+| Folders, Asset / Library prefixes, Version tags | L'arborescence du projet, les types d'assets et de libraries, les tags de version. |
+| Assets / Shots departments | Les départements requis par chaque nouvel asset ou shot -- et l'ordre que suit toute liste de départements. |
+| Thumbnails | Taille des vignettes de rendu (snapshot, détail des fichiers). |
+| Snapshot done | La part d'un département comptée comme faite dans le snapshot : en cours, à reprendre, RTK ouverte. |
+| Schedule, Days off, Worked days | Les dates de la production, pour l'avancement attendu du snapshot. |
+| Chunk size | Nombre de frames par morceau qu'une machine de la farm prend à la fois (voir [Rendu](farm_fr.md)). |
+| Pre-render | Le script pré-rendu sur lequel s'ouvre le dialogue Render. |
+| Stuck frame | Combien de fois son temps habituel une frame peut prendre avant que son rendu soit arrêté (0 = jamais). |
+
+Les autres clés `farm` ne sont pas dans le dialogue : combien de processus farm locaux à la fois, quand un farm host est considéré en retard / parti, quand les jobs finis et leurs logs sont archivés / supprimés (voir [Rendu](farm_fr.md)).
 
 **Version de Blender** : `blender_version` (fixée à la création, modifiable dans Edit project) est le Blender avec lequel le projet est fait. Ouvrir le projet avec un autre majeur.mineur (5.2 pour un projet 4.5 -- 4.5.2 contre 4.5.7 ne compte pas) affiche un popup d'avertissement rouge au démarrage et à l'activation, plus une ligne rouge dans le panneau Project : un fichier sauvé dans un Blender plus récent peut ne pas s'ouvrir, ou pas pareil, dans celui du projet. Laisser vide pour ne jamais avertir.
 

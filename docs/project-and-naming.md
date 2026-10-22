@@ -88,7 +88,7 @@ Written under a lock and atomically (temp file then rename), like every other pi
 ```json
 {
   "project_name": "my_project",
-  "pipeline_addon_version": "1.0.6",
+  "pipeline_addon_version": "1.1.0",
   "blender_version": "(4, 2, 0)",
   "resolution": {"x": 1920, "y": 1080},
   "default_fps": 30,
@@ -107,9 +107,36 @@ Written under a lock and atomically (temp file then rename), like every other pi
   "tags": ["stable"],
   "assets_departments": ["modeling", "texturing", "rigging", "tech"],
   "shots_departments": ["layout", "animation", "lighting", "render"],
-  "farm": {"max_concurrent_local": 1, "stale_monitor_seconds": 30}
+  "thumbnails": {"size": 240},
+  "snapshot": {
+    "progress": {"wip": 33, "rework": 67, "rtk": 67},
+    "schedule": {"start": "2026-09-01", "end": "2027-03-31", "days_off": ["2026-12-25"], "worked_days": [1, 2, 3, 4, 5]}
+  },
+  "farm": {
+    "chunk_size": 5, "stuck_frame_factor": 5, "default_prerender_script": "",
+    "max_concurrent_local": 1, "stale_monitor_seconds": 90, "dead_monitor_seconds": 360,
+    "auto_archive_hours": 24, "archive_log_days": 14
+  }
 }
 ```
+
+**Edit project** (Project panel), two columns of settings -- what each one does:
+
+| Setting | What it does |
+|---|---|
+| Blender | The project's Blender version: another one shows a warning (below). |
+| Resolution, Frame rate, Shot start | New shots' resolution, fps and first frame. |
+| Naming | Prefix and digits of sequences, shots, versions and frames: the file names, and how they're read back. |
+| Folders, Asset / Library prefixes, Version tags | The project's folder tree, the asset and library kinds, the version tags. |
+| Assets / Shots departments | The departments each new asset or shot requires -- and the order every department list follows. |
+| Thumbnails | Size of the render thumbnails (snapshot, file details). |
+| Snapshot done | How much of a department counts as done in the snapshot: in progress, rework, open RTK. |
+| Schedule, Days off, Worked days | The production's dates, for the snapshot's expected progress. |
+| Chunk size | Frames per chunk a farm machine takes at a time (see [Rendering](farm.md)). |
+| Pre-render | The pre-render script the Render dialog opens on. |
+| Stuck frame | How many times its usual time a frame may take before its render is stopped (0 = never). |
+
+The other `farm` keys aren't in the dialog: how many local farm processes at once, when a farm host counts as stale / gone, when finished jobs and their logs are archived / deleted (see [Rendering](farm.md)).
 
 **Blender version**: `blender_version` (set at creation, editable in Edit project) is the Blender the project is made with. Opening the project with another major.minor (5.2 for a 4.5 project -- 4.5.2 vs 4.5.7 doesn't count) shows a red warning popup at startup and on activation, plus a red line in the Project panel: a file saved in a newer Blender may not open, or not look the same, in the project's one. Leave it empty to never warn.
 

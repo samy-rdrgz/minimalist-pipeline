@@ -9,6 +9,20 @@ comment.
 
 ---
 
+## Index
+
+By theme; the sections below stay in the order they were written.
+
+- **Render farm**: [Farm 1.1.0: chunks replace placeholders](#farm-110-chunks-replace-placeholders) · [Stuck frame](#stuck-frame) · [Stopping a worker: after this frame, or now](#stopping-a-worker-after-this-frame-or-now) · [Which machine rendered which frame](#which-machine-rendered-which-frame) · [Time left: per machine, from each frame's time](#time-left-per-machine-from-each-frames-time) · [Crash recovery: resume, don't orphan](#crash-recovery-resume-dont-orphan) · [Re-rendering a file: match the render, not the job](#re-rendering-a-file-match-the-render-not-the-job) · [Farm subprocess output: files, never pipes](#farm-subprocess-output-files-never-pipes) · [Farm popup: worker state, open-folder button, refresh cost](#farm-popup-worker-state-open-folder-button-refresh-cost) · [Farm status: two redraw timers, split by cost](#farm-status-two-redraw-timers-split-by-cost) · [One farm snapshot reader, sync or threaded](#one-farm-snapshot-reader-sync-or-threaded) · [FFmpeg detection: PATH lookup isn't enough, and an override can't silently fall back](#ffmpeg-detection-path-lookup-isnt-enough-and-an-override-cant-silently-fall-back) · [What a real project's export showed (6 machines, a week of production)](#what-a-real-projects-export-showed-6-machines-a-week-of-production)
+- **Notes, tracking, snapshot**: [Tracking entries](#tracking-entries) · [Entries for several departments](#entries-for-several-departments) · [Entries: two fields only ever guaranteed together, never accessed bare](#entries-two-fields-only-ever-guaranteed-together-never-accessed-bare) · [Edit-entry dialog: a stored department can outlive its own enum](#edit-entry-dialog-a-stored-department-can-outlive-its-own-enum) · [Department filter: three different callers, three different "current file"s](#department-filter-three-different-callers-three-different-current-files) · [tracking.json: one path, never created by a write](#trackingjson-one-path-never-created-by-a-write) · [Renders to check: the one before, to compare](#renders-to-check-the-one-before-to-compare) · [Project monitoring's Farm column: the monitor cache, not the project scan](#project-monitorings-farm-column-the-monitor-cache-not-the-project-scan) · [Production snapshot: one HTML file, a spreadsheet inside it](#production-snapshot-one-html-file-a-spreadsheet-inside-it) · [Snapshot width: short state labels, hideable columns](#snapshot-width-short-state-labels-hideable-columns) · [Work time tracking & log rotation](#work-time-tracking--log-rotation)
+- **Shot blocks (multishot), batch**: [Multishot blocks](#multishot-blocks) · [Multishot row list: disabling a button isn't a guard](#multishot-row-list-disabling-a-button-isnt-a-guard) · [Multishot row list, take two: a clean-scene reset invalidates it](#multishot-row-list-take-two-a-clean-scene-reset-invalidates-it) · [_draw_timeline_warnings: a trailing comma turned a string into a 1-tuple](#_draw_timeline_warnings-a-trailing-comma-turned-a-string-into-a-1-tuple) · [CSV batch: the subprocess couldn't import itself](#csv-batch-the-subprocess-couldnt-import-itself)
+- **Versions, saving, files**: [Read-only reason: from a popup on every open to an on-demand menu](#read-only-reason-from-a-popup-on-every-open-to-an-on-demand-menu) · [Top bar read-only indicator: why it sits before the Blender icon](#top-bar-read-only-indicator-why-it-sits-before-the-blender-icon) · [.wipmeta writes tolerate a missing sidecar; the panel doesn't trust the flag alone](#wipmeta-writes-tolerate-a-missing-sidecar-the-panel-doesnt-trust-the-flag-alone) · [Next version number: never from a cached listing](#next-version-number-never-from-a-cached-listing) · [Recent files: derived from the log, not a stored list](#recent-files-derived-from-the-log-not-a-stored-list) · [resolve_bpy_path() left "../" uncollapsed in every stored link path](#resolve_bpy_path-left--uncollapsed-in-every-stored-link-path) · [Copy/paste isn't always under bpy.app.tempdir](#copypaste-isnt-always-under-bpyapptempdir) · [Project walk: a stray .pipeline/ hid every asset below it; popup regions must not outlive their popup](#project-walk-a-stray-pipeline-hid-every-asset-below-it-popup-regions-must-not-outlive-their-popup)
+- **Monitoring windows, popups, panels**: [Monitoring: windows, not popups](#monitoring-windows-not-popups) · [Monitoring windows: to the front](#monitoring-windows-to-the-front) · [Monitoring windows: pages sized on the window](#monitoring-windows-pages-sized-on-the-window) · [Monitoring popups: reopening on the detail, or not](#monitoring-popups-reopening-on-the-detail-or-not) · [File details' monitoring_detail("file") is a folder, not a versioned file](#file-details-monitoring_detailfile-is-a-folder-not-a-versioned-file) · [Popup-chaining: a second modal popup always waits one timer tick](#popup-chaining-a-second-modal-popup-always-waits-one-timer-tick) · [Action popups: dialogs](#action-popups-dialogs) · ["Render" button opening pre-filled: an operator property's own redo memory](#render-button-opening-pre-filled-an-operator-propertys-own-redo-memory) · [Text wrapping in panels](#text-wrapping-in-panels) · [Pipeline log: backup noise, viewer](#pipeline-log-backup-noise-viewer)
+- **Shared drive, network cost**: [Network-share redraw cost: caching disk reads off draw()/poll()/enum callbacks](#network-share-redraw-cost-caching-disk-reads-off-drawpollenum-callbacks) · [Popups on a network share: nothing on disk in draw(), heavy reads off the UI thread](#popups-on-a-network-share-nothing-on-disk-in-draw-heavy-reads-off-the-ui-thread) · [Sidebar redraw: 341 ms of network calls, 0 notes on screen](#sidebar-redraw-341-ms-of-network-calls-0-notes-on-screen) · [Windows: replace/delete refused while a reader has the file open](#windows-replacedelete-refused-while-a-reader-has-the-file-open) · [Lock staleness: 3x the heartbeat, not 1x](#lock-staleness-3x-the-heartbeat-not-1x)
+- **Addon lifecycle**: [Addon register()/unregister(): four lifecycle gotchas](#addon-registerunregister-four-lifecycle-gotchas) · [Addon register()](#addon-register) · [Addon settings lost on update](#addon-settings-lost-on-update)
+
+---
+
 ## Multishot blocks
 
 The spec is `multishot_spec_v2.md` (§ references below point there).
@@ -2487,6 +2501,8 @@ read. A backup from before has no `settings`: values left as they are.
 
 ## Farm 1.1.0: chunks replace placeholders
 
+### Why
+
 Every worker used to get the job's whole range and let Blender arbitrate
 (`use_placeholder` + `use_overwrite=False`): a frame was taken by writing
 its empty output file. That token was anonymous (whose, since when?),
@@ -2514,6 +2530,8 @@ frame under its final name is whole, so the disk says what's done. The
 pull model stays: a worker takes the next free chunk, so workers can join
 any time; only the token changes. Design: `farm-chunks-plan.md` (outside
 the repo).
+
+### Removed, kept
 
 Removed (`main` before 1.1.0, `57ddce6`, has them): `join_running_renders()`
 with `_joiners_wanted()`, `_render_timing()`, `_on_it()`,
@@ -2546,6 +2564,8 @@ Kept, still true with chunks:
   back (`_send_back_bad_frames()`, now bounded by
   `MAX_FRAME_CHECK_ROUNDS` -- the refill rounds' count was shared with it).
 
+### Claims
+
 Claims (`farm/chunks.py`): `queue/claims/<job_id>/claim_<k>.json`, a
 folder per job -- the host lists one job's claims in one `scandir` (not
 the whole of `requests/`, its `.saved`, `.log`, `.stop` files) and drops
@@ -2561,6 +2581,8 @@ claim created but not written is removed first (nobody would ever free
 it). Checked headless, three Blender processes claiming the same 200
 chunks at once on a local disk: 79/62/59, each chunk won once, each claim
 holding its winner -- on the real share, to check on the farm.
+
+### The render loop
 
 The render entry (`templates/worker_render_entry.py`, `render_chunks()`)
 opens the .blend once and walks the chunks from the first -- again and
@@ -2595,11 +2617,6 @@ one chunk). `.stop` is read before each chunk and each frame. A frame that
 fails ends the render (exit 1) with its claim in place, for the host to
 free and count against this machine.
 
-A render that fails with no machine left names what failed: "frames
-11-15 failed on 09d89c9c, fbd54d8e -- no other machine to try"
-(`_no_machine_reason()`), not just "every machine allowed on it failed
-it"; its empty claims folder goes with it (`_end_render()`).
-
 Checked headless, Workbench, 64x36 PNG: 23 frames by one machine -- the
 same names and the same pixels as Blender's own `-a` render; 120 frames
 by three at once -- each written once, none missing, no claim or .tmp
@@ -2608,6 +2625,8 @@ claim left (`frames_done` and the frame in progress in it), another
 machine rendering everything but that chunk's frames left. Not checked
 yet: memory over hundreds of frames (one Blender per job, as the
 animation render always was), Cycles' persistent data.
+
+### The farm host
 
 The host (`check_render_completion()`, every tick of a job at
 `render_start`; one listing of the claims, one of the frames):
@@ -2656,6 +2675,13 @@ The host (`check_render_completion()`, every tick of a job at
   many machines as there are chunks to render (frames sent back by the
   frame check: only theirs).
 
+A render that fails with no machine left names what failed: "frames
+11-15 failed on 09d89c9c, fbd54d8e -- no other machine to try"
+(`_no_machine_reason()`), not just "every machine allowed on it failed
+it"; its empty claims folder goes with it (`_end_render()`).
+
+### Mixed versions
+
 Mixed versions: a 1.0.x worker given a chunks job renders the whole range
 with placeholders, blind to the claims -- the frames written twice back.
 A worker announces `farm_protocol` (2) in its file (`_worker_identity()`);
@@ -2666,6 +2692,8 @@ way round, a request with no `chunk_size` (a 1.0.x farm host) is refused
 by the worker and fails its job with that reason (`_chunk_size_of()`).
 The first dispatch is logged too ("rendering on A, B (12 chunks of 5
 frames)"): only the machines sent to a render already started were.
+
+### Interface
 
 The UI: the Render dialog's modes are *All machines* and *Single* (a job
 file's older `auto`/`placeholder` reads as all machines: only "single" is
