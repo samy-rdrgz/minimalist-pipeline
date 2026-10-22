@@ -501,7 +501,7 @@ def archive(job_path: Path) -> None:
         except OSError:
             pass
     # Each machine's frames-written record: only read while the render is
-    # judged (frames_written_twice()), nothing to keep.
+    # judged (queue._note_frames()), nothing to keep.
     discard_saved_frames(job_id)
 
     # replace(), not rename(): a re-rendered file reuses its job id (hash of

@@ -4,7 +4,6 @@ import datetime
 import os
 import re
 import string
-import time
 from pathlib import Path
 
 from ..lib import (
@@ -25,12 +24,11 @@ from .dispatch import (
     append_render_history,
     discard_job_log,
     frame_paths,
-    free_frames,
     job_log_path,
-    join_running_renders,
     local_slot_busy,
     locked_json,
     machines_for,
+    missing_frames,
     note_waiting,
     read_process_log,
     render_dispatch,
@@ -41,8 +39,6 @@ from .workers import (
     idle_machines,
     local_render_running,
     parse_saved,
-    saved_frames_path,
-    scan_workers,
     this_instance_is_worker,
 )
 
@@ -132,7 +128,7 @@ def _setup_unblocks_idle(data: dict, jobs: list, idle: dict) -> bool:
     """Whether setting up queued job data now, beside this instance's own
     render, puts idle machines to work: some may render it once set up, and
     no job already set up (setup_finished) can take any of them -- those
-    left idle after this tick's joins and dispatches."""
+    left idle after this tick's dispatches."""
     if not machines_for(data, idle):
         return False
     return not any(
@@ -193,8 +189,8 @@ def scan_queue(project_root: Path) -> None:
         )
     )
 
-    # Idle machines, once for the whole tick: joining and dispatching take
-    # theirs out of it.
+    # Idle machines, once for the whole tick: dispatching takes theirs out
+    # of it.
     try:
         idle = idle_machines()
     except Exception as e:
@@ -208,11 +204,9 @@ def scan_queue(project_root: Path) -> None:
         # back. Keep it off new renders until the waiting setups are done.
         idle.pop(get_machine_id(), None)
 
-    # Before any new job: idle workers first reinforce renders in progress.
-    try:
-        join_running_renders(jobs, project_root, idle)
-    except Exception as e:
-        log("ERROR", "farm", f"Could not send idle workers to running renders: {e}")
+    # TODO chunks (farm-chunks-plan.md §5.1, step 5): idle workers go to
+    # the renders with chunks still free first (highest priority first),
+    # then to the new jobs.
     for job, data in jobs:
         try:
             config = ConfigCache.get()
@@ -353,9 +347,7 @@ def failed_stage(data: dict) -> str | None:
 def retry_job(data: dict, project_root: Path) -> str | None:
     """Rewind a failed job to _RETRY_STAGE so the queue runs it again.
     Mutates data (caller writes it back); returns the stage resumed to, or
-    None if it didn't fail. A render retry first deletes the empty frames
-    left by the failed one (a placeholder is skipped, never re-rendered),
-    and is pointed at the workers that didn't fail it."""
+    None if it didn't fail."""
     failed = failed_stage(data)
     if not failed:
         return None
@@ -370,14 +362,10 @@ def retry_job(data: dict, project_root: Path) -> str | None:
     if failed == "render_failed" and frames_complete(data, project_root):
         # Rendered in full by the other machines: nothing left to render.
         target = "render_finished"
-    elif failed == "render_failed":
-        if data.get("output_path"):
-            _delete_placeholders(project_root / Path(data["output_path"]).parent)
-        _reassign_away_from_failed(data)
+    # TODO chunks: a retry clears chunk_failures (keep failed_machines?).
     data.pop("rendered_by", None)
     data.pop("local_processes", None)
-    data.pop("refill_rounds", None)  # a manual retry starts a fresh count
-    data.pop("refill_single", None)
+    data.pop("frame_check_rounds", None)  # a manual retry starts a fresh count
     data.pop("cancel_requested", None)
     data["stage_history"].append({"stage": target, "at": now(), "resumed": "retry"})
     log("INFO", "farm", f"Job {data.get('job_id')}: retried at {target}.")
@@ -418,46 +406,6 @@ def recompile_job(data: dict) -> bool:
     )
     log("INFO", "farm", f"Job {data.get('job_id')}: compilation requested again.")
     return True
-
-
-def _reassign_away_from_failed(data: dict) -> None:
-    """Point a failed render at the workers that didn't fail it: its
-    assigned machines (or every known worker, for an "auto" job) minus
-    failed_machines. Left as is when no other worker is left."""
-    failed = set(data.get("failed_machines") or [])
-    if not failed:
-        return
-    pool = set(data.get("assigned_machines") or scan_workers())
-    others = sorted(pool - failed)
-    if not others:
-        log(
-            "WARNING",
-            "farm",
-            f"Job {data.get('job_id')}: no other worker than the one(s) that "
-            f"failed it -- retried on the same machine(s).",
-        )
-        return
-    data["assigned_machines"] = others
-    log(
-        "INFO",
-        "farm",
-        f"Job {data.get('job_id')}: retried on {', '.join(u[:8] for u in others)} "
-        f"(without {', '.join(u[:8] for u in sorted(failed))}).",
-    )
-
-
-def _delete_placeholders(folder: Path) -> None:
-    """Delete the empty files a render leaves for every frame it started."""
-    try:
-        entries = list(folder.iterdir())
-    except OSError:
-        return
-    for entry in entries:
-        try:
-            if entry.is_file() and entry.stat().st_size == 0:
-                entry.unlink()
-        except OSError:
-            pass
 
 
 # How many ticks compilation_finished retries flagging the render to check
@@ -590,7 +538,6 @@ def _finish_job_processes(job_id: str, procs: list, job_path: Path) -> None:
                     "\n".join(read_process_log(p) for p, _ in procs), data
                 )
                 data["frames_corrupted"] = len(corrupted)
-                # With the frames two machines wrote: one re-render for both.
                 redo = not errors and _send_back_bad_frames(data, corrupted)
 
             elif stage == "setup_start":
@@ -672,12 +619,11 @@ def construct_history(job: dict, status):
         "status": status,
     }
     # A block rendered whole because the split couldn't cut it (setup);
-    # frames corrupted or written by two machines, rendered again at the
-    # end of the frame check (_send_back_bad_frames()).
+    # frames corrupted, rendered again at the end of the frame check
+    # (_send_back_bad_frames()).
     for key in (
         "skipped_shots",
         "absorbed_shots",
-        "written_twice",
         "frames_rerendered",
         "seconds_per_frame",
         "machine_seconds",
@@ -737,7 +683,7 @@ def _read_worker(uuid: str) -> dict | None:
     """Worker uuid's file as it is on disk: {} if it's gone, None if it
     can't be read this tick. Never through scan_workers(), which drops a
     worker whose heartbeat is a few seconds late -- and with it the render
-    it's on (see NOTES.md, "Render stuck at 100 %")."""
+    it's on (see NOTES.md, "Farm 1.1.0: chunks replace placeholders")."""
     path = ConfigCache.get_path("workers") / f"worker_{uuid}.json"
     try:
         with locked_json(path, read_only=True, retries=0) as box:
@@ -822,68 +768,8 @@ def cancel_pending_renders(
 
 
 def frames_complete(data: dict, project_root: Path) -> bool:
-    """Every frame of the job's resolved range is on disk, non-empty (an
-    empty file is a placeholder: a frame started, never finished)."""
-    paths = frame_paths(data, project_root)
-    if not paths:
-        return False
-    for path in paths:
-        try:
-            if path.stat().st_size == 0:
-                return False
-        except OSError:
-            return False
-    return True
-
-
-# How many times a render whose machines all stopped with frames still
-# missing is sent out again for them before giving up (render_failed).
-MAX_REFILL_ROUNDS = 3
-
-
-def _render_folder(data: dict, project_root: Path | None) -> Path | None:
-    output_path = data.get("output_path")
-    if not output_path or not project_root:
-        return None
-    return (Path(project_root) / output_path).parent
-
-
-# How long nobody must be seen on a render before it's judged: a worker
-# taking up its request deletes it, then writes its own file -- a monitor
-# reading in between sees neither. Two ticks.
-NOBODY_SECONDS = 20
-
-# (job_id, dispatch_id) -> time.monotonic() nobody was first seen on it.
-_nobody_since: dict[tuple, float] = {}
-
-
-def _machines_on(data: dict) -> tuple[list, list]:
-    """The job's used_machines still on this render, (rendering, waiting):
-    its worker rendering this job, alive -- or unreadable this tick, can't
-    tell -- or its request not taken up yet, the worker alive. One gone,
-    stopped, or on to anything else is done with it, whatever it published:
-    a worker keeps the outcome of its last render only."""
-    job_id = data["job_id"]
-    rendering, waiting = [], []
-    for uuid in data.get("used_machines", []):
-        w = _read_worker(uuid)
-        if w is None:
-            rendering.append(uuid)
-            continue
-        if _worker_gone(w) or w.get("status") == "stopped":
-            continue
-        if w.get("status") == "render" and w.get("current_job_id") == job_id:
-            rendering.append(uuid)
-            continue
-        request = (
-            ConfigCache.get_path("farm_requests") / f"request_{job_id}_{uuid}.json"
-        )
-        try:
-            if request.exists():
-                waiting.append(uuid)
-        except OSError:
-            rendering.append(uuid)  # can't tell this tick
-    return rendering, waiting
+    """Every frame of the job's resolved range is on disk."""
+    return missing_frames(data, project_root) == []
 
 
 # One character per machine in frame_machines: 62 machines.
@@ -987,50 +873,34 @@ def machine_for_frame(record: dict | None, frame: int) -> tuple[str, str] | None
 def check_render_completion(
     job_path: Path, project_root: Path | None = None, data: dict | None = None
 ) -> None:
-    """Monitor-only. A render is over once none of its machines is on it
-    any more (_machines_on()), for NOBODY_SECONDS -- whatever each one did:
-    one that failed, crashed, was stopped or moved on to another job doesn't
-    end it while others render (placeholders + no overwrite: they may still
-    render every frame). Then it's judged on the frames on disk: all there
-    -> render_finished; else a machine failed it -> render_failed; the
-    job's Cancel -> render_failed (cancelled); MAX_REFILL_ROUNDS reached ->
-    render_failed; else the empty files left are deleted (safe now: nobody
-    renders it) and it goes back to setup_finished for them.
+    """Monitor-only, every tick of a job at render_start. Finished once
+    every frame of its range is on disk (frames are only ever written whole
+    under their final name): render_finished, with who rendered what.
 
-    data: the job as scan_queue() read it (no lock): while a machine is on
-    it, nothing is locked -- every tick of a render of hours."""
+    TODO chunks (farm-chunks-plan.md §5.1): before that, free the claims of
+    machines gone, stopped or done with this render (_read_worker(),
+    _worker_gone(), _failed_this_render(), _stuck_this_render() ->
+    chunk_failures, stuck_frames), fail a chunk failed on
+    MAX_CHUNK_ATTEMPTS machines, the job's Cancel (cancel_requested), send
+    the job to idle workers while chunks are free -- and wait for no claim
+    left before finishing.
+
+    data: the job as scan_queue() read it (no lock): nothing is locked
+    while frames are missing -- every tick of a render of hours."""
     if data is None:
         data = read_json_quiet(job_path)
         if not data:
             return None
-    key = (data.get("job_id"), data.get("dispatch_id"))
-    rendering, waiting = _machines_on(data)
-    if waiting and free_frames(data, project_root) == []:
-        # Every frame taken: a machine that hasn't taken up its request
-        # (busy on another job) has nothing left to do here -- dropped
-        # rather than waited for. See NOTES.md, "Render stuck at 100 %".
-        dropped = _withdraw_requests(data["job_id"], waiting)
-        waiting = [u for u in waiting if u not in dropped]
-    if rendering or waiting:
-        _nobody_since.pop(key, None)
-        return data
-    if time.monotonic() - _nobody_since.setdefault(key, time.monotonic()) < (
-        NOBODY_SECONDS
-    ):
+    if not frames_complete(data, project_root):
         return data
 
     with locked_json(job_path) as box:
         data = box["data"]
         if not data or data["stage_history"][-1]["stage"] != "render_start":
             return data
-        rendering, waiting = _machines_on(data)
-        if rendering or waiting or (data["job_id"], data.get("dispatch_id")) != key:
-            return data  # joined, or sent out again, meanwhile
-        _nobody_since.pop(key, None)
-
         machines = data.get("used_machines", [])
-        # A request a gone/stopped worker never took up would otherwise run
-        # whenever it comes back, for a render nobody waits on any more.
+        # A request a worker never took up would otherwise run whenever it
+        # comes back, for a render nobody waits on any more.
         for uuid in machines:
             request = (
                 ConfigCache.get_path("farm_requests")
@@ -1040,104 +910,14 @@ def check_render_completion(
                 retry_shared_io(request.unlink)
             except OSError:
                 pass
-        failed = [u for u in machines if _failed_this_render(_read_worker(u), data)]
-        # Killed on a stuck frame (workers.check_stuck_renders()): never sent
-        # back to it, but no reason to fail the job -- its frames left go to
-        # the other machines, within MAX_REFILL_ROUNDS like any refill.
-        stuck = {u for u in failed if _stuck_this_render(_read_worker(u))}
-        for uuid in sorted(stuck):  # for Job details
-            data.setdefault("stuck_frames", []).append(
-                {"machine": uuid, "at": now()} | _stuck_this_render(_read_worker(uuid))
-            )
-
         # Kept for construct_history(): used_machines is reset by the next
         # local stages (_finish_job_processes()).
         data["rendered_by"] = list(machines)
         _note_frames(data)
         _note_machine_names(data, machines)
+        data["stage_history"].append({"stage": "render_finished", "at": now()})
         box["action"] = "to_write"
-        if failed:
-            # Kept across retries: retry_job() reassigns the job to the
-            # other workers.
-            data["failed_machines"] = sorted(
-                set(data.get("failed_machines", [])) | set(failed)
-            )
-
-        if frames_complete(data, project_root):
-            data["stage_history"].append({"stage": "render_finished", "at": now()})
-        elif set(failed) - stuck:
-            data["stage_history"].append({"stage": "render_failed", "at": now()})
-        elif data.get("cancel_requested"):
-            data["stage_history"].append(
-                {"stage": "render_failed", "at": now(), "cancelled": True}
-            )
-        elif data.get("refill_rounds", 0) >= MAX_REFILL_ROUNDS:
-            data["stage_history"].append(
-                {
-                    "stage": "render_failed",
-                    "at": now(),
-                    "resumed": f"frames still missing after {MAX_REFILL_ROUNDS} rounds",
-                }
-            )
-            log(
-                "ERROR",
-                "farm",
-                f"Job {data['job_id']}: frames still missing after "
-                f"{MAX_REFILL_ROUNDS} re-dispatches -- failed.",
-            )
-        else:
-            # Frames missing because machines stopped early (crash, worker
-            # stopped, one machine cancelled): nobody renders this job now,
-            # so any empty file is a frame abandoned mid-render -- delete
-            # them and send the job out again for what's left.
-            folder = _render_folder(data, project_root)
-            if folder:
-                _delete_placeholders(folder)
-            if stuck:
-                _reassign_away_from_failed(data)
-            data["refill_rounds"] = data.get("refill_rounds", 0) + 1
-            data["stage_history"].append(
-                {
-                    "stage": "setup_finished",
-                    "at": now(),
-                    "resumed": (
-                        "frames left after a stuck frame"
-                        if stuck
-                        else "frames left after machines stopped"
-                    ),
-                }
-            )
-            data["used_machines"] = []
-            data.pop("dispatch_id", None)
-            log(
-                "WARNING",
-                "farm",
-                f"Job {data['job_id']}: frames missing, nobody rendering it any "
-                f"more -- sent out again for them.",
-            )
         return data
-
-
-def frames_written_twice(data: dict) -> list[int]:
-    """Frames of this render (its dispatch_id) that two of its machines or
-    more wrote, from each machine's saved_frames_path() record. [] for a
-    worker on a version that keeps none."""
-    dispatch_id = data.get("dispatch_id")
-    if not dispatch_id:
-        return []
-    writers: dict[int, set[str]] = {}
-    # rendered_by: the render's machines (used_machines is emptied when a
-    # local stage ends -- the frame check included).
-    for uuid in set(data.get("rendered_by") or data.get("used_machines") or []):
-        try:
-            text = saved_frames_path(data["job_id"], uuid).read_text(encoding="utf-8")
-        except OSError:
-            continue
-        for line in text.splitlines():
-            parts = line.split()
-            if len(parts) >= 2 and parts[0] == dispatch_id and parts[1].isdigit():
-                writers.setdefault(int(parts[1]), set()).add(uuid)
-    return sorted(frame for frame, uuids in writers.items() if len(uuids) > 1)
 
 
 # The frame check's ffmpeg output (checks_images()): one showinfo line per
@@ -1160,8 +940,8 @@ def corrupted_frames(log_text: str, data: dict) -> list[int]:
     couldn't decode at all has no line: a gap in pts -- the errors before
     the frame after a gap count for both (one frame rendered again for
     nothing beats a corrupted one kept). [] if the output has no frame line
-    at all (unreadable log): nothing can be told. See NOTES.md, "Frames
-    written by two machines"."""
+    at all (unreadable log): nothing can be told. See NOTES.md, "Frame
+    check: naming the corrupted frames"."""
     start, end = (int(x) for x in data.get("resolved_frame_range") or (0, 0))
     total = end - start + 1
     bad: set[int] = set()
@@ -1189,25 +969,21 @@ def corrupted_frames(log_text: str, data: dict) -> list[int]:
     return sorted(start + i for i in bad if 0 <= i < total)
 
 
+# How many times the frame check sends a job back to render its corrupted
+# frames before keeping them as they are.
+MAX_FRAME_CHECK_ROUNDS = 3
+
+
 def _send_back_bad_frames(data: dict, corrupted: list[int]) -> bool:
-    """End of the frame check: the frames ffmpeg found corrupted and those
-    two machines wrote (frames_written_twice()) are deleted, and the job
-    goes back to setup_finished for them -- one re-render for both kinds,
-    on one machine (refill_single: a handful of frames on every free
-    machine would collide again). Mutates data. False -- on to the
-    compilation -- when there are none, or no refill round is left (then
-    they're kept and named in a warning)."""
-    twice = frames_written_twice(data)
-    bad = sorted(set(corrupted) | set(twice))
-    if not bad:
+    """End of the frame check: the frames ffmpeg found corrupted are
+    deleted, and the job goes back to setup_finished for them. Mutates
+    data. False -- on to the compilation -- when there are none, or
+    MAX_FRAME_CHECK_ROUNDS is spent (then they're kept and named in a
+    warning)."""
+    if not corrupted:
         return False
-    what = []
-    if corrupted:
-        what.append(f"{len(corrupted)} corrupted ({_frames_label(corrupted)})")
-    if twice:
-        what.append(f"{len(twice)} written by two machines ({_frames_label(twice)})")
-    what = ", ".join(what)
-    if data.get("refill_rounds", 0) >= MAX_REFILL_ROUNDS:
+    what = f"{len(corrupted)} corrupted ({_frames_label(corrupted)})"
+    if data.get("frame_check_rounds", 0) >= MAX_FRAME_CHECK_ROUNDS:
         log(
             "WARNING",
             "farm",
@@ -1215,28 +991,23 @@ def _send_back_bad_frames(data: dict, corrupted: list[int]) -> bool:
             f"check them.",
         )
         return False
-    _delete_frames(data, get_active_project_root(), bad)
-    if twice:
-        data["written_twice"] = sorted(
-            set(data.get("written_twice") or []) | set(twice)
-        )
+    _delete_frames(data, get_active_project_root(), corrupted)
     data["frames_rerendered"] = sorted(
-        set(data.get("frames_rerendered") or []) | set(bad)
+        set(data.get("frames_rerendered") or []) | set(corrupted)
     )
-    data["refill_rounds"] = data.get("refill_rounds", 0) + 1
-    data["refill_single"] = True
+    data["frame_check_rounds"] = data.get("frame_check_rounds", 0) + 1
     data["stage_history"].append(
         {
             "stage": "setup_finished",
             "at": now(),
-            "resumed": f"{len(bad)} frame(s) to render again",
+            "resumed": f"{len(corrupted)} frame(s) to render again",
         }
     )
     data.pop("dispatch_id", None)
     log(
         "WARNING",
         "farm",
-        f"Job {data['job_id']}: frames {what} -- rendered again on one machine.",
+        f"Job {data['job_id']}: frames {what} -- rendered again.",
     )
     return True
 
@@ -1265,10 +1036,10 @@ def _frames_label(frames: list[int], shown: int = 10) -> str:
 
 def discard_saved_frames(job_id: str) -> None:
     """Delete every machine's saved_frames_path() record of job_id -- only
-    read while its render is judged -- and the .stop/.frame flags a worker
-    that crashed mid-render left (workers.render_stop_path()). Best effort."""
+    read while its render is judged -- and the .stop flag a worker that
+    crashed mid-render left (workers.render_stop_path()). Best effort."""
     requests = ConfigCache.get_path("farm_requests")
-    for ext in ("saved", "stop", "frame"):
+    for ext in ("saved", "stop"):
         for path in requests.glob(f"request_{job_id}_*.{ext}"):
             try:
                 retry_shared_io(path.unlink)

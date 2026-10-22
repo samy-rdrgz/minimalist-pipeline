@@ -247,8 +247,7 @@ def stop_worker(kill_render: bool) -> str:
     """Give up this machine's worker role. kill_render=True: the render in
     progress is terminated and reported "stopped" -- neutral for the
     monitor, which carries on with the job's other machines or sends it out
-    again (never a failure) -- and the empty file of the frame it was on is
-    deleted, free again; the role ends now. kill_render=False: the render
+    again (never a failure); the role ends now. kill_render=False: the render
     stops once the frame it's on is written (render_stop_path(), read by
     the render entry after each frame), then the role ends (worker_tick()).
     Returns "stopped" or "draining"."""
@@ -265,7 +264,6 @@ def stop_worker(kill_render: bool) -> str:
     result = None
     for job_id, p in running:
         _terminate(p)
-        _free_frame_in_progress(job_id)
         _clear_render_flags(job_id)
         result = {
             "job_id": job_id,
@@ -399,8 +397,7 @@ def scan_render_requests(target_uuid: str = "") -> dict:
 def idle_machines() -> dict:
     """{uuid: worker} idle right now and not already targeted by a pending
     render request -- computed once per monitor tick (scan_queue()), then
-    handed out: join_running_renders() and render_dispatch() take the
-    machines they use out of it."""
+    handed out: render_dispatch() takes the machines it uses out of it."""
     targeted = {r.get("target_uuid") for r in scan_render_requests().values()}
     return {
         uuid: w
@@ -425,10 +422,9 @@ def saved_frames_path(job_id: str, uuid: str) -> Path:
     """Worker uuid's record of the frames it wrote for job_id -- one
     "<dispatch_id> <frame> <time>" line per frame (no time from a worker on
     an older version), plus "<dispatch_id> start <time>" each time a render
-    of it starts on that machine, appended by the render entry's render_write handler
-    (templates/worker_render_entry.py), read by the monitor
-    (frames_written_twice()) and for the pace (frame_seconds()). Next to
-    the render's own log."""
+    of it starts on that machine, appended by the render entry
+    (templates/worker_render_entry.py), read by the monitor (_note_frames())
+    and for the pace (frame_seconds()). Next to the render's own log."""
     return ConfigCache.get_path("farm_requests") / f"request_{job_id}_{uuid}.saved"
 
 
@@ -493,36 +489,13 @@ def render_stop_path(job_id: str) -> Path:
     )
 
 
-def render_frame_path(job_id: str) -> Path:
-    """The frame file this machine's render of job_id is writing right now
-    -- one line, rewritten by the render entry before each frame it renders."""
-    return (
-        ConfigCache.get_path("farm_requests")
-        / f"request_{job_id}_{get_machine_id()}.frame"
-    )
-
-
-def _free_frame_in_progress(job_id: str) -> None:
-    """After killing this machine's render of job_id: delete the empty
-    file of the frame it was on. Left there, every other machine skips it
-    (placeholder: taken) and it waits for the end of the render; gone, the
-    next machine to walk past it -- one joining -- renders it. Best effort."""
+def _clear_render_flags(job_id: str) -> None:
+    """Delete this machine's render_stop_path() of job_id once its render
+    ended (or before it starts). Best effort."""
     try:
-        frame = Path(render_frame_path(job_id).read_text(encoding="utf-8").strip())
-        if frame.name and frame.stat().st_size == 0:
-            retry_shared_io(frame.unlink)
+        retry_shared_io(render_stop_path(job_id).unlink)
     except OSError:
         pass
-
-
-def _clear_render_flags(job_id: str) -> None:
-    """Delete this machine's render_stop_path()/render_frame_path() of
-    job_id once its render ended (or before it starts). Best effort."""
-    for path in (render_stop_path(job_id), render_frame_path(job_id)):
-        try:
-            retry_shared_io(path.unlink)
-        except OSError:
-            pass
 
 
 def render_request(job_data: dict, uuid: str, cmd_flags: list):
@@ -595,17 +568,15 @@ def execute_render_request() -> dict:
                         # "CSV batch: the subprocess couldn't import itself".
                         "--addon-module",
                         __package__.rsplit(".", 1)[0],
-                        # Each frame it writes, for the monitor to spot a
-                        # frame two machines wrote (frames_written_twice()).
+                        # Each frame it writes, and when: who rendered what,
+                        # time per frame (queue._note_frames()).
                         "--saved-file",
                         str(saved_frames_path(data["job_id"], get_machine_id())),
                         "--dispatch-id",
                         data.get("dispatch_id") or "",
-                        # Stop after this frame, and the frame it's on.
+                        # Stop after this frame.
                         "--stop-file",
                         str(render_stop_path(data["job_id"])),
-                        "--frame-file",
-                        str(render_frame_path(data["job_id"])),
                     ],
                     stdout=log_file,
                     stderr=subprocess.STDOUT,
@@ -747,15 +718,13 @@ def scan_worker_processes() -> None:
 
 
 def _kill_render(job_id: str, p, result: dict, count: str = "") -> None:
-    """Kill this machine's render p of job_id, free the frame it was on and
-    publish a failed last_job_result carrying result's fields (cancelled,
-    stuck...)."""
+    """Kill this machine's render p of job_id and publish a failed
+    last_job_result carrying result's fields (cancelled, stuck...)."""
     p.terminate()
     try:
         p.wait(timeout=5)
     except subprocess.TimeoutExpired:
         p.kill()
-    _free_frame_in_progress(job_id)
     _clear_render_flags(job_id)
     update_worker(
         {
@@ -851,10 +820,9 @@ def check_stuck_renders() -> None:
         if not found or found[0] <= found[1]:
             continue
         since, _limit, usual = found
-        try:
-            frame = Path(render_frame_path(job_id).read_text(encoding="utf-8").strip()).name
-        except OSError:
-            frame = ""
+        # TODO chunks (farm-chunks-plan.md §8): frame_in_progress and
+        # updated_at from this machine's claim, instead of the .saved.
+        frame = ""
         log(
             "WARNING",
             "farm",

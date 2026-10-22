@@ -550,8 +550,8 @@ def _output_dir(job: dict, root: Path | None = None) -> Path | None:
 
 def _count_rendered_frames(folder: Path, ext: str) -> int:
     """Frames actually written in folder: files with this extension and a
-    non-zero size -- renders run with placeholders, an empty file per frame
-    *started* (see NOTES.md, "Farm popup")."""
+    non-zero size (an empty one: a placeholder left by a render before
+    1.1.0)."""
     suffix = f".{ext}".lower()
     done = 0
     for entry in cached_scandir(folder):
