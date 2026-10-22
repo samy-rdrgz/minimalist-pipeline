@@ -61,6 +61,7 @@ Settings available in `Preferences > Add-ons > Minimalist Pipeline`:
 | **Always open read-only** | Forces all project files to open read-only, regardless of their lock state. Useful on a review/playblast machine. |
 | **Experience level** | *Beginner* shows short inline explanations of pipeline concepts (versions, stable, links...) next to the relevant buttons and popups; *Advanced* hides them. First launch also shows a one-time welcome popup, reopenable anytime from the main panel header's "?". |
 | **FFmpeg path** | Explicit path to the ffmpeg binary, for setups where Blender doesn't find it on PATH (e.g. launched through a sandboxed runtime such as Steam's — PATH search can't route around a sandbox that hides the host's ffmpeg entirely). Leave blank to auto-detect. |
+| **Shortcuts** | Folded section. The monitoring windows' keys (pages, back, switch view, F5 refresh) and Ctrl+S, plus shortcuts off by default to open Project monitoring, Farm monitoring, the Pipeline log, add an entry, increment, mark as stable or render the open file from anywhere in Blender: tick one to use it, click its key to change it. |
 
 Session, locking, library-update checks, and read-only gating always run whenever a project is active — there's no toggle to pause them as a block. *Silent auto-increment* only controls whether the day's-first-open version proposal is silent or asks for confirmation first.
 

@@ -71,6 +71,9 @@ class PipelineAddonPreferences(bpy.types.AddonPreferences):
         update=save_settings,
     )
 
+    # The preferences' Shortcuts section, folded by default: UI state only.
+    show_shortcuts: bpy.props.BoolProperty(name="Shortcuts", default=False)
+
     onboarding_seen: bpy.props.BoolProperty(
         name="Onboarding seen",
         description="Internal: the first-launch popup has already been shown.",
@@ -126,8 +129,21 @@ class PipelineAddonPreferences(bpy.types.AddonPreferences):
             col.label(text=" • No projects")
 
         layout.separator()
-        layout.label(text="Shortcuts:")
-        draw_addon_keys(context, layout.column())
+        layout.prop(
+            self,
+            "show_shortcuts",
+            icon="DISCLOSURE_TRI_DOWN" if self.show_shortcuts else "DISCLOSURE_TRI_RIGHT",
+            emboss=False,
+        )
+        if self.show_shortcuts:
+            keys = layout.box()
+            tip = keys.row()
+            tip.active = False
+            tip.label(
+                text="Tick a shortcut to use it; click its key to change it.",
+                icon="INFO",
+            )
+            draw_addon_keys(context, keys)
 
         layout.separator(type="LINE")
         row = layout.row()

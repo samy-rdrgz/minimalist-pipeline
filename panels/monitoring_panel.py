@@ -1,6 +1,6 @@
 """The monitoring windows' content (lib/monitoring.py): Project monitoring --
-every tracked file, or one file's detail -- and Farm monitoring -- the
-farm's jobs or machines, or one job's detail."""
+every tracked file, or one file's detail --, Farm monitoring -- the farm's
+jobs or machines, or one job's detail -- and the Pipeline log."""
 
 import bpy
 
@@ -12,6 +12,7 @@ from ..lib import (
     monitoring_detail,
     monitoring_kind,
 )
+from .logs_panel import draw_pipeline_logs
 from .farm_panel import (
     draw_farm_job_details,
     draw_farm_jobs,
@@ -140,3 +141,23 @@ class M_PIPELINE_PT_farm_monitoring(_MonitoringPanel, bpy.types.Panel):
             draw_farm_jobs(state, context, box)
         else:
             draw_farm_workers(context, box)
+
+
+class M_PIPELINE_PT_log_monitoring(_MonitoringPanel, bpy.types.Panel):
+    """Pipeline log window's content."""
+
+    bl_label = "Pipeline: Pipeline log"
+    bl_idname = "M_PIPELINE_PT_log_monitoring"
+    kind = "log"
+
+    def draw_content(self, context, layout):
+        state = context.window_manager.pipeline_log_monitoring
+        filters = layout.box().split(factor=0.3)
+        filters.label(text="Pipeline log", icon="TEXT")
+        row = filters.row()
+        row.prop(state, "level", expand=True)
+        row.prop(state, "action", text="")
+        row.prop(state, "user", text="")
+        row.prop(state, "search", text="", icon="VIEWZOOM")
+        layout.separator(factor=0.5)
+        draw_pipeline_logs(state, context, layout)

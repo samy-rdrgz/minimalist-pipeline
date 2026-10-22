@@ -1,16 +1,17 @@
-"""Pipeline log popup operators."""
+"""Pipeline log window operators (lib/monitoring.py, kind "log")."""
 
 import bpy
 
-from ..farm import clear_popup_regions, register_popup_region
-from ..lib import get_active_project_root
-from ..panels import (
-    draw_pipeline_logs,
-    load_pipeline_log,
-    log_read_at,
-    log_values,
-    popup_width,
+from ..lib import (
+    bring_monitoring_to_front,
+    get_active_project_root,
+    memory_enum,
+    memory_prop,
+    monitoring_windows,
+    open_monitoring_window,
+    redraw_monitoring,
 )
+from ..panels import load_pipeline_log, log_read_at, log_values
 
 # Enum items must outlive the callback (Blender keeps no reference), and
 # are only rebuilt after a new read: the callback runs on every redraw.
@@ -20,6 +21,7 @@ _items_cache: dict[str, tuple] = {"action": (None, []), "user": (None, [])}
 def _items(key: str):
     """An enum items callback for the Pipeline log's key filter ("action",
     "user"): "all", then every value in the log, cached per log read."""
+
     def callback(self, context):
         read_at, items = _items_cache[key]
         if read_at != log_read_at() or not items:
@@ -32,64 +34,64 @@ def _items(key: str):
     return callback
 
 
-def _back_to_first_page(self, context):
-    self.page = 1
+# The Pipeline log's filters: in memory only, like the other monitoring
+# windows' (see memory_prop()).
+_log_filters: dict = {}
 
 
-class M_PIPELINE_OT_pipeline_logs(bpy.types.Operator):
-    """Popup: the project's pipeline log, newest first, filterable."""
+class PIPELINE_PG_log_monitoring(bpy.types.PropertyGroup):
+    """Pipeline log window's filters (WindowManager.pipeline_log_monitoring)."""
 
-    bl_idname = "m_pipeline.pipeline_logs"
-    bl_label = ""
-    bl_description = (
-        "Show the project's pipeline log, filterable by level, action and user."
-    )
-
-    level: bpy.props.EnumProperty(
-        items=[
+    level: memory_enum(
+        _log_filters,
+        "level",
+        [
             ("all", "All levels", "Every line"),
             ("warning", "Warnings", "Warnings and errors"),
             ("error", "Errors", "Errors only"),
         ],
-        default="all",
-        update=_back_to_first_page,
     )
-    action: bpy.props.EnumProperty(items=_items("action"), update=_back_to_first_page)
-    user: bpy.props.EnumProperty(items=_items("user"), update=_back_to_first_page)
-    search: bpy.props.StringProperty(
+    action: memory_enum(_log_filters, "action", _items("action"))
+    user: memory_enum(_log_filters, "user", _items("user"))
+    search: memory_prop(
+        _log_filters,
+        "search",
+        bpy.props.StringProperty,
+        "",
         name="",
         description="Filter by message (a job id, a file name...)",
-        options={"SKIP_SAVE"},
-        update=_back_to_first_page,
     )
-    page: bpy.props.IntProperty(default=1, min=1, options={"SKIP_SAVE"})
-    PAGE_SIZE = 20
 
-    def invoke(self, context, event):
+
+class M_PIPELINE_OT_pipeline_logs(bpy.types.Operator):
+    """Open the Pipeline log in its own window (panels/monitoring_panel.py)."""
+
+    bl_idname = "m_pipeline.pipeline_logs"
+    bl_label = "Pipeline log"
+    bl_description = (
+        "Open a window with the project's pipeline log, filterable by level, "
+        "action and user. It stays open, resizable, while you work"
+    )
+
+    # Set by a job's or a worker's log button: the window opens filtered on it.
+    search: bpy.props.StringProperty(options={"SKIP_SAVE", "HIDDEN"})
+
+    def execute(self, context):
         if not get_active_project_root():
             self.report({"ERROR"}, "No active project.")
             return {"CANCELLED"}
-        # A region left by an earlier popup, closed since, must never be
-        # redrawn by load_pipeline_log()'s timer.
-        clear_popup_regions()
+        state = context.window_manager.pipeline_log_monitoring
+        if self.search:
+            state.search = self.search
         load_pipeline_log()
-        return context.window_manager.invoke_props_dialog(
-            self, width=popup_width(context)
-        )
-
-    def draw(self, context):
-        # Redrawn by load_pipeline_log()'s timer once the read is done.
-        register_popup_region(getattr(context, "region_popup", None))
-        filters = self.layout.box().split(factor=0.3)
-        filters.label(text="Pipeline log", icon="TEXT")
-        row = filters.row()
-        row.prop(self, "level", expand=True)
-        row.prop(self, "action", text="")
-        row.prop(self, "user", text="")
-        row.prop(self, "search", text="", icon="VIEWZOOM")
-        draw_pipeline_logs(self, self.layout)
-
-    def execute(self, context):
+        if monitoring_windows("log"):
+            redraw_monitoring("log")
+            if not bring_monitoring_to_front(context, "log"):
+                self.report({"INFO"}, "The pipeline log is already open.")
+            return {"FINISHED"}
+        if not open_monitoring_window(context, "log"):
+            self.report({"ERROR"}, "Blender could not open a new window.")
+            return {"CANCELLED"}
         return {"FINISHED"}
 
 
@@ -98,7 +100,7 @@ class M_PIPELINE_OT_pipeline_logs_refresh(bpy.types.Operator):
 
     bl_idname = "m_pipeline.pipeline_logs_refresh"
     bl_label = ""
-    bl_description = "Re-read the pipeline log (read once when the popup opens)."
+    bl_description = "Read the pipeline log again (F5)."
 
     def execute(self, context):
         load_pipeline_log()

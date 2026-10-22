@@ -45,20 +45,6 @@ from ..lib import (
     thumbnail_path,
 )
 
-# Popups' width (the Pipeline log): this share of the Blender window, never under
-# MONITOR_POPUP_MIN_WIDTH (unless the window itself is smaller).
-MONITOR_POPUP_SHARE = 0.8
-MONITOR_POPUP_MIN_WIDTH = 900
-
-
-def popup_width(context) -> int:
-    """Width for a popup's invoke_props_dialog() (the Pipeline log), from the
-    window it opens in. A dialog's width is unscaled px (Blender applies
-    the UI scale to it), the window's is real px."""
-    scale = context.preferences.system.ui_scale or 1.0
-    window = context.window.width / scale
-    return int(min(window, max(MONITOR_POPUP_MIN_WIDTH, window * MONITOR_POPUP_SHARE)))
-
 # Fudge factor: entries end up nested a few columns/rows deep (see
 # _draw_entry), and Blender doesn't expose a sub-layout's resolved width.
 ENTRIES_INDENT_FACTOR = 0.8

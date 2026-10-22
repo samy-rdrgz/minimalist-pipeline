@@ -29,6 +29,7 @@ from .operators import (
     PIPELINE_PG_department_check_item,
     PIPELINE_PG_farm_list_item,
     PIPELINE_PG_farm_monitoring,
+    PIPELINE_PG_log_monitoring,
     PIPELINE_PG_monitoring,
     PIPELINE_PG_preview_sequence_item,
     PIPELINE_PG_render_subshot_item,
@@ -85,6 +86,9 @@ _WM_PROPS = {
     "pipeline_monitoring": bpy.props.PointerProperty(type=PIPELINE_PG_monitoring),
     "pipeline_farm_monitoring": bpy.props.PointerProperty(
         type=PIPELINE_PG_farm_monitoring
+    ),
+    "pipeline_log_monitoring": bpy.props.PointerProperty(
+        type=PIPELINE_PG_log_monitoring
     ),
     # entries_department_filter is the addon's one Scene/WM-level EnumProperty
     # used as a live filter (everything else here is a toggle/buffer) -- see

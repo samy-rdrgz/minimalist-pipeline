@@ -1,12 +1,19 @@
-"""Pipeline log popup: the project's pipeline_log.jsonl, filterable."""
+"""Pipeline log window: the project's pipeline_log.jsonl, filterable."""
 
 import datetime
 import threading
 
 import bpy
 
-from ..farm import redraw_popups
-from ..lib import ConfigCache, read_log_tail
+from ..lib import (
+    ConfigCache,
+    draw_pager,
+    paginate,
+    read_log_tail,
+    redraw_monitoring,
+    rows_that_fit,
+    split_footer,
+)
 
 # Read on open and on refresh (load_pipeline_log()), on a thread -- never
 # from draw().
@@ -35,6 +42,11 @@ _SHORT = 160
 # Column widths of a log line: time, user, action, then the message.
 _TIME, _USER, _ACTION = 0.16, 0.09, 0.13
 
+# What the window holds besides its lines (filters, column titles, footer,
+# margins), and one line's height, in widget units -- see rows_that_fit().
+_LOG_RESERVED_UNITS = 8.4
+_LINE_UNITS = 1.0
+
 
 def _log_time(ts) -> str:
     """ "20/10/2026 15:20:11" -- day before month, always. The raw value if
@@ -46,9 +58,9 @@ def _log_time(ts) -> str:
 
 
 def load_pipeline_log() -> None:
-    """Read the end of the project's pipeline log into the popup's cache, on
-    a thread (several MB on a share): the popup shows the previous read,
-    and "Reading..." until it's done."""
+    """Read the end of the project's pipeline log into the window's cache,
+    on a thread (several MB on a share): the window shows the previous
+    read, and "Reading..." until it's done."""
     if _log_cache["loading"]:
         return
     path = ConfigCache.get_path("pipeline_log_file")  # bpy: main thread only
@@ -62,10 +74,7 @@ def load_pipeline_log() -> None:
     thread.start()
 
     def poll():
-        # Redrawn every tick: a live popup
-        # re-registers its region, so none is touched a tick after it
-        # closed (see farm/loop.py, redraw_popups()).
-        redraw_popups()
+        redraw_monitoring("log")
         if thread.is_alive():
             return 0.1
         entries, truncated = result[0] if result else ([], False)
@@ -90,7 +99,7 @@ def load_pipeline_log() -> None:
                 for key in ("action", "user")
             },
         )
-        redraw_popups()
+        redraw_monitoring("log")
         return None
 
     bpy.app.timers.register(poll, first_interval=0.1)
@@ -121,24 +130,20 @@ def _matches(self, entry: dict, search: str) -> bool:
     return not search or search in entry["_search"]
 
 
-def draw_pipeline_logs(self, layout) -> None:
-    """M_PIPELINE_OT_pipeline_logs' list -- self is that operator (filter
-    and page state), same convention as draw_monitor_table()."""
-    search = self.search.strip().lower()
-    key = (_log_cache["read_at"], self.level, self.action, self.user, search)
+def draw_pipeline_logs(state, context, layout) -> None:
+    """The Pipeline log window's list -- state is
+    WindowManager.pipeline_log_monitoring (its filters), the page in
+    memory like the other windows' (paginate())."""
+    search = state.search.strip().lower()
+    key = (_log_cache["read_at"], state.level, state.action, state.user, search)
     if _filtered["key"] != key:
         _filtered.update(
             key=key,
-            matches=[e for e in _log_cache["entries"] if _matches(self, e, search)],
+            matches=[e for e in _log_cache["entries"] if _matches(state, e, search)],
         )
     matches = _filtered["matches"]
-
-    # Fixed number of rows per page -- see draw_monitor_table().
-    total = len(matches)
-    total_pages = max(1, -(-total // self.PAGE_SIZE))
-    self.page = max(1, min(self.page, total_pages))
-    start = (self.page - 1) * self.PAGE_SIZE
-    page_items = matches[start : start + self.PAGE_SIZE]
+    per_page = rows_that_fit(context, _LOG_RESERVED_UNITS, _LINE_UNITS)
+    page_items, page, pages = paginate("log", matches, per_page, key[1:])
 
     box = layout.box()
     title = _line(box)
@@ -161,28 +166,24 @@ def draw_pipeline_logs(self, layout) -> None:
             "m_pipeline.copy_log_line", text=entry["_short"], emboss=False
         )
         op.text = _full_line(entry)
-    for _ in range(self.PAGE_SIZE - len(page_items)):
+    for _ in range(per_page - len(page_items)):
         col.label(text="")
 
-    footer = box.row()
-    footer.active = False
-    footer.operator(
+    left, right = split_footer(context, box)
+    left.active = False
+    left.operator(
         "m_pipeline.pipeline_logs_refresh", text="", icon="FILE_REFRESH", emboss=False
     )
     read_at = _log_cache["read_at"]
-    shown = f"{total} line(s)"
+    shown = f"{len(matches)} line(s)"
     if _log_cache["loading"]:
         shown += " -- reading the log..."
     elif read_at:
         shown += f" -- read at {read_at:%H:%M:%S}"
     if _log_cache["truncated"]:
         shown += " -- latest entries only"
-    footer.label(text=shown)
-    if total_pages > 1:
-        pager = footer.row(align=True)
-        pager.alignment = "RIGHT"
-        pager.label(text=f"Page {self.page} / {total_pages}")
-        pager.prop(self, "page", text="")
+    left.label(text=shown)
+    draw_pager(right, page, pages)
 
 
 def _full_line(entry: dict) -> str:

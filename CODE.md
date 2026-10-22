@@ -182,7 +182,7 @@ minimalist_pipeline/
 │   ├── file_panel.py            # per-file actions (asset or shot alike): version, render,
 │   │                            #   preview, branch (shot only), open folder; own draw_header()
 │   ├── farm_panel.py            # own draw_header(): monitor status, live even collapsed
-│   ├── logs_panel.py            # Pipeline log popup's list, threaded read (load_pipeline_log())
+│   ├── logs_panel.py            # Pipeline log window's list, threaded read (load_pipeline_log())
 │   ├── monitoring_panel.py      # Project/Farm monitoring windows' content (Properties > Tool tab)
 │   └── tracking_panel.py
 │   # Project/File/Farm are standalone panels (no bl_parent_id, no shared
@@ -382,7 +382,7 @@ Full design rationale: `NOTES.md` (§ references below point to `multishot_spec_
 - `create_clean` in `create_asset`/`create_shot` uses `read_homefile()`, which resets Blender state. Should use a subprocess to generate the file without touching the current session.
 - "Monitor" names two different things in the codebase on purpose, left as-is: the farm coordinator role (`launch_monitor`, `monitor_tick`, `monitor.lock`) and the UI dashboard popups (`M_PIPELINE_OT_farm_monitor`, `M_PIPELINE_OT_tracking_monitor` — "show a popup view of X", unrelated to the role).
 - `auto_worker_on_open` only fires at two specific moments (Blender startup, active-project switch) — no continuous re-check.
-- **Pipeline log popup** — `m_pipeline.pipeline_logs` (`operators/log_ops.py`), drawn by `draw_pipeline_logs()` (`panels/logs_panel.py`): `read_log_tail()` reads the last 1 MB of `pipeline_log.jsonl` on open/refresh, on a thread (`load_pipeline_log()`: a timer polls it and redraws the popup through farm/loop.py's `register_popup_region()`/`redraw_popups()`), never in draw(); level/action/user/search filters, action and user enums built from what was read; a line click copies the whole entry (`m_pipeline.copy_log_line`, `_full_line()`). The Farm job detail opens it with `search=<job_id>`.
+- **Pipeline log window** — `m_pipeline.pipeline_logs` (`operators/log_ops.py`, `search=` to open it filtered) opens the third monitoring window (`lib/monitoring.py`, kind "log"; `M_PIPELINE_PT_log_monitoring`), filters in memory (`PIPELINE_PG_log_monitoring`, `WindowManager.pipeline_log_monitoring`); `draw_pipeline_logs()` (`panels/logs_panel.py`) pages it to the window (`rows_that_fit(..., _LINE_UNITS)`, `paginate("log")`, `draw_pager()`); `read_log_tail()` reads the last 1 MB of `pipeline_log.jsonl` on open/refresh/F5, on a thread (`load_pipeline_log()`, its timer redraws the window), never in draw(); a line click copies the whole entry (`m_pipeline.copy_log_line`). Keys: `_KEYMAP_ITEMS` (`lib/monitoring.py`) -- each named for the preferences' Shortcuts section (`draw_addon_keys()`), the windows' on, the global ones off; `m_pipeline.monitoring_refresh` is F5.
 - **Log rotation** (`lib/logs.py`) moves a log past `LOG_ROTATE_MAX_BYTES` into `config/logs/archives/` wholesale — never trims or compacts it. Fine at realistic scale (`sessions_log.jsonl` grows slowly enough that `WorkTimeCache` reading every archived chunk on each cache rebuild stays cheap for a project's realistic lifetime — see `docs/design.md`, "Work duration is logged..."), but if that ever stops holding, the fix isn't a smarter re-scan: it's baking old chunks down to one summed line per folder before they'd otherwise need re-reading, so old detail can be dropped without the total losing accuracy. Not built pre-emptively — no evidence yet that it's needed.
 
 ---

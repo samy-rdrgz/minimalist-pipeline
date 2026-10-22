@@ -17,7 +17,7 @@ By theme; the sections below stay in the order they were written.
 - **Notes, tracking, snapshot**: [Tracking entries](#tracking-entries) · [Entries for several departments](#entries-for-several-departments) · [Entries: two fields only ever guaranteed together, never accessed bare](#entries-two-fields-only-ever-guaranteed-together-never-accessed-bare) · [Edit-entry dialog: a stored department can outlive its own enum](#edit-entry-dialog-a-stored-department-can-outlive-its-own-enum) · [Department filter: three different callers, three different "current file"s](#department-filter-three-different-callers-three-different-current-files) · [tracking.json: one path, never created by a write](#trackingjson-one-path-never-created-by-a-write) · [Renders to check: the one before, to compare](#renders-to-check-the-one-before-to-compare) · [Project monitoring's Farm column: the monitor cache, not the project scan](#project-monitorings-farm-column-the-monitor-cache-not-the-project-scan) · [Production snapshot: one HTML file, a spreadsheet inside it](#production-snapshot-one-html-file-a-spreadsheet-inside-it) · [Snapshot width: short state labels, hideable columns](#snapshot-width-short-state-labels-hideable-columns) · [Work time tracking & log rotation](#work-time-tracking--log-rotation)
 - **Shot blocks (multishot), batch**: [Multishot blocks](#multishot-blocks) · [Multishot row list: disabling a button isn't a guard](#multishot-row-list-disabling-a-button-isnt-a-guard) · [Multishot row list, take two: a clean-scene reset invalidates it](#multishot-row-list-take-two-a-clean-scene-reset-invalidates-it) · [_draw_timeline_warnings: a trailing comma turned a string into a 1-tuple](#_draw_timeline_warnings-a-trailing-comma-turned-a-string-into-a-1-tuple) · [CSV batch: the subprocess couldn't import itself](#csv-batch-the-subprocess-couldnt-import-itself)
 - **Versions, saving, files**: [Read-only reason: from a popup on every open to an on-demand menu](#read-only-reason-from-a-popup-on-every-open-to-an-on-demand-menu) · [Top bar read-only indicator: why it sits before the Blender icon](#top-bar-read-only-indicator-why-it-sits-before-the-blender-icon) · [.wipmeta writes tolerate a missing sidecar; the panel doesn't trust the flag alone](#wipmeta-writes-tolerate-a-missing-sidecar-the-panel-doesnt-trust-the-flag-alone) · [Next version number: never from a cached listing](#next-version-number-never-from-a-cached-listing) · [Recent files: derived from the log, not a stored list](#recent-files-derived-from-the-log-not-a-stored-list) · [resolve_bpy_path() left "../" uncollapsed in every stored link path](#resolve_bpy_path-left--uncollapsed-in-every-stored-link-path) · [Copy/paste isn't always under bpy.app.tempdir](#copypaste-isnt-always-under-bpyapptempdir) · [Project walk: a stray .pipeline/ hid every asset below it; popup regions must not outlive their popup](#project-walk-a-stray-pipeline-hid-every-asset-below-it-popup-regions-must-not-outlive-their-popup)
-- **Monitoring windows, popups, panels**: [Monitoring: windows, not popups](#monitoring-windows-not-popups) · [Monitoring windows: to the front](#monitoring-windows-to-the-front) · [Monitoring windows: pages sized on the window](#monitoring-windows-pages-sized-on-the-window) · [Monitoring popups: reopening on the detail, or not](#monitoring-popups-reopening-on-the-detail-or-not) · [File details' monitoring_detail("file") is a folder, not a versioned file](#file-details-monitoring_detailfile-is-a-folder-not-a-versioned-file) · [Popup-chaining: a second modal popup always waits one timer tick](#popup-chaining-a-second-modal-popup-always-waits-one-timer-tick) · [Action popups: dialogs](#action-popups-dialogs) · ["Render" button opening pre-filled: an operator property's own redo memory](#render-button-opening-pre-filled-an-operator-propertys-own-redo-memory) · [Text wrapping in panels](#text-wrapping-in-panels) · [Pipeline log: backup noise, viewer](#pipeline-log-backup-noise-viewer)
+- **Monitoring windows, popups, panels**: [Monitoring: windows, not popups](#monitoring-windows-not-popups) · [Monitoring windows: to the front](#monitoring-windows-to-the-front) · [Monitoring windows: pages sized on the window](#monitoring-windows-pages-sized-on-the-window) · [Monitoring popups: reopening on the detail, or not](#monitoring-popups-reopening-on-the-detail-or-not) · [File details' monitoring_detail("file") is a folder, not a versioned file](#file-details-monitoring_detailfile-is-a-folder-not-a-versioned-file) · [Popup-chaining: a second modal popup always waits one timer tick](#popup-chaining-a-second-modal-popup-always-waits-one-timer-tick) · [Action popups: dialogs](#action-popups-dialogs) · ["Render" button opening pre-filled: an operator property's own redo memory](#render-button-opening-pre-filled-an-operator-propertys-own-redo-memory) · [Text wrapping in panels](#text-wrapping-in-panels) · [Pipeline log: backup noise, viewer](#pipeline-log-backup-noise-viewer) · [Shortcuts](#shortcuts)
 - **Shared drive, network cost**: [Network-share redraw cost: caching disk reads off draw()/poll()/enum callbacks](#network-share-redraw-cost-caching-disk-reads-off-drawpollenum-callbacks) · [Popups on a network share: nothing on disk in draw(), heavy reads off the UI thread](#popups-on-a-network-share-nothing-on-disk-in-draw-heavy-reads-off-the-ui-thread) · [Sidebar redraw: 341 ms of network calls, 0 notes on screen](#sidebar-redraw-341-ms-of-network-calls-0-notes-on-screen) · [Windows: replace/delete refused while a reader has the file open](#windows-replacedelete-refused-while-a-reader-has-the-file-open) · [Lock staleness: 3x the heartbeat, not 1x](#lock-staleness-3x-the-heartbeat-not-1x)
 - **Addon lifecycle**: [Addon register()/unregister(): four lifecycle gotchas](#addon-registerunregister-four-lifecycle-gotchas) · [Addon register()](#addon-register) · [Addon settings lost on update](#addon-settings-lost-on-update)
 
@@ -503,15 +503,20 @@ the share. Successes aren't logged anymore; failures still raise.
 
 The viewer (`m_pipeline.pipeline_logs`) reads only the file's last 1 MB
 (`read_log_tail()`): it can be several MB on a share before rotation, and
-the recent lines are what's looked for -- on a thread, like every other
-popup read. Its timer redraws the popup through the Farm popup's region
-registry, with the same rule: redrawn every tick while reading (a live
-popup re-registers on each draw), and the registry cleared when the popup
-opens, so a region from a closed popup is never touched. Action and user
-filters list what was read rather than a fixed list -- any `log()` call
-adds its own action.
+the recent lines are what's looked for -- on a thread, its timer
+redrawing the window. Action and user filters list what was read rather
+than a fixed list -- any `log()` call adds its own action.
 
-**Redraw cost.** A popup redraws on every mouse move. The first version
+A popup at first; since 1.1.0 a monitoring window like the two others
+(kind "log"): a popup keeps every key to itself -- no arrows for its
+pages, no Esc --, closes when the mouse leaves it, and needed a registry
+of its floating region for a timer to redraw it (`register_popup_region()`
+/ `redraw_popups()`, gone with it: a region freed with its popup must
+never be redrawn). The window pages to its height (a log line is a bare
+label, about 1 widget unit: `_LINE_UNITS`), its filters in memory, F5
+reads it again.
+
+**Redraw cost.** A window redraws on every mouse move. The first version
 re-filtered every line and rebuilt the action/user enum items on each
 redraw; now both are built once per read (`_filtered`, keyed on the read
 and the filters, so a page change is a slice; `_items_cache`, keyed on the
@@ -2779,3 +2784,25 @@ them, as given): `ordered_departments()`, applied where they're written
 (`create_tracking()`, `_set_entry_departments()`) and where they're read
 (`get_departments_required()`, `_status_from_raw()`) -- files written
 before stay sorted by name on disk and read in the project's order.
+
+## Shortcuts
+
+The preferences' Shortcuts section listed `rna_keymap_ui.draw_kmi()` rows:
+each named after its operator's label -- "Change page" four times. Each
+key is now named for what it does (`_KEYMAP_ITEMS`' first field), drawn as
+a tick, that name and its key (`draw_addon_keys()`), found in the user
+keyconfig by operator *and* properties (two page keys, Increment and Mark
+as stable, share an operator). The section is folded by default
+(`show_shortcuts`).
+
+Keys anywhere in Blender (Window keymap) -- Project / Farm monitoring, the
+log, New entry, Increment, Mark as stable, Render this file -- are
+registered off: whatever combination ships clashes with something in
+someone's Blender, so each user switches on the ones they want and picks
+their keys. The defaults are Shift+Alt+letter, not Ctrl: Project
+monitoring's Ctrl+click opens the open file's detail, and a Ctrl
+shortcut would too. "Render this file" can't carry the open file's path
+in a keymap item: `farm_request_render.current_file` makes invoke() read
+it. F5 refreshes a monitoring window (`m_pipeline.monitoring_refresh`).
+Enter to open a file's detail was turned down: too easy to hit by
+accident.

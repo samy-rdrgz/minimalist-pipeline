@@ -348,6 +348,9 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
     filepath: bpy.props.StringProperty(
         name="filepath", default="", options={"SKIP_SAVE"}
     )
+    # The "Render this file" shortcut: a keymap item can't hold the open
+    # file's path, invoke() reads it.
+    current_file: bpy.props.BoolProperty(options={"SKIP_SAVE", "HIDDEN"})
 
     file_type: bpy.props.EnumProperty(
         items=[
@@ -445,6 +448,11 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
         if not get_active_project_root():
             self.report({"ERROR"}, "No active project.")
             return {"CANCELLED"}
+        if self.current_file and not self.filepath:
+            if not bpy.data.filepath:
+                self.report({"ERROR"}, "Save this file first.")
+                return {"CANCELLED"}
+            self.filepath = bpy.data.filepath
         self.project_root = str(get_active_project_root())
         scan_descriptions(get_active_project_root())  # menu tooltips
         # Every submit starts from the project's preset, never the last one.

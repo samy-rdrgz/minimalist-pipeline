@@ -26,7 +26,7 @@ _registered_loop_tick_fn = None
 
 _farm_running_project: Path | None = None
 
-# Popup open: the user is actively watching, keep it snappy.
+# Farm monitoring open: the user is actively watching, keep it snappy.
 _REFRESH_INTERVAL = 2.0
 # Always-on header status: the monitor itself only ticks every ~10 s
 # (farm_tick), so polling faster than that only re-reads the same data.
@@ -100,23 +100,6 @@ def register_farm_loop(project_root: Path, interval: float = 10) -> None:
             bpy.app.timers.register(
                 _registered_loop_tick_fn, first_interval=1, persistent=True
             )
-
-
-_popup_regions: set = set()
-
-
-def register_popup_region(region) -> None:
-    """Track a popup's own floating region (the Pipeline log) so a timer can force its redraw (redraw_popups()). Call from the
-    popup's draw() -- context.region_popup (4.2+) only exists while
-    actually drawing, not yet at invoke() time, and the popup draws in its
-    own floating region tag_redraw() can't reach."""
-    if region is not None:
-        _popup_regions.add(region)
-
-
-def clear_popup_regions() -> None:
-    """Drop every tracked popup region (called once the popup closes)."""
-    _popup_regions.clear()
 
 
 def refresh_monitor_cache(*, force_rescan: bool = False) -> None:
@@ -386,7 +369,7 @@ def _read_farm_snapshot(paths: dict, scanned: dict, cached_actives: list) -> dic
 
 
 def _status_from_monitor_raw(monitor: tuple) -> dict:
-    """Main thread: the sidebar/popup status fields from (lock content, mtime)."""
+    """Main thread: the sidebar and windows' status fields from (lock content, mtime)."""
     data, mtime = monitor
     status = {
         "status": "not running",
@@ -472,23 +455,6 @@ def _redraw_sidebars() -> None:
                     region.tag_redraw()
 
 
-def redraw_popups() -> None:
-    """Redraw the popup regions registered by draw() since the last call,
-    then forget them: a live popup re-registers on the redraw this
-    triggers, a closed one never does -- so a region is never touched more
-    than one tick after its popup's last draw (see unregister_refresh_timer()
-    for why a stale region must never be touched)."""
-    regions = list(_popup_regions)
-    _popup_regions.clear()
-    for region in regions:
-        try:
-            region.tag_redraw()
-            if hasattr(region, "tag_refresh_ui"):
-                region.tag_refresh_ui()
-        except Exception:
-            pass
-
-
 def _refresh_tick() -> float:
     """UI-only timer while a Farm monitoring window is open (started and
     stopped by lib/monitoring.py's _monitoring_tick). Never touches the disk
@@ -499,7 +465,6 @@ def _refresh_tick() -> float:
         if result is not None and result[0] == "ok":
             _apply_farm_snapshot(result[1])
             _redraw_sidebars()
-            redraw_popups()
         if (
             not _refresh_reader.busy()
             and time.monotonic() - _refresh_reader.started_at >= _REFRESH_INTERVAL
@@ -701,7 +666,7 @@ def _build_job_entry(
         frames_total = resolved[1] - resolved[0] + 1
     frames_done = frames_done or 0
 
-    # Nothing timed yet (a render's first frames): None, the popup falls
+    # Nothing timed yet (a render's first frames): None, Farm monitoring falls
     # back on elapsed time over progress.
     seconds = {u: s for u, s in (frame_seconds or {}).items() if s}
     timed = [s for secs in seconds.values() for s in secs]
@@ -808,17 +773,14 @@ def register_refresh_timer() -> None:
 
 
 def unregister_refresh_timer() -> None:
-    """Unregister the UI redraw timer and drop any tracked popup regions.
-    Called when the last Farm monitoring window closes and on file load: a
-    region freed with its popup must never be tag_redraw()n -- that crashes Blender (see
-    NOTES.md, "Project walk")."""
+    """Unregister the UI redraw timer. Called when the last Farm monitoring
+    window closes and on file load."""
     global _registered_tick_fn
     if _registered_tick_fn is not None and bpy.app.timers.is_registered(
         _registered_tick_fn
     ):
         bpy.app.timers.unregister(_registered_tick_fn)
     _registered_tick_fn = None
-    clear_popup_regions()
 
 
 def register_status_timer() -> None:
@@ -832,12 +794,10 @@ def register_status_timer() -> None:
 
 
 def unregister_status_timer() -> None:
-    """Stop the farm status timer (register_status_timer()) and forget the
-    popup regions it redrew."""
+    """Stop the farm status timer (register_status_timer())."""
     global _registered_status_tick_fn
     if _registered_status_tick_fn is not None and bpy.app.timers.is_registered(
         _registered_status_tick_fn
     ):
         bpy.app.timers.unregister(_registered_status_tick_fn)
     _registered_status_tick_fn = None
-    clear_popup_regions()

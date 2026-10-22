@@ -15,7 +15,7 @@ from .tracking import ProjectScan
 # "farm") -- the panels' poll() reads it, and it survives the .blend being
 # saved with the window open.
 MONITORING_SCREEN_KEY = "m_pipeline_monitoring"
-MONITORING_KINDS = ("project", "farm")
+MONITORING_KINDS = ("project", "farm", "log")
 
 # Redraw check, and how often Project monitoring's Farm column is read again.
 _TICK = 0.5
@@ -261,6 +261,7 @@ def _monitoring_tick():
 
     project = monitoring_windows("project")
     farm = monitoring_windows("farm")
+    log = monitoring_windows("log")
 
     if farm:
         register_refresh_timer()  # no-op while it runs
@@ -269,7 +270,7 @@ def _monitoring_tick():
         unregister_refresh_timer()
         _farm_refresh_ours = False
 
-    if not (project or farm):
+    if not (project or farm or log):
         _last_seen.clear()
         return None
 
@@ -369,12 +370,13 @@ def turn_page(kind: str, step: int, to_end: bool = False) -> None:
     redraw_monitoring(kind)
 
 
-def rows_that_fit(context, reserved_units: float) -> int:
+def rows_that_fit(context, reserved_units: float, row_units: float = ROW_UNITS) -> int:
     """List rows that fit the window's region once reserved_units (its
     filters, header, footer, margins -- widget units) are taken, never
-    under MIN_ROWS."""
+    under MIN_ROWS. row_units: one row's height (ROW_UNITS, a table row
+    with its separator; a bare label line is about 1)."""
     unit = 20 * (context.preferences.system.ui_scale or 1.0)  # 0 in background
-    return max(MIN_ROWS, int((context.region.height / unit - reserved_units) / ROW_UNITS))
+    return max(MIN_ROWS, int((context.region.height / unit - reserved_units) / row_units))
 
 
 def paginate(kind: str, items: list, per_page: int, filters: tuple) -> tuple:
@@ -434,68 +436,138 @@ def draw_pager(layout, page: int, pages: int) -> None:
     nxt.operator("m_pipeline.monitoring_page", text="", icon="TRIA_RIGHT").step = 1
 
 
-# The monitoring windows' keys: (keymap, space, operator, key, ctrl,
-# properties). Their operators' poll() keeps them to those windows. The
-# arrows go in "Frames", whose own Left / Right (frame step, Ctrl: time
-# jump) a region checks before the Properties editor's keymap -- an
-# addon's item wins inside the same keymap. See NOTES.md, "Monitoring
-# windows: pages sized on the window".
+# The addon's keys: (name in the preferences, keymap, space, operator, key,
+# modifiers, properties, on by default). The monitoring windows' keys: their
+# operators' poll() keeps them to those windows. The arrows go in "Frames",
+# whose own Left / Right (frame step, Ctrl: time jump) a region checks
+# before the Properties editor's keymap -- an addon's item wins inside the
+# same keymap. The rest: anywhere in Blender, off until switched on in the
+# preferences (keys picked there). See NOTES.md, "Monitoring windows: pages
+# sized on the window" and "Shortcuts".
+_PAGE = "m_pipeline.monitoring_page"
 _KEYMAP_ITEMS = (
-    ("Frames", "EMPTY", "m_pipeline.monitoring_page", "LEFT_ARROW", False, {"step": -1}),
-    ("Frames", "EMPTY", "m_pipeline.monitoring_page", "RIGHT_ARROW", False, {"step": 1}),
+    ("Previous page", "Frames", "EMPTY", _PAGE, "LEFT_ARROW", (), {"step": -1}, True),
+    ("Next page", "Frames", "EMPTY", _PAGE, "RIGHT_ARROW", (), {"step": 1}, True),
     (
+        "First page",
         "Frames",
         "EMPTY",
-        "m_pipeline.monitoring_page",
+        _PAGE,
         "LEFT_ARROW",
-        True,
+        ("ctrl",),
         {"step": -1, "to_end": True},
+        True,
     ),
     (
+        "Last page",
         "Frames",
         "EMPTY",
-        "m_pipeline.monitoring_page",
+        _PAGE,
         "RIGHT_ARROW",
-        True,
+        ("ctrl",),
         {"step": 1, "to_end": True},
+        True,
     ),
-    ("Property Editor", "PROPERTIES", "m_pipeline.monitoring_back", "ESC", False, {}),
-    ("Property Editor", "PROPERTIES", "m_pipeline.monitoring_switch", "TAB", False, {}),
+    ("Back to the list", "Property Editor", "PROPERTIES", "m_pipeline.monitoring_back", "ESC", (), {}, True),
+    ("Switch view", "Property Editor", "PROPERTIES", "m_pipeline.monitoring_switch", "TAB", (), {}, True),
+    ("Refresh", "Property Editor", "PROPERTIES", "m_pipeline.monitoring_refresh", "F5", (), {}, True),
+    ("Project monitoring", "Window", "EMPTY", "m_pipeline.tracking_monitor", "P", ("shift", "alt"), {}, False),
+    ("Farm monitoring", "Window", "EMPTY", "m_pipeline.farm_monitor", "F", ("shift", "alt"), {}, False),
+    ("Pipeline log", "Window", "EMPTY", "m_pipeline.pipeline_logs", "L", ("shift", "alt"), {}, False),
+    ("New entry", "Window", "EMPTY", "m_pipeline.create_entry", "N", ("shift", "alt"), {}, False),
+    (
+        "Increment version",
+        "Window",
+        "EMPTY",
+        "m_pipeline.increment_version",
+        "I",
+        ("shift", "alt"),
+        {"tag": "NONE"},  # told apart from Mark as stable's
+        False,
+    ),
+    (
+        "Mark as stable",
+        "Window",
+        "EMPTY",
+        "m_pipeline.increment_version",
+        "S",
+        ("shift", "alt"),
+        {"tag": "stable"},
+        False,
+    ),
+    (
+        "Render this file",
+        "Window",
+        "EMPTY",
+        "m_pipeline.farm_request_render",
+        "R",
+        ("shift", "alt"),
+        {"current_file": True},
+        False,
+    ),
 )
 _keymap_items: list = []
 
 
 def register_monitoring_keymap() -> None:
-    """Arrows: previous / next page (Ctrl: first / last); Esc: back from a
-    detail to the list; Tab: assets <-> shots, jobs <-> workers. Needs the addon keyconfig (not there at register())."""
+    """The addon's keys (_KEYMAP_ITEMS): the monitoring windows' on, the
+    rest off until switched on. Needs the addon keyconfig (not there at
+    register())."""
     kc = bpy.context.window_manager.keyconfigs.addon
     if not kc or _keymap_items:
         return
-    for km_name, space, idname, key, ctrl, props in _KEYMAP_ITEMS:
+    for _label, km_name, space, idname, key, mods, props, active in _KEYMAP_ITEMS:
         km = kc.keymaps.new(name=km_name, space_type=space)
-        kmi = km.keymap_items.new(idname, type=key, value="PRESS", ctrl=ctrl)
+        kmi = km.keymap_items.new(
+            idname, type=key, value="PRESS", **{m: True for m in mods}
+        )
         for name, value in props.items():
-            setattr(kmi.properties, name, value)
+            try:
+                setattr(kmi.properties, name, value)
+            except TypeError:  # an enum item not there yet (no project)
+                pass
+        kmi.active = active
         _keymap_items.append((km, kmi))
 
 
-def draw_addon_keys(context, layout) -> None:
-    """The addon's shortcuts, editable (the user keyconfig's copy, saved
-    with the preferences like any shortcut): Ctrl+S, and the monitoring
-    windows' keys."""
-    import rna_keymap_ui
+def _same_properties(kmi, props: dict) -> bool:
+    """Whether kmi's operator properties are props (a page key from another)."""
+    try:
+        return all(getattr(kmi.properties, k) == v for k, v in props.items())
+    except AttributeError:
+        return False
 
+
+def draw_addon_keys(context, layout) -> None:
+    """The addon's shortcuts, each named for what it does (several share an
+    operator: "Change page" four times), switchable and editable -- the
+    user keyconfig's copy, saved with the preferences like any shortcut."""
     kc = context.window_manager.keyconfigs.user
-    wanted = {("Window", "wm.safe_save")} | {
-        (km_name, idname) for km_name, _space, idname, *_rest in _KEYMAP_ITEMS
-    }
-    for km_name in dict.fromkeys(name for name, _ in wanted):
+    items = [("Save (guarded)", "Window", "wm.safe_save", {})] + [
+        (label, km_name, idname, props)
+        for label, km_name, _space, idname, _key, _mods, props, _active in _KEYMAP_ITEMS
+    ]
+    col = layout.column(align=True)
+    for label, km_name, idname, props in items:
         km = kc.keymaps.get(km_name)
-        if km is None:
+        kmi = next(
+            (
+                k
+                for k in (km.keymap_items if km else ())
+                if k.idname == idname and _same_properties(k, props)
+            ),
+            None,
+        )
+        if kmi is None:
             continue
-        for kmi in km.keymap_items:
-            if (km_name, kmi.idname) in wanted:
-                rna_keymap_ui.draw_kmi([], kc, km, kmi, layout, 0)
+        row = col.row(align=True)
+        row.prop(kmi, "active", text="")
+        name = row.row()
+        name.active = kmi.active
+        name.label(text=label)
+        key = row.row()
+        key.active = kmi.active
+        key.prop(kmi, "type", text="", full_event=True)
 
 
 def unregister_monitoring_keymap() -> None:

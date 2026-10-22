@@ -28,6 +28,7 @@ from .farm_ops import (
 )
 from .file_ops import M_PIPELINE_OT_increment_version
 from .log_ops import (
+    PIPELINE_PG_log_monitoring,
     M_PIPELINE_OT_copy_log_line,
     M_PIPELINE_OT_pipeline_logs,
     M_PIPELINE_OT_pipeline_logs_refresh,
@@ -35,6 +36,7 @@ from .log_ops import (
 from .monitoring_ops import (
     M_PIPELINE_OT_monitoring_back,
     M_PIPELINE_OT_monitoring_page,
+    M_PIPELINE_OT_monitoring_refresh,
     M_PIPELINE_OT_monitoring_switch,
 )
 from .preview_ops import M_PIPELINE_OT_compile_preview
@@ -81,6 +83,7 @@ from .tracking_ops import (
 classes = (
     M_PIPELINE_OT_monitoring_back,
     M_PIPELINE_OT_monitoring_page,
+    M_PIPELINE_OT_monitoring_refresh,
     M_PIPELINE_OT_monitoring_switch,
     M_PIPELINE_OT_create_project,
     M_PIPELINE_OT_find_project,
@@ -125,6 +128,7 @@ classes = (
     M_PIPELINE_OT_render_checked,
     M_PIPELINE_OT_review_descriptions,
     M_PIPELINE_OT_open_render_video,
+    PIPELINE_PG_log_monitoring,
     M_PIPELINE_OT_pipeline_logs,
     M_PIPELINE_OT_pipeline_logs_refresh,
     M_PIPELINE_OT_copy_log_line,
