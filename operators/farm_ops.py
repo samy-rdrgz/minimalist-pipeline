@@ -65,6 +65,20 @@ from .preview_ops import request_sequence_preview
 
 _workers_items_cache: list[tuple[str, str, str]] = []
 _pre_render_scripts: list[tuple[str, str, str]] = []
+# The pre-render picker's "None" item. Never "": Blender draws an item with
+# an empty identifier as a heading in the menu, not as a choice.
+_NO_SCRIPT = "NONE"
+
+
+def _stable_enum_items(cache: list, items: list) -> list:
+    """Return cache holding items, for a dynamic EnumProperty callback.
+    Blender keeps raw pointers to the strings of the list last returned,
+    and calls the callback again on every redraw, open menu included: new
+    but equal strings each time would free the ones it's still drawing --
+    blank or garbled names. So the old ones stay while nothing changed."""
+    if cache != items:
+        cache[:] = items
+    return cache
 
 
 def _get_workers_items(self, context):
@@ -80,21 +94,20 @@ def _get_workers_items(self, context):
             tag = " (used)" if d.get("status") != "idle" else ""
             items.append((uuid, user, f"{user} ({machine}){tag}"))
 
-        _workers_items_cache[:] = items
-        return _workers_items_cache
+        return _stable_enum_items(_workers_items_cache, items)
 
     except Exception as e:
         log("WARNING", "farm", f"Could not list machines: {e}")
-        _workers_items_cache[:] = [("NONE", "No worker found", "")]
-        return _workers_items_cache
+        return _stable_enum_items(
+            _workers_items_cache, [("NONE", "No worker found", "")]
+        )
 
 
 def _get_pre_render_scripts(self, context):
     """Enum items for the pre-render script picker: every .py/.json preset
     directly under config/presets/ (matches apply_custom_preset()'s lookup),
     excluding asset_file_preset.py and the ffmpeg_presets/ subfolder."""
-    global _pre_render_scripts
-    items = [("", "None", "Don't execute script before render.")]
+    items = [(_NO_SCRIPT, "None", "Don't execute script before render.")]
     try:
         presets_dir = ConfigCache.get_path("presets")
         names = set()
@@ -106,14 +119,14 @@ def _get_pre_render_scripts(self, context):
                 f.is_file()
                 and suffix in (".py", ".json")
                 and f.name != "asset_file_preset.py"
+                and Path(f.name).stem != _NO_SCRIPT
             ):
                 names.add(Path(f.name).stem)
         for name in sorted(names):
             items.append((name, name, f"Apply preset '{name}' before render."))
     except Exception as e:
         log("WARNING", "farm", f"Could not list pre-render presets: {e}")
-    _pre_render_scripts = items
-    return _pre_render_scripts
+    return _stable_enum_items(_pre_render_scripts, items)
 
 
 class M_PIPELINE_OT_farm_kill_monitor(bpy.types.Operator):
@@ -451,7 +464,8 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
             self, "assigned_machines", text="Assigned machines (empty: auto)"
         )
         col.separator()
-        col.prop_menu_enum(self, "pre_render_script", text="Pre_render script")
+        # A dropdown, not prop_menu_enum(): shows the script picked.
+        col.prop(self, "pre_render_script", text="Pre-render script")
 
     def _draw_subshots(self, layout, subshots):
         naming = ConfigCache.get().get("naming", {})
@@ -611,7 +625,10 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
             render_mode=self.render_mode,
             assigned_machines=list(self.assigned_machines),
             increment=self.increment,
-            prerender_script=self.pre_render_script,
+            # "" for none, as stored in job files (and job ids) before.
+            prerender_script=(
+                "" if self.pre_render_script == _NO_SCRIPT else self.pre_render_script
+            ),
             overrided_frame_range=(start, end),
             only_shots=sorted(only) if only else None,
         )
