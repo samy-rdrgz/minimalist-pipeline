@@ -224,6 +224,14 @@ class TrackingStatusCache:
         return max(mtimes)
 
     @classmethod
+    def known_description(cls, folder: Path | str) -> str:
+        """The description of the asset/shot owning folder, if its status is
+        already cached (ProjectScan, a file opened...), else "". Memory
+        only, never the disk: for enum tooltips, re-evaluated every redraw."""
+        entry = cls._cache.get(str(_owner_dir(Path(folder))))
+        return ((entry[1] if entry else {}).get("description") or "").strip()
+
+    @classmethod
     def known(cls, project_root: Path) -> list[tuple[str, dict]]:
         """(asset_dir, status) for every non-archived folder cached under
         project_root -- memory only, for draw(). ProjectScan fills it."""

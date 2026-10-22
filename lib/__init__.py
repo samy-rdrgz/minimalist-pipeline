@@ -24,6 +24,7 @@ from .browser import (
     get_folder,
     prefix_items,
     resolve_version_file,
+    scan_descriptions,
     sequence_items,
     shot_department_items,
     shot_items,
