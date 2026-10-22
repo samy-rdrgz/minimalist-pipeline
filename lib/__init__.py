@@ -39,6 +39,7 @@ from .config import (
     file_in_active_project,
     find_known_project_for_file,
     find_project_root,
+    ordered_departments,
     format_camera_name,
     format_shot_segment,
     get_active_project_root,

@@ -2569,6 +2569,11 @@ one chunk). `.stop` is read before each chunk and each frame. A frame that
 fails ends the render (exit 1) with its claim in place, for the host to
 free and count against this machine.
 
+A render that fails with no machine left names what failed: "frames
+11-15 failed on 09d89c9c, fbd54d8e -- no other machine to try"
+(`_no_machine_reason()`), not just "every machine allowed on it failed
+it"; its empty claims folder goes with it (`_end_render()`).
+
 Checked headless, Workbench, 64x36 PNG: 23 frames by one machine -- the
 same names and the same pixels as Blender's own `-a` render; 120 frames
 by three at once -- each written once, none missing, no claim or .tmp
@@ -2697,3 +2702,17 @@ department the file no longer requires is dropped on Edit rather than
 failing invoke(). A review spreadsheet's department cell splits on `,`
 `;` `/` `+`, each name validated against the file's departments, the
 unknown ones dropped.
+
+New entry: one entry per line for every type -- a note joined its lines
+into one entry with the first line's department and frames, the others
+ignored; a shot per line (`PipelineEntryItem.shot_tag`, right of its
+departments, for a block), not one for the whole dialog; RTK by default.
+
+Department order: `create_tracking()` stored `departments_required`
+`sorted()` by name, and every list followed the file -- the file
+details, the toggles, the pickers, an entry's tag. Now the project's
+order (Edit project: asset departments, then shot ones; any other after
+them, as given): `ordered_departments()`, applied where they're written
+(`create_tracking()`, `_set_entry_departments()`) and where they're read
+(`get_departments_required()`, `_status_from_raw()`) -- files written
+before stay sorted by name on disk and read in the project's order.

@@ -1060,7 +1060,24 @@ def _end_render(job_path: Path, stage: str, **fields) -> dict | None:
         _note_frames(data)
         _note_machine_names(data, data["rendered_by"])
         box["action"] = "to_write"
-        return data
+    if not read_claims(data["job_id"]):
+        remove_claims(data["job_id"])  # a Retry makes it again
+    return data
+
+
+def _no_machine_reason(data: dict) -> str:
+    """Why a render with no machine left failed: the frames that failed
+    and on which machines, when it's known."""
+    start, end = (int(x) for x in data["resolved_frame_range"])
+    parts = []
+    for k, machines in sorted(
+        (data.get("chunk_failures") or {}).items(), key=lambda kv: int(kv[0])
+    ):
+        first, last = chunk_frames(start, end, int(data["chunk_size"]), int(k))
+        parts.append(f"frames {first}-{last} failed on {', '.join(u[:8] for u in machines)}")
+    if not parts:
+        return "every machine allowed on it failed it"
+    return "; ".join(parts) + " -- no other machine to try"
 
 
 def _no_machine_left(data: dict) -> bool:
@@ -1129,7 +1146,7 @@ def check_render_completion(
             _withdraw_requests(job_id, waiting)
         return data
     if not (claims or rendering or waiting) and _no_machine_left(data):
-        reason = "every machine allowed on it failed it"
+        reason = _no_machine_reason(data)
         log("ERROR", "farm", f"Job {job_id}: {reason}.")
         return _end_render(job_path, "render_failed", reason=reason)
     if idle is not None:

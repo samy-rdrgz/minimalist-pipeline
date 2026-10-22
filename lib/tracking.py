@@ -19,6 +19,7 @@ from .config import (
     file_in_active_project,
     get_active_project_root,
     get_base_filename,
+    ordered_departments,
     parse_filename,
     prefix_to_parent_folder,
     project_path,
@@ -585,8 +586,10 @@ def create_tracking(filepath: Path, departments: list, description: str = ""):
 
         with locked_json(path) as box:
             existing = box["data"] or {}
-            merged_departments = sorted(
-                set(existing.get("departments_required", [])) | set(departments)
+            # The project's order (Edit project), not the alphabet's: what
+            # every list of departments shows them in.
+            merged_departments = ordered_departments(
+                dict.fromkeys([*existing.get("departments_required", []), *departments])
             )
             existing_description = existing.get("description", "")
             if description and description not in existing_description:
@@ -616,7 +619,9 @@ def get_departments_required(filepath: Path) -> list:
         path = tracking_json_path(filepath)
         with locked_json(path, read_only=True) as box:
             data = box["data"] or {}
-        return data.get("departments_required")
+        required = data.get("departments_required")
+        # Files written before 1.1.0 kept them sorted by name.
+        return ordered_departments(required) if required is not None else None
     except Exception as e:
         raise PipelineError(f"Error during reading tracking file : {e}")
 
@@ -1096,7 +1101,11 @@ def _worked_departments(wipmetas: list, stable_date: datetime) -> dict[str, list
 def _status_from_raw(raw: dict) -> dict:
     """A folder's tracking status from _collect_folder()'s data -- memory
     only, no disk."""
-    global_data = raw["tracking"]
+    global_data = dict(raw["tracking"])
+    # The project's order, whatever the file's (sorted by name before 1.1.0).
+    global_data["departments_required"] = ordered_departments(
+        global_data.get("departments_required", [])
+    )
     last_stable = raw["last_stable"]
     stable_date_str = last_stable.get("created_at")
     stable_date = (
@@ -1351,7 +1360,9 @@ def _set_entry_departments(e: dict, departments) -> None:
     are several (a one-department entry stays as it always was)."""
     if isinstance(departments, str):
         departments = [departments]
-    deps = [d for d in dict.fromkeys(departments or []) if d and d != "NONE"]
+    deps = ordered_departments(
+        d for d in dict.fromkeys(departments or []) if d and d != "NONE"
+    )
     if deps:
         e["department"] = deps[0]
     else:

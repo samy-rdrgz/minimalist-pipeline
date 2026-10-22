@@ -398,6 +398,24 @@ def find_known_project_for_file(filepath: str, opened_projects) -> str | None:
     return None
 
 
+def ordered_departments(departments) -> list[str]:
+    """departments in the project's order -- Edit project's asset
+    departments, then its shot ones --, any it doesn't list after them, as
+    given. As given with no active project to read it from."""
+    deps = list(departments or [])
+    try:
+        config = ConfigCache.get()
+    except Exception:
+        return deps
+    order = []
+    for key in ("assets_departments", "shots_departments"):
+        for d in config.get(key) or []:
+            if str(d).lower() not in order:
+                order.append(str(d).lower())
+    rank = {d: i for i, d in enumerate(order)}
+    return sorted(deps, key=lambda d: rank.get(str(d).lower(), len(rank)))
+
+
 def find_project_root(start_path: str) -> Path | None:
     """Walk up directory tree to find a project_config.json."""
     current = Path(start_path)

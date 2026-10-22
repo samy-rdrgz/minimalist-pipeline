@@ -2,6 +2,7 @@
 
 import hashlib
 from pathlib import Path
+from types import SimpleNamespace
 
 import bpy
 
@@ -20,6 +21,7 @@ from ..lib import (
     department_filter_items,
     edit_entry,
     entry_departments,
+    ordered_departments,
     entry_version_items,
     file_in_active_project,
     get_active_project_root,
@@ -82,14 +84,24 @@ def _file_department_items(self, context) -> list[tuple]:
 
 
 def _departments_label(departments) -> str:
-    """What a departments picker reads: "Layout, Animation" / "No department"."""
-    return ", ".join(sorted(d.capitalize() for d in departments)) or "No department"
+    """What a departments picker reads: "Layout, Animation" (the project's
+    order) / "No department"."""
+    return ", ".join(d.capitalize() for d in ordered_departments(departments)) or (
+        "No department"
+    )
 
 
 def _in_order(selected, items: list) -> list[str]:
     """An ENUM_FLAG's selection (a set) in its items' order -- the
     departments' own (departments_required)."""
     return [item[0] for item in items if item[0] in selected]
+
+
+def _entry_line_shot_items(self, context) -> list[tuple]:
+    """A New entry line's shot picker: shot_tag_items() for the dialog's
+    file (WindowManager.entry_target_file)."""
+    target = SimpleNamespace(filepath=context.window_manager.entry_target_file)
+    return shot_tag_items(target, context)
 
 
 class PipelineEntryItem(bpy.types.PropertyGroup):
@@ -100,6 +112,11 @@ class PipelineEntryItem(bpy.types.PropertyGroup):
         items=_file_department_items,
         options={"ENUM_FLAG"},
         description="The departments this entry is for -- several at once",
+    )
+    shot_tag: bpy.props.EnumProperty(
+        name="Shot",
+        description="Which shot in this block the line is about, if any",
+        items=_entry_line_shot_items,
     )
     is_frame_start: bpy.props.BoolProperty(name="")
     frame_start: bpy.props.IntProperty(name="")
@@ -113,14 +130,18 @@ class M_PIPELINE_OT_add_entry_line(bpy.types.Operator):
     bl_idname = "m_pipeline.add_entry_line"
     bl_label = "New line"
 
-    # The line above's departments, comma-separated: the new line starts with them.
+    # The line above's departments (comma-separated) and shot: the new line
+    # starts with them.
     departments: bpy.props.StringProperty(name="")
+    shot: bpy.props.StringProperty(name="")
 
     def execute(self, context):
         entries = context.window_manager.pipeline_entry_buffer
         new_item = entries.add()
         known = {item[0] for item in _file_department_items(None, context)}
         new_item.departments = {d for d in self.departments.split(",") if d in known}
+        if self.shot in {item[0] for item in _entry_line_shot_items(None, context)}:
+            new_item.shot_tag = self.shot
         return {"FINISHED"}
 
 
@@ -147,6 +168,7 @@ class M_PIPELINE_OT_create_entry(bpy.types.Operator):
 
     type: bpy.props.EnumProperty(
         items=[("note", "Note", ""), ("todo", "Todo", ""), ("rtk", "RTK", "")],
+        default="rtk",
         options={"SKIP_SAVE"},
     )
     filepath: bpy.props.StringProperty(default="", options={"SKIP_SAVE"})
@@ -162,12 +184,6 @@ class M_PIPELINE_OT_create_entry(bpy.types.Operator):
     )
     referenced_version: bpy.props.EnumProperty(
         items=entry_version_items, options={"SKIP_SAVE"}
-    )
-    shot_tag: bpy.props.EnumProperty(
-        name="Shot",
-        description="Which shot in this block the entry is about, if any.",
-        items=shot_tag_items,
-        options={"SKIP_SAVE"},
     )
 
     def invoke(self, context, event):
@@ -188,6 +204,7 @@ class M_PIPELINE_OT_create_entry(bpy.types.Operator):
 
         required = get_departments_required(Path(self.filepath))
         context.window_manager.file_selected_departments = ",".join(required or [])
+        context.window_manager.entry_target_file = self.filepath
         # One line ready to type in -- a draft left by a cancelled dialog stays.
         if not context.window_manager.pipeline_entry_buffer:
             context.window_manager.pipeline_entry_buffer.add()
@@ -214,68 +231,24 @@ class M_PIPELINE_OT_create_entry(bpy.types.Operator):
         row.label(text="Entry type:", icon="TRIA_RIGHT")
         row = row.row()
         row.prop(self, "type", expand=True)
-        if len(shot_tag_items(self, context)) > 2:
-            layout.prop(self, "shot_tag")
         layout.separator(factor=2)
 
-        if self.type == "note":
-            self._draw_notes(layout, entries)
-        else:
-            self._draw_tasks(layout, entries)
+        # A block: each line picks its shot, next to its departments.
+        multishot = len(_entry_line_shot_items(None, context)) > 2
+        # Every type alike: one entry per line, each its own departments,
+        # shot and frames -- a note's lines used to share the first one's.
+        self._draw_lines(layout, entries, multishot)
 
         layout.separator(factor=2)
 
-    def _draw_notes(self, layout, entries):
-        col = layout.column(align=True)
+    def _draw_line_tags(self, layout, entry, multishot: bool) -> None:
+        """A line's departments, then its shot (a block's) on their right."""
+        row = layout.row(align=True)
+        row.prop_menu_enum(entry, "departments", text=_departments_label(entry.departments))
+        if multishot:
+            row.prop(entry, "shot_tag", text="")
 
-        if not entries:
-            col.operator("m_pipeline.add_entry_line", text="Add text line", icon="ADD")
-            return
-
-        col_txt = col.column(align=True)
-        col_txt.scale_y = 1.4
-        for idx, entry in enumerate(entries):
-            row = col_txt.row(align=True)
-            text_field(row, entry, "text", initial_visible_lines=1)
-            row.operator(
-                "m_pipeline.remove_entry_line", text="", icon="REMOVE"
-            ).index = idx
-
-        row = col.row(align=True)
-        row = row.split(factor=0.5, align=True)
-        row_a = row.split(factor=0.5, align=True)
-        row_b = row.split(factor=0.5, align=True)
-
-        col1 = row_a.column(align=True)
-        col2 = row_a.row(align=True)
-        col3 = row_b.row(align=True)
-        col4 = row_b.row(align=True)
-
-        col1.prop_menu_enum(
-            entries[0], "departments", text=_departments_label(entries[0].departments)
-        )
-        col1.prop(self, "referenced_version", text="")
-
-        txt = "Add frame tag" if not entries[0].is_frame_start else ""
-        col2.prop(entries[0], "is_frame_start", text=txt)
-
-        if entries[0].is_frame_start:
-            col2.prop(entries[0], "frame_start", text="")
-
-            txt = "Add end frame" if not entries[0].is_frame_end else ""
-            col3.prop(entries[0], "is_frame_end", text=txt)
-            if entries[0].is_frame_end:
-                col3.prop(entries[0], "frame_end", text="")
-
-            col4.separator(factor=0.1)
-            col4.prop(self, "frame_reference", text="")
-            col4.separator(factor=1.5)
-        else:
-            col4.label()
-
-        col4.operator("m_pipeline.add_entry_line", text="", icon="ADD")
-
-    def _draw_tasks(self, layout, entries):
+    def _draw_lines(self, layout, entries, multishot: bool):
         col = layout.column(align=True)
 
         for idx, entry in enumerate(entries):
@@ -296,9 +269,7 @@ class M_PIPELINE_OT_create_entry(bpy.types.Operator):
             col3 = row_b.row(align=True)
             col4 = row_b.row(align=True)
 
-            col1.prop_menu_enum(
-                entry, "departments", text=_departments_label(entry.departments)
-            )
+            self._draw_line_tags(col1, entry, multishot)
 
             txt = "Add frame tag" if not entry.is_frame_start else ""
             col2.prop(entry, "is_frame_start", text=txt)
@@ -322,9 +293,10 @@ class M_PIPELINE_OT_create_entry(bpy.types.Operator):
         row.prop(self, "referenced_version", text="")
         row = row.row()
         row.label()
-        row.operator(
-            "m_pipeline.add_entry_line", icon="ADD", text="New task"
-        ).departments = ",".join(entries[-1].departments) if entries else ""
+        op = row.operator("m_pipeline.add_entry_line", icon="ADD", text="New line")
+        if entries:
+            op.departments = ",".join(entries[-1].departments)
+            op.shot = entries[-1].shot_tag
 
     def execute(self, context):
         if not self.filepath:
@@ -337,33 +309,24 @@ class M_PIPELINE_OT_create_entry(bpy.types.Operator):
         entries_list = []
         items = _file_department_items(None, context)
 
-        if self.type == "note":
-            texts = "\n".join([e.text for e in entries])
-            f_start = entries[0].frame_start if entries[0].is_frame_start else None
+        for entry in entries:
+            f_start = entry.frame_start if entry.is_frame_start else None
             f_end = (
-                entries[0].frame_end
-                if entries[0].is_frame_start and entries[0].is_frame_end
-                else None
+                entry.frame_end if entry.is_frame_start and entry.is_frame_end else None
             )
             entries_list.append(
-                (texts, _in_order(entries[0].departments, items), f_start, f_end)
+                (
+                    entry.text,
+                    _in_order(entry.departments, items),
+                    entry.shot_tag,
+                    f_start,
+                    f_end,
+                )
             )
-
-        else:
-            for entry in entries:
-                f_start = entry.frame_start if entry.is_frame_start else None
-                f_end = (
-                    entry.frame_end
-                    if entry.is_frame_start and entry.is_frame_end
-                    else None
-                )
-                entries_list.append(
-                    (entry.text, _in_order(entry.departments, items), f_start, f_end)
-                )
 
         try:
             nw = now()
-            for text, departments, f_start, f_end in entries_list:
+            for text, departments, shot, f_start, f_end in entries_list:
                 create_entry(
                     Path(self.filepath),
                     text=text,
@@ -378,7 +341,7 @@ class M_PIPELINE_OT_create_entry(bpy.types.Operator):
                     if len(entries_list) > 1
                     else None,
                     referenced_version=self.referenced_version,
-                    shot=None if self.shot_tag == "NONE" else self.shot_tag,
+                    shot=None if shot in ("", "NONE") else shot,
                 )
 
         except PipelineError as e:

@@ -48,6 +48,8 @@ Un bloc multishot peut taguer une note/todo avec le shot du bloc concerné — v
 
 `type` vaut `note` (`done: null`, jamais cochable), `todo` ou `rtk` (retour à corriger — `done: true/false`, avec `done_by`/`done_at` une fois validé).
 
+**New entry** : une entrée par ligne, quel que soit le type (RTK par défaut) -- chaque ligne ses propres départements, frames et, dans un bloc, shot. Les départements s'affichent toujours dans l'ordre du projet (Edit project), partout où ils sont listés.
+
 **Plusieurs départements** : une entrée peut concerner plusieurs départements à la fois -- les cocher dans le menu département des dialogues New entry / Edit. C'est une seule entrée avec un seul état fait, affichée sous le filtre de chacun de ses départements ; une RTK ouverte met chacun de ses départements en rouge (Project monitoring, snapshot). Stocké en `"departments": ["animation", "lighting"]` à côté de `"department"` (le premier, ce que lit un addon d'avant la 1.1.0). La cellule département d'un tableur de review en accepte plusieurs aussi : `layout, lighting` (`,` `;` `/` `+`).
 
 Un rendu farm terminé ajoute une clé `to_check`, jusqu'à ce qu'il soit marqué vérifié : `{"<shot>": {"render", "video", "at", "job_id"}}` — le shot vaut `""` pour un asset ou un shot seul, une clé par shot pour un bloc.

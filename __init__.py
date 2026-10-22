@@ -79,6 +79,8 @@ _WM_PROPS = {
         set=frame_lookup_set,
     ),
     "file_selected_departments": bpy.props.StringProperty(),
+    # The file New entry is for: its lines' shot pickers (a block's shots).
+    "entry_target_file": bpy.props.StringProperty(),
     # The monitoring windows' filters (in memory, see lib memory_prop()).
     "pipeline_monitoring": bpy.props.PointerProperty(type=PIPELINE_PG_monitoring),
     "pipeline_farm_monitoring": bpy.props.PointerProperty(

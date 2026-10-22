@@ -48,6 +48,8 @@ Multishot blocks can tag a note/todo with which shot in the block it's about —
 
 `type` is `note` (`done: null`, never checkable), `todo`, or `rtk` (fix requested — `done: true/false`, with `done_by`/`done_at` once validated).
 
+**New entry**: one entry per line, whatever its type (RTK by default) -- each line its own departments, frames and, in a block, shot. Departments always show in the project's order (Edit project), wherever they're listed.
+
 **Several departments**: an entry can be for several departments at once -- tick them in the department menu of the New entry / Edit dialogs. It's one entry with one done state, shown under each of its departments' filter; an open RTK turns each of its departments red (Project monitoring, snapshot). Stored as `"departments": ["animation", "lighting"]` next to `"department"` (the first one, what an addon before 1.1.0 reads). A review spreadsheet's department cell takes several too: `layout, lighting` (`,` `;` `/` `+`).
 
 A finished farm render adds a `to_check` key, until it's marked checked: `{"<shot>": {"render", "video", "at", "job_id"}}` — the shot is `""` for an asset or a single shot, one key per shot for a block.
