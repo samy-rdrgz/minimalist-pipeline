@@ -128,6 +128,21 @@ def _job_stage(data: dict) -> str:
         return ""
 
 
+def _setup_unblocks_idle(data: dict, jobs: list, idle: dict) -> bool:
+    """Whether setting up queued job data now, beside this instance's own
+    render, puts idle machines to work: some may render it once set up, and
+    no job already set up (setup_finished) can take any of them -- those
+    left idle after this tick's joins and dispatches."""
+    if not machines_for(data, idle):
+        return False
+    return not any(
+        _job_stage(other) == "setup_finished"
+        and not other.get("split_into")
+        and machines_for(other, idle)
+        for _, other in jobs
+    )
+
+
 def read_active_jobs(scan_dir: Path) -> list[tuple[Path, dict]]:
     """(path, data) of every job in actives/ that may still need work,
     read without a lock: writes are atomic (read_json_quiet()), and the
@@ -217,8 +232,14 @@ def scan_queue(project_root: Path) -> None:
                 # Setup also waits for a render this same instance runs as a
                 # worker: both load the whole .blend. Only setup -- the
                 # ffmpeg stages are light and must not queue behind a whole
-                # render (see NOTES.md, "Re-rendering a file...").
-                if not local_slot_busy() and not local_render_running():
+                # render (see NOTES.md, "Re-rendering a file..."). Unless
+                # machines sit idle with nothing else to take: then it runs
+                # alongside, the .blend loaded twice for the setup's length
+                # rather than the farm held back for the whole render.
+                if not local_slot_busy() and (
+                    not local_render_running()
+                    or _setup_unblocks_idle(data, jobs, idle)
+                ):
                     from .setup import run_render_setup
 
                     run_render_setup(data["job_id"], config)

@@ -1401,6 +1401,16 @@ render (B gets dispatched to the freed worker in the same tick). Only
 covers a worker in the same instance as the monitor -- a worker in a
 second Blender on the same machine isn't visible from here.
 
+Exception (`_setup_unblocks_idle()`): machines idle with nothing to take
+-- the running renders capped (`max_workers_per_job`) or single-machine,
+no set-up job they may render -- while the host renders for hours. Then
+the setup runs alongside: the `.blend` loaded twice for the setup's
+length, against the whole farm held back for the host's render. Only if
+the queued job may itself go to one of them (`assigned_machines`).
+Rejected: stopping the host's worker after its frame to run the setup,
+then relaunching it -- a stop counts as a refill round, a single-machine
+render gets sent out again, for what a setup alongside does without.
+
 ## Crash recovery: resume, don't orphan
 
 When the Blender instance running the farm dies (crash, kill), its child
