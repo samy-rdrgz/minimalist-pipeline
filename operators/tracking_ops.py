@@ -19,6 +19,7 @@ from ..lib import (
     delete_entry,
     department_filter_items,
     edit_entry,
+    entry_departments,
     entry_version_items,
     file_in_active_project,
     get_active_project_root,
@@ -52,7 +53,7 @@ from ..lib import (
     thumbnail_size,
     to_absolute,
     toggle_entry_task,
-    tracked_department_items,
+    tracked_department_flag_items,
     tracking_json_path,
     wipmeta_add_work,
     write_snapshot,
@@ -71,21 +72,35 @@ def _file_department_items(self, context) -> list[tuple]:
     # callback must keep its returned strings alive across calls (Blender
     # docs) or the current selection gets corrupted on the next redraw --
     # same reasoning as _stable_items() in lib/browser.py.
+    # ENUM_FLAG: no "none" item (none is no flag), each a bit of its own.
     deps = [d for d in context.window_manager.file_selected_departments.split(",") if d]
-    items = [("NONE", "No department", "")] + [
-        (d.lower(), d.capitalize(), "") for d in deps
-    ]
+    items = [(d.lower(), d.capitalize(), "", 2**i) for i, d in enumerate(deps)]
     if _file_department_items_cache and _file_department_items_cache[0] == items:
         return _file_department_items_cache[1]
     _file_department_items_cache[:] = [items, items]
     return items
 
 
+def _departments_label(departments) -> str:
+    """What a departments picker reads: "Layout, Animation" / "No department"."""
+    return ", ".join(sorted(d.capitalize() for d in departments)) or "No department"
+
+
+def _in_order(selected, items: list) -> list[str]:
+    """An ENUM_FLAG's selection (a set) in its items' order -- the
+    departments' own (departments_required)."""
+    return [item[0] for item in items if item[0] in selected]
+
+
 class PipelineEntryItem(bpy.types.PropertyGroup):
     """An entry."""
 
     text: bpy.props.StringProperty(name="")
-    department: bpy.props.EnumProperty(items=_file_department_items)
+    departments: bpy.props.EnumProperty(
+        items=_file_department_items,
+        options={"ENUM_FLAG"},
+        description="The departments this entry is for -- several at once",
+    )
     is_frame_start: bpy.props.BoolProperty(name="")
     frame_start: bpy.props.IntProperty(name="")
     is_frame_end: bpy.props.BoolProperty(name="")
@@ -98,13 +113,14 @@ class M_PIPELINE_OT_add_entry_line(bpy.types.Operator):
     bl_idname = "m_pipeline.add_entry_line"
     bl_label = "New line"
 
-    department: bpy.props.StringProperty(name="")
+    # The line above's departments, comma-separated: the new line starts with them.
+    departments: bpy.props.StringProperty(name="")
 
     def execute(self, context):
         entries = context.window_manager.pipeline_entry_buffer
         new_item = entries.add()
-        if self.department:
-            new_item.department = self.department
+        known = {item[0] for item in _file_department_items(None, context)}
+        new_item.departments = {d for d in self.departments.split(",") if d in known}
         return {"FINISHED"}
 
 
@@ -235,7 +251,9 @@ class M_PIPELINE_OT_create_entry(bpy.types.Operator):
         col3 = row_b.row(align=True)
         col4 = row_b.row(align=True)
 
-        col1.prop(entries[0], "department", text="")
+        col1.prop_menu_enum(
+            entries[0], "departments", text=_departments_label(entries[0].departments)
+        )
         col1.prop(self, "referenced_version", text="")
 
         txt = "Add frame tag" if not entries[0].is_frame_start else ""
@@ -278,7 +296,9 @@ class M_PIPELINE_OT_create_entry(bpy.types.Operator):
             col3 = row_b.row(align=True)
             col4 = row_b.row(align=True)
 
-            col1.prop(entry, "department", text="")
+            col1.prop_menu_enum(
+                entry, "departments", text=_departments_label(entry.departments)
+            )
 
             txt = "Add frame tag" if not entry.is_frame_start else ""
             col2.prop(entry, "is_frame_start", text=txt)
@@ -304,7 +324,7 @@ class M_PIPELINE_OT_create_entry(bpy.types.Operator):
         row.label()
         row.operator(
             "m_pipeline.add_entry_line", icon="ADD", text="New task"
-        ).department = entries[-1].department if entries else ""
+        ).departments = ",".join(entries[-1].departments) if entries else ""
 
     def execute(self, context):
         if not self.filepath:
@@ -315,6 +335,7 @@ class M_PIPELINE_OT_create_entry(bpy.types.Operator):
             return {"CANCELLED"}
 
         entries_list = []
+        items = _file_department_items(None, context)
 
         if self.type == "note":
             texts = "\n".join([e.text for e in entries])
@@ -324,7 +345,9 @@ class M_PIPELINE_OT_create_entry(bpy.types.Operator):
                 if entries[0].is_frame_start and entries[0].is_frame_end
                 else None
             )
-            entries_list.append((texts, entries[0].department, f_start, f_end))
+            entries_list.append(
+                (texts, _in_order(entries[0].departments, items), f_start, f_end)
+            )
 
         else:
             for entry in entries:
@@ -334,15 +357,17 @@ class M_PIPELINE_OT_create_entry(bpy.types.Operator):
                     if entry.is_frame_start and entry.is_frame_end
                     else None
                 )
-                entries_list.append((entry.text, entry.department, f_start, f_end))
+                entries_list.append(
+                    (entry.text, _in_order(entry.departments, items), f_start, f_end)
+                )
 
         try:
             nw = now()
-            for text, department, f_start, f_end in entries_list:
+            for text, departments, f_start, f_end in entries_list:
                 create_entry(
                     Path(self.filepath),
                     text=text,
-                    department=department,
+                    departments=departments,
                     author=get_user(context),
                     type=self.type,
                     response=self.response,
@@ -376,7 +401,11 @@ class M_PIPELINE_OT_edit_entry(bpy.types.Operator):
         items=[("note", "Note", ""), ("todo", "Todo", ""), ("rtk", "RTK", "")]
     )
     text: bpy.props.StringProperty()
-    department: bpy.props.EnumProperty(items=tracked_department_items)
+    departments: bpy.props.EnumProperty(
+        items=tracked_department_flag_items,
+        options={"ENUM_FLAG"},
+        description="The departments this entry is for -- several at once",
+    )
     filepath: bpy.props.StringProperty(default="")
     frame_reference: bpy.props.EnumProperty(
         items=[
@@ -413,13 +442,11 @@ class M_PIPELINE_OT_edit_entry(bpy.types.Operator):
             if e["id"] == self.id:
                 self.type = e["type"]
                 self.text = e["text"]
-                # Stored department may no longer be among this project's
-                # configured departments (renamed/removed since, or stale
-                # data) -- fall back to "NONE" rather than crashing invoke().
-                try:
-                    self.department = e.get("department") or "NONE"
-                except TypeError:
-                    self.department = "NONE"
+                # A stored department may no longer be among the file's
+                # (renamed/removed since, or stale data): left out rather
+                # than crashing invoke().
+                known = {i[0] for i in tracked_department_flag_items(self, context)}
+                self.departments = {d for d in entry_departments(e) if d in known}
                 # Stored "shot" may predate this being an enum (free text
                 # back then, not validated) -- only keep it if it's still a
                 # valid choice for this exact file (same digit width, still
@@ -470,8 +497,8 @@ class M_PIPELINE_OT_edit_entry(bpy.types.Operator):
         row.prop(self, "type", text="")
 
         row = layout.split(factor=TITLE_WIDTH, align=True)
-        row.label(text="Department", icon="COLOR")
-        row.prop(self, "department", text="")
+        row.label(text="Departments", icon="COLOR")
+        row.prop_menu_enum(self, "departments", text=_departments_label(self.departments))
 
         row = layout.split(factor=TITLE_WIDTH, align=True)
         row.label(text="Version", icon="LINKED")
@@ -519,7 +546,9 @@ class M_PIPELINE_OT_edit_entry(bpy.types.Operator):
             edit_entry(
                 Path(self.filepath),
                 text=self.text,
-                department=self.department,
+                departments=_in_order(
+                    self.departments, tracked_department_flag_items(self, context)
+                ),
                 editor=get_user(context),
                 type=self.type,
                 id=self.id,

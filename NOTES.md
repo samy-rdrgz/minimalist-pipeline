@@ -2672,3 +2672,28 @@ render folder only gets its video once compiled. Looked up on click --
 `draw()` doesn't list folders -- so the button is always there and says
 so when there's no earlier render. A recompile touches an old render's
 video: it then counts as newer.
+
+## Entries for several departments
+
+An entry's departments are a list now: one RTK "the ball's contact" is
+animation's and lighting's at once -- written twice before, one per
+department, each ticked done on its own. Kept as one entry, one `done`:
+fixing it is one act. It counts in each department -- the filter, the
+red RTK cell of Project monitoring (`_has_rtk()`), the snapshot's
+`rtk_departments` -- and reads "animation, lighting" as a tag.
+
+Stored next to the old field, not instead of it: `"department"` keeps
+the first one, `"departments"` holds them all only when there are
+several (`_set_entry_departments()`), so a one-department entry is
+written exactly as before and an addon before 1.1.0 on the same project
+-- a team updates machine by machine -- still reads every entry, seeing
+its first department. Readers go through `entry_departments(e)`, which
+takes either shape.
+
+The dialogs pick them with an ENUM_FLAG menu (`prop_menu_enum()`, as the
+Render dialog's assigned machines), labelled with the selection; its
+items are bit-numbered, with no "none" item -- no flag set is none. A
+department the file no longer requires is dropped on Edit rather than
+failing invoke(). A review spreadsheet's department cell splits on `,`
+`;` `/` `+`, each name validated against the file's departments, the
+unknown ones dropped.

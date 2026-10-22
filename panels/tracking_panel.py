@@ -12,6 +12,7 @@ from ..lib import (
     REVIEW_SOURCE,
     ConfigCache,
     ProjectScan,
+    entry_departments,
     TrackingStatusCache,
     WorkTimeCache,
     department_status_tooltip,
@@ -305,8 +306,10 @@ def _get_entry_tooltip(e, filepath):
     text = f"By: {e.get('author', 'unknown')}\nAt: {e['created_at'].replace('T', ' ')}\nBased on: {file}"
     if e.get("edited_by"):
         text = f"{text}\n\nEdited by: {e['edited_by']}\nAt: {e['edited_at'].replace('T', ' ')}"
-    if e.get("department"):
-        text = f"{text}\nFor department: {e.get('department')}"
+    departments = entry_departments(e)
+    if departments:
+        plural = "s" if len(departments) > 1 else ""
+        text = f"{text}\nFor department{plural}: {', '.join(departments)}"
     if e.get("source") == REVIEW_SOURCE:
         text = f"{text}\nImported from a prod review"
     review_id = f" (review_id : {e.get('review_id')})" if e.get("review_id") else ""
@@ -1029,11 +1032,12 @@ def _oldest_open_rtk(data: dict) -> str:
 
 
 def _has_rtk(data: dict, department: str | None = None) -> bool:
-    """Whether data has an un-done RTK entry tagged with department (any
-    department when None). Never a todo: un-done too, not an RTK."""
+    """Whether data has an un-done RTK entry tagged with department --
+    among its departments, an entry may have several -- (any department
+    when None). Never a todo: un-done too, not an RTK."""
     return any(
         e.get("type") == "rtk"
         and e.get("done") is False
-        and (department is None or e.get("department") == department)
+        and (department is None or department in entry_departments(e))
         for e in data.get("entries") or []
     )

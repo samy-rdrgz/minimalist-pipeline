@@ -29,6 +29,7 @@ from .browser import (
     shot_department_items,
     shot_items,
     shot_tag_items,
+    tracked_department_flag_items,
     tracked_department_items,
     version_items,
 )
@@ -208,6 +209,7 @@ from .tracking import (
     delete_entry,
     department_status_tooltip,
     edit_entry,
+    entry_departments,
     filter_review_boxes,
     find_linked_by,
     format_duration,

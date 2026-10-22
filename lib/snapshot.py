@@ -26,6 +26,7 @@ from .tracking import (
     _status_from_raw,
     _walk_owner_dirs,
     create_entry,
+    entry_departments,
     find_file_by_name,
     owner_key,
     render_to_check_label,
@@ -297,10 +298,11 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
         )
         item["open_notes"] = len(open_threads)
         rtk_departments = {
-            e["department"]
+            d
             for t in open_threads
             for e in [t, *t["replies"]]
             if e["type"] == "rtk" and e["done"] is False
+            for d in e["departments"]
         }
         item["rtk_departments"] = sorted(rtk_departments)
         # Per department, then their mean: the footer averages the first.
@@ -521,7 +523,8 @@ def _entry_dict(e: dict) -> dict:
         "text": e.get("text", ""),
         "author": e.get("author", ""),
         "date": e.get("created_at", ""),
-        "department": e.get("department", ""),
+        "department": ", ".join(entry_departments(e)),
+        "departments": entry_departments(e),
         "version": Path(version).name if version else "",
         "shot": e.get("shot", ""),
         "done": e.get("done"),
@@ -2144,11 +2147,14 @@ def import_review_xlsx(path: Path) -> dict:
             for e in (read_json_quiet(tracking_json_path(filepath)) or {}).get("entries", [])
             if e.get("source") == REVIEW_SOURCE and e.get("author") == author
         }
-        department = (row.get("department") or "").lower()
-        try:
-            department = valid_department(filepath, department) if department else ""
-        except PipelineError:
-            department = ""
+        # One department, or several: "layout, animation" ("," ";" "/" "+").
+        departments = []
+        for name in re.split(r"[,;/+]", (row.get("department") or "").lower()):
+            try:
+                if name.strip() and valid_department(filepath, name.strip()):
+                    departments.append(name.strip())
+            except PipelineError:
+                pass
         entry_type = (row.get("type") or "").lower()
         for line in lines:
             if line in known:
@@ -2158,7 +2164,7 @@ def import_review_xlsx(path: Path) -> dict:
                 create_entry(
                     filepath,
                     text=line,
-                    department=department,
+                    departments=departments,
                     author=author,
                     type=entry_type if entry_type in ENTRY_TYPES else "note",
                     shot=row.get("shot") or None,
