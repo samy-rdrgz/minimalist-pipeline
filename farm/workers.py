@@ -27,6 +27,7 @@ from ..lib import (
     retry_shared_io,
     to_absolute,
 )
+from .chunks import read_claims
 from .loop import register_farm_loop
 
 STALE_WORKER_SECONDS = 15
@@ -577,6 +578,12 @@ def execute_render_request() -> dict:
                         # Stop after this frame.
                         "--stop-file",
                         str(render_stop_path(data["job_id"])),
+                        # Chunks: the job's size, fixed at dispatch -- never
+                        # the project's, which may have changed since.
+                        "--chunk-size",
+                        str(data["chunk_size"]),
+                        "--machine",
+                        get_machine_id(),
                     ],
                     stdout=log_file,
                     stderr=subprocess.STDOUT,
@@ -791,6 +798,15 @@ def stuck_frame_check(
     return at - last_at, limit, usual
 
 
+def _frame_in_progress(job_id: str, uuid: str) -> str:
+    """The frame machine uuid's claim on job_id says it's rendering, as a
+    file name; "" if none is known."""
+    for claim in read_claims(job_id).values():
+        if claim.get("machine") == uuid and claim.get("frame_in_progress_file"):
+            return Path(claim["frame_in_progress_file"]).name
+    return ""
+
+
 def check_stuck_renders() -> None:
     """Kill this machine's render of a job when the frame it's on takes
     stuck_frame_factor() times its usual time (stuck_frame_check()): a
@@ -820,9 +836,7 @@ def check_stuck_renders() -> None:
         if not found or found[0] <= found[1]:
             continue
         since, _limit, usual = found
-        # TODO chunks (farm-chunks-plan.md §8): frame_in_progress and
-        # updated_at from this machine's claim, instead of the .saved.
-        frame = ""
+        frame = _frame_in_progress(job_id, me)
         log(
             "WARNING",
             "farm",

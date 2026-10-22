@@ -16,11 +16,15 @@ addon_module = argv[argv.index("--addon-module") + 1]
 saved_file = argv[argv.index("--saved-file") + 1] if "--saved-file" in argv else ""
 dispatch_id = argv[argv.index("--dispatch-id") + 1] if "--dispatch-id" in argv else ""
 stop_file = argv[argv.index("--stop-file") + 1] if "--stop-file" in argv else ""
+chunk_size = int(argv[argv.index("--chunk-size") + 1])
+machine = argv[argv.index("--machine") + 1]
 
 # Fresh subprocess: Blender's own extension loader already makes the addon
 # importable, no manual sys.path edit needed here.
 addon_utils.enable(addon_module, default_set=False, persistent=False)
 farm = importlib.import_module(f"{addon_module}.farm")
+chunks = importlib.import_module(f"{addon_module}.farm.chunks")
+lib = importlib.import_module(f"{addon_module}.lib")
 
 scene = bpy.context.scene
 
@@ -30,15 +34,115 @@ scene = bpy.context.scene
 farm.apply_custom_preset(preset, scene, job_id, strict=True)
 
 
-def record_saved(scene, *_):
+def record_saved(frame: int) -> None:
     """After each frame written: one line, so the monitor knows which
     machine wrote it, and when (this machine's clock): the time between two
     lines is what a frame took (frame_seconds(), farm/workers.py)."""
     try:
         with open(saved_file, "a", encoding="utf-8") as f:
-            f.write(f"{dispatch_id} {scene.frame_current} {time.time():.1f}\n")
+            f.write(f"{dispatch_id} {frame} {time.time():.1f}\n")
     except OSError:
         pass
+
+
+def frame_file(frame: int) -> str:
+    """The frame's final file: the naming the frame check and the
+    compilation expect (-o, -F, the output's #### and extension)."""
+    return bpy.path.abspath(scene.render.frame_path(frame=frame))
+
+
+def files_in(folder: str) -> set[str]:
+    """Names in folder, one listing (a round trip on the share, not a stat
+    per frame)."""
+    try:
+        return {entry.name for entry in os.scandir(folder)}
+    except FileNotFoundError:
+        return set()
+
+
+def render_frame(frame: int, final: str) -> None:
+    """Render one frame, written whole under its final name: to a .tmp
+    first (its name doesn't end with the image's extension: never counted
+    as a frame), then renamed -- a file under a frame's name is a finished
+    frame."""
+    scene.frame_set(frame)
+    bpy.ops.render.render()
+    tmp = final + ".tmp"
+    bpy.data.images["Render Result"].save_render(tmp, scene=scene)
+    lib.retry_shared_io(os.replace, tmp, final)
+
+
+def stop_asked() -> bool:
+    """The worker asked this render to stop after its frame
+    (stop_worker(kill_render=False))."""
+    return bool(stop_file) and os.path.exists(stop_file)
+
+
+def update_claim(k: int, claim: dict) -> bool:
+    """Rewrite chunk k's claim (its holder is its only writer). False if
+    it's gone: the host took this machine for dead and freed it -- writing
+    it back would hand the chunk to two machines."""
+    if not os.path.exists(chunks.claim_path(job_id, k)):
+        return False
+    claim["updated_at"] = time.time()
+    chunks.write_claim(job_id, k, claim)
+    return True
+
+
+def render_chunks() -> str:
+    """Claim, render and release chunks until each is either complete on
+    disk or held by another machine. Returns why it stopped. A frame that
+    fails raises with its claim left in place: the host frees it once the
+    worker reports the failure, and counts it against this machine."""
+    start, end = scene.frame_start, scene.frame_end
+    folder = os.path.dirname(frame_file(start))
+    os.makedirs(folder, exist_ok=True)
+    for k in range(chunks.chunks_number(start, end, chunk_size)):
+        if stop_asked():
+            return "stopped after a frame"
+        first, last = chunks.chunk_frames(start, end, chunk_size, k)
+        names = files_in(folder)
+        missing = [
+            f
+            for f in range(first, last + 1)
+            if os.path.basename(frame_file(f)) not in names
+        ]
+        if not missing:
+            continue
+        claim = {
+            "job_id": job_id,
+            "dispatch_id": dispatch_id,
+            "chunk": k,
+            "machine": machine,
+            "pid": os.getpid(),
+            "frames_done": [],
+            "frame_in_progress": None,
+            "frame_in_progress_file": "",
+            "claimed_at": time.time(),
+            "updated_at": time.time(),
+        }
+        if not chunks.try_claim(job_id, k, claim):
+            continue
+        # The listing may be seconds old (SMB caches it): finished since?
+        missing = [f for f in missing if not os.path.exists(frame_file(f))]
+        for f in missing:
+            if stop_asked():
+                chunks.release_claim(job_id, k)
+                return "stopped after a frame"
+            final = frame_file(f)
+            claim["frame_in_progress"] = f
+            claim["frame_in_progress_file"] = final
+            if not update_claim(k, claim):
+                return f"chunk {k}'s claim freed by the host"
+            render_frame(f, final)
+            record_saved(f)
+            claim["frames_done"].append(f)
+            claim["frame_in_progress"] = None
+            claim["frame_in_progress_file"] = ""
+            if not update_claim(k, claim):
+                return f"chunk {k}'s claim freed by the host"
+        chunks.release_claim(job_id, k)
+    return "nothing left to claim"
 
 
 if saved_file:
@@ -51,8 +155,5 @@ if saved_file:
     except OSError:
         pass
 
-# TODO chunks (farm-chunks-plan.md §5.2, §5.3): the loop -- claim a chunk,
-# render each missing frame to a .tmp then os.replace() it to
-# scene.render.frame_path(frame=f), record_saved() after each, stop_file
-# checked before each, release the claim; exit 0 once every chunk is done
-# or claimed by someone else.
+print(f"Chunks of {job_id}: {render_chunks()}.")
+sys.stdout.flush()

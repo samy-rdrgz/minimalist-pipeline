@@ -2525,6 +2525,32 @@ it). Checked headless, three Blender processes claiming the same 200
 chunks at once on a local disk: 79/62/59, each chunk won once, each claim
 holding its winner -- on the real share, to check on the farm.
 
+The render entry (`templates/worker_render_entry.py`, `render_chunks()`)
+opens the .blend once and walks the chunks from the first: a chunk whose
+frames are all on disk (one listing of the folder) or that another
+machine holds is skipped; a claimed one is checked again frame by frame
+(the listing may be seconds old on SMB), then each missing frame is
+`frame_set()`, `render.render()`, `Render Result`'s `save_render()` to
+`<frame file>.tmp` -- a name that doesn't end with the image's extension,
+never counted as a frame -- and `os.replace()`d onto `frame_path()`'s
+name: what the frame check and the compilation read. The claim is
+rewritten before (frame in progress) and after (frames done) each frame;
+gone when it's about to be rewritten, the host took this machine for dead
+and freed it: the render stops rather than write it back (two machines on
+one chunk). `.stop` is read before each chunk and each frame. A frame that
+fails ends the render (exit 1) with its claim in place, for the host to
+free and count against this machine.
+
+Checked headless, Workbench, 64x36 PNG: 23 frames by one machine -- the
+same names and the same pixels as Blender's own `-a` render; 120 frames
+by three at once -- each written once, none missing, no claim or .tmp
+left; `.stop` -- exit 0, claim released; a render killed mid-chunk -- its
+claim left (`frames_done` and the frame in progress in it), another
+machine rendering everything but that chunk's frames left. Not checked
+yet: compositor File Output nodes (they write their own files during
+`render.render()`, not through the .tmp), multilayer EXR, memory over
+hundreds of frames, Cycles' persistent data.
+
 In progress: `check_render_completion()` only finishes a job whose frames
 are all on disk; the claims, `chunk_failures` and the dispatch to idle
 workers come next (`TODO chunks` in the code).

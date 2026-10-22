@@ -445,10 +445,20 @@ incomings/job_<id>.json
 │   │   overwrites it
 │   └── idle : execute_render_request() -- request deleted ; blender -b
 │       <file> -o <output> -s <start> -e <end> --python worker_render_entry.py
-│       (render preset strict ; "<dispatch_id> <frame> <time>" appended to
-│       request_<job>_<uuid>.saved per frame -- the pace, who rendered what ;
-│       the chunk loop: in progress) -> status "render", current_job_id,
-│       current_dispatch_id
+│       --chunk-size <job's> --machine <uuid> -> status "render",
+│       current_job_id, current_dispatch_id ; in that Blender (.blend opened
+│       once, render preset strict), for each chunk k :
+│       ├── every frame on disk (one listing) : next
+│       ├── try_claim() refused (held elsewhere) : next
+│       ├── claimed : frames still missing (stat), for each :
+│       │   ├── .stop there : claim released, exit 0
+│       │   ├── claim gone (freed by the host) : exit 0
+│       │   └── claim updated, rendered to <frame>.tmp, renamed onto the
+│       │       frame, "<dispatch_id> <frame> <time>" appended to the .saved,
+│       │       claim updated
+│       ├── chunk done : claim released
+│       └── a frame fails : exit 1, its claim left for the host
+│       no chunk left to claim -> exit 0
 │
 └── check_render_completion() (monitor) : every frame on disk
     (missing_frames(), one listing of the folder), re-checked under the
