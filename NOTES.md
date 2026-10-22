@@ -2576,6 +2576,8 @@ The host (`check_render_completion()`, every tick of a job at
   `render_failed`: chunks free, nobody on it, every live worker allowed on
   the job failed it.
 - **Cancel** (`cancel_requested`): same stop, `render_failed (cancelled)`.
+  With no machine on the job (its chunks waiting for one) the button
+  still cancels it -- it used to refuse ("No machine currently assigned").
 - **Finished**: every frame on disk and no claim left -- a claim whose
   last frame is written but not yet released is waited for. The `.tmp`
   files and the claims folder are removed.

@@ -962,10 +962,8 @@ class M_PIPELINE_OT_farm_cancel_job(bpy.types.Operator):
                 return {"CANCELLED"}
             machines = data.get("used_machines", [])
 
-        if not machines:
-            self.report({"WARNING"}, "No machine currently assigned to this job.")
-            return {"CANCELLED"}
-
+        # No machine on it (its chunks waiting for one) still cancels the
+        # job: cancel_pending_renders() fails it at once.
         user = get_user(context)
         # A machine that hasn't picked up its render yet has nothing to
         # kill: its request is withdrawn instead (else it renders later).
