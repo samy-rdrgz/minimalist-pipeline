@@ -10,6 +10,7 @@ from ..farm import (
     archive,
     cancel_pending_renders,
     failed_stage,
+    forget_worker,
     get_monitor_cache,
     job_cancel_request,
     job_request,
@@ -885,6 +886,35 @@ class M_PIPELINE_OT_farm_stop_worker(bpy.types.Operator):
             {"INFO"},
             f"Stop requested for {self.machine or self.target_uuid[:8]} (next tick).",
         )
+        return {"FINISHED"}
+
+
+class M_PIPELINE_OT_farm_forget_worker(bpy.types.Operator):
+    """Forget a silent worker (Workers tab): delete its file."""
+
+    bl_idname = "m_pipeline.farm_forget_worker"
+    bl_label = "Forget worker"
+    bl_description = (
+        "This machine's worker has been silent for a while (crashed, Blender "
+        "closed, machine asleep or off the share): remove it from the list. "
+        "It shows again as soon as its worker is relaunched."
+    )
+
+    target_uuid: bpy.props.StringProperty()
+    machine: bpy.props.StringProperty()
+
+    def execute(self, context):
+        name = self.machine or self.target_uuid[:8]
+        try:
+            forgotten = forget_worker(self.target_uuid)
+        except Exception as e:
+            self.report({"WARNING"}, f"Could not forget {name}: {e}")
+            return {"CANCELLED"}
+        if not forgotten:
+            self.report({"INFO"}, f"{name} is back: kept.")
+            return {"CANCELLED"}
+        get_monitor_cache().get("silent_workers", {}).pop(self.target_uuid, None)
+        self.report({"INFO"}, f"Worker {name} forgotten.")
         return {"FINISHED"}
 
 

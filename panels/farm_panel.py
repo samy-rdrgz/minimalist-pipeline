@@ -17,6 +17,7 @@ from ..farm import (
     recompilable,
     this_instance_is_worker,
 )
+from ..farm.queue import WORKER_GONE_SECONDS
 from ..lib import (
     addon_pref,
     draw_box_tip,
@@ -529,8 +530,16 @@ def draw_farm_workers(context, layout):
             for uuid in job.get("machines", [])
         }
 
+    # Silent ones last, latest heard of first: a worker that crashed (or was
+    # closed, its machine asleep, off the share) without saying it stopped.
+    silent = sorted(
+        (monitor_cache.get("silent_workers") or {}).values(),
+        key=lambda m: m.get("last_heartbeat") or "",
+        reverse=True,
+    )
     # The farm host's row comes first.
     rows = rows_that_fit(context, _WORKERS_RESERVED_UNITS) - 1
+    machines = machines + silent
     machines = machines + ["empty"] * (rows - len(machines))
     for m in machines:
         row = layout.column()
@@ -538,6 +547,10 @@ def draw_farm_workers(context, layout):
 
         if m == "empty":
             row.label(text="", icon="BLANK1")
+            continue
+
+        if any(m is s for s in silent):
+            _draw_silent_worker(row, m)
             continue
 
         split = row.split(factor=FIRST_COLUMN)
@@ -585,6 +598,43 @@ def draw_farm_workers(context, layout):
             op.machine = m.get("machine", "")
             op.busy = busy
     layout.separator()  # the last row's line off the box's bottom edge
+
+
+def _draw_silent_worker(row, m):
+    """A Workers view row for a worker file with no heartbeat for a while
+    that never said it stopped (read_workers()'s silent): greyed, since
+    when, and a button to forget it. The farm itself already hands its
+    render to other machines past WORKER_GONE_SECONDS."""
+    split = row.split(factor=FIRST_COLUMN)
+    split.active = False
+    info = split.row()
+    try:
+        last = datetime.datetime.fromisoformat(m.get("last_heartbeat") or "")
+        age = (datetime.datetime.now() - last).total_seconds()
+    except (TypeError, ValueError):
+        last, age = None, None
+    gone = age is None or age > WORKER_GONE_SECONDS
+    info.label(text=m.get("user", "unknown"), icon="ERROR" if gone else "TIME")
+    info.label(text=m.get("machine", "unknown"))
+
+    jobs = split.row()
+    if last is None:
+        text = "no heartbeat"
+    elif gone:
+        today = last.date() == datetime.date.today()
+        when = f"{last:%H:%M}" if today else f"{last:%d/%m %H:%M}"
+        text = f"silent since {when} (crashed, closed or asleep?)"
+    else:
+        text = f"late ({int(age)} s without news)"
+    if m.get("current_job_id"):
+        text += f" -- was on {m['current_job_id']}"
+    jobs.label(text=text)
+    if gone:
+        op = jobs.operator(
+            "m_pipeline.farm_forget_worker", text="", icon="TRASH", emboss=False
+        )
+        op.target_uuid = m.get("uuid", "")
+        op.machine = m.get("machine", "")
 
 
 def draw_farm_job_details(layout, context):

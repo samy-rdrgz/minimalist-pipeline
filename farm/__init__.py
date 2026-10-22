@@ -59,6 +59,7 @@ from .setup import (
 )
 from .workers import (
     apply_custom_preset,
+    forget_worker,
     is_blender_worker,
     kill_worker,
     launch_worker,

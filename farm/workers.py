@@ -295,10 +295,12 @@ def update_worker_heartbeat():
         box["action"] = "to_write"
 
 
-def read_workers(workers_dir: Path) -> dict:
+def read_workers(workers_dir: Path, silent: dict | None = None) -> dict:
     """{uuid: worker_data} for every worker file in workers_dir with a
     recent heartbeat. Pure os/json, no lock (writes are atomic) -- safe on
-    a reader thread (farm.loop._read_farm_raw())."""
+    a reader thread (farm.loop._read_farm_raw()). silent: filled with the
+    others that never said they stopped -- crashed, closed, asleep, off the
+    share -- for Farm monitoring to show them instead of hiding them."""
     workers = {}
     try:
         files = [
@@ -312,7 +314,24 @@ def read_workers(workers_dir: Path) -> dict:
         data = read_json_quiet(f) or {}
         if _heartbeat_age(data.get("last_heartbeat", "")) < STALE_WORKER_SECONDS:
             workers[data.get("uuid", "unknown")] = data
+        elif silent is not None and data.get("status") != "stopped":
+            silent[data.get("uuid", "unknown")] = data
     return workers
+
+
+def forget_worker(uuid: str) -> bool:
+    """Delete worker uuid's file, if it's still silent (read_workers()): a
+    machine that won't come back. True if deleted. Harmless if it does come
+    back: launch_worker() writes a new file."""
+    path = ConfigCache.get_path("workers") / f"worker_{uuid}.json"
+    with locked_json(path) as box:
+        data = box["data"] or {}
+        if not data:
+            return False
+        if _heartbeat_age(data.get("last_heartbeat", "")) < STALE_WORKER_SECONDS:
+            return False  # alive again meanwhile
+        box["action"] = "to_delete"
+    return True
 
 
 _workers_cache: tuple[float, dict] | None = None
