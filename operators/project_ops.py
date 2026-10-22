@@ -201,6 +201,8 @@ class M_PIPELINE_OT_create_project(bpy.types.Operator):
         return {"FINISHED"}
 
     def _validate(self):
+        """(errors, warnings) of the new project's path and name, each a list of
+        message lines."""
         errors = []
         warnings = []
 
@@ -223,6 +225,8 @@ class M_PIPELINE_OT_create_project(bpy.types.Operator):
         return (errors or None, warnings or None)
 
     def _set_active(self, context, project_root, name):
+        """Make project_root the active project, added to the opened projects if
+        it isn't there, and save the list."""
         prefs = addon_pref(context)
         set_active_project_root(prefs, project_root)
         if not any(item.path == project_root for item in prefs.opened_projects):

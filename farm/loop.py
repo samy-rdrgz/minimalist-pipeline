@@ -212,6 +212,8 @@ def request_monitor_refresh() -> None:
 
 
 def _apply_oneshot_read() -> float | None:
+    """Timer: fold the one-shot farm read in once its thread is done (polls
+    again in 0.25 s while it runs). Never raises: a timer would die."""
     try:
         result = _oneshot_reader.take()
         if result is None:
@@ -569,20 +571,10 @@ def _output_dir(job: dict, root: Path | None = None) -> Path | None:
 
 
 def _count_rendered_frames(folder: Path, ext: str) -> int:
-    """Frames actually written in folder: files with this extension and a
-    non-zero size (an empty one: a placeholder left by a render before
-    1.1.0)."""
+    """Frames written in folder: files with this extension -- only ever
+    there whole (renamed from a hidden .tmp)."""
     suffix = f".{ext}".lower()
-    done = 0
-    for entry in cached_scandir(folder):
-        if not entry.name.lower().endswith(suffix):
-            continue
-        try:
-            if entry.stat().st_size > 0:
-                done += 1
-        except OSError:
-            pass
-    return done
+    return sum(1 for entry in cached_scandir(folder) if entry.name.lower().endswith(suffix))
 
 
 def job_state(stage: str) -> str:
@@ -709,8 +701,8 @@ def _build_job_entry(
         frames_total = resolved[1] - resolved[0] + 1
     frames_done = frames_done or 0
 
-    # Nothing timed (first frames, workers on an older version): None, the
-    # popup falls back on elapsed time over progress.
+    # Nothing timed yet (a render's first frames): None, the popup falls
+    # back on elapsed time over progress.
     seconds = {u: s for u, s in (frame_seconds or {}).items() if s}
     timed = [s for secs in seconds.values() for s in secs]
     average = sum(timed) / len(timed) if timed else None
@@ -840,6 +832,8 @@ def register_status_timer() -> None:
 
 
 def unregister_status_timer() -> None:
+    """Stop the farm status timer (register_status_timer()) and forget the
+    popup regions it redrew."""
     global _registered_status_tick_fn
     if _registered_status_tick_fn is not None and bpy.app.timers.is_registered(
         _registered_status_tick_fn

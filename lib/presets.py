@@ -95,6 +95,8 @@ def apply_asset_preset(prefix: str, name: str):
 
 
 def _fallback_single_collection(name: str):
+    """One collection named name under the scene's: the asset preset's
+    fallback."""
     root = bpy.data.collections.new(name)
     bpy.context.scene.collection.children.link(root)
     return root

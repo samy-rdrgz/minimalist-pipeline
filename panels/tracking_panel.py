@@ -171,6 +171,7 @@ def draw_entries(box, filepath, filters=None, width: int | None = None):
 
 
 def _draw_thread(thread, note, filepath, width: int | None = None):
+    """A thread: its root entry, then its replies indented, greyed once done."""
     _draw_entry(thread["root"], note, filepath, width)
     done = thread["root"].get("done", False)
 
@@ -293,13 +294,16 @@ def _draw_entry(e, note, filepath, width: int | None = None):
 
 
 def _get_entry_by_id(entries, id):
+    """The entry with this id, None if there's none."""
     for e in entries:
         if e.get("id") == id:
             return e
-    return []
+    return None
 
 
 def _get_entry_tooltip(e, filepath):
+    """An entry's hover text: who and when, the version it's about, edits,
+    departments, review origin, id, the entry it replies to."""
     file = e.get("referenced_version")
     file = Path(file).stem if file else "unknown version"
 
@@ -477,6 +481,7 @@ def _folder_button(row, path: str) -> None:
 
 
 def unregister_thumbnail_previews() -> None:
+    """Free the thumbnails' preview collection and forget what it held."""
     global _previews
     if _previews is not None:
         bpy.utils.previews.remove(_previews)
@@ -837,6 +842,8 @@ def draw_monitor_table(self, context, layout, columns, project_root):
 
 
 def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None):
+    """One file's row of Project monitoring: name (opens its detail), a
+    status cell per department column, then its Farm cell."""
     row = f_list.column()
     split = row.split(factor=first_column)
     name = split.row()

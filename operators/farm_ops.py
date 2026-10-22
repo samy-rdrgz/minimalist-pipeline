@@ -467,6 +467,8 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
             )
 
     def _panel_setting(self, context, col, is_block=False):
+        """The submit settings: priority, mode, increment, frame override,
+        assigned machines, pre-render script."""
         row = col.row(align=False)
         row.prop(self, "priority")
         row.prop(self, "render_mode", text="")
@@ -498,6 +500,7 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
         col.prop(self, "pre_render_script", text="")
 
     def _draw_subshots(self, layout, subshots):
+        """A block's checklist of shots to render."""
         naming = ConfigCache.get().get("naming", {})
         prefix = json_get(naming, "shot.prefix", "sh")
         digits = json_get(naming, "shot.digits", 3)
@@ -626,6 +629,8 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
         return {"FINISHED"}
 
     def _override_strings(self) -> tuple[str, str]:
+        """The frame override as job_request() takes it: "n" (none) or the mode
+        letter and the frame ("s10", "e-5")."""
         start = (
             "n"
             if self.rel_frame_start == "n"
@@ -695,6 +700,7 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
             sequences.add().name = name
 
     def _draw_sequences(self, layout, sequences) -> None:
+        """The Preview checklist: which sequences to compile end to end."""
         box = layout.box().column(align=True)
         box.label(text="Sequences to preview:", icon="SEQUENCE")
         if not sequences:
@@ -732,6 +738,8 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
         return {"FINISHED"}
 
     def single(self, context):
+        """Submit self.filepath alone (Ctrl+click, or the dialog of one file):
+        only the shots ticked for a block."""
         user = get_user(context)
         start, end = self._override_strings()
         subshots = context.window_manager.render_subshots

@@ -192,6 +192,7 @@ def job_icon(stage: str) -> str:
 
 
 def _job_time(iso: str) -> datetime.datetime | None:
+    """A stage's ISO time, None if unreadable."""
     try:
         return datetime.datetime.fromisoformat(iso)
     except (TypeError, ValueError):
@@ -291,6 +292,7 @@ def draw_frame_lookup(layout, renders: list) -> None:
 
 
 def _job_matches(self, job: dict, user: str) -> bool:
+    """Whether a job passes Farm monitoring's filters: state, mine, name."""
     if self.state != "all" and job_state(job["stage"]) != self.state:
         return False
     if self.only_mine and job.get("user") != user:

@@ -1,5 +1,5 @@
-"""Launch the actual render commands -- local Popen or SSH, one machine or
-several, depending on render_mode."""
+"""Send renders to the workers (render requests on the share, one machine
+or one per chunk to render), and the monitor's own process logs."""
 
 import json
 import os

@@ -104,6 +104,8 @@ _SCENE_PROPS = {
 
 
 def _register_props(owner, props: dict):
+    """Set each property on owner (WindowManager, Scene); one that fails is
+    reported, never stops the others."""
     for name, prop in props.items():
         try:
             setattr(owner, name, prop)

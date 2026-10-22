@@ -128,6 +128,7 @@ _terminal_jobs: dict[str, float] = {}
 
 
 def _job_stage(data: dict) -> str:
+    """The job's current stage, "" for a file without a readable history."""
     try:
         return data["stage_history"][-1]["stage"]
     except (KeyError, IndexError, TypeError):
@@ -840,7 +841,7 @@ def _note_frames(data: dict) -> None:
             per_machine[uuid] = round(sum(seconds) / len(seconds), 1)
             timed += seconds
         for line_dispatch, frame, at in parse_saved(text):
-            rank = (line_dispatch == dispatch_id, at or 0.0)
+            rank = (line_dispatch == dispatch_id, at)
             if frame is None or not start <= frame <= end:
                 continue
             if rank >= writers.get(frame, ((), ""))[0]:

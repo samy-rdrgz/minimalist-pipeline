@@ -152,7 +152,7 @@ from .preview import (
     resolve_block_sources,
     resolve_sequence_sources,
 )
-from .saving import WM_OT_safe_save, get_save_shortcut
+from .saving import WM_OT_safe_save
 from .session import (
     close_session,
     get_opened_as_read_only,

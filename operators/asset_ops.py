@@ -155,6 +155,7 @@ class M_PIPELINE_OT_create_asset(bpy.types.Operator):
         return {"FINISHED"}
 
     def _get_v_digits(self, context):
+        """The project's version digits (naming.version.digits), 3 by default."""
         try:
             config = ConfigCache.get()
             return int(json_get(config, "naming.version.digits", 3))

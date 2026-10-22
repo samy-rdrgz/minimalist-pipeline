@@ -87,9 +87,10 @@ def _file_department_items(self, context) -> list[tuple]:
 def _departments_label(departments) -> str:
     """What a departments picker reads: "Layout, Animation" (the project's
     order) / "No department"."""
-    return ", ".join(d.capitalize() for d in ordered_departments(departments)) or (
-        "No department"
-    )
+    # sorted() first: a selection is a set, any department the project
+    # doesn't list then reads in a stable order.
+    deps = ordered_departments(sorted(departments))
+    return ", ".join(d.capitalize() for d in deps) or "No department"
 
 
 def _in_order(selected, items: list) -> list[str]:
@@ -243,6 +244,9 @@ class M_PIPELINE_OT_create_entry(bpy.types.Operator):
         layout.separator(factor=2)
 
     def _draw_lines(self, layout, entries, multishot: bool):
+        """One block per line: its text, then its departments (and a block's
+        shot under them), frame tag and start, end, reference -- a quarter
+        each."""
         col = layout.column(align=True)
 
         for idx, entry in enumerate(entries):
@@ -1337,6 +1341,8 @@ class M_PIPELINE_OT_open_render_video(bpy.types.Operator):
         return best[1] if best else None
 
     def _find(self) -> Path | None:
+        """The render's video: the job's compiled one, else the newest video in
+        its folder (flagged before it was recorded). None if there's none."""
         video = to_absolute(self.video) if self.video else None
         if video and video.is_file():
             return video

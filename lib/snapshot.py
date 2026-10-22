@@ -337,15 +337,6 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
     return {"meta": meta, "assets": items["asset"], "shots": items["shot"], "notes": notes}
 
 
-def collect_snapshot(
-    root: Path, config: dict, meta: dict, thumbnails: dict | None = None
-) -> dict:
-    """read_snapshot_data() + build_snapshot() in one go (no thread)."""
-    meta = {"scan_started_at": now(), **meta}
-    v_prefix = json_get(config, "naming.version.prefix", "v")
-    return build_snapshot(read_snapshot_data(root, thumbnails, v_prefix), config, meta)
-
-
 def _department_state(status: dict, department: str) -> str:
     """done / rework (validated at the latest stable, worked since or not),
     wip (worked since, or started before: validated at an earlier stable or
@@ -439,6 +430,7 @@ def project_schedule(config: dict) -> dict | None:
 
 
 def _is_working_day(schedule: dict, day: date) -> bool:
+    """Whether day counts in the schedule: a worked weekday, not a day off."""
     return (
         day.isoweekday() in schedule["worked_days"] and day not in schedule["days_off"]
     )
@@ -517,6 +509,8 @@ def _columns(configured: list, items: list) -> list:
 
 
 def _entry_dict(e: dict) -> dict:
+    """An entry as the snapshot page shows it: plain fields, its departments
+    joined for the tag."""
     version = e.get("referenced_version")
     return {
         "type": e.get("type", "note"),
@@ -541,6 +535,8 @@ def _thread_closed(thread: dict) -> bool:
 
 
 def _thread_dict(item_name: str, thread: dict, closed: bool = False) -> dict:
+    """A thread (root + replies) as the snapshot page shows it, tagged with
+    its item and whether it's closed."""
     return {
         "item": item_name,
         **_entry_dict(thread["root"]),
@@ -1277,6 +1273,8 @@ def _short_version(name: str, filename: str) -> str:
 
 
 def _render_entry(e: dict, reply: bool = False, closed: bool = False) -> str:
+    """One entry's <li>: type pill (ticked once done), tags, author and date,
+    text."""
     if e["done"] is True:
         # The type's own pill, green and ticked like "Validated" -- a
         # separate "done" tag read like one more department.
@@ -1715,6 +1713,7 @@ def _col(n: int) -> str:
 
 
 def _cell(ref: str, value, style: int = 0) -> str:
+    """One inline-string cell of the review sheet's XML; empty for no value."""
     if value in (None, ""):
         return f'<c r="{ref}" s="{style}"/>'
     text = xml_escape(_XML_ILLEGAL.sub("", str(value)))

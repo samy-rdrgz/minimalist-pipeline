@@ -421,7 +421,7 @@ def idle_machines() -> dict:
                     "WARNING",
                     "farm",
                     f"Worker {w.get('user', '?')} ({w.get('machine') or uuid[:8]}) runs "
-                    f"addon {w.get('addon_version') or 'older than 1.0.19'}: no render "
+                    f"addon {w.get('addon_version') or 'older than 1.1.0'}: no render "
                     f"sent to it until it's updated.",
                 )
             continue
@@ -443,28 +443,27 @@ def update_worker(dict: dict, count: str = ""):
 
 def saved_frames_path(job_id: str, uuid: str) -> Path:
     """Worker uuid's record of the frames it wrote for job_id -- one
-    "<dispatch_id> <frame> <time>" line per frame (no time from a worker on
-    an older version), plus "<dispatch_id> start <time>" each time a render
-    of it starts on that machine, appended by the render entry
+    "<dispatch_id> <frame> <time>" line per frame, plus "<dispatch_id>
+    start <time>" each time a render of it starts on that machine (its
+    clock), appended by the render entry
     (templates/worker_render_entry.py), read by the monitor (_note_frames())
     and for the pace (frame_seconds()). Next to the render's own log."""
     return ConfigCache.get_path("farm_requests") / f"request_{job_id}_{uuid}.saved"
 
 
-def parse_saved(text: str) -> list[tuple[str, int | None, float | None]]:
+def parse_saved(text: str) -> list[tuple[str, int | None, float]]:
     """A saved_frames_path() record as (dispatch_id, frame, time) lines:
     frame None for a "start" line (a render of it starting on that
-    machine), time None from a worker on an older version. Pure: safe on a
-    reader thread."""
+    machine). A malformed line is skipped. Pure: safe on a reader thread."""
     lines = []
     for line in text.splitlines():
         parts = line.split()
-        if len(parts) < 2 or not (parts[1].isdigit() or parts[1] == "start"):
+        if len(parts) != 3 or not (parts[1].isdigit() or parts[1] == "start"):
             continue
         try:
-            at = float(parts[2]) if len(parts) == 3 else None
+            at = float(parts[2])
         except ValueError:
-            at = None
+            continue
         lines.append((parts[0], int(parts[1]) if parts[1].isdigit() else None, at))
     return lines
 
@@ -474,11 +473,11 @@ def frame_seconds(text: str) -> list[float]:
     record: the time between two frames it wrote in a row, same render
     (dispatch_id) -- times from one clock, its own. The first frame of each
     render has none (it includes opening the .blend; a "start" line marks
-    it), nor a line with no time. Pure: safe on a reader thread."""
+    it). Pure: safe on a reader thread."""
     seconds = []
     previous = None
     for dispatch_id, frame, at in parse_saved(text):
-        if frame is None or at is None:
+        if frame is None:
             previous = None
             continue
         if previous and previous[0] == dispatch_id and at > previous[1]:
@@ -496,7 +495,7 @@ def startup_seconds(text: str, frame_time: float) -> list[float]:
     for dispatch_id, frame, at in parse_saved(text):
         if frame is None:
             started = (dispatch_id, at)
-        elif started and started[0] == dispatch_id and None not in (at, started[1]):
+        elif started and started[0] == dispatch_id:
             startups.append(max(0.0, at - started[1] - frame_time))
             started = None
     return startups
@@ -806,7 +805,7 @@ def stuck_frame_check(
     job's. The first frame of a render also gets the machine's usual
     startup (scene sync). None when unknown: nothing written for this
     render yet, no usual time. Pure."""
-    lines = [(f, t) for d, f, t in parse_saved(text) if d == dispatch_id and t is not None]
+    lines = [(f, t) for d, f, t in parse_saved(text) if d == dispatch_id]
     if not lines:
         return None
     own = [

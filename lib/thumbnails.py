@@ -88,7 +88,8 @@ def owner_render_dir(project_root: Path, owner: Path) -> Path:
 
 def source_frame(shot_render_dir: Path, v_prefix: str = "v") -> Path | None:
     """Middle frame of the shot's latest render (the first is often a
-    hold), skipping the empty placeholders of frames not rendered yet."""
+    hold), skipping empty files -- the placeholders of a render before
+    1.1.0, which may still be the latest."""
     latest = latest_render_dir(shot_render_dir, v_prefix)
     if latest is None:
         return None

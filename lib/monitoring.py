@@ -222,6 +222,7 @@ def _show_tool_tab(window_ptr: int, tries: int = 20):
 
 
 def redraw_monitoring(kind: str | None = None) -> None:
+    """Redraw the monitoring windows (of that kind): their editor's main region."""
     for window in monitoring_windows(kind):
         for area in window.screen.areas:
             if area.type != "PROPERTIES":
@@ -239,6 +240,7 @@ def ensure_monitoring_tick() -> None:
 
 
 def stop_monitoring_tick() -> None:
+    """Stop _monitoring_tick (the last monitoring window closed, unregister)."""
     if bpy.app.timers.is_registered(_monitoring_tick):
         bpy.app.timers.unregister(_monitoring_tick)
 
@@ -492,6 +494,7 @@ def draw_addon_keys(context, layout) -> None:
 
 
 def unregister_monitoring_keymap() -> None:
+    """Remove the shortcuts register_monitoring_keymap() added."""
     for km, kmi in _keymap_items:
         try:
             km.keymap_items.remove(kmi)
