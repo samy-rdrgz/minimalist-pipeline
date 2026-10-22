@@ -1978,8 +1978,9 @@ The field used to start at 0 and accept anything, answering "1001 -
 range (`farm_frame_lookup`'s get/set clamp to bounds `draw_frame_lookup()`
 sets, a block's shots together), so it always shows a frame and its
 answer -- the machine, the frames around it that machine wrote in a row
-(its chunk, or several: `_same_machine_run()`), its pace. Paces under a
-minute read in seconds (`_pace()`: "0.6 s", not "0m00s").
+(its chunk, or several: `_same_machine_run()`), its pace -- three greyed
+lines under the field: a debugging aid, not something read every day.
+Paces under a minute read in seconds (`_pace()`: "0.6 s", not "0m00s").
 
 ## Time left: per machine, from each frame's time
 

@@ -560,6 +560,7 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         row.prop(self, "project_bl_version")
 
         # Resolution / FPS
+        left.separator()
         box = left.box().column(align=False)
         row = _settings_row(box, "RESOLUTION", "RESTRICT_VIEW_OFF")
         row.prop(self, "resolution_x")
@@ -572,6 +573,7 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         row.label(text="")
 
         # Naming
+        left.separator()
         box = left.box().column(align=False)
         row = _settings_row(box, "", "NONE")
         row.label(text="PREFIX", icon="SYNTAX_OFF")
@@ -626,6 +628,7 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         )
 
         # Thumbnails / snapshot
+        left.separator()
         box = left.box().column(align=False)
         row = _settings_row(box, "THUMBNAILS", "IMAGE_DATA")
         row.prop(self, "thumbnail_size")
@@ -637,6 +640,7 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         row.prop(self, "progress_rtk")
 
         # Schedule
+        right.separator()
         box = right.box().column(align=False)
         row = _settings_row(box, "SCHEDULE", "TIME")
         row.prop(self, "schedule_start")
@@ -647,6 +651,7 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
             week.prop(self, "schedule_worked_days", index=i, text=name, toggle=True)
 
         # Farm
+        right.separator()
         box = right.box().column(align=False)
         row = _settings_row(box, "CHUNK SIZE", "RENDER_RESULT")
         row.prop(self, "chunk_size")

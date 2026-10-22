@@ -265,30 +265,28 @@ def draw_frame_lookup(layout, renders: list) -> None:
     _lookup["max"] = max(last for _, last in ranges)
     wm = bpy.context.window_manager
     frame = wm.farm_frame_lookup
-    layout.prop(wm, "farm_frame_lookup", text="Frame")
-    # The answer on its own row: next to the field, in an aligned row, it
-    # only got what the field left -- the machine's name cut to "WOR...02".
-    answer = layout.row()
-    answer.alignment = "LEFT"
+    # Greyed out: a debugging aid, not something to read every day.
+    col = layout.column(align=False)
+    col.active = False
+    col.prop(wm, "farm_frame_lookup", text="Frame")
     for label, record, seconds in renders:
         found = machine_for_frame(record, frame)
         if not found:
             continue
         uuid, name = found
         if not uuid:
-            answer.label(text=f"{label}frame {frame}: machine not recorded")
+            col.label(text=f"{label}machine not recorded", icon="DESKTOP")
             return
         first, last = _same_machine_run(record, frame)
-        parts = [
-            f"{label}{machine_label(uuid, name)}",
-            f"frames {first}-{last}" if first != last else f"frame {first}",
-        ]
+        col.label(text=f"{label}{machine_label(uuid, name)}", icon="DESKTOP")
+        col.label(
+            text=f"frames {first}-{last} in a row" if first != last else "this frame only",
+            icon="RENDER_ANIMATION",
+        )
         pace = (seconds or {}).get(uuid)
-        if pace:
-            parts.append(f"{_pace(pace)}/frame")
-        answer.label(text="  ·  ".join(parts), icon="DESKTOP")
+        col.label(text=f"{_pace(pace)}/frame" if pace else "pace unknown", icon="TIME")
         return
-    answer.label(text=f"frame {frame}: in none of these shots' ranges")
+    col.label(text=f"frame {frame}: in none of these shots' ranges")
 
 
 def _job_matches(self, job: dict, user: str) -> bool:
