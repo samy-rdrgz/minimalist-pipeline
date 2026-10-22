@@ -2545,11 +2545,24 @@ a single pass ended and the host had to start a new one for three frames
 frames are all on disk (one listing of the folder) or that another
 machine holds is skipped; a claimed one is checked again frame by frame
 (the listing may be seconds old on SMB), then each missing frame is
-`frame_set()`, `render.render()`, `Render Result`'s `save_render()` to
-`<frame file>.tmp` -- a name that doesn't end with the image's extension,
-never counted as a frame -- and `os.replace()`d onto `frame_path()`'s
-name: what the frame check and the compilation read. The claim is
-rewritten before (frame in progress) and after (frames done) each frame;
+rendered by Blender's own animation render over a one-frame range
+(`frame_start = frame_end = f`, `render.render(animation=True)`), written
+to a hidden tmp of this render's own (`render.filepath` =
+`.<machine>_<pid>_#####.tmp`, `use_file_extension` off: never counted as
+a frame, never another machine's) and `os.replace()`d onto its final name
+-- `frame_path()` read for the whole range before the output is switched
+to the tmp: what the frame check and the compilation read.
+
+First done with `render.render()` then `Render Result`'s `save_render()`:
+the same pixels, but a compositor File Output node then writes
+`depth_.exr`, unnumbered, each frame over the last -- only an animation
+render (`-a`, `-f`) numbers them. Checked: `depth_0001.exr`... with the
+one-frame animation; a multilayer EXR with a compositor identical to
+`-a`'s byte for byte but its Date stamp. A File Output file isn't written
+through the tmp, but before the main output: a render killed while
+writing it leaves the frame missing, rendered again, the pass rewritten. The claim is
+rewritten before (frame in progress, its tmp for the host to delete if
+the render dies) and after (frames done) each frame;
 gone when it's about to be rewritten, the host took this machine for dead
 and freed it: the render stops rather than write it back (two machines on
 one chunk). `.stop` is read before each chunk and each frame. A frame that
@@ -2562,9 +2575,8 @@ by three at once -- each written once, none missing, no claim or .tmp
 left; `.stop` -- exit 0, claim released; a render killed mid-chunk -- its
 claim left (`frames_done` and the frame in progress in it), another
 machine rendering everything but that chunk's frames left. Not checked
-yet: compositor File Output nodes (they write their own files during
-`render.render()`, not through the .tmp), multilayer EXR, memory over
-hundreds of frames, Cycles' persistent data.
+yet: memory over hundreds of frames (one Blender per job, as the
+animation render always was), Cycles' persistent data.
 
 The host (`check_render_completion()`, every tick of a job at
 `render_start`; one listing of the claims, one of the frames):

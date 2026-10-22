@@ -998,9 +998,10 @@ def _free_claims(job_path: Path, dead: dict) -> dict | None:
             release_claim(job_id, k)
             _unreadable_since.pop((job_id, k), None)
             # The frame it was writing, never renamed onto its final name.
-            if claim.get("frame_in_progress_file"):
+            tmp = claim.get("frame_in_progress_tmp")
+            if tmp:
                 try:
-                    retry_shared_io(Path(claim["frame_in_progress_file"] + ".tmp").unlink)
+                    retry_shared_io(Path(tmp).unlink)
                 except OSError:
                     pass
             log(

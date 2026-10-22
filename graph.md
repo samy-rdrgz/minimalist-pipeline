@@ -455,7 +455,8 @@ incomings/job_<id>.json
 │       ├── claimed : frames still missing (stat), for each :
 │       │   ├── .stop there : claim released, exit 0
 │       │   ├── claim gone (freed by the host) : exit 0
-│       │   └── claim updated, rendered to <frame>.tmp, renamed onto the
+│       │   └── claim updated, rendered (one-frame animation render) to
+│       │       .<machine>_<pid>_#####.tmp, renamed onto the
 │       │       frame, "<dispatch_id> <frame> <time>" appended to the .saved,
 │       │       claim updated
 │       ├── chunk done : claim released

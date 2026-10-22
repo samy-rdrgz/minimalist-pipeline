@@ -45,9 +45,31 @@ def record_saved(frame: int) -> None:
         pass
 
 
+# The render's range and every frame's final file -- the naming the frame
+# check and the compilation expect (-o, -F, the output's #### and
+# extension) -- read before render_frame()'s settings change them.
+START, END = scene.frame_start, scene.frame_end
+FINALS = {
+    f: bpy.path.abspath(scene.render.frame_path(frame=f)) for f in range(START, END + 1)
+}
+FOLDER = os.path.dirname(FINALS[START])
+
+# Blender writes each frame itself, to a hidden .tmp of this render's own:
+# a name that never ends with the image's extension (never counted as a
+# frame) nor clashes with another machine's.
+scene.render.use_placeholder = False
+scene.render.use_overwrite = True
+scene.render.use_file_extension = False
+scene.render.filepath = os.path.join(FOLDER, f".{machine}_{os.getpid()}_#####.tmp")
+
+
 def frame_file(frame: int) -> str:
-    """The frame's final file: the naming the frame check and the
-    compilation expect (-o, -F, the output's #### and extension)."""
+    """The frame's final file."""
+    return FINALS[frame]
+
+
+def tmp_file(frame: int) -> str:
+    """Where Blender writes the frame before it's renamed onto frame_file()."""
     return bpy.path.abspath(scene.render.frame_path(frame=frame))
 
 
@@ -61,15 +83,14 @@ def files_in(folder: str) -> set[str]:
 
 
 def render_frame(frame: int, final: str) -> None:
-    """Render one frame, written whole under its final name: to a .tmp
-    first (its name doesn't end with the image's extension: never counted
-    as a frame), then renamed -- a file under a frame's name is a finished
-    frame."""
-    scene.frame_set(frame)
-    bpy.ops.render.render()
-    tmp = final + ".tmp"
-    bpy.data.images["Render Result"].save_render(tmp, scene=scene)
-    lib.retry_shared_io(os.replace, tmp, final)
+    """Render one frame, written whole under its final name: Blender's own
+    animation render over a one-frame range -- what -a writes, File Output
+    nodes numbering their files (a plain render() writes them unnumbered,
+    each frame over the last) -- to tmp_file(), then renamed: a file under
+    a frame's name is a finished frame."""
+    scene.frame_start = scene.frame_end = frame
+    bpy.ops.render.render(animation=True)
+    lib.retry_shared_io(os.replace, tmp_file(frame), final)
 
 
 def stop_asked() -> bool:
@@ -111,6 +132,7 @@ def render_chunk(k: int, start: int, end: int, folder: str) -> str:
         "frames_done": [],
         "frame_in_progress": None,
         "frame_in_progress_file": "",
+        "frame_in_progress_tmp": "",
         "claimed_at": time.time(),
         "updated_at": time.time(),
     }
@@ -125,6 +147,7 @@ def render_chunk(k: int, start: int, end: int, folder: str) -> str:
         final = frame_file(f)
         claim["frame_in_progress"] = f
         claim["frame_in_progress_file"] = final
+        claim["frame_in_progress_tmp"] = tmp_file(f)
         if not update_claim(k, claim):
             return f"chunk {k}'s claim freed by the host"
         render_frame(f, final)
@@ -132,6 +155,7 @@ def render_chunk(k: int, start: int, end: int, folder: str) -> str:
         claim["frames_done"].append(f)
         claim["frame_in_progress"] = None
         claim["frame_in_progress_file"] = ""
+        claim["frame_in_progress_tmp"] = ""
         if not update_claim(k, claim):
             return f"chunk {k}'s claim freed by the host"
     chunks.release_claim(job_id, k)
@@ -144,8 +168,7 @@ def render_chunks() -> str:
     behind this one (stopped mid-chunk) is picked up without a new Blender.
     Ends on a pass that found nothing to claim -- every chunk complete on
     disk or held elsewhere -- or on a stop. Returns why it stopped."""
-    start, end = scene.frame_start, scene.frame_end
-    folder = os.path.dirname(frame_file(start))
+    start, end, folder = START, END, FOLDER
     os.makedirs(folder, exist_ok=True)
     rendered = True
     while rendered:
