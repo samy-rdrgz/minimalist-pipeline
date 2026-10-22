@@ -59,6 +59,14 @@ for several departments, and a round of interface fixes.
 
 - **Edit project in two columns**: it ran past the screen.
 - **Clicking Monitoring again brings its window to the front.**
+- **The Pipeline log opens in a window of its own**, like Project and
+  Farm monitoring: paged to its height, arrow keys for its pages.
+- **F5 refreshes a monitoring window.**
+- **Shortcuts, in the preferences** (a section folded by default), each
+  named for what it does: the monitoring windows' keys, and new ones to
+  open the monitoring windows and the log, add an entry, increment, mark
+  as stable or render the open file -- off until you switch them on and
+  pick their keys.
 - **Renders to check: play the render before it**, to compare.
 - File menus show each asset's or shot's description as a tooltip.
 - Addon settings (Advanced mode, worker on open, FFmpeg path...) survive
