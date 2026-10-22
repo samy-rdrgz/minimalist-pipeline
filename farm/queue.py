@@ -705,6 +705,13 @@ def construct_split_history(job: dict) -> None:
     append_render_history(job["filepath"], entry)
 
 
+def _stuck_this_render(worker: dict | None) -> dict | None:
+    """The "stuck" part of a worker's last_job_result (frame, seconds,
+    usual), if its render was killed on a stuck frame -- for a worker
+    _failed_this_render() already matched to this render."""
+    return ((worker or {}).get("last_job_result") or {}).get("stuck")
+
+
 def _failed_this_render(worker: dict | None, data: dict) -> bool:
     """Whether a worker's last_job_result says it failed *this* render (its
     dispatch_id: a re-render reuses the job id) -- a real failure, not one
@@ -1034,6 +1041,14 @@ def check_render_completion(
             except OSError:
                 pass
         failed = [u for u in machines if _failed_this_render(_read_worker(u), data)]
+        # Killed on a stuck frame (workers.check_stuck_renders()): never sent
+        # back to it, but no reason to fail the job -- its frames left go to
+        # the other machines, within MAX_REFILL_ROUNDS like any refill.
+        stuck = {u for u in failed if _stuck_this_render(_read_worker(u))}
+        for uuid in sorted(stuck):  # for Job details
+            data.setdefault("stuck_frames", []).append(
+                {"machine": uuid, "at": now()} | _stuck_this_render(_read_worker(uuid))
+            )
 
         # Kept for construct_history(): used_machines is reset by the next
         # local stages (_finish_job_processes()).
@@ -1050,7 +1065,7 @@ def check_render_completion(
 
         if frames_complete(data, project_root):
             data["stage_history"].append({"stage": "render_finished", "at": now()})
-        elif failed:
+        elif set(failed) - stuck:
             data["stage_history"].append({"stage": "render_failed", "at": now()})
         elif data.get("cancel_requested"):
             data["stage_history"].append(
@@ -1078,12 +1093,18 @@ def check_render_completion(
             folder = _render_folder(data, project_root)
             if folder:
                 _delete_placeholders(folder)
+            if stuck:
+                _reassign_away_from_failed(data)
             data["refill_rounds"] = data.get("refill_rounds", 0) + 1
             data["stage_history"].append(
                 {
                     "stage": "setup_finished",
                     "at": now(),
-                    "resumed": "frames left after machines stopped",
+                    "resumed": (
+                        "frames left after a stuck frame"
+                        if stuck
+                        else "frames left after machines stopped"
+                    ),
                 }
             )
             data["used_machines"] = []

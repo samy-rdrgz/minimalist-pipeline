@@ -14,9 +14,11 @@ from ..lib import (
     ConfigCache,
     PipelineError,
     get_active_project_root,
+    get_addon_version,
     get_machine_id,
     get_user,
     get_user_data,
+    json_get,
     locked_json,
     log,
     now,
@@ -28,6 +30,17 @@ from ..lib import (
 from .loop import register_farm_loop
 
 STALE_WORKER_SECONDS = 15
+
+# A frame taking this many times its usual time is stuck (a hang, not a heavy
+# frame): the worker kills its own render (check_stuck_renders()). Default of
+# the project setting farm.stuck_frame_factor -- 0 there: never.
+STUCK_FRAME_FACTOR = 5
+# Never before this long on one frame, whatever its usual time: short frames
+# vary a lot, in proportion.
+STUCK_FRAME_MIN_SECONDS = 300
+# How often each running render is checked: two files read on the share.
+_STUCK_CHECK_EVERY = 30.0
+_stuck_checked_at: dict[str, float] = {}
 
 
 def _worker_path(as_dir: bool = False) -> Path:
@@ -111,6 +124,18 @@ def _lost_result(job_id: str, dispatch_id: str | None) -> dict:
     }
 
 
+def _worker_identity() -> dict:
+    """What Worker details shows of a worker, set when it starts: the
+    versions it runs and since when, its counters from zero."""
+    return {
+        "blender_version": bpy.app.version_string,
+        "addon_version": get_addon_version(),
+        "started_at": now(),
+        "renders_done": 0,
+        "renders_failed": 0,
+    }
+
+
 def launch_worker() -> bool:
     """Become the worker for this machine. Fails if another live (non-stale)
     Blender instance already holds the role."""
@@ -134,6 +159,7 @@ def launch_worker() -> bool:
                 "current_job": None,
                 "last_heartbeat": now(),
             }
+            | _worker_identity()
             | _recover_previous_render(data)
         )
         box["action"] = "to_write"
@@ -383,11 +409,15 @@ def idle_machines() -> dict:
     }
 
 
-def update_worker(dict: dict):
-    """Merge dict into this machine's worker file and refresh its heartbeat."""
+def update_worker(dict: dict, count: str = ""):
+    """Merge dict into this machine's worker file and refresh its heartbeat.
+    count: a counter field to add one to (renders_done / renders_failed)."""
     worker_path = _worker_path()
     with locked_json(worker_path) as box:
-        box["data"] = (box["data"] or {}) | dict | {"last_heartbeat": now()}
+        data = box["data"] or {}
+        if count:
+            dict = dict | {count: int(data.get(count) or 0) + 1}
+        box["data"] = data | dict | {"last_heartbeat": now()}
         box["action"] = "to_write"
 
 
@@ -625,7 +655,12 @@ def worker_tick():
     # Each step in its own try: one failing step must never skip the others
     # -- a heartbeat refused every tick (NAS lock) would otherwise also skip
     # scan_worker_processes(), and the worker would stay in "render" forever.
-    for step in (update_worker_heartbeat, scan_cancel_requests, scan_worker_processes):
+    for step in (
+        update_worker_heartbeat,
+        scan_cancel_requests,
+        check_stuck_renders,
+        scan_worker_processes,
+    ):
         try:
             step()
         except Exception as e:
@@ -703,11 +738,136 @@ def scan_worker_processes() -> None:
                 "current_job_id": None,
                 "current_dispatch_id": None,
                 "last_job_result": result,
-            }
+            },
+            count="renders_done" if result.get("success") else "renders_failed",
         )
 
     for job_id in finished:
         _worker_active_processes.pop(job_id, None)
+
+
+def _kill_render(job_id: str, p, result: dict, count: str = "") -> None:
+    """Kill this machine's render p of job_id, free the frame it was on and
+    publish a failed last_job_result carrying result's fields (cancelled,
+    stuck...)."""
+    p.terminate()
+    try:
+        p.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        p.kill()
+    _free_frame_in_progress(job_id)
+    _clear_render_flags(job_id)
+    update_worker(
+        {
+            "status": "idle",
+            "current_job": None,
+            "current_pid": None,
+            "current_job_id": None,
+            "current_dispatch_id": None,
+            "last_job_result": {
+                "job_id": job_id,
+                "dispatch_id": getattr(p, "dispatch_id", None),
+                "success": False,
+                "at": now(),
+            }
+            | result,
+        },
+        count=count,
+    )
+    _worker_active_processes.pop(job_id, None)
+
+
+def stuck_frame_factor() -> float:
+    """Project setting farm.stuck_frame_factor (Edit project): how many
+    times its usual time a frame may take before its render is killed; 0:
+    never."""
+    try:
+        value = json_get(ConfigCache.get(), "farm.stuck_frame_factor", STUCK_FRAME_FACTOR)
+        return max(0.0, float(STUCK_FRAME_FACTOR if value is None else value))
+    except (TypeError, ValueError):
+        return STUCK_FRAME_FACTOR
+
+
+def stuck_frame_check(
+    text: str, dispatch_id: str, job: dict, uuid: str, factor: float, at: float
+) -> tuple[float, float, float] | None:
+    """(seconds on the frame in progress, limit, usual seconds per frame)
+    for machine uuid's render dispatch_id, from its saved_frames_path()
+    record (text) -- its own clock, at: time.time() on it. The usual time:
+    this render's frames so far, else the machine's on this job, else the
+    job's. The first frame of a render also gets the machine's usual
+    startup (scene sync). None when unknown: nothing written for this
+    render yet, no usual time. Pure."""
+    lines = [(f, t) for d, f, t in parse_saved(text) if d == dispatch_id and t is not None]
+    if not lines:
+        return None
+    own = [
+        b[1] - a[1]
+        for a, b in zip(lines, lines[1:])
+        if a[0] is not None and b[0] is not None and b[1] > a[1]
+    ]
+    usual = (
+        (sum(own) / len(own) if own else 0)
+        or (job.get("machine_seconds") or {}).get(uuid)
+        or job.get("seconds_per_frame")
+    )
+    if not usual:
+        return None
+    last_frame, last_at = lines[-1]
+    budget = usual
+    if last_frame is None:  # its first frame: the scene sync comes first
+        startups = startup_seconds(text, usual)
+        budget += sum(startups) / len(startups) if startups else usual
+    limit = max(factor * budget, STUCK_FRAME_MIN_SECONDS)
+    return at - last_at, limit, usual
+
+
+def check_stuck_renders() -> None:
+    """Kill this machine's render of a job when the frame it's on takes
+    stuck_frame_factor() times its usual time (stuck_frame_check()): a
+    failure for this machine -- the farm host sends the frames left to the
+    others (see NOTES.md, "Stuck frame")."""
+    factor = stuck_frame_factor()
+    if not factor:
+        return
+    me = get_machine_id()
+    for job_id, p in list(_worker_active_processes.items()):
+        if p.poll() is not None:
+            continue
+        t = time.monotonic()
+        if t - _stuck_checked_at.get(job_id, 0.0) < _STUCK_CHECK_EVERY:
+            continue
+        _stuck_checked_at[job_id] = t
+        try:
+            text = saved_frames_path(job_id, me).read_text(
+                encoding="utf-8", errors="replace"
+            )
+        except OSError:
+            continue
+        job = read_json_quiet(ConfigCache.get_path("farm_actives") / f"{job_id}.json")
+        found = stuck_frame_check(
+            text, getattr(p, "dispatch_id", None), job or {}, me, factor, time.time()
+        )
+        if not found or found[0] <= found[1]:
+            continue
+        since, _limit, usual = found
+        try:
+            frame = Path(render_frame_path(job_id).read_text(encoding="utf-8").strip()).name
+        except OSError:
+            frame = ""
+        log(
+            "WARNING",
+            "farm",
+            f"Render of {job_id}: stuck on {frame or 'a frame'} for {since / 60:.0f} min "
+            f"(usually {usual:.0f} s a frame) -- killed, its frames go to other machines.",
+        )
+        _kill_render(
+            job_id,
+            p,
+            {"stuck": {"frame": frame, "seconds": round(since), "usual": round(usual)}},
+            count="renders_failed",
+        )
+        _stuck_checked_at.pop(job_id, None)
 
 
 def scan_cancel_requests() -> None:
@@ -726,30 +886,7 @@ def scan_cancel_requests() -> None:
                     job_id = data.get("job_id")
                     p = _worker_active_processes.get(job_id)
                     if p and p.poll() is None:
-                        p.terminate()
-                        try:
-                            p.wait(timeout=5)
-                        except subprocess.TimeoutExpired:
-                            p.kill()
-                        _free_frame_in_progress(job_id)
-                        _clear_render_flags(job_id)
-                        update_worker(
-                            {
-                                "status": "idle",
-                                "current_job": None,
-                                "current_pid": None,
-                                "current_job_id": None,
-                                "current_dispatch_id": None,
-                                "last_job_result": {
-                                    "job_id": job_id,
-                                    "dispatch_id": getattr(p, "dispatch_id", None),
-                                    "success": False,
-                                    "cancelled": True,
-                                    "at": now(),
-                                },
-                            }
-                        )
-                        _worker_active_processes.pop(job_id, None)
+                        _kill_render(job_id, p, {"cancelled": True})
                     else:
                         log(
                             "INFO",

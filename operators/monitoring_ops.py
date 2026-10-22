@@ -13,7 +13,7 @@ from ..lib import (
 )
 
 # What each window's detail is kept under (see lib/core.py).
-_DETAILS = {"project": ("file", "missing_file"), "farm": ("job",)}
+_DETAILS = {"project": ("file", "missing_file"), "farm": ("job", "worker")}
 
 
 def _showing_detail(kind: str) -> bool:

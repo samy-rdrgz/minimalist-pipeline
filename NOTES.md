@@ -2631,3 +2631,29 @@ that scrolls, like before.
   `rna_keymap_ui` on the user keyconfig: saved like any shortcut).
 - **Mouse wheel**: left to the region's own scroll (a window under
   `MIN_ROWS`), not mapped to pages.
+
+## Stuck frame
+
+A render hung on one frame (seen: 2 frames left, the first never ending)
+held its machine and the job forever: its heartbeat went on, so nothing
+looked wrong. The worker now watches its own renders
+(`check_stuck_renders()`, every 30 s): when the frame in progress has
+taken `farm.stuck_frame_factor` (Edit project, default 5, 0 = off) times
+its usual time -- 5 min at least -- it kills the render, frees the frame's
+placeholder and reports `last_job_result.stuck`. Times from the worker's
+own `.saved` record and clock (`time.time()` on both ends): never one
+machine's clock against another's. The usual time: this render's frames
+so far, else the machine's on this job (`machine_seconds`), else the
+job's; the first frame of a render also gets the machine's usual startup
+(scene sync). Unknown (a first render with nothing timed yet): no check.
+
+On the host, a stuck machine goes to `failed_machines` but doesn't fail
+the job: the frames left are sent out again (`refill_rounds`, so at most
+`MAX_REFILL_ROUNDS`), assigned away from it (`_reassign_away_from_failed()`,
+kept on it when it's the only worker). Recorded in `stuck_frames` for Job
+details. A frame that hangs on every machine still ends the job as
+render_failed, after the rounds.
+
+Rejected: the host killing it -- the host only sees the share's file times
+and other machines' clocks, and would need a new kill channel when the
+worker already has its process at hand.

@@ -1120,6 +1120,25 @@ class M_PIPELINE_OT_farm_job_details(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class M_PIPELINE_OT_farm_worker_details(bpy.types.Operator):
+    """Farm monitoring: show one worker's detail (uuid), or the Workers
+    list (no uuid: the Back button). Nothing read: the monitor cache already
+    holds every worker file."""
+
+    bl_idname = "m_pipeline.farm_worker_details"
+    bl_label = ""
+    bl_description = (
+        "Show this worker's details: versions, active since, renders done..."
+    )
+
+    uuid: bpy.props.StringProperty(options={"SKIP_SAVE"})
+
+    def execute(self, context):
+        set_monitoring_detail("job", "")
+        set_monitoring_detail("worker", self.uuid)
+        return {"FINISHED"}
+
+
 # Farm monitoring's filters: in memory only, see memory_prop().
 _farm_filters: dict = {}
 
