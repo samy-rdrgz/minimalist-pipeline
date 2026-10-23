@@ -986,6 +986,7 @@ def draw_farm_job_details(layout, context):
     col = layout.column(align=True)
     field(col, "Job", job_id)
     field(col, "Submitted by", data.get("user", "-"))
+    field(col, "Priority", data.get("priority", 10))
     field(col, "Render mode", data.get("render_mode", "-"))
     field(col, "Preset", data.get("prerender_script") or "none")
 

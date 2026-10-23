@@ -541,6 +541,7 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
             select.separator()
             if self.file_type == "preview":
                 self._draw_sequences(layout, context.window_manager.preview_sequences)
+                layout.prop(self, "priority")
                 return
 
             if self.file_type == "asset":
@@ -731,7 +732,8 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
         sent, empty = [], []
         try:
             for name in chosen:
-                (sent if request_sequence_preview(name, user) else empty).append(name)
+                sources = request_sequence_preview(name, user, self.priority)
+                (sent if sources else empty).append(name)
         except PipelineError as e:
             log(e.level, "farm_request_render", e.message)
             self.report({e.level}, e.message)

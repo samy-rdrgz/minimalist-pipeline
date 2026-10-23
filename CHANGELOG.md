@@ -15,6 +15,9 @@ All notable changes to this addon. Dates are release dates.
   slot for the setups, frame checks and compilations. None free: on the
   host, as before. A worker stopped or switched off mid-compile: the
   preview is sent out again.
+- **A preview's priority**: asked when it's submitted (*Preview block* /
+  *Preview sequence* open a small dialog, the Render dialog's *Preview*
+  has the field too), shown in Job details for every job.
 
 ## 1.1.0 — 2026-10-22
 

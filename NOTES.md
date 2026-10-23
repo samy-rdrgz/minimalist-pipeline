@@ -2770,6 +2770,13 @@ taking it; stopped mid-compile; a request whose job was taken back;
 "after this frame" waiting for it; `scan_queue()` to a worker, and to the
 host when none has ffmpeg.
 
+A preview's `priority` is the artist's, as a render's: `compile_preview`
+(*Preview block* / *Preview sequence*, sidebar and Project monitoring)
+now opens a dialog for it -- one click more, it went out at 10 before --
+and the Render dialog's Preview mode shows its `priority` field. Same
+property as Render's, remembered from the last submit. Job details shows
+every job's (10 when the file has none).
+
 ### Mixed versions
 
 Mixed versions: a 1.0.x worker given a chunks job renders the whole range
