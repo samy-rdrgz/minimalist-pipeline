@@ -2293,9 +2293,19 @@ after a `bpy.ops` call from the opening operator. `bpy.ops` releases the
 GIL for the operator's length (`BPY_RELEASE_GIL`), and the operator was
 `wm.window_new()` -- started right after `ProjectScan.start()`. Pure
 Python can't fault on its own: something in that call touched Python's
-memory without the GIL while our thread allocated. Blender's side, not
-found exactly -- ours to stop exposing: no reader thread runs Python
-while a window opens, closes or a file loads.
+memory without the GIL while our thread allocated.
+
+A second report pinned it: the crash on the *main* thread this time,
+in `bring_monitoring_to_front()`'s `wm.window_close()` (run under
+`context.temp_override(window=...)`): `pyop_call` (GIL released) ->
+`wm_window_close` -> `ED_screen_exit` -> `ctx_wm_python_context_get` ->
+`BPY_context_member_get` -> `PyDict_GetItemString` -> `PyUnicode_New`.
+Blender reads the temp_override's context dict -- builds a Python string
+-- without holding the GIL, while one of our readers was mid-file-open on
+its thread. Blender's bug (a Python allocation outside the GIL), ours to
+stop exposing: no reader thread runs Python while a window opens, closes
+or a file loads. Every `temp_override()` + `bpy.ops` of the addon is in
+`lib/monitoring.py`, all paused.
 
 `lib/background.py`: `threads_paused()` around those `bpy.ops` calls
 (`window_new`, `region_toggle` in the new window, `area_dupli`,
