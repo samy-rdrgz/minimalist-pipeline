@@ -1041,12 +1041,17 @@ class M_PIPELINE_OT_tracking_monitor(bpy.types.Operator):
             self.report({"ERROR"}, "No active project.")
             return {"CANCELLED"}
 
+        result = self._open(context, project_root)
         # Opens at once on what's already known; ProjectScan refreshes the
         # whole project in the background (see its docstring) -- a
         # blocking scan froze Blender for minutes on a network share.
+        # Started after the window: a thread running through window_new()
+        # crashed Blender (see lib/background.py).
         ProjectScan.start(project_root)
         request_monitor_refresh()  # the Farm column, same idea
+        return result
 
+    def _open(self, context, project_root):
         is_open = bool(monitoring_windows("project"))
         if self.open_file:
             _show_open_file(Path(project_root))

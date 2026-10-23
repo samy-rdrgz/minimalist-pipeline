@@ -6,6 +6,7 @@ import threading
 import bpy
 
 from ..lib import (
+    background_work,
     ConfigCache,
     draw_pager,
     paginate,
@@ -65,8 +66,12 @@ def load_pipeline_log() -> None:
         return
     path = ConfigCache.get_path("pipeline_log_file")  # bpy: main thread only
     result = []
+    def read():
+        with background_work():
+            result.append(read_log_tail(path))
+
     thread = threading.Thread(
-        target=lambda: result.append(read_log_tail(path)),
+        target=read,
         daemon=True,
         name="pipeline-log-read",
     )

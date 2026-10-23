@@ -8,6 +8,7 @@ import time
 
 import bpy
 
+from .background import threads_paused
 from .config import get_active_project_root
 from .tracking import ProjectScan
 
@@ -71,7 +72,8 @@ def open_monitoring_window(context, kind: str) -> bool:
     has been drawn. False if Blender didn't open it."""
     wm = context.window_manager
     before = {w.as_pointer() for w in wm.windows}
-    bpy.ops.wm.window_new()
+    with threads_paused():  # see lib/background.py
+        bpy.ops.wm.window_new()
     new = [w for w in wm.windows if w.as_pointer() not in before]
     if not new:
         return False
@@ -87,7 +89,7 @@ def open_monitoring_window(context, kind: str) -> bool:
     _window_kinds[window.as_pointer()] = kind
     try:
         # The tab column: nothing to switch to here.
-        with context.temp_override(window=window, area=area):
+        with context.temp_override(window=window, area=area), threads_paused():
             bpy.ops.screen.region_toggle(region_type="NAVIGATION_BAR")
     except (RuntimeError, TypeError, AttributeError):
         pass
@@ -120,7 +122,7 @@ def bring_monitoring_to_front(context, kind: str) -> bool:
         return False
     for window in old:
         try:
-            with context.temp_override(window=window):
+            with context.temp_override(window=window), threads_paused():
                 bpy.ops.wm.window_close()
         except (RuntimeError, TypeError):
             pass
@@ -136,7 +138,10 @@ def _duplicate_window(context, window, kind: str) -> bool:
     before = {w.as_pointer() for w in wm.windows}
     area = max(window.screen.areas, key=lambda a: a.width * a.height)
     try:
-        with context.temp_override(window=window, screen=window.screen, area=area):
+        with (
+            context.temp_override(window=window, screen=window.screen, area=area),
+            threads_paused(),
+        ):
             bpy.ops.screen.area_dupli("INVOKE_DEFAULT")
     except (RuntimeError, TypeError):
         return False
@@ -626,7 +631,9 @@ def open_mainfile(filepath: str) -> None:
     """bpy.ops.wm.open_mainfile(), keeping the interface as it is while a
     monitoring window is open: loading the file's own closes every window
     the file doesn't have, that one included."""
-    if monitoring_windows():
-        bpy.ops.wm.open_mainfile(filepath=filepath, load_ui=False)
-    else:
-        bpy.ops.wm.open_mainfile(filepath=filepath)
+    with threads_paused():  # the windows reloaded too: see lib/background.py
+        if monitoring_windows():
+            bpy.ops.wm.open_mainfile(filepath=filepath, load_ui=False)
+        else:
+            # load_ui unset: the user's preference (Load UI).
+            bpy.ops.wm.open_mainfile(filepath=filepath)

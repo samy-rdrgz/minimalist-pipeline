@@ -16,6 +16,7 @@ from pathlib import Path
 from xml.etree import ElementTree as ET
 from xml.sax.saxutils import escape as xml_escape
 
+from .background import background_work
 from .core import json_get, now, read_json_quiet
 from .errors import PipelineError
 from .preview import latest_render_dir, render_root
@@ -563,7 +564,8 @@ class SnapshotJob:
 
     def _run(self, fn, args) -> None:
         try:
-            self.result = fn(*args)
+            with background_work():
+                self.result = fn(*args)
         except Exception as e:  # reported by the caller
             self.error = repr(e)
         self.done = True

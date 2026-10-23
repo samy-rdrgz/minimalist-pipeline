@@ -14,6 +14,7 @@ from pathlib import Path
 import bpy
 
 from .actions import PipelineAction, set_pending_action
+from .background import background_work, checkpoint
 from .config import (
     ConfigCache,
     file_in_active_project,
@@ -91,6 +92,7 @@ def _walk_owner_dirs(folder: Path, depth: int = 0):
     """Yield every tracked folder under `folder` (see _is_tracked_owner()),
     in name order, without descending into one: one listing per folder
     visited, never into an asset's textures/caches. Thread-safe (pure os)."""
+    checkpoint()  # on the scan thread: held during a window operator
     try:
         entries = sorted(os.scandir(folder), key=lambda e: e.name)
     except OSError:
@@ -296,6 +298,11 @@ class ProjectScan:
     @staticmethod
     def _read_project(root: Path, known: dict, links: dict, out) -> None:
         """Reader thread: disk work only, results posted to `out`."""
+        with background_work():
+            ProjectScan._read_project_work(root, known, links, out)
+
+    @staticmethod
+    def _read_project_work(root: Path, known: dict, links: dict, out) -> None:
         try:
             owners = []
             for top in _DATA_ROOTS:
@@ -305,6 +312,7 @@ class ProjectScan:
             out.put(("owners", owners))
 
             for owner in owners:
+                checkpoint()
                 key = str(owner)
                 pipeline_dir = owner / ".pipeline"
                 try:

@@ -5,6 +5,7 @@ from .actions import (
     get_pending_action,
     set_pending_action,
 )
+from .background import background_work, checkpoint, threads_paused
 from .batch import (
     asset_batch_exists,
     launch_batch_create_entry,

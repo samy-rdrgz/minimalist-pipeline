@@ -4,6 +4,12 @@ All notable changes to this addon. Dates are release dates.
 
 ## 1.1.1 — unreleased
 
+**Fixes**
+
+- **Blender could crash opening Project monitoring** (seen on Windows):
+  the project scan, running in the background, is now held still while a
+  window opens or closes.
+
 **Render farm**
 
 - **A worker says whether it has ffmpeg**: checked when the machine
