@@ -23,7 +23,9 @@ supervisor, the production...
   dialog has an *As sup* box (on) to post a team note instead.
 - **Project monitoring**: "Done · prod" once validated, and a filter (the
   star) for the files with a done department still to validate.
-- **Snapshot**: each department's validation next to it. The review
+- **Snapshot**: each department's validation next to it, and a
+  *Validated* figure apart from Done (tile, column, groups, totals): the
+  share of the required departments the top role validated. The review
   template gets a *Role* cell, an *all done* column and a *valid
   <department>* column per department (yes / no); the import asks first,
   naming the role, and refuses a validation when a newer stable was made

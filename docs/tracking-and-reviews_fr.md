@@ -60,7 +60,12 @@ la prod -- sur la version qu'il a vue.
   vous n'en avez pas.
 - **Snapshot** : « ✓ prod » à côté de la capsule d'un département (chaque
   rôle dans son infobulle), « prod v012 » en gris pour une validation
-  donnée sur un stable antérieur. Le tableur de review a une case *Role* en
+  donnée sur un stable antérieur. Un chiffre *Validated* s'affiche à part
+  du Done -- une tuile par section, une colonne, les groupes et les totaux,
+  en violet : la part des départements requis validés par le rôle le plus
+  haut (ou un de son niveau) au stable affiché. Le Done reste la
+  fabrication : 100 % fini sans rien de validé donne 100 % / 0 %. Le
+  tableur de review a une case *Role* en
   haut (obligatoire dès qu'il contient une note ou une validation), une
   colonne *all done*, et une colonne *valid &lt;département&gt;* par
   département : `yes` le valide pour ce rôle, `no` retire, vide ne change

@@ -217,6 +217,8 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
         data = {"raws": data, "thumbs": {}, "thumb_warnings": []}
     raws = data["raws"]
     weights = progress_weights(config)
+    roles = validation_roles(config)
+    top_role = top_validation_role(roles)
     v_prefix = json_get(config, "naming.version.prefix", "v")
     version_re = re.compile(rf"_{re.escape(v_prefix)}(\d+)(-[a-z]+)?\.blend$")
     folder_re = re.compile(rf"^{re.escape(v_prefix)}(\d+)(-[a-z]+)?_\d+$")
@@ -326,6 +328,14 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
         }
         scores = list(item["scores"].values())
         item["progress"] = sum(scores) / len(scores) if scores else None
+        # Apart from Done: the share of the required departments the top
+        # role (or an equivalent one) validated at the stable shown.
+        item["validated"] = {
+            d: bool(top_role and covering_role(item["approvals"].get(d) or {}, top_role, roles))
+            for d in item["departments"]
+        }
+        valid = list(item["validated"].values())
+        item["validation"] = sum(valid) / len(valid) if valid else None
         items[kind].append(item)
         notes.extend(threads)
 
@@ -338,7 +348,9 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
     meta["thumbnail_size"] = thumbnail_size(config)
     meta["progress"] = {k: average_progress(v) for k, v in items.items()}
     meta["progress_weights"] = weights
-    meta["validation_roles"] = validation_roles(config)
+    meta["validation_roles"] = roles
+    meta["validation_role"] = top_role
+    meta["validation"] = {k: average_progress(v, "validation") for k, v in items.items()}
     schedule = project_schedule(config)
     if schedule:
         today = datetime.fromisoformat(meta.get("scan_started_at") or now()).date()
@@ -384,6 +396,12 @@ def _department_score(state: str, open_rtk: bool, weights: dict) -> float:
     return weights.get(state, 0) / 100
 
 
+def top_validation_role(roles: list) -> str | None:
+    """The role the "Validated" figures count: the highest level's (its
+    equivalents cover it). None without any role."""
+    return max(roles, key=lambda r: r["level"])["name"] if roles else None
+
+
 def department_progress(items: list, department: str) -> float | None:
     """Mean of one department over the items requiring it, None if none
     does -- the snapshot table's per-department footer."""
@@ -391,10 +409,11 @@ def department_progress(items: list, department: str) -> float | None:
     return sum(values) / len(values) if values else None
 
 
-def average_progress(items: list) -> float | None:
-    """Mean progress of items, each weighing the same; those without any
-    required department left out. None if none is left."""
-    values = [i["progress"] for i in items if i.get("progress") is not None]
+def average_progress(items: list, key: str = "progress") -> float | None:
+    """Mean progress of items (key "validation": their Validated), each
+    weighing the same; those without any required department left out.
+    None if none is left."""
+    values = [i[key] for i in items if i.get(key) is not None]
     return sum(values) / len(values) if values else None
 
 
@@ -682,7 +701,15 @@ def render_html(snapshot: dict) -> str:
         f"equal share: work in progress {weights['wip']} %, done but "
         f"reworked since {weights['rework']} %, done with an open RTK "
         f"{weights['rtk']} %, done 100 %. Totals and groups average "
-        "their assets/shots.</p>",
+        "their assets/shots."
+        + (
+            f" Validated, apart: the share of the required departments "
+            f"{_e(meta['validation_role'])} (or an equivalent role) validated at "
+            "the stable shown -- a newer stable needs it again."
+            if meta.get("validation_role")
+            else ""
+        )
+        + "</p>",
         _render_table(
             "assets", "Assets", snapshot["assets"], meta["asset_departments"], notes,
             meta.get("validation_roles", []),
@@ -732,15 +759,29 @@ def _render_overview(snapshot: dict) -> str:
         ("shot", "Shots", "By sequence", "shot", snapshot["shots"]),
         ("asset", "Assets & libraries", "By prefix", "file", snapshot["assets"]),
     )
-    tiles = [
-        _stat_tile(
-            f"{title} done",
-            _pct(meta["progress"][kind]),
-            _schedule_delta(meta["progress"][kind], expected),
+    # Each section's Done, then apart what the top role accepted of it
+    # (pre-1.1.2 snapshots lack it).
+    role = meta.get("validation_role")
+    validation = meta.get("validation") or {}
+    tiles = []
+    for kind, title, _, _, _ in sections:
+        if meta["progress"][kind] is None:
+            continue
+        tiles.append(
+            _stat_tile(
+                f"{title} done",
+                _pct(meta["progress"][kind]),
+                _schedule_delta(meta["progress"][kind], expected),
+            )
         )
-        for kind, title, _, _, _ in sections
-        if meta["progress"][kind] is not None
-    ]
+        if role and validation.get(kind) is not None:
+            tiles.append(
+                _stat_tile(
+                    f"{title} validated",
+                    _pct(validation[kind]),
+                    f'<span class="delta">by {_e(role)} (or equivalent)</span>',
+                )
+            )
     if schedule:
         tiles.append(
             _stat_tile(
@@ -1058,18 +1099,20 @@ def _render_filters(snapshot: dict) -> str:
         '<label title="Done todos/RTKs, kept in the snapshot but hidden">'
         '<input id="f-closed" type="checkbox"> Show closed</label>'
         '<button id="f-reset" type="button">Reset</button>'
-        f"{_columns_menu(departments)}"
+        f"{_columns_menu(departments, bool(snapshot['meta'].get('validation_role')))}"
         "</div>"
     )
 
 
-def _columns_menu(departments) -> str:
+def _columns_menu(departments, validated: bool = False) -> str:
     """ "Columns" drop-down: a checkbox per column that can be hidden (_JS
     hides every cell whose data-col is its data-key; the choice is kept
     per browser)."""
     columns = [("thumb", "Thumbnail"), ("file", "Blender file"), ("render", "Last render")]
     columns += [(f"d:{d}", d.capitalize()) for d in departments]
     columns.append(("done", "Done"))
+    if validated:
+        columns.append(("valid", "Validated"))
     boxes = "".join(
         f'<label><input type="checkbox" data-key="{_e(key)}" checked> {_e(label)}</label>'
         for key, label in columns
@@ -1100,7 +1143,13 @@ def _render_table(
     nl = "\n"
     if not items:
         return _section(anchor, title, '<p class="empty">Nothing tracked yet.</p>')
+    role = top_validation_role(list(roles))
     title += f' <span class="pct">{_pct(average_progress(items))} done</span>'
+    if role:
+        title += (
+            f' <span class="pct valid">{_pct(average_progress(items, "validation"))} '
+            f"validated</span>"
+        )
     with_thumbs = any(i.get("thumbnail") for i in items)
     head = (
         ('<th data-col="thumb"></th>' if with_thumbs else "")
@@ -1113,7 +1162,15 @@ def _render_table(
         + "".join(f'<th data-col="d:{_e(c)}">{_e(c.capitalize())}</th>' for c in columns)
         + '<th data-col="done" title="Share of the required departments done '
         '(see the legend)">Done</th>'
+        + (
+            f'<th data-col="valid" title="Share of the required departments '
+            f'validated by {_e(role)} (or an equivalent role) at the stable shown">'
+            "Validated</th>"
+            if role
+            else ""
+        )
     )
+    span = len(columns) + 4 + with_thumbs + bool(role)
     groups: dict[str, list] = {}
     for item in items:
         groups.setdefault(item["group"], []).append(item)
@@ -1123,9 +1180,14 @@ def _render_table(
         if item["group"] != group:
             group = item["group"]
             done = _pct(average_progress(groups[group]))
+            if role:
+                done += (
+                    f' · <span class="valid">'
+                    f'{_pct(average_progress(groups[group], "validation"))} validated</span>'
+                )
             rows.append(
                 f'<tr class="group" data-group="{_e(group)}">'
-                f'<th colspan="{len(columns) + 4 + with_thumbs}">{_e(group)}'
+                f'<th colspan="{span}">{_e(group)}'
                 f' <span class="pct">{done}</span></th></tr>'
             )
         cells = []
@@ -1170,10 +1232,16 @@ def _render_table(
             f'<small>{_e(item["description"])}</small></td>'
             f'<td class="ver" data-col="file">{_e(versions)}</td>'
             f'<td class="ver" data-col="render">{_render_cell(item)}</td>{"".join(cells)}'
-            f'<td class="done" data-col="done">{_progress_cell(item["progress"])}</td></tr>'
+            f'<td class="done" data-col="done">{_progress_cell(item["progress"])}</td>'
+            + (
+                f'<td class="done valid" data-col="valid">'
+                f'{_progress_cell(item.get("validation"))}</td>'
+                if role
+                else ""
+            )
+            + "</tr>"
         )
         if threads:
-            span = len(columns) + 4 + with_thumbs
             rows.append(_notes_row(_thread_lis(threads), span, with_thumbs))
     # Whole section, whatever the filters show.
     foot = (
@@ -1186,6 +1254,12 @@ def _render_table(
             for c in columns
         )
         + f'<td class="done" data-col="done">{_progress_cell(average_progress(items))}</td>'
+        + (
+            f'<td class="done valid" data-col="valid">'
+            f'{_progress_cell(average_progress(items, "validation"))}</td>'
+            if role
+            else ""
+        )
     )
     return _section(
         anchor,
@@ -1488,6 +1562,7 @@ border-color:var(--accent)}
 .pill.farm-failed{color:var(--rtk);background:var(--rtk-bg);border-color:var(--rtk)}
 .pill.rtk-open{border-color:var(--rtk);box-shadow:0 0 0 1px var(--rtk) inset}
 .pct{margin-left:8px;font-size:.8em;font-weight:600;color:var(--done)}
+.pct .valid,.pct.valid{color:var(--role)}
 .legend.muted{color:var(--muted);font-size:12px}
 td.done{white-space:nowrap}
 body:not(.show-closed) li.closed{display:none}
@@ -1496,6 +1571,7 @@ tfoot td{border-top:2px solid var(--line);font-weight:600}
 .bar{display:inline-block;width:56px;height:6px;margin-right:6px;vertical-align:middle;
 border-radius:3px;background:var(--line);overflow:hidden}
 .bar i{display:block;height:100%;background:var(--done)}
+.valid .bar i{background:var(--role)}
 td.ver .shot{font-weight:600}
 td.th{width:1px;padding-right:0}
 /* Any aspect ratio: shown whole inside a fixed box, never cropped. */

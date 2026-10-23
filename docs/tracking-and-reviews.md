@@ -55,7 +55,12 @@ it saw.
   validated; a filter (the star) lists the files with a done department
   still to validate -- for your role, or by any role if you have none.
 - **Snapshot**: "✓ prod" next to a department's pill (each role in its
-  tooltip), "prod v012" greyed for one validated on an earlier stable. The
+  tooltip), "prod v012" greyed for one validated on an earlier stable.
+  A *Validated* figure sits apart from Done -- a tile per section, a
+  column, the groups and totals, in violet: the share of the required
+  departments validated by the top role (or one of its level) at the
+  stable shown. Done stays the fabrication: 100 % done with nothing
+  validated reads 100 % / 0 %. The
   review template has a *Role* cell at the top (required as soon as it
   holds a note or a validation), an *all done* column, and a *valid
   &lt;department&gt;* column per department: `yes` validates it for that
