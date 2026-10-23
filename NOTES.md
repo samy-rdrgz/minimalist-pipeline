@@ -14,7 +14,7 @@ comment.
 By theme; the sections below stay in the order they were written.
 
 - **Render farm**: [Farm 1.1.0: chunks replace placeholders](#farm-110-chunks-replace-placeholders) · [Stuck frame](#stuck-frame) · [Stopping a worker: after this frame, or now](#stopping-a-worker-after-this-frame-or-now) · [Which machine rendered which frame](#which-machine-rendered-which-frame) · [Time left: per machine, from each frame's time](#time-left-per-machine-from-each-frames-time) · [Crash recovery: resume, don't orphan](#crash-recovery-resume-dont-orphan) · [Re-rendering a file: match the render, not the job](#re-rendering-a-file-match-the-render-not-the-job) · [Farm subprocess output: files, never pipes](#farm-subprocess-output-files-never-pipes) · [Farm popup: worker state, open-folder button, refresh cost](#farm-popup-worker-state-open-folder-button-refresh-cost) · [Farm status: two redraw timers, split by cost](#farm-status-two-redraw-timers-split-by-cost) · [One farm snapshot reader, sync or threaded](#one-farm-snapshot-reader-sync-or-threaded) · [FFmpeg detection: PATH lookup isn't enough, and an override can't silently fall back](#ffmpeg-detection-path-lookup-isnt-enough-and-an-override-cant-silently-fall-back) · [What a real project's export showed (6 machines, a week of production)](#what-a-real-projects-export-showed-6-machines-a-week-of-production)
-- **Notes, tracking, snapshot**: [Tracking entries](#tracking-entries) · [Entries for several departments](#entries-for-several-departments) · [Entries: two fields only ever guaranteed together, never accessed bare](#entries-two-fields-only-ever-guaranteed-together-never-accessed-bare) · [Edit entry: a note turned task kept no checkbox](#edit-entry-a-note-turned-task-kept-no-checkbox) · [Edit-entry dialog: a stored department can outlive its own enum](#edit-entry-dialog-a-stored-department-can-outlive-its-own-enum) · [Department filter: three different callers, three different "current file"s](#department-filter-three-different-callers-three-different-current-files) · [tracking.json: one path, never created by a write](#trackingjson-one-path-never-created-by-a-write) · [Renders to check: the one before, to compare](#renders-to-check-the-one-before-to-compare) · [Project monitoring's Farm column: the monitor cache, not the project scan](#project-monitorings-farm-column-the-monitor-cache-not-the-project-scan) · [Production snapshot: one HTML file, a spreadsheet inside it](#production-snapshot-one-html-file-a-spreadsheet-inside-it) · [Snapshot width: short state labels, hideable columns](#snapshot-width-short-state-labels-hideable-columns) · [Work time tracking & log rotation](#work-time-tracking--log-rotation)
+- **Notes, tracking, snapshot**: [Tracking entries](#tracking-entries) · [Entries for several departments](#entries-for-several-departments) · [Validation roles](#validation-roles) · [Entries: two fields only ever guaranteed together, never accessed bare](#entries-two-fields-only-ever-guaranteed-together-never-accessed-bare) · [Edit entry: a note turned task kept no checkbox](#edit-entry-a-note-turned-task-kept-no-checkbox) · [Edit-entry dialog: a stored department can outlive its own enum](#edit-entry-dialog-a-stored-department-can-outlive-its-own-enum) · [Department filter: three different callers, three different "current file"s](#department-filter-three-different-callers-three-different-current-files) · [tracking.json: one path, never created by a write](#trackingjson-one-path-never-created-by-a-write) · [Renders to check: the one before, to compare](#renders-to-check-the-one-before-to-compare) · [Project monitoring's Farm column: the monitor cache, not the project scan](#project-monitorings-farm-column-the-monitor-cache-not-the-project-scan) · [Production snapshot: one HTML file, a spreadsheet inside it](#production-snapshot-one-html-file-a-spreadsheet-inside-it) · [Snapshot width: short state labels, hideable columns](#snapshot-width-short-state-labels-hideable-columns) · [Work time tracking & log rotation](#work-time-tracking--log-rotation)
 - **Shot blocks (multishot), batch**: [Multishot blocks](#multishot-blocks) · [Multishot row list: disabling a button isn't a guard](#multishot-row-list-disabling-a-button-isnt-a-guard) · [Multishot row list, take two: a clean-scene reset invalidates it](#multishot-row-list-take-two-a-clean-scene-reset-invalidates-it) · [_draw_timeline_warnings: a trailing comma turned a string into a 1-tuple](#_draw_timeline_warnings-a-trailing-comma-turned-a-string-into-a-1-tuple) · [CSV batch: the subprocess couldn't import itself](#csv-batch-the-subprocess-couldnt-import-itself)
 - **Versions, saving, files**: [Read-only reason: from a popup on every open to an on-demand menu](#read-only-reason-from-a-popup-on-every-open-to-an-on-demand-menu) · [Top bar read-only indicator: why it sits before the Blender icon](#top-bar-read-only-indicator-why-it-sits-before-the-blender-icon) · [.wipmeta writes tolerate a missing sidecar; the panel doesn't trust the flag alone](#wipmeta-writes-tolerate-a-missing-sidecar-the-panel-doesnt-trust-the-flag-alone) · [Next version number: never from a cached listing](#next-version-number-never-from-a-cached-listing) · [Recent files: derived from the log, not a stored list](#recent-files-derived-from-the-log-not-a-stored-list) · [resolve_bpy_path() left "../" uncollapsed in every stored link path](#resolve_bpy_path-left--uncollapsed-in-every-stored-link-path) · [Copy/paste isn't always under bpy.app.tempdir](#copypaste-isnt-always-under-bpyapptempdir) · [Project walk: a stray .pipeline/ hid every asset below it; popup regions must not outlive their popup](#project-walk-a-stray-pipeline-hid-every-asset-below-it-popup-regions-must-not-outlive-their-popup)
 - **Monitoring windows, popups, panels**: [Monitoring: windows, not popups](#monitoring-windows-not-popups) · [Monitoring crash: a thread during window_new()](#monitoring-crash-a-thread-during-window_new) · [Monitoring windows: to the front](#monitoring-windows-to-the-front) · [Monitoring windows: pages sized on the window](#monitoring-windows-pages-sized-on-the-window) · [Monitoring popups: reopening on the detail, or not](#monitoring-popups-reopening-on-the-detail-or-not) · [File details' monitoring_detail("file") is a folder, not a versioned file](#file-details-monitoring_detailfile-is-a-folder-not-a-versioned-file) · [Popup-chaining: a second modal popup always waits one timer tick](#popup-chaining-a-second-modal-popup-always-waits-one-timer-tick) · [Action popups: dialogs](#action-popups-dialogs) · ["Render" button opening pre-filled: an operator property's own redo memory](#render-button-opening-pre-filled-an-operator-propertys-own-redo-memory) · [Text wrapping in panels](#text-wrapping-in-panels) · [Pipeline log: backup noise, viewer](#pipeline-log-backup-noise-viewer) · [Shortcuts](#shortcuts)
@@ -2875,6 +2875,62 @@ render folder only gets its video once compiled. Looked up on click --
 `draw()` doesn't list folders -- so the button is always there and says
 so when there's no earlier render. A recompile touches an old render's
 video: it then counts as newer.
+
+## Validation roles
+
+"Done" (the old "validated", data unchanged: `departments_validated`) says
+the work is finished; graphists needed a second word, a role's sign-off
+(sup, prod...) -- finished technically isn't accepted by production.
+
+Rejected: a "valid prod" department per file (no per-department answer),
+a keyword in a note's text (the text never computes anything -- "Status
+is derived, not a dropdown"), a "tag" entry type and tags replacing entry
+types. The last two fail on one point: entries belong to the asset/shot
+and travel across versions, a validation belongs to the version the role
+saw. A tag set on v012 would still read "validated" on v014, which nobody
+saw.
+
+So: `approvals` in the stablemeta, `{department: {role: {"by", "at"}}}`,
+written by `set_department_approval()` on the *latest* stable only (a
+review import names the one it saw: refused once a newer exists, "to
+review again"). A new stable starts empty -- `create_stablemeta()` carries
+the last ones into `approvals_previous` (`_carried_approvals()`, each with
+its `file`), for "prod: v012" without reading older stables. Only a done
+department's count (`_status_from_raw()` drops the others); undone then
+done again at the same stable, they come back -- same version.
+
+Roles are the project's (`validation_roles()`, Edit project as
+`name:level`; none set: `sup:1,prod:2`, `[]`: none). A higher level covers
+the lower, the same level is equivalent: `covering_role()` computes it at
+display, never written -- a prod validation isn't a sup one recorded, and
+withdrawing it mustn't erase what the sup did.
+
+Each validation given or withdrawn writes a note under its role
+(`source: "approval"`): the history, with its author. An entry's `role`
+is set at writing (the user's `user_role` pref, `get_user_role()` -- only
+if the project has it; a review import's Role cell) -- the role a person
+had then, not looked up by author: one person can wear two hats. RTK
+colors: a role's red, the team's orange; Blender colors no text but red,
+so the team's RTK loses the red text for an orange `COLLECTION_COLOR_02`
+mark, a role's note a violet one.
+
+Review template (schema 3): a Role cell (dropdown of the roles), required
+as soon as the sheet holds a note or a validation -- an older template
+imports as before, no role. Columns are per export now
+(`_review_columns()`: the departments of the snapshot, `_col()` past Z):
+`all done`, then `valid <department>` -- yes / no / empty, unlocked only
+for a department done at the stable shown. `review_import_plan()` reads
+it without writing, for the confirm dialog that names the role
+(`M_PIPELINE_OT_import_review_confirm`, a timer tick after the file
+browser: popup-chaining); `import_review_xlsx()` re-checks every
+validation through `set_department_approval()`.
+
+Checked headless (bpy stubbed, a real project tree, openpyxl filling the
+template): roles and covering, refused when not done / unknown role,
+no-op twice, tooltips, carried to the next stable, the snapshot's marks,
+the template's columns and dropdowns, an import validating two
+departments with a note, refused after a newer stable, refused without a
+Role.
 
 ## Entries for several departments
 

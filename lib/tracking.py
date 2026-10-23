@@ -17,6 +17,7 @@ from .actions import PipelineAction, set_pending_action
 from .background import background_work, checkpoint
 from .config import (
     ConfigCache,
+    covering_role,
     file_in_active_project,
     get_active_project_root,
     get_base_filename,
@@ -27,6 +28,7 @@ from .config import (
     shots_in_segment,
     to_absolute,
     to_relative,
+    validation_roles,
 )
 from .core import (
     SCANDIR_TTL,
@@ -868,7 +870,9 @@ def create_stablemeta(
         # Before this stable exists: the previous one and the work since.
         started = set(departments)
         previous = _collect_folder(_owner_dir(Path(filepath)))
+        approvals_previous = {}
         if previous:
+            approvals_previous = _carried_approvals(previous["last_stable"])
             status = _status_from_raw(previous)
             started |= set(status["started_departments"])
             started |= set(status["validated_departments"])
@@ -888,6 +892,10 @@ def create_stablemeta(
             "linked": compact_linked((wipdata or {}).get("linked", [])),
             "conflict_warning": conflict_warnings,
         }
+        if approvals_previous:
+            # Approvals start empty on every stable: given to the version
+            # the role saw. The last ones, for "prod: v012, to review".
+            data["approvals_previous"] = approvals_previous
         path = _meta_path(filepath, ".stablemeta")
         path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -924,6 +932,108 @@ def set_department_validated(filepath: Path, department: str, validated: bool) -
         current[department] = validated
         data["departments_started"] = sorted(started)
         box["action"] = "to_write"
+
+
+def _carried_approvals(stable: dict) -> dict:
+    """approvals_previous for the stable made after `stable`: its own
+    approvals, each stamped with its file, over the ones it carried itself
+    -- the latest approval of each department by each role."""
+    carried = {
+        d: dict(roles) for d, roles in (stable.get("approvals_previous") or {}).items()
+    }
+    for department, roles in (stable.get("approvals") or {}).items():
+        for role, info in roles.items():
+            carried.setdefault(department, {})[role] = dict(info) | {
+                "file": stable.get("file")
+            }
+    return carried
+
+
+def set_department_approval(
+    filepath: Path,
+    *,
+    department: str,
+    role: str,
+    approved: bool,
+    user: str,
+    stable_file: str | None = None,
+    note: str = "",
+) -> bool:
+    """Approve (or withdraw) one department for a validation role on the
+    latest stable -- the version the role saw. stable_file: the stable it
+    saw, if not the latest (a review spreadsheet): refused once a newer one
+    exists. A department must be done first. Writes a note under that role
+    for the record (note: the text, else a generated one). Keyword-only:
+    department/role/user are plain strings. Returns False if there was
+    nothing to change. Raises PipelineError."""
+    role = role.strip().lower()
+    if role not in {r["name"] for r in validation_roles()}:
+        raise PipelineError(f"'{role}' isn't one of the project's validation roles.")
+    asset_dir = _owner_dir(Path(filepath))
+    last = get_last_stable(asset_dir)
+    if "file" not in last:
+        raise PipelineError("No stable version yet: nothing to validate.")
+    if stable_file and Path(stable_file).name != Path(last["file"]).name:
+        raise PipelineError(
+            f"{Path(last['file']).stem} was made since {Path(stable_file).stem}: "
+            "to review again."
+        )
+    path = asset_dir / ".pipeline" / (_meta_stem(Path(last["file"])) + ".stablemeta")
+    with locked_json(path) as box:
+        data = box["data"] or {}
+        if approved and not (data.get("departments_validated") or {}).get(department):
+            raise PipelineError(f"{department} isn't done at {Path(last['file']).stem}.")
+        roles = data.setdefault("approvals", {}).setdefault(department, {})
+        if approved == (role in roles):
+            return False
+        if approved:
+            roles[role] = {"by": user, "at": now()}
+        else:
+            roles.pop(role)
+            if not roles:
+                data["approvals"].pop(department)
+        box["action"] = "to_write"
+    stem = Path(last["file"]).stem
+    create_entry(
+        asset_dir,
+        text=note
+        or (
+            f"Validated ({role}): {department}, {stem}"
+            if approved
+            else f"Validation withdrawn ({role}): {department}, {stem}"
+        ),
+        departments=[department],
+        author=user,
+        role=role,
+        referenced_version=last["file"],
+        source=APPROVAL_SOURCE,
+    )
+    return True
+
+
+# Where an approval's own note comes from (set_department_approval()).
+APPROVAL_SOURCE = "approval"
+
+
+def department_approvals(data: dict, department: str) -> list[tuple[str, str | None, dict]]:
+    """(role, covering role, its info) for every validation role of the
+    project, for one department of a TrackingStatusCache status -- covering
+    None when not covered. Memory only."""
+    approvals = (data.get("approvals") or {}).get(department) or {}
+    out = []
+    for role in validation_roles():
+        cover = covering_role(approvals, role["name"], validation_roles())
+        out.append((role["name"], cover, approvals.get(cover) or {}))
+    return out
+
+
+def highest_approval(data: dict, department: str) -> str | None:
+    """The highest-level role that approved this department at the latest
+    stable (done there), None if none did."""
+    approvals = (data.get("approvals") or {}).get(department) or {}
+    levels = {r["name"]: r["level"] for r in validation_roles()}
+    known = [(levels[r], r) for r in approvals if r in levels]
+    return max(known)[1] if known else None
 
 
 # Margin when comparing a file's mtime (stamped by the file server or the
@@ -1128,6 +1238,13 @@ def _status_from_raw(raw: dict) -> dict:
     # Departments worked on since the latest stable
     worked_departments = _worked_departments(raw["wipmetas"], stable_date)
 
+    # Approved by a validation role at the latest stable -- only while done.
+    approvals = {
+        d: dict(roles)
+        for d, roles in (last_stable.get("approvals") or {}).items()
+        if d in validated_departments and roles
+    }
+
     deps_items = [
         (d, d.capitalize(), "", 2**i)
         for i, d in enumerate(global_data.get("departments_required", []))
@@ -1136,6 +1253,9 @@ def _status_from_raw(raw: dict) -> dict:
     return global_data | {
         "worked_departments": worked_departments,
         "validated_departments": validated_departments,
+        "approvals": approvals,
+        # The last approvals given to an earlier stable: "prod: v012".
+        "approvals_previous": last_stable.get("approvals_previous") or {},
         # Validated at an earlier stable, or worked before the latest one:
         # never "not started", even without validation or work since.
         "started_departments": sorted(raw.get("started") or []),
@@ -1181,13 +1301,13 @@ def department_status_tooltip(data: dict, department: str) -> str:
         stable_name = Path(stable["file"]).stem if stable.get("file") else "unknown"
         stable_date = (stable.get("created_at") or "").replace("T", " ")
         lines = [
-            f"Validated as of {stable_name}"
-            + (f" ({stable_date})" if stable_date else "")
+            f"Done as of {stable_name}" + (f" ({stable_date})" if stable_date else "")
         ]
+        lines += _approval_lines(data, department)
     else:
-        lines = ["Not validated for the current stable version."]
+        lines = ["Not done for the current stable version."]
         if department in data.get("started_departments", ()):
-            lines.append("Validated or worked on before it: in progress.")
+            lines.append("Done or worked on before it: in progress.")
 
     if worked:
         lines.append("")
@@ -1197,6 +1317,26 @@ def department_status_tooltip(data: dict, department: str) -> str:
             lines.append(f"   {Path(w['file']).stem}{by}")
 
     return "\n".join(lines)
+
+
+def _approval_lines(data: dict, department: str) -> list[str]:
+    """A done department's validation roles, for its tooltip: who validated
+    it at this stable, which role covers another, the last validation of an
+    earlier stable still to review again."""
+    lines = []
+    previous = (data.get("approvals_previous") or {}).get(department) or {}
+    for role, cover, info in department_approvals(data, department):
+        if cover == role:
+            when = (info.get("at") or "")[:16].replace("T", " ")
+            lines.append(f"   {role}: validated by {info.get('by', '?')} ({when})")
+        elif cover:
+            lines.append(f"   {role}: covered by {cover} ({info.get('by', '?')})")
+        elif role in previous:
+            seen = Path(previous[role].get("file") or "").stem or "an earlier stable"
+            lines.append(f"   {role}: validated on {seen} -- to review again")
+        else:
+            lines.append(f"   {role}: not validated")
+    return ["", "Validation:"] + lines if lines else []
 
 
 def get_description(filepath: Path) -> str:
@@ -1397,6 +1537,7 @@ def create_entry(
     shot: str | None = None,
     created_at: str | None = None,
     source: str | None = None,
+    role: str | None = None,
 ):
     """Append a note/todo/rtk entry to the owning asset's tracking.json.
     Keyword-only: text/author/type are plain strings, a positional call
@@ -1405,7 +1546,8 @@ def create_entry(
     shot: free-text tag (e.g. "045"), not validated against anything.
     created_at: ISO date to stamp instead of now() (an imported review's
     own date). source: where it came from when not typed in Blender
-    ("prod_review"); absent = created by hand."""
+    ("prod_review"); absent = created by hand. role: the validation role it
+    was written under ("prod"), absent = the team's own."""
     try:
         path = tracking_json_path(filepath, must_exist=True)
         with locked_json(path) as box:
@@ -1440,6 +1582,8 @@ def create_entry(
                 entry["shot"] = shot
             if source:
                 entry["source"] = source
+            if role:
+                entry["role"] = role
 
             data["entries"].append(entry)
             box["action"] = "to_write"

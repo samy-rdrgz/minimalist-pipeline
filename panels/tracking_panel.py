@@ -9,6 +9,7 @@ import bpy.utils.previews
 from ..farm import farm_activity
 from .farm_panel import draw_frame_lookup, job_icon
 from ..lib import (
+    APPROVAL_SOURCE,
     REVIEW_SOURCE,
     ConfigCache,
     ProjectScan,
@@ -16,6 +17,8 @@ from ..lib import (
     TrackingStatusCache,
     WorkTimeCache,
     department_status_tooltip,
+    get_user_role,
+    highest_approval,
     draw_box_tip,
     draw_pager,
     filter_review_boxes,
@@ -178,6 +181,13 @@ def _draw_thread(thread, note, filepath, width: int | None = None):
             col.separator(factor=0.2)
 
 
+# Entry marks: Blender colors no text but red (alert) -- the collection
+# color icons stand for the snapshot's colors.
+_ROLE_ICON = "COLLECTION_COLOR_06"  # violet: written under a validation role
+_RTK_ROLE_ICON = "COLLECTION_COLOR_01"  # red
+_RTK_TEAM_ICON = "COLLECTION_COLOR_02"  # orange
+
+
 def _draw_entry(e, note, filepath, width: int | None = None):
     """Draw one entry's title/author/action row plus its text body."""
     row = note.row(align=True)
@@ -192,12 +202,12 @@ def _draw_entry(e, note, filepath, width: int | None = None):
         )
         btn.id = e["id"]
         btn.filepath = filepath
+        if e["type"] == "rtk":
+            # A validation role's RTK red, the team's own orange.
+            body.label(text="", icon=_RTK_ROLE_ICON if e.get("role") else _RTK_TEAM_ICON)
 
     else:
-        body.label(
-            text="",
-            icon="LAYER_USED",
-        )
+        body.label(text="", icon=_ROLE_ICON if e.get("role") else "LAYER_USED")
 
     layout_text = body.column(align=True)
     layout_text.alignment = "LEFT"
@@ -218,7 +228,9 @@ def _draw_entry(e, note, filepath, width: int | None = None):
             text_row = layout_text.row(align=True)
 
         text_row.separator(factor=0.65)
-        text_row.alert = e.get("done") is False and e["type"] == "rtk"
+        # Red text: an open RTK from a validation role (the team's has its
+        # orange mark).
+        text_row.alert = e.get("done") is False and e["type"] == "rtk" and bool(e.get("role"))
 
         text_to_lines(text_row, line, max_width=width, scale_y=0.75)
 
@@ -279,6 +291,46 @@ def _draw_entry(e, note, filepath, width: int | None = None):
     btn.custom_tooltip = _get_entry_tooltip(e, filepath)
 
 
+def _draw_approval(row, data: dict, department: str, filepath: str, role: str, tooltip: str):
+    """A done department's validation, after its name: the highest role
+    that validated it (a star), and, for a user with a validation role,
+    the button giving or withdrawing theirs."""
+    best = highest_approval(data, department)
+    mine = role and role in (data.get("approvals") or {}).get(department, {})
+    if role:
+        op = row.operator(
+            "m_pipeline.toggle_department_approval",
+            text=best or "",
+            icon="SOLO_ON" if mine else "SOLO_OFF",
+            emboss=False,
+        )
+        op.department = department
+        op.filepath = filepath
+        action = "Withdraw" if mine else "Give"
+        op.custom_tooltip = f"{action} your {role} validation.\n\n{tooltip}"
+    elif best:
+        info = row.row(align=True)
+        info.enabled = False
+        info.operator(
+            "m_pipeline.department_status_info", text=best, icon="SOLO_ON", emboss=False
+        ).custom_tooltip = tooltip
+
+
+def _to_validate(file: dict, role: str) -> bool:
+    """A done department of this file not validated yet: for this role
+    (covered by an equal or higher one counts), else by any role."""
+    from ..lib import covering_role, validation_roles
+
+    roles = validation_roles()
+    for d in file.get("validated_departments", {}):
+        approvals = (file.get("approvals") or {}).get(d, {})
+        if role and covering_role(approvals, role, roles) is None:
+            return True
+        if not role and not approvals:
+            return True
+    return False
+
+
 def _get_entry_by_id(entries, id):
     """The entry with this id, None if there's none."""
     for e in entries:
@@ -294,6 +346,8 @@ def _get_entry_tooltip(e, filepath):
     file = Path(file).stem if file else "unknown version"
 
     text = f"By: {e.get('author', 'unknown')}\nAt: {e['created_at'].replace('T', ' ')}\nBased on: {file}"
+    if e.get("role"):
+        text = f"{text}\nAs: {e['role']}"
     if e.get("edited_by"):
         text = f"{text}\n\nEdited by: {e['edited_by']}\nAt: {e['edited_at'].replace('T', ' ')}"
     departments = entry_departments(e)
@@ -302,6 +356,8 @@ def _get_entry_tooltip(e, filepath):
         text = f"{text}\nFor department{plural}: {', '.join(departments)}"
     if e.get("source") == REVIEW_SOURCE:
         text = f"{text}\nImported from a prod review"
+    elif e.get("source") == APPROVAL_SOURCE:
+        text = f"{text}\nWritten by a validation"
     review_id = f" (review_id : {e.get('review_id')})" if e.get("review_id") else ""
     text = f"{text}\nId : {e.get('id')}{review_id}"
 
@@ -607,11 +663,13 @@ def draw_file_details(state, context, layout):
         txt = deps_row.row(align=True)
         txt.separator(factor=0.5)
         txt.label(text="Departments required:", icon="TAG")
+        role = get_user_role(context)
         for d in required:
             btn = deps_row.row(align=True)
             btn.label(text="", icon="BLANK1")
             btn.active = d in validated
             btn.alignment = "LEFT"
+            tooltip = department_status_tooltip(data, d)
             op = btn.operator(
                 "m_pipeline.toggle_validated_department",
                 text=d.upper(),
@@ -620,7 +678,9 @@ def draw_file_details(state, context, layout):
             )
             op.department = d
             op.filepath = filepath
-            op.custom_tooltip = department_status_tooltip(data, d)
+            op.custom_tooltip = tooltip
+            if d in validated:
+                _draw_approval(btn, data, d, filepath, role, tooltip)
     else:
         deps_row = tabl.column()
         deps_row.scale_y = 0.5
@@ -721,6 +781,7 @@ def draw_monitor_table(self, context, layout, columns, project_root):
     }
 
     search = self.search.strip().lower()
+    role = get_user_role(context)
     matches = []
     for dir, file in data:
         if (
@@ -747,6 +808,8 @@ def draw_monitor_table(self, context, layout, columns, project_root):
             ):
                 continue
             if self.only_rtk and not _has_rtk(file):
+                continue
+            if self.only_to_validate and not _to_validate(file, role):
                 continue
             if search and search not in (
                 f"{file['file_name']} {file.get('description') or ''}".lower()
@@ -786,6 +849,7 @@ def draw_monitor_table(self, context, layout, columns, project_root):
         search,
         self.only_farm,
         self.only_rtk,
+        self.only_to_validate,
         self.sort,
     )
     shown, page, pages = paginate("project", matches, per_page, filters)
@@ -875,7 +939,11 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None)
                 c in file["validated_departments"]
                 and c not in file["worked_departments"]
             ):
-                text, row_icon = "Finished", "CHECKMARK"
+                # Its highest validation, if any: "Done · prod".
+                best = highest_approval(file, c)
+                text, row_icon = (
+                    (f"Done · {best}", "SOLO_ON") if best else ("Done", "CHECKMARK")
+                )
             elif c in file["validated_departments"] and c in file["worked_departments"]:
                 text, row_icon = "Under RTK", "CHECKBOX_DEHLT"
             elif c in file["worked_departments"] or c in file.get(

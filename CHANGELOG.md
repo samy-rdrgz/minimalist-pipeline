@@ -2,6 +2,32 @@
 
 All notable changes to this addon. Dates are release dates.
 
+## 1.1.2 — 2026-10-23
+
+Validation roles: a department finished by the team can be validated by a
+supervisor, the production...
+
+**Tracking**
+
+- **"Validated" is now "Done"**: what the team ticks when a department's
+  work is finished. Same data, nothing to migrate.
+- **Validation roles** (Edit project > *Validation roles*, `sup:1,prod:2`
+  by default): a higher role covers the lower ones, the same level is
+  equivalent. Set yours in the Preferences (*Validation role*).
+- **Validate a done department** for your role from a file's detail (the
+  star next to it). It's tied to the stable version you saw: a new stable
+  starts unvalidated and shows the last validation ("prod: v012, to
+  review again"). Each one writes a note for the record.
+- **Notes under a role**: marked violet; an RTK from a role is red, the
+  team's own orange -- in Blender and in the snapshot.
+- **Project monitoring**: "Done · prod" once validated, and a filter (the
+  star) for the files with a done department still to validate.
+- **Snapshot**: each department's validation next to it. The review
+  template gets a *Role* cell, an *all done* column and a *valid
+  <department>* column per department (yes / no); the import asks first,
+  naming the role, and refuses a validation when a newer stable was made
+  since the snapshot.
+
 ## 1.1.1 — 2026-10-23
 
 Previews compile on a free worker, a crash opening Project monitoring

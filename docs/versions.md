@@ -46,12 +46,13 @@ Every asset/shot has a `.pipeline/` folder next to its `.blend` files, holding o
   "created_from": "assets/ch/ch_bob/ch_bob_v004.blend",
   "created_at": "2026-03-26T10:00:00",
   "departments_validated": {"modeling": true, "rigging": true, "texturing": false},
+  "approvals": {"modeling": {"prod": {"by": "marie", "at": "2026-03-27T15:12:00"}}},
   "linked": [],
   "conflict_warning": ""
 }
 ```
 
-This is the file that serves as the reference point: the whole "what's been touched since the last stable" calculation (shown in the Tracking panel and project monitoring) compares the `.wipmeta` files newer than `created_at` against this `departments_validated`.
+This is the file that serves as the reference point: the whole "what's been touched since the last stable" calculation (shown in the Tracking panel and project monitoring) compares the `.wipmeta` files newer than `created_at` against this `departments_validated`. `approvals`: the departments a validation role signed off on this version (see [Tracking & reviews](tracking-and-reviews.md#done-then-validated-validation-roles)); the next stable starts without, carrying the last ones in `approvals_previous`.
 
 ---
 

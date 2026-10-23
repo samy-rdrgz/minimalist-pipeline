@@ -32,7 +32,9 @@ from ..lib import (
     get_description,
     get_session_worked_departments,
     get_user,
+    get_user_role,
     import_review_xlsx,
+    review_import_plan,
     json_get,
     log,
     memory_enum,
@@ -48,6 +50,7 @@ from ..lib import (
     review_description_changes,
     resolve_ffmpeg,
     sequence_items,
+    set_department_approval,
     set_department_validated,
     set_description,
     shot_tag_items,
@@ -352,6 +355,7 @@ class M_PIPELINE_OT_create_entry(bpy.types.Operator):
                     else None,
                     referenced_version=self.referenced_version,
                     shot=None if shot in ("", "NONE") else shot,
+                    role=get_user_role(context) or None,
                 )
 
         except PipelineError as e:
@@ -645,56 +649,135 @@ class M_PIPELINE_OT_import_review(bpy.types.Operator):
             self.report({"ERROR"}, "No valid .xlsx file selected.")
             return {"CANCELLED"}
         try:
-            result = import_review_xlsx(path)
+            plan = review_import_plan(path)
         except PipelineError as e:
             log(e.level, "review_import", e.message)
             self.report({e.level}, e.message)
             return {"CANCELLED"}
-        for label, reason in result["skipped"]:
-            log("WARNING", "review_import", f"{path.name}: {label} -- {reason}")
-        log(
-            "INFO",
-            "review_import",
-            f"{path.name}: {result['imported']} imported, "
-            f"{result['duplicates']} already there, {len(result['skipped'])} skipped",
+        # Who it's imported as, first: the role's validations and notes are
+        # the person filling it's word -- see NOTES.md, "Validation roles".
+        _pending_import[:] = [path, plan]
+        bpy.app.timers.register(
+            lambda: bpy.ops.m_pipeline.import_review_confirm("INVOKE_DEFAULT") and None,
+            first_interval=0.05,
         )
-        try:
-            _description_changes[:] = review_description_changes(path)
-        except PipelineError as e:
-            log(e.level, "review_import", e.message)
-            _description_changes.clear()
-        if not (any(result.values()) or _description_changes):
-            # Nothing at all: most likely the blank template, not the
-            # filled-in one sent back.
-            _show_import_summary(
-                f"Nothing to import in {path.name}: no note and no description "
-                "change.\nIs it the filled-in file sent back?",
-                "QUESTION",
-            )
-            return {"FINISHED"}
-        lines = [f"{result['imported']} note(s) imported"]
-        if result["duplicates"]:
-            lines.append(f"{result['duplicates']} already imported before, skipped")
-        if result["skipped"]:
-            lines.append(f"{len(result['skipped'])} not imported:")
-            lines += [f"   {label} -- {reason}" for label, reason in result["skipped"][:8]]
-            if len(result["skipped"]) > 8:
-                lines.append(f"   ... and {len(result['skipped']) - 8} more (see log)")
-        message = "\n".join(lines)
-        icon = "ERROR" if result["skipped"] else "CHECKMARK"
-        # Deferred one tick: chaining a popup from execute() -- see NOTES.md,
-        # "Popup-chaining".
-        if _description_changes:
-            bpy.app.timers.register(
-                lambda: bpy.ops.m_pipeline.review_descriptions(
-                    "INVOKE_DEFAULT", summary=message, icon=icon
-                )
-                and None,
-                first_interval=0.05,
-            )
-        else:
-            _show_import_summary(message, icon)
         return {"FINISHED"}
+
+
+# The review waiting for its confirm dialog: [path, review_import_plan()].
+_pending_import: list = []
+_IMPORT_LINES_SHOWN = 8
+
+
+class M_PIPELINE_OT_import_review_confirm(bpy.types.Operator):
+    """Confirm a review import: the role it's recorded under, what it does."""
+
+    bl_idname = "m_pipeline.import_review_confirm"
+    bl_label = "Import review"
+    bl_options = {"INTERNAL"}
+
+    def invoke(self, context, event):
+        if not _pending_import:
+            return {"CANCELLED"}
+        return context.window_manager.invoke_props_dialog(
+            self, width=460, title="Import review", confirm_text="Import"
+        )
+
+    def draw(self, context):
+        path, plan = _pending_import
+        col = self.layout.column(align=True)
+        col.label(text=path.name, icon="FILE")
+        col.separator()
+        if plan["role"]:
+            row = col.row()
+            row.alert = True
+            row.label(text=f"Imported as: {plan['role'].upper()}", icon="SOLO_ON")
+            col.label(text=f"By: {plan['author']}", icon="USER")
+        else:
+            col.label(text="No role (a template from before 1.1.2): the team's notes", icon="INFO")
+        col.separator()
+        col.label(text=f"{plan['notes']} note line(s) -- already imported ones are skipped")
+        validations = plan["validations"]
+        col.label(text=f"{len(validations)} validation change(s):")
+        for v in validations[:_IMPORT_LINES_SHOWN]:
+            verb = "validate" if v["approved"] else "withdraw"
+            col.label(text=f"   {v['name']}: {verb} {v['department']}")
+        if len(validations) > _IMPORT_LINES_SHOWN:
+            col.label(text=f"   ... and {len(validations) - _IMPORT_LINES_SHOWN} more")
+        if plan["refused"]:
+            col.separator()
+            col.label(text=f"{len(plan['refused'])} not applied:", icon="ERROR")
+            for label, reason in plan["refused"][:_IMPORT_LINES_SHOWN]:
+                col.label(text=f"   {label} -- {reason}")
+
+    def cancel(self, context):
+        _pending_import.clear()
+
+    def execute(self, context):
+        if not _pending_import:
+            return {"CANCELLED"}
+        path, _ = _pending_import
+        _pending_import.clear()
+        return _run_review_import(self, path)
+
+
+def _run_review_import(self, path: Path) -> set:
+    """The review import itself, once confirmed: notes, validations, then
+    the description changes' own dialog."""
+    try:
+        result = import_review_xlsx(path)
+    except PipelineError as e:
+        log(e.level, "review_import", e.message)
+        self.report({e.level}, e.message)
+        return {"CANCELLED"}
+    for label, reason in result["skipped"]:
+        log("WARNING", "review_import", f"{path.name}: {label} -- {reason}")
+    log(
+        "INFO",
+        "review_import",
+        f"{path.name}: {result['imported']} imported, {result['validated']} "
+        f"validation(s), {result['duplicates']} already there, "
+        f"{len(result['skipped'])} skipped",
+    )
+    try:
+        _description_changes[:] = review_description_changes(path)
+    except PipelineError as e:
+        log(e.level, "review_import", e.message)
+        _description_changes.clear()
+    if not (any(result.values()) or _description_changes):
+        # Nothing at all: most likely the blank template, not the
+        # filled-in one sent back.
+        _show_import_summary(
+            f"Nothing to import in {path.name}: no note and no description "
+            "change.\nIs it the filled-in file sent back?",
+            "QUESTION",
+        )
+        return {"FINISHED"}
+    lines = [f"{result['imported']} note(s) imported"]
+    if result["validated"]:
+        lines.append(f"{result['validated']} validation(s) changed")
+    if result["duplicates"]:
+        lines.append(f"{result['duplicates']} already imported before, skipped")
+    if result["skipped"]:
+        lines.append(f"{len(result['skipped'])} not imported:")
+        lines += [f"   {label} -- {reason}" for label, reason in result["skipped"][:8]]
+        if len(result["skipped"]) > 8:
+            lines.append(f"   ... and {len(result['skipped']) - 8} more (see log)")
+    message = "\n".join(lines)
+    icon = "ERROR" if result["skipped"] else "CHECKMARK"
+    # Deferred one tick: chaining a popup from execute() -- see NOTES.md,
+    # "Popup-chaining".
+    if _description_changes:
+        bpy.app.timers.register(
+            lambda: bpy.ops.m_pipeline.review_descriptions(
+                "INVOKE_DEFAULT", summary=message, icon=icon
+            )
+            and None,
+            first_interval=0.05,
+        )
+    else:
+        _show_import_summary(message, icon)
+    return {"FINISHED"}
 
 
 def _show_import_summary(message: str, icon: str) -> None:
@@ -986,6 +1069,17 @@ class PIPELINE_PG_monitoring(bpy.types.PropertyGroup):
         name="",
         description="Only the files with an open RTK",
     )
+    only_to_validate: memory_prop(
+        _monitoring_filters,
+        "only_to_validate",
+        bpy.props.BoolProperty,
+        False,
+        name="",
+        description=(
+            "Only the files with a done department still to validate -- for "
+            "your validation role (Preferences), else by any role"
+        ),
+    )
     search: memory_prop(
         _monitoring_filters,
         "search",
@@ -1146,9 +1240,9 @@ class M_PIPELINE_OT_toggle_validated_department(bpy.types.Operator):
     from the monitoring dashboard on files that aren't the one currently open."""
 
     bl_idname = "m_pipeline.toggle_validated_department"
-    bl_label = "Toggle department validated"
+    bl_label = "Toggle department done"
     bl_description = (
-        "Mark/unmark this department as validated (no new stable version needed)."
+        "Mark/unmark this department as done (no new stable version needed)."
     )
     bl_options = {"INTERNAL"}
 
@@ -1160,9 +1254,7 @@ class M_PIPELINE_OT_toggle_validated_department(bpy.types.Operator):
     def description(cls, context, properties):
         if properties.custom_tooltip:
             return properties.custom_tooltip
-        return (
-            "Mark/unmark this department as validated (no new stable version needed)."
-        )
+        return "Mark/unmark this department as done (no new stable version needed)."
 
     def execute(self, context):
         filepath = Path(self.filepath if self.filepath else bpy.data.filepath)
@@ -1175,6 +1267,49 @@ class M_PIPELINE_OT_toggle_validated_department(bpy.types.Operator):
             log(e.level, "toggle_validated_department", e.message)
             self.report({e.level}, e.message)
             return {"CANCELLED"}
+        return {"FINISHED"}
+
+
+class M_PIPELINE_OT_toggle_department_approval(bpy.types.Operator):
+    """Validate a done department for this user's validation role
+    (Preferences > Validation role), or withdraw that validation -- on the
+    latest stable, with a note for the record."""
+
+    bl_idname = "m_pipeline.toggle_department_approval"
+    bl_label = "Toggle department validation"
+    bl_options = {"INTERNAL"}
+
+    department: bpy.props.StringProperty()
+    filepath: bpy.props.StringProperty(default="")
+    custom_tooltip: bpy.props.StringProperty()
+
+    @classmethod
+    def description(cls, context, properties):
+        return properties.custom_tooltip or "Validate this done department for your role."
+
+    def execute(self, context):
+        filepath = Path(self.filepath or bpy.data.filepath)
+        role = get_user_role(context)
+        if not role:
+            self.report({"WARNING"}, "Set your validation role in the preferences first.")
+            return {"CANCELLED"}
+        data = TrackingStatusCache.get(str(filepath))
+        approved = role in (data.get("approvals") or {}).get(self.department, {})
+        try:
+            set_department_approval(
+                filepath,
+                department=self.department,
+                role=role,
+                approved=not approved,
+                user=get_user(context),
+            )
+        except PipelineError as e:
+            log(e.level, "toggle_department_approval", e.message)
+            self.report({e.level}, e.message)
+            return {"CANCELLED"}
+        TrackingStatusCache.get(str(filepath), force_reload=True)
+        verb = "withdrawn" if approved else "given"
+        self.report({"INFO"}, f"{self.department}: {role} validation {verb}.")
         return {"FINISHED"}
 
 
@@ -1257,7 +1392,7 @@ class M_PIPELINE_OT_render_checked(bpy.types.Operator):
 
     def draw(self, context):
         col = self.layout.column(align=True)
-        col.label(text="Validated:")
+        col.label(text="Done:")
         for item in context.window_manager.render_checked_departments:
             col.prop(item, "validate", text=item.department.upper())
 
