@@ -24,6 +24,7 @@ from ..lib import (
     now,
     process_alive,
     read_json_quiet,
+    resolve_ffmpeg,
     retry_shared_io,
     to_absolute,
 )
@@ -133,12 +134,38 @@ def _lost_result(job_id: str, dispatch_id: str | None) -> dict:
     }
 
 
+def _ffmpeg_version() -> str | None:
+    """Version of the ffmpeg this machine can run, or None -- not a farm
+    requirement, a worker without it renders all the same. Run once, not
+    just found: a binary on disk can still fail to start (see NOTES.md,
+    "FFmpeg detection")."""
+    ffmpeg = resolve_ffmpeg()
+    if not ffmpeg:
+        return None
+    try:
+        done = subprocess.run(
+            [ffmpeg, "-version"], capture_output=True, text=True, timeout=10
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if done.returncode != 0:
+        return None
+    # "ffmpeg version 6.1.1-3ubuntu5 Copyright (c) ..."
+    words = (done.stdout.splitlines() or [""])[0].split()
+    return words[2] if len(words) > 2 and words[1] == "version" else "unknown"
+
+
 def _worker_identity() -> dict:
     """What Worker details shows of a worker, set when it starts: the
-    versions it runs and since when, its counters from zero."""
+    versions it runs and since when, its counters from zero. ffmpeg: whether
+    it can compile a video (previews) -- so a compilation can be sent to
+    another machine than the farm host's."""
+    ffmpeg = _ffmpeg_version()
     return {
         "blender_version": bpy.app.version_string,
         "addon_version": get_addon_version(),
+        "ffmpeg": bool(ffmpeg),
+        "ffmpeg_version": ffmpeg,
         "farm_protocol": FARM_PROTOCOL,
         "started_at": now(),
         "renders_done": 0,
@@ -151,6 +178,7 @@ def launch_worker() -> bool:
     Blender instance already holds the role."""
     worker_path = _worker_path()
     pid = os.getpid()
+    identity = _worker_identity()  # runs ffmpeg: outside the file's lock
 
     with locked_json(worker_path) as box:
         data = box["data"] or {}
@@ -169,7 +197,7 @@ def launch_worker() -> bool:
                 "current_job": None,
                 "last_heartbeat": now(),
             }
-            | _worker_identity()
+            | identity
             | _recover_previous_render(data)
         )
         box["action"] = "to_write"

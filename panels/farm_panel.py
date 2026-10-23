@@ -665,6 +665,15 @@ def draw_farm_worker_details(layout, context):
         icon="ERROR" if other else "PLUGIN",
         alert=bool(other),
     )
+    if "ffmpeg" in m:
+        field(
+            col,
+            "FFmpeg",
+            m.get("ffmpeg_version") if m["ffmpeg"] else "not found: compiles no video",
+            icon="FILE_MOVIE" if m["ffmpeg"] else "NONE",
+        )
+    else:
+        field(col, "FFmpeg", "unknown (older addon)")
     if m.get("pid"):
         field(col, "Blender pid", m["pid"])
 

@@ -2703,6 +2703,20 @@ A render that fails with no machine left names what failed: "frames
 (`_no_machine_reason()`), not just "every machine allowed on it failed
 it"; its empty claims folder goes with it (`_end_render()`).
 
+### Workers with ffmpeg
+
+A worker's file says whether it can compile a video: `ffmpeg` (bool) and
+`ffmpeg_version` (`_worker_identity()`, on `launch_worker()`). Not a
+requirement -- a worker without it renders all the same. The point: send a
+compilation (the previews, long ones) to another machine than the farm
+host's; nothing reads the flag for that yet. Found isn't enough, the
+binary is run once (`ffmpeg -version`, 10 s at most): one on disk can
+still fail to start (see "FFmpeg detection"). Checked once, when the
+worker starts -- not on every heartbeat; ffmpeg installed since needs a
+restart of the worker. Run before the worker file's lock, not under it.
+A worker file with no `ffmpeg` key (1.1.0 and before) is unknown, not
+"no": Worker details says "unknown (older addon)".
+
 ### Mixed versions
 
 Mixed versions: a 1.0.x worker given a chunks job renders the whole range

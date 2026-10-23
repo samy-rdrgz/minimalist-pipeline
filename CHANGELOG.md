@@ -2,6 +2,15 @@
 
 All notable changes to this addon. Dates are release dates.
 
+## 1.1.1 — unreleased
+
+**Render farm**
+
+- **A worker says whether it has ffmpeg**: checked when the machine
+  becomes a worker (not needed to render), shown in Worker details -- a
+  first step towards compiling previews on another machine than the farm
+  host's.
+
 ## 1.1.0 — 2026-10-22
 
 A new render farm: frames handed out in small chunks instead of every
