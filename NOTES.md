@@ -2709,13 +2709,66 @@ A worker's file says whether it can compile a video: `ffmpeg` (bool) and
 `ffmpeg_version` (`_worker_identity()`, on `launch_worker()`). Not a
 requirement -- a worker without it renders all the same. The point: send a
 compilation (the previews, long ones) to another machine than the farm
-host's; nothing reads the flag for that yet. Found isn't enough, the
+host's (see "Previews on a worker" below). Found isn't enough, the
 binary is run once (`ffmpeg -version`, 10 s at most): one on disk can
 still fail to start (see "FFmpeg detection"). Checked once, when the
 worker starts -- not on every heartbeat; ffmpeg installed since needs a
 restart of the worker. Run before the worker file's lock, not under it.
 A worker file with no `ffmpeg` key (1.1.0 and before) is unknown, not
-"no": Worker details says "unknown (older addon)".
+"no": Worker details says "unknown (older addon)" -- and gets no preview.
+
+### Previews on a worker
+
+A preview (ffmpeg concat over a sequence's videos, re-encoded: long) goes
+to an idle worker with ffmpeg first, the farm host's own machine only if
+there's none (`scan_queue()`, `preview_queued`: `ffmpeg_worker(idle)` --
+never this machine, which compiles it itself, locally -- then
+`send_preview_compile()`). From the same `idle` as the renders, in
+priority order: a render of higher priority took its machines first, a
+lower one waits for the compile.
+
+Its own request, `requests/compile_<job>_<uuid>.json` -- never
+`request_*.json`, which a worker takes for a render. `idle_machines()`
+counts both kinds as targeting a machine. The job is the source of
+truth: at `preview_start`, `compile_machine` names the machine on it. The
+request first, then the job: a request whose job wasn't written (or was
+taken back since) is dropped by the worker (`_still_mine()`).
+
+On the worker (`worker_tick()`, idle: a render request first, then a
+compile one): `execute_compile_request()` runs the same command as the
+host (`preview_command()`), with its own ffmpeg and project root, output
+in the job's own log (`popen_logged()`, `request_<job>.log`: one machine
+writes it at a time). Status `compile`, `current_job_id` the job.
+`scan_compile_processes()`, once ffmpeg exits: `preview_finished` /
+`preview_failed` (with `machine`) written in the job first, *then* the
+worker idle -- the host reads an idle worker on a job still at
+`preview_start` as a lost compile. `last_compile_result`, not
+`last_job_result`: that one says how its last render ended, which the
+host's chunk bookkeeping reads (`_failed_this_render()`).
+
+On the host, `check_remote_compile()` every tick of a `preview_start`
+with a `compile_machine` (a local one is `scan_processes()`'s, as before):
+back to `preview_queued` (`resume_interrupted_stage()`, "lost on <machine>")
+when its worker is gone (`WORKER_GONE_SECONDS`) before or after taking
+the request -- the request deleted -- or alive but no longer compiling it
+(stopped, Blender restarted). Read in the order `_on_this_render()` does:
+the request, then the worker file, which the worker holds locked while it
+takes the request (unreadable: wait a tick). Re-checked under the job's
+lock: a worker that ended it meanwhile wins. `recover_interrupted_jobs()`
+leaves such a job alone.
+
+Stopping that worker: "after this frame" waits for the compile
+(`worker_rendering()` counts it), "now" kills ffmpeg -- the host sends
+it out again. Not covered: a worker crash leaving its ffmpeg running --
+not adopted by PID as a render is, so the preview can be compiled twice
+at once onto the same file. Rare (a crash, on a disposable preview);
+the next compile overwrites it.
+
+Checked headless on real files and ffmpeg (two machines simulated, bpy
+stubbed): sent, compiled, ended by the worker; the worker gone before
+taking it; stopped mid-compile; a request whose job was taken back;
+"after this frame" waiting for it; `scan_queue()` to a worker, and to the
+host when none has ffmpeg.
 
 ### Mixed versions
 

@@ -608,7 +608,7 @@ def draw_farm_worker_details(layout, context):
         split = col.split(factor=FIRST_COLUMN)
         left = split.row()
         left.active = False
-        left.label(text="Rendering")
+        left.label(text="Compiling" if m.get("status") == "compile" else "Rendering")
         name = _job_name(job) if job else Path(m.get("current_file") or "").name
         _draw_job_link(split, current, name or current)
         claims = (cache.get("claims") or {}).get(current) or {}
@@ -853,7 +853,7 @@ def draw_farm_workers(context, layout):
             # Not in the snapshot (archived meanwhile): the .blend the worker
             # file names -- current_job is its request's full path.
             name = _job_name(job) if job else Path(m.get("current_file") or "").name
-            text = f"render: {name or current_id}"
+            text = f"{m.get('status') or 'render'}: {name or current_id}"
             pace = ((job or {}).get("machine_seconds") or {}).get(m.get("uuid"))
             if pace:
                 text += f"  ({_pace(pace)}/frame)"

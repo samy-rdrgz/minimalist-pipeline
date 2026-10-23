@@ -277,8 +277,12 @@ _STOPPED_FIELDS = {
 
 
 def worker_rendering() -> bool:
-    """Whether this instance, as a worker, has a render running right now."""
-    return any(p.poll() is None for p in _worker_active_processes.values())
+    """Whether this instance, as a worker, has a render -- or a compile --
+    running right now."""
+    return any(
+        p.poll() is None
+        for p in (*_worker_active_processes.values(), *_worker_compiles.values())
+    )
 
 
 def stop_worker(kill_render: bool) -> str:
@@ -288,17 +292,25 @@ def stop_worker(kill_render: bool) -> str:
     again (never a failure); the role ends now. kill_render=False: the render
     stops once the frame it's on is written (render_stop_path(), read by
     the render entry after each frame), then the role ends (worker_tick()).
-    Returns "stopped" or "draining"."""
+    Returns "stopped" or "draining". A compile (previews) is waited for
+    the same way, or killed -- the farm host sends it out again
+    (check_remote_compile())."""
     running = [(j, p) for j, p in _worker_active_processes.items() if p.poll() is None]
-    if running and not kill_render:
+    compiling = [(j, p) for j, p in _worker_compiles.items() if p.poll() is None]
+    if (running or compiling) and not kill_render:
         for job_id, _ in running:
             try:
                 render_stop_path(job_id).touch()
             except OSError as e:
                 log("WARNING", "farm", f"Could not ask {job_id}'s render to stop: {e}")
         update_worker({"stopping": True})
-        log("INFO", "farm", "Worker stopping once its current frame is written.")
+        what = "current frame is written" if running else "compile is done"
+        log("INFO", "farm", f"Worker stopping once its {what}.")
         return "draining"
+    for job_id, p in compiling:
+        _terminate(p)
+        log("INFO", "farm", f"Worker stopped: compile of {job_id} interrupted.")
+    _worker_compiles.clear()
     result = None
     for job_id, p in running:
         _terminate(p)
@@ -437,7 +449,10 @@ def idle_machines() -> dict:
     render request -- computed once per monitor tick (scan_queue()), then
     handed out: render_dispatch() takes the machines it uses out of it.
     Never a worker on another FARM_PROTOCOL (logged once)."""
-    targeted = {r.get("target_uuid") for r in scan_render_requests().values()}
+    targeted = {
+        r.get("target_uuid")
+        for r in (*scan_render_requests().values(), *scan_compile_requests().values())
+    }
     idle = {}
     for uuid, w in scan_workers().items():
         if w.get("status") != "idle" or uuid in targeted:
@@ -697,6 +712,7 @@ def worker_tick():
         scan_cancel_requests,
         check_stuck_renders,
         scan_worker_processes,
+        scan_compile_processes,
     ):
         try:
             step()
@@ -717,7 +733,7 @@ def worker_tick():
             elif data.get("status") != "idle":
                 return  # already busy, nothing to do this tick
             else:
-                result = execute_render_request()
+                result = execute_render_request() or execute_compile_request()
                 box["data"] = data | result
                 box["action"] = "to_write" if result else ""
                 return
@@ -781,6 +797,166 @@ def scan_worker_processes() -> None:
 
     for job_id in finished:
         _worker_active_processes.pop(job_id, None)
+
+
+# ---------------------------------------------------------------------------
+# Compiles on a worker (1.1.1)
+# ---------------------------------------------------------------------------
+# A preview -- ffmpeg over a sequence's videos, long -- sent by the farm host
+# to an idle worker with ffmpeg (its file's "ffmpeg") rather than run on the
+# host's own machine. The job itself is the source of truth: at
+# preview_start, compile_machine naming the machine on it; the worker writes
+# its end there, the host takes it back if that machine leaves it
+# (post_render.check_remote_compile()). See NOTES.md, "Previews on a worker".
+
+_worker_compiles: dict[str, subprocess.Popen] = {}
+
+
+def compile_request_path(job_id: str, uuid: str) -> Path:
+    """Worker uuid's compile request for job_id -- never request_*.json: a
+    worker would take it for a render."""
+    return ConfigCache.get_path("farm_requests") / f"compile_{job_id}_{uuid}.json"
+
+
+def compile_request(job_id: str, uuid: str) -> None:
+    """Write a compile request of job_id (a preview) targeting worker uuid."""
+    path = compile_request_path(job_id, uuid)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with locked_json(path) as box:
+        box["data"] = {
+            "job_id": job_id,
+            "target_uuid": uuid,
+            "kind": "preview",
+            "at": now(),
+        }
+        box["action"] = "to_write"
+
+
+def scan_compile_requests(target_uuid: str = "") -> dict:
+    """{filename: data} for pending compile requests, optionally only
+    target_uuid's -- read without a lock, as scan_render_requests()."""
+    requests = {}
+    path = ConfigCache.get_path("farm_requests")
+    if not path.exists():
+        return requests
+    for r in path.glob(f"compile_*_{target_uuid}.json" if target_uuid else "compile_*.json"):
+        data = read_json_quiet(r)
+        if data:
+            requests[r.name] = data
+    return requests
+
+
+def _compile_job_path(job_id: str) -> Path:
+    return ConfigCache.get_path("farm_actives") / f"{job_id}.json"
+
+
+def _still_mine(data: dict) -> bool:
+    """Whether a job is still at preview_start on this machine -- not taken
+    back by the host (check_remote_compile()) meanwhile."""
+    history = data.get("stage_history") or []
+    return bool(
+        history
+        and history[-1].get("stage") == "preview_start"
+        and data.get("compile_machine") == get_machine_id()
+    )
+
+
+def execute_compile_request() -> dict:
+    """Take the next compile request targeting this worker and launch its
+    ffmpeg (output in the job's own log, popen_logged()). Returns the worker
+    status patch to apply, or {} if there was none to run."""
+    pending = scan_compile_requests(target_uuid=get_machine_id())
+    if not pending:
+        return {}
+    name = next(iter(pending))
+    request_path = ConfigCache.get_path("farm_requests") / name
+    with locked_json(request_path) as box:
+        request = box["data"]
+        if not request:
+            return {}  # gone since the scan: taken back by the host
+        box["action"] = "to_delete"
+        job_id = request.get("job_id", "")
+        job = read_json_quiet(_compile_job_path(job_id)) or {}
+        if not _still_mine(job):
+            log("INFO", "farm", f"Compile of {job_id}: no longer for this machine.")
+            return {}
+        try:
+            from .dispatch import popen_logged  # local: dispatch imports workers
+            from .post_render import preview_command
+
+            ffmpeg = resolve_ffmpeg()
+            if not ffmpeg:
+                raise PipelineError("ffmpeg not found on this machine")
+            cmd = preview_command(job, get_active_project_root(), ffmpeg)
+            p = popen_logged(cmd, job_id, "preview")
+        except Exception as e:
+            log("ERROR", "farm", f"Could not launch the compile of {job_id}: {e}")
+            _end_compile(job_id, success=False)
+            return {}
+    _worker_compiles[job_id] = p
+    log("INFO", "farm", f"Compiling {job.get('filepath') or job_id} (preview).")
+    return {
+        "status": "compile",
+        "current_job": name,
+        "current_file": job.get("filepath"),
+        "current_pid": p.pid,
+        "current_job_id": job_id,
+    }
+
+
+def _end_compile(job_id: str, success: bool) -> None:
+    """Write a compile's end in its job -- preview_finished / preview_failed,
+    by this machine -- unless the host took it back meanwhile."""
+    with locked_json(_compile_job_path(job_id)) as box:
+        data = box["data"] or {}
+        if not _still_mine(data):
+            return
+        data.pop("compile_machine", None)
+        data["stage_history"].append(
+            {
+                "stage": "preview_finished" if success else "preview_failed",
+                "at": now(),
+                "machine": get_machine_id(),
+            }
+        )
+        box["action"] = "to_write"
+
+
+def scan_compile_processes() -> None:
+    """Poll this worker's compiles: once one exits, its end in the job
+    (_end_compile()), then the worker idle again. The job first: the host
+    reads an idle worker with the job still at preview_start as a compile
+    lost -- and sends it out again."""
+    for job_id, p in list(_worker_compiles.items()):
+        ret = p.poll()
+        if ret is None:
+            continue
+        if ret != 0:
+            log(
+                "WARNING",
+                "farm",
+                f"Compile of {job_id} failed (exit {ret}) -- see request_{job_id}.log.",
+            )
+        try:
+            _end_compile(job_id, success=ret == 0)
+        except Exception as e:
+            # The host sends it out again once this worker is idle.
+            log("WARNING", "farm", f"Could not write the end of {job_id}'s compile: {e}")
+        update_worker(
+            {
+                "status": "idle",
+                "current_job": None,
+                "current_file": None,
+                "current_pid": None,
+                "current_job_id": None,
+                "last_compile_result": {
+                    "job_id": job_id,
+                    "success": ret == 0,
+                    "at": now(),
+                },
+            }
+        )
+        _worker_compiles.pop(job_id, None)
 
 
 def _kill_render(job_id: str, p, result: dict, count: str = "") -> None:

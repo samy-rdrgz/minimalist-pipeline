@@ -580,6 +580,8 @@ def recover_interrupted_jobs() -> None:
                 stage = history[-1]["stage"]
                 if not stage.endswith("_start") or stage == "render_start":
                     continue
+                if data.get("compile_machine"):
+                    continue  # on a worker: check_remote_compile()
 
                 recorded = data.get("local_processes") or {}
                 alive = [

@@ -10,6 +10,11 @@ All notable changes to this addon. Dates are release dates.
   becomes a worker (not needed to render), shown in Worker details -- a
   first step towards compiling previews on another machine than the farm
   host's.
+- **Previews compile on a free worker**: a preview goes to an idle worker
+  that has ffmpeg rather than the farm host's machine, which keeps its
+  slot for the setups, frame checks and compilations. None free: on the
+  host, as before. A worker stopped or switched off mid-compile: the
+  preview is sent out again.
 
 ## 1.1.0 — 2026-10-22
 

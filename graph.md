@@ -334,7 +334,8 @@ its last entry is the job's stage. The monitor's `scan_queue()` (every
 `farm_tick`, ~10 s) moves each job at most one step, highest `priority`
 first, then oldest. The local stages (setup, frame check, compilation,
 preview) run as subprocesses on the farm host, one at a time
-(`local_slot_busy()`); only the render runs on workers. A `*_start` stage
+(`local_slot_busy()`); the render runs on workers, and a preview on one
+with ffmpeg when one is idle. A `*_start` stage
 just waits: `scan_processes()` moves it on once its subprocess exits, or
 `check_render_completion()` for `render_start`. `⟲` marks a way back.
 
@@ -415,9 +416,13 @@ incomings/job_<id>.json
 │   (not for a recompile) -> archived ; .saved records deleted, the log too
 │   (kept if frames were corrupted)
 │
-├── preview_queued : local slot free ? run_preview_compile() -> preview_start
-│   (ffmpeg concat) | preview_failed
-├── preview_start : once ffmpeg exits -> preview_finished | preview_failed
+├── preview_queued : an idle worker with ffmpeg (not this machine) ?
+│   send_preview_compile() -> compile_<job>_<uuid>.json, preview_start
+│   {machine} + compile_machine ; else local slot free ? run_preview_compile()
+│   -> preview_start (ffmpeg concat) | preview_failed
+├── preview_start : here, once ffmpeg exits -> preview_finished |
+│   preview_failed ; on a worker, written by it (scan_compile_processes()),
+│   or ⟲ preview_queued once it's gone / not on it (check_remote_compile())
 ├── preview_finished | preview_failed -> archived (log deleted if finished)
 │
 ├── setup_failed | render_failed | checks_images_failed | compilation_failed :

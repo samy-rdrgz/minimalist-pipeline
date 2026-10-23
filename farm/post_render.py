@@ -7,6 +7,7 @@ import bpy
 from ..lib import (
     ConfigCache,
     PipelineError,
+    get_machine_id,
     json_get,
     locked_json,
     log,
@@ -252,8 +253,97 @@ def build_concat_command(
     return cmd
 
 
+def preview_command(data: dict, project_root: Path, ffmpeg_bin: str) -> list[str]:
+    """ffmpeg command concatenating a preview job's sources -- on the farm
+    host (run_preview_compile()) or on a worker (execute_compile_request()),
+    each with its own ffmpeg and project root. Creates the output's folder."""
+    inputs = [to_absolute(src, project_root) for _label, src in data["sources"]]
+    output = to_absolute(data["output_path"], project_root)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    return build_concat_command(
+        inputs,
+        output,
+        ConfigCache.get(),
+        data.get("compilation_settings", "default"),
+        ffmpeg_bin,
+    )
+
+
+def ffmpeg_worker(idle: dict) -> str | None:
+    """An idle worker (idle_machines()) with ffmpeg to compile a preview on,
+    never this machine's own -- here, the host runs it itself."""
+    me = get_machine_id()
+    return next((u for u, w in idle.items() if u != me and w.get("ffmpeg")), None)
+
+
+def send_preview_compile(job_path: Path, uuid: str, idle: dict) -> bool:
+    """Send a queued preview's compile to worker uuid: a compile request, the
+    job at preview_start on it (compile_machine), the machine taken out of
+    idle. The request first: one left without its job written is dropped by
+    the worker (_still_mine()). True if sent."""
+    with locked_json(job_path) as box:
+        data = box["data"] or {}
+        history = data.get("stage_history") or []
+        if not history or history[-1]["stage"] != "preview_queued":
+            return False
+        from .workers import compile_request  # local: workers -> loop -> here
+
+        compile_request(data["job_id"], uuid)
+        idle_worker = idle.pop(uuid, None) or {}
+        data["compile_machine"] = uuid
+        history.append({"stage": "preview_start", "at": now(), "machine": uuid})
+        box["action"] = "to_write"
+    log(
+        "INFO",
+        "farm",
+        f"Preview {data['filepath']}: compiling on "
+        f"{idle_worker.get('machine') or uuid[:8]}.",
+    )
+    return True
+
+
+def check_remote_compile(job_path: Path, data: dict) -> None:
+    """A preview compiling on a worker (compile_machine): back to
+    preview_queued -- sent out again next tick, to a worker or here -- once
+    that machine is gone, or no longer on it (stopped, restarted). Its end
+    is the worker's to write (_end_compile()). The request before the
+    worker file, as _on_this_render(): a worker takes it under its own
+    file's lock, unreadable (None) meanwhile."""
+    from .queue import _read_worker, _worker_gone, resume_interrupted_stage
+    from .workers import compile_request_path
+
+    uuid, job_id = data["compile_machine"], data["job_id"]
+    request = compile_request_path(job_id, uuid)
+    waiting = request.exists()
+    worker = _read_worker(uuid)
+    if worker is None:
+        return  # can't tell this tick
+    if waiting:
+        if not _worker_gone(worker):
+            return  # not taken up yet
+        request.unlink(missing_ok=True)
+    elif (
+        not _worker_gone(worker)
+        and worker.get("status") == "compile"
+        and worker.get("current_job_id") == job_id
+    ):
+        return
+    with locked_json(job_path) as box:
+        data = box["data"] or {}
+        history = data.get("stage_history") or []
+        if (
+            not history
+            or history[-1]["stage"] != "preview_start"
+            or data.get("compile_machine") != uuid
+        ):
+            return  # ended meanwhile
+        name = worker.get("machine") or uuid[:8]
+        if resume_interrupted_stage(data, f"lost on {name}"):
+            box["action"] = "to_write"
+
+
 def run_preview_compile(job_id: str, project_root: Path) -> None:
-    """Launch ffmpeg to concat a preview job's resolved sources."""
+    """Launch ffmpeg to concat a preview job's resolved sources, here."""
     job_path = ConfigCache.get_path("farm_actives") / f"{job_id}.json"
     try:
         with locked_json(job_path) as box:
@@ -264,18 +354,7 @@ def run_preview_compile(job_id: str, project_root: Path) -> None:
                 box["action"] = "to_write"
                 raise PipelineError("FFMPEG is not installed")
 
-            config = ConfigCache.get()
-            inputs = [to_absolute(src, project_root) for _label, src in data["sources"]]
-            output = to_absolute(data["output_path"], project_root)
-            output.parent.mkdir(parents=True, exist_ok=True)
-
-            cmd = build_concat_command(
-                inputs,
-                output,
-                config,
-                data.get("compilation_settings", "default"),
-                ffmpeg_bin,
-            )
+            cmd = preview_command(data, project_root, ffmpeg_bin)
             proc = [
                 (
                     popen_logged(cmd, data["job_id"], "preview"),

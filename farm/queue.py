@@ -224,7 +224,6 @@ def scan_queue(project_root: Path) -> None:
                 "setup_start",
                 "checks_images_start",
                 "compilation_start",
-                "preview_start",
                 "finished",
             ]
             if stage in pass_stage:
@@ -247,11 +246,27 @@ def scan_queue(project_root: Path) -> None:
                     run_render_setup(data["job_id"], config)
 
             elif stage == "preview_queued":
-                # Pure ffmpeg, not a render job.
-                if not local_slot_busy():
-                    from .post_render import run_preview_compile
+                # Pure ffmpeg, not a render job -- long over a whole
+                # sequence: on an idle worker with ffmpeg first, else here.
+                from .post_render import (
+                    ffmpeg_worker,
+                    run_preview_compile,
+                    send_preview_compile,
+                )
 
+                uuid = ffmpeg_worker(idle)
+                if uuid:
+                    send_preview_compile(job, uuid, idle)
+                elif not local_slot_busy():
                     run_preview_compile(data["job_id"], project_root)
+
+            elif stage == "preview_start":
+                # Here: a local process, scan_processes(). On a worker:
+                # taken back if that worker leaves it.
+                if data.get("compile_machine"):
+                    from .post_render import check_remote_compile
+
+                    check_remote_compile(job, data)
 
             elif stage in ("preview_finished", "preview_failed"):
                 # Before the generic "*failed" branch below.
@@ -483,6 +498,7 @@ def resume_interrupted_stage(data: dict, reason: str) -> str | None:
         return None
     data["stage_history"].append({"stage": target, "at": now(), "resumed": reason})
     data.pop("local_processes", None)
+    data.pop("compile_machine", None)
     log(
         "WARNING",
         "farm",
