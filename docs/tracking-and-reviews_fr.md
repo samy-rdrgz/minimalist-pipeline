@@ -51,6 +51,9 @@ la prod -- sur la version qu'il a vue.
 - **Notes sous un rôle** : une note, todo ou RTK écrite par quelqu'un qui a
   un rôle le porte (marque violette), comme les notes importées d'un
   tableur de review. Un RTK d'un rôle est rouge, celui de l'équipe orange.
+  La fenêtre *New entry* montre votre rôle dans une case *As sup*, cochée
+  par défaut : décochez-la pour écrire au nom de l'équipe (une note
+  technique, par exemple).
 - **Project monitoring** : un département fini affiche « Done · prod » une
   fois validé ; un filtre (l'étoile) liste les fichiers dont un département
   fini reste à valider -- pour votre rôle, ou par n'importe quel rôle si

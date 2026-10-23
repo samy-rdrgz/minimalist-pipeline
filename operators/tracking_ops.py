@@ -190,6 +190,13 @@ class M_PIPELINE_OT_create_entry(bpy.types.Operator):
     referenced_version: bpy.props.EnumProperty(
         items=entry_version_items, options={"SKIP_SAVE"}
     )
+    as_role: bpy.props.BoolProperty(
+        name="As my role",
+        description="Mark these entries with your validation role (prefs) -- "
+        "off: a team note, like anyone's",
+        default=True,
+        options={"SKIP_SAVE"},
+    )
 
     def invoke(self, context, event):
         if not self.filepath:
@@ -236,6 +243,11 @@ class M_PIPELINE_OT_create_entry(bpy.types.Operator):
         row.label(text="Entry type:", icon="TRIA_RIGHT")
         row = row.row()
         row.prop(self, "type", expand=True)
+        role = get_user_role(context)
+        if role:  # a team member has no choice to make
+            row = layout.split(factor=0.25)
+            row.label()
+            row.prop(self, "as_role", text=f"As {role}")
         layout.separator(factor=2)
 
         # A block: each line picks its shot, next to its departments.
@@ -355,7 +367,7 @@ class M_PIPELINE_OT_create_entry(bpy.types.Operator):
                     else None,
                     referenced_version=self.referenced_version,
                     shot=None if shot in ("", "NONE") else shot,
-                    role=get_user_role(context) or None,
+                    role=(get_user_role(context) or None) if self.as_role else None,
                 )
 
         except PipelineError as e:

@@ -49,6 +49,8 @@ it saw.
 - **Notes under a role**: a note, todo or RTK written by someone with a
   role carries it (violet mark), and so do the notes imported from a
   review template. An RTK from a role is red, the team's own orange.
+  The *New entry* dialog shows your role in an *As sup* box, on by
+  default: untick it to write as the team (a technical note, say).
 - **Project monitoring**: a done department reads "Done · prod" once
   validated; a filter (the star) lists the files with a done department
   still to validate -- for your role, or by any role if you have none.

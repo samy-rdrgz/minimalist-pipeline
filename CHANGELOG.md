@@ -19,7 +19,8 @@ supervisor, the production...
   starts unvalidated and shows the last validation ("prod: v012, to
   review again"). Each one writes a note for the record.
 - **Notes under a role**: marked violet; an RTK from a role is red, the
-  team's own orange -- in Blender and in the snapshot.
+  team's own orange -- in Blender and in the snapshot. The *New entry*
+  dialog has an *As sup* box (on) to post a team note instead.
 - **Project monitoring**: "Done · prod" once validated, and a filter (the
   star) for the files with a done department still to validate.
 - **Snapshot**: each department's validation next to it. The review
