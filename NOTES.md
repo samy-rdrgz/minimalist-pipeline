@@ -2931,10 +2931,11 @@ Review template (schema 3): a Role cell (dropdown of the roles), required
 as soon as the sheet holds a note or a validation -- an older template
 imports as before, no role. Columns are per export now
 (`_review_columns()`: the departments of the snapshot, `_col()` past Z):
-`valid all`, then `valid <department>` -- yes / no / empty, unlocked only
-for a department done at the stable shown (`valid all`: once all are;
-`review_import_plan()` spreads it over the departments without a value
-of their own). No *shot* column any more: one cell held one shot for all
+`valid all done`, then `valid <department>` -- yes / no / empty, unlocked
+only for a department done at the stable shown (`valid all done`: once
+one is; `review_import_plan()` spreads it over the departments done now
+without a value of their own -- the reviewer's one "yes" for a shot,
+not one per column). No *shot* column any more: one cell held one shot for all
 of its lines, so two notes for shots 010 and 020 of a block couldn't be
 written. A line's leading tags say it instead (`_line_tags()`: `[sh020]`
 -- checked against the block's shots, `_file_shots()` --, `[f12-40]` /

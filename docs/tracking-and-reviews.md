@@ -65,9 +65,10 @@ it saw.
   holds a note or a validation), a *valid
   &lt;department&gt;* column per department: `yes` validates it for that
   role, `no` withdraws, empty changes nothing -- only on the departments
-  done at the stable the snapshot showed -- and a *valid all* column,
-  every department at once, open once all are done (a department's own
-  cell wins over it). A text line starting with `[sh020]` is a note for
+  done at the stable the snapshot showed -- and a *valid all done* column:
+  every department done so far at once, even if others aren't finished
+  yet -- no `yes` to type per department (a department's own cell wins
+  over it). A text line starting with `[sh020]` is a note for
   that shot of the block, `[f12-40]` (or `[f12]`) for those frames, both
   in any order: `[sh020] [f12-40] camera higher`. The import asks first, naming
   the role, then refuses any validation of a file with a newer stable

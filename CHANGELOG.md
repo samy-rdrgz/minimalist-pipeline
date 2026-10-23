@@ -26,8 +26,8 @@ supervisor, the production...
 - **Snapshot**: each department's validation next to it, and a
   *Validated* figure apart from Done (violet tile, column, groups, totals): the
   share of the required departments the top role validated. The review
-  template gets a *Role* cell, a *valid all* column (once every
-  department is done) and a *valid <department>* column per department
+  template gets a *Role* cell, a *valid all done* column (every
+  department done so far, in one cell) and a *valid <department>* column per department
   (yes / no); the import asks first, naming the role, and refuses a
   validation when a newer stable was made since the snapshot.
 - **Review template: shot and frames per line.** The *shot* column is

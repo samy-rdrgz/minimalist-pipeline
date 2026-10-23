@@ -1855,9 +1855,9 @@ _HEADER_ROW = 6
 # template's role, no withdraws that validation, empty changes nothing.
 VALID_PREFIX = "valid "
 VALID_CHOICES = ("yes", "no")
-# Every department at once, editable when all are done; a department's own
-# cell wins over it.
-VALID_ALL = "valid all"
+# Every department done at the stable shown, at once -- the reviewer doesn't
+# fill a "yes" per department; a department's own cell wins over it.
+VALID_ALL = "valid all done"
 
 
 def _review_columns(departments: list) -> list[tuple[str, int, bool]]:
@@ -1865,7 +1865,7 @@ def _review_columns(departments: list) -> list[tuple[str, int, bool]]:
     all", a "valid <department>" each, then the hidden ones."""
     return [
         *_REVIEW_COLUMNS[:_VISIBLE_COLUMNS],
-        (VALID_ALL, 9, False),
+        (VALID_ALL, 12, False),
         *[(f"{VALID_PREFIX}{d}", 11, False) for d in departments],
         *_REVIEW_COLUMNS[_VISIBLE_COLUMNS:],
     ]
@@ -1932,7 +1932,7 @@ def render_review_xlsx(snapshot: dict) -> bytes:
         "ignored; start a line with [sh020] for one shot of a block, [f12-40] "
         "(or [f12]) for its frames. Edit a description to change it. \"valid "
         "<department>\": yes validates it as your role, no withdraws that, empty "
-        "changes nothing; \"valid all\": every department at once, once all are done."
+        "changes nothing; \"valid all done\": every department done so far, at once."
     )
     rows = [
         '<row r="1">'
@@ -1993,13 +1993,13 @@ def render_review_xlsx(snapshot: dict) -> bytes:
             "description_exported": item["description"],
         }
         row_styles = dict(styles)
-        # Every required department done at the stable shown: all at once.
-        if item["departments"] and done == set(item["departments"]):
+        # Every department done at the stable shown, at once.
+        if done:
             row_styles[VALID_ALL] = _S_INPUT
             valid_refs.append(f"{col[VALID_ALL]}{r}")
         else:
             row_styles[VALID_ALL] = _S_LOCKED
-            values[VALID_ALL] = "not all done" if item["departments"] else "–"
+            values[VALID_ALL] = "none done" if item["departments"] else "–"
         for d in departments:
             h = f"{VALID_PREFIX}{d}"
             if d in done:
@@ -2442,9 +2442,11 @@ def review_import_plan(path: Path) -> dict:
             continue
         status = _status_from_raw(raw)
         if every in VALID_CHOICES:
-            # Each required department not given its own value.
+            # Each department done now and not given its own value.
+            done_now = status.get("validated_departments", {})
             for d in status.get("departments_required", []):
-                wanted.setdefault(d, every)
+                if d in done_now:
+                    wanted.setdefault(d, every)
         current = Path((status.get("stable_info") or {}).get("file") or "").stem
         seen = row.get("stable_version") or ""
         for department, choice in sorted(wanted.items()):

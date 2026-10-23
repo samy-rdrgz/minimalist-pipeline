@@ -70,9 +70,10 @@ la prod -- sur la version qu'il a vue.
   colonne *valid &lt;département&gt;* par
   département : `yes` le valide pour ce rôle, `no` retire, vide ne change
   rien -- seulement sur les départements finis au stable montré par le
-  snapshot --, et une colonne *valid all*, tous les départements d'un
-  coup, ouverte quand tous sont finis (la case propre d'un département
-  l'emporte). Une ligne de texte qui commence par `[sh020]` est une note
+  snapshot --, et une colonne *valid all done* : tous les
+  départements déjà finis d'un coup, même si d'autres ne le sont pas
+  encore -- pas besoin de mettre `yes` partout (la case propre d'un
+  département l'emporte). Une ligne de texte qui commence par `[sh020]` est une note
   pour ce shot du bloc, `[f12-40]` (ou `[f12]`) pour ces frames, dans
   n'importe quel ordre : `[sh020] [f12-40] caméra plus haute`. L'import demande d'abord, en rappelant le rôle, puis refuse
   toute validation d'un fichier qui a un stable plus récent que le
