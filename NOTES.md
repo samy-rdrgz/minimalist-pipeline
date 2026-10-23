@@ -2912,7 +2912,20 @@ if the project has it; a review import's Role cell) -- the role a person
 had then, not looked up by author: one person can wear two hats. RTK
 colors: a role's red, the team's orange; Blender colors no text but red,
 so the team's RTK loses the red text for an orange `COLLECTION_COLOR_02`
-mark, a role's note a violet one.
+mark, a role's note a violet one. New entry's *As <role>* box (`as_role`,
+on) lets a sup post a team note -- a technical one -- without clearing
+the pref.
+
+The snapshot's *Validated* is a second figure, not a share of Done: Done
+weighs the departments' fabrication (wip 33 %...), and folding a
+validation into it (10 %?) would make "90 %" unreadable -- 90 % made and
+nothing validated, or all validated and one department late. Validated
+is the share of the required departments the top role covers
+(`top_validation_role()`: the highest level, its equivalents count;
+`item["validated"]`, `item["validation"]`, `meta["validation"]`,
+`average_progress(items, "validation")`), at the stable shown: a new
+stable drops it. Tiles next to each Done, a column, groups and totals, in
+`--role` violet; a pre-1.1.2 snapshot (no `validation_role`) shows none.
 
 Review template (schema 3): a Role cell (dropdown of the roles), required
 as soon as the sheet holds a note or a validation -- an older template
