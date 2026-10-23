@@ -24,7 +24,7 @@ supervisor, the production...
 - **Project monitoring**: "Done · prod" once validated, and a filter (the
   star) for the files with a done department still to validate.
 - **Snapshot**: each department's validation next to it, and a
-  *Validated* figure apart from Done (tile, column, groups, totals): the
+  *Validated* figure apart from Done (violet tile, column, groups, totals): the
   share of the required departments the top role validated. The review
   template gets a *Role* cell, a *valid all* column (once every
   department is done) and a *valid <department>* column per department

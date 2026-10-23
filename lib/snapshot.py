@@ -795,6 +795,7 @@ def _render_overview(snapshot: dict) -> str:
                     f"{title} validated",
                     _pct(validation[kind]),
                     f'<span class="delta">by {_e(role)} (or equivalent)</span>',
+                    "valid",
                 )
             )
     if schedule:
@@ -906,10 +907,11 @@ def _render_timeline(meta: dict, sections) -> str:
     )
 
 
-def _stat_tile(label: str, value: str, line: str = "") -> str:
-    """One figure of the overview: its label, its value, then a line (HTML)."""
+def _stat_tile(label: str, value: str, line: str = "", cls: str = "") -> str:
+    """One figure of the overview: its label, its value, then a line (HTML).
+    cls: an extra class ("valid": the role's violet)."""
     return (
-        f'<div class="kpi"><span class="kpi-label">{_e(label)}</span>'
+        f'<div class="kpi{" " + cls if cls else ""}"><span class="kpi-label">{_e(label)}</span>'
         f'<span class="kpi-value">{_e(value)}</span>{line}</div>'
     )
 
@@ -1643,6 +1645,8 @@ color:var(--muted)}
 border:1px solid var(--line);border-radius:10px;padding:12px 16px}
 .kpi-label{font-size:12px;color:var(--muted)}
 .kpi-value{font-size:28px;font-weight:600;line-height:1.2}
+.kpi.valid{background:var(--role-bg);border-color:var(--role)}
+.kpi.valid .kpi-value,.kpi.valid .kpi-label{color:var(--role)}
 .delta{font-size:12px;color:var(--muted)}
 /* Pace bands: a solid green, a light one, amber, red -- each with its label. */
 .pace{align-self:flex-start;margin-top:6px;padding:1px 8px;border-radius:999px;
