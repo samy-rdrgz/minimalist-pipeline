@@ -2,7 +2,10 @@
 
 All notable changes to this addon. Dates are release dates.
 
-## 1.1.1 — unreleased
+## 1.1.1 — 2026-10-23
+
+Previews compile on a free worker, a crash opening Project monitoring
+fixed.
 
 **Fixes**
 
