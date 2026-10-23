@@ -67,10 +67,14 @@ la prod -- sur la version qu'il a vue.
   fabrication : 100 % fini sans rien de validé donne 100 % / 0 %. Le
   tableur de review a une case *Role* en
   haut (obligatoire dès qu'il contient une note ou une validation), une
-  colonne *all done*, et une colonne *valid &lt;département&gt;* par
+  colonne *valid &lt;département&gt;* par
   département : `yes` le valide pour ce rôle, `no` retire, vide ne change
   rien -- seulement sur les départements finis au stable montré par le
-  snapshot. L'import demande d'abord, en rappelant le rôle, puis refuse
+  snapshot --, et une colonne *valid all*, tous les départements d'un
+  coup, ouverte quand tous sont finis (la case propre d'un département
+  l'emporte). Une ligne de texte qui commence par `[sh020]` est une note
+  pour ce shot du bloc, `[f12-40]` (ou `[f12]`) pour ces frames, dans
+  n'importe quel ordre : `[sh020] [f12-40] caméra plus haute`. L'import demande d'abord, en rappelant le rôle, puis refuse
   toute validation d'un fichier qui a un stable plus récent que le
   snapshot.
 

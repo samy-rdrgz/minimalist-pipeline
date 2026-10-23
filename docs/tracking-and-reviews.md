@@ -62,10 +62,14 @@ it saw.
   stable shown. Done stays the fabrication: 100 % done with nothing
   validated reads 100 % / 0 %. The
   review template has a *Role* cell at the top (required as soon as it
-  holds a note or a validation), an *all done* column, and a *valid
+  holds a note or a validation), a *valid
   &lt;department&gt;* column per department: `yes` validates it for that
   role, `no` withdraws, empty changes nothing -- only on the departments
-  done at the stable the snapshot showed. The import asks first, naming
+  done at the stable the snapshot showed -- and a *valid all* column,
+  every department at once, open once all are done (a department's own
+  cell wins over it). A text line starting with `[sh020]` is a note for
+  that shot of the block, `[f12-40]` (or `[f12]`) for those frames, both
+  in any order: `[sh020] [f12-40] camera higher`. The import asks first, naming
   the role, then refuses any validation of a file with a newer stable
   since the snapshot.
 

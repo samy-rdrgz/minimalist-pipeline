@@ -17,7 +17,13 @@ from xml.etree import ElementTree as ET
 from xml.sax.saxutils import escape as xml_escape
 
 from .background import background_work
-from .config import covering_role, validation_roles
+from .config import (
+    ConfigCache,
+    covering_role,
+    parse_filename,
+    shots_in_segment,
+    validation_roles,
+)
 from .core import json_get, now, read_json_quiet
 from .errors import PipelineError
 from .preview import latest_render_dir, render_root
@@ -555,11 +561,20 @@ def _entry_dict(e: dict) -> dict:
         "departments": entry_departments(e),
         "version": Path(version).name if version else "",
         "shot": e.get("shot", ""),
+        "frames": _frames_label(e),
         "done": e.get("done"),
         "from_review": e.get("source") == REVIEW_SOURCE,
         # The validation role it was written under, "" the team's own.
         "role": e.get("role") or "",
     }
+
+
+def _frames_label(e: dict) -> str:
+    """ "f12-40" / "f12" for an entry tied to frames, "" otherwise."""
+    start, end = e.get("frame_start"), e.get("frame_end")
+    if start is None:
+        return ""
+    return f"f{start}-{end}" if end is not None else f"f{start}"
 
 
 def _thread_closed(thread: dict) -> bool:
@@ -1412,8 +1427,8 @@ def _render_entry(e: dict, reply: bool = False, closed: bool = False) -> str:
         tags.append(f'<span class="tag role" title="Written as {_e(e["role"])}">{_e(e["role"])}</span>')
     if e["from_review"]:
         tags.append('<span class="tag">prod review</span>')
-    for key in ("department", "shot", "version"):
-        if e[key]:
+    for key in ("department", "shot", "frames", "version"):
+        if e.get(key):
             tags.append(f'<span class="tag">{_e(e[key])}</span>')
     who = f'{_e(e["author"])} · {_e(e["date"][:10])}'
     cls = ("reply" if reply else "root") + (" closed" if closed else "")
@@ -1821,7 +1836,8 @@ _REVIEW_COLUMNS = (
     ("description", 30, False),
     ("department", 14, False),
     ("type", 8, False),
-    ("shot", 8, False),
+    # A line's shot and frames are typed at its start ([sh020] [f12-40]):
+    # one cell held one shot for all of its lines.
     ("text", 70, False),
     ("wip_version", 10, True),
     ("stable_version", 10, True),
@@ -1829,20 +1845,23 @@ _REVIEW_COLUMNS = (
     # edit; one equal to it is no change, even if the file's moved on since.
     ("description_exported", 30, True),
 )
-_VISIBLE_COLUMNS = 7  # group .. text; the hidden ones after the departments'
+_VISIBLE_COLUMNS = 6  # group .. text; the hidden ones after the departments'
 _HEADER_ROW = 6
 # One column per department, "valid layout": yes validates it for the
 # template's role, no withdraws that validation, empty changes nothing.
 VALID_PREFIX = "valid "
 VALID_CHOICES = ("yes", "no")
+# Every department at once, editable when all are done; a department's own
+# cell wins over it.
+VALID_ALL = "valid all"
 
 
 def _review_columns(departments: list) -> list[tuple[str, int, bool]]:
-    """The template's columns for these departments: the visible ones, "all
-    done", a "valid <department>" each, then the hidden ones."""
+    """The template's columns for these departments: the visible ones, "valid
+    all", a "valid <department>" each, then the hidden ones."""
     return [
         *_REVIEW_COLUMNS[:_VISIBLE_COLUMNS],
-        ("all done", 9, False),
+        (VALID_ALL, 9, False),
         *[(f"{VALID_PREFIX}{d}", 11, False) for d in departments],
         *_REVIEW_COLUMNS[_VISIBLE_COLUMNS:],
     ]
@@ -1906,8 +1925,10 @@ def render_review_xlsx(snapshot: dict) -> bytes:
     intro = (
         f"Snapshot of {scan_date}. Write in the white cells. One line of text "
         "= one note (Alt+Enter for the next one); rows with an empty text are "
-        "ignored. Edit a description to change it. \"valid <department>\": yes "
-        "validates it as your role, no withdraws that, empty changes nothing."
+        "ignored; start a line with [sh020] for one shot of a block, [f12-40] "
+        "(or [f12]) for its frames. Edit a description to change it. \"valid "
+        "<department>\": yes validates it as your role, no withdraws that, empty "
+        "changes nothing; \"valid all\": every department at once, once all are done."
     )
     rows = [
         '<row r="1">'
@@ -1940,12 +1961,10 @@ def render_review_xlsx(snapshot: dict) -> bytes:
         "description": _S_INPUT,  # edits are imported (confirm dialog)
         "department": _S_INPUT,
         "type": _S_INPUT,
-        "shot": _S_INPUT_TEXT,
         "text": _S_INPUT,
         "wip_version": _S_LOCKED,
         "stable_version": _S_LOCKED,
         "description_exported": _S_LOCKED,
-        "all done": _S_LOCKED,
     }
     dep_lists: dict[str, list[str]] = {}
     valid_refs: list[str] = []
@@ -1962,8 +1981,6 @@ def render_review_xlsx(snapshot: dict) -> bytes:
         values = {
             # Only the merge's top cell holds the value.
             "group": item["group"] if new_group else None,
-            # Every required department done at the stable shown.
-            "all done": "yes" if item["departments"] and done == set(item["departments"]) else "",
             "filename": _stem(item["current_version"]) or item["name"],
             "description": item["description"],
             "type": "rtk",
@@ -1972,6 +1989,13 @@ def render_review_xlsx(snapshot: dict) -> bytes:
             "description_exported": item["description"],
         }
         row_styles = dict(styles)
+        # Every required department done at the stable shown: all at once.
+        if item["departments"] and done == set(item["departments"]):
+            row_styles[VALID_ALL] = _S_INPUT
+            valid_refs.append(f"{col[VALID_ALL]}{r}")
+        else:
+            row_styles[VALID_ALL] = _S_LOCKED
+            values[VALID_ALL] = "not all done" if item["departments"] else "–"
         for d in departments:
             h = f"{VALID_PREFIX}{d}"
             if d in done:
@@ -2309,6 +2333,51 @@ def _review_lines(row: dict) -> list[str]:
     ]
 
 
+def _file_shots(filepath: Path) -> list[str]:
+    """The shot numbers of a shot's .blend, padded ("010", "020" for a
+    block); [] for an asset."""
+    parsed = parse_filename(filepath.name) or {}
+    if not parsed.get("shot"):
+        return []
+    digits = json_get(ConfigCache.get(), "naming.shot.digits", 3)
+    try:
+        return [f"{n:0{digits}d}" for n in shots_in_segment(parsed["shot"])]
+    except ValueError:
+        return []
+
+
+_LINE_TAG = re.compile(r"\s*\[\s*([a-z]*)\s*(\d+)(?:\s*-\s*(\d+))?\s*\]", re.I)
+
+
+def _line_tags(line: str, shots: list[str]) -> tuple[str, str | None, tuple | None]:
+    """A review line's leading tags, in any order: "[sh020]" one shot of
+    the block (shots: its numbers, padded), "[f12-40]" / "[f12]" its
+    frames. -> (text without them, shot, (start, end or None)). A tag that
+    isn't one -- an unknown shot, another word -- ends the scan and stays
+    in the text."""
+    shot_prefix = json_get(ConfigCache.get(), "naming.shot.prefix", "sh").lower()
+    shot = frames = None
+    rest = line
+    while m := _LINE_TAG.match(rest):
+        word, a, b = m[1].lower(), int(m[2]), m[3]
+        if word in (shot_prefix, "sh") and b is None and shot is None:
+            padded = next((s for s in shots if int(s) == a), None)
+            if padded is None:
+                break
+            shot = padded
+        elif word == "f" and frames is None:
+            frames = (a, int(b) if b else None)
+            if frames[1] is not None and frames[1] < a:
+                break
+        else:
+            break
+        rest = rest[m.end() :]
+    rest = rest.strip()
+    if not rest:  # tags alone: nothing to note, keep the line as typed
+        return line, None, None
+    return rest, shot, frames
+
+
 def _review_file(name: str) -> Path | None:
     """The .blend a row's filename names, None if it's gone."""
     try:
@@ -2357,16 +2426,21 @@ def review_import_plan(path: Path) -> dict:
         wanted = {
             c[len(VALID_PREFIX) :]: row[c].strip().lower()
             for c in valid_cols
-            if (row.get(c) or "").strip().lower() in VALID_CHOICES
+            if c != VALID_ALL and (row.get(c) or "").strip().lower() in VALID_CHOICES
         }
-        if not name or not wanted:
+        every = (row.get(VALID_ALL) or "").strip().lower()
+        if not name or not (wanted or every in VALID_CHOICES):
             continue
         filepath = _review_file(name)
         raw = _collect_folder(filepath.parent) if filepath else None
         if not raw:
-            plan["refused"] += [(f"{name}: {d}", "file not found") for d in wanted]
+            plan["refused"] += [(f"{name}: {d}", "file not found") for d in wanted or ["all"]]
             continue
         status = _status_from_raw(raw)
+        if every in VALID_CHOICES:
+            # Each required department not given its own value.
+            for d in status.get("departments_required", []):
+                wanted.setdefault(d, every)
         current = Path((status.get("stable_info") or {}).get("file") or "").stem
         seen = row.get("stable_version") or ""
         for department, choice in sorted(wanted.items()):
@@ -2444,14 +2518,18 @@ def import_review_xlsx(path: Path) -> dict:
         }
         # One department, or several: "layout, animation" ("," ";" "/" "+").
         departments = []
-        for name in re.split(r"[,;/+]", (row.get("department") or "").lower()):
+        for dep in re.split(r"[,;/+]", (row.get("department") or "").lower()):
             try:
-                if name.strip() and valid_department(filepath, name.strip()):
-                    departments.append(name.strip())
+                if dep.strip() and valid_department(filepath, dep.strip()):
+                    departments.append(dep.strip())
             except PipelineError:
                 pass
         entry_type = (row.get("type") or "").lower()
+        shots = _file_shots(filepath)
         for line in lines:
+            line, shot, frames = _line_tags(line, shots)
+            # A pre-1.1.2 template's own "shot" column, for all its lines.
+            shot = shot or row.get("shot") or None
             if line in known:
                 result["duplicates"] += 1
                 continue
@@ -2462,7 +2540,9 @@ def import_review_xlsx(path: Path) -> dict:
                     departments=departments,
                     author=author,
                     type=entry_type if entry_type in ENTRY_TYPES else "note",
-                    shot=row.get("shot") or None,
+                    shot=shot,
+                    f_start=frames[0] if frames else None,
+                    f_end=frames[1] if frames else None,
                     review_id=review_id,
                     created_at=created_at,
                     referenced_version=str(filepath),
