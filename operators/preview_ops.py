@@ -27,9 +27,11 @@ def submit_preview(
     label: str,
     sources: list,
     user: str,
+    priority: int = 10,
 ) -> None:
     """Send a preview compile request: renders/<seq>/_preview/<scope_name>_
-    <date>.mp4 from sources ((shot_label, mp4) pairs). Raises PipelineError."""
+    <date>.mp4 from sources ((shot_label, mp4) pairs), at this farm
+    priority. Raises PipelineError."""
     project_root = get_active_project_root()
     date_label = now(False).strftime("%Y%m%d-%H%M")
     output_path = (
@@ -45,10 +47,11 @@ def submit_preview(
         label=label,
         sources=sources,
         output_path=output_path,
+        priority=priority,
     )
 
 
-def request_sequence_preview(sequence_label: str, user: str) -> list:
+def request_sequence_preview(sequence_label: str, user: str, priority: int = 10) -> list:
     """A sequence's preview ("sq030"): every shot's latest video, end to
     end. Returns its sources -- empty: nothing rendered, nothing sent.
     Raises PipelineError."""
@@ -62,6 +65,7 @@ def request_sequence_preview(sequence_label: str, user: str) -> list:
             str(project_root / "shots" / sequence_label),
             sources,
             user,
+            priority,
         )
     return sources
 
@@ -78,12 +82,30 @@ class M_PIPELINE_OT_compile_preview(bpy.types.Operator):
     )
     filepath: bpy.props.StringProperty(default="")
     custom_tooltip: bpy.props.StringProperty()
+    # Same as the Render dialog's: remembered from the last submit.
+    priority: bpy.props.IntProperty(
+        name="Priority",
+        default=10,
+        description="Higher goes first (10 by default); same priority: oldest first",
+    )
 
     @classmethod
     def description(cls, context, properties):
         return properties.custom_tooltip or (
             "Concat the latest rendered mp4 per shot into one disposable preview."
         )
+
+    def invoke(self, context, event):
+        # The priority asked first; a scripted call (execute) keeps its own.
+        return context.window_manager.invoke_props_dialog(
+            self, width=260, confirm_text="Compile"
+        )
+
+    def draw(self, context):
+        layout = self.layout
+        what = "block" if self.scope == "block" else "sequence"
+        layout.label(text=f"Preview of this {what}", icon="SEQUENCE")
+        layout.prop(self, "priority")
 
     def execute(self, context):
         filepath = Path(self.filepath or bpy.data.filepath)
@@ -125,9 +147,12 @@ class M_PIPELINE_OT_compile_preview(bpy.types.Operator):
                         str(filepath),
                         sources,
                         get_user(context),
+                        self.priority,
                     )
             else:
-                sources = request_sequence_preview(sequence_label, get_user(context))
+                sources = request_sequence_preview(
+                    sequence_label, get_user(context), self.priority
+                )
         except PipelineError as e:
             log(e.level, "compile_preview", e.message)
             self.report({e.level}, e.message)

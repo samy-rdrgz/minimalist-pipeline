@@ -74,7 +74,7 @@ class M_PIPELINE_OT_increment_version(bpy.types.Operator):
     stabled_departments: bpy.props.EnumProperty(
         items=file_department_items,
         options={"ENUM_FLAG"},
-        name="Departments validated:",
+        name="Departments done:",
     )
 
     def invoke(self, context, event):

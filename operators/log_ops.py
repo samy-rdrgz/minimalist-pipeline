@@ -83,15 +83,18 @@ class M_PIPELINE_OT_pipeline_logs(bpy.types.Operator):
         state = context.window_manager.pipeline_log_monitoring
         if self.search:
             state.search = self.search
-        load_pipeline_log()
+        # Read after the window: a thread running through window_new()
+        # crashed Blender (see lib/background.py).
         if monitoring_windows("log"):
             redraw_monitoring("log")
             if not bring_monitoring_to_front(context, "log"):
                 self.report({"INFO"}, "The pipeline log is already open.")
+            load_pipeline_log()
             return {"FINISHED"}
         if not open_monitoring_window(context, "log"):
             self.report({"ERROR"}, "Blender could not open a new window.")
             return {"CANCELLED"}
+        load_pipeline_log()
         return {"FINISHED"}
 
 

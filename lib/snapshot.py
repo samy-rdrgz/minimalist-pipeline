@@ -16,6 +16,14 @@ from pathlib import Path
 from xml.etree import ElementTree as ET
 from xml.sax.saxutils import escape as xml_escape
 
+from .background import background_work
+from .config import (
+    ConfigCache,
+    covering_role,
+    parse_filename,
+    shots_in_segment,
+    validation_roles,
+)
 from .core import json_get, now, read_json_quiet
 from .errors import PipelineError
 from .preview import latest_render_dir, render_root
@@ -30,11 +38,13 @@ from .tracking import (
     find_file_by_name,
     owner_key,
     render_to_check_label,
+    set_department_approval,
     tracking_json_path,
     valid_department,
 )
 from .thumbnails import (
     owner_render_dir,
+    owner_shot_render_dirs,
     run_thumbnail_jobs,
     thumbnail_jobs,
     thumbnail_path,
@@ -43,21 +53,21 @@ from .thumbnails import (
 
 # Bumped whenever the review template's columns change -- the import refuses
 # a template made by a newer addon.
-SCHEMA_VERSION = 2  # 2: hidden description_exported column
+SCHEMA_VERSION = 4  # 2: hidden description_exported column; 3: role, "valid <dept>"; 4: a sheet per section, a cell per department
 
 ENTRY_TYPES = ("note", "todo", "rtk")
 
-# Department state -> (label, css class). "rework" is validated at the last
-# stable AND worked since: never shown as plain "validated".
+# Department state -> (label, css class). "rework" is done at the last
+# stable AND worked since: never shown as plain "done".
 STATES = {
-    "done": ("Validated", "st-done"),
-    "rework": ("Validated, reworked since", "st-rework"),
+    "done": ("Done", "st-done"),
+    "rework": ("Done, reworked since", "st-rework"),
     "wip": ("Work in progress", "st-wip"),
     "todo": ("Not started", "st-todo"),
 }
 # What a table cell shows: six departments of full labels don't fit a page.
 # The full label is its tooltip and in the legend.
-SHORT_STATES = {"done": "Validated", "rework": "Reworked", "wip": "WIP", "todo": "Not started"}
+SHORT_STATES = {"done": "Done", "rework": "Reworked", "wip": "WIP", "todo": "Not started"}
 
 # Share of a department counted as done per state, in % -- the project's
 # "snapshot.progress" (Edit project) overrides each. Validated counts 100,
@@ -171,36 +181,53 @@ def read_snapshot_data(
     their latest render are remade first (one headless Blender, waited on
     -- run this on a thread). thumbnails: {"size", "blender", "ffmpeg"},
     None to skip them. Returns {"raws", "renders": {owner:
-    [...]}, "thumbs": {owner: base64 JPEG}, "thumb_warnings": [...]}."""
+    [...]}, "thumbs": {owner: base64 JPEG}, "shot_thumbs": {block owner:
+    [(shot label, base64 JPEG or None)]}, "thumb_warnings": [...]}."""
     raws = read_snapshot_raw(root)
     renders = {
         str(owner): read_render_state(root, kind, owner, v_prefix)
         for kind, owner, raw, _ in raws
         if not raw["tracking"].get("archived")
     }
-    thumbs, warnings = {}, []
+    thumbs, shot_thumbs, warnings = {}, {}, []
     if thumbnails is not None:
-        dirs = {}
+        dirs, shot_dirs = {}, {}
         for _, owner, raw, _ in raws:
             if not raw["tracking"].get("archived"):
                 dirs[str(owner)] = owner_render_dir(root, owner)
+                # A block: every shot's own, to find one's way in the edit.
+                if shots := owner_shot_render_dirs(root, owner):
+                    shot_dirs[str(owner)] = shots
         size = thumbnails.get("size") or thumbnail_size({})
-        jobs = thumbnail_jobs(dirs.values(), v_prefix, size=size)
+        every = dict.fromkeys(
+            [*dirs.values(), *(d for shots in shot_dirs.values() for _, d in shots)]
+        )
+        jobs = thumbnail_jobs(every, v_prefix, size=size)
         results = run_thumbnail_jobs(
             jobs, thumbnails["blender"], thumbnails.get("ffmpeg"), size=size
         )
-        for owner, d in dirs.items():
-            dst = thumbnail_path(d)
-            if results.get(str(dst), "ok") != "ok":
-                warnings.append(f"{dst.name}: {results[str(dst)]}")
+        warnings = [
+            f"{Path(dst).name}: {why}" for dst, why in results.items() if why != "ok"
+        ]
+
+        def encoded(d: Path) -> str | None:
             try:  # an older thumbnail still beats none
-                thumbs[owner] = base64.b64encode(dst.read_bytes()).decode("ascii")
+                return base64.b64encode(thumbnail_path(d).read_bytes()).decode("ascii")
             except OSError:
-                pass
+                return None
+
+        for owner, d in dirs.items():
+            if (b64 := encoded(d)) is not None:
+                thumbs[owner] = b64
+        for owner, shots in shot_dirs.items():
+            found = [(label, encoded(d)) for label, d in shots]
+            if any(b64 for _, b64 in found):
+                shot_thumbs[owner] = found
     return {
         "raws": raws,
         "renders": renders,
         "thumbs": thumbs,
+        "shot_thumbs": shot_thumbs,
         "thumb_warnings": warnings,
     }
 
@@ -214,6 +241,8 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
         data = {"raws": data, "thumbs": {}, "thumb_warnings": []}
     raws = data["raws"]
     weights = progress_weights(config)
+    roles = validation_roles(config)
+    top_role = top_validation_role(roles)
     v_prefix = json_get(config, "naming.version.prefix", "v")
     version_re = re.compile(rf"_{re.escape(v_prefix)}(\d+)(-[a-z]+)?\.blend$")
     folder_re = re.compile(rf"^{re.escape(v_prefix)}(\d+)(-[a-z]+)?_\d+$")
@@ -250,6 +279,8 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
             # most recent of the two (a stable can be newer than any wip).
             "current_version": wip_name if wip_n > stable_n else stable_name or wip_name,
             "thumbnail": data["thumbs"].get(str(owner)),
+            # A block's shots, each its own thumbnail (None: not rendered).
+            "shot_thumbnails": [list(t) for t in data.get("shot_thumbs", {}).get(str(owner), [])],
         }
         # A render's folder is vXXX_YYY: XXX the .blend version rendered,
         # YYY the render increment. The history's source_file says XXX
@@ -305,6 +336,17 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
             for d in e["departments"]
         }
         item["rtk_departments"] = sorted(rtk_departments)
+        # Per done department: its validations at the stable shown, and the
+        # last ones given to an earlier stable (to review again).
+        item["approvals"] = {
+            d: {r: dict(info) for r, info in roles.items()}
+            for d, roles in (status.get("approvals") or {}).items()
+        }
+        item["approvals_previous"] = {
+            d: {r: dict(info) for r, info in roles.items()}
+            for d, roles in (status.get("approvals_previous") or {}).items()
+            if d in item["departments"]
+        }
         # Per department, then their mean: the footer averages the first.
         item["scores"] = {
             d: _department_score(st, d in rtk_departments, weights)
@@ -312,6 +354,14 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
         }
         scores = list(item["scores"].values())
         item["progress"] = sum(scores) / len(scores) if scores else None
+        # Apart from Done: the share of the required departments the top
+        # role (or an equivalent one) validated at the stable shown.
+        item["validated"] = {
+            d: bool(top_role and covering_role(item["approvals"].get(d) or {}, top_role, roles))
+            for d in item["departments"]
+        }
+        valid = list(item["validated"].values())
+        item["validation"] = sum(valid) / len(valid) if valid else None
         items[kind].append(item)
         notes.extend(threads)
 
@@ -324,6 +374,9 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
     meta["thumbnail_size"] = thumbnail_size(config)
     meta["progress"] = {k: average_progress(v) for k, v in items.items()}
     meta["progress_weights"] = weights
+    meta["validation_roles"] = roles
+    meta["validation_role"] = top_role
+    meta["validation"] = {k: average_progress(v, "validation") for k, v in items.items()}
     schedule = project_schedule(config)
     if schedule:
         today = datetime.fromisoformat(meta.get("scan_started_at") or now()).date()
@@ -369,6 +422,12 @@ def _department_score(state: str, open_rtk: bool, weights: dict) -> float:
     return weights.get(state, 0) / 100
 
 
+def top_validation_role(roles: list) -> str | None:
+    """The role the "Validated" figures count: the highest level's (its
+    equivalents cover it). None without any role."""
+    return max(roles, key=lambda r: r["level"])["name"] if roles else None
+
+
 def department_progress(items: list, department: str) -> float | None:
     """Mean of one department over the items requiring it, None if none
     does -- the snapshot table's per-department footer."""
@@ -376,10 +435,11 @@ def department_progress(items: list, department: str) -> float | None:
     return sum(values) / len(values) if values else None
 
 
-def average_progress(items: list) -> float | None:
-    """Mean progress of items, each weighing the same; those without any
-    required department left out. None if none is left."""
-    values = [i["progress"] for i in items if i.get("progress") is not None]
+def average_progress(items: list, key: str = "progress") -> float | None:
+    """Mean progress of items (key "validation": their Validated), each
+    weighing the same; those without any required department left out.
+    None if none is left."""
+    values = [i[key] for i in items if i.get(key) is not None]
     return sum(values) / len(values) if values else None
 
 
@@ -521,9 +581,20 @@ def _entry_dict(e: dict) -> dict:
         "departments": entry_departments(e),
         "version": Path(version).name if version else "",
         "shot": e.get("shot", ""),
+        "frames": _frames_label(e),
         "done": e.get("done"),
         "from_review": e.get("source") == REVIEW_SOURCE,
+        # The validation role it was written under, "" the team's own.
+        "role": e.get("role") or "",
     }
+
+
+def _frames_label(e: dict) -> str:
+    """ "f12-40" / "f12" for an entry tied to frames, "" otherwise."""
+    start, end = e.get("frame_start"), e.get("frame_end")
+    if start is None:
+        return ""
+    return f"f{start}-{end}" if end is not None else f"f{start}"
 
 
 def _thread_closed(thread: dict) -> bool:
@@ -563,7 +634,8 @@ class SnapshotJob:
 
     def _run(self, fn, args) -> None:
         try:
-            self.result = fn(*args)
+            with background_work():
+                self.result = fn(*args)
         except Exception as e:  # reported by the caller
             self.error = repr(e)
         self.done = True
@@ -643,10 +715,12 @@ def render_html(snapshot: dict) -> str:
         '<div class="review">',
         f'<a class="btn" download="{_e(xlsx_name)}" '
         f'href="data:{XLSX_MIME};base64,\n{xlsx}\n">Download the review template (.xlsx)</a>',
-        "<p>Fill in your name and the review date at the top, write your notes "
-        "in the <b>text</b> column of each asset/shot — <b>one line per note</b>, "
-        "Alt+Enter for the next one — pick a department and a type, then send "
-        "the file back as is.</p>",
+        "<p>On its first sheet, fill in your name, the review date and your "
+        "role. Then, on the Shots and Assets sheets, a cell per department: "
+        "<b>ok</b> validates it, <b>no</b> withdraws that, any other text is a "
+        "retake — <b>one line per retake</b>, Alt+Enter for the next one, "
+        "<b>[sh020] [f12-40]</b> at its start for a shot of a block and its "
+        "frames. Then send the file back as is.</p>",
         "</div>",
         "</header>",
         _render_overview(snapshot),
@@ -661,15 +735,25 @@ def render_html(snapshot: dict) -> str:
         "</nav>",
         f'<p class="legend">{legend}</p>',
         '<p class="legend muted">Done: each required department counts for an '
-        f"equal share: work in progress {weights['wip']} %, validated but "
-        f"reworked since {weights['rework']} %, validated with an open RTK "
-        f"{weights['rtk']} %, validated 100 %. Totals and groups average "
-        "their assets/shots.</p>",
+        f"equal share: work in progress {weights['wip']} %, done but "
+        f"reworked since {weights['rework']} %, done with an open RTK "
+        f"{weights['rtk']} %, done 100 %. Totals and groups average "
+        "their assets/shots."
+        + (
+            f" Validated, apart: the share of the required departments "
+            f"{_e(meta['validation_role'])} (or an equivalent role) validated at "
+            "the stable shown -- a newer stable needs it again."
+            if meta.get("validation_role")
+            else ""
+        )
+        + "</p>",
         _render_table(
-            "assets", "Assets", snapshot["assets"], meta["asset_departments"], notes
+            "assets", "Assets", snapshot["assets"], meta["asset_departments"], notes,
+            meta.get("validation_roles", []),
         ),
         _render_table(
-            "shots", "Shots", snapshot["shots"], meta["shot_departments"], notes
+            "shots", "Shots", snapshot["shots"], meta["shot_departments"], notes,
+            meta.get("validation_roles", []),
         ),
     ]
     title = f"{meta.get('project') or 'Project'} snapshot {scan_date[:10]}"
@@ -712,15 +796,30 @@ def _render_overview(snapshot: dict) -> str:
         ("shot", "Shots", "By sequence", "shot", snapshot["shots"]),
         ("asset", "Assets & libraries", "By prefix", "file", snapshot["assets"]),
     )
-    tiles = [
-        _stat_tile(
-            f"{title} done",
-            _pct(meta["progress"][kind]),
-            _schedule_delta(meta["progress"][kind], expected),
+    # Each section's Done, then apart what the top role accepted of it
+    # (pre-1.1.2 snapshots lack it).
+    role = meta.get("validation_role")
+    validation = meta.get("validation") or {}
+    tiles = []
+    for kind, title, _, _, _ in sections:
+        if meta["progress"][kind] is None:
+            continue
+        tiles.append(
+            _stat_tile(
+                f"{title} done",
+                _pct(meta["progress"][kind]),
+                _schedule_delta(meta["progress"][kind], expected),
+            )
         )
-        for kind, title, _, _, _ in sections
-        if meta["progress"][kind] is not None
-    ]
+        if role and validation.get(kind) is not None:
+            tiles.append(
+                _stat_tile(
+                    f"{title} validated",
+                    _pct(validation[kind]),
+                    f'<span class="delta">by {_e(role)} (or equivalent)</span>',
+                    "valid",
+                )
+            )
     if schedule:
         tiles.append(
             _stat_tile(
@@ -830,10 +929,11 @@ def _render_timeline(meta: dict, sections) -> str:
     )
 
 
-def _stat_tile(label: str, value: str, line: str = "") -> str:
-    """One figure of the overview: its label, its value, then a line (HTML)."""
+def _stat_tile(label: str, value: str, line: str = "", cls: str = "") -> str:
+    """One figure of the overview: its label, its value, then a line (HTML).
+    cls: an extra class ("valid": the role's violet)."""
     return (
-        f'<div class="kpi"><span class="kpi-label">{_e(label)}</span>'
+        f'<div class="kpi{" " + cls if cls else ""}"><span class="kpi-label">{_e(label)}</span>'
         f'<span class="kpi-value">{_e(value)}</span>{line}</div>'
     )
 
@@ -1038,18 +1138,20 @@ def _render_filters(snapshot: dict) -> str:
         '<label title="Done todos/RTKs, kept in the snapshot but hidden">'
         '<input id="f-closed" type="checkbox"> Show closed</label>'
         '<button id="f-reset" type="button">Reset</button>'
-        f"{_columns_menu(departments)}"
+        f"{_columns_menu(departments, bool(snapshot['meta'].get('validation_role')))}"
         "</div>"
     )
 
 
-def _columns_menu(departments) -> str:
+def _columns_menu(departments, validated: bool = False) -> str:
     """ "Columns" drop-down: a checkbox per column that can be hidden (_JS
     hides every cell whose data-col is its data-key; the choice is kept
     per browser)."""
     columns = [("thumb", "Thumbnail"), ("file", "Blender file"), ("render", "Last render")]
     columns += [(f"d:{d}", d.capitalize()) for d in departments]
     columns.append(("done", "Done"))
+    if validated:
+        columns.append(("valid", "Validated"))
     boxes = "".join(
         f'<label><input type="checkbox" data-key="{_e(key)}" checked> {_e(label)}</label>'
         for key, label in columns
@@ -1073,15 +1175,21 @@ def _item_attrs(item: dict) -> str:
 
 
 def _render_table(
-    anchor: str, title: str, items: list, columns: list, notes: dict
+    anchor: str, title: str, items: list, columns: list, notes: dict, roles: list = ()
 ) -> str:
     """One section's table, an item per row -- each followed by a row of its
     notes (notes: {item name: its threads}), folded at load (_JS)."""
     nl = "\n"
     if not items:
         return _section(anchor, title, '<p class="empty">Nothing tracked yet.</p>')
+    role = top_validation_role(list(roles))
     title += f' <span class="pct">{_pct(average_progress(items))} done</span>'
-    with_thumbs = any(i.get("thumbnail") for i in items)
+    if role:
+        title += (
+            f' <span class="pct valid">{_pct(average_progress(items, "validation"))} '
+            f"validated</span>"
+        )
+    with_thumbs = any(i.get("thumbnail") or i.get("shot_thumbnails") for i in items)
     head = (
         ('<th data-col="thumb"></th>' if with_thumbs else "")
         + "<th>Name</th>"
@@ -1093,7 +1201,15 @@ def _render_table(
         + "".join(f'<th data-col="d:{_e(c)}">{_e(c.capitalize())}</th>' for c in columns)
         + '<th data-col="done" title="Share of the required departments done '
         '(see the legend)">Done</th>'
+        + (
+            f'<th data-col="valid" title="Share of the required departments '
+            f'validated by {_e(role)} (or an equivalent role) at the stable shown">'
+            "Validated</th>"
+            if role
+            else ""
+        )
     )
+    span = len(columns) + 4 + with_thumbs + bool(role)
     groups: dict[str, list] = {}
     for item in items:
         groups.setdefault(item["group"], []).append(item)
@@ -1103,9 +1219,14 @@ def _render_table(
         if item["group"] != group:
             group = item["group"]
             done = _pct(average_progress(groups[group]))
+            if role:
+                done += (
+                    f' · <span class="valid">'
+                    f'{_pct(average_progress(groups[group], "validation"))} validated</span>'
+                )
             rows.append(
                 f'<tr class="group" data-group="{_e(group)}">'
-                f'<th colspan="{len(columns) + 4 + with_thumbs}">{_e(group)}'
+                f'<th colspan="{span}">{_e(group)}'
                 f' <span class="pct">{done}</span></th></tr>'
             )
         cells = []
@@ -1123,7 +1244,7 @@ def _render_table(
                     label += ", with an open RTK"
                 cells.append(
                     f'<td data-col="d:{_e(c)}"><span class="pill {cls}" title="{_e(label)}">'
-                    f"{_e(SHORT_STATES[state])}</span></td>"
+                    f"{_e(SHORT_STATES[state])}</span>{_approval_mark(item, c, roles)}</td>"
                 )
         versions = " · ".join(
             label + _short_version(item["name"], v)
@@ -1139,9 +1260,9 @@ def _render_table(
         if with_thumbs:
             thumb = (
                 f'<td class="th" data-col="thumb"><img class="thumb" alt="" '
-                f'src="data:image/jpeg;base64,{item["thumbnail"]}"></td>'
+                f'src="data:image/jpeg;base64,{item["thumbnail"]}">{_shot_buttons(item)}</td>'
                 if item.get("thumbnail")
-                else '<td class="th" data-col="thumb"><div class="nothumb"></div></td>'
+                else f'<td class="th" data-col="thumb"><div class="nothumb"></div>{_shot_buttons(item)}</td>'
             )
         rows.append(
             f'<tr class="item" id="i-{_e(_slug(item["name"]))}" {_item_attrs(item)} '
@@ -1150,10 +1271,16 @@ def _render_table(
             f'<small>{_e(item["description"])}</small></td>'
             f'<td class="ver" data-col="file">{_e(versions)}</td>'
             f'<td class="ver" data-col="render">{_render_cell(item)}</td>{"".join(cells)}'
-            f'<td class="done" data-col="done">{_progress_cell(item["progress"])}</td></tr>'
+            f'<td class="done" data-col="done">{_progress_cell(item["progress"])}</td>'
+            + (
+                f'<td class="done valid" data-col="valid">'
+                f'{_progress_cell(item.get("validation"))}</td>'
+                if role
+                else ""
+            )
+            + "</tr>"
         )
         if threads:
-            span = len(columns) + 4 + with_thumbs
             rows.append(_notes_row(_thread_lis(threads), span, with_thumbs))
     # Whole section, whatever the filters show.
     foot = (
@@ -1166,6 +1293,12 @@ def _render_table(
             for c in columns
         )
         + f'<td class="done" data-col="done">{_progress_cell(average_progress(items))}</td>'
+        + (
+            f'<td class="done valid" data-col="valid">'
+            f'{_progress_cell(average_progress(items, "validation"))}</td>'
+            if role
+            else ""
+        )
     )
     return _section(
         anchor,
@@ -1177,6 +1310,58 @@ def _render_table(
         f'<tfoot title="Whole section, filters aside"><tr>{foot}</tr></tfoot>'
         "</table></div>",
     )
+
+
+def _approval_mark(item: dict, department: str, roles: list) -> str:
+    """After a department's pill: "✓ prod", its highest validation at the
+    stable shown (each role in the tooltip, covered ones too), else the
+    last one given to an earlier stable, greyed: to review again."""
+    approvals = item["approvals"].get(department) or {}
+    levels = {r["name"]: r["level"] for r in roles}
+    known = sorted((levels[r], r) for r in approvals if r in levels)
+    if known:
+        lines = []
+        for role in roles:
+            cover = covering_role(approvals, role["name"], roles)
+            info = approvals.get(cover) or {}
+            if cover == role["name"]:
+                lines.append(f"{role['name']}: validated by {info.get('by', '?')} ({_day(info.get('at') or '')})")
+            elif cover:
+                lines.append(f"{role['name']}: covered by {cover}")
+            else:
+                lines.append(f"{role['name']}: not validated")
+        return f'<span class="ok" title="{_e(chr(10).join(lines))}">✓ {_e(known[-1][1])}</span>'
+    previous = item["approvals_previous"].get(department) or {}
+    old = sorted((levels[r], r) for r in previous if r in levels)
+    if old:
+        role = old[-1][1]
+        seen = _short_version(item["name"], Path(previous[role].get("file") or "").name)
+        return (
+            f'<span class="ok prev" title="Validated by {_e(role)} on {_e(seen)}: a '
+            f'newer stable since, to review again">{_e(role)} {_e(seen)}</span>'
+        )
+    return ""
+
+
+def _shot_buttons(item: dict) -> str:
+    """Under a block's thumbnail: a small button per shot, its number
+    (010, 020...) in the block's order, showing that shot's thumbnail on
+    hover -- to find one's way in the edit, without a strip of eight
+    images per row. Greyed for a shot not rendered yet. "" for anything
+    else."""
+    shots = item.get("shot_thumbnails") or []
+    if not shots:
+        return ""
+    buttons = "".join(
+        f'<span class="sb">{_e(label.lstrip("abcdefghijklmnopqrstuvwxyz_"))}'
+        f'<img alt="{_e(label)}" src="data:image/jpeg;base64,{b64}"></span>'
+        if b64
+        else f'<span class="sb none" title="{_e(label)}: not rendered yet">'
+        f'{_e(label.lstrip("abcdefghijklmnopqrstuvwxyz_"))}</span>'
+        for label, b64 in shots
+    )
+    # data-col: the Columns menu's Thumbnail hides them with the column.
+    return f'<div class="sbs" data-col="thumb">{buttons}</div>'
 
 
 def _progress_cell(progress: float | None) -> str:
@@ -1280,14 +1465,19 @@ def _render_entry(e: dict, reply: bool = False, closed: bool = False) -> str:
         # separate "done" tag read like one more department.
         tags = [f'<span class="type t-done" title="Done">✓ {_e(e["type"])}</span>']
     else:
-        tags = [f'<span class="type t-{_e(e["type"])}">{_e(e["type"])}</span>']
+        # An RTK red from a validation role, orange from the team.
+        team = " team" if e["type"] == "rtk" and not e.get("role") else ""
+        tags = [f'<span class="type t-{_e(e["type"])}{team}">{_e(e["type"])}</span>']
+    if e.get("role"):
+        tags.append(f'<span class="tag role" title="Written as {_e(e["role"])}">{_e(e["role"])}</span>')
     if e["from_review"]:
         tags.append('<span class="tag">prod review</span>')
-    for key in ("department", "shot", "version"):
-        if e[key]:
+    for key in ("department", "shot", "frames", "version"):
+        if e.get(key):
             tags.append(f'<span class="tag">{_e(e[key])}</span>')
     who = f'{_e(e["author"])} · {_e(e["date"][:10])}'
     cls = ("reply" if reply else "root") + (" closed" if closed else "")
+    cls += " by-role" if e.get("role") else ""
     return (
         f'<li class="{cls}"><div class="head">'
         f'{"".join(tags)}<span class="who">{who}</span></div>'
@@ -1337,17 +1527,20 @@ _CSS = """
 :root{--page:1600px;--bg:#f7f7f5;--fg:#1d1d1b;--muted:#6b6b66;--card:#fff;--line:#e2e1dc;
 --accent:#3d5afe;--done:#2e7d32;--done-bg:#e3f2e4;--wip:#8a5a00;--wip-bg:#fff1d6;
 --todo:#6b6b66;--rtk:#c62828;--rtk-bg:#fde7e7;color-scheme:light dark;
+--role:#7b3fbf;--role-bg:#f0e7fb;--team:#c2410c;--team-bg:#ffe9d9;
 --t-rework:#7cb342;--t-wip:#c98a1a;--t-done:var(--done);--t-rtk:var(--rtk);
 --track:color-mix(in srgb,var(--done) 16%,var(--card))}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#161615;
 --fg:#ecebe6;--muted:#a3a29c;--card:#20201e;--line:#34332f;--accent:#8c9eff;
 --done:#81c784;--done-bg:#1d3320;--wip:#ffcc80;--wip-bg:#3a2c12;--todo:#a3a29c;
 --rtk:#ef9a9a;--rtk-bg:#3a1c1c;--t-rework:#4c8c50;--t-wip:#b88e2e;
+--role:#c9a3f5;--role-bg:#2d2140;--team:#ffb07a;--team-bg:#3a2414;
 --track:color-mix(in srgb,var(--done) 16%,var(--card))}}
 :root[data-theme="dark"]{--bg:#161615;--fg:#ecebe6;--muted:#a3a29c;--card:#20201e;
 --line:#34332f;--accent:#8c9eff;--done:#81c784;--done-bg:#1d3320;--wip:#ffcc80;
 --wip-bg:#3a2c12;--todo:#a3a29c;--rtk:#ef9a9a;--rtk-bg:#3a1c1c;--t-rework:#4c8c50;
---t-wip:#b88e2e;--track:color-mix(in srgb,var(--done) 16%,var(--card))}
+--t-wip:#b88e2e;--role:#c9a3f5;--role-bg:#2d2140;--team:#ffb07a;--team-bg:#3a2414;
+--track:color-mix(in srgb,var(--done) 16%,var(--card))}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--fg);
 font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
@@ -1429,6 +1622,7 @@ border-color:var(--accent)}
 .pill.farm-failed{color:var(--rtk);background:var(--rtk-bg);border-color:var(--rtk)}
 .pill.rtk-open{border-color:var(--rtk);box-shadow:0 0 0 1px var(--rtk) inset}
 .pct{margin-left:8px;font-size:.8em;font-weight:600;color:var(--done)}
+.pct .valid,.pct.valid{color:var(--role)}
 .legend.muted{color:var(--muted);font-size:12px}
 td.done{white-space:nowrap}
 body:not(.show-closed) li.closed{display:none}
@@ -1437,12 +1631,22 @@ tfoot td{border-top:2px solid var(--line);font-weight:600}
 .bar{display:inline-block;width:56px;height:6px;margin-right:6px;vertical-align:middle;
 border-radius:3px;background:var(--line);overflow:hidden}
 .bar i{display:block;height:100%;background:var(--done)}
+.valid .bar i{background:var(--role)}
 td.ver .shot{font-weight:600}
 td.th{width:1px;padding-right:0}
 /* Any aspect ratio: shown whole inside a fixed box, never cropped. */
 .thumb{display:block;width:112px;height:63px;object-fit:contain;border-radius:4px;
 background:var(--bg);transition:transform .15s}
 .nothumb{width:112px}
+.sbs{display:flex;flex-wrap:wrap;gap:3px;width:112px;margin-top:4px}
+.sb{position:relative;font-size:10px;line-height:16px;padding:0 4px;border-radius:3px;
+background:var(--line);color:var(--fg);cursor:default}
+.sb.none{opacity:.45}
+.sb img{display:none}
+.sb:hover{background:var(--role);color:#fff}
+/* One shared preview, fixed: a table's scroll box would clip it. */
+#sbpop{position:fixed;z-index:20;pointer-events:none;display:none;border-radius:4px;
+width:calc(112px * var(--thumb-zoom,2.4));box-shadow:0 4px 18px rgba(0,0,0,.35);background:var(--bg)}
 img.thumb:hover{transform:scale(var(--thumb-zoom,2.4));transform-origin:left top;position:relative;
 z-index:3;box-shadow:0 4px 18px rgba(0,0,0,.35)}
 .flag{margin-left:8px;font-size:11px;font-weight:600;color:var(--rtk);
@@ -1466,6 +1670,11 @@ max-width:min(60rem,calc(100vw - 64px))}
 .type,.tag{font-size:11px;padding:1px 7px;border-radius:999px;border:1px solid var(--line)}
 .type{font-weight:600;text-transform:uppercase}
 .t-rtk{color:var(--rtk);background:var(--rtk-bg);border-color:transparent}
+.t-rtk.team{color:var(--team);background:var(--team-bg)}
+.tag.role{color:var(--role);background:var(--role-bg);border-color:transparent;font-weight:600}
+.threads li.by-role{border-left:3px solid var(--role);padding-left:8px}
+.ok{display:inline-block;margin-left:4px;font-size:11px;font-weight:600;color:var(--role)}
+.ok.prev{color:var(--muted);font-weight:400}
 .t-todo{color:var(--wip);background:var(--wip-bg);border-color:transparent}
 .t-done{color:var(--done);background:var(--done-bg);border-color:transparent}
 .empty{color:var(--muted)}
@@ -1488,6 +1697,8 @@ color:var(--muted)}
 border:1px solid var(--line);border-radius:10px;padding:12px 16px}
 .kpi-label{font-size:12px;color:var(--muted)}
 .kpi-value{font-size:28px;font-weight:600;line-height:1.2}
+.kpi.valid{background:var(--role-bg);border-color:var(--role)}
+.kpi.valid .kpi-value,.kpi.valid .kpi-label{color:var(--role)}
 .delta{font-size:12px;color:var(--muted)}
 /* Pace bands: a solid green, a light one, amber, red -- each with its label. */
 .pace{align-self:flex-start;margin-top:6px;padding:1px 8px;border-radius:999px;
@@ -1566,6 +1777,16 @@ transform:translateX(-50%)}.today.l{transform:none}.today.r{transform:translateX
 _JS = """
 (function(){
 var $=function(id){return document.getElementById(id);};
+// A block's shot buttons: that shot's thumbnail, beside the button --
+// above it when there's no room below.
+var pop=document.createElement('img');pop.id='sbpop';pop.alt='';document.body.appendChild(pop);
+document.querySelectorAll('.sb img').forEach(function(img){
+var sb=img.parentNode;
+sb.addEventListener('mouseenter',function(){pop.src=img.src;pop.style.display='block';
+var r=sb.getBoundingClientRect(),h=pop.offsetHeight,w=pop.offsetWidth;
+pop.style.left=Math.max(4,Math.min(r.left,innerWidth-w-4))+'px';
+pop.style.top=(r.bottom+4+h<innerHeight?r.bottom+4:Math.max(4,r.top-4-h))+'px';});
+sb.addEventListener('mouseleave',function(){pop.style.display='none';});});
 var nav=document.querySelector('nav'),bar=document.querySelector('.filters');
 var ctl=['f-name','f-group','f-dep','f-state','f-rtk','f-notes','f-closed','f-farm'].map($);
 function navHeight(){var sticky=getComputedStyle(nav).position==='sticky',
@@ -1672,32 +1893,36 @@ window.addEventListener('resize',function(){navHeight();size();});navHeight();ap
 # Review template (XLSX)
 # ---------------------------------------------------------------------------
 
-# Columns of the review sheet, in order. Hidden ones are written by the
-# addon for the import, never meant to be edited.
-_REVIEW_COLUMNS = (
-    # (header, width, hidden)
-    ("group", 13, False),
-    ("filename", 30, False),
-    ("description", 30, False),
-    ("department", 14, False),
-    ("type", 8, False),
-    ("shot", 8, False),
-    ("text", 70, False),
-    ("wip_version", 10, True),
-    ("stable_version", 10, True),
-    # The description as exported: a cell differing from it is the prod's
-    # edit; one equal to it is no change, even if the file's moved on since.
-    ("description_exported", 30, True),
-)
-_COL = {h: chr(65 + i) for i, (h, _, _) in enumerate(_REVIEW_COLUMNS)}
-_HEADER_ROW = 6
-_META_COL = chr(65 + len(_REVIEW_COLUMNS))  # hidden cell holding schema_version=N
+# Template v4: a front sheet (Author, Review date, Role, how to, legend),
+# then one sheet per section -- Shots, Assets -- each with only its own
+# departments. A cell per department: "ok" validates it for the Role, "no"
+# withdraws that, any other text withdraws it too and makes an RTK of each
+# line ([sh020] [f12-40] at its start). "global": ok = every department
+# done so far, text = an RTK for no department. Each cell's fill is the
+# department's state at the snapshot. See NOTES.md, "Review template v4".
+REVIEW_GLOBAL = "global"
+# What reads as "validated" in a department cell, case aside.
+OK_WORDS = ("ok", "yes", "oui", "v", "x", "✓", "✔", "valid", "validé", "valide")
+NO_WORDS = ("no", "non")
+# Hidden columns after the departments' and "global", for the import.
+_REVIEW_HIDDEN = ("wip_version", "stable_version", "description_exported")
+_SHEET_HEADER_ROW = 2  # row 1: the sheet's one-line how-to
+# Template v3 (1.1.2 before its release): read back for the import only.
+VALID_PREFIX = "valid "
+VALID_CHOICES = ("yes", "no")
+VALID_ALL = "valid all done"
 
 # cellXfs indexes in _STYLES_XML
 _S_TITLE, _S_LABEL, _S_HINT, _S_HEADER, _S_LOCKED = 1, 2, 3, 4, 5
-# 6: locked and muted, the description's until it became editable -- kept
-# in _STYLES_XML so the indexes below don't move.
+# 6: locked and muted, kept so the indexes below don't move.
 _S_INPUT, _S_INPUT_DATE, _S_INPUT_TEXT, _S_GROUP = 7, 8, 9, 10
+# A department cell, by state (then +1: the same with an open RTK's red
+# border): input cells, filled with the state's colour.
+_S_STATE = {"todo": 11, "wip": 13, "rework": 15, "done": 17, "validated": 19}
+_S_NA = 21  # not required: locked, "–"
+_S_HINT_WRAP = 22
+# The front sheet's three fields to fill: a bigger label, a yellow input.
+_S_FIELD_LABEL, _S_FIELD, _S_FIELD_DATE, _S_SECTION = 23, 24, 25, 26
 
 _XML_ILLEGAL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
 
@@ -1724,64 +1949,105 @@ def _cell(ref: str, value, style: int = 0) -> str:
 
 
 def _stem(filename: str | None) -> str | None:
-    """"ch_bob_v004.blend" -> "ch_bob_v004" (the import adds .blend back)."""
-    return filename[: -len(".blend")] if filename and filename.endswith(".blend") else filename
+    return Path(filename).stem if filename else None
 
 
-def render_review_xlsx(snapshot: dict) -> bytes:
-    """Review template: one row per asset/shot, grouped by prefix/sequence
-    in a merged left column, filename and known versions locked in,
-    description editable (imported, see review_description_changes()),
-    department/type dropdowns, Author/Review date at the top."""
-    meta = snapshot["meta"]
-    items = snapshot["assets"] + snapshot["shots"]
-    first = _HEADER_ROW + 1
-    last = _HEADER_ROW + max(1, len(items))
+def _department_style(item: dict, department: str) -> int:
+    """A department cell's style: its state's fill (violet once validated
+    by the top role at the stable shown), red-bordered with an open RTK."""
+    state = item["departments"][department]
+    key = "validated" if item.get("validated", {}).get(department) else state
+    return _S_STATE[key] + (department in item["rtk_departments"])
 
+
+def _review_front(meta: dict, roles: list, top_role: str | None) -> str:
+    """Sheet 1: title, Author / Review date / Role inputs, how to fill the
+    other sheets, the colour legend; schema_version in a hidden cell."""
     title = f"{meta.get('project') or ''} review".strip()
-    scan_date = (meta.get("scan_started_at") or "").replace("T", " ")
-    intro = (
-        f"Snapshot of {scan_date}. Write in the white cells. One line of text "
-        "= one note (Alt+Enter for the next one); rows with an empty text are "
-        "ignored. Edit a description to change it."
+    scan_date = (meta.get("scan_started_at") or "").replace("T", " ")[:16]
+    how = (
+        f"Snapshot of {scan_date}. One sheet per section (Shots, Assets), one "
+        "row per file, a cell per department:",
+        "  ok  →  validates the department as your role (yes, v, ✓... too)",
+        "  no  →  withdraws that validation",
+        "  any other text  →  withdraws it too, and each line becomes a retake "
+        "(RTK) of that department -- Alt+Enter for the next line",
+        "  start a line with [sh020] for one shot of a block, [f12-40] or [f12] "
+        "for its frames:  [sh020] [f12-40] the foot slides",
+        "  global  →  ok validates every department done so far; a text is a "
+        "retake for no department in particular",
+        "  empty  →  nothing changes.  Edit a description to change it.",
+    )
+    legend = [
+        (_S_STATE["todo"], "Not started"),
+        (_S_STATE["wip"], "Work in progress"),
+        (_S_STATE["rework"], "Done, reworked since"),
+        (_S_STATE["done"], "Done -- to validate"),
+        (
+            _S_STATE["validated"],
+            f"Validated by {top_role} (or equivalent)" if top_role else "Validated",
+        ),
+        (_S_STATE["todo"] + 1, "Red border: an open retake"),
+        (_S_NA, "–  not required"),
+    ]
+    field = '<row r="{r}" ht="26" customHeight="1">'
+    rows = [
+        '<row r="1" ht="24" customHeight="1">' + _cell("A1", title, _S_SECTION) + _cell("D1", f"schema_version={SCHEMA_VERSION}") + "</row>",
+        field.format(r=2) + _cell("A2", "Author", _S_FIELD_LABEL) + _cell("B2", "", _S_FIELD) + _cell("C2", 'Empty: "prod"', _S_HINT) + "</row>",
+        field.format(r=3) + _cell("A3", "Review date", _S_FIELD_LABEL) + _cell("B3", "", _S_FIELD_DATE) + _cell("C3", "Empty: the day the file is imported", _S_HINT) + "</row>",
+        field.format(r=4) + _cell("A4", "Role", _S_FIELD_LABEL) + _cell("B4", "", _S_FIELD) + _cell("C4", "Required: pick it in the list -- your validations and retakes are recorded under it", _S_HINT) + "</row>",
+    ]
+    r = 7
+    rows.append(f'<row r="{r}">' + _cell(f"A{r}", "How to fill", _S_LABEL) + "</row>")
+    for line in how:
+        r += 1
+        rows.append(f'<row r="{r}">' + _cell(f"A{r}", line, _S_HINT) + "</row>")
+    r += 2
+    rows.append(f'<row r="{r}">' + _cell(f"A{r}", "Colours (state at the snapshot)", _S_LABEL) + "</row>")
+    for style, label in legend:
+        r += 1
+        rows.append(f'<row r="{r}">' + _cell(f"A{r}", "", style) + _cell(f"B{r}", label, _S_HINT) + "</row>")
+    validations = ""
+    if roles:
+        validations = (
+            '<dataValidations count="1"><dataValidation type="list" allowBlank="1" '
+            f'showErrorMessage="1" sqref="B4"><formula1>"{xml_escape(",".join(roles))}"'
+            "</formula1></dataValidation></dataValidations>"
+        )
+    return _worksheet(
+        f"A1:D{r}",
+        '<col min="1" max="1" width="16" customWidth="1"/>'
+        '<col min="2" max="2" width="28" customWidth="1"/>'
+        '<col min="3" max="3" width="60" customWidth="1"/>'
+        '<col min="4" max="4" width="8" hidden="1"/>',
+        "".join(rows),
+        validations,
+        active="B2",
+    )
+
+
+def _review_section(title: str, items: list, departments: list) -> tuple[str, str]:
+    """A section's sheet: group (merged), filename, description, a column
+    per department and "global" -- input cells filled by state, "–" locked
+    where not required -- then the hidden columns. -> (sheet XML, the
+    autofilter's range)."""
+    columns = [("group", 12), ("filename", 36), ("description", 28)]
+    columns += [(d, 24) for d in departments] + [(REVIEW_GLOBAL, 30)]
+    visible = len(columns)
+    columns += [(h, 10) for h in _REVIEW_HIDDEN]
+    col = {h: _col(i) for i, (h, _) in enumerate(columns)}
+    hr = _SHEET_HEADER_ROW
+    first, last = hr + 1, hr + max(1, len(items))
+    how = (
+        f"{title}: ok validates a department, no withdraws, any other text = "
+        "retakes (one per line, [sh020] [f12-40] at its start). Colours and "
+        "details: first sheet."
     )
     rows = [
-        '<row r="1">'
-        + _cell("A1", title, _S_TITLE)
-        + _cell(f"{_META_COL}1", f"schema_version={SCHEMA_VERSION}")
-        + "</row>",
-        '<row r="2">'
-        + _cell("A2", "Author", _S_LABEL)
-        + _cell("B2", "", _S_INPUT)
-        + _cell("C2", 'Empty: "prod"', _S_HINT)
-        + "</row>",
-        '<row r="3">'
-        + _cell("A3", "Review date", _S_LABEL)
-        + _cell("B3", "", _S_INPUT_DATE)
-        + _cell("C3", "Empty: the day the file is imported", _S_HINT)
-        + "</row>",
-        '<row r="4">' + _cell("A4", intro, _S_HINT) + "</row>",
-        f'<row r="{_HEADER_ROW}">'
-        + "".join(
-            _cell(f"{_COL[h]}{_HEADER_ROW}", h, _S_HEADER) for h, _, _ in _REVIEW_COLUMNS
-        )
-        + "</row>",
+        '<row r="1">' + _cell("A1", how, _S_HINT) + "</row>",
+        f'<row r="{hr}">' + "".join(_cell(f"{col[h]}{hr}", h, _S_HEADER) for h, _ in columns) + "</row>",
     ]
-    styles = {
-        "group": _S_GROUP,
-        "filename": _S_LOCKED,
-        "description": _S_INPUT,  # edits are imported (confirm dialog)
-        "department": _S_INPUT,
-        "type": _S_INPUT,
-        "shot": _S_INPUT_TEXT,
-        "text": _S_INPUT,
-        "wip_version": _S_LOCKED,
-        "stable_version": _S_LOCKED,
-        "description_exported": _S_LOCKED,
-    }
-    dep_lists: dict[str, list[str]] = {}
-    merges = []
-    group_start = None
+    inputs, merges, group_start = [], [], None
     for n, item in enumerate(items):
         r = first + n
         new_group = n == 0 or item["group"] != items[n - 1]["group"]
@@ -1789,46 +2055,44 @@ def render_review_xlsx(snapshot: dict) -> bytes:
             if group_start is not None and r - 1 > group_start:
                 merges.append(f"A{group_start}:A{r - 1}")
             group_start = r
-        values = {
-            # Only the merge's top cell holds the value.
-            "group": item["group"] if new_group else None,
-            "filename": _stem(item["current_version"]) or item["name"],
-            "description": item["description"],
-            "type": "rtk",
-            "wip_version": _stem(item["wip_version"]),
-            "stable_version": _stem(item["stable_version"]),
-            "description_exported": item["description"],
-        }
-        cells = "".join(
-            _cell(f"{_COL[h]}{r}", values.get(h), styles[h]) for h, _, _ in _REVIEW_COLUMNS
-        )
-        rows.append(f'<row r="{r}">{cells}</row>')
-        deps = ",".join(item["departments_required"])
-        if deps and len(deps) <= 255:  # Excel's inline list limit
-            dep_lists.setdefault(deps, []).append(f"{_COL['department']}{r}")
+        cells = [
+            _cell(f"A{r}", item["group"] if new_group else None, _S_GROUP),
+            _cell(f"B{r}", _stem(item["current_version"]) or item["name"], _S_LOCKED),
+            _cell(f"C{r}", item["description"], _S_INPUT),
+        ]
+        for d in departments:
+            ref = f"{col[d]}{r}"
+            if d in item["departments"]:
+                cells.append(_cell(ref, "", _department_style(item, d)))
+                inputs.append(ref)
+            else:
+                cells.append(_cell(ref, "–", _S_NA))
+        ref = f"{col[REVIEW_GLOBAL]}{r}"
+        cells.append(_cell(ref, "", _S_INPUT))
+        inputs.append(ref)
+        cells += [
+            _cell(f"{col['wip_version']}{r}", _stem(item["wip_version"]), _S_LOCKED),
+            _cell(f"{col['stable_version']}{r}", _stem(item["stable_version"]), _S_LOCKED),
+            _cell(f"{col['description_exported']}{r}", item["description"], _S_LOCKED),
+        ]
+        rows.append(f'<row r="{r}">{"".join(cells)}</row>')
     if group_start is not None and last > group_start:
         merges.append(f"A{group_start}:A{last}")
-
-    t = _COL["type"]
-    validations = [
-        f'<dataValidation type="list" allowBlank="1" showErrorMessage="1" '
-        f'sqref="{t}{first}:{t}{last}"><formula1>"{",".join(ENTRY_TYPES)}"</formula1>'
-        "</dataValidation>"
-    ] + [
-        f'<dataValidation type="list" allowBlank="1" showErrorMessage="1" '
-        f'sqref="{" ".join(refs)}"><formula1>"{xml_escape(deps)}"</formula1>'
-        "</dataValidation>"
-        for deps, refs in dep_lists.items()
-    ]
     cols = "".join(
         f'<col min="{i + 1}" max="{i + 1}" width="{w}" customWidth="1"'
-        + (' hidden="1"' if hidden else "")
+        + (' hidden="1"' if i >= visible else "")
         + "/>"
-        for i, (_, w, hidden) in enumerate(_REVIEW_COLUMNS)
+        for i, (_, w) in enumerate(columns)
     )
-    meta_n = len(_REVIEW_COLUMNS) + 1
-    cols += f'<col min="{meta_n}" max="{meta_n}" width="8" hidden="1"/>'
-    filter_ref = f"A{_HEADER_ROW}:{_COL['text']}{last}"
+    filter_ref = f"A{hr}:{_col(visible - 1)}{last}"
+    # A suggestion, not a rule: any text goes (showErrorMessage="0").
+    validations = (
+        '<dataValidations count="1"><dataValidation type="list" allowBlank="1" '
+        f'showErrorMessage="0" sqref="{" ".join(inputs)}"><formula1>"ok,no"</formula1>'
+        "</dataValidation></dataValidations>"
+        if inputs
+        else ""
+    )
     merge_xml = (
         f'<mergeCells count="{len(merges)}">'
         + "".join(f'<mergeCell ref="{m}"/>' for m in merges)
@@ -1836,105 +2100,187 @@ def render_review_xlsx(snapshot: dict) -> bytes:
         if merges
         else ""
     )
-    sheet = (
+    sheet = _worksheet(
+        f"A1:{_col(len(columns) - 1)}{last}",
+        cols,
+        "".join(rows),
+        validations,
+        active=f"{col[departments[0]] if departments else 'C'}{first}",
+        freeze=(2, hr),
+        after_data=f'<autoFilter ref="{filter_ref}"/>{merge_xml}',
+    )
+    return sheet, filter_ref
+
+
+def _worksheet(
+    dimension: str,
+    cols: str,
+    rows: str,
+    validations: str,
+    active: str,
+    freeze: tuple[int, int] | None = None,
+    after_data: str = "",
+) -> str:
+    """One protected sheet (no password: it only stops accidental edits of
+    the locked cells), printed landscape one page wide."""
+    if freeze:
+        x, y = freeze
+        pane = (
+            f'<pane xSplit="{x}" ySplit="{y}" topLeftCell="{_col(x)}{y + 1}" '
+            'activePane="bottomRight" state="frozen"/>'
+            f'<selection pane="bottomRight" activeCell="{active}" sqref="{active}"/>'
+        )
+    else:
+        pane = f'<selection activeCell="{active}" sqref="{active}"/>'
+    return (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
         '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
         'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
         '<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>'
-        f'<dimension ref="A1:{_META_COL}{last}"/>'
-        '<sheetViews><sheetView workbookViewId="0">'
-        f'<pane ySplit="{_HEADER_ROW}" topLeftCell="A{first}" activePane="bottomLeft" state="frozen"/>'
-        '<selection pane="bottomLeft" activeCell="B2" sqref="B2"/>'
-        "</sheetView></sheetViews>"
+        f'<dimension ref="{dimension}"/>'
+        f'<sheetViews><sheetView workbookViewId="0">{pane}</sheetView></sheetViews>'
         f"<cols>{cols}</cols>"
-        f"<sheetData>{''.join(rows)}</sheetData>"
-        # No password: this only stops accidental edits of the locked columns.
+        f"<sheetData>{rows}</sheetData>"
         '<sheetProtection sheet="1" objects="1" scenarios="1" formatCells="0" '
         'formatColumns="0" formatRows="0" autoFilter="0"/>'
-        f'<autoFilter ref="{filter_ref}"/>'
-        f"{merge_xml}"
-        f'<dataValidations count="{len(validations)}">{"".join(validations)}</dataValidations>'
+        f"{after_data}{validations}"
         '<pageMargins left="0.5" right="0.5" top="0.5" bottom="0.5" header="0.3" footer="0.3"/>'
-        # Printed landscape, one page wide.
         '<pageSetup orientation="landscape" fitToWidth="1" fitToHeight="0"/>'
         "</worksheet>"
+    )
+
+
+def render_review_xlsx(snapshot: dict) -> bytes:
+    """Review template v4: the front sheet, then Shots and Assets (a
+    section with nothing tracked left out), each with its own departments
+    -- see the comment above REVIEW_GLOBAL."""
+    meta = snapshot["meta"]
+    roles = [r["name"] for r in meta.get("validation_roles", [])]
+    top_role = meta.get("validation_role")
+    sheets = [("Review", _review_front(meta, roles, top_role), None)]
+    for title, items, departments in (
+        ("Shots", snapshot["shots"], meta.get("shot_departments", [])),
+        ("Assets", snapshot["assets"], meta.get("asset_departments", [])),
+    ):
+        if items:
+            xml, filter_ref = _review_section(title, items, departments)
+            sheets.append((title, xml, filter_ref))
+    n = len(sheets)
+    names = "".join(
+        f'<definedName name="_xlnm._FilterDatabase" localSheetId="{i}" hidden="1">'
+        + name
+        + "!"
+        + re.sub(r"([A-Z]+)(\d+)", r"$\1$\2", ref)
+        + "</definedName>"
+        for i, (name, _, ref) in enumerate(sheets)
+        if ref
     )
     workbook = (
         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
         '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
         'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
-        '<sheets><sheet name="Review" sheetId="1" r:id="rId1"/></sheets>'
-        '<definedNames><definedName name="_xlnm._FilterDatabase" localSheetId="0" '
-        f'hidden="1">Review!$A${_HEADER_ROW}:${_COL["text"]}${last}</definedName></definedNames>'
-        "</workbook>"
+        "<sheets>"
+        + "".join(
+            f'<sheet name="{name}" sheetId="{i + 1}" r:id="rId{i + 1}"/>'
+            for i, (name, _, _) in enumerate(sheets)
+        )
+        + "</sheets>"
+        + (f"<definedNames>{names}</definedNames>" if names else "")
+        + "</workbook>"
+    )
+    content_types = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+        '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+        '<Default Extension="xml" ContentType="application/xml"/>'
+        '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+        + "".join(
+            f'<Override PartName="/xl/worksheets/sheet{i + 1}.xml" '
+            'ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+            for i in range(n)
+        )
+        + '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
+        "</Types>"
+    )
+    rels = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+        + "".join(
+            f'<Relationship Id="rId{i + 1}" Type="http://schemas.openxmlformats.org/'
+            f'officeDocument/2006/relationships/worksheet" Target="worksheets/sheet{i + 1}.xml"/>'
+            for i in range(n)
+        )
+        + f'<Relationship Id="rId{n + 1}" Type="http://schemas.openxmlformats.org/'
+        'officeDocument/2006/relationships/styles" Target="styles.xml"/>'
+        "</Relationships>"
     )
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
-        z.writestr("[Content_Types].xml", _CONTENT_TYPES_XML)
+        z.writestr("[Content_Types].xml", content_types)
         z.writestr("_rels/.rels", _RELS_XML)
         z.writestr("xl/workbook.xml", workbook)
-        z.writestr("xl/_rels/workbook.xml.rels", _WORKBOOK_RELS_XML)
-        z.writestr("xl/worksheets/sheet1.xml", sheet)
+        z.writestr("xl/_rels/workbook.xml.rels", rels)
+        for i, (_, xml, _) in enumerate(sheets):
+            z.writestr(f"xl/worksheets/sheet{i + 1}.xml", xml)
         z.writestr("xl/styles.xml", _STYLES_XML)
     return buf.getvalue()
 
 
-_CONTENT_TYPES_XML = (
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-    '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
-    '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
-    '<Default Extension="xml" ContentType="application/xml"/>'
-    '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
-    '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
-    '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
-    "</Types>"
-)
 _RELS_XML = (
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
     '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
     '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
     "</Relationships>"
 )
-_WORKBOOK_RELS_XML = (
-    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-    '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-    '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
-    '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'
-    "</Relationships>"
-)
 # One font, one size: weight and grey only. Grey fill = locked, white =
 # to fill in. cellXfs: 0 default, 1 title, 2 label, 3 hint, 4 header,
 # 5 locked, 6 locked muted, 7 input, 8 input date, 9 input text-format
-# (keeps "045" a string), 10 group (merged left column).
+# (keeps "045" a string), 10 group (merged left column), then a
+# department's input cell per state (_S_STATE) and its red-bordered twin,
+# 21 not required, 22 hint wrapped.
 _UNLOCK = '<protection locked="0"/>'
 _TOP = '<alignment vertical="top"/>'
 _TOP_WRAP = '<alignment vertical="top" wrapText="1"/>'
+# fillId per state: todo white (0), wip amber, rework light green, done
+# green, validated violet -- the snapshot page's colours, lightened.
+_STATE_FILLS = (("todo", 0), ("wip", 5), ("rework", 6), ("done", 7), ("validated", 8))
 _STYLES_XML = (
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
     '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
     '<numFmts count="1"><numFmt numFmtId="164" formatCode="yyyy-mm-dd"/></numFmts>'
-    '<fonts count="3">'
+    '<fonts count="5">'
     '<font><sz val="11"/><color rgb="FF1F2328"/><name val="Calibri"/></font>'
     '<font><b/><sz val="11"/><color rgb="FF1F2328"/><name val="Calibri"/></font>'
     '<font><sz val="11"/><color rgb="FF6E7781"/><name val="Calibri"/></font>'
+    '<font><b/><sz val="13"/><color rgb="FF1F2328"/><name val="Calibri"/></font>'
+    '<font><b/><sz val="16"/><color rgb="FF1F2328"/><name val="Calibri"/></font>'
     "</fonts>"
-    '<fills count="5">'
+    '<fills count="10">'
     '<fill><patternFill patternType="none"/></fill>'
     '<fill><patternFill patternType="gray125"/></fill>'
     '<fill><patternFill patternType="solid"><fgColor rgb="FFDDE3EA"/></patternFill></fill>'
     '<fill><patternFill patternType="solid"><fgColor rgb="FFF3F4F6"/></patternFill></fill>'
     '<fill><patternFill patternType="solid"><fgColor rgb="FFE9EDF2"/></patternFill></fill>'
+    '<fill><patternFill patternType="solid"><fgColor rgb="FFFCEBC4"/></patternFill></fill>'
+    '<fill><patternFill patternType="solid"><fgColor rgb="FFE4F4D4"/></patternFill></fill>'
+    '<fill><patternFill patternType="solid"><fgColor rgb="FFC8EBCD"/></patternFill></fill>'
+    '<fill><patternFill patternType="solid"><fgColor rgb="FFE6D8F7"/></patternFill></fill>'
+    '<fill><patternFill patternType="solid"><fgColor rgb="FFFFF3B0"/></patternFill></fill>'
     "</fills>"
-    '<borders count="2"><border/>'
+    '<borders count="4"><border/>'
     '<border><left style="thin"><color rgb="FFC8CED6"/></left><right style="thin"><color rgb="FFC8CED6"/></right>'
     '<top style="thin"><color rgb="FFC8CED6"/></top><bottom style="thin"><color rgb="FFC8CED6"/></bottom></border>'
+    '<border><left style="medium"><color rgb="FFC62828"/></left><right style="medium"><color rgb="FFC62828"/></right>'
+    '<top style="medium"><color rgb="FFC62828"/></top><bottom style="medium"><color rgb="FFC62828"/></bottom></border>'
+    '<border><left style="medium"><color rgb="FF8A6D00"/></left><right style="medium"><color rgb="FF8A6D00"/></right>'
+    '<top style="medium"><color rgb="FF8A6D00"/></top><bottom style="medium"><color rgb="FF8A6D00"/></bottom></border>'
     "</borders>"
     '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
-    '<cellXfs count="11">'
+    '<cellXfs count="27">'
     '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
     '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
     '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
-    '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
+    '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf>'
     '<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"/>'
     f'<xf numFmtId="0" fontId="0" fillId="3" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1">{_TOP}</xf>'
     f'<xf numFmtId="0" fontId="2" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">{_TOP_WRAP}</xf>'
@@ -1942,6 +2288,20 @@ _STYLES_XML = (
     f'<xf numFmtId="164" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1" applyProtection="1"><alignment horizontal="left"/>{_UNLOCK}</xf>'
     f'<xf numFmtId="49" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyBorder="1" applyAlignment="1" applyProtection="1">{_TOP}{_UNLOCK}</xf>'
     '<xf numFmtId="0" fontId="1" fillId="4" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>'
+    + "".join(
+        f'<xf numFmtId="0" fontId="0" fillId="{fill}" borderId="{border}" xfId="0" '
+        'applyFill="1" applyBorder="1" applyAlignment="1" applyProtection="1">'
+        f"{_TOP_WRAP}{_UNLOCK}</xf>"
+        for _, fill in _STATE_FILLS
+        for border in (1, 2)
+    )
+    + '<xf numFmtId="0" fontId="2" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" '
+    'applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="top"/></xf>'
+    f'<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1">{_TOP_WRAP}</xf>'
+    '<xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf>'
+    f'<xf numFmtId="0" fontId="3" fillId="9" borderId="3" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1" applyProtection="1"><alignment vertical="center"/>{_UNLOCK}</xf>'
+    f'<xf numFmtId="164" fontId="3" fillId="9" borderId="3" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1" applyProtection="1"><alignment horizontal="left" vertical="center"/>{_UNLOCK}</xf>'
+    '<xf numFmtId="0" fontId="4" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
     "</cellXfs>"
     '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'
     "</styleSheet>"
@@ -1957,20 +2317,25 @@ _REL_NS = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}
 _PKG_REL_NS = "{http://schemas.openxmlformats.org/package/2006/relationships}"
 
 
-def _first_sheet_path(z: zipfile.ZipFile) -> str:
-    """Zip path of the workbook's first sheet (not always sheet1.xml once
-    a spreadsheet app has re-saved it)."""
+def _sheet_paths(z: zipfile.ZipFile) -> list[str]:
+    """Zip paths of the workbook's sheets, in its order (not always
+    sheetN.xml once a spreadsheet app has re-saved it)."""
     try:
         wb = ET.fromstring(z.read("xl/workbook.xml"))
-        rid = wb.find(f"{_NS}sheets/{_NS}sheet").get(f"{_REL_NS}id")
         rels = ET.fromstring(z.read("xl/_rels/workbook.xml.rels"))
-        for rel in rels.iter(f"{_PKG_REL_NS}Relationship"):
-            if rel.get("Id") == rid:
-                target = rel.get("Target")
-                return target.lstrip("/") if target.startswith("/") else f"xl/{target}"
+        targets = {
+            rel.get("Id"): rel.get("Target") for rel in rels.iter(f"{_PKG_REL_NS}Relationship")
+        }
+        paths = []
+        for sheet in wb.iter(f"{_NS}sheet"):
+            target = targets.get(sheet.get(f"{_REL_NS}id"))
+            if target:
+                paths.append(target.lstrip("/") if target.startswith("/") else f"xl/{target}")
+        if paths:
+            return paths
     except (KeyError, AttributeError, ET.ParseError):
         pass
-    return "xl/worksheets/sheet1.xml"
+    return ["xl/worksheets/sheet1.xml"]
 
 
 def _string_item(si) -> str:
@@ -1990,10 +2355,10 @@ def _ref_split(ref: str) -> tuple[str, int]:
     return (m[1], int(m[2])) if m else ("", 0)
 
 
-def read_xlsx_grid(path: Path) -> dict[int, dict[str, str]]:
-    """First sheet of an .xlsx as {row number: {column letters: text}}.
-    Text cells resolved through sharedStrings (t="s") or inline; numbers
-    (dates included) kept as their raw text."""
+def read_xlsx_grids(path: Path) -> list[dict[int, dict[str, str]]]:
+    """Every sheet of an .xlsx, in order, as {row number: {column letters:
+    text}}. Text cells resolved through sharedStrings (t="s") or inline;
+    numbers (dates included) kept as their raw text."""
     try:
         with zipfile.ZipFile(path) as z:
             names = set(z.namelist())
@@ -2001,10 +2366,13 @@ def read_xlsx_grid(path: Path) -> dict[int, dict[str, str]]:
             if "xl/sharedStrings.xml" in names:
                 sst = ET.fromstring(z.read("xl/sharedStrings.xml"))
                 shared = [_string_item(si) for si in sst.iter(f"{_NS}si")]
-            sheet = ET.fromstring(z.read(_first_sheet_path(z)))
+            sheets = [ET.fromstring(z.read(p)) for p in _sheet_paths(z) if p in names]
     except (OSError, KeyError, zipfile.BadZipFile, ET.ParseError) as e:
         raise PipelineError(f"Could not read {Path(path).name} as a spreadsheet: {e}")
+    return [_sheet_grid(sheet, shared) for sheet in sheets]
 
+
+def _sheet_grid(sheet, shared: list) -> dict[int, dict[str, str]]:
     grid: dict[int, dict[str, str]] = {}
     row_n = 0
     for row in sheet.iter(f"{_NS}row"):
@@ -2055,27 +2423,42 @@ def parse_review_date(value: str) -> datetime | None:
 
 
 def read_review_xlsx(path: Path) -> dict:
-    """{"schema_version", "author", "review_date", "columns", "rows"} from a
-    filled review template; rows keyed by the header row's names."""
-    grid = read_xlsx_grid(path)
+    """{"schema_version", "author", "role", "review_date", "columns", "rows"}
+    from a filled review template, every sheet's rows (v4: Shots, Assets)
+    keyed by their own header row's names; Author, Review date and Role
+    from the label cells above any header (v4: the front sheet)."""
     schema = None
-    author = date = ""
-    header_row = None
-    for r in sorted(grid):
-        cells = grid[r]
-        for v in cells.values():
-            m = re.fullmatch(r"schema_version=(\d+)", v.strip())
-            if m:
-                schema = int(m[1])
-        label = cells.get("A", "").strip().lower()
-        if label == "author":
-            author = cells.get("B", "")
-        elif label == "review date":
-            date = cells.get("B", "")
-        elif any(v.strip().lower() == "filename" for v in cells.values()):
-            header_row = r
-            break
-    if schema is None or header_row is None:
+    author = date = role = ""
+    columns: set[str] = set()
+    rows = []
+    for grid in read_xlsx_grids(path):
+        header_row = None
+        for r in sorted(grid):
+            cells = grid[r]
+            for v in cells.values():
+                m = re.fullmatch(r"schema_version=(\d+)", v.strip())
+                if m:
+                    schema = int(m[1])
+            label = cells.get("A", "").strip().lower()
+            if label == "author":
+                author = cells.get("B", "")
+            elif label == "review date":
+                date = cells.get("B", "")
+            elif label == "role":
+                role = cells.get("B", "")
+            elif any(v.strip().lower() == "filename" for v in cells.values()):
+                header_row = r
+                break
+        if header_row is None:
+            continue
+        header = {col: name.strip().lower() for col, name in grid[header_row].items()}
+        columns |= set(header.values())
+        rows += [
+            {header[col]: v.strip() for col, v in grid[r].items() if col in header}
+            for r in sorted(grid)
+            if r > header_row
+        ]
+    if schema is None or not columns:
         raise PipelineError(
             f"{Path(path).name} isn't a review template exported by this addon."
         )
@@ -2084,22 +2467,221 @@ def read_review_xlsx(path: Path) -> dict:
             f"{Path(path).name} comes from a newer addon version (template "
             f"v{schema}); update the addon to import it."
         )
-    header = {col: name.strip().lower() for col, name in grid[header_row].items()}
-    rows = [
-        {header[col]: v.strip() for col, v in grid[r].items() if col in header}
-        for r in sorted(grid)
-        if r > header_row
-    ]
     return {
         "schema_version": schema,
         "author": author.strip(),
+        "role": role.strip().lower(),
         "review_date": parse_review_date(date),
-        "columns": set(header.values()),
+        "columns": columns,
         "rows": rows,
     }
 
 
 _BULLET = re.compile(r"^\s*(?:[-*•–]|\d+[.)])\s+")
+
+
+def _review_lines(row: dict) -> list[str]:
+    """A row's text cell, one note per line, a typed bullet dropped."""
+    return [
+        line
+        for line in (_BULLET.sub("", l).strip() for l in row.get("text", "").split("\n"))
+        if line
+    ]
+
+
+def _file_shots(filepath: Path) -> list[str]:
+    """The shot numbers of a shot's .blend, padded ("010", "020" for a
+    block); [] for an asset."""
+    parsed = parse_filename(filepath.name) or {}
+    if not parsed.get("shot"):
+        return []
+    digits = json_get(ConfigCache.get(), "naming.shot.digits", 3)
+    try:
+        return [f"{n:0{digits}d}" for n in shots_in_segment(parsed["shot"])]
+    except ValueError:
+        return []
+
+
+_LINE_TAG = re.compile(r"\s*\[\s*([a-z]*)\s*(\d+)(?:\s*-\s*(\d+))?\s*\]", re.I)
+
+
+def _line_tags(line: str, shots: list[str]) -> tuple[str, str | None, tuple | None]:
+    """A review line's leading tags, in any order: "[sh020]" one shot of
+    the block (shots: its numbers, padded), "[f12-40]" / "[f12]" its
+    frames. -> (text without them, shot, (start, end or None)). A tag that
+    isn't one -- an unknown shot, another word -- ends the scan and stays
+    in the text."""
+    shot_prefix = json_get(ConfigCache.get(), "naming.shot.prefix", "sh").lower()
+    shot = frames = None
+    rest = line
+    while m := _LINE_TAG.match(rest):
+        word, a, b = m[1].lower(), int(m[2]), m[3]
+        if word in (shot_prefix, "sh") and b is None and shot is None:
+            padded = next((s for s in shots if int(s) == a), None)
+            if padded is None:
+                break
+            shot = padded
+        elif word == "f" and frames is None:
+            frames = (a, int(b) if b else None)
+            if frames[1] is not None and frames[1] < a:
+                break
+        else:
+            break
+        rest = rest[m.end() :]
+    rest = rest.strip()
+    if not rest:  # tags alone: nothing to note, keep the line as typed
+        return line, None, None
+    return rest, shot, frames
+
+
+# Not departments, in a v4 sheet's header.
+_REVIEW_FIXED = {"group", "filename", "description", REVIEW_GLOBAL, *_REVIEW_HIDDEN}
+_NOTE_PREFIX = re.compile(r"^note\s*:\s*", re.I)
+
+
+def _cell_choice(value: str) -> str:
+    """A v4 department cell: "ok" (a validation word), "no", "text" (any
+    other: retakes -- an "ok" line among others is text too, the retake
+    wins), "" empty."""
+    v = (value or "").strip()
+    if not v:
+        return ""
+    if v.lower() in OK_WORDS:
+        return "ok"
+    if v.lower() in NO_WORDS:
+        return "no"
+    return "text"
+
+
+def _row_actions(row: dict, schema: int) -> tuple[dict, str, list]:
+    """What a template row asks: ({department: "yes"/"no"} of its own,
+    "yes"/"no"/"" for every department done, [(line, departments, type)]
+    notes to create). v4: a cell per department and "global"; before: the
+    "valid <department>" columns, "valid all done", one text cell with the
+    row's department(s) and type."""
+    if schema < 4:
+        wanted = {
+            c[len(VALID_PREFIX) :]: v.strip().lower()
+            for c, v in row.items()
+            if c.startswith(VALID_PREFIX)
+            and c != VALID_ALL
+            and v.strip().lower() in VALID_CHOICES
+        }
+        every = (row.get(VALID_ALL) or "").strip().lower()
+        every = every if every in VALID_CHOICES else ""
+        departments = [
+            d.strip() for d in re.split(r"[,;/+]", (row.get("department") or "").lower()) if d.strip()
+        ]
+        entry_type = (row.get("type") or "").lower()
+        entry_type = entry_type if entry_type in ENTRY_TYPES else "note"
+        notes = [(line, departments, entry_type) for line in _review_lines(row)]
+        return wanted, every, notes
+    wanted, every, notes = {}, "", []
+    for column, value in row.items():
+        if column in _REVIEW_FIXED:
+            continue
+        choice = _cell_choice(value)
+        if choice == "ok":
+            wanted[column] = "yes"
+        elif choice in ("no", "text"):
+            wanted[column] = "no"  # a retake withdraws the validation
+        if choice == "text":
+            notes += [(line, [column], "rtk") for line in _review_lines({"text": value})]
+    choice = _cell_choice(row.get(REVIEW_GLOBAL, ""))
+    if choice in ("ok", "no"):
+        every = "yes" if choice == "ok" else "no"
+    elif choice == "text":
+        notes += [
+            (line, [], "rtk") for line in _review_lines({"text": row[REVIEW_GLOBAL]})
+        ]
+    # "note: ..." -- a remark, not a retake.
+    notes = [
+        (_NOTE_PREFIX.sub("", line), deps, "note") if _NOTE_PREFIX.match(line) else (line, deps, t)
+        for line, deps, t in notes
+    ]
+    return wanted, every, [n for n in notes if n[0]]
+
+
+def _review_file(name: str) -> Path | None:
+    """The .blend a row's filename names, None if it's gone."""
+    try:
+        return find_file_by_name(name if name.endswith(".blend") else f"{name}.blend")
+    except PipelineError:  # unknown prefix...
+        return None
+
+
+def review_import_plan(path: Path) -> dict:
+    """What importing a review template would do, read only -- for its
+    confirm dialog: {"role", "author", "notes" (lines to import, duplicates
+    included), "validations": [{"name", "filepath", "department",
+    "approved", "stable"}], "refused": [(label, reason)]}. A template from
+    1.1.2 on needs its Role, and that role must be one of the project's:
+    raises PipelineError otherwise. An older one has no role (the team's
+    notes) and no validation."""
+    review = read_review_xlsx(path)
+    role = review["role"]
+    roles = {r["name"] for r in validation_roles()}
+    schema = review["schema_version"]
+    actions = [(row, *_row_actions(row, schema)) for row in review["rows"] if row.get("filename")]
+    plan = {
+        "role": role,
+        "author": review["author"] or "prod",
+        "notes": sum(len(notes) for _, _, _, notes in actions),
+        "validations": [],
+        "refused": [],
+    }
+    wanted_any = any(wanted or every for _, wanted, every, _ in actions)
+    # Anything under the role: it must be one (descriptions don't need it).
+    if schema >= 3 and (plan["notes"] or wanted_any):
+        if not role:
+            raise PipelineError(
+                f"{Path(path).name}: no Role chosen at the top -- pick one, then import again."
+            )
+        if role not in roles:
+            raise PipelineError(
+                f"{Path(path).name}: '{role}' isn't one of this project's validation roles "
+                f"({', '.join(sorted(roles)) or 'none'})."
+            )
+    for row, wanted, every, _ in actions:
+        name = row["filename"]
+        if not (wanted or every):
+            continue
+        filepath = _review_file(name)
+        raw = _collect_folder(filepath.parent) if filepath else None
+        if not raw:
+            plan["refused"] += [(f"{name}: {d}", "file not found") for d in wanted or ["all"]]
+            continue
+        status = _status_from_raw(raw)
+        done_now = status.get("validated_departments", {})
+        given = status.get("approvals") or {}
+        if every:
+            # Each department done now and not given its own value.
+            for d in status.get("departments_required", []):
+                if d in done_now:
+                    wanted.setdefault(d, every)
+        current = Path((status.get("stable_info") or {}).get("file") or "").stem
+        seen = row.get("stable_version") or ""
+        for department, choice in sorted(wanted.items()):
+            label = f"{name}: {department}"
+            if choice == "no" and role not in (given.get(department) or {}):
+                continue  # nothing to withdraw (a retake on unvalidated work)
+            if department not in status.get("departments_required", []):
+                plan["refused"].append((label, "department not required"))
+            elif seen and current and seen != current:
+                plan["refused"].append((label, f"{current} made since {seen}: to review again"))
+            elif choice == "yes" and department not in done_now:
+                plan["refused"].append((label, "not done (yet, or any more)"))
+            else:
+                plan["validations"].append(
+                    {
+                        "name": name,
+                        "filepath": str(filepath),
+                        "department": department,
+                        "approved": choice == "yes",
+                        "stable": f"{seen}.blend" if seen else None,
+                    }
+                )
+    return plan
 
 
 def import_review_xlsx(path: Path) -> dict:
@@ -2109,36 +2691,44 @@ def import_review_xlsx(path: Path) -> dict:
     the version the snapshot showed. A line already imported (same file,
     text and author, from a review) is skipped, so re-importing a file --
     or a re-sent one with notes added -- never duplicates.
-    Returns {"imported", "duplicates", "skipped": [(label, reason)]}."""
+    Every note and validation under the template's Role (none for one made
+    before 1.1.2) -- see review_import_plan().
+    Returns {"imported", "duplicates", "validated", "skipped": [(label, reason)]}."""
     review = read_review_xlsx(path)
+    plan = review_import_plan(path)
+    role = plan["role"] or None
     author = review["author"] or "prod"
     date = review["review_date"]
     created_at = date.isoformat(timespec="seconds") if date else None
     review_id = hashlib.sha1(f"{now()}{Path(path).name}".encode("utf-8")).hexdigest()[:5]
-    result = {"imported": 0, "duplicates": 0, "skipped": []}
+    result = {"imported": 0, "duplicates": 0, "validated": 0, "skipped": list(plan["refused"])}
+    for v in plan["validations"]:
+        try:
+            if set_department_approval(
+                Path(v["filepath"]),
+                department=v["department"],
+                role=role,
+                approved=v["approved"],
+                user=author,
+                stable_file=v["stable"],
+            ):
+                result["validated"] += 1
+        except PipelineError as e:
+            result["skipped"].append((f"{v['name']}: {v['department']}", e.message))
     for row in review["rows"]:
         if not row.get("filename"):
             continue
         # One line of a text cell = one entry (see NOTES.md, "Batched review
         # input, still one entry each"); a typed bullet is dropped.
-        lines = [
-            line
-            for line in (_BULLET.sub("", l).strip() for l in row.get("text", "").split("\n"))
-            if line
-        ]
-        if not lines:
+        _, _, notes = _row_actions(row, review["schema_version"])
+        if not notes:
             continue
         name = row["filename"]
-        try:
-            filepath = find_file_by_name(
-                name if name.endswith(".blend") else f"{name}.blend"
-            )
-        except PipelineError:  # unknown prefix...
-            filepath = None
+        filepath = _review_file(name)
         if not filepath:
             result["skipped"].extend(
                 (f"{name}: {line[:40]}", "file not found (renamed, branched or archived?)")
-                for line in lines
+                for line, _, _ in notes
             )
             continue
         known = {
@@ -2146,16 +2736,19 @@ def import_review_xlsx(path: Path) -> dict:
             for e in (read_json_quiet(tracking_json_path(filepath)) or {}).get("entries", [])
             if e.get("source") == REVIEW_SOURCE and e.get("author") == author
         }
-        # One department, or several: "layout, animation" ("," ";" "/" "+").
-        departments = []
-        for name in re.split(r"[,;/+]", (row.get("department") or "").lower()):
-            try:
-                if name.strip() and valid_department(filepath, name.strip()):
-                    departments.append(name.strip())
-            except PipelineError:
-                pass
-        entry_type = (row.get("type") or "").lower()
-        for line in lines:
+        shots = _file_shots(filepath)
+        for line, wanted_departments, entry_type in notes:
+            # One department, or several: "layout, animation"; unknown dropped.
+            departments = []
+            for dep in wanted_departments:
+                try:
+                    if valid_department(filepath, dep):
+                        departments.append(dep)
+                except PipelineError:
+                    pass
+            line, shot, frames = _line_tags(line, shots)
+            # A pre-1.1.2 template's own "shot" column, for all its lines.
+            shot = shot or row.get("shot") or None
             if line in known:
                 result["duplicates"] += 1
                 continue
@@ -2165,12 +2758,15 @@ def import_review_xlsx(path: Path) -> dict:
                     text=line,
                     departments=departments,
                     author=author,
-                    type=entry_type if entry_type in ENTRY_TYPES else "note",
-                    shot=row.get("shot") or None,
+                    type=entry_type,
+                    shot=shot,
+                    f_start=frames[0] if frames else None,
+                    f_end=frames[1] if frames else None,
                     review_id=review_id,
                     created_at=created_at,
                     referenced_version=str(filepath),
                     source=REVIEW_SOURCE,
+                    role=role,
                 )
                 known.add(line)
                 result["imported"] += 1

@@ -29,6 +29,7 @@ from ..lib import (
     save_project_data,
     set_active_project_root,
     thumbnail_size,
+    validation_roles,
     warn_blender_version_mismatch,
 )
 from .farm_ops import (
@@ -539,6 +540,13 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
     shots_departments: bpy.props.StringProperty(
         name="", default="layout,animation,lighting,render"
     )
+    validation_roles: bpy.props.StringProperty(
+        name="",
+        default="sup:1,prod:2",
+        description="Who validates a done department, as role:level -- a "
+        "higher level covers the lower ones, the same level is equivalent "
+        "(e.g. sup:1,prod:2,real:2). Empty: none",
+    )
 
     def draw(self, context):
         layout = self.layout
@@ -615,6 +623,7 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
             ("VERSION TAGS", "BOOKMARKS", "tags"),
             ("ASSETS DEPARTMENTS", "COPY_ID", "assets_departments"),
             ("SHOTS DEPARTMENTS", "COPY_ID", "shots_departments"),
+            ("VALIDATION ROLES", "SOLO_ON", "validation_roles"),
         ]:
             _settings_row(box, label, icon).prop(self, prop)
 
@@ -734,6 +743,9 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
                 "shots_departments", ["layout", "animation", "lighting", "render"]
             ),
         )
+        self.validation_roles = ",".join(
+            f"{r['name']}:{r['level']}" for r in validation_roles(config)
+        )
 
         return context.window_manager.invoke_props_dialog(self, width=900)
 
@@ -780,6 +792,7 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
                 "tags": self._csv_to_list(self.tags),
                 "assets_departments": self._csv_to_list(self.assets_departments),
                 "shots_departments": self._csv_to_list(self.shots_departments),
+                "validation_roles": self._roles_from_csv(self.validation_roles),
                 # "farm": only stuck_frame_factor, chunk_size and
                 # default_prerender_script are edited here, the rest stays as
                 # read from the loaded config.
@@ -858,6 +871,21 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
     def _days(dates) -> str:
         """Dates as typed in the schedule fields: DD/MM/YYYY, comma-separated."""
         return ", ".join(f"{d:%d/%m/%Y}" for d in sorted(dates))
+
+    @classmethod
+    def _roles_from_csv(cls, csv_str) -> list[dict]:
+        """ "sup:1,prod:2" -> [{"name": "sup", "level": 1}, ...]; a role
+        without a level gets its position (1, 2...)."""
+        roles = []
+        for i, item in enumerate(cls._csv_to_list(csv_str)):
+            name, _, level = item.partition(":")
+            try:
+                level = int(level) if level.strip() else i + 1
+            except ValueError:
+                level = i + 1
+            if name.strip():
+                roles.append({"name": name.strip().lower(), "level": level})
+        return validation_roles({"validation_roles": roles})
 
     @staticmethod
     def _csv_to_list(csv_str):

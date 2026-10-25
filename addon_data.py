@@ -2,7 +2,7 @@
 
 import bpy
 
-from .lib import draw_addon_keys, save_settings
+from .lib import draw_addon_keys, save_settings, validation_roles
 
 
 class PipelineProjectItem(bpy.types.PropertyGroup):
@@ -10,6 +10,11 @@ class PipelineProjectItem(bpy.types.PropertyGroup):
 
     name: bpy.props.StringProperty(name="Project name")
     path: bpy.props.StringProperty(name="Project path")
+
+
+def _role_search(self, context, edit_text):
+    """The active project's validation roles, for the role field."""
+    return [r["name"] for r in validation_roles()]
 
 
 class PipelineAddonPreferences(bpy.types.AddonPreferences):
@@ -43,6 +48,16 @@ class PipelineAddonPreferences(bpy.types.AddonPreferences):
         name="User name",
         default="",
         description="Your name (used in logs).",
+        update=save_settings,
+    )
+
+    user_role: bpy.props.StringProperty(
+        name="Validation role",
+        default="",
+        description="The validation role you review as (e.g. sup, prod -- "
+        "Edit project lists them): your notes are marked with it, and you can "
+        "validate departments for it. Empty: a team member",
+        search=_role_search,
         update=save_settings,
     )
 
@@ -110,6 +125,7 @@ class PipelineAddonPreferences(bpy.types.AddonPreferences):
         col_infos.label(text="User Infos:")
 
         col_infos.prop(self, "user_name")
+        col_infos.prop(self, "user_role")
         ro = col_infos.column()
         ro.active = False
         ro.enabled = False

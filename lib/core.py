@@ -17,6 +17,7 @@ from pathlib import Path
 
 import bpy
 
+from .background import checkpoint
 from .errors import PipelineError
 from .logs import log
 
@@ -620,6 +621,7 @@ def read_json_quiet(path):
     reader thread (ProjectScan, the farm snapshot). No lock is needed to
     read: every write is an atomic os.replace(), a reader sees the old or
     the new file, never half of one."""
+    checkpoint()  # a reader thread waits out a window operator here
     try:
         return json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, ValueError):

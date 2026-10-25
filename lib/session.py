@@ -62,6 +62,20 @@ def get_user(context=None) -> str:
     return "unknown"
 
 
+def get_user_role(context=None) -> str:
+    """The validation role this user writes under (prefs.user_role), if the
+    active project has it -- "" otherwise: the team's own notes, no
+    approval to give."""
+    from .config import validation_roles
+
+    try:
+        prefs = addon_pref(context)
+        role = (getattr(prefs, "user_role", "") or "").strip().lower() if prefs else ""
+    except Exception:
+        return ""
+    return role if role in {r["name"] for r in validation_roles()} else ""
+
+
 # ---------------------------------------------------------------------------
 # Project backup (addon-level persistence of opened projects list)
 # ---------------------------------------------------------------------------
@@ -91,6 +105,7 @@ ADDON_SETTINGS = (
     "always_read_only",
     "ffmpeg_path",
     "onboarding_seen",
+    "user_role",
 )
 # True while load_project_data() restores them: their update callback would
 # write the backup back while it's being read.

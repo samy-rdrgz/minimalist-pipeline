@@ -10,6 +10,7 @@ from pathlib import Path
 import bpy
 
 from ..lib import (
+    background_work,
     ConfigCache,
     cached_scandir,
     get_active_project_root,
@@ -150,7 +151,8 @@ class _BackgroundRead:
     def start(self, fn, *args) -> None:
         def run():
             try:
-                self._result = ("ok", fn(*args))
+                with background_work():
+                    self._result = ("ok", fn(*args))
             except Exception as e:  # reported by take()
                 self._result = ("error", e)
 

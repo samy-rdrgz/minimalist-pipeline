@@ -2,6 +2,78 @@
 
 All notable changes to this addon. Dates are release dates.
 
+## 1.1.2 — 2026-10-23
+
+Validation roles: a department finished by the team can be validated by a
+supervisor, the production...
+
+**Tracking**
+
+- **"Validated" is now "Done"**: what the team ticks when a department's
+  work is finished. Same data, nothing to migrate.
+- **Validation roles** (Edit project > *Validation roles*, `sup:1,prod:2`
+  by default): a higher role covers the lower ones, the same level is
+  equivalent. Set yours in the Preferences (*Validation role*).
+- **Validate a done department** for your role from a file's detail (the
+  star next to it). It's tied to the stable version you saw: a new stable
+  starts unvalidated and shows the last validation ("prod: v012, to
+  review again"). Each one writes a note for the record.
+- **Notes under a role**: marked violet; an RTK from a role is red, the
+  team's own orange -- in Blender and in the snapshot. The *New entry*
+  dialog has an *As sup* box (on) to post a team note instead.
+- **Project monitoring**: "Done · prod" once validated, and a filter (the
+  star) for the files with a done department still to validate.
+- **Snapshot**: each department's validation next to it, and a
+  *Validated* figure apart from Done (violet tile, column, groups, totals): the
+  share of the required departments the top role validated.
+- **Review template, rethought.** A first sheet for the Author, Review
+  date and *Role* (required as soon as the file holds a retake or a
+  validation), how to fill it and the colour legend; then a **Shots** and
+  an **Assets** sheet, each with its own departments. **A cell per
+  department**: `ok` (or yes, oui, v, ✓...) validates it for the role,
+  `no` withdraws that, any other text withdraws it too and makes a retake
+  of each line -- `[sh020]` and `[f12-40]` at its start for one shot of a
+  block and its frames, `note:` for a remark instead of a retake. A
+  *global* column: `ok` validates every department done so far, a text
+  is a retake for no department. Each cell is coloured by the
+  department's state at the snapshot (white not started, amber WIP,
+  green done, violet already validated, red border: an open retake; grey
+  "–" not required). The import asks first, naming the role, and refuses
+  a validation when a newer stable was made since the snapshot. A
+  template exported before still imports.
+- The snapshot's notes show their frames.
+- **Snapshot: every shot of a block.** Under a multishot's thumbnail, a
+  small button per shot (010, 020...), in the block's order, shows that
+  shot's thumbnail on hover -- to find one's way in an edit; greyed for a
+  shot not rendered yet. The export makes the missing ones like the
+  others.
+
+## 1.1.1 — 2026-10-23
+
+Previews compile on a free worker, a crash opening Project monitoring
+fixed.
+
+**Fixes**
+
+- **Blender could crash opening Project monitoring** (seen on Windows):
+  the project scan, running in the background, is now held still while a
+  window opens or closes.
+
+**Render farm**
+
+- **A worker says whether it has ffmpeg**: checked when the machine
+  becomes a worker (not needed to render), shown in Worker details -- a
+  first step towards compiling previews on another machine than the farm
+  host's.
+- **Previews compile on a free worker**: a preview goes to an idle worker
+  that has ffmpeg rather than the farm host's machine, which keeps its
+  slot for the setups, frame checks and compilations. None free: on the
+  host, as before. A worker stopped or switched off mid-compile: the
+  preview is sent out again.
+- **A preview's priority**: asked when it's submitted (*Preview block* /
+  *Preview sequence* open a small dialog, the Render dialog's *Preview*
+  has the field too), shown in Job details for every job.
+
 ## 1.1.0 — 2026-10-22
 
 A new render farm: frames handed out in small chunks instead of every

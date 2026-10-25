@@ -5,6 +5,7 @@ from .actions import (
     get_pending_action,
     set_pending_action,
 )
+from .background import background_work, checkpoint, threads_paused
 from .batch import (
     asset_batch_exists,
     launch_batch_create_entry,
@@ -34,8 +35,10 @@ from .browser import (
     version_items,
 )
 from .config import (
+    DEFAULT_VALIDATION_ROLES,
     ConfigCache,
     blender_version_mismatch,
+    covering_role,
     file_in_active_project,
     find_known_project_for_file,
     find_project_root,
@@ -47,6 +50,7 @@ from .config import (
     get_config_filepath,
     parse_camera_name,
     parse_filename,
+    validation_roles,
     parse_timeline,
     prefix_to_parent_folder,
     project_path,
@@ -159,6 +163,7 @@ from .session import (
     get_read_only_reason,
     get_user,
     get_user_data,
+    get_user_role,
     load_project_data,
     note_read_only_saved,
     read_only_unchanged_on_disk,
@@ -177,6 +182,7 @@ from .snapshot import (
     SnapshotJob,
     build_snapshot,
     import_review_xlsx,
+    review_import_plan,
     parse_day,
     progress_weights,
     project_schedule,
@@ -196,6 +202,7 @@ from .thumbnails import (
     thumbnail_size,
 )
 from .tracking import (
+    APPROVAL_SOURCE,
     ProjectScan,
     RecentFilesCache,
     TrackingStatusCache,
@@ -209,7 +216,9 @@ from .tracking import (
     create_tracking,
     create_wipmeta,
     delete_entry,
+    department_approvals,
     department_status_tooltip,
+    highest_approval,
     edit_entry,
     entry_departments,
     filter_review_boxes,
@@ -230,6 +239,7 @@ from .tracking import (
     mark_render_to_check,
     owner_key,
     render_to_check_label,
+    set_department_approval,
     set_department_validated,
     set_description,
     toggle_entry_task,

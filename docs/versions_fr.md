@@ -46,12 +46,13 @@ Chaque asset/shot a un dossier `.pipeline/` à côté de ses fichiers `.blend`, 
   "created_from": "assets/ch/ch_bob/ch_bob_v004.blend",
   "created_at": "2026-03-26T10:00:00",
   "departments_validated": {"modeling": true, "rigging": true, "texturing": false},
+  "approvals": {"modeling": {"prod": {"by": "marie", "at": "2026-03-27T15:12:00"}}},
   "linked": [],
   "conflict_warning": ""
 }
 ```
 
-C'est ce fichier qui sert de point de référence : tout le calcul "qu'est-ce qui a été retouché depuis le dernier stable" (affiché dans les panneaux Tracking et le monitoring projet) compare les `.wipmeta` postérieurs à `created_at` contre ce `departments_validated`.
+C'est ce fichier qui sert de point de référence : tout le calcul "qu'est-ce qui a été retouché depuis le dernier stable" (affiché dans les panneaux Tracking et le monitoring projet) compare les `.wipmeta` postérieurs à `created_at` contre ce `departments_validated`. `approvals` : les départements qu'un rôle de validation a validés sur cette version (voir [Suivi & revues](tracking-and-reviews_fr.md#fini-puis-validé--les-rôles-de-validation)) ; le stable suivant repart sans, en gardant les dernières dans `approvals_previous`.
 
 ---
 

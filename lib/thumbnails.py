@@ -86,6 +86,20 @@ def owner_render_dir(project_root: Path, owner: Path) -> Path:
     return d
 
 
+def owner_shot_render_dirs(project_root: Path, owner: Path) -> list[tuple[str, Path]]:
+    """[(shot label, render folder)] for each shot of a block, in its order
+    (sh010-020-040 -> sh010, sh020, sh040), [] for a lone shot or an
+    asset -- owner_render_dir() stands for those. Pure path work."""
+    project_root, owner = Path(project_root), Path(owner)
+    if owner.parent.parent != project_root / "shots" or "-" not in owner.name:
+        return []
+    d = render_root(project_root, owner)
+    first, *rest = d.name.split("-")
+    prefix = first.rstrip("0123456789")
+    labels = [first] + [f"{prefix}{n}" for n in rest]
+    return [(label, d.with_name(label)) for label in labels]
+
+
 def source_frame(shot_render_dir: Path, v_prefix: str = "v") -> Path | None:
     """Middle frame of the shot's latest render (the first is often a
     hold), skipping empty files -- the placeholders of a render before

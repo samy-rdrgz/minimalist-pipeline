@@ -416,6 +416,55 @@ def ordered_departments(departments) -> list[str]:
     return sorted(deps, key=lambda d: rank.get(str(d).lower(), len(rank)))
 
 
+# Validation roles when the project config names none: what a team asks
+# for first. A config listing [] has none at all. See NOTES.md, "Validation
+# roles".
+DEFAULT_VALIDATION_ROLES = ({"name": "sup", "level": 1}, {"name": "prod", "level": 2})
+
+
+def validation_roles(config: dict | None = None) -> list[dict]:
+    """The project's validation roles, [{"name", "level"}] in their order:
+    a higher level covers the lower ones, the same level is equivalent.
+    Names lowercased, duplicates and unreadable levels dropped."""
+    if config is None:
+        try:
+            config = ConfigCache.get()
+        except Exception:
+            config = {}
+    raw = config.get("validation_roles")
+    if raw is None:
+        raw = DEFAULT_VALIDATION_ROLES
+    roles, seen = [], set()
+    for i, role in enumerate(raw if isinstance(raw, (list, tuple)) else []):
+        if not isinstance(role, dict):
+            continue
+        name = str(role.get("name") or "").strip().lower()
+        try:
+            level = int(role.get("level", i + 1))
+        except (TypeError, ValueError):
+            continue
+        if name and name not in seen:
+            seen.add(name)
+            roles.append({"name": name, "level": level})
+    return roles
+
+
+def covering_role(approvals: dict, role: str, roles: list[dict]) -> str | None:
+    """The role whose approval covers `role` among approvals ({role: info},
+    one department's): role itself if it approved, else one of the same or
+    a higher level -- the highest. None if not covered. Roles the project
+    no longer lists cover nothing but themselves."""
+    if role in approvals:
+        return role
+    levels = {r["name"]: r["level"] for r in roles}
+    if role not in levels:
+        return None
+    candidates = [
+        (levels[r], r) for r in approvals if r in levels and levels[r] >= levels[role]
+    ]
+    return max(candidates)[1] if candidates else None
+
+
 def find_project_root(start_path: str) -> Path | None:
     """Walk up directory tree to find a project_config.json."""
     current = Path(start_path)

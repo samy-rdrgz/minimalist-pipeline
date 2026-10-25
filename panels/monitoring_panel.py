@@ -98,6 +98,7 @@ class M_PIPELINE_PT_monitoring(_MonitoringPanel, bpy.types.Panel):
         # Icon only: the property's description is the tooltip.
         filters_btn.prop(state, "only_farm", text="", icon="VIEW_CAMERA_UNSELECTED")
         filters_btn.prop(state, "only_rtk", text="", icon="LOOP_BACK")
+        filters_btn.prop(state, "only_to_validate", text="", icon="SOLO_OFF")
         filters_btn.prop(state, "sort", text="", icon="SORTTIME")
 
         layout.separator(factor=0.5)

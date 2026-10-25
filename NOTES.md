@@ -14,10 +14,10 @@ comment.
 By theme; the sections below stay in the order they were written.
 
 - **Render farm**: [Farm 1.1.0: chunks replace placeholders](#farm-110-chunks-replace-placeholders) · [Stuck frame](#stuck-frame) · [Stopping a worker: after this frame, or now](#stopping-a-worker-after-this-frame-or-now) · [Which machine rendered which frame](#which-machine-rendered-which-frame) · [Time left: per machine, from each frame's time](#time-left-per-machine-from-each-frames-time) · [Crash recovery: resume, don't orphan](#crash-recovery-resume-dont-orphan) · [Re-rendering a file: match the render, not the job](#re-rendering-a-file-match-the-render-not-the-job) · [Farm subprocess output: files, never pipes](#farm-subprocess-output-files-never-pipes) · [Farm popup: worker state, open-folder button, refresh cost](#farm-popup-worker-state-open-folder-button-refresh-cost) · [Farm status: two redraw timers, split by cost](#farm-status-two-redraw-timers-split-by-cost) · [One farm snapshot reader, sync or threaded](#one-farm-snapshot-reader-sync-or-threaded) · [FFmpeg detection: PATH lookup isn't enough, and an override can't silently fall back](#ffmpeg-detection-path-lookup-isnt-enough-and-an-override-cant-silently-fall-back) · [What a real project's export showed (6 machines, a week of production)](#what-a-real-projects-export-showed-6-machines-a-week-of-production)
-- **Notes, tracking, snapshot**: [Tracking entries](#tracking-entries) · [Entries for several departments](#entries-for-several-departments) · [Entries: two fields only ever guaranteed together, never accessed bare](#entries-two-fields-only-ever-guaranteed-together-never-accessed-bare) · [Edit entry: a note turned task kept no checkbox](#edit-entry-a-note-turned-task-kept-no-checkbox) · [Edit-entry dialog: a stored department can outlive its own enum](#edit-entry-dialog-a-stored-department-can-outlive-its-own-enum) · [Department filter: three different callers, three different "current file"s](#department-filter-three-different-callers-three-different-current-files) · [tracking.json: one path, never created by a write](#trackingjson-one-path-never-created-by-a-write) · [Renders to check: the one before, to compare](#renders-to-check-the-one-before-to-compare) · [Project monitoring's Farm column: the monitor cache, not the project scan](#project-monitorings-farm-column-the-monitor-cache-not-the-project-scan) · [Production snapshot: one HTML file, a spreadsheet inside it](#production-snapshot-one-html-file-a-spreadsheet-inside-it) · [Snapshot width: short state labels, hideable columns](#snapshot-width-short-state-labels-hideable-columns) · [Work time tracking & log rotation](#work-time-tracking--log-rotation)
+- **Notes, tracking, snapshot**: [Tracking entries](#tracking-entries) · [Entries for several departments](#entries-for-several-departments) · [Validation roles](#validation-roles) · [Entries: two fields only ever guaranteed together, never accessed bare](#entries-two-fields-only-ever-guaranteed-together-never-accessed-bare) · [Edit entry: a note turned task kept no checkbox](#edit-entry-a-note-turned-task-kept-no-checkbox) · [Edit-entry dialog: a stored department can outlive its own enum](#edit-entry-dialog-a-stored-department-can-outlive-its-own-enum) · [Department filter: three different callers, three different "current file"s](#department-filter-three-different-callers-three-different-current-files) · [tracking.json: one path, never created by a write](#trackingjson-one-path-never-created-by-a-write) · [Renders to check: the one before, to compare](#renders-to-check-the-one-before-to-compare) · [Project monitoring's Farm column: the monitor cache, not the project scan](#project-monitorings-farm-column-the-monitor-cache-not-the-project-scan) · [Production snapshot: one HTML file, a spreadsheet inside it](#production-snapshot-one-html-file-a-spreadsheet-inside-it) · [Snapshot width: short state labels, hideable columns](#snapshot-width-short-state-labels-hideable-columns) · [Work time tracking & log rotation](#work-time-tracking--log-rotation)
 - **Shot blocks (multishot), batch**: [Multishot blocks](#multishot-blocks) · [Multishot row list: disabling a button isn't a guard](#multishot-row-list-disabling-a-button-isnt-a-guard) · [Multishot row list, take two: a clean-scene reset invalidates it](#multishot-row-list-take-two-a-clean-scene-reset-invalidates-it) · [_draw_timeline_warnings: a trailing comma turned a string into a 1-tuple](#_draw_timeline_warnings-a-trailing-comma-turned-a-string-into-a-1-tuple) · [CSV batch: the subprocess couldn't import itself](#csv-batch-the-subprocess-couldnt-import-itself)
 - **Versions, saving, files**: [Read-only reason: from a popup on every open to an on-demand menu](#read-only-reason-from-a-popup-on-every-open-to-an-on-demand-menu) · [Top bar read-only indicator: why it sits before the Blender icon](#top-bar-read-only-indicator-why-it-sits-before-the-blender-icon) · [.wipmeta writes tolerate a missing sidecar; the panel doesn't trust the flag alone](#wipmeta-writes-tolerate-a-missing-sidecar-the-panel-doesnt-trust-the-flag-alone) · [Next version number: never from a cached listing](#next-version-number-never-from-a-cached-listing) · [Recent files: derived from the log, not a stored list](#recent-files-derived-from-the-log-not-a-stored-list) · [resolve_bpy_path() left "../" uncollapsed in every stored link path](#resolve_bpy_path-left--uncollapsed-in-every-stored-link-path) · [Copy/paste isn't always under bpy.app.tempdir](#copypaste-isnt-always-under-bpyapptempdir) · [Project walk: a stray .pipeline/ hid every asset below it; popup regions must not outlive their popup](#project-walk-a-stray-pipeline-hid-every-asset-below-it-popup-regions-must-not-outlive-their-popup)
-- **Monitoring windows, popups, panels**: [Monitoring: windows, not popups](#monitoring-windows-not-popups) · [Monitoring windows: to the front](#monitoring-windows-to-the-front) · [Monitoring windows: pages sized on the window](#monitoring-windows-pages-sized-on-the-window) · [Monitoring popups: reopening on the detail, or not](#monitoring-popups-reopening-on-the-detail-or-not) · [File details' monitoring_detail("file") is a folder, not a versioned file](#file-details-monitoring_detailfile-is-a-folder-not-a-versioned-file) · [Popup-chaining: a second modal popup always waits one timer tick](#popup-chaining-a-second-modal-popup-always-waits-one-timer-tick) · [Action popups: dialogs](#action-popups-dialogs) · ["Render" button opening pre-filled: an operator property's own redo memory](#render-button-opening-pre-filled-an-operator-propertys-own-redo-memory) · [Text wrapping in panels](#text-wrapping-in-panels) · [Pipeline log: backup noise, viewer](#pipeline-log-backup-noise-viewer) · [Shortcuts](#shortcuts)
+- **Monitoring windows, popups, panels**: [Monitoring: windows, not popups](#monitoring-windows-not-popups) · [Monitoring crash: a thread during window_new()](#monitoring-crash-a-thread-during-window_new) · [Monitoring windows: to the front](#monitoring-windows-to-the-front) · [Monitoring windows: pages sized on the window](#monitoring-windows-pages-sized-on-the-window) · [Monitoring popups: reopening on the detail, or not](#monitoring-popups-reopening-on-the-detail-or-not) · [File details' monitoring_detail("file") is a folder, not a versioned file](#file-details-monitoring_detailfile-is-a-folder-not-a-versioned-file) · [Popup-chaining: a second modal popup always waits one timer tick](#popup-chaining-a-second-modal-popup-always-waits-one-timer-tick) · [Action popups: dialogs](#action-popups-dialogs) · ["Render" button opening pre-filled: an operator property's own redo memory](#render-button-opening-pre-filled-an-operator-propertys-own-redo-memory) · [Text wrapping in panels](#text-wrapping-in-panels) · [Pipeline log: backup noise, viewer](#pipeline-log-backup-noise-viewer) · [Shortcuts](#shortcuts)
 - **Shared drive, network cost**: [Network-share redraw cost: caching disk reads off draw()/poll()/enum callbacks](#network-share-redraw-cost-caching-disk-reads-off-drawpollenum-callbacks) · [Popups on a network share: nothing on disk in draw(), heavy reads off the UI thread](#popups-on-a-network-share-nothing-on-disk-in-draw-heavy-reads-off-the-ui-thread) · [Sidebar redraw: 341 ms of network calls, 0 notes on screen](#sidebar-redraw-341-ms-of-network-calls-0-notes-on-screen) · [Windows: replace/delete refused while a reader has the file open](#windows-replacedelete-refused-while-a-reader-has-the-file-open) · [Lock staleness: 3x the heartbeat, not 1x](#lock-staleness-3x-the-heartbeat-not-1x)
 - **Addon lifecycle**: [Addon register()/unregister(): four lifecycle gotchas](#addon-registerunregister-four-lifecycle-gotchas) · [Addon register()](#addon-register) · [Addon settings lost on update](#addon-settings-lost-on-update) · [Screenshots in the docs](#screenshots-in-the-docs)
 
@@ -2131,6 +2131,19 @@ none), never in the file: the prod's view is their own.
 An export of a production project (config/, sidecars, logs -- no frames)
 cross-checked against the code. Each item below names its evidence.
 
+- **A block's shots**: `owner_render_dir()` stands for a block with its
+  first shot; the snapshot also shows every shot's own
+  (`owner_shot_render_dirs()`: sh010-020-040 -> sh010, sh020, sh040, a
+  render folder each -- the farm already thumbnails each shot it
+  renders), as a small button per shot under the block's thumbnail
+  (`_shot_buttons()`: its number; greyed, no image, for one not rendered
+  yet) -- a strip of images took a row's height for an 8-shot block. On
+  hover, one shared `#sbpop` image (`_JS`), `position: fixed` beside the
+  button, above it when there's no room below: inside a table's
+  horizontal scroll box an absolute one was clipped. Made in the same
+  headless Blender pass as the rest (`read_snapshot_data()`'s
+  `shot_thumbs`); the Columns menu's Thumbnail hides the buttons too.
+
 ### Render preset: read without a lock, fail the render
 
 Some workers rendered with the burn-in a preset turns off (and at full
@@ -2281,6 +2294,53 @@ folder made project-relative -- an old absolute line under this machine's
 root still counts), and the recent files open `project_path()` of it. The
 `.session_<pid>.json` file itself stays absolute: it's this machine's own,
 compared with `bpy.data.filepath`.
+
+## Monitoring crash: a thread during window_new()
+
+Reported on Windows, Blender 4.5.2: Blender closing on opening Project
+monitoring, `EXCEPTION_ACCESS_VIOLATION` in `python311.dll`. The crashing
+thread was ours, `ProjectScan`'s walk (`_walk_owner_dirs()`,
+`sorted(os.scandir())` -- pure Python, NULL read in Python's allocator);
+the main thread was inside `pyop_call`, waiting to take the GIL back
+after a `bpy.ops` call from the opening operator. `bpy.ops` releases the
+GIL for the operator's length (`BPY_RELEASE_GIL`), and the operator was
+`wm.window_new()` -- started right after `ProjectScan.start()`. Pure
+Python can't fault on its own: something in that call touched Python's
+memory without the GIL while our thread allocated.
+
+A second report pinned it: the crash on the *main* thread this time,
+in `bring_monitoring_to_front()`'s `wm.window_close()` (run under
+`context.temp_override(window=...)`): `pyop_call` (GIL released) ->
+`wm_window_close` -> `ED_screen_exit` -> `ctx_wm_python_context_get` ->
+`BPY_context_member_get` -> `PyDict_GetItemString` -> `PyUnicode_New`.
+Blender reads the temp_override's context dict -- builds a Python string
+-- without holding the GIL, while one of our readers was mid-file-open on
+its thread. Blender's bug (a Python allocation outside the GIL), ours to
+stop exposing: no reader thread runs Python while a window opens, closes
+or a file loads. Every `temp_override()` + `bpy.ops` of the addon is in
+`lib/monitoring.py`, all paused.
+
+`lib/background.py`: `threads_paused()` around those `bpy.ops` calls
+(`window_new`, `region_toggle` in the new window, `area_dupli`,
+`window_close`, `open_mainfile`); every reader thread runs in
+`background_work()` and passes `checkpoint()`s -- a folder listed
+(`_walk_owner_dirs()`), an owner read, a file read (`read_json_quiet()`)
+-- where it waits out a pause. The main thread waits until every one is
+parked or done, `PAUSE_TIMEOUT` (2 s) at most: one listing on a slow
+share; past it, the operator runs anyway rather than Blender freezing.
+`checkpoint()` is a no-op on the main thread (it's the one pausing, and
+draws run there during the operator) and costs one read when nothing is
+paused. Threads: `ProjectScan`, the farm readers (`_BackgroundRead`), the
+snapshot export, the log read. And the opening operators start their
+reader *after* the window (`tracking_monitor`, `pipeline_logs`): one
+started just before is still in its first listing, the pause would wait
+for it.
+
+Other `bpy.ops` calls (saving, popups) aren't paused: none crashed, and
+none rebuilds windows. Checked headless: readers frozen during a pause,
+resumed after, a nested pause (`bring_monitoring_to_front()` opening a
+window), a reader stuck past the timeout. Not reproducible here -- the
+crash needs Blender.
 
 ## Monitoring: windows, not popups
 
@@ -2703,6 +2763,80 @@ A render that fails with no machine left names what failed: "frames
 (`_no_machine_reason()`), not just "every machine allowed on it failed
 it"; its empty claims folder goes with it (`_end_render()`).
 
+### Workers with ffmpeg
+
+A worker's file says whether it can compile a video: `ffmpeg` (bool) and
+`ffmpeg_version` (`_worker_identity()`, on `launch_worker()`). Not a
+requirement -- a worker without it renders all the same. The point: send a
+compilation (the previews, long ones) to another machine than the farm
+host's (see "Previews on a worker" below). Found isn't enough, the
+binary is run once (`ffmpeg -version`, 10 s at most): one on disk can
+still fail to start (see "FFmpeg detection"). Checked once, when the
+worker starts -- not on every heartbeat; ffmpeg installed since needs a
+restart of the worker. Run before the worker file's lock, not under it.
+A worker file with no `ffmpeg` key (1.1.0 and before) is unknown, not
+"no": Worker details says "unknown (older addon)" -- and gets no preview.
+
+### Previews on a worker
+
+A preview (ffmpeg concat over a sequence's videos, re-encoded: long) goes
+to an idle worker with ffmpeg first, the farm host's own machine only if
+there's none (`scan_queue()`, `preview_queued`: `ffmpeg_worker(idle)` --
+never this machine, which compiles it itself, locally -- then
+`send_preview_compile()`). From the same `idle` as the renders, in
+priority order: a render of higher priority took its machines first, a
+lower one waits for the compile.
+
+Its own request, `requests/compile_<job>_<uuid>.json` -- never
+`request_*.json`, which a worker takes for a render. `idle_machines()`
+counts both kinds as targeting a machine. The job is the source of
+truth: at `preview_start`, `compile_machine` names the machine on it. The
+request first, then the job: a request whose job wasn't written (or was
+taken back since) is dropped by the worker (`_still_mine()`).
+
+On the worker (`worker_tick()`, idle: a render request first, then a
+compile one): `execute_compile_request()` runs the same command as the
+host (`preview_command()`), with its own ffmpeg and project root, output
+in the job's own log (`popen_logged()`, `request_<job>.log`: one machine
+writes it at a time). Status `compile`, `current_job_id` the job.
+`scan_compile_processes()`, once ffmpeg exits: `preview_finished` /
+`preview_failed` (with `machine`) written in the job first, *then* the
+worker idle -- the host reads an idle worker on a job still at
+`preview_start` as a lost compile. `last_compile_result`, not
+`last_job_result`: that one says how its last render ended, which the
+host's chunk bookkeeping reads (`_failed_this_render()`).
+
+On the host, `check_remote_compile()` every tick of a `preview_start`
+with a `compile_machine` (a local one is `scan_processes()`'s, as before):
+back to `preview_queued` (`resume_interrupted_stage()`, "lost on <machine>")
+when its worker is gone (`WORKER_GONE_SECONDS`) before or after taking
+the request -- the request deleted -- or alive but no longer compiling it
+(stopped, Blender restarted). Read in the order `_on_this_render()` does:
+the request, then the worker file, which the worker holds locked while it
+takes the request (unreadable: wait a tick). Re-checked under the job's
+lock: a worker that ended it meanwhile wins. `recover_interrupted_jobs()`
+leaves such a job alone.
+
+Stopping that worker: "after this frame" waits for the compile
+(`worker_rendering()` counts it), "now" kills ffmpeg -- the host sends
+it out again. Not covered: a worker crash leaving its ffmpeg running --
+not adopted by PID as a render is, so the preview can be compiled twice
+at once onto the same file. Rare (a crash, on a disposable preview);
+the next compile overwrites it.
+
+Checked headless on real files and ffmpeg (two machines simulated, bpy
+stubbed): sent, compiled, ended by the worker; the worker gone before
+taking it; stopped mid-compile; a request whose job was taken back;
+"after this frame" waiting for it; `scan_queue()` to a worker, and to the
+host when none has ffmpeg.
+
+A preview's `priority` is the artist's, as a render's: `compile_preview`
+(*Preview block* / *Preview sequence*, sidebar and Project monitoring)
+now opens a dialog for it -- one click more, it went out at 10 before --
+and the Render dialog's Preview mode shows its `priority` field. Same
+property as Render's, remembered from the last submit. Job details shows
+every job's (10 when the file has none).
+
 ### Mixed versions
 
 Mixed versions: a 1.0.x worker given a chunks job renders the whole range
@@ -2754,6 +2888,106 @@ render folder only gets its video once compiled. Looked up on click --
 `draw()` doesn't list folders -- so the button is always there and says
 so when there's no earlier render. A recompile touches an old render's
 video: it then counts as newer.
+
+## Validation roles
+
+"Done" (the old "validated", data unchanged: `departments_validated`) says
+the work is finished; graphists needed a second word, a role's sign-off
+(sup, prod...) -- finished technically isn't accepted by production.
+
+Rejected: a "valid prod" department per file (no per-department answer),
+a keyword in a note's text (the text never computes anything -- "Status
+is derived, not a dropdown"), a "tag" entry type and tags replacing entry
+types. The last two fail on one point: entries belong to the asset/shot
+and travel across versions, a validation belongs to the version the role
+saw. A tag set on v012 would still read "validated" on v014, which nobody
+saw.
+
+So: `approvals` in the stablemeta, `{department: {role: {"by", "at"}}}`,
+written by `set_department_approval()` on the *latest* stable only (a
+review import names the one it saw: refused once a newer exists, "to
+review again"). A new stable starts empty -- `create_stablemeta()` carries
+the last ones into `approvals_previous` (`_carried_approvals()`, each with
+its `file`), for "prod: v012" without reading older stables. Only a done
+department's count (`_status_from_raw()` drops the others); undone then
+done again at the same stable, they come back -- same version.
+
+Roles are the project's (`validation_roles()`, Edit project as
+`name:level`; none set: `sup:1,prod:2`, `[]`: none). A higher level covers
+the lower, the same level is equivalent: `covering_role()` computes it at
+display, never written -- a prod validation isn't a sup one recorded, and
+withdrawing it mustn't erase what the sup did.
+
+Each validation given or withdrawn writes a note under its role
+(`source: "approval"`): the history, with its author. An entry's `role`
+is set at writing (the user's `user_role` pref, `get_user_role()` -- only
+if the project has it; a review import's Role cell) -- the role a person
+had then, not looked up by author: one person can wear two hats. RTK
+colors: a role's red, the team's orange; Blender colors no text but red,
+so the team's RTK loses the red text for an orange `COLLECTION_COLOR_02`
+mark, a role's note a violet one. New entry's *As <role>* box (`as_role`,
+on) lets a sup post a team note -- a technical one -- without clearing
+the pref.
+
+The snapshot's *Validated* is a second figure, not a share of Done: Done
+weighs the departments' fabrication (wip 33 %...), and folding a
+validation into it (10 %?) would make "90 %" unreadable -- 90 % made and
+nothing validated, or all validated and one department late. Validated
+is the share of the required departments the top role covers
+(`top_validation_role()`: the highest level, its equivalents count;
+`item["validated"]`, `item["validation"]`, `meta["validation"]`,
+`average_progress(items, "validation")`), at the stable shown: a new
+stable drops it. Tiles next to each Done, a column, groups and totals, in
+`--role` violet; a pre-1.1.2 snapshot (no `validation_role`) shows none.
+
+Review template v4 (`SCHEMA_VERSION` 4), reworked before 1.1.2 went
+out: v3 had a *department*, *type* and *text* column per row plus a
+`valid <department>` column each -- ten columns to fill for one shot, and
+one text cell for every department, so a retake [sh010] for layout and
+another [sh020] for animation couldn't be written on one row. Now:
+
+- A front sheet (`_review_front()`): Author, Review date, Role (a
+  dropdown of the project's roles, required as soon as the file holds a
+  retake or a validation), how to fill, the colour legend, the hidden
+  `schema_version=4` cell.
+- A sheet per section (`_review_section()`: Shots, Assets -- they don't
+  share departments), a row per file: group (merged), filename (locked),
+  description (editable, as before), **a cell per department**, *global*,
+  then the hidden versions and `description_exported`.
+- A department cell's fill is its state at the snapshot
+  (`_department_style()`: `_S_STATE`, violet once the top role covers
+  it, a red-bordered twin for an open RTK; "–" locked where not
+  required). Its dropdown suggests `ok,no` with `showErrorMessage="0"`:
+  any text still goes.
+- Reading a cell (`_cell_choice()`): one of `OK_WORDS` (ok, yes, oui, v,
+  x, ✓...) validates, `NO_WORDS` withdraws, any other text withdraws too
+  and makes an RTK of each line -- a cell mixing "ok" and text is text:
+  the retake wins. `note:` at a line's start makes it a note.
+  *global*: ok / no for every department done now without a value of its
+  own, a text an RTK with no department. `_row_actions()` turns a row
+  into (validations, global, notes) for both the plan and the import --
+  v3 and older rows through their own columns, as they were read.
+- A withdrawal is only planned where the role has a validation to
+  withdraw: a retake on unvalidated work isn't listed as a change.
+- Every sheet is read (`read_xlsx_grids()`, `_sheet_paths()` in the
+  workbook's order): labels from above any header, rows from every sheet
+  with a *filename* header.
+
+A line's leading tags (`_line_tags()`: `[sh020]` -- checked against the
+file's shots, `_file_shots()` --, `[f12-40]` / `[f12]`, any order; an
+unknown one ends the scan and stays in the text) give its shot and
+frames; a v2/v3 template's *shot* column still applies to its lines.
+`review_import_plan()` reads it without writing, for the confirm dialog
+that names the role (`M_PIPELINE_OT_import_review_confirm`, a timer tick
+after the file browser: popup-chaining); `import_review_xlsx()` re-checks
+every validation through `set_department_approval()`.
+
+Checked headless (bpy stubbed, a real project tree, openpyxl filling the
+template): roles and covering, refused when not done / unknown role,
+no-op twice, tooltips, carried to the next stable, the snapshot's marks,
+the template's columns and dropdowns, an import validating two
+departments with a note, refused after a newer stable, refused without a
+Role.
 
 ## Entries for several departments
 
