@@ -44,6 +44,7 @@ from .tracking import (
 )
 from .thumbnails import (
     owner_render_dir,
+    owner_shot_render_dirs,
     run_thumbnail_jobs,
     thumbnail_jobs,
     thumbnail_path,
@@ -180,36 +181,53 @@ def read_snapshot_data(
     their latest render are remade first (one headless Blender, waited on
     -- run this on a thread). thumbnails: {"size", "blender", "ffmpeg"},
     None to skip them. Returns {"raws", "renders": {owner:
-    [...]}, "thumbs": {owner: base64 JPEG}, "thumb_warnings": [...]}."""
+    [...]}, "thumbs": {owner: base64 JPEG}, "shot_thumbs": {block owner:
+    [(shot label, base64 JPEG or None)]}, "thumb_warnings": [...]}."""
     raws = read_snapshot_raw(root)
     renders = {
         str(owner): read_render_state(root, kind, owner, v_prefix)
         for kind, owner, raw, _ in raws
         if not raw["tracking"].get("archived")
     }
-    thumbs, warnings = {}, []
+    thumbs, shot_thumbs, warnings = {}, {}, []
     if thumbnails is not None:
-        dirs = {}
+        dirs, shot_dirs = {}, {}
         for _, owner, raw, _ in raws:
             if not raw["tracking"].get("archived"):
                 dirs[str(owner)] = owner_render_dir(root, owner)
+                # A block: every shot's own, to find one's way in the edit.
+                if shots := owner_shot_render_dirs(root, owner):
+                    shot_dirs[str(owner)] = shots
         size = thumbnails.get("size") or thumbnail_size({})
-        jobs = thumbnail_jobs(dirs.values(), v_prefix, size=size)
+        every = dict.fromkeys(
+            [*dirs.values(), *(d for shots in shot_dirs.values() for _, d in shots)]
+        )
+        jobs = thumbnail_jobs(every, v_prefix, size=size)
         results = run_thumbnail_jobs(
             jobs, thumbnails["blender"], thumbnails.get("ffmpeg"), size=size
         )
-        for owner, d in dirs.items():
-            dst = thumbnail_path(d)
-            if results.get(str(dst), "ok") != "ok":
-                warnings.append(f"{dst.name}: {results[str(dst)]}")
+        warnings = [
+            f"{Path(dst).name}: {why}" for dst, why in results.items() if why != "ok"
+        ]
+
+        def encoded(d: Path) -> str | None:
             try:  # an older thumbnail still beats none
-                thumbs[owner] = base64.b64encode(dst.read_bytes()).decode("ascii")
+                return base64.b64encode(thumbnail_path(d).read_bytes()).decode("ascii")
             except OSError:
-                pass
+                return None
+
+        for owner, d in dirs.items():
+            if (b64 := encoded(d)) is not None:
+                thumbs[owner] = b64
+        for owner, shots in shot_dirs.items():
+            found = [(label, encoded(d)) for label, d in shots]
+            if any(b64 for _, b64 in found):
+                shot_thumbs[owner] = found
     return {
         "raws": raws,
         "renders": renders,
         "thumbs": thumbs,
+        "shot_thumbs": shot_thumbs,
         "thumb_warnings": warnings,
     }
 
@@ -261,6 +279,8 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
             # most recent of the two (a stable can be newer than any wip).
             "current_version": wip_name if wip_n > stable_n else stable_name or wip_name,
             "thumbnail": data["thumbs"].get(str(owner)),
+            # A block's shots, each its own thumbnail (None: not rendered).
+            "shot_thumbnails": [list(t) for t in data.get("shot_thumbs", {}).get(str(owner), [])],
         }
         # A render's folder is vXXX_YYY: XXX the .blend version rendered,
         # YYY the render increment. The history's source_file says XXX
@@ -1248,7 +1268,7 @@ def _render_table(
             f'<tr class="item" id="i-{_e(_slug(item["name"]))}" {_item_attrs(item)} '
             f'data-threads="{len(threads)}">'
             f'{thumb}<td class="name"><b>{_e(item["name"])}</b>{flags}{toggle}'
-            f'<small>{_e(item["description"])}</small></td>'
+            f'<small>{_e(item["description"])}</small>{_shot_strip(item)}</td>'
             f'<td class="ver" data-col="file">{_e(versions)}</td>'
             f'<td class="ver" data-col="render">{_render_cell(item)}</td>{"".join(cells)}'
             f'<td class="done" data-col="done">{_progress_cell(item["progress"])}</td>'
@@ -1321,6 +1341,24 @@ def _approval_mark(item: dict, department: str, roles: list) -> str:
             f'newer stable since, to review again">{_e(role)} {_e(seen)}</span>'
         )
     return ""
+
+
+def _shot_strip(item: dict) -> str:
+    """Under a block's name: each shot's thumbnail with its label, in the
+    block's order -- to find one's way in the edit. "" for anything else."""
+    shots = item.get("shot_thumbnails") or []
+    if not shots:
+        return ""
+    cells = "".join(
+        f'<figure><img class="thumb mini" alt="" loading="lazy" '
+        f'src="data:image/jpeg;base64,{b64}"><figcaption>{_e(label)}</figcaption></figure>'
+        if b64
+        else f'<figure><div class="mini none" title="Not rendered yet"></div>'
+        f"<figcaption>{_e(label)}</figcaption></figure>"
+        for label, b64 in shots
+    )
+    # data-col: the Columns menu's Thumbnail hides it with the column.
+    return f'<div class="shots" data-col="thumb">{cells}</div>'
 
 
 def _progress_cell(progress: float | None) -> str:
@@ -1597,6 +1635,11 @@ td.th{width:1px;padding-right:0}
 .thumb{display:block;width:112px;height:63px;object-fit:contain;border-radius:4px;
 background:var(--bg);transition:transform .15s}
 .nothumb{width:112px}
+.shots{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.shots figure{margin:0;text-align:center}
+.shots figcaption{font-size:10px;color:var(--muted);line-height:1.3}
+.thumb.mini,.mini.none{width:72px;height:41px}
+.mini.none{border:1px dashed var(--line);border-radius:4px}
 img.thumb:hover{transform:scale(var(--thumb-zoom,2.4));transform-origin:left top;position:relative;
 z-index:3;box-shadow:0 4px 18px rgba(0,0,0,.35)}
 .flag{margin-left:8px;font-size:11px;font-weight:600;color:var(--rtk);

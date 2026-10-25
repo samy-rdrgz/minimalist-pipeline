@@ -2131,6 +2131,15 @@ none), never in the file: the prod's view is their own.
 An export of a production project (config/, sidecars, logs -- no frames)
 cross-checked against the code. Each item below names its evidence.
 
+- **A block's shots**: `owner_render_dir()` stands for a block with its
+  first shot; the snapshot also shows every shot's own
+  (`owner_shot_render_dirs()`: sh010-020-040 -> sh010, sh020, sh040, a
+  render folder each -- the farm already thumbnails each shot it
+  renders), as a strip under the block's name (`_shot_strip()`, 72 px,
+  the label under each; a dashed box for one not rendered yet). Made in
+  the same headless Blender pass as the rest (`read_snapshot_data()`'s
+  `shot_thumbs`); the Columns menu's Thumbnail hides the strip too.
+
 ### Render preset: read without a lock, fail the render
 
 Some workers rendered with the burn-in a preset turns off (and at full
