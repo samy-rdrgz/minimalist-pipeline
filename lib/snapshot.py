@@ -1861,6 +1861,8 @@ _S_INPUT, _S_INPUT_DATE, _S_INPUT_TEXT, _S_GROUP = 7, 8, 9, 10
 _S_STATE = {"todo": 11, "wip": 13, "rework": 15, "done": 17, "validated": 19}
 _S_NA = 21  # not required: locked, "–"
 _S_HINT_WRAP = 22
+# The front sheet's three fields to fill: a bigger label, a yellow input.
+_S_FIELD_LABEL, _S_FIELD, _S_FIELD_DATE, _S_SECTION = 23, 24, 25, 26
 
 _XML_ILLEGAL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
 
@@ -1928,13 +1930,14 @@ def _review_front(meta: dict, roles: list, top_role: str | None) -> str:
         (_S_STATE["todo"] + 1, "Red border: an open retake"),
         (_S_NA, "–  not required"),
     ]
+    field = '<row r="{r}" ht="26" customHeight="1">'
     rows = [
-        '<row r="1">' + _cell("A1", title, _S_TITLE) + _cell("D1", f"schema_version={SCHEMA_VERSION}") + "</row>",
-        '<row r="2">' + _cell("A2", "Author", _S_LABEL) + _cell("B2", "", _S_INPUT) + _cell("C2", 'Empty: "prod"', _S_HINT) + "</row>",
-        '<row r="3">' + _cell("A3", "Review date", _S_LABEL) + _cell("B3", "", _S_INPUT_DATE) + _cell("C3", "Empty: the day the file is imported", _S_HINT) + "</row>",
-        '<row r="4">' + _cell("A4", "Role", _S_LABEL) + _cell("B4", "", _S_INPUT) + _cell("C4", "Required: your validations and retakes are recorded under it", _S_HINT) + "</row>",
+        '<row r="1" ht="24" customHeight="1">' + _cell("A1", title, _S_SECTION) + _cell("D1", f"schema_version={SCHEMA_VERSION}") + "</row>",
+        field.format(r=2) + _cell("A2", "Author", _S_FIELD_LABEL) + _cell("B2", "", _S_FIELD) + _cell("C2", 'Empty: "prod"', _S_HINT) + "</row>",
+        field.format(r=3) + _cell("A3", "Review date", _S_FIELD_LABEL) + _cell("B3", "", _S_FIELD_DATE) + _cell("C3", "Empty: the day the file is imported", _S_HINT) + "</row>",
+        field.format(r=4) + _cell("A4", "Role", _S_FIELD_LABEL) + _cell("B4", "", _S_FIELD) + _cell("C4", "Required: pick it in the list -- your validations and retakes are recorded under it", _S_HINT) + "</row>",
     ]
-    r = 6
+    r = 7
     rows.append(f'<row r="{r}">' + _cell(f"A{r}", "How to fill", _S_LABEL) + "</row>")
     for line in how:
         r += 1
@@ -1954,7 +1957,7 @@ def _review_front(meta: dict, roles: list, top_role: str | None) -> str:
     return _worksheet(
         f"A1:D{r}",
         '<col min="1" max="1" width="16" customWidth="1"/>'
-        '<col min="2" max="2" width="22" customWidth="1"/>'
+        '<col min="2" max="2" width="28" customWidth="1"/>'
         '<col min="3" max="3" width="60" customWidth="1"/>'
         '<col min="4" max="4" width="8" hidden="1"/>',
         "".join(rows),
@@ -2185,12 +2188,14 @@ _STYLES_XML = (
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
     '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
     '<numFmts count="1"><numFmt numFmtId="164" formatCode="yyyy-mm-dd"/></numFmts>'
-    '<fonts count="3">'
+    '<fonts count="5">'
     '<font><sz val="11"/><color rgb="FF1F2328"/><name val="Calibri"/></font>'
     '<font><b/><sz val="11"/><color rgb="FF1F2328"/><name val="Calibri"/></font>'
     '<font><sz val="11"/><color rgb="FF6E7781"/><name val="Calibri"/></font>'
+    '<font><b/><sz val="13"/><color rgb="FF1F2328"/><name val="Calibri"/></font>'
+    '<font><b/><sz val="16"/><color rgb="FF1F2328"/><name val="Calibri"/></font>'
     "</fonts>"
-    '<fills count="9">'
+    '<fills count="10">'
     '<fill><patternFill patternType="none"/></fill>'
     '<fill><patternFill patternType="gray125"/></fill>'
     '<fill><patternFill patternType="solid"><fgColor rgb="FFDDE3EA"/></patternFill></fill>'
@@ -2200,19 +2205,22 @@ _STYLES_XML = (
     '<fill><patternFill patternType="solid"><fgColor rgb="FFE4F4D4"/></patternFill></fill>'
     '<fill><patternFill patternType="solid"><fgColor rgb="FFC8EBCD"/></patternFill></fill>'
     '<fill><patternFill patternType="solid"><fgColor rgb="FFE6D8F7"/></patternFill></fill>'
+    '<fill><patternFill patternType="solid"><fgColor rgb="FFFFF3B0"/></patternFill></fill>'
     "</fills>"
-    '<borders count="3"><border/>'
+    '<borders count="4"><border/>'
     '<border><left style="thin"><color rgb="FFC8CED6"/></left><right style="thin"><color rgb="FFC8CED6"/></right>'
     '<top style="thin"><color rgb="FFC8CED6"/></top><bottom style="thin"><color rgb="FFC8CED6"/></bottom></border>'
     '<border><left style="medium"><color rgb="FFC62828"/></left><right style="medium"><color rgb="FFC62828"/></right>'
     '<top style="medium"><color rgb="FFC62828"/></top><bottom style="medium"><color rgb="FFC62828"/></bottom></border>'
+    '<border><left style="medium"><color rgb="FF8A6D00"/></left><right style="medium"><color rgb="FF8A6D00"/></right>'
+    '<top style="medium"><color rgb="FF8A6D00"/></top><bottom style="medium"><color rgb="FF8A6D00"/></bottom></border>'
     "</borders>"
     '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
-    '<cellXfs count="23">'
+    '<cellXfs count="27">'
     '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
     '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
     '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
-    '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
+    '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf>'
     '<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1"/>'
     f'<xf numFmtId="0" fontId="0" fillId="3" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1">{_TOP}</xf>'
     f'<xf numFmtId="0" fontId="2" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">{_TOP_WRAP}</xf>'
@@ -2230,6 +2238,10 @@ _STYLES_XML = (
     + '<xf numFmtId="0" fontId="2" fillId="3" borderId="1" xfId="0" applyFont="1" applyFill="1" '
     'applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="top"/></xf>'
     f'<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1">{_TOP_WRAP}</xf>'
+    '<xf numFmtId="0" fontId="3" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf>'
+    f'<xf numFmtId="0" fontId="3" fillId="9" borderId="3" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1" applyProtection="1"><alignment vertical="center"/>{_UNLOCK}</xf>'
+    f'<xf numFmtId="164" fontId="3" fillId="9" borderId="3" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1" applyProtection="1"><alignment horizontal="left" vertical="center"/>{_UNLOCK}</xf>'
+    '<xf numFmtId="0" fontId="4" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
     "</cellXfs>"
     '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'
     "</styleSheet>"
