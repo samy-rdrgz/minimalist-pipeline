@@ -10,7 +10,7 @@ import bpy
 
 from .background import threads_paused
 from .config import get_active_project_root
-from .tracking import ProjectScan
+from .tracking import ProjectScan, TrackingStatusCache
 
 # ID property marking a window's screen with what it shows ("project" or
 # "farm") -- the panels' poll() reads it, and it survives the .blend being
@@ -235,6 +235,19 @@ def redraw_monitoring(kind: str | None = None) -> None:
             for region in area.regions:
                 if region.type == "WINDOW":
                     region.tag_redraw()
+
+
+def status_changed(filepath) -> None:
+    """After a write to one folder's tracking (a department ticked, a task
+    done, a note...): that folder's status computed again now, nothing
+    else, and every view of it redrawn -- the sidebar, the monitoring
+    windows. See NOTES.md, "A tick shows at once"."""
+    TrackingStatusCache.get(str(filepath), force_reload=True)
+    wm = bpy.context.window_manager
+    for window in wm.windows if wm else ():
+        for area in window.screen.areas:
+            if area.type in ("VIEW_3D", "PROPERTIES"):
+                area.tag_redraw()
 
 
 def ensure_monitoring_tick() -> None:

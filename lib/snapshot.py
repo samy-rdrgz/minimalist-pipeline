@@ -1959,7 +1959,7 @@ window.addEventListener('resize',function(){navHeight();size();});navHeight();ap
 # withdraws that, any other text withdraws it too and makes an RTK of each
 # line ([sh020] [f12-40] at its start). "global": ok = every department
 # done so far, text = an RTK for no department. Each cell's fill is the
-# department's state at the snapshot. See NOTES.md, "Review template v4".
+# department's state at the snapshot. See NOTES.md, "Validation roles".
 REVIEW_GLOBAL = "global"
 # What reads as "validated" in a department cell, case aside.
 OK_WORDS = ("ok", "yes", "oui", "v", "x", "✓", "✔", "valid", "validé", "valide")
@@ -2622,9 +2622,9 @@ def _line_tags(line: str, shots: list[str]) -> tuple[str, str | None, tuple | No
                 break
             shot = padded
         elif word == "f" and frames is None:
+            if b is not None and int(b) < a:
+                break  # [f40-12]: not a range, left in the text
             frames = (a, int(b) if b else None)
-            if frames[1] is not None and frames[1] < a:
-                break
         else:
             break
         rest = rest[m.end() :]
@@ -2716,15 +2716,15 @@ def _review_file(name: str) -> Path | None:
         return None
 
 
-def review_import_plan(path: Path) -> dict:
+def review_import_plan(path: Path, review: dict | None = None) -> dict:
     """What importing a review template would do, read only -- for its
     confirm dialog: {"role", "author", "notes" (lines to import, duplicates
     included), "validations": [{"name", "filepath", "department",
     "approved", "stable"}], "refused": [(label, reason)]}. A template from
     1.1.2 on needs its Role, and that role must be one of the project's:
     raises PipelineError otherwise. An older one has no role (the team's
-    notes) and no validation."""
-    review = read_review_xlsx(path)
+    notes) and no validation. review: read_review_xlsx(path), if read."""
+    review = review or read_review_xlsx(path)
     role = review["role"]
     roles = {r["name"] for r in validation_roles()}
     schema = review["schema_version"]
@@ -2809,7 +2809,7 @@ def import_review_xlsx(path: Path) -> dict:
     before 1.1.2) -- see review_import_plan().
     Returns {"imported", "duplicates", "validated", "skipped": [(label, reason)]}."""
     review = read_review_xlsx(path)
-    plan = review_import_plan(path)
+    plan = review_import_plan(path, review)
     role = plan["role"] or None
     author = review["author"] or "prod"
     date = review["review_date"]

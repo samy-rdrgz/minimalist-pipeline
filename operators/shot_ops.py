@@ -424,7 +424,7 @@ class M_PIPELINE_OT_create_shot(bpy.types.Operator):
                 return {"CANCELLED"}
 
         # Snapshot before create_clean's read_homefile() below -- see
-        # NOTES.md, "Multishot row list: a clean-scene reset invalidates it".
+        # NOTES.md, "Multishot row list, take two".
         shot_numbers = [s.shot_number for s in shots]
         shot_starts = [s.start_frame for s in shots]
 
@@ -550,7 +550,7 @@ class M_PIPELINE_OT_edit_block_structure(bpy.types.Operator):
         self.confirm_overlap = False
 
         # Seed from the scene's live markers when the file being edited is
-        # the open one -- see NOTES.md, "Shot-number conflicts, and a rename".
+        # the open one -- see NOTES.md, "Branch (§5)".
         naming = config.get("naming", {})
         shot_numbers = shots_in_segment(parsed["shot"])
         ranges = {}
@@ -606,7 +606,7 @@ class M_PIPELINE_OT_edit_block_structure(bpy.types.Operator):
             return {"CANCELLED"}
 
         # Snapshot before create_clean's read_homefile() below -- see
-        # NOTES.md, "Multishot row list: a clean-scene reset invalidates it".
+        # NOTES.md, "Multishot row list, take two".
         shot_numbers = [s.shot_number for s in shots]
         shot_starts = [s.start_frame for s in shots]
         kept_numbers = set(shot_numbers)

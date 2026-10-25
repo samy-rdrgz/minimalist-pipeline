@@ -55,6 +55,7 @@ from ..lib import (
     set_description,
     shot_tag_items,
     snapshot_filename,
+    status_changed,
     text_field,
     thumbnail_size,
     to_absolute,
@@ -374,6 +375,7 @@ class M_PIPELINE_OT_create_entry(bpy.types.Operator):
             log(e.level, "create_entry", e.message)
             self.report({e.level}, e.message)
             return {"CANCELLED"}
+        status_changed(self.filepath)
         self.report({"INFO"}, "Entry created.")
         context.window_manager.pipeline_entry_buffer.clear()
         return {"FINISHED"}
@@ -551,6 +553,7 @@ class M_PIPELINE_OT_edit_entry(bpy.types.Operator):
             log(e.level, "edit_entry", e.message)
             self.report({e.level}, e.message)
             return {"CANCELLED"}
+        status_changed(self.filepath)
         self.report({"INFO"}, "Entry updated.")
         return {"FINISHED"}
 
@@ -608,6 +611,7 @@ class M_PIPELINE_OT_delete_entry(bpy.types.Operator):
             log(e.level, "delete_entry", e.message)
             self.report({e.level}, e.message)
             return {"CANCELLED"}
+        status_changed(self.filepath)
         self.report({"INFO"}, "Entry deleted.")
         return {"FINISHED"}
 
@@ -631,6 +635,7 @@ class M_PIPELINE_OT_toggle_entry_task(bpy.types.Operator):
             log(e.level, "toggle_entry_task", e.message)
             self.report({e.level}, e.message)
             return {"CANCELLED"}
+        status_changed(self.filepath)
         return {"FINISHED"}
 
 
@@ -751,6 +756,9 @@ def _run_review_import(self, path: Path) -> set:
         f"validation(s), {result['duplicates']} already there, "
         f"{len(result['skipped'])} skipped",
     )
+    # Notes and validations across the project: the folders changed are
+    # read again in the background (ProjectScan reads only those).
+    ProjectScan.start(get_active_project_root())
     try:
         _description_changes[:] = review_description_changes(path)
     except PipelineError as e:
@@ -848,7 +856,7 @@ class M_PIPELINE_OT_review_descriptions(bpy.types.Operator):
         for change in _description_changes:
             try:
                 set_description(Path(change["filepath"]), change["new"])
-                TrackingStatusCache.get(change["filepath"], force_reload=True)
+                status_changed(change["filepath"])
                 applied += 1
             except PipelineError as e:
                 failed.append(change["name"])
@@ -1206,15 +1214,14 @@ class M_PIPELINE_OT_edit_description(bpy.types.Operator):
         text_field(layout, self, "description", initial_visible_lines=1)
 
     def execute(self, context):
+        filepath = self.filepath if self.filepath else bpy.data.filepath
         try:
-            set_description(
-                Path(self.filepath if self.filepath else bpy.data.filepath),
-                self.description,
-            )
+            set_description(Path(filepath), self.description)
         except PipelineError as e:
             log(e.level, "edit_description", e.message)
             self.report({e.level}, e.message)
             return {"CANCELLED"}
+        status_changed(filepath)
         self.report({"INFO"}, "Description updated.")
         return {"FINISHED"}
 
@@ -1242,6 +1249,7 @@ class M_PIPELINE_OT_toggle_worked_department(bpy.types.Operator):
             log(e.level, "toggle_worked_department", e.message)
             self.report({e.level}, e.message)
             return {"CANCELLED"}
+        status_changed(filepath)
         return {"FINISHED"}
 
 
@@ -1279,6 +1287,7 @@ class M_PIPELINE_OT_toggle_validated_department(bpy.types.Operator):
             log(e.level, "toggle_validated_department", e.message)
             self.report({e.level}, e.message)
             return {"CANCELLED"}
+        status_changed(filepath)
         return {"FINISHED"}
 
 
@@ -1308,7 +1317,7 @@ class M_PIPELINE_OT_toggle_department_approval(bpy.types.Operator):
         data = TrackingStatusCache.get(str(filepath))
         approved = role in (data.get("approvals") or {}).get(self.department, {})
         try:
-            set_department_approval(
+            changed = set_department_approval(
                 filepath,
                 department=self.department,
                 role=role,
@@ -1319,7 +1328,10 @@ class M_PIPELINE_OT_toggle_department_approval(bpy.types.Operator):
             log(e.level, "toggle_department_approval", e.message)
             self.report({e.level}, e.message)
             return {"CANCELLED"}
-        TrackingStatusCache.get(str(filepath), force_reload=True)
+        status_changed(filepath)
+        if not changed:  # the cache was behind the disk: shown as it is now
+            self.report({"INFO"}, f"{self.department}: already as shown now.")
+            return {"CANCELLED"}
         verb = "withdrawn" if approved else "given"
         self.report({"INFO"}, f"{self.department}: {role} validation {verb}.")
         return {"FINISHED"}
@@ -1427,7 +1439,7 @@ class M_PIPELINE_OT_render_checked(bpy.types.Operator):
                 log(e.level, "render_checked", e.message)
                 self.report({e.level}, e.message)
         # The table only reads the cache: refresh this one folder now.
-        TrackingStatusCache.get(self.filepath, force_reload=True)
+        status_changed(self.filepath)
         for job_id in job_ids:
             _archive_checked_job(job_id)
         checklist.clear()  # filled again by the next invoke()
