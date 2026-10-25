@@ -25,15 +25,23 @@ supervisor, the production...
   star) for the files with a done department still to validate.
 - **Snapshot**: each department's validation next to it, and a
   *Validated* figure apart from Done (violet tile, column, groups, totals): the
-  share of the required departments the top role validated. The review
-  template gets a *Role* cell, a *valid all done* column (every
-  department done so far, in one cell) and a *valid <department>* column per department
-  (yes / no); the import asks first, naming the role, and refuses a
-  validation when a newer stable was made since the snapshot.
-- **Review template: shot and frames per line.** The *shot* column is
-  gone (one shot for all of a cell's lines); a line starting with
-  `[sh020]` is for that shot of the block, `[f12-40]` (or `[f12]`) for
-  those frames, in any order. The snapshot's notes show their frames.
+  share of the required departments the top role validated.
+- **Review template, rethought.** A first sheet for the Author, Review
+  date and *Role* (required as soon as the file holds a retake or a
+  validation), how to fill it and the colour legend; then a **Shots** and
+  an **Assets** sheet, each with its own departments. **A cell per
+  department**: `ok` (or yes, oui, v, ✓...) validates it for the role,
+  `no` withdraws that, any other text withdraws it too and makes a retake
+  of each line -- `[sh020]` and `[f12-40]` at its start for one shot of a
+  block and its frames, `note:` for a remark instead of a retake. A
+  *global* column: `ok` validates every department done so far, a text
+  is a retake for no department. Each cell is coloured by the
+  department's state at the snapshot (white not started, amber WIP,
+  green done, violet already validated, red border: an open retake; grey
+  "–" not required). The import asks first, naming the role, and refuses
+  a validation when a newer stable was made since the snapshot. A
+  template exported before still imports.
+- The snapshot's notes show their frames.
 
 ## 1.1.1 — 2026-10-23
 

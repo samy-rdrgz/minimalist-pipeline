@@ -2927,24 +2927,47 @@ is the share of the required departments the top role covers
 stable drops it. Tiles next to each Done, a column, groups and totals, in
 `--role` violet; a pre-1.1.2 snapshot (no `validation_role`) shows none.
 
-Review template (schema 3): a Role cell (dropdown of the roles), required
-as soon as the sheet holds a note or a validation -- an older template
-imports as before, no role. Columns are per export now
-(`_review_columns()`: the departments of the snapshot, `_col()` past Z):
-`valid all done`, then `valid <department>` -- yes / no / empty, unlocked
-only for a department done at the stable shown (`valid all done`: once
-one is; `review_import_plan()` spreads it over the departments done now
-without a value of their own -- the reviewer's one "yes" for a shot,
-not one per column). No *shot* column any more: one cell held one shot for all
-of its lines, so two notes for shots 010 and 020 of a block couldn't be
-written. A line's leading tags say it instead (`_line_tags()`: `[sh020]`
--- checked against the block's shots, `_file_shots()` --, `[f12-40]` /
-`[f12]`, any order; an unknown one ends the scan and stays in the
-text); an older template's *shot* column still applies to its lines. `review_import_plan()` reads
-it without writing, for the confirm dialog that names the role
-(`M_PIPELINE_OT_import_review_confirm`, a timer tick after the file
-browser: popup-chaining); `import_review_xlsx()` re-checks every
-validation through `set_department_approval()`.
+Review template v4 (`SCHEMA_VERSION` 4), reworked before 1.1.2 went
+out: v3 had a *department*, *type* and *text* column per row plus a
+`valid <department>` column each -- ten columns to fill for one shot, and
+one text cell for every department, so a retake [sh010] for layout and
+another [sh020] for animation couldn't be written on one row. Now:
+
+- A front sheet (`_review_front()`): Author, Review date, Role (a
+  dropdown of the project's roles, required as soon as the file holds a
+  retake or a validation), how to fill, the colour legend, the hidden
+  `schema_version=4` cell.
+- A sheet per section (`_review_section()`: Shots, Assets -- they don't
+  share departments), a row per file: group (merged), filename (locked),
+  description (editable, as before), **a cell per department**, *global*,
+  then the hidden versions and `description_exported`.
+- A department cell's fill is its state at the snapshot
+  (`_department_style()`: `_S_STATE`, violet once the top role covers
+  it, a red-bordered twin for an open RTK; "–" locked where not
+  required). Its dropdown suggests `ok,no` with `showErrorMessage="0"`:
+  any text still goes.
+- Reading a cell (`_cell_choice()`): one of `OK_WORDS` (ok, yes, oui, v,
+  x, ✓...) validates, `NO_WORDS` withdraws, any other text withdraws too
+  and makes an RTK of each line -- a cell mixing "ok" and text is text:
+  the retake wins. `note:` at a line's start makes it a note.
+  *global*: ok / no for every department done now without a value of its
+  own, a text an RTK with no department. `_row_actions()` turns a row
+  into (validations, global, notes) for both the plan and the import --
+  v3 and older rows through their own columns, as they were read.
+- A withdrawal is only planned where the role has a validation to
+  withdraw: a retake on unvalidated work isn't listed as a change.
+- Every sheet is read (`read_xlsx_grids()`, `_sheet_paths()` in the
+  workbook's order): labels from above any header, rows from every sheet
+  with a *filename* header.
+
+A line's leading tags (`_line_tags()`: `[sh020]` -- checked against the
+file's shots, `_file_shots()` --, `[f12-40]` / `[f12]`, any order; an
+unknown one ends the scan and stays in the text) give its shot and
+frames; a v2/v3 template's *shot* column still applies to its lines.
+`review_import_plan()` reads it without writing, for the confirm dialog
+that names the role (`M_PIPELINE_OT_import_review_confirm`, a timer tick
+after the file browser: popup-chaining); `import_review_xlsx()` re-checks
+every validation through `set_department_approval()`.
 
 Checked headless (bpy stubbed, a real project tree, openpyxl filling the
 template): roles and covering, refused when not done / unknown role,
