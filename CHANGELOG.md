@@ -2,6 +2,30 @@
 
 All notable changes to this addon. Dates are release dates.
 
+## 1.1.3 — 2026-10-25
+
+**Tracking**
+
+- **A tick shows at once**: a department ticked done or worked, a task
+  checked, a note added, edited or deleted, a validation given -- the
+  sidebar and the monitoring windows show it right away, and it no
+  longer flips back a moment later (a project scan running meanwhile put
+  the state from before the click back). Clicking twice quickly no longer
+  undoes the first click either.
+- **Project monitoring** no longer shows, now and then, only the open
+  version's work for its file: a folder's status is the same whatever
+  reads it.
+- **Validate** (the star) says so when there was nothing to change --
+  someone else's click already shown -- rather than "validation given".
+
+**Review import**
+
+- A reversed frame range (`[f40-12]`) stays in the retake's text instead
+  of being recorded backwards.
+- The project's folders touched by an import are read again in the
+  background: Project monitoring shows the new notes and validations
+  without a manual refresh.
+
 ## 1.1.2 — 2026-10-23
 
 Validation roles: a department finished by the team can be validated by a

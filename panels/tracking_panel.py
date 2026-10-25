@@ -16,6 +16,7 @@ from ..lib import (
     entry_departments,
     TrackingStatusCache,
     WorkTimeCache,
+    covering_role,
     department_status_tooltip,
     get_user_role,
     highest_approval,
@@ -46,6 +47,7 @@ from ..lib import (
     shots_in_segment,
     text_to_lines,
     thumbnail_path,
+    validation_roles,
 )
 
 # Fudge factor: entries end up nested a few columns/rows deep (see
@@ -319,8 +321,6 @@ def _draw_approval(row, data: dict, department: str, filepath: str, role: str, t
 def _to_validate(file: dict, role: str) -> bool:
     """A done department of this file not validated yet: for this role
     (covered by an equal or higher one counts), else by any role."""
-    from ..lib import covering_role, validation_roles
-
     roles = validation_roles()
     for d in file.get("validated_departments", {}):
         approvals = (file.get("approvals") or {}).get(d, {})

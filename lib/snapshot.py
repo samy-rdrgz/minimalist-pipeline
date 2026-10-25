@@ -27,6 +27,14 @@ from .config import (
 from .core import json_get, now, read_json_quiet
 from .errors import PipelineError
 from .preview import latest_render_dir, render_root
+from .thumbnails import (
+    owner_render_dir,
+    owner_shot_render_dirs,
+    run_thumbnail_jobs,
+    thumbnail_jobs,
+    thumbnail_path,
+    thumbnail_size,
+)
 from .tracking import (
     _DATA_ROOTS,
     _collect_folder,
@@ -41,14 +49,6 @@ from .tracking import (
     set_department_approval,
     tracking_json_path,
     valid_department,
-)
-from .thumbnails import (
-    owner_render_dir,
-    owner_shot_render_dirs,
-    run_thumbnail_jobs,
-    thumbnail_jobs,
-    thumbnail_path,
-    thumbnail_size,
 )
 
 # Bumped whenever the review template's columns change -- the import refuses
@@ -67,7 +67,12 @@ STATES = {
 }
 # What a table cell shows: six departments of full labels don't fit a page.
 # The full label is its tooltip and in the legend.
-SHORT_STATES = {"done": "Done", "rework": "Reworked", "wip": "WIP", "todo": "Not started"}
+SHORT_STATES = {
+    "done": "Done",
+    "rework": "Reworked",
+    "wip": "WIP",
+    "todo": "Not started",
+}
 
 # Share of a department counted as done per state, in % -- the project's
 # "snapshot.progress" (Edit project) overrides each. Validated counts 100,
@@ -254,9 +259,7 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
             continue
         name = status.get("file_name") or owner.name
         wips = [
-            (int(m[1]), b)
-            for b in blends
-            if (m := version_re.search(b)) and not m[2]
+            (int(m[1]), b) for b in blends if (m := version_re.search(b)) and not m[2]
         ]
         stable_file = (status.get("stable_info") or {}).get("file")
         stable_name = Path(stable_file).name if stable_file else None
@@ -277,10 +280,14 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
             "stable_version": stable_name,
             # What the prod sees and what its notes get anchored on: the
             # most recent of the two (a stable can be newer than any wip).
-            "current_version": wip_name if wip_n > stable_n else stable_name or wip_name,
+            "current_version": wip_name
+            if wip_n > stable_n
+            else stable_name or wip_name,
             "thumbnail": data["thumbs"].get(str(owner)),
             # A block's shots, each its own thumbnail (None: not rendered).
-            "shot_thumbnails": [list(t) for t in data.get("shot_thumbs", {}).get(str(owner), [])],
+            "shot_thumbnails": [
+                list(t) for t in data.get("shot_thumbs", {}).get(str(owner), [])
+            ],
         }
         # A render's folder is vXXX_YYY: XXX the .blend version rendered,
         # YYY the render increment. The history's source_file says XXX
@@ -357,7 +364,10 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
         # Apart from Done: the share of the required departments the top
         # role (or an equivalent one) validated at the stable shown.
         item["validated"] = {
-            d: bool(top_role and covering_role(item["approvals"].get(d) or {}, top_role, roles))
+            d: bool(
+                top_role
+                and covering_role(item["approvals"].get(d) or {}, top_role, roles)
+            )
             for d in item["departments"]
         }
         valid = list(item["validated"].values())
@@ -376,7 +386,9 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
     meta["progress_weights"] = weights
     meta["validation_roles"] = roles
     meta["validation_role"] = top_role
-    meta["validation"] = {k: average_progress(v, "validation") for k, v in items.items()}
+    meta["validation"] = {
+        k: average_progress(v, "validation") for k, v in items.items()
+    }
     schedule = project_schedule(config)
     if schedule:
         today = datetime.fromisoformat(meta.get("scan_started_at") or now()).date()
@@ -387,7 +399,12 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
     meta["shot_departments"] = _columns(
         json_get(config, "shots_departments", []), items["shot"]
     )
-    return {"meta": meta, "assets": items["asset"], "shots": items["shot"], "notes": notes}
+    return {
+        "meta": meta,
+        "assets": items["asset"],
+        "shots": items["shot"],
+        "notes": notes,
+    }
 
 
 def _department_state(status: dict, department: str) -> str:
@@ -651,8 +668,12 @@ def snapshot_filename(snapshot: dict, ext: str = "html", kind: str = "snapshot")
     """<project>_<kind>_<YYYY-MM-DD>_<HH-MM>.<ext>, from the scan's start --
     several exports a day never overwrite each other."""
     meta = snapshot["meta"]
-    project = re.sub(r"[^\w\-]+", "_", meta.get("project") or "").strip("_") or "project"
-    stamp = (meta.get("scan_started_at") or now())[:16].replace("T", "_").replace(":", "-")
+    project = (
+        re.sub(r"[^\w\-]+", "_", meta.get("project") or "").strip("_") or "project"
+    )
+    stamp = (
+        (meta.get("scan_started_at") or now())[:16].replace("T", "_").replace(":", "-")
+    )
     return f"{project}_{kind}_{stamp}.{ext}"
 
 
@@ -686,7 +707,11 @@ def render_html(snapshot: dict) -> str:
     weights = meta.get("progress_weights") or PROGRESS_WEIGHTS
     legend = "".join(
         f'<span class="pill {cls}">{_e(SHORT_STATES[k])}</span>'
-        + (f'<span class="muted">{_e(label)}</span>' if label != SHORT_STATES[k] else "")
+        + (
+            f'<span class="muted">{_e(label)}</span>'
+            if label != SHORT_STATES[k]
+            else ""
+        )
         for k, (label, cls) in STATES.items()
     ) + (
         '<span class="pill st-none">Not required</span>'
@@ -748,11 +773,19 @@ def render_html(snapshot: dict) -> str:
         )
         + "</p>",
         _render_table(
-            "assets", "Assets", snapshot["assets"], meta["asset_departments"], notes,
+            "assets",
+            "Assets",
+            snapshot["assets"],
+            meta["asset_departments"],
+            notes,
             meta.get("validation_roles", []),
         ),
         _render_table(
-            "shots", "Shots", snapshot["shots"], meta["shot_departments"], notes,
+            "shots",
+            "Shots",
+            snapshot["shots"],
+            meta["shot_departments"],
+            notes,
             meta.get("validation_roles", []),
         ),
     ]
@@ -763,7 +796,7 @@ def render_html(snapshot: dict) -> str:
     # One element per line: readable/diffable raw source, same rendering.
     nl = "\n"
     return (
-        "<!doctype html>\n<html lang=\"en\"><head><meta charset=\"utf-8\">"
+        '<!doctype html>\n<html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
         f"<title>{_e(title)}</title>\n<style>{_CSS}:root{{--thumb-zoom:{zoom}}}</style>\n</head>"
         f"<body>\n{nl.join(body)}\n<script>{_JS}</script>\n</body></html>\n"
@@ -826,17 +859,19 @@ def _render_overview(snapshot: dict) -> str:
                 f"Expected on {day}",
                 _pct(expected),
                 f'<span class="delta">{schedule["elapsed_days"]} of '
-                f'{schedule["total_days"]} working days, {_day(schedule["start"])} '
-                f'→ {_day(schedule["end"])}</span>',
+                f"{schedule['total_days']} working days, {_day(schedule['start'])} "
+                f"→ {_day(schedule['end'])}</span>",
             )
         )
     everything = snapshot["assets"] + snapshot["shots"]
     rtk = sum(i["open_rtk"] for i in everything)
     files = sum(1 for i in everything if i["open_rtk"])
-    on_files = f'on {files} file{"" if files == 1 else "s"}'
+    on_files = f"on {files} file{'' if files == 1 else 's'}"
     tiles.append(
         _stat_tile(
-            "Open RTKs", str(rtk), f'<span class="delta">{on_files}</span>' if rtk else ""
+            "Open RTKs",
+            str(rtk),
+            f'<span class="delta">{on_files}</span>' if rtk else "",
         )
     )
     cards = "".join(
@@ -871,7 +906,7 @@ def _render_timeline(meta: dict, sections) -> str:
     off = len(s["days_off"])
     days_off = f", {off} day{'' if off == 1 else 's'} off" if off else ""
     sub = (
-        f'{_day(s["start"])} → {_day(s["end"])}, {s["total_days"]} working days '
+        f"{_day(s['start'])} → {_day(s['end'])}, {s['total_days']} working days "
         f"({week}{days_off})"
     )
     # The label is centred on its line, kept inside near either end.
@@ -894,9 +929,9 @@ def _render_timeline(meta: dict, sections) -> str:
         if pts or days:
             word = "ahead" if done > exp else "behind"
             rel = (
-                f'{"▲" if word == "ahead" else "▼"} {abs(pts)} '
-                f'pt{"" if abs(pts) == 1 else "s"}, {abs(days)} '
-                f'working day{"" if abs(days) == 1 else "s"} {word}'
+                f"{'▲' if word == 'ahead' else '▼'} {abs(pts)} "
+                f"pt{'' if abs(pts) == 1 else 's'}, {abs(days)} "
+                f"working day{'' if abs(days) == 1 else 's'} {word}"
             )
         else:
             rel = "on schedule"
@@ -920,7 +955,7 @@ def _render_timeline(meta: dict, sections) -> str:
     years = s["start"][:4] != s["end"][:4]
     rows.append(
         f'<span></span><span class="tl-ends"><span>{_short_day(s["start"], years)}'
-        f' · 0 %</span><span>{_short_day(s["end"], years)} · 100 %</span></span>'
+        f" · 0 %</span><span>{_short_day(s['end'], years)} · 100 %</span></span>"
         "<span></span>"
     )
     return (
@@ -968,7 +1003,7 @@ def _schedule_delta(progress: float, expected: float | None) -> str:
     if expected is None:
         return ""
     gap = round((progress - expected) * 100)
-    pts = f'{abs(gap)} pt{"" if abs(gap) == 1 else "s"}'
+    pts = f"{abs(gap)} pt{'' if abs(gap) == 1 else 's'}"
     if gap > 0:
         text = f"▲ {pts} ahead of schedule"
     elif gap < 0:
@@ -1018,7 +1053,7 @@ def _overview_card(
     for item in items:
         groups.setdefault(item["group"], []).append(item)
     by_group = [
-        (g, average_progress(m), f'{len(m)} {noun}{"" if len(m) == 1 else "s"}')
+        (g, average_progress(m), f"{len(m)} {noun}{'' if len(m) == 1 else 's'}")
         for g, m in groups.items()
     ]
     by_department = [
@@ -1035,7 +1070,7 @@ def _overview_card(
         f'<div class="card"><h3>{_e(title)}<span class="muted">{len(items)} '
         f'{noun}{"" if len(items) == 1 else "s"}</span></h3><div class="panels">'
         f'<div class="panel"><h4>State of the {total} department '
-        f'task{"" if total == 1 else "s"}</h4>'
+        f"task{'' if total == 1 else 's'}</h4>"
         f'<div class="stack" role="img" aria-label="{_e(label)}">{segments}</div>'
         f'<div class="slegend">{legend}</div></div><div class="prow">'
         f'<div class="panel"><h4>{_e(by)}{key}</h4>{_bar_list(by_group, expected)}'
@@ -1064,7 +1099,7 @@ def _heatmap(axis: str, groups: dict, columns: list, noun: str) -> str:
             n = len(values)
             tip = _e(
                 f"{group}, {c.capitalize()}: {pct} % done "
-                f'({n} {noun}{"" if n == 1 else "s"})'
+                f"({n} {noun}{'' if n == 1 else 's'})"
             )
             shade = f"color-mix(in srgb,var(--done) {6 + pct * 0.44:.0f}%,var(--card))"
             cells.append(f'<td style="background:{shade}" title="{tip}">{pct} %</td>')
@@ -1116,7 +1151,10 @@ def _render_filters(snapshot: dict) -> str:
 
     groups = "".join(
         f'<optgroup label="{label}">{options(dict.fromkeys(i["group"] for i in items))}</optgroup>'
-        for label, items in (("Assets", snapshot["assets"]), ("Shots", snapshot["shots"]))
+        for label, items in (
+            ("Assets", snapshot["assets"]),
+            ("Shots", snapshot["shots"]),
+        )
         if items
     )
     meta = snapshot["meta"]
@@ -1147,7 +1185,11 @@ def _columns_menu(departments, validated: bool = False) -> str:
     """ "Columns" drop-down: a checkbox per column that can be hidden (_JS
     hides every cell whose data-col is its data-key; the choice is kept
     per browser)."""
-    columns = [("thumb", "Thumbnail"), ("file", "Blender file"), ("render", "Last render")]
+    columns = [
+        ("thumb", "Thumbnail"),
+        ("file", "Blender file"),
+        ("render", "Last render"),
+    ]
     columns += [(f"d:{d}", d.capitalize()) for d in departments]
     columns.append(("done", "Done"))
     if validated:
@@ -1156,7 +1198,9 @@ def _columns_menu(departments, validated: bool = False) -> str:
         f'<label><input type="checkbox" data-key="{_e(key)}" checked> {_e(label)}</label>'
         for key, label in columns
     )
-    return f'<details class="cols"><summary>Columns</summary><div>{boxes}</div></details>'
+    return (
+        f'<details class="cols"><summary>Columns</summary><div>{boxes}</div></details>'
+    )
 
 
 def _slug(name: str) -> str:
@@ -1198,7 +1242,9 @@ def _render_table(
         + '<th data-col="render" title="Output folder of the last render: vXXX_YYY, '
         "XXX the Blender file version rendered, YYY the render increment -- then "
         'its farm state">Last render</th>'
-        + "".join(f'<th data-col="d:{_e(c)}">{_e(c.capitalize())}</th>' for c in columns)
+        + "".join(
+            f'<th data-col="d:{_e(c)}">{_e(c.capitalize())}</th>' for c in columns
+        )
         + '<th data-col="done" title="Share of the required departments done '
         '(see the legend)">Done</th>'
         + (
@@ -1222,7 +1268,7 @@ def _render_table(
             if role:
                 done += (
                     f' · <span class="valid">'
-                    f'{_pct(average_progress(groups[group], "validation"))} validated</span>'
+                    f"{_pct(average_progress(groups[group], 'validation'))} validated</span>"
                 )
             rows.append(
                 f'<tr class="group" data-group="{_e(group)}">'
@@ -1248,11 +1294,16 @@ def _render_table(
                 )
         versions = " · ".join(
             label + _short_version(item["name"], v)
-            for label, v in (("wip ", item["wip_version"]), ("stable ", item["stable_version"]))
+            for label, v in (
+                ("wip ", item["wip_version"]),
+                ("stable ", item["stable_version"]),
+            )
             if v
         )
         flags = (
-            f'<span class="flag">{item["open_rtk"]} RTK</span>' if item["open_rtk"] else ""
+            f'<span class="flag">{item["open_rtk"]} RTK</span>'
+            if item["open_rtk"]
+            else ""
         )
         threads = notes.get(item["name"], [])
         toggle = _notes_toggle(item["open_notes"], len(threads)) if threads else ""
@@ -1268,13 +1319,13 @@ def _render_table(
             f'<tr class="item" id="i-{_e(_slug(item["name"]))}" {_item_attrs(item)} '
             f'data-threads="{len(threads)}">'
             f'{thumb}<td class="name"><b>{_e(item["name"])}</b>{flags}{toggle}'
-            f'<small>{_e(item["description"])}</small></td>'
+            f"<small>{_e(item['description'])}</small></td>"
             f'<td class="ver" data-col="file">{_e(versions)}</td>'
             f'<td class="ver" data-col="render">{_render_cell(item)}</td>{"".join(cells)}'
             f'<td class="done" data-col="done">{_progress_cell(item["progress"])}</td>'
             + (
                 f'<td class="done valid" data-col="valid">'
-                f'{_progress_cell(item.get("validation"))}</td>'
+                f"{_progress_cell(item.get('validation'))}</td>"
                 if role
                 else ""
             )
@@ -1295,7 +1346,7 @@ def _render_table(
         + f'<td class="done" data-col="done">{_progress_cell(average_progress(items))}</td>'
         + (
             f'<td class="done valid" data-col="valid">'
-            f'{_progress_cell(average_progress(items, "validation"))}</td>'
+            f"{_progress_cell(average_progress(items, 'validation'))}</td>"
             if role
             else ""
         )
@@ -1325,7 +1376,9 @@ def _approval_mark(item: dict, department: str, roles: list) -> str:
             cover = covering_role(approvals, role["name"], roles)
             info = approvals.get(cover) or {}
             if cover == role["name"]:
-                lines.append(f"{role['name']}: validated by {info.get('by', '?')} ({_day(info.get('at') or '')})")
+                lines.append(
+                    f"{role['name']}: validated by {info.get('by', '?')} ({_day(info.get('at') or '')})"
+                )
             elif cover:
                 lines.append(f"{role['name']}: covered by {cover}")
             else:
@@ -1357,7 +1410,7 @@ def _shot_buttons(item: dict) -> str:
         f'<img alt="{_e(label)}" src="data:image/jpeg;base64,{b64}"></span>'
         if b64
         else f'<span class="sb none" title="{_e(label)}: not rendered yet">'
-        f'{_e(label.lstrip("abcdefghijklmnopqrstuvwxyz_"))}</span>'
+        f"{_e(label.lstrip('abcdefghijklmnopqrstuvwxyz_'))}</span>"
         for label, b64 in shots
     )
     # data-col: the Columns menu's Thumbnail hides them with the column.
@@ -1397,7 +1450,10 @@ def _render_cell(item: dict) -> str:
                 text = f'{shot}<span class="norender">not rendered</span>'
                 rows.append([labels, "", text, r["shot"] if block else ""])
                 continue
-            if r["file_number"] is not None and r["file_number"] < item["stable_number"]:
+            if (
+                r["file_number"] is not None
+                and r["file_number"] < item["stable_number"]
+            ):
                 text = (
                     f'{shot}<span class="behind" title="Rendered from an older '
                     f'version than the last stable ({_e(stable)})">⚠ {_e(r["folder"])}</span>'
@@ -1427,7 +1483,9 @@ def _render_cell(item: dict) -> str:
         return ""
     return (
         '<div class="rl">'
-        + "".join(f"<span>{pill}</span><span>{text}</span>" for _, pill, text, _ in rows)
+        + "".join(
+            f"<span>{pill}</span><span>{text}</span>" for _, pill, text, _ in rows
+        )
         + "</div>"
     )
 
@@ -1451,8 +1509,8 @@ def _farm_pill(job: dict) -> str:
 
 
 def _short_version(name: str, filename: str) -> str:
-    """"ch_bob_v004-stable.blend" -> "v004" (the stable label says the rest)."""
-    stem = filename[: -len(".blend")] if filename.endswith(".blend") else filename
+    """ "ch_bob_v004-stable.blend" -> "v004" (the stable label says the rest)."""
+    stem = filename.removesuffix(".blend")
     stem = stem[len(name) + 1 :] if stem.startswith(name + "_") else stem
     return stem.split("-", 1)[0]
 
@@ -1469,19 +1527,21 @@ def _render_entry(e: dict, reply: bool = False, closed: bool = False) -> str:
         team = " team" if e["type"] == "rtk" and not e.get("role") else ""
         tags = [f'<span class="type t-{_e(e["type"])}{team}">{_e(e["type"])}</span>']
     if e.get("role"):
-        tags.append(f'<span class="tag role" title="Written as {_e(e["role"])}">{_e(e["role"])}</span>')
+        tags.append(
+            f'<span class="tag role" title="Written as {_e(e["role"])}">{_e(e["role"])}</span>'
+        )
     if e["from_review"]:
         tags.append('<span class="tag">prod review</span>')
     for key in ("department", "shot", "frames", "version"):
         if e.get(key):
             tags.append(f'<span class="tag">{_e(e[key])}</span>')
-    who = f'{_e(e["author"])} · {_e(e["date"][:10])}'
+    who = f"{_e(e['author'])} · {_e(e['date'][:10])}"
     cls = ("reply" if reply else "root") + (" closed" if closed else "")
     cls += " by-role" if e.get("role") else ""
     return (
         f'<li class="{cls}"><div class="head">'
         f'{"".join(tags)}<span class="who">{who}</span></div>'
-        f'<p>{_e(e["text"])}</p></li>'
+        f"<p>{_e(e['text'])}</p></li>"
     )
 
 
@@ -1490,7 +1550,7 @@ def _notes_toggle(open_count: int, total: int) -> str:
     its open threads, of all of them once "Show closed" is ticked."""
 
     def count(n: int) -> str:
-        return f'{n} note{"" if n == 1 else "s"}'
+        return f"{n} note{'' if n == 1 else 's'}"
 
     return (
         f'<button type="button" class="jump" aria-expanded="false" '
@@ -1899,7 +1959,7 @@ window.addEventListener('resize',function(){navHeight();size();});navHeight();ap
 # withdraws that, any other text withdraws it too and makes an RTK of each
 # line ([sh020] [f12-40] at its start). "global": ok = every department
 # done so far, text = an RTK for no department. Each cell's fill is the
-# department's state at the snapshot. See NOTES.md, "Review template v4".
+# department's state at the snapshot. See NOTES.md, "Validation roles".
 REVIEW_GLOBAL = "global"
 # What reads as "validated" in a department cell, case aside.
 OK_WORDS = ("ok", "yes", "oui", "v", "x", "✓", "✔", "valid", "validé", "valide")
@@ -1992,10 +2052,29 @@ def _review_front(meta: dict, roles: list, top_role: str | None) -> str:
     ]
     field = '<row r="{r}" ht="26" customHeight="1">'
     rows = [
-        '<row r="1" ht="24" customHeight="1">' + _cell("A1", title, _S_SECTION) + _cell("D1", f"schema_version={SCHEMA_VERSION}") + "</row>",
-        field.format(r=2) + _cell("A2", "Author", _S_FIELD_LABEL) + _cell("B2", "", _S_FIELD) + _cell("C2", 'Empty: "prod"', _S_HINT) + "</row>",
-        field.format(r=3) + _cell("A3", "Review date", _S_FIELD_LABEL) + _cell("B3", "", _S_FIELD_DATE) + _cell("C3", "Empty: the day the file is imported", _S_HINT) + "</row>",
-        field.format(r=4) + _cell("A4", "Role", _S_FIELD_LABEL) + _cell("B4", "", _S_FIELD) + _cell("C4", "Required: pick it in the list -- your validations and retakes are recorded under it", _S_HINT) + "</row>",
+        '<row r="1" ht="24" customHeight="1">'
+        + _cell("A1", title, _S_SECTION)
+        + _cell("D1", f"schema_version={SCHEMA_VERSION}")
+        + "</row>",
+        field.format(r=2)
+        + _cell("A2", "Author", _S_FIELD_LABEL)
+        + _cell("B2", "", _S_FIELD)
+        + _cell("C2", 'Empty: "prod"', _S_HINT)
+        + "</row>",
+        field.format(r=3)
+        + _cell("A3", "Review date", _S_FIELD_LABEL)
+        + _cell("B3", "", _S_FIELD_DATE)
+        + _cell("C3", "Empty: the day the file is imported", _S_HINT)
+        + "</row>",
+        field.format(r=4)
+        + _cell("A4", "Role", _S_FIELD_LABEL)
+        + _cell("B4", "", _S_FIELD)
+        + _cell(
+            "C4",
+            "Required: pick it in the list -- your validations and retakes are recorded under it",
+            _S_HINT,
+        )
+        + "</row>",
     ]
     r = 7
     rows.append(f'<row r="{r}">' + _cell(f"A{r}", "How to fill", _S_LABEL) + "</row>")
@@ -2003,10 +2082,19 @@ def _review_front(meta: dict, roles: list, top_role: str | None) -> str:
         r += 1
         rows.append(f'<row r="{r}">' + _cell(f"A{r}", line, _S_HINT) + "</row>")
     r += 2
-    rows.append(f'<row r="{r}">' + _cell(f"A{r}", "Colours (state at the snapshot)", _S_LABEL) + "</row>")
+    rows.append(
+        f'<row r="{r}">'
+        + _cell(f"A{r}", "Colours (state at the snapshot)", _S_LABEL)
+        + "</row>"
+    )
     for style, label in legend:
         r += 1
-        rows.append(f'<row r="{r}">' + _cell(f"A{r}", "", style) + _cell(f"B{r}", label, _S_HINT) + "</row>")
+        rows.append(
+            f'<row r="{r}">'
+            + _cell(f"A{r}", "", style)
+            + _cell(f"B{r}", label, _S_HINT)
+            + "</row>"
+        )
     validations = ""
     if roles:
         validations = (
@@ -2045,7 +2133,9 @@ def _review_section(title: str, items: list, departments: list) -> tuple[str, st
     )
     rows = [
         '<row r="1">' + _cell("A1", how, _S_HINT) + "</row>",
-        f'<row r="{hr}">' + "".join(_cell(f"{col[h]}{hr}", h, _S_HEADER) for h, _ in columns) + "</row>",
+        f'<row r="{hr}">'
+        + "".join(_cell(f"{col[h]}{hr}", h, _S_HEADER) for h, _ in columns)
+        + "</row>",
     ]
     inputs, merges, group_start = [], [], None
     for n, item in enumerate(items):
@@ -2072,7 +2162,9 @@ def _review_section(title: str, items: list, departments: list) -> tuple[str, st
         inputs.append(ref)
         cells += [
             _cell(f"{col['wip_version']}{r}", _stem(item["wip_version"]), _S_LOCKED),
-            _cell(f"{col['stable_version']}{r}", _stem(item["stable_version"]), _S_LOCKED),
+            _cell(
+                f"{col['stable_version']}{r}", _stem(item["stable_version"]), _S_LOCKED
+            ),
             _cell(f"{col['description_exported']}{r}", item["description"], _S_LOCKED),
         ]
         rows.append(f'<row r="{r}">{"".join(cells)}</row>')
@@ -2324,13 +2416,16 @@ def _sheet_paths(z: zipfile.ZipFile) -> list[str]:
         wb = ET.fromstring(z.read("xl/workbook.xml"))
         rels = ET.fromstring(z.read("xl/_rels/workbook.xml.rels"))
         targets = {
-            rel.get("Id"): rel.get("Target") for rel in rels.iter(f"{_PKG_REL_NS}Relationship")
+            rel.get("Id"): rel.get("Target")
+            for rel in rels.iter(f"{_PKG_REL_NS}Relationship")
         }
         paths = []
         for sheet in wb.iter(f"{_NS}sheet"):
             target = targets.get(sheet.get(f"{_REL_NS}id"))
             if target:
-                paths.append(target.lstrip("/") if target.startswith("/") else f"xl/{target}")
+                paths.append(
+                    target.lstrip("/") if target.startswith("/") else f"xl/{target}"
+                )
         if paths:
             return paths
     except (KeyError, AttributeError, ET.ParseError):
@@ -2384,7 +2479,10 @@ def _sheet_grid(sheet, shared: list) -> dict[int, dict[str, str]]:
                 col_n += 1
                 col = _col(col_n)
             else:
-                col_n = sum((ord(ch) - 64) * 26**i for i, ch in enumerate(reversed(col))) - 1
+                col_n = (
+                    sum((ord(ch) - 64) * 26**i for i, ch in enumerate(reversed(col)))
+                    - 1
+                )
             t = c.get("t")
             v = c.find(f"{_NS}v")
             if t == "inlineStr":
@@ -2484,7 +2582,9 @@ def _review_lines(row: dict) -> list[str]:
     """A row's text cell, one note per line, a typed bullet dropped."""
     return [
         line
-        for line in (_BULLET.sub("", l).strip() for l in row.get("text", "").split("\n"))
+        for line in (
+            _BULLET.sub("", l).strip() for l in row.get("text", "").split("\n")
+        )
         if line
     ]
 
@@ -2502,7 +2602,7 @@ def _file_shots(filepath: Path) -> list[str]:
         return []
 
 
-_LINE_TAG = re.compile(r"\s*\[\s*([a-z]*)\s*(\d+)(?:\s*-\s*(\d+))?\s*\]", re.I)
+_LINE_TAG = re.compile(r"\s*\[\s*([a-z]*)\s*(\d+)(?:\s*-\s*(\d+))?\s*\]", re.IGNORECASE)
 
 
 def _line_tags(line: str, shots: list[str]) -> tuple[str, str | None, tuple | None]:
@@ -2522,9 +2622,9 @@ def _line_tags(line: str, shots: list[str]) -> tuple[str, str | None, tuple | No
                 break
             shot = padded
         elif word == "f" and frames is None:
+            if b is not None and int(b) < a:
+                break  # [f40-12]: not a range, left in the text
             frames = (a, int(b) if b else None)
-            if frames[1] is not None and frames[1] < a:
-                break
         else:
             break
         rest = rest[m.end() :]
@@ -2536,7 +2636,7 @@ def _line_tags(line: str, shots: list[str]) -> tuple[str, str | None, tuple | No
 
 # Not departments, in a v4 sheet's header.
 _REVIEW_FIXED = {"group", "filename", "description", REVIEW_GLOBAL, *_REVIEW_HIDDEN}
-_NOTE_PREFIX = re.compile(r"^note\s*:\s*", re.I)
+_NOTE_PREFIX = re.compile(r"^note\s*:\s*", re.IGNORECASE)
 
 
 def _cell_choice(value: str) -> str:
@@ -2570,7 +2670,9 @@ def _row_actions(row: dict, schema: int) -> tuple[dict, str, list]:
         every = (row.get(VALID_ALL) or "").strip().lower()
         every = every if every in VALID_CHOICES else ""
         departments = [
-            d.strip() for d in re.split(r"[,;/+]", (row.get("department") or "").lower()) if d.strip()
+            d.strip()
+            for d in re.split(r"[,;/+]", (row.get("department") or "").lower())
+            if d.strip()
         ]
         entry_type = (row.get("type") or "").lower()
         entry_type = entry_type if entry_type in ENTRY_TYPES else "note"
@@ -2586,7 +2688,9 @@ def _row_actions(row: dict, schema: int) -> tuple[dict, str, list]:
         elif choice in ("no", "text"):
             wanted[column] = "no"  # a retake withdraws the validation
         if choice == "text":
-            notes += [(line, [column], "rtk") for line in _review_lines({"text": value})]
+            notes += [
+                (line, [column], "rtk") for line in _review_lines({"text": value})
+            ]
     choice = _cell_choice(row.get(REVIEW_GLOBAL, ""))
     if choice in ("ok", "no"):
         every = "yes" if choice == "ok" else "no"
@@ -2596,7 +2700,9 @@ def _row_actions(row: dict, schema: int) -> tuple[dict, str, list]:
         ]
     # "note: ..." -- a remark, not a retake.
     notes = [
-        (_NOTE_PREFIX.sub("", line), deps, "note") if _NOTE_PREFIX.match(line) else (line, deps, t)
+        (_NOTE_PREFIX.sub("", line), deps, "note")
+        if _NOTE_PREFIX.match(line)
+        else (line, deps, t)
         for line, deps, t in notes
     ]
     return wanted, every, [n for n in notes if n[0]]
@@ -2610,19 +2716,23 @@ def _review_file(name: str) -> Path | None:
         return None
 
 
-def review_import_plan(path: Path) -> dict:
+def review_import_plan(path: Path, review: dict | None = None) -> dict:
     """What importing a review template would do, read only -- for its
     confirm dialog: {"role", "author", "notes" (lines to import, duplicates
     included), "validations": [{"name", "filepath", "department",
     "approved", "stable"}], "refused": [(label, reason)]}. A template from
     1.1.2 on needs its Role, and that role must be one of the project's:
     raises PipelineError otherwise. An older one has no role (the team's
-    notes) and no validation."""
-    review = read_review_xlsx(path)
+    notes) and no validation. review: read_review_xlsx(path), if read."""
+    review = review or read_review_xlsx(path)
     role = review["role"]
     roles = {r["name"] for r in validation_roles()}
     schema = review["schema_version"]
-    actions = [(row, *_row_actions(row, schema)) for row in review["rows"] if row.get("filename")]
+    actions = [
+        (row, *_row_actions(row, schema))
+        for row in review["rows"]
+        if row.get("filename")
+    ]
     plan = {
         "role": role,
         "author": review["author"] or "prod",
@@ -2649,7 +2759,9 @@ def review_import_plan(path: Path) -> dict:
         filepath = _review_file(name)
         raw = _collect_folder(filepath.parent) if filepath else None
         if not raw:
-            plan["refused"] += [(f"{name}: {d}", "file not found") for d in wanted or ["all"]]
+            plan["refused"] += [
+                (f"{name}: {d}", "file not found") for d in wanted or ["all"]
+            ]
             continue
         status = _status_from_raw(raw)
         done_now = status.get("validated_departments", {})
@@ -2668,7 +2780,9 @@ def review_import_plan(path: Path) -> dict:
             if department not in status.get("departments_required", []):
                 plan["refused"].append((label, "department not required"))
             elif seen and current and seen != current:
-                plan["refused"].append((label, f"{current} made since {seen}: to review again"))
+                plan["refused"].append(
+                    (label, f"{current} made since {seen}: to review again")
+                )
             elif choice == "yes" and department not in done_now:
                 plan["refused"].append((label, "not done (yet, or any more)"))
             else:
@@ -2695,13 +2809,18 @@ def import_review_xlsx(path: Path) -> dict:
     before 1.1.2) -- see review_import_plan().
     Returns {"imported", "duplicates", "validated", "skipped": [(label, reason)]}."""
     review = read_review_xlsx(path)
-    plan = review_import_plan(path)
+    plan = review_import_plan(path, review)
     role = plan["role"] or None
     author = review["author"] or "prod"
     date = review["review_date"]
     created_at = date.isoformat(timespec="seconds") if date else None
-    review_id = hashlib.sha1(f"{now()}{Path(path).name}".encode("utf-8")).hexdigest()[:5]
-    result = {"imported": 0, "duplicates": 0, "validated": 0, "skipped": list(plan["refused"])}
+    review_id = hashlib.sha1(f"{now()}{Path(path).name}".encode()).hexdigest()[:5]
+    result = {
+        "imported": 0,
+        "duplicates": 0,
+        "validated": 0,
+        "skipped": list(plan["refused"]),
+    }
     for v in plan["validations"]:
         try:
             if set_department_approval(
@@ -2727,13 +2846,18 @@ def import_review_xlsx(path: Path) -> dict:
         filepath = _review_file(name)
         if not filepath:
             result["skipped"].extend(
-                (f"{name}: {line[:40]}", "file not found (renamed, branched or archived?)")
+                (
+                    f"{name}: {line[:40]}",
+                    "file not found (renamed, branched or archived?)",
+                )
                 for line, _, _ in notes
             )
             continue
         known = {
             e.get("text")
-            for e in (read_json_quiet(tracking_json_path(filepath)) or {}).get("entries", [])
+            for e in (read_json_quiet(tracking_json_path(filepath)) or {}).get(
+                "entries", []
+            )
             if e.get("source") == REVIEW_SOURCE and e.get("author") == author
         }
         shots = _file_shots(filepath)

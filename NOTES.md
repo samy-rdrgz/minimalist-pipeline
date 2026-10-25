@@ -18,7 +18,7 @@ By theme; the sections below stay in the order they were written.
 - **Shot blocks (multishot), batch**: [Multishot blocks](#multishot-blocks) · [Multishot row list: disabling a button isn't a guard](#multishot-row-list-disabling-a-button-isnt-a-guard) · [Multishot row list, take two: a clean-scene reset invalidates it](#multishot-row-list-take-two-a-clean-scene-reset-invalidates-it) · [_draw_timeline_warnings: a trailing comma turned a string into a 1-tuple](#_draw_timeline_warnings-a-trailing-comma-turned-a-string-into-a-1-tuple) · [CSV batch: the subprocess couldn't import itself](#csv-batch-the-subprocess-couldnt-import-itself)
 - **Versions, saving, files**: [Read-only reason: from a popup on every open to an on-demand menu](#read-only-reason-from-a-popup-on-every-open-to-an-on-demand-menu) · [Top bar read-only indicator: why it sits before the Blender icon](#top-bar-read-only-indicator-why-it-sits-before-the-blender-icon) · [.wipmeta writes tolerate a missing sidecar; the panel doesn't trust the flag alone](#wipmeta-writes-tolerate-a-missing-sidecar-the-panel-doesnt-trust-the-flag-alone) · [Next version number: never from a cached listing](#next-version-number-never-from-a-cached-listing) · [Recent files: derived from the log, not a stored list](#recent-files-derived-from-the-log-not-a-stored-list) · [resolve_bpy_path() left "../" uncollapsed in every stored link path](#resolve_bpy_path-left--uncollapsed-in-every-stored-link-path) · [Copy/paste isn't always under bpy.app.tempdir](#copypaste-isnt-always-under-bpyapptempdir) · [Project walk: a stray .pipeline/ hid every asset below it; popup regions must not outlive their popup](#project-walk-a-stray-pipeline-hid-every-asset-below-it-popup-regions-must-not-outlive-their-popup)
 - **Monitoring windows, popups, panels**: [Monitoring: windows, not popups](#monitoring-windows-not-popups) · [Monitoring crash: a thread during window_new()](#monitoring-crash-a-thread-during-window_new) · [Monitoring windows: to the front](#monitoring-windows-to-the-front) · [Monitoring windows: pages sized on the window](#monitoring-windows-pages-sized-on-the-window) · [Monitoring popups: reopening on the detail, or not](#monitoring-popups-reopening-on-the-detail-or-not) · [File details' monitoring_detail("file") is a folder, not a versioned file](#file-details-monitoring_detailfile-is-a-folder-not-a-versioned-file) · [Popup-chaining: a second modal popup always waits one timer tick](#popup-chaining-a-second-modal-popup-always-waits-one-timer-tick) · [Action popups: dialogs](#action-popups-dialogs) · ["Render" button opening pre-filled: an operator property's own redo memory](#render-button-opening-pre-filled-an-operator-propertys-own-redo-memory) · [Text wrapping in panels](#text-wrapping-in-panels) · [Pipeline log: backup noise, viewer](#pipeline-log-backup-noise-viewer) · [Shortcuts](#shortcuts)
-- **Shared drive, network cost**: [Network-share redraw cost: caching disk reads off draw()/poll()/enum callbacks](#network-share-redraw-cost-caching-disk-reads-off-drawpollenum-callbacks) · [Popups on a network share: nothing on disk in draw(), heavy reads off the UI thread](#popups-on-a-network-share-nothing-on-disk-in-draw-heavy-reads-off-the-ui-thread) · [Sidebar redraw: 341 ms of network calls, 0 notes on screen](#sidebar-redraw-341-ms-of-network-calls-0-notes-on-screen) · [Windows: replace/delete refused while a reader has the file open](#windows-replacedelete-refused-while-a-reader-has-the-file-open) · [Lock staleness: 3x the heartbeat, not 1x](#lock-staleness-3x-the-heartbeat-not-1x)
+- **Shared drive, network cost**: [Network-share redraw cost: caching disk reads off draw()/poll()/enum callbacks](#network-share-redraw-cost-caching-disk-reads-off-drawpollenum-callbacks) · [Popups on a network share: nothing on disk in draw(), heavy reads off the UI thread](#popups-on-a-network-share-nothing-on-disk-in-draw-heavy-reads-off-the-ui-thread) · [Sidebar redraw: 341 ms of network calls, 0 notes on screen](#sidebar-redraw-341-ms-of-network-calls-0-notes-on-screen) · [A tick shows at once](#a-tick-shows-at-once) · [Windows: replace/delete refused while a reader has the file open](#windows-replacedelete-refused-while-a-reader-has-the-file-open) · [Lock staleness: 3x the heartbeat, not 1x](#lock-staleness-3x-the-heartbeat-not-1x)
 - **Addon lifecycle**: [Addon register()/unregister(): four lifecycle gotchas](#addon-registerunregister-four-lifecycle-gotchas) · [Addon register()](#addon-register) · [Addon settings lost on update](#addon-settings-lost-on-update) · [Screenshots in the docs](#screenshots-in-the-docs)
 
 ---
@@ -1688,6 +1688,45 @@ many. Checked against a full read of every meta: identical statuses.
 
 Also: `read_project_config()` took the config's *writer* lock (creating and
 deleting a `.lock` file on the share) just to read it; now read-only.
+
+## A tick shows at once
+
+A department ticked, a task checked, a note written: it showed late, or
+showed then flipped back. Three causes, one per cache layer:
+
+- **No refresh after the write.** Most operators wrote and returned:
+  `TrackingStatusCache.get()` then served the old status for up to
+  `_VALIDATE_TTL` (2 s) -- longer on a share whose client caches the
+  mtime -- and Project monitoring's table, which only reads `known()`
+  (memory), until the next scan. A second click inside that window read
+  the stale state and wrote the same value again: the first click undone.
+  Now every write operator calls `status_changed(filepath)`
+  (`lib/monitoring.py`): that one folder computed again
+  (`get(force_reload=True)`, a few reads, nothing else), then every
+  `VIEW_3D` and `PROPERTIES` area tagged for redraw -- the sidebar and the
+  monitoring windows, the views that show a status. Tagging a whole
+  window is a flag, not a draw: Blender redraws once.
+- **A scan undid the write.** `ProjectScan`'s thread reads a folder, the
+  user ticks, `status_changed()` caches the new status, then the tick
+  applies the thread's older read over it. `_fresher_here()` skips a
+  folder whose status was computed since the scan started
+  (`TrackingStatusCache._computed_at`) from a `.pipeline/` no older than
+  the one the thread saw. Both conditions: a status computed here before
+  someone else's write on another machine is still replaced. Reproduced
+  headless (scan read, write, tick): without the check the entry count
+  went 2 → 1.
+- **Two statuses under one key.** `get()` on a `.blend` computed from that
+  version's wipmeta only, on the folder from every wipmeta since the
+  stable -- both stored under the folder's key with the same mtime, so
+  whichever read last won: the sidebar's redraw could leave Project
+  monitoring showing the open version's work only, until a scan put the
+  full one back. `_collect_folder()` lost its `wip_stem`: one folder, one
+  status. The extra wipmetas are those since the latest stable (older
+  ones are skipped by mtime, unopened), read only when `.pipeline/`
+  changes.
+
+A review import touches many folders: rather than a `status_changed()`
+each, it starts a `ProjectScan` -- the thread reads only the changed ones.
 
 ## Project walk: a stray .pipeline/ hid every asset below it; popup regions must not outlive their popup
 

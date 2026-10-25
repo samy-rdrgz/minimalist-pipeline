@@ -157,6 +157,9 @@ class TrackingStatusCache:
     # against disk, and the cache key it maps to.
     _validated_at: dict[str, float] = {}
     _key_of: dict[str, str] = {}
+    # When (time.monotonic()) each key's status was last computed here:
+    # ProjectScan never overwrites one computed since it started.
+    _computed_at: dict[str, float] = {}
     # get() is called several times per redraw: within this window it
     # doesn't re-stat at all (see NOTES.md, "Sidebar redraw").
     _VALIDATE_TTL = 2.0
@@ -195,19 +198,17 @@ class TrackingStatusCache:
             log("WARNING", "tracking", f"Could not compute tracking for {fp}: {e}")
             status = {}
         cls._cache[key] = (mtime, status)
+        cls._computed_at[key] = checked_at
         return status
 
     @staticmethod
     def _scan_and_compute(filepath: Path) -> dict:
         """Read tracking.json and derive worked/validated departments since
-        the last stable (_collect_folder() + _status_from_raw())."""
+        the last stable (_collect_folder() + _status_from_raw()) -- the
+        folder's, a .blend or the folder passed alike: one key, one status
+        (see NOTES.md, "A tick shows at once")."""
         asset_dir = _owner_dir(Path(filepath))
-        wip_stem = (
-            _meta_stem(Path(filepath))
-            if Path(filepath).suffix.lower() == ".blend"
-            else None
-        )
-        raw = _collect_folder(asset_dir, wip_stem=wip_stem)
+        raw = _collect_folder(asset_dir)
         if raw is None:
             raise PipelineError(
                 f"Tracking file not found: {asset_dir / '.pipeline' / 'tracking.json'}"
@@ -262,6 +263,7 @@ class ProjectScan:
     _thread = None
     _queue = None
     _owners: list = []
+    _started_at = 0.0
 
     @classmethod
     def covers(cls, project_root: Path) -> bool:
@@ -282,6 +284,7 @@ class ProjectScan:
         cls._queue = queue.SimpleQueue()
         cls._owners = []
         cls.done = False
+        cls._started_at = time.monotonic()
         cls.owners_found = cls.statuses_done = 0
         cls.phase = "walk"
         # Snapshots for the thread: it compares, never mutates shared state.
@@ -356,6 +359,19 @@ class ProjectScan:
             out.put(("error", repr(e)))
 
     @classmethod
+    def _fresher_here(cls, key: str, status_mtime: float | None) -> bool:
+        """Whether key's cached status was computed since this scan started,
+        from a .pipeline/ no older than the one the thread read -- a tick
+        written meanwhile (see NOTES.md, "A tick shows at once")."""
+        cached = TrackingStatusCache._cache.get(key)
+        return bool(
+            cached
+            and status_mtime is not None
+            and TrackingStatusCache._computed_at.get(key, 0.0) > cls._started_at
+            and cached[0] >= status_mtime
+        )
+
+    @classmethod
     def _tick(cls):
         """Main thread: apply what the reader thread posted (memory only).
         Never redraws the popup: holding its region across ticks crashes
@@ -380,7 +396,8 @@ class ProjectScan:
                 cls.phase = "status"
             elif kind == "folder":
                 _, key, status_mtime, raw, tracked, dir_mtime, targets = msg
-                if raw is not None:
+                # Not over a status written since: read before it, it'd undo it.
+                if raw is not None and not cls._fresher_here(key, status_mtime):
                     try:
                         TrackingStatusCache._cache[key] = (
                             status_mtime,
@@ -949,6 +966,10 @@ def _carried_approvals(stable: dict) -> dict:
     return carried
 
 
+# Where an approval's own note comes from (set_department_approval()).
+APPROVAL_SOURCE = "approval"
+
+
 def set_department_approval(
     filepath: Path,
     *,
@@ -1011,18 +1032,16 @@ def set_department_approval(
     return True
 
 
-# Where an approval's own note comes from (set_department_approval()).
-APPROVAL_SOURCE = "approval"
-
 
 def department_approvals(data: dict, department: str) -> list[tuple[str, str | None, dict]]:
     """(role, covering role, its info) for every validation role of the
     project, for one department of a TrackingStatusCache status -- covering
     None when not covered. Memory only."""
     approvals = (data.get("approvals") or {}).get(department) or {}
+    roles = validation_roles()
     out = []
-    for role in validation_roles():
-        cover = covering_role(approvals, role["name"], validation_roles())
+    for role in roles:
+        cover = covering_role(approvals, role["name"], roles)
         out.append((role["name"], cover, approvals.get(cover) or {}))
     return out
 
@@ -1104,15 +1123,12 @@ def get_last_stable(filepath: Path, entries: list | None = None) -> dict:
     return _latest_stable(entries) or dict(_DEFAULT_STABLE)
 
 
-def _collect_folder(
-    asset_dir: Path, entries: list | None = None, wip_stem: str | None = None
-) -> dict | None:
+def _collect_folder(asset_dir: Path, entries: list | None = None) -> dict | None:
     """Everything a folder's tracking status is computed from, read from
     disk: tracking.json, the latest stable, and only the wipmetas that can
     matter (changed after that stable -- the others are skipped by file
     mtime, never opened). None if there's no readable tracking.json.
-    Thread-safe (see read_json_quiet()); wip_stem restricts to one version's
-    wipmeta (TrackingStatusCache.get() on a .blend)."""
+    Thread-safe (see read_json_quiet())."""
     tracking = read_json_quiet(asset_dir / ".pipeline" / "tracking.json")
     if tracking is None:
         return None
@@ -1123,22 +1139,18 @@ def _collect_folder(
         stable_date = datetime.fromisoformat(last_stable.get("created_at") or "")
     except ValueError:
         stable_date = datetime.min
-    if wip_stem is not None:
-        wip = read_json_quiet(asset_dir / ".pipeline" / f"{wip_stem}.wipmeta")
-        wipmetas = [wip or {}]
-    else:
-        skip_before = (
-            stable_date - timedelta(seconds=_CLOCK_MARGIN_SECONDS)
-            if stable_date > datetime.min + timedelta(seconds=_CLOCK_MARGIN_SECONDS)
-            else datetime.min
-        )
-        wipmetas = []
-        for entry in entries:
-            if not entry.name.endswith(".wipmeta") or _entry_mtime(entry) < skip_before:
-                continue
-            data = read_json_quiet(Path(entry.path))
-            if data:
-                wipmetas.append(data)
+    skip_before = (
+        stable_date - timedelta(seconds=_CLOCK_MARGIN_SECONDS)
+        if stable_date > datetime.min + timedelta(seconds=_CLOCK_MARGIN_SECONDS)
+        else datetime.min
+    )
+    wipmetas = []
+    for entry in entries:
+        if not entry.name.endswith(".wipmeta") or _entry_mtime(entry) < skip_before:
+            continue
+        data = read_json_quiet(Path(entry.path))
+        if data:
+            wipmetas.append(data)
     started = last_stable.get("departments_started")
     if started is None:  # a stable made before they were recorded
         started = _started_before(entries, tracking, last_stable, wipmetas, stable_date)
