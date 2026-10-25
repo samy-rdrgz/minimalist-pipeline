@@ -1189,7 +1189,7 @@ def _render_table(
             f' <span class="pct valid">{_pct(average_progress(items, "validation"))} '
             f"validated</span>"
         )
-    with_thumbs = any(i.get("thumbnail") for i in items)
+    with_thumbs = any(i.get("thumbnail") or i.get("shot_thumbnails") for i in items)
     head = (
         ('<th data-col="thumb"></th>' if with_thumbs else "")
         + "<th>Name</th>"
@@ -1260,15 +1260,15 @@ def _render_table(
         if with_thumbs:
             thumb = (
                 f'<td class="th" data-col="thumb"><img class="thumb" alt="" '
-                f'src="data:image/jpeg;base64,{item["thumbnail"]}"></td>'
+                f'src="data:image/jpeg;base64,{item["thumbnail"]}">{_shot_buttons(item)}</td>'
                 if item.get("thumbnail")
-                else '<td class="th" data-col="thumb"><div class="nothumb"></div></td>'
+                else f'<td class="th" data-col="thumb"><div class="nothumb"></div>{_shot_buttons(item)}</td>'
             )
         rows.append(
             f'<tr class="item" id="i-{_e(_slug(item["name"]))}" {_item_attrs(item)} '
             f'data-threads="{len(threads)}">'
             f'{thumb}<td class="name"><b>{_e(item["name"])}</b>{flags}{toggle}'
-            f'<small>{_e(item["description"])}</small>{_shot_strip(item)}</td>'
+            f'<small>{_e(item["description"])}</small></td>'
             f'<td class="ver" data-col="file">{_e(versions)}</td>'
             f'<td class="ver" data-col="render">{_render_cell(item)}</td>{"".join(cells)}'
             f'<td class="done" data-col="done">{_progress_cell(item["progress"])}</td>'
@@ -1343,22 +1343,25 @@ def _approval_mark(item: dict, department: str, roles: list) -> str:
     return ""
 
 
-def _shot_strip(item: dict) -> str:
-    """Under a block's name: each shot's thumbnail with its label, in the
-    block's order -- to find one's way in the edit. "" for anything else."""
+def _shot_buttons(item: dict) -> str:
+    """Under a block's thumbnail: a small button per shot, its number
+    (010, 020...) in the block's order, showing that shot's thumbnail on
+    hover -- to find one's way in the edit, without a strip of eight
+    images per row. Greyed for a shot not rendered yet. "" for anything
+    else."""
     shots = item.get("shot_thumbnails") or []
     if not shots:
         return ""
-    cells = "".join(
-        f'<figure><img class="thumb mini" alt="" loading="lazy" '
-        f'src="data:image/jpeg;base64,{b64}"><figcaption>{_e(label)}</figcaption></figure>'
+    buttons = "".join(
+        f'<span class="sb">{_e(label.lstrip("abcdefghijklmnopqrstuvwxyz_"))}'
+        f'<img alt="{_e(label)}" src="data:image/jpeg;base64,{b64}"></span>'
         if b64
-        else f'<figure><div class="mini none" title="Not rendered yet"></div>'
-        f"<figcaption>{_e(label)}</figcaption></figure>"
+        else f'<span class="sb none" title="{_e(label)}: not rendered yet">'
+        f'{_e(label.lstrip("abcdefghijklmnopqrstuvwxyz_"))}</span>'
         for label, b64 in shots
     )
-    # data-col: the Columns menu's Thumbnail hides it with the column.
-    return f'<div class="shots" data-col="thumb">{cells}</div>'
+    # data-col: the Columns menu's Thumbnail hides them with the column.
+    return f'<div class="sbs" data-col="thumb">{buttons}</div>'
 
 
 def _progress_cell(progress: float | None) -> str:
@@ -1635,11 +1638,15 @@ td.th{width:1px;padding-right:0}
 .thumb{display:block;width:112px;height:63px;object-fit:contain;border-radius:4px;
 background:var(--bg);transition:transform .15s}
 .nothumb{width:112px}
-.shots{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
-.shots figure{margin:0;text-align:center}
-.shots figcaption{font-size:10px;color:var(--muted);line-height:1.3}
-.thumb.mini,.mini.none{width:72px;height:41px}
-.mini.none{border:1px dashed var(--line);border-radius:4px}
+.sbs{display:flex;flex-wrap:wrap;gap:3px;width:112px;margin-top:4px}
+.sb{position:relative;font-size:10px;line-height:16px;padding:0 4px;border-radius:3px;
+background:var(--line);color:var(--fg);cursor:default}
+.sb.none{opacity:.45}
+.sb img{display:none}
+.sb:hover{background:var(--role);color:#fff}
+/* One shared preview, fixed: a table's scroll box would clip it. */
+#sbpop{position:fixed;z-index:20;pointer-events:none;display:none;border-radius:4px;
+width:calc(112px * var(--thumb-zoom,2.4));box-shadow:0 4px 18px rgba(0,0,0,.35);background:var(--bg)}
 img.thumb:hover{transform:scale(var(--thumb-zoom,2.4));transform-origin:left top;position:relative;
 z-index:3;box-shadow:0 4px 18px rgba(0,0,0,.35)}
 .flag{margin-left:8px;font-size:11px;font-weight:600;color:var(--rtk);
@@ -1770,6 +1777,16 @@ transform:translateX(-50%)}.today.l{transform:none}.today.r{transform:translateX
 _JS = """
 (function(){
 var $=function(id){return document.getElementById(id);};
+// A block's shot buttons: that shot's thumbnail, beside the button --
+// above it when there's no room below.
+var pop=document.createElement('img');pop.id='sbpop';pop.alt='';document.body.appendChild(pop);
+document.querySelectorAll('.sb img').forEach(function(img){
+var sb=img.parentNode;
+sb.addEventListener('mouseenter',function(){pop.src=img.src;pop.style.display='block';
+var r=sb.getBoundingClientRect(),h=pop.offsetHeight,w=pop.offsetWidth;
+pop.style.left=Math.max(4,Math.min(r.left,innerWidth-w-4))+'px';
+pop.style.top=(r.bottom+4+h<innerHeight?r.bottom+4:Math.max(4,r.top-4-h))+'px';});
+sb.addEventListener('mouseleave',function(){pop.style.display='none';});});
 var nav=document.querySelector('nav'),bar=document.querySelector('.filters');
 var ctl=['f-name','f-group','f-dep','f-state','f-rtk','f-notes','f-closed','f-farm'].map($);
 function navHeight(){var sticky=getComputedStyle(nav).position==='sticky',

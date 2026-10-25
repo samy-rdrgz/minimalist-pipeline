@@ -2135,10 +2135,14 @@ cross-checked against the code. Each item below names its evidence.
   first shot; the snapshot also shows every shot's own
   (`owner_shot_render_dirs()`: sh010-020-040 -> sh010, sh020, sh040, a
   render folder each -- the farm already thumbnails each shot it
-  renders), as a strip under the block's name (`_shot_strip()`, 72 px,
-  the label under each; a dashed box for one not rendered yet). Made in
-  the same headless Blender pass as the rest (`read_snapshot_data()`'s
-  `shot_thumbs`); the Columns menu's Thumbnail hides the strip too.
+  renders), as a small button per shot under the block's thumbnail
+  (`_shot_buttons()`: its number; greyed, no image, for one not rendered
+  yet) -- a strip of images took a row's height for an 8-shot block. On
+  hover, one shared `#sbpop` image (`_JS`), `position: fixed` beside the
+  button, above it when there's no room below: inside a table's
+  horizontal scroll box an absolute one was clipped. Made in the same
+  headless Blender pass as the rest (`read_snapshot_data()`'s
+  `shot_thumbs`); the Columns menu's Thumbnail hides the buttons too.
 
 ### Render preset: read without a lock, fail the render
 

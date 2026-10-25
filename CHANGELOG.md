@@ -42,10 +42,11 @@ supervisor, the production...
   a validation when a newer stable was made since the snapshot. A
   template exported before still imports.
 - The snapshot's notes show their frames.
-- **Snapshot: every shot of a block.** Under a multishot's name, each
-  shot's thumbnail with its label (sh010, sh020...), in the block's order
-  -- to find one's way in an edit; a dashed box for a shot not rendered
-  yet. The export makes the missing ones like the others.
+- **Snapshot: every shot of a block.** Under a multishot's thumbnail, a
+  small button per shot (010, 020...), in the block's order, shows that
+  shot's thumbnail on hover -- to find one's way in an edit; greyed for a
+  shot not rendered yet. The export makes the missing ones like the
+  others.
 
 ## 1.1.1 — 2026-10-23
 
