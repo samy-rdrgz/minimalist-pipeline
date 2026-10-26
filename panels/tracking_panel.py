@@ -31,7 +31,7 @@ from ..lib import (
     get_entries,
     get_entries_grouped,
     get_linked_libraries_cached,
-    owner_render_dir,
+    owner_thumbnail_dirs,
     render_root,
     json_get,
     monitoring_detail,
@@ -397,10 +397,15 @@ def load_file_thumbnail(folder: str) -> None:
     root = get_active_project_root()
     if not root or not folder:
         return
-    path = thumbnail_path(owner_render_dir(root, Path(folder)))
-    try:
-        mtime = os.stat(path).st_mtime
-    except OSError:
+    # The first shot's, else a block rendered whole's own.
+    for d in owner_thumbnail_dirs(root, Path(folder)):
+        path = thumbnail_path(d)
+        try:
+            mtime = os.stat(path).st_mtime
+            break
+        except OSError:
+            continue
+    else:
         return
     if _previews is None:
         _previews = bpy.utils.previews.new()
@@ -437,7 +442,8 @@ def _draw_last_renders(layout, filepath: str) -> bool:
     title.label(text="Last render:", icon="RENDER_ANIMATION")
     block = len(last) > 1
     for r in last:
-        label = f"{r['shot']} " if block else ""
+        # A block rendered whole: shot "".
+        label = f"{r['shot'] or 'all shots'} " if block else ""
         if not r["path"]:
             _render_row(col, f"{label}not rendered").active = False
             continue
@@ -448,7 +454,7 @@ def _draw_last_renders(layout, filepath: str) -> bool:
     # job is archived and gone from Farm monitoring.
     renders = [
         (
-            f"{r['shot']} " if block else "",
+            f"{r['shot'] or 'all shots'} " if block else "",
             r.get("frame_machines"),
             r.get("machine_seconds"),
         )

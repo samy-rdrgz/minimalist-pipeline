@@ -86,6 +86,16 @@ def owner_render_dir(project_root: Path, owner: Path) -> Path:
     return d
 
 
+def owner_thumbnail_dirs(project_root: Path, owner: Path) -> list[Path]:
+    """Render folders whose thumbnail may stand for an asset/shot folder,
+    the preferred first: owner_render_dir(), then for a block its own
+    folder -- a block rendered whole (no split per shot) has its frames,
+    and the farm's thumbnail, in renders/<seq>/sh030-040. Pure path work."""
+    first = owner_render_dir(project_root, owner)
+    whole = render_root(project_root, owner)
+    return [first] if whole == first else [first, whole]
+
+
 def owner_shot_render_dirs(project_root: Path, owner: Path) -> list[tuple[str, Path]]:
     """[(shot label, render folder)] for each shot of a block, in its order
     (sh010-020-040 -> sh010, sh020, sh040), [] for a lone shot or an

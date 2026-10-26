@@ -197,6 +197,7 @@ from .snapshot import (
 )
 from .thumbnails import (
     owner_render_dir,
+    owner_thumbnail_dirs,
     run_thumbnail_jobs,
     thumbnail_jobs,
     thumbnail_path,

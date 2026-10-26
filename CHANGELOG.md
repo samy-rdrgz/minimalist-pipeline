@@ -2,6 +2,15 @@
 
 All notable changes to this addon. Dates are release dates.
 
+## Unreleased
+
+- **A block rendered whole shows its render.** A multishot rendered in
+  one piece (not split per shot: `renders/sq060/sh030-040/v004-stable_001`)
+  had no "Last render" in File details, and no thumbnail: only each
+  shot's own render was looked for. Its render now shows (with its video,
+  folder and frame lookup), in the snapshot's "Last render" too, and its
+  thumbnail stands for the block.
+
 ## 1.1.3 — 2026-10-25
 
 **Tracking**

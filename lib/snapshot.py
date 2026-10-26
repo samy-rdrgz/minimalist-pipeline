@@ -28,8 +28,8 @@ from .core import json_get, now, read_json_quiet
 from .errors import PipelineError
 from .preview import latest_render_dir, render_root
 from .thumbnails import (
-    owner_render_dir,
     owner_shot_render_dirs,
+    owner_thumbnail_dirs,
     run_thumbnail_jobs,
     thumbnail_jobs,
     thumbnail_path,
@@ -138,6 +138,32 @@ def read_render_state(root: Path, kind: str, owner: Path, v_prefix: str = "v") -
     base = render_root(root, owner)
     shots = _owner_shots(owner) if kind == "shot" else [""]
     block = len(shots) > 1
+
+    def last_render(shot: str, mine: list, folder_dir: Path) -> dict:
+        # An older version's entry (no source_file, no shot_override) after
+        # it may be a newer render of this shot: the folder name knows.
+        if mine and all(e.get("source_file") for e in finished[mine[-1] + 1 :]):
+            last = finished[mine[-1]]
+            output = last.get("output_path")
+            folder = (Path(root) / output).parent if output else None
+            return {
+                "shot": shot,
+                "file": Path(last["source_file"]).name,
+                "folder": folder.name if folder else None,
+                "path": str(folder) if folder else None,
+                # Which machine wrote each frame, and their pace
+                # (farm queue._note_frames()): File details' lookup.
+                "frame_machines": last.get("frame_machines"),
+                "machine_seconds": last.get("machine_seconds"),
+            }
+        latest = latest_render_dir(folder_dir, v_prefix)
+        return {
+            "shot": shot,
+            "file": None,
+            "folder": latest.name if latest else None,
+            "path": str(latest) if latest else None,
+        }
+
     out = []
     for shot in shots:
         # A block's history holds every shot it rendered, told apart by
@@ -147,34 +173,19 @@ def read_render_state(root: Path, kind: str, owner: Path, v_prefix: str = "v") -
             for i, e in enumerate(finished)
             if e.get("source_file") and (not block or e.get("shot_override") == shot)
         ]
-        # An older version's entry (no source_file, no shot_override) after
-        # it may be a newer render of this shot: the folder name knows.
-        if mine and all(e.get("source_file") for e in finished[mine[-1] + 1 :]):
-            last = finished[mine[-1]]
-            output = last.get("output_path")
-            folder = (Path(root) / output).parent if output else None
-            out.append(
-                {
-                    "shot": shot,
-                    "file": Path(last["source_file"]).name,
-                    "folder": folder.name if folder else None,
-                    "path": str(folder) if folder else None,
-                    # Which machine wrote each frame, and their pace
-                    # (farm queue._note_frames()): File details' lookup.
-                    "frame_machines": last.get("frame_machines"),
-                    "machine_seconds": last.get("machine_seconds"),
-                }
-            )
-            continue
-        latest = latest_render_dir(base.with_name(shot) if shot else base, v_prefix)
-        out.append(
-            {
-                "shot": shot,
-                "file": None,
-                "folder": latest.name if latest else None,
-                "path": str(latest) if latest else None,
-            }
-        )
+        out.append(last_render(shot, mine, base.with_name(shot) if shot else base))
+    if block:
+        # The block rendered whole (no split per shot: renders/<seq>/
+        # sh030-040/...): its own line, shot "" -- the shots it covers
+        # aren't "not rendered".
+        mine = [
+            i
+            for i, e in enumerate(finished)
+            if e.get("source_file") and not e.get("shot_override")
+        ]
+        whole = last_render("", mine, base)
+        if whole["path"]:
+            out = [r for r in out if r["path"]] + [whole]
     return out
 
 
@@ -199,13 +210,16 @@ def read_snapshot_data(
         dirs, shot_dirs = {}, {}
         for _, owner, raw, _ in raws:
             if not raw["tracking"].get("archived"):
-                dirs[str(owner)] = owner_render_dir(root, owner)
+                dirs[str(owner)] = owner_thumbnail_dirs(root, owner)
                 # A block: every shot's own, to find one's way in the edit.
                 if shots := owner_shot_render_dirs(root, owner):
                     shot_dirs[str(owner)] = shots
         size = thumbnails.get("size") or thumbnail_size({})
         every = dict.fromkeys(
-            [*dirs.values(), *(d for shots in shot_dirs.values() for _, d in shots)]
+            [
+                *(d for candidates in dirs.values() for d in candidates),
+                *(d for shots in shot_dirs.values() for _, d in shots),
+            ]
         )
         jobs = thumbnail_jobs(every, v_prefix, size=size)
         results = run_thumbnail_jobs(
@@ -221,8 +235,9 @@ def read_snapshot_data(
             except OSError:
                 return None
 
-        for owner, d in dirs.items():
-            if (b64 := encoded(d)) is not None:
+        for owner, candidates in dirs.items():
+            b64 = next((b for d in candidates if (b := encoded(d)) is not None), None)
+            if b64 is not None:
                 thumbs[owner] = b64
         for owner, shots in shot_dirs.items():
             found = [(label, encoded(d)) for label, d in shots]
@@ -1441,7 +1456,12 @@ def _render_cell(item: dict) -> str:
         same = len({r["folder"] for r in renders}) == 1
         block = len(renders) > 1  # a mono shot's labels carry no shot
         for r in renders[:1] if same else renders:
-            shot = "" if same else f'<span class="shot">{_e(r["shot"])}</span> '
+            # A block rendered whole: shot "".
+            shot = (
+                ""
+                if same
+                else f'<span class="shot">{_e(r["shot"] or "all shots")}</span> '
+            )
             labels = {
                 f"{x['shot'] if block else ''} {x['folder']}".strip()
                 for x in (renders if same else [r])

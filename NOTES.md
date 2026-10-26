@@ -1957,6 +1957,17 @@ carries its prefix). Overwritten in place, made by `lib/thumbnails.py` +
   next to it and drawn in a box so the centering reads as intended.
 - **Blocks**: a block row shows its first shot's thumbnail; every shot still
   gets its own, since the farm renders a block shot by shot.
+- **A block rendered whole** (no split per shot -- `shot_override` empty,
+  the frames in `renders/<seq>/sh030-040/vXXX_YYY`, e.g. when its
+  cameras weren't bound): `read_render_state()` only looked for each
+  shot's own render (its history entry by `shot_override`, its
+  `renders/<seq>/sh030` folder), found none, and File details hid its
+  whole "Last render" column. A block's whole render is now one more
+  line, shot "" ("all shots" when shown beside per-shot ones), and the
+  shots without a render of their own aren't listed as "not rendered"
+  then. Its thumbnail, made by the farm in that block folder, stands in
+  when the first shot has none (`owner_thumbnail_dirs()`: File details,
+  the snapshot).
 - **Asset renders** had never worked on the farm: `compute_output_path()`
   took the file's folder relative to `shots/`, a ValueError for anything
   under `assets/` or `library/`, so the job failed at setup -- though the
