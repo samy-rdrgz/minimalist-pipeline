@@ -767,13 +767,15 @@ def draw_farm_workers(context, layout):
         )
         monitor_jobs = monitor_cache.get("jobs") or []
         # Only the process the host is running right now, same definition
-        # as _finish_job_processes() (farm/queue.py) -- not render_start:
-        # that's the workers' part, listed under each machine below.
+        # as _finish_job_processes() (farm/queue.py) -- not render_start, nor
+        # a preview compiling on a worker (compile_machine): the workers'
+        # part, listed under each machine below.
         running_jobs = [
             job
             for job in monitor_jobs
             if job.get("stage", "").endswith("_start")
             and job.get("stage") != "render_start"
+            and not job.get("compile_machine")
         ]
 
         status = monitor_cache.get("status")

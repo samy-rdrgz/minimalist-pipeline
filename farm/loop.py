@@ -700,6 +700,9 @@ def _build_job_entry(
         or job.get("machine_seconds")
         or {},
         "machines": job.get("used_machines", []),
+        # A preview compiling on a worker (post_render.send_preview_compile()):
+        # that machine's, not the farm host's.
+        "compile_machine": job.get("compile_machine", ""),
         "skipped_shots": job.get("skipped_shots", []),
         "absorbed_shots": job.get("absorbed_shots", []),
         "shot_override": job.get("shot_override", ""),

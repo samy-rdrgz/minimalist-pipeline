@@ -10,6 +10,8 @@ All notable changes to this addon. Dates are release dates.
   shot's own render was looked for. Its render now shows (with its video,
   folder and frame lookup), in the snapshot's "Last render" too, and its
   thumbnail stands for the block.
+- **Farm: a preview compiling on a worker** is listed under that worker
+  only -- it showed under the farm host too, as if the host ran it.
 
 ## 1.1.3 — 2026-10-25
 
