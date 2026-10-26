@@ -12,6 +12,9 @@ All notable changes to this addon. Dates are release dates.
   thumbnail stands for the block.
 - **Farm: a preview compiling on a worker** is listed under that worker
   only -- it showed under the farm host too, as if the host ran it.
+- **Farm: the host's machine as a worker** shows on its worker row what
+  the farm host runs there (a setup, a compile, a frame check), under
+  "worker idle" -- it read plain idle, while the machine was busy.
 
 ## 1.1.3 — 2026-10-25
 

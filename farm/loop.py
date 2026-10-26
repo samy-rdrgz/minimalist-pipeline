@@ -377,6 +377,7 @@ def _status_from_monitor_raw(monitor: tuple) -> dict:
         "status": "not running",
         "lock_user": "",
         "lock_machine": "",
+        "lock_uuid": "",
         "last_tick": None,
     }
     if not data:
@@ -387,6 +388,8 @@ def _status_from_monitor_raw(monitor: tuple) -> dict:
     status["status"] = monitor_age_status(last)
     status["lock_user"] = data.get("user", "")
     status["lock_machine"] = data.get("machine", "")
+    # The farm host's machine: its worker row shows what the host runs too.
+    status["lock_uuid"] = data.get("uuid", "")
     status["last_tick"] = last
     return status
 
