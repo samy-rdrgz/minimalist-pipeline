@@ -1821,16 +1821,20 @@ background:color-mix(in srgb,var(--accent) 4%,var(--card))}
 /* The thumbnail column: its cell's left padding + the thumbnail -- not on a
 narrow screen, where it would push the notes out of it. */
 .nspace{flex:0 0 120px}@media (max-width:640px){.nspace{display:none}}
+/* The table's width (author and date at its right), never past the screen:
+it stays in view when a wide table is scrolled sideways. */
 .nbox{position:sticky;left:8px;flex:1 1 auto;min-width:0;
-max-width:min(60rem,calc(100vw - 64px))}
+max-width:calc(100vw - 64px)}
 .threads{list-style:none;margin:0;padding:0}
 .threads li{padding:8px 0;border-top:1px solid var(--line)}
 .threads li:first-child{border-top:0}
 .threads li.reply{margin-left:24px}
-.threads li p{margin:4px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
+/* A note's text keeps a reading width. */
+.threads li p{margin:4px 0 0;max-width:60rem;white-space:pre-wrap;overflow-wrap:anywhere}
 .head{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .who{margin-left:auto;color:var(--muted);font-size:12px}
-.type,.tag{font-size:11px;padding:1px 7px;border-radius:999px;border:1px solid var(--line)}
+.type,.tag{font-size:10px;line-height:15px;padding:0 6px;border-radius:999px;
+border:1px solid var(--line)}
 .type{font-weight:600;text-transform:uppercase}
 .t-rtk{color:var(--rtk);background:var(--rtk-bg);border-color:transparent}
 .t-rtk.team{color:var(--team);background:var(--team-bg)}

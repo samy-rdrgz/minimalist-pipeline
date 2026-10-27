@@ -22,6 +22,9 @@ what, snapshot thumbnails without letterbox bands.
 - **Snapshot, "Blender file"**: the wip version only when it's newer than
   the last stable.
 - **Snapshot: the sequence / prefix bands stand out** (bigger, darker).
+- **Snapshot notes**: smaller tags, and the author and date at the
+  table's right edge -- they stopped at two thirds of it, where the notes'
+  box was capped (the text keeps a reading width).
 - **Farm: a preview compiling on a worker** is listed under that worker
   only -- it showed under the farm host too, as if the host ran it.
 - **Farm: the host's machine as a worker** shows on its worker row what
