@@ -2,7 +2,10 @@
 
 All notable changes to this addon. Dates are release dates.
 
-## Unreleased
+## 1.1.4 — 2026-10-27
+
+A block rendered whole shows its render, the farm's rows say who compiles
+what, snapshot thumbnails without letterbox bands.
 
 - **A block rendered whole shows its render.** A multishot rendered in
   one piece (not split per shot: `renders/sq060/sh030-040/v004-stable_001`)
