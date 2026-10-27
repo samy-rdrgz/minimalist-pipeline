@@ -1967,9 +1967,15 @@ carries its prefix). Overwritten in place, made by `lib/thumbnails.py` +
   shot's own render (its history entry by `shot_override`, its
   `renders/<seq>/sh030` folder), found none, and File details hid its
   whole "Last render" column. A block's whole render is now one more
-  line, shot "" ("all shots" when shown beside per-shot ones), and the
-  shots without a render of their own aren't listed as "not rendered"
-  then. Its thumbnail, made by the farm in that block folder, stands in
+  line... first as its own "all shots" line, beside the per-shot ones --
+  unreadable ("sh020 v004-stable_002" five times, then "all shots
+  v004-stable_001": which is current?). Now each shot's last render is
+  the newer of its own and the whole block's (`_render_order()`, from
+  the folder name; `whole: True` -- its to-check label is the folder
+  alone), and `group_renders()` puts the shots sharing one on one line,
+  named as a block (`shots_label()`: "sh020-030-040", nothing when it's
+  every shot). The snapshot groups by folder name (a split render writes
+  one per shot), File details by path (its buttons open that folder). Its thumbnail, made by the farm in that block folder, stands in
   when the first shot has none (`owner_thumbnail_dirs()`: File details,
   the snapshot).
 - **Asset renders** had never worked on the farm: `compute_output_path()`

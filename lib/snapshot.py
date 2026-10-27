@@ -177,8 +177,8 @@ def read_render_state(root: Path, kind: str, owner: Path, v_prefix: str = "v") -
         out.append(last_render(shot, mine, base.with_name(shot) if shot else base))
     if block:
         # The block rendered whole (no split per shot: renders/<seq>/
-        # sh030-040/...): its own line, shot "" -- the shots it covers
-        # aren't "not rendered".
+        # sh030-040/...): each shot's last render is the newer of its own
+        # and that one ("whole": the to-check label is the folder alone).
         mine = [
             i
             for i, e in enumerate(finished)
@@ -186,8 +186,48 @@ def read_render_state(root: Path, kind: str, owner: Path, v_prefix: str = "v") -
         ]
         whole = last_render("", mine, base)
         if whole["path"]:
-            out = [r for r in out if r["path"]] + [whole]
+            out = [
+                dict(whole, shot=r["shot"], whole=True)
+                if _render_order(whole["folder"]) > _render_order(r["folder"])
+                else r
+                for r in out
+            ]
     return out
+
+
+_RENDER_FOLDER = re.compile(r"(\d+)(?:-[a-z]+)?_(\d+)$")
+
+
+def _render_order(folder: str | None) -> tuple[int, int]:
+    """A render folder's (version, increment) -- v004-stable_002 -> (4, 2);
+    (-1, -1) for none."""
+    m = _RENDER_FOLDER.search(folder or "")
+    return (int(m[1]), int(m[2])) if m else (-1, -1)
+
+
+def group_renders(renders: list, key: str = "folder") -> list[tuple[list, dict]]:
+    """A folder's last renders (read_render_state()) grouped by render:
+    [(its shots, the render)], in the block's order -- five shots of one
+    render are one line, not five. key "folder": the same folder name is
+    the same render (a split render writes one per shot -- the snapshot);
+    "path": the very same folder (File details, whose buttons open it)."""
+    groups: dict = {}
+    for r in renders:
+        groups.setdefault((r.get(key), bool(r.get("whole"))), (r, []))[1].append(
+            r["shot"]
+        )
+    return [(shots, r) for r, shots in groups.values()]
+
+
+def shots_label(shots: list, every: list) -> str:
+    """ "sh020-030-040", as a block's name -- "" when that's every shot."""
+    if len(shots) == len(every) and len(every) > 1:
+        return ""
+    first, *rest = shots
+    prefix = first.rstrip("0123456789")
+    return "-".join(
+        [first, *(s[len(prefix) :] if s.startswith(prefix) else s for s in rest)]
+    )
 
 
 def read_snapshot_data(
@@ -293,6 +333,9 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
                 for d in status.get("departments_required", [])
             },
             "wip_version": wip_name,
+            # Work on top of the last stable (a wip made after it), else none
+            # to show: the Blender file column names the stable alone.
+            "wip_after_stable": wip_n > stable_n,
             "stable_version": stable_name,
             # What the prod sees and what its notes get anchored on: the
             # most recent of the two (a stable can be newer than any wip).
@@ -315,6 +358,7 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
                 {
                     "shot": r["shot"],
                     "folder": r["folder"],
+                    "whole": bool(r.get("whole")),
                     "file_number": int(m[1]) if m else None,
                 }
             )
@@ -1311,7 +1355,10 @@ def _render_table(
         versions = " · ".join(
             label + _short_version(item["name"], v)
             for label, v in (
-                ("wip ", item["wip_version"]),
+                (
+                    "wip ",
+                    item["wip_version"] if item.get("wip_after_stable", True) else None,
+                ),
                 ("stable ", item["stable_version"]),
             )
             if v
@@ -1481,22 +1528,24 @@ def _render_cell(item: dict) -> str:
     rows = []
     if any(r["folder"] for r in renders):
         stable = _short_version(item["name"], item["stable_version"] or "")
-        same = len({r["folder"] for r in renders}) == 1
         block = len(renders) > 1  # a mono shot's labels carry no shot
-        for r in renders[:1] if same else renders:
-            # A block rendered whole: shot "".
-            shot = (
-                ""
-                if same
-                else f'<span class="shot">{_e(r["shot"] or "all shots")}</span> '
+        every = [r["shot"] for r in renders]
+        for shots, r in group_renders(renders):
+            label = shots_label(shots, every) if block else ""
+            # A shot rendered with the whole block: said on hover.
+            tip = ' title="Rendered with the whole block"' if r.get("whole") else ""
+            shot = f'<span class="shot"{tip}>{_e(label)}</span> ' if label else ""
+            labels = (
+                {
+                    r["folder"] if r.get("whole") or not block else f"{s} {r['folder']}"
+                    for s in shots
+                }
+                if r["folder"]
+                else set()
             )
-            labels = {
-                f"{x['shot'] if block else ''} {x['folder']}".strip()
-                for x in (renders if same else [r])
-            }
             if not r["folder"]:
                 text = f'{shot}<span class="norender">not rendered</span>'
-                rows.append([labels, "", text, r["shot"] if block else ""])
+                rows.append([labels, "", text, shots[0] if block else ""])
                 continue
             if (
                 r["file_number"] is not None
@@ -1709,7 +1758,10 @@ table{border-collapse:collapse;width:100%}
 th,td{padding:6px 8px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
 table{font-size:13px}
 thead th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
-tr.group th{background:var(--bg);font-size:12px;color:var(--muted)}
+/* A sequence's / prefix's band: it has to stand out from the rows. */
+tr.group th{background:var(--line);font-size:14px;font-weight:700;color:var(--fg);
+padding-top:9px;padding-bottom:9px}
+tr.group .pct{font-size:13px}
 td.name{min-width:200px}td.name small{display:block;color:var(--muted);white-space:pre-line}
 td.ver{color:var(--muted);font-size:12px;white-space:nowrap}
 .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;

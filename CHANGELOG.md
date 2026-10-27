@@ -13,6 +13,15 @@ what, snapshot thumbnails without letterbox bands.
   shot's own render was looked for. Its render now shows (with its video,
   folder and frame lookup), in the snapshot's "Last render" too, and its
   thumbnail stands for the block.
+- **Snapshot, "Last render" of a block**: shots sharing a render are one
+  line, named as a block ("sh020-030-040-050-060 v004-stable_002"), and
+  each shot shows its newest render, its own or the whole block's (a
+  whole-block render is said on hover) -- no more one line per shot plus
+  a puzzling "all shots" one. File details groups the shots sharing a
+  render folder the same way.
+- **Snapshot, "Blender file"**: the wip version only when it's newer than
+  the last stable.
+- **Snapshot: the sequence / prefix bands stand out** (bigger, darker).
 - **Farm: a preview compiling on a worker** is listed under that worker
   only -- it showed under the farm host too, as if the host ran it.
 - **Farm: the host's machine as a worker** shows on its worker row what
