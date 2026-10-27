@@ -855,17 +855,17 @@ def draw_farm_workers(context, layout):
         )
         info.label(text=m.get("machine", "unknown"))
 
-        jobs = split.row()
+        # One cell for the job side, the host's lines under the worker's:
+        # a second split item would take the right half of the row.
+        cell = split.column(align=True)
+        jobs = cell.row()
         if m.get("status") == "stopped":
             jobs.label(text="stopped")
             continue
-        if on_host:
-            col = split.column(align=True)
-            jobs = col.row()
-            for job in on_host:
-                _draw_job_link(
-                    col.row(), job["job_id"], f"host {job['stage']}: {_job_name(job)}"
-                )
+        for job in on_host:
+            _draw_job_link(
+                cell.row(), job["job_id"], f"host {job['stage']}: {_job_name(job)}"
+            )
         if busy:
             current_id = m.get("current_job_id") or ""
             job = jobs_by_id.get(current_id)
