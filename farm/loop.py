@@ -377,6 +377,7 @@ def _status_from_monitor_raw(monitor: tuple) -> dict:
         "status": "not running",
         "lock_user": "",
         "lock_machine": "",
+        "lock_uuid": "",
         "last_tick": None,
     }
     if not data:
@@ -387,6 +388,8 @@ def _status_from_monitor_raw(monitor: tuple) -> dict:
     status["status"] = monitor_age_status(last)
     status["lock_user"] = data.get("user", "")
     status["lock_machine"] = data.get("machine", "")
+    # The farm host's machine: its worker row shows what the host runs too.
+    status["lock_uuid"] = data.get("uuid", "")
     status["last_tick"] = last
     return status
 
@@ -700,6 +703,9 @@ def _build_job_entry(
         or job.get("machine_seconds")
         or {},
         "machines": job.get("used_machines", []),
+        # A preview compiling on a worker (post_render.send_preview_compile()):
+        # that machine's, not the farm host's.
+        "compile_machine": job.get("compile_machine", ""),
         "skipped_shots": job.get("skipped_shots", []),
         "absorbed_shots": job.get("absorbed_shots", []),
         "shot_override": job.get("shot_override", ""),

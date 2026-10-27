@@ -31,13 +31,15 @@ from ..lib import (
     get_entries,
     get_entries_grouped,
     get_linked_libraries_cached,
-    owner_render_dir,
+    owner_thumbnail_dirs,
     render_root,
     json_get,
     monitoring_detail,
     paginate,
     project_path,
+    group_renders,
     read_render_state,
+    shots_label,
     region_char_budget,
     rows_that_fit,
     split_footer,
@@ -206,7 +208,9 @@ def _draw_entry(e, note, filepath, width: int | None = None):
         btn.filepath = filepath
         if e["type"] == "rtk":
             # A validation role's RTK red, the team's own orange.
-            body.label(text="", icon=_RTK_ROLE_ICON if e.get("role") else _RTK_TEAM_ICON)
+            body.label(
+                text="", icon=_RTK_ROLE_ICON if e.get("role") else _RTK_TEAM_ICON
+            )
 
     else:
         body.label(text="", icon=_ROLE_ICON if e.get("role") else "LAYER_USED")
@@ -232,7 +236,9 @@ def _draw_entry(e, note, filepath, width: int | None = None):
         text_row.separator(factor=0.65)
         # Red text: an open RTK from a validation role (the team's has its
         # orange mark).
-        text_row.alert = e.get("done") is False and e["type"] == "rtk" and bool(e.get("role"))
+        text_row.alert = (
+            e.get("done") is False and e["type"] == "rtk" and bool(e.get("role"))
+        )
 
         text_to_lines(text_row, line, max_width=width, scale_y=0.75)
 
@@ -293,7 +299,9 @@ def _draw_entry(e, note, filepath, width: int | None = None):
     btn.custom_tooltip = _get_entry_tooltip(e, filepath)
 
 
-def _draw_approval(row, data: dict, department: str, filepath: str, role: str, tooltip: str):
+def _draw_approval(
+    row, data: dict, department: str, filepath: str, role: str, tooltip: str
+):
     """A done department's validation, after its name: the highest role
     that validated it (a star), and, for a user with a validation role,
     the button giving or withdrawing theirs."""
@@ -397,10 +405,15 @@ def load_file_thumbnail(folder: str) -> None:
     root = get_active_project_root()
     if not root or not folder:
         return
-    path = thumbnail_path(owner_render_dir(root, Path(folder)))
-    try:
-        mtime = os.stat(path).st_mtime
-    except OSError:
+    # The first shot's, else a block rendered whole's own.
+    for d in owner_thumbnail_dirs(root, Path(folder)):
+        path = thumbnail_path(d)
+        try:
+            mtime = os.stat(path).st_mtime
+            break
+        except OSError:
+            continue
+    else:
         return
     if _previews is None:
         _previews = bpy.utils.previews.new()
@@ -436,8 +449,12 @@ def _draw_last_renders(layout, filepath: str) -> bool:
     title = col.row()
     title.label(text="Last render:", icon="RENDER_ANIMATION")
     block = len(last) > 1
-    for r in last:
-        label = f"{r['shot']} " if block else ""
+    every = [r["shot"] for r in last]
+    # Shots sharing a render on one line: "sh020-030-040 v004-stable_002".
+    grouped = group_renders(last, key="path")
+    for shots, r in grouped:
+        label = shots_label(shots, every) if block else ""
+        label = f"{label} " if label else ""
         if not r["path"]:
             _render_row(col, f"{label}not rendered").active = False
             continue
@@ -448,11 +465,13 @@ def _draw_last_renders(layout, filepath: str) -> bool:
     # job is archived and gone from Farm monitoring.
     renders = [
         (
-            f"{r['shot']} " if block else "",
+            f"{shots_label(shots, every)} "
+            if block and shots_label(shots, every)
+            else "",
             r.get("frame_machines"),
             r.get("machine_seconds"),
         )
-        for r in last
+        for shots, r in grouped
     ]
     draw_frame_lookup(col, renders)
     return True
@@ -483,9 +502,7 @@ def _draw_renders_to_check(layout, filepath: str, data: dict) -> None:
             # project_path(): plain join, no disk access in a draw().
             _folder_button(row, str(project_path(info["render"])))
         row.separator(factor=1.5)
-        op = row.operator(
-            "m_pipeline.render_checked", text="Checked", icon="CHECKMARK"
-        )
+        op = row.operator("m_pipeline.render_checked", text="Checked", icon="CHECKMARK")
         op.filepath = filepath
         op.shot = shot
         op.custom_tooltip = "Mark this render as checked"
@@ -711,9 +728,9 @@ def draw_file_details(state, context, layout):
             by_folder: dict[Path, list[dict]] = {}
             for entry in linked:
                 if entry.get("file"):
-                    by_folder.setdefault(
-                        project_path(entry["file"]).parent, []
-                    ).append(entry)
+                    by_folder.setdefault(project_path(entry["file"]).parent, []).append(
+                        entry
+                    )
 
             links_col.label(text="Links to:", icon="LINKED")
             for lib_dir, entries in by_folder.items():
@@ -729,9 +746,7 @@ def draw_file_details(state, context, layout):
                     emboss=False,
                 )
                 op.filepath = str(lib_dir)
-                op.custom_tooltip = "\n".join(
-                    Path(e["file"]).name for e in entries
-                )
+                op.custom_tooltip = "\n".join(Path(e["file"]).name for e in entries)
         if linked_by:
             links_col.label(text="Linked by:", icon="LINKED")
             for folder in linked_by:

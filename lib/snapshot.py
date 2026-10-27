@@ -28,8 +28,9 @@ from .core import json_get, now, read_json_quiet
 from .errors import PipelineError
 from .preview import latest_render_dir, render_root
 from .thumbnails import (
-    owner_render_dir,
+    jpeg_size_of,
     owner_shot_render_dirs,
+    owner_thumbnail_dirs,
     run_thumbnail_jobs,
     thumbnail_jobs,
     thumbnail_path,
@@ -138,6 +139,32 @@ def read_render_state(root: Path, kind: str, owner: Path, v_prefix: str = "v") -
     base = render_root(root, owner)
     shots = _owner_shots(owner) if kind == "shot" else [""]
     block = len(shots) > 1
+
+    def last_render(shot: str, mine: list, folder_dir: Path) -> dict:
+        # An older version's entry (no source_file, no shot_override) after
+        # it may be a newer render of this shot: the folder name knows.
+        if mine and all(e.get("source_file") for e in finished[mine[-1] + 1 :]):
+            last = finished[mine[-1]]
+            output = last.get("output_path")
+            folder = (Path(root) / output).parent if output else None
+            return {
+                "shot": shot,
+                "file": Path(last["source_file"]).name,
+                "folder": folder.name if folder else None,
+                "path": str(folder) if folder else None,
+                # Which machine wrote each frame, and their pace
+                # (farm queue._note_frames()): File details' lookup.
+                "frame_machines": last.get("frame_machines"),
+                "machine_seconds": last.get("machine_seconds"),
+            }
+        latest = latest_render_dir(folder_dir, v_prefix)
+        return {
+            "shot": shot,
+            "file": None,
+            "folder": latest.name if latest else None,
+            "path": str(latest) if latest else None,
+        }
+
     out = []
     for shot in shots:
         # A block's history holds every shot it rendered, told apart by
@@ -147,35 +174,60 @@ def read_render_state(root: Path, kind: str, owner: Path, v_prefix: str = "v") -
             for i, e in enumerate(finished)
             if e.get("source_file") and (not block or e.get("shot_override") == shot)
         ]
-        # An older version's entry (no source_file, no shot_override) after
-        # it may be a newer render of this shot: the folder name knows.
-        if mine and all(e.get("source_file") for e in finished[mine[-1] + 1 :]):
-            last = finished[mine[-1]]
-            output = last.get("output_path")
-            folder = (Path(root) / output).parent if output else None
-            out.append(
-                {
-                    "shot": shot,
-                    "file": Path(last["source_file"]).name,
-                    "folder": folder.name if folder else None,
-                    "path": str(folder) if folder else None,
-                    # Which machine wrote each frame, and their pace
-                    # (farm queue._note_frames()): File details' lookup.
-                    "frame_machines": last.get("frame_machines"),
-                    "machine_seconds": last.get("machine_seconds"),
-                }
-            )
-            continue
-        latest = latest_render_dir(base.with_name(shot) if shot else base, v_prefix)
-        out.append(
-            {
-                "shot": shot,
-                "file": None,
-                "folder": latest.name if latest else None,
-                "path": str(latest) if latest else None,
-            }
-        )
+        out.append(last_render(shot, mine, base.with_name(shot) if shot else base))
+    if block:
+        # The block rendered whole (no split per shot: renders/<seq>/
+        # sh030-040/...): each shot's last render is the newer of its own
+        # and that one ("whole": the to-check label is the folder alone).
+        mine = [
+            i
+            for i, e in enumerate(finished)
+            if e.get("source_file") and not e.get("shot_override")
+        ]
+        whole = last_render("", mine, base)
+        if whole["path"]:
+            out = [
+                dict(whole, shot=r["shot"], whole=True)
+                if _render_order(whole["folder"]) > _render_order(r["folder"])
+                else r
+                for r in out
+            ]
     return out
+
+
+_RENDER_FOLDER = re.compile(r"(\d+)(?:-[a-z]+)?_(\d+)$")
+
+
+def _render_order(folder: str | None) -> tuple[int, int]:
+    """A render folder's (version, increment) -- v004-stable_002 -> (4, 2);
+    (-1, -1) for none."""
+    m = _RENDER_FOLDER.search(folder or "")
+    return (int(m[1]), int(m[2])) if m else (-1, -1)
+
+
+def group_renders(renders: list, key: str = "folder") -> list[tuple[list, dict]]:
+    """A folder's last renders (read_render_state()) grouped by render:
+    [(its shots, the render)], in the block's order -- five shots of one
+    render are one line, not five. key "folder": the same folder name is
+    the same render (a split render writes one per shot -- the snapshot);
+    "path": the very same folder (File details, whose buttons open it)."""
+    groups: dict = {}
+    for r in renders:
+        groups.setdefault((r.get(key), bool(r.get("whole"))), (r, []))[1].append(
+            r["shot"]
+        )
+    return [(shots, r) for r, shots in groups.values()]
+
+
+def shots_label(shots: list, every: list) -> str:
+    """ "sh020-030-040", as a block's name -- "" when that's every shot."""
+    if len(shots) == len(every) and len(every) > 1:
+        return ""
+    first, *rest = shots
+    prefix = first.rstrip("0123456789")
+    return "-".join(
+        [first, *(s[len(prefix) :] if s.startswith(prefix) else s for s in rest)]
+    )
 
 
 def read_snapshot_data(
@@ -199,13 +251,16 @@ def read_snapshot_data(
         dirs, shot_dirs = {}, {}
         for _, owner, raw, _ in raws:
             if not raw["tracking"].get("archived"):
-                dirs[str(owner)] = owner_render_dir(root, owner)
+                dirs[str(owner)] = owner_thumbnail_dirs(root, owner)
                 # A block: every shot's own, to find one's way in the edit.
                 if shots := owner_shot_render_dirs(root, owner):
                     shot_dirs[str(owner)] = shots
         size = thumbnails.get("size") or thumbnail_size({})
         every = dict.fromkeys(
-            [*dirs.values(), *(d for shots in shot_dirs.values() for _, d in shots)]
+            [
+                *(d for candidates in dirs.values() for d in candidates),
+                *(d for shots in shot_dirs.values() for _, d in shots),
+            ]
         )
         jobs = thumbnail_jobs(every, v_prefix, size=size)
         results = run_thumbnail_jobs(
@@ -221,8 +276,9 @@ def read_snapshot_data(
             except OSError:
                 return None
 
-        for owner, d in dirs.items():
-            if (b64 := encoded(d)) is not None:
+        for owner, candidates in dirs.items():
+            b64 = next((b for d in candidates if (b := encoded(d)) is not None), None)
+            if b64 is not None:
                 thumbs[owner] = b64
         for owner, shots in shot_dirs.items():
             found = [(label, encoded(d)) for label, d in shots]
@@ -277,6 +333,9 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
                 for d in status.get("departments_required", [])
             },
             "wip_version": wip_name,
+            # Work on top of the last stable (a wip made after it), else none
+            # to show: the Blender file column names the stable alone.
+            "wip_after_stable": wip_n > stable_n,
             "stable_version": stable_name,
             # What the prod sees and what its notes get anchored on: the
             # most recent of the two (a stable can be newer than any wip).
@@ -299,6 +358,7 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
                 {
                     "shot": r["shot"],
                     "folder": r["folder"],
+                    "whole": bool(r.get("whole")),
                     "file_number": int(m[1]) if m else None,
                 }
             )
@@ -750,12 +810,6 @@ def render_html(snapshot: dict) -> str:
         "</header>",
         _render_overview(snapshot),
         "<nav>",
-        '<div class="links"><a href="#assets">Assets <span id="c-assets">'
-        f'{len(snapshot["assets"])}</span></a><a href="#shots">Shots <span id="c-shots">'
-        f'{len(snapshot["shots"])}</span></a><button type="button" id="all-notes" '
-        'title="Unfold every note under its row, or fold them all">Notes '
-        f'<span id="c-notes">{sum(not n["closed"] for n in snapshot["notes"])}</span>'
-        "</button></div>",
         _render_filters(snapshot),
         "</nav>",
         f'<p class="legend">{legend}</p>',
@@ -1162,22 +1216,33 @@ def _render_filters(snapshot: dict) -> str:
     states = "".join(
         f'<option value="{k}">{_e(label)}</option>' for k, (label, _) in STATES.items()
     )
+    open_notes = sum(not n["closed"] for n in snapshot["notes"])
+    # Three named groups -- where to go, what to keep, what to show -- the
+    # toggles as chips that light up once on, Clear only while filtering.
     return (
-        '<div class="filters">'
+        '<div class="navrow">'
+        '<div class="grp links"><span class="gl">Go to</span>'
+        f'<a href="#assets">Assets <span id="c-assets">{len(snapshot["assets"])}</span></a>'
+        f'<a href="#shots">Shots <span id="c-shots">{len(snapshot["shots"])}</span></a></div>'
+        '<div class="grp filters"><span class="gl">Filter</span>'
         '<input id="f-name" type="search" placeholder="Name…" aria-label="Filter by name">'
         f'<select id="f-group" aria-label="Group"><option value="">All groups</option>{groups}</select>'
-        '<select id="f-dep" aria-label="Department"><option value="">Any department</option>'
+        '<select id="f-dep" aria-label="Department"><option value="">All departments</option>'
         f"{options(departments)}</select>"
-        f'<select id="f-state" aria-label="State"><option value="">Any state</option>{states}</select>'
-        '<label><input id="f-rtk" type="checkbox"> Open RTK</label>'
-        '<label><input id="f-notes" type="checkbox"> Has open notes</label>'
-        '<label title="In the farm, or rendered and not checked yet">'
-        '<input id="f-farm" type="checkbox"> Farm</label>'
-        '<label title="Done todos/RTKs, kept in the snapshot but hidden">'
-        '<input id="f-closed" type="checkbox"> Show closed</label>'
-        '<button id="f-reset" type="button">Reset</button>'
+        f'<select id="f-state" aria-label="State"><option value="">All states</option>{states}</select>'
+        '<label class="chip"><input id="f-rtk" type="checkbox">Open RTK</label>'
+        '<label class="chip"><input id="f-notes" type="checkbox">Open notes</label>'
+        '<label class="chip" title="In the farm, or rendered and not checked yet">'
+        '<input id="f-farm" type="checkbox">Farm</label>'
+        '<button id="f-reset" type="button" title="Back to everything">✕ Clear</button></div>'
+        '<div class="grp"><span class="gl">Show</span>'
+        '<button type="button" id="all-notes" class="chip" '
+        'title="Unfold every note under its row, or fold them all">All notes '
+        f'<span id="c-notes">{open_notes}</span></button>'
+        '<label class="chip" title="Done todos/RTKs, kept in the snapshot but hidden">'
+        '<input id="f-closed" type="checkbox">Closed notes</label>'
         f"{_columns_menu(departments, bool(snapshot['meta'].get('validation_role')))}"
-        "</div>"
+        "</div></div>"
     )
 
 
@@ -1295,7 +1360,10 @@ def _render_table(
         versions = " · ".join(
             label + _short_version(item["name"], v)
             for label, v in (
-                ("wip ", item["wip_version"]),
+                (
+                    "wip ",
+                    item["wip_version"] if item.get("wip_after_stable", True) else None,
+                ),
                 ("stable ", item["stable_version"]),
             )
             if v
@@ -1310,8 +1378,8 @@ def _render_table(
         thumb = ""
         if with_thumbs:
             thumb = (
-                f'<td class="th" data-col="thumb"><img class="thumb" alt="" '
-                f'src="data:image/jpeg;base64,{item["thumbnail"]}">{_shot_buttons(item)}</td>'
+                f'<td class="th" data-col="thumb">{_thumb_img(item["thumbnail"])}'
+                f"{_shot_buttons(item)}</td>"
                 if item.get("thumbnail")
                 else f'<td class="th" data-col="thumb"><div class="nothumb"></div>{_shot_buttons(item)}</td>'
             )
@@ -1396,6 +1464,33 @@ def _approval_mark(item: dict, department: str, roles: list) -> str:
     return ""
 
 
+# A thumbnail's box in the table: a fixed width, its height following the
+# image up to a maximum -- a fixed 16:9 box letterboxed a panoramic render
+# (600x54) into a thin line between two bands of the page's background.
+# Too tall a render gets room on its sides instead (object-fit: contain).
+# On hover: its own size, at most _THUMB_HOVER_MAX wide.
+_THUMB_WIDTH, _THUMB_MAX_HEIGHT = 112, 63
+_THUMB_HOVER_MAX = 640
+
+
+def _thumb_img(b64: str) -> str:
+    """A table thumbnail <img>: _THUMB_WIDTH wide, as tall as its aspect
+    ratio needs (up to _THUMB_MAX_HEIGHT), with its hover zoom (--z) to
+    its own size."""
+    try:
+        size = jpeg_size_of(base64.b64decode(b64[:87384]))  # its first 64 KB
+    except ValueError:
+        size = None
+    style = ""
+    if size and size[0] > 0 and size[1] > 0:
+        w, h = size
+        height = max(1, min(_THUMB_MAX_HEIGHT, round(_THUMB_WIDTH * h / w)))
+        drawn = min(_THUMB_WIDTH, height * w / h)  # the picture, sides aside
+        zoom = max(1.0, min(w, _THUMB_HOVER_MAX) / drawn)
+        style = f' style="height:{height}px;--z:{zoom:.2f}"'
+    return f'<img class="thumb" alt=""{style} src="data:image/jpeg;base64,{b64}">'
+
+
 def _shot_buttons(item: dict) -> str:
     """Under a block's thumbnail: a small button per shot, its number
     (010, 020...) in the block's order, showing that shot's thumbnail on
@@ -1438,17 +1533,24 @@ def _render_cell(item: dict) -> str:
     rows = []
     if any(r["folder"] for r in renders):
         stable = _short_version(item["name"], item["stable_version"] or "")
-        same = len({r["folder"] for r in renders}) == 1
         block = len(renders) > 1  # a mono shot's labels carry no shot
-        for r in renders[:1] if same else renders:
-            shot = "" if same else f'<span class="shot">{_e(r["shot"])}</span> '
-            labels = {
-                f"{x['shot'] if block else ''} {x['folder']}".strip()
-                for x in (renders if same else [r])
-            }
+        every = [r["shot"] for r in renders]
+        for shots, r in group_renders(renders):
+            label = shots_label(shots, every) if block else ""
+            # A shot rendered with the whole block: said on hover.
+            tip = ' title="Rendered with the whole block"' if r.get("whole") else ""
+            shot = f'<span class="shot"{tip}>{_e(label)}</span> ' if label else ""
+            labels = (
+                {
+                    r["folder"] if r.get("whole") or not block else f"{s} {r['folder']}"
+                    for s in shots
+                }
+                if r["folder"]
+                else set()
+            )
             if not r["folder"]:
                 text = f'{shot}<span class="norender">not rendered</span>'
-                rows.append([labels, "", text, r["shot"] if block else ""])
+                rows.append([labels, "", text, shots[0] if block else ""])
                 continue
             if (
                 r["file_number"] is not None
@@ -1621,6 +1723,30 @@ padding:10px max(16px,calc((100% - var(--page))/2 + 16px));
 background:var(--bg);border-bottom:1px solid var(--line)}
 @media (min-width:700px){nav{position:sticky;top:0}}
 .links,.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+/* The bar: named groups side by side, a rule between them. */
+.navrow{display:flex;flex-wrap:wrap;gap:8px 28px;align-items:center}
+.grp{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.filters select{max-width:150px}
+.gl{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;
+color:var(--muted);margin-right:2px}
+/* A toggle: a chip, lit once on (its checkbox hidden). */
+.chip{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:999px;
+border:1px solid var(--line);background:var(--card);color:var(--fg);font:inherit;
+font-size:13px;cursor:pointer;white-space:nowrap;user-select:none}
+.chip input{position:absolute;opacity:0;width:0;height:0;margin:0}
+.chip:has(input:checked),.chip[aria-pressed="true"]{color:var(--accent);border-color:var(--accent);
+background:color-mix(in srgb,var(--accent) 12%,var(--card));font-weight:600}
+.chip:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
+.chip span{color:var(--muted);font-weight:400}
+/* Counts at a fixed width: filtering changes them, the bar mustn't move. */
+#c-assets,#c-shots,#c-notes{display:inline-block;min-width:3ch;text-align:right;
+font-variant-numeric:tabular-nums}
+/* A filter in use stands out; Clear shows only while one is. */
+.filters input[type=search]:not(:placeholder-shown),
+.filters select:has(option:checked:not([value=""])){border-color:var(--accent);
+color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--card))}
+.filters:not(.active) #f-reset{display:none}
+.filters #f-reset{border-color:transparent;background:none}
 .links a,.links button{color:var(--fg);text-decoration:none;padding:4px 10px;
 border-radius:6px;border:1px solid var(--line);background:var(--card);font:inherit;
 cursor:pointer}
@@ -1628,8 +1754,7 @@ cursor:pointer}
 .filters input[type=search],.filters select,.filters button{font:inherit;min-width:0;
 padding:4px 8px;border-radius:6px;border:1px solid var(--line);background:var(--card);
 color:var(--fg)}
-.filters input[type=search]{flex:0 1 180px}
-.filters label{display:flex;gap:4px;align-items:center;color:var(--muted);white-space:nowrap}
+.filters input[type=search]{flex:0 1 140px}
 .filters button{cursor:pointer;color:var(--muted)}
 .cols{position:relative}
 .cols summary{cursor:pointer;color:var(--muted);padding:4px 8px;border:1px solid var(--line);
@@ -1637,9 +1762,11 @@ border-radius:6px;background:var(--card);list-style:none}
 .cols summary::-webkit-details-marker{display:none}
 .cols summary::after{content:" ▾"}
 .cols div{position:absolute;right:0;z-index:4;margin-top:4px;padding:8px 12px;display:grid;gap:4px;
+width:max-content;
 background:var(--card);border:1px solid var(--line);border-radius:8px;
 box-shadow:0 4px 18px rgba(0,0,0,.18)}
 .cols.hiding summary{color:var(--accent);border-color:var(--accent)}
+.cols label{display:flex;gap:6px;align-items:center;white-space:nowrap;cursor:pointer}
 .legend .muted{color:var(--muted);font-size:12px;margin:0 8px 0 -2px;align-self:center}
 .filters.active button{color:var(--accent);border-color:var(--accent)}
 [id]{scroll-margin-top:var(--nav-h,16px)}
@@ -1661,7 +1788,10 @@ table{border-collapse:collapse;width:100%}
 th,td{padding:6px 8px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
 table{font-size:13px}
 thead th{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
-tr.group th{background:var(--bg);font-size:12px;color:var(--muted)}
+/* A sequence's / prefix's band: it has to stand out from the rows. */
+tr.group th{background:var(--line);font-size:14px;font-weight:700;color:var(--fg);
+padding-top:9px;padding-bottom:9px}
+tr.group .pct{font-size:13px}
 td.name{min-width:200px}td.name small{display:block;color:var(--muted);white-space:pre-line}
 td.ver{color:var(--muted);font-size:12px;white-space:nowrap}
 .pill{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;
@@ -1693,7 +1823,8 @@ border-radius:3px;background:var(--line);overflow:hidden}
 .bar i{display:block;height:100%;background:var(--done)}
 .valid .bar i{background:var(--role)}
 td.ver .shot{font-weight:600}
-td.th{width:1px;padding-right:0}
+/* Middle of its row: a panoramic thumbnail is shorter than a line of text. */
+td.th{width:1px;padding-right:0;vertical-align:middle}
 /* Any aspect ratio: shown whole inside a fixed box, never cropped. */
 .thumb{display:block;width:112px;height:63px;object-fit:contain;border-radius:4px;
 background:var(--bg);transition:transform .15s}
@@ -1706,9 +1837,11 @@ background:var(--line);color:var(--fg);cursor:default}
 .sb:hover{background:var(--role);color:#fff}
 /* One shared preview, fixed: a table's scroll box would clip it. */
 #sbpop{position:fixed;z-index:20;pointer-events:none;display:none;border-radius:4px;
-width:calc(112px * var(--thumb-zoom,2.4));box-shadow:0 4px 18px rgba(0,0,0,.35);background:var(--bg)}
-img.thumb:hover{transform:scale(var(--thumb-zoom,2.4));transform-origin:left top;position:relative;
-z-index:3;box-shadow:0 4px 18px rgba(0,0,0,.35)}
+width:auto;max-width:640px;box-shadow:0 4px 18px rgba(0,0,0,.35);background:var(--bg)}
+img.thumb:hover{transform:scale(var(--z,var(--thumb-zoom,2.4)));transform-origin:left top;position:relative;
+z-index:3;box-shadow:0 4px 18px rgba(0,0,0,.35);
+/* Scaled with the image: 4 px once zoomed, as the shot buttons' preview. */
+border-radius:calc(4px / var(--z,var(--thumb-zoom,2.4)))}
 .flag{margin-left:8px;font-size:11px;font-weight:600;color:var(--rtk);
 background:var(--rtk-bg);padding:1px 6px;border-radius:999px}
 /* An item's notes, in the row under its own. */
@@ -1718,16 +1851,20 @@ background:color-mix(in srgb,var(--accent) 4%,var(--card))}
 /* The thumbnail column: its cell's left padding + the thumbnail -- not on a
 narrow screen, where it would push the notes out of it. */
 .nspace{flex:0 0 120px}@media (max-width:640px){.nspace{display:none}}
+/* The table's width (author and date at its right), never past the screen:
+it stays in view when a wide table is scrolled sideways. */
 .nbox{position:sticky;left:8px;flex:1 1 auto;min-width:0;
-max-width:min(60rem,calc(100vw - 64px))}
+max-width:calc(100vw - 64px)}
 .threads{list-style:none;margin:0;padding:0}
 .threads li{padding:8px 0;border-top:1px solid var(--line)}
 .threads li:first-child{border-top:0}
 .threads li.reply{margin-left:24px}
-.threads li p{margin:4px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
+/* A note's text keeps a reading width. */
+.threads li p{margin:4px 0 0;max-width:60rem;white-space:pre-wrap;overflow-wrap:anywhere}
 .head{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .who{margin-left:auto;color:var(--muted);font-size:12px}
-.type,.tag{font-size:11px;padding:1px 7px;border-radius:999px;border:1px solid var(--line)}
+.type,.tag{font-size:10px;line-height:15px;padding:0 6px;border-radius:999px;
+border:1px solid var(--line)}
 .type{font-weight:600;text-transform:uppercase}
 .t-rtk{color:var(--rtk);background:var(--rtk-bg);border-color:transparent}
 .t-rtk.team{color:var(--team);background:var(--team-bg)}
@@ -1882,7 +2019,7 @@ return x.split(':');});
 if(!states.some(function(p){return(!d||p[0]===d)&&(!st||p[1]===st);}))return false;}
 return true;}
 function apply(){
-var on=ctl.some(function(c){return c.type==='checkbox'?c.checked:c.value;});
+var on=ctl.some(function(c,i){return i!==6&&(c.type==='checkbox'?c.checked:c.value);});
 bar.classList.toggle('active',on);
 var closed=ctl[6].checked,notes=0;
 document.body.classList.toggle('show-closed',closed);
@@ -1910,11 +2047,12 @@ $('all-notes').addEventListener('click',function(){
 var bs=[].filter.call(document.querySelectorAll('button.jump'),function(b){
 return b.offsetParent;}),open=bs.some(function(b){
 return b.getAttribute('aria-expanded')!=='true';});
-bs.forEach(function(b){b.setAttribute('aria-expanded',open);});apply();});
+bs.forEach(function(b){b.setAttribute('aria-expanded',open);});
+$('all-notes').setAttribute('aria-pressed',open);apply();});
 ctl.forEach(function(c){c.addEventListener('input',apply);
 c.addEventListener('change',apply);});
-$('f-reset').addEventListener('click',function(){ctl.forEach(function(c){
-if(c.type==='checkbox')c.checked=false;else c.value='';});apply();});
+$('f-reset').addEventListener('click',function(){ctl.forEach(function(c,i){
+if(i===6)return;if(c.type==='checkbox')c.checked=false;else c.value='';});apply();});
 var cols=[].slice.call(document.querySelectorAll('.cols input')),
 colStyle=document.createElement('style'),colKey='mp-snapshot-hidden-cols';
 document.head.appendChild(colStyle);

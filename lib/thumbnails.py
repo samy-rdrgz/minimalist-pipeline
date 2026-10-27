@@ -43,6 +43,11 @@ def jpeg_size(path: Path) -> tuple[int, int] | None:
             data = f.read(65536)
     except OSError:
         return None
+    return jpeg_size_of(data)
+
+
+def jpeg_size_of(data: bytes) -> tuple[int, int] | None:
+    """(width, height) from a JPEG's bytes (its SOF segment), or None."""
     if data[:2] != b"\xff\xd8":
         return None
     i = 2
@@ -84,6 +89,16 @@ def owner_render_dir(project_root: Path, owner: Path) -> Path:
     if owner.parent.parent == project_root / "shots":
         return d.with_name(d.name.split("-", 1)[0])
     return d
+
+
+def owner_thumbnail_dirs(project_root: Path, owner: Path) -> list[Path]:
+    """Render folders whose thumbnail may stand for an asset/shot folder,
+    the preferred first: owner_render_dir(), then for a block its own
+    folder -- a block rendered whole (no split per shot) has its frames,
+    and the farm's thumbnail, in renders/<seq>/sh030-040. Pure path work."""
+    first = owner_render_dir(project_root, owner)
+    whole = render_root(project_root, owner)
+    return [first] if whole == first else [first, whole]
 
 
 def owner_shot_render_dirs(project_root: Path, owner: Path) -> list[tuple[str, Path]]:

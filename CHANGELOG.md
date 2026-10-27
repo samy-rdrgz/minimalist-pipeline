@@ -2,6 +2,47 @@
 
 All notable changes to this addon. Dates are release dates.
 
+## 1.1.4 — 2026-10-27
+
+A block rendered whole shows its render, the farm's rows say who compiles
+what, snapshot thumbnails without letterbox bands.
+
+- **A block rendered whole shows its render.** A multishot rendered in
+  one piece (not split per shot: `renders/sq060/sh030-040/v004-stable_001`)
+  had no "Last render" in File details, and no thumbnail: only each
+  shot's own render was looked for. Its render now shows (with its video,
+  folder and frame lookup), in the snapshot's "Last render" too, and its
+  thumbnail stands for the block.
+- **Snapshot, "Last render" of a block**: shots sharing a render are one
+  line, named as a block ("sh020-030-040-050-060 v004-stable_002"), and
+  each shot shows its newest render, its own or the whole block's (a
+  whole-block render is said on hover) -- no more one line per shot plus
+  a puzzling "all shots" one. File details groups the shots sharing a
+  render folder the same way.
+- **Snapshot, "Blender file"**: the wip version only when it's newer than
+  the last stable.
+- **Snapshot: the sequence / prefix bands stand out** (bigger, darker).
+- **Snapshot notes**: smaller tags, and the author and date at the
+  table's right edge -- they stopped at two thirds of it, where the notes'
+  box was capped (the text keeps a reading width).
+- **Snapshot: a clearer filter bar** -- three named groups, *Go to*,
+  *Filter* and *Show*; the toggles (Open RTK, Open notes, Farm, All
+  notes, Closed notes) are chips that light up once on, a filter in use
+  is highlighted, and *Clear* shows only while filtering. The counts keep
+  their width (the bar no longer shifts as they change), and the
+  *Columns* menu is wide enough for a box and its name on one line.
+- **Farm: a preview compiling on a worker** is listed under that worker
+  only -- it showed under the farm host too, as if the host ran it.
+- **Farm: the host's machine as a worker** shows on its worker row what
+  the farm host runs there (a setup, a compile, a frame check), under
+  "worker idle" -- it read plain idle, while the machine was busy.
+- **Snapshot: thumbnails in their own shape.** A thumbnail sat in a fixed
+  16:9 box: a panoramic render (600x54) became a thin line between two
+  bands of the page's background, black in dark mode. The width stays
+  fixed and the height now follows the image (up to 63 px; only too tall
+  a render gets room on its sides), centred in its row; on hover, its own
+  size, with the same small rounded corners as a shot's preview.
+
 ## 1.1.3 — 2026-10-25
 
 **Tracking**

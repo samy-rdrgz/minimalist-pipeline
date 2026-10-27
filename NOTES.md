@@ -1932,8 +1932,12 @@ carries its prefix). Overwritten in place, made by `lib/thumbnails.py` +
   machine that has ffmpeg can fill the gap with its own export.
 - **Size**: longest side 240 px by default, any aspect ratio (a 9:16
   render gives 135x240); JPEG q70 -- 2-3 KB on the test project, ~10 KB
-  for a busy frame. Shown whole in a fixed box in the HTML (`object-fit:
-  contain`), at its own size on hover. The size is the project's
+  for a busy frame. Shown whole in the HTML, 112 px wide, as tall as its
+  aspect ratio needs up to 63 px (`_thumb_img()`: its size read from the
+  JPEG header -- a fixed 16:9 box letterboxed a panoramic 600x54 render
+  into a thin line between two bands of the page's background; the width
+  stays fixed so the column does, and only too tall a render gets room
+  on its sides), at its own size on hover (`--z`, at most 640 px wide). The size is the project's
   `thumbnails.size` (Edit project, `thumbnail_size()`). A thumbnail's
   longest side is always exactly the size it was made at, so
   `thumbnail_jobs()` spots one made before the setting changed by its
@@ -1957,6 +1961,23 @@ carries its prefix). Overwritten in place, made by `lib/thumbnails.py` +
   next to it and drawn in a box so the centering reads as intended.
 - **Blocks**: a block row shows its first shot's thumbnail; every shot still
   gets its own, since the farm renders a block shot by shot.
+- **A block rendered whole** (no split per shot -- `shot_override` empty,
+  the frames in `renders/<seq>/sh030-040/vXXX_YYY`, e.g. when its
+  cameras weren't bound): `read_render_state()` only looked for each
+  shot's own render (its history entry by `shot_override`, its
+  `renders/<seq>/sh030` folder), found none, and File details hid its
+  whole "Last render" column. A block's whole render is now one more
+  line... first as its own "all shots" line, beside the per-shot ones --
+  unreadable ("sh020 v004-stable_002" five times, then "all shots
+  v004-stable_001": which is current?). Now each shot's last render is
+  the newer of its own and the whole block's (`_render_order()`, from
+  the folder name; `whole: True` -- its to-check label is the folder
+  alone), and `group_renders()` puts the shots sharing one on one line,
+  named as a block (`shots_label()`: "sh020-030-040", nothing when it's
+  every shot). The snapshot groups by folder name (a split render writes
+  one per shot), File details by path (its buttons open that folder). Its thumbnail, made by the farm in that block folder, stands in
+  when the first shot has none (`owner_thumbnail_dirs()`: File details,
+  the snapshot).
 - **Asset renders** had never worked on the farm: `compute_output_path()`
   took the file's folder relative to `shots/`, a ValueError for anything
   under `assets/` or `library/`, so the job failed at setup -- though the

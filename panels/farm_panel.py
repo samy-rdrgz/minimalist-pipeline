@@ -754,6 +754,8 @@ def draw_farm_workers(context, layout):
     # uuid -> job_id, to let a busy worker's row cancel just its own share.
     # Empty when the monitor is stopped: a worker file can still say busy.
     uuid_to_job = {}
+    # What the farm host runs itself, also shown on its machine's worker row.
+    host_jobs = []
     if monitor_cache.get("status") == "not running":
         row.label(
             text="Farm not running",
@@ -767,13 +769,15 @@ def draw_farm_workers(context, layout):
         )
         monitor_jobs = monitor_cache.get("jobs") or []
         # Only the process the host is running right now, same definition
-        # as _finish_job_processes() (farm/queue.py) -- not render_start:
-        # that's the workers' part, listed under each machine below.
+        # as _finish_job_processes() (farm/queue.py) -- not render_start, nor
+        # a preview compiling on a worker (compile_machine): the workers'
+        # part, listed under each machine below.
         running_jobs = [
             job
             for job in monitor_jobs
             if job.get("stage", "").endswith("_start")
             and job.get("stage") != "render_start"
+            and not job.get("compile_machine")
         ]
 
         status = monitor_cache.get("status")
@@ -793,6 +797,7 @@ def draw_farm_workers(context, layout):
                 text=monitor_label,
                 icon="KEYTYPE_BREAKDOWN_VEC" if running_jobs else "KEYTYPE_JITTER_VEC",
             )
+            host_jobs = running_jobs
             jobs_col = split.column(align=True)
             if running_jobs:
                 for job in running_jobs:
@@ -836,17 +841,31 @@ def draw_farm_workers(context, layout):
         info = split.row()
         # Read from disk: never trust a key to be there.
         busy = m.get("status") not in ("idle", "not running", "stopped", None)
+        # The farm host on this machine: what it runs (a setup, a compile,
+        # a frame check) -- the worker alone read idle meanwhile.
+        on_host = (
+            host_jobs
+            if m.get("uuid") and m.get("uuid") == monitor_cache.get("lock_uuid")
+            else []
+        )
         _draw_worker_link(
             info,
             m,
-            icon="KEYTYPE_BREAKDOWN_VEC" if busy else "KEYTYPE_JITTER_VEC",
+            icon="KEYTYPE_BREAKDOWN_VEC" if busy or on_host else "KEYTYPE_JITTER_VEC",
         )
         info.label(text=m.get("machine", "unknown"))
 
-        jobs = split.row()
+        # One cell for the job side, the host's lines under the worker's:
+        # a second split item would take the right half of the row.
+        cell = split.column(align=True)
+        jobs = cell.row()
         if m.get("status") == "stopped":
             jobs.label(text="stopped")
             continue
+        for job in on_host:
+            _draw_job_link(
+                cell.row(), job["job_id"], f"host {job['stage']}: {_job_name(job)}"
+            )
         if busy:
             current_id = m.get("current_job_id") or ""
             job = jobs_by_id.get(current_id)
@@ -868,7 +887,7 @@ def draw_farm_workers(context, layout):
                 op.job_id = job_id
                 op.target_uuid = m.get("uuid", "")
         else:
-            jobs.label(text="idle")
+            jobs.label(text="worker idle" if on_host else "idle")
         if not m.get("stopping"):
             op = jobs.operator(
                 "m_pipeline.farm_stop_worker", text="", icon="PAUSE", emboss=False

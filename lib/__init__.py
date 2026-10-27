@@ -186,7 +186,9 @@ from .snapshot import (
     parse_day,
     progress_weights,
     project_schedule,
+    group_renders,
     read_render_state,
+    shots_label,
     read_snapshot_data,
     read_snapshot_raw,
     render_html,
@@ -197,6 +199,7 @@ from .snapshot import (
 )
 from .thumbnails import (
     owner_render_dir,
+    owner_thumbnail_dirs,
     run_thumbnail_jobs,
     thumbnail_jobs,
     thumbnail_path,
