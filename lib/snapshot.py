@@ -1818,7 +1818,7 @@ header h1{display:flex;align-items:center;gap:10px}
 /* ☰ at the top right, the header's and the bar's alike. */
 header{padding-top:10px}header h1 .navmenu{margin-left:auto}nav{padding-right:60px}
 nav .navmenu{position:absolute;right:16px;top:10px}
-.chip.navmenu{width:40px;height:32px;padding:0;justify-content:center;border-radius:999px;font-size:16px}
+.chip.navmenu{width:40px;justify-content:center;font-size:14px}
 body.one .grp.links{display:contents}
 body.one nav .grp.show{display:flex}
 body.hdr-open header{position:fixed;top:0;left:0;right:0;z-index:30;max-height:85vh;overflow:auto;
@@ -2137,7 +2137,11 @@ border:1px solid var(--line);background:var(--card);color:var(--fg)}
 .opair{display:contents}.opair[hidden]{display:none}.oshb{grid-column:1 / -1;align-items:center}
 .oshb>span{font-size:12px;color:var(--muted);margin-right:2px}.oshb .rvtag[hidden]{display:none}
 .oinfo .bar{width:90px}
-.okeys{margin:-6px 0 12px;font-size:11px;color:var(--muted)}@media (max-width:700px){.okeys{display:none}}
+.ostats>*{margin-top:0}.ostats .card{box-shadow:none}
+.okeys{display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:6px;font-size:12px;color:var(--muted)}
+.okeys kbd{font:inherit;font-size:11px;font-weight:600;padding:0 5px;border:1px solid var(--line);
+border-bottom-width:2px;border-radius:4px;background:var(--card);color:var(--fg)}
+@media (max-width:700px){.okeys{display:none}}
 .ortk{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px;margin-top:6px;font-size:13px}
 .opill{font:inherit;font-size:11px;font-weight:600;line-height:16px;padding:0 7px;border-radius:999px;
 border:0;background:var(--rtk);color:#fff;cursor:pointer;white-space:nowrap}
@@ -2197,7 +2201,9 @@ var nav=document.querySelector('nav'),bar=document.querySelector('.filters');
 var ctl=['f-name','f-group','f-dep','f-state','f-rtk','f-notes','f-closed','f-farm'].map($);
 function navHeight(){var sticky=getComputedStyle(nav).position==='sticky',
 h=sticky?nav.offsetHeight:0,root=document.documentElement.style;
-root.setProperty('--nav-h',h+16+'px');navTop=nav.classList.contains('away')?0:h;}
+root.setProperty('--nav-h',h+16+'px');navTop=nav.classList.contains('away')?0:h;
+var m=$('nav-menu'),first=[].filter.call(nav.querySelectorAll('.chip,.links a'),function(c){
+return c!==m&&c.offsetParent;})[0];if(m&&first)m.style.top=first.offsetTop+'px';}
 // A phone's header: a sheet over the page from ☰, shut by a click
 // outside it, Esc, or starting the review.
 function sheet(on){document.body.classList.toggle('hdr-open',on);
@@ -2385,8 +2391,8 @@ var tags=tagButtons(el,ta);if(tags){tags.hidden=true;tags.dataset.for=d;td.appen
 td.appendChild(ta);});
 var name=el.querySelector('td.name'),g=document.createElement('div');g.className='rvg';
 var any=Object.keys(st).some(function(d){return done(st[d]);});
-[['all','✓ all done',!any,'Validate every department done so far'],
-['gen','+ general retake',false,'A retake for no department in particular'],
+[['all','✓ all done',!any,'Validate every department done so far (V, on One file)'],
+['gen','+ general retake',false,'A retake for no department in particular (X, on One file)'],
 ['desc','✎ description',false,'Change the description']].forEach(function(a){
 var b=document.createElement('button');b.type='button';b.className='rvb '+a[0];
 b.textContent=a[1];b.disabled=a[2];b.title=a[3];b.dataset.f=f;b.dataset.act=a[0];g.appendChild(b);});
@@ -2550,6 +2556,9 @@ paint();save();}
 // A block: the field for all its shots, a button per shot, and a shot's
 // field only once its button is clicked (oneOpen) or it holds a retake.
 var oneOpen={};
+// The card's keys, under its name: each one a <kbd>, then what it does.
+function keys(parent,list){var p=add(parent,'div','okeys');list.forEach(function(k){
+var s=add(p,'span');add(s,'kbd',null,k[0]);s.appendChild(document.createTextNode(' '+k[1]));});}
 function oneFields(box,f,k,shots,ph){var list=shots.length>1?[''].concat(shots):[''];
 if(list.length>1){var tags=add(box,'div','rvtags oshb');add(tags,'span',null,'A shot:');
 shots.forEach(function(s){var b=add(tags,'button','rvtag','['+s+']');b.type='button';
@@ -2562,31 +2571,37 @@ t.dataset.shot=s;t.placeholder=s?'Retakes on '+s+' only, one per line':ph;
 if(list.length<2)t.style.gridColumn='1 / -1';});}
 function add(parent,tag,cls,text){var x=document.createElement(tag);if(cls)x.className=cls;
 if(text!=null)x.textContent=text;parent.appendChild(x);return x;}
-function openOne(f){if(f!==oneF)oneOpen={};oneF=f;var el=rows[f],st=states(el),shots=shotsOf(f);
+// '#stats': the Progress block as a card of its own, before the first file.
+function openOne(f){if(f!==oneF)oneOpen={};oneF=f;var el=f==='#stats'?null:rows[f];
 one.textContent='';var card=add(one,'div','ocard'),top=add(card,'div','otop'),btns=add(top,'div','obtns');
 var back=add(btns,'button','chip','← Table'),prev=add(btns,'button','chip','‹ Previous'),
 next=add(btns,'button','chip','Next ›'),who=add(top,'div','owho'),jump=add(top,'select','ojump');
 // Straight to another file: the ones the filters keep, by group, ✎ the
 // ones reviewed already.
 jump.setAttribute('aria-label','Go to a file');var og=null,last='';
-add(jump,'option',null,'Progress (stats)').value='';
+var so=add(jump,'option',null,'Progress (stats)');so.value='#stats';so.selected=!el;
 ALL.forEach(function(r){if(r.hidden&&r!==el)return;
 var lab=(r.closest('section').id==='assets'?'Assets':'Shots')+' · '+r.dataset.group;
 if(lab!==last){og=add(jump,'optgroup');og.label=last=lab;}
 var o=add(og,'option',null,(r.classList.contains('rv-changed')?'✎ ':'')+r.querySelector('td.name b').textContent);
 o.value=r.dataset.file;o.selected=r===el;});
-jump.addEventListener('change',function(){if(!jump.value){setView(false);
-var o=document.getElementById('overview');if(o)setTimeout(function(){o.scrollIntoView();});return;}
-openOne(jump.value);keepView();});
+jump.addEventListener('change',function(){openOne(jump.value);keepView();});
 back.type=prev.type=next.type='button';back.dataset.go='0';prev.dataset.go='-1';next.dataset.go='1';
 back.title='Back to the table (Esc)';prev.title='Previous file (←)';next.title='Next file (→)';
 prev.disabled=!step(-1);next.disabled=!step(1);
+if(!el){add(who,'div','oname','Progress');add(who,'div','opos','The whole project, filters aside');
+keys(who,[['→','first file'],['Esc','table']]);var ov=document.getElementById('overview'),
+sc=add(card,'div','ostats');if(ov)[].forEach.call(ov.querySelector('details').children,function(x){
+if(x.tagName==='SUMMARY')return;var k=x.cloneNode(true);k.removeAttribute('id');
+k.querySelectorAll('[id]').forEach(function(y){y.removeAttribute('id');});sc.appendChild(k);});
+var sb=add(card,'div','obot');sb.appendChild(prev.cloneNode(true));sb.appendChild(next.cloneNode(true));return;}
+var st=states(el),shots=shotsOf(f);
 add(who,'div','oname',el.querySelector('td.name b').textContent);
 add(who,'div','opos',(el.closest('section').id==='assets'?'Asset':'Shot')+' · '+el.dataset.group+' · '+
 (ALL.filter(function(r){return!r.hidden;}).indexOf(el)+1)+' / '+ALL.filter(function(r){return!r.hidden;}).length+
 (bar.classList.contains('active')?' (filtered)':''));
-add(card,'p','okeys','← → files · Esc table'+(document.body.classList.contains('reviewing')?
-' · V all done · X general retake':''));
+keys(who,[['← →','files'],['Esc','table']].concat(document.body.classList.contains('reviewing')?
+[['V','all done'],['X','general retake'],['Ctrl+Enter','in a box: next file']]:[]));
 var body=add(card,'div','obody'),left=add(body,'div'),right=add(body,'div'),
 img=el.querySelector('img.thumb'),big=null;
 if(img){big=add(left,'img','obig');big.src=img.src;big.alt='';}
@@ -2644,7 +2659,7 @@ var b=add(line,'button','opill'+(li.querySelector('.type.team')?' team':''),shot
 b.type='button';b.title=meta;
 var tx=add(line,'span','otx',li.querySelector('p').textContent);add(line,'small','ometa',meta);
 b.addEventListener('click',function(){line.classList.toggle('open');});return line;}
-function paintOne(){if(!one||one.hidden||!oneF)return;var f=oneF,el=rows[f],
+function paintOne(){if(!one||one.hidden||!oneF||oneF==='#stats')return;var f=oneF,el=rows[f],
 e=rv.files[f]||{deps:{},all:false,text:'',desc:null},shots=shotsOf(f);
 one.querySelector('.ocard').classList.toggle('changed',el.classList.contains('rv-changed'));
 if(!rvBuilt)return;  // a file's page, no review yet: nothing of it to show
@@ -2660,29 +2675,33 @@ pair.hidden=!!sh&&!t.value&&!oneOpen[k+' '+sh]&&t!==document.activeElement;grow(
 var b=box.querySelector('.oshb button[data-shot="'+CSS.escape(sh)+'"]');if(b)b.hidden=!pair.hidden;});});
 var dt=one.querySelector('textarea.rvdesc');dt.hidden=e.desc===null;
 if(e.desc!==null&&dt!==document.activeElement)dt.value=e.desc;grow(dt);}
-function step(n){var i=ALL.indexOf(rows[oneF]);for(var j=i+n;j>=0&&j<ALL.length;j+=n)
-if(!ALL[j].hidden)return ALL[j];return null;}
-function go(n){if(!n){setView(false);return;}var r=step(n);if(!r)return;openOne(r.dataset.file);
+function step(n){if(oneF==='#stats')return n>0?ALL.filter(function(r){return!r.hidden;})[0]||null:null;
+var i=ALL.indexOf(rows[oneF]);for(var j=i+n;j>=0&&j<ALL.length;j+=n)
+if(!ALL[j].hidden)return ALL[j];return n<0?'#stats':null;}
+function go(n){if(!n){setView(false);return;}var r=step(n);if(!r)return;openOne(r==='#stats'?r:r.dataset.file);
 if(one.getBoundingClientRect().top<navTop)window.scrollBy(0,one.getBoundingClientRect().top-navTop-8);keepView();}
 function keepView(){try{localStorage.setItem(rvKey+':view',JSON.stringify({one:!one.hidden,f:oneF}));}catch(e){}}
 function setView(on){document.body.classList.toggle('one',on);one.hidden=!on;
 $('view-one').setAttribute('aria-pressed',on);
 $('rv-v-one').setAttribute('aria-pressed',on);$('rv-v-table').setAttribute('aria-pressed',!on);
 if(on){var shown=ALL.filter(function(r){return!r.hidden;});
-if(!oneF||!rows[oneF])oneF=(shown[0]||ALL[0]).dataset.file;openOne(oneF);
+if(!oneF||!rows[oneF]&&oneF!=='#stats')oneF=(shown[0]||ALL[0]).dataset.file;openOne(oneF);
 window.scrollBy(0,one.getBoundingClientRect().top-navTop-8);}
 else{one.textContent='';if(oneF&&rows[oneF]){
 var r=rows[oneF];setTimeout(function(){r.scrollIntoView({block:'center'});});}}
-keepView();size();}
+navHeight();keepView();size();}
 one.addEventListener('click',function(ev){var b=ev.target.closest('[data-go]');if(b)go(+b.dataset.go);});
 $('rv-v-one').addEventListener('click',function(){setView(true);});
 $('rv-v-table').addEventListener('click',function(){setView(false);});
 $('view-one').addEventListener('click',function(){setView(one.hidden);});
+$('view-one').title+=' (Esc)';$('rv-v-one').title+=' (Esc)';$('rv-v-table').title='The table (Esc)';
 $('f-closed').addEventListener('change',function(){if(!one.hidden)openOne(oneF);});
 // Keys: ← → files, Esc table ⇄ one file; while reviewing V all done, X
 // the general retake. Esc in a box just leaves it.
-document.addEventListener('keydown',function(ev){if(ev.altKey||ev.ctrlKey||ev.metaKey)return;
-var t=ev.target;if(t.matches&&t.matches('input,textarea,select')){if(ev.key==='Escape')t.blur();return;}
+document.addEventListener('keydown',function(ev){
+var t=ev.target;if(t.matches&&t.matches('input,textarea,select')){if(ev.key==='Escape'){t.blur();ev.preventDefault();}
+else if(ev.key==='Enter'&&(ev.ctrlKey||ev.metaKey)&&!one.hidden){t.blur();go(1);ev.preventDefault();}return;}
+if(ev.altKey||ev.ctrlKey||ev.metaKey)return;
 if(one.hidden){if(ev.key==='Escape'){setView(true);ev.preventDefault();}return;}
 var k=ev.key.toLowerCase(),rev=document.body.classList.contains('reviewing');
 if(k==='arrowleft')go(-1);else if(k==='arrowright')go(1);else if(k==='escape')go(0);
@@ -2693,10 +2712,10 @@ else return;ev.preventDefault();});
 try{var kept=JSON.parse(localStorage.getItem(rvKey)||'null');if(kept&&kept.files){rv=kept;
 if(count()[0]){setMode(true);$('rv-saved').textContent='Your review in progress was restored';}}}catch(e){}
 if(!rv.date)rv.date=new Date().toISOString().slice(0,10);fields();paint();
-try{var vw=JSON.parse(localStorage.getItem(rvKey+':view')||'null');if(vw&&vw.one&&rows[vw.f]){
+try{var vw=JSON.parse(localStorage.getItem(rvKey+':view')||'null');if(vw&&vw.one&&(rows[vw.f]||vw.f==='#stats')){
 oneF=vw.f;setView(true);}}catch(e){}
 // A phone opens on One file: the tables are no place to read there.
-if(one.hidden&&window.innerWidth<700&&!location.hash)setView(true);
+if(one.hidden&&window.innerWidth<700&&!location.hash){oneF='#stats';setView(true);}
 })();
 """
 

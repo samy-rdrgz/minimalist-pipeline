@@ -3098,7 +3098,11 @@ the filters keep (`el.hidden`); the view and its file are kept per
 snapshot (`rvKey + ':view'`), so a reload comes back on the same card.
 A block's shot fields stay folded behind a button each (`oneOpen`, per
 card) until asked for or filled: seven empty boxes per department read
-as a form to fill, not a place to note what's wrong. The card lists each department's open RTKs from the row's own notes
+as a form to fill, not a place to note what's wrong. `'#stats'` in `oneF` is the Progress block as a card (the overview's
+content cloned, ids dropped), before the first file: Previous from the
+first file, Next from it; a phone lands there. The bar's ☰ takes its
+`top` from the first visible button's (`navHeight()`), the rows above
+it differing by view. The card lists each department's open RTKs from the row's own notes
 (roots not closed, an rtk type, the department among their tags --
 `rtksOf()`), the meta in the pill's title or under it once tapped; the
 notes block below keeps only the threads not listed (`placed()`). The
