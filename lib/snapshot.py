@@ -1738,6 +1738,9 @@ font-size:13px;cursor:pointer;white-space:nowrap;user-select:none}
 background:color-mix(in srgb,var(--accent) 12%,var(--card));font-weight:600}
 .chip:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
 .chip span{color:var(--muted);font-weight:400}
+/* Counts at a fixed width: filtering changes them, the bar mustn't move. */
+#c-assets,#c-shots,#c-notes{display:inline-block;min-width:3ch;text-align:right;
+font-variant-numeric:tabular-nums}
 /* A filter in use stands out; Clear shows only while one is. */
 .filters input[type=search]:not(:placeholder-shown),
 .filters select:has(option:checked:not([value=""])){border-color:var(--accent);
@@ -1759,9 +1762,11 @@ border-radius:6px;background:var(--card);list-style:none}
 .cols summary::-webkit-details-marker{display:none}
 .cols summary::after{content:" ▾"}
 .cols div{position:absolute;right:0;z-index:4;margin-top:4px;padding:8px 12px;display:grid;gap:4px;
+width:max-content;
 background:var(--card);border:1px solid var(--line);border-radius:8px;
 box-shadow:0 4px 18px rgba(0,0,0,.18)}
 .cols.hiding summary{color:var(--accent);border-color:var(--accent)}
+.cols label{display:flex;gap:6px;align-items:center;white-space:nowrap;cursor:pointer}
 .legend .muted{color:var(--muted);font-size:12px;margin:0 8px 0 -2px;align-self:center}
 .filters.active button{color:var(--accent);border-color:var(--accent)}
 [id]{scroll-margin-top:var(--nav-h,16px)}

@@ -28,7 +28,9 @@ what, snapshot thumbnails without letterbox bands.
 - **Snapshot: a clearer filter bar** -- three named groups, *Go to*,
   *Filter* and *Show*; the toggles (Open RTK, Open notes, Farm, All
   notes, Closed notes) are chips that light up once on, a filter in use
-  is highlighted, and *Clear* shows only while filtering.
+  is highlighted, and *Clear* shows only while filtering. The counts keep
+  their width (the bar no longer shifts as they change), and the
+  *Columns* menu is wide enough for a box and its name on one line.
 - **Farm: a preview compiling on a worker** is listed under that worker
   only -- it showed under the farm host too, as if the host ran it.
 - **Farm: the host's machine as a worker** shows on its worker row what
