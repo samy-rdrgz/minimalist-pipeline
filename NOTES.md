@@ -3161,7 +3161,9 @@ mid-chunk -- the chunk in progress is finished, nothing redone -- and
 exits 0; the worker is idle, the next tick sends it to the higher job.
 
 - Never for an equal priority (no ping-pong between two jobs).
-- Not from a render with less than `GIVE_WAY_MIN_SECONDS` (3 min) left:
+- Not from a render with less than `priority_switch_seconds()` left --
+  Edit project > *Priority switch*, `farm.priority_switch_minutes`, 3 by
+  default, 0 = always:
   `_render_time_left()`, its missing frames at its pace so far (every
   machine's `.saved` frames, `frame_seconds()`) over the machines on it.
   Unknown pace (no frame timed yet): treated as long. Only computed once a

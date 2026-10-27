@@ -12,6 +12,7 @@ from ..lib import (
     PipelineError,
     get_active_project_root,
     get_machine_id,
+    json_get,
     log,
     mark_render_to_check,
     now,
@@ -387,8 +388,19 @@ def _machines_short(job_path: Path, project_root: Path) -> tuple[dict, int]:
 
 
 # A render this close to its end keeps its machines: changing render costs
-# a machine opening the other file, for little.
-GIVE_WAY_MIN_SECONDS = 180
+# a machine opening the other file, for little. Default of the project
+# setting farm.priority_switch_minutes (Edit project > Priority switch).
+PRIORITY_SWITCH_MINUTES = 3
+
+
+def priority_switch_seconds() -> float:
+    """Project setting farm.priority_switch_minutes, in seconds: a render
+    with less than this left keeps its machines; 0: never kept."""
+    value = json_get(ConfigCache.get(), "farm.priority_switch_minutes", None)
+    try:
+        return max(0.0, float(PRIORITY_SWITCH_MINUTES if value is None else value)) * 60
+    except (TypeError, ValueError):
+        return PRIORITY_SWITCH_MINUTES * 60.0
 
 
 def _render_time_left(data: dict, machines: int, project_root: Path) -> float | None:
@@ -417,7 +429,7 @@ def _give_way_to_priority(jobs: list, idle: dict, project_root: Path) -> None:
     no idle machine is left for it, machines on lower-priority renders are
     asked to give way after their chunk in progress (render_yield_path()),
     the lowest priority first -- never for an equal one, nor from a render
-    with less than GIVE_WAY_MIN_SECONDS left. A machine already asked
+    with less than priority_switch_seconds() left. A machine already asked
     counts as one of those wanted. jobs: scan_queue()'s, highest
     priority first. See NOTES.md, "Priority: giving way between chunks"."""
     priority = {data.get("job_id"): _priority(data) for _, data in jobs}
@@ -432,14 +444,17 @@ def _give_way_to_priority(jobs: list, idle: dict, project_root: Path) -> None:
     giving = {u for u, job_id in busy.items() if render_yield_path(job_id, u).exists()}
     spare = len(giving)
     paths = {data.get("job_id"): job_path for job_path, data in jobs}
-    nearly_done: dict[str, bool] = {}  # job_id -> under GIVE_WAY_MIN_SECONDS left
+    nearly_done: dict[str, bool] = {}  # job_id -> under the switch time left
+    keep_under = priority_switch_seconds()
 
     def keeps_its_machines(job_id: str) -> bool:
+        if not keep_under:
+            return False
         if job_id not in nearly_done:
             data = read_json_quiet(paths[job_id]) or {}
             machines = sum(1 for j in busy.values() if j == job_id)
             left = _render_time_left(data, machines, project_root) if data else None
-            nearly_done[job_id] = left is not None and left < GIVE_WAY_MIN_SECONDS
+            nearly_done[job_id] = left is not None and left < keep_under
         return nearly_done[job_id]
 
     for job_path, data in jobs:

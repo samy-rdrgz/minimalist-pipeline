@@ -45,8 +45,8 @@ what, snapshot thumbnails without letterbox bands.
   first. Now, when no free machine is left for it, machines on
   lower-priority renders give way once their chunk in progress is done,
   the lowest priority first: never for an equal priority, nor from a
-  render with less than 3 min left. Needs the workers on 1.1.4 (an older
-  one finishes its render).
+  render with less than 3 min left (Edit project > *Priority switch*, 0 =
+  always). Needs the workers on 1.1.4 (an older one finishes its render).
 - **Job details and Worker details: a narrower first column**, for the
   field names (a third of the lists' first column).
 - **Farm: the frame check, a compilation and a preview show their %**:

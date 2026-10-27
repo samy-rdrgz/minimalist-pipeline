@@ -135,6 +135,7 @@ Written under a lock and atomically (temp file then rename), like every other pi
 | Chunk size | Frames per chunk a farm machine takes at a time (see [Rendering](farm.md)). |
 | Pre-render | The pre-render script the Render dialog opens on. |
 | Stuck frame | How many times its usual time a frame may take before its render is stopped (0 = never). |
+| Priority switch | Minutes: a render with less than this left keeps its machines when a higher-priority job wants them (3 by default; 0 = they always move once their chunk is done). |
 
 The other `farm` keys aren't in the dialog: how many local farm processes at once, when a farm host counts as stale / gone, when finished jobs and their logs are archived / deleted (see [Rendering](farm.md)).
 
