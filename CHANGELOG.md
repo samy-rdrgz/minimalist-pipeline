@@ -38,6 +38,17 @@ what, snapshot thumbnails without letterbox bands.
   "worker idle" -- it read plain idle, while the machine was busy.
   Its lines sit left-aligned under the worker's, like every other row
   (they landed in the row's right half).
+- **Farm: a higher priority takes machines from a lower one.** A machine
+  stays on its render while it has chunks to take, so a priority-15 job
+  set up after a priority-10 render had started got only the machines
+  free at that moment -- the others finished the whole priority-10 render
+  first. Now, when no free machine is left for it, machines on
+  lower-priority renders give way once their chunk in progress is done,
+  the lowest priority first: never for an equal priority, nor from a
+  render with less than 3 min left. Needs the workers on 1.1.4 (an older
+  one finishes its render).
+- **Job details and Worker details: a narrower first column**, for the
+  field names (a third of the lists' first column).
 - **Farm: the frame check, a compilation and a preview show their %**:
   ffmpeg writes its progress to a small file next to the job's log
   (`-progress`), read with the rest of the farm's state -- Farm

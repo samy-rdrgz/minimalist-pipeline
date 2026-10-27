@@ -508,6 +508,12 @@ def archive(job_path: Path) -> None:
     discard_saved_frames(job_id)
     remove_claims(job_id)
     discard_job_progress(job_id)
+    # A "give way" flag a machine never read (its render ended first).
+    for flag in ConfigCache.get_path("farm_requests").glob(f"request_{job_id}_*.yield"):
+        try:
+            flag.unlink()
+        except OSError:
+            pass
 
     # replace(), not rename(): a re-rendered file reuses its job id (hash of
     # file + preset + shot), so its previous run's archive is often already

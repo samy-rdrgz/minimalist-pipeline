@@ -37,6 +37,9 @@ from ..lib import (
 )
 
 FIRST_COLUMN = 0.4
+# Job details' and Worker details' field names: short labels, a third of
+# the lists' first column.
+DETAIL_KEY_COLUMN = FIRST_COLUMN / 3
 # What Farm monitoring's window holds besides the Jobs rows (filters, list
 # header, footer, margins), in widget units -- see rows_that_fit().
 _JOBS_RESERVED_UNITS = 7.5
@@ -615,7 +618,7 @@ def draw_farm_worker_details(layout, context):
     draw_box_tip(layout, context, _WORKER_DETAILS_TIP)
 
     def field(col, label: str, value, icon: str = "NONE", alert: bool = False):
-        split = col.split(factor=FIRST_COLUMN)
+        split = col.split(factor=DETAIL_KEY_COLUMN)
         left = split.row()
         left.active = False
         left.label(text=label)
@@ -640,7 +643,7 @@ def draw_farm_worker_details(layout, context):
         job = next(
             (j for j in cache.get("jobs") or [] if j.get("job_id") == current), {}
         )
-        split = col.split(factor=FIRST_COLUMN)
+        split = col.split(factor=DETAIL_KEY_COLUMN)
         left = split.row()
         left.active = False
         left.label(text="Compiling" if m.get("status") == "compile" else "Rendering")
@@ -737,7 +740,7 @@ def draw_farm_worker_details(layout, context):
                 (k for k in ("cancelled", "stopped", "lost") if result.get(k)), "failed"
             )
         when, _ = _since(result.get("at"))
-        split = col.split(factor=FIRST_COLUMN)
+        split = col.split(factor=DETAIL_KEY_COLUMN)
         left = split.row()
         left.active = False
         left.label(text="Last render")
@@ -1057,7 +1060,7 @@ def draw_farm_job_details(layout, context):
         return ", ".join(machine_label(u, recorded.get(u, "")) for u in uuids or []) or "-"
 
     def field(col, label: str, value, icon: str = "NONE"):
-        split = col.split(factor=FIRST_COLUMN)
+        split = col.split(factor=DETAIL_KEY_COLUMN)
         left = split.row()
         left.active = False
         left.label(text=label)
@@ -1081,7 +1084,7 @@ def draw_farm_job_details(layout, context):
     field(col, "fps", data.get("fps", "-"))
 
     output = data.get("output_path")
-    split = col.split(factor=FIRST_COLUMN)
+    split = col.split(factor=DETAIL_KEY_COLUMN)
     left = split.row()
     left.active = False
     left.label(text="Output")
@@ -1169,7 +1172,7 @@ def draw_farm_job_details(layout, context):
             ", ".join(machine_line(u) for u in sorted(set(per_machine) | set(counts))),
         )
     if record:
-        split = col.split(factor=FIRST_COLUMN)
+        split = col.split(factor=DETAIL_KEY_COLUMN)
         left = split.row()
         left.active = False
         left.label(text="Who rendered")
@@ -1198,7 +1201,7 @@ def draw_farm_job_details(layout, context):
 
     logs = get_job_details_logs()
     if logs:
-        split = col.split(factor=FIRST_COLUMN)
+        split = col.split(factor=DETAIL_KEY_COLUMN)
         left = split.row()
         left.active = False
         left.label(text="Logs")
@@ -1236,7 +1239,7 @@ def draw_farm_job_details(layout, context):
         delta = (
             f"+{_duration((at - previous).total_seconds())}" if at and previous else ""
         )
-        split = col.split(factor=FIRST_COLUMN)
+        split = col.split(factor=DETAIL_KEY_COLUMN)
         left = split.row()
         left.active = False
         left.label(text=f"{at:%d/%m %H:%M:%S}  {delta}" if at else "?")
