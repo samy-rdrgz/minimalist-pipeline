@@ -22,7 +22,8 @@ what, snapshot thumbnails without letterbox bands.
   16:9 box: a panoramic render (600x54) became a thin line between two
   bands of the page's background, black in dark mode. The width stays
   fixed and the height now follows the image (up to 63 px; only too tall
-  a render gets room on its sides); on hover, its own size.
+  a render gets room on its sides), centred in its row; on hover, its own
+  size, with the same small rounded corners as a shot's preview.
 
 ## 1.1.3 — 2026-10-25
 

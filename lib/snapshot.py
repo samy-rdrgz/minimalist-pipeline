@@ -1741,7 +1741,8 @@ border-radius:3px;background:var(--line);overflow:hidden}
 .bar i{display:block;height:100%;background:var(--done)}
 .valid .bar i{background:var(--role)}
 td.ver .shot{font-weight:600}
-td.th{width:1px;padding-right:0}
+/* Middle of its row: a panoramic thumbnail is shorter than a line of text. */
+td.th{width:1px;padding-right:0;vertical-align:middle}
 /* Any aspect ratio: shown whole inside a fixed box, never cropped. */
 .thumb{display:block;width:112px;height:63px;object-fit:contain;border-radius:4px;
 background:var(--bg);transition:transform .15s}
@@ -1756,7 +1757,9 @@ background:var(--line);color:var(--fg);cursor:default}
 #sbpop{position:fixed;z-index:20;pointer-events:none;display:none;border-radius:4px;
 width:auto;max-width:640px;box-shadow:0 4px 18px rgba(0,0,0,.35);background:var(--bg)}
 img.thumb:hover{transform:scale(var(--z,var(--thumb-zoom,2.4)));transform-origin:left top;position:relative;
-z-index:3;box-shadow:0 4px 18px rgba(0,0,0,.35)}
+z-index:3;box-shadow:0 4px 18px rgba(0,0,0,.35);
+/* Scaled with the image: 4 px once zoomed, as the shot buttons' preview. */
+border-radius:calc(4px / var(--z,var(--thumb-zoom,2.4)))}
 .flag{margin-left:8px;font-size:11px;font-weight:600;color:var(--rtk);
 background:var(--rtk-bg);padding:1px 6px;border-radius:999px}
 /* An item's notes, in the row under its own. */
