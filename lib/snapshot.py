@@ -810,12 +810,6 @@ def render_html(snapshot: dict) -> str:
         "</header>",
         _render_overview(snapshot),
         "<nav>",
-        '<div class="links"><a href="#assets">Assets <span id="c-assets">'
-        f'{len(snapshot["assets"])}</span></a><a href="#shots">Shots <span id="c-shots">'
-        f'{len(snapshot["shots"])}</span></a><button type="button" id="all-notes" '
-        'title="Unfold every note under its row, or fold them all">Notes '
-        f'<span id="c-notes">{sum(not n["closed"] for n in snapshot["notes"])}</span>'
-        "</button></div>",
         _render_filters(snapshot),
         "</nav>",
         f'<p class="legend">{legend}</p>',
@@ -1222,22 +1216,33 @@ def _render_filters(snapshot: dict) -> str:
     states = "".join(
         f'<option value="{k}">{_e(label)}</option>' for k, (label, _) in STATES.items()
     )
+    open_notes = sum(not n["closed"] for n in snapshot["notes"])
+    # Three named groups -- where to go, what to keep, what to show -- the
+    # toggles as chips that light up once on, Clear only while filtering.
     return (
-        '<div class="filters">'
+        '<div class="navrow">'
+        '<div class="grp links"><span class="gl">Go to</span>'
+        f'<a href="#assets">Assets <span id="c-assets">{len(snapshot["assets"])}</span></a>'
+        f'<a href="#shots">Shots <span id="c-shots">{len(snapshot["shots"])}</span></a></div>'
+        '<div class="grp filters"><span class="gl">Filter</span>'
         '<input id="f-name" type="search" placeholder="Name…" aria-label="Filter by name">'
         f'<select id="f-group" aria-label="Group"><option value="">All groups</option>{groups}</select>'
-        '<select id="f-dep" aria-label="Department"><option value="">Any department</option>'
+        '<select id="f-dep" aria-label="Department"><option value="">All departments</option>'
         f"{options(departments)}</select>"
-        f'<select id="f-state" aria-label="State"><option value="">Any state</option>{states}</select>'
-        '<label><input id="f-rtk" type="checkbox"> Open RTK</label>'
-        '<label><input id="f-notes" type="checkbox"> Has open notes</label>'
-        '<label title="In the farm, or rendered and not checked yet">'
-        '<input id="f-farm" type="checkbox"> Farm</label>'
-        '<label title="Done todos/RTKs, kept in the snapshot but hidden">'
-        '<input id="f-closed" type="checkbox"> Show closed</label>'
-        '<button id="f-reset" type="button">Reset</button>'
+        f'<select id="f-state" aria-label="State"><option value="">All states</option>{states}</select>'
+        '<label class="chip"><input id="f-rtk" type="checkbox">Open RTK</label>'
+        '<label class="chip"><input id="f-notes" type="checkbox">Open notes</label>'
+        '<label class="chip" title="In the farm, or rendered and not checked yet">'
+        '<input id="f-farm" type="checkbox">Farm</label>'
+        '<button id="f-reset" type="button" title="Back to everything">✕ Clear</button></div>'
+        '<div class="grp"><span class="gl">Show</span>'
+        '<button type="button" id="all-notes" class="chip" '
+        'title="Unfold every note under its row, or fold them all">All notes '
+        f'<span id="c-notes">{open_notes}</span></button>'
+        '<label class="chip" title="Done todos/RTKs, kept in the snapshot but hidden">'
+        '<input id="f-closed" type="checkbox">Closed notes</label>'
         f"{_columns_menu(departments, bool(snapshot['meta'].get('validation_role')))}"
-        "</div>"
+        "</div></div>"
     )
 
 
@@ -1718,6 +1723,27 @@ padding:10px max(16px,calc((100% - var(--page))/2 + 16px));
 background:var(--bg);border-bottom:1px solid var(--line)}
 @media (min-width:700px){nav{position:sticky;top:0}}
 .links,.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+/* The bar: named groups side by side, a rule between them. */
+.navrow{display:flex;flex-wrap:wrap;gap:8px 28px;align-items:center}
+.grp{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.filters select{max-width:150px}
+.gl{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;
+color:var(--muted);margin-right:2px}
+/* A toggle: a chip, lit once on (its checkbox hidden). */
+.chip{display:inline-flex;align-items:center;gap:4px;padding:3px 10px;border-radius:999px;
+border:1px solid var(--line);background:var(--card);color:var(--fg);font:inherit;
+font-size:13px;cursor:pointer;white-space:nowrap;user-select:none}
+.chip input{position:absolute;opacity:0;width:0;height:0;margin:0}
+.chip:has(input:checked),.chip[aria-pressed="true"]{color:var(--accent);border-color:var(--accent);
+background:color-mix(in srgb,var(--accent) 12%,var(--card));font-weight:600}
+.chip:has(input:focus-visible){outline:2px solid var(--accent);outline-offset:2px}
+.chip span{color:var(--muted);font-weight:400}
+/* A filter in use stands out; Clear shows only while one is. */
+.filters input[type=search]:not(:placeholder-shown),
+.filters select:has(option:checked:not([value=""])){border-color:var(--accent);
+color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--card))}
+.filters:not(.active) #f-reset{display:none}
+.filters #f-reset{border-color:transparent;background:none}
 .links a,.links button{color:var(--fg);text-decoration:none;padding:4px 10px;
 border-radius:6px;border:1px solid var(--line);background:var(--card);font:inherit;
 cursor:pointer}
@@ -1725,8 +1751,7 @@ cursor:pointer}
 .filters input[type=search],.filters select,.filters button{font:inherit;min-width:0;
 padding:4px 8px;border-radius:6px;border:1px solid var(--line);background:var(--card);
 color:var(--fg)}
-.filters input[type=search]{flex:0 1 180px}
-.filters label{display:flex;gap:4px;align-items:center;color:var(--muted);white-space:nowrap}
+.filters input[type=search]{flex:0 1 140px}
 .filters button{cursor:pointer;color:var(--muted)}
 .cols{position:relative}
 .cols summary{cursor:pointer;color:var(--muted);padding:4px 8px;border:1px solid var(--line);
@@ -1989,7 +2014,7 @@ return x.split(':');});
 if(!states.some(function(p){return(!d||p[0]===d)&&(!st||p[1]===st);}))return false;}
 return true;}
 function apply(){
-var on=ctl.some(function(c){return c.type==='checkbox'?c.checked:c.value;});
+var on=ctl.some(function(c,i){return i!==6&&(c.type==='checkbox'?c.checked:c.value);});
 bar.classList.toggle('active',on);
 var closed=ctl[6].checked,notes=0;
 document.body.classList.toggle('show-closed',closed);
@@ -2017,11 +2042,12 @@ $('all-notes').addEventListener('click',function(){
 var bs=[].filter.call(document.querySelectorAll('button.jump'),function(b){
 return b.offsetParent;}),open=bs.some(function(b){
 return b.getAttribute('aria-expanded')!=='true';});
-bs.forEach(function(b){b.setAttribute('aria-expanded',open);});apply();});
+bs.forEach(function(b){b.setAttribute('aria-expanded',open);});
+$('all-notes').setAttribute('aria-pressed',open);apply();});
 ctl.forEach(function(c){c.addEventListener('input',apply);
 c.addEventListener('change',apply);});
-$('f-reset').addEventListener('click',function(){ctl.forEach(function(c){
-if(c.type==='checkbox')c.checked=false;else c.value='';});apply();});
+$('f-reset').addEventListener('click',function(){ctl.forEach(function(c,i){
+if(i===6)return;if(c.type==='checkbox')c.checked=false;else c.value='';});apply();});
 var cols=[].slice.call(document.querySelectorAll('.cols input')),
 colStyle=document.createElement('style'),colKey='mp-snapshot-hidden-cols';
 document.head.appendChild(colStyle);

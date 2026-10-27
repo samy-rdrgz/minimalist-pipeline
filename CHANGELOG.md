@@ -25,6 +25,10 @@ what, snapshot thumbnails without letterbox bands.
 - **Snapshot notes**: smaller tags, and the author and date at the
   table's right edge -- they stopped at two thirds of it, where the notes'
   box was capped (the text keeps a reading width).
+- **Snapshot: a clearer filter bar** -- three named groups, *Go to*,
+  *Filter* and *Show*; the toggles (Open RTK, Open notes, Farm, All
+  notes, Closed notes) are chips that light up once on, a filter in use
+  is highlighted, and *Clear* shows only while filtering.
 - **Farm: a preview compiling on a worker** is listed under that worker
   only -- it showed under the farm host too, as if the host ran it.
 - **Farm: the host's machine as a worker** shows on its worker row what
