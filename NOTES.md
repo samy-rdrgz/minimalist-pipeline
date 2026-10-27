@@ -3121,7 +3121,10 @@ when the sheet opens; on One file the title goes too. Scrolling down
 folds the filters (`nav.more`) along with the bar: open, they kept it
 on screen for good. One file hides Go to, the filters and Show but
 Closed notes (`body.one`); filters set before still pick Previous /
-Next, the card's position line says "(filtered)". Review on a phone starts on One file:
+Next, the card's position line says "(filtered)". Unfolding the filters makes the
+browser shift the page to keep what's in view (scroll anchoring): read
+as a scroll down, it folded them again at once -- the 500 ms after the
+Filters button are ignored (`navLock`). Review on a phone starts on One file:
 a table that wide is no place to write.
 
 ## Entries for several departments

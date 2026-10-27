@@ -2203,10 +2203,13 @@ document.addEventListener('click',function(ev){if(document.body.classList.contai
 !ev.target.closest('header'))sheet(false);});
 document.addEventListener('keydown',function(ev){if(ev.key==='Escape'&&
 document.body.classList.contains('hdr-open')){sheet(false);ev.stopImmediatePropagation();}});
-$('nav-more').addEventListener('click',function(){var on=nav.classList.toggle('more');
+// Unfolding the bar shifts the page (the browser keeps what's in view):
+// that scroll is no reader's, the next 500 ms of them are ignored.
+var navLock=0;
+$('nav-more').addEventListener('click',function(){var on=nav.classList.toggle('more');navLock=Date.now();
 this.setAttribute('aria-expanded',on);navHeight();place();});
 var lastY=window.scrollY;window.addEventListener('scroll',function(){var y=window.scrollY,
-away=nav.classList.contains('away');
+away=nav.classList.contains('away');if(Date.now()-navLock<500){lastY=y;return;}
 // Scrolling down folds the filters too: they come back with the bar.
 if(window.innerWidth>=700||y<80||document.querySelector('header').getBoundingClientRect().bottom>0)away=false;
 else if(y>lastY+6){away=true;if(nav.classList.contains('more')){nav.classList.remove('more');
