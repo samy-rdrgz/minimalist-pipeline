@@ -324,6 +324,16 @@ def draw_box_tip(
     )
 
 
+def box_tip_units(context: bpy.types.Context, text: str) -> float:
+    """Widget units a draw_box_tip() of text takes -- 0 unless Beginner (it
+    draws nothing then): for a monitoring window's rows_that_fit(), so its
+    list still fits with the tip above it."""
+    pref = addon_pref(context)
+    if not pref or getattr(pref, "experience_level", "BEGINNER") != "BEGINNER":
+        return 0.0
+    return lines_budget(text) * 0.8 + 1.0
+
+
 def get_machine_id(context: bpy.types.Context | None = None) -> str:
     """Persistent per-machine UUID, generated once and stored in the addon
     prefs. Falls back to a MAC-derived id if prefs aren't reachable (e.g. a

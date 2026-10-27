@@ -57,6 +57,7 @@ from .config import (
     type_by_folder,
 )
 from .core import (
+    box_tip_units,
     SIDE_BY_SIDE_WIDTH,
     AdoptedProcess,
     addon_pref,

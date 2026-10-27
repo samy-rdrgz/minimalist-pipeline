@@ -15,6 +15,7 @@ from ..lib import (
     TrackingStatusCache,
     WorkTimeCache,
     department_status_tooltip,
+    box_tip_units,
     draw_box_tip,
     draw_pager,
     filter_review_boxes,
@@ -419,6 +420,7 @@ def _draw_renders_to_check(layout, filepath: str, data: dict) -> None:
     title = col.row()
     title.alert = True
     title.label(text="Renders to check:", icon="HIDE_OFF")
+    draw_box_tip(col, bpy.context, _TO_CHECK_TIP)
     for shot, info in to_check:
         label = render_to_check_label(shot, info)
         row = _render_row(col, f"{label}   {_to_check_at(info)}")
@@ -699,6 +701,18 @@ def draw_file_details(state, context, layout):
 # What Project monitoring's window holds besides its rows (filters,
 # table header, footer, margins), in widget units -- see rows_that_fit().
 _TABLE_RESERVED_UNITS = 6.5
+_TABLE_TIP = (
+    "Click a file for its details (Ctrl+click the Project monitoring button: "
+    "the file open here). Each department's state since the last stable, "
+    "legend at the bottom. Farm: renders in the farm or waiting to be checked "
+    "-- that filter, and RTK (open retakes), narrow the list. Left / Right "
+    "turn pages, Tab switches assets / shots, Esc goes back."
+)
+_TO_CHECK_TIP = (
+    "A farm render waits here until someone has watched it. Checked asks which "
+    "departments are validated after watching it (untick one to unvalidate "
+    "it), then archives its farm job."
+)
 
 
 def draw_monitor_table(self, context, layout, columns, project_root):
@@ -766,6 +780,7 @@ def draw_monitor_table(self, context, layout, columns, project_root):
 
     total = len(matches)
 
+    draw_box_tip(layout, context, _TABLE_TIP)
     f_list = layout.box()
     title_list = f_list.split(factor=FIRST_COLUMN)
     title_list.active = False
@@ -777,7 +792,9 @@ def draw_monitor_table(self, context, layout, columns, project_root):
 
     f_list.separator(factor=1)
 
-    per_page = rows_that_fit(context, _TABLE_RESERVED_UNITS)
+    per_page = rows_that_fit(
+        context, _TABLE_RESERVED_UNITS + box_tip_units(context, _TABLE_TIP)
+    )
     filters = (
         self.file_type,
         self.asset_prefix,

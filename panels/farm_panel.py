@@ -22,12 +22,12 @@ from ..farm.queue import WORKER_GONE_SECONDS
 from ..lib import (
     ConfigCache,
     addon_pref,
+    box_tip_units,
     draw_box_tip,
     draw_pager,
     get_addon_version,
     get_active_project_root,
     get_user,
-    lines_budget,
     monitoring_detail,
     paginate,
     rows_that_fit,
@@ -260,11 +260,21 @@ def _job_matches(self, job: dict, user: str) -> bool:
     return True
 
 
+_JOBS_TIP = (
+    "Running: a step in progress (setup, render, frame check, compilation). "
+    "Waiting: queued, or waiting for a free worker or the farm host. Retry "
+    "starts a failed job again where it failed (a failed render goes to the "
+    "other machines). Recompile only remakes the video. Archive clears "
+    "finished or failed jobs."
+)
+
+
 def draw_farm_jobs(self, context, layout):
     """Farm monitoring's "Jobs" view: every active job, its stage and
     progress -- filtered by self (WindowManager.pipeline_farm_monitoring),
     paged like draw_monitor_table()."""
     cache = get_monitor_cache()
+    draw_box_tip(layout, context, _JOBS_TIP)
 
     title = layout.split(factor=FIRST_COLUMN)
     title.active = False
@@ -279,7 +289,9 @@ def draw_farm_jobs(self, context, layout):
     matches.sort(key=lambda j: j.get("submitted_at") or "", reverse=True)
 
     total = len(matches)
-    per_page = rows_that_fit(context, _JOBS_RESERVED_UNITS)
+    per_page = rows_that_fit(
+        context, _JOBS_RESERVED_UNITS + box_tip_units(context, _JOBS_TIP)
+    )
     filters = (self.state, self.only_mine, self.search.strip().lower())
     shown, page, pages = paginate("farm", matches, per_page, filters)
     for j in shown + [None] * (per_page - len(shown)):
@@ -639,15 +651,6 @@ _WORKER_DETAILS_TIP = (
 )
 
 
-def _tip_units(context, text: str) -> float:
-    """Widget units a draw_box_tip() of text takes -- 0 unless Beginner (it
-    draws nothing then) -- for rows_that_fit()'s reserved space."""
-    pref = addon_pref(context)
-    if not pref or getattr(pref, "experience_level", "BEGINNER") != "BEGINNER":
-        return 0.0
-    return lines_budget(text) * 0.8 + 1.0
-
-
 def draw_farm_workers(context, layout):
     """M_PIPELINE_OT_farm_monitor's "Workers" view: every known machine, idle
     or what it's currently rendering -- padded with blank rows to the
@@ -755,7 +758,7 @@ def draw_farm_workers(context, layout):
     # The farm host's row comes first.
     rows = (
         rows_that_fit(
-            context, _WORKERS_RESERVED_UNITS + _tip_units(context, _WORKERS_TIP)
+            context, _WORKERS_RESERVED_UNITS + box_tip_units(context, _WORKERS_TIP)
         )
         - 1
     )

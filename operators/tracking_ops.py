@@ -6,6 +6,7 @@ from pathlib import Path
 import bpy
 
 from ..lib import (
+    draw_box_tip,
     monitoring_detail,
     set_monitoring_detail,
     ConfigCache,
@@ -1250,6 +1251,14 @@ class M_PIPELINE_OT_render_checked(bpy.types.Operator):
         )
 
     def draw(self, context):
+        draw_box_tip(
+            self.layout,
+            context,
+            "Ticked: validated. Leave them as they are if the render is fine; "
+            "untick a department the render shows isn't right -- it goes back "
+            "to work in progress.",
+            width_px=300,
+        )
         col = self.layout.column(align=True)
         col.label(text="Validated:")
         for item in context.window_manager.render_checked_departments:
