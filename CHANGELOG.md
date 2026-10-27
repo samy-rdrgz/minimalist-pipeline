@@ -30,7 +30,9 @@ All notable changes to this addon. Dates are release dates.
   shot** (a button per shot opens its own) plus one for all of them,
   written back as `[sh040]` lines. *Previous* / *Next*, or
   ← / →, go through the files the filters keep; Esc goes back to the
-  table, a menu at its right jumps to any file. While reviewing the card
+  table, a menu at its right jumps to any file. The bar then keeps only
+  *Closed notes* (no Go to, no filters -- the ones set before still pick
+  the files, "(filtered)" says so). While reviewing the card
   gets the review's buttons and fields. Same review, same file: the table and the card show the same
   work. Built on demand from the page itself -- nothing added to the
   HTML's weight.
@@ -41,8 +43,10 @@ All notable changes to this addon. Dates are release dates.
 - The review box: the in-page review first, the `.xlsx` aside, smaller.
 - **Schedule**: each band shows its Validated over its Done, in violet.
 - **Phones**: the header (details, review box) folded behind ☰ -- by
-  the title, and in the bar --, opened over the page; a compact bar that stays at the top, its filters behind
-  *Filters*, hidden while scrolling down and back on the way up; Review
+  the title, and in the bar, top right in both --, opened over the page,
+  the title itself gone on *One file*; a compact bar that stays at the top, its filters behind
+  *Filters* (lit while open, folded again by scrolling down), hidden
+  while scrolling down and back on the way up; Review
   starts on *One file*.
 - A table wider than the screen keeps its horizontal scrollbar at the
   bottom of the screen, not only under its last row.

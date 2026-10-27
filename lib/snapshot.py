@@ -1806,14 +1806,25 @@ nav{position:sticky;top:0;transition:transform .2s ease}
 /* A phone: a compact bar, the filters behind "Filters", out of the way
 while scrolling down, back on the way up (_JS). */
 .chip.navmore,.chip.navmenu{display:none}
+/* One file: no Go to, no filters (Previous / Next keep to the files they
+leave), from Show only Closed notes. */
+body.one .grp.links>a,body.one .grp.links>.gl,body.one .grp.filters,body.one #all-notes,
+body.one nav .cols,body.one .chip.navmore{display:none}
+.chip.navmore[aria-expanded="true"]{color:#fff;background:var(--accent);border-color:var(--accent)}
 @media (max-width:699px){nav{gap:6px;padding-top:8px;padding-bottom:8px}nav.away{transform:translateY(-110%)}
 .chip.navmore,.chip.navmenu{display:inline-flex}
-body:not(.hdr-open) header>:not(h1){display:none}header h1{display:flex;align-items:center;gap:10px}
-header h1 .navmenu{margin-left:auto}
+body:not(.hdr-open) header>:not(h1){display:none}body.one:not(.hdr-open) header{display:none}
+header h1{display:flex;align-items:center;gap:10px}
+/* ☰ at the top right, the header's and the bar's alike. */
+header{padding-top:10px}header h1 .navmenu{margin-left:auto}nav{padding-right:60px}
+nav .navmenu{position:absolute;right:16px;top:10px}
+.chip.navmenu{width:40px;height:32px;padding:0;justify-content:center;border-radius:999px;font-size:16px}
+body.one .grp.links{display:contents}
+body.one nav .grp.show{display:flex}
 body.hdr-open header{position:fixed;top:0;left:0;right:0;z-index:30;max-height:85vh;overflow:auto;
 background:var(--bg);padding-bottom:16px;box-shadow:0 8px 24px rgba(0,0,0,.25)}
 body.hdr-open::after{content:"";position:fixed;inset:0;z-index:29;background:rgba(0,0,0,.3)}
-.navmenu{font-size:16px;padding:2px 10px}nav:not(.more) .grp.filters,nav:not(.more) .grp.show{display:none}
+nav:not(.more) .grp.filters,nav:not(.more) .grp.show{display:none}
 nav:has(.filters.active) .navmore{color:var(--accent);border-color:var(--accent)}
 .navrow{gap:8px 16px}.filters select{max-width:46%}}
 .links,.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
@@ -2196,9 +2207,10 @@ $('nav-more').addEventListener('click',function(){var on=nav.classList.toggle('m
 this.setAttribute('aria-expanded',on);navHeight();place();});
 var lastY=window.scrollY;window.addEventListener('scroll',function(){var y=window.scrollY,
 away=nav.classList.contains('away');
-if(window.innerWidth>=700||nav.classList.contains('more')||y<80||
-document.querySelector('header').getBoundingClientRect().bottom>0)away=false;
-else if(y>lastY+6)away=true;else if(y<lastY-6)away=false;
+// Scrolling down folds the filters too: they come back with the bar.
+if(window.innerWidth>=700||y<80||document.querySelector('header').getBoundingClientRect().bottom>0)away=false;
+else if(y>lastY+6){away=true;if(nav.classList.contains('more')){nav.classList.remove('more');
+$('nav-more').setAttribute('aria-expanded',false);}}else if(y<lastY-6)away=false;
 if(away!==nav.classList.contains('away')){nav.classList.toggle('away',away);navHeight();place();}
 lastY=y;},{passive:true});
 var navTop=0,heads=[].map.call(document.querySelectorAll('.scroll'),function(box){
@@ -2551,7 +2563,8 @@ back.title='Back to the table (Esc)';prev.title='Previous file (←)';next.title
 prev.disabled=!step(-1);next.disabled=!step(1);
 add(who,'div','oname',el.querySelector('td.name b').textContent);
 add(who,'div','opos',(el.closest('section').id==='assets'?'Asset':'Shot')+' · '+el.dataset.group+' · '+
-(ALL.filter(function(r){return!r.hidden;}).indexOf(el)+1)+' / '+ALL.filter(function(r){return!r.hidden;}).length);
+(ALL.filter(function(r){return!r.hidden;}).indexOf(el)+1)+' / '+ALL.filter(function(r){return!r.hidden;}).length+
+(bar.classList.contains('active')?' (filtered)':''));
 var body=add(card,'div','obody'),left=add(body,'div'),right=add(body,'div'),
 img=el.querySelector('img.thumb'),big=null;
 if(img){big=add(left,'img','obig');big.src=img.src;big.alt='';}
@@ -2619,6 +2632,7 @@ one.addEventListener('click',function(ev){var b=ev.target.closest('[data-go]');i
 $('rv-v-one').addEventListener('click',function(){setView(true);});
 $('rv-v-table').addEventListener('click',function(){setView(false);});
 $('view-one').addEventListener('click',function(){setView(one.hidden);});
+$('f-closed').addEventListener('change',function(){if(!one.hidden)openOne(oneF);});
 document.addEventListener('keydown',function(ev){if(one.hidden||ev.altKey||ev.ctrlKey||ev.metaKey)return;
 var t=ev.target;if(t.matches&&t.matches('input,textarea,select'))return;
 if(ev.key==='ArrowLeft')go(-1);else if(ev.key==='ArrowRight')go(1);else if(ev.key==='Escape')go(0);

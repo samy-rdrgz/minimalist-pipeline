@@ -3115,7 +3115,13 @@ down past the header, back on the way up; `navHeight()` then counts it as
 0 for the sticky table headers. The header folds to its title on a
 phone: ☰ (in the bar, and copied by _JS next to the title -- the bar
 comes after Progress) opens it as a sheet over the page (`hdr-open`),
-shut by a click outside it, Esc, or starting the review. Review on a phone starts on One file:
+shut by a click outside it, Esc, or starting the review. Both ☰ sit
+top right (the bar's absolutely positioned), so the button doesn't move
+when the sheet opens; on One file the title goes too. Scrolling down
+folds the filters (`nav.more`) along with the bar: open, they kept it
+on screen for good. One file hides Go to, the filters and Show but
+Closed notes (`body.one`); filters set before still pick Previous /
+Next, the card's position line says "(filtered)". Review on a phone starts on One file:
 a table that wide is no place to write.
 
 ## Entries for several departments
