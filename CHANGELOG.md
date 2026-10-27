@@ -36,6 +36,17 @@ what, snapshot thumbnails without letterbox bands.
 - **Farm: the host's machine as a worker** shows on its worker row what
   the farm host runs there (a setup, a compile, a frame check), under
   "worker idle" -- it read plain idle, while the machine was busy.
+  Its lines sit left-aligned under the worker's, like every other row
+  (they landed in the row's right half).
+- **Beginner tips for what came after the first release** (Preferences >
+  Experience level: Beginner): Farm monitoring's Jobs (states, Retry,
+  Recompile, Archive) and Workers (greyed workers, Forget, details),
+  Worker details (versions in red, stuck frame), Project monitoring (a
+  file's details, filters, keys), Renders to check and the Checked dialog
+  (validate / unvalidate), the Project panel's Snapshot / Import review,
+  the Render dialog (modes, priority, increment, machines, pre-render
+  script) and its Preview choice. The monitoring windows keep their lists
+  fitting with a tip above; Advanced shows none, as before.
 - **Snapshot: thumbnails in their own shape.** A thumbnail sat in a fixed
   16:9 box: a panoramic render (600x54) became a thin line between two
   bands of the page's background, black in dark mode. The width stays
