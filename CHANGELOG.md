@@ -50,8 +50,7 @@ All notable changes to this addon. Dates are release dates.
   (with its shot) holding who, when and the rest in its tooltip, or under
   it once tapped --, the notes below only the others. Keys: ← → files,
   Esc table ⇄ one file, and while reviewing **V** all done, **X** the
-  general retake (Esc in a box leaves it, Ctrl+Enter leaves it for the
-  next file) -- listed under the card's name and in the buttons'
+  general retake (Esc or Ctrl+Enter in a box leaves it) -- listed under the card's name and in the buttons'
   tooltips. The file menu starts with *Progress*, the stats as a card of
   their own before the first file (← from it); a phone opens on it.
 - The review box: the in-page review first, the `.xlsx` aside, smaller.

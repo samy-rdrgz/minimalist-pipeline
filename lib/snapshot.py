@@ -2601,7 +2601,7 @@ add(who,'div','opos',(el.closest('section').id==='assets'?'Asset':'Shot')+' · '
 (ALL.filter(function(r){return!r.hidden;}).indexOf(el)+1)+' / '+ALL.filter(function(r){return!r.hidden;}).length+
 (bar.classList.contains('active')?' (filtered)':''));
 keys(who,[['← →','files'],['Esc','table']].concat(document.body.classList.contains('reviewing')?
-[['V','all done'],['X','general retake'],['Ctrl+Enter','in a box: next file']]:[]));
+[['V','all done'],['X','general retake'],['Ctrl+Enter','leave a box']]:[]));
 var body=add(card,'div','obody'),left=add(body,'div'),right=add(body,'div'),
 img=el.querySelector('img.thumb'),big=null;
 if(img){big=add(left,'img','obig');big.src=img.src;big.alt='';}
@@ -2697,10 +2697,10 @@ $('view-one').addEventListener('click',function(){setView(one.hidden);});
 $('view-one').title+=' (Esc)';$('rv-v-one').title+=' (Esc)';$('rv-v-table').title='The table (Esc)';
 $('f-closed').addEventListener('change',function(){if(!one.hidden)openOne(oneF);});
 // Keys: ← → files, Esc table ⇄ one file; while reviewing V all done, X
-// the general retake. Esc in a box just leaves it.
+// the general retake. Esc or Ctrl+Enter in a box just leaves it.
 document.addEventListener('keydown',function(ev){
 var t=ev.target;if(t.matches&&t.matches('input,textarea,select')){if(ev.key==='Escape'){t.blur();ev.preventDefault();}
-else if(ev.key==='Enter'&&(ev.ctrlKey||ev.metaKey)&&!one.hidden){t.blur();go(1);ev.preventDefault();}return;}
+else if(ev.key==='Enter'&&(ev.ctrlKey||ev.metaKey)){t.blur();ev.preventDefault();}return;}
 if(ev.altKey||ev.ctrlKey||ev.metaKey)return;
 if(one.hidden){if(ev.key==='Escape'){setView(true);ev.preventDefault();}return;}
 var k=ev.key.toLowerCase(),rev=document.body.classList.contains('reviewing');

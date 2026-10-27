@@ -116,8 +116,8 @@ la prod -- sur la version qu'il a vue.
   d'un coup aussi (un par reviewer : le fichier porte son heure, son rôle
   et son auteur). Dans la fiche, chaque département affiche ses RTK
   ouverts ; touches ← → (fichiers), Échap (tableau ⇄ fiche), V (all
-  done), X (retake général), Ctrl+Entrée dans un champ (fichier
-  suivant). Son menu de fichiers commence par *Progress*, les stats en
+  done), X (retake général), Échap ou Ctrl+Entrée dans un
+  champ (en sortir). Son menu de fichiers commence par *Progress*, les stats en
   fiche. La page garde
   ce que vous écrivez dans votre navigateur au fil de l'eau (un
   rechargement le retrouve, dans le même navigateur -- pas en navigation

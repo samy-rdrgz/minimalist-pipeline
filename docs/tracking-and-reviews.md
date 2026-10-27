@@ -108,8 +108,8 @@ it saw.
   **Import review** takes it like an `.xlsx` -- several at once too (one
   per reviewer: the file is named after its time, role and author). In
   the card, each department shows its open RTKs; keys ← → (files), Esc
-  (table ⇄ one file), V (all done), X (general retake), Ctrl+Enter in a
-  box (next file). Its file menu starts with *Progress*, the stats as a
+  (table ⇄ one file), V (all done), X (general retake), Esc or Ctrl+Enter
+  in a box (leave it). Its file menu starts with *Progress*, the stats as a
   card. The page keeps what you
   write in your browser as you go (a reload brings it back, in the same
   browser -- not in a private window or on another machine), and *Load a
