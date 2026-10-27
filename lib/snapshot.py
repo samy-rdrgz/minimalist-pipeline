@@ -2306,7 +2306,7 @@ paint();save();});
 rv[k]=$('rv-'+k).value;save();});});
 rvMeta.roles.forEach(function(r){var o=document.createElement('option');o.value=r;o.textContent=r;
 $('rv-role').appendChild(o);});
-var RVHIDE=['file','render'];
+var RVHIDE=['file','render','done','valid'];
 function setMode(on){if(on===document.body.classList.contains('reviewing'))return;
 document.body.classList.toggle('reviewing',on);$('rv').hidden=!on;
 $('rv-mode').setAttribute('aria-pressed',on);$('rv-start').setAttribute('aria-pressed',on);

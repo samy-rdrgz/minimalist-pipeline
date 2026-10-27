@@ -12,8 +12,8 @@ All notable changes to this addon. Dates are release dates.
   new line `[sh020] `, so one shot after the other --, or withdraws a
   validation when left empty. Each row also gets *all done*, a *general
   retake* and a *description* to edit; a row gone through gets a violet
-  line on its left. While reviewing, *Blender file* and *Last render* are
-  hidden (the Columns menu shows them again). The box asks for the
+  line on its left. While reviewing, *Blender file*, *Last render*,
+  *Done* and *Validated* are hidden (the Columns menu shows them again). The box asks for the
   author, the role and the date, counts the changes and downloads
   the review as a `.json` that **Import review** reads like the
   spreadsheet: same confirm dialog, same refusals. What you write is

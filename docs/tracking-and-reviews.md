@@ -96,8 +96,8 @@ it saw.
   spreadsheet; a block's shot button starts a new line with its tag, so
   you go shot after shot; left empty, it withdraws a validation), and on
   each row *all done*, a *general retake* and the *description*. A row
-  you went through gets a violet line; *Blender file* and *Last render*
-  are hidden while reviewing. Fill in the author, the role and the date
+  you went through gets a violet line; *Blender file*, *Last render*,
+  *Done* and *Validated* are hidden while reviewing. Fill in the author, the role and the date
   in the box, then *Download review (.json)* and send it:
   **Import review** takes it like an `.xlsx`. The page keeps what you
   write in your browser as you go (a reload brings it back, in the same

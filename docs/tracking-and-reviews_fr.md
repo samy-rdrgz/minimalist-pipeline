@@ -103,8 +103,8 @@ la prod -- sur la version qu'il a vue.
   une nouvelle ligne avec son tag, pour enchaîner shot après shot ;
   laissée vide, elle retire une validation), et sur chaque ligne *all
   done*, un *general retake* et la *description*. Une ligne parcourue
-  prend un trait violet ; *Blender file* et *Last render* sont masquées
-  pendant la review. Remplissez l'auteur, le rôle et la date dans la box,
+  prend un trait violet ; *Blender file*, *Last render*, *Done* et
+  *Validated* sont masquées pendant la review. Remplissez l'auteur, le rôle et la date dans la box,
   puis *Download review (.json)* et
   envoyez-le : **Import review** le prend comme un `.xlsx`. La page garde
   ce que vous écrivez dans votre navigateur au fil de l'eau (un

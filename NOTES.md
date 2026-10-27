@@ -3077,7 +3077,7 @@ prefixes the current line: on an empty (or tags-only) line it goes
 there, else on a new line at the end, cursor after it -- a retake for
 sh030, then [sh040] and the next one. Text boxes are as wide as their
 cell (`width:100%`, a small `min-width`) and grow in height only, so
-the table keeps its width. Turning Review on unticks *file* / *render*
+the table keeps its width. Turning Review on unticks *file* / *render* / *done* / *valid*
 in the Columns menu, their ticks as before in `data-before`, put back
 when it's off and the ones saved meanwhile. Every wide table's own
 scrollbar is hidden for a sticky `.hbar` below it (`size()` sets its
