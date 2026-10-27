@@ -1267,7 +1267,10 @@ def _render_filters(snapshot: dict) -> str:
         '<input id="f-closed" type="checkbox">Closed notes</label>'
         f"{_columns_menu(departments, bool(snapshot['meta'].get('validation_role')))}"
         "</div>"
-        '<div class="grp"><button type="button" id="rv-mode" class="chip rv-chip" '
+        '<div class="grp"><button type="button" id="view-one" class="chip" '
+        'aria-pressed="false" title="One file at a time, as a page of its own -- '
+        'a row\'s name opens it too">One file</button>'
+        '<button type="button" id="rv-mode" class="chip rv-chip" '
         'aria-pressed="false" title="Validate departments and write retakes on '
         'this page, then download the review to send back">✎ Review</button></div>'
         "</div>"
@@ -1282,7 +1285,7 @@ def _review_bar() -> str:
         '<div id="rv" class="rvmain"><div class="rv">'
         '<button type="button" id="rv-start" class="btn small" aria-pressed="false">'
         "✎ Review on this page</button>"
-        '<span class="rvview rvf"><button type="button" id="rv-v-table" class="chip" '
+        '<span class="rvview"><button type="button" id="rv-v-table" class="chip" '
         'aria-pressed="true">Table</button><button type="button" id="rv-v-one" '
         'class="chip" aria-pressed="false" title="One file at a time, ← → to the '
         'next">One file</button></span>'
@@ -2072,10 +2075,13 @@ border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(
 body:not(.reviewing) .rvc,body:not(.reviewing) .rvg,body:not(.reviewing) .rvt,
 body:not(.reviewing) .rvtags{display:none}
 .rvg{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;align-items:center}
-body.reviewing td.name>b{cursor:pointer;text-decoration:underline dotted var(--muted);text-underline-offset:3px}
+td.name>b{cursor:pointer;text-decoration:underline dotted var(--muted);text-underline-offset:3px}
+td.name>b:hover{color:var(--accent);text-decoration-color:var(--accent)}
 body.reviewing td.name>b:hover{color:var(--role);text-decoration-color:var(--role)}
+/* The card outside a review: a file's page, read only. */
+body:not(.reviewing) .orow,body:not(.reviewing) .ofl{display:none}
 .rvc{display:inline-flex;gap:3px;margin-left:6px;vertical-align:middle}
-body.reviewing td[data-col^="d:"]{white-space:nowrap}
+body.reviewing td[data-col^="d:"]{white-space:nowrap}body.reviewing td.name{min-width:290px}
 .rvb{font:inherit;font-size:11px;line-height:16px;padding:1px 8px;border-radius:999px;
 border:1px solid var(--line);background:var(--card);color:var(--muted);cursor:pointer}
 .rvb:hover:not(:disabled){border-color:var(--fg);color:var(--fg)}
@@ -2104,7 +2110,10 @@ body.one section,body.one .legend{display:none}
 margin-bottom:14px;border-bottom:1px solid var(--line)}
 .otop .chip:disabled{opacity:.35;cursor:default}
 .oname{font-size:18px;font-weight:700;overflow-wrap:anywhere}.opos{font-size:12px;color:var(--muted)}
-.obtns{display:flex;gap:6px;flex-wrap:wrap}.owho{flex:1 1 220px;min-width:0}
+.obtns{display:flex;gap:6px;flex-wrap:wrap}.owho{flex:0 1 auto;min-width:0}
+.ojump{margin-left:auto;max-width:260px;font:inherit;font-size:13px;padding:3px 8px;border-radius:6px;
+border:1px solid var(--line);background:var(--card);color:var(--fg)}
+@media (max-width:700px){.owho{flex-basis:100%;order:-1}.ojump{max-width:100%;flex:1 1 100%}}
 .opair{display:contents}.opair[hidden]{display:none}.oshb{grid-column:1 / -1;align-items:center}
 .oshb>span{font-size:12px;color:var(--muted);margin-right:2px}.oshb .rvtag[hidden]{display:none}
 .oinfo .bar{width:90px}
@@ -2255,7 +2264,8 @@ var kept=cols.filter(function(c){return c.dataset.before?c.dataset.before!=='1':
 colStyle.textContent=hidden.map(function(k){
 return '[data-col="'+CSS.escape(k)+'"]{display:none}';}).join('');
 document.querySelector('.cols').classList.toggle('hiding',hidden.length>0);
-if(save){try{localStorage.setItem(colKey,JSON.stringify(kept));}catch(e){}}size();}
+if(save){try{localStorage.setItem(colKey,JSON.stringify(kept));}catch(e){}}
+eqCols(document.body.classList.contains('reviewing'));size();}
 try{var saved=JSON.parse(localStorage.getItem(colKey)||'[]');
 cols.forEach(function(c){if(saved.indexOf(c.dataset.key)>=0)c.checked=false;});}catch(e){}
 cols.forEach(function(c){c.addEventListener('change',function(){applyCols(true);});});
@@ -2333,7 +2343,6 @@ box.appendChild(ok);box.appendChild(rt);td.appendChild(box);
 var tags=tagButtons(el,ta);if(tags){tags.hidden=true;tags.dataset.for=d;td.appendChild(tags);}
 td.appendChild(ta);});
 var name=el.querySelector('td.name'),g=document.createElement('div');g.className='rvg';
-if(name.firstElementChild)name.firstElementChild.title='Open it on its own (One file)';
 var any=Object.keys(st).some(function(d){return done(st[d]);});
 [['all','✓ all done',!any,'Validate every department done so far'],
 ['gen','+ general retake',false,'A retake for no department in particular'],
@@ -2391,8 +2400,8 @@ if(gt.hidden){gt.dataset.open='1';gt.hidden=false;focus=function(){return oneFie
 else{gt.dataset.open='';e.text='';}}
 else if(act==='desc'){e.desc=e.desc===null?rows[b.dataset.f].dataset.desc:null;}
 paint();save();var t=focus&&focus();if(t)t.focus();});
-// While reviewing, a row's name opens it on its own (One file).
-document.addEventListener('click',function(ev){if(!document.body.classList.contains('reviewing'))return;
+// A row's name opens it on its own (One file), reviewing or not.
+document.addEventListener('click',function(ev){
 var n=ev.target.closest('td.name>b');if(!n)return;oneF=n.closest('tr.item').dataset.file;setView(true);});
 document.addEventListener('input',function(ev){var t=ev.target;
 if(t.classList.contains('rvo')){oneInput(t);return;}if(!t.classList.contains('rvt'))return;
@@ -2406,21 +2415,23 @@ rvMeta.roles.forEach(function(r){var o=document.createElement('option');o.value=
 $('rv-role').appendChild(o);});
 var RVHIDE=['file','render','done','valid'];
 function setMode(on){if(on===document.body.classList.contains('reviewing'))return;
-if(!on)setView(false);
 document.body.classList.toggle('reviewing',on);
 $('rv-mode').setAttribute('aria-pressed',on);$('rv-start').setAttribute('aria-pressed',on);
 $('rv-start').textContent=on?'Stop reviewing':'✎ Review on this page';
 cols.forEach(function(c){if(RVHIDE.indexOf(c.dataset.key)<0)return;
 if(on){c.dataset.before=c.checked?'1':'0';c.checked=false;}
 else{c.checked=c.dataset.before==='1';delete c.dataset.before;}});
-if(on&&!rvBuilt)build();applyCols(false);eqCols(on);navHeight();size();}
-// While reviewing, a table's department columns all as wide as its widest
-// one at its narrowest (its cells don't wrap): the ✓ ✗ line up.
-function eqCols(on){heads.forEach(function(h){var ths=[].filter.call(h.table.tHead.rows[0].cells,
-function(c){return(c.dataset.col||'').indexOf('d:')===0;});
-ths.forEach(function(c){c.style.width=on?'1px':'';});if(!on)return;
-var w=Math.max.apply(null,ths.map(function(c){return c.getBoundingClientRect().width;}).concat([0]));
-if(w)ths.forEach(function(c){c.style.width=Math.ceil(w)+'px';});});}
+if(on&&!rvBuilt)build();applyCols(false);navHeight();size();
+if(one&&!one.hidden)openOne(oneF);}
+// While reviewing, the name column as narrow as it goes and the table's
+// width shared out evenly between its department columns: room for the
+// retakes, the ✓ ✗ lined up.
+function eqCols(on){heads.forEach(function(h){var cells=[].slice.call(h.table.tHead.rows[0].cells),
+ths=cells.filter(function(c){return(c.dataset.col||'').indexOf('d:')===0&&
+getComputedStyle(c).display!=='none';}),
+name=cells.filter(function(c){return!c.dataset.col;})[0];
+if(name)name.style.width=on?'1px':'';
+ths.forEach(function(c){c.style.width=on?(100/ths.length).toFixed(3)+'%':'';});});}
 ['rv-mode','rv-start'].forEach(function(id){$(id).addEventListener('click',function(){
 var on=!document.body.classList.contains('reviewing');setMode(on);
 if(on&&window.innerWidth<700)setView(true);});});
@@ -2473,6 +2484,7 @@ document.querySelectorAll('textarea.rvt').forEach(function(t){t.value='';t.datas
 var NL=String.fromCharCode(10),one=document.createElement('div'),oneF=null,
 ALL=[].slice.call(document.querySelectorAll('tr.item'));
 one.id='one';one.className='one';one.hidden=true;nav.after(one);
+ALL.forEach(function(r){var b=r.querySelector('td.name>b');if(b)b.title='Open this file on its own page (One file)';});
 function shotsOf(f){return rows[f].dataset.shots.split(' ').filter(Boolean);}
 function splitText(t,shots){var o={'':[]};shots.forEach(function(s){o[s]=[];});
 t.split(NL).forEach(function(l){var w=l.trim().split(' '),k=w[0].slice(1,-1);
@@ -2504,7 +2516,16 @@ if(text!=null)x.textContent=text;parent.appendChild(x);return x;}
 function openOne(f){if(f!==oneF)oneOpen={};oneF=f;var el=rows[f],st=states(el),shots=shotsOf(f);
 one.textContent='';var card=add(one,'div','ocard'),top=add(card,'div','otop'),btns=add(top,'div','obtns');
 var back=add(btns,'button','chip','← Table'),prev=add(btns,'button','chip','‹ Previous'),
-next=add(btns,'button','chip','Next ›'),who=add(top,'div','owho');
+who=add(top,'div','owho'),next=add(top,'button','chip','Next ›'),jump=add(top,'select','ojump');
+// Straight to another file: the ones the filters keep, by group, ✎ the
+// ones reviewed already.
+jump.setAttribute('aria-label','Go to a file');var og=null,last='';
+ALL.forEach(function(r){if(r.hidden&&r!==el)return;
+var lab=(r.closest('section').id==='assets'?'Assets':'Shots')+' · '+r.dataset.group;
+if(lab!==last){og=add(jump,'optgroup');og.label=last=lab;}
+var o=add(og,'option',null,(r.classList.contains('rv-changed')?'✎ ':'')+r.querySelector('td.name b').textContent);
+o.value=r.dataset.file;o.selected=r===el;});
+jump.addEventListener('change',function(){openOne(jump.value);keepView();});
 back.type=prev.type=next.type='button';back.dataset.go='0';prev.dataset.go='-1';next.dataset.go='1';
 back.title='Back to the table (Esc)';prev.title='Previous file (←)';next.title='Next file (→)';
 prev.disabled=!step(-1);next.disabled=!step(1);
@@ -2538,7 +2559,8 @@ if(!(d in st))return;var dep=add(right,'div','odep'),h=add(dep,'div','odh');add(
 var rvc=td.querySelector('.rvc');if(rvc)h.appendChild(rvc.cloneNode(true));
 var box=add(dep,'div','ofl');box.dataset.k='d:'+d;
 oneFields(box,f,'d:'+d,shots,'One retake per line, [f12-40] at its start for frames, note: for a remark');});
-var notes=el.nextElementSibling;if(notes&&notes.classList.contains('notes')){
+var notes=el.nextElementSibling;if(notes&&notes.classList.contains('notes')&&
++(document.body.classList.contains('show-closed')?el.dataset.threads:el.dataset.notes)){
 var nb=add(right,'div','onotes');add(nb,'h3',null,'Notes');
 nb.appendChild(notes.querySelector('.threads').cloneNode(true));}
 var bot=add(card,'div','obot');bot.appendChild(prev.cloneNode(true));bot.appendChild(next.cloneNode(true));
@@ -2546,6 +2568,7 @@ paintOne();}
 function paintOne(){if(!one||one.hidden||!oneF)return;var f=oneF,el=rows[f],
 e=rv.files[f]||{deps:{},all:false,text:'',desc:null},shots=shotsOf(f);
 one.querySelector('.ocard').classList.toggle('changed',el.classList.contains('rv-changed'));
+if(!rvBuilt)return;  // a file's page, no review yet: nothing of it to show
 one.querySelectorAll('.rvb').forEach(function(b){var twin=b.dataset.d?
 el.querySelector('td[data-col="d:'+CSS.escape(b.dataset.d)+'"] .rvb.'+b.className.split(' ')[1]):
 el.querySelector('.rvg .rvb.'+b.dataset.act);
@@ -2563,18 +2586,19 @@ if(!ALL[j].hidden)return ALL[j];return null;}
 function go(n){if(!n){setView(false);return;}var r=step(n);if(!r)return;openOne(r.dataset.file);
 if(one.getBoundingClientRect().top<navTop)window.scrollBy(0,one.getBoundingClientRect().top-navTop-8);keepView();}
 function keepView(){try{localStorage.setItem(rvKey+':view',JSON.stringify({one:!one.hidden,f:oneF}));}catch(e){}}
-function setView(on){if(on&&!document.body.classList.contains('reviewing'))setMode(true);
-document.body.classList.toggle('one',on);one.hidden=!on;
+function setView(on){document.body.classList.toggle('one',on);one.hidden=!on;
+$('view-one').setAttribute('aria-pressed',on);
 $('rv-v-one').setAttribute('aria-pressed',on);$('rv-v-table').setAttribute('aria-pressed',!on);
 if(on){var shown=ALL.filter(function(r){return!r.hidden;});
 if(!oneF||!rows[oneF])oneF=(shown[0]||ALL[0]).dataset.file;openOne(oneF);
 window.scrollBy(0,one.getBoundingClientRect().top-navTop-8);}
-else{one.textContent='';if(oneF&&rows[oneF]&&document.body.classList.contains('reviewing')){
+else{one.textContent='';if(oneF&&rows[oneF]){
 var r=rows[oneF];setTimeout(function(){r.scrollIntoView({block:'center'});});}}
 keepView();size();}
 one.addEventListener('click',function(ev){var b=ev.target.closest('[data-go]');if(b)go(+b.dataset.go);});
 $('rv-v-one').addEventListener('click',function(){setView(true);});
 $('rv-v-table').addEventListener('click',function(){setView(false);});
+$('view-one').addEventListener('click',function(){setView(one.hidden);});
 document.addEventListener('keydown',function(ev){if(one.hidden||ev.altKey||ev.ctrlKey||ev.metaKey)return;
 var t=ev.target;if(t.matches&&t.matches('input,textarea,select'))return;
 if(ev.key==='ArrowLeft')go(-1);else if(ev.key==='ArrowRight')go(1);else if(ev.key==='Escape')go(0);
@@ -2582,8 +2606,8 @@ else return;ev.preventDefault();});
 try{var kept=JSON.parse(localStorage.getItem(rvKey)||'null');if(kept&&kept.files){rv=kept;
 if(count()[0]){setMode(true);$('rv-saved').textContent='Your review in progress was restored';}}}catch(e){}
 if(!rv.date)rv.date=new Date().toISOString().slice(0,10);fields();paint();
-try{var vw=JSON.parse(localStorage.getItem(rvKey+':view')||'null');if(vw&&vw.one&&rows[vw.f]&&
-document.body.classList.contains('reviewing')){oneF=vw.f;setView(true);}}catch(e){}
+try{var vw=JSON.parse(localStorage.getItem(rvKey+':view')||'null');if(vw&&vw.one&&rows[vw.f]){
+oneF=vw.f;setView(true);}}catch(e){}
 })();
 """
 

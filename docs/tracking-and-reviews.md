@@ -98,7 +98,8 @@ it saw.
   each row *all done*, a *general retake* and the *description*. A row
   you went through gets a violet line; *Blender file*, *Last render*,
   *Done* and *Validated* are hidden while reviewing. Fill in the author, the role and the date
-  in the box, then -- or, with *One file* (or a click on a row's name), go through the files one by
+  in the box, then -- or, with *One file* (or a click on a row's name -- also outside a
+  review, as a file's own page), go through the files one by
   one: a card per file (large thumbnail, a block's shots, notes, a ✓ / ✗
   per department and, for a block, a retake field per shot, opened by
   its button), *Previous*

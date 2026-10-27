@@ -3099,9 +3099,15 @@ snapshot (`rvKey + ':view'`), so a reload comes back on the same card.
 A block's shot fields stay folded behind a button each (`oneOpen`, per
 card) until asked for or filled: seven empty boxes per department read
 as a form to fill, not a place to note what's wrong. A row's name opens
-the card (no button of its own: it took a column's width in the table).
-While reviewing, `eqCols()` gives a table's department columns one width
--- each squeezed to 1px first, so the widest's own minimum sets it.
+the card (no button of its own: it took a column's width in the table),
+reviewing or not: outside a review it's a file's page (no `.orow` /
+`.ofl`, `paintOne()` stops before the review's state), and turning
+Review on rebuilds it with the buttons. The menu at its right lists the
+files the filters keep, by group, ✎ before the ones reviewed.
+While reviewing, `eqCols()` squeezes the name column (width 1px, a
+290px min-width for its buttons) and gives each visible department
+column an equal share of the table's width -- called from `applyCols()`,
+so hiding one shares its room out.
 
 On a phone the bar is sticky too, but compact (filters and Show behind
 *Filters*, `nav.more`) and `nav.away` -- translated out -- while scrolling

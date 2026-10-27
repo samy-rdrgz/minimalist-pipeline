@@ -104,7 +104,8 @@ la prod -- sur la version qu'il a vue.
   laissée vide, elle retire une validation), et sur chaque ligne *all
   done*, un *general retake* et la *description*. Une ligne parcourue
   prend un trait violet ; *Blender file*, *Last render*, *Done* et
-  *Validated* sont masquées pendant la review. Ou, avec *One file* (ou un clic sur le nom d'une ligne),
+  *Validated* sont masquées pendant la review. Ou, avec *One file* (ou un clic sur le nom d'une ligne -- aussi hors
+  review, comme une page par fichier),
   passez les fichiers un par un : une fiche par fichier (grande vignette,
   les shots d'un bloc, les notes, un ✓ / ✗ par département et, pour un
   bloc, un champ de retake par shot, ouvert par son bouton), *Previous* / *Next* ou ← / → selon
