@@ -112,7 +112,11 @@ la prod -- sur la version qu'il a vue.
   les filtres, Échap pour revenir au tableau. La box résume le travail
   (reviewed, validated, retakes). Remplissez l'auteur, le rôle et la date
   dans la box, puis *Download review (.json)* et
-  envoyez-le : **Import review** le prend comme un `.xlsx`. La page garde
+  envoyez-le : **Import review** le prend comme un `.xlsx` -- plusieurs
+  d'un coup aussi (un par reviewer : le fichier porte son heure, son rôle
+  et son auteur). Dans la fiche, chaque département affiche ses RTK
+  ouverts ; touches ← → (fichiers), Échap (tableau ⇄ fiche), V (all
+  done), X (retake général). La page garde
   ce que vous écrivez dans votre navigateur au fil de l'eau (un
   rechargement le retrouve, dans le même navigateur -- pas en navigation
   privée ni sur une autre machine), et *Load a review…* rouvre une review

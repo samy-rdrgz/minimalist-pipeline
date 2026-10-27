@@ -3098,7 +3098,19 @@ the filters keep (`el.hidden`); the view and its file are kept per
 snapshot (`rvKey + ':view'`), so a reload comes back on the same card.
 A block's shot fields stay folded behind a button each (`oneOpen`, per
 card) until asked for or filled: seven empty boxes per department read
-as a form to fill, not a place to note what's wrong. A row's name opens
+as a form to fill, not a place to note what's wrong. The card lists each department's open RTKs from the row's own notes
+(roots not closed, an rtk type, the department among their tags --
+`rtksOf()`), the meta in the pill's title or under it once tapped; the
+notes block below keeps only the threads not listed (`placed()`). The
+review's file name carries the download time, the role and the author
+(`reviewName()`, accents dropped), so several reviewers' files coexist.
+Import review takes several files (`files` + `directory`): every plan
+first, one dialog, a file that can't be planned left out with its
+reason; `_run_review_import()` runs them one after the other, summing
+the results, a description two of them change taking the last one's.
+An imported line is the same as one already there by its text, shot,
+frames and departments (`_note_key()`): on the text alone, "[sh170] too
+dark" after "[sh180] too dark" was dropped as a duplicate. A row's name opens
 the card (no button of its own: it took a column's width in the table),
 reviewing or not: outside a review it's a file's page (no `.orow` /
 `.ofl`, `paintOne()` stops before the review's state), and turning

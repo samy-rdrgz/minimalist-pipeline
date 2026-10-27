@@ -2137,6 +2137,12 @@ border:1px solid var(--line);background:var(--card);color:var(--fg)}
 .opair{display:contents}.opair[hidden]{display:none}.oshb{grid-column:1 / -1;align-items:center}
 .oshb>span{font-size:12px;color:var(--muted);margin-right:2px}.oshb .rvtag[hidden]{display:none}
 .oinfo .bar{width:90px}
+.okeys{margin:-6px 0 12px;font-size:11px;color:var(--muted)}@media (max-width:700px){.okeys{display:none}}
+.ortk{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 8px;margin-top:6px;font-size:13px}
+.opill{font:inherit;font-size:11px;font-weight:600;line-height:16px;padding:0 7px;border-radius:999px;
+border:0;background:var(--rtk);color:#fff;cursor:pointer;white-space:nowrap}
+.opill.team{background:var(--team)}.otx{flex:1 1 200px;min-width:0}.ometa{display:none;flex-basis:100%;color:var(--muted);font-size:11px}
+.ortk.open .ometa{display:block}
 .obody{display:grid;grid-template-columns:minmax(0,560px) minmax(0,1fr);gap:22px}
 @media (max-width:900px){.obody{grid-template-columns:minmax(0,1fr)}}
 .obig{display:block;width:100%;border-radius:6px;background:var(--line)}
@@ -2479,6 +2485,14 @@ if(e.all)Object.keys(st).forEach(function(d){if(done(st[d])&&!(d in row))row[d]=
 if(e.text.trim())row.global=e.text.trim();
 if(e.desc!==null&&e.desc.trim()&&e.desc.trim()!==el.dataset.desc)row.description=e.desc.trim();
 out.push(row);});return out;}
+// <project>_review_<YYYY-MM-DD_HH-MM>_<role>_<author>.json: two reviewers'
+// files side by side on a drive, never one over the other.
+function slug(t){return String(t||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase()
+.replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');}
+function reviewName(){var d=new Date(),two=function(n){return('0'+n).slice(-2);},
+stamp=d.getFullYear()+'-'+two(d.getMonth()+1)+'-'+two(d.getDate())+'_'+two(d.getHours())+'-'+two(d.getMinutes());
+return[rvMeta.file_name.split('_review_')[0]+'_review_'+stamp,slug(rv.role),slug(rv.author)]
+.filter(Boolean).join('_')+'.json';}
 $('rv-save').addEventListener('click',function(){var r=exportRows();
 if(!r.length){alert('Nothing to send yet: validate or write a retake first.');return;}
 var needsRole=r.some(function(row){return Object.keys(row).some(function(k){return FIXED.indexOf(k)<0||k==='global';});});
@@ -2488,7 +2502,7 @@ var data={format:rvMeta.format,schema_version:rvMeta.schema_version,project:rvMe
 snapshot:rvMeta.snapshot,author:rv.author,role:rv.role,review_date:rv.date,
 written_at:new Date().toISOString().slice(0,19),rows:r};
 var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],
-{type:'application/json'}));a.download=rvMeta.file_name;document.body.appendChild(a);a.click();
+{type:'application/json'}));a.download=reviewName();document.body.appendChild(a);a.click();
 setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},1000);});
 $('rv-load').addEventListener('change',function(){var file=this.files[0];this.value='';if(!file)return;
 var reader=new FileReader();reader.onload=function(){var data;
@@ -2555,12 +2569,15 @@ next=add(btns,'button','chip','Next ›'),who=add(top,'div','owho'),jump=add(top
 // Straight to another file: the ones the filters keep, by group, ✎ the
 // ones reviewed already.
 jump.setAttribute('aria-label','Go to a file');var og=null,last='';
+add(jump,'option',null,'Progress (stats)').value='';
 ALL.forEach(function(r){if(r.hidden&&r!==el)return;
 var lab=(r.closest('section').id==='assets'?'Assets':'Shots')+' · '+r.dataset.group;
 if(lab!==last){og=add(jump,'optgroup');og.label=last=lab;}
 var o=add(og,'option',null,(r.classList.contains('rv-changed')?'✎ ':'')+r.querySelector('td.name b').textContent);
 o.value=r.dataset.file;o.selected=r===el;});
-jump.addEventListener('change',function(){openOne(jump.value);keepView();});
+jump.addEventListener('change',function(){if(!jump.value){setView(false);
+var o=document.getElementById('overview');if(o)setTimeout(function(){o.scrollIntoView();});return;}
+openOne(jump.value);keepView();});
 back.type=prev.type=next.type='button';back.dataset.go='0';prev.dataset.go='-1';next.dataset.go='1';
 back.title='Back to the table (Esc)';prev.title='Previous file (←)';next.title='Next file (→)';
 prev.disabled=!step(-1);next.disabled=!step(1);
@@ -2568,6 +2585,8 @@ add(who,'div','oname',el.querySelector('td.name b').textContent);
 add(who,'div','opos',(el.closest('section').id==='assets'?'Asset':'Shot')+' · '+el.dataset.group+' · '+
 (ALL.filter(function(r){return!r.hidden;}).indexOf(el)+1)+' / '+ALL.filter(function(r){return!r.hidden;}).length+
 (bar.classList.contains('active')?' (filtered)':''));
+add(card,'p','okeys','← → files · Esc table'+(document.body.classList.contains('reviewing')?
+' · V all done · X general retake':''));
 var body=add(card,'div','obody'),left=add(body,'div'),right=add(body,'div'),
 img=el.querySelector('img.thumb'),big=null;
 if(img){big=add(left,'img','obig');big.src=img.src;big.alt='';}
@@ -2593,14 +2612,38 @@ el.querySelectorAll('td[data-col^="d:"]').forEach(function(td){var d=td.dataset.
 if(!(d in st))return;var dep=add(right,'div','odep'),h=add(dep,'div','odh');add(h,'b',null,d);
 [].forEach.call(td.children,function(x){if(x.matches('.pill,.ok'))h.appendChild(x.cloneNode(true));});
 var rvc=td.querySelector('.rvc');if(rvc)h.appendChild(rvc.cloneNode(true));
+rtksOf(el,d).forEach(function(li){dep.appendChild(rtkLine(li,d));});
 var box=add(dep,'div','ofl');box.dataset.k='d:'+d;
 oneFields(box,f,'d:'+d,shots,'One retake per line, [f12-40] at its start for frames, note: for a remark');});
-var notes=el.nextElementSibling;if(notes&&notes.classList.contains('notes')&&
-+(document.body.classList.contains('show-closed')?el.dataset.threads:el.dataset.notes)){
-var nb=add(right,'div','onotes');add(nb,'h3',null,'Notes');
-nb.appendChild(notes.querySelector('.threads').cloneNode(true));}
+var notes=el.nextElementSibling;if(notes&&notes.classList.contains('notes')){
+// The threads not shown under a department already (their replies with them).
+var ul=notes.querySelector('.threads').cloneNode(true),skip=false,mine=placed(el);
+[].slice.call(ul.children).forEach(function(li,i){var src=notes.querySelector('.threads').children[i];
+if(li.classList.contains('root'))skip=mine.indexOf(src)>=0;if(skip)li.remove();});
+var shown=[].filter.call(ul.children,function(li){return document.body.classList.contains('show-closed')||
+!li.classList.contains('closed');}).length;
+if(shown){var nb=add(right,'div','onotes');add(nb,'h3',null,mine.length?'Other notes':'Notes');nb.appendChild(ul);}}
 var bot=add(card,'div','obot');bot.appendChild(prev.cloneNode(true));bot.appendChild(next.cloneNode(true));
 paintOne();}
+// A department's open RTKs: the row's threads, roots not closed, of type
+// rtk, with that department among their tags.
+function threadsOf(el){var n=el.nextElementSibling;return n&&n.classList.contains('notes')?
+[].slice.call(n.querySelector('.threads').children):[];}
+function rtksOf(el,d){return threadsOf(el).filter(function(li){
+return li.classList.contains('root')&&!li.classList.contains('closed')&&li.querySelector('.type.t-rtk')&&
+[].some.call(li.querySelectorAll('.tag'),function(t){return t.textContent.split(', ').indexOf(d)>=0;});});}
+function placed(el){var st=states(el),out=[];Object.keys(st).forEach(function(d){
+rtksOf(el,d).forEach(function(li){if(out.indexOf(li)<0)out.push(li);});});return out;}
+// One line: an RTK pill (its shot in it) holding the rest -- who, when,
+// role, frames -- in its tooltip, or under it once tapped (a phone).
+function rtkLine(li,d){var line=document.createElement('div');line.className='ortk';
+var tags=[].map.call(li.querySelectorAll('.tag'),function(t){return t.textContent;}).filter(function(t){return t!==d;}),
+shot=tags.filter(function(t){return/^[0-9]{2,4}[a-z]?$/.test(t);})[0],
+meta=tags.concat([li.querySelector('.who').textContent]).join(' · ');
+var b=add(line,'button','opill'+(li.querySelector('.type.team')?' team':''),shot?'RTK '+shot:'RTK');
+b.type='button';b.title=meta;
+var tx=add(line,'span','otx',li.querySelector('p').textContent);add(line,'small','ometa',meta);
+b.addEventListener('click',function(){line.classList.toggle('open');});return line;}
 function paintOne(){if(!one||one.hidden||!oneF)return;var f=oneF,el=rows[f],
 e=rv.files[f]||{deps:{},all:false,text:'',desc:null},shots=shotsOf(f);
 one.querySelector('.ocard').classList.toggle('changed',el.classList.contains('rv-changed'));
@@ -2636,15 +2679,24 @@ $('rv-v-one').addEventListener('click',function(){setView(true);});
 $('rv-v-table').addEventListener('click',function(){setView(false);});
 $('view-one').addEventListener('click',function(){setView(one.hidden);});
 $('f-closed').addEventListener('change',function(){if(!one.hidden)openOne(oneF);});
-document.addEventListener('keydown',function(ev){if(one.hidden||ev.altKey||ev.ctrlKey||ev.metaKey)return;
-var t=ev.target;if(t.matches&&t.matches('input,textarea,select'))return;
-if(ev.key==='ArrowLeft')go(-1);else if(ev.key==='ArrowRight')go(1);else if(ev.key==='Escape')go(0);
+// Keys: ← → files, Esc table ⇄ one file; while reviewing V all done, X
+// the general retake. Esc in a box just leaves it.
+document.addEventListener('keydown',function(ev){if(ev.altKey||ev.ctrlKey||ev.metaKey)return;
+var t=ev.target;if(t.matches&&t.matches('input,textarea,select')){if(ev.key==='Escape')t.blur();return;}
+if(one.hidden){if(ev.key==='Escape'){setView(true);ev.preventDefault();}return;}
+var k=ev.key.toLowerCase(),rev=document.body.classList.contains('reviewing');
+if(k==='arrowleft')go(-1);else if(k==='arrowright')go(1);else if(k==='escape')go(0);
+else if(rev&&k==='v'){var a=one.querySelector('.orow .rvb.all');if(a&&!a.disabled)a.click();}
+else if(rev&&k==='x'){var g=oneField('g');if(g&&!g.closest('.ofl').hidden)g.focus();
+else{var gb=one.querySelector('.orow .rvb.gen');if(gb)gb.click();}}
 else return;ev.preventDefault();});
 try{var kept=JSON.parse(localStorage.getItem(rvKey)||'null');if(kept&&kept.files){rv=kept;
 if(count()[0]){setMode(true);$('rv-saved').textContent='Your review in progress was restored';}}}catch(e){}
 if(!rv.date)rv.date=new Date().toISOString().slice(0,10);fields();paint();
 try{var vw=JSON.parse(localStorage.getItem(rvKey+':view')||'null');if(vw&&vw.one&&rows[vw.f]){
 oneF=vw.f;setView(true);}}catch(e){}
+// A phone opens on One file: the tables are no place to read there.
+if(one.hidden&&window.innerWidth<700&&!location.hash)setView(true);
 })();
 """
 
@@ -3550,13 +3602,25 @@ def review_import_plan(path: Path, review: dict | None = None) -> dict:
     return plan
 
 
+def _note_key(text, shot, f_start, f_end, departments) -> tuple:
+    """What makes an imported review line the same as one already there."""
+    return (
+        text,
+        shot or None,
+        f_start,
+        f_end if f_start is not None else None,
+        frozenset(d for d in departments or () if d),
+    )
+
+
 def import_review_xlsx(path: Path) -> dict:
     """Create one entry per line of each filled text cell of a review
     template, all sharing one review_id, stamped with the template's Author
     ("prod" if empty) and Review date (import time if empty), anchored on
     the version the snapshot showed. A line already imported (same file,
-    text and author, from a review) is skipped, so re-importing a file --
-    or a re-sent one with notes added -- never duplicates.
+    text, shot, frames, departments and author, from a review) is
+    skipped, so re-importing a file -- or a re-sent one with notes added,
+    or another reviewer's on the same line -- never duplicates.
     Every note and validation under the template's Role (none for one made
     before 1.1.2) -- see review_import_plan().
     Returns {"imported", "duplicates", "validated", "skipped": [(label, reason)]}."""
@@ -3605,8 +3669,16 @@ def import_review_xlsx(path: Path) -> dict:
                 for line, _, _ in notes
             )
             continue
+        # The same words on another shot, frames or department are another
+        # retake: "[sh170] too dark" and "[sh180] too dark" are two.
         known = {
-            e.get("text")
+            _note_key(
+                e.get("text"),
+                e.get("shot"),
+                e.get("frame_start"),
+                e.get("frame_end"),
+                e.get("departments") or [e.get("department")],
+            )
             for e in (read_json_quiet(tracking_json_path(filepath)) or {}).get(
                 "entries", []
             )
@@ -3625,7 +3697,10 @@ def import_review_xlsx(path: Path) -> dict:
             line, shot, frames = _line_tags(line, shots)
             # A pre-1.1.2 template's own "shot" column, for all its lines.
             shot = shot or row.get("shot") or None
-            if line in known:
+            key = _note_key(
+                line, shot, *(frames or (None, None)), departments
+            )
+            if key in known:
                 result["duplicates"] += 1
                 continue
             try:
@@ -3644,7 +3719,7 @@ def import_review_xlsx(path: Path) -> dict:
                     source=REVIEW_SOURCE,
                     role=role,
                 )
-                known.add(line)
+                known.add(key)
                 result["imported"] += 1
             except PipelineError as e:
                 result["skipped"].append((f"{name}: {line[:40]}", e.message))

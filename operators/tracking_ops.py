@@ -642,17 +642,20 @@ class M_PIPELINE_OT_toggle_entry_task(bpy.types.Operator):
 
 
 class M_PIPELINE_OT_import_review(bpy.types.Operator):
-    """Import the notes from a filled-in snapshot review spreadsheet."""
+    """Import the notes from filled-in snapshot reviews, one or several."""
 
     bl_idname = "m_pipeline.import_review"
     bl_label = "Import review"
     bl_description = (
-        "Create notes from a review sent back by production: the .xlsx "
-        "downloaded from a snapshot, or the .json its page's Review makes. "
-        "Lines already imported are skipped"
+        "Create notes from reviews sent back by production: the .xlsx "
+        "downloaded from a snapshot, or the .json its page's Review makes -- "
+        "several at once (sup's, prod's...). Lines already imported are skipped"
     )
 
     filepath: bpy.props.StringProperty(subtype="FILE_PATH")
+    # Several files picked at once (Shift/Ctrl-click in the browser).
+    files: bpy.props.CollectionProperty(type=bpy.types.OperatorFileListElement)
+    directory: bpy.props.StringProperty(subtype="DIR_PATH")
     filter_glob: bpy.props.StringProperty(default="*.xlsx;*.json", options={"HIDDEN"})
 
     def invoke(self, context, event):
@@ -663,19 +666,31 @@ class M_PIPELINE_OT_import_review(bpy.types.Operator):
         return {"RUNNING_MODAL"}
 
     def execute(self, context):
-        path = Path(bpy.path.abspath(self.filepath))
-        if not path.is_file() or path.suffix.lower() not in (".xlsx", ".json"):
+        directory = Path(bpy.path.abspath(self.directory)) if self.directory else None
+        paths = [directory / f.name for f in self.files if f.name] if directory else []
+        paths = paths or [Path(bpy.path.abspath(self.filepath))]
+        paths = [
+            p for p in dict.fromkeys(paths)
+            if p.is_file() and p.suffix.lower() in (".xlsx", ".json")
+        ]
+        if not paths:
             self.report({"ERROR"}, "No review (.xlsx or .json) selected.")
             return {"CANCELLED"}
-        try:
-            plan = review_import_plan(path)
-        except PipelineError as e:
-            log(e.level, "review_import", e.message)
-            self.report({e.level}, e.message)
+        # Each file's plan; one that can't be read or has no valid role is
+        # left out, said in the dialog -- the others still go.
+        pending, failed = [], []
+        for path in sorted(paths, key=lambda p: p.name):
+            try:
+                pending.append((path, review_import_plan(path)))
+            except PipelineError as e:
+                log(e.level, "review_import", e.message)
+                failed.append(e.message)
+        if not pending:
+            self.report({"ERROR"}, " / ".join(failed))
             return {"CANCELLED"}
         # Who it's imported as, first: the role's validations and notes are
         # the person filling it's word -- see NOTES.md, "Validation roles".
-        _pending_import[:] = [path, plan]
+        _pending_import[:] = [pending, failed]
         bpy.app.timers.register(
             lambda: bpy.ops.m_pipeline.import_review_confirm("INVOKE_DEFAULT") and None,
             first_interval=0.05,
@@ -683,7 +698,8 @@ class M_PIPELINE_OT_import_review(bpy.types.Operator):
         return {"FINISHED"}
 
 
-# The review waiting for its confirm dialog: [path, review_import_plan()].
+# The reviews waiting for their confirm dialog: [[(path,
+# review_import_plan()), ...], [messages of the files left out]].
 _pending_import: list = []
 _IMPORT_LINES_SHOWN = 8
 
@@ -698,14 +714,41 @@ class M_PIPELINE_OT_import_review_confirm(bpy.types.Operator):
     def invoke(self, context, event):
         if not _pending_import:
             return {"CANCELLED"}
+        n = len(_pending_import[0])
         return context.window_manager.invoke_props_dialog(
-            self, width=460, title="Import review", confirm_text="Import"
+            self,
+            width=460 if n == 1 else 560,
+            title="Import review" if n == 1 else f"Import {n} reviews",
+            confirm_text="Import" if n == 1 else f"Import all {n}",
         )
 
     def draw(self, context):
-        path, plan = _pending_import
+        pending, failed = _pending_import
         col = self.layout.column(align=True)
+        for i, (path, plan) in enumerate(pending):
+            if i:
+                col.separator(factor=1.5)
+            self._draw_plan(col, path, plan, len(pending) > 1)
+        if failed:
+            col.separator()
+            col.label(text=f"{len(failed)} file(s) left out:", icon="ERROR")
+            for message in failed:
+                col.label(text=f"   {message}")
+
+    @staticmethod
+    def _draw_plan(col, path, plan, several: bool) -> None:
+        """One review's part of the dialog -- shorter when there are several."""
         col.label(text=path.name, icon="FILE")
+        if several:
+            who = f"{plan['role'].upper()} -- {plan['author']}" if plan["role"] else "no role"
+            row = col.row()
+            row.alert = bool(plan["role"])
+            row.label(
+                text=f"   {who}: {plan['notes']} note line(s), "
+                f"{len(plan['validations'])} validation change(s)"
+                + (f", {len(plan['refused'])} not applied" if plan["refused"] else ""),
+            )
+            return
         col.separator()
         if plan["role"]:
             row = col.row()
@@ -740,42 +783,54 @@ class M_PIPELINE_OT_import_review_confirm(bpy.types.Operator):
     def execute(self, context):
         if not _pending_import:
             return {"CANCELLED"}
-        path, _ = _pending_import
+        pending, _ = _pending_import
         _pending_import.clear()
-        return _run_review_import(self, path)
+        return _run_review_import(self, [path for path, _ in pending])
 
 
-def _run_review_import(self, path: Path) -> set:
-    """The review import itself, once confirmed: notes, validations, then
-    the description changes' own dialog."""
-    try:
-        result = import_review_xlsx(path)
-    except PipelineError as e:
-        log(e.level, "review_import", e.message)
-        self.report({e.level}, e.message)
-        return {"CANCELLED"}
-    for label, reason in result["skipped"]:
-        log("WARNING", "review_import", f"{path.name}: {label} -- {reason}")
-    log(
-        "INFO",
-        "review_import",
-        f"{path.name}: {result['imported']} imported, {result['validated']} "
-        f"validation(s), {result['duplicates']} already there, "
-        f"{len(result['skipped'])} skipped",
-    )
+def _run_review_import(self, paths: list[Path]) -> set:
+    """The reviews' import itself, once confirmed, one file after the
+    other: notes, validations, then the description changes' own dialog
+    (a description two reviews change: the later file's, by name)."""
+    result = {"imported": 0, "duplicates": 0, "validated": 0, "skipped": []}
+    changes: dict[str, dict] = {}
+    for path in paths:
+        try:
+            one = import_review_xlsx(path)
+        except PipelineError as e:
+            log(e.level, "review_import", e.message)
+            result["skipped"].append((path.name, e.message))
+            continue
+        for label, reason in one["skipped"]:
+            log("WARNING", "review_import", f"{path.name}: {label} -- {reason}")
+        log(
+            "INFO",
+            "review_import",
+            f"{path.name}: {one['imported']} imported, {one['validated']} "
+            f"validation(s), {one['duplicates']} already there, "
+            f"{len(one['skipped'])} skipped",
+        )
+        for key in ("imported", "duplicates", "validated"):
+            result[key] += one[key]
+        result["skipped"] += [
+            ((f"{path.name}: " if len(paths) > 1 else "") + label, reason)
+            for label, reason in one["skipped"]
+        ]
+        try:
+            for change in review_description_changes(path):
+                changes[change["filepath"]] = change
+        except PipelineError as e:
+            log(e.level, "review_import", e.message)
     # Notes and validations across the project: the folders changed are
     # read again in the background (ProjectScan reads only those).
     ProjectScan.start(get_active_project_root())
-    try:
-        _description_changes[:] = review_description_changes(path)
-    except PipelineError as e:
-        log(e.level, "review_import", e.message)
-        _description_changes.clear()
+    _description_changes[:] = list(changes.values())
     if not (any(result.values()) or _description_changes):
         # Nothing at all: most likely the blank template, not the
         # filled-in one sent back.
+        names = ", ".join(p.name for p in paths)
         _show_import_summary(
-            f"Nothing to import in {path.name}: no note and no description "
+            f"Nothing to import in {names}: no note and no description "
             "change.\nIs it the filled-in file sent back?",
             "QUESTION",
         )

@@ -40,6 +40,18 @@ All notable changes to this addon. Dates are release dates.
   withdrawn.
 - While reviewing, the name column as narrow as it goes, the table's
   width shared evenly between the departments.
+- The review's file is named after when, as what and by whom
+  (`<project>_review_2026-10-27_18-42_prod_quentin.json`): two reviewers'
+  files sit side by side on a drive.
+- **Import review takes several files at once** (sup's, prod's...): one
+  confirm dialog, a file per line; one with no valid role is left out
+  and said so, the others go.
+- In the card, each department lists its **open RTKs** -- an RTK pill
+  (with its shot) holding who, when and the rest in its tooltip, or under
+  it once tapped --, the notes below only the others. Keys: ← → files,
+  Esc table ⇄ one file, and while reviewing **V** all done, **X** the
+  general retake (Esc in a box leaves it). The file menu starts with
+  *Progress (stats)*. A phone opens on One file.
 - The review box: the in-page review first, the `.xlsx` aside, smaller.
 - **Schedule**: each band shows its Validated over its Done, in violet.
 - **Phones**: the header (details, review box) folded behind ☰ -- by
@@ -50,6 +62,12 @@ All notable changes to this addon. Dates are release dates.
   starts on *One file*.
 - A table wider than the screen keeps its horizontal scrollbar at the
   bottom of the screen, not only under its last row.
+
+### Fixed
+
+- Review import: a line was taken for one already imported on its text
+  alone -- "[sh170] too dark" after "[sh180] too dark" was dropped. Its
+  shot, frames and departments count too now.
 
 ## 1.1.4 — 2026-10-27
 
