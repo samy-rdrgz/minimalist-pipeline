@@ -24,6 +24,7 @@ from ..farm.workers import FARM_PROTOCOL
 from ..lib import (
     ConfigCache,
     addon_pref,
+    box_tip_units,
     draw_box_tip,
     draw_pager,
     get_addon_version,
@@ -36,6 +37,9 @@ from ..lib import (
 )
 
 FIRST_COLUMN = 0.4
+# Job details' and Worker details' field names: short labels, a third of
+# the lists' first column.
+DETAIL_KEY_COLUMN = FIRST_COLUMN / 3
 # What Farm monitoring's window holds besides the Jobs rows (filters, list
 # header, footer, margins), in widget units -- see rows_that_fit().
 _JOBS_RESERVED_UNITS = 7.5
@@ -305,11 +309,21 @@ def _job_matches(self, job: dict, user: str) -> bool:
     return True
 
 
+_JOBS_TIP = (
+    "Running: a step in progress (setup, render, frame check, compilation). "
+    "Waiting: queued, or waiting for a free worker or the farm host. Retry "
+    "starts a failed job again where it failed (a failed render goes to the "
+    "other machines). Recompile only remakes the video. Archive clears "
+    "finished or failed jobs."
+)
+
+
 def draw_farm_jobs(self, context, layout):
     """Farm monitoring's "Jobs" view: every active job, its stage and
     progress -- filtered by self (WindowManager.pipeline_farm_monitoring),
     paged like draw_monitor_table()."""
     cache = get_monitor_cache()
+    draw_box_tip(layout, context, _JOBS_TIP)
 
     title = layout.split(factor=FIRST_COLUMN)
     title.active = False
@@ -324,7 +338,9 @@ def draw_farm_jobs(self, context, layout):
     matches.sort(key=lambda j: j.get("submitted_at") or "", reverse=True)
 
     total = len(matches)
-    per_page = rows_that_fit(context, _JOBS_RESERVED_UNITS)
+    per_page = rows_that_fit(
+        context, _JOBS_RESERVED_UNITS + box_tip_units(context, _JOBS_TIP)
+    )
     filters = (self.state, self.only_mine, self.search.strip().lower())
     shown, page, pages = paginate("farm", matches, per_page, filters)
     for j in shown + [None] * (per_page - len(shown)):
@@ -378,6 +394,14 @@ def draw_farm_jobs(self, context, layout):
                 f"{stage} - {j['frames_done']}/{j['frames_total']} ({pct:.0%})"
                 f" - {elapsed_str} ({remaining_str})"
             )
+
+        elif _ffmpeg_progress(j["job_id"]) is not None:
+            # An ffmpeg pass (frame check, compilation, preview): its own
+            # progress, the time left at its pace so far.
+            done = _ffmpeg_progress(j["job_id"])
+            text = f"{stage} - {done:.0%} - {elapsed_str}"
+            if 0.02 < done < 1:
+                text += f" (≃ {_duration(elapsed / done - elapsed)} remaining)"
 
         else:
             text = f"{stage} - {elapsed_str}"
@@ -460,6 +484,19 @@ def draw_farm_jobs(self, context, layout):
                 icon="CHECKMARK",
             ).state = state
     draw_pager(pager, page, pages)
+
+
+def _ffmpeg_progress(job_id: str) -> float | None:
+    """How far a job's ffmpeg pass (frame check, compilation, preview) is,
+    0..1, from the monitor cache (loop._ffmpeg_progress_for_jobs()); None
+    when not in one, or nothing written yet. Memory only: draw()-safe."""
+    return (get_monitor_cache().get("ffmpeg_progress") or {}).get(job_id)
+
+
+def _ffmpeg_pct(job_id: str) -> str:
+    """ " 45%" for a job in an ffmpeg pass, "" otherwise."""
+    done = _ffmpeg_progress(job_id)
+    return f" {done:.0%}" if done is not None else ""
 
 
 def _job_name(job: dict) -> str:
@@ -578,9 +615,10 @@ def draw_farm_worker_details(layout, context):
     if not m:
         layout.label(text="No worker file for this machine any more.", icon="ERROR")
         return
+    draw_box_tip(layout, context, _WORKER_DETAILS_TIP)
 
     def field(col, label: str, value, icon: str = "NONE", alert: bool = False):
-        split = col.split(factor=FIRST_COLUMN)
+        split = col.split(factor=DETAIL_KEY_COLUMN)
         left = split.row()
         left.active = False
         left.label(text=label)
@@ -605,7 +643,7 @@ def draw_farm_worker_details(layout, context):
         job = next(
             (j for j in cache.get("jobs") or [] if j.get("job_id") == current), {}
         )
-        split = col.split(factor=FIRST_COLUMN)
+        split = col.split(factor=DETAIL_KEY_COLUMN)
         left = split.row()
         left.active = False
         left.label(text="Compiling" if m.get("status") == "compile" else "Rendering")
@@ -702,7 +740,7 @@ def draw_farm_worker_details(layout, context):
                 (k for k in ("cancelled", "stopped", "lost") if result.get(k)), "failed"
             )
         when, _ = _since(result.get("at"))
-        split = col.split(factor=FIRST_COLUMN)
+        split = col.split(factor=DETAIL_KEY_COLUMN)
         left = split.row()
         left.active = False
         left.label(text="Last render")
@@ -712,11 +750,27 @@ def draw_farm_worker_details(layout, context):
         _draw_job_link(right, job_id, f"{job_id}: {outcome}  ({when})")
 
 
+_WORKERS_TIP = (
+    "Click a machine's name for its details. Greyed: a worker that stopped "
+    "giving news without being stopped -- late at first (busy, slow "
+    "network), then silent after 3 min (crashed, Blender closed, PC asleep "
+    "or off the share): its render goes to the other machines. Forget "
+    "removes it from the list; it comes back once its worker is relaunched."
+)
+_WORKER_DETAILS_TIP = (
+    "In red: another Blender version than the project's, or another addon "
+    "version than this machine's -- renders may differ, update it. A render "
+    "stuck on one frame for 5x its usual time is killed (Edit project > "
+    "Stuck frame): its frames go to the other machines."
+)
+
+
 def draw_farm_workers(context, layout):
     """M_PIPELINE_OT_farm_monitor's "Workers" view: every known machine, idle
     or what it's currently rendering -- padded with blank rows to the
     window's height, like the Jobs view (no pages: a farm has few machines,
     past the window the region scrolls)."""
+    draw_box_tip(layout, context, _WORKERS_TIP)
     title_list = layout.split(factor=FIRST_COLUMN)
     title_list.active = False
     btn = title_list.row()
@@ -802,7 +856,9 @@ def draw_farm_workers(context, layout):
             if running_jobs:
                 for job in running_jobs:
                     _draw_job_link(
-                        jobs_col, job["job_id"], f"{job['stage']}: {_job_name(job)}"
+                        jobs_col,
+                        job["job_id"],
+                        f"{job['stage']}: {_job_name(job)}{_ffmpeg_pct(job['job_id'])}",
                     )
             else:
                 jobs_col.row().label(text="idle")
@@ -821,7 +877,12 @@ def draw_farm_workers(context, layout):
         reverse=True,
     )
     # The farm host's row comes first.
-    rows = rows_that_fit(context, _WORKERS_RESERVED_UNITS) - 1
+    rows = (
+        rows_that_fit(
+            context, _WORKERS_RESERVED_UNITS + box_tip_units(context, _WORKERS_TIP)
+        )
+        - 1
+    )
     machines = machines + silent
     machines = machines + ["empty"] * (rows - len(machines))
     for m in machines:
@@ -855,17 +916,19 @@ def draw_farm_workers(context, layout):
         )
         info.label(text=m.get("machine", "unknown"))
 
-        jobs = split.row()
+        # One cell for the job side, the host's lines under the worker's:
+        # a second split item would take the right half of the row.
+        cell = split.column(align=True)
+        jobs = cell.row()
         if m.get("status") == "stopped":
             jobs.label(text="stopped")
             continue
-        if on_host:
-            col = split.column(align=True)
-            jobs = col.row()
-            for job in on_host:
-                _draw_job_link(
-                    col.row(), job["job_id"], f"host {job['stage']}: {_job_name(job)}"
-                )
+        for job in on_host:
+            _draw_job_link(
+                cell.row(),
+                job["job_id"],
+                f"host {job['stage']}: {_job_name(job)}{_ffmpeg_pct(job['job_id'])}",
+            )
         if busy:
             current_id = m.get("current_job_id") or ""
             job = jobs_by_id.get(current_id)
@@ -873,6 +936,8 @@ def draw_farm_workers(context, layout):
             # file names -- current_job is its request's full path.
             name = _job_name(job) if job else Path(m.get("current_file") or "").name
             text = f"{m.get('status') or 'render'}: {name or current_id}"
+            if m.get("status") == "compile":  # a preview, on this worker
+                text += _ffmpeg_pct(current_id)
             pace = ((job or {}).get("machine_seconds") or {}).get(m.get("uuid"))
             if pace:
                 text += f"  ({_pace(pace)}/frame)"
@@ -995,7 +1060,7 @@ def draw_farm_job_details(layout, context):
         return ", ".join(machine_label(u, recorded.get(u, "")) for u in uuids or []) or "-"
 
     def field(col, label: str, value, icon: str = "NONE"):
-        split = col.split(factor=FIRST_COLUMN)
+        split = col.split(factor=DETAIL_KEY_COLUMN)
         left = split.row()
         left.active = False
         left.label(text=label)
@@ -1019,7 +1084,7 @@ def draw_farm_job_details(layout, context):
     field(col, "fps", data.get("fps", "-"))
 
     output = data.get("output_path")
-    split = col.split(factor=FIRST_COLUMN)
+    split = col.split(factor=DETAIL_KEY_COLUMN)
     left = split.row()
     left.active = False
     left.label(text="Output")
@@ -1040,6 +1105,8 @@ def draw_farm_job_details(layout, context):
     field(col, "Machines", machine_names(data.get("used_machines")))
     if data.get("chunk_size"):
         field(col, "Chunks", f"{data['chunk_size']} frames each")
+    if _ffmpeg_progress(job_id) is not None:
+        field(col, "Progress", f"{_ffmpeg_progress(job_id):.0%}")
     stage = ((data.get("stage_history") or [{}])[-1]).get("stage")
     claims = (get_monitor_cache().get("claims") or {}).get(job_id) or {}
     if stage == "render_start":
@@ -1105,7 +1172,7 @@ def draw_farm_job_details(layout, context):
             ", ".join(machine_line(u) for u in sorted(set(per_machine) | set(counts))),
         )
     if record:
-        split = col.split(factor=FIRST_COLUMN)
+        split = col.split(factor=DETAIL_KEY_COLUMN)
         left = split.row()
         left.active = False
         left.label(text="Who rendered")
@@ -1134,7 +1201,7 @@ def draw_farm_job_details(layout, context):
 
     logs = get_job_details_logs()
     if logs:
-        split = col.split(factor=FIRST_COLUMN)
+        split = col.split(factor=DETAIL_KEY_COLUMN)
         left = split.row()
         left.active = False
         left.label(text="Logs")
@@ -1172,7 +1239,7 @@ def draw_farm_job_details(layout, context):
         delta = (
             f"+{_duration((at - previous).total_seconds())}" if at and previous else ""
         )
-        split = col.split(factor=FIRST_COLUMN)
+        split = col.split(factor=DETAIL_KEY_COLUMN)
         left = split.row()
         left.active = False
         left.label(text=f"{at:%d/%m %H:%M:%S}  {delta}" if at else "?")

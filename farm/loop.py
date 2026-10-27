@@ -2,6 +2,7 @@
 
 import functools
 import os
+import re
 import threading
 import time
 from datetime import datetime
@@ -359,6 +360,111 @@ def _claims_for_jobs(claims_root: Path | None, jobs: list) -> dict:
     return out
 
 
+# The ffmpeg passes whose -progress file (dispatch.job_progress_path()) Farm
+# monitoring turns into a %.
+_FFMPEG_STAGES = ("checks_images_start", "compilation_start", "preview_start")
+# A preview's total duration (its inputs' "Duration:" lines in the job log),
+# found once per pass: (job_id, stage_at) -> seconds.
+_preview_durations: dict[tuple, float] = {}
+_DURATION_RE = re.compile(r"Duration: (\d+):(\d\d):(\d\d(?:\.\d+)?)")
+
+
+def parse_ffmpeg_progress(text: str) -> dict:
+    """The last values of an ffmpeg -progress file's text (its tail is
+    enough): {"frame": int, "out_time_us": int, "end": bool}, whichever
+    are there. Pure."""
+    out: dict = {}
+    for line in text.splitlines():
+        key, _, value = line.partition("=")
+        value = value.strip()
+        try:
+            if key == "frame":
+                out["frame"] = int(value)
+            # out_time_ms is microseconds too (an old ffmpeg's misnomer).
+            elif key in ("out_time_us", "out_time_ms") and value.lstrip("-").isdigit():
+                out["out_time_us"] = max(0, int(value))
+            elif key == "progress":
+                out["end"] = value == "end"
+        except ValueError:
+            pass
+    return out
+
+
+def _read_tail(path: Path, size: int = 2048) -> str:
+    """The last size bytes of a file as text, "" if unreadable."""
+    try:
+        with open(path, "rb") as f:
+            f.seek(0, os.SEEK_END)
+            f.seek(max(0, f.tell() - size))
+            return f.read().decode("utf-8", errors="replace")
+    except OSError:
+        return ""
+
+
+def _preview_duration(requests_dir: Path, job: dict) -> float | None:
+    """A preview's total duration in seconds, from the "Duration:" line ffmpeg
+    writes for each input at the top of its pass in the job log -- cached
+    once found (the log only grows after it)."""
+    key = (job.get("job_id", ""), job["stage_history"][-1].get("at"))
+    if key in _preview_durations:
+        return _preview_durations[key]
+    try:
+        text = (requests_dir / f"request_{key[0]}.log").read_text(
+            encoding="utf-8", errors="replace"
+        )
+    except OSError:
+        return None
+    text = text[text.rfind("===== preview") :] if "===== preview" in text else text
+    durations = [
+        int(h) * 3600 + int(m) * 60 + float(sec) for h, m, sec in _DURATION_RE.findall(text)
+    ]
+    # Every input's line is written before encoding starts: all there once
+    # out_time moves -- the caller only asks then.
+    if len(durations) < len(job.get("sources") or ()) or not durations:
+        return None
+    _preview_durations[key] = sum(durations)
+    return _preview_durations[key]
+
+
+def _ffmpeg_progress_for_jobs(requests_dir: Path | None, jobs: list) -> dict:
+    """{job_id: 0..1} for the jobs in an ffmpeg pass (_FFMPEG_STAGES), from
+    its -progress file's tail: frames done over the job's range (frame
+    check, compilation), or time encoded over the inputs' total (preview).
+    Thread-safe."""
+    out: dict = {}
+    if not requests_dir:
+        return out
+    for job in jobs:
+        try:
+            stage = job["stage_history"][-1]["stage"]
+        except (KeyError, IndexError, TypeError):
+            continue
+        if stage not in _FFMPEG_STAGES:
+            continue
+        job_id = job.get("job_id", "")
+        values = parse_ffmpeg_progress(
+            _read_tail(requests_dir / f"request_{job_id}.progress")
+        )
+        if not values:
+            continue
+        if values.get("end"):
+            out[job_id] = 1.0
+        elif stage == "preview_start":
+            total = values.get("out_time_us") and _preview_duration(requests_dir, job)
+            if total:
+                out[job_id] = min(1.0, values["out_time_us"] / 1e6 / total)
+        else:
+            frames = job.get("resolved_frame_range") or ()
+            if len(frames) == 2 and "frame" in values:
+                count = int(frames[1]) - int(frames[0]) + 1
+                if count > 0:
+                    out[job_id] = min(1.0, values["frame"] / count)
+    active = {(j.get("job_id"), (j.get("stage_history") or [{}])[-1].get("at")) for j in jobs}
+    for key in set(_preview_durations) - active:
+        _preview_durations.pop(key, None)
+    return out
+
+
 def _read_farm_snapshot(paths: dict, scanned: dict, cached_actives: list) -> dict:
     """Full refresh: _read_farm_raw() + frame counts and times (thread-safe)."""
     raw = _read_farm_raw(paths, True, scanned)
@@ -367,6 +473,9 @@ def _read_farm_snapshot(paths: dict, scanned: dict, cached_actives: list) -> dic
     raw["frames"] = _frames_for_jobs(paths["root"], jobs)
     raw["frame_seconds"] = _frame_seconds_for_jobs(paths.get("farm_requests"), jobs)
     raw["claims"] = _claims_for_jobs(paths.get("farm_claims"), jobs)
+    raw["ffmpeg_progress"] = _ffmpeg_progress_for_jobs(
+        paths.get("farm_requests"), jobs
+    )
     return raw
 
 
@@ -443,6 +552,7 @@ def _apply_farm_snapshot(raw: dict) -> None:
     snapshot["workers"] = workers
     snapshot["silent_workers"] = raw.get("silent_workers", {})
     snapshot["claims"] = raw.get("claims", {})
+    snapshot["ffmpeg_progress"] = raw.get("ffmpeg_progress", {})
     get_monitor_cache().update(snapshot)
 
 

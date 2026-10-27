@@ -88,6 +88,7 @@ DEFAULT_CONFIG = {
         "stale_monitor_seconds": 90,
         "dead_monitor_seconds": 360,
         "stuck_frame_factor": 5,
+        "priority_switch_minutes": 3,
         "chunk_size": 5,
     },
 }
@@ -449,6 +450,18 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         ),
     )
 
+    priority_switch_minutes: bpy.props.IntProperty(
+        name="",
+        min=0,
+        max=600,
+        default=3,
+        description=(
+            "A machine on a lower-priority render moves to a higher-priority "
+            "job short of machines once its chunk is done -- unless its render "
+            "has less than this many minutes left. 0: it always moves"
+        ),
+    )
+
     default_prerender_script: bpy.props.EnumProperty(
         items=_edited_project_scripts,
         name="",
@@ -674,6 +687,13 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         row.label(
             text="x usual time: kill" if self.stuck_frame_factor else "0 = never kill"
         )
+        row = _settings_row(box, "PRIORITY SWITCH", "SORT_DESC")
+        row.prop(self, "priority_switch_minutes")
+        row.label(
+            text="min left: stays"
+            if self.priority_switch_minutes
+            else "0 = always switch"
+        )
 
     def invoke(self, context, event):
         try:
@@ -713,6 +733,8 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         )
         stuck = (config.get("farm") or {}).get("stuck_frame_factor", 5)
         self.stuck_frame_factor = max(0, int(5 if stuck is None else stuck))
+        switch = (config.get("farm") or {}).get("priority_switch_minutes", 3)
+        self.priority_switch_minutes = max(0, int(3 if switch is None else switch))
 
         naming = config.get("naming", {})
         for key in ("sequence", "shot", "version", "frame"):
@@ -793,12 +815,13 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
                 "assets_departments": self._csv_to_list(self.assets_departments),
                 "shots_departments": self._csv_to_list(self.shots_departments),
                 "validation_roles": self._roles_from_csv(self.validation_roles),
-                # "farm": only stuck_frame_factor, chunk_size and
-                # default_prerender_script are edited here, the rest stays as
-                # read from the loaded config.
+                # "farm": only stuck_frame_factor, priority_switch_minutes,
+                # chunk_size and default_prerender_script are edited here, the
+                # rest stays as read from the loaded config.
                 "farm": (config.get("farm") or {})
                 | {
                     "stuck_frame_factor": self.stuck_frame_factor,
+                    "priority_switch_minutes": self.priority_switch_minutes,
                     "chunk_size": self.chunk_size,
                     "default_prerender_script": (
                         ""

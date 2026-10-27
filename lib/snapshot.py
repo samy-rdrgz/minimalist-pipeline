@@ -1013,7 +1013,11 @@ def _render_timeline(meta: dict, sections) -> str:
             f"pace gets to {_pct(done)} on {_day(at['date'])}"
         )
         # Validated, over Done in the role's violet: never past it.
-        valid = (meta.get("validation") or {}).get(kind) if meta.get("validation_role") else None
+        valid = (
+            (meta.get("validation") or {}).get(kind)
+            if meta.get("validation_role")
+            else None
+        )
         over = vtext = ""
         if valid is not None:
             valid = min(valid, done)
@@ -1272,7 +1276,7 @@ def _render_filters(snapshot: dict) -> str:
         "</div>"
         '<div class="grp"><button type="button" id="view-one" class="chip" '
         'aria-pressed="false" title="One file at a time, as a page of its own -- '
-        'a row\'s name opens it too">One file</button>'
+        "a row's name opens it too\">One file</button>"
         '<button type="button" id="rv-mode" class="chip rv-chip" '
         'aria-pressed="false" title="Validate departments and write retakes on '
         'this page, then download the review to send back">✎ Review</button></div>'
@@ -3716,9 +3720,7 @@ def import_review_xlsx(path: Path) -> dict:
             line, shot, frames = _line_tags(line, shots)
             # A pre-1.1.2 template's own "shot" column, for all its lines.
             shot = shot or row.get("shot") or None
-            key = _note_key(
-                line, shot, *(frames or (None, None)), departments
-            )
+            key = _note_key(line, shot, *(frames or (None, None)), departments)
             if key in known:
                 result["duplicates"] += 1
                 continue

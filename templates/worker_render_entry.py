@@ -16,6 +16,7 @@ addon_module = argv[argv.index("--addon-module") + 1]
 saved_file = argv[argv.index("--saved-file") + 1] if "--saved-file" in argv else ""
 dispatch_id = argv[argv.index("--dispatch-id") + 1] if "--dispatch-id" in argv else ""
 stop_file = argv[argv.index("--stop-file") + 1] if "--stop-file" in argv else ""
+yield_file = argv[argv.index("--yield-file") + 1] if "--yield-file" in argv else ""
 chunk_size = int(argv[argv.index("--chunk-size") + 1])
 machine = argv[argv.index("--machine") + 1]
 
@@ -99,6 +100,12 @@ def stop_asked() -> bool:
     return bool(stop_file) and os.path.exists(stop_file)
 
 
+def yield_asked() -> bool:
+    """The farm host wants this machine on a higher-priority job: give way
+    between two chunks (render_yield_path())."""
+    return bool(yield_file) and os.path.exists(yield_file)
+
+
 def update_claim(k: int, claim: dict) -> bool:
     """Rewrite chunk k's claim (its holder is its only writer). False if
     it's gone: the host took this machine for dead and freed it -- writing
@@ -167,7 +174,9 @@ def render_chunks() -> str:
     again while a pass rendered something: a chunk another machine let go
     behind this one (stopped mid-chunk) is picked up without a new Blender.
     Ends on a pass that found nothing to claim -- every chunk complete on
-    disk or held elsewhere -- or on a stop. Returns why it stopped."""
+    disk or held elsewhere --, on a stop, or between two chunks when the
+    farm host wants this machine on a higher-priority job. Returns why it
+    stopped."""
     start, end, folder = START, END, FOLDER
     os.makedirs(folder, exist_ok=True)
     rendered = True
@@ -176,6 +185,8 @@ def render_chunks() -> str:
         for k in range(chunks.chunks_number(start, end, chunk_size)):
             if stop_asked():
                 return "stopped after a frame"
+            if yield_asked():
+                return "gave way to a higher-priority job"
             outcome = render_chunk(k, start, end, folder)
             if outcome == "rendered":
                 rendered = True

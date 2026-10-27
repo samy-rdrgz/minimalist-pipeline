@@ -135,6 +135,7 @@ Une cellule vide signifie juste "utiliser le repli pour cette colonne" (départe
 | Chunk size | Nombre de frames par morceau qu'une machine de la farm prend à la fois (voir [Rendu](farm_fr.md)). |
 | Pre-render | Le script pré-rendu sur lequel s'ouvre le dialogue Render. |
 | Stuck frame | Combien de fois son temps habituel une frame peut prendre avant que son rendu soit arrêté (0 = jamais). |
+| Priority switch | Minutes : un rendu à qui il reste moins que ça garde ses machines quand un job plus prioritaire les veut (3 par défaut ; 0 = elles partent toujours une fois leur morceau fini). |
 
 Les autres clés `farm` ne sont pas dans le dialogue : combien de processus farm locaux à la fois, quand un farm host est considéré en retard / parti, quand les jobs finis et leurs logs sont archivés / supprimés (voir [Rendu](farm_fr.md)).
 

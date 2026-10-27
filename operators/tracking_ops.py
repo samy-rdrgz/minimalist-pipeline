@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import bpy
 
 from ..lib import (
+    draw_box_tip,
     monitoring_detail,
     set_monitoring_detail,
     ConfigCache,
@@ -670,7 +671,8 @@ class M_PIPELINE_OT_import_review(bpy.types.Operator):
         paths = [directory / f.name for f in self.files if f.name] if directory else []
         paths = paths or [Path(bpy.path.abspath(self.filepath))]
         paths = [
-            p for p in dict.fromkeys(paths)
+            p
+            for p in dict.fromkeys(paths)
             if p.is_file() and p.suffix.lower() in (".xlsx", ".json")
         ]
         if not paths:
@@ -740,7 +742,11 @@ class M_PIPELINE_OT_import_review_confirm(bpy.types.Operator):
         """One review's part of the dialog -- shorter when there are several."""
         col.label(text=path.name, icon="FILE")
         if several:
-            who = f"{plan['role'].upper()} -- {plan['author']}" if plan["role"] else "no role"
+            who = (
+                f"{plan['role'].upper()} -- {plan['author']}"
+                if plan["role"]
+                else "no role"
+            )
             row = col.row()
             row.alert = bool(plan["role"])
             row.label(
@@ -1489,6 +1495,14 @@ class M_PIPELINE_OT_render_checked(bpy.types.Operator):
         )
 
     def draw(self, context):
+        draw_box_tip(
+            self.layout,
+            context,
+            "Ticked: validated. Leave them as they are if the render is fine; "
+            "untick a department the render shows isn't right -- it goes back "
+            "to work in progress.",
+            width_px=300,
+        )
         col = self.layout.column(align=True)
         col.label(text="Done:")
         for item in context.window_manager.render_checked_departments:

@@ -13,7 +13,7 @@ comment.
 
 By theme; the sections below stay in the order they were written.
 
-- **Render farm**: [Farm 1.1.0: chunks replace placeholders](#farm-110-chunks-replace-placeholders) · [Stuck frame](#stuck-frame) · [Stopping a worker: after this frame, or now](#stopping-a-worker-after-this-frame-or-now) · [Which machine rendered which frame](#which-machine-rendered-which-frame) · [Time left: per machine, from each frame's time](#time-left-per-machine-from-each-frames-time) · [Crash recovery: resume, don't orphan](#crash-recovery-resume-dont-orphan) · [Re-rendering a file: match the render, not the job](#re-rendering-a-file-match-the-render-not-the-job) · [Farm subprocess output: files, never pipes](#farm-subprocess-output-files-never-pipes) · [Farm popup: worker state, open-folder button, refresh cost](#farm-popup-worker-state-open-folder-button-refresh-cost) · [Farm status: two redraw timers, split by cost](#farm-status-two-redraw-timers-split-by-cost) · [One farm snapshot reader, sync or threaded](#one-farm-snapshot-reader-sync-or-threaded) · [FFmpeg detection: PATH lookup isn't enough, and an override can't silently fall back](#ffmpeg-detection-path-lookup-isnt-enough-and-an-override-cant-silently-fall-back) · [What a real project's export showed (6 machines, a week of production)](#what-a-real-projects-export-showed-6-machines-a-week-of-production)
+- **Render farm**: [Farm 1.1.0: chunks replace placeholders](#farm-110-chunks-replace-placeholders) · [Stuck frame](#stuck-frame) · [Stopping a worker: after this frame, or now](#stopping-a-worker-after-this-frame-or-now) · [Which machine rendered which frame](#which-machine-rendered-which-frame) · [Time left: per machine, from each frame's time](#time-left-per-machine-from-each-frames-time) · [Crash recovery: resume, don't orphan](#crash-recovery-resume-dont-orphan) · [Re-rendering a file: match the render, not the job](#re-rendering-a-file-match-the-render-not-the-job) · [Farm subprocess output: files, never pipes](#farm-subprocess-output-files-never-pipes) · [Farm popup: worker state, open-folder button, refresh cost](#farm-popup-worker-state-open-folder-button-refresh-cost) · [Farm status: two redraw timers, split by cost](#farm-status-two-redraw-timers-split-by-cost) · [One farm snapshot reader, sync or threaded](#one-farm-snapshot-reader-sync-or-threaded) · [FFmpeg detection: PATH lookup isn't enough, and an override can't silently fall back](#ffmpeg-detection-path-lookup-isnt-enough-and-an-override-cant-silently-fall-back) · [What a real project's export showed (6 machines, a week of production)](#what-a-real-projects-export-showed-6-machines-a-week-of-production) · [ffmpeg passes: a %, from -progress](#ffmpeg-passes-a--from--progress) · [Priority: giving way between chunks](#priority-giving-way-between-chunks)
 - **Notes, tracking, snapshot**: [Tracking entries](#tracking-entries) · [Entries for several departments](#entries-for-several-departments) · [Validation roles](#validation-roles) · [Entries: two fields only ever guaranteed together, never accessed bare](#entries-two-fields-only-ever-guaranteed-together-never-accessed-bare) · [Edit entry: a note turned task kept no checkbox](#edit-entry-a-note-turned-task-kept-no-checkbox) · [Edit-entry dialog: a stored department can outlive its own enum](#edit-entry-dialog-a-stored-department-can-outlive-its-own-enum) · [Department filter: three different callers, three different "current file"s](#department-filter-three-different-callers-three-different-current-files) · [tracking.json: one path, never created by a write](#trackingjson-one-path-never-created-by-a-write) · [Renders to check: the one before, to compare](#renders-to-check-the-one-before-to-compare) · [Project monitoring's Farm column: the monitor cache, not the project scan](#project-monitorings-farm-column-the-monitor-cache-not-the-project-scan) · [Production snapshot: one HTML file, a spreadsheet inside it](#production-snapshot-one-html-file-a-spreadsheet-inside-it) · [Snapshot width: short state labels, hideable columns](#snapshot-width-short-state-labels-hideable-columns) · [Work time tracking & log rotation](#work-time-tracking--log-rotation)
 - **Shot blocks (multishot), batch**: [Multishot blocks](#multishot-blocks) · [Multishot row list: disabling a button isn't a guard](#multishot-row-list-disabling-a-button-isnt-a-guard) · [Multishot row list, take two: a clean-scene reset invalidates it](#multishot-row-list-take-two-a-clean-scene-reset-invalidates-it) · [_draw_timeline_warnings: a trailing comma turned a string into a 1-tuple](#_draw_timeline_warnings-a-trailing-comma-turned-a-string-into-a-1-tuple) · [CSV batch: the subprocess couldn't import itself](#csv-batch-the-subprocess-couldnt-import-itself)
 - **Versions, saving, files**: [Read-only reason: from a popup on every open to an on-demand menu](#read-only-reason-from-a-popup-on-every-open-to-an-on-demand-menu) · [Top bar read-only indicator: why it sits before the Blender icon](#top-bar-read-only-indicator-why-it-sits-before-the-blender-icon) · [.wipmeta writes tolerate a missing sidecar; the panel doesn't trust the flag alone](#wipmeta-writes-tolerate-a-missing-sidecar-the-panel-doesnt-trust-the-flag-alone) · [Next version number: never from a cached listing](#next-version-number-never-from-a-cached-listing) · [Recent files: derived from the log, not a stored list](#recent-files-derived-from-the-log-not-a-stored-list) · [resolve_bpy_path() left "../" uncollapsed in every stored link path](#resolve_bpy_path-left--uncollapsed-in-every-stored-link-path) · [Copy/paste isn't always under bpy.app.tempdir](#copypaste-isnt-always-under-bpyapptempdir) · [Project walk: a stray .pipeline/ hid every asset below it; popup regions must not outlive their popup](#project-walk-a-stray-pipeline-hid-every-asset-below-it-popup-regions-must-not-outlive-their-popup)
@@ -3219,3 +3219,53 @@ Dialogs and panels get a width, the monitoring windows and the snapshot
 the page's. `docs/` is left out of the extension package
 (`blender_manifest.toml`), so they never weigh on the download. Update a
 capture when its screen changes: an outdated one misleads more than none.
+
+## ffmpeg passes: a %, from -progress
+
+The frame check, a compilation and a preview showed only "*_start" until
+they ended. `popen_logged(..., progress=True)` adds ffmpeg's global
+`-progress <requests>/request_<job_id>.progress` (deleted first, so a new
+pass never shows the last one's `progress=end`). ffmpeg writes
+`frame=` / `out_time_us=` / `progress=` blocks about twice a second.
+The farm reader thread (`loop._ffmpeg_progress_for_jobs()`) reads only
+the last 2 KB of it for the jobs in one of those stages: frames over the
+job's range for the frame check and the compilation; for a preview, time
+encoded over the sum of its inputs' `Duration:` lines, which ffmpeg
+writes at the top of its pass in the job log -- read once per pass and
+cached (a preview's sources are videos, their frame counts unknown).
+`discard_job_log()` and `archive()` delete the file.
+
+## Priority: giving way between chunks
+
+Chunks made a worker stay on its render while it had chunks to take (one
+Blender per job, `render_chunks()` walks the chunks until none is free).
+Priority only decided where *free* machines went: a priority-15 job set
+up 30 s after a priority-10 render started got the one machine free then,
+the others finished the whole priority-10 render first.
+
+`queue._give_way_to_priority()`, at the end of each `scan_queue()`: for
+each job in priority order, at `setup_finished` or `render_start`, with
+no idle machine left it may take (`machines_for()`), how many more it
+could use (`_machines_short()`: one per chunk not sent out yet, or
+`_machines_wanted()` for a render -- the same count `_send_to_idle()`
+uses); that many machines on lower-priority renders (their worker file's
+`current_job_id`), the lowest priority first, get a
+`request_<job>_<uuid>.yield` flag (`workers.render_yield_path()`). The
+render entry checks it between two chunks (`yield_asked()`), never
+mid-chunk -- the chunk in progress is finished, nothing redone -- and
+exits 0; the worker is idle, the next tick sends it to the higher job.
+
+- Never for an equal priority (no ping-pong between two jobs).
+- Not from a render with less than `priority_switch_seconds()` left --
+  Edit project > *Priority switch*, `farm.priority_switch_minutes`, 3 by
+  default, 0 = always:
+  `_render_time_left()`, its missing frames at its pace so far (every
+  machine's `.saved` frames, `frame_seconds()`) over the machines on it.
+  Unknown pace (no frame timed yet): treated as long. Only computed once a
+  higher job is short of machines.
+- A machine already flagged counts as one of those wanted (`spare`): the
+  flag stays until its chunk ends, it isn't asked again every tick.
+- The flag is cleared by the worker (`_clear_render_flags()`, at the start
+  and end of a render) and by `archive()` for one never read.
+- A worker on an older addon ignores the flag (no `--yield-file`): it
+  finishes its render as before.

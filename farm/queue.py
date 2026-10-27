@@ -12,6 +12,7 @@ from ..lib import (
     PipelineError,
     get_active_project_root,
     get_machine_id,
+    json_get,
     log,
     mark_render_to_check,
     now,
@@ -22,6 +23,7 @@ from ..lib import (
 )
 from .chunks import (
     chunk_frames,
+    chunks_number,
     free_chunks,
     read_claims,
     release_claim,
@@ -30,6 +32,7 @@ from .chunks import (
 from .dispatch import (
     _active_processes,
     append_render_history,
+    chunk_size,
     discard_job_log,
     frame_paths,
     job_log_path,
@@ -48,6 +51,7 @@ from .workers import (
     idle_machines,
     local_render_running,
     parse_saved,
+    render_yield_path,
     scan_workers,
     this_instance_is_worker,
 )
@@ -344,6 +348,152 @@ def scan_queue(project_root: Path) -> None:
                 check_render_completion(job, project_root, None, idle, with_left=True)
             except Exception as e:
                 log("ERROR", "farm", f"Active job error: {e} ({job.name}).")
+
+    try:
+        _give_way_to_priority(jobs, idle, project_root)
+    except Exception as e:
+        log("ERROR", "farm", f"Could not hand machines to a higher priority: {e}")
+
+
+def _priority(data: dict) -> int:
+    """A job's priority (10 by default), as scan_queue() sorts on it."""
+    try:
+        return int(data.get("priority", 10) or 0)
+    except (TypeError, ValueError):
+        return 10
+
+
+def _machines_short(job_path: Path, project_root: Path) -> tuple[dict, int]:
+    """(the job as on disk now, how many more machines it could use): a
+    set-up job not sent out yet, one per chunk (one in "single" mode); a
+    render, one per free chunk less those starting on it
+    (_machines_wanted()). 0 for anything else."""
+    data = read_json_quiet(job_path) or {}
+    stage = _job_stage(data)
+    if data.get("split_into") or stage not in ("setup_finished", "render_start"):
+        return data, 0
+    if stage == "setup_finished":
+        if data.get("render_mode") == "single":
+            return data, 1
+        start, end = (int(x) for x in data.get("resolved_frame_range") or (0, 0))
+        return data, chunks_number(start, end, chunk_size()) if end >= start else 0
+    missing = missing_frames(data, project_root)
+    if missing is None or not data.get("chunk_size"):
+        return data, 0
+    claims = read_claims(data["job_id"])
+    start = int(data["resolved_frame_range"][0])
+    free = free_chunks(start, int(data["chunk_size"]), missing, claims)
+    rendering, waiting = _on_this_render(data)
+    return data, _machines_wanted(data, free, claims, rendering, waiting)
+
+
+# A render this close to its end keeps its machines: changing render costs
+# a machine opening the other file, for little. Default of the project
+# setting farm.priority_switch_minutes (Edit project > Priority switch).
+PRIORITY_SWITCH_MINUTES = 3
+
+
+def priority_switch_seconds() -> float:
+    """Project setting farm.priority_switch_minutes, in seconds: a render
+    with less than this left keeps its machines; 0: never kept."""
+    value = json_get(ConfigCache.get(), "farm.priority_switch_minutes", None)
+    try:
+        return max(0.0, float(PRIORITY_SWITCH_MINUTES if value is None else value)) * 60
+    except (TypeError, ValueError):
+        return PRIORITY_SWITCH_MINUTES * 60.0
+
+
+def _render_time_left(data: dict, machines: int, project_root: Path) -> float | None:
+    """Seconds a render still needs: its missing frames at its pace so far
+    (every machine's frames timed in their .saved record) over machines
+    rendering it. None while no frame is timed yet."""
+    missing = missing_frames(data, project_root)
+    if missing is None:
+        return None
+    timed = []
+    for path in ConfigCache.get_path("farm_requests").glob(
+        f"request_{data['job_id']}_*.saved"
+    ):
+        try:
+            timed += frame_seconds(path.read_text(encoding="utf-8", errors="replace"))
+        except OSError:
+            continue
+    if not timed:
+        return None
+    return len(missing) * (sum(timed) / len(timed)) / max(1, machines)
+
+
+def _give_way_to_priority(jobs: list, idle: dict, project_root: Path) -> None:
+    """Workers stay on a render while it has chunks to take: a job of a
+    higher priority set up meanwhile only had the machines idle then. Once
+    no idle machine is left for it, machines on lower-priority renders are
+    asked to give way after their chunk in progress (render_yield_path()),
+    the lowest priority first -- never for an equal one, nor from a render
+    with less than priority_switch_seconds() left. A machine already asked
+    counts as one of those wanted. jobs: scan_queue()'s, highest
+    priority first. See NOTES.md, "Priority: giving way between chunks"."""
+    priority = {data.get("job_id"): _priority(data) for _, data in jobs}
+    workers = scan_workers()
+    busy = {
+        uuid: w.get("current_job_id")
+        for uuid, w in workers.items()
+        if w.get("status") == "render" and w.get("current_job_id") in priority
+    }
+    if not busy:
+        return
+    giving = {u for u, job_id in busy.items() if render_yield_path(job_id, u).exists()}
+    spare = len(giving)
+    paths = {data.get("job_id"): job_path for job_path, data in jobs}
+    nearly_done: dict[str, bool] = {}  # job_id -> under the switch time left
+    keep_under = priority_switch_seconds()
+
+    def keeps_its_machines(job_id: str) -> bool:
+        if not keep_under:
+            return False
+        if job_id not in nearly_done:
+            data = read_json_quiet(paths[job_id]) or {}
+            machines = sum(1 for j in busy.values() if j == job_id)
+            left = _render_time_left(data, machines, project_root) if data else None
+            nearly_done[job_id] = left is not None and left < keep_under
+        return nearly_done[job_id]
+
+    for job_path, data in jobs:
+        level = _priority(data)
+        if _job_stage(data) not in ("setup_finished", "render_start"):
+            continue
+        if not spare and not any(
+            u not in giving and priority[j] < level for u, j in busy.items()
+        ):
+            continue  # nobody below it to ask
+        if machines_for(data, idle):
+            continue  # an idle one it may take: not short of machines
+        fresh, wanted = _machines_short(job_path, project_root)
+        covered = min(spare, wanted)
+        spare -= covered
+        wanted -= covered
+        if wanted <= 0:
+            continue
+        lower = {
+            u: job_id
+            for u, job_id in busy.items()
+            if u not in giving
+            and priority[job_id] < level
+            and not keeps_its_machines(job_id)
+        }
+        lowest_first = sorted(lower, key=lambda u: priority[lower[u]])
+        for uuid in machines_for(fresh, dict.fromkeys(lowest_first))[:wanted]:
+            try:
+                render_yield_path(busy[uuid], uuid).touch()
+            except OSError:
+                continue
+            giving.add(uuid)
+            name = (workers.get(uuid) or {}).get("machine") or uuid[:8]
+            log(
+                "INFO",
+                "farm",
+                f"Job {fresh.get('job_id')} (priority {level}): {name} gives way "
+                f"after its chunk of {busy[uuid]}.",
+            )
 
 
 # Where a job goes when the process running its *_start stage was lost (a
@@ -1171,6 +1321,19 @@ def check_render_completion(
     return data
 
 
+def _machines_wanted(
+    data: dict, free: list, claims: dict, rendering: list, waiting: list
+) -> int:
+    """How many more machines a render could use: one per free chunk, less
+    those already starting on it (rendering, no claim yet) or not having
+    taken up their request; in "single" mode one, if nobody is on it."""
+    if data.get("render_mode") == "single":
+        return 0 if (claims or rendering or waiting) else 1
+    holding = {c.get("machine") for c in claims.values()}
+    starting = [u for u in rendering if u not in holding]
+    return max(0, len(free) - len(starting) - len(waiting))
+
+
 def _send_to_idle(
     job_path: Path,
     data: dict,
@@ -1183,13 +1346,8 @@ def _send_to_idle(
 ) -> None:
     """check_render_completion()'s dispatch: idle machines allowed on the
     job (machines_for()) sent to its free chunks."""
-    if data.get("render_mode") == "single":
-        wanted = 0 if (claims or rendering or waiting) else 1
-    else:
-        holding = {c.get("machine") for c in claims.values()}
-        starting = [u for u in rendering if u not in holding]
-        wanted = len(free) - len(starting) - len(waiting)
-    machines = machines_for(data, idle, with_left)[: max(0, wanted)]
+    wanted = _machines_wanted(data, free, claims, rendering, waiting)
+    machines = machines_for(data, idle, with_left)[:wanted]
     if not machines:
         return
     names = ", ".join((idle.get(u) or {}).get("machine") or u[:8] for u in machines)

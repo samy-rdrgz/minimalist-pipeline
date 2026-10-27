@@ -35,13 +35,42 @@ def job_log_path(job_id: str) -> Path:
     return ConfigCache.get_path("farm_requests") / f"request_{job_id}.log"
 
 
-def popen_logged(cmd: list, job_id: str, stage: str, *, merge_stdout: bool = True):
+def job_progress_path(job_id: str) -> Path:
+    """Where an ffmpeg pass of the job (frame check, compilation, preview)
+    writes its progress (-progress): "frame=", "out_time_us=" and
+    "progress=continue|end" blocks, about twice a second. Read back by
+    loop._ffmpeg_progress_for_jobs() for Farm monitoring's %."""
+    return ConfigCache.get_path("farm_requests") / f"request_{job_id}.progress"
+
+
+def discard_job_progress(job_id: str) -> None:
+    """Delete the job's ffmpeg progress file. Best effort."""
+    try:
+        retry_shared_io(job_progress_path(job_id).unlink)
+    except OSError:
+        pass
+
+
+def popen_logged(
+    cmd: list,
+    job_id: str,
+    stage: str,
+    *,
+    merge_stdout: bool = True,
+    progress: bool = False,
+):
     """subprocess.Popen with the child's stderr (and stdout, if merge_stdout)
     appended to job_log_path(job_id), after a header naming the stage. The
     parent's own handle is closed right away -- the child has its own copy
     -- so Windows can delete the file once the child exits. Keeps the path
     and the offset where this stage's output starts on the Popen
-    (.log_path/.log_offset) for read_process_log()."""
+    (.log_path/.log_offset) for read_process_log(). progress: cmd is an
+    ffmpeg command -- it also writes its progress to job_progress_path(),
+    started afresh (the previous pass's "progress=end" never shows)."""
+    if progress:
+        discard_job_progress(job_id)
+        # A global option: right after the binary, before any input.
+        cmd = [cmd[0], "-progress", str(job_progress_path(job_id))] + list(cmd[1:])
     log_path = job_log_path(job_id)
     log_path.parent.mkdir(parents=True, exist_ok=True)
     with open(log_path, "ab") as f:
@@ -134,6 +163,7 @@ def compact_log(path: Path) -> None:
 def discard_job_log(job_id: str) -> None:
     """Delete the job's log -- it ended well. Best effort: a log that can't
     be deleted is just left behind (archive() still moves it)."""
+    discard_job_progress(job_id)
     try:
         retry_shared_io(job_log_path(job_id).unlink)
     except FileNotFoundError:

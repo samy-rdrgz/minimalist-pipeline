@@ -32,6 +32,7 @@ from ..farm import (
     worker_rendering,
 )
 from ..lib import (
+    draw_box_tip,
     ConfigCache,
     PipelineAction,
     PipelineError,
@@ -477,6 +478,16 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
     def _panel_setting(self, context, col, is_block=False):
         """The submit settings: priority, mode, increment, frame override,
         assigned machines, pre-render script."""
+        draw_box_tip(
+            col,
+            context,
+            "All machines: every free worker takes chunks of frames, and more "
+            "can join at any time. Single: one machine renders the whole range. "
+            "Highest priority goes first. Increment: a new render folder rather "
+            "than replacing the last one. No assigned machine: any worker. "
+            "Pre-render script: a preset from config/presets applied first.",
+            width_px=300,
+        )
         row = col.row(align=False)
         row.prop(self, "priority")
         row.prop(self, "render_mode", text="")
@@ -540,6 +551,14 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
 
             select.separator()
             if self.file_type == "preview":
+                draw_box_tip(
+                    layout,
+                    context,
+                    "A preview compiles a disposable playback mp4 from the "
+                    "shots already rendered, not a final render. Tick the "
+                    "sequences to compile.",
+                    width_px=300,
+                )
                 self._draw_sequences(layout, context.window_manager.preview_sequences)
                 layout.prop(self, "priority")
                 return

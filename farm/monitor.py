@@ -23,7 +23,7 @@ from ..lib import (
     to_relative,
 )
 from .chunks import remove_claims
-from .dispatch import LOG_KEEP_BYTES, compact_log
+from .dispatch import LOG_KEEP_BYTES, compact_log, discard_job_progress
 from .loop import (
     get_running_project,
     monitor_age_status,
@@ -507,6 +507,13 @@ def archive(job_path: Path) -> None:
     # judged (queue._note_frames()), nothing to keep; nor its claims.
     discard_saved_frames(job_id)
     remove_claims(job_id)
+    discard_job_progress(job_id)
+    # A "give way" flag a machine never read (its render ended first).
+    for flag in ConfigCache.get_path("farm_requests").glob(f"request_{job_id}_*.yield"):
+        try:
+            flag.unlink()
+        except OSError:
+            pass
 
     # replace(), not rename(): a re-rendered file reuses its job id (hash of
     # file + preset + shot), so its previous run's archive is often already

@@ -554,13 +554,25 @@ def render_stop_path(job_id: str) -> Path:
     )
 
 
+def render_yield_path(job_id: str, uuid: str = "") -> Path:
+    """Machine uuid's (this one's by default) "give way" flag for its render
+    of job_id: the farm host wants it on a higher-priority job, the render
+    entry exits once its chunk in progress is done
+    (queue._give_way_to_priority())."""
+    return (
+        ConfigCache.get_path("farm_requests")
+        / f"request_{job_id}_{uuid or get_machine_id()}.yield"
+    )
+
+
 def _clear_render_flags(job_id: str) -> None:
-    """Delete this machine's render_stop_path() of job_id once its render
-    ended (or before it starts). Best effort."""
-    try:
-        retry_shared_io(render_stop_path(job_id).unlink)
-    except OSError:
-        pass
+    """Delete this machine's render_stop_path() and render_yield_path() of
+    job_id once its render ended (or before it starts). Best effort."""
+    for path in (render_stop_path(job_id), render_yield_path(job_id)):
+        try:
+            retry_shared_io(path.unlink)
+        except OSError:
+            pass
 
 
 def render_request(job_data: dict, uuid: str, cmd_flags: list):
@@ -652,6 +664,9 @@ def execute_render_request() -> dict:
                         # Stop after this frame.
                         "--stop-file",
                         str(render_stop_path(data["job_id"])),
+                        # Give way to a higher-priority job after this chunk.
+                        "--yield-file",
+                        str(render_yield_path(data["job_id"])),
                         # Chunks: the job's size, fixed at dispatch -- never
                         # the project's, which may have changed since.
                         "--chunk-size",
@@ -888,7 +903,7 @@ def execute_compile_request() -> dict:
             if not ffmpeg:
                 raise PipelineError("ffmpeg not found on this machine")
             cmd = preview_command(job, get_active_project_root(), ffmpeg)
-            p = popen_logged(cmd, job_id, "preview")
+            p = popen_logged(cmd, job_id, "preview", progress=True)
         except Exception as e:
             log("ERROR", "farm", f"Could not launch the compile of {job_id}: {e}")
             _end_compile(job_id, success=False)

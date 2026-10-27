@@ -2,7 +2,11 @@
 
 All notable changes to this addon. Dates are release dates.
 
-## 1.1.5 — not released yet
+## 1.1.5 — 2026-10-27
+
+Review right on the snapshot page -- a table, or one file at a time --
+downloaded as a .json that Import review takes, several at once; a
+file's own page; the snapshot on a phone.
 
 - **Review on the snapshot page itself.** *✎ Review on this page*, in
   the review box at the top next to the `.xlsx` (or *✎ Review* in the
@@ -104,6 +108,36 @@ what, snapshot thumbnails without letterbox bands.
 - **Farm: the host's machine as a worker** shows on its worker row what
   the farm host runs there (a setup, a compile, a frame check), under
   "worker idle" -- it read plain idle, while the machine was busy.
+  Its lines sit left-aligned under the worker's, like every other row
+  (they landed in the row's right half).
+- **Farm: a higher priority takes machines from a lower one.** A machine
+  stays on its render while it has chunks to take, so a priority-15 job
+  set up after a priority-10 render had started got only the machines
+  free at that moment -- the others finished the whole priority-10 render
+  first. Now, when no free machine is left for it, machines on
+  lower-priority renders give way once their chunk in progress is done,
+  the lowest priority first: never for an equal priority, nor from a
+  render with less than 3 min left (Edit project > *Priority switch*, 0 =
+  always). Needs the workers on 1.1.4 (an older one finishes its render).
+- **Job details and Worker details: a narrower first column**, for the
+  field names (a third of the lists' first column).
+- **Farm: the frame check, a compilation and a preview show their %**:
+  ffmpeg writes its progress to a small file next to the job's log
+  (`-progress`), read with the rest of the farm's state -- Farm
+  monitoring's Jobs ("compilation_start - 40% - 2m00s (≃ 3m00s
+  remaining)"), the farm host's and a compiling worker's rows, and Job
+  details. A preview's % is its time encoded over its videos' total
+  duration (from ffmpeg's own log). A preview compiled by a worker still
+  on 1.1.3 shows none.
+- **Beginner tips for what came after the first release** (Preferences >
+  Experience level: Beginner): Farm monitoring's Jobs (states, Retry,
+  Recompile, Archive) and Workers (greyed workers, Forget, details),
+  Worker details (versions in red, stuck frame), Project monitoring (a
+  file's details, filters, keys), Renders to check and the Checked dialog
+  (validate / unvalidate), the Project panel's Snapshot / Import review,
+  the Render dialog (modes, priority, increment, machines, pre-render
+  script) and its Preview choice. The monitoring windows keep their lists
+  fitting with a tip above; Advanced shows none, as before.
 - **Snapshot: thumbnails in their own shape.** A thumbnail sat in a fixed
   16:9 box: a panoramic render (600x54) became a thin line between two
   bands of the page's background, black in dark mode. The width stays
