@@ -94,14 +94,18 @@ la prod -- sur la version qu'il a vue.
   plus récent que le snapshot. Un tableur exporté par une version
   précédente s'importe toujours, lu comme avant.
 
-- **Review dans la page** (1.1.5) : au lieu du tableur, *Review* dans la
-  barre du snapshot ajoute sous chaque département de chaque ligne un ✓
-  (le valider pour votre rôle -- seulement s'il est fini) et un ✗ retake
-  (une case pour les retakes, un par ligne, `[sh020] [f12-40]` et `note:`
-  comme dans le tableur, les boutons de shots du bloc insérant le tag ;
+- **Review dans la page** (1.1.5) : au lieu du tableur, *✎ Review on
+  this page* (la box de review en haut ; *✎ Review* dans la barre fait
+  pareil) ajoute à côté de la pastille de chaque département de chaque
+  ligne un ✓ (le valider pour votre rôle -- seulement s'il est fini) et un
+  ✗ (une case pour les retakes, un par ligne, `[sh020] [f12-40]` et
+  `note:` comme dans le tableur ; le bouton d'un shot d'un bloc commence
+  une nouvelle ligne avec son tag, pour enchaîner shot après shot ;
   laissée vide, elle retire une validation), et sur chaque ligne *all
-  done*, un *general retake* et la *description*. Remplissez l'auteur, le
-  rôle et la date dans la barre, puis *Download review (.json)* et
+  done*, un *general retake* et la *description*. Une ligne parcourue
+  prend un trait violet ; *Blender file* et *Last render* sont masquées
+  pendant la review. Remplissez l'auteur, le rôle et la date dans la box,
+  puis *Download review (.json)* et
   envoyez-le : **Import review** le prend comme un `.xlsx`. La page garde
   ce que vous écrivez dans votre navigateur au fil de l'eau (un
   rechargement le retrouve, dans le même navigateur -- pas en navigation

@@ -88,14 +88,17 @@ it saw.
   since the snapshot. A template exported by an earlier version still
   imports, as it was read then.
 
-- **Review on the page** (1.1.5): instead of the spreadsheet, *Review* in
-  the snapshot's bar adds, under each department of every row, a ✓
-  (validate it as your role -- a done department only) and a ✗ retake
-  (a box for the retakes, one per line, `[sh020] [f12-40]` and `note:` as
-  in the spreadsheet, the block's shot buttons inserting the tag; left
-  empty, it withdraws a validation), and on each row *all done*, a
-  *general retake* and the *description*. Fill in the author, the role
-  and the date in the bar, then *Download review (.json)* and send it:
+- **Review on the page** (1.1.5): instead of the spreadsheet, *✎ Review
+  on this page* (the review box at the top; *✎ Review* in the bar does the
+  same) adds, beside each department's pill on every row, a ✓ (validate
+  it as your role -- a done department only) and a ✗ (a box for the
+  retakes, one per line, `[sh020] [f12-40]` and `note:` as in the
+  spreadsheet; a block's shot button starts a new line with its tag, so
+  you go shot after shot; left empty, it withdraws a validation), and on
+  each row *all done*, a *general retake* and the *description*. A row
+  you went through gets a violet line; *Blender file* and *Last render*
+  are hidden while reviewing. Fill in the author, the role and the date
+  in the box, then *Download review (.json)* and send it:
   **Import review** takes it like an `.xlsx`. The page keeps what you
   write in your browser as you go (a reload brings it back, in the same
   browser -- not in a private window or on another machine), and *Load a

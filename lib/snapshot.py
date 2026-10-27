@@ -807,9 +807,10 @@ def render_html(snapshot: dict) -> str:
         "retake — <b>one line per retake</b>, Alt+Enter for the next one, "
         "<b>[sh020] [f12-40]</b> at its start for a shot of a block and its "
         "frames. Then send the file back as is.</p>",
-        "<p>Or review right here: <b>Review</b>, in the bar below, opens a "
-        "box per department on each row; then download the review (.json) "
-        "and send it back.</p>",
+        "<p>Or review right here: <b>✎ Review on this page</b> puts a ✓ and a ✗ "
+        "beside each department of each row; then download the review "
+        "(.json) and send it back.</p>",
+        _review_bar(),
         "</div>",
         "</header>",
         # What the in-page review needs to write a file the import reads.
@@ -828,7 +829,6 @@ def render_html(snapshot: dict) -> str:
         _render_overview(snapshot),
         "<nav>",
         _render_filters(snapshot),
-        _review_bar(),
         "</nav>",
         f'<p class="legend">{legend}</p>',
         '<p class="legend muted">Done: each required department counts for an '
@@ -1269,12 +1269,15 @@ def _render_filters(snapshot: dict) -> str:
 
 
 def _review_bar() -> str:
-    """The in-page review's bar, under the filters while Review is on (_JS):
-    who and as what, the changes so far, the file to send back."""
+    """The in-page review's bar, in the header's review box next to the
+    .xlsx (_JS): the switch, then while on who and as what, the changes so
+    far, the file to send back."""
     return (
-        '<div id="rv" class="rv" hidden>'
-        '<span class="gl">Review</span>'
-        '<label>Author <input id="rv-author" type="text" placeholder="prod" size="12"></label>'
+        '<div class="rv">'
+        '<button type="button" id="rv-start" class="btn small" aria-pressed="false">'
+        "✎ Review on this page</button>"
+        '<span id="rv" class="rv" hidden>'
+        '<label>Author <input id="rv-author" type="text" placeholder="your name" size="12"></label>'
         '<label>Role <select id="rv-role"><option value="">pick one</option></select></label>'
         '<label>Date <input id="rv-date" type="date"></label>'
         '<span id="rv-count" class="rv-count">no change yet</span>'
@@ -1283,7 +1286,7 @@ def _review_bar() -> str:
         '<input id="rv-load" type="file" accept=".json,application/json">Load a review…</label>'
         '<button type="button" id="rv-clear" class="chip">Clear</button>'
         '<span id="rv-saved" class="rv-saved"></span>'
-        "</div>"
+        "</span></div>"
     )
 
 
@@ -2020,9 +2023,12 @@ transform:translateX(-50%)}.today.l{transform:none}.today.r{transform:translateX
 /* Narrow: the timeline's bands stack (label, band, value). */
 @media (max-width:640px){.tl .bars{grid-template-columns:1fr;row-gap:4px}
 .tl .bars>span:empty{display:none}.tl .bv{text-align:left;margin-bottom:8px}}
-/* In-page review: its bar under the filters, a box per department. */
-.rv{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;padding-top:8px;
-border-top:1px dashed var(--line)}
+/* In-page review: its bar in the review box, a ✓ and a ✗ by each
+department's pill. */
+.review>.rv{margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
+.rv{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
+.rv[hidden]{display:none}
+#rv-start{background:var(--role)}#rv-start[aria-pressed="true"]{background:var(--fg);color:var(--bg)}
 .rv label{display:flex;gap:6px;align-items:center;color:var(--muted);font-size:13px}
 .rv input[type=text],.rv input[type=date],.rv select{font:inherit;font-size:13px;padding:3px 8px;
 border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--fg)}
@@ -2033,21 +2039,25 @@ border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(
 .rv-chip[aria-pressed="true"]{color:#fff;background:var(--role);border-color:var(--role)}
 body:not(.reviewing) .rvc,body:not(.reviewing) .rvg,body:not(.reviewing) .rvt,
 body:not(.reviewing) .rvtags{display:none}
-.rvc,.rvg{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
-.rvc{flex-wrap:nowrap;white-space:nowrap}
+.rvg{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.rvc{display:inline-flex;gap:3px;margin-left:6px;vertical-align:middle}
+body.reviewing td[data-col^="d:"]{white-space:nowrap}
 .rvb{font:inherit;font-size:11px;line-height:16px;padding:1px 8px;border-radius:999px;
 border:1px solid var(--line);background:var(--card);color:var(--muted);cursor:pointer}
 .rvb:hover:not(:disabled){border-color:var(--fg);color:var(--fg)}
 .rvb:disabled{opacity:.3;cursor:default}
-.rvb.ok[aria-pressed="true"],.rvb.all[aria-pressed="true"]{color:#fff;background:var(--done);
-border-color:var(--done)}
-.rvb.ok.via{color:var(--done);background:var(--done-bg);border-color:var(--done)}
+.rvc .rvb{padding:1px 6px}
+/* A validation is the role's: violet, as its marks. */
+.rvb.yes[aria-pressed="true"],.rvb.all[aria-pressed="true"]{color:#fff;background:var(--role);
+border-color:var(--role)}
+.rvb.yes.via{color:var(--role);background:var(--role-bg);border-color:var(--role)}
 .rvb.rt[aria-pressed="true"],.rvb.gen[aria-pressed="true"]{color:#fff;background:var(--rtk);
 border-color:var(--rtk)}
 .rvb.desc[aria-pressed="true"]{color:#fff;background:var(--accent);border-color:var(--accent)}
-.rvt{display:block;width:100%;min-width:170px;margin-top:4px;font:inherit;font-size:12px;
-padding:4px 6px;border:1px solid var(--rtk);border-radius:6px;background:var(--card);
-color:var(--fg);resize:vertical}
+/* As wide as its cell, never wider: the table keeps its width. */
+.rvt{display:block;box-sizing:border-box;width:100%;min-width:9em;margin-top:4px;font:inherit;
+font-size:12px;padding:4px 6px;border:1px solid var(--rtk);border-radius:6px;
+background:var(--card);color:var(--fg);resize:none;overflow:hidden;white-space:pre-wrap}
 .rvt.rvdesc{border-color:var(--accent)}
 .rvtags{display:flex;flex-wrap:wrap;gap:3px;margin-top:4px}
 .rvtag{font:inherit;font-size:10px;line-height:15px;padding:0 5px;border-radius:3px;border:0;
@@ -2055,7 +2065,12 @@ background:var(--line);color:var(--fg);cursor:pointer}
 .rvtag:hover{background:var(--rtk);color:#fff}
 tr.item.rv-changed>td.name{box-shadow:inset 3px 0 var(--role)}
 .rvt[hidden],.rvtags[hidden]{display:none}
-@media print{nav,.review,.jump,.stuck{display:none}.scroll{overflow:visible}}
+/* A wide table's scrollbar, kept at the bottom of the screen (_JS): the
+box's own is at the bottom of the table, maybe far below. */
+.scroll.proxied{scrollbar-width:none}.scroll.proxied::-webkit-scrollbar{display:none}
+.hbar{position:sticky;bottom:0;z-index:1;overflow-x:auto;overflow-y:hidden;
+background:var(--bg)}.hbar>div{height:1px}.hbar[hidden]{display:none}
+@media print{nav,.review,.jump,.stuck,.hbar{display:none}.scroll{overflow:visible}}
 """
 
 _JS = """
@@ -2081,9 +2096,16 @@ var table=box.querySelector('table'),stuck=document.createElement('div'),
 copy=table.cloneNode(false);copy.appendChild(table.tHead.cloneNode(true));
 stuck.className='stuck';stuck.hidden=true;stuck.setAttribute('aria-hidden','true');
 stuck.appendChild(copy);document.body.appendChild(stuck);
-box.addEventListener('scroll',place,{passive:true});
-return{box:box,table:table,stuck:stuck,copy:copy};});
-function size(){heads.forEach(function(h){var src=h.table.tHead.rows[0].cells,
+var bar=document.createElement('div');bar.className='hbar';bar.hidden=true;
+bar.appendChild(document.createElement('div'));box.after(bar);
+bar.addEventListener('scroll',function(){if(box.scrollLeft!==bar.scrollLeft)box.scrollLeft=bar.scrollLeft;},{passive:true});
+box.addEventListener('scroll',function(){if(bar.scrollLeft!==box.scrollLeft)bar.scrollLeft=box.scrollLeft;
+place();},{passive:true});
+if(window.ResizeObserver)new ResizeObserver(function(){size();}).observe(table);
+return{box:box,table:table,stuck:stuck,copy:copy,bar:bar};});
+function size(){heads.forEach(function(h){var wide=h.box.scrollWidth>h.box.clientWidth+1;
+h.bar.hidden=!wide;h.box.classList.toggle('proxied',wide);
+if(wide){h.bar.firstChild.style.width=h.box.scrollWidth+'px';h.bar.scrollLeft=h.box.scrollLeft;}var src=h.table.tHead.rows[0].cells,
 dst=h.copy.tHead.rows[0].cells,w=function(el){return el.getBoundingClientRect().width+'px';};
 h.copy.style.width=w(h.table);for(var i=0;i<src.length;i++)dst[i].style.width=w(src[i]);});
 place();}
@@ -2143,12 +2165,16 @@ if(i===6)return;if(c.type==='checkbox')c.checked=false;else c.value='';});apply(
 var cols=[].slice.call(document.querySelectorAll('.cols input')),
 colStyle=document.createElement('style'),colKey='mp-snapshot-hidden-cols';
 document.head.appendChild(colStyle);
+// While reviewing, Blender file and Last render are hidden (their ticks
+// as before kept in data-before, put back after, the one saved).
 function applyCols(save){var hidden=cols.filter(function(c){return!c.checked;})
+.map(function(c){return c.dataset.key;});
+var kept=cols.filter(function(c){return c.dataset.before?c.dataset.before!=='1':!c.checked;})
 .map(function(c){return c.dataset.key;});
 colStyle.textContent=hidden.map(function(k){
 return '[data-col="'+CSS.escape(k)+'"]{display:none}';}).join('');
 document.querySelector('.cols').classList.toggle('hiding',hidden.length>0);
-if(save){try{localStorage.setItem(colKey,JSON.stringify(hidden));}catch(e){}}size();}
+if(save){try{localStorage.setItem(colKey,JSON.stringify(kept));}catch(e){}}size();}
 try{var saved=JSON.parse(localStorage.getItem(colKey)||'[]');
 cols.forEach(function(c){if(saved.indexOf(c.dataset.key)>=0)c.checked=false;});}catch(e){}
 cols.forEach(function(c){c.addEventListener('change',function(){applyCols(true);});});
@@ -2195,26 +2221,32 @@ var d=new Date();$('rv-saved').textContent='Kept in this browser ('+
 function tagButtons(el,ta){var shots=el.dataset.shots.split(' ').filter(Boolean);
 if(shots.length<2)return null;var box=document.createElement('div');box.className='rvtags';
 shots.forEach(function(s){var b=document.createElement('button');b.type='button';
-b.className='rvtag';b.textContent='['+s+']';b.title='Start the line with it: a retake of that shot only';
-b.addEventListener('click',function(){var v=ta.value,at=ta.selectionStart,
-start=v.lastIndexOf(String.fromCharCode(10),at-1)+1;
-ta.value=v.slice(0,start)+'['+s+'] '+v.slice(start);ta.focus();
-ta.dispatchEvent(new Event('input'));});box.appendChild(b);});return box;}
+b.className='rvtag';b.textContent='['+s+']';b.title='A new line for a retake of that shot only';
+b.addEventListener('click',function(){addTag(ta,s);});box.appendChild(b);});return box;}
+// A shot's tag: on the line the cursor is on while it is empty (or only
+// tags), else on a new line at the end -- one retake per shot, in a row.
+function addTag(ta,s){var NL=String.fromCharCode(10),v=ta.value,at=ta.selectionStart,
+start=v.lastIndexOf(NL,at-1)+1,end=v.indexOf(NL,at),t='['+s+'] ';if(end<0)end=v.length;
+var bare=v.slice(start,end).split(' ').every(function(w){return!w||w.charAt(0)==='[';});
+if(!bare){start=end=v.length;if(v)t=NL+t;}
+ta.value=v.slice(0,start)+t+v.slice(end);ta.focus();
+ta.selectionStart=ta.selectionEnd=start+t.length;ta.dispatchEvent(new Event('input'));}
 function area(cls,ph){var t=document.createElement('textarea');t.className='rvt '+cls;
-t.rows=2;t.placeholder=ph;t.hidden=true;return t;}
+t.rows=1;t.placeholder=ph;t.hidden=true;return t;}
+function grow(t){if(t.hidden)return;t.style.height='auto';t.style.height=t.scrollHeight+2+'px';}
 var RT='One retake per line. [sh020] [f12-40] at its start for a shot / frames, note: for a remark';
 function build(){rvBuilt=true;
 Object.keys(rows).forEach(function(f){var el=rows[f],st=states(el),
 valid=el.dataset.valid.split(' ');
 el.querySelectorAll('td[data-col^="d:"]').forEach(function(td){var d=td.dataset.col.slice(2);
 if(!(d in st))return;var box=document.createElement('div');box.className='rvc';
-var ok=document.createElement('button');ok.type='button';ok.className='rvb ok';ok.textContent='✓';
+var ok=document.createElement('button');ok.type='button';ok.className='rvb yes';ok.textContent='✓';
 ok.dataset.f=f;ok.dataset.d=d;ok.dataset.act='ok';ok.disabled=!done(st[d]);
 ok.title=done(st[d])?(valid.indexOf(d)>=0?'Already validated -- validate it again as your role':
 'Validate it as your role'):'Not done: nothing to validate yet';
 var rt=document.createElement('button');rt.type='button';rt.className='rvb rt';
-rt.textContent='✗ retake';rt.dataset.f=f;rt.dataset.d=d;rt.dataset.act='rt';
-rt.title='Not validated: write the retakes (or none, to just withdraw a validation)';
+rt.textContent='✗';rt.dataset.f=f;rt.dataset.d=d;rt.dataset.act='rt';
+rt.title='Retake: write what to fix (or nothing, to just withdraw a validation)';
 var ta=area('dep',RT);ta.dataset.f=f;ta.dataset.d=d;
 box.appendChild(ok);box.appendChild(rt);td.appendChild(box);
 var tags=tagButtons(el,ta);if(tags){tags.hidden=true;tags.dataset.for=d;td.appendChild(tags);}
@@ -2233,23 +2265,26 @@ dt.classList.add('rvdesc');name.appendChild(dt);});paint();}
 function paint(){if(!rvBuilt)return;
 Object.keys(rows).forEach(function(f){var el=rows[f],e=rv.files[f]||{deps:{},all:false,text:'',desc:null},
 st=states(el);
-el.querySelectorAll('.rvc').forEach(function(box){var d=box.querySelector('.ok').dataset.d,
+el.querySelectorAll('.rvc').forEach(function(box){var d=box.querySelector('.yes').dataset.d,
 v=e.deps[d],td=box.parentNode,ta=td.querySelector('textarea.dep'),tags=td.querySelector('.rvtags');
-box.querySelector('.ok').setAttribute('aria-pressed',!!(v&&v.ok));
-box.querySelector('.ok').classList.toggle('via',!v&&e.all&&done(st[d]));
+box.querySelector('.yes').setAttribute('aria-pressed',!!(v&&v.ok));
+box.querySelector('.yes').classList.toggle('via',!v&&e.all&&done(st[d]));
 box.querySelector('.rt').setAttribute('aria-pressed',!!(v&&v.no));
-ta.hidden=!(v&&v.no);if(tags)tags.hidden=ta.hidden;if(v&&v.no&&ta.value!==v.text)ta.value=v.text;});
+ta.hidden=!(v&&v.no);if(tags)tags.hidden=ta.hidden;if(v&&v.no&&ta.value!==v.text)ta.value=v.text;
+grow(ta);});
 var g=el.querySelector('.rvg');if(!g)return;
 g.querySelector('.all').setAttribute('aria-pressed',e.all);
 var gt=el.querySelector('textarea.gen'),dt=el.querySelector('textarea.rvdesc'),
 gtags=el.querySelector('.rvtags[data-for="-gen"]');
-if(gt.dataset.open!=='1')gt.hidden=!e.text;gt.value=e.text;if(gtags)gtags.hidden=gt.hidden;
+if(gt.dataset.open!=='1')gt.hidden=!e.text;if(gt.value!==e.text)gt.value=e.text;
+if(gtags)gtags.hidden=gt.hidden;grow(gt);grow(dt);
 g.querySelector('.gen').setAttribute('aria-pressed',!gt.hidden);
-if(e.desc===null)dt.hidden=true;else{dt.hidden=false;if(dt.value!==e.desc)dt.value=e.desc;}
+if(e.desc===null)dt.hidden=true;else{dt.hidden=false;if(dt.value!==e.desc)dt.value=e.desc;grow(dt);}
 g.querySelector('.desc').setAttribute('aria-pressed',!dt.hidden);
-el.classList.toggle('rv-changed',changes(e,f)>0);});
+el.classList.toggle('rv-changed',changes(e,f)>0||!gt.hidden);});
 var c=count();$('rv-count').textContent=c[0]?c[0]+' change'+(c[0]>1?'s':'')+' on '+
 c[1]+' file'+(c[1]>1?'s':''):'no change yet';$('rv-count').classList.toggle('some',c[0]>0);
+$('rv-mode').textContent='✎ Review'+(c[0]?' · '+c[0]:'');
 size();}
 document.addEventListener('click',function(ev){var b=ev.target.closest('.rvb');if(!b||b.disabled)return;
 var e=entry(b.dataset.f),d=b.dataset.d,act=b.dataset.act;
@@ -2263,6 +2298,7 @@ if(gt.hidden){gt.dataset.open='1';gt.hidden=false;gt.focus();}else{gt.dataset.op
 else if(act==='desc'){e.desc=e.desc===null?rows[b.dataset.f].dataset.desc:null;}
 paint();save();});
 document.addEventListener('input',function(ev){var t=ev.target;if(!t.classList.contains('rvt'))return;
+grow(t);
 var e=entry(t.dataset.f);if(t.dataset.d){var v=e.deps[t.dataset.d];if(v)v.text=t.value;}
 else if(t.dataset.g==='text')e.text=t.value;else if(t.dataset.g==='desc')e.desc=t.value;
 paint();save();});
@@ -2270,9 +2306,17 @@ paint();save();});
 rv[k]=$('rv-'+k).value;save();});});
 rvMeta.roles.forEach(function(r){var o=document.createElement('option');o.value=r;o.textContent=r;
 $('rv-role').appendChild(o);});
-function setMode(on){document.body.classList.toggle('reviewing',on);$('rv').hidden=!on;
-$('rv-mode').setAttribute('aria-pressed',on);if(on&&!rvBuilt)build();navHeight();size();}
-$('rv-mode').addEventListener('click',function(){setMode(!document.body.classList.contains('reviewing'));});
+var RVHIDE=['file','render'];
+function setMode(on){if(on===document.body.classList.contains('reviewing'))return;
+document.body.classList.toggle('reviewing',on);$('rv').hidden=!on;
+$('rv-mode').setAttribute('aria-pressed',on);$('rv-start').setAttribute('aria-pressed',on);
+$('rv-start').textContent=on?'Stop reviewing':'✎ Review on this page';
+cols.forEach(function(c){if(RVHIDE.indexOf(c.dataset.key)<0)return;
+if(on){c.dataset.before=c.checked?'1':'0';c.checked=false;}
+else{c.checked=c.dataset.before==='1';delete c.dataset.before;}});
+if(on&&!rvBuilt)build();applyCols(false);navHeight();size();}
+['rv-mode','rv-start'].forEach(function(id){$(id).addEventListener('click',function(){
+setMode(!document.body.classList.contains('reviewing'));});});
 function fields(){$('rv-author').value=rv.author;$('rv-role').value=rv.role;$('rv-date').value=rv.date;}
 function exportRows(){var out=[];Object.keys(rv.files).forEach(function(f){var e=rv.files[f],el=rows[f];
 if(!el||!changes(e,f))return;var st=states(el),row={filename:f,stable_version:el.dataset.stable,

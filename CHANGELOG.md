@@ -4,19 +4,25 @@ All notable changes to this addon. Dates are release dates.
 
 ## 1.1.5 — not released yet
 
-- **Review on the snapshot page itself.** *Review* (in the bar's *Show*
-  group) puts a ✓ and a ✗ retake under each department of every row: ✓
-  validates it as your role (only a done one), ✗ opens a box for the
-  retakes -- one per line, the block's shot buttons insert `[sh020]` --,
-  or withdraws a validation when left empty. Each row also gets *all
-  done*, a *general retake* and a *description* to edit. The bar asks for
-  the author, the role and the date, counts the changes and downloads
+- **Review on the snapshot page itself.** *✎ Review on this page*, in
+  the review box at the top next to the `.xlsx` (or *✎ Review* in the
+  bar), puts a ✓ and a ✗ beside each department's pill on every row: ✓
+  validates it as your role (only a done one, in violet), ✗ opens a box
+  for the retakes -- one per line; a shot's button of a block starts a
+  new line `[sh020] `, so one shot after the other --, or withdraws a
+  validation when left empty. Each row also gets *all done*, a *general
+  retake* and a *description* to edit; a row gone through gets a violet
+  line on its left. While reviewing, *Blender file* and *Last render* are
+  hidden (the Columns menu shows them again). The box asks for the
+  author, the role and the date, counts the changes and downloads
   the review as a `.json` that **Import review** reads like the
   spreadsheet: same confirm dialog, same refusals. What you write is
   kept in this browser as you go -- a reload or reopening the file in
   the same browser brings it back -- and *Load a review…* opens a
   downloaded one again to go on with it. The `.xlsx` template is still
   there, for several reviewers or a shared drive.
+- A table wider than the screen keeps its horizontal scrollbar at the
+  bottom of the screen, not only under its last row.
 
 ## 1.1.4 — 2026-10-27
 

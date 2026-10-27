@@ -3068,6 +3068,22 @@ or a blocked storage says so, "download it before closing"); a reload
 restores it and turns Review on. No server: the person downloads the file
 and sends it, as with the spreadsheet.
 
+The bar sits in the header's review box, next to the `.xlsx` -- the two
+ways to review side by side; the nav keeps a *✎ Review* chip with the
+change count, the same switch. The ✓ / ✗ go on the pill's line (a
+second line per department made every row twice as tall), the ✓ violet:
+a validation is the role's, as its marks. A shot's tag button never
+prefixes the current line: on an empty (or tags-only) line it goes
+there, else on a new line at the end, cursor after it -- a retake for
+sh030, then [sh040] and the next one. Text boxes are as wide as their
+cell (`width:100%`, a small `min-width`) and grow in height only, so
+the table keeps its width. Turning Review on unticks *file* / *render*
+in the Columns menu, their ticks as before in `data-before`, put back
+when it's off and the ones saved meanwhile. Every wide table's own
+scrollbar is hidden for a sticky `.hbar` below it (`size()` sets its
+width, the two `scrollLeft`s kept equal): at the bottom of the screen
+while the table runs past it.
+
 ## Entries for several departments
 
 An entry's departments are a list now: one RTK "the ball's contact" is
