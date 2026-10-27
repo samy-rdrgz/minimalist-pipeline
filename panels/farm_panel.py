@@ -24,6 +24,7 @@ from ..farm.workers import FARM_PROTOCOL
 from ..lib import (
     ConfigCache,
     addon_pref,
+    box_tip_units,
     draw_box_tip,
     draw_pager,
     get_addon_version,
@@ -305,11 +306,21 @@ def _job_matches(self, job: dict, user: str) -> bool:
     return True
 
 
+_JOBS_TIP = (
+    "Running: a step in progress (setup, render, frame check, compilation). "
+    "Waiting: queued, or waiting for a free worker or the farm host. Retry "
+    "starts a failed job again where it failed (a failed render goes to the "
+    "other machines). Recompile only remakes the video. Archive clears "
+    "finished or failed jobs."
+)
+
+
 def draw_farm_jobs(self, context, layout):
     """Farm monitoring's "Jobs" view: every active job, its stage and
     progress -- filtered by self (WindowManager.pipeline_farm_monitoring),
     paged like draw_monitor_table()."""
     cache = get_monitor_cache()
+    draw_box_tip(layout, context, _JOBS_TIP)
 
     title = layout.split(factor=FIRST_COLUMN)
     title.active = False
@@ -324,7 +335,9 @@ def draw_farm_jobs(self, context, layout):
     matches.sort(key=lambda j: j.get("submitted_at") or "", reverse=True)
 
     total = len(matches)
-    per_page = rows_that_fit(context, _JOBS_RESERVED_UNITS)
+    per_page = rows_that_fit(
+        context, _JOBS_RESERVED_UNITS + box_tip_units(context, _JOBS_TIP)
+    )
     filters = (self.state, self.only_mine, self.search.strip().lower())
     shown, page, pages = paginate("farm", matches, per_page, filters)
     for j in shown + [None] * (per_page - len(shown)):
@@ -578,6 +591,7 @@ def draw_farm_worker_details(layout, context):
     if not m:
         layout.label(text="No worker file for this machine any more.", icon="ERROR")
         return
+    draw_box_tip(layout, context, _WORKER_DETAILS_TIP)
 
     def field(col, label: str, value, icon: str = "NONE", alert: bool = False):
         split = col.split(factor=FIRST_COLUMN)
@@ -712,11 +726,27 @@ def draw_farm_worker_details(layout, context):
         _draw_job_link(right, job_id, f"{job_id}: {outcome}  ({when})")
 
 
+_WORKERS_TIP = (
+    "Click a machine's name for its details. Greyed: a worker that stopped "
+    "giving news without being stopped -- late at first (busy, slow "
+    "network), then silent after 3 min (crashed, Blender closed, PC asleep "
+    "or off the share): its render goes to the other machines. Forget "
+    "removes it from the list; it comes back once its worker is relaunched."
+)
+_WORKER_DETAILS_TIP = (
+    "In red: another Blender version than the project's, or another addon "
+    "version than this machine's -- renders may differ, update it. A render "
+    "stuck on one frame for 5x its usual time is killed (Edit project > "
+    "Stuck frame): its frames go to the other machines."
+)
+
+
 def draw_farm_workers(context, layout):
     """M_PIPELINE_OT_farm_monitor's "Workers" view: every known machine, idle
     or what it's currently rendering -- padded with blank rows to the
     window's height, like the Jobs view (no pages: a farm has few machines,
     past the window the region scrolls)."""
+    draw_box_tip(layout, context, _WORKERS_TIP)
     title_list = layout.split(factor=FIRST_COLUMN)
     title_list.active = False
     btn = title_list.row()
@@ -821,7 +851,12 @@ def draw_farm_workers(context, layout):
         reverse=True,
     )
     # The farm host's row comes first.
-    rows = rows_that_fit(context, _WORKERS_RESERVED_UNITS) - 1
+    rows = (
+        rows_that_fit(
+            context, _WORKERS_RESERVED_UNITS + box_tip_units(context, _WORKERS_TIP)
+        )
+        - 1
+    )
     machines = machines + silent
     machines = machines + ["empty"] * (rows - len(machines))
     for m in machines:
