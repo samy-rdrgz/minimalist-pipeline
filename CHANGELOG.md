@@ -21,6 +21,18 @@ All notable changes to this addon. Dates are release dates.
   the same browser brings it back -- and *Load a review…* opens a
   downloaded one again to go on with it. The `.xlsx` template is still
   there, for several reviewers or a shared drive.
+- **One file at a time** while reviewing: *▣ One file* (in the review
+  box, or ▣ on a row) shows a single file as a card in place of the
+  tables -- its thumbnail large, a block's shots under it (a click shows
+  that one), its versions, description and notes, each department with
+  its ✓ / ✗, and for a block **a retake field per shot** plus one for
+  all of them, written back as `[sh040]` lines. *Previous* / *Next*, or
+  ← / →, go through the files the filters keep; Esc goes back to the
+  table. Same review, same file: the table and the card show the same
+  work. Built on demand from the page itself -- nothing added to the
+  HTML's weight.
+- The review box sums up the work: files reviewed, validated, retakes,
+  withdrawn.
 - A table wider than the screen keeps its horizontal scrollbar at the
   bottom of the screen, not only under its last row.
 

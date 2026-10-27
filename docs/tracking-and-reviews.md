@@ -98,7 +98,11 @@ it saw.
   each row *all done*, a *general retake* and the *description*. A row
   you went through gets a violet line; *Blender file*, *Last render*,
   *Done* and *Validated* are hidden while reviewing. Fill in the author, the role and the date
-  in the box, then *Download review (.json)* and send it:
+  in the box, then -- or, with *▣ One file*, go through the files one by
+  one: a card per file (large thumbnail, a block's shots, notes, a ✓ / ✗
+  per department and, for a block, a retake field per shot), *Previous*
+  / *Next* or ← / → following the filters, Esc back to the table. The
+  box sums up what you did (reviewed, validated, retakes). When done, *Download review (.json)* and send it:
   **Import review** takes it like an `.xlsx`. The page keeps what you
   write in your browser as you go (a reload brings it back, in the same
   browser -- not in a private window or on another machine), and *Load a
