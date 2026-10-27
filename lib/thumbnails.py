@@ -43,6 +43,11 @@ def jpeg_size(path: Path) -> tuple[int, int] | None:
             data = f.read(65536)
     except OSError:
         return None
+    return jpeg_size_of(data)
+
+
+def jpeg_size_of(data: bytes) -> tuple[int, int] | None:
+    """(width, height) from a JPEG's bytes (its SOF segment), or None."""
     if data[:2] != b"\xff\xd8":
         return None
     i = 2

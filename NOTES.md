@@ -1932,8 +1932,12 @@ carries its prefix). Overwritten in place, made by `lib/thumbnails.py` +
   machine that has ffmpeg can fill the gap with its own export.
 - **Size**: longest side 240 px by default, any aspect ratio (a 9:16
   render gives 135x240); JPEG q70 -- 2-3 KB on the test project, ~10 KB
-  for a busy frame. Shown whole in a fixed box in the HTML (`object-fit:
-  contain`), at its own size on hover. The size is the project's
+  for a busy frame. Shown whole in the HTML, 112 px wide, as tall as its
+  aspect ratio needs up to 63 px (`_thumb_img()`: its size read from the
+  JPEG header -- a fixed 16:9 box letterboxed a panoramic 600x54 render
+  into a thin line between two bands of the page's background; the width
+  stays fixed so the column does, and only too tall a render gets room
+  on its sides), at its own size on hover (`--z`, at most 640 px wide). The size is the project's
   `thumbnails.size` (Edit project, `thumbnail_size()`). A thumbnail's
   longest side is always exactly the size it was made at, so
   `thumbnail_jobs()` spots one made before the setting changed by its

@@ -15,6 +15,11 @@ All notable changes to this addon. Dates are release dates.
 - **Farm: the host's machine as a worker** shows on its worker row what
   the farm host runs there (a setup, a compile, a frame check), under
   "worker idle" -- it read plain idle, while the machine was busy.
+- **Snapshot: thumbnails in their own shape.** A thumbnail sat in a fixed
+  16:9 box: a panoramic render (600x54) became a thin line between two
+  bands of the page's background, black in dark mode. The width stays
+  fixed and the height now follows the image (up to 63 px; only too tall
+  a render gets room on its sides); on hover, its own size.
 
 ## 1.1.3 — 2026-10-25
 

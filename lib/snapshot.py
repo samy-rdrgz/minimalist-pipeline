@@ -28,6 +28,7 @@ from .core import json_get, now, read_json_quiet
 from .errors import PipelineError
 from .preview import latest_render_dir, render_root
 from .thumbnails import (
+    jpeg_size_of,
     owner_shot_render_dirs,
     owner_thumbnail_dirs,
     run_thumbnail_jobs,
@@ -1325,8 +1326,8 @@ def _render_table(
         thumb = ""
         if with_thumbs:
             thumb = (
-                f'<td class="th" data-col="thumb"><img class="thumb" alt="" '
-                f'src="data:image/jpeg;base64,{item["thumbnail"]}">{_shot_buttons(item)}</td>'
+                f'<td class="th" data-col="thumb">{_thumb_img(item["thumbnail"])}'
+                f"{_shot_buttons(item)}</td>"
                 if item.get("thumbnail")
                 else f'<td class="th" data-col="thumb"><div class="nothumb"></div>{_shot_buttons(item)}</td>'
             )
@@ -1409,6 +1410,33 @@ def _approval_mark(item: dict, department: str, roles: list) -> str:
             f'newer stable since, to review again">{_e(role)} {_e(seen)}</span>'
         )
     return ""
+
+
+# A thumbnail's box in the table: a fixed width, its height following the
+# image up to a maximum -- a fixed 16:9 box letterboxed a panoramic render
+# (600x54) into a thin line between two bands of the page's background.
+# Too tall a render gets room on its sides instead (object-fit: contain).
+# On hover: its own size, at most _THUMB_HOVER_MAX wide.
+_THUMB_WIDTH, _THUMB_MAX_HEIGHT = 112, 63
+_THUMB_HOVER_MAX = 640
+
+
+def _thumb_img(b64: str) -> str:
+    """A table thumbnail <img>: _THUMB_WIDTH wide, as tall as its aspect
+    ratio needs (up to _THUMB_MAX_HEIGHT), with its hover zoom (--z) to
+    its own size."""
+    try:
+        size = jpeg_size_of(base64.b64decode(b64[:87384]))  # its first 64 KB
+    except ValueError:
+        size = None
+    style = ""
+    if size and size[0] > 0 and size[1] > 0:
+        w, h = size
+        height = max(1, min(_THUMB_MAX_HEIGHT, round(_THUMB_WIDTH * h / w)))
+        drawn = min(_THUMB_WIDTH, height * w / h)  # the picture, sides aside
+        zoom = max(1.0, min(w, _THUMB_HOVER_MAX) / drawn)
+        style = f' style="height:{height}px;--z:{zoom:.2f}"'
+    return f'<img class="thumb" alt=""{style} src="data:image/jpeg;base64,{b64}">'
 
 
 def _shot_buttons(item: dict) -> str:
@@ -1726,8 +1754,8 @@ background:var(--line);color:var(--fg);cursor:default}
 .sb:hover{background:var(--role);color:#fff}
 /* One shared preview, fixed: a table's scroll box would clip it. */
 #sbpop{position:fixed;z-index:20;pointer-events:none;display:none;border-radius:4px;
-width:calc(112px * var(--thumb-zoom,2.4));box-shadow:0 4px 18px rgba(0,0,0,.35);background:var(--bg)}
-img.thumb:hover{transform:scale(var(--thumb-zoom,2.4));transform-origin:left top;position:relative;
+width:auto;max-width:640px;box-shadow:0 4px 18px rgba(0,0,0,.35);background:var(--bg)}
+img.thumb:hover{transform:scale(var(--z,var(--thumb-zoom,2.4)));transform-origin:left top;position:relative;
 z-index:3;box-shadow:0 4px 18px rgba(0,0,0,.35)}
 .flag{margin-left:8px;font-size:11px;font-weight:600;color:var(--rtk);
 background:var(--rtk-bg);padding:1px 6px;border-radius:999px}
