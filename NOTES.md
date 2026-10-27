@@ -3084,6 +3084,19 @@ scrollbar is hidden for a sticky `.hbar` below it (`size()` sets its
 width, the two `scrollLeft`s kept equal): at the bottom of the screen
 while the table runs past it.
 
+*One file* is a view of the same review, not a second one: `openOne()`
+builds a card from the row -- its cells' HTML, its data-*, its images'
+`src` (the data: URIs are already in the page, so nothing is duplicated
+in the file: the HTML only gains the script), its notes row's threads
+cloned -- and clones the row's ✓ / ✗ / all done buttons, so the one
+click handler serves both; `paintOne()` (end of `paint()`) copies their
+state back from the row. A block's retake text is split by its leading
+shot tag (`splitText()`: one field per shot, the rest in "all shots")
+and put back together as `[sh040] …` lines on input (`oneInput()`), a
+field being typed in never overwritten. Previous / Next walk the rows
+the filters keep (`el.hidden`); the view and its file are kept per
+snapshot (`rvKey + ':view'`), so a reload comes back on the same card.
+
 ## Entries for several departments
 
 An entry's departments are a list now: one RTK "the ball's contact" is

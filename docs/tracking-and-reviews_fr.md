@@ -104,8 +104,13 @@ la prod -- sur la version qu'il a vue.
   laissée vide, elle retire une validation), et sur chaque ligne *all
   done*, un *general retake* et la *description*. Une ligne parcourue
   prend un trait violet ; *Blender file*, *Last render*, *Done* et
-  *Validated* sont masquées pendant la review. Remplissez l'auteur, le rôle et la date dans la box,
-  puis *Download review (.json)* et
+  *Validated* sont masquées pendant la review. Ou, avec *▣ One file*,
+  passez les fichiers un par un : une fiche par fichier (grande vignette,
+  les shots d'un bloc, les notes, un ✓ / ✗ par département et, pour un
+  bloc, un champ de retake par shot), *Previous* / *Next* ou ← / → selon
+  les filtres, Échap pour revenir au tableau. La box résume le travail
+  (reviewed, validated, retakes). Remplissez l'auteur, le rôle et la date
+  dans la box, puis *Download review (.json)* et
   envoyez-le : **Import review** le prend comme un `.xlsx`. La page garde
   ce que vous écrivez dans votre navigateur au fil de l'eau (un
   rechargement le retrouve, dans le même navigateur -- pas en navigation
