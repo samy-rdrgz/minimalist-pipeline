@@ -489,7 +489,9 @@ class M_PIPELINE_OT_edit_entry(bpy.types.Operator):
 
         row = layout.split(factor=TITLE_WIDTH, align=True)
         row.label(text="Departments", icon="COLOR")
-        row.prop_menu_enum(self, "departments", text=_departments_label(self.departments))
+        row.prop_menu_enum(
+            self, "departments", text=_departments_label(self.departments)
+        )
 
         row = layout.split(factor=TITLE_WIDTH, align=True)
         row.label(text="Version", icon="LINKED")
@@ -645,13 +647,13 @@ class M_PIPELINE_OT_import_review(bpy.types.Operator):
     bl_idname = "m_pipeline.import_review"
     bl_label = "Import review"
     bl_description = (
-        "Create notes from a review spreadsheet sent back by production "
-        "(the .xlsx downloaded from a snapshot). Lines already imported are "
-        "skipped"
+        "Create notes from a review sent back by production: the .xlsx "
+        "downloaded from a snapshot, or the .json its page's Review makes. "
+        "Lines already imported are skipped"
     )
 
     filepath: bpy.props.StringProperty(subtype="FILE_PATH")
-    filter_glob: bpy.props.StringProperty(default="*.xlsx", options={"HIDDEN"})
+    filter_glob: bpy.props.StringProperty(default="*.xlsx;*.json", options={"HIDDEN"})
 
     def invoke(self, context, event):
         if not get_active_project_root():
@@ -662,8 +664,8 @@ class M_PIPELINE_OT_import_review(bpy.types.Operator):
 
     def execute(self, context):
         path = Path(bpy.path.abspath(self.filepath))
-        if not path.is_file() or path.suffix.lower() != ".xlsx":
-            self.report({"ERROR"}, "No valid .xlsx file selected.")
+        if not path.is_file() or path.suffix.lower() not in (".xlsx", ".json"):
+            self.report({"ERROR"}, "No review (.xlsx or .json) selected.")
             return {"CANCELLED"}
         try:
             plan = review_import_plan(path)
@@ -711,9 +713,14 @@ class M_PIPELINE_OT_import_review_confirm(bpy.types.Operator):
             row.label(text=f"Imported as: {plan['role'].upper()}", icon="SOLO_ON")
             col.label(text=f"By: {plan['author']}", icon="USER")
         else:
-            col.label(text="No role (a template from before 1.1.2): the team's notes", icon="INFO")
+            col.label(
+                text="No role (a template from before 1.1.2): the team's notes",
+                icon="INFO",
+            )
         col.separator()
-        col.label(text=f"{plan['notes']} note line(s) -- already imported ones are skipped")
+        col.label(
+            text=f"{plan['notes']} note line(s) -- already imported ones are skipped"
+        )
         validations = plan["validations"]
         col.label(text=f"{len(validations)} validation change(s):")
         for v in validations[:_IMPORT_LINES_SHOWN]:
@@ -789,10 +796,12 @@ def _run_review_import(self, path: Path) -> set:
     # "Popup-chaining".
     if _description_changes:
         bpy.app.timers.register(
-            lambda: bpy.ops.m_pipeline.review_descriptions(
-                "INVOKE_DEFAULT", summary=message, icon=icon
-            )
-            and None,
+            lambda: (
+                bpy.ops.m_pipeline.review_descriptions(
+                    "INVOKE_DEFAULT", summary=message, icon=icon
+                )
+                and None
+            ),
             first_interval=0.05,
         )
     else:
@@ -803,10 +812,12 @@ def _run_review_import(self, path: Path) -> set:
 def _show_import_summary(message: str, icon: str) -> None:
     """The review import's result popup, one tick later (popup-chaining)."""
     bpy.app.timers.register(
-        lambda: bpy.ops.m_pipeline.text_popup(
-            "INVOKE_DEFAULT", title="Review import", message=message, icon=icon
-        )
-        and None,
+        lambda: (
+            bpy.ops.m_pipeline.text_popup(
+                "INVOKE_DEFAULT", title="Review import", message=message, icon=icon
+            )
+            and None
+        ),
         first_interval=0.05,
     )
 
@@ -1076,7 +1087,11 @@ class PIPELINE_PG_monitoring(bpy.types.PropertyGroup):
                 "Oldest open RTK first",
                 "Files with an open RTK first, the one waiting longest on top",
             ),
-            ("work", "Oldest work first", "The file whose latest save is the oldest on top"),
+            (
+                "work",
+                "Oldest work first",
+                "The file whose latest save is the oldest on top",
+            ),
         ],
         name="",
         description="Order of the list",
@@ -1306,13 +1321,17 @@ class M_PIPELINE_OT_toggle_department_approval(bpy.types.Operator):
 
     @classmethod
     def description(cls, context, properties):
-        return properties.custom_tooltip or "Validate this done department for your role."
+        return (
+            properties.custom_tooltip or "Validate this done department for your role."
+        )
 
     def execute(self, context):
         filepath = Path(self.filepath or bpy.data.filepath)
         role = get_user_role(context)
         if not role:
-            self.report({"WARNING"}, "Set your validation role in the preferences first.")
+            self.report(
+                {"WARNING"}, "Set your validation role in the preferences first."
+            )
             return {"CANCELLED"}
         data = TrackingStatusCache.get(str(filepath))
         approved = role in (data.get("approvals") or {}).get(self.department, {})

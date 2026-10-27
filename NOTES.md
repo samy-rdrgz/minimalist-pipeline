@@ -3049,6 +3049,25 @@ the template's columns and dropdowns, an import validating two
 departments with a note, refused after a newer stable, refused without a
 Role.
 
+Review on the page (1.1.5): the same rows, written by the snapshot's own
+script instead of a spreadsheet (`_JS`, after the filters; `_review_bar()`).
+Each row carries what a review row needs (`_item_attrs()`: `data-file`,
+`-stable`, `-desc` -- filename, stable_version, description_exported --,
+`-shots` for the tag buttons, `-valid` the top role's validations); the
+roles and the file name come in `<script id="review-meta">`. The controls
+are built the first time Review is turned on (a page of 125 rows stays
+light until then). A ✗ with no text exports "no", with text the text;
+*all done* exports "ok" for each done department without a value of its
+own -- so the row is a plain v4 row and `_row_actions()` reads it as is.
+Exported as `{"format": REVIEW_JSON_FORMAT, "schema_version", "author",
+"role", "review_date", "rows"}`; `read_review()` picks `read_review_json()`
+by the extension, and the plan, the import and the description changes
+all go through it. The draft lives in `localStorage` under the project and
+the snapshot's date, written on every change (try/catch: a private window
+or a blocked storage says so, "download it before closing"); a reload
+restores it and turns Review on. No server: the person downloads the file
+and sends it, as with the spreadsheet.
+
 ## Entries for several departments
 
 An entry's departments are a list now: one RTK "the ball's contact" is

@@ -6,6 +6,7 @@ import base64
 import hashlib
 import html
 import io
+import json
 import math
 import os
 import re
@@ -806,11 +807,28 @@ def render_html(snapshot: dict) -> str:
         "retake — <b>one line per retake</b>, Alt+Enter for the next one, "
         "<b>[sh020] [f12-40]</b> at its start for a shot of a block and its "
         "frames. Then send the file back as is.</p>",
+        "<p>Or review right here: <b>Review</b>, in the bar below, opens a "
+        "box per department on each row; then download the review (.json) "
+        "and send it back.</p>",
         "</div>",
         "</header>",
+        # What the in-page review needs to write a file the import reads.
+        '<script type="application/json" id="review-meta">'
+        + json.dumps(
+            {
+                "project": meta.get("project") or "",
+                "snapshot": meta.get("scan_started_at") or "",
+                "roles": [r["name"] for r in meta.get("validation_roles", [])],
+                "schema_version": SCHEMA_VERSION,
+                "format": REVIEW_JSON_FORMAT,
+                "file_name": snapshot_filename(snapshot, "json", "review"),
+            }
+        ).replace("</", "<\\/")
+        + "</script>",
         _render_overview(snapshot),
         "<nav>",
         _render_filters(snapshot),
+        _review_bar(),
         "</nav>",
         f'<p class="legend">{legend}</p>',
         '<p class="legend muted">Done: each required department counts for an '
@@ -1242,7 +1260,30 @@ def _render_filters(snapshot: dict) -> str:
         '<label class="chip" title="Done todos/RTKs, kept in the snapshot but hidden">'
         '<input id="f-closed" type="checkbox">Closed notes</label>'
         f"{_columns_menu(departments, bool(snapshot['meta'].get('validation_role')))}"
-        "</div></div>"
+        "</div>"
+        '<div class="grp"><button type="button" id="rv-mode" class="chip rv-chip" '
+        'aria-pressed="false" title="Validate departments and write retakes on '
+        'this page, then download the review to send back">✎ Review</button></div>'
+        "</div>"
+    )
+
+
+def _review_bar() -> str:
+    """The in-page review's bar, under the filters while Review is on (_JS):
+    who and as what, the changes so far, the file to send back."""
+    return (
+        '<div id="rv" class="rv" hidden>'
+        '<span class="gl">Review</span>'
+        '<label>Author <input id="rv-author" type="text" placeholder="prod" size="12"></label>'
+        '<label>Role <select id="rv-role"><option value="">pick one</option></select></label>'
+        '<label>Date <input id="rv-date" type="date"></label>'
+        '<span id="rv-count" class="rv-count">no change yet</span>'
+        '<button type="button" id="rv-save" class="btn small">Download review (.json)</button>'
+        '<label class="chip" title="Load a review downloaded earlier, to go on with it">'
+        '<input id="rv-load" type="file" accept=".json,application/json">Load a review…</label>'
+        '<button type="button" id="rv-clear" class="chip">Clear</button>'
+        '<span id="rv-saved" class="rv-saved"></span>'
+        "</div>"
     )
 
 
@@ -1273,13 +1314,24 @@ def _slug(name: str) -> str:
 
 
 def _item_attrs(item: dict) -> str:
-    """data-* the filter script matches on -- same for a row and its notes card."""
+    """data-* the filter script matches on -- same for a row and its notes
+    card -- and what the in-page review writes back (data-file, -stable,
+    -desc: a review row's filename, stable_version, description_exported;
+    data-shots: a block's, for the [sh020] buttons)."""
     states = " ".join(f"{d}:{st}" for d, st in item["departments"].items())
+    shots = " ".join(t[0] for t in item.get("shot_thumbnails") or [])
+    if not shots and item["kind"] == "shot" and "-" in item["name"]:
+        shots = " ".join(_owner_shots(Path(item["name"].split("_", 1)[-1])))
+    validated = " ".join(d for d, v in (item.get("validated") or {}).items() if v)
     return (
         f'data-name="{_e(item["name"].lower())}" data-group="{_e(item["group"])}" '
         f'data-states="{_e(states)}" data-rtk="{item["open_rtk"]}" '
         f'data-notes="{item["open_notes"]}" '
-        f'data-farm="{int(bool(item.get("farm") or item.get("to_check")))}"'
+        f'data-farm="{int(bool(item.get("farm") or item.get("to_check")))}" '
+        f'data-file="{_e(_stem(item["current_version"]) or item["name"])}" '
+        f'data-stable="{_e(_stem(item["stable_version"]) or "")}" '
+        f'data-desc="{_e(item["description"])}" data-shots="{_e(shots)}" '
+        f'data-valid="{_e(validated)}"'
     )
 
 
@@ -1968,6 +2020,41 @@ transform:translateX(-50%)}.today.l{transform:none}.today.r{transform:translateX
 /* Narrow: the timeline's bands stack (label, band, value). */
 @media (max-width:640px){.tl .bars{grid-template-columns:1fr;row-gap:4px}
 .tl .bars>span:empty{display:none}.tl .bv{text-align:left;margin-bottom:8px}}
+/* In-page review: its bar under the filters, a box per department. */
+.rv{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;padding-top:8px;
+border-top:1px dashed var(--line)}
+.rv label{display:flex;gap:6px;align-items:center;color:var(--muted);font-size:13px}
+.rv input[type=text],.rv input[type=date],.rv select{font:inherit;font-size:13px;padding:3px 8px;
+border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--fg)}
+#rv-role{border-color:var(--role)}
+.btn.small{padding:5px 12px;font-size:13px;border:0;cursor:pointer;font-family:inherit}
+.rv-count{font-size:13px;color:var(--muted)}.rv-count.some{color:var(--role);font-weight:600}
+.rv-saved{font-size:12px;color:var(--muted)}
+.rv-chip[aria-pressed="true"]{color:#fff;background:var(--role);border-color:var(--role)}
+body:not(.reviewing) .rvc,body:not(.reviewing) .rvg,body:not(.reviewing) .rvt,
+body:not(.reviewing) .rvtags{display:none}
+.rvc,.rvg{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.rvc{flex-wrap:nowrap;white-space:nowrap}
+.rvb{font:inherit;font-size:11px;line-height:16px;padding:1px 8px;border-radius:999px;
+border:1px solid var(--line);background:var(--card);color:var(--muted);cursor:pointer}
+.rvb:hover:not(:disabled){border-color:var(--fg);color:var(--fg)}
+.rvb:disabled{opacity:.3;cursor:default}
+.rvb.ok[aria-pressed="true"],.rvb.all[aria-pressed="true"]{color:#fff;background:var(--done);
+border-color:var(--done)}
+.rvb.ok.via{color:var(--done);background:var(--done-bg);border-color:var(--done)}
+.rvb.rt[aria-pressed="true"],.rvb.gen[aria-pressed="true"]{color:#fff;background:var(--rtk);
+border-color:var(--rtk)}
+.rvb.desc[aria-pressed="true"]{color:#fff;background:var(--accent);border-color:var(--accent)}
+.rvt{display:block;width:100%;min-width:170px;margin-top:4px;font:inherit;font-size:12px;
+padding:4px 6px;border:1px solid var(--rtk);border-radius:6px;background:var(--card);
+color:var(--fg);resize:vertical}
+.rvt.rvdesc{border-color:var(--accent)}
+.rvtags{display:flex;flex-wrap:wrap;gap:3px;margin-top:4px}
+.rvtag{font:inherit;font-size:10px;line-height:15px;padding:0 5px;border-radius:3px;border:0;
+background:var(--line);color:var(--fg);cursor:pointer}
+.rvtag:hover{background:var(--rtk);color:#fff}
+tr.item.rv-changed>td.name{box-shadow:inset 3px 0 var(--role)}
+.rvt[hidden],.rvtags[hidden]{display:none}
 @media print{nav,.review,.jump,.stuck{display:none}.scroll{overflow:visible}}
 """
 
@@ -2083,6 +2170,153 @@ document.querySelectorAll('details.sec').forEach(function(d){
 d.addEventListener('toggle',size);});
 window.addEventListener('scroll',place,{passive:true});
 window.addEventListener('resize',function(){navHeight();size();});navHeight();apply();
+// In-page review (the Review chip): a box per department on each row, a
+// file the addon's Import review reads (REVIEW_JSON_FORMAT: a v4 template's
+// rows), the work in progress kept in this browser.
+var rvMeta=JSON.parse($('review-meta').textContent),
+rvKey='mp-review:'+rvMeta.project+':'+rvMeta.snapshot,
+OKS=['ok','yes','oui','v','x','✓','✔','valid','validé','valide'],NOS=['no','non'],
+FIXED=['group','filename','description','description_exported','stable_version','wip_version','global'],
+rv={author:'',role:'',date:'',files:{}},rvBuilt=false,rows={};
+document.querySelectorAll('tr.item').forEach(function(el){rows[el.dataset.file]=el;});
+function states(el){var o={};el.dataset.states.split(' ').filter(Boolean).forEach(function(x){
+var p=x.split(':');o[p[0]]=p[1];});return o;}
+function done(st){return st==='done'||st==='rework';}
+function entry(f){return rv.files[f]||(rv.files[f]={deps:{},all:false,text:'',desc:null});}
+function changes(e){var n=Object.keys(e.deps).length+(e.all?1:0)+(e.text.trim()?1:0);
+var el=rows[arguments[1]];if(e.desc!==null&&el&&e.desc.trim()&&e.desc.trim()!==el.dataset.desc)n++;
+return n;}
+function count(){var n=0,files=0;Object.keys(rv.files).forEach(function(f){
+var c=changes(rv.files[f],f);n+=c;if(c)files++;});return[n,files];}
+function save(){try{localStorage.setItem(rvKey,JSON.stringify(rv));
+var d=new Date();$('rv-saved').textContent='Kept in this browser ('+
+('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2)+') -- download it to send it';
+}catch(e){$('rv-saved').textContent='Not kept by this browser: download it before closing';}}
+function tagButtons(el,ta){var shots=el.dataset.shots.split(' ').filter(Boolean);
+if(shots.length<2)return null;var box=document.createElement('div');box.className='rvtags';
+shots.forEach(function(s){var b=document.createElement('button');b.type='button';
+b.className='rvtag';b.textContent='['+s+']';b.title='Start the line with it: a retake of that shot only';
+b.addEventListener('click',function(){var v=ta.value,at=ta.selectionStart,
+start=v.lastIndexOf(String.fromCharCode(10),at-1)+1;
+ta.value=v.slice(0,start)+'['+s+'] '+v.slice(start);ta.focus();
+ta.dispatchEvent(new Event('input'));});box.appendChild(b);});return box;}
+function area(cls,ph){var t=document.createElement('textarea');t.className='rvt '+cls;
+t.rows=2;t.placeholder=ph;t.hidden=true;return t;}
+var RT='One retake per line. [sh020] [f12-40] at its start for a shot / frames, note: for a remark';
+function build(){rvBuilt=true;
+Object.keys(rows).forEach(function(f){var el=rows[f],st=states(el),
+valid=el.dataset.valid.split(' ');
+el.querySelectorAll('td[data-col^="d:"]').forEach(function(td){var d=td.dataset.col.slice(2);
+if(!(d in st))return;var box=document.createElement('div');box.className='rvc';
+var ok=document.createElement('button');ok.type='button';ok.className='rvb ok';ok.textContent='✓';
+ok.dataset.f=f;ok.dataset.d=d;ok.dataset.act='ok';ok.disabled=!done(st[d]);
+ok.title=done(st[d])?(valid.indexOf(d)>=0?'Already validated -- validate it again as your role':
+'Validate it as your role'):'Not done: nothing to validate yet';
+var rt=document.createElement('button');rt.type='button';rt.className='rvb rt';
+rt.textContent='✗ retake';rt.dataset.f=f;rt.dataset.d=d;rt.dataset.act='rt';
+rt.title='Not validated: write the retakes (or none, to just withdraw a validation)';
+var ta=area('dep',RT);ta.dataset.f=f;ta.dataset.d=d;
+box.appendChild(ok);box.appendChild(rt);td.appendChild(box);
+var tags=tagButtons(el,ta);if(tags){tags.hidden=true;tags.dataset.for=d;td.appendChild(tags);}
+td.appendChild(ta);});
+var name=el.querySelector('td.name'),g=document.createElement('div');g.className='rvg';
+var any=Object.keys(st).some(function(d){return done(st[d]);});
+[['all','✓ all done',!any,'Validate every department done so far'],
+['gen','+ general retake',false,'A retake for no department in particular'],
+['desc','✎ description',false,'Change the description']].forEach(function(a){
+var b=document.createElement('button');b.type='button';b.className='rvb '+a[0];
+b.textContent=a[1];b.disabled=a[2];b.title=a[3];b.dataset.f=f;b.dataset.act=a[0];g.appendChild(b);});
+name.appendChild(g);var gt=area('gen',RT);gt.dataset.f=f;gt.dataset.g='text';
+var tags=tagButtons(el,gt);if(tags){tags.hidden=true;tags.dataset.for='-gen';name.appendChild(tags);}
+name.appendChild(gt);var dt=area('desc','The new description');dt.dataset.f=f;dt.dataset.g='desc';
+dt.classList.add('rvdesc');name.appendChild(dt);});paint();}
+function paint(){if(!rvBuilt)return;
+Object.keys(rows).forEach(function(f){var el=rows[f],e=rv.files[f]||{deps:{},all:false,text:'',desc:null},
+st=states(el);
+el.querySelectorAll('.rvc').forEach(function(box){var d=box.querySelector('.ok').dataset.d,
+v=e.deps[d],td=box.parentNode,ta=td.querySelector('textarea.dep'),tags=td.querySelector('.rvtags');
+box.querySelector('.ok').setAttribute('aria-pressed',!!(v&&v.ok));
+box.querySelector('.ok').classList.toggle('via',!v&&e.all&&done(st[d]));
+box.querySelector('.rt').setAttribute('aria-pressed',!!(v&&v.no));
+ta.hidden=!(v&&v.no);if(tags)tags.hidden=ta.hidden;if(v&&v.no&&ta.value!==v.text)ta.value=v.text;});
+var g=el.querySelector('.rvg');if(!g)return;
+g.querySelector('.all').setAttribute('aria-pressed',e.all);
+var gt=el.querySelector('textarea.gen'),dt=el.querySelector('textarea.rvdesc'),
+gtags=el.querySelector('.rvtags[data-for="-gen"]');
+if(gt.dataset.open!=='1')gt.hidden=!e.text;gt.value=e.text;if(gtags)gtags.hidden=gt.hidden;
+g.querySelector('.gen').setAttribute('aria-pressed',!gt.hidden);
+if(e.desc===null)dt.hidden=true;else{dt.hidden=false;if(dt.value!==e.desc)dt.value=e.desc;}
+g.querySelector('.desc').setAttribute('aria-pressed',!dt.hidden);
+el.classList.toggle('rv-changed',changes(e,f)>0);});
+var c=count();$('rv-count').textContent=c[0]?c[0]+' change'+(c[0]>1?'s':'')+' on '+
+c[1]+' file'+(c[1]>1?'s':''):'no change yet';$('rv-count').classList.toggle('some',c[0]>0);
+size();}
+document.addEventListener('click',function(ev){var b=ev.target.closest('.rvb');if(!b||b.disabled)return;
+var e=entry(b.dataset.f),d=b.dataset.d,act=b.dataset.act;
+if(act==='ok'){if(e.deps[d]&&e.deps[d].ok)delete e.deps[d];else e.deps[d]={ok:1};}
+else if(act==='rt'){if(e.deps[d]&&e.deps[d].no)delete e.deps[d];
+else{e.deps[d]={no:1,text:''};setTimeout(function(){var ta=rows[b.dataset.f].querySelector(
+'textarea.dep[data-d="'+CSS.escape(d)+'"]');if(ta)ta.focus();});}}
+else if(act==='all')e.all=!e.all;
+else if(act==='gen'){var gt=rows[b.dataset.f].querySelector('textarea.gen');
+if(gt.hidden){gt.dataset.open='1';gt.hidden=false;gt.focus();}else{gt.dataset.open='';e.text='';}}
+else if(act==='desc'){e.desc=e.desc===null?rows[b.dataset.f].dataset.desc:null;}
+paint();save();});
+document.addEventListener('input',function(ev){var t=ev.target;if(!t.classList.contains('rvt'))return;
+var e=entry(t.dataset.f);if(t.dataset.d){var v=e.deps[t.dataset.d];if(v)v.text=t.value;}
+else if(t.dataset.g==='text')e.text=t.value;else if(t.dataset.g==='desc')e.desc=t.value;
+paint();save();});
+['author','role','date'].forEach(function(k){$('rv-'+k).addEventListener('input',function(){
+rv[k]=$('rv-'+k).value;save();});});
+rvMeta.roles.forEach(function(r){var o=document.createElement('option');o.value=r;o.textContent=r;
+$('rv-role').appendChild(o);});
+function setMode(on){document.body.classList.toggle('reviewing',on);$('rv').hidden=!on;
+$('rv-mode').setAttribute('aria-pressed',on);if(on&&!rvBuilt)build();navHeight();size();}
+$('rv-mode').addEventListener('click',function(){setMode(!document.body.classList.contains('reviewing'));});
+function fields(){$('rv-author').value=rv.author;$('rv-role').value=rv.role;$('rv-date').value=rv.date;}
+function exportRows(){var out=[];Object.keys(rv.files).forEach(function(f){var e=rv.files[f],el=rows[f];
+if(!el||!changes(e,f))return;var st=states(el),row={filename:f,stable_version:el.dataset.stable,
+description_exported:el.dataset.desc};
+Object.keys(e.deps).forEach(function(d){var v=e.deps[d];row[d]=v.ok?'ok':(v.text.trim()||'no');});
+if(e.all)Object.keys(st).forEach(function(d){if(done(st[d])&&!(d in row))row[d]='ok';});
+if(e.text.trim())row.global=e.text.trim();
+if(e.desc!==null&&e.desc.trim()&&e.desc.trim()!==el.dataset.desc)row.description=e.desc.trim();
+out.push(row);});return out;}
+$('rv-save').addEventListener('click',function(){var r=exportRows();
+if(!r.length){alert('Nothing to send yet: validate or write a retake first.');return;}
+var needsRole=r.some(function(row){return Object.keys(row).some(function(k){return FIXED.indexOf(k)<0||k==='global';});});
+if(needsRole&&!rv.role){alert('Pick your role first: your validations and retakes are recorded under it.');
+$('rv-role').focus();return;}
+var data={format:rvMeta.format,schema_version:rvMeta.schema_version,project:rvMeta.project,
+snapshot:rvMeta.snapshot,author:rv.author,role:rv.role,review_date:rv.date,
+written_at:new Date().toISOString().slice(0,19),rows:r};
+var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],
+{type:'application/json'}));a.download=rvMeta.file_name;document.body.appendChild(a);a.click();
+setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},1000);});
+$('rv-load').addEventListener('change',function(){var file=this.files[0];this.value='';if(!file)return;
+var reader=new FileReader();reader.onload=function(){var data;
+try{data=JSON.parse(reader.result);}catch(e){alert('Not a review file.');return;}
+if(data.format!==rvMeta.format){alert('Not a review downloaded from a snapshot page.');return;}
+if(data.project!==rvMeta.project&&!confirm('This review is for '+data.project+', not '+rvMeta.project+'. Load it anyway?'))return;
+rv={author:data.author||'',role:data.role||'',date:data.review_date||'',files:{}};var unknown=0;
+(data.rows||[]).forEach(function(row){var f=row.filename,el=rows[f];if(!el){unknown++;return;}
+var e=entry(f),st=states(el);Object.keys(row).forEach(function(k){if(FIXED.indexOf(k)>=0)return;
+var v=String(row[k]).trim(),l=v.toLowerCase();
+if(OKS.indexOf(l)>=0)e.deps[k]={ok:1};else if(NOS.indexOf(l)>=0)e.deps[k]={no:1,text:''};
+else e.deps[k]={no:1,text:v};});
+var gv=String(row.global||'').trim(),gl=gv.toLowerCase();
+if(OKS.indexOf(gl)>=0)e.all=true;else if(NOS.indexOf(gl)>=0)Object.keys(st).forEach(function(d){
+if(done(st[d])&&!e.deps[d])e.deps[d]={no:1,text:''};});else e.text=gv;
+if(row.description)e.desc=row.description;});
+fields();setMode(true);paint();save();
+if(unknown)alert(unknown+' file(s) of that review are not on this page (renamed, or another snapshot).');};
+reader.readAsText(file);});
+$('rv-clear').addEventListener('click',function(){if(!count()[0]||confirm('Clear this review? What you wrote here is lost (a downloaded file is kept).')){
+rv={author:rv.author,role:rv.role,date:rv.date,files:{}};
+document.querySelectorAll('textarea.rvt').forEach(function(t){t.value='';t.dataset.open='';});paint();save();}});
+try{var kept=JSON.parse(localStorage.getItem(rvKey)||'null');if(kept&&kept.files){rv=kept;
+if(count()[0]){setMode(true);$('rv-saved').textContent='Your review in progress was restored';}}}catch(e){}
+if(!rv.date)rv.date=new Date().toISOString().slice(0,10);fields();paint();
 })();
 """
 
@@ -2658,6 +2892,58 @@ def parse_review_date(value: str) -> datetime | None:
         raise PipelineError(f"Review date '{value}' not understood (use YYYY-MM-DD).")
 
 
+# A review written on the snapshot page itself (_JS's Review): the rows of a
+# v4 template, as JSON.
+REVIEW_JSON_FORMAT = "minimalist-pipeline-review"
+
+
+def read_review_json(path: Path) -> dict:
+    """read_review_xlsx()'s dict from a review downloaded from the snapshot
+    page: {"format", "schema_version", "author", "role", "review_date",
+    "rows": [{"filename", "stable_version", "description_exported",
+    "description"?, <department>: "ok" / "no" / retakes, "global"?}]}."""
+    try:
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        raise PipelineError(f"Could not read {Path(path).name}: {e}")
+    if not isinstance(data, dict) or data.get("format") != REVIEW_JSON_FORMAT:
+        raise PipelineError(
+            f"{Path(path).name} isn't a review downloaded from a snapshot page."
+        )
+    schema = data.get("schema_version")
+    if not isinstance(schema, int):
+        raise PipelineError(f"{Path(path).name}: no schema_version.")
+    if schema > SCHEMA_VERSION:
+        raise PipelineError(
+            f"{Path(path).name} comes from a newer addon version (review "
+            f"v{schema}); update the addon to import it."
+        )
+    rows = [
+        {
+            str(k).strip().lower(): str(v).strip()
+            for k, v in row.items()
+            if v is not None
+        }
+        for row in data.get("rows") or []
+        if isinstance(row, dict)
+    ]
+    return {
+        "schema_version": schema,
+        "author": str(data.get("author") or "").strip(),
+        "role": str(data.get("role") or "").strip().lower(),
+        "review_date": parse_review_date(str(data.get("review_date") or "")),
+        "columns": {k for row in rows for k in row},
+        "rows": rows,
+    }
+
+
+def read_review(path: Path) -> dict:
+    """A filled review: the snapshot page's .json, or the .xlsx template."""
+    if Path(path).suffix.lower() == ".json":
+        return read_review_json(path)
+    return read_review_xlsx(path)
+
+
 def read_review_xlsx(path: Path) -> dict:
     """{"schema_version", "author", "role", "review_date", "columns", "rows"}
     from a filled review template, every sheet's rows (v4: Shots, Assets)
@@ -2861,8 +3147,8 @@ def review_import_plan(path: Path, review: dict | None = None) -> dict:
     "approved", "stable"}], "refused": [(label, reason)]}. A template from
     1.1.2 on needs its Role, and that role must be one of the project's:
     raises PipelineError otherwise. An older one has no role (the team's
-    notes) and no validation. review: read_review_xlsx(path), if read."""
-    review = review or read_review_xlsx(path)
+    notes) and no validation. review: read_review(path), if read."""
+    review = review or read_review(path)
     role = review["role"]
     roles = {r["name"] for r in validation_roles()}
     schema = review["schema_version"]
@@ -2946,7 +3232,7 @@ def import_review_xlsx(path: Path) -> dict:
     Every note and validation under the template's Role (none for one made
     before 1.1.2) -- see review_import_plan().
     Returns {"imported", "duplicates", "validated", "skipped": [(label, reason)]}."""
-    review = read_review_xlsx(path)
+    review = read_review(path)
     plan = review_import_plan(path, review)
     role = plan["role"] or None
     author = review["author"] or "prod"
@@ -3046,7 +3332,7 @@ def review_description_changes(path: Path) -> list[dict]:
     current description would revert every one changed since the export.
     An empty cell is no change: the prod not writing one must never wipe a
     description out."""
-    review = read_review_xlsx(path)
+    review = read_review(path)
     if "description_exported" not in review["columns"]:
         return []
     changes, seen = [], set()
