@@ -888,7 +888,7 @@ def execute_compile_request() -> dict:
             if not ffmpeg:
                 raise PipelineError("ffmpeg not found on this machine")
             cmd = preview_command(job, get_active_project_root(), ffmpeg)
-            p = popen_logged(cmd, job_id, "preview")
+            p = popen_logged(cmd, job_id, "preview", progress=True)
         except Exception as e:
             log("ERROR", "farm", f"Could not launch the compile of {job_id}: {e}")
             _end_compile(job_id, success=False)

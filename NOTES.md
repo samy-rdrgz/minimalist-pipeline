@@ -3124,3 +3124,18 @@ Dialogs and panels get a width, the monitoring windows and the snapshot
 the page's. `docs/` is left out of the extension package
 (`blender_manifest.toml`), so they never weigh on the download. Update a
 capture when its screen changes: an outdated one misleads more than none.
+
+## ffmpeg passes: a %, from -progress
+
+The frame check, a compilation and a preview showed only "*_start" until
+they ended. `popen_logged(..., progress=True)` adds ffmpeg's global
+`-progress <requests>/request_<job_id>.progress` (deleted first, so a new
+pass never shows the last one's `progress=end`). ffmpeg writes
+`frame=` / `out_time_us=` / `progress=` blocks about twice a second.
+The farm reader thread (`loop._ffmpeg_progress_for_jobs()`) reads only
+the last 2 KB of it for the jobs in one of those stages: frames over the
+job's range for the frame check and the compilation; for a preview, time
+encoded over the sum of its inputs' `Duration:` lines, which ffmpeg
+writes at the top of its pass in the job log -- read once per pass and
+cached (a preview's sources are videos, their frame counts unknown).
+`discard_job_log()` and `archive()` delete the file.

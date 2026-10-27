@@ -38,6 +38,14 @@ what, snapshot thumbnails without letterbox bands.
   "worker idle" -- it read plain idle, while the machine was busy.
   Its lines sit left-aligned under the worker's, like every other row
   (they landed in the row's right half).
+- **Farm: the frame check, a compilation and a preview show their %**:
+  ffmpeg writes its progress to a small file next to the job's log
+  (`-progress`), read with the rest of the farm's state -- Farm
+  monitoring's Jobs ("compilation_start - 40% - 2m00s (≃ 3m00s
+  remaining)"), the farm host's and a compiling worker's rows, and Job
+  details. A preview's % is its time encoded over its videos' total
+  duration (from ffmpeg's own log). A preview compiled by a worker still
+  on 1.1.3 shows none.
 - **Beginner tips for what came after the first release** (Preferences >
   Experience level: Beginner): Farm monitoring's Jobs (states, Retry,
   Recompile, Archive) and Workers (greyed workers, Forget, details),

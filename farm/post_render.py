@@ -106,7 +106,11 @@ def checks_images(job_path: Path):
                 proc = [
                     (
                         popen_logged(
-                            cmd, data["job_id"], "checks_images", merge_stdout=False
+                            cmd,
+                            data["job_id"],
+                            "checks_images",
+                            merge_stdout=False,
+                            progress=True,
                         ),
                         "local",
                     )
@@ -192,7 +196,9 @@ def compilation(*, project_root: Path, job_path: Path, compilation_settings: str
                 )
                 proc = [
                     (
-                        popen_logged(cmd, data["job_id"], "compilation"),
+                        popen_logged(
+                            cmd, data["job_id"], "compilation", progress=True
+                        ),
                         "local",
                     )
                 ]
@@ -357,7 +363,7 @@ def run_preview_compile(job_id: str, project_root: Path) -> None:
             cmd = preview_command(data, project_root, ffmpeg_bin)
             proc = [
                 (
-                    popen_logged(cmd, data["job_id"], "preview"),
+                    popen_logged(cmd, data["job_id"], "preview", progress=True),
                     "local",
                 )
             ]

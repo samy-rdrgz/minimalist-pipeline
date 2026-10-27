@@ -392,6 +392,14 @@ def draw_farm_jobs(self, context, layout):
                 f" - {elapsed_str} ({remaining_str})"
             )
 
+        elif _ffmpeg_progress(j["job_id"]) is not None:
+            # An ffmpeg pass (frame check, compilation, preview): its own
+            # progress, the time left at its pace so far.
+            done = _ffmpeg_progress(j["job_id"])
+            text = f"{stage} - {done:.0%} - {elapsed_str}"
+            if 0.02 < done < 1:
+                text += f" (≃ {_duration(elapsed / done - elapsed)} remaining)"
+
         else:
             text = f"{stage} - {elapsed_str}"
 
@@ -473,6 +481,19 @@ def draw_farm_jobs(self, context, layout):
                 icon="CHECKMARK",
             ).state = state
     draw_pager(pager, page, pages)
+
+
+def _ffmpeg_progress(job_id: str) -> float | None:
+    """How far a job's ffmpeg pass (frame check, compilation, preview) is,
+    0..1, from the monitor cache (loop._ffmpeg_progress_for_jobs()); None
+    when not in one, or nothing written yet. Memory only: draw()-safe."""
+    return (get_monitor_cache().get("ffmpeg_progress") or {}).get(job_id)
+
+
+def _ffmpeg_pct(job_id: str) -> str:
+    """ " 45%" for a job in an ffmpeg pass, "" otherwise."""
+    done = _ffmpeg_progress(job_id)
+    return f" {done:.0%}" if done is not None else ""
 
 
 def _job_name(job: dict) -> str:
@@ -832,7 +853,9 @@ def draw_farm_workers(context, layout):
             if running_jobs:
                 for job in running_jobs:
                     _draw_job_link(
-                        jobs_col, job["job_id"], f"{job['stage']}: {_job_name(job)}"
+                        jobs_col,
+                        job["job_id"],
+                        f"{job['stage']}: {_job_name(job)}{_ffmpeg_pct(job['job_id'])}",
                     )
             else:
                 jobs_col.row().label(text="idle")
@@ -899,7 +922,9 @@ def draw_farm_workers(context, layout):
             continue
         for job in on_host:
             _draw_job_link(
-                cell.row(), job["job_id"], f"host {job['stage']}: {_job_name(job)}"
+                cell.row(),
+                job["job_id"],
+                f"host {job['stage']}: {_job_name(job)}{_ffmpeg_pct(job['job_id'])}",
             )
         if busy:
             current_id = m.get("current_job_id") or ""
@@ -908,6 +933,8 @@ def draw_farm_workers(context, layout):
             # file names -- current_job is its request's full path.
             name = _job_name(job) if job else Path(m.get("current_file") or "").name
             text = f"{m.get('status') or 'render'}: {name or current_id}"
+            if m.get("status") == "compile":  # a preview, on this worker
+                text += _ffmpeg_pct(current_id)
             pace = ((job or {}).get("machine_seconds") or {}).get(m.get("uuid"))
             if pace:
                 text += f"  ({_pace(pace)}/frame)"
@@ -1075,6 +1102,8 @@ def draw_farm_job_details(layout, context):
     field(col, "Machines", machine_names(data.get("used_machines")))
     if data.get("chunk_size"):
         field(col, "Chunks", f"{data['chunk_size']} frames each")
+    if _ffmpeg_progress(job_id) is not None:
+        field(col, "Progress", f"{_ffmpeg_progress(job_id):.0%}")
     stage = ((data.get("stage_history") or [{}])[-1]).get("stage")
     claims = (get_monitor_cache().get("claims") or {}).get(job_id) or {}
     if stage == "render_start":
