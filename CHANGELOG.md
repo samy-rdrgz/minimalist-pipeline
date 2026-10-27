@@ -40,7 +40,8 @@ All notable changes to this addon. Dates are release dates.
   width shared evenly between the departments.
 - The review box: the in-page review first, the `.xlsx` aside, smaller.
 - **Schedule**: each band shows its Validated over its Done, in violet.
-- **Phones**: a compact bar that stays at the top, its filters behind
+- **Phones**: the header (details, review box) folded behind ☰ -- by
+  the title, and in the bar --, opened over the page; a compact bar that stays at the top, its filters behind
   *Filters*, hidden while scrolling down and back on the way up; Review
   starts on *One file*.
 - A table wider than the screen keeps its horizontal scrollbar at the

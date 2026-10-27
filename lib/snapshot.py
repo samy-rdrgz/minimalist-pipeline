@@ -1242,7 +1242,10 @@ def _render_filters(snapshot: dict) -> str:
     # toggles as chips that light up once on, Clear only while filtering.
     return (
         '<div class="navrow">'
-        '<div class="grp links"><span class="gl">Go to</span>'
+        '<div class="grp links">'
+        # On a phone: the header (title, details, review box) behind it.
+        '<button type="button" id="nav-menu" class="chip navmenu" aria-expanded="false" '
+        'aria-label="Project, review">☰</button><span class="gl">Go to</span>'
         f'<a href="#assets">Assets <span id="c-assets">{len(snapshot["assets"])}</span></a>'
         f'<a href="#shots">Shots <span id="c-shots">{len(snapshot["shots"])}</span></a>'
         # On a phone: the filters and Show folded behind it.
@@ -1802,9 +1805,15 @@ background:var(--bg);border-bottom:1px solid var(--line)}
 nav{position:sticky;top:0;transition:transform .2s ease}
 /* A phone: a compact bar, the filters behind "Filters", out of the way
 while scrolling down, back on the way up (_JS). */
-.chip.navmore{display:none}
+.chip.navmore,.chip.navmenu{display:none}
 @media (max-width:699px){nav{gap:6px;padding-top:8px;padding-bottom:8px}nav.away{transform:translateY(-110%)}
-.chip.navmore{display:inline-flex}nav:not(.more) .grp.filters,nav:not(.more) .grp.show{display:none}
+.chip.navmore,.chip.navmenu{display:inline-flex}
+body:not(.hdr-open) header>:not(h1){display:none}header h1{display:flex;align-items:center;gap:10px}
+header h1 .navmenu{margin-left:auto}
+body.hdr-open header{position:fixed;top:0;left:0;right:0;z-index:30;max-height:85vh;overflow:auto;
+background:var(--bg);padding-bottom:16px;box-shadow:0 8px 24px rgba(0,0,0,.25)}
+body.hdr-open::after{content:"";position:fixed;inset:0;z-index:29;background:rgba(0,0,0,.3)}
+.navmenu{font-size:16px;padding:2px 10px}nav:not(.more) .grp.filters,nav:not(.more) .grp.show{display:none}
 nav:has(.filters.active) .navmore{color:var(--accent);border-color:var(--accent)}
 .navrow{gap:8px 16px}.filters select{max-width:46%}}
 .links,.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
@@ -2172,11 +2181,22 @@ var ctl=['f-name','f-group','f-dep','f-state','f-rtk','f-notes','f-closed','f-fa
 function navHeight(){var sticky=getComputedStyle(nav).position==='sticky',
 h=sticky?nav.offsetHeight:0,root=document.documentElement.style;
 root.setProperty('--nav-h',h+16+'px');navTop=nav.classList.contains('away')?0:h;}
+// A phone's header: a sheet over the page from ☰, shut by a click
+// outside it, Esc, or starting the review.
+function sheet(on){document.body.classList.toggle('hdr-open',on);
+$('nav-menu').setAttribute('aria-expanded',on);if($('hdr-menu'))$('hdr-menu').setAttribute('aria-expanded',on);}
+var hm=$('nav-menu').cloneNode(true);hm.id='hdr-menu';document.querySelector('header h1').appendChild(hm);
+[$('nav-menu'),hm].forEach(function(b){b.addEventListener('click',function(ev){ev.stopPropagation();
+sheet(!document.body.classList.contains('hdr-open'));});});
+document.addEventListener('click',function(ev){if(document.body.classList.contains('hdr-open')&&
+!ev.target.closest('header'))sheet(false);});
+document.addEventListener('keydown',function(ev){if(ev.key==='Escape'&&
+document.body.classList.contains('hdr-open')){sheet(false);ev.stopImmediatePropagation();}});
 $('nav-more').addEventListener('click',function(){var on=nav.classList.toggle('more');
 this.setAttribute('aria-expanded',on);navHeight();place();});
 var lastY=window.scrollY;window.addEventListener('scroll',function(){var y=window.scrollY,
 away=nav.classList.contains('away');
-if(window.innerWidth>=700||nav.classList.contains('more')||
+if(window.innerWidth>=700||nav.classList.contains('more')||y<80||
 document.querySelector('header').getBoundingClientRect().bottom>0)away=false;
 else if(y>lastY+6)away=true;else if(y<lastY-6)away=false;
 if(away!==nav.classList.contains('away')){nav.classList.toggle('away',away);navHeight();place();}
@@ -2434,7 +2454,7 @@ if(name)name.style.width=on?'1px':'';
 ths.forEach(function(c){c.style.width=on?(100/ths.length).toFixed(3)+'%':'';});});}
 ['rv-mode','rv-start'].forEach(function(id){$(id).addEventListener('click',function(){
 var on=!document.body.classList.contains('reviewing');setMode(on);
-if(on&&window.innerWidth<700)setView(true);});});
+if(on&&window.innerWidth<700)setView(true);sheet(false);});});
 function fields(){$('rv-author').value=rv.author;$('rv-role').value=rv.role;$('rv-date').value=rv.date;}
 function exportRows(){var out=[];Object.keys(rv.files).forEach(function(f){var e=rv.files[f],el=rows[f];
 if(!el||!changes(e,f))return;var st=states(el),row={filename:f,stable_version:el.dataset.stable,
@@ -2516,7 +2536,7 @@ if(text!=null)x.textContent=text;parent.appendChild(x);return x;}
 function openOne(f){if(f!==oneF)oneOpen={};oneF=f;var el=rows[f],st=states(el),shots=shotsOf(f);
 one.textContent='';var card=add(one,'div','ocard'),top=add(card,'div','otop'),btns=add(top,'div','obtns');
 var back=add(btns,'button','chip','← Table'),prev=add(btns,'button','chip','‹ Previous'),
-who=add(top,'div','owho'),next=add(top,'button','chip','Next ›'),jump=add(top,'select','ojump');
+next=add(btns,'button','chip','Next ›'),who=add(top,'div','owho'),jump=add(top,'select','ojump');
 // Straight to another file: the ones the filters keep, by group, ✎ the
 // ones reviewed already.
 jump.setAttribute('aria-label','Go to a file');var og=null,last='';

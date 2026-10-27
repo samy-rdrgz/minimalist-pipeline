@@ -3112,7 +3112,10 @@ so hiding one shares its room out.
 On a phone the bar is sticky too, but compact (filters and Show behind
 *Filters*, `nav.more`) and `nav.away` -- translated out -- while scrolling
 down past the header, back on the way up; `navHeight()` then counts it as
-0 for the sticky table headers. Review on a phone starts on One file:
+0 for the sticky table headers. The header folds to its title on a
+phone: ☰ (in the bar, and copied by _JS next to the title -- the bar
+comes after Progress) opens it as a sheet over the page (`hdr-open`),
+shut by a click outside it, Esc, or starting the review. Review on a phone starts on One file:
 a table that wide is no place to write.
 
 ## Entries for several departments
