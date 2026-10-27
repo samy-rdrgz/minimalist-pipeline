@@ -799,18 +799,12 @@ def render_html(snapshot: dict) -> str:
         f"<div><dt>Addon</dt><dd>Minimalist Pipeline {_e(meta.get('addon_version'))}</dd></div>",
         "</dl>",
         '<div class="review">',
-        f'<a class="btn" download="{_e(xlsx_name)}" '
-        f'href="data:{XLSX_MIME};base64,\n{xlsx}\n">Download the review template (.xlsx)</a>',
-        "<p>On its first sheet, fill in your name, the review date and your "
-        "role. Then, on the Shots and Assets sheets, a cell per department: "
-        "<b>ok</b> validates it, <b>no</b> withdraws that, any other text is a "
-        "retake — <b>one line per retake</b>, Alt+Enter for the next one, "
-        "<b>[sh020] [f12-40]</b> at its start for a shot of a block and its "
-        "frames. Then send the file back as is.</p>",
-        "<p>Or review right here: <b>✎ Review on this page</b> puts a ✓ and a ✗ "
-        "beside each department of each row; then download the review "
-        "(.json) and send it back.</p>",
         _review_bar(),
+        # The spreadsheet, aside: for several reviewers or a shared drive.
+        '<div class="rvside">'
+        f'<a class="btn small ghost" download="{_e(xlsx_name)}" '
+        f'href="data:{XLSX_MIME};base64,\n{xlsx}\n">Spreadsheet (.xlsx)</a>',
+        "<p>Or offline, for several reviewers or a shared drive.</p></div>",
         "</div>",
         "</header>",
         # What the in-page review needs to write a file the import reads.
@@ -1014,15 +1008,24 @@ def _render_timeline(meta: dict, sections) -> str:
             if high > low
             else ""
         )
-        tip = _e(
+        tip = (
             f"{title}: {_pct(done)} done, {_pct(exp)} expected today -- an even "
             f"pace gets to {_pct(done)} on {_day(at['date'])}"
         )
+        # Validated, over Done in the role's violet: never past it.
+        valid = (meta.get("validation") or {}).get(kind) if meta.get("validation_role") else None
+        over = vtext = ""
+        if valid is not None:
+            valid = min(valid, done)
+            tip += f", {_pct(valid)} validated"
+            over = f'<i class="v" style="width:{valid * 100:.2f}%"></i>'
+            vtext = f'<small class="valid">{_pct(valid)} validated</small>'
+        tip = _e(tip)
         rows.append(
             f'<span class="bl" title="{tip}">{_e(title)}</span><span class="bt" '
-            f'title="{tip}"><i class="f" style="width:{low * 100:.2f}%"></i>{gap}'
+            f'title="{tip}"><i class="f" style="width:{low * 100:.2f}%"></i>{gap}{over}'
             f'{line}</span><span class="bv" title="{tip}">{_pct(done)}'
-            f'<small class="{cls}">{rel}</small></span>'
+            f'<small class="{cls}">{rel}</small>{vtext}</span>'
         )
     years = s["start"][:4] != s["end"][:4]
     rows.append(
@@ -1241,7 +1244,10 @@ def _render_filters(snapshot: dict) -> str:
         '<div class="navrow">'
         '<div class="grp links"><span class="gl">Go to</span>'
         f'<a href="#assets">Assets <span id="c-assets">{len(snapshot["assets"])}</span></a>'
-        f'<a href="#shots">Shots <span id="c-shots">{len(snapshot["shots"])}</span></a></div>'
+        f'<a href="#shots">Shots <span id="c-shots">{len(snapshot["shots"])}</span></a>'
+        # On a phone: the filters and Show folded behind it.
+        '<button type="button" id="nav-more" class="chip navmore" aria-expanded="false">'
+        "Filters ▾</button></div>"
         '<div class="grp filters"><span class="gl">Filter</span>'
         '<input id="f-name" type="search" placeholder="Name…" aria-label="Filter by name">'
         f'<select id="f-group" aria-label="Group"><option value="">All groups</option>{groups}</select>'
@@ -1253,7 +1259,7 @@ def _render_filters(snapshot: dict) -> str:
         '<label class="chip" title="In the farm, or rendered and not checked yet">'
         '<input id="f-farm" type="checkbox">Farm</label>'
         '<button id="f-reset" type="button" title="Back to everything">✕ Clear</button></div>'
-        '<div class="grp"><span class="gl">Show</span>'
+        '<div class="grp show"><span class="gl">Show</span>'
         '<button type="button" id="all-notes" class="chip" '
         'title="Unfold every note under its row, or fold them all">All notes '
         f'<span id="c-notes">{open_notes}</span></button>'
@@ -1273,25 +1279,29 @@ def _review_bar() -> str:
     .xlsx (_JS): the switch, then while on who and as what, the changes so
     far, the file to send back."""
     return (
-        '<div class="rv">'
+        '<div id="rv" class="rvmain"><div class="rv">'
         '<button type="button" id="rv-start" class="btn small" aria-pressed="false">'
         "✎ Review on this page</button>"
-        '<span id="rv-count" class="rv-count" title="Files with a change, departments '
-        'validated, retakes written (one per line), validations withdrawn"></span>'
-        '<span id="rv" class="rv" hidden>'
-        '<span class="rvview"><button type="button" id="rv-v-table" class="chip" '
-        'aria-pressed="true">▤ Table</button><button type="button" id="rv-v-one" '
+        '<span class="rvview rvf"><button type="button" id="rv-v-table" class="chip" '
+        'aria-pressed="true">Table</button><button type="button" id="rv-v-one" '
         'class="chip" aria-pressed="false" title="One file at a time, ← → to the '
-        'next">▣ One file</button></span>'
+        'next">One file</button></span>'
+        '<span class="rvf rv">'
         '<label>Author <input id="rv-author" type="text" placeholder="your name" size="12"></label>'
         '<label>Role <select id="rv-role"><option value="">pick one</option></select></label>'
-        '<label>Date <input id="rv-date" type="date"></label>'
+        '<label>Date <input id="rv-date" type="date"></label></span></div>'
+        '<p class="rvhint">Validate (✓) or send back (✗) each department right '
+        "on the page, a table or one file at a time; then download the review "
+        "(.json) and send it.</p>"
+        '<div class="rv rvf">'
         '<button type="button" id="rv-save" class="btn small">Download review (.json)</button>'
         '<label class="chip" title="Load a review downloaded earlier, to go on with it">'
         '<input id="rv-load" type="file" accept=".json,application/json">Load a review…</label>'
         '<button type="button" id="rv-clear" class="chip">Clear</button>'
+        '<span id="rv-count" class="rv-count" title="Files with a change, departments '
+        'validated, retakes written (one per line), validations withdrawn"></span>'
         '<span id="rv-saved" class="rv-saved"></span>'
-        "</span></div>"
+        "</div></div>"
     )
 
 
@@ -1774,14 +1784,26 @@ h3{margin:0 0 8px;font-size:15px}
 .meta{display:flex;flex-wrap:wrap;gap:6px 24px;margin:0 0 16px;color:var(--muted)}
 .meta div{display:flex;gap:6px}.meta dt{font-weight:600}.meta dd{margin:0}
 .review{background:var(--card);border:1px solid var(--line);border-radius:10px;
-padding:14px 16px}
+padding:14px 16px;display:grid;grid-template-columns:minmax(0,1fr) minmax(180px,280px);gap:14px 20px}
 .review p{margin:8px 0 0;color:var(--muted)}
+.rvside{border-left:1px dashed var(--line);padding-left:20px;font-size:12px}
+.rvside p{margin-top:6px}
+.btn.small.ghost{background:none;color:var(--accent);border:1px solid var(--accent)}
+@media (max-width:700px){.review{grid-template-columns:minmax(0,1fr)}
+.rvside{border-left:0;padding-left:0;border-top:1px dashed var(--line);padding-top:12px}}
 .btn{display:inline-block;background:var(--accent);color:#fff;padding:8px 14px;
 border-radius:7px;text-decoration:none;font-weight:600}
 nav{z-index:2;display:flex;flex-direction:column;gap:8px;margin-top:20px;
 padding:10px max(16px,calc((100% - var(--page))/2 + 16px));
 background:var(--bg);border-bottom:1px solid var(--line)}
-@media (min-width:700px){nav{position:sticky;top:0}}
+nav{position:sticky;top:0;transition:transform .2s ease}
+/* A phone: a compact bar, the filters behind "Filters", out of the way
+while scrolling down, back on the way up (_JS). */
+.chip.navmore{display:none}
+@media (max-width:699px){nav{gap:6px;padding-top:8px;padding-bottom:8px}nav.away{transform:translateY(-110%)}
+.chip.navmore{display:inline-flex}nav:not(.more) .grp.filters,nav:not(.more) .grp.show{display:none}
+nav:has(.filters.active) .navmore{color:var(--accent);border-color:var(--accent)}
+.navrow{gap:8px 16px}.filters select{max-width:46%}}
 .links,.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 /* The bar: named groups side by side, a rule between them. */
 .navrow{display:flex;flex-wrap:wrap;gap:8px 28px;align-items:center}
@@ -2016,6 +2038,8 @@ color-mix(in srgb,var(--done) 6%,var(--card)),color-mix(in srgb,var(--done) 50%,
 .bv small.behind{color:var(--rtk)}
 .tl .bt{height:12px}.tl .bt .f{border-radius:0}
 .tl .bt .gap{position:absolute;top:0;bottom:0}
+.tl .bt .v{position:absolute;left:0;top:0;bottom:0;background:var(--role)}
+.bv small.valid{color:var(--role)}
 .gap.ahead,.gap.ontrack{background:color-mix(in srgb,var(--done) 40%,var(--card));
 border-radius:0 4px 4px 0}
 .gap.slip{background:color-mix(in srgb,var(--wip) 40%,var(--card))}
@@ -2030,9 +2054,9 @@ transform:translateX(-50%)}.today.l{transform:none}.today.r{transform:translateX
 .tl .bars>span:empty{display:none}.tl .bv{text-align:left;margin-bottom:8px}}
 /* In-page review: its bar in the review box, a ✓ and a ✗ by each
 department's pill. */
-.review>.rv{margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
+.rvmain{display:grid;gap:10px;align-content:start}.rvmain p.rvhint{margin:0}
 .rv{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center}
-.rv[hidden]{display:none}
+body:not(.reviewing) .rvf,body.reviewing .rvhint{display:none}
 #rv-start{background:var(--role)}#rv-start[aria-pressed="true"]{background:var(--fg);color:var(--bg)}
 .rv label{display:flex;gap:6px;align-items:center;color:var(--muted);font-size:13px}
 .rv input[type=text],.rv input[type=date],.rv select{font:inherit;font-size:13px;padding:3px 8px;
@@ -2047,7 +2071,9 @@ border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(
 .rv-chip[aria-pressed="true"]{color:#fff;background:var(--role);border-color:var(--role)}
 body:not(.reviewing) .rvc,body:not(.reviewing) .rvg,body:not(.reviewing) .rvt,
 body:not(.reviewing) .rvtags{display:none}
-.rvg{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px}
+.rvg{display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;align-items:center}
+body.reviewing td.name>b{cursor:pointer;text-decoration:underline dotted var(--muted);text-underline-offset:3px}
+body.reviewing td.name>b:hover{color:var(--role);text-decoration-color:var(--role)}
 .rvc{display:inline-flex;gap:3px;margin-left:6px;vertical-align:middle}
 body.reviewing td[data-col^="d:"]{white-space:nowrap}
 .rvb{font:inherit;font-size:11px;line-height:16px;padding:1px 8px;border-radius:999px;
@@ -2078,7 +2104,10 @@ body.one section,body.one .legend{display:none}
 margin-bottom:14px;border-bottom:1px solid var(--line)}
 .otop .chip:disabled{opacity:.35;cursor:default}
 .oname{font-size:18px;font-weight:700;overflow-wrap:anywhere}.opos{font-size:12px;color:var(--muted)}
-.otop .oend{margin-left:auto}
+.obtns{display:flex;gap:6px;flex-wrap:wrap}.owho{flex:1 1 220px;min-width:0}
+.opair{display:contents}.opair[hidden]{display:none}.oshb{grid-column:1 / -1;align-items:center}
+.oshb>span{font-size:12px;color:var(--muted);margin-right:2px}.oshb .rvtag[hidden]{display:none}
+.oinfo .bar{width:90px}
 .obody{display:grid;grid-template-columns:minmax(0,560px) minmax(0,1fr);gap:22px}
 @media (max-width:900px){.obody{grid-template-columns:minmax(0,1fr)}}
 .obig{display:block;width:100%;border-radius:6px;background:var(--line)}
@@ -2133,7 +2162,16 @@ var nav=document.querySelector('nav'),bar=document.querySelector('.filters');
 var ctl=['f-name','f-group','f-dep','f-state','f-rtk','f-notes','f-closed','f-farm'].map($);
 function navHeight(){var sticky=getComputedStyle(nav).position==='sticky',
 h=sticky?nav.offsetHeight:0,root=document.documentElement.style;
-root.setProperty('--nav-h',h+16+'px');navTop=h;}
+root.setProperty('--nav-h',h+16+'px');navTop=nav.classList.contains('away')?0:h;}
+$('nav-more').addEventListener('click',function(){var on=nav.classList.toggle('more');
+this.setAttribute('aria-expanded',on);navHeight();place();});
+var lastY=window.scrollY;window.addEventListener('scroll',function(){var y=window.scrollY,
+away=nav.classList.contains('away');
+if(window.innerWidth>=700||nav.classList.contains('more')||
+document.querySelector('header').getBoundingClientRect().bottom>0)away=false;
+else if(y>lastY+6)away=true;else if(y<lastY-6)away=false;
+if(away!==nav.classList.contains('away')){nav.classList.toggle('away',away);navHeight();place();}
+lastY=y;},{passive:true});
 var navTop=0,heads=[].map.call(document.querySelectorAll('.scroll'),function(box){
 var table=box.querySelector('table'),stuck=document.createElement('div'),
 copy=table.cloneNode(false);copy.appendChild(table.tHead.cloneNode(true));
@@ -2295,11 +2333,11 @@ box.appendChild(ok);box.appendChild(rt);td.appendChild(box);
 var tags=tagButtons(el,ta);if(tags){tags.hidden=true;tags.dataset.for=d;td.appendChild(tags);}
 td.appendChild(ta);});
 var name=el.querySelector('td.name'),g=document.createElement('div');g.className='rvg';
+if(name.firstElementChild)name.firstElementChild.title='Open it on its own (One file)';
 var any=Object.keys(st).some(function(d){return done(st[d]);});
 [['all','✓ all done',!any,'Validate every department done so far'],
 ['gen','+ general retake',false,'A retake for no department in particular'],
-['desc','✎ description',false,'Change the description'],
-['one','▣',false,'This file on its own, ← → to the next']].forEach(function(a){
+['desc','✎ description',false,'Change the description']].forEach(function(a){
 var b=document.createElement('button');b.type='button';b.className='rvb '+a[0];
 b.textContent=a[1];b.disabled=a[2];b.title=a[3];b.dataset.f=f;b.dataset.act=a[0];g.appendChild(b);});
 name.appendChild(g);var gt=area('gen',RT);gt.dataset.f=f;gt.dataset.g='text';
@@ -2351,9 +2389,11 @@ else if(act==='all')e.all=!e.all;
 else if(act==='gen'){var gt=rows[b.dataset.f].querySelector('textarea.gen');
 if(gt.hidden){gt.dataset.open='1';gt.hidden=false;focus=function(){return oneField('g')||gt;};}
 else{gt.dataset.open='';e.text='';}}
-else if(act==='one'){oneF=b.dataset.f;setView(true);return;}
 else if(act==='desc'){e.desc=e.desc===null?rows[b.dataset.f].dataset.desc:null;}
 paint();save();var t=focus&&focus();if(t)t.focus();});
+// While reviewing, a row's name opens it on its own (One file).
+document.addEventListener('click',function(ev){if(!document.body.classList.contains('reviewing'))return;
+var n=ev.target.closest('td.name>b');if(!n)return;oneF=n.closest('tr.item').dataset.file;setView(true);});
 document.addEventListener('input',function(ev){var t=ev.target;
 if(t.classList.contains('rvo')){oneInput(t);return;}if(!t.classList.contains('rvt'))return;
 grow(t);
@@ -2367,15 +2407,23 @@ $('rv-role').appendChild(o);});
 var RVHIDE=['file','render','done','valid'];
 function setMode(on){if(on===document.body.classList.contains('reviewing'))return;
 if(!on)setView(false);
-document.body.classList.toggle('reviewing',on);$('rv').hidden=!on;
+document.body.classList.toggle('reviewing',on);
 $('rv-mode').setAttribute('aria-pressed',on);$('rv-start').setAttribute('aria-pressed',on);
 $('rv-start').textContent=on?'Stop reviewing':'✎ Review on this page';
 cols.forEach(function(c){if(RVHIDE.indexOf(c.dataset.key)<0)return;
 if(on){c.dataset.before=c.checked?'1':'0';c.checked=false;}
 else{c.checked=c.dataset.before==='1';delete c.dataset.before;}});
-if(on&&!rvBuilt)build();applyCols(false);navHeight();size();}
+if(on&&!rvBuilt)build();applyCols(false);eqCols(on);navHeight();size();}
+// While reviewing, a table's department columns all as wide as its widest
+// one at its narrowest (its cells don't wrap): the ✓ ✗ line up.
+function eqCols(on){heads.forEach(function(h){var ths=[].filter.call(h.table.tHead.rows[0].cells,
+function(c){return(c.dataset.col||'').indexOf('d:')===0;});
+ths.forEach(function(c){c.style.width=on?'1px':'';});if(!on)return;
+var w=Math.max.apply(null,ths.map(function(c){return c.getBoundingClientRect().width;}).concat([0]));
+if(w)ths.forEach(function(c){c.style.width=Math.ceil(w)+'px';});});}
 ['rv-mode','rv-start'].forEach(function(id){$(id).addEventListener('click',function(){
-setMode(!document.body.classList.contains('reviewing'));});});
+var on=!document.body.classList.contains('reviewing');setMode(on);
+if(on&&window.innerWidth<700)setView(true);});});
 function fields(){$('rv-author').value=rv.author;$('rv-role').value=rv.role;$('rv-date').value=rv.date;}
 function exportRows(){var out=[];Object.keys(rv.files).forEach(function(f){var e=rv.files[f],el=rows[f];
 if(!el||!changes(e,f))return;var st=states(el),row={filename:f,stable_version:el.dataset.stable,
@@ -2430,31 +2478,39 @@ function splitText(t,shots){var o={'':[]};shots.forEach(function(s){o[s]=[];});
 t.split(NL).forEach(function(l){var w=l.trim().split(' '),k=w[0].slice(1,-1);
 if(!l.trim())return;if(w[0].charAt(0)==='['&&w[0].slice(-1)===']'&&k&&o[k])o[k].push(w.slice(1).join(' '));
 else o[''].push(l.trim());});return o;}
-function oneField(k){return one.hidden?null:[].filter.call(one.querySelectorAll('.rvo'),
-function(t){return t.dataset.k===k;})[0];}
+function oneField(k,s){return one.hidden?null:[].filter.call(one.querySelectorAll('.rvo'),
+function(t){return t.dataset.k===k&&(s==null||t.dataset.shot===s);})[0];}
 function oneInput(t){grow(t);var f=t.dataset.f,k=t.dataset.k,shots=shotsOf(f),out=[];
 ['' ].concat(shots).forEach(function(s){[].forEach.call(one.querySelectorAll('.rvo'),function(x){
 if(x.dataset.k!==k||x.dataset.shot!==s)return;x.value.split(NL).forEach(function(l){
 if(l.trim())out.push((s?'['+s+'] ':'')+l.trim());});});});
 var e=entry(f);if(k==='g')e.text=out.join(NL);else if(e.deps[k.slice(2)])e.deps[k.slice(2)].text=out.join(NL);
 paint();save();}
+// A block: the field for all its shots, a button per shot, and a shot's
+// field only once its button is clicked (oneOpen) or it holds a retake.
+var oneOpen={};
 function oneFields(box,f,k,shots,ph){var list=shots.length>1?[''].concat(shots):[''];
-list.forEach(function(s){if(list.length>1){var l=document.createElement('span');
-l.textContent=s||'all shots';box.appendChild(l);}
-var t=document.createElement('textarea');t.className='rvo';t.rows=1;t.dataset.f=f;t.dataset.k=k;
-t.dataset.shot=s;t.placeholder=s?'Retakes on '+s+', one per line':ph;
-if(list.length<2)t.style.gridColumn='1 / -1';box.appendChild(t);});}
+if(list.length>1){var tags=add(box,'div','rvtags oshb');add(tags,'span',null,'A shot:');
+shots.forEach(function(s){var b=add(tags,'button','rvtag','['+s+']');b.type='button';
+b.dataset.shot=s;b.title='A retake for '+s+' only';b.addEventListener('click',function(){
+oneOpen[k+' '+s]=1;paintOne();var t=oneField(k,s);if(t)t.focus();});});}
+list.forEach(function(s){var pair=add(box,'div','opair');pair.dataset.shot=s;
+if(list.length>1)add(pair,'span',null,s||'all shots');
+var t=add(pair,'textarea','rvo');t.rows=1;t.dataset.f=f;t.dataset.k=k;
+t.dataset.shot=s;t.placeholder=s?'Retakes on '+s+' only, one per line':ph;
+if(list.length<2)t.style.gridColumn='1 / -1';});}
 function add(parent,tag,cls,text){var x=document.createElement(tag);if(cls)x.className=cls;
 if(text!=null)x.textContent=text;parent.appendChild(x);return x;}
-function openOne(f){oneF=f;var el=rows[f],st=states(el),shots=shotsOf(f),i=ALL.indexOf(el);
-one.textContent='';var card=add(one,'div','ocard'),top=add(card,'div','otop');
-var prev=add(top,'button','chip','← Previous'),who=add(top,'div'),next=add(top,'button','chip','Next →');
-prev.type=next.type='button';prev.dataset.go='-1';next.dataset.go='1';
+function openOne(f){if(f!==oneF)oneOpen={};oneF=f;var el=rows[f],st=states(el),shots=shotsOf(f);
+one.textContent='';var card=add(one,'div','ocard'),top=add(card,'div','otop'),btns=add(top,'div','obtns');
+var back=add(btns,'button','chip','← Table'),prev=add(btns,'button','chip','‹ Previous'),
+next=add(btns,'button','chip','Next ›'),who=add(top,'div','owho');
+back.type=prev.type=next.type='button';back.dataset.go='0';prev.dataset.go='-1';next.dataset.go='1';
+back.title='Back to the table (Esc)';prev.title='Previous file (←)';next.title='Next file (→)';
 prev.disabled=!step(-1);next.disabled=!step(1);
 add(who,'div','oname',el.querySelector('td.name b').textContent);
 add(who,'div','opos',(el.closest('section').id==='assets'?'Asset':'Shot')+' · '+el.dataset.group+' · '+
 (ALL.filter(function(r){return!r.hidden;}).indexOf(el)+1)+' / '+ALL.filter(function(r){return!r.hidden;}).length);
-var back=add(top,'button','chip oend','▤ Back to the table');back.type='button';back.dataset.go='0';
 var body=add(card,'div','obody'),left=add(body,'div'),right=add(body,'div'),
 img=el.querySelector('img.thumb'),big=null;
 if(img){big=add(left,'img','obig');big.src=img.src;big.alt='';}
@@ -2465,9 +2521,10 @@ var b=add(strip,'button');b.type='button';b.disabled=!s[0];b.setAttribute('aria-
 if(s[0]){var im=add(b,'img');im.src=s[0];im.alt='';}add(b,'span',null,s[1]);
 b.addEventListener('click',function(){big.src=s[0];strip.querySelectorAll('button').forEach(function(x){
 x.setAttribute('aria-pressed',x===b);});});});}
-var dl=add(left,'dl','oinfo');[['file','Blender file'],['render','Last render']].forEach(function(c){
+var dl=add(left,'dl','oinfo');[['done','Done'],['valid','Validated'],['file','Blender file'],
+['render','Last render']].forEach(function(c){
 var td=el.querySelector('td[data-col="'+c[0]+'"]');if(!td)return;add(dl,'dt',null,c[1]);
-add(dl,'dd').innerHTML=td.innerHTML;});
+add(dl,'dd',td.className).innerHTML=td.innerHTML;});
 add(right,'p','odesc'+(el.dataset.desc?'':' none'),el.dataset.desc||'No description');
 var acts=add(right,'div','orow');el.querySelectorAll('.rvg .rvb').forEach(function(b){
 if(b.dataset.act!=='one')acts.appendChild(b.cloneNode(true));});
@@ -2495,8 +2552,10 @@ el.querySelector('.rvg .rvb.'+b.dataset.act);
 if(twin){b.className=twin.className;b.setAttribute('aria-pressed',twin.getAttribute('aria-pressed'));}});
 one.querySelectorAll('.ofl').forEach(function(box){var k=box.dataset.k,v=e.deps[k.slice(2)],
 open=k==='g'?!el.querySelector('textarea.gen').hidden:!!(v&&v.no),o=splitText(k==='g'?e.text:(v&&v.text)||'',shots);
-box.hidden=!open;box.querySelectorAll('.rvo').forEach(function(t){
-if(t!==document.activeElement)t.value=(o[t.dataset.shot]||[]).join(NL);grow(t);});});
+box.hidden=!open;box.querySelectorAll('.opair').forEach(function(pair){var t=pair.querySelector('.rvo'),
+sh=pair.dataset.shot;if(t!==document.activeElement)t.value=(o[sh]||[]).join(NL);
+pair.hidden=!!sh&&!t.value&&!oneOpen[k+' '+sh]&&t!==document.activeElement;grow(t);
+var b=box.querySelector('.oshb button[data-shot="'+CSS.escape(sh)+'"]');if(b)b.hidden=!pair.hidden;});});
 var dt=one.querySelector('textarea.rvdesc');dt.hidden=e.desc===null;
 if(e.desc!==null&&dt!==document.activeElement)dt.value=e.desc;grow(dt);}
 function step(n){var i=ALL.indexOf(rows[oneF]);for(var j=i+n;j>=0&&j<ALL.length;j+=n)

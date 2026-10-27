@@ -3096,6 +3096,18 @@ and put back together as `[sh040] …` lines on input (`oneInput()`), a
 field being typed in never overwritten. Previous / Next walk the rows
 the filters keep (`el.hidden`); the view and its file are kept per
 snapshot (`rvKey + ':view'`), so a reload comes back on the same card.
+A block's shot fields stay folded behind a button each (`oneOpen`, per
+card) until asked for or filled: seven empty boxes per department read
+as a form to fill, not a place to note what's wrong. A row's name opens
+the card (no button of its own: it took a column's width in the table).
+While reviewing, `eqCols()` gives a table's department columns one width
+-- each squeezed to 1px first, so the widest's own minimum sets it.
+
+On a phone the bar is sticky too, but compact (filters and Show behind
+*Filters*, `nav.more`) and `nav.away` -- translated out -- while scrolling
+down past the header, back on the way up; `navHeight()` then counts it as
+0 for the sticky table headers. Review on a phone starts on One file:
+a table that wide is no place to write.
 
 ## Entries for several departments
 
