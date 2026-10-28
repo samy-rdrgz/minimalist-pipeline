@@ -15,6 +15,8 @@ All notable changes to this addon. Dates are release dates.
 - "New shot" (and Edit block structure) without a clean scene left the
   open file's marker on the new shot's frame: two markers on one frame,
   the render split broke. A shot's frame now keeps only its own marker.
+- The render priority is back to 10 on every submit: a high priority
+  given once no longer carries over to the next submits.
 
 ## 1.1.5 — 2026-10-27
 

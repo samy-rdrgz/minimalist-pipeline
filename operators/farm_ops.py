@@ -388,10 +388,13 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
     settings: bpy.props.BoolProperty(name="Settings", default=False)
     project_root: bpy.props.StringProperty(name="project_root", default="")
 
+    # SKIP_SAVE: every submit starts back at 10 -- Blender would otherwise
+    # keep the last one, and a rush priority sticks to the next shots.
     priority: bpy.props.IntProperty(
         name="Priority",
         default=10,
         description="Higher goes first (10 by default); same priority: oldest first",
+        options={"SKIP_SAVE"},
     )
     render_mode: bpy.props.EnumProperty(
         items=[

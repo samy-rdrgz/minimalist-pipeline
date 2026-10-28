@@ -11,7 +11,7 @@ Two roles, independent of whether a file is open or not:
 
 A job goes through: `queued → setup → render → checks_images (ffmpeg check) → compilation (ffmpeg video assembly) → finished/failed → archived`. Every stage has its own dedicated failure (`*_failed`), never blocking for the other jobs in the queue. Launching the monitor checks for `ffmpeg` upfront (this machine's PATH, or the explicit path set in Preferences → FFmpeg path, for a Blender launch that doesn't see PATH properly — a sandboxed runtime such as Steam's, for instance) and warns (Cancel / Continue anyway) if it's missing — otherwise that failure would only surface later, silently, per job.
 
-Submission (the "Render" panel, or a per-file button): priority (higher goes first, 10 by default; equal priority: oldest first), render mode, increment (systematic new output folder, or reuse), frame range with relative override (`s+10`, `e-5`...), targeted machines (empty = auto), pre-render script preset -- the dialog opens on the project's own (Edit project → *Pre-render*, "No pre-render script" by default), never on the one picked last time.
+Submission (the "Render" panel, or a per-file button): priority (higher goes first, back to 10 on every submit; equal priority: oldest first), render mode, increment (systematic new output folder, or reuse), frame range with relative override (`s+10`, `e-5`...), targeted machines (empty = auto), pre-render script preset -- the dialog opens on the project's own (Edit project → *Pre-render*, "No pre-render script" by default), never on the one picked last time.
 
 <img src="images/farm-render-dialog.png" alt="The Render dialog" width="360">
 
