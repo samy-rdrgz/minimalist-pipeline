@@ -111,7 +111,7 @@ from .handlers import (
     unregister_handlers,
 )
 from .libraries import clean_append_and_relink, scan_linked_libraries
-from .logs import log, read_log_tail
+from .logs import archive_log_now, log, read_log_tail
 from .monitoring import (
     MONITORING_SCREEN_KEY,
     draw_addon_keys,

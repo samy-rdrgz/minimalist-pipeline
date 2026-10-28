@@ -1122,7 +1122,16 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
                 log("ERROR", "snapshot", f"Videos not zipped: {self._job.error}")
                 problems.append("videos not zipped")
             else:
-                zipped, empty = self._job.result
+                zipped, empty, dropped = self._job.result
+                for label, overlap in dropped:
+                    log(
+                        "WARNING",
+                        "snapshot",
+                        f"Video of {label} not zipped: "
+                        f"{', '.join(overlap)} has its own render.",
+                    )
+                if dropped:
+                    problems.append(f"{len(dropped)} block video(s) left out")
                 if zipped:
                     log("INFO", "snapshot", f"{zipped} video(s) zipped into {zip_name}")
                 if empty:

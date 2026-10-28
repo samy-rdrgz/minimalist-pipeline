@@ -2,6 +2,7 @@
 
 import importlib.util
 import os
+import re
 import subprocess
 import time
 from datetime import datetime
@@ -121,6 +122,70 @@ def _recover_previous_render(previous: dict) -> dict:
         }
     log("WARNING", "farm", f"Render of {job_id} was lost in a crash -- reporting it.")
     return {"last_job_result": _lost_result(job_id, dispatch_id)}
+
+
+# What a failed render's log says it died of, most telling first: the
+# last line matching one, in the log's last _LOG_TAIL_BYTES. A Python
+# traceback is looked for between the two last ones (_python_error()).
+_FAILURE_PATTERNS = (
+    (
+        "out of memory",
+        re.compile(
+            r"out of memory|malloc returns null|out_of_memory|outofmemory",
+            re.IGNORECASE,
+        ),
+    ),
+    (
+        "Blender crashed",
+        re.compile(r"EXCEPTION_ACCESS_VIOLATION|Segmentation fault|SIGSEGV|crash\.txt"),
+    ),
+    (
+        "file not found",
+        re.compile(r"cannot read file|unable to open|no such file", re.IGNORECASE),
+    ),
+    # Not "Error: Not freed memory blocks": printed on exit after any error.
+    ("error", re.compile(r"^Error: (?!Not freed memory)")),
+)
+_LOG_TAIL_BYTES = 64 * 1024
+_PY_EXCEPTION = re.compile(r"^\w+(?:\.\w+)*(?:Error|Exception)\b")
+
+
+def _python_error(lines: list[str]) -> str | None:
+    """The exception line of the log's last Python traceback -- none from a
+    driver (a broken driver prints one per evaluation and renders on)."""
+    for i in range(len(lines) - 1, -1, -1):
+        if lines[i].startswith("Traceback (most recent call last)"):
+            if any("Driver" in ln for ln in lines[max(0, i - 3) : i]):
+                continue
+            return next(
+                (ln.strip() for ln in lines[i + 1 :] if _PY_EXCEPTION.match(ln)), None
+            )
+    return None
+
+
+def failure_reason(log_path: Path | str | None, returncode: int | None = None) -> str:
+    """Why a render subprocess failed, read from the end of its log:
+    "out of memory (frame 402): Error: run out of memory!" -- the kind,
+    the last frame it was on, the line. Its exit code if nothing matches,
+    "" without one. Never raises. Pure: thread-safe."""
+    try:
+        with open(log_path, "rb") as f:
+            f.seek(max(0, os.fstat(f.fileno()).st_size - _LOG_TAIL_BYTES))
+            lines = f.read().decode("utf-8", "replace").splitlines()
+    except (OSError, TypeError):
+        lines = []
+    frames = [m[1] for line in lines if (m := re.search(r"\bFra:(\d+)", line))]
+    at = f" (frame {frames[-1]})" if frames else ""
+    found = [
+        (kind, next((ln.strip() for ln in reversed(lines) if pattern.search(ln)), None))
+        for kind, pattern in _FAILURE_PATTERNS
+    ]
+    # A traceback ranks after a memory error or a crash, before the rest.
+    found.insert(2, ("Python error", _python_error(lines)))
+    for kind, hit in found:
+        if hit:
+            return f"{kind}{at}: {hit[:120]}"
+    return f"exit code {returncode}{at}" if returncode is not None else ""
 
 
 def _lost_result(job_id: str, dispatch_id: str | None) -> dict:
@@ -798,6 +863,10 @@ def scan_worker_processes() -> None:
                 "success": ret == 0,
                 "at": now(),
             }
+            if ret != 0:
+                # What it died of, for Farm monitoring: its log stays with
+                # the job, this saves opening it.
+                result["reason"] = failure_reason(log_path, ret)
         update_worker(
             {
                 "status": "idle",

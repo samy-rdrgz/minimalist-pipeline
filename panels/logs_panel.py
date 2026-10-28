@@ -179,6 +179,9 @@ def draw_pipeline_logs(state, context, layout) -> None:
     left.operator(
         "m_pipeline.pipeline_logs_refresh", text="", icon="FILE_REFRESH", emboss=False
     )
+    left.operator(
+        "m_pipeline.pipeline_logs_archive", text="", icon="FILE_ARCHIVE", emboss=False
+    )
     read_at = _log_cache["read_at"]
     shown = f"{len(matches)} line(s)"
     if _log_cache["loading"]:

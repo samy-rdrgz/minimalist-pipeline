@@ -65,7 +65,7 @@ from ..lib import (
     shots_in_segment,
     version_items,
 )
-from .preview_ops import request_sequence_preview
+from .preview_ops import dropped_message, request_sequence_preview
 
 _workers_items_cache: list[tuple[str, str, str]] = []
 _pre_render_scripts: list[tuple[str, str, str]] = []
@@ -751,10 +751,10 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
             self.report({"ERROR"}, "No sequence selected.")
             return {"CANCELLED"}
         user = get_user(context)
-        sent, empty = [], []
+        sent, empty, dropped = [], [], []
         try:
             for name in chosen:
-                sources = request_sequence_preview(name, user, self.priority)
+                sources = request_sequence_preview(name, user, self.priority, dropped)
                 (sent if sources else empty).append(name)
         except PipelineError as e:
             log(e.level, "farm_request_render", e.message)
@@ -766,7 +766,10 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
         message = f"Preview requested: {', '.join(sent)}."
         if empty:
             message += f" Nothing rendered yet in {', '.join(empty)}."
-        self.report({"WARNING" if empty else "INFO"}, message)
+        left_out = dropped_message(dropped)
+        if left_out:
+            message += f" {left_out}"
+        self.report({"WARNING" if empty or left_out else "INFO"}, message)
         return {"FINISHED"}
 
     def single(self, context):

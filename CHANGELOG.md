@@ -10,6 +10,12 @@ All notable changes to this addon. Dates are release dates.
   shot's latest video of the ticked ones goes into a zip next to the
   snapshot, with its name, one folder per sequence / asset prefix. An *Assets &
   libraries* box adds every asset/library's latest video too.
+- A failed render says what it died of, read from the end of its log
+  (out of memory, Blender crash, Python error, missing file, Blender's
+  last error, or its exit code), with its frame: in the job's detail,
+  in "frames X-Y failed on 3 machines", and in the worker's detail.
+- Pipeline log window: an archive button moves the current log into
+  `config/logs/archives/` now, without waiting for its 5 MB.
 
 ### Fixed
 
@@ -32,6 +38,14 @@ All notable changes to this addon. Dates are release dates.
 - Mark as stable left the new `-stable` file writable: no READ-ONLY in
   the top bar, Ctrl+S saved over it without asking -- only opening a
   `-stable` flagged it. Mark as stable now flags it the same way.
+- The priority of the Compile preview dialog is back to 10 every time,
+  like the Render dialog's.
+- Preview sequence and the snapshot's videos zip now say when they leave
+  out a block rendered whole because one of its shots has its own render.
+- After an Increment (or Blender's own Save As), the new version had no
+  lock: someone else could open it writable while you worked on it. The
+  lock now moves onto it, and is released when you open another file or
+  quit, instead of waiting 90 s to go stale.
 
 ## 1.1.5 — 2026-10-27
 

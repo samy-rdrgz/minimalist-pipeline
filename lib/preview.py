@@ -92,12 +92,17 @@ def resolve_block_sources(
 
 
 def resolve_sequence_sources(
-    sequence_label: str, project_root: Path, config: dict | None = None
+    sequence_label: str,
+    project_root: Path,
+    config: dict | None = None,
+    dropped: list | None = None,
 ) -> list[tuple[str, Path]]:
     """(shot_label, mp4) pairs for every shot ever rendered in the sequence
     ("sq030"), by shot number. A block rendered whole, not split, has its
     one mp4 in its own folder (sh030-040-050): used for its shots, unless
-    one of them has its own render -- a shot's own folder wins."""
+    one of them has its own render -- a shot's own folder wins. A block
+    left out that way is added to dropped (when given) as (block label,
+    labels of what it overlaps), for the caller to say so."""
     config = config if config is not None else ConfigCache.get()
     shot_prefix = json_get(config, "naming.shot.prefix", "sh")
     v_prefix = json_get(config, "naming.version.prefix", "v")
@@ -113,12 +118,15 @@ def resolve_sequence_sources(
             if mp4:
                 rendered.append((shots_in_segment(m["seg"]), d.name, mp4))
 
-    covered = {numbers[0] for numbers, _, _ in rendered if len(numbers) == 1}
+    covered = {numbers[0]: label for numbers, label, _ in rendered if len(numbers) == 1}
     out = [r for r in rendered if len(r[0]) == 1]
     for numbers, label, mp4 in sorted(r for r in rendered if len(r[0]) > 1):
-        if covered.isdisjoint(numbers):
+        overlap = sorted({covered[n] for n in numbers if n in covered})
+        if not overlap:
             out.append((numbers, label, mp4))
-            covered.update(numbers)
+            covered.update(dict.fromkeys(numbers, label))
+        elif dropped is not None:
+            dropped.append((label, overlap))
     out.sort()
     return [(label, mp4) for _, label, mp4 in out]
 
@@ -155,7 +163,8 @@ def zip_latest_videos(
     zip_path, under its renders/ path minus its own folder:
     sq100/<video>_<render folder>.mp4, assets/ch/<video>_<render folder>.mp4. Stored, not compressed:
     an mp4 already is. Written beside then renamed, never left
-    half-written. Returns (videos zipped, what had none). Pure:
+    half-written. Returns (videos zipped, what had none, blocks left out
+    -- resolve_sequence_sources()'s dropped). Pure:
     thread-safe, config passed in."""
     project_root, zip_path = Path(project_root), Path(zip_path)
     renders = project_root / "renders"
@@ -167,9 +176,9 @@ def zip_latest_videos(
         folder = mp4.parent.parent.parent.relative_to(renders).as_posix()
         return f"{folder}/{mp4.stem}_{mp4.parent.name}{mp4.suffix}"
 
-    found, empty = [], []
+    found, empty, dropped = [], [], []
     for sequence in sequences:
-        sources = resolve_sequence_sources(sequence, project_root, config)
+        sources = resolve_sequence_sources(sequence, project_root, config, dropped)
         if not sources:
             empty.append(sequence)
         found += [mp4 for _label, mp4 in sources]
@@ -184,14 +193,20 @@ def zip_latest_videos(
             empty.append("assets/libraries")
         found += asset_mp4s
     if not found:
-        return 0, empty
+        return 0, empty, dropped
     tmp = zip_path.with_name(f"{zip_path.name}.tmp")
     try:
         with zipfile.ZipFile(tmp, "w", zipfile.ZIP_STORED) as z:
+            taken = set()
             for mp4 in found:
-                z.write(mp4, arcname(mp4))
+                name = arcname(mp4)
+                if name in taken:
+                    # Two videos named alike: this one keeps its own folder.
+                    name = f"{mp4.parent.parent.relative_to(renders).as_posix()}/{mp4.stem}_{mp4.parent.name}{mp4.suffix}"
+                taken.add(name)
+                z.write(mp4, name)
         os.replace(tmp, zip_path)
     finally:
         if tmp.exists():
             tmp.unlink()
-    return len(found), empty
+    return len(found), empty, dropped
