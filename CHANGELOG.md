@@ -2,7 +2,11 @@
 
 All notable changes to this addon. Dates are release dates.
 
-## Unreleased
+## 1.1.6 — 2026-10-28
+
+A failed render says why; the shots' and assets' latest videos zipped
+with the snapshot; the lock follows the file; work time only counts
+sessions that saved; fixes for files saved outside the addon.
 
 ### Added
 
