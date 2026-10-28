@@ -22,6 +22,9 @@ All notable changes to this addon. Dates are release dates.
   single-shot folders. That video now goes in, at its first shot's place,
   unless one of its shots has its own render. "Preview block" uses it too
   when none of the block's shots has its own render.
+- Mark as stable left the new `-stable` file writable: no READ-ONLY in
+  the top bar, Ctrl+S saved over it without asking -- only opening a
+  `-stable` flagged it. Mark as stable now flags it the same way.
 
 ## 1.1.5 — 2026-10-27
 

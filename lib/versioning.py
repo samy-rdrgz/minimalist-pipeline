@@ -9,6 +9,7 @@ from .config import ConfigCache, get_active_project_root, parse_filename
 from .core import cached_scandir, json_get
 from .errors import PipelineError
 from .logs import log
+from .session import set_opened_as_read_only
 
 
 def get_version_number(filepath: str = "") -> int | None:
@@ -103,6 +104,10 @@ def save_as(tag: str | None = None) -> str | None:
     try:
         bpy.ops.wm.save_as_mainfile(filepath=str(new_path), copy=False)
         log("SUCCESS", "save_asset", f"{current.name} -> {new_name}")
+        if tag == "stable":
+            # A save as isn't a load: post_load_handler() never flags it.
+            # Same as opening it: READ-ONLY in the top bar, Ctrl+S guarded.
+            set_opened_as_read_only(str(new_path), "stable")
         return str(new_path)
     except Exception as e:
         raise PipelineError(f"Save failed: {e}")
