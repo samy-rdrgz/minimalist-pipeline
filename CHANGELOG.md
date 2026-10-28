@@ -8,7 +8,7 @@ All notable changes to this addon. Dates are release dates.
 
 - Export snapshot: a *Videos to zip* checklist of the sequences. Every
   shot's latest video of the ticked ones goes into a zip next to the
-  snapshot, with its name, laid out like `renders/`. An *Assets &
+  snapshot, with its name, one folder per sequence / asset prefix. An *Assets &
   libraries* box adds every asset/library's latest video too.
 
 ### Fixed

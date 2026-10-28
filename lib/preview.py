@@ -152,8 +152,8 @@ def zip_latest_videos(
 ) -> tuple[int, list[str]]:
     """Every shot's latest video of these sequences (the same ones Preview
     sequence takes) -- and with assets, every asset/library's -- into
-    zip_path, under its renders/ path: sq100/<video>_<render folder>.mp4,
-    assets/ch/ch_bob/<video>_<render folder>.mp4. Stored, not compressed:
+    zip_path, under its renders/ path minus its own folder:
+    sq100/<video>_<render folder>.mp4, assets/ch/<video>_<render folder>.mp4. Stored, not compressed:
     an mp4 already is. Written beside then renamed, never left
     half-written. Returns (videos zipped, what had none). Pure:
     thread-safe, config passed in."""
@@ -162,7 +162,9 @@ def zip_latest_videos(
     v_prefix = json_get(config, "naming.version.prefix", "v")
 
     def arcname(mp4: Path) -> str:
-        folder = mp4.parent.parent.relative_to(renders).as_posix()
+        # Its owner's folder (sh030, ch_bob) left out: the video's own name
+        # already says it.
+        folder = mp4.parent.parent.parent.relative_to(renders).as_posix()
         return f"{folder}/{mp4.stem}_{mp4.parent.name}{mp4.suffix}"
 
     found, empty = [], []

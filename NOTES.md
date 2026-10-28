@@ -1850,7 +1850,8 @@ project at a given moment and a way to send review notes back.
   them, Chrome only with hardware decoding -- so a re-encoded H.264 copy
   per shot on top. A zip named like the snapshot (`zip_latest_videos()`,
   `lib/preview.py`) just copies the mp4s as they are (stored, not
-  compressed: an mp4 already is), laid out like `renders/`, for the
+  compressed: an mp4 already is), laid out like `renders/` minus each
+  one's own folder (its video's name already says it), for the
   sequences ticked in the export dialog and, with *Assets & libraries*,
   every asset/library -- nothing by default. Same "latest video per shot"
   as Preview sequence (`resolve_sequence_sources()`), so the two never
