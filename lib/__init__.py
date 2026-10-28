@@ -110,7 +110,7 @@ from .handlers import (
     register_handlers,
     unregister_handlers,
 )
-from .libraries import clean_append_and_relink
+from .libraries import clean_append_and_relink, scan_linked_libraries
 from .logs import log, read_log_tail
 from .monitoring import (
     MONITORING_SCREEN_KEY,

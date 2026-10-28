@@ -2,6 +2,17 @@
 
 All notable changes to this addon. Dates are release dates.
 
+## Unreleased
+
+### Fixed
+
+- A version saved by Blender's own File > Save As or Save Incremental
+  (not Ctrl+S) had no `.wipmeta`: invisible to tracking, and a `-stable`
+  made from it got an empty linked list. The missing `.wipmeta` is now
+  created on open and on save (latest version only), a new `-stable`
+  takes the file's own links, and opening a `-stable` fills its empty
+  linked list.
+
 ## 1.1.5 — 2026-10-27
 
 Review right on the snapshot page -- a table, or one file at a time --

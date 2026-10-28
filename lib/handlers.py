@@ -1,5 +1,6 @@
 """Core Blender operators and app handlers."""
 
+from functools import partial
 from pathlib import Path
 
 import bpy
@@ -142,8 +143,8 @@ def post_load_handler(*args):
         scan_sessions()
         session_update()
         # Before auto_version: a new version inherits this .wipmeta's
-        # linked list, so it has to be complete first.
-        sync_linked_libraries()
+        # linked list, so it has to be complete first (and to exist).
+        sync_linked_libraries(create_missing=True)
         check_library_update()
 
         reason = _static_read_only_reason(bpy.data.filepath)
@@ -198,7 +199,22 @@ def save_post_handler(*args):
     filepath = bpy.data.filepath
     if filepath and file_in_active_project(filepath):
         wipmeta_touch(Path(filepath))
-        sync_linked_libraries()
+        if bpy.app.background:
+            sync_linked_libraries()
+        else:
+            # One tick later: an increment saves, then writes its new
+            # version's meta in the same operator -- a missing .wipmeta is
+            # only one Blender's own Save As / Save Incremental left behind.
+            bpy.app.timers.register(
+                partial(_deferred_sync_links, filepath), first_interval=0.1
+            )
+
+
+def _deferred_sync_links(filepath: str):
+    """save_post_handler()'s sync, once the saving operator is done. Skipped
+    if another file was opened in between."""
+    if bpy.data.filepath == filepath:
+        sync_linked_libraries(create_missing=True)
 
 
 @bpy.app.handlers.persistent
