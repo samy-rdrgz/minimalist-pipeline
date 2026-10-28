@@ -509,7 +509,9 @@ class WorkTimeCache:
     @staticmethod
     def _scan(log_paths) -> dict[str, float]:
         """Sum session_end duration_seconds per folder (Path(filepath).parent)
-        across every given log file. Missing/unreadable files are skipped."""
+        across every given log file. Missing/unreadable files are skipped.
+        A session never saved isn't work (someone looking, a review): left
+        out -- a line from before "saved" was logged still counts."""
         totals: dict[str, float] = {}
         for log_path in log_paths:
             try:
@@ -523,7 +525,7 @@ class WorkTimeCache:
                             continue
                         fp = entry.get("filepath")
                         duration = entry.get("duration_seconds")
-                        if not fp or duration is None:
+                        if not fp or duration is None or entry.get("saved") is False:
                             continue
                         key = _session_folder_key(Path(fp).parent)
                         totals[key] = totals.get(key, 0.0) + duration

@@ -230,7 +230,7 @@ def save_post_handler(*args):
     version's .wipmeta with who saved it (auto_version's same-day-different
     -user check relies on this). *args (unused): see post_load_handler's
     note on handler arity."""
-    session_update()
+    session_update(saved=True)
     filepath = bpy.data.filepath
     if filepath and file_in_active_project(filepath):
         wipmeta_touch(Path(filepath))

@@ -46,6 +46,9 @@ All notable changes to this addon. Dates are release dates.
   lock: someone else could open it writable while you worked on it. The
   lock now moves onto it, and is released when you open another file or
   quit, instead of waiting 90 s to go stale.
+- Work time no longer counts a session in which nothing was saved:
+  opening a file to look at it or review it adds nothing to its
+  asset/shot's total. Working on a `-stable` then Mark as stable counts.
 
 ## 1.1.5 — 2026-10-27
 
