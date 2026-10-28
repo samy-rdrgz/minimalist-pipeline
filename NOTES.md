@@ -1848,11 +1848,15 @@ project at a given moment and a way to send review notes back.
   `data:`) was weighed: +33 % on top of the mp4s, the whole file loaded
   at once by the browser, and the renders are x265 -- Firefox can't play
   them, Chrome only with hardware decoding -- so a re-encoded H.264 copy
-  per shot on top. A zip named like the snapshot (`zip_sequence_videos()`,
+  per shot on top. A zip named like the snapshot (`zip_latest_videos()`,
   `lib/preview.py`) just copies the mp4s as they are (stored, not
-  compressed: an mp4 already is), for the sequences ticked in the export
-  dialog, none by default. Same "latest video per shot" as Preview
-  sequence (`resolve_sequence_sources()`), so the two never disagree.
+  compressed: an mp4 already is), laid out like `renders/`, for the
+  sequences ticked in the export dialog and, with *Assets & libraries*,
+  every asset/library -- nothing by default. Same "latest video per shot"
+  as Preview sequence (`resolve_sequence_sources()`), so the two never
+  disagree. An asset/library's render folder is found as the one holding
+  increment folders (`_asset_render_dirs()`), never descending into those
+  (thousands of frames each), `old/` skipped.
   Third thread step after the HTML: written as `.zip.tmp` then renamed, a
   failure leaves the snapshot itself fine and says so.
 - **The review template is an XLSX embedded in the HTML** (`data:` link

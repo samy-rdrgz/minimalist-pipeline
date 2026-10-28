@@ -157,7 +157,7 @@ from .preview import (
     render_root,
     resolve_block_sources,
     resolve_sequence_sources,
-    zip_sequence_videos,
+    zip_latest_videos,
 )
 from .saving import WM_OT_safe_save
 from .session import (

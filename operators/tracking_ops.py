@@ -66,7 +66,7 @@ from ..lib import (
     tracking_json_path,
     wipmeta_add_work,
     write_snapshot,
-    zip_sequence_videos,
+    zip_latest_videos,
 )
 from ..farm import archive, farm_activity, request_monitor_refresh
 from ..panels import (
@@ -974,6 +974,13 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
         default=True,
         description="Open the snapshot in the browser once it's written",
     )
+    # Off on every export, like the sequences: zipping is never the default.
+    include_asset_videos: bpy.props.BoolProperty(
+        name="Assets & libraries",
+        default=False,
+        description="Also zip every asset/library's latest video",
+        options={"SKIP_SAVE"},
+    )
 
     _job = None
     _warnings: list = []
@@ -1022,9 +1029,11 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
             empty.label(text="No sequence in this project.", icon="INFO")
         for item in sequences:
             box.row(align=True).prop(item, "include", text=item.name)
+        box.separator()
+        box.prop(self, "include_asset_videos")
         info = layout.column(align=True)
         info.active = False
-        info.label(text="Each shot's latest video, in a zip", icon="INFO")
+        info.label(text="Each one's latest video, in a zip", icon="INFO")
         info.label(text="named like the snapshot.", icon="BLANK1")
 
     def execute(self, context):
@@ -1088,19 +1097,21 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
             chosen = [
                 s.name for s in context.window_manager.snapshot_sequences if s.include
             ]
-            if chosen:
+            if chosen or self.include_asset_videos:
                 # On a thread too: gigabytes, maybe onto a share.
                 self._job = SnapshotJob(
-                    zip_sequence_videos,
+                    zip_latest_videos,
                     self._root,
                     chosen,
+                    self.include_asset_videos,
                     Path(self.filepath).with_suffix(".zip"),
                     ConfigCache.get(),
                 )
                 self._phase = "zip"
-                self.report(
-                    {"INFO"}, f"Snapshot written, zipping {', '.join(chosen)}..."
+                what = chosen + (
+                    ["assets/libraries"] if self.include_asset_videos else []
                 )
+                self.report({"INFO"}, f"Snapshot written, zipping {', '.join(what)}...")
                 return {"PASS_THROUGH"}
         context.window_manager.event_timer_remove(self._timer)
         problems = []

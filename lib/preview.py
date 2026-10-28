@@ -7,6 +7,7 @@ import zipfile
 from pathlib import Path
 
 from .config import ConfigCache, json_get, parse_filename, shots_in_segment
+from .tracking import ARCHIVE_DIRNAME
 
 
 def render_root(project_root: Path, owner_dir: Path) -> Path:
@@ -122,29 +123,71 @@ def resolve_sequence_sources(
     return [(label, mp4) for _, label, mp4 in out]
 
 
-def zip_sequence_videos(
-    project_root: Path, sequences: list[str], zip_path: Path, config: dict
+def _asset_render_dirs(base: Path, v_prefix: str, depth: int = 4) -> list[Path]:
+    """Asset/library render folders under base (renders/assets...): the
+    ones holding render increment folders, found without descending into
+    those (thousands of frames each). old/ (archived) and _preview/ skipped."""
+    increment = re.compile(rf"^{re.escape(v_prefix)}\d+(?:-[a-z]+)?_\d+$")
+    try:
+        subdirs = [d for d in Path(base).iterdir() if d.is_dir()]
+    except OSError:
+        return []
+    if any(increment.match(d.name) for d in subdirs):
+        return [Path(base)]
+    if depth <= 0:
+        return []
+    out = []
+    for d in sorted(subdirs):
+        if d.name not in (ARCHIVE_DIRNAME, "_preview"):
+            out += _asset_render_dirs(d, v_prefix, depth - 1)
+    return out
+
+
+def zip_latest_videos(
+    project_root: Path,
+    sequences: list[str],
+    assets: bool,
+    zip_path: Path,
+    config: dict,
 ) -> tuple[int, list[str]]:
     """Every shot's latest video of these sequences (the same ones Preview
-    sequence takes) into zip_path: <sequence>/<video>_<render folder>.mp4.
-    Stored, not compressed: an mp4 already is. Written beside then renamed,
-    never left half-written. Returns (videos zipped, sequences with none).
-    Pure: thread-safe, config passed in."""
-    zip_path = Path(zip_path)
+    sequence takes) -- and with assets, every asset/library's -- into
+    zip_path, under its renders/ path: sq100/<video>_<render folder>.mp4,
+    assets/ch/ch_bob/<video>_<render folder>.mp4. Stored, not compressed:
+    an mp4 already is. Written beside then renamed, never left
+    half-written. Returns (videos zipped, what had none). Pure:
+    thread-safe, config passed in."""
+    project_root, zip_path = Path(project_root), Path(zip_path)
+    renders = project_root / "renders"
+    v_prefix = json_get(config, "naming.version.prefix", "v")
+
+    def arcname(mp4: Path) -> str:
+        folder = mp4.parent.parent.relative_to(renders).as_posix()
+        return f"{folder}/{mp4.stem}_{mp4.parent.name}{mp4.suffix}"
+
     found, empty = [], []
     for sequence in sequences:
-        sources = resolve_sequence_sources(sequence, Path(project_root), config)
+        sources = resolve_sequence_sources(sequence, project_root, config)
         if not sources:
             empty.append(sequence)
-        for _label, mp4 in sources:
-            found.append((f"{sequence}/{mp4.stem}_{mp4.parent.name}{mp4.suffix}", mp4))
+        found += [mp4 for _label, mp4 in sources]
+    if assets:
+        asset_mp4s = [
+            mp4
+            for top in ("assets", "library")
+            for d in _asset_render_dirs(renders / top, v_prefix)
+            if (mp4 := _first_mp4(latest_render_dir(d, v_prefix)))
+        ]
+        if not asset_mp4s:
+            empty.append("assets/libraries")
+        found += asset_mp4s
     if not found:
         return 0, empty
     tmp = zip_path.with_name(f"{zip_path.name}.tmp")
     try:
         with zipfile.ZipFile(tmp, "w", zipfile.ZIP_STORED) as z:
-            for arcname, mp4 in found:
-                z.write(mp4, arcname)
+            for mp4 in found:
+                z.write(mp4, arcname(mp4))
         os.replace(tmp, zip_path)
     finally:
         if tmp.exists():
