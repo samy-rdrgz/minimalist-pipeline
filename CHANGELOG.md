@@ -4,6 +4,12 @@ All notable changes to this addon. Dates are release dates.
 
 ## Unreleased
 
+### Added
+
+- Export snapshot: a *Videos to zip* checklist of the sequences. Every
+  shot's latest video of the ticked ones goes into a zip next to the
+  snapshot, with its name, one folder per sequence.
+
 ### Fixed
 
 - A version saved by Blender's own File > Save As or Save Incremental

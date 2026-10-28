@@ -1,7 +1,9 @@
 """Preview compilation providers: resolve which shots' mp4s go into a block
 or sequence preview -- filesystem-only, no bpy needed."""
 
+import os
 import re
+import zipfile
 from pathlib import Path
 
 from .config import ConfigCache, json_get, parse_filename, shots_in_segment
@@ -118,3 +120,33 @@ def resolve_sequence_sources(
             covered.update(numbers)
     out.sort()
     return [(label, mp4) for _, label, mp4 in out]
+
+
+def zip_sequence_videos(
+    project_root: Path, sequences: list[str], zip_path: Path, config: dict
+) -> tuple[int, list[str]]:
+    """Every shot's latest video of these sequences (the same ones Preview
+    sequence takes) into zip_path: <sequence>/<video>_<render folder>.mp4.
+    Stored, not compressed: an mp4 already is. Written beside then renamed,
+    never left half-written. Returns (videos zipped, sequences with none).
+    Pure: thread-safe, config passed in."""
+    zip_path = Path(zip_path)
+    found, empty = [], []
+    for sequence in sequences:
+        sources = resolve_sequence_sources(sequence, Path(project_root), config)
+        if not sources:
+            empty.append(sequence)
+        for _label, mp4 in sources:
+            found.append((f"{sequence}/{mp4.stem}_{mp4.parent.name}{mp4.suffix}", mp4))
+    if not found:
+        return 0, empty
+    tmp = zip_path.with_name(f"{zip_path.name}.tmp")
+    try:
+        with zipfile.ZipFile(tmp, "w", zipfile.ZIP_STORED) as z:
+            for arcname, mp4 in found:
+                z.write(mp4, arcname)
+        os.replace(tmp, zip_path)
+    finally:
+        if tmp.exists():
+            tmp.unlink()
+    return len(found), empty

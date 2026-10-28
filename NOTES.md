@@ -1844,6 +1844,17 @@ project at a given moment and a way to send review notes back.
   offline. Not Markdown (browsers don't render it), not an XLSX report.
   Zero dependencies by choice -- stdlib only, even though an extension
   could bundle wheels.
+- **Videos in a zip beside it, not in the HTML.** Embedding them (base64
+  `data:`) was weighed: +33 % on top of the mp4s, the whole file loaded
+  at once by the browser, and the renders are x265 -- Firefox can't play
+  them, Chrome only with hardware decoding -- so a re-encoded H.264 copy
+  per shot on top. A zip named like the snapshot (`zip_sequence_videos()`,
+  `lib/preview.py`) just copies the mp4s as they are (stored, not
+  compressed: an mp4 already is), for the sequences ticked in the export
+  dialog, none by default. Same "latest video per shot" as Preview
+  sequence (`resolve_sequence_sources()`), so the two never disagree.
+  Third thread step after the HTML: written as `.zip.tmp` then renamed, a
+  failure leaves the snapshot itself fine and says so.
 - **The review template is an XLSX embedded in the HTML** (`data:` link
   with `download`) rather than an HTML form: a form under `file://` loses
   everything on close (localStorage isn't reliable there), a spreadsheet
