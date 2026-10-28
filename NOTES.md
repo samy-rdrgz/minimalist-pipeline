@@ -164,6 +164,16 @@ No hard cap was added regardless — a warning, not a block, consistent with the
   before creating one, so re-running it against an already-scaffolded
   scene is a no-op past the diff — only a genuinely new shot number gets
   new datablocks.
+- Any other marker already on a shot's frame is removed (bug fix): "New
+  shot" without "Start with a new clean scene" saves the open file — often
+  another shot's, its marker on `default_frame_start` like the new one's —
+  so the new file had two markers on the same frame, and the render's
+  per-shot split broke on them. Same for Edit block structure, a dropped
+  shot's marker sitting on a new shot's start. Only markers on a frame
+  this call places one on: the rest of the inherited timeline is left as
+  it is. Two shots of the same call given the same start frame keep both
+  markers — that's the caller's input to fix, not something to pick a
+  winner for.
 - The camera's own trailing version suffix (`_v001`) is a *different axis*
   from the shot file's own version: it lets an artist keep alternate test
   cameras in the same file (`_v002`, `_v003`...), only one bound to a marker

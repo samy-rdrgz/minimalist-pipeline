@@ -12,6 +12,9 @@ All notable changes to this addon. Dates are release dates.
   created on open and on save (latest version only), a new `-stable`
   takes the file's own links, and opening a `-stable` fills its empty
   linked list.
+- "New shot" (and Edit block structure) without a clean scene left the
+  open file's marker on the new shot's frame: two markers on one frame,
+  the render split broke. A shot's frame now keeps only its own marker.
 
 ## 1.1.5 — 2026-10-27
 
