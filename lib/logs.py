@@ -59,12 +59,44 @@ def _rotate_if_needed(log_file: Path, archives_dir: Path, now) -> None:
     try:
         if log_file.stat().st_size <= LOG_ROTATE_MAX_BYTES:
             return
-        archives_dir.mkdir(parents=True, exist_ok=True)
-        stamp = now(iso=False).strftime("%Y%m%d-%H%M%S")
-        archived = archives_dir / f"{log_file.stem}_{stamp}{log_file.suffix}"
-        log_file.rename(archived)
+        _archive(log_file, archives_dir, now)
     except OSError:
         pass
+
+
+def _archive(log_file: Path, archives_dir: Path, now) -> Path:
+    """Move log_file into archives_dir, timestamped. Raises OSError."""
+    archives_dir.mkdir(parents=True, exist_ok=True)
+    stamp = now(iso=False).strftime("%Y%m%d-%H%M%S")
+    archived = archives_dir / f"{log_file.stem}_{stamp}{log_file.suffix}"
+    log_file.rename(archived)
+    return archived
+
+
+def archive_log_now(log_file_key: str = "pipeline_log_file") -> Path | None:
+    """Archive the log now, whatever its size -- the same move as the
+    rotation, under the same lock: the next line starts a fresh file. The
+    archive's path, None if the log is empty or missing. Raises
+    PipelineError if it's held or can't be moved."""
+    from .config import ConfigCache
+    from .core import acquire_lock, get_machine_id, now, release_lock
+    from .errors import PipelineError
+
+    log_file = ConfigCache.get_path(log_file_key)
+    try:
+        if not log_file.stat().st_size:
+            return None
+    except FileNotFoundError:
+        return None
+    machine_id = get_machine_id()
+    if not acquire_lock(log_file, machine_id):
+        raise PipelineError("The log is being written, try again.")
+    try:
+        return _archive(log_file, ConfigCache.get_path("logs_archives"), now)
+    except OSError as e:
+        raise PipelineError(f"Could not archive the log: {e}") from e
+    finally:
+        release_lock(log_file, machine_id)
 
 
 def read_log_tail(path: Path, max_bytes: int = 1_000_000) -> tuple[list[dict], bool]:

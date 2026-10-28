@@ -31,6 +31,7 @@ from .log_ops import (
     PIPELINE_PG_log_monitoring,
     M_PIPELINE_OT_copy_log_line,
     M_PIPELINE_OT_pipeline_logs,
+    M_PIPELINE_OT_pipeline_logs_archive,
     M_PIPELINE_OT_pipeline_logs_refresh,
 )
 from .monitoring_ops import (
@@ -135,6 +136,7 @@ classes = (
     PIPELINE_PG_log_monitoring,
     M_PIPELINE_OT_pipeline_logs,
     M_PIPELINE_OT_pipeline_logs_refresh,
+    M_PIPELINE_OT_pipeline_logs_archive,
     M_PIPELINE_OT_copy_log_line,
     M_PIPELINE_OT_farm_add_self_worker,
     PIPELINE_PG_farm_monitoring,

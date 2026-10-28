@@ -226,9 +226,13 @@ def set_active_project_root(prefs, new_root: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-def session_update():
+def session_update(saved: bool = False):
     """Update the session state. Never raises: called from timers and app
-    handlers with no operator around it to catch or report a lock failure."""
+    handlers with no operator around it to catch or report a lock failure.
+    saved: called after a save -- the session's time is work, counted by
+    WorkTimeCache (a session never saved is someone just looking). A save
+    to another file (Increment, Mark as stable) saves the work of the
+    session it ends."""
     if bpy.app.background or not bpy.data.filepath:
         return
     try:
@@ -247,8 +251,11 @@ def session_update():
             # File switched without quitting Blender -- close the old session
             # (with its summary) instead of leaving it frozen.
             if data and data["filepath"] != bpy.data.filepath:
+                if saved:
+                    data["saved"] = True
                 _log_session_end(data)
                 data = {}
+                saved = False  # the new file's session: nothing saved yet
 
             if not data:
                 # No session_start line -- see _log_session_end() / NOTES.md.
@@ -262,6 +269,8 @@ def session_update():
                 box["action"] = "to_write"
             else:
                 data["last_ping"] = now()
+                if saved:
+                    data["saved"] = True
                 box["data"] = data
                 box["action"] = "to_write"
             return True
@@ -290,6 +299,7 @@ def _log_session_end(data: dict) -> None:
             file_type=data.get("file_type", "unknown"),
             filepath=filepath,
             duration_seconds=duration,
+            saved=bool(data.get("saved")),
             log_file_key="sessions_log_file",
         )
     except Exception:

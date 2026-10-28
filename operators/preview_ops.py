@@ -51,12 +51,16 @@ def submit_preview(
     )
 
 
-def request_sequence_preview(sequence_label: str, user: str, priority: int = 10) -> list:
+def request_sequence_preview(
+    sequence_label: str, user: str, priority: int = 10, dropped: list | None = None
+) -> list:
     """A sequence's preview ("sq030"): every shot's latest video, end to
-    end. Returns its sources -- empty: nothing rendered, nothing sent.
-    Raises PipelineError."""
+    end. Returns its sources -- empty: nothing rendered, nothing sent. A
+    block rendered whole but left out (one of its shots has its own render)
+    is added to dropped, see resolve_sequence_sources(). Raises
+    PipelineError."""
     project_root = get_active_project_root()
-    sources = resolve_sequence_sources(sequence_label, project_root)
+    sources = resolve_sequence_sources(sequence_label, project_root, dropped=dropped)
     if sources:
         submit_preview(
             "sequence",
@@ -68,6 +72,23 @@ def request_sequence_preview(sequence_label: str, user: str, priority: int = 10)
             priority,
         )
     return sources
+
+
+def dropped_message(dropped: list) -> str:
+    """The blocks a sequence preview left out (request_sequence_preview()'s
+    dropped), each logged, in one line for the status bar -- "" if none."""
+    for label, overlap in dropped:
+        log(
+            "WARNING",
+            "compile_preview",
+            f"{label} left out of the preview: {', '.join(overlap)} has its own render.",
+        )
+    if not dropped:
+        return ""
+    names = ", ".join(
+        f"{label} ({', '.join(overlap)} rendered alone)" for label, overlap in dropped
+    )
+    return f"Left out: {names}."
 
 
 class M_PIPELINE_OT_compile_preview(bpy.types.Operator):
@@ -82,11 +103,13 @@ class M_PIPELINE_OT_compile_preview(bpy.types.Operator):
     )
     filepath: bpy.props.StringProperty(default="")
     custom_tooltip: bpy.props.StringProperty()
-    # Same as the Render dialog's: remembered from the last submit.
+    # Same as the Render dialog's: back to 10 on every compile, else a rush
+    # priority sticks to the next ones.
     priority: bpy.props.IntProperty(
         name="Priority",
         default=10,
         description="Higher goes first (10 by default); same priority: oldest first",
+        options={"SKIP_SAVE"},
     )
 
     @classmethod
@@ -136,6 +159,7 @@ class M_PIPELINE_OT_compile_preview(bpy.types.Operator):
             return {"CANCELLED"}
         sequence_label = f"{naming['sequence']['prefix']}{parsed['sequence']}"
 
+        dropped = []
         try:
             if self.scope == "block":
                 sources = resolve_block_sources(filepath, project_root, config)
@@ -151,7 +175,7 @@ class M_PIPELINE_OT_compile_preview(bpy.types.Operator):
                     )
             else:
                 sources = request_sequence_preview(
-                    sequence_label, get_user(context), self.priority
+                    sequence_label, get_user(context), self.priority, dropped
                 )
         except PipelineError as e:
             log(e.level, "compile_preview", e.message)
@@ -163,5 +187,9 @@ class M_PIPELINE_OT_compile_preview(bpy.types.Operator):
             )
             return {"CANCELLED"}
 
-        self.report({"INFO"}, f"Preview compile requested ({len(sources)} shot(s)).")
+        message = f"Preview compile requested ({len(sources)} shot(s))."
+        left_out = dropped_message(dropped)
+        self.report(
+            {"WARNING" if left_out else "INFO"}, f"{message} {left_out}".strip()
+        )
         return {"FINISHED"}

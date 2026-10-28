@@ -739,6 +739,8 @@ def draw_farm_worker_details(layout, context):
             outcome = next(
                 (k for k in ("cancelled", "stopped", "lost") if result.get(k)), "failed"
             )
+            if outcome == "failed" and result.get("reason"):
+                outcome = f"failed: {result['reason']}"
         when, _ = _since(result.get("at"))
         split = col.split(factor=DETAIL_KEY_COLUMN)
         left = split.row()
@@ -1125,6 +1127,14 @@ def draw_farm_job_details(layout, context):
             col,
             "Failed chunk",
             f"{_chunk_label(data, k)} on {machine_names(machines)}",
+            icon="ERROR",
+        )
+    for failure in data.get("failure_reasons") or []:
+        field(
+            col,
+            "Why",
+            f"{_chunk_label(data, failure.get('chunk'))} on "
+            f"{machine_names([failure.get('machine')])}: {failure.get('reason')}",
             icon="ERROR",
         )
     if data.get("fail_reason"):

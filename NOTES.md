@@ -13,10 +13,10 @@ comment.
 
 By theme; the sections below stay in the order they were written.
 
-- **Render farm**: [Farm 1.1.0: chunks replace placeholders](#farm-110-chunks-replace-placeholders) · [Stuck frame](#stuck-frame) · [Stopping a worker: after this frame, or now](#stopping-a-worker-after-this-frame-or-now) · [Which machine rendered which frame](#which-machine-rendered-which-frame) · [Time left: per machine, from each frame's time](#time-left-per-machine-from-each-frames-time) · [Crash recovery: resume, don't orphan](#crash-recovery-resume-dont-orphan) · [Re-rendering a file: match the render, not the job](#re-rendering-a-file-match-the-render-not-the-job) · [Farm subprocess output: files, never pipes](#farm-subprocess-output-files-never-pipes) · [Farm popup: worker state, open-folder button, refresh cost](#farm-popup-worker-state-open-folder-button-refresh-cost) · [Farm status: two redraw timers, split by cost](#farm-status-two-redraw-timers-split-by-cost) · [One farm snapshot reader, sync or threaded](#one-farm-snapshot-reader-sync-or-threaded) · [FFmpeg detection: PATH lookup isn't enough, and an override can't silently fall back](#ffmpeg-detection-path-lookup-isnt-enough-and-an-override-cant-silently-fall-back) · [What a real project's export showed (6 machines, a week of production)](#what-a-real-projects-export-showed-6-machines-a-week-of-production) · [ffmpeg passes: a %, from -progress](#ffmpeg-passes-a--from--progress) · [Priority: giving way between chunks](#priority-giving-way-between-chunks)
+- **Render farm**: [Farm 1.1.0: chunks replace placeholders](#farm-110-chunks-replace-placeholders) · [Stuck frame](#stuck-frame) · [Stopping a worker: after this frame, or now](#stopping-a-worker-after-this-frame-or-now) · [Which machine rendered which frame](#which-machine-rendered-which-frame) · [Time left: per machine, from each frame's time](#time-left-per-machine-from-each-frames-time) · [Crash recovery: resume, don't orphan](#crash-recovery-resume-dont-orphan) · [Re-rendering a file: match the render, not the job](#re-rendering-a-file-match-the-render-not-the-job) · [Farm subprocess output: files, never pipes](#farm-subprocess-output-files-never-pipes) · [Farm popup: worker state, open-folder button, refresh cost](#farm-popup-worker-state-open-folder-button-refresh-cost) · [Farm status: two redraw timers, split by cost](#farm-status-two-redraw-timers-split-by-cost) · [One farm snapshot reader, sync or threaded](#one-farm-snapshot-reader-sync-or-threaded) · [FFmpeg detection: PATH lookup isn't enough, and an override can't silently fall back](#ffmpeg-detection-path-lookup-isnt-enough-and-an-override-cant-silently-fall-back) · [What a real project's export showed (6 machines, a week of production)](#what-a-real-projects-export-showed-6-machines-a-week-of-production) · [ffmpeg passes: a %, from -progress](#ffmpeg-passes-a--from--progress) · [Priority: giving way between chunks](#priority-giving-way-between-chunks) · [A failed render says why](#a-failed-render-says-why)
 - **Notes, tracking, snapshot**: [Tracking entries](#tracking-entries) · [Entries for several departments](#entries-for-several-departments) · [Validation roles](#validation-roles) · [Entries: two fields only ever guaranteed together, never accessed bare](#entries-two-fields-only-ever-guaranteed-together-never-accessed-bare) · [Edit entry: a note turned task kept no checkbox](#edit-entry-a-note-turned-task-kept-no-checkbox) · [Edit-entry dialog: a stored department can outlive its own enum](#edit-entry-dialog-a-stored-department-can-outlive-its-own-enum) · [Department filter: three different callers, three different "current file"s](#department-filter-three-different-callers-three-different-current-files) · [tracking.json: one path, never created by a write](#trackingjson-one-path-never-created-by-a-write) · [Renders to check: the one before, to compare](#renders-to-check-the-one-before-to-compare) · [Project monitoring's Farm column: the monitor cache, not the project scan](#project-monitorings-farm-column-the-monitor-cache-not-the-project-scan) · [Production snapshot: one HTML file, a spreadsheet inside it](#production-snapshot-one-html-file-a-spreadsheet-inside-it) · [Snapshot width: short state labels, hideable columns](#snapshot-width-short-state-labels-hideable-columns) · [Work time tracking & log rotation](#work-time-tracking--log-rotation)
 - **Shot blocks (multishot), batch**: [Multishot blocks](#multishot-blocks) · [Multishot row list: disabling a button isn't a guard](#multishot-row-list-disabling-a-button-isnt-a-guard) · [Multishot row list, take two: a clean-scene reset invalidates it](#multishot-row-list-take-two-a-clean-scene-reset-invalidates-it) · [_draw_timeline_warnings: a trailing comma turned a string into a 1-tuple](#_draw_timeline_warnings-a-trailing-comma-turned-a-string-into-a-1-tuple) · [CSV batch: the subprocess couldn't import itself](#csv-batch-the-subprocess-couldnt-import-itself)
-- **Versions, saving, files**: [Read-only reason: from a popup on every open to an on-demand menu](#read-only-reason-from-a-popup-on-every-open-to-an-on-demand-menu) · [Top bar read-only indicator: why it sits before the Blender icon](#top-bar-read-only-indicator-why-it-sits-before-the-blender-icon) · [.wipmeta writes tolerate a missing sidecar; the panel doesn't trust the flag alone](#wipmeta-writes-tolerate-a-missing-sidecar-the-panel-doesnt-trust-the-flag-alone) · [Next version number: never from a cached listing](#next-version-number-never-from-a-cached-listing) · [Recent files: derived from the log, not a stored list](#recent-files-derived-from-the-log-not-a-stored-list) · [resolve_bpy_path() left "../" uncollapsed in every stored link path](#resolve_bpy_path-left--uncollapsed-in-every-stored-link-path) · [Copy/paste isn't always under bpy.app.tempdir](#copypaste-isnt-always-under-bpyapptempdir) · [Project walk: a stray .pipeline/ hid every asset below it; popup regions must not outlive their popup](#project-walk-a-stray-pipeline-hid-every-asset-below-it-popup-regions-must-not-outlive-their-popup)
+- **Versions, saving, files**: [Read-only reason: from a popup on every open to an on-demand menu](#read-only-reason-from-a-popup-on-every-open-to-an-on-demand-menu) · [Top bar read-only indicator: why it sits before the Blender icon](#top-bar-read-only-indicator-why-it-sits-before-the-blender-icon) · [.wipmeta writes tolerate a missing sidecar; the panel doesn't trust the flag alone](#wipmeta-writes-tolerate-a-missing-sidecar-the-panel-doesnt-trust-the-flag-alone) · [Next version number: never from a cached listing](#next-version-number-never-from-a-cached-listing) · [Recent files: derived from the log, not a stored list](#recent-files-derived-from-the-log-not-a-stored-list) · [A version without .wipmeta](#a-version-without-wipmeta) · [The lock follows the file](#the-lock-follows-the-file) · [Work time: only a session that saved](#work-time-only-a-session-that-saved) · [resolve_bpy_path() left "../" uncollapsed in every stored link path](#resolve_bpy_path-left--uncollapsed-in-every-stored-link-path) · [Copy/paste isn't always under bpy.app.tempdir](#copypaste-isnt-always-under-bpyapptempdir) · [Project walk: a stray .pipeline/ hid every asset below it; popup regions must not outlive their popup](#project-walk-a-stray-pipeline-hid-every-asset-below-it-popup-regions-must-not-outlive-their-popup)
 - **Monitoring windows, popups, panels**: [Monitoring: windows, not popups](#monitoring-windows-not-popups) · [Monitoring crash: a thread during window_new()](#monitoring-crash-a-thread-during-window_new) · [Monitoring windows: to the front](#monitoring-windows-to-the-front) · [Monitoring windows: pages sized on the window](#monitoring-windows-pages-sized-on-the-window) · [Monitoring popups: reopening on the detail, or not](#monitoring-popups-reopening-on-the-detail-or-not) · [File details' monitoring_detail("file") is a folder, not a versioned file](#file-details-monitoring_detailfile-is-a-folder-not-a-versioned-file) · [Popup-chaining: a second modal popup always waits one timer tick](#popup-chaining-a-second-modal-popup-always-waits-one-timer-tick) · [Action popups: dialogs](#action-popups-dialogs) · ["Render" button opening pre-filled: an operator property's own redo memory](#render-button-opening-pre-filled-an-operator-propertys-own-redo-memory) · [Text wrapping in panels](#text-wrapping-in-panels) · [Pipeline log: backup noise, viewer](#pipeline-log-backup-noise-viewer) · [Shortcuts](#shortcuts)
 - **Shared drive, network cost**: [Network-share redraw cost: caching disk reads off draw()/poll()/enum callbacks](#network-share-redraw-cost-caching-disk-reads-off-drawpollenum-callbacks) · [Popups on a network share: nothing on disk in draw(), heavy reads off the UI thread](#popups-on-a-network-share-nothing-on-disk-in-draw-heavy-reads-off-the-ui-thread) · [Sidebar redraw: 341 ms of network calls, 0 notes on screen](#sidebar-redraw-341-ms-of-network-calls-0-notes-on-screen) · [A tick shows at once](#a-tick-shows-at-once) · [Windows: replace/delete refused while a reader has the file open](#windows-replacedelete-refused-while-a-reader-has-the-file-open) · [Lock staleness: 3x the heartbeat, not 1x](#lock-staleness-3x-the-heartbeat-not-1x)
 - **Addon lifecycle**: [Addon register()/unregister(): four lifecycle gotchas](#addon-registerunregister-four-lifecycle-gotchas) · [Addon register()](#addon-register) · [Addon settings lost on update](#addon-settings-lost-on-update) · [Screenshots in the docs](#screenshots-in-the-docs)
@@ -164,6 +164,16 @@ No hard cap was added regardless — a warning, not a block, consistent with the
   before creating one, so re-running it against an already-scaffolded
   scene is a no-op past the diff — only a genuinely new shot number gets
   new datablocks.
+- Any other marker already on a shot's frame is removed (bug fix): "New
+  shot" without "Start with a new clean scene" saves the open file — often
+  another shot's, its marker on `default_frame_start` like the new one's —
+  so the new file had two markers on the same frame, and the render's
+  per-shot split broke on them. Same for Edit block structure, a dropped
+  shot's marker sitting on a new shot's start. Only markers on a frame
+  this call places one on: the rest of the inherited timeline is left as
+  it is. Two shots of the same call given the same start frame keep both
+  markers — that's the caller's input to fix, not something to pick a
+  winner for.
 - The camera's own trailing version suffix (`_v001`) is a *different axis*
   from the shot file's own version: it lets an artist keep alternate test
   cameras in the same file (`_v002`, `_v003`...), only one bound to a marker
@@ -293,6 +303,15 @@ place that can answer this honestly every time.
   naming pair above, works for any file regardless of whether it's open.
   "Most recent per shot" is read from the render increment folder's own name
   (`vNNN_MMM`), never mtime — mtime lies after a copy across machines/NAS.
+- **A block rendered whole counts too.** The split only happens when the
+  setup finds 2+ live markers; otherwise the block renders as one job, into
+  its own folder (`renders/sq100/sh030-040-050/`). `resolve_sequence_sources()`
+  first matched only `sh\d+` folders and silently left it out. It now reads
+  `sh030-040-050` folders too, placed at their first shot -- but a shot's
+  own render wins: a block folder overlapping one is dropped whole (never
+  half a clip, never a shot twice), likewise one overlapping an earlier
+  block. `resolve_block_sources()` falls back to the block's own folder
+  only when no shot of it has its own render.
 - **Path: `_preview/` + a dated filename, not one or the other.** Two
   different jobs, layered: the `_preview/` folder marks "disposable" on disk
   (nobody mistakes it for a deliverable), and the `{scope}_{date}.mp4`
@@ -1825,6 +1844,22 @@ project at a given moment and a way to send review notes back.
   offline. Not Markdown (browsers don't render it), not an XLSX report.
   Zero dependencies by choice -- stdlib only, even though an extension
   could bundle wheels.
+- **Videos in a zip beside it, not in the HTML.** Embedding them (base64
+  `data:`) was weighed: +33 % on top of the mp4s, the whole file loaded
+  at once by the browser, and the renders are x265 -- Firefox can't play
+  them, Chrome only with hardware decoding -- so a re-encoded H.264 copy
+  per shot on top. A zip named like the snapshot (`zip_latest_videos()`,
+  `lib/preview.py`) just copies the mp4s as they are (stored, not
+  compressed: an mp4 already is), laid out like `renders/` minus each
+  one's own folder (its video's name already says it), for the
+  sequences ticked in the export dialog and, with *Assets & libraries*,
+  every asset/library -- nothing by default. Same "latest video per shot"
+  as Preview sequence (`resolve_sequence_sources()`), so the two never
+  disagree. An asset/library's render folder is found as the one holding
+  increment folders (`_asset_render_dirs()`), never descending into those
+  (thousands of frames each), `old/` skipped.
+  Third thread step after the HTML: written as `.zip.tmp` then renamed, a
+  failure leaves the snapshot itself fine and says so.
 - **The review template is an XLSX embedded in the HTML** (`data:` link
   with `download`) rather than an HTML form: a form under `file://` loses
   everything on close (localStorage isn't reliable there), a spreadsheet
@@ -3269,3 +3304,86 @@ exits 0; the worker is idle, the next tick sends it to the higher job.
   and end of a render) and by `archive()` for one never read.
 - A worker on an older addon ignores the flag (no `--yield-file`): it
   finishes its render as before.
+
+---
+
+## A version without .wipmeta
+
+A `v003-stable` was found with `"linked": []` and `created_from` a `v002`
+that had no `.wipmeta` at all, on many shots. Every pipeline path that
+writes a `.blend` (`increment_version`, `auto_version`, asset/shot
+creation) writes its `.wipmeta` right after -- but Blender's own
+**File > Save As** and **File > Save Incremental** don't go through the
+addon (only Ctrl+S is overridden, see `docs/limitations.md`), and Save
+Incremental turns `..._v001.blend` into `..._v002.blend`: a perfectly
+named version, invisible to tracking. A `create_wipmeta()` failing after
+its save (a held lock) leaves the same state.
+
+It mostly went unnoticed: `get_last_wipmeta()` globs the folder, so the
+next wip inherits the previous version's list and the panel shows it.
+`create_stablemeta()` reads the *exact* source meta, found nothing, and
+wrote an empty `linked` -- which also drops the shot from "Linked by".
+
+Fixed on three sides:
+- `ensure_wipmeta()` creates the missing `.wipmeta` (`creation_mode:
+  "recovered"`, `linked` = the file's own links) on load and on save --
+  only for the folder's latest version, an older one reopened would
+  become the "last wipmeta" new versions inherit from. On save it runs
+  one timer tick later (`_deferred_sync_links()`): `increment_version`
+  saves, *then* writes its meta in the same operator, so a synchronous
+  check would "recover" every regular increment first.
+- `create_stablemeta()` adds the file's own links (`scan_linked_libraries()`,
+  the stable being the open file at that point) to the inherited list.
+- `sync_linked_libraries()` on a `-stable` file fills its `.stablemeta`
+  (`stablemeta_sync_links()`, add-only): the stable's content is frozen,
+  its links are exactly the file's. Opening an affected stable repairs it.
+
+## The lock follows the file
+
+A `.blend`'s lock was taken once, on opening (`post_load_handler()`), and
+never released: it went stale 90 s after the heartbeat stopped refreshing
+it. The heartbeat only refreshes the *current* file's -- so after an
+Increment, auto_version or Blender's own Save As, the session went on
+working on a new version nobody had locked (anyone could open it
+writable), while the old one stayed locked for 90 s for nothing.
+Mark as stable is the one save as that must not lock: the `-stable` is
+read-only, like on opening.
+
+`_held_lock` (`lib/handlers.py`) is the one file this session holds the
+lock of. `post_load_handler()` releases it first thing (whatever opens
+next, the old file is closed) and records the new one once acquired;
+`save_post_handler()` moves it (`_follow_lock()`) when the save went to
+another path -- none taken on a `-stable` (by name: save_post fires
+before `save_as()` flags it) nor on a file flagged read-only (the
+read-only "Save" of `wm.safe_save` takes and releases its own, transient);
+`on_quit_handler()` releases it. A hot reload forgets `_held_lock`: that
+lock just goes stale as before.
+
+## A failed render says why
+
+The worker only published "failed" (`last_job_result.success`), the
+cause stayed in the render's log -- an out-of-memory looked like a bug
+until someone opened it. `failure_reason()` (`farm/workers.py`) reads the
+log's last 64 KB when the subprocess exits non-zero: the most telling
+kind found (out of memory > crash > Python traceback > missing file >
+Blender's last `Error:` line, else the exit code), the last `Fra:` seen,
+the line itself. Two known false leads skipped: a traceback right after
+a "Driver" line (a broken driver prints one per evaluation and renders
+on), and `Error: Not freed memory blocks` (printed on exit after any
+error). The host keeps it per failed chunk (`failure_reasons`, cleared on
+retry like `chunk_failures`) and appends the last one to `fail_reason`.
+
+## Work time: only a session that saved
+
+`WorkTimeCache` summed every `session_end`: a reviewer opening a stable
+for ten minutes added ten minutes of "work". A session now counts only
+if the file was saved during it -- `save_post_handler()` calls
+`session_update(saved=True)`, which marks the session file. A save that
+went to another path (Increment, Mark as stable, Save As) marks the
+session it *ends* (the work saved was done in it) and starts the new
+file's unsaved. Not `is_dirty`: selecting an object or moving the
+viewport dirties a file in Blender, a review would count. `session_end`
+logs `saved`; `_scan()` skips only `saved: false`, so lines from before
+keep counting. Known misses, accepted: work discarded without saving
+counts nothing (it's lost anyway), a reviewer's reflex Ctrl+S counts.
+

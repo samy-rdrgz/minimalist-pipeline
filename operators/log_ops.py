@@ -3,8 +3,11 @@
 import bpy
 
 from ..lib import (
+    PipelineError,
+    archive_log_now,
     bring_monitoring_to_front,
     get_active_project_root,
+    log,
     memory_enum,
     memory_prop,
     monitoring_windows,
@@ -107,6 +110,46 @@ class M_PIPELINE_OT_pipeline_logs_refresh(bpy.types.Operator):
 
     def execute(self, context):
         load_pipeline_log()
+        return {"FINISHED"}
+
+
+class M_PIPELINE_OT_pipeline_logs_archive(bpy.types.Operator):
+    """Archive the pipeline log now, without waiting for its size limit."""
+
+    bl_idname = "m_pipeline.pipeline_logs_archive"
+    bl_label = "Archive the log"
+    bl_description = (
+        "Move the current pipeline log into config/logs/archives/ now, as it "
+        "is once it reaches 5 MB: the log starts again empty. Nothing is "
+        "deleted"
+    )
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_confirm(
+            self,
+            event,
+            title="Archive the pipeline log?",
+            message="It moves to config/logs/archives/ and starts again empty.",
+            confirm_text="Archive",
+            icon="QUESTION",
+        )
+
+    def execute(self, context):
+        if not get_active_project_root():
+            self.report({"ERROR"}, "No active project.")
+            return {"CANCELLED"}
+        try:
+            archived = archive_log_now()
+        except PipelineError as e:
+            self.report({e.level}, e.message)
+            return {"CANCELLED"}
+        if archived is None:
+            self.report({"INFO"}, "The log is already empty.")
+            return {"CANCELLED"}
+        # The first line of the new log says where the old one went.
+        log("INFO", "log_archive", f"Previous log archived as {archived.name}")
+        load_pipeline_log()
+        self.report({"INFO"}, f"Log archived: {archived.name}")
         return {"FINISHED"}
 
 

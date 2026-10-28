@@ -113,7 +113,8 @@ def build_shot_scene(
     """Apply project resolution/fps; ensure one camera + timeline marker per
     shot, all sharing a single CAM/SET/ASSETS collection set. Idempotent --
     reuses an existing camera/collection/marker by name instead of
-    duplicating it (see NOTES.md)."""
+    duplicating it, and removes any other marker on a shot's frame (see
+    NOTES.md)."""
     scene = bpy.context.scene
 
     res = json_get(config, "resolution", {"x": 1920, "y": 1080})
@@ -130,6 +131,7 @@ def build_shot_scene(
             scene.collection.children.link(bpy.data.collections.new(col_name))
 
     first_cam = None
+    placed = []  # this call's own markers, one per shot
     for i, shot_number in enumerate(shot_numbers):
         cam_name = format_camera_name(sequence_label, shot_number, config)
         # timeline[i] is this shot's own start frame; clamped defensively
@@ -148,6 +150,20 @@ def build_shot_scene(
             marker.camera = cam_obj
         else:
             marker.frame = frame
+        placed.append(marker)
+
+        # Any other marker already on that frame -- a new shot built from
+        # another shot's file (no clean scene), a shot dropped by Edit block
+        # structure: two markers on one frame break the per-shot split.
+        for other in [
+            m for m in scene.timeline_markers if m.frame == frame and m not in placed
+        ]:
+            log(
+                "INFO",
+                "shot_scene",
+                f"Marker {other.name} removed: frame {frame} is {cam_name}'s",
+            )
+            scene.timeline_markers.remove(other)
 
         if first_cam is None:
             first_cam = cam_obj

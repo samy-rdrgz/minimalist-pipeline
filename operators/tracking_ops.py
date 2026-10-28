@@ -1,6 +1,7 @@
 """Tracking operators: CRUD on note/todo/rtk entries, prod snapshot export and review import, Project monitoring."""
 
 import hashlib
+import os
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -65,6 +66,7 @@ from ..lib import (
     tracking_json_path,
     wipmeta_add_work,
     write_snapshot,
+    zip_latest_videos,
 )
 from ..farm import archive, farm_activity, request_monitor_refresh
 from ..panels import (
@@ -972,18 +974,34 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
         default=True,
         description="Open the snapshot in the browser once it's written",
     )
+    # Off on every export, like the sequences: zipping is never the default.
+    include_asset_videos: bpy.props.BoolProperty(
+        name="Assets & libraries",
+        default=False,
+        description="Also zip every asset/library's latest video",
+        options={"SKIP_SAVE"},
+    )
 
     _job = None
     _warnings: list = []
     _timer = None
     _root = None
-    _writing = False
+    _phase = "scan"  # scan -> write -> zip
 
     def invoke(self, context, event):
         root = get_active_project_root()
         if not root:
             self.report({"ERROR"}, "No active project.")
             return {"CANCELLED"}
+        # The videos' checklist, none ticked: zipping is never the default.
+        sequences = context.window_manager.snapshot_sequences
+        sequences.clear()
+        try:
+            names = sorted(e.name for e in os.scandir(root / "shots") if e.is_dir())
+        except OSError:
+            names = []
+        for name in names:
+            sequences.add().name = name
         meta = {"project": json_get(ConfigCache.get(), "project_name") or root.name}
         # The project's snapshots/ folder, fresh dated name -- the browser
         # can still go elsewhere.
@@ -997,6 +1015,26 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
         )
         context.window_manager.fileselect_add(self)
         return {"RUNNING_MODAL"}
+
+    def draw(self, context):
+        layout = self.layout
+        layout.prop(self, "include_thumbnails")
+        layout.prop(self, "open_when_done")
+        sequences = context.window_manager.snapshot_sequences
+        box = layout.box().column(align=True)
+        box.label(text="Videos to zip:", icon="FILE_MOVIE")
+        if not sequences:
+            empty = box.row()
+            empty.active = False
+            empty.label(text="No sequence in this project.", icon="INFO")
+        for item in sequences:
+            box.row(align=True).prop(item, "include", text=item.name)
+        box.separator()
+        box.prop(self, "include_asset_videos")
+        info = layout.column(align=True)
+        info.active = False
+        info.label(text="Each one's latest video, in a zip", icon="INFO")
+        info.label(text="named like the snapshot.", icon="BLANK1")
 
     def execute(self, context):
         self._root = get_active_project_root()
@@ -1018,7 +1056,7 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
         self._job = SnapshotJob(read_snapshot_data, self._root, thumbnails, v_prefix)
         # The farm's jobs, fresh by the time the scan is done (seconds).
         request_monitor_refresh()
-        self._writing = False
+        self._phase = "scan"
         wm = context.window_manager
         self._timer = wm.event_timer_add(0.2, window=context.window)
         wm.modal_handler_add(self)
@@ -1028,12 +1066,12 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
     def modal(self, context, event):
         if event.type != "TIMER" or not self._job.done:
             return {"PASS_THROUGH"}
-        if self._job.error:
+        if self._job.error and self._phase != "zip":
             context.window_manager.event_timer_remove(self._timer)
             log("ERROR", "snapshot", f"Snapshot failed: {self._job.error}")
             self.report({"ERROR"}, "Snapshot failed (see log).")
             return {"CANCELLED"}
-        if not self._writing:
+        if self._phase == "scan":
             config = ConfigCache.get()
             meta = {
                 "project": json_get(config, "project_name") or self._root.name,
@@ -1052,19 +1090,64 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
                 return {"CANCELLED"}
             self._warnings = snapshot["meta"]["thumbnail_warnings"]
             self._job = SnapshotJob(write_snapshot, snapshot, Path(self.filepath))
-            self._writing = True
+            self._phase = "write"
             return {"PASS_THROUGH"}
+        if self._phase == "write":
+            log("INFO", "snapshot", f"Snapshot written to {self.filepath}")
+            chosen = [
+                s.name for s in context.window_manager.snapshot_sequences if s.include
+            ]
+            if chosen or self.include_asset_videos:
+                # On a thread too: gigabytes, maybe onto a share.
+                self._job = SnapshotJob(
+                    zip_latest_videos,
+                    self._root,
+                    chosen,
+                    self.include_asset_videos,
+                    Path(self.filepath).with_suffix(".zip"),
+                    ConfigCache.get(),
+                )
+                self._phase = "zip"
+                what = chosen + (
+                    ["assets/libraries"] if self.include_asset_videos else []
+                )
+                self.report({"INFO"}, f"Snapshot written, zipping {', '.join(what)}...")
+                return {"PASS_THROUGH"}
         context.window_manager.event_timer_remove(self._timer)
-        log("INFO", "snapshot", f"Snapshot written to {self.filepath}")
+        problems = []
+        if self._phase == "zip":
+            zip_name = Path(self.filepath).with_suffix(".zip").name
+            if self._job.error:
+                # The snapshot itself is written: only the zip is missing.
+                log("ERROR", "snapshot", f"Videos not zipped: {self._job.error}")
+                problems.append("videos not zipped")
+            else:
+                zipped, empty, dropped = self._job.result
+                for label, overlap in dropped:
+                    log(
+                        "WARNING",
+                        "snapshot",
+                        f"Video of {label} not zipped: "
+                        f"{', '.join(overlap)} has its own render.",
+                    )
+                if dropped:
+                    problems.append(f"{len(dropped)} block video(s) left out")
+                if zipped:
+                    log("INFO", "snapshot", f"{zipped} video(s) zipped into {zip_name}")
+                if empty:
+                    log("WARNING", "snapshot", f"No video to zip in {', '.join(empty)}")
+                    problems.append(f"no video in {', '.join(empty)}")
         for w in self._warnings:
             log("WARNING", "snapshot", f"Thumbnail not made: {w}")
         if self._warnings:
             # A multilayer EXR needs ffmpeg: another machine that has it
             # can fill the gaps with a new export.
+            problems.append(f"{len(self._warnings)} thumbnail(s) could not be made")
+        if problems:
             self.report(
                 {"WARNING"},
                 f"Snapshot written: {Path(self.filepath).name} -- "
-                f"{len(self._warnings)} thumbnail(s) could not be made (see log)",
+                f"{', '.join(problems)} (see log)",
             )
         else:
             self.report({"INFO"}, f"Snapshot written: {Path(self.filepath).name}")

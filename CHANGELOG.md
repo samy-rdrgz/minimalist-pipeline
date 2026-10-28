@@ -2,6 +2,58 @@
 
 All notable changes to this addon. Dates are release dates.
 
+## 1.1.6 — 2026-10-28
+
+A failed render says why; the shots' and assets' latest videos zipped
+with the snapshot; the lock follows the file; work time only counts
+sessions that saved; fixes for files saved outside the addon.
+
+### Added
+
+- Export snapshot: a *Videos to zip* checklist of the sequences. Every
+  shot's latest video of the ticked ones goes into a zip next to the
+  snapshot, with its name, one folder per sequence / asset prefix. An *Assets &
+  libraries* box adds every asset/library's latest video too.
+- A failed render says what it died of, read from the end of its log
+  (out of memory, Blender crash, Python error, missing file, Blender's
+  last error, or its exit code), with its frame: in the job's detail,
+  in "frames X-Y failed on 3 machines", and in the worker's detail.
+- Pipeline log window: an archive button moves the current log into
+  `config/logs/archives/` now, without waiting for its 5 MB.
+
+### Fixed
+
+- A version saved by Blender's own File > Save As or Save Incremental
+  (not Ctrl+S) had no `.wipmeta`: invisible to tracking, and a `-stable`
+  made from it got an empty linked list. The missing `.wipmeta` is now
+  created on open and on save (latest version only), a new `-stable`
+  takes the file's own links, and opening a `-stable` fills its empty
+  linked list.
+- "New shot" (and Edit block structure) without a clean scene left the
+  open file's marker on the new shot's frame: two markers on one frame,
+  the render split broke. A shot's frame now keeps only its own marker.
+- The render priority is back to 10 on every submit: a high priority
+  given once no longer carries over to the next submits.
+- "Preview sequence" skipped a block rendered whole instead of split
+  per shot (its video in `renders/sq100/sh030-040-050/`): it only read
+  single-shot folders. That video now goes in, at its first shot's place,
+  unless one of its shots has its own render. "Preview block" uses it too
+  when none of the block's shots has its own render.
+- Mark as stable left the new `-stable` file writable: no READ-ONLY in
+  the top bar, Ctrl+S saved over it without asking -- only opening a
+  `-stable` flagged it. Mark as stable now flags it the same way.
+- The priority of the Compile preview dialog is back to 10 every time,
+  like the Render dialog's.
+- Preview sequence and the snapshot's videos zip now say when they leave
+  out a block rendered whole because one of its shots has its own render.
+- After an Increment (or Blender's own Save As), the new version had no
+  lock: someone else could open it writable while you worked on it. The
+  lock now moves onto it, and is released when you open another file or
+  quit, instead of waiting 90 s to go stale.
+- Work time no longer counts a session in which nothing was saved:
+  opening a file to look at it or review it adds nothing to its
+  asset/shot's total. Working on a `-stable` then Mark as stable counts.
+
 ## 1.1.5 — 2026-10-27
 
 Review right on the snapshot page -- a table, or one file at a time --

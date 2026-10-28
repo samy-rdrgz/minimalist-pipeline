@@ -19,6 +19,7 @@ from ..lib import (
     log,
     parse_filename,
     save_as,
+    scan_linked_libraries,
     wipmeta_add_work,
 )
 
@@ -163,6 +164,7 @@ class M_PIPELINE_OT_increment_version(bpy.types.Operator):
                         original_filepath=current,
                         departments=list(self.stabled_departments),
                         conflict_warnings="",
+                        linked=scan_linked_libraries(),
                     )
                 return {"FINISHED"}
             return {"CANCELLED"}

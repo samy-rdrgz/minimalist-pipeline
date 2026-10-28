@@ -550,6 +550,7 @@ def retry_job(data: dict, project_root: Path) -> str | None:
         # Kept on the machines that failed it rather than never rendered.
         data.pop("failed_machines", None)
     data.pop("chunk_failures", None)
+    data.pop("failure_reasons", None)
     data.pop("fail_reason", None)
     data.pop("left_machines", None)
     data.pop("rendered_by", None)
@@ -1162,6 +1163,13 @@ def _free_claims(job_path: Path, dead: dict) -> dict | None:
                     data.setdefault("stuck_frames", []).append(
                         {"machine": uuid, "at": now()} | stuck
                     )
+                # What it died of, read from its log by the worker
+                # (workers.failure_reason()).
+                reason = (worker.get("last_job_result") or {}).get("reason")
+                if reason and not stuck:
+                    data.setdefault("failure_reasons", []).append(
+                        {"chunk": k, "machine": uuid, "reason": reason, "at": now()}
+                    )
             release_claim(job_id, k)
             _unreadable_since.pop((job_id, k), None)
             # The frame it was writing, never renamed onto its final name.
@@ -1191,6 +1199,13 @@ def _free_claims(job_path: Path, dead: dict) -> dict | None:
                 f"frames {first}-{last} failed on {len(machines)} machines "
                 f"({', '.join(u[:8] for u in machines)})"
             )
+            reasons = [
+                r["reason"]
+                for r in data.get("failure_reasons") or []
+                if str(r.get("chunk")) == given_up[0]
+            ]
+            if reasons:
+                data["fail_reason"] += f" -- last: {reasons[-1]}"
             data["cancel_requested"] = True
             log("ERROR", "farm", f"Job {job_id}: {data['fail_reason']} -- render stopped.")
         box["action"] = "to_write"

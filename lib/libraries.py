@@ -7,10 +7,15 @@ from pathlib import Path
 import bpy
 
 from .actions import PipelineAction, set_pending_action
-from .config import file_in_active_project, to_relative
+from .config import file_in_active_project, parse_filename, to_relative
 from .core import resolve_bpy_path
 from .logs import log
-from .tracking import wipmeta_add_link, wipmeta_sync_links
+from .tracking import (
+    ensure_wipmeta,
+    stablemeta_sync_links,
+    wipmeta_add_link,
+    wipmeta_sync_links,
+)
 
 APPEND_DETECTED_EXPLANATION = (
     "In a pipeline, assets are linked (a live reference) rather than "
@@ -79,18 +84,30 @@ def scan_linked_libraries() -> list[dict]:
     return out
 
 
-def sync_linked_libraries():
+def sync_linked_libraries(create_missing: bool = False):
     """Record in the open file's .wipmeta the links it already contains but
     the pipeline never saw being made (file migrated from outside, library
-    repointed by a script...). Called on load and save. Never raises:
+    repointed by a script...) -- in its .stablemeta for a -stable file.
+    create_missing: first create the .wipmeta of a version that has none
+    (ensure_wipmeta()). Called on load and save. Never raises:
     handler-called, same rule as check_library_update()."""
     filepath = bpy.data.filepath
     if not filepath or not file_in_active_project(filepath):
         return
     try:
-        added = wipmeta_sync_links(Path(filepath), scan_linked_libraries())
+        path = Path(filepath)
+        links = scan_linked_libraries()
+        if create_missing and ensure_wipmeta(path, links):
+            return
+        parsed = parse_filename(path.name)
+        if parsed and parsed.get("tag") == "stable":
+            added = stablemeta_sync_links(path, links)
+            where = "stablemeta"
+        else:
+            added = wipmeta_sync_links(path, links)
+            where = "wipmeta"
         if added:
-            log("INFO", "sync_links", f"{added} existing link(s) added to the wipmeta")
+            log("INFO", "sync_links", f"{added} existing link(s) added to the {where}")
     except Exception as e:
         log("WARNING", "sync_links", f"Could not sync linked libraries: {e}")
 

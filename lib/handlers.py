@@ -1,5 +1,6 @@
 """Core Blender operators and app handlers."""
 
+from functools import partial
 from pathlib import Path
 
 import bpy
@@ -13,6 +14,7 @@ from .config import (
     file_in_active_project,
     find_known_project_for_file,
     get_active_project_root,
+    parse_filename,
 )
 from .core import (
     acquire_lock,
@@ -20,6 +22,7 @@ from .core import (
     get_machine_id,
     locked_json,
     refresh_lock,
+    release_lock,
 )
 from .errors import PipelineError
 from .libraries import import_warnings, sync_linked_libraries
@@ -101,6 +104,33 @@ def refresh_read_only_flag():
         set_opened_as_read_only(filepath, reason)
 
 
+# The file this session holds the lock of, "" if none: released when the
+# session moves on to another file (opened, or saved as), not left to go
+# stale -- see NOTES.md, "The lock follows the file".
+_held_lock: dict = {"path": ""}
+
+
+def _release_held_lock() -> None:
+    """Release the lock this session holds, if any. Never raises."""
+    held, _held_lock["path"] = _held_lock["path"], ""
+    if held:
+        release_lock(Path(held), get_machine_id())
+
+
+def _follow_lock(filepath: str) -> None:
+    """After a save: if it went to another file (Increment, Mark as stable,
+    Blender's own Save As), move the lock onto it -- none on a -stable or a
+    read-only file, the same as opening them."""
+    if _held_lock["path"] == filepath:
+        return
+    _release_held_lock()
+    parsed = parse_filename(Path(filepath).name) or {}
+    if parsed.get("tag") == "stable" or get_opened_as_read_only() == filepath:
+        return
+    if acquire_lock(Path(filepath), get_machine_id(), retries=1):
+        _held_lock["path"] = filepath
+
+
 @bpy.app.handlers.persistent
 def post_load_handler(*args):
     """After file load: log, then gate all further pipeline behavior to the
@@ -120,6 +150,10 @@ def post_load_handler(*args):
         unregister_refresh_timer()
     except Exception:
         pass
+
+    # The file it held is closed: whatever opens now, free it for others.
+    if not bpy.app.background:
+        _release_held_lock()
 
     if not bpy.data.filepath:
         return
@@ -142,8 +176,8 @@ def post_load_handler(*args):
         scan_sessions()
         session_update()
         # Before auto_version: a new version inherits this .wipmeta's
-        # linked list, so it has to be complete first.
-        sync_linked_libraries()
+        # linked list, so it has to be complete first (and to exist).
+        sync_linked_libraries(create_missing=True)
         check_library_update()
 
         reason = _static_read_only_reason(bpy.data.filepath)
@@ -175,6 +209,7 @@ def post_load_handler(*args):
                 explanation=LOCKED_FILE_EXPLANATION,
             )
             return
+        _held_lock["path"] = bpy.data.filepath
 
         bpy.ops.m_pipeline.auto_version("INVOKE_DEFAULT")
 
@@ -186,6 +221,7 @@ def on_quit_handler(*args):
     fires while Blender is already tearing down, too late for a popup.
     *args (unused): see post_load_handler's note on handler arity."""
     close_session()
+    _release_held_lock()
 
 
 @bpy.app.handlers.persistent
@@ -194,11 +230,27 @@ def save_post_handler(*args):
     version's .wipmeta with who saved it (auto_version's same-day-different
     -user check relies on this). *args (unused): see post_load_handler's
     note on handler arity."""
-    session_update()
+    session_update(saved=True)
     filepath = bpy.data.filepath
     if filepath and file_in_active_project(filepath):
         wipmeta_touch(Path(filepath))
-        sync_linked_libraries()
+        if bpy.app.background:
+            sync_linked_libraries()
+        else:
+            _follow_lock(filepath)
+            # One tick later: an increment saves, then writes its new
+            # version's meta in the same operator -- a missing .wipmeta is
+            # only one Blender's own Save As / Save Incremental left behind.
+            bpy.app.timers.register(
+                partial(_deferred_sync_links, filepath), first_interval=0.1
+            )
+
+
+def _deferred_sync_links(filepath: str):
+    """save_post_handler()'s sync, once the saving operator is done. Skipped
+    if another file was opened in between."""
+    if bpy.data.filepath == filepath:
+        sync_linked_libraries(create_missing=True)
 
 
 @bpy.app.handlers.persistent

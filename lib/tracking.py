@@ -43,7 +43,7 @@ from .core import (
 from .errors import PipelineError
 from .logs import log
 from .session import get_user
-from .versioning import get_version_number
+from .versioning import get_last_version_number, get_version_number
 
 
 def _meta_stem(filepath: Path) -> str:
@@ -509,7 +509,9 @@ class WorkTimeCache:
     @staticmethod
     def _scan(log_paths) -> dict[str, float]:
         """Sum session_end duration_seconds per folder (Path(filepath).parent)
-        across every given log file. Missing/unreadable files are skipped."""
+        across every given log file. Missing/unreadable files are skipped.
+        A session never saved isn't work (someone looking, a review): left
+        out -- a line from before "saved" was logged still counts."""
         totals: dict[str, float] = {}
         for log_path in log_paths:
             try:
@@ -523,7 +525,7 @@ class WorkTimeCache:
                             continue
                         fp = entry.get("filepath")
                         duration = entry.get("duration_seconds")
-                        if not fp or duration is None:
+                        if not fp or duration is None or entry.get("saved") is False:
                             continue
                         key = _session_folder_key(Path(fp).parent)
                         totals[key] = totals.get(key, 0.0) + duration
@@ -674,15 +676,22 @@ def get_last_wipmeta(filepath: Path) -> dict | None:
 
 
 def create_wipmeta(
-    *, filepath: Path, original_filepath: Path | None, creation_mode: str = ""
+    *,
+    filepath: Path,
+    original_filepath: Path | None,
+    creation_mode: str = "",
+    linked: list[dict] | None = None,
 ):
     """Create the .wipmeta for a new work version, inheriting linked libs
-    from the previous one. creation_mode: auto_increment | manual_incrementation
-    | branch_from | creation. Keyword-only: filepath/original_filepath are
-    both Path, a positional call risks silently swapping them."""
+    from the previous one -- or taking `linked` as is when given (the
+    file's own links, see ensure_wipmeta()). creation_mode: auto_increment
+    | manual_incrementation | branch_from | creation | recovered.
+    Keyword-only: filepath/original_filepath are both Path, a positional
+    call risks silently swapping them."""
 
     try:
-        last = get_last_wipmeta(filepath)
+        if linked is None:
+            linked = (get_last_wipmeta(filepath) or {}).get("linked", [])
         nw = now()
         data = {
             "file": str(to_relative(filepath)),
@@ -694,7 +703,7 @@ def create_wipmeta(
             "edited_at": nw,
             "edited_by": get_user(),
             "departments_worked": {},
-            "linked": compact_linked((last or {}).get("linked", [])),
+            "linked": compact_linked(linked),
         }
         path = _meta_path(filepath, ".wipmeta")
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -703,6 +712,39 @@ def create_wipmeta(
             box["action"] = "to_write"
     except Exception as e:
         raise PipelineError(f"Error during creating meta file : {e}")
+
+
+def ensure_wipmeta(filepath: Path, links: list[dict]) -> bool:
+    """Create the missing .wipmeta of a versioned, non -stable .blend:
+    one saved by Blender's own File > Save As / Save Incremental (only
+    Ctrl+S goes through the addon), copied by hand, or whose
+    create_wipmeta() failed after the save. Without it the version is
+    invisible to tracking, and a -stable made from it gets no linked list.
+    linked = links (the file's own, see scan_linked_libraries()), not the
+    previous version's: nothing says where this one came from. Returns
+    True when one was created. Only for the folder's latest version: an
+    older one reopened would become the "last wipmeta" new versions inherit
+    from. See NOTES.md, "A version without .wipmeta"."""
+    filepath = Path(filepath)
+    parsed = parse_filename(filepath.name)
+    if not parsed or parsed.get("tag") == "stable":
+        return False
+    if get_version_number(str(filepath)) != get_last_version_number(str(filepath)):
+        return False
+    if _meta_path(filepath, ".wipmeta").exists():
+        return False
+    create_wipmeta(
+        filepath=filepath,
+        original_filepath=None,
+        creation_mode="recovered",
+        linked=links,
+    )
+    log(
+        "WARNING",
+        "wipmeta",
+        f"{filepath.name} had no .wipmeta (saved outside the addon?): created",
+    )
+    return True
 
 
 def wipmeta_touch(filepath: Path):
@@ -842,7 +884,20 @@ def wipmeta_sync_links(filepath: Path, links: list[dict]) -> int:
     nothing changed, so it's cheap to call on every load/save. Returns the
     number of files added; 0, no raise, without a .wipmeta (-stable file),
     same rule as wipmeta_touch()."""
-    path = _meta_path(filepath, ".wipmeta")
+    return _meta_sync_links(_meta_path(filepath, ".wipmeta"), links)
+
+
+def stablemeta_sync_links(filepath: Path, links: list[dict]) -> int:
+    """wipmeta_sync_links() for a -stable file's own .stablemeta: its
+    content is frozen, so its links are exactly the file's. Fills a linked
+    list a missing source .wipmeta left empty (create_stablemeta()). Same
+    returns, 0 without a .stablemeta."""
+    return _meta_sync_links(_meta_path(filepath, ".stablemeta"), links)
+
+
+def _meta_sync_links(path: Path, links: list[dict]) -> int:
+    """Add-only merge of links into the meta file at path -- see
+    wipmeta_sync_links()."""
     if not path.exists():
         return 0
 
@@ -871,10 +926,13 @@ def create_stablemeta(
     original_filepath: Path,
     departments: list[str],
     conflict_warnings: str,
+    linked: list[dict] | None = None,
 ):
     """Create the .stablemeta for a -stable version: validated departments,
-    inherited linked libs, any conflict warning. Keyword-only: filepath/
-    original_filepath are both Path, a positional call risks swapping them."""
+    inherited linked libs plus `linked` (the file's own, see
+    scan_linked_libraries() -- what's left when the source has no meta),
+    any conflict warning. Keyword-only: filepath/original_filepath are both
+    Path, a positional call risks swapping them."""
     try:
         original_suffix = (
             ".stablemeta" if "-stable.blend" in original_filepath.name else ".wipmeta"
@@ -906,7 +964,9 @@ def create_stablemeta(
             # Validated or worked on at any point so far, cumulative: what
             # tells "not validated" from "not started" (_collect_folder()).
             "departments_started": sorted(started),
-            "linked": compact_linked((wipdata or {}).get("linked", [])),
+            "linked": compact_linked(
+                (wipdata or {}).get("linked", []) + (linked or [])
+            ),
             "conflict_warning": conflict_warnings,
         }
         if approvals_previous:
