@@ -2,6 +2,17 @@
 
 All notable changes to this addon. Dates are release dates.
 
+## Unreleased
+
+### Changed
+
+- A review note is anchored on the render the reviewer watched (the
+  snapshot's *Last render*, per shot for a block) and the `.blend`
+  version it was rendered from, not on the latest file. The review
+  carries it (`render`, review schema 5); one from before gets the
+  render that existed when its snapshot was made. Shown as *▶ v007-stable_001*
+  on the note and in its tooltip.
+
 ## 1.1.6 — 2026-10-28
 
 A failed render says why; the shots' and assets' latest videos zipped

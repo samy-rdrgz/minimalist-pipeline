@@ -1610,6 +1610,7 @@ def create_entry(
     created_at: str | None = None,
     source: str | None = None,
     role: str | None = None,
+    render: str | None = None,
 ):
     """Append a note/todo/rtk entry to the owning asset's tracking.json.
     Keyword-only: text/author/type are plain strings, a positional call
@@ -1619,7 +1620,9 @@ def create_entry(
     created_at: ISO date to stamp instead of now() (an imported review's
     own date). source: where it came from when not typed in Blender
     ("prod_review"); absent = created by hand. role: the validation role it
-    was written under ("prod"), absent = the team's own."""
+    was written under ("prod"), absent = the team's own. render: the
+    render folder a review note was written watching (v007-stable_001),
+    referenced_version then the .blend it was rendered from."""
     try:
         path = tracking_json_path(filepath, must_exist=True)
         with locked_json(path) as box:
@@ -1656,6 +1659,8 @@ def create_entry(
                 entry["source"] = source
             if role:
                 entry["role"] = role
+            if render:
+                entry["render"] = render
 
             data["entries"].append(entry)
             box["action"] = "to_write"

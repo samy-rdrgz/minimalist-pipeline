@@ -21,6 +21,7 @@ from .background import background_work
 from .config import (
     ConfigCache,
     covering_role,
+    get_active_project_root,
     parse_filename,
     shots_in_segment,
     validation_roles,
@@ -55,7 +56,7 @@ from .tracking import (
 
 # Bumped whenever the review template's columns change -- the import refuses
 # a template made by a newer addon.
-SCHEMA_VERSION = 4  # 2: hidden description_exported column; 3: role, "valid <dept>"; 4: a sheet per section, a cell per department
+SCHEMA_VERSION = 5  # 2: hidden description_exported column; 3: role, "valid <dept>"; 4: a sheet per section, a cell per department; 5: the render watched
 
 ENTRY_TYPES = ("note", "todo", "rtk")
 
@@ -218,6 +219,38 @@ def group_renders(renders: list, key: str = "folder") -> list[tuple[list, dict]]
             r["shot"]
         )
     return [(shots, r) for r, shots in groups.values()]
+
+
+def _render_ref(renders: list, per_shot: bool = False) -> str:
+    """The last render a review row was made on, as its "render" field:
+    "v007-stable_001", or per shot when a block's differ (or per_shot) --
+    "sh110=v007-stable_001 sh120=v006_002". "" if never rendered."""
+    done = [r for r in renders if r.get("folder")]
+    if len({r["folder"] for r in done}) == 1 and not per_shot:
+        return done[0]["folder"]
+    return " ".join(f"{r['shot']}={r['folder']}" for r in done)
+
+
+def render_of_note(render: str, shot: str | None) -> str | None:
+    """The render folder a review note is about, from its row's "render"
+    (_render_ref()): its shot's ("110" matches "sh110"), else the row's
+    one render; a note on the whole block, the newest of its shots'. None
+    for a shot of a block with no render of its own there (never
+    rendered, or rendered again after the snapshot), or without any (a
+    review from before schema 5)."""
+    default, per_shot = None, {}
+    for token in (render or "").split():
+        label, _, folder = token.rpartition("=")
+        if label:
+            digits = re.sub(r"\D", "", label)
+            per_shot[int(digits) if digits else label] = folder
+        else:
+            default = folder
+    if default:
+        return default
+    if shot is not None:
+        return per_shot.get(int(shot)) if shot.isdigit() else None
+    return max(per_shot.values(), key=_render_order, default=None)
 
 
 def shots_label(shots: list, every: list) -> str:
@@ -658,6 +691,8 @@ def _entry_dict(e: dict) -> dict:
         "department": ", ".join(entry_departments(e)),
         "departments": entry_departments(e),
         "version": Path(version).name if version else "",
+        # The render a review note was written on (v007-stable_001).
+        "render": e.get("render", ""),
         "shot": e.get("shot", ""),
         "frames": _frames_label(e),
         "done": e.get("done"),
@@ -1344,7 +1379,8 @@ def _slug(name: str) -> str:
 def _item_attrs(item: dict) -> str:
     """data-* the filter script matches on -- same for a row and its notes
     card -- and what the in-page review writes back (data-file, -stable,
-    -desc: a review row's filename, stable_version, description_exported;
+    -desc, -render: a review row's filename, stable_version,
+    description_exported, render;
     data-shots: a block's, for the [sh020] buttons)."""
     states = " ".join(f"{d}:{st}" for d, st in item["departments"].items())
     shots = " ".join(t[0] for t in item.get("shot_thumbnails") or [])
@@ -1359,6 +1395,7 @@ def _item_attrs(item: dict) -> str:
         f'data-file="{_e(_stem(item["current_version"]) or item["name"])}" '
         f'data-stable="{_e(_stem(item["stable_version"]) or "")}" '
         f'data-desc="{_e(item["description"])}" data-shots="{_e(shots)}" '
+        f'data-render="{_e(_render_ref(item.get("renders") or []))}" '
         f'data-valid="{_e(validated)}"'
     )
 
@@ -1714,9 +1751,16 @@ def _render_entry(e: dict, reply: bool = False, closed: bool = False) -> str:
         )
     if e["from_review"]:
         tags.append('<span class="tag">prod review</span>')
-    for key in ("department", "shot", "frames", "version"):
+    for key in ("department", "shot", "frames"):
         if e.get(key):
             tags.append(f'<span class="tag">{_e(e[key])}</span>')
+    if e.get("render"):
+        tags.append(
+            f'<span class="tag" title="Written watching this render">'
+            f"▶ {_e(e['render'])}</span>"
+        )
+    elif e.get("version"):
+        tags.append(f'<span class="tag">{_e(e["version"])}</span>')
     who = f"{_e(e['author'])} · {_e(e['date'][:10])}"
     cls = ("reply" if reply else "root") + (" closed" if closed else "")
     cls += " by-role" if e.get("role") else ""
@@ -2344,7 +2388,7 @@ window.addEventListener('resize',function(){navHeight();size();});navHeight();ap
 var rvMeta=JSON.parse($('review-meta').textContent),
 rvKey='mp-review:'+rvMeta.project+':'+rvMeta.snapshot,
 OKS=['ok','yes','oui','v','x','✓','✔','valid','validé','valide'],NOS=['no','non'],
-FIXED=['group','filename','description','description_exported','stable_version','wip_version','global'],
+FIXED=['group','filename','description','description_exported','stable_version','wip_version','render','global'],
 rv={author:'',role:'',date:'',files:{}},rvBuilt=false,rows={};
 document.querySelectorAll('tr.item').forEach(function(el){rows[el.dataset.file]=el;});
 function states(el){var o={};el.dataset.states.split(' ').filter(Boolean).forEach(function(x){
@@ -2489,7 +2533,7 @@ if(on&&window.innerWidth<700)setView(true);sheet(false);});});
 function fields(){$('rv-author').value=rv.author;$('rv-role').value=rv.role;$('rv-date').value=rv.date;}
 function exportRows(){var out=[];Object.keys(rv.files).forEach(function(f){var e=rv.files[f],el=rows[f];
 if(!el||!changes(e,f))return;var st=states(el),row={filename:f,stable_version:el.dataset.stable,
-description_exported:el.dataset.desc};
+description_exported:el.dataset.desc};if(el.dataset.render)row.render=el.dataset.render;
 Object.keys(e.deps).forEach(function(d){var v=e.deps[d];row[d]=v.ok?'ok':(v.text.trim()||'no');});
 if(e.all)Object.keys(st).forEach(function(d){if(done(st[d])&&!(d in row))row[d]='ok';});
 if(e.text.trim())row.global=e.text.trim();
@@ -2740,7 +2784,8 @@ REVIEW_GLOBAL = "global"
 OK_WORDS = ("ok", "yes", "oui", "v", "x", "✓", "✔", "valid", "validé", "valide")
 NO_WORDS = ("no", "non")
 # Hidden columns after the departments' and "global", for the import.
-_REVIEW_HIDDEN = ("wip_version", "stable_version", "description_exported")
+# render: what the reviewer watched (_render_ref()) -- the notes' version.
+_REVIEW_HIDDEN = ("wip_version", "stable_version", "description_exported", "render")
 _SHEET_HEADER_ROW = 2  # row 1: the sheet's one-line how-to
 # Template v3 (1.1.2 before its release): read back for the import only.
 VALID_PREFIX = "valid "
@@ -2941,6 +2986,7 @@ def _review_section(title: str, items: list, departments: list) -> tuple[str, st
                 f"{col['stable_version']}{r}", _stem(item["stable_version"]), _S_LOCKED
             ),
             _cell(f"{col['description_exported']}{r}", item["description"], _S_LOCKED),
+            _cell(f"{col['render']}{r}", _render_ref(item["renders"]), _S_LOCKED),
         ]
         rows.append(f'<row r="{r}">{"".join(cells)}</row>')
     if group_start is not None and last > group_start:
@@ -3304,7 +3350,8 @@ def read_review_json(path: Path) -> dict:
     """read_review_xlsx()'s dict from a review downloaded from the snapshot
     page: {"format", "schema_version", "author", "role", "review_date",
     "rows": [{"filename", "stable_version", "description_exported",
-    "description"?, <department>: "ok" / "no" / retakes, "global"?}]}."""
+    "render"? (schema 5: _render_ref()), "description"?, <department>:
+    "ok" / "no" / retakes, "global"?}]}."""
     try:
         data = json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, ValueError) as e:
@@ -3335,6 +3382,8 @@ def read_review_json(path: Path) -> dict:
         "author": str(data.get("author") or "").strip(),
         "role": str(data.get("role") or "").strip().lower(),
         "review_date": parse_review_date(str(data.get("review_date") or "")),
+        # When the page was made: what it showed (_render_at_snapshot()).
+        "snapshot": str(data.get("snapshot") or ""),
         "columns": {k for row in rows for k in row},
         "rows": rows,
     }
@@ -3636,6 +3685,37 @@ def _note_key(text, shot, f_start, f_end, departments) -> tuple:
     )
 
 
+def _render_at_snapshot(filepath: Path, snapshot: str) -> str:
+    """A review without its "render" (before schema 5): the file's last
+    render as _render_ref() writes it, if it already existed when the
+    snapshot was made (its folder last written before) -- what the page
+    showed. A shot rendered again since: left out, never guessed. ""
+    without a snapshot time."""
+    try:
+        made = datetime.fromisoformat(snapshot).timestamp()
+    except ValueError:
+        return ""
+    root = get_active_project_root()
+    if not root:
+        return ""
+    owner = filepath.parent
+    try:
+        kind = "shot" if owner.relative_to(root).parts[0] == "shots" else "asset"
+    except ValueError:
+        return ""
+    v_prefix = json_get(ConfigCache.get(), "naming.version.prefix", "v")
+    renders = read_render_state(root, kind, owner, v_prefix)
+    seen = []
+    for r in renders:
+        try:
+            if r.get("path") and os.stat(r["path"]).st_mtime <= made:
+                seen.append(r)
+        except OSError:
+            pass
+    # Per shot when one was left out: its notes must not take another's.
+    return _render_ref(seen, per_shot=len(seen) < len(renders) and len(renders) > 1)
+
+
 def import_review_xlsx(path: Path) -> dict:
     """Create one entry per line of each filled text cell of a review
     template, all sharing one review_id, stamped with the template's Author
@@ -3683,6 +3763,11 @@ def import_review_xlsx(path: Path) -> dict:
             continue
         name = row["filename"]
         filepath = _review_file(name)
+        row_render = ""
+        if filepath:
+            row_render = row.get("render") or _render_at_snapshot(
+                filepath, review.get("snapshot") or ""
+            )
         if not filepath:
             result["skipped"].extend(
                 (
@@ -3724,6 +3809,15 @@ def import_review_xlsx(path: Path) -> dict:
             if key in known:
                 result["duplicates"] += 1
                 continue
+            # The version the reviewer watched: the one its render was made
+            # from (v007-stable_001 -> ..._v007-stable.blend), else the file.
+            render = render_of_note(row_render, shot)
+            watched = filepath
+            if render:
+                version = render.rsplit("_", 1)[0]
+                watched = filepath.with_name(
+                    f"{filepath.stem.rsplit('_', 1)[0]}_{version}.blend"
+                )
             try:
                 create_entry(
                     filepath,
@@ -3736,7 +3830,8 @@ def import_review_xlsx(path: Path) -> dict:
                     f_end=frames[1] if frames else None,
                     review_id=review_id,
                     created_at=created_at,
-                    referenced_version=str(filepath),
+                    referenced_version=str(watched),
+                    render=render,
                     source=REVIEW_SOURCE,
                     role=role,
                 )

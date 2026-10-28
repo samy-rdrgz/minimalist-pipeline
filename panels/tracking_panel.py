@@ -355,6 +355,8 @@ def _get_entry_tooltip(e, filepath):
     file = Path(file).stem if file else "unknown version"
 
     text = f"By: {e.get('author', 'unknown')}\nAt: {e['created_at'].replace('T', ' ')}\nBased on: {file}"
+    if e.get("render"):
+        text = f"{text} (render {e['render']})"
     if e.get("role"):
         text = f"{text}\nAs: {e['role']}"
     if e.get("edited_by"):
