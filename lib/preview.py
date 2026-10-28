@@ -46,9 +46,14 @@ def latest_shot_mp4(
         project_root / "renders" / sequence_label / shot_label,
         json_get(config, "naming.version.prefix", "v"),
     )
-    if latest is None:
+    return _first_mp4(latest)
+
+
+def _first_mp4(render_dir: Path | None) -> Path | None:
+    """The mp4 in an increment folder, None if none (or no folder)."""
+    if render_dir is None:
         return None
-    mp4s = sorted(latest.glob("*.mp4"))
+    mp4s = sorted(render_dir.glob("*.mp4"))
     return mp4s[0] if mp4s else None
 
 
@@ -72,30 +77,44 @@ def resolve_block_sources(
         mp4 = latest_shot_mp4(project_root, sequence_label, shot_label, config)
         if mp4:
             out.append((shot_label, mp4))
-    return out
+    if out:
+        return out
+    # Rendered whole, not split (fewer than 2 live markers at setup): its
+    # one mp4 sits in the block's own folder (renders/sq100/sh030-040-050).
+    block_dir = render_root(project_root, Path(filepath).parent)
+    mp4 = _first_mp4(
+        latest_render_dir(block_dir, json_get(config, "naming.version.prefix", "v"))
+    )
+    return [(block_dir.name, mp4)] if mp4 else []
 
 
 def resolve_sequence_sources(
     sequence_label: str, project_root: Path, config: dict | None = None
 ) -> list[tuple[str, Path]]:
     """(shot_label, mp4) pairs for every shot ever rendered in the sequence
-    ("sq030"), by shot number."""
+    ("sq030"), by shot number. A block rendered whole, not split, has its
+    one mp4 in its own folder (sh030-040-050): used for its shots, unless
+    one of them has its own render -- a shot's own folder wins."""
     config = config if config is not None else ConfigCache.get()
     shot_prefix = json_get(config, "naming.shot.prefix", "sh")
+    v_prefix = json_get(config, "naming.version.prefix", "v")
     sequence_dir = project_root / "renders" / sequence_label
     if not sequence_dir.is_dir():
         return []
 
-    pattern = re.compile(rf"^{re.escape(shot_prefix)}(?P<n>\d+)$")
-    found = []
+    pattern = re.compile(rf"^{re.escape(shot_prefix)}(?P<seg>\d+(?:-\d+)*)$")
+    rendered = []
     for d in sequence_dir.iterdir():
         if d.is_dir() and (m := pattern.match(d.name)):
-            found.append((int(m["n"]), d.name))
-    found.sort()
+            mp4 = _first_mp4(latest_render_dir(d, v_prefix))
+            if mp4:
+                rendered.append((shots_in_segment(m["seg"]), d.name, mp4))
 
-    out = []
-    for _n, shot_label in found:
-        mp4 = latest_shot_mp4(project_root, sequence_label, shot_label, config)
-        if mp4:
-            out.append((shot_label, mp4))
-    return out
+    covered = {numbers[0] for numbers, _, _ in rendered if len(numbers) == 1}
+    out = [r for r in rendered if len(r[0]) == 1]
+    for numbers, label, mp4 in sorted(r for r in rendered if len(r[0]) > 1):
+        if covered.isdisjoint(numbers):
+            out.append((numbers, label, mp4))
+            covered.update(numbers)
+    out.sort()
+    return [(label, mp4) for _, label, mp4 in out]

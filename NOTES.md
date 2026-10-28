@@ -303,6 +303,15 @@ place that can answer this honestly every time.
   naming pair above, works for any file regardless of whether it's open.
   "Most recent per shot" is read from the render increment folder's own name
   (`vNNN_MMM`), never mtime — mtime lies after a copy across machines/NAS.
+- **A block rendered whole counts too.** The split only happens when the
+  setup finds 2+ live markers; otherwise the block renders as one job, into
+  its own folder (`renders/sq100/sh030-040-050/`). `resolve_sequence_sources()`
+  first matched only `sh\d+` folders and silently left it out. It now reads
+  `sh030-040-050` folders too, placed at their first shot -- but a shot's
+  own render wins: a block folder overlapping one is dropped whole (never
+  half a clip, never a shot twice), likewise one overlapping an earlier
+  block. `resolve_block_sources()` falls back to the block's own folder
+  only when no shot of it has its own render.
 - **Path: `_preview/` + a dated filename, not one or the other.** Two
   different jobs, layered: the `_preview/` folder marks "disposable" on disk
   (nobody mistakes it for a deliverable), and the `{scope}_{date}.mp4`

@@ -17,6 +17,11 @@ All notable changes to this addon. Dates are release dates.
   the render split broke. A shot's frame now keeps only its own marker.
 - The render priority is back to 10 on every submit: a high priority
   given once no longer carries over to the next submits.
+- "Preview sequence" skipped a block rendered whole instead of split
+  per shot (its video in `renders/sq100/sh030-040-050/`): it only read
+  single-shot folders. That video now goes in, at its first shot's place,
+  unless one of its shots has its own render. "Preview block" uses it too
+  when none of the block's shots has its own render.
 
 ## 1.1.5 — 2026-10-27
 
