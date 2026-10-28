@@ -2,22 +2,12 @@
 
 All notable changes to this addon. Dates are release dates.
 
-## Unreleased
-
-### Changed
-
-- A review note is anchored on the render the reviewer watched (the
-  snapshot's *Last render*, per shot for a block) and the `.blend`
-  version it was rendered from, not on the latest file. The review
-  carries it (`render`, review schema 5); one from before gets the
-  render that existed when its snapshot was made. Shown as *▶ v007-stable_001*
-  on the note and in its tooltip.
-
 ## 1.1.6 — 2026-10-28
 
 A failed render says why; the shots' and assets' latest videos zipped
-with the snapshot; the lock follows the file; work time only counts
-sessions that saved; fixes for files saved outside the addon.
+with the snapshot; review notes anchored on the render watched; the lock
+follows the file; work time only counts sessions that saved; fixes for
+files saved outside the addon.
 
 ### Added
 
@@ -31,6 +21,15 @@ sessions that saved; fixes for files saved outside the addon.
   in "frames X-Y failed on 3 machines", and in the worker's detail.
 - Pipeline log window: an archive button moves the current log into
   `config/logs/archives/` now, without waiting for its 5 MB.
+
+### Changed
+
+- A review note is anchored on the render the reviewer watched (the
+  snapshot's *Last render*, per shot for a block) and the `.blend`
+  version it was rendered from, not on the latest file. The review
+  carries it (`render`, review schema 5); one from before gets the
+  render that existed when its snapshot was made. Shown as *▶ v007-stable_001*
+  on the note and in its tooltip.
 
 ### Fixed
 
