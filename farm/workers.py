@@ -14,6 +14,7 @@ from ..lib import (
     AdoptedProcess,
     ConfigCache,
     PipelineError,
+    addon_pref,
     get_active_project_root,
     get_addon_version,
     get_machine_id,
@@ -301,7 +302,9 @@ def is_blender_worker() -> bool:
     try:
         worker_path = _worker_path()
     except PipelineError:
-        _set_this_instance_worker(False)
+        if addon_pref() is None:
+            return _this_instance_worker  # prefs out of reach: can't tell
+        _set_this_instance_worker(False)  # no active project, no worker
         return False
     try:
         with locked_json(worker_path, read_only=True, retries=0) as box:

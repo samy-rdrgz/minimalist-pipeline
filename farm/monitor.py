@@ -12,6 +12,7 @@ from ..lib import (
     AdoptedProcess,
     ConfigCache,
     PipelineError,
+    addon_pref,
     get_machine_id,
     get_user_data,
     json_get,
@@ -121,6 +122,8 @@ def is_blender_monitor() -> bool:
     try:
         lock_path = ConfigCache.get_path("monitor_file")
     except PipelineError:
+        if addon_pref() is None:
+            return _last_is_monitor  # prefs out of reach: can't tell
         _last_is_monitor = False  # no active project, no monitor role
         return False
     try:
