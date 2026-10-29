@@ -13,6 +13,10 @@ All notable changes to this addon. Dates are release dates.
   changed is copied. The *Render checked* dialog can push that render
   too (*Push to editing*, off by default). `rushes.json` there says which
   render and `.blend` version each rush is.
+- A job set up and waiting for a worker shows its number of frames and
+  an estimate, from the file's last render with the same pre-render
+  script (its time per frame): on one machine and on the live workers.
+  The render history now records each render's pre-render script.
 
 ### Changed
 

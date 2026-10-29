@@ -795,6 +795,8 @@ def construct_history(job: dict, status):
         "completed_at": now(),
         "user": job["user"],
         "render_mode": job["render_mode"],
+        # Its pace depends on it: the next renders' estimate (history_pace()).
+        "prerender_script": job.get("prerender_script", ""),
         # Which .blend version, and which vNNN_inc output folder.
         "source_file": job.get("filepath"),
         "output_path": job.get("output_path"),

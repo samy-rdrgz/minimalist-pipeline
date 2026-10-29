@@ -479,6 +479,70 @@ def _ffmpeg_progress_for_jobs(requests_dir: Path | None, jobs: list) -> dict:
     return out
 
 
+# render_history.json files already read: path -> (mtime, entries).
+_history_cache: dict[str, tuple] = {}
+
+
+def history_pace(history: list, preset: str, shot: str = "") -> dict | None:
+    """A job's pace to come, from its file's past renders (render_history
+    entries): the latest finished one with seconds_per_frame, rendered
+    with the same pre-render script -- same shot first for a block's.
+    One from before the script was recorded only when none matches
+    ("preset_known" False). {"seconds_per_frame", "render", "preset_known"},
+    None without any. Pure."""
+    done = [
+        e
+        for e in history
+        if isinstance(e, dict)
+        and e.get("status") == "finished"
+        and e.get("seconds_per_frame")
+    ]
+    if shot:
+        done.sort(key=lambda e: e.get("shot_override") == shot)  # stable: latest last
+    same = [e for e in done if e.get("prerender_script", None) == preset]
+    unknown = [e for e in done if "prerender_script" not in e]
+    if same:
+        pick, known = same[-1], True
+    elif unknown:
+        pick, known = unknown[-1], False
+    else:
+        return None
+    output = pick.get("output_path") or ""
+    return {
+        "seconds_per_frame": pick["seconds_per_frame"],
+        "render": Path(output).parent.name if output else "",
+        "preset_known": known,
+    }
+
+
+def _history_pace_for_jobs(root: Path, jobs: list) -> dict:
+    """{job_id: history_pace()} for the jobs set up and waiting for a
+    worker (thread-safe: each history re-read only once it changed)."""
+    out = {}
+    for job in jobs:
+        try:
+            if job["stage_history"][-1]["stage"] != "setup_finished":
+                continue
+        except (KeyError, IndexError, TypeError):
+            continue
+        owner = Path(root) / Path(job.get("filepath", "")).parent
+        path = owner / ".pipeline" / "render_history.json"
+        try:
+            mtime = os.stat(path).st_mtime
+        except OSError:
+            continue
+        cached = _history_cache.get(str(path))
+        if not cached or cached[0] != mtime:
+            cached = (mtime, (read_json_quiet(path) or {}).get("entries") or [])
+            _history_cache[str(path)] = cached
+        pace = history_pace(
+            cached[1], job.get("prerender_script", ""), job.get("shot_override", "")
+        )
+        if pace:
+            out[job.get("job_id", "")] = pace
+    return out
+
+
 def _read_farm_snapshot(paths: dict, scanned: dict, cached_actives: list) -> dict:
     """Full refresh: _read_farm_raw() + frame counts and times (thread-safe)."""
     raw = _read_farm_raw(paths, True, scanned)
@@ -486,6 +550,7 @@ def _read_farm_snapshot(paths: dict, scanned: dict, cached_actives: list) -> dic
     jobs = actives if actives is not None else cached_actives
     raw["frames"] = _frames_for_jobs(paths["root"], jobs)
     raw["frame_seconds"] = _frame_seconds_for_jobs(paths.get("farm_requests"), jobs)
+    raw["history_pace"] = _history_pace_for_jobs(paths["root"], jobs)
     raw["claims"] = _claims_for_jobs(paths.get("farm_claims"), jobs)
     raw["ffmpeg_progress"] = _ffmpeg_progress_for_jobs(
         paths.get("farm_requests"), jobs
@@ -531,15 +596,18 @@ def _apply_farm_snapshot(raw: dict) -> None:
     frames = raw.get("frames", {})
     seconds = raw.get("frame_seconds", {})
     workers = raw.get("workers", {})
+    paces = raw.get("history_pace", {})
     jobs = []
     # Unclaimed requests are listed too, as "pending": a submit is never
     # invisible, even with the farm stopped.
     for job in _jobs_scan_cache["actives_raw"]:
         job_id = job.get("job_id", "")
         try:
-            jobs.append(
-                _build_job_entry(job, frames.get(job_id), seconds.get(job_id), workers)
+            entry = _build_job_entry(
+                job, frames.get(job_id), seconds.get(job_id), workers
             )
+            entry["history_pace"] = paces.get(job_id)
+            jobs.append(entry)
         except Exception:
             pass
     # A request for a job still in flight waits in incoming/ until that job
@@ -793,6 +861,12 @@ def _build_job_entry(
     resolved = job.get("resolved_frame_range")
     if stage["stage"] == "render_start" and output_dir and resolved:
         frames_total = resolved[1] - resolved[0] + 1
+    # Set up, waiting for a worker: what's to render, for an estimate.
+    frames_to_render = (
+        resolved[1] - resolved[0] + 1
+        if stage["stage"] == "setup_finished" and resolved
+        else 0
+    )
     frames_done = frames_done or 0
 
     # Nothing timed yet (a render's first frames): None, Farm monitoring falls
@@ -819,6 +893,7 @@ def _build_job_entry(
         "elapsed_seconds": elapsed,
         "frames_done": frames_done,
         "frames_total": frames_total,
+        "frames_to_render": frames_to_render,
         "time_left": time_left,
         # Live while it renders; once judged, the job file's own
         # (queue._note_frames()).

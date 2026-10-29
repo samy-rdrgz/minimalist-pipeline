@@ -210,6 +210,25 @@ def _duration(seconds: float) -> str:
     return f"{seconds // 60}m{seconds % 60:02d}s"
 
 
+def _estimate_label(job: dict, cache: dict) -> str:
+    """ "≃ 2h00m on one machine, 30m00s on 4" for a job waiting for a
+    worker: its frames at the pace of the file's last render with the same
+    pre-render script (history_pace(), farm/loop.py) -- over the live
+    workers. "" without a past render to go by."""
+    pace = job.get("history_pace")
+    frames = job.get("frames_to_render") or 0
+    if not pace or not frames:
+        return ""
+    total = frames * pace["seconds_per_frame"]
+    text = f"≃ {_duration(total)} on one machine"
+    workers = len(cache.get("workers") or {})
+    if workers > 1:
+        text += f", {_duration(total / workers)} on {workers}"
+    if not pace["preset_known"]:
+        text += ", preset unknown"
+    return text
+
+
 def _pace(seconds: float) -> str:
     """A frame's time: "0.6 s", "12 s", then _duration() -- "0m00s" said
     nothing of a fast render."""
@@ -402,6 +421,13 @@ def draw_farm_jobs(self, context, layout):
             text = f"{stage} - {done:.0%} - {elapsed_str}"
             if 0.02 < done < 1:
                 text += f" (≃ {_duration(elapsed / done - elapsed)} remaining)"
+
+        elif j.get("frames_to_render"):
+            # Set up, waiting for a worker: what it'll take, at its last pace.
+            text = f"{stage} - {elapsed_str} - {j['frames_to_render']} frames"
+            estimate = _estimate_label(j, cache)
+            if estimate:
+                text += f" ({estimate})"
 
         else:
             text = f"{stage} - {elapsed_str}"
@@ -1082,6 +1108,25 @@ def draw_farm_job_details(layout, context):
         field(col, "Frames", f"{frames[0]} - {frames[1]} ({count})")
     else:
         field(col, "Frames", "not resolved yet")
+    # Waiting for a worker: the time it'll take, at its last render's pace.
+    waiting = next(
+        (
+            j
+            for j in get_monitor_cache().get("jobs") or []
+            if j.get("job_id") == job_id and j.get("frames_to_render")
+        ),
+        None,
+    )
+    estimate = _estimate_label(waiting, get_monitor_cache()) if waiting else ""
+    if estimate:
+        pace = waiting["history_pace"]
+        field(col, "Estimate", estimate)
+        field(
+            col,
+            "",
+            f"{_pace(pace['seconds_per_frame'])} a frame"
+            + (f", as {pace['render']}" if pace.get("render") else ""),
+        )
     field(col, "Format", data.get("output_extension", "-"))
     field(col, "fps", data.get("fps", "-"))
 
