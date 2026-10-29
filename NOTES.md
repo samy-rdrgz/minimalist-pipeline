@@ -3508,8 +3508,11 @@ finished render (machine time per frame), so frames x that = machine
 time, over the live workers for a wall-clock guess. Which past render:
 the latest finished one with the same `prerender_script` (pace depends
 on it more than on anything else), same shot first for a block's split
-job; `construct_history()` didn't record the script, so an older entry
-is used only when none matches, flagged "preset unknown". Read on the
+job; `construct_history()` didn't record the script: an older entry takes
+it from its job file (`queue/archives/<job_id>.json`, else actives/ --
+archived job files are kept, only their logs are purged), cached per job
+id; only one whose job file is gone is used as a last resort, flagged
+"preset unknown". Read on the
 farm reader thread (`_history_pace_for_jobs()`, re-read only once the
 history's mtime moves), only for jobs waiting at `setup_finished` --
 never from draw().

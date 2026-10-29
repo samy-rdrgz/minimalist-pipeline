@@ -17,7 +17,8 @@ All notable changes to this addon. Dates are release dates.
   an estimate, from the file's last render with the same pre-render
   script (its time per frame), shared by the live workers:
   `240f (≃ 1h00m with 4 workers)`.
-  The render history now records each render's pre-render script.
+  The render history now records each render's pre-render script; an
+  older entry takes it from its archived job file.
 
 ### Changed
 

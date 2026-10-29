@@ -235,6 +235,7 @@ def _farm_paths() -> dict | None:
         "root": Path(root),
         "monitor_file": ConfigCache.get_path("monitor_file"),
         "farm_actives": ConfigCache.get_path("farm_actives"),
+        "farm_archives": ConfigCache.get_path("farm_archives"),
         "farm_incomings": ConfigCache.get_path("farm_incomings"),
         "farm_requests": ConfigCache.get_path("farm_requests"),
         "farm_claims": ConfigCache.get_path("farm_claims"),
@@ -481,6 +482,25 @@ def _ffmpeg_progress_for_jobs(requests_dir: Path | None, jobs: list) -> dict:
 
 # render_history.json files already read: path -> (mtime, entries).
 _history_cache: dict[str, tuple] = {}
+# A past job's pre-render script, read from its job file: job_id -> script
+# (None: no file left). A job file doesn't change once archived.
+_job_preset_cache: dict[str, str | None] = {}
+
+
+def _job_preset(job_id: str, job_dirs: list) -> str | None:
+    """The pre-render script a past job ran with, from its job file
+    (archives/, else actives/) -- for a render_history entry from before
+    1.1.7, which didn't record it. None if no file is left."""
+    if job_id not in _job_preset_cache:
+        data = None
+        for folder in job_dirs:
+            data = read_json_quiet(Path(folder) / f"{job_id}.json") if folder else None
+            if data:
+                break
+        _job_preset_cache[job_id] = (
+            data.get("prerender_script", "") if isinstance(data, dict) else None
+        )
+    return _job_preset_cache[job_id]
 
 
 def history_pace(history: list, preset: str, shot: str = "") -> dict | None:
@@ -515,9 +535,11 @@ def history_pace(history: list, preset: str, shot: str = "") -> dict | None:
     }
 
 
-def _history_pace_for_jobs(root: Path, jobs: list) -> dict:
+def _history_pace_for_jobs(root: Path, jobs: list, job_dirs: list = ()) -> dict:
     """{job_id: history_pace()} for the jobs set up and waiting for a
-    worker (thread-safe: each history re-read only once it changed)."""
+    worker (thread-safe: each history re-read only once it changed). An
+    entry without its pre-render script gets it from its job file, when
+    one is left (job_dirs: archives, actives)."""
     out = {}
     for job in jobs:
         try:
@@ -533,7 +555,13 @@ def _history_pace_for_jobs(root: Path, jobs: list) -> dict:
             continue
         cached = _history_cache.get(str(path))
         if not cached or cached[0] != mtime:
-            cached = (mtime, (read_json_quiet(path) or {}).get("entries") or [])
+            entries = (read_json_quiet(path) or {}).get("entries") or []
+            for e in entries:
+                if isinstance(e, dict) and "prerender_script" not in e:
+                    preset = _job_preset(e.get("job_id", ""), job_dirs)
+                    if preset is not None:
+                        e["prerender_script"] = preset
+            cached = (mtime, entries)
             _history_cache[str(path)] = cached
         pace = history_pace(
             cached[1], job.get("prerender_script", ""), job.get("shot_override", "")
@@ -550,7 +578,11 @@ def _read_farm_snapshot(paths: dict, scanned: dict, cached_actives: list) -> dic
     jobs = actives if actives is not None else cached_actives
     raw["frames"] = _frames_for_jobs(paths["root"], jobs)
     raw["frame_seconds"] = _frame_seconds_for_jobs(paths.get("farm_requests"), jobs)
-    raw["history_pace"] = _history_pace_for_jobs(paths["root"], jobs)
+    raw["history_pace"] = _history_pace_for_jobs(
+        paths["root"],
+        jobs,
+        [paths.get("farm_archives"), paths.get("farm_actives")],
+    )
     raw["claims"] = _claims_for_jobs(paths.get("farm_claims"), jobs)
     raw["ffmpeg_progress"] = _ffmpeg_progress_for_jobs(
         paths.get("farm_requests"), jobs
