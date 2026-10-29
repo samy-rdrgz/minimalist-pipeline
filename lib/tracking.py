@@ -1183,6 +1183,49 @@ def get_last_stable(filepath: Path, entries: list | None = None) -> dict:
     return _latest_stable(entries) or dict(_DEFAULT_STABLE)
 
 
+def _unique_entry_id(seed: str, taken: set) -> str:
+    """A 5-hex entry id from seed, none of taken: rehashed with a counter
+    until free."""
+    entry_id = hashlib.sha1(seed.encode("utf-8")).hexdigest()[:5]
+    n = 0
+    while entry_id in taken:
+        n += 1
+        entry_id = hashlib.sha1(f"{seed}#{n}".encode()).hexdigest()[:5]
+    return entry_id
+
+
+def _has_duplicate_ids(tracking: dict) -> bool:
+    ids = [e.get("id") for e in tracking.get("entries") or [] if isinstance(e, dict)]
+    return len(ids) != len(set(ids))
+
+
+def repair_entry_ids(path: Path) -> dict | None:
+    """Give a new id to every entry of a tracking.json sharing one with an
+    earlier entry -- a review imported before 1.1.7 gave two notes of the
+    same words (on two shots) the same one, and only the first could be
+    ticked. The first keeps its id (and the replies to it). Returns the
+    data as written, None if unreadable. Never raises."""
+    try:
+        with locked_json(path) as box:
+            data = box["data"] or {}
+            entries = [e for e in data.get("entries") or [] if isinstance(e, dict)]
+            taken = {e.get("id") for e in entries}
+            seen = set()
+            for i, e in enumerate(entries):
+                if e.get("id") in seen:
+                    e["id"] = _unique_entry_id(
+                        f"{e.get('id')}{e.get('created_at')}{e.get('text')}{i}", taken
+                    )
+                    taken.add(e["id"])
+                seen.add(e.get("id"))
+            box["action"] = "to_write"
+            log("INFO", "tracking", f"Duplicate entry ids given new ones in {path}")
+            return data
+    except Exception as e:
+        log("WARNING", "tracking", f"Could not repair entry ids in {path}: {e}")
+        return None
+
+
 def _collect_folder(asset_dir: Path, entries: list | None = None) -> dict | None:
     """Everything a folder's tracking status is computed from, read from
     disk: tracking.json, the latest stable, and only the wipmetas that can
@@ -1192,6 +1235,11 @@ def _collect_folder(asset_dir: Path, entries: list | None = None) -> dict | None
     tracking = read_json_quiet(asset_dir / ".pipeline" / "tracking.json")
     if tracking is None:
         return None
+    if _has_duplicate_ids(tracking):
+        # Repaired once, on the first read: the panels' buttons carry ids.
+        tracking = (
+            repair_entry_ids(asset_dir / ".pipeline" / "tracking.json") or tracking
+        )
     if entries is None:
         entries = _pipeline_entries(asset_dir)
     last_stable = _latest_stable(entries) or dict(_DEFAULT_STABLE)
@@ -1651,10 +1699,12 @@ def create_entry(
 
             nw = created_at or now()
             entry = {
-                # text folded into the hash (not just nw) so entries created
-                # in the same execute() loop -- same nw, different text --
-                # don't collide on id.
-                "id": hashlib.sha1((nw + text).encode("utf-8")).hexdigest()[:5],
+                # Unique in the file: a review's notes share one date, and
+                # the same words on two shots are two notes.
+                "id": _unique_entry_id(
+                    f"{nw}{text}{shot or ''}",
+                    {e.get("id") for e in data.get("entries") or []},
+                ),
                 "type": type,
                 "text": text,
                 "author": author,
