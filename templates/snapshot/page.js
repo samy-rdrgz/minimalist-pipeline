@@ -86,13 +86,13 @@ if(it.outdated)h+='<span class="badge b-check" title="Rendered from an older ver
 if(it.to_check)h+='<span class="badge b-check" title="Rendered, not checked by the team yet">Render to check</span>';
 if(e.desc!==null&&e.desc.trim()&&e.desc.trim()!==it.desc)h+='<span class="badge b-rev">✎ description</span>';
 return h;}
-function subline(it){var s=esc(it.versions||'not saved yet');if(it.shots.length>1)s+=' · '+it.shots.length+' shots';
+function subline(it){var p=['<span class="vers">'+esc(it.versions||'not saved yet')+'</span>'];
+if(it.shots.length>1)p.push('<span>'+plural(it.shots.length,'shot')+'</span>');
 if(it.openNotes.length){var t=it.openNotes.some(function(n){return n.type==='todo';});
-s+=' · <span class="nn'+(t?' todo':'')+'">'+plural(it.openNotes.length,'open note')+'</span>';}
-if(it.genRtks.length)s+=' · <span class="gr" title="An open retake on no department: it weighs on every department">'+it.genRtks.length+' general RTK</span>';
-if(it.farm)s+=' · <span class="farm'+(it.farm.state==='failed'?' fail':'')+'" title="In the farm: '+esc(it.farm.tip)+'">farm '+esc(it.farm.text)+'</span>';
-return s;}
-
+p.push('<span class="nn'+(t?' todo':'')+'">'+plural(it.openNotes.length,'open note')+'</span>');}
+if(it.genRtks.length)p.push('<span class="gr" title="An open retake on no department: it weighs on every department">'+it.genRtks.length+' general RTK</span>');
+if(it.farm)p.push('<span class="farm'+(it.farm.state==='failed'?' fail':'')+'" title="In the farm: '+esc(it.farm.tip)+'">farm '+esc(it.farm.text)+'</span>');
+return p.join('<i class="sep"> · </i>');}
 /* ---------- header and summary ---------- */
 var snapDate=new Date(META.snapshot);
 var DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -180,7 +180,7 @@ return '<div class="row" role="button" tabindex="0" data-i="'+it.i+'" style="--c
 '<span class="r-name">'+nameHtml(it)+'<small>'+subline(it)+'</small><span class="flags">'+flags(it)+'</span></span>'+
 deps.map(function(d){return '<span class="d">'+mark(it.states[d])+under(it,d)+'</span>';}).join('')+
 '<span class="r-pct">'+(it.tracked?Math.round(it.done*100)+' %'+(META.role?'<span class="vv'+(it.valid?'':' z')+'">'+pct(it.valid)+' valid.</span>':''):'<span class="faint">–</span>')+'</span>'+
-(it.tracked?'<span class="dl">'+deps.filter(function(d){return d in it.states;}).map(function(d){return '<span>'+mark(it.states[d])+esc(cap(d))+under(it,d)+'</span>';}).join('')+'</span>':'')+'</div>';}).join('');
+(it.tracked?'<span class="dl">'+deps.filter(function(d){return d in it.states;}).map(function(d){return '<span><b class="dn s-'+it.states[d]+'" title="'+LABEL[it.states[d]]+'">'+esc(cap(d))+'</b>'+under(it,d)+'</span>';}).join('')+'</span>':'')+'</div>';}).join('');
 if(un.length&&!state.untracked[key]&&!filt)body+='<button class="untracked" data-g="'+esc(g)+'">+ '+plural(un.length,'file')+' with no tracked department</button>';
 return '<div class="group'+(closed?' closed':'')+'"><button class="g-h" data-g="'+esc(g)+'"><span class="g-name"><i class="caret"></i>'+esc(g)+'<small>'+plural(all.length,'file')+'</small></span>'+
 (done!=null?'<span class="tw"><span class="track"><i class="f" style="width:'+done*100+'%"></i>'+(META.role?'<i class="v" style="width:'+Math.min(val,done)*100+'%"></i>':'')+'</span></span>'+

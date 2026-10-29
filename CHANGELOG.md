@@ -42,6 +42,10 @@ review one file -- lighter to read on a computer and on a phone.
   first shot's) is stored once -- about 12 % lighter on a project with
   multishot blocks.
 - Touch screens: every button, chip and field 44 px tall.
+- Phones: each department's name in its state's colour (done green and
+  bold, in progress amber, not started light grey; reworked underlined
+  in amber) instead of its mark, the rows apart by a band of the page's
+  background, the versions left to the file's panel.
 
 ### Removed
 
