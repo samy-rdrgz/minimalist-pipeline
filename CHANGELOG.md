@@ -29,6 +29,9 @@ All notable changes to this addon. Dates are release dates.
 
 ### Fixed
 
+- New shot / Edit block structure warned "Inconsistent timeline" for a
+  1-frame shot (start = end): the end frame is included, only the
+  starts must strictly increase.
 - Two notes of one review import with the same words (the same retake
   on two shots of a block) got the same id: only the first could be
   ticked, edited or deleted. A new entry's id is now unique in its file

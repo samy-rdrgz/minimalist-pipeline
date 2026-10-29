@@ -165,10 +165,17 @@ def _draw_timeline_warnings(layout, shots, end_frame, context):
     if not shots:
         return
     numbers = [s.shot_number for s in shots]
-    timeline = [s.start_frame for s in shots] + [end_frame]
+    starts = [s.start_frame for s in shots]
+    timeline = starts + [end_frame]
     warning = layout.column(align=True)
     warning.alert = True
-    if numbers != sorted(set(numbers)) or timeline != sorted(set(timeline)):
+    # The end frame is included: a last shot may end on its own start (a
+    # 1-frame shot), the starts themselves must strictly increase.
+    if (
+        numbers != sorted(set(numbers))
+        or starts != sorted(set(starts))
+        or end_frame < starts[-1]
+    ):
         text = "Inconsistent timeline ! Shot numbers or start frames are not ordered."
         text_to_lines(
             warning.box(),
