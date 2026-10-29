@@ -414,8 +414,17 @@ else return;e.preventDefault();});
 var toastT;function toast(t){var el=$('toast');el.textContent=t;el.classList.add('on');clearTimeout(toastT);toastT=setTimeout(function(){el.classList.remove('on');},4200);}
 (META.roles||[]).forEach(function(r){var o=document.createElement('option');o.value=r;o.textContent=r;$('role').appendChild(o);});
 function countBar(){var c=summary();$('rv-n').textContent=c.files?plural(c.files,'file')+' reviewed':'Nothing reviewed yet';
-document.querySelector('#rv-dl .cnt').textContent=c.files||'';}
-function setReview(on){document.body.classList.toggle('reviewing',on);showNotes=null;editing={};if(on&&!$('author').value)$('author').focus();if(cur!=null)openPanel(cur);}
+document.querySelector('#rv-dl .cnt').textContent=c.files||'';$('rv-fabn').textContent=c.files||'';}
+// The bar folds into a round button (remembered by this browser), never
+// while it still needs a name.
+var FOLD=KEY+':folded';
+function fold(on){document.body.classList.toggle('rb-folded',on);try{localStorage.setItem(FOLD,on?'1':'');}catch(e){}
+if(!on)$('rv-dl').focus({preventScroll:true});}
+$('rv-min').addEventListener('click',function(){fold(true);});
+$('rv-fab').addEventListener('click',function(){fold(false);});
+function setReview(on){document.body.classList.toggle('reviewing',on);
+var folded=false;try{folded=localStorage.getItem(FOLD)==='1';}catch(e){}
+document.body.classList.toggle('rb-folded',on&&folded&&!!$('author').value.trim());showNotes=null;editing={};if(on&&!$('author').value)$('author').focus();if(cur!=null)openPanel(cur);}
 $('rv').addEventListener('click',function(){setReview(true);});
 $('rv-exit').addEventListener('click',function(){closeMenus();setReview(false);toast('Review left: it stays in this browser, ✎ Review takes it back.');});
 $('rv-clear').addEventListener('click',function(){closeMenus();if(!summary().files||confirm('Clear this review? What you wrote here is lost (a downloaded file is kept).')){
@@ -473,7 +482,7 @@ rd.readAsText(file);});});
 /* ---------- start ---------- */
 try{var kept=JSON.parse(localStorage.getItem(KEY)||'null');if(kept&&kept.files){rv=kept;rv.date=rv.date||'';
 $('author').value=rv.author||'';$('role').value=rv.role||'';
-if(summary().files){document.body.classList.add('reviewing');setTimeout(function(){toast('Your review in progress is back (kept in this browser).');},300);}}}catch(e){}
+if(summary().files){document.body.classList.add('reviewing');try{if(localStorage.getItem(FOLD)==='1'&&rv.author)document.body.classList.add('rb-folded');}catch(e){}setTimeout(function(){toast('Your review in progress is back (kept in this browser).');},300);}}}catch(e){}
 summaryCards();drawTabs();render();stats();barHeight();
 // A link to a file (#its name) opens it.
 var want=decodeURIComponent(location.hash.slice(1));if(want&&byName[want])jump(byName[want]);

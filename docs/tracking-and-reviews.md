@@ -98,7 +98,8 @@ it saw.
   imports, as it was read then.
 
 - **Review on the page** (1.1.5): instead of the spreadsheet, *✎ Review*
-  puts a bar at the bottom of the screen -- your name and your role --
+  puts a bar at the bottom of the screen -- your name and your role; ›
+  folds it into a round ✎ button, the review's count on it --
   and, in a file's panel, a ✓ by each department (validate it as your
   role -- a done one only) and a ✗ (a box for the retakes, one per line:
   `[sh020]` at its start for one shot of a block, `[f12-40]` for its

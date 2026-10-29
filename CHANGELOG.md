@@ -33,6 +33,9 @@ review one file -- lighter to read on a computer and on a phone.
   retake line, the syntax recalled under the box. *Download* sums the
   review up and asks name, role and date. Same `.json`, same browser
   storage: a review in progress carries over.
+- The review bar folds (›) into a round ✎ button at the bottom right,
+  the review's count on it; a tap opens it again. Remembered by the
+  browser; never folded while it still needs a name.
 - **Play a render's video** from the page once the videos zip made with
   the snapshot is unzipped next to it (▶ Play in the panel).
 - When the snapshot was taken stands out; opened later, "n days old".

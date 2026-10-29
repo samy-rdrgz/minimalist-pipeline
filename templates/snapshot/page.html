@@ -80,11 +80,12 @@
 </aside>
 
 <div class="rbar" role="region" aria-label="Review">
+<button class="btn icon rb-min" id="rv-min" title="Fold the review bar" aria-label="Fold the review bar">›</button>
 <span class="lbl">Reviewer</span>
 <input id="author" placeholder="Your name" autocomplete="name">
 <select id="role" aria-label="Role"><option value="">role…</option></select>
 <span class="n" id="rv-n">Nothing reviewed yet</span>
-<button class="btn dl-b" id="rv-dl">Download<span class="cnt"></span></button>
+<button class="btn dl-b" id="rv-dl" title="Download the review"><span class="dli" aria-hidden="true">⤓</span><span class="dlt">Download</span><span class="cnt"></span></button>
 <div class="menu"><button class="btn icon" id="rv-more" aria-haspopup="true" aria-expanded="false" title="More">⋯</button>
 <div class="menu-pop up" id="rv-morepop" hidden>
 <label>Load a review…<small>Goes on with a downloaded .json</small><input type="file" class="rv-load" accept=".json,application/json"></label>
@@ -92,6 +93,8 @@
 <button type="button" id="rv-exit">Leave the review<small>Kept in this browser until you come back</small></button>
 </div></div>
 </div>
+
+<button class="rfab" id="rv-fab" title="Review: your name, role, download" aria-label="Open the review bar">✎<span class="cnt2" id="rv-fabn"></span></button>
 
 <script type="application/json" id="data">{{DATA}}</script>
 <script>{{JS}}</script>

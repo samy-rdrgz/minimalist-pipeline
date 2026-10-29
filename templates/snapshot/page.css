@@ -361,9 +361,23 @@ body.reviewing .rbar{visibility:visible;transform:translate(-50%,0)}
 .rbar .btn{border:0;background:var(--bar-field);color:var(--bar-ink)}
 .rbar .dl-b{background:var(--valid);color:var(--on-fill)}
 .rbar .cnt:not(:empty)::before{content:" · "}
+.rbar .dli{display:none}
 @media (max-width:640px){.rbar{left:10px;right:10px;width:auto;flex-wrap:nowrap;transform:translateY(150%);bottom:calc(10px + env(safe-area-inset-bottom))}
-body.reviewing .rbar{transform:none}.rbar .lbl,.rbar .n{display:none}.rbar input{flex:1;width:auto;min-width:0}.rbar select{flex:none;padding:0 6px}}
+body.reviewing .rbar{transform:none}.rbar .lbl,.rbar .n,.rbar .dlt{display:none}.rbar .dli{display:inline;font-size:16px}.rbar .cnt:not(:empty)::before{content:" "}.rbar input{flex:1;width:auto;min-width:0}.rbar select{flex:none;padding:0 6px}}
 body.reviewing{padding-bottom:90px}
+/* Folded, the bar is a round button at the bottom right: the review's
+count on it, a tap opens the bar again. */
+.rb-min{width:var(--tap)!important;padding:0!important;font-size:18px}
+.rfab{position:fixed;right:16px;bottom:calc(16px + env(safe-area-inset-bottom));z-index:45;display:none;align-items:center;justify-content:center;
+width:52px;height:52px;border:0;border-radius:50%;background:var(--valid);color:var(--on-fill);font-size:20px;box-shadow:var(--sh-pop)}
+.rfab .cnt2{position:absolute;top:-4px;right:-4px;min-width:20px;height:20px;padding:0 5px;border-radius:99px;background:var(--bar-bg);color:var(--bar-ink);
+font:700 11px/20px var(--ui);text-align:center}
+.rfab .cnt2:empty{display:none}
+body.reviewing.rb-folded .rbar{visibility:hidden;transform:translate(-50%,150%)}
+body.reviewing.rb-folded .rfab{display:inline-flex}
+body.reviewing.rb-folded{padding-bottom:24px}
+@media (min-width:641px){body.panel-open .rfab{right:calc(min(540px,100%) + 16px)}}
+@media (max-width:640px){body.reviewing.rb-folded .rbar{transform:translateY(150%)}}
 .dlg{position:fixed;inset:0;z-index:65;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.4)}
 .dlg-in{width:min(420px,100%);padding:20px;border-radius:var(--r-lg);background:var(--surface);box-shadow:var(--sh-pop)}
 .dlg h3{margin:0 0 12px;font-size:16px}

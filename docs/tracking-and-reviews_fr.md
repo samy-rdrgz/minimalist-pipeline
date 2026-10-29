@@ -104,7 +104,8 @@ la prod -- sur la version qu'il a vue.
   précédente s'importe toujours, lu comme avant.
 
 - **Review dans la page** (1.1.5) : au lieu du tableur, *✎ Review*
-  affiche une barre en bas de l'écran -- votre nom et votre rôle -- et,
+  affiche une barre en bas de l'écran -- votre nom et votre rôle ; ›
+  la replie en un bouton rond ✎, avec le compte de la review -- et,
   dans le panneau d'un fichier, un ✓ à côté de chaque département (le
   valider pour votre rôle -- seulement s'il est fini) et un ✗ (une case
   pour les retakes, un par ligne : `[sh020]` en début de ligne pour un
