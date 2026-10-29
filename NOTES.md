@@ -3470,12 +3470,14 @@ A department's cell went red only for an RTK tagged with it, so a
 general retake (an imported `global` line, an RTK with no department
 ticked) showed nowhere but the RTK filter. Project monitoring reds the
 file's name for it (`open_rtks()`, `lib/tracking.py`: the departments
-plus a "general" flag); the snapshot page too (`item["general_rtk"]`).
-First tried as every started department red, which hid which work it
-was about. It still weighs on every department's Done (a done one counts
-its "rtk" weight): the file isn't finished. The xlsx has no red name --
-a filename cell is locked, read past -- so every department cell gets
-the red border, where the reviewer types.
+plus a "general" flag). First tried as every started department red,
+which hid which work it was about. The snapshot doesn't red the name:
+its row already says "1 RTK" next to it, so the general RTK is on every
+required department instead (`_rtk_on()`, from `item["general_rtk"]`):
+red-outlined, counted in the Progress bar's Open RTK, weighing on their
+Done (a done one counts its "rtk" weight) -- the file isn't finished.
+The xlsx the same: a filename cell is locked, read past, so every
+department cell gets the red border, where the reviewer types.
 
 ## Rushes: copies under fixed names, not links
 

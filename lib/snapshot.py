@@ -437,9 +437,8 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
         ]
         rtk_departments = {d for e in open_rtks for d in e["departments"]}
         item["rtk_departments"] = sorted(rtk_departments)
-        # On no department (a general retake): the name goes red, as in
-        # Project monitoring -- tracking.open_rtks() -- and it weighs on
-        # every department's Done; the xlsx borders them all.
+        # On no department (a general retake): it's on every department --
+        # red-outlined, weighs on their Done (_rtk_on()).
         item["general_rtk"] = any(not e["departments"] for e in open_rtks)
         # Per done department: its validations at the stable shown, and the
         # last ones given to an earlier stable (to review again).
@@ -454,9 +453,7 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
         }
         # Per department, then their mean: the footer averages the first.
         item["scores"] = {
-            d: _department_score(
-                st, d in rtk_departments or item["general_rtk"], weights
-            )
+            d: _department_score(st, _rtk_on(item, d), weights)
             for d, st in item["departments"].items()
         }
         scores = list(item["scores"].values())
@@ -529,6 +526,11 @@ def progress_weights(config: dict) -> dict[str, int]:
             value = default
         out[key] = max(0, min(100, value))
     return out
+
+
+def _rtk_on(item: dict, department: str) -> bool:
+    """An open RTK on that department, or on none (a general retake)."""
+    return department in item["rtk_departments"] or item.get("general_rtk", False)
 
 
 def _department_score(state: str, open_rtk: bool, weights: dict) -> float:
@@ -818,9 +820,8 @@ def render_html(snapshot: dict) -> str:
     ) + (
         '<span class="pill st-none">Not required</span>'
         '<span class="pill st-todo rtk-open">Open RTK</span>'
-        '<span class="muted">red outline, whatever the state</span>'
-        '<b class="rtk-name">sq100_sh030</b>'
-        '<span class="muted">open RTK on no department</span>'
+        '<span class="muted">red outline, whatever the state -- on every '
+        "department for one on no department</span>"
         '<span class="pill behind">⚠ Render older than the stable</span>'
         '<span class="pill tocheck">to check</span>'
         '<span class="muted">not checked yet</span>'
@@ -1149,7 +1150,7 @@ def _overview_card(
     department) by state, its Done by group and by department. Nothing when
     none of its items requires a department."""
     tasks = [
-        "rtk" if d in i["rtk_departments"] else st
+        "rtk" if _rtk_on(i, d) else st
         for i in items
         for d, st in i["departments"].items()
     ]
@@ -1384,16 +1385,6 @@ def _slug(name: str) -> str:
     return re.sub(r"[^\w\-]", "_", name)
 
 
-def _name_label(item: dict) -> str:
-    """A row's name, red with an open RTK on no department."""
-    if item.get("general_rtk"):
-        return (
-            f'<b class="rtk-name" title="Open RTK on no department">'
-            f'{_e(item["name"])}</b>'
-        )
-    return f'<b>{_e(item["name"])}</b>'
-
-
 def _item_attrs(item: dict) -> str:
     """data-* the filter script matches on -- same for a row and its notes
     card -- and what the in-page review writes back (data-file, -stable,
@@ -1484,10 +1475,14 @@ def _render_table(
                 )
             else:
                 label, cls = STATES[state]
-                if c in item["rtk_departments"]:
+                if _rtk_on(item, c):
                     # Sent back: the RTK is the news, whatever the state.
                     cls += " rtk-open"
-                    label += ", with an open RTK"
+                    label += (
+                        ", with an open RTK"
+                        if c in item["rtk_departments"]
+                        else ", with an open RTK on no department"
+                    )
                 cells.append(
                     f'<td data-col="d:{_e(c)}"><span class="pill {cls}" title="{_e(label)}">'
                     f"{_e(SHORT_STATES[state])}</span>{_approval_mark(item, c, roles)}</td>"
@@ -1521,7 +1516,7 @@ def _render_table(
         rows.append(
             f'<tr class="item" id="i-{_e(_slug(item["name"]))}" {_item_attrs(item)} '
             f'data-threads="{len(threads)}">'
-            f'{thumb}<td class="name">{_name_label(item)}{flags}{toggle}'
+            f'{thumb}<td class="name"><b>{_e(item["name"])}</b>{flags}{toggle}'
             f"<small>{_e(item['description'])}</small></td>"
             f'<td class="ver" data-col="file">{_e(versions)}</td>'
             f'<td class="ver" data-col="render">{_render_cell(item)}</td>{"".join(cells)}'
@@ -1982,7 +1977,6 @@ border-color:var(--accent)}
 .pill.farm-waiting{color:var(--muted);background:color-mix(in srgb,var(--muted) 14%,transparent)}
 .pill.farm-failed{color:var(--rtk);background:var(--rtk-bg);border-color:var(--rtk)}
 .pill.rtk-open{border-color:var(--rtk);box-shadow:0 0 0 1px var(--rtk) inset}
-.rtk-name{color:var(--rtk)}
 .pct{margin-left:8px;font-size:.8em;font-weight:600;color:var(--done)}
 .pct .valid,.pct.valid{color:var(--role)}
 .legend.muted{color:var(--muted);font-size:12px}
@@ -2857,8 +2851,7 @@ def _department_style(item: dict, department: str) -> int:
     it or on no department."""
     state = item["departments"][department]
     key = "validated" if item.get("validated", {}).get(department) else state
-    rtk = department in item["rtk_departments"] or item.get("general_rtk", False)
-    return _S_STATE[key] + rtk
+    return _S_STATE[key] + _rtk_on(item, department)
 
 
 def _review_front(meta: dict, roles: list, top_role: str | None) -> str:
