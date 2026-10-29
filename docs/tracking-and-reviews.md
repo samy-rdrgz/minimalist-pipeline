@@ -48,7 +48,7 @@ it saw.
   Withdrawing or giving it writes a note under your role, for the record.
 - **Notes under a role**: a note, todo or RTK written by someone with a
   role carries it (violet mark), and so do the notes imported from a
-  review template. An RTK from a role is red, the team's own orange.
+  review template. An RTK from a role is red in the snapshot, the team's own orange; in Blender its mark is the role's violet, like its notes, the team's orange.
   The *New entry* dialog shows your role in an *As sup* box, on by
   default: untick it to write as the team (a technical note, say).
 - **Project monitoring**: a done department reads "Done · prod" once

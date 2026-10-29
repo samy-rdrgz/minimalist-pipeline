@@ -190,7 +190,7 @@ def _draw_thread(thread, note, filepath, width: int | None = None):
 # Entry marks: Blender colors no text but red (alert) -- the collection
 # color icons stand for the snapshot's colors.
 _ROLE_ICON = "COLLECTION_COLOR_06"  # violet: written under a validation role
-_RTK_ROLE_ICON = "COLLECTION_COLOR_01"  # red
+_RTK_ROLE_ICON = _ROLE_ICON  # an RTK too: the role's violet, as its notes
 _RTK_TEAM_ICON = "COLLECTION_COLOR_02"  # orange
 
 
@@ -209,7 +209,7 @@ def _draw_entry(e, note, filepath, width: int | None = None):
         btn.id = e["id"]
         btn.filepath = filepath
         if e["type"] == "rtk":
-            # A validation role's RTK red, the team's own orange.
+            # A validation role's RTK violet (as its notes), the team's orange.
             body.label(
                 text="", icon=_RTK_ROLE_ICON if e.get("role") else _RTK_TEAM_ICON
             )

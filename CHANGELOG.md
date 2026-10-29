@@ -14,6 +14,12 @@ All notable changes to this addon. Dates are release dates.
   too (*Push to editing*, off by default). `rushes.json` there says which
   render and `.blend` version each rush is.
 
+### Changed
+
+- In Blender, an RTK written under a validation role (prod...) has the
+  role's violet mark, like its notes, instead of red; the team's stays
+  orange.
+
 ### Fixed
 
 - An open RTK for no department (a general retake) showed nowhere in

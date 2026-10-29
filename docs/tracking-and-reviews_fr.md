@@ -50,7 +50,7 @@ la prod -- sur la version qu'il a vue.
   la trace.
 - **Notes sous un rôle** : une note, todo ou RTK écrite par quelqu'un qui a
   un rôle le porte (marque violette), comme les notes importées d'un
-  tableur de review. Un RTK d'un rôle est rouge, celui de l'équipe orange.
+  tableur de review. Un RTK d'un rôle est rouge dans le snapshot, celui de l'équipe orange ; dans Blender sa marque est le violet du rôle, comme ses notes, celle de l'équipe orange.
   La fenêtre *New entry* montre votre rôle dans une case *As sup*, cochée
   par défaut : décochez-la pour écrire au nom de l'équipe (une note
   technique, par exemple).
