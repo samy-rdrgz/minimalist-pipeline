@@ -3444,3 +3444,11 @@ on the share, and the next worker of that machine read it at its first
 tick and stopped. `launch_worker()` drops it: anything there before the
 launch was aimed at the previous one.
 
+What else can end the loop with Blender alive: a Blender timer stops
+only by returning None, by raising, or by being unregistered (addon
+disabled/reloaded, factory settings, quit) -- the first two now only
+after a logged reason, the last on purpose. One more "can't tell" taken
+for "no": `_worker_path()`/`monitor_file` raise PipelineError without an
+active project, and `get_active_project_root()` answers None too when
+the addon's preferences can't be read; that case now keeps the role.
+
