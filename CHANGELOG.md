@@ -16,7 +16,9 @@ All notable changes to this addon. Dates are release dates.
 - A job set up and waiting for a worker shows its number of frames and
   an estimate, from the file's last render with the same pre-render
   script (its time per frame), shared by the live workers:
-  `240f (≃ 1h00m with 4 workers)`.
+  `240f (≃ 1h00m with 4 workers)`. The Jobs list's last line sums up the
+  rendering left, in progress and waiting: `11 job(s) - ≃ 3h20m of
+  rendering left with 4 workers`.
   The render history now records each render's pre-render script.
 
 ### Changed

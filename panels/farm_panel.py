@@ -228,6 +228,45 @@ def _estimate_label(job: dict, cache: dict) -> str:
     return text
 
 
+# Stages before the render: their frames aren't known yet (not set up).
+_NOT_SET_UP = ("pending", "queued", "setup_start")
+
+
+def _render_left_label(jobs: list, cache: dict) -> str:
+    """ " - ≃ 3h20m of rendering left with 4 workers": the machine time the
+    jobs still need -- a render's frames left at its own pace, a job
+    waiting for a worker at its estimate's (_estimate_label()) -- shared by
+    the live workers. The ones it can't tell (not set up yet, nothing timed
+    yet, never rendered before) are counted apart. "" if none's left."""
+    machine_time, unknown = 0.0, 0
+    for j in jobs:
+        stage = j.get("stage", "")
+        if stage == "render_start" and j.get("frames_total"):
+            pace = j.get("seconds_per_frame")
+            if pace:
+                machine_time += (j["frames_total"] - j["frames_done"]) * pace
+            else:
+                unknown += 1
+        elif j.get("frames_to_render"):
+            pace = j.get("history_pace")
+            if pace:
+                machine_time += j["frames_to_render"] * pace["seconds_per_frame"]
+            else:
+                unknown += 1
+        elif stage in _NOT_SET_UP:
+            unknown += 1
+    if not machine_time:
+        return f" - {unknown} not estimated yet" if unknown else ""
+    workers = max(1, len(cache.get("workers") or {}))
+    text = (
+        f" - ≃ {_duration(machine_time / workers)} of rendering left with "
+        f"{workers} worker{'s' if workers > 1 else ''}"
+    )
+    if unknown:
+        text += f" (+{unknown} not estimated)"
+    return text
+
+
 def _pace(seconds: float) -> str:
     """A frame's time: "0.6 s", "12 s", then _duration() -- "0m00s" said
     nothing of a fast render."""
@@ -492,7 +531,9 @@ def draw_farm_jobs(self, context, layout):
             icon="BLANK1",
         )
     else:
-        footer.label(text=f"{total} job(s)", icon="BLANK1")
+        footer.label(
+            text=f"{total} job(s){_render_left_label(matches, cache)}", icon="BLANK1"
+        )
     # Every job of that state, not just this filter's.
     bulk = footer.row(align=True)
     bulk.alignment = "RIGHT"
