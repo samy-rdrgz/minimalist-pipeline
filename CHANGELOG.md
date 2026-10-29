@@ -13,7 +13,13 @@ All notable changes to this addon. Dates are release dates.
   a share drop-out, given up only once its file has been gone ~30 s with
   the share reachable, or taken over by another Blender -- logged either
   way, like the loop stopping. An error in a tick no longer ends the
-  loop either.
+  loop either. Likely also behind a worker stopping right after it
+  started (auto-worker): Windows remembers "file not found" for a few
+  seconds, and the first check came just after the worker file was
+  written.
+- A worker stopped at launch on a stop request left from before (sent
+  while that machine's worker was already gone, never read). Launching
+  a worker now drops it.
 
 ## 1.1.6 — 2026-10-28
 

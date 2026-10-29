@@ -274,6 +274,17 @@ def launch_worker() -> bool:
         box["action"] = "to_write"
         register_farm_loop(get_active_project_root())
     _set_this_instance_worker(True)
+    # A stop request left from before (sent to a worker that was already
+    # gone, so never read): it was for that one, not this -- it would end
+    # this role at its first tick.
+    stale = ConfigCache.get_path("farm_requests") / f"stop_{get_machine_id()}.json"
+    try:
+        retry_shared_io(stale.unlink)
+        log("INFO", "farm", "Old stop request for this machine dropped at launch.")
+    except FileNotFoundError:
+        pass
+    except OSError as e:
+        log("WARNING", "farm", f"Could not drop an old stop request: {e}")
     return True
 
 

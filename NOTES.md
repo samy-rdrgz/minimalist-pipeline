@@ -3431,3 +3431,16 @@ rewrites one with this instance's identity (pid, uuid) -- a pid-less
 file would read as "taken over". `farm_tick()` catches each step itself
 (an exception escaping a timer deregisters it) and logs when it stops.
 
+The same miss likely explains a worker dying one second after an
+auto-worker launch (its file: `started_at` = `last_heartbeat`, never
+updated): Windows' SMB client caches "file not found" for a few seconds
+(FileNotFoundCacheLifetime, 5 s by default) -- `launch_worker()`'s read
+of a file not there yet, then the first tick's `exists()` 1 s after the
+write, answered from that cache. Three ticks (20 s from the first miss
+to the third) outlast it.
+
+A stop request (`stop_<uuid>.json`) sent to a worker already gone stays
+on the share, and the next worker of that machine read it at its first
+tick and stopped. `launch_worker()` drops it: anything there before the
+launch was aimed at the previous one.
+
