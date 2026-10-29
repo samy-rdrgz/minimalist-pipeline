@@ -37,6 +37,9 @@ All notable changes to this addon. Dates are release dates.
   they are in the log; otherwise the error nearest its end (a missing
   texture's line early on no longer hides the real error), never a
   "Warning" line. "System is out of GPU memory" is recognized.
+- Snapshot, one-file card: the open RTKs on no department are listed
+  in a *General* block above the general retake field, not lost among
+  the other notes.
 
 ### Fixed
 
@@ -52,6 +55,9 @@ All notable changes to this addon. Dates are release dates.
   reds the file's name; the snapshot outlines every department in red
   and lowers its Done, like an RTK on it, and in the review spreadsheet
   every department cell gets the red border.
+- Snapshot: *Open RTK* with a department filter kept every row with an
+  RTK, even one on another department; it now keeps the rows with an
+  RTK on that department or on none.
 - A review spreadsheet (.xlsx) from before 1.1.6 had its notes anchored
   on the latest file, not on the render watched: its snapshot time is
   now read from its front sheet ("Snapshot of ..."), else the end of its

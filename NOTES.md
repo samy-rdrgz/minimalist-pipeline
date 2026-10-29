@@ -3147,7 +3147,13 @@ like Esc (Enter alone is a new line: a retake per line). The bar's ☰ takes its
 it differing by view. The card lists each department's open RTKs from the row's own notes
 (roots not closed, an rtk type, the department among their tags --
 `rtksOf()`), the meta in the pill's title or under it once tapped; the
-notes block below keeps only the threads not listed (`placed()`). The
+open RTKs on no department (`.gen` on their `<li>`, `_render_entry()`:
+the tags can't tell them apart -- a shot's, a role's, a render's) in a
+*General* block holding the general retake field, so a reviewer sees
+the retake already asked before writing it again (`genRtksOf()`); the
+notes block below keeps only the threads not listed (`placed()`).
+*Open RTK* with a department keeps the rows with an RTK on it or on
+none (`data-rtkdeps`, `data-rtkgen`), not every row with an RTK. The
 review's file name carries the download time, the role and the author
 (`reviewName()`, accents dropped), so several reviewers' files coexist.
 Import review takes several files (`files` + `directory`): every plan

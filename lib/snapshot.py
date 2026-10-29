@@ -1390,7 +1390,8 @@ def _item_attrs(item: dict) -> str:
     card -- and what the in-page review writes back (data-file, -stable,
     -desc, -render: a review row's filename, stable_version,
     description_exported, render;
-    data-shots: a block's, for the [sh020] buttons)."""
+    data-shots: a block's, for the [sh020] buttons; data-rtkdeps/-rtkgen:
+    Open RTK with a department, an RTK on it or on none)."""
     states = " ".join(f"{d}:{st}" for d, st in item["departments"].items())
     shots = " ".join(t[0] for t in item.get("shot_thumbnails") or [])
     if not shots and item["kind"] == "shot" and "-" in item["name"]:
@@ -1399,6 +1400,8 @@ def _item_attrs(item: dict) -> str:
     return (
         f'data-name="{_e(item["name"].lower())}" data-group="{_e(item["group"])}" '
         f'data-states="{_e(states)}" data-rtk="{item["open_rtk"]}" '
+        f'data-rtkdeps="{_e(" ".join(item["rtk_departments"]))}" '
+        f'data-rtkgen="{int(item.get("general_rtk", False))}" '
         f'data-notes="{item["open_notes"]}" '
         f'data-farm="{int(bool(item.get("farm") or item.get("to_check")))}" '
         f'data-file="{_e(_stem(item["current_version"]) or item["name"])}" '
@@ -1777,6 +1780,10 @@ def _render_entry(e: dict, reply: bool = False, closed: bool = False) -> str:
     who = f"{_e(e['author'])} · {_e(e['date'][:10])}"
     cls = ("reply" if reply else "root") + (" closed" if closed else "")
     cls += " by-role" if e.get("role") else ""
+    # An open RTK on no department: the one-file card lists it by the
+    # general retake field (_JS, genRtksOf()).
+    if not reply and e["type"] == "rtk" and e["done"] is False and not e["departments"]:
+        cls += " gen"
     return (
         f'<li class="{cls}"><div class="head">'
         f'{"".join(tags)}<span class="who">{who}</span></div>'
@@ -2318,7 +2325,8 @@ function match(el){
 var q=ctl[0].value.trim().toLowerCase(),g=ctl[1].value,d=ctl[2].value,st=ctl[3].value;
 if(q&&el.dataset.name.indexOf(q)<0)return false;
 if(g&&el.dataset.group!==g)return false;
-if(ctl[4].checked&&el.dataset.rtk==='0')return false;
+if(ctl[4].checked&&(el.dataset.rtk==='0'||d&&el.dataset.rtkgen!=='1'&&
+el.dataset.rtkdeps.split(' ').indexOf(d)<0))return false;
 if(ctl[5].checked&&el.dataset.notes==='0')return false;
 if(ctl[7].checked&&el.dataset.farm==='0')return false;
 if(d||st){var states=el.dataset.states.split(' ').filter(Boolean).map(function(x){
@@ -2682,7 +2690,9 @@ var acts=add(right,'div','orow');el.querySelectorAll('.rvg .rvb').forEach(functi
 if(b.dataset.act!=='one')acts.appendChild(b.cloneNode(true));});
 var dt=add(right,'textarea','rvt rvdesc');dt.rows=1;dt.dataset.f=f;dt.dataset.g='desc';
 dt.placeholder='The new description';
-var gen=add(right,'div','ofl ogen');gen.dataset.k='g';
+var grs=genRtksOf(el),gw=right;if(grs.length){gw=add(right,'div','odep');
+add(add(gw,'div','odh'),'b',null,'General');grs.forEach(function(li){gw.appendChild(rtkLine(li,null));});}
+var gen=add(gw,'div','ofl'+(grs.length?'':' ogen'));gen.dataset.k='g';
 oneFields(gen,f,'g',shots,'A general retake per line, note: for a remark');
 el.querySelectorAll('td[data-col^="d:"]').forEach(function(td){var d=td.dataset.col.slice(2);
 if(!(d in st))return;var dep=add(right,'div','odep'),h=add(dep,'div','odh');add(h,'b',null,d);
@@ -2708,7 +2718,10 @@ function threadsOf(el){var n=el.nextElementSibling;return n&&n.classList.contain
 function rtksOf(el,d){return threadsOf(el).filter(function(li){
 return li.classList.contains('root')&&!li.classList.contains('closed')&&li.querySelector('.type.t-rtk')&&
 [].some.call(li.querySelectorAll('.tag'),function(t){return t.textContent.split(', ').indexOf(d)>=0;});});}
-function placed(el){var st=states(el),out=[];Object.keys(st).forEach(function(d){
+// The open RTKs on no department (.gen, _render_entry()).
+function genRtksOf(el){return threadsOf(el).filter(function(li){
+return li.classList.contains('gen')&&!li.classList.contains('closed');});}
+function placed(el){var st=states(el),out=genRtksOf(el);Object.keys(st).forEach(function(d){
 rtksOf(el,d).forEach(function(li){if(out.indexOf(li)<0)out.push(li);});});return out;}
 // One line: an RTK pill (its shot in it) holding the rest -- who, when,
 // role, frames -- in its tooltip, or under it once tapped (a phone).
