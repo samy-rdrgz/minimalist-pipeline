@@ -3456,13 +3456,13 @@ the addon's preferences can't be read; that case now keeps the role.
 
 A department's cell went red only for an RTK tagged with it, so a
 general retake (an imported `global` line, an RTK with no department
-ticked) showed nowhere but the RTK filter. `rtk_departments()`
-(`lib/tracking.py`) now adds, for such an RTK, every required department
-already started -- validated, worked on, or started before (the
-snapshot's state other than "todo") -- not the ones not started: there's
-nothing to redo there yet, and a whole row red would hide which work it
-is about. The snapshot computes the same from its own threads (its red
-outline, the xlsx border, Done's "validated with an open RTK" weight).
+ticked) showed nowhere but the RTK filter. Project monitoring reds the
+file's name for it (`open_rtks()`, `lib/tracking.py`: the departments
+plus a "general" flag) -- first tried as every started department red,
+which hid which work it was about. The snapshot outlines every required
+department already started -- validated, worked on, or started before
+(its state other than "todo"): its cells, the xlsx border, Done's
+"validated with an open RTK" weight.
 
 ## Rushes: copies under fixed names, not links
 

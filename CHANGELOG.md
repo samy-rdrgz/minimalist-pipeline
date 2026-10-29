@@ -37,9 +37,10 @@ All notable changes to this addon. Dates are release dates.
   ticked, edited or deleted. A new entry's id is now unique in its file
   (twins already there are to fix by hand in its tracking.json).
 - An open RTK for no department (a general retake) showed nowhere in
-  Project monitoring's grid nor the snapshot: it now reds every
-  department already started (validated, worked on or started before),
-  not the ones not started yet -- and counts as an open RTK in their Done.
+  Project monitoring's grid nor the snapshot: Project monitoring now reds
+  the file's name; the snapshot outlines every department already
+  started (validated, worked on or started before) -- and counts it as an
+  open RTK in their Done.
 
 - Workers (and the farm monitor) stopped for good during the night,
   Blender still running: one check where the share didn't answer (NAS

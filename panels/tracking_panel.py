@@ -18,7 +18,7 @@ from ..lib import (
     WorkTimeCache,
     covering_role,
     department_status_tooltip,
-    rtk_departments,
+    open_rtks,
     get_user_role,
     highest_approval,
     box_tip_units,
@@ -933,6 +933,9 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None)
     split = row.split(factor=first_column)
     name = split.row()
     name.alignment = "LEFT"
+    # An RTK on a department reds that department; one on none, the name.
+    rtk, general_rtk = open_rtks(file)
+    name.alert = general_rtk
     icon = (
         TYPE_ICON.get(
             file.get("file_name", "Unknown").split("_", 1)[0],
@@ -960,8 +963,6 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None)
         emboss=False,
     ).filepath = str(dir)
     cells = _equal_cells(split.row(), len(columns) + 1)
-    # A general RTK (no department) reds every department already started.
-    rtk = rtk_departments(file)
     for icon_row, c in zip(cells, columns):
         icon_row.label(text="", icon="BLANK1")
         if c in file.get("departments_required", []):
