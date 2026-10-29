@@ -153,6 +153,9 @@ class M_PIPELINE_MT_topbar_menu(bpy.types.Menu):
         layout.operator(
             "m_pipeline.farm_request_render", text="Render", icon="RENDER_RESULT"
         )
+        _secondary(layout).operator(
+            "m_pipeline.push_rushes", text="Push rushes to editing", icon="BLANK1"
+        )
         layout.operator("m_pipeline.farm_monitor", text="Farm monitor", icon="WORKSPACE")
         # Status cache, not monitor.lock.exists() -- see farm_panel.draw_header().
         if get_monitor_cache().get("status") in ("not running", "unknown"):

@@ -2018,10 +2018,10 @@ def mark_render_to_check(
     return True
 
 
-def clear_render_to_check(filepath: Path | str, shot: str | None = None) -> list[str]:
+def clear_render_to_check(filepath: Path | str, shot: str | None = None) -> list[dict]:
     """Mark a render checked: drop shot's "to_check" entry ("" for an asset
     or a mono shot), or every one of the folder's if shot is None. Returns
-    the dropped entries' job ids."""
+    the dropped entries ({"render", "video", "at", "job_id"})."""
     path = tracking_json_path(filepath, must_exist=True)
     with locked_json(path) as box:
         data = box["data"] or {}
@@ -2037,7 +2037,7 @@ def clear_render_to_check(filepath: Path | str, shot: str | None = None) -> list
             data.pop("to_check", None)
         box["data"] = data
         box["action"] = "to_write"
-    return [d["job_id"] for d in dropped if isinstance(d, dict) and d.get("job_id")]
+    return [d for d in dropped if isinstance(d, dict)]
 
 
 def render_to_check_label(shot: str, info: dict) -> str:

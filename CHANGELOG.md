@@ -4,6 +4,16 @@ All notable changes to this addon. Dates are release dates.
 
 ## 1.1.7 — unreleased
 
+### Added
+
+- Rushes for the edit: *Push rushes to editing* (Project panel and
+  Pipeline menu, under Render) copies each shot's latest video -- and
+  the assets' -- into `editing/rushes/` under its name without version
+  (`sq100/sq100_sh030.mp4`), so the edit keeps its links; only what
+  changed is copied. The *Render checked* dialog can push that render
+  too (*Push to editing*, off by default). `rushes.json` there says which
+  render and `.blend` version each rush is.
+
 ### Fixed
 
 - An open RTK for no department (a general retake) showed nowhere in

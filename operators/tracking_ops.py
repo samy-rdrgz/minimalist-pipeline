@@ -69,6 +69,7 @@ from ..lib import (
     zip_latest_videos,
 )
 from ..farm import archive, farm_activity, request_monitor_refresh
+from .rushes_ops import push_checked_renders
 from ..panels import (
     load_file_renders,
     load_file_thumbnail,
@@ -1546,6 +1547,16 @@ class M_PIPELINE_OT_render_checked(bpy.types.Operator):
     shot: bpy.props.StringProperty()
     all_shots: bpy.props.BoolProperty(options={"SKIP_SAVE"})
     custom_tooltip: bpy.props.StringProperty()
+    # Checked = watched, not approved: pushing it to the edit is a choice.
+    push_rushes: bpy.props.BoolProperty(
+        name="Push to editing",
+        default=False,
+        description=(
+            "Copy this render's video into editing/rushes/, replacing the "
+            "previous one under the same name (the edit keeps its link)"
+        ),
+        options={"SKIP_SAVE"},
+    )
 
     @classmethod
     def description(cls, context, properties):
@@ -1590,10 +1601,12 @@ class M_PIPELINE_OT_render_checked(bpy.types.Operator):
         col.label(text="Done:")
         for item in context.window_manager.render_checked_departments:
             col.prop(item, "validate", text=item.department.upper())
+        self.layout.separator()
+        self.layout.prop(self, "push_rushes", icon="SEQUENCE")
 
     def execute(self, context):
         try:
-            job_ids = clear_render_to_check(
+            checked = clear_render_to_check(
                 self.filepath, None if self.all_shots else self.shot
             )
         except PipelineError as e:
@@ -1611,8 +1624,11 @@ class M_PIPELINE_OT_render_checked(bpy.types.Operator):
                 self.report({e.level}, e.message)
         # The table only reads the cache: refresh this one folder now.
         status_changed(self.filepath)
-        for job_id in job_ids:
-            _archive_checked_job(job_id)
+        for info in checked:
+            if info.get("job_id"):
+                _archive_checked_job(info["job_id"])
+        if self.push_rushes:
+            push_checked_renders(context, checked)
         checklist.clear()  # filled again by the next invoke()
         return {"FINISHED"}
 

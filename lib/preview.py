@@ -151,6 +151,18 @@ def _asset_render_dirs(base: Path, v_prefix: str, depth: int = 4) -> list[Path]:
     return out
 
 
+def latest_asset_videos(project_root: Path, v_prefix: str = "v") -> list[Path]:
+    """Every asset/library's latest video (renders/assets/..., renders/
+    library/...; old/ skipped), the ones with one."""
+    renders = Path(project_root) / "renders"
+    return [
+        mp4
+        for top in ("assets", "library")
+        for d in _asset_render_dirs(renders / top, v_prefix)
+        if (mp4 := _first_mp4(latest_render_dir(d, v_prefix)))
+    ]
+
+
 def zip_latest_videos(
     project_root: Path,
     sequences: list[str],
@@ -183,12 +195,7 @@ def zip_latest_videos(
             empty.append(sequence)
         found += [mp4 for _label, mp4 in sources]
     if assets:
-        asset_mp4s = [
-            mp4
-            for top in ("assets", "library")
-            for d in _asset_render_dirs(renders / top, v_prefix)
-            if (mp4 := _first_mp4(latest_render_dir(d, v_prefix)))
-        ]
+        asset_mp4s = latest_asset_videos(project_root, v_prefix)
         if not asset_mp4s:
             empty.append("assets/libraries")
         found += asset_mp4s

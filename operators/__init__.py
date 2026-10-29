@@ -27,6 +27,7 @@ from .farm_ops import (
     PIPELINE_PG_render_subshot_item,
 )
 from .file_ops import M_PIPELINE_OT_increment_version
+from .rushes_ops import M_PIPELINE_OT_push_rushes
 from .log_ops import (
     PIPELINE_PG_log_monitoring,
     M_PIPELINE_OT_copy_log_line,
@@ -137,6 +138,7 @@ classes = (
     M_PIPELINE_OT_pipeline_logs,
     M_PIPELINE_OT_pipeline_logs_refresh,
     M_PIPELINE_OT_pipeline_logs_archive,
+    M_PIPELINE_OT_push_rushes,
     M_PIPELINE_OT_copy_log_line,
     M_PIPELINE_OT_farm_add_self_worker,
     PIPELINE_PG_farm_monitoring,

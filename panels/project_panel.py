@@ -112,6 +112,11 @@ class M_PIPELINE_PT_project_panel(bpy.types.Panel):
                 text="Render",
                 icon="RENDER_RESULT",
             )
+            layout.operator(
+                "m_pipeline.push_rushes",
+                text="Push rushes to editing",
+                icon="SEQUENCE",
+            )
 
             layout.separator()
             layout.operator(

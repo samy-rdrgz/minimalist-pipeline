@@ -67,6 +67,10 @@ _WM_PROPS = {
     "preview_sequences": bpy.props.CollectionProperty(
         type=PIPELINE_PG_preview_sequence_item
     ),
+    # Push rushes' checklist: the sequences to push.
+    "rushes_sequences": bpy.props.CollectionProperty(
+        type=PIPELINE_PG_preview_sequence_item
+    ),
     # Export snapshot's checklist: the sequences whose videos get zipped.
     "snapshot_sequences": bpy.props.CollectionProperty(
         type=PIPELINE_PG_preview_sequence_item
