@@ -1080,6 +1080,17 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
                 "exported_by": get_user(context),
                 "addon_version": get_addon_version(),
             }
+            # The videos zipped next to it once written: the page's ▶ Play
+            # looks for them there (lib/snapshot_page.py).
+            chosen = [
+                s.name for s in context.window_manager.snapshot_sequences if s.include
+            ]
+            if chosen or self.include_asset_videos:
+                meta["videos"] = {
+                    "zip": Path(self.filepath).stem,
+                    "sequences": chosen,
+                    "assets": bool(self.include_asset_videos),
+                }
             try:
                 snapshot = build_snapshot(
                     self._job.result, config, meta, farm=farm_activity()

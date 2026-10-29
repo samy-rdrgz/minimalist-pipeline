@@ -12,7 +12,15 @@ Every asset/shot has a `.pipeline/` folder next to its `.blend` files:
 
 **Prod review import** (Project panel or Pipeline menu > *Import review*): reads back the review spreadsheet from a snapshot, as is. Each line of a department cell's text becomes its own retake (see *Review template* below; a *text* cell in a template from before 1.1.2) — several retakes on the same shot go on several lines (Alt+Enter), each one with its own checkbox. Author and date come from the top of the sheet (`prod` and the import day when left empty); each note is anchored on the render the reviewer watched -- the *Last render* the snapshot showed, per shot for a block (`[sh120]` takes sh120's) -- and on the `.blend` version that render was made from (`v007-stable_001` → `..._v007-stable.blend`), not on the latest file: a tag *▶ v007-stable_001* on the note (snapshot) and *Based on: ... (render v007-stable_001)* in its tooltip say which. The review carries that render (a hidden *render* column, a `render` field in the page's `.json`); one made before 1.1.6 doesn't, and the import takes the render that already existed when its snapshot was made -- a shot rendered again since, or never rendered, keeps the file's version. Importing the same file again, or a re-sent one with notes added, never duplicates: lines already imported are skipped. Descriptions edited in the *description* column (editable for that) are applied too, after a dialog listing every change (was / now): all of them, or none — to leave one out, fix the spreadsheet and import it again. Only a cell the production changed counts: a description changed in the project since the export is never reverted, and an empty cell changes nothing. A spreadsheet exported before 1.0.12 has its descriptions ignored. A popup lists what came in and what couldn't (e.g. a file renamed or branched since). Imported entries say so in their tooltip.
 
-**Production snapshot** (Project panel or Pipeline menu > *Snapshot*): writes one HTML file — `<project>_snapshot_<YYYY-MM-DD>.html` — showing every asset/shot's status per department and every note (closed todos/RTKs included, hidden until *Closed notes* is on), for people outside the studio (no Blender, no access to the share needed: it opens offline in any browser, and can be sent by mail). Each department reads *Not started* (never worked on nor done), *WIP* (work in progress: worked on since the last stable, or done at an earlier stable or worked on before the last one but not done at it -- reopened, or not finished yet), *Done*, or *Reworked* (done at the last stable, but worked on again after it), with its validation by a role next to it (see below). Project monitoring reads the same. A "Done" column shows how far along each asset/shot is — each required department counts for an equal share: not started 0 %, work in progress 33 %, validated but reworked since 67 %, validated with an open RTK 67 %, validated 100 % (the three middle values are set per project: Project settings > *Snapshot done*); a department with an open RTK is outlined in red, whatever its state (an RTK for no department: the "1 RTK" by the file's name instead) — with the % of each sequence / asset prefix on its group row and an "All" row per table (section total and % per department). A *Progress* block at the top sums up the whole project (filters aside): Done of the shots and of the assets & libraries, the open RTKs, then per section a bar of its department tasks by state, in the pills' colours (validated, reworked, open RTK -- whatever the state --, WIP, not started) and its Done by sequence / prefix and by department, then a sequence (or prefix) × department grid, each cell shaded by its %. With a schedule (Project settings > *Schedule*: start and end dates, days off, and the days of the week worked -- Monday to Friday by default), it also gives where the project should be at an even pace on the export day -- working days so far over the schedule's -- how far ahead or behind each section is, and its pace (done / expected) in a pill coloured by band, as in a progress spreadsheet: 105 % and more ahead (green), 100 to 105 % on track (light green), 90 to 100 % slightly behind (amber), under 90 % behind (red); the expected progress is a line across every bar, and a *Schedule* band per section puts both on one scale of planned progress (0 % at the start date, 100 % at the end): the expected progress today as a line, the section's Done as the fill (its Validated over it in violet, with a validation role), the stretch between them light green when ahead, red when behind ("▲ 18 pts, 7 working days ahead"). Each section of the page (Progress, Assets, Shots) folds on a click on its title; all open at load, and a link into a folded one opens it. The Assets and Shots column headers stay at the top of the screen, under the filters, while their table scrolls by. Exports go to the project's `snapshots/` folder by default, named with the date and time. A "Last render" column gives the output folder of each asset/shot's last render (vXXX_YYY: the .blend version rendered, then the render increment), in red when it was rendered from a version older than the last stable, each line starting with its status pill, aligned down the table: *to check* while the team hasn't checked it, then the jobs still in the farm at export time — *queued*, their step in blue (*rendering 45/120*, *compiling*...), *failed* in red. A multishot also has, under its thumbnail, a small button per shot (010, 020...) in the block's order: hover one to see that shot's thumbnail, to find your way in an edit -- greyed for a shot not rendered yet. Each asset/shot shows a thumbnail from its latest render (the farm makes it when a render ends; the export makes any that are missing or out of date, from the frames already on disk). The bar at the top has three groups: *Go to* (Assets, Shots), *Filter* (name, group -- prefix/sequence --, department and state, then *Open RTK* -- with a department picked, only the RTKs on it or on no department --, *Open notes* and *Farm* -- in the farm or to check -- as toggles that light up once on; a filter in use is highlighted, and *Clear* resets them all) and *Show* (*All notes* unfolds or folds every note, *Closed notes*, and a *Columns* menu that hides the columns you don't need, remembered by the browser); each row with notes has an "n notes" button that unfolds them right under it -- printing prints every open note. The page carries a review spreadsheet (.xlsx) to download, one row per asset/shot, for production to fill in and send back. The scan runs in the background; Blender stays usable meanwhile. Once written, it opens in your browser (*Open when done*, next to *Thumbnails* in the file browser; untick to just save it). *Videos to zip*, below them, lists the sequences, none ticked: tick some and every shot's latest video in them (the same ones *Preview sequence* takes) is copied into a zip next to the snapshot, with its name (`..._snapshot_<date>.zip`), one folder per sequence -- `sq100/sq100_sh030-040-050_v002-stable_001.mp4` (the video, then its render folder). *Assets & libraries*, under the sequences, adds every asset/library's latest video the same way, one folder per prefix (`assets/ch/ch_bob_v003_002.mp4`, `library/...`). Both are unticked on every export. Written after the HTML, in the background too; a sequence with nothing rendered is skipped (a warning says which), and so are the assets/libraries with no video.
+**Production snapshot** (Project panel or Pipeline menu > *Snapshot*): writes one HTML file -- `<project>_snapshot_<YYYY-MM-DD_HH-MM>.html`, in the project's `snapshots/` folder by default -- with the state of every asset/shot per department and every note, for people outside the studio (no Blender, no access to the share needed: it opens offline in any browser, on a computer or a phone, and can be sent by mail). The scan runs in the background; Blender stays usable meanwhile. Once written, it opens in your browser (*Open when done*, next to *Thumbnails* in the file browser; untick to just save it).
+
+- **At the top**: the project and when the snapshot was taken -- opened later, a "n days old" pill says the project may have moved since --, then a card per section (shots, assets & libraries) with its Done and its Validated. With a schedule (Project settings > *Schedule*: start and end dates, days off, the days of the week worked -- Monday to Friday by default), each card also says how many working days ahead or behind the section is at an even pace, and its pace (done / expected) in a pill coloured by band, as in a progress spreadsheet: 105 % and more ahead, 100 to 105 % on track (green), 90 to 100 % slightly behind (amber), under 90 % behind (red); a *Schedule* card gives the day and the progress expected.
+- **The list**: a tab per section (Shots, Assets, and Libraries when there are any), the files by sequence / prefix, each group with its Done and Validated -- folded when none of its files has a department to track. A file shows its thumbnail (its own size on hover with a mouse, full screen on a click or a tap), its name, then on a line under it its versions (`wip v004 · stable v003`, the wip only when newer than the stable), a block's number of shots, its open notes, its open RTKs on no department ("1 general RTK") and its state in the farm; then a mark per department: done ●, done at the last stable but worked on again since ◉ (reworked), in progress ◐, not started ○, not required –. Under a mark: an open RTK (◆ RTK in red from a validation role, ◆ team in orange from the team), its validation (✓ prod -- each role in its tooltip --, struck through when given to an earlier stable: to review again) and, while reviewing, your own (✓ you, ✕ you). A badge only for what shows nowhere else: *⚠ Render outdated* (rendered from an older version than the last stable), *Render to check*. Departments nobody in the list requires get no column; the column names stay under the bar while scrolling.
+- **Filters**: a department (the toggles then look at it alone), *Retakes* (an open RTK -- on that department or on none), *Open notes*, *Render outdated*, *To validate* (a done department its stable isn't validated at), *Not finished*, each with its count; *Find a file…* narrows the list and lists the matching files of every section -- Enter or a click opens one. A filter finding nothing in this section but some in another says so. *?* gives the legend, the keys and how Done counts.
+- **A file's panel** (a click on its row; a sheet from the bottom on a phone, swiped down to close): its picture large and, for a block, each shot's; its description; its departments, each with its validation and its open RTKs (who, when, its shot and frames); the RTKs on no department; the other notes, open ones first (*Show the n closed*), each with its tags -- the role it was written as (violet), its departments, shot, frames, the render it was written watching (▶ v007-stable_001); its last render per shot (the version rendered, ⚠ when older than the stable, *to check*, the farm's state) and its Blender file. *Previous* / *Next* or ← / → go through the list as filtered, Esc closes; 🔗 copies a link that opens this file (`…_snapshot_….html#sq060_sh070`).
+- **Done**: each required department counts for an equal share: not started 0 %, work in progress 33 %, done but reworked since 67 %, done with an open RTK -- on it or on none -- 67 %, done 100 % (the three middle values are set per project: Project settings > *Snapshot done*). A file averages its departments, a group its files. *Progress details*, at the bottom, gives each section's Done by sequence / prefix and by department -- the expected progress a line across each bar -- and a sequence (or prefix) × department grid, each cell shaded by its %.
+- **Videos**: *Videos to zip*, in the export's file browser, lists the sequences, none ticked: tick some and every shot's latest video in them (the same ones *Preview sequence* takes) is copied into a zip next to the snapshot, with its name (`..._snapshot_<date>.zip`), one folder per sequence -- `sq100/sq100_sh030-040-050_v002-stable_001.mp4` (the video, then its render folder). *Assets & libraries*, under the sequences, adds every asset/library's latest video the same way, one folder per prefix (`assets/ch/ch_bob_v003_002.mp4`, `library/...`). Both are unticked on every export. Written after the HTML, in the background too; a sequence with nothing rendered is skipped (a warning says which), and so are the assets/libraries with no video. Unzipped next to the page, into a folder of the same name, its videos play from the page: *▶ Play* in a file's panel (it says where it looked when a video isn't there).
+- The page carries a review spreadsheet (.xlsx, in its ⋯ menu) to download, one row per asset/shot, for production to fill in and send back -- or the review is made right on the page (*Review on the page*, below).
 
 <img src="images/tracking-snapshot-progress.png" alt="The production snapshot: progress">
 
@@ -54,10 +62,11 @@ it saw.
 - **Project monitoring**: a done department reads "Done · prod" once
   validated; a filter (the star) lists the files with a done department
   still to validate -- for your role, or by any role if you have none.
-- **Snapshot**: "✓ prod" next to a department's pill (each role in its
-  tooltip), "prod v012" greyed for one validated on an earlier stable.
-  A *Validated* figure sits apart from Done -- a tile per section, a
-  column, the groups and totals, in violet: the share of the required
+- **Snapshot**: "✓ prod" under a department's mark (each role in its
+  tooltip), struck through for one given to an earlier stable (the
+  file's panel says which: "✓ sup on v012, to review again").
+  A *Validated* figure sits apart from Done -- per section, group and
+  file, in violet: the share of the required
   departments validated by the top role (or one of its level) at the
   stable shown. Done stays the fabrication: 100 % done with nothing
   validated reads 100 % / 0 %.
@@ -88,34 +97,29 @@ it saw.
   since the snapshot. A template exported by an earlier version still
   imports, as it was read then.
 
-- **Review on the page** (1.1.5): instead of the spreadsheet, *✎ Review
-  on this page* (the review box at the top; *✎ Review* in the bar does the
-  same) adds, beside each department's pill on every row, a ✓ (validate
-  it as your role -- a done department only) and a ✗ (a box for the
-  retakes, one per line, `[sh020] [f12-40]` and `note:` as in the
-  spreadsheet; a block's shot button starts a new line with its tag, so
-  you go shot after shot; left empty, it withdraws a validation), and on
-  each row *all done*, a *general retake* and the *description*. A row
-  you went through gets a violet line; *Blender file*, *Last render*,
-  *Done* and *Validated* are hidden while reviewing. Fill in the author, the role and the date
-  in the box, then -- or, with *One file* (or a click on a row's name -- also outside a
-  review, as a file's own page), go through the files one by
-  one: a card per file (large thumbnail, a block's shots, notes, a ✓ / ✗
-  per department and, for a block, a retake field per shot, opened by
-  its button), *Previous*
-  / *Next* or ← / → following the filters, Esc back to the table. The
-  box sums up what you did (reviewed, validated, retakes). When done, *Download review (.json)* and send it:
-  **Import review** takes it like an `.xlsx` -- several at once too (one
-  per reviewer: the file is named after its time, role and author). In
-  the card, each department shows its open RTKs, and a *General* block
-  the ones on no department, above the general retake field; keys ← → (files), Esc
-  (table ⇄ one file), V (all done), X (general retake), Esc or Ctrl+Enter
-  in a box (leave it). Its file menu starts with *Progress*, the stats as a
-  card. The page keeps what you
-  write in your browser as you go (a reload brings it back, in the same
-  browser -- not in a private window or on another machine), and *Load a
-  review…* reopens a downloaded one. The spreadsheet stays, for several
-  reviewers or a shared drive.
+- **Review on the page** (1.1.5): instead of the spreadsheet, *✎ Review*
+  puts a bar at the bottom of the screen -- your name and your role --
+  and, in a file's panel, a ✓ by each department (validate it as your
+  role -- a done one only) and a ✗ (a box for the retakes, one per line:
+  `[sh020]` at its start for one shot of a block, `[f12-40]` for its
+  frames, `note:` for a remark instead of a retake -- a block's shot
+  buttons start a new line with their tag, so you go shot after shot;
+  left empty, it withdraws a validation); above the departments,
+  *✓ Validate all done*, *+ General retake* and *+ Description*. The
+  list shows what you did under each department (✓ you, ✕ you); the
+  panel's *Last render* and *Blender file* step aside while reviewing.
+  Keys: ← → (files), Esc (close), V (all done), X (general retake), Esc
+  or Ctrl+Enter in a box (leave it). *Download* sums up the review --
+  files, validations, retakes, withdrawn -- and asks your name, your
+  role (required as soon as it holds a retake or a validation) and the
+  review date, then saves the `.json`: **Import review** takes it like
+  an `.xlsx` -- several at once too (one per reviewer: the file is named
+  after its time, role and author). The page keeps what you write in
+  your browser as you go (a reload brings it back, in the same browser
+  -- not in a private window or on another machine); the bar's ⋯ menu
+  has *Load a review…* (reopens a downloaded one), *Clear this review*
+  and *Leave the review*. The spreadsheet stays, for several reviewers
+  or a shared drive.
 
 Nothing to migrate: `departments_validated` keeps its name, validations
 are a new `approvals` key in the stablemeta, a note's role a new `role`

@@ -4,13 +4,50 @@ All notable changes to this addon. Dates are release dates.
 
 ## Unreleased
 
+The production snapshot, redrawn: a list to scan, a panel to read and
+review one file -- lighter to read on a computer and on a phone.
+
 ### Changed
 
-- Snapshot: an image embedded more than once (a block's thumbnail is also
-  its first shot's) is stored once in the page, its copies filled in at
-  load -- about 8 % lighter on a project with multishot blocks.
-- Snapshot on a touch screen: every button, chip, field and review ✓ / ✗
-  is 44 px tall, easy to hit with a finger; unchanged with a mouse.
+- **Snapshot page, redrawn.** A card per section (Done, Validated, and
+  with a schedule how many working days ahead or behind, the pace pill
+  amber or red when behind), then the list: a tab per section (Libraries
+  apart), the files by sequence / prefix, a mark per department --
+  done, reworked, in progress, not started -- with under it an open RTK
+  (red from a role, orange from the team), who validated it, and your
+  review. Only the departments the list requires get a column; groups
+  with nothing tracked fold. A badge only for a render outdated or to
+  check; notes, RTKs on no department and the farm are words on the
+  version line. Column names stay under the bar while scrolling.
+- **A file's panel** (a click on its row; a sheet on a phone): the
+  picture large and every shot's, the description, the departments with
+  their validation and their open RTKs, the retakes on no department,
+  the notes (closed ones on demand, with their role, frames and the
+  render watched), the last render per shot and the Blender file.
+  ← → and Esc as before; 🔗 copies a link that opens the file.
+- **Filters**: a department, Retakes, Open notes, Render outdated, To
+  validate, Not finished, each with its count; *Find a file…* also
+  lists the matching files of every section to jump to.
+- **Review in the panel**: ✓ / ✕ per department, *Validate all done*
+  (V), *General retake* (X), *Description*; a block's shot buttons tag a
+  retake line, the syntax recalled under the box. *Download* sums the
+  review up and asks name, role and date. Same `.json`, same browser
+  storage: a review in progress carries over.
+- **Play a render's video** from the page once the videos zip made with
+  the snapshot is unzipped next to it (▶ Play in the panel).
+- When the snapshot was taken stands out; opened later, "n days old".
+- Colours: every text at 4.5:1 or more in both themes; the review bar
+  stays dark in dark mode.
+- An image embedded more than once (a block's thumbnail is also its
+  first shot's) is stored once -- about 12 % lighter on a project with
+  multishot blocks.
+- Touch screens: every button, chip and field 44 px tall.
+
+### Removed
+
+- The Columns menu (columns nobody requires are left out by themselves),
+  the print layout, the table / One file switch and the per-shot buttons
+  under a block's thumbnail in the list (its panel shows every shot).
 
 ## 1.1.7 — 29/10/2026
 

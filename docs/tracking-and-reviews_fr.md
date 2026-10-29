@@ -12,7 +12,15 @@ Chaque asset/shot a un dossier `.pipeline/` à côté de ses fichiers `.blend` :
 
 **Import de review prod** (panneau Projet ou menu Pipeline > *Import review*) : relit le tableur de review d'un snapshot, tel quel. Chaque ligne de texte d'une case de département devient un retake séparé (voir *Tableur de review* plus bas ; une cellule *text* dans un tableur d'avant la 1.1.2) — plusieurs retakes sur le même plan vont sur plusieurs lignes (Alt+Entrée), chacune avec sa case à cocher. Auteur et date viennent du haut de la feuille (`prod` et le jour de l'import s'ils sont vides) ; chaque note est ancrée sur le rendu que le reviewer a regardé -- le *Last render* que montrait le snapshot, par shot pour un bloc (`[sh120]` prend celui de sh120) -- et sur la version du `.blend` dont ce rendu est issu (`v007-stable_001` → `..._v007-stable.blend`), pas sur le dernier fichier : une étiquette *▶ v007-stable_001* sur la note (snapshot) et *Based on: ... (render v007-stable_001)* dans son infobulle disent lequel. La review porte ce rendu (une colonne cachée *render*, un champ `render` dans le `.json` de la page) ; une review d'avant la 1.1.6 ne l'a pas, et l'import prend le rendu qui existait déjà quand son snapshot a été fait -- un shot rendu à nouveau depuis, ou jamais rendu, garde la version du fichier. Réimporter le même fichier, ou un fichier renvoyé avec des notes en plus, ne crée jamais de doublon : les lignes déjà importées sont ignorées. Les descriptions modifiées dans la colonne *description* (éditable pour ça) sont appliquées aussi, après un dialogue qui liste chaque changement (avant / après) : toutes, ou aucune — pour en écarter une, corriger le tableur et le réimporter. Seule une cellule modifiée par la prod compte : une description changée dans le projet depuis l'export n'est jamais remise à l'ancienne, et une cellule vide ne change rien. Un tableur exporté avant la 1.0.12 voit ses descriptions ignorées. Une popup liste ce qui est entré et ce qui n'a pas pu (ex : un fichier renommé ou branché depuis). Les entrées importées l'indiquent dans leur infobulle.
 
-**Snapshot de prod** (panneau Projet ou menu Pipeline > *Snapshot*) : écrit un seul fichier HTML — `<projet>_snapshot_<AAAA-MM-JJ>.html` — avec l'état de chaque asset/shot par département et toutes les notes (todos/RTK fermés compris, masqués tant que *Closed notes* n'est pas activé), pour les personnes hors studio (pas besoin de Blender ni d'accès au partage : il s'ouvre hors ligne dans n'importe quel navigateur et s'envoie par mail). Chaque département affiche *Not started* (jamais travaillé ni validé), *WIP* (en cours : travaillé depuis le dernier stable, ou validé sur un stable antérieur ou travaillé avant le dernier mais pas validé dessus -- rouvert, ou pas encore fini), *Done* (fini) ou *Reworked* (fini au dernier stable mais retravaillé depuis), avec à côté sa validation par un rôle (voir plus bas). Le Monitoring projet affiche la même chose. Une colonne "Done" montre l'avancement de chaque asset/shot — chaque département requis compte pour une part égale : pas commencé 0 %, en cours 33 %, validé mais retravaillé depuis 67 %, validé avec un RTK ouvert 67 %, validé 100 % (les trois valeurs du milieu se règlent par projet : Project settings > *Snapshot done*) ; un département avec un RTK ouvert est entouré de rouge, quel que soit son état (un RTK sans département : la pastille "1 RTK" à côté du nom du fichier à la place) — avec le % de chaque séquence / préfixe d'asset sur sa ligne de groupe et une ligne "All" par tableau (total de la section et % par département). Un bloc *Progress* en haut résume tout le projet (filtres à part) : le Done des shots et des assets & libraries, les RTK ouverts, puis par section une barre de ses tâches de département par état, aux couleurs des capsules (validé, retravaillé, RTK ouvert -- quel que soit l'état --, WIP, pas commencé) et son Done par séquence / préfixe et par département, puis une grille séquence (ou préfixe) × département, chaque case teintée selon son %. Avec un planning (Project settings > *Schedule* : dates de début et de fin, jours fériés, et jours travaillés de la semaine -- du lundi au vendredi par défaut), il donne aussi où le projet devrait en être à rythme régulier le jour de l'export -- jours ouvrés écoulés sur ceux du planning --, l'avance ou le retard de chaque section, et son rythme (fait / attendu) dans une pastille colorée par palier, comme dans un tableur de suivi : 105 % et plus en avance (vert), 100 à 105 % dans les temps (vert clair), 90 à 100 % léger retard (ambre), moins de 90 % en retard (rouge) ; l'avancement attendu est un trait sur chaque barre, et une bande *Schedule* par section met les deux sur une même échelle d'avancement prévu (0 % à la date de début, 100 % à la date de fin) : l'avancement attendu aujourd'hui en trait, le Done de la section en remplissage (son Validated par-dessus en violet, avec un rôle de validation), l'écart entre les deux en vert clair si on est en avance, en rouge si on est en retard ("▲ 18 pts, 7 working days ahead"). Chaque section de la page (Progress, Assets, Shots) se replie d'un clic sur son titre ; toutes sont ouvertes au chargement, et un lien vers une section repliée l'ouvre. Les en-têtes de colonnes des tableaux Assets et Shots restent en haut de l'écran, sous les filtres, pendant qu'on fait défiler le tableau. Les exports vont par défaut dans le dossier `snapshots/` du projet, nommés avec la date et l'heure. Une colonne "Last render" donne le dossier de sortie du dernier rendu de chaque asset/shot (vXXX_YYY : la version du .blend rendue, puis l'incrément du rendu), en rouge s'il a été rendu depuis une version plus ancienne que la dernière stable, chaque ligne commençant par sa capsule de statut, alignée sur toute la hauteur du tableau : *to check* tant que l'équipe ne l'a pas vérifié, puis les jobs encore dans la farm au moment de l'export — *queued*, leur étape en bleu (*rendering 45/120*, *compiling*...), *failed* en rouge. Un multishot a aussi, sous sa vignette, un petit bouton par shot (010, 020...) dans l'ordre du bloc : le survoler affiche la vignette de ce shot, pour se repérer dans un montage -- grisé pour un shot pas encore rendu. Chaque asset/plan affiche une vignette de son dernier rendu (la farm la crée à la fin d'un rendu ; l'export crée celles qui manquent ou sont périmées, à partir des frames déjà sur le disque). La barre du haut a trois groupes : *Go to* (Assets, Shots), *Filter* (nom, groupe -- préfixe/séquence --, département et état, puis *Open RTK* -- avec un département choisi, seulement les RTK sur lui ou sur aucun département --, *Open notes* et *Farm* -- dans la farm ou à vérifier -- en boutons bascule qui s'allument une fois actifs ; un filtre utilisé est mis en évidence, et *Clear* les remet tous à zéro) et *Show* (*All notes* déplie ou replie toutes les notes, *Closed notes*, et un menu *Columns* qui masque les colonnes inutiles, mémorisé par le navigateur) ; chaque ligne qui a des notes a un bouton "n notes" qui les déplie juste en dessous -- l'impression sort toutes les notes ouvertes. La page contient un tableur de review (.xlsx) à télécharger, une ligne par asset/shot, que la prod remplit et renvoie. Le scan tourne en arrière-plan ; Blender reste utilisable pendant ce temps. Une fois écrit, il s'ouvre dans le navigateur (*Open when done*, à côté de *Thumbnails* dans le sélecteur de fichier ; décocher pour juste l'enregistrer). *Videos to zip*, en dessous, liste les séquences, aucune cochée : en cocher et la dernière vidéo de chaque shot (les mêmes que prend *Preview sequence*) est copiée dans un zip à côté du snapshot, à son nom (`..._snapshot_<date>.zip`), un dossier par séquence -- `sq100/sq100_sh030-040-050_v002-stable_001.mp4` (la vidéo, puis son dossier de rendu). *Assets & libraries*, sous les séquences, ajoute de la même façon la dernière vidéo de chaque asset/library, un dossier par préfixe (`assets/ch/ch_bob_v003_002.mp4`, `library/...`). Les deux sont décochés à chaque export. Écrit après le HTML, en arrière-plan aussi ; une séquence sans rendu est ignorée (un avertissement dit laquelle), comme les assets/libraries sans vidéo.
+**Snapshot de prod** (panneau Projet ou menu Pipeline > *Snapshot*) : écrit un seul fichier HTML -- `<projet>_snapshot_<AAAA-MM-JJ_HH-MM>.html`, dans le dossier `snapshots/` du projet par défaut -- avec l'état de chaque asset/shot par département et toutes les notes, pour les personnes hors studio (pas besoin de Blender ni d'accès au partage : il s'ouvre hors ligne dans n'importe quel navigateur, sur ordinateur ou téléphone, et s'envoie par mail). Le scan tourne en arrière-plan ; Blender reste utilisable pendant ce temps. Une fois écrit, il s'ouvre dans le navigateur (*Open when done*, à côté de *Thumbnails* dans le sélecteur de fichier ; décocher pour juste l'enregistrer).
+
+- **En haut** : le projet et le moment du snapshot -- ouvert plus tard, une pastille « n days old » rappelle que le projet a pu avancer depuis --, puis une carte par section (shots, assets & libraries) avec son Done et son Validated. Avec un planning (Project settings > *Schedule* : dates de début et de fin, jours fériés, jours travaillés de la semaine -- du lundi au vendredi par défaut), chaque carte dit aussi de combien de jours ouvrés la section est en avance ou en retard à rythme régulier, et son rythme (fait / attendu) dans une pastille colorée par palier, comme dans un tableur de suivi : 105 % et plus en avance, 100 à 105 % dans les temps (vert), 90 à 100 % léger retard (ambre), moins de 90 % en retard (rouge) ; une carte *Schedule* donne le jour et l'avancement attendu.
+- **La liste** : un onglet par section (Shots, Assets, et Libraries s'il y en a), les fichiers par séquence / préfixe, chaque groupe avec son Done et son Validated -- replié quand aucun de ses fichiers n'a de département suivi. Un fichier affiche sa vignette (à sa taille au survol à la souris, en plein écran d'un clic ou d'un tap), son nom, puis sur une ligne en dessous ses versions (`wip v004 · stable v003`, le wip seulement s'il est plus récent que le stable), le nombre de shots d'un bloc, ses notes ouvertes, ses RTK ouverts sur aucun département (« 1 general RTK ») et son état dans la farm ; puis une marque par département : fini ●, fini au dernier stable mais retravaillé depuis ◉ (reworked), en cours ◐, pas commencé ○, non requis –. Sous une marque : un RTK ouvert (◆ RTK en rouge d'un rôle de validation, ◆ team en orange de l'équipe), sa validation (✓ prod -- chaque rôle dans son infobulle --, barrée quand elle a été donnée sur un stable antérieur : à revoir) et, pendant une review, la vôtre (✓ you, ✕ you). Une pastille seulement pour ce qui ne se voit nulle part ailleurs : *⚠ Render outdated* (rendu depuis une version plus ancienne que la dernière stable), *Render to check*. Les départements qu'aucun fichier de la liste ne requiert n'ont pas de colonne ; les noms de colonnes restent sous la barre pendant le défilement.
+- **Filtres** : un département (les boutons ne regardent alors que lui), *Retakes* (un RTK ouvert -- sur ce département ou sur aucun), *Open notes*, *Render outdated*, *To validate* (un département fini pas validé à son stable), *Not finished*, chacun avec son nombre ; *Find a file…* restreint la liste et propose les fichiers correspondants de toutes les sections -- Entrée ou un clic en ouvre un. Un filtre qui ne trouve rien dans cette section mais ailleurs le signale. *?* donne la légende, les touches et le calcul du Done.
+- **Le panneau d'un fichier** (un clic sur sa ligne ; un tiroir qui monte du bas sur téléphone, glisser vers le bas pour le fermer) : son image en grand et, pour un bloc, celle de chaque shot ; sa description ; ses départements, chacun avec sa validation et ses RTK ouverts (qui, quand, son shot et ses frames) ; les RTK sur aucun département ; les autres notes, ouvertes d'abord (*Show the n closed*), chacune avec ses tags -- le rôle sous lequel elle a été écrite (violet), ses départements, son shot, ses frames, le rendu regardé en l'écrivant (▶ v007-stable_001) ; son dernier rendu par shot (la version rendue, ⚠ si plus ancienne que le stable, *to check*, l'état de la farm) et son fichier Blender. *Previous* / *Next* ou ← / → parcourent la liste filtrée, Échap ferme ; 🔗 copie un lien qui ouvre ce fichier (`…_snapshot_….html#sq060_sh070`).
+- **Done** : chaque département requis compte pour une part égale : pas commencé 0 %, en cours 33 %, fini mais retravaillé depuis 67 %, fini avec un RTK ouvert -- sur lui ou sur aucun -- 67 %, fini 100 % (les trois valeurs du milieu se règlent par projet : Project settings > *Snapshot done*). Un fichier fait la moyenne de ses départements, un groupe celle de ses fichiers. *Progress details*, en bas, donne le Done de chaque section par séquence / préfixe et par département -- l'avancement attendu en trait sur chaque barre -- et une grille séquence (ou préfixe) × département, chaque case teintée selon son %.
+- **Vidéos** : *Videos to zip*, dans le sélecteur de fichier de l'export, liste les séquences, aucune cochée : en cocher et la dernière vidéo de chaque shot (les mêmes que prend *Preview sequence*) est copiée dans un zip à côté du snapshot, à son nom (`..._snapshot_<date>.zip`), un dossier par séquence -- `sq100/sq100_sh030-040-050_v002-stable_001.mp4` (la vidéo, puis son dossier de rendu). *Assets & libraries*, sous les séquences, ajoute de la même façon la dernière vidéo de chaque asset/library, un dossier par préfixe (`assets/ch/ch_bob_v003_002.mp4`, `library/...`). Les deux sont décochés à chaque export. Écrit après le HTML, en arrière-plan aussi ; une séquence sans rendu est ignorée (un avertissement dit laquelle), comme les assets/libraries sans vidéo. Dézippé à côté de la page, dans un dossier du même nom, ses vidéos se lisent depuis la page : *▶ Play* dans le panneau d'un fichier (il dit où il a cherché quand une vidéo n'y est pas).
+- La page contient un tableur de review (.xlsx, dans son menu ⋯) à télécharger, une ligne par asset/shot, que la prod remplit et renvoie -- ou la review se fait directement dans la page (*Review dans la page*, plus bas).
 
 <img src="images/tracking-snapshot-progress.png" alt="Le snapshot de prod : l'avancement">
 
@@ -58,13 +66,14 @@ la prod -- sur la version qu'il a vue.
   fois validé ; un filtre (l'étoile) liste les fichiers dont un département
   fini reste à valider -- pour votre rôle, ou par n'importe quel rôle si
   vous n'en avez pas.
-- **Snapshot** : « ✓ prod » à côté de la capsule d'un département (chaque
-  rôle dans son infobulle), « prod v012 » en gris pour une validation
-  donnée sur un stable antérieur. Un chiffre *Validated* s'affiche à part
-  du Done -- une tuile par section, une colonne, les groupes et les totaux,
-  en violet : la part des départements requis validés par le rôle le plus
-  haut (ou un de son niveau) au stable affiché. Le Done reste la
-  fabrication : 100 % fini sans rien de validé donne 100 % / 0 %.
+- **Snapshot** : « ✓ prod » sous la marque d'un département (chaque
+  rôle dans son infobulle), barré pour une validation donnée sur un
+  stable antérieur (le panneau du fichier dit lequel : « ✓ sup on v012,
+  to review again »). Un chiffre *Validated* s'affiche à part du Done --
+  par section, groupe et fichier, en violet : la part des départements
+  requis validés par le rôle le plus haut (ou un de son niveau) au stable
+  affiché. Le Done reste la fabrication : 100 % fini sans rien de validé
+  donne 100 % / 0 %.
 - **Tableur de review** : un premier onglet *Review* pour votre nom, la
   date de review et votre *Role* (obligatoire dès que le fichier contient
   un retake ou une validation), le mode d'emploi et la légende des
@@ -94,36 +103,31 @@ la prod -- sur la version qu'il a vue.
   plus récent que le snapshot. Un tableur exporté par une version
   précédente s'importe toujours, lu comme avant.
 
-- **Review dans la page** (1.1.5) : au lieu du tableur, *✎ Review on
-  this page* (la box de review en haut ; *✎ Review* dans la barre fait
-  pareil) ajoute à côté de la pastille de chaque département de chaque
-  ligne un ✓ (le valider pour votre rôle -- seulement s'il est fini) et un
-  ✗ (une case pour les retakes, un par ligne, `[sh020] [f12-40]` et
-  `note:` comme dans le tableur ; le bouton d'un shot d'un bloc commence
-  une nouvelle ligne avec son tag, pour enchaîner shot après shot ;
-  laissée vide, elle retire une validation), et sur chaque ligne *all
-  done*, un *general retake* et la *description*. Une ligne parcourue
-  prend un trait violet ; *Blender file*, *Last render*, *Done* et
-  *Validated* sont masquées pendant la review. Ou, avec *One file* (ou un clic sur le nom d'une ligne -- aussi hors
-  review, comme une page par fichier),
-  passez les fichiers un par un : une fiche par fichier (grande vignette,
-  les shots d'un bloc, les notes, un ✓ / ✗ par département et, pour un
-  bloc, un champ de retake par shot, ouvert par son bouton), *Previous* / *Next* ou ← / → selon
-  les filtres, Échap pour revenir au tableau. La box résume le travail
-  (reviewed, validated, retakes). Remplissez l'auteur, le rôle et la date
-  dans la box, puis *Download review (.json)* et
-  envoyez-le : **Import review** le prend comme un `.xlsx` -- plusieurs
-  d'un coup aussi (un par reviewer : le fichier porte son heure, son rôle
-  et son auteur). Dans la fiche, chaque département affiche ses RTK
-  ouverts, et un bloc *General* ceux sur aucun département, au-dessus
-  du champ de retake général ; touches ← → (fichiers), Échap (tableau ⇄ fiche), V (all
-  done), X (retake général), Échap ou Ctrl+Entrée dans un
-  champ (en sortir). Son menu de fichiers commence par *Progress*, les stats en
-  fiche. La page garde
-  ce que vous écrivez dans votre navigateur au fil de l'eau (un
-  rechargement le retrouve, dans le même navigateur -- pas en navigation
-  privée ni sur une autre machine), et *Load a review…* rouvre une review
-  téléchargée. Le tableur reste, pour plusieurs reviewers ou un drive
+- **Review dans la page** (1.1.5) : au lieu du tableur, *✎ Review*
+  affiche une barre en bas de l'écran -- votre nom et votre rôle -- et,
+  dans le panneau d'un fichier, un ✓ à côté de chaque département (le
+  valider pour votre rôle -- seulement s'il est fini) et un ✗ (une case
+  pour les retakes, un par ligne : `[sh020]` en début de ligne pour un
+  shot d'un bloc, `[f12-40]` pour ses frames, `note:` pour une remarque
+  plutôt qu'un retake -- les boutons de shot d'un bloc commencent une
+  nouvelle ligne avec leur tag, pour enchaîner shot après shot ; laissée
+  vide, elle retire une validation) ; au-dessus des départements,
+  *✓ Validate all done*, *+ General retake* et *+ Description*. La liste
+  montre ce que vous avez fait sous chaque département (✓ you, ✕ you) ;
+  *Last render* et *Blender file* s'effacent du panneau pendant la
+  review. Touches : ← → (fichiers), Échap (fermer), V (all done), X
+  (retake général), Échap ou Ctrl+Entrée dans un champ (en sortir).
+  *Download* résume la review -- fichiers, validations, retakes,
+  validations retirées -- et demande votre nom, votre rôle (obligatoire
+  dès qu'elle contient un retake ou une validation) et la date de review,
+  puis enregistre le `.json` : **Import review** le prend comme un
+  `.xlsx` -- plusieurs d'un coup aussi (un par reviewer : le fichier
+  porte son heure, son rôle et son auteur). La page garde ce que vous
+  écrivez dans votre navigateur au fil de l'eau (un rechargement le
+  retrouve, dans le même navigateur -- pas en navigation privée ni sur une
+  autre machine) ; le menu ⋯ de la barre propose *Load a review…*
+  (rouvre une review téléchargée), *Clear this review* et *Leave the
+  review*. Le tableur reste, pour plusieurs reviewers ou un drive
   partagé.
 
 Rien à migrer : `departments_validated` garde son nom, les validations

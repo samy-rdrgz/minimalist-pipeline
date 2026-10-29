@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>{{TITLE}}</title>
+<style>@font-face{font-family:"MP Display";src:url(data:font/ttf;base64,{{FONT}}) format("truetype");font-display:swap}
+{{CSS}}</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="mp" viewBox="{{LOGO_VB}}"><path fill="currentColor" d="{{LOGO_PATH}}"/></symbol></svg>
+<noscript><p>This snapshot needs JavaScript: open it in a web browser.</p></noscript>
+<div class="wrap">
+<header>
+<div class="brand"><svg viewBox="{{LOGO_VB0}}" aria-hidden="true"><use href="#mp"/></svg><span>minimalist pipeline</span></div>
+<div class="top">
+<div class="title"><h1 id="h-project"></h1>
+<div class="stamp"><span>Snapshot of <b id="h-when"></b></span><span class="age" id="age" hidden></span><span id="h-by"></span></div></div>
+<div class="actions">
+<button class="btn primary" id="rv" title="Review on this page">✎<span class="lbl"> Review</span></button>
+<div class="menu help"><button class="btn icon" id="helpb" aria-haspopup="true" aria-expanded="false" title="Legend and keys">?</button>
+<div class="menu-pop" id="helppop" hidden>
+<h3>States</h3><ul>
+<li><i class="m done"></i>Done</li><li><i class="m rework"></i>Done at the last stable, worked on again since</li>
+<li><i class="m wip"></i>Work in progress</li><li><i class="m todo"></i>Not started</li><li><i class="m na"></i>Not required</li>
+<li><span class="rk">◆ RTK</span><span class="rk team">◆ team</span>Open retake: from a role / from the team</li>
+<li><span class="ok">✓ prod</span>Validated, by that role</li><li><span class="ok old">✓ sup</span>Validated on an older stable: to review again</li>
+<li><span class="you y">✓ you</span><span class="you n">✕ you</span>Your review, not sent yet</li></ul>
+<h3>Keys</h3><ul>
+<li><kbd>←</kbd><kbd>→</kbd>Previous / next file</li><li><kbd>Esc</kbd>Close the file, or leave a field</li>
+<li><kbd>V</kbd>While reviewing: validate every done department</li><li><kbd>X</kbd>While reviewing: write a general retake</li>
+<li><kbd>Ctrl</kbd>+<kbd>Enter</kbd>Done writing</li></ul>
+<h3>Done</h3><p id="weights"></p></div></div>
+<div class="menu"><button class="btn icon" id="more" aria-haspopup="true" aria-expanded="false" title="More">⋯</button>
+<div class="menu-pop" id="morepop" hidden>
+<label>Load a review…<small>A .json downloaded from this page, to go on with it</small><input type="file" class="rv-load" accept=".json,application/json"></label>
+<a download="{{XLSX_NAME}}" href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{{XLSX}}">Review spreadsheet (.xlsx)<small>Offline, or for several reviewers on a shared drive</small></a>
+</div></div>
+</div>
+</div>
+<div class="summary" id="summary"></div>
+</header>
+
+<section class="sec" id="browse">
+<div class="bar" id="bar"><div class="bar-in">
+<div class="bscroll"><div class="seg" role="group" aria-label="Kind" id="seg"></div>
+<select class="depf" id="depf" aria-label="Department"></select>
+<button type="button" class="chipf c-rtk" data-f="rtk" aria-pressed="false" title="An open RTK -- on the department picked, or on none">Retakes<b></b></button>
+<button type="button" class="chipf" data-f="notes" aria-pressed="false" title="An open note, todo or RTK">Open notes<b></b></button>
+<button type="button" class="chipf" data-f="outdated" aria-pressed="false" title="Rendered from an older version than the last stable">Render outdated<b></b></button>
+<button type="button" class="chipf c-valid" data-f="tovalid" aria-pressed="false" title="A done department not validated at its stable yet">To validate<b></b></button>
+<button type="button" class="chipf" data-f="todo" aria-pressed="false" title="A department not done yet">Not finished<b></b></button></div>
+<div class="find"><input class="search" id="q" type="search" placeholder="Find a file…" autocomplete="off" aria-controls="sugg" aria-autocomplete="list">
+<ul class="sugg" id="sugg" role="listbox" hidden></ul></div>
+
+</div></div>
+<div id="list"></div>
+</section>
+
+<section class="sec">
+<details class="stats" id="stats-d"><summary><h2>Progress details</h2><span class="faint" style="font-size:13px">by group, by department</span></summary>
+<div id="stats"></div></details>
+</section>
+
+<footer><svg viewBox="{{LOGO_VB0}}" aria-hidden="true"><use href="#mp"/></svg><span class="wm">minimalist pipeline</span><span id="f-ver"></span></footer>
+</div>
+
+<img id="hover" alt="">
+<div class="lb" id="lb" hidden><button class="x" id="lb-x" aria-label="Close">✕</button><div id="lb-in"></div><p id="lb-cap"></p></div>
+<div class="toast" id="toast" role="status"></div>
+<div class="dlg" id="dlg" hidden></div>
+<div class="scrim" id="scrim"></div>
+<aside class="panel" id="panel" role="dialog" aria-modal="true" aria-labelledby="p-title" hidden>
+<div class="grab"></div>
+<div class="p-head"><div class="t"><b id="p-title"></b><small id="p-sub"></small><div class="flags" id="p-flags"></div></div>
+<button class="btn icon" id="p-link" title="Copy a link to this file">🔗</button>
+<button class="btn icon" id="p-close" aria-label="Close">✕</button></div>
+<div class="p-body" id="p-body"></div>
+<div class="p-foot"><button class="btn" id="p-prev">‹ Previous</button>
+<span class="keys"><span><kbd>←</kbd> <kbd>→</kbd> files</span><span class="rk2"><kbd>V</kbd> validate all</span><span class="rk2"><kbd>X</kbd> retake</span><span><kbd>Esc</kbd> close</span></span>
+<button class="btn" id="p-next">Next ›</button></div>
+</aside>
+
+<div class="rbar" role="region" aria-label="Review">
+<span class="lbl">Reviewer</span>
+<input id="author" placeholder="Your name" autocomplete="name">
+<select id="role" aria-label="Role"><option value="">role…</option></select>
+<span class="n" id="rv-n">Nothing reviewed yet</span>
+<button class="btn dl-b" id="rv-dl">Download<span class="cnt"></span></button>
+<div class="menu"><button class="btn icon" id="rv-more" aria-haspopup="true" aria-expanded="false" title="More">⋯</button>
+<div class="menu-pop up" id="rv-morepop" hidden>
+<label>Load a review…<small>Goes on with a downloaded .json</small><input type="file" class="rv-load" accept=".json,application/json"></label>
+<button type="button" id="rv-clear">Clear this review<small>A downloaded file keeps what it holds</small></button>
+<button type="button" id="rv-exit">Leave the review<small>Kept in this browser until you come back</small></button>
+</div></div>
+</div>
+
+<script type="application/json" id="data">{{DATA}}</script>
+<script>{{JS}}</script>
+</body></html>

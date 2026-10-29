@@ -3542,3 +3542,53 @@ farm reader thread (`_history_pace_for_jobs()`, re-read only once the
 history's mtime moves), only for jobs waiting at `setup_finished` --
 never from draw().
 
+
+## Snapshot page, redrawn
+
+The page grew one request at a time (1.0.10 to 1.1.7) into a table of
+every column at once, a filter bar of three groups, a review box, a
+One file card and a phone mode of its own: everything shown with the same
+weight, every number coloured. It is now drawn in the browser from data
+(`lib/snapshot_page.py` shapes it, `templates/snapshot/page.js` draws it)
+around one idea: a list to scan, a panel to read one file.
+
+- **Data, not markup.** Python writes `{"meta", "items", "images"}` into
+  the page; page.html / page.css / page.js are plain files in
+  `templates/snapshot/`, filled in one pass. ~2000 lines of HTML, CSS
+  and JS held in Python strings went. Thumbnails are stored once each
+  (a block's is also its first shot's) and turned into blob URLs once:
+  redrawing the list after a filter moves short strings, not megabytes.
+- **Colour for what needs acting on.** Done green, retake red (the
+  team's own orange), validated violet; the rest is neutral text. A
+  department is a mark (● ◉ ◐ ○ –, told apart without colour), and what
+  is said about it sits under it in one slot: an open RTK, who
+  validated, this review's verdict (✓ you on a fill: not sent yet). An
+  RTK no longer replaces the state: "done, sent back" and "in progress,
+  sent back" weigh differently in Done. A badge only for what shows
+  nowhere else (render outdated, to check); notes, general RTKs and the
+  farm are words on the version line -- the farm is secondary.
+- **Only what holds something**: department columns nobody in the list
+  requires are left out (the Columns menu went); groups with nothing
+  tracked fold, their files behind "+ n files".
+- **One review, in the panel.** The table's per-cell ✓ ✗ and the One
+  file card were two views of the same review; the panel is the card,
+  next to the list on a computer, a sheet on a phone. While reviewing it
+  shows the picture, the departments with ✓ ✕ and their open RTKs, and
+  folds the rest (render, file, notes). The review keeps the page
+  before's shape (`rv`, its localStorage key, `exportRows()`), so a
+  review in progress survives the update and Import review reads the
+  same `.json`. Download asks name, role and date in a dialog that sums
+  the review up -- the count stays out of the page.
+- **No snapshot comparison** (decided): a page shows one moment. It says
+  so -- "Snapshot of <day, time>", "n days old" when opened later.
+- **Names stay names**: the group's prefix quiet, the rest bold, breaks
+  allowed after _ and - -- never shortened or rewritten, people search
+  and copy them.
+- **Videos**: the export knows which sequences it zips (`meta["videos"]`);
+  a render's ▶ Play points at `<zip>/<sequence>/...mp4` beside the page
+  (`zip_latest_videos()`'s names) and says where it looked when the zip
+  isn't unzipped there.
+- Dropped on purpose: the print layout (the page is the document), the
+  table/One file switch, the header behind ☰ on a phone, Go to, notes
+  unfolded under rows, per-shot hover buttons in the list (the panel has
+  every shot's picture).
