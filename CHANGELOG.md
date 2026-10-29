@@ -15,7 +15,8 @@ All notable changes to this addon. Dates are release dates.
   render and `.blend` version each rush is.
 - A job set up and waiting for a worker shows its number of frames and
   an estimate, from the file's last render with the same pre-render
-  script (its time per frame): on one machine and on the live workers.
+  script (its time per frame), shared by the live workers:
+  `240f (≃ 1h00m with 4 workers)`.
   The render history now records each render's pre-render script.
 
 ### Changed

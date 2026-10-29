@@ -211,19 +211,18 @@ def _duration(seconds: float) -> str:
 
 
 def _estimate_label(job: dict, cache: dict) -> str:
-    """ "≃ 2h00m on one machine, 30m00s on 4" for a job waiting for a
-    worker: its frames at the pace of the file's last render with the same
-    pre-render script (history_pace(), farm/loop.py) -- over the live
-    workers. "" without a past render to go by."""
+    """ "≃ 1h00m with 4 workers" for a job waiting for a worker: its frames
+    at the pace of the file's last render with the same pre-render script
+    (history_pace(), farm/loop.py), shared by the live workers. "" without
+    a past render to go by."""
     pace = job.get("history_pace")
     frames = job.get("frames_to_render") or 0
     if not pace or not frames:
         return ""
-    total = frames * pace["seconds_per_frame"]
-    text = f"≃ {_duration(total)} on one machine"
-    workers = len(cache.get("workers") or {})
-    if workers > 1:
-        text += f", {_duration(total / workers)} on {workers}"
+    workers = max(1, len(cache.get("workers") or {}))
+    total = frames * pace["seconds_per_frame"] / workers
+    plural = "s" if workers > 1 else ""
+    text = f"≃ {_duration(total)} with {workers} worker{plural}"
     if not pace["preset_known"]:
         text += ", preset unknown"
     return text
@@ -424,7 +423,7 @@ def draw_farm_jobs(self, context, layout):
 
         elif j.get("frames_to_render"):
             # Set up, waiting for a worker: what it'll take, at its last pace.
-            text = f"{stage} - {elapsed_str} - {j['frames_to_render']} frames"
+            text = f"{stage} - {elapsed_str} - {j['frames_to_render']}f"
             estimate = _estimate_label(j, cache)
             if estimate:
                 text += f" ({estimate})"
