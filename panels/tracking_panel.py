@@ -18,6 +18,7 @@ from ..lib import (
     WorkTimeCache,
     covering_role,
     department_status_tooltip,
+    rtk_departments,
     get_user_role,
     highest_approval,
     box_tip_units,
@@ -959,10 +960,12 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None)
         emboss=False,
     ).filepath = str(dir)
     cells = _equal_cells(split.row(), len(columns) + 1)
+    # A general RTK (no department) reds every department already started.
+    rtk = rtk_departments(file)
     for icon_row, c in zip(cells, columns):
         icon_row.label(text="", icon="BLANK1")
         if c in file.get("departments_required", []):
-            icon_row.alert = _has_rtk(file, c)
+            icon_row.alert = c in rtk
             # Read-only status: enabled=False blocks any click (no
             # accidental toggling from this grid -- that's file_details'
             # job), the tooltip is still shown on hover.

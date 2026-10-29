@@ -224,6 +224,7 @@ from .tracking import (
     delete_entry,
     department_approvals,
     department_status_tooltip,
+    rtk_departments,
     edit_entry,
     entry_departments,
     filter_review_boxes,

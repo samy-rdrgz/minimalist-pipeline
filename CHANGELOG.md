@@ -6,6 +6,11 @@ All notable changes to this addon. Dates are release dates.
 
 ### Fixed
 
+- An open RTK for no department (a general retake) showed nowhere in
+  Project monitoring's grid nor the snapshot: it now reds every
+  department already started (validated, worked on or started before),
+  not the ones not started yet -- and counts as an open RTK in their Done.
+
 - Workers (and the farm monitor) stopped for good during the night,
   Blender still running: one check where the share didn't answer (NAS
   asleep, SMB reconnecting, PC waking up) read as "worker file deleted",

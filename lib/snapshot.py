@@ -429,13 +429,19 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
             if e["type"] == "rtk" and e["done"] is False
         )
         item["open_notes"] = len(open_threads)
-        rtk_departments = {
-            d
+        open_rtks = [
+            e
             for t in open_threads
             for e in [t, *t["replies"]]
             if e["type"] == "rtk" and e["done"] is False
-            for d in e["departments"]
-        }
+        ]
+        rtk_departments = {d for e in open_rtks for d in e["departments"]}
+        if any(not e["departments"] for e in open_rtks):
+            # A general retake: every department already started (as
+            # Project monitoring -- tracking.rtk_departments()).
+            rtk_departments |= {
+                d for d, st in item["departments"].items() if st != "todo"
+            }
         item["rtk_departments"] = sorted(rtk_departments)
         # Per done department: its validations at the stable shown, and the
         # last ones given to an earlier stable (to review again).

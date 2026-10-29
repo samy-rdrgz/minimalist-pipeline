@@ -1357,6 +1357,27 @@ def get_current_departments(filepath: Path) -> dict:
         return {}
 
 
+def rtk_departments(data: dict) -> set[str]:
+    """The departments an open RTK is on (a status dict, its entries):
+    each RTK's own; one for no department -- a general retake -- counts for
+    every required department already started (validated, worked on, or
+    started before), a not-started one having nothing to redo yet."""
+    out, general = set(), False
+    for e in data.get("entries") or []:
+        if e.get("type") == "rtk" and e.get("done") is False:
+            departments = entry_departments(e)
+            out |= set(departments)
+            general = general or not departments
+    if general:
+        started = (
+            set(data.get("validated_departments") or ())
+            | set(data.get("worked_departments") or ())
+            | set(data.get("started_departments") or ())
+        )
+        out |= {d for d in data.get("departments_required") or () if d in started}
+    return out
+
+
 def department_status_tooltip(data: dict, department: str) -> str:
     """Hover text for one department's status cell/toggle, from
     TrackingStatusCache's already-computed worked_departments/
