@@ -24,9 +24,8 @@ All notable changes to this addon. Dates are release dates.
 
 - Two notes of one review import with the same words (the same retake
   on two shots of a block) got the same id: only the first could be
-  ticked, edited or deleted. A new entry's id is now unique in its file,
-  and a file holding such twins gets new ids for the later ones the
-  first time it's read.
+  ticked, edited or deleted. A new entry's id is now unique in its file
+  (twins already there are to fix by hand in its tracking.json).
 - An open RTK for no department (a general retake) showed nowhere in
   Project monitoring's grid nor the snapshot: it now reds every
   department already started (validated, worked on or started before),

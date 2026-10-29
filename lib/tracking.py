@@ -1194,38 +1194,6 @@ def _unique_entry_id(seed: str, taken: set) -> str:
     return entry_id
 
 
-def _has_duplicate_ids(tracking: dict) -> bool:
-    ids = [e.get("id") for e in tracking.get("entries") or [] if isinstance(e, dict)]
-    return len(ids) != len(set(ids))
-
-
-def repair_entry_ids(path: Path) -> dict | None:
-    """Give a new id to every entry of a tracking.json sharing one with an
-    earlier entry -- a review imported before 1.1.7 gave two notes of the
-    same words (on two shots) the same one, and only the first could be
-    ticked. The first keeps its id (and the replies to it). Returns the
-    data as written, None if unreadable. Never raises."""
-    try:
-        with locked_json(path) as box:
-            data = box["data"] or {}
-            entries = [e for e in data.get("entries") or [] if isinstance(e, dict)]
-            taken = {e.get("id") for e in entries}
-            seen = set()
-            for i, e in enumerate(entries):
-                if e.get("id") in seen:
-                    e["id"] = _unique_entry_id(
-                        f"{e.get('id')}{e.get('created_at')}{e.get('text')}{i}", taken
-                    )
-                    taken.add(e["id"])
-                seen.add(e.get("id"))
-            box["action"] = "to_write"
-            log("INFO", "tracking", f"Duplicate entry ids given new ones in {path}")
-            return data
-    except Exception as e:
-        log("WARNING", "tracking", f"Could not repair entry ids in {path}: {e}")
-        return None
-
-
 def _collect_folder(asset_dir: Path, entries: list | None = None) -> dict | None:
     """Everything a folder's tracking status is computed from, read from
     disk: tracking.json, the latest stable, and only the wipmetas that can
@@ -1235,11 +1203,6 @@ def _collect_folder(asset_dir: Path, entries: list | None = None) -> dict | None
     tracking = read_json_quiet(asset_dir / ".pipeline" / "tracking.json")
     if tracking is None:
         return None
-    if _has_duplicate_ids(tracking):
-        # Repaired once, on the first read: the panels' buttons carry ids.
-        tracking = (
-            repair_entry_ids(asset_dir / ".pipeline" / "tracking.json") or tracking
-        )
     if entries is None:
         entries = _pipeline_entries(asset_dir)
     last_stable = _latest_stable(entries) or dict(_DEFAULT_STABLE)

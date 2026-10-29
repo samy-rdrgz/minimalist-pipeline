@@ -3496,9 +3496,7 @@ every note with the review's date, and "[sh130] X" / "[sh140] X" are the
 same text once their tag is read off -- same id, and every button
 (tick, edit, delete) carries the id: the second note could never be
 ticked. `_unique_entry_id()` now hashes date, text and shot, and rehashes
-with a counter while the id is taken in the file. Files imported before
-are repaired on their first read (`_collect_folder()` ->
-`repair_entry_ids()`, under the file's lock): the first of the twins
-keeps its id -- and the replies pointing at it -- the later ones get new
-ones, before any panel shows them.
+with a counter while the id is taken in the file. Twins already written
+by an earlier import aren't repaired by the addon (fixed by hand on the
+one project that had them).
 
