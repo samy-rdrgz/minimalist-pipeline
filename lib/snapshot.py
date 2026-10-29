@@ -436,13 +436,10 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
             if e["type"] == "rtk" and e["done"] is False
         ]
         rtk_departments = {d for e in open_rtks for d in e["departments"]}
-        if any(not e["departments"] for e in open_rtks):
-            # A general retake: every department already started (as
-            # Project monitoring -- tracking.rtk_departments()).
-            rtk_departments |= {
-                d for d, st in item["departments"].items() if st != "todo"
-            }
         item["rtk_departments"] = sorted(rtk_departments)
+        # On no department (a general retake): the name goes red, as in
+        # Project monitoring -- tracking.open_rtks().
+        item["general_rtk"] = any(not e["departments"] for e in open_rtks)
         # Per done department: its validations at the stable shown, and the
         # last ones given to an earlier stable (to review again).
         item["approvals"] = {
@@ -819,6 +816,8 @@ def render_html(snapshot: dict) -> str:
         '<span class="pill st-none">Not required</span>'
         '<span class="pill st-todo rtk-open">Open RTK</span>'
         '<span class="muted">red outline, whatever the state</span>'
+        '<b class="rtk-name">sq100_sh030</b>'
+        '<span class="muted">open RTK on no department</span>'
         '<span class="pill behind">⚠ Render older than the stable</span>'
         '<span class="pill tocheck">to check</span>'
         '<span class="muted">not checked yet</span>'
@@ -1382,6 +1381,16 @@ def _slug(name: str) -> str:
     return re.sub(r"[^\w\-]", "_", name)
 
 
+def _name_label(item: dict) -> str:
+    """A row's name, red with an open RTK on no department."""
+    if item.get("general_rtk"):
+        return (
+            f'<b class="rtk-name" title="Open RTK on no department">'
+            f'{_e(item["name"])}</b>'
+        )
+    return f'<b>{_e(item["name"])}</b>'
+
+
 def _item_attrs(item: dict) -> str:
     """data-* the filter script matches on -- same for a row and its notes
     card -- and what the in-page review writes back (data-file, -stable,
@@ -1509,7 +1518,7 @@ def _render_table(
         rows.append(
             f'<tr class="item" id="i-{_e(_slug(item["name"]))}" {_item_attrs(item)} '
             f'data-threads="{len(threads)}">'
-            f'{thumb}<td class="name"><b>{_e(item["name"])}</b>{flags}{toggle}'
+            f'{thumb}<td class="name">{_name_label(item)}{flags}{toggle}'
             f"<small>{_e(item['description'])}</small></td>"
             f'<td class="ver" data-col="file">{_e(versions)}</td>'
             f'<td class="ver" data-col="render">{_render_cell(item)}</td>{"".join(cells)}'
@@ -1970,6 +1979,7 @@ border-color:var(--accent)}
 .pill.farm-waiting{color:var(--muted);background:color-mix(in srgb,var(--muted) 14%,transparent)}
 .pill.farm-failed{color:var(--rtk);background:var(--rtk-bg);border-color:var(--rtk)}
 .pill.rtk-open{border-color:var(--rtk);box-shadow:0 0 0 1px var(--rtk) inset}
+.rtk-name{color:var(--rtk)}
 .pct{margin-left:8px;font-size:.8em;font-weight:600;color:var(--done)}
 .pct .valid,.pct.valid{color:var(--role)}
 .legend.muted{color:var(--muted);font-size:12px}
@@ -2809,6 +2819,7 @@ _S_NA = 21  # not required: locked, "–"
 _S_HINT_WRAP = 22
 # The front sheet's three fields to fill: a bigger label, a yellow input.
 _S_FIELD_LABEL, _S_FIELD, _S_FIELD_DATE, _S_SECTION = 23, 24, 25, 26
+_S_LOCKED_RTK = 27  # a filename with an open RTK on no department: red-bordered
 
 _XML_ILLEGAL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
 
@@ -2973,7 +2984,11 @@ def _review_section(title: str, items: list, departments: list) -> tuple[str, st
             group_start = r
         cells = [
             _cell(f"A{r}", item["group"] if new_group else None, _S_GROUP),
-            _cell(f"B{r}", _stem(item["current_version"]) or item["name"], _S_LOCKED),
+            _cell(
+                f"B{r}",
+                _stem(item["current_version"]) or item["name"],
+                _S_LOCKED_RTK if item.get("general_rtk") else _S_LOCKED,
+            ),
             _cell(f"C{r}", item["description"], _S_INPUT),
         ]
         for d in departments:
@@ -3156,7 +3171,7 @@ _RELS_XML = (
 # 5 locked, 6 locked muted, 7 input, 8 input date, 9 input text-format
 # (keeps "045" a string), 10 group (merged left column), then a
 # department's input cell per state (_S_STATE) and its red-bordered twin,
-# 21 not required, 22 hint wrapped.
+# 21 not required, 22 hint wrapped, 27 locked red-bordered.
 _UNLOCK = '<protection locked="0"/>'
 _TOP = '<alignment vertical="top"/>'
 _TOP_WRAP = '<alignment vertical="top" wrapText="1"/>'
@@ -3195,7 +3210,7 @@ _STYLES_XML = (
     '<top style="medium"><color rgb="FF8A6D00"/></top><bottom style="medium"><color rgb="FF8A6D00"/></bottom></border>'
     "</borders>"
     '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
-    '<cellXfs count="27">'
+    '<cellXfs count="28">'
     '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
     '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
     '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
@@ -3221,6 +3236,7 @@ _STYLES_XML = (
     f'<xf numFmtId="0" fontId="3" fillId="9" borderId="3" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1" applyProtection="1"><alignment vertical="center"/>{_UNLOCK}</xf>'
     f'<xf numFmtId="164" fontId="3" fillId="9" borderId="3" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1" applyProtection="1"><alignment horizontal="left" vertical="center"/>{_UNLOCK}</xf>'
     '<xf numFmtId="0" fontId="4" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
+    f'<xf numFmtId="0" fontId="0" fillId="3" borderId="2" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1">{_TOP}</xf>'
     "</cellXfs>"
     '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'
     "</styleSheet>"
@@ -3402,13 +3418,18 @@ def read_review(path: Path) -> dict:
     return read_review_xlsx(path)
 
 
+# The front sheet's how-to line (_review_front()): when the snapshot was made.
+_SNAPSHOT_OF = re.compile(r"Snapshot of (\d{4}-\d\d-\d\d) (\d\d:\d\d)")
+
+
 def read_review_xlsx(path: Path) -> dict:
-    """{"schema_version", "author", "role", "review_date", "columns", "rows"}
-    from a filled review template, every sheet's rows (v4: Shots, Assets)
-    keyed by their own header row's names; Author, Review date and Role
-    from the label cells above any header (v4: the front sheet)."""
+    """{"schema_version", "author", "role", "review_date", "snapshot",
+    "columns", "rows"} from a filled review template, every sheet's rows
+    (v4: Shots, Assets) keyed by their own header row's names; Author,
+    Review date and Role from the label cells above any header (v4: the
+    front sheet); snapshot from its "Snapshot of <date>" line."""
     schema = None
-    author = date = role = ""
+    author = date = role = snapshot = ""
     columns: set[str] = set()
     rows = []
     for grid in read_xlsx_grids(path):
@@ -3419,6 +3440,9 @@ def read_review_xlsx(path: Path) -> dict:
                 m = re.fullmatch(r"schema_version=(\d+)", v.strip())
                 if m:
                     schema = int(m[1])
+                m = _SNAPSHOT_OF.search(v)
+                if m and not snapshot:
+                    snapshot = f"{m[1]}T{m[2]}"
             label = cells.get("A", "").strip().lower()
             if label == "author":
                 author = cells.get("B", "")
@@ -3452,6 +3476,7 @@ def read_review_xlsx(path: Path) -> dict:
         "author": author.strip(),
         "role": role.strip().lower(),
         "review_date": parse_review_date(date),
+        "snapshot": snapshot,
         "columns": columns,
         "rows": rows,
     }
@@ -3693,10 +3718,9 @@ def _note_key(text, shot, f_start, f_end, departments) -> tuple:
 
 def _render_at_snapshot(filepath: Path, snapshot: str) -> str:
     """A review without its "render" (before schema 5): the file's last
-    render as _render_ref() writes it, if it already existed when the
-    snapshot was made (its folder last written before) -- what the page
-    showed. A shot rendered again since: left out, never guessed. ""
-    without a snapshot time."""
+    render as _render_ref() writes it, if it already existed at `snapshot`
+    (its folder last written before) -- what the page showed. A shot
+    rendered again since: left out, never guessed. "" without a time."""
     try:
         made = datetime.fromisoformat(snapshot).timestamp()
     except ValueError:
@@ -3739,6 +3763,11 @@ def import_review_xlsx(path: Path) -> dict:
     author = review["author"] or "prod"
     date = review["review_date"]
     created_at = date.isoformat(timespec="seconds") if date else None
+    # What the reviewer could have watched: the snapshot's renders, else
+    # those made by the end of the review day.
+    seen_at = review.get("snapshot") or (
+        datetime.combine(date.date(), datetime.max.time()).isoformat() if date else ""
+    )
     review_id = hashlib.sha1(f"{now()}{Path(path).name}".encode()).hexdigest()[:5]
     result = {
         "imported": 0,
@@ -3771,9 +3800,7 @@ def import_review_xlsx(path: Path) -> dict:
         filepath = _review_file(name)
         row_render = ""
         if filepath:
-            row_render = row.get("render") or _render_at_snapshot(
-                filepath, review.get("snapshot") or ""
-            )
+            row_render = row.get("render") or _render_at_snapshot(filepath, seen_at)
         if not filepath:
             result["skipped"].extend(
                 (

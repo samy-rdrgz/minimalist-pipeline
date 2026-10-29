@@ -22,12 +22,8 @@ def report_push(result: dict) -> str:
     one line per refused copy, and sum it up in one line."""
     for name, reason in result["failed"]:
         log("WARNING", "rushes", f"{name} not pushed: {reason}")
-    for label, overlap in result.get("dropped") or []:
-        log(
-            "WARNING",
-            "rushes",
-            f"{label} not pushed: {', '.join(overlap)} has its own render.",
-        )
+    for label, newer in result.get("dropped") or []:
+        log("WARNING", "rushes", f"{label} not pushed: {', '.join(newer)} more recent.")
     copied = result["copied"]
     if copied:
         log("INFO", "rushes", f"Pushed to editing: {', '.join(copied)}")

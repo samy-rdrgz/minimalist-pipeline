@@ -131,14 +131,14 @@ def _recover_previous_render(previous: dict) -> dict:
     return {"last_job_result": _lost_result(job_id, dispatch_id)}
 
 
-# What a failed render's log says it died of, most telling first: the
-# last line matching one, in the log's last _LOG_TAIL_BYTES. A Python
-# traceback is looked for between the two last ones (_python_error()).
-_FAILURE_PATTERNS = (
+# What a failed render's log says it died of, read in its last
+# _LOG_TAIL_BYTES. These end a render wherever they are: the first found
+# wins, in this order.
+_FATAL_PATTERNS = (
     (
         "out of memory",
         re.compile(
-            r"out of memory|malloc returns null|out_of_memory|outofmemory",
+            r"out of (?:\w+ )?memory|malloc returns null|out_of_memory|outofmemory",
             re.IGNORECASE,
         ),
     ),
@@ -146,6 +146,10 @@ _FAILURE_PATTERNS = (
         "Blender crashed",
         re.compile(r"EXCEPTION_ACCESS_VIOLATION|Segmentation fault|SIGSEGV|crash\.txt"),
     ),
+)
+# These, and a Python traceback (_python_error()), may be followed by a
+# render that went on: the one nearest the end wins.
+_LAST_PATTERNS = (
     (
         "file not found",
         re.compile(r"cannot read file|unable to open|no such file", re.IGNORECASE),
@@ -157,15 +161,30 @@ _LOG_TAIL_BYTES = 64 * 1024
 _PY_EXCEPTION = re.compile(r"^\w+(?:\.\w+)*(?:Error|Exception)\b")
 
 
-def _python_error(lines: list[str]) -> str | None:
-    """The exception line of the log's last Python traceback -- none from a
-    driver (a broken driver prints one per evaluation and renders on)."""
+def _last_match(lines: list[str], pattern) -> tuple[int, str] | None:
+    """(index, line) of the last line matching pattern -- a warning never."""
+    for i in range(len(lines) - 1, -1, -1):
+        if pattern.search(lines[i]) and not lines[i].lstrip().lower().startswith(
+            "warning"
+        ):
+            return i, lines[i].strip()
+    return None
+
+
+def _python_error(lines: list[str]) -> tuple[int, str] | None:
+    """(index, exception line) of the log's last Python traceback -- none
+    from a driver (a broken driver prints one per evaluation and renders on)."""
     for i in range(len(lines) - 1, -1, -1):
         if lines[i].startswith("Traceback (most recent call last)"):
             if any("Driver" in ln for ln in lines[max(0, i - 3) : i]):
                 continue
             return next(
-                (ln.strip() for ln in lines[i + 1 :] if _PY_EXCEPTION.match(ln)), None
+                (
+                    (j, lines[j].strip())
+                    for j in range(i + 1, len(lines))
+                    if _PY_EXCEPTION.match(lines[j])
+                ),
+                None,
             )
     return None
 
@@ -183,15 +202,20 @@ def failure_reason(log_path: Path | str | None, returncode: int | None = None) -
         lines = []
     frames = [m[1] for line in lines if (m := re.search(r"\bFra:(\d+)", line))]
     at = f" (frame {frames[-1]})" if frames else ""
-    found = [
-        (kind, next((ln.strip() for ln in reversed(lines) if pattern.search(ln)), None))
-        for kind, pattern in _FAILURE_PATTERNS
+    for kind, pattern in _FATAL_PATTERNS:
+        if hit := _last_match(lines, pattern):
+            return f"{kind}{at}: {hit[1][:120]}"
+    hits = [
+        (hit, kind)
+        for kind, hit in [
+            ("Python error", _python_error(lines)),
+            *((kind, _last_match(lines, pattern)) for kind, pattern in _LAST_PATTERNS),
+        ]
+        if hit
     ]
-    # A traceback ranks after a memory error or a crash, before the rest.
-    found.insert(2, ("Python error", _python_error(lines)))
-    for kind, hit in found:
-        if hit:
-            return f"{kind}{at}: {hit[:120]}"
+    if hits:
+        (_, line), kind = max(hits, key=lambda h: h[0][0])
+        return f"{kind}{at}: {line[:120]}"
     return f"exit code {returncode}{at}" if returncode is not None else ""
 
 
