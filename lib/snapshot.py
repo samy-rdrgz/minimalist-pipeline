@@ -910,8 +910,28 @@ def render_html(snapshot: dict) -> str:
         '<!doctype html>\n<html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width, initial-scale=1">'
         f"<title>{_e(title)}</title>\n<style>{_CSS}:root{{--thumb-zoom:{zoom}}}</style>\n</head>"
-        f"<body>\n{nl.join(body)}\n<script>{_JS}</script>\n</body></html>\n"
+        f"<body>\n{_dedupe_images(nl.join(body))}\n<script>{_JS}</script>\n</body></html>\n"
     )
+
+
+_IMG_SRC = re.compile(r'<img ([^>]*?)src="(data:image/[a-z]+;base64,[A-Za-z0-9+/=]+)"')
+
+
+def _dedupe_images(body: str) -> str:
+    """Each embedded image stored once: a block's thumbnail is also its
+    first shot's, a shot button repeats a render shown elsewhere. The first
+    <img> keeps its data: URI and gets an id; the others point at it
+    (data-same), _JS copies its src at load."""
+    first: dict[str, str] = {}
+
+    def one(m: re.Match) -> str:
+        attrs, uri = m.group(1), m.group(2)
+        if uri in first:
+            return f'<img {attrs}data-same="{first[uri]}"'
+        first[uri] = f"img-{len(first)}"
+        return f'<img {attrs}id="{first[uri]}" src="{uri}"'
+
+    return _IMG_SRC.sub(one, body)
 
 
 # The overview's stacked bar of department tasks, in this order: their
@@ -2252,12 +2272,24 @@ box's own is at the bottom of the table, maybe far below. */
 .scroll.proxied{scrollbar-width:none}.scroll.proxied::-webkit-scrollbar{display:none}
 .hbar{position:sticky;bottom:0;z-index:1;overflow-x:auto;overflow-y:hidden;
 background:var(--bg)}.hbar>div{height:1px}.hbar[hidden]{display:none}
+/* A finger, not a mouse: every control 44 px tall (wide for the small
+ones), drawn the same. */
+@media (pointer:coarse){.chip,.links a,.links button,.filters input[type=search],
+.filters select,.filters button,.cols summary,.ojump,.rv input,.rv select,.btn.small,
+.otop .chip,.obot .chip{min-height:44px}
+.chip,.cols summary,.links a,.links button{display:inline-flex;align-items:center}
+.rvb,.opill,.jump,.rvtag{min-height:44px;min-width:44px;display:inline-flex;
+align-items:center;justify-content:center}
+.oshots button{min-height:44px}}
 @media print{nav,.review,.jump,.stuck,.hbar{display:none}.scroll{overflow:visible}}
 """
 
 _JS = """
 (function(){
 var $=function(id){return document.getElementById(id);};
+// A repeated image is stored once (_dedupe_images()): its copies first.
+document.querySelectorAll('img[data-same]').forEach(function(img){
+var src=$(img.getAttribute('data-same'));if(src)img.src=src.src;});
 // A block's shot buttons: that shot's thumbnail, beside the button --
 // above it when there's no room below.
 var pop=document.createElement('img');pop.id='sbpop';pop.alt='';document.body.appendChild(pop);

@@ -2,6 +2,16 @@
 
 All notable changes to this addon. Dates are release dates.
 
+## Unreleased
+
+### Changed
+
+- Snapshot: an image embedded more than once (a block's thumbnail is also
+  its first shot's) is stored once in the page, its copies filled in at
+  load -- about 8 % lighter on a project with multishot blocks.
+- Snapshot on a touch screen: every button, chip, field and review ✓ / ✗
+  is 44 px tall, easy to hit with a finger; unchanged with a mouse.
+
 ## 1.1.7 — 29/10/2026
 
 ### Added
