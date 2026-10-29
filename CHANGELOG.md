@@ -2,7 +2,7 @@
 
 All notable changes to this addon. Dates are release dates.
 
-## Unreleased
+## 1.1.7 — unreleased
 
 ### Fixed
 
