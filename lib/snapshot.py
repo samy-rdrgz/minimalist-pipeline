@@ -2019,7 +2019,7 @@ z-index:3;box-shadow:0 4px 18px rgba(0,0,0,.35);
 border-radius:calc(4px / var(--z,var(--thumb-zoom,2.4)))}
 .flag{margin-left:8px;font-size:11px;font-weight:600;color:var(--rtk);
 background:var(--rtk-bg);padding:1px 6px;border-radius:999px}
-.flag.rtk-gen{box-shadow:0 0 0 1px var(--rtk) inset}
+.flag.rtk-gen{box-shadow:0 0 0 2px var(--rtk) inset}
 /* An item's notes, in the row under its own. */
 tr.notes>td{padding:0 8px 8px;
 background:color-mix(in srgb,var(--accent) 4%,var(--card))}
