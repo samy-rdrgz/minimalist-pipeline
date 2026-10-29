@@ -126,7 +126,9 @@ def render_chunk(k: int, start: int, end: int, folder: str) -> str:
     first, last = chunks.chunk_frames(start, end, chunk_size, k)
     names = files_in(folder)
     missing = [
-        f for f in range(first, last + 1) if os.path.basename(frame_file(f)) not in names
+        f
+        for f in range(first, last + 1)
+        if os.path.basename(frame_file(f)) not in names
     ]
     if not missing:
         return ""
