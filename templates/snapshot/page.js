@@ -349,7 +349,7 @@ h+='<div class="view-only"><div class="p-block"><h4>Last render</h4>'+rendersHtm
 $('p-body').innerHTML=h;$('p-body').querySelectorAll('textarea').forEach(grow);
 document.body.classList.add('panel-open');var p=$('panel');p.hidden=false;
 requestAnimationFrame(function(){p.classList.add('on');$('scrim').classList.add('on');});
-var pos=visible.indexOf(i);$('p-prev').disabled=pos<=0;$('p-next').disabled=pos<0||pos>=visible.length-1;
+var pos=visible.indexOf(i);$('p-prev').disabled=$('m-prev').disabled=pos<=0;$('p-next').disabled=$('m-next').disabled=pos<0||pos>=visible.length-1;
 document.querySelectorAll('.row.sel').forEach(function(x){x.classList.remove('sel');});
 var s=$('list').querySelector('.row[data-i="'+i+'"]');if(s)s.classList.add('sel');
 try{history.replaceState(null,'','#'+encodeURIComponent(it.name));}catch(err){}}
@@ -361,11 +361,16 @@ if(lastFocus)lastFocus.focus({preventScroll:true});lastFocus=null;}
 function step(n){var pos=visible.indexOf(cur);if(pos<0)return;var j=visible[pos+n];if(j!=null){openPanel(j);$('p-body').scrollTop=0;}}
 $('p-close').addEventListener('click',closePanel);$('scrim').addEventListener('click',closePanel);
 $('p-prev').addEventListener('click',function(){step(-1);});$('p-next').addEventListener('click',function(){step(1);});
+$('m-prev').addEventListener('click',function(){step(-1);});$('m-next').addEventListener('click',function(){step(1);});
 $('p-link').addEventListener('click',function(){var u=location.href;
 var ok=function(){toast('Link copied: it opens this file, once this page is where the link points.');};
 if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(u).then(ok,function(){prompt('Link to this file',u);});else prompt('Link to this file',u);});
-var y0=null;$('panel').addEventListener('touchstart',function(e){y0=$('p-body').scrollTop<=0&&!e.target.closest('textarea,.shotsel')?e.touches[0].clientY:null;},{passive:true});
-$('panel').addEventListener('touchend',function(e){if(y0!=null&&e.changedTouches[0].clientY-y0>90)closePanel();y0=null;});
+// A phone: swipe down from the top to close, sideways for the next / previous file
+// (not on the shots' strip nor in a field, which scroll or select).
+var t0=null;$('panel').addEventListener('touchstart',function(e){var t=e.touches[0];
+t0=e.target.closest('textarea,input,select,.shotsel')?null:{x:t.clientX,y:t.clientY,top:$('p-body').scrollTop<=0};},{passive:true});
+$('panel').addEventListener('touchend',function(e){if(!t0)return;var t=e.changedTouches[0],dx=t.clientX-t0.x,dy=t.clientY-t0.y;
+if(Math.abs(dx)>70&&Math.abs(dx)>2*Math.abs(dy))step(dx<0?1:-1);else if(t0.top&&dy>90&&dy>2*Math.abs(dx))closePanel();t0=null;});
 // Focus stays in the open panel.
 $('panel').addEventListener('keydown',function(e){if(e.key!=='Tab')return;var f=[].filter.call($('panel').querySelectorAll('button,textarea,[tabindex]'),function(x){return !x.disabled&&x.offsetParent;});
 if(!f.length)return;var a=f[0],z=f[f.length-1];if(e.shiftKey&&document.activeElement===a){z.focus();e.preventDefault();}else if(!e.shiftKey&&document.activeElement===z){a.focus();e.preventDefault();}});

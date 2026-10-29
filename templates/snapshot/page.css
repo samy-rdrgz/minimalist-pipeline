@@ -338,6 +338,11 @@ body.reviewing .view-only{display:none}
 .keys .rk2{display:none}
 body.reviewing .keys .rk2{display:inline}
 @media (pointer:coarse){.keys{visibility:hidden}.p-foot .btn{flex:1}}
+/* A phone: no footer -- ‹ › in the header, or a swipe sideways. */
+.mnav{display:none!important;font-size:20px}
+.mnav:disabled{opacity:.3}
+@media (max-width:640px){.p-foot{display:none}.mnav{display:inline-flex!important}.p-head{gap:6px;padding-right:10px}
+.p-body{padding-bottom:calc(24px + env(safe-area-inset-bottom))}}
 
 /* ---------- lightbox (picture or video) ---------- */
 .lb{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:56px 20px 20px;background:rgba(10,10,10,.92)}

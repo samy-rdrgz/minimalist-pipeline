@@ -24,7 +24,8 @@ review one file -- lighter to read on a computer and on a phone.
   their validation and their open RTKs, the retakes on no department,
   the notes (closed ones on demand, with their role, frames and the
   render watched), the last render per shot and the Blender file.
-  ← → and Esc as before; 🔗 copies a link that opens the file.
+  ← → and Esc as before -- on a phone ‹ › in its header, or a swipe
+  sideways; 🔗 copies a link that opens the file.
 - **Filters**: a department, Retakes, Open notes, Render outdated, To
   validate, Not finished, each with its count; *Find a file…* also
   lists the matching files of every section to jump to.
