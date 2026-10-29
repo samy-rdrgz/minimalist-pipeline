@@ -48,10 +48,10 @@ All notable changes to this addon. Dates are release dates.
   ticked, edited or deleted. A new entry's id is now unique in its file
   (twins already there are to fix by hand in its tracking.json).
 - An open RTK for no department (a general retake) showed nowhere in
-  Project monitoring's grid nor the snapshot: both now red the file's
-  name; in the snapshot it lowers every department's Done like an RTK
-  on it, and in the review spreadsheet every department cell gets the
-  red border.
+  Project monitoring's grid nor the snapshot: Project monitoring now
+  reds the file's name; the snapshot outlines every department in red
+  and lowers its Done, like an RTK on it, and in the review spreadsheet
+  every department cell gets the red border.
 - A review spreadsheet (.xlsx) from before 1.1.6 had its notes anchored
   on the latest file, not on the render watched: its snapshot time is
   now read from its front sheet ("Snapshot of ..."), else the end of its
