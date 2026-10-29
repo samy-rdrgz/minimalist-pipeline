@@ -52,9 +52,10 @@ All notable changes to this addon. Dates are release dates.
   (twins already there are to fix by hand in its tracking.json).
 - An open RTK for no department (a general retake) showed nowhere in
   Project monitoring's grid nor the snapshot: Project monitoring now
-  reds the file's name; the snapshot outlines every department in red
-  and lowers its Done, like an RTK on it, and in the review spreadsheet
-  every department cell gets the red border.
+  reds the file's name; the snapshot red-outlines the "n RTK" by the
+  file's name and lowers every department's Done, like an RTK on it,
+  and in the review spreadsheet every department cell gets the red
+  border.
 - Snapshot: *Open RTK* with a department filter kept every row with an
   RTK, even one on another department; it now keeps the rows with an
   RTK on that department or on none.

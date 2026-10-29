@@ -437,8 +437,8 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
         ]
         rtk_departments = {d for e in open_rtks for d in e["departments"]}
         item["rtk_departments"] = sorted(rtk_departments)
-        # On no department (a general retake): it's on every department --
-        # red-outlined, weighs on their Done (_rtk_on()).
+        # On no department (a general retake): the "n RTK" flag by the name
+        # is red-outlined; it weighs on every department's Done (_rtk_on()).
         item["general_rtk"] = any(not e["departments"] for e in open_rtks)
         # Per done department: its validations at the stable shown, and the
         # last ones given to an earlier stable (to review again).
@@ -820,8 +820,9 @@ def render_html(snapshot: dict) -> str:
     ) + (
         '<span class="pill st-none">Not required</span>'
         '<span class="pill st-todo rtk-open">Open RTK</span>'
-        '<span class="muted">red outline, whatever the state -- on every '
-        "department for one on no department</span>"
+        '<span class="muted">red outline, whatever the state</span>'
+        '<span class="flag rtk-gen">1 RTK</span>'
+        '<span class="muted">one on no department</span>'
         '<span class="pill behind">⚠ Render older than the stable</span>'
         '<span class="pill tocheck">to check</span>'
         '<span class="muted">not checked yet</span>'
@@ -1150,7 +1151,7 @@ def _overview_card(
     department) by state, its Done by group and by department. Nothing when
     none of its items requires a department."""
     tasks = [
-        "rtk" if _rtk_on(i, d) else st
+        "rtk" if d in i["rtk_departments"] else st
         for i in items
         for d, st in i["departments"].items()
     ]
@@ -1478,14 +1479,10 @@ def _render_table(
                 )
             else:
                 label, cls = STATES[state]
-                if _rtk_on(item, c):
+                if c in item["rtk_departments"]:
                     # Sent back: the RTK is the news, whatever the state.
                     cls += " rtk-open"
-                    label += (
-                        ", with an open RTK"
-                        if c in item["rtk_departments"]
-                        else ", with an open RTK on no department"
-                    )
+                    label += ", with an open RTK"
                 cells.append(
                     f'<td data-col="d:{_e(c)}"><span class="pill {cls}" title="{_e(label)}">'
                     f"{_e(SHORT_STATES[state])}</span>{_approval_mark(item, c, roles)}</td>"
@@ -1502,7 +1499,12 @@ def _render_table(
             if v
         )
         flags = (
-            f'<span class="flag">{item["open_rtk"]} RTK</span>'
+            (
+                '<span class="flag rtk-gen" title="An open RTK on no department">'
+                if item.get("general_rtk")
+                else '<span class="flag">'
+            )
+            + f'{item["open_rtk"]} RTK</span>'
             if item["open_rtk"]
             else ""
         )
@@ -2017,6 +2019,7 @@ z-index:3;box-shadow:0 4px 18px rgba(0,0,0,.35);
 border-radius:calc(4px / var(--z,var(--thumb-zoom,2.4)))}
 .flag{margin-left:8px;font-size:11px;font-weight:600;color:var(--rtk);
 background:var(--rtk-bg);padding:1px 6px;border-radius:999px}
+.flag.rtk-gen{box-shadow:0 0 0 1px var(--rtk) inset}
 /* An item's notes, in the row under its own. */
 tr.notes>td{padding:0 8px 8px;
 background:color-mix(in srgb,var(--accent) 4%,var(--card))}
