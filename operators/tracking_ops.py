@@ -1124,15 +1124,14 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
                 problems.append("videos not zipped")
             else:
                 zipped, empty, dropped = self._job.result
-                for label, overlap in dropped:
+                for label, newer in dropped:
                     log(
                         "WARNING",
                         "snapshot",
-                        f"Video of {label} not zipped: "
-                        f"{', '.join(overlap)} has its own render.",
+                        f"Video of {label} not zipped: {', '.join(newer)} more recent.",
                     )
                 if dropped:
-                    problems.append(f"{len(dropped)} block video(s) left out")
+                    problems.append(f"{len(dropped)} older video(s) left out")
                 if zipped:
                     log("INFO", "snapshot", f"{zipped} video(s) zipped into {zip_name}")
                 if empty:

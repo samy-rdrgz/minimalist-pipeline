@@ -60,35 +60,80 @@ def _first_mp4(render_dir: Path | None) -> Path | None:
     return mp4s[0] if mp4s else None
 
 
+def _rendered_segments(
+    sequence_dir: Path, shots: list[int] | None, config: dict
+) -> list[tuple[list[int], str, Path]]:
+    """(shot numbers, folder name, latest mp4) of every rendered folder of a
+    sequence -- a shot's (sh030) or a block rendered whole (sh030-040-050)
+    -- only those within shots when given. Pure os: thread-safe."""
+    shot_prefix = json_get(config, "naming.shot.prefix", "sh")
+    v_prefix = json_get(config, "naming.version.prefix", "v")
+    pattern = re.compile(rf"^{re.escape(shot_prefix)}(?P<seg>\d+(?:-\d+)*)$")
+    out = []
+    try:
+        folders = [d for d in sequence_dir.iterdir() if d.is_dir()]
+    except OSError:
+        return []
+    for d in folders:
+        if not (m := pattern.match(d.name)):
+            continue
+        numbers = shots_in_segment(m["seg"])
+        if shots is not None and not set(numbers) <= set(shots):
+            continue
+        if mp4 := _first_mp4(latest_render_dir(d, v_prefix)):
+            out.append((numbers, d.name, mp4))
+    return out
+
+
+def _newest_cover(rendered: list, dropped: list | None) -> list[tuple[str, Path]]:
+    """(label, mp4) by shot number, one video per shot: the most recent one
+    wins where a block rendered whole and its shots' own renders overlap.
+    One left out with shots no other video covers goes into dropped (when
+    given) as (label, labels of the newer ones) -- see NOTES.md, "A block
+    rendered whole"."""
+
+    def mtime(mp4: Path) -> float:
+        try:
+            return mp4.stat().st_mtime
+        except OSError:
+            return 0.0
+
+    covered, kept, lost = {}, [], []
+    for numbers, label, mp4 in sorted(rendered, key=lambda r: -mtime(r[2])):
+        if any(n in covered for n in numbers):
+            lost.append((numbers, label))
+            continue
+        kept.append((numbers, label, mp4))
+        covered.update(dict.fromkeys(numbers, label))
+    if dropped is not None:
+        for numbers, label in sorted(lost):
+            if any(n not in covered for n in numbers):
+                newer = sorted({covered[n] for n in numbers if n in covered})
+                dropped.append((label, newer))
+    return [(label, mp4) for _, label, mp4 in sorted(kept)]
+
+
 def resolve_block_sources(
-    filepath: Path, project_root: Path, config: dict | None = None
+    filepath: Path,
+    project_root: Path,
+    config: dict | None = None,
+    dropped: list | None = None,
 ) -> list[tuple[str, Path]]:
-    """(shot_label, mp4) pairs for filepath's own block enumeration, in
-    ascending shot order. Skips a shot with no compiled mp4 yet."""
+    """(label, mp4) pairs for filepath's own block, in shot order: its
+    shots' renders and its own whole one, the newest where they overlap
+    (_newest_cover(), dropped likewise)."""
     config = config if config is not None else ConfigCache.get()
     parsed = parse_filename(Path(filepath).name)
     naming = config.get("naming", {})
     if not parsed or not parsed.get("shot") or not naming:
         return []
     sequence_label = f"{naming['sequence']['prefix']}{parsed['sequence']}"
-    shot_prefix = json_get(config, "naming.shot.prefix", "sh")
-    shot_digits = json_get(config, "naming.shot.digits", 3)
-
-    out = []
-    for n in shots_in_segment(parsed["shot"]):
-        shot_label = f"{shot_prefix}{n:0{shot_digits}d}"
-        mp4 = latest_shot_mp4(project_root, sequence_label, shot_label, config)
-        if mp4:
-            out.append((shot_label, mp4))
-    if out:
-        return out
-    # Rendered whole, not split (fewer than 2 live markers at setup): its
-    # one mp4 sits in the block's own folder (renders/sq100/sh030-040-050).
-    block_dir = render_root(project_root, Path(filepath).parent)
-    mp4 = _first_mp4(
-        latest_render_dir(block_dir, json_get(config, "naming.version.prefix", "v"))
+    rendered = _rendered_segments(
+        project_root / "renders" / sequence_label,
+        shots_in_segment(parsed["shot"]),
+        config,
     )
-    return [(block_dir.name, mp4)] if mp4 else []
+    return _newest_cover(rendered, dropped)
 
 
 def resolve_sequence_sources(
@@ -97,38 +142,13 @@ def resolve_sequence_sources(
     config: dict | None = None,
     dropped: list | None = None,
 ) -> list[tuple[str, Path]]:
-    """(shot_label, mp4) pairs for every shot ever rendered in the sequence
-    ("sq030"), by shot number. A block rendered whole, not split, has its
-    one mp4 in its own folder (sh030-040-050): used for its shots, unless
-    one of them has its own render -- a shot's own folder wins. A block
-    left out that way is added to dropped (when given) as (block label,
-    labels of what it overlaps), for the caller to say so."""
+    """(label, mp4) pairs for every shot ever rendered in the sequence
+    ("sq030"), in shot order: shots' own renders and blocks rendered whole
+    (sh030-040-050), the newest where they overlap (_newest_cover(),
+    dropped likewise)."""
     config = config if config is not None else ConfigCache.get()
-    shot_prefix = json_get(config, "naming.shot.prefix", "sh")
-    v_prefix = json_get(config, "naming.version.prefix", "v")
-    sequence_dir = project_root / "renders" / sequence_label
-    if not sequence_dir.is_dir():
-        return []
-
-    pattern = re.compile(rf"^{re.escape(shot_prefix)}(?P<seg>\d+(?:-\d+)*)$")
-    rendered = []
-    for d in sequence_dir.iterdir():
-        if d.is_dir() and (m := pattern.match(d.name)):
-            mp4 = _first_mp4(latest_render_dir(d, v_prefix))
-            if mp4:
-                rendered.append((shots_in_segment(m["seg"]), d.name, mp4))
-
-    covered = {numbers[0]: label for numbers, label, _ in rendered if len(numbers) == 1}
-    out = [r for r in rendered if len(r[0]) == 1]
-    for numbers, label, mp4 in sorted(r for r in rendered if len(r[0]) > 1):
-        overlap = sorted({covered[n] for n in numbers if n in covered})
-        if not overlap:
-            out.append((numbers, label, mp4))
-            covered.update(dict.fromkeys(numbers, label))
-        elif dropped is not None:
-            dropped.append((label, overlap))
-    out.sort()
-    return [(label, mp4) for _, label, mp4 in out]
+    rendered = _rendered_segments(project_root / "renders" / sequence_label, None, config)
+    return _newest_cover(rendered, dropped)
 
 
 def _asset_render_dirs(base: Path, v_prefix: str, depth: int = 4) -> list[Path]:
@@ -169,13 +189,13 @@ def zip_latest_videos(
     assets: bool,
     zip_path: Path,
     config: dict,
-) -> tuple[int, list[str]]:
+) -> tuple[int, list[str], list]:
     """Every shot's latest video of these sequences (the same ones Preview
     sequence takes) -- and with assets, every asset/library's -- into
     zip_path, under its renders/ path minus its own folder:
     sq100/<video>_<render folder>.mp4, assets/ch/<video>_<render folder>.mp4. Stored, not compressed:
     an mp4 already is. Written beside then renamed, never left
-    half-written. Returns (videos zipped, what had none, blocks left out
+    half-written. Returns (videos zipped, what had none, older ones left out
     -- resolve_sequence_sources()'s dropped). Pure:
     thread-safe, config passed in."""
     project_root, zip_path = Path(project_root), Path(zip_path)

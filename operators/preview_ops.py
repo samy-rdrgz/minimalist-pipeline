@@ -56,9 +56,8 @@ def request_sequence_preview(
 ) -> list:
     """A sequence's preview ("sq030"): every shot's latest video, end to
     end. Returns its sources -- empty: nothing rendered, nothing sent. A
-    block rendered whole but left out (one of its shots has its own render)
-    is added to dropped, see resolve_sequence_sources(). Raises
-    PipelineError."""
+    render left out with shots nothing else covers is added to dropped,
+    see resolve_sequence_sources(). Raises PipelineError."""
     project_root = get_active_project_root()
     sources = resolve_sequence_sources(sequence_label, project_root, dropped=dropped)
     if sources:
@@ -75,18 +74,18 @@ def request_sequence_preview(
 
 
 def dropped_message(dropped: list) -> str:
-    """The blocks a sequence preview left out (request_sequence_preview()'s
+    """The renders a preview left out (resolve_sequence_sources()'s
     dropped), each logged, in one line for the status bar -- "" if none."""
-    for label, overlap in dropped:
+    for label, newer in dropped:
         log(
             "WARNING",
             "compile_preview",
-            f"{label} left out of the preview: {', '.join(overlap)} has its own render.",
+            f"{label} left out of the preview: {', '.join(newer)} more recent.",
         )
     if not dropped:
         return ""
     names = ", ".join(
-        f"{label} ({', '.join(overlap)} rendered alone)" for label, overlap in dropped
+        f"{label} ({', '.join(newer)} more recent)" for label, newer in dropped
     )
     return f"Left out: {names}."
 
@@ -162,7 +161,9 @@ class M_PIPELINE_OT_compile_preview(bpy.types.Operator):
         dropped = []
         try:
             if self.scope == "block":
-                sources = resolve_block_sources(filepath, project_root, config)
+                sources = resolve_block_sources(
+                    filepath, project_root, config, dropped
+                )
                 if sources:
                     submit_preview(
                         "block",

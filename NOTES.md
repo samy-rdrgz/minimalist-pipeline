@@ -14,7 +14,7 @@ comment.
 By theme; the sections below stay in the order they were written.
 
 - **Render farm**: [Farm 1.1.0: chunks replace placeholders](#farm-110-chunks-replace-placeholders) · [Stuck frame](#stuck-frame) · [Stopping a worker: after this frame, or now](#stopping-a-worker-after-this-frame-or-now) · [Which machine rendered which frame](#which-machine-rendered-which-frame) · [Time left: per machine, from each frame's time](#time-left-per-machine-from-each-frames-time) · [Crash recovery: resume, don't orphan](#crash-recovery-resume-dont-orphan) · [Re-rendering a file: match the render, not the job](#re-rendering-a-file-match-the-render-not-the-job) · [Farm subprocess output: files, never pipes](#farm-subprocess-output-files-never-pipes) · [Farm popup: worker state, open-folder button, refresh cost](#farm-popup-worker-state-open-folder-button-refresh-cost) · [Farm status: two redraw timers, split by cost](#farm-status-two-redraw-timers-split-by-cost) · [One farm snapshot reader, sync or threaded](#one-farm-snapshot-reader-sync-or-threaded) · [FFmpeg detection: PATH lookup isn't enough, and an override can't silently fall back](#ffmpeg-detection-path-lookup-isnt-enough-and-an-override-cant-silently-fall-back) · [What a real project's export showed (6 machines, a week of production)](#what-a-real-projects-export-showed-6-machines-a-week-of-production) · [ffmpeg passes: a %, from -progress](#ffmpeg-passes-a--from--progress) · [Priority: giving way between chunks](#priority-giving-way-between-chunks) · [A failed render says why](#a-failed-render-says-why) · [A share drop-out ended the farm roles for good](#a-share-drop-out-ended-the-farm-roles-for-good) · [Rushes: copies under fixed names, not links](#rushes-copies-under-fixed-names-not-links) · [Estimate before a render starts](#estimate-before-a-render-starts)
-- **Notes, tracking, snapshot**: [Tracking entries](#tracking-entries) · [Entries for several departments](#entries-for-several-departments) · [Validation roles](#validation-roles) · [Entries: two fields only ever guaranteed together, never accessed bare](#entries-two-fields-only-ever-guaranteed-together-never-accessed-bare) · [Edit entry: a note turned task kept no checkbox](#edit-entry-a-note-turned-task-kept-no-checkbox) · [Edit-entry dialog: a stored department can outlive its own enum](#edit-entry-dialog-a-stored-department-can-outlive-its-own-enum) · [Department filter: three different callers, three different "current file"s](#department-filter-three-different-callers-three-different-current-files) · [tracking.json: one path, never created by a write](#trackingjson-one-path-never-created-by-a-write) · [Renders to check: the one before, to compare](#renders-to-check-the-one-before-to-compare) · [Project monitoring's Farm column: the monitor cache, not the project scan](#project-monitorings-farm-column-the-monitor-cache-not-the-project-scan) · [Production snapshot: one HTML file, a spreadsheet inside it](#production-snapshot-one-html-file-a-spreadsheet-inside-it) · [Snapshot width: short state labels, hideable columns](#snapshot-width-short-state-labels-hideable-columns) · [Work time tracking & log rotation](#work-time-tracking--log-rotation) · [A review note is about the render watched](#a-review-note-is-about-the-render-watched) · [A general RTK reds the departments started](#a-general-rtk-reds-the-departments-started) · [Entry ids: unique in their file](#entry-ids-unique-in-their-file)
+- **Notes, tracking, snapshot**: [Tracking entries](#tracking-entries) · [Entries for several departments](#entries-for-several-departments) · [Validation roles](#validation-roles) · [Entries: two fields only ever guaranteed together, never accessed bare](#entries-two-fields-only-ever-guaranteed-together-never-accessed-bare) · [Edit entry: a note turned task kept no checkbox](#edit-entry-a-note-turned-task-kept-no-checkbox) · [Edit-entry dialog: a stored department can outlive its own enum](#edit-entry-dialog-a-stored-department-can-outlive-its-own-enum) · [Department filter: three different callers, three different "current file"s](#department-filter-three-different-callers-three-different-current-files) · [tracking.json: one path, never created by a write](#trackingjson-one-path-never-created-by-a-write) · [Renders to check: the one before, to compare](#renders-to-check-the-one-before-to-compare) · [Project monitoring's Farm column: the monitor cache, not the project scan](#project-monitorings-farm-column-the-monitor-cache-not-the-project-scan) · [Production snapshot: one HTML file, a spreadsheet inside it](#production-snapshot-one-html-file-a-spreadsheet-inside-it) · [Snapshot width: short state labels, hideable columns](#snapshot-width-short-state-labels-hideable-columns) · [Work time tracking & log rotation](#work-time-tracking--log-rotation) · [A review note is about the render watched](#a-review-note-is-about-the-render-watched) · [A general RTK reds the file's name](#a-general-rtk-reds-the-files-name) · [Entry ids: unique in their file](#entry-ids-unique-in-their-file)
 - **Shot blocks (multishot), batch**: [Multishot blocks](#multishot-blocks) · [Multishot row list: disabling a button isn't a guard](#multishot-row-list-disabling-a-button-isnt-a-guard) · [Multishot row list, take two: a clean-scene reset invalidates it](#multishot-row-list-take-two-a-clean-scene-reset-invalidates-it) · [_draw_timeline_warnings: a trailing comma turned a string into a 1-tuple](#_draw_timeline_warnings-a-trailing-comma-turned-a-string-into-a-1-tuple) · [CSV batch: the subprocess couldn't import itself](#csv-batch-the-subprocess-couldnt-import-itself)
 - **Versions, saving, files**: [Read-only reason: from a popup on every open to an on-demand menu](#read-only-reason-from-a-popup-on-every-open-to-an-on-demand-menu) · [Top bar read-only indicator: why it sits before the Blender icon](#top-bar-read-only-indicator-why-it-sits-before-the-blender-icon) · [.wipmeta writes tolerate a missing sidecar; the panel doesn't trust the flag alone](#wipmeta-writes-tolerate-a-missing-sidecar-the-panel-doesnt-trust-the-flag-alone) · [Next version number: never from a cached listing](#next-version-number-never-from-a-cached-listing) · [Recent files: derived from the log, not a stored list](#recent-files-derived-from-the-log-not-a-stored-list) · [A version without .wipmeta](#a-version-without-wipmeta) · [The lock follows the file](#the-lock-follows-the-file) · [Work time: only a session that saved](#work-time-only-a-session-that-saved) · [resolve_bpy_path() left "../" uncollapsed in every stored link path](#resolve_bpy_path-left--uncollapsed-in-every-stored-link-path) · [Copy/paste isn't always under bpy.app.tempdir](#copypaste-isnt-always-under-bpyapptempdir) · [Project walk: a stray .pipeline/ hid every asset below it; popup regions must not outlive their popup](#project-walk-a-stray-pipeline-hid-every-asset-below-it-popup-regions-must-not-outlive-their-popup)
 - **Monitoring windows, popups, panels**: [Monitoring: windows, not popups](#monitoring-windows-not-popups) · [Monitoring crash: a thread during window_new()](#monitoring-crash-a-thread-during-window_new) · [Monitoring windows: to the front](#monitoring-windows-to-the-front) · [Monitoring windows: pages sized on the window](#monitoring-windows-pages-sized-on-the-window) · [Monitoring popups: reopening on the detail, or not](#monitoring-popups-reopening-on-the-detail-or-not) · [File details' monitoring_detail("file") is a folder, not a versioned file](#file-details-monitoring_detailfile-is-a-folder-not-a-versioned-file) · [Popup-chaining: a second modal popup always waits one timer tick](#popup-chaining-a-second-modal-popup-always-waits-one-timer-tick) · [Action popups: dialogs](#action-popups-dialogs) · ["Render" button opening pre-filled: an operator property's own redo memory](#render-button-opening-pre-filled-an-operator-propertys-own-redo-memory) · [Text wrapping in panels](#text-wrapping-in-panels) · [Pipeline log: backup noise, viewer](#pipeline-log-backup-noise-viewer) · [Shortcuts](#shortcuts)
@@ -307,11 +307,17 @@ place that can answer this honestly every time.
   setup finds 2+ live markers; otherwise the block renders as one job, into
   its own folder (`renders/sq100/sh030-040-050/`). `resolve_sequence_sources()`
   first matched only `sh\d+` folders and silently left it out. It now reads
-  `sh030-040-050` folders too, placed at their first shot -- but a shot's
-  own render wins: a block folder overlapping one is dropped whole (never
-  half a clip, never a shot twice), likewise one overlapping an earlier
-  block. `resolve_block_sources()` falls back to the block's own folder
-  only when no shot of it has its own render.
+  `sh030-040-050` folders too, placed at their first shot. Where folders
+  overlap, the newest video wins (`_newest_cover()`): one clip per shot,
+  never half a clip, never a shot twice. First shipped as "a shot's own
+  render always wins" -- one old solo render then hid a block rendered
+  whole since, and the block's other shots vanished from the preview.
+  Newest is the mp4's mtime, not the folder name: a block folder and a
+  shot folder can come from different files, their `vNNN` don't compare
+  (within one folder the name still decides). A render left out is only
+  reported when some of its shots end up with no clip (a solo render
+  older than its block isn't news). `resolve_block_sources()` applies the
+  same rule to the folders within the block.
 - **Path: `_preview/` + a dated filename, not one or the other.** Two
   different jobs, layered: the `_preview/` folder marks "disposable" on disk
   (nobody mistakes it for a deliverable), and the `{scope}_{date}.mp4`
@@ -3364,10 +3370,13 @@ lock just goes stale as before.
 The worker only published "failed" (`last_job_result.success`), the
 cause stayed in the render's log -- an out-of-memory looked like a bug
 until someone opened it. `failure_reason()` (`farm/workers.py`) reads the
-log's last 64 KB when the subprocess exits non-zero: the most telling
-kind found (out of memory > crash > Python traceback > missing file >
-Blender's last `Error:` line, else the exit code), the last `Fra:` seen,
-the line itself. Two known false leads skipped: a traceback right after
+log's last 64 KB when the subprocess exits non-zero: out of memory, then
+a crash, wherever they are (they end a render); else the one nearest the
+end of a Python traceback, a missing file or an `Error:` line (an earlier
+one, the render went on after it -- first ranked by kind, a missing
+texture's line then hid the real error); else the exit code. Lines
+starting with "Warning" never count. With the last `Fra:` seen and the
+line itself. Two known false leads skipped: a traceback right after
 a "Driver" line (a broken driver prints one per evaluation and renders
 on), and `Error: Not freed memory blocks` (printed on exit after any
 error). The host keeps it per failed chunk (`failure_reasons`, cleared on
@@ -3406,8 +3415,11 @@ A review from before has no `render`: `_render_at_snapshot()` takes the
 file's last render if its folder was last written before the review's
 `snapshot` time (what the page showed); a shot rendered again since is
 left out, never guessed -- the string then goes per shot so its notes
-don't fall back on another shot's render. An xlsx has no snapshot time:
-no fallback, the file's version as before.
+don't fall back on another shot's render. An xlsx has no snapshot field,
+but its front sheet always said "Snapshot of <date> <time>" (to the
+minute): `read_review_xlsx()` reads it back. Without one, the end of the
+review date -- the renders the reviewer could have seen (not the import
+date: renders made between review and import would be taken).
 
 ## A share drop-out ended the farm roles for good
 
@@ -3452,17 +3464,16 @@ for "no": `_worker_path()`/`monitor_file` raise PipelineError without an
 active project, and `get_active_project_root()` answers None too when
 the addon's preferences can't be read; that case now keeps the role.
 
-## A general RTK reds the departments started
+## A general RTK reds the file's name
 
 A department's cell went red only for an RTK tagged with it, so a
 general retake (an imported `global` line, an RTK with no department
 ticked) showed nowhere but the RTK filter. Project monitoring reds the
 file's name for it (`open_rtks()`, `lib/tracking.py`: the departments
-plus a "general" flag) -- first tried as every started department red,
-which hid which work it was about. The snapshot outlines every required
-department already started -- validated, worked on, or started before
-(its state other than "todo"): its cells, the xlsx border, Done's
-"validated with an open RTK" weight.
+plus a "general" flag); the snapshot too (`item["general_rtk"]`: the
+name red, the xlsx filename cell red-bordered). First tried as every
+started department red/outlined, which hid which work it was about.
+Done's weights are left alone: no department is sent back.
 
 ## Rushes: copies under fixed names, not links
 
@@ -3478,7 +3489,14 @@ them.
 
 - Copied to `.<name>.tmp` beside it, then `os.replace()` -- an NLE never
   reads half a file. Windows refuses the replace while the NLE has the
-  file open: reported (popup, log), the old one kept.
+  file open: reported (popup, log), the old one kept. The message stays
+  generic (open elsewhere, or no write access): a PermissionError says
+  no more.
+- `_UPDATED.txt`: each push appends what came in -- new or replaced, the
+  render, the one it replaced -- for the editor to check in the edit, who
+  deletes it once done. A text file, not a field in `rushes.json`: the
+  editor reads it without tools, and deleting it is the "checked". Appended,
+  never rewritten: two pushes before a check keep both lists.
 - `rushes.json`: per rush its `source`, `render` folder, `.blend`
   `version`, size, mtime, who/when. A rush whose source, size and mtime
   match is skipped -- the first push copies everything, the next ones

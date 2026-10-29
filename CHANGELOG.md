@@ -12,7 +12,9 @@ All notable changes to this addon. Dates are release dates.
   (`sq100/sq100_sh030.mp4`), so the edit keeps its links; only what
   changed is copied. The *Render checked* dialog can push that render
   too (*Push to editing*, off by default). `rushes.json` there says which
-  render and `.blend` version each rush is.
+  render and `.blend` version each rush is; `_UPDATED.txt` lists, push
+  after push, the rushes that came in (new, or replaced and from which
+  render) for the editor to check -- deleted by hand once checked.
 - A job set up and waiting for a worker shows its number of frames and
   an estimate, from the file's last render with the same pre-render
   script (its time per frame), shared by the live workers:
@@ -26,6 +28,15 @@ All notable changes to this addon. Dates are release dates.
 - In Blender, an RTK written under a validation role (prod...) has the
   role's violet mark, like its notes, instead of red; the team's stays
   orange.
+- Preview sequence / block, the snapshot's videos zip and the rushes:
+  where a block rendered whole and its shots' own renders overlap, the
+  most recent video wins. A shot's own render always won, even an older
+  one: a block rendered whole since was left out, and its other shots
+  had no video at all.
+- A failed render's reason: an out of memory or a crash first, wherever
+  they are in the log; otherwise the error nearest its end (a missing
+  texture's line early on no longer hides the real error), never a
+  "Warning" line. "System is out of GPU memory" is recognized.
 
 ### Fixed
 
@@ -37,11 +48,12 @@ All notable changes to this addon. Dates are release dates.
   ticked, edited or deleted. A new entry's id is now unique in its file
   (twins already there are to fix by hand in its tracking.json).
 - An open RTK for no department (a general retake) showed nowhere in
-  Project monitoring's grid nor the snapshot: Project monitoring now reds
-  the file's name; the snapshot outlines every department already
-  started (validated, worked on or started before) -- and counts it as an
-  open RTK in their Done.
-
+  Project monitoring's grid nor the snapshot: both now red the file's
+  name (in the review spreadsheet, a red border on its filename).
+- A review spreadsheet (.xlsx) from before 1.1.6 had its notes anchored
+  on the latest file, not on the render watched: its snapshot time is
+  now read from its front sheet ("Snapshot of ..."), else the end of its
+  review date.
 - Workers (and the farm monitor) stopped for good during the night,
   Blender still running: one check where the share didn't answer (NAS
   asleep, SMB reconnecting, PC waking up) read as "worker file deleted",
