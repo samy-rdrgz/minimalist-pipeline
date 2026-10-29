@@ -107,30 +107,53 @@ def launch_monitor(
 
 
 _last_is_monitor = False
+# Ticks in a row monitor.lock couldn't be found while this instance still
+# runs the monitor: see workers.FILE_GONE_TICKS.
+_lock_missing_ticks = 0
+_LOCK_GONE_TICKS = 3
 
 
 def is_blender_monitor() -> bool:
     """Whether this Blender process (pid + machine uuid) owns monitor.lock.
     A read that fails keeps the previous answer: farm_tick() stops the whole
     loop on False, and "couldn't check" must never mean "not the monitor"."""
-    global _last_is_monitor
+    global _last_is_monitor, _lock_missing_ticks
     try:
         lock_path = ConfigCache.get_path("monitor_file")
     except PipelineError:
         _last_is_monitor = False  # no active project, no monitor role
         return False
     try:
-        if not lock_path.exists():
-            _last_is_monitor = False
-            return False
         with locked_json(lock_path, read_only=True, retries=0) as box:
-            data = box["data"] or {}
-        _last_is_monitor = (
-            data.get("pid", "") == os.getpid()
-            and data.get("uuid", "") == get_machine_id()
-        )
+            data = box["data"]
     except (OSError, ValueError) as e:
         log("WARNING", "farm", f"Could not read monitor.lock, keeping last state: {e}")
+        return _last_is_monitor
+    if not data:
+        # Stopped on purpose (stop_monitor_loop() clears the running
+        # project first), or never the monitor: no doubt, no wait.
+        if not _last_is_monitor or get_running_project() is None:
+            _last_is_monitor = False
+            return False
+        # Else a share dropping out for a moment looks the same as a
+        # deleted lock: see workers.FILE_GONE_TICKS.
+        if not lock_path.parent.is_dir():
+            return True
+        _lock_missing_ticks += 1
+        if _lock_missing_ticks < _LOCK_GONE_TICKS:
+            return True
+        log(
+            "WARNING",
+            "farm",
+            f"monitor.lock gone for {_lock_missing_ticks} ticks: monitor role given up.",
+        )
+        _lock_missing_ticks = 0
+        _last_is_monitor = False
+        return False
+    _lock_missing_ticks = 0
+    _last_is_monitor = (
+        data.get("pid", "") == os.getpid() and data.get("uuid", "") == get_machine_id()
+    )
     return _last_is_monitor
 
 

@@ -2,6 +2,19 @@
 
 All notable changes to this addon. Dates are release dates.
 
+## Unreleased
+
+### Fixed
+
+- Workers (and the farm monitor) stopped for good during the night,
+  Blender still running: one check where the share didn't answer (NAS
+  asleep, SMB reconnecting, PC waking up) read as "worker file deleted",
+  and the farm loop ended without a word. The role is now kept through
+  a share drop-out, given up only once its file has been gone ~30 s with
+  the share reachable, or taken over by another Blender -- logged either
+  way, like the loop stopping. An error in a tick no longer ends the
+  loop either.
+
 ## 1.1.6 — 2026-10-28
 
 A failed render says why; the shots' and assets' latest videos zipped

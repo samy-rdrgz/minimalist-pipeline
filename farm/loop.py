@@ -16,6 +16,7 @@ from ..lib import (
     cached_scandir,
     get_active_project_root,
     json_get,
+    log,
     now,
     owner_key,
     read_json_quiet,
@@ -75,16 +76,29 @@ def farm_tick(project_root: Path, interval: float = 10) -> float | None:
     from .monitor import is_blender_monitor, monitor_tick
     from .workers import is_blender_worker, worker_tick
 
-    monitor = is_blender_monitor()
-    worker = is_blender_worker()
+    # Never raises: an exception escaping a timer deregisters it for good,
+    # silently -- the farm would stop with Blender still running fine.
+    try:
+        monitor = is_blender_monitor()
+        worker = is_blender_worker()
+    except Exception as e:
+        log("ERROR", "farm", f"Farm tick: could not check the roles: {e}")
+        return interval
 
     if monitor:
-        monitor_tick(project_root)
+        try:
+            monitor_tick(project_root)
+        except Exception as e:
+            log("ERROR", "farm", f"Error during monitor tick: {e}")
 
     if worker:
-        worker_tick()
+        try:
+            worker_tick()
+        except Exception as e:
+            log("ERROR", "farm", f"Error during worker tick: {e}")
 
     if not monitor and not worker:
+        log("INFO", "farm", "Farm loop stopped: no monitor nor worker role left here.")
         return
 
     return interval

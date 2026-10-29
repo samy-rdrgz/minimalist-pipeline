@@ -76,6 +76,12 @@ def _heartbeat_age(heartbeat: str) -> int:
 # state, in memory only -- never a scene property, which would be saved into
 # the .blend (see NOTES.md, "Farm popup").
 _this_instance_worker = False
+# Ticks in a row this instance's worker file couldn't be found -- a share
+# that drops for a moment (NAS asleep, an SMB reconnect, a PC waking up)
+# looks exactly like a deleted file: the role is given up only once it's
+# been gone this many ticks (about 30 s), never on one miss.
+_worker_missing_ticks = 0
+FILE_GONE_TICKS = 3
 
 
 def _set_this_instance_worker(value: bool) -> None:
@@ -276,21 +282,48 @@ def is_blender_worker() -> bool:
     False (no crash) if there's no active project to resolve the file
     against -- no project, no worker role. A read that fails keeps the
     previous answer: farm_tick() stops the loop on False (same as
-    is_blender_monitor())."""
+    is_blender_monitor()). Given up only on a file that says another pid
+    (stopped, taken over), or one gone FILE_GONE_TICKS ticks in a row with
+    its folder reachable -- never on one miss: a share dropping out at
+    night used to end the role for good, Blender itself still fine."""
+    global _worker_missing_ticks
     try:
         worker_path = _worker_path()
     except PipelineError:
         _set_this_instance_worker(False)
         return False
     try:
-        if not worker_path.exists():
-            _set_this_instance_worker(False)
-            return False
         with locked_json(worker_path, read_only=True, retries=0) as box:
-            data = box["data"] or {}
-        _set_this_instance_worker(data.get("pid") == os.getpid())
+            data = box["data"]
     except (OSError, ValueError):
-        pass
+        return _this_instance_worker  # couldn't check: keep the role
+    if not data:
+        if not _this_instance_worker:
+            return False
+        if not worker_path.parent.is_dir():
+            return True  # the share itself is out of reach: wait for it
+        _worker_missing_ticks += 1
+        if _worker_missing_ticks < FILE_GONE_TICKS:
+            return True
+        log(
+            "WARNING",
+            "farm",
+            f"Worker file {worker_path.name} gone for {_worker_missing_ticks} "
+            "ticks: worker role given up.",
+        )
+        _worker_missing_ticks = 0
+        _set_this_instance_worker(False)
+        return False
+    _worker_missing_ticks = 0
+    mine = data.get("pid") == os.getpid()
+    if _this_instance_worker and not mine and data.get("status") != "stopped":
+        log(
+            "WARNING",
+            "farm",
+            f"Worker file taken by another Blender (pid {data.get('pid')}): "
+            "this one stops being the worker.",
+        )
+    _set_this_instance_worker(mine)
     return _this_instance_worker
 
 
@@ -427,9 +460,13 @@ def scan_stop_requests() -> bool:
 
 
 def update_worker_heartbeat():
-    """Refresh this machine's worker last_heartbeat timestamp."""
+    """Refresh this machine's worker last_heartbeat timestamp. A file not
+    found isn't brought back: is_blender_worker() decides (gone for good,
+    or a share out for a moment)."""
     path = _worker_path()
     with locked_json(path) as box:
+        if not box["data"]:
+            return
         box["data"]["last_heartbeat"] = now()
         box["action"] = "to_write"
 
@@ -542,7 +579,10 @@ def update_worker(dict: dict, count: str = ""):
     count: a counter field to add one to (renders_done / renders_failed)."""
     worker_path = _worker_path()
     with locked_json(worker_path) as box:
-        data = box["data"] or {}
+        # Not found (a share out for a moment): written again whole enough
+        # to stay this instance's -- a file without its pid would end the
+        # role at the next is_blender_worker().
+        data = box["data"] or get_user_data(get_user())
         if count:
             dict = dict | {count: int(data.get(count) or 0) + 1}
         box["data"] = data | dict | {"last_heartbeat": now()}
