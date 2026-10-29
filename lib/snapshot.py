@@ -438,7 +438,8 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
         rtk_departments = {d for e in open_rtks for d in e["departments"]}
         item["rtk_departments"] = sorted(rtk_departments)
         # On no department (a general retake): the name goes red, as in
-        # Project monitoring -- tracking.open_rtks().
+        # Project monitoring -- tracking.open_rtks() -- and it weighs on
+        # every department's Done; the xlsx borders them all.
         item["general_rtk"] = any(not e["departments"] for e in open_rtks)
         # Per done department: its validations at the stable shown, and the
         # last ones given to an earlier stable (to review again).
@@ -453,7 +454,9 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
         }
         # Per department, then their mean: the footer averages the first.
         item["scores"] = {
-            d: _department_score(st, d in rtk_departments, weights)
+            d: _department_score(
+                st, d in rtk_departments or item["general_rtk"], weights
+            )
             for d, st in item["departments"].items()
         }
         scores = list(item["scores"].values())
@@ -2819,7 +2822,6 @@ _S_NA = 21  # not required: locked, "–"
 _S_HINT_WRAP = 22
 # The front sheet's three fields to fill: a bigger label, a yellow input.
 _S_FIELD_LABEL, _S_FIELD, _S_FIELD_DATE, _S_SECTION = 23, 24, 25, 26
-_S_LOCKED_RTK = 27  # a filename with an open RTK on no department: red-bordered
 
 _XML_ILLEGAL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
 
@@ -2851,10 +2853,12 @@ def _stem(filename: str | None) -> str | None:
 
 def _department_style(item: dict, department: str) -> int:
     """A department cell's style: its state's fill (violet once validated
-    by the top role at the stable shown), red-bordered with an open RTK."""
+    by the top role at the stable shown), red-bordered with an open RTK on
+    it or on no department."""
     state = item["departments"][department]
     key = "validated" if item.get("validated", {}).get(department) else state
-    return _S_STATE[key] + (department in item["rtk_departments"])
+    rtk = department in item["rtk_departments"] or item.get("general_rtk", False)
+    return _S_STATE[key] + rtk
 
 
 def _review_front(meta: dict, roles: list, top_role: str | None) -> str:
@@ -2984,11 +2988,7 @@ def _review_section(title: str, items: list, departments: list) -> tuple[str, st
             group_start = r
         cells = [
             _cell(f"A{r}", item["group"] if new_group else None, _S_GROUP),
-            _cell(
-                f"B{r}",
-                _stem(item["current_version"]) or item["name"],
-                _S_LOCKED_RTK if item.get("general_rtk") else _S_LOCKED,
-            ),
+            _cell(f"B{r}", _stem(item["current_version"]) or item["name"], _S_LOCKED),
             _cell(f"C{r}", item["description"], _S_INPUT),
         ]
         for d in departments:
@@ -3171,7 +3171,7 @@ _RELS_XML = (
 # 5 locked, 6 locked muted, 7 input, 8 input date, 9 input text-format
 # (keeps "045" a string), 10 group (merged left column), then a
 # department's input cell per state (_S_STATE) and its red-bordered twin,
-# 21 not required, 22 hint wrapped, 27 locked red-bordered.
+# 21 not required, 22 hint wrapped.
 _UNLOCK = '<protection locked="0"/>'
 _TOP = '<alignment vertical="top"/>'
 _TOP_WRAP = '<alignment vertical="top" wrapText="1"/>'
@@ -3210,7 +3210,7 @@ _STYLES_XML = (
     '<top style="medium"><color rgb="FF8A6D00"/></top><bottom style="medium"><color rgb="FF8A6D00"/></bottom></border>'
     "</borders>"
     '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
-    '<cellXfs count="28">'
+    '<cellXfs count="27">'
     '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'
     '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
     '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
@@ -3236,7 +3236,6 @@ _STYLES_XML = (
     f'<xf numFmtId="0" fontId="3" fillId="9" borderId="3" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1" applyProtection="1"><alignment vertical="center"/>{_UNLOCK}</xf>'
     f'<xf numFmtId="164" fontId="3" fillId="9" borderId="3" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1" applyProtection="1"><alignment horizontal="left" vertical="center"/>{_UNLOCK}</xf>'
     '<xf numFmtId="0" fontId="4" fillId="0" borderId="0" xfId="0" applyFont="1"/>'
-    f'<xf numFmtId="0" fontId="0" fillId="3" borderId="2" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1">{_TOP}</xf>'
     "</cellXfs>"
     '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'
     "</styleSheet>"
