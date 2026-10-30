@@ -394,7 +394,7 @@ boxes share one column of labels (All, sh040...), one edge, one width. */
 body.reviewing .view-only{display:none}
 /* Where it comes from: the least read, the quietest -- one block of
 label: value lines under the only rule of the panel. */
-.facts{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 14px;margin:14px 0 0;padding-top:14px;border-top:1px solid var(--line);font-size:12px;color:var(--ink-2)}
+.facts{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:baseline;gap:6px 14px;margin:14px 0 0;padding-top:14px;border-top:1px solid var(--line);font-size:12px;color:var(--ink-2)}
 .facts dt{color:var(--ink-3)}
 .facts dd{margin:0;min-width:0}
 .novid{margin:4px 0 0;font-size:11px;color:var(--ink-3)}
@@ -402,8 +402,9 @@ label: value lines under the only rule of the panel. */
 .vpick input{display:none}
 .lb .vpick{color:inherit}
 @media (max-width:640px){.facts{grid-template-columns:minmax(0,1fr);gap:2px}.facts dt{margin-top:8px}.facts dt:first-child{margin-top:0}}
-.facts .renders{display:grid;grid-template-columns:max-content 1fr auto;gap:2px 10px;padding:0;background:none;font-size:12px}
+.facts .renders{display:grid;grid-template-columns:max-content 1fr auto;align-items:baseline;gap:2px 10px;padding:0;background:none;font-size:12px}
 .facts .renders .sh{font-weight:600}
+.renders.one{grid-template-columns:1fr auto}
 .facts .fileline{font:11px/1.5 var(--mono);padding:0;background:none;overflow-wrap:anywhere}
 /* Last render and Blender file: one block, no rule between them. */
 .view-only .p-block+.p-block{border-top:0;padding-top:0}

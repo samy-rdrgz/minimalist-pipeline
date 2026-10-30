@@ -420,9 +420,11 @@ function rendersHtml(it){
 if(!it.renders.length)return '<span class="faint">'+(it.kind==='shot'?'Not rendered yet':'No render')+'</span>';
 // A line per video -- per shot for shots rendered apart, the same folder
 // name or not --, each its ▶ Play (the panel's button plays them all).
-return '<div class="renders">'+it.renders.map(function(r,n){var vs=videosOf(it,r),v=vs.length;
+// A single shot or an asset: no shot column, the version where the file's name starts.
+var one=it.shots.length<2&&!it.renders.some(function(r){return r.shots;});
+return '<div class="renders'+(one?' one':'')+'">'+it.renders.map(function(r,n){var vs=videosOf(it,r),v=vs.length;
 var st=r.status?'<span class="ss'+(r.status.state==='failed'?' fail':'')+'" title="'+esc(r.status.tip)+'">'+esc(r.status.text)+'</span>':'';
-return '<span class="sh">'+esc(r.shots||(it.kind==='shot'?'all shots':''))+'</span><span'+(r.behind?' class="bh" title="Rendered from an older version than the last stable">⚠ ':'>')+
+return (one?'':'<span class="sh">'+esc(r.shots||'all shots')+'</span>')+'<span'+(r.behind?' class="bh" title="Rendered from an older version than the last stable">⚠ ':'>')+
 esc(r.folder||r.pending||'not rendered')+(r.behind?'<small>stable is '+esc(it.stable_v)+'</small>':'')+st+'</span>'+
 (v?'<button type="button" class="pl" data-play="'+n+'" title="'+esc(vs[0].name)+'">▶ Play</button>':'<span></span>');}).join('')+'</div>';}
 function depHtml(it,d,rv){var s=it.states[d],e=peek(it),v=e.deps[d],o=it.ok[d],via=!v&&e.all&&isDone(s);
