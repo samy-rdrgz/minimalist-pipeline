@@ -155,11 +155,12 @@ kbd{display:inline-block;min-width:22px;padding:0 5px;border:1px solid var(--lin
 .you.n{background:var(--rtk);color:var(--on-fill)}
 
 /* ---------- list ---------- */
-.group{position:relative;margin-top:10px;background:var(--surface);border-radius:var(--r-lg)}
-/* A sequence's playlist, beside its name -- not in its header button. */
-.g-play{position:absolute;top:calc(var(--tap)/2 + 12px - 16px);right:16px;z-index:1;width:32px;height:32px;padding:0 0 0 2px;border:1px solid var(--line);border-radius:99px;background:var(--surface);color:var(--accent);font-size:11px}
+.group{margin-top:10px;background:var(--surface);border-radius:var(--r-lg)}
+/* A sequence's playlist, between its name and its count. */
+.g-h{cursor:pointer}
+.g-play{display:inline-flex;align-items:center;justify-content:center;vertical-align:2px;width:22px;height:22px;margin-left:8px;padding:0 0 0 1px;border:1px solid var(--line);border-radius:99px;background:var(--surface);color:var(--accent);font-size:8px;line-height:1;position:relative}
+.g-play::after{content:"";position:absolute;inset:-11px}
 .g-play:hover{border-color:var(--accent);background:var(--accent-bg)}
-.has-pl>.g-h{padding-right:60px}
 .g-h{display:grid;grid-template-columns:minmax(0,1fr) 160px auto;gap:14px;align-items:center;width:100%;padding:12px 16px;border:0;background:none;text-align:left;min-height:var(--tap)}
 .g-name{font-weight:700;font-size:15px}
 .g-name small{font-weight:400;color:var(--ink-3);margin-left:8px;font-size:12px}

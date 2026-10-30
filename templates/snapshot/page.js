@@ -193,10 +193,12 @@ deps.map(function(d){return '<span class="d">'+mark(it.states[d])+under(it,d)+'<
 (it.tracked?'<span class="dl">'+deps.filter(function(d){return d in it.states;}).map(function(d){return '<span><b class="dn s-'+it.states[d]+'" title="'+LABEL[it.states[d]]+'">'+esc(cap(d))+'</b>'+under(it,d)+'</span>';}).join('')+'</span>':'')+'</div>';}).join('');
 if(un.length&&!state.untracked[key]&&!filt)body+='<button class="untracked" data-g="'+esc(g)+'">+ '+plural(un.length,'file')+' with no tracked department</button>';
 var nv=groupVideos(g).length;
-return '<div class="group'+(closed?' closed':'')+(nv?' has-pl':'')+'">'+(nv?'<button type="button" class="g-play" data-gplay="'+esc(g)+'" title="Play the '+esc(g)+' videos in a row ('+nv+')" aria-label="Play the '+esc(g)+' videos in a row">▶</button>':'')+'<button class="g-h" data-g="'+esc(g)+'"><span class="g-name"><i class="caret"></i>'+esc(g)+'<small>'+plural(all.length,'file')+'</small></span>'+
+// A div, not a button: its playlist's ▶ sits in it, after the name.
+return '<div class="group'+(closed?' closed':'')+'"><div class="g-h" role="button" tabindex="0" aria-expanded="'+!closed+'" data-g="'+esc(g)+'"><span class="g-name"><i class="caret"></i>'+esc(g)+
+(nv?'<button type="button" class="g-play" data-gplay="'+esc(g)+'" title="Play the '+esc(g)+' videos in a row ('+nv+')" aria-label="Play the '+esc(g)+' videos in a row">▶</button>':'')+'<small>'+plural(all.length,'file')+'</small></span>'+
 (done!=null?'<span class="tw"><span class="track"><i class="f" style="width:'+done*100+'%"></i>'+(META.role?'<i class="v" style="width:'+Math.min(val,done)*100+'%"></i>':'')+'</span></span>'+
 '<span class="g-pct"><b>'+pct(done)+'</b>'+(META.role?' · <span style="color:var(--valid)">'+pct(val)+' valid.</span>':'')+'</span>':'<span></span><span class="g-pct faint">not tracked</span>')+
-'</button><div class="rows">'+(tr.length?head:'')+body+'</div></div>';}).join('');
+'</div><div class="rows">'+(tr.length?head:'')+body+'</div></div>';}).join('');
 var others=filt?tabs.filter(function(t){return t[0]!==state.tab;}).map(function(t){return [t,D.filter(function(it){return it.tab===t[0]&&match(it,true);}).length];}).filter(function(x){return x[1];}):[];
 $('list').innerHTML=(h||'<div class="empty">Nothing here.</div>')+others.map(function(x){return '<button class="untracked" data-other="'+x[0][0]+'" style="text-align:center">'+
 plural(x[1],'match')+' in '+x[0][1].toLowerCase()+' ›</button>';}).join('');
@@ -209,7 +211,8 @@ if((t=e.target.closest('[data-gplay]')))return play(groupVideos(t.dataset.gplay)
 if((t=e.target.closest('.row')))return openPanel(+t.dataset.i);
 if((t=e.target.closest('.untracked'))){state.untracked[state.tab+t.dataset.g]=true;return render();}
 if((t=e.target.closest('.g-h'))){state.open[state.tab+t.dataset.g]=t.parentNode.classList.contains('closed');render();}});
-$('list').addEventListener('keydown',function(e){var r=e.target.closest('.row');if(r&&(e.key==='Enter'||e.key===' ')){e.preventDefault();openPanel(+r.dataset.i);}});
+$('list').addEventListener('keydown',function(e){var r=e.target.closest('.row');
+if(e.target.classList.contains('g-h')&&(e.key==='Enter'||e.key===' ')){e.preventDefault();e.target.click();return;}if(r&&(e.key==='Enter'||e.key===' ')){e.preventDefault();openPanel(+r.dataset.i);}});
 function setTab(t){state.tab=t;drawTabs();render();}
 $('seg').addEventListener('click',function(e){var b=e.target.closest('button');if(b)setTab(b.dataset.tab);});
 $('depf').addEventListener('change',function(){state.dep=this.value;this.classList.toggle('on',!!state.dep);render();});
