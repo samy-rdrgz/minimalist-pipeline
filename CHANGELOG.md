@@ -46,9 +46,12 @@ review one file -- lighter to read on a computer and on a phone.
 - The review bar folds (›) into a round ✎ button at the bottom right,
   the review's count on it; a tap opens it again. Remembered by the
   browser; never folded while it still needs a name.
-- **Play a render's video** from the page (▶ Play in the panel); a block
-  rendered shot by shot plays each shot's video in a row, in the block's
-  order, ‹ › to skip; its last render has a button per video.
+- **Play a render's video** from the page: ▶ Play on each line of Last
+  render (one line per video: a shot rendered apart is its own line), ▶
+  in the panel's header and under its picture for the file's videos in a
+  row, ▶ on a sequence's header for all of its files'. The page plays
+  exactly the render it shows. Thin controls under the picture instead
+  of the browser's, which covered half of a wide render.
 - **Videos: folder, zip or nothing.** Export snapshot's *Videos* picks
   *Folder* (a `videos/` folder next to the snapshots, shared by all of
   them: only the videos new or changed since the last export are copied),
@@ -57,7 +60,7 @@ review one file -- lighter to read on a computer and on a phone.
   *Assets & libraries* are remembered from one export to the next. The
   page knows which videos it has, and *Choose the videos folder…* (⋯ menu,
   or under a render with nothing to play) reads them from any folder,
-  whatever its name.
+  whatever its name -- the project's `renders/` too.
 - The logo moved to the footer, "Created by minimalist pipeline", and
   opens the add-on's page on extensions.blender.org.
 - The department filter is drawn like the chips next to it.

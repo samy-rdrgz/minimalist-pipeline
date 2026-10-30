@@ -155,7 +155,11 @@ kbd{display:inline-block;min-width:22px;padding:0 5px;border:1px solid var(--lin
 .you.n{background:var(--rtk);color:var(--on-fill)}
 
 /* ---------- list ---------- */
-.group{margin-top:10px;background:var(--surface);border-radius:var(--r-lg)}
+.group{position:relative;margin-top:10px;background:var(--surface);border-radius:var(--r-lg)}
+/* A sequence's playlist, beside its name -- not in its header button. */
+.g-play{position:absolute;top:calc(var(--tap)/2 + 12px - 16px);right:16px;z-index:1;width:32px;height:32px;padding:0 0 0 2px;border:1px solid var(--line);border-radius:99px;background:var(--surface);color:var(--accent);font-size:11px}
+.g-play:hover{border-color:var(--accent);background:var(--accent-bg)}
+.has-pl>.g-h{padding-right:60px}
 .g-h{display:grid;grid-template-columns:minmax(0,1fr) 160px auto;gap:14px;align-items:center;width:100%;padding:12px 16px;border:0;background:none;text-align:left;min-height:var(--tap)}
 .g-name{font-weight:700;font-size:15px}
 .g-name small{font-weight:400;color:var(--ink-3);margin-left:8px;font-size:12px}
@@ -399,8 +403,6 @@ label: value lines under the only rule of the panel. */
 @media (max-width:640px){.facts{grid-template-columns:minmax(0,1fr);gap:2px}.facts dt{margin-top:8px}.facts dt:first-child{margin-top:0}}
 .facts .renders{display:grid;grid-template-columns:max-content 1fr auto;gap:2px 10px;padding:0;background:none;font-size:12px}
 .facts .renders .sh{font-weight:600}
-.renders .pls{grid-column:2/-1;display:flex;flex-wrap:wrap;gap:2px 10px;margin:-2px 0 4px}
-.renders .pls .pl{padding:0}
 .facts .fileline{font:11px/1.5 var(--mono);padding:0;background:none;overflow-wrap:anywhere}
 /* Last render and Blender file: one block, no rule between them. */
 .view-only .p-block+.p-block{border-top:0;padding-top:0}
@@ -413,12 +415,22 @@ body.reviewing .keys .rk2{display:inline}
 /* A phone: no footer -- ‹ › in the header, or a swipe sideways. */
 .mnav{display:none!important;font-size:20px}
 .mnav:disabled{opacity:.3}
-@media (max-width:640px){.p-foot{display:none}.mnav{display:inline-flex!important}.p-head{gap:6px;padding-right:10px}
+@media (max-width:640px){.p-foot{display:none}#p-play{display:none}.mnav{display:inline-flex!important}.p-head{gap:6px;padding-right:10px}
 .p-body{padding-bottom:calc(24px + env(safe-area-inset-bottom))}}
 
 /* ---------- lightbox (picture or video) ---------- */
 .lb{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:56px 20px 20px;background:rgba(10,10,10,.92)}
-.lb img,.lb video{max-width:100%;max-height:calc(100dvh - 120px);border-radius:3px;background:#000}
+.lb img,.lb video{max-width:100%;max-height:calc(100dvh - 140px);border-radius:3px;background:#000}
+/* The video's own controls: one thin row under it. */
+.vp{display:flex;flex-direction:column;gap:6px;max-width:100%}
+.vp video{display:block;cursor:pointer}
+.vc{display:flex;align-items:center;gap:6px;color:#ddd;font-size:12px}
+.vb{flex:none;width:30px;height:30px;padding:0;border:0;border-radius:99px;background:none;color:#fff;font-size:12px;line-height:1}
+.vb:hover{background:rgba(255,255,255,.14)}
+.vb:disabled{opacity:.3}
+.vr{flex:1;min-width:60px;height:16px;margin:0 4px;accent-color:#fff;cursor:pointer}
+.vt{flex:none;font-variant-numeric:tabular-nums;opacity:.8;min-width:72px;text-align:right}
+@media (pointer:coarse){.vb{width:40px;height:40px}}
 .lb p{margin:0;max-width:560px;color:#ddd;font-size:13px;text-align:center}
 .lb p code{font:12px var(--mono);color:#fff;overflow-wrap:anywhere}
 .lb .lbn{width:36px;height:36px;border:0;border-radius:99px;background:rgba(255,255,255,.14);color:#fff;font-size:18px;vertical-align:middle}

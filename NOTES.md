@@ -3585,8 +3585,13 @@ around one idea: a list to scan, a panel to read one file.
   allowed after _ and - -- never shortened or rewritten, people search
   and copy them.
 - **Videos**: re-zipping gigabytes because a note changed made no sense.
-  A shared `videos/` folder next to the snapshots is the default: names
-  carry the render folder, so a new render is a new file and an old one
+  A shared `videos/` folder next to the snapshots is the default. The
+  videos are the ones the page shows -- each render line's own mp4, its
+  path under `renders/` kept as its name (`snapshot_videos()`) --, not
+  Preview sequence's newest per shot: those differ when a shot's folder
+  holds a render from another file (a newer folder name than the block's
+  last render), and the page then had nothing to play. That path
+  carries the render folder, so a new render is a new file and an old one
   is never overwritten under a page that points at it; a copy is skipped
   when size and modification time match (`copy_videos()`, `copy2` keeps
   the time). The zip stays, to send. The page gets the exact list of

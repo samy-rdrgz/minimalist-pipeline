@@ -266,18 +266,21 @@ _TO_CHECK = {"state": "check", "text": "to check", "tip": "Rendered, not checked
 
 
 def _render_lines(item: dict) -> list:
-    """ "Last render": one line per render (per shot when a block's differ)
-    -- {"shots" (a block's label, "" for all), "shot_list", "folder"
-    ("" not rendered), "whole", "behind" (from an older .blend than the
-    last stable), "status" (to check, or the farm's)}; then the farm's
-    jobs for what has no line yet."""
+    """ "Last render": one line per video (a block's shots rendered apart:
+    one per shot, the same folder name or not) -- {"shots" (a block's
+    label, "" for all), "shot_list", "folder" ("" not rendered), "video"
+    (its path under renders/, None without one), "whole", "behind" (from
+    an older .blend than the last stable), "status" (to check, or the
+    farm's)}; then the farm's jobs for what has no line yet."""
     renders = item.get("renders") or []
     to_check = list(item.get("to_check") or [])
     lines = []
     if any(r["folder"] for r in renders):
         block = len(renders) > 1
         every = [r["shot"] for r in renders]
-        for shots, r in group_renders(renders):
+        # Its video tells a render apart; its folder name when it has none.
+        keyed = [dict(r, line=r.get("video") or r["folder"]) for r in renders]
+        for shots, r in group_renders(keyed, key="line"):
             labels = (
                 {r["folder"] if r.get("whole") or not block else f"{s} {r['folder']}" for s in shots}
                 if r["folder"]
@@ -287,6 +290,7 @@ def _render_lines(item: dict) -> list:
                 "shots": shots_label(shots, every) if block else "",
                 "shot_list": shots,
                 "folder": r["folder"] or "",
+                "video": r.get("video"),
                 "whole": bool(r.get("whole")),
                 "behind": r["folder"] is not None
                 and r["file_number"] is not None
@@ -310,6 +314,7 @@ def _render_lines(item: dict) -> list:
                 "shots": job["shot"],
                 "shot_list": [job["shot"]] if job["shot"] else [],
                 "folder": "",
+                "video": None,
                 "whole": False,
                 "behind": False,
                 "status": None,

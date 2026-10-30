@@ -184,46 +184,9 @@ def latest_asset_videos(project_root: Path, v_prefix: str = "v") -> list[Path]:
     ]
 
 
-def latest_videos(
-    project_root: Path, sequences: list[str], assets: bool, config: dict
-) -> tuple[list[tuple[Path, str]], list[str], list]:
-    """Every shot's latest video of these sequences (the same ones Preview
-    sequence takes) -- and with assets, every asset/library's -- with its
-    name in the snapshot's videos (zip or folder): its renders/ path minus
-    its own folder, sq100/<video>_<render folder>.mp4,
-    assets/ch/<video>_<render folder>.mp4 (two named alike: the second
-    keeps its owner's folder). Returns ([(mp4, name)], what had none, older
-    ones left out -- resolve_sequence_sources()'s dropped). Disk reads
-    only: thread-safe, config passed in."""
-    project_root = Path(project_root)
-    renders = project_root / "renders"
-    v_prefix = json_get(config, "naming.version.prefix", "v")
-    found, empty, dropped = [], [], []
-    for sequence in sequences:
-        sources = resolve_sequence_sources(sequence, project_root, config, dropped)
-        if not sources:
-            empty.append(sequence)
-        found += [mp4 for _label, mp4 in sources]
-    if assets:
-        asset_mp4s = latest_asset_videos(project_root, v_prefix)
-        if not asset_mp4s:
-            empty.append("assets/libraries")
-        found += asset_mp4s
-    named, taken = [], set()
-    for mp4 in found:
-        # Its owner's folder (sh030, ch_bob) left out: the video's own name
-        # already says it.
-        tail = f"{mp4.stem}_{mp4.parent.name}{mp4.suffix}"
-        name = f"{mp4.parent.parent.parent.relative_to(renders).as_posix()}/{tail}"
-        if name in taken:
-            name = f"{mp4.parent.parent.relative_to(renders).as_posix()}/{tail}"
-        taken.add(name)
-        named.append((mp4, name))
-    return named, empty, dropped
-
-
 def zip_videos(videos: list[tuple[Path, str]], zip_path: Path) -> int:
-    """latest_videos()'s videos into zip_path under their names. Stored,
+    """Videos [(mp4, name)] into zip_path under their names
+    (lib/snapshot.py snapshot_videos()). Stored,
     not compressed: an mp4 already is. Written beside then renamed, never
     left half-written. Returns how many."""
     zip_path = Path(zip_path)
@@ -242,7 +205,7 @@ def zip_videos(videos: list[tuple[Path, str]], zip_path: Path) -> int:
 
 
 def copy_videos(videos: list[tuple[Path, str]], folder: Path) -> tuple[int, int]:
-    """latest_videos()'s videos into folder under their names, only those
+    """Videos [(mp4, name)] into folder under their names, only those
     not there yet or changed since (size, modification time) -- a folder
     kept from one snapshot to the next copies only what's new. Each one
     written beside then renamed. Returns (copied, already there)."""
@@ -274,7 +237,7 @@ def copy_videos(videos: list[tuple[Path, str]], folder: Path) -> tuple[int, int]
 
 def videos_in(folder: Path) -> list[str]:
     """The videos already in a snapshot videos folder, by their names
-    (sq100/sq100_sh030_v002_001.mp4): what earlier exports copied there
+    (sq100/sh030/v002_001/sq100_sh030.mp4): what earlier exports copied there
     counts too. [] without the folder."""
     folder = Path(folder)
     out = []

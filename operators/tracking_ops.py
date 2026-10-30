@@ -67,7 +67,7 @@ from ..lib import (
     wipmeta_add_work,
     write_snapshot,
     copy_videos,
-    latest_videos,
+    snapshot_videos,
     videos_in,
     zip_videos,
 )
@@ -952,17 +952,11 @@ class M_PIPELINE_OT_review_descriptions(bpy.types.Operator):
         _show_import_summary(f"{self.summary}\nDescriptions left unchanged", self.icon)
 
 
-def _snapshot_scan(root, thumbnails, v_prefix, sequences, assets, config, folder):
-    """Export snapshot's thread: the project's scan, the latest videos to
-    copy or zip (latest_videos()), and those already in the videos folder
-    (none without one)."""
+def _snapshot_scan(root, thumbnails, v_prefix, folder):
+    """Export snapshot's thread: the project's scan, and the videos already
+    in the videos folder (none without one)."""
     data = read_snapshot_data(root, thumbnails, v_prefix)
-    videos = (
-        latest_videos(root, sequences, assets, config)
-        if sequences or assets
-        else ([], [], [])
-    )
-    return data, videos, videos_in(folder) if folder else []
+    return data, videos_in(folder) if folder else []
 
 
 class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
@@ -1027,7 +1021,7 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
     _root = None
     _phase = "scan"  # scan -> write -> videos
     _videos: list = []
-    _video_problems: tuple = ([], [])
+    _no_video: list = []
 
     def invoke(self, context, event):
         root = get_active_project_root()
@@ -1108,15 +1102,11 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
                 "blender": bpy.app.binary_path,
                 "ffmpeg": resolve_ffmpeg(),
             }
-        chosen, assets = self._chosen(context)
         self._job = SnapshotJob(
             _snapshot_scan,
             self._root,
             thumbnails,
             v_prefix,
-            chosen,
-            assets,
-            ConfigCache.get(),
             None if self.videos_mode == "ZIP" else self._videos_folder(),
         )
         # The farm's jobs, fresh by the time the scan is done (seconds).
@@ -1158,22 +1148,7 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
                 "exported_by": get_user(context),
                 "addon_version": get_addon_version(),
             }
-            # The videos it can play, by their names in the folder or zip:
-            # those about to be copied, and those earlier exports copied.
-            data, (self._videos, empty, dropped), there = self._job.result
-            self._video_problems = (empty, dropped)
-            names = [name for _mp4, name in self._videos]
-            if self.videos_mode == "ZIP":
-                base = Path(self.filepath).stem
-            else:
-                base = "videos"
-                names = sorted(set(names) | set(there))
-            if names:
-                meta["videos"] = {
-                    "mode": self.videos_mode.lower(),
-                    "base": base,
-                    "files": names,
-                }
+            data, there = self._job.result
             try:
                 snapshot = build_snapshot(data, config, meta, farm=farm_activity())
             except Exception as e:
@@ -1181,6 +1156,25 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
                 log("ERROR", "snapshot", f"Snapshot failed: {e}")
                 self.report({"ERROR"}, "Snapshot failed (see log).")
                 return {"CANCELLED"}
+            # The videos of the renders it shows, by their paths under
+            # renders/: those about to be copied, and those earlier exports
+            # copied -- the page plays a render's own video, or none.
+            chosen, assets = self._chosen(context)
+            self._videos, self._no_video = snapshot_videos(
+                snapshot, self._root, chosen, assets
+            )
+            names = [name for _mp4, name in self._videos]
+            if self.videos_mode == "ZIP":
+                base = Path(self.filepath).stem
+            else:
+                base = "videos"
+                names = sorted(set(names) | set(there))
+            if names:
+                snapshot["meta"]["videos"] = {
+                    "mode": self.videos_mode.lower(),
+                    "base": base,
+                    "files": names,
+                }
             self._warnings = snapshot["meta"]["thumbnail_warnings"]
             self._job = SnapshotJob(write_snapshot, snapshot, Path(self.filepath))
             self._phase = "write"
@@ -1209,18 +1203,9 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
                 return {"PASS_THROUGH"}
         context.window_manager.event_timer_remove(self._timer)
         problems = []
-        empty, dropped = self._video_problems
-        for label, newer in dropped:
-            log(
-                "WARNING",
-                "snapshot",
-                f"Video of {label} left out: {', '.join(newer)} more recent.",
-            )
-        if dropped:
-            problems.append(f"{len(dropped)} older video(s) left out")
-        if empty:
-            log("WARNING", "snapshot", f"No video in {', '.join(empty)}")
-            problems.append(f"no video in {', '.join(empty)}")
+        if self._no_video:
+            log("WARNING", "snapshot", f"No video in {', '.join(self._no_video)}")
+            problems.append(f"no video in {', '.join(self._no_video)}")
         if self._phase == "videos":
             if self._job.error:
                 # The snapshot itself is written: only the videos are missing.

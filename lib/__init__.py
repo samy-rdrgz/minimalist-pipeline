@@ -158,7 +158,6 @@ from .preview import (
     resolve_block_sources,
     resolve_sequence_sources,
     copy_videos,
-    latest_videos,
     videos_in,
     zip_videos,
 )
@@ -194,6 +193,7 @@ from .snapshot import (
     project_schedule,
     group_renders,
     read_render_state,
+    snapshot_videos,
     shots_label,
     read_snapshot_data,
     read_snapshot_raw,

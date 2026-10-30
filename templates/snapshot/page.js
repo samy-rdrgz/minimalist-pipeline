@@ -192,7 +192,8 @@ deps.map(function(d){return '<span class="d">'+mark(it.states[d])+under(it,d)+'<
 '<span class="r-pct">'+(it.tracked?Math.round(it.done*100)+' %'+(META.role?'<span class="vv'+(it.valid?'':' z')+'">'+pct(it.valid)+' valid.</span>':''):'<span class="faint">–</span>')+'</span>'+
 (it.tracked?'<span class="dl">'+deps.filter(function(d){return d in it.states;}).map(function(d){return '<span><b class="dn s-'+it.states[d]+'" title="'+LABEL[it.states[d]]+'">'+esc(cap(d))+'</b>'+under(it,d)+'</span>';}).join('')+'</span>':'')+'</div>';}).join('');
 if(un.length&&!state.untracked[key]&&!filt)body+='<button class="untracked" data-g="'+esc(g)+'">+ '+plural(un.length,'file')+' with no tracked department</button>';
-return '<div class="group'+(closed?' closed':'')+'"><button class="g-h" data-g="'+esc(g)+'"><span class="g-name"><i class="caret"></i>'+esc(g)+'<small>'+plural(all.length,'file')+'</small></span>'+
+var nv=groupVideos(g).length;
+return '<div class="group'+(closed?' closed':'')+(nv?' has-pl':'')+'">'+(nv?'<button type="button" class="g-play" data-gplay="'+esc(g)+'" title="Play the '+esc(g)+' videos in a row ('+nv+')" aria-label="Play the '+esc(g)+' videos in a row">▶</button>':'')+'<button class="g-h" data-g="'+esc(g)+'"><span class="g-name"><i class="caret"></i>'+esc(g)+'<small>'+plural(all.length,'file')+'</small></span>'+
 (done!=null?'<span class="tw"><span class="track"><i class="f" style="width:'+done*100+'%"></i>'+(META.role?'<i class="v" style="width:'+Math.min(val,done)*100+'%"></i>':'')+'</span></span>'+
 '<span class="g-pct"><b>'+pct(done)+'</b>'+(META.role?' · <span style="color:var(--valid)">'+pct(val)+' valid.</span>':'')+'</span>':'<span></span><span class="g-pct faint">not tracked</span>')+
 '</button><div class="rows">'+(tr.length?head:'')+body+'</div></div>';}).join('');
@@ -204,6 +205,7 @@ countBar();}
 $('list').addEventListener('click',function(e){var t;
 if(e.target.closest('[data-zoom]'))return;
 if((t=e.target.closest('[data-other]')))return setTab(t.dataset.other);
+if((t=e.target.closest('[data-gplay]')))return play(groupVideos(t.dataset.gplay));
 if((t=e.target.closest('.row')))return openPanel(+t.dataset.i);
 if((t=e.target.closest('.untracked'))){state.untracked[state.tab+t.dataset.g]=true;return render();}
 if((t=e.target.closest('.g-h'))){state.open[state.tab+t.dataset.g]=t.parentNode.classList.contains('closed');render();}});
@@ -266,27 +268,27 @@ lightbox('<img alt="" src="'+img(it.thumb)+'">',esc(it.name));},true);
 // for shots rendered apart -- <zip>/sq060/sq060_sh070_v012-stable_001.mp4
 // --, one for a block rendered whole or anything else --
 // <zip>/sq060/sq060_sh070-090-100_..., <zip>/assets/env/env_sol-lac_....
-// The videos the page can play, by their names (lib/preview.py
-// latest_videos()): in the snapshot's videos folder or zip, or in a folder
-// chosen here -- any folder holding them, whatever its name.
+// The videos the page can play, by their paths under renders/ (each
+// render line's video, lib/snapshot.py snapshot_videos()): in the
+// snapshot's videos folder or zip, or in a folder chosen here -- the
+// project's renders/ too.
 var VNAMES={},PICKED=null;((META.videos||{}).files||[]).forEach(function(n){VNAMES[n]=1;});
-function videoSrc(name){var tail=name.split('/').pop(),f;
-if(PICKED&&(f=PICKED[name]||PICKED[tail]))return f.url||(f.url=URL.createObjectURL(f));
+function videoSrc(name){var f=null,parts=name.split('/');
+// The longest tail found: a folder above, or below, renders/ alike. Its
+// file name alone only from a phone's pick (the same in every version).
+if(PICKED)for(var k=0;k<parts.length&&!f;k++)if(k<parts.length-1||PICKED[' flat'])f=PICKED[parts.slice(k).join('/')];
+if(f)return f.url||(f.url=URL.createObjectURL(f));
 return VNAMES[name]?META.videos.base+'/'+name:null;}
-function videosOf(it,r){if(!r.folder)return [];
-// Its renders/ path minus its owner's folder -- or with it, when two were named alike.
-function one(shot,dir,stem,owner){var tail=stem+'_'+r.folder+'.mp4',src=videoSrc(dir+'/'+tail)||videoSrc(dir+'/'+owner+'/'+tail);
-return src?[{shot:shot,folder:r.folder,src:src,name:tail}]:[];}
-if(it.kind!=='shot')return one('',it.root+'/'+it.group,it.name,it.name);
-var g=it.group;
-if(r.whole||it.shots.length<2){var seg=it.name.slice(g.length+1);return one(r.shots,g,g+'_'+seg,seg);}
-return r.shot_list.reduce(function(out,sh){return out.concat(one(sh,g,g+'_'+sh,sh));},[]);}
+// A render line's video, one or none.
+function videosOf(it,r){var src=r.video&&videoSrc(r.video);
+return src?[{file:it.name,shot:r.shots,first:r.shot_list[0],folder:r.folder,src:src,name:r.video}]:[];}
 // Choose the videos' folder: each video known by its path's every tail, so
 // the folder's own name, or one above it, doesn't matter. A phone with no
 // folder picker gives the videos themselves, known by their names.
 function pickVideos(files){var n=0;PICKED={};
 [].forEach.call(files,function(f){if(!/\.mp4$/i.test(f.name))return;n++;
 var parts=(f.webkitRelativePath||f.name).split('/');
+if(parts.length<2)PICKED[' flat']=1;
 for(var k=0;k<parts.length;k++){var key=parts.slice(k).join('/');if(!PICKED[key])PICKED[key]=f;}});
 if(!n){PICKED=null;toast('No .mp4 in that folder.');return;}
 var found=D.reduce(function(c,it){return c+allVideos(it).filter(function(v){return v.src.slice(0,5)==='blob:';}).length;},0);
@@ -297,22 +299,39 @@ document.addEventListener('change',function(e){var t=e.target;if(!t.classList||!
 var files=t.files;closeMenus();if(files&&files.length)pickVideos(files);t.value='';});
 // Every video of the file, in its shots' order.
 function allVideos(it){var out=[];it.renders.forEach(function(r){out=out.concat(videosOf(it,r));});
-var rank=function(v){var k=it.shots.indexOf(v.shot);return k<0?0:k;};return out.sort(function(a,b){return rank(a)-rank(b);});}
+var rank=function(v){var k=it.shots.indexOf(v.first);return k<0?0:k;};return out.sort(function(a,b){return rank(a)-rank(b);});}
 // A playlist: each video starts the next once ended, ‹ › (or ← →) skip.
-function play(it,list){if(!list.length)return;var at=0;
-function show(){var v=list[at];
-lightbox('<video controls autoplay playsinline src="'+esc(v.src)+'"></video>',
-(list.length>1?'<button type="button" class="lbn" data-lb="-1"'+(at?'':' disabled')+' aria-label="Previous video">‹</button> ':'')+
-esc(it.name)+(v.shot?' · <b>'+esc(v.shot)+'</b>':'')+' · '+esc(v.folder)+(list.length>1?' ('+(at+1)+' / '+list.length+')':'')+
-(list.length>1?' <button type="button" class="lbn" data-lb="1"'+(at<list.length-1?'':' disabled')+' aria-label="Next video">›</button>':''));
-var el=$('lb-in').querySelector('video');
-el.addEventListener('ended',function(){if(at<list.length-1){at++;show();}});
+// Its own thin controls under the picture: a render is wide and low, the
+// browser's would cover half of it.
+function clock(t){t=Math.floor(+t||0);return Math.floor(t/60)+':'+('0'+t%60).slice(-2);}
+function play(list){if(!list.length)return;var at=0;
+function show(){var v=list[at],many=list.length>1;
+lightbox('<div class="vp"><video playsinline autoplay src="'+esc(v.src)+'"></video>'+
+'<div class="vc">'+(many?'<button type="button" class="vb" data-lb="-1"'+(at?'':' disabled')+' aria-label="Previous video">⏮</button>':'')+
+'<button type="button" class="vb" id="vp-p" aria-label="Pause">❚❚</button>'+
+(many?'<button type="button" class="vb" data-lb="1"'+(at<list.length-1?'':' disabled')+' aria-label="Next video">⏭</button>':'')+
+'<input type="range" class="vr" id="vp-r" min="0" max="1000" value="0" aria-label="Position"><span class="vt" id="vp-t">0:00</span>'+
+'<button type="button" class="vb" id="vp-f" aria-label="Full screen">⛶</button></div></div>',
+esc(v.file)+(v.shot?' · <b>'+esc(v.shot)+'</b>':'')+' · '+esc(v.folder)+(many?' ('+(at+1)+' / '+list.length+')':''));
+var el=$('lb-in').querySelector('video'),pb=$('vp-p'),rg=$('vp-r'),tm=$('vp-t'),seeking=false;
+function sync(){pb.textContent=el.paused?'▶':'❚❚';pb.setAttribute('aria-label',el.paused?'Play':'Pause');}
+el.addEventListener('play',sync);el.addEventListener('pause',sync);
+el.addEventListener('timeupdate',function(){if(!seeking&&el.duration)rg.value=Math.round(el.currentTime/el.duration*1000);
+tm.textContent=clock(el.currentTime)+' / '+clock(el.duration);});
+rg.addEventListener('input',function(){seeking=true;if(el.duration)el.currentTime=rg.value/1000*el.duration;});
+rg.addEventListener('change',function(){seeking=false;});
+pb.onclick=function(e){e.stopPropagation();if(el.paused)el.play();else el.pause();};
+el.onclick=function(e){e.stopPropagation();pb.onclick(e);};
+$('vp-f').onclick=function(e){e.stopPropagation();var f=el.requestFullscreen||el.webkitRequestFullscreen||el.webkitEnterFullscreen;if(f)f.call(el);};
+el.addEventListener('ended',function(){if(at<list.length-1){at++;show();}else sync();});
 el.addEventListener('error',function(){$('lb-in').innerHTML='';var V=META.videos;
 $('lb-cap').innerHTML=(PICKED||!V?'This video couldn\'t be read.':V.mode==='zip'?'Video not found. Unzip <code>'+esc(V.base)+'.zip</code> next to this page, into a folder of the same name.':
 'Video not found: no <code>'+esc(V.base)+'</code> folder next to this page.')+' '+pickLink('Choose the videos folder…')+
-'<br><span style="opacity:.7">Looked for <code>'+esc(PICKED?v.name:v.src)+'</code></span>'+(list.length>1&&at<list.length-1?'<br><button type="button" class="lbn" data-lb="1" aria-label="Next video">›</button>':'');});}
-$('lb-cap').onclick=function(e){var b=e.target.closest('[data-lb]');if(!b||b.disabled)return;e.stopPropagation();at+=+b.dataset.lb;show();};
+'<br><span style="opacity:.7">Looked for <code>'+esc(v.name)+'</code></span>'+(many&&at<list.length-1?'<br><button type="button" class="lbn" data-lb="1" aria-label="Next video">›</button>':'');});}
+$('lb').onclick=function(e){var b=e.target.closest('[data-lb]');if(!b)return;e.stopPropagation();if(b.disabled)return;at+=+b.dataset.lb;show();};
 show();}
+// A sequence's files, each one's videos in its shots' order, one after the other.
+function groupVideos(g){return D.filter(function(it){return it.tab===state.tab&&it.group===g&&match(it);}).reduce(function(out,it){return out.concat(allVideos(it));},[]);}
 
 /* ---------- progress details ---------- */
 function stats(){var S=META.schedule,exp=S?S.expected:null,h='';
@@ -373,14 +392,13 @@ it.kind==='shot'?'The videos of '+it.group+' didn\'t come with this snapshot.':'
 return '<p class="novid">'+esc(why)+' '+pickLink(PICKED?'Choose another…':'Choose the videos folder…')+'</p>';}
 function rendersHtml(it){
 if(!it.renders.length)return '<span class="faint">'+(it.kind==='shot'?'Not rendered yet':'No render')+'</span>';
-// A button per video: one ▶ Play for a render that is one video, one per
-// shot for shots rendered apart (the panel's button plays them all).
+// A line per video -- per shot for shots rendered apart, the same folder
+// name or not --, each its ▶ Play (the panel's button plays them all).
 return '<div class="renders">'+it.renders.map(function(r,n){var vs=videosOf(it,r),v=vs.length;
 var st=r.status?'<span class="ss'+(r.status.state==='failed'?' fail':'')+'" title="'+esc(r.status.tip)+'">'+esc(r.status.text)+'</span>':'';
 return '<span class="sh">'+esc(r.shots||(it.kind==='shot'?'all shots':''))+'</span><span'+(r.behind?' class="bh" title="Rendered from an older version than the last stable">⚠ ':'>')+
 esc(r.folder||r.pending||'not rendered')+(r.behind?'<small>stable is '+esc(it.stable_v)+'</small>':'')+st+'</span>'+
-(v===1?'<button type="button" class="pl" data-play="'+n+'" data-k="0">▶ Play</button>':'<span></span>')+
-(v>1?'<span class="pls">'+vs.map(function(x,k){return '<button type="button" class="pl" data-play="'+n+'" data-k="'+k+'" title="'+esc(x.name)+'">▶ '+esc(x.shot)+'</button>';}).join('')+'</span>':'');}).join('')+'</div>';}
+(v?'<button type="button" class="pl" data-play="'+n+'" title="'+esc(vs[0].name)+'">▶ Play</button>':'<span></span>');}).join('')+'</div>';}
 function depHtml(it,d,rv){var s=it.states[d],e=peek(it),v=e.deps[d],o=it.ok[d],via=!v&&e.all&&isDone(s);
 var okd=o?(o.old?'<span class="ok old" title="'+esc(o.tip)+'">✓ '+esc(o.role)+' on '+esc(o.seen)+'</span><span class="faint" style="font-size:12px">to review again</span>':
 '<span class="ok" title="'+esc(o.tip)+'">✓ '+esc(o.role)+'</span>'):'';
@@ -392,7 +410,7 @@ return '<div class="dep"><div class="dep-l">'+mark(s)+'<span class="mid"><span c
 function openPanel(i){
 var it=D[i];if(cur!==i){showClosed=false;showNotes=null;editing={};}cur=i;if(!lastFocus)lastFocus=document.activeElement;
 var rv=reviewing(),e=peek(it);if(showNotes===null)showNotes=!rv;
-$('p-title').innerHTML=nameHtml(it);
+$('p-title').innerHTML=nameHtml(it);var nv=allVideos(it).length;$('p-play').hidden=!nv;$('p-play').title=nv>1?'Play the '+nv+' shots in a row':'Play the render';
 $('p-sub').textContent=[it.kind==='shot'?'Shot':it.root==='library'?'Library':'Asset',it.versions,it.shots.length>1?plural(it.shots.length,'shot'):''].filter(Boolean).join(' · ');
 // First what it is and how far along, big; then its departments; the
 // rest after, quieter.
@@ -452,6 +470,7 @@ function step(n){var pos=visible.indexOf(cur);if(pos<0)return;var j=visible[pos+
 $('p-close').addEventListener('click',closePanel);$('scrim').addEventListener('click',closePanel);
 $('p-prev').addEventListener('click',function(){step(-1);});$('p-next').addEventListener('click',function(){step(1);});
 $('m-prev').addEventListener('click',function(){step(-1);});$('m-next').addEventListener('click',function(){step(1);});
+$('p-play').addEventListener('click',function(){if(cur!=null)play(allVideos(D[cur]));});
 $('p-link').addEventListener('click',function(){var u=location.href;
 var ok=function(){toast('Link copied: it opens this file, once this page is where the link points.');};
 if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(u).then(ok,function(){prompt('Link to this file',u);});else prompt('Link to this file',u);});
@@ -484,8 +503,8 @@ function validateAll(){var it=D[cur];if(!Object.keys(it.states).some(function(d)
 function generalRetake(){var e=entry(D[cur]);if(editing.gen||e.text){if(!e.text.trim()||confirm('Drop this general retake?')){e.text='';editing.gen=false;refresh();}return;}
 editing.gen=true;refresh();var g=$('gen-t');if(g)g.focus();}
 $('p-body').addEventListener('click',function(ev){var t,it=D[cur];
-if((t=ev.target.closest('[data-playall]')))return play(it,allVideos(it));
-if((t=ev.target.closest('[data-play]')))return play(it,[videosOf(it,it.renders[+t.dataset.play])[+t.dataset.k||0]]);
+if((t=ev.target.closest('[data-playall]')))return play(allVideos(it));
+if((t=ev.target.closest('[data-play]')))return play(videosOf(it,it.renders[+t.dataset.play]));
 if(ev.target.closest('#bigb'))return lightbox('<img alt="" src="'+$('bigimg').src+'">',esc(it.name));
 if((t=ev.target.closest('.shotsel button'))){$('bigimg').src=t.dataset.src;t.parentNode.querySelectorAll('button').forEach(function(x){x.setAttribute('aria-pressed',x===t);});return;}
 if((t=ev.target.closest('.tags [data-shot]'))){var key=t.closest('.tags').dataset.k,sh=t.dataset.shot,txt=key==='gen'?entry(it).text:(entry(it).deps[key.slice(2)]||{}).text||'',b=boxOf(it,key,txt);
@@ -512,7 +531,8 @@ if(t.matches&&t.matches('input,textarea,select')){if(e.key==='Escape'){t.blur();
 else if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){t.blur();e.preventDefault();}return;}
 if(e.altKey||e.ctrlKey||e.metaKey)return;
 if(!$('lb').hidden){if(e.key==='Escape'){closeLb();e.preventDefault();}
-else if(e.key==='ArrowLeft'||e.key==='ArrowRight'){var nb=$('lb-cap').querySelector('[data-lb="'+(e.key==='ArrowLeft'?-1:1)+'"]');if(nb&&!nb.disabled){nb.click();e.preventDefault();}}return;}
+else if(e.key==='ArrowLeft'||e.key==='ArrowRight'){var nb=$('lb').querySelector('[data-lb="'+(e.key==='ArrowLeft'?-1:1)+'"]');if(nb&&!nb.disabled){nb.click();e.preventDefault();}}
+else if(e.key===' '&&$('vp-p')&&e.target.type!=='range'){$('vp-p').click();e.preventDefault();}return;}
 if(!$('dlg').hidden){if(e.key==='Escape'){$('dlg').hidden=true;e.preventDefault();}return;}
 if(e.key==='Escape'&&MENUS.some(function(m){return !$(m[1]).hidden;})){closeMenus();return;}
 if(cur==null)return;var k=e.key.toLowerCase();

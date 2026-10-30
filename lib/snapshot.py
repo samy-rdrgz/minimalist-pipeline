@@ -27,7 +27,7 @@ from .config import (
 )
 from .core import json_get, now, read_json_quiet
 from .errors import PipelineError
-from .preview import latest_render_dir, render_root
+from .preview import _first_mp4, latest_render_dir, render_root
 from .thumbnails import (
     owner_shot_render_dirs,
     owner_thumbnail_dirs,
@@ -203,6 +203,30 @@ def group_renders(renders: list, key: str = "folder") -> list[tuple[list, dict]]
     return [(shots, r) for r, shots in groups.values()]
 
 
+def snapshot_videos(
+    snapshot: dict, root: Path, sequences: list[str], assets: bool
+) -> tuple[list[tuple[Path, str]], list[str]]:
+    """The videos of the last renders the snapshot shows -- its shots' of
+    these sequences, and with assets every asset/library's --, as
+    [(mp4, its path under renders/)], each once: what Export snapshot
+    copies or zips, under those names, and what the page plays. Also the
+    sequences (and "assets/libraries") with none. No disk access."""
+    renders = Path(root) / "renders"
+    out, seen, found = [], set(), set()
+    for item in snapshot["items"]:
+        shot = item["kind"] == "shot"
+        if not (item["group"] in sequences if shot else assets):
+            continue
+        for r in item.get("renders") or []:
+            name = r.get("video")
+            if name and name not in seen:
+                seen.add(name)
+                out.append((renders / name, name))
+                found.add(item["group"] if shot else "assets/libraries")
+    wanted = list(sequences) + (["assets/libraries"] if assets else [])
+    return out, [w for w in wanted if w not in found]
+
+
 def _render_ref(renders: list, per_shot: bool = False) -> str:
     """The last render a review row was made on, as its "render" field:
     "v007-stable_001", or per shot when a block's differ (or per_shot) --
@@ -254,7 +278,7 @@ def read_snapshot_data(
     their latest render are remade first (one headless Blender, waited on
     -- run this on a thread). thumbnails: {"size", "blender", "ffmpeg"},
     None to skip them. Returns {"raws", "renders": {owner:
-    [...]}, "thumbs": {owner: base64 JPEG}, "shot_thumbs": {block owner:
+    [... + "video", its mp4 under renders/ or None]}, "thumbs": {owner: base64 JPEG}, "shot_thumbs": {block owner:
     [(shot label, base64 JPEG or None)]}, "thumb_warnings": [...]}."""
     raws = read_snapshot_raw(root)
     renders = {
@@ -262,6 +286,15 @@ def read_snapshot_data(
         for kind, owner, raw, _ in raws
         if not raw["tracking"].get("archived")
     }
+    # Each render's video, by its path under renders/: what the snapshot's
+    # videos folder or zip holds, and what the page plays for that render.
+    for shots in renders.values():
+        for r in shots:
+            mp4 = _first_mp4(Path(r["path"])) if r.get("path") else None
+            try:
+                r["video"] = mp4.relative_to(Path(root) / "renders").as_posix()
+            except (AttributeError, ValueError):
+                r["video"] = None
     thumbs, shot_thumbs, warnings = {}, {}, []
     if thumbnails is not None:
         dirs, shot_dirs = {}, {}
@@ -378,6 +411,7 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
                     "folder": r["folder"],
                     "whole": bool(r.get("whole")),
                     "file_number": int(m[1]) if m else None,
+                    "video": r.get("video"),
                 }
             )
         item["renders"] = renders
