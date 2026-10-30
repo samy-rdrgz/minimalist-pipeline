@@ -48,9 +48,9 @@ review one file -- lighter to read on a computer and on a phone.
   browser; never folded while it still needs a name.
 - **Play a render's video** from the page: ▶ Play on each line of Last
   render (one line per video: a shot rendered apart is its own line; a
-  ▶ per shot under the picture while reviewing), ▶
-  in the panel's header and under its picture for the file's videos in a
-  row, ▶ on a sequence's header for all of its files'. The page plays
+  ▶ per shot under the picture while reviewing), the blue ▶ in the
+  panel's header for the file's videos in a row (on a phone it takes the
+  link button's place), ▶ on a sequence's header for all of its files'. The page plays
   exactly the render it shows. Thin controls under the picture instead
   of the browser's, which covered half of a wide render.
 - **Videos: folder, zip or nothing.** Export snapshot's *Videos* picks

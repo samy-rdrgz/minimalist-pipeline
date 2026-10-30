@@ -306,9 +306,6 @@ body.resizing .wrap,body.resizing .panel{transition:none!important}
 .p-media{padding-bottom:6px}
 .big{display:block;width:100%;padding:0;border:0;background:none;cursor:zoom-in}
 .big img{display:block;width:100%;height:auto;max-height:40vh;object-fit:contain;border-radius:5px}
-.play{display:inline-flex;align-items:center;gap:6px;min-height:var(--tap);margin-top:8px;padding:0 14px;border:1px solid var(--line);border-radius:99px;
-background:var(--surface);color:var(--ink);font-size:13px;font-weight:600}
-.play:hover{border-color:var(--ink-3)}
 .shotsel{display:flex;gap:6px;margin-top:8px;overflow-x:auto;scrollbar-width:thin;padding-bottom:4px}
 .shotsel button{flex:0 0 96px;padding:0 0 2px;border:2px solid transparent;border-radius:5px;background:none;font-size:11px;color:var(--ink-2);min-height:var(--tap)}
 .shotsel button .frame{margin-bottom:3px}
@@ -392,7 +389,9 @@ boxes share one column of labels (All, sh040...), one edge, one width. */
 .renders .pl{border:0;background:none;padding:0 4px;min-height:24px;color:var(--accent);font-size:12px;font-weight:600}
 .fileline{font:12px/1.5 var(--mono);padding:8px 12px;border-radius:6px;background:var(--sunk);overflow-wrap:anywhere}
 body.reviewing .view-only{display:none}
-.review-only{display:none}body.reviewing .review-only{display:flex}
+.review-only{display:none}
+#p-play{background:var(--accent);border-color:var(--accent);color:var(--on-fill);font-size:13px;padding-left:2px}
+#p-play:hover{filter:brightness(1.1)}body.reviewing .review-only{display:flex}
 .vlist{flex-wrap:wrap;gap:2px 4px;margin-top:6px}
 .vlist .pl{min-height:28px;padding:0 8px;border:0;border-radius:99px;background:none;color:var(--accent);font-size:12px;font-weight:600}
 .vlist .pl:hover{background:var(--accent-bg)}
@@ -422,7 +421,7 @@ body.reviewing .keys .rk2{display:inline}
 /* A phone: no footer -- ‹ › in the header, or a swipe sideways. */
 .mnav{display:none!important;font-size:20px}
 .mnav:disabled{opacity:.3}
-@media (max-width:640px){.p-foot{display:none}#p-play{display:none}.mnav{display:inline-flex!important}.p-head{gap:6px;padding-right:10px}
+@media (max-width:640px){.p-foot{display:none}#p-link{display:none}.mnav{display:inline-flex!important}.p-head{gap:6px;padding-right:10px}
 .p-body{padding-bottom:calc(24px + env(safe-area-inset-bottom))}}
 
 /* ---------- lightbox (picture or video) ---------- */

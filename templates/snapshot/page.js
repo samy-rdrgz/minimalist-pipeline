@@ -451,9 +451,9 @@ var h='<div class="p-media">'+(it.thumb?'<button type="button" class="big" id="b
 (it.shot_thumbs.length?'<div class="shotsel">'+[['whole block',it.thumb]].concat(it.shot_thumbs).map(function(s,n){
 return '<button type="button" data-src="'+(s[1]?img(s[1]):'')+'" aria-pressed="'+(n===0)+'"'+(s[1]?'':' disabled')+'><span class="frame">'+(s[1]?'<img alt="" src="'+img(s[1])+'">':'')+'</span>'+esc(s[0])+(s[1]?'':' · not rendered')+'</button>';}).join('')+'</div>':'')+
 (function(){var n=allVideos(it).length;
-return !n?'':'<button type="button" class="play" data-playall="1"'+(n>1?' title="Each shot\'s video, in the block\'s order"':'')+'>▶ '+(n>1?'Play the '+n+' shots in a row':'Play the render')+'</button>'+
-// Reviewing, Last render is folded: each shot's video stays one tap away.
-(n>1?'<div class="vlist review-only">'+it.renders.map(function(r,k){return [r,k];}).filter(function(x){return videosOf(it,x[0]).length;})
+// The file's videos: ▶ in the header. Reviewing, Last render is folded:
+// each shot's video stays one tap away here.
+return (n>1?'<div class="vlist review-only">'+it.renders.map(function(r,k){return [r,k];}).filter(function(x){return videosOf(it,x[0]).length;})
 .sort(function(a,b){return it.shots.indexOf(a[0].shot_list[0])-it.shots.indexOf(b[0].shot_list[0]);})
 .map(function(x){return '<button type="button" class="pl" data-play="'+x[1]+'">▶ '+esc(x[0].shots||'all shots')+'</button>';}).join('')+'</div>':'');})()+'</div>';
 // The description first: what the file is.
@@ -535,7 +535,6 @@ function validateAll(){var it=D[cur];if(!Object.keys(it.states).some(function(d)
 function generalRetake(){var e=entry(D[cur]);if(editing.gen||e.text){if(!e.text.trim()||confirm('Drop this general retake?')){e.text='';editing.gen=false;refresh();}return;}
 editing.gen=true;refresh();var g=$('gen-t');if(g)g.focus();}
 $('p-body').addEventListener('click',function(ev){var t,it=D[cur];
-if((t=ev.target.closest('[data-playall]')))return play(allVideos(it));
 if((t=ev.target.closest('[data-play]')))return play(videosOf(it,it.renders[+t.dataset.play]));
 if(ev.target.closest('#bigb'))return lightbox('<img alt="" src="'+$('bigimg').src+'">',esc(it.name));
 if((t=ev.target.closest('.shotsel button'))){$('bigimg').src=t.dataset.src;t.parentNode.querySelectorAll('button').forEach(function(x){x.setAttribute('aria-pressed',x===t);});return;}
