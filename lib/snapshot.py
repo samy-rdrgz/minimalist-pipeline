@@ -213,7 +213,7 @@ def snapshot_videos(
     sequences (and "assets/libraries") with none. No disk access."""
     renders = Path(root) / "renders"
     out, seen, found = [], set(), set()
-    for item in snapshot["items"]:
+    for item in snapshot["shots"] + snapshot["assets"]:
         shot = item["kind"] == "shot"
         if not (item["group"] in sequences if shot else assets):
             continue
