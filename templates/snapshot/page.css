@@ -275,12 +275,22 @@ body.resizing .wrap,body.resizing .panel{transition:none!important}
 @media (max-width:640px){.p-resize{display:none}}
 .grab{display:none}
 
-.p-head{display:flex;align-items:flex-start;gap:8px;padding:12px 12px 12px 18px;border-bottom:1px solid var(--line)}
+.p-head{display:flex;flex-wrap:wrap;align-items:flex-start;gap:8px;padding:12px 12px 12px 18px;border-bottom:1px solid var(--line)}
 .p-head .t{min-width:0;flex:1;padding-top:4px}
-.p-head .t>b{display:block;font-size:16px;font-weight:400}
+.p-head .t>b{display:block;font-size:20px;line-height:1.25;font-weight:400}
+.p-head .t>b .nm-main{font-weight:700}
+/* How far along, under the name: the figure large, the bar under it. */
+.p-kpi{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 6px;flex-basis:100%;margin-top:2px}
+.p-head>.flags{flex-basis:100%;margin-top:0}
+.p-kpi:empty{display:none}
+.p-kpi .kd{font-size:24px;font-weight:700;line-height:1}
+.p-kpi .kd small{font-size:14px;font-weight:600}
+.p-kpi .kv{margin-left:10px;font-size:16px;font-weight:700;color:var(--valid)}
+.p-kpi .kl{font-size:12px;color:var(--ink-2)}
+.p-kpi .track{flex:1 0 100%;height:6px;margin-top:6px}
 .p-head small{color:var(--ink-3);font-size:12px}
 .p-body{overflow:auto;padding:16px 18px 24px;flex:1;overscroll-behavior:contain}
-.p-media{padding-bottom:14px}
+.p-media{padding-bottom:6px}
 .big{display:block;width:100%;padding:0;border:0;background:none;cursor:zoom-in}
 .big img{display:block;width:100%;height:auto;max-height:40vh;object-fit:contain;border-radius:5px}
 .play{display:inline-flex;align-items:center;gap:6px;min-height:var(--tap);margin-top:8px;padding:0 14px;border:1px solid var(--line);border-radius:99px;
@@ -290,17 +300,18 @@ background:var(--surface);color:var(--ink);font-size:13px;font-weight:600}
 .shotsel button{flex:0 0 96px;padding:0 0 2px;border:2px solid transparent;border-radius:5px;background:none;font-size:11px;color:var(--ink-2);min-height:var(--tap)}
 .shotsel button .frame{margin-bottom:3px}
 .shotsel button[aria-pressed="true"]{border-color:var(--ink);color:var(--ink);font-weight:600}
-.desc{margin:0 0 14px;font-size:13px;white-space:pre-line}
-.p-block{padding:16px 0;border-top:1px solid var(--line)}
-.p-block h4{margin:0 0 10px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink)}
-.p-block h4 .h-sub{font-weight:400;letter-spacing:0;text-transform:none;color:var(--ink-3);margin-left:6px;font-size:12px}
+.desc{margin:0 0 14px;font-size:14px;line-height:1.5;white-space:pre-line}
+.p-block{padding:10px 0}
+.p-block h4{margin:0 0 6px;font-size:13px;font-weight:600;color:var(--ink-2)}
+.p-block h4 .h-sub{font-weight:400;color:var(--ink-3);margin-left:6px;font-size:12px}
 .links{display:flex;flex-wrap:wrap;gap:4px 16px;margin:0 0 4px}
 .links button{border:0;background:none;padding:0;min-height:var(--tap);color:var(--accent);font-size:13px;font-weight:600}
 .links button[aria-pressed="true"]{color:var(--valid)}
 .dep{padding:4px 0}
 .dep-l{display:flex;align-items:center;gap:10px;min-height:var(--tap)}
 .dep .mid{flex:1;display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;min-width:0}
-.dep .nm{font-weight:600;min-width:84px}
+.dep .nm{font-weight:600;min-width:96px}
+.major .dep .nm{font-size:15px}
 .dep .st{font-size:13px;color:var(--ink-2)}
 .dep .ok,.dep .rk{font-size:12px}
 .rvb{display:none;gap:6px;flex:none}
@@ -324,7 +335,7 @@ textarea.rtk-t{border-color:var(--rtk)}
 .tags span{font-size:12px;color:var(--ink-3);align-self:center;margin-right:2px}
 .tags button{min-height:calc(var(--tap) - 6px);padding:0 9px;border:1px solid var(--line);border-radius:99px;background:var(--surface);font-size:12px;color:var(--ink-2)}
 .tags button:hover{border-color:var(--rtk);color:var(--rtk)}
-.fold{display:flex;align-items:center;gap:6px;border:0;background:none;padding:0;min-height:var(--tap);color:var(--ink);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.fold{display:flex;align-items:center;gap:6px;border:0;background:none;padding:0;min-height:var(--tap);color:var(--ink-2);font-size:13px;font-weight:600}
 .fold::before{content:"";width:6px;height:6px;border:solid var(--ink-3);border-width:0 2px 2px 0;transform:rotate(-45deg);transition:transform .15s}
 .fold[aria-expanded="true"]::before{transform:rotate(45deg)}
 .note{padding:10px 0;border-top:1px solid var(--sunk)}
@@ -338,6 +349,7 @@ textarea.rtk-t{border-color:var(--rtk)}
 .note.closed{opacity:.6}
 .note.reply{margin-left:18px}
 .more-notes{border:0;background:none;color:var(--accent);font-size:13px;font-weight:600;padding:0;min-height:var(--tap)}
+.more-notes.quiet{color:var(--ink-3);font-weight:500}
 .no-open{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;font-size:13px;color:var(--ink-3)}
 .renders{display:grid;grid-template-columns:max-content 1fr auto;align-items:center;gap:6px 14px;padding:10px 12px;border-radius:6px;background:var(--sunk);font-size:13px}
 .renders .sh{color:var(--ink-2);font-weight:600}
@@ -347,6 +359,15 @@ textarea.rtk-t{border-color:var(--rtk)}
 .renders .pl{border:0;background:none;padding:0 4px;min-height:24px;color:var(--accent);font-size:12px;font-weight:600}
 .fileline{font:12px/1.5 var(--mono);padding:8px 12px;border-radius:6px;background:var(--sunk);overflow-wrap:anywhere}
 body.reviewing .view-only{display:none}
+/* Where it comes from: the least read, the quietest -- one block of
+label: value lines under the only rule of the panel. */
+.facts{display:grid;grid-template-columns:auto minmax(0,1fr);gap:6px 14px;margin:14px 0 0;padding-top:14px;border-top:1px solid var(--line);font-size:12px;color:var(--ink-2)}
+.facts dt{color:var(--ink-3)}
+.facts dd{margin:0;min-width:0}
+@media (max-width:640px){.facts{grid-template-columns:minmax(0,1fr);gap:2px}.facts dt{margin-top:8px}.facts dt:first-child{margin-top:0}}
+.facts .renders{display:grid;grid-template-columns:max-content 1fr auto;gap:2px 10px;padding:0;background:none;font-size:12px}
+.facts .renders .sh{font-weight:600}
+.facts .fileline{font:11px/1.5 var(--mono);padding:0;background:none;overflow-wrap:anywhere}
 /* Last render and Blender file: one block, no rule between them. */
 .view-only .p-block+.p-block{border-top:0;padding-top:0}
 .p-foot{display:flex;gap:8px;align-items:center;padding:10px 12px calc(10px + env(safe-area-inset-bottom));border-top:1px solid var(--line)}
@@ -366,6 +387,9 @@ body.reviewing .keys .rk2{display:inline}
 .lb img,.lb video{max-width:100%;max-height:calc(100dvh - 120px);border-radius:3px;background:#000}
 .lb p{margin:0;max-width:560px;color:#ddd;font-size:13px;text-align:center}
 .lb p code{font:12px var(--mono);color:#fff;overflow-wrap:anywhere}
+.lb .lbn{width:36px;height:36px;border:0;border-radius:99px;background:rgba(255,255,255,.14);color:#fff;font-size:18px;vertical-align:middle}
+.lb .lbn:disabled{opacity:.3}
+.lb p b{color:#fff}
 .lb .x{position:absolute;top:12px;right:12px;width:40px;height:40px;border:0;border-radius:99px;background:rgba(255,255,255,.14);color:#fff;font-size:16px}
 
 /* ---------- review bar, sending dialog, toast ---------- */

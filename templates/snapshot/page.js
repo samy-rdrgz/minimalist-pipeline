@@ -256,11 +256,22 @@ if(it.kind==='shot'){if(V.sequences.indexOf(it.group)<0)return null;
 var seg=r.whole||it.shots.length<2?it.name.slice(it.group.length+1):r.shot_list[0];
 return V.zip+'/'+it.group+'/'+it.group+'_'+seg+'_'+r.folder+'.mp4';}
 if(!V.assets)return null;return V.zip+'/'+it.root+'/'+it.group+'/'+it.name+'_'+r.folder+'.mp4';}
-function play(it,n){var r=it.renders[n],src=videoOf(it,r);if(!src)return;
-lightbox('<video controls autoplay playsinline src="'+esc(src)+'"></video>',esc(it.name)+(r.shots?' · '+esc(r.shots):'')+' · '+esc(r.folder));
-$('lb-in').querySelector('video').addEventListener('error',function(){$('lb-in').innerHTML='';
+// One render, or a block's renders in a row (its shots' order): each
+// video starts the next once ended, ‹ › skip.
+function play(it,n,all){var list=all?it.renders.map(function(r,k){return k;}).filter(function(k){return videoOf(it,it.renders[k]);}):[n];
+var at=Math.max(0,list.indexOf(n));
+function show(){var k=list[at],r=it.renders[k],src=videoOf(it,r);
+lightbox('<video controls autoplay playsinline src="'+esc(src)+'"></video>',
+(list.length>1?'<button type="button" class="lbn" data-lb="-1"'+(at?'':' disabled')+' aria-label="Previous render">‹</button> ':'')+
+esc(it.name)+(r.shots?' · <b>'+esc(r.shots)+'</b>':'')+' · '+esc(r.folder)+(list.length>1?' ('+(at+1)+' / '+list.length+')':'')+
+(list.length>1?' <button type="button" class="lbn" data-lb="1"'+(at<list.length-1?'':' disabled')+' aria-label="Next render">›</button>':''));
+var v=$('lb-in').querySelector('video');
+v.addEventListener('ended',function(){if(at<list.length-1){at++;show();}});
+v.addEventListener('error',function(){$('lb-in').innerHTML='';
 $('lb-cap').innerHTML='Video not found. Unzip <code>'+esc(META.videos.zip)+'.zip</code> next to this page, into a folder of the same name, then try again.'+
 '<br><span style="opacity:.7">Looked for <code>'+esc(src)+'</code></span>';});}
+$('lb-cap').onclick=function(e){var b=e.target.closest('[data-lb]');if(!b||b.disabled)return;e.stopPropagation();at+=+b.dataset.lb;show();};
+show();}
 
 /* ---------- progress details ---------- */
 function stats(){var S=META.schedule,exp=S?S.expected:null,h='';
@@ -319,12 +330,19 @@ var it=D[i];if(cur!==i){showClosed=false;showNotes=null;editing={};}cur=i;if(!la
 var rv=reviewing(),e=peek(it);if(showNotes===null)showNotes=!rv;
 $('p-title').innerHTML=nameHtml(it);
 $('p-sub').textContent=[it.kind==='shot'?'Shot':it.root==='library'?'Library':'Asset',it.versions,it.shots.length>1?plural(it.shots.length,'shot'):''].filter(Boolean).join(' · ');
+// First what it is and how far along, big; then its departments; the
+// rest after, quieter.
+$('p-kpi').innerHTML=it.tracked?'<span class="kd">'+Math.round(it.done*100)+'<small> %</small></span><span class="kl">done</span>'+
+(META.role?'<span class="kv">'+pct(it.valid)+'</span><span class="kl">validated</span>':'')+
+'<span class="track"><i class="f" style="width:'+it.done*100+'%"></i>'+(META.role?'<i class="v" style="width:'+Math.min(it.valid,it.done)*100+'%"></i>':'')+'</span>':'';
 $('p-flags').innerHTML=flags(it);
 var deps=depsOf(it.kind).filter(function(d){return d in it.states;});
 var h='<div class="p-media">'+(it.thumb?'<button type="button" class="big" id="bigb" aria-label="Full size"><img id="bigimg" alt="" src="'+img(it.thumb)+'"></button>':'<span class="thumb none"><span class="frame"></span></span>')+
 (it.shot_thumbs.length?'<div class="shotsel">'+[['whole block',it.thumb]].concat(it.shot_thumbs).map(function(s,n){
 return '<button type="button" data-src="'+(s[1]?img(s[1]):'')+'" aria-pressed="'+(n===0)+'"'+(s[1]?'':' disabled')+'><span class="frame">'+(s[1]?'<img alt="" src="'+img(s[1])+'">':'')+'</span>'+esc(s[0])+(s[1]?'':' · not rendered')+'</button>';}).join('')+'</div>':'')+
-(it.renders.some(function(r){return videoOf(it,r);})?'<button type="button" class="play" data-play="'+it.renders.map(function(r){return !!videoOf(it,r);}).indexOf(true)+'">▶ Play the latest render</button>':'')+'</div>';
+(function(){var n=it.renders.filter(function(r){return videoOf(it,r);}).length;
+return !n?'':n===1?'<button type="button" class="play" data-play="'+it.renders.map(function(r){return !!videoOf(it,r);}).indexOf(true)+'">▶ Play the render</button>':
+'<button type="button" class="play" data-playall="1" title="Each shot\'s render, in the block\'s order">▶ Play the '+n+' renders in a row</button>';})()+'</div>';
 // The description first: what the file is.
 if(rv&&(editing.desc||e.desc!==null))h+='<div class="p-block"><h4>Description<span class="h-sub">sent with the review</span></h4><textarea id="desc-t" placeholder="What this file is, for the team">'+esc(e.desc!==null?e.desc:it.desc)+'</textarea></div>';
 else if(it.desc)h+='<p class="desc">'+esc(it.desc)+'</p>';
@@ -335,17 +353,18 @@ if(rv)h+='<div class="links">'+(deps.some(function(d){return isDone(it.states[d]
 if(it.genRtks.length||(rv&&(editing.gen||e.text)))h+='<div class="p-block"><h4>General retakes<span class="h-sub">on no department</span></h4>'+
 (it.genRtks.length?'<div class="rtks" style="margin-left:0">'+it.genRtks.map(rtkLine).join('')+'</div>':'')+
 (rv&&(editing.gen||e.text)?'<div class="rt"><textarea id="gen-t" class="rtk-t" placeholder="What to fix?">'+esc(e.text)+'</textarea>'+shotTags(it,'gen')+SYNTAX+'</div>':'')+'</div>';
-h+=deps.length?'<div class="p-block"><h4>Departments'+(it.tracked?'<span class="h-sub">'+pct(it.done)+' done'+(META.role?' · '+pct(it.valid)+' validated':'')+'</span>':'')+'</h4>'+
+h+=deps.length?'<div class="p-block major">'+
 deps.map(function(d){return depHtml(it,d,rv);}).join('')+'</div>':'<div class="p-block faint">No department tracked on this file.</div>';
 // Notes: the rest, open first; the closed ones on demand.
 var closed=it.notes.filter(function(n){return n.closed;}),shown=it.openNotes.concat(showClosed?closed:[]);
-if(it.openNotes.length||closed.length){h+='<div class="p-block"><button type="button" class="fold" id="tog-notes" aria-expanded="'+showNotes+'">Notes · '+it.openNotes.length+' open'+(closed.length?', '+closed.length+' closed':'')+'</button>';
-if(showNotes)h+=(shown.length?shown.map(function(n){return noteHtml(n);}).join('')+(closed.length?'<button type="button" class="more-notes" id="tog-closed">'+(showClosed?'Hide the closed ones':'Show the '+closed.length+' closed')+'</button>':''):
-'<div class="no-open">No open note.'+(closed.length?'<button type="button" class="more-notes" id="tog-closed">Show the '+closed.length+' closed</button>':'')+'</div>');
+// No open note: one quiet line to show the closed ones, no heading.
+if(!it.openNotes.length&&closed.length&&!showClosed)h+='<div class="p-block"><button type="button" class="more-notes quiet" id="tog-closed">'+plural(closed.length,'closed note')+' ›</button></div>';
+else if(it.openNotes.length||closed.length){h+='<div class="p-block"><button type="button" class="fold" id="tog-notes" aria-expanded="'+showNotes+'">'+
+(it.openNotes.length?plural(it.openNotes.length,'open note'):'Notes')+(closed.length?' · '+closed.length+' closed':'')+'</button>';
+if(showNotes)h+=shown.map(function(n){return noteHtml(n);}).join('')+(closed.length?'<button type="button" class="more-notes" id="tog-closed">'+(showClosed?'Hide the closed ones':'Show the '+closed.length+' closed')+'</button>':'');
 h+='</div>';}
 // Where it comes from: at the bottom, out of the way while reviewing.
-h+='<div class="view-only"><div class="p-block"><h4>Last render</h4>'+rendersHtml(it)+'</div>'+
-'<div class="p-block"><h4>Blender file</h4><div class="fileline">'+esc(it.file)+'.blend</div></div></div>';
+h+='<dl class="view-only facts"><dt>Last render</dt><dd>'+rendersHtml(it)+'</dd><dt>Blender file</dt><dd class="fileline">'+esc(it.file)+'.blend</dd></dl>';
 $('p-body').innerHTML=h;$('p-body').querySelectorAll('textarea').forEach(grow);
 document.body.classList.add('panel-open');var p=$('panel');p.hidden=false;
 requestAnimationFrame(function(){p.classList.add('on');$('scrim').classList.add('on');});
@@ -401,6 +420,7 @@ ta.value=v.slice(0,start)+t+v.slice(end);ta.focus();ta.selectionStart=ta.selecti
 function validateAll(){var it=D[cur];if(!Object.keys(it.states).some(function(d){return isDone(it.states[d]);}))return;var e=entry(it);e.all=!e.all;refresh();}
 function generalRetake(){editing.gen=true;refresh();var g=$('gen-t');if(g)g.focus();}
 $('p-body').addEventListener('click',function(ev){var t,it=D[cur];
+if((t=ev.target.closest('[data-playall]')))return play(it,it.renders.map(function(r){return !!videoOf(it,r);}).indexOf(true),true);
 if((t=ev.target.closest('[data-play]')))return play(it,+t.dataset.play);
 if(ev.target.closest('#bigb'))return lightbox('<img alt="" src="'+$('bigimg').src+'">',esc(it.name));
 if((t=ev.target.closest('.shotsel button'))){$('bigimg').src=t.dataset.src;t.parentNode.querySelectorAll('button').forEach(function(x){x.setAttribute('aria-pressed',x===t);});return;}
@@ -423,7 +443,8 @@ document.addEventListener('keydown',function(e){var t=e.target;
 if(t.matches&&t.matches('input,textarea,select')){if(e.key==='Escape'){t.blur();e.preventDefault();}
 else if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){t.blur();e.preventDefault();}return;}
 if(e.altKey||e.ctrlKey||e.metaKey)return;
-if(!$('lb').hidden){if(e.key==='Escape'){closeLb();e.preventDefault();}return;}
+if(!$('lb').hidden){if(e.key==='Escape'){closeLb();e.preventDefault();}
+else if(e.key==='ArrowLeft'||e.key==='ArrowRight'){var nb=$('lb-cap').querySelector('[data-lb="'+(e.key==='ArrowLeft'?-1:1)+'"]');if(nb&&!nb.disabled){nb.click();e.preventDefault();}}return;}
 if(!$('dlg').hidden){if(e.key==='Escape'){$('dlg').hidden=true;e.preventDefault();}return;}
 if(e.key==='Escape'&&MENUS.some(function(m){return !$(m[1]).hidden;})){closeMenus();return;}
 if(cur==null)return;var k=e.key.toLowerCase();

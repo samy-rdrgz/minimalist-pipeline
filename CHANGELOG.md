@@ -23,7 +23,9 @@ review one file -- lighter to read on a computer and on a phone.
   which moves aside and stays live -- one click on another row shows it --;
   the whole screen on a phone. Its left edge drags it wider or narrower
   (kept by the browser, a double click for the default); a list left
-  narrow turns compact, as on a phone: the
+  narrow turns compact, as on a phone. Three zones: the name and how
+  far along it is, large; the picture, departments, retakes and notes;
+  then, small, its last render and Blender file: the
   picture large and every shot's, the description, the departments with
   their validation and their open RTKs, the retakes on no department,
   the notes (closed ones on demand, with their role, frames and the
@@ -42,7 +44,8 @@ review one file -- lighter to read on a computer and on a phone.
   the review's count on it; a tap opens it again. Remembered by the
   browser; never folded while it still needs a name.
 - **Play a render's video** from the page once the videos zip made with
-  the snapshot is unzipped next to it (▶ Play in the panel).
+  the snapshot is unzipped next to it (▶ Play in the panel); a block
+  rendered shot by shot plays its renders in a row, ‹ › to skip.
 - When the snapshot was taken stands out; opened later, "n days old".
 - Colours: every text at 4.5:1 or more in both themes; the review bar
   stays dark in dark mode.
