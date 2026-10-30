@@ -37,6 +37,7 @@ var open=it.notes.filter(function(n){return !n.closed;});
 it.rtkNotes={};it.genRtks=[];it.otherNotes=[];
 open.forEach(function(n){if(n.type==='rtk'&&n.done===false){
 if(n.deps.length)n.deps.forEach(function(d){(it.rtkNotes[d]=it.rtkNotes[d]||[]).push(n);});else it.genRtks.push(n);}});
+it.todos={};open.forEach(function(n){if(n.type==='todo'&&n.done===false)n.deps.forEach(function(d){it.todos[d]=(it.todos[d]||0)+1;});});
 it.openNotes=open.filter(function(n){return !(n.type==='rtk'&&n.done===false)&&!n.approval;});});
 var tabs=TABS.filter(function(t){return D.some(function(it){return it.tab===t[0];});});
 function depsOf(tab){return META.departments[tab==='shot'?'shot':'asset'];}
@@ -51,15 +52,19 @@ return (p?'<span class="nm-pre">'+br(p)+'</span>':'')+'<span class="nm-main">'+b
 function thumb(it){return it.thumb?'<button type="button" class="thumb" data-zoom="'+it.i+'" aria-label="'+esc(it.name)+', full size">'+
 '<span class="frame"><img alt="" loading="lazy" src="'+img(it.thumb)+'"></span></button>':'<span class="thumb none"><span class="frame"></span></span>';}
 function mark(s){return s?'<i class="m '+s+'" title="'+LABEL[s]+'"></i>':'<i class="m na" title="Not required"></i>';}
-function rkTag(it,d){var r=it.rtk[d];if(!r)return '';
-return '<span class="rk'+(r==='team'?' team':'')+'" title="An open retake'+(r==='team'?' from the team':'')+'">◆ '+(r==='team'?'team':'RTK')+'</span>';}
+// Under a department, one ◆ per kind of open entry, its colour saying
+// whose: red a validation role's retake, orange the team's, grey a todo.
+// The details are in its tip and in the file's panel.
+function dia(cls,tip){return '<span class="rk'+cls+'" title="'+tip+'">◆</span>';}
+function rkTag(it,d){var h='',r=it.rtk[d];
+if(r)h+=dia(r==='team'?' team':'','An open retake on '+cap(d)+(r==='team'?', from the team':', from a validation role'));
+else if(it.genRtks.length&&isDone(it.states[d])){var t=it.genRtks.every(function(n){return n.team;});
+h+=dia(t?' team':'','A retake on no department'+(t?', from the team':', from a validation role')+': it holds back every done department');}
+if((it.todos[d]||0)>0)h+=dia(' todo',plural(it.todos[d],'open todo')+' on '+cap(d));
+return h;}
 function okTag(it,d){var o=it.ok[d];if(!o)return '';
 return '<span class="ok'+(o.old?' old':'')+'" title="'+esc(o.tip)+'">✓ '+esc(o.role)+'</span>';}
-// A retake on no department holds every done department back (its Done
-// weight): a bare ◆ under each, the same slot as "◆ RTK".
-function genTag(it,d){if(it.rtk[d]||!it.genRtks.length||!isDone(it.states[d]))return '';var team=it.genRtks.every(function(n){return n.team;});
-return '<span class="rk'+(team?' team':'')+'" title="A retake on no department: it holds back every done department">◆</span>';}
-function under(it,d){return rkTag(it,d)+genTag(it,d)+okTag(it,d)+you(it,d);}
+function under(it,d){var k=rkTag(it,d);return (k?'<span class="dias">'+k+'</span>':'')+okTag(it,d)+you(it,d);}
 
 /* ---------- review state: as the page before (same key, same shape) ---------- */
 var rv={author:'',role:'',date:'',files:{}};
@@ -325,7 +330,7 @@ esc(r.folder||r.pending||'not rendered')+(r.behind?'<small>stable is '+esc(it.st
 function depHtml(it,d,rv){var s=it.states[d],e=peek(it),v=e.deps[d],o=it.ok[d],via=!v&&e.all&&isDone(s);
 var okd=o?(o.old?'<span class="ok old" title="'+esc(o.tip)+'">✓ '+esc(o.role)+' on '+esc(o.seen)+'</span><span class="faint" style="font-size:12px">to review again</span>':
 '<span class="ok" title="'+esc(o.tip)+'">✓ '+esc(o.role)+'</span>'):'';
-return '<div class="dep"><div class="dep-l">'+mark(s)+'<span class="mid"><span class="nm">'+esc(cap(d))+'</span><span class="st">'+LABEL[s]+'</span>'+rkTag(it,d)+genTag(it,d)+okd+you(it,d)+'</span>'+
+return '<div class="dep"><div class="dep-l">'+mark(s)+'<span class="mid"><span class="nm">'+esc(cap(d))+'</span><span class="st">'+LABEL[s]+'</span>'+rkTag(it,d)+okd+you(it,d)+'</span>'+
 '<span class="rvb" data-d="'+esc(d)+'"><button class="ok-b'+(via?' via':'')+'" aria-pressed="'+!!(v&&v.ok)+'"'+(isDone(s)?' title="Validate it as your role"':' disabled title="Not done: nothing to validate yet"')+
 ' aria-label="Validate '+esc(d)+'">✓</button><button class="ko-b" aria-pressed="'+!!(v&&v.no)+'" aria-label="Retake '+esc(d)+'" title="Retake: write what to fix (or nothing, to withdraw a validation)">✕</button></span></div>'+
 ((it.rtkNotes[d]||[]).length?'<div class="rtks">'+it.rtkNotes[d].map(rtkLine).join('')+'</div>':'')+

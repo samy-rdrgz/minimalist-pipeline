@@ -13,9 +13,9 @@ review one file -- lighter to read on a computer and on a phone.
   with a schedule how many working days ahead or behind, the pace pill
   amber or red when behind), then the list: a tab per section (Libraries
   apart), the files by sequence / prefix, a mark per department --
-  done, reworked, in progress, not started -- with under it an open RTK
-  (red from a role, orange from the team), who validated it, and your
-  review. Only the departments the list requires get a column; groups
+  done, reworked, in progress, not started -- with under it a ◆ per open
+  entry (red an RTK from a role, orange the team's, grey a todo), who
+  validated it, and your review. Only the departments the list requires get a column; groups
   with nothing tracked fold. A badge only for a render outdated or to
   check, or an RTK on no department (◆ General RTK, and a bare ◆ under
   every done department it holds back); notes and the farm are words on the
@@ -47,6 +47,7 @@ review one file -- lighter to read on a computer and on a phone.
 - **Play a render's video** from the page once the videos zip made with
   the snapshot is unzipped next to it (▶ Play in the panel); a block
   rendered shot by shot plays its renders in a row, ‹ › to skip.
+- The logo opens the add-on's page on extensions.blender.org.
 - When the snapshot was taken stands out; opened later, "n days old".
 - Colours: every text at 4.5:1 or more in both themes; the review bar
   stays dark in dark mode.
