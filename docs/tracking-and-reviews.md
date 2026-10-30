@@ -105,8 +105,10 @@ it saw.
   `[sh020]` at its start for one shot of a block, `[f12-40]` for its
   frames, `note:` for a remark instead of a retake -- a block's shot
   buttons start a new line with their tag, so you go shot after shot;
-  left empty, it withdraws a validation); above the departments,
-  *✓ Validate all done*, *+ General retake* and *+ Description*. The
+  left empty, it withdraws a validation); an *All done* row above the
+  departments (its ✓ validates every done one) and a *Whole file* row
+  under them (its ✕ opens a retake on no department), with the same
+  buttons; *✎ Edit the description* under it. The
   list shows what you did under each department (✓ you, ✕ you); the
   panel's *Last render* and *Blender file* step aside while reviewing.
   Keys: ← → (files), Esc (close), V (all done), X (general retake), Esc

@@ -307,7 +307,7 @@ var cur=null,lastFocus=null,showClosed=false,showNotes=null,editing={};
 function reviewing(){return document.body.classList.contains('reviewing');}
 function shotTags(it,target){if(it.shots.length<2)return '';
 return '<div class="tags" data-for="'+target+'"><span>One shot:</span>'+it.shots.map(function(s){return '<button type="button" data-tag="'+esc(s)+'" title="A new line for a retake of '+esc(s)+' only">'+esc(s)+'</button>';}).join('')+'</div>';}
-var SYNTAX='<p class="syntax">One retake per line · <code>[sh020]</code> a shot · <code>[f12-40]</code> frames · <code>note:</code> a remark, not a retake</p>';
+function syntax(it){return '<p class="syntax">One retake per line'+(it.shots.length>1?' · <code>[sh020]</code> a shot':'')+' · <code>[f12-40]</code> frames · <code>note:</code> a remark, not a retake</p>';}
 function noteHtml(n,reply){var type=n.done===true?'<span class="badge b-done" title="Done">✓ '+esc(n.type)+'</span>':
 '<span class="badge '+(n.type==='rtk'?(n.team?'b-team':'b-rtk'):n.type==='todo'?'b-todo':'b-note')+'">'+esc(n.type)+(n.type==='rtk'&&n.team?' · team':'')+'</span>';
 var tags=[];if(n.role)tags.push('<span class="tg role" title="Written as '+esc(n.role)+'">'+esc(n.role)+'</span>');
@@ -334,7 +334,7 @@ return '<div class="dep"><div class="dep-l">'+mark(s)+'<span class="mid"><span c
 '<span class="rvb" data-d="'+esc(d)+'"><button class="ok-b'+(via?' via':'')+'" aria-pressed="'+!!(v&&v.ok)+'"'+(isDone(s)?' title="Validate it as your role"':' disabled title="Not done: nothing to validate yet"')+
 ' aria-label="Validate '+esc(d)+'">✓</button><button class="ko-b" aria-pressed="'+!!(v&&v.no)+'" aria-label="Retake '+esc(d)+'" title="Retake: write what to fix (or nothing, to withdraw a validation)">✕</button></span></div>'+
 ((it.rtkNotes[d]||[]).length?'<div class="rtks">'+it.rtkNotes[d].map(rtkLine).join('')+'</div>':'')+
-(rv&&v&&v.no?'<div class="rt"><textarea class="rtk-t" data-d="'+esc(d)+'" placeholder="What to fix in '+esc(d)+'? Empty: just withdraw its validation">'+esc(v.text)+'</textarea>'+shotTags(it,'d:'+d)+SYNTAX+'</div>':'')+'</div>';}
+(rv&&v&&v.no?'<div class="rt"><textarea class="rtk-t" data-d="'+esc(d)+'" placeholder="What to fix in '+esc(d)+'? Empty: just withdraw its validation">'+esc(v.text)+'</textarea>'+shotTags(it,'d:'+d)+syntax(it)+'</div>':'')+'</div>';}
 function openPanel(i){
 var it=D[i];if(cur!==i){showClosed=false;showNotes=null;editing={};}cur=i;if(!lastFocus)lastFocus=document.activeElement;
 var rv=reviewing(),e=peek(it);if(showNotes===null)showNotes=!rv;
@@ -355,16 +355,21 @@ return !n?'':n===1?'<button type="button" class="play" data-play="'+it.renders.m
 '<button type="button" class="play" data-playall="1" title="Each shot\'s render, in the block\'s order">▶ Play the '+n+' renders in a row</button>';})()+'</div>';
 // The description first: what the file is.
 if(rv&&(editing.desc||e.desc!==null))h+='<div class="p-block"><h4>Description<span class="h-sub">sent with the review</span></h4><textarea id="desc-t" placeholder="What this file is, for the team">'+esc(e.desc!==null?e.desc:it.desc)+'</textarea></div>';
-else if(it.desc)h+='<p class="desc">'+esc(it.desc)+'</p>';
-if(rv)h+='<div class="links">'+(deps.some(function(d){return isDone(it.states[d]);})?'<button type="button" id="allok" aria-pressed="'+e.all+'" title="Every department done so far (V)">✓ Validate all done</button>':'')+
-(editing.gen||e.text?'':'<button type="button" id="add-gen" title="A retake for no department in particular (X)">+ General retake</button>')+
-(editing.desc||e.desc!==null?'':'<button type="button" id="add-desc">'+(it.desc?'Edit description':'+ Description')+'</button>')+'</div>';
-// The retakes on no department: the open ones, then this review's.
-if(it.genRtks.length||(rv&&(editing.gen||e.text)))h+='<div class="p-block"><h4>General retakes<span class="h-sub">on no department</span></h4>'+
-(it.genRtks.length?'<div class="rtks" style="margin-left:0">'+it.genRtks.map(rtkLine).join('')+'</div>':'')+
-(rv&&(editing.gen||e.text)?'<div class="rt"><textarea id="gen-t" class="rtk-t" placeholder="What to fix?">'+esc(e.text)+'</textarea>'+shotTags(it,'gen')+SYNTAX+'</div>':'')+'</div>';
-h+=deps.length?'<div class="p-block major">'+
-deps.map(function(d){return depHtml(it,d,rv);}).join('')+'</div>':'<div class="p-block faint">No department tracked on this file.</div>';
+else{if(it.desc)h+='<p class="desc">'+esc(it.desc)+'</p>';
+if(rv)h+='<button type="button" class="desc-edit" id="add-desc">✎ '+(it.desc?'Edit the description':'Add a description')+'</button>';}
+// The departments, between two rows of the same buttons: "All done" (✓
+// every done one, V) on top, "Whole file" (✕ a retake on no department,
+// X) at the bottom -- with the open ones on no department.
+var anyDone=deps.some(function(d){return isDone(it.states[d]);}),genOpen=editing.gen||!!e.text;
+h+='<div class="p-block major">'+
+(rv&&anyDone?'<div class="dep all"><div class="dep-l"><span class="mid"><span class="nm">All done</span><span class="st">validate every done department · V</span></span>'+
+'<span class="rvb"><button class="ok-b" id="allok" aria-pressed="'+e.all+'" aria-label="Validate every done department">✓</button><span class="rvb-gap"></span></span></div></div>':'')+
+(deps.length?deps.map(function(d){return depHtml(it,d,rv);}).join(''):'<p class="faint">No department tracked on this file.</p>')+
+(rv||it.genRtks.length?'<div class="dep whole"><div class="dep-l"><span class="mid"><span class="nm">Whole file</span><span class="st">a retake on no department'+(rv?' · X':'')+'</span></span>'+
+'<span class="rvb"><span class="rvb-gap"></span><button class="ko-b" id="add-gen" aria-pressed="'+genOpen+'" aria-label="A retake on no department">✕</button></span></div>'+
+(it.genRtks.length?'<div class="rtks">'+it.genRtks.map(rtkLine).join('')+'</div>':'')+
+(rv&&genOpen?'<div class="rt"><textarea id="gen-t" class="rtk-t" placeholder="What to fix, on no department in particular?">'+esc(e.text)+'</textarea>'+shotTags(it,'gen')+syntax(it)+'</div>':'')+'</div>':'')+
+'</div>';
 // Notes: the rest, open first; the closed ones on demand.
 var closed=it.notes.filter(function(n){return n.closed;}),shown=it.openNotes.concat(showClosed?closed:[]);
 // No open note: one quiet line to show the closed ones, no heading.
@@ -428,7 +433,8 @@ var bare=v.slice(start,end).split(' ').every(function(w){return !w||w.charAt(0)=
 if(!bare){start=end=v.length;if(v)t=NL+t;}
 ta.value=v.slice(0,start)+t+v.slice(end);ta.focus();ta.selectionStart=ta.selectionEnd=start+t.length;ta.dispatchEvent(new Event('input',{bubbles:true}));}
 function validateAll(){var it=D[cur];if(!Object.keys(it.states).some(function(d){return isDone(it.states[d]);}))return;var e=entry(it);e.all=!e.all;refresh();}
-function generalRetake(){editing.gen=true;refresh();var g=$('gen-t');if(g)g.focus();}
+function generalRetake(){var e=entry(D[cur]);if(editing.gen||e.text){if(!e.text.trim()||confirm('Drop this general retake?')){e.text='';editing.gen=false;refresh();}return;}
+editing.gen=true;refresh();var g=$('gen-t');if(g)g.focus();}
 $('p-body').addEventListener('click',function(ev){var t,it=D[cur];
 if((t=ev.target.closest('[data-playall]')))return play(it,it.renders.map(function(r){return !!videoOf(it,r);}).indexOf(true),true);
 if((t=ev.target.closest('[data-play]')))return play(it,+t.dataset.play);

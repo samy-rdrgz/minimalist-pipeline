@@ -112,8 +112,10 @@ la prod -- sur la version qu'il a vue.
   shot d'un bloc, `[f12-40]` pour ses frames, `note:` pour une remarque
   plutôt qu'un retake -- les boutons de shot d'un bloc commencent une
   nouvelle ligne avec leur tag, pour enchaîner shot après shot ; laissée
-  vide, elle retire une validation) ; au-dessus des départements,
-  *✓ Validate all done*, *+ General retake* et *+ Description*. La liste
+  vide, elle retire une validation) ; une ligne *All done* au-dessus
+  des départements (son ✓ valide tous ceux qui sont finis) et une ligne
+  *Whole file* en dessous (son ✕ ouvre un retake sur aucun département),
+  avec les mêmes boutons ; *✎ Edit the description* sous celle-ci. La liste
   montre ce que vous avez fait sous chaque département (✓ you, ✕ you) ;
   *Last render* et *Blender file* s'effacent du panneau pendant la
   review. Touches : ← → (fichiers), Échap (fermer), V (all done), X

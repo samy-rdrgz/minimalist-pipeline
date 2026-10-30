@@ -324,6 +324,14 @@ background:var(--surface);color:var(--ink);font-size:13px;font-weight:600}
 .dep .st{font-size:13px;color:var(--ink-2)}
 .dep .ok,.dep .rk{font-size:12px}
 .rvb{display:none;gap:6px;flex:none}
+.rvb-gap{display:inline-block;width:var(--tap)}
+/* "All done" and "Whole file": rows like a department's, quieter names. */
+.dep.all .nm,.dep.whole .nm{font-weight:600;color:var(--ink-2)}
+.dep.all{padding-bottom:6px;margin-bottom:2px;border-bottom:1px dashed var(--line)}
+.dep.whole{margin-top:4px;padding-top:8px;border-top:1px dashed var(--line)}
+.dep.all .dep-l,.dep.whole .dep-l{padding-left:22px}
+.desc-edit{display:block;border:0;background:none;padding:0;margin:-6px 0 8px;min-height:var(--tap);color:var(--ink-3);font-size:12px}
+.desc-edit:hover{color:var(--accent)}
 body.reviewing .rvb{display:inline-flex}
 .rvb button{min-width:var(--tap);min-height:var(--tap);border-radius:99px;border:1px solid var(--line);background:var(--surface);font-weight:700;color:var(--ink-2)}
 .rvb .ok-b[aria-pressed="true"]{background:var(--valid);border-color:var(--valid);color:var(--on-fill)}

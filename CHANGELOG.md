@@ -36,9 +36,11 @@ review one file -- lighter to read on a computer and on a phone.
 - **Filters**: a department, Retakes, Open notes, Render outdated, To
   validate, Not finished, each with its count; *Find a file…* also
   lists the matching files of every section to jump to.
-- **Review in the panel**: ✓ / ✕ per department, *Validate all done*
-  (V), *General retake* (X), *Description*; a block's shot buttons tag a
-  retake line, the syntax recalled under the box. *Download* sums the
+- **Review in the panel**: ✓ / ✕ per department, between an *All done*
+  row (✓ every done one, V) and a *Whole file* row (✕ a retake on no
+  department, X) with the same buttons; the description edited from a
+  quiet link under it. A block's shot buttons tag a retake line; the
+  syntax is recalled under the box (the shot tag only for a block). *Download* sums the
   review up and asks name, role and date. Same `.json`, same browser
   storage: a review in progress carries over.
 - The review bar folds (›) into a round ✎ button at the bottom right,
