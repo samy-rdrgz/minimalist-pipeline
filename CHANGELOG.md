@@ -48,7 +48,8 @@ review one file -- lighter to read on a computer and on a phone.
   browser; never folded while it still needs a name.
 - **Play a render's video** from the page once the videos zip made with
   the snapshot is unzipped next to it (▶ Play in the panel); a block
-  rendered shot by shot plays its renders in a row, ‹ › to skip.
+  rendered shot by shot plays each shot's video in a row, in the block's
+  order -- a line of its last render, its own shots --, ‹ › to skip.
 - The logo opens the add-on's page on extensions.blender.org.
 - When the snapshot was taken stands out; opened later, "n days old".
 - Colours: every text at 4.5:1 or more in both themes; the review bar

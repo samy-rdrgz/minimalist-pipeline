@@ -261,25 +261,32 @@ lightbox('<img alt="" src="'+img(it.thumb)+'">',esc(it.name));},true);
 // A render's video in the zip made with the snapshot (same name), unzipped
 // beside this page: <zip>/sq060/sq060_sh070_v012-stable_001.mp4,
 // <zip>/assets/env/env_sol-lac_v002-stable_001.mp4 (lib/preview.py).
-function videoOf(it,r){var V=META.videos;if(!V||!r.folder)return null;
-if(it.kind==='shot'){if(V.sequences.indexOf(it.group)<0)return null;
-var seg=r.whole||it.shots.length<2?it.name.slice(it.group.length+1):r.shot_list[0];
-return V.zip+'/'+it.group+'/'+it.group+'_'+seg+'_'+r.folder+'.mp4';}
-if(!V.assets)return null;return V.zip+'/'+it.root+'/'+it.group+'/'+it.name+'_'+r.folder+'.mp4';}
-// One render, or a block's renders in a row (its shots' order): each
-// video starts the next once ended, ‹ › skip.
-function play(it,n,all){var list=all?it.renders.map(function(r,k){return k;}).filter(function(k){return videoOf(it,it.renders[k]);}):[n];
-var at=Math.max(0,list.indexOf(n));
-function show(){var k=list[at],r=it.renders[k],src=videoOf(it,r);
-lightbox('<video controls autoplay playsinline src="'+esc(src)+'"></video>',
-(list.length>1?'<button type="button" class="lbn" data-lb="-1"'+(at?'':' disabled')+' aria-label="Previous render">‹</button> ':'')+
-esc(it.name)+(r.shots?' · <b>'+esc(r.shots)+'</b>':'')+' · '+esc(r.folder)+(list.length>1?' ('+(at+1)+' / '+list.length+')':'')+
-(list.length>1?' <button type="button" class="lbn" data-lb="1"'+(at<list.length-1?'':' disabled')+' aria-label="Next render">›</button>':''));
-var v=$('lb-in').querySelector('video');
-v.addEventListener('ended',function(){if(at<list.length-1){at++;show();}});
-v.addEventListener('error',function(){$('lb-in').innerHTML='';
+// A render's videos, as zipped with the snapshot (its name) and unzipped
+// beside this page (lib/preview.py zip_latest_videos()): one per shot
+// for shots rendered apart -- <zip>/sq060/sq060_sh070_v012-stable_001.mp4
+// --, one for a block rendered whole or anything else --
+// <zip>/sq060/sq060_sh070-090-100_..., <zip>/assets/env/env_sol-lac_....
+function videosOf(it,r){var V=META.videos;if(!V||!r.folder)return [];
+if(it.kind!=='shot'){if(!V.assets)return [];return [{shot:'',folder:r.folder,src:V.zip+'/'+it.root+'/'+it.group+'/'+it.name+'_'+r.folder+'.mp4'}];}
+if(V.sequences.indexOf(it.group)<0)return [];
+var base=V.zip+'/'+it.group+'/'+it.group+'_';
+if(r.whole||it.shots.length<2)return [{shot:r.shots,folder:r.folder,src:base+it.name.slice(it.group.length+1)+'_'+r.folder+'.mp4'}];
+return r.shot_list.map(function(sh){return {shot:sh,folder:r.folder,src:base+sh+'_'+r.folder+'.mp4'};});}
+// Every video of the file, in its shots' order.
+function allVideos(it){var out=[];it.renders.forEach(function(r){out=out.concat(videosOf(it,r));});
+var rank=function(v){var k=it.shots.indexOf(v.shot);return k<0?0:k;};return out.sort(function(a,b){return rank(a)-rank(b);});}
+// A playlist: each video starts the next once ended, ‹ › (or ← →) skip.
+function play(it,list){if(!list.length)return;var at=0;
+function show(){var v=list[at];
+lightbox('<video controls autoplay playsinline src="'+esc(v.src)+'"></video>',
+(list.length>1?'<button type="button" class="lbn" data-lb="-1"'+(at?'':' disabled')+' aria-label="Previous video">‹</button> ':'')+
+esc(it.name)+(v.shot?' · <b>'+esc(v.shot)+'</b>':'')+' · '+esc(v.folder)+(list.length>1?' ('+(at+1)+' / '+list.length+')':'')+
+(list.length>1?' <button type="button" class="lbn" data-lb="1"'+(at<list.length-1?'':' disabled')+' aria-label="Next video">›</button>':''));
+var el=$('lb-in').querySelector('video');
+el.addEventListener('ended',function(){if(at<list.length-1){at++;show();}});
+el.addEventListener('error',function(){$('lb-in').innerHTML='';
 $('lb-cap').innerHTML='Video not found. Unzip <code>'+esc(META.videos.zip)+'.zip</code> next to this page, into a folder of the same name, then try again.'+
-'<br><span style="opacity:.7">Looked for <code>'+esc(src)+'</code></span>';});}
+'<br><span style="opacity:.7">Looked for <code>'+esc(v.src)+'</code></span>'+(list.length>1&&at<list.length-1?'<br><button type="button" class="lbn" data-lb="1" aria-label="Next video">›</button>':'');});}
 $('lb-cap').onclick=function(e){var b=e.target.closest('[data-lb]');if(!b||b.disabled)return;e.stopPropagation();at+=+b.dataset.lb;show();};
 show();}
 
@@ -337,7 +344,7 @@ function rtkLine(n){var where=[n.shot,n.frames].filter(Boolean).join(' · ');
 return '<div class="rtkl'+(n.team?' team':'')+'">'+(where?'<b>'+esc(where)+'</b> ':'')+esc(n.text)+'<small>'+(n.team?'team · ':esc(n.role||'')+' · ')+esc(n.author)+' · '+esc((n.date||'').slice(0,10))+'</small></div>';}
 function rendersHtml(it){
 if(!it.renders.length)return '<span class="faint">'+(it.kind==='shot'?'Not rendered yet':'No render')+'</span>';
-return '<div class="renders">'+it.renders.map(function(r,n){var v=videoOf(it,r);
+return '<div class="renders">'+it.renders.map(function(r,n){var v=videosOf(it,r).length;
 var st=r.status?'<span class="ss'+(r.status.state==='failed'?' fail':'')+'" title="'+esc(r.status.tip)+'">'+esc(r.status.text)+'</span>':'';
 return '<span class="sh">'+esc(r.shots||(it.kind==='shot'?'all shots':''))+'</span><span'+(r.behind?' class="bh" title="Rendered from an older version than the last stable">⚠ ':'>')+
 esc(r.folder||r.pending||'not rendered')+(r.behind?'<small>stable is '+esc(it.stable_v)+'</small>':'')+st+'</span>'+
@@ -365,9 +372,8 @@ var deps=depsOf(it.kind).filter(function(d){return d in it.states;});
 var h='<div class="p-media">'+(it.thumb?'<button type="button" class="big" id="bigb" aria-label="Full size"><img id="bigimg" alt="" src="'+img(it.thumb)+'"></button>':'<span class="thumb none"><span class="frame"></span></span>')+
 (it.shot_thumbs.length?'<div class="shotsel">'+[['whole block',it.thumb]].concat(it.shot_thumbs).map(function(s,n){
 return '<button type="button" data-src="'+(s[1]?img(s[1]):'')+'" aria-pressed="'+(n===0)+'"'+(s[1]?'':' disabled')+'><span class="frame">'+(s[1]?'<img alt="" src="'+img(s[1])+'">':'')+'</span>'+esc(s[0])+(s[1]?'':' · not rendered')+'</button>';}).join('')+'</div>':'')+
-(function(){var n=it.renders.filter(function(r){return videoOf(it,r);}).length;
-return !n?'':n===1?'<button type="button" class="play" data-play="'+it.renders.map(function(r){return !!videoOf(it,r);}).indexOf(true)+'">▶ Play the render</button>':
-'<button type="button" class="play" data-playall="1" title="Each shot\'s render, in the block\'s order">▶ Play the '+n+' renders in a row</button>';})()+'</div>';
+(function(){var n=allVideos(it).length;
+return !n?'':'<button type="button" class="play" data-playall="1"'+(n>1?' title="Each shot\'s video, in the block\'s order"':'')+'>▶ '+(n>1?'Play the '+n+' shots in a row':'Play the render')+'</button>';})()+'</div>';
 // The description first: what the file is.
 if(rv&&(editing.desc||e.desc!==null))h+='<div class="p-block"><h4>Description<span class="h-sub">sent with the review</span></h4><textarea id="desc-t" placeholder="What this file is, for the team">'+esc(e.desc!==null?e.desc:it.desc)+'</textarea></div>';
 else{if(it.desc)h+='<p class="desc">'+esc(it.desc)+'</p>';
@@ -446,8 +452,8 @@ function validateAll(){var it=D[cur];if(!Object.keys(it.states).some(function(d)
 function generalRetake(){var e=entry(D[cur]);if(editing.gen||e.text){if(!e.text.trim()||confirm('Drop this general retake?')){e.text='';editing.gen=false;refresh();}return;}
 editing.gen=true;refresh();var g=$('gen-t');if(g)g.focus();}
 $('p-body').addEventListener('click',function(ev){var t,it=D[cur];
-if((t=ev.target.closest('[data-playall]')))return play(it,it.renders.map(function(r){return !!videoOf(it,r);}).indexOf(true),true);
-if((t=ev.target.closest('[data-play]')))return play(it,+t.dataset.play);
+if((t=ev.target.closest('[data-playall]')))return play(it,allVideos(it));
+if((t=ev.target.closest('[data-play]')))return play(it,videosOf(it,it.renders[+t.dataset.play]));
 if(ev.target.closest('#bigb'))return lightbox('<img alt="" src="'+$('bigimg').src+'">',esc(it.name));
 if((t=ev.target.closest('.shotsel button'))){$('bigimg').src=t.dataset.src;t.parentNode.querySelectorAll('button').forEach(function(x){x.setAttribute('aria-pressed',x===t);});return;}
 if((t=ev.target.closest('.tags [data-shot]'))){var key=t.closest('.tags').dataset.k,sh=t.dataset.shot,txt=key==='gen'?entry(it).text:(entry(it).deps[key.slice(2)]||{}).text||'',b=boxOf(it,key,txt);
