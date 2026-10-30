@@ -149,8 +149,15 @@ def _ffmpeg_preset_to_args(preset: dict) -> list[str]:
         if key in preset:
             flag = "-c:v" if key == "codec" else f"-{key}"
             args += [flag, str(preset[key])]
-    args += preset.get("extra_args", [])
-    return args
+    extra = list(preset.get("extra_args", []))
+    # HEVC in an mp4: ffmpeg tags it hev1, which Safari, iPhone and iPad
+    # (and QuickTime) refuse to play -- hvc1 plays everywhere.
+    codec = str(preset.get("codec", "")).lower()
+    if ("265" in codec or "hevc" in codec) and not any(
+        a.startswith("-tag") for a in extra
+    ):
+        extra += ["-tag:v", "hvc1"]
+    return args + extra
 
 
 def compilation(*, project_root: Path, job_path: Path, compilation_settings: str):

@@ -353,8 +353,10 @@ el.onclick=function(e){e.stopPropagation();pb.onclick(e);};
 $('vp-f').onclick=function(e){e.stopPropagation();var f=el.requestFullscreen||el.webkitRequestFullscreen||el.webkitEnterFullscreen;if(f)f.call(el);};
 el.addEventListener('ended',function(){if(at<list.length-1){at++;show();}else sync();});
 el.addEventListener('error',function(){$('lb-in').innerHTML='';var V=META.videos;
-$('lb-cap').innerHTML=(PICKED||!V?'This video couldn\'t be read.':V.mode==='zip'?'Video not found. Unzip <code>'+esc(V.base)+'.zip</code> next to this page, into a folder of the same name.':
-'Video not found: no <code>'+esc(V.base)+'</code> folder next to this page.')+' '+pickLink('Choose the videos folder…')+
+// A video chosen here is there: then its format is the problem -- an
+// HEVC tagged hev1 (compiled by an older add-on) on Safari, iPhone, iPad.
+$('lb-cap').innerHTML=(v.src.slice(0,5)==='blob:'?'This browser can\'t play this video\'s format (on an iPad or in Safari: an H.265 video compiled by an older add-on -- compile it again).':!V?'This video couldn\'t be read.':V.mode==='zip'?'Video not found. Unzip <code>'+esc(V.base)+'.zip</code> next to this page, into a folder of the same name.':
+'Video not found: no <code>'+esc(V.base)+'</code> folder next to this page -- or this browser can\'t play its format.')+(v.src.slice(0,5)==='blob:'?'':' '+pickLink('Choose the videos folder…'))+
 '<br><span style="opacity:.7">Looked for <code>'+esc(v.name)+'</code></span>'+(many&&at<list.length-1?'<br><button type="button" class="lbn" data-lb="1" aria-label="Next video">›</button>':'');});}
 $('lb').onclick=function(e){var b=e.target.closest('[data-lb]');if(!b)return;e.stopPropagation();if(b.disabled)return;at+=+b.dataset.lb;show();};
 show();}

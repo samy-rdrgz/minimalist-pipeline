@@ -80,4 +80,4 @@ Toute la farm se coordonne sur le drive partagé du projet, sans SSH ni connexio
 
 ---
 
-**Voir aussi** : [Interface](interface_fr.md#fenêtres-de-vue-densemble) pour le dashboard Jobs/Workers · [Sessions et verrouillage](sessions-and-locking_fr.md) pour le pattern heartbeat/expiration que suivent aussi les workers et le monitor.
+**Voir aussi** : [Interface](interface_fr.md#fenêtres-de-vue-densemble) pour le dashboard Jobs/Workers · [Sessions et verrouillage](sessions-and-locking_fr.md) pour le pattern heartbeat/expiration que suivent aussi les workers et le monitor. Une compilation H.265 (le `libx265` du preset par défaut) est taguée `hvc1`, sauf si les `extra_args` du preset fixent leur propre `-tag` : Safari, iPhone, iPad et QuickTime refusent le `hev1` qu'ffmpeg met par défaut -- recompiler une vidéo plus ancienne pour la lire là.

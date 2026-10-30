@@ -69,6 +69,10 @@ review one file -- lighter to read on a computer and on a phone.
 - A retake on no department (general RTK) counts in a file's Done as an
   RTK on one of its done departments, no longer on every one of them;
   each department's own Done leaves it out.
+- H.265 videos play on iPad, iPhone and Safari: the compilation tags
+  them `hvc1` (ffmpeg's `hev1` was refused there). Recompile an older
+  one to play it. The page says when a video is there but its format
+  can't be played, instead of "not found".
 - The department filter is drawn like the chips next to it.
 - When the snapshot was taken stands out; opened later, "n days old".
 - Colours: every text at 4.5:1 or more in both themes; the review bar
