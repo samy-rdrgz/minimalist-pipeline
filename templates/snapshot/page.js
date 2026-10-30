@@ -342,6 +342,12 @@ return '<div class="note'+(n.closed?' closed':'')+(reply?' reply':'')+(n.role?' 
 (n.replies||[]).map(function(r){return noteHtml(Object.assign({closed:n.closed},r),true);}).join('');}
 function rtkLine(n){var where=[n.shot,n.frames].filter(Boolean).join(' · ');
 return '<div class="rtkl'+(n.team?' team':'')+'">'+(where?'<b>'+esc(where)+'</b> ':'')+esc(n.text)+'<small>'+(n.team?'team · ':esc(n.role||'')+' · ')+esc(n.author)+' · '+esc((n.date||'').slice(0,10))+'</small></div>';}
+// Rendered but nothing to play: say why, quietly -- the videos come only
+// from the zip made with the snapshot, for what was ticked then.
+function noVideo(it){if(!it.renders.some(function(r){return r.folder;})||allVideos(it).length)return '';
+var V=META.videos,why=!V?'No video was zipped with this snapshot (Videos to zip, when exporting).':
+it.kind==='shot'?'The videos of '+it.group+' weren\'t zipped with this snapshot.':'The assets\' videos weren\'t zipped with this snapshot.';
+return '<p class="novid">'+esc(why)+'</p>';}
 function rendersHtml(it){
 if(!it.renders.length)return '<span class="faint">'+(it.kind==='shot'?'Not rendered yet':'No render')+'</span>';
 // A button per video: one ▶ Play for a render that is one video, one per
@@ -403,7 +409,7 @@ else if(it.openNotes.length||closed.length){h+='<div class="p-block"><button typ
 if(showNotes)h+=shown.map(function(n){return noteHtml(n);}).join('')+(closed.length?'<button type="button" class="more-notes" id="tog-closed">'+(showClosed?'Hide the closed ones':'Show the '+closed.length+' closed')+'</button>':'');
 h+='</div>';}
 // Where it comes from: at the bottom, out of the way while reviewing.
-h+='<dl class="view-only facts"><dt>Last render</dt><dd>'+rendersHtml(it)+'</dd><dt>Blender file</dt><dd class="fileline">'+esc(it.file)+'.blend</dd></dl>';
+h+='<dl class="view-only facts"><dt>Last render</dt><dd>'+rendersHtml(it)+noVideo(it)+'</dd><dt>Blender file</dt><dd class="fileline">'+esc(it.file)+'.blend</dd></dl>';
 $('p-body').innerHTML=h;$('p-body').querySelectorAll('textarea').forEach(grow);
 document.body.classList.add('panel-open');var p=$('panel');p.hidden=false;
 requestAnimationFrame(function(){p.classList.add('on');$('scrim').classList.add('on');});
