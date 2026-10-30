@@ -305,9 +305,24 @@ $('stats').innerHTML=h+'<p class="weights">'+esc($('weights').textContent)+'</p>
 /* ---------- a file's panel ---------- */
 var cur=null,lastFocus=null,showClosed=false,showNotes=null,editing={};
 function reviewing(){return document.body.classList.contains('reviewing');}
-function shotTags(it,target){if(it.shots.length<2)return '';
-return '<div class="tags" data-for="'+target+'"><span>One shot:</span>'+it.shots.map(function(s){return '<button type="button" data-tag="'+esc(s)+'" title="A new line for a retake of '+esc(s)+' only">'+esc(s)+'</button>';}).join('')+'</div>';}
-function syntax(it){return '<p class="syntax">One retake per line'+(it.shots.length>1?' · <code>[sh020]</code> a shot':'')+' · <code>[f12-40]</code> frames · <code>note:</code> a remark, not a retake</p>';}
+// A retake's box. A block's: one for all its shots, then one per shot
+// opened by its button -- written back as one text, each line of a
+// shot's box tagged "[sh040] ", as the import reads it.
+var BOX={};
+function boxOf(it,key,text){var k=it.file+'|'+key,b=BOX[k];if(b&&b.text===text)return b;
+b={all:[],per:{},open:{},text:text};(text||'').split(NL).forEach(function(l){var m=l.match(/^\s*\[([a-z]*\d+)\]\s?(.*)$/i),sh=m&&m[1].toLowerCase();
+if(sh&&it.shots.indexOf(sh)>=0){(b.per[sh]=b.per[sh]||[]).push(m[2]);b.open[sh]=true;}else b.all.push(l);});
+b.all=b.all.join(NL);Object.keys(b.per).forEach(function(sh){b.per[sh]=b.per[sh].join(NL);});return BOX[k]=b;}
+function joinBox(it,b){var out=b.all.split(NL).filter(function(l){return l.trim();});
+it.shots.forEach(function(sh){if(b.open[sh]&&b.per[sh])b.per[sh].split(NL).forEach(function(l){if(l.trim())out.push('['+sh+'] '+l);});});
+return b.text=out.join(NL);}
+function retakeBox(it,key,text,ph){
+if(it.shots.length<2)return '<textarea class="rtk-t" data-k="'+esc(key)+'"'+(key==='gen'?' id="gen-t"':'')+' placeholder="'+esc(ph)+'">'+esc(text)+'</textarea>';
+var b=boxOf(it,key,text);
+return '<div class="rbox"><textarea class="rtk-t" data-k="'+esc(key)+'" data-s=""'+(key==='gen'?' id="gen-t"':'')+' placeholder="'+esc(ph)+' -- all its shots">'+esc(b.all)+'</textarea>'+
+'<div class="tags" data-k="'+esc(key)+'"><span>One shot:</span>'+it.shots.map(function(sh){return '<button type="button" data-shot="'+esc(sh)+'" aria-pressed="'+!!b.open[sh]+'">'+esc(sh)+'</button>';}).join('')+'</div>'+
+it.shots.filter(function(sh){return b.open[sh];}).map(function(sh){return '<label class="shotbox"><span>'+esc(sh)+'</span><textarea class="rtk-t" data-k="'+esc(key)+'" data-s="'+esc(sh)+'" placeholder="What to fix in '+esc(sh)+'?">'+esc(b.per[sh]||'')+'</textarea></label>';}).join('')+'</div>';}
+function syntax(it){return '<p class="syntax">One retake per line · <code>[f12-40]</code> frames · <code>note:</code> a remark, not a retake</p>';}
 function noteHtml(n,reply){var type=n.done===true?'<span class="badge b-done" title="Done">✓ '+esc(n.type)+'</span>':
 '<span class="badge '+(n.type==='rtk'?(n.team?'b-team':'b-rtk'):n.type==='todo'?'b-todo':'b-note')+'">'+esc(n.type)+(n.type==='rtk'&&n.team?' · team':'')+'</span>';
 var tags=[];if(n.role)tags.push('<span class="tg role" title="Written as '+esc(n.role)+'">'+esc(n.role)+'</span>');
@@ -334,7 +349,7 @@ return '<div class="dep"><div class="dep-l">'+mark(s)+'<span class="mid"><span c
 '<span class="rvb" data-d="'+esc(d)+'"><button class="ok-b'+(via?' via':'')+'" aria-pressed="'+!!(v&&v.ok)+'"'+(isDone(s)?' title="Validate it as your role"':' disabled title="Not done: nothing to validate yet"')+
 ' aria-label="Validate '+esc(d)+'">✓</button><button class="ko-b" aria-pressed="'+!!(v&&v.no)+'" aria-label="Retake '+esc(d)+'" title="Retake: write what to fix (or nothing, to withdraw a validation)">✕</button></span></div>'+
 ((it.rtkNotes[d]||[]).length?'<div class="rtks">'+it.rtkNotes[d].map(rtkLine).join('')+'</div>':'')+
-(rv&&v&&v.no?'<div class="rt"><textarea class="rtk-t" data-d="'+esc(d)+'" placeholder="What to fix in '+esc(d)+'? Empty: just withdraw its validation">'+esc(v.text)+'</textarea>'+shotTags(it,'d:'+d)+syntax(it)+'</div>':'')+'</div>';}
+(rv&&v&&v.no?'<div class="rt">'+retakeBox(it,'d:'+d,v.text,'What to fix in '+d+'? Empty: just withdraw its validation')+syntax(it)+'</div>':'')+'</div>';}
 function openPanel(i){
 var it=D[i];if(cur!==i){showClosed=false;showNotes=null;editing={};}cur=i;if(!lastFocus)lastFocus=document.activeElement;
 var rv=reviewing(),e=peek(it);if(showNotes===null)showNotes=!rv;
@@ -368,7 +383,7 @@ h+='<div class="p-block major">'+
 (rv||it.genRtks.length?'<div class="dep whole"><div class="dep-l"><span class="mid"><span class="nm">Whole file</span><span class="st">a retake on no department'+(rv?' · X':'')+'</span></span>'+
 '<span class="rvb"><span class="rvb-gap"></span><button class="ko-b" id="add-gen" aria-pressed="'+genOpen+'" aria-label="A retake on no department">✕</button></span></div>'+
 (it.genRtks.length?'<div class="rtks">'+it.genRtks.map(rtkLine).join('')+'</div>':'')+
-(rv&&genOpen?'<div class="rt"><textarea id="gen-t" class="rtk-t" placeholder="What to fix, on no department in particular?">'+esc(e.text)+'</textarea>'+shotTags(it,'gen')+syntax(it)+'</div>':'')+'</div>':'')+
+(rv&&genOpen?'<div class="rt">'+retakeBox(it,'gen',e.text,'What to fix, on no department in particular?')+syntax(it)+'</div>':'')+'</div>':'')+
 '</div>';
 // Notes: the rest, open first; the closed ones on demand.
 var closed=it.notes.filter(function(n){return n.closed;}),shown=it.openNotes.concat(showClosed?closed:[]);
@@ -426,12 +441,7 @@ $('panel').addEventListener('keydown',function(e){if(e.key!=='Tab'||!phone.match
 if(!f.length)return;var a=f[0],z=f[f.length-1];if(e.shiftKey&&document.activeElement===a){z.focus();e.preventDefault();}else if(!e.shiftKey&&document.activeElement===z){a.focus();e.preventDefault();}});
 var FS=window.CSS&&CSS.supports('field-sizing','content');
 function grow(t){if(FS||!t)return;t.style.height='auto';t.style.height=Math.min(t.scrollHeight+2,innerHeight*.5)+'px';}
-// A shot's tag: on the line the cursor is on while it is empty (or only
-// tags), else on a new line at the end -- one retake per shot, in a row.
-function addTag(ta,s){var v=ta.value,at=ta.selectionStart,start=v.lastIndexOf(NL,at-1)+1,end=v.indexOf(NL,at),t='['+s+'] ';if(end<0)end=v.length;
-var bare=v.slice(start,end).split(' ').every(function(w){return !w||w.charAt(0)==='[';});
-if(!bare){start=end=v.length;if(v)t=NL+t;}
-ta.value=v.slice(0,start)+t+v.slice(end);ta.focus();ta.selectionStart=ta.selectionEnd=start+t.length;ta.dispatchEvent(new Event('input',{bubbles:true}));}
+function setText(it,key,text){var e=entry(it);if(key==='gen')e.text=text;else if(e.deps[key.slice(2)])e.deps[key.slice(2)].text=text;}
 function validateAll(){var it=D[cur];if(!Object.keys(it.states).some(function(d){return isDone(it.states[d]);}))return;var e=entry(it);e.all=!e.all;refresh();}
 function generalRetake(){var e=entry(D[cur]);if(editing.gen||e.text){if(!e.text.trim()||confirm('Drop this general retake?')){e.text='';editing.gen=false;refresh();}return;}
 editing.gen=true;refresh();var g=$('gen-t');if(g)g.focus();}
@@ -440,7 +450,10 @@ if((t=ev.target.closest('[data-playall]')))return play(it,it.renders.map(functio
 if((t=ev.target.closest('[data-play]')))return play(it,+t.dataset.play);
 if(ev.target.closest('#bigb'))return lightbox('<img alt="" src="'+$('bigimg').src+'">',esc(it.name));
 if((t=ev.target.closest('.shotsel button'))){$('bigimg').src=t.dataset.src;t.parentNode.querySelectorAll('button').forEach(function(x){x.setAttribute('aria-pressed',x===t);});return;}
-if((t=ev.target.closest('.tags button'))){var box=t.parentNode,ta=box.dataset.for==='gen'?$('gen-t'):$('p-body').querySelector('textarea[data-d="'+CSS.escape(box.dataset.for.slice(2))+'"]');return addTag(ta,t.dataset.tag);}
+if((t=ev.target.closest('.tags [data-shot]'))){var key=t.parentNode.dataset.k,sh=t.dataset.shot,txt=key==='gen'?entry(it).text:(entry(it).deps[key.slice(2)]||{}).text||'',b=boxOf(it,key,txt);
+if(b.open[sh]&&(b.per[sh]||'').trim()&&!confirm('Drop what you wrote for '+sh+'?'))return;
+b.open[sh]=!b.open[sh];if(!b.open[sh])delete b.per[sh];setText(it,key,joinBox(it,b));refresh();
+if(b.open[sh]){var ta3=$('p-body').querySelector('textarea[data-k="'+CSS.escape(key)+'"][data-s="'+CSS.escape(sh)+'"]');if(ta3)ta3.focus();}return;}
 if(ev.target.closest('#tog-closed')){showClosed=!showClosed;showNotes=true;return refresh();}
 if(ev.target.closest('#tog-notes')){showNotes=!showNotes;return refresh();}
 if(ev.target.closest('#add-gen'))return generalRetake();
@@ -449,9 +462,10 @@ if(ev.target.closest('#allok'))return validateAll();
 if((t=ev.target.closest('.rvb button'))&&!t.disabled){var d=t.parentNode.dataset.d,e=entry(it),v=e.deps[d];
 if(t.classList.contains('ok-b')){if(v&&v.ok)delete e.deps[d];else e.deps[d]={ok:1};refresh();}
 else{if(v&&v.no)delete e.deps[d];else e.deps[d]={no:1,text:''};refresh();
-if(e.deps[d]){var ta2=$('p-body').querySelector('textarea[data-d="'+CSS.escape(d)+'"]');if(ta2)ta2.focus();}}}});
+if(e.deps[d]){var ta2=$('p-body').querySelector('textarea[data-k="'+CSS.escape('d:'+d)+'"]');if(ta2)ta2.focus();}}}});
 $('p-body').addEventListener('input',function(ev){var t=ev.target,it=D[cur],e=entry(it);if(t.tagName!=='TEXTAREA')return;grow(t);
-if(t.dataset.d){if(e.deps[t.dataset.d])e.deps[t.dataset.d].text=t.value;}else if(t.id==='gen-t')e.text=t.value;else if(t.id==='desc-t')e.desc=t.value;
+if(t.dataset.k){var k=t.dataset.k;if(t.dataset.s==null)setText(it,k,t.value);else{var b=boxOf(it,k,k==='gen'?e.text:(e.deps[k.slice(2)]||{}).text||'');
+if(t.dataset.s)b.per[t.dataset.s]=t.value;else b.all=t.value;setText(it,k,joinBox(it,b));}}else if(t.id==='desc-t')e.desc=t.value;
 $('p-flags').innerHTML=flags(it);var row=$('list').querySelector('.row[data-i="'+cur+'"] .flags');if(row)row.innerHTML=flags(it);countBar();save();});
 
 /* ---------- keys, as the page before ---------- */

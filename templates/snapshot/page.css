@@ -352,6 +352,12 @@ textarea.rtk-t{border-color:var(--rtk)}
 .tags span{font-size:12px;color:var(--ink-3);align-self:center;margin-right:2px}
 .tags button{min-height:calc(var(--tap) - 6px);padding:0 9px;border:1px solid var(--line);border-radius:99px;background:var(--surface);font-size:12px;color:var(--ink-2)}
 .tags button:hover{border-color:var(--rtk);color:var(--rtk)}
+.tags button[aria-pressed="true"]{border-color:var(--rtk);color:var(--rtk);background:var(--rtk-bg);font-weight:600}
+/* A block's retake: a box for all its shots, then one per shot opened. */
+.rbox{display:grid;gap:6px}
+.shotbox{display:grid;grid-template-columns:52px minmax(0,1fr);gap:8px;align-items:start}
+.shotbox>span{padding-top:8px;font-size:12px;font-weight:700;color:var(--rtk)}
+.shotbox textarea{min-height:44px}
 .fold{display:flex;align-items:center;gap:6px;border:0;background:none;padding:0;min-height:var(--tap);color:var(--ink-2);font-size:13px;font-weight:600}
 .fold::before{content:"";width:6px;height:6px;border:solid var(--ink-3);border-width:0 2px 2px 0;transform:rotate(-45deg);transition:transform .15s}
 .fold[aria-expanded="true"]::before{transform:rotate(45deg)}

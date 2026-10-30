@@ -103,8 +103,9 @@ it saw.
   and, in a file's panel, a ✓ by each department (validate it as your
   role -- a done one only) and a ✗ (a box for the retakes, one per line:
   `[sh020]` at its start for one shot of a block, `[f12-40]` for its
-  frames, `note:` for a remark instead of a retake -- a block's shot
-  buttons start a new line with their tag, so you go shot after shot;
+  frames, `note:` for a remark instead of a retake -- for a block, a box
+  for all its shots and one per shot, opened by its button, each line of
+  it written back with its `[sh020]` tag;
   left empty, it withdraws a validation); an *All done* row above the
   departments (its ✓ validates every done one) and a *Whole file* row
   under them (its ✕ opens a retake on no department), with the same

@@ -110,8 +110,9 @@ la prod -- sur la version qu'il a vue.
   valider pour votre rôle -- seulement s'il est fini) et un ✗ (une case
   pour les retakes, un par ligne : `[sh020]` en début de ligne pour un
   shot d'un bloc, `[f12-40]` pour ses frames, `note:` pour une remarque
-  plutôt qu'un retake -- les boutons de shot d'un bloc commencent une
-  nouvelle ligne avec leur tag, pour enchaîner shot après shot ; laissée
+  plutôt qu'un retake -- pour un bloc, une case pour tous ses shots et
+  une par shot, ouverte par son bouton, chacune de ses lignes réécrite
+  avec son tag `[sh020]` ; laissée
   vide, elle retire une validation) ; une ligne *All done* au-dessus
   des départements (son ✓ valide tous ceux qui sont finis) et une ligne
   *Whole file* en dessous (son ✕ ouvre un retake sur aucun département),
