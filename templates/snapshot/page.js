@@ -344,11 +344,14 @@ function rtkLine(n){var where=[n.shot,n.frames].filter(Boolean).join(' · ');
 return '<div class="rtkl'+(n.team?' team':'')+'">'+(where?'<b>'+esc(where)+'</b> ':'')+esc(n.text)+'<small>'+(n.team?'team · ':esc(n.role||'')+' · ')+esc(n.author)+' · '+esc((n.date||'').slice(0,10))+'</small></div>';}
 function rendersHtml(it){
 if(!it.renders.length)return '<span class="faint">'+(it.kind==='shot'?'Not rendered yet':'No render')+'</span>';
-return '<div class="renders">'+it.renders.map(function(r,n){var v=videosOf(it,r).length;
+// A button per video: one ▶ Play for a render that is one video, one per
+// shot for shots rendered apart (the panel's button plays them all).
+return '<div class="renders">'+it.renders.map(function(r,n){var vs=videosOf(it,r),v=vs.length;
 var st=r.status?'<span class="ss'+(r.status.state==='failed'?' fail':'')+'" title="'+esc(r.status.tip)+'">'+esc(r.status.text)+'</span>':'';
 return '<span class="sh">'+esc(r.shots||(it.kind==='shot'?'all shots':''))+'</span><span'+(r.behind?' class="bh" title="Rendered from an older version than the last stable">⚠ ':'>')+
 esc(r.folder||r.pending||'not rendered')+(r.behind?'<small>stable is '+esc(it.stable_v)+'</small>':'')+st+'</span>'+
-(v?'<button type="button" class="pl" data-play="'+n+'">▶ Play</button>':'<span></span>');}).join('')+'</div>';}
+(v===1?'<button type="button" class="pl" data-play="'+n+'" data-k="0">▶ Play</button>':'<span></span>')+
+(v>1?'<span class="pls">'+vs.map(function(x,k){return '<button type="button" class="pl" data-play="'+n+'" data-k="'+k+'" title="'+esc(x.src.split('/').pop())+'">▶ '+esc(x.shot)+'</button>';}).join('')+'</span>':'');}).join('')+'</div>';}
 function depHtml(it,d,rv){var s=it.states[d],e=peek(it),v=e.deps[d],o=it.ok[d],via=!v&&e.all&&isDone(s);
 var okd=o?(o.old?'<span class="ok old" title="'+esc(o.tip)+'">✓ '+esc(o.role)+' on '+esc(o.seen)+'</span><span class="faint" style="font-size:12px">to review again</span>':
 '<span class="ok" title="'+esc(o.tip)+'">✓ '+esc(o.role)+'</span>'):'';
@@ -453,7 +456,7 @@ function generalRetake(){var e=entry(D[cur]);if(editing.gen||e.text){if(!e.text.
 editing.gen=true;refresh();var g=$('gen-t');if(g)g.focus();}
 $('p-body').addEventListener('click',function(ev){var t,it=D[cur];
 if((t=ev.target.closest('[data-playall]')))return play(it,allVideos(it));
-if((t=ev.target.closest('[data-play]')))return play(it,videosOf(it,it.renders[+t.dataset.play]));
+if((t=ev.target.closest('[data-play]')))return play(it,[videosOf(it,it.renders[+t.dataset.play])[+t.dataset.k||0]]);
 if(ev.target.closest('#bigb'))return lightbox('<img alt="" src="'+$('bigimg').src+'">',esc(it.name));
 if((t=ev.target.closest('.shotsel button'))){$('bigimg').src=t.dataset.src;t.parentNode.querySelectorAll('button').forEach(function(x){x.setAttribute('aria-pressed',x===t);});return;}
 if((t=ev.target.closest('.tags [data-shot]'))){var key=t.closest('.tags').dataset.k,sh=t.dataset.shot,txt=key==='gen'?entry(it).text:(entry(it).deps[key.slice(2)]||{}).text||'',b=boxOf(it,key,txt);
