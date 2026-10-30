@@ -12,7 +12,7 @@ orange), validated violet, the rest neutral. */
 --bar-bg:#1b1b19;--bar-ink:#f5f5f2;--bar-field:#33332f;
 --r-sm:3px;--r-md:8px;--r-lg:12px;
 --sh-pop:0 10px 40px rgba(0,0,0,.18);
---tap:32px;--bar-h:56px;
+--tap:32px;--bar-h:56px;--pw:540px;
 --display:"MP Display",system-ui,sans-serif;
 --ui:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
 --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
@@ -190,14 +190,16 @@ kbd{display:inline-block;min-width:22px;padding:0 5px;border:1px solid var(--lin
 .untracked{display:block;width:100%;padding:10px 16px;border:0;border-top:1px solid var(--sunk);background:none;text-align:left;font-size:13px;color:var(--ink-3);min-height:var(--tap)}
 .untracked:hover{color:var(--ink)}
 .empty{padding:28px;text-align:center;color:var(--ink-3)}
-@media (max-width:700px){
+/* Narrow -- a phone, or the list beside a wide panel -- the compact rows. */
+#list{container-type:inline-size}
+@container (max-width:760px){
 .g-h{grid-template-columns:minmax(0,1fr) auto}.g-h .tw{grid-column:1/-1;order:3}
 .thead{display:none}
 .row{grid-template-columns:104px minmax(0,1fr) auto;gap:6px 12px}
 .row .d{display:none}
 .dl{display:flex;flex-wrap:wrap;gap:6px 14px;grid-column:1/-1;font-size:13px;color:var(--ink-2)}
 .dl>span{display:inline-flex;align-items:center;gap:5px}
-/* A phone: the department's name in its state's colour, told apart by
+/* Compact: the department's name in its state's colour, told apart by
 weight too (done bold, not started light) -- no mark; rows apart by a
 band of the page's background; the versions left to the panel. */
 .dn{font-weight:400}
@@ -253,7 +255,7 @@ details.stats[open]>summary::before{transform:rotate(45deg)}
 /* ---------- detail panel ---------- */
 .scrim{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.32);opacity:0;pointer-events:none;transition:opacity .2s}
 .scrim.on{opacity:1;pointer-events:auto}
-.panel{position:fixed;z-index:51;top:0;right:0;bottom:0;width:min(540px,100%);background:var(--surface);box-shadow:var(--sh-pop);
+.panel{position:fixed;z-index:51;top:0;right:0;bottom:0;width:min(var(--pw),100%);background:var(--surface);box-shadow:var(--sh-pop);
 transform:translateX(102%);transition:transform .22s ease;display:flex;flex-direction:column}
 .panel.on{transform:none}
 /* A computer: the panel beside the list, not over it -- the list stays
@@ -261,8 +263,16 @@ live, a click on another row shows that file; wide enough, the list
 moves aside so no row hides under the panel. A phone: the whole screen. */
 @media (min-width:641px){.scrim{display:none}.panel{box-shadow:-1px 0 0 var(--line),-12px 0 32px rgba(0,0,0,.08)}}
 @media (min-width:1100px){.wrap{transition:margin .22s ease}
-body.panel-open .wrap{margin-left:max(20px,calc((100vw - 540px - 1180px) / 2));margin-right:540px}}
+body.panel-open .wrap{margin-left:max(20px,calc((100vw - var(--pw) - 1180px) / 2));margin-right:var(--pw)}}
 @media (max-width:640px){.panel{left:0;width:100%;height:100dvh;transform:translateY(102%)}}
+/* Its left edge: drag it to make the panel wider or narrower (kept by
+this browser), a double click for the default width. */
+.p-resize{position:absolute;left:-5px;top:0;bottom:0;width:10px;z-index:2;cursor:col-resize;touch-action:none}
+.p-resize::after{content:"";position:absolute;left:4px;top:0;bottom:0;width:2px;background:transparent;transition:background .15s}
+.p-resize:hover::after,.p-resize:focus-visible::after,body.resizing .p-resize::after{background:var(--accent)}
+body.resizing,body.resizing *{cursor:col-resize!important;user-select:none!important}
+body.resizing .wrap,body.resizing .panel{transition:none!important}
+@media (max-width:640px){.p-resize{display:none}}
 .grab{display:none}
 
 .p-head{display:flex;align-items:flex-start;gap:8px;padding:12px 12px 12px 18px;border-bottom:1px solid var(--line)}
@@ -287,8 +297,7 @@ background:var(--surface);color:var(--ink);font-size:13px;font-weight:600}
 .links{display:flex;flex-wrap:wrap;gap:4px 16px;margin:0 0 4px}
 .links button{border:0;background:none;padding:0;min-height:var(--tap);color:var(--accent);font-size:13px;font-weight:600}
 .links button[aria-pressed="true"]{color:var(--valid)}
-.dep{border-top:1px solid var(--sunk);padding:8px 0}
-.dep:first-of-type{border-top:0}
+.dep{padding:4px 0}
 .dep-l{display:flex;align-items:center;gap:10px;min-height:var(--tap)}
 .dep .mid{flex:1;display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;min-width:0}
 .dep .nm{font-weight:600;min-width:84px}
@@ -338,6 +347,8 @@ textarea.rtk-t{border-color:var(--rtk)}
 .renders .pl{border:0;background:none;padding:0 4px;min-height:24px;color:var(--accent);font-size:12px;font-weight:600}
 .fileline{font:12px/1.5 var(--mono);padding:8px 12px;border-radius:6px;background:var(--sunk);overflow-wrap:anywhere}
 body.reviewing .view-only{display:none}
+/* Last render and Blender file: one block, no rule between them. */
+.view-only .p-block+.p-block{border-top:0;padding-top:0}
 .p-foot{display:flex;gap:8px;align-items:center;padding:10px 12px calc(10px + env(safe-area-inset-bottom));border-top:1px solid var(--line)}
 .p-foot .btn{flex:none}
 .keys{flex:1;display:flex;flex-wrap:wrap;justify-content:center;gap:2px 12px;font-size:11px;color:var(--ink-3)}
@@ -362,7 +373,7 @@ body.reviewing .keys .rk2{display:inline}
 display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px;border-radius:20px;background:var(--bar-bg);color:var(--bar-ink);
 box-shadow:var(--sh-pop);border:1px solid color-mix(in srgb,var(--bar-ink) 12%,transparent);width:max-content;max-width:calc(100% - 24px)}
 body.reviewing .rbar{visibility:visible;transform:translate(-50%,0)}
-@media (min-width:641px){body.panel-open .rbar{left:calc((100% - min(540px,100%))/2)}}
+@media (min-width:641px){body.panel-open .rbar{left:calc((100% - min(var(--pw),100%))/2)}}
 .rbar .lbl{font-size:12px;opacity:.75;padding-left:8px}
 .rbar input,.rbar select{min-height:var(--tap);border-radius:99px;border:0;padding:0 12px;background:var(--bar-field);color:var(--bar-ink)}
 .rbar input{width:130px}
@@ -387,7 +398,7 @@ font:700 11px/20px var(--ui);text-align:center}
 body.reviewing.rb-folded .rbar{visibility:hidden;transform:translate(-50%,150%)}
 body.reviewing.rb-folded .rfab{display:inline-flex}
 body.reviewing.rb-folded{padding-bottom:24px}
-@media (min-width:641px){body.panel-open .rfab{right:calc(min(540px,100%) + 16px)}}
+@media (min-width:641px){body.panel-open .rfab{right:calc(min(var(--pw),100%) + 16px)}}
 @media (max-width:640px){body.reviewing.rb-folded .rbar{transform:translateY(150%)}}
 .dlg{position:fixed;inset:0;z-index:65;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.4)}
 .dlg-in{width:min(420px,100%);padding:20px;border-radius:var(--r-lg);background:var(--surface);box-shadow:var(--sh-pop)}

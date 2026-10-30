@@ -21,7 +21,9 @@ review one file -- lighter to read on a computer and on a phone.
   version line. Column names stay under the bar while scrolling.
 - **A file's panel** (a click on its row): beside the list on a computer,
   which moves aside and stays live -- one click on another row shows it --;
-  the whole screen on a phone: the
+  the whole screen on a phone. Its left edge drags it wider or narrower
+  (kept by the browser, a double click for the default); a list left
+  narrow turns compact, as on a phone: the
   picture large and every shot's, the description, the departments with
   their validation and their open RTKs, the retakes on no department,
   the notes (closed ones on demand, with their role, frames and the

@@ -376,6 +376,18 @@ $('panel').addEventListener('touchend',function(e){if(!t0)return;var t=e.changed
 if(Math.abs(dx)>70&&Math.abs(dx)>2*Math.abs(dy))step(dx<0?1:-1);else if(t0.top&&dy>90&&dy>2*Math.abs(dx))closePanel();t0=null;});
 // Focus stays in the open panel.
 var phone=matchMedia('(max-width:640px)');
+// The panel's width, dragged by its left edge -- kept by this browser.
+var PW_KEY='mp-snapshot:panel-width',PW_DEF=540;
+function setWidth(w,keep){w=Math.round(Math.max(380,Math.min(w,innerWidth-360,innerWidth*0.8)));
+document.documentElement.style.setProperty('--pw',w+'px');if(keep)try{localStorage.setItem(PW_KEY,String(w));}catch(e){}return w;}
+try{var pw=+localStorage.getItem(PW_KEY);if(pw)setWidth(pw);}catch(e){}
+var rz=$('p-resize');
+rz.addEventListener('pointerdown',function(e){e.preventDefault();rz.setPointerCapture(e.pointerId);document.body.classList.add('resizing');});
+rz.addEventListener('pointermove',function(e){if(document.body.classList.contains('resizing'))setWidth(innerWidth-e.clientX,false);});
+rz.addEventListener('pointerup',function(e){if(!document.body.classList.contains('resizing'))return;document.body.classList.remove('resizing');setWidth(innerWidth-e.clientX,true);});
+rz.addEventListener('dblclick',function(){setWidth(PW_DEF,true);});
+rz.addEventListener('keydown',function(e){if(e.key!=='ArrowLeft'&&e.key!=='ArrowRight')return;e.preventDefault();e.stopPropagation();
+setWidth($('panel').offsetWidth+(e.key==='ArrowLeft'?40:-40),true);});
 $('panel').addEventListener('keydown',function(e){if(e.key!=='Tab'||!phone.matches)return;var f=[].filter.call($('panel').querySelectorAll('button,textarea,[tabindex]'),function(x){return !x.disabled&&x.offsetParent;});
 if(!f.length)return;var a=f[0],z=f[f.length-1];if(e.shiftKey&&document.activeElement===a){z.focus();e.preventDefault();}else if(!e.shiftKey&&document.activeElement===z){a.focus();e.preventDefault();}});
 var FS=window.CSS&&CSS.supports('field-sizing','content');
