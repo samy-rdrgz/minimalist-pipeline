@@ -55,7 +55,11 @@ function rkTag(it,d){var r=it.rtk[d];if(!r)return '';
 return '<span class="rk'+(r==='team'?' team':'')+'" title="An open retake'+(r==='team'?' from the team':'')+'">◆ '+(r==='team'?'team':'RTK')+'</span>';}
 function okTag(it,d){var o=it.ok[d];if(!o)return '';
 return '<span class="ok'+(o.old?' old':'')+'" title="'+esc(o.tip)+'">✓ '+esc(o.role)+'</span>';}
-function under(it,d){return rkTag(it,d)+okTag(it,d)+you(it,d);}
+// A retake on no department holds every done department back (its Done
+// weight): a bare ◆ under each, the same slot as "◆ RTK".
+function genTag(it,d){if(it.rtk[d]||!it.genRtks.length||!isDone(it.states[d]))return '';var team=it.genRtks.every(function(n){return n.team;});
+return '<span class="rk'+(team?' team':'')+'" title="A retake on no department: it holds back every done department">◆</span>';}
+function under(it,d){return rkTag(it,d)+genTag(it,d)+okTag(it,d)+you(it,d);}
 
 /* ---------- review state: as the page before (same key, same shape) ---------- */
 var rv={author:'',role:'',date:'',files:{}};
@@ -81,6 +85,8 @@ function save(){try{localStorage.setItem(KEY,JSON.stringify(rv));}catch(e){}}
 
 /* ---------- badges: only what the row shows nowhere else ---------- */
 function flags(it){var h='',e=peek(it);
+if(it.genRtks.length){var tm=it.genRtks.every(function(n){return n.team;});
+h+='<span class="badge '+(tm?'b-team':'b-rtk')+'" title="An open retake on no department: it holds back every department">◆ General RTK'+(it.genRtks.length>1?' ×'+it.genRtks.length:'')+'</span>';}
 if(e.text.trim())h+='<span class="badge b-rtk">✕ you · general retake</span>';
 if(it.outdated)h+='<span class="badge b-check" title="Rendered from an older version than the last stable">⚠ Render outdated</span>';
 if(it.to_check)h+='<span class="badge b-check" title="Rendered, not checked by the team yet">Render to check</span>';
@@ -90,7 +96,6 @@ function subline(it){var p=['<span class="vers">'+esc(it.versions||'not saved ye
 if(it.shots.length>1)p.push('<span>'+plural(it.shots.length,'shot')+'</span>');
 if(it.openNotes.length){var t=it.openNotes.some(function(n){return n.type==='todo';});
 p.push('<span class="nn'+(t?' todo':'')+'">'+plural(it.openNotes.length,'open note')+'</span>');}
-if(it.genRtks.length)p.push('<span class="gr" title="An open retake on no department: it weighs on every department">'+it.genRtks.length+' general RTK</span>');
 if(it.farm)p.push('<span class="farm'+(it.farm.state==='failed'?' fail':'')+'" title="In the farm: '+esc(it.farm.tip)+'">farm '+esc(it.farm.text)+'</span>');
 return p.join('<i class="sep"> · </i>');}
 /* ---------- header and summary ---------- */
@@ -320,7 +325,7 @@ esc(r.folder||r.pending||'not rendered')+(r.behind?'<small>stable is '+esc(it.st
 function depHtml(it,d,rv){var s=it.states[d],e=peek(it),v=e.deps[d],o=it.ok[d],via=!v&&e.all&&isDone(s);
 var okd=o?(o.old?'<span class="ok old" title="'+esc(o.tip)+'">✓ '+esc(o.role)+' on '+esc(o.seen)+'</span><span class="faint" style="font-size:12px">to review again</span>':
 '<span class="ok" title="'+esc(o.tip)+'">✓ '+esc(o.role)+'</span>'):'';
-return '<div class="dep"><div class="dep-l">'+mark(s)+'<span class="mid"><span class="nm">'+esc(cap(d))+'</span><span class="st">'+LABEL[s]+'</span>'+rkTag(it,d)+okd+you(it,d)+'</span>'+
+return '<div class="dep"><div class="dep-l">'+mark(s)+'<span class="mid"><span class="nm">'+esc(cap(d))+'</span><span class="st">'+LABEL[s]+'</span>'+rkTag(it,d)+genTag(it,d)+okd+you(it,d)+'</span>'+
 '<span class="rvb" data-d="'+esc(d)+'"><button class="ok-b'+(via?' via':'')+'" aria-pressed="'+!!(v&&v.ok)+'"'+(isDone(s)?' title="Validate it as your role"':' disabled title="Not done: nothing to validate yet"')+
 ' aria-label="Validate '+esc(d)+'">✓</button><button class="ko-b" aria-pressed="'+!!(v&&v.no)+'" aria-label="Retake '+esc(d)+'" title="Retake: write what to fix (or nothing, to withdraw a validation)">✕</button></span></div>'+
 ((it.rtkNotes[d]||[]).length?'<div class="rtks">'+it.rtkNotes[d].map(rtkLine).join('')+'</div>':'')+

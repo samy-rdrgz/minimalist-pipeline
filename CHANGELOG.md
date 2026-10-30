@@ -17,7 +17,8 @@ review one file -- lighter to read on a computer and on a phone.
   (red from a role, orange from the team), who validated it, and your
   review. Only the departments the list requires get a column; groups
   with nothing tracked fold. A badge only for a render outdated or to
-  check; notes, RTKs on no department and the farm are words on the
+  check, or an RTK on no department (◆ General RTK, and a bare ◆ under
+  every done department it holds back); notes and the farm are words on the
   version line. Column names stay under the bar while scrolling.
 - **A file's panel** (a click on its row): beside the list on a computer,
   which moves aside and stays live -- one click on another row shows it --;
