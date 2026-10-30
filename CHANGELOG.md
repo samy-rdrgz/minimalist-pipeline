@@ -79,6 +79,8 @@ review one file -- lighter to read on a computer and on a phone.
 - A video wider than 8192 px (a panoramic render) is scaled down to
   8192 in the snapshot's videos folder or zip: browsers on a PC or an
   iPad refuse it past that. The render's own stays full size.
+- Farm: cancelling a job whose cancel was already on its way (sent by the
+  farm, or a second click) no longer raises "locked by another process".
 - The department filter is drawn like the chips next to it.
 - When the snapshot was taken stands out; opened later, "n days old".
 - Colours: every text at 4.5:1 or more in both themes; the review bar
