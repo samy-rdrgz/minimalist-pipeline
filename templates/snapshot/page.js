@@ -319,8 +319,8 @@ return b.text=out.join(NL);}
 function retakeBox(it,key,text,ph){
 if(it.shots.length<2)return '<textarea class="rtk-t" data-k="'+esc(key)+'"'+(key==='gen'?' id="gen-t"':'')+' placeholder="'+esc(ph)+'">'+esc(text)+'</textarea>';
 var b=boxOf(it,key,text);
-return '<div class="rbox"><textarea class="rtk-t" data-k="'+esc(key)+'" data-s=""'+(key==='gen'?' id="gen-t"':'')+' placeholder="'+esc(ph)+' -- all its shots">'+esc(b.all)+'</textarea>'+
-'<div class="tags" data-k="'+esc(key)+'"><span>One shot:</span>'+it.shots.map(function(sh){return '<button type="button" data-shot="'+esc(sh)+'" aria-pressed="'+!!b.open[sh]+'">'+esc(sh)+'</button>';}).join('')+'</div>'+
+return '<div class="rbox"><label class="shotbox"><span>All</span><textarea class="rtk-t" data-k="'+esc(key)+'" data-s=""'+(key==='gen'?' id="gen-t"':'')+' placeholder="'+esc(ph)+' -- all its shots">'+esc(b.all)+'</textarea></label>'+
+'<div class="tags shotbox" data-k="'+esc(key)+'"><span></span><span class="tg-in">'+it.shots.map(function(sh){return '<button type="button" data-shot="'+esc(sh)+'" aria-pressed="'+!!b.open[sh]+'">'+esc(sh)+'</button>';}).join('')+'</span></div>'+
 it.shots.filter(function(sh){return b.open[sh];}).map(function(sh){return '<label class="shotbox"><span>'+esc(sh)+'</span><textarea class="rtk-t" data-k="'+esc(key)+'" data-s="'+esc(sh)+'" placeholder="What to fix in '+esc(sh)+'?">'+esc(b.per[sh]||'')+'</textarea></label>';}).join('')+'</div>';}
 function syntax(it){return '<p class="syntax">One retake per line · <code>[f12-40]</code> frames · <code>note:</code> a remark, not a retake</p>';}
 function noteHtml(n,reply){var type=n.done===true?'<span class="badge b-done" title="Done">✓ '+esc(n.type)+'</span>':
@@ -450,7 +450,7 @@ if((t=ev.target.closest('[data-playall]')))return play(it,it.renders.map(functio
 if((t=ev.target.closest('[data-play]')))return play(it,+t.dataset.play);
 if(ev.target.closest('#bigb'))return lightbox('<img alt="" src="'+$('bigimg').src+'">',esc(it.name));
 if((t=ev.target.closest('.shotsel button'))){$('bigimg').src=t.dataset.src;t.parentNode.querySelectorAll('button').forEach(function(x){x.setAttribute('aria-pressed',x===t);});return;}
-if((t=ev.target.closest('.tags [data-shot]'))){var key=t.parentNode.dataset.k,sh=t.dataset.shot,txt=key==='gen'?entry(it).text:(entry(it).deps[key.slice(2)]||{}).text||'',b=boxOf(it,key,txt);
+if((t=ev.target.closest('.tags [data-shot]'))){var key=t.closest('.tags').dataset.k,sh=t.dataset.shot,txt=key==='gen'?entry(it).text:(entry(it).deps[key.slice(2)]||{}).text||'',b=boxOf(it,key,txt);
 if(b.open[sh]&&(b.per[sh]||'').trim()&&!confirm('Drop what you wrote for '+sh+'?'))return;
 b.open[sh]=!b.open[sh];if(!b.open[sh])delete b.per[sh];setText(it,key,joinBox(it,b));refresh();
 if(b.open[sh]){var ta3=$('p-body').querySelector('textarea[data-k="'+CSS.escape(key)+'"][data-s="'+CSS.escape(sh)+'"]');if(ta3)ta3.focus();}return;}
