@@ -351,7 +351,10 @@ document.body.classList.add('panel-open');var p=$('panel');p.hidden=false;
 requestAnimationFrame(function(){p.classList.add('on');$('scrim').classList.add('on');});
 var pos=visible.indexOf(i);$('p-prev').disabled=$('m-prev').disabled=pos<=0;$('p-next').disabled=$('m-next').disabled=pos<0||pos>=visible.length-1;
 document.querySelectorAll('.row.sel').forEach(function(x){x.classList.remove('sel');});
-var s=$('list').querySelector('.row[data-i="'+i+'"]');if(s)s.classList.add('sel');
+var s=$('list').querySelector('.row[data-i="'+i+'"]');if(s){s.classList.add('sel');
+// Beside the list: the file shown stays in sight as ← → go through it.
+var r=s.getBoundingClientRect(),top=bar.getBoundingClientRect().bottom+40;if(!phone.matches&&(r.top<top||r.bottom>innerHeight))scrollBy({top:r.top-top-(innerHeight-top)/3,behavior:'smooth'});}
+p.setAttribute('aria-modal',phone.matches?'true':'false');
 try{history.replaceState(null,'','#'+encodeURIComponent(it.name));}catch(err){}}
 function refresh(){var y=$('p-body').scrollTop;openPanel(cur);$('p-body').scrollTop=y;render();save();}
 function closePanel(){if(cur==null)return;cur=null;document.body.classList.remove('panel-open');var p=$('panel');p.classList.remove('on');$('scrim').classList.remove('on');
@@ -372,7 +375,8 @@ t0=e.target.closest('textarea,input,select,.shotsel')?null:{x:t.clientX,y:t.clie
 $('panel').addEventListener('touchend',function(e){if(!t0)return;var t=e.changedTouches[0],dx=t.clientX-t0.x,dy=t.clientY-t0.y;
 if(Math.abs(dx)>70&&Math.abs(dx)>2*Math.abs(dy))step(dx<0?1:-1);else if(t0.top&&dy>90&&dy>2*Math.abs(dx))closePanel();t0=null;});
 // Focus stays in the open panel.
-$('panel').addEventListener('keydown',function(e){if(e.key!=='Tab')return;var f=[].filter.call($('panel').querySelectorAll('button,textarea,[tabindex]'),function(x){return !x.disabled&&x.offsetParent;});
+var phone=matchMedia('(max-width:640px)');
+$('panel').addEventListener('keydown',function(e){if(e.key!=='Tab'||!phone.matches)return;var f=[].filter.call($('panel').querySelectorAll('button,textarea,[tabindex]'),function(x){return !x.disabled&&x.offsetParent;});
 if(!f.length)return;var a=f[0],z=f[f.length-1];if(e.shiftKey&&document.activeElement===a){z.focus();e.preventDefault();}else if(!e.shiftKey&&document.activeElement===z){a.focus();e.preventDefault();}});
 var FS=window.CSS&&CSS.supports('field-sizing','content');
 function grow(t){if(FS||!t)return;t.style.height='auto';t.style.height=Math.min(t.scrollHeight+2,innerHeight*.5)+'px';}

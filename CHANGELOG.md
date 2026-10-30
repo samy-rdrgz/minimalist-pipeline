@@ -19,7 +19,9 @@ review one file -- lighter to read on a computer and on a phone.
   with nothing tracked fold. A badge only for a render outdated or to
   check; notes, RTKs on no department and the farm are words on the
   version line. Column names stay under the bar while scrolling.
-- **A file's panel** (a click on its row; a sheet on a phone): the
+- **A file's panel** (a click on its row): beside the list on a computer,
+  which moves aside and stays live -- one click on another row shows it --;
+  the whole screen on a phone: the
   picture large and every shot's, the description, the departments with
   their validation and their open RTKs, the retakes on no department,
   the notes (closed ones on demand, with their role, frames and the

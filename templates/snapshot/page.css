@@ -256,9 +256,15 @@ details.stats[open]>summary::before{transform:rotate(45deg)}
 .panel{position:fixed;z-index:51;top:0;right:0;bottom:0;width:min(540px,100%);background:var(--surface);box-shadow:var(--sh-pop);
 transform:translateX(102%);transition:transform .22s ease;display:flex;flex-direction:column}
 .panel.on{transform:none}
-@media (max-width:640px){.panel{top:auto;left:0;width:100%;height:92dvh;border-radius:16px 16px 0 0;transform:translateY(102%)}}
+/* A computer: the panel beside the list, not over it -- the list stays
+live, a click on another row shows that file; wide enough, the list
+moves aside so no row hides under the panel. A phone: the whole screen. */
+@media (min-width:641px){.scrim{display:none}.panel{box-shadow:-1px 0 0 var(--line),-12px 0 32px rgba(0,0,0,.08)}}
+@media (min-width:1100px){.wrap{transition:margin .22s ease}
+body.panel-open .wrap{margin-left:max(20px,calc((100vw - 540px - 1180px) / 2));margin-right:540px}}
+@media (max-width:640px){.panel{left:0;width:100%;height:100dvh;transform:translateY(102%)}}
 .grab{display:none}
-@media (max-width:640px){.grab{display:block;width:36px;height:4px;border-radius:2px;background:var(--line);margin:8px auto 0}}
+
 .p-head{display:flex;align-items:flex-start;gap:8px;padding:12px 12px 12px 18px;border-bottom:1px solid var(--line)}
 .p-head .t{min-width:0;flex:1;padding-top:4px}
 .p-head .t>b{display:block;font-size:16px;font-weight:400}
