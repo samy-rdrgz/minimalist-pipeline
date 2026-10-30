@@ -46,11 +46,21 @@ review one file -- lighter to read on a computer and on a phone.
 - The review bar folds (›) into a round ✎ button at the bottom right,
   the review's count on it; a tap opens it again. Remembered by the
   browser; never folded while it still needs a name.
-- **Play a render's video** from the page once the videos zip made with
-  the snapshot is unzipped next to it (▶ Play in the panel); a block
+- **Play a render's video** from the page (▶ Play in the panel); a block
   rendered shot by shot plays each shot's video in a row, in the block's
   order, ‹ › to skip; its last render has a button per video.
-- The logo opens the add-on's page on extensions.blender.org.
+- **Videos: folder, zip or nothing.** Export snapshot's *Videos* picks
+  *Folder* (a `videos/` folder next to the snapshots, shared by all of
+  them: only the videos new or changed since the last export are copied),
+  *Zip* (next to the snapshot, to send) or *Don't copy* (the page still
+  plays what `videos/` holds). The choice, the sequences ticked and
+  *Assets & libraries* are remembered from one export to the next. The
+  page knows which videos it has, and *Choose the videos folder…* (⋯ menu,
+  or under a render with nothing to play) reads them from any folder,
+  whatever its name.
+- The logo moved to the footer, "Created by minimalist pipeline", and
+  opens the add-on's page on extensions.blender.org.
+- The department filter is drawn like the chips next to it.
 - When the snapshot was taken stands out; opened later, "n days old".
 - Colours: every text at 4.5:1 or more in both themes; the review bar
   stays dark in dark mode.

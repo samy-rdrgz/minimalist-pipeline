@@ -66,7 +66,10 @@ from ..lib import (
     tracking_json_path,
     wipmeta_add_work,
     write_snapshot,
-    zip_latest_videos,
+    copy_videos,
+    latest_videos,
+    videos_in,
+    zip_videos,
 )
 from ..farm import archive, farm_activity, request_monitor_refresh
 from .rushes_ops import push_checked_renders
@@ -949,6 +952,19 @@ class M_PIPELINE_OT_review_descriptions(bpy.types.Operator):
         _show_import_summary(f"{self.summary}\nDescriptions left unchanged", self.icon)
 
 
+def _snapshot_scan(root, thumbnails, v_prefix, sequences, assets, config, folder):
+    """Export snapshot's thread: the project's scan, the latest videos to
+    copy or zip (latest_videos()), and those already in the videos folder
+    (none without one)."""
+    data = read_snapshot_data(root, thumbnails, v_prefix)
+    videos = (
+        latest_videos(root, sequences, assets, config)
+        if sequences or assets
+        else ([], [], [])
+    )
+    return data, videos, videos_in(folder) if folder else []
+
+
 class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
     """Write a self-contained HTML snapshot of the project's state."""
 
@@ -975,34 +991,61 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
         default=True,
         description="Open the snapshot in the browser once it's written",
     )
-    # Off on every export, like the sequences: zipping is never the default.
+    # Remembered from one export to the next, like the sequences ticked.
+    videos_mode: bpy.props.EnumProperty(
+        name="Videos",
+        items=[
+            (
+                "FOLDER",
+                "Folder",
+                "Copy the videos into a videos folder beside the snapshots, kept "
+                "from one export to the next: only new or changed videos are copied",
+            ),
+            (
+                "ZIP",
+                "Zip",
+                "Every video in a zip named like the snapshot, to send with it",
+            ),
+            (
+                "NONE",
+                "Don't copy",
+                "Copy nothing: the page still plays the videos already in the "
+                "videos folder beside it",
+            ),
+        ],
+        default="FOLDER",
+    )
     include_asset_videos: bpy.props.BoolProperty(
         name="Assets & libraries",
         default=False,
-        description="Also zip every asset/library's latest video",
-        options={"SKIP_SAVE"},
+        description="Also every asset/library's latest video",
     )
 
     _job = None
     _warnings: list = []
     _timer = None
     _root = None
-    _phase = "scan"  # scan -> write -> zip
+    _phase = "scan"  # scan -> write -> videos
+    _videos: list = []
+    _video_problems: tuple = ([], [])
 
     def invoke(self, context, event):
         root = get_active_project_root()
         if not root:
             self.report({"ERROR"}, "No active project.")
             return {"CANCELLED"}
-        # The videos' checklist, none ticked: zipping is never the default.
+        # The videos' checklist, ticked as last time (none the first time).
         sequences = context.window_manager.snapshot_sequences
+        ticked = {s.name for s in sequences if s.include}
         sequences.clear()
         try:
             names = sorted(e.name for e in os.scandir(root / "shots") if e.is_dir())
         except OSError:
             names = []
         for name in names:
-            sequences.add().name = name
+            item = sequences.add()
+            item.name = name
+            item.include = name in ticked
         meta = {"project": json_get(ConfigCache.get(), "project_name") or root.name}
         # The project's snapshots/ folder, fresh dated name -- the browser
         # can still go elsewhere.
@@ -1023,7 +1066,14 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
         layout.prop(self, "open_when_done")
         sequences = context.window_manager.snapshot_sequences
         box = layout.box().column(align=True)
-        box.label(text="Videos to zip:", icon="FILE_MOVIE")
+        box.label(text="Videos to play on the page:", icon="FILE_MOVIE")
+        box.row().prop(self, "videos_mode", expand=True)
+        info = box.column(align=True)
+        info.active = False
+        if self.videos_mode == "NONE":
+            info.label(text="Those already in videos/ still play.", icon="INFO")
+            return
+        box.separator()
         if not sequences:
             empty = box.row()
             empty.active = False
@@ -1032,10 +1082,14 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
             box.row(align=True).prop(item, "include", text=item.name)
         box.separator()
         box.prop(self, "include_asset_videos")
-        info = layout.column(align=True)
+        info = box.column(align=True)
         info.active = False
-        info.label(text="Each one's latest video, in a zip", icon="INFO")
-        info.label(text="named like the snapshot.", icon="BLANK1")
+        if self.videos_mode == "FOLDER":
+            info.label(text="Each one's latest video, in videos/", icon="INFO")
+            info.label(text="beside: only new ones get copied.", icon="BLANK1")
+        else:
+            info.label(text="Each one's latest video, in a zip", icon="INFO")
+            info.label(text="named like the snapshot.", icon="BLANK1")
 
     def execute(self, context):
         self._root = get_active_project_root()
@@ -1054,7 +1108,17 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
                 "blender": bpy.app.binary_path,
                 "ffmpeg": resolve_ffmpeg(),
             }
-        self._job = SnapshotJob(read_snapshot_data, self._root, thumbnails, v_prefix)
+        chosen, assets = self._chosen(context)
+        self._job = SnapshotJob(
+            _snapshot_scan,
+            self._root,
+            thumbnails,
+            v_prefix,
+            chosen,
+            assets,
+            ConfigCache.get(),
+            None if self.videos_mode == "ZIP" else self._videos_folder(),
+        )
         # The farm's jobs, fresh by the time the scan is done (seconds).
         request_monitor_refresh()
         self._phase = "scan"
@@ -1064,10 +1128,24 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
         self.report({"INFO"}, "Scanning project for the snapshot...")
         return {"RUNNING_MODAL"}
 
+    def _chosen(self, context) -> tuple[list[str], bool]:
+        """The sequences ticked, and the assets' -- none to copy with
+        Don't copy."""
+        if self.videos_mode == "NONE":
+            return [], False
+        chosen = [
+            s.name for s in context.window_manager.snapshot_sequences if s.include
+        ]
+        return chosen, bool(self.include_asset_videos)
+
+    def _videos_folder(self) -> Path:
+        # Beside the snapshots, shared by all of them.
+        return Path(self.filepath).parent / "videos"
+
     def modal(self, context, event):
         if event.type != "TIMER" or not self._job.done:
             return {"PASS_THROUGH"}
-        if self._job.error and self._phase != "zip":
+        if self._job.error and self._phase != "videos":
             context.window_manager.event_timer_remove(self._timer)
             log("ERROR", "snapshot", f"Snapshot failed: {self._job.error}")
             self.report({"ERROR"}, "Snapshot failed (see log).")
@@ -1080,21 +1158,24 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
                 "exported_by": get_user(context),
                 "addon_version": get_addon_version(),
             }
-            # The videos zipped next to it once written: the page's ▶ Play
-            # looks for them there (lib/snapshot_page.py).
-            chosen = [
-                s.name for s in context.window_manager.snapshot_sequences if s.include
-            ]
-            if chosen or self.include_asset_videos:
+            # The videos it can play, by their names in the folder or zip:
+            # those about to be copied, and those earlier exports copied.
+            data, (self._videos, empty, dropped), there = self._job.result
+            self._video_problems = (empty, dropped)
+            names = [name for _mp4, name in self._videos]
+            if self.videos_mode == "ZIP":
+                base = Path(self.filepath).stem
+            else:
+                base = "videos"
+                names = sorted(set(names) | set(there))
+            if names:
                 meta["videos"] = {
-                    "zip": Path(self.filepath).stem,
-                    "sequences": chosen,
-                    "assets": bool(self.include_asset_videos),
+                    "mode": self.videos_mode.lower(),
+                    "base": base,
+                    "files": names,
                 }
             try:
-                snapshot = build_snapshot(
-                    self._job.result, config, meta, farm=farm_activity()
-                )
+                snapshot = build_snapshot(data, config, meta, farm=farm_activity())
             except Exception as e:
                 context.window_manager.event_timer_remove(self._timer)
                 log("ERROR", "snapshot", f"Snapshot failed: {e}")
@@ -1106,48 +1187,60 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
             return {"PASS_THROUGH"}
         if self._phase == "write":
             log("INFO", "snapshot", f"Snapshot written to {self.filepath}")
-            chosen = [
-                s.name for s in context.window_manager.snapshot_sequences if s.include
-            ]
-            if chosen or self.include_asset_videos:
+            if self._videos:
                 # On a thread too: gigabytes, maybe onto a share.
-                self._job = SnapshotJob(
-                    zip_latest_videos,
-                    self._root,
-                    chosen,
-                    self.include_asset_videos,
-                    Path(self.filepath).with_suffix(".zip"),
-                    ConfigCache.get(),
+                if self.videos_mode == "ZIP":
+                    self._job = SnapshotJob(
+                        zip_videos,
+                        self._videos,
+                        Path(self.filepath).with_suffix(".zip"),
+                    )
+                    doing = "zipping"
+                else:
+                    self._job = SnapshotJob(
+                        copy_videos, self._videos, self._videos_folder()
+                    )
+                    doing = "copying new"
+                self._phase = "videos"
+                self.report(
+                    {"INFO"},
+                    f"Snapshot written, {doing} videos ({len(self._videos)})...",
                 )
-                self._phase = "zip"
-                what = chosen + (
-                    ["assets/libraries"] if self.include_asset_videos else []
-                )
-                self.report({"INFO"}, f"Snapshot written, zipping {', '.join(what)}...")
                 return {"PASS_THROUGH"}
         context.window_manager.event_timer_remove(self._timer)
         problems = []
-        if self._phase == "zip":
-            zip_name = Path(self.filepath).with_suffix(".zip").name
+        empty, dropped = self._video_problems
+        for label, newer in dropped:
+            log(
+                "WARNING",
+                "snapshot",
+                f"Video of {label} left out: {', '.join(newer)} more recent.",
+            )
+        if dropped:
+            problems.append(f"{len(dropped)} older video(s) left out")
+        if empty:
+            log("WARNING", "snapshot", f"No video in {', '.join(empty)}")
+            problems.append(f"no video in {', '.join(empty)}")
+        if self._phase == "videos":
             if self._job.error:
-                # The snapshot itself is written: only the zip is missing.
-                log("ERROR", "snapshot", f"Videos not zipped: {self._job.error}")
-                problems.append("videos not zipped")
+                # The snapshot itself is written: only the videos are missing.
+                log("ERROR", "snapshot", f"Videos not copied: {self._job.error}")
+                problems.append("videos not copied")
+            elif self.videos_mode == "ZIP":
+                zip_name = Path(self.filepath).with_suffix(".zip").name
+                log(
+                    "INFO",
+                    "snapshot",
+                    f"{self._job.result} video(s) zipped into {zip_name}",
+                )
             else:
-                zipped, empty, dropped = self._job.result
-                for label, newer in dropped:
-                    log(
-                        "WARNING",
-                        "snapshot",
-                        f"Video of {label} not zipped: {', '.join(newer)} more recent.",
-                    )
-                if dropped:
-                    problems.append(f"{len(dropped)} older video(s) left out")
-                if zipped:
-                    log("INFO", "snapshot", f"{zipped} video(s) zipped into {zip_name}")
-                if empty:
-                    log("WARNING", "snapshot", f"No video to zip in {', '.join(empty)}")
-                    problems.append(f"no video in {', '.join(empty)}")
+                copied, kept = self._job.result
+                log(
+                    "INFO",
+                    "snapshot",
+                    f"Videos in {self._videos_folder()}: {copied} copied, "
+                    f"{kept} already there",
+                )
         for w in self._warnings:
             log("WARNING", "snapshot", f"Thumbnail not made: {w}")
         if self._warnings:

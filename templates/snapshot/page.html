@@ -10,7 +10,6 @@
 <noscript><p>This snapshot needs JavaScript: open it in a web browser.</p></noscript>
 <div class="wrap">
 <header>
-<a class="brand" href="https://extensions.blender.org/add-ons/minimalist-pipeline/" target="_blank" rel="noopener" title="Minimalist Pipeline, the Blender add-on that made this page"><svg viewBox="{{LOGO_VB0}}" aria-hidden="true"><use href="#mp"/></svg><span>minimalist pipeline</span></a>
 <div class="top">
 <div class="title"><h1 id="h-project"></h1>
 <div class="stamp"><span>Snapshot of <b id="h-when"></b></span><span class="age" id="age" hidden></span><span id="h-by"></span></div></div>
@@ -32,6 +31,7 @@
 <div class="menu"><button class="btn icon" id="more" aria-haspopup="true" aria-expanded="false" title="More">⋯</button>
 <div class="menu-pop" id="morepop" hidden>
 <label>Load a review…<small>A .json downloaded from this page, to go on with it</small><input type="file" class="rv-load" accept=".json,application/json"></label>
+<label>Choose the videos folder…<small>Where this snapshot's videos are, to play them</small><input type="file" class="vid-pick" webkitdirectory multiple accept="video/mp4,.mp4"></label>
 <a download="{{XLSX_NAME}}" href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{{XLSX}}">Review spreadsheet (.xlsx)<small>Offline, or for several reviewers on a shared drive</small></a>
 </div></div>
 </div>
@@ -60,7 +60,7 @@
 <div id="stats"></div></details>
 </section>
 
-<footer><a class="brand-f" href="https://extensions.blender.org/add-ons/minimalist-pipeline/" target="_blank" rel="noopener"><svg viewBox="{{LOGO_VB0}}" aria-hidden="true"><use href="#mp"/></svg><span class="wm">minimalist pipeline</span></a><span id="f-ver"></span></footer>
+<footer><span>Created by</span><a class="brand-f" href="https://extensions.blender.org/add-ons/minimalist-pipeline/" target="_blank" rel="noopener" title="Minimalist Pipeline, the Blender add-on that made this page"><svg viewBox="{{LOGO_VB0}}" aria-hidden="true"><use href="#mp"/></svg><span class="wm">minimalist pipeline</span></a><span id="f-ver"></span></footer>
 </div>
 
 <img id="hover" alt="">

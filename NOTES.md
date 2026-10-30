@@ -3584,10 +3584,18 @@ around one idea: a list to scan, a panel to read one file.
 - **Names stay names**: the group's prefix quiet, the rest bold, breaks
   allowed after _ and - -- never shortened or rewritten, people search
   and copy them.
-- **Videos**: the export knows which sequences it zips (`meta["videos"]`);
-  a render's ▶ Play points at `<zip>/<sequence>/...mp4` beside the page
-  (`zip_latest_videos()`'s names) and says where it looked when the zip
-  isn't unzipped there.
+- **Videos**: re-zipping gigabytes because a note changed made no sense.
+  A shared `videos/` folder next to the snapshots is the default: names
+  carry the render folder, so a new render is a new file and an old one
+  is never overwritten under a page that points at it; a copy is skipped
+  when size and modification time match (`copy_videos()`, `copy2` keeps
+  the time). The zip stays, to send. The page gets the exact list of
+  names (`meta["videos"]["files"]`, what `videos/` already holds counted
+  too) instead of guessing from the sequences ticked, and *Choose the
+  videos folder…* (`webkitdirectory`, every tail of each path indexed)
+  plays them from wherever they are -- the folder's name no longer
+  matters. Old renders pile up in `videos/`: deleting it is safe, the
+  next export copies again.
 - Dropped on purpose: the print layout (the page is the document), the
   table/One file switch, the header behind ☰ on a phone, Go to, notes
   unfolded under rows, per-shot hover buttons in the list (the panel has

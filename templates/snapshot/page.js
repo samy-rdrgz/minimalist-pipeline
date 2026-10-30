@@ -266,12 +266,35 @@ lightbox('<img alt="" src="'+img(it.thumb)+'">',esc(it.name));},true);
 // for shots rendered apart -- <zip>/sq060/sq060_sh070_v012-stable_001.mp4
 // --, one for a block rendered whole or anything else --
 // <zip>/sq060/sq060_sh070-090-100_..., <zip>/assets/env/env_sol-lac_....
-function videosOf(it,r){var V=META.videos;if(!V||!r.folder)return [];
-if(it.kind!=='shot'){if(!V.assets)return [];return [{shot:'',folder:r.folder,src:V.zip+'/'+it.root+'/'+it.group+'/'+it.name+'_'+r.folder+'.mp4'}];}
-if(V.sequences.indexOf(it.group)<0)return [];
-var base=V.zip+'/'+it.group+'/'+it.group+'_';
-if(r.whole||it.shots.length<2)return [{shot:r.shots,folder:r.folder,src:base+it.name.slice(it.group.length+1)+'_'+r.folder+'.mp4'}];
-return r.shot_list.map(function(sh){return {shot:sh,folder:r.folder,src:base+sh+'_'+r.folder+'.mp4'};});}
+// The videos the page can play, by their names (lib/preview.py
+// latest_videos()): in the snapshot's videos folder or zip, or in a folder
+// chosen here -- any folder holding them, whatever its name.
+var VNAMES={},PICKED=null;((META.videos||{}).files||[]).forEach(function(n){VNAMES[n]=1;});
+function videoSrc(name){var tail=name.split('/').pop(),f;
+if(PICKED&&(f=PICKED[name]||PICKED[tail]))return f.url||(f.url=URL.createObjectURL(f));
+return VNAMES[name]?META.videos.base+'/'+name:null;}
+function videosOf(it,r){if(!r.folder)return [];
+// Its renders/ path minus its owner's folder -- or with it, when two were named alike.
+function one(shot,dir,stem,owner){var tail=stem+'_'+r.folder+'.mp4',src=videoSrc(dir+'/'+tail)||videoSrc(dir+'/'+owner+'/'+tail);
+return src?[{shot:shot,folder:r.folder,src:src,name:tail}]:[];}
+if(it.kind!=='shot')return one('',it.root+'/'+it.group,it.name,it.name);
+var g=it.group;
+if(r.whole||it.shots.length<2){var seg=it.name.slice(g.length+1);return one(r.shots,g,g+'_'+seg,seg);}
+return r.shot_list.reduce(function(out,sh){return out.concat(one(sh,g,g+'_'+sh,sh));},[]);}
+// Choose the videos' folder: each video known by its path's every tail, so
+// the folder's own name, or one above it, doesn't matter. A phone with no
+// folder picker gives the videos themselves, known by their names.
+function pickVideos(files){var n=0;PICKED={};
+[].forEach.call(files,function(f){if(!/\.mp4$/i.test(f.name))return;n++;
+var parts=(f.webkitRelativePath||f.name).split('/');
+for(var k=0;k<parts.length;k++){var key=parts.slice(k).join('/');if(!PICKED[key])PICKED[key]=f;}});
+if(!n){PICKED=null;toast('No .mp4 in that folder.');return;}
+var found=D.reduce(function(c,it){return c+allVideos(it).filter(function(v){return v.src.slice(0,5)==='blob:';}).length;},0);
+toast(plural(n,'video')+' in that folder, '+found+' for this snapshot.');
+if(cur!=null)refresh();else render();}
+function pickLink(text){return '<label class="vpick">'+esc(text)+'<input type="file" class="vid-pick" webkitdirectory multiple accept="video/mp4,.mp4"></label>';}
+document.addEventListener('change',function(e){var t=e.target;if(!t.classList||!t.classList.contains('vid-pick'))return;
+var files=t.files;closeMenus();if(files&&files.length)pickVideos(files);t.value='';});
 // Every video of the file, in its shots' order.
 function allVideos(it){var out=[];it.renders.forEach(function(r){out=out.concat(videosOf(it,r));});
 var rank=function(v){var k=it.shots.indexOf(v.shot);return k<0?0:k;};return out.sort(function(a,b){return rank(a)-rank(b);});}
@@ -284,9 +307,10 @@ esc(it.name)+(v.shot?' · <b>'+esc(v.shot)+'</b>':'')+' · '+esc(v.folder)+(list
 (list.length>1?' <button type="button" class="lbn" data-lb="1"'+(at<list.length-1?'':' disabled')+' aria-label="Next video">›</button>':''));
 var el=$('lb-in').querySelector('video');
 el.addEventListener('ended',function(){if(at<list.length-1){at++;show();}});
-el.addEventListener('error',function(){$('lb-in').innerHTML='';
-$('lb-cap').innerHTML='Video not found. Unzip <code>'+esc(META.videos.zip)+'.zip</code> next to this page, into a folder of the same name, then try again.'+
-'<br><span style="opacity:.7">Looked for <code>'+esc(v.src)+'</code></span>'+(list.length>1&&at<list.length-1?'<br><button type="button" class="lbn" data-lb="1" aria-label="Next video">›</button>':'');});}
+el.addEventListener('error',function(){$('lb-in').innerHTML='';var V=META.videos;
+$('lb-cap').innerHTML=(PICKED||!V?'This video couldn\'t be read.':V.mode==='zip'?'Video not found. Unzip <code>'+esc(V.base)+'.zip</code> next to this page, into a folder of the same name.':
+'Video not found: no <code>'+esc(V.base)+'</code> folder next to this page.')+' '+pickLink('Choose the videos folder…')+
+'<br><span style="opacity:.7">Looked for <code>'+esc(PICKED?v.name:v.src)+'</code></span>'+(list.length>1&&at<list.length-1?'<br><button type="button" class="lbn" data-lb="1" aria-label="Next video">›</button>':'');});}
 $('lb-cap').onclick=function(e){var b=e.target.closest('[data-lb]');if(!b||b.disabled)return;e.stopPropagation();at+=+b.dataset.lb;show();};
 show();}
 
@@ -342,12 +366,11 @@ return '<div class="note'+(n.closed?' closed':'')+(reply?' reply':'')+(n.role?' 
 (n.replies||[]).map(function(r){return noteHtml(Object.assign({closed:n.closed},r),true);}).join('');}
 function rtkLine(n){var where=[n.shot,n.frames].filter(Boolean).join(' · ');
 return '<div class="rtkl'+(n.team?' team':'')+'">'+(where?'<b>'+esc(where)+'</b> ':'')+esc(n.text)+'<small>'+(n.team?'team · ':esc(n.role||'')+' · ')+esc(n.author)+' · '+esc((n.date||'').slice(0,10))+'</small></div>';}
-// Rendered but nothing to play: say why, quietly -- the videos come only
-// from the zip made with the snapshot, for what was ticked then.
+// Rendered but nothing to play: say why, quietly, and offer to look elsewhere.
 function noVideo(it){if(!it.renders.some(function(r){return r.folder;})||allVideos(it).length)return '';
-var V=META.videos,why=!V?'No video was zipped with this snapshot (Videos to zip, when exporting).':
-it.kind==='shot'?'The videos of '+it.group+' weren\'t zipped with this snapshot.':'The assets\' videos weren\'t zipped with this snapshot.';
-return '<p class="novid">'+esc(why)+'</p>';}
+var why=PICKED?'Not in the videos folder chosen.':!META.videos?'No video came with this snapshot (Videos, when exporting).':
+it.kind==='shot'?'The videos of '+it.group+' didn\'t come with this snapshot.':'The assets\' videos didn\'t come with this snapshot.';
+return '<p class="novid">'+esc(why)+' '+pickLink(PICKED?'Choose another…':'Choose the videos folder…')+'</p>';}
 function rendersHtml(it){
 if(!it.renders.length)return '<span class="faint">'+(it.kind==='shot'?'Not rendered yet':'No render')+'</span>';
 // A button per video: one ▶ Play for a render that is one video, one per
@@ -357,7 +380,7 @@ var st=r.status?'<span class="ss'+(r.status.state==='failed'?' fail':'')+'" titl
 return '<span class="sh">'+esc(r.shots||(it.kind==='shot'?'all shots':''))+'</span><span'+(r.behind?' class="bh" title="Rendered from an older version than the last stable">⚠ ':'>')+
 esc(r.folder||r.pending||'not rendered')+(r.behind?'<small>stable is '+esc(it.stable_v)+'</small>':'')+st+'</span>'+
 (v===1?'<button type="button" class="pl" data-play="'+n+'" data-k="0">▶ Play</button>':'<span></span>')+
-(v>1?'<span class="pls">'+vs.map(function(x,k){return '<button type="button" class="pl" data-play="'+n+'" data-k="'+k+'" title="'+esc(x.src.split('/').pop())+'">▶ '+esc(x.shot)+'</button>';}).join('')+'</span>':'');}).join('')+'</div>';}
+(v>1?'<span class="pls">'+vs.map(function(x,k){return '<button type="button" class="pl" data-play="'+n+'" data-k="'+k+'" title="'+esc(x.name)+'">▶ '+esc(x.shot)+'</button>';}).join('')+'</span>':'');}).join('')+'</div>';}
 function depHtml(it,d,rv){var s=it.states[d],e=peek(it),v=e.deps[d],o=it.ok[d],via=!v&&e.all&&isDone(s);
 var okd=o?(o.old?'<span class="ok old" title="'+esc(o.tip)+'">✓ '+esc(o.role)+' on '+esc(o.seen)+'</span><span class="faint" style="font-size:12px">to review again</span>':
 '<span class="ok" title="'+esc(o.tip)+'">✓ '+esc(o.role)+'</span>'):'';
