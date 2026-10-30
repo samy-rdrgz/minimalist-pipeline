@@ -157,6 +157,7 @@ from .preview import (
     render_root,
     resolve_block_sources,
     resolve_sequence_sources,
+    MAX_VIDEO_WIDTH,
     copy_videos,
     videos_in,
     zip_videos,

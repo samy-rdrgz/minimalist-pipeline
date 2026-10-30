@@ -3601,6 +3601,12 @@ around one idea: a list to scan, a panel to read one file.
   plays them from wherever they are -- the folder's name no longer
   matters. Old renders pile up in `videos/`: deleting it is safe, the
   next export copies again.
+- **Too wide to play**: a 13444 x 1200 H.265 render played nowhere --
+  hardware decoders stop around 8192 px wide (PC and iPad alike). The
+  edit needs it full size, so only the snapshot's copy is scaled
+  (`_snapshot_copy()`, width read from `ffmpeg -i`'s report: no ffprobe
+  needed). The copy keeps the render's modification time: a folder copy
+  is "already there" by time alone, its size no longer the render's.
 - Dropped on purpose: the print layout (the page is the document), the
   table/One file switch, the header behind ☰ on a phone, Go to, notes
   unfolded under rows, per-shot hover buttons in the list (the panel has

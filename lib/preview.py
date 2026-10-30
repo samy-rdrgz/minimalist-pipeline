@@ -4,6 +4,8 @@ or sequence preview -- filesystem-only, no bpy needed."""
 import os
 import re
 import shutil
+import subprocess
+import tempfile
 import zipfile
 from pathlib import Path
 
@@ -184,55 +186,113 @@ def latest_asset_videos(project_root: Path, v_prefix: str = "v") -> list[Path]:
     ]
 
 
-def zip_videos(videos: list[tuple[Path, str]], zip_path: Path) -> int:
+# Past this width the browsers' hardware decoders refuse a video (8192 on
+# most PCs and iPads; a panoramic render goes past it): the snapshot gets a
+# scaled-down copy, renders/ keeps the full one for the edit.
+MAX_VIDEO_WIDTH = 8192
+_VIDEO_SIZE = re.compile(r"Video: .*?(\d{2,5})x(\d{2,5})")
+
+
+def _video_width(mp4: Path, ffmpeg: str) -> int | None:
+    """The video's width, read from ffmpeg's own report; None if unread."""
+    try:
+        out = subprocess.run(
+            [ffmpeg, "-hide_banner", "-i", str(mp4)],
+            capture_output=True,
+            text=True,
+            errors="replace",
+            timeout=60,
+            stdin=subprocess.DEVNULL,
+        ).stderr
+    except (OSError, subprocess.SubprocessError):
+        return None
+    m = _VIDEO_SIZE.search(out)
+    return int(m[1]) if m else None
+
+
+def _snapshot_copy(mp4: Path, dst: Path, ffmpeg: str | None) -> bool:
+    """mp4 written to dst as the snapshot plays it: as is, or scaled down
+    to MAX_VIDEO_WIDTH when wider (H.265, hvc1 -- needs ffmpeg; without
+    it, as is). dst keeps mp4's modification time either way: what
+    copy_videos() tells a video already there by. True when scaled."""
+    width = _video_width(mp4, ffmpeg) if ffmpeg else None
+    scaled = bool(width and width > MAX_VIDEO_WIDTH)
+    if scaled:
+        subprocess.run(
+            [
+                ffmpeg, "-v", "error", "-y", "-i", str(mp4),
+                "-vf", f"scale={MAX_VIDEO_WIDTH}:-2",
+                "-c:v", "libx265", "-preset", "fast", "-crf", "22",
+                "-pix_fmt", "yuv420p", "-tag:v", "hvc1", "-c:a", "copy",
+                "-movflags", "+faststart", "-f", "mp4", str(dst),
+            ],
+            check=True,
+            capture_output=True,
+            stdin=subprocess.DEVNULL,
+        )
+    else:
+        shutil.copyfile(mp4, dst)
+    st = mp4.stat()
+    os.utime(dst, (st.st_atime, st.st_mtime))
+    return scaled
+
+
+def zip_videos(
+    videos: list[tuple[Path, str]], zip_path: Path, ffmpeg: str | None = None
+) -> int:
     """Videos [(mp4, name)] into zip_path under their names
-    (lib/snapshot.py snapshot_videos()). Stored,
-    not compressed: an mp4 already is. Written beside then renamed, never
-    left half-written. Returns how many."""
+    (lib/snapshot.py snapshot_videos()), each as _snapshot_copy() writes
+    it. Stored, not compressed: an mp4 already is. Written beside then
+    renamed, never left half-written. Returns how many."""
     zip_path = Path(zip_path)
     if not videos:
         return 0
     tmp = zip_path.with_name(f"{zip_path.name}.tmp")
-    try:
-        with zipfile.ZipFile(tmp, "w", zipfile.ZIP_STORED) as z:
-            for mp4, name in videos:
-                z.write(mp4, name)
-        os.replace(tmp, zip_path)
-    finally:
-        if tmp.exists():
-            tmp.unlink()
+    with tempfile.TemporaryDirectory(prefix="pipeline_videos_") as scratch:
+        try:
+            with zipfile.ZipFile(tmp, "w", zipfile.ZIP_STORED) as z:
+                for mp4, name in videos:
+                    one = Path(scratch, "video.mp4")
+                    if _snapshot_copy(mp4, one, ffmpeg):
+                        z.write(one, name)
+                    else:
+                        z.write(mp4, name)
+                    one.unlink(missing_ok=True)
+            os.replace(tmp, zip_path)
+        finally:
+            if tmp.exists():
+                tmp.unlink()
     return len(videos)
 
 
-def copy_videos(videos: list[tuple[Path, str]], folder: Path) -> tuple[int, int]:
-    """Videos [(mp4, name)] into folder under their names, only those
-    not there yet or changed since (size, modification time) -- a folder
-    kept from one snapshot to the next copies only what's new. Each one
-    written beside then renamed. Returns (copied, already there)."""
+def copy_videos(
+    videos: list[tuple[Path, str]], folder: Path, ffmpeg: str | None = None
+) -> tuple[int, int, int]:
+    """Videos [(mp4, name)] into folder under their names (_snapshot_copy():
+    scaled down past MAX_VIDEO_WIDTH), only those not there yet or changed
+    since (modification time) -- a folder kept from one snapshot to the
+    next copies only what's new. Each one written beside then renamed.
+    Returns (copied, already there, of the copied the ones scaled down)."""
     folder = Path(folder)
-    copied = kept = 0
+    copied = kept = scaled = 0
     for mp4, name in videos:
         dst = folder / name
         try:
-            src_stat, dst_stat = mp4.stat(), dst.stat()
-            if (
-                src_stat.st_size == dst_stat.st_size
-                and int(src_stat.st_mtime) == int(dst_stat.st_mtime)
-            ):
+            if int(mp4.stat().st_mtime) == int(dst.stat().st_mtime):
                 kept += 1
                 continue
         except OSError:
             pass
         dst.parent.mkdir(parents=True, exist_ok=True)
-        tmp = dst.with_name(f"{dst.name}.tmp")
+        tmp = dst.with_name(f"{dst.stem}.tmp.mp4")
         try:
-            shutil.copy2(mp4, tmp)
+            scaled += _snapshot_copy(mp4, tmp, ffmpeg)
             os.replace(tmp, dst)
         finally:
             if tmp.exists():
                 tmp.unlink()
         copied += 1
-    return copied, kept
+    return copied, kept, scaled
 
 
 def videos_in(folder: Path) -> list[str]:
@@ -243,7 +303,7 @@ def videos_in(folder: Path) -> list[str]:
     out = []
     for dirpath, _dirs, files in os.walk(folder):
         for f in files:
-            if f.lower().endswith(".mp4"):
+            if f.lower().endswith(".mp4") and not f.lower().endswith(".tmp.mp4"):
                 out.append(Path(dirpath, f).relative_to(folder).as_posix())
     return sorted(out)
 

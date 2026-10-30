@@ -66,6 +66,7 @@ from ..lib import (
     tracking_json_path,
     wipmeta_add_work,
     write_snapshot,
+    MAX_VIDEO_WIDTH,
     copy_videos,
     snapshot_videos,
     videos_in,
@@ -1188,11 +1189,16 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
                         zip_videos,
                         self._videos,
                         Path(self.filepath).with_suffix(".zip"),
+                        resolve_ffmpeg(),
                     )
                     doing = "zipping"
                 else:
+                    # ffmpeg: a video too wide for a browser is scaled down.
                     self._job = SnapshotJob(
-                        copy_videos, self._videos, self._videos_folder()
+                        copy_videos,
+                        self._videos,
+                        self._videos_folder(),
+                        resolve_ffmpeg(),
                     )
                     doing = "copying new"
                 self._phase = "videos"
@@ -1219,11 +1225,12 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
                     f"{self._job.result} video(s) zipped into {zip_name}",
                 )
             else:
-                copied, kept = self._job.result
+                copied, kept, scaled = self._job.result
                 log(
                     "INFO",
                     "snapshot",
-                    f"Videos in {self._videos_folder()}: {copied} copied, "
+                    f"Videos in {self._videos_folder()}: {copied} copied "
+                    f"({scaled} scaled down to {MAX_VIDEO_WIDTH} px wide), "
                     f"{kept} already there",
                 )
         for w in self._warnings:
