@@ -456,7 +456,8 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
         rtk_departments = {d for e in open_rtks for d in e["departments"]}
         item["rtk_departments"] = sorted(rtk_departments)
         # On no department (a general retake): the "n RTK" flag by the name
-        # is red-outlined; it weighs on every department's Done (_rtk_on()).
+        # is red-outlined; it weighs on Done as one department's RTK would
+        # (_progress()), never on each department's.
         item["general_rtk"] = any(not e["departments"] for e in open_rtks)
         # Per done department: its validations at the stable shown, and the
         # last ones given to an earlier stable (to review again).
@@ -471,11 +472,10 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
         }
         # Per department, then their mean: the footer averages the first.
         item["scores"] = {
-            d: _department_score(st, _rtk_on(item, d), weights)
+            d: _department_score(st, d in rtk_departments, weights)
             for d, st in item["departments"].items()
         }
-        scores = list(item["scores"].values())
-        item["progress"] = sum(scores) / len(scores) if scores else None
+        item["progress"] = _progress(item, weights)
         # Apart from Done: the share of the required departments the top
         # role (or an equivalent one) validated at the stable shown.
         item["validated"] = {
@@ -549,6 +549,22 @@ def progress_weights(config: dict) -> dict[str, int]:
 def _rtk_on(item: dict, department: str) -> bool:
     """An open RTK on that department, or on none (a general retake)."""
     return department in item["rtk_departments"] or item.get("general_rtk", False)
+
+
+def _progress(item: dict, weights: dict) -> float | None:
+    """A file's Done: its departments' mean, a general retake counting as
+    an RTK on one of them -- a done one with none of its own (none such:
+    it changes nothing, like an RTK on a department not done)."""
+    scores = item["scores"]
+    if not scores:
+        return None
+    total = sum(scores.values())
+    if item.get("general_rtk") and any(
+        st == "done" and d not in item["rtk_departments"]
+        for d, st in item["departments"].items()
+    ):
+        total -= 1 - weights["rtk"] / 100
+    return total / len(scores)
 
 
 def _department_score(state: str, open_rtk: bool, weights: dict) -> float:

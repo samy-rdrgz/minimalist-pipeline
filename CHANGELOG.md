@@ -64,6 +64,9 @@ review one file -- lighter to read on a computer and on a phone.
   opens only the videos it needs, by their paths, never the frames.
 - The logo moved to the footer, "Created by minimalist pipeline", and
   opens the add-on's page on extensions.blender.org.
+- A retake on no department (general RTK) counts in a file's Done as an
+  RTK on one of its done departments, no longer on every one of them;
+  each department's own Done leaves it out.
 - The department filter is drawn like the chips next to it.
 - When the snapshot was taken stands out; opened later, "n days old".
 - Colours: every text at 4.5:1 or more in both themes; the review bar

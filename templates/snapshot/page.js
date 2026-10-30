@@ -59,7 +59,7 @@ function dia(cls,tip){return '<span class="rk'+cls+'" title="'+tip+'">◆</span>
 function rkTag(it,d){var h='',r=it.rtk[d];
 if(r)h+=dia(r==='team'?' team':'','An open retake on '+cap(d)+(r==='team'?', from the team':', from a validation role'));
 else if(it.genRtks.length&&isDone(it.states[d])){var t=it.genRtks.every(function(n){return n.team;});
-h+=dia(t?' team':'','A retake on no department'+(t?', from the team':', from a validation role')+': it holds back every done department');}
+h+=dia(t?' team':'','A retake on no department'+(t?', from the team':', from a validation role')+': it counts in Done as one department in RTK');}
 if((it.todos[d]||0)>0)h+=dia(' todo',plural(it.todos[d],'open todo')+' on '+cap(d));
 return h;}
 function okTag(it,d){var o=it.ok[d];if(!o)return '';
@@ -140,7 +140,7 @@ h+='<div class="card sched"><div class="k-label">Schedule, on '+fmtDay(snapDate)
 $('summary').innerHTML=h;}
 var W=META.weights;
 $('weights').textContent='Each required department counts the same: not started 0 %, in progress '+W.wip+' %, done but reworked since '+W.rework+
-' %, done with an open RTK '+W.rtk+' %, done 100 %. A file averages its departments, a group its files.'+
+' %, done with an open RTK '+W.rtk+' %, done 100 %. A file averages its departments -- a retake on no department counts as an RTK on one of its done departments --, a group its files.'+
 (META.role?' Validated, apart: the share of the required departments '+META.role+' (or an equivalent role) validated at the stable shown -- a newer stable needs it again.':'');
 
 /* ---------- the list ---------- */
