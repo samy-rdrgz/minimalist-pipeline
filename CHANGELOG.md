@@ -59,8 +59,9 @@ review one file -- lighter to read on a computer and on a phone.
   *Zip* (next to the snapshot, to send) or *Don't copy* (the page still
   plays what `videos/` holds). The choice, the sequences ticked and
   *Assets & libraries* are remembered from one export to the next. The
-  page knows which videos it has, and *Choose the videos folder…* (⋯ menu,
-  or under a render with nothing to play) reads them from any folder,
+  page knows which videos it has, and *Choose the videos folder…* (a folder button
+  next to ? until one is chosen, ⋯ menu, or under a render with nothing
+  to play) reads them from any folder,
   whatever its name -- the project's `renders/` too: in Chrome or Edge it
   opens only the videos it needs, by their paths, never the frames.
 - The logo moved to the footer, "Created by minimalist pipeline", and

@@ -203,7 +203,9 @@ var others=filt?tabs.filter(function(t){return t[0]!==state.tab;}).map(function(
 $('list').innerHTML=(h||'<div class="empty">Nothing here.</div>')+others.map(function(x){return '<button class="untracked" data-other="'+x[0][0]+'" style="text-align:center">'+
 plural(x[1],'match')+' in '+x[0][1].toLowerCase()+' ›</button>';}).join('');
 if(cur!=null){var s=$('list').querySelector('.row[data-i="'+cur+'"]');if(s)s.classList.add('sel');}
-countBar();}
+countBar();
+// The videos' folder button, next to ?: until one is chosen, while a render has a video.
+$('vidb').hidden=!!PICKED||!D.some(function(it){return it.renders.some(function(r){return r.video;});});}
 $('list').addEventListener('click',function(e){var t;
 if(e.target.closest('[data-zoom]'))return;
 if((t=e.target.closest('[data-other]')))return setTab(t.dataset.other);

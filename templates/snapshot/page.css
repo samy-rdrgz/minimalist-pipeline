@@ -53,6 +53,8 @@ h1{font:700 28px/1.15 var(--ui);margin:0;letter-spacing:-.01em;overflow-wrap:bre
 padding:0 14px;border-radius:99px;border:1px solid var(--line);background:var(--surface);font-weight:600;font-size:13px;white-space:nowrap;text-decoration:none;color:var(--ink)}
 .btn.primary{background:var(--valid);border-color:var(--valid);color:var(--on-fill)}
 .btn.icon{width:var(--tap);padding:0}
+#vidb{cursor:pointer;color:var(--accent)}#vidb input{display:none}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 body.reviewing #rv{display:none}
 .menu{position:relative}
 .menu-pop{position:absolute;right:0;top:calc(100% + 6px);z-index:40;min-width:250px;padding:6px;background:var(--surface);
