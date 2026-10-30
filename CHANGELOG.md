@@ -47,7 +47,8 @@ review one file -- lighter to read on a computer and on a phone.
   the review's count on it; a tap opens it again. Remembered by the
   browser; never folded while it still needs a name.
 - **Play a render's video** from the page: ▶ Play on each line of Last
-  render (one line per video: a shot rendered apart is its own line), ▶
+  render (one line per video: a shot rendered apart is its own line; a
+  ▶ per shot under the picture while reviewing), ▶
   in the panel's header and under its picture for the file's videos in a
   row, ▶ on a sequence's header for all of its files'. The page plays
   exactly the render it shows. Thin controls under the picture instead
