@@ -297,6 +297,29 @@ if(!n){PICKED=null;toast('No .mp4 in that folder.');return;}
 var found=D.reduce(function(c,it){return c+allVideos(it).filter(function(v){return v.src.slice(0,5)==='blob:';}).length;},0);
 toast(plural(n,'video')+' in that folder, '+found+' for this snapshot.');
 if(cur!=null)refresh();else render();}
+// Chrome, Edge: the folder opened, not read -- only the videos this page
+// needs are looked for, by their paths, so even the project's renders/
+// (hundreds of thousands of frames) is quick. Each path tried as is,
+// under renders/, then without its first folders (a folder inside).
+function pickFolder(){window.showDirectoryPicker({id:'mp-videos'}).then(function(dir){
+var names={};D.forEach(function(it){it.renders.forEach(function(r){if(r.video)names[r.video]=1;});});
+names=Object.keys(names);var found={},n=0,next=0,left=names.length;
+if(!left){toast('No render of this snapshot has a video.');return;}
+toast('Looking for '+plural(left,'video')+'…');
+function open(parts){var h=Promise.resolve(dir);parts.slice(0,-1).forEach(function(p){h=h.then(function(d){return d.getDirectoryHandle(p);});});
+return h.then(function(d){return d.getFileHandle(parts[parts.length-1]);}).then(function(f){return f.getFile();});}
+function look(name){var parts=name.split('/'),tries=[parts,['renders'].concat(parts)];
+for(var k=1;k<parts.length-1;k++)tries.push(parts.slice(k));
+var at=0;function one(){if(at>=tries.length)return null;return open(tries[at++]).catch(one);}return Promise.resolve().then(one);}
+function work(){if(next>=names.length)return Promise.resolve();var name=names[next++];
+return look(name).then(function(f){if(f){found[name]=f;n++;}}).then(work);}
+var pool=[];for(var w=0;w<8;w++)pool.push(work());
+Promise.all(pool).then(function(){if(!n){toast('None of this snapshot\'s videos in '+dir.name+'.');return;}
+PICKED=found;toast(n+' of '+plural(names.length,'video')+' found in '+dir.name+'.');if(cur!=null)refresh();else render();});
+}).catch(function(e){if(e&&e.name!=='AbortError')toast('That folder could not be read.');});}
+// The pickers are file inputs, for the browsers without it.
+document.addEventListener('click',function(e){var l=e.target.closest('label');
+if(!l||!window.showDirectoryPicker||!l.querySelector('.vid-pick'))return;e.preventDefault();e.stopPropagation();closeMenus();pickFolder();},true);
 function pickLink(text){return '<label class="vpick">'+esc(text)+'<input type="file" class="vid-pick" webkitdirectory multiple accept="video/mp4,.mp4"></label>';}
 document.addEventListener('change',function(e){var t=e.target;if(!t.classList||!t.classList.contains('vid-pick'))return;
 var files=t.files;closeMenus();if(files&&files.length)pickVideos(files);t.value='';});

@@ -60,7 +60,8 @@ review one file -- lighter to read on a computer and on a phone.
   *Assets & libraries* are remembered from one export to the next. The
   page knows which videos it has, and *Choose the videos folder…* (⋯ menu,
   or under a render with nothing to play) reads them from any folder,
-  whatever its name -- the project's `renders/` too.
+  whatever its name -- the project's `renders/` too: in Chrome or Edge it
+  opens only the videos it needs, by their paths, never the frames.
 - The logo moved to the footer, "Created by minimalist pipeline", and
   opens the add-on's page on extensions.blender.org.
 - The department filter is drawn like the chips next to it.
