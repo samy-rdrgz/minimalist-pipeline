@@ -490,7 +490,7 @@ h+='</div>';}
 // Where it comes from: at the bottom, out of the way while reviewing.
 h+='<dl class="view-only facts"><dt>Last render</dt><dd>'+rendersHtml(it)+noVideo(it)+'</dd><dt>Blender file</dt><dd class="fileline">'+esc(it.file)+'.blend</dd></dl>';
 $('p-body').innerHTML=h;$('p-body').querySelectorAll('textarea').forEach(grow);
-document.body.classList.add('panel-open');var p=$('panel');p.hidden=false;
+document.body.classList.add('panel-open');lockPage(true);var p=$('panel');p.hidden=false;
 requestAnimationFrame(function(){p.classList.add('on');$('scrim').classList.add('on');});
 var pos=visible.indexOf(i);$('p-prev').disabled=$('m-prev').disabled=pos<=0;$('p-next').disabled=$('m-next').disabled=pos<0||pos>=visible.length-1;
 document.querySelectorAll('.row.sel').forEach(function(x){x.classList.remove('sel');});
@@ -500,7 +500,23 @@ var r=s.getBoundingClientRect(),top=bar.getBoundingClientRect().bottom+40;if(!ph
 p.setAttribute('aria-modal',phone.matches?'true':'false');
 try{history.replaceState(null,'','#'+encodeURIComponent(it.name));}catch(err){}}
 function refresh(){var y=$('p-body').scrollTop;openPanel(cur);$('p-body').scrollTop=y;render();save();}
-function closePanel(){if(cur==null)return;cur=null;document.body.classList.remove('panel-open');var p=$('panel');p.classList.remove('on');$('scrim').classList.remove('on');
+// A phone: the page under the full-screen panel holds still -- a drag on
+// the panel's header, or a field brought into view, scrolled it on iOS,
+// and closing the panel found the list somewhere else.
+var lockY=null;
+function lockPage(on){var b=document.body.style;
+if(on&&lockY==null&&matchMedia('(max-width:640px)').matches){lockY=scrollY;b.position='fixed';b.top=-lockY+'px';b.left=b.right='0';}
+else if(!on&&lockY!=null){b.position=b.top=b.left=b.right='';scrollTo(0,lockY);lockY=null;}}
+// Touch: a field in a fixed layer (panel, review bar, dialog) brings the
+// keyboard up and iOS scrolls the page under it, often to the bottom,
+// and leaves it there: put it back once the field is left.
+var keepY=null;
+document.addEventListener('focusin',function(e){if(lockY==null&&keepY==null&&e.target.matches('input,textarea,select')&&e.target.closest('.panel,.rbar,.dlg')&&matchMedia('(pointer:coarse)').matches)keepY=scrollY;});
+document.addEventListener('focusout',function(e){if(keepY==null)return;var y=keepY;
+setTimeout(function(){var f=document.activeElement;if(f&&f.matches&&f.matches('input,textarea,select')&&f.closest('.panel,.rbar,.dlg'))return;keepY=null;if(lockY==null){scrollTo(0,y);
+// Again once the keyboard has slid away: iOS scrolls once more then.
+setTimeout(function(){if(keepY==null&&lockY==null)scrollTo(0,y);},450);}},60);});
+function closePanel(){if(cur==null)return;cur=null;document.body.classList.remove('panel-open');lockPage(false);var p=$('panel');p.classList.remove('on');$('scrim').classList.remove('on');
 setTimeout(function(){if(cur==null)p.hidden=true;},220);document.querySelectorAll('.row.sel').forEach(function(x){x.classList.remove('sel');});
 try{history.replaceState(null,'',location.pathname+location.search);}catch(err){}
 if(lastFocus)lastFocus.focus({preventScroll:true});lastFocus=null;}
@@ -591,7 +607,7 @@ $('rv-min').addEventListener('click',function(){fold(true);});
 $('rv-fab').addEventListener('click',function(){fold(false);});
 function setReview(on){document.body.classList.toggle('reviewing',on);
 var folded=false;try{folded=localStorage.getItem(FOLD)==='1';}catch(e){}
-document.body.classList.toggle('rb-folded',on&&folded&&!!$('author').value.trim());showNotes=null;editing={};if(on&&!$('author').value)$('author').focus();if(cur!=null)openPanel(cur);}
+document.body.classList.toggle('rb-folded',on&&folded&&!!$('author').value.trim());showNotes=null;editing={};if(on&&!$('author').value&&!matchMedia('(pointer:coarse)').matches)$('author').focus();if(cur!=null)openPanel(cur);}
 $('rv').addEventListener('click',function(){setReview(true);});
 $('rv-exit').addEventListener('click',function(){closeMenus();setReview(false);toast('Review left: it stays in this browser, ✎ Review takes it back.');});
 $('rv-clear').addEventListener('click',function(){closeMenus();if(!summary().files||confirm('Clear this review? What you wrote here is lost (a downloaded file is kept).')){
