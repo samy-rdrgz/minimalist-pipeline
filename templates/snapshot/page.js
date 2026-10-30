@@ -448,8 +448,10 @@ $('p-kpi').innerHTML=it.tracked?'<span class="kd">'+Math.round(it.done*100)+'<sm
 $('p-flags').innerHTML=flags(it);
 var deps=depsOf(it.kind).filter(function(d){return d in it.states;});
 var h='<div class="p-media">'+(it.thumb?'<button type="button" class="big" id="bigb" aria-label="Full size"><img id="bigimg" alt="" src="'+img(it.thumb)+'"></button>':'<span class="thumb none"><span class="frame"></span></span>')+
-(it.shot_thumbs.length?'<div class="shotsel">'+[['whole block',it.thumb]].concat(it.shot_thumbs).map(function(s,n){
-return '<button type="button" data-src="'+(s[1]?img(s[1]):'')+'" aria-pressed="'+(n===0)+'"'+(s[1]?'':' disabled')+'><span class="frame">'+(s[1]?'<img alt="" src="'+img(s[1])+'">':'')+'</span>'+esc(s[0])+(s[1]?'':' · not rendered')+'</button>';}).join('')+'</div>':'')+
+// Each shot's picture; the block's own only when it's none of theirs (its
+// first shot's, most often: the same picture twice).
+(it.shot_thumbs.length?'<div class="shotsel">'+(it.thumb&&!it.shot_thumbs.some(function(s){return s[1]===it.thumb;})?[['whole block',it.thumb]]:[]).concat(it.shot_thumbs).map(function(s){
+return '<button type="button" data-src="'+(s[1]?img(s[1]):'')+'" aria-pressed="'+(!!s[1]&&s[1]===it.thumb)+'"'+(s[1]?'':' disabled')+'><span class="frame">'+(s[1]?'<img alt="" src="'+img(s[1])+'">':'')+'</span>'+esc(s[0])+(s[1]?'':' · not rendered')+'</button>';}).join('')+'</div>':'')+
 (function(){var n=allVideos(it).length;
 // The file's videos: ▶ in the header. Reviewing, Last render is folded:
 // each shot's video stays one tap away here.
