@@ -40,5 +40,4 @@ paths_exclude_pattern = [
     "/*.code-workspace",
     "/README.md",
     "/README_fr.md",
-    "/tests/",
 ]
