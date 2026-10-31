@@ -81,6 +81,10 @@ review one file -- lighter to read on a computer and on a phone.
   iPad refuse it past that. The render's own stays full size.
 - Farm: cancelling a job whose cancel was already on its way (sent by the
   farm, or a second click) no longer raises "locked by another process".
+- A render's compiled video carries its version, like its folder:
+  `sq100_sh030_v003-stable_001.mp4` (was `sq100_sh030.mp4`; older ones
+  still read). Its rush in `editing/rushes/` keeps the name without, for
+  the edit to relink.
 - The department filter is drawn like the chips next to it.
 - When the snapshot was taken stands out; opened later, "n days old".
 - Colours: every text at 4.5:1 or more in both themes; the review bar
