@@ -1852,8 +1852,8 @@ project at a given moment and a way to send review notes back.
   could bundle wheels.
 - **Videos in a zip beside it, not in the HTML.** Embedding them (base64
   `data:`) was weighed: +33 % on top of the mp4s, the whole file loaded
-  at once by the browser, and the renders are x265 -- Firefox can't play
-  them, Chrome only with hardware decoding -- so a re-encoded H.264 copy
+  at once by the browser, and the renders are x265 -- browsers play it
+  through hardware decoding only (Firefox too, recent versions) -- so a re-encoded H.264 copy
   per shot on top. A zip named like the snapshot (`zip_latest_videos()`,
   `lib/preview.py`) just copies the mp4s as they are (stored, not
   compressed: an mp4 already is), laid out like `renders/` minus each

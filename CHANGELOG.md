@@ -2,7 +2,7 @@
 
 All notable changes to this addon. Dates are release dates.
 
-## Unreleased
+## 1.1.8 — unreleased
 
 The production snapshot, redrawn: a list to scan, a panel to read and
 review one file -- lighter to read on a computer and on a phone.
