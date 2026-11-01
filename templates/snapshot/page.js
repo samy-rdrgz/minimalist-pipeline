@@ -150,7 +150,9 @@ rtk:function(it,d){return d?!!it.rtk[d]||it.genRtks.length>0:Object.keys(it.rtk)
 notes:function(it){return it.openNotes.length>0||it.genRtks.length>0||Object.keys(it.rtkNotes).length>0;},
 outdated:function(it){return it.outdated;},
 tovalid:function(it,d){return d?isDone(it.states[d])&&!validNow(it,d):Object.keys(it.states).some(function(x){return isDone(it.states[x])&&!validNow(it,x);});},
-todo:function(it,d){return d?it.states[d]&&!isDone(it.states[d]):it.tracked&&it.done<100;}};
+todo:function(it,d){return d?it.states[d]&&!isDone(it.states[d]):it.tracked&&it.done<100;},
+// What this review touched: validated, withdrawn, retakes, a description.
+mine:function(it){return changes(it)>0;}};
 function match(it,anyTab){
 if(!anyTab&&it.tab!==state.tab)return false;
 if(state.q&&it.name.toLowerCase().indexOf(state.q)<0)return false;
@@ -642,9 +644,17 @@ else if(reviewing()&&k==='v')validateAll();else if(reviewing()&&k==='x')generalR
 else return;e.preventDefault();});
 
 /* ---------- review: the bar, the download, loading one back ---------- */
+// Only the files this review touched, in the list -- on the tab that has
+// some, if this one has none.
+function showMine(){state.f.mine=true;document.querySelector('.chipf[data-f="mine"]').setAttribute('aria-pressed','true');
+if(!D.some(function(it){return it.tab===state.tab&&changes(it);})){var t=D.filter(function(it){return changes(it);})[0];if(t){setTab(t.tab);return;}}
+render();$('bar').scrollIntoView({block:'start'});}
+$('rv-n').addEventListener('click',function(){if(state.f.mine){state.f.mine=false;document.querySelector('.chipf[data-f="mine"]').setAttribute('aria-pressed','false');render();}else showMine();});
 var toastT;function toast(t){var el=$('toast');el.textContent=t;el.classList.add('on');clearTimeout(toastT);toastT=setTimeout(function(){el.classList.remove('on');},4200);}
 (META.roles||[]).forEach(function(r){var o=document.createElement('option');o.value=r;o.textContent=r;$('role').appendChild(o);});pick($('role'));
-function countBar(){var c=summary();$('rv-n').textContent=c.files?plural(c.files,'file')+' reviewed':'Nothing reviewed yet';
+function countBar(){var c=summary();$('rv-n').textContent=c.files?plural(c.files,'file')+' reviewed':'Nothing reviewed yet';$('rv-n').disabled=!c.files;
+// "Your review" among the filters while there's one; off with it.
+var mb=document.querySelector('.chipf[data-f="mine"]');mb.hidden=!c.files;if(!c.files&&state.f.mine){state.f.mine=false;mb.setAttribute('aria-pressed','false');}
 document.querySelector('#rv-dl .cnt').textContent=c.files||'';$('rv-fabn').textContent=c.files||'';}
 // The bar folds into a round button (remembered by this browser), never
 // while it still needs a name.
@@ -692,9 +702,9 @@ var dl=$('dlg');dl.innerHTML='<div class="dlg-in" role="dialog" aria-modal="true
 (c.out?'<dt>Validations withdrawn</dt><dd>'+c.out+'</dd>':'')+(c.desc?'<dt>Descriptions</dt><dd>'+c.desc+'</dd>':'')+'</dl>'+
 '<label>Your name<input id="d-author" value="'+esc(rv.author)+'" autocomplete="name"></label><div class="row2">'+
 '<label>Role<select id="d-role">'+$('role').innerHTML+'</select></label><label>Review date<input id="d-date" type="date" value="'+esc(rv.date||today())+'"></label></div>'+
-'<p class="why" id="d-why" hidden></p><div class="acts"><button class="btn" id="d-cancel">Cancel</button><button class="btn primary" id="d-go">Download</button></div></div>';
+'<p class="why" id="d-why" hidden></p><div class="acts"><button class="btn link" id="d-see" title="Only the files this review touched, in the list">See them</button><button class="btn" id="d-cancel">Cancel</button><button class="btn primary" id="d-go">Download</button></div></div>';
 $('d-role').value=rv.role;pick($('d-role'));dl.hidden=false;$(rv.author?'d-go':'d-author').focus();
-$('d-cancel').onclick=function(){dl.hidden=true;};dl.onclick=function(e){if(e.target===dl)dl.hidden=true;};
+$('d-cancel').onclick=function(){dl.hidden=true;};$('d-see').onclick=function(){dl.hidden=true;showMine();};dl.onclick=function(e){if(e.target===dl)dl.hidden=true;};
 $('d-go').onclick=function(){rv.author=$('d-author').value.trim();rv.role=$('d-role').value;rv.date=$('d-date').value;
 $('author').value=rv.author;$('role').value=rv.role;sync('role');save();
 if(needsRole&&!rv.role){$('d-why').hidden=false;$('d-why').textContent='Pick your role: your validations and retakes are recorded under it.';$('d-role').classList.add('need');sync('d-role');return;}

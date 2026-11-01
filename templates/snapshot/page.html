@@ -44,6 +44,7 @@
 <div class="bar" id="bar"><div class="bar-in">
 <div class="bscroll"><div class="seg" role="group" aria-label="Kind" id="seg"></div>
 <select class="depf" id="depf" aria-label="Department"></select>
+<button type="button" class="chipf c-mine" data-f="mine" aria-pressed="false" title="What this review says: validated, retakes, notes, descriptions" hidden>Your review<b></b></button>
 <button type="button" class="chipf c-rtk" data-f="rtk" aria-pressed="false" title="An open RTK -- on the department picked, or on none">Retakes<b></b></button>
 <button type="button" class="chipf" data-f="notes" aria-pressed="false" title="An open note, todo or RTK">Open notes<b></b></button>
 <button type="button" class="chipf" data-f="outdated" aria-pressed="false" title="Rendered from an older version than the last stable">Render outdated<b></b></button>
@@ -88,7 +89,7 @@
 <span class="lbl">Reviewer</span>
 <input id="author" placeholder="Your name" autocomplete="name">
 <select id="role" aria-label="Role"><option value="">role…</option></select>
-<span class="n" id="rv-n">Nothing reviewed yet</span>
+<button type="button" class="n" id="rv-n" title="Show only what this review touched">Nothing reviewed yet</button>
 <button class="btn dl-b" id="rv-dl" title="Download the review"><span class="dli" aria-hidden="true">⤓</span><span class="dlt">Download</span><span class="cnt"></span></button>
 <div class="menu"><button class="btn icon" id="rv-more" aria-haspopup="true" aria-expanded="false" title="More">⋯</button>
 <div class="menu-pop up" id="rv-morepop" hidden>

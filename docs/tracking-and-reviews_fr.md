@@ -121,6 +121,9 @@ la prod -- sur la version qu'il a vue.
   *Last render* et *Blender file* s'effacent du panneau pendant la
   review. Touches : ← → (fichiers), Échap (fermer), V (all done), X
   (retake général), Échap ou Ctrl+Entrée dans un champ (en sortir).
+  Pour la relire : *Your review*, parmi les filtres (ou un clic sur
+  « n files reviewed » dans la barre de review, ou *See them* avant de
+  télécharger), ne montre que les fichiers que la review a touchés.
   *Download* résume la review -- fichiers, validations, retakes,
   validations retirées -- et demande votre nom, votre rôle (obligatoire
   dès qu'elle contient un retake ou une validation) et la date de review,

@@ -112,6 +112,9 @@ it saw.
   buttons; *✎ Edit the description* under it. The
   list shows what you did under each department (✓ you, ✕ you); the
   panel's *Last render* and *Blender file* step aside while reviewing.
+  To go over it: *Your review*, among the filters (or a click on "n
+  files reviewed" in the review bar, or *See them* before downloading),
+  shows only the files the review touched.
   Keys: ← → (files), Esc (close), V (all done), X (general retake), Esc
   or Ctrl+Enter in a box (leave it). *Download* sums up the review --
   files, validations, retakes, withdrawn -- and asks your name, your

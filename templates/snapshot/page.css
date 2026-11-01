@@ -131,7 +131,7 @@ background-position:calc(100% - 17px) 52%,calc(100% - 12px) 52%;background-size:
 .depf option{color:var(--ink);background:var(--surface);font-weight:400}
 .chipf[aria-pressed="true"],.depf.on{border-color:var(--accent);color:var(--accent);background-color:var(--accent-bg);font-weight:600}
 .chipf.c-rtk[aria-pressed="true"]{border-color:var(--rtk);color:var(--rtk);background:var(--rtk-bg)}
-.chipf.c-valid[aria-pressed="true"]{border-color:var(--valid);color:var(--valid);background:var(--valid-bg)}
+.chipf.c-mine[aria-pressed="true"],.chipf.c-valid[aria-pressed="true"]{border-color:var(--valid);color:var(--valid);background:var(--valid-bg)}
 .chipf[aria-pressed="true"] b{color:inherit}
 .find{position:relative;flex:1 1 160px;max-width:240px}
 .search{width:100%;min-height:var(--tap);padding:0 12px 0 32px;border:1px solid var(--line);border-radius:99px;
@@ -476,7 +476,8 @@ body.reviewing .rbar{visibility:visible;transform:translate(-50%,0)}
 .rbar input{width:130px}
 .rbar input::placeholder{color:color-mix(in srgb,var(--bar-ink) 55%,transparent)}
 .need{box-shadow:0 0 0 2px var(--rtk)!important}
-.rbar .n{font-size:13px;white-space:nowrap;padding:0 4px}
+.rbar .n{font-size:13px;white-space:nowrap;padding:0 4px;border:0;background:none;color:inherit;cursor:pointer;text-decoration:underline;text-decoration-color:color-mix(in srgb,currentColor 40%,transparent);text-underline-offset:3px}
+.rbar .n:disabled{cursor:default;text-decoration:none}
 .rbar .btn{border:0;background:var(--bar-field);color:var(--bar-ink)}
 .rbar .dl-b{background:var(--valid);color:var(--on-fill)}
 .rbar .cnt:not(:empty)::before{content:" · "}
@@ -511,6 +512,7 @@ body.reviewing.rb-auto.rb-peek .rbar{left:16px;right:16px;width:auto;max-width:n
 .dlg input,.dlg select,.dlg .pick{min-height:var(--tap);padding:0 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface);font-size:14px}
 .dlg .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .dlg .acts{display:flex;justify-content:flex-end;gap:8px;margin-top:6px}
+.dlg .btn.link{margin-right:auto;border-color:transparent;background:none;color:var(--accent);padding:0 8px}
 .dlg .why{margin:0 0 10px;font-size:12px;color:var(--rtk)}
 .toast{visibility:hidden;position:fixed;left:50%;top:16px;z-index:70;transform:translate(-50%,-150%);transition:transform .25s;padding:10px 16px;border-radius:12px;
 background:var(--bar-bg);color:var(--bar-ink);font-size:13px;box-shadow:var(--sh-pop);max-width:calc(100% - 24px)}
