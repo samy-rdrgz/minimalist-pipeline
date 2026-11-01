@@ -31,8 +31,9 @@ color-scheme:light dark}
 input,textarea,select{font-size:16px!important}
 /* No keyboard keys to recall under a finger. */
 .kh{display:none!important}
-/* Writing in the panel: the keyboard's half of the screen is enough. */
-body.typing .rbar,body.typing .rfab,body.typing .p-foot{display:none!important}}
+/* Writing in the panel: the keyboard takes half the screen -- the picture,
+the review bar and Previous / Next step aside for the text. */
+body.typing .rbar,body.typing .rfab,body.typing .p-foot,body.typing .p-media{display:none!important}}
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 var(--ui);font-variant-numeric:tabular-nums}
