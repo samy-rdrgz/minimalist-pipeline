@@ -71,6 +71,11 @@ var rv={author:'',role:'',date:'',files:{}};
 var KEY='mp-review:'+META.project+':'+META.snapshot;
 function entry(it){var e=rv.files[it.file]||(rv.files[it.file]={deps:{},all:false,text:'',desc:null});e.fixed=e.fixed||{};e.replies=e.replies||{};return e;}
 function peek(it){return rv.files[it.file]||{deps:{},all:false,text:'',desc:null,fixed:{},replies:{}};}
+// The open RTKs this review replies to: still to redo -- their departments
+// sent back as a retake would ({deps}), a general one as the whole file's (gen).
+function answered(it){var ids=replies(peek(it)),out={deps:{},gen:false};if(!ids.length)return out;
+it.notes.forEach(function(n){if(n.type==='rtk'&&n.done===false&&!n.closed&&ids.indexOf(n.id)>=0){
+if(n.deps.length)n.deps.forEach(function(d){out.deps[d]=1;});else out.gen=true;}});return out;}
 // Replies written, by the note they answer.
 function replies(e){var r=e.replies||{};return Object.keys(r).filter(function(id){return (r[id]||'').trim();});}
 function changes(it){var e=rv.files[it.file];if(!e)return 0;
@@ -79,6 +84,7 @@ if(e.desc!==null&&e.desc.trim()&&e.desc.trim()!==it.desc)n++;return n;}
 // What this review says of a department: 'ok' (its own ✓, or all done), 'no',
 // 'note' (only "note:" lines: a remark, its validation left as it is), or ''.
 function verdict(it,d){var e=peek(it),v=e.deps[d];if(v)return v.ok?'ok':noteOnly(v.text)?'note':'no';
+if(answered(it).deps[d])return 'no';
 return e.all&&isDone(it.states[d])?'ok':'';}
 function you(it,d){var v=verdict(it,d);if(!v)return '';
 return v==='ok'?'<span class="you y" title="Validated in your review">✓ you</span>':v==='note'?youNote():
@@ -91,7 +97,8 @@ function retakes(t){return t.split(NL).filter(function(l){var w=l.trim().split('
 return w.length&&w[0].toLowerCase().indexOf('note:')!==0;}).length;}
 function summary(){var c={files:0,ok:0,rt:0,out:0,desc:0,fixed:0,replies:0,notes:0};D.forEach(function(it){if(!changes(it))return;var e=rv.files[it.file];c.files++;c.fixed+=Object.keys(e.fixed||{}).length;c.replies+=replies(e).length;
 Object.keys(e.deps).forEach(function(d){var v=e.deps[d];if(v.ok)c.ok++;else if(v.text.trim()){c.rt+=retakes(v.text);c.notes+=notesIn(v.text);}else c.out++;});
-if(e.all)Object.keys(it.states).forEach(function(d){if(isDone(it.states[d])&&!e.deps[d])c.ok++;});
+var an=answered(it).deps;Object.keys(an).forEach(function(d){if(!e.deps[d])c.out++;});
+if(e.all)Object.keys(it.states).forEach(function(d){if(isDone(it.states[d])&&!e.deps[d]&&!an[d])c.ok++;});
 c.rt+=retakes(e.text);c.notes+=notesIn(e.text);if(e.desc!==null&&e.desc.trim()&&e.desc.trim()!==it.desc)c.desc++;});return c;}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(rv));}catch(e){}}
 
@@ -100,7 +107,8 @@ function flags(it){var h='',e=peek(it);
 if(it.genRtks.length){var tm=it.genRtks.every(function(n){return n.team;});
 h+='<span class="badge '+(tm?'b-team':'b-rtk')+'" title="An open retake on no department: it holds back every department">◆ General RTK'+(it.genRtks.length>1?' ×'+it.genRtks.length:'')+'</span>';}
 // A retake on no department in your review: the departments' own ✕ you.
-if(e.text.trim())h+=noteOnly(e.text)?youNote():'<span class="you n" title="A retake on no department, in your review">✕ you</span>';
+var gen=answered(it).gen;
+if(e.text.trim()||gen)h+=noteOnly(e.text)&&!gen?youNote():'<span class="you n" title="A retake on no department, in your review">✕ you</span>';
 if(it.outdated)h+='<span class="badge b-check" title="Rendered from an older version than the last stable">⚠ Render outdated</span>';
 if(it.to_check)h+='<span class="badge b-check" title="Rendered, not checked by the team yet">Render to check</span>';
 if(e.desc!==null&&e.desc.trim()&&e.desc.trim()!==it.desc)h+='<span class="badge b-rev">✎ description</span>';
@@ -449,11 +457,11 @@ function joinBox(it,b){var out=b.all.split(NL).filter(function(l){return l.trim(
 it.shots.forEach(function(sh){if(b.open[sh]&&b.per[sh])b.per[sh].split(NL).forEach(function(l){if(l.trim())out.push('['+sh+'] '+l);});});
 return b.text=out.join(NL);}
 function retakeBox(it,key,text,ph){
-if(it.shots.length<2)return '<textarea class="rtk-t" data-k="'+esc(key)+'"'+(key==='gen'?' id="gen-t"':'')+' placeholder="'+esc(ph)+'">'+esc(text)+'</textarea>';
+if(it.shots.length<2)return '<textarea rows="1" class="rtk-t" data-k="'+esc(key)+'"'+(key==='gen'?' id="gen-t"':'')+' placeholder="'+esc(ph)+'">'+esc(text)+'</textarea>';
 var b=boxOf(it,key,text);
-return '<div class="rbox"><label class="shotbox"><span>All</span><textarea class="rtk-t" data-k="'+esc(key)+'" data-s=""'+(key==='gen'?' id="gen-t"':'')+' placeholder="'+esc(ph)+' -- all its shots">'+esc(b.all)+'</textarea></label>'+
+return '<div class="rbox"><label class="shotbox"><span>All</span><textarea rows="1" class="rtk-t" data-k="'+esc(key)+'" data-s=""'+(key==='gen'?' id="gen-t"':'')+' placeholder="'+esc(ph)+' -- all its shots">'+esc(b.all)+'</textarea></label>'+
 '<div class="tags shotbox" data-k="'+esc(key)+'"><span></span><span class="tg-in">'+it.shots.map(function(sh){return '<button type="button" data-shot="'+esc(sh)+'" aria-pressed="'+!!b.open[sh]+'">'+esc(sh)+'</button>';}).join('')+'</span></div>'+
-it.shots.filter(function(sh){return b.open[sh];}).map(function(sh){return '<label class="shotbox"><span>'+esc(sh)+'</span><textarea class="rtk-t" data-k="'+esc(key)+'" data-s="'+esc(sh)+'" placeholder="What to fix in '+esc(sh)+'?">'+esc(b.per[sh]||'')+'</textarea></label>';}).join('')+'</div>';}
+it.shots.filter(function(sh){return b.open[sh];}).map(function(sh){return '<label class="shotbox"><span>'+esc(sh)+'</span><textarea rows="1" class="rtk-t" data-k="'+esc(key)+'" data-s="'+esc(sh)+'" placeholder="What to fix in '+esc(sh)+'?">'+esc(b.per[sh]||'')+'</textarea></label>';}).join('')+'</div>';}
 function syntax(it){return '<p class="syntax">One retake per line · <code>[f12-40]</code> frames · <code>note:</code> a remark, not a retake</p>';}
 function noteHtml(n,reply){var type=n.done===true?'<span class="badge b-done" title="Done">✓ '+esc(n.type)+'</span>':
 '<span class="badge '+(n.type==='rtk'?(n.team?'b-team':'b-rtk'):n.type==='todo'?'b-todo':'b-note')+'">'+esc(n.type)+(n.type==='rtk'&&n.team?' · team':'')+'</span>';
@@ -469,7 +477,7 @@ return '<div class="note'+(n.closed?' closed':'')+(reply?' reply':'')+(n.role?' 
 // import, the retake left open (Fixed says it's done).
 function replyBtn(n){return '<button type="button" class="rp" data-reply="'+esc(n.id)+'" aria-label="Reply" title="Reply: added to its thread at import -- a retake stays open">↩</button>';}
 function replyBox(n){var r=(peek(D[cur]).replies||{})[n.id];if(r==null&&!editing['r:'+n.id])return '';
-return '<div class="reply-box"><span class="you y">↩ you</span><textarea class="rp-t" data-r="'+esc(n.id)+'" placeholder="Your reply -- not fixed yet, a question, an answer…">'+esc(r||'')+'</textarea></div>';}
+return '<div class="reply-box"><span class="you y">↩ you</span><textarea rows="1" class="rp-t" data-r="'+esc(n.id)+'" placeholder="Your reply -- not fixed yet, a question, an answer…">'+esc(r||'')+'</textarea></div>';}
 function canReply(n){return reviewing()&&n.id&&!n.closed;}
 // An open RTK; reviewing, a button to say it's fixed (done at import, as you).
 function rtkLine(n){var where=[n.shot,n.frames].filter(Boolean).join(' · '),it=D[cur],fx=reviewing()&&n.id,on=fx&&!!peek(it).fixed&&!!(peek(it).fixed||{})[n.id];
@@ -523,7 +531,7 @@ return (n>1?'<div class="vlist review-only">'+it.renders.map(function(r,k){retur
 .sort(function(a,b){return it.shots.indexOf(a[0].shot_list[0])-it.shots.indexOf(b[0].shot_list[0]);})
 .map(function(x){return '<button type="button" class="pl" data-play="'+x[1]+'">▶ '+esc(x[0].shots||'all shots')+'</button>';}).join('')+'</div>':'');})()+'</div>';
 // The description first: what the file is.
-if(rv&&(editing.desc||e.desc!==null))h+='<div class="p-block"><h4>Description<span class="h-sub">sent with the review</span></h4><textarea id="desc-t" placeholder="What this file is, for the team">'+esc(e.desc!==null?e.desc:it.desc)+'</textarea></div>';
+if(rv&&(editing.desc||e.desc!==null))h+='<div class="p-block"><h4>Description<span class="h-sub">sent with the review</span></h4><textarea rows="1" id="desc-t" placeholder="What this file is, for the team">'+esc(e.desc!==null?e.desc:it.desc)+'</textarea></div>';
 else{if(it.desc)h+='<p class="desc">'+esc(it.desc)+'</p>';
 if(rv)h+='<button type="button" class="desc-edit" id="add-desc">✎ '+(it.desc?'Edit the description':'Add a description')+'</button>';}
 // The departments, between two rows of the same buttons: "All done" (✓
@@ -645,7 +653,10 @@ else{if(v&&v.no)delete e.deps[d];else e.deps[d]={no:1,text:''};refresh();
 if(e.deps[d]){var ta2=$('p-body').querySelector('textarea[data-k="'+CSS.escape('d:'+d)+'"]');if(ta2)ta2.focus();}}}});
 $('p-body').addEventListener('input',function(ev){var t=ev.target,it=D[cur],e=entry(it);if(t.tagName!=='TEXTAREA')return;grow(t);
 if(t.dataset.k){var k=t.dataset.k;if(t.dataset.s==null)setText(it,k,t.value);else{var b=boxOf(it,k,k==='gen'?e.text:(e.deps[k.slice(2)]||{}).text||'');
-if(t.dataset.s)b.per[t.dataset.s]=t.value;else b.all=t.value;setText(it,k,joinBox(it,b));}}else if(t.dataset.r)e.replies[t.dataset.r]=t.value;else if(t.id==='desc-t')e.desc=t.value;
+if(t.dataset.s)b.per[t.dataset.s]=t.value;else b.all=t.value;setText(it,k,joinBox(it,b));}}else if(t.dataset.r){var was=!!(e.replies[t.dataset.r]||'').trim();e.replies[t.dataset.r]=t.value;
+// Written or emptied: a reply to an RTK sends its department back, or not.
+if(was!==!!t.value.trim()){var id=t.dataset.r,at=t.selectionStart;refresh();var nt=$('p-body').querySelector('.rp-t[data-r="'+CSS.escape(id)+'"]');if(nt){nt.focus();nt.setSelectionRange(at,at);}return;}}
+else if(t.id==='desc-t')e.desc=t.value;
 // A department's box turning remark-only or back (✎ you / ✕ you): its
 // tag and ✕ in the panel, its cell in the list, the caret kept.
 if(t.dataset.k&&t.dataset.k.indexOf('d:')===0){var dd=t.dataset.k.slice(2),vd=verdict(it,dd),dep=$('p-body').querySelector('.rvb[data-d="'+CSS.escape(dd)+'"]');
@@ -716,6 +727,8 @@ $('role').addEventListener('change',function(){this.classList.remove('need');rv.
 function exportRows(){var out=[];D.forEach(function(it){if(!changes(it))return;var e=rv.files[it.file],
 row={filename:it.file,stable_version:it.stable,description_exported:it.desc};if(it.render_ref)row.render=it.render_ref;
 Object.keys(e.deps).forEach(function(d){var v=e.deps[d];row[d]=v.ok?'ok':(v.text.trim()||'no');});
+// A reply to a department's open RTK: still to redo, its validation withdrawn.
+Object.keys(answered(it).deps).forEach(function(d){if(!(d in row))row[d]='no';});
 if(e.all)Object.keys(it.states).forEach(function(d){if(isDone(it.states[d])&&!(d in row))row[d]='ok';});
 if(e.text.trim())row.global=e.text.trim();
 if(e.desc!==null&&e.desc.trim()&&e.desc.trim()!==it.desc)row.description=e.desc.trim();
