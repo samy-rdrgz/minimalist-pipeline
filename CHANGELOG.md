@@ -49,6 +49,9 @@ review one file -- lighter to read on a computer and on a phone.
 - **Close an RTK from the review**: while reviewing, an open RTK (the
   prod's or the team's) has *✓ Fixed*. Import review marks it done, as
   the reviewer -- never reopens one, so importing twice changes nothing.
+- `note:` takes `note :`, `n:` and any case too, after a line's tags
+  (`[sh020] n: ...`) -- the page and Import review read it alike (the
+  page took `[sh020] note:` for a remark, the import for a retake).
 - A department's box holding only `note:` lines is a remark: grey
   ✎ you on the page, and Import review leaves the department's
   validation as it is (it withdrew it, as for a retake).

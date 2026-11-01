@@ -358,8 +358,8 @@ def _reply_kind(text: str) -> tuple[str, str]:
     remark, the prefix dropped; else a retake, "still to redo", as in a
     department's cell."""
     lines = [line for line in text.splitlines() if line.strip()]
-    if lines and all(_NOTE_PREFIX.match(line) for line in lines):
-        return "note", "\n".join(_NOTE_PREFIX.sub("", line) for line in lines)
+    if lines and all(_is_note(line) for line in lines):
+        return "note", "\n".join(_drop_note(line) for line in lines)
     return "rtk", text
 
 
@@ -370,7 +370,18 @@ def _row_replies(row: dict) -> list[tuple[str, str]]:
         for column, value in row.items()
         if column.startswith(REPLY_PREFIX) and value.strip()
     ]
-_NOTE_PREFIX = re.compile(r"^note\s*:\s*", re.IGNORECASE)
+# "note:" -- or "note :", "n:", any case -- after the line's own tags
+# ([sh020] [f12-40], kept): a remark, not a retake.
+_NOTE_PREFIX = re.compile(r"^(\s*(?:\[[^\]]*\]\s*)*)(?:note|n)\s*:\s*", re.IGNORECASE)
+
+
+def _is_note(line: str) -> bool:
+    return bool(_NOTE_PREFIX.match(line))
+
+
+def _drop_note(line: str) -> str:
+    """The line without its "note:", its tags kept."""
+    return _NOTE_PREFIX.sub(r"\1", line, count=1)
 
 
 def _cell_choice(value: str) -> str:
@@ -423,7 +434,7 @@ def _row_actions(row: dict, schema: int) -> tuple[dict, str, list]:
         elif choice == "no" or (
             # A retake withdraws the validation; "note:" lines alone are a
             # remark, the validation left as it is.
-            choice == "text" and not all(_NOTE_PREFIX.match(line) for line in lines)
+            choice == "text" and not all(_is_note(line) for line in lines)
         ):
             wanted[column] = "no"
         if choice == "text":
@@ -439,8 +450,8 @@ def _row_actions(row: dict, schema: int) -> tuple[dict, str, list]:
         ]
     # "note: ..." -- a remark, not a retake.
     notes = [
-        (_NOTE_PREFIX.sub("", line), deps, "note")
-        if _NOTE_PREFIX.match(line)
+        (_drop_note(line), deps, "note")
+        if _is_note(line)
         else (line, deps, t)
         for line, deps, t in notes
     ]

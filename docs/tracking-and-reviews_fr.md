@@ -90,7 +90,8 @@ la prod -- sur la version qu'il a vue.
     retake** (RTK) de ce département -- Alt+Entrée pour la ligne suivante.
     Commencez une ligne par `[sh020]` pour un shot d'un bloc, `[f12-40]`
     (ou `[f12]`) pour ses frames, dans n'importe quel ordre :
-    `[sh020] [f12-40] caméra plus haute` ; par `note:` pour une remarque
+    `[sh020] [f12-40] caméra plus haute` ; par `note:` (ou `note :`,
+    `n:`, majuscules ou non, après les tags) pour une remarque
     plutôt qu'un retake (une cellule de seules lignes `note:` laisse la
     validation du département telle quelle). Un tag qui n'en est pas un -- un shot hors du
     bloc, un intervalle à l'envers comme `[f40-12]` -- reste dans le texte.

@@ -93,9 +93,12 @@ return v==='ok'?'<span class="you y" title="Validated in your review">✓ you</s
 function youNote(){return '<span class="you nt" title="A note in your review: a remark, nothing withdrawn">✎ you</span>';}
 // Written, and nothing but "note:" lines.
 function noteOnly(t){return !!(t&&t.trim())&&retakes(t)===0;}
-function notesIn(t){return (t||'').split(NL).filter(function(l){return /^\s*note\s*:/i.test(l);}).length;}
+function notesIn(t){return (t||'').split(NL).filter(function(l){return NOTE_RE.test(l);}).length;}
+// "note:" -- or "note :", "n:", any case -- after the line's tags: a remark
+// (lib/review_import.py _NOTE_PREFIX, the same).
+var NOTE_RE=/^\s*(?:\[[^\]]*\]\s*)*(?:note|n)\s*:/i;
 function retakes(t){return t.split(NL).filter(function(l){var w=l.trim().split(' ').filter(function(x){return x&&x.charAt(0)!=='[';});
-return w.length&&w[0].toLowerCase().indexOf('note:')!==0;}).length;}
+return w.length&&!NOTE_RE.test(l);}).length;}
 function summary(){var c={files:0,ok:0,rt:0,out:0,desc:0,fixed:0,replies:0,notes:0};D.forEach(function(it){if(!changes(it))return;var e=rv.files[it.file];c.files++;c.fixed+=Object.keys(e.fixed||{}).length;c.replies+=replies(e).length;
 Object.keys(e.deps).forEach(function(d){var v=e.deps[d];if(v.ok)c.ok++;else if(v.text.trim()){c.rt+=retakes(v.text);c.notes+=notesIn(v.text);}else c.out++;});
 var an=answered(it).deps;Object.keys(an).forEach(function(d){if(!e.deps[d])c.out++;});
@@ -463,7 +466,7 @@ var b=boxOf(it,key,text);
 return '<div class="rbox"><label class="shotbox"><span>All</span><textarea rows="1" class="rtk-t" data-k="'+esc(key)+'" data-s=""'+(key==='gen'?' id="gen-t"':'')+' placeholder="'+esc(ph)+' -- all its shots">'+esc(b.all)+'</textarea></label>'+
 '<div class="tags shotbox" data-k="'+esc(key)+'"><span></span><span class="tg-in">'+it.shots.map(function(sh){return '<button type="button" data-shot="'+esc(sh)+'" aria-pressed="'+!!b.open[sh]+'">'+esc(sh)+'</button>';}).join('')+'</span></div>'+
 it.shots.filter(function(sh){return b.open[sh];}).map(function(sh){return '<label class="shotbox"><span>'+esc(sh)+'</span><textarea rows="1" class="rtk-t" data-k="'+esc(key)+'" data-s="'+esc(sh)+'" placeholder="What to fix in '+esc(sh)+'?">'+esc(b.per[sh]||'')+'</textarea></label>';}).join('')+'</div>';}
-function syntax(it){return '<p class="syntax">One retake per line · <code>[f12-40]</code> frames · <code>note:</code> a remark, not a retake</p>';}
+function syntax(it){return '<p class="syntax">One retake per line · <code>[f12-40]</code> frames · <code>note:</code> (or <code>n:</code>) a remark, not a retake</p>';}
 function noteHtml(n,reply){var type=n.done===true?'<span class="badge b-done" title="Done">✓ '+esc(n.type)+'</span>':
 '<span class="badge '+(n.type==='rtk'?(n.team?'b-team':'b-rtk'):n.type==='todo'?'b-todo':'b-note')+'">'+esc(n.type)+(n.type==='rtk'&&n.team?' · team':'')+'</span>';
 var tags=[];if(n.role)tags.push('<span class="tg role" title="Written as '+esc(n.role)+'">'+esc(n.role)+'</span>');

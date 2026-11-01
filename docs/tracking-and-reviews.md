@@ -85,7 +85,7 @@ it saw.
     (RTK) of that department -- Alt+Enter for the next line. Start a line
     with `[sh020]` for one shot of a block, `[f12-40]` (or `[f12]`) for its
     frames, in any order: `[sh020] [f12-40] camera higher`; with `note:`
-    for a remark instead of a retake (a cell with nothing but `note:`
+    (or `note :`, `n:`, any case, after the tags) for a remark instead of a retake (a cell with nothing but `note:`
     lines leaves the department's validation as it is). A tag that isn't one -- a shot not
     in the block, a reversed range like `[f40-12]` -- stays in the text.
   - *global*: `ok` validates every department done so far (a
