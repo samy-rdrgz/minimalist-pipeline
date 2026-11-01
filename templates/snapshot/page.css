@@ -222,6 +222,12 @@ the next -- all in sight, nothing to scroll sideways. */
 .thead+.row{border-top:0}
 .row:hover{background:color-mix(in srgb,var(--sunk) 60%,transparent)}
 .row.sel{background:var(--accent-bg)}
+/* Touched by this review (validated, withdrawn, a retake, a description):
+the review's violet, its edge kept when selected too. */
+.row.rv-mine{background:color-mix(in srgb,var(--valid-bg) 70%,var(--surface));box-shadow:inset 3px 0 0 var(--valid)}
+.row.rv-mine:hover{background:var(--valid-bg)}
+.rv-mine-k{display:inline-block;width:22px;height:14px;margin-right:8px;vertical-align:-2px;border-radius:3px;background:color-mix(in srgb,var(--valid-bg) 70%,var(--surface));box-shadow:inset 3px 0 0 var(--valid)}
+.row.rv-mine.sel{background:var(--accent-bg)}
 .group>.rows>.row:last-child,.group>.rows>.untracked:last-child{border-radius:0 0 var(--r-lg) var(--r-lg)}
 .r-name{min-width:0}
 /* A name: its group's prefix quiet, the rest bold, breaking at _ and - */

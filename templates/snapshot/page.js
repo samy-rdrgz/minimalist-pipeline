@@ -188,7 +188,8 @@ if(!closed)rows.forEach(function(it){visible.push(it.i);});
 var head='<div class="thead" style="--cols:'+cols+'"><span></span><span></span>'+deps.map(function(d){return '<span class="d" title="'+esc(cap(d))+'">'+esc(cap(d))+'</span>';}).join('')+
 '<span style="text-align:right">Done</span></div>';
 var body=rows.map(function(it){
-return '<div class="row" role="button" tabindex="0" data-i="'+it.i+'" style="--cols:'+cols+'">'+thumb(it)+
+// Tinted once this review touched it: where you've been, at a glance.
+return '<div class="row'+(changes(it)?' rv-mine':'')+'" role="button" tabindex="0" data-i="'+it.i+'" style="--cols:'+cols+'"'+(changes(it)?' title="In your review"':'')+'>'+thumb(it)+
 '<span class="r-name">'+nameHtml(it)+'<small>'+subline(it)+'</small><span class="flags">'+flags(it)+'</span></span>'+
 deps.map(function(d){return '<span class="d">'+mark(it.states[d])+under(it,d)+'</span>';}).join('')+
 '<span class="r-pct">'+(it.tracked?Math.round(it.done*100)+' %'+(META.role?'<span class="vv'+(it.valid?'':' z')+'">'+pct(it.valid)+' valid.</span>':''):'<span class="faint">–</span>')+'</span>'+

@@ -43,6 +43,8 @@ review one file -- lighter to read on a computer and on a phone.
   shot, opened by its button (its lines written back as `[sh040] ...`);
   the syntax recalled under the box. *Download* sums the review up and asks name, role and date. Same `.json`, same browser
   storage: a review in progress carries over.
+- A file your review touched has its line tinted the review's violet,
+  an edge on its left: where you've been, at a glance.
 - **Your review**, a filter: only the files the review touched
   (validated, withdrawn, retakes, a description) -- also from "n files
   reviewed" in the review bar and *See them* before downloading.
