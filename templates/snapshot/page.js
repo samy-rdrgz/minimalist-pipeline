@@ -559,7 +559,7 @@ var keepY=null;
 var coarse=matchMedia('(pointer:coarse)');
 document.addEventListener('focusin',function(e){if(coarse.matches&&e.target.matches('input,textarea')&&e.target.closest('.panel'))document.body.classList.add('typing');});
 document.addEventListener('focusout',function(){setTimeout(function(){var f=document.activeElement;
-if(!(f&&f.matches&&f.matches('input,textarea')&&f.closest('.panel')))document.body.classList.remove('typing');},60);});
+if(!(f&&f.matches&&f.matches('input,textarea')&&f.closest('.panel'))&&document.body.classList.contains('typing')){document.body.classList.remove('typing');fitBar();}},60);});
 document.addEventListener('focusin',function(e){if(lockY==null&&keepY==null&&e.target.matches('input,textarea,select')&&e.target.closest('.panel,.rbar,.dlg')&&matchMedia('(pointer:coarse)').matches)keepY=scrollY;});
 document.addEventListener('focusout',function(e){if(keepY==null)return;var y=keepY;
 setTimeout(function(){var f=document.activeElement;if(f&&f.matches&&f.matches('input,textarea,select')&&f.closest('.panel,.rbar,.dlg'))return;keepY=null;if(lockY==null){scrollTo(0,y);
@@ -665,6 +665,9 @@ if(!on)$('rv-dl').focus({preventScroll:true});}
 // it folds by itself, ✎ bringing it back over everything until folded again.
 function fitBar(){var b=document.body,bar=document.querySelector('.rbar');
 if(!b.classList.contains('reviewing')||phone.matches){b.classList.remove('rb-auto','rb-peek');return;}
+// Hidden while typing (and the keyboard resizing the page): nothing to
+// measure then -- it would read 0 and unfold it. Again once done.
+if(b.classList.contains('typing'))return;
 var room=innerWidth-(b.classList.contains('panel-open')?$('panel').offsetWidth:0)-32;
 var auto=b.classList.contains('rb-auto');b.classList.remove('rb-auto');
 var need=bar.scrollWidth;if(auto)b.classList.add('rb-auto');
