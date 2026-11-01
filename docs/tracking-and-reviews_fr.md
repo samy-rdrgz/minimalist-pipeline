@@ -125,7 +125,7 @@ la prod -- sur la version qu'il a vue.
   review. Touches : ← → (fichiers), Échap (fermer), V (all done), X
   (retake général), Échap ou Ctrl+Entrée dans un champ (en sortir).
   Une RTK ouverte -- de la prod ou de l'équipe -- a *✓ Fixed* à côté en
-  review : marquée, elle passe à fait à l'import de la review, au nom de
+  review (un todo ouvert, *✓ Done*) : marquée, elle passe à fait à l'import de la review, au nom de
   son auteur (une déjà faite depuis, ou disparue, est laissée telle
   quelle ; réimporter ne change rien). *↩ Reply*, à côté et sous une
   note ouverte, écrit une réponse : ajoutée au fil de cette note à

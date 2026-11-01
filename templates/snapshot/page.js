@@ -474,8 +474,11 @@ if(n.review)tags.push('<span class="tg">prod review</span>');
 n.deps.forEach(function(d){tags.push('<span class="tg">'+esc(d)+'</span>');});
 if(n.shot)tags.push('<span class="tg">'+esc(n.shot)+'</span>');if(n.frames)tags.push('<span class="tg">'+esc(n.frames)+'</span>');
 if(n.render)tags.push('<span class="tg" title="Written watching this render">▶ '+esc(n.render)+'</span>');else if(n.version)tags.push('<span class="tg">'+esc(n.version)+'</span>');
-return '<div class="note'+(n.closed?' closed':'')+(reply?' reply':'')+(n.role?' by-role':'')+'"><div class="h">'+type+tags.join('')+
-'<span class="who">'+esc(n.author)+' · '+esc((n.date||'').slice(0,10))+'</span>'+(!reply&&canReply(n)?replyBtn(n):'')+'</div><p>'+esc(n.text)+'</p></div>'+
+// An open todo, reviewing: Done beside its reply, as an RTK's Fixed.
+var dn=!reply&&canReply(n)&&n.type==='todo'&&n.done===false,on=dn&&!!(peek(D[cur]).fixed||{})[n.id];
+return '<div class="note'+(n.closed?' closed':'')+(reply?' reply':'')+(n.role?' by-role':'')+(on?' fixed':'')+'"><div class="h">'+type+tags.join('')+
+'<span class="who">'+esc(n.author)+' · '+esc((n.date||'').slice(0,10))+'</span>'+(!reply&&canReply(n)?replyBtn(n):'')+
+(dn?'<button type="button" class="fx" data-fix="'+esc(n.id)+'" aria-pressed="'+on+'" aria-label="Done" title="'+(on?'Marked done in your review: tap to undo':'Done: marked done when your review is imported')+'">✓</button>':'')+'</div><p>'+esc(n.text)+'</p></div>'+
 (n.replies||[]).map(function(r){return noteHtml(Object.assign({closed:n.closed},r),true);}).join('')+(!reply&&canReply(n)?replyBox(n):'');}
 // Reviewing, a reply to an open note or RTK: a comment in its thread at
 // import, the retake left open (Fixed says it's done).
@@ -755,7 +758,7 @@ $('rv-dl').addEventListener('click',function(){var rows=exportRows();
 if(!rows.length){toast('Nothing to send yet: validate or write a retake first.');return;}
 var c=summary(),needsRole=rows.some(function(row){return Object.keys(row).some(function(k){return FIXED.indexOf(k)<0||k==='global';});});
 var dl=$('dlg');dl.innerHTML='<div class="dlg-in" role="dialog" aria-modal="true" aria-labelledby="dlg-t"><h3 id="dlg-t">Download the review</h3><dl>'+
-'<dt>Files reviewed</dt><dd>'+c.files+'</dd><dt>Validated</dt><dd>'+c.ok+'</dd><dt>Retakes</dt><dd>'+c.rt+'</dd>'+(c.notes?'<dt>Notes</dt><dd>'+c.notes+'</dd>':'')+(c.fixed?'<dt>Retakes fixed</dt><dd>'+c.fixed+'</dd>':'')+(c.replies?'<dt>Replies</dt><dd>'+c.replies+'</dd>':'')+
+'<dt>Files reviewed</dt><dd>'+c.files+'</dd><dt>Validated</dt><dd>'+c.ok+'</dd><dt>Retakes</dt><dd>'+c.rt+'</dd>'+(c.notes?'<dt>Notes</dt><dd>'+c.notes+'</dd>':'')+(c.fixed?'<dt>Fixed / done</dt><dd>'+c.fixed+'</dd>':'')+(c.replies?'<dt>Replies</dt><dd>'+c.replies+'</dd>':'')+
 (c.out?'<dt>Validations withdrawn</dt><dd>'+c.out+'</dd>':'')+(c.desc?'<dt>Descriptions</dt><dd>'+c.desc+'</dd>':'')+'</dl>'+
 '<label>Your name<input id="d-author" value="'+esc(rv.author)+'" autocomplete="name"></label><div class="row2">'+
 '<label>Role<select id="d-role">'+$('role').innerHTML+'</select></label><label>Review date<input id="d-date" type="date" value="'+esc(rv.date||today())+'"></label></div>'+

@@ -115,7 +115,7 @@ it saw.
   list shows what you did under each department (✓ you, ✕ you); the
   panel's *Last render* and *Blender file* step aside while reviewing.
   An open RTK -- the prod's or the team's -- has *✓ Fixed* beside it while
-  reviewing: marked, it's done once the review is imported, as its
+  reviewing (an open todo, *✓ Done*): marked, it's done once the review is imported, as its
   author (one done since, or gone, is left as it is; importing again
   changes nothing). *↩ Reply*, beside it and under an open note, writes
   a reply, in that note's thread at import, under your role -- read as a

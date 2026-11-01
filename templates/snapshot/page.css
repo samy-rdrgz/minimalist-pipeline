@@ -245,7 +245,7 @@ the review's violet, its edge kept when selected too. */
 .r-name small .gr{color:var(--rtk);font-weight:600}
 .r-name small .sep{font-style:normal}
 .r-name small .farm.fail{color:var(--rtk);font-weight:600}
-.flags{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.flags{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-top:4px}
 .flags:empty{display:none}
 .d{display:flex;flex-direction:column;align-items:center;gap:5px;text-align:center;min-width:0}
 .r-pct{text-align:right;font-size:13px;white-space:nowrap}
@@ -404,14 +404,18 @@ body.reviewing .rvb{display:inline-flex}
 .rtkl .rt-t{flex:1;min-width:0}
 .rtkl .rt-b{display:flex;gap:2px;flex:none}
 /* A note's own actions: small and quiet -- the departments' ✓ ✕ lead. */
-.rp,.rtkl .fx{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;border:0;border-radius:50%;
+.rp,.fx{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;border:0;border-radius:50%;
 background:none;color:var(--ink-3);font-size:14px;line-height:1;cursor:pointer}
-.rp:hover,.rtkl .fx:hover{background:color-mix(in srgb,var(--ink) 8%,transparent);color:var(--ink)}
-.rtkl .fx:hover{color:var(--valid)}
+.rp:hover,.fx:hover{background:color-mix(in srgb,var(--ink) 8%,transparent);color:var(--ink)}
+.fx:hover{color:var(--valid)}
 /* Said fixed: the icon violet, the note too -- no filled disc. */
-.rtkl .fx[aria-pressed="true"]{color:var(--valid);font-weight:700}
+.fx[aria-pressed="true"]{color:var(--valid);font-weight:700}
 .rtkl.fixed{background:var(--valid-bg)}
-@media (pointer:coarse){.rp,.rtkl .fx{width:36px;height:36px}}
+/* A todo said done: the same. */
+.note.fixed{background:var(--valid-bg);border-radius:6px;padding:4px 8px;margin-left:-8px;margin-right:-8px}
+.note.fixed>p{opacity:.55;text-decoration:line-through;text-decoration-color:color-mix(in srgb,currentColor 50%,transparent)}
+.note .h .fx{margin:-4px -6px -4px 0}
+@media (pointer:coarse){.rp,.fx{width:36px;height:36px}}
 .note .h .rp{margin:-4px -6px -4px 0}
 .reply-box{display:flex;align-items:flex-start;gap:8px;margin:6px 0 2px 22px}
 .reply-box .you{flex:none;margin-top:9px}
