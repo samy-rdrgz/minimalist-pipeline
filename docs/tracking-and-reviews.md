@@ -85,7 +85,8 @@ it saw.
     (RTK) of that department -- Alt+Enter for the next line. Start a line
     with `[sh020]` for one shot of a block, `[f12-40]` (or `[f12]`) for its
     frames, in any order: `[sh020] [f12-40] camera higher`; with `note:`
-    for a remark instead of a retake. A tag that isn't one -- a shot not
+    for a remark instead of a retake (a cell with nothing but `note:`
+    lines leaves the department's validation as it is). A tag that isn't one -- a shot not
     in the block, a reversed range like `[f40-12]` -- stays in the text.
   - *global*: `ok` validates every department done so far (a
     department's own cell wins over it), a text is a retake for no
@@ -103,7 +104,8 @@ it saw.
   and, in a file's panel, a ✓ by each department (validate it as your
   role -- a done one only) and a ✗ (a box for the retakes, one per line:
   `[sh020]` at its start for one shot of a block, `[f12-40]` for its
-  frames, `note:` for a remark instead of a retake -- for a block, a box
+  frames, `note:` for a remark instead of a retake (nothing but
+  remarks: grey ✎ you, the validation left as it is) -- for a block, a box
   for all its shots and one per shot, opened by its button, each line of
   it written back with its `[sh020]` tag;
   left empty, it withdraws a validation); an *All done* row above the

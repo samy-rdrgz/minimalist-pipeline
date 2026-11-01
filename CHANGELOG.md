@@ -48,6 +48,9 @@ review one file -- lighter to read on a computer and on a phone.
 - **Close an RTK from the review**: while reviewing, an open RTK (the
   prod's or the team's) has *✓ Fixed*. Import review marks it done, as
   the reviewer -- never reopens one, so importing twice changes nothing.
+- A department's box holding only `note:` lines is a remark: grey
+  ✎ you on the page, and Import review leaves the department's
+  validation as it is (it withdrew it, as for a retake).
 - **Reply to a note from the review**: *↩ Reply* beside an open RTK and
   under an open note. Import review adds it to that note's thread, under
   the review's role -- a comment: the retake stays open (*✓ Fixed* closes

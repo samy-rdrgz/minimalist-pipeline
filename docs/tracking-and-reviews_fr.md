@@ -91,7 +91,8 @@ la prod -- sur la version qu'il a vue.
     Commencez une ligne par `[sh020]` pour un shot d'un bloc, `[f12-40]`
     (ou `[f12]`) pour ses frames, dans n'importe quel ordre :
     `[sh020] [f12-40] caméra plus haute` ; par `note:` pour une remarque
-    plutôt qu'un retake. Un tag qui n'en est pas un -- un shot hors du
+    plutôt qu'un retake (une cellule de seules lignes `note:` laisse la
+    validation du département telle quelle). Un tag qui n'en est pas un -- un shot hors du
     bloc, un intervalle à l'envers comme `[f40-12]` -- reste dans le texte.
   - *global* : `ok` valide tous les départements déjà finis (la case
     propre d'un département l'emporte), un texte est un retake sans
@@ -110,7 +111,8 @@ la prod -- sur la version qu'il a vue.
   valider pour votre rôle -- seulement s'il est fini) et un ✗ (une case
   pour les retakes, un par ligne : `[sh020]` en début de ligne pour un
   shot d'un bloc, `[f12-40]` pour ses frames, `note:` pour une remarque
-  plutôt qu'un retake -- pour un bloc, une case pour tous ses shots et
+  plutôt qu'un retake (seulement des remarques : ✎ you en gris, la
+  validation laissée telle quelle) -- pour un bloc, une case pour tous ses shots et
   une par shot, ouverte par son bouton, chacune de ses lignes réécrite
   avec son tag `[sh020]` ; laissée
   vide, elle retire une validation) ; une ligne *All done* au-dessus

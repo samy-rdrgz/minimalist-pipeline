@@ -406,10 +406,15 @@ def _row_actions(row: dict, schema: int) -> tuple[dict, str, list]:
         if column in _REVIEW_FIXED or column.startswith(REPLY_PREFIX):
             continue
         choice = _cell_choice(value)
+        lines = _review_lines({"text": value}) if choice == "text" else []
         if choice == "ok":
             wanted[column] = "yes"
-        elif choice in ("no", "text"):
-            wanted[column] = "no"  # a retake withdraws the validation
+        elif choice == "no" or (
+            # A retake withdraws the validation; "note:" lines alone are a
+            # remark, the validation left as it is.
+            choice == "text" and not all(_NOTE_PREFIX.match(line) for line in lines)
+        ):
+            wanted[column] = "no"
         if choice == "text":
             notes += [
                 (line, [column], "rtk") for line in _review_lines({"text": value})

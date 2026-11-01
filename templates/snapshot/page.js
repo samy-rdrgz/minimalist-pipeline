@@ -76,18 +76,23 @@ function replies(e){var r=e.replies||{};return Object.keys(r).filter(function(id
 function changes(it){var e=rv.files[it.file];if(!e)return 0;
 var n=Object.keys(e.deps).length+(e.all?1:0)+(e.text.trim()?1:0)+Object.keys(e.fixed||{}).length+replies(e).length;
 if(e.desc!==null&&e.desc.trim()&&e.desc.trim()!==it.desc)n++;return n;}
-// What this review says of a department: 'ok' (its own ✓, or all done), 'no', or ''.
-function verdict(it,d){var e=peek(it),v=e.deps[d];if(v)return v.ok?'ok':'no';
+// What this review says of a department: 'ok' (its own ✓, or all done), 'no',
+// 'note' (only "note:" lines: a remark, its validation left as it is), or ''.
+function verdict(it,d){var e=peek(it),v=e.deps[d];if(v)return v.ok?'ok':noteOnly(v.text)?'note':'no';
 return e.all&&isDone(it.states[d])?'ok':'';}
 function you(it,d){var v=verdict(it,d);if(!v)return '';
-return v==='ok'?'<span class="you y" title="Validated in your review">✓ you</span>':
+return v==='ok'?'<span class="you y" title="Validated in your review">✓ you</span>':v==='note'?youNote():
 '<span class="you n" title="Sent back in your review">✕ you</span>';}
+function youNote(){return '<span class="you nt" title="A note in your review: a remark, nothing withdrawn">✎ you</span>';}
+// Written, and nothing but "note:" lines.
+function noteOnly(t){return !!(t&&t.trim())&&retakes(t)===0;}
+function notesIn(t){return (t||'').split(NL).filter(function(l){return /^\s*note\s*:/i.test(l);}).length;}
 function retakes(t){return t.split(NL).filter(function(l){var w=l.trim().split(' ').filter(function(x){return x&&x.charAt(0)!=='[';});
 return w.length&&w[0].toLowerCase().indexOf('note:')!==0;}).length;}
-function summary(){var c={files:0,ok:0,rt:0,out:0,desc:0,fixed:0,replies:0};D.forEach(function(it){if(!changes(it))return;var e=rv.files[it.file];c.files++;c.fixed+=Object.keys(e.fixed||{}).length;c.replies+=replies(e).length;
-Object.keys(e.deps).forEach(function(d){var v=e.deps[d];if(v.ok)c.ok++;else if(v.text.trim())c.rt+=retakes(v.text);else c.out++;});
+function summary(){var c={files:0,ok:0,rt:0,out:0,desc:0,fixed:0,replies:0,notes:0};D.forEach(function(it){if(!changes(it))return;var e=rv.files[it.file];c.files++;c.fixed+=Object.keys(e.fixed||{}).length;c.replies+=replies(e).length;
+Object.keys(e.deps).forEach(function(d){var v=e.deps[d];if(v.ok)c.ok++;else if(v.text.trim()){c.rt+=retakes(v.text);c.notes+=notesIn(v.text);}else c.out++;});
 if(e.all)Object.keys(it.states).forEach(function(d){if(isDone(it.states[d])&&!e.deps[d])c.ok++;});
-c.rt+=retakes(e.text);if(e.desc!==null&&e.desc.trim()&&e.desc.trim()!==it.desc)c.desc++;});return c;}
+c.rt+=retakes(e.text);c.notes+=notesIn(e.text);if(e.desc!==null&&e.desc.trim()&&e.desc.trim()!==it.desc)c.desc++;});return c;}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(rv));}catch(e){}}
 
 /* ---------- badges: only what the row shows nowhere else ---------- */
@@ -95,7 +100,7 @@ function flags(it){var h='',e=peek(it);
 if(it.genRtks.length){var tm=it.genRtks.every(function(n){return n.team;});
 h+='<span class="badge '+(tm?'b-team':'b-rtk')+'" title="An open retake on no department: it holds back every department">◆ General RTK'+(it.genRtks.length>1?' ×'+it.genRtks.length:'')+'</span>';}
 // A retake on no department in your review: the departments' own ✕ you.
-if(e.text.trim())h+='<span class="you n" title="A retake on no department, in your review">✕ you</span>';
+if(e.text.trim())h+=noteOnly(e.text)?youNote():'<span class="you n" title="A retake on no department, in your review">✕ you</span>';
 if(it.outdated)h+='<span class="badge b-check" title="Rendered from an older version than the last stable">⚠ Render outdated</span>';
 if(it.to_check)h+='<span class="badge b-check" title="Rendered, not checked by the team yet">Render to check</span>';
 if(e.desc!==null&&e.desc.trim()&&e.desc.trim()!==it.desc)h+='<span class="badge b-rev">✎ description</span>';
@@ -491,7 +496,7 @@ var okd=o?(o.old?'<span class="ok old" title="'+esc(o.tip)+'">✓ '+esc(o.role)+
 '<span class="ok" title="'+esc(o.tip)+'">✓ '+esc(o.role)+'</span>'):'';
 return '<div class="dep"><div class="dep-l">'+mark(s)+'<span class="mid"><span class="nm">'+esc(cap(d))+'</span><span class="st">'+LABEL[s]+'</span>'+rkTag(it,d)+okd+you(it,d)+'</span>'+
 '<span class="rvb" data-d="'+esc(d)+'"><button class="ok-b'+(via?' via':'')+'" aria-pressed="'+!!(v&&v.ok)+'"'+(isDone(s)?' title="Validate it as your role"':' disabled title="Not done: nothing to validate yet"')+
-' aria-label="Validate '+esc(d)+'">✓</button><button class="ko-b" aria-pressed="'+!!(v&&v.no)+'" aria-label="Retake '+esc(d)+'" title="Retake: write what to fix (or nothing, to withdraw a validation)">✕</button></span></div>'+
+' aria-label="Validate '+esc(d)+'">✓</button><button class="ko-b'+(verdict(it,d)==='note'?' as-note':'')+'" aria-pressed="'+!!(v&&v.no)+'" aria-label="Retake '+esc(d)+'" title="Retake: write what to fix (or nothing, to withdraw a validation)">✕</button></span></div>'+
 ((it.rtkNotes[d]||[]).length?'<div class="rtks">'+it.rtkNotes[d].map(rtkLine).join('')+'</div>':'')+
 (rv&&v&&v.no?'<div class="rt">'+retakeBox(it,'d:'+d,v.text,'What to fix in '+d+'? Empty: just withdraw its validation')+syntax(it)+'</div>':'')+'</div>';}
 function openPanel(i){
@@ -641,6 +646,11 @@ if(e.deps[d]){var ta2=$('p-body').querySelector('textarea[data-k="'+CSS.escape('
 $('p-body').addEventListener('input',function(ev){var t=ev.target,it=D[cur],e=entry(it);if(t.tagName!=='TEXTAREA')return;grow(t);
 if(t.dataset.k){var k=t.dataset.k;if(t.dataset.s==null)setText(it,k,t.value);else{var b=boxOf(it,k,k==='gen'?e.text:(e.deps[k.slice(2)]||{}).text||'');
 if(t.dataset.s)b.per[t.dataset.s]=t.value;else b.all=t.value;setText(it,k,joinBox(it,b));}}else if(t.dataset.r)e.replies[t.dataset.r]=t.value;else if(t.id==='desc-t')e.desc=t.value;
+// A department's box turning remark-only or back (✎ you / ✕ you): its
+// tag and ✕ in the panel, its cell in the list, the caret kept.
+if(t.dataset.k&&t.dataset.k.indexOf('d:')===0){var dd=t.dataset.k.slice(2),vd=verdict(it,dd),dep=$('p-body').querySelector('.rvb[data-d="'+CSS.escape(dd)+'"]');
+if(dep&&dep.querySelector('.ko-b').classList.contains('as-note')!==(vd==='note')){dep.querySelector('.ko-b').classList.toggle('as-note',vd==='note');
+var y=dep.parentNode.querySelector('.mid .you');if(y)y.outerHTML=you(it,dd);render();}}
 $('p-flags').innerHTML=flags(it);var row=$('list').querySelector('.row[data-i="'+cur+'"]');
 if(row){var fl=row.querySelector('.flags');if(fl)fl.innerHTML=flags(it);
 // Its tint as you type: a general retake or a description counts once written.
@@ -724,7 +734,7 @@ $('rv-dl').addEventListener('click',function(){var rows=exportRows();
 if(!rows.length){toast('Nothing to send yet: validate or write a retake first.');return;}
 var c=summary(),needsRole=rows.some(function(row){return Object.keys(row).some(function(k){return FIXED.indexOf(k)<0||k==='global';});});
 var dl=$('dlg');dl.innerHTML='<div class="dlg-in" role="dialog" aria-modal="true" aria-labelledby="dlg-t"><h3 id="dlg-t">Download the review</h3><dl>'+
-'<dt>Files reviewed</dt><dd>'+c.files+'</dd><dt>Validated</dt><dd>'+c.ok+'</dd><dt>Retakes</dt><dd>'+c.rt+'</dd>'+(c.fixed?'<dt>Retakes fixed</dt><dd>'+c.fixed+'</dd>':'')+(c.replies?'<dt>Replies</dt><dd>'+c.replies+'</dd>':'')+
+'<dt>Files reviewed</dt><dd>'+c.files+'</dd><dt>Validated</dt><dd>'+c.ok+'</dd><dt>Retakes</dt><dd>'+c.rt+'</dd>'+(c.notes?'<dt>Notes</dt><dd>'+c.notes+'</dd>':'')+(c.fixed?'<dt>Retakes fixed</dt><dd>'+c.fixed+'</dd>':'')+(c.replies?'<dt>Replies</dt><dd>'+c.replies+'</dd>':'')+
 (c.out?'<dt>Validations withdrawn</dt><dd>'+c.out+'</dd>':'')+(c.desc?'<dt>Descriptions</dt><dd>'+c.desc+'</dd>':'')+'</dl>'+
 '<label>Your name<input id="d-author" value="'+esc(rv.author)+'" autocomplete="name"></label><div class="row2">'+
 '<label>Role<select id="d-role">'+$('role').innerHTML+'</select></label><label>Review date<input id="d-date" type="date" value="'+esc(rv.date||today())+'"></label></div>'+

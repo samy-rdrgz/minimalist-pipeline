@@ -196,6 +196,8 @@ the next -- all in sight, nothing to scroll sideways. */
 .you{display:inline-block;padding:0 5px;border-radius:4px;font-size:11px;font-weight:700;line-height:15px;white-space:nowrap}
 .you.y{background:var(--valid);color:var(--on-fill)}
 .you.n{background:var(--rtk);color:var(--on-fill)}
+/* Only a remark: grey, nothing sent back. */
+.you.nt{background:var(--ink-3);color:var(--surface)}
 
 /* ---------- list ---------- */
 .group{margin-top:10px;background:var(--surface);border-radius:var(--r-lg)}
@@ -387,6 +389,8 @@ body.reviewing .rvb{display:inline-flex}
 .rvb .ok-b[aria-pressed="true"]{background:var(--valid);border-color:var(--valid);color:var(--on-fill)}
 .rvb .ok-b.via{background:var(--valid-bg);border-color:var(--valid);color:var(--valid)}
 .rvb .ko-b[aria-pressed="true"]{background:var(--rtk);border-color:var(--rtk);color:var(--on-fill)}
+.rvb .ko-b.as-note[aria-pressed="true"]{background:var(--ink-3);border-color:var(--ink-3);color:var(--surface)}
+.dep:has(.ko-b.as-note) .rtk-t{border-color:var(--line)}
 .rtks{margin:6px 0 0 22px;display:grid;gap:4px}
 .rtkl{font-size:13px;padding:6px 10px;border-radius:6px;background:var(--rtk-bg);color:var(--ink)}
 .rtkl.team{background:var(--team-bg)}
@@ -400,7 +404,9 @@ body.reviewing .rvb{display:inline-flex}
 background:none;color:var(--ink-3);font-size:14px;line-height:1;cursor:pointer}
 .rp:hover,.rtkl .fx:hover{background:color-mix(in srgb,var(--ink) 8%,transparent);color:var(--ink)}
 .rtkl .fx:hover{color:var(--valid)}
-.rtkl .fx[aria-pressed="true"]{background:var(--valid);color:var(--on-fill)}
+/* Said fixed: the icon violet, the note too -- no filled disc. */
+.rtkl .fx[aria-pressed="true"]{color:var(--valid);font-weight:700}
+.rtkl.fixed{background:var(--valid-bg)}
 @media (pointer:coarse){.rp,.rtkl .fx{width:36px;height:36px}}
 .note .n-act{display:flex;justify-content:flex-end;margin-top:2px}
 .reply-box{display:flex;align-items:flex-start;gap:8px;margin:6px 0 2px 22px}
