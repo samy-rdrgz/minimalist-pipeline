@@ -45,6 +45,7 @@ review one file -- lighter to read on a computer and on a phone.
   storage: a review in progress carries over.
 - A file your review touched has its line tinted the review's violet,
   an edge on its left: where you've been, at a glance.
+  A group whose every file is reviewed has its header tinted too.
 - **Close an RTK from the review**: while reviewing, an open RTK (the
   prod's or the team's) has *✓ Fixed*. Import review marks it done, as
   the reviewer -- never reopens one, so importing twice changes nothing.

@@ -228,6 +228,10 @@ the next -- all in sight, nothing to scroll sideways. */
 the review's violet, its edge kept when selected too. */
 .row.rv-mine{background:color-mix(in srgb,var(--valid-bg) 70%,var(--surface));box-shadow:inset 3px 0 0 var(--valid)}
 .row.rv-mine:hover{background:var(--valid-bg)}
+/* Every file of the group reviewed: its header too. */
+.group.rv-all>.g-h{background:color-mix(in srgb,var(--valid-bg) 70%,var(--surface));box-shadow:inset 3px 0 0 var(--valid);border-radius:var(--r-lg) var(--r-lg) 0 0}
+.group.rv-all.closed>.g-h{border-radius:var(--r-lg)}
+.group.rv-all .thead{background:color-mix(in srgb,var(--valid-bg) 70%,var(--surface));box-shadow:inset 3px 0 0 var(--valid)}
 .rv-mine-k{display:inline-block;width:22px;height:14px;margin-right:8px;vertical-align:-2px;border-radius:3px;background:color-mix(in srgb,var(--valid-bg) 70%,var(--surface));box-shadow:inset 3px 0 0 var(--valid)}
 .row.rv-mine.sel{background:var(--accent-bg)}
 .group>.rows>.row:last-child,.group>.rows>.untracked:last-child{border-radius:0 0 var(--r-lg) var(--r-lg)}

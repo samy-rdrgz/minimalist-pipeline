@@ -214,7 +214,7 @@ deps.map(function(d){return '<span class="d">'+mark(it.states[d])+under(it,d)+'<
 if(un.length&&!state.untracked[key]&&!filt)body+='<button class="untracked" data-g="'+esc(g)+'">+ '+plural(un.length,'file')+' with no tracked department</button>';
 var nv=groupVideos(g).length;
 // A div, not a button: its playlist's ▶ sits in it, after the name.
-return '<div class="group'+(closed?' closed':'')+'"><div class="g-h" role="button" tabindex="0" aria-expanded="'+!closed+'" data-g="'+esc(g)+'"><span class="g-name"><i class="caret"></i>'+esc(g)+
+return '<div class="group'+(closed?' closed':'')+(allReviewed(g)?' rv-all':'')+'"><div class="g-h" role="button" tabindex="0" aria-expanded="'+!closed+'" data-g="'+esc(g)+'"><span class="g-name"><i class="caret"></i>'+esc(g)+
 (nv?'<button type="button" class="g-play" data-gplay="'+esc(g)+'" title="Play the '+esc(g)+' videos in a row ('+nv+')" aria-label="Play the '+esc(g)+' videos in a row">▶</button>':'')+'<small>'+plural(all.length,'file')+'</small></span>'+
 (done!=null?'<span class="tw"><span class="track"><i class="f" style="width:'+done*100+'%"></i>'+(META.role?'<i class="v" style="width:'+Math.min(val,done)*100+'%"></i>':'')+'</span></span>'+
 '<span class="g-pct"><b>'+pct(done)+'</b>'+(META.role?' · <span style="color:var(--valid)">'+pct(val)+' valid.</span>':'')+'</span>':'<span></span><span class="g-pct faint">not tracked</span>')+
@@ -668,7 +668,7 @@ var y=dep.parentNode.querySelector('.mid .you');if(y)y.outerHTML=you(it,dd);rend
 $('p-flags').innerHTML=flags(it);var row=$('list').querySelector('.row[data-i="'+cur+'"]');
 if(row){var fl=row.querySelector('.flags');if(fl)fl.innerHTML=flags(it);
 // Its tint as you type: a general retake or a description counts once written.
-row.classList.toggle('rv-mine',changes(it)>0);if(changes(it))row.title='In your review';else row.removeAttribute('title');}
+row.classList.toggle('rv-mine',changes(it)>0);var grp=row.closest('.group');if(grp)grp.classList.toggle('rv-all',allReviewed(it.group));if(changes(it))row.title='In your review';else row.removeAttribute('title');}
 countBar();save();});
 
 /* ---------- keys, as the page before ---------- */
@@ -689,6 +689,8 @@ else return;e.preventDefault();});
 /* ---------- review: the bar, the download, loading one back ---------- */
 // Only the files this review touched, in the list -- on the tab that has
 // some, if this one has none.
+// Every file of a group (this tab's, filters aside) touched by the review.
+function allReviewed(g){var all=D.filter(function(it){return it.tab===state.tab&&it.group===g;});return all.length>0&&all.every(function(it){return changes(it)>0;});}
 function showMine(){state.f.mine=true;document.querySelector('.chipf[data-f="mine"]').setAttribute('aria-pressed','true');
 if(!D.some(function(it){return it.tab===state.tab&&changes(it);})){var t=D.filter(function(it){return changes(it);})[0];if(t){setTab(t.tab);return;}}
 render();$('bar').scrollIntoView({block:'start'});}
