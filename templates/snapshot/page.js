@@ -92,7 +92,8 @@ function save(){try{localStorage.setItem(KEY,JSON.stringify(rv));}catch(e){}}
 function flags(it){var h='',e=peek(it);
 if(it.genRtks.length){var tm=it.genRtks.every(function(n){return n.team;});
 h+='<span class="badge '+(tm?'b-team':'b-rtk')+'" title="An open retake on no department: it holds back every department">◆ General RTK'+(it.genRtks.length>1?' ×'+it.genRtks.length:'')+'</span>';}
-if(e.text.trim())h+='<span class="badge b-rtk">✕ you · general retake</span>';
+// A retake on no department in your review: the departments' own ✕ you.
+if(e.text.trim())h+='<span class="you n" title="A retake on no department, in your review">✕ you</span>';
 if(it.outdated)h+='<span class="badge b-check" title="Rendered from an older version than the last stable">⚠ Render outdated</span>';
 if(it.to_check)h+='<span class="badge b-check" title="Rendered, not checked by the team yet">Render to check</span>';
 if(e.desc!==null&&e.desc.trim()&&e.desc.trim()!==it.desc)h+='<span class="badge b-rev">✎ description</span>';
@@ -627,7 +628,11 @@ if(e.deps[d]){var ta2=$('p-body').querySelector('textarea[data-k="'+CSS.escape('
 $('p-body').addEventListener('input',function(ev){var t=ev.target,it=D[cur],e=entry(it);if(t.tagName!=='TEXTAREA')return;grow(t);
 if(t.dataset.k){var k=t.dataset.k;if(t.dataset.s==null)setText(it,k,t.value);else{var b=boxOf(it,k,k==='gen'?e.text:(e.deps[k.slice(2)]||{}).text||'');
 if(t.dataset.s)b.per[t.dataset.s]=t.value;else b.all=t.value;setText(it,k,joinBox(it,b));}}else if(t.id==='desc-t')e.desc=t.value;
-$('p-flags').innerHTML=flags(it);var row=$('list').querySelector('.row[data-i="'+cur+'"] .flags');if(row)row.innerHTML=flags(it);countBar();save();});
+$('p-flags').innerHTML=flags(it);var row=$('list').querySelector('.row[data-i="'+cur+'"]');
+if(row){var fl=row.querySelector('.flags');if(fl)fl.innerHTML=flags(it);
+// Its tint as you type: a general retake or a description counts once written.
+row.classList.toggle('rv-mine',changes(it)>0);if(changes(it))row.title='In your review';else row.removeAttribute('title');}
+countBar();save();});
 
 /* ---------- keys, as the page before ---------- */
 document.addEventListener('keydown',function(e){var t=e.target;
