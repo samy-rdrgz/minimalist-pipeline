@@ -165,7 +165,7 @@ function drawTabs(){$('seg').innerHTML=tabs.map(function(t){return '<button type
 var deps=depsOf(state.tab).filter(function(d){return D.some(function(it){return it.tab===state.tab&&d in it.states;});});
 if(deps.indexOf(state.dep)<0)state.dep='';
 $('depf').innerHTML='<option value="">All departments</option>'+deps.map(function(d){return '<option value="'+esc(d)+'"'+(d===state.dep?' selected':'')+'>'+esc(cap(d))+'</option>';}).join('');
-$('depf').classList.toggle('on',!!state.dep);}
+$('depf').classList.toggle('on',!!state.dep);sync('depf');}
 function render(){
 document.querySelectorAll('.chipf').forEach(function(b){b.querySelector('b').textContent=D.filter(function(it){
 return it.tab===state.tab&&(!state.dep||state.dep in it.states)&&FILTERS[b.dataset.f](it,state.dep);}).length;});
@@ -218,6 +218,7 @@ if(e.target.classList.contains('g-h')&&(e.key==='Enter'||e.key===' ')){e.prevent
 function setTab(t){state.tab=t;drawTabs();render();}
 $('seg').addEventListener('click',function(e){var b=e.target.closest('button');if(b)setTab(b.dataset.tab);});
 $('depf').addEventListener('change',function(){state.dep=this.value;this.classList.toggle('on',!!state.dep);render();});
+pick($('depf'));
 document.querySelectorAll('.chipf').forEach(function(b){b.addEventListener('click',function(){
 state.f[b.dataset.f]=!state.f[b.dataset.f];b.setAttribute('aria-pressed',!!state.f[b.dataset.f]);render();});});
 var bar=$('bar');
@@ -247,6 +248,35 @@ $('q').addEventListener('blur',function(){setTimeout(function(){sugg.hidden=true
 
 /* ---------- menus ---------- */
 var MENUS=[['more','morepop'],['helpb','helppop'],['rv-more','rv-morepop']];
+// A select drawn by the page: the system's own list takes no style. The
+// select stays, hidden, holding the value -- its change event, its
+// options, untouched; sync() after setting it from code.
+function pick(sel){if(sel._pick)return sel._pick;
+var w=document.createElement('span'),b=document.createElement('button'),m=document.createElement('div');
+w.className='pick-w';b.type='button';b.className=sel.className+' pick';b.setAttribute('aria-haspopup','listbox');b.setAttribute('aria-expanded','false');
+if(sel.getAttribute('aria-label'))b.setAttribute('aria-label',sel.getAttribute('aria-label'));
+m.className='pick-pop';m.hidden=true;m.setAttribute('role','listbox');
+sel.parentNode.insertBefore(w,sel);w.appendChild(sel);w.appendChild(b);sel.hidden=true;sel.tabIndex=-1;
+// Its list in the body: a bar moved by a transform would carry it off.
+m._button=b;document.body.appendChild(m);
+function sync(){var o=sel.options[sel.selectedIndex];b.textContent=o?o.textContent:'';
+['on','need'].forEach(function(c){b.classList.toggle(c,sel.classList.contains(c));});}
+b.onclick=function(e){e.stopPropagation();var open=!m.hidden;closeMenus();closePicks();if(open)return;
+m.innerHTML=[].map.call(sel.options,function(o,i){return '<button type="button" role="option" data-i="'+i+'" aria-selected="'+(i===sel.selectedIndex)+'">'+esc(o.textContent)+'</button>';}).join('');
+// Fixed, from the button: a scrolling bar or a panel would clip it.
+var r=b.getBoundingClientRect(),up=r.top>innerHeight/2;m.style.left=Math.max(8,Math.min(r.left,innerWidth-Math.max(r.width,200)-8))+'px';m.style.minWidth=r.width+'px';
+m.style.top=up?'':(r.bottom+6)+'px';m.style.bottom=up?(innerHeight-r.top+6)+'px':'';
+m.hidden=false;b.setAttribute('aria-expanded','true');(m.querySelector('[aria-selected="true"]')||m.firstChild).focus();};
+m.onclick=function(e){var o=e.target.closest('[data-i]');if(!o)return;e.stopPropagation();sel.selectedIndex=+o.dataset.i;closePicks();
+sel.dispatchEvent(new Event('change'));sync();b.focus();};
+m.onkeydown=function(e){var f=[].slice.call(m.children),k=f.indexOf(document.activeElement);
+if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();var n=f[Math.max(0,Math.min(f.length-1,k+(e.key==='ArrowDown'?1:-1)))];if(n)n.focus();}
+else if(e.key==='Escape'||e.key==='Tab'){if(e.key==='Escape'){e.preventDefault();e.stopPropagation();}closePicks();b.focus();}};
+sel._pick={sync:sync,button:b};sync();return sel._pick;}
+function closePicks(){document.querySelectorAll('.pick-pop').forEach(function(m){if(!m.hidden){m.hidden=true;m._button.setAttribute('aria-expanded','false');}});}
+function sync(id){var s=$(id);if(s&&s._pick)s._pick.sync();}
+document.addEventListener('click',closePicks);addEventListener('resize',closePicks);
+document.addEventListener('scroll',function(e){if(!(e.target.closest&&e.target.closest('.pick-pop')))closePicks();},true);
 function closeMenus(){MENUS.forEach(function(m){$(m[1]).hidden=true;$(m[0]).setAttribute('aria-expanded','false');});}
 MENUS.forEach(function(m){$(m[0]).addEventListener('click',function(e){e.stopPropagation();var open=$(m[1]).hidden;closeMenus();
 $(m[1]).hidden=!open;this.setAttribute('aria-expanded',open);});});
@@ -501,7 +531,7 @@ h+='</div>';}
 // Where it comes from: at the bottom, out of the way while reviewing.
 h+='<dl class="view-only facts"><dt>Last render</dt><dd>'+rendersHtml(it)+noVideo(it)+'</dd><dt>Blender file</dt><dd class="fileline">'+esc(it.file)+'.blend</dd></dl>';
 $('p-body').innerHTML=h;$('p-body').querySelectorAll('textarea').forEach(grow);
-document.body.classList.add('panel-open');lockPage(true);var p=$('panel');p.hidden=false;
+document.body.classList.add('panel-open');lockPage(true);fitBar();var p=$('panel');p.hidden=false;
 requestAnimationFrame(function(){p.classList.add('on');$('scrim').classList.add('on');});
 var pos=visible.indexOf(i);$('p-prev').disabled=$('m-prev').disabled=pos<=0;$('p-next').disabled=$('m-next').disabled=pos<0||pos>=visible.length-1;
 document.querySelectorAll('.row.sel').forEach(function(x){x.classList.remove('sel');});
@@ -533,7 +563,7 @@ document.addEventListener('focusout',function(e){if(keepY==null)return;var y=kee
 setTimeout(function(){var f=document.activeElement;if(f&&f.matches&&f.matches('input,textarea,select')&&f.closest('.panel,.rbar,.dlg'))return;keepY=null;if(lockY==null){scrollTo(0,y);
 // Again once the keyboard has slid away: iOS scrolls once more then.
 setTimeout(function(){if(keepY==null&&lockY==null)scrollTo(0,y);},450);}},60);});
-function closePanel(){if(cur==null)return;cur=null;document.body.classList.remove('panel-open');lockPage(false);var p=$('panel');p.classList.remove('on');$('scrim').classList.remove('on');
+function closePanel(){if(cur==null)return;cur=null;document.body.classList.remove('panel-open');lockPage(false);fitBar();var p=$('panel');p.classList.remove('on');$('scrim').classList.remove('on');
 setTimeout(function(){if(cur==null)p.hidden=true;},220);document.querySelectorAll('.row.sel').forEach(function(x){x.classList.remove('sel');});
 try{history.replaceState(null,'',location.pathname+location.search);}catch(err){}
 if(lastFocus)lastFocus.focus({preventScroll:true});lastFocus=null;}
@@ -557,7 +587,7 @@ var phone=matchMedia('(max-width:900px)');
 // The panel's width, dragged by its left edge -- kept by this browser.
 var PW_KEY='mp-snapshot:panel-width',PW_DEF=540;
 function setWidth(w,keep){w=Math.round(Math.max(380,Math.min(w,innerWidth-360,innerWidth*0.8)));
-document.documentElement.style.setProperty('--pw',w+'px');if(keep)try{localStorage.setItem(PW_KEY,String(w));}catch(e){}return w;}
+document.documentElement.style.setProperty('--pw',w+'px');if(keep)try{localStorage.setItem(PW_KEY,String(w));}catch(e){}if(typeof fitBar==='function')fitBar();return w;}
 try{var pw=+localStorage.getItem(PW_KEY);if(pw)setWidth(pw);}catch(e){}
 var rz=$('p-resize');
 rz.addEventListener('pointerdown',function(e){e.preventDefault();rz.setPointerCapture(e.pointerId);document.body.classList.add('resizing');});
@@ -613,7 +643,7 @@ else return;e.preventDefault();});
 
 /* ---------- review: the bar, the download, loading one back ---------- */
 var toastT;function toast(t){var el=$('toast');el.textContent=t;el.classList.add('on');clearTimeout(toastT);toastT=setTimeout(function(){el.classList.remove('on');},4200);}
-(META.roles||[]).forEach(function(r){var o=document.createElement('option');o.value=r;o.textContent=r;$('role').appendChild(o);});
+(META.roles||[]).forEach(function(r){var o=document.createElement('option');o.value=r;o.textContent=r;$('role').appendChild(o);});pick($('role'));
 function countBar(){var c=summary();$('rv-n').textContent=c.files?plural(c.files,'file')+' reviewed':'Nothing reviewed yet';
 document.querySelector('#rv-dl .cnt').textContent=c.files||'';$('rv-fabn').textContent=c.files||'';}
 // The bar folds into a round button (remembered by this browser), never
@@ -621,17 +651,26 @@ document.querySelector('#rv-dl .cnt').textContent=c.files||'';$('rv-fabn').textC
 var FOLD=KEY+':folded';
 function fold(on){document.body.classList.toggle('rb-folded',on);try{localStorage.setItem(FOLD,on?'1':'');}catch(e){}
 if(!on)$('rv-dl').focus({preventScroll:true});}
-$('rv-min').addEventListener('click',function(){fold(true);});
-$('rv-fab').addEventListener('click',function(){fold(false);});
+// Too narrow for it beside the panel (the panel widened, a small window):
+// it folds by itself, ✎ bringing it back over everything until folded again.
+function fitBar(){var b=document.body,bar=document.querySelector('.rbar');
+if(!b.classList.contains('reviewing')||phone.matches){b.classList.remove('rb-auto','rb-peek');return;}
+var room=innerWidth-(b.classList.contains('panel-open')?$('panel').offsetWidth:0)-32;
+var auto=b.classList.contains('rb-auto');b.classList.remove('rb-auto');
+var need=bar.scrollWidth;if(auto)b.classList.add('rb-auto');
+b.classList.toggle('rb-auto',need>room);if(need<=room)b.classList.remove('rb-peek');}
+addEventListener('resize',fitBar);
+$('rv-min').addEventListener('click',function(){if(document.body.classList.contains('rb-peek'))document.body.classList.remove('rb-peek');else fold(true);});
+$('rv-fab').addEventListener('click',function(){if(document.body.classList.contains('rb-auto')&&!document.body.classList.contains('rb-folded'))document.body.classList.add('rb-peek');else fold(false);});
 function setReview(on){document.body.classList.toggle('reviewing',on);
 var folded=false;try{folded=localStorage.getItem(FOLD)==='1';}catch(e){}
-document.body.classList.toggle('rb-folded',on&&folded&&!!$('author').value.trim());showNotes=null;editing={};if(on&&!$('author').value&&!matchMedia('(pointer:coarse)').matches)$('author').focus();if(cur!=null)openPanel(cur);}
+document.body.classList.toggle('rb-folded',on&&folded&&!!$('author').value.trim());showNotes=null;editing={};if(on&&!$('author').value&&!matchMedia('(pointer:coarse)').matches)$('author').focus();if(cur!=null)openPanel(cur);fitBar();}
 $('rv').addEventListener('click',function(){setReview(true);});
 $('rv-exit').addEventListener('click',function(){closeMenus();setReview(false);toast('Review left: it stays in this browser, ✎ Review takes it back.');});
 $('rv-clear').addEventListener('click',function(){closeMenus();if(!summary().files||confirm('Clear this review? What you wrote here is lost (a downloaded file is kept).')){
 rv.files={};save();render();if(cur!=null)openPanel(cur);}});
 $('author').addEventListener('input',function(){this.classList.remove('need');rv.author=this.value;save();});
-$('role').addEventListener('change',function(){this.classList.remove('need');rv.role=this.value;save();});
+$('role').addEventListener('change',function(){this.classList.remove('need');rv.role=this.value;save();sync('role');});
 function exportRows(){var out=[];D.forEach(function(it){if(!changes(it))return;var e=rv.files[it.file],
 row={filename:it.file,stable_version:it.stable,description_exported:it.desc};if(it.render_ref)row.render=it.render_ref;
 Object.keys(e.deps).forEach(function(d){var v=e.deps[d];row[d]=v.ok?'ok':(v.text.trim()||'no');});
@@ -654,11 +693,11 @@ var dl=$('dlg');dl.innerHTML='<div class="dlg-in" role="dialog" aria-modal="true
 '<label>Your name<input id="d-author" value="'+esc(rv.author)+'" autocomplete="name"></label><div class="row2">'+
 '<label>Role<select id="d-role">'+$('role').innerHTML+'</select></label><label>Review date<input id="d-date" type="date" value="'+esc(rv.date||today())+'"></label></div>'+
 '<p class="why" id="d-why" hidden></p><div class="acts"><button class="btn" id="d-cancel">Cancel</button><button class="btn primary" id="d-go">Download</button></div></div>';
-$('d-role').value=rv.role;dl.hidden=false;$(rv.author?'d-go':'d-author').focus();
+$('d-role').value=rv.role;pick($('d-role'));dl.hidden=false;$(rv.author?'d-go':'d-author').focus();
 $('d-cancel').onclick=function(){dl.hidden=true;};dl.onclick=function(e){if(e.target===dl)dl.hidden=true;};
 $('d-go').onclick=function(){rv.author=$('d-author').value.trim();rv.role=$('d-role').value;rv.date=$('d-date').value;
-$('author').value=rv.author;$('role').value=rv.role;save();
-if(needsRole&&!rv.role){$('d-why').hidden=false;$('d-why').textContent='Pick your role: your validations and retakes are recorded under it.';$('d-role').classList.add('need');return;}
+$('author').value=rv.author;$('role').value=rv.role;sync('role');save();
+if(needsRole&&!rv.role){$('d-why').hidden=false;$('d-why').textContent='Pick your role: your validations and retakes are recorded under it.';$('d-role').classList.add('need');sync('d-role');return;}
 var data={format:META.format,schema_version:META.schema_version,project:META.project,snapshot:META.snapshot,author:rv.author,role:rv.role,
 review_date:rv.date,written_at:new Date().toISOString().slice(0,19),rows:rows};
 var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download=reviewName();
@@ -676,13 +715,13 @@ if(OKS.indexOf(l)>=0)e.deps[k]={ok:1};else if(NOS.indexOf(l)>=0)e.deps[k]={no:1,
 var gv=String(row.global||'').trim(),gl=gv.toLowerCase();
 if(OKS.indexOf(gl)>=0)e.all=true;else if(NOS.indexOf(gl)>=0)Object.keys(it.states).forEach(function(d){if(isDone(it.states[d])&&!e.deps[d])e.deps[d]={no:1,text:''};});
 else e.text=gv;if(row.description)e.desc=row.description;});
-$('author').value=rv.author;$('role').value=rv.role;save();setReview(true);render();
+$('author').value=rv.author;$('role').value=rv.role;sync('role');save();setReview(true);render();
 toast('Review of '+(rv.author||'?')+' loaded: '+plural(summary().files,'file')+(unknown?', '+unknown+' not on this page (renamed, or another snapshot)':'')+'.');};
 rd.readAsText(file);});});
 
 /* ---------- start ---------- */
 try{var kept=JSON.parse(localStorage.getItem(KEY)||'null');if(kept&&kept.files){rv=kept;rv.date=rv.date||'';
-$('author').value=rv.author||'';$('role').value=rv.role||'';
+$('author').value=rv.author||'';$('role').value=rv.role||'';sync('role');
 if(summary().files){document.body.classList.add('reviewing');try{if(localStorage.getItem(FOLD)==='1'&&rv.author)document.body.classList.add('rb-folded');}catch(e){}setTimeout(function(){toast('Your review in progress is back (kept in this browser).');},300);}}}catch(e){}
 summaryCards();drawTabs();render();stats();barHeight();
 // A link to a file (#its name) opens it.

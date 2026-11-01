@@ -101,7 +101,11 @@ review one file -- lighter to read on a computer and on a phone.
   `sq100_sh030_v003-stable_001.mp4` (was `sq100_sh030.mp4`; older ones
   still read). Its rush in `editing/rushes/` keeps the name without, for
   the edit to relink.
-- The department filter is drawn like the chips next to it.
+- The department filter and the role pickers (review bar, Download)
+  open the page's own list, in its style and colours, dark mode
+  included -- the system's list took none.
+- The review bar folds into ✎ by itself when the panel, widened, leaves
+  it no room beside it; ✎ shows it over everything until folded again.
 - When the snapshot was taken stands out; opened later, "n days old".
 - Colours: every text at 4.5:1 or more in both themes; the review bar
   stays dark in dark mode.

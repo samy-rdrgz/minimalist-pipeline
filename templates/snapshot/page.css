@@ -70,6 +70,18 @@ border:1px solid var(--line);border-radius:var(--r-md);box-shadow:var(--sh-pop);
 .menu-pop>button,.menu-pop>label,.menu-pop>a{display:block;width:100%;min-height:var(--tap);padding:6px 10px;border:0;background:none;border-radius:6px;text-align:left;font-size:13px;cursor:pointer;color:var(--ink);text-decoration:none}
 .menu-pop>button:hover,.menu-pop>label:hover,.menu-pop>a:hover{background:var(--sunk)}
 .menu-pop small{display:block;color:var(--ink-3)}
+/* A select drawn by the page (page.js pick()): a button like the field it
+replaces, its list like the menus. */
+.pick-w{display:contents}
+.pick{text-align:left;cursor:pointer;white-space:nowrap;-webkit-appearance:none;appearance:none;padding-right:30px!important;
+background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);
+background-position:calc(100% - 17px) 52%,calc(100% - 12px) 52%;background-size:5px 5px;background-repeat:no-repeat}
+.pick-pop{position:fixed;z-index:70;max-height:min(360px,50vh);overflow:auto;padding:6px;background:var(--surface);color:var(--ink);
+border:1px solid var(--line);border-radius:var(--r-md);box-shadow:var(--sh-pop)}
+.pick-pop>button{display:block;width:100%;min-height:36px;padding:6px 12px;border:0;border-radius:6px;background:none;text-align:left;font-size:13px;color:var(--ink);cursor:pointer;white-space:nowrap}
+.pick-pop>button:hover,.pick-pop>button:focus-visible{background:var(--sunk);outline:none}
+.pick-pop>button[aria-selected="true"]{color:var(--accent);font-weight:600}
+@media (pointer:coarse){.pick-pop>button{min-height:var(--tap);font-size:15px}}
 .menu-pop input[type=file]{display:none}
 @media (max-width:640px){h1{font-size:22px}.btn.primary{padding:0;width:var(--tap)}.btn.primary .lbl{display:none}}
 
@@ -460,7 +472,7 @@ box-shadow:var(--sh-pop);border:1px solid color-mix(in srgb,var(--bar-ink) 12%,t
 body.reviewing .rbar{visibility:visible;transform:translate(-50%,0)}
 @media (min-width:901px){body.panel-open .rbar{left:calc((100% - min(var(--pw),100%))/2)}}
 .rbar .lbl{font-size:12px;opacity:.75;padding-left:8px}
-.rbar input,.rbar select{min-height:var(--tap);border-radius:99px;border:0;padding:0 12px;background:var(--bar-field);color:var(--bar-ink)}
+.rbar input,.rbar select,.rbar .pick{min-height:var(--tap);border-radius:99px;border:0;padding:0 12px;background:var(--bar-field);color:var(--bar-ink)}
 .rbar input{width:130px}
 .rbar input::placeholder{color:color-mix(in srgb,var(--bar-ink) 55%,transparent)}
 .need{box-shadow:0 0 0 2px var(--rtk)!important}
@@ -470,7 +482,7 @@ body.reviewing .rbar{visibility:visible;transform:translate(-50%,0)}
 .rbar .cnt:not(:empty)::before{content:" · "}
 .rbar .dli{display:none}
 @media (max-width:640px){.rbar{left:10px;right:10px;width:auto;flex-wrap:nowrap;transform:translateY(150%);bottom:calc(10px + env(safe-area-inset-bottom))}
-body.reviewing .rbar{transform:none}.rbar .lbl,.rbar .n,.rbar .dlt{display:none}.rbar .dli{display:inline;font-size:16px}.rbar .cnt:not(:empty)::before{content:" "}.rbar input{flex:1;width:auto;min-width:0}.rbar select{flex:none;padding:0 6px}}
+body.reviewing .rbar{transform:none}.rbar .lbl,.rbar .n,.rbar .dlt{display:none}.rbar .dli{display:inline;font-size:16px}.rbar .cnt:not(:empty)::before{content:" "}.rbar input{flex:1;width:auto;min-width:0}.rbar select,.rbar .pick{flex:none;padding:0 6px}}
 body.reviewing{padding-bottom:90px}
 /* Folded, the bar is a round button at the bottom right: the review's
 count on it, a tap opens the bar again. */
@@ -484,6 +496,11 @@ body.reviewing.rb-folded .rbar{visibility:hidden;transform:translate(-50%,150%)}
 body.reviewing.rb-folded .rfab{display:inline-flex}
 body.reviewing.rb-folded{padding-bottom:24px}
 @media (min-width:901px){body.panel-open .rfab{right:calc(min(var(--pw),100%) + 16px)}}
+/* No room for it beside the panel: folded by itself; ✎ shows it over
+everything, the whole width, until folded again. */
+body.reviewing.rb-auto:not(.rb-peek) .rbar{visibility:hidden;transform:translate(-50%,150%)}
+body.reviewing.rb-auto:not(.rb-peek) .rfab{display:inline-flex}
+body.reviewing.rb-auto.rb-peek .rbar{left:16px;right:16px;width:auto;max-width:none;transform:none;z-index:56;justify-content:flex-end}
 @media (max-width:640px){body.reviewing.rb-folded .rbar{transform:translateY(150%)}}
 .dlg{position:fixed;inset:0;z-index:65;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.4)}
 .dlg-in{width:min(420px,100%);padding:20px;border-radius:var(--r-lg);background:var(--surface);box-shadow:var(--sh-pop)}
@@ -491,7 +508,7 @@ body.reviewing.rb-folded{padding-bottom:24px}
 .dlg dl{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;margin:0 0 14px;font-size:13px}
 .dlg dt{color:var(--ink-3)}.dlg dd{margin:0;font-weight:600}
 .dlg label{display:grid;gap:4px;margin-bottom:10px;font-size:12px;color:var(--ink-2)}
-.dlg input,.dlg select{min-height:var(--tap);padding:0 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface);font-size:14px}
+.dlg input,.dlg select,.dlg .pick{min-height:var(--tap);padding:0 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface);font-size:14px}
 .dlg .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .dlg .acts{display:flex;justify-content:flex-end;gap:8px;margin-top:6px}
 .dlg .why{margin:0 0 10px;font-size:12px;color:var(--rtk)}
@@ -503,3 +520,7 @@ footer{margin:48px 0 40px;font-size:12px;color:var(--ink-3);display:flex;flex-wr
 .brand-f:hover{color:var(--ink)}
 footer svg{width:24px;height:13px}
 footer .wm{font:400 13px/1 var(--display)}
+/* The bar's and the dialog's fields set their background: the picked
+selects' chevron again on top. */
+.rbar .pick,.dlg .pick{background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);
+background-position:calc(100% - 17px) 52%,calc(100% - 12px) 52%;background-size:5px 5px;background-repeat:no-repeat}
