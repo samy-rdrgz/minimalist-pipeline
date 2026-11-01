@@ -462,14 +462,14 @@ return '<div class="note'+(n.closed?' closed':'')+(reply?' reply':'')+(n.role?' 
 (n.replies||[]).map(function(r){return noteHtml(Object.assign({closed:n.closed},r),true);}).join('')+(!reply&&canReply(n)?replyBox(n):'');}
 // Reviewing, a reply to an open note or RTK: a comment in its thread at
 // import, the retake left open (Fixed says it's done).
-function replyBtn(n){return '<button type="button" class="rp" data-reply="'+esc(n.id)+'" title="Reply: added to its thread at import -- a retake stays open">↩ Reply</button>';}
+function replyBtn(n){return '<button type="button" class="rp" data-reply="'+esc(n.id)+'" aria-label="Reply" title="Reply: added to its thread at import -- a retake stays open">↩</button>';}
 function replyBox(n){var r=(peek(D[cur]).replies||{})[n.id];if(r==null&&!editing['r:'+n.id])return '';
 return '<div class="reply-box"><span class="you y">↩ you</span><textarea class="rp-t" data-r="'+esc(n.id)+'" placeholder="Your reply -- not fixed yet, a question, an answer…">'+esc(r||'')+'</textarea></div>';}
 function canReply(n){return reviewing()&&n.id&&!n.closed;}
 // An open RTK; reviewing, a button to say it's fixed (done at import, as you).
 function rtkLine(n){var where=[n.shot,n.frames].filter(Boolean).join(' · '),it=D[cur],fx=reviewing()&&n.id,on=fx&&!!peek(it).fixed&&!!(peek(it).fixed||{})[n.id];
 return '<div class="rtkl'+(n.team?' team':'')+(on?' fixed':'')+'"><span class="rt-t">'+(where?'<b>'+esc(where)+'</b> ':'')+esc(n.text)+'<small>'+(n.team?'team · ':esc(n.role||'')+' · ')+esc(n.author)+' · '+esc((n.date||'').slice(0,10))+'</small></span>'+
-(fx?'<span class="rt-b">'+replyBtn(n)+'<button type="button" class="fx" data-fix="'+esc(n.id)+'" aria-pressed="'+on+'" title="'+(on?'Marked fixed in your review: tap to undo':'Fixed: marked done when your review is imported')+'">'+(on?'✓ you · fixed':'✓ Fixed')+'</button></span>':'')+'</div>'+(fx?replyBox(n):'');}
+(fx?'<span class="rt-b">'+replyBtn(n)+'<button type="button" class="fx" data-fix="'+esc(n.id)+'" aria-pressed="'+on+'" aria-label="Fixed" title="'+(on?'Marked fixed in your review: tap to undo':'Fixed: marked done when your review is imported')+'">✓</button></span>':'')+'</div>'+(fx?replyBox(n):'');}
 // Rendered but nothing to play: say why, quietly, and offer to look elsewhere.
 function noVideo(it){if(!it.renders.some(function(r){return r.folder;})||allVideos(it).length)return '';
 var why=PICKED?'Not in the videos folder chosen.':!META.videos?'No video came with this snapshot (Videos, when exporting).':
