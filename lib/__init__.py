@@ -228,6 +228,7 @@ from .tracking import (
     active_shot_owners,
     archive_folder,
     clear_render_to_check,
+    close_entry,
     copy_entries,
     create_entry,
     create_stablemeta,

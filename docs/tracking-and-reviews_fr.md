@@ -121,6 +121,10 @@ la prod -- sur la version qu'il a vue.
   *Last render* et *Blender file* s'effacent du panneau pendant la
   review. Touches : ← → (fichiers), Échap (fermer), V (all done), X
   (retake général), Échap ou Ctrl+Entrée dans un champ (en sortir).
+  Une RTK ouverte -- de la prod ou de l'équipe -- a *✓ Fixed* à côté en
+  review : marquée, elle passe à fait à l'import de la review, au nom de
+  son auteur (une déjà faite depuis, ou disparue, est laissée telle
+  quelle ; réimporter ne change rien).
   Pour la relire : *Your review*, parmi les filtres (ou un clic sur
   « n files reviewed » dans la barre de review, ou *See them* avant de
   télécharger), ne montre que les fichiers que la review a touchés.

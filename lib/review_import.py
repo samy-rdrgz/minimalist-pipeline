@@ -39,6 +39,7 @@ from .snapshot import (
     render_of_note,
 )
 from .tracking import (
+    close_entry,
     _collect_folder,
     _status_from_raw,
     create_entry,
@@ -343,7 +344,9 @@ def _line_tags(line: str, shots: list[str]) -> tuple[str, str | None, tuple | No
 
 
 # Not departments, in a v4 sheet's header.
-_REVIEW_FIXED = {"group", "filename", "description", REVIEW_GLOBAL, *_REVIEW_HIDDEN}
+# "fixed": the ids of the RTKs the reviewer marked fixed (the page's review,
+# schema 6), space-separated.
+_REVIEW_FIXED = {"group", "filename", "description", "fixed", REVIEW_GLOBAL, *_REVIEW_HIDDEN}
 _NOTE_PREFIX = re.compile(r"^note\s*:\s*", re.IGNORECASE)
 
 
@@ -447,6 +450,8 @@ def review_import_plan(path: Path, review: dict | None = None) -> dict:
         "notes": sum(len(notes) for _, _, _, notes in actions),
         "validations": [],
         "refused": [],
+        # Retakes the reviewer marked fixed: closed under their name.
+        "fixed": sum(len(row.get("fixed", "").split()) for row, *_ in actions),
     }
     wanted_any = any(wanted or every for _, wanted, every, _ in actions)
     # Anything under the role: it must be one (descriptions don't need it).
@@ -557,7 +562,10 @@ def import_review_xlsx(path: Path) -> dict:
     or another reviewer's on the same line -- never duplicates.
     Every note and validation under the template's Role (none for one made
     before 1.1.2) -- see review_import_plan().
-    Returns {"imported", "duplicates", "validated", "skipped": [(label, reason)]}."""
+    Retakes the reviewer marked fixed (the page's "fixed") are marked done,
+    as its author (close_entry()).
+    Returns {"imported", "duplicates", "validated", "fixed", "skipped":
+    [(label, reason)]}."""
     review = read_review(path)
     plan = review_import_plan(path, review)
     role = plan["role"] or None
@@ -574,8 +582,27 @@ def import_review_xlsx(path: Path) -> dict:
         "imported": 0,
         "duplicates": 0,
         "validated": 0,
+        "fixed": 0,
         "skipped": list(plan["refused"]),
     }
+    # Retakes marked fixed: done, as the reviewer -- one already done, or
+    # gone since, left as it is.
+    for row in review["rows"]:
+        ids = row.get("fixed", "").split()
+        if not ids or not row.get("filename"):
+            continue
+        filepath = _review_file(row["filename"])
+        if not filepath:
+            result["skipped"].append(
+                (f"{row['filename']}: {len(ids)} retake(s) fixed", "file not found")
+            )
+            continue
+        for entry_id in ids:
+            try:
+                if close_entry(filepath, entry_id, author):
+                    result["fixed"] += 1
+            except PipelineError as e:
+                result["skipped"].append((f"{row['filename']}: retake fixed", e.message))
     for v in plan["validations"]:
         try:
             if set_department_approval(

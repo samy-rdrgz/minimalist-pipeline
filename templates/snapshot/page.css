@@ -391,6 +391,14 @@ body.reviewing .rvb{display:inline-flex}
 .rtkl{font-size:13px;padding:6px 10px;border-radius:6px;background:var(--rtk-bg);color:var(--ink)}
 .rtkl.team{background:var(--team-bg)}
 .rtkl small{display:block;color:var(--ink-3);font-size:11px}
+/* Reviewing: an open RTK said fixed, done once the review is imported. */
+.rtkl{display:flex;align-items:center;gap:10px}
+.rtkl .rt-t{flex:1;min-width:0}
+.rtkl .fx{flex:none;min-height:30px;padding:0 10px;border:1px solid color-mix(in srgb,var(--valid) 45%,transparent);border-radius:99px;background:var(--surface);color:var(--valid);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
+.rtkl .fx:hover{background:var(--valid-bg)}
+.rtkl .fx[aria-pressed="true"]{background:var(--valid);border-color:var(--valid);color:var(--on-fill)}
+.rtkl.fixed .rt-t{opacity:.55;text-decoration:line-through;text-decoration-color:color-mix(in srgb,currentColor 50%,transparent)}
+@media (pointer:coarse){.rtkl .fx{min-height:var(--tap)}}
 .rt{margin-top:6px}
 textarea{display:block;width:100%;min-height:64px;max-height:50vh;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface);font-size:13px;
 field-sizing:content;overflow:auto;resize:none}

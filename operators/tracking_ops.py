@@ -759,6 +759,7 @@ class M_PIPELINE_OT_import_review_confirm(bpy.types.Operator):
             row.label(
                 text=f"   {who}: {plan['notes']} note line(s), "
                 f"{len(plan['validations'])} validation change(s)"
+                + (f", {plan['fixed']} retake(s) fixed" if plan["fixed"] else "")
                 + (f", {len(plan['refused'])} not applied" if plan["refused"] else ""),
             )
             return
@@ -777,6 +778,8 @@ class M_PIPELINE_OT_import_review_confirm(bpy.types.Operator):
         col.label(
             text=f"{plan['notes']} note line(s) -- already imported ones are skipped"
         )
+        if plan["fixed"]:
+            col.label(text=f"{plan['fixed']} retake(s) marked fixed -- done, as {plan['author']}")
         validations = plan["validations"]
         col.label(text=f"{len(validations)} validation change(s):")
         for v in validations[:_IMPORT_LINES_SHOWN]:
@@ -805,7 +808,7 @@ def _run_review_import(self, paths: list[Path]) -> set:
     """The reviews' import itself, once confirmed, one file after the
     other: notes, validations, then the description changes' own dialog
     (a description two reviews change: the later file's, by name)."""
-    result = {"imported": 0, "duplicates": 0, "validated": 0, "skipped": []}
+    result = {"imported": 0, "duplicates": 0, "validated": 0, "fixed": 0, "skipped": []}
     changes: dict[str, dict] = {}
     for path in paths:
         try:
@@ -823,7 +826,7 @@ def _run_review_import(self, paths: list[Path]) -> set:
             f"validation(s), {one['duplicates']} already there, "
             f"{len(one['skipped'])} skipped",
         )
-        for key in ("imported", "duplicates", "validated"):
+        for key in ("imported", "duplicates", "validated", "fixed"):
             result[key] += one[key]
         result["skipped"] += [
             ((f"{path.name}: " if len(paths) > 1 else "") + label, reason)
@@ -851,6 +854,8 @@ def _run_review_import(self, paths: list[Path]) -> set:
     lines = [f"{result['imported']} note(s) imported"]
     if result["validated"]:
         lines.append(f"{result['validated']} validation(s) changed")
+    if result["fixed"]:
+        lines.append(f"{result['fixed']} retake(s) marked fixed")
     if result["duplicates"]:
         lines.append(f"{result['duplicates']} already imported before, skipped")
     if result["skipped"]:

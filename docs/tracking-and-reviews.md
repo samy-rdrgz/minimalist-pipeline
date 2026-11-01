@@ -112,6 +112,10 @@ it saw.
   buttons; *✎ Edit the description* under it. The
   list shows what you did under each department (✓ you, ✕ you); the
   panel's *Last render* and *Blender file* step aside while reviewing.
+  An open RTK -- the prod's or the team's -- has *✓ Fixed* beside it while
+  reviewing: marked, it's done once the review is imported, as its
+  author (one done since, or gone, is left as it is; importing again
+  changes nothing).
   To go over it: *Your review*, among the filters (or a click on "n
   files reviewed" in the review bar, or *See them* before downloading),
   shows only the files the review touched.

@@ -45,6 +45,11 @@ review one file -- lighter to read on a computer and on a phone.
   storage: a review in progress carries over.
 - A file your review touched has its line tinted the review's violet,
   an edge on its left: where you've been, at a glance.
+- **Close an RTK from the review**: while reviewing, an open RTK (the
+  prod's or the team's) has *✓ Fixed*. Import review marks it done, as
+  the reviewer -- never reopens one, so importing twice changes nothing.
+  The review's `.json` moves to v6 (`fixed`): an older add-on refuses it
+  rather than misread it.
 - **Your review**, a filter: only the files the review touched
   (validated, withdrawn, retakes, a description) -- also from "n files
   reviewed" in the review bar and *See them* before downloading.

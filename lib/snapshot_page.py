@@ -335,6 +335,7 @@ def _thread(t: dict) -> dict:
 
 def _entry(e: dict) -> dict:
     return {
+        "id": e.get("id") or "",
         "type": e["type"],
         "done": e["done"],
         # An RTK red from a validation role, orange from the team.

@@ -39,7 +39,7 @@ from .tracking import (
 
 # Bumped whenever the review template's columns change -- the import refuses
 # a template made by a newer addon.
-SCHEMA_VERSION = 5  # 2: hidden description_exported column; 3: role, "valid <dept>"; 4: a sheet per section, a cell per department; 5: the render watched
+SCHEMA_VERSION = 6  # 2: hidden description_exported column; 3: role, "valid <dept>"; 4: a sheet per section, a cell per department; 5: the render watched; 6: "fixed", the RTKs the reviewer marked fixed (page only)
 
 ENTRY_TYPES = ("note", "todo", "rtk")
 
@@ -641,6 +641,8 @@ def _entry_dict(e: dict) -> dict:
     joined for the tag."""
     version = e.get("referenced_version")
     return {
+        # Its id: a retake marked fixed in the page's review is found by it.
+        "id": e.get("id", ""),
         "type": e.get("type", "note"),
         "text": e.get("text", ""),
         "author": e.get("author", ""),
