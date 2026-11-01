@@ -118,11 +118,24 @@ backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);margin:0 -20px;paddi
 .bar-in{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .bscroll{display:contents}
 .seg{display:inline-flex;padding:3px;border-radius:99px;background:var(--sunk);flex:none}
-.seg button{min-height:calc(var(--tap) - 6px);padding:0 14px;border:0;border-radius:99px;background:none;font-weight:600;font-size:13px;color:var(--ink-2)}
+.seg button{min-height:calc(var(--tap) - 6px);padding:0 12px;border:0;border-radius:99px;background:none;font-weight:600;font-size:13px;color:var(--ink-2)}
 .seg button span{font-weight:400;color:var(--ink-3);margin-left:4px}
 .seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
 .chipf,.depf{flex:none;white-space:nowrap;min-height:var(--tap);padding:0 12px;border:1px solid var(--line);border-radius:99px;background:var(--surface);font-size:13px;color:var(--ink-2)}
 .chipf b{font-weight:600;margin-left:5px;color:var(--ink-3)}
+/* An icon and its count, its name only once it filters (and in its
+tooltip, and the legend): six of them hold on one line. */
+.chipf{display:inline-flex;align-items:center;gap:0;padding:0 10px}
+.chipf .ic{width:15px;height:15px;flex:none}
+.chipf .cl{display:none;margin-left:6px}
+.chipf[aria-pressed="true"] .cl{display:inline}
+.chipf.c-mine .ic,.chipf.c-valid .ic{color:var(--valid)}
+.chipf.c-rtk .ic{color:var(--rtk)}
+.chipf.c-out .ic{color:var(--wip-ink)}
+.chipf.c-notes .ic,.chipf.c-todo .ic{color:var(--ink-2)}
+.chipf[aria-pressed="true"] .ic{color:inherit}
+.chipf.c-out[aria-pressed="true"]{border-color:var(--wip-ink);color:var(--wip-ink);background:var(--wip-bg)}
+.fl-help .chipf{min-height:24px;padding:0 6px;margin-right:8px;border-color:transparent;background:none}
 /* The department select drawn as a chip: its own chevron, in the chip's ink. */
 .depf{-webkit-appearance:none;appearance:none;padding-right:30px;cursor:pointer;font-family:inherit;
 background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);
@@ -133,7 +146,10 @@ background-position:calc(100% - 17px) 52%,calc(100% - 12px) 52%;background-size:
 .chipf.c-rtk[aria-pressed="true"]{border-color:var(--rtk);color:var(--rtk);background:var(--rtk-bg)}
 .chipf.c-mine[aria-pressed="true"],.chipf.c-valid[aria-pressed="true"]{border-color:var(--valid);color:var(--valid);background:var(--valid-bg)}
 .chipf[aria-pressed="true"] b{color:inherit}
-.find{position:relative;flex:1 1 160px;max-width:240px}
+.find{position:relative;flex:1 1 44px;min-width:44px;max-width:240px}
+/* Squeezed down to its glass when the line is full: wider once in use. */
+.find:focus-within{flex-basis:200px}
+.search::placeholder{text-overflow:ellipsis}
 .search{width:100%;min-height:var(--tap);padding:0 12px 0 32px;border:1px solid var(--line);border-radius:99px;
 background:var(--surface) no-repeat 11px 50%/14px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%238d8c86' stroke-width='2'%3E%3Ccircle cx='7' cy='7' r='5'/%3E%3Cpath d='m11 11 4 4'/%3E%3C/svg%3E")}
 /* Search as a jump: the files it matches, one click opens one. */
@@ -148,12 +164,18 @@ border:1px solid var(--line);border-radius:var(--r-md);box-shadow:var(--sh-pop);
 .help li{display:flex;align-items:center;gap:8px}
 .help p{margin:0;color:var(--ink-2)}
 kbd{display:inline-block;min-width:22px;padding:0 5px;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;font:600 11px/18px var(--ui);text-align:center;background:var(--surface)}
+/* The filters together: on a line of their own on a phone. */
+.chips{display:contents}
+/* A phone: kind, department and search on a line, the filters' icons on
+the next -- all in sight, nothing to scroll sideways. */
 @media (max-width:640px){
 .bar{margin:0 -16px;padding:8px 16px}
-.bscroll{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:0 48px 0 16px;flex-basis:calc(100% + 32px);
--webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 48px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 48px),transparent)}
-.bscroll::-webkit-scrollbar{display:none}
-.find{max-width:none;flex:1 1 0}
+.bar-in{gap:6px}
+.seg button{padding:0 9px}
+.find{max-width:none;flex:1 1 44px;order:1}
+.chips{display:flex;gap:6px;flex-basis:100%;order:2;justify-content:space-between}
+.chips .chipf{padding:0 8px;flex:1 1 auto;justify-content:center}
+.chips .chipf[hidden]{display:none}
 }
 
 /* ---------- state marks ---------- */

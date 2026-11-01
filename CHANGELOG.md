@@ -104,6 +104,11 @@ review one file -- lighter to read on a computer and on a phone.
   `sq100_sh030_v003-stable_001.mp4` (was `sq100_sh030.mp4`; older ones
   still read). Its rush in `editing/rushes/` keeps the name without, for
   the edit to relink.
+- **Filters as icons**, each with its count (◆ retakes, ⚠ render
+  outdated, ✓ to validate...), its name in its tooltip, in the ? legend,
+  and in full once it filters: they hold on one line with the search on
+  a tablet upright, on two on a phone -- nothing to scroll sideways
+  anymore. The search shrinks to its glass when the line is full.
 - The department filter and the role pickers (review bar, Download)
   open the page's own list, in its style and colours, dark mode
   included -- the system's list took none.

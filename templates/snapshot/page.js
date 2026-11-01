@@ -166,10 +166,10 @@ function drawTabs(){$('seg').innerHTML=tabs.map(function(t){return '<button type
 '<span>'+D.filter(function(it){return it.tab===t[0];}).length+'</span></button>';}).join('');
 var deps=depsOf(state.tab).filter(function(d){return D.some(function(it){return it.tab===state.tab&&d in it.states;});});
 if(deps.indexOf(state.dep)<0)state.dep='';
-$('depf').innerHTML='<option value="">All departments</option>'+deps.map(function(d){return '<option value="'+esc(d)+'"'+(d===state.dep?' selected':'')+'>'+esc(cap(d))+'</option>';}).join('');
+$('depf').innerHTML='<option value="" data-short="All depts.">All departments</option>'+deps.map(function(d){return '<option value="'+esc(d)+'"'+(d===state.dep?' selected':'')+'>'+esc(cap(d))+'</option>';}).join('');
 $('depf').classList.toggle('on',!!state.dep);sync('depf');}
 function render(){
-document.querySelectorAll('.chipf').forEach(function(b){b.querySelector('b').textContent=D.filter(function(it){
+document.querySelectorAll('.chipf[data-f]').forEach(function(b){b.querySelector('b').textContent=D.filter(function(it){
 return it.tab===state.tab&&(!state.dep||state.dep in it.states)&&FILTERS[b.dataset.f](it,state.dep);}).length;});
 var items=D.filter(function(it){return match(it);});
 var deps=depsOf(state.tab).filter(function(d){return items.some(function(it){return d in it.states;});});
@@ -221,7 +221,7 @@ function setTab(t){state.tab=t;drawTabs();render();}
 $('seg').addEventListener('click',function(e){var b=e.target.closest('button');if(b)setTab(b.dataset.tab);});
 $('depf').addEventListener('change',function(){state.dep=this.value;this.classList.toggle('on',!!state.dep);render();});
 pick($('depf'));
-document.querySelectorAll('.chipf').forEach(function(b){b.addEventListener('click',function(){
+document.querySelectorAll('.chipf[data-f]').forEach(function(b){b.addEventListener('click',function(){
 state.f[b.dataset.f]=!state.f[b.dataset.f];b.setAttribute('aria-pressed',!!state.f[b.dataset.f]);render();});});
 var bar=$('bar');
 new IntersectionObserver(function(e){bar.classList.toggle('stuck',e[0].intersectionRatio<1);},{threshold:[1],rootMargin:'-1px 0px 0px 0px'}).observe(bar);
@@ -261,7 +261,7 @@ m.className='pick-pop';m.hidden=true;m.setAttribute('role','listbox');
 sel.parentNode.insertBefore(w,sel);w.appendChild(sel);w.appendChild(b);sel.hidden=true;sel.tabIndex=-1;
 // Its list in the body: a bar moved by a transform would carry it off.
 m._button=b;document.body.appendChild(m);
-function sync(){var o=sel.options[sel.selectedIndex];b.textContent=o?o.textContent:'';
+function sync(){var o=sel.options[sel.selectedIndex];b.textContent=o?(o.dataset.short||o.textContent):'';
 ['on','need'].forEach(function(c){b.classList.toggle(c,sel.classList.contains(c));});}
 b.onclick=function(e){e.stopPropagation();var open=!m.hidden;closeMenus();closePicks();if(open)return;
 m.innerHTML=[].map.call(sel.options,function(o,i){return '<button type="button" role="option" data-i="'+i+'" aria-selected="'+(i===sel.selectedIndex)+'">'+esc(o.textContent)+'</button>';}).join('');
