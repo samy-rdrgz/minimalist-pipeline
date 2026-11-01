@@ -77,6 +77,12 @@ review one file -- lighter to read on a computer and on a phone.
 - Touch screens: closing the keyboard no longer leaves the page scrolled
   to the bottom (iOS scrolled it under a field of the panel or the review
   bar); on a phone the list holds still under the open panel.
+- Tablets: upright (up to 900 px wide), a file's panel takes the whole
+  screen, Previous / Next at the bottom -- beside the list it left a
+  strip of names cut short. Under a finger, fields are 16 px (iOS zoomed
+  the page into smaller ones), keyboard keys are no longer recalled, and
+  while writing in the panel the review bar and Previous / Next step
+  aside for the on-screen keyboard.
 - **A light copy for browsers**, in the render's folder, `ld/`: when its
   video is wider than 8192 px (a panoramic render: browsers on a PC or
   an iPad refuse it) or in a codec they don't play (ProRes, DNxHR...),

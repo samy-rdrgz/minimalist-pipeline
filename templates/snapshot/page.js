@@ -482,10 +482,10 @@ if(rv)h+='<button type="button" class="desc-edit" id="add-desc">✎ '+(it.desc?'
 // X) at the bottom -- with the open ones on no department.
 var anyDone=deps.some(function(d){return isDone(it.states[d]);}),genOpen=editing.gen||!!e.text;
 h+='<div class="p-block major">'+
-(rv&&anyDone?'<div class="dep all"><div class="dep-l"><span class="mid"><span class="nm">All done</span><span class="st">validate every done department · V</span></span>'+
+(rv&&anyDone?'<div class="dep all"><div class="dep-l"><span class="mid"><span class="nm">All done</span><span class="st">validate every done department<span class="kh"> · V</span></span></span>'+
 '<span class="rvb"><button class="ok-b" id="allok" aria-pressed="'+e.all+'" aria-label="Validate every done department">✓</button><span class="rvb-gap"></span></span></div></div>':'')+
 (deps.length?deps.map(function(d){return depHtml(it,d,rv);}).join(''):'<p class="faint">No department tracked on this file.</p>')+
-(rv||it.genRtks.length?'<div class="dep whole"><div class="dep-l"><span class="mid"><span class="nm">Whole file</span><span class="st">a retake on no department'+(rv?' · X':'')+'</span></span>'+
+(rv||it.genRtks.length?'<div class="dep whole"><div class="dep-l"><span class="mid"><span class="nm">Whole file</span><span class="st">a retake on no department'+(rv?'<span class="kh"> · X</span>':'')+'</span></span>'+
 '<span class="rvb"><span class="rvb-gap"></span><button class="ko-b" id="add-gen" aria-pressed="'+genOpen+'" aria-label="A retake on no department">✕</button></span></div>'+
 (it.genRtks.length?'<div class="rtks">'+it.genRtks.map(rtkLine).join('')+'</div>':'')+
 (rv&&genOpen?'<div class="rt">'+retakeBox(it,'gen',e.text,'What to fix, on no department in particular?')+syntax(it)+'</div>':'')+'</div>':'')+
@@ -516,12 +516,18 @@ function refresh(){var y=$('p-body').scrollTop;openPanel(cur);$('p-body').scroll
 // and closing the panel found the list somewhere else.
 var lockY=null;
 function lockPage(on){var b=document.body.style;
-if(on&&lockY==null&&matchMedia('(max-width:640px)').matches){lockY=scrollY;b.position='fixed';b.top=-lockY+'px';b.left=b.right='0';}
+if(on&&lockY==null&&matchMedia('(max-width:900px)').matches){lockY=scrollY;b.position='fixed';b.top=-lockY+'px';b.left=b.right='0';}
 else if(!on&&lockY!=null){b.position=b.top=b.left=b.right='';scrollTo(0,lockY);lockY=null;}}
 // Touch: a field in a fixed layer (panel, review bar, dialog) brings the
 // keyboard up and iOS scrolls the page under it, often to the bottom,
 // and leaves it there: put it back once the field is left.
 var keepY=null;
+// Touch, writing in the panel: the keyboard takes half the screen, the
+// review bar and Previous / Next step aside for the text.
+var coarse=matchMedia('(pointer:coarse)');
+document.addEventListener('focusin',function(e){if(coarse.matches&&e.target.matches('input,textarea')&&e.target.closest('.panel'))document.body.classList.add('typing');});
+document.addEventListener('focusout',function(){setTimeout(function(){var f=document.activeElement;
+if(!(f&&f.matches&&f.matches('input,textarea')&&f.closest('.panel')))document.body.classList.remove('typing');},60);});
 document.addEventListener('focusin',function(e){if(lockY==null&&keepY==null&&e.target.matches('input,textarea,select')&&e.target.closest('.panel,.rbar,.dlg')&&matchMedia('(pointer:coarse)').matches)keepY=scrollY;});
 document.addEventListener('focusout',function(e){if(keepY==null)return;var y=keepY;
 setTimeout(function(){var f=document.activeElement;if(f&&f.matches&&f.matches('input,textarea,select')&&f.closest('.panel,.rbar,.dlg'))return;keepY=null;if(lockY==null){scrollTo(0,y);
@@ -546,7 +552,8 @@ t0=e.target.closest('textarea,input,select,.shotsel')?null:{x:t.clientX,y:t.clie
 $('panel').addEventListener('touchend',function(e){if(!t0)return;var t=e.changedTouches[0],dx=t.clientX-t0.x,dy=t.clientY-t0.y;
 if(Math.abs(dx)>70&&Math.abs(dx)>2*Math.abs(dy))step(dx<0?1:-1);else if(t0.top&&dy>90&&dy>2*Math.abs(dx))closePanel();t0=null;});
 // Focus stays in the open panel.
-var phone=matchMedia('(max-width:640px)');
+// The panel over the whole screen: a phone, a tablet upright.
+var phone=matchMedia('(max-width:900px)');
 // The panel's width, dragged by its left edge -- kept by this browser.
 var PW_KEY='mp-snapshot:panel-width',PW_DEF=540;
 function setWidth(w,keep){w=Math.round(Math.max(380,Math.min(w,innerWidth-360,innerWidth*0.8)));
