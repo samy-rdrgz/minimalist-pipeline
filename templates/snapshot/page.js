@@ -71,10 +71,11 @@ var rv={author:'',role:'',date:'',files:{}};
 var KEY='mp-review:'+META.project+':'+META.snapshot;
 function entry(it){var e=rv.files[it.file]||(rv.files[it.file]={deps:{},all:false,text:'',desc:null});e.fixed=e.fixed||{};e.replies=e.replies||{};return e;}
 function peek(it){return rv.files[it.file]||{deps:{},all:false,text:'',desc:null,fixed:{},replies:{}};}
-// The open RTKs this review replies to: still to redo -- their departments
-// sent back as a retake would ({deps}), a general one as the whole file's (gen).
-function answered(it){var ids=replies(peek(it)),out={deps:{},gen:false};if(!ids.length)return out;
-it.notes.forEach(function(n){if(n.type==='rtk'&&n.done===false&&!n.closed&&ids.indexOf(n.id)>=0){
+// The open notes this review replies to with a retake (anything but
+// "note:" lines): still to redo -- their departments sent back as a ✕
+// would ({deps}), the whole file's when they have none (gen).
+function answered(it){var e=peek(it),ids=replies(e),out={deps:{},gen:false};if(!ids.length)return out;
+it.notes.forEach(function(n){if(!n.closed&&ids.indexOf(n.id)>=0&&!noteOnly(e.replies[n.id])){
 if(n.deps.length)n.deps.forEach(function(d){out.deps[d]=1;});else out.gen=true;}});return out;}
 // Replies written, by the note they answer.
 function replies(e){var r=e.replies||{};return Object.keys(r).filter(function(id){return (r[id]||'').trim();});}
@@ -475,9 +476,11 @@ return '<div class="note'+(n.closed?' closed':'')+(reply?' reply':'')+(n.role?' 
 (n.replies||[]).map(function(r){return noteHtml(Object.assign({closed:n.closed},r),true);}).join('')+(!reply&&canReply(n)?replyBox(n):'');}
 // Reviewing, a reply to an open note or RTK: a comment in its thread at
 // import, the retake left open (Fixed says it's done).
-function replyBtn(n){return '<button type="button" class="rp" data-reply="'+esc(n.id)+'" aria-label="Reply" title="Reply: added to its thread at import -- a retake stays open">↩</button>';}
-function replyBox(n){var r=(peek(D[cur]).replies||{})[n.id];if(r==null&&!editing['r:'+n.id])return '';
-return '<div class="reply-box"><span class="you y">↩ you</span><textarea rows="1" class="rp-t" data-r="'+esc(n.id)+'" placeholder="Your reply -- not fixed yet, a question, an answer…">'+esc(r||'')+'</textarea></div>';}
+function replyBtn(n){return '<button type="button" class="rp" data-reply="'+esc(n.id)+'" aria-label="Reply" title="Reply in its thread: a retake (still to redo, its department sent back) -- or note: a remark">↩</button>';}
+// A retake, red -- "note:" lines alone a remark, grey (as a department's box).
+function replyBox(n){var r=(peek(D[cur]).replies||{})[n.id];if(r==null&&!editing['r:'+n.id])return '';var nt=noteOnly(r);
+return '<div class="reply-box'+(nt?' as-note':'')+'"><span class="you '+(nt?'nt':'n')+'" title="'+(nt?'A remark in its thread':'A retake in its thread: its department sent back')+'">↩ you</span><textarea rows="1" class="rp-t" data-r="'+esc(n.id)+'" placeholder="Still to redo: what -- or note: a remark">'+esc(r||'')+'</textarea></div>';}
+function replyKind(t){return !(t||'').trim()?'':noteOnly(t)?'note':'rtk';}
 function canReply(n){return reviewing()&&n.id&&!n.closed;}
 // An open RTK; reviewing, a button to say it's fixed (done at import, as you).
 function rtkLine(n){var where=[n.shot,n.frames].filter(Boolean).join(' · '),it=D[cur],fx=reviewing()&&n.id,on=fx&&!!peek(it).fixed&&!!(peek(it).fixed||{})[n.id];
@@ -653,9 +656,9 @@ else{if(v&&v.no)delete e.deps[d];else e.deps[d]={no:1,text:''};refresh();
 if(e.deps[d]){var ta2=$('p-body').querySelector('textarea[data-k="'+CSS.escape('d:'+d)+'"]');if(ta2)ta2.focus();}}}});
 $('p-body').addEventListener('input',function(ev){var t=ev.target,it=D[cur],e=entry(it);if(t.tagName!=='TEXTAREA')return;grow(t);
 if(t.dataset.k){var k=t.dataset.k;if(t.dataset.s==null)setText(it,k,t.value);else{var b=boxOf(it,k,k==='gen'?e.text:(e.deps[k.slice(2)]||{}).text||'');
-if(t.dataset.s)b.per[t.dataset.s]=t.value;else b.all=t.value;setText(it,k,joinBox(it,b));}}else if(t.dataset.r){var was=!!(e.replies[t.dataset.r]||'').trim();e.replies[t.dataset.r]=t.value;
-// Written or emptied: a reply to an RTK sends its department back, or not.
-if(was!==!!t.value.trim()){var id=t.dataset.r,at=t.selectionStart;refresh();var nt=$('p-body').querySelector('.rp-t[data-r="'+CSS.escape(id)+'"]');if(nt){nt.focus();nt.setSelectionRange(at,at);}return;}}
+if(t.dataset.s)b.per[t.dataset.s]=t.value;else b.all=t.value;setText(it,k,joinBox(it,b));}}else if(t.dataset.r){var was=replyKind(e.replies[t.dataset.r]);e.replies[t.dataset.r]=t.value;
+// Emptied, or turned retake / remark: its department sent back, or not.
+if(was!==replyKind(t.value)){var id=t.dataset.r,at=t.selectionStart;refresh();var nt=$('p-body').querySelector('.rp-t[data-r="'+CSS.escape(id)+'"]');if(nt){nt.focus();nt.setSelectionRange(at,at);}return;}}
 else if(t.id==='desc-t')e.desc=t.value;
 // A department's box turning remark-only or back (✎ you / ✕ you): its
 // tag and ✕ in the panel, its cell in the list, the caret kept.

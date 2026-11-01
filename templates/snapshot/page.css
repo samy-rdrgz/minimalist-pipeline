@@ -411,7 +411,8 @@ background:none;color:var(--ink-3);font-size:14px;line-height:1;cursor:pointer}
 .note .h .rp{margin:-4px -6px -4px 0}
 .reply-box{display:flex;align-items:flex-start;gap:8px;margin:6px 0 2px 22px}
 .reply-box .you{flex:none;margin-top:9px}
-.reply-box textarea{flex:1;min-height:36px;padding:8px 10px;border:1px solid color-mix(in srgb,var(--valid) 45%,var(--line));border-radius:6px;background:var(--surface);resize:none;font-size:13px;line-height:1.4}
+.reply-box.as-note textarea{border-color:var(--line)}
+.reply-box textarea{flex:1;min-height:36px;padding:8px 10px;border:1px solid var(--rtk);border-radius:6px;background:var(--surface);resize:none;font-size:13px;line-height:1.4}
 .rtkl.fixed .rt-t{opacity:.55;text-decoration:line-through;text-decoration-color:color-mix(in srgb,currentColor 50%,transparent)}
 .rt{margin-top:6px}
 textarea{display:block;width:100%;min-height:36px;max-height:50vh;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface);font-size:13px;

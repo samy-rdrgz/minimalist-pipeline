@@ -43,6 +43,7 @@ from .tracking import (
     _collect_folder,
     _status_from_raw,
     create_entry,
+    entry_departments,
     find_file_by_name,
     set_department_approval,
     tracking_json_path,
@@ -348,8 +349,18 @@ def _line_tags(line: str, shots: list[str]) -> tuple[str, str | None, tuple | No
 # schema 6), space-separated.
 _REVIEW_FIXED = {"group", "filename", "description", "fixed", REVIEW_GLOBAL, *_REVIEW_HIDDEN}
 # "reply <id>": the reviewer's reply to that entry's thread (schema 6) --
-# a comment, its retake left as it is.
+# a retake on its departments, or "note:" a remark (_reply_kind()).
 REPLY_PREFIX = "reply "
+
+
+def _reply_kind(text: str) -> tuple[str, str]:
+    """A reply as it's imported: (type, text). Every line "note:" -- a
+    remark, the prefix dropped; else a retake, "still to redo", as in a
+    department's cell."""
+    lines = [line for line in text.splitlines() if line.strip()]
+    if lines and all(_NOTE_PREFIX.match(line) for line in lines):
+        return "note", "\n".join(_NOTE_PREFIX.sub("", line) for line in lines)
+    return "rtk", text
 
 
 def _row_replies(row: dict) -> list[tuple[str, str]]:
@@ -582,8 +593,9 @@ def import_review_xlsx(path: Path) -> dict:
     before 1.1.2) -- see review_import_plan().
     Retakes the reviewer marked fixed (the page's "fixed") are marked done,
     as its author (close_entry()).
-    Replies ("reply <id>") go into their entry's thread, as notes under the
-    role -- the retake answered stays open.
+    Replies ("reply <id>") go into their entry's thread under the role: a
+    retake on its departments ("still to redo", the entry left open), or a
+    remark when every line is "note:".
     Returns {"imported", "duplicates", "validated", "fixed", "replies",
     "skipped": [(label, reason)]}."""
     review = read_review(path)
@@ -638,7 +650,8 @@ def import_review_xlsx(path: Path) -> dict:
             )
             continue
         entries = (read_json_quiet(tracking_json_path(filepath)) or {}).get("entries", [])
-        ids = {e.get("id") for e in entries}
+        by_id = {e.get("id"): e for e in entries}
+        ids = set(by_id)
         known = {
             (e.get("response"), e.get("text"))
             for e in entries
@@ -650,16 +663,22 @@ def import_review_xlsx(path: Path) -> dict:
                     (f"{row['filename']}: reply {text[:30]}", "its note is gone")
                 )
                 continue
+            # A retake answering it is on its departments (none: the whole
+            # file's); a "note:" one, a remark.
+            entry_type, text = _reply_kind(text)
             if (entry_id, text) in known:
                 result["duplicates"] += 1
                 continue
+            departments = (
+                entry_departments(by_id[entry_id]) if entry_type == "rtk" else []
+            )
             try:
                 create_entry(
                     filepath,
                     text=text,
-                    departments=[],
+                    departments=departments,
                     author=author,
-                    type="note",
+                    type=entry_type,
                     response=entry_id,
                     review_id=review_id,
                     created_at=created_at,

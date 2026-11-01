@@ -118,11 +118,12 @@ it saw.
   reviewing: marked, it's done once the review is imported, as its
   author (one done since, or gone, is left as it is; importing again
   changes nothing). *↩ Reply*, beside it and under an open note, writes
-  a reply: added to that note's thread at import, under your role. To an
-  open RTK it means "still to redo": the RTK stays open (*✓ Fixed* says
-  it's done) and its department is sent back as by ✕ -- ✕ you, its
-  validation withdrawn at import; to a general one, the whole file's
-  ✕ you. To a note or a todo it's a comment, nothing else.
+  a reply, in that note's thread at import, under your role -- read as a
+  department's box: a retake ("still to redo"), red, unless every line
+  is `note:`, a remark, grey. A retake reply sends the note's department
+  back as ✕ would (✕ you, its validation withdrawn at import; no
+  department: the whole file's ✕ you) and is imported as an RTK on it;
+  the RTK answered stays open (*✓ Fixed* says it's done).
   To go over it: *Your review*, among the filters (or a click on "n
   files reviewed" in the review bar, or *See them* before downloading),
   shows only the files the review touched.

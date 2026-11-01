@@ -128,11 +128,13 @@ la prod -- sur la version qu'il a vue.
   son auteur (une déjà faite depuis, ou disparue, est laissée telle
   quelle ; réimporter ne change rien). *↩ Reply*, à côté et sous une
   note ouverte, écrit une réponse : ajoutée au fil de cette note à
-  l'import, sous votre rôle. À une RTK ouverte elle veut dire « encore à
-  reprendre » : la RTK reste ouverte (*✓ Fixed* dit qu'elle est faite)
-  et son département est renvoyé comme par ✕ -- ✕ you, sa validation
-  retirée à l'import ; à une RTK générale, le ✕ you du fichier. À une
-  note ou un todo, c'est un commentaire, rien de plus.
+  l'import, sous votre rôle -- lue comme la case d'un département : un
+  retake (« encore à reprendre »), en rouge, sauf si chaque ligne est
+  `note:`, une remarque, en gris. Une réponse retake renvoie le
+  département de la note comme ✕ (✕ you, sa validation retirée à
+  l'import ; sans département : le ✕ you du fichier) et est importée en
+  RTK sur lui ; la RTK à laquelle elle répond reste ouverte (*✓ Fixed*
+  dit qu'elle est faite).
   Pour la relire : *Your review*, parmi les filtres (ou un clic sur
   « n files reviewed » dans la barre de review, ou *See them* avant de
   télécharger), ne montre que les fichiers que la review a touchés.

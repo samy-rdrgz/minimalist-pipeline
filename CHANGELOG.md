@@ -53,9 +53,10 @@ review one file -- lighter to read on a computer and on a phone.
   validation as it is (it withdrew it, as for a retake).
 - **Reply to a note from the review**: *↩ Reply* beside an open RTK and
   under an open note. Import review adds it to that note's thread, under
-  the review's role. To an open RTK it's "still to redo": the RTK stays
-  open (*✓ Fixed* closes it) and its department is sent back as by ✕
-  (its validation withdrawn); to a note or a todo, just a comment.
+  the review's role, read as a department's box: a retake ("still to
+  redo") unless every line is `note:`. A retake reply sends the note's
+  department back as by ✕ (its validation withdrawn) and is imported as
+  an RTK on it; the RTK answered stays open (*✓ Fixed* closes it).
   Imported once only.
   The review's `.json` moves to v6 (`fixed`, `reply <id>`): an older
   add-on refuses it rather than misread it.
