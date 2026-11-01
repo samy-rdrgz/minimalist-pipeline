@@ -408,7 +408,7 @@ background:none;color:var(--ink-3);font-size:14px;line-height:1;cursor:pointer}
 .rtkl .fx[aria-pressed="true"]{color:var(--valid);font-weight:700}
 .rtkl.fixed{background:var(--valid-bg)}
 @media (pointer:coarse){.rp,.rtkl .fx{width:36px;height:36px}}
-.note .n-act{display:flex;justify-content:flex-end;margin-top:2px}
+.note .h .rp{margin:-4px -6px -4px 0}
 .reply-box{display:flex;align-items:flex-start;gap:8px;margin:6px 0 2px 22px}
 .reply-box .you{flex:none;margin-top:9px}
 .reply-box textarea{flex:1;min-height:40px;padding:8px 10px;border:1px solid color-mix(in srgb,var(--valid) 45%,var(--line));border-radius:6px;background:var(--surface);resize:none;font-size:13px;line-height:1.4}

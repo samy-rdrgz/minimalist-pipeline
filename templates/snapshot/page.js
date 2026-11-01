@@ -463,7 +463,7 @@ n.deps.forEach(function(d){tags.push('<span class="tg">'+esc(d)+'</span>');});
 if(n.shot)tags.push('<span class="tg">'+esc(n.shot)+'</span>');if(n.frames)tags.push('<span class="tg">'+esc(n.frames)+'</span>');
 if(n.render)tags.push('<span class="tg" title="Written watching this render">▶ '+esc(n.render)+'</span>');else if(n.version)tags.push('<span class="tg">'+esc(n.version)+'</span>');
 return '<div class="note'+(n.closed?' closed':'')+(reply?' reply':'')+(n.role?' by-role':'')+'"><div class="h">'+type+tags.join('')+
-'<span class="who">'+esc(n.author)+' · '+esc((n.date||'').slice(0,10))+'</span></div><p>'+esc(n.text)+'</p>'+(!reply&&canReply(n)?'<div class="n-act">'+replyBtn(n)+'</div>':'')+'</div>'+
+'<span class="who">'+esc(n.author)+' · '+esc((n.date||'').slice(0,10))+'</span>'+(!reply&&canReply(n)?replyBtn(n):'')+'</div><p>'+esc(n.text)+'</p></div>'+
 (n.replies||[]).map(function(r){return noteHtml(Object.assign({closed:n.closed},r),true);}).join('')+(!reply&&canReply(n)?replyBox(n):'');}
 // Reviewing, a reply to an open note or RTK: a comment in its thread at
 // import, the retake left open (Fixed says it's done).
