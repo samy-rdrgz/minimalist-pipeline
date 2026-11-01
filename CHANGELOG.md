@@ -66,6 +66,8 @@ review one file -- lighter to read on a computer and on a phone.
   The review's `.json` moves to v6 (`fixed`, `reply <id>`): an older
   add-on refuses it rather than misread it.
 - The review's text boxes start one line high, growing as you write.
+- While reviewing, notes are dated how long ago ("5 days ago", from the
+  day the page is read), the date itself in the tooltip.
 - **Your review**, a filter: only the files the review touched
   (validated, withdrawn, retakes, a description) -- also from "n files
   reviewed" in the review bar and *See them* before downloading.

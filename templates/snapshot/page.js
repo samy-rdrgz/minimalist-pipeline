@@ -479,7 +479,7 @@ if(n.render)tags.push('<span class="tg" title="Written watching this render">▶
 // Fixed under its department).
 var dn=canReply(n)&&(n.type==='todo'||n.type==='rtk')&&n.done===false,on=dn&&!!(peek(D[cur]).fixed||{})[n.id],dl=n.type==='todo'?'Done':'Fixed';
 return '<div class="note'+(n.closed?' closed':'')+(reply?' reply':'')+(n.role?' by-role':'')+(on?' fixed':'')+'"><div class="h">'+type+tags.join('')+
-'<span class="h-r"><span class="who">'+esc(n.author)+' · '+esc((n.date||'').slice(0,10))+'</span>'+(!reply&&canReply(n)?replyBtn(n):'')+
+'<span class="h-r"><span class="who">'+esc(n.author)+' · '+when(n.date)+'</span>'+(!reply&&canReply(n)?replyBtn(n):'')+
 (dn?'<button type="button" class="fx" data-fix="'+esc(n.id)+'" aria-pressed="'+on+'" aria-label="'+dl+'" title="'+(on?'Marked '+dl.toLowerCase()+' in your review: tap to undo':dl+': marked done when your review is imported')+'">✓</button>':'')+'</span></div><p>'+esc(n.text)+'</p></div>'+
 (n.replies||[]).map(function(r){return noteHtml(Object.assign({closed:n.closed},r),true);}).join('')+(!reply&&canReply(n)?replyBox(n):'');}
 // Reviewing, a reply to an open note or RTK: a comment in its thread at
@@ -490,9 +490,15 @@ function replyBox(n){var r=(peek(D[cur]).replies||{})[n.id];if(r==null&&!editing
 return '<div class="reply-box'+(nt?' as-note':'')+'"><span class="you '+(nt?'nt':'n')+'" title="'+(nt?'A remark in its thread':'A retake in its thread: its department sent back')+'">↩ you</span><textarea rows="1" class="rp-t" data-r="'+esc(n.id)+'" placeholder="Still to redo: what -- or note: a remark">'+esc(r||'')+'</textarea></div>';}
 function replyKind(t){return !(t||'').trim()?'':noteOnly(t)?'note':'rtk';}
 function canReply(n){return reviewing()&&n.id&&!n.closed;}
+// A note's date: while reviewing, how long ago (from today, as the page is
+// read), the date itself in its tooltip; else the date.
+function when(d){var day=(d||'').slice(0,10);if(!reviewing()||!day)return esc(day);
+var t=new Date(day+'T00:00:00'),now=new Date();now.setHours(0,0,0,0);var n=Math.round((now-t)/864e5);if(isNaN(n))return esc(day);
+var w=n<=0?'today':n===1?'yesterday':n<14?n+' days ago':n<60?Math.round(n/7)+' weeks ago':n<730?Math.round(n/30.4)+' months ago':Math.round(n/365)+' years ago';
+return '<span title="'+esc(day)+'">'+w+'</span>';}
 // An open RTK; reviewing, a button to say it's fixed (done at import, as you).
 function rtkLine(n){var where=[n.shot,n.frames].filter(Boolean).join(' · '),it=D[cur],fx=reviewing()&&n.id,on=fx&&!!peek(it).fixed&&!!(peek(it).fixed||{})[n.id];
-return '<div class="rtkl'+(n.team?' team':'')+(on?' fixed':'')+'"><span class="rt-t">'+(where?'<b>'+esc(where)+'</b> ':'')+esc(n.text)+'<small>'+(n.team?'team · ':esc(n.role||'')+' · ')+esc(n.author)+' · '+esc((n.date||'').slice(0,10))+'</small></span>'+
+return '<div class="rtkl'+(n.team?' team':'')+(on?' fixed':'')+'"><span class="rt-t">'+(where?'<b>'+esc(where)+'</b> ':'')+esc(n.text)+'<small>'+(n.team?'team · ':esc(n.role||'')+' · ')+esc(n.author)+' · '+when(n.date)+'</small></span>'+
 (fx?'<span class="rt-b">'+replyBtn(n)+'<button type="button" class="fx" data-fix="'+esc(n.id)+'" aria-pressed="'+on+'" aria-label="Fixed" title="'+(on?'Marked fixed in your review: tap to undo':'Fixed: marked done when your review is imported')+'">✓</button></span>':'')+'</div>'+(fx?replyBox(n):'');}
 // Rendered but nothing to play: say why, quietly, and offer to look elsewhere.
 function noVideo(it){if(!it.renders.some(function(r){return r.folder;})||allVideos(it).length)return '';
