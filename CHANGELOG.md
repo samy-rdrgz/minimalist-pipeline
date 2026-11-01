@@ -98,6 +98,10 @@ review one file -- lighter to read on a computer and on a phone.
   a ProRes `.mov` for the edit, say. Such a video is found as the
   render's everywhere (rushes, previews, Checked, snapshot), and gets a
   light mp4 in `ld/` for browsers.
+- *Find existing project* opens the folder browser straight away, beside
+  the projects already known: Accept activates the project. A dialog
+  came first, its path field opening the same browser, then needed
+  confirming again.
 - Farm: cancelling a job whose cancel was already on its way (sent by the
   farm, or a second click) no longer raises "locked by another process".
 - A render's compiled video carries its version, like its folder:
