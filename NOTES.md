@@ -1854,7 +1854,8 @@ project at a given moment and a way to send review notes back.
   `data:`) was weighed: +33 % on top of the mp4s, the whole file loaded
   at once by the browser, and the renders are x265 -- browsers play it
   through hardware decoding only (Firefox too, recent versions) -- so a re-encoded H.264 copy
-  per shot on top. A zip named like the snapshot (`zip_latest_videos()`,
+  per shot on top. A zip named like the snapshot (`zip_latest_videos()`
+  then -- since gone, see "Snapshot page, redrawn" --,
   `lib/preview.py`) just copies the mp4s as they are (stored, not
   compressed: an mp4 already is), laid out like `renders/` minus each
   one's own folder (its video's name already says it), for the
@@ -3603,10 +3604,26 @@ around one idea: a list to scan, a panel to read one file.
   next export copies again.
 - **Too wide to play**: a 13444 x 1200 H.265 render played nowhere --
   hardware decoders stop around 8192 px wide (PC and iPad alike). The
-  edit needs it full size, so only the snapshot's copy is scaled
-  (`_snapshot_copy()`, width read from `ffmpeg -i`'s report: no ffprobe
-  needed). The copy keeps the render's modification time: a folder copy
-  is "already there" by time alone, its size no longer the render's.
+  edit needs it full size, so a light copy sits beside it, in the render
+  folder's `ld/` (out of reach of everything that takes "the mp4 of a
+  render folder": rushes, previews, thumbnails). Made by the farm's
+  compilation, in the same ffmpeg pass (`_ld_args()`: a second output,
+  only when the width -- captured at setup -- or the preset's codec
+  calls for it), since the farm always has ffmpeg; an export on a
+  machine without it then never has to encode. Renders from before:
+  Export snapshot makes theirs once (`ensure_ld()`, width and codec read
+  from `ffmpeg -i`'s report, the playable ones remembered for the
+  session). A first version scaled only the snapshot's copy: the page
+  then couldn't play the render from `renders/` itself, and a copy made
+  without ffmpeg stayed full size for good.
+- **From the project, not copied**: a snapshot opened at the studio
+  plays each video from `renders/`, relative to the page
+  (`meta["videos"]["local"]`): the browser loads one file on ▶, never
+  lists a folder. The copy (*Folder*, *Zip*) is only for taking the
+  snapshot elsewhere -- kept a choice, a folder sent as is beats a zip to
+  unpack. Same tree everywhere (a video named by its path under
+  `renders/`), so one name serves the three: the copy, `renders/`, a
+  folder chosen on the page.
 - Dropped on purpose: the print layout (the page is the document), the
   table/One file switch, the header behind ☰ on a phone, Go to, notes
   unfolded under rows, per-shot hover buttons in the list (the panel has

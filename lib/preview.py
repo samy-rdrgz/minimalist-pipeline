@@ -5,7 +5,6 @@ import os
 import re
 import shutil
 import subprocess
-import tempfile
 import zipfile
 from pathlib import Path
 
@@ -187,14 +186,37 @@ def latest_asset_videos(project_root: Path, v_prefix: str = "v") -> list[Path]:
 
 
 # Past this width the browsers' hardware decoders refuse a video (8192 on
-# most PCs and iPads; a panoramic render goes past it): the snapshot gets a
-# scaled-down copy, renders/ keeps the full one for the edit.
+# most PCs and iPads; a panoramic render goes past it). A video they can't
+# play gets a light copy beside it, in its render folder's ld/ -- made by
+# the farm's compilation, else by Export snapshot (ensure_ld()) --: what
+# the snapshot plays and carries, the full one kept for the edit.
 MAX_VIDEO_WIDTH = 8192
-_VIDEO_SIZE = re.compile(r"Video: .*?(\d{2,5})x(\d{2,5})")
+LD_DIR = "ld"
+# The light copy: H.265 in mp4 tagged hvc1 -- what browsers, Safari and
+# iPad included, play up to MAX_VIDEO_WIDTH.
+LD_ARGS = [
+    "-c:v", "libx265", "-preset", "fast", "-crf", "22", "-pix_fmt", "yuv420p",
+    "-tag:v", "hvc1", "-movflags", "+faststart",
+]
+_VIDEO_STREAM = re.compile(r"Video: (\w+)[^\n]*?(?:\((\w{4}) /[^\n]*?)?, (\d{2,5})x(\d{2,5})")
 
 
-def _video_width(mp4: Path, ffmpeg: str) -> int | None:
-    """The video's width, read from ffmpeg's own report; None if unread."""
+def ld_path(video: Path) -> Path:
+    """Where a render video's light copy goes: <render folder>/ld/<name>.mp4."""
+    video = Path(video)
+    return video.parent / LD_DIR / f"{video.stem}.mp4"
+
+
+def browser_codec(codec: str) -> bool:
+    """A codec browsers play (H.264, H.265), from an ffmpeg codec or
+    encoder name -- libx265, hevc_nvenc, h264..."""
+    codec = codec.lower()
+    return any(k in codec for k in ("264", "265", "hevc", "avc"))
+
+
+def _video_info(mp4: Path, ffmpeg: str) -> tuple[str, str, int] | None:
+    """(codec, tag, width) of the video's stream, read from ffmpeg's own
+    report (no ffprobe needed); None if unread."""
     try:
         out = subprocess.run(
             [ffmpeg, "-hide_banner", "-i", str(mp4)],
@@ -206,79 +228,102 @@ def _video_width(mp4: Path, ffmpeg: str) -> int | None:
         ).stderr
     except (OSError, subprocess.SubprocessError):
         return None
-    m = _VIDEO_SIZE.search(out)
-    return int(m[1]) if m else None
+    m = _VIDEO_STREAM.search(out)
+    return (m[1], m[2] or "", int(m[3])) if m else None
 
 
-def _snapshot_copy(mp4: Path, dst: Path, ffmpeg: str | None) -> bool:
-    """mp4 written to dst as the snapshot plays it: as is, or scaled down
-    to MAX_VIDEO_WIDTH when wider (H.265, hvc1 -- needs ffmpeg; without
-    it, as is). dst keeps mp4's modification time either way: what
-    copy_videos() tells a video already there by. True when scaled."""
-    width = _video_width(mp4, ffmpeg) if ffmpeg else None
-    scaled = bool(width and width > MAX_VIDEO_WIDTH)
-    if scaled:
+# Videos read once and found playable as they are, by (path, modification
+# time): the next export doesn't ask ffmpeg again.
+_PLAYABLE: set = set()
+
+
+def ensure_ld(video: Path, ffmpeg: str) -> Path | None:
+    """The video's light copy (ld_path()), made now if the video needs one
+    and it's missing or older: too wide, a codec browsers don't play, or
+    H.265 tagged hev1 (then just re-tagged, no re-encode). None when the
+    video plays as is, or can't be read. Raises subprocess.CalledProcessError
+    / OSError if making it fails."""
+    video, ld = Path(video), ld_path(video)
+    try:
+        if ld.stat().st_mtime >= video.stat().st_mtime:
+            return ld
+    except OSError:
+        pass
+    try:
+        key = (str(video), video.stat().st_mtime)
+    except OSError:
+        return None
+    if key in _PLAYABLE:
+        return None
+    info = _video_info(video, ffmpeg)
+    if info is None:
+        return None
+    codec, tag, width = info
+    if width > MAX_VIDEO_WIDTH or not browser_codec(codec):
+        args = ["-vf", f"scale='min({MAX_VIDEO_WIDTH},iw)':-2", *LD_ARGS]
+    elif codec == "hevc" and tag != "hvc1":
+        args = ["-c", "copy", "-tag:v", "hvc1", "-movflags", "+faststart"]
+    else:
+        _PLAYABLE.add(key)
+        return None
+    ld.parent.mkdir(exist_ok=True)
+    tmp = ld.with_name(f"{ld.stem}.tmp.mp4")
+    try:
         subprocess.run(
-            [
-                ffmpeg, "-v", "error", "-y", "-i", str(mp4),
-                "-vf", f"scale={MAX_VIDEO_WIDTH}:-2",
-                "-c:v", "libx265", "-preset", "fast", "-crf", "22",
-                "-pix_fmt", "yuv420p", "-tag:v", "hvc1", "-c:a", "copy",
-                "-movflags", "+faststart", "-f", "mp4", str(dst),
-            ],
+            [ffmpeg, "-v", "error", "-y", "-i", str(video), *args, "-f", "mp4", str(tmp)],
             check=True,
             capture_output=True,
             stdin=subprocess.DEVNULL,
         )
-    else:
-        shutil.copyfile(mp4, dst)
-    st = mp4.stat()
-    os.utime(dst, (st.st_atime, st.st_mtime))
-    return scaled
+        os.replace(tmp, ld)
+    finally:
+        if tmp.exists():
+            tmp.unlink()
+    return ld
 
 
-def zip_videos(
-    videos: list[tuple[Path, str]], zip_path: Path, ffmpeg: str | None = None
-) -> int:
+def browser_video(render_dir: Path | None) -> Path | None:
+    """The video a browser plays for a render: its light copy if it has
+    one, else its own mp4. None without either."""
+    if render_dir is None:
+        return None
+    return _first_mp4(Path(render_dir) / LD_DIR) or _first_mp4(render_dir)
+
+
+def zip_videos(videos: list[tuple[Path, str]], zip_path: Path) -> int:
     """Videos [(mp4, name)] into zip_path under their names
-    (lib/snapshot.py snapshot_videos()), each as _snapshot_copy() writes
-    it. Stored, not compressed: an mp4 already is. Written beside then
-    renamed, never left half-written. Returns how many."""
+    (lib/snapshot.py snapshot_videos()). Stored, not compressed: an mp4
+    already is. Written beside then renamed, never left half-written.
+    Returns how many."""
     zip_path = Path(zip_path)
     if not videos:
         return 0
     tmp = zip_path.with_name(f"{zip_path.name}.tmp")
-    with tempfile.TemporaryDirectory(prefix="pipeline_videos_") as scratch:
-        try:
-            with zipfile.ZipFile(tmp, "w", zipfile.ZIP_STORED) as z:
-                for mp4, name in videos:
-                    one = Path(scratch, "video.mp4")
-                    if _snapshot_copy(mp4, one, ffmpeg):
-                        z.write(one, name)
-                    else:
-                        z.write(mp4, name)
-                    one.unlink(missing_ok=True)
-            os.replace(tmp, zip_path)
-        finally:
-            if tmp.exists():
-                tmp.unlink()
+    try:
+        with zipfile.ZipFile(tmp, "w", zipfile.ZIP_STORED) as z:
+            for mp4, name in videos:
+                z.write(mp4, name)
+        os.replace(tmp, zip_path)
+    finally:
+        if tmp.exists():
+            tmp.unlink()
     return len(videos)
 
 
-def copy_videos(
-    videos: list[tuple[Path, str]], folder: Path, ffmpeg: str | None = None
-) -> tuple[int, int, int]:
-    """Videos [(mp4, name)] into folder under their names (_snapshot_copy():
-    scaled down past MAX_VIDEO_WIDTH), only those not there yet or changed
-    since (modification time) -- a folder kept from one snapshot to the
-    next copies only what's new. Each one written beside then renamed.
-    Returns (copied, already there, of the copied the ones scaled down)."""
+def copy_videos(videos: list[tuple[Path, str]], folder: Path) -> tuple[int, int]:
+    """Videos [(mp4, name)] into folder under their names, only those not
+    there yet or changed since (size, modification time) -- a folder kept
+    from one snapshot to the next copies only what's new. Each one written
+    beside then renamed. Returns (copied, already there)."""
     folder = Path(folder)
-    copied = kept = scaled = 0
+    copied = kept = 0
     for mp4, name in videos:
         dst = folder / name
         try:
-            if int(mp4.stat().st_mtime) == int(dst.stat().st_mtime):
+            src_stat, dst_stat = mp4.stat(), dst.stat()
+            if src_stat.st_size == dst_stat.st_size and int(
+                src_stat.st_mtime
+            ) == int(dst_stat.st_mtime):
                 kept += 1
                 continue
         except OSError:
@@ -286,13 +331,13 @@ def copy_videos(
         dst.parent.mkdir(parents=True, exist_ok=True)
         tmp = dst.with_name(f"{dst.stem}.tmp.mp4")
         try:
-            scaled += _snapshot_copy(mp4, tmp, ffmpeg)
+            shutil.copy2(mp4, tmp)
             os.replace(tmp, dst)
         finally:
             if tmp.exists():
                 tmp.unlink()
         copied += 1
-    return copied, kept, scaled
+    return copied, kept
 
 
 def videos_in(folder: Path) -> list[str]:

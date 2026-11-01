@@ -5,7 +5,11 @@ from pathlib import Path
 import bpy
 
 from ..lib import (
+    LD_ARGS,
+    MAX_VIDEO_WIDTH,
     ConfigCache,
+    browser_codec,
+    ld_path,
     PipelineError,
     get_machine_id,
     json_get,
@@ -160,6 +164,19 @@ def _ffmpeg_preset_to_args(preset: dict) -> list[str]:
     return args + extra
 
 
+def _ld_args(width, preset: dict, video: Path) -> list[str]:
+    """The compilation's second output, a light copy browsers can play
+    (lib/preview.py ld_path()), when the video itself won't: wider than
+    MAX_VIDEO_WIDTH, or a codec they don't play (ProRes, DNxHR...). [] when
+    it plays as is -- a light copy left from before, now stale, removed."""
+    ld = ld_path(video)
+    if (width or 0) <= MAX_VIDEO_WIDTH and browser_codec(str(preset.get("codec", "libx264"))):
+        ld.unlink(missing_ok=True)
+        return []
+    ld.parent.mkdir(parents=True, exist_ok=True)
+    return ["-vf", f"scale='min({MAX_VIDEO_WIDTH},iw)':-2", *LD_ARGS, str(ld)]
+
+
 def compilation(*, project_root: Path, job_path: Path, compilation_settings: str):
     """Launch ffmpeg to compile the rendered frame sequence into a video file.
 
@@ -178,6 +195,13 @@ def compilation(*, project_root: Path, job_path: Path, compilation_settings: str
             ffmpeg_bin = resolve_ffmpeg()
             if ffmpeg_bin is not None:
                 abs_path = to_absolute(data["output_path"], project_root)
+                preset = resolve_ffmpeg_preset(compilation_settings)
+                video = Path(
+                    to_absolute(
+                        data.get("compiled_output_path", str(project_root)),
+                        project_root,
+                    )
+                )
                 cmd = (
                     [
                         ffmpeg_bin,
@@ -189,17 +213,10 @@ def compilation(*, project_root: Path, job_path: Path, compilation_settings: str
                         "-i",
                         f"{str(abs_path).split('#')[0]}%0{data['output_path'].count('#')}d.{_EXTENSION_MAP.get(data['output_extension'], 'png')}",
                     ]
-                    + list(
-                        _ffmpeg_preset_to_args(
-                            resolve_ffmpeg_preset(compilation_settings)
-                        )
-                    )
-                    + [
-                        to_absolute(
-                            data.get("compiled_output_path", str(project_root)),
-                            project_root,
-                        )
-                    ]
+                    + list(_ffmpeg_preset_to_args(preset))
+                    + [str(video)]
+                    # Same pass: the light copy, if the video needs one.
+                    + _ld_args(data.get("width"), preset, video)
                 )
                 proc = [
                     (

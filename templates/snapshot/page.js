@@ -282,11 +282,15 @@ function videoSrc(name){var f=null,parts=name.split('/');
 // The longest tail found: a folder above, or below, renders/ alike. Its
 // file name alone only from a phone's pick (the same in every version).
 if(PICKED)for(var k=0;k<parts.length&&!f;k++)if(k<parts.length-1||PICKED[' flat'])f=PICKED[parts.slice(k).join('/')];
-if(f)return f.url||(f.url=URL.createObjectURL(f));
-return VNAMES[name]?META.videos.base+'/'+name:null;}
+if(f)return {src:f.url||(f.url=URL.createObjectURL(f)),from:'picked'};
+// Then the copy that came with the page (videos/, or the zip unzipped),
+// then the render itself, in the project, relative to the page.
+var V=META.videos||{},path=encodeURI(name);
+if(VNAMES[name])return {src:V.base+'/'+path,from:V.mode};
+return V.local?{src:V.local+'/'+path,from:'local'}:null;}
 // A render line's video, one or none.
-function videosOf(it,r){var src=r.video&&videoSrc(r.video);
-return src?[{file:it.name,shot:r.shots,first:r.shot_list[0],folder:r.folder,src:src,name:r.video}]:[];}
+function videosOf(it,r){var s=r.video&&videoSrc(r.video);
+return s?[{file:it.name,shot:r.shots,first:r.shot_list[0],folder:r.folder,src:s.src,from:s.from,name:r.video}]:[];}
 // Choose the videos' folder: each video known by its path's every tail, so
 // the folder's own name, or one above it, doesn't matter. A phone with no
 // folder picker gives the videos themselves, known by their names.
@@ -352,11 +356,18 @@ pb.onclick=function(e){e.stopPropagation();if(el.paused)el.play();else el.pause(
 el.onclick=function(e){e.stopPropagation();pb.onclick(e);};
 $('vp-f').onclick=function(e){e.stopPropagation();var f=el.requestFullscreen||el.webkitRequestFullscreen||el.webkitEnterFullscreen;if(f)f.call(el);};
 el.addEventListener('ended',function(){if(at<list.length-1){at++;show();}else sync();});
-el.addEventListener('error',function(){$('lb-in').innerHTML='';var V=META.videos;
+el.addEventListener('error',function(){var V=META.videos;
+// The copy missing (a Folder snapshot opened without its folder): the
+// render itself, in the project, if this machine reaches it.
+if(v.from!=='local'&&v.from!=='picked'&&V&&V.local){v.from='local';v.src=V.local+'/'+encodeURI(v.name);el.src=v.src;return;}
+$('lb-in').innerHTML='';
 // A video chosen here is there: then its format is the problem -- an
 // HEVC tagged hev1 (compiled by an older add-on) on Safari, iPhone, iPad.
-$('lb-cap').innerHTML=(v.src.slice(0,5)==='blob:'?'This browser can\'t play this video\'s format (on an iPad or in Safari: an H.265 video compiled by an older add-on -- compile it again).':!V?'This video couldn\'t be read.':V.mode==='zip'?'Video not found. Unzip <code>'+esc(V.base)+'.zip</code> next to this page, into a folder of the same name.':
-'Video not found: no <code>'+esc(V.base)+'</code> folder next to this page -- or this browser can\'t play its format.')+(v.src.slice(0,5)==='blob:'?'':' '+pickLink('Choose the videos folder…'))+
+$('lb-cap').innerHTML=(v.from==='picked'?'This browser can\'t play this video\'s format (on an iPad or in Safari: an H.265 video compiled by an older add-on -- compile it again).':
+v.from==='zip'?'Video not found. Unzip <code>'+esc(V.base)+'.zip</code> next to this page, into a folder of the same name.':
+v.from==='folder'?'Video not found: no <code>'+esc(V.base)+'</code> folder next to this page -- or this browser can\'t play its format.':
+'Video not found in the project\'s renders -- away from the project, its videos come with the snapshot (Folder or Zip, when exporting) -- or this browser can\'t play its format.')+
+(v.from==='picked'?'':' '+pickLink('Choose the videos folder…'))+
 '<br><span style="opacity:.7">Looked for <code>'+esc(v.name)+'</code></span>'+(many&&at<list.length-1?'<br><button type="button" class="lbn" data-lb="1" aria-label="Next video">›</button>':'');});}
 $('lb').onclick=function(e){var b=e.target.closest('[data-lb]');if(!b)return;e.stopPropagation();if(b.disabled)return;at+=+b.dataset.lb;show();};
 show();}

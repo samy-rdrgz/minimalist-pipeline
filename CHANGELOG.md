@@ -53,17 +53,18 @@ review one file -- lighter to read on a computer and on a phone.
   link button's place), ▶ on a sequence's header for all of its files'. The page plays
   exactly the render it shows. Thin controls under the picture instead
   of the browser's, which covered half of a wide render.
-- **Videos: folder, zip or nothing.** Export snapshot's *Videos* picks
-  *Folder* (a `videos/` folder next to the snapshots, shared by all of
-  them: only the videos new or changed since the last export are copied),
-  *Zip* (next to the snapshot, to send) or *Don't copy* (the page still
-  plays what `videos/` holds). The choice, the sequences ticked and
-  *Assets & libraries* are remembered from one export to the next. The
-  page knows which videos it has, and *Choose the videos folder…* (a folder button
-  next to ? until one is chosen, ⋯ menu, or under a render with nothing
-  to play) reads them from any folder,
-  whatever its name -- the project's `renders/` too: in Chrome or Edge it
-  opens only the videos it needs, by their paths, never the frames.
+- **Videos: from the project, or with the snapshot.** Export snapshot's
+  *Videos* picks *Don't copy* (the default: on a machine that reaches the
+  project, the page plays each render's video from `renders/` itself,
+  relative to it -- nothing copied, export at once), *Folder* (a `videos/`
+  folder beside the snapshots, same tree as `renders/`: only new or
+  changed videos copied) or *Zip* (beside the snapshot), to take it
+  elsewhere -- a copy missing, the page falls back on `renders/`. The
+  choice, the sequences ticked and *Assets & libraries* are remembered.
+  *Choose the videos folder…* (a folder button next to ? until one is
+  chosen, ⋯ menu, or under a render with nothing to play) reads them from
+  any folder, whatever its name -- the project's `renders/` too: in
+  Chrome or Edge it opens only the videos it needs, by their paths.
 - The logo moved to the footer, "Created by minimalist pipeline", and
   opens the add-on's page on extensions.blender.org.
 - A retake on no department (general RTK) counts in a file's Done as an
@@ -76,9 +77,14 @@ review one file -- lighter to read on a computer and on a phone.
 - Touch screens: closing the keyboard no longer leaves the page scrolled
   to the bottom (iOS scrolled it under a field of the panel or the review
   bar); on a phone the list holds still under the open panel.
-- A video wider than 8192 px (a panoramic render) is scaled down to
-  8192 in the snapshot's videos folder or zip: browsers on a PC or an
-  iPad refuse it past that. The render's own stays full size.
+- **A light copy for browsers**, in the render's folder, `ld/`: when its
+  video is wider than 8192 px (a panoramic render: browsers on a PC or
+  an iPad refuse it) or in a codec they don't play (ProRes, DNxHR...),
+  the farm's compilation writes an H.265 copy at most 8192 px wide in the
+  same pass. The snapshot plays and carries it; the full one stays for
+  the edit (rushes, previews, thumbnails never see `ld/`). For a render
+  compiled before, Export snapshot makes it once (needs ffmpeg; an H.265
+  tagged `hev1` is only re-tagged).
 - Farm: cancelling a job whose cancel was already on its way (sent by the
   farm, or a second click) no longer raises "locked by another process".
 - A render's compiled video carries its version, like its folder:

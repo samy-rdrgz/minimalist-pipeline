@@ -15,7 +15,7 @@ from .config import (
     validation_roles,
 )
 from .core import json_get, now, read_json_quiet
-from .preview import _first_mp4, latest_render_dir, render_root
+from .preview import LD_DIR, browser_video, ensure_ld, latest_render_dir, render_root
 from .schedule import project_schedule, schedule_progress
 from .thumbnails import (
     owner_shot_render_dirs,
@@ -187,6 +187,52 @@ def group_renders(renders: list, key: str = "folder") -> list[tuple[list, dict]]
     return [(shots, r) for r, shots in groups.values()]
 
 
+def _video_name(root: Path, mp4: Path | None) -> str | None:
+    """A video's path under renders/, as the snapshot names it; None for
+    none, or one elsewhere."""
+    try:
+        return mp4.relative_to(Path(root) / "renders").as_posix()
+    except (AttributeError, ValueError):
+        return None
+
+
+def ensure_snapshot_lds(
+    data: dict, root: Path, sequences: list[str], assets: bool, ffmpeg: str
+) -> tuple[list[str], list[tuple[str, str]]]:
+    """read_snapshot_data()'s renders of these sequences (and with assets,
+    every asset/library's): a light copy made in renders/ for each video a
+    browser can't play and that has none yet (preview.ensure_ld(): an
+    older render, from before the farm made them), its "video" pointed at
+    it. Returns (made, [(video, why) not made]). Disk and ffmpeg: on a
+    thread."""
+    root = Path(root)
+    made, failed = [], []
+    for kind, owner, raw, _ in data["raws"]:
+        if kind == "shot":
+            try:
+                wanted = owner.relative_to(root / "shots").parts[0] in sequences
+            except (ValueError, IndexError):
+                wanted = False
+        else:
+            wanted = assets
+        if not wanted:
+            continue
+        for r in data["renders"].get(str(owner), []):
+            name = r.get("video")
+            if not name or f"/{LD_DIR}/" in f"/{name}":
+                continue
+            video = root / "renders" / name
+            try:
+                ld = ensure_ld(video, ffmpeg)
+            except Exception as e:
+                failed.append((name, str(e).strip().splitlines()[-1] if str(e).strip() else type(e).__name__))
+                continue
+            if ld is not None:
+                r["video"] = _video_name(root, ld)
+                made.append(r["video"])
+    return sorted(set(made)), failed
+
+
 def snapshot_videos(
     snapshot: dict, root: Path, sequences: list[str], assets: bool
 ) -> tuple[list[tuple[Path, str]], list[str]]:
@@ -271,14 +317,13 @@ def read_snapshot_data(
         if not raw["tracking"].get("archived")
     }
     # Each render's video, by its path under renders/: what the snapshot's
-    # videos folder or zip holds, and what the page plays for that render.
+    # videos folder or zip holds, and what the page plays for that render
+    # -- its light copy (ld/) when it has one.
     for shots in renders.values():
         for r in shots:
-            mp4 = _first_mp4(Path(r["path"])) if r.get("path") else None
-            try:
-                r["video"] = mp4.relative_to(Path(root) / "renders").as_posix()
-            except (AttributeError, ValueError):
-                r["video"] = None
+            r["video"] = _video_name(
+                root, browser_video(Path(r["path"])) if r.get("path") else None
+            )
     thumbs, shot_thumbs, warnings = {}, {}, []
     if thumbnails is not None:
         dirs, shot_dirs = {}, {}

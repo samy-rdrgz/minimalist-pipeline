@@ -2,7 +2,7 @@
 
 import hashlib
 import os
-from pathlib import Path
+from pathlib import Path, PurePath
 from types import SimpleNamespace
 
 import bpy
@@ -66,8 +66,8 @@ from ..lib import (
     tracking_json_path,
     wipmeta_add_work,
     write_snapshot,
-    MAX_VIDEO_WIDTH,
     copy_videos,
+    ensure_snapshot_lds,
     snapshot_videos,
     videos_in,
     zip_videos,
@@ -953,11 +953,18 @@ class M_PIPELINE_OT_review_descriptions(bpy.types.Operator):
         _show_import_summary(f"{self.summary}\nDescriptions left unchanged", self.icon)
 
 
-def _snapshot_scan(root, thumbnails, v_prefix, folder):
-    """Export snapshot's thread: the project's scan, and the videos already
-    in the videos folder (none without one)."""
+def _snapshot_scan(root, thumbnails, v_prefix, folder, sequences, assets, ffmpeg):
+    """Export snapshot's thread: the project's scan, the videos already in
+    the videos folder (none without one), and the light copies made for
+    the ticked sequences' videos a browser can't play (ensure_snapshot_lds();
+    nothing without ffmpeg)."""
     data = read_snapshot_data(root, thumbnails, v_prefix)
-    return data, videos_in(folder) if folder else []
+    lds = (
+        ensure_snapshot_lds(data, root, sequences, assets, ffmpeg)
+        if ffmpeg and (sequences or assets)
+        else ([], [])
+    )
+    return data, videos_in(folder) if folder else [], lds
 
 
 class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
@@ -991,24 +998,25 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
         name="Videos",
         items=[
             (
+                "NONE",
+                "Don't copy",
+                "Copy nothing: on a machine that reaches the project, the page "
+                "plays the videos from renders/ itself",
+            ),
+            (
                 "FOLDER",
                 "Folder",
-                "Copy the videos into a videos folder beside the snapshots, kept "
-                "from one export to the next: only new or changed videos are copied",
+                "Copy the videos into a videos folder beside the snapshots, to "
+                "take it elsewhere -- kept from one export to the next: only new "
+                "or changed videos are copied",
             ),
             (
                 "ZIP",
                 "Zip",
                 "Every video in a zip named like the snapshot, to send with it",
             ),
-            (
-                "NONE",
-                "Don't copy",
-                "Copy nothing: the page still plays the videos already in the "
-                "videos folder beside it",
-            ),
         ],
-        default="FOLDER",
+        default="NONE",
     )
     include_asset_videos: bpy.props.BoolProperty(
         name="Assets & libraries",
@@ -1023,6 +1031,8 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
     _phase = "scan"  # scan -> write -> videos
     _videos: list = []
     _no_video: list = []
+    _lds_made: list = []
+    _lds_failed: list = []
 
     def invoke(self, context, event):
         root = get_active_project_root()
@@ -1063,11 +1073,6 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
         box = layout.box().column(align=True)
         box.label(text="Videos to play on the page:", icon="FILE_MOVIE")
         box.row().prop(self, "videos_mode", expand=True)
-        info = box.column(align=True)
-        info.active = False
-        if self.videos_mode == "NONE":
-            info.label(text="Those already in videos/ still play.", icon="INFO")
-            return
         box.separator()
         if not sequences:
             empty = box.row()
@@ -1079,12 +1084,17 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
         box.prop(self, "include_asset_videos")
         info = box.column(align=True)
         info.active = False
-        if self.videos_mode == "FOLDER":
-            info.label(text="Each one's latest video, in videos/", icon="INFO")
-            info.label(text="beside: only new ones get copied.", icon="BLANK1")
+        if self.videos_mode == "NONE":
+            info.label(text="Played from renders/, on a machine", icon="INFO")
+            info.label(text="that reaches the project.", icon="BLANK1")
+        elif self.videos_mode == "FOLDER":
+            info.label(text="Their videos, in videos/ beside:", icon="INFO")
+            info.label(text="only new ones get copied.", icon="BLANK1")
         else:
-            info.label(text="Each one's latest video, in a zip", icon="INFO")
-            info.label(text="named like the snapshot.", icon="BLANK1")
+            info.label(text="Their videos, in a zip named", icon="INFO")
+            info.label(text="like the snapshot.", icon="BLANK1")
+        info.label(text="Too wide for a browser: a light copy", icon="BLANK1")
+        info.label(text="(ld/) is made once, beside the render.", icon="BLANK1")
 
     def execute(self, context):
         self._root = get_active_project_root()
@@ -1103,12 +1113,16 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
                 "blender": bpy.app.binary_path,
                 "ffmpeg": resolve_ffmpeg(),
             }
+        chosen, assets = self._chosen(context)
         self._job = SnapshotJob(
             _snapshot_scan,
             self._root,
             thumbnails,
             v_prefix,
-            None if self.videos_mode == "ZIP" else self._videos_folder(),
+            self._videos_folder() if self.videos_mode == "FOLDER" else None,
+            chosen,
+            assets,
+            resolve_ffmpeg(),
         )
         # The farm's jobs, fresh by the time the scan is done (seconds).
         request_monitor_refresh()
@@ -1120,10 +1134,8 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
         return {"RUNNING_MODAL"}
 
     def _chosen(self, context) -> tuple[list[str], bool]:
-        """The sequences ticked, and the assets' -- none to copy with
-        Don't copy."""
-        if self.videos_mode == "NONE":
-            return [], False
+        """The sequences ticked, and the assets': their videos copied (Folder,
+        Zip), and in every mode a light copy made for those too wide."""
         chosen = [
             s.name for s in context.window_manager.snapshot_sequences if s.include
         ]
@@ -1149,7 +1161,7 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
                 "exported_by": get_user(context),
                 "addon_version": get_addon_version(),
             }
-            data, there = self._job.result
+            data, there, (self._lds_made, self._lds_failed) = self._job.result
             try:
                 snapshot = build_snapshot(data, config, meta, farm=farm_activity())
             except Exception as e:
@@ -1158,24 +1170,34 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
                 self.report({"ERROR"}, "Snapshot failed (see log).")
                 return {"CANCELLED"}
             # The videos of the renders it shows, by their paths under
-            # renders/: those about to be copied, and those earlier exports
-            # copied -- the page plays a render's own video, or none.
+            # renders/: those copied with it (and those earlier exports
+            # copied), played from there; any other straight from renders/,
+            # relative to the page, on a machine that reaches the project.
             chosen, assets = self._chosen(context)
             self._videos, self._no_video = snapshot_videos(
                 snapshot, self._root, chosen, assets
             )
             names = [name for _mp4, name in self._videos]
+            base = None
             if self.videos_mode == "ZIP":
                 base = Path(self.filepath).stem
-            else:
+            elif self.videos_mode == "FOLDER":
                 base = "videos"
                 names = sorted(set(names) | set(there))
-            if names:
-                snapshot["meta"]["videos"] = {
-                    "mode": self.videos_mode.lower(),
-                    "base": base,
-                    "files": names,
-                }
+            else:
+                self._videos, names = [], []
+            try:
+                local = PurePath(
+                    os.path.relpath(self._root / "renders", Path(self.filepath).parent)
+                ).as_posix()
+            except ValueError:  # another drive: no relative way there
+                local = None
+            snapshot["meta"]["videos"] = {
+                "mode": self.videos_mode.lower(),
+                "base": base,
+                "files": names,
+                "local": local,
+            }
             self._warnings = snapshot["meta"]["thumbnail_warnings"]
             self._job = SnapshotJob(write_snapshot, snapshot, Path(self.filepath))
             self._phase = "write"
@@ -1189,16 +1211,11 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
                         zip_videos,
                         self._videos,
                         Path(self.filepath).with_suffix(".zip"),
-                        resolve_ffmpeg(),
                     )
                     doing = "zipping"
                 else:
-                    # ffmpeg: a video too wide for a browser is scaled down.
                     self._job = SnapshotJob(
-                        copy_videos,
-                        self._videos,
-                        self._videos_folder(),
-                        resolve_ffmpeg(),
+                        copy_videos, self._videos, self._videos_folder()
                     )
                     doing = "copying new"
                 self._phase = "videos"
@@ -1212,6 +1229,12 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
         if self._no_video:
             log("WARNING", "snapshot", f"No video in {', '.join(self._no_video)}")
             problems.append(f"no video in {', '.join(self._no_video)}")
+        for name in self._lds_made:
+            log("INFO", "snapshot", f"Light copy made for browsers: renders/{name}")
+        for name, why in self._lds_failed:
+            log("WARNING", "snapshot", f"No light copy of renders/{name}: {why}")
+        if self._lds_failed:
+            problems.append(f"{len(self._lds_failed)} light copy(ies) not made")
         if self._phase == "videos":
             if self._job.error:
                 # The snapshot itself is written: only the videos are missing.
@@ -1225,12 +1248,11 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
                     f"{self._job.result} video(s) zipped into {zip_name}",
                 )
             else:
-                copied, kept, scaled = self._job.result
+                copied, kept = self._job.result
                 log(
                     "INFO",
                     "snapshot",
-                    f"Videos in {self._videos_folder()}: {copied} copied "
-                    f"({scaled} scaled down to {MAX_VIDEO_WIDTH} px wide), "
+                    f"Videos in {self._videos_folder()}: {copied} copied, "
                     f"{kept} already there",
                 )
         for w in self._warnings:

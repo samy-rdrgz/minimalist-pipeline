@@ -269,6 +269,11 @@ def run_render_setup_entry(job_id: str) -> None:
         # captured here (not from project config) so a shot that overrides
         # its own scene fps compiles at the fps it was actually rendered at.
         data["fps"] = round(scene.render.fps / scene.render.fps_base, 3)
+        # The video's width: past MAX_VIDEO_WIDTH the compilation adds a
+        # light copy browsers can play (farm/post_render.py, _ld_args()).
+        data["width"] = round(
+            scene.render.resolution_x * scene.render.resolution_percentage / 100
+        )
         data["output_extension"] = scene.render.image_settings.file_format
         box["action"] = "to_write"
 
