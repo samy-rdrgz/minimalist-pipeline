@@ -39,7 +39,7 @@ from .tracking import (
 
 # Bumped whenever the review template's columns change -- the import refuses
 # a template made by a newer addon.
-SCHEMA_VERSION = 6  # 2: hidden description_exported column; 3: role, "valid <dept>"; 4: a sheet per section, a cell per department; 5: the render watched; 6: "fixed", the RTKs the reviewer marked fixed (page only)
+SCHEMA_VERSION = 6  # 2: hidden description_exported column; 3: role, "valid <dept>"; 4: a sheet per section, a cell per department; 5: the render watched; 6: "fixed", the RTKs the reviewer marked fixed, and "reply <id>", replies to existing notes (page only)
 
 ENTRY_TYPES = ("note", "todo", "rtk")
 

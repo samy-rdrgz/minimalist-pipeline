@@ -115,7 +115,9 @@ it saw.
   An open RTK -- the prod's or the team's -- has *✓ Fixed* beside it while
   reviewing: marked, it's done once the review is imported, as its
   author (one done since, or gone, is left as it is; importing again
-  changes nothing).
+  changes nothing). *↩ Reply*, beside it and under an open note, writes
+  a reply: added to that note's thread at import, under your role -- a
+  comment, the retake it answers stays open (*✓ Fixed* says it's done).
   To go over it: *Your review*, among the filters (or a click on "n
   files reviewed" in the review bar, or *See them* before downloading),
   shows only the files the review touched.

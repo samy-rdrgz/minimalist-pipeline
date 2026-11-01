@@ -397,6 +397,14 @@ body.reviewing .rvb{display:inline-flex}
 .rtkl .fx{flex:none;min-height:30px;padding:0 10px;border:1px solid color-mix(in srgb,var(--valid) 45%,transparent);border-radius:99px;background:var(--surface);color:var(--valid);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
 .rtkl .fx:hover{background:var(--valid-bg)}
 .rtkl .fx[aria-pressed="true"]{background:var(--valid);border-color:var(--valid);color:var(--on-fill)}
+.rtkl .rt-b{display:flex;gap:6px;flex:none}
+.rp{min-height:30px;padding:0 10px;border:1px solid var(--line);border-radius:99px;background:var(--surface);color:var(--ink-2);font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
+.rp:hover{border-color:var(--ink-3);color:var(--ink)}
+.note .n-act{display:flex;justify-content:flex-end;margin-top:2px}
+.reply-box{display:flex;align-items:flex-start;gap:8px;margin:6px 0 2px 22px}
+.reply-box .you{flex:none;margin-top:9px}
+.reply-box textarea{flex:1;min-height:40px;padding:8px 10px;border:1px solid color-mix(in srgb,var(--valid) 45%,var(--line));border-radius:6px;background:var(--surface);resize:none;font-size:13px;line-height:1.4}
+@media (pointer:coarse){.rp{min-height:var(--tap)}}
 .rtkl.fixed .rt-t{opacity:.55;text-decoration:line-through;text-decoration-color:color-mix(in srgb,currentColor 50%,transparent)}
 @media (pointer:coarse){.rtkl .fx{min-height:var(--tap)}}
 .rt{margin-top:6px}

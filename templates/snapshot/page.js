@@ -69,10 +69,12 @@ function under(it,d){var k=rkTag(it,d);return (k?'<span class="dias">'+k+'</span
 /* ---------- review state: as the page before (same key, same shape) ---------- */
 var rv={author:'',role:'',date:'',files:{}};
 var KEY='mp-review:'+META.project+':'+META.snapshot;
-function entry(it){var e=rv.files[it.file]||(rv.files[it.file]={deps:{},all:false,text:'',desc:null});e.fixed=e.fixed||{};return e;}
-function peek(it){return rv.files[it.file]||{deps:{},all:false,text:'',desc:null,fixed:{}};}
+function entry(it){var e=rv.files[it.file]||(rv.files[it.file]={deps:{},all:false,text:'',desc:null});e.fixed=e.fixed||{};e.replies=e.replies||{};return e;}
+function peek(it){return rv.files[it.file]||{deps:{},all:false,text:'',desc:null,fixed:{},replies:{}};}
+// Replies written, by the note they answer.
+function replies(e){var r=e.replies||{};return Object.keys(r).filter(function(id){return (r[id]||'').trim();});}
 function changes(it){var e=rv.files[it.file];if(!e)return 0;
-var n=Object.keys(e.deps).length+(e.all?1:0)+(e.text.trim()?1:0)+Object.keys(e.fixed||{}).length;
+var n=Object.keys(e.deps).length+(e.all?1:0)+(e.text.trim()?1:0)+Object.keys(e.fixed||{}).length+replies(e).length;
 if(e.desc!==null&&e.desc.trim()&&e.desc.trim()!==it.desc)n++;return n;}
 // What this review says of a department: 'ok' (its own ✓, or all done), 'no', or ''.
 function verdict(it,d){var e=peek(it),v=e.deps[d];if(v)return v.ok?'ok':'no';
@@ -82,7 +84,7 @@ return v==='ok'?'<span class="you y" title="Validated in your review">✓ you</s
 '<span class="you n" title="Sent back in your review">✕ you</span>';}
 function retakes(t){return t.split(NL).filter(function(l){var w=l.trim().split(' ').filter(function(x){return x&&x.charAt(0)!=='[';});
 return w.length&&w[0].toLowerCase().indexOf('note:')!==0;}).length;}
-function summary(){var c={files:0,ok:0,rt:0,out:0,desc:0,fixed:0};D.forEach(function(it){if(!changes(it))return;var e=rv.files[it.file];c.files++;c.fixed+=Object.keys(e.fixed||{}).length;
+function summary(){var c={files:0,ok:0,rt:0,out:0,desc:0,fixed:0,replies:0};D.forEach(function(it){if(!changes(it))return;var e=rv.files[it.file];c.files++;c.fixed+=Object.keys(e.fixed||{}).length;c.replies+=replies(e).length;
 Object.keys(e.deps).forEach(function(d){var v=e.deps[d];if(v.ok)c.ok++;else if(v.text.trim())c.rt+=retakes(v.text);else c.out++;});
 if(e.all)Object.keys(it.states).forEach(function(d){if(isDone(it.states[d])&&!e.deps[d])c.ok++;});
 c.rt+=retakes(e.text);if(e.desc!==null&&e.desc.trim()&&e.desc.trim()!==it.desc)c.desc++;});return c;}
@@ -456,12 +458,18 @@ n.deps.forEach(function(d){tags.push('<span class="tg">'+esc(d)+'</span>');});
 if(n.shot)tags.push('<span class="tg">'+esc(n.shot)+'</span>');if(n.frames)tags.push('<span class="tg">'+esc(n.frames)+'</span>');
 if(n.render)tags.push('<span class="tg" title="Written watching this render">▶ '+esc(n.render)+'</span>');else if(n.version)tags.push('<span class="tg">'+esc(n.version)+'</span>');
 return '<div class="note'+(n.closed?' closed':'')+(reply?' reply':'')+(n.role?' by-role':'')+'"><div class="h">'+type+tags.join('')+
-'<span class="who">'+esc(n.author)+' · '+esc((n.date||'').slice(0,10))+'</span></div><p>'+esc(n.text)+'</p></div>'+
-(n.replies||[]).map(function(r){return noteHtml(Object.assign({closed:n.closed},r),true);}).join('');}
+'<span class="who">'+esc(n.author)+' · '+esc((n.date||'').slice(0,10))+'</span></div><p>'+esc(n.text)+'</p>'+(!reply&&canReply(n)?'<div class="n-act">'+replyBtn(n)+'</div>':'')+'</div>'+
+(n.replies||[]).map(function(r){return noteHtml(Object.assign({closed:n.closed},r),true);}).join('')+(!reply&&canReply(n)?replyBox(n):'');}
+// Reviewing, a reply to an open note or RTK: a comment in its thread at
+// import, the retake left open (Fixed says it's done).
+function replyBtn(n){return '<button type="button" class="rp" data-reply="'+esc(n.id)+'" title="Reply: added to its thread at import -- a retake stays open">↩ Reply</button>';}
+function replyBox(n){var r=(peek(D[cur]).replies||{})[n.id];if(r==null&&!editing['r:'+n.id])return '';
+return '<div class="reply-box"><span class="you y">↩ you</span><textarea class="rp-t" data-r="'+esc(n.id)+'" placeholder="Your reply -- not fixed yet, a question, an answer…">'+esc(r||'')+'</textarea></div>';}
+function canReply(n){return reviewing()&&n.id&&!n.closed;}
 // An open RTK; reviewing, a button to say it's fixed (done at import, as you).
 function rtkLine(n){var where=[n.shot,n.frames].filter(Boolean).join(' · '),it=D[cur],fx=reviewing()&&n.id,on=fx&&!!peek(it).fixed&&!!(peek(it).fixed||{})[n.id];
 return '<div class="rtkl'+(n.team?' team':'')+(on?' fixed':'')+'"><span class="rt-t">'+(where?'<b>'+esc(where)+'</b> ':'')+esc(n.text)+'<small>'+(n.team?'team · ':esc(n.role||'')+' · ')+esc(n.author)+' · '+esc((n.date||'').slice(0,10))+'</small></span>'+
-(fx?'<button type="button" class="fx" data-fix="'+esc(n.id)+'" aria-pressed="'+on+'" title="'+(on?'Marked fixed in your review: tap to undo':'Fixed: marked done when your review is imported')+'">'+(on?'✓ you · fixed':'✓ Fixed')+'</button>':'')+'</div>';}
+(fx?'<span class="rt-b">'+replyBtn(n)+'<button type="button" class="fx" data-fix="'+esc(n.id)+'" aria-pressed="'+on+'" title="'+(on?'Marked fixed in your review: tap to undo':'Fixed: marked done when your review is imported')+'">'+(on?'✓ you · fixed':'✓ Fixed')+'</button></span>':'')+'</div>'+(fx?replyBox(n):'');}
 // Rendered but nothing to play: say why, quietly, and offer to look elsewhere.
 function noVideo(it){if(!it.renders.some(function(r){return r.folder;})||allVideos(it).length)return '';
 var why=PICKED?'Not in the videos folder chosen.':!META.videos?'No video came with this snapshot (Videos, when exporting).':
@@ -621,6 +629,8 @@ if(b.open[sh]){var ta3=$('p-body').querySelector('textarea[data-k="'+CSS.escape(
 if(ev.target.closest('#tog-closed')){showClosed=!showClosed;showNotes=true;return refresh();}
 if(ev.target.closest('#tog-notes')){showNotes=!showNotes;return refresh();}
 if(ev.target.closest('#add-gen'))return generalRetake();
+if((t=ev.target.closest('[data-reply]'))){var k='r:'+t.dataset.reply;editing[k]=true;refresh();
+var ta=$('p-body').querySelector('.rp-t[data-r="'+CSS.escape(t.dataset.reply)+'"]');if(ta)ta.focus();return;}
 if((t=ev.target.closest('[data-fix]'))){var fe=entry(it);if(fe.fixed[t.dataset.fix])delete fe.fixed[t.dataset.fix];else fe.fixed[t.dataset.fix]=1;refresh();return;}
 if(ev.target.closest('#add-desc')){editing.desc=true;entry(it).desc=it.desc;refresh();return $('desc-t').focus();}
 if(ev.target.closest('#allok'))return validateAll();
@@ -630,7 +640,7 @@ else{if(v&&v.no)delete e.deps[d];else e.deps[d]={no:1,text:''};refresh();
 if(e.deps[d]){var ta2=$('p-body').querySelector('textarea[data-k="'+CSS.escape('d:'+d)+'"]');if(ta2)ta2.focus();}}}});
 $('p-body').addEventListener('input',function(ev){var t=ev.target,it=D[cur],e=entry(it);if(t.tagName!=='TEXTAREA')return;grow(t);
 if(t.dataset.k){var k=t.dataset.k;if(t.dataset.s==null)setText(it,k,t.value);else{var b=boxOf(it,k,k==='gen'?e.text:(e.deps[k.slice(2)]||{}).text||'');
-if(t.dataset.s)b.per[t.dataset.s]=t.value;else b.all=t.value;setText(it,k,joinBox(it,b));}}else if(t.id==='desc-t')e.desc=t.value;
+if(t.dataset.s)b.per[t.dataset.s]=t.value;else b.all=t.value;setText(it,k,joinBox(it,b));}}else if(t.dataset.r)e.replies[t.dataset.r]=t.value;else if(t.id==='desc-t')e.desc=t.value;
 $('p-flags').innerHTML=flags(it);var row=$('list').querySelector('.row[data-i="'+cur+'"]');
 if(row){var fl=row.querySelector('.flags');if(fl)fl.innerHTML=flags(it);
 // Its tint as you type: a general retake or a description counts once written.
@@ -700,7 +710,9 @@ if(e.all)Object.keys(it.states).forEach(function(d){if(isDone(it.states[d])&&!(d
 if(e.text.trim())row.global=e.text.trim();
 if(e.desc!==null&&e.desc.trim()&&e.desc.trim()!==it.desc)row.description=e.desc.trim();
 // The RTKs marked fixed, by id: closed, as you, at import.
-var fx=Object.keys(e.fixed||{});if(fx.length)row.fixed=fx.join(' ');out.push(row);});return out;}
+var fx=Object.keys(e.fixed||{});if(fx.length)row.fixed=fx.join(' ');
+// Replies, one column each: "reply <the note's id>".
+replies(e).forEach(function(id){row['reply '+id]=e.replies[id].trim();});out.push(row);});return out;}
 // <project>_review_<YYYY-MM-DD_HH-MM>_<role>_<author>.json: two reviewers'
 // files side by side on a drive, never one over the other.
 function slug(t){return String(t||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');}
@@ -712,7 +724,7 @@ $('rv-dl').addEventListener('click',function(){var rows=exportRows();
 if(!rows.length){toast('Nothing to send yet: validate or write a retake first.');return;}
 var c=summary(),needsRole=rows.some(function(row){return Object.keys(row).some(function(k){return FIXED.indexOf(k)<0||k==='global';});});
 var dl=$('dlg');dl.innerHTML='<div class="dlg-in" role="dialog" aria-modal="true" aria-labelledby="dlg-t"><h3 id="dlg-t">Download the review</h3><dl>'+
-'<dt>Files reviewed</dt><dd>'+c.files+'</dd><dt>Validated</dt><dd>'+c.ok+'</dd><dt>Retakes</dt><dd>'+c.rt+'</dd>'+(c.fixed?'<dt>Retakes fixed</dt><dd>'+c.fixed+'</dd>':'')+
+'<dt>Files reviewed</dt><dd>'+c.files+'</dd><dt>Validated</dt><dd>'+c.ok+'</dd><dt>Retakes</dt><dd>'+c.rt+'</dd>'+(c.fixed?'<dt>Retakes fixed</dt><dd>'+c.fixed+'</dd>':'')+(c.replies?'<dt>Replies</dt><dd>'+c.replies+'</dd>':'')+
 (c.out?'<dt>Validations withdrawn</dt><dd>'+c.out+'</dd>':'')+(c.desc?'<dt>Descriptions</dt><dd>'+c.desc+'</dd>':'')+'</dl>'+
 '<label>Your name<input id="d-author" value="'+esc(rv.author)+'" autocomplete="name"></label><div class="row2">'+
 '<label>Role<select id="d-role">'+$('role').innerHTML+'</select></label><label>Review date<input id="d-date" type="date" value="'+esc(rv.date||today())+'"></label></div>'+
@@ -734,7 +746,7 @@ if(data.project!==META.project&&!confirm('This review is for '+data.project+', n
 if(summary().files&&!confirm('Replace the review in progress with this one?'))return;
 rv={author:data.author||'',role:data.role||'',date:data.review_date||'',files:{}};var unknown=0;
 (data.rows||[]).forEach(function(row){var it=byFile[row.filename];if(!it){unknown++;return;}var e=entry(it);
-Object.keys(row).forEach(function(k){if(FIXED.indexOf(k)>=0)return;var v=String(row[k]).trim(),l=v.toLowerCase();
+Object.keys(row).forEach(function(k){if(FIXED.indexOf(k)>=0)return;if(k.indexOf('reply ')===0){e.replies[k.slice(6)]=String(row[k]);return;}var v=String(row[k]).trim(),l=v.toLowerCase();
 if(OKS.indexOf(l)>=0)e.deps[k]={ok:1};else if(NOS.indexOf(l)>=0)e.deps[k]={no:1,text:''};else e.deps[k]={no:1,text:v};});
 var gv=String(row.global||'').trim(),gl=gv.toLowerCase();
 if(OKS.indexOf(gl)>=0)e.all=true;else if(NOS.indexOf(gl)>=0)Object.keys(it.states).forEach(function(d){if(isDone(it.states[d])&&!e.deps[d])e.deps[d]={no:1,text:''};});

@@ -48,8 +48,12 @@ review one file -- lighter to read on a computer and on a phone.
 - **Close an RTK from the review**: while reviewing, an open RTK (the
   prod's or the team's) has *✓ Fixed*. Import review marks it done, as
   the reviewer -- never reopens one, so importing twice changes nothing.
-  The review's `.json` moves to v6 (`fixed`): an older add-on refuses it
-  rather than misread it.
+- **Reply to a note from the review**: *↩ Reply* beside an open RTK and
+  under an open note. Import review adds it to that note's thread, under
+  the review's role -- a comment: the retake stays open (*✓ Fixed* closes
+  it). Imported once only.
+  The review's `.json` moves to v6 (`fixed`, `reply <id>`): an older
+  add-on refuses it rather than misread it.
 - **Your review**, a filter: only the files the review touched
   (validated, withdrawn, retakes, a description) -- also from "n files
   reviewed" in the review bar and *See them* before downloading.

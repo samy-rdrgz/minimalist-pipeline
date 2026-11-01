@@ -347,6 +347,18 @@ def _line_tags(line: str, shots: list[str]) -> tuple[str, str | None, tuple | No
 # "fixed": the ids of the RTKs the reviewer marked fixed (the page's review,
 # schema 6), space-separated.
 _REVIEW_FIXED = {"group", "filename", "description", "fixed", REVIEW_GLOBAL, *_REVIEW_HIDDEN}
+# "reply <id>": the reviewer's reply to that entry's thread (schema 6) --
+# a comment, its retake left as it is.
+REPLY_PREFIX = "reply "
+
+
+def _row_replies(row: dict) -> list[tuple[str, str]]:
+    """[(entry id, text)] of a row's replies, empty ones left out."""
+    return [
+        (column[len(REPLY_PREFIX) :].strip(), value.strip())
+        for column, value in row.items()
+        if column.startswith(REPLY_PREFIX) and value.strip()
+    ]
 _NOTE_PREFIX = re.compile(r"^note\s*:\s*", re.IGNORECASE)
 
 
@@ -391,7 +403,7 @@ def _row_actions(row: dict, schema: int) -> tuple[dict, str, list]:
         return wanted, every, notes
     wanted, every, notes = {}, "", []
     for column, value in row.items():
-        if column in _REVIEW_FIXED:
+        if column in _REVIEW_FIXED or column.startswith(REPLY_PREFIX):
             continue
         choice = _cell_choice(value)
         if choice == "ok":
@@ -452,10 +464,11 @@ def review_import_plan(path: Path, review: dict | None = None) -> dict:
         "refused": [],
         # Retakes the reviewer marked fixed: closed under their name.
         "fixed": sum(len(row.get("fixed", "").split()) for row, *_ in actions),
+        "replies": sum(len(_row_replies(row)) for row, *_ in actions),
     }
     wanted_any = any(wanted or every for _, wanted, every, _ in actions)
     # Anything under the role: it must be one (descriptions don't need it).
-    if schema >= 3 and (plan["notes"] or wanted_any):
+    if schema >= 3 and (plan["notes"] or plan["replies"] or wanted_any):
         if not role:
             raise PipelineError(
                 f"{Path(path).name}: no Role chosen at the top -- pick one, then import again."
@@ -564,8 +577,10 @@ def import_review_xlsx(path: Path) -> dict:
     before 1.1.2) -- see review_import_plan().
     Retakes the reviewer marked fixed (the page's "fixed") are marked done,
     as its author (close_entry()).
-    Returns {"imported", "duplicates", "validated", "fixed", "skipped":
-    [(label, reason)]}."""
+    Replies ("reply <id>") go into their entry's thread, as notes under the
+    role -- the retake answered stays open.
+    Returns {"imported", "duplicates", "validated", "fixed", "replies",
+    "skipped": [(label, reason)]}."""
     review = read_review(path)
     plan = review_import_plan(path, review)
     role = plan["role"] or None
@@ -583,6 +598,7 @@ def import_review_xlsx(path: Path) -> dict:
         "duplicates": 0,
         "validated": 0,
         "fixed": 0,
+        "replies": 0,
         "skipped": list(plan["refused"]),
     }
     # Retakes marked fixed: done, as the reviewer -- one already done, or
@@ -603,6 +619,52 @@ def import_review_xlsx(path: Path) -> dict:
                     result["fixed"] += 1
             except PipelineError as e:
                 result["skipped"].append((f"{row['filename']}: retake fixed", e.message))
+    # Replies: each in its entry's thread, a note under the review's role --
+    # the retake it answers left open. The same reply from the same author
+    # once only (an import run twice).
+    for row in review["rows"]:
+        replies = _row_replies(row)
+        if not replies or not row.get("filename"):
+            continue
+        filepath = _review_file(row["filename"])
+        if not filepath:
+            result["skipped"].append(
+                (f"{row['filename']}: {len(replies)} reply(ies)", "file not found")
+            )
+            continue
+        entries = (read_json_quiet(tracking_json_path(filepath)) or {}).get("entries", [])
+        ids = {e.get("id") for e in entries}
+        known = {
+            (e.get("response"), e.get("text"))
+            for e in entries
+            if e.get("response") and e.get("author") == author
+        }
+        for entry_id, text in replies:
+            if entry_id not in ids:
+                result["skipped"].append(
+                    (f"{row['filename']}: reply {text[:30]}", "its note is gone")
+                )
+                continue
+            if (entry_id, text) in known:
+                result["duplicates"] += 1
+                continue
+            try:
+                create_entry(
+                    filepath,
+                    text=text,
+                    departments=[],
+                    author=author,
+                    type="note",
+                    response=entry_id,
+                    review_id=review_id,
+                    created_at=created_at,
+                    source=REVIEW_SOURCE,
+                    role=role,
+                )
+                known.add((entry_id, text))
+                result["replies"] += 1
+            except PipelineError as e:
+                result["skipped"].append((f"{row['filename']}: reply", e.message))
     for v in plan["validations"]:
         try:
             if set_department_approval(
