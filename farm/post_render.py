@@ -167,10 +167,15 @@ def _ffmpeg_preset_to_args(preset: dict) -> list[str]:
 def _ld_args(width, preset: dict, video: Path) -> list[str]:
     """The compilation's second output, a light copy browsers can play
     (lib/preview.py ld_path()), when the video itself won't: wider than
-    MAX_VIDEO_WIDTH, or a codec they don't play (ProRes, DNxHR...). [] when
-    it plays as is -- a light copy left from before, now stale, removed."""
+    MAX_VIDEO_WIDTH, a codec they don't play (ProRes, DNxHR...), or not an
+    mp4. [] when it plays as is -- a light copy left from before, now
+    stale, removed."""
     ld = ld_path(video)
-    if (width or 0) <= MAX_VIDEO_WIDTH and browser_codec(str(preset.get("codec", "libx264"))):
+    if (
+        (width or 0) <= MAX_VIDEO_WIDTH
+        and browser_codec(str(preset.get("codec", "libx264")))
+        and video.suffix.lower() == ".mp4"
+    ):
         ld.unlink(missing_ok=True)
         return []
     ld.parent.mkdir(parents=True, exist_ok=True)
@@ -202,6 +207,13 @@ def compilation(*, project_root: Path, job_path: Path, compilation_settings: str
                         project_root,
                     )
                 )
+                # The preset's container ("extension": "mov"...), mp4 if
+                # none: the video's name follows, written back to the job.
+                ext = str(preset.get("extension") or "mp4").lstrip(".").lower()
+                if video.suffix.lower() != f".{ext}":
+                    video = video.with_suffix(f".{ext}")
+                    stem = data["compiled_output_path"].rsplit(".", 1)[0]
+                    data["compiled_output_path"] = f"{stem}.{ext}"
                 cmd = (
                     [
                         ffmpeg_bin,

@@ -163,6 +163,7 @@ from .preview import (
     browser_video,
     copy_videos,
     ensure_ld,
+    is_video,
     ld_path,
     videos_in,
     zip_videos,

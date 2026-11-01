@@ -54,12 +54,27 @@ def latest_shot_mp4(
     return _first_mp4(latest)
 
 
+# A render's compiled video: mp4 by default, the ffmpeg preset's
+# "extension" otherwise (a ProRes .mov for the edit...).
+VIDEO_EXTS = (".mp4", ".mov", ".mkv", ".m4v")
+
+
+def is_video(name: str) -> bool:
+    """A compiled video's file name (VIDEO_EXTS), never a temporary one."""
+    name = name.lower()
+    return name.endswith(VIDEO_EXTS) and ".tmp." not in name
+
+
 def _first_mp4(render_dir: Path | None) -> Path | None:
-    """The mp4 in an increment folder, None if none (or no folder)."""
+    """The video in an increment folder (an mp4, or the preset's other
+    extension -- VIDEO_EXTS), None if none (or no folder)."""
     if render_dir is None:
         return None
-    mp4s = sorted(render_dir.glob("*.mp4"))
-    return mp4s[0] if mp4s else None
+    try:
+        videos = sorted(f for f in Path(render_dir).iterdir() if is_video(f.name) and f.is_file())
+    except OSError:
+        return None
+    return videos[0] if videos else None
 
 
 def _rendered_segments(
@@ -240,7 +255,8 @@ _PLAYABLE: set = set()
 def ensure_ld(video: Path, ffmpeg: str) -> Path | None:
     """The video's light copy (ld_path()), made now if the video needs one
     and it's missing or older: too wide, a codec browsers don't play, or
-    H.265 tagged hev1 (then just re-tagged, no re-encode). None when the
+    playable but not as it is -- in a .mov, or H.265 tagged hev1 (then
+    just put in an mp4, no re-encode). None when the
     video plays as is, or can't be read. Raises subprocess.CalledProcessError
     / OSError if making it fails."""
     video, ld = Path(video), ld_path(video)
@@ -261,8 +277,11 @@ def ensure_ld(video: Path, ffmpeg: str) -> Path | None:
     codec, tag, width = info
     if width > MAX_VIDEO_WIDTH or not browser_codec(codec):
         args = ["-vf", f"scale='min({MAX_VIDEO_WIDTH},iw)':-2", *LD_ARGS]
-    elif codec == "hevc" and tag != "hvc1":
-        args = ["-c", "copy", "-tag:v", "hvc1", "-movflags", "+faststart"]
+    elif video.suffix.lower() != ".mp4" or (codec == "hevc" and tag != "hvc1"):
+        # Playable as such, but not in a .mov / .mkv, or tagged hev1: put
+        # in an mp4 as it is, no re-encode.
+        tag_args = ["-tag:v", "hvc1"] if codec == "hevc" else []
+        args = ["-map", "0:v", "-c", "copy", *tag_args, "-movflags", "+faststart"]
     else:
         _PLAYABLE.add(key)
         return None
@@ -348,7 +367,7 @@ def videos_in(folder: Path) -> list[str]:
     out = []
     for dirpath, _dirs, files in os.walk(folder):
         for f in files:
-            if f.lower().endswith(".mp4") and not f.lower().endswith(".tmp.mp4"):
+            if is_video(f):
                 out.append(Path(dirpath, f).relative_to(folder).as_posix())
     return sorted(out)
 

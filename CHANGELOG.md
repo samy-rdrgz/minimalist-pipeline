@@ -85,6 +85,10 @@ review one file -- lighter to read on a computer and on a phone.
   the edit (rushes, previews, thumbnails never see `ld/`). For a render
   compiled before, Export snapshot makes it once (needs ffmpeg; an H.265
   tagged `hev1` is only re-tagged).
+- The ffmpeg preset takes an `extension` (`"mov"`...; `mp4` without it):
+  a ProRes `.mov` for the edit, say. Such a video is found as the
+  render's everywhere (rushes, previews, Checked, snapshot), and gets a
+  light mp4 in `ld/` for browsers.
 - Farm: cancelling a job whose cancel was already on its way (sent by the
   farm, or a second click) no longer raises "locked by another process".
 - A render's compiled video carries its version, like its folder:
