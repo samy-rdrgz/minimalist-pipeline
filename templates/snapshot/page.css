@@ -452,7 +452,8 @@ boxes share one column of labels (All, sh040...), one edge, one width. */
 .note:first-of-type{border-top:0}
 .note.by-role{box-shadow:inset 3px 0 var(--valid);padding-left:10px}
 .note .h{display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center;font-size:12px;color:var(--ink-3)}
-.note .h .who{margin-left:auto}
+/* Who and when, then the note's own actions: one block, never split. */
+.note .h .h-r{margin-left:auto;display:inline-flex;align-items:center;gap:2px;white-space:nowrap}
 .note .tg{font-size:11px;padding:0 6px;border-radius:99px;border:1px solid var(--line);color:var(--ink-2);line-height:16px}
 .note .tg.role{background:var(--valid-bg);color:var(--valid);border-color:transparent;font-weight:600}
 .note p{margin:4px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}

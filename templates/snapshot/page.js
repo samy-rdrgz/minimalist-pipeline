@@ -474,11 +474,13 @@ if(n.review)tags.push('<span class="tg">prod review</span>');
 n.deps.forEach(function(d){tags.push('<span class="tg">'+esc(d)+'</span>');});
 if(n.shot)tags.push('<span class="tg">'+esc(n.shot)+'</span>');if(n.frames)tags.push('<span class="tg">'+esc(n.frames)+'</span>');
 if(n.render)tags.push('<span class="tg" title="Written watching this render">▶ '+esc(n.render)+'</span>');else if(n.version)tags.push('<span class="tg">'+esc(n.version)+'</span>');
-// An open todo, reviewing: Done beside its reply, as an RTK's Fixed.
-var dn=!reply&&canReply(n)&&n.type==='todo'&&n.done===false,on=dn&&!!(peek(D[cur]).fixed||{})[n.id];
+// An open todo or RTK, reviewing -- a thread's own or one of its replies:
+// Done / Fixed, closed at import (an open RTK opening a thread has its own
+// Fixed under its department).
+var dn=canReply(n)&&(n.type==='todo'||n.type==='rtk')&&n.done===false,on=dn&&!!(peek(D[cur]).fixed||{})[n.id],dl=n.type==='todo'?'Done':'Fixed';
 return '<div class="note'+(n.closed?' closed':'')+(reply?' reply':'')+(n.role?' by-role':'')+(on?' fixed':'')+'"><div class="h">'+type+tags.join('')+
-'<span class="who">'+esc(n.author)+' · '+esc((n.date||'').slice(0,10))+'</span>'+(!reply&&canReply(n)?replyBtn(n):'')+
-(dn?'<button type="button" class="fx" data-fix="'+esc(n.id)+'" aria-pressed="'+on+'" aria-label="Done" title="'+(on?'Marked done in your review: tap to undo':'Done: marked done when your review is imported')+'">✓</button>':'')+'</div><p>'+esc(n.text)+'</p></div>'+
+'<span class="h-r"><span class="who">'+esc(n.author)+' · '+esc((n.date||'').slice(0,10))+'</span>'+(!reply&&canReply(n)?replyBtn(n):'')+
+(dn?'<button type="button" class="fx" data-fix="'+esc(n.id)+'" aria-pressed="'+on+'" aria-label="'+dl+'" title="'+(on?'Marked '+dl.toLowerCase()+' in your review: tap to undo':dl+': marked done when your review is imported')+'">✓</button>':'')+'</span></div><p>'+esc(n.text)+'</p></div>'+
 (n.replies||[]).map(function(r){return noteHtml(Object.assign({closed:n.closed},r),true);}).join('')+(!reply&&canReply(n)?replyBox(n):'');}
 // Reviewing, a reply to an open note or RTK: a comment in its thread at
 // import, the retake left open (Fixed says it's done).
