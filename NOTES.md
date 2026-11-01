@@ -3628,3 +3628,31 @@ around one idea: a list to scan, a panel to read one file.
   table/One file switch, the header behind ☰ on a phone, Go to, notes
   unfolded under rows, per-shot hover buttons in the list (the panel has
   every shot's picture).
+
+## Review on the page: retakes, remarks, replies, fixed
+
+What a reviewer writes on the snapshot page, and what Import review does
+with it -- one rule for every box, so nobody has to learn two.
+
+- **A line is a retake unless it's a remark.** `note:` (or `note :`,
+  `n:`, any case, after the line's `[sh020] [f12-40]` tags) makes it a
+  remark; anything else is "still to redo". The page and the import read
+  it with the same pattern (`NOTE_RE` in page.js, `_NOTE_PREFIX`).
+- **Remarks alone send nothing back.** A department's box holding only
+  remarks leaves its validation as it is (it used to withdraw it, as a
+  retake): grey ✎ you instead of the red ✕ you.
+- **Fixed / Done closes, a reply never does.** An open RTK has *Fixed*,
+  an open todo *Done* (a thread's first entry or a reply in it): marked
+  done at import as the reviewer (`close_entry()`, which never reopens
+  one -- importing twice changes nothing). A reply goes into its note's
+  thread (`response`), read by the same rule: a retake reply is "still
+  to redo" -- its note's department sent back, its validation withdrawn
+  (the page writes "no" for it), imported as an RTK on that department;
+  a remark reply is a note. The note answered stays open either way.
+- **Where it travels**: the page's `.json` only (schema 6: `fixed`, the
+  ids; `reply <id>`, one column each) -- the spreadsheet has no place for
+  a thread. Schema 6 is refused by an older add-on rather than read as
+  departments named "fixed" and "reply ...".
+- **The page needs the entries' ids** (`_entry_dict()`, `_entry()`): a
+  thread is found by id at import, never by its text.
+
