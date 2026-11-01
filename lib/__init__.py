@@ -164,6 +164,7 @@ from .preview import (
     copy_videos,
     ensure_ld,
     is_video,
+    media_width,
     ld_path,
     videos_in,
     zip_videos,

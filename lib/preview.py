@@ -252,6 +252,13 @@ def _video_info(mp4: Path, ffmpeg: str) -> tuple[str, str, int] | None:
 _PLAYABLE: set = set()
 
 
+def media_width(path: Path, ffmpeg: str) -> int | None:
+    """An image's or a video's width, read by ffmpeg (a frame of a render:
+    PNG, EXR, JPEG...); None if unread."""
+    info = _video_info(path, ffmpeg)
+    return info[2] if info else None
+
+
 def ensure_ld(video: Path, ffmpeg: str) -> Path | None:
     """The video's light copy (ld_path()), made now if the video needs one
     and it's missing or older: too wide, a codec browsers don't play, or

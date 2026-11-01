@@ -10,6 +10,7 @@ from ..lib import (
     ConfigCache,
     browser_codec,
     ld_path,
+    media_width,
     PipelineError,
     get_machine_id,
     json_get,
@@ -164,6 +165,17 @@ def _ffmpeg_preset_to_args(preset: dict) -> list[str]:
     return args + extra
 
 
+def _first_frame_width(data: dict, abs_path, ffmpeg_bin: str) -> int | None:
+    """A job set up before its width was noted (a Recompile of an older
+    one): its first frame's, read by ffmpeg. None if unread."""
+    digits = data["output_path"].count("#")
+    frame = Path(
+        f"{str(abs_path).split('#')[0]}{str(data['resolved_frame_range'][0]).zfill(digits)}"
+        f".{_EXTENSION_MAP.get(data.get('output_extension'), 'png')}"
+    )
+    return media_width(frame, ffmpeg_bin) if frame.is_file() else None
+
+
 def _ld_args(width, preset: dict, video: Path) -> list[str]:
     """The compilation's second output, a light copy browsers can play
     (lib/preview.py ld_path()), when the video itself won't: wider than
@@ -228,7 +240,11 @@ def compilation(*, project_root: Path, job_path: Path, compilation_settings: str
                     + list(_ffmpeg_preset_to_args(preset))
                     + [str(video)]
                     # Same pass: the light copy, if the video needs one.
-                    + _ld_args(data.get("width"), preset, video)
+                    + _ld_args(
+                        data.get("width") or _first_frame_width(data, abs_path, ffmpeg_bin),
+                        preset,
+                        video,
+                    )
                 )
                 proc = [
                     (

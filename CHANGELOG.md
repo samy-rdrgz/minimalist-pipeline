@@ -114,7 +114,8 @@ review one file -- lighter to read on a computer and on a phone.
   an iPad refuse it) or in a codec they don't play (ProRes, DNxHR...),
   the farm's compilation writes an H.265 copy at most 8192 px wide in the
   same pass. The snapshot plays and carries it; the full one stays for
-  the edit (rushes, previews, thumbnails never see `ld/`). For a render
+  the edit (rushes, previews, thumbnails never see `ld/`). A job set up
+  before (a Recompile) reads its first frame's width. For a render
   compiled before, Export snapshot makes it once (needs ffmpeg; an H.265
   tagged `hev1` is only re-tagged).
 - The ffmpeg preset takes an `extension` (`"mov"`...; `mp4` without it):
