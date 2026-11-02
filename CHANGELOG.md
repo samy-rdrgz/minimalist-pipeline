@@ -13,6 +13,12 @@ All notable changes to this addon. Dates are release dates.
   `[f12-40]` retakes do. ◂ ▸ (or , and .) step one frame back / on,
   paused. A snapshot exported before, or a render whose first frame
   isn't known, counts from the video's start (`#1`).
+- **A review as the team**: *team* in the Role of the snapshot page or
+  the review template (unless a validation role has that name). Its
+  retakes and notes are imported as the team's own -- orange, no role,
+  no "prod review" tag -- and it validates nothing: the page's ✓ and
+  *All done* are off, a ✓ or `ok` written before is left out (Import
+  review says so).
 
 ## 1.1.8 — 02/11/2026
 

@@ -11,6 +11,7 @@ from .farm_panel import draw_frame_lookup, job_icon
 from ..lib import (
     APPROVAL_SOURCE,
     REVIEW_SOURCE,
+    TEAM_REVIEW_SOURCE,
     ConfigCache,
     ProjectScan,
     entry_departments,
@@ -368,6 +369,8 @@ def _get_entry_tooltip(e, filepath):
         text = f"{text}\nFor department{plural}: {', '.join(departments)}"
     if e.get("source") == REVIEW_SOURCE:
         text = f"{text}\nImported from a prod review"
+    elif e.get("source") == TEAM_REVIEW_SOURCE:
+        text = f"{text}\nImported from a team review"
     elif e.get("source") == APPROVAL_SOURCE:
         text = f"{text}\nWritten by a validation"
     review_id = f" (review_id : {e.get('review_id')})" if e.get("review_id") else ""

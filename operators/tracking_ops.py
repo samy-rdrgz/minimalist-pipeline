@@ -750,12 +750,14 @@ class M_PIPELINE_OT_import_review_confirm(bpy.types.Operator):
         col.label(text=path.name, icon="FILE")
         if several:
             who = (
-                f"{plan['role'].upper()} -- {plan['author']}"
+                f"TEAM -- {plan['author']}"
+                if plan.get("team")
+                else f"{plan['role'].upper()} -- {plan['author']}"
                 if plan["role"]
                 else "no role"
             )
             row = col.row()
-            row.alert = bool(plan["role"])
+            row.alert = bool(plan["role"]) and not plan.get("team")
             row.label(
                 text=f"   {who}: {plan['notes']} note line(s), "
                 f"{len(plan['validations'])} validation change(s)"
@@ -765,7 +767,10 @@ class M_PIPELINE_OT_import_review_confirm(bpy.types.Operator):
             )
             return
         col.separator()
-        if plan["role"]:
+        if plan.get("team"):
+            col.label(text="Imported as: the team -- team retakes, no validation", icon="COMMUNITY")
+            col.label(text=f"By: {plan['author']}", icon="USER")
+        elif plan["role"]:
             row = col.row()
             row.alert = True
             row.label(text=f"Imported as: {plan['role'].upper()}", icon="SOLO_ON")

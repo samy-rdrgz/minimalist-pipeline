@@ -50,6 +50,10 @@ PROGRESS_WEIGHTS = {"wip": 33, "rework": 67, "rtk": 67}
 
 # Entry "source" stamped on every note imported from a review template.
 REVIEW_SOURCE = "prod_review"
+# A review written as the team (its role "team", no validation role):
+# team RTKs, never tagged "prod review".
+TEAM_REVIEW_SOURCE = "team_review"
+TEAM_ROLE = "team"
 
 XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 

@@ -63,6 +63,12 @@ la prod -- sur la version qu'il a vue.
   La fenêtre *New entry* montre votre rôle dans une case *As sup*, cochée
   par défaut : décochez-la pour écrire au nom de l'équipe (une note
   technique, par exemple).
+- **Une review au nom de l'équipe** : *team* dans le Role d'une review
+  (celui de la page snapshot, du tableur de review -- sauf si un rôle de
+  validation porte ce nom) : ses retakes et notes sont ceux de l'équipe
+  -- sans rôle, orange, sans le tag « prod review » (importés d'une
+  review d'équipe) -- et elle ne valide rien : les ✓ de la page sont
+  désactivés, un ✓ ou un `ok` écrit avant est laissé de côté.
 - **Project monitoring** : un département fini affiche « Done · prod » une
   fois validé ; un filtre (l'étoile) liste les fichiers dont un département
   fini reste à valider -- pour votre rôle, ou par n'importe quel rôle si

@@ -3791,6 +3791,17 @@ Seen on a 12.9" iPad, in Documents by Readdle's viewer:
   `mediaTime`), else at `timeupdate`; a step seeks the frame's middle
   ((k + .5) / fps), paused. No `first`: `#` + its rank from 1; no fps (an
   older snapshot): no counter. A phone hides the time beside it.
+- **A review as the team** (1.1.9): Role `team` (`TEAM_ROLE`, offered
+  unless a validation role has that name: then it's that role). Import
+  (`plan["team"]`): notes and replies with no role and
+  `source = TEAM_REVIEW_SOURCE` ("team_review": never "prod review",
+  `from_review` reads `prod_review` only; the duplicates check reads the
+  same source), every validation refused ("the team doesn't validate"),
+  a withdrawal skipped (the team has none to withdraw). The page
+  (`asTeam()`, `sent(v)`): ✓ and *All done* off, V does nothing, a ✓ or
+  an empty ✕ left in the review is neither shown as yours, counted nor
+  exported; the role changed in the download dialog re-reads the rows.
+  The template's Role list gets `team`, its how-to a line.
 - **Where a review lands**: a page can't pick a download's folder, and in
   an app's viewer (Documents) it lands in the app's own space. *Save or
   send…* (`SHARE`: `navigator.share` + `canShare` with a file, on a

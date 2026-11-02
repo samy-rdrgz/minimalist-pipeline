@@ -80,13 +80,18 @@ if(n.deps.length)n.deps.forEach(function(d){out.deps[d]=1;});else out.gen=true;}
 // Replies written, by the note they answer.
 function replies(e){var r=e.replies||{};return Object.keys(r).filter(function(id){return (r[id]||'').trim();});}
 function changes(it){var e=rv.files[it.file];if(!e)return 0;
-var n=Object.keys(e.deps).length+(e.all?1:0)+(e.text.trim()?1:0)+Object.keys(e.fixed||{}).length+replies(e).length;
+var n=Object.keys(e.deps).filter(function(d){return sent(e.deps[d]);}).length+(e.all&&!asTeam()?1:0)+(e.text.trim()?1:0)+Object.keys(e.fixed||{}).length+replies(e).length;
 if(e.desc!==null&&e.desc.trim()&&e.desc.trim()!==it.desc)n++;return n;}
 // What this review says of a department: 'ok' (its own ✓, or all done), 'no',
 // 'note' (only "note:" lines: a remark, its validation left as it is), or ''.
-function verdict(it,d){var e=peek(it),v=e.deps[d];if(v)return v.ok?'ok':noteOnly(v.text)?'note':'no';
+// Written as the team (Role "team", no validation role of that name): its
+// retakes and notes are the team's own, it validates nothing -- a ✓ or an
+// empty ✕ (a validation withdrawn) is neither shown as yours nor sent.
+function asTeam(){return rv.role==='team'&&(META.roles||[]).indexOf('team')<0;}
+function sent(v){return !asTeam()||(!v.ok&&!!(v.text||'').trim());}
+function verdict(it,d){var e=peek(it),v=e.deps[d];if(v&&sent(v))return v.ok?'ok':noteOnly(v.text)?'note':'no';
 if(answered(it).deps[d])return 'no';
-return e.all&&isDone(it.states[d])?'ok':'';}
+return e.all&&!asTeam()&&isDone(it.states[d])?'ok':'';}
 function you(it,d){var v=verdict(it,d);if(!v)return '';
 return v==='ok'?'<span class="you y" title="Validated in your review">✓ you</span>':v==='note'?youNote():
 '<span class="you n" title="Sent back in your review">✕ you</span>';}
@@ -100,9 +105,9 @@ var NOTE_RE=/^\s*(?:\[[^\]]*\]\s*)*(?:note|n)\s*:/i;
 function retakes(t){return t.split(NL).filter(function(l){var w=l.trim().split(' ').filter(function(x){return x&&x.charAt(0)!=='[';});
 return w.length&&!NOTE_RE.test(l);}).length;}
 function summary(){var c={files:0,ok:0,rt:0,out:0,desc:0,fixed:0,replies:0,notes:0};D.forEach(function(it){if(!changes(it))return;var e=rv.files[it.file];c.files++;c.fixed+=Object.keys(e.fixed||{}).length;c.replies+=replies(e).length;
-Object.keys(e.deps).forEach(function(d){var v=e.deps[d];if(v.ok)c.ok++;else if(v.text.trim()){c.rt+=retakes(v.text);c.notes+=notesIn(v.text);}else c.out++;});
-var an=answered(it).deps;Object.keys(an).forEach(function(d){if(!e.deps[d])c.out++;});
-if(e.all)Object.keys(it.states).forEach(function(d){if(isDone(it.states[d])&&!e.deps[d]&&!an[d])c.ok++;});
+Object.keys(e.deps).forEach(function(d){var v=e.deps[d];if(!sent(v))return;if(v.ok)c.ok++;else if(v.text.trim()){c.rt+=retakes(v.text);c.notes+=notesIn(v.text);}else c.out++;});
+var an=answered(it).deps;Object.keys(an).forEach(function(d){if(!e.deps[d]&&!asTeam())c.out++;});
+if(e.all&&!asTeam())Object.keys(it.states).forEach(function(d){if(isDone(it.states[d])&&!e.deps[d]&&!an[d])c.ok++;});
 c.rt+=retakes(e.text);c.notes+=notesIn(e.text);if(e.desc!==null&&e.desc.trim()&&e.desc.trim()!==it.desc)c.desc++;});return c;}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(rv));}catch(e){}}
 
@@ -586,7 +591,7 @@ function depHtml(it,d,rv){var s=it.states[d],e=peek(it),v=e.deps[d],o=it.ok[d],v
 var okd=o?(o.old?'<span class="ok old" title="'+esc(o.tip)+'">✓ '+esc(o.role)+' on '+esc(o.seen)+'</span><span class="faint" style="font-size:12px">to review again</span>':
 '<span class="ok" title="'+esc(o.tip)+'">✓ '+esc(o.role)+'</span>'):'';
 return '<div class="dep"><div class="dep-l">'+mark(s)+'<span class="mid"><span class="nm">'+esc(cap(d))+'</span><span class="st">'+LABEL[s]+'</span>'+rkTag(it,d)+okd+you(it,d)+'</span>'+
-'<span class="rvb" data-d="'+esc(d)+'"><button class="ok-b'+(via?' via':'')+'" aria-pressed="'+!!(v&&v.ok)+'"'+(isDone(s)?' title="Validate it as your role"':' disabled title="Not done: nothing to validate yet"')+
+'<span class="rvb" data-d="'+esc(d)+'"><button class="ok-b'+(via?' via':'')+'" aria-pressed="'+!!(v&&v.ok)+'"'+(asTeam()?' disabled title="As the team: no validation -- a validation role validates"':isDone(s)?' title="Validate it as your role"':' disabled title="Not done: nothing to validate yet"')+
 ' aria-label="Validate '+esc(d)+'">✓</button><button class="ko-b'+(verdict(it,d)==='note'?' as-note':'')+'" aria-pressed="'+!!(v&&v.no)+'" aria-label="Retake '+esc(d)+'" title="Retake: write what to fix (or nothing, to withdraw a validation)">✕</button></span></div>'+
 ((it.rtkNotes[d]||[]).length?'<div class="rtks">'+it.rtkNotes[d].map(rtkLine).join('')+'</div>':'')+
 (rv&&v&&v.no?'<div class="rt">'+retakeBox(it,'d:'+d,v.text,'What to fix in '+d+'? Empty: just withdraw its validation')+syntax(it)+'</div>':'')+'</div>';}
@@ -622,7 +627,7 @@ if(rv)h+='<button type="button" class="desc-edit" id="add-desc">✎ '+(it.desc?'
 // X) at the bottom -- with the open ones on no department.
 var anyDone=deps.some(function(d){return isDone(it.states[d]);}),genOpen=editing.gen||!!e.text;
 h+='<div class="p-block major">'+
-(rv&&anyDone?'<div class="dep all"><div class="dep-l"><span class="mid"><span class="nm">All done</span><span class="st">validate every done department<span class="kh"> · V</span></span></span>'+
+(rv&&anyDone&&!asTeam()?'<div class="dep all"><div class="dep-l"><span class="mid"><span class="nm">All done</span><span class="st">validate every done department<span class="kh"> · V</span></span></span>'+
 '<span class="rvb"><button class="ok-b" id="allok" aria-pressed="'+e.all+'" aria-label="Validate every done department">✓</button><span class="rvb-gap"></span></span></div></div>':'')+
 (deps.length?deps.map(function(d){return depHtml(it,d,rv);}).join(''):'<p class="faint">No department tracked on this file.</p>')+
 (rv||it.genRtks.length?'<div class="dep whole"><div class="dep-l"><span class="mid"><span class="nm">Whole file</span><span class="st">a retake on no department'+(rv?'<span class="kh"> · X</span>':'')+'</span></span>'+
@@ -756,7 +761,7 @@ var FS=window.CSS&&CSS.supports('field-sizing','content');
 // the caret at each key (Safari has no field-sizing).
 function grow(t){if(FS||!t)return;var p=t.closest('.p-body'),y=p?p.scrollTop:0;t.style.height='auto';t.style.height=Math.min(t.scrollHeight+2,innerHeight*.5)+'px';if(p&&p.scrollTop!==y)p.scrollTop=y;}
 function setText(it,key,text){var e=entry(it);if(key==='gen')e.text=text;else if(e.deps[key.slice(2)])e.deps[key.slice(2)].text=text;}
-function validateAll(){var it=D[cur];if(!Object.keys(it.states).some(function(d){return isDone(it.states[d]);}))return;var e=entry(it);e.all=!e.all;refresh();}
+function validateAll(){var it=D[cur];if(asTeam()||!Object.keys(it.states).some(function(d){return isDone(it.states[d]);}))return;var e=entry(it);e.all=!e.all;refresh();}
 function generalRetake(){var e=entry(D[cur]);if(editing.gen||e.text){var drop=function(){e.text='';editing.gen=false;refresh();};if(!e.text.trim())drop();else ask('Drop this general retake?','Drop it',drop);return;}
 editing.gen=true;refresh();var g=$('gen-t');if(g)g.focus({preventScroll:true});}
 $('p-body').addEventListener('click',function(ev){var t,it=D[cur];
@@ -826,7 +831,10 @@ if(!D.some(function(it){return it.tab===state.tab&&changes(it);})){var t=D.filte
 render();$('bar').scrollIntoView({block:'start'});}
 $('rv-n').addEventListener('click',function(){if(state.f.mine){state.f.mine=false;document.querySelector('.chipf[data-f="mine"]').setAttribute('aria-pressed','false');render();}else showMine();});
 var toastT;function toast(t){var el=$('toast');el.textContent=t;el.classList.add('on');clearTimeout(toastT);toastT=setTimeout(function(){el.classList.remove('on');},4200);}
-(META.roles||[]).forEach(function(r){var o=document.createElement('option');o.value=r;o.textContent=r;$('role').appendChild(o);});pick($('role'));
+(META.roles||[]).forEach(function(r){var o=document.createElement('option');o.value=r;o.textContent=r;$('role').appendChild(o);});
+// The team: its own retakes and notes, no validation (none of the roles is called that).
+if((META.roles||[]).indexOf('team')<0){var to=document.createElement('option');to.value='team';to.textContent='team (no validation)';to.dataset.short='team';$('role').appendChild(to);}
+pick($('role'));
 function countBar(){var c=summary();$('rv-n').textContent=c.files?plural(c.files,'file')+' reviewed':'Nothing reviewed yet';$('rv-n').disabled=!c.files;
 // "Your review" among the filters while there's one; off with it.
 var mb=document.querySelector('.chipf[data-f="mine"]');mb.hidden=!c.files;if(!c.files&&state.f.mine){state.f.mine=false;mb.setAttribute('aria-pressed','false');}
@@ -868,13 +876,15 @@ function clearReview(){rv.files={};BOX={};editing={};save();render();if(cur!=nul
 $('rv-clear').addEventListener('click',function(){closeMenus();if(!summary().files)clearReview();
 else ask('Clear this review? What you wrote here is lost (a downloaded file is kept).','Clear it',clearReview);});
 $('author').addEventListener('input',function(){this.classList.remove('need');rv.author=this.value;save();});
-$('role').addEventListener('change',function(){this.classList.remove('need');rv.role=this.value;save();sync('role');});
+$('role').addEventListener('change',function(){this.classList.remove('need');rv.role=this.value;save();sync('role');
+// As the team or not: the ✓ and what's yours change.
+render();if(cur!=null)refresh();});
 function exportRows(){var out=[];D.forEach(function(it){if(!changes(it))return;var e=rv.files[it.file],
 row={filename:it.file,stable_version:it.stable,description_exported:it.desc};if(it.render_ref)row.render=it.render_ref;
-Object.keys(e.deps).forEach(function(d){var v=e.deps[d];row[d]=v.ok?'ok':(v.text.trim()||'no');});
+Object.keys(e.deps).forEach(function(d){var v=e.deps[d];if(sent(v))row[d]=v.ok?'ok':(v.text.trim()||'no');});
 // A reply to a department's open RTK: still to redo, its validation withdrawn.
-Object.keys(answered(it).deps).forEach(function(d){if(!(d in row))row[d]='no';});
-if(e.all)Object.keys(it.states).forEach(function(d){if(isDone(it.states[d])&&!(d in row))row[d]='ok';});
+if(!asTeam())Object.keys(answered(it).deps).forEach(function(d){if(!(d in row))row[d]='no';});
+if(e.all&&!asTeam())Object.keys(it.states).forEach(function(d){if(isDone(it.states[d])&&!(d in row))row[d]='ok';});
 if(e.text.trim())row.global=e.text.trim();
 if(e.desc!==null&&e.desc.trim()&&e.desc.trim()!==it.desc)row.description=e.desc.trim();
 // The RTKs marked fixed, by id: closed, as you, at import.
@@ -909,8 +919,11 @@ $('d-cancel').onclick=function(){dl.hidden=true;};$('d-see').onclick=function(){
 // Files picks the folder, where a download lands wherever the browser or
 // the app viewing the page keeps its own.
 if($('d-share'))$('d-share').onclick=function(){$('d-go').dataset.share='1';$('d-go').click();};
-$('d-go').onclick=function(){var share=this.dataset.share;delete this.dataset.share;rv.author=$('d-author').value.trim();rv.role=$('d-role').value;rv.date=$('d-date').value;
+$('d-go').onclick=function(){var share=this.dataset.share;delete this.dataset.share;rv.author=$('d-author').value.trim();var was=rv.role;rv.role=$('d-role').value;rv.date=$('d-date').value;
 $('author').value=rv.author;$('role').value=rv.role;sync('role');save();
+// The role changed here: what's sent with it (the team sends no validation).
+if(rv.role!==was){render();if(cur!=null)refresh();rows=exportRows();
+if(!rows.length){$('d-why').hidden=false;$('d-why').textContent='As the team, nothing to send: the team doesn\'t validate -- write a retake or a note.';return;}}
 if(needsRole&&!rv.role){$('d-why').hidden=false;$('d-why').textContent='Pick your role: your validations and retakes are recorded under it.';$('d-role').classList.add('need');sync('d-role');return;}
 var data={format:META.format,schema_version:META.schema_version,project:META.project,snapshot:META.snapshot,author:rv.author,role:rv.role,
 review_date:rv.date,written_at:new Date().toISOString().slice(0,19),rows:rows};

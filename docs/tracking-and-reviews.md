@@ -60,6 +60,11 @@ it saw.
   review template. An RTK from a role is red in the snapshot, the team's own orange; in Blender its mark is the role's violet, like its notes, the team's orange.
   The *New entry* dialog shows your role in an *As sup* box, on by
   default: untick it to write as the team (a technical note, say).
+- **A review as the team**: *team* in a review's Role (the snapshot
+  page's, the review template's -- unless a validation role has that
+  name): its retakes and notes are the team's own -- no role, orange, no
+  "prod review" tag (imported from a team review) -- and it validates
+  nothing: the page's ✓ are off, a ✓ or `ok` written before is left out.
 - **Project monitoring**: a done department reads "Done · prod" once
   validated; a filter (the star) lists the files with a done department
   still to validate -- for your role, or by any role if you have none.
