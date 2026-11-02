@@ -3779,6 +3779,18 @@ Seen on a 12.9" iPad, in Documents by Readdle's viewer:
   largest inset seen in this orientation (a probe of that height, a
   ResizeObserver, kept by this browser, `mp-snapshot:safe-top:l` / `:p`),
   as `max(env(...), Npx)` -- reserved once, nothing moves after.
+- **The player's frame** (1.1.9): a compiled video starts at the job's
+  `resolved_frame_range[0]` (post_render `-start_number`), noted in the
+  history as `frame_range_rendered`. `read_render_state()` gives each
+  render `frames` ([first, last]: that, else `_folder_frames()`, the
+  images' numbers in its folder -- a render from before), the page's
+  render line `first`, `META.fps` the project's `default_fps` (the farm
+  compiles at the scene's own: a scene at another rate would be off --
+  the history doesn't note it). page.js: frame = first +
+  floor(t × fps), each frame as shown (`requestVideoFrameCallback`,
+  `mediaTime`), else at `timeupdate`; a step seeks the frame's middle
+  ((k + .5) / fps), paused. No `first`: `#` + its rank from 1; no fps (an
+  older snapshot): no counter. A phone hides the time beside it.
 - **Where a review lands**: a page can't pick a download's folder, and in
   an app's viewer (Documents) it lands in the app's own space. *Save or
   send…* (`SHARE`: `navigator.share` + `canShare` with a file, on a

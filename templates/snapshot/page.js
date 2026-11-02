@@ -385,7 +385,7 @@ if(VNAMES[name])return {src:V.base+'/'+path,from:V.mode};
 return V.local?{src:V.local+'/'+path,from:'local'}:null;}
 // A render line's video, one or none.
 function videosOf(it,r){var s=r.video&&videoSrc(r.video);
-return s?[{file:it.name,shot:r.shots,first:r.shot_list[0],folder:r.folder,src:s.src,from:s.from,name:r.video}]:[];}
+return s?[{file:it.name,shot:r.shots,first:r.shot_list[0],start:r.first,folder:r.folder,src:s.src,from:s.from,name:r.video}]:[];}
 // Choose the videos' folder: each video known by its path's every tail, so
 // the folder's own name, or one above it, doesn't matter. A phone with no
 // folder picker gives the videos themselves, known by their names.
@@ -440,6 +440,8 @@ function fitPlayer(el){var vp=el&&el.closest('.vp');if(!vp)return;var r=el.video
 var top=parseFloat(getComputedStyle(document.body).paddingTop)||0;
 vp.style.width=Math.max(160,Math.floor(Math.min($('lb').clientWidth-40,(innerHeight-140-top)*r)))+'px';fitW=innerWidth;}
 addEventListener('resize',function(){if($('lb').hidden||innerWidth===fitW)return;fitPlayer($('lb-in').querySelector('video'));});
+// The videos' frame rate (the project's): the player's frame number.
+var FPS=+META.fps||0,stepFrame=function(){};
 function play(list){if(!list.length)return;var at=0;
 function show(){var v=list[at],many=list.length>1;
 lightbox('<div class="vp"><video playsinline autoplay src="'+esc(v.src)+'"></video>'+
@@ -447,14 +449,26 @@ lightbox('<div class="vp"><video playsinline autoplay src="'+esc(v.src)+'"></vid
 '<button type="button" class="vb" id="vp-p" aria-label="Pause">❚❚</button>'+
 (many?'<button type="button" class="vb" data-lb="1"'+(at<list.length-1?'':' disabled')+' aria-label="Next video">⏭</button>':'')+
 '<input type="range" class="vr" id="vp-r" min="0" max="1000" value="0" aria-label="Position"><span class="vt" id="vp-t">0:00</span>'+
+(FPS?'<button type="button" class="vb vs" data-step="-1" aria-label="Previous frame" title="Previous frame (,)">◂</button><span class="vf" id="vp-fr" title="'+
+(v.start!=null?'The frame shown, as numbered in the .blend':'The frame shown, counted from this video\'s first (its own number unknown: export the snapshot again)')+
+'">'+(v.start!=null?'f'+v.start:'#1')+'</span><button type="button" class="vb vs" data-step="1" aria-label="Next frame" title="Next frame (.)">▸</button>':'')+
 '<button type="button" class="vb" id="vp-f" aria-label="Full screen">⛶</button></div></div>',
 esc(v.file)+(v.shot?' · <b>'+esc(v.shot)+'</b>':'')+' · '+esc(v.folder)+(many?' ('+(at+1)+' / '+list.length+')':''));
 var el=$('lb-in').querySelector('video'),pb=$('vp-p'),rg=$('vp-r'),tm=$('vp-t'),seeking=false;
 fitPlayer(el);el.addEventListener('loadedmetadata',function(){fitPlayer(el);});
 function sync(){pb.textContent=el.paused?'▶':'❚❚';pb.setAttribute('aria-label',el.paused?'Play':'Pause');}
+// The frame shown: the .blend's number (the render's first + its index in
+// the video), else its rank in the video. Each frame as it's shown where
+// the browser tells (requestVideoFrameCallback), else at each time update.
+var fr=$('vp-fr'),idx=function(t){return Math.max(0,Math.floor(t*FPS+1e-3));};
+function frame(t){if(fr)fr.textContent=v.start!=null?'f'+(v.start+idx(t)):'#'+(idx(t)+1);}
+if(fr&&el.requestVideoFrameCallback){var tick=function(now,md){if(!el.isConnected)return;frame(md.mediaTime);el.requestVideoFrameCallback(tick);};el.requestVideoFrameCallback(tick);}
+el.addEventListener('seeked',function(){frame(el.currentTime);});
+// One frame back or on, paused: its middle, decoded as is.
+stepFrame=function(n){if(!FPS)return;el.pause();var k=Math.max(0,idx(el.currentTime)+n),t=(k+.5)/FPS;if(el.duration)t=Math.min(t,el.duration-.5/FPS);el.currentTime=t;frame(t);};
 el.addEventListener('play',sync);el.addEventListener('pause',sync);
 el.addEventListener('timeupdate',function(){if(!seeking&&el.duration)rg.value=Math.round(el.currentTime/el.duration*1000);
-tm.textContent=clock(el.currentTime)+' / '+clock(el.duration);});
+tm.textContent=clock(el.currentTime)+' / '+clock(el.duration);if(!el.requestVideoFrameCallback)frame(el.currentTime);});
 rg.addEventListener('input',function(){seeking=true;if(el.duration)el.currentTime=rg.value/1000*el.duration;});
 rg.addEventListener('change',function(){seeking=false;});
 pb.onclick=function(e){e.stopPropagation();if(el.paused)el.play();else el.pause();};
@@ -474,7 +488,7 @@ v.from==='folder'?'Video not found: no <code>'+esc(V.base)+'</code> folder next 
 'Video not found in the project\'s renders -- away from the project, its videos come with the snapshot (Folder or Zip, when exporting) -- or this browser can\'t play its format.')+
 (v.from==='picked'?'':' '+pickLink('Choose the videos folder…'))+
 '<br><span style="opacity:.7">Looked for <code>'+esc(v.name)+'</code></span>'+(many&&at<list.length-1?'<br><button type="button" class="lbn" data-lb="1" aria-label="Next video">›</button>':'');});}
-$('lb').onclick=function(e){var b=e.target.closest('[data-lb]');if(!b)return;e.stopPropagation();if(b.disabled)return;at+=+b.dataset.lb;show();};
+$('lb').onclick=function(e){var sb=e.target.closest('[data-step]');if(sb){e.stopPropagation();stepFrame(+sb.dataset.step);return;}var b=e.target.closest('[data-lb]');if(!b)return;e.stopPropagation();if(b.disabled)return;at+=+b.dataset.lb;show();};
 show();}
 // A sequence's files, each one's videos in its shots' order, one after the other.
 function groupVideos(g){return D.filter(function(it){return it.tab===state.tab&&it.group===g&&match(it);}).reduce(function(out,it){return out.concat(allVideos(it));},[]);}
@@ -793,7 +807,8 @@ else if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){t.blur();e.preventDefault();}re
 if(e.altKey||e.ctrlKey||e.metaKey)return;
 if(!$('lb').hidden){if(e.key==='Escape'){closeLb();e.preventDefault();}
 else if(e.key==='ArrowLeft'||e.key==='ArrowRight'){var nb=$('lb').querySelector('[data-lb="'+(e.key==='ArrowLeft'?-1:1)+'"]');if(nb&&!nb.disabled){nb.click();e.preventDefault();}}
-else if(e.key===' '&&$('vp-p')&&e.target.type!=='range'){$('vp-p').click();e.preventDefault();}return;}
+else if(e.key===' '&&$('vp-p')&&e.target.type!=='range'){$('vp-p').click();e.preventDefault();}
+else if((e.key===','||e.key==='.')&&$('vp-fr')){stepFrame(e.key===','?-1:1);e.preventDefault();}return;}
 if(!$('dlg').hidden){if(e.key==='Escape'){$('dlg').hidden=true;e.preventDefault();}return;}
 if(e.key==='Escape'&&MENUS.some(function(m){return !$(m[1]).hidden;})){closeMenus();return;}
 if(cur==null)return;var k=e.key.toLowerCase();

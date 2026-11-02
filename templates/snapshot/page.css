@@ -561,6 +561,11 @@ black band coming and going on its sides. */
 .vb:disabled{opacity:.3}
 .vr{flex:1;min-width:60px;height:16px;margin:0 4px;accent-color:#fff;cursor:pointer}
 .vt{flex:none;font-variant-numeric:tabular-nums;opacity:.8;min-width:72px;text-align:right}
+/* The frame shown, between one frame back and one on. */
+.vf{flex:none;font-variant-numeric:tabular-nums;color:#fff;min-width:44px;text-align:center}
+.vs{width:24px;font-size:14px}
+/* A phone: the frame says where it is, the time steps aside. */
+@media (max-width:520px){.vc:has(.vf) .vt{display:none}}
 @media (pointer:coarse){.vb{width:40px;height:40px}}
 .lb p{margin:0;max-width:560px;color:#ddd;font-size:13px;text-align:center}
 .lb p code{font:12px var(--mono);color:#fff;overflow-wrap:anywhere}

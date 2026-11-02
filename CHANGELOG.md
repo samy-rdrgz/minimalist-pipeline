@@ -2,6 +2,18 @@
 
 All notable changes to this addon. Dates are release dates.
 
+## 1.1.9 — unreleased
+
+### Changed
+
+- **The snapshot's player shows the frame**: `f1042`, numbered as in the
+  .blend -- the render's first frame (its farm history, else its images'
+  names) plus the frame's rank in the video, at the project's fps. A
+  block rendered whole counts on its own timeline, as Blender and the
+  `[f12-40]` retakes do. ◂ ▸ (or , and .) step one frame back / on,
+  paused. A snapshot exported before, or a render whose first frame
+  isn't known, counts from the video's start (`#1`).
+
 ## 1.1.8 — 02/11/2026
 
 The production snapshot, redrawn: a list to scan, a panel to read and
