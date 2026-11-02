@@ -11,6 +11,7 @@ from ..lib import (
     SnapshotJob,
     get_active_project_root,
     get_user,
+    is_video,
     log,
     push_rushes,
     push_sequence_rushes,
@@ -79,7 +80,7 @@ def checked_render_videos(entries: list) -> list[Path]:
         folder = root / (info.get("render") or "")
         try:
             mp4s = sorted(
-                e.path for e in os.scandir(folder) if e.name.lower().endswith(".mp4")
+                e.path for e in os.scandir(folder) if is_video(e.name)
             )
         except OSError:
             mp4s = []

@@ -3,6 +3,8 @@ or sequence preview -- filesystem-only, no bpy needed."""
 
 import os
 import re
+import shutil
+import subprocess
 import zipfile
 from pathlib import Path
 
@@ -52,12 +54,27 @@ def latest_shot_mp4(
     return _first_mp4(latest)
 
 
+# A render's compiled video: mp4 by default, the ffmpeg preset's
+# "extension" otherwise (a ProRes .mov for the edit...).
+VIDEO_EXTS = (".mp4", ".mov", ".mkv", ".m4v")
+
+
+def is_video(name: str) -> bool:
+    """A compiled video's file name (VIDEO_EXTS), never a temporary one."""
+    name = name.lower()
+    return name.endswith(VIDEO_EXTS) and ".tmp." not in name
+
+
 def _first_mp4(render_dir: Path | None) -> Path | None:
-    """The mp4 in an increment folder, None if none (or no folder)."""
+    """The video in an increment folder (an mp4, or the preset's other
+    extension -- VIDEO_EXTS), None if none (or no folder)."""
     if render_dir is None:
         return None
-    mp4s = sorted(render_dir.glob("*.mp4"))
-    return mp4s[0] if mp4s else None
+    try:
+        videos = sorted(f for f in Path(render_dir).iterdir() if is_video(f.name) and f.is_file())
+    except OSError:
+        return None
+    return videos[0] if videos else None
 
 
 def _rendered_segments(
@@ -183,57 +200,181 @@ def latest_asset_videos(project_root: Path, v_prefix: str = "v") -> list[Path]:
     ]
 
 
-def zip_latest_videos(
-    project_root: Path,
-    sequences: list[str],
-    assets: bool,
-    zip_path: Path,
-    config: dict,
-) -> tuple[int, list[str], list]:
-    """Every shot's latest video of these sequences (the same ones Preview
-    sequence takes) -- and with assets, every asset/library's -- into
-    zip_path, under its renders/ path minus its own folder:
-    sq100/<video>_<render folder>.mp4, assets/ch/<video>_<render folder>.mp4. Stored, not compressed:
-    an mp4 already is. Written beside then renamed, never left
-    half-written. Returns (videos zipped, what had none, older ones left out
-    -- resolve_sequence_sources()'s dropped). Pure:
-    thread-safe, config passed in."""
-    project_root, zip_path = Path(project_root), Path(zip_path)
-    renders = project_root / "renders"
-    v_prefix = json_get(config, "naming.version.prefix", "v")
+# Past this width the browsers' hardware decoders refuse a video (8192 on
+# most PCs and iPads; a panoramic render goes past it). A video they can't
+# play gets a light copy beside it, in its render folder's ld/ -- made by
+# the farm's compilation, else by Export snapshot (ensure_ld()) --: what
+# the snapshot plays and carries, the full one kept for the edit.
+MAX_VIDEO_WIDTH = 8192
+LD_DIR = "ld"
+# The light copy: H.265 in mp4 tagged hvc1 -- what browsers, Safari and
+# iPad included, play up to MAX_VIDEO_WIDTH.
+LD_ARGS = [
+    "-c:v", "libx265", "-preset", "fast", "-crf", "22", "-pix_fmt", "yuv420p",
+    "-tag:v", "hvc1", "-movflags", "+faststart",
+]
+_VIDEO_STREAM = re.compile(r"Video: (\w+)[^\n]*?(?:\((\w{4}) /[^\n]*?)?, (\d{2,5})x(\d{2,5})")
 
-    def arcname(mp4: Path) -> str:
-        # Its owner's folder (sh030, ch_bob) left out: the video's own name
-        # already says it.
-        folder = mp4.parent.parent.parent.relative_to(renders).as_posix()
-        return f"{folder}/{mp4.stem}_{mp4.parent.name}{mp4.suffix}"
 
-    found, empty, dropped = [], [], []
-    for sequence in sequences:
-        sources = resolve_sequence_sources(sequence, project_root, config, dropped)
-        if not sources:
-            empty.append(sequence)
-        found += [mp4 for _label, mp4 in sources]
-    if assets:
-        asset_mp4s = latest_asset_videos(project_root, v_prefix)
-        if not asset_mp4s:
-            empty.append("assets/libraries")
-        found += asset_mp4s
-    if not found:
-        return 0, empty, dropped
+def ld_path(video: Path) -> Path:
+    """Where a render video's light copy goes: <render folder>/ld/<name>.mp4."""
+    video = Path(video)
+    return video.parent / LD_DIR / f"{video.stem}.mp4"
+
+
+def browser_codec(codec: str) -> bool:
+    """A codec browsers play (H.264, H.265), from an ffmpeg codec or
+    encoder name -- libx265, hevc_nvenc, h264..."""
+    codec = codec.lower()
+    return any(k in codec for k in ("264", "265", "hevc", "avc"))
+
+
+def _video_info(mp4: Path, ffmpeg: str) -> tuple[str, str, int] | None:
+    """(codec, tag, width) of the video's stream, read from ffmpeg's own
+    report (no ffprobe needed); None if unread."""
+    try:
+        out = subprocess.run(
+            [ffmpeg, "-hide_banner", "-i", str(mp4)],
+            capture_output=True,
+            text=True,
+            errors="replace",
+            timeout=60,
+            stdin=subprocess.DEVNULL,
+        ).stderr
+    except (OSError, subprocess.SubprocessError):
+        return None
+    m = _VIDEO_STREAM.search(out)
+    return (m[1], m[2] or "", int(m[3])) if m else None
+
+
+# Videos read once and found playable as they are, by (path, modification
+# time): the next export doesn't ask ffmpeg again.
+_PLAYABLE: set = set()
+
+
+def media_width(path: Path, ffmpeg: str) -> int | None:
+    """An image's or a video's width, read by ffmpeg (a frame of a render:
+    PNG, EXR, JPEG...); None if unread."""
+    info = _video_info(path, ffmpeg)
+    return info[2] if info else None
+
+
+def ensure_ld(video: Path, ffmpeg: str) -> Path | None:
+    """The video's light copy (ld_path()), made now if the video needs one
+    and it's missing or older: too wide, a codec browsers don't play, or
+    playable but not as it is -- in a .mov, or H.265 tagged hev1 (then
+    just put in an mp4, no re-encode). None when the
+    video plays as is, or can't be read. Raises subprocess.CalledProcessError
+    / OSError if making it fails."""
+    video, ld = Path(video), ld_path(video)
+    try:
+        if ld.stat().st_mtime >= video.stat().st_mtime:
+            return ld
+    except OSError:
+        pass
+    try:
+        key = (str(video), video.stat().st_mtime)
+    except OSError:
+        return None
+    if key in _PLAYABLE:
+        return None
+    info = _video_info(video, ffmpeg)
+    if info is None:
+        return None
+    codec, tag, width = info
+    if width > MAX_VIDEO_WIDTH or not browser_codec(codec):
+        args = ["-vf", f"scale='min({MAX_VIDEO_WIDTH},iw)':-2", *LD_ARGS]
+    elif video.suffix.lower() != ".mp4" or (codec == "hevc" and tag != "hvc1"):
+        # Playable as such, but not in a .mov / .mkv, or tagged hev1: put
+        # in an mp4 as it is, no re-encode.
+        tag_args = ["-tag:v", "hvc1"] if codec == "hevc" else []
+        args = ["-map", "0:v", "-c", "copy", *tag_args, "-movflags", "+faststart"]
+    else:
+        _PLAYABLE.add(key)
+        return None
+    ld.parent.mkdir(exist_ok=True)
+    tmp = ld.with_name(f"{ld.stem}.tmp.mp4")
+    try:
+        subprocess.run(
+            [ffmpeg, "-v", "error", "-y", "-i", str(video), *args, "-f", "mp4", str(tmp)],
+            check=True,
+            capture_output=True,
+            stdin=subprocess.DEVNULL,
+        )
+        os.replace(tmp, ld)
+    finally:
+        if tmp.exists():
+            tmp.unlink()
+    return ld
+
+
+def browser_video(render_dir: Path | None) -> Path | None:
+    """The video a browser plays for a render: its light copy if it has
+    one, else its own mp4. None without either."""
+    if render_dir is None:
+        return None
+    return _first_mp4(Path(render_dir) / LD_DIR) or _first_mp4(render_dir)
+
+
+def zip_videos(videos: list[tuple[Path, str]], zip_path: Path) -> int:
+    """Videos [(mp4, name)] into zip_path under their names
+    (lib/snapshot.py snapshot_videos()). Stored, not compressed: an mp4
+    already is. Written beside then renamed, never left half-written.
+    Returns how many."""
+    zip_path = Path(zip_path)
+    if not videos:
+        return 0
     tmp = zip_path.with_name(f"{zip_path.name}.tmp")
     try:
         with zipfile.ZipFile(tmp, "w", zipfile.ZIP_STORED) as z:
-            taken = set()
-            for mp4 in found:
-                name = arcname(mp4)
-                if name in taken:
-                    # Two videos named alike: this one keeps its own folder.
-                    name = f"{mp4.parent.parent.relative_to(renders).as_posix()}/{mp4.stem}_{mp4.parent.name}{mp4.suffix}"
-                taken.add(name)
+            for mp4, name in videos:
                 z.write(mp4, name)
         os.replace(tmp, zip_path)
     finally:
         if tmp.exists():
             tmp.unlink()
-    return len(found), empty, dropped
+    return len(videos)
+
+
+def copy_videos(videos: list[tuple[Path, str]], folder: Path) -> tuple[int, int]:
+    """Videos [(mp4, name)] into folder under their names, only those not
+    there yet or changed since (size, modification time) -- a folder kept
+    from one snapshot to the next copies only what's new. Each one written
+    beside then renamed. Returns (copied, already there)."""
+    folder = Path(folder)
+    copied = kept = 0
+    for mp4, name in videos:
+        dst = folder / name
+        try:
+            src_stat, dst_stat = mp4.stat(), dst.stat()
+            if src_stat.st_size == dst_stat.st_size and int(
+                src_stat.st_mtime
+            ) == int(dst_stat.st_mtime):
+                kept += 1
+                continue
+        except OSError:
+            pass
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        tmp = dst.with_name(f"{dst.stem}.tmp.mp4")
+        try:
+            shutil.copy2(mp4, tmp)
+            os.replace(tmp, dst)
+        finally:
+            if tmp.exists():
+                tmp.unlink()
+        copied += 1
+    return copied, kept
+
+
+def videos_in(folder: Path) -> list[str]:
+    """The videos already in a snapshot videos folder, by their names
+    (sq100/sh030/v002_001/sq100_sh030.mp4): what earlier exports copied there
+    counts too. [] without the folder."""
+    folder = Path(folder)
+    out = []
+    for dirpath, _dirs, files in os.walk(folder):
+        for f in files:
+            if is_video(f):
+                out.append(Path(dirpath, f).relative_to(folder).as_posix())
+    return sorted(out)
+

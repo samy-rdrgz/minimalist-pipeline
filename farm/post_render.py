@@ -5,7 +5,12 @@ from pathlib import Path
 import bpy
 
 from ..lib import (
+    LD_ARGS,
+    MAX_VIDEO_WIDTH,
     ConfigCache,
+    browser_codec,
+    ld_path,
+    media_width,
     PipelineError,
     get_machine_id,
     json_get,
@@ -149,8 +154,44 @@ def _ffmpeg_preset_to_args(preset: dict) -> list[str]:
         if key in preset:
             flag = "-c:v" if key == "codec" else f"-{key}"
             args += [flag, str(preset[key])]
-    args += preset.get("extra_args", [])
-    return args
+    extra = list(preset.get("extra_args", []))
+    # HEVC in an mp4: ffmpeg tags it hev1, which Safari, iPhone and iPad
+    # (and QuickTime) refuse to play -- hvc1 plays everywhere.
+    codec = str(preset.get("codec", "")).lower()
+    if ("265" in codec or "hevc" in codec) and not any(
+        a.startswith("-tag") for a in extra
+    ):
+        extra += ["-tag:v", "hvc1"]
+    return args + extra
+
+
+def _first_frame_width(data: dict, abs_path, ffmpeg_bin: str) -> int | None:
+    """A job set up before its width was noted (a Recompile of an older
+    one): its first frame's, read by ffmpeg. None if unread."""
+    digits = data["output_path"].count("#")
+    frame = Path(
+        f"{str(abs_path).split('#')[0]}{str(data['resolved_frame_range'][0]).zfill(digits)}"
+        f".{_EXTENSION_MAP.get(data.get('output_extension'), 'png')}"
+    )
+    return media_width(frame, ffmpeg_bin) if frame.is_file() else None
+
+
+def _ld_args(width, preset: dict, video: Path) -> list[str]:
+    """The compilation's second output, a light copy browsers can play
+    (lib/preview.py ld_path()), when the video itself won't: wider than
+    MAX_VIDEO_WIDTH, a codec they don't play (ProRes, DNxHR...), or not an
+    mp4. [] when it plays as is -- a light copy left from before, now
+    stale, removed."""
+    ld = ld_path(video)
+    if (
+        (width or 0) <= MAX_VIDEO_WIDTH
+        and browser_codec(str(preset.get("codec", "libx264")))
+        and video.suffix.lower() == ".mp4"
+    ):
+        ld.unlink(missing_ok=True)
+        return []
+    ld.parent.mkdir(parents=True, exist_ok=True)
+    return ["-vf", f"scale='min({MAX_VIDEO_WIDTH},iw)':-2", *LD_ARGS, str(ld)]
 
 
 def compilation(*, project_root: Path, job_path: Path, compilation_settings: str):
@@ -171,6 +212,20 @@ def compilation(*, project_root: Path, job_path: Path, compilation_settings: str
             ffmpeg_bin = resolve_ffmpeg()
             if ffmpeg_bin is not None:
                 abs_path = to_absolute(data["output_path"], project_root)
+                preset = resolve_ffmpeg_preset(compilation_settings)
+                video = Path(
+                    to_absolute(
+                        data.get("compiled_output_path", str(project_root)),
+                        project_root,
+                    )
+                )
+                # The preset's container ("extension": "mov"...), mp4 if
+                # none: the video's name follows, written back to the job.
+                ext = str(preset.get("extension") or "mp4").lstrip(".").lower()
+                if video.suffix.lower() != f".{ext}":
+                    video = video.with_suffix(f".{ext}")
+                    stem = data["compiled_output_path"].rsplit(".", 1)[0]
+                    data["compiled_output_path"] = f"{stem}.{ext}"
                 cmd = (
                     [
                         ffmpeg_bin,
@@ -182,17 +237,14 @@ def compilation(*, project_root: Path, job_path: Path, compilation_settings: str
                         "-i",
                         f"{str(abs_path).split('#')[0]}%0{data['output_path'].count('#')}d.{_EXTENSION_MAP.get(data['output_extension'], 'png')}",
                     ]
-                    + list(
-                        _ffmpeg_preset_to_args(
-                            resolve_ffmpeg_preset(compilation_settings)
-                        )
+                    + list(_ffmpeg_preset_to_args(preset))
+                    + [str(video)]
+                    # Same pass: the light copy, if the video needs one.
+                    + _ld_args(
+                        data.get("width") or _first_frame_width(data, abs_path, ffmpeg_bin),
+                        preset,
+                        video,
                     )
-                    + [
-                        to_absolute(
-                            data.get("compiled_output_path", str(project_root)),
-                            project_root,
-                        )
-                    ]
                 )
                 proc = [
                     (

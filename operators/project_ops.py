@@ -1,6 +1,7 @@
 """Project management operators: create, find, edit, set active, remove."""
 
 import json
+import os
 import random
 import re
 from pathlib import Path
@@ -250,24 +251,36 @@ class M_PIPELINE_OT_find_project(bpy.types.Operator):
     bl_label = "Find existing project"
     bl_description = "Select a folder containing a pipeline config."
 
-    project_root_path: bpy.props.StringProperty(
+    # The file browser straight away: its Accept activates the project (a
+    # dialog first only held a path field opening the same browser).
+    directory: bpy.props.StringProperty(
         name="Project folder",
         subtype="DIR_PATH",
-        description="Root folder (must contain config/project_config.json).",
-        default="//",
+        description="The project's folder, or any folder inside it: "
+        "config/project_config.json is looked for there and above",
+    )
+    filter_folder: bpy.props.BoolProperty(default=True, options={"HIDDEN"})
+    # Scripts and older calls: a path given, no browser.
+    project_root_path: bpy.props.StringProperty(
+        name="Project folder", subtype="DIR_PATH", default="", options={"HIDDEN"}
     )
 
-    def draw(self, context):
-        layout = self.layout
-        layout.label(text="Select the project root folder:", icon="FILE_FOLDER")
-        layout.prop(self, "project_root_path")
-        layout.label(text="Looking for config/project_config.json", icon="QUESTION")
-
     def invoke(self, context, event):
-        return context.window_manager.invoke_props_dialog(self, width=400)
+        if self.project_root_path:
+            return self.execute(context)
+        # Starts beside the projects already known, the last one's parent.
+        known = [item.path for item in addon_pref(context).opened_projects]
+        parent = next(
+            (str(Path(p).parent) for p in reversed(known) if path_reachable(p)), ""
+        )
+        if parent:
+            self.directory = parent + os.sep
+        context.window_manager.fileselect_add(self)
+        return {"RUNNING_MODAL"}
 
     def execute(self, context):
-        found = find_project_root(self.project_root_path)
+        folder = self.project_root_path or self.directory
+        found = find_project_root(bpy.path.abspath(folder)) if folder else None
         if not found:
             self.report(
                 {"ERROR"}, "No project_config.json found here or in parent folders."

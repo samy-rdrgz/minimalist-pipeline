@@ -35,7 +35,9 @@ def _destination(project_root: Path, mp4: Path) -> tuple[str, str] | None:
     owner, render = parts[-3], parts[-2]
     base = owner if parts[0] in ("assets", "library") else f"{parts[0]}_{owner}"
     version = f"{base}_{render.rsplit('_', 1)[0]}"
-    return "/".join([*parts[:-3], parts[-1]]), version
+    # Named after its owner, never the video: a render's video carries its
+    # version (sq100_sh030_v003-stable_001.mp4), its rush must not.
+    return "/".join([*parts[:-3], f"{base}{Path(parts[-1]).suffix}"]), version
 
 
 def _read_manifest(path: Path) -> dict:

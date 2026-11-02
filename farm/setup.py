@@ -242,8 +242,12 @@ def run_render_setup_entry(job_id: str) -> None:
         clean_name = re.sub(pattern, "", stem)
 
         data["output_path"] = to_relative(str(output_path), project_root)
+        # The video says which render it is, like its folder (v003-stable_001):
+        # sq100_sh030_v003-stable_001.mp4 -- the rushes give it a name
+        # without (lib/rushes.py).
         data["compiled_output_path"] = to_relative(
-            str(output_path.parent / f"{clean_name}.mp4"), project_root
+            str(output_path.parent / f"{clean_name}_{output_path.parent.name}.mp4"),
+            project_root,
         )
         # Already resolved above -- resolving overrided_frame_range a second
         # time here would double-apply a relative override ("s10" on top of
@@ -265,6 +269,11 @@ def run_render_setup_entry(job_id: str) -> None:
         # captured here (not from project config) so a shot that overrides
         # its own scene fps compiles at the fps it was actually rendered at.
         data["fps"] = round(scene.render.fps / scene.render.fps_base, 3)
+        # The video's width: past MAX_VIDEO_WIDTH the compilation adds a
+        # light copy browsers can play (farm/post_render.py, _ld_args()).
+        data["width"] = round(
+            scene.render.resolution_x * scene.render.resolution_percentage / 100
+        )
         data["output_extension"] = scene.render.image_settings.file_format
         box["action"] = "to_write"
 

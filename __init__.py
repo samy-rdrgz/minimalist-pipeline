@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Minimalist Pipeline",
     "author": "Samy Rodriguez",
-    "version": (1, 1, 5),
+    "version": (1, 1, 8),
     "blender": (4, 2, 0),
     "location": "View3D > Sidebar > Pipeline",
     "description": "Lightweight pipeline manager for solo/small team Blender projects.",
@@ -71,7 +71,7 @@ _WM_PROPS = {
     "rushes_sequences": bpy.props.CollectionProperty(
         type=PIPELINE_PG_preview_sequence_item
     ),
-    # Export snapshot's checklist: the sequences whose videos get zipped.
+    # Export snapshot's checklist: the sequences whose videos go with it.
     "snapshot_sequences": bpy.props.CollectionProperty(
         type=PIPELINE_PG_preview_sequence_item
     ),

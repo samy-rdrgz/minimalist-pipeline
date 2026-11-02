@@ -2,6 +2,166 @@
 
 All notable changes to this addon. Dates are release dates.
 
+## 1.1.8 — unreleased
+
+The production snapshot, redrawn: a list to scan, a panel to read and
+review one file -- lighter to read on a computer and on a phone.
+
+### Changed
+
+- **Snapshot page, redrawn.** A card per section (Done, Validated, and
+  with a schedule how many working days ahead or behind, the pace pill
+  amber or red when behind), then the list: a tab per section (Libraries
+  apart), the files by sequence / prefix, a mark per department --
+  done, reworked, in progress, not started -- with under it a ◆ per open
+  entry (red an RTK from a role, orange the team's, grey a todo), who
+  validated it, and your review. Only the departments the list requires get a column; groups
+  with nothing tracked fold. A badge only for a render outdated or to
+  check, or an RTK on no department (◆ General RTK, and a bare ◆ under
+  every done department it holds back); notes and the farm are words on the
+  version line. Column names stay under the bar while scrolling.
+- **A file's panel** (a click on its row): beside the list on a computer,
+  which moves aside and stays live -- one click on another row shows it --;
+  the whole screen on a phone. Its left edge drags it wider or narrower
+  (kept by the browser, a double click for the default); a list left
+  narrow turns compact, as on a phone. Three zones: the name and how
+  far along it is, large; the picture, departments, retakes and notes;
+  then, small, its last render and Blender file: the
+  picture large and every shot's, the description, the departments with
+  their validation and their open RTKs, the retakes on no department,
+  the notes (closed ones on demand, with their role, frames and the
+  render watched), the last render per shot and the Blender file.
+  ← → and Esc as before -- on a phone ‹ › in its header, or a swipe
+  sideways; 🔗 copies a link that opens the file.
+- **Filters**: a department, Retakes, Open notes, Render outdated, To
+  validate, Not finished, each with its count; *Find a file…* also
+  lists the matching files of every section to jump to.
+- **Review in the panel**: ✓ / ✕ per department, between an *All done*
+  row (✓ every done one, V) and a *Whole file* row (✕ a retake on no
+  department, X) with the same buttons; the description edited from a
+  quiet link under it. For a block, a box for all its shots and one per
+  shot, opened by its button (its lines written back as `[sh040] ...`);
+  the syntax recalled under the box. *Download* sums the review up and asks name, role and date. Same `.json`, same browser
+  storage: a review in progress carries over.
+- A file your review touched has its line tinted the review's violet,
+  an edge on its left: where you've been, at a glance.
+  A group whose every file is reviewed has its header tinted too.
+- **Close an RTK from the review**: while reviewing, an open RTK (the
+  prod's or the team's) has *✓ Fixed*, an open todo *✓ Done*. Import
+  review marks it done, as
+  the reviewer -- never reopens one, so importing twice changes nothing.
+- `note:` takes `note :`, `n:` and any case too, after a line's tags
+  (`[sh020] n: ...`) -- the page and Import review read it alike (the
+  page took `[sh020] note:` for a remark, the import for a retake).
+- A department's box holding only `note:` lines is a remark: grey
+  ✎ you on the page, and Import review leaves the department's
+  validation as it is (it withdrew it, as for a retake).
+- **Reply to a note from the review**: *↩ Reply* beside an open RTK and
+  under an open note. Import review adds it to that note's thread, under
+  the review's role, read as a department's box: a retake ("still to
+  redo") unless every line is `note:`. A retake reply sends the note's
+  department back as by ✕ (its validation withdrawn) and is imported as
+  an RTK on it; the RTK answered stays open (*✓ Fixed* closes it).
+  Imported once only.
+  The review's `.json` moves to v6 (`fixed`, `reply <id>`): an older
+  add-on refuses it rather than misread it.
+- The review's text boxes start one line high, growing as you write.
+- While reviewing, notes are dated how long ago ("5 days ago", from the
+  day the page is read), the date itself in the tooltip.
+- **Your review**, a filter: only the files the review touched
+  (validated, withdrawn, retakes, a description) -- also from "n files
+  reviewed" in the review bar and *See them* before downloading.
+- The review bar folds (›) into a round ✎ button at the bottom right,
+  the review's count on it; a tap opens it again. Remembered by the
+  browser; never folded while it still needs a name.
+- **Play a render's video** from the page: ▶ Play on each line of Last
+  render (one line per video: a shot rendered apart is its own line; a
+  ▶ per shot under the picture while reviewing), the blue ▶ in the
+  panel's header for the file's videos in a row (on a phone it takes the
+  link button's place), ▶ on a sequence's header for all of its files'. The page plays
+  exactly the render it shows. Thin controls under the picture instead
+  of the browser's, which covered half of a wide render.
+- **Videos: from the project, or with the snapshot.** Export snapshot's
+  *Videos* picks *Don't copy* (the default: on a machine that reaches the
+  project, the page plays each render's video from `renders/` itself,
+  relative to it -- nothing copied, export at once), *Folder* (a `videos/`
+  folder beside the snapshots, same tree as `renders/`: only new or
+  changed videos copied) or *Zip* (beside the snapshot), to take it
+  elsewhere -- a copy missing, the page falls back on `renders/`. The
+  choice, the sequences ticked and *Assets & libraries* are remembered.
+  *Choose the videos folder…* (a folder button next to ? until one is
+  chosen, ⋯ menu, or under a render with nothing to play) reads them from
+  any folder, whatever its name -- the project's `renders/` too: in
+  Chrome or Edge it opens only the videos it needs, by their paths.
+- The logo moved to the footer, "Created by minimalist pipeline", and
+  opens the add-on's page on extensions.blender.org.
+- A retake on no department (general RTK) counts in a file's Done as an
+  RTK on one of its done departments, no longer on every one of them;
+  each department's own Done leaves it out.
+- H.265 videos play on iPad, iPhone and Safari: the compilation tags
+  them `hvc1` (ffmpeg's `hev1` was refused there). Recompile an older
+  one to play it. The page says when a video is there but its format
+  can't be played, instead of "not found".
+- Touch screens: closing the keyboard no longer leaves the page scrolled
+  to the bottom (iOS scrolled it under a field of the panel or the review
+  bar); on a phone the list holds still under the open panel.
+- Tablets: upright (up to 900 px wide), a file's panel takes the whole
+  screen, Previous / Next at the bottom -- beside the list it left a
+  strip of names cut short. Under a finger, fields are 16 px (iOS zoomed
+  the page into smaller ones), keyboard keys are no longer recalled, and
+  while writing in the panel the picture, the review bar and Previous /
+  Next step aside for the on-screen keyboard.
+- **A light copy for browsers**, in the render's folder, `ld/`: when its
+  video is wider than 8192 px (a panoramic render: browsers on a PC or
+  an iPad refuse it) or in a codec they don't play (ProRes, DNxHR...),
+  the farm's compilation writes an H.265 copy at most 8192 px wide in the
+  same pass. The snapshot plays and carries it; the full one stays for
+  the edit (rushes, previews, thumbnails never see `ld/`). A job set up
+  before (a Recompile) reads its first frame's width. For a render
+  compiled before, Export snapshot makes it once (needs ffmpeg; an H.265
+  tagged `hev1` is only re-tagged).
+- The ffmpeg preset takes an `extension` (`"mov"`...; `mp4` without it):
+  a ProRes `.mov` for the edit, say. Such a video is found as the
+  render's everywhere (rushes, previews, Checked, snapshot), and gets a
+  light mp4 in `ld/` for browsers.
+- *Find existing project* opens the folder browser straight away, beside
+  the projects already known: Accept activates the project. A dialog
+  came first, its path field opening the same browser, then needed
+  confirming again.
+- Farm: cancelling a job whose cancel was already on its way (sent by the
+  farm, or a second click) no longer raises "locked by another process".
+- A render's compiled video carries its version, like its folder:
+  `sq100_sh030_v003-stable_001.mp4` (was `sq100_sh030.mp4`; older ones
+  still read). Its rush in `editing/rushes/` keeps the name without, for
+  the edit to relink.
+- **Filters as icons**, each with its count (◆ retakes, ⚠ render
+  outdated, ✓ to validate...), its name in its tooltip, in the ? legend,
+  and in full once it filters: they hold on one line with the search on
+  a tablet upright, on two on a phone -- nothing to scroll sideways
+  anymore. The search shrinks to its glass when the line is full.
+- The department filter and the role pickers (review bar, Download)
+  open the page's own list, in its style and colours, dark mode
+  included -- the system's list took none.
+- The review bar folds into ✎ by itself when the panel, widened, leaves
+  it no room beside it; ✎ shows it over everything until folded again.
+- When the snapshot was taken stands out; opened later, "n days old".
+- Colours: every text at 4.5:1 or more in both themes; the review bar
+  stays dark in dark mode.
+- An image embedded more than once (a block's thumbnail is also its
+  first shot's) is stored once -- about 12 % lighter on a project with
+  multishot blocks.
+- Touch screens: every button, chip and field 44 px tall.
+- Phones: each department's name in its state's colour (done green and
+  bold, in progress amber, not started light grey; reworked underlined
+  in amber) instead of its mark, the rows apart by a band of the page's
+  background, the versions left to the file's panel.
+
+### Removed
+
+- The Columns menu (columns nobody requires are left out by themselves),
+  the print layout, the table / One file switch and the per-shot buttons
+  under a block's thumbnail in the list (its panel shows every shot).
+
 ## 1.1.7 — 29/10/2026
 
 ### Added

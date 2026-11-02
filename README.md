@@ -2,9 +2,9 @@
 
 *[Version française : README_fr.md](README_fr.md)*
 
-Lightweight pipeline Blender addon for solo artists and small teams (2-5), full Blender, no server to install. FFmpeg is the one optional external dependency — only needed for the render farm's video compilation and image-check stages, everything else works without it.
+Lightweight pipeline Blender addon for solo artists and small teams (2-5), full Blender, no server to install. FFmpeg is the one optional external dependency — used to check and compile renders on the farm, for previews, for thumbnails of multilayer EXRs, and to scale down videos too wide for a browser in a snapshot; everything else works without it.
 
-**Author**: Samy Rodriguez · **Version**: 1.1.7 · **Blender**: 4.2+
+**Author**: Samy Rodriguez · **Version**: 1.1.8 · **Blender**: 4.2+
 
 ---
 
@@ -36,7 +36,13 @@ New here? **[Getting started](docs/getting-started.md)** walks through a first p
 
 **Target**: solo 3D artists or small teams, without the budget/time for Shotgrid or a studio pipeline.
 
-**Problem solved**: the gap between artisanal chaos (`finalversion_therealone02.blend`) and heavyweight studio machinery. The addon structures *storage* — naming, folders, versions, light locking — without imposing an artistic workflow.
+**Problem solved**: the gap between artisanal chaos (`finalversion_therealone02.blend`) and heavyweight studio machinery. Three parts, each usable without the others:
+
+- **Storage** — naming, folders, versions, light locking: the base, without imposing an artistic workflow.
+- **Tracking & reviews** — notes, retakes, per-department validation, project monitoring, and a production snapshot to review offline, even away from the studio.
+- **Render farm** — every machine that can open the project can render, no farm software.
+
+**What it won't do**, on purpose: plan work per person, or show anyone's work time (the data is logged, never surfaced — see [Design choices](docs/design.md)). It stays a tool for the people doing the work, not a production manager's dashboard.
 
 **Philosophy**:
 - **Detect → Inform → Propose → Execute if validated.** The addon never does anything silently, but never blocks work either. Every automation goes through a popup with an explicit choice.

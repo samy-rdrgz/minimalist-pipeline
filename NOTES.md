@@ -1852,9 +1852,10 @@ project at a given moment and a way to send review notes back.
   could bundle wheels.
 - **Videos in a zip beside it, not in the HTML.** Embedding them (base64
   `data:`) was weighed: +33 % on top of the mp4s, the whole file loaded
-  at once by the browser, and the renders are x265 -- Firefox can't play
-  them, Chrome only with hardware decoding -- so a re-encoded H.264 copy
-  per shot on top. A zip named like the snapshot (`zip_latest_videos()`,
+  at once by the browser, and the renders are x265 -- browsers play it
+  through hardware decoding only (Firefox too, recent versions) -- so a re-encoded H.264 copy
+  per shot on top. A zip named like the snapshot (`zip_latest_videos()`
+  then -- since gone, see "Snapshot page, redrawn" --,
   `lib/preview.py`) just copies the mp4s as they are (stored, not
   compressed: an mp4 already is), laid out like `renders/` minus each
   one's own folder (its video's name already says it), for the
@@ -3541,4 +3542,117 @@ is used only when none matches, flagged "preset unknown". Read on the
 farm reader thread (`_history_pace_for_jobs()`, re-read only once the
 history's mtime moves), only for jobs waiting at `setup_finished` --
 never from draw().
+
+
+## Snapshot page, redrawn
+
+The page grew one request at a time (1.0.10 to 1.1.7) into a table of
+every column at once, a filter bar of three groups, a review box, a
+One file card and a phone mode of its own: everything shown with the same
+weight, every number coloured. It is now drawn in the browser from data
+(`lib/snapshot_page.py` shapes it, `templates/snapshot/page.js` draws it)
+around one idea: a list to scan, a panel to read one file.
+
+- **Data, not markup.** Python writes `{"meta", "items", "images"}` into
+  the page; page.html / page.css / page.js are plain files in
+  `templates/snapshot/`, filled in one pass. ~2000 lines of HTML, CSS
+  and JS held in Python strings went. Thumbnails are stored once each
+  (a block's is also its first shot's) and turned into blob URLs once:
+  redrawing the list after a filter moves short strings, not megabytes.
+- **Colour for what needs acting on.** Done green, retake red (the
+  team's own orange), validated violet; the rest is neutral text. A
+  department is a mark (● ◉ ◐ ○ –, told apart without colour), and what
+  is said about it sits under it in one slot: an open RTK, who
+  validated, this review's verdict (✓ you on a fill: not sent yet). An
+  RTK no longer replaces the state: "done, sent back" and "in progress,
+  sent back" weigh differently in Done. A badge only for what shows
+  nowhere else (render outdated, to check); notes, general RTKs and the
+  farm are words on the version line -- the farm is secondary.
+- **Only what holds something**: department columns nobody in the list
+  requires are left out (the Columns menu went); groups with nothing
+  tracked fold, their files behind "+ n files".
+- **One review, in the panel.** The table's per-cell ✓ ✗ and the One
+  file card were two views of the same review; the panel is the card,
+  next to the list on a computer, a sheet on a phone. While reviewing it
+  shows the picture, the departments with ✓ ✕ and their open RTKs, and
+  folds the rest (render, file, notes). The review keeps the page
+  before's shape (`rv`, its localStorage key, `exportRows()`), so a
+  review in progress survives the update and Import review reads the
+  same `.json`. Download asks name, role and date in a dialog that sums
+  the review up -- the count stays out of the page.
+- **No snapshot comparison** (decided): a page shows one moment. It says
+  so -- "Snapshot of <day, time>", "n days old" when opened later.
+- **Names stay names**: the group's prefix quiet, the rest bold, breaks
+  allowed after _ and - -- never shortened or rewritten, people search
+  and copy them.
+- **Videos**: re-zipping gigabytes because a note changed made no sense.
+  A shared `videos/` folder next to the snapshots is the default. The
+  videos are the ones the page shows -- each render line's own mp4, its
+  path under `renders/` kept as its name (`snapshot_videos()`) --, not
+  Preview sequence's newest per shot: those differ when a shot's folder
+  holds a render from another file (a newer folder name than the block's
+  last render), and the page then had nothing to play. That path
+  carries the render folder, so a new render is a new file and an old one
+  is never overwritten under a page that points at it; a copy is skipped
+  when size and modification time match (`copy_videos()`, `copy2` keeps
+  the time). The zip stays, to send. The page gets the exact list of
+  names (`meta["videos"]["files"]`, what `videos/` already holds counted
+  too) instead of guessing from the sequences ticked, and *Choose the
+  videos folder…* (`webkitdirectory`, every tail of each path indexed)
+  plays them from wherever they are -- the folder's name no longer
+  matters. Old renders pile up in `videos/`: deleting it is safe, the
+  next export copies again.
+- **Too wide to play**: a 13444 x 1200 H.265 render played nowhere --
+  hardware decoders stop around 8192 px wide (PC and iPad alike). The
+  edit needs it full size, so a light copy sits beside it, in the render
+  folder's `ld/` (out of reach of everything that takes "the mp4 of a
+  render folder": rushes, previews, thumbnails). Made by the farm's
+  compilation, in the same ffmpeg pass (`_ld_args()`: a second output,
+  only when the width -- captured at setup -- or the preset's codec
+  calls for it), since the farm always has ffmpeg; an export on a
+  machine without it then never has to encode. Renders from before:
+  Export snapshot makes theirs once (`ensure_ld()`, width and codec read
+  from `ffmpeg -i`'s report, the playable ones remembered for the
+  session). A first version scaled only the snapshot's copy: the page
+  then couldn't play the render from `renders/` itself, and a copy made
+  without ffmpeg stayed full size for good.
+- **From the project, not copied**: a snapshot opened at the studio
+  plays each video from `renders/`, relative to the page
+  (`meta["videos"]["local"]`): the browser loads one file on ▶, never
+  lists a folder. The copy (*Folder*, *Zip*) is only for taking the
+  snapshot elsewhere -- kept a choice, a folder sent as is beats a zip to
+  unpack. Same tree everywhere (a video named by its path under
+  `renders/`), so one name serves the three: the copy, `renders/`, a
+  folder chosen on the page.
+- Dropped on purpose: the print layout (the page is the document), the
+  table/One file switch, the header behind ☰ on a phone, Go to, notes
+  unfolded under rows, per-shot hover buttons in the list (the panel has
+  every shot's picture).
+
+## Review on the page: retakes, remarks, replies, fixed
+
+What a reviewer writes on the snapshot page, and what Import review does
+with it -- one rule for every box, so nobody has to learn two.
+
+- **A line is a retake unless it's a remark.** `note:` (or `note :`,
+  `n:`, any case, after the line's `[sh020] [f12-40]` tags) makes it a
+  remark; anything else is "still to redo". The page and the import read
+  it with the same pattern (`NOTE_RE` in page.js, `_NOTE_PREFIX`).
+- **Remarks alone send nothing back.** A department's box holding only
+  remarks leaves its validation as it is (it used to withdraw it, as a
+  retake): grey ✎ you instead of the red ✕ you.
+- **Fixed / Done closes, a reply never does.** An open RTK has *Fixed*,
+  an open todo *Done* (a thread's first entry or a reply in it): marked
+  done at import as the reviewer (`close_entry()`, which never reopens
+  one -- importing twice changes nothing). A reply goes into its note's
+  thread (`response`), read by the same rule: a retake reply is "still
+  to redo" -- its note's department sent back, its validation withdrawn
+  (the page writes "no" for it), imported as an RTK on that department;
+  a remark reply is a note. The note answered stays open either way.
+- **Where it travels**: the page's `.json` only (schema 6: `fixed`, the
+  ids; `reply <id>`, one column each) -- the spreadsheet has no place for
+  a thread. Schema 6 is refused by an older add-on rather than read as
+  departments named "fixed" and "reply ...".
+- **The page needs the entries' ids** (`_entry_dict()`, `_entry()`): a
+  thread is found by id at import, never by its text.
 

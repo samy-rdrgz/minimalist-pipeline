@@ -2,9 +2,9 @@
 
 *[English version: README.md](README.md)*
 
-Addon Blender de pipeline léger pour artistes solo et petites équipes (2-5), full Blender, sans serveur à installer. FFmpeg est la seule dépendance externe optionnelle — utile uniquement pour les étapes de compilation vidéo et de vérification d'images du render farm, tout le reste fonctionne sans.
+Addon Blender de pipeline léger pour artistes solo et petites équipes (2-5), full Blender, sans serveur à installer. FFmpeg est la seule dépendance externe optionnelle — utilisée pour vérifier et compiler les rendus de la farm, pour les previews, pour les vignettes d'EXR multilayer, et pour réduire dans un snapshot les vidéos trop larges pour un navigateur ; tout le reste fonctionne sans.
 
-**Auteur** : Samy Rodriguez · **Version** : 1.1.7 · **Blender** : 4.2+
+**Auteur** : Samy Rodriguez · **Version** : 1.1.8 · **Blender** : 4.2+
 
 ---
 
@@ -36,7 +36,13 @@ Nouveau ici ? **[Prise en main](docs/getting-started_fr.md)** détaille un premi
 
 **Cible** : artistes 3D solo ou petites équipes, sans budget/temps pour Shotgrid ou une pipeline studio.
 
-**Problème résolu** : l'entre-deux entre le chaos artisanal (`vfinale_lavrai02.blend`) et les usines à gaz. L'addon structure le *rangement* — nommage, dossiers, versions, verrouillage léger — sans imposer de workflow artistique.
+**Problème résolu** : l'entre-deux entre le chaos artisanal (`vfinale_lavrai02.blend`) et les usines à gaz. Trois parties, chacune utilisable sans les autres :
+
+- **Rangement** — nommage, dossiers, versions, verrouillage léger : la base, sans imposer de workflow artistique.
+- **Suivi et reviews** — notes, retakes, validation par département, monitoring du projet, et un snapshot de production à reviewer hors ligne, même loin du studio.
+- **Render farm** — chaque machine qui peut ouvrir le projet peut rendre, sans logiciel de farm.
+
+**Ce qu'il ne fera pas**, volontairement : planifier le travail par personne, ni montrer le temps de travail de qui que ce soit (la donnée est enregistrée, jamais affichée — voir [Choix de conception](docs/design_fr.md)). Il reste un outil pour ceux qui font le travail, pas un tableau de bord de chef de production.
 
 **Philosophie** :
 - **Détecter → Informer → Proposer → Exécuter si validé.** L'addon ne fait jamais rien en silence, mais ne bloque jamais non plus le travail. Toute automatisation passe par une popup avec un choix explicite.

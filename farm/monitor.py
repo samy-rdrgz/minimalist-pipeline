@@ -505,9 +505,14 @@ def job_cancel_request(*, job_id: str, target_uuid: str, user: str = "unknown") 
     positional call risks silently swapping them."""
     path = ConfigCache.get_path("farm_requests") / f"cancel_{job_id}_{target_uuid}.json"
     path.parent.mkdir(parents=True, exist_ok=True)
-    with locked_json(path) as box:
-        box["data"] = get_user_data(user) | {"job_id": job_id, "at": now()}
-        box["action"] = "to_write"
+    try:
+        with locked_json(path) as box:
+            box["data"] = get_user_data(user) | {"job_id": job_id, "at": now()}
+            box["action"] = "to_write"
+    except PipelineError:
+        # Its lock held: the same cancel is being written (the monitor's,
+        # another click) or taken up by the worker -- already on its way.
+        log("INFO", "farm", f"Cancel of {job_id} on {target_uuid}: already requested.")
 
 
 def archive(job_path: Path) -> None:

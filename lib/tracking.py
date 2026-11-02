@@ -1986,6 +1986,25 @@ def toggle_entry_task(filepath: Path, id: str, user: str):
         raise PipelineError(f"Error during editing file entries : {e}")
 
 
+def close_entry(filepath: Path, id: str, user: str) -> bool:
+    """Mark a todo/rtk entry (matched by id) done, as user -- a review
+    saying it's fixed. Never reopens one: done already, or gone, it changes
+    nothing (an import run twice). True when it marked it.
+    Raises PipelineError if the tracking can't be written."""
+    path = tracking_json_path(filepath, must_exist=True)
+    with locked_json(path) as box:
+        for e in (box["data"] or {}).get("entries", []):
+            if e.get("id") == id and e.get("type") in ("todo", "rtk"):
+                if e.get("done"):
+                    return False
+                e["done"] = True
+                e["done_by"] = user
+                e["done_at"] = now()
+                box["action"] = "to_write"
+                return True
+    return False
+
+
 def mark_render_to_check(
     filepath: Path | str,
     shot: str,
