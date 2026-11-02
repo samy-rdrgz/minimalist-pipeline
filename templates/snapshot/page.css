@@ -536,8 +536,12 @@ body.reviewing .keys .rk2{display:inline}
 .lb{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:calc(56px + env(safe-area-inset-top,0px)) 20px 20px;background:rgba(10,10,10,.92)}
 .lb img,.lb video{max-width:100%;max-height:calc(100dvh - 140px);border-radius:3px;background:#000}
 /* The video's own controls: one thin row under it. */
+/* Its size set once by page.js (fitPlayer()), from the video's own shape
+and the room there is -- never from its content: the time ticking, or
+the visible height moving under an app's bars, resized it by a hair, a
+black band coming and going on its sides. */
 .vp{display:flex;flex-direction:column;gap:6px;max-width:100%}
-.vp video{display:block;cursor:pointer}
+.vp video{display:block;cursor:pointer;width:100%;height:auto;max-height:none;object-fit:contain;background:transparent}
 .vc{display:flex;align-items:center;gap:6px;color:#ddd;font-size:12px}
 .vb{flex:none;width:30px;height:30px;padding:0;border:0;border-radius:99px;background:none;color:#fff;font-size:12px;line-height:1}
 .vb:hover{background:rgba(255,255,255,.14)}

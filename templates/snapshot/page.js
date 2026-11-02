@@ -394,6 +394,15 @@ var rank=function(v){var k=it.shots.indexOf(v.first);return k<0?0:k;};return out
 // Its own thin controls under the picture: a render is wide and low, the
 // browser's would cover half of it.
 function clock(t){t=Math.floor(+t||0);return Math.floor(t/60)+':'+('0'+t%60).slice(-2);}
+// The player's width: the video's shape (16:9 until it's known) in the
+// room the lightbox leaves -- set, not left to its content. Again only
+// when the screen's width changes (turned), not as its height moves
+// under a browser's or an app's bars.
+var fitW=0;
+function fitPlayer(el){var vp=el&&el.closest('.vp');if(!vp)return;var r=el.videoWidth&&el.videoHeight?el.videoWidth/el.videoHeight:16/9;
+var top=parseFloat(getComputedStyle(document.body).paddingTop)||0;
+vp.style.width=Math.max(160,Math.floor(Math.min($('lb').clientWidth-40,(innerHeight-140-top)*r)))+'px';fitW=innerWidth;}
+addEventListener('resize',function(){if($('lb').hidden||innerWidth===fitW)return;fitPlayer($('lb-in').querySelector('video'));});
 function play(list){if(!list.length)return;var at=0;
 function show(){var v=list[at],many=list.length>1;
 lightbox('<div class="vp"><video playsinline autoplay src="'+esc(v.src)+'"></video>'+
@@ -404,6 +413,7 @@ lightbox('<div class="vp"><video playsinline autoplay src="'+esc(v.src)+'"></vid
 '<button type="button" class="vb" id="vp-f" aria-label="Full screen">⛶</button></div></div>',
 esc(v.file)+(v.shot?' · <b>'+esc(v.shot)+'</b>':'')+' · '+esc(v.folder)+(many?' ('+(at+1)+' / '+list.length+')':''));
 var el=$('lb-in').querySelector('video'),pb=$('vp-p'),rg=$('vp-r'),tm=$('vp-t'),seeking=false;
+fitPlayer(el);el.addEventListener('loadedmetadata',function(){fitPlayer(el);});
 function sync(){pb.textContent=el.paused?'▶':'❚❚';pb.setAttribute('aria-label',el.paused?'Play':'Pause');}
 el.addEventListener('play',sync);el.addEventListener('pause',sync);
 el.addEventListener('timeupdate',function(){if(!seeking&&el.duration)rg.value=Math.round(el.currentTime/el.duration*1000);

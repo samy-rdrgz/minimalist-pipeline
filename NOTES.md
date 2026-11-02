@@ -3685,6 +3685,15 @@ Seen on a 12.9" iPad, in Documents by Readdle's viewer:
   media query (`:root:not([data-theme=light])`) and for `[data-theme=dark]`;
   page.html's head reads the choice (`mp-snapshot:theme`) before the page
   is drawn -- no flash.
+- **A video zoomed in and out by a hair** (iPad only), black bands on
+  its sides: `.vp` was as wide as its content -- the video, capped at
+  `100dvh - 140px`, and the controls, whose time text changes width --
+  so the visible height moving under Safari's or an app's bars, and the
+  ticking time, resized it every few frames. `fitPlayer()` sets `.vp`'s
+  width once (the video's ratio once its metadata is in, 16:9 before, in
+  the lightbox's room); the video is 100 % of it, no black background
+  (`object-fit: contain`). Again on `resize` only if the width changed:
+  turned, not a bar sliding.
 - What the page can't change: a viewer app showing its own header and
   footer on a tap (Documents by Readdle), or the floating mini keyboard
   (iPadOS: a pinch on the keyboard, or the app's window not full

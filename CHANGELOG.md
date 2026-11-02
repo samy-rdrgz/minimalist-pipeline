@@ -172,6 +172,11 @@ review one file -- lighter to read on a computer and on a phone.
 - **Playing a video no longer scrolls the list back to the top** (iPad):
   the page under the player holds still and is back where it was once
   the player is closed.
+- **A video no longer zooms in and out by a hair while it plays** (iPad),
+  black bands coming and going on its sides: the player's size followed
+  its content (the time ticking) and the visible height (moving under a
+  browser's or an app's bars). It's now set once from the video's shape
+  and the room there is -- again only when the screen turns.
 
 ### Removed
 
