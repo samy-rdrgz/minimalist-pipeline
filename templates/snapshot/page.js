@@ -737,7 +737,7 @@ var FS=window.CSS&&CSS.supports('field-sizing','content');
 function grow(t){if(FS||!t)return;var p=t.closest('.p-body'),y=p?p.scrollTop:0;t.style.height='auto';t.style.height=Math.min(t.scrollHeight+2,innerHeight*.5)+'px';if(p&&p.scrollTop!==y)p.scrollTop=y;}
 function setText(it,key,text){var e=entry(it);if(key==='gen')e.text=text;else if(e.deps[key.slice(2)])e.deps[key.slice(2)].text=text;}
 function validateAll(){var it=D[cur];if(!Object.keys(it.states).some(function(d){return isDone(it.states[d]);}))return;var e=entry(it);e.all=!e.all;refresh();}
-function generalRetake(){var e=entry(D[cur]);if(editing.gen||e.text){if(!e.text.trim()||confirm('Drop this general retake?')){e.text='';editing.gen=false;refresh();}return;}
+function generalRetake(){var e=entry(D[cur]);if(editing.gen||e.text){var drop=function(){e.text='';editing.gen=false;refresh();};if(!e.text.trim())drop();else ask('Drop this general retake?','Drop it',drop);return;}
 editing.gen=true;refresh();var g=$('gen-t');if(g)g.focus({preventScroll:true});}
 $('p-body').addEventListener('click',function(ev){var t,it=D[cur];
 // A touch screen, a tap that opens a box to write in (✕, ↩, ✎, a shot):
@@ -748,8 +748,8 @@ if((t=ev.target.closest('[data-play]')))return play(videosOf(it,it.renders[+t.da
 if(ev.target.closest('#bigb'))return lightbox('<img alt="" src="'+$('bigimg').src+'">',esc(it.name));
 if((t=ev.target.closest('.shotsel button'))){$('bigimg').src=t.dataset.src;t.parentNode.querySelectorAll('button').forEach(function(x){x.setAttribute('aria-pressed',x===t);});return;}
 if((t=ev.target.closest('.tags [data-shot]'))){var key=t.closest('.tags').dataset.k,sh=t.dataset.shot,txt=key==='gen'?entry(it).text:(entry(it).deps[key.slice(2)]||{}).text||'',b=boxOf(it,key,txt);
-if(b.open[sh]&&(b.per[sh]||'').trim()&&!confirm('Drop what you wrote for '+sh+'?'))return;
-b.open[sh]=!b.open[sh];if(!b.open[sh])delete b.per[sh];setText(it,key,joinBox(it,b));refresh();
+var tog=function(){b.open[sh]=!b.open[sh];if(!b.open[sh])delete b.per[sh];setText(it,key,joinBox(it,b));refresh();};
+if(b.open[sh]&&(b.per[sh]||'').trim()){ask('Drop what you wrote for '+sh+'?','Drop it',tog);return;}tog();
 if(b.open[sh]){var ta3=$('p-body').querySelector('textarea[data-k="'+CSS.escape(key)+'"][data-s="'+CSS.escape(sh)+'"]');if(ta3)ta3.focus({preventScroll:true});}return;}
 if(ev.target.closest('#tog-closed')){showClosed=!showClosed;showNotes=true;return refresh();}
 if(ev.target.closest('#tog-notes')){showNotes=!showNotes;return refresh();}
@@ -834,8 +834,18 @@ var folded=false;try{folded=localStorage.getItem(FOLD)==='1';}catch(e){}
 document.body.classList.toggle('rb-folded',on&&folded&&!!$('author').value.trim());showNotes=null;editing={};if(on&&!$('author').value&&!matchMedia('(pointer:coarse)').matches)$('author').focus({preventScroll:true});if(cur!=null)openPanel(cur);fitBar();}
 $('rv').addEventListener('click',function(){setReview(true);});
 $('rv-exit').addEventListener('click',function(){closeMenus();setReview(false);toast('Review left: it stays in this browser, ✎ Review takes it back.');});
-$('rv-clear').addEventListener('click',function(){closeMenus();if(!summary().files||confirm('Clear this review? What you wrote here is lost (a downloaded file is kept).')){
-rv.files={};save();render();if(cur!=null)openPanel(cur);}});
+// Asked in the page, not with confirm(): an app's viewer (Documents, on an
+// iPad) may show no confirm() at all -- it answers no, and nothing was
+// cleared. then() once the button is pressed.
+function ask(text,ok,then){var dl=$('dlg');dl.innerHTML='<div class="dlg-in" role="alertdialog" aria-modal="true" aria-labelledby="ask-t"><p id="ask-t" class="ask">'+esc(text)+'</p>'+
+'<div class="acts"><button class="btn" id="ask-no">Cancel</button><button class="btn primary" id="ask-ok">'+esc(ok)+'</button></div></div>';
+dl.hidden=false;$('ask-ok').focus({preventScroll:true});dl.onclick=function(e){if(e.target===dl)dl.hidden=true;};
+$('ask-no').onclick=function(){dl.hidden=true;};$('ask-ok').onclick=function(){dl.hidden=true;then();};}
+// Cleared: what was written for each file, here and in this browser's
+// copy -- the name and the role stay.
+function clearReview(){rv.files={};BOX={};editing={};save();render();if(cur!=null)openPanel(cur);toast('Review cleared.');}
+$('rv-clear').addEventListener('click',function(){closeMenus();if(!summary().files)clearReview();
+else ask('Clear this review? What you wrote here is lost (a downloaded file is kept).','Clear it',clearReview);});
 $('author').addEventListener('input',function(){this.classList.remove('need');rv.author=this.value;save();});
 $('role').addEventListener('change',function(){this.classList.remove('need');rv.role=this.value;save();sync('role');});
 function exportRows(){var out=[];D.forEach(function(it){if(!changes(it))return;var e=rv.files[it.file],
@@ -899,9 +909,9 @@ try{if(navigator.canShare({files:[f]}))return f;}catch(e){}}return null;}
 document.querySelectorAll('.rv-load').forEach(function(inp){inp.addEventListener('change',function(){var file=this.files[0];this.value='';closeMenus();if(!file)return;
 var rd=new FileReader();rd.onload=function(){var data;try{data=JSON.parse(rd.result);}catch(e){toast('Not a review file.');return;}
 if(data.format!==META.format){toast('Not a review downloaded from a snapshot page.');return;}
-if(data.project!==META.project&&!confirm('This review is for '+data.project+', not '+META.project+'. Load it anyway?'))return;
-if(summary().files&&!confirm('Replace the review in progress with this one?'))return;
-rv={author:data.author||'',role:data.role||'',date:data.review_date||'',files:{}};var unknown=0;
+var go=function(){if(summary().files)ask('Replace the review in progress with this one?','Replace it',load);else load();};
+if(data.project!==META.project)ask('This review is for '+data.project+', not '+META.project+'. Load it anyway?','Load it',go);else go();
+function load(){rv={author:data.author||'',role:data.role||'',date:data.review_date||'',files:{}};var unknown=0;
 (data.rows||[]).forEach(function(row){var it=byFile[row.filename];if(!it){unknown++;return;}var e=entry(it);
 Object.keys(row).forEach(function(k){if(FIXED.indexOf(k)>=0)return;if(k.indexOf('reply ')===0){e.replies[k.slice(6)]=String(row[k]);return;}var v=String(row[k]).trim(),l=v.toLowerCase();
 if(OKS.indexOf(l)>=0)e.deps[k]={ok:1};else if(NOS.indexOf(l)>=0)e.deps[k]={no:1,text:''};else e.deps[k]={no:1,text:v};});
@@ -910,7 +920,7 @@ if(OKS.indexOf(gl)>=0)e.all=true;else if(NOS.indexOf(gl)>=0)Object.keys(it.state
 else e.text=gv;if(row.description)e.desc=row.description;
 String(row.fixed||'').split(/\s+/).filter(Boolean).forEach(function(id){e.fixed[id]=1;});});
 $('author').value=rv.author;$('role').value=rv.role;sync('role');save();setReview(true);render();
-toast('Review of '+(rv.author||'?')+' loaded: '+plural(summary().files,'file')+(unknown?', '+unknown+' not on this page (renamed, or another snapshot)':'')+'.');};
+toast('Review of '+(rv.author||'?')+' loaded: '+plural(summary().files,'file')+(unknown?', '+unknown+' not on this page (renamed, or another snapshot)':'')+'.');}};
 rd.readAsText(file);});});
 
 /* ---------- start ---------- */

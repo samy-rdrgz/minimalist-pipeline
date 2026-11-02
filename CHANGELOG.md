@@ -209,6 +209,9 @@ review one file -- lighter to read on a computer and on a phone.
   keyboard leaves, the box being written in scrolled into it.
 - **Next / Previous no longer scroll the list up then down** (iPad): it
   follows the file shown at once, only when its row is out of sight.
+- **Clear this review works in an app's viewer** (Documents, on an
+  iPad): its question, and the page's others, are asked in the page --
+  the app showed none, and answered no.
 
 ### Removed
 

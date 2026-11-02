@@ -3757,6 +3757,15 @@ Seen on a 12.9" iPad, in Documents by Readdle's viewer:
 - **Next / Previous scrolled up, then down** (iPad, panel beside the
   list): `openPanel()`'s smooth `scrollBy` to the shown row; on a touch
   screen at once (`behavior: auto`), only when the row is out of sight.
+- **Clear this review did nothing** (iPad, in Documents' viewer): it asked
+  with `confirm()`, and an app's web view that shows no JS dialogs
+  answers no at once. Every `confirm()` (clear, drop a general retake or
+  a shot's box, load a review over one / from another project) is now
+  `ask(text, ok, then)`, in `#dlg`. Cleared, `clearReview()` also drops
+  the boxes' cache (`BOX`) and what's being edited; the name and the
+  role stay. A review is kept by project and scan date (`KEY`): two
+  pages of the same snapshot (or re-exported from the same scan) share
+  it.
 - **Where a review lands**: a page can't pick a download's folder, and in
   an app's viewer (Documents) it lands in the app's own space. *Save or
   send…* (`SHARE`: `navigator.share` + `canShare` with a file, on a
