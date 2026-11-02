@@ -684,7 +684,11 @@ if(VV){VV.addEventListener('resize',fitKb);VV.addEventListener('scroll',fitKb);}
 document.addEventListener('focusin',function(){if(!coarse.matches)return;fitKb();setTimeout(fitKb,350);});
 document.addEventListener('focusout',function(){setTimeout(fitKb,80);});
 $('p-body').addEventListener('input',function(){if(document.body.classList.contains('kb'))revealField();});
-function closePanel(){if(cur==null)return;cur=null;document.body.classList.remove('panel-open');lockPage('panel',false);fitBar();var p=$('panel');p.classList.remove('on');$('scrim').classList.remove('on');
+function closePanel(){if(cur==null)return;cur=null;
+// A field of it left for good: hidden with the panel, iOS kept its focus
+// (no focusout), the page stayed held -- nothing scrolled or answered.
+var f=document.activeElement;if(f&&f.closest&&f.closest('.panel')&&f.blur)f.blur();clearTimeout(fieldT);lockPage('field',false);
+document.body.classList.remove('panel-open','typing','kb');lockPage('panel',false);fitBar();var p=$('panel');p.classList.remove('on');$('scrim').classList.remove('on');
 setTimeout(function(){if(cur==null)p.hidden=true;},220);document.querySelectorAll('.row.sel').forEach(function(x){x.classList.remove('sel');});
 try{history.replaceState(null,'',location.pathname+location.search);}catch(err){}
 if(lastFocus)lastFocus.focus({preventScroll:true});lastFocus=null;}
@@ -696,10 +700,12 @@ $('p-play').addEventListener('click',function(){if(cur!=null)play(allVideos(D[cu
 $('p-link').addEventListener('click',function(){var u=location.href;
 var ok=function(){toast('Link copied: it opens this file, once this page is where the link points.');};
 if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(u).then(ok,function(){prompt('Link to this file',u);});else prompt('Link to this file',u);});
-// A phone: swipe down from the top to close, sideways for the next / previous file
-// (not on the shots' strip nor in a field, which scroll or select).
+// A touch screen: swipe down from the panel's header to close (not from
+// its text: scrolling it back up closed it), sideways for the next /
+// previous file (not on the shots' strip nor in a field, which scroll or
+// select).
 var t0=null;$('panel').addEventListener('touchstart',function(e){var t=e.touches[0];
-t0=e.target.closest('textarea,input,select,.shotsel')?null:{x:t.clientX,y:t.clientY,top:$('p-body').scrollTop<=0};},{passive:true});
+t0=e.target.closest('textarea,input,select,.shotsel')?null:{x:t.clientX,y:t.clientY,top:!!e.target.closest('.p-head')};},{passive:true});
 $('panel').addEventListener('touchend',function(e){if(!t0)return;var t=e.changedTouches[0],dx=t.clientX-t0.x,dy=t.clientY-t0.y;
 if(Math.abs(dx)>70&&Math.abs(dx)>2*Math.abs(dy))step(dx<0?1:-1);else if(t0.top&&dy>90&&dy>2*Math.abs(dx))closePanel();t0=null;});
 // Focus stays in the open panel.
@@ -931,6 +937,17 @@ summaryCards();drawTabs();render();stats();barHeight();
 // A link to a file (#its name) opens it.
 var want=decodeURIComponent(location.hash.slice(1));if(want&&byName[want])jump(byName[want]);
 })();
+// The status bar's room (page.css --sat): the largest the screen has had,
+// in this orientation, kept by this browser -- its bar shown or hidden
+// (Documents' viewer, at each tap), the page stays where it is.
+(function(){var K='mp-snapshot:safe-top:',pr=document.createElement('div'),max={};
+pr.style.cssText='position:fixed;top:0;left:0;width:1px;height:env(safe-area-inset-top,0px);visibility:hidden;pointer-events:none';
+document.body.appendChild(pr);
+function set(){var o=innerWidth>innerHeight?'l':'p',h=pr.offsetHeight;
+if(max[o]==null)try{max[o]=+localStorage.getItem(K+o)||0;}catch(e){max[o]=0;}
+if(h>max[o]){max[o]=h;try{localStorage.setItem(K+o,String(h));}catch(e){}}
+document.documentElement.style.setProperty('--sat',max[o]?'max(env(safe-area-inset-top,0px),'+max[o]+'px)':'env(safe-area-inset-top,0px)');}
+set();if(window.ResizeObserver)new ResizeObserver(set).observe(pr);addEventListener('resize',set);})();
 // The ⋯ menu's theme: the system's, or light / dark whatever it is --
 // html[data-theme], kept by this browser (read again in page.html's head,
 // before the page shows: no flash of the other one).

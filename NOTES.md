@@ -3766,6 +3766,19 @@ Seen on a 12.9" iPad, in Documents by Readdle's viewer:
   role stay. A review is kept by project and scan date (`KEY`): two
   pages of the same snapshot (or re-exported from the same scan) share
   it.
+- **Closed by a swipe, the page answered nothing** (iPad): a field of
+  the panel kept the focus once hidden with it (no focusout on iOS), so
+  the `field` hold never let go. `closePanel()` blurs a field of the
+  panel and lets go `field` (and `typing`, `kb`) itself. The swipe down
+  that closes starts on the panel's header only (`.p-head`): scrolling
+  the text back up closed it.
+- **The page moved 20 px at each tap** (Documents' viewer, iPad): the
+  app shows and hides the status bar, `safe-area-inset-top` going 0 ↔
+  20 px, and the body's padding, the sticky bar, the panel's header...
+  with it. `--sat` (page.css) replaces `env(safe-area-inset-top)`: the
+  largest inset seen in this orientation (a probe of that height, a
+  ResizeObserver, kept by this browser, `mp-snapshot:safe-top:l` / `:p`),
+  as `max(env(...), Npx)` -- reserved once, nothing moves after.
 - **Where a review lands**: a page can't pick a download's folder, and in
   an app's viewer (Documents) it lands in the app's own space. *Save or
   send…* (`SHARE`: `navigator.share` + `canShare` with a file, on a

@@ -212,6 +212,11 @@ review one file -- lighter to read on a computer and on a phone.
 - **Clear this review works in an app's viewer** (Documents, on an
   iPad): its question, and the page's others, are asked in the page --
   the app showed none, and answered no.
+- **Closing the panel by a swipe no longer leaves the page frozen**
+  (iPad), and the swipe down closes it from its header only, not while
+  scrolling its text.
+- **The page no longer moves at each tap in Documents' viewer** (iPad):
+  the room of the status bar it shows and hides is kept at the top.
 
 ### Removed
 
