@@ -3698,8 +3698,15 @@ Seen on a 12.9" iPad, in Documents by Readdle's viewer:
   `pick()` focuses the current option for the keys; iOS scrolled the page
   to it (the list is `position: fixed`, so is the bar), and the capture
   `scroll` listener closes any open list. `focus({preventScroll:true})`
-  everywhere a list or its button takes the focus, and no scroll closes a
-  list within 400 ms of its opening (`pickOpenedAt`).
+  was not enough on the iPad (the ⋯ menus scrolled the page too, and
+  writing in the side panel scrolled the list to the top). So, on a
+  touch screen (`touchPin`, `(pointer:coarse)`): no focus at all for a
+  list or its button (the keys don't need it there); while a list or a
+  ⋯ menu is open, or a field of the panel has the focus, the page is
+  pinned -- `pinPage()` notes `scrollY` (`keepY` for a field, taken at
+  its focusin, before iOS moves anything) and a `scroll` puts it back;
+  a list closes on a tap elsewhere, never on a scroll. With a mouse:
+  as before (a scroll closes it, but not within 400 ms of its opening).
 - **Where a review lands**: a page can't pick a download's folder, and in
   an app's viewer (Documents) it lands in the app's own space. *Save or
   send…* (`SHARE`: `navigator.share` + `canShare` with a file, on a

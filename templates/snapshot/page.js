@@ -289,25 +289,35 @@ m.innerHTML=[].map.call(sel.options,function(o,i){return '<button type="button" 
 // Fixed, from the button: a scrolling bar or a panel would clip it.
 var r=b.getBoundingClientRect(),up=r.top>innerHeight/2;m.style.left=Math.max(8,Math.min(r.left,innerWidth-Math.max(r.width,200)-8))+'px';m.style.minWidth=r.width+'px';
 m.style.top=up?'':(r.bottom+6)+'px';m.style.bottom=up?(innerHeight-r.top+6)+'px':'';
-// Focused for the keys, never scrolled to: on an iPad, focusing it
-// scrolled the page, and that scroll closed the list at once.
-m.hidden=false;b.setAttribute('aria-expanded','true');pickOpenedAt=Date.now();(m.querySelector('[aria-selected="true"]')||m.firstChild).focus({preventScroll:true});};
+// Focused for the keys -- never on a touch screen, where a focus in a
+// fixed layer scrolls the page on an iPad (and that scroll closed it).
+m.hidden=false;b.setAttribute('aria-expanded','true');pickOpenedAt=Date.now();pinPage();
+if(!touchPin.matches)(m.querySelector('[aria-selected="true"]')||m.firstChild).focus({preventScroll:true});};
 m.onclick=function(e){var o=e.target.closest('[data-i]');if(!o)return;e.stopPropagation();sel.selectedIndex=+o.dataset.i;closePicks();
-sel.dispatchEvent(new Event('change'));sync();b.focus({preventScroll:true});};
+sel.dispatchEvent(new Event('change'));sync();if(!touchPin.matches)b.focus({preventScroll:true});};
 m.onkeydown=function(e){var f=[].slice.call(m.children),k=f.indexOf(document.activeElement);
 if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();var n=f[Math.max(0,Math.min(f.length-1,k+(e.key==='ArrowDown'?1:-1)))];if(n)n.focus({preventScroll:true});}
 else if(e.key==='Escape'||e.key==='Tab'){if(e.key==='Escape'){e.preventDefault();e.stopPropagation();}closePicks();b.focus({preventScroll:true});}};
 sel._pick={sync:sync,button:b};sync();return sel._pick;}
-function closePicks(){document.querySelectorAll('.pick-pop').forEach(function(m){if(!m.hidden){m.hidden=true;m._button.setAttribute('aria-expanded','false');}});}
+function closePicks(){document.querySelectorAll('.pick-pop').forEach(function(m){if(!m.hidden){m.hidden=true;m._button.setAttribute('aria-expanded','false');}});pinPage();}
+// A touch screen: the page under an open list or menu, or under the panel
+// while writing in it, stays where it is -- an iPad scrolls it there (a
+// focus, a tap in a fixed layer), often to the top. The list or menu
+// closes on a tap elsewhere, not on a scroll.
+var pinY=null,touchPin=matchMedia('(pointer:coarse)');
+function pinned(){return [].some.call(document.querySelectorAll('.pick-pop'),function(m){return !m.hidden;})||
+MENUS.some(function(m){return !$(m[1]).hidden;})||(keepY!=null&&!!document.activeElement&&!!document.activeElement.closest&&!!document.activeElement.closest('.panel'));}
+function pinPage(){if(!touchPin)return;var on=touchPin.matches&&pinned();if(on&&pinY==null)pinY=keepY!=null?keepY:scrollY;else if(!on)pinY=null;}
+addEventListener('scroll',function(){if(pinY!=null&&lockY==null&&Math.abs(scrollY-pinY)>1)scrollTo(0,pinY);});
 function sync(id){var s=$(id);if(s&&s._pick)s._pick.sync();}
 document.addEventListener('click',closePicks);addEventListener('resize',closePicks);
 // A scroll closes an open list -- not one the browser makes as it opens
 // (iOS scrolls on a focus all the same, sometimes).
 var pickOpenedAt=0;
-document.addEventListener('scroll',function(e){if(Date.now()-pickOpenedAt<400)return;if(!(e.target.closest&&e.target.closest('.pick-pop')))closePicks();},true);
-function closeMenus(){MENUS.forEach(function(m){$(m[1]).hidden=true;$(m[0]).setAttribute('aria-expanded','false');});}
+document.addEventListener('scroll',function(e){if(touchPin.matches||Date.now()-pickOpenedAt<400)return;if(!(e.target.closest&&e.target.closest('.pick-pop')))closePicks();},true);
+function closeMenus(){MENUS.forEach(function(m){$(m[1]).hidden=true;$(m[0]).setAttribute('aria-expanded','false');});pinPage();}
 MENUS.forEach(function(m){$(m[0]).addEventListener('click',function(e){e.stopPropagation();var open=$(m[1]).hidden;closeMenus();
-$(m[1]).hidden=!open;this.setAttribute('aria-expanded',open);});});
+$(m[1]).hidden=!open;this.setAttribute('aria-expanded',open);pinPage();});});
 document.addEventListener('click',function(e){if(!e.target.closest('.menu-pop'))closeMenus();});
 
 /* ---------- pictures and videos ---------- */
@@ -622,9 +632,9 @@ var coarse=matchMedia('(pointer:coarse)');
 document.addEventListener('focusin',function(e){if(coarse.matches&&e.target.matches('input,textarea')&&e.target.closest('.panel'))document.body.classList.add('typing');});
 document.addEventListener('focusout',function(){setTimeout(function(){var f=document.activeElement;
 if(!(f&&f.matches&&f.matches('input,textarea')&&f.closest('.panel'))&&document.body.classList.contains('typing')){document.body.classList.remove('typing');fitBar();}},60);});
-document.addEventListener('focusin',function(e){if(lockY==null&&keepY==null&&e.target.matches('input,textarea,select')&&e.target.closest('.panel,.rbar,.dlg')&&matchMedia('(pointer:coarse)').matches)keepY=scrollY;});
+document.addEventListener('focusin',function(e){if(lockY==null&&keepY==null&&e.target.matches('input,textarea,select')&&e.target.closest('.panel,.rbar,.dlg')&&matchMedia('(pointer:coarse)').matches)keepY=scrollY;pinPage();});
 document.addEventListener('focusout',function(e){if(keepY==null)return;var y=keepY;
-setTimeout(function(){var f=document.activeElement;if(f&&f.matches&&f.matches('input,textarea,select')&&f.closest('.panel,.rbar,.dlg'))return;keepY=null;if(lockY==null){scrollTo(0,y);
+setTimeout(function(){var f=document.activeElement;if(f&&f.matches&&f.matches('input,textarea,select')&&f.closest('.panel,.rbar,.dlg'))return;keepY=null;pinPage();if(lockY==null){scrollTo(0,y);
 // Again once the keyboard has slid away: iOS scrolls once more then.
 setTimeout(function(){if(keepY==null&&lockY==null)scrollTo(0,y);},450);}},60);});
 function closePanel(){if(cur==null)return;cur=null;document.body.classList.remove('panel-open');lockPage(false);fitBar();var p=$('panel');p.classList.remove('on');$('scrim').classList.remove('on');

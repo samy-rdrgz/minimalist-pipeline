@@ -182,10 +182,13 @@ review one file -- lighter to read on a computer and on a phone.
   (a download lands wherever the browser, or the app showing the page,
   keeps its own: hard to find in an app's viewer). A cancelled share
   leaves the dialog open; a failed one downloads instead.
-- **The page's lists (Role, departments...) no longer close as they
-  open** (iPad): the list focused its current choice, Safari scrolled the
-  page to it, and any scroll closed the list. Focused without scrolling
-  now, and a scroll the browser makes as it opens doesn't close it.
+- **The page no longer scrolls under its lists, menus or while writing**
+  (iPad): opening a list (Role, departments...) or the ⋯ menu scrolled
+  the page and closed the list; writing in the panel beside the list
+  scrolled the list back to the top. On a touch screen a list no longer
+  takes the focus, the page under an open list or menu -- or under the
+  panel while writing in it -- is held where it was, and a list closes
+  on a tap elsewhere, not on a scroll.
 
 ### Removed
 
