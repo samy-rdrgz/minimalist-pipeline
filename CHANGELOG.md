@@ -207,6 +207,8 @@ review one file -- lighter to read on a computer and on a phone.
 - **What you write stays above the keyboard** (iPad): the panel, the
   download dialog and the review bar (your name) fit in the room the
   keyboard leaves, the box being written in scrolled into it.
+- **Next / Previous no longer scroll the list up then down** (iPad): it
+  follows the file shown at once, only when its row is out of sight.
 
 ### Removed
 

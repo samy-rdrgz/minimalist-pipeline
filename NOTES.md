@@ -3754,6 +3754,9 @@ Seen on a 12.9" iPad, in Documents by Readdle's viewer:
   `revealField()` scrolls `.p-body` to the field (again as it grows).
   On `visualViewport` resize / scroll, focusin (then 350 ms on, the
   keyboard sliding), focusout.
+- **Next / Previous scrolled up, then down** (iPad, panel beside the
+  list): `openPanel()`'s smooth `scrollBy` to the shown row; on a touch
+  screen at once (`behavior: auto`), only when the row is out of sight.
 - **Where a review lands**: a page can't pick a download's folder, and in
   an app's viewer (Documents) it lands in the app's own space. *Save or
   send…* (`SHARE`: `navigator.share` + `canShare` with a file, on a

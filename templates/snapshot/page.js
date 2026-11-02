@@ -632,10 +632,11 @@ requestAnimationFrame(function(){p.classList.add('on');$('scrim').classList.add(
 var pos=visible.indexOf(i);$('p-prev').disabled=$('m-prev').disabled=pos<=0;$('p-next').disabled=$('m-next').disabled=pos<0||pos>=visible.length-1;
 document.querySelectorAll('.row.sel').forEach(function(x){x.classList.remove('sel');});
 var s=$('list').querySelector('.row[data-i="'+i+'"]');if(s){s.classList.add('sel');
-// Beside the list: the file shown stays in sight as ← → go through it --
+// Beside the list: the file shown stays in sight as ← → go through it
+// (at once on a touch screen: iOS's smooth scroll went up, then down) --
 // another file only: a tap in the panel (✓, ✕...) redraws it, and the
 // list stays where it was read.
-var r=s.getBoundingClientRect(),top=bar.getBoundingClientRect().bottom+40;if(!same&&lockY==null&&!phone.matches&&(r.top<top||r.bottom>innerHeight))scrollBy({top:r.top-top-(innerHeight-top)/3,behavior:'smooth'});}
+var r=s.getBoundingClientRect(),top=bar.getBoundingClientRect().bottom+40;if(!same&&lockY==null&&!phone.matches&&(r.top<top||r.bottom>innerHeight))scrollBy({top:r.top-top-(innerHeight-top)/3,behavior:touchPin.matches?'auto':'smooth'});}
 p.setAttribute('aria-modal',phone.matches||document.body.classList.contains('panel-full')?'true':'false');
 try{history.replaceState(null,'','#'+encodeURIComponent(it.name));}catch(err){}}
 function refresh(){var y=$('p-body').scrollTop;openPanel(cur);$('p-body').scrollTop=y;renderRow(cur);save();fieldLeft();}
