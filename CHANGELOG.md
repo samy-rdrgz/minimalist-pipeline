@@ -2,7 +2,7 @@
 
 All notable changes to this addon. Dates are release dates.
 
-## 1.1.8 — unreleased
+## 1.1.8 — 02/11/2026
 
 The production snapshot, redrawn: a list to scan, a panel to read and
 review one file -- lighter to read on a computer and on a phone.
@@ -102,15 +102,12 @@ review one file -- lighter to read on a computer and on a phone.
   them `hvc1` (ffmpeg's `hev1` was refused there). Recompile an older
   one to play it. The page says when a video is there but its format
   can't be played, instead of "not found".
-- Touch screens: closing the keyboard no longer leaves the page scrolled
-  to the bottom (iOS scrolled it under a field of the panel or the review
-  bar); on a phone the list holds still under the open panel.
 - Tablets: upright (up to 900 px wide), a file's panel takes the whole
   screen, Previous / Next at the bottom -- beside the list it left a
   strip of names cut short. Under a finger, fields are 16 px (iOS zoomed
   the page into smaller ones), keyboard keys are no longer recalled, and
-  while writing in the panel the picture, the review bar and Previous /
-  Next step aside for the on-screen keyboard.
+  while writing in the panel the review bar and Previous / Next step
+  aside for the on-screen keyboard.
 - **A light copy for browsers**, in the render's folder, `ld/`: when its
   video is wider than 8192 px (a panoramic render: browsers on a PC or
   an iPad refuse it) or in a codec they don't play (ProRes, DNxHR...),
@@ -169,54 +166,31 @@ review one file -- lighter to read on a computer and on a phone.
   network, time, where the page runs under it -- full screen, or an app's
   viewer): the top bar, the panel's header, the video player, the
   dialogs and messages start below it.
-- **Playing a video no longer scrolls the list back to the top** (iPad):
-  the page under the player holds still and is back where it was once
-  the player is closed.
-- **A video no longer zooms in and out by a hair while it plays** (iPad),
-  black bands coming and going on its sides: the player's size followed
-  its content (the time ticking) and the visible height (moving under a
-  browser's or an app's bars). It's now set once from the video's shape
-  and the room there is -- again only when the screen turns.
 - **The review: *Save or send…*** beside *Download* on a tablet or a
   phone -- the system's share sheet, *Save to Files* picking the folder
   (a download lands wherever the browser, or the app showing the page,
   keeps its own: hard to find in an app's viewer). A cancelled share
   leaves the dialog open; a failed one downloads instead.
-- **The page no longer scrolls under its lists, menus or while writing**
-  (iPad): opening a list (Role, departments...) or the ⋯ menu scrolled
-  the page and closed the list; writing in the panel beside the list
-  scrolled the list back to the top. On a touch screen a list no longer
-  takes the focus, the page under an open list or menu -- or under the
-  panel while writing in it -- is held where it was, and a list closes
-  on a tap elsewhere, not on a scroll.
-- **No more jumps on a touch screen** (iPad): the page was put back after
-  the iPad had scrolled it, and each putting back was a jump of its own
-  (choosing in a list, leaving a field). It is now held still, fixed
-  where it is, while a list, a menu or the download dialog is open and
-  while writing in the panel, the review bar or the dialog, and let go
-  once the keyboard is gone. Also: a tap in the panel (✓, ✕, ↩...) no
-  longer scrolls the list back to the file shown; a box opened by ✕, ↩
-  or ✎ takes the focus without scrolling; the picture at the top of the
-  panel stays while writing (the text no longer moves under the finger);
-  a growing box no longer jolts the panel at each key; scrolling to the
-  end of a list or a menu no longer scrolls the page; the dialog no
-  longer brings the keyboard up by itself; opening a retake's box (✕)
-  no longer sends the page to the top.
-- **A ✓ or ✕ in the panel no longer sends the list beside it to the
-  top** (iPad): only that file's row is redrawn, not the whole list.
-- **What you write stays above the keyboard** (iPad): the panel, the
-  download dialog and the review bar (your name) fit in the room the
-  keyboard leaves, the box being written in scrolled into it.
-- **Next / Previous no longer scroll the list up then down** (iPad): it
-  follows the file shown at once, only when its row is out of sight.
-- **Clear this review works in an app's viewer** (Documents, on an
-  iPad): its question, and the page's others, are asked in the page --
-  the app showed none, and answered no.
-- **Closing the panel by a swipe no longer leaves the page frozen**
-  (iPad), and the swipe down closes it from its header only, not while
-  scrolling its text.
-- **The page no longer moves at each tap in Documents' viewer** (iPad):
-  the room of the status bar it shows and hides is kept at the top.
+- **The page holds still under a finger** (iPad, in Safari or an app's
+  viewer such as Documents): under an open list or menu, the dialogs,
+  the video player, the panel taking the whole screen, and while
+  writing -- back where it was once closed, nothing scrolled by the
+  browser or put back after it. A ✓ or ✕ in the panel redraws only that
+  file's row; Next / Previous follow the file at once, only when its row
+  is out of sight. A list closes on a tap elsewhere, not on a scroll.
+- **What you write stays above the keyboard**: the panel, the dialogs
+  and the review bar (your name) fit the room the keyboard leaves, the
+  box being written in scrolled into it.
+- **The video player is sized once**, from the video's shape and the
+  room there is (again only when the screen turns): no zooming in and
+  out by a hair as it plays.
+- **Nothing moves at each tap in an app's viewer** (Documents shows and
+  hides the status bar): its room at the top is kept.
+- **The page's questions** (clear the review, drop a retake, load a
+  review over one) are asked in the page: an app's viewer may show no
+  browser dialog, and answered no.
+- The swipe down that closes the panel starts on its header (not while
+  scrolling its text).
 
 ### Removed
 
