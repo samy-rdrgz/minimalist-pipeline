@@ -188,14 +188,33 @@ var deps=depsOf(state.tab).filter(function(d){return D.some(function(it){return 
 if(deps.indexOf(state.dep)<0)state.dep='';
 $('depf').innerHTML='<option value="" data-short="All depts.">All departments</option>'+deps.map(function(d){return '<option value="'+esc(d)+'"'+(d===state.dep?' selected':'')+'>'+esc(cap(d))+'</option>';}).join('');
 $('depf').classList.toggle('on',!!state.dep);sync('depf');}
-function render(){
-document.querySelectorAll('.chipf[data-f]').forEach(function(b){b.querySelector('b').textContent=D.filter(function(it){
-return it.tab===state.tab&&(!state.dep||state.dep in it.states)&&FILTERS[b.dataset.f](it,state.dep);}).length;});
+function chipCounts(){document.querySelectorAll('.chipf[data-f]').forEach(function(b){b.querySelector('b').textContent=D.filter(function(it){
+return it.tab===state.tab&&(!state.dep||state.dep in it.states)&&FILTERS[b.dataset.f](it,state.dep);}).length;});}
+// A row of the list (render(): its departments' columns).
+var rowDeps=[],rowCols='';
+function rowHtml(it){var deps=rowDeps,cols=rowCols;
+// Tinted once this review touched it: where you've been, at a glance.
+return '<div class="row'+(changes(it)?' rv-mine':'')+(it.i===cur?' sel':'')+'" role="button" tabindex="0" data-i="'+it.i+'" style="--cols:'+cols+'"'+(changes(it)?' title="In your review"':'')+'>'+thumb(it)+
+'<span class="r-name">'+nameHtml(it)+'<small>'+subline(it)+'</small><span class="flags">'+flags(it)+'</span></span>'+
+deps.map(function(d){return '<span class="d">'+mark(it.states[d])+under(it,d)+'</span>';}).join('')+
+'<span class="r-pct">'+(it.tracked?Math.round(it.done*100)+' %'+(META.role?'<span class="vv'+(it.valid?'':' z')+'">'+pct(it.valid)+' valid.</span>':''):'<span class="faint">–</span>')+'</span>'+
+(it.tracked?'<span class="dl">'+deps.filter(function(d){return d in it.states;}).map(function(d){return '<span><b class="dn s-'+it.states[d]+'" title="'+LABEL[it.states[d]]+'">'+esc(cap(d))+'</b>'+under(it,d)+'</span>';}).join('')+'</span>':'')+'</div>';}
+// One file's row redrawn in place, the list around it untouched: a ✓ or a
+// ✕ in the panel rebuilt the whole list, and on an iPad that sent the
+// page to the top (the row tapped had the focus, and was gone). The whole
+// list only when the review is a filter (the row may come or go).
+function renderRow(i){var row=$('list').querySelector('.row[data-i="'+i+'"]');
+if(!row||state.f.mine){render();return;}
+var tmp=document.createElement('div');tmp.innerHTML=rowHtml(D[i]);var n=tmp.firstChild;
+row.className=n.className;if(n.title)row.title=n.title;else row.removeAttribute('title');row.innerHTML=n.innerHTML;
+var grp=row.closest('.group');if(grp)grp.classList.toggle('rv-all',allReviewed(D[i].group));chipCounts();countBar();}
+function render(){chipCounts();
 var items=D.filter(function(it){return match(it);});
 var deps=depsOf(state.tab).filter(function(d){return items.some(function(it){return d in it.states;});});
 // Many departments: narrower columns, never past the page.
 var w=deps.length>7?56:deps.length>5?64:76;
 var cols='112px minmax(0,1fr) '+deps.map(function(){return w+'px';}).join(' ')+' 84px';
+rowDeps=deps;rowCols=cols;
 var groups={},order=[];
 items.forEach(function(it){if(!groups[it.group]){groups[it.group]=[];order.push(it.group);}groups[it.group].push(it);});
 visible=[];var filt=filtering();
@@ -207,13 +226,7 @@ var rows=tr.concat(state.untracked[key]||filt?un:[]);
 if(!closed)rows.forEach(function(it){visible.push(it.i);});
 var head='<div class="thead" style="--cols:'+cols+'"><span></span><span></span>'+deps.map(function(d){return '<span class="d" title="'+esc(cap(d))+'">'+esc(cap(d))+'</span>';}).join('')+
 '<span style="text-align:right">Done</span></div>';
-var body=rows.map(function(it){
-// Tinted once this review touched it: where you've been, at a glance.
-return '<div class="row'+(changes(it)?' rv-mine':'')+'" role="button" tabindex="0" data-i="'+it.i+'" style="--cols:'+cols+'"'+(changes(it)?' title="In your review"':'')+'>'+thumb(it)+
-'<span class="r-name">'+nameHtml(it)+'<small>'+subline(it)+'</small><span class="flags">'+flags(it)+'</span></span>'+
-deps.map(function(d){return '<span class="d">'+mark(it.states[d])+under(it,d)+'</span>';}).join('')+
-'<span class="r-pct">'+(it.tracked?Math.round(it.done*100)+' %'+(META.role?'<span class="vv'+(it.valid?'':' z')+'">'+pct(it.valid)+' valid.</span>':''):'<span class="faint">–</span>')+'</span>'+
-(it.tracked?'<span class="dl">'+deps.filter(function(d){return d in it.states;}).map(function(d){return '<span><b class="dn s-'+it.states[d]+'" title="'+LABEL[it.states[d]]+'">'+esc(cap(d))+'</b>'+under(it,d)+'</span>';}).join('')+'</span>':'')+'</div>';}).join('');
+var body=rows.map(rowHtml).join('');
 if(un.length&&!state.untracked[key]&&!filt)body+='<button class="untracked" data-g="'+esc(g)+'">+ '+plural(un.length,'file')+' with no tracked department</button>';
 var nv=groupVideos(g).length;
 // A div, not a button: its playlist's ▶ sits in it, after the name.
@@ -222,10 +235,15 @@ return '<div class="group'+(closed?' closed':'')+(allReviewed(g)?' rv-all':'')+'
 (done!=null?'<span class="tw"><span class="track"><i class="f" style="width:'+done*100+'%"></i>'+(META.role?'<i class="v" style="width:'+Math.min(val,done)*100+'%"></i>':'')+'</span></span>'+
 '<span class="g-pct"><b>'+pct(done)+'</b>'+(META.role?' · <span style="color:var(--valid)">'+pct(val)+' valid.</span>':'')+'</span>':'<span></span><span class="g-pct faint">not tracked</span>')+
 '</div><div class="rows">'+(tr.length?head:'')+body+'</div></div>';}).join('');
+// The row or group that had the focus has it again (the keys go on),
+// and the page stays where it was if the list is still as long.
+var fe=document.activeElement,fsel=fe&&$('list').contains(fe)?(fe.classList.contains('row')?'.row[data-i="'+fe.dataset.i+'"]':fe.classList.contains('g-h')?'.g-h[data-g="'+CSS.escape(fe.dataset.g)+'"]':null):null,y0=scrollY;
 var others=filt?tabs.filter(function(t){return t[0]!==state.tab;}).map(function(t){return [t,D.filter(function(it){return it.tab===t[0]&&match(it,true);}).length];}).filter(function(x){return x[1];}):[];
 $('list').innerHTML=(h||'<div class="empty">Nothing here.</div>')+others.map(function(x){return '<button class="untracked" data-other="'+x[0][0]+'" style="text-align:center">'+
 plural(x[1],'match')+' in '+x[0][1].toLowerCase()+' ›</button>';}).join('');
 if(cur!=null){var s=$('list').querySelector('.row[data-i="'+cur+'"]');if(s)s.classList.add('sel');}
+if(fsel){var nf=$('list').querySelector(fsel);if(nf)nf.focus({preventScroll:true});}
+if(lockY==null&&scrollY!==y0)scrollTo(0,y0);
 countBar();
 // The videos' folder button, next to ?: until one is chosen, while a render has a video.
 $('vidb').hidden=!!PICKED||!D.some(function(it){return it.renders.some(function(r){return r.video;});});}
@@ -236,6 +254,10 @@ if((t=e.target.closest('[data-gplay]')))return play(groupVideos(t.dataset.gplay)
 if((t=e.target.closest('.row')))return openPanel(+t.dataset.i);
 if((t=e.target.closest('.untracked'))){state.untracked[state.tab+t.dataset.g]=true;return render();}
 if((t=e.target.closest('.g-h'))){state.open[state.tab+t.dataset.g]=t.parentNode.classList.contains('closed');render();}});
+// A touch screen: a tap on a row or a group's name doesn't take the focus
+// (iPad Safari gives it to anything with a tabindex) -- nothing focused
+// in the list to lose when it's redrawn.
+$('list').addEventListener('mousedown',function(e){if(touchPin.matches&&e.target.closest('.row,.g-h'))e.preventDefault();});
 $('list').addEventListener('keydown',function(e){var r=e.target.closest('.row');
 if(e.target.classList.contains('g-h')&&(e.key==='Enter'||e.key===' ')){e.preventDefault();e.target.click();return;}if(r&&(e.key==='Enter'||e.key===' ')){e.preventDefault();openPanel(+r.dataset.i);}});
 function setTab(t){state.tab=t;drawTabs();render();}
@@ -616,7 +638,7 @@ var s=$('list').querySelector('.row[data-i="'+i+'"]');if(s){s.classList.add('sel
 var r=s.getBoundingClientRect(),top=bar.getBoundingClientRect().bottom+40;if(!same&&lockY==null&&!phone.matches&&(r.top<top||r.bottom>innerHeight))scrollBy({top:r.top-top-(innerHeight-top)/3,behavior:'smooth'});}
 p.setAttribute('aria-modal',phone.matches||document.body.classList.contains('panel-full')?'true':'false');
 try{history.replaceState(null,'','#'+encodeURIComponent(it.name));}catch(err){}}
-function refresh(){var y=$('p-body').scrollTop;openPanel(cur);$('p-body').scrollTop=y;render();save();fieldLeft();}
+function refresh(){var y=$('p-body').scrollTop;openPanel(cur);$('p-body').scrollTop=y;renderRow(cur);save();fieldLeft();}
 // The page held still (fixed where it is, put back once let go): under
 // the full-screen panel (a phone, panel-full), the lightbox, and on a
 // touch screen an open list or menu, the dialog, a field being written
@@ -645,6 +667,22 @@ document.addEventListener('focusout',function(){setTimeout(fieldLeft,60);});
 // The dialog: the page under it held still on a touch screen; closed, a
 // field of it is left.
 new MutationObserver(function(){lockPage('dlg',coarse.matches&&!$('dlg').hidden);fieldLeft();}).observe($('dlg'),{attributes:true,attributeFilter:['hidden']});
+// The keyboard up (a touch screen, a field of the panel or the dialog):
+// the page held, iOS no longer scrolls it to the field -- the panel and
+// the dialog are fitted to what the keyboard leaves (body.kb, --vv-h,
+// --vv-top: the visual viewport), and the panel scrolls the field into
+// that room, as it grows too.
+var VV=window.visualViewport;
+function revealField(){var f=document.activeElement,c=f&&f.closest&&f.closest('.p-body');if(!c||!inField())return;
+var r=f.getBoundingClientRect(),cr=c.getBoundingClientRect();
+if(r.bottom>cr.bottom-8)c.scrollTop+=Math.min(r.bottom-cr.bottom+16,r.top-cr.top-8);else if(r.top<cr.top+8)c.scrollTop-=cr.top-r.top+16;}
+function fitKb(){if(!VV)return;var b=document.body,on=coarse.matches&&inField()&&VV.height<document.documentElement.clientHeight-80;
+b.classList.toggle('kb',on);if(!on)return;var st=document.documentElement.style;
+st.setProperty('--vv-h',Math.round(VV.height)+'px');st.setProperty('--vv-top',Math.round(VV.offsetTop)+'px');revealField();}
+if(VV){VV.addEventListener('resize',fitKb);VV.addEventListener('scroll',fitKb);}
+document.addEventListener('focusin',function(){if(!coarse.matches)return;fitKb();setTimeout(fitKb,350);});
+document.addEventListener('focusout',function(){setTimeout(fitKb,80);});
+$('p-body').addEventListener('input',function(){if(document.body.classList.contains('kb'))revealField();});
 function closePanel(){if(cur==null)return;cur=null;document.body.classList.remove('panel-open');lockPage('panel',false);fitBar();var p=$('panel');p.classList.remove('on');$('scrim').classList.remove('on');
 setTimeout(function(){if(cur==null)p.hidden=true;},220);document.querySelectorAll('.row.sel').forEach(function(x){x.classList.remove('sel');});
 try{history.replaceState(null,'',location.pathname+location.search);}catch(err){}
@@ -734,7 +772,7 @@ else if(t.id==='desc-t')e.desc=t.value;
 // tag and ✕ in the panel, its cell in the list, the caret kept.
 if(t.dataset.k&&t.dataset.k.indexOf('d:')===0){var dd=t.dataset.k.slice(2),vd=verdict(it,dd),dep=$('p-body').querySelector('.rvb[data-d="'+CSS.escape(dd)+'"]');
 if(dep&&dep.querySelector('.ko-b').classList.contains('as-note')!==(vd==='note')){dep.querySelector('.ko-b').classList.toggle('as-note',vd==='note');
-var y=dep.parentNode.querySelector('.mid .you');if(y)y.outerHTML=you(it,dd);render();}}
+var y=dep.parentNode.querySelector('.mid .you');if(y)y.outerHTML=you(it,dd);renderRow(cur);}}
 $('p-flags').innerHTML=flags(it);var row=$('list').querySelector('.row[data-i="'+cur+'"]');
 if(row){var fl=row.querySelector('.flags');if(fl)fl.innerHTML=flags(it);
 // Its tint as you type: a general retake or a description counts once written.

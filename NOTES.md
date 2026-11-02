@@ -3735,6 +3735,25 @@ Seen on a 12.9" iPad, in Documents by Readdle's viewer:
   `field` hold at once, before `refresh()` redraws the panel and the list
   and the box takes the focus (still jumping to the top on an iPad when
   held from the focusin only); let go as any field if no box took it.
+- **A ✓ in the panel sent the list to the top** (iPad, panel beside the
+  list): `refresh()` rebuilt the whole list (`render()`), and the row
+  tapped -- focused, iPad Safari focusing anything with a `tabindex` --
+  went with it. `renderRow(i)` redraws that one row in place (the same
+  element: classes, title, content; `rowHtml()` shared with `render()`),
+  the whole list only while *Your review* filters it. On a touch screen
+  a `mousedown` on a row or a group's name is `preventDefault`ed: no
+  focus. `render()` gives the focus back to the same row or group (with
+  `preventScroll`) and puts `scrollY` back in the same go if the browser
+  moved it.
+- **Written under the keyboard** (the page held: iOS no longer scrolled
+  it to the field, and the fixed panel kept the whole height): `fitKb()`
+  -- a touch screen, a field of the panel, the bar or the dialog, the
+  visual viewport 80 px shorter than the layout one -- sets `body.kb`,
+  `--vv-h`, `--vv-top`; the panel and the dialog take that room, the
+  review bar sits just above the keyboard, a box at most 40 % of it;
+  `revealField()` scrolls `.p-body` to the field (again as it grows).
+  On `visualViewport` resize / scroll, focusin (then 350 ms on, the
+  keyboard sliding), focusout.
 - **Where a review lands**: a page can't pick a download's folder, and in
   an app's viewer (Documents) it lands in the app's own space. *Save or
   send…* (`SHARE`: `navigator.share` + `canShare` with a file, on a

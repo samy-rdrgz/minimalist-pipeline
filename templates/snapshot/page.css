@@ -46,6 +46,12 @@ input,textarea,select{font-size:16px!important}
 bar and Previous / Next step aside for the text. The picture stays: gone,
 the text moved up under the finger, and back down once done. */
 body.typing .rbar,body.typing .rfab,body.typing .p-foot{display:none!important}}
+/* The keyboard up (page.js fitKb()): the panel and the dialog in the room
+it leaves, the field writing in scrolled into it -- not under the keys. */
+@media (pointer:coarse){body.kb .panel,body.kb .dlg{top:var(--vv-top,0px);bottom:auto;height:var(--vv-h,100%)}
+/* The review bar (Your name) just above the keyboard. */
+body.kb .rbar{bottom:calc(100% - var(--vv-top,0px) - var(--vv-h,100%) + 10px);transition:none}
+body.kb .p-body textarea{max-height:calc(var(--vv-h,100vh) * .4)}}
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 var(--ui);font-variant-numeric:tabular-nums;padding-top:env(safe-area-inset-top,0px)}

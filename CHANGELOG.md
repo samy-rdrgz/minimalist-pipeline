@@ -202,6 +202,11 @@ review one file -- lighter to read on a computer and on a phone.
   end of a list or a menu no longer scrolls the page; the dialog no
   longer brings the keyboard up by itself; opening a retake's box (✕)
   no longer sends the page to the top.
+- **A ✓ or ✕ in the panel no longer sends the list beside it to the
+  top** (iPad): only that file's row is redrawn, not the whole list.
+- **What you write stays above the keyboard** (iPad): the panel, the
+  download dialog and the review bar (your name) fit in the room the
+  keyboard leaves, the box being written in scrolled into it.
 
 ### Removed
 
