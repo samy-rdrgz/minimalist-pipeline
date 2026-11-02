@@ -122,6 +122,7 @@ def read_render_state(root: Path, kind: str, owner: Path, v_prefix: str = "v") -
             output = last.get("output_path")
             folder = (Path(root) / output).parent if output else None
             return {
+                "_when": _finished_at(last.get("completed_at")) or _mtime(folder),
                 "shot": shot,
                 "file": Path(last["source_file"]).name,
                 "folder": folder.name if folder else None,
@@ -135,6 +136,7 @@ def read_render_state(root: Path, kind: str, owner: Path, v_prefix: str = "v") -
             }
         latest = latest_render_dir(folder_dir, v_prefix)
         return {
+            "_when": _mtime(latest),
             "shot": shot,
             "file": None,
             "folder": latest.name if latest else None,
@@ -155,7 +157,10 @@ def read_render_state(root: Path, kind: str, owner: Path, v_prefix: str = "v") -
     if block:
         # The block rendered whole (no split per shot: renders/<seq>/
         # sh030-040/...): each shot's last render is the newer of its own
-        # and that one ("whole": the to-check label is the folder alone).
+        # and that one ("whole": the to-check label is the folder alone) --
+        # newer by when it finished: the two folders number their renders
+        # apart (sh040-050/v003-stable_002 can be older than
+        # sh040/v003-stable_001).
         mine = [
             i
             for i, e in enumerate(finished)
@@ -164,12 +169,41 @@ def read_render_state(root: Path, kind: str, owner: Path, v_prefix: str = "v") -
         whole = last_render("", mine, base)
         if whole["path"]:
             out = [
-                dict(whole, shot=r["shot"], whole=True)
-                if _render_order(whole["folder"]) > _render_order(r["folder"])
-                else r
+                dict(whole, shot=r["shot"], whole=True) if _newer(whole, r) else r
                 for r in out
             ]
+    for r in out:
+        r.pop("_when", None)
     return out
+
+
+def _finished_at(value) -> float | None:
+    """A history entry's completed_at as a timestamp; None if unreadable."""
+    try:
+        return datetime.fromisoformat(str(value)).timestamp()
+    except ValueError:
+        return None
+
+
+def _mtime(folder) -> float | None:
+    """A render folder's last change (its frames, its video written): when
+    a render with no history entry finished, near enough."""
+    try:
+        return os.stat(folder).st_mtime if folder else None
+    except OSError:
+        return None
+
+
+def _newer(a: dict, b: dict) -> bool:
+    """Render a finished after render b (read_render_state()): by when --
+    the history's completed_at, else its folder's time --, by folder name
+    (version, increment) only when that's unknown or the same."""
+    if not b.get("path"):
+        return bool(a.get("path"))
+    wa, wb = a.get("_when"), b.get("_when")
+    if wa is not None and wb is not None and wa != wb:
+        return wa > wb
+    return _render_order(a["folder"]) > _render_order(b["folder"])
 
 
 def _frame_pair(value) -> list | None:

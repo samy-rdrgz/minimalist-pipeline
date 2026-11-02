@@ -3802,6 +3802,22 @@ Seen on a 12.9" iPad, in Documents by Readdle's viewer:
   an empty ✕ left in the review is neither shown as yours, counted nor
   exported; the role changed in the download dialog re-reads the rows.
   The template's Role list gets `team`, its how-to a line.
+- **A block's last render, by time** (1.1.9): `read_render_state()`
+  compared a block rendered whole with a shot's own render by
+  `_render_order()` (version, increment) -- but the block's folder
+  (`sh040-050/`) and the shot's (`sh040/`) count their increments apart:
+  `sh040-050/v003-stable_002` (21/10 00:04) beat `sh040/v003-stable_001`
+  (21/10 21:34), whose video was the only one, and the snapshot showed
+  and copied nothing. `_newer()`: by `_when` (the history's
+  `completed_at`, else the folder's mtime), by folder name only when
+  that's unknown or equal.
+- **Two markers on one shot's camera** (sh050's camera deleted, its
+  marker bound to sh040's): `derive_shot_subranges()` gave sh040 two
+  ranges, the split asked two jobs of it (`split_into: [sh040, sh040]`,
+  same job id). A shot's marker after its first is skipped: its range
+  goes on. One distinct shot left: no split, the block renders whole
+  (skipped: sh050), as for a block the split can't cut. Edit shots'
+  seeding (shot_ops) took the last marker's start; the first now.
 - **Where a review lands**: a page can't pick a download's folder, and in
   an app's viewer (Documents) it lands in the app's own space. *Save or
   send…* (`SHARE`: `navigator.share` + `canShare` with a file, on a
