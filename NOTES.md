@@ -3779,7 +3779,7 @@ Seen on a 12.9" iPad, in Documents by Readdle's viewer:
   largest inset seen in this orientation (a probe of that height, a
   ResizeObserver, kept by this browser, `mp-snapshot:safe-top:l` / `:p`),
   as `max(env(...), Npx)` -- reserved once, nothing moves after.
-- **The player's frame** (1.1.9): a compiled video starts at the job's
+- **The player's frame** (1.1.8): a compiled video starts at the job's
   `resolved_frame_range[0]` (post_render `-start_number`), noted in the
   history as `frame_range_rendered`. `read_render_state()` gives each
   render `frames` ([first, last]: that, else `_folder_frames()`, the
@@ -3791,7 +3791,7 @@ Seen on a 12.9" iPad, in Documents by Readdle's viewer:
   `mediaTime`), else at `timeupdate`; a step seeks the frame's middle
   ((k + .5) / fps), paused. No `first`: `#` + its rank from 1; no fps (an
   older snapshot): no counter. A phone hides the time beside it.
-- **A review as the team** (1.1.9): Role `team` (`TEAM_ROLE`, offered
+- **A review as the team** (1.1.8): Role `team` (`TEAM_ROLE`, offered
   unless a validation role has that name: then it's that role). Import
   (`plan["team"]`): notes and replies with no role and
   `source = TEAM_REVIEW_SOURCE` ("team_review": never "prod review",
@@ -3802,7 +3802,7 @@ Seen on a 12.9" iPad, in Documents by Readdle's viewer:
   an empty ✕ left in the review is neither shown as yours, counted nor
   exported; the role changed in the download dialog re-reads the rows.
   The template's Role list gets `team`, its how-to a line.
-- **A block's last render, by time** (1.1.9): `read_render_state()`
+- **A block's last render, by time** (1.1.8): `read_render_state()`
   compared a block rendered whole with a shot's own render by
   `_render_order()` (version, increment) -- but the block's folder
   (`sh040-050/`) and the shot's (`sh040/`) count their increments apart:

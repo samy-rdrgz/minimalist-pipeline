@@ -2,37 +2,6 @@
 
 All notable changes to this addon. Dates are release dates.
 
-## 1.1.9 — unreleased
-
-### Changed
-
-- **The snapshot's player shows the frame**: `f1042`, numbered as in the
-  .blend -- the render's first frame (its farm history, else its images'
-  names) plus the frame's rank in the video, at the project's fps. A
-  block rendered whole counts on its own timeline, as Blender and the
-  `[f12-40]` retakes do. ◂ ▸ (or , and .) step one frame back / on,
-  paused. A snapshot exported before, or a render whose first frame
-  isn't known, counts from the video's start (`#1`).
-- **A review as the team**: *team* in the Role of the snapshot page or
-  the review template (unless a validation role has that name). Its
-  retakes and notes are imported as the team's own -- orange, no role,
-  no "prod review" tag -- and it validates nothing: the page's ✓ and
-  *All done* are off, a ✓ or `ok` written before is left out (Import
-  review says so).
-
-### Fixed
-
-- **A block's shot rendered on its own after the block whole showed the
-  older render** (snapshot, its videos, File details): which was last
-  was told by the render folders' numbers, counted apart for the block
-  (`sh040-050/v003-stable_002`) and the shot (`sh040/v003-stable_001`).
-  It's told by when each render finished now -- the newer one's video is
-  the one the snapshot plays and copies.
-- **A shot's camera bound to two markers split the block into two jobs
-  of that shot** (a camera deleted, its marker moved onto the shot
-  before): the shot goes on from its first marker -- one job, or the
-  block rendered whole when it's the only shot left.
-
 ## 1.1.8 — 02/11/2026
 
 The production snapshot, redrawn: a list to scan, a panel to read and
@@ -183,6 +152,19 @@ review one file -- lighter to read on a computer and on a phone.
   bold, in progress amber, not started light grey; reworked underlined
   in amber) instead of its mark, the rows apart by a band of the page's
   background, the versions left to the file's panel.
+- **The snapshot's player shows the frame**: `f1042`, numbered as in the
+  .blend -- the render's first frame (its farm history, else its images'
+  names) plus the frame's rank in the video, at the project's fps. A
+  block rendered whole counts on its own timeline, as Blender and the
+  `[f12-40]` retakes do. ◂ ▸ (or , and .) step one frame back / on,
+  paused. A render whose first frame isn't known counts from the
+  video's start (`#1`).
+- **A review as the team**: *team* in the Role of the snapshot page or
+  the review template (unless a validation role has that name). Its
+  retakes and notes are imported as the team's own -- orange, no role,
+  no "prod review" tag -- and it validates nothing: the page's ✓ and
+  *All done* are off, a ✓ or `ok` written before is left out (Import
+  review says so).
 
 ### Tablets
 
@@ -222,6 +204,19 @@ review one file -- lighter to read on a computer and on a phone.
   browser dialog, and answered no.
 - The swipe down that closes the panel starts on its header (not while
   scrolling its text).
+
+### Fixed
+
+- **A block's shot rendered on its own after the block whole showed the
+  older render** (snapshot, its videos, File details): which was last
+  was told by the render folders' numbers, counted apart for the block
+  (`sh040-050/v003-stable_002`) and the shot (`sh040/v003-stable_001`).
+  It's told by when each render finished now -- the newer one's video is
+  the one the snapshot plays and copies.
+- **A shot's camera bound to two markers split the block into two jobs
+  of that shot** (a camera deleted, its marker moved onto the shot
+  before): the shot goes on from its first marker -- one job, or the
+  block rendered whole when it's the only shot left.
 
 ### Removed
 
