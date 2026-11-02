@@ -701,6 +701,10 @@ function validateAll(){var it=D[cur];if(!Object.keys(it.states).some(function(d)
 function generalRetake(){var e=entry(D[cur]);if(editing.gen||e.text){if(!e.text.trim()||confirm('Drop this general retake?')){e.text='';editing.gen=false;refresh();}return;}
 editing.gen=true;refresh();var g=$('gen-t');if(g)g.focus({preventScroll:true});}
 $('p-body').addEventListener('click',function(ev){var t,it=D[cur];
+// A touch screen, a tap that opens a box to write in (✕, ↩, ✎, a shot):
+// the page held from the tap, before the panel is redrawn and the box
+// focused -- let go as any field, unless the box took the focus.
+if(coarse.matches&&ev.target.closest('.rvb .ko-b,#add-gen,[data-reply],#add-desc,.tags [data-shot]')){clearTimeout(fieldT);lockPage('field',true);setTimeout(fieldLeft,0);}
 if((t=ev.target.closest('[data-play]')))return play(videosOf(it,it.renders[+t.dataset.play]));
 if(ev.target.closest('#bigb'))return lightbox('<img alt="" src="'+$('bigimg').src+'">',esc(it.name));
 if((t=ev.target.closest('.shotsel button'))){$('bigimg').src=t.dataset.src;t.parentNode.querySelectorAll('button').forEach(function(x){x.setAttribute('aria-pressed',x===t);});return;}

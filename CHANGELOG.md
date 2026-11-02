@@ -200,7 +200,8 @@ review one file -- lighter to read on a computer and on a phone.
   panel stays while writing (the text no longer moves under the finger);
   a growing box no longer jolts the panel at each key; scrolling to the
   end of a list or a menu no longer scrolls the page; the dialog no
-  longer brings the keyboard up by itself.
+  longer brings the keyboard up by itself; opening a retake's box (✕)
+  no longer sends the page to the top.
 
 ### Removed
 

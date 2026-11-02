@@ -3731,6 +3731,10 @@ Seen on a 12.9" iPad, in Documents by Readdle's viewer:
   `.menu-pop` (the help scrolls in itself on a touch screen); the
   dialog doesn't focus *Your name* on a touch screen (the keyboard came
   up unasked); a list closes on `resize` only if the width changed.
+  A tap that opens a box to write in (✕, ↩, ✎, a shot's tag) takes the
+  `field` hold at once, before `refresh()` redraws the panel and the list
+  and the box takes the focus (still jumping to the top on an iPad when
+  held from the focusin only); let go as any field if no box took it.
 - **Where a review lands**: a page can't pick a download's folder, and in
   an app's viewer (Documents) it lands in the app's own space. *Save or
   send…* (`SHARE`: `navigator.share` + `canShare` with a file, on a
