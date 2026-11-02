@@ -291,7 +291,7 @@ var r=b.getBoundingClientRect(),up=r.top>innerHeight/2;m.style.left=Math.max(8,M
 m.style.top=up?'':(r.bottom+6)+'px';m.style.bottom=up?(innerHeight-r.top+6)+'px':'';
 // Focused for the keys -- never on a touch screen, where a focus in a
 // fixed layer scrolls the page on an iPad (and that scroll closed it).
-m.hidden=false;b.setAttribute('aria-expanded','true');pickOpenedAt=Date.now();pinPage();
+m.hidden=false;b.setAttribute('aria-expanded','true');pickOpenedAt=Date.now();touchHold();
 if(!touchPin.matches)(m.querySelector('[aria-selected="true"]')||m.firstChild).focus({preventScroll:true});};
 m.onclick=function(e){var o=e.target.closest('[data-i]');if(!o)return;e.stopPropagation();sel.selectedIndex=+o.dataset.i;closePicks();
 sel.dispatchEvent(new Event('change'));sync();if(!touchPin.matches)b.focus({preventScroll:true});};
@@ -299,25 +299,26 @@ m.onkeydown=function(e){var f=[].slice.call(m.children),k=f.indexOf(document.act
 if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();var n=f[Math.max(0,Math.min(f.length-1,k+(e.key==='ArrowDown'?1:-1)))];if(n)n.focus({preventScroll:true});}
 else if(e.key==='Escape'||e.key==='Tab'){if(e.key==='Escape'){e.preventDefault();e.stopPropagation();}closePicks();b.focus({preventScroll:true});}};
 sel._pick={sync:sync,button:b};sync();return sel._pick;}
-function closePicks(){document.querySelectorAll('.pick-pop').forEach(function(m){if(!m.hidden){m.hidden=true;m._button.setAttribute('aria-expanded','false');}});pinPage();}
-// A touch screen: the page under an open list or menu, or under the panel
-// while writing in it, stays where it is -- an iPad scrolls it there (a
-// focus, a tap in a fixed layer), often to the top. The list or menu
-// closes on a tap elsewhere, not on a scroll.
-var pinY=null,touchPin=matchMedia('(pointer:coarse)');
-function pinned(){return [].some.call(document.querySelectorAll('.pick-pop'),function(m){return !m.hidden;})||
-MENUS.some(function(m){return !$(m[1]).hidden;})||(keepY!=null&&!!document.activeElement&&!!document.activeElement.closest&&!!document.activeElement.closest('.panel'));}
-function pinPage(){if(!touchPin)return;var on=touchPin.matches&&pinned();if(on&&pinY==null)pinY=keepY!=null?keepY:scrollY;else if(!on)pinY=null;}
-addEventListener('scroll',function(){if(pinY!=null&&lockY==null&&Math.abs(scrollY-pinY)>1)scrollTo(0,pinY);});
+function closePicks(){document.querySelectorAll('.pick-pop').forEach(function(m){if(!m.hidden){m.hidden=true;m._button.setAttribute('aria-expanded','false');}});touchHold();}
+// A touch screen: the page under an open list or menu is held still
+// (lockPage, 'pop') -- not put back after an iPad scrolled it, each
+// putting back a jump of its own. The list or menu closes on a tap
+// elsewhere, not on a scroll.
+var touchPin=matchMedia('(pointer:coarse)');
+function touchHold(){var on=touchPin.matches&&([].some.call(document.querySelectorAll('.pick-pop'),function(m){return !m.hidden;})||
+MENUS.some(function(m){return !$(m[1]).hidden;}));lockPage('pop',on);}
 function sync(id){var s=$(id);if(s&&s._pick)s._pick.sync();}
-document.addEventListener('click',closePicks);addEventListener('resize',closePicks);
+// Turned, a list closes (its place is gone); a touch screen's height
+// moving (the keyboard, the browser's bars) leaves it open.
+var pickW=innerWidth;
+document.addEventListener('click',closePicks);addEventListener('resize',function(){if(touchPin.matches&&innerWidth===pickW)return;pickW=innerWidth;closePicks();});
 // A scroll closes an open list -- not one the browser makes as it opens
 // (iOS scrolls on a focus all the same, sometimes).
 var pickOpenedAt=0;
 document.addEventListener('scroll',function(e){if(touchPin.matches||Date.now()-pickOpenedAt<400)return;if(!(e.target.closest&&e.target.closest('.pick-pop')))closePicks();},true);
-function closeMenus(){MENUS.forEach(function(m){$(m[1]).hidden=true;$(m[0]).setAttribute('aria-expanded','false');});pinPage();}
+function closeMenus(){MENUS.forEach(function(m){$(m[1]).hidden=true;$(m[0]).setAttribute('aria-expanded','false');});touchHold();}
 MENUS.forEach(function(m){$(m[0]).addEventListener('click',function(e){e.stopPropagation();var open=$(m[1]).hidden;closeMenus();
-$(m[1]).hidden=!open;this.setAttribute('aria-expanded',open);pinPage();});});
+$(m[1]).hidden=!open;this.setAttribute('aria-expanded',open);touchHold();});});
 document.addEventListener('click',function(e){if(!e.target.closest('.menu-pop'))closeMenus();});
 
 /* ---------- pictures and videos ---------- */
@@ -330,11 +331,10 @@ hov.src=img(D[t.dataset.zoom].thumb);hov.style.display='block';});
 document.addEventListener('mouseout',function(e){if(e.target.closest('.thumb'))hov.style.display='none';});
 // The page under it holds still, and is back where it was once closed:
 // on an iPad, starting a video scrolled it to the top.
-var lbLock=false;
-function lightbox(html,cap){if(lockY==null){lockPage(true,true);lbLock=true;}
+function lightbox(html,cap){lockPage('lb',true);
 $('lb-in').innerHTML=html;$('lb-cap').innerHTML=cap||'';$('lb').hidden=false;hov.style.display='none';}
 function closeLb(){var v=$('lb-in').querySelector('video');if(v)v.pause();$('lb').hidden=true;$('lb-in').innerHTML='';
-if(lbLock){lbLock=false;lockPage(false);}}
+lockPage('lb',false);}
 $('lb').addEventListener('click',function(e){if(e.target===this||e.target.closest('#lb-x')||e.target.tagName==='IMG')closeLb();});
 document.addEventListener('click',function(e){var t=e.target.closest('[data-zoom]');if(!t)return;e.stopPropagation();var it=D[t.dataset.zoom];
 lightbox('<img alt="" src="'+img(it.thumb)+'">',esc(it.name));},true);
@@ -555,7 +555,7 @@ return '<div class="dep"><div class="dep-l">'+mark(s)+'<span class="mid"><span c
 ((it.rtkNotes[d]||[]).length?'<div class="rtks">'+it.rtkNotes[d].map(rtkLine).join('')+'</div>':'')+
 (rv&&v&&v.no?'<div class="rt">'+retakeBox(it,'d:'+d,v.text,'What to fix in '+d+'? Empty: just withdraw its validation')+syntax(it)+'</div>':'')+'</div>';}
 function openPanel(i){
-var it=D[i];if(cur!==i){showClosed=false;showNotes=null;editing={};}cur=i;if(!lastFocus)lastFocus=document.activeElement;
+var it=D[i],same=cur===i;if(!same){showClosed=false;showNotes=null;editing={};}cur=i;if(!lastFocus)lastFocus=document.activeElement;
 var rv=reviewing(),e=peek(it);if(showNotes===null)showNotes=!rv;
 $('p-title').innerHTML=nameHtml(it);var nv=allVideos(it).length;$('p-play').hidden=!nv;$('p-play').title=nv>1?'Play the '+nv+' shots in a row':'Play the render';
 $('p-sub').textContent=[it.kind==='shot'?'Shot':it.root==='library'?'Library':'Asset',it.versions,it.shots.length>1?plural(it.shots.length,'shot'):''].filter(Boolean).join(' · ');
@@ -605,39 +605,47 @@ h+='</div>';}
 // Where it comes from: at the bottom, out of the way while reviewing.
 h+='<dl class="view-only facts"><dt>Last render</dt><dd>'+rendersHtml(it)+noVideo(it)+'</dd><dt>Blender file</dt><dd class="fileline">'+esc(it.file)+'.blend</dd></dl>';
 $('p-body').innerHTML=h;$('p-body').querySelectorAll('textarea').forEach(grow);
-document.body.classList.add('panel-open');lockPage(true);fitBar();var p=$('panel');p.hidden=false;
+document.body.classList.add('panel-open');lockPage('panel',phone.matches||document.body.classList.contains('panel-full'));fitBar();var p=$('panel');p.hidden=false;
 requestAnimationFrame(function(){p.classList.add('on');$('scrim').classList.add('on');});
 var pos=visible.indexOf(i);$('p-prev').disabled=$('m-prev').disabled=pos<=0;$('p-next').disabled=$('m-next').disabled=pos<0||pos>=visible.length-1;
 document.querySelectorAll('.row.sel').forEach(function(x){x.classList.remove('sel');});
 var s=$('list').querySelector('.row[data-i="'+i+'"]');if(s){s.classList.add('sel');
-// Beside the list: the file shown stays in sight as ← → go through it.
-var r=s.getBoundingClientRect(),top=bar.getBoundingClientRect().bottom+40;if(!phone.matches&&(r.top<top||r.bottom>innerHeight))scrollBy({top:r.top-top-(innerHeight-top)/3,behavior:'smooth'});}
+// Beside the list: the file shown stays in sight as ← → go through it --
+// another file only: a tap in the panel (✓, ✕...) redraws it, and the
+// list stays where it was read.
+var r=s.getBoundingClientRect(),top=bar.getBoundingClientRect().bottom+40;if(!same&&lockY==null&&!phone.matches&&(r.top<top||r.bottom>innerHeight))scrollBy({top:r.top-top-(innerHeight-top)/3,behavior:'smooth'});}
 p.setAttribute('aria-modal',phone.matches||document.body.classList.contains('panel-full')?'true':'false');
 try{history.replaceState(null,'','#'+encodeURIComponent(it.name));}catch(err){}}
-function refresh(){var y=$('p-body').scrollTop;openPanel(cur);$('p-body').scrollTop=y;render();save();}
-// A phone: the page under the full-screen panel holds still -- a drag on
-// the panel's header, or a field brought into view, scrolled it on iOS,
-// and closing the panel found the list somewhere else.
-var lockY=null;
-function lockPage(on,force){var b=document.body.style;
-if(on&&lockY==null&&(force||matchMedia('(max-width:900px)').matches||document.body.classList.contains('panel-full'))){lockY=scrollY;b.position='fixed';b.top=-lockY+'px';b.left=b.right='0';}
-else if(!on&&lockY!=null){b.position=b.top=b.left=b.right='';scrollTo(0,lockY);lockY=null;}}
+function refresh(){var y=$('p-body').scrollTop;openPanel(cur);$('p-body').scrollTop=y;render();save();fieldLeft();}
+// The page held still (fixed where it is, put back once let go): under
+// the full-screen panel (a phone, panel-full), the lightbox, and on a
+// touch screen an open list or menu, the dialog, a field being written
+// in -- a drag on the panel's header, a field brought into view, a video
+// started, scrolled it on iOS. Each reason holds it ({key: 1}), the last
+// one let go puts it back.
+var lockY=null,holds={};
+function lockPage(k,on){if(on)holds[k]=1;else delete holds[k];var b=document.body.style,any=Object.keys(holds).length>0;
+if(any&&lockY==null){lockY=scrollY;b.position='fixed';b.top=-lockY+'px';b.left=b.right='0';}
+else if(!any&&lockY!=null){b.position=b.top=b.left=b.right='';scrollTo(0,lockY);lockY=null;}}
 // Touch: a field in a fixed layer (panel, review bar, dialog) brings the
-// keyboard up and iOS scrolls the page under it, often to the bottom,
-// and leaves it there: put it back once the field is left.
-var keepY=null;
+// keyboard up and iOS scrolls the page to it, then back as it goes:
+// held from the field's focus (before iOS moves anything) until the
+// keyboard is gone -- a scroll iOS makes then has nothing to move.
+function inField(){var f=document.activeElement;return !!(f&&f.matches&&f.matches('input,textarea,select')&&f.closest('.panel,.rbar,.dlg')&&!f.closest('[hidden]'));}
+var fieldT=null;
+function fieldLeft(){if(!holds.field)return;clearTimeout(fieldT);fieldT=setTimeout(function(){if(!inField())lockPage('field',false);},450);}
 // Touch, writing in the panel: the keyboard takes half the screen, the
 // review bar and Previous / Next step aside for the text.
 var coarse=matchMedia('(pointer:coarse)');
 document.addEventListener('focusin',function(e){if(coarse.matches&&e.target.matches('input,textarea')&&e.target.closest('.panel'))document.body.classList.add('typing');});
 document.addEventListener('focusout',function(){setTimeout(function(){var f=document.activeElement;
 if(!(f&&f.matches&&f.matches('input,textarea')&&f.closest('.panel'))&&document.body.classList.contains('typing')){document.body.classList.remove('typing');fitBar();}},60);});
-document.addEventListener('focusin',function(e){if(lockY==null&&keepY==null&&e.target.matches('input,textarea,select')&&e.target.closest('.panel,.rbar,.dlg')&&matchMedia('(pointer:coarse)').matches)keepY=scrollY;pinPage();});
-document.addEventListener('focusout',function(e){if(keepY==null)return;var y=keepY;
-setTimeout(function(){var f=document.activeElement;if(f&&f.matches&&f.matches('input,textarea,select')&&f.closest('.panel,.rbar,.dlg'))return;keepY=null;pinPage();if(lockY==null){scrollTo(0,y);
-// Again once the keyboard has slid away: iOS scrolls once more then.
-setTimeout(function(){if(keepY==null&&lockY==null)scrollTo(0,y);},450);}},60);});
-function closePanel(){if(cur==null)return;cur=null;document.body.classList.remove('panel-open');lockPage(false);fitBar();var p=$('panel');p.classList.remove('on');$('scrim').classList.remove('on');
+document.addEventListener('focusin',function(){if(coarse.matches&&inField()){clearTimeout(fieldT);lockPage('field',true);}});
+document.addEventListener('focusout',function(){setTimeout(fieldLeft,60);});
+// The dialog: the page under it held still on a touch screen; closed, a
+// field of it is left.
+new MutationObserver(function(){lockPage('dlg',coarse.matches&&!$('dlg').hidden);fieldLeft();}).observe($('dlg'),{attributes:true,attributeFilter:['hidden']});
+function closePanel(){if(cur==null)return;cur=null;document.body.classList.remove('panel-open');lockPage('panel',false);fitBar();var p=$('panel');p.classList.remove('on');$('scrim').classList.remove('on');
 setTimeout(function(){if(cur==null)p.hidden=true;},220);document.querySelectorAll('.row.sel').forEach(function(x){x.classList.remove('sel');});
 try{history.replaceState(null,'',location.pathname+location.search);}catch(err){}
 if(lastFocus)lastFocus.focus({preventScroll:true});lastFocus=null;}
@@ -668,7 +676,7 @@ document.documentElement.style.setProperty('--pw',w+'px');if(keep)try{localStora
 var PF_KEY='mp-snapshot:panel-full';
 function setFull(on,keep){var b=document.body,was=b.classList.contains('panel-full');b.classList.toggle('panel-full',on);
 if(keep)try{localStorage.setItem(PF_KEY,on?'1':'');}catch(e){}
-if(on!==was&&cur!=null){if(on)lockPage(true);else if(!phone.matches&&!lbLock)lockPage(false);
+if(on!==was&&cur!=null){lockPage('panel',on||phone.matches);
 $('panel').setAttribute('aria-modal',on||phone.matches?'true':'false');}
 if(typeof fitBar==='function')fitBar();}
 function dragTo(w,keep){if(w>maxWidth()+60)setFull(true,keep);else{setFull(false,keep);setWidth(w,keep);}}
@@ -682,13 +690,16 @@ rz.addEventListener('keydown',function(e){if(e.key!=='ArrowLeft'&&e.key!=='Arrow
 var full=document.body.classList.contains('panel-full');
 dragTo(full?(e.key==='ArrowLeft'?innerWidth:maxWidth()):$('panel').offsetWidth+(e.key==='ArrowLeft'?40:-40),true);});
 $('panel').addEventListener('keydown',function(e){if(e.key!=='Tab'||!(phone.matches||document.body.classList.contains('panel-full')))return;var f=[].filter.call($('panel').querySelectorAll('button,textarea,[tabindex]'),function(x){return !x.disabled&&x.offsetParent;});
-if(!f.length)return;var a=f[0],z=f[f.length-1];if(e.shiftKey&&document.activeElement===a){z.focus();e.preventDefault();}else if(!e.shiftKey&&document.activeElement===z){a.focus();e.preventDefault();}});
+if(!f.length)return;var a=f[0],z=f[f.length-1];if(e.shiftKey&&document.activeElement===a){z.focus({preventScroll:true});e.preventDefault();}else if(!e.shiftKey&&document.activeElement===z){a.focus({preventScroll:true});e.preventDefault();}});
 var FS=window.CSS&&CSS.supports('field-sizing','content');
-function grow(t){if(FS||!t)return;t.style.height='auto';t.style.height=Math.min(t.scrollHeight+2,innerHeight*.5)+'px';}
+// Measured at height auto, the panel's scroll put back in the same go:
+// shrunk for a moment, the panel's text moved, and iOS scrolled again to
+// the caret at each key (Safari has no field-sizing).
+function grow(t){if(FS||!t)return;var p=t.closest('.p-body'),y=p?p.scrollTop:0;t.style.height='auto';t.style.height=Math.min(t.scrollHeight+2,innerHeight*.5)+'px';if(p&&p.scrollTop!==y)p.scrollTop=y;}
 function setText(it,key,text){var e=entry(it);if(key==='gen')e.text=text;else if(e.deps[key.slice(2)])e.deps[key.slice(2)].text=text;}
 function validateAll(){var it=D[cur];if(!Object.keys(it.states).some(function(d){return isDone(it.states[d]);}))return;var e=entry(it);e.all=!e.all;refresh();}
 function generalRetake(){var e=entry(D[cur]);if(editing.gen||e.text){if(!e.text.trim()||confirm('Drop this general retake?')){e.text='';editing.gen=false;refresh();}return;}
-editing.gen=true;refresh();var g=$('gen-t');if(g)g.focus();}
+editing.gen=true;refresh();var g=$('gen-t');if(g)g.focus({preventScroll:true});}
 $('p-body').addEventListener('click',function(ev){var t,it=D[cur];
 if((t=ev.target.closest('[data-play]')))return play(videosOf(it,it.renders[+t.dataset.play]));
 if(ev.target.closest('#bigb'))return lightbox('<img alt="" src="'+$('bigimg').src+'">',esc(it.name));
@@ -696,24 +707,24 @@ if((t=ev.target.closest('.shotsel button'))){$('bigimg').src=t.dataset.src;t.par
 if((t=ev.target.closest('.tags [data-shot]'))){var key=t.closest('.tags').dataset.k,sh=t.dataset.shot,txt=key==='gen'?entry(it).text:(entry(it).deps[key.slice(2)]||{}).text||'',b=boxOf(it,key,txt);
 if(b.open[sh]&&(b.per[sh]||'').trim()&&!confirm('Drop what you wrote for '+sh+'?'))return;
 b.open[sh]=!b.open[sh];if(!b.open[sh])delete b.per[sh];setText(it,key,joinBox(it,b));refresh();
-if(b.open[sh]){var ta3=$('p-body').querySelector('textarea[data-k="'+CSS.escape(key)+'"][data-s="'+CSS.escape(sh)+'"]');if(ta3)ta3.focus();}return;}
+if(b.open[sh]){var ta3=$('p-body').querySelector('textarea[data-k="'+CSS.escape(key)+'"][data-s="'+CSS.escape(sh)+'"]');if(ta3)ta3.focus({preventScroll:true});}return;}
 if(ev.target.closest('#tog-closed')){showClosed=!showClosed;showNotes=true;return refresh();}
 if(ev.target.closest('#tog-notes')){showNotes=!showNotes;return refresh();}
 if(ev.target.closest('#add-gen'))return generalRetake();
 if((t=ev.target.closest('[data-reply]'))){var k='r:'+t.dataset.reply;editing[k]=true;refresh();
-var ta=$('p-body').querySelector('.rp-t[data-r="'+CSS.escape(t.dataset.reply)+'"]');if(ta)ta.focus();return;}
+var ta=$('p-body').querySelector('.rp-t[data-r="'+CSS.escape(t.dataset.reply)+'"]');if(ta)ta.focus({preventScroll:true});return;}
 if((t=ev.target.closest('[data-fix]'))){var fe=entry(it);if(fe.fixed[t.dataset.fix])delete fe.fixed[t.dataset.fix];else fe.fixed[t.dataset.fix]=1;refresh();return;}
-if(ev.target.closest('#add-desc')){editing.desc=true;entry(it).desc=it.desc;refresh();return $('desc-t').focus();}
+if(ev.target.closest('#add-desc')){editing.desc=true;entry(it).desc=it.desc;refresh();return $('desc-t').focus({preventScroll:true});}
 if(ev.target.closest('#allok'))return validateAll();
 if((t=ev.target.closest('.rvb button'))&&!t.disabled){var d=t.parentNode.dataset.d,e=entry(it),v=e.deps[d];
 if(t.classList.contains('ok-b')){if(v&&v.ok)delete e.deps[d];else e.deps[d]={ok:1};refresh();}
 else{if(v&&v.no)delete e.deps[d];else e.deps[d]={no:1,text:''};refresh();
-if(e.deps[d]){var ta2=$('p-body').querySelector('textarea[data-k="'+CSS.escape('d:'+d)+'"]');if(ta2)ta2.focus();}}}});
+if(e.deps[d]){var ta2=$('p-body').querySelector('textarea[data-k="'+CSS.escape('d:'+d)+'"]');if(ta2)ta2.focus({preventScroll:true});}}}});
 $('p-body').addEventListener('input',function(ev){var t=ev.target,it=D[cur],e=entry(it);if(t.tagName!=='TEXTAREA')return;grow(t);
 if(t.dataset.k){var k=t.dataset.k;if(t.dataset.s==null)setText(it,k,t.value);else{var b=boxOf(it,k,k==='gen'?e.text:(e.deps[k.slice(2)]||{}).text||'');
 if(t.dataset.s)b.per[t.dataset.s]=t.value;else b.all=t.value;setText(it,k,joinBox(it,b));}}else if(t.dataset.r){var was=replyKind(e.replies[t.dataset.r]);e.replies[t.dataset.r]=t.value;
 // Emptied, or turned retake / remark: its department sent back, or not.
-if(was!==replyKind(t.value)){var id=t.dataset.r,at=t.selectionStart;refresh();var nt=$('p-body').querySelector('.rp-t[data-r="'+CSS.escape(id)+'"]');if(nt){nt.focus();nt.setSelectionRange(at,at);}return;}}
+if(was!==replyKind(t.value)){var id=t.dataset.r,at=t.selectionStart;refresh();var nt=$('p-body').querySelector('.rp-t[data-r="'+CSS.escape(id)+'"]');if(nt){nt.focus({preventScroll:true});nt.setSelectionRange(at,at);}return;}}
 else if(t.id==='desc-t')e.desc=t.value;
 // A department's box turning remark-only or back (✎ you / ✕ you): its
 // tag and ✕ in the panel, its cell in the list, the caret kept.
@@ -777,7 +788,7 @@ $('rv-min').addEventListener('click',function(){if(document.body.classList.conta
 $('rv-fab').addEventListener('click',function(){if(document.body.classList.contains('rb-auto')&&!document.body.classList.contains('rb-folded'))document.body.classList.add('rb-peek');else fold(false);});
 function setReview(on){document.body.classList.toggle('reviewing',on);
 var folded=false;try{folded=localStorage.getItem(FOLD)==='1';}catch(e){}
-document.body.classList.toggle('rb-folded',on&&folded&&!!$('author').value.trim());showNotes=null;editing={};if(on&&!$('author').value&&!matchMedia('(pointer:coarse)').matches)$('author').focus();if(cur!=null)openPanel(cur);fitBar();}
+document.body.classList.toggle('rb-folded',on&&folded&&!!$('author').value.trim());showNotes=null;editing={};if(on&&!$('author').value&&!matchMedia('(pointer:coarse)').matches)$('author').focus({preventScroll:true});if(cur!=null)openPanel(cur);fitBar();}
 $('rv').addEventListener('click',function(){setReview(true);});
 $('rv-exit').addEventListener('click',function(){closeMenus();setReview(false);toast('Review left: it stays in this browser, ✎ Review takes it back.');});
 $('rv-clear').addEventListener('click',function(){closeMenus();if(!summary().files||confirm('Clear this review? What you wrote here is lost (a downloaded file is kept).')){
@@ -816,7 +827,9 @@ var dl=$('dlg');dl.innerHTML='<div class="dlg-in" role="dialog" aria-modal="true
 '<label>Your name<input id="d-author" value="'+esc(rv.author)+'" autocomplete="name"></label><div class="row2">'+
 '<label>Role<select id="d-role">'+$('role').innerHTML+'</select></label><label>Review date<input id="d-date" type="date" value="'+esc(rv.date||today())+'"></label></div>'+
 '<p class="why" id="d-why" hidden></p><div class="acts"><button class="btn link" id="d-see" title="Only the files this review touched, in the list">See them</button><button class="btn" id="d-cancel">Cancel</button>'+(SHARE?'<button class="btn" id="d-share" title="The system\'s share sheet: Save to Files where you choose, AirDrop, Mail...">Save or send…</button>':'')+'<button class="btn primary" id="d-go">Download</button></div></div>';
-$('d-role').value=rv.role;pick($('d-role'));dl.hidden=false;$(rv.author?'d-go':'d-author').focus();
+$('d-role').value=rv.role;pick($('d-role'));dl.hidden=false;
+// A touch screen: no keyboard brought up unasked (the page scrolled to it).
+$(rv.author||touchPin.matches?'d-go':'d-author').focus({preventScroll:true});
 $('d-cancel').onclick=function(){dl.hidden=true;};$('d-see').onclick=function(){dl.hidden=true;showMine();};dl.onclick=function(e){if(e.target===dl)dl.hidden=true;};
 // Save or send (a tablet, a phone): the system's share sheet -- Save to
 // Files picks the folder, where a download lands wherever the browser or

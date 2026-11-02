@@ -42,9 +42,10 @@ color-scheme:light dark}
 input,textarea,select{font-size:16px!important}
 /* No keyboard keys to recall under a finger. */
 .kh{display:none!important}
-/* Writing in the panel: the keyboard takes half the screen -- the picture,
-the review bar and Previous / Next step aside for the text. */
-body.typing .rbar,body.typing .rfab,body.typing .p-foot,body.typing .p-media{display:none!important}}
+/* Writing in the panel: the keyboard takes half the screen -- the review
+bar and Previous / Next step aside for the text. The picture stays: gone,
+the text moved up under the finger, and back down once done. */
+body.typing .rbar,body.typing .rfab,body.typing .p-foot{display:none!important}}
 *{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 var(--ui);font-variant-numeric:tabular-nums;padding-top:env(safe-area-inset-top,0px)}
@@ -80,7 +81,7 @@ padding:0 14px;border-radius:99px;border:1px solid var(--line);background:var(--
 body.reviewing #rv{display:none}
 .menu{position:relative}
 .menu-pop{position:absolute;right:0;top:calc(100% + 6px);z-index:40;min-width:250px;padding:6px;background:var(--surface);
-border:1px solid var(--line);border-radius:var(--r-md);box-shadow:var(--sh-pop);color:var(--ink)}
+border:1px solid var(--line);border-radius:var(--r-md);box-shadow:var(--sh-pop);color:var(--ink);overscroll-behavior:contain}
 .menu-pop.up{top:auto;bottom:calc(100% + 8px)}
 .menu-pop>button,.menu-pop>label,.menu-pop>a{display:block;width:100%;min-height:var(--tap);padding:6px 10px;border:0;background:none;border-radius:6px;text-align:left;font-size:13px;cursor:pointer;color:var(--ink);text-decoration:none}
 .menu-pop>button:hover,.menu-pop>label:hover,.menu-pop>a:hover{background:var(--sunk)}
@@ -95,7 +96,7 @@ replaces, its list like the menus. */
 .pick{text-align:left;cursor:pointer;white-space:nowrap;-webkit-appearance:none;appearance:none;padding-right:30px!important;
 background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);
 background-position:calc(100% - 17px) 52%,calc(100% - 12px) 52%;background-size:5px 5px;background-repeat:no-repeat}
-.pick-pop{position:fixed;z-index:70;max-height:min(360px,50vh);overflow:auto;padding:6px;background:var(--surface);color:var(--ink);
+.pick-pop{position:fixed;z-index:70;max-height:min(360px,50vh);overflow:auto;overscroll-behavior:contain;padding:6px;background:var(--surface);color:var(--ink);
 border:1px solid var(--line);border-radius:var(--r-md);box-shadow:var(--sh-pop)}
 .pick-pop>button{display:block;width:100%;min-height:36px;padding:6px 12px;border:0;border-radius:6px;background:none;text-align:left;font-size:13px;color:var(--ink);cursor:pointer;white-space:nowrap}
 .pick-pop>button:hover,.pick-pop>button:focus-visible{background:var(--sunk);outline:none}
@@ -173,11 +174,13 @@ background-position:calc(100% - 17px) 52%,calc(100% - 12px) 52%;background-size:
 background:var(--surface) no-repeat 11px 50%/14px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%238d8c86' stroke-width='2'%3E%3Ccircle cx='7' cy='7' r='5'/%3E%3Cpath d='m11 11 4 4'/%3E%3C/svg%3E")}
 /* Search as a jump: the files it matches, one click opens one. */
 .sugg{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:30;margin:0;padding:4px;list-style:none;background:var(--surface);
-border:1px solid var(--line);border-radius:var(--r-md);box-shadow:var(--sh-pop);max-height:320px;overflow:auto;min-width:240px}
+border:1px solid var(--line);border-radius:var(--r-md);box-shadow:var(--sh-pop);max-height:320px;overflow:auto;overscroll-behavior:contain;min-width:240px}
 .sugg button{display:flex;justify-content:space-between;gap:10px;width:100%;min-height:var(--tap);padding:4px 10px;border:0;border-radius:6px;background:none;text-align:left;font-size:13px}
 .sugg button small{color:var(--ink-3)}
 .sugg button:hover,.sugg button.hi{background:var(--sunk)}
 .help .menu-pop{width:min(360px,calc(100vw - 32px));padding:14px 16px;font-size:13px}
+/* Scrolled in itself: on a touch screen the page under it holds still. */
+@media (pointer:coarse){.help .menu-pop{max-height:calc(100dvh - 100px);overflow:auto}}
 .help h3{margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
 .help ul{list-style:none;margin:0 0 14px;padding:0;display:grid;gap:6px}
 .help li{display:flex;align-items:center;gap:8px}

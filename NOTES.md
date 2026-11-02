@@ -3707,6 +3707,30 @@ Seen on a 12.9" iPad, in Documents by Readdle's viewer:
   its focusin, before iOS moves anything) and a `scroll` puts it back;
   a list closes on a tap elsewhere, never on a scroll. With a mouse:
   as before (a scroll closes it, but not within 400 ms of its opening).
+- **Jumps on a touch screen, again** (iPad, after the above): pinning
+  (`pinPage`, a `scroll` listener calling `scrollTo(pinY)`, and the
+  field's `scrollTo(keepY)` 60 ms then 450 ms after its focusout) put the
+  page back *after* iOS had moved it -- every putting back a visible jump,
+  the 450 ms one even over a scroll begun meanwhile. Replaced by holding
+  the page still before anything moves: `lockPage(key, on)` (body
+  `position: fixed; top: -scrollY`, `scrollTo` back once the last key is
+  let go), keys `panel` (full-screen panel), `lb` (lightbox), and on a
+  touch screen `pop` (a list or ⋯ menu open, `touchHold()`), `dlg` (a
+  MutationObserver on `#dlg[hidden]`), `field` (a field of the panel, the
+  review bar or the dialog focused -- taken at focusin, let go 450 ms
+  after it's left, the keyboard gone: a scroll iOS makes then has nothing
+  to move). The sticky bar stays put under a fixed body (sticky reads the
+  viewport, not the body). Self-made scrolls removed too:
+  `refresh()` → `openPanel()` ran its `scrollBy` to the shown row at each
+  ✓ / ✕ (only for another file now); `.focus()` of the boxes opened by
+  ✕, ↩, ✎, a shot's tag → `preventScroll`; `body.typing` hid `.p-media`,
+  the text moving up under the finger (kept now); `grow()` (no
+  `field-sizing` in Safari) set `height: auto` at each key, the panel's
+  `scrollTop` clamped, iOS scrolling back to the caret (put back in the
+  same go); `overscroll-behavior: contain` on `.pick-pop`, `.sugg`,
+  `.menu-pop` (the help scrolls in itself on a touch screen); the
+  dialog doesn't focus *Your name* on a touch screen (the keyboard came
+  up unasked); a list closes on `resize` only if the width changed.
 - **Where a review lands**: a page can't pick a download's folder, and in
   an app's viewer (Documents) it lands in the app's own space. *Save or
   send…* (`SHARE`: `navigator.share` + `canShare` with a file, on a

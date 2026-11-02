@@ -189,6 +189,18 @@ review one file -- lighter to read on a computer and on a phone.
   takes the focus, the page under an open list or menu -- or under the
   panel while writing in it -- is held where it was, and a list closes
   on a tap elsewhere, not on a scroll.
+- **No more jumps on a touch screen** (iPad): the page was put back after
+  the iPad had scrolled it, and each putting back was a jump of its own
+  (choosing in a list, leaving a field). It is now held still, fixed
+  where it is, while a list, a menu or the download dialog is open and
+  while writing in the panel, the review bar or the dialog, and let go
+  once the keyboard is gone. Also: a tap in the panel (✓, ✕, ↩...) no
+  longer scrolls the list back to the file shown; a box opened by ✕, ↩
+  or ✎ takes the focus without scrolling; the picture at the top of the
+  panel stays while writing (the text no longer moves under the finger);
+  a growing box no longer jolts the panel at each key; scrolling to the
+  end of a list or a menu no longer scrolls the page; the dialog no
+  longer brings the keyboard up by itself.
 
 ### Removed
 
