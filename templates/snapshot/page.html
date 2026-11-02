@@ -2,6 +2,7 @@
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>{{TITLE}}</title>
+<script>try{var t=localStorage.getItem("mp-snapshot:theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t;}catch(e){}</script>
 <style>@font-face{font-family:"MP Display";src:url(data:font/ttf;base64,{{FONT}}) format("truetype");font-display:swap}
 {{CSS}}</style>
 </head>
@@ -35,6 +36,7 @@
 <label>Load a review…<small>A .json downloaded from this page, to go on with it</small><input type="file" class="rv-load" accept=".json,application/json"></label>
 <label>Choose the videos folder…<small>Where this snapshot's videos are, to play them</small><input type="file" class="vid-pick" webkitdirectory multiple accept="video/mp4,.mp4"></label>
 <a download="{{XLSX_NAME}}" href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{{XLSX}}">Review spreadsheet (.xlsx)<small>Offline, or for several reviewers on a shared drive</small></a>
+<div class="theme-sw" role="group" aria-label="Theme"><span>Theme</span><button type="button" data-theme-set="">System</button><button type="button" data-theme-set="light">Light</button><button type="button" data-theme-set="dark">Dark</button></div>
 </div></div>
 </div>
 </div>
@@ -72,7 +74,7 @@
 <div class="dlg" id="dlg" hidden></div>
 <div class="scrim" id="scrim"></div>
 <aside class="panel" id="panel" role="dialog" aria-modal="true" aria-labelledby="p-title" hidden>
-<div class="p-resize" id="p-resize" role="separator" aria-orientation="vertical" aria-label="Panel width: drag, or ← → once focused; double click for the default" tabindex="0"></div>
+<div class="p-resize" id="p-resize" role="separator" aria-orientation="vertical" aria-label="Panel width: drag, or ← → once focused -- past its widest, the whole page; double click for the default" tabindex="0"></div>
 <div class="p-head"><div class="t"><b id="p-title"></b><small id="p-sub"></small></div>
 <button class="btn icon mnav" id="m-prev" aria-label="Previous file">‹</button><button class="btn icon mnav" id="m-next" aria-label="Next file">›</button>
 <button class="btn icon" id="p-play" hidden>▶</button>

@@ -156,6 +156,23 @@ review one file -- lighter to read on a computer and on a phone.
   in amber) instead of its mark, the rows apart by a band of the page's
   background, the versions left to the file's panel.
 
+### Tablets
+
+- **The panel over the whole page, on demand**: dragging the panel's left
+  edge past its widest makes it fill the page (an iPad upright: the list
+  beside it was too narrow), kept by the browser; dragged back from its
+  left edge, it's beside the list again (a double click: the default
+  width). A wider edge to grab with a finger.
+- **Theme: System / Light / Dark** in the ⋯ menu, kept by the browser --
+  applied before the page shows, no flash of the other one.
+- **Nothing hides under an iPad's status bar** any more (battery,
+  network, time, where the page runs under it -- full screen, or an app's
+  viewer): the top bar, the panel's header, the video player, the
+  dialogs and messages start below it.
+- **Playing a video no longer scrolls the list back to the top** (iPad):
+  the page under the player holds still and is back where it was once
+  the player is closed.
+
 ### Removed
 
 - The Columns menu (columns nobody requires are left out by themselves),

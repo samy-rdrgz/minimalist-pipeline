@@ -313,8 +313,13 @@ hov.onload=function(){var r=t.getBoundingClientRect(),w=hov.offsetWidth,h=hov.of
 hov.style.left=Math.max(8,Math.min(r.left,innerWidth-w-8))+'px';hov.style.top=(r.bottom+8+h<innerHeight?r.bottom+8:Math.max(8,r.top-8-h))+'px';};
 hov.src=img(D[t.dataset.zoom].thumb);hov.style.display='block';});
 document.addEventListener('mouseout',function(e){if(e.target.closest('.thumb'))hov.style.display='none';});
-function lightbox(html,cap){$('lb-in').innerHTML=html;$('lb-cap').innerHTML=cap||'';$('lb').hidden=false;hov.style.display='none';}
-function closeLb(){var v=$('lb-in').querySelector('video');if(v)v.pause();$('lb').hidden=true;$('lb-in').innerHTML='';}
+// The page under it holds still, and is back where it was once closed:
+// on an iPad, starting a video scrolled it to the top.
+var lbLock=false;
+function lightbox(html,cap){if(lockY==null){lockPage(true,true);lbLock=true;}
+$('lb-in').innerHTML=html;$('lb-cap').innerHTML=cap||'';$('lb').hidden=false;hov.style.display='none';}
+function closeLb(){var v=$('lb-in').querySelector('video');if(v)v.pause();$('lb').hidden=true;$('lb-in').innerHTML='';
+if(lbLock){lbLock=false;lockPage(false);}}
 $('lb').addEventListener('click',function(e){if(e.target===this||e.target.closest('#lb-x')||e.target.tagName==='IMG')closeLb();});
 document.addEventListener('click',function(e){var t=e.target.closest('[data-zoom]');if(!t)return;e.stopPropagation();var it=D[t.dataset.zoom];
 lightbox('<img alt="" src="'+img(it.thumb)+'">',esc(it.name));},true);
@@ -582,15 +587,15 @@ document.querySelectorAll('.row.sel').forEach(function(x){x.classList.remove('se
 var s=$('list').querySelector('.row[data-i="'+i+'"]');if(s){s.classList.add('sel');
 // Beside the list: the file shown stays in sight as ← → go through it.
 var r=s.getBoundingClientRect(),top=bar.getBoundingClientRect().bottom+40;if(!phone.matches&&(r.top<top||r.bottom>innerHeight))scrollBy({top:r.top-top-(innerHeight-top)/3,behavior:'smooth'});}
-p.setAttribute('aria-modal',phone.matches?'true':'false');
+p.setAttribute('aria-modal',phone.matches||document.body.classList.contains('panel-full')?'true':'false');
 try{history.replaceState(null,'','#'+encodeURIComponent(it.name));}catch(err){}}
 function refresh(){var y=$('p-body').scrollTop;openPanel(cur);$('p-body').scrollTop=y;render();save();}
 // A phone: the page under the full-screen panel holds still -- a drag on
 // the panel's header, or a field brought into view, scrolled it on iOS,
 // and closing the panel found the list somewhere else.
 var lockY=null;
-function lockPage(on){var b=document.body.style;
-if(on&&lockY==null&&matchMedia('(max-width:900px)').matches){lockY=scrollY;b.position='fixed';b.top=-lockY+'px';b.left=b.right='0';}
+function lockPage(on,force){var b=document.body.style;
+if(on&&lockY==null&&(force||matchMedia('(max-width:900px)').matches||document.body.classList.contains('panel-full'))){lockY=scrollY;b.position='fixed';b.top=-lockY+'px';b.left=b.right='0';}
 else if(!on&&lockY!=null){b.position=b.top=b.left=b.right='';scrollTo(0,lockY);lockY=null;}}
 // Touch: a field in a fixed layer (panel, review bar, dialog) brings the
 // keyboard up and iOS scrolls the page under it, often to the bottom,
@@ -630,17 +635,28 @@ if(Math.abs(dx)>70&&Math.abs(dx)>2*Math.abs(dy))step(dx<0?1:-1);else if(t0.top&&
 var phone=matchMedia('(max-width:900px)');
 // The panel's width, dragged by its left edge -- kept by this browser.
 var PW_KEY='mp-snapshot:panel-width',PW_DEF=540;
-function setWidth(w,keep){w=Math.round(Math.max(380,Math.min(w,innerWidth-360,innerWidth*0.8)));
+function maxWidth(){return Math.min(innerWidth-360,innerWidth*0.8);}
+function setWidth(w,keep){w=Math.round(Math.max(380,Math.min(w,maxWidth())));
 document.documentElement.style.setProperty('--pw',w+'px');if(keep)try{localStorage.setItem(PW_KEY,String(w));}catch(e){}if(typeof fitBar==='function')fitBar();return w;}
-try{var pw=+localStorage.getItem(PW_KEY);if(pw)setWidth(pw);}catch(e){}
+// Dragged past its widest, the whole page (an iPad upright: the list is
+// too narrow beside it); dragged back, beside the list. Kept too.
+var PF_KEY='mp-snapshot:panel-full';
+function setFull(on,keep){var b=document.body,was=b.classList.contains('panel-full');b.classList.toggle('panel-full',on);
+if(keep)try{localStorage.setItem(PF_KEY,on?'1':'');}catch(e){}
+if(on!==was&&cur!=null){if(on)lockPage(true);else if(!phone.matches&&!lbLock)lockPage(false);
+$('panel').setAttribute('aria-modal',on||phone.matches?'true':'false');}
+if(typeof fitBar==='function')fitBar();}
+function dragTo(w,keep){if(w>maxWidth()+60)setFull(true,keep);else{setFull(false,keep);setWidth(w,keep);}}
+try{var pw=+localStorage.getItem(PW_KEY);if(pw)setWidth(pw);if(localStorage.getItem(PF_KEY))setFull(true);}catch(e){}
 var rz=$('p-resize');
 rz.addEventListener('pointerdown',function(e){e.preventDefault();rz.setPointerCapture(e.pointerId);document.body.classList.add('resizing');});
-rz.addEventListener('pointermove',function(e){if(document.body.classList.contains('resizing'))setWidth(innerWidth-e.clientX,false);});
-rz.addEventListener('pointerup',function(e){if(!document.body.classList.contains('resizing'))return;document.body.classList.remove('resizing');setWidth(innerWidth-e.clientX,true);});
-rz.addEventListener('dblclick',function(){setWidth(PW_DEF,true);});
+rz.addEventListener('pointermove',function(e){if(document.body.classList.contains('resizing'))dragTo(innerWidth-e.clientX,false);});
+rz.addEventListener('pointerup',function(e){if(!document.body.classList.contains('resizing'))return;document.body.classList.remove('resizing');dragTo(innerWidth-e.clientX,true);});
+rz.addEventListener('dblclick',function(){setFull(false,true);setWidth(PW_DEF,true);});
 rz.addEventListener('keydown',function(e){if(e.key!=='ArrowLeft'&&e.key!=='ArrowRight')return;e.preventDefault();e.stopPropagation();
-setWidth($('panel').offsetWidth+(e.key==='ArrowLeft'?40:-40),true);});
-$('panel').addEventListener('keydown',function(e){if(e.key!=='Tab'||!phone.matches)return;var f=[].filter.call($('panel').querySelectorAll('button,textarea,[tabindex]'),function(x){return !x.disabled&&x.offsetParent;});
+var full=document.body.classList.contains('panel-full');
+dragTo(full?(e.key==='ArrowLeft'?innerWidth:maxWidth()):$('panel').offsetWidth+(e.key==='ArrowLeft'?40:-40),true);});
+$('panel').addEventListener('keydown',function(e){if(e.key!=='Tab'||!(phone.matches||document.body.classList.contains('panel-full')))return;var f=[].filter.call($('panel').querySelectorAll('button,textarea,[tabindex]'),function(x){return !x.disabled&&x.offsetParent;});
 if(!f.length)return;var a=f[0],z=f[f.length-1];if(e.shiftKey&&document.activeElement===a){z.focus();e.preventDefault();}else if(!e.shiftKey&&document.activeElement===z){a.focus();e.preventDefault();}});
 var FS=window.CSS&&CSS.supports('field-sizing','content');
 function grow(t){if(FS||!t)return;t.style.height='auto';t.style.height=Math.min(t.scrollHeight+2,innerHeight*.5)+'px';}
@@ -806,3 +822,13 @@ summaryCards();drawTabs();render();stats();barHeight();
 // A link to a file (#its name) opens it.
 var want=decodeURIComponent(location.hash.slice(1));if(want&&byName[want])jump(byName[want]);
 })();
+// The ⋯ menu's theme: the system's, or light / dark whatever it is --
+// html[data-theme], kept by this browser (read again in page.html's head,
+// before the page shows: no flash of the other one).
+(function(){var KEY='mp-snapshot:theme';
+function sync(){var t=document.documentElement.dataset.theme||'';
+document.querySelectorAll('[data-theme-set]').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.themeSet===t));});}
+document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('[data-theme-set]');if(!b)return;e.stopPropagation();
+var t=b.dataset.themeSet;if(t)document.documentElement.dataset.theme=t;else delete document.documentElement.dataset.theme;
+try{if(t)localStorage.setItem(KEY,t);else localStorage.removeItem(KEY);}catch(err){}sync();},true);
+sync();})();
