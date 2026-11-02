@@ -3694,6 +3694,12 @@ Seen on a 12.9" iPad, in Documents by Readdle's viewer:
   the lightbox's room); the video is 100 % of it, no black background
   (`object-fit: contain`). Again on `resize` only if the width changed:
   turned, not a bar sliding.
+- **The page's lists closed as they opened** (Role, in the review bar):
+  `pick()` focuses the current option for the keys; iOS scrolled the page
+  to it (the list is `position: fixed`, so is the bar), and the capture
+  `scroll` listener closes any open list. `focus({preventScroll:true})`
+  everywhere a list or its button takes the focus, and no scroll closes a
+  list within 400 ms of its opening (`pickOpenedAt`).
 - What the page can't change: a viewer app showing its own header and
   footer on a tap (Documents by Readdle), or the floating mini keyboard
   (iPadOS: a pinch on the keyboard, or the app's window not full

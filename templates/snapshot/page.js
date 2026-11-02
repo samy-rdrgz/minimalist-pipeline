@@ -289,17 +289,22 @@ m.innerHTML=[].map.call(sel.options,function(o,i){return '<button type="button" 
 // Fixed, from the button: a scrolling bar or a panel would clip it.
 var r=b.getBoundingClientRect(),up=r.top>innerHeight/2;m.style.left=Math.max(8,Math.min(r.left,innerWidth-Math.max(r.width,200)-8))+'px';m.style.minWidth=r.width+'px';
 m.style.top=up?'':(r.bottom+6)+'px';m.style.bottom=up?(innerHeight-r.top+6)+'px':'';
-m.hidden=false;b.setAttribute('aria-expanded','true');(m.querySelector('[aria-selected="true"]')||m.firstChild).focus();};
+// Focused for the keys, never scrolled to: on an iPad, focusing it
+// scrolled the page, and that scroll closed the list at once.
+m.hidden=false;b.setAttribute('aria-expanded','true');pickOpenedAt=Date.now();(m.querySelector('[aria-selected="true"]')||m.firstChild).focus({preventScroll:true});};
 m.onclick=function(e){var o=e.target.closest('[data-i]');if(!o)return;e.stopPropagation();sel.selectedIndex=+o.dataset.i;closePicks();
-sel.dispatchEvent(new Event('change'));sync();b.focus();};
+sel.dispatchEvent(new Event('change'));sync();b.focus({preventScroll:true});};
 m.onkeydown=function(e){var f=[].slice.call(m.children),k=f.indexOf(document.activeElement);
-if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();var n=f[Math.max(0,Math.min(f.length-1,k+(e.key==='ArrowDown'?1:-1)))];if(n)n.focus();}
-else if(e.key==='Escape'||e.key==='Tab'){if(e.key==='Escape'){e.preventDefault();e.stopPropagation();}closePicks();b.focus();}};
+if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();var n=f[Math.max(0,Math.min(f.length-1,k+(e.key==='ArrowDown'?1:-1)))];if(n)n.focus({preventScroll:true});}
+else if(e.key==='Escape'||e.key==='Tab'){if(e.key==='Escape'){e.preventDefault();e.stopPropagation();}closePicks();b.focus({preventScroll:true});}};
 sel._pick={sync:sync,button:b};sync();return sel._pick;}
 function closePicks(){document.querySelectorAll('.pick-pop').forEach(function(m){if(!m.hidden){m.hidden=true;m._button.setAttribute('aria-expanded','false');}});}
 function sync(id){var s=$(id);if(s&&s._pick)s._pick.sync();}
 document.addEventListener('click',closePicks);addEventListener('resize',closePicks);
-document.addEventListener('scroll',function(e){if(!(e.target.closest&&e.target.closest('.pick-pop')))closePicks();},true);
+// A scroll closes an open list -- not one the browser makes as it opens
+// (iOS scrolls on a focus all the same, sometimes).
+var pickOpenedAt=0;
+document.addEventListener('scroll',function(e){if(Date.now()-pickOpenedAt<400)return;if(!(e.target.closest&&e.target.closest('.pick-pop')))closePicks();},true);
 function closeMenus(){MENUS.forEach(function(m){$(m[1]).hidden=true;$(m[0]).setAttribute('aria-expanded','false');});}
 MENUS.forEach(function(m){$(m[0]).addEventListener('click',function(e){e.stopPropagation();var open=$(m[1]).hidden;closeMenus();
 $(m[1]).hidden=!open;this.setAttribute('aria-expanded',open);});});
