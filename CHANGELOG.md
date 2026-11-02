@@ -177,6 +177,11 @@ review one file -- lighter to read on a computer and on a phone.
   its content (the time ticking) and the visible height (moving under a
   browser's or an app's bars). It's now set once from the video's shape
   and the room there is -- again only when the screen turns.
+- **The review: *Save or send…*** beside *Download* on a tablet or a
+  phone -- the system's share sheet, *Save to Files* picking the folder
+  (a download lands wherever the browser, or the app showing the page,
+  keeps its own: hard to find in an app's viewer). A cancelled share
+  leaves the dialog open; a failed one downloads instead.
 - **The page's lists (Role, departments...) no longer close as they
   open** (iPad): the list focused its current choice, Safari scrolled the
   page to it, and any scroll closed the list. Focused without scrolling

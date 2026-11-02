@@ -145,7 +145,11 @@ la prod -- sur la version qu'il a vue.
   dès qu'elle contient un retake ou une validation) et la date de review,
   puis enregistre le `.json` : **Import review** le prend comme un
   `.xlsx` -- plusieurs d'un coup aussi (un par reviewer : le fichier
-  porte son heure, son rôle et son auteur). La page garde ce que vous
+  porte son heure, son rôle et son auteur). Sur tablette ou téléphone,
+  *Save or send…* à côté ouvre la feuille de partage du système :
+  *Enregistrer dans Fichiers* choisit le dossier (un téléchargement
+  atterrit là où le navigateur -- ou l'app qui affiche la page -- range
+  les siens), ou AirDrop, Mail.... La page garde ce que vous
   écrivez dans votre navigateur au fil de l'eau (un rechargement le
   retrouve, dans le même navigateur -- pas en navigation privée ni sur une
   autre machine) ; le menu ⋯ de la barre propose *Load a review…*

@@ -3700,6 +3700,14 @@ Seen on a 12.9" iPad, in Documents by Readdle's viewer:
   `scroll` listener closes any open list. `focus({preventScroll:true})`
   everywhere a list or its button takes the focus, and no scroll closes a
   list within 400 ms of its opening (`pickOpenedAt`).
+- **Where a review lands**: a page can't pick a download's folder, and in
+  an app's viewer (Documents) it lands in the app's own space. *Save or
+  send…* (`SHARE`: `navigator.share` + `canShare` with a file, on a
+  coarse pointer) hands the `.json` to the share sheet -- *Save to
+  Files* chooses the folder. `shareFile()` tries `application/json`, then
+  the same name as `text/plain` (browsers that share only some types).
+  AbortError (cancelled): nothing, the dialog stays; any other error:
+  the plain download.
 - What the page can't change: a viewer app showing its own header and
   footer on a tap (Documents by Readdle), or the floating mini keyboard
   (iPadOS: a pinch on the keyboard, or the app's window not full

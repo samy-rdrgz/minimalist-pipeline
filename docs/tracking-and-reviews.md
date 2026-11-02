@@ -134,7 +134,10 @@ it saw.
   role (required as soon as it holds a retake or a validation) and the
   review date, then saves the `.json`: **Import review** takes it like
   an `.xlsx` -- several at once too (one per reviewer: the file is named
-  after its time, role and author). The page keeps what you write in
+  after its time, role and author). On a tablet or a phone, *Save or
+  send…* beside it opens the system's share sheet: *Save to Files* picks
+  the folder (a download lands wherever the browser -- or the app showing
+  the page -- keeps its own), or AirDrop, Mail.... The page keeps what you write in
   your browser as you go (a reload brings it back, in the same browser
   -- not in a private window or on another machine); the bar's ⋯ menu
   has *Load a review…* (reopens a downloaded one), *Clear this review*

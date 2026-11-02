@@ -792,6 +792,10 @@ function slug(t){return String(t||'').normalize('NFD').replace(/[̀-ͯ]/g,'').to
 function reviewName(){var d=new Date(),stamp=d.getFullYear()+'-'+two(d.getMonth()+1)+'-'+two(d.getDate())+'_'+two(d.getHours())+'-'+two(d.getMinutes());
 return [META.review_base+'_review_'+stamp,slug(rv.role),slug(rv.author)].filter(Boolean).join('_')+'.json';}
 function today(){var d=new Date();return d.getFullYear()+'-'+two(d.getMonth()+1)+'-'+two(d.getDate());}
+// Files to the share sheet: a touch screen whose browser can (Safari and
+// Documents' viewer on an iPad, a phone's).
+var SHARE=!!(navigator.share&&navigator.canShare&&matchMedia('(pointer:coarse)').matches&&
+(function(){try{return navigator.canShare({files:[new File(['{}'],'t.json',{type:'application/json'})]})||navigator.canShare({files:[new File(['{}'],'t.json',{type:'text/plain'})]});}catch(e){return false;}})());
 // Download: what it holds first, with who, as what and when -- then the file.
 $('rv-dl').addEventListener('click',function(){var rows=exportRows();
 if(!rows.length){toast('Nothing to send yet: validate or write a retake first.');return;}
@@ -801,17 +805,31 @@ var dl=$('dlg');dl.innerHTML='<div class="dlg-in" role="dialog" aria-modal="true
 (c.out?'<dt>Validations withdrawn</dt><dd>'+c.out+'</dd>':'')+(c.desc?'<dt>Descriptions</dt><dd>'+c.desc+'</dd>':'')+'</dl>'+
 '<label>Your name<input id="d-author" value="'+esc(rv.author)+'" autocomplete="name"></label><div class="row2">'+
 '<label>Role<select id="d-role">'+$('role').innerHTML+'</select></label><label>Review date<input id="d-date" type="date" value="'+esc(rv.date||today())+'"></label></div>'+
-'<p class="why" id="d-why" hidden></p><div class="acts"><button class="btn link" id="d-see" title="Only the files this review touched, in the list">See them</button><button class="btn" id="d-cancel">Cancel</button><button class="btn primary" id="d-go">Download</button></div></div>';
+'<p class="why" id="d-why" hidden></p><div class="acts"><button class="btn link" id="d-see" title="Only the files this review touched, in the list">See them</button><button class="btn" id="d-cancel">Cancel</button>'+(SHARE?'<button class="btn" id="d-share" title="The system\'s share sheet: Save to Files where you choose, AirDrop, Mail...">Save or send…</button>':'')+'<button class="btn primary" id="d-go">Download</button></div></div>';
 $('d-role').value=rv.role;pick($('d-role'));dl.hidden=false;$(rv.author?'d-go':'d-author').focus();
 $('d-cancel').onclick=function(){dl.hidden=true;};$('d-see').onclick=function(){dl.hidden=true;showMine();};dl.onclick=function(e){if(e.target===dl)dl.hidden=true;};
-$('d-go').onclick=function(){rv.author=$('d-author').value.trim();rv.role=$('d-role').value;rv.date=$('d-date').value;
+// Save or send (a tablet, a phone): the system's share sheet -- Save to
+// Files picks the folder, where a download lands wherever the browser or
+// the app viewing the page keeps its own.
+if($('d-share'))$('d-share').onclick=function(){$('d-go').dataset.share='1';$('d-go').click();};
+$('d-go').onclick=function(){var share=this.dataset.share;delete this.dataset.share;rv.author=$('d-author').value.trim();rv.role=$('d-role').value;rv.date=$('d-date').value;
 $('author').value=rv.author;$('role').value=rv.role;sync('role');save();
 if(needsRole&&!rv.role){$('d-why').hidden=false;$('d-why').textContent='Pick your role: your validations and retakes are recorded under it.';$('d-role').classList.add('need');sync('d-role');return;}
 var data={format:META.format,schema_version:META.schema_version,project:META.project,snapshot:META.snapshot,author:rv.author,role:rv.role,
 review_date:rv.date,written_at:new Date().toISOString().slice(0,19),rows:rows};
-var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download=reviewName();
+var text=JSON.stringify(data,null,2),name=reviewName();
+function download(){var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:'application/json'}));a.download=name;
 document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},1000);dl.hidden=true;
-toast('Downloaded: send it, Import review reads it.');};});
+toast('Downloaded ('+name+'): send it, Import review reads it.');}
+var file=share&&shareFile(text,name);
+if(!file)return download();
+navigator.share({files:[file],title:name}).then(function(){dl.hidden=true;toast('Review saved or sent: Import review reads it.');},
+function(err){if(err&&err.name==='AbortError')return;download();});};});
+// The review as a file the share sheet takes: JSON, else as plain text
+// (same .json name) where a browser shares only some types. null: none.
+function shareFile(text,name){if(!SHARE)return null;
+for(var i=0,types=['application/json','text/plain'];i<types.length;i++){var f=new File([text],name,{type:types[i]});
+try{if(navigator.canShare({files:[f]}))return f;}catch(e){}}return null;}
 document.querySelectorAll('.rv-load').forEach(function(inp){inp.addEventListener('change',function(){var file=this.files[0];this.value='';closeMenus();if(!file)return;
 var rd=new FileReader();rd.onload=function(){var data;try{data=JSON.parse(rd.result);}catch(e){toast('Not a review file.');return;}
 if(data.format!==META.format){toast('Not a review downloaded from a snapshot page.');return;}
