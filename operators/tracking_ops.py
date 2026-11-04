@@ -817,6 +817,8 @@ def _run_review_import(self, paths: list[Path]) -> set:
         "validated": 0,
         "fixed": 0,
         "replies": 0,
+        "already_fixed": 0,
+        "same_validations": 0,
         "skipped": [],
     }
     changes: dict[str, dict] = {}
@@ -833,10 +835,20 @@ def _run_review_import(self, paths: list[Path]) -> set:
             "INFO",
             "review_import",
             f"{path.name}: {one['imported']} imported, {one['validated']} "
-            f"validation(s), {one['duplicates']} already there, "
+            f"validation(s), {one['fixed']} fixed, {one['replies']} reply(ies); "
+            f"already there: {one['duplicates']} note(s), "
+            f"{one['already_fixed']} done, {one['same_validations']} validation(s); "
             f"{len(one['skipped'])} skipped",
         )
-        for key in ("imported", "duplicates", "validated", "fixed", "replies"):
+        for key in (
+            "imported",
+            "duplicates",
+            "validated",
+            "fixed",
+            "replies",
+            "already_fixed",
+            "same_validations",
+        ):
             result[key] += one[key]
         result["skipped"] += [
             ((f"{path.name}: " if len(paths) > 1 else "") + label, reason)
@@ -868,8 +880,14 @@ def _run_review_import(self, paths: list[Path]) -> set:
         lines.append(f"{result['fixed']} retake(s) marked fixed")
     if result["replies"]:
         lines.append(f"{result['replies']} reply(ies) added to their notes")
-    if result["duplicates"]:
-        lines.append(f"{result['duplicates']} already imported before, skipped")
+    # A review imported again: say what was there already, left as it is.
+    already = [
+        f"{result['duplicates']} note(s) / reply(ies)" if result["duplicates"] else "",
+        f"{result['already_fixed']} retake(s) done" if result["already_fixed"] else "",
+        f"{result['same_validations']} validation(s)" if result["same_validations"] else "",
+    ]
+    if any(already):
+        lines.append("Already there, left as is: " + ", ".join(a for a in already if a))
     if result["skipped"]:
         lines.append(f"{len(result['skipped'])} not imported:")
         lines += [f"   {label} -- {reason}" for label, reason in result["skipped"][:8]]

@@ -631,8 +631,9 @@ def import_review_xlsx(path: Path) -> dict:
     Replies ("reply <id>") go into their entry's thread under the role: a
     retake on its departments ("still to redo", the entry left open), or a
     remark when every line is "note:".
-    Returns {"imported", "duplicates", "validated", "fixed", "replies",
-    "skipped": [(label, reason)]}."""
+    Returns {"imported", "duplicates" (notes and replies already there),
+    "validated", "same_validations" (already so), "fixed", "already_fixed"
+    (done already), "replies", "skipped": [(label, reason)]}."""
     review = read_review(path)
     plan = review_import_plan(path, review)
     role = plan["role"] or None
@@ -651,6 +652,10 @@ def import_review_xlsx(path: Path) -> dict:
         "validated": 0,
         "fixed": 0,
         "replies": 0,
+        # Already so, left as it is (a review imported again): retakes done
+        # since, validations already given.
+        "already_fixed": 0,
+        "same_validations": 0,
         "skipped": list(plan["refused"]),
     }
     # Retakes marked fixed: done, as the reviewer -- one already done, or
@@ -667,8 +672,15 @@ def import_review_xlsx(path: Path) -> dict:
             continue
         for entry_id in ids:
             try:
-                if close_entry(filepath, entry_id, author):
+                closed = close_entry(filepath, entry_id, author)
+                if closed:
                     result["fixed"] += 1
+                elif closed is False:
+                    result["already_fixed"] += 1
+                else:
+                    result["skipped"].append(
+                        (f"{row['filename']}: retake fixed", "its note is gone")
+                    )
             except PipelineError as e:
                 result["skipped"].append((f"{row['filename']}: retake fixed", e.message))
     # Replies: each in its entry's thread, a note under the review's role --
@@ -735,6 +747,8 @@ def import_review_xlsx(path: Path) -> dict:
                 stable_file=v["stable"],
             ):
                 result["validated"] += 1
+            else:
+                result["same_validations"] += 1
         except PipelineError as e:
             result["skipped"].append((f"{v['name']}: {v['department']}", e.message))
     for row in review["rows"]:
