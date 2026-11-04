@@ -1062,12 +1062,16 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None)
                 text, row_icon = "Wip", "CHECKBOX_DEHLT"
             else:
                 text, row_icon = "Not started", "CHECKBOX_DEHLT"
-            status.operator(
-                "m_pipeline.department_status_info",
-                text=text,
-                icon=row_icon,
-                emboss=False,
-            ).custom_tooltip = tooltip
+            # Icon then text, each its own button in a left-aligned row:
+            # one button's text is centred in its cell (both keep the tooltip).
+            status.alignment = "LEFT"
+            for t, i in (("", row_icon), (text, "NONE")):
+                status.operator(
+                    "m_pipeline.department_status_info",
+                    text=t,
+                    icon=i,
+                    emboss=False,
+                ).custom_tooltip = tooltip
         else:
             icon_row.label(text=" ", icon="BLANK1")
     _draw_farm_cell(cells[-1], dir, file, jobs or [])

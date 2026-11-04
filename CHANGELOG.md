@@ -39,7 +39,9 @@ says what a review brings and what's already there.
   render-ld · v003-stable" -- instead of a box per department.
 
 - File details: a validated department's role ("★ prod") starts right
-  after its star, no longer centred in the space left.
+  after its star, no longer centred in the space left; Project
+  monitoring's cells ("★ Done · prod", "Not started") start at their
+  column's left, under its name.
 
 - Snapshot page: a file's farm state has its icon and colour -- ▷ blue
   rendering, ◷ amber queued, ⚠ red failed -- and a filter, *In the farm*,
