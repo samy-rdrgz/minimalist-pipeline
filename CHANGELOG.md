@@ -128,6 +128,14 @@ review one file -- lighter to read on a computer and on a phone.
   the projects already known: Accept activates the project. A dialog
   came first, its path field opening the same browser, then needed
   confirming again.
+- Review: a department called *render* (an asset's, say) was lost. It
+  shared its name with the render watched, written under "render" in the
+  page's `.json` and the spreadsheet: its retakes and validations
+  overwrote it, or were skipped by *All done*, and the import read them
+  as the render. The render watched is now `render_watched` (schema 7).
+  A review from before is read back: a render's name is the render
+  watched, anything else that department's cell (an *All done* lost
+  there can't be told apart: validate it again).
 - Farm: cancelling a job whose cancel was already on its way (sent by the
   farm, or a second click) no longer raises "locked by another process".
 - A render's compiled video carries its version, like its folder:

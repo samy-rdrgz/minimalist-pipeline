@@ -3653,6 +3653,13 @@ with it -- one rule for every box, so nobody has to learn two.
   ids; `reply <id>`, one column each) -- the spreadsheet has no place for
   a thread. Schema 6 is refused by an older add-on rather than read as
   departments named "fixed" and "reply ...".
+- **No technical field named like a department.** The render watched
+  was "render" in the `.json` and the spreadsheet; a project with a
+  department called *render* (assets) had its retakes written over it,
+  its *All done* validations skipped (the key already taken), and the
+  import read them as a render. Now `render_watched` (schema 7); a review
+  from before tells the two apart by the value's shape (`_legacy_render()`:
+  a render's name, `v007-stable_001`, is the render watched).
 - **The page needs the entries' ids** (`_entry_dict()`, `_entry()`): a
   thread is found by id at import, never by its text.
 

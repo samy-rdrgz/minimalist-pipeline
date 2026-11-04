@@ -9,7 +9,10 @@ var DATA=JSON.parse($('data').textContent),META=DATA.meta,D=DATA.items;
 var TABS=[['shot','Shots'],['asset','Assets'],['library','Libraries']];
 var LABEL={done:'Done',rework:'Done, reworked since',wip:'In progress',todo:'Not started'};
 var OKS=['ok','yes','oui','v','x','✓','✔','valid','validé','valide'],NOS=['no','non'];
-var FIXED=['group','filename','description','description_exported','stable_version','wip_version','render','global','fixed'];
+// render_watched: the render watched (not "render": a department can be called that).
+var FIXED=['group','filename','description','description_exported','stable_version','wip_version','render_watched','global','fixed'];
+// A render's name, as render_ref: "v007-stable_001", per shot "sh110=v007-stable_001 ...".
+var RENDER_REF=/^(?:\S+=)?v\d+(?:-[a-z]+)?_\d+(?:\s+\S+=v\d+(?:-[a-z]+)?_\d+)*$/i;
 var NL=String.fromCharCode(10);
 var esc=function(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){
 return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});};
@@ -744,7 +747,7 @@ rv.files={};save();render();if(cur!=null)openPanel(cur);}});
 $('author').addEventListener('input',function(){this.classList.remove('need');rv.author=this.value;save();});
 $('role').addEventListener('change',function(){this.classList.remove('need');rv.role=this.value;save();sync('role');});
 function exportRows(){var out=[];D.forEach(function(it){if(!changes(it))return;var e=rv.files[it.file],
-row={filename:it.file,stable_version:it.stable,description_exported:it.desc};if(it.render_ref)row.render=it.render_ref;
+row={filename:it.file,stable_version:it.stable,description_exported:it.desc};if(it.render_ref)row.render_watched=it.render_ref;
 Object.keys(e.deps).forEach(function(d){var v=e.deps[d];row[d]=v.ok?'ok':(v.text.trim()||'no');});
 // A reply to a department's open RTK: still to redo, its validation withdrawn.
 Object.keys(answered(it).deps).forEach(function(d){if(!(d in row))row[d]='no';});
@@ -788,7 +791,9 @@ if(data.project!==META.project&&!confirm('This review is for '+data.project+', n
 if(summary().files&&!confirm('Replace the review in progress with this one?'))return;
 rv={author:data.author||'',role:data.role||'',date:data.review_date||'',files:{}};var unknown=0;
 (data.rows||[]).forEach(function(row){var it=byFile[row.filename];if(!it){unknown++;return;}var e=entry(it);
-Object.keys(row).forEach(function(k){if(FIXED.indexOf(k)>=0)return;if(k.indexOf('reply ')===0){e.replies[k.slice(6)]=String(row[k]);return;}var v=String(row[k]).trim(),l=v.toLowerCase();
+Object.keys(row).forEach(function(k){if(FIXED.indexOf(k)>=0)return;
+// Before schema 7, "render" was the render watched too: a render's name is that.
+if(k==='render'&&(data.schema_version||0)<7&&(!String(row[k]).trim()||RENDER_REF.test(String(row[k]).trim())))return;if(k.indexOf('reply ')===0){e.replies[k.slice(6)]=String(row[k]);return;}var v=String(row[k]).trim(),l=v.toLowerCase();
 if(OKS.indexOf(l)>=0)e.deps[k]={ok:1};else if(NOS.indexOf(l)>=0)e.deps[k]={no:1,text:''};else e.deps[k]={no:1,text:v};});
 var gv=String(row.global||'').trim(),gl=gv.toLowerCase();
 if(OKS.indexOf(gl)>=0)e.all=true;else if(NOS.indexOf(gl)>=0)Object.keys(it.states).forEach(function(d){if(isDone(it.states[d])&&!e.deps[d])e.deps[d]={no:1,text:''};});

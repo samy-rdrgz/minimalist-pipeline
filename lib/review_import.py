@@ -20,6 +20,7 @@ from .config import (
 from .core import json_get, now, read_json_quiet
 from .errors import PipelineError
 from .review_sheet import (
+    RENDER_WATCHED,
     _REVIEW_HIDDEN,
     NO_WORDS,
     OK_WORDS,
@@ -175,7 +176,8 @@ def read_review_json(path: Path) -> dict:
     """read_review_xlsx()'s dict from a review downloaded from the snapshot
     page: {"format", "schema_version", "author", "role", "review_date",
     "rows": [{"filename", "stable_version", "description_exported",
-    "render"? (schema 5: _render_ref()), "description"?, <department>:
+    "render_watched"? (schema 7, "render" from 5: _render_ref()),
+    "description"?, <department>:
     "ok" / "no" / retakes, "global"?}]}."""
     try:
         data = json.loads(Path(path).read_text(encoding="utf-8"))
@@ -214,11 +216,33 @@ def read_review_json(path: Path) -> dict:
     }
 
 
+# A render watched as _render_ref() writes it: "v007-stable_001", or per
+# shot "sh110=v007-stable_001 sh120=v006_002".
+_RENDER_REF = re.compile(r"^(?:\S+=)?v\d+(?:-[a-z]+)?_\d+(?:\s+\S+=v\d+(?:-[a-z]+)?_\d+)*$", re.IGNORECASE)
+
+
+def _legacy_render(review: dict) -> dict:
+    """A review from before schema 7: its "render" was both the render
+    watched and a department called "render" (the page wrote the second
+    over the first). A render's name is the render watched; anything else
+    ("ok", a retake) is that department's cell."""
+    if review["schema_version"] >= 7:
+        return review
+    for row in review["rows"]:
+        value = row.get("render")
+        if value is not None and RENDER_WATCHED not in row and (
+            not value.strip() or _RENDER_REF.match(value.strip())
+        ):
+            row[RENDER_WATCHED] = row.pop("render")
+    review["columns"] = {k for row in review["rows"] for k in row}
+    return review
+
+
 def read_review(path: Path) -> dict:
     """A filled review: the snapshot page's .json, or the .xlsx template."""
     if Path(path).suffix.lower() == ".json":
-        return read_review_json(path)
-    return read_review_xlsx(path)
+        return _legacy_render(read_review_json(path))
+    return _legacy_render(read_review_xlsx(path))
 
 
 # The front sheet's how-to line (_review_front()): when the snapshot was made.
@@ -725,7 +749,7 @@ def import_review_xlsx(path: Path) -> dict:
         filepath = _review_file(name)
         row_render = ""
         if filepath:
-            row_render = row.get("render") or _render_at_snapshot(filepath, seen_at)
+            row_render = row.get(RENDER_WATCHED) or _render_at_snapshot(filepath, seen_at)
         if not filepath:
             result["skipped"].extend(
                 (

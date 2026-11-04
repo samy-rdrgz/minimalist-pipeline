@@ -23,8 +23,11 @@ REVIEW_GLOBAL = "global"
 OK_WORDS = ("ok", "yes", "oui", "v", "x", "✓", "✔", "valid", "validé", "valide")
 NO_WORDS = ("no", "non")
 # Hidden columns after the departments' and "global", for the import.
-# render: what the reviewer watched (_render_ref()) -- the notes' version.
-_REVIEW_HIDDEN = ("wip_version", "stable_version", "description_exported", "render")
+# render_watched: what the reviewer watched (_render_ref()) -- the notes'
+# version. Not "render": a project's department can be called that (schema
+# 7; until 6 the two shared the name and an asset's "render" was lost).
+RENDER_WATCHED = "render_watched"
+_REVIEW_HIDDEN = ("wip_version", "stable_version", "description_exported", RENDER_WATCHED)
 _SHEET_HEADER_ROW = 2  # row 1: the sheet's one-line how-to
 # Template v3 (1.1.2 before its release): read back for the import only.
 VALID_PREFIX = "valid "
@@ -226,7 +229,7 @@ def _review_section(title: str, items: list, departments: list) -> tuple[str, st
                 f"{col['stable_version']}{r}", _stem(item["stable_version"]), _S_LOCKED
             ),
             _cell(f"{col['description_exported']}{r}", item["description"], _S_LOCKED),
-            _cell(f"{col['render']}{r}", _render_ref(item["renders"]), _S_LOCKED),
+            _cell(f"{col[RENDER_WATCHED]}{r}", _render_ref(item["renders"]), _S_LOCKED),
         ]
         rows.append(f'<row r="{r}">{"".join(cells)}</row>')
     if group_start is not None and last > group_start:
