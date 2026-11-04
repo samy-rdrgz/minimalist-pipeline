@@ -40,7 +40,9 @@ var open=it.notes.filter(function(n){return !n.closed;});
 it.rtkNotes={};it.genRtks=[];it.otherNotes=[];
 open.forEach(function(n){if(n.type==='rtk'&&n.done===false){
 if(n.deps.length)n.deps.forEach(function(d){(it.rtkNotes[d]=it.rtkNotes[d]||[]).push(n);});else it.genRtks.push(n);}});
-it.todos={};open.forEach(function(n){if(n.type==='todo'&&n.done===false)n.deps.forEach(function(d){it.todos[d]=(it.todos[d]||0)+1;});});
+it.todos={};it.dnotes={};open.forEach(function(n){if(n.type==='todo'&&n.done===false)n.deps.forEach(function(d){it.todos[d]=(it.todos[d]||0)+1;});
+// An open note on a department (a remark, the prod's "n:" one): its grey ◆ too.
+else if(n.type==='note'&&!n.approval)n.deps.forEach(function(d){it.dnotes[d]=(it.dnotes[d]||0)+1;});});
 it.openNotes=open.filter(function(n){return !(n.type==='rtk'&&n.done===false)&&!n.approval;});});
 var tabs=TABS.filter(function(t){return D.some(function(it){return it.tab===t[0];});});
 function depsOf(tab){return META.departments[tab==='shot'?'shot':'asset'];}
@@ -63,7 +65,8 @@ function rkTag(it,d){var h='',r=it.rtk[d];
 if(r)h+=dia(r==='team'?' team':'','An open retake on '+cap(d)+(r==='team'?', from the team':', from a validation role'));
 else if(it.genRtks.length&&isDone(it.states[d])){var t=it.genRtks.every(function(n){return n.team;});
 h+=dia(t?' team':'','A retake on no department'+(t?', from the team':', from a validation role')+': it counts in Done as one department in RTK');}
-if((it.todos[d]||0)>0)h+=dia(' todo',plural(it.todos[d],'open todo')+' on '+cap(d));
+var td=it.todos[d]||0,nt=it.dnotes[d]||0;
+if(td||nt)h+=dia(' todo',[td?plural(td,'open todo'):'',nt?plural(nt,'open note'):''].filter(Boolean).join(', ')+' on '+cap(d));
 return h;}
 function okTag(it,d){var o=it.ok[d];if(!o)return '';
 return '<span class="ok'+(o.old?' old':'')+'" title="'+esc(o.tip)+'">✓ '+esc(o.role)+'</span>';}

@@ -53,6 +53,8 @@ review one file -- lighter to read on a computer and on a phone.
 - `note:` takes `note :`, `n:` and any case too, after a line's tags
   (`[sh020] n: ...`) -- the page and Import review read it alike (the
   page took `[sh020] note:` for a remark, the import for a retake).
+- An open note on a department shows its grey ◆ under it, as an open
+  todo does (its tooltip counts both).
 - A department's box holding only `note:` lines is a remark: grey
   ✎ you on the page, and Import review leaves the department's
   validation as it is (it withdrew it, as for a retake).
