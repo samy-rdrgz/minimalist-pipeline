@@ -1049,11 +1049,11 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None)
     for icon_row, c in zip(cells, columns):
         if c in file.get("departments_required", []):
             icon_row.alert = c in rtk
-            # Read-only status: enabled=False blocks any click (no
-            # accidental toggling from this grid -- that's file_details'
-            # job), the tooltip is still shown on hover.
-            status = icon_row.row()
-            status.enabled = False
+            # Read-only status: each button disabled below (no accidental
+            # toggling from this grid -- that's file_details' job), the
+            # tooltip still shown on hover. Never the row itself: a
+            # disabled row disables whatever it holds.
+            status = icon_row.row(align=True)
             tooltip = department_status_tooltip(file, c)
             best = None
             if (
@@ -1084,6 +1084,7 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None)
             star = text.startswith("Done · ") and best in top_roles
             for t, i in (("", row_icon), (text, "NONE")):
                 button = status.row(align=True)
+                button.alignment = "LEFT"  # its own width, not the cell's
                 button.enabled = under_rtk or (star and t == "")
                 op = button.operator(
                     "m_pipeline.department_rtks"
