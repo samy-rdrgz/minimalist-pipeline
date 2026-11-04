@@ -233,7 +233,8 @@ var h=order.map(function(g){
 var all=groups[g],tr=all.filter(function(it){return it.tracked;}),un=all.filter(function(it){return !it.tracked;});
 var done=avg(tr.map(function(i){return i.done;})),val=avg(tr.map(function(i){return i.valid;}));
 var key=state.tab+g,closed=state.open[key]===false||(state.open[key]===undefined&&!tr.length&&!filt);
-var rows=tr.concat(state.untracked[key]||filt?un:[]);
+// The untracked shown: back in their place, by name -- not after the rest.
+var rows=state.untracked[key]||filt?all:tr;
 if(!closed)rows.forEach(function(it){visible.push(it.i);});
 var head='<div class="thead" style="--cols:'+cols+'"><span></span><span></span>'+deps.map(function(d){return '<span class="d" title="'+esc(cap(d))+'">'+esc(cap(d))+'</span>';}).join('')+
 '<span style="text-align:right">Done</span></div>';

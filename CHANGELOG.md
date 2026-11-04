@@ -18,6 +18,9 @@ says what a review brings and what's already there.
   watched, anything else that department's cell (an *All done* lost
   there can't be told apart: validate it again).
 
+- Snapshot page: files with no tracking, once shown, take their place in
+  their group (sq040_sh010 first), not after the others.
+
 ### Changed
 
 - Import review says what was already there and left as is -- notes
