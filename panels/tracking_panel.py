@@ -1047,7 +1047,6 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None)
     top = max((r["level"] for r in roles), default=None)
     top_roles = {r["name"] for r in roles if r["level"] == top}
     for icon_row, c in zip(cells, columns):
-        icon_row.label(text="", icon="BLANK1")
         if c in file.get("departments_required", []):
             icon_row.alert = c in rtk
             # Read-only status: enabled=False blocks any click (no
