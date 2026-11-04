@@ -492,9 +492,11 @@ def _review_file(name: str) -> Path | None:
 
 def review_import_plan(path: Path, review: dict | None = None) -> dict:
     """What importing a review template would do, read only -- for its
-    confirm dialog: {"role", "author", "notes" (lines to import, duplicates
-    included), "validations": [{"name", "filepath", "department",
-    "approved", "stable"}], "refused": [(label, reason)]}. A template from
+    confirm dialog: {"role", "author", "notes" (lines in it), "fixed",
+    "replies", their "notes_known" / "replies_known" / "fixed_done" (in the
+    project already, left as is), "validations": [{"name", "filepath",
+    "department", "approved", "stable"}] (changes only: "validations_known"
+    given already), "refused": [(label, reason)]}. A template from
     1.1.2 on needs its Role, and that role must be one of the project's:
     raises PipelineError otherwise. An older one has no role (the team's
     notes) and no validation. review: read_review(path), if read."""
@@ -516,7 +518,38 @@ def review_import_plan(path: Path, review: dict | None = None) -> dict:
         # Retakes the reviewer marked fixed: closed under their name.
         "fixed": sum(len(row.get("fixed", "").split()) for row, *_ in actions),
         "replies": sum(len(_row_replies(row)) for row, *_ in actions),
+        # What the project holds already (a review imported again), left as
+        # it is: counted here as the import will tell it.
+        "notes_known": 0,
+        "replies_known": 0,
+        "fixed_done": 0,
+        "validations_known": 0,
     }
+    author = plan["author"]
+    for row, _, _, notes in actions:
+        ids = row.get("fixed", "").split()
+        replies = _row_replies(row)
+        if not (notes or ids or replies):
+            continue
+        filepath = _review_file(row["filename"])
+        if not filepath:
+            continue
+        if notes:
+            known = _known_notes(filepath, author)
+            for *_, key in _row_notes(filepath, row, notes):
+                plan["notes_known"] += key in known
+                known.add(key)
+        entries = (read_json_quiet(tracking_json_path(filepath)) or {}).get("entries", [])
+        by_id = {e.get("id"): e for e in entries}
+        plan["fixed_done"] += sum(1 for i in ids if (by_id.get(i) or {}).get("done"))
+        answered = {
+            (e.get("response"), e.get("text"))
+            for e in entries
+            if e.get("response") and e.get("author") == author
+        }
+        plan["replies_known"] += sum(
+            1 for entry_id, text in replies if (entry_id, _reply_kind(text)[1]) in answered
+        )
     wanted_any = any(wanted or every for _, wanted, every, _ in actions)
     # Anything under the role: it must be one (descriptions don't need it).
     if schema >= 3 and (plan["notes"] or plan["replies"] or wanted_any):
@@ -554,6 +587,9 @@ def review_import_plan(path: Path, review: dict | None = None) -> dict:
             label = f"{name}: {department}"
             if choice == "no" and role not in (given.get(department) or {}):
                 continue  # nothing to withdraw (a retake on unvalidated work)
+            if choice == "yes" and role in (given.get(department) or {}):
+                plan["validations_known"] += 1  # given already: left as is
+                continue
             if department not in status.get("departments_required", []):
                 plan["refused"].append((label, "department not required"))
             elif seen and current and seen != current:
@@ -573,6 +609,46 @@ def review_import_plan(path: Path, review: dict | None = None) -> dict:
                     }
                 )
     return plan
+
+
+def _known_notes(filepath: Path, author: str) -> set:
+    """The notes this author's reviews already brought into filepath's
+    tracking, by _note_key()."""
+    return {
+        _note_key(
+            e.get("text"),
+            e.get("shot"),
+            e.get("frame_start"),
+            e.get("frame_end"),
+            e.get("departments") or [e.get("department")],
+        )
+        for e in (read_json_quiet(tracking_json_path(filepath)) or {}).get("entries", [])
+        if e.get("source") == REVIEW_SOURCE and e.get("author") == author
+    }
+
+
+def _row_notes(filepath: Path, row: dict, notes: list) -> list[tuple]:
+    """A row's note lines as they're imported: [(line, departments, type,
+    shot, frames, key)] -- its departments the file's (unknown dropped), its
+    [sh020] [f12-40] tags read. The same for the confirm dialog's count and
+    the import itself, so both tell an already imported line alike."""
+    shots = _file_shots(filepath)
+    out = []
+    for line, wanted_departments, entry_type in notes:
+        # One department, or several: "layout, animation"; unknown dropped.
+        departments = []
+        for dep in wanted_departments:
+            try:
+                if valid_department(filepath, dep):
+                    departments.append(dep)
+            except PipelineError:
+                pass
+        line, shot, frames = _line_tags(line, shots)
+        # A pre-1.1.2 template's own "shot" column, for all its lines.
+        shot = shot or row.get("shot") or None
+        key = _note_key(line, shot, *(frames or (None, None)), departments)
+        out.append((line, departments, entry_type, shot, frames, key))
+    return out
 
 
 def _note_key(text, shot, f_start, f_end, departments) -> tuple:
@@ -655,7 +731,8 @@ def import_review_xlsx(path: Path) -> dict:
         # Already so, left as it is (a review imported again): retakes done
         # since, validations already given.
         "already_fixed": 0,
-        "same_validations": 0,
+        # Given already: the plan left them out of its changes.
+        "same_validations": plan["validations_known"],
         "skipped": list(plan["refused"]),
     }
     # Retakes marked fixed: done, as the reviewer -- one already done, or
@@ -775,33 +852,10 @@ def import_review_xlsx(path: Path) -> dict:
             continue
         # The same words on another shot, frames or department are another
         # retake: "[sh170] too dark" and "[sh180] too dark" are two.
-        known = {
-            _note_key(
-                e.get("text"),
-                e.get("shot"),
-                e.get("frame_start"),
-                e.get("frame_end"),
-                e.get("departments") or [e.get("department")],
-            )
-            for e in (read_json_quiet(tracking_json_path(filepath)) or {}).get(
-                "entries", []
-            )
-            if e.get("source") == REVIEW_SOURCE and e.get("author") == author
-        }
-        shots = _file_shots(filepath)
-        for line, wanted_departments, entry_type in notes:
-            # One department, or several: "layout, animation"; unknown dropped.
-            departments = []
-            for dep in wanted_departments:
-                try:
-                    if valid_department(filepath, dep):
-                        departments.append(dep)
-                except PipelineError:
-                    pass
-            line, shot, frames = _line_tags(line, shots)
-            # A pre-1.1.2 template's own "shot" column, for all its lines.
-            shot = shot or row.get("shot") or None
-            key = _note_key(line, shot, *(frames or (None, None)), departments)
+        known = _known_notes(filepath, author)
+        for line, departments, entry_type, shot, frames, key in _row_notes(
+            filepath, row, notes
+        ):
             if key in known:
                 result["duplicates"] += 1
                 continue

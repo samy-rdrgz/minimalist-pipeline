@@ -757,7 +757,7 @@ class M_PIPELINE_OT_import_review_confirm(bpy.types.Operator):
             row = col.row()
             row.alert = bool(plan["role"])
             row.label(
-                text=f"   {who}: {plan['notes']} note line(s), "
+                text=f"   {who}: {plan['notes'] - plan['notes_known']} new note line(s), "
                 f"{len(plan['validations'])} validation change(s)"
                 + (f", {plan['fixed']} retake(s) fixed" if plan["fixed"] else "")
                 + (f", {plan['replies']} reply(ies)" if plan["replies"] else "")
@@ -776,20 +776,37 @@ class M_PIPELINE_OT_import_review_confirm(bpy.types.Operator):
                 icon="INFO",
             )
         col.separator()
-        col.label(
-            text=f"{plan['notes']} note line(s) -- already imported ones are skipped"
-        )
-        if plan["fixed"]:
-            col.label(text=f"{plan['fixed']} retake(s) marked fixed -- done, as {plan['author']}")
-        if plan["replies"]:
-            col.label(text=f"{plan['replies']} reply(ies) to existing notes")
+        # What it brings, then what the project holds already (a review
+        # imported again): that part is left as it is, never duplicated.
+        new_notes = plan["notes"] - plan["notes_known"]
+        new_replies = plan["replies"] - plan["replies_known"]
+        to_close = plan["fixed"] - plan["fixed_done"]
+        col.label(text=f"{new_notes} new note line(s)")
+        if new_replies:
+            col.label(text=f"{new_replies} reply(ies) to existing notes")
+        if to_close:
+            col.label(text=f"{to_close} retake(s) marked fixed -- done, as {plan['author']}")
         validations = plan["validations"]
-        col.label(text=f"{len(validations)} validation change(s):")
+        col.label(text=f"{len(validations)} validation change(s)" + (":" if validations else ""))
         for v in validations[:_IMPORT_LINES_SHOWN]:
             verb = "validate" if v["approved"] else "withdraw"
             col.label(text=f"   {v['name']}: {verb} {v['department']}")
         if len(validations) > _IMPORT_LINES_SHOWN:
             col.label(text=f"   ... and {len(validations) - _IMPORT_LINES_SHOWN} more")
+        already = [
+            f"{plan['notes_known'] + plan['replies_known']} note(s) / reply(ies)"
+            if plan["notes_known"] + plan["replies_known"]
+            else "",
+            f"{plan['fixed_done']} retake(s) done" if plan["fixed_done"] else "",
+            f"{plan['validations_known']} validation(s)" if plan["validations_known"] else "",
+        ]
+        if any(already):
+            col.separator()
+            col.label(
+                text="Already there, left as is (never duplicated): "
+                + ", ".join(a for a in already if a),
+                icon="CHECKMARK",
+            )
         if plan["refused"]:
             col.separator()
             col.label(text=f"{len(plan['refused'])} not applied:", icon="ERROR")
