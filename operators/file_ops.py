@@ -123,6 +123,13 @@ class M_PIPELINE_OT_increment_version(bpy.types.Operator):
             row = layout.split(factor=TITLE_WIDTH, align=True)
             row.label(text="Finished", icon="CHECKMARK")
             row.row(align=True).prop(self, "stabled_departments", expand=True)
+            col = layout.column(align=True)
+            col.active = False
+            col.scale_y = 0.65
+            col.label(
+                text="A validation stays on the departments not worked on since the last stable.",
+                icon="INFO",
+            )
 
         parsed = parse_filename(Path(bpy.data.filepath).name)
         if parsed:
@@ -165,6 +172,8 @@ class M_PIPELINE_OT_increment_version(bpy.types.Operator):
                         departments=list(self.stabled_departments),
                         conflict_warnings="",
                         linked=scan_linked_libraries(),
+                        # From a stable, the only record of what was worked.
+                        worked=list(self.worked_departments),
                     )
                 return {"FINISHED"}
             return {"CANCELLED"}

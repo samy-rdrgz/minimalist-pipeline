@@ -22,8 +22,11 @@ says what a review brings and what's already there.
   back to review. A validation stays on it while that department wasn't
   worked since (the versions after the stable before: the stable records
   them now, `departments_worked`); worked, it's struck, "to review
-  again", as before. Stables made before are read the same way, nothing
-  to redo. A review of an older stable validates a department not worked
+  again", as before. A stable made straight from a stable (a small fix,
+  no wip between) takes what was worked from the dialog's *Worked on*.
+  Stables made before are read the same way, nothing to redo -- except
+  through one made from a stable, which recorded nothing: those stay
+  struck. A review of an older stable validates a department not worked
   since, instead of refusing it.
 
 - Snapshot page: files with no tracking, once shown, take their place in

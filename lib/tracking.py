@@ -927,11 +927,13 @@ def create_stablemeta(
     departments: list[str],
     conflict_warnings: str,
     linked: list[dict] | None = None,
+    worked: list[str] | None = None,
 ):
     """Create the .stablemeta for a -stable version: validated departments,
     inherited linked libs plus `linked` (the file's own, see
     scan_linked_libraries() -- what's left when the source has no meta),
-    any conflict warning. Keyword-only: filepath/original_filepath are both
+    any conflict warning. worked: the departments worked this session --
+    a stable made from a stable has no .wipmeta to say it. Keyword-only: filepath/original_filepath are both
     Path, a positional call risks swapping them."""
     try:
         original_suffix = (
@@ -947,13 +949,13 @@ def create_stablemeta(
         previous = _collect_folder(_owner_dir(Path(filepath)))
         approvals_previous = {}
         approvals = {}
-        worked = []
+        worked = set(worked or [])
         if previous:
             approvals_previous = _carried_approvals(previous["last_stable"])
             status = _status_from_raw(previous)
             # A validation stays while its department isn't worked since:
             # this stable shows it as the reviewer saw it.
-            worked = sorted(status["worked_departments"])
+            worked |= set(status["worked_departments"])
             prev_file = previous["last_stable"].get("file")
             approvals = {
                 d: {
@@ -961,11 +963,12 @@ def create_stablemeta(
                     for role, info in roles.items()
                 }
                 for d, roles in (status.get("approvals") or {}).items()
-                if d in departments and d not in status["worked_departments"]
+                if d in departments and d not in worked
             }
             started |= set(status["started_departments"])
             started |= set(status["validated_departments"])
             started |= set(status["worked_departments"])
+        started |= worked
 
         nw = now()
         data = {
@@ -984,7 +987,7 @@ def create_stablemeta(
             "conflict_warning": conflict_warnings,
             # Worked since the stable before (its wipmetas): the departments
             # whose validations weren't carried.
-            "departments_worked": worked,
+            "departments_worked": sorted(worked),
             "approvals_carried": True,
         }
         if approvals:
@@ -1350,6 +1353,32 @@ def _stablemeta_of(entries: list, stable_file: str) -> dict | None:
     return None
 
 
+def _worked_since(entries: list, start: datetime, end: datetime) -> set[str] | None:
+    """Departments worked after start, up to end: the wipmetas edited
+    between, and what each stable made between recorded (1.1.9's
+    departments_worked -- the only record for one made from a stable).
+    None when a stable made from a stable before 1.1.9 is in between: what
+    was worked there is unknown."""
+    worked = _worked_between(entries, start, end)
+    for entry in entries:
+        if not entry.name.endswith(".stablemeta"):
+            continue
+        if _entry_mtime(entry) < start - timedelta(seconds=_CLOCK_MARGIN_SECONDS):
+            continue
+        data = read_json_quiet(Path(entry.path)) or {}
+        try:
+            at = datetime.fromisoformat(data.get("created_at") or "")
+        except ValueError:
+            continue
+        if not start < at <= end:
+            continue
+        if "approvals_carried" in data:
+            worked |= set(data.get("departments_worked") or [])
+        elif "-stable." in (data.get("created_from") or "-stable."):
+            return None
+    return worked
+
+
 def _worked_between(entries: list, start: datetime, end: datetime) -> set[str]:
     """Departments worked in the wipmetas edited after start and up to end
     -- the ones saved before start are skipped by file mtime, never opened."""
@@ -1382,13 +1411,14 @@ def worked_since_stable(asset_dir: Path, stable_file: str, entries: list | None 
         end = datetime.fromisoformat(last["created_at"])
     except (KeyError, TypeError, ValueError):
         return None
-    return _worked_between(entries, start, end)
+    return _worked_since(entries, start, end)
 
 
 def _legacy_carried(entries: list, last_stable: dict) -> dict:
     """For a latest stable made before validations were carried (1.1.9):
     the last validations of earlier stables of its done departments not
-    worked since -- what it would have carried."""
+    worked since -- what it would have carried. Only through stables made
+    from a wip: one made from a stable didn't record what was worked."""
     previous = last_stable.get("approvals_previous") or {}
     done = {d for d, v in (last_stable.get("departments_validated") or {}).items() if v}
     own = last_stable.get("approvals") or {}
@@ -1409,9 +1439,10 @@ def _legacy_carried(entries: list, last_stable: dict) -> dict:
                 seen = _stablemeta_of(entries, file)
                 try:
                     start = datetime.fromisoformat(seen["created_at"])
-                    worked_cache[file] = _worked_between(entries, start, end)
                 except (KeyError, TypeError, ValueError):
                     worked_cache[file] = None
+                    continue
+                worked_cache[file] = _worked_since(entries, start, end)
             worked = worked_cache[file]
             if worked is None or department in worked:
                 continue
