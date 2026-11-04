@@ -57,6 +57,8 @@ review one file -- lighter to read on a computer and on a phone.
   and replies, retakes done, validations given -- in its confirm dialog
   (counted as the import will, its changes only the new ones) and in its
   summary: a review imported again reads as such.
+- Progress details: each bar shows its validated share again, the
+  violet over the done green, its % beside the done one.
 - An open note on a department shows its grey ◆ under it, as an open
   todo does (its tooltip counts both).
 - A department's box holding only `note:` lines is a remark: grey

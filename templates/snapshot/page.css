@@ -310,9 +310,10 @@ doesn't fit, scrolling sideways past the screen. */
 .st-grid>.card{flex:1 1 260px;min-width:0}
 .card h4{display:flex;justify-content:space-between;gap:8px;margin:0 0 12px;font-size:12px;font-weight:600;color:var(--ink-2)}
 .card h4 small{font-weight:400;color:var(--ink-3)}
-.hb{display:grid;grid-template-columns:max-content minmax(60px,1fr) 3.5em;gap:8px 12px;align-items:center;font-size:13px}
+.hb{display:grid;grid-template-columns:max-content minmax(60px,1fr) max-content;gap:8px 12px;align-items:center;font-size:13px}
 .hb .track{margin:0;height:6px}
-.hb .n{text-align:right;color:var(--ink-2)}
+.hb .n{text-align:right;color:var(--ink-2);white-space:nowrap}
+.hb .n .vv{color:var(--valid);margin-left:4px}
 .st-grid>.hm-card{flex:0 1 auto;max-width:100%;overflow-x:auto}
 .hm{border-collapse:separate;border-spacing:2px;font-size:12px}
 .hm th,.hm td{padding:4px 10px;text-align:center;white-space:nowrap}

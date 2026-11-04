@@ -438,7 +438,10 @@ function stats(){var S=META.schedule,exp=S?S.expected:null,h='';
 var line=exp!=null?'<i class="x" style="left:'+exp*100+'%"></i>':'';
 function bars(title,rows){rows=rows.filter(function(r){return r[1]!=null;});if(!rows.length)return '';
 return '<div class="card"><h4>'+title+(exp!=null?'<small>| expected '+pct(exp)+'</small>':'')+'</h4><div class="hb">'+rows.map(function(r){
-return '<span title="'+esc(r[2]||'')+'">'+esc(r[0])+'</span><span class="track"><i class="f" style="width:'+r[1]*100+'%"></i>'+line+'</span><span class="n">'+pct(r[1])+'</span>';}).join('')+'</div></div>';}
+// [label, done, tip, validated]: the validated share over the done one, in
+// violet, as the cards and the groups show it.
+var v=META.role&&r[3]!=null;
+return '<span title="'+esc(r[2]||'')+'">'+esc(r[0])+'</span><span class="track"><i class="f" style="width:'+r[1]*100+'%"></i>'+(v?'<i class="v" style="width:'+Math.min(r[3],r[1])*100+'%"></i>':'')+line+'</span><span class="n">'+pct(r[1])+(v?' <span class="vv" title="Validated by '+esc(META.role)+'">'+pct(r[3])+'</span>':'')+'</span>';}).join('')+'</div></div>';}
 [['shot','Shots','By sequence','Sequence'],['asset','Assets & libraries','By prefix','Prefix']].forEach(function(s){
 var items=D.filter(function(it){return it.kind===s[0]&&it.tracked;});if(!items.length)return;
 var deps=depsOf(s[0]).filter(function(d){return items.some(function(it){return d in it.scores;});});
@@ -448,8 +451,8 @@ var grid='<div class="card hm-card"><h4>'+s[3]+' × department</h4><table class=
 '</tr></thead><tbody>'+order.map(function(g){return '<tr><th>'+esc(g)+'</th>'+deps.map(function(d){var v=dep(groups[g],d);
 return v==null?'<td class="na">–</td>':'<td style="background:color-mix(in srgb,var(--done) '+Math.round(6+v*44)+'%,var(--surface))" title="'+esc(g+', '+cap(d)+': '+pct(v))+'">'+pct(v)+'</td>';}).join('')+'</tr>';}).join('')+'</tbody></table></div>';
 h+='<div class="st-sec"><h3>'+s[1]+'</h3><div class="st-grid">'+
-bars(s[2],order.map(function(g){return [g,avg(groups[g].map(function(i){return i.done;})),plural(groups[g].length,'file')];}))+
-bars('By department',deps.map(function(d){return [cap(d),dep(items,d)];}))+grid+'</div></div>';});
+bars(s[2],order.map(function(g){return [g,avg(groups[g].map(function(i){return i.done;})),plural(groups[g].length,'file'),avg(groups[g].map(function(i){return i.valid;}))];}))+
+bars('By department',deps.map(function(d){return [cap(d),dep(items,d),'',avg(items.map(function(it){return d in it.states?(validNow(it,d)?1:0):null;}))];}))+grid+'</div></div>';});
 $('stats').innerHTML=h+'<p class="weights">'+esc($('weights').textContent)+'</p>';}
 
 /* ---------- a file's panel ---------- */
