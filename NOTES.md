@@ -14,7 +14,7 @@ comment.
 By theme; the sections below stay in the order they were written.
 
 - **Render farm**: [Farm 1.1.0: chunks replace placeholders](#farm-110-chunks-replace-placeholders) · [Stuck frame](#stuck-frame) · [Stopping a worker: after this frame, or now](#stopping-a-worker-after-this-frame-or-now) · [Which machine rendered which frame](#which-machine-rendered-which-frame) · [Time left: per machine, from each frame's time](#time-left-per-machine-from-each-frames-time) · [Crash recovery: resume, don't orphan](#crash-recovery-resume-dont-orphan) · [Re-rendering a file: match the render, not the job](#re-rendering-a-file-match-the-render-not-the-job) · [Farm subprocess output: files, never pipes](#farm-subprocess-output-files-never-pipes) · [Farm popup: worker state, open-folder button, refresh cost](#farm-popup-worker-state-open-folder-button-refresh-cost) · [Farm status: two redraw timers, split by cost](#farm-status-two-redraw-timers-split-by-cost) · [One farm snapshot reader, sync or threaded](#one-farm-snapshot-reader-sync-or-threaded) · [FFmpeg detection: PATH lookup isn't enough, and an override can't silently fall back](#ffmpeg-detection-path-lookup-isnt-enough-and-an-override-cant-silently-fall-back) · [What a real project's export showed (6 machines, a week of production)](#what-a-real-projects-export-showed-6-machines-a-week-of-production) · [ffmpeg passes: a %, from -progress](#ffmpeg-passes-a--from--progress) · [Priority: giving way between chunks](#priority-giving-way-between-chunks) · [A failed render says why](#a-failed-render-says-why) · [A share drop-out ended the farm roles for good](#a-share-drop-out-ended-the-farm-roles-for-good) · [Rushes: copies under fixed names, not links](#rushes-copies-under-fixed-names-not-links) · [Estimate before a render starts](#estimate-before-a-render-starts)
-- **Notes, tracking, snapshot**: [Tracking entries](#tracking-entries) · [Entries for several departments](#entries-for-several-departments) · [Validation roles](#validation-roles) · [Entries: two fields only ever guaranteed together, never accessed bare](#entries-two-fields-only-ever-guaranteed-together-never-accessed-bare) · [Edit entry: a note turned task kept no checkbox](#edit-entry-a-note-turned-task-kept-no-checkbox) · [Edit-entry dialog: a stored department can outlive its own enum](#edit-entry-dialog-a-stored-department-can-outlive-its-own-enum) · [Department filter: three different callers, three different "current file"s](#department-filter-three-different-callers-three-different-current-files) · [tracking.json: one path, never created by a write](#trackingjson-one-path-never-created-by-a-write) · [Renders to check: the one before, to compare](#renders-to-check-the-one-before-to-compare) · [Project monitoring's Farm column: the monitor cache, not the project scan](#project-monitorings-farm-column-the-monitor-cache-not-the-project-scan) · [Production snapshot: one HTML file, a spreadsheet inside it](#production-snapshot-one-html-file-a-spreadsheet-inside-it) · [Snapshot width: short state labels, hideable columns](#snapshot-width-short-state-labels-hideable-columns) · [Work time tracking & log rotation](#work-time-tracking--log-rotation) · [A review note is about the render watched](#a-review-note-is-about-the-render-watched) · [A general RTK reds the file's name](#a-general-rtk-reds-the-files-name) · [Entry ids: unique in their file](#entry-ids-unique-in-their-file)
+- **Notes, tracking, snapshot**: [Tracking entries](#tracking-entries) · [Entries for several departments](#entries-for-several-departments) · [Validation roles](#validation-roles) · [Entries: two fields only ever guaranteed together, never accessed bare](#entries-two-fields-only-ever-guaranteed-together-never-accessed-bare) · [Edit entry: a note turned task kept no checkbox](#edit-entry-a-note-turned-task-kept-no-checkbox) · [Edit-entry dialog: a stored department can outlive its own enum](#edit-entry-dialog-a-stored-department-can-outlive-its-own-enum) · [Department filter: three different callers, three different "current file"s](#department-filter-three-different-callers-three-different-current-files) · [tracking.json: one path, never created by a write](#trackingjson-one-path-never-created-by-a-write) · [Renders to check: the one before, to compare](#renders-to-check-the-one-before-to-compare) · [Project monitoring's Farm column: the monitor cache, not the project scan](#project-monitorings-farm-column-the-monitor-cache-not-the-project-scan) · [Production snapshot: one HTML file, a spreadsheet inside it](#production-snapshot-one-html-file-a-spreadsheet-inside-it) · [Snapshot width: short state labels, hideable columns](#snapshot-width-short-state-labels-hideable-columns) · [Work time tracking & log rotation](#work-time-tracking--log-rotation) · [A review note is about the render watched](#a-review-note-is-about-the-render-watched) · [A general RTK reds the file's name](#a-general-rtk-reds-the-files-name) · [Entry ids: unique in their file](#entry-ids-unique-in-their-file) · [Snapshot page on an iPad](#snapshot-page-on-an-ipad)
 - **Shot blocks (multishot), batch**: [Multishot blocks](#multishot-blocks) · [Multishot row list: disabling a button isn't a guard](#multishot-row-list-disabling-a-button-isnt-a-guard) · [Multishot row list, take two: a clean-scene reset invalidates it](#multishot-row-list-take-two-a-clean-scene-reset-invalidates-it) · [_draw_timeline_warnings: a trailing comma turned a string into a 1-tuple](#_draw_timeline_warnings-a-trailing-comma-turned-a-string-into-a-1-tuple) · [CSV batch: the subprocess couldn't import itself](#csv-batch-the-subprocess-couldnt-import-itself)
 - **Versions, saving, files**: [Read-only reason: from a popup on every open to an on-demand menu](#read-only-reason-from-a-popup-on-every-open-to-an-on-demand-menu) · [Top bar read-only indicator: why it sits before the Blender icon](#top-bar-read-only-indicator-why-it-sits-before-the-blender-icon) · [.wipmeta writes tolerate a missing sidecar; the panel doesn't trust the flag alone](#wipmeta-writes-tolerate-a-missing-sidecar-the-panel-doesnt-trust-the-flag-alone) · [Next version number: never from a cached listing](#next-version-number-never-from-a-cached-listing) · [Recent files: derived from the log, not a stored list](#recent-files-derived-from-the-log-not-a-stored-list) · [A version without .wipmeta](#a-version-without-wipmeta) · [The lock follows the file](#the-lock-follows-the-file) · [Work time: only a session that saved](#work-time-only-a-session-that-saved) · [resolve_bpy_path() left "../" uncollapsed in every stored link path](#resolve_bpy_path-left--uncollapsed-in-every-stored-link-path) · [Copy/paste isn't always under bpy.app.tempdir](#copypaste-isnt-always-under-bpyapptempdir) · [Project walk: a stray .pipeline/ hid every asset below it; popup regions must not outlive their popup](#project-walk-a-stray-pipeline-hid-every-asset-below-it-popup-regions-must-not-outlive-their-popup)
 - **Monitoring windows, popups, panels**: [Monitoring: windows, not popups](#monitoring-windows-not-popups) · [Monitoring crash: a thread during window_new()](#monitoring-crash-a-thread-during-window_new) · [Monitoring windows: to the front](#monitoring-windows-to-the-front) · [Monitoring windows: pages sized on the window](#monitoring-windows-pages-sized-on-the-window) · [Monitoring popups: reopening on the detail, or not](#monitoring-popups-reopening-on-the-detail-or-not) · [File details' monitoring_detail("file") is a folder, not a versioned file](#file-details-monitoring_detailfile-is-a-folder-not-a-versioned-file) · [Popup-chaining: a second modal popup always waits one timer tick](#popup-chaining-a-second-modal-popup-always-waits-one-timer-tick) · [Action popups: dialogs](#action-popups-dialogs) · ["Render" button opening pre-filled: an operator property's own redo memory](#render-button-opening-pre-filled-an-operator-propertys-own-redo-memory) · [Text wrapping in panels](#text-wrapping-in-panels) · [Pipeline log: backup noise, viewer](#pipeline-log-backup-noise-viewer) · [Shortcuts](#shortcuts)
@@ -3663,3 +3663,177 @@ with it -- one rule for every box, so nobody has to learn two.
 - **The page needs the entries' ids** (`_entry_dict()`, `_entry()`): a
   thread is found by id at import, never by its text.
 
+
+## Snapshot page on an iPad
+
+Seen on a 12.9" iPad, in Documents by Readdle's viewer:
+
+- **Status bar**: the page asks for `viewport-fit=cover`, so a viewer
+  showing it full screen runs it under the status bar -- the top bar was
+  half hidden. `env(safe-area-inset-top)` now pads the body (a fixed band
+  of the page's background under the status bar, `body::before`), the
+  sticky bar's `top`, the panel's header, the lightbox, the dialogs and
+  the toast. 0 wherever nothing covers the page: no change elsewhere.
+- **A video scrolled the list to the top** behind the player (iOS only,
+  not reproduced in Chromium). Rather than chase which iOS behaviour
+  does it, the lightbox holds the page still while it's open -- the same
+  `lockPage()` as the phone's panel, forced (`lockPage(true, true)`) --
+  and puts it back at its place on close. Not when the panel already
+  locked it (phone, full page): that lock stays.
+- **The panel over the whole page**: upright (1024 px) the panel beside
+  the list left it too narrow. Dragging its left edge past its widest
+  (`maxWidth()` + 60 px) sets `body.panel-full` (kept, `mp-snapshot:panel-full`):
+  the panel at 100 %, the page under it locked, `aria-modal`, focus kept
+  in it -- a phone's panel, by choice. Its edge, now at the screen's left,
+  dragged back under its widest: beside the list again. On a touch screen
+  the edge is 24 px wide.
+- **Theme**: `html[data-theme]` (light / dark), else the system's
+  (`prefers-color-scheme`). The dark variables are written twice, for the
+  media query (`:root:not([data-theme=light])`) and for `[data-theme=dark]`;
+  page.html's head reads the choice (`mp-snapshot:theme`) before the page
+  is drawn -- no flash.
+- **A video zoomed in and out by a hair** (iPad only), black bands on
+  its sides: `.vp` was as wide as its content -- the video, capped at
+  `100dvh - 140px`, and the controls, whose time text changes width --
+  so the visible height moving under Safari's or an app's bars, and the
+  ticking time, resized it every few frames. `fitPlayer()` sets `.vp`'s
+  width once (the video's ratio once its metadata is in, 16:9 before, in
+  the lightbox's room); the video is 100 % of it, no black background
+  (`object-fit: contain`). Again on `resize` only if the width changed:
+  turned, not a bar sliding.
+- **The page's lists closed as they opened** (Role, in the review bar):
+  `pick()` focuses the current option for the keys; iOS scrolled the page
+  to it (the list is `position: fixed`, so is the bar), and the capture
+  `scroll` listener closes any open list. `focus({preventScroll:true})`
+  was not enough on the iPad (the ⋯ menus scrolled the page too, and
+  writing in the side panel scrolled the list to the top). So, on a
+  touch screen (`touchPin`, `(pointer:coarse)`): no focus at all for a
+  list or its button (the keys don't need it there); while a list or a
+  ⋯ menu is open, or a field of the panel has the focus, the page is
+  pinned -- `pinPage()` notes `scrollY` (`keepY` for a field, taken at
+  its focusin, before iOS moves anything) and a `scroll` puts it back;
+  a list closes on a tap elsewhere, never on a scroll. With a mouse:
+  as before (a scroll closes it, but not within 400 ms of its opening).
+- **Jumps on a touch screen, again** (iPad, after the above): pinning
+  (`pinPage`, a `scroll` listener calling `scrollTo(pinY)`, and the
+  field's `scrollTo(keepY)` 60 ms then 450 ms after its focusout) put the
+  page back *after* iOS had moved it -- every putting back a visible jump,
+  the 450 ms one even over a scroll begun meanwhile. Replaced by holding
+  the page still before anything moves: `lockPage(key, on)` (body
+  `position: fixed; top: -scrollY`, `scrollTo` back once the last key is
+  let go), keys `panel` (full-screen panel), `lb` (lightbox), and on a
+  touch screen `pop` (a list or ⋯ menu open, `touchHold()`), `dlg` (a
+  MutationObserver on `#dlg[hidden]`), `field` (a field of the panel, the
+  review bar or the dialog focused -- taken at focusin, let go 450 ms
+  after it's left, the keyboard gone: a scroll iOS makes then has nothing
+  to move). The sticky bar stays put under a fixed body (sticky reads the
+  viewport, not the body). Self-made scrolls removed too:
+  `refresh()` → `openPanel()` ran its `scrollBy` to the shown row at each
+  ✓ / ✕ (only for another file now); `.focus()` of the boxes opened by
+  ✕, ↩, ✎, a shot's tag → `preventScroll`; `body.typing` hid `.p-media`,
+  the text moving up under the finger (kept now); `grow()` (no
+  `field-sizing` in Safari) set `height: auto` at each key, the panel's
+  `scrollTop` clamped, iOS scrolling back to the caret (put back in the
+  same go); `overscroll-behavior: contain` on `.pick-pop`, `.sugg`,
+  `.menu-pop` (the help scrolls in itself on a touch screen); the
+  dialog doesn't focus *Your name* on a touch screen (the keyboard came
+  up unasked); a list closes on `resize` only if the width changed.
+  A tap that opens a box to write in (✕, ↩, ✎, a shot's tag) takes the
+  `field` hold at once, before `refresh()` redraws the panel and the list
+  and the box takes the focus (still jumping to the top on an iPad when
+  held from the focusin only); let go as any field if no box took it.
+- **A ✓ in the panel sent the list to the top** (iPad, panel beside the
+  list): `refresh()` rebuilt the whole list (`render()`), and the row
+  tapped -- focused, iPad Safari focusing anything with a `tabindex` --
+  went with it. `renderRow(i)` redraws that one row in place (the same
+  element: classes, title, content; `rowHtml()` shared with `render()`),
+  the whole list only while *Your review* filters it. On a touch screen
+  a `mousedown` on a row or a group's name is `preventDefault`ed: no
+  focus. `render()` gives the focus back to the same row or group (with
+  `preventScroll`) and puts `scrollY` back in the same go if the browser
+  moved it.
+- **Written under the keyboard** (the page held: iOS no longer scrolled
+  it to the field, and the fixed panel kept the whole height): `fitKb()`
+  -- a touch screen, a field of the panel, the bar or the dialog, the
+  visual viewport 80 px shorter than the layout one -- sets `body.kb`,
+  `--vv-h`, `--vv-top`; the panel and the dialog take that room, the
+  review bar sits just above the keyboard, a box at most 40 % of it;
+  `revealField()` scrolls `.p-body` to the field (again as it grows).
+  On `visualViewport` resize / scroll, focusin (then 350 ms on, the
+  keyboard sliding), focusout.
+- **Next / Previous scrolled up, then down** (iPad, panel beside the
+  list): `openPanel()`'s smooth `scrollBy` to the shown row; on a touch
+  screen at once (`behavior: auto`), only when the row is out of sight.
+- **Clear this review did nothing** (iPad, in Documents' viewer): it asked
+  with `confirm()`, and an app's web view that shows no JS dialogs
+  answers no at once. Every `confirm()` (clear, drop a general retake or
+  a shot's box, load a review over one / from another project) is now
+  `ask(text, ok, then)`, in `#dlg`. Cleared, `clearReview()` also drops
+  the boxes' cache (`BOX`) and what's being edited; the name and the
+  role stay. A review is kept by project and scan date (`KEY`): two
+  pages of the same snapshot (or re-exported from the same scan) share
+  it.
+- **Closed by a swipe, the page answered nothing** (iPad): a field of
+  the panel kept the focus once hidden with it (no focusout on iOS), so
+  the `field` hold never let go. `closePanel()` blurs a field of the
+  panel and lets go `field` (and `typing`, `kb`) itself. The swipe down
+  that closes starts on the panel's header only (`.p-head`): scrolling
+  the text back up closed it.
+- **The page moved 20 px at each tap** (Documents' viewer, iPad): the
+  app shows and hides the status bar, `safe-area-inset-top` going 0 ↔
+  20 px, and the body's padding, the sticky bar, the panel's header...
+  with it. `--sat` (page.css) replaces `env(safe-area-inset-top)`: the
+  largest inset seen in this orientation (a probe of that height, a
+  ResizeObserver, kept by this browser, `mp-snapshot:safe-top:l` / `:p`),
+  as `max(env(...), Npx)` -- reserved once, nothing moves after.
+- **The player's frame** (1.1.8): a compiled video starts at the job's
+  `resolved_frame_range[0]` (post_render `-start_number`), noted in the
+  history as `frame_range_rendered`. `read_render_state()` gives each
+  render `frames` ([first, last]: that, else `_folder_frames()`, the
+  images' numbers in its folder -- a render from before), the page's
+  render line `first`, `META.fps` the project's `default_fps` (the farm
+  compiles at the scene's own: a scene at another rate would be off --
+  the history doesn't note it). page.js: frame = first +
+  floor(t × fps), each frame as shown (`requestVideoFrameCallback`,
+  `mediaTime`), else at `timeupdate`; a step seeks the frame's middle
+  ((k + .5) / fps), paused. No `first`: `#` + its rank from 1; no fps (an
+  older snapshot): no counter. A phone hides the time beside it.
+- **A review as the team** (1.1.8): Role `team` (`TEAM_ROLE`, offered
+  unless a validation role has that name: then it's that role). Import
+  (`plan["team"]`): notes and replies with no role and
+  `source = TEAM_REVIEW_SOURCE` ("team_review": never "prod review",
+  `from_review` reads `prod_review` only; the duplicates check reads the
+  same source), every validation refused ("the team doesn't validate"),
+  a withdrawal skipped (the team has none to withdraw). The page
+  (`asTeam()`, `sent(v)`): ✓ and *All done* off, V does nothing, a ✓ or
+  an empty ✕ left in the review is neither shown as yours, counted nor
+  exported; the role changed in the download dialog re-reads the rows.
+  The template's Role list gets `team`, its how-to a line.
+- **A block's last render, by time** (1.1.8): `read_render_state()`
+  compared a block rendered whole with a shot's own render by
+  `_render_order()` (version, increment) -- but the block's folder
+  (`sh040-050/`) and the shot's (`sh040/`) count their increments apart:
+  `sh040-050/v003-stable_002` (21/10 00:04) beat `sh040/v003-stable_001`
+  (21/10 21:34), whose video was the only one, and the snapshot showed
+  and copied nothing. `_newer()`: by `_when` (the history's
+  `completed_at`, else the folder's mtime), by folder name only when
+  that's unknown or equal.
+- **Two markers on one shot's camera** (sh050's camera deleted, its
+  marker bound to sh040's): `derive_shot_subranges()` gave sh040 two
+  ranges, the split asked two jobs of it (`split_into: [sh040, sh040]`,
+  same job id). A shot's marker after its first is skipped: its range
+  goes on. One distinct shot left: no split, the block renders whole
+  (skipped: sh050), as for a block the split can't cut. Edit shots'
+  seeding (shot_ops) took the last marker's start; the first now.
+- **Where a review lands**: a page can't pick a download's folder, and in
+  an app's viewer (Documents) it lands in the app's own space. *Save or
+  send…* (`SHARE`: `navigator.share` + `canShare` with a file, on a
+  coarse pointer) hands the `.json` to the share sheet -- *Save to
+  Files* chooses the folder. `shareFile()` tries `application/json`, then
+  the same name as `text/plain` (browsers that share only some types).
+  AbortError (cancelled): nothing, the dialog stays; any other error:
+  the plain download.
+- What the page can't change: a viewer app showing its own header and
+  footer on a tap (Documents by Readdle), or the floating mini keyboard
+  (iPadOS: a pinch on the keyboard, or the app's window not full
+  screen). Safari, or the page added to the Home Screen, has neither.

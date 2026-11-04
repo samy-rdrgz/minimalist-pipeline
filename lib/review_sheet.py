@@ -8,7 +8,7 @@ import zipfile
 from pathlib import Path
 from xml.sax.saxutils import escape as xml_escape
 
-from .snapshot import SCHEMA_VERSION, _render_ref, _rtk_on
+from .snapshot import SCHEMA_VERSION, TEAM_ROLE, _render_ref, _rtk_on
 
 
 # Template v4: a front sheet (Author, Review date, Role, how to, legend),
@@ -83,6 +83,12 @@ def _department_style(item: dict, department: str) -> int:
     return _S_STATE[key] + _rtk_on(item, department)
 
 
+def _with_team(roles: list) -> list:
+    """The Role choices: the validation roles, then "team" (the team's own
+    retakes, no validation) unless one of them has that name."""
+    return [*roles, TEAM_ROLE] if TEAM_ROLE not in roles else list(roles)
+
+
 def _review_front(meta: dict, roles: list, top_role: str | None) -> str:
     """Sheet 1: title, Author / Review date / Role inputs, how to fill the
     other sheets, the colour legend; schema_version in a hidden cell."""
@@ -100,6 +106,8 @@ def _review_front(meta: dict, roles: list, top_role: str | None) -> str:
         "  global  →  ok validates every department done so far; a text is a "
         "retake for no department in particular",
         "  empty  →  nothing changes.  Edit a description to change it.",
+        "  Role team  →  your retakes and notes are the team's (no role, no "
+        "prod tag); ok and no are left out: the team doesn't validate.",
     )
     legend = [
         (_S_STATE["todo"], "Not started"),
@@ -162,7 +170,7 @@ def _review_front(meta: dict, roles: list, top_role: str | None) -> str:
     if roles:
         validations = (
             '<dataValidations count="1"><dataValidation type="list" allowBlank="1" '
-            f'showErrorMessage="1" sqref="B4"><formula1>"{xml_escape(",".join(roles))}"'
+            f'showErrorMessage="1" sqref="B4"><formula1>"{xml_escape(",".join(_with_team(roles)))}"'
             "</formula1></dataValidation></dataValidations>"
         )
     return _worksheet(

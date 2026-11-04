@@ -121,6 +121,8 @@ def _meta(snapshot: dict) -> dict:
         # The videos zipped next to the snapshot ({"zip", "sequences",
         # "assets"}), set by the export; None: no zip.
         "videos": meta.get("videos"),
+        # Its videos' frame rate: the player's frame number (page.js).
+        "fps": meta.get("fps"),
     }
 
 
@@ -290,6 +292,9 @@ def _render_lines(item: dict) -> list:
                 "shot_list": shots,
                 "folder": r["folder"] or "",
                 "video": r.get("video"),
+                # Its video's first frame, the .blend's own number: the
+                # player counts from it (None: unknown, counted from 1).
+                "first": (r.get("frames") or [None])[0],
                 "whole": bool(r.get("whole")),
                 "behind": r["folder"] is not None
                 and r["file_number"] is not None
@@ -314,6 +319,7 @@ def _render_lines(item: dict) -> list:
                 "shot_list": [job["shot"]] if job["shot"] else [],
                 "folder": "",
                 "video": None,
+                "first": None,
                 "whole": False,
                 "behind": False,
                 "status": None,

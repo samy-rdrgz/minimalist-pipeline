@@ -35,6 +35,8 @@ from .snapshot import (
     ENTRY_TYPES,
     REVIEW_SOURCE,
     SCHEMA_VERSION,
+    TEAM_REVIEW_SOURCE,
+    TEAM_ROLE,
     _render_ref,
     read_render_state,
     render_of_note,
@@ -498,11 +500,14 @@ def review_import_plan(path: Path, review: dict | None = None) -> dict:
     "department", "approved", "stable"}] (changes only: "validations_known"
     given already), "refused": [(label, reason)]}. A template from
     1.1.2 on needs its Role, and that role must be one of the project's:
-    raises PipelineError otherwise. An older one has no role (the team's
-    notes) and no validation. review: read_review(path), if read."""
+    raises PipelineError otherwise -- or "team" (TEAM_ROLE, unless a
+    validation role has that name): the team's own notes and retakes, no
+    validation. An older one has no role (the team's notes) and no
+    validation. review: read_review(path), if read."""
     review = review or read_review(path)
     role = review["role"]
     roles = {r["name"] for r in validation_roles()}
+    team = role == TEAM_ROLE and role not in roles
     schema = review["schema_version"]
     actions = [
         (row, *_row_actions(row, schema))
@@ -511,6 +516,8 @@ def review_import_plan(path: Path, review: dict | None = None) -> dict:
     ]
     plan = {
         "role": role,
+        # Written as the team: no role on its notes, no validation.
+        "team": team,
         "author": review["author"] or "prod",
         "notes": sum(len(notes) for _, _, _, notes in actions),
         "validations": [],
@@ -535,7 +542,9 @@ def review_import_plan(path: Path, review: dict | None = None) -> dict:
         if not filepath:
             continue
         if notes:
-            known = _known_notes(filepath, author)
+            known = _known_notes(
+                filepath, author, TEAM_REVIEW_SOURCE if team else REVIEW_SOURCE
+            )
             for *_, key in _row_notes(filepath, row, notes):
                 plan["notes_known"] += key in known
                 known.add(key)
@@ -557,10 +566,10 @@ def review_import_plan(path: Path, review: dict | None = None) -> dict:
             raise PipelineError(
                 f"{Path(path).name}: no Role chosen at the top -- pick one, then import again."
             )
-        if role not in roles:
+        if role not in roles and not team:
             raise PipelineError(
                 f"{Path(path).name}: '{role}' isn't one of this project's validation roles "
-                f"({', '.join(sorted(roles)) or 'none'})."
+                f"({', '.join(sorted(roles)) or 'none'}), nor team."
             )
     for row, wanted, every, _ in actions:
         name = row["filename"]
@@ -587,10 +596,11 @@ def review_import_plan(path: Path, review: dict | None = None) -> dict:
             label = f"{name}: {department}"
             if choice == "no" and role not in (given.get(department) or {}):
                 continue  # nothing to withdraw (a retake on unvalidated work)
-            if choice == "yes" and role in (given.get(department) or {}):
+            if team:
+                plan["refused"].append((label, "the team doesn't validate: a validation role does"))
+            elif choice == "yes" and role in (given.get(department) or {}):
                 plan["validations_known"] += 1  # given already: left as is
-                continue
-            if department not in status.get("departments_required", []):
+            elif department not in status.get("departments_required", []):
                 plan["refused"].append((label, "department not required"))
             elif seen and current and seen != current:
                 plan["refused"].append(
@@ -611,9 +621,9 @@ def review_import_plan(path: Path, review: dict | None = None) -> dict:
     return plan
 
 
-def _known_notes(filepath: Path, author: str) -> set:
-    """The notes this author's reviews already brought into filepath's
-    tracking, by _note_key()."""
+def _known_notes(filepath: Path, author: str, source: str = REVIEW_SOURCE) -> set:
+    """The notes this author's reviews (source: the prod's, or the team's)
+    already brought into filepath's tracking, by _note_key()."""
     return {
         _note_key(
             e.get("text"),
@@ -623,7 +633,7 @@ def _known_notes(filepath: Path, author: str) -> set:
             e.get("departments") or [e.get("department")],
         )
         for e in (read_json_quiet(tracking_json_path(filepath)) or {}).get("entries", [])
-        if e.get("source") == REVIEW_SOURCE and e.get("author") == author
+        if e.get("source") == source and e.get("author") == author
     }
 
 
@@ -712,7 +722,11 @@ def import_review_xlsx(path: Path) -> dict:
     (done already), "replies", "skipped": [(label, reason)]}."""
     review = read_review(path)
     plan = review_import_plan(path, review)
-    role = plan["role"] or None
+    team = plan["team"]
+    role = None if team else plan["role"] or None
+    # Where its notes come from: a prod review ("prod review" on them), or
+    # the team's.
+    source = TEAM_REVIEW_SOURCE if team else REVIEW_SOURCE
     author = review["author"] or "prod"
     date = review["review_date"]
     created_at = date.isoformat(timespec="seconds") if date else None
@@ -806,7 +820,7 @@ def import_review_xlsx(path: Path) -> dict:
                     response=entry_id,
                     review_id=review_id,
                     created_at=created_at,
-                    source=REVIEW_SOURCE,
+                    source=source,
                     role=role,
                 )
                 known.add((entry_id, text))
@@ -852,7 +866,7 @@ def import_review_xlsx(path: Path) -> dict:
             continue
         # The same words on another shot, frames or department are another
         # retake: "[sh170] too dark" and "[sh180] too dark" are two.
-        known = _known_notes(filepath, author)
+        known = _known_notes(filepath, author, source)
         for line, departments, entry_type, shot, frames, key in _row_notes(
             filepath, row, notes
         ):
@@ -882,7 +896,7 @@ def import_review_xlsx(path: Path) -> dict:
                     created_at=created_at,
                     referenced_version=str(watched),
                     render=render,
-                    source=REVIEW_SOURCE,
+                    source=source,
                     role=role,
                 )
                 known.add(key)

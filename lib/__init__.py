@@ -198,6 +198,8 @@ from .schedule import WORK_WEEK, parse_day, project_schedule
 from .snapshot import (
     PROGRESS_WEIGHTS,
     REVIEW_SOURCE,
+    TEAM_REVIEW_SOURCE,
+    TEAM_ROLE,
     SnapshotJob,
     build_snapshot,
     progress_weights,

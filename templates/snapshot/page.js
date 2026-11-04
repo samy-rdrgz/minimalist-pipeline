@@ -86,13 +86,18 @@ if(n.deps.length)n.deps.forEach(function(d){out.deps[d]=1;});else out.gen=true;}
 // Replies written, by the note they answer.
 function replies(e){var r=e.replies||{};return Object.keys(r).filter(function(id){return (r[id]||'').trim();});}
 function changes(it){var e=rv.files[it.file];if(!e)return 0;
-var n=Object.keys(e.deps).length+(e.all?1:0)+(e.text.trim()?1:0)+Object.keys(e.fixed||{}).length+replies(e).length;
+var n=Object.keys(e.deps).filter(function(d){return sent(e.deps[d]);}).length+(e.all&&!asTeam()?1:0)+(e.text.trim()?1:0)+Object.keys(e.fixed||{}).length+replies(e).length;
 if(e.desc!==null&&e.desc.trim()&&e.desc.trim()!==it.desc)n++;return n;}
 // What this review says of a department: 'ok' (its own ✓, or all done), 'no',
 // 'note' (only "note:" lines: a remark, its validation left as it is), or ''.
-function verdict(it,d){var e=peek(it),v=e.deps[d];if(v)return v.ok?'ok':noteOnly(v.text)?'note':'no';
+// Written as the team (Role "team", no validation role of that name): its
+// retakes and notes are the team's own, it validates nothing -- a ✓ or an
+// empty ✕ (a validation withdrawn) is neither shown as yours nor sent.
+function asTeam(){return rv.role==='team'&&(META.roles||[]).indexOf('team')<0;}
+function sent(v){return !asTeam()||(!v.ok&&!!(v.text||'').trim());}
+function verdict(it,d){var e=peek(it),v=e.deps[d];if(v&&sent(v))return v.ok?'ok':noteOnly(v.text)?'note':'no';
 if(answered(it).deps[d])return 'no';
-return e.all&&isDone(it.states[d])?'ok':'';}
+return e.all&&!asTeam()&&isDone(it.states[d])?'ok':'';}
 function you(it,d){var v=verdict(it,d);if(!v)return '';
 return v==='ok'?'<span class="you y" title="Validated in your review">✓ you</span>':v==='note'?youNote():
 '<span class="you n" title="Sent back in your review">✕ you</span>';}
@@ -106,9 +111,9 @@ var NOTE_RE=/^\s*(?:\[[^\]]*\]\s*)*(?:note|n)\s*:/i;
 function retakes(t){return t.split(NL).filter(function(l){var w=l.trim().split(' ').filter(function(x){return x&&x.charAt(0)!=='[';});
 return w.length&&!NOTE_RE.test(l);}).length;}
 function summary(){var c={files:0,ok:0,rt:0,out:0,desc:0,fixed:0,replies:0,notes:0};D.forEach(function(it){if(!changes(it))return;var e=rv.files[it.file];c.files++;c.fixed+=Object.keys(e.fixed||{}).length;c.replies+=replies(e).length;
-Object.keys(e.deps).forEach(function(d){var v=e.deps[d];if(v.ok)c.ok++;else if(v.text.trim()){c.rt+=retakes(v.text);c.notes+=notesIn(v.text);}else c.out++;});
-var an=answered(it).deps;Object.keys(an).forEach(function(d){if(!e.deps[d])c.out++;});
-if(e.all)Object.keys(it.states).forEach(function(d){if(isDone(it.states[d])&&!e.deps[d]&&!an[d])c.ok++;});
+Object.keys(e.deps).forEach(function(d){var v=e.deps[d];if(!sent(v))return;if(v.ok)c.ok++;else if(v.text.trim()){c.rt+=retakes(v.text);c.notes+=notesIn(v.text);}else c.out++;});
+var an=answered(it).deps;Object.keys(an).forEach(function(d){if(!e.deps[d]&&!asTeam())c.out++;});
+if(e.all&&!asTeam())Object.keys(it.states).forEach(function(d){if(isDone(it.states[d])&&!e.deps[d]&&!an[d])c.ok++;});
 c.rt+=retakes(e.text);c.notes+=notesIn(e.text);if(e.desc!==null&&e.desc.trim()&&e.desc.trim()!==it.desc)c.desc++;});return c;}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(rv));}catch(e){}}
 
@@ -194,14 +199,33 @@ var deps=depsOf(state.tab).filter(function(d){return D.some(function(it){return 
 if(deps.indexOf(state.dep)<0)state.dep='';
 $('depf').innerHTML='<option value="" data-short="All depts.">All departments</option>'+deps.map(function(d){return '<option value="'+esc(d)+'"'+(d===state.dep?' selected':'')+'>'+esc(cap(d))+'</option>';}).join('');
 $('depf').classList.toggle('on',!!state.dep);sync('depf');}
-function render(){
-document.querySelectorAll('.chipf[data-f]').forEach(function(b){b.querySelector('b').textContent=D.filter(function(it){
-return it.tab===state.tab&&(!state.dep||state.dep in it.states)&&FILTERS[b.dataset.f](it,state.dep);}).length;});
+function chipCounts(){document.querySelectorAll('.chipf[data-f]').forEach(function(b){b.querySelector('b').textContent=D.filter(function(it){
+return it.tab===state.tab&&(!state.dep||state.dep in it.states)&&FILTERS[b.dataset.f](it,state.dep);}).length;});}
+// A row of the list (render(): its departments' columns).
+var rowDeps=[],rowCols='';
+function rowHtml(it){var deps=rowDeps,cols=rowCols;
+// Tinted once this review touched it: where you've been, at a glance.
+return '<div class="row'+(changes(it)?' rv-mine':'')+(it.i===cur?' sel':'')+'" role="button" tabindex="0" data-i="'+it.i+'" style="--cols:'+cols+'"'+(changes(it)?' title="In your review"':'')+'>'+thumb(it)+
+'<span class="r-name">'+nameHtml(it)+'<small>'+subline(it)+'</small><span class="flags">'+flags(it)+'</span></span>'+
+deps.map(function(d){return '<span class="d">'+mark(it.states[d])+under(it,d)+'</span>';}).join('')+
+'<span class="r-pct">'+(it.tracked?Math.round(it.done*100)+' %'+(META.role?'<span class="vv'+(it.valid?'':' z')+'">'+pct(it.valid)+' valid.</span>':''):'<span class="faint">–</span>')+'</span>'+
+(it.tracked?'<span class="dl">'+deps.filter(function(d){return d in it.states;}).map(function(d){return '<span><b class="dn s-'+it.states[d]+'" title="'+LABEL[it.states[d]]+'">'+esc(cap(d))+'</b>'+under(it,d)+'</span>';}).join('')+'</span>':'')+'</div>';}
+// One file's row redrawn in place, the list around it untouched: a ✓ or a
+// ✕ in the panel rebuilt the whole list, and on an iPad that sent the
+// page to the top (the row tapped had the focus, and was gone). The whole
+// list only when the review is a filter (the row may come or go).
+function renderRow(i){var row=$('list').querySelector('.row[data-i="'+i+'"]');
+if(!row||state.f.mine){render();return;}
+var tmp=document.createElement('div');tmp.innerHTML=rowHtml(D[i]);var n=tmp.firstChild;
+row.className=n.className;if(n.title)row.title=n.title;else row.removeAttribute('title');row.innerHTML=n.innerHTML;
+var grp=row.closest('.group');if(grp)grp.classList.toggle('rv-all',allReviewed(D[i].group));chipCounts();countBar();}
+function render(){chipCounts();
 var items=D.filter(function(it){return match(it);});
 var deps=depsOf(state.tab).filter(function(d){return items.some(function(it){return d in it.states;});});
 // Many departments: narrower columns, never past the page.
 var w=deps.length>7?56:deps.length>5?64:76;
 var cols='112px minmax(0,1fr) '+deps.map(function(){return w+'px';}).join(' ')+' 84px';
+rowDeps=deps;rowCols=cols;
 var groups={},order=[];
 items.forEach(function(it){if(!groups[it.group]){groups[it.group]=[];order.push(it.group);}groups[it.group].push(it);});
 visible=[];var filt=filtering();
@@ -213,13 +237,7 @@ var rows=tr.concat(state.untracked[key]||filt?un:[]);
 if(!closed)rows.forEach(function(it){visible.push(it.i);});
 var head='<div class="thead" style="--cols:'+cols+'"><span></span><span></span>'+deps.map(function(d){return '<span class="d" title="'+esc(cap(d))+'">'+esc(cap(d))+'</span>';}).join('')+
 '<span style="text-align:right">Done</span></div>';
-var body=rows.map(function(it){
-// Tinted once this review touched it: where you've been, at a glance.
-return '<div class="row'+(changes(it)?' rv-mine':'')+'" role="button" tabindex="0" data-i="'+it.i+'" style="--cols:'+cols+'"'+(changes(it)?' title="In your review"':'')+'>'+thumb(it)+
-'<span class="r-name">'+nameHtml(it)+'<small>'+subline(it)+'</small><span class="flags">'+flags(it)+'</span></span>'+
-deps.map(function(d){return '<span class="d">'+mark(it.states[d])+under(it,d)+'</span>';}).join('')+
-'<span class="r-pct">'+(it.tracked?Math.round(it.done*100)+' %'+(META.role?'<span class="vv'+(it.valid?'':' z')+'">'+pct(it.valid)+' valid.</span>':''):'<span class="faint">–</span>')+'</span>'+
-(it.tracked?'<span class="dl">'+deps.filter(function(d){return d in it.states;}).map(function(d){return '<span><b class="dn s-'+it.states[d]+'" title="'+LABEL[it.states[d]]+'">'+esc(cap(d))+'</b>'+under(it,d)+'</span>';}).join('')+'</span>':'')+'</div>';}).join('');
+var body=rows.map(rowHtml).join('');
 if(un.length&&!state.untracked[key]&&!filt)body+='<button class="untracked" data-g="'+esc(g)+'">+ '+plural(un.length,'file')+' with no tracked department</button>';
 var nv=groupVideos(g).length;
 // A div, not a button: its playlist's ▶ sits in it, after the name.
@@ -228,10 +246,15 @@ return '<div class="group'+(closed?' closed':'')+(allReviewed(g)?' rv-all':'')+'
 (done!=null?'<span class="tw"><span class="track"><i class="f" style="width:'+done*100+'%"></i>'+(META.role?'<i class="v" style="width:'+Math.min(val,done)*100+'%"></i>':'')+'</span></span>'+
 '<span class="g-pct"><b>'+pct(done)+'</b>'+(META.role?' · <span style="color:var(--valid)">'+pct(val)+' valid.</span>':'')+'</span>':'<span></span><span class="g-pct faint">not tracked</span>')+
 '</div><div class="rows">'+(tr.length?head:'')+body+'</div></div>';}).join('');
+// The row or group that had the focus has it again (the keys go on),
+// and the page stays where it was if the list is still as long.
+var fe=document.activeElement,fsel=fe&&$('list').contains(fe)?(fe.classList.contains('row')?'.row[data-i="'+fe.dataset.i+'"]':fe.classList.contains('g-h')?'.g-h[data-g="'+CSS.escape(fe.dataset.g)+'"]':null):null,y0=scrollY;
 var others=filt?tabs.filter(function(t){return t[0]!==state.tab;}).map(function(t){return [t,D.filter(function(it){return it.tab===t[0]&&match(it,true);}).length];}).filter(function(x){return x[1];}):[];
 $('list').innerHTML=(h||'<div class="empty">Nothing here.</div>')+others.map(function(x){return '<button class="untracked" data-other="'+x[0][0]+'" style="text-align:center">'+
 plural(x[1],'match')+' in '+x[0][1].toLowerCase()+' ›</button>';}).join('');
 if(cur!=null){var s=$('list').querySelector('.row[data-i="'+cur+'"]');if(s)s.classList.add('sel');}
+if(fsel){var nf=$('list').querySelector(fsel);if(nf)nf.focus({preventScroll:true});}
+if(lockY==null&&scrollY!==y0)scrollTo(0,y0);
 countBar();
 // The videos' folder button, next to ?: until one is chosen, while a render has a video.
 $('vidb').hidden=!!PICKED||!D.some(function(it){return it.renders.some(function(r){return r.video;});});}
@@ -242,6 +265,10 @@ if((t=e.target.closest('[data-gplay]')))return play(groupVideos(t.dataset.gplay)
 if((t=e.target.closest('.row')))return openPanel(+t.dataset.i);
 if((t=e.target.closest('.untracked'))){state.untracked[state.tab+t.dataset.g]=true;return render();}
 if((t=e.target.closest('.g-h'))){state.open[state.tab+t.dataset.g]=t.parentNode.classList.contains('closed');render();}});
+// A touch screen: a tap on a row or a group's name doesn't take the focus
+// (iPad Safari gives it to anything with a tabindex) -- nothing focused
+// in the list to lose when it's redrawn.
+$('list').addEventListener('mousedown',function(e){if(touchPin.matches&&e.target.closest('.row,.g-h'))e.preventDefault();});
 $('list').addEventListener('keydown',function(e){var r=e.target.closest('.row');
 if(e.target.classList.contains('g-h')&&(e.key==='Enter'||e.key===' ')){e.preventDefault();e.target.click();return;}if(r&&(e.key==='Enter'||e.key===' ')){e.preventDefault();openPanel(+r.dataset.i);}});
 function setTab(t){state.tab=t;drawTabs();render();}
@@ -295,20 +322,36 @@ m.innerHTML=[].map.call(sel.options,function(o,i){return '<button type="button" 
 // Fixed, from the button: a scrolling bar or a panel would clip it.
 var r=b.getBoundingClientRect(),up=r.top>innerHeight/2;m.style.left=Math.max(8,Math.min(r.left,innerWidth-Math.max(r.width,200)-8))+'px';m.style.minWidth=r.width+'px';
 m.style.top=up?'':(r.bottom+6)+'px';m.style.bottom=up?(innerHeight-r.top+6)+'px':'';
-m.hidden=false;b.setAttribute('aria-expanded','true');(m.querySelector('[aria-selected="true"]')||m.firstChild).focus();};
+// Focused for the keys -- never on a touch screen, where a focus in a
+// fixed layer scrolls the page on an iPad (and that scroll closed it).
+m.hidden=false;b.setAttribute('aria-expanded','true');pickOpenedAt=Date.now();touchHold();
+if(!touchPin.matches)(m.querySelector('[aria-selected="true"]')||m.firstChild).focus({preventScroll:true});};
 m.onclick=function(e){var o=e.target.closest('[data-i]');if(!o)return;e.stopPropagation();sel.selectedIndex=+o.dataset.i;closePicks();
-sel.dispatchEvent(new Event('change'));sync();b.focus();};
+sel.dispatchEvent(new Event('change'));sync();if(!touchPin.matches)b.focus({preventScroll:true});};
 m.onkeydown=function(e){var f=[].slice.call(m.children),k=f.indexOf(document.activeElement);
-if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();var n=f[Math.max(0,Math.min(f.length-1,k+(e.key==='ArrowDown'?1:-1)))];if(n)n.focus();}
-else if(e.key==='Escape'||e.key==='Tab'){if(e.key==='Escape'){e.preventDefault();e.stopPropagation();}closePicks();b.focus();}};
+if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();var n=f[Math.max(0,Math.min(f.length-1,k+(e.key==='ArrowDown'?1:-1)))];if(n)n.focus({preventScroll:true});}
+else if(e.key==='Escape'||e.key==='Tab'){if(e.key==='Escape'){e.preventDefault();e.stopPropagation();}closePicks();b.focus({preventScroll:true});}};
 sel._pick={sync:sync,button:b};sync();return sel._pick;}
-function closePicks(){document.querySelectorAll('.pick-pop').forEach(function(m){if(!m.hidden){m.hidden=true;m._button.setAttribute('aria-expanded','false');}});}
+function closePicks(){document.querySelectorAll('.pick-pop').forEach(function(m){if(!m.hidden){m.hidden=true;m._button.setAttribute('aria-expanded','false');}});touchHold();}
+// A touch screen: the page under an open list or menu is held still
+// (lockPage, 'pop') -- not put back after an iPad scrolled it, each
+// putting back a jump of its own. The list or menu closes on a tap
+// elsewhere, not on a scroll.
+var touchPin=matchMedia('(pointer:coarse)');
+function touchHold(){var on=touchPin.matches&&([].some.call(document.querySelectorAll('.pick-pop'),function(m){return !m.hidden;})||
+MENUS.some(function(m){return !$(m[1]).hidden;}));lockPage('pop',on);}
 function sync(id){var s=$(id);if(s&&s._pick)s._pick.sync();}
-document.addEventListener('click',closePicks);addEventListener('resize',closePicks);
-document.addEventListener('scroll',function(e){if(!(e.target.closest&&e.target.closest('.pick-pop')))closePicks();},true);
-function closeMenus(){MENUS.forEach(function(m){$(m[1]).hidden=true;$(m[0]).setAttribute('aria-expanded','false');});}
+// Turned, a list closes (its place is gone); a touch screen's height
+// moving (the keyboard, the browser's bars) leaves it open.
+var pickW=innerWidth;
+document.addEventListener('click',closePicks);addEventListener('resize',function(){if(touchPin.matches&&innerWidth===pickW)return;pickW=innerWidth;closePicks();});
+// A scroll closes an open list -- not one the browser makes as it opens
+// (iOS scrolls on a focus all the same, sometimes).
+var pickOpenedAt=0;
+document.addEventListener('scroll',function(e){if(touchPin.matches||Date.now()-pickOpenedAt<400)return;if(!(e.target.closest&&e.target.closest('.pick-pop')))closePicks();},true);
+function closeMenus(){MENUS.forEach(function(m){$(m[1]).hidden=true;$(m[0]).setAttribute('aria-expanded','false');});touchHold();}
 MENUS.forEach(function(m){$(m[0]).addEventListener('click',function(e){e.stopPropagation();var open=$(m[1]).hidden;closeMenus();
-$(m[1]).hidden=!open;this.setAttribute('aria-expanded',open);});});
+$(m[1]).hidden=!open;this.setAttribute('aria-expanded',open);touchHold();});});
 document.addEventListener('click',function(e){if(!e.target.closest('.menu-pop'))closeMenus();});
 
 /* ---------- pictures and videos ---------- */
@@ -319,8 +362,12 @@ hov.onload=function(){var r=t.getBoundingClientRect(),w=hov.offsetWidth,h=hov.of
 hov.style.left=Math.max(8,Math.min(r.left,innerWidth-w-8))+'px';hov.style.top=(r.bottom+8+h<innerHeight?r.bottom+8:Math.max(8,r.top-8-h))+'px';};
 hov.src=img(D[t.dataset.zoom].thumb);hov.style.display='block';});
 document.addEventListener('mouseout',function(e){if(e.target.closest('.thumb'))hov.style.display='none';});
-function lightbox(html,cap){$('lb-in').innerHTML=html;$('lb-cap').innerHTML=cap||'';$('lb').hidden=false;hov.style.display='none';}
-function closeLb(){var v=$('lb-in').querySelector('video');if(v)v.pause();$('lb').hidden=true;$('lb-in').innerHTML='';}
+// The page under it holds still, and is back where it was once closed:
+// on an iPad, starting a video scrolled it to the top.
+function lightbox(html,cap){lockPage('lb',true);
+$('lb-in').innerHTML=html;$('lb-cap').innerHTML=cap||'';$('lb').hidden=false;hov.style.display='none';}
+function closeLb(){var v=$('lb-in').querySelector('video');if(v)v.pause();$('lb').hidden=true;$('lb-in').innerHTML='';
+lockPage('lb',false);}
 $('lb').addEventListener('click',function(e){if(e.target===this||e.target.closest('#lb-x')||e.target.tagName==='IMG')closeLb();});
 document.addEventListener('click',function(e){var t=e.target.closest('[data-zoom]');if(!t)return;e.stopPropagation();var it=D[t.dataset.zoom];
 lightbox('<img alt="" src="'+img(it.thumb)+'">',esc(it.name));},true);
@@ -349,7 +396,7 @@ if(VNAMES[name])return {src:V.base+'/'+path,from:V.mode};
 return V.local?{src:V.local+'/'+path,from:'local'}:null;}
 // A render line's video, one or none.
 function videosOf(it,r){var s=r.video&&videoSrc(r.video);
-return s?[{file:it.name,shot:r.shots,first:r.shot_list[0],folder:r.folder,src:s.src,from:s.from,name:r.video}]:[];}
+return s?[{file:it.name,shot:r.shots,first:r.shot_list[0],start:r.first,folder:r.folder,src:s.src,from:s.from,name:r.video}]:[];}
 // Choose the videos' folder: each video known by its path's every tail, so
 // the folder's own name, or one above it, doesn't matter. A phone with no
 // folder picker gives the videos themselves, known by their names.
@@ -395,6 +442,17 @@ var rank=function(v){var k=it.shots.indexOf(v.first);return k<0?0:k;};return out
 // Its own thin controls under the picture: a render is wide and low, the
 // browser's would cover half of it.
 function clock(t){t=Math.floor(+t||0);return Math.floor(t/60)+':'+('0'+t%60).slice(-2);}
+// The player's width: the video's shape (16:9 until it's known) in the
+// room the lightbox leaves -- set, not left to its content. Again only
+// when the screen's width changes (turned), not as its height moves
+// under a browser's or an app's bars.
+var fitW=0;
+function fitPlayer(el){var vp=el&&el.closest('.vp');if(!vp)return;var r=el.videoWidth&&el.videoHeight?el.videoWidth/el.videoHeight:16/9;
+var top=parseFloat(getComputedStyle(document.body).paddingTop)||0;
+vp.style.width=Math.max(160,Math.floor(Math.min($('lb').clientWidth-40,(innerHeight-140-top)*r)))+'px';fitW=innerWidth;}
+addEventListener('resize',function(){if($('lb').hidden||innerWidth===fitW)return;fitPlayer($('lb-in').querySelector('video'));});
+// The videos' frame rate (the project's): the player's frame number.
+var FPS=+META.fps||0,stepFrame=function(){};
 function play(list){if(!list.length)return;var at=0;
 function show(){var v=list[at],many=list.length>1;
 lightbox('<div class="vp"><video playsinline autoplay src="'+esc(v.src)+'"></video>'+
@@ -402,13 +460,26 @@ lightbox('<div class="vp"><video playsinline autoplay src="'+esc(v.src)+'"></vid
 '<button type="button" class="vb" id="vp-p" aria-label="Pause">❚❚</button>'+
 (many?'<button type="button" class="vb" data-lb="1"'+(at<list.length-1?'':' disabled')+' aria-label="Next video">⏭</button>':'')+
 '<input type="range" class="vr" id="vp-r" min="0" max="1000" value="0" aria-label="Position"><span class="vt" id="vp-t">0:00</span>'+
+(FPS?'<button type="button" class="vb vs" data-step="-1" aria-label="Previous frame" title="Previous frame (,)">◂</button><span class="vf" id="vp-fr" title="'+
+(v.start!=null?'The frame shown, as numbered in the .blend':'The frame shown, counted from this video\'s first (its own number unknown: export the snapshot again)')+
+'">'+(v.start!=null?'f'+v.start:'#1')+'</span><button type="button" class="vb vs" data-step="1" aria-label="Next frame" title="Next frame (.)">▸</button>':'')+
 '<button type="button" class="vb" id="vp-f" aria-label="Full screen">⛶</button></div></div>',
 esc(v.file)+(v.shot?' · <b>'+esc(v.shot)+'</b>':'')+' · '+esc(v.folder)+(many?' ('+(at+1)+' / '+list.length+')':''));
 var el=$('lb-in').querySelector('video'),pb=$('vp-p'),rg=$('vp-r'),tm=$('vp-t'),seeking=false;
+fitPlayer(el);el.addEventListener('loadedmetadata',function(){fitPlayer(el);});
 function sync(){pb.textContent=el.paused?'▶':'❚❚';pb.setAttribute('aria-label',el.paused?'Play':'Pause');}
+// The frame shown: the .blend's number (the render's first + its index in
+// the video), else its rank in the video. Each frame as it's shown where
+// the browser tells (requestVideoFrameCallback), else at each time update.
+var fr=$('vp-fr'),idx=function(t){return Math.max(0,Math.floor(t*FPS+1e-3));};
+function frame(t){if(fr)fr.textContent=v.start!=null?'f'+(v.start+idx(t)):'#'+(idx(t)+1);}
+if(fr&&el.requestVideoFrameCallback){var tick=function(now,md){if(!el.isConnected)return;frame(md.mediaTime);el.requestVideoFrameCallback(tick);};el.requestVideoFrameCallback(tick);}
+el.addEventListener('seeked',function(){frame(el.currentTime);});
+// One frame back or on, paused: its middle, decoded as is.
+stepFrame=function(n){if(!FPS)return;el.pause();var k=Math.max(0,idx(el.currentTime)+n),t=(k+.5)/FPS;if(el.duration)t=Math.min(t,el.duration-.5/FPS);el.currentTime=t;frame(t);};
 el.addEventListener('play',sync);el.addEventListener('pause',sync);
 el.addEventListener('timeupdate',function(){if(!seeking&&el.duration)rg.value=Math.round(el.currentTime/el.duration*1000);
-tm.textContent=clock(el.currentTime)+' / '+clock(el.duration);});
+tm.textContent=clock(el.currentTime)+' / '+clock(el.duration);if(!el.requestVideoFrameCallback)frame(el.currentTime);});
 rg.addEventListener('input',function(){seeking=true;if(el.duration)el.currentTime=rg.value/1000*el.duration;});
 rg.addEventListener('change',function(){seeking=false;});
 pb.onclick=function(e){e.stopPropagation();if(el.paused)el.play();else el.pause();};
@@ -428,7 +499,7 @@ v.from==='folder'?'Video not found: no <code>'+esc(V.base)+'</code> folder next 
 'Video not found in the project\'s renders -- away from the project, its videos come with the snapshot (Folder or Zip, when exporting) -- or this browser can\'t play its format.')+
 (v.from==='picked'?'':' '+pickLink('Choose the videos folder…'))+
 '<br><span style="opacity:.7">Looked for <code>'+esc(v.name)+'</code></span>'+(many&&at<list.length-1?'<br><button type="button" class="lbn" data-lb="1" aria-label="Next video">›</button>':'');});}
-$('lb').onclick=function(e){var b=e.target.closest('[data-lb]');if(!b)return;e.stopPropagation();if(b.disabled)return;at+=+b.dataset.lb;show();};
+$('lb').onclick=function(e){var sb=e.target.closest('[data-step]');if(sb){e.stopPropagation();stepFrame(+sb.dataset.step);return;}var b=e.target.closest('[data-lb]');if(!b)return;e.stopPropagation();if(b.disabled)return;at+=+b.dataset.lb;show();};
 show();}
 // A sequence's files, each one's videos in its shots' order, one after the other.
 function groupVideos(g){return D.filter(function(it){return it.tab===state.tab&&it.group===g&&match(it);}).reduce(function(out,it){return out.concat(allVideos(it));},[]);}
@@ -529,12 +600,12 @@ function depHtml(it,d,rv){var s=it.states[d],e=peek(it),v=e.deps[d],o=it.ok[d],v
 var okd=o?(o.old?'<span class="ok old" title="'+esc(o.tip)+'">✓ '+esc(o.role)+' on '+esc(o.seen)+'</span><span class="faint" style="font-size:12px">to review again</span>':
 '<span class="ok" title="'+esc(o.tip)+'">✓ '+esc(o.role)+'</span>'):'';
 return '<div class="dep"><div class="dep-l">'+mark(s)+'<span class="mid"><span class="nm">'+esc(cap(d))+'</span><span class="st">'+LABEL[s]+'</span>'+rkTag(it,d)+okd+you(it,d)+'</span>'+
-'<span class="rvb" data-d="'+esc(d)+'"><button class="ok-b'+(via?' via':'')+'" aria-pressed="'+!!(v&&v.ok)+'"'+(isDone(s)?' title="Validate it as your role"':' disabled title="Not done: nothing to validate yet"')+
+'<span class="rvb" data-d="'+esc(d)+'"><button class="ok-b'+(via?' via':'')+'" aria-pressed="'+!!(v&&v.ok)+'"'+(asTeam()?' disabled title="As the team: no validation -- a validation role validates"':isDone(s)?' title="Validate it as your role"':' disabled title="Not done: nothing to validate yet"')+
 ' aria-label="Validate '+esc(d)+'">✓</button><button class="ko-b'+(verdict(it,d)==='note'?' as-note':'')+'" aria-pressed="'+!!(v&&v.no)+'" aria-label="Retake '+esc(d)+'" title="Retake: write what to fix (or nothing, to withdraw a validation)">✕</button></span></div>'+
 ((it.rtkNotes[d]||[]).length?'<div class="rtks">'+it.rtkNotes[d].map(rtkLine).join('')+'</div>':'')+
 (rv&&v&&v.no?'<div class="rt">'+retakeBox(it,'d:'+d,v.text,'What to fix in '+d+'? Empty: just withdraw its validation')+syntax(it)+'</div>':'')+'</div>';}
 function openPanel(i){
-var it=D[i];if(cur!==i){showClosed=false;showNotes=null;editing={};}cur=i;if(!lastFocus)lastFocus=document.activeElement;
+var it=D[i],same=cur===i;if(!same){showClosed=false;showNotes=null;editing={};}cur=i;if(!lastFocus)lastFocus=document.activeElement;
 var rv=reviewing(),e=peek(it);if(showNotes===null)showNotes=!rv;
 $('p-title').innerHTML=nameHtml(it);var nv=allVideos(it).length;$('p-play').hidden=!nv;$('p-play').title=nv>1?'Play the '+nv+' shots in a row':'Play the render';
 $('p-sub').textContent=[it.kind==='shot'?'Shot':it.root==='library'?'Library':'Asset',it.versions,it.shots.length>1?plural(it.shots.length,'shot'):''].filter(Boolean).join(' · ');
@@ -565,7 +636,7 @@ if(rv)h+='<button type="button" class="desc-edit" id="add-desc">✎ '+(it.desc?'
 // X) at the bottom -- with the open ones on no department.
 var anyDone=deps.some(function(d){return isDone(it.states[d]);}),genOpen=editing.gen||!!e.text;
 h+='<div class="p-block major">'+
-(rv&&anyDone?'<div class="dep all"><div class="dep-l"><span class="mid"><span class="nm">All done</span><span class="st">validate every done department<span class="kh"> · V</span></span></span>'+
+(rv&&anyDone&&!asTeam()?'<div class="dep all"><div class="dep-l"><span class="mid"><span class="nm">All done</span><span class="st">validate every done department<span class="kh"> · V</span></span></span>'+
 '<span class="rvb"><button class="ok-b" id="allok" aria-pressed="'+e.all+'" aria-label="Validate every done department">✓</button><span class="rvb-gap"></span></span></div></div>':'')+
 (deps.length?deps.map(function(d){return depHtml(it,d,rv);}).join(''):'<p class="faint">No department tracked on this file.</p>')+
 (rv||it.genRtks.length?'<div class="dep whole"><div class="dep-l"><span class="mid"><span class="nm">Whole file</span><span class="st">a retake on no department'+(rv?'<span class="kh"> · X</span>':'')+'</span></span>'+
@@ -584,39 +655,68 @@ h+='</div>';}
 // Where it comes from: at the bottom, out of the way while reviewing.
 h+='<dl class="view-only facts"><dt>Last render</dt><dd>'+rendersHtml(it)+noVideo(it)+'</dd><dt>Blender file</dt><dd class="fileline">'+esc(it.file)+'.blend</dd></dl>';
 $('p-body').innerHTML=h;$('p-body').querySelectorAll('textarea').forEach(grow);
-document.body.classList.add('panel-open');lockPage(true);fitBar();var p=$('panel');p.hidden=false;
+document.body.classList.add('panel-open');lockPage('panel',phone.matches||document.body.classList.contains('panel-full'));fitBar();var p=$('panel');p.hidden=false;
 requestAnimationFrame(function(){p.classList.add('on');$('scrim').classList.add('on');});
 var pos=visible.indexOf(i);$('p-prev').disabled=$('m-prev').disabled=pos<=0;$('p-next').disabled=$('m-next').disabled=pos<0||pos>=visible.length-1;
 document.querySelectorAll('.row.sel').forEach(function(x){x.classList.remove('sel');});
 var s=$('list').querySelector('.row[data-i="'+i+'"]');if(s){s.classList.add('sel');
-// Beside the list: the file shown stays in sight as ← → go through it.
-var r=s.getBoundingClientRect(),top=bar.getBoundingClientRect().bottom+40;if(!phone.matches&&(r.top<top||r.bottom>innerHeight))scrollBy({top:r.top-top-(innerHeight-top)/3,behavior:'smooth'});}
-p.setAttribute('aria-modal',phone.matches?'true':'false');
+// Beside the list: the file shown stays in sight as ← → go through it
+// (at once on a touch screen: iOS's smooth scroll went up, then down) --
+// another file only: a tap in the panel (✓, ✕...) redraws it, and the
+// list stays where it was read.
+var r=s.getBoundingClientRect(),top=bar.getBoundingClientRect().bottom+40;if(!same&&lockY==null&&!phone.matches&&(r.top<top||r.bottom>innerHeight))scrollBy({top:r.top-top-(innerHeight-top)/3,behavior:touchPin.matches?'auto':'smooth'});}
+p.setAttribute('aria-modal',phone.matches||document.body.classList.contains('panel-full')?'true':'false');
 try{history.replaceState(null,'','#'+encodeURIComponent(it.name));}catch(err){}}
-function refresh(){var y=$('p-body').scrollTop;openPanel(cur);$('p-body').scrollTop=y;render();save();}
-// A phone: the page under the full-screen panel holds still -- a drag on
-// the panel's header, or a field brought into view, scrolled it on iOS,
-// and closing the panel found the list somewhere else.
-var lockY=null;
-function lockPage(on){var b=document.body.style;
-if(on&&lockY==null&&matchMedia('(max-width:900px)').matches){lockY=scrollY;b.position='fixed';b.top=-lockY+'px';b.left=b.right='0';}
-else if(!on&&lockY!=null){b.position=b.top=b.left=b.right='';scrollTo(0,lockY);lockY=null;}}
+function refresh(){var y=$('p-body').scrollTop;openPanel(cur);$('p-body').scrollTop=y;renderRow(cur);save();fieldLeft();}
+// The page held still (fixed where it is, put back once let go): under
+// the full-screen panel (a phone, panel-full), the lightbox, and on a
+// touch screen an open list or menu, the dialog, a field being written
+// in -- a drag on the panel's header, a field brought into view, a video
+// started, scrolled it on iOS. Each reason holds it ({key: 1}), the last
+// one let go puts it back.
+var lockY=null,holds={};
+function lockPage(k,on){if(on)holds[k]=1;else delete holds[k];var b=document.body.style,any=Object.keys(holds).length>0;
+if(any&&lockY==null){lockY=scrollY;b.position='fixed';b.top=-lockY+'px';b.left=b.right='0';}
+else if(!any&&lockY!=null){b.position=b.top=b.left=b.right='';scrollTo(0,lockY);lockY=null;}}
 // Touch: a field in a fixed layer (panel, review bar, dialog) brings the
-// keyboard up and iOS scrolls the page under it, often to the bottom,
-// and leaves it there: put it back once the field is left.
-var keepY=null;
+// keyboard up and iOS scrolls the page to it, then back as it goes:
+// held from the field's focus (before iOS moves anything) until the
+// keyboard is gone -- a scroll iOS makes then has nothing to move.
+function inField(){var f=document.activeElement;return !!(f&&f.matches&&f.matches('input,textarea,select')&&f.closest('.panel,.rbar,.dlg')&&!f.closest('[hidden]'));}
+var fieldT=null;
+function fieldLeft(){if(!holds.field)return;clearTimeout(fieldT);fieldT=setTimeout(function(){if(!inField())lockPage('field',false);},450);}
 // Touch, writing in the panel: the keyboard takes half the screen, the
 // review bar and Previous / Next step aside for the text.
 var coarse=matchMedia('(pointer:coarse)');
 document.addEventListener('focusin',function(e){if(coarse.matches&&e.target.matches('input,textarea')&&e.target.closest('.panel'))document.body.classList.add('typing');});
 document.addEventListener('focusout',function(){setTimeout(function(){var f=document.activeElement;
 if(!(f&&f.matches&&f.matches('input,textarea')&&f.closest('.panel'))&&document.body.classList.contains('typing')){document.body.classList.remove('typing');fitBar();}},60);});
-document.addEventListener('focusin',function(e){if(lockY==null&&keepY==null&&e.target.matches('input,textarea,select')&&e.target.closest('.panel,.rbar,.dlg')&&matchMedia('(pointer:coarse)').matches)keepY=scrollY;});
-document.addEventListener('focusout',function(e){if(keepY==null)return;var y=keepY;
-setTimeout(function(){var f=document.activeElement;if(f&&f.matches&&f.matches('input,textarea,select')&&f.closest('.panel,.rbar,.dlg'))return;keepY=null;if(lockY==null){scrollTo(0,y);
-// Again once the keyboard has slid away: iOS scrolls once more then.
-setTimeout(function(){if(keepY==null&&lockY==null)scrollTo(0,y);},450);}},60);});
-function closePanel(){if(cur==null)return;cur=null;document.body.classList.remove('panel-open');lockPage(false);fitBar();var p=$('panel');p.classList.remove('on');$('scrim').classList.remove('on');
+document.addEventListener('focusin',function(){if(coarse.matches&&inField()){clearTimeout(fieldT);lockPage('field',true);}});
+document.addEventListener('focusout',function(){setTimeout(fieldLeft,60);});
+// The dialog: the page under it held still on a touch screen; closed, a
+// field of it is left.
+new MutationObserver(function(){lockPage('dlg',coarse.matches&&!$('dlg').hidden);fieldLeft();}).observe($('dlg'),{attributes:true,attributeFilter:['hidden']});
+// The keyboard up (a touch screen, a field of the panel or the dialog):
+// the page held, iOS no longer scrolls it to the field -- the panel and
+// the dialog are fitted to what the keyboard leaves (body.kb, --vv-h,
+// --vv-top: the visual viewport), and the panel scrolls the field into
+// that room, as it grows too.
+var VV=window.visualViewport;
+function revealField(){var f=document.activeElement,c=f&&f.closest&&f.closest('.p-body');if(!c||!inField())return;
+var r=f.getBoundingClientRect(),cr=c.getBoundingClientRect();
+if(r.bottom>cr.bottom-8)c.scrollTop+=Math.min(r.bottom-cr.bottom+16,r.top-cr.top-8);else if(r.top<cr.top+8)c.scrollTop-=cr.top-r.top+16;}
+function fitKb(){if(!VV)return;var b=document.body,on=coarse.matches&&inField()&&VV.height<document.documentElement.clientHeight-80;
+b.classList.toggle('kb',on);if(!on)return;var st=document.documentElement.style;
+st.setProperty('--vv-h',Math.round(VV.height)+'px');st.setProperty('--vv-top',Math.round(VV.offsetTop)+'px');revealField();}
+if(VV){VV.addEventListener('resize',fitKb);VV.addEventListener('scroll',fitKb);}
+document.addEventListener('focusin',function(){if(!coarse.matches)return;fitKb();setTimeout(fitKb,350);});
+document.addEventListener('focusout',function(){setTimeout(fitKb,80);});
+$('p-body').addEventListener('input',function(){if(document.body.classList.contains('kb'))revealField();});
+function closePanel(){if(cur==null)return;cur=null;
+// A field of it left for good: hidden with the panel, iOS kept its focus
+// (no focusout), the page stayed held -- nothing scrolled or answered.
+var f=document.activeElement;if(f&&f.closest&&f.closest('.panel')&&f.blur)f.blur();clearTimeout(fieldT);lockPage('field',false);
+document.body.classList.remove('panel-open','typing','kb');lockPage('panel',false);fitBar();var p=$('panel');p.classList.remove('on');$('scrim').classList.remove('on');
 setTimeout(function(){if(cur==null)p.hidden=true;},220);document.querySelectorAll('.row.sel').forEach(function(x){x.classList.remove('sel');});
 try{history.replaceState(null,'',location.pathname+location.search);}catch(err){}
 if(lastFocus)lastFocus.focus({preventScroll:true});lastFocus=null;}
@@ -628,10 +728,12 @@ $('p-play').addEventListener('click',function(){if(cur!=null)play(allVideos(D[cu
 $('p-link').addEventListener('click',function(){var u=location.href;
 var ok=function(){toast('Link copied: it opens this file, once this page is where the link points.');};
 if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(u).then(ok,function(){prompt('Link to this file',u);});else prompt('Link to this file',u);});
-// A phone: swipe down from the top to close, sideways for the next / previous file
-// (not on the shots' strip nor in a field, which scroll or select).
+// A touch screen: swipe down from the panel's header to close (not from
+// its text: scrolling it back up closed it), sideways for the next /
+// previous file (not on the shots' strip nor in a field, which scroll or
+// select).
 var t0=null;$('panel').addEventListener('touchstart',function(e){var t=e.touches[0];
-t0=e.target.closest('textarea,input,select,.shotsel')?null:{x:t.clientX,y:t.clientY,top:$('p-body').scrollTop<=0};},{passive:true});
+t0=e.target.closest('textarea,input,select,.shotsel')?null:{x:t.clientX,y:t.clientY,top:!!e.target.closest('.p-head')};},{passive:true});
 $('panel').addEventListener('touchend',function(e){if(!t0)return;var t=e.changedTouches[0],dx=t.clientX-t0.x,dy=t.clientY-t0.y;
 if(Math.abs(dx)>70&&Math.abs(dx)>2*Math.abs(dy))step(dx<0?1:-1);else if(t0.top&&dy>90&&dy>2*Math.abs(dx))closePanel();t0=null;});
 // Focus stays in the open panel.
@@ -639,55 +741,73 @@ if(Math.abs(dx)>70&&Math.abs(dx)>2*Math.abs(dy))step(dx<0?1:-1);else if(t0.top&&
 var phone=matchMedia('(max-width:900px)');
 // The panel's width, dragged by its left edge -- kept by this browser.
 var PW_KEY='mp-snapshot:panel-width',PW_DEF=540;
-function setWidth(w,keep){w=Math.round(Math.max(380,Math.min(w,innerWidth-360,innerWidth*0.8)));
+function maxWidth(){return Math.min(innerWidth-360,innerWidth*0.8);}
+function setWidth(w,keep){w=Math.round(Math.max(380,Math.min(w,maxWidth())));
 document.documentElement.style.setProperty('--pw',w+'px');if(keep)try{localStorage.setItem(PW_KEY,String(w));}catch(e){}if(typeof fitBar==='function')fitBar();return w;}
-try{var pw=+localStorage.getItem(PW_KEY);if(pw)setWidth(pw);}catch(e){}
+// Dragged past its widest, the whole page (an iPad upright: the list is
+// too narrow beside it); dragged back, beside the list. Kept too.
+var PF_KEY='mp-snapshot:panel-full';
+function setFull(on,keep){var b=document.body,was=b.classList.contains('panel-full');b.classList.toggle('panel-full',on);
+if(keep)try{localStorage.setItem(PF_KEY,on?'1':'');}catch(e){}
+if(on!==was&&cur!=null){lockPage('panel',on||phone.matches);
+$('panel').setAttribute('aria-modal',on||phone.matches?'true':'false');}
+if(typeof fitBar==='function')fitBar();}
+function dragTo(w,keep){if(w>maxWidth()+60)setFull(true,keep);else{setFull(false,keep);setWidth(w,keep);}}
+try{var pw=+localStorage.getItem(PW_KEY);if(pw)setWidth(pw);if(localStorage.getItem(PF_KEY))setFull(true);}catch(e){}
 var rz=$('p-resize');
 rz.addEventListener('pointerdown',function(e){e.preventDefault();rz.setPointerCapture(e.pointerId);document.body.classList.add('resizing');});
-rz.addEventListener('pointermove',function(e){if(document.body.classList.contains('resizing'))setWidth(innerWidth-e.clientX,false);});
-rz.addEventListener('pointerup',function(e){if(!document.body.classList.contains('resizing'))return;document.body.classList.remove('resizing');setWidth(innerWidth-e.clientX,true);});
-rz.addEventListener('dblclick',function(){setWidth(PW_DEF,true);});
+rz.addEventListener('pointermove',function(e){if(document.body.classList.contains('resizing'))dragTo(innerWidth-e.clientX,false);});
+rz.addEventListener('pointerup',function(e){if(!document.body.classList.contains('resizing'))return;document.body.classList.remove('resizing');dragTo(innerWidth-e.clientX,true);});
+rz.addEventListener('dblclick',function(){setFull(false,true);setWidth(PW_DEF,true);});
 rz.addEventListener('keydown',function(e){if(e.key!=='ArrowLeft'&&e.key!=='ArrowRight')return;e.preventDefault();e.stopPropagation();
-setWidth($('panel').offsetWidth+(e.key==='ArrowLeft'?40:-40),true);});
-$('panel').addEventListener('keydown',function(e){if(e.key!=='Tab'||!phone.matches)return;var f=[].filter.call($('panel').querySelectorAll('button,textarea,[tabindex]'),function(x){return !x.disabled&&x.offsetParent;});
-if(!f.length)return;var a=f[0],z=f[f.length-1];if(e.shiftKey&&document.activeElement===a){z.focus();e.preventDefault();}else if(!e.shiftKey&&document.activeElement===z){a.focus();e.preventDefault();}});
+var full=document.body.classList.contains('panel-full');
+dragTo(full?(e.key==='ArrowLeft'?innerWidth:maxWidth()):$('panel').offsetWidth+(e.key==='ArrowLeft'?40:-40),true);});
+$('panel').addEventListener('keydown',function(e){if(e.key!=='Tab'||!(phone.matches||document.body.classList.contains('panel-full')))return;var f=[].filter.call($('panel').querySelectorAll('button,textarea,[tabindex]'),function(x){return !x.disabled&&x.offsetParent;});
+if(!f.length)return;var a=f[0],z=f[f.length-1];if(e.shiftKey&&document.activeElement===a){z.focus({preventScroll:true});e.preventDefault();}else if(!e.shiftKey&&document.activeElement===z){a.focus({preventScroll:true});e.preventDefault();}});
 var FS=window.CSS&&CSS.supports('field-sizing','content');
-function grow(t){if(FS||!t)return;t.style.height='auto';t.style.height=Math.min(t.scrollHeight+2,innerHeight*.5)+'px';}
+// Measured at height auto, the panel's scroll put back in the same go:
+// shrunk for a moment, the panel's text moved, and iOS scrolled again to
+// the caret at each key (Safari has no field-sizing).
+function grow(t){if(FS||!t)return;var p=t.closest('.p-body'),y=p?p.scrollTop:0;t.style.height='auto';t.style.height=Math.min(t.scrollHeight+2,innerHeight*.5)+'px';if(p&&p.scrollTop!==y)p.scrollTop=y;}
 function setText(it,key,text){var e=entry(it);if(key==='gen')e.text=text;else if(e.deps[key.slice(2)])e.deps[key.slice(2)].text=text;}
-function validateAll(){var it=D[cur];if(!Object.keys(it.states).some(function(d){return isDone(it.states[d]);}))return;var e=entry(it);e.all=!e.all;refresh();}
-function generalRetake(){var e=entry(D[cur]);if(editing.gen||e.text){if(!e.text.trim()||confirm('Drop this general retake?')){e.text='';editing.gen=false;refresh();}return;}
-editing.gen=true;refresh();var g=$('gen-t');if(g)g.focus();}
+function validateAll(){var it=D[cur];if(asTeam()||!Object.keys(it.states).some(function(d){return isDone(it.states[d]);}))return;var e=entry(it);e.all=!e.all;refresh();}
+function generalRetake(){var e=entry(D[cur]);if(editing.gen||e.text){var drop=function(){e.text='';editing.gen=false;refresh();};if(!e.text.trim())drop();else ask('Drop this general retake?','Drop it',drop);return;}
+editing.gen=true;refresh();var g=$('gen-t');if(g)g.focus({preventScroll:true});}
 $('p-body').addEventListener('click',function(ev){var t,it=D[cur];
+// A touch screen, a tap that opens a box to write in (✕, ↩, ✎, a shot):
+// the page held from the tap, before the panel is redrawn and the box
+// focused -- let go as any field, unless the box took the focus.
+if(coarse.matches&&ev.target.closest('.rvb .ko-b,#add-gen,[data-reply],#add-desc,.tags [data-shot]')){clearTimeout(fieldT);lockPage('field',true);setTimeout(fieldLeft,0);}
 if((t=ev.target.closest('[data-play]')))return play(videosOf(it,it.renders[+t.dataset.play]));
 if(ev.target.closest('#bigb'))return lightbox('<img alt="" src="'+$('bigimg').src+'">',esc(it.name));
 if((t=ev.target.closest('.shotsel button'))){$('bigimg').src=t.dataset.src;t.parentNode.querySelectorAll('button').forEach(function(x){x.setAttribute('aria-pressed',x===t);});return;}
 if((t=ev.target.closest('.tags [data-shot]'))){var key=t.closest('.tags').dataset.k,sh=t.dataset.shot,txt=key==='gen'?entry(it).text:(entry(it).deps[key.slice(2)]||{}).text||'',b=boxOf(it,key,txt);
-if(b.open[sh]&&(b.per[sh]||'').trim()&&!confirm('Drop what you wrote for '+sh+'?'))return;
-b.open[sh]=!b.open[sh];if(!b.open[sh])delete b.per[sh];setText(it,key,joinBox(it,b));refresh();
-if(b.open[sh]){var ta3=$('p-body').querySelector('textarea[data-k="'+CSS.escape(key)+'"][data-s="'+CSS.escape(sh)+'"]');if(ta3)ta3.focus();}return;}
+var tog=function(){b.open[sh]=!b.open[sh];if(!b.open[sh])delete b.per[sh];setText(it,key,joinBox(it,b));refresh();};
+if(b.open[sh]&&(b.per[sh]||'').trim()){ask('Drop what you wrote for '+sh+'?','Drop it',tog);return;}tog();
+if(b.open[sh]){var ta3=$('p-body').querySelector('textarea[data-k="'+CSS.escape(key)+'"][data-s="'+CSS.escape(sh)+'"]');if(ta3)ta3.focus({preventScroll:true});}return;}
 if(ev.target.closest('#tog-closed')){showClosed=!showClosed;showNotes=true;return refresh();}
 if(ev.target.closest('#tog-notes')){showNotes=!showNotes;return refresh();}
 if(ev.target.closest('#add-gen'))return generalRetake();
 if((t=ev.target.closest('[data-reply]'))){var k='r:'+t.dataset.reply;editing[k]=true;refresh();
-var ta=$('p-body').querySelector('.rp-t[data-r="'+CSS.escape(t.dataset.reply)+'"]');if(ta)ta.focus();return;}
+var ta=$('p-body').querySelector('.rp-t[data-r="'+CSS.escape(t.dataset.reply)+'"]');if(ta)ta.focus({preventScroll:true});return;}
 if((t=ev.target.closest('[data-fix]'))){var fe=entry(it);if(fe.fixed[t.dataset.fix])delete fe.fixed[t.dataset.fix];else fe.fixed[t.dataset.fix]=1;refresh();return;}
-if(ev.target.closest('#add-desc')){editing.desc=true;entry(it).desc=it.desc;refresh();return $('desc-t').focus();}
+if(ev.target.closest('#add-desc')){editing.desc=true;entry(it).desc=it.desc;refresh();return $('desc-t').focus({preventScroll:true});}
 if(ev.target.closest('#allok'))return validateAll();
 if((t=ev.target.closest('.rvb button'))&&!t.disabled){var d=t.parentNode.dataset.d,e=entry(it),v=e.deps[d];
 if(t.classList.contains('ok-b')){if(v&&v.ok)delete e.deps[d];else e.deps[d]={ok:1};refresh();}
 else{if(v&&v.no)delete e.deps[d];else e.deps[d]={no:1,text:''};refresh();
-if(e.deps[d]){var ta2=$('p-body').querySelector('textarea[data-k="'+CSS.escape('d:'+d)+'"]');if(ta2)ta2.focus();}}}});
+if(e.deps[d]){var ta2=$('p-body').querySelector('textarea[data-k="'+CSS.escape('d:'+d)+'"]');if(ta2)ta2.focus({preventScroll:true});}}}});
 $('p-body').addEventListener('input',function(ev){var t=ev.target,it=D[cur],e=entry(it);if(t.tagName!=='TEXTAREA')return;grow(t);
 if(t.dataset.k){var k=t.dataset.k;if(t.dataset.s==null)setText(it,k,t.value);else{var b=boxOf(it,k,k==='gen'?e.text:(e.deps[k.slice(2)]||{}).text||'');
 if(t.dataset.s)b.per[t.dataset.s]=t.value;else b.all=t.value;setText(it,k,joinBox(it,b));}}else if(t.dataset.r){var was=replyKind(e.replies[t.dataset.r]);e.replies[t.dataset.r]=t.value;
 // Emptied, or turned retake / remark: its department sent back, or not.
-if(was!==replyKind(t.value)){var id=t.dataset.r,at=t.selectionStart;refresh();var nt=$('p-body').querySelector('.rp-t[data-r="'+CSS.escape(id)+'"]');if(nt){nt.focus();nt.setSelectionRange(at,at);}return;}}
+if(was!==replyKind(t.value)){var id=t.dataset.r,at=t.selectionStart;refresh();var nt=$('p-body').querySelector('.rp-t[data-r="'+CSS.escape(id)+'"]');if(nt){nt.focus({preventScroll:true});nt.setSelectionRange(at,at);}return;}}
 else if(t.id==='desc-t')e.desc=t.value;
 // A department's box turning remark-only or back (✎ you / ✕ you): its
 // tag and ✕ in the panel, its cell in the list, the caret kept.
 if(t.dataset.k&&t.dataset.k.indexOf('d:')===0){var dd=t.dataset.k.slice(2),vd=verdict(it,dd),dep=$('p-body').querySelector('.rvb[data-d="'+CSS.escape(dd)+'"]');
 if(dep&&dep.querySelector('.ko-b').classList.contains('as-note')!==(vd==='note')){dep.querySelector('.ko-b').classList.toggle('as-note',vd==='note');
-var y=dep.parentNode.querySelector('.mid .you');if(y)y.outerHTML=you(it,dd);render();}}
+var y=dep.parentNode.querySelector('.mid .you');if(y)y.outerHTML=you(it,dd);renderRow(cur);}}
 $('p-flags').innerHTML=flags(it);var row=$('list').querySelector('.row[data-i="'+cur+'"]');
 if(row){var fl=row.querySelector('.flags');if(fl)fl.innerHTML=flags(it);
 // Its tint as you type: a general retake or a description counts once written.
@@ -701,7 +821,8 @@ else if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){t.blur();e.preventDefault();}re
 if(e.altKey||e.ctrlKey||e.metaKey)return;
 if(!$('lb').hidden){if(e.key==='Escape'){closeLb();e.preventDefault();}
 else if(e.key==='ArrowLeft'||e.key==='ArrowRight'){var nb=$('lb').querySelector('[data-lb="'+(e.key==='ArrowLeft'?-1:1)+'"]');if(nb&&!nb.disabled){nb.click();e.preventDefault();}}
-else if(e.key===' '&&$('vp-p')&&e.target.type!=='range'){$('vp-p').click();e.preventDefault();}return;}
+else if(e.key===' '&&$('vp-p')&&e.target.type!=='range'){$('vp-p').click();e.preventDefault();}
+else if((e.key===','||e.key==='.')&&$('vp-fr')){stepFrame(e.key===','?-1:1);e.preventDefault();}return;}
 if(!$('dlg').hidden){if(e.key==='Escape'){$('dlg').hidden=true;e.preventDefault();}return;}
 if(e.key==='Escape'&&MENUS.some(function(m){return !$(m[1]).hidden;})){closeMenus();return;}
 if(cur==null)return;var k=e.key.toLowerCase();
@@ -719,7 +840,10 @@ if(!D.some(function(it){return it.tab===state.tab&&changes(it);})){var t=D.filte
 render();$('bar').scrollIntoView({block:'start'});}
 $('rv-n').addEventListener('click',function(){if(state.f.mine){state.f.mine=false;document.querySelector('.chipf[data-f="mine"]').setAttribute('aria-pressed','false');render();}else showMine();});
 var toastT;function toast(t){var el=$('toast');el.textContent=t;el.classList.add('on');clearTimeout(toastT);toastT=setTimeout(function(){el.classList.remove('on');},4200);}
-(META.roles||[]).forEach(function(r){var o=document.createElement('option');o.value=r;o.textContent=r;$('role').appendChild(o);});pick($('role'));
+(META.roles||[]).forEach(function(r){var o=document.createElement('option');o.value=r;o.textContent=r;$('role').appendChild(o);});
+// The team: its own retakes and notes, no validation (none of the roles is called that).
+if((META.roles||[]).indexOf('team')<0){var to=document.createElement('option');to.value='team';to.textContent='team (no validation)';to.dataset.short='team';$('role').appendChild(to);}
+pick($('role'));
 function countBar(){var c=summary();$('rv-n').textContent=c.files?plural(c.files,'file')+' reviewed':'Nothing reviewed yet';$('rv-n').disabled=!c.files;
 // "Your review" among the filters while there's one; off with it.
 var mb=document.querySelector('.chipf[data-f="mine"]');mb.hidden=!c.files;if(!c.files&&state.f.mine){state.f.mine=false;mb.setAttribute('aria-pressed','false');}
@@ -745,19 +869,31 @@ $('rv-min').addEventListener('click',function(){if(document.body.classList.conta
 $('rv-fab').addEventListener('click',function(){if(document.body.classList.contains('rb-auto')&&!document.body.classList.contains('rb-folded'))document.body.classList.add('rb-peek');else fold(false);});
 function setReview(on){document.body.classList.toggle('reviewing',on);
 var folded=false;try{folded=localStorage.getItem(FOLD)==='1';}catch(e){}
-document.body.classList.toggle('rb-folded',on&&folded&&!!$('author').value.trim());showNotes=null;editing={};if(on&&!$('author').value&&!matchMedia('(pointer:coarse)').matches)$('author').focus();if(cur!=null)openPanel(cur);fitBar();}
+document.body.classList.toggle('rb-folded',on&&folded&&!!$('author').value.trim());showNotes=null;editing={};if(on&&!$('author').value&&!matchMedia('(pointer:coarse)').matches)$('author').focus({preventScroll:true});if(cur!=null)openPanel(cur);fitBar();}
 $('rv').addEventListener('click',function(){setReview(true);});
 $('rv-exit').addEventListener('click',function(){closeMenus();setReview(false);toast('Review left: it stays in this browser, ✎ Review takes it back.');});
-$('rv-clear').addEventListener('click',function(){closeMenus();if(!summary().files||confirm('Clear this review? What you wrote here is lost (a downloaded file is kept).')){
-rv.files={};save();render();if(cur!=null)openPanel(cur);}});
+// Asked in the page, not with confirm(): an app's viewer (Documents, on an
+// iPad) may show no confirm() at all -- it answers no, and nothing was
+// cleared. then() once the button is pressed.
+function ask(text,ok,then){var dl=$('dlg');dl.innerHTML='<div class="dlg-in" role="alertdialog" aria-modal="true" aria-labelledby="ask-t"><p id="ask-t" class="ask">'+esc(text)+'</p>'+
+'<div class="acts"><button class="btn" id="ask-no">Cancel</button><button class="btn primary" id="ask-ok">'+esc(ok)+'</button></div></div>';
+dl.hidden=false;$('ask-ok').focus({preventScroll:true});dl.onclick=function(e){if(e.target===dl)dl.hidden=true;};
+$('ask-no').onclick=function(){dl.hidden=true;};$('ask-ok').onclick=function(){dl.hidden=true;then();};}
+// Cleared: what was written for each file, here and in this browser's
+// copy -- the name and the role stay.
+function clearReview(){rv.files={};BOX={};editing={};save();render();if(cur!=null)openPanel(cur);toast('Review cleared.');}
+$('rv-clear').addEventListener('click',function(){closeMenus();if(!summary().files)clearReview();
+else ask('Clear this review? What you wrote here is lost (a downloaded file is kept).','Clear it',clearReview);});
 $('author').addEventListener('input',function(){this.classList.remove('need');rv.author=this.value;save();});
-$('role').addEventListener('change',function(){this.classList.remove('need');rv.role=this.value;save();sync('role');});
+$('role').addEventListener('change',function(){this.classList.remove('need');rv.role=this.value;save();sync('role');
+// As the team or not: the ✓ and what's yours change.
+render();if(cur!=null)refresh();});
 function exportRows(){var out=[];D.forEach(function(it){if(!changes(it))return;var e=rv.files[it.file],
 row={filename:it.file,stable_version:it.stable,description_exported:it.desc};if(it.render_ref)row.render_watched=it.render_ref;
-Object.keys(e.deps).forEach(function(d){var v=e.deps[d];row[d]=v.ok?'ok':(v.text.trim()||'no');});
+Object.keys(e.deps).forEach(function(d){var v=e.deps[d];if(sent(v))row[d]=v.ok?'ok':(v.text.trim()||'no');});
 // A reply to a department's open RTK: still to redo, its validation withdrawn.
-Object.keys(answered(it).deps).forEach(function(d){if(!(d in row))row[d]='no';});
-if(e.all)Object.keys(it.states).forEach(function(d){if(isDone(it.states[d])&&!(d in row))row[d]='ok';});
+if(!asTeam())Object.keys(answered(it).deps).forEach(function(d){if(!(d in row))row[d]='no';});
+if(e.all&&!asTeam())Object.keys(it.states).forEach(function(d){if(isDone(it.states[d])&&!(d in row))row[d]='ok';});
 if(e.text.trim())row.global=e.text.trim();
 if(e.desc!==null&&e.desc.trim()&&e.desc.trim()!==it.desc)row.description=e.desc.trim();
 // The RTKs marked fixed, by id: closed, as you, at import.
@@ -770,6 +906,10 @@ function slug(t){return String(t||'').normalize('NFD').replace(/[̀-ͯ]/g,'').to
 function reviewName(){var d=new Date(),stamp=d.getFullYear()+'-'+two(d.getMonth()+1)+'-'+two(d.getDate())+'_'+two(d.getHours())+'-'+two(d.getMinutes());
 return [META.review_base+'_review_'+stamp,slug(rv.role),slug(rv.author)].filter(Boolean).join('_')+'.json';}
 function today(){var d=new Date();return d.getFullYear()+'-'+two(d.getMonth()+1)+'-'+two(d.getDate());}
+// Files to the share sheet: a touch screen whose browser can (Safari and
+// Documents' viewer on an iPad, a phone's).
+var SHARE=!!(navigator.share&&navigator.canShare&&matchMedia('(pointer:coarse)').matches&&
+(function(){try{return navigator.canShare({files:[new File(['{}'],'t.json',{type:'application/json'})]})||navigator.canShare({files:[new File(['{}'],'t.json',{type:'text/plain'})]});}catch(e){return false;}})());
 // Download: what it holds first, with who, as what and when -- then the file.
 $('rv-dl').addEventListener('click',function(){var rows=exportRows();
 if(!rows.length){toast('Nothing to send yet: validate or write a retake first.');return;}
@@ -779,23 +919,42 @@ var dl=$('dlg');dl.innerHTML='<div class="dlg-in" role="dialog" aria-modal="true
 (c.out?'<dt>Validations withdrawn</dt><dd>'+c.out+'</dd>':'')+(c.desc?'<dt>Descriptions</dt><dd>'+c.desc+'</dd>':'')+'</dl>'+
 '<label>Your name<input id="d-author" value="'+esc(rv.author)+'" autocomplete="name"></label><div class="row2">'+
 '<label>Role<select id="d-role">'+$('role').innerHTML+'</select></label><label>Review date<input id="d-date" type="date" value="'+esc(rv.date||today())+'"></label></div>'+
-'<p class="why" id="d-why" hidden></p><div class="acts"><button class="btn link" id="d-see" title="Only the files this review touched, in the list">See them</button><button class="btn" id="d-cancel">Cancel</button><button class="btn primary" id="d-go">Download</button></div></div>';
-$('d-role').value=rv.role;pick($('d-role'));dl.hidden=false;$(rv.author?'d-go':'d-author').focus();
+'<p class="why" id="d-why" hidden></p><div class="acts"><button class="btn link" id="d-see" title="Only the files this review touched, in the list">See them</button><button class="btn" id="d-cancel">Cancel</button>'+(SHARE?'<button class="btn" id="d-share" title="The system\'s share sheet: Save to Files where you choose, AirDrop, Mail...">Save or send…</button>':'')+'<button class="btn primary" id="d-go">Download</button></div></div>';
+$('d-role').value=rv.role;pick($('d-role'));dl.hidden=false;
+// A touch screen: no keyboard brought up unasked (the page scrolled to it).
+$(rv.author||touchPin.matches?'d-go':'d-author').focus({preventScroll:true});
 $('d-cancel').onclick=function(){dl.hidden=true;};$('d-see').onclick=function(){dl.hidden=true;showMine();};dl.onclick=function(e){if(e.target===dl)dl.hidden=true;};
-$('d-go').onclick=function(){rv.author=$('d-author').value.trim();rv.role=$('d-role').value;rv.date=$('d-date').value;
+// Save or send (a tablet, a phone): the system's share sheet -- Save to
+// Files picks the folder, where a download lands wherever the browser or
+// the app viewing the page keeps its own.
+if($('d-share'))$('d-share').onclick=function(){$('d-go').dataset.share='1';$('d-go').click();};
+$('d-go').onclick=function(){var share=this.dataset.share;delete this.dataset.share;rv.author=$('d-author').value.trim();var was=rv.role;rv.role=$('d-role').value;rv.date=$('d-date').value;
 $('author').value=rv.author;$('role').value=rv.role;sync('role');save();
+// The role changed here: what's sent with it (the team sends no validation).
+if(rv.role!==was){render();if(cur!=null)refresh();rows=exportRows();
+if(!rows.length){$('d-why').hidden=false;$('d-why').textContent='As the team, nothing to send: the team doesn\'t validate -- write a retake or a note.';return;}}
 if(needsRole&&!rv.role){$('d-why').hidden=false;$('d-why').textContent='Pick your role: your validations and retakes are recorded under it.';$('d-role').classList.add('need');sync('d-role');return;}
 var data={format:META.format,schema_version:META.schema_version,project:META.project,snapshot:META.snapshot,author:rv.author,role:rv.role,
 review_date:rv.date,written_at:new Date().toISOString().slice(0,19),rows:rows};
-var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));a.download=reviewName();
+var text=JSON.stringify(data,null,2),name=reviewName();
+function download(){var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:'application/json'}));a.download=name;
 document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},1000);dl.hidden=true;
-toast('Downloaded: send it, Import review reads it.');};});
+toast('Downloaded ('+name+'): send it, Import review reads it.');}
+var file=share&&shareFile(text,name);
+if(!file)return download();
+navigator.share({files:[file],title:name}).then(function(){dl.hidden=true;toast('Review saved or sent: Import review reads it.');},
+function(err){if(err&&err.name==='AbortError')return;download();});};});
+// The review as a file the share sheet takes: JSON, else as plain text
+// (same .json name) where a browser shares only some types. null: none.
+function shareFile(text,name){if(!SHARE)return null;
+for(var i=0,types=['application/json','text/plain'];i<types.length;i++){var f=new File([text],name,{type:types[i]});
+try{if(navigator.canShare({files:[f]}))return f;}catch(e){}}return null;}
 document.querySelectorAll('.rv-load').forEach(function(inp){inp.addEventListener('change',function(){var file=this.files[0];this.value='';closeMenus();if(!file)return;
 var rd=new FileReader();rd.onload=function(){var data;try{data=JSON.parse(rd.result);}catch(e){toast('Not a review file.');return;}
 if(data.format!==META.format){toast('Not a review downloaded from a snapshot page.');return;}
-if(data.project!==META.project&&!confirm('This review is for '+data.project+', not '+META.project+'. Load it anyway?'))return;
-if(summary().files&&!confirm('Replace the review in progress with this one?'))return;
-rv={author:data.author||'',role:data.role||'',date:data.review_date||'',files:{}};var unknown=0;
+var go=function(){if(summary().files)ask('Replace the review in progress with this one?','Replace it',load);else load();};
+if(data.project!==META.project)ask('This review is for '+data.project+', not '+META.project+'. Load it anyway?','Load it',go);else go();
+function load(){rv={author:data.author||'',role:data.role||'',date:data.review_date||'',files:{}};var unknown=0;
 (data.rows||[]).forEach(function(row){var it=byFile[row.filename];if(!it){unknown++;return;}var e=entry(it);
 Object.keys(row).forEach(function(k){if(FIXED.indexOf(k)>=0)return;
 // Before schema 7, "render" was the render watched too: a render's name is that.
@@ -806,7 +965,7 @@ if(OKS.indexOf(gl)>=0)e.all=true;else if(NOS.indexOf(gl)>=0)Object.keys(it.state
 else e.text=gv;if(row.description)e.desc=row.description;
 String(row.fixed||'').split(/\s+/).filter(Boolean).forEach(function(id){e.fixed[id]=1;});});
 $('author').value=rv.author;$('role').value=rv.role;sync('role');save();setReview(true);render();
-toast('Review of '+(rv.author||'?')+' loaded: '+plural(summary().files,'file')+(unknown?', '+unknown+' not on this page (renamed, or another snapshot)':'')+'.');};
+toast('Review of '+(rv.author||'?')+' loaded: '+plural(summary().files,'file')+(unknown?', '+unknown+' not on this page (renamed, or another snapshot)':'')+'.');}};
 rd.readAsText(file);});});
 
 /* ---------- start ---------- */
@@ -817,3 +976,24 @@ summaryCards();drawTabs();render();stats();barHeight();
 // A link to a file (#its name) opens it.
 var want=decodeURIComponent(location.hash.slice(1));if(want&&byName[want])jump(byName[want]);
 })();
+// The status bar's room (page.css --sat): the largest the screen has had,
+// in this orientation, kept by this browser -- its bar shown or hidden
+// (Documents' viewer, at each tap), the page stays where it is.
+(function(){var K='mp-snapshot:safe-top:',pr=document.createElement('div'),max={};
+pr.style.cssText='position:fixed;top:0;left:0;width:1px;height:env(safe-area-inset-top,0px);visibility:hidden;pointer-events:none';
+document.body.appendChild(pr);
+function set(){var o=innerWidth>innerHeight?'l':'p',h=pr.offsetHeight;
+if(max[o]==null)try{max[o]=+localStorage.getItem(K+o)||0;}catch(e){max[o]=0;}
+if(h>max[o]){max[o]=h;try{localStorage.setItem(K+o,String(h));}catch(e){}}
+document.documentElement.style.setProperty('--sat',max[o]?'max(env(safe-area-inset-top,0px),'+max[o]+'px)':'env(safe-area-inset-top,0px)');}
+set();if(window.ResizeObserver)new ResizeObserver(set).observe(pr);addEventListener('resize',set);})();
+// The ⋯ menu's theme: the system's, or light / dark whatever it is --
+// html[data-theme], kept by this browser (read again in page.html's head,
+// before the page shows: no flash of the other one).
+(function(){var KEY='mp-snapshot:theme';
+function sync(){var t=document.documentElement.dataset.theme||'';
+document.querySelectorAll('[data-theme-set]').forEach(function(b){b.setAttribute('aria-pressed',String(b.dataset.themeSet===t));});}
+document.addEventListener('click',function(e){var b=e.target.closest&&e.target.closest('[data-theme-set]');if(!b)return;e.stopPropagation();
+var t=b.dataset.themeSet;if(t)document.documentElement.dataset.theme=t;else delete document.documentElement.dataset.theme;
+try{if(t)localStorage.setItem(KEY,t);else localStorage.removeItem(KEY);}catch(err){}sync();},true);
+sync();})();

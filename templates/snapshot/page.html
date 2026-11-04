@@ -2,6 +2,7 @@
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>{{TITLE}}</title>
+<script>try{var t=localStorage.getItem("mp-snapshot:theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t;}catch(e){}</script>
 <style>@font-face{font-family:"MP Display";src:url(data:font/ttf;base64,{{FONT}}) format("truetype");font-display:swap}
 {{CSS}}</style>
 </head>
@@ -26,7 +27,7 @@
 <li><span class="you y">✓ you</span><span class="you n">✕ you</span>Your review, not sent yet: validated, a retake</li><li><span class="you nt">✎ you</span>A remark (<code>note:</code>), nothing sent back</li><li><span class="you n">↩ you</span>Your reply in a note's thread: red a retake, grey a remark</li><li><span class="rv-mine-k"></span>A file your review touched</li></ul>
 <h3>Filters</h3><ul class="fl-help"><li><span class="chipf c-mine"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M10.5 2.5l3 3L6 13H3v-3z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></span>Your review</li><li><span class="chipf c-rtk"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.8L14.2 8 8 14.2 1.8 8z" fill="currentColor"/></svg></span>Retakes</li><li><span class="chipf c-notes"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 3.5h11v7h-6l-3 2.5v-2.5h-2z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></span>Open notes</li><li><span class="chipf c-out"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2l6.5 11.5h-13z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8 6.5v3.2M8 11.6v.1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>Render outdated</li><li><span class="chipf c-valid"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M5.3 8.2l1.9 1.9 3.6-3.8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></span>To validate</li><li><span class="chipf c-todo"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 2a6 6 0 0 1 0 12z" fill="currentColor"/></svg></span>Not finished</li></ul>
 <h3 class="kh">Keys</h3><ul class="kh">
-<li><kbd>←</kbd><kbd>→</kbd>Previous / next file</li><li><kbd>Esc</kbd>Close the file, or leave a field</li>
+<li><kbd>←</kbd><kbd>→</kbd>Previous / next file</li><li><kbd>Esc</kbd>Close the file, or leave a field</li><li><kbd>,</kbd><kbd>.</kbd>A video: one frame back / on</li>
 <li><kbd>V</kbd>While reviewing: validate every done department</li><li><kbd>X</kbd>While reviewing: write a general retake</li>
 <li><kbd>Ctrl</kbd>+<kbd>Enter</kbd>Done writing</li></ul>
 <h3>Done</h3><p id="weights"></p></div></div>
@@ -35,6 +36,7 @@
 <label>Load a review…<small>A .json downloaded from this page, to go on with it</small><input type="file" class="rv-load" accept=".json,application/json"></label>
 <label>Choose the videos folder…<small>Where this snapshot's videos are, to play them</small><input type="file" class="vid-pick" webkitdirectory multiple accept="video/mp4,.mp4"></label>
 <a download="{{XLSX_NAME}}" href="data:application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;base64,{{XLSX}}">Review spreadsheet (.xlsx)<small>Offline, or for several reviewers on a shared drive</small></a>
+<div class="theme-sw" role="group" aria-label="Theme"><span>Theme</span><button type="button" data-theme-set="">System</button><button type="button" data-theme-set="light">Light</button><button type="button" data-theme-set="dark">Dark</button></div>
 </div></div>
 </div>
 </div>
@@ -72,7 +74,7 @@
 <div class="dlg" id="dlg" hidden></div>
 <div class="scrim" id="scrim"></div>
 <aside class="panel" id="panel" role="dialog" aria-modal="true" aria-labelledby="p-title" hidden>
-<div class="p-resize" id="p-resize" role="separator" aria-orientation="vertical" aria-label="Panel width: drag, or ← → once focused; double click for the default" tabindex="0"></div>
+<div class="p-resize" id="p-resize" role="separator" aria-orientation="vertical" aria-label="Panel width: drag, or ← → once focused -- past its widest, the whole page; double click for the default" tabindex="0"></div>
 <div class="p-head"><div class="t"><b id="p-title"></b><small id="p-sub"></small></div>
 <button class="btn icon mnav" id="m-prev" aria-label="Previous file">‹</button><button class="btn icon mnav" id="m-next" aria-label="Next file">›</button>
 <button class="btn icon" id="p-play" hidden>▶</button>

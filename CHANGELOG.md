@@ -2,7 +2,34 @@
 
 All notable changes to this addon. Dates are release dates.
 
-## 1.1.8 — unreleased
+## 1.1.9 — unreleased
+
+A review's department called *render* no longer lost, and Import review
+says what a review brings and what's already there.
+
+### Fixed
+
+- Review: a department called *render* (an asset's, say) was lost. It
+  shared its name with the render watched, written under "render" in the
+  page's `.json` and the spreadsheet: its retakes and validations
+  overwrote it, or were skipped by *All done*, and the import read them
+  as the render. The render watched is now `render_watched` (schema 7).
+  A review from before is read back: a render's name is the render
+  watched, anything else that department's cell (an *All done* lost
+  there can't be told apart: validate it again).
+
+### Changed
+
+- Import review says what was already there and left as is -- notes
+  and replies, retakes done, validations given -- in its confirm dialog
+  (counted as the import will, its changes only the new ones) and in its
+  summary: a review imported again reads as such.
+- An open note on a department shows its grey ◆ under it, as an open
+  todo does (its tooltip counts both).
+- Progress details: each bar shows its validated share again, the
+  violet over the done green, its % beside the done one.
+
+## 1.1.8 — 02/11/2026
 
 The production snapshot, redrawn: a list to scan, a panel to read and
 review one file -- lighter to read on a computer and on a phone.
@@ -53,14 +80,6 @@ review one file -- lighter to read on a computer and on a phone.
 - `note:` takes `note :`, `n:` and any case too, after a line's tags
   (`[sh020] n: ...`) -- the page and Import review read it alike (the
   page took `[sh020] note:` for a remark, the import for a retake).
-- Import review says what was already there and left as is -- notes
-  and replies, retakes done, validations given -- in its confirm dialog
-  (counted as the import will, its changes only the new ones) and in its
-  summary: a review imported again reads as such.
-- Progress details: each bar shows its validated share again, the
-  violet over the done green, its % beside the done one.
-- An open note on a department shows its grey ◆ under it, as an open
-  todo does (its tooltip counts both).
 - A department's box holding only `note:` lines is a remark: grey
   ✎ you on the page, and Import review leaves the department's
   validation as it is (it withdrew it, as for a retake).
@@ -110,15 +129,12 @@ review one file -- lighter to read on a computer and on a phone.
   them `hvc1` (ffmpeg's `hev1` was refused there). Recompile an older
   one to play it. The page says when a video is there but its format
   can't be played, instead of "not found".
-- Touch screens: closing the keyboard no longer leaves the page scrolled
-  to the bottom (iOS scrolled it under a field of the panel or the review
-  bar); on a phone the list holds still under the open panel.
 - Tablets: upright (up to 900 px wide), a file's panel takes the whole
   screen, Previous / Next at the bottom -- beside the list it left a
   strip of names cut short. Under a finger, fields are 16 px (iOS zoomed
   the page into smaller ones), keyboard keys are no longer recalled, and
-  while writing in the panel the picture, the review bar and Previous /
-  Next step aside for the on-screen keyboard.
+  while writing in the panel the review bar and Previous / Next step
+  aside for the on-screen keyboard.
 - **A light copy for browsers**, in the render's folder, `ld/`: when its
   video is wider than 8192 px (a panoramic render: browsers on a PC or
   an iPad refuse it) or in a codec they don't play (ProRes, DNxHR...),
@@ -136,14 +152,6 @@ review one file -- lighter to read on a computer and on a phone.
   the projects already known: Accept activates the project. A dialog
   came first, its path field opening the same browser, then needed
   confirming again.
-- Review: a department called *render* (an asset's, say) was lost. It
-  shared its name with the render watched, written under "render" in the
-  page's `.json` and the spreadsheet: its retakes and validations
-  overwrote it, or were skipped by *All done*, and the import read them
-  as the render. The render watched is now `render_watched` (schema 7).
-  A review from before is read back: a render's name is the render
-  watched, anything else that department's cell (an *All done* lost
-  there can't be told apart: validate it again).
 - Farm: cancelling a job whose cancel was already on its way (sent by the
   farm, or a second click) no longer raises "locked by another process".
 - A render's compiled video carries its version, like its folder:
@@ -171,6 +179,71 @@ review one file -- lighter to read on a computer and on a phone.
   bold, in progress amber, not started light grey; reworked underlined
   in amber) instead of its mark, the rows apart by a band of the page's
   background, the versions left to the file's panel.
+- **The snapshot's player shows the frame**: `f1042`, numbered as in the
+  .blend -- the render's first frame (its farm history, else its images'
+  names) plus the frame's rank in the video, at the project's fps. A
+  block rendered whole counts on its own timeline, as Blender and the
+  `[f12-40]` retakes do. ◂ ▸ (or , and .) step one frame back / on,
+  paused. A render whose first frame isn't known counts from the
+  video's start (`#1`).
+- **A review as the team**: *team* in the Role of the snapshot page or
+  the review template (unless a validation role has that name). Its
+  retakes and notes are imported as the team's own -- orange, no role,
+  no "prod review" tag -- and it validates nothing: the page's ✓ and
+  *All done* are off, a ✓ or `ok` written before is left out (Import
+  review says so).
+
+### Tablets
+
+- **The panel over the whole page, on demand**: dragging the panel's left
+  edge past its widest makes it fill the page (an iPad upright: the list
+  beside it was too narrow), kept by the browser; dragged back from its
+  left edge, it's beside the list again (a double click: the default
+  width). A wider edge to grab with a finger.
+- **Theme: System / Light / Dark** in the ⋯ menu, kept by the browser --
+  applied before the page shows, no flash of the other one.
+- **Nothing hides under an iPad's status bar** any more (battery,
+  network, time, where the page runs under it -- full screen, or an app's
+  viewer): the top bar, the panel's header, the video player, the
+  dialogs and messages start below it.
+- **The review: *Save or send…*** beside *Download* on a tablet or a
+  phone -- the system's share sheet, *Save to Files* picking the folder
+  (a download lands wherever the browser, or the app showing the page,
+  keeps its own: hard to find in an app's viewer). A cancelled share
+  leaves the dialog open; a failed one downloads instead.
+- **The page holds still under a finger** (iPad, in Safari or an app's
+  viewer such as Documents): under an open list or menu, the dialogs,
+  the video player, the panel taking the whole screen, and while
+  writing -- back where it was once closed, nothing scrolled by the
+  browser or put back after it. A ✓ or ✕ in the panel redraws only that
+  file's row; Next / Previous follow the file at once, only when its row
+  is out of sight. A list closes on a tap elsewhere, not on a scroll.
+- **What you write stays above the keyboard**: the panel, the dialogs
+  and the review bar (your name) fit the room the keyboard leaves, the
+  box being written in scrolled into it.
+- **The video player is sized once**, from the video's shape and the
+  room there is (again only when the screen turns): no zooming in and
+  out by a hair as it plays.
+- **Nothing moves at each tap in an app's viewer** (Documents shows and
+  hides the status bar): its room at the top is kept.
+- **The page's questions** (clear the review, drop a retake, load a
+  review over one) are asked in the page: an app's viewer may show no
+  browser dialog, and answered no.
+- The swipe down that closes the panel starts on its header (not while
+  scrolling its text).
+
+### Fixed
+
+- **A block's shot rendered on its own after the block whole showed the
+  older render** (snapshot, its videos, File details): which was last
+  was told by the render folders' numbers, counted apart for the block
+  (`sh040-050/v003-stable_002`) and the shot (`sh040/v003-stable_001`).
+  It's told by when each render finished now -- the newer one's video is
+  the one the snapshot plays and copies.
+- **A shot's camera bound to two markers split the block into two jobs
+  of that shot** (a camera deleted, its marker moved onto the shot
+  before): the shot goes on from its first marker -- one job, or the
+  block rendered whole when it's the only shot left.
 
 ### Removed
 

@@ -179,7 +179,8 @@ def derive_shot_subranges(
     config: dict | None = None,
 ) -> tuple[list[dict], list[int]]:
     """Live shot sub-ranges from scene.timeline_markers: each ends where the
-    next promised one's marker begins, the last at scene.frame_end. Returns
+    next promised one's marker begins, the last at scene.frame_end -- a
+    shot's marker after its first going on with the range it's in. Returns
     (ranges, absorbed) -- absorbed is shot numbers found on the timeline but
     not in `promised`, merged into the preceding range instead."""
     config = config if config is not None else ConfigCache.get()
@@ -192,7 +193,14 @@ def derive_shot_subranges(
             found.append((marker.frame, shot_number))
     found.sort(key=lambda x: x[0])
 
-    kept = [(frame, n) for frame, n in found if n in promised]
+    # A shot's camera bound again further on (its next shot's camera gone,
+    # its marker now on this one): the same shot going on, not a second
+    # range of it -- the split asked for two jobs of one shot.
+    kept, seen = [], set()
+    for frame, n in found:
+        if n in promised and n not in seen:
+            kept.append((frame, n))
+            seen.add(n)
     absorbed = sorted({n for _frame, n in found if n not in promised})
 
     ranges = []

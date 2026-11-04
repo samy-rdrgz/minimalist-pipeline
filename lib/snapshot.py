@@ -50,6 +50,10 @@ PROGRESS_WEIGHTS = {"wip": 33, "rework": 67, "rtk": 67}
 
 # Entry "source" stamped on every note imported from a review template.
 REVIEW_SOURCE = "prod_review"
+# A review written as the team (its role "team", no validation role):
+# team RTKs, never tagged "prod review".
+TEAM_REVIEW_SOURCE = "team_review"
+TEAM_ROLE = "team"
 
 XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
@@ -92,8 +96,10 @@ def _owner_shots(owner: Path) -> list[str]:
 def read_render_state(root: Path, kind: str, owner: Path, v_prefix: str = "v") -> list:
     """What was last rendered for an asset/shot folder, per shot (a block
     has several, anything else one): [{"shot", "file", "folder", "path",
-    "frame_machines", "machine_seconds"}] (the last two None without them),
-    path the render folder's absolute path. From the
+    "frames", "frame_machines", "machine_seconds"}] (the last two None
+    without them), path the render folder's absolute path, frames its
+    [first, last] frame (the history's frame_range_rendered, else its
+    images' numbers; None unknown) -- its video's first frame is the first. From the
     folder's render_history.json -- its last finished render of that shot,
     file = the .blend it rendered -- else (no such entry, or an entry from
     before source_file came after it) from the latest render folder's own
@@ -116,10 +122,13 @@ def read_render_state(root: Path, kind: str, owner: Path, v_prefix: str = "v") -
             output = last.get("output_path")
             folder = (Path(root) / output).parent if output else None
             return {
+                "_when": _finished_at(last.get("completed_at")) or _mtime(folder),
                 "shot": shot,
                 "file": Path(last["source_file"]).name,
                 "folder": folder.name if folder else None,
                 "path": str(folder) if folder else None,
+                "frames": _frame_pair(last.get("frame_range_rendered"))
+                or (_folder_frames(folder) if folder else None),
                 # Which machine wrote each frame, and their pace
                 # (farm queue._note_frames()): File details' lookup.
                 "frame_machines": last.get("frame_machines"),
@@ -127,10 +136,12 @@ def read_render_state(root: Path, kind: str, owner: Path, v_prefix: str = "v") -
             }
         latest = latest_render_dir(folder_dir, v_prefix)
         return {
+            "_when": _mtime(latest),
             "shot": shot,
             "file": None,
             "folder": latest.name if latest else None,
             "path": str(latest) if latest else None,
+            "frames": _folder_frames(latest) if latest else None,
         }
 
     out = []
@@ -146,7 +157,10 @@ def read_render_state(root: Path, kind: str, owner: Path, v_prefix: str = "v") -
     if block:
         # The block rendered whole (no split per shot: renders/<seq>/
         # sh030-040/...): each shot's last render is the newer of its own
-        # and that one ("whole": the to-check label is the folder alone).
+        # and that one ("whole": the to-check label is the folder alone) --
+        # newer by when it finished: the two folders number their renders
+        # apart (sh040-050/v003-stable_002 can be older than
+        # sh040/v003-stable_001).
         mine = [
             i
             for i, e in enumerate(finished)
@@ -155,12 +169,69 @@ def read_render_state(root: Path, kind: str, owner: Path, v_prefix: str = "v") -
         whole = last_render("", mine, base)
         if whole["path"]:
             out = [
-                dict(whole, shot=r["shot"], whole=True)
-                if _render_order(whole["folder"]) > _render_order(r["folder"])
-                else r
+                dict(whole, shot=r["shot"], whole=True) if _newer(whole, r) else r
                 for r in out
             ]
+    for r in out:
+        r.pop("_when", None)
     return out
+
+
+def _finished_at(value) -> float | None:
+    """A history entry's completed_at as a timestamp; None if unreadable."""
+    try:
+        return datetime.fromisoformat(str(value)).timestamp()
+    except ValueError:
+        return None
+
+
+def _mtime(folder) -> float | None:
+    """A render folder's last change (its frames, its video written): when
+    a render with no history entry finished, near enough."""
+    try:
+        return os.stat(folder).st_mtime if folder else None
+    except OSError:
+        return None
+
+
+def _newer(a: dict, b: dict) -> bool:
+    """Render a finished after render b (read_render_state()): by when --
+    the history's completed_at, else its folder's time --, by folder name
+    (version, increment) only when that's unknown or the same."""
+    if not b.get("path"):
+        return bool(a.get("path"))
+    wa, wb = a.get("_when"), b.get("_when")
+    if wa is not None and wb is not None and wa != wb:
+        return wa > wb
+    return _render_order(a["folder"]) > _render_order(b["folder"])
+
+
+def _frame_pair(value) -> list | None:
+    """[first, last] from a job's frame range ([1001, 1100], strings too);
+    None for none or (0, 0)."""
+    try:
+        first, last = (int(x) for x in value)
+    except (TypeError, ValueError):
+        return None
+    return [first, last] if (first, last) != (0, 0) else None
+
+
+_FRAME_FILE = re.compile(r"(\d+)\.(?:exr|png|jpe?g|tiff?|dpx|webp|bmp|tga)$", re.IGNORECASE)
+
+
+def _folder_frames(folder: Path) -> list | None:
+    """A render folder's [first, last] frame, from its images' numbers
+    (name_1001.exr...): a render from before the history noted its range.
+    None: no image, or the folder unreadable."""
+    numbers = []
+    try:
+        with os.scandir(folder) as it:
+            for f in it:
+                if m := _FRAME_FILE.search(f.name):
+                    numbers.append(int(m[1]))
+    except OSError:
+        return None
+    return [min(numbers), max(numbers)] if numbers else None
 
 
 _RENDER_FOLDER = re.compile(r"(\d+)(?:-[a-z]+)?_(\d+)$")
@@ -441,6 +512,7 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
                     "whole": bool(r.get("whole")),
                     "file_number": int(m[1]) if m else None,
                     "video": r.get("video"),
+                    "frames": r.get("frames"),
                 }
             )
         item["renders"] = renders
@@ -528,6 +600,9 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
     meta["thumbnail_size"] = thumbnail_size(config)
     meta["progress"] = {k: average_progress(v) for k, v in items.items()}
     meta["progress_weights"] = weights
+    # The videos' frame rate (the farm compiles at the scene's; the
+    # project's is the one known here): a video's frame from its time.
+    meta["fps"] = json_get(config, "default_fps", 30)
     meta["validation_roles"] = roles
     meta["validation_role"] = top_role
     meta["validation"] = {
