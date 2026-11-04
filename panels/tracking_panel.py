@@ -156,14 +156,77 @@ def draw_entries(box, filepath, filters=None, width: int | None = None):
                 icon="BLANK1",
             )
         reviews_col.scale_y = 0.8
-        for review_box in review_boxes:
+        for review_box in _approval_runs(review_boxes):
             reviews_col.separator(factor=1.5)
+            if "approvals" in review_box:
+                _draw_approvals(reviews_col.box().column(align=True), review_box["approvals"])
+                continue
             container = reviews_col.box().column(align=True)
 
             for thread in review_box["threads"]:
                 thread_col = container.column(align=True)
                 _draw_thread(thread, thread_col, filepath, width)
         box.separator()
+
+
+def _approval_note(review_box: dict) -> dict | None:
+    """The note a validation wrote, when it's all this box holds (no reply)."""
+    threads = review_box["threads"]
+    if len(threads) != 1 or threads[0]["replies"]:
+        return None
+    e = threads[0]["root"]
+    return e if e.get("source") == APPROVAL_SOURCE else None
+
+
+def _approval_runs(review_boxes: list) -> list:
+    """review_boxes with the notes validations wrote, one after another, in
+    one box: {"approvals": [entry, ...]} -- read as a line per role,
+    stable and way (validated / withdrawn), not a box per department."""
+    out = []
+    for review_box in review_boxes:
+        e = _approval_note(review_box)
+        if e is None:
+            out.append(review_box)
+        elif out and "approvals" in out[-1]:
+            out[-1]["approvals"].append(e)
+        else:
+            out.append({"approvals": [e]})
+    return out
+
+
+def _draw_approvals(col, entries: list) -> None:
+    """Validation notes, compact: "★ prod  fixanim, render-ld  v003-stable",
+    a line per role, stable and way, newest first -- each note in its tooltip."""
+    lines: dict[tuple, list] = {}
+    for e in entries:
+        withdrawn = e.get("text", "").startswith("Validation withdrawn")
+        stable = Path(e.get("referenced_version") or "").stem
+        key = (e.get("role") or "?", stable, withdrawn)
+        lines.setdefault(key, []).append(e)
+    for (role, stable, withdrawn), group in lines.items():
+        departments = []
+        for e in group:
+            for d in entry_departments(e):
+                if d not in departments:
+                    departments.append(d)
+        row = col.row(align=True)
+        op = row.operator(
+            "m_pipeline.department_status_info",
+            text="",
+            icon="SOLO_OFF" if withdrawn else "SOLO_ON",
+            emboss=False,
+        )
+        op.custom_tooltip = "\n".join(
+            f"{e.get('text', '')} -- {e.get('author', '?')}, "
+            f"{(e.get('created_at') or '')[:16].replace('T', ' ')}"
+            for e in group
+        )
+        what = " withdrawn" if withdrawn else ""
+        row.label(text=f"{role}{what}: {', '.join(departments)}")
+        version = row.row(align=True)
+        version.alignment = "RIGHT"
+        version.active = False
+        version.label(text=stable.rsplit("_", 1)[-1] if stable else "")
 
 
 def _draw_thread(thread, note, filepath, width: int | None = None):
@@ -310,10 +373,12 @@ def _draw_approval(
     the button giving or withdrawing theirs."""
     best = highest_approval(data, department)
     mine = role and role in (data.get("approvals") or {}).get(department, {})
+    # The star alone as the button, the role a label after it: a button's
+    # text is centred in its width, a label's starts at its left.
     if role:
         op = row.operator(
             "m_pipeline.toggle_department_approval",
-            text=best or "",
+            text="",
             icon="SOLO_ON" if mine else "SOLO_OFF",
             emboss=False,
         )
@@ -321,12 +386,15 @@ def _draw_approval(
         op.filepath = filepath
         action = "Withdraw" if mine else "Give"
         op.custom_tooltip = f"{action} your {role} validation.\n\n{tooltip}"
+        if best:
+            row.label(text=best)
     elif best:
         info = row.row(align=True)
         info.enabled = False
         info.operator(
-            "m_pipeline.department_status_info", text=best, icon="SOLO_ON", emboss=False
+            "m_pipeline.department_status_info", text="", icon="SOLO_ON", emboss=False
         ).custom_tooltip = tooltip
+        info.label(text=best)
 
 
 def _to_validate(file: dict, role: str) -> bool:

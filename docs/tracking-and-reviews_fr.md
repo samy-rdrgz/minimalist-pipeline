@@ -58,7 +58,9 @@ la prod -- sur la version qu'il a vue.
   « validated on v012, not worked since ») ; retravaillé, le nouveau
   stable repart sans -- le rôle ne l'a pas vu -- et affiche la dernière
   donnée (« prod : v012, à revoir »). La donner ou la retirer écrit une note sous votre rôle, pour
-  la trace.
+  la trace -- dans *Notes & tasks*, celles qui se suivent forment une
+  seule boîte, une ligne par rôle et stable (« ★ prod: fixanim, render-ld
+  · v003-stable », chaque note dans son infobulle).
 - **Notes sous un rôle** : une note, todo ou RTK écrite par quelqu'un qui a
   un rôle le porte (marque violette), comme les notes importées d'un
   tableur de review. Un RTK d'un rôle est rouge dans le snapshot, celui de l'équipe orange ; dans Blender sa marque est le violet du rôle, comme ses notes, celle de l'équipe orange.

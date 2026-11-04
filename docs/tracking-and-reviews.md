@@ -56,7 +56,10 @@ it saw.
   worked since (1.1.9: "validated on v012, not worked since"); worked
   since, the new stable starts without -- the role hasn't seen it -- and
   shows the last one given ("prod: v012, to review again").
-  Withdrawing or giving it writes a note under your role, for the record.
+  Withdrawing or giving it writes a note under your role, for the record
+  -- in *Notes & tasks*, those in a row make one box, a line per role and
+  stable ("★ prod: fixanim, render-ld · v003-stable", each note in its
+  tooltip).
 - **Notes under a role**: a note, todo or RTK written by someone with a
   role carries it (violet mark), and so do the notes imported from a
   review template. An RTK from a role is red in the snapshot, the team's own orange; in Blender its mark is the role's violet, like its notes, the team's orange.

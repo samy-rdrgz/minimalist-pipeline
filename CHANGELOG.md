@@ -34,6 +34,13 @@ says what a review brings and what's already there.
 
 ### Changed
 
+- Notes & tasks (Blender): the notes validations write, one after
+  another, make one box -- a line per role and stable, "★ prod: fixanim,
+  render-ld · v003-stable" -- instead of a box per department.
+
+- File details: a validated department's role ("★ prod") starts right
+  after its star, no longer centred in the space left.
+
 - Snapshot page: a file's farm state has its icon and colour -- ▷ blue
   rendering, ◷ amber queued, ⚠ red failed -- and a filter, *In the farm*,
   lists them (shown while there's one).
