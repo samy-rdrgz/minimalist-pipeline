@@ -1026,6 +1026,15 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None)
 
     details = name.row()
     details.alignment = "RIGHT"
+    if general_rtk:
+        # A retake on no department: its own button, as a department's cell.
+        gen = details.row()
+        gen.alert = True
+        op = gen.operator("m_pipeline.department_rtks", text="", icon="LOOP_BACK", emboss=False)
+        op.folder = str(dir)
+        op.department = ""
+        op.custom_tooltip = "A retake on no department"
+    details = details.row()
     details.active = False
     details.operator(
         "m_pipeline.open_file_version",

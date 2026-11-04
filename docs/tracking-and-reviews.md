@@ -72,7 +72,8 @@ it saw.
   nothing: the page's ✓ are off, a ✓ or `ok` written before is left out.
 - **Project monitoring**: a department under RTK (red) opens, on a
   click, a small popup with its open retakes -- and those on no
-  department --, closed as the mouse leaves; *File details* from there.
+  department --, closed as the mouse leaves. A retake on no department:
+  the button by the file's name (red) shows those.
   A done department reads "Done · prod" once
   validated; a filter (the star) lists the files with a done department
   still to validate -- for your role, or by any role if you have none.

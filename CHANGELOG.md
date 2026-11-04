@@ -36,7 +36,8 @@ says what a review brings and what's already there.
 
 - Project monitoring: a click on a department under RTK shows its open
   retakes in a small popup (closed as the mouse leaves), without going
-  through File details.
+  through File details; a retake on no department, the button by the
+  file's name.
 
 - The welcome (first launch, and the main panel's *?*) opens in a window
   of its own like the monitoring ones -- smaller, centred, on Windows --

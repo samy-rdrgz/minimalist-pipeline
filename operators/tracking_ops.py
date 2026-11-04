@@ -1708,7 +1708,8 @@ _rtks_shown: list = []
 class M_PIPELINE_OT_department_rtks(bpy.types.Operator):
     """A department under RTK in Project monitoring's grid: its open
     retakes (and those on no department) in a small popup that closes as
-    the mouse leaves -- without going through File details."""
+    the mouse leaves -- without going through File details. No department
+    (the button by a file's name): its general retakes."""
 
     bl_idname = "m_pipeline.department_rtks"
     bl_label = ""
@@ -1731,7 +1732,11 @@ class M_PIPELINE_OT_department_rtks(bpy.types.Operator):
             for e in data.get("entries") or []
             if e.get("type") == "rtk"
             and e.get("done") is False
-            and (self.department in entry_departments(e) or not entry_departments(e))
+            # No department: the general ones only (the button by the name).
+            and (
+                not entry_departments(e)
+                or (self.department and self.department in entry_departments(e))
+            )
         ]
         rtks.sort(key=lambda e: e.get("created_at") or "", reverse=True)
         _rtks_shown[:] = rtks
@@ -1740,7 +1745,8 @@ class M_PIPELINE_OT_department_rtks(bpy.types.Operator):
     def draw(self, context):
         layout = self.layout
         name = Path(self.folder).name
-        layout.label(text=f"{name} -- {self.department}: open retakes", icon="LOOP_BACK")
+        what = self.department or "general"
+        layout.label(text=f"{name} -- {what}: open retakes", icon="LOOP_BACK")
         if not _rtks_shown:
             layout.label(text="None any more.", icon="BLANK1")
         width = region_char_budget(context, width_px=self._WIDTH)
@@ -1767,11 +1773,6 @@ class M_PIPELINE_OT_department_rtks(bpy.types.Operator):
                 text = f"[{prefix}{e['shot']}] {text}"
             for line in text.split("\n"):
                 text_to_lines(body, line, max_width=width, max_lines=lines_budget(line, base=2, cap=6))
-        layout.separator()
-        op = layout.operator(
-            "m_pipeline.tracking_file_details", text="File details", icon="RIGHTARROW", emboss=False
-        )
-        op.filepath = self.folder
 
     def execute(self, context):
         return {"FINISHED"}
