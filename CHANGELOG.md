@@ -24,9 +24,9 @@ says what a review brings and what's already there.
   them now, `departments_worked`); worked, it's struck, "to review
   again", as before. A stable made straight from a stable (a small fix,
   no wip between) takes what was worked from the dialog's *Worked on*.
-  Stables made before are read the same way, nothing to redo -- except
-  through one made from a stable, which recorded nothing: those stay
-  struck. A review of an older stable validates a department not worked
+  Stables made before are read the same way, nothing to redo; through
+  one made from a stable, which recorded nothing, a department counts as
+  worked when an RTK was opened or closed on it meanwhile. A review of an older stable validates a department not worked
   since, instead of refusing it.
 
 - Snapshot page: files with no tracking, once shown, take their place in

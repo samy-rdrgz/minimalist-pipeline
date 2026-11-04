@@ -3021,9 +3021,10 @@ meant "a new version", while what changes what a role saw is work on that
 department: a stable made for the anim shouldn't send the light back to
 review. A stable from before (no `approvals_carried`) is worked out on
 reading (`_legacy_carried()`: each `approvals_previous` entry whose
-department no wipmeta worked between its stable and the latest -- none
-through a stable made from a stable before 1.1.9: unknown, kept struck;
-`_worked_since()`), and
+department no wipmeta worked between its stable and the latest; through
+a stable made from a stable before 1.1.9, which recorded nothing, the
+departments an RTK was opened or closed on meanwhile -- a validated
+department is only touched when sent back; `_worked_since()`), and
 written down by the first validation change on it, so a carried one can
 be withdrawn. The last ones still go into `approvals_previous`
 (`_carried_approvals()`, each with its `file`), for "prod: v012" without

@@ -604,9 +604,8 @@ def review_import_plan(path: Path, review: dict | None = None) -> dict:
                 plan["validations_known"] += 1  # given already: left as is
             elif department not in status.get("departments_required", []):
                 plan["refused"].append((label, "department not required"))
-            elif seen and current and seen != current and department in (
-                worked_since.setdefault(name, worked_since_stable(filepath.parent, seen))
-                or {department}
+            elif seen and current and seen != current and _worked(
+                worked_since, name, filepath, seen, department
             ):
                 # Not refused while untouched since: what was seen is still there.
                 plan["refused"].append(
@@ -625,6 +624,15 @@ def review_import_plan(path: Path, review: dict | None = None) -> dict:
                     }
                 )
     return plan
+
+
+def _worked(cache: dict, name: str, filepath: Path, seen: str, department: str) -> bool:
+    """Whether department was worked since the stable the review saw (or
+    that stable is unknown): its validation is to review again."""
+    if name not in cache:
+        cache[name] = worked_since_stable(filepath.parent, seen)
+    worked = cache[name]
+    return worked is None or department in worked
 
 
 def _known_notes(filepath: Path, author: str, source: str = REVIEW_SOURCE) -> set:

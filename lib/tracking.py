@@ -1089,7 +1089,11 @@ def set_department_approval(
     # before changing one (withdrawing one of them, say).
     carried = {}
     if "approvals_carried" not in last:
-        carried = _legacy_carried(entries, last) if last.get("approvals_previous") else {}
+        carried = (
+            _legacy_carried(entries, last, read_json_quiet(asset_dir / ".pipeline" / "tracking.json") or {})
+            if last.get("approvals_previous")
+            else {}
+        )
     path = asset_dir / ".pipeline" / (_meta_stem(Path(last["file"])) + ".stablemeta")
     with locked_json(path) as box:
         data = box["data"] or {}
@@ -1264,7 +1268,7 @@ def _collect_folder(asset_dir: Path, entries: list | None = None) -> dict | None
         started = _started_before(entries, tracking, last_stable, wipmetas, stable_date)
     carried = {}
     if "approvals_carried" not in last_stable and last_stable.get("approvals_previous"):
-        carried = _legacy_carried(entries, last_stable)
+        carried = _legacy_carried(entries, last_stable, tracking)
     return {
         "tracking": tracking,
         "last_stable": last_stable,
@@ -1353,13 +1357,35 @@ def _stablemeta_of(entries: list, stable_file: str) -> dict | None:
     return None
 
 
-def _worked_since(entries: list, start: datetime, end: datetime) -> set[str] | None:
+def _rtk_departments(tracking: dict, start: datetime, end: datetime) -> set[str]:
+    """Departments with an RTK opened or closed after start, up to end -- a
+    general one (no department) counts for each required department."""
+    out = set()
+    for e in tracking.get("entries") or []:
+        if e.get("type") != "rtk":
+            continue
+        dates = []
+        for key in ("created_at", "done_at"):
+            try:
+                dates.append(datetime.fromisoformat(e.get(key) or ""))
+            except (TypeError, ValueError):
+                pass
+        if any(start < d <= end for d in dates):
+            out |= set(entry_departments(e) or tracking.get("departments_required") or [])
+    return out
+
+
+def _worked_since(
+    entries: list, start: datetime, end: datetime, tracking: dict
+) -> set[str]:
     """Departments worked after start, up to end: the wipmetas edited
     between, and what each stable made between recorded (1.1.9's
     departments_worked -- the only record for one made from a stable).
-    None when a stable made from a stable before 1.1.9 is in between: what
-    was worked there is unknown."""
+    Through a stable made from a stable before 1.1.9, which recorded
+    nothing: the departments an RTK was opened or closed on meanwhile --
+    validated, untouched unless sent back."""
     worked = _worked_between(entries, start, end)
+    blind = False
     for entry in entries:
         if not entry.name.endswith(".stablemeta"):
             continue
@@ -1375,7 +1401,9 @@ def _worked_since(entries: list, start: datetime, end: datetime) -> set[str] | N
         if "approvals_carried" in data:
             worked |= set(data.get("departments_worked") or [])
         elif "-stable." in (data.get("created_from") or "-stable."):
-            return None
+            blind = True
+    if blind:
+        worked |= _rtk_departments(tracking, start, end)
     return worked
 
 
@@ -1411,10 +1439,11 @@ def worked_since_stable(asset_dir: Path, stable_file: str, entries: list | None 
         end = datetime.fromisoformat(last["created_at"])
     except (KeyError, TypeError, ValueError):
         return None
-    return _worked_since(entries, start, end)
+    tracking = read_json_quiet(Path(asset_dir) / ".pipeline" / "tracking.json") or {}
+    return _worked_since(entries, start, end, tracking)
 
 
-def _legacy_carried(entries: list, last_stable: dict) -> dict:
+def _legacy_carried(entries: list, last_stable: dict, tracking: dict) -> dict:
     """For a latest stable made before validations were carried (1.1.9):
     the last validations of earlier stables of its done departments not
     worked since -- what it would have carried. Only through stables made
@@ -1442,7 +1471,7 @@ def _legacy_carried(entries: list, last_stable: dict) -> dict:
                 except (KeyError, TypeError, ValueError):
                     worked_cache[file] = None
                     continue
-                worked_cache[file] = _worked_since(entries, start, end)
+                worked_cache[file] = _worked_since(entries, start, end, tracking)
             worked = worked_cache[file]
             if worked is None or department in worked:
                 continue
