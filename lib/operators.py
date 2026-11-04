@@ -263,103 +263,121 @@ class M_PIPELINE_OT_onboarding_popup(bpy.types.Operator):
 
     def invoke(self, context, event):
         # onboarding_seen isn't touched here: this operator also serves the
-        # Help icon and the empty-state button, which must keep opening the
-        # popup forever regardless of that flag. Only the startup timer
+        # Help icon and the empty-state button, which must keep opening it
+        # forever regardless of that flag. Only the startup timer
         # (_deferred_onboarding in __init__.py) marks it seen.
+        # A window, like the monitoring ones: it stays while read, the name
+        # typed in it. The popup only if Blender couldn't open one.
+        from .monitoring import (
+            bring_monitoring_to_front,
+            monitoring_windows,
+            open_monitoring_window,
+        )
+
+        if monitoring_windows("welcome"):
+            if bring_monitoring_to_front(context, "welcome"):
+                return {"FINISHED"}
+        elif open_monitoring_window(context, "welcome", small=True):
+            return {"FINISHED"}
         return context.window_manager.invoke_popup(self, width=self._POPUP_WIDTH)
 
     def draw(self, context):
-        layout = self.layout
-        col = layout.column(align=True)
-
-        max_width = 120
-        hook = (
-            "Minimalist Pipeline NAMES and VERSIONS your files FOR YOU, "
-            "proposes actions instead of forcing them, and runs "
-            "entirely from your project folder, NO SERVEUR required."
-        )
-        text_to_lines(
-            col.box(),
-            hook,
-            max_width=max_width,
-            icon="OUTLINER_OB_LIGHT",
-            max_lines=lines_budget(hook, base=3, cap=8),
-        )
-        col.separator(factor=3)
-
-        prefs = addon_pref(context)
-        if prefs:
-            name_block = col.column(align=True)
-            name_block.scale_y = 0.8
-            name_row = name_block.box().row(align=True)
-            name_row.alignment = "LEFT"
-            name_row.label(text="YOUR NAME:", icon="USER")
-            name_row.prop(prefs, "user_name", text="")
-            hint_row = name_block.box().column(align=True)
-            hint_row.active = False
-            hint_row.scale_y = 0.5
-            hint_1 = "Name used as the author identifier for notes/tasks and rendering requests."
-            hint_2 = "Pre-filled with a random name - type your own, or change it later in Preferences."
-            text_to_lines(
-                hint_row,
-                hint_1,
-                icon="BLANK1",
-                max_width=max_width,
-                max_lines=lines_budget(hint_1, base=2, cap=4),
-            )
-            text_to_lines(
-                hint_row,
-                hint_2,
-                icon="BLANK1",
-                max_width=max_width,
-                max_lines=lines_budget(hint_2, base=2, cap=4),
-            )
-        col.separator(factor=3)
-
-        for idx, text in enumerate(self._SECTIONS):
-            title, body = text
-            block = col.column(align=True)
-            block.scale_y = 0.8
-            block.active = True
-            block.box().label(text=title.upper(), icon=f"EVENT_NDOF_BUTTON_{idx + 1}")
-            text_box = block.box()
-            text_row = text_box.row()
-            text_row.separator(factor=0.7)
-            text_row.active = False
-            text_to_lines(
-                text_row,
-                body,
-                max_width=max_width,
-                max_lines=lines_budget(body, base=3, cap=8),
-            )
-            text_box.separator(factor=0.75)
-
-        col.separator(factor=3)
-        block = col.column(align=True)
-        block.scale_y = 0.8
-        block.box().label(text="HOW TO START.", icon="EVENT_RIGHT_ARROW")
-        closing = (
-            "New Project, then New Asset. Everything else is "
-            "proposed when it's useful, so you don't have to memorize a "
-            "procedure."
-        )
-        text_box = block.box()
-        text_row = text_box.row()
-        text_row.separator(factor=0.7)
-        text_to_lines(
-            text_row,
-            closing,
-            max_width=max_width,
-            max_lines=lines_budget(closing, base=3, cap=8),
-        )
-        text_box.separator(factor=0.75)
-        col.box().label(
-            text="You're familiar with the add-on? Hide tooltips in the add-on's preferences.",
-            icon="HIDE_OFF",
-        )
+        draw_onboarding(self.layout, context)
 
     def execute(self, context):
         return {"FINISHED"}
+
+
+def draw_onboarding(layout, context, max_width: int = 120) -> None:
+    """The welcome text: in its window (panels/monitoring_panel.py), or the
+    popup when no window could open."""
+    sections = M_PIPELINE_OT_onboarding_popup._SECTIONS
+    col = layout.column(align=True)
+
+    hook = (
+        "Minimalist Pipeline NAMES and VERSIONS your files FOR YOU, "
+        "proposes actions instead of forcing them, and runs "
+        "entirely from your project folder, NO SERVEUR required."
+    )
+    text_to_lines(
+        col.box(),
+        hook,
+        max_width=max_width,
+        icon="OUTLINER_OB_LIGHT",
+        max_lines=lines_budget(hook, base=3, cap=8),
+    )
+    col.separator(factor=3)
+
+    prefs = addon_pref(context)
+    if prefs:
+        name_block = col.column(align=True)
+        name_block.scale_y = 0.8
+        name_row = name_block.box().row(align=True)
+        name_row.alignment = "LEFT"
+        name_row.label(text="YOUR NAME:", icon="USER")
+        name_row.prop(prefs, "user_name", text="")
+        hint_row = name_block.box().column(align=True)
+        hint_row.active = False
+        hint_row.scale_y = 0.5
+        hint_1 = "Name used as the author identifier for notes/tasks and rendering requests."
+        hint_2 = "Pre-filled with a random name - type your own, or change it later in Preferences."
+        text_to_lines(
+            hint_row,
+            hint_1,
+            icon="BLANK1",
+            max_width=max_width,
+            max_lines=lines_budget(hint_1, base=2, cap=4),
+        )
+        text_to_lines(
+            hint_row,
+            hint_2,
+            icon="BLANK1",
+            max_width=max_width,
+            max_lines=lines_budget(hint_2, base=2, cap=4),
+        )
+    col.separator(factor=3)
+
+    for idx, text in enumerate(sections):
+        title, body = text
+        block = col.column(align=True)
+        block.scale_y = 0.8
+        block.active = True
+        block.box().label(text=title.upper(), icon=f"EVENT_NDOF_BUTTON_{idx + 1}")
+        text_box = block.box()
+        text_row = text_box.row()
+        text_row.separator(factor=0.7)
+        text_row.active = False
+        text_to_lines(
+            text_row,
+            body,
+            max_width=max_width,
+            max_lines=lines_budget(body, base=3, cap=8),
+        )
+        text_box.separator(factor=0.75)
+
+    col.separator(factor=3)
+    block = col.column(align=True)
+    block.scale_y = 0.8
+    block.box().label(text="HOW TO START.", icon="EVENT_RIGHT_ARROW")
+    closing = (
+        "New Project, then New Asset. Everything else is "
+        "proposed when it's useful, so you don't have to memorize a "
+        "procedure."
+    )
+    text_box = block.box()
+    text_row = text_box.row()
+    text_row.separator(factor=0.7)
+    text_to_lines(
+        text_row,
+        closing,
+        max_width=max_width,
+        max_lines=lines_budget(closing, base=3, cap=8),
+    )
+    text_box.separator(factor=0.75)
+    col.box().label(
+        text="You're familiar with the add-on? Hide tooltips in the add-on's preferences.",
+        icon="HIDE_OFF",
+    )
 
 
 class M_PIPELINE_OT_auto_version(bpy.types.Operator):

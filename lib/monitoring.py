@@ -16,7 +16,7 @@ from .tracking import ProjectScan, TrackingStatusCache
 # "farm") -- the panels' poll() reads it, and it survives the .blend being
 # saved with the window open.
 MONITORING_SCREEN_KEY = "m_pipeline_monitoring"
-MONITORING_KINDS = ("project", "farm", "log")
+MONITORING_KINDS = ("project", "farm", "log", "welcome")
 
 # Redraw check, and how often Project monitoring's Farm column is read again.
 _TICK = 0.5
@@ -67,13 +67,23 @@ def monitoring_windows(kind: str | None = None) -> list:
     ]
 
 
-def open_monitoring_window(context, kind: str) -> bool:
+def open_monitoring_window(context, kind: str, small: bool = False) -> bool:
     """A new window holding one Properties editor, on the Tool tab once it
-    has been drawn. False if Blender didn't open it."""
+    has been drawn. small: the size of Blender's Preferences window (the
+    welcome one) -- opened as that window, then turned into ours, as no API
+    sizes a window; else as big as the main one. False if Blender didn't
+    open it."""
     wm = context.window_manager
     before = {w.as_pointer() for w in wm.windows}
     with threads_paused():  # see lib/background.py
-        bpy.ops.wm.window_new()
+        if small:
+            try:
+                bpy.ops.screen.userpref_show()
+            except (RuntimeError, TypeError):
+                pass
+        # Preferences already open: it came to the front, nothing new.
+        if not any(w.as_pointer() not in before for w in wm.windows):
+            bpy.ops.wm.window_new()
     new = [w for w in wm.windows if w.as_pointer() not in before]
     if not new:
         return False

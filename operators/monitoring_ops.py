@@ -15,7 +15,12 @@ from ..lib import (
 from ..panels import load_pipeline_log
 
 # What each window's detail is kept under (see lib/core.py); the log has none.
-_DETAILS = {"project": ("file", "missing_file"), "farm": ("job", "worker"), "log": ()}
+_DETAILS = {
+    "project": ("file", "missing_file"),
+    "farm": ("job", "worker"),
+    "log": (),
+    "welcome": (),
+}
 
 
 def _showing_detail(kind: str) -> bool:
@@ -41,7 +46,7 @@ class M_PIPELINE_OT_monitoring_page(bpy.types.Operator):
     def poll(cls, context):
         # Its window's list only: the arrow keys do nothing elsewhere.
         kind = monitoring_kind(context.screen)
-        if not kind or _showing_detail(kind):
+        if kind in ("", "welcome") or _showing_detail(kind):
             return False
         return kind != "farm" or context.window_manager.pipeline_farm_monitoring.view == "jobs"
 
@@ -106,7 +111,7 @@ class M_PIPELINE_OT_monitoring_refresh(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return bool(monitoring_kind(context.screen))
+        return monitoring_kind(context.screen) not in ("", "welcome")
 
     def execute(self, context):
         kind = monitoring_kind(context.screen)

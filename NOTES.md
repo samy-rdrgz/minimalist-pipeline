@@ -2446,6 +2446,15 @@ crash needs Blender.
 
 ## Monitoring: windows, not popups
 
+**The welcome window (1.1.9)**, kind `"welcome"`, is one too -- a popup
+closed as soon as the mouse left it, the name half typed. Smaller: no API
+sizes a window, so it's opened as Blender's Preferences window
+(`screen.userpref_show()`, a fixed small size, a temporary screen -- it
+doesn't follow the workspaces either) and turned into a Properties editor
+like the others; `window_new()` if Preferences was already open (it comes
+to the front, no new window), the popup if no window opened. Its text in a
+centred column, a line's length whatever the width.
+
 Project monitoring first, then Farm monitoring the same way: the screen's
 ID property says which (`"project"` / `"farm"`; `True`, from the first
 version, reads as `"project"`), each panel polls its own. Tried, then

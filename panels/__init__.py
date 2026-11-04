@@ -17,6 +17,7 @@ from .logs_panel import (
 from .monitoring_panel import (
     M_PIPELINE_PT_farm_monitoring,
     M_PIPELINE_PT_log_monitoring,
+    M_PIPELINE_PT_welcome,
     M_PIPELINE_PT_monitoring,
 )
 from .project_panel import M_PIPELINE_PT_project_panel
@@ -38,6 +39,7 @@ classes = (
     M_PIPELINE_PT_monitoring,
     M_PIPELINE_PT_farm_monitoring,
     M_PIPELINE_PT_log_monitoring,
+    M_PIPELINE_PT_welcome,
 )
 
 __all__ = ["classes"]

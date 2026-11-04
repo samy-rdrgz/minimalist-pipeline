@@ -215,7 +215,11 @@ def _deferred_onboarding():
             # Marked seen here, not in the operator -- see NOTES.md,
             # "Addon register()".
             prefs.onboarding_seen = True
-            bpy.ops.m_pipeline.onboarding_popup("INVOKE_DEFAULT")
+            # A timer has no window: the main one's, to open the welcome
+            # window from.
+            window = bpy.context.window_manager.windows[0]
+            with bpy.context.temp_override(window=window, screen=window.screen):
+                bpy.ops.m_pipeline.onboarding_popup("INVOKE_DEFAULT")
     except Exception as e:
         print(e)
 

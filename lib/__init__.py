@@ -141,6 +141,7 @@ from .operators import (
     M_PIPELINE_OT_auto_version,
     M_PIPELINE_OT_current_frame,
     M_PIPELINE_OT_onboarding_popup,
+    draw_onboarding,
     M_PIPELINE_OT_text_popup,
     WM_OT_open_folder,
 )

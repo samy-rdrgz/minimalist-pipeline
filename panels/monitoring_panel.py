@@ -6,6 +6,8 @@ import bpy
 
 from ..lib import (
     ConfigCache,
+    draw_onboarding,
+    region_char_budget,
     ensure_monitoring_tick,
     get_active_project_root,
     json_get,
@@ -162,3 +164,31 @@ class M_PIPELINE_PT_log_monitoring(_MonitoringPanel, bpy.types.Panel):
         row.prop(state, "search", text="", icon="VIEWZOOM")
         layout.separator(factor=0.5)
         draw_pipeline_logs(state, context, layout)
+
+
+class M_PIPELINE_PT_welcome(_MonitoringPanel, bpy.types.Panel):
+    """The welcome window's content (the onboarding): no project needed."""
+
+    bl_label = "Pipeline: Welcome"
+    bl_idname = "M_PIPELINE_PT_welcome"
+    kind = "welcome"
+
+    def draw(self, context):
+        # Read at a line's length whatever the window's width: a centred
+        # column, the text wrapped to it.
+        width = context.region.width
+        side = (1 - 900 / width) / 2 if width > 900 else 0.0
+        layout = self.layout
+        if side:
+            # margin | text | margin: each split's first item takes its factor.
+            outer = layout.split(factor=side)
+            outer.column()
+            inner = outer.split(factor=(1 - 2 * side) / (1 - side))
+            layout = inner.column()
+            inner.column()
+        layout.separator(factor=2)
+        draw_onboarding(
+            layout, context, max_width=min(120, region_char_budget(context, width_px=None))
+        )
+        layout.separator(factor=2)
+        layout.operator("wm.window_close", text="Close", icon="CHECKMARK")
