@@ -74,8 +74,8 @@ it saw.
   click, a small popup with its open retakes -- and those on no
   department --, closed as the mouse leaves. A retake on no department:
   the button by the file's name (red) shows those.
-  A done department reads "Done · prod" once
-  validated; a filter (the star) lists the files with a done department
+  A done department reads "Done · prod" once validated (the star in full
+  for the top role, the grid otherwise grey); a filter (the star) lists the files with a done department
   still to validate -- for your role, or by any role if you have none.
 - **Snapshot**: "✓ prod" under a department's mark (each role in its
   tooltip), struck through for one given to an earlier stable and worked

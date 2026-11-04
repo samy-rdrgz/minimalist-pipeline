@@ -1043,6 +1043,9 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None)
         emboss=False,
     ).filepath = str(dir)
     cells = _equal_cells(split.row(), len(columns) + 1)
+    roles = validation_roles()
+    top = max((r["level"] for r in roles), default=None)
+    top_roles = {r["name"] for r in roles if r["level"] == top}
     for icon_row, c in zip(cells, columns):
         icon_row.label(text="", icon="BLANK1")
         if c in file.get("departments_required", []):
@@ -1053,6 +1056,7 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None)
             status = icon_row.row()
             status.enabled = False
             tooltip = department_status_tooltip(file, c)
+            best = None
             if (
                 c in file["validated_departments"]
                 and c not in file["worked_departments"]
@@ -1076,9 +1080,13 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None)
             # Under RTK: clickable, its retakes in a popup.
             status.alignment = "LEFT"
             under_rtk = c in rtk
-            status.enabled = under_rtk
+            # Grey, the star in full once validated by the top role
+            # ("Done · prod"): what's through stands out.
+            star = text.startswith("Done · ") and best in top_roles
             for t, i in (("", row_icon), (text, "NONE")):
-                op = status.operator(
+                button = status.row(align=True)
+                button.enabled = under_rtk or (star and t == "")
+                op = button.operator(
                     "m_pipeline.department_rtks"
                     if under_rtk
                     else "m_pipeline.department_status_info",
