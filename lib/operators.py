@@ -288,7 +288,7 @@ class M_PIPELINE_OT_onboarding_popup(bpy.types.Operator):
         return {"FINISHED"}
 
 
-def draw_onboarding(layout, context, max_width: int = 120) -> None:
+def draw_onboarding(layout, context, max_width: int = 120, level_hint: bool = True) -> None:
     """The welcome text: in its window (panels/monitoring_panel.py), or the
     popup when no window could open."""
     sections = M_PIPELINE_OT_onboarding_popup._SECTIONS
@@ -374,10 +374,11 @@ def draw_onboarding(layout, context, max_width: int = 120) -> None:
         max_lines=lines_budget(closing, base=3, cap=8),
     )
     text_box.separator(factor=0.75)
-    col.box().label(
-        text="You're familiar with the add-on? Hide tooltips in the add-on's preferences.",
-        icon="HIDE_OFF",
-    )
+    if level_hint:  # the window has the switch itself
+        col.box().label(
+            text="You're familiar with the add-on? Hide tooltips in the add-on's preferences.",
+            icon="HIDE_OFF",
+        )
 
 
 class M_PIPELINE_OT_auto_version(bpy.types.Operator):

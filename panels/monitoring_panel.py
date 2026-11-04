@@ -6,6 +6,7 @@ import bpy
 
 from ..lib import (
     ConfigCache,
+    addon_pref,
     draw_onboarding,
     region_char_budget,
     ensure_monitoring_tick,
@@ -188,7 +189,24 @@ class M_PIPELINE_PT_welcome(_MonitoringPanel, bpy.types.Panel):
             inner.column()
         layout.separator(factor=2)
         draw_onboarding(
-            layout, context, max_width=min(120, region_char_budget(context, width_px=None))
+            layout,
+            context,
+            max_width=min(120, region_char_budget(context, width_px=None)),
+            level_hint=False,
         )
         layout.separator(factor=2)
-        layout.operator("wm.window_close", text="Close", icon="CHECKMARK")
+        prefs = addon_pref(context)
+        if prefs:
+            level = layout.row(align=True)
+            level.label(text="Familiar with the add-on? Advanced hides the tips:", icon="HIDE_OFF")
+            level.prop(prefs, "experience_level", expand=True)
+            layout.separator(factor=1)
+        close = layout.row()
+        close.alert = True  # red
+        close.scale_y = 1.4
+        close.operator("wm.window_close", text="Close", icon="CANCEL")
+        # A window's height of blank below, as the others: the Tool tab's
+        # Options and Workspace out of sight.
+        spacer = self.layout.column()
+        spacer.scale_y = context.region.height / (20 * (context.preferences.system.ui_scale or 1.0))
+        spacer.label(text="")
