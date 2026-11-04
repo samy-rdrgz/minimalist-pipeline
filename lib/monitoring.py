@@ -67,23 +67,18 @@ def monitoring_windows(kind: str | None = None) -> list:
     ]
 
 
-def open_monitoring_window(context, kind: str, small: bool = False) -> bool:
+def open_monitoring_window(
+    context, kind: str, size: tuple[float, float] | None = None
+) -> bool:
     """A new window holding one Properties editor, on the Tool tab once it
-    has been drawn. small: the size of Blender's Preferences window (the
-    welcome one) -- opened as that window, then turned into ours, as no API
-    sizes a window; else as big as the main one. False if Blender didn't
-    open it."""
+    has been drawn. size: (width, height) as a share of the screen's work
+    area, centred -- on Windows (_resize_win32()); elsewhere, and without,
+    window_new()'s own size. False if Blender didn't open it."""
     wm = context.window_manager
     before = {w.as_pointer() for w in wm.windows}
+    native = _win32_handles() if size and sys.platform == "win32" else None
     with threads_paused():  # see lib/background.py
-        if small:
-            try:
-                bpy.ops.screen.userpref_show()
-            except (RuntimeError, TypeError):
-                pass
-        # Preferences already open: it came to the front, nothing new.
-        if not any(w.as_pointer() not in before for w in wm.windows):
-            bpy.ops.wm.window_new()
+        bpy.ops.wm.window_new()
     new = [w for w in wm.windows if w.as_pointer() not in before]
     if not new:
         return False
@@ -106,8 +101,81 @@ def open_monitoring_window(context, kind: str, small: bool = False) -> bool:
     # The editor's tabs are only known once it has been drawn: "TOOL" isn't
     # a valid value yet.
     bpy.app.timers.register(_show_tool_tab(window.as_pointer()), first_interval=0.0)
+    if native is not None:
+        bpy.app.timers.register(_resize_win32(native, size), first_interval=0.0)
     ensure_monitoring_tick()
     return True
+
+
+def _win32_handles() -> set:
+    """The visible native windows of this Blender process (Windows). Empty
+    on any failure."""
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        user32 = ctypes.windll.user32
+        pid = os.getpid()
+        handles = set()
+        enum_proc = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+
+        def visit(hwnd, _lparam):
+            owner = wintypes.DWORD()
+            user32.GetWindowThreadProcessId(hwnd, ctypes.byref(owner))
+            if owner.value == pid and user32.IsWindowVisible(hwnd):
+                handles.add(hwnd)
+            return True
+
+        user32.EnumWindows(enum_proc(visit), 0)
+        return handles
+    except Exception:
+        return set()
+
+
+def _resize_win32(before: set, size: tuple[float, float], tries: int = 20):
+    """Timer: the native window not in before -- the one window_new() just
+    opened, never the main one -- resized to size (shares of its screen's
+    work area) and centred there. No API sizes a Blender window; Windows
+    does, and Blender follows. Gives up quietly."""
+
+    def tick():
+        nonlocal tries
+        tries -= 1
+        new = _win32_handles() - before
+        if len(new) != 1:
+            return 0.05 if tries > 0 and not new else None
+        try:
+            import ctypes
+            from ctypes import wintypes
+
+            class MONITORINFO(ctypes.Structure):
+                _fields_ = [
+                    ("cbSize", wintypes.DWORD),
+                    ("rcMonitor", wintypes.RECT),
+                    ("rcWork", wintypes.RECT),
+                    ("dwFlags", wintypes.DWORD),
+                ]
+
+            user32 = ctypes.windll.user32
+            hwnd = next(iter(new))
+            info = MONITORINFO()
+            info.cbSize = ctypes.sizeof(MONITORINFO)
+            monitor = user32.MonitorFromWindow(hwnd, 2)  # MONITOR_DEFAULTTONEAREST
+            if not user32.GetMonitorInfoW(monitor, ctypes.byref(info)):
+                return None
+            work = info.rcWork
+            w = int((work.right - work.left) * size[0])
+            h = int((work.bottom - work.top) * size[1])
+            x = work.left + ((work.right - work.left) - w) // 2
+            y = work.top + ((work.bottom - work.top) - h) // 2
+            if user32.IsZoomed(hwnd):
+                user32.ShowWindow(hwnd, 9)  # SW_RESTORE: a maximized one ignores a size
+            user32.SetWindowPos(hwnd, 0, x, y, w, h, 0x0004 | 0x0010)  # NOZORDER|NOACTIVATE
+        except Exception:
+            pass
+        return None
+
+    return tick
 
 
 def bring_monitoring_to_front(context, kind: str) -> bool:

@@ -277,7 +277,7 @@ class M_PIPELINE_OT_onboarding_popup(bpy.types.Operator):
         if monitoring_windows("welcome"):
             if bring_monitoring_to_front(context, "welcome"):
                 return {"FINISHED"}
-        elif open_monitoring_window(context, "welcome", small=True):
+        elif open_monitoring_window(context, "welcome", size=(0.45, 0.7)):
             return {"FINISHED"}
         return context.window_manager.invoke_popup(self, width=self._POPUP_WIDTH)
 

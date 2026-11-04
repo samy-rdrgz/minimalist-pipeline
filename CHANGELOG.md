@@ -35,8 +35,8 @@ says what a review brings and what's already there.
 ### Changed
 
 - The welcome (first launch, and the main panel's *?*) opens in a window
-  of its own, smaller than the monitoring ones, instead of a popup that
-  closed as soon as the mouse left it.
+  of its own like the monitoring ones -- smaller, centred, on Windows --
+  instead of a popup that closed as soon as the mouse left it.
 
 - Notes & tasks (Blender): the notes validations write, one after
   another, make one box -- a line per role and stable, "★ prod: fixanim,
