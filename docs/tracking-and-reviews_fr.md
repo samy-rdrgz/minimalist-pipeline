@@ -73,7 +73,10 @@ la prod -- sur la version qu'il a vue.
   -- sans rôle, orange, sans le tag « prod review » (importés d'une
   review d'équipe) -- et elle ne valide rien : les ✓ de la page sont
   désactivés, un ✓ ou un `ok` écrit avant est laissé de côté.
-- **Project monitoring** : un département fini affiche « Done · prod » une
+- **Project monitoring** : un département en RTK (rouge) ouvre, au clic,
+  une petite popup avec ses retakes ouverts -- et ceux sur aucun
+  département --, fermée dès que la souris sort ; *File details* depuis
+  là. Un département fini affiche « Done · prod » une
   fois validé ; un filtre (l'étoile) liste les fichiers dont un département
   fini reste à valider -- pour votre rôle, ou par n'importe quel rôle si
   vous n'en avez pas.

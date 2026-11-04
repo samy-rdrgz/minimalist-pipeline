@@ -70,7 +70,10 @@ it saw.
   name): its retakes and notes are the team's own -- no role, orange, no
   "prod review" tag (imported from a team review) -- and it validates
   nothing: the page's ✓ are off, a ✓ or `ok` written before is left out.
-- **Project monitoring**: a done department reads "Done · prod" once
+- **Project monitoring**: a department under RTK (red) opens, on a
+  click, a small popup with its open retakes -- and those on no
+  department --, closed as the mouse leaves; *File details* from there.
+  A done department reads "Done · prod" once
   validated; a filter (the star) lists the files with a done department
   still to validate -- for your role, or by any role if you have none.
 - **Snapshot**: "✓ prod" under a department's mark (each role in its

@@ -9,6 +9,9 @@ import bpy
 
 from ..lib import (
     draw_box_tip,
+    lines_budget,
+    region_char_budget,
+    text_to_lines,
     monitoring_detail,
     set_monitoring_detail,
     ConfigCache,
@@ -1695,6 +1698,83 @@ class M_PIPELINE_OT_department_status_info(bpy.types.Operator):
 
     def execute(self, context):
         return {"CANCELLED"}
+
+
+# The retakes the department_rtks popup shows: read on its click, drawn
+# from memory (an operator's own attributes don't reliably outlive invoke()).
+_rtks_shown: list = []
+
+
+class M_PIPELINE_OT_department_rtks(bpy.types.Operator):
+    """A department under RTK in Project monitoring's grid: its open
+    retakes (and those on no department) in a small popup that closes as
+    the mouse leaves -- without going through File details."""
+
+    bl_idname = "m_pipeline.department_rtks"
+    bl_label = ""
+    bl_options = {"INTERNAL"}
+
+    folder: bpy.props.StringProperty(options={"SKIP_SAVE"})
+    department: bpy.props.StringProperty(options={"SKIP_SAVE"})
+    custom_tooltip: bpy.props.StringProperty(options={"SKIP_SAVE"})
+
+    _WIDTH = 460
+
+    @classmethod
+    def description(cls, context, properties):
+        return f"{properties.custom_tooltip}\n\nClick: its retakes".strip()
+
+    def invoke(self, context, event):
+        data = TrackingStatusCache.get(self.folder)
+        rtks = [
+            e
+            for e in data.get("entries") or []
+            if e.get("type") == "rtk"
+            and e.get("done") is False
+            and (self.department in entry_departments(e) or not entry_departments(e))
+        ]
+        rtks.sort(key=lambda e: e.get("created_at") or "", reverse=True)
+        _rtks_shown[:] = rtks
+        return context.window_manager.invoke_popup(self, width=self._WIDTH)
+
+    def draw(self, context):
+        layout = self.layout
+        name = Path(self.folder).name
+        layout.label(text=f"{name} -- {self.department}: open retakes", icon="LOOP_BACK")
+        if not _rtks_shown:
+            layout.label(text="None any more.", icon="BLANK1")
+        width = region_char_budget(context, width_px=self._WIDTH)
+        for e in _rtks_shown:
+            box = layout.box().column(align=True)
+            head = box.row(align=True)
+            head.active = False
+            head.scale_y = 0.8
+            who = e.get("author") or "?"
+            if e.get("role"):
+                who = f"{who} ({e['role']})"
+            when = (e.get("created_at") or "")[:10]
+            version = Path(e.get("referenced_version") or "").stem
+            general = "" if entry_departments(e) else " · on no department"
+            head.label(
+                text=" · ".join(x for x in (who, when, version) if x) + general,
+                icon="COLLECTION_COLOR_06" if e.get("role") else "COLLECTION_COLOR_02",
+            )
+            body = box.column(align=True)
+            body.scale_y = 0.8
+            text = e.get("text") or ""
+            if e.get("shot"):
+                prefix = json_get(ConfigCache.get(), "naming.shot.prefix", "sh")
+                text = f"[{prefix}{e['shot']}] {text}"
+            for line in text.split("\n"):
+                text_to_lines(body, line, max_width=width, max_lines=lines_budget(line, base=2, cap=6))
+        layout.separator()
+        op = layout.operator(
+            "m_pipeline.tracking_file_details", text="File details", icon="RIGHTARROW", emboss=False
+        )
+        op.filepath = self.folder
+
+    def execute(self, context):
+        return {"FINISHED"}
 
 
 class PIPELINE_PG_department_check_item(bpy.types.PropertyGroup):

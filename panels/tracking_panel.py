@@ -1064,14 +1064,23 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None)
                 text, row_icon = "Not started", "CHECKBOX_DEHLT"
             # Icon then text, each its own button in a left-aligned row:
             # one button's text is centred in its cell (both keep the tooltip).
+            # Under RTK: clickable, its retakes in a popup.
             status.alignment = "LEFT"
+            under_rtk = c in rtk
+            status.enabled = under_rtk
             for t, i in (("", row_icon), (text, "NONE")):
-                status.operator(
-                    "m_pipeline.department_status_info",
+                op = status.operator(
+                    "m_pipeline.department_rtks"
+                    if under_rtk
+                    else "m_pipeline.department_status_info",
                     text=t,
                     icon=i,
                     emboss=False,
-                ).custom_tooltip = tooltip
+                )
+                op.custom_tooltip = tooltip
+                if under_rtk:
+                    op.folder = str(dir)
+                    op.department = c
         else:
             icon_row.label(text=" ", icon="BLANK1")
     _draw_farm_cell(cells[-1], dir, file, jobs or [])
