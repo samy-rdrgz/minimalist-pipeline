@@ -128,11 +128,17 @@ if(it.outdated)h+='<span class="badge b-check" title="Rendered from an older ver
 if(it.to_check)h+='<span class="badge b-check" title="Rendered, not checked by the team yet">Render to check</span>';
 if(e.desc!==null&&e.desc.trim()&&e.desc.trim()!==it.desc)h+='<span class="badge b-rev">✎ description</span>';
 return h;}
+// In the farm: its icon and colour say rendering (blue), queued (amber), failed (red).
+var FARM_IC={run:'<svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M6.3 5.2v5.6L11 8z" fill="currentColor"/></svg>',
+wait:'<svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 4.6V8l2.4 1.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+fail:'<svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2l6.5 11.5h-13z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8 6.5v3.2M8 11.6v.1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'};
+function farmTag(f){var k=f.state==='failed'?'fail':f.state==='waiting'?'wait':'run';
+return '<span class="farm '+k+'" title="In the farm: '+esc(f.tip)+'">'+FARM_IC[k]+'farm '+esc(f.text)+'</span>';}
 function subline(it){var p=['<span class="vers">'+esc(it.versions||'not saved yet')+'</span>'];
 if(it.shots.length>1)p.push('<span>'+plural(it.shots.length,'shot')+'</span>');
 if(it.openNotes.length){var t=it.openNotes.some(function(n){return n.type==='todo';});
 p.push('<span class="nn'+(t?' todo':'')+'">'+plural(it.openNotes.length,'open note')+'</span>');}
-if(it.farm)p.push('<span class="farm'+(it.farm.state==='failed'?' fail':'')+'" title="In the farm: '+esc(it.farm.tip)+'">farm '+esc(it.farm.text)+'</span>');
+if(it.farm)p.push(farmTag(it.farm));
 return p.join('<i class="sep"> · </i>');}
 /* ---------- header and summary ---------- */
 var snapDate=new Date(META.snapshot);
@@ -180,6 +186,7 @@ var FILTERS={
 rtk:function(it,d){return d?!!it.rtk[d]||it.genRtks.length>0:Object.keys(it.rtk).length>0||it.genRtks.length>0;},
 notes:function(it){return it.openNotes.length>0||it.genRtks.length>0||Object.keys(it.rtkNotes).length>0;},
 outdated:function(it){return it.outdated;},
+farm:function(it){return !!it.farm;},
 tovalid:function(it,d){return d?isDone(it.states[d])&&!validNow(it,d):Object.keys(it.states).some(function(x){return isDone(it.states[x])&&!validNow(it,x);});},
 todo:function(it,d){return d?it.states[d]&&!isDone(it.states[d]):it.tracked&&it.done<100;},
 // What this review touched: validated, withdrawn, retakes, a description.
@@ -199,7 +206,7 @@ var deps=depsOf(state.tab).filter(function(d){return D.some(function(it){return 
 if(deps.indexOf(state.dep)<0)state.dep='';
 $('depf').innerHTML='<option value="" data-short="All depts.">All departments</option>'+deps.map(function(d){return '<option value="'+esc(d)+'"'+(d===state.dep?' selected':'')+'>'+esc(cap(d))+'</option>';}).join('');
 $('depf').classList.toggle('on',!!state.dep);sync('depf');}
-function chipCounts(){document.querySelectorAll('.chipf[data-f]').forEach(function(b){b.querySelector('b').textContent=D.filter(function(it){
+function chipCounts(){var fb=document.querySelector('.chipf[data-f="farm"]');if(fb)fb.hidden=!D.some(function(it){return it.farm;});document.querySelectorAll('.chipf[data-f]').forEach(function(b){b.querySelector('b').textContent=D.filter(function(it){
 return it.tab===state.tab&&(!state.dep||state.dep in it.states)&&FILTERS[b.dataset.f](it,state.dep);}).length;});}
 // A row of the list (render(): its departments' columns).
 var rowDeps=[],rowCols='';

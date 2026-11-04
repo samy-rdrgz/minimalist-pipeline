@@ -162,6 +162,7 @@ tooltip, and the legend): six of them hold on one line. */
 .chipf.c-mine .ic,.chipf.c-valid .ic{color:var(--valid)}
 .chipf.c-rtk .ic{color:var(--rtk)}
 .chipf.c-out .ic{color:var(--wip-ink)}
+.chipf.c-farm .ic{color:var(--accent)}
 .chipf.c-notes .ic,.chipf.c-todo .ic{color:var(--ink-2)}
 .chipf[aria-pressed="true"] .ic{color:inherit}
 .chipf.c-out[aria-pressed="true"]{border-color:var(--wip-ink);color:var(--wip-ink);background:var(--wip-bg)}
@@ -276,7 +277,14 @@ the review's violet, its edge kept when selected too. */
 .r-name small .nn.todo{color:var(--wip-ink)}
 .r-name small .gr{color:var(--rtk);font-weight:600}
 .r-name small .sep{font-style:normal}
-.r-name small .farm.fail{color:var(--rtk);font-weight:600}
+.r-name small .farm,.fl-help .farm{display:inline-flex;align-items:center;gap:3px;font-weight:600;white-space:nowrap}
+.farm .ic{width:12px;height:12px;flex:none}
+.farm.run{color:var(--accent)}
+.farm.wait{color:var(--wip-ink)}
+.farm.fail{color:var(--rtk)}
+.farm.run .ic{animation:farm-pulse 1.6s ease-in-out infinite}
+@keyframes farm-pulse{50%{opacity:.35}}
+@media (prefers-reduced-motion:reduce){.farm.run .ic{animation:none}}
 .flags{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-top:4px}
 .flags:empty{display:none}
 .d{display:flex;flex-direction:column;align-items:center;gap:5px;text-align:center;min-width:0}

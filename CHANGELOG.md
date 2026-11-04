@@ -34,6 +34,10 @@ says what a review brings and what's already there.
 
 ### Changed
 
+- Snapshot page: a file's farm state has its icon and colour -- ▷ blue
+  rendering, ◷ amber queued, ⚠ red failed -- and a filter, *In the farm*,
+  lists them (shown while there's one).
+
 - Import review says what was already there and left as is -- notes
   and replies, retakes done, validations given -- in its confirm dialog
   (counted as the import will, its changes only the new ones) and in its
