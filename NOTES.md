@@ -3007,10 +3007,21 @@ saw.
 
 So: `approvals` in the stablemeta, `{department: {role: {"by", "at"}}}`,
 written by `set_department_approval()` on the *latest* stable only (a
-review import names the one it saw: refused once a newer exists, "to
-review again"). A new stable starts empty -- `create_stablemeta()` carries
-the last ones into `approvals_previous` (`_carried_approvals()`, each with
-its `file`), for "prod: v012" without reading older stables. Only a done
+review import names the one it saw: refused once that department was
+worked since, "to review again"). Since 1.1.9 a new stable keeps the
+previous one's validations of the departments not worked since
+(`create_stablemeta()`: the wipmetas after the previous stable, recorded
+as `departments_worked`; each carried one gets `carried_from`, and
+`approvals_carried: true` marks the stable). The struck "to review again"
+meant "a new version", while what changes what a role saw is work on that
+department: a stable made for the anim shouldn't send the light back to
+review. A stable from before (no `approvals_carried`) is worked out on
+reading (`_legacy_carried()`: each `approvals_previous` entry whose
+department no wipmeta worked between its stable and the latest), and
+written down by the first validation change on it, so a carried one can
+be withdrawn. The last ones still go into `approvals_previous`
+(`_carried_approvals()`, each with its `file`), for "prod: v012" without
+reading older stables. Only a done
 department's count (`_status_from_raw()` drops the others); undone then
 done again at the same stable, they come back -- same version.
 

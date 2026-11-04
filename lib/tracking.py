@@ -946,9 +946,23 @@ def create_stablemeta(
         started = set(departments)
         previous = _collect_folder(_owner_dir(Path(filepath)))
         approvals_previous = {}
+        approvals = {}
+        worked = []
         if previous:
             approvals_previous = _carried_approvals(previous["last_stable"])
             status = _status_from_raw(previous)
+            # A validation stays while its department isn't worked since:
+            # this stable shows it as the reviewer saw it.
+            worked = sorted(status["worked_departments"])
+            prev_file = previous["last_stable"].get("file")
+            approvals = {
+                d: {
+                    role: info | {"carried_from": info.get("carried_from") or prev_file}
+                    for role, info in roles.items()
+                }
+                for d, roles in (status.get("approvals") or {}).items()
+                if d in departments and d not in status["worked_departments"]
+            }
             started |= set(status["started_departments"])
             started |= set(status["validated_departments"])
             started |= set(status["worked_departments"])
@@ -968,10 +982,16 @@ def create_stablemeta(
                 (wipdata or {}).get("linked", []) + (linked or [])
             ),
             "conflict_warning": conflict_warnings,
+            # Worked since the stable before (its wipmetas): the departments
+            # whose validations weren't carried.
+            "departments_worked": worked,
+            "approvals_carried": True,
         }
+        if approvals:
+            data["approvals"] = approvals
         if approvals_previous:
-            # Approvals start empty on every stable: given to the version
-            # the role saw. The last ones, for "prod: v012, to review".
+            # The last ones given to an earlier stable, for "prod: v012,
+            # to review" once worked since.
             data["approvals_previous"] = approvals_previous
         path = _meta_path(filepath, ".stablemeta")
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -1042,8 +1062,8 @@ def set_department_approval(
 ) -> bool:
     """Approve (or withdraw) one department for a validation role on the
     latest stable -- the version the role saw. stable_file: the stable it
-    saw, if not the latest (a review spreadsheet): refused once a newer one
-    exists. A department must be done first. Writes a note under that role
+    saw, if not the latest (a review spreadsheet): refused once the
+    department was worked since it. A department must be done first. Writes a note under that role
     for the record (note: the text, else a generated one). Keyword-only:
     department/role/user are plain strings. Returns False if there was
     nothing to change. Raises PipelineError."""
@@ -1054,14 +1074,28 @@ def set_department_approval(
     last = get_last_stable(asset_dir)
     if "file" not in last:
         raise PipelineError("No stable version yet: nothing to validate.")
+    entries = _pipeline_entries(asset_dir)
     if stable_file and Path(stable_file).name != Path(last["file"]).name:
-        raise PipelineError(
-            f"{Path(last['file']).stem} was made since {Path(stable_file).stem}: "
-            "to review again."
-        )
+        worked = worked_since_stable(asset_dir, stable_file, entries)
+        if worked is None or department in worked:
+            raise PipelineError(
+                f"{Path(last['file']).stem} was made since {Path(stable_file).stem}, "
+                f"{department} worked: to review again."
+            )
+    # A stable made before 1.1.9: the validations it carries, written down
+    # before changing one (withdrawing one of them, say).
+    carried = {}
+    if "approvals_carried" not in last:
+        carried = _legacy_carried(entries, last) if last.get("approvals_previous") else {}
     path = asset_dir / ".pipeline" / (_meta_stem(Path(last["file"])) + ".stablemeta")
     with locked_json(path) as box:
         data = box["data"] or {}
+        if "approvals_carried" not in data:
+            for d, roles in carried.items():
+                for r, info in roles.items():
+                    data.setdefault("approvals", {}).setdefault(d, {}).setdefault(r, info)
+            data["approvals_carried"] = True
+            box["action"] = "to_write"
         if approved and not (data.get("departments_validated") or {}).get(department):
             raise PipelineError(f"{department} isn't done at {Path(last['file']).stem}.")
         roles = data.setdefault("approvals", {}).setdefault(department, {})
@@ -1225,11 +1259,16 @@ def _collect_folder(asset_dir: Path, entries: list | None = None) -> dict | None
     started = last_stable.get("departments_started")
     if started is None:  # a stable made before they were recorded
         started = _started_before(entries, tracking, last_stable, wipmetas, stable_date)
+    carried = {}
+    if "approvals_carried" not in last_stable and last_stable.get("approvals_previous"):
+        carried = _legacy_carried(entries, last_stable)
     return {
         "tracking": tracking,
         "last_stable": last_stable,
         "wipmetas": wipmetas,
         "started": started,
+        # A stable made before 1.1.9: the validations it would have carried.
+        "carried": carried,
     }
 
 
@@ -1299,6 +1338,89 @@ def _worked_departments(wipmetas: list, stable_date: datetime) -> dict[str, list
     return worked
 
 
+def _stablemeta_of(entries: list, stable_file: str) -> dict | None:
+    """The .stablemeta of stable_file (a stored path or a name) among a
+    .pipeline/ listing -- matched on the name, no config needed (thread-safe)."""
+    stem = Path(stable_file or "").stem
+    for entry in entries:
+        if entry.name.endswith(".stablemeta"):
+            meta_stem = entry.name.removesuffix(".stablemeta")
+            if stem == meta_stem or stem.endswith("_" + meta_stem):
+                return read_json_quiet(Path(entry.path))
+    return None
+
+
+def _worked_between(entries: list, start: datetime, end: datetime) -> set[str]:
+    """Departments worked in the wipmetas edited after start and up to end
+    -- the ones saved before start are skipped by file mtime, never opened."""
+    skip_before = start - timedelta(seconds=_CLOCK_MARGIN_SECONDS)
+    worked = set()
+    for entry in entries:
+        if not entry.name.endswith(".wipmeta") or _entry_mtime(entry) < skip_before:
+            continue
+        meta = read_json_quiet(Path(entry.path)) or {}
+        try:
+            edited = datetime.fromisoformat(meta.get("edited_at") or "")
+        except ValueError:
+            continue
+        if start < edited <= end:
+            for deps_list in (meta.get("departments_worked") or {}).values():
+                worked.update(deps_list)
+    return worked
+
+
+def worked_since_stable(asset_dir: Path, stable_file: str, entries: list | None = None) -> set[str] | None:
+    """Departments worked since stable_file was made, up to the latest
+    stable: those a validation given to it doesn't carry to the latest.
+    None if that stable isn't known."""
+    if entries is None:
+        entries = _pipeline_entries(Path(asset_dir))
+    seen = _stablemeta_of(entries, stable_file)
+    last = _latest_stable(entries)
+    try:
+        start = datetime.fromisoformat(seen["created_at"])
+        end = datetime.fromisoformat(last["created_at"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    return _worked_between(entries, start, end)
+
+
+def _legacy_carried(entries: list, last_stable: dict) -> dict:
+    """For a latest stable made before validations were carried (1.1.9):
+    the last validations of earlier stables of its done departments not
+    worked since -- what it would have carried."""
+    previous = last_stable.get("approvals_previous") or {}
+    done = {d for d, v in (last_stable.get("departments_validated") or {}).items() if v}
+    own = last_stable.get("approvals") or {}
+    try:
+        end = datetime.fromisoformat(last_stable.get("created_at") or "")
+    except ValueError:
+        return {}
+    carried: dict[str, dict] = {}
+    worked_cache: dict[str, set | None] = {}
+    for department, roles in previous.items():
+        if department not in done:
+            continue
+        for role, info in roles.items():
+            if role in (own.get(department) or {}):
+                continue
+            file = info.get("file") or ""
+            if file not in worked_cache:
+                seen = _stablemeta_of(entries, file)
+                try:
+                    start = datetime.fromisoformat(seen["created_at"])
+                    worked_cache[file] = _worked_between(entries, start, end)
+                except (KeyError, TypeError, ValueError):
+                    worked_cache[file] = None
+            worked = worked_cache[file]
+            if worked is None or department in worked:
+                continue
+            carried.setdefault(department, {})[role] = {
+                k: v for k, v in info.items() if k != "file"
+            } | {"carried_from": file}
+    return carried
+
+
 def _status_from_raw(raw: dict) -> dict:
     """A folder's tracking status from _collect_folder()'s data -- memory
     only, no disk."""
@@ -1322,11 +1444,13 @@ def _status_from_raw(raw: dict) -> dict:
     worked_departments = _worked_departments(raw["wipmetas"], stable_date)
 
     # Approved by a validation role at the latest stable -- only while done.
-    approvals = {
-        d: dict(roles)
-        for d, roles in (last_stable.get("approvals") or {}).items()
-        if d in validated_departments and roles
-    }
+    # Carried from the stable before when not worked since (a stable made
+    # before 1.1.9: worked out on reading, see _legacy_carried()).
+    approvals = {}
+    for source in (raw.get("carried") or {}, last_stable.get("approvals") or {}):
+        for d, roles in source.items():
+            if d in validated_departments and roles:
+                approvals.setdefault(d, {}).update(roles)
 
     deps_items = [
         (d, d.capitalize(), "", 2**i)
@@ -1423,7 +1547,9 @@ def _approval_lines(data: dict, department: str) -> list[str]:
     for role, cover, info in department_approvals(data, department):
         if cover == role:
             when = (info.get("at") or "")[:16].replace("T", " ")
-            lines.append(f"   {role}: validated by {info.get('by', '?')} ({when})")
+            since = info.get("carried_from")
+            on = f" on {Path(since).stem}, not worked since" if since else ""
+            lines.append(f"   {role}: validated by {info.get('by', '?')} ({when}){on}")
         elif cover:
             lines.append(f"   {role}: covered by {cover} ({info.get('by', '?')})")
         elif role in previous:

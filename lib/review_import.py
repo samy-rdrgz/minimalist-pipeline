@@ -45,6 +45,7 @@ from .tracking import (
     close_entry,
     _collect_folder,
     _status_from_raw,
+    worked_since_stable,
     create_entry,
     entry_departments,
     find_file_by_name,
@@ -571,6 +572,7 @@ def review_import_plan(path: Path, review: dict | None = None) -> dict:
                 f"{Path(path).name}: '{role}' isn't one of this project's validation roles "
                 f"({', '.join(sorted(roles)) or 'none'}), nor team."
             )
+    worked_since: dict = {}
     for row, wanted, every, _ in actions:
         name = row["filename"]
         if not (wanted or every):
@@ -602,9 +604,13 @@ def review_import_plan(path: Path, review: dict | None = None) -> dict:
                 plan["validations_known"] += 1  # given already: left as is
             elif department not in status.get("departments_required", []):
                 plan["refused"].append((label, "department not required"))
-            elif seen and current and seen != current:
+            elif seen and current and seen != current and department in (
+                worked_since.setdefault(name, worked_since_stable(filepath.parent, seen))
+                or {department}
+            ):
+                # Not refused while untouched since: what was seen is still there.
                 plan["refused"].append(
-                    (label, f"{current} made since {seen}: to review again")
+                    (label, f"{current} made since {seen}, {department} worked: to review again")
                 )
             elif choice == "yes" and department not in done_now:
                 plan["refused"].append((label, "not done (yet, or any more)"))

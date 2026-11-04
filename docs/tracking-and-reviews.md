@@ -52,8 +52,10 @@ it saw.
 - **Validating**: in a file's detail, a star next to each done department
   gives or withdraws your role's validation (its tooltip lists every
   role: validated, covered by a higher one, or not). It's kept on the
-  latest stable: a new stable starts with none -- the role hasn't seen it
-  -- and shows the last one given ("prod: v012, to review again").
+  latest stable, and a new stable keeps it while that department wasn't
+  worked since (1.1.9: "validated on v012, not worked since"); worked
+  since, the new stable starts without -- the role hasn't seen it -- and
+  shows the last one given ("prod: v012, to review again").
   Withdrawing or giving it writes a note under your role, for the record.
 - **Notes under a role**: a note, todo or RTK written by someone with a
   role carries it (violet mark), and so do the notes imported from a
@@ -69,7 +71,8 @@ it saw.
   validated; a filter (the star) lists the files with a done department
   still to validate -- for your role, or by any role if you have none.
 - **Snapshot**: "✓ prod" under a department's mark (each role in its
-  tooltip), struck through for one given to an earlier stable (the
+  tooltip), struck through for one given to an earlier stable and worked
+  since (the
   file's panel says which: "✓ sup on v012, to review again").
   A *Validated* figure sits apart from Done -- per section, group and
   file, in violet: the share of the required
@@ -100,8 +103,8 @@ it saw.
   - empty: nothing changes.
 
   The import asks first, naming the role and listing the validation
-  changes, then refuses any validation of a file with a newer stable
-  since the snapshot. A template exported by an earlier version still
+  changes, then refuses any validation of a department worked since the
+  stable the review saw (a newer stable without it worked keeps it). A template exported by an earlier version still
   imports, as it was read then.
 
 - **Review on the page** (1.1.5): instead of the spreadsheet, *✎ Review*

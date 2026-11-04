@@ -218,8 +218,11 @@ def _approval(item: dict, department: str, roles: list) -> dict | None:
             cover = covering_role(approvals, role["name"], roles)
             info = approvals.get(cover) or {}
             if cover == role["name"]:
+                since = info.get("carried_from")
+                on = f" on {_short_version(item['name'], Path(since).name)}" if since else ""
                 lines.append(
-                    f"{role['name']}: validated by {info.get('by', '?')} ({_day(info.get('at') or '')})"
+                    f"{role['name']}: validated by {info.get('by', '?')}{on} ({_day(info.get('at') or '')})"
+                    + (", not worked since" if since else "")
                 )
             elif cover:
                 lines.append(f"{role['name']}: covered by {cover}")

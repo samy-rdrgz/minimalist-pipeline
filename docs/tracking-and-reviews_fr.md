@@ -53,9 +53,11 @@ la prod -- sur la version qu'il a vue.
 - **Valider** : dans le détail d'un fichier, une étoile à côté de chaque
   département fini donne ou retire la validation de votre rôle (son
   infobulle liste chaque rôle : validé, couvert par un plus haut, ou non).
-  Elle est gardée sur le dernier stable : un nouveau stable repart sans --
-  le rôle ne l'a pas vu -- et affiche la dernière donnée (« prod : v012, à
-  revoir »). La donner ou la retirer écrit une note sous votre rôle, pour
+  Elle est gardée sur le dernier stable, et un nouveau stable la garde
+  tant que ce département n'a pas été retravaillé depuis (1.1.9 :
+  « validated on v012, not worked since ») ; retravaillé, le nouveau
+  stable repart sans -- le rôle ne l'a pas vu -- et affiche la dernière
+  donnée (« prod : v012, à revoir »). La donner ou la retirer écrit une note sous votre rôle, pour
   la trace.
 - **Notes sous un rôle** : une note, todo ou RTK écrite par quelqu'un qui a
   un rôle le porte (marque violette), comme les notes importées d'un
@@ -75,7 +77,7 @@ la prod -- sur la version qu'il a vue.
   vous n'en avez pas.
 - **Snapshot** : « ✓ prod » sous la marque d'un département (chaque
   rôle dans son infobulle), barré pour une validation donnée sur un
-  stable antérieur (le panneau du fichier dit lequel : « ✓ sup on v012,
+  stable antérieur et retravaillé depuis (le panneau du fichier dit lequel : « ✓ sup on v012,
   to review again »). Un chiffre *Validated* s'affiche à part du Done --
   par section, groupe et fichier, en violet : la part des départements
   requis validés par le rôle le plus haut (ou un de son niveau) au stable
@@ -108,8 +110,9 @@ la prod -- sur la version qu'il a vue.
   - vide : rien ne change.
 
   L'import demande d'abord, en rappelant le rôle et la liste des
-  validations, puis refuse toute validation d'un fichier qui a un stable
-  plus récent que le snapshot. Un tableur exporté par une version
+  validations, puis refuse toute validation d'un département retravaillé
+  depuis le stable vu par la review (un stable plus récent sans y avoir
+  touché la garde). Un tableur exporté par une version
   précédente s'importe toujours, lu comme avant.
 
 - **Review dans la page** (1.1.5) : au lieu du tableur, *✎ Review*

@@ -18,6 +18,14 @@ says what a review brings and what's already there.
   watched, anything else that department's cell (an *All done* lost
   there can't be told apart: validate it again).
 
+- Validations: a new stable no longer sends every validated department
+  back to review. A validation stays on it while that department wasn't
+  worked since (the versions after the stable before: the stable records
+  them now, `departments_worked`); worked, it's struck, "to review
+  again", as before. Stables made before are read the same way, nothing
+  to redo. A review of an older stable validates a department not worked
+  since, instead of refusing it.
+
 - Snapshot page: files with no tracking, once shown, take their place in
   their group (sq040_sh010 first), not after the others.
 
