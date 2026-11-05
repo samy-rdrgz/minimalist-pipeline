@@ -172,13 +172,10 @@ def render_chunk(k: int, start: int, end: int, folder: str) -> str:
 
 
 def render_chunks() -> str:
-    """Walk the chunks from the first, rendering every one free, again and
-    again while a pass rendered something: a chunk another machine let go
-    behind this one (stopped mid-chunk) is picked up without a new Blender.
-    Ends on a pass that found nothing to claim -- every chunk complete on
-    disk or held elsewhere --, on a stop, or between two chunks when the
-    farm host wants this machine on a higher-priority job. Returns why it
-    stopped."""
+    """Render every free chunk from the first, pass after pass while one
+    rendered something (a chunk let go behind is picked up); ends on a pass
+    with nothing to claim, a stop, or a call to a higher-priority job
+    between chunks. Returns why it stopped."""
     start, end, folder = START, END, FOLDER
     os.makedirs(folder, exist_ok=True)
     rendered = True

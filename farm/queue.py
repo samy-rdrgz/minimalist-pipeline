@@ -155,14 +155,10 @@ def _setup_unblocks_idle(data: dict, jobs: list, idle: dict) -> bool:
 
 
 def read_active_jobs(scan_dir: Path) -> list[tuple[Path, dict]]:
-    """(path, data) of every job in actives/ that may still need work,
-    read without a lock: writes are atomic (read_json_quiet()), and the
-    lock taken here on every job, every tick, was fought over by the setup
-    and render subprocesses -- some lost it and rendered without their
-    preset -- and its .lock file churn changed actives/'s mtime every tick,
-    so the UI re-read every job every refresh. Whatever acts on a job
-    re-reads it under its own lock. A job unreadable right now (mid-replace
-    on Windows) is just skipped this tick."""
+    """(path, data) of every job in actives/ that may still need work, read
+    without a lock (whoever acts on one re-reads it under its own); one
+    unreadable right now is skipped this tick. See NOTES.md, "Monitor tick:
+    read without a lock, decide once"."""
     jobs = []
     seen = set()
     try:
@@ -424,14 +420,11 @@ def _render_time_left(data: dict, machines: int, project_root: Path) -> float | 
 
 
 def _give_way_to_priority(jobs: list, idle: dict, project_root: Path) -> None:
-    """Workers stay on a render while it has chunks to take: a job of a
-    higher priority set up meanwhile only had the machines idle then. Once
-    no idle machine is left for it, machines on lower-priority renders are
-    asked to give way after their chunk in progress (render_yield_path()),
-    the lowest priority first -- never for an equal one, nor from a render
-    with less than priority_switch_seconds() left. A machine already asked
-    counts as one of those wanted. jobs: scan_queue()'s, highest
-    priority first. See NOTES.md, "Priority: giving way between chunks"."""
+    """Ask machines on lower-priority renders to give way after their chunk
+    (render_yield_path()), lowest first, once a higher-priority job has no
+    idle machine left -- never for an equal priority, nor a render about to
+    end. jobs: scan_queue()'s, highest priority first. See NOTES.md,
+    "Priority: giving way between chunks"."""
     priority = {data.get("job_id"): _priority(data) for _, data in jobs}
     workers = scan_workers()
     busy = {
@@ -978,13 +971,9 @@ def _leave_job(job_id: str, machines: list) -> None:
 def cancel_pending_renders(
     job_id: str, machines: list, whole_job: bool = False
 ) -> list:
-    """Cancel side for the machines that haven't picked up their render
-    request for job_id yet: the request is deleted (a cancel file would find
-    nothing to kill, and the request would still run later). whole_job: the
-    job's Cancel, not one machine's (_withdraw_requests()); one machine's
-    takes it off the job (left_machines): not sent back to this render
-    while another job wants it. Returns the machines still to cancel
-    through a cancel file (their render is running)."""
+    """Delete job_id's render requests not picked up yet; whole_job: the
+    job's Cancel, else one machine's, which also puts it in left_machines.
+    Returns the machines whose render runs: to cancel through a cancel file."""
     if not whole_job:
         _leave_job(job_id, machines)
     dropped = _withdraw_requests(job_id, machines, cancel=whole_job)
@@ -1001,17 +990,11 @@ _MACHINE_LETTERS = string.ascii_uppercase + string.ascii_lowercase + string.digi
 
 
 def _note_frames(data: dict) -> None:
-    """From every machine's saved_frames_path() record of the job -- every
-    round so far, not only this one's -- into data, for its detail and its
-    render history:
-    - machine_seconds / seconds_per_frame: the mean seconds per frame of
-      each machine and of the job (frame_seconds());
-    - frame_machines: which machine wrote each frame, {"start": first
-      frame, "frames": one letter per frame of the range, "." if none is
-      known, "machines": {letter: [uuid, name]}} -- a byte a frame, read
-      through machine_for_frame(). A frame written in several rounds: this
-      round's machine, else the latest line's.
-    Nothing for workers on a version that records no time / no frame."""
+    """Into data, from every machine's saved_frames_path() record of the job
+    (every round): machine_seconds and seconds_per_frame (frame_seconds()),
+    and frame_machines -- {"start", "frames": a letter per frame, "." if
+    unknown, "machines": {letter: [uuid, name]}} -- read by
+    machine_for_frame(). See NOTES.md, "Which machine rendered which frame"."""
     start, end = (int(x) for x in data.get("resolved_frame_range") or (0, 0))
     dispatch_id = data.get("dispatch_id")
     per_machine, timed, writers = {}, [], {}
@@ -1296,22 +1279,13 @@ def check_render_completion(
     idle: dict | None = None,
     with_left: bool = False,
 ) -> dict | None:
-    """Monitor-only, every tick of a job at render_start (see NOTES.md,
-    "Farm 1.1.0: chunks replace placeholders"):
-    - claims no render holds any more freed (_dead_claims(), _free_claims());
-    - the job's Cancel, or a chunk failed on MAX_CHUNK_ATTEMPTS machines:
-      its machines stopped, render_failed once none is left on it;
-    - every frame on disk, no claim left: render_finished (_finish_render());
-    - chunks free: sent to idle machines (idle: idle_machines() for this
-      tick, those given the job taken out of it) -- one at most in "single"
-      mode, else one per free chunk, less those already starting on it;
-      none free: requests not taken up withdrawn; with_left: the machines
-      cancelled off it (left_machines) too -- scan_queue()'s second pass;
-    - nobody on it, chunks free, every live worker allowed on it failed it:
-      render_failed.
-
-    data: the job as scan_queue() read it (no lock): nothing is locked
-    while it simply renders -- every tick of a render of hours."""
+    """Monitor-only, every tick of a job at render_start: frees dead claims,
+    stops a cancelled or failed job, finishes one with every frame on disk,
+    sends free chunks to idle machines (idle: this tick's idle_machines(),
+    those given a job taken out), withdraws requests not taken up
+    (with_left: the machines cancelled off it too). data: the job as
+    scan_queue() read it, no lock. See NOTES.md, "Farm 1.1.0: chunks replace
+    placeholders"."""
     if data is None:
         data = read_json_quiet(job_path)
         if not data:
@@ -1452,13 +1426,8 @@ _NOT_INPUT = ("Parsed_", "[out#", "[fc#", "[vf#", "[swscaler", "[auto_scale", "[
 
 def corrupted_frames(log_text: str, data: dict) -> list[int]:
     """Frame numbers the frame check found corrupted, read off its ffmpeg
-    output. Decoding single-threaded, every decoder error or warning comes
-    right before the showinfo line of the frame it's about; a frame ffmpeg
-    couldn't decode at all has no line: a gap in pts -- the errors before
-    the frame after a gap count for both (one frame rendered again for
-    nothing beats a corrupted one kept). [] if the output has no frame line
-    at all (unreadable log): nothing can be told. See NOTES.md, "Frame
-    check: naming the corrupted frames"."""
+    output; [] when it has no frame line at all. See NOTES.md, "Frame check:
+    naming the corrupted frames"."""
     start, end = (int(x) for x in data.get("resolved_frame_range") or (0, 0))
     total = end - start + 1
     bad: set[int] = set()

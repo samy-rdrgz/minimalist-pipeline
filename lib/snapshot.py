@@ -91,16 +91,11 @@ def _owner_shots(owner: Path) -> list[str]:
 
 
 def read_render_state(root: Path, kind: str, owner: Path, v_prefix: str = "v") -> list:
-    """What was last rendered for an asset/shot folder, per shot (a block
-    has several, anything else one): [{"shot", "file", "folder", "path",
-    "frames", "frame_machines", "machine_seconds"}] (the last two None
-    without them), path the render folder's absolute path, frames its
-    [first, last] frame (the history's frame_range_rendered, else its
-    images' numbers; None unknown) -- its video's first frame is the first. From the
-    folder's render_history.json -- its last finished render of that shot,
-    file = the .blend it rendered -- else (no such entry, or an entry from
-    before source_file came after it) from the latest render folder's own
-    name (renders/<seq>/<shot>/v004-stable_002). Pure os/json: thread-safe."""
+    """What was last rendered for an asset/shot folder, one line per shot:
+    [{"shot", "file", "folder", "path", "frames", "frame_machines",
+    "machine_seconds"}], frames its [first, last] (None unknown). From
+    render_history.json's last finished render of that shot, else the latest
+    render folder's name. Pure os/json: thread-safe."""
     history = read_json_quiet(owner / ".pipeline" / "render_history.json") or {}
     finished = [
         e
@@ -372,12 +367,10 @@ def read_snapshot_data(
     root: Path, thumbnails: dict | None = None, v_prefix: str = "v"
 ) -> dict:
     """read_snapshot_raw() plus each folder's last render
-    (read_render_state()) and thumbnails: those missing or older than
-    their latest render are remade first (one headless Blender, waited on
-    -- run this on a thread). thumbnails: {"size", "blender", "ffmpeg"},
-    None to skip them. Returns {"raws", "renders": {owner:
-    [... + "video", its mp4 under renders/ or None]}, "thumbs": {owner: base64 JPEG}, "shot_thumbs": {block owner:
-    [(shot label, base64 JPEG or None)]}, "thumb_warnings": [...]}."""
+    (read_render_state()) and thumbnails, remade first when missing or older
+    than their render (one headless Blender, waited on: run it on a thread).
+    thumbnails: {"size", "blender", "ffmpeg"}, None to skip. Returns
+    {"raws", "renders", "thumbs", "shot_thumbs", "thumb_warnings"}."""
     raws = read_snapshot_raw(root)
     renders = {
         str(owner): read_render_state(root, kind, owner, v_prefix)

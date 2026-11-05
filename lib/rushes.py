@@ -65,14 +65,12 @@ def _note_updated(path: Path, changes: list[tuple], user: str) -> None:
 
 
 def push_rushes(project_root: Path, videos: list[Path], user: str) -> dict:
-    """Copy each video (a shot render's mp4) into the rushes, replacing the
-    one of the same name: copied beside it, then renamed onto it -- the
-    edit never sees half a file. One already pushed from the same render
-    (rushes.json: same source, size and date) is left alone. A replace
-    refused (the file open in the editing software) is reported, the old
-    one kept. rushes.json records, per rush, its source, render folder and
-    the .blend version it was rendered from; _UPDATED.txt, what came in.
-    -> {"copied": [names], "unchanged": int, "failed": [(name, reason)]}"""
+    """Copy each video into the rushes under its fixed name (copied beside,
+    then renamed onto it); one already pushed from the same render is left
+    alone, a replace refused (open in the edit) reported. Records it in
+    rushes.json and _UPDATED.txt. -> {"copied", "unchanged", "failed":
+    [(name, reason)]}. See NOTES.md, "Rushes: copies under fixed names, not
+    links"."""
     project_root = Path(project_root)
     rushes = project_root / RUSHES_DIR
     manifest_path = rushes / RUSHES_MANIFEST

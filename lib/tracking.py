@@ -720,16 +720,11 @@ def create_wipmeta(
 
 
 def ensure_wipmeta(filepath: Path, links: list[dict]) -> bool:
-    """Create the missing .wipmeta of a versioned, non -stable .blend:
-    one saved by Blender's own File > Save As / Save Incremental (only
-    Ctrl+S goes through the addon), copied by hand, or whose
-    create_wipmeta() failed after the save. Without it the version is
-    invisible to tracking, and a -stable made from it gets no linked list.
-    linked = links (the file's own, see scan_linked_libraries()), not the
-    previous version's: nothing says where this one came from. Returns
-    True when one was created. Only for the folder's latest version: an
-    older one reopened would become the "last wipmeta" new versions inherit
-    from. See NOTES.md, "A version without .wipmeta"."""
+    """Create the missing .wipmeta of the folder's latest versioned, non
+    -stable .blend (one saved outside Ctrl+S, copied by hand, or whose
+    create_wipmeta() failed), its linked list from links
+    (scan_linked_libraries()). True when one was created. See NOTES.md, "A
+    version without .wipmeta"."""
     filepath = Path(filepath)
     parsed = parse_filename(filepath.name)
     if not parsed or parsed.get("tag") == "stable":
@@ -777,13 +772,9 @@ _session_worked_cache: dict[str, list[str]] = {}
 def wipmeta_add_work(
     filepath: Path, departments: list[str] = [], linked_libs: list[str] | None = None
 ):
-    """Record, in this version's .wipmeta, which departments were worked
-    this session, and resync linked-libs against the file's actual links.
-    linked_libs: pass a pre-captured list when filepath's file is already
-    closed (bpy.data no longer refers to it). No-op, doesn't raise, if
-    filepath has no .wipmeta -- a -stable file has none by design (only a
-    .stablemeta), and there's nothing to track on it; same rule as
-    wipmeta_touch()."""
+    """Record the departments worked this session in this version's .wipmeta
+    and resync its linked libs (linked_libs: pre-captured, once the file is
+    closed). No-op without a .wipmeta (a -stable file), as wipmeta_touch()."""
     id = f"{os.getpid()}_{get_machine_id()}"
     path = _meta_path(filepath, ".wipmeta")
     if not path.exists():
@@ -880,15 +871,11 @@ def wipmeta_add_link(filepath: Path, link: list[dict]):
 
 
 def wipmeta_sync_links(filepath: Path, links: list[dict]) -> int:
-    """Add to this version's .wipmeta linked list every file of links
-    (see scan_linked_libraries()) it doesn't already have -- for links that
-    never went through an import event: a file migrated from outside the
-    pipeline, a library repointed by hand or by a script... Add-only
-    (removal stays clean_libraries()'s job). Also rewrites an older list
-    (one entry per datablock) as one entry per file. Writes nothing when
-    nothing changed, so it's cheap to call on every load/save. Returns the
-    number of files added; 0, no raise, without a .wipmeta (-stable file),
-    same rule as wipmeta_touch()."""
+    """Add to this version's .wipmeta every file of links
+    (scan_linked_libraries()) it lacks, an older per-datablock list
+    rewritten per file; add-only, nothing written when unchanged. Returns
+    the number added; 0 without a .wipmeta (a -stable file), as
+    wipmeta_touch()."""
     return _meta_sync_links(_meta_path(filepath, ".wipmeta"), links)
 
 
@@ -934,12 +921,11 @@ def create_stablemeta(
     linked: list[dict] | None = None,
     worked: list[str] | None = None,
 ):
-    """Create the .stablemeta for a -stable version: validated departments,
-    inherited linked libs plus `linked` (the file's own, see
-    scan_linked_libraries() -- what's left when the source has no meta),
-    any conflict warning. worked: the departments worked this session --
-    a stable made from a stable has no .wipmeta to say it. Keyword-only: filepath/original_filepath are both
-    Path, a positional call risks swapping them."""
+    """Create the .stablemeta of a -stable version: validated departments,
+    the validations carried from the stable before (departments not worked
+    since), inherited linked libs plus linked (the file's own), any conflict
+    warning. worked: the departments worked this session (a stable made from
+    a stable has no .wipmeta). Keyword-only."""
     try:
         original_suffix = (
             ".stablemeta" if "-stable.blend" in original_filepath.name else ".wipmeta"
@@ -1069,12 +1055,10 @@ def set_department_approval(
     note: str = "",
 ) -> bool:
     """Approve (or withdraw) one department for a validation role on the
-    latest stable -- the version the role saw. stable_file: the stable it
-    saw, if not the latest (a review spreadsheet): refused once the
-    department was worked since it. A department must be done first. Writes a note under that role
-    for the record (note: the text, else a generated one). Keyword-only:
-    department/role/user are plain strings. Returns False if there was
-    nothing to change. Raises PipelineError."""
+    latest stable, writing a note under that role (note, else a generated
+    one). stable_file: the stable it saw, if older -- refused once the
+    department was worked since. A department must be done first. False if
+    nothing changed. Raises PipelineError."""
     role = role.strip().lower()
     if role not in {r["name"] for r in validation_roles()}:
         raise PipelineError(f"'{role}' isn't one of the project's validation roles.")
@@ -1384,11 +1368,9 @@ def _worked_since(
     entries: list, start: datetime, end: datetime, tracking: dict
 ) -> set[str]:
     """Departments worked after start, up to end: the wipmetas edited
-    between, and what each stable made between recorded (1.1.9's
-    departments_worked -- the only record for one made from a stable).
-    Through a stable made from a stable before 1.1.9, which recorded
-    nothing: the departments an RTK was opened or closed on meanwhile --
-    validated, untouched unless sent back."""
+    between and each stable made between's departments_worked; through a
+    stable made from a stable before 1.1.9 (none recorded), those an RTK was
+    opened or closed on meanwhile."""
     worked = _worked_between(entries, start, end)
     blind = False
     for entry in entries:
@@ -1570,13 +1552,10 @@ def open_rtks(data: dict) -> tuple[set[str], bool]:
 
 
 def department_status_tooltip(data: dict, department: str) -> str:
-    """Hover text for one department's status cell/toggle, from
-    TrackingStatusCache's already-computed worked_departments/
-    validated_departments/stable_info. No per-department author or
-    timestamp is stored on disk -- toggling "validated" doesn't stamp
-    who/when -- so this surfaces the closest real info instead: the stable
-    version a department was validated with, and which versions (and who)
-    worked it since."""
+    """Hover text for one department's status cell, from
+    TrackingStatusCache's worked_departments / validated_departments /
+    stable_info: the stable it was validated with, and who worked it in
+    which version since."""
     validated = department in data.get("validated_departments", {})
     worked = data.get("worked_departments", {}).get(department, [])
     stable = data.get("stable_info") or {}
@@ -1826,17 +1805,12 @@ def create_entry(
     role: str | None = None,
     render: str | None = None,
 ):
-    """Append a note/todo/rtk entry to the owning asset's tracking.json.
-    Keyword-only: text/author/type are plain strings, a positional call
-    risks silently swapping them. departments: none, one or several
-    (_set_entry_departments()).
-    shot: free-text tag (e.g. "045"), not validated against anything.
-    created_at: ISO date to stamp instead of now() (an imported review's
-    own date). source: where it came from when not typed in Blender
-    ("prod_review"); absent = created by hand. role: the validation role it
-    was written under ("prod"), absent = the team's own. render: the
-    render folder a review note was written watching (v007-stable_001),
-    referenced_version then the .blend it was rendered from."""
+    """Append a note/todo/rtk entry to the owner's tracking.json.
+    departments: none, one or several; shot: a free tag; created_at: a date
+    instead of now() (an imported review's); source: where it came from when
+    not typed in Blender; role: the validation role it's written under
+    (absent: the team's); render: the render folder a review note watched,
+    referenced_version then its .blend. Keyword-only."""
     try:
         path = tracking_json_path(filepath, must_exist=True)
         with locked_json(path) as box:
@@ -1898,16 +1872,10 @@ def edit_entry(
     referenced_version: str | None = None,
     shot: str | None = None,
 ):
-    """Update an existing entry (matched by id) in the owning asset's tracking.json.
-
-    Keyword-only past filepath: text/editor are plain strings, a positional
-    call risks silently swapping them. departments replaces the entry's.
-    editor is stamped as edited_by/edited_at -- unlike create_entry()'s
-    author/created_at, it never overwrites who originally wrote the entry
-    or when.
-    Unlike create_entry(), this replaces the frame/version state outright --
-    passing f_start=None clears a previously tagged frame_start/frame_end/
-    frame_reference rather than leaving the old values in place."""
+    """Update an entry (matched by id) in the owner's tracking.json: its
+    departments and frame/version state replaced outright (f_start=None
+    clears the frames), editor stamped as edited_by/edited_at -- the author
+    and created_at kept. Keyword-only past filepath."""
     try:
         path = tracking_json_path(filepath, must_exist=True)
         with locked_json(path) as box:
@@ -2004,27 +1972,9 @@ def get_entries_grouped(filepath: str) -> list:
 
 
 def group_entries_by_review(entries: list) -> list[dict]:
-    """Group entries into review boxes for draw_entries():
-
-        [{"review_id": "a1b2c" | None, "threads": [
-            {"root": entry, "replies": [entry, ...], "meta": {...}},
-            ...
-        ]}, ...]
-
-    A thread is a root entry (response is unset) plus every descendant that
-    answers it, transitively, flattened and sorted chronologically. Only the
-    ROOT's review_id decides which box a thread lands in -- a reply can carry
-    its own, different review_id (it was added in a later review session),
-    that doesn't move the thread; it only marks where, in the flattened
-    replies, a draw-time separator belongs (compare consecutive replies'
-    review_id -- different, or None, means "space here").
-    A root with no review_id (created outside any multi-entry review) is
-    standalone: it gets its own box, never merged with other standalone
-    roots just because they all lack a review_id.
-    Boxes, and threads within a box, are ordered by most recent activity
-    first (root or any reply, whichever is latest) -- a chronological feed,
-    newest on top.
-    """
+    """Entries as review boxes for draw_entries(): [{"review_id", "threads":
+    [{"root", "replies", "meta"}]}], newest activity first. See NOTES.md,
+    "Batched review input, still one entry each"."""
     by_parent: dict[str, list[dict]] = {}
     for e in entries:
         parent = e.get("response")
@@ -2104,25 +2054,11 @@ def filter_review_boxes(
     department: str = "NONE",
     min_version: int = 0,
 ) -> list[dict]:
-    """Filter review boxes (as returned by group_entries_by_review) for
-    draw_entries(). Filtering is per-THREAD -- a whole thread is kept if it
-    matches, so replies are never orphaned by their root getting filtered
-    out:
-      - hide_done: drops threads whose ROOT is done AND that have no
-        still-pending reply (a reply with done is False). A done root with
-        an unresolved todo/rtk reply stays visible -- otherwise that reply
-        would vanish along with the parent, silently losing track of it.
-      - department: keeps a thread with no department-tagged entry at all
-        (a general note, always shown) or where `department` is among its
-        meta departments. "NONE" means no filter.
-      - min_version: keeps a thread that references no version at all
-        (nothing to compare, always shown) or whose highest referenced
-        version is >= min_version. 0 means no filter.
-    Drops boxes left with zero threads. Pure: never mutates review_boxes or
-    anything inside them -- those come straight out of TrackingStatusCache's
-    mtime-cache, shared across every redraw until the file changes; mutating
-    in place would corrupt it permanently, even after the filter is reset.
-    """
+    """group_entries_by_review()'s boxes filtered per thread: hide_done (a
+    done root with an open reply kept), department ("NONE": no filter;
+    untagged threads kept), min_version (0: no filter; threads without a
+    version kept); empty boxes dropped. Pure, never mutates its input (see
+    NOTES.md, "Batched review input, still one entry each")."""
 
     def keep(thread: dict) -> bool:
         if hide_done and thread["root"].get("done") is True:
@@ -2380,12 +2316,8 @@ def library_updates(update: list[tuple[bpy.types.Library, str]]):
 
 def wipmeta_update_libraries(filepath: Path, update):
     """Rewrite linked-lib paths in this version's .wipmeta after a library
-    reload (old path -> new stable path). No-op, doesn't raise, if filepath
-    has no .wipmeta: check_library_update() runs (and "Update libraries" can
-    be clicked) on any open file, -stable included -- by the time this
-    runs, library_updates() has already repointed/reloaded the libraries
-    themselves, so there's nothing left to roll back, just no wipmeta to
-    log it in; same rule as wipmeta_touch()."""
+    reload (old path -> new stable path). No-op without a .wipmeta (a
+    -stable file), as wipmeta_touch()."""
     path = _meta_path(filepath, ".wipmeta")
     if not path.exists():
         return
@@ -2541,14 +2473,11 @@ def owner_render_dirs(project_root: Path, owner: Path, kind: str) -> list[Path]:
 
 
 def delete_owner(project_root: Path, owner: Path, kind: str, renders: str) -> dict:
-    """Take an asset/shot out of the project, the addon's way: its tracking
-    marked archived (gone from every list), its folder moved into old/ next
-    to it, its renders (owner_render_dirs()) moved into old/ too, deleted
-    (renders="delete"), or left (renders="keep"). Never a delete of the
-    folder itself: old/ is where it can be found again. The caller checks
-    first (nobody working in it, no file linking it). Returns {"folder":
-    where it went, "renders": [where each went, or deleted]}. Raises
-    PipelineError."""
+    """Take an asset/shot out of the project: its tracking marked archived,
+    its folder moved into old/ beside it, its renders (owner_render_dirs())
+    moved there too, deleted (renders="delete") or left ("keep"). The caller
+    checks first that nobody works in it nor links it. Returns {"folder",
+    "renders"}. Raises PipelineError."""
     import shutil
 
     owner = Path(owner)

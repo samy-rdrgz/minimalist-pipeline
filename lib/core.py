@@ -302,14 +302,10 @@ def draw_box_tip(
     icon: str = "INFO",
     width_px: float | None = None,
 ) -> None:
-    """Short concept explanation drawn inline in a panel, capped to a few
-    lines regardless of panel width (see text_to_lines()/lines_budget()).
-    No-op unless the user's experience_level preference is "BEGINNER" --
-    call unconditionally from a panel's draw(), the gating lives here.
-    width_px: leave unset in a panel's draw() to size from the panel's real
-    width; pass the popup's own invoke_popup(width=...)/invoke_props_dialog
-    (width=...) value when calling this from a popup operator's draw()
-    instead -- see region_char_budget()'s docstring."""
+    """A short concept tip drawn in a panel, capped to a few lines; no-op
+    unless experience_level is "BEGINNER" (call it unconditionally).
+    width_px: unset in a panel's draw(), the popup's own width from a
+    popup's (region_char_budget())."""
     pref = addon_pref(context)
     if not pref or getattr(pref, "experience_level", "BEGINNER") != "BEGINNER":
         return
@@ -462,13 +458,8 @@ def random_display_name() -> str:
 
 
 def path_reachable(path: str | Path) -> bool:
-    """Like Path(path).exists(), but never raises. Path.exists() only
-    swallows a narrow set of errno (ENOENT/ENOTDIR/EBADF/ELOOP) -- a mount
-    that vanished mid-session (NAS dropped, drive unmapped) surfaces as
-    ENODEV or similar instead and propagates as an uncaught OSError.
-    Use this for any project-root reachability check: unlike a plain file
-    inside an already-known-good project, the root itself is exactly the
-    path a disconnected NAS breaks."""
+    """Path(path).exists() that never raises -- for any project-root check
+    (see NOTES.md, "Small gotchas, out of the docstrings")."""
     try:
         return Path(path).exists()
     except OSError:
@@ -774,18 +765,13 @@ def write_json_atomic(path: Path, data, attempts: int = 5) -> None:
 
 @contextmanager
 def locked_json(path: Path, read_only=False, retries: int = 10, io_attempts: int = 5):
-    """Read/write a JSON file under a cross-process lock. Yields a mutable
-    box {"data": <parsed JSON or None>, "action": ""} -- set action to
-    "to_write" (atomic tmp + os.replace) or "to_delete" to commit on exit,
-    leave it "" for a plain read. read_only=False (default) acquires an
-    exclusive lock, raising PipelineError if still held after retries (may
-    steal a stale one); read_only=True never takes/steals/releases it --
-    waits briefly for an in-flight write, then reads regardless (a write
-    attempt is refused and logged, not silently dropped).
-    retries: lock polls, 0.1 s apart; UI-thread readers pass 0 (writes are
-    atomic, a read sees the old or the new file, never half of one).
-    io_attempts: tries for the final replace/remove (retry_shared_io()); 1
-    for a best-effort write that mustn't stall its caller."""
+    """Read/write a JSON file under a cross-process lock. Yields {"data",
+    "action"}: set action to "to_write" (atomic replace) or "to_delete" to
+    commit on exit. read_only=False: an exclusive lock, PipelineError if
+    still held after retries (a stale one stolen); True: no lock, a brief
+    wait for a write in flight. retries: polls 0.1 s apart (0 on the UI
+    thread). io_attempts: tries for the final replace/remove
+    (retry_shared_io())."""
     machine_id = get_machine_id()
     if read_only:
         if retries > 0:  # 0: don't even look at the lock file
