@@ -27,7 +27,7 @@ from .farm_ops import (
     PIPELINE_PG_render_subshot_item,
 )
 from .file_ops import M_PIPELINE_OT_increment_version
-from .owner_ops import M_PIPELINE_OT_delete_owner
+from .owner_ops import M_PIPELINE_OT_delete_owner, M_PIPELINE_OT_delete_owner_pick
 from .render_clean_ops import (
     M_PIPELINE_OT_clean_renders,
     M_PIPELINE_OT_clean_renders_confirm,
@@ -93,6 +93,7 @@ from .tracking_ops import (
 )
 
 classes = (
+    M_PIPELINE_OT_delete_owner_pick,
     PIPELINE_PG_project_settings,
     M_PIPELINE_OT_save_project_settings,
     M_PIPELINE_OT_delete_owner,

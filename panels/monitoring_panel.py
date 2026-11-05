@@ -233,6 +233,19 @@ class M_PIPELINE_PT_project_settings(_MonitoringPanel, bpy.types.Panel):
             layout.label(text="No project loaded: open Project settings again.", icon="ERROR")
         else:
             settings.draw_settings(layout)
+            # The active project's upkeep: both act on it, not on another
+            # project whose settings are open here.
+            from pathlib import Path
+
+            root = get_active_project_root()
+            if root and Path(settings.project_path_selected) == Path(root):
+                layout.separator()
+                box = layout.box()
+                split = box.split(factor=0.33 / 2, align=True)
+                split.label(text="MAINTENANCE", icon="TOOL_SETTINGS")
+                row = split.row()
+                row.operator("m_pipeline.clean_renders", text="Clean old renders...", icon="RENDER_RESULT")
+                row.operator("m_pipeline.delete_owner_pick", text="Delete a shot or an asset...", icon="TRASH")
             layout.separator(factor=2)
             actions = layout.box().row()
             actions.scale_y = 1.2

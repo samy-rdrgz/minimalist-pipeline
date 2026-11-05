@@ -9,6 +9,12 @@ import bpy
 
 from ..lib import (
     PipelineError,
+    asset_folder_items,
+    get_folder,
+    prefix_items,
+    scan_descriptions,
+    sequence_items,
+    shot_items,
     TrackingStatusCache,
     delete_owner,
     find_linked_by,
@@ -114,4 +120,55 @@ class M_PIPELINE_OT_delete_owner(bpy.types.Operator):
         set_monitoring_detail("file", "")
         redraw_monitoring("project")
         self.report({"INFO"}, f"{owner.name} deleted (in old/).")
+        return {"FINISHED"}
+
+
+class M_PIPELINE_OT_delete_owner_pick(bpy.types.Operator):
+    """Pick a shot or an asset to delete (Project settings' Maintenance),
+    then Delete's own checks and dialog"""
+
+    bl_idname = "m_pipeline.delete_owner_pick"
+    bl_label = "Delete a shot or an asset"
+    bl_options = {"INTERNAL"}
+
+    file_type: bpy.props.EnumProperty(
+        items=[("asset", "Asset / Library", ""), ("shot", "Shot", "")],
+        default="shot",
+    )
+    asset_prefix: bpy.props.EnumProperty(items=prefix_items)
+    asset_folder: bpy.props.EnumProperty(items=asset_folder_items)
+    sequence: bpy.props.EnumProperty(items=sequence_items)
+    shot: bpy.props.EnumProperty(items=shot_items)
+
+    def invoke(self, context, event):
+        root = get_active_project_root()
+        if not root:
+            self.report({"ERROR"}, "No active project.")
+            return {"CANCELLED"}
+        scan_descriptions(root)  # menu tooltips
+        return context.window_manager.invoke_props_dialog(self, width=400, confirm_text="Next")
+
+    def draw(self, context):
+        col = self.layout.column(align=True)
+        col.row(align=True).prop(self, "file_type", expand=True)
+        col.separator()
+        row = col.row(align=True)
+        if self.file_type == "asset":
+            row.prop(self, "asset_prefix", text="")
+            row.prop(self, "asset_folder", text="")
+        else:
+            row.prop(self, "sequence", text="")
+            row.prop(self, "shot", text="")
+
+    def execute(self, context):
+        folder = get_folder(self, context)
+        if not folder or not Path(folder).is_dir():
+            self.report({"ERROR"}, "Pick a shot or an asset first.")
+            return {"CANCELLED"}
+        # Delete's own dialog: one timer tick later (see NOTES.md,
+        # "Popup-chaining").
+        bpy.app.timers.register(
+            lambda: bpy.ops.m_pipeline.delete_owner("INVOKE_DEFAULT", folder=str(folder)) and None,
+            first_interval=0.05,
+        )
         return {"FINISHED"}

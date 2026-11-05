@@ -55,7 +55,9 @@ says what a review brings and what's already there.
 
 - Project settings opens in a window of its own like the welcome --
   it stays open while edited (it closed as the mouse left it), Save
-  writes the config. The welcome window has *New project* and *Find
+  writes the config. Its *Maintenance* line (active project): *Clean old
+  renders* and *Delete a shot or an asset* (picked like Open file). The
+  welcome window has *New project* and *Find
   existing project* beside Close.
 
 - The welcome (first launch, and the main panel's *?*) opens in a window
