@@ -31,7 +31,7 @@ from ..lib import (
     to_absolute,
 )
 from .chunks import read_claims
-from .loop import register_farm_loop
+from .loop import RoleFileWatch, register_farm_loop
 
 STALE_WORKER_SECONDS = 15
 
@@ -80,12 +80,7 @@ def _heartbeat_age(heartbeat: str) -> int:
 # state, in memory only -- never a scene property, which would be saved into
 # the .blend (see NOTES.md, "Farm popup").
 _this_instance_worker = False
-# Ticks in a row this instance's worker file couldn't be found -- a share
-# that drops for a moment (NAS asleep, an SMB reconnect, a PC waking up)
-# looks exactly like a deleted file: the role is given up only once it's
-# been gone this many ticks (about 30 s), never on one miss.
-_worker_missing_ticks = 0
-FILE_GONE_TICKS = 3
+_worker_file_watch = RoleFileWatch("worker")
 
 
 def _set_this_instance_worker(value: bool) -> None:
@@ -319,10 +314,9 @@ def launch_worker() -> bool:
 def is_blender_worker() -> bool:
     """Whether this Blender process (pid) owns this machine's worker file.
     False without an active project; a failed read keeps the last answer;
-    given up on a file with another pid, or one gone FILE_GONE_TICKS ticks
+    given up on a file with another pid, or one gone (RoleFileWatch)
     with its folder reachable. See NOTES.md, "A share drop-out ended the
     farm roles for good"."""
-    global _worker_missing_ticks
     try:
         worker_path = _worker_path()
     except PipelineError:
@@ -338,21 +332,11 @@ def is_blender_worker() -> bool:
     if not data:
         if not _this_instance_worker:
             return False
-        if not worker_path.parent.is_dir():
-            return True  # the share itself is out of reach: wait for it
-        _worker_missing_ticks += 1
-        if _worker_missing_ticks < FILE_GONE_TICKS:
+        if not _worker_file_watch.gone(worker_path):
             return True
-        log(
-            "WARNING",
-            "farm",
-            f"Worker file {worker_path.name} gone for {_worker_missing_ticks} "
-            "ticks: worker role given up.",
-        )
-        _worker_missing_ticks = 0
         _set_this_instance_worker(False)
         return False
-    _worker_missing_ticks = 0
+    _worker_file_watch.found()
     mine = data.get("pid") == os.getpid()
     if _this_instance_worker and not mine and data.get("status") != "stopped":
         log(

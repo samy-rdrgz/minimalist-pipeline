@@ -200,6 +200,7 @@ from .snapshot import (
     TEAM_REVIEW_SOURCE,
     TEAM_ROLE,
     SnapshotJob,
+    run_in_background,
     build_snapshot,
     progress_weights,
     group_renders,

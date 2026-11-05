@@ -2,6 +2,29 @@
 
 All notable changes to this addon. Dates are release dates.
 
+## Unreleased
+
+Cleanup towards 1.2: no reading path left for files in transit written
+by an older version.
+
+### Changed
+
+- Import review, and loading a review back into the snapshot page, only
+  take a review of this add-on version's snapshot: one from an older
+  snapshot is refused (export the snapshot again and review it there),
+  where it used to be read by guesses -- the render watched told from a
+  department called *render* by its value's shape, the render looked up
+  by folder dates, a template's pre-1.1.2 columns. Project data
+  (tracking, stables, render history) written by older versions is still
+  read as before.
+- A Recompile of a job set up before its width was noted no longer reads
+  its first frame with ffmpeg: no light copy for it.
+
+### Removed
+
+- Dead code: `latest_shot_mp4()`, `department_progress()` and a few
+  unused constants.
+
 ## 1.1.9 — 05/11/2026
 
 A review's department called *render* no longer lost, and Import review

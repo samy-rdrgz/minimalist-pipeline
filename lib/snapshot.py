@@ -766,6 +766,25 @@ class SnapshotJob:
         self.done = True
 
 
+def run_in_background(fn, args: tuple, on_done, on_error, every: float = 0.3) -> None:
+    """fn(*args) on a SnapshotJob, polled by a timer (no modal handler: works
+    with no window), then on_done(result) or on_error(error)."""
+    import bpy
+
+    job = SnapshotJob(fn, *args)
+
+    def poll():
+        if not job.done:
+            return every
+        if job.error:
+            on_error(job.error)
+        else:
+            on_done(job.result)
+        return None
+
+    bpy.app.timers.register(poll, first_interval=every)
+
+
 def write_snapshot(snapshot: dict, filepath: Path) -> Path:
     """render_html() written to filepath. Pure: thread-safe."""
     Path(filepath).write_text(render_html(snapshot), encoding="utf-8")

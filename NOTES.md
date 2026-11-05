@@ -3487,8 +3487,9 @@ atomic replace on SMB. Once off, nothing turns the timer back on, and
 nothing was logged.
 
 Now only positive evidence ends a role: the file read with another pid
-(stopped, taken over -- logged), or the file gone FILE_GONE_TICKS (3,
-~30 s) ticks in a row *with its folder reachable* (logged); a folder out
+(stopped, taken over -- logged), or the file gone 3 ticks (~30 s) in a
+row *with its folder reachable* (`RoleFileWatch`, in `farm/loop.py`,
+shared by both roles; logged); a folder out
 of reach, or an unreadable file, keeps the role and waits. A role this
 instance never had, or a monitor stopped on purpose (running project
 cleared first), still answers False at once. `update_worker_heartbeat()`

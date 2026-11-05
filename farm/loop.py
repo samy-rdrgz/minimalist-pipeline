@@ -69,6 +69,32 @@ def stop_farm_role_for_project(project_root) -> None:
         stop_worker(kill_render=True)
 
 
+class RoleFileWatch:
+    """Ticks in a row a role's file (worker file, monitor.lock) was found
+    missing: gone() is True only after GONE_TICKS of them with its folder
+    reachable (see NOTES.md, "A share drop-out ended the farm roles for
+    good")."""
+
+    GONE_TICKS = 3
+
+    def __init__(self, what: str):
+        self.what = what
+        self.ticks = 0
+
+    def gone(self, path: Path) -> bool:
+        if not path.parent.is_dir():
+            return False  # the share itself out of reach: wait for it
+        self.ticks += 1
+        if self.ticks < self.GONE_TICKS:
+            return False
+        log("WARNING", "farm", f"{path.name} gone for {self.ticks} ticks: {self.what} role given up.")
+        self.ticks = 0
+        return True
+
+    def found(self) -> None:
+        self.ticks = 0
+
+
 def farm_tick(project_root: Path, interval: float = 10) -> float | None:
     """Timer callback. Returning None deregisters the timer (stop); any
     other float reschedules the next call in that many seconds."""
