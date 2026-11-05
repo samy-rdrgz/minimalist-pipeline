@@ -35,6 +35,8 @@ from .browser import (
     version_items,
 )
 from .config import (
+    DEFAULT_ASSET_DEPARTMENTS,
+    DEFAULT_SHOT_DEPARTMENTS,
     DEFAULT_VALIDATION_ROLES,
     ConfigCache,
     blender_version_mismatch,
@@ -94,9 +96,7 @@ from .core import (
     write_json_atomic,
 )
 from .creation import (
-    DEFAULT_ASSET_DEPARTMENTS,
     DEFAULT_MULTISHOT_STEP,
-    DEFAULT_SHOT_DEPARTMENTS,
     create_asset_file,
     create_shot_file,
     resolve_timeline,

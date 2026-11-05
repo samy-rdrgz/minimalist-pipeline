@@ -11,6 +11,10 @@ import bpy
 from .core import addon_pref, json_get, locked_json
 from .errors import PipelineError
 
+# A new project's departments, and the fallback wherever a config lacks them.
+DEFAULT_ASSET_DEPARTMENTS = ["modeling", "texturing", "rigging", "tech"]
+DEFAULT_SHOT_DEPARTMENTS = ["layout", "animation", "lighting", "render"]
+
 # ---------------------------------------------------------------------------
 # Project config I/O
 # ---------------------------------------------------------------------------

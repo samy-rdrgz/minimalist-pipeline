@@ -19,6 +19,9 @@ by an older version.
   read as before.
 - A Recompile of a job set up before its width was noted no longer reads
   its first frame with ffmpeg: no light copy for it.
+- The departments assumed when a project's config has none are a new
+  project's own (assets: modeling, texturing, rigging, tech) everywhere;
+  some dialogs assumed modeling, rigging, texturing.
 
 ### Removed
 

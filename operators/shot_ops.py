@@ -6,6 +6,7 @@ import bpy
 
 from ..lib import (
     DEFAULT_MULTISHOT_STEP,
+    DEFAULT_SHOT_DEPARTMENTS,
     ConfigCache,
     PipelineError,
     active_shot_owners,
@@ -366,9 +367,7 @@ class M_PIPELINE_OT_create_shot(bpy.types.Operator):
             self.report({"ERROR"}, "No active project.")
             return {"CANCELLED"}
         config = ConfigCache.get()
-        deps = config.get(
-            "shots_departments", ["layout", "animation", "lighting", "render"]
-        )
+        deps = config.get("shots_departments", DEFAULT_SHOT_DEPARTMENTS)
         self.required_departments = {d for d in deps}
         default_start = json_get(config, "default_frame_start", 1001)
         self.end_frame = default_start + 100
@@ -540,7 +539,7 @@ class M_PIPELINE_OT_edit_block_structure(bpy.types.Operator):
 
         config = ConfigCache.get()
         required = get_departments_required(Path(self.filepath)) or config.get(
-            "shots_departments", ["layout", "animation", "lighting", "render"]
+            "shots_departments", DEFAULT_SHOT_DEPARTMENTS
         )
         self.required_departments = {d for d in required}
         default_start = json_get(config, "default_frame_start", 1001)
