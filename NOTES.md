@@ -3865,3 +3865,34 @@ Seen on a 12.9" iPad, in Documents by Readdle's viewer:
   footer on a tap (Documents by Readdle), or the floating mini keyboard
   (iPadOS: a pinch on the keyboard, or the app's window not full
   screen). Safari, or the page added to the Home Screen, has neither.
+
+## Clean old renders
+
+Asked after a hand clean on the NAS ("keep the 2 most recent per shot")
+lost a block's current renders: the shot had been deleted by hand and
+made again, its new file at v004-v005 beside the old file's v007-v008 in
+the same `renders/<seq>/<shot>/` -- a render folder says its version, not
+which file. So `lib/render_clean.py` orders a shot dir's renders by
+**when they were made**, never by name: the owner's render history
+(`completed_at`), else the newest frame's mtime, else `.rendered_at`, else
+the video's. The folder's own mtime is useless (a snapshot export writing
+`ld/` touched every folder of a sequence within a second), and so is the
+video's once remuxed -- hence `.rendered_at`, written before the frames
+of a folder lightened to its video are deleted (a test caught it: the
+lightened old renders came out newest by their video's date).
+
+Always kept, whatever N: the last render (`read_render_state()`), a
+render an open note names (by folder name, any of the owner's shots), the
+one `to_check` names, any folder a job in `actives/` writes to. Only the
+active owners' dirs (archived ones and `old/` left alone), each shot of a
+block and the block rendered whole. Scan and clean on a `SnapshotJob`
+thread, pure os/json; the confirm dialog one timer tick later (see
+"Popup-chaining").
+
+**Delete shot/asset** (`delete_owner()`): the other half of that story --
+the hand delete left the renders behind. Same moves as a branch (archived
+flag first, then `archive_folder()`), the renders of the shots no other
+active block owns into `renders/.../old/` (or deleted). Refused on a live
+`.<name>.blend.lock` (`open_elsewhere()`; read-only opens take none), on
+the file open here, and on any link into it (`find_linked_by()`; asked
+again once the index is built rather than trusting an empty answer).

@@ -32,6 +32,19 @@ says what a review brings and what's already there.
 - Snapshot page: files with no tracking, once shown, take their place in
   their group (sq040_sh010 first), not after the others.
 
+### Added
+
+- *Clean old renders* (Pipeline menu, Project monitoring's bin): keeps
+  each shot's and asset's N latest renders whole, the older ones
+  lightened (frames deleted, videos kept: every version still
+  watchable) or deleted. Ordered by when they were rendered, never by
+  folder name; the last render, one a note or "to check" names, one the
+  farm is writing always kept. What it frees shown and asked first.
+
+- *Delete* a shot or an asset (File details' bin): out of every list,
+  its folder and renders moved into old/ (or the renders deleted).
+  Refused while open, open elsewhere, or linked by another file.
+
 ### Changed
 
 - Project monitoring: a click on a department under RTK shows its open
