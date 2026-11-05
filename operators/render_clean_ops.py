@@ -5,11 +5,11 @@ import bpy
 
 from ..lib import (
     ConfigCache,
-    SnapshotJob,
     get_active_project_root,
     get_user,
     json_get,
     log,
+    run_in_background,
     sequence_items,
 )
 from ..lib.render_clean import apply_render_clean, human_bytes, plan_render_clean
@@ -21,22 +21,13 @@ _GROUPS_SHOWN = 12
 
 
 def _in_background(fn, args, on_done) -> None:
-    """Run fn(*args) on a thread (SnapshotJob), polled by a timer, then
-    on_done(result) -- no modal handler: the confirm dialog runs from a
-    timer, with no window to hang one on (its clean never ran)."""
-    job = SnapshotJob(fn, *args)
+    """fn(*args) on a thread, then on_done(result); a failure logged and shown."""
 
-    def poll():
-        if not job.done:
-            return 0.3
-        if job.error:
-            log("ERROR", "render_clean", f"Clean old renders failed: {job.error}")
-            _popup("Clean old renders failed", f"{job.error}\n\nSee the pipeline log.", "ERROR")
-            return None
-        on_done(job.result)
-        return None
+    def failed(error):
+        log("ERROR", "render_clean", f"Clean old renders failed: {error}")
+        _popup("Clean old renders failed", f"{error}\n\nSee the pipeline log.", "ERROR")
 
-    bpy.app.timers.register(poll, first_interval=0.3)
+    run_in_background(fn, args, on_done, failed)
 
 
 def _popup(title: str, message: str, icon: str = "INFO") -> None:

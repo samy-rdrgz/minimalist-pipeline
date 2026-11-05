@@ -24,15 +24,10 @@ OK_WORDS = ("ok", "yes", "oui", "v", "x", "✓", "✔", "valid", "validé", "val
 NO_WORDS = ("no", "non")
 # Hidden columns after the departments' and "global", for the import.
 # render_watched: what the reviewer watched (_render_ref()) -- the notes'
-# version. Not "render": a project's department can be called that (schema
-# 7; until 6 the two shared the name and an asset's "render" was lost).
+# version; not "render", a department's possible name.
 RENDER_WATCHED = "render_watched"
 _REVIEW_HIDDEN = ("wip_version", "stable_version", "description_exported", RENDER_WATCHED)
 _SHEET_HEADER_ROW = 2  # row 1: the sheet's one-line how-to
-# Template v3 (1.1.2 before its release): read back for the import only.
-VALID_PREFIX = "valid "
-VALID_CHOICES = ("yes", "no")
-VALID_ALL = "valid all done"
 
 # cellXfs indexes in _STYLES_XML
 _S_TITLE, _S_LABEL, _S_HINT, _S_HEADER, _S_LOCKED = 1, 2, 3, 4, 5
@@ -42,7 +37,7 @@ _S_INPUT, _S_INPUT_DATE, _S_INPUT_TEXT, _S_GROUP = 7, 8, 9, 10
 # border): input cells, filled with the state's colour.
 _S_STATE = {"todo": 11, "wip": 13, "rework": 15, "done": 17, "validated": 19}
 _S_NA = 21  # not required: locked, "–"
-_S_HINT_WRAP = 22
+# 22: a wrapped hint, unused, kept so the indexes below don't move.
 # The front sheet's three fields to fill: a bigger label, a yellow input.
 _S_FIELD_LABEL, _S_FIELD, _S_FIELD_DATE, _S_SECTION = 23, 24, 25, 26
 
@@ -401,7 +396,7 @@ _RELS_XML = (
 # 5 locked, 6 locked muted, 7 input, 8 input date, 9 input text-format
 # (keeps "045" a string), 10 group (merged left column), then a
 # department's input cell per state (_S_STATE) and its red-bordered twin,
-# 21 not required, 22 hint wrapped.
+# 21 not required, 22 hint wrapped (unused).
 _UNLOCK = '<protection locked="0"/>'
 _TOP = '<alignment vertical="top"/>'
 _TOP_WRAP = '<alignment vertical="top" wrapText="1"/>'

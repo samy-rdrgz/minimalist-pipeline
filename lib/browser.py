@@ -7,6 +7,8 @@ from pathlib import Path
 import bpy
 
 from .config import (
+    DEFAULT_ASSET_DEPARTMENTS,
+    DEFAULT_SHOT_DEPARTMENTS,
     ConfigCache,
     get_active_project_root,
     parse_filename,
@@ -221,37 +223,38 @@ def shot_items(self, context) -> list[tuple]:
         return [("NONE", "—", "")]
 
 
+def _folder_version_items(folder, cache: list) -> list:
+    """Enum items of every versioned .blend in folder, newest first, each
+    with its folder's description (cache: the caller's _stable_items())."""
+    candidates = []
+    for f in cached_scandir(folder):
+        if not f.name.endswith(".blend"):
+            continue
+        parsed = parse_filename(f.name)
+        if not parsed:
+            continue
+        v = int(parsed["number"])
+        tag = parsed.get("tag") or ""
+        label = f"v{v:03d}" + (f"  [{tag}]" if tag else "")
+        candidates.append((f.path, label, f.name, v))
+    description = _description(folder)
+    if description:
+        candidates = [
+            (path, label, f"{name}\n\n{description}", v)
+            for path, label, name, v in candidates
+        ]
+    candidates.sort(key=lambda x: x[3], reverse=True)
+    items = [(val, lbl, desc) for val, lbl, desc, _ in candidates]
+    return _stable_items(cache, items or [("NONE", "No versions found", "")])
+
+
 def version_items(self, context):
     """All versioned blend files in the selected folder, newest first."""
     try:
         folder = get_folder(self, context)
         if not folder:  # missing folder: cached_scandir() returns [] below
             return [("NONE", "—", "")]
-
-        candidates = []
-        for f in cached_scandir(folder):
-            if not f.name.endswith(".blend"):
-                continue
-            parsed = parse_filename(f.name)
-            if not parsed:
-                continue
-            v = int(parsed["number"])
-            tag = parsed.get("tag") or ""
-            label = f"v{v:03d}" + (f"  [{tag}]" if tag else "")
-            candidates.append((f.path, label, f.name, v))
-
-        # The file name, then its asset/shot's description (one per folder).
-        description = _description(folder)
-        if description:
-            candidates = [
-                (path, label, f"{name}\n\n{description}", v)
-                for path, label, name, v in candidates
-            ]
-        candidates.sort(key=lambda x: x[3], reverse=True)
-        items = [(val, lbl, desc) for val, lbl, desc, _ in candidates]
-        return _stable_items(
-            _version_items_cache, items or [("NONE", "No versions found", "")]
-        )
+        return _folder_version_items(folder, _version_items_cache)
     except Exception:
         return [("NONE", "—", "")]
 
@@ -275,9 +278,7 @@ def asset_department_items(self, context):
     """Enum items from config's assets_departments, cached until the list changes."""
     global _assets_deps_items_cache
     try:
-        deps = ConfigCache.get().get(
-            "assets_departments", ["modeling", "rigging", "texturing"]
-        )
+        deps = ConfigCache.get().get("assets_departments", DEFAULT_ASSET_DEPARTMENTS)
         if _assets_deps_items_cache and deps == _assets_deps_items_cache[0]:
             return _assets_deps_items_cache[1]
         items = _department_items(deps)
@@ -292,9 +293,7 @@ def shot_department_items(self, context):
     """Enum items from config's shots_departments, cached until the list changes."""
     global _shots_deps_items_cache
     try:
-        deps = ConfigCache.get().get(
-            "shots_departments", ["layout", "animation", "lighting", "render"]
-        )
+        deps = ConfigCache.get().get("shots_departments", DEFAULT_SHOT_DEPARTMENTS)
         if _shots_deps_items_cache and deps == _shots_deps_items_cache[0]:
             return _shots_deps_items_cache[1]
         items = _department_items(deps)
@@ -366,31 +365,7 @@ def dir_version_items(self, context):
         folder = Path(self.filepath)
         if not folder:  # missing folder: cached_scandir() returns [] below
             return [("NONE", "—", "")]
-
-        candidates = []
-        for f in cached_scandir(folder):
-            if not f.name.endswith(".blend"):
-                continue
-            parsed = parse_filename(f.name)
-            if not parsed:
-                continue
-            v = int(parsed["number"])
-            tag = parsed.get("tag") or ""
-            label = f"v{v:03d}" + (f"  [{tag}]" if tag else "")
-            candidates.append((f.path, label, f.name, v))
-
-        # The file name, then its asset/shot's description (one per folder).
-        description = _description(folder)
-        if description:
-            candidates = [
-                (path, label, f"{name}\n\n{description}", v)
-                for path, label, name, v in candidates
-            ]
-        candidates.sort(key=lambda x: x[3], reverse=True)
-        items = [(val, lbl, desc) for val, lbl, desc, _ in candidates]
-        return _stable_items(
-            _dir_version_items_cache, items or [("NONE", "No versions found", "")]
-        )
+        return _folder_version_items(folder, _dir_version_items_cache)
     except Exception:
         return [("NONE", "—", "")]
 
@@ -408,31 +383,7 @@ def entry_version_items(self, context):
         folder = target.parent if target.suffix.lower() == ".blend" else target
         if not folder:  # missing folder: cached_scandir() returns [] below
             return [("NONE", "—", "")]
-
-        candidates = []
-        for f in cached_scandir(folder):
-            if not f.name.endswith(".blend"):
-                continue
-            parsed = parse_filename(f.name)
-            if not parsed:
-                continue
-            v = int(parsed["number"])
-            tag = parsed.get("tag") or ""
-            label = f"v{v:03d}" + (f"  [{tag}]" if tag else "")
-            candidates.append((f.path, label, f.name, v))
-
-        # The file name, then its asset/shot's description (one per folder).
-        description = _description(folder)
-        if description:
-            candidates = [
-                (path, label, f"{name}\n\n{description}", v)
-                for path, label, name, v in candidates
-            ]
-        candidates.sort(key=lambda x: x[3], reverse=True)
-        items = [(val, lbl, desc) for val, lbl, desc, _ in candidates]
-        return _stable_items(
-            _entry_version_items_cache, items or [("NONE", "No versions found", "")]
-        )
+        return _folder_version_items(folder, _entry_version_items_cache)
     except Exception:
         return [("NONE", "—", "")]
 
@@ -452,12 +403,8 @@ def shot_tag_items(self, context):
         # cached_scandir(), not glob() -- this enum is re-evaluated many
         # times per redraw of the entry dialogs and the file details popup.
         if target.suffix.lower() != ".blend":
-            # Folder path (e.g. from the tracking monitor's file details
-            # popup, see draw_file_details()) -- target.name is then just
-            # the bare folder name ("sh010-020-030"), which parse_filename
-            # never matches (no sequence/version parts). Read the shot
-            # segment off one of its versioned files instead, same fix as
-            # entry_version_items()'s folder-vs-file handling.
+            # A folder (File details): its name doesn't parse, read the
+            # shot segment off one of its versioned files.
             target = next(
                 (
                     Path(e.path)

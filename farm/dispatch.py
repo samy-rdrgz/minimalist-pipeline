@@ -59,14 +59,11 @@ def popen_logged(
     merge_stdout: bool = True,
     progress: bool = False,
 ):
-    """subprocess.Popen with the child's stderr (and stdout, if merge_stdout)
-    appended to job_log_path(job_id), after a header naming the stage. The
-    parent's own handle is closed right away -- the child has its own copy
-    -- so Windows can delete the file once the child exits. Keeps the path
-    and the offset where this stage's output starts on the Popen
-    (.log_path/.log_offset) for read_process_log(). progress: cmd is an
-    ffmpeg command -- it also writes its progress to job_progress_path(),
-    started afresh (the previous pass's "progress=end" never shows)."""
+    """subprocess.Popen with the child's stderr (and stdout, if
+    merge_stdout) appended to job_log_path(job_id) after a stage header;
+    .log_path and .log_offset kept on it for read_process_log(). progress:
+    an ffmpeg command, its progress also written to job_progress_path(),
+    afresh. See NOTES.md, "Farm subprocess output: files, never pipes"."""
     if progress:
         discard_job_progress(job_id)
         # A global option: right after the binary, before any input.

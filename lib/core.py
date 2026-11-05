@@ -42,12 +42,9 @@ def get_addon_version() -> str:
     return "0.0.0"
 
 
-# Which detail the monitoring windows show: Project monitoring's file
-# ("file", its tracked folder), Farm monitoring's job ("job", its id) --
-# "" for their list; "missing_file": the name of an open file Ctrl+click
-# asked for that isn't a tracked file of the project. In memory only: as
-# WindowManager properties they were saved into every .blend, and came
-# back as each opened file had them.
+# Which detail the monitoring windows show ("" for their list): "file" its
+# tracked folder, "job" its id, "missing_file" an untracked file asked for.
+# In memory, not WindowManager properties (saved into the .blend).
 _monitoring_details = {"file": "", "job": "", "missing_file": "", "worker": ""}
 
 
@@ -183,12 +180,9 @@ def region_char_budget(
     floor: int = 12,
     width_px: float | None = None,
 ) -> int:
-    """Panel width (px) -> characters per line, for text_to_lines()'s max_width.
-    Leave width_px unset in a real panel's draw(): context.region there is
-    genuinely that panel's own region. Pass a popup/dialog operator's own
-    invoke_popup(width=...)/invoke_props_dialog(width=...) value as width_px
-    when calling this from that operator's draw() instead -- see
-    POPUP_WIDTH_SCALE above for why it needs correcting first."""
+    """Panel width (px) -> characters per line, for text_to_lines()'s
+    max_width. width_px: unset in a panel's draw(), a popup's own width from
+    its draw() (corrected by POPUP_WIDTH_SCALE)."""
     if width_px is not None:
         width_px = width_px * POPUP_WIDTH_SCALE
     else:
@@ -198,12 +192,8 @@ def region_char_budget(
 
 
 def _effective_len(text: str, cap_weight: float = 1.3) -> float:
-    """Character count, but each uppercase letter counts extra: capitals
-    render visibly wider than lowercase in Blender's UI font, so a
-    caps-heavy string (an acronym, a title.upper()...) needs more room per
-    character than a flat per-char budget assumes. Used by both
-    lines_budget() and text_to_lines()'s own wrap decision, so the two
-    stay consistent with each other."""
+    """Character count, each uppercase letter counting extra (wider in
+    Blender's UI font) -- shared by lines_budget() and text_to_lines()."""
     return sum(cap_weight if ch.isupper() else 1 for ch in text)
 
 
@@ -302,14 +292,10 @@ def draw_box_tip(
     icon: str = "INFO",
     width_px: float | None = None,
 ) -> None:
-    """Short concept explanation drawn inline in a panel, capped to a few
-    lines regardless of panel width (see text_to_lines()/lines_budget()).
-    No-op unless the user's experience_level preference is "BEGINNER" --
-    call unconditionally from a panel's draw(), the gating lives here.
-    width_px: leave unset in a panel's draw() to size from the panel's real
-    width; pass the popup's own invoke_popup(width=...)/invoke_props_dialog
-    (width=...) value when calling this from a popup operator's draw()
-    instead -- see region_char_budget()'s docstring."""
+    """A short concept tip drawn in a panel, capped to a few lines; no-op
+    unless experience_level is "BEGINNER" (call it unconditionally).
+    width_px: unset in a panel's draw(), the popup's own width from a
+    popup's (region_char_budget())."""
     pref = addon_pref(context)
     if not pref or getattr(pref, "experience_level", "BEGINNER") != "BEGINNER":
         return
@@ -462,13 +448,8 @@ def random_display_name() -> str:
 
 
 def path_reachable(path: str | Path) -> bool:
-    """Like Path(path).exists(), but never raises. Path.exists() only
-    swallows a narrow set of errno (ENOENT/ENOTDIR/EBADF/ELOOP) -- a mount
-    that vanished mid-session (NAS dropped, drive unmapped) surfaces as
-    ENODEV or similar instead and propagates as an uncaught OSError.
-    Use this for any project-root reachability check: unlike a plain file
-    inside an already-known-good project, the root itself is exactly the
-    path a disconnected NAS breaks."""
+    """Path(path).exists() that never raises -- for any project-root check
+    (see NOTES.md, "Small gotchas, out of the docstrings")."""
     try:
         return Path(path).exists()
     except OSError:
@@ -523,12 +504,9 @@ def resolve_bpy_path(filepath: str) -> Path:
 
 
 def process_alive(pid: int | None, name_hint: str = "") -> bool:
-    """Whether process `pid` is still running on *this* machine -- Windows,
-    Linux and macOS, stdlib only. name_hint (e.g. "blender", "ffmpeg"),
-    if given, must appear in the running executable's name: a PID can be
-    reused by an unrelated program once the original exits, and a farm
-    process adopted after a crash must never be confused with one. If the
-    name can't be read, the PID alone decides."""
+    """Whether process pid runs on this machine (stdlib only, any OS).
+    name_hint ("blender", "ffmpeg"): must appear in its executable's name,
+    against a reused PID; unreadable, the PID alone decides."""
     if not pid:
         return False
     if sys.platform == "win32":
@@ -584,12 +562,9 @@ def process_alive(pid: int | None, name_hint: str = "") -> bool:
 
 
 class AdoptedProcess:
-    """Stand-in for a subprocess.Popen this Blender instance didn't start
-    (or lost track of after a crash) but still needs to wait on, by PID.
-    poll() is None while the process runs, then -1: its real exit code
-    can't be known for a process that isn't our own child, so callers treat
-    an adopted process's end as "interrupted, check the result on disk",
-    never as success or failure."""
+    """A Popen stand-in for a process this Blender didn't start (adopted
+    after a crash), waited on by PID. poll(): None while it runs, then -1 --
+    its exit code unknown, its result to check on disk."""
 
     adopted = True
 
@@ -774,18 +749,13 @@ def write_json_atomic(path: Path, data, attempts: int = 5) -> None:
 
 @contextmanager
 def locked_json(path: Path, read_only=False, retries: int = 10, io_attempts: int = 5):
-    """Read/write a JSON file under a cross-process lock. Yields a mutable
-    box {"data": <parsed JSON or None>, "action": ""} -- set action to
-    "to_write" (atomic tmp + os.replace) or "to_delete" to commit on exit,
-    leave it "" for a plain read. read_only=False (default) acquires an
-    exclusive lock, raising PipelineError if still held after retries (may
-    steal a stale one); read_only=True never takes/steals/releases it --
-    waits briefly for an in-flight write, then reads regardless (a write
-    attempt is refused and logged, not silently dropped).
-    retries: lock polls, 0.1 s apart; UI-thread readers pass 0 (writes are
-    atomic, a read sees the old or the new file, never half of one).
-    io_attempts: tries for the final replace/remove (retry_shared_io()); 1
-    for a best-effort write that mustn't stall its caller."""
+    """Read/write a JSON file under a cross-process lock. Yields {"data",
+    "action"}: set action to "to_write" (atomic replace) or "to_delete" to
+    commit on exit. read_only=False: an exclusive lock, PipelineError if
+    still held after retries (a stale one stolen); True: no lock, a brief
+    wait for a write in flight. retries: polls 0.1 s apart (0 on the UI
+    thread). io_attempts: tries for the final replace/remove
+    (retry_shared_io())."""
     machine_id = get_machine_id()
     if read_only:
         if retries > 0:  # 0: don't even look at the lock file

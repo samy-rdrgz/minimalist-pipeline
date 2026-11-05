@@ -9,6 +9,8 @@ from pathlib import Path
 import bpy
 
 from ..lib import (
+    DEFAULT_ASSET_DEPARTMENTS,
+    DEFAULT_SHOT_DEPARTMENTS,
     PROGRESS_WEIGHTS,
     WORK_WEEK,
     ConfigCache,
@@ -81,8 +83,8 @@ DEFAULT_CONFIG = {
         "library_prefixes": ["mat", "gn", "tech"],
     },
     "tags": ["stable"],
-    "assets_departments": ["modeling", "texturing", "rigging", "tech"],
-    "shots_departments": ["layout", "animation", "lighting", "render"],
+    "assets_departments": DEFAULT_ASSET_DEPARTMENTS,
+    "shots_departments": DEFAULT_SHOT_DEPARTMENTS,
     "thumbnails": {"size": 240},
     "farm": {
         "max_concurrent_local": 1,
@@ -764,14 +766,10 @@ class ProjectSettings:
         self.project_folders = self._list_to_csv(structure.get("project_folders", []))
         self.tags = self._list_to_csv(config.get("tags", ["stable"]))
         self.assets_departments = self._list_to_csv(
-            config.get(
-                "assets_departments", ["modeling", "texturing", "rigging", "tech"]
-            ),
+            config.get("assets_departments", DEFAULT_ASSET_DEPARTMENTS),
         )
         self.shots_departments = self._list_to_csv(
-            config.get(
-                "shots_departments", ["layout", "animation", "lighting", "render"]
-            ),
+            config.get("shots_departments", DEFAULT_SHOT_DEPARTMENTS),
         )
         self.validation_roles = ",".join(
             f"{r['name']}:{r['level']}" for r in validation_roles(config)

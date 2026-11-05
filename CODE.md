@@ -143,8 +143,8 @@ minimalist_pipeline/
 │   ├── versioning.py           # get_version_number, save_as
 │   ├── presets.py              # asset collection preset; shot scaffolding + camera/marker
 │   │                            #   build (build_shot_scene) and read-back (derive_shot_subranges)
-│   ├── preview.py               # multishot preview providers: latest_shot_mp4,
-│   │                            #   resolve_block_sources, resolve_sequence_sources
+│   ├── preview.py               # multishot preview providers: resolve_block_sources,
+│   │                            #   resolve_sequence_sources
 │   ├── saving.py               # WM_OT_safe_save (Ctrl+S override)
 │   ├── logs.py                 # log(), read_log_tail()
 │   ├── monitoring.py           # Project/Farm monitoring windows: open_monitoring_window(),
@@ -309,7 +309,7 @@ The red text itself is a plain `row.label()`, not the button opening the menu: a
 - `derive_shot_subranges(scene, sequence_label, promised, config=None)` — the read-back counterpart, live off `scene.timeline_markers`: derives each shot's frame sub-range (one ends where the next *promised* one's marker begins). `promised` (the file's own name enumeration) decides which markers count as real boundaries — a marker not in it doesn't start its own range, its frames are absorbed into the preceding promised shot instead (§2). Returns `(ranges, absorbed)` — `absorbed` is never silent, see "Multishot blocks" below.
 
 ### Preview (`preview.py`)
-- `render_root(project_root, owner_dir)` — the render folder of an asset/shot folder: `renders/<seq>/<shot>` for a shot, `renders/assets/<prefix>/<asset>` (or `library/...`) otherwise; used by the farm's `compute_output_path()` and the snapshot. `latest_render_dir(shot_dir, v_prefix)` — a shot's most recent render increment folder, read from its name (`vNNN_MMM`), never mtime; pure os. `latest_shot_mp4(project_root, sequence_label, shot_label, config=None)` — the mp4 in it
+- `render_root(project_root, owner_dir)` — the render folder of an asset/shot folder: `renders/<seq>/<shot>` for a shot, `renders/assets/<prefix>/<asset>` (or `library/...`) otherwise; used by the farm's `compute_output_path()` and the snapshot. `latest_render_dir(shot_dir, v_prefix)` — a shot's most recent render increment folder, read from its name (`vNNN_MMM`), never mtime; pure os.
 - `resolve_block_sources(filepath, project_root, config=None, dropped=None)` / `resolve_sequence_sources(sequence_label, project_root, config=None, dropped=None)` — the two providers behind §1.6's "one button, two scopes": `(label, mp4)` pairs for a block's own shots, or for every shot ever rendered in a sequence ("sq030" -- the Render dialog's Preview mode has no file to start from). Shots' folders and blocks rendered whole (`sh030-040-050`) alike, the newest video where they overlap (`_newest_cover()`); one left out with shots nothing else covers goes into `dropped` as `(label, newer labels)`. Also the snapshot's videos: `copy_videos()` (into a shared `videos/` folder -- only what's new or changed, by size and time), `zip_videos()`, `videos_in()` (what the folder holds), and the light copies browsers play -- `ld_path()` (`<render folder>/ld/`), `browser_video()` (a render's light copy, else its own mp4), `ensure_ld()` (made for a video too wide, `MAX_VIDEO_WIDTH`, or not H.264/H.265; an `hev1` only re-tagged), the farm making them at compilation (`farm/post_render.py` `_ld_args()`) and the rushes (`lib/rushes.py`: `push_rushes()` -- `rushes.json`, `_UPDATED.txt`). Submitted by `submit_preview()` / `request_sequence_preview()` (`operators/preview_ops.py`). Filesystem-only, no `bpy` — works for any file, open or not.
 
 ### Saving (`saving.py`)

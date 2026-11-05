@@ -25,12 +25,10 @@ APPEND_DETECTED_EXPLANATION = (
 
 
 def _blender_internal_roots() -> list[Path]:
-    """Directories whose imports are Blender's own plumbing, not a deliberate
-    user append/link: the copy/paste temp buffers (one file per editor --
-    copybuffer.blend, copybuffer_node.blend, copybuffer_pose.blend...,
-    always under bpy.app.tempdir) and Blender's bundled datafiles (the
-    Essentials asset library -- brushes, matcaps... -- shipped inside the
-    Blender install, resolved via resource_path('LOCAL' | 'SYSTEM'))."""
+    """Directories whose imports are Blender's own, not a user's
+    append/link: the copy/paste buffers' temp folder and Blender's bundled
+    datafiles. See NOTES.md, "Copy/paste isn't always under
+    bpy.app.tempdir"."""
     roots = []
     if bpy.app.tempdir:
         roots.append(Path(bpy.app.tempdir))
@@ -85,12 +83,10 @@ def scan_linked_libraries() -> list[dict]:
 
 
 def sync_linked_libraries(create_missing: bool = False):
-    """Record in the open file's .wipmeta the links it already contains but
-    the pipeline never saw being made (file migrated from outside, library
-    repointed by a script...) -- in its .stablemeta for a -stable file.
-    create_missing: first create the .wipmeta of a version that has none
-    (ensure_wipmeta()). Called on load and save. Never raises:
-    handler-called, same rule as check_library_update()."""
+    """Record in the open file's .wipmeta (.stablemeta for a -stable) the
+    links it holds that the pipeline never saw made. create_missing: create
+    a missing .wipmeta first (ensure_wipmeta()). Called on load and save;
+    never raises."""
     filepath = bpy.data.filepath
     if not filepath or not file_in_active_project(filepath):
         return

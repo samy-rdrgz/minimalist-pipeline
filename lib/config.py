@@ -11,6 +11,10 @@ import bpy
 from .core import addon_pref, json_get, locked_json
 from .errors import PipelineError
 
+# A new project's departments, and the fallback wherever a config lacks them.
+DEFAULT_ASSET_DEPARTMENTS = ["modeling", "texturing", "rigging", "tech"]
+DEFAULT_SHOT_DEPARTMENTS = ["layout", "animation", "lighting", "render"]
+
 # ---------------------------------------------------------------------------
 # Project config I/O
 # ---------------------------------------------------------------------------
@@ -351,13 +355,8 @@ _file_in_active_project_cache: tuple[str, str, bool] | None = None
 
 
 def file_in_active_project(filepath: str, project_root: str | None = None) -> bool:
-    """True if filepath resolves inside project_path. Case-insensitive via a
-    plain .lower() on both resolved strings -- os.path.normcase() is a no-op
-    on POSIX (macOS included), so it wouldn't actually protect against a
-    casing mismatch there despite its name. Memoized on the last
-    (filepath, project_root) pair: the file panel's poll() asks the same
-    thing on every redraw, and resolve() is a round-trip per component on
-    a share."""
+    """True if filepath resolves inside project_path, case aside; memoized
+    on the last pair (see NOTES.md, "Small gotchas, out of the docstrings")."""
     global _file_in_active_project_cache
     if project_root is None:
         project_root = get_active_project_root()

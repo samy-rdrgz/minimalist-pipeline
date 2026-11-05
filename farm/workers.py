@@ -31,7 +31,7 @@ from ..lib import (
     to_absolute,
 )
 from .chunks import read_claims
-from .loop import register_farm_loop
+from .loop import RoleFileWatch, register_farm_loop
 
 STALE_WORKER_SECONDS = 15
 
@@ -80,12 +80,7 @@ def _heartbeat_age(heartbeat: str) -> int:
 # state, in memory only -- never a scene property, which would be saved into
 # the .blend (see NOTES.md, "Farm popup").
 _this_instance_worker = False
-# Ticks in a row this instance's worker file couldn't be found -- a share
-# that drops for a moment (NAS asleep, an SMB reconnect, a PC waking up)
-# looks exactly like a deleted file: the role is given up only once it's
-# been gone this many ticks (about 30 s), never on one miss.
-_worker_missing_ticks = 0
-FILE_GONE_TICKS = 3
+_worker_file_watch = RoleFileWatch("worker")
 
 
 def _set_this_instance_worker(value: bool) -> None:
@@ -318,14 +313,10 @@ def launch_worker() -> bool:
 
 def is_blender_worker() -> bool:
     """Whether this Blender process (pid) owns this machine's worker file.
-    False (no crash) if there's no active project to resolve the file
-    against -- no project, no worker role. A read that fails keeps the
-    previous answer: farm_tick() stops the loop on False (same as
-    is_blender_monitor()). Given up only on a file that says another pid
-    (stopped, taken over), or one gone FILE_GONE_TICKS ticks in a row with
-    its folder reachable -- never on one miss: a share dropping out at
-    night used to end the role for good, Blender itself still fine."""
-    global _worker_missing_ticks
+    False without an active project; a failed read keeps the last answer;
+    given up on a file with another pid, or one gone (RoleFileWatch)
+    with its folder reachable. See NOTES.md, "A share drop-out ended the
+    farm roles for good"."""
     try:
         worker_path = _worker_path()
     except PipelineError:
@@ -341,21 +332,11 @@ def is_blender_worker() -> bool:
     if not data:
         if not _this_instance_worker:
             return False
-        if not worker_path.parent.is_dir():
-            return True  # the share itself is out of reach: wait for it
-        _worker_missing_ticks += 1
-        if _worker_missing_ticks < FILE_GONE_TICKS:
+        if not _worker_file_watch.gone(worker_path):
             return True
-        log(
-            "WARNING",
-            "farm",
-            f"Worker file {worker_path.name} gone for {_worker_missing_ticks} "
-            "ticks: worker role given up.",
-        )
-        _worker_missing_ticks = 0
         _set_this_instance_worker(False)
         return False
-    _worker_missing_ticks = 0
+    _worker_file_watch.found()
     mine = data.get("pid") == os.getpid()
     if _this_instance_worker and not mine and data.get("status") != "stopped":
         log(
@@ -425,15 +406,11 @@ def worker_rendering() -> bool:
 
 
 def stop_worker(kill_render: bool) -> str:
-    """Give up this machine's worker role. kill_render=True: the render in
-    progress is terminated and reported "stopped" -- neutral for the
-    monitor, which carries on with the job's other machines or sends it out
-    again (never a failure); the role ends now. kill_render=False: the render
-    stops once the frame it's on is written (render_stop_path(), read by
-    the render entry after each frame), then the role ends (worker_tick()).
-    Returns "stopped" or "draining". A compile (previews) is waited for
-    the same way, or killed -- the farm host sends it out again
-    (check_remote_compile())."""
+    """Give up this machine's worker role. kill_render=True: its render (or
+    compile) is killed, reported "stopped" -- the monitor sends it out
+    again, never a failure. False: it stops once its frame is written
+    (render_stop_path()), then the role ends. Returns "stopped" or
+    "draining". See NOTES.md, "Stopping a worker: after this frame, or now"."""
     running = [(j, p) for j, p in _worker_active_processes.items() if p.poll() is None]
     compiling = [(j, p) for j, p in _worker_compiles.items() if p.poll() is None]
     if (running or compiling) and not kill_render:
@@ -1178,16 +1155,10 @@ def stuck_frame_check(
 ) -> tuple[float, float, float] | None:
     """(seconds on the frame in progress, limit, usual seconds per frame)
     for machine uuid's render dispatch_id, from its saved_frames_path()
-    record (text) -- its own clock, at: time.time() on it. The usual time:
-    this render's frames so far, else the machine's on this job, else the
-    job's. The first frame of a render also gets the machine's usual
-    startup (scene sync). None when unknown: nothing written for this
-    render yet, no usual time. started: when this machine launched the
-    render (its clock) -- a machine back on a render it left has its earlier
-    lines in the same record, same dispatch_id: they time nothing of this
-    run (its last frame then was hours ago: killed at once, sent back, killed
-    again -- for hours). None until this run wrote its "start" line: its
-    .blend still opening, nothing to time yet. Pure."""
+    record (text), at: time.time() on that machine. started: when it
+    launched this run -- earlier lines time nothing. None when nothing to
+    time yet or no usual time. Pure. See NOTES.md, "Stuck frame: a machine
+    back on a render it left"."""
     lines = [(f, t) for d, f, t in parse_saved(text) if d == dispatch_id]
     if not lines:
         return None
@@ -1348,16 +1319,11 @@ def apply_custom_preset(
     *,
     strict: bool = False,
 ) -> None:
-    """Apply a per-job render preset onto scene. Looks for a .py first
-    (contract: override(scene, job_data)), then a .json (flat key/value
-    overrides). job_data: the job if the caller already has it (the
-    setup) -- else read from its file, without a lock: every worker of a
-    job starts at once, and a lock they all fought over made some of them
-    render without the preset (burn-in, full resolution...).
-    strict=False (the setup): any error is logged and swallowed.
-    strict=True (the render): a preset that can't be applied -- missing,
-    broken, job unreadable -- raises, so the render fails instead of
-    rendering with the .blend's own settings."""
+    """Apply a job's render preset onto scene: a .py (override(scene,
+    job_data)), else a .json of overrides. job_data: the job, else read from
+    its file without a lock. strict=False (the setup): errors logged; True
+    (the render): raises, so the render fails rather than run without it.
+    See NOTES.md, "Render preset: read without a lock, fail the render"."""
     if not preset_name:
         return
 

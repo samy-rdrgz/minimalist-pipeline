@@ -179,12 +179,8 @@ def _resize_win32(before: set, size: tuple[float, float], tries: int = 20):
 
 
 def bring_monitoring_to_front(context, kind: str) -> bool:
-    """Bring that kind's open monitoring window to the front. No Blender
-    API does (Window has no such method, its x/y are read-only): on Windows
-    the system's own SetForegroundWindow on its handle -- it stays where it
-    is, a second screen included; elsewhere, or if that failed, a new one
-    opened in front and the old one closed -- same content (filters, page,
-    detail live in memory), over the old one, as big (_duplicate_window()).
+    """Bring that kind's open monitoring window to the front: Windows'
+    SetForegroundWindow, else a copy opened over it and the old one closed.
     False if it couldn't. See NOTES.md, "Monitoring windows: to the front"."""
     old = monitoring_windows(kind)
     if not old:

@@ -8,13 +8,13 @@ import bpy
 
 from ..lib import (
     ConfigCache,
-    SnapshotJob,
     get_active_project_root,
     get_user,
     is_video,
     log,
     push_rushes,
     push_sequence_rushes,
+    run_in_background,
 )
 
 
@@ -37,32 +37,28 @@ def report_push(result: dict) -> str:
 
 
 def push_in_background(fn, *args) -> None:
-    """Run a push on a thread (gigabytes over the share), polled by a timer:
-    its summary in the log, and a popup if a copy was refused -- a rush
-    open in the editing software keeps its old video."""
-    job = SnapshotJob(fn, *args)
+    """Run a push on a thread: its summary in the log, a popup if a copy
+    was refused (a rush open in the edit keeps its old video)."""
 
-    def poll():
-        if not job.done:
-            return 0.5
-        if job.error:
-            log("ERROR", "rushes", f"Push to editing failed: {job.error}")
-            return None
-        summary = report_push(job.result)
-        if job.result["failed"]:
-            lines = [f"{name}: {reason}" for name, reason in job.result["failed"]]
-            try:
-                bpy.ops.m_pipeline.text_popup(
-                    "INVOKE_DEFAULT",
-                    title="Rushes not all pushed",
-                    message="\n".join([summary, "", *lines[:12]]),
-                    icon="ERROR",
-                )
-            except RuntimeError:
-                pass  # no window to show it in: the log has it
-        return None
+    def done(result):
+        summary = report_push(result)
+        if not result["failed"]:
+            return
+        lines = [f"{name}: {reason}" for name, reason in result["failed"]]
+        try:
+            bpy.ops.m_pipeline.text_popup(
+                "INVOKE_DEFAULT",
+                title="Rushes not all pushed",
+                message="\n".join([summary, "", *lines[:12]]),
+                icon="ERROR",
+            )
+        except RuntimeError:
+            pass  # no window to show it in: the log has it
 
-    bpy.app.timers.register(poll, first_interval=0.5)
+    def failed(error):
+        log("ERROR", "rushes", f"Push to editing failed: {error}")
+
+    run_in_background(fn, args, done, failed, every=0.5)
 
 
 def checked_render_videos(entries: list) -> list[Path]:

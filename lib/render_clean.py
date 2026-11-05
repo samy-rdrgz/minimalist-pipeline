@@ -116,18 +116,13 @@ def plan_render_clean(
     v_prefix: str = "v",
     farm_actives: Path | None = None,
 ) -> dict:
-    """What a clean would do. Per shot (a block's each, and the block
-    rendered whole) or asset render folder: its renders ordered by when they
-    were made -- the history's completed_at, else its newest frame, else
-    the date left when lightened, else its video --, the keep newest kept, and
-    always its last render, a render an open note or "to check" names, one
-    the farm is writing. A previous file's renders (made before this one's
-    created_at, not in its history) count for nothing: all lightened, or
-    all deleted but the newest when the shot has no render of its own. The rest:
-    deleted whole, or (images_only) only their frames, the videos and ld/
-    kept. {"candidates": [{"group", "owner", "shot_dir", "folder", "path",
-    "bytes", "images"}], "kept": n, "bytes": total, "groups": {group:
-    [folders, bytes]}}."""
+    """What a clean would do, per shot or asset render folder: the keep
+    newest renders kept, and always its last render, one an open note or "to
+    check" names, one the farm writes; a previous file's renders count for
+    none. The rest deleted, or (images_only) only their frames.
+    {"candidates": [{"group", "owner", "shot_dir", "folder", "path",
+    "bytes", "images"}], "kept", "bytes", "groups": {group: [folders,
+    bytes]}}. See NOTES.md, "Clean old renders"."""
     root = Path(root)
     increment = _increment_re(v_prefix)
     active = _active_outputs(root, farm_actives)

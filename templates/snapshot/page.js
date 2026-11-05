@@ -11,8 +11,6 @@ var LABEL={done:'Done',rework:'Done, reworked since',wip:'In progress',todo:'Not
 var OKS=['ok','yes','oui','v','x','✓','✔','valid','validé','valide'],NOS=['no','non'];
 // render_watched: the render watched (not "render": a department can be called that).
 var FIXED=['group','filename','description','description_exported','stable_version','wip_version','render_watched','global','fixed'];
-// A render's name, as render_ref: "v007-stable_001", per shot "sh110=v007-stable_001 ...".
-var RENDER_REF=/^(?:\S+=)?v\d+(?:-[a-z]+)?_\d+(?:\s+\S+=v\d+(?:-[a-z]+)?_\d+)*$/i;
 var NL=String.fromCharCode(10);
 var esc=function(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){
 return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});};
@@ -960,13 +958,14 @@ try{if(navigator.canShare({files:[f]}))return f;}catch(e){}}return null;}
 document.querySelectorAll('.rv-load').forEach(function(inp){inp.addEventListener('change',function(){var file=this.files[0];this.value='';closeMenus();if(!file)return;
 var rd=new FileReader();rd.onload=function(){var data;try{data=JSON.parse(rd.result);}catch(e){toast('Not a review file.');return;}
 if(data.format!==META.format){toast('Not a review downloaded from a snapshot page.');return;}
+// Another version's review: refused, as by the import (NOTES.md, "Review import: this version's reviews only").
+if(data.schema_version!==META.schema_version){toast('This review comes from another version of the snapshot: it can\'t be loaded here.');return;}
 var go=function(){if(summary().files)ask('Replace the review in progress with this one?','Replace it',load);else load();};
 if(data.project!==META.project)ask('This review is for '+data.project+', not '+META.project+'. Load it anyway?','Load it',go);else go();
 function load(){rv={author:data.author||'',role:data.role||'',date:data.review_date||'',files:{}};var unknown=0;
 (data.rows||[]).forEach(function(row){var it=byFile[row.filename];if(!it){unknown++;return;}var e=entry(it);
 Object.keys(row).forEach(function(k){if(FIXED.indexOf(k)>=0)return;
-// Before schema 7, "render" was the render watched too: a render's name is that.
-if(k==='render'&&(data.schema_version||0)<7&&(!String(row[k]).trim()||RENDER_REF.test(String(row[k]).trim())))return;if(k.indexOf('reply ')===0){e.replies[k.slice(6)]=String(row[k]);return;}var v=String(row[k]).trim(),l=v.toLowerCase();
+if(k.indexOf('reply ')===0){e.replies[k.slice(6)]=String(row[k]);return;}var v=String(row[k]).trim(),l=v.toLowerCase();
 if(OKS.indexOf(l)>=0)e.deps[k]={ok:1};else if(NOS.indexOf(l)>=0)e.deps[k]={no:1,text:''};else e.deps[k]={no:1,text:v};});
 var gv=String(row.global||'').trim(),gl=gv.toLowerCase();
 if(OKS.indexOf(gl)>=0)e.all=true;else if(NOS.indexOf(gl)>=0)Object.keys(it.states).forEach(function(d){if(isDone(it.states[d])&&!e.deps[d])e.deps[d]={no:1,text:''};});

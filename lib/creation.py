@@ -8,6 +8,8 @@ from pathlib import Path
 import bpy
 
 from .config import (
+    DEFAULT_ASSET_DEPARTMENTS,
+    DEFAULT_SHOT_DEPARTMENTS,
     ConfigCache,
     format_shot_segment,
     json_get,
@@ -17,15 +19,6 @@ from .config import (
 from .errors import PipelineError
 from .presets import apply_asset_preset, build_shot_scene
 from .tracking import create_tracking, create_wipmeta
-
-# Fallback department lists, used whenever a caller doesn't provide its own
-# (interactive dialogs default to every configured department instead --
-# these are only hit when config itself doesn't define assets_departments/
-# shots_departments, or from the CSV batch importer when a row's
-# 'departments' column is empty). Centralized here rather than duplicated at
-# each call site.
-DEFAULT_ASSET_DEPARTMENTS = ["modeling", "rigging", "texturing"]
-DEFAULT_SHOT_DEPARTMENTS = ["layout", "animation", "lighting", "render"]
 
 # Default per-shot spacing for a multi-shot block with no frame_end/
 # frame_duration -- also shot_ops.py's own "add row" default.

@@ -3,6 +3,7 @@
 import bpy
 
 from ..lib import (
+    DEFAULT_ASSET_DEPARTMENTS,
     ConfigCache,
     PipelineError,
     asset_department_items,
@@ -108,7 +109,7 @@ class M_PIPELINE_OT_create_asset(bpy.types.Operator):
             self.report({"ERROR"}, "No active project.")
             return {"CANCELLED"}
         config = ConfigCache.get()
-        deps = config.get("assets_departments", ["modeling", "rigging", "texturing"])
+        deps = config.get("assets_departments", DEFAULT_ASSET_DEPARTMENTS)
         self.required_departments = {d for d in deps}
         self.asset_name = "new-asset"
         return context.window_manager.invoke_props_dialog(

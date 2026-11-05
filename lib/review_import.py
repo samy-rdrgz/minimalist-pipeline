@@ -3,7 +3,6 @@ page's .json -- read, planned and written into the project's tracking."""
 
 import hashlib
 import json
-import os
 import re
 import zipfile
 from datetime import datetime, timedelta
@@ -12,7 +11,6 @@ from xml.etree import ElementTree as ET
 
 from .config import (
     ConfigCache,
-    get_active_project_root,
     parse_filename,
     shots_in_segment,
     validation_roles,
@@ -25,20 +23,14 @@ from .review_sheet import (
     NO_WORDS,
     OK_WORDS,
     REVIEW_GLOBAL,
-    VALID_ALL,
-    VALID_CHOICES,
-    VALID_PREFIX,
     _col,
 )
 from .schedule import parse_day
 from .snapshot import (
-    ENTRY_TYPES,
     REVIEW_SOURCE,
     SCHEMA_VERSION,
     TEAM_REVIEW_SOURCE,
     TEAM_ROLE,
-    _render_ref,
-    read_render_state,
     render_of_note,
 )
 from .tracking import (
@@ -179,9 +171,8 @@ def read_review_json(path: Path) -> dict:
     """read_review_xlsx()'s dict from a review downloaded from the snapshot
     page: {"format", "schema_version", "author", "role", "review_date",
     "rows": [{"filename", "stable_version", "description_exported",
-    "render_watched"? (schema 7, "render" from 5: _render_ref()),
-    "description"?, <department>:
-    "ok" / "no" / retakes, "global"?}]}."""
+    "render_watched", "description"?, <department>: "ok" / "no" /
+    retakes, "global"?}]}."""
     try:
         data = json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, ValueError) as e:
@@ -193,11 +184,7 @@ def read_review_json(path: Path) -> dict:
     schema = data.get("schema_version")
     if not isinstance(schema, int):
         raise PipelineError(f"{Path(path).name}: no schema_version.")
-    if schema > SCHEMA_VERSION:
-        raise PipelineError(
-            f"{Path(path).name} comes from a newer addon version (review "
-            f"v{schema}); update the addon to import it."
-        )
+    _check_schema(path, schema)
     rows = [
         {
             str(k).strip().lower(): str(v).strip()
@@ -212,54 +199,40 @@ def read_review_json(path: Path) -> dict:
         "author": str(data.get("author") or "").strip(),
         "role": str(data.get("role") or "").strip().lower(),
         "review_date": parse_review_date(str(data.get("review_date") or "")),
-        # When the page was made: what it showed (_render_at_snapshot()).
-        "snapshot": str(data.get("snapshot") or ""),
         "columns": {k for row in rows for k in row},
         "rows": rows,
     }
 
 
-# A render watched as _render_ref() writes it: "v007-stable_001", or per
-# shot "sh110=v007-stable_001 sh120=v006_002".
-_RENDER_REF = re.compile(r"^(?:\S+=)?v\d+(?:-[a-z]+)?_\d+(?:\s+\S+=v\d+(?:-[a-z]+)?_\d+)*$", re.IGNORECASE)
-
-
-def _legacy_render(review: dict) -> dict:
-    """A review from before schema 7: its "render" was both the render
-    watched and a department called "render" (the page wrote the second
-    over the first). A render's name is the render watched; anything else
-    ("ok", a retake) is that department's cell."""
-    if review["schema_version"] >= 7:
-        return review
-    for row in review["rows"]:
-        value = row.get("render")
-        if value is not None and RENDER_WATCHED not in row and (
-            not value.strip() or _RENDER_REF.match(value.strip())
-        ):
-            row[RENDER_WATCHED] = row.pop("render")
-    review["columns"] = {k for row in review["rows"] for k in row}
-    return review
-
-
 def read_review(path: Path) -> dict:
     """A filled review: the snapshot page's .json, or the .xlsx template."""
     if Path(path).suffix.lower() == ".json":
-        return _legacy_render(read_review_json(path))
-    return _legacy_render(read_review_xlsx(path))
+        return read_review_json(path)
+    return read_review_xlsx(path)
 
 
-# The front sheet's how-to line (_review_front()): when the snapshot was made.
-_SNAPSHOT_OF = re.compile(r"Snapshot of (\d{4}-\d\d-\d\d) (\d\d:\d\d)")
+def _check_schema(path: Path, schema: int) -> None:
+    """Refuse a review made from another addon version's snapshot (see
+    NOTES.md, "Review import: this version's reviews only")."""
+    if schema > SCHEMA_VERSION:
+        raise PipelineError(
+            f"{Path(path).name} comes from a newer addon version (review "
+            f"v{schema}); update the addon to import it."
+        )
+    if schema < SCHEMA_VERSION:
+        raise PipelineError(
+            f"{Path(path).name} comes from an older snapshot (review v{schema}): "
+            "export the snapshot again and review it there."
+        )
 
 
 def read_review_xlsx(path: Path) -> dict:
-    """{"schema_version", "author", "role", "review_date", "snapshot",
-    "columns", "rows"} from a filled review template, every sheet's rows
-    (v4: Shots, Assets) keyed by their own header row's names; Author,
-    Review date and Role from the label cells above any header (v4: the
-    front sheet); snapshot from its "Snapshot of <date>" line."""
+    """{"schema_version", "author", "role", "review_date", "columns",
+    "rows"} from a filled review template: every sheet's rows keyed by
+    their header row's names; Author, Review date and Role from the front
+    sheet's label cells."""
     schema = None
-    author = date = role = snapshot = ""
+    author = date = role = ""
     columns: set[str] = set()
     rows = []
     for grid in read_xlsx_grids(path):
@@ -270,9 +243,6 @@ def read_review_xlsx(path: Path) -> dict:
                 m = re.fullmatch(r"schema_version=(\d+)", v.strip())
                 if m:
                     schema = int(m[1])
-                m = _SNAPSHOT_OF.search(v)
-                if m and not snapshot:
-                    snapshot = f"{m[1]}T{m[2]}"
             label = cells.get("A", "").strip().lower()
             if label == "author":
                 author = cells.get("B", "")
@@ -296,17 +266,12 @@ def read_review_xlsx(path: Path) -> dict:
         raise PipelineError(
             f"{Path(path).name} isn't a review template exported by this addon."
         )
-    if schema > SCHEMA_VERSION:
-        raise PipelineError(
-            f"{Path(path).name} comes from a newer addon version (template "
-            f"v{schema}); update the addon to import it."
-        )
+    _check_schema(path, schema)
     return {
         "schema_version": schema,
         "author": author.strip(),
         "role": role.strip().lower(),
         "review_date": parse_review_date(date),
-        "snapshot": snapshot,
         "columns": columns,
         "rows": rows,
     }
@@ -373,9 +338,9 @@ def _line_tags(line: str, shots: list[str]) -> tuple[str, str | None, tuple | No
 
 # Not departments, in a v4 sheet's header.
 # "fixed": the ids of the RTKs the reviewer marked fixed (the page's review,
-# schema 6), space-separated.
+# page), space-separated.
 _REVIEW_FIXED = {"group", "filename", "description", "fixed", REVIEW_GLOBAL, *_REVIEW_HIDDEN}
-# "reply <id>": the reviewer's reply to that entry's thread (schema 6) --
+# "reply <id>": the reviewer's reply to that entry's thread (the page) --
 # a retake on its departments, or "note:" a remark (_reply_kind()).
 REPLY_PREFIX = "reply "
 
@@ -425,31 +390,10 @@ def _cell_choice(value: str) -> str:
     return "text"
 
 
-def _row_actions(row: dict, schema: int) -> tuple[dict, str, list]:
+def _row_actions(row: dict) -> tuple[dict, str, list]:
     """What a template row asks: ({department: "yes"/"no"} of its own,
     "yes"/"no"/"" for every department done, [(line, departments, type)]
-    notes to create). v4: a cell per department and "global"; before: the
-    "valid <department>" columns, "valid all done", one text cell with the
-    row's department(s) and type."""
-    if schema < 4:
-        wanted = {
-            c[len(VALID_PREFIX) :]: v.strip().lower()
-            for c, v in row.items()
-            if c.startswith(VALID_PREFIX)
-            and c != VALID_ALL
-            and v.strip().lower() in VALID_CHOICES
-        }
-        every = (row.get(VALID_ALL) or "").strip().lower()
-        every = every if every in VALID_CHOICES else ""
-        departments = [
-            d.strip()
-            for d in re.split(r"[,;/+]", (row.get("department") or "").lower())
-            if d.strip()
-        ]
-        entry_type = (row.get("type") or "").lower()
-        entry_type = entry_type if entry_type in ENTRY_TYPES else "note"
-        notes = [(line, departments, entry_type) for line in _review_lines(row)]
-        return wanted, every, notes
+    notes to create), from its cell per department and "global"."""
     wanted, every, notes = {}, "", []
     for column, value in row.items():
         if column in _REVIEW_FIXED or column.startswith(REPLY_PREFIX):
@@ -494,24 +438,17 @@ def _review_file(name: str) -> Path | None:
 
 
 def review_import_plan(path: Path, review: dict | None = None) -> dict:
-    """What importing a review template would do, read only -- for its
-    confirm dialog: {"role", "author", "notes" (lines in it), "fixed",
-    "replies", their "notes_known" / "replies_known" / "fixed_done" (in the
-    project already, left as is), "validations": [{"name", "filepath",
-    "department", "approved", "stable"}] (changes only: "validations_known"
-    given already), "refused": [(label, reason)]}. A template from
-    1.1.2 on needs its Role, and that role must be one of the project's:
-    raises PipelineError otherwise -- or "team" (TEAM_ROLE, unless a
-    validation role has that name): the team's own notes and retakes, no
-    validation. An older one has no role (the team's notes) and no
-    validation. review: read_review(path), if read."""
+    """What importing a review would do, read only (its confirm dialog):
+    {"role", "team", "author", "notes", "fixed", "replies", their "*_known"
+    / "fixed_done" counts, "validations" (changes only), "refused":
+    [(label, reason)]}. Raises PipelineError without a Role, or one that is
+    neither a validation role nor "team"."""
     review = review or read_review(path)
     role = review["role"]
     roles = {r["name"] for r in validation_roles()}
     team = role == TEAM_ROLE and role not in roles
-    schema = review["schema_version"]
     actions = [
-        (row, *_row_actions(row, schema))
+        (row, *_row_actions(row))
         for row in review["rows"]
         if row.get("filename")
     ]
@@ -546,7 +483,7 @@ def review_import_plan(path: Path, review: dict | None = None) -> dict:
             known = _known_notes(
                 filepath, author, TEAM_REVIEW_SOURCE if team else REVIEW_SOURCE
             )
-            for *_, key in _row_notes(filepath, row, notes):
+            for *_, key in _row_notes(filepath, notes):
                 plan["notes_known"] += key in known
                 known.add(key)
         entries = (read_json_quiet(tracking_json_path(filepath)) or {}).get("entries", [])
@@ -562,7 +499,7 @@ def review_import_plan(path: Path, review: dict | None = None) -> dict:
         )
     wanted_any = any(wanted or every for _, wanted, every, _ in actions)
     # Anything under the role: it must be one (descriptions don't need it).
-    if schema >= 3 and (plan["notes"] or plan["replies"] or wanted_any):
+    if plan["notes"] or plan["replies"] or wanted_any:
         if not role:
             raise PipelineError(
                 f"{Path(path).name}: no Role chosen at the top -- pick one, then import again."
@@ -651,7 +588,7 @@ def _known_notes(filepath: Path, author: str, source: str = REVIEW_SOURCE) -> se
     }
 
 
-def _row_notes(filepath: Path, row: dict, notes: list) -> list[tuple]:
+def _row_notes(filepath: Path, notes: list) -> list[tuple]:
     """A row's note lines as they're imported: [(line, departments, type,
     shot, frames, key)] -- its departments the file's (unknown dropped), its
     [sh020] [f12-40] tags read. The same for the confirm dialog's count and
@@ -668,8 +605,6 @@ def _row_notes(filepath: Path, row: dict, notes: list) -> list[tuple]:
             except PipelineError:
                 pass
         line, shot, frames = _line_tags(line, shots)
-        # A pre-1.1.2 template's own "shot" column, for all its lines.
-        shot = shot or row.get("shot") or None
         key = _note_key(line, shot, *(frames or (None, None)), departments)
         out.append((line, departments, entry_type, shot, frames, key))
     return out
@@ -686,54 +621,13 @@ def _note_key(text, shot, f_start, f_end, departments) -> tuple:
     )
 
 
-def _render_at_snapshot(filepath: Path, snapshot: str) -> str:
-    """A review without its "render" (before schema 5): the file's last
-    render as _render_ref() writes it, if it already existed at `snapshot`
-    (its folder last written before) -- what the page showed. A shot
-    rendered again since: left out, never guessed. "" without a time."""
-    try:
-        made = datetime.fromisoformat(snapshot).timestamp()
-    except ValueError:
-        return ""
-    root = get_active_project_root()
-    if not root:
-        return ""
-    owner = filepath.parent
-    try:
-        kind = "shot" if owner.relative_to(root).parts[0] == "shots" else "asset"
-    except ValueError:
-        return ""
-    v_prefix = json_get(ConfigCache.get(), "naming.version.prefix", "v")
-    renders = read_render_state(root, kind, owner, v_prefix)
-    seen = []
-    for r in renders:
-        try:
-            if r.get("path") and os.stat(r["path"]).st_mtime <= made:
-                seen.append(r)
-        except OSError:
-            pass
-    # Per shot when one was left out: its notes must not take another's.
-    return _render_ref(seen, per_shot=len(seen) < len(renders) and len(renders) > 1)
-
-
 def import_review_xlsx(path: Path) -> dict:
-    """Create one entry per line of each filled text cell of a review
-    template, all sharing one review_id, stamped with the template's Author
-    ("prod" if empty) and Review date (import time if empty), anchored on
-    the version the snapshot showed. A line already imported (same file,
-    text, shot, frames, departments and author, from a review) is
-    skipped, so re-importing a file -- or a re-sent one with notes added,
-    or another reviewer's on the same line -- never duplicates.
-    Every note and validation under the template's Role (none for one made
-    before 1.1.2) -- see review_import_plan().
-    Retakes the reviewer marked fixed (the page's "fixed") are marked done,
-    as its author (close_entry()).
-    Replies ("reply <id>") go into their entry's thread under the role: a
-    retake on its departments ("still to redo", the entry left open), or a
-    remark when every line is "note:".
-    Returns {"imported", "duplicates" (notes and replies already there),
-    "validated", "same_validations" (already so), "fixed", "already_fixed"
-    (done already), "replies", "skipped": [(label, reason)]}."""
+    """Write a review into the project (review_import_plan() says what):
+    one entry per note line under its Role, the retakes marked fixed
+    closed, the replies in their threads, the validations. A line already
+    imported is skipped. Returns {"imported", "duplicates", "validated",
+    "same_validations", "fixed", "already_fixed", "replies", "skipped":
+    [(label, reason)]}."""
     review = read_review(path)
     plan = review_import_plan(path, review)
     team = plan["team"]
@@ -744,11 +638,6 @@ def import_review_xlsx(path: Path) -> dict:
     author = review["author"] or "prod"
     date = review["review_date"]
     created_at = date.isoformat(timespec="seconds") if date else None
-    # What the reviewer could have watched: the snapshot's renders, else
-    # those made by the end of the review day.
-    seen_at = review.get("snapshot") or (
-        datetime.combine(date.date(), datetime.max.time()).isoformat() if date else ""
-    )
     review_id = hashlib.sha1(f"{now()}{Path(path).name}".encode()).hexdigest()[:5]
     result = {
         "imported": 0,
@@ -861,14 +750,11 @@ def import_review_xlsx(path: Path) -> dict:
             continue
         # One line of a text cell = one entry (see NOTES.md, "Batched review
         # input, still one entry each"); a typed bullet is dropped.
-        _, _, notes = _row_actions(row, review["schema_version"])
+        _, _, notes = _row_actions(row)
         if not notes:
             continue
         name = row["filename"]
         filepath = _review_file(name)
-        row_render = ""
-        if filepath:
-            row_render = row.get(RENDER_WATCHED) or _render_at_snapshot(filepath, seen_at)
         if not filepath:
             result["skipped"].extend(
                 (
@@ -881,15 +767,13 @@ def import_review_xlsx(path: Path) -> dict:
         # The same words on another shot, frames or department are another
         # retake: "[sh170] too dark" and "[sh180] too dark" are two.
         known = _known_notes(filepath, author, source)
-        for line, departments, entry_type, shot, frames, key in _row_notes(
-            filepath, row, notes
-        ):
+        for line, departments, entry_type, shot, frames, key in _row_notes(filepath, notes):
             if key in known:
                 result["duplicates"] += 1
                 continue
             # The version the reviewer watched: the one its render was made
             # from (v007-stable_001 -> ..._v007-stable.blend), else the file.
-            render = render_of_note(row_render, shot)
+            render = render_of_note(row.get(RENDER_WATCHED, ""), shot)
             watched = filepath
             if render:
                 version = render.rsplit("_", 1)[0]
@@ -921,17 +805,10 @@ def import_review_xlsx(path: Path) -> dict:
 
 
 def review_description_changes(path: Path) -> list[dict]:
-    """[{"name", "filepath", "old", "new"}] for every row of a review
-    template whose description the prod edited -- the cell differs from
-    the description exported with it (description_exported) -- and that
-    still differs from the file's current one. A template without that
-    column (schema 1, description locked) has none: comparing with the
-    current description would revert every one changed since the export.
-    An empty cell is no change: the prod not writing one must never wipe a
-    description out."""
+    """[{"name", "filepath", "old", "new"}] for every row whose description
+    the prod edited (differs from description_exported) and that still
+    differs from the file's current one; an empty cell is no change."""
     review = read_review(path)
-    if "description_exported" not in review["columns"]:
-        return []
     changes, seen = [], set()
     for row in review["rows"]:
         name = row.get("filename")

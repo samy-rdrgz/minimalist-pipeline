@@ -26,6 +26,7 @@ from ..lib import (
 from .chunks import remove_claims
 from .dispatch import LOG_KEEP_BYTES, compact_log, discard_job_progress
 from .loop import (
+    RoleFileWatch,
     get_running_project,
     monitor_age_status,
     monitor_last_tick,
@@ -108,17 +109,14 @@ def launch_monitor(
 
 
 _last_is_monitor = False
-# Ticks in a row monitor.lock couldn't be found while this instance still
-# runs the monitor: see workers.FILE_GONE_TICKS.
-_lock_missing_ticks = 0
-_LOCK_GONE_TICKS = 3
+_lock_watch = RoleFileWatch("monitor")
 
 
 def is_blender_monitor() -> bool:
     """Whether this Blender process (pid + machine uuid) owns monitor.lock.
     A read that fails keeps the previous answer: farm_tick() stops the whole
     loop on False, and "couldn't check" must never mean "not the monitor"."""
-    global _last_is_monitor, _lock_missing_ticks
+    global _last_is_monitor
     try:
         lock_path = ConfigCache.get_path("monitor_file")
     except PipelineError:
@@ -138,22 +136,12 @@ def is_blender_monitor() -> bool:
         if not _last_is_monitor or get_running_project() is None:
             _last_is_monitor = False
             return False
-        # Else a share dropping out for a moment looks the same as a
-        # deleted lock: see workers.FILE_GONE_TICKS.
-        if not lock_path.parent.is_dir():
+        # Else a share out for a moment looks like a deleted lock.
+        if not _lock_watch.gone(lock_path):
             return True
-        _lock_missing_ticks += 1
-        if _lock_missing_ticks < _LOCK_GONE_TICKS:
-            return True
-        log(
-            "WARNING",
-            "farm",
-            f"monitor.lock gone for {_lock_missing_ticks} ticks: monitor role given up.",
-        )
-        _lock_missing_ticks = 0
         _last_is_monitor = False
         return False
-    _lock_missing_ticks = 0
+    _lock_watch.found()
     _last_is_monitor = (
         data.get("pid", "") == os.getpid() and data.get("uuid", "") == get_machine_id()
     )

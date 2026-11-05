@@ -122,12 +122,9 @@ class WM_OT_safe_save(bpy.types.Operator):
 
     def invoke(self, context, event):
         """Save directly outside the active project; inside it, gate on the
-        read-only flag, then on a file lock, then on the -stable tag.
-        filepath/uuid are captured into plain locals for the popup's
-        callbacks below: self.filepath/self.uuid are RNA properties, freed
-        with this operator's StructRNA once invoke() returns -- reading them
-        from a callback that runs later (popup choice, on_dismiss) raises
-        ReferenceError, so callbacks close over the plain values instead."""
+        read-only flag, then the file lock, then the -stable tag. Callbacks
+        use plain locals, never self (see NOTES.md, "Small gotchas, out of
+        the docstrings")."""
         filepath = bpy.data.filepath
         self.filepath = filepath
 

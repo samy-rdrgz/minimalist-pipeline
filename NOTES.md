@@ -14,7 +14,7 @@ comment.
 By theme; the sections below stay in the order they were written.
 
 - **Render farm**: [Farm 1.1.0: chunks replace placeholders](#farm-110-chunks-replace-placeholders) · [Stuck frame](#stuck-frame) · [Stopping a worker: after this frame, or now](#stopping-a-worker-after-this-frame-or-now) · [Which machine rendered which frame](#which-machine-rendered-which-frame) · [Time left: per machine, from each frame's time](#time-left-per-machine-from-each-frames-time) · [Crash recovery: resume, don't orphan](#crash-recovery-resume-dont-orphan) · [Re-rendering a file: match the render, not the job](#re-rendering-a-file-match-the-render-not-the-job) · [Farm subprocess output: files, never pipes](#farm-subprocess-output-files-never-pipes) · [Farm popup: worker state, open-folder button, refresh cost](#farm-popup-worker-state-open-folder-button-refresh-cost) · [Farm status: two redraw timers, split by cost](#farm-status-two-redraw-timers-split-by-cost) · [One farm snapshot reader, sync or threaded](#one-farm-snapshot-reader-sync-or-threaded) · [FFmpeg detection: PATH lookup isn't enough, and an override can't silently fall back](#ffmpeg-detection-path-lookup-isnt-enough-and-an-override-cant-silently-fall-back) · [What a real project's export showed (6 machines, a week of production)](#what-a-real-projects-export-showed-6-machines-a-week-of-production) · [ffmpeg passes: a %, from -progress](#ffmpeg-passes-a--from--progress) · [Priority: giving way between chunks](#priority-giving-way-between-chunks) · [A failed render says why](#a-failed-render-says-why) · [A share drop-out ended the farm roles for good](#a-share-drop-out-ended-the-farm-roles-for-good) · [Rushes: copies under fixed names, not links](#rushes-copies-under-fixed-names-not-links) · [Estimate before a render starts](#estimate-before-a-render-starts)
-- **Notes, tracking, snapshot**: [Tracking entries](#tracking-entries) · [Entries for several departments](#entries-for-several-departments) · [Validation roles](#validation-roles) · [Entries: two fields only ever guaranteed together, never accessed bare](#entries-two-fields-only-ever-guaranteed-together-never-accessed-bare) · [Edit entry: a note turned task kept no checkbox](#edit-entry-a-note-turned-task-kept-no-checkbox) · [Edit-entry dialog: a stored department can outlive its own enum](#edit-entry-dialog-a-stored-department-can-outlive-its-own-enum) · [Department filter: three different callers, three different "current file"s](#department-filter-three-different-callers-three-different-current-files) · [tracking.json: one path, never created by a write](#trackingjson-one-path-never-created-by-a-write) · [Renders to check: the one before, to compare](#renders-to-check-the-one-before-to-compare) · [Project monitoring's Farm column: the monitor cache, not the project scan](#project-monitorings-farm-column-the-monitor-cache-not-the-project-scan) · [Production snapshot: one HTML file, a spreadsheet inside it](#production-snapshot-one-html-file-a-spreadsheet-inside-it) · [Snapshot width: short state labels, hideable columns](#snapshot-width-short-state-labels-hideable-columns) · [Work time tracking & log rotation](#work-time-tracking--log-rotation) · [A review note is about the render watched](#a-review-note-is-about-the-render-watched) · [A general RTK reds the file's name](#a-general-rtk-reds-the-files-name) · [Entry ids: unique in their file](#entry-ids-unique-in-their-file) · [Snapshot page on an iPad](#snapshot-page-on-an-ipad)
+- **Notes, tracking, snapshot**: [Tracking entries](#tracking-entries) · [Entries for several departments](#entries-for-several-departments) · [Validation roles](#validation-roles) · [Entries: two fields only ever guaranteed together, never accessed bare](#entries-two-fields-only-ever-guaranteed-together-never-accessed-bare) · [Edit entry: a note turned task kept no checkbox](#edit-entry-a-note-turned-task-kept-no-checkbox) · [Edit-entry dialog: a stored department can outlive its own enum](#edit-entry-dialog-a-stored-department-can-outlive-its-own-enum) · [Department filter: three different callers, three different "current file"s](#department-filter-three-different-callers-three-different-current-files) · [tracking.json: one path, never created by a write](#trackingjson-one-path-never-created-by-a-write) · [Renders to check: the one before, to compare](#renders-to-check-the-one-before-to-compare) · [Project monitoring's Farm column: the monitor cache, not the project scan](#project-monitorings-farm-column-the-monitor-cache-not-the-project-scan) · [Production snapshot: one HTML file, a spreadsheet inside it](#production-snapshot-one-html-file-a-spreadsheet-inside-it) · [Snapshot width: short state labels, hideable columns](#snapshot-width-short-state-labels-hideable-columns) · [Work time tracking & log rotation](#work-time-tracking--log-rotation) · [A review note is about the render watched](#a-review-note-is-about-the-render-watched) · [A general RTK reds the file's name](#a-general-rtk-reds-the-files-name) · [Entry ids: unique in their file](#entry-ids-unique-in-their-file) · [Snapshot page on an iPad](#snapshot-page-on-an-ipad) · [Review import: this version's reviews only](#review-import-this-versions-reviews-only) · [Small gotchas, out of the docstrings](#small-gotchas-out-of-the-docstrings)
 - **Shot blocks (multishot), batch**: [Multishot blocks](#multishot-blocks) · [Multishot row list: disabling a button isn't a guard](#multishot-row-list-disabling-a-button-isnt-a-guard) · [Multishot row list, take two: a clean-scene reset invalidates it](#multishot-row-list-take-two-a-clean-scene-reset-invalidates-it) · [_draw_timeline_warnings: a trailing comma turned a string into a 1-tuple](#_draw_timeline_warnings-a-trailing-comma-turned-a-string-into-a-1-tuple) · [CSV batch: the subprocess couldn't import itself](#csv-batch-the-subprocess-couldnt-import-itself)
 - **Versions, saving, files**: [Read-only reason: from a popup on every open to an on-demand menu](#read-only-reason-from-a-popup-on-every-open-to-an-on-demand-menu) · [Top bar read-only indicator: why it sits before the Blender icon](#top-bar-read-only-indicator-why-it-sits-before-the-blender-icon) · [.wipmeta writes tolerate a missing sidecar; the panel doesn't trust the flag alone](#wipmeta-writes-tolerate-a-missing-sidecar-the-panel-doesnt-trust-the-flag-alone) · [Next version number: never from a cached listing](#next-version-number-never-from-a-cached-listing) · [Recent files: derived from the log, not a stored list](#recent-files-derived-from-the-log-not-a-stored-list) · [A version without .wipmeta](#a-version-without-wipmeta) · [The lock follows the file](#the-lock-follows-the-file) · [Work time: only a session that saved](#work-time-only-a-session-that-saved) · [resolve_bpy_path() left "../" uncollapsed in every stored link path](#resolve_bpy_path-left--uncollapsed-in-every-stored-link-path) · [Copy/paste isn't always under bpy.app.tempdir](#copypaste-isnt-always-under-bpyapptempdir) · [Project walk: a stray .pipeline/ hid every asset below it; popup regions must not outlive their popup](#project-walk-a-stray-pipeline-hid-every-asset-below-it-popup-regions-must-not-outlive-their-popup)
 - **Monitoring windows, popups, panels**: [Monitoring: windows, not popups](#monitoring-windows-not-popups) · [Monitoring crash: a thread during window_new()](#monitoring-crash-a-thread-during-window_new) · [Monitoring windows: to the front](#monitoring-windows-to-the-front) · [Monitoring windows: pages sized on the window](#monitoring-windows-pages-sized-on-the-window) · [Monitoring popups: reopening on the detail, or not](#monitoring-popups-reopening-on-the-detail-or-not) · [File details' monitoring_detail("file") is a folder, not a versioned file](#file-details-monitoring_detailfile-is-a-folder-not-a-versioned-file) · [Popup-chaining: a second modal popup always waits one timer tick](#popup-chaining-a-second-modal-popup-always-waits-one-timer-tick) · [Action popups: dialogs](#action-popups-dialogs) · ["Render" button opening pre-filled: an operator property's own redo memory](#render-button-opening-pre-filled-an-operator-propertys-own-redo-memory) · [Text wrapping in panels](#text-wrapping-in-panels) · [Pipeline log: backup noise, viewer](#pipeline-log-backup-noise-viewer) · [Shortcuts](#shortcuts)
@@ -445,7 +445,22 @@ Extending the flat note/todo/rtk model in `lib/tracking.py` for review-heavy use
 
 A review pass often produces several retakes at once — several toggles, not one. The tempting fix, one entry holding a list of tasks, was rejected: it makes `done` ambiguous (the entry has no single state, only its sub-tasks do), breaks `response`-based threading (reply to the entry, or to a task?), and department filtering falls over the moment two tasks in the same batch target different departments. Storage stays one entry per task, flat, independent — never `1 entry = N tasks`.
 
-The batching stays at the UI layer only: `review_id` (a uuid generated once per batch) is stamped on every entry created together and used purely for **display grouping** — one shared header (author/date) drawn once, the N tasks listed under it — never as a parent/child relationship. Entries sharing a `review_id` are otherwise fully independent: `response`-based threading still works, per-entry filtering still works, and an entry created outside a batch simply has no `review_id` — it isn't grouped with anything just because it's also missing one (see the schema note at `lib/tracking.py`'s review-box builder).
+The batching stays at the UI layer only: `review_id` (a uuid generated once per batch) is stamped on every entry created together and used purely for **display grouping** — one shared header (author/date) drawn once, the N tasks listed under it — never as a parent/child relationship. Entries sharing a `review_id` are otherwise fully independent: `response`-based threading still works, per-entry filtering still works, and an entry created outside a batch simply has no `review_id` — it isn't grouped with anything just because it's also missing one.
+
+Review boxes (`group_entries_by_review()`): a thread is a root entry (no
+`response`) plus every reply below it, transitively, flattened and sorted
+by date. Only the root's `review_id` picks the box: a reply added in a
+later review carries its own `review_id`, which doesn't move the thread --
+it only marks where a separator goes among the replies. A root without
+`review_id` gets a box of its own, never merged with other loose roots.
+Boxes and threads are ordered by their latest activity, newest on top.
+
+Filtering (`filter_review_boxes()`) is per thread, so a reply is never
+orphaned by its root being filtered out: *hide done* keeps a done root
+that still has an open todo/rtk reply, or that reply would vanish with
+it. The boxes come straight from `TrackingStatusCache`, shared by every
+redraw until the file changes: the filter builds new lists, never
+mutates them, or a filter once applied would stick after being reset.
 
 ### `frame_start`/`frame_end`, not a timeline marker
 
@@ -3455,15 +3470,10 @@ not an object: `read_review_json()` stringifies every value, and the
 xlsx needs one cell. Schema bumped so an older addon refuses a v5 file
 instead of reading `render` as a department column (a bogus RTK).
 
-A review from before has no `render`: `_render_at_snapshot()` takes the
-file's last render if its folder was last written before the review's
-`snapshot` time (what the page showed); a shot rendered again since is
-left out, never guessed -- the string then goes per shot so its notes
-don't fall back on another shot's render. An xlsx has no snapshot field,
-but its front sheet always said "Snapshot of <date> <time>" (to the
-minute): `read_review_xlsx()` reads it back. Without one, the end of the
-review date -- the renders the reviewer could have seen (not the import
-date: renders made between review and import would be taken).
+A review from before schema 5 had no `render`: the import used to guess
+it from the render folders' times (`_render_at_snapshot()`). Gone since
+the import reads only this version's reviews (see "Review import: this
+version's reviews only").
 
 ## A share drop-out ended the farm roles for good
 
@@ -3477,8 +3487,9 @@ atomic replace on SMB. Once off, nothing turns the timer back on, and
 nothing was logged.
 
 Now only positive evidence ends a role: the file read with another pid
-(stopped, taken over -- logged), or the file gone FILE_GONE_TICKS (3,
-~30 s) ticks in a row *with its folder reachable* (logged); a folder out
+(stopped, taken over -- logged), or the file gone 3 ticks (~30 s) in a
+row *with its folder reachable* (`RoleFileWatch`, in `farm/loop.py`,
+shared by both roles; logged); a folder out
 of reach, or an unreadable file, keeps the role and waits. A role this
 instance never had, or a monitor stopped on purpose (running project
 cleared first), still answers False at once. `update_worker_heartbeat()`
@@ -3694,9 +3705,8 @@ with it -- one rule for every box, so nobody has to learn two.
   was "render" in the `.json` and the spreadsheet; a project with a
   department called *render* (assets) had its retakes written over it,
   its *All done* validations skipped (the key already taken), and the
-  import read them as a render. Now `render_watched` (schema 7); a review
-  from before tells the two apart by the value's shape (`_legacy_render()`:
-  a render's name, `v007-stable_001`, is the render watched).
+  import read them as a render. Now `render_watched` (schema 7). A
+  review from before is refused, not told apart by its value's shape.
 - **The page needs the entries' ids** (`_entry_dict()`, `_entry()`): a
   thread is found by id at import, never by its text.
 
@@ -3932,3 +3942,52 @@ active block owns into `renders/.../old/` (or deleted). Refused on a live
 `.<name>.blend.lock` (`open_elsewhere()`; read-only opens take none), on
 the file open here, and on any link into it (`find_linked_by()`; asked
 again once the index is built rather than trusting an empty answer).
+
+## Review import: this version's reviews only
+
+A review (the page's `.json`, the template's `.xlsx`) is a file in
+transit, not project data: it lives between a snapshot's export and its
+import, days at most. So the import reads one schema, `SCHEMA_VERSION`,
+and refuses any other (`_check_schema()`): a newer one asks for an add-on
+update, an older one for the snapshot exported again. The page refuses
+to load one back the same way. Project data (`tracking.json`,
+`.stablemeta`, `render_history.json`) is the other way round: what an
+older version wrote is still read.
+
+Why: each schema left a reading path behind -- v3's "valid <dept>"
+columns, the pre-1.1.2 `shot` column and missing Role, schema 1's missing
+`description_exported`, the render guessed from folder times before 5,
+and a regex telling "render" the render watched from "render" the
+department before 7 (`_legacy_render()`). Each one guessed at a file
+that could simply be exported again.
+
+Schema history: 2 hidden `description_exported`; 3 the Role, "valid
+<dept>"; 4 a sheet per section, a cell per department; 5 the render
+watched; 6 `fixed` and `reply <id>` (page only); 7 `render_watched`, no
+longer `render` (a department's possible name).
+
+## Small gotchas, out of the docstrings
+
+Reasons that used to sit in a docstring, each too short for a section.
+
+- **`path_reachable()`**: `Path.exists()` only swallows ENOENT, ENOTDIR,
+  EBADF and ELOOP. A mount gone mid-session (a NAS dropped, a drive
+  unmapped) raises ENODEV or the like instead -- and the project root is
+  exactly the path a disconnected share breaks.
+- **`_purge_stale()`** (top bar): a dev reload (VS Code, Reload Scripts)
+  brings fresh function objects, so an identity `remove()` misses the
+  callbacks of a register() that crashed before its unregister() ran --
+  duplicate menus stacking up at each reload. Matched by `__name__`, the
+  next register() clears them, no restart.
+- **Safe save's `invoke()`**: `self.filepath` / `self.uuid` are RNA
+  properties, freed with the operator once invoke() returns; a popup
+  callback reading them later raises ReferenceError. The callbacks close
+  over plain locals.
+- **`draw_entries(filters=...)`**: the sidebar's filters live on the
+  WindowManager, shared; File details passes its own operator, or its
+  filters (and its department list, through `department_filter_items()`'s
+  `self.filepath`) would leak into the panel's and back.
+- **`file_in_active_project()`**: `.lower()` on both resolved paths, not
+  `os.path.normcase()`, a no-op on POSIX and macOS. Memoized on the last
+  pair: the file panel's poll() asks it on every redraw, and `resolve()`
+  is a round trip per component on a share.

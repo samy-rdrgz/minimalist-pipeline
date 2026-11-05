@@ -81,13 +81,10 @@ def draw_tracking_data(context, box, filepath, required, width: int | None = Non
 
 
 def draw_entries(box, filepath, filters=None, width: int | None = None):
-    """filters: object owning entries_hide_done/entries_department_filter/
-    entries_min_version. Defaults to the WindowManager (one shared, global
-    filter state) for the sidebar panel -- pass the popup's own operator
-    instance instead when draw_entries() is showing a file that may differ
-    from bpy.data.filepath (e.g. M_PIPELINE_OT_tracking_file_details), so its
-    filters (and department dropdown, via department_filter_items' self.filepath
-    fallback) stay scoped to that file instead of leaking into/from the panel."""
+    """Draw a file's entries. filters: the object holding entries_hide_done
+    / entries_department_filter / entries_min_version -- the WindowManager
+    for the sidebar, File details' own operator (see NOTES.md, "Small
+    gotchas, out of the docstrings")."""
     filters = filters or bpy.context.window_manager
     title = box.column(align=True)
     title_row = title.box().row(align=True)

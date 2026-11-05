@@ -37,11 +37,10 @@ from .tracking import (
     render_to_check_label,
 )
 
-# Bumped whenever the review template's columns change -- the import refuses
-# a template made by a newer addon.
-SCHEMA_VERSION = 7  # 2: hidden description_exported column; 3: role, "valid <dept>"; 4: a sheet per section, a cell per department; 5: the render watched; 6: "fixed", the RTKs the reviewer marked fixed, and "reply <id>", replies to existing notes (page only); 7: "render_watched", no longer "render" (an asset department's name)
-
-ENTRY_TYPES = ("note", "todo", "rtk")
+# Bumped whenever the review's columns change: the import reads this one
+# only (review_import._check_schema()). History in NOTES.md, "Review import:
+# this version's reviews only".
+SCHEMA_VERSION = 7
 
 # Share of a department counted as done per state, in % -- the project's
 # "snapshot.progress" (Edit project) overrides each. Validated counts 100,
@@ -54,8 +53,6 @@ REVIEW_SOURCE = "prod_review"
 # team RTKs, never tagged "prod review".
 TEAM_REVIEW_SOURCE = "team_review"
 TEAM_ROLE = "team"
-
-XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 
 # ---------------------------------------------------------------------------
@@ -94,16 +91,11 @@ def _owner_shots(owner: Path) -> list[str]:
 
 
 def read_render_state(root: Path, kind: str, owner: Path, v_prefix: str = "v") -> list:
-    """What was last rendered for an asset/shot folder, per shot (a block
-    has several, anything else one): [{"shot", "file", "folder", "path",
-    "frames", "frame_machines", "machine_seconds"}] (the last two None
-    without them), path the render folder's absolute path, frames its
-    [first, last] frame (the history's frame_range_rendered, else its
-    images' numbers; None unknown) -- its video's first frame is the first. From the
-    folder's render_history.json -- its last finished render of that shot,
-    file = the .blend it rendered -- else (no such entry, or an entry from
-    before source_file came after it) from the latest render folder's own
-    name (renders/<seq>/<shot>/v004-stable_002). Pure os/json: thread-safe."""
+    """What was last rendered for an asset/shot folder, one line per shot:
+    [{"shot", "file", "folder", "path", "frames", "frame_machines",
+    "machine_seconds"}], frames its [first, last] (None unknown). From
+    render_history.json's last finished render of that shot, else the latest
+    render folder's name. Pure os/json: thread-safe."""
     history = read_json_quiet(owner / ".pipeline" / "render_history.json") or {}
     finished = [
         e
@@ -155,12 +147,9 @@ def read_render_state(root: Path, kind: str, owner: Path, v_prefix: str = "v") -
         ]
         out.append(last_render(shot, mine, base.with_name(shot) if shot else base))
     if block:
-        # The block rendered whole (no split per shot: renders/<seq>/
-        # sh030-040/...): each shot's last render is the newer of its own
-        # and that one ("whole": the to-check label is the folder alone) --
-        # newer by when it finished: the two folders number their renders
-        # apart (sh040-050/v003-stable_002 can be older than
-        # sh040/v003-stable_001).
+        # The block rendered whole: each shot's last render is the newer of
+        # its own and that one, by when it finished (the two folders number
+        # their renders apart).
         mine = [
             i
             for i, e in enumerate(finished)
@@ -270,12 +259,10 @@ def _video_name(root: Path, mp4: Path | None) -> str | None:
 def ensure_snapshot_lds(
     data: dict, root: Path, sequences: list[str], assets: bool, ffmpeg: str
 ) -> tuple[list[str], list[tuple[str, str]]]:
-    """read_snapshot_data()'s renders of these sequences (and with assets,
-    every asset/library's): a light copy made in renders/ for each video a
-    browser can't play and that has none yet (preview.ensure_ld(): an
-    older render, from before the farm made them), its "video" pointed at
-    it. Returns (made, [(video, why) not made]). Disk and ffmpeg: on a
-    thread."""
+    """A light copy (preview.ensure_ld()) for each video of these sequences
+    (and the assets, with them) a browser can't play and that has none yet,
+    its "video" pointed at it. Returns (made, [(video, why)] not made). Disk
+    and ffmpeg: on a thread."""
     root = Path(root)
     made, failed = [], []
     for kind, owner, raw, _ in data["raws"]:
@@ -339,12 +326,10 @@ def _render_ref(renders: list, per_shot: bool = False) -> str:
 
 
 def render_of_note(render: str, shot: str | None) -> str | None:
-    """The render folder a review note is about, from its row's "render"
-    (_render_ref()): its shot's ("110" matches "sh110"), else the row's
-    one render; a note on the whole block, the newest of its shots'. None
-    for a shot of a block with no render of its own there (never
-    rendered, or rendered again after the snapshot), or without any (a
-    review from before schema 5)."""
+    """The render folder a review note is about, from its row's
+    render_watched (_render_ref()): its shot's, else the row's one render;
+    on a whole block, the newest of its shots'. None when its shot has no
+    render there."""
     default, per_shot = None, {}
     for token in (render or "").split():
         label, _, folder = token.rpartition("=")
@@ -375,12 +360,10 @@ def read_snapshot_data(
     root: Path, thumbnails: dict | None = None, v_prefix: str = "v"
 ) -> dict:
     """read_snapshot_raw() plus each folder's last render
-    (read_render_state()) and thumbnails: those missing or older than
-    their latest render are remade first (one headless Blender, waited on
-    -- run this on a thread). thumbnails: {"size", "blender", "ffmpeg"},
-    None to skip them. Returns {"raws", "renders": {owner:
-    [... + "video", its mp4 under renders/ or None]}, "thumbs": {owner: base64 JPEG}, "shot_thumbs": {block owner:
-    [(shot label, base64 JPEG or None)]}, "thumb_warnings": [...]}."""
+    (read_render_state()) and thumbnails, remade first when missing or older
+    than their render (one headless Blender, waited on: run it on a thread).
+    thumbnails: {"size", "blender", "ffmpeg"}, None to skip. Returns
+    {"raws", "renders", "thumbs", "shot_thumbs", "thumb_warnings"}."""
     raws = read_snapshot_raw(root)
     renders = {
         str(owner): read_render_state(root, kind, owner, v_prefix)
@@ -685,13 +668,6 @@ def top_validation_role(roles: list) -> str | None:
     return max(roles, key=lambda r: r["level"])["name"] if roles else None
 
 
-def department_progress(items: list, department: str) -> float | None:
-    """Mean of one department over the items requiring it, None if none
-    does -- the snapshot table's per-department footer."""
-    values = [i["scores"][department] for i in items if department in i["scores"]]
-    return sum(values) / len(values) if values else None
-
-
 def average_progress(items: list, key: str = "progress") -> float | None:
     """Mean progress of items (key "validation": their Validated), each
     weighing the same; those without any required department left out.
@@ -788,6 +764,25 @@ class SnapshotJob:
         except Exception as e:  # reported by the caller
             self.error = repr(e)
         self.done = True
+
+
+def run_in_background(fn, args: tuple, on_done, on_error, every: float = 0.3) -> None:
+    """fn(*args) on a SnapshotJob, polled by a timer (no modal handler: works
+    with no window), then on_done(result) or on_error(error)."""
+    import bpy
+
+    job = SnapshotJob(fn, *args)
+
+    def poll():
+        if not job.done:
+            return every
+        if job.error:
+            on_error(job.error)
+        else:
+            on_done(job.result)
+        return None
+
+    bpy.app.timers.register(poll, first_interval=every)
 
 
 def write_snapshot(snapshot: dict, filepath: Path) -> Path:

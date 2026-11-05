@@ -186,14 +186,10 @@ def _deferred_project_check():
 
 
 def _deferred_auto_worker():
-    """Launch the worker role on startup if auto_worker_on_open is on and a
-    project is already active. Deferred like _deferred_keymap: bpy.context.scene
-    isn't reliably ready at register() time. Runs after _deferred_project_check so a since-
-    deactivated project never gets a worker launched for it. Skipped in
-    background mode, same reason as _deferred_onboarding: this is for an
-    artist's own interactive session opting to double as a worker, not
-    a real headless worker (which launches via templates/worker_render_entry.py
-    instead, already scoped to its own project)."""
+    """Launch the worker role at startup when auto_worker_on_open is on and
+    a project is active -- after _deferred_project_check, never in
+    background mode (a headless worker launches through
+    worker_render_entry.py)."""
     if bpy.app.background:
         return
     try:

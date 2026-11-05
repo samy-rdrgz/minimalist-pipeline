@@ -270,14 +270,8 @@ def read_only_indicator(self, context):
 
 
 def _purge_stale(name: str):
-    """Remove every draw callback named `name`, not just one identity match.
-    A dev-reload (VS Code extension, "Reload Scripts") replaces top_bar_menu/
-    read_only_indicator with fresh function objects, so an `in`/`remove`
-    identity check misses leftovers from a previous register() that
-    registered fine but then crashed before its own unregister() ever ran
-    (e.g. the register()-time _RestrictData issue) -- those orphans stack up
-    as visible duplicate menus across reloads. Matching by __name__ instead
-    self-heals on the next register(), no Blender restart needed."""
+    """Remove every top bar draw callback named name, matched by __name__
+    (see NOTES.md, "Small gotchas, out of the docstrings")."""
     menus = bpy.types.TOPBAR_MT_editor_menus._dyn_ui_initialize()
     for f in [f for f in menus if getattr(f, "__name__", None) == name]:
         menus.remove(f)

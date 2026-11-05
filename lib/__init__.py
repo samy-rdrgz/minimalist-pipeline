@@ -35,6 +35,8 @@ from .browser import (
     version_items,
 )
 from .config import (
+    DEFAULT_ASSET_DEPARTMENTS,
+    DEFAULT_SHOT_DEPARTMENTS,
     DEFAULT_VALIDATION_ROLES,
     ConfigCache,
     blender_version_mismatch,
@@ -94,9 +96,7 @@ from .core import (
     write_json_atomic,
 )
 from .creation import (
-    DEFAULT_ASSET_DEPARTMENTS,
     DEFAULT_MULTISHOT_STEP,
-    DEFAULT_SHOT_DEPARTMENTS,
     create_asset_file,
     create_shot_file,
     resolve_timeline,
@@ -154,7 +154,6 @@ from .presets import (
 )
 from .preview import (
     latest_render_dir,
-    latest_shot_mp4,
     render_root,
     resolve_block_sources,
     resolve_sequence_sources,
@@ -165,7 +164,6 @@ from .preview import (
     copy_videos,
     ensure_ld,
     is_video,
-    media_width,
     ld_path,
     videos_in,
     zip_videos,
@@ -202,6 +200,7 @@ from .snapshot import (
     TEAM_REVIEW_SOURCE,
     TEAM_ROLE,
     SnapshotJob,
+    run_in_background,
     build_snapshot,
     progress_weights,
     group_renders,

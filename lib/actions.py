@@ -4,16 +4,11 @@ from dataclasses import dataclass, field
 
 @dataclass
 class PipelineAction:
-    """A detected condition the addon proposes to the artist. Core pattern:
-    Detect -> Inform -> Propose -> Execute -- every feature creates one of
-    these, a single operator (pipeline.action_popup) displays them all.
-    severity: "info" (status bar) | "warning" | "critical" (both modal).
-    choices: list of (label, callback) or (label, callback, tooltip). Usage:
-    set_pending_action(action), then bpy.ops.m_pipeline.action_popup('INVOKE_DEFAULT').
-    on_dismiss: run by action_popup's cancel() when the popup is dismissed
-    without clicking a choice (Escape / click-away) -- for cleanup that must
-    happen regardless of which button (if any) was clicked, e.g. releasing a
-    resource acquired before the popup was opened."""
+    """A condition the addon proposes to the artist (Detect -> Inform ->
+    Propose -> Execute), shown by action_popup. severity: "info" | "warning"
+    | "critical". choices: (label, callback[, tooltip]). on_dismiss: run
+    when the popup closes without a choice. Usage:
+    set_pending_action(action), then action_popup('INVOKE_DEFAULT')."""
 
     title: str = ""
     message: str = ""
