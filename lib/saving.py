@@ -54,50 +54,47 @@ def _increment_and_release(filepath: str, uuid: str):
 addon_keymaps = []
 
 
+def _save_key(km_window, incremental: bool) -> dict:
+    """The keys of Blender's own Save (or Save Incremental) in the active
+    keyconfig -- as the user set them --, else its defaults."""
+    for kmi in km_window.keymap_items if km_window else ():
+        if (
+            kmi.idname == "wm.save_mainfile"
+            and kmi.active
+            and bool(getattr(kmi.properties, "incremental", False)) == incremental
+        ):
+            return {k: getattr(kmi, k) for k in ("type", "ctrl", "alt", "shift", "oskey")}
+    return {"type": "S", "ctrl": True, "alt": incremental, "shift": False, "oskey": False}
+
+
 def override_shortcut():
-    """Replace basic Saving on Ctrl+S by custom safe_save ops. /!\\ Save btn is not overide."""
-    try:
-        bpy.utils.register_class(WM_OT_safe_save)
-    except Exception:
-        pass
+    """Ctrl+S and Ctrl+Alt+S (Save Incremental) on the addon's guarded
+    save and Increment -- the File menu's buttons are left as they are (see
+    NOTES.md, "Save Incremental: its key, not its button")."""
+    for cls in (WM_OT_safe_save, WM_OT_safe_save_incremental):
+        try:
+            bpy.utils.register_class(cls)
+        except Exception:
+            pass
 
     wm = bpy.context.window_manager
     kc_active = wm.keyconfigs.active
     kc_addon = wm.keyconfigs.addon
-
-    if kc_active and kc_addon:
-        km_window = kc_active.keymaps.get("Window")
-        target_kmi = None
-
-        if km_window:
-            for kmi in km_window.keymap_items:
-                if kmi.idname == "wm.save_mainfile" and kmi.active:
-                    target_kmi = kmi
-                    break
-
-        k_type = target_kmi.type if target_kmi else "S"
-        k_ctrl = target_kmi.ctrl if target_kmi else True
-        k_alt = target_kmi.alt if target_kmi else False
-        k_shift = target_kmi.shift if target_kmi else False
-        k_oskey = target_kmi.oskey if target_kmi else False
-
-        km = kc_addon.keymaps.get(
-            "Window", kc_addon.keymaps.new(name="Window", space_type="EMPTY")
+    if not (kc_active and kc_addon):
+        return
+    km_window = kc_active.keymaps.get("Window")
+    km = kc_addon.keymaps.get(
+        "Window", kc_addon.keymaps.new(name="Window", space_type="EMPTY")
+    )
+    for cls, incremental in ((WM_OT_safe_save, False), (WM_OT_safe_save_incremental, True)):
+        kmi = km.keymap_items.new(
+            cls.bl_idname, value="PRESS", **_save_key(km_window, incremental)
         )
-        new_kmi = km.keymap_items.new(
-            WM_OT_safe_save.bl_idname,
-            type=k_type,
-            value="PRESS",
-            ctrl=k_ctrl,
-            alt=k_alt,
-            shift=k_shift,
-            oskey=k_oskey,
-        )
-        addon_keymaps.append((km, new_kmi))
+        addon_keymaps.append((km, kmi))
 
 
 def unoverride_shortcut():
-    """Remove the safe_save keymap override and unregister its operator."""
+    """Remove the save keymap overrides and unregister their operators."""
     try:
         for km, kmi in addon_keymaps:
             km.keymap_items.remove(kmi)
@@ -105,10 +102,36 @@ def unoverride_shortcut():
 
     except Exception:
         pass
-    try:
-        bpy.utils.unregister_class(WM_OT_safe_save)
-    except Exception:
-        pass
+    for cls in (WM_OT_safe_save, WM_OT_safe_save_incremental):
+        try:
+            bpy.utils.unregister_class(cls)
+        except Exception:
+            pass
+
+
+class WM_OT_safe_save_incremental(bpy.types.Operator):
+    """Save Incremental's key: the addon's Increment in the active project
+    (Blender's would copy a -stable tag onto the next number), Blender's
+    own outside it."""
+
+    bl_idname = "wm.safe_save_incremental"
+    bl_label = "Save Incremental (pipeline)"
+
+    def invoke(self, context, event):
+        filepath = bpy.data.filepath
+        if filepath and file_in_active_project(filepath):
+            return bpy.ops.m_pipeline.increment_version("INVOKE_DEFAULT", tag="NONE")
+        # Its images dialog: an option from Blender 5.0 on (4.2 has none).
+        props = bpy.ops.wm.save_mainfile.get_rna_type().properties
+        extra = (
+            {"show_save_modified_images_dialog": True}
+            if "show_save_modified_images_dialog" in props
+            else {}
+        )
+        return bpy.ops.wm.save_mainfile("INVOKE_DEFAULT", incremental=True, **extra)
+
+    def execute(self, context):
+        return self.invoke(context, None)
 
 
 class WM_OT_safe_save(bpy.types.Operator):
