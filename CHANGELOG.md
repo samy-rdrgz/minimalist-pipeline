@@ -53,6 +53,11 @@ says what a review brings and what's already there.
   file's name. A department validated by the top role ("★ Done · prod")
   has its star in full, the rest of the grid staying grey.
 
+- Project settings opens in a window of its own like the welcome --
+  it stays open while edited (it closed as the mouse left it), Save
+  writes the config. The welcome window has *New project* and *Find
+  existing project* beside Close.
+
 - The welcome (first launch, and the main panel's *?*) opens in a window
   of its own like the monitoring ones -- smaller, centred, on Windows --
   instead of a popup that closed as soon as the mouse left it.

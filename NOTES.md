@@ -2446,6 +2446,15 @@ crash needs Blender.
 
 ## Monitoring: windows, not popups
 
+**Project settings (1.1.9)**, kind `"settings"`, the same way: its ~35
+fields were the operator's own properties, which a window's panel can't
+reach -- they're now `ProjectSettings`' annotations, copied onto
+`PIPELINE_PG_project_settings` (WindowManager.pipeline_project_settings,
+loaded when the window opens, written by *Save*) and onto the operator,
+which keeps the dialog as the fallback when no window opens. Opening it
+again on the same project brings it forward with its edits; on another,
+reloads it.
+
 **The welcome window (1.1.9)**, kind `"welcome"`, is one too -- a popup
 closed as soon as the mouse left it, the name half typed. Opened the same
 way (`window_new()`, its Properties editor emptied), smaller: no Blender

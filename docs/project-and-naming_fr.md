@@ -120,7 +120,7 @@ Une cellule vide signifie juste "utiliser le repli pour cette colonne" (départe
 }
 ```
 
-**Edit project** (panneau Project), les réglages sur deux colonnes -- ce que fait chacun :
+**Edit project** (panneau Project, *Project settings* du menu Pipeline) : une fenêtre à part depuis la 1.1.9, comme les monitorings -- elle reste ouverte pendant qu'on modifie, *Save* écrit la config, *Close* ferme sans (le dialogue seulement si Blender ne peut pas ouvrir de fenêtre). Les réglages sur deux colonnes -- ce que fait chacun :
 
 | Réglage | Rôle |
 |---|---|

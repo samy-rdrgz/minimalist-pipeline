@@ -52,6 +52,8 @@ from .project_ops import (
     M_PIPELINE_OT_edit_project,
     M_PIPELINE_OT_find_project,
     M_PIPELINE_OT_remove_project,
+    M_PIPELINE_OT_save_project_settings,
+    PIPELINE_PG_project_settings,
     M_PIPELINE_OT_set_active_project,
     M_PIPELINE_OT_unset_active_project,
 )
@@ -91,6 +93,8 @@ from .tracking_ops import (
 )
 
 classes = (
+    PIPELINE_PG_project_settings,
+    M_PIPELINE_OT_save_project_settings,
     M_PIPELINE_OT_delete_owner,
     M_PIPELINE_OT_clean_renders,
     M_PIPELINE_OT_clean_renders_confirm,

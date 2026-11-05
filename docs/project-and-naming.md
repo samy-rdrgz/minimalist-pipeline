@@ -120,7 +120,7 @@ Written under a lock and atomically (temp file then rename), like every other pi
 }
 ```
 
-**Edit project** (Project panel), two columns of settings -- what each one does:
+**Edit project** (Project panel, Pipeline menu's *Project settings*): a window of its own since 1.1.9, like the monitoring ones -- it stays open while you edit, *Save* writes the config, *Close* leaves without (the dialog only if Blender can't open a window). Two columns of settings -- what each one does:
 
 | Setting | What it does |
 |---|---|

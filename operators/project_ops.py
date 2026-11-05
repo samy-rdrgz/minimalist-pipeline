@@ -424,12 +424,11 @@ def _settings_row(box, label: str, icon: str):
     return split
 
 
-class M_PIPELINE_OT_edit_project(bpy.types.Operator):
-    """Edit project configuration."""
-
-    bl_idname = "m_pipeline.edit_project"
-    bl_label = ""
-    bl_description = "Edit project settings."
+class ProjectSettings:
+    """Project settings' fields, drawing, reading and writing -- shared by
+    the window (PIPELINE_PG_project_settings, on the WindowManager) and the
+    dialog it falls back on (M_PIPELINE_OT_edit_project). Their properties
+    are this class's annotations, copied onto each."""
 
     project_path_selected: bpy.props.StringProperty()
 
@@ -574,8 +573,7 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
         "(e.g. sup:1,prod:2,real:2). Empty: none",
     )
 
-    def draw(self, context):
-        layout = self.layout
+    def draw_settings(self, layout):
         layout.label(text=f"Editing: {self.project_name}", icon="FILE_TEXT")
         layout.separator()
         # Two columns side by side: one ran past the screen's height.
@@ -708,14 +706,10 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
             else "0 = always switch"
         )
 
-    def invoke(self, context, event):
-        try:
-            config = read_project_config(self.project_path_selected)
-        except PipelineError as e:
-            log(e.level, "edit_project", e.message)
-            self.report({e.level}, e.message)
-            return {"CANCELLED"}
-
+    def load(self, context) -> None:
+        """The fields from project_path_selected's config. Raises
+        PipelineError."""
+        config = read_project_config(self.project_path_selected)
         root = self.project_path_selected
         self.project_name = config.get("project_name", Path(root).name)
         self.project_bl_version = config.get(
@@ -782,9 +776,9 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
             f"{r['name']}:{r['level']}" for r in validation_roles(config)
         )
 
-        return context.window_manager.invoke_props_dialog(self, width=900)
-
-    def execute(self, context):
+    def save(self, context) -> list[tuple[str, str]]:
+        """The fields written to the config: what to report, [(level,
+        message)]."""
         try:
             config = read_project_config(self.project_path_selected)
         except PipelineError as e:
@@ -861,22 +855,20 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
             config_file.write_text(json.dumps(config, indent=4), encoding="utf-8")
             ConfigCache.invalidate()
         except Exception as e:
-            self.report({"ERROR"}, f"Failed to save config: {e}")
-            return {"CANCELLED"}
+            return [("ERROR", f"Failed to save config: {e}")]
 
+        out = []
         try:
             save_project_data(addon_pref(context))
         except PipelineError as e:
             log(e.level, "edit_project", e.message)
-            self.report({"WARNING"}, f"Config saved, but not backed up: {e}")
+            out.append(("WARNING", f"Config saved, but not backed up: {e}"))
 
         if schedule_error:
-            self.report(
-                {"WARNING"}, f"Config saved, schedule left as it was: {schedule_error}"
-            )
+            out.append(("WARNING", f"Config saved, schedule left as it was: {schedule_error}"))
         else:
-            self.report({"INFO"}, f"Config saved for {self.project_name}.")
-        return {"FINISHED"}
+            out.append(("INFO", f"Config saved for {self.project_name}."))
+        return out
 
     def _schedule(self) -> dict:
         """The schedule fields as snapshot.schedule: ISO dates, {} when start
@@ -939,3 +931,83 @@ class M_PIPELINE_OT_edit_project(bpy.types.Operator):
     def _rdm_from(self, csv_str):
         items = [s.strip() for s in csv_str.split(",") if s.strip()]
         return random.choice(items) if items else "xx"
+
+
+_SETTINGS_PROPS = dict(ProjectSettings.__annotations__)
+
+
+class PIPELINE_PG_project_settings(ProjectSettings, bpy.types.PropertyGroup):
+    """Project settings as the window edits them (WindowManager
+    .pipeline_project_settings): loaded when it opens, written by Save."""
+
+    __annotations__ = dict(_SETTINGS_PROPS)
+
+
+class M_PIPELINE_OT_edit_project(ProjectSettings, bpy.types.Operator):
+    """Edit project configuration."""
+
+    bl_idname = "m_pipeline.edit_project"
+    bl_label = ""
+    bl_description = "Edit project settings."
+
+    __annotations__ = dict(_SETTINGS_PROPS)
+
+    def invoke(self, context, event):
+        # A window, like the welcome: it stays while edited. The dialog only
+        # if Blender couldn't open one.
+        from ..lib.monitoring import (
+            bring_monitoring_to_front,
+            monitoring_windows,
+            open_monitoring_window,
+        )
+
+        settings = context.window_manager.pipeline_project_settings
+        open_one = monitoring_windows("settings")
+        if open_one and settings.project_path_selected == self.project_path_selected:
+            # Already open on that project: its edits kept, brought forward.
+            if bring_monitoring_to_front(context, "settings"):
+                return {"FINISHED"}
+        settings.project_path_selected = self.project_path_selected
+        try:
+            settings.load(context)
+        except PipelineError as e:
+            log(e.level, "edit_project", e.message)
+            self.report({e.level}, e.message)
+            return {"CANCELLED"}
+        if open_one:
+            from ..lib.monitoring import redraw_monitoring
+
+            redraw_monitoring("settings")
+            bring_monitoring_to_front(context, "settings")
+            return {"FINISHED"}
+        if open_monitoring_window(context, "settings", size=(0.6, 0.8)):
+            return {"FINISHED"}
+        try:
+            self.load(context)
+        except PipelineError as e:
+            self.report({e.level}, e.message)
+            return {"CANCELLED"}
+        return context.window_manager.invoke_props_dialog(self, width=900)
+
+    def draw(self, context):
+        self.draw_settings(self.layout)
+
+    def execute(self, context):
+        out = self.save(context)
+        for level, message in out:
+            self.report({level}, message)
+        return {"CANCELLED"} if out and out[0][0] == "ERROR" else {"FINISHED"}
+
+
+class M_PIPELINE_OT_save_project_settings(bpy.types.Operator):
+    """Write the settings window's fields to the project's config"""
+
+    bl_idname = "m_pipeline.save_project_settings"
+    bl_label = "Save"
+    bl_options = {"INTERNAL"}
+
+    def execute(self, context):
+        out = context.window_manager.pipeline_project_settings.save(context)
+        for level, message in out:
+            self.report({level}, message)
+        return {"CANCELLED"} if out and out[0][0] == "ERROR" else {"FINISHED"}

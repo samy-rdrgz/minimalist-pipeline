@@ -16,7 +16,7 @@ from .tracking import ProjectScan, TrackingStatusCache
 # "farm") -- the panels' poll() reads it, and it survives the .blend being
 # saved with the window open.
 MONITORING_SCREEN_KEY = "m_pipeline_monitoring"
-MONITORING_KINDS = ("project", "farm", "log", "welcome")
+MONITORING_KINDS = ("project", "farm", "log", "welcome", "settings")
 
 # Redraw check, and how often Project monitoring's Farm column is read again.
 _TICK = 0.5

@@ -216,3 +216,28 @@ class M_PIPELINE_PT_welcome(_MonitoringPanel, bpy.types.Panel):
         spacer = self.layout.column()
         spacer.scale_y = context.region.height / (20 * (context.preferences.system.ui_scale or 1.0))
         spacer.label(text="")
+
+
+class M_PIPELINE_PT_project_settings(_MonitoringPanel, bpy.types.Panel):
+    """Project settings' window: the fields of the project being edited
+    (WindowManager.pipeline_project_settings), Save to write them."""
+
+    bl_label = "Pipeline: Project settings"
+    bl_idname = "M_PIPELINE_PT_project_settings"
+    kind = "settings"
+
+    def draw(self, context):
+        settings = context.window_manager.pipeline_project_settings
+        layout = self.layout
+        if not settings.project_path_selected:
+            layout.label(text="No project loaded: open Project settings again.", icon="ERROR")
+        else:
+            settings.draw_settings(layout)
+            layout.separator(factor=2)
+            actions = layout.box().row()
+            actions.scale_y = 1.2
+            actions.operator("m_pipeline.save_project_settings", text="Save", icon="FILE_TICK", emboss=False)
+            actions.operator("wm.window_close", text="Close", icon="CHECKMARK", emboss=False)
+        spacer = self.layout.column()
+        spacer.scale_y = context.region.height / (20 * (context.preferences.system.ui_scale or 1.0))
+        spacer.label(text="")
