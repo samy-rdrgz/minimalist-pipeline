@@ -37,11 +37,10 @@ from .tracking import (
     render_to_check_label,
 )
 
-# Bumped whenever the review template's columns change -- the import refuses
-# a template made by a newer addon.
-SCHEMA_VERSION = 7  # 2: hidden description_exported column; 3: role, "valid <dept>"; 4: a sheet per section, a cell per department; 5: the render watched; 6: "fixed", the RTKs the reviewer marked fixed, and "reply <id>", replies to existing notes (page only); 7: "render_watched", no longer "render" (an asset department's name)
-
-ENTRY_TYPES = ("note", "todo", "rtk")
+# Bumped whenever the review's columns change: the import reads this one
+# only (review_import._check_schema()). History in NOTES.md, "Review import:
+# this version's reviews only".
+SCHEMA_VERSION = 7
 
 # Share of a department counted as done per state, in % -- the project's
 # "snapshot.progress" (Edit project) overrides each. Validated counts 100,
@@ -54,8 +53,6 @@ REVIEW_SOURCE = "prod_review"
 # team RTKs, never tagged "prod review".
 TEAM_REVIEW_SOURCE = "team_review"
 TEAM_ROLE = "team"
-
-XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 
 # ---------------------------------------------------------------------------
@@ -683,13 +680,6 @@ def top_validation_role(roles: list) -> str | None:
     """The role the "Validated" figures count: the highest level's (its
     equivalents cover it). None without any role."""
     return max(roles, key=lambda r: r["level"])["name"] if roles else None
-
-
-def department_progress(items: list, department: str) -> float | None:
-    """Mean of one department over the items requiring it, None if none
-    does -- the snapshot table's per-department footer."""
-    values = [i["scores"][department] for i in items if department in i["scores"]]
-    return sum(values) / len(values) if values else None
 
 
 def average_progress(items: list, key: str = "progress") -> float | None:

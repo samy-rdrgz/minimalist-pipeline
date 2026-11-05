@@ -779,10 +779,7 @@ class M_PIPELINE_OT_import_review_confirm(bpy.types.Operator):
             row.label(text=f"Imported as: {plan['role'].upper()}", icon="SOLO_ON")
             col.label(text=f"By: {plan['author']}", icon="USER")
         else:
-            col.label(
-                text="No role (a template from before 1.1.2): the team's notes",
-                icon="INFO",
-            )
+            col.label(text="No role: descriptions only", icon="INFO")
         col.separator()
         # What it brings, then what the project holds already (a review
         # imported again): that part is left as it is, never duplicated.

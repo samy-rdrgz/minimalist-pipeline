@@ -154,7 +154,6 @@ from .presets import (
 )
 from .preview import (
     latest_render_dir,
-    latest_shot_mp4,
     render_root,
     resolve_block_sources,
     resolve_sequence_sources,
@@ -165,7 +164,6 @@ from .preview import (
     copy_videos,
     ensure_ld,
     is_video,
-    media_width,
     ld_path,
     videos_in,
     zip_videos,

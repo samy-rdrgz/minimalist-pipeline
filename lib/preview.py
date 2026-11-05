@@ -41,19 +41,6 @@ def latest_render_dir(shot_dir: Path, v_prefix: str = "v") -> Path | None:
     return max(candidates)[2] if candidates else None
 
 
-def latest_shot_mp4(
-    project_root: Path, sequence_label: str, shot_label: str, config: dict | None = None
-) -> Path | None:
-    """The shot's most recently rendered mp4, read from the increment
-    folder's own name (not mtime). None if never rendered, or no mp4 yet."""
-    config = config if config is not None else ConfigCache.get()
-    latest = latest_render_dir(
-        project_root / "renders" / sequence_label / shot_label,
-        json_get(config, "naming.version.prefix", "v"),
-    )
-    return _first_mp4(latest)
-
-
 # A render's compiled video: mp4 by default, the ffmpeg preset's
 # "extension" otherwise (a ProRes .mov for the edit...).
 VIDEO_EXTS = (".mp4", ".mov", ".mkv", ".m4v")
@@ -250,13 +237,6 @@ def _video_info(mp4: Path, ffmpeg: str) -> tuple[str, str, int] | None:
 # Videos read once and found playable as they are, by (path, modification
 # time): the next export doesn't ask ffmpeg again.
 _PLAYABLE: set = set()
-
-
-def media_width(path: Path, ffmpeg: str) -> int | None:
-    """An image's or a video's width, read by ffmpeg (a frame of a render:
-    PNG, EXR, JPEG...); None if unread."""
-    info = _video_info(path, ffmpeg)
-    return info[2] if info else None
 
 
 def ensure_ld(video: Path, ffmpeg: str) -> Path | None:
