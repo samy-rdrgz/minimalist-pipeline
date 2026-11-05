@@ -117,10 +117,23 @@ def read_render_state(root: Path, kind: str, owner: Path, v_prefix: str = "v") -
     def last_render(shot: str, mine: list, folder_dir: Path) -> dict:
         # An older version's entry (no source_file, no shot_override) after
         # it may be a newer render of this shot: the folder name knows.
+        last = None
         if mine and all(e.get("source_file") for e in finished[mine[-1] + 1 :]):
             last = finished[mine[-1]]
             output = last.get("output_path")
             folder = (Path(root) / output).parent if output else None
+            # A render folder further on than the history's last (v008-stable_001
+            # after v005-stable_001): rendered without the history hearing of
+            # it -- the folder is what's there.
+            latest = latest_render_dir(folder_dir, v_prefix)
+            if (
+                latest is not None
+                and folder is not None
+                and latest.parent == folder.parent
+                and _render_order(latest.name) > _render_order(folder.name)
+            ):
+                last = None
+        if last is not None:
             return {
                 "_when": _finished_at(last.get("completed_at")) or _mtime(folder),
                 "shot": shot,

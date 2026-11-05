@@ -29,6 +29,11 @@ says what a review brings and what's already there.
   worked when an RTK was opened or closed on it meanwhile. A review of an older stable validates a department not worked
   since, instead of refusing it.
 
+- Last render (snapshot page, File details): a render folder further on
+  than the render history's last entry (v008-stable_001 after
+  v005-stable_001, rendered without the history hearing of it) was
+  ignored, its video with it. The folder now wins.
+
 - Snapshot page: files with no tracking, once shown, take their place in
   their group (sq040_sh010 first), not after the others.
 
