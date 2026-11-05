@@ -2,7 +2,7 @@
 
 All notable changes to this addon. Dates are release dates.
 
-## 1.1.9 — unreleased
+## 1.1.9 — 05/11/2026
 
 A review's department called *render* no longer lost, and Import review
 says what a review brings and what's already there.
