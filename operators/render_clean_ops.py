@@ -20,28 +20,33 @@ _pending: dict = {}
 _GROUPS_SHOWN = 12
 
 
-class _ThreadedModal:
-    """Run fn on a thread (SnapshotJob), then on_done(context, result)."""
+def _in_background(fn, args, on_done) -> None:
+    """Run fn(*args) on a thread (SnapshotJob), polled by a timer, then
+    on_done(result) -- no modal handler: the confirm dialog runs from a
+    timer, with no window to hang one on (its clean never ran)."""
+    job = SnapshotJob(fn, *args)
 
-    def _start(self, context, fn, *args):
-        self._job = SnapshotJob(fn, *args)
-        wm = context.window_manager
-        self._timer = wm.event_timer_add(0.2, window=context.window)
-        wm.modal_handler_add(self)
-        return {"RUNNING_MODAL"}
+    def poll():
+        if not job.done:
+            return 0.3
+        if job.error:
+            log("ERROR", "render_clean", f"Clean old renders failed: {job.error}")
+            _popup("Clean old renders failed", f"{job.error}\n\nSee the pipeline log.", "ERROR")
+            return None
+        on_done(job.result)
+        return None
 
-    def modal(self, context, event):
-        if event.type != "TIMER" or not self._job.done:
-            return {"PASS_THROUGH"}
-        context.window_manager.event_timer_remove(self._timer)
-        if self._job.error:
-            log("ERROR", "render_clean", f"Clean old renders failed: {self._job.error}")
-            self.report({"ERROR"}, "Clean old renders failed (see log).")
-            return {"CANCELLED"}
-        return self.on_done(context, self._job.result)
+    bpy.app.timers.register(poll, first_interval=0.3)
 
 
-class M_PIPELINE_OT_clean_renders(_ThreadedModal, bpy.types.Operator):
+def _popup(title: str, message: str, icon: str = "INFO") -> None:
+    try:
+        bpy.ops.m_pipeline.text_popup("INVOKE_DEFAULT", title=title, message=message, icon=icon)
+    except RuntimeError:
+        pass  # no window to show it in: the log has it
+
+
+class M_PIPELINE_OT_clean_renders(bpy.types.Operator):
     """Lighten the renders folder: keep each shot's and asset's last renders,
     delete the older ones -- or only their frames, their videos kept."""
 
@@ -100,34 +105,34 @@ class M_PIPELINE_OT_clean_renders(_ThreadedModal, bpy.types.Operator):
         root = get_active_project_root()
         kinds = {"BOTH": ("shot", "asset"), "SHOTS": ("shot",), "ASSETS": ("asset",)}[self.scope]
         sequence = "" if self.scope == "ASSETS" or self.sequence in ("all", "NONE") else self.sequence
-        self._options = (self.keep, self.mode)
+        keep = self.keep
         self.report({"INFO"}, "Looking at the renders...")
-        return self._start(
-            context,
-            plan_render_clean,
-            root,
-            self.keep,
-            self.mode == "IMAGES",
-            kinds,
-            sequence,
-            json_get(ConfigCache.get(), "naming.version.prefix", "v"),
-            ConfigCache.get_path("farm_actives"),
-        )
 
-    def on_done(self, context, plan):
-        if not plan["candidates"]:
-            self.report({"INFO"}, "Nothing to clean: every render is among the ones kept.")
-            return {"FINISHED"}
-        _pending.clear()
-        _pending.update(plan=plan, keep=self._options[0])
-        bpy.app.timers.register(
-            lambda: bpy.ops.m_pipeline.clean_renders_confirm("INVOKE_DEFAULT") and None,
-            first_interval=0.05,
+        def looked(plan):
+            if not plan["candidates"]:
+                _popup("Clean old renders", "Nothing to clean: every render is among the ones kept.")
+                return
+            _pending.clear()
+            _pending.update(plan=plan, keep=keep)
+            bpy.ops.m_pipeline.clean_renders_confirm("INVOKE_DEFAULT")
+
+        _in_background(
+            plan_render_clean,
+            (
+                root,
+                self.keep,
+                self.mode == "IMAGES",
+                kinds,
+                sequence,
+                json_get(ConfigCache.get(), "naming.version.prefix", "v"),
+                ConfigCache.get_path("farm_actives"),
+            ),
+            looked,
         )
         return {"FINISHED"}
 
 
-class M_PIPELINE_OT_clean_renders_confirm(_ThreadedModal, bpy.types.Operator):
+class M_PIPELINE_OT_clean_renders_confirm(bpy.types.Operator):
     """What a clean would free, asked before doing it."""
 
     bl_idname = "m_pipeline.clean_renders_confirm"
@@ -154,6 +159,12 @@ class M_PIPELINE_OT_clean_renders_confirm(_ThreadedModal, bpy.types.Operator):
             row.alert = True
             row.label(text=f"{n} older render(s) deleted, videos included.", icon="TRASH")
         col.label(text=f"{human_bytes(plan['bytes'])} freed -- the {_pending['keep']} latest of each kept whole ({plan['kept']} render(s)).", icon="BLANK1")
+        previous = sum(1 for c in plan["candidates"] if c.get("previous"))
+        if previous:
+            col.label(
+                text=f"{previous} of them from a previous file of the same shot (rendered before it was made).",
+                icon="BLANK1",
+            )
         col.separator()
         groups = list(plan["groups"].items())
         box = col.box().column(align=True)
@@ -175,19 +186,22 @@ class M_PIPELINE_OT_clean_renders_confirm(_ThreadedModal, bpy.types.Operator):
         plan = _pending.get("plan")
         if not plan:
             return {"CANCELLED"}
-        self._plan = plan
-        self.report({"INFO"}, "Cleaning old renders...")
-        return self._start(context, apply_render_clean, plan)
-
-    def on_done(self, context, result):
         _pending.clear()
-        kind = "lightened (frames deleted)" if self._plan["images_only"] else "deleted"
-        message = f"{result['done']} older render(s) {kind}, {human_bytes(result['bytes'])} freed."
-        log("SUCCESS", "render_clean", f"{message} By {get_user(context)}.")
-        for path, why in result["errors"]:
-            log("WARNING", "render_clean", f"Not cleaned: {path}: {why}")
-        if result["errors"]:
-            self.report({"WARNING"}, f"{message} {len(result['errors'])} could not be (see log).")
-        else:
-            self.report({"INFO"}, message)
+        user = get_user(context)
+        kind = "lightened (frames deleted)" if plan["images_only"] else "deleted"
+        log("INFO", "render_clean", f"Cleaning {len(plan['candidates'])} older render(s) ({kind}), by {user}...")
+        self.report({"INFO"}, "Cleaning old renders...")
+
+        def cleaned(result):
+            message = f"{result['done']} older render(s) {kind}, {human_bytes(result['bytes'])} freed."
+            log("SUCCESS", "render_clean", f"{message} By {user}.")
+            for path, why in result["errors"]:
+                log("WARNING", "render_clean", f"Not cleaned: {path}: {why}")
+            if result["errors"]:
+                lines = [f"{path}: {why}" for path, why in result["errors"][:12]]
+                _popup("Clean old renders", "\n".join([message, f"{len(result['errors'])} not cleaned:", *lines]), "ERROR")
+            else:
+                _popup("Clean old renders", message)
+
+        _in_background(apply_render_clean, (plan,), cleaned)
         return {"FINISHED"}

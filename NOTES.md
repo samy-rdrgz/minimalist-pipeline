@@ -3881,6 +3881,18 @@ video's once remuxed -- hence `.rendered_at`, written before the frames
 of a folder lightened to its video are deleted (a test caught it: the
 lightened old renders came out newest by their video's date).
 
+A previous file's renders (made before the owner's `created_at`, not in
+its history) are not counted in N: the sq080 case after the hand clean
+left only v007/v008 of the old file -- "keep 2" kept exactly those.
+Deleting, the newest of them stays when the shot has no render of its
+own (a branch: its only video until re-rendered).
+
+The first version's clean never ran: the confirm dialog is invoked from a
+timer (popup chaining), with no window, and its execute() waited on the
+thread through a modal handler -- which needs one. Both phases are now
+polled by `bpy.app.timers` (like the rushes push), the outcome in the log
+and a text popup.
+
 Always kept, whatever N: the last render (`read_render_state()`), a
 render an open note names (by folder name, any of the owner's shots), the
 one `to_check` names, any folder a job in `actives/` writes to. Only the

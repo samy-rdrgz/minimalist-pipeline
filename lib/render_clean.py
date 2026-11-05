@@ -119,8 +119,11 @@ def plan_render_clean(
     """What a clean would do. Per shot (a block's each, and the block
     rendered whole) or asset render folder: its renders ordered by when they
     were made -- the history's completed_at, else its newest frame, else
-    the date left when lightened, else its video --, the keep newest kept, and always its last render, a render an
-    open note or "to check" names, one the farm is writing. The rest:
+    the date left when lightened, else its video --, the keep newest kept, and
+    always its last render, a render an open note or "to check" names, one
+    the farm is writing. A previous file's renders (made before this one's
+    created_at, not in its history) count for nothing: all lightened, or
+    all deleted but the newest when the shot has no render of its own. The rest:
     deleted whole, or (images_only) only their frames, the videos and ld/
     kept. {"candidates": [{"group", "owner", "shot_dir", "folder", "path",
     "bytes", "images"}], "kept": n, "bytes": total, "groups": {group:
@@ -139,9 +142,13 @@ def plan_render_clean(
             owner.relative_to(root).parts[:-1]
         )
         protected = set(active)
-        for r in read_render_state(root, kind, owner, v_prefix):
-            if r.get("path"):
-                protected.add(_key(r["path"]))
+        # Its last renders: kept -- unless one turns out to be a previous
+        # file's (below), the fallback by folder name finding it.
+        last = {
+            _key(r["path"])
+            for r in read_render_state(root, kind, owner, v_prefix)
+            if r.get("path")
+        }
         for info in (tracking.get("to_check") or {}).values():
             if info.get("render"):
                 protected.add(_key(root / info["render"]))
@@ -159,6 +166,10 @@ def plan_render_clean(
                 when = _timestamp(e.get("completed_at"))
                 if when is not None:
                     finished_at[_key((root / e["output_path"]).parent)] = when
+        # Made before this file existed: a previous file of the same shot
+        # (deleted and made again, a block split...) -- not one of its
+        # renders, whatever its number.
+        created = _timestamp(tracking.get("created_at"))
         base = render_root(root, owner)
         shot_dirs = {base}
         if kind == "shot":
@@ -184,9 +195,19 @@ def plan_render_clean(
                 )
                 rows.append((when, folder, content))
             rows.sort(key=lambda r: r[0], reverse=True)
-            for i, (when, folder, content) in enumerate(rows):
+            own = [
+                r for r in rows
+                if _key(r[1]) in finished_at or created is None or r[0] >= created
+            ]
+            previous = [r for r in rows if r not in own]
+            keeping = {_key(r[1]) for r in own[:keep]}
+            keeping |= {_key(r[1]) for r in own if _key(r[1]) in last}
+            if previous and not own and not images_only:
+                # Deleting: a shot's only video left, even a previous file's.
+                keeping.add(_key(previous[0][1]))
+            for when, folder, content in rows:
                 if (
-                    i < keep
+                    _key(folder) in keeping
                     or _key(folder) in protected
                     or folder.name in noted
                 ):
@@ -207,6 +228,7 @@ def plan_render_clean(
                         "bytes": size,
                         "images": [p for p, _ in content["images"]],
                         "when": when,
+                        "previous": _key(folder) not in {_key(r[1]) for r in own},
                     }
                 )
     groups: dict = {}
