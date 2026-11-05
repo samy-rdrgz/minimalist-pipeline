@@ -827,6 +827,23 @@ def construct_history(job: dict, status):
             entry[key] = job[key]
 
     append_render_history(job["filepath"], entry)
+    # The outcome in the pipeline log too: it showed jobs submitted and
+    # sent, never one ending -- only render_history.json knew.
+    shot = f" {entry['shot_override']}" if entry.get("shot_override") else ""
+    folder = Path(entry["output_path"]).parent.name if entry.get("output_path") else ""
+    took = (
+        f", {entry['duration_seconds'] / 60:.0f} min"
+        if entry.get("duration_seconds")
+        else ""
+    )
+    log(
+        "SUCCESS" if status == "finished" else "WARNING",
+        "farm",
+        f"Job {job['job_id']} {status}: {Path(job.get('filepath') or '').name}{shot}"
+        + (f" -> {folder}" if folder else "")
+        + took
+        + ".",
+    )
 
 
 def construct_split_history(job: dict) -> None:

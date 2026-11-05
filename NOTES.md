@@ -3875,6 +3875,21 @@ Seen on a 12.9" iPad, in Documents by Readdle's viewer:
   (iPadOS: a pinch on the keyboard, or the app's window not full
   screen). Safari, or the page added to the Home Screen, has neither.
 
+## Stuck frame: a machine back on a render it left
+
+05/11, farm-remi: back at 10:00 on a render it had left at ~08:30, killed
+"stuck on a frame for 94 min (usually 78 s)" within seconds, sent back
+by the next dispatch 20 s later, killed again -- 397 times, the minutes
+growing with the clock. A machine's lines in `saved_frames_path()` keep
+the render's `dispatch_id` across its comings and goings (by design: its
+pace on that render), so `stuck_frame_check()` saw the previous run's
+last frame as "the frame in progress" while the new Blender was still
+opening the .blend (the "start" line comes after the load). The worker
+now stamps `p.started_at` at launch and only this run's lines count:
+none yet, nothing judged (the load isn't a frame); after its "start",
+timed from there with the first frame's budget, as before. A render
+recovered after a worker restart has no stamp: all its lines, as before.
+
 ## Clean old renders
 
 Asked after a hand clean on the NAS ("keep the 2 most recent per shot")

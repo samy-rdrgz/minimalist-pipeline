@@ -50,6 +50,9 @@ STUCK_FRAME_FACTOR = 5
 # Never before this long on one frame, whatever its usual time: short frames
 # vary a lot, in proportion.
 STUCK_FRAME_MIN_SECONDS = 300
+# A render's lines vs its launch, same machine's clock: written a hair
+# before time.time() was read for the launch, at worst.
+_CLOCK_SLACK = 5.0
 # How often each running render is checked: two files read on the share.
 _STUCK_CHECK_EVERY = 30.0
 _stuck_checked_at: dict[str, float] = {}
@@ -823,6 +826,9 @@ def execute_render_request() -> dict:
                 )
             p.log_path = log_path
             p.dispatch_id = data.get("dispatch_id")
+            # Its own lines in the saved-frames record start after this
+            # (stuck_frame_check()).
+            p.started_at = time.time()
         except Exception as e:
             # Malformed request: drop it instead of retrying every tick.
             box["action"] = "to_delete"
@@ -1162,7 +1168,13 @@ def stuck_frame_factor() -> float:
 
 
 def stuck_frame_check(
-    text: str, dispatch_id: str, job: dict, uuid: str, factor: float, at: float
+    text: str,
+    dispatch_id: str,
+    job: dict,
+    uuid: str,
+    factor: float,
+    at: float,
+    started: float | None = None,
 ) -> tuple[float, float, float] | None:
     """(seconds on the frame in progress, limit, usual seconds per frame)
     for machine uuid's render dispatch_id, from its saved_frames_path()
@@ -1170,7 +1182,12 @@ def stuck_frame_check(
     this render's frames so far, else the machine's on this job, else the
     job's. The first frame of a render also gets the machine's usual
     startup (scene sync). None when unknown: nothing written for this
-    render yet, no usual time. Pure."""
+    render yet, no usual time. started: when this machine launched the
+    render (its clock) -- a machine back on a render it left has its earlier
+    lines in the same record, same dispatch_id: they time nothing of this
+    run (its last frame then was hours ago: killed at once, sent back, killed
+    again -- for hours). None until this run wrote its "start" line: its
+    .blend still opening, nothing to time yet. Pure."""
     lines = [(f, t) for d, f, t in parse_saved(text) if d == dispatch_id]
     if not lines:
         return None
@@ -1186,6 +1203,10 @@ def stuck_frame_check(
     )
     if not usual:
         return None
+    if started is not None:
+        lines = [(f, t) for f, t in lines if t >= started - _CLOCK_SLACK]
+        if not lines:
+            return None
     last_frame, last_at = lines[-1]
     budget = usual
     if last_frame is None:  # its first frame: the scene sync comes first
@@ -1228,7 +1249,13 @@ def check_stuck_renders() -> None:
             continue
         job = read_json_quiet(ConfigCache.get_path("farm_actives") / f"{job_id}.json")
         found = stuck_frame_check(
-            text, getattr(p, "dispatch_id", None), job or {}, me, factor, time.time()
+            text,
+            getattr(p, "dispatch_id", None),
+            job or {},
+            me,
+            factor,
+            time.time(),
+            getattr(p, "started_at", None),
         )
         if not found or found[0] <= found[1]:
             continue

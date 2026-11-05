@@ -9,6 +9,16 @@ says what a review brings and what's already there.
 
 ### Fixed
 
+- Farm: a machine back on a render it had left (a priority switch, a
+  restart) was killed for a "stuck frame" within seconds, sent back,
+  killed again -- 397 times in two hours on one machine. The stuck check
+  timed it from its previous run's last frame (the same render's record)
+  while its .blend was still opening; it now only times what this run
+  wrote, from its "start" line.
+
+- Farm monitoring's *Archive all* logged an error for each job already
+  archived meanwhile (its 24 h auto-archive): now counted as archived.
+
 - Review: a department called *render* (an asset's, say) was lost. It
   shared its name with the render watched, written under "render" in the
   page's `.json` and the spreadsheet: its retakes and validations
@@ -46,6 +56,10 @@ says what a review brings and what's already there.
   Refused while open, open elsewhere, or linked by another file.
 
 ### Changed
+
+- Pipeline log: each farm job's end, finished or failed, with its file,
+  shot, render folder and time -- it showed jobs submitted and sent,
+  never one ending.
 
 - Project monitoring: a click on a department under RTK shows its open
   retakes in a small popup (closed as the mouse leaves), without going

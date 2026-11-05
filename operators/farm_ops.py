@@ -1091,6 +1091,10 @@ class M_PIPELINE_OT_farm_archive_jobs(bpy.types.Operator):
             try:
                 archive(actives / f"{job['job_id']}.json")
                 archived.add(job["job_id"])
+            except FileNotFoundError:
+                # Archived meanwhile (its 24 h auto-archive, another
+                # machine's click): the list was older than the queue.
+                archived.add(job["job_id"])
             except OSError as e:
                 log("ERROR", "farm_archive_jobs", f"{job['job_id']}: {e}")
         # Off the list now, not at the next refresh.
