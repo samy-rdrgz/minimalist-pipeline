@@ -297,17 +297,6 @@ def launch_worker() -> bool:
         box["action"] = "to_write"
         register_farm_loop(get_active_project_root())
     _set_this_instance_worker(True)
-    # A stop request left from before (sent to a worker that was already
-    # gone, so never read): it was for that one, not this -- it would end
-    # this role at its first tick.
-    stale = ConfigCache.get_path("farm_requests") / f"stop_{get_machine_id()}.json"
-    try:
-        retry_shared_io(stale.unlink)
-        log("INFO", "farm", "Old stop request for this machine dropped at launch.")
-    except FileNotFoundError:
-        pass
-    except OSError as e:
-        log("WARNING", "farm", f"Could not drop an old stop request: {e}")
     return True
 
 
@@ -451,16 +440,23 @@ def stop_worker(kill_render: bool) -> str:
 def request_worker_stop(uuid: str, kill_render: bool, user: str = "unknown") -> None:
     """Ask worker uuid -- any machine -- to stop (stop_worker() on its next
     tick): kill_render=True interrupts its render in progress, False lets it
-    write the frame it's on first."""
+    write the frame it's on first. Addressed to the run it reads in that
+    worker's file (its started_at): a later run ignores it."""
+    worker = read_json_quiet(_worker_path(as_dir=True) / f"worker_{uuid}.json") or {}
     path = ConfigCache.get_path("farm_requests") / f"stop_{uuid}.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     with locked_json(path) as box:
-        box["data"] = get_user_data(user) | {"kill_render": kill_render, "at": now()}
+        box["data"] = get_user_data(user) | {
+            "kill_render": kill_render,
+            "at": now(),
+            "worker_started_at": worker.get("started_at"),
+        }
         box["action"] = "to_write"
 
 
 def scan_stop_requests() -> bool:
-    """Act on a stop request targeting this worker (request_worker_stop()).
+    """Act on a stop request targeting this worker (request_worker_stop()),
+    deleted once read; one addressed to an earlier run is only deleted.
     True if the worker role was given up, or is winding down."""
     path = ConfigCache.get_path("farm_requests") / f"stop_{get_machine_id()}.json"
     if not path.exists():
@@ -468,6 +464,10 @@ def scan_stop_requests() -> bool:
     with locked_json(path) as box:
         data = box["data"] or {}
         box["action"] = "to_delete"
+    run = data.get("worker_started_at")
+    if run and run != (read_json_quiet(_worker_path()) or {}).get("started_at"):
+        log("INFO", "farm", "Stop request for an earlier run of this worker dropped.")
+        return False
     outcome = stop_worker(kill_render=bool(data.get("kill_render")))
     log(
         "INFO",
