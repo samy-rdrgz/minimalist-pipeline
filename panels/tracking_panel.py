@@ -91,28 +91,29 @@ def draw_entries(box, filepath, filters=None, width: int | None = None):
     filters = filters or bpy.context.window_manager
     title = box.column(align=True)
     title_row = title.box().row(align=True)
-    title_row.prop(
+    # Title on the left with what's left to do (open RTKs red, todos grey,
+    # folded or not), the + on the right.
+    left = title_row.row(align=True)
+    left.alignment = "LEFT"
+    left.prop(
         filters,
         "entries_collapse",
         icon="DOWNARROW_HLT" if filters.entries_collapse else "RIGHTARROW",
         text="Notes & tasks",
         emboss=False,
     )
-    # What's left to do, folded or not: open RTKs in red, todos in grey.
     rtk, todo = open_task_counts(TrackingStatusCache.get(filepath))
-    if rtk or todo:
-        counts = title_row.row(align=True)
-        counts.alignment = "RIGHT"
-        if rtk:
-            red = counts.row(align=True)
-            red.alert = True
-            red.label(text=f"{rtk} RTK")
-        if todo:
-            grey = counts.row(align=True)
-            grey.active = False
-            grey.label(text=f"{todo} todo")
-    btns = title_row.row(align=True)
-    btn = btns.operator("m_pipeline.create_entry", icon="ADD", text="", emboss=False)
+    if rtk:
+        red = left.row(align=True)
+        red.alert = True
+        red.label(text=f"{rtk} RTK")
+    if todo:
+        grey = left.row(align=True)
+        grey.active = False
+        grey.label(text=f"{todo} todo")
+    right = title_row.row(align=True)
+    right.alignment = "RIGHT"
+    btn = right.operator("m_pipeline.create_entry", icon="ADD", text="", emboss=False)
     btn.filepath = filepath
 
     if filters.entries_collapse:
@@ -131,8 +132,9 @@ def draw_entries(box, filepath, filters=None, width: int | None = None):
             if wide:  # a monitoring window: sized, not stretched across it
                 filters_row.alignment = "LEFT"
             # Hide done first, the one switched most (done RTKs, to check a
-            # render against): a real toggle, not greyed out.
-            done = filters_row.row(align=True)
+            # render against): a real toggle, not greyed out. Each in a box,
+            # so the three are one height.
+            done = filters_row.box()
             done.prop(
                 filters,
                 "entries_hide_done",
