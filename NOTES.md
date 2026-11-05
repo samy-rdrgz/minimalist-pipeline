@@ -4010,6 +4010,17 @@ and each linked folder is listed once per scan for its newest
 that part can't be cached on it). The rule is `check_library_update()`'s:
 a link to anything but that newest stable, a wip included.
 
+Only links into the project count, everywhere a stored list is read
+(`project_links()`: Links to, Linked by, outdated): a list written before
+Blender's own files were left out (`_is_internal_import()`) can hold its
+Essentials brushes -- clicking one in Links to crashed File details
+(`render_root()` on a folder outside the project). Filtered on reading,
+not repaired: the list is persistent project data, kept as written.
+
+Cost, measured on a real project (33 folders, over the NAS): the walk
+0.08 s, every status 0.18 s, the links pass 0.01 s. Nothing left worth
+reordering.
+
 The filter button shows only once one is found, red until used: a
 project with nothing outdated shows nothing more. If the last one goes,
 the button goes and its filter stops applying -- never a list emptied by

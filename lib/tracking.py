@@ -352,7 +352,7 @@ class ProjectScan:
                 targets = current = None
                 if need_links:
                     targets = _read_link_targets(owner, root, entries)
-                    current = _current_link_files(entries)
+                    current = _current_link_files(entries, root)
                     currents[key] = current
                 out.put(
                     (
@@ -839,6 +839,22 @@ def _linked_key(file: str) -> str:
     un-collapsed "../" -- see NOTES.md on resolve_bpy_path() -- must not
     read as another file) + normcase. Pure string work, no disk access."""
     return os.path.normcase(os.path.normpath(file))
+
+
+def project_links(entries: list[dict], project_root) -> list[dict]:
+    """The {"file"} entries pointing into project_root -- not Blender's own
+    files (its Essentials brushes) a list written before they were left
+    out holds. Pure string work."""
+    root = _path_key(project_root)
+    out = []
+    for d in entries:
+        file = Path(d.get("file") or "")
+        if not str(file) or str(file) == ".":
+            continue
+        path = file if file.is_absolute() else Path(project_root) / file
+        if _is_under(_path_key(path), root):
+            out.append(d)
+    return out
 
 
 def compact_linked(entries: list[dict]) -> list[dict]:
@@ -2363,7 +2379,8 @@ def get_linked_libraries(filepath: Path) -> list[dict]:
     wip = get_last_wipmeta(asset_dir)
     linked = (wip or get_last_stable(asset_dir)).get("linked", [])
     # An old -stable's list is never rewritten: one entry per datablock.
-    return compact_linked(linked)
+    root = get_active_project_root()
+    return project_links(compact_linked(linked), root) if root else compact_linked(linked)
 
 
 # owner folder -> (.pipeline mtime, linked list, last checked -- time.monotonic())
@@ -2419,7 +2436,7 @@ def _read_link_targets(owner: Path, project_root: Path, entries: list) -> set[st
         if not meta.name.endswith((".wipmeta", ".stablemeta")):
             continue
         data = read_json_quiet(Path(meta.path)) or {}
-        for link in data.get("linked", []):
+        for link in project_links(data.get("linked", []), project_root):
             if link.get("file"):
                 file = Path(link["file"])
                 file = file if file.is_absolute() else Path(project_root) / file
@@ -2427,17 +2444,19 @@ def _read_link_targets(owner: Path, project_root: Path, entries: list) -> set[st
     return targets
 
 
-def _current_link_files(entries: list) -> list[str]:
-    """The files an owner links now, as stored: its latest wip's list, else
-    its latest stable's (get_linked_libraries()). Thread-safe."""
+def _current_link_files(entries: list, project_root: Path) -> list[str]:
+    """The project files an owner links now, as stored: its latest wip's
+    list, else its latest stable's (get_linked_libraries()). Thread-safe."""
     meta = _latest_meta(entries, ".wipmeta") or _latest_stable(entries) or {}
-    return [d["file"] for d in compact_linked(meta.get("linked", []))]
+    linked = project_links(compact_linked(meta.get("linked", [])), project_root)
+    return [d["file"] for d in linked]
 
 
 def _outdated_links_of(root: Path, owners: list, currents: dict, v_prefix: str) -> dict:
-    """{owner key: [(linked file name, latest stable name)]} for the links to
-    a project file whose folder has a newer -stable (check_library_update()'s
-    rule). One listing per linked folder. Thread-safe."""
+    """{owner key: [(linked file name, latest stable name)]} for the links
+    (currents: project files only) whose folder has a newer -stable
+    (check_library_update()'s rule). One listing per linked folder.
+    Thread-safe."""
     stable = re.compile(rf"{re.escape(v_prefix)}(\d+)-stable\.blend$", re.IGNORECASE)
     latest: dict[str, str | None] = {}
     out: dict[str, list[tuple[str, str]]] = {}
@@ -2446,8 +2465,6 @@ def _outdated_links_of(root: Path, owners: list, currents: dict, v_prefix: str) 
         for file in currents.get(key) or []:
             path = Path(file) if Path(file).is_absolute() else Path(root) / file
             folder = _path_key(path.parent)
-            if not _is_under(folder, _path_key(root)):
-                continue
             if folder not in latest:
                 best = (-1, None)
                 try:
