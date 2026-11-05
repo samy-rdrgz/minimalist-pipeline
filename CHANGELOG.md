@@ -2,13 +2,21 @@
 
 All notable changes to this addon. Dates are release dates.
 
-## Unreleased
+## 1.1.8 — 05/11/2026
 
-Cleanup towards 1.2: no reading path left for files in transit written
-by an older version.
+The production snapshot, redrawn: a list to scan, a panel to read and
+review one file -- lighter to read on a computer and on a phone.
+Validations carried to a new stable while their department isn't worked
+since, a review as the team, outdated links in Project monitoring,
+right-click menus, and a cleanup towards 1.2.
 
 ### Added
 
+- Right-click menus: on a file's name in Project monitoring (its render
+  folder, its folder, render its last version), on a note's or task's
+  icons (reply, edit, mark done / reopen, delete), on a job's name in
+  Farm monitoring (remove from the queue before anything renders --
+  new --, cancel, retry, its render folder, its job file).
 - Project monitoring: the files linking an older version of an asset
   than its latest stable, found after the list is filled -- a red filter
   button appears among the filters only when there are some. In a
@@ -16,15 +24,26 @@ by an older version.
 - *Notes & tasks*' title shows the open RTKs (red) and todos (grey),
   folded or not.
 
+- *Clean old renders* (Project settings, Maintenance): keeps
+  each shot's and asset's N latest renders whole, the older ones
+  lightened (frames deleted, videos kept: every version still
+  watchable) or deleted. Ordered by when they were rendered, never by
+  folder name; the last render, one a note or "to check" names, one the
+  farm is writing always kept. What it frees shown and asked first.
+
+- *Delete* a shot or an asset (Project settings, Maintenance): out of every list,
+  its folder and renders moved into old/ (or the renders deleted).
+  Refused while open, open elsewhere, or linked by another file's
+  current version.
+
 ### Changed
 
 - Project monitoring's scan reads each file once per folder, and the tab
   shown first (its sequence or prefix first): about 40 % fewer calls to
   the server, the list being looked at filled first.
 - *Linked by* lists the files whose current version (latest wip, else
-  latest stable) links the asset -- no longer any version ever made. A
-  first scan reads one meta per folder instead of all of them; Delete
-  shot/asset no longer refuses an asset only an old version links.
+  latest stable) links the asset -- no longer any version ever made: a
+  first scan reads one meta per folder instead of all of them.
 
 - Import review, and loading a review back into the snapshot page, only
   take a review of this add-on version's snapshot: one from an older
@@ -34,8 +53,6 @@ by an older version.
   by folder dates, a template's pre-1.1.2 columns. Project data
   (tracking, stables, render history) written by older versions is still
   read as before.
-- A Recompile of a job set up before its width was noted no longer reads
-  its first frame with ffmpeg: no light copy for it.
 - Project monitoring's department states read as on the snapshot page:
   *In progress* (was *Wip*), *Done, reworked since* (was *Under RTK*,
   shown for a validated department worked since, RTK or not); a
@@ -48,73 +65,6 @@ by an older version.
 - The departments assumed when a project's config has none are a new
   project's own (assets: modeling, texturing, rigging, tech) everywhere;
   some dialogs assumed modeling, rigging, texturing.
-
-### Fixed
-
-- File details: clicking a link to one of Blender's own files (its
-  Essentials brushes, recorded by an older version) raised an error.
-  Links to, Linked by and the outdated links only take files of the
-  project.
-
-### Removed
-
-- Dead code: `latest_shot_mp4()`, `department_progress()` and a few
-  unused constants.
-
-## 1.1.9 — 05/11/2026
-
-A review's department called *render* no longer lost, and Import review
-says what a review brings and what's already there.
-
-### Fixed
-
-- Farm: a machine back on a render it had left (a priority switch, a
-  restart) was killed for a "stuck frame" within seconds, sent back,
-  killed again -- 397 times in two hours on one machine. The stuck check
-  timed it from its previous run's last frame (the same render's record)
-  while its .blend was still opening; it now only times what this run
-  wrote, from its "start" line.
-
-- Farm monitoring's *Archive all* logged an error for each job already
-  archived meanwhile (its 24 h auto-archive): now counted as archived.
-
-- Review: a department called *render* (an asset's, say) was lost. It
-  shared its name with the render watched, written under "render" in the
-  page's `.json` and the spreadsheet: its retakes and validations
-  overwrote it, or were skipped by *All done*, and the import read them
-  as the render. The render watched is now `render_watched` (schema 7).
-  A review from before is read back: a render's name is the render
-  watched, anything else that department's cell (an *All done* lost
-  there can't be told apart: validate it again).
-
-- Validations: a new stable no longer sends every validated department
-  back to review. A validation stays on it while that department wasn't
-  worked since (the versions after the stable before: the stable records
-  them now, `departments_worked`); worked, it's struck, "to review
-  again", as before. A stable made straight from a stable (a small fix,
-  no wip between) takes what was worked from the dialog's *Worked on*.
-  Stables made before are read the same way, nothing to redo; through
-  one made from a stable, which recorded nothing, a department counts as
-  worked when an RTK was opened or closed on it meanwhile. A review of an older stable validates a department not worked
-  since, instead of refusing it.
-
-- Snapshot page: files with no tracking, once shown, take their place in
-  their group (sq040_sh010 first), not after the others.
-
-### Added
-
-- *Clean old renders* (Project settings, Maintenance): keeps
-  each shot's and asset's N latest renders whole, the older ones
-  lightened (frames deleted, videos kept: every version still
-  watchable) or deleted. Ordered by when they were rendered, never by
-  folder name; the last render, one a note or "to check" names, one the
-  farm is writing always kept. What it frees shown and asked first.
-
-- *Delete* a shot or an asset (Project settings, Maintenance): out of every list,
-  its folder and renders moved into old/ (or the renders deleted).
-  Refused while open, open elsewhere, or linked by another file.
-
-### Changed
 
 - Pipeline log: each farm job's end, finished or failed, with its file,
   shot, render folder and time -- it showed jobs submitted and sent,
@@ -159,13 +109,6 @@ says what a review brings and what's already there.
   todo does (its tooltip counts both).
 - Progress details: each bar shows its validated share again, the
   violet over the done green, its % beside the done one.
-
-## 1.1.8 — 02/11/2026
-
-The production snapshot, redrawn: a list to scan, a panel to read and
-review one file -- lighter to read on a computer and on a phone.
-
-### Changed
 
 - **Snapshot page, redrawn.** A card per section (Done, Validated, and
   with a schedule how many working days ahead or behind, the pace pill
@@ -271,8 +214,7 @@ review one file -- lighter to read on a computer and on a phone.
   an iPad refuse it) or in a codec they don't play (ProRes, DNxHR...),
   the farm's compilation writes an H.265 copy at most 8192 px wide in the
   same pass. The snapshot plays and carries it; the full one stays for
-  the edit (rushes, previews, thumbnails never see `ld/`). A job set up
-  before (a Recompile) reads its first frame's width. For a render
+  the edit (rushes, previews, thumbnails never see `ld/`). For a render
   compiled before, Export snapshot makes it once (needs ffmpeg; an H.265
   tagged `hev1` is only re-tagged).
 - The ffmpeg preset takes an `extension` (`"mov"`...; `mp4` without it):
@@ -365,6 +307,43 @@ review one file -- lighter to read on a computer and on a phone.
 
 ### Fixed
 
+- File details: clicking a link to one of Blender's own files (its
+  Essentials brushes, recorded by an older version) raised an error.
+  Links to, Linked by and the outdated links only take files of the
+  project.
+
+- Farm: a machine back on a render it had left (a priority switch, a
+  restart) was killed for a "stuck frame" within seconds, sent back,
+  killed again -- 397 times in two hours on one machine. The stuck check
+  timed it from its previous run's last frame (the same render's record)
+  while its .blend was still opening; it now only times what this run
+  wrote, from its "start" line.
+
+- Farm monitoring's *Archive all* logged an error for each job already
+  archived meanwhile (its 24 h auto-archive): now counted as archived.
+
+- Review: a department called *render* (an asset's, say) was lost. It
+  shared its name with the render watched, written under "render" in the
+  page's `.json` and the spreadsheet: its retakes and validations
+  overwrote it, or were skipped by *All done*, and the import read them
+  as the render. The render watched is now `render_watched` (schema 7);
+  a review from an older snapshot is refused -- export the snapshot
+  again.
+
+- Validations: a new stable no longer sends every validated department
+  back to review. A validation stays on it while that department wasn't
+  worked since (the versions after the stable before: the stable records
+  them now, `departments_worked`); worked, it's struck, "to review
+  again", as before. A stable made straight from a stable (a small fix,
+  no wip between) takes what was worked from the dialog's *Worked on*.
+  Stables made before are read the same way, nothing to redo; through
+  one made from a stable, which recorded nothing, a department counts as
+  worked when an RTK was opened or closed on it meanwhile. A review of an older stable validates a department not worked
+  since, instead of refusing it.
+
+- Snapshot page: files with no tracking, once shown, take their place in
+  their group (sq040_sh010 first), not after the others.
+
 - **A block's shot rendered on its own after the block whole showed the
   older render** (snapshot, its videos, File details): which was last
   was told by the render folders' numbers, counted apart for the block
@@ -377,6 +356,9 @@ review one file -- lighter to read on a computer and on a phone.
   block rendered whole when it's the only shot left.
 
 ### Removed
+
+- Dead code: `latest_shot_mp4()`, `department_progress()` and a few
+  unused constants.
 
 - The Columns menu (columns nobody requires are left out by themselves),
   the print layout, the table / One file switch and the per-shot buttons

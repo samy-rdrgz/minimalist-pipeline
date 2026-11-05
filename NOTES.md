@@ -14,7 +14,7 @@ comment.
 By theme; the sections below stay in the order they were written.
 
 - **Render farm**: [Farm 1.1.0: chunks replace placeholders](#farm-110-chunks-replace-placeholders) · [Stuck frame](#stuck-frame) · [Stopping a worker: after this frame, or now](#stopping-a-worker-after-this-frame-or-now) · [Which machine rendered which frame](#which-machine-rendered-which-frame) · [Time left: per machine, from each frame's time](#time-left-per-machine-from-each-frames-time) · [Crash recovery: resume, don't orphan](#crash-recovery-resume-dont-orphan) · [Re-rendering a file: match the render, not the job](#re-rendering-a-file-match-the-render-not-the-job) · [Farm subprocess output: files, never pipes](#farm-subprocess-output-files-never-pipes) · [Farm popup: worker state, open-folder button, refresh cost](#farm-popup-worker-state-open-folder-button-refresh-cost) · [Farm status: two redraw timers, split by cost](#farm-status-two-redraw-timers-split-by-cost) · [One farm snapshot reader, sync or threaded](#one-farm-snapshot-reader-sync-or-threaded) · [FFmpeg detection: PATH lookup isn't enough, and an override can't silently fall back](#ffmpeg-detection-path-lookup-isnt-enough-and-an-override-cant-silently-fall-back) · [What a real project's export showed (6 machines, a week of production)](#what-a-real-projects-export-showed-6-machines-a-week-of-production) · [ffmpeg passes: a %, from -progress](#ffmpeg-passes-a--from--progress) · [Priority: giving way between chunks](#priority-giving-way-between-chunks) · [A failed render says why](#a-failed-render-says-why) · [A share drop-out ended the farm roles for good](#a-share-drop-out-ended-the-farm-roles-for-good) · [Rushes: copies under fixed names, not links](#rushes-copies-under-fixed-names-not-links) · [Estimate before a render starts](#estimate-before-a-render-starts)
-- **Notes, tracking, snapshot**: [Tracking entries](#tracking-entries) · [Entries for several departments](#entries-for-several-departments) · [Validation roles](#validation-roles) · [Entries: two fields only ever guaranteed together, never accessed bare](#entries-two-fields-only-ever-guaranteed-together-never-accessed-bare) · [Edit entry: a note turned task kept no checkbox](#edit-entry-a-note-turned-task-kept-no-checkbox) · [Edit-entry dialog: a stored department can outlive its own enum](#edit-entry-dialog-a-stored-department-can-outlive-its-own-enum) · [Department filter: three different callers, three different "current file"s](#department-filter-three-different-callers-three-different-current-files) · [tracking.json: one path, never created by a write](#trackingjson-one-path-never-created-by-a-write) · [Renders to check: the one before, to compare](#renders-to-check-the-one-before-to-compare) · [Project monitoring's Farm column: the monitor cache, not the project scan](#project-monitorings-farm-column-the-monitor-cache-not-the-project-scan) · [Production snapshot: one HTML file, a spreadsheet inside it](#production-snapshot-one-html-file-a-spreadsheet-inside-it) · [Snapshot width: short state labels, hideable columns](#snapshot-width-short-state-labels-hideable-columns) · [Work time tracking & log rotation](#work-time-tracking--log-rotation) · [A review note is about the render watched](#a-review-note-is-about-the-render-watched) · [A general RTK reds the file's name](#a-general-rtk-reds-the-files-name) · [Entry ids: unique in their file](#entry-ids-unique-in-their-file) · [Snapshot page on an iPad](#snapshot-page-on-an-ipad) · [Review import: this version's reviews only](#review-import-this-versions-reviews-only) · [Small gotchas, out of the docstrings](#small-gotchas-out-of-the-docstrings) · [Outdated links: after the grid, a button only when found](#outdated-links-after-the-grid-a-button-only-when-found) · [Notes & tasks: counts in the title, filters per view](#notes--tasks-counts-in-the-title-filters-per-view) · [Project scan on a share with latency](#project-scan-on-a-share-with-latency)
+- **Notes, tracking, snapshot**: [Tracking entries](#tracking-entries) · [Entries for several departments](#entries-for-several-departments) · [Validation roles](#validation-roles) · [Entries: two fields only ever guaranteed together, never accessed bare](#entries-two-fields-only-ever-guaranteed-together-never-accessed-bare) · [Edit entry: a note turned task kept no checkbox](#edit-entry-a-note-turned-task-kept-no-checkbox) · [Edit-entry dialog: a stored department can outlive its own enum](#edit-entry-dialog-a-stored-department-can-outlive-its-own-enum) · [Department filter: three different callers, three different "current file"s](#department-filter-three-different-callers-three-different-current-files) · [tracking.json: one path, never created by a write](#trackingjson-one-path-never-created-by-a-write) · [Renders to check: the one before, to compare](#renders-to-check-the-one-before-to-compare) · [Project monitoring's Farm column: the monitor cache, not the project scan](#project-monitorings-farm-column-the-monitor-cache-not-the-project-scan) · [Production snapshot: one HTML file, a spreadsheet inside it](#production-snapshot-one-html-file-a-spreadsheet-inside-it) · [Snapshot width: short state labels, hideable columns](#snapshot-width-short-state-labels-hideable-columns) · [Work time tracking & log rotation](#work-time-tracking--log-rotation) · [A review note is about the render watched](#a-review-note-is-about-the-render-watched) · [A general RTK reds the file's name](#a-general-rtk-reds-the-files-name) · [Entry ids: unique in their file](#entry-ids-unique-in-their-file) · [Snapshot page on an iPad](#snapshot-page-on-an-ipad) · [Review import: this version's reviews only](#review-import-this-versions-reviews-only) · [Small gotchas, out of the docstrings](#small-gotchas-out-of-the-docstrings) · [Outdated links: after the grid, a button only when found](#outdated-links-after-the-grid-a-button-only-when-found) · [Notes & tasks: counts in the title, filters per view](#notes--tasks-counts-in-the-title-filters-per-view) · [Project scan on a share with latency](#project-scan-on-a-share-with-latency) · [Right-click menus on the addon's buttons](#right-click-menus-on-the-addons-buttons)
 - **Shot blocks (multishot), batch**: [Multishot blocks](#multishot-blocks) · [Multishot row list: disabling a button isn't a guard](#multishot-row-list-disabling-a-button-isnt-a-guard) · [Multishot row list, take two: a clean-scene reset invalidates it](#multishot-row-list-take-two-a-clean-scene-reset-invalidates-it) · [_draw_timeline_warnings: a trailing comma turned a string into a 1-tuple](#_draw_timeline_warnings-a-trailing-comma-turned-a-string-into-a-1-tuple) · [CSV batch: the subprocess couldn't import itself](#csv-batch-the-subprocess-couldnt-import-itself)
 - **Versions, saving, files**: [Read-only reason: from a popup on every open to an on-demand menu](#read-only-reason-from-a-popup-on-every-open-to-an-on-demand-menu) · [Top bar read-only indicator: why it sits before the Blender icon](#top-bar-read-only-indicator-why-it-sits-before-the-blender-icon) · [.wipmeta writes tolerate a missing sidecar; the panel doesn't trust the flag alone](#wipmeta-writes-tolerate-a-missing-sidecar-the-panel-doesnt-trust-the-flag-alone) · [Next version number: never from a cached listing](#next-version-number-never-from-a-cached-listing) · [Recent files: derived from the log, not a stored list](#recent-files-derived-from-the-log-not-a-stored-list) · [A version without .wipmeta](#a-version-without-wipmeta) · [The lock follows the file](#the-lock-follows-the-file) · [Work time: only a session that saved](#work-time-only-a-session-that-saved) · [resolve_bpy_path() left "../" uncollapsed in every stored link path](#resolve_bpy_path-left--uncollapsed-in-every-stored-link-path) · [Copy/paste isn't always under bpy.app.tempdir](#copypaste-isnt-always-under-bpyapptempdir) · [Project walk: a stray .pipeline/ hid every asset below it; popup regions must not outlive their popup](#project-walk-a-stray-pipeline-hid-every-asset-below-it-popup-regions-must-not-outlive-their-popup)
 - **Monitoring windows, popups, panels**: [Monitoring: windows, not popups](#monitoring-windows-not-popups) · [Monitoring crash: a thread during window_new()](#monitoring-crash-a-thread-during-window_new) · [Monitoring windows: to the front](#monitoring-windows-to-the-front) · [Monitoring windows: pages sized on the window](#monitoring-windows-pages-sized-on-the-window) · [Monitoring popups: reopening on the detail, or not](#monitoring-popups-reopening-on-the-detail-or-not) · [File details' monitoring_detail("file") is a folder, not a versioned file](#file-details-monitoring_detailfile-is-a-folder-not-a-versioned-file) · [Popup-chaining: a second modal popup always waits one timer tick](#popup-chaining-a-second-modal-popup-always-waits-one-timer-tick) · [Action popups: dialogs](#action-popups-dialogs) · ["Render" button opening pre-filled: an operator property's own redo memory](#render-button-opening-pre-filled-an-operator-propertys-own-redo-memory) · [Text wrapping in panels](#text-wrapping-in-panels) · [Pipeline log: backup noise, viewer](#pipeline-log-backup-noise-viewer) · [Shortcuts](#shortcuts)
@@ -2461,7 +2461,7 @@ crash needs Blender.
 
 ## Monitoring: windows, not popups
 
-**Project settings (1.1.9)**, kind `"settings"`, the same way: its ~35
+**Project settings (1.1.8)**, kind `"settings"`, the same way: its ~35
 fields were the operator's own properties, which a window's panel can't
 reach -- they're now `ProjectSettings`' annotations, copied onto
 `PIPELINE_PG_project_settings` (WindowManager.pipeline_project_settings,
@@ -2470,7 +2470,7 @@ which keeps the dialog as the fallback when no window opens. Opening it
 again on the same project brings it forward with its edits; on another,
 reloads it.
 
-**The welcome window (1.1.9)**, kind `"welcome"`, is one too -- a popup
+**The welcome window (1.1.8)**, kind `"welcome"`, is one too -- a popup
 closed as soon as the mouse left it, the name half typed. Opened the same
 way (`window_new()`, its Properties editor emptied), smaller: no Blender
 API sizes a window, Windows does -- `_resize_win32()`, on a timer, takes
@@ -3042,7 +3042,7 @@ saw.
 So: `approvals` in the stablemeta, `{department: {role: {"by", "at"}}}`,
 written by `set_department_approval()` on the *latest* stable only (a
 review import names the one it saw: refused once that department was
-worked since, "to review again"). Since 1.1.9 a new stable keeps the
+worked since, "to review again"). Since 1.1.8 a new stable keeps the
 previous one's validations of the departments not worked since
 (`create_stablemeta()`: the wipmetas after the previous stable, recorded
 as `departments_worked`; each carried one gets `carried_from`, and
@@ -3056,7 +3056,7 @@ department: a stable made for the anim shouldn't send the light back to
 review. A stable from before (no `approvals_carried`) is worked out on
 reading (`_legacy_carried()`: each `approvals_previous` entry whose
 department no wipmeta worked between its stable and the latest; through
-a stable made from a stable before 1.1.9, which recorded nothing, the
+a stable made from a stable before 1.1.8, which recorded nothing, the
 departments an RTK was opened or closed on meanwhile -- a validated
 department is only touched when sent back; `_worked_since()`), and
 written down by the first validation change on it, so a carried one can
@@ -4061,3 +4061,31 @@ wip, else the latest stable) -- who uses an asset today, the question
 before changing it. So an asset linked only by an old version of a shot
 no longer lists that shot, and Delete shot/asset no longer refuses for it
 (the old version would find its library in `old/`).
+
+## Right-click menus on the addon's buttons
+
+Blender calls a menu named `WM_MT_button_context` (if one is registered)
+at the bottom of every button's right-click menu, and gives it
+`context.button_operator`: the clicked button's operator properties. An
+addon registers that class if nobody did and appends its draw function;
+it never unregisters the class (another addon may have appended to it),
+only its function. `menus/button_context.py`.
+
+A button offers a menu by a hidden `rmb` property on its operator, set
+at draw: "file" (a name in Project monitoring's list -- not Links to /
+Linked by, the same operator), "entry" (a note's or task's icons), "job",
+"pending:<job id>" (a request not claimed yet has no job file: the id
+rides in the marker, its click does nothing). A label takes no
+right-click, so a note's circle became a button (a click replies, as the
+grip on the right).
+
+What each offers is secondary on purpose -- the light interface stays,
+the right-click holds the rest: a file's render folder (its prefix's or
+sequence's while never rendered), its folder, a render of its last
+version; reply, edit, tick, delete; for a job what its stage allows.
+"Remove from queue" is new: `remove_waiting_job()` deletes a request not
+claimed yet, or archives a job at a stage nothing rendered at
+(`REMOVABLE_STAGES`), under its lock -- one that moved on meanwhile is
+left, "cancel it instead". The Beginner tips say it: a right-click can't
+be seen.
+

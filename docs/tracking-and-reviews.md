@@ -6,7 +6,7 @@
 
 Every asset/shot has a `.pipeline/` folder next to its `.blend` files:
 
-- **`tracking.json`**: required departments + a free-text description of what the asset/shot is (set at creation — interactively or via batch CSV, see [Project structure, naming, batch creation](project-and-naming.md)) + a list of entries (`note` / `todo` / `rtk`), each with author, date, its department(s), done/not-done state. Its *Notes & tasks* title (the File panel, a file's detail) shows what's left, folded or not: open RTKs in red, open todos in grey -- notes aren't counted. *Hide done*, first of its filters, brings back the done ones: the retakes to check a render against. The sidebar and Project monitoring each keep their own filters and fold.
+- **`tracking.json`**: required departments + a free-text description of what the asset/shot is (set at creation — interactively or via batch CSV, see [Project structure, naming, batch creation](project-and-naming.md)) + a list of entries (`note` / `todo` / `rtk`), each with author, date, its department(s), done/not-done state. Its *Notes & tasks* title (the File panel, a file's detail) shows what's left, folded or not: open RTKs in red, open todos in grey -- notes aren't counted. *Hide done*, first of its filters, brings back the done ones: the retakes to check a render against. The sidebar and Project monitoring each keep their own filters and fold. A right-click on an entry's icons (its check box or circle, the grip on its right) offers Reply, Edit, Mark done / Reopen and Delete.
 - **`{version}.wipmeta`**: one per work version — creation mode, departments worked on this session, linked libraries. Full details in [Versions: wip and stable](versions.md).
 - **`{version}.stablemeta`**: one per `-stable` version — departments validated at that point. This is the reference point for computing "what's been touched since the last stable", shown throughout the UI. Individual departments can also be validated directly, without cutting a new `-stable` version — buttons next to each department in the Tracking panel/dashboard, for departments (like "render") that aren't tied to editing the file itself. This mutates the *latest* stablemeta's `departments_validated` in place; requires at least one `-stable` version to already exist.
 
@@ -53,7 +53,7 @@ it saw.
   gives or withdraws your role's validation (its tooltip lists every
   role: validated, covered by a higher one, or not). It's kept on the
   latest stable, and a new stable keeps it while that department wasn't
-  worked since (1.1.9: "validated on v012, not worked since"); worked
+  worked since (1.1.8: "validated on v012, not worked since"); worked
   since, the new stable starts without -- the role hasn't seen it -- and
   shows the last one given ("prod: v012, to review again").
   Withdrawing or giving it writes a note under your role, for the record

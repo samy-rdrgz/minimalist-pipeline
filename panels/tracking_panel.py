@@ -125,7 +125,8 @@ def draw_entries(box, filepath, filters=None, width: int | None = None):
             bpy.context,
             "Note = a free remark. Todo = something still to do. RTK "
             "(retake) = a correction requested in review. Check it off "
-            "once it's addressed.",
+            "once it's addressed. Right-click one's icons: reply, edit, "
+            "tick, delete.",
         )
         raw_boxes = get_entries_grouped(filepath)
         if raw_boxes:
@@ -299,6 +300,7 @@ def _draw_entry(e, note, filepath, width: int | None = None):
         )
         btn.id = e["id"]
         btn.filepath = filepath
+        btn.rmb = "entry"  # right-click: reply, edit, tick, delete
         if e["type"] == "rtk":
             # A validation role's RTK violet (as its notes), the team's orange.
             body.label(
@@ -306,7 +308,18 @@ def _draw_entry(e, note, filepath, width: int | None = None):
             )
 
     else:
-        body.label(text="", icon=_ROLE_ICON if e.get("role") else "LAYER_USED")
+        # A button, not a label: it takes the right-click menu (and a click
+        # replies, as the grip on the right).
+        btn = body.operator(
+            "m_pipeline.generic_entry_button",
+            text="",
+            icon=_ROLE_ICON if e.get("role") else "LAYER_USED",
+            emboss=False,
+        )
+        btn.id = e["id"]
+        btn.filepath = filepath
+        btn.custom_tooltip = _get_entry_tooltip(e, filepath)
+        btn.rmb = "entry"
 
     layout_text = body.column(align=True)
     layout_text.alignment = "LEFT"
@@ -390,6 +403,7 @@ def _draw_entry(e, note, filepath, width: int | None = None):
     btn.id = e["id"]
     btn.filepath = filepath
     btn.custom_tooltip = _get_entry_tooltip(e, filepath)
+    btn.rmb = "entry"
 
 
 def _draw_approval(
@@ -889,7 +903,8 @@ _TABLE_TIP = (
     "Click a file for its details (Ctrl+click the Project monitoring button: "
     "the file open here). Each department's state since the last stable, "
     "legend at the bottom. Farm: renders in the farm or waiting to be checked "
-    "-- that filter, and RTK (open retakes), narrow the list. Left / Right "
+    "-- that filter, and RTK (open retakes), narrow the list. Right-click a "
+    "file's name: its render folder, its folder, a render. Left / Right "
     "turn pages, Tab switches assets / shots, Esc goes back."
 )
 _TO_CHECK_TIP = (
@@ -1062,6 +1077,7 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None)
     )
     op.filepath = str(dir)
     op.custom_tooltip = file.get("description", "")
+    op.rmb = "file"  # right-click: its folders, a render
 
     details = name.row()
     details.alignment = "RIGHT"

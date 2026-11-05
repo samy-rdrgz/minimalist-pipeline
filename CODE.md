@@ -191,6 +191,7 @@ minimalist_pipeline/
 │   # the N-panel from stacking three full boxes while working inside a file.
 ├── menus/
 │   ├── __init__.py            # Exposes `classes` + register_topbar_menu/unregister_topbar_menu
+│   ├── button_context.py       # right-click menus on the addon's buttons (WM_MT_button_context, an operator's hidden rmb)
 │   └── top_bar.py              # M_PIPELINE_MT_topbar_menu: same actions as the panels, condensed
 │                                # into a "Pipeline" entry in the top bar (TOPBAR_MT_editor_menus);
 │                                # read_only_indicator(): "READ-ONLY" label PREPENDED to

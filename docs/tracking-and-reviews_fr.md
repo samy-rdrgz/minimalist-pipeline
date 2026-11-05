@@ -6,7 +6,7 @@
 
 Chaque asset/shot a un dossier `.pipeline/` à côté de ses fichiers `.blend` :
 
-- **`tracking.json`** : départements requis + une description libre de ce qu'est l'asset/shot (définie à la création — interactivement ou via CSV en masse, voir [Structure de projet, nommage, création en masse](project-and-naming_fr.md)) + liste d'entrées (`note` / `todo` / `rtk`), chacune avec auteur, date, son ou ses départements, état fait/pas fait. Le titre *Notes & tasks* (panneau File, détail d'un fichier) affiche ce qui reste, replié ou non : les RTK ouverts en rouge, les todos ouverts en gris -- les notes ne sont pas comptées. *Hide done*, premier de ses filtres, fait réapparaître ceux qui sont faits : les retakes à vérifier sur un rendu. Le panneau latéral et le Project monitoring gardent chacun leurs filtres et leur repli.
+- **`tracking.json`** : départements requis + une description libre de ce qu'est l'asset/shot (définie à la création — interactivement ou via CSV en masse, voir [Structure de projet, nommage, création en masse](project-and-naming_fr.md)) + liste d'entrées (`note` / `todo` / `rtk`), chacune avec auteur, date, son ou ses départements, état fait/pas fait. Le titre *Notes & tasks* (panneau File, détail d'un fichier) affiche ce qui reste, replié ou non : les RTK ouverts en rouge, les todos ouverts en gris -- les notes ne sont pas comptées. *Hide done*, premier de ses filtres, fait réapparaître ceux qui sont faits : les retakes à vérifier sur un rendu. Le panneau latéral et le Project monitoring gardent chacun leurs filtres et leur repli. Un clic droit sur les icônes d'une entrée (sa case ou son rond, la poignée à sa droite) propose Reply, Edit, Mark done / Reopen et Delete.
 - **`{version}.wipmeta`** : une par version de travail — mode de création, départements travaillés cette session, libs liées. Détails complets dans [Versions : wip et stable](versions_fr.md).
 - **`{version}.stablemeta`** : une par version `-stable` — départements validés à ce moment-là. C'est le point de référence pour calculer "qu'est-ce qui a été retouché depuis le dernier stable" affiché partout dans l'UI. Un département peut aussi être validé directement, sans republier de version `-stable` — boutons à côté de chaque département dans le panneau Tracking/le dashboard, pour les départements (comme "render") qui ne sont pas liés à une modification du fichier. Ça mute le `departments_validated` du dernier stablemeta en place ; nécessite qu'au moins une version `-stable` existe déjà.
 
@@ -54,7 +54,7 @@ la prod -- sur la version qu'il a vue.
   département fini donne ou retire la validation de votre rôle (son
   infobulle liste chaque rôle : validé, couvert par un plus haut, ou non).
   Elle est gardée sur le dernier stable, et un nouveau stable la garde
-  tant que ce département n'a pas été retravaillé depuis (1.1.9 :
+  tant que ce département n'a pas été retravaillé depuis (1.1.8 :
   « validated on v012, not worked since ») ; retravaillé, le nouveau
   stable repart sans -- le rôle ne l'a pas vu -- et affiche la dernière
   donnée (« prod : v012, à revoir »). La donner ou la retirer écrit une note sous votre rôle, pour

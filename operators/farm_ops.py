@@ -8,6 +8,7 @@ import bpy
 
 from ..farm import (
     archive,
+    remove_waiting_job,
     cancel_pending_renders,
     failed_stage,
     forget_worker,
@@ -1067,6 +1068,33 @@ class M_PIPELINE_OT_farm_archive_job(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class M_PIPELINE_OT_farm_remove_job(bpy.types.Operator):
+    """Take a job out of the queue before anything renders (Farm
+    monitoring's right-click)."""
+
+    bl_idname = "m_pipeline.farm_remove_job"
+    bl_label = "Remove from queue"
+    bl_description = "Take this job out of the queue: nothing of it rendered yet."
+
+    job_id: bpy.props.StringProperty()
+    pending: bpy.props.BoolProperty(options={"HIDDEN"})
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_confirm(self, event)
+
+    def execute(self, context):
+        try:
+            removed = remove_waiting_job(self.job_id, self.pending)
+        except (OSError, PipelineError) as e:
+            self.report({"ERROR"}, f"Could not remove the job: {e}")
+            return {"CANCELLED"}
+        if not removed:
+            self.report({"WARNING"}, "It started meanwhile: cancel it instead.")
+            return {"CANCELLED"}
+        log("INFO", "farm", f"Job {self.job_id} removed from the queue by {get_user(context)}.")
+        return {"FINISHED"}
+
+
 class M_PIPELINE_OT_farm_archive_jobs(bpy.types.Operator):
     """Archive every finished, or every failed, job of Farm monitoring."""
 
@@ -1197,6 +1225,8 @@ class M_PIPELINE_OT_farm_job_details(bpy.types.Operator):
 
     # SKIP_SAVE, never a toggle: see M_PIPELINE_OT_tracking_file_details.
     job_id: bpy.props.StringProperty(options={"SKIP_SAVE"})
+    # Set where a right-click menu is offered (menus/button_context.py).
+    rmb: bpy.props.StringProperty(options={"HIDDEN", "SKIP_SAVE"})
     reload: bpy.props.BoolProperty(options={"SKIP_SAVE"})
 
     def execute(self, context):

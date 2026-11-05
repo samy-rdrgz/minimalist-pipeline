@@ -18,6 +18,7 @@ from .loop import (
     unregister_status_timer,
 )
 from .monitor import (
+    REMOVABLE_STAGES,
     archive,
     get_job_details,
     get_job_details_logs,
@@ -28,6 +29,7 @@ from .monitor import (
     launch_monitor,
     load_job_details,
     monitor_request,
+    remove_waiting_job,
     register_farm_loop,
     request_monitor_kill,
     request_preview_compile,
