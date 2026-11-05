@@ -541,6 +541,30 @@ def archive(job_path: Path) -> None:
     job_path.replace(archives_dir / job_path.name)
 
 
+# Stages a job can be taken out of the queue at: nothing rendered yet.
+REMOVABLE_STAGES = frozenset({"queued", "setup_finished", "preview_queued"})
+
+
+def remove_waiting_job(job_id: str, pending: bool) -> bool:
+    """Take a job out of the queue before anything renders: pending, its
+    request not claimed yet, deleted; else, at a REMOVABLE_STAGES stage,
+    archived under its lock. False if it moved on meanwhile."""
+    if pending:
+        path = ConfigCache.get_path("farm_incomings") / f"{job_id}.json"
+        with locked_json(path) as box:
+            if not box["data"]:
+                return False
+            box["action"] = "to_delete"
+        return True
+    path = ConfigCache.get_path("farm_actives") / f"{job_id}.json"
+    with locked_json(path) as box:
+        stages = (box["data"] or {}).get("stage_history") or [{}]
+        if stages[-1].get("stage") not in REMOVABLE_STAGES:
+            return False
+        archive(path)
+    return True
+
+
 # The job Farm monitoring shows in detail: read once, on click
 # (load_job_details()), never from draw().
 _job_details: dict = {}

@@ -24,7 +24,12 @@ from .farm.loop import (
 )
 from .lib.saving import override_shortcut, unoverride_shortcut
 from .menus import classes as menu_classes
-from .menus import register_topbar_menu, unregister_topbar_menu
+from .menus import (
+    register_button_menu,
+    register_topbar_menu,
+    unregister_button_menu,
+    unregister_topbar_menu,
+)
 from .operators import (
     PIPELINE_PG_department_check_item,
     PIPELINE_PG_farm_list_item,
@@ -239,6 +244,7 @@ def register():
     _register_props(bpy.types.Scene, _SCENE_PROPS)
 
     register_topbar_menu()
+    register_button_menu()
     lib.register_handlers()
     # Background (farm setup/render, CSV batch subprocesses): no UI, so none
     # of the startup timers below has anything to do -- see NOTES.md,
@@ -274,6 +280,7 @@ def register():
 def unregister():
     """Stop handlers/timers/farm roles, back up projects, and unregister all classes."""
     lib.unregister_handlers()
+    unregister_button_menu()
     unregister_topbar_menu()
     lib.restore_active_tool()
     lib.unregister_monitoring_keymap()

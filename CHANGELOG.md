@@ -9,6 +9,11 @@ by an older version.
 
 ### Added
 
+- Right-click menus: on a file's name in Project monitoring (its render
+  folder, its folder, render its last version), on a note's or task's
+  icons (reply, edit, mark done / reopen, delete), on a job's name in
+  Farm monitoring (remove from the queue before anything renders --
+  new --, cancel, retry, its render folder, its job file).
 - Project monitoring: the files linking an older version of an asset
   than its latest stable, found after the list is filled -- a red filter
   button appears among the filters only when there are some. In a

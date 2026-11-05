@@ -371,7 +371,8 @@ _JOBS_TIP = (
     "Waiting: queued, or waiting for a free worker or the farm host. Retry "
     "starts a failed job again where it failed (a failed render goes to the "
     "other machines). Recompile only remakes the video. Archive clears "
-    "finished or failed jobs."
+    "finished or failed jobs. Right-click a job's name: remove it from the "
+    "queue before it renders, cancel, retry, its folder, its file."
 )
 
 
@@ -477,17 +478,21 @@ def draw_farm_jobs(self, context, layout):
 
         name_row = row.row()
         name_row.alignment = "LEFT"
-        if stage == "pending" and j.get("blocked_by_stage"):
-            # Same job id as the job holding it back: open that one.
-            name_row.operator(
+        # Right-click: what its stage allows (menus/button_context.py).
+        if stage == "pending":
+            # Its details: the job holding it back (same id), else none yet
+            # -- the button still there for its right-click.
+            op = name_row.operator(
                 "m_pipeline.farm_job_details", text=name, icon=icon, emboss=False
-            ).job_id = j["job_id"]
-        elif stage == "pending":
-            name_row.label(text=name, icon=icon)  # no job file yet
+            )
+            op.job_id = j["job_id"] if j.get("blocked_by_stage") else ""
+            op.rmb = f"pending:{j['job_id']}"  # its id, whatever a click opens
         else:
-            name_row.operator(
+            op = name_row.operator(
                 "m_pipeline.farm_job_details", text=name, icon=icon, emboss=False
-            ).job_id = j["job_id"]
+            )
+            op.job_id = j["job_id"]
+            op.rmb = "job"
         status = row.row()
         status.label(text=text)
         if j.get("output_dir"):

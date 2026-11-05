@@ -580,6 +580,8 @@ class M_PIPELINE_OT_generic_entry_button(bpy.types.Operator):
     id: bpy.props.StringProperty()
     filepath: bpy.props.StringProperty()
     custom_tooltip: bpy.props.StringProperty()
+    # Set where a right-click menu is offered (menus/button_context.py).
+    rmb: bpy.props.StringProperty(options={"HIDDEN", "SKIP_SAVE"})
 
     @classmethod
     def description(cls, context, properties):
@@ -638,6 +640,8 @@ class M_PIPELINE_OT_toggle_entry_task(bpy.types.Operator):
 
     id: bpy.props.StringProperty()
     filepath: bpy.props.StringProperty(default="")
+    # Set where a right-click menu is offered (menus/button_context.py).
+    rmb: bpy.props.StringProperty(options={"HIDDEN", "SKIP_SAVE"})
 
     def execute(self, context):
         if not self.filepath:
@@ -1997,6 +2001,8 @@ class M_PIPELINE_OT_tracking_file_details(bpy.types.Operator):
 
     filepath: bpy.props.StringProperty(options={"SKIP_SAVE"})
     custom_tooltip: bpy.props.StringProperty(options={"SKIP_SAVE"})
+    # Set where a right-click menu is offered (menus/button_context.py).
+    rmb: bpy.props.StringProperty(options={"HIDDEN", "SKIP_SAVE"})
 
     @classmethod
     def description(cls, context, properties):
