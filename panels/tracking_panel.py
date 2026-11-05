@@ -20,6 +20,7 @@ from ..lib import (
     covering_role,
     department_status_tooltip,
     open_rtks,
+    open_task_counts,
     get_user_role,
     highest_approval,
     box_tip_units,
@@ -27,6 +28,8 @@ from ..lib import (
     draw_pager,
     filter_review_boxes,
     find_linked_by,
+    any_outdated_links,
+    outdated_links,
     format_duration,
     get_active_project_root,
     get_current_departments,
@@ -89,19 +92,30 @@ def draw_entries(box, filepath, filters=None, width: int | None = None):
     title = box.column(align=True)
     title_row = title.box().row(align=True)
     title_row.prop(
-        bpy.context.window_manager,
+        filters,
         "entries_collapse",
-        icon="RIGHTARROW"
-        if not bpy.context.window_manager.entries_collapse
-        else "DOWNARROW_HLT",
+        icon="DOWNARROW_HLT" if filters.entries_collapse else "RIGHTARROW",
         text="Notes & tasks",
         emboss=False,
     )
+    # What's left to do, folded or not: open RTKs in red, todos in grey.
+    rtk, todo = open_task_counts(TrackingStatusCache.get(filepath))
+    if rtk or todo:
+        counts = title_row.row(align=True)
+        counts.alignment = "RIGHT"
+        if rtk:
+            red = counts.row(align=True)
+            red.alert = True
+            red.label(text=f"{rtk} RTK")
+        if todo:
+            grey = counts.row(align=True)
+            grey.active = False
+            grey.label(text=f"{todo} todo")
     btns = title_row.row(align=True)
     btn = btns.operator("m_pipeline.create_entry", icon="ADD", text="", emboss=False)
     btn.filepath = filepath
 
-    if bpy.context.window_manager.entries_collapse:
+    if filters.entries_collapse:
         draw_box_tip(
             title,
             bpy.context,
@@ -113,29 +127,41 @@ def draw_entries(box, filepath, filters=None, width: int | None = None):
         if raw_boxes:
             filters_row = title.row(align=True)
             filters_row.scale_y = 0.8
-            filters_row.active = False
-            filters_row.box().label(icon="FILTER")
-            filters_row.box().prop(
+            wide = width is not None and width > 80
+            if wide:  # a monitoring window: sized, not stretched across it
+                filters_row.alignment = "LEFT"
+            # Hide done first, the one switched most (done RTKs, to check a
+            # render against): a real toggle, not greyed out.
+            done = filters_row.row(align=True)
+            done.prop(
+                filters,
+                "entries_hide_done",
+                text="Hide done",
+                icon="HIDE_ON" if filters.entries_hide_done else "HIDE_OFF",
+                toggle=True,
+            )
+            others = filters_row.row(align=True)
+            others.active = False
+            department = others.box()
+            department.prop(
                 filters,
                 "entries_department_filter",
                 text="",
                 emboss=False,
                 icon="TAG",
             )
-            filters_row.box().prop(
+            version = others.box()
+            version.prop(
                 filters,
                 "entries_min_version",
                 text="Since version",
                 emboss=False,
                 icon="CON_TRANSFORM_CACHE",
             )
-            filters_row.box().prop(
-                filters,
-                "entries_hide_done",
-                text="Hide done",
-                icon="VIS_SEL_10" if filters.entries_hide_done else "VIS_SEL_00",
-                emboss=False,
-            )
+            if wide:
+                done.ui_units_x = 6
+                department.ui_units_x = 9
+                version.ui_units_x = 8
             box.separator()
 
         review_boxes = filter_review_boxes(
@@ -806,20 +832,27 @@ def draw_file_details(state, context, layout):
                     )
 
             links_col.label(text="Links to:", icon="LINKED")
+            # A link to an older version than its folder's latest stable.
+            newer = dict(outdated_links(filepath))
             for lib_dir, entries in by_folder.items():
                 row = links_col.row(align=True)
                 row.alignment = "LEFT"
                 row.separator(factor=1.5)
+                names = [Path(e["file"]).name for e in entries]
+                old = [n for n in names if n in newer]
+                row.alert = bool(old)
                 op = row.operator(
                     "m_pipeline.tracking_file_details",
                     text=f"{lib_dir.name} ({len(entries)})"
                     if len(entries) > 1
                     else lib_dir.name,
-                    icon="BLANK1",
+                    icon="LIBRARY_DATA_BROKEN" if old else "BLANK1",
                     emboss=False,
                 )
                 op.filepath = str(lib_dir)
-                op.custom_tooltip = "\n".join(Path(e["file"]).name for e in entries)
+                op.custom_tooltip = "\n".join(
+                    f"{n} -> {newer[n]} available" if n in newer else n for n in names
+                )
         if linked_by:
             links_col.label(text="Linked by:", icon="LINKED")
             for folder in linked_by:
@@ -882,6 +915,8 @@ def draw_monitor_table(self, context, layout, columns, project_root):
 
     search = self.search.strip().lower()
     role = get_user_role(context)
+    # Its button gone (nothing outdated any more): no filter left on.
+    only_outdated = self.only_outdated and any_outdated_links(Path(project_root))
     matches = []
     for dir, file in data:
         if (
@@ -910,6 +945,8 @@ def draw_monitor_table(self, context, layout, columns, project_root):
             if self.only_rtk and not _has_rtk(file):
                 continue
             if self.only_to_validate and not _to_validate(file, role):
+                continue
+            if only_outdated and not outdated_links(dir):
                 continue
             if search and search not in (
                 f"{file['file_name']} {file.get('description') or ''}".lower()
@@ -953,6 +990,7 @@ def draw_monitor_table(self, context, layout, columns, project_root):
         self.only_farm,
         self.only_rtk,
         self.only_to_validate,
+        only_outdated,
         self.sort,
     )
     shown, page, pages = paginate("project", matches, per_page, filters)
@@ -1063,17 +1101,18 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None)
                     (f"Done · {best}", "SOLO_ON") if best else ("Done", "CHECKMARK")
                 )
             elif c in file["validated_departments"] and c in file["worked_departments"]:
-                text, row_icon = "Under RTK", "CHECKBOX_DEHLT"
+                text, row_icon = "Done, reworked since", "CHECKBOX_DEHLT"
             elif c in file["worked_departments"] or c in file.get(
                 "started_departments", ()
             ):
                 # Worked since, or validated/worked before the latest stable.
-                text, row_icon = "Wip", "CHECKBOX_DEHLT"
+                text, row_icon = "In progress", "CHECKBOX_DEHLT"
             else:
                 text, row_icon = "Not started", "CHECKBOX_DEHLT"
             # Icon then text, each its own button in a left-aligned row:
             # one button's text is centred in its cell (both keep the tooltip).
-            # Under RTK: clickable, its retakes in a popup.
+            # Labels as the snapshot page's. An open RTK: clickable, its
+            # retakes in a popup.
             status.alignment = "LEFT"
             under_rtk = c in rtk
             # Grey, the star in full once validated by the top role
@@ -1096,7 +1135,9 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None)
                     op.folder = str(dir)
                     op.department = c
         else:
-            icon_row.label(text=" ", icon="BLANK1")
+            # Not required: "–", as the snapshot and its spreadsheet.
+            icon_row.active = False
+            icon_row.label(text="–", icon="BLANK1")
     _draw_farm_cell(cells[-1], dir, file, jobs or [])
     f_list.separator(factor=0.5, type="LINE")
 
