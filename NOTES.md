@@ -2461,7 +2461,7 @@ crash needs Blender.
 
 ## Monitoring: windows, not popups
 
-**Project settings (1.1.9)**, kind `"settings"`, the same way: its ~35
+**Project settings (1.1.8)**, kind `"settings"`, the same way: its ~35
 fields were the operator's own properties, which a window's panel can't
 reach -- they're now `ProjectSettings`' annotations, copied onto
 `PIPELINE_PG_project_settings` (WindowManager.pipeline_project_settings,
@@ -2470,7 +2470,7 @@ which keeps the dialog as the fallback when no window opens. Opening it
 again on the same project brings it forward with its edits; on another,
 reloads it.
 
-**The welcome window (1.1.9)**, kind `"welcome"`, is one too -- a popup
+**The welcome window (1.1.8)**, kind `"welcome"`, is one too -- a popup
 closed as soon as the mouse left it, the name half typed. Opened the same
 way (`window_new()`, its Properties editor emptied), smaller: no Blender
 API sizes a window, Windows does -- `_resize_win32()`, on a timer, takes
@@ -3042,7 +3042,7 @@ saw.
 So: `approvals` in the stablemeta, `{department: {role: {"by", "at"}}}`,
 written by `set_department_approval()` on the *latest* stable only (a
 review import names the one it saw: refused once that department was
-worked since, "to review again"). Since 1.1.9 a new stable keeps the
+worked since, "to review again"). Since 1.1.8 a new stable keeps the
 previous one's validations of the departments not worked since
 (`create_stablemeta()`: the wipmetas after the previous stable, recorded
 as `departments_worked`; each carried one gets `carried_from`, and
@@ -3056,7 +3056,7 @@ department: a stable made for the anim shouldn't send the light back to
 review. A stable from before (no `approvals_carried`) is worked out on
 reading (`_legacy_carried()`: each `approvals_previous` entry whose
 department no wipmeta worked between its stable and the latest; through
-a stable made from a stable before 1.1.9, which recorded nothing, the
+a stable made from a stable before 1.1.8, which recorded nothing, the
 departments an RTK was opened or closed on meanwhile -- a validated
 department is only touched when sent back; `_worked_since()`), and
 written down by the first validation change on it, so a carried one can

@@ -54,7 +54,7 @@ la prod -- sur la version qu'il a vue.
   département fini donne ou retire la validation de votre rôle (son
   infobulle liste chaque rôle : validé, couvert par un plus haut, ou non).
   Elle est gardée sur le dernier stable, et un nouveau stable la garde
-  tant que ce département n'a pas été retravaillé depuis (1.1.9 :
+  tant que ce département n'a pas été retravaillé depuis (1.1.8 :
   « validated on v012, not worked since ») ; retravaillé, le nouveau
   stable repart sans -- le rôle ne l'a pas vu -- et affiche la dernière
   donnée (« prod : v012, à revoir »). La donner ou la retirer écrit une note sous votre rôle, pour

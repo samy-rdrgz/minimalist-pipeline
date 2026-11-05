@@ -53,7 +53,7 @@ it saw.
   gives or withdraws your role's validation (its tooltip lists every
   role: validated, covered by a higher one, or not). It's kept on the
   latest stable, and a new stable keeps it while that department wasn't
-  worked since (1.1.9: "validated on v012, not worked since"); worked
+  worked since (1.1.8: "validated on v012, not worked since"); worked
   since, the new stable starts without -- the role hasn't seen it -- and
   shows the last one given ("prod: v012, to review again").
   Withdrawing or giving it writes a note under your role, for the record

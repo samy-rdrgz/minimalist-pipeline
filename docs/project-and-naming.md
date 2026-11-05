@@ -120,7 +120,7 @@ Written under a lock and atomically (temp file then rename), like every other pi
 }
 ```
 
-**Edit project** (Project panel, Pipeline menu's *Project settings*): a window of its own since 1.1.9, like the monitoring ones -- it stays open while you edit, *Save* writes the config, *Close* leaves without (the dialog only if Blender can't open a window). Left, the project and how it names things (prefixes, folders, tags, departments); right, the snapshot (thumbnails, Done, validation roles, schedule), the farm, and *Maintenance*, for the active project: *Clean old renders* and *Delete a shot or an asset* (picked as in Open file) -- see [Rendering](farm.md). Two columns of settings -- what each one does:
+**Edit project** (Project panel, Pipeline menu's *Project settings*): a window of its own since 1.1.8, like the monitoring ones -- it stays open while you edit, *Save* writes the config, *Close* leaves without (the dialog only if Blender can't open a window). Left, the project and how it names things (prefixes, folders, tags, departments); right, the snapshot (thumbnails, Done, validation roles, schedule), the farm, and *Maintenance*, for the active project: *Clean old renders* and *Delete a shot or an asset* (picked as in Open file) -- see [Rendering](farm.md). Two columns of settings -- what each one does:
 
 | Setting | What it does |
 |---|---|
