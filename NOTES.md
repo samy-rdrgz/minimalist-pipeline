@@ -1695,7 +1695,7 @@ time-slicing on the main thread: one folder's status is 5-10 reads, so a
   assets/library/shots (stopping at each folder owning a `.pipeline/` --
   `rglob` used to descend into every textures/cache subfolder), stats each
   `.pipeline/`, and reads only what changed (`_collect_folder()`,
-  `_read_link_targets()`); a `bpy.app.timers` tick on the main thread
+  `_current_link_files()`); a `bpy.app.timers` tick on the main thread
   applies the results (`_status_from_raw()`, memory only) and redraws the
   popup. The popup opens at once on what's known and fills in ("Scanning
   project... N folders"); file details shows "Linked by: scanning..." until
@@ -4017,6 +4017,22 @@ Essentials brushes -- clicking one in Links to crashed File details
 (`render_root()` on a folder outside the project). Filtered on reading,
 not repaired: the list is persistent project data, kept as written.
 
+The filter button shows only once one is found, red until used: a
+project with nothing outdated shows nothing more. If the last one goes,
+the button goes and its filter stops applying -- never a list emptied by
+a switch nobody can see.
+
+## Notes & tasks: counts in the title, filters per view
+
+The title shows the open RTKs (red) and todos (grey), folded or not --
+what an artist opening a shot needs to know without unfolding. Notes
+aren't counted: nothing to do about them. *Hide done* is the filter
+switched most (the retakes done, to check a render against): first, not
+greyed like the others. In a monitoring window the row keeps
+fixed widths instead of stretching across it. The fold, like the filters,
+is per view: the sidebar's on the WindowManager, Project monitoring's in
+its own memory store.
+
 ## Project scan on a share with latency
 
 What costs on a studio server is round trips, not bytes. Counted on a
@@ -4037,22 +4053,11 @@ linked-by targets, the current links -- and tracking.json stat'ed twice
 226 calls; with 8 ms a call, the first shot shows after 0.65 s instead of
 1.09 s, the whole scan 2.1 s instead of 3.3 s; the same results.
 
-Left as it is: "Linked by" reads every version's meta of every folder
-(`_read_link_targets()`) -- the bulk of a cold scan where shots have many
-versions.
-
-The filter button shows only once one is found, red until used: a
-project with nothing outdated shows nothing more. If the last one goes,
-the button goes and its filter stops applying -- never a list emptied by
-a switch nobody can see.
-
-## Notes & tasks: counts in the title, filters per view
-
-The title shows the open RTKs (red) and todos (grey), folded or not --
-what an artist opening a shot needs to know without unfolding. Notes
-aren't counted: nothing to do about them. *Hide done* is the filter
-switched most (the retakes done, to check a render against): first, a
-real toggle; the others greyed. In a monitoring window the row keeps
-fixed widths instead of stretching across it. The fold, like the filters,
-is per view: the sidebar's on the WindowManager, Project monitoring's in
-its own memory store.
+"Linked by" then read every version's meta of every folder -- the bulk
+of a cold scan where shots have many versions (a shot at v015: fifteen
+reads to know whether it ever linked `ch_ball`). It's now built from each
+folder's current links (`_current_link_files()`, read anyway: the latest
+wip, else the latest stable) -- who uses an asset today, the question
+before changing it. So an asset linked only by an old version of a shot
+no longer lists that shot, and Delete shot/asset no longer refuses for it
+(the old version would find its library in `old/`).

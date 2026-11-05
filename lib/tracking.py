@@ -384,8 +384,8 @@ class ProjectScan:
         raw = _collect_folder(owner, entries) if need_status else None
         targets = current = None
         if need_links:
-            targets = _read_link_targets(owner, root, entries)
             current = _current_link_files(entries, root)
+            targets = _link_targets(current, root)
             currents[key] = current
         out.put(
             (
@@ -2467,20 +2467,13 @@ def _path_key(path: Path | str) -> str:
     return os.path.normcase(os.path.normpath(str(path)))
 
 
-def _read_link_targets(owner: Path, project_root: Path, entries: list) -> set[str]:
-    """Target folder keys every .wipmeta/.stablemeta of `owner` links into.
-    Thread-safe (see read_json_quiet())."""
-    targets: set[str] = set()
-    for meta in entries:
-        if not meta.name.endswith((".wipmeta", ".stablemeta")):
-            continue
-        data = read_json_quiet(Path(meta.path)) or {}
-        for link in project_links(data.get("linked", []), project_root):
-            if link.get("file"):
-                file = Path(link["file"])
-                file = file if file.is_absolute() else Path(project_root) / file
-                targets.add(_path_key(file.parent))
-    return targets
+def _link_targets(files: list[str], project_root: Path) -> set[str]:
+    """Folder keys of the linked files (_current_link_files()): what the
+    "Linked by" index is built from -- the current version's links only."""
+    return {
+        _path_key((Path(f) if Path(f).is_absolute() else Path(project_root) / f).parent)
+        for f in files
+    }
 
 
 def _current_link_files(entries: list, project_root: Path) -> list[str]:
@@ -2538,11 +2531,10 @@ def linked_by_ready(project_root: Path) -> bool:
 
 
 def find_linked_by(project_root: Path, filepath: Path) -> list[Path]:
-    """Every other asset/shot folder in the project with at least one link
-    pointing into filepath's own folder -- matched by folder, not an exact
-    version (see NOTES.md). Memory only (called by draw()): reads the index
-    ProjectScan builds, and starts one -- returning [] -- if there's none
-    for this project yet."""
+    """Every other asset/shot folder whose current version (latest wip, else
+    latest stable) links into filepath's own folder, any version of it.
+    Memory only (draw()): reads the index ProjectScan builds, and starts one
+    -- returning [] -- if there's none for this project yet."""
     if _linked_by_project != str(project_root):
         ProjectScan.start(project_root)
         return []

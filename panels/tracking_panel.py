@@ -103,12 +103,15 @@ def draw_entries(box, filepath, filters=None, width: int | None = None):
         emboss=False,
     )
     rtk, todo = open_task_counts(TrackingStatusCache.get(filepath))
+    # Each count its own LEFT row: its text's width, not a share of the row.
     if rtk:
         red = left.row(align=True)
+        red.alignment = "LEFT"
         red.alert = True
         red.label(text=f"{rtk} RTK")
     if todo:
         grey = left.row(align=True)
+        grey.alignment = "LEFT"
         grey.active = False
         grey.label(text=f"{todo} todo")
     right = title_row.row(align=True)
@@ -132,15 +135,14 @@ def draw_entries(box, filepath, filters=None, width: int | None = None):
             if wide:  # a monitoring window: sized, not stretched across it
                 filters_row.alignment = "LEFT"
             # Hide done first, the one switched most (done RTKs, to check a
-            # render against): a real toggle, not greyed out. Each in a box,
-            # so the three are one height.
+            # render against): not greyed out. Each in a box, one height.
             done = filters_row.box()
             done.prop(
                 filters,
                 "entries_hide_done",
                 text="Hide done",
                 icon="HIDE_ON" if filters.entries_hide_done else "HIDE_OFF",
-                toggle=True,
+                emboss=False,
             )
             others = filters_row.row(align=True)
             others.active = False

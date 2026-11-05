@@ -21,6 +21,10 @@ by an older version.
 - Project monitoring's scan reads each file once per folder, and the tab
   shown first (its sequence or prefix first): about 40 % fewer calls to
   the server, the list being looked at filled first.
+- *Linked by* lists the files whose current version (latest wip, else
+  latest stable) links the asset -- no longer any version ever made. A
+  first scan reads one meta per folder instead of all of them; Delete
+  shot/asset no longer refuses an asset only an old version links.
 
 - Import review, and loading a review back into the snapshot page, only
   take a review of this add-on version's snapshot: one from an older
@@ -36,7 +40,7 @@ by an older version.
   *In progress* (was *Wip*), *Done, reworked since* (was *Under RTK*,
   shown for a validated department worked since, RTK or not); a
   department not required, "–".
-- *Notes & tasks*' filters: *Hide done* first, a real toggle; fixed
+- *Notes & tasks*' filters: *Hide done* first, not greyed; fixed
   widths in a monitoring window. The fold is per view, as the filters:
   folding it in the sidebar no longer folds it in Project monitoring.
 - A stop request names the worker run it's for: a later run of that
