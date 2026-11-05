@@ -205,9 +205,12 @@ class M_PIPELINE_PT_welcome(_MonitoringPanel, bpy.types.Panel):
             level.label(text="Familiar with the add-on? Advanced hides the tips.", icon="HIDE_OFF")
             level.row(align=True).prop(prefs, "experience_level", expand=True)
             layout.separator(factor=1)
-        close = layout.box().row()
-        close.scale_y = 1.2
-        close.operator("wm.window_close", text="Close", icon="CHECKMARK", emboss=False)
+        # How to start, at hand: a project to make, or one to find.
+        actions = layout.box().row()
+        actions.scale_y = 1.2
+        actions.operator("m_pipeline.create_project", text="New project", icon="FILE_NEW", emboss=False)
+        actions.operator("m_pipeline.find_project", text="Find existing project", icon="ZOOM_ALL", emboss=False)
+        actions.operator("wm.window_close", text="Close", icon="CHECKMARK", emboss=False)
         # A window's height of blank below, as the others: the Tool tab's
         # Options and Workspace out of sight.
         spacer = self.layout.column()
