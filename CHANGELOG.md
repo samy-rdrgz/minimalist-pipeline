@@ -38,6 +38,10 @@ right-click menus, and a cleanup towards 1.2.
 
 ### Changed
 
+- Save Incremental's shortcut (Ctrl+Alt+S, or yours) runs the addon's
+  Increment in the project: Blender's own copied a `-stable` tag onto the
+  next number (`v005-stable`, never marked). The File menu's button is
+  Blender's, as before.
 - Project monitoring's scan reads each file once per folder, and the tab
   shown first (its sequence or prefix first): about 40 % fewer calls to
   the server, the list being looked at filled first.

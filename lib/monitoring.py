@@ -645,7 +645,10 @@ def draw_addon_keys(context, layout) -> None:
     operator: "Change page" four times), switchable and editable -- the
     user keyconfig's copy, saved with the preferences like any shortcut."""
     kc = context.window_manager.keyconfigs.user
-    items = [("Save (guarded)", "Window", "wm.safe_save", {})] + [
+    items = [
+        ("Save (guarded)", "Window", "wm.safe_save", {}),
+        ("Save Incremental (Increment)", "Window", "wm.safe_save_incremental", {}),
+    ] + [
         (label, km_name, idname, props)
         for label, km_name, _space, idname, _key, _mods, props, _active in _KEYMAP_ITEMS
     ]
