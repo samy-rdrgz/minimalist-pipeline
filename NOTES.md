@@ -3508,8 +3508,12 @@ to the third) outlast it.
 
 A stop request (`stop_<uuid>.json`) sent to a worker already gone stays
 on the share, and the next worker of that machine read it at its first
-tick and stopped. `launch_worker()` drops it: anything there before the
-launch was aimed at the previous one.
+tick and stopped. A request now names the run it's for -- the target's
+`started_at`, read from its worker file by `request_worker_stop()`;
+`scan_stop_requests()` deletes every request it reads, and only acts on
+one for its own run. No clock compared: the sender copies the worker's
+own stamp. (It was first dropped by `launch_worker()`, which left
+requests piling up on a machine never launched again.)
 
 What else can end the loop with Blender alive: a Blender timer stops
 only by returning None, by raising, or by being unregistered (addon
