@@ -9,6 +9,7 @@ import shutil
 import signal
 import subprocess
 import sys
+import threading
 import time
 import uuid
 from contextlib import contextmanager
@@ -600,6 +601,20 @@ class AdoptedProcess:
 LOCK_STALE_SECONDS = 90
 
 
+_reads = threading.local()
+
+
+@contextmanager
+def reads_once():
+    """Within it, on this thread, read_json_quiet() reads each file once --
+    one round trip on a share with latency (ProjectScan, per folder)."""
+    _reads.texts = {}
+    try:
+        yield
+    finally:
+        _reads.texts = None
+
+
 def read_json_quiet(path):
     """Parsed JSON at path, or None if missing/unreadable/corrupt. Pure
     os/json -- no bpy, no lock, no log -- so it can run on a background
@@ -607,8 +622,17 @@ def read_json_quiet(path):
     read: every write is an atomic os.replace(), a reader sees the old or
     the new file, never half of one."""
     checkpoint()  # a reader thread waits out a window operator here
+    texts = getattr(_reads, "texts", None)
     try:
-        return json.loads(Path(path).read_text(encoding="utf-8"))
+        if texts is None:
+            return json.loads(Path(path).read_text(encoding="utf-8"))
+        key = str(path)
+        if key not in texts:
+            try:
+                texts[key] = Path(path).read_text(encoding="utf-8")
+            except OSError:
+                texts[key] = None
+        return None if texts[key] is None else json.loads(texts[key])
     except (OSError, ValueError):
         return None
 

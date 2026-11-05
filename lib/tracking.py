@@ -38,6 +38,7 @@ from .core import (
     locked_json,
     now,
     read_json_quiet,
+    reads_once,
     resolve_bpy_path,
 )
 from .errors import PipelineError
@@ -73,7 +74,7 @@ _MIN_OWNER_DEPTH = 2
 
 
 def _is_tracked_owner(
-    folder: Path, entries: list, depth: int = _MIN_OWNER_DEPTH
+    folder: Path, entries: list, depth: int = _MIN_OWNER_DEPTH, mtimes: dict | None = None
 ) -> bool:
     """Whether a folder (given its own listing) is a tracked asset/shot: deep
     enough, and a .pipeline/ *with a tracking.json in it* -- a stray, empty
@@ -84,27 +85,30 @@ def _is_tracked_owner(
     if not any(e.name == ".pipeline" and e.is_dir() for e in entries):
         return False
     try:
-        os.stat(folder / ".pipeline" / "tracking.json")
-        return True
+        st = os.stat(folder / ".pipeline" / "tracking.json")
     except OSError:
         return False
+    if mtimes is not None:
+        mtimes[str(folder)] = st.st_mtime
+    return True
 
 
-def _walk_owner_dirs(folder: Path, depth: int = 0):
+def _walk_owner_dirs(folder: Path, depth: int = 0, mtimes: dict | None = None):
     """Yield every tracked folder under `folder` (see _is_tracked_owner()),
     in name order, without descending into one: one listing per folder
-    visited, never into an asset's textures/caches. Thread-safe (pure os)."""
+    visited, never into an asset's textures/caches. mtimes: filled with
+    each one's tracking.json mtime. Thread-safe (pure os)."""
     checkpoint()  # on the scan thread: held during a window operator
     try:
         entries = sorted(os.scandir(folder), key=lambda e: e.name)
     except OSError:
         return
-    if _is_tracked_owner(folder, entries, depth):
+    if _is_tracked_owner(folder, entries, depth, mtimes):
         yield folder
         return
     for e in entries:
         if e.is_dir() and not e.name.startswith("."):
-            yield from _walk_owner_dirs(Path(e.path), depth + 1)
+            yield from _walk_owner_dirs(Path(e.path), depth + 1, mtimes)
 
 
 def _meta_path(filepath: Path, suffix: str) -> Path:
@@ -299,7 +303,15 @@ class ProjectScan:
         v_prefix = json_get(ConfigCache.get(), "naming.version.prefix", "v")
         cls._thread = threading.Thread(
             target=cls._read_project,
-            args=(Path(project_root), known, links, currents, v_prefix, cls._queue),
+            args=(
+                Path(project_root),
+                known,
+                links,
+                currents,
+                v_prefix,
+                _shown_first(),
+                cls._queue,
+            ),
             daemon=True,
             name="pipeline-project-scan",
         )
@@ -315,63 +327,78 @@ class ProjectScan:
 
     @staticmethod
     def _read_project_work(
-        root: Path, known: dict, links: dict, currents: dict, v_prefix: str, out
+        root: Path,
+        known: dict,
+        links: dict,
+        currents: dict,
+        v_prefix: str,
+        first: tuple,
+        out,
     ) -> None:
         try:
             owners = []
-            for top in _DATA_ROOTS:
-                for owner in _walk_owner_dirs(root / top):
-                    owners.append(owner)
-                    out.put(("found", len(owners)))
-            out.put(("owners", owners))
-
-            for owner in owners:
-                checkpoint()
-                key = str(owner)
-                pipeline_dir = owner / ".pipeline"
-                try:
-                    dir_mtime = os.stat(pipeline_dir).st_mtime
-                except OSError:
-                    out.put(("skip", key))
-                    continue
-                try:
-                    tracking_mtime = os.stat(pipeline_dir / "tracking.json").st_mtime
-                except OSError:
-                    tracking_mtime = None
-                status_mtime = (
-                    None if tracking_mtime is None else max(dir_mtime, tracking_mtime)
-                )
-                need_status = (
-                    tracking_mtime is not None and known.get(key) != status_mtime
-                )
-                need_links = links.get(key) != dir_mtime
-                entries = (
-                    _pipeline_entries(owner) if (need_status or need_links) else []
-                )
-                raw = _collect_folder(owner, entries) if need_status else None
-                targets = current = None
-                if need_links:
-                    targets = _read_link_targets(owner, root, entries)
-                    current = _current_link_files(entries, root)
-                    currents[key] = current
-                out.put(
-                    (
-                        "folder",
-                        key,
-                        status_mtime,
-                        raw,
-                        tracking_mtime is not None,
-                        dir_mtime,
-                        targets,
-                        current,
-                    )
-                )
+            mtimes: dict = {}
+            # The tab the window shows first, walked then read, its sequence
+            # or prefix first: what's looked at fills first.
+            top_first, segment = first
+            tops = sorted(_DATA_ROOTS, key=lambda t: t not in top_first)
+            for top in tops:
+                found = []
+                for owner in _walk_owner_dirs(root / top, mtimes=mtimes):
+                    found.append(owner)
+                    out.put(("found", len(owners) + len(found)))
+                if top in top_first and segment:
+                    found.sort(key=lambda o: o.relative_to(root).parts[1] != segment)
+                owners += found
+                out.put(("owners", list(owners)))
+                for owner in found:
+                    with reads_once():
+                        ProjectScan._read_owner(
+                            owner, root, known, links, currents, mtimes, out
+                        )
             # Last, the grid already filled: links to an older version.
             out.put(("phase", "links"))
             out.put(("outdated", _outdated_links_of(root, owners, currents, v_prefix)))
             out.put(("done",))
         except Exception as e:  # never die silently: the tick reports it
             out.put(("error", repr(e)))
+
+    @staticmethod
+    def _read_owner(owner, root, known, links, currents, mtimes, out) -> None:
+        """One folder's status and links, read only if its .pipeline/ (or
+        tracking.json: the walk's mtime) changed since cached."""
+        checkpoint()
+        key = str(owner)
+        try:
+            dir_mtime = os.stat(owner / ".pipeline").st_mtime
+        except OSError:
+            out.put(("skip", key))
+            return
+        tracking_mtime = mtimes.get(key)
+        status_mtime = (
+            None if tracking_mtime is None else max(dir_mtime, tracking_mtime)
+        )
+        need_status = tracking_mtime is not None and known.get(key) != status_mtime
+        need_links = links.get(key) != dir_mtime
+        entries = _pipeline_entries(owner) if (need_status or need_links) else []
+        raw = _collect_folder(owner, entries) if need_status else None
+        targets = current = None
+        if need_links:
+            targets = _read_link_targets(owner, root, entries)
+            current = _current_link_files(entries, root)
+            currents[key] = current
+        out.put(
+            (
+                "folder",
+                key,
+                status_mtime,
+                raw,
+                tracking_mtime is not None,
+                dir_mtime,
+                targets,
+                current,
+            )
+        )
 
     @classmethod
     def _fresher_here(cls, key: str, status_mtime: float | None) -> bool:
@@ -463,6 +490,18 @@ class ProjectScan:
             cls._queue = None
 
         return None if finished else 0.1
+
+
+def _shown_first() -> tuple[tuple[str, ...], str]:
+    """(data roots, sequence or prefix) Project monitoring shows now -- the
+    scan reads them first. Main thread."""
+    try:
+        state = bpy.context.window_manager.pipeline_monitoring
+        if state.file_type == "shot":
+            return ("shots",), "" if state.sequence in ("all", "NONE") else state.sequence
+        return ("assets", "library"), "" if state.asset_prefix in ("all", "NONE") else state.asset_prefix
+    except Exception:  # no window manager yet, or not registered
+        return ("shots",), ""
 
 
 def _session_folder_key(folder) -> str:
