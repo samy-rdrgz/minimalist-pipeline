@@ -238,6 +238,11 @@ class TrackingStatusCache:
         return ((entry[1] if entry else {}).get("description") or "").strip()
 
     @classmethod
+    def forget(cls, folder: Path | str) -> None:
+        """Drop a folder's status (taken out of the project: delete_owner())."""
+        cls._cache.pop(str(_owner_dir(Path(folder))), None)
+
+    @classmethod
     def known(cls, project_root: Path) -> list[tuple[str, dict]]:
         """(asset_dir, status) for every non-archived folder cached under
         project_root -- memory only, for draw(). ProjectScan fills it."""
@@ -2466,6 +2471,11 @@ def _read_link_targets(owner: Path, project_root: Path, entries: list) -> set[st
     return targets
 
 
+def linked_by_ready(project_root: Path) -> bool:
+    """Whether find_linked_by() answers for project_root (its index built)."""
+    return _linked_by_project == str(project_root)
+
+
 def find_linked_by(project_root: Path, filepath: Path) -> list[Path]:
     """Every other asset/shot folder in the project with at least one link
     pointing into filepath's own folder -- matched by folder, not an exact
@@ -2482,3 +2492,83 @@ def find_linked_by(project_root: Path, filepath: Path) -> list[Path]:
         Path(p)
         for p in _linked_by_index.get(_path_key(_owner_dir(Path(filepath))), set())
     )
+
+
+def open_elsewhere(owner: Path) -> list[str]:
+    """The .blend files of owner someone has open to work on: a live lock
+    (".<name>.blend.lock", see acquire_lock()) next to them. Read-only
+    opens take none."""
+    from .core import _is_unlock
+
+    out = []
+    try:
+        entries = list(os.scandir(owner))
+    except OSError:
+        return out
+    for e in entries:
+        if e.name.startswith(".") and e.name.endswith(".blend.lock"):
+            if not _is_unlock(Path(e.path)):
+                out.append(e.name[1 : -len(".lock")])
+    return sorted(out)
+
+
+def owner_render_dirs(project_root: Path, owner: Path, kind: str) -> list[Path]:
+    """The render folders that are owner's alone: an asset's, a shot's -- a
+    block's each shot no other active block owns, and the block rendered
+    whole. Those that exist."""
+    from .preview import render_root
+
+    base = render_root(project_root, owner)
+    dirs = [base]
+    if kind == "shot":
+        config = ConfigCache.get()
+        prefix = json_get(config, "naming.shot.prefix", "sh")
+        digits = json_get(config, "naming.shot.digits", 3)
+        if owner.name.startswith(prefix):
+            try:
+                numbers = shots_in_segment(owner.name[len(prefix) :])
+            except ValueError:
+                numbers = []
+            others = {
+                n: o
+                for n, o in active_shot_owners(project_root, owner.parent.name, config).items()
+                if Path(o) != owner
+            }
+            dirs += [
+                base.with_name(f"{prefix}{n:0{digits}d}") for n in numbers if n not in others
+            ]
+    return [d for d in dict.fromkeys(dirs) if d.is_dir()]
+
+
+def delete_owner(project_root: Path, owner: Path, kind: str, renders: str) -> dict:
+    """Take an asset/shot out of the project, the addon's way: its tracking
+    marked archived (gone from every list), its folder moved into old/ next
+    to it, its renders (owner_render_dirs()) moved into old/ too, deleted
+    (renders="delete"), or left (renders="keep"). Never a delete of the
+    folder itself: old/ is where it can be found again. The caller checks
+    first (nobody working in it, no file linking it). Returns {"folder":
+    where it went, "renders": [where each went, or deleted]}. Raises
+    PipelineError."""
+    import shutil
+
+    owner = Path(owner)
+    render_dirs = owner_render_dirs(project_root, owner, kind)
+    path = tracking_json_path(owner, must_exist=True)
+    with locked_json(path) as box:
+        data = box["data"] or {}
+        if not data:
+            raise PipelineError(f"Tracking file not found: {path}")
+        data["archived"] = True
+        box["action"] = "to_write"
+    moved = archive_folder(owner)
+    done = []
+    for d in render_dirs:
+        if renders == "delete":
+            try:
+                shutil.rmtree(d)
+            except OSError as e:
+                raise PipelineError(f"Could not delete '{d}': {e}")
+            done.append(f"{d.name}: deleted")
+        elif renders == "archive":
+            done.append(str(archive_folder(d)))
+    return {"folder": str(moved), "renders": done}

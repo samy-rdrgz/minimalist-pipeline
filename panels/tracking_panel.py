@@ -721,6 +721,11 @@ def draw_file_details(state, context, layout):
             "Compile a disposable preview from every rendered shot in this sequence."
         )
 
+    # Last, apart: out of every list, into old/ (asks first).
+    row_right.separator()
+    op = row_right.operator("m_pipeline.delete_owner", text="", icon="TRASH", emboss=False)
+    op.folder = str(filepath)
+
     total_seconds = WorkTimeCache.get(filepath)
     if total_seconds:
         # Total only -- never a per-person/department breakdown, see
