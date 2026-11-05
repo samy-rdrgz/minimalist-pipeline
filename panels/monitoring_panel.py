@@ -103,8 +103,6 @@ class M_PIPELINE_PT_monitoring(_MonitoringPanel, bpy.types.Panel):
         filters_btn.prop(state, "only_rtk", text="", icon="LOOP_BACK")
         filters_btn.prop(state, "only_to_validate", text="", icon="SOLO_OFF")
         filters_btn.prop(state, "sort", text="", icon="SORTTIME")
-        # Lighten the renders/ folder (lib/render_clean.py): asks first.
-        filters_btn.operator("m_pipeline.clean_renders", text="", icon="TRASH")
 
         layout.separator(factor=0.5)
         draw_monitor_table(state, context, layout, columns, get_active_project_root())
@@ -208,9 +206,9 @@ class M_PIPELINE_PT_welcome(_MonitoringPanel, bpy.types.Panel):
         # How to start, at hand: a project to make, or one to find.
         actions = layout.box().row()
         actions.scale_y = 1.2
-        actions.operator("m_pipeline.create_project", text="New project", icon="FILE_NEW", emboss=False)
-        actions.operator("m_pipeline.find_project", text="Find existing project", icon="ZOOM_ALL", emboss=False)
-        actions.operator("wm.window_close", text="Close", icon="CHECKMARK", emboss=False)
+        actions.operator("m_pipeline.create_project", text="New project", icon="FILE_NEW")
+        actions.operator("m_pipeline.find_project", text="Find existing project", icon="ZOOM_ALL")
+        actions.operator("wm.window_close", text="Close", icon="CHECKMARK")
         # A window's height of blank below, as the others: the Tool tab's
         # Options and Workspace out of sight.
         spacer = self.layout.column()
@@ -232,25 +230,25 @@ class M_PIPELINE_PT_project_settings(_MonitoringPanel, bpy.types.Panel):
         if not settings.project_path_selected:
             layout.label(text="No project loaded: open Project settings again.", icon="ERROR")
         else:
-            settings.draw_settings(layout)
+            right = settings.draw_settings(layout)
             # The active project's upkeep: both act on it, not on another
             # project whose settings are open here.
             from pathlib import Path
 
             root = get_active_project_root()
             if root and Path(settings.project_path_selected) == Path(root):
-                layout.separator()
-                box = layout.box()
-                split = box.split(factor=0.33 / 2, align=True)
+                right.separator()
+                box = right.box().column(align=False)
+                split = box.split(factor=0.33, align=True)
                 split.label(text="MAINTENANCE", icon="TOOL_SETTINGS")
-                row = split.row()
-                row.operator("m_pipeline.clean_renders", text="Clean old renders...", icon="RENDER_RESULT")
-                row.operator("m_pipeline.delete_owner_pick", text="Delete a shot or an asset...", icon="TRASH")
+                col = split.column(align=True)
+                col.operator("m_pipeline.clean_renders", text="Clean old renders...", icon="RENDER_RESULT")
+                col.operator("m_pipeline.delete_owner_pick", text="Delete a shot or an asset...", icon="TRASH")
             layout.separator(factor=2)
             actions = layout.box().row()
             actions.scale_y = 1.2
-            actions.operator("m_pipeline.save_project_settings", text="Save", icon="FILE_TICK", emboss=False)
-            actions.operator("wm.window_close", text="Close", icon="CHECKMARK", emboss=False)
+            actions.operator("m_pipeline.save_project_settings", text="Save", icon="FILE_TICK")
+            actions.operator("wm.window_close", text="Close", icon="CHECKMARK")
         spacer = self.layout.column()
         spacer.scale_y = context.region.height / (20 * (context.preferences.system.ui_scale or 1.0))
         spacer.label(text="")

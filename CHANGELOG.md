@@ -34,14 +34,14 @@ says what a review brings and what's already there.
 
 ### Added
 
-- *Clean old renders* (Pipeline menu, Project monitoring's bin): keeps
+- *Clean old renders* (Project settings, Maintenance): keeps
   each shot's and asset's N latest renders whole, the older ones
   lightened (frames deleted, videos kept: every version still
   watchable) or deleted. Ordered by when they were rendered, never by
   folder name; the last render, one a note or "to check" names, one the
   farm is writing always kept. What it frees shown and asked first.
 
-- *Delete* a shot or an asset (File details' bin): out of every list,
+- *Delete* a shot or an asset (Project settings, Maintenance): out of every list,
   its folder and renders moved into old/ (or the renders deleted).
   Refused while open, open elsewhere, or linked by another file.
 
@@ -55,9 +55,10 @@ says what a review brings and what's already there.
 
 - Project settings opens in a window of its own like the welcome --
   it stays open while edited (it closed as the mouse left it), Save
-  writes the config. Its *Maintenance* line (active project): *Clean old
-  renders* and *Delete a shot or an asset* (picked like Open file). The
-  welcome window has *New project* and *Find
+  writes the config. Left, the project and its naming (prefixes, folders,
+  departments); right, the snapshot (validation roles with it), the farm,
+  and *Maintenance* (active project): *Clean old renders* and *Delete a
+  shot or an asset*, nowhere else. The welcome window has *New project* and *Find
   existing project* beside Close.
 
 - The welcome (first launch, and the main panel's *?*) opens in a window

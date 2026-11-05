@@ -574,6 +574,9 @@ class ProjectSettings:
     )
 
     def draw_settings(self, layout):
+        """Left: the project and how it names things. Right: what's tracked
+        (snapshot, validation, schedule) and the farm. Returns the right
+        column -- the window adds its Maintenance there."""
         layout.label(text=f"Editing: {self.project_name}", icon="FILE_TEXT")
         layout.separator()
         # Two columns side by side: one ran past the screen's height.
@@ -638,8 +641,9 @@ class ProjectSettings:
             icon="BLANK1",
         )
 
-        # Structure
-        box = right.box().column(align=False)
+        # Structure: folders, prefixes, tags, departments
+        left.separator()
+        box = left.box().column(align=False)
         for label, icon, prop in [
             ("FOLDERS", "OUTLINER", "project_folders"),
             ("ASSET PREFIX", "MESH_MONKEY", "asset_prefixes"),
@@ -647,7 +651,6 @@ class ProjectSettings:
             ("VERSION TAGS", "BOOKMARKS", "tags"),
             ("ASSETS DEPARTMENTS", "COPY_ID", "assets_departments"),
             ("SHOTS DEPARTMENTS", "COPY_ID", "shots_departments"),
-            ("VALIDATION ROLES", "SOLO_ON", "validation_roles"),
         ]:
             _settings_row(box, label, icon).prop(self, prop)
 
@@ -664,9 +667,8 @@ class ProjectSettings:
             icon="BLANK1",
         )
 
-        # Thumbnails / snapshot
-        left.separator()
-        box = left.box().column(align=False)
+        # Tracking: thumbnails, snapshot Done, who validates, the schedule
+        box = right.box().column(align=False)
         row = _settings_row(box, "THUMBNAILS", "IMAGE_DATA")
         row.prop(self, "thumbnail_size")
         row.label(text="")
@@ -675,10 +677,8 @@ class ProjectSettings:
         row.prop(self, "progress_wip")
         row.prop(self, "progress_rework")
         row.prop(self, "progress_rtk")
-
-        # Schedule
-        right.separator()
-        box = right.box().column(align=False)
+        _settings_row(box, "VALIDATION ROLES", "SOLO_ON").prop(self, "validation_roles")
+        box.separator(type="LINE")
         row = _settings_row(box, "SCHEDULE", "TIME")
         row.prop(self, "schedule_start")
         row.prop(self, "schedule_end")
@@ -705,6 +705,7 @@ class ProjectSettings:
             if self.priority_switch_minutes
             else "0 = always switch"
         )
+        return right
 
     def load(self, context) -> None:
         """The fields from project_path_selected's config. Raises
