@@ -10,6 +10,7 @@ from ..lib import (
     draw_onboarding,
     region_char_budget,
     ensure_monitoring_tick,
+    any_outdated_links,
     get_active_project_root,
     json_get,
     monitoring_detail,
@@ -102,6 +103,11 @@ class M_PIPELINE_PT_monitoring(_MonitoringPanel, bpy.types.Panel):
         filters_btn.prop(state, "only_farm", text="", icon="VIEW_CAMERA_UNSELECTED")
         filters_btn.prop(state, "only_rtk", text="", icon="LOOP_BACK")
         filters_btn.prop(state, "only_to_validate", text="", icon="SOLO_OFF")
+        # Only once the scan found one: no button for nothing.
+        if any_outdated_links(get_active_project_root()):
+            outdated = filters_btn.row()
+            outdated.alert = not state.only_outdated
+            outdated.prop(state, "only_outdated", text="", icon="LIBRARY_DATA_BROKEN")
         filters_btn.prop(state, "sort", text="", icon="SORTTIME")
 
         layout.separator(factor=0.5)

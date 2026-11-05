@@ -7,6 +7,15 @@ All notable changes to this addon. Dates are release dates.
 Cleanup towards 1.2: no reading path left for files in transit written
 by an older version.
 
+### Added
+
+- Project monitoring: the files linking an older version of an asset
+  than its latest stable, found after the list is filled -- a red filter
+  button appears among the filters only when there are some. In a
+  file's detail, such a link reads red, the newer version in its tooltip.
+- *Notes & tasks*' title shows the open RTKs (red) and todos (grey),
+  folded or not.
+
 ### Changed
 
 - Import review, and loading a review back into the snapshot page, only
@@ -19,6 +28,13 @@ by an older version.
   read as before.
 - A Recompile of a job set up before its width was noted no longer reads
   its first frame with ffmpeg: no light copy for it.
+- Project monitoring's department states read as on the snapshot page:
+  *In progress* (was *Wip*), *Done, reworked since* (was *Under RTK*,
+  shown for a validated department worked since, RTK or not); a
+  department not required, "–".
+- *Notes & tasks*' filters: *Hide done* first, a real toggle; fixed
+  widths in a monitoring window. The fold is per view, as the filters:
+  folding it in the sidebar no longer folds it in Project monitoring.
 - A stop request names the worker run it's for: a later run of that
   machine's worker deletes it without stopping.
 - The departments assumed when a project's config has none are a new

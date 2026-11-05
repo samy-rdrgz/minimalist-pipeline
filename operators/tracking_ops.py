@@ -1374,6 +1374,9 @@ class PIPELINE_PG_monitoring(bpy.types.PropertyGroup):
     entries_hide_done: memory_prop(
         _monitoring_filters, "entries_hide_done", bpy.props.BoolProperty, True, name=""
     )
+    entries_collapse: memory_prop(
+        _monitoring_filters, "entries_collapse", bpy.props.BoolProperty, True, name=""
+    )
     entries_department_filter: memory_enum(
         _monitoring_filters, "entries_department_filter", department_filter_items
     )
@@ -1422,6 +1425,17 @@ class PIPELINE_PG_monitoring(bpy.types.PropertyGroup):
         False,
         name="",
         description="Only the files with an open RTK",
+    )
+    only_outdated: memory_prop(
+        _monitoring_filters,
+        "only_outdated",
+        bpy.props.BoolProperty,
+        False,
+        name="",
+        description=(
+            "Only the files linking an older version of an asset than its "
+            "latest stable"
+        ),
     )
     only_to_validate: memory_prop(
         _monitoring_filters,

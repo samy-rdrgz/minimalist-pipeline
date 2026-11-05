@@ -295,9 +295,11 @@ class ProjectScan:
         # Snapshots for the thread: it compares, never mutates shared state.
         known = {k: v[0] for k, v in TrackingStatusCache._cache.items()}
         links = {k: v[0] for k, v in _linker_targets.items()}
+        currents = {k: v[2] for k, v in _linker_targets.items()}
+        v_prefix = json_get(ConfigCache.get(), "naming.version.prefix", "v")
         cls._thread = threading.Thread(
             target=cls._read_project,
-            args=(Path(project_root), known, links, cls._queue),
+            args=(Path(project_root), known, links, currents, v_prefix, cls._queue),
             daemon=True,
             name="pipeline-project-scan",
         )
@@ -306,13 +308,15 @@ class ProjectScan:
             bpy.app.timers.register(cls._tick, first_interval=0.1)
 
     @staticmethod
-    def _read_project(root: Path, known: dict, links: dict, out) -> None:
-        """Reader thread: disk work only, results posted to `out`."""
+    def _read_project(root: Path, *args) -> None:
+        """Reader thread: disk work only, results posted to its last arg."""
         with background_work():
-            ProjectScan._read_project_work(root, known, links, out)
+            ProjectScan._read_project_work(root, *args)
 
     @staticmethod
-    def _read_project_work(root: Path, known: dict, links: dict, out) -> None:
+    def _read_project_work(
+        root: Path, known: dict, links: dict, currents: dict, v_prefix: str, out
+    ) -> None:
         try:
             owners = []
             for top in _DATA_ROOTS:
@@ -345,9 +349,11 @@ class ProjectScan:
                     _pipeline_entries(owner) if (need_status or need_links) else []
                 )
                 raw = _collect_folder(owner, entries) if need_status else None
-                targets = (
-                    _read_link_targets(owner, root, entries) if need_links else None
-                )
+                targets = current = None
+                if need_links:
+                    targets = _read_link_targets(owner, root, entries)
+                    current = _current_link_files(entries)
+                    currents[key] = current
                 out.put(
                     (
                         "folder",
@@ -357,8 +363,12 @@ class ProjectScan:
                         tracking_mtime is not None,
                         dir_mtime,
                         targets,
+                        current,
                     )
                 )
+            # Last, the grid already filled: links to an older version.
+            out.put(("phase", "links"))
+            out.put(("outdated", _outdated_links_of(root, owners, currents, v_prefix)))
             out.put(("done",))
         except Exception as e:  # never die silently: the tick reports it
             out.put(("error", repr(e)))
@@ -381,7 +391,7 @@ class ProjectScan:
         """Main thread: apply what the reader thread posted (memory only).
         Never redraws the popup: holding its region across ticks crashes
         Blender once it's closed (see NOTES.md, "Project walk")."""
-        global _linked_by_index, _linked_by_project
+        global _linked_by_index, _linked_by_project, _outdated_links, _outdated_project
         if cls._queue is None:
             return None
 
@@ -400,7 +410,7 @@ class ProjectScan:
                 cls.owners_found = len(msg[1])
                 cls.phase = "status"
             elif kind == "folder":
-                _, key, status_mtime, raw, tracked, dir_mtime, targets = msg
+                _, key, status_mtime, raw, tracked, dir_mtime, targets, current = msg
                 # Not over a status written since: read before it, it'd undo it.
                 if raw is not None and not cls._fresher_here(key, status_mtime):
                     try:
@@ -417,10 +427,14 @@ class ProjectScan:
                 elif not tracked:
                     TrackingStatusCache._cache.pop(key, None)
                 if targets is not None:
-                    _linker_targets[key] = (dir_mtime, targets)
+                    _linker_targets[key] = (dir_mtime, targets, current)
                 cls.statuses_done += 1
             elif kind == "skip":
                 cls.statuses_done += 1
+            elif kind == "phase":
+                cls.phase = msg[1]
+            elif kind == "outdated":
+                _outdated_links, _outdated_project = msg[1], cls._root
             elif kind in ("done", "error"):
                 if kind == "error":
                     log("WARNING", "tracking", f"Project scan stopped: {msg[1]}")
@@ -440,7 +454,7 @@ class ProjectScan:
                     del TrackingStatusCache._cache[key]
             index: dict[str, set[str]] = {}
             for key in owner_keys:
-                for target in _linker_targets.get(key, (None, set()))[1]:
+                for target in _linker_targets.get(key, (None, set(), []))[1]:
                     index.setdefault(target, set()).add(key)
             _linked_by_index = index
             _linked_by_project = root
@@ -1167,13 +1181,18 @@ _DEFAULT_STABLE = {
 
 
 def _latest_stable(entries: list) -> dict | None:
-    """Latest (by created_at) stablemeta among a .pipeline/ listing, or None.
-    Reads newest-first by file mtime and stops as soon as the remaining files
-    are all older than the best created_at found (a meta's created_at can't
-    be later than its own file's mtime) -- usually one read instead of one
-    per stable version ever made. Thread-safe (see read_json_quiet())."""
+    """Latest (by created_at) stablemeta among a .pipeline/ listing, or None
+    (_latest_meta())."""
+    return _latest_meta(entries, ".stablemeta")
+
+
+def _latest_meta(entries: list, suffix: str) -> dict | None:
+    """Latest (by created_at) meta of suffix among a .pipeline/ listing, or
+    None. Read newest-first by file mtime, stopping once the rest are older
+    than the best created_at found (it can't be later than its file's
+    mtime) -- usually one read. Thread-safe (see read_json_quiet())."""
     stables = sorted(
-        (e for e in entries if e.name.endswith(".stablemeta")),
+        (e for e in entries if e.name.endswith(suffix)),
         key=_entry_mtime,
         reverse=True,
     )
@@ -1540,6 +1559,16 @@ def open_rtks(data: dict) -> tuple[set[str], bool]:
             departments |= set(tagged)
             general = general or not tagged
     return departments, general
+
+
+def open_task_counts(data: dict) -> tuple[int, int]:
+    """A status dict's (open RTKs, open todos), replies included."""
+    rtk = todo = 0
+    for e in data.get("entries") or []:
+        if e.get("done") is False:
+            rtk += e.get("type") == "rtk"
+            todo += e.get("type") == "todo"
+    return rtk, todo
 
 
 def department_status_tooltip(data: dict, department: str) -> str:
@@ -2368,7 +2397,11 @@ def get_linked_libraries_cached(filepath: Path) -> list[dict]:
 _linked_by_index: dict[str, set[str]] = {}
 _linked_by_project: str | None = None
 # linker folder -> (.pipeline/ mtime, set of target folder keys it links to)
-_linker_targets: dict[str, tuple[float, set[str]]] = {}
+_linker_targets: dict[str, tuple[float, set[str], list[str]]] = {}
+# owner folder key -> [(linked file name, its folder's latest stable name)]
+# for links to an older version -- built by ProjectScan's last pass.
+_outdated_links: dict[str, list[tuple[str, str]]] = {}
+_outdated_project: str | None = None
 
 
 def _path_key(path: Path | str) -> str:
@@ -2392,6 +2425,55 @@ def _read_link_targets(owner: Path, project_root: Path, entries: list) -> set[st
                 file = file if file.is_absolute() else Path(project_root) / file
                 targets.add(_path_key(file.parent))
     return targets
+
+
+def _current_link_files(entries: list) -> list[str]:
+    """The files an owner links now, as stored: its latest wip's list, else
+    its latest stable's (get_linked_libraries()). Thread-safe."""
+    meta = _latest_meta(entries, ".wipmeta") or _latest_stable(entries) or {}
+    return [d["file"] for d in compact_linked(meta.get("linked", []))]
+
+
+def _outdated_links_of(root: Path, owners: list, currents: dict, v_prefix: str) -> dict:
+    """{owner key: [(linked file name, latest stable name)]} for the links to
+    a project file whose folder has a newer -stable (check_library_update()'s
+    rule). One listing per linked folder. Thread-safe."""
+    stable = re.compile(rf"{re.escape(v_prefix)}(\d+)-stable\.blend$", re.IGNORECASE)
+    latest: dict[str, str | None] = {}
+    out: dict[str, list[tuple[str, str]]] = {}
+    for owner in owners:
+        key = str(owner)
+        for file in currents.get(key) or []:
+            path = Path(file) if Path(file).is_absolute() else Path(root) / file
+            folder = _path_key(path.parent)
+            if not _is_under(folder, _path_key(root)):
+                continue
+            if folder not in latest:
+                best = (-1, None)
+                try:
+                    for e in os.scandir(path.parent):
+                        m = stable.search(e.name)
+                        if m and int(m[1]) > best[0]:
+                            best = (int(m[1]), e.name)
+                except OSError:
+                    pass
+                latest[folder] = best[1]
+            newest = latest[folder]
+            if newest and os.path.normcase(newest) != os.path.normcase(path.name):
+                out.setdefault(key, []).append((path.name, newest))
+    return out
+
+
+def outdated_links(folder) -> list[tuple[str, str]]:
+    """[(linked file name, latest stable name)] of an owner folder's links to
+    an older version, as the last project scan found. Memory only."""
+    return _outdated_links.get(str(_owner_dir(Path(folder))), [])
+
+
+def any_outdated_links(project_root: Path) -> bool:
+    """Whether the last scan of project_root found a link to an older
+    version anywhere. Memory only."""
+    return _outdated_project == str(project_root) and bool(_outdated_links)
 
 
 def linked_by_ready(project_root: Path) -> bool:
