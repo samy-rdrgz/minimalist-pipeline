@@ -41,6 +41,13 @@ by an older version.
   project's own (assets: modeling, texturing, rigging, tech) everywhere;
   some dialogs assumed modeling, rigging, texturing.
 
+### Fixed
+
+- File details: clicking a link to one of Blender's own files (its
+  Essentials brushes, recorded by an older version) raised an error.
+  Links to, Linked by and the outdated links only take files of the
+  project.
+
 ### Removed
 
 - Dead code: `latest_shot_mp4()`, `department_progress()` and a few
