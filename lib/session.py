@@ -227,12 +227,10 @@ def set_active_project_root(prefs, new_root: str) -> None:
 
 
 def session_update(saved: bool = False):
-    """Update the session state. Never raises: called from timers and app
-    handlers with no operator around it to catch or report a lock failure.
-    saved: called after a save -- the session's time is work, counted by
-    WorkTimeCache (a session never saved is someone just looking). A save
-    to another file (Increment, Mark as stable) saves the work of the
-    session it ends."""
+    """Update the session state; never raises (timers and handlers). saved:
+    after a save -- the session's time counts as work (WorkTimeCache); a
+    save to another file saves the work of the session it ends. See
+    NOTES.md, "Work time: only a session that saved"."""
     if bpy.app.background or not bpy.data.filepath:
         return
     try:

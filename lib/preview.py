@@ -93,8 +93,8 @@ def _newest_cover(rendered: list, dropped: list | None) -> list[tuple[str, Path]
     """(label, mp4) by shot number, one video per shot: the most recent one
     wins where a block rendered whole and its shots' own renders overlap.
     One left out with shots no other video covers goes into dropped (when
-    given) as (label, labels of the newer ones) -- see NOTES.md, "A block
-    rendered whole"."""
+    given) as (label, labels of the newer ones) -- see NOTES.md,
+    "Preview compile (§1.6)"."""
 
     def mtime(mp4: Path) -> float:
         try:

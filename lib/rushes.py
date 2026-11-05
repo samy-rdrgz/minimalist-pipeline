@@ -15,7 +15,7 @@ from .preview import latest_asset_videos, resolve_sequence_sources
 RUSHES_DIR = Path("editing") / "rushes"
 RUSHES_MANIFEST = "rushes.json"
 # For the editor: what each push brought in, appended; deleted by hand once
-# checked in the edit. See NOTES.md, "Rushes for the edit".
+# checked in the edit. See NOTES.md, "Rushes: copies under fixed names, not links".
 RUSHES_UPDATED = "_UPDATED.txt"
 
 

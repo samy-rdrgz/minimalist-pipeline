@@ -452,12 +452,8 @@ def shot_tag_items(self, context):
         # cached_scandir(), not glob() -- this enum is re-evaluated many
         # times per redraw of the entry dialogs and the file details popup.
         if target.suffix.lower() != ".blend":
-            # Folder path (e.g. from the tracking monitor's file details
-            # popup, see draw_file_details()) -- target.name is then just
-            # the bare folder name ("sh010-020-030"), which parse_filename
-            # never matches (no sequence/version parts). Read the shot
-            # segment off one of its versioned files instead, same fix as
-            # entry_version_items()'s folder-vs-file handling.
+            # A folder (File details): its name doesn't parse, read the
+            # shot segment off one of its versioned files.
             target = next(
                 (
                     Path(e.path)

@@ -396,7 +396,7 @@ _RELS_XML = (
 # 5 locked, 6 locked muted, 7 input, 8 input date, 9 input text-format
 # (keeps "045" a string), 10 group (merged left column), then a
 # department's input cell per state (_S_STATE) and its red-bordered twin,
-# 21 not required, 22 hint wrapped.
+# 21 not required, 22 hint wrapped (unused).
 _UNLOCK = '<protection locked="0"/>'
 _TOP = '<alignment vertical="top"/>'
 _TOP_WRAP = '<alignment vertical="top" wrapText="1"/>'

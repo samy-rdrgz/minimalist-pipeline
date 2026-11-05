@@ -63,12 +63,8 @@ class M_PIPELINE_OT_action_popup(bpy.types.Operator):
         )
 
     def cancel(self, context):
-        """Dismissed without clicking a choice (Escape / click-away): no
-        choice callback ran, so clear the pending action ourselves (mirrors
-        the choice_index < 0 path in execute()) and run the action's
-        on_dismiss cleanup, if any, so it fires the same whether the popup
-        was dismissed or a neutral choice was clicked. No _force_close here:
-        Blender is already tearing the popup down to get here."""
+        """Dismissed without a choice: clear the pending action (as
+        execute() does) and run its on_dismiss, if any."""
         self._dismiss(self._action)
 
     @staticmethod
@@ -207,12 +203,8 @@ class M_PIPELINE_OT_text_popup(bpy.types.Operator):
 
 
 class M_PIPELINE_OT_onboarding_popup(bpy.types.Operator):
-    """First-launch intro: what the addon does, how it works, what it
-    needs, and the one rule. Also reachable anytime from the main panel's
-    header (Help icon). Non-blocking, dismissible, no step-by-step flow --
-    a custom draw() rather than PipelineAction/action_popup, since the
-    hook/detail contrast and the section layout below are one-off, not a
-    shape any other popup in the addon reuses."""
+    """First-launch intro: what the addon does, how it works, what it needs,
+    the one rule. Also from the main panel's Help icon; dismissible."""
 
     bl_idname = "m_pipeline.onboarding_popup"
     bl_label = "Welcome"
@@ -262,12 +254,8 @@ class M_PIPELINE_OT_onboarding_popup(bpy.types.Operator):
     )
 
     def invoke(self, context, event):
-        # onboarding_seen isn't touched here: this operator also serves the
-        # Help icon and the empty-state button, which must keep opening it
-        # forever regardless of that flag. Only the startup timer
-        # (_deferred_onboarding in __init__.py) marks it seen.
-        # A window, like the monitoring ones: it stays while read, the name
-        # typed in it. The popup only if Blender couldn't open one.
+        # onboarding_seen is set by _deferred_onboarding only (the Help icon
+        # opens it too). A window like the monitoring ones, else the popup.
         from .monitoring import (
             bring_monitoring_to_front,
             monitoring_windows,

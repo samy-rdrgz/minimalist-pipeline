@@ -138,12 +138,8 @@ def _draw_block_warning(layout, context, shots):
         f"shots together.\nNot one continuous action? Use separate shots "
         f"instead."
     )
-    # M_PIPELINE_OT_create_shot draws this inside its own invoke_props_dialog
-    # (width=500) -- context.region there isn't that dialog's own region,
-    # so region_char_budget(context) would size off a panel-sized guess.
-    # Pass the dialog's own real width instead -- see region_char_budget()'s
-    # docstring / POPUP_WIDTH_SCALE in lib/core.py for why it still needs
-    # correcting.
+    # Drawn in create_shot's dialog (width=500): its width passed, not the
+    # region's (region_char_budget()).
     layout.separator()
     box = layout.box().column(align=True)
     box.alert = True
@@ -378,14 +374,8 @@ class M_PIPELINE_OT_create_shot(bpy.types.Operator):
         self.end_frame = default_start + 100
         self.confirm_overlap = False
 
-        # shots_list_creation is a WindowManager collection -- shared and
-        # never cleared on its own, so without this it either starts empty
-        # (nothing to click but a bare "Add" button, easy to miss and OK
-        # straight into a shot with no number and no camera/marker at all --
-        # see create_shot_file()'s own guard against that) or keeps
-        # whatever was left over from the last shot created. Reset it to one
-        # sensible default row every time, same as M_PIPELINE_OT_edit_block_structure's
-        # own invoke() does.
+        # shots_list_creation is shared and never cleared: reset to one
+        # default row, as edit_block_structure's invoke() does.
         shots = context.window_manager.shots_list_creation
         shots.clear()
         item = shots.add()

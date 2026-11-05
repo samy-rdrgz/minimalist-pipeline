@@ -230,13 +230,10 @@ def scan_queue(project_root: Path) -> None:
                 pass
 
             elif stage == "queued":
-                # Setup also waits for a render this same instance runs as a
-                # worker: both load the whole .blend. Only setup -- the
-                # ffmpeg stages are light and must not queue behind a whole
-                # render (see NOTES.md, "Re-rendering a file..."). Unless
-                # machines sit idle with nothing else to take: then it runs
-                # alongside, the .blend loaded twice for the setup's length
-                # rather than the farm held back for the whole render.
+                # Setup waits for this instance's own render (both load the
+                # .blend) unless machines sit idle; ffmpeg stages never wait.
+                # See NOTES.md, "Setup waits for a local render; ffmpeg
+                # stages don't".
                 if not local_slot_busy() and (
                     not local_render_running()
                     or _setup_unblocks_idle(data, jobs, idle)
@@ -625,12 +622,10 @@ def _flag_to_check(job: Path, data: dict, project_root: Path) -> bool:
 
 
 def resume_interrupted_stage(data: dict, reason: str) -> str | None:
-    """Rewind a job whose *_start stage lost its process, so the queue picks
-    it up again instead of leaving it stuck or "orphaned". Mutates data
-    (caller writes it back); returns the stage resumed to, or None if the
-    job wasn't in a resumable stage. A setup that got as far as writing its
-    result counts as finished -- redoing it would create a new output
-    folder (increment) for nothing."""
+    """Rewind a job whose *_start stage lost its process (mutates data, the
+    caller writes it). Returns the stage resumed to, None if not resumable;
+    a setup that wrote its result counts as finished. See NOTES.md, "Crash
+    recovery: resume, don't orphan"."""
     stage = data["stage_history"][-1]["stage"]
     if stage == "setup_start":
         resolved = data.get("resolved_frame_range")

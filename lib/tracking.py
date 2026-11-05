@@ -540,12 +540,9 @@ class WorkTimeCache:
 
 
 class RecentFilesCache:
-    """Last few files opened by *this user*, one per asset/shot -- derived
-    from sessions_log.jsonl's own session_end lines, filtered to this
-    session's own user so someone working shots only never sees a
-    teammate's asset opens (no department logic needed: it falls out of
-    filtering by who actually opened what). The currently open file is
-    never in it (its own session_end isn't logged yet)."""
+    """Last few files this user opened, one per asset/shot, from
+    sessions_log.jsonl's session_end lines; the open file is never in it.
+    See NOTES.md, "Recent files: derived from the log, not a stored list"."""
 
     _cache: list[tuple[str, str]] = []
     _mtime: float = -1.0
@@ -831,12 +828,9 @@ def _linked_key(file: str) -> str:
 
 
 def compact_linked(entries: list[dict]) -> list[dict]:
-    """A "linked" list as one {"file"} per linked file, first seen first:
-    everything that reads it only needs the file (Linked by, library
-    updates, clean-up). Turns an older list -- one {file, type, name} per
-    linked datablock, 2 042 entries for 7 files in one shot -- into its
-    files. A relative path is stored collapsed ("../" resolved). Pure data.
-    See NOTES.md, "Linked libraries: one line per file"."""
+    """A "linked" list as one {"file"} per linked file, first seen first, an
+    older per-datablock list included; relative paths collapsed. Pure. See
+    NOTES.md, "Linked libraries: one line per file"."""
     seen = set()
     out = []
     for d in entries:
@@ -854,11 +848,8 @@ def compact_linked(entries: list[dict]) -> list[dict]:
 
 
 def wipmeta_add_link(filepath: Path, link: list[dict]):
-    """Add freshly linked files to this version's .wipmeta linked list,
-    one entry per file (compact_linked()) -- see NOTES.md. No-op, doesn't
-    raise, if filepath has no .wipmeta -- linking into an open -stable file
-    is legal (Blender doesn't block it in memory, only Save is guarded),
-    and a -stable file has nothing to track it in; same rule as
+    """Add freshly linked files to this version's .wipmeta, one entry per
+    file (compact_linked()). No-op without a .wipmeta (a -stable file), as
     wipmeta_touch()."""
     path = _meta_path(filepath, ".wipmeta")
     if not path.exists():

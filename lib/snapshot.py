@@ -147,12 +147,9 @@ def read_render_state(root: Path, kind: str, owner: Path, v_prefix: str = "v") -
         ]
         out.append(last_render(shot, mine, base.with_name(shot) if shot else base))
     if block:
-        # The block rendered whole (no split per shot: renders/<seq>/
-        # sh030-040/...): each shot's last render is the newer of its own
-        # and that one ("whole": the to-check label is the folder alone) --
-        # newer by when it finished: the two folders number their renders
-        # apart (sh040-050/v003-stable_002 can be older than
-        # sh040/v003-stable_001).
+        # The block rendered whole: each shot's last render is the newer of
+        # its own and that one, by when it finished (the two folders number
+        # their renders apart).
         mine = [
             i
             for i, e in enumerate(finished)
@@ -262,12 +259,10 @@ def _video_name(root: Path, mp4: Path | None) -> str | None:
 def ensure_snapshot_lds(
     data: dict, root: Path, sequences: list[str], assets: bool, ffmpeg: str
 ) -> tuple[list[str], list[tuple[str, str]]]:
-    """read_snapshot_data()'s renders of these sequences (and with assets,
-    every asset/library's): a light copy made in renders/ for each video a
-    browser can't play and that has none yet (preview.ensure_ld(): an
-    older render, from before the farm made them), its "video" pointed at
-    it. Returns (made, [(video, why) not made]). Disk and ffmpeg: on a
-    thread."""
+    """A light copy (preview.ensure_ld()) for each video of these sequences
+    (and the assets, with them) a browser can't play and that has none yet,
+    its "video" pointed at it. Returns (made, [(video, why)] not made). Disk
+    and ffmpeg: on a thread."""
     root = Path(root)
     made, failed = [], []
     for kind, owner, raw, _ in data["raws"]:
@@ -331,12 +326,10 @@ def _render_ref(renders: list, per_shot: bool = False) -> str:
 
 
 def render_of_note(render: str, shot: str | None) -> str | None:
-    """The render folder a review note is about, from its row's "render"
-    (_render_ref()): its shot's ("110" matches "sh110"), else the row's
-    one render; a note on the whole block, the newest of its shots'. None
-    for a shot of a block with no render of its own there (never
-    rendered, or rendered again after the snapshot), or without any (a
-    review from before schema 5)."""
+    """The render folder a review note is about, from its row's
+    render_watched (_render_ref()): its shot's, else the row's one render;
+    on a whole block, the newest of its shots'. None when its shot has no
+    render there."""
     default, per_shot = None, {}
     for token in (render or "").split():
         label, _, folder = token.rpartition("=")

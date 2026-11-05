@@ -1676,12 +1676,9 @@ class M_PIPELINE_OT_toggle_department_approval(bpy.types.Operator):
 
 
 class M_PIPELINE_OT_department_status_info(bpy.types.Operator):
-    """Read-only tooltip carrier for a department status cell that isn't
-    meant to be editable at its call site (the monitor grid, the sidebar's
-    required-departments list) -- see M_PIPELINE_OT_toggle_validated_department
-    for the one that actually toggles -- and for the monitor's Farm column.
-    Drawn with enabled=False, except in the Farm column (dimmed, a job in
-    progress would read as stale); execute() is a harmless no-op."""
+    """Read-only tooltip carrier for a department status cell not editable
+    where it's drawn (the monitor grid, the sidebar's required departments,
+    the Farm column); execute() is a no-op."""
 
     bl_idname = "m_pipeline.department_status_info"
     bl_label = ""
@@ -1978,11 +1975,8 @@ def _archive_checked_job(job_id: str) -> None:
 
 class M_PIPELINE_OT_tracking_file_details(bpy.types.Operator):
     """Project monitoring: show one tracked file's detail (filepath, its
-    folder), or the list (no filepath: the Back button). Never a toggle:
-    clicking a file already shown -- a "Links to" / "Linked by" row naming
-    it -- went back to the list. SKIP_SAVE: an operator property otherwise
-    keeps its last value for a button that doesn't set it -- the Back
-    button carried the last file clicked, and its description as tooltip."""
+    folder), or the list (no filepath: Back). Never a toggle. SKIP_SAVE
+    properties (see NOTES.md, "\"Render\" button opening pre-filled")."""
 
     bl_idname = "m_pipeline.tracking_file_details"
     bl_label = ""

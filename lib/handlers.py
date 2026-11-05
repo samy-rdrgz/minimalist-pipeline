@@ -138,12 +138,9 @@ def post_load_handler(*args):
     auto-version); a *different* known project's: propose a switch, stop;
     unknown file: total silence, no popup. *args (unused): load_post's arity
     isn't a contract we control, stays robust either way."""
-    # A file load frees every window region of the previous file, popups
-    # included -- but the farm's refresh timer is persistent and would
-    # survive it, still holding a popup's (now freed) region: tag_redraw()
-    # on it crashes Blender. Stop it here, before anything else (a Farm
-    # monitoring window kept through the load restarts it, _monitoring_tick). Lazy import:
-    # farm imports lib, not the other way around.
+    # The farm's refresh timer would tag_redraw() a region the load freed (a
+    # crash): stopped first, restarted by _monitoring_tick. Lazy import: farm
+    # imports lib, not the reverse.
     try:
         from ..farm.loop import unregister_refresh_timer
 
