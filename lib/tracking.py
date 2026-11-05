@@ -1134,7 +1134,7 @@ def set_department_approval(
                 f"{Path(last['file']).stem} was made since {Path(stable_file).stem}, "
                 f"{department} worked: to review again."
             )
-    # A stable made before 1.1.8: the validations it carries, written down
+    # A stable made before 1.1.9: the validations it carries, written down
     # before changing one (withdrawing one of them, say).
     carried = {}
     if "approvals_carried" not in last:
@@ -1328,7 +1328,7 @@ def _collect_folder(asset_dir: Path, entries: list | None = None) -> dict | None
         "last_stable": last_stable,
         "wipmetas": wipmetas,
         "started": started,
-        # A stable made before 1.1.8: the validations it would have carried.
+        # A stable made before 1.1.9: the validations it would have carried.
         "carried": carried,
     }
 
@@ -1434,7 +1434,7 @@ def _worked_since(
 ) -> set[str]:
     """Departments worked after start, up to end: the wipmetas edited
     between and each stable made between's departments_worked; through a
-    stable made from a stable before 1.1.8 (none recorded), those an RTK was
+    stable made from a stable before 1.1.9 (none recorded), those an RTK was
     opened or closed on meanwhile."""
     worked = _worked_between(entries, start, end)
     blind = False
@@ -1496,7 +1496,7 @@ def worked_since_stable(asset_dir: Path, stable_file: str, entries: list | None 
 
 
 def _legacy_carried(entries: list, last_stable: dict, tracking: dict) -> dict:
-    """For a latest stable made before validations were carried (1.1.8):
+    """For a latest stable made before validations were carried (1.1.9):
     the last validations of earlier stables of its done departments not
     worked since -- what it would have carried. Only through stables made
     from a wip: one made from a stable didn't record what was worked."""
@@ -1557,7 +1557,7 @@ def _status_from_raw(raw: dict) -> dict:
 
     # Approved by a validation role at the latest stable -- only while done.
     # Carried from the stable before when not worked since (a stable made
-    # before 1.1.8: worked out on reading, see _legacy_carried()).
+    # before 1.1.9: worked out on reading, see _legacy_carried()).
     approvals = {}
     for source in (raw.get("carried") or {}, last_stable.get("approvals") or {}):
         for d, roles in source.items():

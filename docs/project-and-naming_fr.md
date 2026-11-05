@@ -120,7 +120,7 @@ Une cellule vide signifie juste "utiliser le repli pour cette colonne" (départe
 }
 ```
 
-**Edit project** (panneau Project, *Project settings* du menu Pipeline) : une fenêtre à part depuis la 1.1.8, comme les monitorings -- elle reste ouverte pendant qu'on modifie, *Save* écrit la config, *Close* ferme sans (le dialogue seulement si Blender ne peut pas ouvrir de fenêtre). À gauche, le projet et son nommage (préfixes, dossiers, tags, départements) ; à droite, le snapshot (vignettes, Done, rôles de validation, planning), la farm, et *Maintenance*, pour le projet actif : *Clean old renders* et *Delete a shot or an asset* (choisi comme dans Open file) -- voir [Rendu](farm_fr.md). Les réglages sur deux colonnes -- ce que fait chacun :
+**Edit project** (panneau Project, *Project settings* du menu Pipeline) : une fenêtre à part depuis la 1.1.9, comme les monitorings -- elle reste ouverte pendant qu'on modifie, *Save* écrit la config, *Close* ferme sans (le dialogue seulement si Blender ne peut pas ouvrir de fenêtre). À gauche, le projet et son nommage (préfixes, dossiers, tags, départements) ; à droite, le snapshot (vignettes, Done, rôles de validation, planning), la farm, et *Maintenance*, pour le projet actif : *Clean old renders* et *Delete a shot or an asset* (choisi comme dans Open file) -- voir [Rendu](farm_fr.md). Les réglages sur deux colonnes -- ce que fait chacun :
 
 | Réglage | Rôle |
 |---|---|
