@@ -10,3 +10,5 @@ tests/
 CLAUDE.md
 .claude/
 *.code-workspace
+zip/
+trailers/
