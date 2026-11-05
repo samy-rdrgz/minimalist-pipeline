@@ -27,6 +27,10 @@ from .farm_ops import (
     PIPELINE_PG_render_subshot_item,
 )
 from .file_ops import M_PIPELINE_OT_increment_version
+from .render_clean_ops import (
+    M_PIPELINE_OT_clean_renders,
+    M_PIPELINE_OT_clean_renders_confirm,
+)
 from .rushes_ops import M_PIPELINE_OT_push_rushes
 from .log_ops import (
     PIPELINE_PG_log_monitoring,
@@ -86,6 +90,8 @@ from .tracking_ops import (
 )
 
 classes = (
+    M_PIPELINE_OT_clean_renders,
+    M_PIPELINE_OT_clean_renders_confirm,
     M_PIPELINE_OT_monitoring_back,
     M_PIPELINE_OT_monitoring_page,
     M_PIPELINE_OT_monitoring_refresh,

@@ -103,6 +103,8 @@ class M_PIPELINE_PT_monitoring(_MonitoringPanel, bpy.types.Panel):
         filters_btn.prop(state, "only_rtk", text="", icon="LOOP_BACK")
         filters_btn.prop(state, "only_to_validate", text="", icon="SOLO_OFF")
         filters_btn.prop(state, "sort", text="", icon="SORTTIME")
+        # Lighten the renders/ folder (lib/render_clean.py): asks first.
+        filters_btn.operator("m_pipeline.clean_renders", text="", icon="TRASH")
 
         layout.separator(factor=0.5)
         draw_monitor_table(state, context, layout, columns, get_active_project_root())
