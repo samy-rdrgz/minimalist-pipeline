@@ -18,6 +18,10 @@ by an older version.
 
 ### Changed
 
+- Project monitoring's scan reads each file once per folder, and the tab
+  shown first (its sequence or prefix first): about 40 % fewer calls to
+  the server, the list being looked at filled first.
+
 - Import review, and loading a review back into the snapshot page, only
   take a review of this add-on version's snapshot: one from an older
   snapshot is refused (export the snapshot again and review it there),
