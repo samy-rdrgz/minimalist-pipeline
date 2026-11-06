@@ -30,6 +30,7 @@ from ..lib import (
     retry_shared_io,
     to_absolute,
 )
+from .awake import keep_awake
 from .chunks import read_claims
 from .loop import RoleFileWatch, register_farm_loop
 
@@ -86,6 +87,8 @@ _worker_file_watch = RoleFileWatch("worker")
 def _set_this_instance_worker(value: bool) -> None:
     global _this_instance_worker
     _this_instance_worker = bool(value)
+    # Every start and end of the role passes here: no idle sleep meanwhile.
+    keep_awake(_this_instance_worker)
 
 
 def this_instance_is_worker() -> bool:
@@ -680,7 +683,7 @@ def render_stop_path(job_id: str) -> Path:
 def render_yield_path(job_id: str, uuid: str = "") -> Path:
     """Machine uuid's (this one's by default) "give way" flag for its render
     of job_id: the farm host wants it on a higher-priority job, the render
-    entry exits once its chunk in progress is done
+    entry exits after its frame in progress, its chunk's claim let go
     (queue._give_way_to_priority())."""
     return (
         ConfigCache.get_path("farm_requests")
@@ -890,6 +893,12 @@ def local_render_running() -> bool:
     lets the monitor role in the same instance hold back a job's setup,
     which loads a whole second .blend alongside the render's own."""
     return any(p.poll() is None for p in _worker_active_processes.values())
+
+
+def local_render_jobs() -> list[str]:
+    """job_id of each render this Blender instance, as a worker, runs right
+    now (local_render_running())."""
+    return [j for j, p in _worker_active_processes.items() if p.poll() is None]
 
 
 def scan_worker_processes() -> None:

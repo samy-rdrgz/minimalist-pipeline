@@ -265,6 +265,7 @@ def _farm_paths() -> dict | None:
         "farm_requests": ConfigCache.get_path("farm_requests"),
         "farm_claims": ConfigCache.get_path("farm_claims"),
         "workers": ConfigCache.get_path("workers"),
+        "farm_preset_pace": ConfigCache.get_path("farm_preset_pace"),
     }
 
 
@@ -509,13 +510,17 @@ def _ffmpeg_progress_for_jobs(requests_dir: Path | None, jobs: list) -> dict:
 _history_cache: dict[str, tuple] = {}
 
 
-def history_pace(history: list, preset: str, shot: str = "") -> dict | None:
-    """A job's pace to come, from its file's past renders (render_history
-    entries): the latest finished one with seconds_per_frame, rendered
-    with the same pre-render script -- same shot first for a block's.
-    One from before the script was recorded only when none matches
-    ("preset_known" False). {"seconds_per_frame", "render", "preset_known"},
-    None without any. Pure."""
+def history_pace(
+    history: list, preset: str, shot: str = "", averages: dict | None = None
+) -> dict | None:
+    """A job's pace to come, from past renders (render_history entries,
+    preset_pace.json's averages -- farm/pace.py preset_averages()): its
+    file's latest finished render with the same pre-render script, same
+    shot first for a block's (basis "file"); else that script's average
+    over the project's last renders ("project"); else its file's latest
+    finished render whatever the script ("other", its script in
+    "other_preset", None if unrecorded). {"seconds_per_frame", "render",
+    "basis", ...}, None without any. Pure."""
     done = [
         e
         for e in history
@@ -526,24 +531,52 @@ def history_pace(history: list, preset: str, shot: str = "") -> dict | None:
     if shot:
         done.sort(key=lambda e: e.get("shot_override") == shot)  # stable: latest last
     same = [e for e in done if e.get("prerender_script", None) == preset]
-    unknown = [e for e in done if "prerender_script" not in e]
+    average = (averages or {}).get(preset or "")
     if same:
-        pick, known = same[-1], True
-    elif unknown:
-        pick, known = unknown[-1], False
+        pick, basis = same[-1], "file"
+    elif average:
+        return {
+            "seconds_per_frame": average[0],
+            "render": "",
+            "basis": "project",
+            "renders": average[1],
+            "preset": preset or "",
+        }
+    elif done:
+        pick, basis = done[-1], "other"
     else:
         return None
     output = pick.get("output_path") or ""
     return {
         "seconds_per_frame": pick["seconds_per_frame"],
         "render": Path(output).parent.name if output else "",
-        "preset_known": known,
+        "basis": basis,
+        "other_preset": pick.get("prerender_script"),
     }
 
 
-def _history_pace_for_jobs(root: Path, jobs: list) -> dict:
+# preset_pace.json, as last read: (mtime, preset_averages()).
+_averages_cache: list = [None, {}]
+
+
+def _preset_averages(path: Path | None) -> dict:
+    """farm/pace.py preset_averages() of preset_pace.json, re-read only once
+    its mtime moves (thread-safe)."""
+    from .pace import preset_averages
+
+    try:
+        mtime = os.stat(path).st_mtime if path else None
+    except OSError:
+        return {}
+    if _averages_cache[0] != mtime:
+        _averages_cache[:] = [mtime, preset_averages(read_json_quiet(path) or {})]
+    return _averages_cache[1]
+
+
+def _history_pace_for_jobs(root: Path, jobs: list, averages: dict | None = None) -> dict:
     """{job_id: history_pace()} for the jobs set up and waiting for a
-    worker (thread-safe: each history re-read only once it changed)."""
+    worker (thread-safe: each history re-read only once it changed). A
+    file with no history yet: the preset's average alone."""
     out = {}
     for job in jobs:
         try:
@@ -556,13 +589,19 @@ def _history_pace_for_jobs(root: Path, jobs: list) -> dict:
         try:
             mtime = os.stat(path).st_mtime
         except OSError:
-            continue
-        cached = _history_cache.get(str(path))
-        if not cached or cached[0] != mtime:
-            cached = (mtime, (read_json_quiet(path) or {}).get("entries") or [])
-            _history_cache[str(path)] = cached
+            mtime = None
+        entries = []
+        if mtime is not None:
+            cached = _history_cache.get(str(path))
+            if not cached or cached[0] != mtime:
+                cached = (mtime, (read_json_quiet(path) or {}).get("entries") or [])
+                _history_cache[str(path)] = cached
+            entries = cached[1]
         pace = history_pace(
-            cached[1], job.get("prerender_script", ""), job.get("shot_override", "")
+            entries,
+            job.get("prerender_script", ""),
+            job.get("shot_override", ""),
+            averages,
         )
         if pace:
             out[job.get("job_id", "")] = pace
@@ -576,7 +615,9 @@ def _read_farm_snapshot(paths: dict, scanned: dict, cached_actives: list) -> dic
     jobs = actives if actives is not None else cached_actives
     raw["frames"] = _frames_for_jobs(paths["root"], jobs)
     raw["frame_seconds"] = _frame_seconds_for_jobs(paths.get("farm_requests"), jobs)
-    raw["history_pace"] = _history_pace_for_jobs(paths["root"], jobs)
+    raw["history_pace"] = _history_pace_for_jobs(
+        paths["root"], jobs, _preset_averages(paths.get("farm_preset_pace"))
+    )
     raw["claims"] = _claims_for_jobs(paths.get("farm_claims"), jobs)
     raw["ffmpeg_progress"] = _ffmpeg_progress_for_jobs(
         paths.get("farm_requests"), jobs

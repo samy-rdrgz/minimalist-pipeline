@@ -1832,6 +1832,9 @@ class M_PIPELINE_OT_render_checked(bpy.types.Operator):
         return "Mark this render as checked."
 
     def invoke(self, context, event):
+        # Ctrl+click on one render's Checked (File details): every render
+        # to check of the file, as the list's check mark does.
+        self.all_shots = self.all_shots or event.ctrl
         # The checklist: every required department, as validated now --
         # watching the render may call for unvalidating one, not only for
         # validating "render".

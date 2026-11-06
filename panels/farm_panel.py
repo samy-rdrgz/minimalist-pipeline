@@ -210,11 +210,25 @@ def _duration(seconds: float) -> str:
     return f"{seconds // 60}m{seconds % 60:02d}s"
 
 
+def _pace_source(pace: dict) -> str:
+    """Where an estimate's pace comes from (history_pace(), farm/loop.py):
+    "" for the file's own render with this preset, else said."""
+    basis = pace.get("basis")
+    if basis == "project":
+        n = pace.get("renders") or 0
+        return f"average of {n} {pace.get('preset') or 'default'} render{'s' if n > 1 else ''}"
+    if basis == "other":
+        other = pace.get("other_preset")
+        return f"from a {other or 'default'} render" if other is not None else "preset unknown"
+    return ""
+
+
 def _estimate_label(job: dict, cache: dict) -> str:
     """ "≃ 1h00m with 4 workers" for a job waiting for a worker: its frames
-    at the pace of the file's last render with the same pre-render script
-    (history_pace(), farm/loop.py), shared by the live workers. "" without
-    a past render to go by."""
+    at the pace history_pace() (farm/loop.py) found -- the file's last
+    render with this pre-render script, else that script's project
+    average, else the file's last render -- shared by the live workers.
+    "" without any past render to go by."""
     pace = job.get("history_pace")
     frames = job.get("frames_to_render") or 0
     if not pace or not frames:
@@ -223,9 +237,8 @@ def _estimate_label(job: dict, cache: dict) -> str:
     total = frames * pace["seconds_per_frame"] / workers
     plural = "s" if workers > 1 else ""
     text = f"≃ {_duration(total)} with {workers} worker{plural}"
-    if not pace["preset_known"]:
-        text += ", preset unknown"
-    return text
+    source = _pace_source(pace)
+    return f"{text}, {source}" if source else text
 
 
 # Stages before the render: their frames aren't known yet (not set up).
@@ -1166,11 +1179,15 @@ def draw_farm_job_details(layout, context):
     if estimate:
         pace = waiting["history_pace"]
         field(col, "Estimate", estimate)
+        # The pace and where it's from: the render it's read on, or the
+        # preset's average over the project.
+        source = _pace_source(pace) if pace.get("basis") != "other" else ""
         field(
             col,
             "",
             f"{_pace(pace['seconds_per_frame'])} a frame"
-            + (f", as {pace['render']}" if pace.get("render") else ""),
+            + (f", as {pace['render']}" if pace.get("render") else "")
+            + (f", {source}" if source else ""),
         )
     field(col, "Format", data.get("output_extension", "-"))
     field(col, "fps", data.get("fps", "-"))

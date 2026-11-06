@@ -200,6 +200,9 @@ LD_ARGS = [
     "-c:v", "libx265", "-preset", "fast", "-crf", "22", "-pix_fmt", "yuv420p",
     "-tag:v", "hvc1", "-movflags", "+faststart",
 ]
+# The light copy's size: MAX_VIDEO_WIDTH wide at most, even (H.265 in
+# yuv420p takes no odd size -- a 3361 px wide render), its height to match.
+LD_SCALE = f"scale='min({MAX_VIDEO_WIDTH},trunc(iw/2)*2)':-2"
 _VIDEO_STREAM = re.compile(r"Video: (\w+)[^\n]*?(?:\((\w{4}) /[^\n]*?)?, (\d{2,5})x(\d{2,5})")
 
 
@@ -263,7 +266,7 @@ def ensure_ld(video: Path, ffmpeg: str) -> Path | None:
         return None
     codec, tag, width = info
     if width > MAX_VIDEO_WIDTH or not browser_codec(codec):
-        args = ["-vf", f"scale='min({MAX_VIDEO_WIDTH},iw)':-2", *LD_ARGS]
+        args = ["-vf", LD_SCALE, *LD_ARGS]
     elif video.suffix.lower() != ".mp4" or (codec == "hevc" and tag != "hvc1"):
         # Playable as such, but not in a .mov / .mkv, or tagged hev1: put
         # in an mp4 as it is, no re-encode.

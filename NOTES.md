@@ -13,11 +13,11 @@ comment.
 
 By theme; the sections below stay in the order they were written.
 
-- **Render farm**: [Farm 1.1.0: chunks replace placeholders](#farm-110-chunks-replace-placeholders) · [Stuck frame](#stuck-frame) · [Stopping a worker: after this frame, or now](#stopping-a-worker-after-this-frame-or-now) · [Which machine rendered which frame](#which-machine-rendered-which-frame) · [Time left: per machine, from each frame's time](#time-left-per-machine-from-each-frames-time) · [Crash recovery: resume, don't orphan](#crash-recovery-resume-dont-orphan) · [Re-rendering a file: match the render, not the job](#re-rendering-a-file-match-the-render-not-the-job) · [Farm subprocess output: files, never pipes](#farm-subprocess-output-files-never-pipes) · [Farm popup: worker state, open-folder button, refresh cost](#farm-popup-worker-state-open-folder-button-refresh-cost) · [Farm status: two redraw timers, split by cost](#farm-status-two-redraw-timers-split-by-cost) · [One farm snapshot reader, sync or threaded](#one-farm-snapshot-reader-sync-or-threaded) · [FFmpeg detection: PATH lookup isn't enough, and an override can't silently fall back](#ffmpeg-detection-path-lookup-isnt-enough-and-an-override-cant-silently-fall-back) · [What a real project's export showed (6 machines, a week of production)](#what-a-real-projects-export-showed-6-machines-a-week-of-production) · [ffmpeg passes: a %, from -progress](#ffmpeg-passes-a--from--progress) · [Priority: giving way between chunks](#priority-giving-way-between-chunks) · [A failed render says why](#a-failed-render-says-why) · [A share drop-out ended the farm roles for good](#a-share-drop-out-ended-the-farm-roles-for-good) · [Rushes: copies under fixed names, not links](#rushes-copies-under-fixed-names-not-links) · [Estimate before a render starts](#estimate-before-a-render-starts)
+- **Render farm**: [Farm 1.1.0: chunks replace placeholders](#farm-110-chunks-replace-placeholders) · [Workers: no idle sleep](#workers-no-idle-sleep) · [Stuck frame](#stuck-frame) · [Stopping a worker: after this frame, or now](#stopping-a-worker-after-this-frame-or-now) · [Which machine rendered which frame](#which-machine-rendered-which-frame) · [Time left: per machine, from each frame's time](#time-left-per-machine-from-each-frames-time) · [Crash recovery: resume, don't orphan](#crash-recovery-resume-dont-orphan) · [Re-rendering a file: match the render, not the job](#re-rendering-a-file-match-the-render-not-the-job) · [Farm subprocess output: files, never pipes](#farm-subprocess-output-files-never-pipes) · [Farm popup: worker state, open-folder button, refresh cost](#farm-popup-worker-state-open-folder-button-refresh-cost) · [Farm status: two redraw timers, split by cost](#farm-status-two-redraw-timers-split-by-cost) · [One farm snapshot reader, sync or threaded](#one-farm-snapshot-reader-sync-or-threaded) · [FFmpeg detection: PATH lookup isn't enough, and an override can't silently fall back](#ffmpeg-detection-path-lookup-isnt-enough-and-an-override-cant-silently-fall-back) · [What a real project's export showed (6 machines, a week of production)](#what-a-real-projects-export-showed-6-machines-a-week-of-production) · [Odd sizes: one more column for the compilation](#odd-sizes-one-more-column-for-the-compilation) · [ffmpeg passes: a %, from -progress](#ffmpeg-passes-a--from--progress) · [Priority: giving way after a frame](#priority-giving-way-after-a-frame) · [A failed render says why](#a-failed-render-says-why) · [A share drop-out ended the farm roles for good](#a-share-drop-out-ended-the-farm-roles-for-good) · [Rushes: copies under fixed names, not links](#rushes-copies-under-fixed-names-not-links) · [Estimate before a render starts](#estimate-before-a-render-starts)
 - **Notes, tracking, snapshot**: [Tracking entries](#tracking-entries) · [Entries for several departments](#entries-for-several-departments) · [Validation roles](#validation-roles) · [Entries: two fields only ever guaranteed together, never accessed bare](#entries-two-fields-only-ever-guaranteed-together-never-accessed-bare) · [Edit entry: a note turned task kept no checkbox](#edit-entry-a-note-turned-task-kept-no-checkbox) · [Edit-entry dialog: a stored department can outlive its own enum](#edit-entry-dialog-a-stored-department-can-outlive-its-own-enum) · [Department filter: three different callers, three different "current file"s](#department-filter-three-different-callers-three-different-current-files) · [tracking.json: one path, never created by a write](#trackingjson-one-path-never-created-by-a-write) · [Renders to check: the one before, to compare](#renders-to-check-the-one-before-to-compare) · [Project monitoring's Farm column: the monitor cache, not the project scan](#project-monitorings-farm-column-the-monitor-cache-not-the-project-scan) · [Production snapshot: one HTML file, a spreadsheet inside it](#production-snapshot-one-html-file-a-spreadsheet-inside-it) · [Snapshot width: short state labels, hideable columns](#snapshot-width-short-state-labels-hideable-columns) · [Work time tracking & log rotation](#work-time-tracking--log-rotation) · [A review note is about the render watched](#a-review-note-is-about-the-render-watched) · [A general RTK reds the file's name](#a-general-rtk-reds-the-files-name) · [Entry ids: unique in their file](#entry-ids-unique-in-their-file) · [Snapshot page on an iPad](#snapshot-page-on-an-ipad) · [Review import: this version's reviews only](#review-import-this-versions-reviews-only) · [Small gotchas, out of the docstrings](#small-gotchas-out-of-the-docstrings) · [Outdated links: after the grid, a button only when found](#outdated-links-after-the-grid-a-button-only-when-found) · [Notes & tasks: counts in the title, filters per view](#notes--tasks-counts-in-the-title-filters-per-view) · [Project scan on a share with latency](#project-scan-on-a-share-with-latency) · [Right-click menus on the addon's buttons](#right-click-menus-on-the-addons-buttons) · [Save Incremental: its key, not its button](#save-incremental-its-key-not-its-button)
 - **Shot blocks (multishot), batch**: [Multishot blocks](#multishot-blocks) · [Multishot row list: disabling a button isn't a guard](#multishot-row-list-disabling-a-button-isnt-a-guard) · [Multishot row list, take two: a clean-scene reset invalidates it](#multishot-row-list-take-two-a-clean-scene-reset-invalidates-it) · [_draw_timeline_warnings: a trailing comma turned a string into a 1-tuple](#_draw_timeline_warnings-a-trailing-comma-turned-a-string-into-a-1-tuple) · [CSV batch: the subprocess couldn't import itself](#csv-batch-the-subprocess-couldnt-import-itself)
 - **Versions, saving, files**: [Read-only reason: from a popup on every open to an on-demand menu](#read-only-reason-from-a-popup-on-every-open-to-an-on-demand-menu) · [Top bar read-only indicator: why it sits before the Blender icon](#top-bar-read-only-indicator-why-it-sits-before-the-blender-icon) · [.wipmeta writes tolerate a missing sidecar; the panel doesn't trust the flag alone](#wipmeta-writes-tolerate-a-missing-sidecar-the-panel-doesnt-trust-the-flag-alone) · [Next version number: never from a cached listing](#next-version-number-never-from-a-cached-listing) · [Recent files: derived from the log, not a stored list](#recent-files-derived-from-the-log-not-a-stored-list) · [A version without .wipmeta](#a-version-without-wipmeta) · [The lock follows the file](#the-lock-follows-the-file) · [Work time: only a session that saved](#work-time-only-a-session-that-saved) · [resolve_bpy_path() left "../" uncollapsed in every stored link path](#resolve_bpy_path-left--uncollapsed-in-every-stored-link-path) · [Copy/paste isn't always under bpy.app.tempdir](#copypaste-isnt-always-under-bpyapptempdir) · [Project walk: a stray .pipeline/ hid every asset below it; popup regions must not outlive their popup](#project-walk-a-stray-pipeline-hid-every-asset-below-it-popup-regions-must-not-outlive-their-popup)
-- **Monitoring windows, popups, panels**: [Monitoring: windows, not popups](#monitoring-windows-not-popups) · [Monitoring crash: a thread during window_new()](#monitoring-crash-a-thread-during-window_new) · [Monitoring windows: to the front](#monitoring-windows-to-the-front) · [Monitoring windows: pages sized on the window](#monitoring-windows-pages-sized-on-the-window) · [Monitoring popups: reopening on the detail, or not](#monitoring-popups-reopening-on-the-detail-or-not) · [File details' monitoring_detail("file") is a folder, not a versioned file](#file-details-monitoring_detailfile-is-a-folder-not-a-versioned-file) · [Popup-chaining: a second modal popup always waits one timer tick](#popup-chaining-a-second-modal-popup-always-waits-one-timer-tick) · [Action popups: dialogs](#action-popups-dialogs) · ["Render" button opening pre-filled: an operator property's own redo memory](#render-button-opening-pre-filled-an-operator-propertys-own-redo-memory) · [Text wrapping in panels](#text-wrapping-in-panels) · [Pipeline log: backup noise, viewer](#pipeline-log-backup-noise-viewer) · [Shortcuts](#shortcuts)
+- **Monitoring windows, popups, panels**: [Monitoring: windows, not popups](#monitoring-windows-not-popups) · [Monitoring crash: a thread during window_new()](#monitoring-crash-a-thread-during-window_new) · [Monitoring windows: to the front](#monitoring-windows-to-the-front) · [Monitoring windows: pages sized on the window](#monitoring-windows-pages-sized-on-the-window) · [File details: previous / next file](#file-details-previous--next-file) · [Monitoring popups: reopening on the detail, or not](#monitoring-popups-reopening-on-the-detail-or-not) · [File details' monitoring_detail("file") is a folder, not a versioned file](#file-details-monitoring_detailfile-is-a-folder-not-a-versioned-file) · [Popup-chaining: a second modal popup always waits one timer tick](#popup-chaining-a-second-modal-popup-always-waits-one-timer-tick) · [Action popups: dialogs](#action-popups-dialogs) · ["Render" button opening pre-filled: an operator property's own redo memory](#render-button-opening-pre-filled-an-operator-propertys-own-redo-memory) · [Text wrapping in panels](#text-wrapping-in-panels) · [Pipeline log: backup noise, viewer](#pipeline-log-backup-noise-viewer) · [Shortcuts](#shortcuts)
 - **Shared drive, network cost**: [Network-share redraw cost: caching disk reads off draw()/poll()/enum callbacks](#network-share-redraw-cost-caching-disk-reads-off-drawpollenum-callbacks) · [Popups on a network share: nothing on disk in draw(), heavy reads off the UI thread](#popups-on-a-network-share-nothing-on-disk-in-draw-heavy-reads-off-the-ui-thread) · [Sidebar redraw: 341 ms of network calls, 0 notes on screen](#sidebar-redraw-341-ms-of-network-calls-0-notes-on-screen) · [A tick shows at once](#a-tick-shows-at-once) · [Windows: replace/delete refused while a reader has the file open](#windows-replacedelete-refused-while-a-reader-has-the-file-open) · [Lock staleness: 3x the heartbeat, not 1x](#lock-staleness-3x-the-heartbeat-not-1x)
 - **Addon lifecycle**: [Addon register()/unregister(): four lifecycle gotchas](#addon-registerunregister-four-lifecycle-gotchas) · [Addon register()](#addon-register) · [Addon settings lost on update](#addon-settings-lost-on-update) · [Screenshots in the docs](#screenshots-in-the-docs)
 
@@ -1477,7 +1477,9 @@ length, against the whole farm held back for the host's render. Only if
 the queued job may itself go to one of them (`assigned_machines`).
 Rejected: stopping the host's worker after its frame to run the setup,
 then relaunching it -- a render cut short for what a setup alongside does
-without.
+without. For a queued job of a higher priority, though, the host's render
+gives way after its frame (`_host_gives_way_for_setup()`, see "Priority:
+giving way after a frame"): nothing cut short, a frame finished.
 
 ## Crash recovery: resume, don't orphan
 
@@ -2675,6 +2677,54 @@ that scrolls, like before.
 - **Mouse wheel**: left to the region's own scroll (a window under
   `MIN_ROWS`), not mapped to pages.
 
+## File details: previous / next file
+
+Going through files one by one (reviewing, validating) meant Esc, find
+the next row, click, for each. In a file's detail, `m_pipeline.monitoring_page`
+-- the Left / Right keys, Ctrl for the ends, and ‹ › in the header --
+shows the list's previous / next file instead of turning a page: the
+same keys, no new shortcut in the preferences.
+
+- **The list as on screen**: `monitor_matches()` is the list's filtering
+  and sort, out of `draw_monitor_table()`; the operator runs it again at
+  each step, so the order is the filters' and the sort's now, not a copy
+  taken when the detail opened.
+- **A file that just left the list** (validated under *To validate*,
+  its RTK closed under *RTK*): the order the list had is kept
+  (`_pages`, the list's draw and each step write it), and the step goes
+  to the first file after it there that's still in the list. Without
+  it, validating under that filter would stop the walk at the first file.
+- **The page follows**: each step turns the list's page to the file
+  shown, so Esc comes back on its row, not the page the walk started on.
+- **Outside the list** (a file opened from a link, from another tab of
+  the list, or Ctrl+click on the Monitoring button over a file the
+  filters hide): no previous / next -- there's no position to step from.
+  The header's ‹ › and "3 / 42" read the stored order (draw()-safe, no
+  filtering in a draw()), so they show once the list has been drawn or
+  stepped through.
+- **Never wraps**: the last file's Next does nothing, like the last
+  page's.
+
+## Workers: no idle sleep
+
+A render isn't activity for the OS (keyboard and mouse are): a worker left
+for a weekend could sleep mid-render if the power settings allowed it,
+seen from the farm as a machine gone. `farm/awake.py` `keep_awake()`,
+called from `workers._set_this_instance_worker()` -- every start and end
+of the role goes through it, so nothing else needs to remember it.
+
+- **Windows**: `SetThreadExecutionState(ES_CONTINUOUS | ES_SYSTEM_REQUIRED)`
+  -- per thread, Blender's main one where the role changes (operators,
+  the farm timer), ended by `ES_CONTINUOUS` alone or the process' end.
+  Not `ES_DISPLAY_REQUIRED`: the screen may turn off.
+- **macOS** `caffeinate -i -w <pid>`, **Linux** `systemd-inhibit
+  --what=idle:sleep ... tail --pid=<pid> -f /dev/null`: a process tied to
+  Blender's pid, so it ends with Blender even after a crash; terminated
+  when the role ends. No systemd-inhibit: nothing done, as before.
+- **Only idle sleep**: a sleep asked by hand, a Windows Update restart,
+  a power cut are still possible -- those stay Windows' settings.
+- Never raises; a refusal logged once, not retried each tick.
+
 ## Stuck frame
 
 A render hung on one frame (seen: 2 frames left, the first never ending)
@@ -3320,6 +3370,41 @@ the page's. `docs/` is left out of the extension package
 (`blender_manifest.toml`), so they never weigh on the download. Update a
 capture when its screen changes: an outdated one misleads more than none.
 
+## Odd sizes: one more column for the compilation
+
+A render 3361 x 300 (a panorama strip at a low resolution %) rendered
+and passed the frame check, then failed to compile: x265 "Picture width
+must be an integer multiple of the specified chroma subsampling". 4:2:0
+(yuv420p, the default preset's) and 4:2:2 halve the colour's width (and
+height for 4:2:0): x264, x265, ProRes 422 refuse an odd size.
+
+- **One column (row) more, a copy of the last one**: `farm/post_render.py`
+  `_even_filter()`, `pad` by 1 then `fillborders=...:mode=smear` -- every
+  pixel of the render kept, nothing resampled, no black line (the first
+  version's `pad` alone, black). fillborders takes counts, not
+  expressions: the first frame's real size is read first
+  (`_frame_size()`, ffmpeg's own report, no ffprobe), not the job's
+  `width` (rounded, where Blender truncates; no height). Even: no filter.
+  Unread: the black `_EVEN_PAD` -- a line rather than a failed video.
+- **In RGB first** (`format=gbrp16le`, 16 bits for a 16-bit PNG): padded
+  in a JPG's own yuvj420p, the render's last column came out black too,
+  not only the new one. Checked: the filtered frame's last columns and
+  rows equal the render's, the encoded video's edge as an even-sized
+  render's.
+- **After a preset's own `-vf`**, appended to it: two `-vf` for one
+  output, ffmpeg keeps the last.
+- **Not for 4:4:4, RGB, grey** pix_fmts: any size goes.
+- **The compilation only**: a preview's concat (`build_concat_command()`)
+  already scales and pads to the project's resolution in its
+  filter_complex, and a `-vf` beside a filter_complex on the same
+  stream is refused.
+- **The light copy** (`LD_SCALE`, lib/preview.py): `min(8192, iw)` kept
+  an odd width under 8192 -- for a ProRes preset, its copy failed the
+  same way. Now `min(8192, trunc(iw/2)*2)`, `-2` for the height.
+- **A job that failed this way**: *Retry* (`compilation_failed` →
+  `checks_images_finished`) compiles again from the frames on disk;
+  *Recompile* only takes a job that ended well.
+
 ## ffmpeg passes: a %, from -progress
 
 The frame check, a compilation and a preview showed only "*_start" until
@@ -3335,7 +3420,7 @@ writes at the top of its pass in the job log -- read once per pass and
 cached (a preview's sources are videos, their frame counts unknown).
 `discard_job_log()` and `archive()` delete the file.
 
-## Priority: giving way between chunks
+## Priority: giving way after a frame
 
 Chunks made a worker stay on its render while it had chunks to take (one
 Blender per job, `render_chunks()` walks the chunks until none is free).
@@ -3351,9 +3436,18 @@ could use (`_machines_short()`: one per chunk not sent out yet, or
 uses); that many machines on lower-priority renders (their worker file's
 `current_job_id`), the lowest priority first, get a
 `request_<job>_<uuid>.yield` flag (`workers.render_yield_path()`). The
-render entry checks it between two chunks (`yield_asked()`), never
-mid-chunk -- the chunk in progress is finished, nothing redone -- and
+render entry checks it before each frame (`yield_asked()`) -- the frame
+in progress is finished, nothing redone -- lets its chunk's claim go and
 exits 0; the worker is idle, the next tick sends it to the higher job.
+The chunk's frames done stay on disk: the next machine on it (often one
+already on that render, walking its chunks: no file to load) renders
+only the missing ones, as after a stop "after this frame".
+
+- **After a frame, not a chunk** (1.1.10): first between chunks, so as
+  not to leave one half done -- but a chunk let go costs nothing (only
+  its missing frames are rendered again), and waiting for it cost up to
+  a chunk of HD frames (5 x 10 min) before a higher-priority setup could
+  even start.
 
 - Never for an equal priority (no ping-pong between two jobs).
 - Not from a render with less than `priority_switch_seconds()` left --
@@ -3364,11 +3458,22 @@ exits 0; the worker is idle, the next tick sends it to the higher job.
   Unknown pace (no frame timed yet): treated as long. Only computed once a
   higher job is short of machines.
 - A machine already flagged counts as one of those wanted (`spare`): the
-  flag stays until its chunk ends, it isn't asked again every tick.
+  flag stays until its frame ends, it isn't asked again every tick.
 - The flag is cleared by the worker (`_clear_render_flags()`, at the start
   and end of a render) and by `archive()` for one never read.
 - A worker on an older addon ignores the flag (no `--yield-file`): it
   finishes its render as before.
+- **The farm host's own render, for a setup**: a job only asks once set
+  up, and its setup waits for the host's render (see "Setup waits for a
+  local render; ffmpeg stages don't") -- a priority-20 job stayed
+  *queued* behind the host's priority-10 render for its whole length,
+  every machine busy. `_host_gives_way_for_setup()`, in `scan_queue()`'s
+  `queued` branch: the host's render of a lower priority
+  (`workers.local_render_jobs()`) gets the same flag, under the same
+  rules (strictly lower, not about to end). Once it ends its chunk, the
+  host stays off renders while setups wait (`idle.pop()` in
+  `scan_queue()`), the setup runs, and the job set up asks the other
+  machines as above.
 
 ---
 
@@ -3595,6 +3700,34 @@ farm reader thread (`_history_pace_for_jobs()`, re-read only once the
 history's mtime moves), only for jobs waiting at `setup_finished` --
 never from draw().
 
+**Per preset, project-wide** (1.1.10): a file's first HD render after LD
+ones was estimated at its own LD pace (its old entries without a script)
+or not at all. `history_pace()` now goes: the file's last render with
+this script (`basis` "file"); else the script's average over the project
+(`"project"`); else the file's last render whatever its script
+(`"other"`, the label says which). `farm/pace.py`:
+
+- **`.farm/preset_pace.json`**: per script, its last `KEEP` (20) finished,
+  timed renders (`seconds_per_frame`, frames, job id, time) -- recent
+  enough to follow the project getting heavier, enough not to hang on one
+  odd shot. Averaged weighted by frames. An `averages` block is written
+  alongside for whoever opens it: the HD time per frame at a glance.
+- **Written by the farm host only**: `construct_history()` adds each
+  render it finishes (`note_preset_pace()`); a render is added once (job
+  id and time), however often it's noted.
+- **Filled once from the past**: no file yet, `ensure_preset_pace()` (each
+  `scan_queue()`) reads every tracked folder's render_history.json on a
+  thread (`read_past_paces()`, `_walk_owner_dirs()` as the project scan,
+  pure os/json) and writes the result on a later tick on the main thread
+  -- `locked_json()` and `log()` read Blender's prefs. Once per project
+  and session; a project whose file exists is never walked again.
+- **Read on the reader thread** (`loop._preset_averages()`, re-read once
+  its mtime moves). A file with no render_history.json at all (never
+  rendered) gets the preset's average.
+- **Limits**: a preset's average mixes light and heavy shots; a preset
+  is told by its name (renamed: from scratch; edited, more samples: the
+  older renders weigh until 20 new ones replace them).
+
 
 ## Snapshot page, redrawn
 
@@ -3627,7 +3760,10 @@ around one idea: a list to scan, a panel to read one file.
   file card were two views of the same review; the panel is the card,
   next to the list on a computer, a sheet on a phone. While reviewing it
   shows the picture, the departments with ✓ ✕ and their open RTKs, and
-  folds the rest (render, file, notes). The review keeps the page
+  folds the rest (render, file, notes). The notes' fold, opened or
+  closed by hand, stays as it is from one file to the next (`showNotes`,
+  reset only when review starts or ends): going through shots, they were
+  folded again at each one. The review keeps the page
   before's shape (`rv`, its localStorage key, `exportRows()`), so a
   review in progress survives the update and Import review reads the
   same `.json`. Download asks name, role and date in a dialog that sums

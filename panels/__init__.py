@@ -30,6 +30,7 @@ from .tracking_panel import (
     draw_tracking_data,
     load_file_renders,
     load_file_thumbnail,
+    monitor_matches,
     unregister_thumbnail_previews,
 )
 
