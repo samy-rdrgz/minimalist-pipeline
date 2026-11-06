@@ -1477,7 +1477,9 @@ length, against the whole farm held back for the host's render. Only if
 the queued job may itself go to one of them (`assigned_machines`).
 Rejected: stopping the host's worker after its frame to run the setup,
 then relaunching it -- a render cut short for what a setup alongside does
-without.
+without. For a queued job of a higher priority, though, the host's render
+gives way after its chunk (`_host_gives_way_for_setup()`, see "Priority:
+giving way between chunks"): nothing cut short, a chunk finished.
 
 ## Crash recovery: resume, don't orphan
 
@@ -3397,6 +3399,17 @@ exits 0; the worker is idle, the next tick sends it to the higher job.
   and end of a render) and by `archive()` for one never read.
 - A worker on an older addon ignores the flag (no `--yield-file`): it
   finishes its render as before.
+- **The farm host's own render, for a setup**: a job only asks once set
+  up, and its setup waits for the host's render (see "Setup waits for a
+  local render; ffmpeg stages don't") -- a priority-20 job stayed
+  *queued* behind the host's priority-10 render for its whole length,
+  every machine busy. `_host_gives_way_for_setup()`, in `scan_queue()`'s
+  `queued` branch: the host's render of a lower priority
+  (`workers.local_render_jobs()`) gets the same flag, under the same
+  rules (strictly lower, not about to end). Once it ends its chunk, the
+  host stays off renders while setups wait (`idle.pop()` in
+  `scan_queue()`), the setup runs, and the job set up asks the other
+  machines as above.
 
 ---
 

@@ -128,6 +128,12 @@ share, and a cleanup towards 1.2.
 
 ### Fixed
 
+- A higher-priority job stayed *queued* while the farm host, rendering
+  as a worker, was on a lower-priority render: its setup waited for that
+  whole render. The host now gives way after its chunk (as the other
+  machines do for a job set up), the setup runs, then the job renders --
+  never for an equal priority, nor a render about to end.
+
 - File details: clicking a link to one of Blender's own files (its
   Essentials brushes, recorded by an older version) raised an error.
   Links to, Linked by and the outdated links only take files of the

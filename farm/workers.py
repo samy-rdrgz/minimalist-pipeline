@@ -892,6 +892,12 @@ def local_render_running() -> bool:
     return any(p.poll() is None for p in _worker_active_processes.values())
 
 
+def local_render_jobs() -> list[str]:
+    """job_id of each render this Blender instance, as a worker, runs right
+    now (local_render_running())."""
+    return [j for j, p in _worker_active_processes.items() if p.poll() is None]
+
+
 def scan_worker_processes() -> None:
     """Poll this worker's active render subprocesses; publish last_job_result
     for each one that finished."""
