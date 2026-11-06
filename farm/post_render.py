@@ -1,5 +1,7 @@
 """Post-render pipeline stages: frame integrity check and video compilation, both via ffmpeg."""
 
+import re
+import subprocess
 from pathlib import Path
 
 import bpy
@@ -168,27 +170,66 @@ def _ffmpeg_preset_to_args(preset: dict) -> list[str]:
 # 4:2:0 and 4:2:2 -- yuv420p, the default preset's, H.264 and H.265's
 # usual -- take even sizes only: a render 3361 px wide failed to compile
 # ("Picture width must be an integer multiple of the specified chroma
-# subsampling"). Padded to the next even size: one black line at most, no
-# pixel of the render lost; nothing changes on an even size.
-_EVEN_PAD = "pad=ceil(iw/2)*2:ceil(ih/2)*2"
+# subsampling"). One more column (row), a copy of the last one: nothing of
+# the render lost, nothing resampled. See NOTES.md, "Odd sizes: one more
+# column for the compilation".
+_EVEN_PAD = "pad=ceil(iw/2)*2:ceil(ih/2)*2"  # size unread: black, never a failure
+_FRAME_SIZE = re.compile(r"Video: [^\n]*?, (\d{1,5})x(\d{1,5})")
 
 
-def _even_size(preset: dict, args: list[str]) -> list[str]:
-    """args (_ffmpeg_preset_to_args()'s) with _EVEN_PAD as the video's
-    last filter -- after the preset's own -vf, if it has one -- unless its
-    pix_fmt keeps every pixel's colour (4:4:4, RGB, grey), which takes any
-    size. The compilation's only: a concat's filter_complex already pads
-    to the project's resolution."""
+def _frame_size(frame: str, ffmpeg_bin: str) -> tuple[int, int] | None:
+    """(width, height) of one rendered frame, from ffmpeg's own report (no
+    ffprobe needed); None if unread."""
+    try:
+        out = subprocess.run(
+            [ffmpeg_bin, "-hide_banner", "-i", frame],
+            capture_output=True,
+            text=True,
+            errors="replace",
+            timeout=30,
+            stdin=subprocess.DEVNULL,
+        ).stderr
+    except (OSError, subprocess.SubprocessError):
+        return None
+    m = _FRAME_SIZE.search(out)
+    return (int(m[1]), int(m[2])) if m else None
+
+
+def _even_filter(size: tuple[int, int] | None) -> str:
+    """The filter making the video's size even: a column (row) more, the
+    last one copied (fillborders' smear) -- "" when already even. In RGB
+    first (16 bits: a 16-bit PNG keeps its depth): padded in the JPGs'
+    yuvj420p, the render's own last column came out black too. Size
+    unread: _EVEN_PAD, black, which does nothing on an even size."""
+    if not size:
+        return _EVEN_PAD
+    w, h = size
+    right, bottom = w % 2, h % 2
+    if not (right or bottom):
+        return ""
+    return (
+        f"format=gbrp16le,pad={w + right}:{h + bottom}:0:0,"
+        f"fillborders=right={right}:bottom={bottom}:mode=smear"
+    )
+
+
+def _even_size(preset: dict, args: list[str], size) -> list[str]:
+    """args (_ffmpeg_preset_to_args()'s) with _even_filter(size) as the
+    video's last filter -- after the preset's own -vf, if it has one --
+    unless its pix_fmt keeps every pixel's colour (4:4:4, RGB, grey), which
+    takes any size. The compilation's only: a concat's filter_complex
+    already pads to the project's resolution."""
     pix = str(preset.get("pix_fmt") or "").lower()
-    if any(k in pix for k in ("444", "rgb", "gbr", "gray")):
+    even = _even_filter(size)
+    if not even or any(k in pix for k in ("444", "rgb", "gbr", "gray")):
         return list(args)
     args = list(args)
     for flag in ("-vf", "-filter:v"):
         if flag in args[:-1]:
             i = args.index(flag) + 1
-            args[i] = f"{args[i]},{_EVEN_PAD}"
+            args[i] = f"{args[i]},{even}"
             return args
-    return ["-vf", _EVEN_PAD, *args]
+    return ["-vf", even, *args]
 
 
 def _ld_args(width, preset: dict, video: Path) -> list[str]:
@@ -241,6 +282,14 @@ def compilation(*, project_root: Path, job_path: Path, compilation_settings: str
                     video = video.with_suffix(f".{ext}")
                     stem = data["compiled_output_path"].rsplit(".", 1)[0]
                     data["compiled_output_path"] = f"{stem}.{ext}"
+                first = data["resolved_frame_range"][0]
+                prefix = str(abs_path).split("#")[0]
+                digits = data["output_path"].count("#")
+                extension = _EXTENSION_MAP.get(data["output_extension"], "png")
+                # Its real size, not the job's: odd, one column (row) more.
+                size = _frame_size(
+                    f"{prefix}{int(first):0{digits}d}.{extension}", ffmpeg_bin
+                )
                 cmd = (
                     [
                         ffmpeg_bin,
@@ -248,11 +297,11 @@ def compilation(*, project_root: Path, job_path: Path, compilation_settings: str
                         "-r",
                         str(framerate),
                         "-start_number",
-                        str(data["resolved_frame_range"][0]),
+                        str(first),
                         "-i",
-                        f"{str(abs_path).split('#')[0]}%0{data['output_path'].count('#')}d.{_EXTENSION_MAP.get(data['output_extension'], 'png')}",
+                        f"{prefix}%0{digits}d.{extension}",
                     ]
-                    + _even_size(preset, _ffmpeg_preset_to_args(preset))
+                    + _even_size(preset, _ffmpeg_preset_to_args(preset), size)
                     + [str(video)]
                     # Same pass: the light copy, if the video needs one.
                     + _ld_args(data.get("width"), preset, video)

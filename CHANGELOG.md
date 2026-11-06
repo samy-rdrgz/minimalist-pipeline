@@ -130,8 +130,8 @@ share, and a cleanup towards 1.2.
 
 - A render of an odd width or height (3361 x 300) failed to compile:
   H.264 / H.265 in yuv420p (the default preset) take even sizes only.
-  The video is padded to the next even size (one black line at most,
-  nothing of the render lost), its light copy made even too. A job that
+  The video gets one column (row) more, a copy of the render's last one
+  -- nothing lost, nothing resampled --, its light copy made even too. A job that
   failed that way: *Retry* compiles it again, nothing rendered.
 
 - A higher-priority job stayed *queued* while the farm host, rendering
