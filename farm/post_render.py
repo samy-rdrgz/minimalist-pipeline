@@ -6,6 +6,7 @@ import bpy
 
 from ..lib import (
     LD_ARGS,
+    LD_SCALE,
     MAX_VIDEO_WIDTH,
     ConfigCache,
     browser_codec,
@@ -164,6 +165,32 @@ def _ffmpeg_preset_to_args(preset: dict) -> list[str]:
     return args + extra
 
 
+# 4:2:0 and 4:2:2 -- yuv420p, the default preset's, H.264 and H.265's
+# usual -- take even sizes only: a render 3361 px wide failed to compile
+# ("Picture width must be an integer multiple of the specified chroma
+# subsampling"). Padded to the next even size: one black line at most, no
+# pixel of the render lost; nothing changes on an even size.
+_EVEN_PAD = "pad=ceil(iw/2)*2:ceil(ih/2)*2"
+
+
+def _even_size(preset: dict, args: list[str]) -> list[str]:
+    """args (_ffmpeg_preset_to_args()'s) with _EVEN_PAD as the video's
+    last filter -- after the preset's own -vf, if it has one -- unless its
+    pix_fmt keeps every pixel's colour (4:4:4, RGB, grey), which takes any
+    size. The compilation's only: a concat's filter_complex already pads
+    to the project's resolution."""
+    pix = str(preset.get("pix_fmt") or "").lower()
+    if any(k in pix for k in ("444", "rgb", "gbr", "gray")):
+        return list(args)
+    args = list(args)
+    for flag in ("-vf", "-filter:v"):
+        if flag in args[:-1]:
+            i = args.index(flag) + 1
+            args[i] = f"{args[i]},{_EVEN_PAD}"
+            return args
+    return ["-vf", _EVEN_PAD, *args]
+
+
 def _ld_args(width, preset: dict, video: Path) -> list[str]:
     """The compilation's second output, a light copy browsers can play
     (lib/preview.py ld_path()), when the video itself won't: wider than
@@ -179,7 +206,7 @@ def _ld_args(width, preset: dict, video: Path) -> list[str]:
         ld.unlink(missing_ok=True)
         return []
     ld.parent.mkdir(parents=True, exist_ok=True)
-    return ["-vf", f"scale='min({MAX_VIDEO_WIDTH},iw)':-2", *LD_ARGS, str(ld)]
+    return ["-vf", LD_SCALE, *LD_ARGS, str(ld)]
 
 
 def compilation(*, project_root: Path, job_path: Path, compilation_settings: str):
@@ -225,7 +252,7 @@ def compilation(*, project_root: Path, job_path: Path, compilation_settings: str
                         "-i",
                         f"{str(abs_path).split('#')[0]}%0{data['output_path'].count('#')}d.{_EXTENSION_MAP.get(data['output_extension'], 'png')}",
                     ]
-                    + list(_ffmpeg_preset_to_args(preset))
+                    + _even_size(preset, _ffmpeg_preset_to_args(preset))
                     + [str(video)]
                     # Same pass: the light copy, if the video needs one.
                     + _ld_args(data.get("width"), preset, video)

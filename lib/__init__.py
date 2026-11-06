@@ -160,6 +160,7 @@ from .preview import (
     resolve_block_sources,
     resolve_sequence_sources,
     LD_ARGS,
+    LD_SCALE,
     MAX_VIDEO_WIDTH,
     browser_codec,
     browser_video,
