@@ -471,18 +471,66 @@ def rows_that_fit(context, reserved_units: float, row_units: float = ROW_UNITS) 
     return max(MIN_ROWS, int((context.region.height / unit - reserved_units) / row_units))
 
 
-def paginate(kind: str, items: list, per_page: int, filters: tuple) -> tuple:
+def paginate(kind: str, items: list, per_page: int, filters: tuple, key=None) -> tuple:
     """(items on the page, page, page count) of a window's list: its page
-    clamped to the count, back to 1 when filters changed since. draw()-safe:
-    writes the store, not the property."""
+    clamped to the count, back to 1 when filters changed since. key: an
+    item's name in the list's order, kept for neighbour_in_list() (a
+    detail's previous / next). draw()-safe: writes the store, not the
+    property."""
     store = _pages[kind]
     if store.get("filters") != filters:
         store["filters"] = filters
         store["page"] = 1
+    store["per_page"] = per_page
+    if key:
+        store["order"] = [key(i) for i in items]
     pages = store["pages"] = max(1, -(-len(items) // per_page))
     page = store["page"] = max(1, min(store.get("page", 1), pages))
     start = (page - 1) * per_page
     return items[start : start + per_page], page, pages
+
+
+def neighbour_in_list(
+    kind: str, current: str, order: list, step: int, to_end: bool = False
+) -> str:
+    """The item step (-1 / +1) away from current in a window's list --
+    order: its names as filtered and sorted now --, or its first / last
+    with to_end; "" at either end, or for an item never in the list (a
+    detail opened from a link). current gone from the list since (it no
+    longer matches the filters: just validated under "To validate"): its
+    neighbour in the order the list had, the first still in it. The list's
+    page turned to the item, Esc back on it. See NOTES.md, "File details:
+    previous / next file"."""
+    store = _pages[kind]
+    before = store.get("order") or []
+    store["order"] = order
+    if not order:
+        return ""
+    if to_end:
+        found = order[0 if step < 0 else -1]
+    elif current in order:
+        i = order.index(current) + step
+        found = order[i] if 0 <= i < len(order) else ""
+    elif current in before:
+        now = set(order)
+        i = before.index(current) + step
+        rest = before[i::step] if i >= 0 else []
+        found = next((k for k in rest if k in now), "")
+    else:
+        return ""
+    if not found or found == current:
+        return ""
+    per_page = store.get("per_page") or 1
+    store["page"] = order.index(found) // per_page + 1
+    return found
+
+
+def position_in_list(kind: str, current: str) -> tuple:
+    """(rank from 1, count) of current in a window's list as last drawn or
+    stepped through (neighbour_in_list()), (0, count) if it isn't in it.
+    draw()-safe: reads the store."""
+    order = _pages[kind].get("order") or []
+    return (order.index(current) + 1 if current in order else 0), len(order)
 
 
 # "< Page 12 / 34 >" with its spacing, in widget units: the footer's right part.

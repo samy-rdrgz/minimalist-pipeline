@@ -133,6 +133,8 @@ from .monitoring import (
     split_footer,
     status_changed,
     stop_monitoring_tick,
+    neighbour_in_list,
+    position_in_list,
     turn_page,
     unregister_monitoring_keymap,
 )

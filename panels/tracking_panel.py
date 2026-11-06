@@ -42,6 +42,7 @@ from ..lib import (
     json_get,
     monitoring_detail,
     paginate,
+    position_in_list,
     project_path,
     group_renders,
     read_render_state,
@@ -684,6 +685,27 @@ def draw_file_details(state, context, layout):
 
     filepath = monitoring_detail("file")
 
+    # The list's previous / next file (the Left / Right keys too), with its
+    # filters and sort: m_pipeline.monitoring_page. Dimmed at an end; a file
+    # outside the list (opened from a link) has no rank, no arrows.
+    rank, count = position_in_list("project", filepath)
+    if count > 1 and rank:
+        steps = row.box().row(align=True)
+        steps.alignment = "LEFT"
+        prev = steps.row(align=True)
+        prev.enabled = rank > 1
+        prev.operator(
+            "m_pipeline.monitoring_page", text="", icon="TRIA_LEFT", emboss=False
+        ).step = -1
+        label = steps.row(align=True)
+        label.active = False
+        label.label(text=f"{rank} / {count}")
+        nxt = steps.row(align=True)
+        nxt.enabled = rank < count
+        nxt.operator(
+            "m_pipeline.monitoring_page", text="", icon="TRIA_RIGHT", emboss=False
+        ).step = 1
+
     data = TrackingStatusCache.get(filepath)
     description = get_description(Path(filepath))
 
@@ -914,16 +936,16 @@ _TO_CHECK_TIP = (
 )
 
 
-def draw_monitor_table(self, context, layout, columns, project_root):
-    """Filtered file list, Project monitoring's main view -- self is
-    WindowManager.pipeline_monitoring (file_type/asset_prefix/sequence/search
-    filters, page). Paged by as many rows as the window fits, padded with
-    blank rows: the footer stays at its bottom."""
+def monitor_matches(self, context, project_root, activity=None) -> tuple:
+    """(matches, filters) of Project monitoring's list: its (folder, file)
+    pairs as filtered and sorted on screen, and the filters they were
+    filtered for -- self is WindowManager.pipeline_monitoring. Read by
+    draw_monitor_table() and by File details' previous / next file
+    (operators/monitoring_ops.py, _step_file()). activity: farm_activity(), when the caller has it."""
     # Memory only: ProjectScan fills the cache in the background, the farm
     # column comes from the farm monitor's cache.
     data = TrackingStatusCache.known(Path(project_root))
-    activity = farm_activity()
-    FIRST_COLUMN = 0.3
+    activity = farm_activity() if activity is None else activity
     types = {
         # Defaults: a config without library_prefixes (or asset_prefixes)
         # used to raise None + list here and break the whole popup.
@@ -984,6 +1006,29 @@ def draw_monitor_table(self, context, layout, columns, project_root):
     elif self.sort == "work":
         matches.sort(key=lambda m: m[1].get("last_saved_at") or "~")
 
+    filters = (
+        self.file_type,
+        self.asset_prefix,
+        self.sequence,
+        search,
+        self.only_farm,
+        self.only_rtk,
+        self.only_to_validate,
+        only_outdated,
+        self.sort,
+    )
+    return matches, filters
+
+
+def draw_monitor_table(self, context, layout, columns, project_root):
+    """Filtered file list, Project monitoring's main view -- self is
+    WindowManager.pipeline_monitoring (file_type/asset_prefix/sequence/search
+    filters, page). Paged by as many rows as the window fits, padded with
+    blank rows: the footer stays at its bottom."""
+    activity = farm_activity()
+    matches, filters = monitor_matches(self, context, project_root, activity)
+    FIRST_COLUMN = 0.3
+
     total = len(matches)
 
     draw_box_tip(layout, context, _TABLE_TIP)
@@ -1001,18 +1046,9 @@ def draw_monitor_table(self, context, layout, columns, project_root):
     per_page = rows_that_fit(
         context, _TABLE_RESERVED_UNITS + box_tip_units(context, _TABLE_TIP)
     )
-    filters = (
-        self.file_type,
-        self.asset_prefix,
-        self.sequence,
-        search,
-        self.only_farm,
-        self.only_rtk,
-        self.only_to_validate,
-        only_outdated,
-        self.sort,
+    shown, page, pages = paginate(
+        "project", matches, per_page, filters, key=lambda m: str(m[0])
     )
-    shown, page, pages = paginate("project", matches, per_page, filters)
     for dir, file in shown:
         _draw_monitor_row(
             self, f_list, dir, file, columns, FIRST_COLUMN, activity.get(owner_key(dir))

@@ -22,6 +22,11 @@ share, and a cleanup towards 1.2.
   file's detail, such a link reads red, the newer version in its tooltip.
 - *Notes & tasks*' title shows the open RTKs (red) and todos (grey),
   folded or not.
+- Project monitoring, File details: the previous / next file of the
+  list, with its filters and sort -- ‹ › by its name ("3 / 42"), or the
+  Left / Right keys (Ctrl: the first / last). Esc goes back to the list
+  on the file's page. A file that just left the list (validated under
+  *To validate*) still goes on to its neighbour.
 
 - *Clean old renders* (Project settings, Maintenance): keeps
   each shot's and asset's N latest renders whole, the older ones

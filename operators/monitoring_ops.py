@@ -6,13 +6,20 @@ import bpy
 
 from ..farm import load_job_details, request_monitor_refresh
 from ..lib import (
+    get_active_project_root,
     monitoring_detail,
     monitoring_kind,
+    neighbour_in_list,
     redraw_monitoring,
     set_monitoring_detail,
     turn_page,
 )
-from ..panels import load_pipeline_log
+from ..panels import (
+    load_file_renders,
+    load_file_thumbnail,
+    load_pipeline_log,
+    monitor_matches,
+)
 
 # What each window's detail is kept under (see lib/core.py); the log has none.
 _DETAILS = {
@@ -30,8 +37,38 @@ def _showing_detail(kind: str) -> bool:
     return any(monitoring_detail(key) for key in _DETAILS[kind])
 
 
+def _in_file_detail(context) -> bool:
+    """Project monitoring on a file's detail (not a file not found)."""
+    return monitoring_kind(context.screen) == "project" and bool(
+        monitoring_detail("file")
+    )
+
+
+def _step_file(context, step: int, to_end: bool) -> bool:
+    """File details: the previous / next file of Project monitoring's list,
+    with its filters and sort (Ctrl: the first / last). False when there's
+    none (an end of the list, a file outside it)."""
+    root = get_active_project_root()
+    if not root:
+        return False
+    matches, _filters = monitor_matches(
+        context.window_manager.pipeline_monitoring, context, root
+    )
+    current = monitoring_detail("file")
+    found = neighbour_in_list(
+        "project", current, [str(d) for d, _ in matches], step, to_end
+    )
+    if not found:
+        return False
+    set_monitoring_detail("file", found)
+    load_file_thumbnail(found)
+    load_file_renders(found)
+    return True
+
+
 class M_PIPELINE_OT_monitoring_page(bpy.types.Operator):
-    """Previous / next page of a monitoring window's list."""
+    """Previous / next page of a monitoring window's list -- in Project
+    monitoring's file detail, the previous / next file of its list."""
 
     bl_idname = "m_pipeline.monitoring_page"
     bl_label = "Change page"
@@ -41,13 +78,17 @@ class M_PIPELINE_OT_monitoring_page(bpy.types.Operator):
 
     @classmethod
     def description(cls, context, properties):
+        what = "file" if context and _in_file_detail(context) else "page"
         if properties.step < 0:
-            return "Previous page.\nCtrl+click: the first"
-        return "Next page.\nCtrl+click: the last"
+            return f"Previous {what}.\nCtrl+click: the first"
+        return f"Next {what}.\nCtrl+click: the last"
 
     @classmethod
     def poll(cls, context):
-        # Its window's list only: the arrow keys do nothing elsewhere.
+        # Its window's list only: the arrow keys do nothing elsewhere. A
+        # file's detail: its list's files.
+        if _in_file_detail(context):
+            return True
         kind = monitoring_kind(context.screen)
         if kind in _STILL or _showing_detail(kind):
             return False
@@ -58,7 +99,13 @@ class M_PIPELINE_OT_monitoring_page(bpy.types.Operator):
         return self.execute(context)
 
     def execute(self, context):
-        turn_page(monitoring_kind(context.screen), self.step, self.to_end)
+        kind = monitoring_kind(context.screen)
+        if _in_file_detail(context):
+            if not _step_file(context, self.step, self.to_end):
+                return {"CANCELLED"}
+            redraw_monitoring(kind)
+            return {"FINISHED"}
+        turn_page(kind, self.step, self.to_end)
         return {"FINISHED"}
 
 
