@@ -249,7 +249,7 @@ def scan_queue(project_root: Path) -> None:
                     run_render_setup(data["job_id"], config)
                 elif local_render_running():
                     # Held back by this instance's render of a lower
-                    # priority: it gives way after its chunk.
+                    # priority: it gives way after its frame.
                     _host_gives_way_for_setup(data, jobs, project_root)
 
             elif stage == "preview_queued":
@@ -427,11 +427,11 @@ def _render_time_left(data: dict, machines: int, project_root: Path) -> float | 
 
 
 def _give_way_to_priority(jobs: list, idle: dict, project_root: Path) -> None:
-    """Ask machines on lower-priority renders to give way after their chunk
+    """Ask machines on lower-priority renders to give way after their frame
     (render_yield_path()), lowest first, once a higher-priority job has no
     idle machine left -- never for an equal priority, nor a render about to
     end. jobs: scan_queue()'s, highest priority first. See NOTES.md,
-    "Priority: giving way between chunks"."""
+    "Priority: giving way after a frame"."""
     priority = {data.get("job_id"): _priority(data) for _, data in jobs}
     workers = scan_workers()
     busy = {
@@ -492,7 +492,7 @@ def _give_way_to_priority(jobs: list, idle: dict, project_root: Path) -> None:
                 "INFO",
                 "farm",
                 f"Job {fresh.get('job_id')} (priority {level}): {name} gives way "
-                f"after its chunk of {busy[uuid]}.",
+                f"after its frame of {busy[uuid]}.",
             )
 
 
@@ -501,11 +501,11 @@ def _host_gives_way_for_setup(data: dict, jobs: list, project_root: Path) -> Non
     (local_render_running()), and _give_way_to_priority() only acts for a
     job already set up: a priority-20 job stayed queued behind the host's
     priority-10 render for its whole length. That render, of a lower
-    priority, is asked to give way after its chunk instead
+    priority, is asked to give way after its frame instead
     (render_yield_path()) -- never for an equal priority, nor a render about
     to end, as for the other machines. The host then stays off renders
     while setups wait (scan_queue()): the setup runs on a following tick.
-    See NOTES.md, "Priority: giving way between chunks"."""
+    See NOTES.md, "Priority: giving way after a frame"."""
     level = _priority(data)
     by_id = {d.get("job_id"): (path, d) for path, d in jobs}
     keep_under = priority_switch_seconds()
@@ -537,7 +537,7 @@ def _host_gives_way_for_setup(data: dict, jobs: list, project_root: Path) -> Non
             "INFO",
             "farm",
             f"Job {data.get('job_id')} (priority {level}): this machine gives "
-            f"way after its chunk of {job_id}, for its setup.",
+            f"way after its frame of {job_id}, for its setup.",
         )
 
 

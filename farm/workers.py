@@ -683,7 +683,7 @@ def render_stop_path(job_id: str) -> Path:
 def render_yield_path(job_id: str, uuid: str = "") -> Path:
     """Machine uuid's (this one's by default) "give way" flag for its render
     of job_id: the farm host wants it on a higher-priority job, the render
-    entry exits once its chunk in progress is done
+    entry exits after its frame in progress, its chunk's claim let go
     (queue._give_way_to_priority())."""
     return (
         ConfigCache.get_path("farm_requests")

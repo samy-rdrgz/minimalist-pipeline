@@ -25,6 +25,10 @@ used on a file, odd-sized renders compiled, and workers kept awake.
 
 ### Changed
 
+- A machine giving way to a higher-priority job does so after its frame
+  in progress, no longer after its whole chunk (up to 5 HD frames): the
+  frames done stay, the rest of its chunk goes to another machine. Every
+  worker needs 1.1.10 for it; an older one still gives way between chunks.
 - A job's estimate before it renders, for a file never rendered with its
   pre-render script (its first HD render after LD ones): that script's
   average time per frame over the project's last 20 renders, no longer
@@ -42,7 +46,7 @@ used on a file, odd-sized renders compiled, and workers kept awake.
 
 - A higher-priority job stayed *queued* while the farm host, rendering
   as a worker, was on a lower-priority render: its setup waited for that
-  whole render. The host now gives way after its chunk (as the other
+  whole render. The host now gives way after its frame (as the other
   machines do for a job set up), the setup runs, then the job renders --
   never for an equal priority, nor a render about to end.
 - A render of an odd width or height (3361 x 300) failed to compile:
