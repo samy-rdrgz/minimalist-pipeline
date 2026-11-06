@@ -2,6 +2,56 @@
 
 All notable changes to this addon. Dates are release dates.
 
+## 1.1.10 — 06/11/2026
+
+Going through files one by one in Project monitoring, a farm that keeps
+its priorities when its host renders too, estimates for a preset never
+used on a file, odd-sized renders compiled, and workers kept awake.
+
+### Added
+
+- Project monitoring, File details: the previous / next file of the
+  list, with its filters and sort -- ‹ › by its name ("3 / 42"), or the
+  Left / Right keys (Ctrl: the first / last). Esc goes back to the list
+  on the file's page. A file that just left the list (validated under
+  *To validate*) still goes on to its neighbour.
+- File details' *Renders to check*: Ctrl+click on one *Checked* marks
+  all of the file's renders to check (a block's shots) at once, as the
+  list's check mark does -- one dialog, every job archived.
+- A farm worker keeps its machine out of automatic sleep while it's a
+  worker -- a render doesn't count as activity, a PC could sleep
+  mid-render. The screen may still turn off; released when the role
+  ends or Blender closes (Windows, macOS, Linux with systemd).
+
+### Changed
+
+- A job's estimate before it renders, for a file never rendered with its
+  pre-render script (its first HD render after LD ones): that script's
+  average time per frame over the project's last 20 renders, no longer
+  the file's LD time or nothing. Then, only if the script was never used
+  at all, the file's last render whatever its script -- the estimate
+  says which (`average of 14 hd renders`, `from a ld render`). The
+  averages are in `.config/.farm/preset_pace.json`, each script's time
+  per frame readable at the top; the farm host fills it once from the
+  project's past renders, then adds each render it finishes.
+- Snapshot page: the notes' fold stays as you left it from one file to
+  the next -- opened on a shot, they're open on the next one (folded
+  again by default when review starts or ends).
+
+### Fixed
+
+- A higher-priority job stayed *queued* while the farm host, rendering
+  as a worker, was on a lower-priority render: its setup waited for that
+  whole render. The host now gives way after its chunk (as the other
+  machines do for a job set up), the setup runs, then the job renders --
+  never for an equal priority, nor a render about to end.
+- A render of an odd width or height (3361 x 300) failed to compile:
+  H.264 / H.265 in yuv420p (the default preset) take even sizes only.
+  The video gets one column (row) more, a copy of the render's last
+  one -- nothing lost, nothing resampled --, its light copy made even
+  too. A job that failed that way: *Retry* compiles it again, nothing
+  rendered.
+
 ## 1.1.9 — 05/11/2026
 
 Validations carried to a new stable while their department isn't worked
@@ -10,11 +60,6 @@ old renders and Delete in Project settings, a faster scan on a network
 share, and a cleanup towards 1.2.
 
 ### Added
-
-- A farm worker keeps its machine out of automatic sleep while it's a
-  worker -- a render doesn't count as activity, a PC could sleep
-  mid-render. The screen may still turn off; released when the role
-  ends or Blender closes (Windows, macOS, Linux with systemd).
 
 - Right-click menus: on a file's name in Project monitoring (its render
   folder, its folder, render its last version), on a note's or task's
@@ -27,17 +72,6 @@ share, and a cleanup towards 1.2.
   file's detail, such a link reads red, the newer version in its tooltip.
 - *Notes & tasks*' title shows the open RTKs (red) and todos (grey),
   folded or not.
-- Project monitoring, File details: the previous / next file of the
-  list, with its filters and sort -- ‹ › by its name ("3 / 42"), or the
-  Left / Right keys (Ctrl: the first / last). Esc goes back to the list
-  on the file's page. A file that just left the list (validated under
-  *To validate*) still goes on to its neighbour.
-- File details' *Renders to check*: Ctrl+click on one *Checked* marks
-  all of the file's renders to check (a block's shots) at once, as the
-  list's check mark does -- one dialog, every job archived.
-- Snapshot page: the notes' fold stays as you left it from one file to
-  the next -- opened on a shot, they're open on the next one (folded
-  again by default when review starts or ends).
 
 - *Clean old renders* (Project settings, Maintenance): keeps
   each shot's and asset's N latest renders whole, the older ones
@@ -132,18 +166,6 @@ share, and a cleanup towards 1.2.
   violet over the done green, its % beside the done one.
 
 ### Fixed
-
-- A render of an odd width or height (3361 x 300) failed to compile:
-  H.264 / H.265 in yuv420p (the default preset) take even sizes only.
-  The video gets one column (row) more, a copy of the render's last one
-  -- nothing lost, nothing resampled --, its light copy made even too. A job that
-  failed that way: *Retry* compiles it again, nothing rendered.
-
-- A higher-priority job stayed *queued* while the farm host, rendering
-  as a worker, was on a lower-priority render: its setup waited for that
-  whole render. The host now gives way after its chunk (as the other
-  machines do for a job set up), the setup runs, then the job renders --
-  never for an equal priority, nor a render about to end.
 
 - File details: clicking a link to one of Blender's own files (its
   Essentials brushes, recorded by an older version) raised an error.

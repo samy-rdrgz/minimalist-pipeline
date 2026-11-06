@@ -4,7 +4,7 @@
 
 Lightweight pipeline Blender addon for solo artists and small teams (2-5), full Blender, no server to install. FFmpeg is the one optional external dependency — used to check and compile renders on the farm, for previews, for thumbnails of multilayer EXRs, and to scale down videos too wide for a browser in a snapshot; everything else works without it.
 
-**Author**: Samy Rodriguez · **Version**: 1.1.9 · **Blender**: 4.2+
+**Author**: Samy Rodriguez · **Version**: 1.1.10 · **Blender**: 4.2+
 
 ---
 
