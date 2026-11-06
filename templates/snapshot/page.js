@@ -611,7 +611,9 @@ return '<div class="dep"><div class="dep-l">'+mark(s)+'<span class="mid"><span c
 ((it.rtkNotes[d]||[]).length?'<div class="rtks">'+it.rtkNotes[d].map(rtkLine).join('')+'</div>':'')+
 (rv&&v&&v.no?'<div class="rt">'+retakeBox(it,'d:'+d,v.text,'What to fix in '+d+'? Empty: just withdraw its validation')+syntax(it)+'</div>':'')+'</div>';}
 function openPanel(i){
-var it=D[i],same=cur===i;if(!same){showClosed=false;showNotes=null;editing={};}cur=i;if(!lastFocus)lastFocus=document.activeElement;
+// The notes' fold is the page's, not a file's: kept from one file to the
+// next, back to its default (open, folded in review) when review starts or ends.
+var it=D[i],same=cur===i;if(!same){showClosed=false;editing={};}cur=i;if(!lastFocus)lastFocus=document.activeElement;
 var rv=reviewing(),e=peek(it);if(showNotes===null)showNotes=!rv;
 $('p-title').innerHTML=nameHtml(it);var nv=allVideos(it).length;$('p-play').hidden=!nv;$('p-play').title=nv>1?'Play the '+nv+' shots in a row':'Play the render';
 $('p-sub').textContent=[it.kind==='shot'?'Shot':it.root==='library'?'Library':'Asset',it.versions,it.shots.length>1?plural(it.shots.length,'shot'):''].filter(Boolean).join(' · ');

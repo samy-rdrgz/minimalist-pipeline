@@ -3655,7 +3655,10 @@ around one idea: a list to scan, a panel to read one file.
   file card were two views of the same review; the panel is the card,
   next to the list on a computer, a sheet on a phone. While reviewing it
   shows the picture, the departments with ✓ ✕ and their open RTKs, and
-  folds the rest (render, file, notes). The review keeps the page
+  folds the rest (render, file, notes). The notes' fold, opened or
+  closed by hand, stays as it is from one file to the next (`showNotes`,
+  reset only when review starts or ends): going through shots, they were
+  folded again at each one. The review keeps the page
   before's shape (`rv`, its localStorage key, `exportRows()`), so a
   review in progress survives the update and Import review reads the
   same `.json`. Download asks name, role and date in a dialog that sums

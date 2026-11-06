@@ -30,6 +30,9 @@ share, and a cleanup towards 1.2.
 - File details' *Renders to check*: Ctrl+click on one *Checked* marks
   all of the file's renders to check (a block's shots) at once, as the
   list's check mark does -- one dialog, every job archived.
+- Snapshot page: the notes' fold stays as you left it from one file to
+  the next -- opened on a shot, they're open on the next one (folded
+  again by default when review starts or ends).
 
 - *Clean old renders* (Project settings, Maintenance): keeps
   each shot's and asset's N latest renders whole, the older ones
