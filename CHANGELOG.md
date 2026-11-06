@@ -27,6 +27,9 @@ share, and a cleanup towards 1.2.
   Left / Right keys (Ctrl: the first / last). Esc goes back to the list
   on the file's page. A file that just left the list (validated under
   *To validate*) still goes on to its neighbour.
+- File details' *Renders to check*: Ctrl+click on one *Checked* marks
+  all of the file's renders to check (a block's shots) at once, as the
+  list's check mark does -- one dialog, every job archived.
 
 - *Clean old renders* (Project settings, Maintenance): keeps
   each shot's and asset's N latest renders whole, the older ones

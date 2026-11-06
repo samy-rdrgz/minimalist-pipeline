@@ -605,6 +605,16 @@ def _draw_renders_to_check(layout, filepath: str, data: dict) -> None:
     title.alert = True
     title.label(text="Renders to check:", icon="HIDE_OFF")
     draw_box_tip(col, bpy.context, _TO_CHECK_TIP)
+    # Ctrl+click: every render to check at once, as the list's check mark.
+    every = (
+        "\nCtrl+click: mark all of them checked:\n"
+        + "\n".join(
+            f"{render_to_check_label(shot, info)}  ({_to_check_at(info)})"
+            for shot, info in to_check
+        )
+        if len(to_check) > 1
+        else ""
+    )
     for shot, info in to_check:
         label = render_to_check_label(shot, info)
         row = _render_row(col, f"{label}   {_to_check_at(info)}")
@@ -623,7 +633,7 @@ def _draw_renders_to_check(layout, filepath: str, data: dict) -> None:
         op = row.operator("m_pipeline.render_checked", text="Checked", icon="CHECKMARK")
         op.filepath = filepath
         op.shot = shot
-        op.custom_tooltip = "Mark this render as checked"
+        op.custom_tooltip = "Mark this render as checked" + every
 
 
 def _draw_farm_jobs(layout, filepath: str) -> None:
@@ -932,7 +942,7 @@ _TABLE_TIP = (
 _TO_CHECK_TIP = (
     "A farm render waits here until someone has watched it. Checked asks which "
     "departments are validated after watching it (untick one to unvalidate "
-    "it), then archives its farm job."
+    "it), then archives its farm job. Ctrl+click: all of them at once."
 )
 
 
@@ -941,7 +951,8 @@ def monitor_matches(self, context, project_root, activity=None) -> tuple:
     pairs as filtered and sorted on screen, and the filters they were
     filtered for -- self is WindowManager.pipeline_monitoring. Read by
     draw_monitor_table() and by File details' previous / next file
-    (operators/monitoring_ops.py, _step_file()). activity: farm_activity(), when the caller has it."""
+    (operators/monitoring_ops.py, _step_file()). activity: farm_activity(),
+    when the caller has it."""
     # Memory only: ProjectScan fills the cache in the background, the farm
     # column comes from the farm monitor's cache.
     data = TrackingStatusCache.known(Path(project_root))
