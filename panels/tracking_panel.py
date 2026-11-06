@@ -697,25 +697,24 @@ def draw_file_details(state, context, layout):
 
     # The list's previous / next file (the Left / Right keys too), with its
     # filters and sort: m_pipeline.monitoring_page. Dimmed at an end; a file
-    # outside the list (opened from a link) has no rank, no arrows.
-    # In Back's own box: a box of their own got an equal share of the
-    # row, the name pushed to its middle. The rank sized on its text, as
+    # outside the list (opened from a link) has no rank, no arrows. In
+    # Back's own box -- a box of their own got an equal share of the row,
+    # the name pushed to its middle --, the rank sized on its text as
     # draw_pager()'s label.
     rank, count = position_in_list("project", filepath)
     if count > 1 and rank:
-        steps = row_left
-        prev = steps.row(align=True)
+        prev = row_left.row(align=True)
         prev.enabled = rank > 1
         prev.operator(
             "m_pipeline.monitoring_page", text="", icon="TRIA_LEFT", emboss=False
         ).step = -1
         text = f"{rank} / {count}"
-        label = steps.row(align=True)
+        label = row_left.row(align=True)
         label.active = False
         label.ui_units_x = 0.35 * len(text) + 0.6
         label.alignment = "CENTER"
         label.label(text=text)
-        nxt = steps.row(align=True)
+        nxt = row_left.row(align=True)
         nxt.enabled = rank < count
         nxt.operator(
             "m_pipeline.monitoring_page", text="", icon="TRIA_RIGHT", emboss=False

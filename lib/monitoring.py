@@ -512,10 +512,10 @@ def neighbour_in_list(
         i = order.index(current) + step
         found = order[i] if 0 <= i < len(order) else ""
     elif current in before:
-        now = set(order)
+        listed = set(order)
         i = before.index(current) + step
         rest = before[i::step] if i >= 0 else []
-        found = next((k for k in rest if k in now), "")
+        found = next((k for k in rest if k in listed), "")
     else:
         return ""
     if not found or found == current:

@@ -45,6 +45,7 @@ from .dispatch import (
     render_dispatch,
     send_render,
 )
+from .pace import ensure_preset_pace, note_preset_pace
 from .post_render import checks_images, compilation, refresh_shot_thumbnail
 from .workers import (
     frame_seconds,
@@ -193,6 +194,10 @@ def read_active_jobs(scan_dir: Path) -> list[tuple[Path, dict]]:
 
 def scan_queue(project_root: Path) -> None:
     """Advance every active job by one step according to its current stage."""
+    try:
+        ensure_preset_pace(project_root)
+    except Exception as e:
+        log("ERROR", "farm", f"Preset pace: {e}")
     jobs = read_active_jobs(ConfigCache.get_path("farm_actives"))
     jobs.sort(
         key=lambda x: (
@@ -865,6 +870,8 @@ def construct_history(job: dict, status):
             entry[key] = job[key]
 
     append_render_history(job["filepath"], entry)
+    # Its preset's pace, for files never rendered with it yet.
+    note_preset_pace(entry)
     # The outcome in the pipeline log too: it showed jobs submitted and
     # sent, never one ending -- only render_history.json knew.
     shot = f" {entry['shot_override']}" if entry.get("shot_override") else ""

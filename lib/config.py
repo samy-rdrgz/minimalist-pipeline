@@ -207,6 +207,8 @@ class ConfigCache:
             "farm_archives": f"{queue}/archives",
             "farm_requests": f"{queue}/requests",
             "farm_claims": f"{queue}/claims",
+            # Seconds per frame per pre-render script (farm/pace.py).
+            "farm_preset_pace": f"{farm}/preset_pace.json",
             # Files
             "config_file": f"{config}/project_config.json",
             "pipeline_log_file": f"{logs}/pipeline_log.jsonl",

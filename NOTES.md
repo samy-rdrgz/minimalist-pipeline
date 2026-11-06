@@ -3691,6 +3691,34 @@ farm reader thread (`_history_pace_for_jobs()`, re-read only once the
 history's mtime moves), only for jobs waiting at `setup_finished` --
 never from draw().
 
+**Per preset, project-wide** (1.1.10): a file's first HD render after LD
+ones was estimated at its own LD pace (its old entries without a script)
+or not at all. `history_pace()` now goes: the file's last render with
+this script (`basis` "file"); else the script's average over the project
+(`"project"`); else the file's last render whatever its script
+(`"other"`, the label says which). `farm/pace.py`:
+
+- **`.farm/preset_pace.json`**: per script, its last `KEEP` (20) finished,
+  timed renders (`seconds_per_frame`, frames, job id, time) -- recent
+  enough to follow the project getting heavier, enough not to hang on one
+  odd shot. Averaged weighted by frames. An `averages` block is written
+  alongside for whoever opens it: the HD time per frame at a glance.
+- **Written by the farm host only**: `construct_history()` adds each
+  render it finishes (`note_preset_pace()`); a render is added once (job
+  id and time), however often it's noted.
+- **Filled once from the past**: no file yet, `ensure_preset_pace()` (each
+  `scan_queue()`) reads every tracked folder's render_history.json on a
+  thread (`read_past_paces()`, `_walk_owner_dirs()` as the project scan,
+  pure os/json) and writes the result on a later tick on the main thread
+  -- `locked_json()` and `log()` read Blender's prefs. Once per project
+  and session; a project whose file exists is never walked again.
+- **Read on the reader thread** (`loop._preset_averages()`, re-read once
+  its mtime moves). A file with no render_history.json at all (never
+  rendered) gets the preset's average.
+- **Limits**: a preset's average mixes light and heavy shots; a preset
+  is told by its name (renamed: from scratch; edited, more samples: the
+  older renders weigh until 20 new ones replace them).
+
 
 ## Snapshot page, redrawn
 

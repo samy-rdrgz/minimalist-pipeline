@@ -183,6 +183,7 @@ def _frame_size(frame: str, ffmpeg_bin: str) -> tuple[int, int] | None:
     try:
         out = subprocess.run(
             [ffmpeg_bin, "-hide_banner", "-i", frame],
+            check=False,  # no output file: ffmpeg always "fails" here
             capture_output=True,
             text=True,
             errors="replace",
