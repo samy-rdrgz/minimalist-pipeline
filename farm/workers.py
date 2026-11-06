@@ -30,6 +30,7 @@ from ..lib import (
     retry_shared_io,
     to_absolute,
 )
+from .awake import keep_awake
 from .chunks import read_claims
 from .loop import RoleFileWatch, register_farm_loop
 
@@ -86,6 +87,8 @@ _worker_file_watch = RoleFileWatch("worker")
 def _set_this_instance_worker(value: bool) -> None:
     global _this_instance_worker
     _this_instance_worker = bool(value)
+    # Every start and end of the role passes here: no idle sleep meanwhile.
+    keep_awake(_this_instance_worker)
 
 
 def this_instance_is_worker() -> bool:

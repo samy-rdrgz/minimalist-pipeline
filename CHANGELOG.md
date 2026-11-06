@@ -11,6 +11,11 @@ share, and a cleanup towards 1.2.
 
 ### Added
 
+- A farm worker keeps its machine out of automatic sleep while it's a
+  worker -- a render doesn't count as activity, a PC could sleep
+  mid-render. The screen may still turn off; released when the role
+  ends or Blender closes (Windows, macOS, Linux with systemd).
+
 - Right-click menus: on a file's name in Project monitoring (its render
   folder, its folder, render its last version), on a note's or task's
   icons (reply, edit, mark done / reopen, delete), on a job's name in
