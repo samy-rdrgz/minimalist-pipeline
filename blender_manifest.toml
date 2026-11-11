@@ -31,6 +31,8 @@ paths_exclude_pattern = [
     "__pycache__/",
     ".*",
     "/*.zip",
+    "/zip/",
+    "/trailers/",
     "*.blend[1-9]",
     "*.tar.gz",
     "/CODE.md",
