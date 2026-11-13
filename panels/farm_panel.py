@@ -412,7 +412,7 @@ def draw_farm_jobs(self, context, layout):
 
     total = len(matches)
     per_page = rows_that_fit(
-        context, _JOBS_RESERVED_UNITS + box_tip_units(context, _JOBS_TIP)
+        context, _JOBS_RESERVED_UNITS + box_tip_units(context, _JOBS_TIP), kind="farm"
     )
     filters = (self.state, self.only_mine, self.search.strip().lower())
     shown, page, pages = paginate("farm", matches, per_page, filters)

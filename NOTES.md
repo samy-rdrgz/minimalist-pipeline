@@ -2631,6 +2631,19 @@ that scrolls, like before.
   added to each reserved figure, then taken back: the row it saved fit
   after all, with room below even resized -- 6.5 / 7.5, 5.0 for the
   Workers view; the Pipeline log 7.4 (its lines are about 1 unit).
+- **The wheel turns pages** (1.1.10 and after): a list sized on its
+  window had nothing to scroll to but the blank pushed under the panel.
+  Two more `m_pipeline.monitoring_page` items, WHEELUPMOUSE / DOWN, in
+  "View2D Buttons List" -- where the Properties editor's own scroll is
+  (`view2d.scroll_up/down`): an addon's items go first in a keymap
+  (`wm_keymap_addon_add()`), one whose poll() says no or whose invoke()
+  returns PASS_THROUGH lets the event go on to the scroll. That keymap
+  serves every panel region in Blender: poll() is two lookups (the
+  screen's mark, the detail), no for any other window. Left to the
+  scroll: a detail (notes, a job's lines -- File details' poll() says yes
+  for its arrows, so invoke() hands the wheel back), the Workers view,
+  and a list taller than its window (`list_fits()`: `rows_that_fit(...,
+  kind=)` notes whether it went under MIN_ROWS).
 - **The preferences' page keys**: four share `m_pipeline.monitoring_page`;
   Previous / Next page were found by `{"step": ±1}` alone, which First /
   Last page (`to_end`) match too -- the list showed Ctrl+arrow on all

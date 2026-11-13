@@ -4,6 +4,14 @@ All notable changes to this addon. Dates are release dates.
 
 ## Unreleased
 
+### Added
+
+- The mouse wheel turns the pages of Project monitoring's list, Farm
+  monitoring's Jobs and the Pipeline log, as Left / Right do -- the
+  window was scrolling into blank space. A detail (a file's notes, a
+  job's lines), the Workers view and a window too small for its list
+  still scroll. Switchable in the preferences (Shortcuts).
+
 ### Changed
 
 - Farm monitoring: a render no machine is on any more -- every machine
