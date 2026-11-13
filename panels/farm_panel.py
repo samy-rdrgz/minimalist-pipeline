@@ -12,6 +12,7 @@ from ..farm import (
     get_job_details,
     get_job_details_logs,
     get_job_details_path,
+    entry_state,
     get_monitor_cache,
     job_state,
     machine_for_frame,
@@ -367,7 +368,7 @@ def draw_frame_lookup(layout, renders: list) -> None:
 
 def _job_matches(self, job: dict, user: str) -> bool:
     """Whether a job passes Farm monitoring's filters: state, mine, name."""
-    if self.state != "all" and job_state(job["stage"]) != self.state:
+    if self.state != "all" and entry_state(job) != self.state:
         return False
     if self.only_mine and job.get("user") != user:
         return False
@@ -381,7 +382,8 @@ def _job_matches(self, job: dict, user: str) -> bool:
 
 _JOBS_TIP = (
     "Running: a step in progress (setup, render, frame check, compilation). "
-    "Waiting: queued, or waiting for a free worker or the farm host. Retry "
+    "Waiting: queued, or waiting for a free worker or the farm host -- a "
+    "render nobody's on too (its machines failed it, or are busy). Retry "
     "starts a failed job again where it failed (a failed render goes to the "
     "other machines). Recompile only remakes the video. Archive clears "
     "finished or failed jobs. Right-click a job's name: remove it from the "
@@ -435,7 +437,9 @@ def draw_farm_jobs(self, context, layout):
         elapsed = j["elapsed_seconds"]
         elapsed_str = _duration(elapsed)
 
-        icon = job_icon(stage)
+        # A render nobody's on (its machines failed it, gone, busy
+        # elsewhere): waiting for a worker again, not running.
+        icon = job_icon("setup_finished" if j.get("no_machine") else stage)
 
         if stage == "pending" and j.get("blocked_by_stage"):
             text = (
@@ -448,6 +452,16 @@ def draw_farm_jobs(self, context, layout):
             # When it ended, not elapsed: stage_at never moves again.
             at = _job_time(j["stage_at"])
             text = f"{stage} - {at:%d/%m %H:%M}" if at else stage
+
+        elif j.get("no_machine"):
+            # No time left to show: nobody renders it.
+            text = "waiting for a worker"
+            if j["frames_total"] > 0:
+                pct = j["frames_done"] / j["frames_total"]
+                text += f" - {j['frames_done']}/{j['frames_total']} ({pct:.0%})"
+            failed = len(j.get("failed_machines") or [])
+            if failed:
+                text += f" - failed on {failed} machine{'s' if failed > 1 else ''}"
 
         elif j["frames_total"] > 0:
             pct = j["frames_done"] / j["frames_total"]

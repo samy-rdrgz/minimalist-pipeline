@@ -608,6 +608,47 @@ def _history_pace_for_jobs(root: Path, jobs: list, averages: dict | None = None)
     return out
 
 
+def _requested_jobs(requests_dir: Path | None) -> set:
+    """The job ids with a render request no machine has taken up yet
+    (request_<job_id>_<uuid>.json): a render just sent out isn't one
+    nobody's on (_nobody_on_it()). One listing (thread-safe)."""
+    out = set()
+    try:
+        names = [e.name for e in os.scandir(requests_dir)] if requests_dir else []
+    except OSError:
+        return out
+    for name in names:
+        if name.startswith("request_") and name.endswith(".json"):
+            # request_job_<key>_<uuid>.json: the uuid has no "_".
+            out.add(name[len("request_") : -len(".json")].rsplit("_", 1)[0])
+    return out
+
+
+def _nobody_on_it(entry: dict, claims: dict | None, workers: dict, requested: set) -> bool:
+    """A render nobody's on: no chunk claimed, no live worker rendering it,
+    no request waiting to be taken up -- every machine allowed on it failed
+    it (an out-of-memory scene), is gone, or is busy elsewhere. Farm
+    monitoring shows it waiting for a worker, not running. Pure."""
+    if entry.get("stage") != "render_start" or entry.get("archived"):
+        return False
+    job_id = entry.get("job_id")
+    if claims or job_id in requested:
+        return False
+    return not any(
+        w.get("status") == "render" and w.get("current_job_id") == job_id
+        for w in (workers or {}).values()
+    )
+
+
+def entry_state(entry: dict) -> str:
+    """A monitor cache job's state as Farm monitoring shows it: job_state()
+    of its stage, "waiting" for a pending request or a render nobody's on
+    (_nobody_on_it())."""
+    if entry.get("stage") == "pending" or entry.get("no_machine"):
+        return "waiting"
+    return job_state(entry.get("stage", ""))
+
+
 def _read_farm_snapshot(paths: dict, scanned: dict, cached_actives: list) -> dict:
     """Full refresh: _read_farm_raw() + frame counts and times (thread-safe)."""
     raw = _read_farm_raw(paths, True, scanned)
@@ -619,6 +660,7 @@ def _read_farm_snapshot(paths: dict, scanned: dict, cached_actives: list) -> dic
         paths["root"], jobs, _preset_averages(paths.get("farm_preset_pace"))
     )
     raw["claims"] = _claims_for_jobs(paths.get("farm_claims"), jobs)
+    raw["requested"] = _requested_jobs(paths.get("farm_requests"))
     raw["ffmpeg_progress"] = _ffmpeg_progress_for_jobs(
         paths.get("farm_requests"), jobs
     )
@@ -664,6 +706,8 @@ def _apply_farm_snapshot(raw: dict) -> None:
     seconds = raw.get("frame_seconds", {})
     workers = raw.get("workers", {})
     paces = raw.get("history_pace", {})
+    claims = raw.get("claims", {})
+    requested = raw.get("requested", set())
     jobs = []
     # Unclaimed requests are listed too, as "pending": a submit is never
     # invisible, even with the farm stopped.
@@ -674,6 +718,10 @@ def _apply_farm_snapshot(raw: dict) -> None:
                 job, frames.get(job_id), seconds.get(job_id), workers
             )
             entry["history_pace"] = paces.get(job_id)
+            entry["no_machine"] = _nobody_on_it(
+                entry, claims.get(job_id), workers, requested
+            )
+            entry["failed_machines"] = job.get("failed_machines") or []
             jobs.append(entry)
         except Exception:
             pass
@@ -842,8 +890,8 @@ _STATE_ORDER = {"running": 0, "waiting": 1, "failed": 2}
 def farm_activity() -> dict[str, list[dict]]:
     """Render jobs of the monitor cache that aren't finished -- queued, in
     progress or failed -- by owner folder (lib owner_key()): [{"shot",
-    "stage", "state", "text", "version"}], state job_state()'s ("waiting" for a
-    pending request), version its render folder once set up ("v003_001"),
+    "stage", "state", "text", "version"}], state entry_state()'s ("waiting"
+    for a pending request or a render nobody's on), version its render folder once set up ("v003_001"),
     else its .blend's ("v003"); sorted by shot. Memory only: draw()-safe."""
     from .monitor import get_monitor_cache
 
@@ -858,10 +906,12 @@ def farm_activity() -> dict[str, list[dict]]:
         # done, even if its file hasn't left actives/ (yet).
         if job.get("archived") or stage == "orphaned" or not filepath.endswith(".blend"):
             continue
-        state = "waiting" if stage == "pending" else job_state(stage)
+        state = entry_state(job)
         if state == "finished":
             continue  # its render is in the folder's "to check" by now
         text = _STAGE_WORDS.get(stage, stage.replace("_", " "))
+        if job.get("no_machine"):
+            text = _STAGE_WORDS["setup_finished"]  # "waiting for a worker"
         if stage == "render_start" and job.get("frames_total"):
             text += f" {job['frames_done']}/{job['frames_total']}"
         output_dir = job.get("output_dir")

@@ -2,6 +2,16 @@
 
 All notable changes to this addon. Dates are release dates.
 
+## Unreleased
+
+### Changed
+
+- Farm monitoring: a render no machine is on any more -- every machine
+  allowed on it failed it (a scene too big for their GPU), or they're
+  busy elsewhere -- reads *waiting for a worker* again, under the
+  Waiting filter, with how many machines failed it; it showed
+  *render_start* as if running. Project monitoring's Farm column too.
+
 ## 1.1.10 — 06/11/2026
 
 Going through files one by one in Project monitoring, a farm that keeps
