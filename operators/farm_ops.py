@@ -33,6 +33,7 @@ from ..farm import (
     worker_rendering,
 )
 from ..lib import (
+    report_error,
     draw_box_tip,
     ConfigCache,
     PipelineAction,
@@ -758,9 +759,7 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
                 sources = request_sequence_preview(name, user, self.priority, dropped)
                 (sent if sources else empty).append(name)
         except PipelineError as e:
-            log(e.level, "farm_request_render", e.message)
-            self.report({e.level}, e.message)
-            return {"CANCELLED"}
+            return report_error(self, "farm_request_render", e)
         if not sent:
             self.report({"WARNING"}, "Nothing rendered yet in the selected sequence(s).")
             return {"CANCELLED"}
@@ -790,9 +789,7 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
         try:
             self._submit_for_filepath(self.filepath, user, start, end, only)
         except PipelineError as e:
-            log(e.level, "farm_request_render", e.message)
-            self.report({e.level}, e.message)
-            return {"CANCELLED"}
+            return report_error(self, "farm_request_render", e)
         context.scene.pipeline_farm_list.clear()
         self.report({"INFO"}, f"Render job submitted: {Path(self.filepath).name}")
         return {"FINISHED"}
@@ -1028,9 +1025,7 @@ class M_PIPELINE_OT_farm_cancel_job(bpy.types.Operator):
                 with locked_json(job_path, read_only=True) as box:
                     data = box["data"] or {}
             except PipelineError as e:
-                log(e.level, "farm_cancel_job", e.message)
-                self.report({e.level}, e.message)
-                return {"CANCELLED"}
+                return report_error(self, "farm_cancel_job", e)
             machines = data.get("used_machines", [])
 
         # No machine on it (its chunks waiting for one) still cancels the

@@ -7,6 +7,7 @@ import bpy
 
 from ..farm import request_preview_compile
 from ..lib import (
+    report_error,
     ConfigCache,
     PipelineError,
     get_active_project_root,
@@ -179,9 +180,7 @@ class M_PIPELINE_OT_compile_preview(bpy.types.Operator):
                     sequence_label, get_user(context), self.priority, dropped
                 )
         except PipelineError as e:
-            log(e.level, "compile_preview", e.message)
-            self.report({e.level}, e.message)
-            return {"CANCELLED"}
+            return report_error(self, "compile_preview", e)
         if not sources:
             self.report(
                 {"WARNING"}, "No rendered shot found to compile a preview from."

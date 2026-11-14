@@ -8,6 +8,7 @@ from types import SimpleNamespace
 import bpy
 
 from ..lib import (
+    report_error,
     draw_box_tip,
     lines_budget,
     region_char_budget,
@@ -383,9 +384,7 @@ class M_PIPELINE_OT_create_entry(bpy.types.Operator):
                 )
 
         except PipelineError as e:
-            log(e.level, "create_entry", e.message)
-            self.report({e.level}, e.message)
-            return {"CANCELLED"}
+            return report_error(self, "create_entry", e)
         status_changed(self.filepath)
         self.report({"INFO"}, "Entry created.")
         context.window_manager.pipeline_entry_buffer.clear()
@@ -563,9 +562,7 @@ class M_PIPELINE_OT_edit_entry(bpy.types.Operator):
                 shot=None if self.shot_tag == "NONE" else self.shot_tag,
             )
         except PipelineError as e:
-            log(e.level, "edit_entry", e.message)
-            self.report({e.level}, e.message)
-            return {"CANCELLED"}
+            return report_error(self, "edit_entry", e)
         status_changed(self.filepath)
         self.report({"INFO"}, "Entry updated.")
         return {"FINISHED"}
@@ -623,9 +620,7 @@ class M_PIPELINE_OT_delete_entry(bpy.types.Operator):
         try:
             delete_entry(Path(self.filepath), self.id)
         except PipelineError as e:
-            log(e.level, "delete_entry", e.message)
-            self.report({e.level}, e.message)
-            return {"CANCELLED"}
+            return report_error(self, "delete_entry", e)
         status_changed(self.filepath)
         self.report({"INFO"}, "Entry deleted.")
         return {"FINISHED"}
@@ -649,9 +644,7 @@ class M_PIPELINE_OT_toggle_entry_task(bpy.types.Operator):
         try:
             toggle_entry_task(Path(self.filepath), self.id, get_user(context))
         except PipelineError as e:
-            log(e.level, "toggle_entry_task", e.message)
-            self.report({e.level}, e.message)
-            return {"CANCELLED"}
+            return report_error(self, "toggle_entry_task", e)
         status_changed(self.filepath)
         return {"FINISHED"}
 
@@ -1568,9 +1561,7 @@ class M_PIPELINE_OT_edit_description(bpy.types.Operator):
         try:
             set_description(Path(filepath), self.description)
         except PipelineError as e:
-            log(e.level, "edit_description", e.message)
-            self.report({e.level}, e.message)
-            return {"CANCELLED"}
+            return report_error(self, "edit_description", e)
         status_changed(filepath)
         self.report({"INFO"}, "Description updated.")
         return {"FINISHED"}
@@ -1596,9 +1587,7 @@ class M_PIPELINE_OT_toggle_worked_department(bpy.types.Operator):
         try:
             wipmeta_add_work(filepath, sorted(current))
         except PipelineError as e:
-            log(e.level, "toggle_worked_department", e.message)
-            self.report({e.level}, e.message)
-            return {"CANCELLED"}
+            return report_error(self, "toggle_worked_department", e)
         status_changed(filepath)
         return {"FINISHED"}
 
@@ -1634,9 +1623,7 @@ class M_PIPELINE_OT_toggle_validated_department(bpy.types.Operator):
                 filepath, self.department, not current.get(self.department, False)
             )
         except PipelineError as e:
-            log(e.level, "toggle_validated_department", e.message)
-            self.report({e.level}, e.message)
-            return {"CANCELLED"}
+            return report_error(self, "toggle_validated_department", e)
         status_changed(filepath)
         return {"FINISHED"}
 
@@ -1679,9 +1666,7 @@ class M_PIPELINE_OT_toggle_department_approval(bpy.types.Operator):
                 user=get_user(context),
             )
         except PipelineError as e:
-            log(e.level, "toggle_department_approval", e.message)
-            self.report({e.level}, e.message)
-            return {"CANCELLED"}
+            return report_error(self, "toggle_department_approval", e)
         status_changed(filepath)
         if not changed:  # the cache was behind the disk: shown as it is now
             self.report({"INFO"}, f"{self.department}: already as shown now.")
@@ -1878,9 +1863,7 @@ class M_PIPELINE_OT_render_checked(bpy.types.Operator):
                 self.filepath, None if self.all_shots else self.shot
             )
         except PipelineError as e:
-            log(e.level, "render_checked", e.message)
-            self.report({e.level}, e.message)
-            return {"CANCELLED"}
+            return report_error(self, "render_checked", e)
         checklist = context.window_manager.render_checked_departments
         for item in [i for i in checklist if i.validate != i.was_validated]:
             try:

@@ -14,7 +14,7 @@ from .core import (
     text_to_lines,
 )
 from .errors import PipelineError
-from .logs import log
+from .logs import log, report_error
 from .session import get_user
 from .tracking import create_wipmeta, get_last_wipmeta
 from .versioning import (
@@ -393,9 +393,7 @@ class M_PIPELINE_OT_auto_version(bpy.types.Operator):
                 return {"FINISHED"}
             return {"CANCELLED"}
         except PipelineError as e:
-            log(e.level, "auto_version", e.message)
-            self.report({e.level}, e.message)
-            return {"CANCELLED"}
+            return report_error(self, "auto_version", e)
 
     def invoke(self, context, event):
         filepath = bpy.data.filepath

@@ -6,6 +6,7 @@ import bpy
 
 from ..lib.ui import draw_creation_fields
 from ..lib import (
+    report_error,
     DEFAULT_MULTISHOT_STEP,
     DEFAULT_SHOT_DEPARTMENTS,
     ConfigCache,
@@ -438,9 +439,7 @@ class M_PIPELINE_OT_create_shot(bpy.types.Operator):
                 description=self.description,
             )
         except PipelineError as e:
-            log(e.level, "create_shot", e.message)
-            self.report({e.level}, e.message)
-            return {"CANCELLED"}
+            return report_error(self, "create_shot", e)
 
         log("SUCCESS", "create_shot", f"Created {dest_path.name}")
         self.report({"INFO"}, f"Shot created: {dest_path.name} ({dest_path.parent})")
@@ -639,9 +638,7 @@ class M_PIPELINE_OT_edit_block_structure(bpy.types.Operator):
                 if render_dir.is_dir():
                     archive_folder(render_dir)
         except PipelineError as e:
-            log(e.level, "edit_block_structure", e.message)
-            self.report({e.level}, e.message)
-            return {"CANCELLED"}
+            return report_error(self, "edit_block_structure", e)
 
         log("SUCCESS", "edit_block_structure", f"{old_path.name} -> {dest_path.name}")
         self.report(

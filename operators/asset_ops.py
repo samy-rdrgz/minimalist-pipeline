@@ -4,6 +4,7 @@ import bpy
 
 from ..lib.ui import draw_creation_fields, titled_row
 from ..lib import (
+    report_error,
     DEFAULT_ASSET_DEPARTMENTS,
     ConfigCache,
     PipelineError,
@@ -133,9 +134,7 @@ class M_PIPELINE_OT_create_asset(bpy.types.Operator):
                 description=self.description,
             )
         except PipelineError as e:
-            log(e.level, "create_asset", e.message)
-            self.report({e.level}, e.message)
-            return {"CANCELLED"}
+            return report_error(self, "create_asset", e)
 
         log("SUCCESS", "create_asset", f"Created {dest_path.name}")
         self.report({"INFO"}, f"Asset created: {dest_path.name} ({dest_path.parent})")

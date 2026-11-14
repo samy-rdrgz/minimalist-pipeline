@@ -9,6 +9,7 @@ from pathlib import Path
 import bpy
 
 from ..lib import (
+    report_error,
     DEFAULT_ASSET_DEPARTMENTS,
     DEFAULT_SHOT_DEPARTMENTS,
     PROGRESS_WEIGHTS,
@@ -959,9 +960,7 @@ class M_PIPELINE_OT_edit_project(ProjectSettings, bpy.types.Operator):
         try:
             settings.load(context)
         except PipelineError as e:
-            log(e.level, "edit_project", e.message)
-            self.report({e.level}, e.message)
-            return {"CANCELLED"}
+            return report_error(self, "edit_project", e)
         if open_one:
             from ..lib.monitoring import redraw_monitoring
 

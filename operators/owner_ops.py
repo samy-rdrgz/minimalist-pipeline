@@ -8,6 +8,7 @@ from pathlib import Path
 import bpy
 
 from ..lib import (
+    report_error,
     PipelineError,
     asset_folder_items,
     get_folder,
@@ -106,9 +107,7 @@ class M_PIPELINE_OT_delete_owner(bpy.types.Operator):
         try:
             result = delete_owner(root, owner, _kind(root, owner), self.renders.lower())
         except PipelineError as e:
-            log(e.level, "delete_owner", e.message)
-            self.report({e.level}, e.message)
-            return {"CANCELLED"}
+            return report_error(self, "delete_owner", e)
         TrackingStatusCache.forget(owner)
         log(
             "SUCCESS",

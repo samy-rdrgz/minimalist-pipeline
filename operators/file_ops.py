@@ -5,6 +5,7 @@ from pathlib import Path
 import bpy
 
 from ..lib import (
+    report_error,
     ConfigCache,
     PipelineError,
     TrackingStatusCache,
@@ -16,7 +17,6 @@ from ..lib import (
     get_last_version_number,
     get_session_worked_departments,
     json_get,
-    log,
     parse_filename,
     save_as,
     scan_linked_libraries,
@@ -178,6 +178,4 @@ class M_PIPELINE_OT_increment_version(bpy.types.Operator):
                 return {"FINISHED"}
             return {"CANCELLED"}
         except PipelineError as e:
-            log(e.level, "increment", e.message)
-            self.report({e.level}, e.message)
-            return {"CANCELLED"}
+            return report_error(self, "increment", e)
