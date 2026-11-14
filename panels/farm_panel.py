@@ -676,8 +676,7 @@ def _claim_progress(claim: dict) -> str:
 def draw_farm_worker_details(layout, context):
     """M_PIPELINE_OT_farm_monitor's detail view of one worker, from the
     monitor cache (its file as last read, live or silent) -- never read
-    here. Every key with .get(): a worker on an older version lacks the
-    newer fields."""
+    here. Every key with .get(): it may be half-written or gone."""
     uuid = monitoring_detail("worker")
     cache = get_monitor_cache()
     live = (cache.get("workers") or {}).get(uuid)
@@ -764,8 +763,6 @@ def draw_farm_worker_details(layout, context):
     started, up = _since(m.get("started_at"))
     if up is not None:
         field(col, "Active since", f"{started}  ({_duration(up)})")
-    else:
-        field(col, "Active since", "unknown (older addon)")
     if beat_age is not None:
         field(col, "Last heartbeat", f"{beat}  ({_duration(beat_age)} ago)")
 
@@ -779,7 +776,7 @@ def draw_farm_worker_details(layout, context):
     field(
         col,
         "Blender",
-        f"{blender}  (project: {mismatch})" if mismatch else blender or "unknown (older addon)",
+        f"{blender}  (project: {mismatch})" if mismatch else blender or "-",
         icon="ERROR" if mismatch else "BLENDER",
         alert=bool(mismatch),
     )
@@ -790,38 +787,34 @@ def draw_farm_worker_details(layout, context):
         field(
             col,
             "Farm",
-            "too old: gets no render until updated",
+            "another version: gets no render until updated",
             icon="ERROR",
             alert=True,
         )
     field(
         col,
         "Addon",
-        f"{addon}  (this machine: {mine})" if other else addon or "unknown (older addon)",
+        f"{addon}  (this machine: {mine})" if other else addon or "-",
         icon="ERROR" if other else "PLUGIN",
         alert=bool(other),
     )
-    if "ffmpeg" in m:
-        field(
-            col,
-            "FFmpeg",
-            m.get("ffmpeg_version") if m["ffmpeg"] else "not found: compiles no video",
-            icon="FILE_MOVIE" if m["ffmpeg"] else "NONE",
-        )
-    else:
-        field(col, "FFmpeg", "unknown (older addon)")
+    field(
+        col,
+        "FFmpeg",
+        m.get("ffmpeg_version") if m.get("ffmpeg") else "not found: compiles no video",
+        icon="FILE_MOVIE" if m.get("ffmpeg") else "NONE",
+    )
     if m.get("pid"):
         field(col, "Blender pid", m["pid"])
 
     layout.separator(factor=0.5, type="LINE")
     col = layout.column(align=True)
-    if "renders_done" in m:
-        field(
-            col,
-            "Since started",
-            f"{m.get('renders_done', 0)} render(s) done, "
-            f"{m.get('renders_failed', 0)} failed",
-        )
+    field(
+        col,
+        "Since started",
+        f"{m.get('renders_done', 0)} render(s) done, "
+        f"{m.get('renders_failed', 0)} failed",
+    )
     result = m.get("last_job_result") or {}
     if result:
         if result.get("stuck"):

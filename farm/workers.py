@@ -36,13 +36,13 @@ from .loop import RoleFileWatch, register_farm_loop
 
 STALE_WORKER_SECONDS = 15
 
-# How this addon's farm hands out and renders frames: 2, chunks claimed
-# one by one (1.1.0). A worker announces it in its file; the farm host
-# never sends a render to one on another protocol (idle_machines()) --
-# a 1.0.x worker would render the whole range with placeholders, blind to
-# the claims.
-FARM_PROTOCOL = 2
-_old_protocol_logged: set[str] = set()
+# The farm's version: what its requests, jobs and worker files hold. A
+# worker announces it in its file; the farm host never sends a render to
+# one on another protocol (idle_machines()), Worker details says so. Every
+# machine is updated together: nothing reads an older farm's files, this
+# is the farm's one version check (3: 1.2).
+FARM_PROTOCOL = 3
+_other_protocol_logged: set[str] = set()
 
 # A frame taking this many times its usual time is stuck (a hang, not a heavy
 # frame): the worker kills its own render (check_stuck_renders()). Default of
@@ -581,14 +581,14 @@ def idle_machines() -> dict:
         if w.get("status") != "idle" or uuid in targeted:
             continue
         if w.get("farm_protocol") != FARM_PROTOCOL:
-            if uuid not in _old_protocol_logged:
-                _old_protocol_logged.add(uuid)
+            if uuid not in _other_protocol_logged:
+                _other_protocol_logged.add(uuid)
                 log(
                     "WARNING",
                     "farm",
                     f"Worker {w.get('user', '?')} ({w.get('machine') or uuid[:8]}) runs "
-                    f"addon {w.get('addon_version') or 'older than 1.1.0'}: no render "
-                    f"sent to it until it's updated.",
+                    f"addon {w.get('addon_version') or '?'}, not this one: no render "
+                    f"sent to it until it's on the same version.",
                 )
             continue
         idle[uuid] = w
@@ -716,16 +716,6 @@ def render_request(job_data: dict, uuid: str, cmd_flags: list):
 _worker_active_processes: dict[str, subprocess.Popen] = {}
 
 
-def _chunk_size_of(request: dict) -> int:
-    """The request's chunk_size; a request without one comes from a farm
-    host on an older addon (placeholders): refused, its job failed."""
-    if not request.get("chunk_size"):
-        raise PipelineError(
-            "sent by a farm host on an older addon version (no chunks) -- update it"
-        )
-    return int(request["chunk_size"])
-
-
 def execute_render_request() -> dict:
     """Pop the next render request targeting this worker and launch it as a
     subprocess. Returns the worker status patch to apply, or {} if idle."""
@@ -796,7 +786,7 @@ def execute_render_request() -> dict:
                         # Chunks: the job's size, fixed at dispatch -- never
                         # the project's, which may have changed since.
                         "--chunk-size",
-                        str(_chunk_size_of(data)),
+                        str(int(data["chunk_size"])),
                         "--machine",
                         get_machine_id(),
                     ],
