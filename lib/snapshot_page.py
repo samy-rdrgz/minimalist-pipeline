@@ -26,6 +26,12 @@ PAGE_DIR = Path(__file__).resolve().parent.parent / "templates" / "snapshot"
 _PLACEHOLDER = re.compile(r"\{\{([A-Z0-9_]+)\}\}")
 _VIEWBOX = re.compile(r'viewBox="([^"]+)"')
 _PATH = re.compile(r'<path[^>]*\sd="([^"]+)"')
+# The sources' comments, left out of every page: each on its own lines,
+# never inside a string (page.js has no multi-line string) -- so no
+# minifier needed. A line of page.js starting "//", a block "/* */" at a
+# line's start; any "/* */" in page.css (no string of it holds one).
+_JS_COMMENTS = re.compile(r"^(?:[ \t]*//[^\n]*|/\*.*?\*/[ \t]*)\n", re.M | re.S)
+_CSS_COMMENTS = re.compile(r"/\*.*?\*/\n?", re.S)
 
 
 def render_html(snapshot: dict) -> str:
@@ -39,8 +45,8 @@ def render_html(snapshot: dict) -> str:
     data = json.dumps(page_data(snapshot), ensure_ascii=False, separators=(",", ":"))
     values = {
         "TITLE": _escape(f"{snapshot['meta'].get('project') or 'Project'} snapshot"),
-        "CSS": (PAGE_DIR / "page.css").read_text(encoding="utf-8"),
-        "JS": (PAGE_DIR / "page.js").read_text(encoding="utf-8"),
+        "CSS": _CSS_COMMENTS.sub("", (PAGE_DIR / "page.css").read_text(encoding="utf-8")),
+        "JS": _JS_COMMENTS.sub("", (PAGE_DIR / "page.js").read_text(encoding="utf-8")),
         "FONT": base64.b64encode((PAGE_DIR / "wordmark.ttf").read_bytes()).decode("ascii"),
         "LOGO_VB": viewbox,
         # The <use> of a symbol draws it from 0 0: its box, not the source's.

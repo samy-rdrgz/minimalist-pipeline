@@ -127,9 +127,9 @@ if(it.to_check)h+='<span class="badge b-check" title="Rendered, not checked by t
 if(e.desc!==null&&e.desc.trim()&&e.desc.trim()!==it.desc)h+='<span class="badge b-rev">✎ description</span>';
 return h;}
 // In the farm: its icon and colour say rendering (blue), queued (amber), failed (red).
-var FARM_IC={run:'<svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M6.3 5.2v5.6L11 8z" fill="currentColor"/></svg>',
+var FARM_IC={run:'<svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-farm"/></svg>',
 wait:'<svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 4.6V8l2.4 1.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-fail:'<svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2l6.5 11.5h-13z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8 6.5v3.2M8 11.6v.1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>'};
+fail:'<svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-old"/></svg>'};
 function farmTag(f){var k=f.state==='failed'?'fail':f.state==='waiting'?'wait':'run';
 return '<span class="farm '+k+'" title="In the farm: '+esc(f.tip)+'">'+FARM_IC[k]+'farm '+esc(f.text)+'</span>';}
 function subline(it){var p=['<span class="vers">'+esc(it.versions||'not saved yet')+'</span>'];

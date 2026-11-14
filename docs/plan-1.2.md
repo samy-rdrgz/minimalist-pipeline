@@ -27,7 +27,7 @@ Dont **+439 lignes de code** pour le script de migration (`lib/migration.py` 307
 
 **1C faite** (dates avec fuseau) : `now()` écrit le décalage ; `parse_iso()` rend toujours une date avec fuseau, ramenée à l'heure locale de la machine qui lit, et lit aussi les anciennes dates et les secondes epoch ; plus aucun tri ni affichage de date par le texte (`time_key()`, `local_time()`) ; heartbeats en secondes epoch ; page HTML (`dayOf()`, `isoNow()`) ; étape de la migration (`_migrate_dates()`). Vérifié sans Blender dans quatre fuseaux (`tests/test_dates.py`). Détails : NOTES.md, « Dates with their offset ».
 
-**Reste de la phase 1 : 1D** (alléger la page du snapshot).
+**1D faite** (page du snapshot −23 Ko). **La phase 1 est terminée.**
 
 **Phase 2b essayée dans Blender 5.2.3** : faisable (voir la phase 2b).
 
@@ -328,12 +328,12 @@ Relevé du 14/11 : le JS est déjà compact (132 fonctions toutes appelées, qua
 
 | # | Tâche | Où |
 |---|---|---|
-| 1D.1 | Retirer les règles CSS mortes : `.b-valid`, `.b-old`, `.gr`, `.grab`, `.links` (3 règles), `.no-open` (~0,6 Ko) | `templates/snapshot/page.css` |
-| 1D.2 | Les icônes SVG écrites deux fois (aide et filtres) en `<symbol>` + `<use>`, comme le logo (~1,4 Ko) | `templates/snapshot/page.html` |
-| 1D.3 | Retirer les commentaires du JS et du CSS **à l'export** (les sources restent commentées) : −21 Ko par snapshot, −12 %. Pas de minification, qui demanderait un outil externe | `lib/snapshot_page.py` `render_html()` |
+| 1D.1 ✅ | Retirer les règles CSS mortes : `.b-valid`, `.b-old`, `.gr`, `.grab`, `.links` (3 règles), `.no-open` (~0,6 Ko) | `templates/snapshot/page.css` |
+| 1D.2 ✅ | Les icônes SVG écrites deux fois (aide et filtres) en `<symbol>` + `<use>`, comme le logo (~1,4 Ko) | `templates/snapshot/page.html` |
+| 1D.3 ✅ | Retirer les commentaires du JS et du CSS **à l'export** (les sources restent commentées) : −21 Ko par snapshot, −12 %. Pas de minification, qui demanderait un outil externe | `lib/snapshot_page.py` `render_html()` |
 | — | **Pas maintenant** : le code de la review (~185 lignes, 17 Ko du JS), remplacé par le format en actions de la phase 4 | `page.js` |
 
-À vérifier sur une vraie page exportée, dans un navigateur.
+**Fait** : −23 Ko par snapshot (177 → 154 Ko hors données, −13 %) : commentaires −22 Ko, icônes −0,6 Ko, CSS morte −0,5 Ko. Vérifié dans Firefox sans interface avec les données d'un vrai snapshot : capture identique au pixel près, et le JS sans commentaires passe le contrôle de syntaxe.
 
 ### Phase 2 — Rangement des snapshots et des reviews
 

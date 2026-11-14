@@ -22,6 +22,8 @@ All notable changes to this addon. Dates are release dates.
 
 ### Changed
 
+- A snapshot is 23 KB lighter: the page's code goes without its
+  comments, and its icons are written once.
 - Dates are written with their time zone: someone working from another
   country, a farm machine in another zone, or the hour that repeats when
   the clocks go back no longer puts notes, versions and stables out of

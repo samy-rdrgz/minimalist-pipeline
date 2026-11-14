@@ -3850,6 +3850,26 @@ around one idea: a list to scan, a panel to read one file.
   unfolded under rows, per-shot hover buttons in the list (the panel has
   every shot's picture).
 
+## Snapshot page: lighter, its sources still commented
+
+Each snapshot carries the whole page (~177 KB before its data), so every
+byte is paid per export. 1.2 took 23 KB off (-13 %), the look unchanged
+(the same screenshot, pixel for pixel, from a real snapshot's data):
+
+- `render_html()` leaves the comments out (`_JS_COMMENTS`,
+  `_CSS_COMMENTS`): page.js's are each on lines of their own -- a "//"
+  line, a "/* */" block at a line's start -- and it has no multi-line
+  string; page.css has no string holding "/*". So two regular
+  expressions, no minifier (an outside tool). A comment added at the end
+  of a code line would stay: harmless, just not removed. -22 KB.
+- The icons written twice or three times (the help, the filters, the
+  JS's tags) are `<symbol>`s in the page's hidden `<svg>`, drawn by `<use
+  href>` as the logo is: no CSS reaches into an icon (`currentColor`
+  passes through `<use>`).
+- Rules for classes nothing writes any more went (`.b-valid`, `.b-old`,
+  `.gr`, `.grab`, `.links`, `.no-open`).
+- Not minified further, nor the review's code: phase 4 rewrites it.
+
 ## Review on the page: retakes, remarks, replies, fixed
 
 What a reviewer writes on the snapshot page, and what Import review does

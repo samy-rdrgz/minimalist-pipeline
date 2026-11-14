@@ -275,7 +275,6 @@ the review's violet, its edge kept when selected too. */
 .r-name small{display:block;font-size:12px;color:var(--ink-3)}
 .r-name small .nn{color:var(--ink);font-weight:600}
 .r-name small .nn.todo{color:var(--wip-ink)}
-.r-name small .gr{color:var(--rtk);font-weight:600}
 .r-name small .sep{font-style:normal}
 .r-name small .farm,.fl-help .farm{display:inline-flex;align-items:center;gap:3px;font-weight:600;white-space:nowrap}
 .farm .ic{width:12px;height:12px;flex:none}
@@ -324,8 +323,6 @@ band of the page's background; the versions left to the panel. */
 .b-note{background:var(--sunk);color:var(--ink-2)}
 .b-todo{background:var(--wip-bg);color:var(--wip-ink)}
 .b-done{background:color-mix(in srgb,var(--done) 14%,var(--surface));color:var(--done)}
-.b-valid{background:var(--valid-bg);color:var(--valid)}
-.b-old{background:none;color:var(--ink-3);border:1px dashed var(--ink-3)}
 
 /* ---------- images: a fixed slot, the picture whole inside, any ratio ---------- */
 .thumb{display:block;position:relative;border:0;padding:0;width:100%;background:none;cursor:zoom-in}
@@ -390,7 +387,6 @@ this browser), a double click for the default width. */
 body.resizing,body.resizing *{cursor:col-resize!important;user-select:none!important}
 body.resizing .wrap,body.resizing .panel{transition:none!important}
 @media (max-width:900px){.p-resize{display:none}}
-.grab{display:none}
 
 .p-head{display:flex;flex-wrap:wrap;align-items:flex-start;gap:8px;padding:calc(12px + var(--sat)) 12px 12px 18px;border-bottom:1px solid var(--line)}
 .p-head .t{min-width:0;flex:1;padding-top:4px}
@@ -418,9 +414,6 @@ body.resizing .wrap,body.resizing .panel{transition:none!important}
 .p-block{padding:10px 0}
 .p-block h4{margin:0 0 6px;font-size:13px;font-weight:600;color:var(--ink-2)}
 .p-block h4 .h-sub{font-weight:400;color:var(--ink-3);margin-left:6px;font-size:12px}
-.links{display:flex;flex-wrap:wrap;gap:4px 16px;margin:0 0 4px}
-.links button{border:0;background:none;padding:0;min-height:var(--tap);color:var(--accent);font-size:13px;font-weight:600}
-.links button[aria-pressed="true"]{color:var(--valid)}
 .dep{padding:4px 0}
 .dep-l{display:flex;align-items:center;gap:10px;min-height:var(--tap)}
 .dep .mid{flex:1;display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;min-width:0}
@@ -510,7 +503,6 @@ boxes share one column of labels (All, sh040...), one edge, one width. */
 .note.reply{margin-left:18px}
 .more-notes{border:0;background:none;color:var(--accent);font-size:13px;font-weight:600;padding:0;min-height:var(--tap)}
 .more-notes.quiet{color:var(--ink-3);font-weight:500}
-.no-open{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;font-size:13px;color:var(--ink-3)}
 .renders{display:grid;grid-template-columns:max-content 1fr auto;align-items:center;gap:6px 14px;padding:10px 12px;border-radius:6px;background:var(--sunk);font-size:13px}
 .renders .sh{color:var(--ink-2);font-weight:600}
 .renders .bh{color:var(--wip-ink)}
