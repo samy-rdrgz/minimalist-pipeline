@@ -4,6 +4,7 @@ from pathlib import Path
 
 import bpy
 
+from ..lib.ui import choice
 from ..lib import (
     asset_folder_items,
     dir_version_items,
@@ -26,6 +27,17 @@ from ..lib import (
 # ---------------------------------------------------------------------------
 # Operator
 # ---------------------------------------------------------------------------
+
+
+def _draw_resolved(layout, resolved: Path | None) -> None:
+    """The file a pick resolves to, greyed -- or none found."""
+    col = layout.column()
+    col.scale_y = 0.6
+    col.active = False
+    if resolved:
+        col.label(text=resolved.name, icon="FILE_BLEND")
+    else:
+        col.label(text="No matching file found.", icon="ERROR")
 
 
 class M_PIPELINE_OT_open_file(bpy.types.Operator):
@@ -84,33 +96,15 @@ class M_PIPELINE_OT_open_file(bpy.types.Operator):
         layout.separator()
         row = layout.split(factor=TITLE_WIDTH, align=True)
 
-        if self.file_type == "asset":
-            row.label(text="Asset", icon="OUTLINER_OB_ARMATURE")
-            row = row.split(align=True, factor=0.5)
-            col = row.column(align=True)
-            if len(prefix_items(self, context)) < MAX_ROW:
-                col.prop(self, "asset_prefix", expand=True)
-            else:
-                col.prop(self, "asset_prefix", text="")
-            col = row.column(align=True)
-            if len(asset_folder_items(self, context)) < MAX_ROW:
-                col.prop(self, "asset_folder", expand=True)
-            else:
-                col.prop(self, "asset_folder", text="")
-
-        else:
-            row.label(text="Shot", icon="VIEW_CAMERA")
-            row = row.split(align=True, factor=0.5)
-            col = row.column(align=True)
-            if len(sequence_items(self, context)) < MAX_ROW:
-                col.prop(self, "sequence", expand=True)
-            else:
-                col.prop(self, "sequence", text="")
-            col = row.column(align=True)
-            if len(shot_items(self, context)) < MAX_ROW:
-                col.prop(self, "shot", expand=True)
-            else:
-                col.prop(self, "shot", text="")
+        asset = self.file_type == "asset"
+        row.label(text="Asset" if asset else "Shot", icon="OUTLINER_OB_ARMATURE" if asset else "VIEW_CAMERA")
+        row = row.split(align=True, factor=0.5)
+        for prop, items in (
+            (("asset_prefix", prefix_items), ("asset_folder", asset_folder_items))
+            if asset
+            else (("sequence", sequence_items), ("shot", shot_items))
+        ):
+            choice(row.column(align=True), self, prop, len(items(self, context)), MAX_ROW)
 
         layout.separator()
 
@@ -124,14 +118,7 @@ class M_PIPELINE_OT_open_file(bpy.types.Operator):
 
         layout.separator(type="LINE", factor=3)
 
-        col = layout.column()
-        col.scale_y = 0.6
-        col.active = False
-        resolved = self._resolve(context)
-        if resolved:
-            col.label(text=resolved.name, icon="FILE_BLEND")
-        else:
-            col.label(text="No matching file found.", icon="ERROR")
+        _draw_resolved(layout, self._resolve(context))
 
     def execute(self, context):
         resolved = self._resolve(context)
@@ -194,14 +181,7 @@ class M_PIPELINE_OT_open_file_version(bpy.types.Operator):
             layout.prop(self, "custom_version", text="")
 
         layout.separator()
-        col = layout.column()
-        col.scale_y = 0.6
-        col.active = False
-        resolved = self._resolve(context)
-        if resolved:
-            col.label(text=resolved.name, icon="FILE_BLEND")
-        else:
-            col.label(text="No matching file found.", icon="ERROR")
+        _draw_resolved(layout, self._resolve(context))
 
     def execute(self, context):
         target = Path(self.filepath)

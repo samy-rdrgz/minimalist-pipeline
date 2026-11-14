@@ -30,12 +30,13 @@ def key_values(col, rows, factor: float = DETAIL_KEY_COLUMN) -> None:
             key_value(col, *row, factor=factor)
 
 
-def choice(layout, data, prop: str, items: list, max_buttons: int = 4, text: str = "") -> None:
-    """data.prop as a row of buttons for a few choices, else a menu."""
-    if len(items) <= max_buttons:
-        layout.row(align=True).prop(data, prop, expand=True)
+def choice(layout, data, prop: str, count: int, limit: int = 10) -> None:
+    """data.prop as a button per choice while it has fewer than limit
+    (count), else a menu."""
+    if count < limit:
+        layout.prop(data, prop, expand=True)
     else:
-        layout.prop(data, prop, text=text)
+        layout.prop(data, prop, text="")
 
 
 def details_header(layout, back_op: str, title: str, icon: str):
