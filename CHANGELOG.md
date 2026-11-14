@@ -12,6 +12,12 @@ All notable changes to this addon. Dates are release dates.
   -- the progress details in a window --, *Review*); keyframe diamonds
   for the states, their words in a capsule on hover; retakes as post-its
   (`RTK 2`); render tags under the name; files set aside faded.
+- Snapshot page, step 2: the player in the file's panel, its timeline
+  carrying the notes at their frames (a click goes there), frame by
+  frame; *Watch large*: the video the whole window, the departments
+  with ✓ / ✕ and the notes at frames beside it, a retake written at the
+  frame shown (Enter adds it), the sequence along the bottom. The
+  threads under their department, one place each; round ✓ / ✕.
 - Coloured marks for a department's state in Project monitoring (the
   snapshot page's), Waiting and To redo, and the notes' role and team
   marks -- in place of Blender's grey icons and its collection colours.

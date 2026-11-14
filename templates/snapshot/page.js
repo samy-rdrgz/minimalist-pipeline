@@ -296,7 +296,8 @@ $('vidb').hidden=!!PICKED||!D.some(function(it){return it.renders.some(function(
 $('list').addEventListener('click',function(e){var t;
 if(e.target.closest('[data-zoom]'))return;
 if((t=e.target.closest('[data-other]')))return setTab(t.dataset.other);
-if((t=e.target.closest('[data-gplay]')))return play(groupVideos(t.dataset.gplay));
+if((t=e.target.closest('[data-gplay]'))){var gf=D.filter(function(x){return x.tab===state.tab&&x.group===t.dataset.gplay&&match(x)&&allVideos(x).length;})[0];
+if(gf){openPanel(gf.i);openWatch(true);}return;}
 if((t=e.target.closest('.row')))return openPanel(+t.dataset.i);
 if((t=e.target.closest('.untracked'))){state.untracked[state.tab+t.dataset.g]=true;return render();}
 if((t=e.target.closest('.g-h'))){state.open[state.tab+t.dataset.g]=t.parentNode.classList.contains('closed');render();}});
@@ -432,7 +433,7 @@ if(VNAMES[name])return {src:V.base+'/'+path,from:V.mode};
 return V.local?{src:V.local+'/'+path,from:'local'}:null;}
 // A render line's video, one or none.
 function videosOf(it,r){var s=r.video&&videoSrc(r.video);
-return s?[{file:it.name,shot:r.shots,first:r.shot_list[0],start:r.first,folder:r.folder,src:s.src,from:s.from,name:r.video}]:[];}
+return s?[{file:it.name,shot:r.shots,shots:r.shot_list,first:r.shot_list[0],start:r.first,folder:r.folder,src:s.src,from:s.from,name:r.video}]:[];}
 // Choose the videos' folder: each video known by its path's every tail, so
 // the folder's own name, or one above it, doesn't matter. A phone with no
 // folder picker gives the videos themselves, known by their names.
@@ -474,69 +475,140 @@ var files=t.files;closeMenus();if(files&&files.length)pickVideos(files);t.value=
 // Every video of the file, in its shots' order.
 function allVideos(it){var out=[];it.renders.forEach(function(r){out=out.concat(videosOf(it,r));});
 var rank=function(v){var k=it.shots.indexOf(v.first);return k<0?0:k;};return out.sort(function(a,b){return rank(a)-rank(b);});}
-// A playlist: each video starts the next once ended, ‹ › (or ← →) skip.
-// Its own thin controls under the picture: a render is wide and low, the
-// browser's would cover half of it.
-function clock(t){t=Math.floor(+t||0);return Math.floor(t/60)+':'+('0'+t%60).slice(-2);}
-// The player's width: the video's shape (16:9 until it's known) in the
-// room the lightbox leaves -- set, not left to its content. Again only
-// when the screen's width changes (turned), not as its height moves
-// under a browser's or an app's bars.
-var fitW=0;
-function fitPlayer(el){var vp=el&&el.closest('.vp');if(!vp)return;var r=el.videoWidth&&el.videoHeight?el.videoWidth/el.videoHeight:16/9;
-var top=parseFloat(getComputedStyle(document.body).paddingTop)||0;
-vp.style.width=Math.max(160,Math.floor(Math.min($('lb').clientWidth-40,(innerHeight-140-top)*r)))+'px';fitW=innerWidth;}
-addEventListener('resize',function(){if($('lb').hidden||innerWidth===fitW)return;fitPlayer($('lb-in').querySelector('video'));});
-// The videos' frame rate (the project's): the player's frame number.
-var FPS=+META.fps||0,stepFrame=function(){};
-function play(list){if(!list.length)return;var at=0;
-function show(){var v=list[at],many=list.length>1;
-lightbox('<div class="vp"><video playsinline autoplay src="'+esc(v.src)+'"></video>'+
-'<div class="vc">'+(many?'<button type="button" class="vb" data-lb="-1"'+(at?'':' disabled')+' aria-label="Previous video">⏮</button>':'')+
-'<button type="button" class="vb" id="vp-p" aria-label="Pause">❚❚</button>'+
-(many?'<button type="button" class="vb" data-lb="1"'+(at<list.length-1?'':' disabled')+' aria-label="Next video">⏭</button>':'')+
-'<input type="range" class="vr" id="vp-r" min="0" max="1000" value="0" aria-label="Position"><span class="vt" id="vp-t">0:00</span>'+
-(FPS?'<button type="button" class="vb vs" data-step="-1" aria-label="Previous frame" title="Previous frame (,)">◂</button><span class="vf" id="vp-fr" title="'+
-(v.start!=null?'The frame shown, as numbered in the .blend':'The frame shown, counted from this video\'s first (its own number unknown: export the snapshot again)')+
-'">'+(v.start!=null?'f'+v.start:'#1')+'</span><button type="button" class="vb vs" data-step="1" aria-label="Next frame" title="Next frame (.)">▸</button>':'')+
-'<button type="button" class="vb" id="vp-f" aria-label="Full screen">⛶</button></div></div>',
-esc(v.file)+(v.shot?' · <b>'+esc(v.shot)+'</b>':'')+' · '+esc(v.folder)+(many?' ('+(at+1)+' / '+list.length+')':''));
-var el=$('lb-in').querySelector('video'),pb=$('vp-p'),rg=$('vp-r'),tm=$('vp-t'),seeking=false;
-fitPlayer(el);el.addEventListener('loadedmetadata',function(){fitPlayer(el);});
-function sync(){pb.textContent=el.paused?'▶':'❚❚';pb.setAttribute('aria-label',el.paused?'Play':'Pause');}
-// The frame shown: the .blend's number (the render's first + its index in
-// the video), else its rank in the video. Each frame as it's shown where
-// the browser tells (requestVideoFrameCallback), else at each time update.
-var fr=$('vp-fr'),idx=function(t){return Math.max(0,Math.floor(t*FPS+1e-3));};
-function frame(t){if(fr)fr.textContent=v.start!=null?'f'+(v.start+idx(t)):'#'+(idx(t)+1);}
-if(fr&&el.requestVideoFrameCallback){var tick=function(now,md){if(!el.isConnected)return;frame(md.mediaTime);el.requestVideoFrameCallback(tick);};el.requestVideoFrameCallback(tick);}
-el.addEventListener('seeked',function(){frame(el.currentTime);});
-// One frame back or on, paused: its middle, decoded as is.
-stepFrame=function(n){if(!FPS)return;el.pause();var k=Math.max(0,idx(el.currentTime)+n),t=(k+.5)/FPS;if(el.duration)t=Math.min(t,el.duration-.5/FPS);el.currentTime=t;frame(t);};
-el.addEventListener('play',sync);el.addEventListener('pause',sync);
-el.addEventListener('timeupdate',function(){if(!seeking&&el.duration)rg.value=Math.round(el.currentTime/el.duration*1000);
-tm.textContent=clock(el.currentTime)+' / '+clock(el.duration);if(!el.requestVideoFrameCallback)frame(el.currentTime);});
-rg.addEventListener('input',function(){seeking=true;if(el.duration)el.currentTime=rg.value/1000*el.duration;});
-rg.addEventListener('change',function(){seeking=false;});
-pb.onclick=function(e){e.stopPropagation();if(el.paused)el.play();else el.pause();};
-el.onclick=function(e){e.stopPropagation();pb.onclick(e);};
-$('vp-f').onclick=function(e){e.stopPropagation();var f=el.requestFullscreen||el.webkitRequestFullscreen||el.webkitEnterFullscreen;if(f)f.call(el);};
-el.addEventListener('ended',function(){if(at<list.length-1){at++;show();}else sync();});
-el.addEventListener('error',function(){var V=META.videos;
+/* ---------- the player: in the panel, or Watch large ---------- */
+// One player (PL): its video element, mounted with its controls in the
+// panel's media (compact) or in Watch large (wide) -- moved, not made
+// again, so a video goes on playing from one to the other. Its timeline
+// carries the file's notes at their frames: a retake's red diamond, a
+// range's blue bar; a click goes there. See NOTES.md, "Snapshot page v3".
+function clock(t){t=Math.floor(+t||0);return two(Math.floor(t/3600))+':'+two(Math.floor(t/60)%60)+':'+two(t%60);}
+var FPS=+META.fps||0,PL=null;
+function idxOf(t){return Math.max(0,Math.floor(t*FPS+1e-3));}
+function frameNo(v,t){return v.start!=null?v.start+idxOf(t):idxOf(t)+1;}
+function fLabel(v,n){return (v.start!=null?'f':'#')+n;}
+// The frames tagged on a video: the file's open notes ("f12", "f12-30")
+// on its shot or on none, then this review's lines ([f12], [f12-30]).
+function marksOf(it,v){var out=[],own=function(sh){return !sh||!v.shots||v.shots.indexOf(sh)>=0||v.shots.indexOf(sh.replace(/^[a-z]+/i,''))>=0;};
+it.notes.forEach(function(n){if(n.closed)return;var m=/f(\d+)(?:-(\d+))?/.exec(n.frames||'');if(!m||!own(n.shot))return;
+out.push({a:+m[1],b:m[2]?+m[2]:null,rtk:n.type==='rtk'&&n.done===false,text:n.text,who:author(n),type:n.type,id:n.id});});
+var e=peek(it),lines=[];Object.keys(e.deps).forEach(function(d){if(e.deps[d].text)lines=lines.concat(e.deps[d].text.split(NL).map(function(l){return [d,l];}));});
+(e.text||'').split(NL).forEach(function(l){lines.push(['',l]);});
+lines.forEach(function(x){var m=/\[f(\d+)(?:-(\d+))?\]/.exec(x[1]);if(!m)return;
+out.push({a:+m[1],b:m[2]?+m[2]:null,rtk:!noteOnly(x[1]),text:x[1].replace(/\[[^\]]*\]\s*/g,''),who:'you',type:noteOnly(x[1])?'note':'rtk',mine:true});});
+return out.sort(function(p,q){return p.a-q.a;});}
+// The controls, by where the player is.
+function plHtml(mode){var many=PL.list.length>1||mode==='wide';
+return '<div class="pv-slot"></div><div class="pv-msg" hidden></div>'+
+'<div class="tl"><div class="tl-in"><i class="tl-fill"></i><span class="tl-marks"></span><i class="tl-head"></i></div><input type="range" class="tl-r" min="0" max="1000" value="0" aria-label="Position"></div>'+
+'<div class="pc">'+(mode==='wide'?'<button type="button" class="vb" data-pv="prevv" aria-label="Previous video">⏮</button>':'')+
+'<button type="button" class="vb" data-pv="-1" aria-label="Previous frame" title="Previous frame (,)">◂</button>'+
+'<button type="button" class="vb play pp" data-pv="pp" aria-label="Play">▶</button>'+
+'<button type="button" class="vb" data-pv="1" aria-label="Next frame" title="Next frame (.)">▸</button>'+
+(mode==='wide'?'<button type="button" class="vb" data-pv="nextv" aria-label="Next video">⏭</button>':'')+
+'<span class="pf"><b class="pf-n">f–</b><span class="pf-r"></span></span><span class="pc-gap"></span>'+
+(mode==='wide'?'<span class="strip"></span><button type="button" class="vb" data-pv="fs" aria-label="Full screen" title="Full screen">⤢</button>':
+(many?'<span class="pv-at"></span>':'')+'<button type="button" class="btn wl-b" data-pv="wide" title="Watch large: the video, the departments and the notes at their frames">⤢ Watch large</button>')+'</div>';}
+// A list of videos into a host: the panel's (paused on its first frame,
+// the thumbnail over it) or Watch large's.
+function playerFor(it){var list=allVideos(it);if(!list.length)return null;
+if(PL&&PL.it===it)return PL;
+if(PL)PL.el.pause();
+var el=document.createElement('video');el.playsInline=true;el.preload='metadata';if(it.thumb)el.poster=img(it.thumb);
+PL={it:it,list:list,at:0,el:el,host:null,mode:'',marks:[]};wire(PL);load(0);return PL;}
+function load(at){var v=PL.list[at];PL.at=at;PL.v=v;PL.marks=marksOf(PL.it,v);PL.el.src=v.src;}
+function mount(host,mode){if(!PL||!host)return;PL.host=host;PL.mode=mode;host.innerHTML=plHtml(mode);host.querySelector('.pv-slot').appendChild(PL.el);
+host.classList.toggle('pv-wide',mode==='wide');drawMarks();upd();if(mode==='wide')drawStrip();}
+function q(c){return PL&&PL.host?PL.host.querySelector(c):null;}
+function total(){return PL.el.duration&&FPS?Math.max(1,Math.round(PL.el.duration*FPS)):0;}
+function drawMarks(){var box=q('.tl-marks'),n=total(),v=PL.v;if(!box)return;if(!n||v.start==null){box.innerHTML='';return;}
+var at=function(f){return Math.max(0,Math.min(100,(f-v.start)/n*100));};
+box.innerHTML=PL.marks.map(function(m){var tip=esc(fLabel(v,m.a)+(m.b?'-'+m.b:'')+' · '+m.text+(m.who?' · '+m.who:''));
+return m.b?'<i class="tl-rg'+(m.mine?' mine':'')+'" data-seek="'+m.a+'" style="left:'+at(m.a)+'%;width:'+Math.max(.6,at(m.b)-at(m.a))+'%" title="'+tip+'"></i>':
+'<i class="tl-mk'+(m.rtk?'':' nt')+(m.mine?' mine':'')+'" data-seek="'+m.a+'" style="left:'+at(m.a)+'%" title="'+tip+'"></i>';}).join('');}
+// What changes as it plays: the frame, the head, ▶ / ❚❚, the "+ f12" of
+// the retake boxes.
+function upd(){if(!PL)return;var el=PL.el,v=PL.v,n=total(),f=frameNo(v,el.currentTime),pct2=el.duration?el.currentTime/el.duration*100:0;
+var pn=q('.pf-n');if(pn)pn.textContent=fLabel(v,f);
+var pr=q('.pf-r');if(pr)pr.textContent=(n?' / '+fLabel(v,v.start!=null?v.start+n-1:n):'')+(PL.mode==='wide'?' · '+clock(el.currentTime):'')+(FPS?' · '+FPS+' fps':'');
+var hd=q('.tl-head');if(hd)hd.style.left=pct2+'%';var fl=q('.tl-fill');if(fl)fl.style.width=pct2+'%';
+var rg=q('.tl-r');if(rg&&!PL.seeking)rg.value=Math.round(pct2*10);
+var pp=q('.pp');if(pp){pp.textContent=el.paused?'▶':'❚❚';pp.setAttribute('aria-label',el.paused?'Play':'Pause');}
+var at=q('.pv-at');if(at)at.textContent=(v.shot?v.shot+' · ':'')+(PL.at+1)+' / '+PL.list.length;
+document.querySelectorAll('.addf').forEach(function(b){b.textContent='+ '+fLabel(v,f);});
+var wf=$('wl-f');if(wf)wf.textContent=fLabel(v,f);}
+function seekFrame(f){if(!PL||!FPS)return;var v=PL.v,k=v.start!=null?f-v.start:f-1;PL.el.pause();PL.el.currentTime=Math.max(0,(k+.5)/FPS);upd();}
+function stepFrame(n){if(!PL||!FPS)return;var el=PL.el;el.pause();var k=Math.max(0,idxOf(el.currentTime)+n),t=(k+.5)/FPS;if(el.duration)t=Math.min(t,el.duration-.5/FPS);el.currentTime=t;upd();}
+function nextVideo(n){var at=PL.at+n;if(at>=0&&at<PL.list.length){load(at);PL.el.play();return true;}
+// Past the file's last (Watch large): the group's next file with a video.
+if(PL.mode!=='wide')return false;var g=groupFiles(),k=g.indexOf(PL.it)+n;while(g[k]&&!allVideos(g[k]).length)k+=n;
+if(!g[k])return false;openPanel(g[k].i);var p=playerFor(g[k]);if(n<0)load(p.list.length-1);mount($('wl-pv'),'wide');wlSide();p.el.play();return true;}
+function wire(P){var el=P.el;
+['timeupdate','play','pause','seeked','loadedmetadata'].forEach(function(k){el.addEventListener(k,function(){if(PL!==P)return;if(k==='loadedmetadata')drawMarks();upd();});});
+if(el.requestVideoFrameCallback){var tick=function(){if(PL===P&&!el.paused)upd();el.requestVideoFrameCallback(tick);};el.requestVideoFrameCallback(tick);}
+el.addEventListener('ended',function(){if(PL===P&&!nextVideo(1))upd();});
+el.addEventListener('click',function(){if(el.paused)el.play();else el.pause();});
+el.addEventListener('error',function(){if(PL!==P)return;var v=P.v,V=META.videos;
 // The copy missing (a Folder snapshot opened without its folder): the
 // render itself, in the project, if this machine reaches it.
 if(v.from!=='local'&&v.from!=='picked'&&V&&V.local){v.from='local';v.src=V.local+'/'+encodeURI(v.name);el.src=v.src;return;}
-$('lb-in').innerHTML='';
-// A video chosen here is there: then its format is the problem -- an
-// HEVC tagged hev1 (compiled by an older add-on) on Safari, iPhone, iPad.
-$('lb-cap').innerHTML=(v.from==='picked'?'This browser can\'t play this video\'s format (on an iPad or in Safari: an H.265 video compiled by an older add-on — compile it again).':
+// Said in place of the picture, the controls left out.
+var m=q('.pv-msg');if(!m)return;P.host.classList.add('pv-err');m.hidden=false;
+m.innerHTML=(v.from==='picked'?'This browser can\'t play this video\'s format (on an iPad or in Safari: an H.265 video compiled by an older add-on — compile it again).':
 v.from==='zip'?'Video not found. Unzip <code>'+esc(V.base)+'.zip</code> next to this page, into a folder of the same name.':
 v.from==='folder'?'Video not found: no <code>'+esc(V.base)+'</code> folder '+(V.base.indexOf('../')===0?'beside this page\'s folder (keep the snapshots folder whole)':'next to this page')+' — or this browser can\'t play its format.':
 'Video not found in the project\'s renders — away from the project, its videos come with the snapshot (Folder or Zip, when exporting) — or this browser can\'t play its format.')+
-(v.from==='picked'?'':' '+pickLink('Choose the videos folder…'))+
-'<br><span style="opacity:.7">Looked for <code>'+esc(v.name)+'</code></span>'+(many&&at<list.length-1?'<br><button type="button" class="lbn" data-lb="1" aria-label="Next video">›</button>':'');});}
-$('lb').onclick=function(e){var sb=e.target.closest('[data-step]');if(sb){e.stopPropagation();stepFrame(+sb.dataset.step);return;}var b=e.target.closest('[data-lb]');if(!b)return;e.stopPropagation();if(b.disabled)return;at+=+b.dataset.lb;show();};
-show();}
+(v.from==='picked'?'':' '+pickLink('Choose the videos folder…'))+'<br><small>Looked for <code>'+esc(v.name)+'</code></small>';});}
+// The controls' clicks and the timeline's drag, wherever it's mounted.
+document.addEventListener('click',function(e){var b=e.target.closest('[data-pv],[data-seek]');if(!b||!PL||!PL.host||!(PL.host.contains(b)||b.closest('#wl,.panel')))return;
+if(b.dataset.seek){e.preventDefault();var f=+b.dataset.seek;if(b.dataset.sh){var it=PL.it,vs=PL.list;for(var k=0;k<vs.length;k++)if(vs[k].shots&&vs[k].shots.indexOf(b.dataset.sh)>=0&&k!==PL.at){load(k);break;}}
+if(PL.el.readyState>=1)seekFrame(f);else PL.el.addEventListener('loadedmetadata',function o(){PL.el.removeEventListener('loadedmetadata',o);seekFrame(f);});return;}
+var a=b.dataset.pv,el=PL.el;
+if(a==='pp'){if(el.paused)el.play();else el.pause();}else if(a==='-1'||a==='1')stepFrame(+a);
+else if(a==='prevv')nextVideo(-1);else if(a==='nextv')nextVideo(1);else if(a==='wide')openWatch(false);
+else if(a==='fs'){var f2=$('wl').requestFullscreen||$('wl').webkitRequestFullscreen;if(document.fullscreenElement)document.exitFullscreen();else if(f2)f2.call($('wl'));}});
+document.addEventListener('input',function(e){if(!e.target.classList.contains('tl-r')||!PL)return;PL.seeking=true;var el=PL.el;if(el.duration){el.pause();el.currentTime=e.target.value/1000*el.duration;}});
+document.addEventListener('change',function(e){if(e.target.classList.contains('tl-r')&&PL){PL.seeking=false;upd();}});
+/* ---------- Watch large: the player the whole window, the departments
+and the notes at their frames beside it ---------- */
+var wlDep=null;
+function groupFiles(){var it=PL?PL.it:D[cur];return D.filter(function(x){return x.tab===it.tab&&x.group===it.group&&match(x);});}
+function openWatch(autoplay){if(cur==null)return;var p=playerFor(D[cur]);if(!p)return;$('wl').hidden=false;lockPage('wl',true);document.body.classList.add('wl-open');
+mount($('wl-pv'),'wide');wlSide();if(autoplay)p.el.play();$('wl-x').focus({preventScroll:true});}
+function closeWatch(){if($('wl').hidden)return;if(document.fullscreenElement)document.exitFullscreen();$('wl').hidden=true;lockPage('wl',false);document.body.classList.remove('wl-open');
+if(PL)PL.el.pause();var pv=$('pv');if(pv&&PL&&PL.it===D[cur])mount(pv,'panel');}
+// The group's files along the bottom: a click plays one.
+function drawStrip(){var st=q('.strip');if(!st)return;var g=groupFiles();
+st.innerHTML='<span class="st-l">'+esc(PL.it.group)+' · '+plural(g.length,PL.it.kind==='shot'?'shot':'file')+'</span>'+g.map(function(x){var has=allVideos(x).length;
+return '<button type="button" class="st-i'+(x===PL.it?' on':'')+'" data-wlf="'+x.i+'"'+(has?'':' disabled')+' title="'+esc(x.name)+(has?'':' · no video')+'"><span class="frame">'+(x.thumb?'<img alt="" src="'+img(x.thumb)+'">':'')+'</span>'+esc(x.name.slice(x.group.length+1)||x.name)+'</button>';}).join('');
+var on=st.querySelector('.on');if(on)on.scrollIntoView({block:'nearest',inline:'center'});}
+// The right column: the departments with ✓ / ✕, the notes at their
+// frames (a click goes there), a retake written at the frame shown.
+function wlSide(){if($('wl').hidden||cur==null)return;var it=D[cur],e=peek(it),rv=reviewing(),v=PL&&PL.v;
+var deps=depsOf(it.kind).filter(function(d){return d in it.states;});if(deps.indexOf(wlDep)<0)wlDep=deps.filter(function(d){return (e.deps[d]||{}).no;})[0]||deps[0]||'';
+$('wl-t').innerHTML=nameHtml(it);$('wl-s').innerHTML=(v?'<span>'+ico('render')+esc(v.folder||'')+'</span>':'')+(it.to_check?'<span>'+ico('eye')+'to check</span>':'');
+var h='<div class="wl-h"><h4>Departments</h4>'+(it.tracked?dv(it.done,it.valid):'')+'</div>'+deps.map(function(d){var vv=e.deps[d],s=it.states[d],r=rtkTag(it,d);
+return '<div class="wl-d'+(d===wlDep?' on':'')+'"><button type="button" class="wl-dn" data-wld="'+esc(d)+'" title="Write its retakes here">'+
+'<span class="cell"><span class="cap"><span class="g '+symCls(it,d)+'">'+(validAt(it,d)?'✓':'')+'</span></span>'+(r?r[0]:'')+'</span>'+esc(cap(d))+'</button>'+
+(rv?'<span class="rvb" data-d="'+esc(d)+'"><button class="ok-b" aria-pressed="'+!!(vv&&vv.ok)+'"'+(asTeam()||!isDone(s)?' disabled':'')+' aria-label="Validate '+esc(d)+'">✓</button>'+
+'<button class="ko-b" aria-pressed="'+!!(vv&&vv.no)+'" aria-label="Retake '+esc(d)+'">✕</button></span>':'')+'</div>';}).join('');
+var marks=PL?PL.marks:[];h+='<div class="wl-h"><h4>Notes at frames</h4><small>click to jump</small></div>'+(marks.length?marks.map(function(m){
+return '<button type="button" class="wl-n" data-seek="'+m.a+'"><span class="ft'+(m.b?' rg':m.rtk?'':' nt')+'">'+esc(fLabel(v,m.a)+(m.b?'-'+m.b:''))+'</span>'+esc(m.text)+(m.who?'<small> · '+esc(m.who)+'</small>':'')+'</button>';}).join(''):'<p class="faint">No note at a frame on this video.</p>');
+if(rv&&wlDep)h+='<div class="wl-w"><label for="wl-ta">Retake at <span class="addf-l">'+(v?esc(fLabel(v,frameNo(v,PL.el.currentTime))):'')+'</span> on '+esc(cap(wlDep))+'</label>'+
+'<textarea id="wl-ta" rows="3" placeholder="Write while watching — Enter adds it"></textarea></div>';
+else if(!rv)h+='<p class="faint wl-hint">Review to validate, send back and write at a frame.</p>';
+$('wl-side').innerHTML=h;}
+$('wl-x').addEventListener('click',closeWatch);
+$('wl').addEventListener('click',function(ev){var t;
+if((t=ev.target.closest('[data-wlf]'))){var x=D[+t.dataset.wlf];openPanel(x.i);var p=playerFor(x);mount($('wl-pv'),'wide');wlSide();p.el.play();return;}
+if((t=ev.target.closest('[data-wld]'))){wlDep=t.dataset.wld;wlSide();var ta=$('wl-ta');if(ta)ta.focus();return;}
+if((t=ev.target.closest('.rvb button'))&&!t.disabled){var it=D[cur],d=t.parentNode.dataset.d,e=entry(it),v=e.deps[d];
+if(t.classList.contains('ok-b')){if(v&&v.ok)delete e.deps[d];else e.deps[d]={ok:1};}else{if(v&&v.no)delete e.deps[d];else e.deps[d]={no:1,text:''};wlDep=d;}
+refresh();}});
+// Enter adds the line at the frame shown to the department's retake.
+$('wl').addEventListener('keydown',function(ev){var t=ev.target;if(t.id!=='wl-ta'||ev.key!=='Enter'||ev.shiftKey)return;ev.preventDefault();ev.stopPropagation();
+var txt=t.value.trim();if(!txt||!PL||!wlDep)return;var it=D[cur],e=entry(it),v=e.deps[wlDep],f=frameNo(PL.v,PL.el.currentTime);
+if(!v||!v.no)v=e.deps[wlDep]={no:1,text:''};v.text=(v.text?v.text.replace(/\s+$/,'')+NL:'')+'[f'+f+'] '+txt;t.value='';
+PL.marks=marksOf(it,PL.v);drawMarks();refresh();var ta=$('wl-ta');if(ta)ta.focus();});
 // A sequence's files, each one's videos in its shots' order, one after the other.
 function groupVideos(g){return D.filter(function(it){return it.tab===state.tab&&it.group===g&&match(it);}).reduce(function(out,it){return out.concat(allVideos(it));},[]);}
 
@@ -587,22 +659,36 @@ var b=boxOf(it,key,text);
 return '<div class="rbox"><label class="shotbox"><span>All</span><textarea rows="1" class="rtk-t" data-k="'+esc(key)+'" data-s=""'+(key==='gen'?' id="gen-t"':'')+' placeholder="'+esc(ph)+' — all its shots">'+esc(b.all)+'</textarea></label>'+
 '<div class="tags shotbox" data-k="'+esc(key)+'"><span></span><span class="tg-in">'+it.shots.map(function(sh){return '<button type="button" data-shot="'+esc(sh)+'" aria-pressed="'+!!b.open[sh]+'">'+esc(sh)+'</button>';}).join('')+'</span></div>'+
 it.shots.filter(function(sh){return b.open[sh];}).map(function(sh){return '<label class="shotbox"><span>'+esc(sh)+'</span><textarea rows="1" class="rtk-t" data-k="'+esc(key)+'" data-s="'+esc(sh)+'" placeholder="What to fix in '+esc(sh)+'?">'+esc(b.per[sh]||'')+'</textarea></label>';}).join('')+'</div>';}
-function syntax(it){return '<p class="syntax">One retake per line · <code>[f12-40]</code> frames · <code>note:</code> (or <code>n:</code>) a remark, not a retake</p>';}
-function noteHtml(n,reply){var type=n.done===true?'<span class="badge b-done" title="Done">✓ '+esc(n.type)+'</span>':
-'<span class="badge '+(n.type==='rtk'?(n.team?'b-team':'b-rtk'):n.type==='todo'?'b-todo':'b-note')+'">'+esc(n.type)+(n.type==='rtk'&&n.team?' · team':'')+'</span>';
-var tags=[];if(n.role)tags.push('<span class="tg role" title="Written as '+esc(n.role)+'">'+esc(n.role)+'</span>');
-if(n.review)tags.push('<span class="tg">prod review</span>');
-n.deps.forEach(function(d){tags.push('<span class="tg">'+esc(d)+'</span>');});
-if(n.shot)tags.push('<span class="tg">'+esc(n.shot)+'</span>');if(n.frames)tags.push('<span class="tg">'+esc(n.frames)+'</span>');
-if(n.render)tags.push('<span class="tg" title="Written watching this render">▶ '+esc(n.render)+'</span>');else if(n.version)tags.push('<span class="tg">'+esc(n.version)+'</span>');
-// An open todo or RTK, reviewing -- a thread's own or one of its replies:
-// Done / Fixed, closed at import (an open RTK opening a thread has its own
-// Fixed under its department).
+// Under a retake being written: its frame at a click, and the syntax.
+function syntax(it,key){return '<p class="syntax">'+(PL&&PL.it===it&&key?'<button type="button" class="addf" data-addf="'+esc(key)+'" title="The frame shown, at the start of the line">+ f–</button>':'')+
+'one retake per line · <code>[f12-40]</code> frames · <code>note:</code> for a remark</p>';}
+// A thread: its author's pill (an initial), who, as what, when; its kind
+// (RTK red, TODO orange, NOTE neutral), its frames (a click goes there);
+// its replies under it, indented; Reply and Fixed while reviewing.
+function noteHtml(n,reply){var a=author(n),kind=n.type==='rtk'?'rtk':n.type==='todo'?'todo':'note';
+var fm=/f(\d+)(?:-(\d+))?/.exec(n.frames||''),ft=fm?'<button type="button" class="ft-b'+(fm[2]?' rg':'')+'" data-seek="'+fm[1]+'"'+(n.shot?' data-sh="'+esc(n.shot)+'"':'')+' title="Go to this frame">'+esc(n.frames)+' ▸</button>':'';
+var tags=[];if(n.shot)tags.push(esc(n.shot));if(n.review)tags.push('prod review');
+if(n.render)tags.push('<span title="Written watching this render">▶ '+esc(n.render)+'</span>');else if(n.version)tags.push(esc(n.version));
 var dn=canReply(n)&&(n.type==='todo'||n.type==='rtk')&&n.done===false,on=dn&&!!(peek(D[cur]).fixed||{})[n.id],dl=n.type==='todo'?'Done':'Fixed';
-return '<div class="note'+(n.closed?' closed':'')+(reply?' reply':'')+(n.role?' by-role':'')+(on?' fixed':'')+'"><div class="h">'+type+tags.join('')+
-'<span class="h-r"><span class="who">'+[author(n),when(n.date)].filter(Boolean).join(' · ')+'</span>'+(!reply&&canReply(n)?replyBtn(n):'')+
-(dn?'<button type="button" class="fx" data-fix="'+esc(n.id)+'" aria-pressed="'+on+'" aria-label="'+dl+'" title="'+(on?'Marked '+dl.toLowerCase()+' in your review: tap to undo':dl+': marked done when your review is imported')+'">✓</button>':'')+'</span></div><p>'+esc(n.text)+'</p></div>'+
-(n.replies||[]).map(function(r){return noteHtml(Object.assign({closed:n.closed},r),true);}).join('')+(!reply&&canReply(n)?replyBox(n):'');}
+return '<div class="th'+(n.closed?' closed':'')+(reply?' reply':'')+(on?' fixed':'')+'"><span class="av" aria-hidden="true">'+esc((a||'·').charAt(0).toUpperCase())+'</span><div class="th-b">'+
+'<div class="th-h">'+(a?'<b>'+a+'</b>':'')+'<span class="who">'+[n.team?'team':esc(n.role||''),when(n.date)].filter(Boolean).join(' · ')+'</span>'+
+'<span class="tt tt-'+kind+(n.done===true?' done':'')+'">'+(n.done===true?'✓ ':'')+kind.toUpperCase()+'</span>'+ft+'</div>'+
+'<p>'+esc(n.text)+'</p>'+(tags.length?'<div class="th-t">'+tags.join(' · ')+'</div>':'')+
+((!reply&&canReply(n))||dn?'<div class="th-a">'+(!reply&&canReply(n)?replyBtn(n):'')+(dn?'<button type="button" class="fx" data-fix="'+esc(n.id)+'" aria-pressed="'+on+'" title="'+(on?'Marked '+dl.toLowerCase()+' in your review: tap to undo':dl+': marked done when your review is imported')+'">✓ '+dl+'</button>':'')+'</div>':'')+
+'</div></div>'+(n.replies||[]).map(function(r){return noteHtml(Object.assign({closed:n.closed},r),true);}).join('')+(!reply&&canReply(n)?replyBox(n):'');}
+// Where a thread lives in the panel: under its first department the file
+// tracks, else under Whole file -- one place each.
+function homeOf(it,n){var d=n.deps.filter(function(x){return x in it.states;})[0];return d||'';}
+var closedOpen={};
+function threads(it,d){var all=it.notes.filter(function(n){return !n.approval&&homeOf(it,n)===d;}),open=all.filter(function(n){return !n.closed;}),closed=all.filter(function(n){return n.closed;});
+var h=open.map(function(n){return noteHtml(n);}).join('');
+if(closed.length){var k=d||'·';if(closedOpen[k])h+=closed.map(function(n){return noteHtml(n);}).join('');
+var kinds=closed.reduce(function(c,n){c[n.type]=(c[n.type]||0)+1;return c;},{});
+h+='<button type="button" class="more-notes" data-closed="'+esc(k)+'">'+Object.keys(kinds).map(function(t){return plural(kinds[t],'closed '+t);}).join(', ')+' · '+(closedOpen[k]?'hide':'show')+'</button>';}
+return h?'<div class="ths">'+h+'</div>':'';}
+// Under a department's name: its state, then what's open on it.
+function depSummary(it,d){var all=it.notes.filter(function(n){return !n.closed&&!n.approval&&homeOf(it,n)===d;}),r=all.filter(function(n){return n.type==='rtk'&&n.done===false;}).length,o=all.length-r;
+return [d?LABEL[it.states[d]].toLowerCase():'',r?plural(r,'retake'):'',o?plural(o,'thread'):''].filter(Boolean).join(' · ');}
 // Reviewing, a reply to an open note or RTK: a comment in its thread at
 // import, the retake left open (Fixed says it's done).
 function replyBtn(n){return '<button type="button" class="rp" data-reply="'+esc(n.id)+'" aria-label="Reply" title="Reply in its thread: a retake (still to redo, its department sent back) — or note: a remark">↩</button>';}
@@ -617,10 +703,6 @@ function when(d){var day=dayOf(d);if(!reviewing()||!day)return esc(day);
 var t=new Date(day+'T00:00:00'),now=new Date();now.setHours(0,0,0,0);var n=Math.round((now-t)/864e5);if(isNaN(n))return esc(day);
 var w=n<=0?'today':n===1?'yesterday':n<14?n+' days ago':n<60?Math.round(n/7)+' weeks ago':n<730?Math.round(n/30.4)+' months ago':Math.round(n/365)+' years ago';
 return '<span title="'+esc(day)+'">'+w+'</span>';}
-// An open RTK; reviewing, a button to say it's fixed (done at import, as you).
-function rtkLine(n){var where=[n.shot,n.frames].filter(Boolean).join(' · '),it=D[cur],fx=reviewing()&&n.id,on=fx&&!!peek(it).fixed&&!!(peek(it).fixed||{})[n.id];
-return '<div class="rtkl'+(n.team?' team':'')+(on?' fixed':'')+'"><span class="rt-t">'+(where?'<b>'+esc(where)+'</b> ':'')+esc(n.text)+'<small>'+[n.team?'team':esc(n.role||''),author(n),when(n.date)].filter(Boolean).join(' · ')+'</small></span>'+
-(fx?'<span class="rt-b">'+replyBtn(n)+'<button type="button" class="fx" data-fix="'+esc(n.id)+'" aria-pressed="'+on+'" aria-label="Fixed" title="'+(on?'Marked fixed in your review: tap to undo':'Fixed: marked done when your review is imported')+'">✓</button></span>':'')+'</div>'+(fx?replyBox(n):'');}
 // Rendered but nothing to play: say why, quietly, and offer to look elsewhere.
 function noVideo(it){if(!it.renders.some(function(r){return r.folder;})||allVideos(it).length)return '';
 var why=PICKED?'Not in the videos folder chosen.':!META.videos?'No video came with this snapshot (Videos, when exporting).':
@@ -640,17 +722,16 @@ esc(r.folder||r.pending||'not rendered')+(r.behind?'<small>stable is '+esc(it.st
 function depHtml(it,d,rv){var s=it.states[d],e=peek(it),v=e.deps[d],o=it.ok[d],via=!v&&e.all&&isDone(s);
 var okd=o?(o.old?'<span class="ok old" title="'+esc(o.tip)+'">✓ '+esc(o.role)+' on '+esc(o.seen)+'</span><span class="faint" style="font-size:12px">to review again</span>':
 '<span class="ok" title="'+esc(o.tip)+'">✓ '+esc(o.role)+'</span>'):'';
-return '<div class="dep"><div class="dep-l">'+mark(s)+'<span class="mid"><span class="nm">'+esc(cap(d))+'</span><span class="st">'+LABEL[s]+'</span>'+rkTag(it,d)+okd+you(it,d)+'</span>'+
+return '<div class="dep"><div class="dep-l">'+cell(it,d)+'<span class="mid"><span class="nm">'+esc(cap(d))+'</span><span class="st">'+esc(depSummary(it,d))+'</span>'+okd+'<span class="inl">'+you(it,d)+'</span></span>'+
 '<span class="rvb" data-d="'+esc(d)+'"><button class="ok-b'+(via?' via':'')+'" aria-pressed="'+!!(v&&v.ok)+'"'+(asTeam()?' disabled title="As the team: no validation — a validation role validates"':isDone(s)?' title="Validate it as your role"':' disabled title="Not done: nothing to validate yet"')+
 ' aria-label="Validate '+esc(d)+'">✓</button><button class="ko-b'+(verdict(it,d)==='note'?' as-note':'')+'" aria-pressed="'+!!(v&&v.no)+'" aria-label="Retake '+esc(d)+'" title="Retake: write what to fix (or nothing, to withdraw a validation)">✕</button></span></div>'+
-((it.rtkNotes[d]||[]).length?'<div class="rtks">'+it.rtkNotes[d].map(rtkLine).join('')+'</div>':'')+
-(rv&&v&&v.no?'<div class="rt">'+retakeBox(it,'d:'+d,v.text,'What to fix in '+d+'? Empty: just withdraw its validation')+syntax(it)+'</div>':'')+'</div>';}
+threads(it,d)+(rv&&v&&v.no?'<div class="rt mine">'+retakeBox(it,'d:'+d,v.text,'What to fix in '+d+'? Empty: just withdraw its validation')+syntax(it,'d:'+d)+'</div>':'')+'</div>';}
 function openPanel(i){
 // The notes' fold is the page's, not a file's: kept from one file to the
 // next, back to its default (open, folded in review) when review starts or ends.
 var it=D[i],same=cur===i;if(!same){showClosed=false;editing={};}cur=i;if(!lastFocus)lastFocus=document.activeElement;
 var rv=reviewing(),e=peek(it);if(showNotes===null)showNotes=!rv;
-$('p-title').innerHTML=nameHtml(it);var nv=allVideos(it).length;$('p-play').hidden=!nv;$('p-play').title=nv>1?'Play the '+nv+' shots in a row':'Play the render';
+$('p-title').innerHTML=nameHtml(it);var nv=allVideos(it).length;$('p-play').hidden=true;$('p-play').title=nv>1?'Play the '+nv+' shots in a row':'Play the render';
 $('p-sub').textContent=[it.kind==='shot'?'Shot':it.root==='library'?'Library':'Asset',it.versions,it.shots.length>1?plural(it.shots.length,'shot'):''].filter(Boolean).join(' · ');
 // First what it is and how far along, big; then its departments; the
 // rest after, quieter.
@@ -659,7 +740,8 @@ $('p-kpi').innerHTML=it.tracked?'<span class="kd">'+Math.round(it.done*100)+'<sm
 '<span class="track"><i class="f" style="width:'+it.done*100+'%"></i>'+(META.role?'<i class="v" style="width:'+Math.min(it.valid,it.done)*100+'%"></i>':'')+'</span>':'';
 $('p-flags').innerHTML=flags(it);
 var deps=depsOf(it.kind).filter(function(d){return d in it.states;});
-var h='<div class="p-media">'+(it.thumb?'<button type="button" class="big" id="bigb" aria-label="Full size"><img id="bigimg" alt="" src="'+img(it.thumb)+'"></button>':'<span class="thumb none"><span class="frame"></span></span>')+
+var nvid=allVideos(it).length;
+var h='<div class="p-media">'+(nvid?'<div class="pv" id="pv"></div>':it.thumb?'<button type="button" class="big" id="bigb" aria-label="Full size"><img id="bigimg" alt="" src="'+img(it.thumb)+'"></button>':'<span class="thumb none"><span class="frame"></span></span>')+
 // Each shot's picture; the block's own only when it's none of theirs (its
 // first shot's, most often: the same picture twice).
 (it.shot_thumbs.length?'<div class="shotsel">'+(it.thumb&&!it.shot_thumbs.some(function(s){return s[1]===it.thumb;})?[['whole block',it.thumb]]:[]).concat(it.shot_thumbs).map(function(s){
@@ -682,22 +764,17 @@ h+='<div class="p-block major">'+
 (rv&&anyDone&&!asTeam()?'<div class="dep all"><div class="dep-l"><span class="mid"><span class="nm">All done</span><span class="st">validate every done department<span class="kh"> · V</span></span></span>'+
 '<span class="rvb"><button class="ok-b" id="allok" aria-pressed="'+e.all+'" aria-label="Validate every done department">✓</button><span class="rvb-gap"></span></span></div></div>':'')+
 (deps.length?deps.map(function(d){return depHtml(it,d,rv);}).join(''):'<p class="faint">No department tracked on this file.</p>')+
-(rv||it.genRtks.length?'<div class="dep whole"><div class="dep-l"><span class="mid"><span class="nm">Whole file</span><span class="st">a retake on no department'+(rv?'<span class="kh"> · X</span>':'')+'</span></span>'+
+(rv||it.notes.some(function(n){return !n.approval&&!n.closed&&homeOf(it,n)==='';})?'<div class="dep whole"><div class="dep-l"><span class="mid"><span class="nm">Whole file</span><span class="st">'+esc(['a retake on no department',depSummary(it,'')].filter(Boolean).join(' · '))+(rv?'<span class="kh"> · X</span>':'')+'</span></span>'+
 '<span class="rvb"><span class="rvb-gap"></span><button class="ko-b" id="add-gen" aria-pressed="'+genOpen+'" aria-label="A retake on no department">✕</button></span></div>'+
-(it.genRtks.length?'<div class="rtks">'+it.genRtks.map(rtkLine).join('')+'</div>':'')+
-(rv&&genOpen?'<div class="rt">'+retakeBox(it,'gen',e.text,'What to fix, on no department in particular?')+syntax(it)+'</div>':'')+'</div>':'')+
+threads(it,'')+(rv&&genOpen?'<div class="rt mine">'+retakeBox(it,'gen',e.text,'What to fix, on no department in particular?')+syntax(it,'gen')+'</div>':'')+'</div>':'')+
 '</div>';
-// Notes: the rest, open first; the closed ones on demand.
-var closed=it.notes.filter(function(n){return n.closed;}),shown=it.openNotes.concat(showClosed?closed:[]);
-// No open note: one quiet line to show the closed ones, no heading.
-if(!it.openNotes.length&&closed.length&&!showClosed)h+='<div class="p-block"><button type="button" class="more-notes quiet" id="tog-closed">'+plural(closed.length,'closed note')+' ›</button></div>';
-else if(it.openNotes.length||closed.length){h+='<div class="p-block"><button type="button" class="fold" id="tog-notes" aria-expanded="'+showNotes+'">'+
-(it.openNotes.length?plural(it.openNotes.length,'open note'):'Notes')+(closed.length?' · '+closed.length+' closed':'')+'</button>';
-if(showNotes)h+=shown.map(function(n){return noteHtml(n);}).join('')+(closed.length?'<button type="button" class="more-notes" id="tog-closed">'+(showClosed?'Hide the closed ones':'Show the '+closed.length+' closed')+'</button>':'');
-h+='</div>';}
 // Where it comes from: at the bottom, out of the way while reviewing.
 h+='<dl class="view-only facts"><dt>Last render</dt><dd>'+rendersHtml(it)+noVideo(it)+'</dd><dt>Blender file</dt><dd class="fileline">'+esc(it.file)+'.blend</dd></dl>';
+// The player's video kept as the panel is redrawn (moved, not made again).
+if(PL&&PL.host&&PL.mode==='panel'&&PL.it===it)document.body.appendChild(PL.el).hidden=true;
 $('p-body').innerHTML=h;$('p-body').querySelectorAll('textarea').forEach(grow);
+if(nvid){if(PL&&PL.it!==it&&$('wl').hidden){PL.el.pause();PL=null;}
+if($('wl').hidden){playerFor(it);PL.el.hidden=false;mount($('pv'),'panel');}else $('pv').innerHTML='<div class="pv-away">In Watch large</div>';}
 document.body.classList.add('panel-open');lockPage('panel',phone.matches||document.body.classList.contains('panel-full'));fitBar();var p=$('panel');p.hidden=false;
 requestAnimationFrame(function(){p.classList.add('on');$('scrim').classList.add('on');});
 var pos=visible.indexOf(i);$('p-prev').disabled=$('m-prev').disabled=pos<=0;$('p-next').disabled=$('m-next').disabled=pos<0||pos>=visible.length-1;
@@ -710,7 +787,8 @@ var s=$('list').querySelector('.row[data-i="'+i+'"]');if(s){s.classList.add('sel
 var r=s.getBoundingClientRect(),top=bar.getBoundingClientRect().bottom+40;if(!same&&lockY==null&&!phone.matches&&(r.top<top||r.bottom>innerHeight))scrollBy({top:r.top-top-(innerHeight-top)/3,behavior:touchPin.matches?'auto':'smooth'});}
 p.setAttribute('aria-modal',phone.matches||document.body.classList.contains('panel-full')?'true':'false');
 try{history.replaceState(null,'','#'+encodeURIComponent(it.name));}catch(err){}}
-function refresh(){var y=$('p-body').scrollTop;openPanel(cur);$('p-body').scrollTop=y;renderRow(cur);save();fieldLeft();}
+function refresh(){var y=$('p-body').scrollTop;openPanel(cur);$('p-body').scrollTop=y;renderRow(cur);save();fieldLeft();
+if(!$('wl').hidden){if(PL){PL.marks=marksOf(PL.it,PL.v);drawMarks();}wlSide();}}
 // The page held still (fixed where it is, put back once let go): under
 // the full-screen panel (a phone, panel-full), the lightbox, and on a
 // touch screen an open list or menu, the dialog, a field being written
@@ -755,7 +833,7 @@ if(VV){VV.addEventListener('resize',fitKb);VV.addEventListener('scroll',fitKb);}
 document.addEventListener('focusin',function(){if(!coarse.matches)return;fitKb();setTimeout(fitKb,350);});
 document.addEventListener('focusout',function(){setTimeout(fitKb,80);});
 $('p-body').addEventListener('input',function(){if(document.body.classList.contains('kb'))revealField();});
-function closePanel(){if(cur==null)return;cur=null;
+function closePanel(){if(cur==null)return;closeWatch();if(PL)PL.el.pause();cur=null;
 // A field of it left for good: hidden with the panel, iOS kept its focus
 // (no focusout), the page stayed held -- nothing scrolled or answered.
 var f=document.activeElement;if(f&&f.closest&&f.closest('.panel')&&f.blur)f.blur();clearTimeout(fieldT);lockPage('field',false);
@@ -767,7 +845,7 @@ function step(n){var pos=visible.indexOf(cur);if(pos<0)return;var j=visible[pos+
 $('p-close').addEventListener('click',closePanel);$('scrim').addEventListener('click',closePanel);
 $('p-prev').addEventListener('click',function(){step(-1);});$('p-next').addEventListener('click',function(){step(1);});
 $('m-prev').addEventListener('click',function(){step(-1);});$('m-next').addEventListener('click',function(){step(1);});
-$('p-play').addEventListener('click',function(){if(cur!=null)play(allVideos(D[cur]));});
+$('p-play').addEventListener('click',function(){if(cur!=null)openWatch(true);});
 $('p-link').addEventListener('click',function(){var u=location.href;
 var ok=function(){toast('Link copied: it opens this file, once this page is where the link points.');};
 if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(u).then(ok,function(){prompt('Link to this file',u);});else prompt('Link to this file',u);});
@@ -821,15 +899,19 @@ $('p-body').addEventListener('click',function(ev){var t,it=D[cur];
 // the page held from the tap, before the panel is redrawn and the box
 // focused -- let go as any field, unless the box took the focus.
 if(coarse.matches&&ev.target.closest('.rvb .ko-b,#add-gen,[data-reply],#add-desc,.tags [data-shot]')){clearTimeout(fieldT);lockPage('field',true);setTimeout(fieldLeft,0);}
-if((t=ev.target.closest('[data-play]')))return play(videosOf(it,it.renders[+t.dataset.play]));
+// A render line's ▶: that video in the player, playing.
+if((t=ev.target.closest('[data-play]'))){var vv=videosOf(it,it.renders[+t.dataset.play])[0],p=playerFor(it);if(!vv||!p)return;
+for(var k=0;k<p.list.length;k++)if(p.list[k].name===vv.name){if(k!==p.at)load(k);break;}p.el.play();var pv=$('pv');if(pv)pv.scrollIntoView({block:'nearest'});return;}
 if(ev.target.closest('#bigb'))return lightbox('<img alt="" src="'+$('bigimg').src+'">',esc(it.name));
 if((t=ev.target.closest('.shotsel button'))){$('bigimg').src=t.dataset.src;t.parentNode.querySelectorAll('button').forEach(function(x){x.setAttribute('aria-pressed',x===t);});return;}
 if((t=ev.target.closest('.tags [data-shot]'))){var key=t.closest('.tags').dataset.k,sh=t.dataset.shot,txt=key==='gen'?entry(it).text:(entry(it).deps[key.slice(2)]||{}).text||'',b=boxOf(it,key,txt);
 var tog=function(){b.open[sh]=!b.open[sh];if(!b.open[sh])delete b.per[sh];setText(it,key,joinBox(it,b));refresh();};
 if(b.open[sh]&&(b.per[sh]||'').trim()){ask('Drop what you wrote for '+sh+'?','Drop it',tog);return;}tog();
 if(b.open[sh]){var ta3=$('p-body').querySelector('textarea[data-k="'+CSS.escape(key)+'"][data-s="'+CSS.escape(sh)+'"]');if(ta3)ta3.focus({preventScroll:true});}return;}
-if(ev.target.closest('#tog-closed')){showClosed=!showClosed;showNotes=true;return refresh();}
-if(ev.target.closest('#tog-notes')){showNotes=!showNotes;return refresh();}
+if((t=ev.target.closest('[data-closed]'))){closedOpen[t.dataset.closed]=!closedOpen[t.dataset.closed];return refresh();}
+// "+ f12": the frame shown, at the start of the line being written.
+if((t=ev.target.closest('[data-addf]'))&&PL){var ta4=t.closest('.rt').querySelector('textarea');if(!ta4)return;var f=frameNo(PL.v,PL.el.currentTime),pos=ta4.selectionStart||0,ls=ta4.value.lastIndexOf(NL,pos-1)+1;
+ta4.value=ta4.value.slice(0,ls)+'[f'+f+'] '+ta4.value.slice(ls);ta4.focus();ta4.setSelectionRange(pos+('[f'+f+'] ').length,pos+('[f'+f+'] ').length);ta4.dispatchEvent(new Event('input',{bubbles:true}));return;}
 if(ev.target.closest('#add-gen'))return generalRetake();
 if((t=ev.target.closest('[data-reply]'))){var k='r:'+t.dataset.reply;editing[k]=true;refresh();
 var ta=$('p-body').querySelector('.rp-t[data-r="'+CSS.escape(t.dataset.reply)+'"]');if(ta)ta.focus({preventScroll:true});return;}
@@ -864,15 +946,18 @@ else if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){t.blur();e.preventDefault();}re
 if(e.altKey||e.ctrlKey||e.metaKey)return;
 if(!$('lb').hidden){if(e.key==='Escape'){closeLb();e.preventDefault();}
 else if(e.key==='ArrowLeft'||e.key==='ArrowRight'){var nb=$('lb').querySelector('[data-lb="'+(e.key==='ArrowLeft'?-1:1)+'"]');if(nb&&!nb.disabled){nb.click();e.preventDefault();}}
-else if(e.key===' '&&$('vp-p')&&e.target.type!=='range'){$('vp-p').click();e.preventDefault();}
-else if((e.key===','||e.key==='.')&&$('vp-fr')){stepFrame(e.key===','?-1:1);e.preventDefault();}return;}
+return;}
+// Watch large: Esc back to the panel; Space, , . and ← → the videos.
+if(!$('wl').hidden){var kk=e.key;if(kk==='Escape')closeWatch();else if(kk===' '&&PL){if(PL.el.paused)PL.el.play();else PL.el.pause();}
+else if(kk===','||kk==='.')stepFrame(kk===','?-1:1);else if(kk==='ArrowLeft'||kk==='ArrowRight')nextVideo(kk==='ArrowLeft'?-1:1);else return;e.preventDefault();return;}
 if(!$('dlg').hidden){if(e.key==='Escape'){$('dlg').hidden=true;e.preventDefault();}return;}
 if(!$('bdw').hidden){if(e.key==='Escape'){breakdown(false);e.preventDefault();}return;}
 // "/": go to a file.
 if(e.key==='/'&&!e.ctrlKey&&!e.metaKey&&!e.altKey){e.preventDefault();$('q').focus();return;}
 if(e.key==='Escape'&&MENUS.some(function(m){return !$(m[1]).hidden;})){closeMenus();return;}
 if(cur==null)return;var k=e.key.toLowerCase();
-if(k==='arrowleft')step(-1);else if(k==='arrowright')step(1);else if(k==='escape')closePanel();
+if(PL&&PL.mode==='panel'&&PL.it===D[cur]&&(k===' '||k===','||k==='.')){if(k===' '){if(PL.el.paused)PL.el.play();else PL.el.pause();}else stepFrame(k===','?-1:1);}
+else if(k==='arrowleft')step(-1);else if(k==='arrowright')step(1);else if(k==='escape')closePanel();
 else if(reviewing()&&k==='v')validateAll();else if(reviewing()&&k==='x')generalRetake();
 else return;e.preventDefault();});
 

@@ -4687,3 +4687,21 @@ review, the phone and the iPad. What holds across them:
   start half a screen down. The figures moved to *Breakdown*, a window.
 - Fonts: Inter, else the system's (not embedded: 350 KB a page). Icons:
   stand-ins drawn here until Blender's own (to come) replace them.
+- **One player** (`PL`, page.js "the player"): its `<video>` made once
+  per file and moved between the panel (`mount(host, "panel")`) and Watch
+  large (`"wide"`) -- moved in the same task, it goes on playing; the
+  panel redrawn (`refresh()`) parks it on the body and puts it back.
+  Controls drawn per place (`plHtml()`), updated by `upd()` from the
+  video's events (and `requestVideoFrameCallback`, a frame at a time).
+  The lightbox keeps the pictures only.
+- **Marks on the timeline** (`marksOf()`): the file's open notes with
+  frames ("f12", "f12-30", lib/snapshot.py `_frames_label()`) on the
+  video's shot or on none, and this review's `[f12]` lines; placed from
+  the render's first frame (`start`) -- none when it's unknown.
+- **Watch large** writes a retake at the frame shown: Enter adds `[fN]
+  text` as a line of the department picked (its name in the column) --
+  the review's own syntax, nothing new to import.
+- **Threads under their department** (`homeOf()`): each note under the
+  first department the file tracks, else *Whole file* -- the separate
+  Notes block and the RTK lines under departments made the same RTK
+  show twice.
