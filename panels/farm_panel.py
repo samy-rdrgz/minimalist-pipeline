@@ -22,7 +22,7 @@ from ..farm import (
 from ..farm.chunks import chunk_frames
 from ..farm.queue import WORKER_GONE_SECONDS
 from ..farm.workers import FARM_PROTOCOL
-from .ui import DETAIL_KEY_COLUMN, details_header, key_value, key_values
+from ..lib.ui import DETAIL_KEY_COLUMN, details_header, key_value, key_values
 from ..lib import (
     format_duration,
     format_pace,

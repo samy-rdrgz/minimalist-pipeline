@@ -8,7 +8,7 @@ import bpy.utils.previews
 
 from ..farm import farm_activity
 from .farm_panel import draw_frame_lookup_button, job_icon
-from .ui import icon_button, link_rows
+from ..lib.ui import icon_button, link_rows
 from ..lib import (
     APPROVAL_SOURCE,
     REVIEW_SOURCE,

@@ -4,6 +4,7 @@ same row -- see read_only_indicator() below."""
 import bpy
 
 from ..farm import get_monitor_cache, this_instance_is_worker
+from ..lib.ui import draw_items
 from ..lib import (
     RecentFilesCache,
     addon_pref,
@@ -101,69 +102,57 @@ class M_PIPELINE_MT_topbar_menu(bpy.types.Menu):
         launch = status != "running"
         stop = status in ("running", "stale")
         worker = this_instance_is_worker()
-        # (operator, text, icon, greyed, its properties); None: a separator.
+        # draw_items(): (operator, text, icon, its properties), None a separator.
         items = [
-            ("m_pipeline.open_file", "Open file", "FILE_BLEND", False, {}),
-            "recent",
+            ("m_pipeline.open_file", "Open file", "FILE_BLEND", {}),
+            ("recent",),
             None,
-            ("m_pipeline.create_asset", "New asset", "ADD", False, {}),
-            ("m_pipeline.create_shot", "New shot", "BLANK1", False, {}),
-            ("m_pipeline.batch_create", "Batch create from CSV", "BLANK1", True, {}),
+            ("m_pipeline.create_asset", "New asset", "ADD", {}),
+            ("m_pipeline.create_shot", "New shot", "BLANK1", {}),
+            ("m_pipeline.batch_create", "Batch create from CSV", "BLANK1", {"greyed": True}),
             None,
-            ("m_pipeline.tracking_monitor", "Tracking monitor", "WORKSPACE", False, {}),
-            ("m_pipeline.export_snapshot", "Snapshot", "BLANK1", False, {}),
-            ("m_pipeline.import_review", "Import review", "BLANK1", False, {}),
+            ("m_pipeline.tracking_monitor", "Tracking monitor", "WORKSPACE", {}),
+            ("m_pipeline.export_snapshot", "Snapshot", "BLANK1", {}),
+            ("m_pipeline.import_review", "Import review", "BLANK1", {}),
             *(
                 [
                     None,
-                    ("wm.safe_save", "Save", "FILE_TICK", False, {}),
-                    ("m_pipeline.increment_version", "Increment", "DUPLICATE", False, {}),
-                    ("m_pipeline.increment_version", "Mark as stable", "CHECKMARK", False, {"tag": "stable"}),
-                    ("m_pipeline.farm_request_render", "Render this file", "RENDER_STILL", False, {"filepath": filepath}),
+                    ("wm.safe_save", "Save", "FILE_TICK", {}),
+                    ("m_pipeline.increment_version", "Increment", "DUPLICATE", {}),
+                    ("m_pipeline.increment_version", "Mark as stable", "CHECKMARK", {"tag": "stable"}),
+                    ("m_pipeline.farm_request_render", "Render this file", "RENDER_STILL", {"filepath": filepath}),
                 ]
                 if this_file
                 else []
             ),
             *(
-                [("m_pipeline.edit_block_structure", "Edit block structure", "BLANK1", True, {"filepath": filepath})]
+                [("m_pipeline.edit_block_structure", "Edit block structure", "BLANK1", {"greyed": True, "filepath": filepath})]
                 if f_type == "shot"
                 else []
             ),
             None,
-            ("m_pipeline.edit_project", "Project settings", "OPTIONS", False, {"project_path_selected": str(project_root)}),
-            ("wm.open_folder", "Open project folder", "BLANK1", False,
+            ("m_pipeline.edit_project", "Project settings", "OPTIONS", {"project_path_selected": str(project_root)}),
+            ("wm.open_folder", "Open project folder", "BLANK1",
              {"filepath": str(project_root), "custom_tooltip": "Open the project's root folder"}),
-            ("m_pipeline.pipeline_logs", "Pipeline log", "BLANK1", True, {}),
+            ("m_pipeline.pipeline_logs", "Pipeline log", "BLANK1", {"greyed": True}),
             None,
-            ("m_pipeline.farm_request_render", "Render", "RENDER_RESULT", False, {}),
-            ("m_pipeline.push_rushes", "Push rushes to editing", "BLANK1", True, {}),
-            ("m_pipeline.farm_monitor", "Farm monitor", "WORKSPACE", False, {}),
-            launch and ("m_pipeline.farm_launch_monitor", "Launch farm", "BLANK1", False, {}),
-            stop and ("m_pipeline.farm_kill_monitor", "Stop farm", "BLANK1", False, {}),
-            ("m_pipeline.farm_kill_self_worker", "Stop this worker", "BLANK1", False, {})
+            ("m_pipeline.farm_request_render", "Render", "RENDER_RESULT", {}),
+            ("m_pipeline.push_rushes", "Push rushes to editing", "BLANK1", {"greyed": True}),
+            ("m_pipeline.farm_monitor", "Farm monitor", "WORKSPACE", {}),
+            launch and ("m_pipeline.farm_launch_monitor", "Launch farm", "BLANK1", {}),
+            stop and ("m_pipeline.farm_kill_monitor", "Stop farm", "BLANK1", {}),
+            ("m_pipeline.farm_kill_self_worker", "Stop this worker", "BLANK1", {})
             if worker
-            else ("m_pipeline.farm_add_self_worker", "Add this machine as worker", "BLANK1", False, {}),
+            else ("m_pipeline.farm_add_self_worker", "Add this machine as worker", "BLANK1", {}),
             None,
-            ("m_pipeline.unset_active_project", "Unset active project", "PANEL_CLOSE", True, {}),
+            ("m_pipeline.unset_active_project", "Unset active project", "PANEL_CLOSE", {"greyed": True}),
         ]
         for item in items:
-            if item is None:
-                layout.separator()
-            elif item == "recent":
+            if item == ("recent",):
                 if RecentFilesCache.get():
                     layout.menu(M_PIPELINE_MT_recent_files.bl_idname, icon="RECOVER_LAST")
-            elif item:
-                idname, text, icon, greyed, props = item
-                op = (_secondary(layout) if greyed else layout).operator(idname, text=text, icon=icon)
-                for key, value in props.items():
-                    setattr(op, key, value)
-
-
-def _secondary(layout):
-    """A greyed (still clickable) line, for the menu's rarely used items."""
-    sub = layout.column()
-    sub.active = False
-    return sub
+            else:
+                draw_items(layout, [item], context)
 
 
 def top_bar_menu(self, context):

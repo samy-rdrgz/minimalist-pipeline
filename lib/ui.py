@@ -74,3 +74,35 @@ def link_rows(col, title: str, links: list, indent: float = 1.5) -> None:
         row.alert = props.pop("alert", False)
         tooltip = props.pop("custom_tooltip", "")
         icon_button(row, idname, icon, tooltip, text=text, **props)
+
+
+def draw_items(layout, items, context=None) -> None:
+    """A column of buttons from a list: (operator, text, icon, props) a
+    button -- props set on it, "greyed": True for a rarely used one (still
+    clickable) --, None a separator, ("tip", text) a box tip, a list of
+    buttons side by side when the region is wide enough. A falsy item (one
+    that doesn't apply) is skipped."""
+    from .core import SIDE_BY_SIDE_WIDTH, draw_box_tip, responsive_layout
+
+    for item in items:
+        if item is None:
+            layout.separator()
+        elif isinstance(item, list):
+            pair = responsive_layout(context, layout, SIDE_BY_SIDE_WIDTH)
+            for button in item:
+                _item_button(pair, *button)
+        elif item and item[0] == "tip":
+            draw_box_tip(layout, context, item[1])
+        elif item:
+            _item_button(layout, *item)
+
+
+def _item_button(layout, idname: str, text: str, icon: str, props: dict | None = None):
+    props = dict(props or {})
+    if props.pop("greyed", False):
+        layout = layout.column()
+        layout.active = False
+    op = layout.operator(idname, text=text, icon=icon)
+    for key, value in props.items():
+        setattr(op, key, value)
+    return op
