@@ -49,3 +49,28 @@ def details_header(layout, back_op: str, title: str, icon: str):
     actions = header.row(align=True)
     actions.alignment = "RIGHT"
     return actions
+
+
+def icon_button(layout, idname: str, icon: str, tooltip: str = "", text: str = "", emboss: bool = False, **props):
+    """An operator button (an icon alone by default, flat): props set on it
+    in order, then its tooltip. Returns the operator's properties."""
+    op = layout.operator(idname, text=text, icon=icon, emboss=emboss)
+    for key, value in props.items():
+        setattr(op, key, value)
+    if tooltip:
+        op.custom_tooltip = tooltip
+    return op
+
+
+def link_rows(col, title: str, links: list, indent: float = 1.5) -> None:
+    """A titled list of flat links, one per row, indented: links as
+    (operator, text, icon, props) -- props set on each, its tooltip under
+    "custom_tooltip" among them."""
+    col.label(text=title, icon="LINKED")
+    for idname, text, icon, props in links:
+        row = col.row(align=True)
+        row.alignment = "LEFT"
+        row.separator(factor=indent)
+        row.alert = props.pop("alert", False)
+        tooltip = props.pop("custom_tooltip", "")
+        icon_button(row, idname, icon, tooltip, text=text, **props)

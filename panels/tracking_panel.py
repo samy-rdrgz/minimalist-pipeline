@@ -8,6 +8,7 @@ import bpy.utils.previews
 
 from ..farm import farm_activity
 from .farm_panel import draw_frame_lookup_button, job_icon
+from .ui import icon_button, link_rows
 from ..lib import (
     APPROVAL_SOURCE,
     REVIEW_SOURCE,
@@ -686,12 +687,7 @@ def draw_file_details(state, context, layout):
 
     row_left = row.box().row(align=True)
     row_left.alignment = "LEFT"
-    row_left.operator(
-        "m_pipeline.tracking_file_details",
-        text="",
-        icon="BACK",
-        emboss=False,
-    )
+    row_left.operator("m_pipeline.tracking_file_details", text="", icon="BACK", emboss=False)
 
     filepath = monitoring_detail("file")
 
@@ -703,22 +699,17 @@ def draw_file_details(state, context, layout):
     # draw_pager()'s label.
     rank, count = position_in_list("project", filepath)
     if count > 1 and rank:
-        prev = row_left.row(align=True)
-        prev.enabled = rank > 1
-        prev.operator(
-            "m_pipeline.monitoring_page", text="", icon="TRIA_LEFT", emboss=False
-        ).step = -1
-        text = f"{rank} / {count}"
-        label = row_left.row(align=True)
-        label.active = False
-        label.ui_units_x = 0.35 * len(text) + 0.6
-        label.alignment = "CENTER"
-        label.label(text=text)
-        nxt = row_left.row(align=True)
-        nxt.enabled = rank < count
-        nxt.operator(
-            "m_pipeline.monitoring_page", text="", icon="TRIA_RIGHT", emboss=False
-        ).step = 1
+        for step, icon in ((-1, "TRIA_LEFT"), (0, ""), (1, "TRIA_RIGHT")):
+            cell = row_left.row(align=True)
+            if step:
+                cell.enabled = rank > 1 if step < 0 else rank < count
+                icon_button(cell, "m_pipeline.monitoring_page", icon, step=step)
+                continue
+            text = f"{rank} / {count}"
+            cell.active = False
+            cell.ui_units_x = 0.35 * len(text) + 0.6
+            cell.alignment = "CENTER"
+            cell.label(text=text)
 
     data = TrackingStatusCache.get(filepath)
     description = get_description(Path(filepath))
@@ -743,60 +734,28 @@ def draw_file_details(state, context, layout):
 
     row_right = row.box().row(align=False)
     row_right.alignment = "RIGHT"
-    row_right.operator(
-        "m_pipeline.edit_description",
-        text="",
-        icon="GREASEPENCIL",
-        emboss=False,
-    ).filepath = filepath
-
-    row_right.operator(
-        "m_pipeline.open_file_version",
-        text="",
-        icon=safe_icon("FILE_ALIAS", "FILE_BLEND"),
-        emboss=False,
-    ).filepath = str(filepath)
-
-    op = row_right.operator("wm.open_folder", text="", icon="FILE_FOLDER", emboss=False)
-    op.filepath = str(filepath)
-    op.custom_tooltip = "Open this file's folder"
-
     root = get_active_project_root()
-    if root:
-        op = row_right.operator(
-            "wm.open_folder", text="", icon="RENDER_STILL", emboss=False
-        )
+    try:
+        is_block = is_shot and len(shots_in_segment(shot_name[len(shot_prefix) :])) > 1
+    except ValueError:
+        is_block = False
+    for idname, icon, tooltip, props, shown in (
+        ("m_pipeline.edit_description", "GREASEPENCIL", "", {"filepath": filepath}, True),
+        ("m_pipeline.open_file_version", safe_icon("FILE_ALIAS", "FILE_BLEND"), "", {"filepath": str(filepath)}, True),
+        ("wm.open_folder", "FILE_FOLDER", "Open this file's folder", {"filepath": str(filepath)}, True),
         # Pure path work, no resolve() in a draw(): renders/<seq>/<shot> for
         # a shot, renders/assets/... for an asset.
-        op.filepath = str(render_root(root, Path(filepath)))
-        op.custom_tooltip = "Open this file's render folder"
-
-    if is_shot:
-        try:
-            is_block = len(shots_in_segment(shot_name[len(shot_prefix) :])) > 1
-        except ValueError:
-            is_block = False
-        if is_block:
-            op = row_right.operator(
-                "m_pipeline.compile_preview",
-                text="",
-                icon="RENDER_ANIMATION",
-                emboss=False,
-            )
-            op.scope = "block"
-            op.filepath = filepath
-            op.custom_tooltip = (
-                "Compile a disposable preview from just this block's own shots."
-            )
-
-        op = row_right.operator(
-            "m_pipeline.compile_preview", text="", icon="SEQUENCE", emboss=False
-        )
-        op.scope = "sequence"
-        op.filepath = filepath
-        op.custom_tooltip = (
-            "Compile a disposable preview from every rendered shot in this sequence."
-        )
+        ("wm.open_folder", "RENDER_STILL", "Open this file's render folder",
+         {"filepath": str(render_root(root, Path(filepath))) if root else ""}, bool(root)),
+        ("m_pipeline.compile_preview", "RENDER_ANIMATION",
+         "Compile a disposable preview from just this block's own shots.",
+         {"scope": "block", "filepath": filepath}, is_block),
+        ("m_pipeline.compile_preview", "SEQUENCE",
+         "Compile a disposable preview from every rendered shot in this sequence.",
+         {"scope": "sequence", "filepath": filepath}, is_shot),
+    ):
+        if shown:
+            icon_button(row_right, idname, icon, tooltip, **props)
 
     total_seconds = WorkTimeCache.get(filepath)
     if total_seconds:
@@ -878,48 +837,32 @@ def draw_file_details(state, context, layout):
         if linked:
             # One entry per linked file; grouped by folder -- more than one
             # means several versions of the same asset linked.
-            by_folder: dict[Path, list[dict]] = {}
+            by_folder: dict[Path, list[str]] = {}
             for entry in linked:
                 if entry.get("file"):
                     by_folder.setdefault(project_path(entry["file"]).parent, []).append(
-                        entry
+                        Path(entry["file"]).name
                     )
-
-            links_col.label(text="Links to:", icon="LINKED")
             # A link to an older version than its folder's latest stable.
             newer = dict(outdated_links(filepath))
-            for lib_dir, entries in by_folder.items():
-                row = links_col.row(align=True)
-                row.alignment = "LEFT"
-                row.separator(factor=1.5)
-                names = [Path(e["file"]).name for e in entries]
-                old = [n for n in names if n in newer]
-                row.alert = bool(old)
-                op = row.operator(
+            link_rows(links_col, "Links to:", [
+                (
                     "m_pipeline.tracking_file_details",
-                    text=f"{lib_dir.name} ({len(entries)})"
-                    if len(entries) > 1
-                    else lib_dir.name,
-                    icon="LIBRARY_DATA_BROKEN" if old else "BLANK1",
-                    emboss=False,
+                    f"{lib_dir.name} ({len(names)})" if len(names) > 1 else lib_dir.name,
+                    "LIBRARY_DATA_BROKEN" if any(n in newer for n in names) else "BLANK1",
+                    {
+                        "filepath": str(lib_dir),
+                        "custom_tooltip": "\n".join(f"{n} -> {newer[n]} available" if n in newer else n for n in names),
+                        "alert": any(n in newer for n in names),
+                    },
                 )
-                op.filepath = str(lib_dir)
-                op.custom_tooltip = "\n".join(
-                    f"{n} -> {newer[n]} available" if n in newer else n for n in names
-                )
+                for lib_dir, names in by_folder.items()
+            ])
         if linked_by:
-            links_col.label(text="Linked by:", icon="LINKED")
-            for folder in linked_by:
-                row = links_col.row(align=True)
-                row.alignment = "LEFT"
-                row.separator(factor=1.5)
-                op = row.operator(
-                    "m_pipeline.tracking_file_details",
-                    text=folder.name,
-                    icon="BLANK1",
-                    emboss=False,
-                )
-                op.filepath = str(folder)
+            link_rows(links_col, "Linked by:", [
+                ("m_pipeline.tracking_file_details", folder.name, "BLANK1", {"filepath": str(folder)})
+                for folder in linked_by
+            ])
 
     layout.separator(factor=1)
     _draw_renders_to_check(layout, filepath, data)
