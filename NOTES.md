@@ -3889,7 +3889,8 @@ the right of the same window. Tried first outside the addon in Blender
 - **A list made narrow** (`list_is_narrow()`: under `_NAMES_ONLY_WIDTH`,
   600 px at scale 1) draws its names only -- a navigator beside a wide
   detail --, its filters stacked on three rows and no legend: side by
-  side they were crushed. Farm's lists are left as they are.
+  side they were crushed; their two extra rows are taken off the page
+  (`_STACKED_FILTERS_UNITS`), the footer kept in view. Farm's lists are left as they are.
 - `list_area()` replaces "the biggest area" where the list is meant
   (bringing a window to the front duplicates the list's editor).
 
