@@ -219,8 +219,7 @@ def _pace_source(pace: dict) -> str:
         n = pace.get("renders") or 0
         return f"average of {n} {pace.get('preset') or 'default'} render{'s' if n > 1 else ''}"
     if basis == "other":
-        other = pace.get("other_preset")
-        return f"from a {other or 'default'} render" if other is not None else "preset unknown"
+        return f"from a {pace.get('other_preset') or 'default'} render"
     return ""
 
 

@@ -17,6 +17,7 @@ from ..operators import (
     project_ops,
     shot_ops,
 )
+from ..operators.migration_ops import project_needs_migration
 
 
 class M_PIPELINE_PT_project_panel(bpy.types.Panel):
@@ -81,6 +82,14 @@ class M_PIPELINE_PT_project_panel(bpy.types.Panel):
                 warn.label(
                     text=f"Blender {mismatch[1]} -- project is {mismatch[0]}",
                     icon="ERROR",
+                )
+                layout.separator()
+            if project_needs_migration():
+                warn = layout.row()
+                warn.alert = True
+                warn.label(text="Data from an older version: migrate it", icon="ERROR")
+                layout.operator(
+                    "m_pipeline.migrate_data", text="Migrate old data...", icon="FILE_REFRESH"
                 )
                 layout.separator()
             # Side by side when the sidebar is wide enough.

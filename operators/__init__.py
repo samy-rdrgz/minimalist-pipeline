@@ -28,6 +28,7 @@ from .farm_ops import (
     PIPELINE_PG_render_subshot_item,
 )
 from .file_ops import M_PIPELINE_OT_increment_version
+from .migration_ops import M_PIPELINE_OT_migrate_data, M_PIPELINE_OT_migrate_data_confirm
 from .owner_ops import M_PIPELINE_OT_delete_owner, M_PIPELINE_OT_delete_owner_pick
 from .render_clean_ops import (
     M_PIPELINE_OT_clean_renders,
@@ -100,6 +101,8 @@ classes = (
     M_PIPELINE_OT_delete_owner,
     M_PIPELINE_OT_clean_renders,
     M_PIPELINE_OT_clean_renders_confirm,
+    M_PIPELINE_OT_migrate_data,
+    M_PIPELINE_OT_migrate_data_confirm,
     M_PIPELINE_OT_monitoring_back,
     M_PIPELINE_OT_monitoring_page,
     M_PIPELINE_OT_monitoring_refresh,

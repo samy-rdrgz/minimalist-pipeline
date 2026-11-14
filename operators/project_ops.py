@@ -19,6 +19,7 @@ from ..lib import (
     find_project_root,
     get_addon_version,
     get_config_filepath,
+    get_user,
     install_default_ffmpeg_preset,
     install_default_preset,
     json_get,
@@ -35,6 +36,7 @@ from ..lib import (
     validation_roles,
     warn_blender_version_mismatch,
 )
+from ..lib.migration import migration_record
 from .farm_ops import (
     _NO_SCRIPT,
     _stable_enum_items,
@@ -174,6 +176,8 @@ class M_PIPELINE_OT_create_project(bpy.types.Operator):
         config["project_name"] = self.project_name
         config["pipeline_addon_version"] = get_addon_version()
         config["blender_version"] = str(bpy.app.version)
+        # Its data is this version's from the start: nothing to migrate.
+        config["data_migrations"] = migration_record(get_user(context))
 
         config_file = get_config_filepath(project_root)
         try:

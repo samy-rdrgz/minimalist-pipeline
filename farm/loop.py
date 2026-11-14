@@ -519,18 +519,20 @@ def history_pace(
     shot first for a block's (basis "file"); else that script's average
     over the project's last renders ("project"); else its file's latest
     finished render whatever the script ("other", its script in
-    "other_preset", None if unrecorded). {"seconds_per_frame", "render",
-    "basis", ...}, None without any. Pure."""
+    "other_preset"). {"seconds_per_frame", "render", "basis", ...}, None
+    without any -- a render from before 1.1.7, its script unrecorded, isn't
+    one. Pure."""
     done = [
         e
         for e in history
         if isinstance(e, dict)
         and e.get("status") == "finished"
         and e.get("seconds_per_frame")
+        and "prerender_script" in e
     ]
     if shot:
         done.sort(key=lambda e: e.get("shot_override") == shot)  # stable: latest last
-    same = [e for e in done if e.get("prerender_script", None) == preset]
+    same = [e for e in done if e["prerender_script"] == preset]
     average = (averages or {}).get(preset or "")
     if same:
         pick, basis = same[-1], "file"
@@ -551,7 +553,7 @@ def history_pace(
         "seconds_per_frame": pick["seconds_per_frame"],
         "render": Path(output).parent.name if output else "",
         "basis": basis,
-        "other_preset": pick.get("prerender_script"),
+        "other_preset": pick["prerender_script"],
     }
 
 

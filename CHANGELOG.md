@@ -12,8 +12,21 @@ All notable changes to this addon. Dates are release dates.
   job's lines), the Workers view and a window too small for its list
   still scroll. Switchable in the preferences (Shortcuts).
 
+- **Migrate old data** (Edit project > Maintenance): a project from
+  before 1.2 is migrated once, every machine updated first -- the
+  Project panel says so until then. What older versions wrote is
+  completed as this one writes it (a stable's validations carried and
+  started departments, a note's departments, links one per file, a
+  render's folder, source file, shot and frames); each file changed is
+  backed up first under `backup/migration-<date>/`. This version reads
+  only that form.
+
 ### Changed
 
+- Farm: a machine on another addon version gets no render (said in the
+  log and in Worker details) -- every machine is updated together.
+- A render's estimate no longer comes from a render made before 1.1.7,
+  whose preset wasn't recorded.
 - Farm monitoring: a render no machine is on any more -- every machine
   allowed on it failed it (a scene too big for their GPU), or they're
   busy elsewhere -- reads *waiting for a worker* again, under the

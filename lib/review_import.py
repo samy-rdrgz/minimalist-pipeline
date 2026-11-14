@@ -428,7 +428,7 @@ def _known_notes(filepath: Path, author: str, source: str = REVIEW_SOURCE) -> se
             e.get("shot"),
             e.get("frame_start"),
             e.get("frame_end"),
-            e.get("departments") or [e.get("department")],
+            e.get("departments") or [],
         )
         for e in (read_json_quiet(tracking_json_path(filepath)) or {}).get("entries", [])
         if e.get("source") == source and e.get("author") == author

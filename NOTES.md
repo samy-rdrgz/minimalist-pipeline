@@ -4279,3 +4279,46 @@ Blender 4.2 has the operator and the key (its `incremental` property),
 not `show_save_modified_images_dialog` (5.0): passed only when the
 operator has it. Checked headless on 4.2.0 and 5.2.
 
+
+## Migration 1.2: one form of data
+
+Until 1.1.10 every reader of a project's data also read what older
+versions wrote: a stable without `departments_started` (`_started_before()`
+walked every stable and wipmeta), one made before validations were carried
+(`_legacy_carried()` on every read, and a "blind" `_worked_since()` through
+a stable made from a stable, falling back on RTK dates), an entry's single
+`department`, a per-datablock `linked` list with Blender's own files in it,
+a render history entry without `source_file` / `output_path` (skipped, the
+latest folder by name taken instead). The state engine of 1.2 would have
+been their main reader. So the readers know one form, and `lib/migration.py`
+completes the old data once (Edit project > Maintenance > *Migrate old
+data*), with the deductions those readers made:
+
+- Every answer is computed from the files as found, before any is written:
+  a stable's carried validations depend on the stables after it as they
+  were. The old functions moved there, as they were, with their own
+  `_entry_departments()` (reading `department` too: the tracking one now
+  reads only `departments`).
+- A render from before 1.0.11 has no `output_path`: matched by time to the
+  render folder no other entry names whose *newest file* (its video, its
+  last frame) is closest to its `completed_at`, within 30 min -- not the
+  folder's own time, which Clean old renders moves. None that close: left
+  as it is, and the readers skip a finished entry without `output_path`
+  (it names no render). Its `source_file`: the owner's .blend of that
+  version (in `old/` too), else built from the owner's other file names.
+- Backups: never beside the file -- one `backup/migration-<date>/` at the
+  root with each file at its relative path, so a checked migration is
+  cleaned by deleting one folder.
+- `data_migrations` in the config marks it done (and a project created by
+  1.2, from the start); until then the Project panel and Maintenance say
+  so. Not done when a file couldn't be written: run it again, it only
+  touches what's still old.
+- Checked without Blender by reading a made-up old project with the 1.1.10
+  code and the migrated one with this code: the same status, validations
+  carried, worked since, started, entry departments; a render before
+  1.0.11 now knows its source file. The 1.2 format changes (dates with
+  their offset, `departments_worked` per session with its date) are to be
+  added as steps here.
+- Kept: `_folder_frames()` (a render folder's range from its images'
+  names) also serves a render with no history at all; `ordered_departments()`
+  on reading `departments_required`, since Edit project may reorder.
