@@ -131,6 +131,8 @@ class M_PIPELINE_PT_monitoring(_MonitoringPanel, bpy.types.Panel):
             outdated.prop(state, "only_outdated", text="", icon="LIBRARY_DATA_BROKEN")
         filters_btn.prop(state, "sort", text="", icon="SORTTIME")
         filters_btn.menu("M_PIPELINE_MT_monitor_columns", text="", icon="HIDE_OFF")
+        # Full screen on / off -- this window's (Alt+F11 too).
+        filters_btn.operator("wm.window_fullscreen_toggle", text="", icon="FULLSCREEN_ENTER")
 
         layout.separator(factor=0.5)
         draw_monitor_table(state, context, layout, columns, get_active_project_root())
@@ -161,6 +163,7 @@ class M_PIPELINE_PT_farm_monitoring(_MonitoringPanel, bpy.types.Panel):
         op = tabs.operator("wm.open_folder", text="", icon="FILE_FOLDER", emboss=False)
         op.filepath = str(ConfigCache.get_path("farm"))
         op.custom_tooltip = "Open the farm's folder (config/.farm: queue, workers, logs)"
+        tabs.operator("wm.window_fullscreen_toggle", text="", icon="FULLSCREEN_ENTER", emboss=False)
         if state.view == "jobs":
             job_filters = filter_box.split(factor=0.5)
             job_filters.prop(state, "search", text="", icon="VIEWZOOM")

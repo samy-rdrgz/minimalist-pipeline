@@ -4650,12 +4650,14 @@ started and Done reworked shared one icon.
 ## Monitoring windows full screen
 
 window_new() opens at 95 x 90 % of the main window, and no API sizes or
-maximizes a window. Project and Farm monitoring open full screen
-(`open_monitoring_window(size="full")`): `wm.window_fullscreen_toggle` in
-the new window's context, a timer later (`_full_screen()`) -- Alt+F11
-makes it a window again; on Windows, ShowWindow(SW_MAXIMIZE) instead, its
-title bar kept. A window brought to the front by a copy
-(`_duplicate_window()`) keeps the old one's size.
+maximizes a window. On Windows, Project and Farm monitoring open
+maximized (`open_monitoring_window(size="full")`: ShowWindow(SW_MAXIMIZE),
+its title bar kept). Elsewhere they open at Blender's size: opened full
+screen (`wm.window_fullscreen_toggle`, a first try), the window had no
+title bar to drag it to another screen. A button beside the filters (the
+columns' eye; Farm's view tabs) toggles full screen in that window, Alt+F11
+too. A window brought to the front by a copy (`_duplicate_window()`)
+keeps the old one's size.
 
 ## Snapshot page v3
 

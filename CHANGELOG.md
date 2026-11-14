@@ -19,8 +19,8 @@ All notable changes to this addon. Dates are release dates.
   has no room.
 - *Which machine, which frame...* in File details: a *Render* menu to
   pick any of the file's farm renders, not only the last.
-- Project monitoring and Farm monitoring open full screen (maximized on
-  Windows).
+- Project monitoring and Farm monitoring open maximized on Windows; a
+  button beside their filters toggles full screen.
 - *On hold* / *Cancelled* (File details): a file paused or dropped, with a why --
   kept in the lists, greyed, out of the figures, the Retakes and To
   validate filters and the stages.
