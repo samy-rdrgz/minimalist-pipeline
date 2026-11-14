@@ -3850,6 +3850,23 @@ around one idea: a list to scan, a panel to read one file.
   unfolded under rows, per-shot hover buttons in the list (the panel has
   every shot's picture).
 
+## State engine
+
+A department's state was worked out in two places in Python (the
+snapshot's `_department_state()`, Project monitoring's cell) and its
+words in a third (page.js `LABEL`). Phase 3 adds Waiting, To redo and
+Omit: one place first (3A, behaviour unchanged), `lib/status.py`:
+
+- `department_state(facts, department)`: todo / wip / done / rework from
+  the facts `_status_from_raw()` gathers -- validated at the latest
+  stable, worked since, started before. `STATE_LABELS` their words.
+- `department_score()`, `progress_weights()`, `file_progress()`: a
+  department's share done and a file's (moved from lib/snapshot.py,
+  which re-exports `PROGRESS_WEIGHTS` / `progress_weights`).
+- Pure (no bpy, no disk): tests/test_status.py checks each state from its
+  facts. The page still gets each state computed (`item.states`); its JS
+  twin comes with the live stats (phase 4), checked on shared cases.
+
 ## Monitoring: the detail beside the list
 
 A detail (a file in Project monitoring, a job or a worker in Farm

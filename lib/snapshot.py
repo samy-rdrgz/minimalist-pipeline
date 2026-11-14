@@ -13,6 +13,13 @@ from .config import (
     validation_roles,
 )
 from .core import iso_timestamp, json_get, now, parse_iso, read_json_quiet, time_key
+from .status import (  # noqa: F401 -- PROGRESS_WEIGHTS, progress_weights: re-exported
+    PROGRESS_WEIGHTS,
+    department_score,
+    department_state,
+    file_progress,
+    progress_weights,
+)
 from .preview import LD_DIR, browser_video, ensure_ld, latest_render_dir, render_root
 from .schedule import project_schedule, schedule_progress
 from .thumbnails import (
@@ -39,11 +46,6 @@ from .tracking import (
 # only (review_import._check_schema()). History in NOTES.md, "Review import:
 # this version's reviews only".
 SCHEMA_VERSION = 7
-
-# Share of a department counted as done per state, in % -- the project's
-# "snapshot.progress" (Edit project) overrides each. Validated counts 100,
-# not started 0. "rtk": validated, with an open RTK.
-PROGRESS_WEIGHTS = {"wip": 33, "rework": 67, "rtk": 67}
 
 # Entry "source" stamped on every note imported from a review template.
 REVIEW_SOURCE = "prod_review"
@@ -448,7 +450,7 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
             "description": status.get("description", ""),
             "departments_required": list(status.get("departments_required", [])),
             "departments": {
-                d: _department_state(status, d)
+                d: department_state(status, d)
                 for d in status.get("departments_required", [])
             },
             "wip_version": wip_name,
@@ -526,7 +528,7 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
         item["rtk_departments"] = sorted(rtk_departments)
         # On no department (a general retake): the "n RTK" flag by the name
         # is red-outlined; it weighs on Done as one department's RTK would
-        # (_progress()), never on each department's.
+        # (file_progress()), never on each department's.
         item["general_rtk"] = any(not e["departments"] for e in open_rtks)
         # Per done department: its validations at the stable shown, and the
         # last ones given to an earlier stable (to review again).
@@ -541,10 +543,10 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
         }
         # Per department, then their mean: the footer averages the first.
         item["scores"] = {
-            d: _department_score(st, d in rtk_departments, weights)
+            d: department_score(st, d in rtk_departments, weights)
             for d, st in item["departments"].items()
         }
-        item["progress"] = _progress(item, weights)
+        item["progress"] = file_progress(item, weights)
         # Apart from Done: the share of the required departments the top
         # role (or an equivalent one) validated at the stable shown.
         item["validated"] = {
@@ -592,54 +594,6 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
         "shots": items["shot"],
         "notes": notes,
     }
-
-
-def _department_state(status: dict, department: str) -> str:
-    """done / rework (validated at the latest stable, worked since or not),
-    wip (worked since, or started before: validated at an earlier stable or
-    worked before the latest one), todo (never)."""
-    validated = department in status.get("validated_departments", {})
-    worked = department in status.get("worked_departments", {})
-    if validated:
-        return "rework" if worked else "done"
-    started = department in status.get("started_departments", ())
-    return "wip" if worked or started else "todo"
-
-
-def progress_weights(config: dict) -> dict[str, int]:
-    """PROGRESS_WEIGHTS with the project's own values, each kept 0..100."""
-    out = {}
-    for key, default in PROGRESS_WEIGHTS.items():
-        try:
-            value = int(json_get(config, f"snapshot.progress.{key}", default))
-        except (TypeError, ValueError):
-            value = default
-        out[key] = max(0, min(100, value))
-    return out
-
-
-def _progress(item: dict, weights: dict) -> float | None:
-    """A file's Done: its departments' mean, a general retake counting as
-    an RTK on one of them -- a done one with none of its own (none such:
-    it changes nothing, like an RTK on a department not done)."""
-    scores = item["scores"]
-    if not scores:
-        return None
-    total = sum(scores.values())
-    if item.get("general_rtk") and any(
-        st == "done" and d not in item["rtk_departments"]
-        for d, st in item["departments"].items()
-    ):
-        total -= 1 - weights["rtk"] / 100
-    return total / len(scores)
-
-
-def _department_score(state: str, open_rtk: bool, weights: dict) -> float:
-    """One department's share done, 0..1: validated 1 (its "rtk" weight
-    with an open RTK), not started 0, else its state's weight."""
-    if state == "done":
-        return weights["rtk"] / 100 if open_rtk else 1.0
-    return weights.get(state, 0) / 100
 
 
 def top_validation_role(roles: list) -> str | None:

@@ -147,6 +147,8 @@ minimalist_pipeline/
 │   │                            #   resolve_sequence_sources
 │   ├── saving.py               # WM_OT_safe_save (Ctrl+S override)
 │   ├── logs.py                 # log(), read_log_tail()
+│   ├── status.py               # State engine: department_state(), STATE_LABELS,
+│   │                            #   department_score(), file_progress(), progress_weights()
 │   ├── monitoring.py           # Project/Farm monitoring windows: open_monitoring_window(),
 │   │                            #   monitoring_windows(), _monitoring_tick, open_mainfile();
 │   │                            #   the detail beside the list: sync_detail_zones(),

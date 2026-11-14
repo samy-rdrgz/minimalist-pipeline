@@ -60,6 +60,7 @@ from ..lib import (
     time_key,
     validation_roles,
 )
+from ..lib.status import STATE_LABELS, department_state
 from ..lib.ui import icon_button, link_rows
 from .farm_panel import draw_frame_lookup_button, job_icon
 
@@ -1122,16 +1123,11 @@ def _department_cell(file: dict, department: str) -> tuple[str, str, str | None]
     since -- "Done · prod" once validated by a role), done and reworked
     since, in progress (worked since, or validated / worked before the
     latest stable), not started. Labels as the snapshot page's."""
-    validated = department in file["validated_departments"]
-    worked = department in file["worked_departments"]
-    if validated and not worked:
+    state = department_state(file, department)
+    if state == "done":
         best = highest_approval(file, department)
         return (f"Done · {best}", "SOLO_ON", best) if best else ("Done", "CHECKMARK", None)
-    if validated:
-        return "Done, reworked since", "CHECKBOX_DEHLT", None
-    if worked or department in file.get("started_departments", ()):
-        return "In progress", "CHECKBOX_DEHLT", None
-    return "Not started", "CHECKBOX_DEHLT", None
+    return STATE_LABELS[state], "CHECKBOX_DEHLT", None
 
 
 def _equal_cells(layout, count: int) -> list:
