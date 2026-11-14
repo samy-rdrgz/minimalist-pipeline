@@ -3989,15 +3989,20 @@ the right of the same window. Tried first outside the addon in Blender
   without one says to click a row. The keys follow the zone under the
   mouse (`_showing_detail(kind, context)`): pages on the list, scroll and
   ← / → between files on the detail; Esc closes from either.
-- **What fits in the list** (`draw_monitor_table()`): each cell's width
-  from the area's and the number of columns shown -- a fixed width
-  ignored it, and a project with many departments had its words crushed
-  on their icons. Under `_CELL_TEXT_WIDTH` (105 px at scale 1) a cell is
-  its icon alone, its words first in the tooltip; under `_CELL_ICON_WIDTH`
-  (40 px: an icon and its margin), or the names' column under
-  `_NAME_MIN_WIDTH` (110 px), the names alone. The list's zone narrowed under 600 px
-  (`list_is_narrow()`) also stacks its filters on three rows and drops the
-  legend; those two rows are taken off the page
+- **What fits in the list** (`_column_widths()`, from the page shown):
+  the names as wide as the longest's letters (`_NAME_ICONS_WIDTH` + 7 px a
+  letter, a quarter to 45 % of the row), the Farm column as its most
+  icons (`_FARM_MIN_WIDTH`, `_FARM_ICON_WIDTH` each), the departments
+  sharing the rest (`_cells()`: splits by width). Equal shares had the
+  first department touching a long name and a block's Farm icons crushed.
+  Narrowing, the names give way first, down to `_NAME_MIN_WIDTH` (110 px
+  at scale 1). Under `_CELL_TEXT_WIDTH` (105 px) a cell is its marks
+  alone, its words first in the tooltip; under `_CELL_ICON_WIDTH` (48 px:
+  a retake's mark and the state's), the names alone. An open RTK is its
+  red mark (clickable: its retakes) before the state's, not the cell in
+  alert -- the red emboss covered half of a mark. The list's zone
+  narrowed under 600 px (`list_is_narrow()`) also stacks its filters on
+  three rows and drops the legend; those two rows are taken off the page
   (`_STACKED_FILTERS_UNITS`), the footer kept in view.
 - **Columns shown**: Filters' eye menu (`M_PIPELINE_MT_monitor_columns`,
   `M_PIPELINE_OT_monitor_column_toggle`) ticks each department and Farm;

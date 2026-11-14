@@ -887,12 +887,17 @@ def draw_file_details(state, context, layout):
 # table header, footer, margins), in widget units -- see rows_that_fit().
 _TABLE_RESERVED_UNITS = 6.5
 _STACKED_FILTERS_UNITS = 2.0
-# A status cell's width (px at UI scale 1): under the first, its icon
-# alone; under the second, no cell at all (the names alone).
+# A status cell's width (px at UI scale 1): under the first, its marks
+# alone; under the second (a retake's mark and the state's), no cell at all
+# (the names alone).
 _CELL_TEXT_WIDTH = 105
-_CELL_ICON_WIDTH = 40
-# Narrower, the names' own column: the names alone, all the width.
+_CELL_ICON_WIDTH = 48
+# The names' column: its least, then what its icons and buttons take
+# beside a name's letters. The Farm column: its least, then per icon.
 _NAME_MIN_WIDTH = 110
+_NAME_ICONS_WIDTH = 70
+_FARM_MIN_WIDTH = 70
+_FARM_ICON_WIDTH = 22
 _TABLE_TIP = (
     "Click a file for its details (Ctrl+click the Project monitoring button: "
     "the file open here). Each department's state since the last stable, "
@@ -1003,40 +1008,13 @@ def draw_monitor_table(self, context, layout, columns, project_root):
     blank rows: the footer stays at its bottom."""
     activity = farm_activity()
     matches, filters = monitor_matches(self, context, project_root, activity)
-    FIRST_COLUMN = 0.3
-    # The columns shown (Filters > the columns menu), then what fits: each
-    # cell's width from their number -- under _CELL_TEXT_WIDTH its icon
-    # alone (its words in the tooltip), under _CELL_ICON_WIDTH the names
-    # alone (1.0: no other column). See NOTES.md, "Monitoring: the detail
-    # beside the list".
+    # The columns shown (Filters > the columns menu).
     hidden = set(filter(None, self.hidden_columns.split(",")))
     columns = [c for c in columns if c not in hidden]
     show_farm = "farm" not in hidden
     narrow = list_is_narrow(context)
-    count = len(columns) + show_farm
     scale = context.preferences.system.ui_scale or 1.0
-    cell = context.region.width * (1 - FIRST_COLUMN) / max(count, 1) / scale
-    icon_only = cell < _CELL_TEXT_WIDTH
-    names = context.region.width * FIRST_COLUMN / scale
-    if not count or cell < _CELL_ICON_WIDTH or names < _NAME_MIN_WIDTH:
-        FIRST_COLUMN = 1.0
-
     total = len(matches)
-
-    draw_box_tip(layout, context, _TABLE_TIP)
-    f_list = layout.box()
-    title_list = f_list.split(factor=FIRST_COLUMN) if FIRST_COLUMN < 1 else f_list.row()
-    title_list.active = False
-    title_list.label(text="File", icon="RADIOBUT_ON")
-    if FIRST_COLUMN < 1:
-        cells = _equal_cells(title_list.row(), count)
-        for c_layout, c in zip(cells, columns):
-            c_layout.label(text=c.capitalize(), icon="KEYFRAME_HLT")
-        if show_farm:
-            cells[-1].label(text="Farm", icon="RENDER_ANIMATION")
-
-    f_list.separator(factor=1)
-
     per_page = rows_that_fit(
         context,
         _TABLE_RESERVED_UNITS
@@ -1048,13 +1026,32 @@ def draw_monitor_table(self, context, layout, columns, project_root):
     shown, page, pages = paginate(
         "project", matches, per_page, filters, key=lambda m: str(m[0])
     )
+    # What fits, from the page's own names and Farm icons.
+    FIRST_COLUMN, shares, icon_only = _column_widths(
+        context.region.width / scale, shown, len(columns), show_farm, activity
+    )
+
+    draw_box_tip(layout, context, _TABLE_TIP)
+    f_list = layout.box()
+    title_list = f_list.split(factor=FIRST_COLUMN) if FIRST_COLUMN < 1 else f_list.row()
+    title_list.active = False
+    title_list.label(text="File", icon="RADIOBUT_ON")
+    if FIRST_COLUMN < 1:
+        cells = _cells(title_list.row(), shares)
+        for c_layout, c in zip(cells, columns):
+            c_layout.label(text=c.capitalize(), icon="KEYFRAME_HLT")
+        if show_farm:
+            cells[-1].label(text="Farm", icon="RENDER_ANIMATION")
+
+    f_list.separator(factor=1)
+
     for dir, file in shown:
         _draw_monitor_row(
-            self, f_list, dir, file, columns, FIRST_COLUMN, activity.get(owner_key(dir)),
+            self, f_list, dir, file, columns, FIRST_COLUMN, shares, activity.get(owner_key(dir)),
             icon_only=icon_only, show_farm=show_farm,
         )
     for _ in range(per_page - len(shown)):
-        _draw_monitor_blank_row(f_list, count, FIRST_COLUMN)
+        _draw_monitor_blank_row(f_list, shares, FIRST_COLUMN)
 
     footer, pager = split_footer(context, f_list.row())
     # Dimmed, except the legend: its colours are the point.
@@ -1089,8 +1086,42 @@ def draw_monitor_table(self, context, layout, columns, project_root):
             for icon, text in group:
                 legend.label(text=text, **icon_kw(icon))
     else:
-        footer.menu("M_PIPELINE_MT_monitor_legend", text="Legend", icon="INFO")
+        button = footer.row()
+        button.ui_units_x = 5  # its words, not "Leg..."
+        button.menu("M_PIPELINE_MT_monitor_legend", text="Legend", icon="INFO")
     draw_pager(pager, page, pages)
+
+
+def _column_widths(width: float, shown: list, departments: int, show_farm: bool, activity: dict) -> tuple:
+    """(the names' share of a row, each other column's width, marks alone)
+    for a list width px wide (UI scale 1) showing shown: the names as wide
+    as the longest's letters (a quarter to 45 % of the row), the Farm
+    column as its most icons, the departments sharing the rest -- the
+    names giving way first. Too narrow even so: the names alone, (1.0, [],
+    False). See NOTES.md, "Monitoring: the detail beside the list"."""
+    longest = max(
+        (len(f.get("file_name", "")) + (10 if omitted(f) else 0) for _, f in shown), default=12
+    )
+    names = min(max(_NAME_ICONS_WIDTH + 7 * longest, 0.25 * width), 0.45 * width)
+    farm = 0
+    if show_farm:
+        icons = max(
+            (
+                len(_to_check_lines(f)) * 2 + len(activity.get(owner_key(d)) or [])
+                for d, f in shown
+            ),
+            default=0,
+        )
+        farm = max(_FARM_MIN_WIDTH, 30 + _FARM_ICON_WIDTH * icons)
+    if departments and (width - names - farm) / departments < _CELL_ICON_WIDTH:
+        names = max(_NAME_MIN_WIDTH, width - farm - departments * _CELL_ICON_WIDTH)
+    rest = width - names - farm
+    if not (departments or show_farm) or rest < departments * _CELL_ICON_WIDTH or rest <= 0:
+        return 1.0, [], False
+    if not departments:
+        return names / width, [rest], False
+    cell = rest / departments
+    return names / width, [cell] * departments + [farm] * show_farm, cell < _CELL_TEXT_WIDTH
 
 
 def legend_groups(file_type: str, show_farm: bool = True) -> list:
@@ -1131,7 +1162,7 @@ class M_PIPELINE_MT_monitor_legend(bpy.types.Menu):
                 self.layout.label(text=text, **icon_kw(icon))
 
 
-def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None,
+def _draw_monitor_row(self, f_list, dir, file, columns, first_column, shares, jobs=None,
                       icon_only=False, show_farm=True):
     """One file's row of Project monitoring: name (opens its detail), a
     status cell per department column, then its Farm cell."""
@@ -1141,9 +1172,9 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None,
     split = row.split(factor=first_column) if first_column < 1 else row
     name = split.row()
     name.alignment = "LEFT"
-    # An RTK on a department reds that department; one on none, the name.
+    # An RTK: its red mark, in that department's cell -- one on none, after
+    # the name.
     rtk, general_rtk = open_rtks(file)
-    name.alert = general_rtk
     icon = (
         TYPE_ICON.get(
             file.get("file_name", "Unknown").split("_", 1)[0],
@@ -1163,9 +1194,7 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None,
     details.alignment = "RIGHT"
     if general_rtk:
         # A retake on no department: its own button, as a department's cell.
-        gen = details.row()
-        gen.alert = True
-        icon_button(gen, "m_pipeline.department_rtks", "LOOP_BACK", "A retake on no department",
+        icon_button(details, "m_pipeline.department_rtks", "mark:rtk", "A retake on no department",
                     folder=str(dir), department="")
     details = details.row()
     details.active = False
@@ -1180,13 +1209,12 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None,
         split.row().label(text=f"{OMIT_STATES[mark['state']]}{why}", icon="PAUSE")
         f_list.separator(factor=0.5, type="LINE")
         return
-    cells = _equal_cells(split.row(), len(columns) + show_farm)
+    cells = _cells(split.row(), shares)
     roles = validation_roles()
     top = max((r["level"] for r in roles), default=None)
     top_roles = {r["name"] for r in roles if r["level"] == top}
     for icon_row, c in zip(cells, columns):
         if c in file.get("departments_required", []):
-            icon_row.alert = c in rtk
             # Read-only status: each button disabled below (no accidental
             # toggling from this grid -- that's file_details' job), the
             # tooltip still shown on hover. Never the row itself: a
@@ -1196,10 +1224,13 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None,
             text, row_icon, best = _department_cell(file, c)
             # Icon then text, each its own button in a left-aligned row:
             # one button's text is centred in its cell (both keep the tooltip).
-            # Labels as the snapshot page's. An open RTK: clickable, its
-            # retakes in a popup.
+            # Labels as the snapshot page's. An open RTK: its red mark first,
+            # clickable, its retakes in a popup.
             status.alignment = "LEFT"
-            under_rtk = c in rtk
+            if c in rtk:
+                icon_button(status, "m_pipeline.department_rtks", "mark:rtk",
+                            f"Retakes on {c}: click to read them\n\n{tooltip}",
+                            folder=str(dir), department=c)
             # Grey, the star in full once validated by the top role
             # ("Done · prod"): what's through stands out.
             star = text.startswith("Done · ") and best in top_roles
@@ -1214,12 +1245,8 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None,
                 button.alignment = "LEFT"  # its own width, not the cell's
                 # The mark in its colours (the button does nothing), the
                 # words greyed.
-                button.enabled = under_rtk or t == ""
-                if under_rtk:
-                    icon_button(button, "m_pipeline.department_rtks", i, text=t,
-                                custom_tooltip=tooltip, folder=str(dir), department=c)
-                else:
-                    icon_button(button, "m_pipeline.department_status_info", i, tooltip, text=t)
+                button.enabled = t == ""
+                icon_button(button, "m_pipeline.department_status_info", i, tooltip, text=t)
         else:
             # Not required: "–", as the snapshot.
             icon_row.active = False
@@ -1248,13 +1275,13 @@ def _department_cell(file: dict, department: str) -> tuple[str, str, str | None]
     return STATE_LABELS[state], f"mark:{state}", None
 
 
-def _equal_cells(layout, count: int) -> list:
-    """count equal-width rows side by side. Splits, not a row: a row sizes
-    its items by their content, so a cell of icons and one of text would
-    no longer line up with the header's."""
+def _cells(layout, widths: list) -> list:
+    """Rows side by side, each its share of widths. Splits, not a row: a
+    row sizes its items by their content, so a cell of icons and one of
+    text would no longer line up with the header's."""
     cells = []
-    for i in range(count - 1):
-        layout = layout.split(factor=1 / (count - i))
+    for i in range(len(widths) - 1):
+        layout = layout.split(factor=widths[i] / max(sum(widths[i:]), 1e-6))
         cells.append(layout.row())
     cells.append(layout.row())
     return cells
@@ -1360,7 +1387,7 @@ def _video_button(layout, info: dict, label: str) -> None:
     op.custom_tooltip = f"Play {label}" + (f"  ({at})" if at else "")
 
 
-def _draw_monitor_blank_row(f_list, count, first_column):
+def _draw_monitor_blank_row(f_list, shares, first_column):
     """Empty row, same height as a file's -- a page's padding."""
     row = f_list.column()
     row.active = False
@@ -1369,7 +1396,7 @@ def _draw_monitor_blank_row(f_list, count, first_column):
     else:
         split = row.split(factor=first_column)
         split.row().label(text="")
-        for cell in _equal_cells(split.row(), count):
+        for cell in _cells(split.row(), shares):
             cell.label(text="", icon="BLANK1")
     f_list.separator(factor=0.5, type="LINE")
 
