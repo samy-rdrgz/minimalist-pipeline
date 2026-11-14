@@ -127,9 +127,9 @@ class M_PIPELINE_PT_project_panel(bpy.types.Panel):
             draw_box_tip(
                 layout,
                 context,
-                "Snapshot: an HTML progress page for production, with a "
-                "review spreadsheet inside. Import review reads it back once "
-                "filled in: its notes land on the files.",
+                "Snapshot: an HTML progress page for production, to review "
+                "on. Import review reads the review it downloads: its notes "
+                "land on the files.",
             )
             prod = responsive_layout(context, layout, SIDE_BY_SIDE_WIDTH)
             prod.operator(

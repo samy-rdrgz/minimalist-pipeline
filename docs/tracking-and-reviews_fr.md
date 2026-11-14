@@ -10,7 +10,7 @@ Chaque asset/shot a un dossier `.pipeline/` à côté de ses fichiers `.blend` :
 - **`{version}.wipmeta`** : une par version de travail — mode de création, départements travaillés cette session, libs liées. Détails complets dans [Versions : wip et stable](versions_fr.md).
 - **`{version}.stablemeta`** : une par version `-stable` — départements validés à ce moment-là. C'est le point de référence pour calculer "qu'est-ce qui a été retouché depuis le dernier stable" affiché partout dans l'UI. Un département peut aussi être validé directement, sans republier de version `-stable` — boutons à côté de chaque département dans le panneau Tracking/le dashboard, pour les départements (comme "render") qui ne sont pas liés à une modification du fichier. Ça mute le `departments_validated` du dernier stablemeta en place ; nécessite qu'au moins une version `-stable` existe déjà.
 
-**Import de review prod** (panneau Projet ou menu Pipeline > *Import review*) : relit le tableur de review d'un snapshot, tel quel. Chaque ligne de texte d'une case de département devient un retake séparé (voir *Tableur de review* plus bas) — plusieurs retakes sur le même plan vont sur plusieurs lignes (Alt+Entrée), chacune avec sa case à cocher. Auteur et date viennent du haut de la feuille (`prod` et le jour de l'import s'ils sont vides) ; chaque note est ancrée sur le rendu que le reviewer a regardé -- le *Last render* que montrait le snapshot, par shot pour un bloc (`[sh120]` prend celui de sh120) -- et sur la version du `.blend` dont ce rendu est issu (`v007-stable_001` → `..._v007-stable.blend`), pas sur le dernier fichier : une étiquette *▶ v007-stable_001* sur la note (snapshot) et *Based on: ... (render v007-stable_001)* dans son infobulle disent lequel. La review porte ce rendu (une colonne cachée *render_watched*, un champ `render_watched` dans le `.json` de la page) ; un shot jamais rendu garde la version du fichier. Seule une review d'un snapshot de cette version de l'add-on est lue : celle d'un snapshot plus ancien est refusée -- exporter le snapshot à nouveau et faire la review dessus. Réimporter le même fichier, ou un fichier renvoyé avec des notes en plus, ne crée jamais de doublon : les lignes déjà importées sont ignorées. Les descriptions modifiées dans la colonne *description* (éditable pour ça) sont appliquées aussi, après un dialogue qui liste chaque changement (avant / après) : toutes, ou aucune — pour en écarter une, corriger le tableur et le réimporter. Seule une cellule modifiée par la prod compte : une description changée dans le projet depuis l'export n'est jamais remise à l'ancienne, et une cellule vide ne change rien. Une popup liste ce qui est entré et ce qui n'a pas pu (ex : un fichier renommé ou branché depuis). Les entrées importées l'indiquent dans leur infobulle.
+**Import de review prod** (panneau Projet ou menu Pipeline > *Import review*) : relit la review faite sur la page d'un snapshot (le `.json` qu'elle télécharge, voir *Review dans la page* plus bas). Chaque ligne de la case d'un département devient un retake séparé — plusieurs retakes sur le même plan vont sur plusieurs lignes, chacune avec sa case à cocher. Auteur et date sont ceux donnés à son téléchargement (`prod` et le jour de l'import s'ils sont vides) ; chaque note est ancrée sur le rendu que le reviewer a regardé -- le *Last render* que montrait le snapshot, par shot pour un bloc (`[sh120]` prend celui de sh120) -- et sur la version du `.blend` dont ce rendu est issu (`v007-stable_001` → `..._v007-stable.blend`), pas sur le dernier fichier : une étiquette *▶ v007-stable_001* sur la note (snapshot) et *Based on: ... (render v007-stable_001)* dans son infobulle disent lequel. La review porte ce rendu (un champ `render_watched` dans son `.json`) ; un shot jamais rendu garde la version du fichier. Seule une review d'un snapshot de cette version de l'add-on est lue : celle d'un snapshot plus ancien est refusée -- exporter le snapshot à nouveau et faire la review dessus. Réimporter le même fichier, ou un fichier renvoyé avec des notes en plus, ne crée jamais de doublon : les lignes déjà importées sont ignorées. Les descriptions modifiées dans la page (*✎ Edit the description*) sont appliquées aussi, après un dialogue qui liste chaque changement (avant / après) : toutes, ou aucune — pour en écarter une, la changer dans la page et retélécharger la review. Seule une description modifiée par la prod compte : une description changée dans le projet depuis l'export n'est jamais remise à l'ancienne, et une description vide ne change rien. Une popup liste ce qui est entré et ce qui n'a pas pu (ex : un fichier renommé ou branché depuis). Les entrées importées l'indiquent dans leur infobulle.
 
 **Snapshot de prod** (panneau Projet ou menu Pipeline > *Snapshot*) : écrit un seul fichier HTML -- `<projet>_snapshot_<AAAA-MM-JJ_HH-MM>.html`, dans le dossier `snapshots/` du projet par défaut -- avec l'état de chaque asset/shot par département et toutes les notes, pour les personnes hors studio (pas besoin de Blender ni d'accès au partage : il s'ouvre hors ligne dans n'importe quel navigateur, sur ordinateur ou téléphone, et s'envoie par mail). Le scan tourne en arrière-plan ; Blender reste utilisable pendant ce temps. Une fois écrit, il s'ouvre dans le navigateur (*Open when done*, à côté de *Thumbnails* dans le sélecteur de fichier ; décocher pour juste l'enregistrer).
 
@@ -21,7 +21,7 @@ Chaque asset/shot a un dossier `.pipeline/` à côté de ses fichiers `.blend` :
 - **Done** : chaque département requis compte pour une part égale : pas commencé 0 %, en cours 33 %, fini mais retravaillé depuis 67 %, fini avec un RTK ouvert -- sur lui ou sur aucun -- 67 %, fini 100 % (les trois valeurs du milieu se règlent par projet : Project settings > *Snapshot done*). Un fichier fait la moyenne de ses départements, un groupe celle de ses fichiers. *Progress details*, en bas, donne le Done de chaque section par séquence / préfixe et par département -- l'avancement attendu en trait sur chaque barre -- et une grille séquence (ou préfixe) × département, chaque case teintée selon son %.
 - **Vidéos** : la page lit la vidéo de chaque rendu. *Videos*, dans le sélecteur de fichier de l'export, choisit d'où -- retenu d'un export à l'autre, comme les séquences cochées : *Don't copy* (par défaut) ne copie rien : sur une machine qui atteint le projet, la page les lit dans `renders/` directement, en relatif (le navigateur charge une vidéo au ▶, il ne parcourt jamais un dossier) ; *Folder* les copie dans un dossier `videos/` à côté des snapshots, commun à tous -- seulement les vidéos nouvelles ou modifiées depuis le dernier export --, *Zip* dans un zip à côté du snapshot, à son nom (`..._snapshot_<date>.zip`) : les deux pour emporter le snapshot ailleurs, un dossier à envoyer tel quel, un zip à envoyer d'un bloc. Une copie absente (un snapshot *Folder* ouvert au studio sans son dossier), la page se rabat sur `renders/`. Les séquences sont listées, aucune cochée la première fois : la vidéo de chaque dernier rendu que montre la page, pour chaque shot des séquences cochées, est copiée (*Folder*, *Zip*) sous son chemin dans `renders/` (`sq100/sh030/v002-stable_001/sq100_sh030_v002-stable_001.mp4`) -- la même arborescence, donc un même nom marche depuis la copie ou depuis `renders/`. *Assets & libraries*, sous les séquences, ajoute de la même façon celle de chaque asset/library (`assets/ch/ch_bob/v003_002/...`). **Trop large ou illisible** : une vidéo de plus de 8192 px de large (un rendu panoramique -- au-delà, les navigateurs sur PC comme sur iPad la refusent) ou dans un codec que les navigateurs ne lisent pas (ProRes, DNxHR...) a une copie légère à côté, dans le dossier `ld/` de son rendu (H.265, 8192 px de large au plus), faite par la compilation de la farm : c'est elle que lit la page et qu'emporte le snapshot, la pleine gardée pour le montage. Un rendu compilé avant reçoit sa copie légère de l'export snapshot, une fois, pour les séquences cochées (il faut ffmpeg ; le log dit lesquelles). Copié après le HTML, en arrière-plan aussi ; une séquence sans rendu est ignorée (un avertissement dit laquelle), comme les assets/libraries sans vidéo. Le ▶ bleu de l'en-tête du panneau d'un fichier lit son rendu -- pour un bloc dont les shots ont été rendus séparément, la vidéo de chaque shot l'une après l'autre dans l'ordre du bloc (⏮ ⏭ ou ← → pour sauter) --, un petit ▶ après le nom de chaque séquence pour celles de tous ses fichiers à la suite, et *▶ Play* sur chaque ligne de *Last render* : une ligne par vidéo, un shot rendu séparément a la sienne. En review, *Last render* se replie : un ▶ par shot reste sous l'image. Des contrôles fins sous l'image (▶/❚❚, position, temps, plein écran ; Espace lit/met en pause), et la frame affichée -- `f1042`, numérotée comme dans le .blend (la première frame du rendu, d'après son historique de farm ou le nom de ses images, plus son rang dans la vidéo au fps du projet) : un bloc rendu d'un seul tenant compte sur sa propre timeline, comme Blender et les retakes `[f12-40]` ; ◂ ▸ (ou , et .) reculent / avancent d'une frame, en pause. Un rendu dont la première frame est inconnue compte depuis le début de sa vidéo (`#1`). Déplacées, renommées, ou sur une autre machine : *Choose the videos folder…* (le bouton dossier à côté de *?* tant qu'aucun n'est choisi, le menu ⋯ de la page, ou sous un rendu sans rien à lire) choisit le dossier qui les contient, quel que soit son nom -- le dossier `renders/` du projet marche aussi : dans Chrome ou Edge la page n'ouvre que les vidéos dont elle a besoin, par leur chemin, sans jamais parcourir le dossier (Firefox et Safari lisent d'abord chaque fichier du dossier choisi : y choisir `videos/`, pas `renders/`, plein d'images) ; sur téléphone, les vidéos elles-mêmes.
 - Son menu ⋯ choisit aussi le thème de la page : *System* (celui de l'appareil), *Light* ou *Dark*, retenu par le navigateur.
-- La page contient un tableur de review (.xlsx, dans son menu ⋯) à télécharger, une ligne par asset/shot, que la prod remplit et renvoie -- ou la review se fait directement dans la page (*Review dans la page*, plus bas).
+- La review se fait directement dans la page et revient sous forme d'un `.json` (*Review dans la page*, plus bas).
 
 <img src="images/tracking-snapshot-progress.png" alt="Le snapshot de prod : l'avancement">
 
@@ -62,13 +62,13 @@ la prod -- sur la version qu'il a vue.
   seule boîte, une ligne par rôle et stable (« ★ prod: fixanim, render-ld
   · v003-stable », chaque note dans son infobulle).
 - **Notes sous un rôle** : une note, todo ou RTK écrite par quelqu'un qui a
-  un rôle le porte (marque violette), comme les notes importées d'un
-  tableur de review. Un RTK d'un rôle est rouge dans le snapshot, celui de l'équipe orange ; dans Blender sa marque est le violet du rôle, comme ses notes, celle de l'équipe orange.
+  un rôle le porte (marque violette), comme les notes importées d'une
+  review. Un RTK d'un rôle est rouge dans le snapshot, celui de l'équipe orange ; dans Blender sa marque est le violet du rôle, comme ses notes, celle de l'équipe orange.
   La fenêtre *New entry* montre votre rôle dans une case *As sup*, cochée
   par défaut : décochez-la pour écrire au nom de l'équipe (une note
   technique, par exemple).
 - **Une review au nom de l'équipe** : *team* dans le Role d'une review
-  (celui de la page snapshot, du tableur de review -- sauf si un rôle de
+  (celui de la page snapshot -- sauf si un rôle de
   validation porte ce nom) : ses retakes et notes sont ceux de l'équipe
   -- sans rôle, orange, sans le tag « prod review » (importés d'une
   review d'équipe) -- et elle ne valide rien : les ✓ de la page sont
@@ -89,39 +89,7 @@ la prod -- sur la version qu'il a vue.
   requis validés par le rôle le plus haut (ou un de son niveau) au stable
   affiché. Le Done reste la fabrication : 100 % fini sans rien de validé
   donne 100 % / 0 %.
-- **Tableur de review** : un premier onglet *Review* pour votre nom, la
-  date de review et votre *Role* (obligatoire dès que le fichier contient
-  un retake ou une validation), le mode d'emploi et la légende des
-  couleurs ; puis un onglet *Shots* et un onglet *Assets*, une ligne par
-  fichier et **une case par département** (seulement ceux de la
-  section), colorée selon son état au snapshot : blanc pas commencé,
-  ambre en cours, vert clair fini mais retravaillé depuis, vert fini -- à
-  valider --, violet déjà validé par le rôle le plus haut ; une bordure
-  rouge pour un retake ouvert ; gris « – » non requis (verrouillé).
-  - `ok` (ou `yes`, `oui`, `v`, `✓`...) valide le département pour votre
-    rôle -- refusé s'il n'est pas fini.
-  - `no` retire cette validation.
-  - tout autre texte la retire aussi, et **chaque ligne devient un
-    retake** (RTK) de ce département -- Alt+Entrée pour la ligne suivante.
-    Commencez une ligne par `[sh020]` pour un shot d'un bloc, `[f12-40]`
-    (ou `[f12]`) pour ses frames, dans n'importe quel ordre :
-    `[sh020] [f12-40] caméra plus haute` ; par `note:` (ou `note :`,
-    `n:`, majuscules ou non, après les tags) pour une remarque
-    plutôt qu'un retake (une cellule de seules lignes `note:` laisse la
-    validation du département telle quelle). Un tag qui n'en est pas un -- un shot hors du
-    bloc, un intervalle à l'envers comme `[f40-12]` -- reste dans le texte.
-  - *global* : `ok` valide tous les départements déjà finis (la case
-    propre d'un département l'emporte), un texte est un retake sans
-    département particulier.
-  - vide : rien ne change.
-
-  L'import demande d'abord, en rappelant le rôle et la liste des
-  validations, puis refuse toute validation d'un département retravaillé
-  depuis le stable vu par la review (un stable plus récent sans y avoir
-  touché la garde). Un tableur exporté par une version
-  précédente s'importe toujours, lu comme avant.
-
-- **Review dans la page** (1.1.5) : au lieu du tableur, *✎ Review*
+- **Review dans la page** : *✎ Review*
   affiche une barre en bas de l'écran -- votre nom et votre rôle ; ›
   la replie en un bouton rond ✎, avec le compte de la review -- et,
   dans le panneau d'un fichier, un ✓ à côté de chaque département (le
@@ -158,8 +126,8 @@ la prod -- sur la version qu'il a vue.
   *Download* résume la review -- fichiers, validations, retakes,
   validations retirées -- et demande votre nom, votre rôle (obligatoire
   dès qu'elle contient un retake ou une validation) et la date de review,
-  puis enregistre le `.json` : **Import review** le prend comme un
-  `.xlsx` -- plusieurs d'un coup aussi (un par reviewer : le fichier
+  puis enregistre le `.json` : **Import review** le prend --
+  plusieurs d'un coup aussi (un par reviewer : le fichier
   porte son heure, son rôle et son auteur). Sur tablette ou téléphone,
   *Save or send…* à côté ouvre la feuille de partage du système :
   *Enregistrer dans Fichiers* choisit le dossier (un téléchargement
@@ -169,8 +137,10 @@ la prod -- sur la version qu'il a vue.
   retrouve, dans le même navigateur -- pas en navigation privée ni sur une
   autre machine) ; le menu ⋯ de la barre propose *Load a review…*
   (rouvre une review téléchargée), *Clear this review* et *Leave the
-  review*. Le tableur reste, pour plusieurs reviewers ou un drive
-  partagé.
+  review*. L'import demande d'abord, en rappelant le rôle et la liste
+  des validations, puis refuse toute validation d'un département
+  retravaillé depuis le stable vu par la review (un stable plus récent
+  sans y avoir touché la garde).
 
 Rien à migrer : `departments_validated` garde son nom, les validations
 sont une nouvelle clé `approvals` du stablemeta, le rôle d'une note une

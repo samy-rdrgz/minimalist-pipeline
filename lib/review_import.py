@@ -1,13 +1,11 @@
-"""Import review: a review sent back -- the snapshot's spreadsheet or its
-page's .json -- read, planned and written into the project's tracking."""
+"""Import review: a review sent back -- the .json the snapshot page's
+Review makes -- read, planned and written into the project's tracking."""
 
 import hashlib
 import json
 import re
-import zipfile
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
-from xml.etree import ElementTree as ET
 
 from .config import (
     ConfigCache,
@@ -17,14 +15,6 @@ from .config import (
 )
 from .core import json_get, now, read_json_quiet
 from .errors import PipelineError
-from .review_sheet import (
-    RENDER_WATCHED,
-    _REVIEW_HIDDEN,
-    NO_WORDS,
-    OK_WORDS,
-    REVIEW_GLOBAL,
-    _col,
-)
 from .schedule import parse_day
 from .snapshot import (
     REVIEW_SOURCE,
@@ -34,124 +24,40 @@ from .snapshot import (
     render_of_note,
 )
 from .tracking import (
-    close_entry,
     _collect_folder,
     _status_from_raw,
-    worked_since_stable,
+    close_entry,
     create_entry,
     entry_departments,
     find_file_by_name,
     set_department_approval,
     tracking_json_path,
     valid_department,
+    worked_since_stable,
 )
 
-_NS = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
-_REL_NS = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
-_PKG_REL_NS = "{http://schemas.openxmlformats.org/package/2006/relationships}"
-
-
-def _sheet_paths(z: zipfile.ZipFile) -> list[str]:
-    """Zip paths of the workbook's sheets, in its order (not always
-    sheetN.xml once a spreadsheet app has re-saved it)."""
-    try:
-        wb = ET.fromstring(z.read("xl/workbook.xml"))
-        rels = ET.fromstring(z.read("xl/_rels/workbook.xml.rels"))
-        targets = {
-            rel.get("Id"): rel.get("Target")
-            for rel in rels.iter(f"{_PKG_REL_NS}Relationship")
-        }
-        paths = []
-        for sheet in wb.iter(f"{_NS}sheet"):
-            target = targets.get(sheet.get(f"{_REL_NS}id"))
-            if target:
-                paths.append(
-                    target.lstrip("/") if target.startswith("/") else f"xl/{target}"
-                )
-        if paths:
-            return paths
-    except (KeyError, AttributeError, ET.ParseError):
-        pass
-    return ["xl/worksheets/sheet1.xml"]
-
-
-def _string_item(si) -> str:
-    """Text of a sharedStrings <si> (plain or rich text runs, never the
-    phonetic <rPh> guide)."""
-    parts = []
-    for child in si:
-        if child.tag == f"{_NS}t":
-            parts.append(child.text or "")
-        elif child.tag == f"{_NS}r":
-            parts.extend(t.text or "" for t in child.iter(f"{_NS}t"))
-    return "".join(parts)
-
-
-def _ref_split(ref: str) -> tuple[str, int]:
-    m = re.match(r"([A-Z]+)(\d+)", ref or "")
-    return (m[1], int(m[2])) if m else ("", 0)
-
-
-def read_xlsx_grids(path: Path) -> list[dict[int, dict[str, str]]]:
-    """Every sheet of an .xlsx, in order, as {row number: {column letters:
-    text}}. Text cells resolved through sharedStrings (t="s") or inline;
-    numbers (dates included) kept as their raw text."""
-    try:
-        with zipfile.ZipFile(path) as z:
-            names = set(z.namelist())
-            shared = []
-            if "xl/sharedStrings.xml" in names:
-                sst = ET.fromstring(z.read("xl/sharedStrings.xml"))
-                shared = [_string_item(si) for si in sst.iter(f"{_NS}si")]
-            sheets = [ET.fromstring(z.read(p)) for p in _sheet_paths(z) if p in names]
-    except (OSError, KeyError, zipfile.BadZipFile, ET.ParseError) as e:
-        raise PipelineError(f"Could not read {Path(path).name} as a spreadsheet: {e}")
-    return [_sheet_grid(sheet, shared) for sheet in sheets]
-
-
-def _sheet_grid(sheet, shared: list) -> dict[int, dict[str, str]]:
-    grid: dict[int, dict[str, str]] = {}
-    row_n = 0
-    for row in sheet.iter(f"{_NS}row"):
-        row_n = int(row.get("r") or row_n + 1)
-        col_n = -1
-        for c in row.iter(f"{_NS}c"):
-            col, _ = _ref_split(c.get("r"))
-            if not col:
-                col_n += 1
-                col = _col(col_n)
-            else:
-                col_n = (
-                    sum((ord(ch) - 64) * 26**i for i, ch in enumerate(reversed(col)))
-                    - 1
-                )
-            t = c.get("t")
-            v = c.find(f"{_NS}v")
-            if t == "inlineStr":
-                value = "".join(x.text or "" for x in c.iter(f"{_NS}t"))
-            elif v is None or v.text is None:
-                continue
-            elif t == "s":
-                value = shared[int(v.text)]
-            else:
-                value = v.text
-            # Excel escapes a CR as _x000D_ in strings.
-            value = value.replace("_x000D_", "").replace("\r\n", "\n")
-            if value != "":
-                grid.setdefault(row_n, {})[col] = value
-    return grid
+# A review's row (the page's Review, _JS's FIXED): a cell per department --
+# "ok" validates it for the Role, "no" withdraws that, any other text
+# withdraws it too and makes an RTK of each line ([sh020] [f12-40] at its
+# start). "global": ok = every department done so far, text = an RTK for no
+# department. See NOTES.md, "Validation roles".
+REVIEW_GLOBAL = "global"
+# What reads as "validated" in a department cell, case aside.
+OK_WORDS = ("ok", "yes", "oui", "v", "x", "✓", "✔", "valid", "validé", "valide")
+NO_WORDS = ("no", "non")
+# A row's columns besides the departments' and "global". render_watched:
+# what the reviewer watched (_render_ref()) -- the notes' version; not
+# "render", a department's possible name.
+RENDER_WATCHED = "render_watched"
+_REVIEW_HIDDEN = ("wip_version", "stable_version", "description_exported", RENDER_WATCHED)
 
 
 def parse_review_date(value: str) -> datetime | None:
-    """A Review date cell: an Excel date serial (a typed date is stored as a
-    number of days), or text in a common date format. None when empty."""
+    """A review's date: a day in a common date format, or ISO. None when
+    empty."""
     value = (value or "").strip()
     if not value:
         return None
-    try:
-        return datetime(1899, 12, 30) + timedelta(days=float(value))
-    except ValueError:
-        pass
     try:
         return datetime.combine(parse_day(value), datetime.min.time())
     except PipelineError:
@@ -162,15 +68,14 @@ def parse_review_date(value: str) -> datetime | None:
         raise PipelineError(f"Review date '{value}' not understood (use YYYY-MM-DD).")
 
 
-# A review written on the snapshot page itself (_JS's Review): the rows of a
-# v4 template, as JSON.
+# A review written on the snapshot page (_JS's Review): its rows, as JSON.
 REVIEW_JSON_FORMAT = "minimalist-pipeline-review"
 
 
-def read_review_json(path: Path) -> dict:
-    """read_review_xlsx()'s dict from a review downloaded from the snapshot
-    page: {"format", "schema_version", "author", "role", "review_date",
-    "rows": [{"filename", "stable_version", "description_exported",
+def read_review(path: Path) -> dict:
+    """{"schema_version", "author", "role", "review_date", "columns",
+    "rows"} from a review downloaded from the snapshot page: {"format",
+    "schema_version", "author", "role", "review_date", "rows": [{"filename", "stable_version", "description_exported",
     "render_watched", "description"?, <department>: "ok" / "no" /
     retakes, "global"?}]}."""
     try:
@@ -204,13 +109,6 @@ def read_review_json(path: Path) -> dict:
     }
 
 
-def read_review(path: Path) -> dict:
-    """A filled review: the snapshot page's .json, or the .xlsx template."""
-    if Path(path).suffix.lower() == ".json":
-        return read_review_json(path)
-    return read_review_xlsx(path)
-
-
 def _check_schema(path: Path, schema: int) -> None:
     """Refuse a review made from another addon version's snapshot (see
     NOTES.md, "Review import: this version's reviews only")."""
@@ -224,57 +122,6 @@ def _check_schema(path: Path, schema: int) -> None:
             f"{Path(path).name} comes from an older snapshot (review v{schema}): "
             "export the snapshot again and review it there."
         )
-
-
-def read_review_xlsx(path: Path) -> dict:
-    """{"schema_version", "author", "role", "review_date", "columns",
-    "rows"} from a filled review template: every sheet's rows keyed by
-    their header row's names; Author, Review date and Role from the front
-    sheet's label cells."""
-    schema = None
-    author = date = role = ""
-    columns: set[str] = set()
-    rows = []
-    for grid in read_xlsx_grids(path):
-        header_row = None
-        for r in sorted(grid):
-            cells = grid[r]
-            for v in cells.values():
-                m = re.fullmatch(r"schema_version=(\d+)", v.strip())
-                if m:
-                    schema = int(m[1])
-            label = cells.get("A", "").strip().lower()
-            if label == "author":
-                author = cells.get("B", "")
-            elif label == "review date":
-                date = cells.get("B", "")
-            elif label == "role":
-                role = cells.get("B", "")
-            elif any(v.strip().lower() == "filename" for v in cells.values()):
-                header_row = r
-                break
-        if header_row is None:
-            continue
-        header = {col: name.strip().lower() for col, name in grid[header_row].items()}
-        columns |= set(header.values())
-        rows += [
-            {header[col]: v.strip() for col, v in grid[r].items() if col in header}
-            for r in sorted(grid)
-            if r > header_row
-        ]
-    if schema is None or not columns:
-        raise PipelineError(
-            f"{Path(path).name} isn't a review template exported by this addon."
-        )
-    _check_schema(path, schema)
-    return {
-        "schema_version": schema,
-        "author": author.strip(),
-        "role": role.strip().lower(),
-        "review_date": parse_review_date(date),
-        "columns": columns,
-        "rows": rows,
-    }
 
 
 _BULLET = re.compile(r"^\s*(?:[-*•–]|\d+[.)])\s+")
@@ -336,7 +183,7 @@ def _line_tags(line: str, shots: list[str]) -> tuple[str, str | None, tuple | No
     return rest, shot, frames
 
 
-# Not departments, in a v4 sheet's header.
+# Not departments, in a review's row.
 # "fixed": the ids of the RTKs the reviewer marked fixed (the page's review,
 # page), space-separated.
 _REVIEW_FIXED = {"group", "filename", "description", "fixed", REVIEW_GLOBAL, *_REVIEW_HIDDEN}
@@ -391,7 +238,7 @@ def _cell_choice(value: str) -> str:
 
 
 def _row_actions(row: dict) -> tuple[dict, str, list]:
-    """What a template row asks: ({department: "yes"/"no"} of its own,
+    """What a review row asks: ({department: "yes"/"no"} of its own,
     "yes"/"no"/"" for every department done, [(line, departments, type)]
     notes to create), from its cell per department and "global"."""
     wanted, every, notes = {}, "", []
@@ -621,7 +468,7 @@ def _note_key(text, shot, f_start, f_end, departments) -> tuple:
     )
 
 
-def import_review_xlsx(path: Path) -> dict:
+def import_review(path: Path) -> dict:
     """Write a review into the project (review_import_plan() says what):
     one entry per note line under its Role, the retakes marked fixed
     closed, the replies in their threads, the validations. A line already
@@ -823,7 +670,7 @@ def review_description_changes(path: Path) -> list[dict]:
         except PipelineError:
             filepath = None
         if not filepath:
-            continue  # reported by import_review_xlsx() already
+            continue  # reported by import_review() already
         tracking = read_json_quiet(tracking_json_path(filepath)) or {}
         old = (tracking.get("description") or "").strip()
         if new == (row.get("description_exported") or "").strip():

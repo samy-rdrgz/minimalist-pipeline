@@ -20,6 +20,14 @@ All notable changes to this addon. Dates are release dates.
   Waiting filter, with how many machines failed it; it showed
   *render_start* as if running. Project monitoring's Farm column too.
 
+### Removed
+
+- The snapshot's review spreadsheet (.xlsx): the review is made on the
+  snapshot page and sent back as its `.json`, which *Import review*
+  reads as before. The page's ⋯ menu no longer offers the spreadsheet.
+- CHANGELOG.md is no longer inside the addon's package (it stays in the
+  repository and on the release page).
+
 ## 1.1.10 — 06/11/2026
 
 Going through files one by one in Project monitoring, a farm that keeps

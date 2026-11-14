@@ -1,6 +1,5 @@
 """Production snapshot: one self-contained HTML page of the project's state
-for people outside the studio, with a review spreadsheet embedded in it that
-they fill in and send back (see NOTES.md, "Production snapshot")."""
+for people outside the studio, with a review they write on it and send back (see NOTES.md, "Production snapshot")."""
 
 import base64
 import os
@@ -631,11 +630,6 @@ def progress_weights(config: dict) -> dict[str, int]:
             value = default
         out[key] = max(0, min(100, value))
     return out
-
-
-def _rtk_on(item: dict, department: str) -> bool:
-    """An open RTK on that department, or on none (a general retake)."""
-    return department in item["rtk_departments"] or item.get("general_rtk", False)
 
 
 def _progress(item: dict, weights: dict) -> float | None:

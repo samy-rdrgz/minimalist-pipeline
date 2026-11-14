@@ -10,7 +10,7 @@ Every asset/shot has a `.pipeline/` folder next to its `.blend` files:
 - **`{version}.wipmeta`**: one per work version — creation mode, departments worked on this session, linked libraries. Full details in [Versions: wip and stable](versions.md).
 - **`{version}.stablemeta`**: one per `-stable` version — departments validated at that point. This is the reference point for computing "what's been touched since the last stable", shown throughout the UI. Individual departments can also be validated directly, without cutting a new `-stable` version — buttons next to each department in the Tracking panel/dashboard, for departments (like "render") that aren't tied to editing the file itself. This mutates the *latest* stablemeta's `departments_validated` in place; requires at least one `-stable` version to already exist.
 
-**Prod review import** (Project panel or Pipeline menu > *Import review*): reads back the review spreadsheet from a snapshot, as is. Each line of a department cell's text becomes its own retake (see *Review template* below) — several retakes on the same shot go on several lines (Alt+Enter), each one with its own checkbox. Author and date come from the top of the sheet (`prod` and the import day when left empty); each note is anchored on the render the reviewer watched -- the *Last render* the snapshot showed, per shot for a block (`[sh120]` takes sh120's) -- and on the `.blend` version that render was made from (`v007-stable_001` → `..._v007-stable.blend`), not on the latest file: a tag *▶ v007-stable_001* on the note (snapshot) and *Based on: ... (render v007-stable_001)* in its tooltip say which. The review carries that render (a hidden *render_watched* column, a `render_watched` field in the page's `.json`); a shot never rendered keeps the file's version. Only a review of this add-on version's snapshot is read: one from an older snapshot is refused -- export the snapshot again and review it there. Importing the same file again, or a re-sent one with notes added, never duplicates: lines already imported are skipped. Descriptions edited in the *description* column (editable for that) are applied too, after a dialog listing every change (was / now): all of them, or none — to leave one out, fix the spreadsheet and import it again. Only a cell the production changed counts: a description changed in the project since the export is never reverted, and an empty cell changes nothing. A popup lists what came in and what couldn't (e.g. a file renamed or branched since). Imported entries say so in their tooltip.
+**Prod review import** (Project panel or Pipeline menu > *Import review*): reads back the review made on a snapshot's page (the `.json` it downloads, see *Review on the page* below). Each line of a department's box becomes its own retake — several retakes on the same shot go on several lines, each one with its own checkbox. Author and date are the ones given at its download (`prod` and the import day when left empty); each note is anchored on the render the reviewer watched -- the *Last render* the snapshot showed, per shot for a block (`[sh120]` takes sh120's) -- and on the `.blend` version that render was made from (`v007-stable_001` → `..._v007-stable.blend`), not on the latest file: a tag *▶ v007-stable_001* on the note (snapshot) and *Based on: ... (render v007-stable_001)* in its tooltip say which. The review carries that render (a `render_watched` field in its `.json`); a shot never rendered keeps the file's version. Only a review of this add-on version's snapshot is read: one from an older snapshot is refused -- export the snapshot again and review it there. Importing the same file again, or a re-sent one with notes added, never duplicates: lines already imported are skipped. Descriptions edited on the page (*✎ Edit the description*) are applied too, after a dialog listing every change (was / now): all of them, or none — to leave one out, change it on the page and download the review again. Only a description the production changed counts: one changed in the project since the export is never reverted, and an empty one changes nothing. A popup lists what came in and what couldn't (e.g. a file renamed or branched since). Imported entries say so in their tooltip.
 
 **Production snapshot** (Project panel or Pipeline menu > *Snapshot*): writes one HTML file -- `<project>_snapshot_<YYYY-MM-DD_HH-MM>.html`, in the project's `snapshots/` folder by default -- with the state of every asset/shot per department and every note, for people outside the studio (no Blender, no access to the share needed: it opens offline in any browser, on a computer or a phone, and can be sent by mail). The scan runs in the background; Blender stays usable meanwhile. Once written, it opens in your browser (*Open when done*, next to *Thumbnails* in the file browser; untick to just save it).
 
@@ -21,7 +21,7 @@ Every asset/shot has a `.pipeline/` folder next to its `.blend` files:
 - **Done**: each required department counts for an equal share: not started 0 %, work in progress 33 %, done but reworked since 67 %, done with an open RTK -- on it or on none -- 67 %, done 100 % (the three middle values are set per project: Project settings > *Snapshot done*). A file averages its departments, a group its files. *Progress details*, at the bottom, gives each section's Done by sequence / prefix and by department -- the expected progress a line across each bar -- and a sequence (or prefix) × department grid, each cell shaded by its %.
 - **Videos**: the page plays each render's video. *Videos*, in the export's file browser, picks where from -- remembered from one export to the next, with the sequences ticked: *Don't copy* (the default) copies nothing: on a machine that reaches the project, the page plays them from `renders/` itself, relative to it (the browser loads one video on ▶, it never reads a folder through); *Folder* copies them into a `videos/` folder next to the snapshots, shared by all of them -- only the videos new or changed since the last export --, *Zip* into a zip next to the snapshot, with its name (`..._snapshot_<date>.zip`): both to take the snapshot elsewhere, a folder to send as is, a zip to send in one piece. A copy missing (a *Folder* snapshot opened at the studio without its folder), the page falls back on `renders/`. The sequences are listed, none ticked the first time: the video of each last render the page shows, for every shot of the ticked ones, is copied (*Folder*, *Zip*) under its path in `renders/` (`sq100/sh030/v002-stable_001/sq100_sh030_v002-stable_001.mp4`) -- the same tree, so one name works from the copy or from `renders/`. *Assets & libraries*, under the sequences, adds every asset/library's the same way (`assets/ch/ch_bob/v003_002/...`). **Too wide or unplayable**: a video wider than 8192 px (a panoramic render -- past that, browsers on a PC or an iPad refuse it) or in a codec browsers don't play (ProRes, DNxHR...) has a light copy beside it, in its render folder's `ld/` (H.265, at most 8192 px wide), made by the farm's compilation: that's what the page plays and the snapshot carries, the full one kept for the edit. A render compiled before gets its light copy from Export snapshot, once, for the ticked sequences (needs ffmpeg; the log says which). Copied after the HTML, in the background too; a sequence with nothing rendered is skipped (a warning says which), and so are the assets/libraries with no video. The blue ▶ in a file's panel header plays its render -- for a block whose shots were rendered apart, each shot's video after the other in the block's order (⏮ ⏭ or ← → skip) --, a small ▶ after each sequence's name for all its files' in a row, and *▶ Play* on each line of *Last render*: one line per video, a shot rendered apart its own line. While reviewing, *Last render* folds away: a ▶ per shot stays under the picture. Thin controls under the picture (▶/❚❚, position, time, full screen; Space plays/pauses), and the frame shown -- `f1042`, numbered as in the .blend (the render's first frame, from its farm history or its images' names, plus its rank in the video at the project's fps): a block rendered whole counts on its own timeline, as Blender and the `[f12-40]` retakes do; ◂ ▸ (or , and .) go one frame back / on, paused. A render whose first frame isn't known counts from its video's start (`#1`). Moved, renamed, or on another machine: *Choose the videos folder…* (the folder button next to *?* until one is chosen, the page's ⋯ menu, or under a render with nothing to play) picks the folder holding them, whatever its name -- the project's `renders/` folder works too: in Chrome or Edge the page opens only the videos it needs, by their paths, never reading the folder through (Firefox and Safari read every file of the folder chosen first: pick `videos/` there, not `renders/`, full of frames); on a phone, the videos themselves.
 - Its ⋯ menu also picks the page's theme: *System* (the device's), *Light* or *Dark*, kept by the browser.
-- The page carries a review spreadsheet (.xlsx, in its ⋯ menu) to download, one row per asset/shot, for production to fill in and send back -- or the review is made right on the page (*Review on the page*, below).
+- The review is made right on the page and sent back as a `.json` (*Review on the page*, below).
 
 <img src="images/tracking-snapshot-progress.png" alt="The production snapshot: progress">
 
@@ -62,12 +62,11 @@ it saw.
   tooltip).
 - **Notes under a role**: a note, todo or RTK written by someone with a
   role carries it (violet mark), and so do the notes imported from a
-  review template. An RTK from a role is red in the snapshot, the team's own orange; in Blender its mark is the role's violet, like its notes, the team's orange.
+  review. An RTK from a role is red in the snapshot, the team's own orange; in Blender its mark is the role's violet, like its notes, the team's orange.
   The *New entry* dialog shows your role in an *As sup* box, on by
   default: untick it to write as the team (a technical note, say).
 - **A review as the team**: *team* in a review's Role (the snapshot
-  page's, the review template's -- unless a validation role has that
-  name): its retakes and notes are the team's own -- no role, orange, no
+  page's -- unless a validation role has that name): its retakes and notes are the team's own -- no role, orange, no
   "prod review" tag (imported from a team review) -- and it validates
   nothing: the page's ✓ are off, a ✓ or `ok` written before is left out.
 - **Project monitoring**: a department under RTK (red) opens, on a
@@ -86,35 +85,7 @@ it saw.
   departments validated by the top role (or one of its level) at the
   stable shown. Done stays the fabrication: 100 % done with nothing
   validated reads 100 % / 0 %.
-- **Review template**: a first sheet *Review* for your name, the review
-  date and your *Role* (required as soon as the file holds a retake or a
-  validation), how to fill it and the colour legend; then a *Shots* and
-  an *Assets* sheet, a row per file and **a cell per department** (only
-  that section's departments), coloured by its state at the snapshot:
-  white not started, amber WIP, light green done but reworked since,
-  green done -- to validate --, violet already validated by the top role;
-  a red border for an open retake; grey "–" not required (locked).
-  - `ok` (or `yes`, `oui`, `v`, `✓`...) validates the department for your
-    role -- refused if it isn't done.
-  - `no` withdraws that validation.
-  - any other text withdraws it too, and **each line becomes a retake**
-    (RTK) of that department -- Alt+Enter for the next line. Start a line
-    with `[sh020]` for one shot of a block, `[f12-40]` (or `[f12]`) for its
-    frames, in any order: `[sh020] [f12-40] camera higher`; with `note:`
-    (or `note :`, `n:`, any case, after the tags) for a remark instead of a retake (a cell with nothing but `note:`
-    lines leaves the department's validation as it is). A tag that isn't one -- a shot not
-    in the block, a reversed range like `[f40-12]` -- stays in the text.
-  - *global*: `ok` validates every department done so far (a
-    department's own cell wins over it), a text is a retake for no
-    department in particular.
-  - empty: nothing changes.
-
-  The import asks first, naming the role and listing the validation
-  changes, then refuses any validation of a department worked since the
-  stable the review saw (a newer stable without it worked keeps it). A template exported by an earlier version still
-  imports, as it was read then.
-
-- **Review on the page** (1.1.5): instead of the spreadsheet, *✎ Review*
+- **Review on the page**: *✎ Review*
   puts a bar at the bottom of the screen -- your name and your role; ›
   folds it into a round ✎ button, the review's count on it --
   and, in a file's panel, a ✓ by each department (validate it as your
@@ -147,8 +118,8 @@ it saw.
   or Ctrl+Enter in a box (leave it). *Download* sums up the review --
   files, validations, retakes, withdrawn -- and asks your name, your
   role (required as soon as it holds a retake or a validation) and the
-  review date, then saves the `.json`: **Import review** takes it like
-  an `.xlsx` -- several at once too (one per reviewer: the file is named
+  review date, then saves the `.json`: **Import review** takes it --
+  several at once too (one per reviewer: the file is named
   after its time, role and author). On a tablet or a phone, *Save or
   send…* beside it opens the system's share sheet: *Save to Files* picks
   the folder (a download lands wherever the browser -- or the app showing
@@ -156,8 +127,10 @@ it saw.
   your browser as you go (a reload brings it back, in the same browser
   -- not in a private window or on another machine); the bar's ⋯ menu
   has *Load a review…* (reopens a downloaded one), *Clear this review*
-  and *Leave the review*. The spreadsheet stays, for several reviewers
-  or a shared drive.
+  and *Leave the review*. The import asks first, naming the role and
+  listing the validation changes, then refuses any validation of a
+  department worked since the stable the review saw (a newer stable
+  without it worked keeps it).
 
 Nothing to migrate: `departments_validated` keeps its name, validations
 are a new `approvals` key in the stablemeta, a note's role a new `role`

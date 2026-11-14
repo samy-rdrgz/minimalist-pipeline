@@ -38,7 +38,7 @@ from ..lib import (
     get_session_worked_departments,
     get_user,
     get_user_role,
-    import_review_xlsx,
+    import_review,
     review_import_plan,
     json_get,
     log,
@@ -662,16 +662,15 @@ class M_PIPELINE_OT_import_review(bpy.types.Operator):
     bl_idname = "m_pipeline.import_review"
     bl_label = "Import review"
     bl_description = (
-        "Create notes from reviews sent back by production: the .xlsx "
-        "downloaded from a snapshot, or the .json its page's Review makes -- "
-        "several at once (sup's, prod's...). Lines already imported are skipped"
+        "Create notes from reviews sent back by production: the .json a "
+        "snapshot page's Review makes -- several at once (sup's, prod's...). Lines already imported are skipped"
     )
 
     filepath: bpy.props.StringProperty(subtype="FILE_PATH")
     # Several files picked at once (Shift/Ctrl-click in the browser).
     files: bpy.props.CollectionProperty(type=bpy.types.OperatorFileListElement)
     directory: bpy.props.StringProperty(subtype="DIR_PATH")
-    filter_glob: bpy.props.StringProperty(default="*.xlsx;*.json", options={"HIDDEN"})
+    filter_glob: bpy.props.StringProperty(default="*.json", options={"HIDDEN"})
 
     def invoke(self, context, event):
         if not get_active_project_root():
@@ -687,10 +686,10 @@ class M_PIPELINE_OT_import_review(bpy.types.Operator):
         paths = [
             p
             for p in dict.fromkeys(paths)
-            if p.is_file() and p.suffix.lower() in (".xlsx", ".json")
+            if p.is_file() and p.suffix.lower() == ".json"
         ]
         if not paths:
-            self.report({"ERROR"}, "No review (.xlsx or .json) selected.")
+            self.report({"ERROR"}, "No review (.json) selected.")
             return {"CANCELLED"}
         # Each file's plan; one that can't be read or has no valid role is
         # left out, said in the dialog -- the others still go.
@@ -850,7 +849,7 @@ def _run_review_import(self, paths: list[Path]) -> set:
     changes: dict[str, dict] = {}
     for path in paths:
         try:
-            one = import_review_xlsx(path)
+            one = import_review(path)
         except PipelineError as e:
             log(e.level, "review_import", e.message)
             result["skipped"].append((path.name, e.message))
@@ -979,7 +978,7 @@ class M_PIPELINE_OT_review_descriptions(bpy.types.Operator):
     def draw(self, context):
         col = self.layout.column(align=True)
         col.label(text="The review changes these descriptions. Apply them all?")
-        col.label(text="(To leave one out, fix it in the spreadsheet and re-import.)")
+        col.label(text="(To leave one out, change it on the snapshot page and download the review again.)")
         col.separator()
         for change in _description_changes[:_DESCRIPTIONS_SHOWN]:
             col.label(text=change["name"], icon="GREASEPENCIL")
@@ -1035,8 +1034,7 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
     bl_label = "Export snapshot"
     bl_description = (
         "Write one HTML file showing every asset/shot's status and open notes, "
-        "readable offline without Blender, with a review spreadsheet inside "
-        "to send back"
+        "readable offline without Blender, with a review to send back"
     )
 
     filepath: bpy.props.StringProperty(subtype="FILE_PATH")

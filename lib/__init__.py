@@ -193,7 +193,7 @@ from .session import (
     warn_blender_version_mismatch,
 )
 from .review_import import (
-    import_review_xlsx,
+    import_review,
     review_description_changes,
     review_import_plan,
 )

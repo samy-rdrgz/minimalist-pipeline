@@ -26,13 +26,15 @@ files = "Manage project files, versions, tracking, and render farm data"
 # GitHub's own landing page (full of docs/ links that only resolve there)
 # -- excluded here in favor of README_EXTENSION.md, a self-contained stub
 # pointing back to the repo, so the installed package never ships a doc
-# with dead links.
+# with dead links. CHANGELOG.md is the repo's and the release page's: ~100
+# KB nobody reads inside Blender.
 paths_exclude_pattern = [
     "__pycache__/",
     ".*",
     "/*.zip",
     "*.blend[1-9]",
     "*.tar.gz",
+    "/CHANGELOG.md",
     "/CODE.md",
     "/NOTES.md",
     "/graph.md",
