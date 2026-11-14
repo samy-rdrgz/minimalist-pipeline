@@ -13,7 +13,6 @@ from ..lib import (
     json_get,
     locked_json,
     log,
-    now,
     parse_filename,
     render_root,
     shots_in_segment,
@@ -21,6 +20,7 @@ from ..lib import (
     to_relative,
 )
 from .dispatch import popen_logged, track_local_processes
+from .stages import add_stage
 
 
 def compute_output_path(
@@ -86,7 +86,7 @@ def run_render_setup(job_id: str, config: dict) -> None:
     with locked_json(job_path) as box:
         try:
             data = box["data"] or {}
-            data["stage_history"].append({"stage": "setup_start", "at": now()})
+            add_stage(data, "setup_start")
             box["action"] = "to_write"
 
             entry = (
@@ -123,7 +123,7 @@ def run_render_setup(job_id: str, config: dict) -> None:
             # the same transaction. mark_stage() here would wait on our own
             # lock for its full retry budget, then raise.
             if data is not None and "stage_history" in data:
-                data["stage_history"].append({"stage": "setup_failed", "at": now()})
+                add_stage(data, "setup_failed")
                 box["data"] = data
                 box["action"] = "to_write"
             log("ERROR", "farm", f"Setup failed for {job_id}: {e}")

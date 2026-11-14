@@ -49,6 +49,7 @@ from .dispatch import (
 )
 from .pace import ensure_preset_pace, note_preset_pace
 from .post_render import checks_images, compilation, refresh_shot_thumbnail
+from .stages import add_stage, mark_stage
 from .workers import (
     frame_seconds,
     idle_machines,
@@ -604,7 +605,7 @@ def retry_job(data: dict, project_root: Path) -> str | None:
     data.pop("local_processes", None)
     data.pop("frame_check_rounds", None)  # a manual retry starts a fresh count
     data.pop("cancel_requested", None)
-    data["stage_history"].append({"stage": target, "at": now(), "resumed": "retry"})
+    add_stage(data, target, resumed="retry")
     log("INFO", "farm", f"Job {data.get('job_id')}: retried at {target}.")
     return target
 
@@ -638,9 +639,7 @@ def recompile_job(data: dict) -> bool:
     if not recompilable(data):
         return False
     data.pop("to_check_attempts", None)
-    data["stage_history"].append(
-        {"stage": "checks_images_finished", "at": now(), "resumed": "recompile"}
-    )
+    add_stage(data, "checks_images_finished", resumed="recompile")
     log("INFO", "farm", f"Job {data.get('job_id')}: compilation requested again.")
     return True
 
@@ -692,7 +691,7 @@ def resume_interrupted_stage(data: dict, reason: str) -> str | None:
         target = _RESUME_STAGE[stage]
     else:
         return None
-    data["stage_history"].append({"stage": target, "at": now(), "resumed": reason})
+    add_stage(data, target, resumed=reason)
     data.pop("local_processes", None)
     data.pop("compile_machine", None)
     log(
@@ -793,9 +792,7 @@ def _finish_job_processes(job_id: str, procs: list, job_path: Path) -> None:
 
             outcome = "failed" if errors else "finished"
             if not redo:  # else already back at setup_finished
-                data["stage_history"].append(
-                    {"stage": f"{stage.replace('_start', '')}_{outcome}", "at": now()}
-                )
+                add_stage(data, f"{stage.replace('_start', '')}_{outcome}")
             if errors:
                 log(
                     "WARNING",
@@ -994,9 +991,7 @@ def _withdraw_requests(job_id: str, machines: list, cancel: bool = False) -> lis
                 if cancel:
                     data["cancel_requested"] = True
                     if not data["used_machines"]:
-                        data["stage_history"].append(
-                            {"stage": "render_failed", "at": now(), "cancelled": True}
-                        )
+                        add_stage(data, "render_failed", cancelled=True)
                 box["action"] = "to_write"
     if dropped:
         log(
@@ -1289,7 +1284,7 @@ def _end_render(job_path: Path, stage: str, **fields) -> dict | None:
         data = box["data"]
         if not data or data["stage_history"][-1]["stage"] != "render_start":
             return data
-        data["stage_history"].append({"stage": stage, "at": now()} | fields)
+        add_stage(data, stage, **fields)
         data.pop("left_machines", None)
         data["rendered_by"] = list(data.get("used_machines", []))
         _note_frames(data)
@@ -1447,7 +1442,7 @@ def _finish_render(job_path: Path, project_root: Path | None) -> dict | None:
         data["rendered_by"] = list(machines)
         _note_frames(data)
         _note_machine_names(data, machines)
-        data["stage_history"].append({"stage": "render_finished", "at": now()})
+        add_stage(data, "render_finished")
         data.pop("left_machines", None)
         box["action"] = "to_write"
     paths = frame_paths(data, project_root) or []
@@ -1533,13 +1528,7 @@ def _send_back_bad_frames(data: dict, corrupted: list[int]) -> bool:
         set(data.get("frames_rerendered") or []) | set(corrupted)
     )
     data["frame_check_rounds"] = data.get("frame_check_rounds", 0) + 1
-    data["stage_history"].append(
-        {
-            "stage": "setup_finished",
-            "at": now(),
-            "resumed": f"{len(corrupted)} frame(s) to render again",
-        }
-    )
+    add_stage(data, "setup_finished", resumed=f"{len(corrupted)} frame(s) to render again")
     data.pop("dispatch_id", None)
     log(
         "WARNING",
@@ -1582,14 +1571,3 @@ def discard_saved_frames(job_id: str) -> None:
                 retry_shared_io(path.unlink)
             except OSError:
                 pass
-
-
-def mark_stage(path, stage):
-    """Append a stage entry to a job file's stage_history (own locked
-    transaction). No-op if the file is gone -- archived from Farm monitoring
-    meanwhile (it raised "'NoneType' object is not subscriptable")."""
-    with locked_json(path) as box:
-        if not box["data"]:
-            return
-        box["data"]["stage_history"].append({"stage": stage, "at": now()})
-        box["action"] = "to_write"

@@ -33,6 +33,7 @@ from ..lib import (
 from .awake import keep_awake
 from .chunks import read_claims
 from .loop import RoleFileWatch, register_farm_loop
+from .stages import add_stage, mark_stage
 
 STALE_WORKER_SECONDS = 15
 
@@ -802,7 +803,6 @@ def execute_render_request() -> dict:
             job_id = data.get("job_id")
             log("ERROR", "farm", f"Could not launch render for {job_id}: {e}")
             if job_id:
-                from .queue import mark_stage
 
                 mark_stage(
                     ConfigCache.get_path("farm_actives") / f"{job_id}.json",
@@ -1053,13 +1053,7 @@ def _end_compile(job_id: str, success: bool) -> None:
         if not _still_mine(data):
             return
         data.pop("compile_machine", None)
-        data["stage_history"].append(
-            {
-                "stage": "preview_finished" if success else "preview_failed",
-                "at": now(),
-                "machine": get_machine_id(),
-            }
-        )
+        add_stage(data, "preview_finished" if success else "preview_failed", machine=get_machine_id())
         box["action"] = "to_write"
 
 

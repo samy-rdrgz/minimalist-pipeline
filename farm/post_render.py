@@ -9,11 +9,11 @@ from ..lib import (
     LD_SCALE,
     MAX_VIDEO_WIDTH,
     ConfigCache,
-    browser_codec,
-    ld_path,
     PipelineError,
+    browser_codec,
     get_machine_id,
     json_get,
+    ld_path,
     locked_json,
     log,
     now,
@@ -25,6 +25,7 @@ from ..lib import (
 )
 from ..lib.preview import video_info
 from .dispatch import popen_logged, track_local_processes
+from .stages import add_stage, mark_stage
 
 _EXTENSION_MAP = {
     "PNG": "png",
@@ -101,9 +102,7 @@ def checks_images(job_path: Path):
                     "-",
                 ]
 
-                data["stage_history"].append(
-                    {"stage": "checks_images_start", "at": now()}
-                )
+                add_stage(data, "checks_images_start")
                 box["action"] = "to_write"
 
                 # Read back by scan_processes() (corrupted_frames()). A
@@ -123,13 +122,10 @@ def checks_images(job_path: Path):
                 ]
                 track_local_processes(data, proc)
             else:
-                data["stage_history"].append(
-                    {"stage": "checks_images_failed", "at": now()}
-                )
+                add_stage(data, "checks_images_failed")
                 box["action"] = "to_write"
                 raise PipelineError("FFMPEG is not installed")
     except Exception as e:
-        from .queue import mark_stage
 
         mark_stage(
             job_path, "checks_images_failed"
@@ -298,20 +294,15 @@ def compilation(*, project_root: Path, job_path: Path, compilation_settings: str
                         "local",
                     )
                 ]
-                data["stage_history"].append(
-                    {"stage": "compilation_start", "at": now()}
-                )
+                add_stage(data, "compilation_start")
                 box["action"] = "to_write"
                 track_local_processes(data, proc)
 
             else:
-                data["stage_history"].append(
-                    {"stage": "compilation_failed", "at": now()}
-                )
+                add_stage(data, "compilation_failed")
                 box["action"] = "to_write"
                 raise PipelineError("FFMPEG is not installed")
     except Exception as e:
-        from .queue import mark_stage
 
         mark_stage(
             job_path, "compilation_failed"
@@ -452,7 +443,7 @@ def run_preview_compile(job_id: str, project_root: Path) -> None:
             data = box["data"] or {}
             ffmpeg_bin = resolve_ffmpeg()
             if not ffmpeg_bin:
-                data["stage_history"].append({"stage": "preview_failed", "at": now()})
+                add_stage(data, "preview_failed")
                 box["action"] = "to_write"
                 raise PipelineError("FFMPEG is not installed")
 
@@ -463,12 +454,11 @@ def run_preview_compile(job_id: str, project_root: Path) -> None:
                     "local",
                 )
             ]
-            data["stage_history"].append({"stage": "preview_start", "at": now()})
+            add_stage(data, "preview_start")
             box["action"] = "to_write"
             track_local_processes(data, proc)
 
     except Exception as e:
-        from .queue import mark_stage
 
         mark_stage(job_path, "preview_failed")  # separate transaction, actually commits
         log("ERROR", "farm", f"Preview compile failed for {job_id}: {e}")
