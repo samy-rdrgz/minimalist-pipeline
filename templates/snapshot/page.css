@@ -360,6 +360,8 @@ the review's violet, its edge kept when selected too. */
 .ico{display:inline-block;width:16px;height:16px;vertical-align:-3px;flex:none}
 .tg{display:inline-flex;align-items:center;gap:4px;padding:0 7px;border-radius:5px;border:1px solid var(--line2);font:600 11px/18px var(--ui);color:var(--ink-2);white-space:nowrap}
 .tg .ico{width:12px;height:12px}
+/* Reply: Blender's FILE_PARENT (↰) turned to point back, as ↩. */
+.bi-reply{transform:rotate(-90deg) scaleX(-1)}
 .tg-wait{border-style:dashed}
 .tg-run{border-color:transparent;background:var(--accent-bg);color:var(--ink)}
 .tg-fail{border-color:transparent;background:var(--rtk-bg);color:var(--rtk)}
@@ -817,3 +819,25 @@ range a blue bar above -- a click goes there. */
 .rt.mine textarea{border-color:var(--mine)!important}
 .syntax .addf{margin-right:8px;padding:1px 8px;border:1px solid var(--mine);border-radius:5px;background:none;color:var(--ink);font:700 11px/18px var(--mono);cursor:pointer}
 .dep .dep-l .cell{margin:0 8px 0 0;flex:none}
+
+/* ---------- send the review ---------- */
+.dlg-in.send{width:min(680px,100%);max-height:calc(100dvh - 32px - var(--sat));display:flex;flex-direction:column}
+.send-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:12px}.send-h h3{margin:0}
+.send-h .link{margin-left:auto}
+.dlg .row3{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:10px}
+.recap{min-height:0;overflow:auto;margin:4px -20px 0;padding:0 20px;border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.rc{display:grid;grid-template-columns:minmax(120px,190px) 1fr;gap:6px 14px;padding:10px 0;border-top:1px solid var(--line)}
+.rc:first-child{border-top:0}
+.rc-n{font:13px var(--mono);overflow-wrap:anywhere}
+.rc-p{display:flex;flex-direction:column;gap:6px;font-size:13px}
+.rc-p>span{display:flex;align-items:baseline;gap:8px}
+.rc-p small{color:var(--ink-2);overflow-wrap:anywhere}
+.rc-ok .m{align-self:center;margin:-3px 0}
+.rc-no .pi{position:static;align-self:center;padding:1px 6px;font-size:10px;line-height:14px}
+.rc-x{color:var(--ink-2)}.rc-x .ico{width:13px;height:13px;align-self:center}
+.send-f{display:flex;align-items:center;gap:8px;margin:12px 0 4px;font-size:12px}
+.send-f code{font:12px var(--mono);overflow-wrap:anywhere}
+.send-why{margin:0 0 12px;font-size:12px;color:var(--ink-2)}
+.dlg .acts .ico,.th-a .ico{width:14px;height:14px;margin-right:6px}
+#d-clear{color:var(--ink-2)}
+@media (max-width:560px){.dlg .row3{grid-template-columns:1fr 1fr}.dlg .row3 label:first-child{grid-column:1/-1}.rc{grid-template-columns:1fr}}

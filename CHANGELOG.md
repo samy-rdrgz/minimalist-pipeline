@@ -18,6 +18,9 @@ All notable changes to this addon. Dates are release dates.
   with ✓ / ✕ and the notes at frames beside it, a retake written at the
   frame shown (Enter adds it), the sequence along the bottom. The
   threads under their department, one place each; round ✓ / ✕.
+- Snapshot page, step 3: *Send your review*, a window -- who, as what,
+  when, then what it holds file by file with the list's symbols, the
+  file's name, Clear / Keep reviewing / Download; Blender's own icons.
 - Coloured marks for a department's state in Project monitoring (the
   snapshot page's), Waiting and To redo, and the notes' role and team
   marks -- in place of Blender's grey icons and its collection colours.

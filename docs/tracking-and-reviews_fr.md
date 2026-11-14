@@ -136,13 +136,17 @@ la prod -- sur la version qu'il a vue.
   Pour la relire : *Your review*, parmi les filtres (ou un clic sur
   « n files reviewed » dans la barre de review, ou *See them* avant de
   télécharger), ne montre que les fichiers que la review a touchés.
-  *Download* résume la review -- fichiers, validations, retakes,
-  validations retirées -- et demande votre nom, votre rôle (obligatoire
-  dès qu'elle contient un retake ou une validation) et la date de review,
-  puis enregistre le `.json` : **Import review** le prend --
-  plusieurs d'un coup aussi (un par reviewer : le fichier
-  porte son heure, son rôle et son auteur). Sur tablette ou téléphone,
-  *Save or send…* à côté ouvre la feuille de partage du système :
+  *Download* ouvre *Send your review* : votre
+  nom, votre rôle (obligatoire dès qu'elle contient un retake ou une
+  validation) et la date de review ; puis fichier par fichier ce qu'elle
+  contient, avec les symboles de la liste (✓ un département validé, ✕ un
+  retake et son texte, une description, des corrections, des réponses) ;
+  le nom du `.json` -- la page n'envoie rien elle-même : téléchargez-le et
+  envoyez-le au studio (mail, SwissTransfer). *Clear this review…*, *Keep
+  reviewing*, *Download* : **Import review** prend le fichier --
+  plusieurs d'un coup aussi (un par reviewer : le fichier porte son
+  heure, son rôle et son auteur). Sur tablette ou téléphone, le bouton
+  devient *Save or send…*, la feuille de partage du système :
   *Enregistrer dans Fichiers* choisit le dossier (un téléchargement
   atterrit là où le navigateur -- ou l'app qui affiche la page -- range
   les siens), ou AirDrop, Mail.... La page garde ce que vous

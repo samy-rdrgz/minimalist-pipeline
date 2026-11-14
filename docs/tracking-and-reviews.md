@@ -128,13 +128,17 @@ it saw.
   files reviewed" in the review bar, or *See them* before downloading),
   shows only the files the review touched.
   Keys: ← → (files), Esc (close), V (all done), X (general retake), Esc
-  or Ctrl+Enter in a box (leave it). *Download* sums up the review --
-  files, validations, retakes, withdrawn -- and asks your name, your
-  role (required as soon as it holds a retake or a validation) and the
-  review date, then saves the `.json`: **Import review** takes it --
-  several at once too (one per reviewer: the file is named
-  after its time, role and author). On a tablet or a phone, *Save or
-  send…* beside it opens the system's share sheet: *Save to Files* picks
+  or Ctrl+Enter in a box (leave it). *Download* opens *Send your review*: your
+  name, your role (required as soon as it holds a retake or a
+  validation) and the review date; then file by file what it holds, with
+  the list's symbols (✓ a department validated, ✕ a retake and its
+  text, a description, fixed, replies); the `.json`'s name -- the page
+  sends nothing itself: download it and send it to the studio (mail,
+  SwissTransfer). *Clear this review…*, *Keep reviewing*, *Download*:
+  **Import review** takes the file -- several at once too (one per
+  reviewer: the file is named after its time, role and author). On a
+  tablet or a phone, the button is *Save or send…*, the system's share
+  sheet: *Save to Files* picks
   the folder (a download lands wherever the browser -- or the app showing
   the page -- keeps its own), or AirDrop, Mail.... The page keeps what you write in
   your browser as you go (a reload brings it back, in the same browser

@@ -159,12 +159,19 @@ fnext:'<rect x="11" y="3" width="2" height="10" rx=".8" fill="currentColor"/><pa
 rew:'<rect x="1.5" y="3" width="2" height="10" rx=".8" fill="currentColor"/><path d="M9 3.8v8.4L4.5 8zM14.5 3.8v8.4L10 8z" fill="currentColor" stroke="currentColor" stroke-width=".8" stroke-linejoin="round"/>',
 ff:'<rect x="12.5" y="3" width="2" height="10" rx=".8" fill="currentColor"/><path d="M7 3.8v8.4L11.5 8zM1.5 3.8v8.4L6 8z" fill="currentColor" stroke="currentColor" stroke-width=".8" stroke-linejoin="round"/>',
 fsin:'<path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>',
-fsout:'<path d="M6 2.5V6H2.5M13.5 6H10V2.5M10 13.5V10h3.5M2.5 10H6v3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>'};
+fsout:'<path d="M6 2.5V6H2.5M13.5 6H10V2.5M10 13.5V10h3.5M2.5 10H6v3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>',
+trash:'<path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.7 8.5h5.6l.7-8.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>',
+export:'<path d="M8 10.5V2.5M5 5.5l3-3 3 3M3 10v3.5h10V10" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>',
+review:'<path d="M10.5 2.5l3 3L6 13H3v-3z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/>',
+check:'<path d="M3 8.5l3.2 3L13 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
+reply:'<path d="M6 4L2.5 7.5 6 11M2.5 7.5H10a3.5 3.5 0 0 1 3.5 3.5V12" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>'};
 // Blender's own where the page has it (icon_sprite(): "b-<name>", its
 // file in templates/snapshot/icons), else the stand-in above.
 var BI={play:'b-play',pause:'b-pause',fprev:'b-frame_prev',fnext:'b-frame_next',rew:'b-rew',ff:'b-ff',eye:'b-hide_off',
-trash:'b-trash',import:'b-import',export:'b-export',user:'b-user',movie:'b-file_movie',prevk:'b-prev_keyframe',nextk:'b-next_keyframe',link:'b-decorate_linked'};
-function ico(n){return BI[n]&&document.getElementById(BI[n])?'<svg class="ico" aria-hidden="true"><use href="#'+BI[n]+'"/></svg>':
+trash:'b-trash',import:'b-import',export:'b-export',user:'b-user',movie:'b-file_movie',prevk:'b-prev_keyframe',nextk:'b-next_keyframe',link:'b-decorate_linked',
+time:'b-time',render:'b-file_movie',cancel:'b-cancel',warn:'b-status_warning',fsin:'b-fullscreen_enter',fsout:'b-fullscreen_exit',
+review:'b-greasepencil',help:'b-question',filter:'b-filter',search:'b-viewzoom',folder:'b-file_folder',check:'b-checkmark',team:'b-community',reply:'b-file_parent'};
+function ico(n){return BI[n]&&document.getElementById(BI[n])?'<svg class="ico bi-'+n+'" aria-hidden="true"><use href="#'+BI[n]+'"/></svg>':
 '<svg class="ico" viewBox="0 0 16 16" aria-hidden="true">'+IC[n]+'</svg>';}
 function tag(cls,icon,text,tip){return '<span class="tg tg-'+cls+'"'+(tip?' title="'+esc(tip)+'"':'')+'>'+(icon?ico(icon):'')+esc(text)+'</span>';}
 // Under a file's name: a retake on no department, then its renders' tags
@@ -695,7 +702,7 @@ return '<div class="th'+(n.closed?' closed':'')+(reply?' reply':'')+(on?' fixed'
 '<div class="th-h">'+(a?'<b>'+a+'</b>':'')+'<span class="who">'+[n.team?'team':esc(n.role||''),when(n.date)].filter(Boolean).join(' · ')+'</span>'+
 '<span class="tt tt-'+kind+(n.done===true?' done':'')+'">'+(n.done===true?'✓ ':'')+kind.toUpperCase()+'</span>'+ft+'</div>'+
 '<p>'+esc(n.text)+'</p>'+(tags.length?'<div class="th-t">'+tags.join(' · ')+'</div>':'')+
-((!reply&&canReply(n))||dn?'<div class="th-a">'+(!reply&&canReply(n)?replyBtn(n):'')+(dn?'<button type="button" class="fx" data-fix="'+esc(n.id)+'" aria-pressed="'+on+'" title="'+(on?'Marked '+dl.toLowerCase()+' in your review: tap to undo':dl+': marked done when your review is imported')+'">✓ '+dl+'</button>':'')+'</div>':'')+
+((!reply&&canReply(n))||dn?'<div class="th-a">'+(!reply&&canReply(n)?replyBtn(n):'')+(dn?'<button type="button" class="fx" data-fix="'+esc(n.id)+'" aria-pressed="'+on+'" title="'+(on?'Marked '+dl.toLowerCase()+' in your review: tap to undo':dl+': marked done when your review is imported')+'">'+ico('check')+dl+'</button>':'')+'</div>':'')+
 '</div></div>'+(n.replies||[]).map(function(r){return noteHtml(Object.assign({closed:n.closed},r),true);}).join('')+(!reply&&canReply(n)?replyBox(n):'');}
 // Where a thread lives in the panel: under its first department the file
 // tracks, else under Whole file -- one place each.
@@ -712,7 +719,7 @@ function depSummary(it,d){var all=it.notes.filter(function(n){return !n.closed&&
 return [d?LABEL[it.states[d]].toLowerCase():'',r?plural(r,'retake'):'',o?plural(o,'thread'):''].filter(Boolean).join(' · ');}
 // Reviewing, a reply to an open note or RTK: a comment in its thread at
 // import, the retake left open (Fixed says it's done).
-function replyBtn(n){return '<button type="button" class="rp" data-reply="'+esc(n.id)+'" title="Reply in its thread: a retake (still to redo, its department sent back) — or note: a remark">↩ Reply</button>';}
+function replyBtn(n){return '<button type="button" class="rp" data-reply="'+esc(n.id)+'" title="Reply in its thread: a retake (still to redo, its department sent back) — or note: a remark">'+ico('reply')+'Reply</button>';}
 // A retake, red -- "note:" lines alone a remark, grey (as a department's box).
 function replyBox(n){var r=(peek(D[cur]).replies||{})[n.id];if(r==null&&!editing['r:'+n.id])return '';var nt=noteOnly(r);
 return '<div class="reply-box'+(nt?' as-note':'')+'"><span class="you '+(nt?'nt':'n')+'" title="'+(nt?'A remark in its thread':'A retake in its thread: its department sent back')+'">↩ you</span><textarea rows="1" class="rp-t" data-r="'+esc(n.id)+'" placeholder="Still to redo: what — or note: a remark">'+esc(r||'')+'</textarea></div>';}
@@ -1063,25 +1070,39 @@ function today(){var d=new Date();return d.getFullYear()+'-'+two(d.getMonth()+1)
 // Documents' viewer on an iPad, a phone's).
 var SHARE=!!(navigator.share&&navigator.canShare&&matchMedia('(pointer:coarse)').matches&&
 (function(){try{return navigator.canShare({files:[new File(['{}'],'t.json',{type:'application/json'})]})||navigator.canShare({files:[new File(['{}'],'t.json',{type:'text/plain'})]});}catch(e){return false;}})());
-// Download: what it holds first, with who, as what and when -- then the file.
-$('rv-dl').addEventListener('click',function(){var rows=exportRows();
+// Send: who, as what and when; what it holds, file by file, with the
+// list's symbols; the file's name; then the file -- downloaded, or the
+// share sheet on a tablet or a phone. The page itself sends nothing.
+function sendRecap(rows){return rows.map(function(row){var it=byFile[row.filename],parts=[];
+Object.keys(row).forEach(function(k){if(FIXED.indexOf(k)>=0||k.indexOf('reply ')===0)return;var v=String(row[k]);
+parts.push(v==='ok'?'<span class="rc-ok"><span class="m s-prod">✓</span>'+esc(cap(k))+'</span>':
+'<span class="rc-no"><span class="pi pi-role">✕</span>'+esc(cap(k))+(v!=='no'?'<small>'+esc(v.split(NL).join(' · '))+'</small>':'<small>validation withdrawn</small>')+'</span>');});
+if(row.global)parts.push('<span class="rc-no"><span class="pi pi-role">✕</span>Whole file<small>'+esc(row.global.split(NL).join(' · '))+'</small></span>');
+if(row.description)parts.push('<span class="rc-x">'+ico('review')+'description</span>');
+if(row.fixed)parts.push('<span class="rc-x">'+ico('check')+plural(row.fixed.split(' ').length,'fixed')+'</span>');
+var nr=Object.keys(row).filter(function(k){return k.indexOf('reply ')===0;}).length;if(nr)parts.push('<span class="rc-x">'+ico('reply')+plural(nr,'reply')+'</span>');
+return '<div class="rc"><b class="rc-n">'+(it?nameHtml(it):esc(row.filename))+'</b><span class="rc-p">'+parts.join('')+'</span></div>';}).join('');}
+function openSend(){var rows=exportRows();
 if(!rows.length){toast('Nothing to send yet: validate or write a retake first.');return;}
 var c=summary(),needsRole=rows.some(function(row){return Object.keys(row).some(function(k){return FIXED.indexOf(k)<0||k==='global';});});
-var dl=$('dlg');dl.innerHTML='<div class="dlg-in" role="dialog" aria-modal="true" aria-labelledby="dlg-t"><h3 id="dlg-t">Download the review</h3><dl>'+
-'<dt>Files reviewed</dt><dd>'+c.files+'</dd><dt>Validated</dt><dd>'+c.ok+'</dd><dt>Retakes</dt><dd>'+c.rt+'</dd>'+(c.notes?'<dt>Notes</dt><dd>'+c.notes+'</dd>':'')+(c.fixed?'<dt>Fixed / done</dt><dd>'+c.fixed+'</dd>':'')+(c.replies?'<dt>Replies</dt><dd>'+c.replies+'</dd>':'')+
-(c.out?'<dt>Validations withdrawn</dt><dd>'+c.out+'</dd>':'')+(c.desc?'<dt>Descriptions</dt><dd>'+c.desc+'</dd>':'')+'</dl>'+
-'<label>Your name<input id="d-author" value="'+esc(rv.author)+'" autocomplete="name"></label><div class="row2">'+
+var dl=$('dlg');dl.innerHTML='<div class="dlg-in send" role="dialog" aria-modal="true" aria-labelledby="dlg-t"><div class="send-h"><h3 id="dlg-t">Send your review</h3>'+
+'<span class="faint">'+plural(c.files,'file')+' · '+[c.ok?c.ok+' validated':'',c.rt?plural(c.rt,'retake'):'',c.notes?plural(c.notes,'note'):''].filter(Boolean).join(' · ')+'</span>'+
+'<button class="btn link" id="d-see" title="Only the files this review touched, in the list">See them</button></div>'+
+'<div class="row3"><label>Your name<input id="d-author" value="'+esc(rv.author)+'" autocomplete="name"></label>'+
 '<label>Role<select id="d-role">'+$('role').innerHTML+'</select></label><label>Review date<input id="d-date" type="date" value="'+esc(rv.date||today())+'"></label></div>'+
-'<p class="why" id="d-why" hidden></p><div class="acts"><button class="btn link" id="d-see" title="Only the files this review touched, in the list">See them</button><button class="btn" id="d-cancel">Cancel</button>'+(SHARE?'<button class="btn" id="d-share" title="The system\'s share sheet: Save to Files where you choose, AirDrop, Mail...">Save or send…</button>':'')+'<button class="btn primary" id="d-go">Download</button></div></div>';
-$('d-role').value=rv.role;pick($('d-role'));dl.hidden=false;
+'<div class="recap">'+sendRecap(rows)+'</div>'+
+'<p class="send-f">'+ico('export')+'<code id="d-name"></code></p>'+
+'<p class="send-why">The page sends nothing itself: download the file and send it to the studio (mail, SwissTransfer).'+(SHARE?' Here, the share sheet opens: Save to Files, AirDrop, Mail…':' On an iPad, the share sheet opens.')+'</p>'+
+'<p class="why" id="d-why" hidden></p><div class="acts"><button class="btn link" id="d-clear">'+ico('trash')+'Clear this review…</button><button class="btn" id="d-cancel">Keep reviewing</button>'+
+'<button class="btn primary" id="d-go">'+ico('export')+(SHARE?'Save or send…':'Download')+'</button></div></div>';
+var nm=function(){var a=rv.author,r=rv.role;rv.author=$('d-author').value.trim();rv.role=$('d-role').value;$('d-name').textContent=reviewName();rv.author=a;rv.role=r;};
+$('d-role').value=rv.role;pick($('d-role'));nm();dl.hidden=false;
+$('d-author').addEventListener('input',nm);$('d-role').addEventListener('change',nm);
 // A touch screen: no keyboard brought up unasked (the page scrolled to it).
 $(rv.author||touchPin.matches?'d-go':'d-author').focus({preventScroll:true});
 $('d-cancel').onclick=function(){dl.hidden=true;};$('d-see').onclick=function(){dl.hidden=true;showMine();};dl.onclick=function(e){if(e.target===dl)dl.hidden=true;};
-// Save or send (a tablet, a phone): the system's share sheet -- Save to
-// Files picks the folder, where a download lands wherever the browser or
-// the app viewing the page keeps its own.
-if($('d-share'))$('d-share').onclick=function(){$('d-go').dataset.share='1';$('d-go').click();};
-$('d-go').onclick=function(){var share=this.dataset.share;delete this.dataset.share;rv.author=$('d-author').value.trim();var was=rv.role;rv.role=$('d-role').value;rv.date=$('d-date').value;
+$('d-clear').onclick=function(){ask('Clear this review? What you downloaded keeps it.','Clear it',clearReview);};
+$('d-go').onclick=function(){rv.author=$('d-author').value.trim();var was=rv.role;rv.role=$('d-role').value;rv.date=$('d-date').value;
 $('author').value=rv.author;$('role').value=rv.role;sync('role');save();
 // The role changed here: what's sent with it (the team sends no validation).
 if(rv.role!==was){render();if(cur!=null)refresh();rows=exportRows();
@@ -1093,10 +1114,12 @@ var text=JSON.stringify(data,null,2),name=reviewName();
 function download(){var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:'application/json'}));a.download=name;
 document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},1000);dl.hidden=true;
 toast('Downloaded ('+name+'): send it, Import review reads it.');}
-var file=share&&shareFile(text,name);
+// A tablet, a phone: the share sheet (Save to Files picks the folder).
+var file=shareFile(text,name);
 if(!file)return download();
 navigator.share({files:[file],title:name}).then(function(){dl.hidden=true;toast('Review saved or sent: Import review reads it.');},
-function(err){if(err&&err.name==='AbortError')return;download();});};});
+function(err){if(err&&err.name==='AbortError')return;download();});};}
+$('rv-dl').addEventListener('click',openSend);
 // The review as a file the share sheet takes: JSON, else as plain text
 // (same .json name) where a browser shares only some types. null: none.
 function shareFile(text,name){if(!SHARE)return null;
