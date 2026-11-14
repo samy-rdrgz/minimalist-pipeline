@@ -35,6 +35,21 @@ def main() -> None:
             "general_rtk": True, "rtk_departments": []}
     assert abs(status.file_progress(item, w) - (1.0 - 0.33) / 2) < 1e-9
     assert status.file_progress({"scores": {}}, w) is None
+    # Each session by its own date: anim ticked Monday, the stable Tuesday,
+    # another session saving Wednesday without ticking it -- not worked since.
+    tracking = importlib.import_module(status.__name__.rsplit(".", 1)[0] + ".tracking")
+    from datetime import datetime, timezone
+    tuesday = datetime(2026, 11, 10, 12, tzinfo=timezone.utc)
+    meta = {"file": "a_v005.blend", "edited_at": "2026-11-11T12:00:00+00:00", "edited_by": "tom",
+            "departments_worked": {
+                "s1": {"departments": ["anim"], "saved_at": "2026-11-09T12:00:00+00:00", "by": "léa"},
+                "s2": {"departments": [], "saved_at": "2026-11-11T12:00:00+00:00", "by": "tom"}}}
+    assert tracking._worked_departments([meta], tuesday) == {}, "a later save counted anim"
+    meta["departments_worked"]["s2"]["departments"] = ["fx"]
+    assert tracking._worked_departments([meta], tuesday) == {"fx": [{"file": "a_v005.blend", "by": "tom"}]}
+    # Before Migrate old data: a bare list, the file's date.
+    old = {"file": "b.blend", "edited_at": "2026-11-11T12:00:00+00:00", "departments_worked": {"x": ["anim"]}}
+    assert list(tracking._worked_departments([old], tuesday)) == ["anim"]
     print("OK: status")
 
 

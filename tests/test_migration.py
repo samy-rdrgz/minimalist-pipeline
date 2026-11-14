@@ -73,7 +73,7 @@ def main() -> None:
             assert "stable: departments started" in changes[name], changes
             assert "stable: validations carried" in changes[name], changes
             assert "dates with their offset" in changes[name], changes
-        assert changes["ch_bob_v002.wipmeta"] == ["dates with their offset"], changes
+        assert changes["ch_bob_v002.wipmeta"] == ["sessions with their date", "dates with their offset"], changes
 
         result = migration.apply_migration(root, plan)
         assert not result["errors"] and result["written"] == len(plan["files"]), result
@@ -96,6 +96,9 @@ def main() -> None:
         carried = s2["approvals"]["modeling"]["prod"]
         assert carried["carried_from"] == "ch_bob_v001-stable_001.blend" and carried["by"] == "ana", s2
         assert core.parse_iso(s1["created_at"]).utcoffset() is not None
+        wip = json.loads((pipe / "ch_bob_v002.wipmeta").read_text())
+        session = wip["departments_worked"]["s1"]
+        assert session["departments"] == ["shading"] and session["saved_at"] == wip["edited_at"], wip
 
         again = migration.plan_migration(root)
         assert again["files"] == [], again["files"]

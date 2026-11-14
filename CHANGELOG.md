@@ -23,7 +23,7 @@ All notable changes to this addon. Dates are release dates.
   completed as this one writes it (a stable's validations carried and
   started departments, a note's departments, links one per file, a
   render's folder, source file, shot and frames, every date with its
-  time zone); each file changed is backed up first under
+  time zone, each work session's own date); each file changed is backed up first under
   `backup/migration-<date>/`. This version reads only that form.
 
 ### Changed

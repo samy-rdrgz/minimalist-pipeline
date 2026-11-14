@@ -12,7 +12,9 @@ writes (main thread: locked_json()). What each step completes:
 - .stablemeta: "departments_started" (validated at any stable or worked
   before it); "departments_worked" and the validations it carried
   ("approvals_carried", 1.1.9); "linked" one entry per project file.
-- .wipmeta: "linked" one entry per project file.
+- .wipmeta: "linked" one entry per project file; each session's
+  "departments_worked" with its date (1.2: {"departments", "saved_at",
+  "by"}).
 - render_history.json: a finished render's "output_path", "source_file",
   "shot_override" (1.0.11, from its folder) and "frame_range_rendered"
   (from its images' numbers).
@@ -38,6 +40,7 @@ from .tracking import (
     _walk_owner_dirs,
     _worked_between,
     compact_linked,
+    worked_sessions,
 )
 
 # This migration's name, in the config's "data_migrations" once run.
@@ -123,7 +126,10 @@ def _plan_owner(root: Path, owner: Path, is_shot: bool, v_prefix: str) -> list[d
         found.append((entry.path, data, changes))
 
     for entry, data in _read_metas(entries, ".wipmeta"):
-        found.append((entry.path, data, ["links one per file"] if _migrate_linked(data, root) else []))
+        changes = ["links one per file"] if _migrate_linked(data, root) else []
+        if _migrate_sessions(data):
+            changes.append("sessions with their date")
+        found.append((entry.path, data, changes))
 
     history_path = pipeline / "render_history.json"
     history = read_json_quiet(history_path) if history_path.is_file() else None
@@ -151,6 +157,30 @@ def _read_metas(entries: list, suffix: str) -> list[tuple]:
             if isinstance(data, dict):
                 out.append((entry, data))
     return out
+
+
+# ---------------------------------------------------------------------------
+# .wipmeta: each session's date
+# ---------------------------------------------------------------------------
+
+
+def _migrate_sessions(data: dict) -> bool:
+    """Each session's departments_worked as written now, {"departments",
+    "saved_at", "by"}: a bare list (before 1.2) dated by the file's
+    edited_at / edited_by -- the only date it had."""
+    sessions = data.get("departments_worked")
+    if not isinstance(sessions, dict):
+        return False
+    changed = False
+    for key, entry in sessions.items():
+        if isinstance(entry, list):
+            sessions[key] = {
+                "departments": entry,
+                "saved_at": data.get("edited_at"),
+                "by": data.get("edited_by"),
+            }
+            changed = True
+    return changed
 
 
 # ---------------------------------------------------------------------------
@@ -271,11 +301,10 @@ def _started_at(stables_so_far: list, wipmetas: list, date: datetime) -> list[st
         started |= {d for d, v in (data.get("departments_validated") or {}).items() if v}
     limit = date + timedelta(seconds=_CLOCK_MARGIN_SECONDS)
     for meta in wipmetas:
-        edited = parse_iso(meta.get("edited_at"))
-        if edited is None or edited > limit:
-            continue
-        for deps in (meta.get("departments_worked") or {}).values():
-            started.update(deps or [])
+        for session in worked_sessions(meta):
+            saved = parse_iso(session.get("saved_at"))
+            if saved is not None and saved <= limit:
+                started.update(session.get("departments") or [])
     return sorted(started)
 
 

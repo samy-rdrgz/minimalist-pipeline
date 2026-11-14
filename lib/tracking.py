@@ -805,8 +805,13 @@ def wipmeta_touch(filepath: Path):
     try:
         with locked_json(path) as box:
             data = box["data"] or {}
-            data["edited_at"] = now()
+            nw = now()
+            data["edited_at"] = nw
             data["edited_by"] = get_user()
+            # This session's work, if it recorded some: saved now.
+            mine = (data.get("departments_worked") or {}).get(_session_id())
+            if isinstance(mine, dict):
+                mine["saved_at"] = nw
             box["action"] = "to_write"
     except Exception as e:
         log("WARNING", "wipmeta_touch", f"Could not stamp wipmeta: {e}")
@@ -815,13 +820,36 @@ def wipmeta_touch(filepath: Path):
 _session_worked_cache: dict[str, list[str]] = {}
 
 
+def _session_id() -> str:
+    """This Blender session's key in a .wipmeta's departments_worked."""
+    return f"{os.getpid()}_{get_machine_id()}"
+
+
+def worked_sessions(meta: dict) -> list[dict]:
+    """A .wipmeta's sessions that recorded work: [{"departments",
+    "saved_at", "by"}], saved_at the session's last save. One written
+    before 1.2 (a bare list, until Migrate old data) gets the file's
+    edited_at / edited_by. See NOTES.md, "Sessions with their date"."""
+    out = []
+    for entry in (meta.get("departments_worked") or {}).values():
+        if isinstance(entry, list):
+            entry = {
+                "departments": entry,
+                "saved_at": meta.get("edited_at"),
+                "by": meta.get("edited_by"),
+            }
+        if isinstance(entry, dict):
+            out.append(entry)
+    return out
+
+
 def wipmeta_add_work(
     filepath: Path, departments: list[str] = [], linked_libs: list[str] | None = None
 ):
     """Record the departments worked this session in this version's .wipmeta
     and resync its linked libs (linked_libs: pre-captured, once the file is
     closed). No-op without a .wipmeta (a -stable file), as wipmeta_touch()."""
-    id = f"{os.getpid()}_{get_machine_id()}"
+    id = _session_id()
     path = _meta_path(filepath, ".wipmeta")
     if not path.exists():
         return
@@ -833,9 +861,14 @@ def wipmeta_add_work(
             ]
         with locked_json(path) as box:
             data = box["data"] or {}
-            data["edited_at"] = now()
-            data["edited_by"] = get_user()
-            data["departments_worked"][id] = departments
+            nw, user = now(), get_user()
+            data["edited_at"] = nw
+            data["edited_by"] = user
+            data.setdefault("departments_worked", {})[id] = {
+                "departments": list(departments),
+                "saved_at": nw,
+                "by": user,
+            }
             data["linked"] = compact_linked(
                 clean_libraries(data["linked"], linked_libs)
             )
@@ -858,11 +891,12 @@ def get_session_worked_departments(filepath: Path) -> list[str]:
     key = str(path)
     if key in _session_worked_cache:
         return _session_worked_cache[key]
-    id = f"{os.getpid()}_{get_machine_id()}"
+    id = _session_id()
     try:
         with locked_json(path, read_only=True) as box:
             data = box["data"] or {}
-        result = list(data.get("departments_worked", {}).get(id, []))
+        entry = (data.get("departments_worked") or {}).get(id) or {}
+        result = list(entry if isinstance(entry, list) else entry.get("departments") or [])
     except Exception:
         result = []
     _session_worked_cache[key] = result
@@ -1276,18 +1310,18 @@ def _collect_folder(asset_dir: Path, entries: list | None = None) -> dict | None
 
 
 def _worked_departments(wipmetas: list, stable_date: datetime) -> dict[str, list[dict]]:
-    """{department: [{"file", "by"}]} worked on in the wipmetas edited after
-    stable_date (the latest stable's)."""
+    """{department: [{"file", "by"}]} worked on in sessions saved after
+    stable_date (the latest stable's) -- each session by its own date: a
+    later save without the department ticked doesn't count it again."""
     worked: dict[str, list[dict]] = {}
     for meta in wipmetas:
-        edited = parse_iso(meta.get("edited_at"))
-        if edited is None or edited <= stable_date:
-            continue  # at or before the latest stable, ignored
-        # departments_worked : {session_id: [dep1, dep2, ...]}
-        for deps_list in meta.get("departments_worked", {}).values():
-            for dep in deps_list:
+        for session in worked_sessions(meta):
+            saved = parse_iso(session.get("saved_at"))
+            if saved is None or saved <= stable_date:
+                continue  # at or before the latest stable, ignored
+            for dep in session.get("departments") or []:
                 worked.setdefault(dep, []).append(
-                    {"file": meta["file"], "by": meta.get("edited_by")}
+                    {"file": meta["file"], "by": session.get("by") or meta.get("edited_by")}
                 )
     return worked
 
@@ -1330,10 +1364,10 @@ def _worked_between(entries: list, start: datetime, end: datetime) -> set[str]:
         if not entry.name.endswith(".wipmeta") or _entry_mtime(entry) < skip_before:
             continue
         meta = read_json_quiet(Path(entry.path)) or {}
-        edited = parse_iso(meta.get("edited_at"))
-        if edited and start < edited <= end:
-            for deps_list in (meta.get("departments_worked") or {}).values():
-                worked.update(deps_list)
+        for session in worked_sessions(meta):
+            saved = parse_iso(session.get("saved_at"))
+            if saved and start < saved <= end:
+                worked.update(session.get("departments") or [])
     return worked
 
 

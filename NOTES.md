@@ -3850,6 +3850,28 @@ around one idea: a list to scan, a panel to read one file.
   unfolded under rows, per-shot hover buttons in the list (the panel has
   every shot's picture).
 
+## Sessions with their date
+
+A `.wipmeta` had one date, `edited_at`, moved by every save
+(`wipmeta_touch()`), while `departments_worked` listed the departments
+ticked per session. Animation ticked Monday in v005, a stable Tuesday,
+someone saving v005 Wednesday without ticking anything: animation read as
+worked since the stable. The state engine's To redo (phase 3C) needs each
+session's own date, so from 1.2:
+
+- `departments_worked: {<pid>_<machine>: {"departments", "saved_at",
+  "by"}}`. `wipmeta_add_work()` (ticked) writes the session's entry,
+  `wipmeta_touch()` (every save) moves its `saved_at` -- this session's
+  only, never another's.
+- One reader, `worked_sessions(meta)`: `_worked_departments()`,
+  `_worked_between()`, the migration's `_started_at()`. A bare list
+  (before 1.2) is read with the file's `edited_at` / `edited_by` until
+  Migrate old data converts it (`_migrate_sessions()`, the same dating):
+  a project migrated before this step would otherwise break its drawing.
+- The wipmeta skipped by file mtime (`_collect_folder()`) still holds: a
+  session's `saved_at` is never later than the file's last write.
+- tests/test_status.py has the Monday / Tuesday / Wednesday case.
+
 ## State engine
 
 A department's state was worked out in two places in Python (the
