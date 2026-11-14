@@ -1709,32 +1709,38 @@ class M_PIPELINE_OT_file_omit(bpy.types.Operator):
     bl_options = {"INTERNAL"}
 
     filepath: bpy.props.StringProperty(options={"SKIP_SAVE"})
+    custom_tooltip: bpy.props.StringProperty(options={"SKIP_SAVE"})
     state: bpy.props.EnumProperty(
         name="",
         items=[
             ("omit", "Omit", "Out of the project (cut at the edit, dropped)"),
             ("on_hold", "On hold", "Waiting for a decision"),
-            ("", "Counts", "Back in the project's figures"),
+            ("counts", "Counts", "Back in the project's figures"),
         ],
         default="on_hold",
     )
     reason: bpy.props.StringProperty(name="Why", options={"SKIP_SAVE"})
 
+    @classmethod
+    def description(cls, context, properties):
+        return properties.custom_tooltip or cls.__doc__
+
     def invoke(self, context, event):
         mark = (TrackingStatusCache.get(self.filepath) or {}).get("omit") or {}
-        self.state = "" if mark else "on_hold"
+        self.state = "counts" if mark else "on_hold"
         self.reason = mark.get("reason", "")
         return context.window_manager.invoke_props_dialog(self, width=420)
 
     def draw(self, context):
         col = self.layout.column()
         col.row().prop(self, "state", expand=True)
-        if self.state:
+        if self.state != "counts":
             col.prop(self, "reason")
 
     def execute(self, context):
+        state = "" if self.state == "counts" else self.state
         try:
-            set_file_omit(Path(self.filepath), self.state, get_user(context), self.reason)
+            set_file_omit(Path(self.filepath), state, get_user(context), self.reason)
         except PipelineError as e:
             return report_error(self, "omit", e)
         status_changed(self.filepath)
