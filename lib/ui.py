@@ -107,3 +107,22 @@ def _item_button(layout, idname: str, text: str, icon: str, props: dict | None =
     for key, value in props.items():
         setattr(op, key, value)
     return op
+
+
+def titled_row(layout, text: str, icon: str = "NONE", factor: float = 0.35):
+    """A dialog's line: its title on the left (factor of the width), the
+    row for its field returned."""
+    row = layout.split(factor=factor, align=True)
+    row.label(text=text, icon=icon)
+    return row
+
+
+def draw_creation_fields(layout, op, factor: float) -> None:
+    """New asset's and New shot's common fields: description, departments
+    required, clean file -- then a line."""
+    from .core import text_field
+
+    text_field(titled_row(layout, "Description", "TEXT", factor), op, "description", initial_visible_lines=1)
+    titled_row(layout, "Departments", "COLOR", factor).prop_menu_enum(op, "required_departments")
+    titled_row(layout, "Clean file", "FILE_BLANK", factor).prop(op, "create_clean", text="")
+    layout.separator(type="LINE", factor=3)

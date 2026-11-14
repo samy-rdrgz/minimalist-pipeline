@@ -4,6 +4,7 @@ from pathlib import Path
 
 import bpy
 
+from ..lib.ui import draw_creation_fields
 from ..lib import (
     DEFAULT_MULTISHOT_STEP,
     DEFAULT_SHOT_DEPARTMENTS,
@@ -301,6 +302,21 @@ def _draw_shot_conflicts(
         box.prop(op, "confirm_overlap")
 
 
+def _refused_conflict(op, project_root, sq, shots, config, confirm: str, exclude_dir=None) -> bool:
+    """Whether a shot number refuses the creation (reported): one already
+    a mono-shot, or one used elsewhere without op's confirm_overlap ticked
+    (its box named confirm)."""
+    blocking, warnings = _classify_shot_conflicts(project_root, sq, shots, config, exclude_dir)
+    if blocking:
+        n, owner = next(iter(blocking.items()))
+        op.report({"ERROR"}, f"Shot {n:03d} already exists as {owner.name}.")
+        return True
+    if warnings and not op.confirm_overlap:
+        op.report({"ERROR"}, f"Shot number(s) already used elsewhere -- tick '{confirm}' to confirm.")
+        return True
+    return False
+
+
 class M_PIPELINE_OT_create_shot(bpy.types.Operator):
     """Create a new shot with proper naming and folder placement."""
 
@@ -342,17 +358,7 @@ class M_PIPELINE_OT_create_shot(bpy.types.Operator):
         shots = _draw_shot_list(layout, context, self, config, TITLE_WIDTH)
         _draw_block_warning(layout, context, shots)
 
-        row = layout.split(factor=TITLE_WIDTH, align=True)
-        row.label(text="Description", icon="TEXT")
-        text_field(row, self, "description", initial_visible_lines=1)
-        row = layout.split(factor=TITLE_WIDTH, align=True)
-        row.label(text="Departments", icon="COLOR")
-        row.prop_menu_enum(self, "required_departments")
-        row = layout.split(factor=TITLE_WIDTH, align=True)
-        row.label(text="Clean file", icon="FILE_BLANK")
-        row.prop(self, "create_clean", text="")
-
-        layout.separator(type="LINE", factor=3)
+        draw_creation_fields(layout, self, TITLE_WIDTH)
 
         _draw_timeline_warnings(layout, shots, self.end_frame, context)
         naming = _draw_naming_preview(layout, self.sequence_number, shots, config)
@@ -405,18 +411,7 @@ class M_PIPELINE_OT_create_shot(bpy.types.Operator):
                 naming["sequence"]["digits"],
             )
             sq = f"{n_prefix}{self.sequence_number:0{n_digits}d}"
-            blocking, warnings = _classify_shot_conflicts(
-                project_root, sq, shots, config
-            )
-            if blocking:
-                n, owner = next(iter(blocking.items()))
-                self.report({"ERROR"}, f"Shot {n:03d} already exists as {owner.name}.")
-                return {"CANCELLED"}
-            if warnings and not self.confirm_overlap:
-                self.report(
-                    {"ERROR"},
-                    "Shot number(s) already used elsewhere -- tick 'Create anyway' to confirm.",
-                )
+            if _refused_conflict(self, project_root, sq, shots, config, "Create anyway"):
                 return {"CANCELLED"}
 
         # Snapshot before create_clean's read_homefile() below -- see
@@ -587,18 +582,7 @@ class M_PIPELINE_OT_edit_block_structure(bpy.types.Operator):
 
         sq = old_path.parent.parent.name
         config = ConfigCache.get()
-        blocking, warnings = _classify_shot_conflicts(
-            project_root, sq, shots, config, exclude_dir=old_path.parent
-        )
-        if blocking:
-            n, owner = next(iter(blocking.items()))
-            self.report({"ERROR"}, f"Shot {n:03d} already exists as {owner.name}.")
-            return {"CANCELLED"}
-        if warnings and not self.confirm_overlap:
-            self.report(
-                {"ERROR"},
-                "Shot number(s) already used elsewhere -- tick 'Branch anyway' to confirm.",
-            )
+        if _refused_conflict(self, project_root, sq, shots, config, "Branch anyway", old_path.parent):
             return {"CANCELLED"}
 
         # Snapshot before create_clean's read_homefile() below -- see

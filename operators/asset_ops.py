@@ -2,6 +2,7 @@
 
 import bpy
 
+from ..lib.ui import draw_creation_fields, titled_row
 from ..lib import (
     DEFAULT_ASSET_DEPARTMENTS,
     ConfigCache,
@@ -14,7 +15,6 @@ from ..lib import (
     path_reachable,
     prefix_to_parent_folder,
     sanitize_name,
-    text_field,
 )
 
 # ---------------------------------------------------------------------------
@@ -70,26 +70,12 @@ class M_PIPELINE_OT_create_asset(bpy.types.Operator):
         TITLE_WIDTH = 0.35
         layout = self.layout.column(align=True)
 
-        row = layout.split(factor=TITLE_WIDTH, align=True)
-        row.label(text="Prefix", icon="TAG")
-        row.prop(self, "asset_prefix", text="")
-        row = layout.split(factor=TITLE_WIDTH, align=True)
-        row.label(text="Name", icon="BLANK1")
-        row.prop(self, "asset_name", text="")
+        titled_row(layout, "Prefix", "TAG", TITLE_WIDTH).prop(self, "asset_prefix", text="")
+        titled_row(layout, "Name", "BLANK1", TITLE_WIDTH).prop(self, "asset_name", text="")
 
         layout.separator(type="LINE", factor=3)
 
-        row = layout.split(factor=TITLE_WIDTH, align=True)
-        row.label(text="Description", icon="TEXT")
-        text_field(row, self, "description", initial_visible_lines=1)
-        row = layout.split(factor=TITLE_WIDTH, align=True)
-        row.label(text="Departments", icon="COLOR")
-        row.prop_menu_enum(self, "required_departments")
-        row = layout.split(factor=TITLE_WIDTH, align=True)
-        row.label(text="Clean file", icon="FILE_BLANK")
-        row.prop(self, "create_clean", text="")
-
-        layout.separator(type="LINE", factor=3)
+        draw_creation_fields(layout, self, TITLE_WIDTH)
 
         safe = sanitize_name(self.asset_name)
         v_digits = self._get_v_digits(context)
