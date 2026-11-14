@@ -1145,31 +1145,14 @@ class M_PIPELINE_OT_farm_retry_job(bpy.types.Operator):
     job_id: bpy.props.StringProperty()
 
     def execute(self, context):
-        actives = ConfigCache.get_path("farm_actives")
-        job_path = actives / f"{self.job_id}.json"
-        archived = ConfigCache.get_path("farm_archives") / job_path.name
-        try:
-            if not job_path.exists() and archived.exists():
-                if not failed_stage(read_json_quiet(archived) or {}):
-                    self.report({"WARNING"}, "This job didn't fail: nothing to retry.")
-                    return {"CANCELLED"}
-                archived.rename(job_path)  # archived by hand: back in the queue
-            with locked_json(job_path) as box:
-                data = box["data"] or {}
-                target = retry_job(data, get_active_project_root())
-                if target:
-                    box["action"] = "to_write"
-        except Exception as e:
-            log("ERROR", "farm_retry_job", str(e))
-            self.report({"ERROR"}, f"Could not retry the job: {e}")
-            return {"CANCELLED"}
-        if not target:
-            self.report({"WARNING"}, "This job didn't fail: nothing to retry.")
-            return {"CANCELLED"}
-        if monitoring_detail("job") == self.job_id:
-            load_job_details(self.job_id)
-        self.report({"INFO"}, f"Job sent back to {target}.")
-        return {"FINISHED"}
+        return _redo_job(
+            self,
+            failed_stage,
+            lambda data: retry_job(data, get_active_project_root()),
+            "This job didn't fail: nothing to retry.",
+            "retry",
+            lambda target: f"Job sent back to {target}.",
+        )
 
 
 class M_PIPELINE_OT_farm_recompile_job(bpy.types.Operator):
@@ -1186,32 +1169,45 @@ class M_PIPELINE_OT_farm_recompile_job(bpy.types.Operator):
     job_id: bpy.props.StringProperty()
 
     def execute(self, context):
-        actives = ConfigCache.get_path("farm_actives")
-        job_path = actives / f"{self.job_id}.json"
-        archived = ConfigCache.get_path("farm_archives") / job_path.name
-        done = False
-        try:
-            if not job_path.exists() and archived.exists():
-                if not recompilable(read_json_quiet(archived) or {}):
-                    self.report({"WARNING"}, "Only a finished render can be recompiled.")
-                    return {"CANCELLED"}
-                archived.rename(job_path)  # archived by hand: back in the queue
-            with locked_json(job_path) as box:
-                data = box["data"] or {}
-                done = recompile_job(data)
-                if done:
-                    box["action"] = "to_write"
-        except Exception as e:
-            log("ERROR", "farm_recompile_job", str(e))
-            self.report({"ERROR"}, f"Could not recompile the job: {e}")
-            return {"CANCELLED"}
-        if not done:
-            self.report({"WARNING"}, "Only a finished render can be recompiled.")
-            return {"CANCELLED"}
-        if monitoring_detail("job") == self.job_id:
-            load_job_details(self.job_id)
-        self.report({"INFO"}, "Compilation requested again.")
-        return {"FINISHED"}
+        return _redo_job(
+            self,
+            recompilable,
+            recompile_job,
+            "Only a finished render can be recompiled.",
+            "recompile",
+            lambda _: "Compilation requested again.",
+        )
+
+
+def _redo_job(op, can, redo, refused: str, verb: str, done) -> set:
+    """Retry / Recompile op.job_id: back from the archives first if it was
+    archived by hand (can() it?), redo(data) under its lock -- written when
+    it says something. refused: what nothing to do reads; done(result) the
+    report."""
+    job_path = ConfigCache.get_path("farm_actives") / f"{op.job_id}.json"
+    archived = ConfigCache.get_path("farm_archives") / job_path.name
+    try:
+        if not job_path.exists() and archived.exists():
+            if not can(read_json_quiet(archived) or {}):
+                op.report({"WARNING"}, refused)
+                return {"CANCELLED"}
+            archived.rename(job_path)  # archived by hand: back in the queue
+        with locked_json(job_path) as box:
+            data = box["data"] or {}
+            result = redo(data)
+            if result:
+                box["action"] = "to_write"
+    except Exception as e:
+        log("ERROR", f"farm_{verb}_job", str(e))
+        op.report({"ERROR"}, f"Could not {verb} the job: {e}")
+        return {"CANCELLED"}
+    if not result:
+        op.report({"WARNING"}, refused)
+        return {"CANCELLED"}
+    if monitoring_detail("job") == op.job_id:
+        load_job_details(op.job_id)
+    op.report({"INFO"}, done(result))
+    return {"FINISHED"}
 
 
 class M_PIPELINE_OT_farm_job_details(bpy.types.Operator):
