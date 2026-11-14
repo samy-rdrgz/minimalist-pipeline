@@ -1,8 +1,24 @@
 # Plan 1.2 — récapitulatif des modifications
 
-*État au 14/11/2026, à partir de la 1.1.10 ; roadmap des versions 1.2.0 et 2.0.0 (branche `claude/tender-tesla-ov9148`). Rien n'est codé : ce document fixe les décisions prises et l'architecture retenue. Les points marqués **[à confirmer]** restent à trancher.*
+*État au 14/11/2026, à partir de la 1.1.10. Les phases 1A et 1B sont faites (branche `ccr-6d9503b4-xu75ta`, voir « Avancement » ci-dessous) ; le reste fixe les décisions prises et l'architecture retenue. Les points marqués **[à confirmer]** restent à trancher.*
 
 Hypothèse de départ, validée : **tous les PC sont mis à jour en même temps.** Le code qui gère des machines sur des versions différentes peut donc disparaître.
+
+## Avancement
+
+**Phase 1A et 1B faites**, un commit par tâche, à comportement identique (sauf la popup de 1B.3). Vérifié sans Blender : import complet avec un faux `bpy` (`tools/fake_bpy.py`), et pour chaque écran réécrit, la trace des appels d'interface de l'ancien code et du nouveau sur les mêmes données (identiques). La migration a son test : `tests/test_migration.py`.
+
+| | 1.1.10 | Après la phase 1 |
+|---|---|---|
+| Fichiers du zip (bruts) | 1 398 Ko | 1 282 Ko (−116 Ko) |
+| Lignes Python | 30 426 | 29 731 (−695) |
+| Lignes de code Python (sans commentaires ni docstrings) | 22 835 | 22 008 (−827) |
+
+Dont **+280 lignes** pour le script de migration (`lib/migration.py`, son opérateur), qui reprend l'ancienne logique de lecture pour la jouer une fois : sans lui, la phase 1 retire environ 1 100 lignes de code.
+
+**Reste de la phase 1 : 1C** (dates avec fuseau), préparée : toutes les lectures de dates passent déjà par `parse_iso()`.
+
+**Pas encore testé dans Blender** : tout ce qui est ci-dessus, plus les deux changements de la 1.1.10 (« waiting for a worker », la molette). À vérifier en priorité : la popup « Which machine, which frame... » (son champ Frame qui se met à jour), le bouton *Migrate old data* sur une copie d'un vrai projet, et une passe sur chaque écran réécrit (Farm monitoring, File details, Edit project, menu du haut, panneaux Project et File).
 
 ## 0. Pour reprendre dans une nouvelle conversation
 
@@ -378,11 +394,11 @@ Elle vient en dernier : elle repose sur le moteur d'états (phase 3), et « mes 
 
 1. ~~Phase 1B.5~~ : **décidé**, un script de migration, avec les sauvegardes dans `backup/` à la racine du projet.
 2. **Phase 2b** : le détail à côté de la liste. Il faut vérifier en premier, dans Blender, que la découpe et la fermeture de la zone se font bien depuis l'addon (voir les points techniques).
-3. **Section 5** : sortir en deux versions (1.2.0 compatible, puis 2.0.0), ou tout ensemble en 2.0.0 ?
+3. ~~Section 5~~ : **décidé**, une seule sortie sur le store, tout ensemble (la migration et le protocole farm 3 en font de toute façon une version qui demande tous les PC à jour).
 
 ## 5. Versions et sorties
 
-Je propose de sortir le plan **en deux versions**, plutôt qu'en un seul bloc.
+**Décidé : une seule sortie, tout ensemble.** Le découpage ci-dessous reste comme l'ordre des étapes, pas comme deux publications.
 
 **1.2.0 — plus léger, sans rien changer aux données** : phases 1A et 1B (sauf 1B.5), 2 et 2b.
 - L'addon est allégé et factorisé, l'xlsx et le CHANGELOG sont retirés du zip, les reviews et les snapshots sont rangés, et le détail s'affiche à côté de la liste.
