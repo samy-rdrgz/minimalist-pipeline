@@ -90,7 +90,8 @@ def draw_items(layout, items, context=None) -> None:
         elif isinstance(item, list):
             pair = responsive_layout(context, layout, SIDE_BY_SIDE_WIDTH)
             for button in item:
-                _item_button(pair, *button)
+                if button:
+                    _item_button(pair, *button)
         elif item and item[0] == "tip":
             draw_box_tip(layout, context, item[1])
         elif item:
