@@ -49,6 +49,7 @@ from .core import (
     time_key,
 )
 from .errors import PipelineError
+from .status import project_stages, stage_flags
 from .logs import log
 from .session import get_user
 from .versioning import get_last_version_number, get_version_number
@@ -1064,6 +1065,21 @@ def create_stablemeta(
         raise PipelineError(f"Error during creating meta file : {e}")
 
 
+def set_department_synced(filepath: Path, department: str, by: str, text: str = "") -> None:
+    """Still done: department's last update now (tracking.json's
+    departments_synced) -- its work holds after an earlier stage changed,
+    clearing To redo (lib/status.py stage_flags()). Not a validation."""
+    path = tracking_json_path(filepath, must_exist=True)
+    with locked_json(path) as box:
+        data = box["data"] or {}
+        entry = {"at": now(), "by": by}
+        if text.strip():
+            entry["text"] = text.strip()
+        data.setdefault("departments_synced", {})[department] = entry
+        box["data"] = data
+        box["action"] = "to_write"
+
+
 def set_department_validated(filepath: Path, department: str, validated: bool) -> None:
     """Toggle one department's validated status directly (e.g. "render",
     not tied to file content), mutating the *latest* .stablemeta in place.
@@ -1306,6 +1322,9 @@ def _collect_folder(asset_dir: Path, entries: list | None = None) -> dict | None
         "last_stable": last_stable,
         "wipmetas": wipmetas,
         "started": last_stable.get("departments_started") or [],
+        # Its stages' kind (lib/status.py project_stages()): a library's
+        # are the assets'.
+        "kind": "shots" if Path(asset_dir).parts[-3:-2] == ("shots",) else "assets",
     }
 
 
@@ -1418,7 +1437,16 @@ def _status_from_raw(raw: dict) -> dict:
         for i, d in enumerate(global_data.get("departments_required", []))
     ]
 
-    return global_data | {
+    # Each department's latest session saved (since the latest stable):
+    # its last update, for To redo.
+    last_worked_at: dict[str, str] = {}
+    for meta in raw["wipmetas"]:
+        for session in worked_sessions(meta):
+            for d in session.get("departments") or []:
+                if time_key(session.get("saved_at")) > time_key(last_worked_at.get(d)):
+                    last_worked_at[d] = session.get("saved_at")
+
+    status = global_data | {
         "worked_departments": worked_departments,
         "validated_departments": validated_departments,
         "approvals": approvals,
@@ -1443,7 +1471,17 @@ def _status_from_raw(raw: dict) -> dict:
             "file": last_stable.get("file"),
             "created_at": last_stable.get("created_at"),
         },
+        "kind": raw.get("kind", "assets"),
+        "stable_worked": list(last_stable.get("departments_worked") or []),
+        "last_worked_at": last_worked_at,
     }
+    # Waiting / To redo, by the project's stages (lib/status.py).
+    try:
+        config = ConfigCache.get()
+    except Exception:
+        config = {}
+    status["flags"] = stage_flags(status, project_stages(config, status["kind"]))
+    return status
 
 
 def get_current_departments(filepath: Path) -> dict:
@@ -1497,6 +1535,17 @@ def department_status_tooltip(data: dict, department: str) -> str:
         lines = ["Not done for the current stable version."]
         if department in data.get("started_departments", ()):
             lines.append("Done or worked on before it: in progress.")
+
+    flag = (data.get("flags") or {}).get(department) or {}
+    if flag.get("waiting"):
+        lines.insert(0, f"Waiting: {flag['waiting']}.")
+    if flag.get("to_redo"):
+        lines.insert(0, f"To redo: {flag['to_redo']} -- after its last update."
+                     " Still done tells it holds.")
+    elif (data.get("departments_synced") or {}).get(department):
+        s = data["departments_synced"][department]
+        lines.append(f"Still done ({s.get('by', '?')}, {local_time(s.get('at'))})"
+                     + (f": {s['text']}" if s.get("text") else ""))
 
     if worked:
         lines.append("")

@@ -453,6 +453,7 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
                 d: department_state(status, d)
                 for d in status.get("departments_required", [])
             },
+            "flags": status.get("flags") or {},
             "wip_version": wip_name,
             # Work on top of the last stable (a wip made after it), else none
             # to show: the Blender file column names the stable alone.

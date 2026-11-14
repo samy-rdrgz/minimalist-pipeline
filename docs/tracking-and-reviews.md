@@ -37,6 +37,14 @@ Multishot blocks can tag a note/todo with which shot in the block it's about —
 
 ---
 
+## Stages: Waiting and To redo
+
+**Stages** (Edit project, *Assets stages* / *Shots stages*): which department comes after which, `layout > animation > fx, lighting > render` -- a comma for departments in parallel. Empty: no stages, nothing changes. A department not listed has no stage. Nothing is ever blocked: it's information.
+
+- **Waiting**: an earlier stage has an open RTK, or isn't started -- *Waiting: layout RTK*, *Waiting: layout not started*. Shown instead of the department's state in Project monitoring; its own state stays in the tooltip.
+- **To redo**: a department already started whose earlier stage changed after its last update -- an RTK on that stage closed, or a stable made with it reworked -- *To redo: layout changed on 12/11*. Its last update: a save in a session where it was ticked as worked, or **Still done**.
+- **Still done** (File details, on a department to redo, open to everyone): the work done holds after the change -- recorded with who and when, and an optional why; not a validation.
+
 ## Done, then validated: validation roles
 
 A department is **done** when its work is finished (the tick next to it --

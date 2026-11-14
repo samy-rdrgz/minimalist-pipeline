@@ -791,6 +791,11 @@ def draw_file_details(state, context, layout):
             op.custom_tooltip = tooltip
             if d in validated:
                 _draw_approval(btn, data, d, filepath, role, tooltip)
+            if ((data.get("flags") or {}).get(d) or {}).get("to_redo"):
+                icon_button(btn, "m_pipeline.department_still_done", "FILE_REFRESH",
+                            "To redo: " + data["flags"][d]["to_redo"]
+                            + ".\nStill done: the work done holds -- not a validation",
+                            text="Still done", filepath=filepath, department=d)
     else:
         deps_row = tabl.column()
         deps_row.scale_y = 0.5
@@ -1124,6 +1129,12 @@ def _department_cell(file: dict, department: str) -> tuple[str, str, str | None]
     since, in progress (worked since, or validated / worked before the
     latest stable), not started. Labels as the snapshot page's."""
     state = department_state(file, department)
+    flag = (file.get("flags") or {}).get(department) or {}
+    if flag.get("waiting"):
+        # Its own state stays in the tooltip (department_status_tooltip()).
+        return f"Waiting: {flag['waiting']}", "TIME", None
+    if flag.get("to_redo"):
+        return f"To redo: {flag['to_redo']}", "FILE_REFRESH", None
     if state == "done":
         best = highest_approval(file, department)
         return (f"Done · {best}", "SOLO_ON", best) if best else ("Done", "CHECKMARK", None)

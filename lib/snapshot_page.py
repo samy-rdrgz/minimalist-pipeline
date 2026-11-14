@@ -150,6 +150,8 @@ def _item(item: dict, threads: list, roles: list, image) -> dict:
         "versions": _versions(item),
         "stable_v": _short_version(item["name"], item["stable_version"] or ""),
         "states": dict(item["departments"]),
+        # Waiting / To redo with their reasons (lib/status.py stage_flags()).
+        "flags": item.get("flags") or {},
         "scores": dict(item["scores"]),
         "rtk": _rtk_kinds(threads),
         "ok": {

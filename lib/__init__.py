@@ -300,6 +300,7 @@ from .tracking import (
     tracking_json_path,
     wipmeta_add_link,
     wipmeta_add_work,
+    set_department_synced,
 )
 from .versioning import (
     get_last_version_number,

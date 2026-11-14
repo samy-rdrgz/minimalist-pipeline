@@ -3850,6 +3850,35 @@ around one idea: a list to scan, a panel to read one file.
   unfolded under rows, per-shot hover buttons in the list (the panel has
   every shot's picture).
 
+## Waiting and To redo
+
+Phase 3C of docs/plan-1.2.md: a department's place in its kind's stages
+(`department_stages` in the config, Edit project's `a > b, c > d`,
+`parse_stages()`), and two states computed on every read, never stored
+(lib/status.py `stage_flags()`, into the status as `flags`):
+
+- **Waiting**: an earlier stage with an open RTK, else one not started --
+  the nearest stage first. Shown in place of the state (its own in the
+  tooltip); blocks nothing.
+- **To redo**: a started department, an earlier stage changed after its
+  last update. Two changes, kept apart -- one rule mixing them hid the
+  second (both fell on the stable's date):
+  - an RTK on it closed after the department's last update: its latest
+    session saved, its Still done, else the latest stable once it was
+    started then (a frozen version holds it -- older changes don't flag);
+  - the latest stable made with it worked, the department started before
+    it but not worked with it, nor since.
+  Only the latest stable is read (`_collect_folder()` reads that one): a
+  rework two stables back, never updated since, goes unseen.
+- **Still done** writes `departments_synced[d] = {at, by, text}` in
+  tracking.json (`set_department_synced()`, File details' button on a
+  department to redo): an update by hand, open to all, not a validation.
+- The kind (shots / assets, a library's the assets') from the folder's
+  data root (`_collect_folder()`'s `kind`): a department named alike in
+  both (render) has its own stage in each.
+- tests/test_status.py: each case, the two rules apart, Still done, a
+  change older than the stable.
+
 ## Sessions with their date
 
 A `.wipmeta` had one date, `edited_at`, moved by every save

@@ -6,6 +6,11 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- Stages (Edit project: `layout > animation > fx, lighting > render`):
+  a department shows *Waiting* while an earlier stage has an open RTK or
+  isn't started, and *To redo* once an earlier stage changed after its
+  last update -- until it's saved again as worked, or marked *Still done*
+  (File details): the work holds, not a validation. Information only.
 - Project and Farm monitoring: a detail (a file, a job, a worker) opens
   beside the list, on the right, in a window wide enough -- drag the
   border between them, click another row to change it, Esc or the back

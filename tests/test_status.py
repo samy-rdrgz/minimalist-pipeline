@@ -50,6 +50,41 @@ def main() -> None:
     # Before Migrate old data: a bare list, the file's date.
     old = {"file": "b.blend", "edited_at": "2026-11-11T12:00:00+00:00", "departments_worked": {"x": ["anim"]}}
     assert list(tracking._worked_departments([old], tuesday)) == ["anim"]
+    # Stages: Waiting and To redo.
+    assert status.parse_stages("Layout > anim > fx, light > render") == {
+        "layout": 1, "anim": 2, "fx": 3, "light": 3, "render": 4}
+    assert status.stages_text({"layout": 1, "anim": 2, "fx": 3, "light": 3}) == "layout > anim > fx, light"
+    assert status.parse_stages("") == {}
+    stages = status.parse_stages("layout > anim > fx, light")
+    base = {"departments_required": ["layout", "anim", "fx", "light"],
+            "validated_departments": {"layout": True}, "worked_departments": {},
+            "started_departments": ["anim"],
+            "stable_info": {"created_at": "2026-11-09T10:00:00+00:00"}, "stable_worked": []}
+    rtk = {"type": "rtk", "done": False, "departments": ["layout"], "created_at": "2026-11-10T09:00:00+00:00"}
+    f = status.stage_flags(dict(base, entries=[rtk]), stages)
+    assert f["anim"] == {"waiting": "layout RTK"}, f
+    assert f["fx"] == {"waiting": "anim not started"} or f["fx"]["waiting"] == "layout RTK", f
+    # fx's nearest earlier stage first: anim (started) then layout's RTK.
+    assert f["fx"]["waiting"] == "layout RTK" and "layout" not in f, f
+    # The RTK closed Tuesday, anim's last session Monday: to redo.
+    closed = dict(rtk, done=True, done_at="2026-11-11T09:00:00+00:00")
+    facts = dict(base, entries=[closed], last_worked_at={"anim": "2026-11-10T08:00:00+00:00"})
+    f = status.stage_flags(facts, stages)
+    assert f["anim"]["to_redo"] == "layout changed on 11/11" and "waiting" not in f["anim"], f
+    assert "to_redo" not in f.get("fx", {}), "fx not started: never to redo"
+    # Saved after, or Still done: up to date.
+    later = dict(facts, last_worked_at={"anim": "2026-11-12T08:00:00+00:00"})
+    assert "anim" not in status.stage_flags(later, stages)
+    synced = dict(facts, departments_synced={"anim": {"at": "2026-11-12T08:00:00+00:00", "by": "léa"}})
+    assert "anim" not in status.stage_flags(synced, stages)
+    # Changed before the latest stable it was started at: the stable holds it.
+    old = dict(base, entries=[dict(closed, done_at="2026-11-08T09:00:00+00:00")])
+    assert "anim" not in status.stage_flags(old, stages), status.stage_flags(old, stages)
+    # The latest stable made with layout worked, anim started before it.
+    restable = dict(base, entries=[], stable_worked=["layout"])
+    assert status.stage_flags(restable, stages)["anim"]["to_redo"] == "layout changed on 09/11"
+    # No stages: nothing.
+    assert status.stage_flags(dict(base, entries=[rtk]), {}) == {}
     print("OK: status")
 
 

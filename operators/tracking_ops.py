@@ -15,6 +15,7 @@ from ..lib import (
     month_folder,
     PipelineError,
     ProjectScan,
+    set_department_synced,
     snapshot_videos_folder,
     SnapshotJob,
     TrackingStatusCache,
@@ -1694,6 +1695,38 @@ class M_PIPELINE_OT_toggle_department_approval(bpy.types.Operator):
             return {"CANCELLED"}
         verb = "withdrawn" if approved else "given"
         self.report({"INFO"}, f"{self.department}: {role} validation {verb}.")
+        return {"FINISHED"}
+
+
+class M_PIPELINE_OT_department_still_done(bpy.types.Operator):
+    """A department to redo (an earlier stage changed after it) whose work
+    still holds: its last update now -- departments_synced, open to all,
+    not a validation. See NOTES.md, "Waiting and To redo"."""
+
+    bl_idname = "m_pipeline.department_still_done"
+    bl_label = "Still done"
+    bl_options = {"INTERNAL"}
+
+    filepath: bpy.props.StringProperty(options={"SKIP_SAVE"})
+    department: bpy.props.StringProperty(options={"SKIP_SAVE"})
+    custom_tooltip: bpy.props.StringProperty(options={"SKIP_SAVE"})
+    text: bpy.props.StringProperty(name="Why (optional)", options={"SKIP_SAVE"})
+
+    @classmethod
+    def description(cls, context, properties):
+        return properties.custom_tooltip or cls.__doc__
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(
+            self, width=420, title=f"{self.department.upper()}: still done", confirm_text="Still done"
+        )
+
+    def execute(self, context):
+        try:
+            set_department_synced(Path(self.filepath), self.department, get_user(context), self.text)
+        except PipelineError as e:
+            return report_error(self, "still_done", e)
+        status_changed(self.filepath)
         return {"FINISHED"}
 
 

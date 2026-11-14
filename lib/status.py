@@ -3,9 +3,10 @@ from the facts lib/tracking.py's _status_from_raw() gathers (validated at
 the latest stable, worked since, started before). Pure, no bpy, no disk:
 every view asks it -- the sidebar, Project monitoring, File details, the
 snapshot. Phase 3 of docs/plan-1.2.md grows it (Waiting, To redo, Omit).
+No disk, no bpy call: tests/test_status.py.
 See NOTES.md, "State engine"."""
 
-from .core import json_get
+from .core import EARLIEST, json_get, parse_iso
 
 # Share of a department counted as done per state, in % -- the project's
 # "snapshot.progress" (Edit project) overrides each. Validated counts 100,
@@ -67,3 +68,109 @@ def file_progress(item: dict, weights: dict) -> float | None:
     ):
         total -= 1 - weights["rtk"] / 100
     return total / len(scores)
+
+
+# ---------------------------------------------------------------------------
+# Stages: Waiting and To redo (docs/plan-1.2.md 2.2)
+# ---------------------------------------------------------------------------
+
+
+def parse_stages(text: str) -> dict[str, int]:
+    """Edit project's stage order, "layout > animation > fx, lighting >
+    render", as {department: stage} from 1 -- a comma: the same stage (in
+    parallel). Empty: no stages."""
+    stages = {}
+    for i, part in enumerate(p for p in str(text or "").split(">") if p.strip()):
+        for d in part.split(","):
+            if d.strip():
+                stages[d.strip().lower()] = i + 1
+    return stages
+
+
+def stages_text(stages: dict) -> str:
+    """parse_stages()'s text back from {department: stage}."""
+    by_stage: dict[int, list] = {}
+    for d, s in (stages or {}).items():
+        by_stage.setdefault(int(s), []).append(d)
+    return " > ".join(", ".join(by_stage[s]) for s in sorted(by_stage))
+
+
+def stage_flags(facts: dict, stages: dict) -> dict[str, dict]:
+    """{department: {"waiting": reason} and/or {"to_redo": reason, "since":
+    ISO}} of a file's required departments, from its facts (the status
+    _status_from_raw() gives) and its kind's stages. Information only,
+    nothing is blocked. See NOTES.md, "Waiting and To redo".
+
+    - Waiting: an earlier stage has an open RTK ("layout RTK") or isn't
+      started ("layout not started"), the nearest stage first.
+    - To redo: a started department whose earlier stage changed after its
+      last update -- an RTK on it closed, or the latest stable made with it
+      worked while this one, already started, wasn't worked with it. Its
+      last update: its latest session saved, its Still done
+      (departments_synced); for an RTK closed, the latest stable too, once
+      it was started then (a frozen version holds it).
+    """
+    required = [d for d in facts.get("departments_required") or [] if d in stages]
+    if not required:
+        return {}
+    entries = [e for e in facts.get("entries") or [] if isinstance(e, dict)]
+    rtks = [e for e in entries if e.get("type") == "rtk"]
+    open_on = {d for e in rtks if e.get("done") is False for d in e.get("departments") or []}
+    stable = facts.get("stable_info") or {}
+    stable_at = parse_iso(stable.get("created_at"))
+    stable_worked = set(facts.get("stable_worked") or [])
+    stable_started = set(facts.get("started_departments") or [])
+    synced = facts.get("departments_synced") or {}
+    last_worked = facts.get("last_worked_at") or {}
+
+    flags: dict[str, dict] = {}
+    for d in required:
+        upstream = sorted(
+            (u for u in required if stages[u] < stages[d]), key=lambda u: -stages[u]
+        )
+        if not upstream:
+            continue
+        out = {}
+        blocking = next((u for u in upstream if u in open_on), None)
+        if blocking:
+            out["waiting"] = f"{blocking} RTK"
+        else:
+            idle = next((u for u in upstream if department_state(facts, u) == "todo"), None)
+            if idle:
+                out["waiting"] = f"{idle} not started"
+        if department_state(facts, d) != "todo":
+            # Its own updates since the latest stable (a session, Still done).
+            own = max(
+                (u for u in (parse_iso(last_worked.get(d)),
+                             parse_iso((synced.get(d) or {}).get("at"))) if u),
+                default=None,
+            )
+            # An earlier stage's RTK closed after its last update -- the
+            # latest stable counting as one once it was started then.
+            base = stable_at if stable_at and (d in stable_worked or d in stable_started) else None
+            last = max((u for u in (own, base) if u), default=EARLIEST)
+            later = [
+                (at, u)
+                for e in rtks
+                if e.get("done") is True and (at := parse_iso(e.get("done_at"))) and at > last
+                for u in e.get("departments") or []
+                if u in upstream
+            ]
+            # The latest stable made with an earlier stage worked, this one
+            # started before it but not worked with it, nor since.
+            if stable_at and d in stable_started and d not in stable_worked and not (own and own > stable_at):
+                later += [(stable_at, u) for u in upstream if u in stable_worked]
+            if later:
+                at, u = max(later, key=lambda c: c[0])
+                out["to_redo"] = f"{u} changed on {at:%d/%m}"
+                out["since"] = at.isoformat(timespec="seconds")
+        if out:
+            flags[d] = out
+    return flags
+
+
+def project_stages(config: dict, kind: str) -> dict[str, int]:
+    """The project's stages for a kind ("shots" / "assets"; a library's
+    are the assets'), {} without any."""
+    stages = (config or {}).get("department_stages") or {}
+    return {str(d).lower(): int(s) for d, s in (stages.get(kind) or {}).items()}
