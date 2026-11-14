@@ -82,12 +82,14 @@ def monitoring_windows(kind: str | None = None) -> list:
 
 
 def open_monitoring_window(
-    context, kind: str, size: tuple[float, float] | None = None
+    context, kind: str, size: tuple[float, float] | str | None = None
 ) -> bool:
     """A new window holding one Properties editor, on the Tool tab once it
     has been drawn. size: (width, height) as a share of the screen's work
     area, centred -- on Windows (_resize_win32()); elsewhere, and without,
-    window_new()'s own size. False if Blender didn't open it."""
+    window_new()'s own size (95 x 90 % of the main window). "full": the
+    whole screen -- maximized on Windows, full screen elsewhere (no API
+    maximizes a window). False if Blender didn't open it."""
     wm = context.window_manager
     before = {w.as_pointer() for w in wm.windows}
     native = _win32_handles() if size and sys.platform == "win32" else None
@@ -117,6 +119,8 @@ def open_monitoring_window(
     bpy.app.timers.register(_show_tool_tab(window.as_pointer()), first_interval=0.0)
     if native is not None:
         bpy.app.timers.register(_resize_win32(native, size), first_interval=0.0)
+    elif size == "full":
+        bpy.app.timers.register(_full_screen(window.as_pointer()), first_interval=0.0)
     ensure_monitoring_tick()
     return True
 
@@ -182,11 +186,31 @@ def _resize_win32(before: set, size: tuple[float, float], tries: int = 20):
             h = int((work.bottom - work.top) * size[1])
             x = work.left + ((work.right - work.left) - w) // 2
             y = work.top + ((work.bottom - work.top) - h) // 2
+            if size == "full":
+                user32.ShowWindow(hwnd, 3)  # SW_MAXIMIZE
+                return None
             if user32.IsZoomed(hwnd):
                 user32.ShowWindow(hwnd, 9)  # SW_RESTORE: a maximized one ignores a size
             user32.SetWindowPos(hwnd, 0, x, y, w, h, 0x0004 | 0x0010)  # NOZORDER|NOACTIVATE
         except Exception:
             pass
+        return None
+
+    return tick
+
+
+def _full_screen(window_ptr: int):
+    """Timer: that window full screen (Window > Toggle Window Full Screen,
+    Alt+F11 back) -- once it exists, in its own context."""
+
+    def tick():
+        window = next((w for w in bpy.context.window_manager.windows if w.as_pointer() == window_ptr), None)
+        if window is not None:
+            try:
+                with bpy.context.temp_override(window=window, screen=window.screen), threads_paused():
+                    bpy.ops.wm.window_fullscreen_toggle()
+            except (RuntimeError, TypeError):
+                pass
         return None
 
     return tick

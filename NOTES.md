@@ -2129,6 +2129,15 @@ answer -- the machine, the frames around it that machine wrote in a row
 lines under the field: a debugging aid, not something read every day.
 Paces under a minute read in seconds (`_pace()`: "0.6 s", not "0m00s").
 
+- File details' popup picks its render (1.2): every finished entry of
+  render_history.json with its `frame_machines` (`farm_renders()`, read
+  on click with the last renders), the newest first -- a block's last
+  renders, every shot sharing the field, before them. The picker is
+  `WindowManager.farm_frame_render`, an enum whose items live in
+  farm_panel `_render_items` (Blender keeps no reference to an items
+  callback's strings), set by the popup's invoke(). Job details keeps its
+  one render, no picker.
+
 ## Time left: per machine, from each frame's time
 
 The popup's estimate was `elapsed / progress - elapsed`, elapsed counted
@@ -4599,3 +4608,38 @@ Phase 1 of docs/plan-1.2.md, behaviour unchanged but for the frame lookup
   as the extension build makes it), `dupes.py` (duplicated windows of N
   normalized lines: 21 left of 8 lines, none worth a function),
   tests/test_migration.py.
+
+## Coloured marks
+
+Blender colours no icon but a few families (collection, strip, layer group
+colours, the keyframe types, node sockets) -- each with a meaning of its
+own: a collection's box for an RTK read as a collection. Project
+monitoring's cells were grey save the red of an RTK; In progress, Not
+started and Done reworked shared one icon.
+
+- `tools/make_icons.py` draws the add-on's marks into `icons/*.png` (pure
+  Python: shapes supersampled, a PNG written by hand), the snapshot
+  page's marks in its dark-theme colours: a state's (todo, wip, done,
+  rework, done_top), the stages' (waiting, to_redo), an entry's (rtk,
+  role, team). Run it again after changing one; the PNGs are committed.
+- `lib/icons.py` loads them once in a preview collection (register /
+  unregister); a mark is named `"mark:<name>"` wherever an icon name goes,
+  and `icon_kw()` turns it into `icon_value=` for a layout call
+  (`icon_button()` does it). In `blender -b` their icon_id is 0: no GPU,
+  nothing to check there.
+- A cell's mark is a button that does nothing (department_status_info):
+  enabled so its colours show, the words beside it greyed.
+- The Farm column keeps the keyframe types' diamonds: Farm monitoring's
+  own, the same meaning in both windows.
+- The legend (`legend_groups()`): inline when `_legend_width()` fits the
+  footer, else a `Legend` menu -- with the states' marks it rarely fits.
+
+## Monitoring windows full screen
+
+window_new() opens at 95 x 90 % of the main window, and no API sizes or
+maximizes a window. Project and Farm monitoring open full screen
+(`open_monitoring_window(size="full")`): `wm.window_fullscreen_toggle` in
+the new window's context, a timer later (`_full_screen()`) -- Alt+F11
+makes it a window again; on Windows, ShowWindow(SW_MAXIMIZE) instead, its
+title bar kept. A window brought to the front by a copy
+(`_duplicate_window()`) keeps the old one's size.

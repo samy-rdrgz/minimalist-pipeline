@@ -45,7 +45,7 @@ from .operators import (
 from .operators import classes as operator_classes
 from .panels import classes as panel_classes
 from .panels import unregister_thumbnail_previews
-from .panels.farm_panel import frame_lookup_get, frame_lookup_set
+from .panels.farm_panel import frame_lookup_get, frame_lookup_set, frame_render_items
 
 # Registration order matters: addon_data before anything reading preferences,
 # everything else before the topbar menu that references their operators.
@@ -93,6 +93,8 @@ _WM_PROPS = {
         get=frame_lookup_get,
         set=frame_lookup_set,
     ),
+    # Its popup's render, in File details: one of the file's farm renders.
+    "farm_frame_render": bpy.props.EnumProperty(name="Render", items=frame_render_items),
     "file_selected_departments": bpy.props.StringProperty(),
     # The file New entry is for: its lines' shot pickers (a block's shots).
     "entry_target_file": bpy.props.StringProperty(),
@@ -246,6 +248,7 @@ def register():
     register_topbar_menu()
     register_button_menu()
     lib.register_handlers()
+    lib.register_marks()
     # Background (farm setup/render, CSV batch subprocesses): no UI, so none
     # of the startup timers below has anything to do -- see NOTES.md,
     # "Addon register()".
@@ -280,6 +283,7 @@ def register():
 def unregister():
     """Stop handlers/timers/farm roles, back up projects, and unregister all classes."""
     lib.unregister_handlers()
+    lib.unregister_marks()
     unregister_button_menu()
     unregister_topbar_menu()
     lib.restore_active_tool()

@@ -305,17 +305,32 @@ def _same_machine_run(record: dict, frame: int) -> tuple[int, int]:
 
 
 # What each "Who rendered which frame" button shows, by its key ("job:<id>",
-# "file:<path>"): set as the button is drawn, read by its popup.
+# "file:<path>"): [(label, renders)], one per render to pick from -- set as
+# the button is drawn, read by its popup.
 _lookup_renders: dict[str, list] = {}
+# The popup's render picker (WindowManager.farm_frame_render): its items,
+# kept here -- Blender doesn't hold on to the strings an items callback
+# returns.
+_render_items: list = []
 
 
-def draw_frame_lookup_button(layout, key: str, renders: list) -> None:
+def frame_render_items(self, context) -> list:
+    return _render_items
+
+
+def _with_frames(renders: list) -> list:
+    return [r for r in renders if r[1] and r[1].get("frames")]
+
+
+def draw_frame_lookup_button(layout, key: str, renders: list, choices: list | None = None) -> None:
     """A button opening draw_frame_lookup() in a popup, for renders (see
-    there) -- nothing when none has its frames recorded."""
-    renders = [r for r in renders if r[1] and r[1].get("frames")]
-    if not renders:
+    there), or for the one picked among choices ([(label, renders)]) --
+    nothing when none has its frames recorded."""
+    choices = [(label, _with_frames(r)) for label, r in choices or [("", renders)]]
+    choices = [c for c in choices if c[1]]
+    if not choices:
         return
-    _lookup_renders[key] = renders
+    _lookup_renders[key] = choices
     row = layout.row()
     row.alignment = "LEFT"
     row.operator("m_pipeline.frame_lookup", text="Which machine, which frame...", icon="DESKTOP", emboss=False).key = key
@@ -332,12 +347,22 @@ class M_PIPELINE_OT_frame_lookup(bpy.types.Operator):
     key: bpy.props.StringProperty(options={"HIDDEN", "SKIP_SAVE"})
 
     def invoke(self, context, event):
-        if self.key not in _lookup_renders:
+        choices = _lookup_renders.get(self.key)
+        if not choices:
             return {"CANCELLED"}
-        return context.window_manager.invoke_popup(self, width=320)
+        _render_items[:] = [(str(i), label, "") for i, (label, _) in enumerate(choices)]
+        context.window_manager.farm_frame_render = "0"  # the newest
+        return context.window_manager.invoke_popup(self, width=360)
 
     def draw(self, context):
-        draw_frame_lookup(self.layout, _lookup_renders.get(self.key) or [])
+        choices = _lookup_renders.get(self.key) or []
+        if not choices:
+            return
+        wm = context.window_manager
+        if len(choices) > 1:
+            self.layout.prop(wm, "farm_frame_render", text="Render")
+        index = int(wm.farm_frame_render or 0)
+        draw_frame_lookup(self.layout, choices[min(index, len(choices) - 1)][1])
 
     def execute(self, context):
         return {"FINISHED"}

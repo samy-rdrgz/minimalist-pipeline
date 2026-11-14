@@ -17,6 +17,7 @@ from ..lib import (
     responsive_layout,
     shots_in_segment,
 )
+from ..lib.icons import icon_kw
 from ..lib.ui import draw_items
 from .tracking_panel import ENTRIES_INDENT_FACTOR, draw_tracking_data
 
@@ -88,7 +89,7 @@ class M_PIPELINE_PT_file_panel(bpy.types.Panel):
                     "m_pipeline.toggle_worked_department",
                     text=d + (f" · waiting: {flag['waiting']}" if flag.get("waiting")
                               else f" · to redo: {flag['to_redo']}" if flag.get("to_redo") else ""),
-                    icon="TIME" if flag.get("waiting") else "FILE_REFRESH" if flag.get("to_redo") else "NONE",
+                    **icon_kw("mark:waiting" if flag.get("waiting") else "mark:to_redo" if flag.get("to_redo") else "NONE"),
                     depress=d in worked,
                 )
                 op.department = d

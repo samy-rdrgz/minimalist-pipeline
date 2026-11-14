@@ -1323,7 +1323,7 @@ class M_PIPELINE_OT_farm_monitor(bpy.types.Operator):
         context.window_manager.pipeline_farm_monitoring.search = ""
 
         # The farm's refresh timer: started by the window's tick.
-        if not open_monitoring_window(context, "farm"):
+        if not open_monitoring_window(context, "farm", size="full"):
             self.report({"ERROR"}, "Blender could not open a new window.")
             return {"CANCELLED"}
         return {"FINISHED"}

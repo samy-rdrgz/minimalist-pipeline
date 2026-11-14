@@ -2,6 +2,8 @@
 (its key greyed in a narrow column, its value), a list of them, a row of
 buttons or a menu. Memory only: draw()-safe."""
 
+from .icons import icon_kw
+
 # A details line's key column, as a share of the width: Job details', Worker
 # details', File details'.
 DETAIL_KEY_COLUMN = 0.4 / 3
@@ -54,8 +56,9 @@ def details_header(layout, back_op: str, title: str, icon: str):
 
 def icon_button(layout, idname: str, icon: str, tooltip: str = "", text: str = "", emboss: bool = False, **props):
     """An operator button (an icon alone by default, flat): props set on it
-    in order, then its tooltip. Returns the operator's properties."""
-    op = layout.operator(idname, text=text, icon=icon, emboss=emboss)
+    in order, then its tooltip. icon: Blender's, or a mark (lib/icons.py).
+    Returns the operator's properties."""
+    op = layout.operator(idname, text=text, emboss=emboss, **icon_kw(icon))
     for key, value in props.items():
         setattr(op, key, value)
     if tooltip:

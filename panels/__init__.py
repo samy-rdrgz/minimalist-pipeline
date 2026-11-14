@@ -24,6 +24,7 @@ from .monitoring_panel import (
 )
 from .project_panel import M_PIPELINE_PT_project_panel
 from .tracking_panel import (
+    M_PIPELINE_MT_monitor_legend,
     TYPE_ICON,
     draw_entries,
     draw_file_details,
@@ -45,6 +46,7 @@ classes = (
     M_PIPELINE_PT_welcome,
     M_PIPELINE_PT_project_settings,
     M_PIPELINE_OT_frame_lookup,
+    M_PIPELINE_MT_monitor_legend,
 )
 
 __all__ = ["classes"]

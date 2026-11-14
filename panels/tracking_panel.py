@@ -46,6 +46,7 @@ from ..lib import (
     paginate,
     position_in_list,
     project_path,
+    farm_renders,
     read_render_state,
     region_char_budget,
     render_root,
@@ -61,6 +62,7 @@ from ..lib import (
     validation_roles,
 )
 from ..lib.status import OMIT_STATES, STATE_LABELS, department_state, omitted
+from ..lib.icons import icon_kw
 from ..lib.ui import icon_button, link_rows
 from .farm_panel import draw_frame_lookup_button, job_icon
 
@@ -285,11 +287,11 @@ def _draw_thread(thread, note, filepath, width: int | None = None):
             col.separator(factor=0.2)
 
 
-# Entry marks: Blender colors no text but red (alert) -- the collection
-# color icons stand for the snapshot's colors.
-_ROLE_ICON = "COLLECTION_COLOR_06"  # violet: written under a validation role
+# Entry marks: Blender colors no text but red (alert) -- the add-on's
+# marks (lib/icons.py) stand for the snapshot's colors.
+_ROLE_ICON = "mark:role"  # violet: written under a validation role
 _RTK_ROLE_ICON = _ROLE_ICON  # an RTK too: the role's violet, as its notes
-_RTK_TEAM_ICON = "COLLECTION_COLOR_02"  # orange
+_RTK_TEAM_ICON = "mark:team"  # orange
 
 
 def _draw_entry(e, note, filepath, width: int | None = None):
@@ -303,7 +305,7 @@ def _draw_entry(e, note, filepath, width: int | None = None):
         icon_button(body, "m_pipeline.toggle_entry_task", icon, id=e["id"], filepath=filepath, rmb="entry")
         if e["type"] == "rtk":
             # A validation role's RTK violet (as its notes), the team's orange.
-            body.label(text="", icon=_RTK_ROLE_ICON if e.get("role") else _RTK_TEAM_ICON)
+            body.label(text="", **icon_kw(_RTK_ROLE_ICON if e.get("role") else _RTK_TEAM_ICON))
     else:
         # A button, not a label: it takes the right-click menu (and a click
         # replies, as the grip on the right).
@@ -494,6 +496,8 @@ _previews = None
 _preview_ids: dict[str, int] = {}
 # Folder -> read_render_state(), filled on click (load_file_renders()).
 _last_renders: dict[str, list] = {}
+# Folder -> farm_renders(): the frame lookup's renders to pick from.
+_farm_renders: dict[str, list] = {}
 
 
 def load_file_thumbnail(folder: str) -> None:
@@ -525,6 +529,7 @@ def load_file_renders(folder: str) -> None:
     """Read folder's last render per shot (read_render_state()) for its
     details -- on click, never in draw()."""
     _last_renders.pop(folder, None)
+    _farm_renders.pop(folder, None)
     root = get_active_project_root()
     if not root or not folder:
         return
@@ -534,6 +539,7 @@ def load_file_renders(folder: str) -> None:
     renders = read_render_state(Path(root), kind, owner, v_prefix)
     if any(r["path"] for r in renders):
         _last_renders[folder] = renders
+        _farm_renders[folder] = farm_renders(owner)
 
 
 def _draw_last_renders(layout, filepath: str) -> bool:
@@ -572,7 +578,12 @@ def _draw_last_renders(layout, filepath: str) -> bool:
         )
         for shots, r in grouped
     ]
-    draw_frame_lookup_button(col, f"file:{filepath}", renders)
+    # Which render: every farm render of the file, the newest first -- a
+    # block's last renders, every shot, before them.
+    choices = [(label, [("", record, seconds)]) for label, record, seconds in _farm_renders.get(filepath, [])]
+    if block:
+        choices.insert(0, ("Last renders, every shot", renders))
+    draw_frame_lookup_button(col, f"file:{filepath}", renders, choices or None)
     return True
 
 
@@ -657,6 +668,7 @@ def unregister_thumbnail_previews() -> None:
         _previews = None
     _preview_ids.clear()
     _last_renders.clear()
+    _farm_renders.clear()
 
 
 def draw_file_details(state, context, layout):
@@ -802,7 +814,7 @@ def draw_file_details(state, context, layout):
             if d in validated:
                 _draw_approval(btn, data, d, filepath, role, tooltip)
             if ((data.get("flags") or {}).get(d) or {}).get("to_redo"):
-                icon_button(btn, "m_pipeline.department_still_done", "FILE_REFRESH",
+                icon_button(btn, "m_pipeline.department_still_done", "mark:to_redo",
                             "To redo: " + data["flags"][d]["to_redo"]
                             + ".\nStill done: the work done holds -- not a validation",
                             text="Still done", filepath=filepath, department=d)
@@ -1067,20 +1079,56 @@ def draw_monitor_table(self, context, layout, columns, project_root):
         status.label(text="No files found with this filter", icon="ERROR")
     else:
         status.label(text=f"{total} file(s) found", icon="BLANK1")
-    if not narrow:
+    # The legend in the footer when it fits, else a button: it in a menu.
+    groups = legend_groups(self.file_type, show_farm)
+    if not narrow and context.region.width / scale >= _legend_width(groups):
         legend = footer.row(align=True)
         legend.alignment = "LEFT"
-        legend.separator(factor=3)
-        # The stages' marks, once the project has stages (lib/status.py).
-        if ConfigCache.get().get("department_stages", {}).get(
-            "shots" if self.file_type == "shot" else "assets"
-        ):
-            for icon, text in _STAGES_LEGEND:
-                legend.label(text=text, icon=icon)
+        for _, group in groups:
             legend.separator(factor=2)
-        for icon, text in _FARM_LEGEND:
-            legend.label(text=text, icon=icon)
+            for icon, text in group:
+                legend.label(text=text, **icon_kw(icon))
+    else:
+        footer.menu("M_PIPELINE_MT_monitor_legend", text="Legend", icon="INFO")
     draw_pager(pager, page, pages)
+
+
+def legend_groups(file_type: str, show_farm: bool = True) -> list:
+    """Project monitoring's legend, group by group: the states, the stages'
+    marks once the project has stages (lib/status.py), the Farm column's:
+    [(title, [(icon, text)])]."""
+    kind = "shots" if file_type == "shot" else "assets"
+    stages = ConfigCache.get().get("department_stages", {}).get(kind)
+    return (
+        [("Departments", _STATES_LEGEND)]
+        + [("Stages", _STAGES_LEGEND)] * bool(stages)
+        + [("Farm", _FARM_LEGEND)] * show_farm
+    )
+
+
+def _legend_width(groups: list) -> float:
+    """The width (px at scale 1) the footer needs for the legend inline: its
+    words and marks, plus the file count and the pager beside it."""
+    return 420 + sum(40 + sum(26 + 7 * len(text) for _, text in g) for _, g in groups)
+
+
+class M_PIPELINE_MT_monitor_legend(bpy.types.Menu):
+    """Project monitoring's legend, when the footer has no room for it."""
+
+    bl_idname = "M_PIPELINE_MT_monitor_legend"
+    bl_label = "Legend"
+
+    def draw(self, context):
+        state = context.window_manager.pipeline_monitoring
+        hidden = set(filter(None, state.hidden_columns.split(",")))
+        for i, (title, group) in enumerate(legend_groups(state.file_type, "farm" not in hidden)):
+            if i:
+                self.layout.separator()
+            heading = self.layout.row()
+            heading.active = False
+            heading.label(text=title)
+            for icon, text in group:
+                self.layout.label(text=text, **icon_kw(icon))
 
 
 def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None,
@@ -1155,6 +1203,8 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None,
             # Grey, the star in full once validated by the top role
             # ("Done · prod"): what's through stands out.
             star = text.startswith("Done · ") and best in top_roles
+            if star:
+                row_icon = "mark:done_top"
             # Too narrow for the words: the icon alone, its words first in
             # the tooltip.
             if icon_only:
@@ -1162,7 +1212,9 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None,
             for t, i in (("", row_icon),) if icon_only else (("", row_icon), (text, "NONE")):
                 button = status.row(align=True)
                 button.alignment = "LEFT"  # its own width, not the cell's
-                button.enabled = under_rtk or (star and t == "")
+                # The mark in its colours (the button does nothing), the
+                # words greyed.
+                button.enabled = under_rtk or t == ""
                 if under_rtk:
                     icon_button(button, "m_pipeline.department_rtks", i, text=t,
                                 custom_tooltip=tooltip, folder=str(dir), department=c)
@@ -1187,13 +1239,13 @@ def _department_cell(file: dict, department: str) -> tuple[str, str, str | None]
     flag = (file.get("flags") or {}).get(department) or {}
     if flag.get("waiting"):
         # Its own state stays in the tooltip (department_status_tooltip()).
-        return f"Waiting: {flag['waiting']}", "TIME", None
+        return f"Waiting: {flag['waiting']}", "mark:waiting", None
     if flag.get("to_redo"):
-        return f"To redo: {flag['to_redo']}", "FILE_REFRESH", None
+        return f"To redo: {flag['to_redo']}", "mark:to_redo", None
     if state == "done":
         best = highest_approval(file, department)
-        return (f"Done · {best}", "SOLO_ON", best) if best else ("Done", "CHECKMARK", None)
-    return STATE_LABELS[state], "CHECKBOX_DEHLT", None
+        return (f"Done · {best}", "mark:done", best) if best else ("Done", "mark:done", None)
+    return STATE_LABELS[state], f"mark:{state}", None
 
 
 def _equal_cells(layout, count: int) -> list:
@@ -1222,7 +1274,14 @@ def _to_check_at(info: dict) -> str:
 # Farm column: one icon per render, Farm monitoring's for its stage
 # (job_icon()); a render to check is a finished job's.
 _TO_CHECK_ICON = job_icon("finished")
-_STAGES_LEGEND = (("TIME", "Waiting"), ("FILE_REFRESH", "To redo"))
+_STATES_LEGEND = (
+    ("mark:todo", "Not started"),
+    ("mark:wip", "In progress"),
+    ("mark:done", "Done"),
+    ("mark:done_top", "Validated"),
+    ("mark:rework", "Reworked since"),
+)
+_STAGES_LEGEND = (("mark:waiting", "Waiting"), ("mark:to_redo", "To redo"))
 _FARM_LEGEND = (
     (_TO_CHECK_ICON, "To check"),
     (job_icon("pending"), "Submitted"),

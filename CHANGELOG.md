@@ -6,6 +6,15 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- Coloured marks for a department's state in Project monitoring (the
+  snapshot page's), Waiting and To redo, and the notes' role and team
+  marks -- in place of Blender's grey icons and its collection colours.
+- Project monitoring's legend behind a *Legend* button when its footer
+  has no room.
+- *Which machine, which frame...* in File details: a *Render* menu to
+  pick any of the file's farm renders, not only the last.
+- Project monitoring and Farm monitoring open full screen (maximized on
+  Windows).
 - *On hold* / *Cancelled* (File details): a file paused or dropped, with a why --
   kept in the lists, greyed, out of the figures, the Retakes and To
   validate filters and the stages.

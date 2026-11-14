@@ -10,6 +10,7 @@ import bpy
 from ..farm import archive, farm_activity, request_monitor_refresh
 from ..lib import (
     ConfigCache,
+    icon_kw,
     keep_review,
     local_time,
     month_folder,
@@ -1559,7 +1560,7 @@ class M_PIPELINE_OT_tracking_monitor(bpy.types.Operator):
         # A search left over from last time would silently hide files.
         context.window_manager.pipeline_monitoring.search = ""
 
-        if not open_monitoring_window(context, "project"):
+        if not open_monitoring_window(context, "project", size="full"):
             self.report({"ERROR"}, "Blender could not open a new window.")
             return {"CANCELLED"}
         return {"FINISHED"}
@@ -1783,7 +1784,7 @@ class M_PIPELINE_OT_department_still_done(bpy.types.Operator):
         col = self.layout.column()
         flag = ((TrackingStatusCache.get(self.filepath) or {}).get("flags") or {}).get(self.department) or {}
         if flag.get("to_redo"):
-            col.label(text=f"To redo: {flag['to_redo']}.", icon="FILE_REFRESH")
+            col.label(text=f"To redo: {flag['to_redo']}.", **icon_kw("mark:to_redo"))
         col.label(text="The work done holds -- not a validation.", icon="INFO")
         col.separator()
         col.prop(self, "text")
@@ -1879,7 +1880,7 @@ class M_PIPELINE_OT_department_rtks(bpy.types.Operator):
             general = "" if entry_departments(e) else " · on no department"
             head.label(
                 text=" · ".join(x for x in (who, when, version) if x) + general,
-                icon="COLLECTION_COLOR_06" if e.get("role") else "COLLECTION_COLOR_02",
+                **icon_kw("mark:role" if e.get("role") else "mark:team"),
             )
             body = box.column(align=True)
             body.scale_y = 0.8

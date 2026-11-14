@@ -243,6 +243,10 @@ The red text itself is a plain `row.label()`, not the button opening the menu: a
 ### UI blocks (`ui.py`)
 Shared drawing, memory only: `key_value()` / `key_values()` (a details line, its key greyed in a narrow column, `DETAIL_KEY_COLUMN`; a list of them, a falsy row skipped), `details_header()`, `icon_button()` (an operator with its properties and tooltip), `link_rows()`, `draw_items()` (a column of buttons from a list: separators, box tips, side by side, greyed), `choice()` (buttons for a few choices, else a menu), `titled_row()`, `draw_creation_fields()` (New asset's and New shot's common fields). A screen known in advance is a list drawn by these, not calls written one by one.
 
+### Coloured marks (`icons.py`, `icons/`, `tools/make_icons.py`)
+
+`tools/make_icons.py` draws `icons/*.png` (pure Python); `register_marks()` loads them into a preview collection, `icon_kw("mark:<name>")` gives a layout call its `icon_value` (Blender's own names pass through as `icon=`). `icon_button()` takes either. See NOTES.md, "Coloured marks".
+
 ### Migration (`migration.py`, `operators/migration_ops.py`)
 `plan_migration(root)` (read only, thread-safe) → `apply_migration(root, plan)` (each file backed up under `backup/migration-<date>/` first); `migration_done(config)` / `data_migrations` in the config. What older versions wrote, completed once with the deductions their readers made: an entry's single `department`, a stable's `departments_started` / `departments_worked` / carried validations (`_legacy_carried()`, `_worked_since()` as they were), `linked` one per project file, a render's `output_path` / `source_file` / `shot_override` / `frame_range_rendered`, every date and time with its offset (`_migrate_dates()`). `M_PIPELINE_OT_migrate_data` (Edit project > Maintenance; the Project panel says so while `project_needs_migration()`). See NOTES.md, "Migration 1.2: one form of data".
 - `parse_filename(filename)` — returns `{prefix, name/sequence/shot, number, tag}` or None
