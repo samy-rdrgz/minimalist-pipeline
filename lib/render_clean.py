@@ -8,13 +8,11 @@ file's v008). Pure os/json: the scan and the clean run on a thread
 import os
 import re
 import shutil
-from datetime import datetime
 from pathlib import Path
 
-from .core import read_json_quiet
+from .core import iso_timestamp, read_json_quiet
 from .preview import is_video, render_root
 from .snapshot import _FRAME_FILE, _owner_shots, read_render_state, read_snapshot_raw
-
 
 # Left in a folder lightened to its video: when it was rendered, as its
 # frames said -- the video's own date moves (a remux, a copy).
@@ -23,13 +21,6 @@ RENDERED_AT = ".rendered_at"
 
 def _increment_re(v_prefix: str):
     return re.compile(rf"^{re.escape(v_prefix)}\d+(?:-[a-z]+)?_\d+$")
-
-
-def _timestamp(value) -> float | None:
-    try:
-        return datetime.fromisoformat(str(value)).timestamp()
-    except ValueError:
-        return None
 
 
 def _folder_content(folder: Path) -> dict:
@@ -158,13 +149,13 @@ def plan_render_clean(
         finished_at = {}
         for e in history.get("entries") or []:
             if isinstance(e, dict) and e.get("output_path") and e.get("status") == "finished":
-                when = _timestamp(e.get("completed_at"))
+                when = iso_timestamp(e.get("completed_at"))
                 if when is not None:
                     finished_at[_key((root / e["output_path"]).parent)] = when
         # Made before this file existed: a previous file of the same shot
         # (deleted and made again, a block split...) -- not one of its
         # renders, whatever its number.
-        created = _timestamp(tracking.get("created_at"))
+        created = iso_timestamp(tracking.get("created_at"))
         base = render_root(root, owner)
         shot_dirs = {base}
         if kind == "shot":

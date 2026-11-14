@@ -23,7 +23,7 @@ import shutil
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from .core import locked_json, now, read_json_quiet
+from .core import locked_json, now, parse_iso, read_json_quiet
 from .preview import render_root
 from .snapshot import _folder_frames, _owner_shots
 from .tracking import (
@@ -147,13 +147,6 @@ def _read_metas(entries: list, suffix: str) -> list[tuple]:
     return out
 
 
-def _date(value) -> datetime | None:
-    try:
-        return datetime.fromisoformat(str(value or ""))
-    except ValueError:
-        return None
-
-
 # ---------------------------------------------------------------------------
 # tracking.json: an entry's departments
 # ---------------------------------------------------------------------------
@@ -192,7 +185,7 @@ def _migrate_stables(entries: list, stables: list, tracking: dict) -> dict:
     """{stablemeta path: [changes]}, each stable's data completed in place:
     departments_started, departments_worked, approvals carried."""
     by_date = sorted(
-        ((d, e, data) for e, data in stables if (d := _date(data.get("created_at")))),
+        ((d, e, data) for e, data in stables if (d := parse_iso(data.get("created_at")))),
         key=lambda x: x[0],
     )
     wipmetas = [data for _, data in _read_metas(entries, ".wipmeta")]
@@ -244,7 +237,7 @@ def _started_at(stables_so_far: list, wipmetas: list, date: datetime) -> list[st
         started |= {d for d, v in (data.get("departments_validated") or {}).items() if v}
     limit = date + timedelta(seconds=_CLOCK_MARGIN_SECONDS)
     for meta in wipmetas:
-        edited = _date(meta.get("edited_at"))
+        edited = parse_iso(meta.get("edited_at"))
         if edited is None or edited > limit:
             continue
         for deps in (meta.get("departments_worked") or {}).values():
@@ -260,7 +253,7 @@ def _rtk_departments(tracking: dict, start: datetime, end: datetime) -> set[str]
     for e in tracking.get("entries") or []:
         if not isinstance(e, dict) or e.get("type") != "rtk":
             continue
-        dates = [d for d in (_date(e.get("created_at")), _date(e.get("done_at"))) if d]
+        dates = [d for d in (parse_iso(e.get("created_at")), parse_iso(e.get("done_at"))) if d]
         if any(start < d <= end for d in dates):
             out |= set(_entry_departments(e) or tracking.get("departments_required") or [])
     return out
@@ -274,7 +267,7 @@ def _worked_since(entries: list, start: datetime, end: datetime, tracking: dict)
     worked = _worked_between(entries, start, end)
     blind = False
     for _, data in _read_metas(entries, ".stablemeta"):
-        at = _date(data.get("created_at"))
+        at = parse_iso(data.get("created_at"))
         if at is None or not start < at <= end:
             continue
         if "approvals_carried" in data:
@@ -293,7 +286,7 @@ def _legacy_carried(entries: list, stable: dict, tracking: dict) -> dict:
     previous = stable.get("approvals_previous") or {}
     done = {d for d, v in (stable.get("departments_validated") or {}).items() if v}
     own = stable.get("approvals") or {}
-    end = _date(stable.get("created_at"))
+    end = parse_iso(stable.get("created_at"))
     if end is None:
         return {}
     carried: dict[str, dict] = {}
@@ -306,7 +299,7 @@ def _legacy_carried(entries: list, stable: dict, tracking: dict) -> dict:
                 continue
             file = info.get("file") or ""
             if file not in worked_cache:
-                start = _date((_stablemeta_of(entries, file) or {}).get("created_at"))
+                start = parse_iso((_stablemeta_of(entries, file) or {}).get("created_at"))
                 worked_cache[file] = (
                     None if start is None else _worked_since(entries, start, end, tracking)
                 )
@@ -388,7 +381,7 @@ def _migrate_history(history: dict, root: Path, owner: Path, is_shot: bool, v_pr
     changes = set()
     for e in sorted(entries, key=lambda e: str(e.get("completed_at") or "")):
         if not e.get("output_path"):
-            ended = _date(e.get("completed_at"))
+            ended = parse_iso(e.get("completed_at"))
             match = None
             if ended is not None:
                 near = [f for f in folders if abs(f[0] - ended) <= _FOLDER_MATCH]

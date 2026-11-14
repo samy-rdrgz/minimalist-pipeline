@@ -1,7 +1,5 @@
 """Post-render pipeline stages: frame integrity check and video compilation, both via ffmpeg."""
 
-import re
-import subprocess
 from pathlib import Path
 
 import bpy
@@ -25,6 +23,7 @@ from ..lib import (
     thumbnail_size,
     to_absolute,
 )
+from ..lib.preview import video_info
 from .dispatch import popen_logged, track_local_processes
 
 _EXTENSION_MAP = {
@@ -174,26 +173,10 @@ def _ffmpeg_preset_to_args(preset: dict) -> list[str]:
 # the render lost, nothing resampled. See NOTES.md, "Odd sizes: one more
 # column for the compilation".
 _EVEN_PAD = "pad=ceil(iw/2)*2:ceil(ih/2)*2"  # size unread: black, never a failure
-_FRAME_SIZE = re.compile(r"Video: [^\n]*?, (\d{1,5})x(\d{1,5})")
-
-
 def _frame_size(frame: str, ffmpeg_bin: str) -> tuple[int, int] | None:
-    """(width, height) of one rendered frame, from ffmpeg's own report (no
-    ffprobe needed); None if unread."""
-    try:
-        out = subprocess.run(
-            [ffmpeg_bin, "-hide_banner", "-i", frame],
-            check=False,  # no output file: ffmpeg always "fails" here
-            capture_output=True,
-            text=True,
-            errors="replace",
-            timeout=30,
-            stdin=subprocess.DEVNULL,
-        ).stderr
-    except (OSError, subprocess.SubprocessError):
-        return None
-    m = _FRAME_SIZE.search(out)
-    return (int(m[1]), int(m[2])) if m else None
+    """(width, height) of one rendered frame; None if unread."""
+    info = video_info(frame, ffmpeg_bin, timeout=30)
+    return info[2:] if info else None
 
 
 def _even_filter(size: tuple[int, int] | None) -> str:

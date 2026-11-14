@@ -5,7 +5,6 @@ import base64
 import os
 import re
 import threading
-from datetime import datetime
 from pathlib import Path
 
 from .background import background_work
@@ -13,7 +12,7 @@ from .config import (
     covering_role,
     validation_roles,
 )
-from .core import json_get, now, read_json_quiet
+from .core import iso_timestamp, json_get, now, parse_iso, read_json_quiet
 from .preview import LD_DIR, browser_video, ensure_ld, latest_render_dir, render_root
 from .schedule import project_schedule, schedule_progress
 from .thumbnails import (
@@ -25,8 +24,8 @@ from .thumbnails import (
     thumbnail_size,
 )
 from .tracking import (
-    APPROVAL_SOURCE,
     _DATA_ROOTS,
+    APPROVAL_SOURCE,
     _collect_folder,
     _pipeline_entries,
     _status_from_raw,
@@ -112,7 +111,7 @@ def read_render_state(root: Path, kind: str, owner: Path, v_prefix: str = "v") -
             last = finished[mine[-1]]
             folder = (Path(root) / last["output_path"]).parent
             return {
-                "_when": _finished_at(last.get("completed_at")) or _mtime(folder),
+                "_when": iso_timestamp(last.get("completed_at")) or _mtime(folder),
                 "shot": shot,
                 "file": Path(last.get("source_file") or "").name or None,
                 "folder": folder.name,
@@ -158,14 +157,6 @@ def read_render_state(root: Path, kind: str, owner: Path, v_prefix: str = "v") -
     for r in out:
         r.pop("_when", None)
     return out
-
-
-def _finished_at(value) -> float | None:
-    """A history entry's completed_at as a timestamp; None if unreadable."""
-    try:
-        return datetime.fromisoformat(str(value)).timestamp()
-    except ValueError:
-        return None
 
 
 def _mtime(folder) -> float | None:
@@ -587,7 +578,7 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
     }
     schedule = project_schedule(config)
     if schedule:
-        today = datetime.fromisoformat(meta.get("scan_started_at") or now()).date()
+        today = (parse_iso(meta.get("scan_started_at")) or now(iso=False)).date()
         meta["schedule"] = schedule_progress(schedule, today, meta["progress"])
     meta["asset_departments"] = _columns(
         json_get(config, "assets_departments", []), items["asset"]

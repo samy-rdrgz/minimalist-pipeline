@@ -1,7 +1,6 @@
 """Logging, session tracking, and project backup persistence."""
 
 import os
-from datetime import datetime
 from pathlib import Path
 
 import bpy
@@ -19,6 +18,8 @@ from .core import (
     addon_pref,
     get_machine_id,
     locked_json,
+    parse_iso,
+    seconds_since,
     now,
 )
 from .errors import PipelineError
@@ -282,8 +283,8 @@ def _log_session_end(data: dict) -> None:
     filepath is its own field, not parsed from message -- read back by
     WorkTimeCache (lib/tracking.py, see NOTES.md)."""
     try:
-        opened_at = datetime.fromisoformat(data["opened_at"])
-        last_ping = datetime.fromisoformat(data["last_ping"])
+        opened_at = parse_iso(data["opened_at"])
+        last_ping = parse_iso(data["last_ping"])
         nw = now(iso=False)
         duration = (last_ping - opened_at).total_seconds()
         closing = " (crash)" if (nw - last_ping).total_seconds() > 31 else ""
@@ -339,9 +340,8 @@ def scan_sessions():
             with locked_json(session_file) as box:
                 data = box["data"]
             if data:
-                last_ping = datetime.fromisoformat(data["last_ping"])
-                nw = now(iso=False)
-                if (nw - last_ping).total_seconds() > 40:
+                age = seconds_since(data["last_ping"])
+                if age is None or age > 40:
                     close_session(session_file)
         except Exception:
             pass

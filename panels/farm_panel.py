@@ -8,11 +8,11 @@ import bpy
 
 from ..farm import (
     RETRYABLE_STAGES,
+    entry_state,
     failed_stage,
     get_job_details,
     get_job_details_logs,
     get_job_details_path,
-    entry_state,
     get_monitor_cache,
     job_state,
     machine_for_frame,
@@ -23,16 +23,19 @@ from ..farm.chunks import chunk_frames
 from ..farm.queue import WORKER_GONE_SECONDS
 from ..farm.workers import FARM_PROTOCOL
 from ..lib import (
+    format_duration,
+    format_pace,
     ConfigCache,
     addon_pref,
     box_tip_units,
     draw_box_tip,
     draw_pager,
-    get_addon_version,
     get_active_project_root,
+    get_addon_version,
     get_user,
     monitoring_detail,
     paginate,
+    parse_iso,
     rows_that_fit,
     split_footer,
 )
@@ -196,21 +199,6 @@ def job_icon(stage: str) -> str:
     return "KEYTYPE_BREAKDOWN_VEC"
 
 
-def _job_time(iso: str) -> datetime.datetime | None:
-    """A stage's ISO time, None if unreadable."""
-    try:
-        return datetime.datetime.fromisoformat(iso)
-    except (TypeError, ValueError):
-        return None
-
-
-def _duration(seconds: float) -> str:
-    seconds = int(seconds)
-    if seconds >= 3600:
-        return f"{seconds // 3600}h{seconds % 3600 // 60:02d}m"
-    return f"{seconds // 60}m{seconds % 60:02d}s"
-
-
 def _pace_source(pace: dict) -> str:
     """Where an estimate's pace comes from (history_pace(), farm/loop.py):
     "" for the file's own render with this preset, else said."""
@@ -236,7 +224,7 @@ def _estimate_label(job: dict, cache: dict) -> str:
     workers = max(1, len(cache.get("workers") or {}))
     total = frames * pace["seconds_per_frame"] / workers
     plural = "s" if workers > 1 else ""
-    text = f"≃ {_duration(total)} with {workers} worker{plural}"
+    text = f"≃ {format_duration(total)} with {workers} worker{plural}"
     source = _pace_source(pace)
     return f"{text}, {source}" if source else text
 
@@ -272,22 +260,12 @@ def _render_left_label(jobs: list, cache: dict) -> str:
         return f" - {unknown} not estimated yet" if unknown else ""
     workers = max(1, len(cache.get("workers") or {}))
     text = (
-        f" - ≃ {_duration(machine_time / workers)} of rendering left with "
+        f" - ≃ {format_duration(machine_time / workers)} of rendering left with "
         f"{workers} worker{'s' if workers > 1 else ''}"
     )
     if unknown:
         text += f" (+{unknown} not estimated)"
     return text
-
-
-def _pace(seconds: float) -> str:
-    """A frame's time: "0.6 s", "12 s", then _duration() -- "0m00s" said
-    nothing of a fast render."""
-    if seconds < 10:
-        return f"{seconds:.1f} s"
-    if seconds < 60:
-        return f"{seconds:.0f} s"
-    return _duration(seconds)
 
 
 def machine_label(uuid: str, recorded: str = "") -> str:
@@ -360,7 +338,7 @@ def draw_frame_lookup(layout, renders: list) -> None:
             icon="RENDER_ANIMATION",
         )
         pace = (seconds or {}).get(uuid)
-        col.label(text=f"{_pace(pace)}/frame" if pace else "pace unknown", icon="TIME")
+        col.label(text=f"{format_pace(pace)}/frame" if pace else "pace unknown", icon="TIME")
         return
     col.label(text=f"frame {frame}: in none of these shots' ranges")
 
@@ -434,7 +412,7 @@ def draw_farm_jobs(self, context, layout):
             name = f"{name}  [split]"
 
         elapsed = j["elapsed_seconds"]
-        elapsed_str = _duration(elapsed)
+        elapsed_str = format_duration(elapsed)
 
         # A render nobody's on (its machines failed it, gone, busy
         # elsewhere): waiting for a worker again, not running.
@@ -449,7 +427,7 @@ def draw_farm_jobs(self, context, layout):
             text = f"waiting for monitor - {elapsed_str}"
         elif job_state(stage) in ("finished", "failed"):
             # When it ended, not elapsed: stage_at never moves again.
-            at = _job_time(j["stage_at"])
+            at = parse_iso(j["stage_at"])
             text = f"{stage} - {at:%d/%m %H:%M}" if at else stage
 
         elif j.get("no_machine"):
@@ -471,7 +449,7 @@ def draw_farm_jobs(self, context, layout):
             if left is None and pct > 0:
                 left = elapsed / pct - elapsed
             if left is not None:
-                remaining_str = f"≃ {_duration(left)} remaining"
+                remaining_str = f"≃ {format_duration(left)} remaining"
             else:
                 remaining_str = "estimating..."
             text = (
@@ -485,7 +463,7 @@ def draw_farm_jobs(self, context, layout):
             done = _ffmpeg_progress(j["job_id"])
             text = f"{stage} - {done:.0%} - {elapsed_str}"
             if 0.02 < done < 1:
-                text += f" (≃ {_duration(elapsed / done - elapsed)} remaining)"
+                text += f" (≃ {format_duration(elapsed / done - elapsed)} remaining)"
 
         elif j.get("frames_to_render"):
             # Set up, waiting for a worker: what it'll take, at its last pace.
@@ -633,9 +611,8 @@ def _draw_worker_link(layout, worker: dict, icon: str) -> None:
 def _since(iso: str) -> tuple[str, float | None]:
     """("21/10 13:41" or "13:41" today, seconds ago) of an ISO time, ("-",
     None) if there's none."""
-    try:
-        at = datetime.datetime.fromisoformat(iso or "")
-    except (TypeError, ValueError):
+    at = parse_iso(iso)
+    if at is None:
         return "-", None
     today = at.date() == datetime.date.today()
     when = f"{at:%H:%M}" if today else f"{at:%d/%m %H:%M}"
@@ -755,15 +732,15 @@ def draw_farm_worker_details(layout, context):
             field(col, "Chunk", f"{_chunk_label(job, k)}, {_claim_progress(claim)}")
         pace = (job.get("machine_seconds") or {}).get(uuid)
         if pace:
-            field(col, "Pace", f"{_pace(pace)} a frame")
+            field(col, "Pace", f"{format_pace(pace)} a frame")
 
     layout.separator(factor=0.5, type="LINE")
     col = layout.column(align=True)
     started, up = _since(m.get("started_at"))
     if up is not None:
-        field(col, "Active since", f"{started}  ({_duration(up)})")
+        field(col, "Active since", f"{started}  ({format_duration(up)})")
     if beat_age is not None:
-        field(col, "Last heartbeat", f"{beat}  ({_duration(beat_age)} ago)")
+        field(col, "Last heartbeat", f"{beat}  ({format_duration(beat_age)} ago)")
 
     blender = m.get("blender_version")
     mismatch = None
@@ -1032,7 +1009,7 @@ def draw_farm_workers(context, layout):
                 text += _ffmpeg_pct(current_id)
             pace = ((job or {}).get("machine_seconds") or {}).get(m.get("uuid"))
             if pace:
-                text += f"  ({_pace(pace)}/frame)"
+                text += f"  ({format_pace(pace)}/frame)"
             if m.get("stopping"):
                 text += "  (stops after this frame)"
             _draw_job_link(jobs, current_id, text)
@@ -1063,21 +1040,15 @@ def _draw_silent_worker(row, m):
     split = row.split(factor=FIRST_COLUMN)
     split.active = False
     info = split.row()
-    try:
-        last = datetime.datetime.fromisoformat(m.get("last_heartbeat") or "")
-        age = (datetime.datetime.now() - last).total_seconds()
-    except (TypeError, ValueError):
-        last, age = None, None
+    when, age = _since(m.get("last_heartbeat"))
     gone = age is None or age > WORKER_GONE_SECONDS
     _draw_worker_link(info, m, icon="ERROR" if gone else "TIME")
     info.label(text=m.get("machine", "unknown"))
 
     jobs = split.row()
-    if last is None:
+    if age is None:
         text = "no heartbeat"
     elif gone:
-        today = last.date() == datetime.date.today()
-        when = f"{last:%H:%M}" if today else f"{last:%d/%m %H:%M}"
         text = f"silent since {when} (crashed, closed or asleep?)"
     else:
         text = f"late ({int(age)} s without news)"
@@ -1191,7 +1162,7 @@ def draw_farm_job_details(layout, context):
         field(
             col,
             "",
-            f"{_pace(pace['seconds_per_frame'])} a frame"
+            f"{format_pace(pace['seconds_per_frame'])} a frame"
             + (f", as {pace['render']}" if pace.get("render") else "")
             + (f", {source}" if source else ""),
         )
@@ -1272,7 +1243,7 @@ def draw_farm_job_details(layout, context):
     )
     average = live.get("seconds_per_frame") or data.get("seconds_per_frame")
     if average:
-        field(col, "Per frame", f"{_pace(average)} on average")
+        field(col, "Per frame", f"{format_pace(average)} on average")
     per_machine = live.get("machine_seconds") or data.get("machine_seconds") or {}
     record = data.get("frame_machines") or {}
     counts = {}
@@ -1286,7 +1257,7 @@ def draw_farm_job_details(layout, context):
         def machine_line(u):
             parts = [f"{counts[u]} frames"] if u in counts else []
             if u in per_machine:
-                parts.append(f"{_pace(per_machine[u])}/frame")
+                parts.append(f"{format_pace(per_machine[u])}/frame")
             return f"{machine_label(u, names.get(u))} ({', '.join(parts)})"
 
         field(
@@ -1351,7 +1322,7 @@ def draw_farm_job_details(layout, context):
     title.label(text="Stages")
     previous = None
     for entry in data.get("stage_history") or []:
-        at = _job_time(entry.get("at"))
+        at = parse_iso(entry.get("at"))
         stage = entry.get("stage", "?")
         if entry.get("resumed"):
             stage += f" ({entry['resumed']})"
@@ -1360,7 +1331,7 @@ def draw_farm_job_details(layout, context):
         elif entry.get("cancelled"):
             stage += " (cancelled)"
         delta = (
-            f"+{_duration((at - previous).total_seconds())}" if at and previous else ""
+            f"+{format_duration((at - previous).total_seconds())}" if at and previous else ""
         )
         split = col.split(factor=DETAIL_KEY_COLUMN)
         left = split.row()

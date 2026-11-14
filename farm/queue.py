@@ -16,8 +16,10 @@ from ..lib import (
     log,
     mark_render_to_check,
     now,
+    parse_iso,
     read_json_quiet,
     retry_shared_io,
+    seconds_since,
     to_absolute,
     to_relative,
 )
@@ -815,7 +817,7 @@ def _stage_time(stage_history: list, stage_name: str) -> datetime.datetime | Non
     """Timestamp of the first entry matching stage_name exactly, or None."""
     for entry in stage_history:
         if entry["stage"] == stage_name:
-            return datetime.datetime.fromisoformat(entry["at"])
+            return parse_iso(entry["at"])
     return None
 
 
@@ -823,7 +825,7 @@ def _last_stage_time(stage_history: list, prefix: str) -> datetime.datetime | No
     """Timestamp of the most recent entry whose stage starts with prefix, or None."""
     for entry in reversed(stage_history):
         if entry["stage"].startswith(prefix):
-            return datetime.datetime.fromisoformat(entry["at"])
+            return parse_iso(entry["at"])
     return None
 
 
@@ -952,11 +954,8 @@ def _worker_gone(worker: dict) -> bool:
     for WORKER_GONE_SECONDS."""
     if not worker:
         return True
-    try:
-        last = datetime.datetime.fromisoformat(worker.get("last_heartbeat", ""))
-    except (TypeError, ValueError):
-        return True
-    return (now(False) - last).total_seconds() > WORKER_GONE_SECONDS
+    age = seconds_since(worker.get("last_heartbeat"))
+    return age is None or age > WORKER_GONE_SECONDS
 
 
 def _drop_pending_request(job_id: str, uuid: str) -> bool:

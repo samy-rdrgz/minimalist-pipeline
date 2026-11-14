@@ -7,10 +7,10 @@ import base64
 import hashlib
 import json
 import re
-from datetime import datetime
 from pathlib import Path
 
 from .config import covering_role
+from .core import parse_iso
 from .review_import import REVIEW_JSON_FORMAT
 from .snapshot import (
     SCHEMA_VERSION,
@@ -200,10 +200,8 @@ def _rtk_kinds(threads: list) -> dict:
 
 
 def _day(iso: str) -> str:
-    try:
-        return f"{datetime.fromisoformat(iso):%d/%m/%Y}"
-    except ValueError:
-        return iso
+    at = parse_iso(iso)
+    return f"{at:%d/%m/%Y}" if at else iso
 
 
 def _approval(item: dict, department: str, roles: list) -> dict | None:

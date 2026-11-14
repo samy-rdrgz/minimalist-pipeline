@@ -37,6 +37,7 @@ from .core import (
     json_get,
     locked_json,
     now,
+    parse_iso,
     read_json_quiet,
     reads_once,
     resolve_bpy_path,
@@ -646,16 +647,6 @@ class RecentFilesCache:
         return [(Path(fp).stem, str(project_path(fp))) for _, fp in ordered]
 
 
-def format_duration(seconds: float) -> str:
-    """Seconds -> compact "XhYY" for display ("Xd YYhZZ" past a day)."""
-    total_minutes = int(seconds // 60)
-    days, rem_minutes = divmod(total_minutes, 24 * 60)
-    hours, minutes = divmod(rem_minutes, 60)
-    if days:
-        return f"{days}d {hours:02d}h{minutes:02d}"
-    return f"{hours}h{minutes:02d}"
-
-
 def create_tracking(filepath: Path, departments: list, description: str = ""):
     """Init or update .pipeline/tracking.json for filepath's asset/shot
     folder. Safe to call again on one that already has one (e.g. adding a
@@ -1218,9 +1209,8 @@ def _latest_meta(entries: list, suffix: str) -> dict | None:
         data = read_json_quiet(Path(entry.path))
         if not data:
             continue
-        try:
-            created = datetime.fromisoformat(data["created_at"])
-        except (KeyError, TypeError, ValueError):
+        created = parse_iso(data.get("created_at"))
+        if created is None:
             continue
         if best_date is None or created > best_date:
             best, best_date = data, created
@@ -1258,10 +1248,7 @@ def _collect_folder(asset_dir: Path, entries: list | None = None) -> dict | None
     if entries is None:
         entries = _pipeline_entries(asset_dir)
     last_stable = _latest_stable(entries) or dict(_DEFAULT_STABLE)
-    try:
-        stable_date = datetime.fromisoformat(last_stable.get("created_at") or "")
-    except ValueError:
-        stable_date = datetime.min
+    stable_date = parse_iso(last_stable.get("created_at")) or datetime.min
     skip_before = (
         stable_date - timedelta(seconds=_CLOCK_MARGIN_SECONDS)
         if stable_date > datetime.min + timedelta(seconds=_CLOCK_MARGIN_SECONDS)
@@ -1287,10 +1274,8 @@ def _worked_departments(wipmetas: list, stable_date: datetime) -> dict[str, list
     stable_date (the latest stable's)."""
     worked: dict[str, list[dict]] = {}
     for meta in wipmetas:
-        meta_date_str = meta.get("edited_at", "")
-        if not meta_date_str:
-            continue
-        if datetime.fromisoformat(meta_date_str) <= stable_date:
+        edited = parse_iso(meta.get("edited_at"))
+        if edited is None or edited <= stable_date:
             continue  # at or before the latest stable, ignored
         # departments_worked : {session_id: [dep1, dep2, ...]}
         for deps_list in meta.get("departments_worked", {}).values():
@@ -1324,11 +1309,8 @@ def _worked_since(entries: list, start: datetime, end: datetime) -> set[str]:
         if _entry_mtime(entry) < start - timedelta(seconds=_CLOCK_MARGIN_SECONDS):
             continue
         data = read_json_quiet(Path(entry.path)) or {}
-        try:
-            at = datetime.fromisoformat(data.get("created_at") or "")
-        except ValueError:
-            continue
-        if start < at <= end:
+        at = parse_iso(data.get("created_at"))
+        if at and start < at <= end:
             worked |= set(data.get("departments_worked") or [])
     return worked
 
@@ -1342,11 +1324,8 @@ def _worked_between(entries: list, start: datetime, end: datetime) -> set[str]:
         if not entry.name.endswith(".wipmeta") or _entry_mtime(entry) < skip_before:
             continue
         meta = read_json_quiet(Path(entry.path)) or {}
-        try:
-            edited = datetime.fromisoformat(meta.get("edited_at") or "")
-        except ValueError:
-            continue
-        if start < edited <= end:
+        edited = parse_iso(meta.get("edited_at"))
+        if edited and start < edited <= end:
             for deps_list in (meta.get("departments_worked") or {}).values():
                 worked.update(deps_list)
     return worked
@@ -1360,10 +1339,9 @@ def worked_since_stable(asset_dir: Path, stable_file: str, entries: list | None 
         entries = _pipeline_entries(Path(asset_dir))
     seen = _stablemeta_of(entries, stable_file)
     last = _latest_stable(entries)
-    try:
-        start = datetime.fromisoformat(seen["created_at"])
-        end = datetime.fromisoformat(last["created_at"])
-    except (KeyError, TypeError, ValueError):
+    start = parse_iso((seen or {}).get("created_at"))
+    end = parse_iso((last or {}).get("created_at"))
+    if start is None or end is None:
         return None
     return _worked_since(entries, start, end)
 
@@ -1377,10 +1355,7 @@ def _status_from_raw(raw: dict) -> dict:
         global_data.get("departments_required", [])
     )
     last_stable = raw["last_stable"]
-    stable_date_str = last_stable.get("created_at")
-    stable_date = (
-        datetime.fromisoformat(stable_date_str) if stable_date_str else datetime.min
-    )
+    stable_date = parse_iso(last_stable.get("created_at")) or datetime.min
 
     # Departments validated at the latest stable
     validated_departments = {

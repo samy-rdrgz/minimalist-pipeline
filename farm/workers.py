@@ -5,7 +5,6 @@ import os
 import re
 import subprocess
 import time
-from datetime import datetime
 from pathlib import Path
 
 import bpy
@@ -28,6 +27,7 @@ from ..lib import (
     read_json_quiet,
     resolve_ffmpeg,
     retry_shared_io,
+    seconds_since,
     to_absolute,
 )
 from .awake import keep_awake
@@ -68,13 +68,10 @@ def _worker_path(as_dir: bool = False) -> Path:
         return ConfigCache.get_path("workers") / f"worker_{id}.json"
 
 
-def _heartbeat_age(heartbeat: str) -> int:
+def _heartbeat_age(heartbeat: str) -> float:
     """Seconds since an ISO heartbeat timestamp; a huge number if unparseable."""
-    try:
-        heartbeat = datetime.fromisoformat(heartbeat)
-        return (now(iso=False) - heartbeat).total_seconds()
-    except Exception:
-        return 10**9
+    age = seconds_since(heartbeat)
+    return 10**9 if age is None else age
 
 
 # Whether *this Blender instance* holds this machine's worker role. Runtime

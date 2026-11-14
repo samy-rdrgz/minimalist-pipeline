@@ -13,7 +13,7 @@ from .config import (
     shots_in_segment,
     validation_roles,
 )
-from .core import json_get, now, read_json_quiet
+from .core import json_get, now, parse_iso, read_json_quiet
 from .errors import PipelineError
 from .schedule import parse_day
 from .snapshot import (
@@ -62,10 +62,10 @@ def parse_review_date(value: str) -> datetime | None:
         return datetime.combine(parse_day(value), datetime.min.time())
     except PipelineError:
         pass
-    try:
-        return datetime.fromisoformat(value)
-    except ValueError:
+    at = parse_iso(value)
+    if at is None:
         raise PipelineError(f"Review date '{value}' not understood (use YYYY-MM-DD).")
+    return at
 
 
 # A review written on the snapshot page (_JS's Review): its rows, as JSON.

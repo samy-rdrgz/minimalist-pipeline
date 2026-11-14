@@ -30,7 +30,7 @@ from ..lib import (
     find_linked_by,
     any_outdated_links,
     outdated_links,
-    format_duration,
+    format_work_time,
     get_active_project_root,
     get_current_departments,
     get_description,
@@ -805,7 +805,7 @@ def draw_file_details(state, context, layout):
         time_row = layout.row()
         time_row.active = False
         time_row.label(
-            text=f"Total work time: {format_duration(total_seconds)}", icon="TIME"
+            text=f"Total work time: {format_work_time(total_seconds)}", icon="TIME"
         )
 
     layout.separator(factor=1)

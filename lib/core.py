@@ -169,6 +169,60 @@ def now(iso: bool = True) -> str | datetime:
         return datetime.now()
 
 
+def parse_iso(value) -> datetime | None:
+    """A stored date or time (ISO 8601) as a datetime; None if absent or
+    unreadable. The one reader of the pipeline's dates."""
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(str(value))
+    except ValueError:
+        return None
+
+
+def iso_timestamp(value) -> float | None:
+    """parse_iso() as epoch seconds; None if absent or unreadable."""
+    at = parse_iso(value)
+    try:
+        return at.timestamp() if at else None
+    except (OverflowError, OSError, ValueError):
+        return None
+
+
+def seconds_since(value) -> float | None:
+    """Seconds from a stored time to now; None if absent or unreadable."""
+    at = parse_iso(value)
+    return (datetime.now() - at).total_seconds() if at else None
+
+
+def format_duration(seconds: float) -> str:
+    """ "1h02m", "3m05s": a farm time read by a person."""
+    seconds = int(seconds)
+    if seconds >= 3600:
+        return f"{seconds // 3600}h{seconds % 3600 // 60:02d}m"
+    return f"{seconds // 60}m{seconds % 60:02d}s"
+
+
+def format_pace(seconds: float) -> str:
+    """A frame's time: "0.6 s", "12 s", then format_duration() -- "0m00s"
+    said nothing of a fast render."""
+    if seconds < 10:
+        return f"{seconds:.1f} s"
+    if seconds < 60:
+        return f"{seconds:.0f} s"
+    return format_duration(seconds)
+
+
+def format_work_time(seconds: float) -> str:
+    """Seconds -> compact "XhYY" for display ("Xd YYhZZ" past a day)."""
+    total_minutes = int(seconds // 60)
+    days, rem_minutes = divmod(total_minutes, 24 * 60)
+    hours, minutes = divmod(rem_minutes, 60)
+    if days:
+        return f"{days}d {hours:02d}h{minutes:02d}"
+    return f"{hours}h{minutes:02d}"
+
+
 # Corrects a popup's declared width= vs its actual rendered content-area
 # width -- see NOTES.md, "Text wrapping in panels". Recalibrate this one
 # constant if popup text still looks off, never the per-call-site formula.
@@ -658,8 +712,8 @@ def _is_unlock(lockpath: Path) -> bool:
     forever. Only the writer path acts on this to steal a lock; readers never do."""
     try:
         data = json.loads(lockpath.read_text(encoding="utf-8"))
-        age = (now(iso=False) - datetime.fromisoformat(data["at"])).total_seconds()
-        return age > LOCK_STALE_SECONDS
+        age = seconds_since(data["at"])
+        return age is None or age > LOCK_STALE_SECONDS
     except PermissionError:
         # Unreadable *right now* (Windows: being deleted, or another
         # process's handle refuses us) is not corrupt -- treating it as

@@ -11,15 +11,17 @@ from pathlib import Path
 import bpy
 
 from ..lib import (
-    background_work,
     ConfigCache,
+    background_work,
     cached_scandir,
     get_active_project_root,
     json_get,
     log,
     now,
     owner_key,
+    parse_iso,
     read_json_quiet,
+    seconds_since,
 )
 from .post_render import _EXTENSION_MAP
 
@@ -972,8 +974,7 @@ def _build_job_entry(
     archived = stage["stage"] == "archived"
     if archived:
         stage = job["stage_history"][-2]
-    stage_time = datetime.fromisoformat(stage["at"])
-    elapsed = (now(False) - stage_time).total_seconds()
+    elapsed = seconds_since(stage["at"]) or 0
 
     frames_total = 0
     output_dir = _output_dir(job)
@@ -1035,13 +1036,12 @@ def _build_job_entry(
 
 def _build_incoming_entry(req: dict) -> dict:
     """UI-facing "pending" entry for one not-yet-claimed request."""
-    submitted_at = datetime.fromisoformat(req["submitted_at"])
     return {
         "job_id": req.get("_job_id", ""),
         "filepath": req.get("filepath", ""),
         "stage": "pending",
         "stage_at": req["submitted_at"],
-        "elapsed_seconds": (now(False) - submitted_at).total_seconds(),
+        "elapsed_seconds": seconds_since(req["submitted_at"]) or 0,
         "frames_done": 0,
         "frames_total": 0,
         "machines": [],
@@ -1054,11 +1054,9 @@ def _build_incoming_entry(req: dict) -> dict:
 def _newest_tick(mtime: float | None, data: dict | None) -> datetime | None:
     """The newer of monitor.lock's mtime and its content's "update_tick"."""
     last = datetime.fromtimestamp(mtime) if mtime else None
-    try:
-        in_file = datetime.fromisoformat((data or {}).get("update_tick", ""))
+    in_file = parse_iso((data or {}).get("update_tick"))
+    if in_file:
         last = max(last, in_file) if last else in_file
-    except (TypeError, ValueError):
-        pass
     return last
 
 
