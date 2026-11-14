@@ -729,8 +729,8 @@ def draw_file_details(state, context, layout):
     for idname, icon, tooltip, props, shown in (
         ("m_pipeline.edit_description", "GREASEPENCIL", "", {"filepath": filepath}, True),
         ("m_pipeline.file_omit", "PAUSE",
-         "Set aside: Omit or On hold -- out of the figures and filters, kept in the lists"
-         if not mark else f"{OMIT_STATES[mark['state']]} by {mark.get('by', '?')}: count it again",
+         "Set aside: On hold or Cancelled -- out of the figures and filters, kept in the lists"
+         if not mark else f"{OMIT_STATES[mark['state']]} by {mark.get('by', '?')}: make it active again",
          {"filepath": filepath}, True),
         ("m_pipeline.open_file_version", safe_icon("FILE_ALIAS", "FILE_BLEND"), "", {"filepath": str(filepath)}, True),
         ("wm.open_folder", "FILE_FOLDER", "Open this file's folder", {"filepath": str(filepath)}, True),
@@ -944,7 +944,7 @@ def monitor_matches(self, context, project_root, activity=None) -> tuple:
                 and owner_key(dir) not in activity
             ):
                 continue
-            # A file set aside (Omit / On hold) is in no filter's list.
+            # A file set aside (On hold / Cancelled) is in no filter's list.
             if (self.only_rtk or self.only_to_validate) and omitted(file):
                 continue
             if self.only_rtk and not _has_rtk(file):

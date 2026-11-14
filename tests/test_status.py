@@ -1,5 +1,5 @@
 """The state engine (lib/status.py), without Blender: each state from
-its facts, the shares done. Grows with phase 3 (Waiting, To redo, Omit).
+its facts, the shares done. Grows with phase 3 (Waiting, To redo, On hold).
 
     python3 tests/test_status.py
 """
@@ -88,7 +88,7 @@ def main() -> None:
     assert status.stage_flags(restable, stages)["anim"]["to_redo"] == "layout changed on 09/11"
     # No stages: nothing.
     assert status.stage_flags(dict(base, entries=[rtk]), {}) == {}
-    # Omit / On hold: no stages flags, the marker read only when valid.
+    # On hold / Cancelled: no stages flags, the marker read only when valid.
     held = dict(base, entries=[rtk], omit={"state": "on_hold", "by": "x", "reason": "edit"})
     assert status.omitted(held)["state"] == "on_hold" and status.stage_flags(held, stages) == {}
     assert status.omitted(dict(base, omit={"state": "nope"})) is None and status.omitted(base) is None

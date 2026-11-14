@@ -15,6 +15,7 @@ from .config import (
     type_by_folder,
 )
 from .core import (
+    set_monitoring_detail,
     ADDON_PACKAGE,
     addon_pref,
     get_machine_id,
@@ -205,6 +206,10 @@ def set_active_project_root(prefs, new_root: str) -> None:
     )
 
     stop_farm_role_for_project(prefs.active_project_root)
+    if new_root != prefs.active_project_root:
+        # Project monitoring's file detail belongs to the project left.
+        set_monitoring_detail("file", "", sync=False)
+        set_monitoring_detail("missing_file", "", sync=False)
     prefs.active_project_root = new_root
 
     # Keep the monitor cache in sync -- otherwise it shows the previous

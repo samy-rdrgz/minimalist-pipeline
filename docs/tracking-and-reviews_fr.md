@@ -46,9 +46,9 @@ Un bloc multishot peut taguer une note/todo avec le shot du bloc concerné — v
 - **Où** : les cellules de Project monitoring (une légende dans son pied de page dès que le projet a des étapes), les départements de File details, les boutons *Working on* du panneau latéral.
 - **Still done** (File details, ou le ✓ à côté d'un bouton du panneau latéral, sur un département à reprendre, ouvert à tous) : le travail fait tient toujours après le changement -- noté avec qui et quand, et un pourquoi facultatif ; ce n'est pas une validation.
 
-## Omit et On hold
+## On hold et Cancelled
 
-**Écarter un fichier** sans l'archiver (File details, le bouton pause) : *Omit* (coupé au montage, abandonné) ou *On hold* (en attente d'une décision), avec un pourquoi. Il reste dans toutes les listes, grisé avec sa marque, et sort des parts faites (les chiffres du snapshot, le rythme du planning), des filtres Retakes et To validate, et des étapes (ni Waiting ni To redo). Le même bouton le fait compter à nouveau. La marque d'un bloc vaut pour tous ses shots.
+**Écarter un fichier** sans l'archiver (File details, le bouton pause) : *On hold* (en pause, en attente d'une décision) ou *Cancelled* (coupé au montage, abandonné), avec un pourquoi. Il reste dans toutes les listes, grisé avec sa marque, et sort des parts faites (les chiffres du snapshot, le rythme du planning), des filtres Retakes et To validate, et des étapes (ni Waiting ni To redo). Le même bouton le remet *Active*. La marque d'un bloc vaut pour tous ses shots.
 
 ## Fini, puis validé : les rôles de validation
 

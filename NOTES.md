@@ -3850,12 +3850,15 @@ around one idea: a list to scan, a panel to read one file.
   unfolded under rows, per-shot hover buttons in the list (the panel has
   every shot's picture).
 
-## Omit and On hold
+## On hold and Cancelled
 
 Archiving was the only way to take a shot out of the figures, and it left
-the lists. From 1.2, tracking.json's `"omit": {"state": "omit" | "on_hold",
-"at", "by", "reason"}` (`set_file_omit()`, File details' pause button,
-`M_PIPELINE_OT_file_omit`):
+the lists. From 1.2, tracking.json's `"omit": {"state": "on_hold" |
+"cancelled", "at", "by", "reason"}` (`set_file_omit()`, File details'
+pause button, `M_PIPELINE_OT_file_omit`). Two words a production uses,
+paused or dropped -- the first try, "Omit / On hold / Counts", read as
+three near-synonyms; the dialog's third choice, *Active*, removes the
+marker. The field keeps its name "omit" (the code's word for both):
 
 - `omitted(facts)` (lib/status.py) is the one test: a marker with a known
   state, else None. The stages skip the file (`stage_flags()` -> {}).
@@ -3929,7 +3932,7 @@ session's own date, so from 1.2:
 A department's state was worked out in two places in Python (the
 snapshot's `_department_state()`, Project monitoring's cell) and its
 words in a third (page.js `LABEL`). Phase 3 adds Waiting, To redo and
-Omit: one place first (3A, behaviour unchanged), `lib/status.py`:
+On hold: one place first (3A, behaviour unchanged), `lib/status.py`:
 
 - `department_state(facts, department)`: todo / wip / done / rework from
   the facts `_status_from_raw()` gathers -- validated at the latest
@@ -3992,6 +3995,11 @@ the right of the same window. Tried first outside the addon in Blender
   `hidden_columns` kept in memory for the session, as the other filters.
 - `list_area()` replaces "the biggest area" where the list is meant
   (bringing a window to the front duplicates the list's editor).
+
+- The file detail is the active project's: `set_active_project_root()`
+  empties it on a switch, and the window reopening drops a remembered
+  folder outside the project -- render_root() raised a ValueError on
+  another project's folder (l3o's shot, alive active).
 
 ## Snapshots and reviews by month
 

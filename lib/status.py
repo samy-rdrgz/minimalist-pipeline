@@ -2,7 +2,7 @@
 from the facts lib/tracking.py's _status_from_raw() gathers (validated at
 the latest stable, worked since, started before). Pure, no bpy, no disk:
 every view asks it -- the sidebar, Project monitoring, File details, the
-snapshot. Phase 3 of docs/plan-1.2.md grows it (Waiting, To redo, Omit).
+snapshot. Phase 3 of docs/plan-1.2.md grows it (Waiting, To redo, On hold).
 No disk, no bpy call: tests/test_status.py.
 See NOTES.md, "State engine"."""
 
@@ -14,9 +14,9 @@ from .core import EARLIEST, json_get, parse_iso
 PROGRESS_WEIGHTS = {"wip": 33, "rework": 67, "rtk": 67}
 
 # A file set aside (tracking.json "omit"): its words. Kept in the lists,
-# out of the shares done, the filters and the stages. See NOTES.md, "Omit
-# and On hold".
-OMIT_STATES = {"omit": "Omit", "on_hold": "On hold"}
+# out of the shares done, the filters and the stages. See NOTES.md, "On
+# hold and Cancelled".
+OMIT_STATES = {"on_hold": "On hold", "cancelled": "Cancelled"}
 
 # A state's words, the same everywhere (page.js LABEL too).
 STATE_LABELS = {
@@ -40,7 +40,7 @@ def department_state(status: dict, department: str) -> str:
 
 
 def omitted(facts: dict) -> dict | None:
-    """A file's Omit / On hold marker ({"state", "at", "by", "reason"}),
+    """A file's On hold / Cancelled marker ({"state", "at", "by", "reason"}),
     None when it counts."""
     mark = facts.get("omit")
     return mark if isinstance(mark, dict) and mark.get("state") in OMIT_STATES else None

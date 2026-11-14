@@ -1067,7 +1067,7 @@ def create_stablemeta(
 
 def set_file_omit(filepath: Path, state: str, by: str, reason: str = "") -> None:
     """Set a file aside, tracking.json's "omit" (lib/status.py OMIT_STATES:
-    "omit", "on_hold"), or count it again (state ""). The marker covers the
+    "on_hold", "cancelled"), or count it again (state ""). The marker covers the
     whole file -- a block's every shot."""
     path = tracking_json_path(filepath, must_exist=True)
     with locked_json(path) as box:

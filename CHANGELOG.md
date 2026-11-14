@@ -6,7 +6,7 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
-- *Omit* / *On hold* (File details): a file set aside, with a why --
+- *On hold* / *Cancelled* (File details): a file paused or dropped, with a why --
   kept in the lists, greyed, out of the figures, the Retakes and To
   validate filters and the stages.
 - Stages, written in Edit project's departments field (`layout >

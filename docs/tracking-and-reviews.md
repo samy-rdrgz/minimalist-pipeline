@@ -46,9 +46,9 @@ Multishot blocks can tag a note/todo with which shot in the block it's about —
 - **Where**: Project monitoring's cells (a legend in its footer once the project has stages), File details' departments, the sidebar's *Working on* toggles.
 - **Still done** (File details, or the ✓ beside a toggle in the sidebar, on a department to redo, open to everyone): the work done holds after the change -- recorded with who and when, and an optional why; not a validation.
 
-## Omit and On hold
+## On hold and Cancelled
 
-**Set a file aside** without archiving it (File details, the pause button): *Omit* (cut at the edit, dropped) or *On hold* (waiting for a decision), with a why. It stays in every list, greyed with its mark, and leaves the shares done (the snapshot's figures, the schedule's pace), the Retakes and To validate filters, and the stages (no Waiting, no To redo). The same button counts it again. A block's mark covers all its shots.
+**Set a file aside** without archiving it (File details, the pause button): *On hold* (paused, waiting for a decision) or *Cancelled* (cut at the edit, dropped), with a why. It stays in every list, greyed with its mark, and leaves the shares done (the snapshot's figures, the schedule's pace), the Retakes and To validate filters, and the stages (no Waiting, no To redo). The same button makes it *Active* again. A block's mark covers all its shots.
 
 ## Done, then validated: validation roles
 

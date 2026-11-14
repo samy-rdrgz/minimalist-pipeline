@@ -1544,7 +1544,8 @@ class M_PIPELINE_OT_tracking_monitor(bpy.types.Operator):
             # Reopens on the file it showed -- read again, it may have changed.
             set_monitoring_detail("missing_file", "")
             folder = monitoring_detail("file")
-            if folder and not Path(folder).is_dir():
+            # Gone, or another project's (it was active last time).
+            if folder and not (Path(folder).is_dir() and Path(folder).is_relative_to(project_root)):
                 set_monitoring_detail("file", "")
             elif folder:
                 load_file_thumbnail(folder)
@@ -1705,12 +1706,12 @@ class M_PIPELINE_OT_toggle_department_approval(bpy.types.Operator):
 
 
 class M_PIPELINE_OT_file_omit(bpy.types.Operator):
-    """Set this file aside -- Omit (cut, dropped) or On hold -- or count it
-    again: it stays in the lists, out of the shares done, the filters and
-    the stages."""
+    """Set this file aside -- On hold (paused) or Cancelled (cut, dropped)
+    -- or make it active again: it stays in the lists, out of the shares
+    done, the filters and the stages."""
 
     bl_idname = "m_pipeline.file_omit"
-    bl_label = "Omit / On hold"
+    bl_label = "On hold / Cancelled"
     bl_options = {"INTERNAL"}
 
     filepath: bpy.props.StringProperty(options={"HIDDEN", "SKIP_SAVE"})
@@ -1718,9 +1719,9 @@ class M_PIPELINE_OT_file_omit(bpy.types.Operator):
     state: bpy.props.EnumProperty(
         name="",
         items=[
-            ("omit", "Omit", "Out of the project (cut at the edit, dropped)"),
-            ("on_hold", "On hold", "Waiting for a decision"),
-            ("counts", "Counts", "Back in the project's figures"),
+            ("active", "Active", "In the project's figures, as any file"),
+            ("on_hold", "On hold", "Paused, waiting for a decision"),
+            ("cancelled", "Cancelled", "Out of the project (cut at the edit, dropped)"),
         ],
         default="on_hold",
     )
@@ -1732,7 +1733,7 @@ class M_PIPELINE_OT_file_omit(bpy.types.Operator):
 
     def invoke(self, context, event):
         mark = (TrackingStatusCache.get(self.filepath) or {}).get("omit") or {}
-        self.state = "counts" if mark else "on_hold"
+        self.state = "active" if mark else "on_hold"
         self.reason = mark.get("reason", "")
         return context.window_manager.invoke_props_dialog(self, width=420)
 
@@ -1740,13 +1741,13 @@ class M_PIPELINE_OT_file_omit(bpy.types.Operator):
         col = self.layout.column()
         row = col.row(align=True)
         # Each choice with its words: expand=True drew three empty boxes.
-        for value, label in (("omit", "Omit"), ("on_hold", "On hold"), ("counts", "Counts")):
+        for value, label in (("active", "Active"), ("on_hold", "On hold"), ("cancelled", "Cancelled")):
             row.prop_enum(self, "state", value, text=label)
-        if self.state != "counts":
+        if self.state != "active":
             col.prop(self, "reason")
 
     def execute(self, context):
-        state = "" if self.state == "counts" else self.state
+        state = "" if self.state == "active" else self.state
         try:
             set_file_omit(Path(self.filepath), state, get_user(context), self.reason)
         except PipelineError as e:
