@@ -1708,8 +1708,8 @@ class M_PIPELINE_OT_file_omit(bpy.types.Operator):
     bl_label = "Omit / On hold"
     bl_options = {"INTERNAL"}
 
-    filepath: bpy.props.StringProperty(options={"SKIP_SAVE"})
-    custom_tooltip: bpy.props.StringProperty(options={"SKIP_SAVE"})
+    filepath: bpy.props.StringProperty(options={"HIDDEN", "SKIP_SAVE"})
+    custom_tooltip: bpy.props.StringProperty(options={"HIDDEN", "SKIP_SAVE"})
     state: bpy.props.EnumProperty(
         name="",
         items=[
@@ -1759,9 +1759,9 @@ class M_PIPELINE_OT_department_still_done(bpy.types.Operator):
     bl_label = "Still done"
     bl_options = {"INTERNAL"}
 
-    filepath: bpy.props.StringProperty(options={"SKIP_SAVE"})
-    department: bpy.props.StringProperty(options={"SKIP_SAVE"})
-    custom_tooltip: bpy.props.StringProperty(options={"SKIP_SAVE"})
+    filepath: bpy.props.StringProperty(options={"HIDDEN", "SKIP_SAVE"})
+    department: bpy.props.StringProperty(options={"HIDDEN", "SKIP_SAVE"})
+    custom_tooltip: bpy.props.StringProperty(options={"HIDDEN", "SKIP_SAVE"})
     text: bpy.props.StringProperty(name="Why (optional)", options={"SKIP_SAVE"})
 
     @classmethod
@@ -1770,8 +1770,17 @@ class M_PIPELINE_OT_department_still_done(bpy.types.Operator):
 
     def invoke(self, context, event):
         return context.window_manager.invoke_props_dialog(
-            self, width=420, title=f"{self.department.upper()}: still done", confirm_text="Still done"
+            self, width=420, title=f"{self.department.capitalize()}: still done", confirm_text="Still done"
         )
+
+    def draw(self, context):
+        col = self.layout.column()
+        flag = ((TrackingStatusCache.get(self.filepath) or {}).get("flags") or {}).get(self.department) or {}
+        if flag.get("to_redo"):
+            col.label(text=f"To redo: {flag['to_redo']}.", icon="FILE_REFRESH")
+        col.label(text="The work done holds -- not a validation.", icon="INFO")
+        col.separator()
+        col.prop(self, "text")
 
     def execute(self, context):
         try:
