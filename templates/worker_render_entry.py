@@ -102,7 +102,7 @@ def stop_asked() -> bool:
 
 def yield_asked() -> bool:
     """The farm host wants this machine on a higher-priority job: give way
-    between two chunks (render_yield_path())."""
+    after the frame in progress (render_yield_path())."""
     return bool(yield_file) and os.path.exists(yield_file)
 
 
@@ -153,6 +153,11 @@ def render_chunk(k: int, start: int, end: int, folder: str) -> str:
         if stop_asked():
             chunks.release_claim(job_id, k)
             return "stopped after a frame"
+        if yield_asked():
+            # As a stop: the frames done stay on disk, the chunk's claim is
+            # let go -- whoever takes it next renders only what's missing.
+            chunks.release_claim(job_id, k)
+            return "gave way to a higher-priority job"
         final = frame_file(f)
         claim["frame_in_progress"] = f
         claim["frame_in_progress_file"] = final
@@ -174,8 +179,9 @@ def render_chunk(k: int, start: int, end: int, folder: str) -> str:
 def render_chunks() -> str:
     """Render every free chunk from the first, pass after pass while one
     rendered something (a chunk let go behind is picked up); ends on a pass
-    with nothing to claim, a stop, or a call to a higher-priority job
-    between chunks. Returns why it stopped."""
+    with nothing to claim, a stop, or a call to a higher-priority job --
+    both after a frame (render_chunk()), or here before claiming the next
+    chunk. Returns why it stopped."""
     start, end, folder = START, END, FOLDER
     os.makedirs(folder, exist_ok=True)
     rendered = True

@@ -65,20 +65,29 @@ from .config import (
     validation_roles,
 )
 from .core import (
+    ADDON_PACKAGE,
+    TEMPLATES_DIR,
+    blender_command,
     box_tip_units,
     SIDE_BY_SIDE_WIDTH,
     AdoptedProcess,
+    StampCache,
     addon_pref,
     cached_scandir,
     draw_box_tip,
     get_addon_version,
+    format_duration,
+    format_pace,
+    format_work_time,
     get_machine_id,
+    iso_timestamp,
     json_get,
     lines_budget,
     list_to_labels,
     locked_json,
     monitoring_detail,
     now,
+    parse_iso,
     path_reachable,
     process_alive,
     random_display_name,
@@ -90,6 +99,7 @@ from .core import (
     responsive_layout,
     retry_shared_io,
     safe_icon,
+    seconds_since,
     set_monitoring_detail,
     text_field,
     text_to_lines,
@@ -111,7 +121,7 @@ from .handlers import (
     unregister_handlers,
 )
 from .libraries import clean_append_and_relink, scan_linked_libraries
-from .logs import archive_log_now, log, read_log_tail
+from .logs import archive_log_now, log, read_log_tail, report_error
 from .monitoring import (
     MONITORING_SCREEN_KEY,
     draw_addon_keys,
@@ -133,6 +143,9 @@ from .monitoring import (
     split_footer,
     status_changed,
     stop_monitoring_tick,
+    list_fits,
+    neighbour_in_list,
+    position_in_list,
     turn_page,
     unregister_monitoring_keymap,
 )
@@ -158,6 +171,7 @@ from .preview import (
     resolve_block_sources,
     resolve_sequence_sources,
     LD_ARGS,
+    LD_SCALE,
     MAX_VIDEO_WIDTH,
     browser_codec,
     browser_video,
@@ -189,7 +203,7 @@ from .session import (
     warn_blender_version_mismatch,
 )
 from .review_import import (
-    import_review_xlsx,
+    import_review,
     review_description_changes,
     review_import_plan,
 )
@@ -252,7 +266,6 @@ from .tracking import (
     delete_owner,
     open_elsewhere,
     owner_render_dirs,
-    format_duration,
     get_current_departments,
     get_departments_required,
     get_description,

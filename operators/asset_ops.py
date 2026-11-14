@@ -13,9 +13,10 @@ from ..lib import (
     log,
     path_reachable,
     prefix_to_parent_folder,
+    report_error,
     sanitize_name,
-    text_field,
 )
+from ..lib.ui import draw_creation_fields, titled_row
 
 # ---------------------------------------------------------------------------
 # Dynamic enum builders
@@ -70,26 +71,12 @@ class M_PIPELINE_OT_create_asset(bpy.types.Operator):
         TITLE_WIDTH = 0.35
         layout = self.layout.column(align=True)
 
-        row = layout.split(factor=TITLE_WIDTH, align=True)
-        row.label(text="Prefix", icon="TAG")
-        row.prop(self, "asset_prefix", text="")
-        row = layout.split(factor=TITLE_WIDTH, align=True)
-        row.label(text="Name", icon="BLANK1")
-        row.prop(self, "asset_name", text="")
+        titled_row(layout, "Prefix", "TAG", TITLE_WIDTH).prop(self, "asset_prefix", text="")
+        titled_row(layout, "Name", "BLANK1", TITLE_WIDTH).prop(self, "asset_name", text="")
 
         layout.separator(type="LINE", factor=3)
 
-        row = layout.split(factor=TITLE_WIDTH, align=True)
-        row.label(text="Description", icon="TEXT")
-        text_field(row, self, "description", initial_visible_lines=1)
-        row = layout.split(factor=TITLE_WIDTH, align=True)
-        row.label(text="Departments", icon="COLOR")
-        row.prop_menu_enum(self, "required_departments")
-        row = layout.split(factor=TITLE_WIDTH, align=True)
-        row.label(text="Clean file", icon="FILE_BLANK")
-        row.prop(self, "create_clean", text="")
-
-        layout.separator(type="LINE", factor=3)
+        draw_creation_fields(layout, self, TITLE_WIDTH)
 
         safe = sanitize_name(self.asset_name)
         v_digits = self._get_v_digits(context)
@@ -147,9 +134,7 @@ class M_PIPELINE_OT_create_asset(bpy.types.Operator):
                 description=self.description,
             )
         except PipelineError as e:
-            log(e.level, "create_asset", e.message)
-            self.report({e.level}, e.message)
-            return {"CANCELLED"}
+            return report_error(self, "create_asset", e)
 
         log("SUCCESS", "create_asset", f"Created {dest_path.name}")
         self.report({"INFO"}, f"Asset created: {dest_path.name} ({dest_path.parent})")

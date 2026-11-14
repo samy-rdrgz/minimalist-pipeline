@@ -5,7 +5,6 @@ from pathlib import Path
 import bpy
 
 from ..lib import (
-    SIDE_BY_SIDE_WIDTH,
     TrackingStatusCache,
     draw_box_tip,
     file_in_active_project,
@@ -18,6 +17,7 @@ from ..lib import (
     responsive_layout,
     shots_in_segment,
 )
+from ..lib.ui import draw_items
 from .tracking_panel import ENTRIES_INDENT_FACTOR, draw_tracking_data
 
 
@@ -96,85 +96,50 @@ class M_PIPELINE_PT_file_panel(bpy.types.Panel):
             layout.separator(type="LINE")
             layout.separator()
 
+        # Preview compile only makes sense for shots -- an asset file's parsed
+        # dict simply won't have a "shot" key here. "Preview block" only
+        # means something for an actual block (2+ shots): on a mono-shot it
+        # would just re-encode that one shot's own latest render. Edit block
+        # structure: the top bar menu.
+        shot = bool(parsed and parsed.get("shot"))
+        block = shot and len(shots_in_segment(parsed["shot"])) > 1
+        here = bpy.data.filepath
         # Side by side when the sidebar is wide enough, tips under the row.
-        versions = responsive_layout(context, layout, SIDE_BY_SIDE_WIDTH)
-        versions.operator(
-            "m_pipeline.increment_version", text="Increment", icon="DUPLICATE"
-        )
-        if not is_stable_ro:
-            # Already the stable version -- marking it stable again is a
-            # no-op offer, and confusing next to the read-only indicator.
-            versions.operator(
-                "m_pipeline.increment_version", text="Mark as stable", icon="CHECKMARK"
-            ).tag = "stable"
-        draw_box_tip(
-            layout,
-            context,
-            "A version is a dated snapshot of your work. Incrementing "
-            "makes a fresh working copy instead of overwriting. You "
-            "never lose the previous state.",
-        )
-        if not is_stable_ro:
-            draw_box_tip(
-                layout,
-                context,
-                '"Stable" marks a validated version other files can link '
-                "to. It opens read-only so nobody breaks it under you. "
-                "Increment when you want to work again.",
-            )
-
-        layout.separator()
-        render = responsive_layout(context, layout, SIDE_BY_SIDE_WIDTH)
-        render.operator(
-            "m_pipeline.farm_request_render",
-            text="Render",
-            icon="RENDER_RESULT",
-        ).filepath = bpy.data.filepath
-
-        # Preview compile only makes sense for shots -- an asset file's
-        # parsed dict simply won't have a "shot" key here (no KeyError,
-        # unlike indexing ["sequence"] downstream). Edit block structure:
-        # the top bar menu.
-        if parsed and parsed.get("shot"):
-            # "Preview block" only means something for an actual block (2+
-            # shots) -- on a mono-shot it would just re-encode that one
-            # shot's own latest render, degenerate and confusing next to
-            # "Preview sequence".
-            if len(shots_in_segment(parsed["shot"])) > 1:
-                op = render.operator(
-                    "m_pipeline.compile_preview", text="Preview block", icon="SEQUENCE"
-                )
-                op.scope = "block"
-                op.filepath = bpy.data.filepath
-                op.custom_tooltip = (
-                    "Compile a disposable preview from just this block's own shots."
-                )
-            op = render.operator(
-                "m_pipeline.compile_preview",
-                text="Preview sequence",
-                icon="SEQUENCE",
-            )
-            op.scope = "sequence"
-            op.filepath = bpy.data.filepath
-            op.custom_tooltip = "Compile a disposable preview from every rendered shot in this sequence."
-            draw_box_tip(
-                layout,
-                context,
-                "A preview compiles a disposable playback mp4 on the farm, "
-                "not a final render. Block covers just this block's shots; "
-                "sequence covers the whole sequence.",
-            )
-
-        layout.separator()
-        # Its departments, renders, links: Project monitoring's file detail.
-        layout.operator(
-            "m_pipeline.tracking_monitor", text="Details", icon="INFO"
-        ).open_file = True
-        op = layout.operator(
-            "wm.open_folder", text="Open folder", icon="FOLDER_REDIRECT"
-        )
-        op.filepath = str(Path(bpy.data.filepath).parent)
-        op.custom_tooltip = "Open this file's folder"
+        draw_items(layout, [
+            [
+                ("m_pipeline.increment_version", "Increment", "DUPLICATE"),
+                # Already the stable version: marking it stable again is a
+                # no-op offer, confusing next to the read-only indicator.
+                not is_stable_ro and ("m_pipeline.increment_version", "Mark as stable", "CHECKMARK", {"tag": "stable"}),
+            ],
+            ("tip", "A version is a dated snapshot of your work. Incrementing "
+             "makes a fresh working copy instead of overwriting. You "
+             "never lose the previous state."),
+            not is_stable_ro and ("tip", '"Stable" marks a validated version other files can link '
+                                  "to. It opens read-only so nobody breaks it under you. "
+                                  "Increment when you want to work again."),
+            None,
+            [
+                ("m_pipeline.farm_request_render", "Render", "RENDER_RESULT", {"filepath": here}),
+                block and ("m_pipeline.compile_preview", "Preview block", "SEQUENCE", {
+                    "scope": "block", "filepath": here,
+                    "custom_tooltip": "Compile a disposable preview from just this block's own shots.",
+                }),
+                shot and ("m_pipeline.compile_preview", "Preview sequence", "SEQUENCE", {
+                    "scope": "sequence", "filepath": here,
+                    "custom_tooltip": "Compile a disposable preview from every rendered shot in this sequence.",
+                }),
+            ],
+            shot and ("tip", "A preview compiles a disposable playback mp4 on the farm, "
+                      "not a final render. Block covers just this block's shots; "
+                      "sequence covers the whole sequence."),
+            None,
+            # Its departments, renders, links: Project monitoring's file detail.
+            ("m_pipeline.tracking_monitor", "Details", "INFO", {"open_file": True}),
+            ("wm.open_folder", "Open folder", "FOLDER_REDIRECT", {
+                "filepath": str(Path(here).parent), "custom_tooltip": "Open this file's folder",
+            }),
+        ], context)
 
         layout.separator()
         width = int(region_char_budget(context) * ENTRIES_INDENT_FACTOR)

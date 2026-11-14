@@ -11,15 +11,18 @@ from pathlib import Path
 import bpy
 
 from ..lib import (
-    background_work,
     ConfigCache,
+    StampCache,
+    background_work,
     cached_scandir,
     get_active_project_root,
     json_get,
     log,
     now,
     owner_key,
+    parse_iso,
     read_json_quiet,
+    seconds_since,
 )
 from .post_render import _EXTENSION_MAP
 
@@ -265,6 +268,7 @@ def _farm_paths() -> dict | None:
         "farm_requests": ConfigCache.get_path("farm_requests"),
         "farm_claims": ConfigCache.get_path("farm_claims"),
         "workers": ConfigCache.get_path("workers"),
+        "farm_preset_pace": ConfigCache.get_path("farm_preset_pace"),
     }
 
 
@@ -505,45 +509,78 @@ def _ffmpeg_progress_for_jobs(requests_dir: Path | None, jobs: list) -> dict:
     return out
 
 
-# render_history.json files already read: path -> (mtime, entries).
-_history_cache: dict[str, tuple] = {}
+# render_history.json files already read: path -> their entries.
+_history_cache = StampCache()
 
 
-def history_pace(history: list, preset: str, shot: str = "") -> dict | None:
-    """A job's pace to come, from its file's past renders (render_history
-    entries): the latest finished one with seconds_per_frame, rendered
-    with the same pre-render script -- same shot first for a block's.
-    One from before the script was recorded only when none matches
-    ("preset_known" False). {"seconds_per_frame", "render", "preset_known"},
-    None without any. Pure."""
+def history_pace(
+    history: list, preset: str, shot: str = "", averages: dict | None = None
+) -> dict | None:
+    """A job's pace to come, from past renders (render_history entries,
+    preset_pace.json's averages -- farm/pace.py preset_averages()): its
+    file's latest finished render with the same pre-render script, same
+    shot first for a block's (basis "file"); else that script's average
+    over the project's last renders ("project"); else its file's latest
+    finished render whatever the script ("other", its script in
+    "other_preset"). {"seconds_per_frame", "render", "basis", ...}, None
+    without any -- a render from before 1.1.7, its script unrecorded, isn't
+    one. Pure."""
     done = [
         e
         for e in history
         if isinstance(e, dict)
         and e.get("status") == "finished"
         and e.get("seconds_per_frame")
+        and "prerender_script" in e
     ]
     if shot:
         done.sort(key=lambda e: e.get("shot_override") == shot)  # stable: latest last
-    same = [e for e in done if e.get("prerender_script", None) == preset]
-    unknown = [e for e in done if "prerender_script" not in e]
+    same = [e for e in done if e["prerender_script"] == preset]
+    average = (averages or {}).get(preset or "")
     if same:
-        pick, known = same[-1], True
-    elif unknown:
-        pick, known = unknown[-1], False
+        pick, basis = same[-1], "file"
+    elif average:
+        return {
+            "seconds_per_frame": average[0],
+            "render": "",
+            "basis": "project",
+            "renders": average[1],
+            "preset": preset or "",
+        }
+    elif done:
+        pick, basis = done[-1], "other"
     else:
         return None
     output = pick.get("output_path") or ""
     return {
         "seconds_per_frame": pick["seconds_per_frame"],
         "render": Path(output).parent.name if output else "",
-        "preset_known": known,
+        "basis": basis,
+        "other_preset": pick["prerender_script"],
     }
 
 
-def _history_pace_for_jobs(root: Path, jobs: list) -> dict:
+# preset_pace.json, as last read: its preset_averages().
+_averages_cache = StampCache()
+
+
+def _preset_averages(path: Path | None) -> dict:
+    """farm/pace.py preset_averages() of preset_pace.json, re-read only once
+    its mtime moves (thread-safe)."""
+    from .pace import preset_averages
+
+    if not path:
+        return {}
+    return _averages_cache.get(
+        "", lambda: (str(path), os.stat(path).st_mtime),
+        lambda: preset_averages(read_json_quiet(path) or {}), {},
+    )
+
+
+def _history_pace_for_jobs(root: Path, jobs: list, averages: dict | None = None) -> dict:
     """{job_id: history_pace()} for the jobs set up and waiting for a
-    worker (thread-safe: each history re-read only once it changed)."""
+    worker (thread-safe: each history re-read only once it changed). A
+    file with no history yet: the preset's average alone."""
     out = {}
     for job in jobs:
         try:
@@ -553,20 +590,62 @@ def _history_pace_for_jobs(root: Path, jobs: list) -> dict:
             continue
         owner = Path(root) / Path(job.get("filepath", "")).parent
         path = owner / ".pipeline" / "render_history.json"
-        try:
-            mtime = os.stat(path).st_mtime
-        except OSError:
-            continue
-        cached = _history_cache.get(str(path))
-        if not cached or cached[0] != mtime:
-            cached = (mtime, (read_json_quiet(path) or {}).get("entries") or [])
-            _history_cache[str(path)] = cached
+        entries = _history_cache.get(
+            str(path),
+            lambda path=path: os.stat(path).st_mtime,
+            lambda path=path: (read_json_quiet(path) or {}).get("entries") or [],
+            [],
+        )
         pace = history_pace(
-            cached[1], job.get("prerender_script", ""), job.get("shot_override", "")
+            entries,
+            job.get("prerender_script", ""),
+            job.get("shot_override", ""),
+            averages,
         )
         if pace:
             out[job.get("job_id", "")] = pace
     return out
+
+
+def _requested_jobs(requests_dir: Path | None) -> set:
+    """The job ids with a render request no machine has taken up yet
+    (request_<job_id>_<uuid>.json): a render just sent out isn't one
+    nobody's on (_nobody_on_it()). One listing (thread-safe)."""
+    out = set()
+    try:
+        names = [e.name for e in os.scandir(requests_dir)] if requests_dir else []
+    except OSError:
+        return out
+    for name in names:
+        if name.startswith("request_") and name.endswith(".json"):
+            # request_job_<key>_<uuid>.json: the uuid has no "_".
+            out.add(name[len("request_") : -len(".json")].rsplit("_", 1)[0])
+    return out
+
+
+def _nobody_on_it(entry: dict, claims: dict | None, workers: dict, requested: set) -> bool:
+    """A render nobody's on: no chunk claimed, no live worker rendering it,
+    no request waiting to be taken up -- every machine allowed on it failed
+    it (an out-of-memory scene), is gone, or is busy elsewhere. Farm
+    monitoring shows it waiting for a worker, not running. Pure."""
+    if entry.get("stage") != "render_start" or entry.get("archived"):
+        return False
+    job_id = entry.get("job_id")
+    if claims or job_id in requested:
+        return False
+    return not any(
+        w.get("status") == "render" and w.get("current_job_id") == job_id
+        for w in (workers or {}).values()
+    )
+
+
+def entry_state(entry: dict) -> str:
+    """A monitor cache job's state as Farm monitoring shows it: job_state()
+    of its stage, "waiting" for a pending request or a render nobody's on
+    (_nobody_on_it())."""
+    if entry.get("stage") == "pending" or entry.get("no_machine"):
+        return "waiting"
+    return job_state(entry.get("stage", ""))
 
 
 def _read_farm_snapshot(paths: dict, scanned: dict, cached_actives: list) -> dict:
@@ -576,8 +655,11 @@ def _read_farm_snapshot(paths: dict, scanned: dict, cached_actives: list) -> dic
     jobs = actives if actives is not None else cached_actives
     raw["frames"] = _frames_for_jobs(paths["root"], jobs)
     raw["frame_seconds"] = _frame_seconds_for_jobs(paths.get("farm_requests"), jobs)
-    raw["history_pace"] = _history_pace_for_jobs(paths["root"], jobs)
+    raw["history_pace"] = _history_pace_for_jobs(
+        paths["root"], jobs, _preset_averages(paths.get("farm_preset_pace"))
+    )
     raw["claims"] = _claims_for_jobs(paths.get("farm_claims"), jobs)
+    raw["requested"] = _requested_jobs(paths.get("farm_requests"))
     raw["ffmpeg_progress"] = _ffmpeg_progress_for_jobs(
         paths.get("farm_requests"), jobs
     )
@@ -623,6 +705,8 @@ def _apply_farm_snapshot(raw: dict) -> None:
     seconds = raw.get("frame_seconds", {})
     workers = raw.get("workers", {})
     paces = raw.get("history_pace", {})
+    claims = raw.get("claims", {})
+    requested = raw.get("requested", set())
     jobs = []
     # Unclaimed requests are listed too, as "pending": a submit is never
     # invisible, even with the farm stopped.
@@ -633,6 +717,10 @@ def _apply_farm_snapshot(raw: dict) -> None:
                 job, frames.get(job_id), seconds.get(job_id), workers
             )
             entry["history_pace"] = paces.get(job_id)
+            entry["no_machine"] = _nobody_on_it(
+                entry, claims.get(job_id), workers, requested
+            )
+            entry["failed_machines"] = job.get("failed_machines") or []
             jobs.append(entry)
         except Exception:
             pass
@@ -801,8 +889,8 @@ _STATE_ORDER = {"running": 0, "waiting": 1, "failed": 2}
 def farm_activity() -> dict[str, list[dict]]:
     """Render jobs of the monitor cache that aren't finished -- queued, in
     progress or failed -- by owner folder (lib owner_key()): [{"shot",
-    "stage", "state", "text", "version"}], state job_state()'s ("waiting" for a
-    pending request), version its render folder once set up ("v003_001"),
+    "stage", "state", "text", "version"}], state entry_state()'s ("waiting"
+    for a pending request or a render nobody's on), version its render folder once set up ("v003_001"),
     else its .blend's ("v003"); sorted by shot. Memory only: draw()-safe."""
     from .monitor import get_monitor_cache
 
@@ -817,10 +905,12 @@ def farm_activity() -> dict[str, list[dict]]:
         # done, even if its file hasn't left actives/ (yet).
         if job.get("archived") or stage == "orphaned" or not filepath.endswith(".blend"):
             continue
-        state = "waiting" if stage == "pending" else job_state(stage)
+        state = entry_state(job)
         if state == "finished":
             continue  # its render is in the folder's "to check" by now
         text = _STAGE_WORDS.get(stage, stage.replace("_", " "))
+        if job.get("no_machine"):
+            text = _STAGE_WORDS["setup_finished"]  # "waiting for a worker"
         if stage == "render_start" and job.get("frames_total"):
             text += f" {job['frames_done']}/{job['frames_total']}"
         output_dir = job.get("output_dir")
@@ -879,8 +969,7 @@ def _build_job_entry(
     archived = stage["stage"] == "archived"
     if archived:
         stage = job["stage_history"][-2]
-    stage_time = datetime.fromisoformat(stage["at"])
-    elapsed = (now(False) - stage_time).total_seconds()
+    elapsed = seconds_since(stage["at"]) or 0
 
     frames_total = 0
     output_dir = _output_dir(job)
@@ -942,13 +1031,12 @@ def _build_job_entry(
 
 def _build_incoming_entry(req: dict) -> dict:
     """UI-facing "pending" entry for one not-yet-claimed request."""
-    submitted_at = datetime.fromisoformat(req["submitted_at"])
     return {
         "job_id": req.get("_job_id", ""),
         "filepath": req.get("filepath", ""),
         "stage": "pending",
         "stage_at": req["submitted_at"],
-        "elapsed_seconds": (now(False) - submitted_at).total_seconds(),
+        "elapsed_seconds": seconds_since(req["submitted_at"]) or 0,
         "frames_done": 0,
         "frames_total": 0,
         "machines": [],
@@ -961,11 +1049,9 @@ def _build_incoming_entry(req: dict) -> dict:
 def _newest_tick(mtime: float | None, data: dict | None) -> datetime | None:
     """The newer of monitor.lock's mtime and its content's "update_tick"."""
     last = datetime.fromtimestamp(mtime) if mtime else None
-    try:
-        in_file = datetime.fromisoformat((data or {}).get("update_tick", ""))
+    in_file = parse_iso((data or {}).get("update_tick"))
+    if in_file:
         last = max(last, in_file) if last else in_file
-    except (TypeError, ValueError):
-        pass
     return last
 
 

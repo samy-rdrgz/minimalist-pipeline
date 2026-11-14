@@ -263,9 +263,6 @@ def version_items(self, context):
 # Department item callbacks
 # ---------------------------------------------------------------------------
 
-_assets_deps_items_cache: list = []
-_shots_deps_items_cache: list = []
-_files_deps_items_cache: list = []
 
 
 def _department_items(deps: list[str]) -> list[tuple]:
@@ -274,54 +271,56 @@ def _department_items(deps: list[str]) -> list[tuple]:
     return [(d.lower(), str(d.capitalize()), "", 2**i) for i, d in enumerate(deps)]
 
 
-def asset_department_items(self, context):
-    """Enum items from config's assets_departments, cached until the list changes."""
-    global _assets_deps_items_cache
+# Department enum items by list (assets, shots, file): (its departments,
+# their items) -- items Blender keeps no reference to, rebuilt only once the
+# list changes.
+_department_items_cache: dict = {}
+
+
+def _department_enum(key: str, departments, area: str) -> list[tuple]:
+    """_department_items() of departments() (a list, or raises), cached
+    under key; a failure logged under area, a blank item."""
     try:
-        deps = ConfigCache.get().get("assets_departments", DEFAULT_ASSET_DEPARTMENTS)
-        if _assets_deps_items_cache and deps == _assets_deps_items_cache[0]:
-            return _assets_deps_items_cache[1]
+        deps = list(departments())
+        cached = _department_items_cache.get(key)
+        if cached and cached[0] == deps:
+            return cached[1]
         items = _department_items(deps)
-        _assets_deps_items_cache = [deps, items]
+        _department_items_cache[key] = (deps, items)
         return items
     except Exception as e:
-        log("WARNING", "asset_creation", f"Could not list departments : {e}")
+        log("WARNING", area, f"Could not list departments : {e}")
         return [("NONE", "—", "")]
+
+
+def asset_department_items(self, context):
+    """Enum items from config's assets_departments."""
+    return _department_enum(
+        "assets",
+        lambda: ConfigCache.get().get("assets_departments", DEFAULT_ASSET_DEPARTMENTS),
+        "asset_creation",
+    )
 
 
 def shot_department_items(self, context):
-    """Enum items from config's shots_departments, cached until the list changes."""
-    global _shots_deps_items_cache
-    try:
-        deps = ConfigCache.get().get("shots_departments", DEFAULT_SHOT_DEPARTMENTS)
-        if _shots_deps_items_cache and deps == _shots_deps_items_cache[0]:
-            return _shots_deps_items_cache[1]
-        items = _department_items(deps)
-        _shots_deps_items_cache = [deps, items]
-        return items
-    except Exception as e:
-        log("WARNING", "asset_creation", f"Could not list departments : {e}")
-        return [("NONE", "—", "")]
+    """Enum items from config's shots_departments."""
+    return _department_enum(
+        "shots",
+        lambda: ConfigCache.get().get("shots_departments", DEFAULT_SHOT_DEPARTMENTS),
+        "asset_creation",
+    )
 
 
 def file_department_items(self, context):
-    """Enum items from the current file's required departments, cached until they change."""
-    global _files_deps_items_cache
-    try:
-        # TrackingStatusCache, not get_departments_required(): that one reads
-        # tracking.json from disk on every call, and this enum is evaluated
-        # on every redraw of the increment-version dialog.
-        deps = (
-            TrackingStatusCache.get(bpy.data.filepath).get("departments_required") or []
-        )
-        if _files_deps_items_cache and deps == _files_deps_items_cache[0]:
-            return _files_deps_items_cache[1]
-        items = _department_items(deps)
-        _files_deps_items_cache = [deps, items]
-        return items
-    except Exception as e:
-        log("WARNING", "file_creation", f"Could not list departments : {e}")
-        return [("NONE", "—", "")]
+    """Enum items from the current file's required departments --
+    TrackingStatusCache, not get_departments_required(): that one reads
+    tracking.json from disk on every call, and this enum is evaluated on
+    every redraw of the increment-version dialog."""
+    return _department_enum(
+        "file",
+        lambda: TrackingStatusCache.get(bpy.data.filepath).get("departments_required") or [],
+        "file_creation",
+    )
 
 
 def tracked_department_items(self, context):

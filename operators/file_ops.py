@@ -16,8 +16,8 @@ from ..lib import (
     get_last_version_number,
     get_session_worked_departments,
     json_get,
-    log,
     parse_filename,
+    report_error,
     save_as,
     scan_linked_libraries,
     wipmeta_add_work,
@@ -178,6 +178,4 @@ class M_PIPELINE_OT_increment_version(bpy.types.Operator):
                 return {"FINISHED"}
             return {"CANCELLED"}
         except PipelineError as e:
-            log(e.level, "increment", e.message)
-            self.report({e.level}, e.message)
-            return {"CANCELLED"}
+            return report_error(self, "increment", e)

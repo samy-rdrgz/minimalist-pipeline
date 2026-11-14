@@ -2,6 +2,104 @@
 
 All notable changes to this addon. Dates are release dates.
 
+## Unreleased
+
+### Added
+
+- The mouse wheel turns the pages of Project monitoring's list, Farm
+  monitoring's Jobs and the Pipeline log, as Left / Right do -- the
+  window was scrolling into blank space. A detail (a file's notes, a
+  job's lines), the Workers view and a window too small for its list
+  still scroll. Switchable in the preferences (Shortcuts).
+- **Migrate old data** (Edit project > Maintenance): a project from
+  before 1.2 is migrated once, every machine updated first -- the
+  Project panel says so until then. What older versions wrote is
+  completed as this one writes it (a stable's validations carried and
+  started departments, a note's departments, links one per file, a
+  render's folder, source file, shot and frames); each file changed is
+  backed up first under `backup/migration-<date>/`. This version reads
+  only that form.
+
+### Changed
+
+- Farm monitoring's Job details and File details: which machine rendered
+  which frame is a button, *Which machine, which frame...*, opening a
+  popup with the *Frame* field -- it was always drawn, a debugging aid
+  taking room in every job's detail.
+- Farm: a machine on another addon version gets no render (said in the
+  log and in Worker details) -- every machine is updated together.
+- A render's estimate no longer comes from a render made before 1.1.7,
+  whose preset wasn't recorded.
+- Farm monitoring: a render no machine is on any more -- every machine
+  allowed on it failed it (a scene too big for their GPU), or they're
+  busy elsewhere -- reads *waiting for a worker* again, under the
+  Waiting filter, with how many machines failed it; it showed
+  *render_start* as if running. Project monitoring's Farm column too.
+
+### Removed
+
+- Reading what addons before 1.2 wrote, now that *Migrate old data*
+  completes it once.
+- The snapshot's review spreadsheet (.xlsx): the review is made on the
+  snapshot page and sent back as its `.json`, which *Import review*
+  reads as before. The page's ⋯ menu no longer offers the spreadsheet.
+- CHANGELOG.md is no longer inside the addon's package (it stays in the
+  repository and on the release page).
+
+## 1.1.10 — 06/11/2026
+
+Going through files one by one in Project monitoring, a farm that keeps
+its priorities when its host renders too, estimates for a preset never
+used on a file, odd-sized renders compiled, and workers kept awake.
+
+### Added
+
+- Project monitoring, File details: the previous / next file of the
+  list, with its filters and sort -- ‹ › by its name ("3 / 42"), or the
+  Left / Right keys (Ctrl: the first / last). Esc goes back to the list
+  on the file's page. A file that just left the list (validated under
+  *To validate*) still goes on to its neighbour.
+- File details' *Renders to check*: Ctrl+click on one *Checked* marks
+  all of the file's renders to check (a block's shots) at once, as the
+  list's check mark does -- one dialog, every job archived.
+- A farm worker keeps its machine out of automatic sleep while it's a
+  worker -- a render doesn't count as activity, a PC could sleep
+  mid-render. The screen may still turn off; released when the role
+  ends or Blender closes (Windows, macOS, Linux with systemd).
+
+### Changed
+
+- A machine giving way to a higher-priority job does so after its frame
+  in progress, no longer after its whole chunk (up to 5 HD frames): the
+  frames done stay, the rest of its chunk goes to another machine. Every
+  worker needs 1.1.10 for it; an older one still gives way between chunks.
+- A job's estimate before it renders, for a file never rendered with its
+  pre-render script (its first HD render after LD ones): that script's
+  average time per frame over the project's last 20 renders, no longer
+  the file's LD time or nothing. Then, only if the script was never used
+  at all, the file's last render whatever its script -- the estimate
+  says which (`average of 14 hd renders`, `from a ld render`). The
+  averages are in `.config/.farm/preset_pace.json`, each script's time
+  per frame readable at the top; the farm host fills it once from the
+  project's past renders, then adds each render it finishes.
+- Snapshot page: the notes' fold stays as you left it from one file to
+  the next -- opened on a shot, they're open on the next one (folded
+  again by default when review starts or ends).
+
+### Fixed
+
+- A higher-priority job stayed *queued* while the farm host, rendering
+  as a worker, was on a lower-priority render: its setup waited for that
+  whole render. The host now gives way after its frame (as the other
+  machines do for a job set up), the setup runs, then the job renders --
+  never for an equal priority, nor a render about to end.
+- A render of an odd width or height (3361 x 300) failed to compile:
+  H.264 / H.265 in yuv420p (the default preset) take even sizes only.
+  The video gets one column (row) more, a copy of the render's last
+  one -- nothing lost, nothing resampled --, its light copy made even
+  too. A job that failed that way: *Retry* compiles it again, nothing
+  rendered.
+
 ## 1.1.9 — 05/11/2026
 
 Validations carried to a new stable while their department isn't worked

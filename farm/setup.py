@@ -6,14 +6,15 @@ from pathlib import Path
 import bpy
 
 from ..lib import (
+    ADDON_PACKAGE,
     ConfigCache,
     PipelineError,
+    blender_command,
     derive_shot_subranges,
     get_active_project_root,
     json_get,
     locked_json,
     log,
-    now,
     parse_filename,
     render_root,
     shots_in_segment,
@@ -21,6 +22,7 @@ from ..lib import (
     to_relative,
 )
 from .dispatch import popen_logged, track_local_processes
+from .stages import add_stage
 
 
 def compute_output_path(
@@ -86,32 +88,16 @@ def run_render_setup(job_id: str, config: dict) -> None:
     with locked_json(job_path) as box:
         try:
             data = box["data"] or {}
-            data["stage_history"].append({"stage": "setup_start", "at": now()})
+            add_stage(data, "setup_start")
             box["action"] = "to_write"
 
-            entry = (
-                Path(__file__).resolve().parent.parent
-                / "templates"
-                / "farm_entry_render_setup.py"
-            )
             process = popen_logged(
-                [
-                    resolve_local_binary(config),
-                    "-b",
-                    str(to_absolute(data["filepath"])),
-                    # Exit 1 on an exception in the entry script, not 0.
-                    "--python-exit-code",
-                    "1",
-                    "--python",
-                    str(entry),
-                    "--",
-                    "--job-id",
-                    job_id,
-                    # Real (possibly namespaced) module name -- see NOTES.md,
-                    # "CSV batch: the subprocess couldn't import itself".
-                    "--addon-module",
-                    __package__.rsplit(".", 1)[0],
-                ],
+                blender_command(
+                    "farm_entry_render_setup.py",
+                    ["--job-id", job_id, "--addon-module", ADDON_PACKAGE],
+                    blend=to_absolute(data["filepath"]),
+                    binary=resolve_local_binary(config),
+                ),
                 # The job's log, never a PIPE: see popen_logged().
                 job_id,
                 "setup",
@@ -123,7 +109,7 @@ def run_render_setup(job_id: str, config: dict) -> None:
             # the same transaction. mark_stage() here would wait on our own
             # lock for its full retry budget, then raise.
             if data is not None and "stage_history" in data:
-                data["stage_history"].append({"stage": "setup_failed", "at": now()})
+                add_stage(data, "setup_failed")
                 box["data"] = data
                 box["action"] = "to_write"
             log("ERROR", "farm", f"Setup failed for {job_id}: {e}")

@@ -122,3 +122,10 @@ def read_log_tail(path: Path, max_bytes: int = 1_000_000) -> tuple[list[dict], b
         if isinstance(entry, dict):
             entries.append(entry)
     return entries, truncated
+
+
+def report_error(op, area: str, e) -> set:
+    """An operator's PipelineError: logged under area, reported, cancelled."""
+    log(e.level, area, e.message)
+    op.report({e.level}, e.message)
+    return {"CANCELLED"}

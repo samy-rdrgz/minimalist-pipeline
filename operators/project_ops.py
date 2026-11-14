@@ -19,6 +19,7 @@ from ..lib import (
     find_project_root,
     get_addon_version,
     get_config_filepath,
+    get_user,
     install_default_ffmpeg_preset,
     install_default_preset,
     json_get,
@@ -29,12 +30,14 @@ from ..lib import (
     progress_weights,
     project_schedule,
     read_project_config,
+    report_error,
     save_project_data,
     set_active_project_root,
     thumbnail_size,
     validation_roles,
     warn_blender_version_mismatch,
 )
+from ..lib.migration import migration_record
 from .farm_ops import (
     _NO_SCRIPT,
     _stable_enum_items,
@@ -174,6 +177,8 @@ class M_PIPELINE_OT_create_project(bpy.types.Operator):
         config["project_name"] = self.project_name
         config["pipeline_addon_version"] = get_addon_version()
         config["blender_version"] = str(bpy.app.version)
+        # Its data is this version's from the start: nothing to migrate.
+        config["data_migrations"] = migration_record(get_user(context))
 
         config_file = get_config_filepath(project_root)
         try:
@@ -417,6 +422,15 @@ class M_PIPELINE_OT_remove_project(bpy.types.Operator):
 # ---------------------------------------------------------------------------
 
 
+def _example(box, text: str) -> None:
+    """A settings box's greyed example, under a line."""
+    box.separator(type="LINE")
+    col = box.column()
+    col.active = False
+    col.scale_y = 0.5
+    col.label(text=text, icon="BLANK1")
+
+
 def _settings_row(box, label: str, icon: str):
     """One Project settings line: a split, its label on the first third,
     then each item added shares the rest equally -- a row would size them
@@ -575,6 +589,17 @@ class ProjectSettings:
         "(e.g. sup:1,prod:2,real:2). Empty: none",
     )
 
+    def _rows(self, box, rows) -> None:
+        """_settings_row()s: (label, icon, *cells) -- a cell a property of
+        this, (text,) a label, "" an empty one keeping the columns."""
+        for label, icon, *cells in rows:
+            row = _settings_row(box, label, icon)
+            for cell in cells:
+                if isinstance(cell, tuple) or cell == "":
+                    row.label(text=cell[0] if cell else "")
+                else:
+                    row.prop(self, cell)
+
     def draw_settings(self, layout):
         """Left: the project and how it names things. Right: what's tracked
         (snapshot, validation, schedule) and the farm. Returns the right
@@ -602,16 +627,11 @@ class ProjectSettings:
 
         # Resolution / FPS
         left.separator()
-        box = left.box().column(align=False)
-        row = _settings_row(box, "RESOLUTION", "RESTRICT_VIEW_OFF")
-        row.prop(self, "resolution_x")
-        row.prop(self, "resolution_y")
-        row = _settings_row(box, "FRAME RATE", "PREVIEW_RANGE")
-        row.prop(self, "default_fps")
-        row.label(text="")
-        row = _settings_row(box, "SHOT START", "DECORATE_KEYFRAME")
-        row.prop(self, "default_frame_start")
-        row.label(text="")
+        self._rows(left.box().column(align=False), [
+            ("RESOLUTION", "RESTRICT_VIEW_OFF", "resolution_x", "resolution_y"),
+            ("FRAME RATE", "PREVIEW_RANGE", "default_fps", ""),
+            ("SHOT START", "DECORATE_KEYFRAME", "default_frame_start", ""),
+        ])
 
         # Naming
         left.separator()
@@ -619,94 +639,64 @@ class ProjectSettings:
         row = _settings_row(box, "", "NONE")
         row.label(text="PREFIX", icon="SYNTAX_OFF")
         row.label(text="DIGITS", icon="SORTBYEXT")
-
-        for label, icon, p_prop, d_prop in [
+        self._rows(box, [
             ("SEQUENCE", "LAYER_ACTIVE", "sequence_prefix", "sequence_digits"),
             ("SHOT", "LAYER_USED", "shot_prefix", "shot_digits"),
             ("VERSION", "CHECKMARK", "version_prefix", "version_digits"),
             ("FRAME", "KEYFRAME_HLT", "frame_prefix", "frame_digits"),
-        ]:
-            row = _settings_row(box, label, icon)
-            row.prop(self, p_prop)
-            row.prop(self, d_prop)
-
-        box.separator(type="LINE")
-        col = box.column()
-        col.active = False
-        col.scale_y = 0.5
-        col.label(
-            text=(
-                f"e.g.: {self.sequence_prefix}{self._rdm(self.sequence_digits)}"
-                f"_{self.shot_prefix}{self._rdm(self.shot_digits)}"
-                f"_{self.version_prefix}{self._rdm(self.version_digits)}.blend"
-            ),
-            icon="BLANK1",
+        ])
+        _example(
+            box,
+            f"e.g.: {self.sequence_prefix}{self._rdm(self.sequence_digits)}"
+            f"_{self.shot_prefix}{self._rdm(self.shot_digits)}"
+            f"_{self.version_prefix}{self._rdm(self.version_digits)}.blend",
         )
 
         # Structure: folders, prefixes, tags, departments
         left.separator()
         box = left.box().column(align=False)
-        for label, icon, prop in [
+        self._rows(box, [
             ("FOLDERS", "OUTLINER", "project_folders"),
             ("ASSET PREFIX", "MESH_MONKEY", "asset_prefixes"),
             ("LIBRARY PREFIX", "TOOL_SETTINGS", "library_prefixes"),
             ("VERSION TAGS", "BOOKMARKS", "tags"),
             ("ASSETS DEPARTMENTS", "COPY_ID", "assets_departments"),
             ("SHOTS DEPARTMENTS", "COPY_ID", "shots_departments"),
-        ]:
-            _settings_row(box, label, icon).prop(self, prop)
-
-        box.separator(type="LINE")
-        col = box.column()
-        col.active = False
-        col.scale_y = 0.5
+        ])
         all_pf = self.asset_prefixes + "," + self.library_prefixes
-        col.label(
-            text=(
-                f"e.g.: {self._rdm_from(all_pf)}_asset-name"
-                f"_{self.version_prefix}{self._rdm(self.version_digits)}.blend"
-            ),
-            icon="BLANK1",
+        _example(
+            box,
+            f"e.g.: {self._rdm_from(all_pf)}_asset-name"
+            f"_{self.version_prefix}{self._rdm(self.version_digits)}.blend",
         )
 
-        # Tracking: thumbnails, snapshot Done, who validates, the schedule
+        # Tracking: thumbnails, snapshot Done (validated 100 %, not started
+        # 0 %), who validates, the schedule
         box = right.box().column(align=False)
-        row = _settings_row(box, "THUMBNAILS", "IMAGE_DATA")
-        row.prop(self, "thumbnail_size")
-        row.label(text="")
-        # Snapshot "Done" column: validated 100 %, not started 0 %.
-        row = _settings_row(box, "SNAPSHOT DONE", "SORTSIZE")
-        row.prop(self, "progress_wip")
-        row.prop(self, "progress_rework")
-        row.prop(self, "progress_rtk")
-        _settings_row(box, "VALIDATION ROLES", "SOLO_ON").prop(self, "validation_roles")
+        self._rows(box, [
+            ("THUMBNAILS", "IMAGE_DATA", "thumbnail_size", ""),
+            ("SNAPSHOT DONE", "SORTSIZE", "progress_wip", "progress_rework", "progress_rtk"),
+            ("VALIDATION ROLES", "SOLO_ON", "validation_roles"),
+        ])
         box.separator(type="LINE")
-        row = _settings_row(box, "SCHEDULE", "TIME")
-        row.prop(self, "schedule_start")
-        row.prop(self, "schedule_end")
-        _settings_row(box, "DAYS OFF", "BLANK1").prop(self, "schedule_days_off")
+        self._rows(box, [
+            ("SCHEDULE", "TIME", "schedule_start", "schedule_end"),
+            ("DAYS OFF", "BLANK1", "schedule_days_off"),
+        ])
         week = _settings_row(box, "WORKED DAYS", "BLANK1").row(align=True)
         for i, name in enumerate(("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")):
             week.prop(self, "schedule_worked_days", index=i, text=name, toggle=True)
 
         # Farm
         right.separator()
-        box = right.box().column(align=False)
-        row = _settings_row(box, "CHUNK SIZE", "RENDER_RESULT")
-        row.prop(self, "chunk_size")
-        _settings_row(box, "PRE-RENDER", "SCRIPT").prop(self, "default_prerender_script")
-        row = _settings_row(box, "STUCK FRAME", "ERROR")
-        row.prop(self, "stuck_frame_factor")
-        row.label(
-            text="x usual time: kill" if self.stuck_frame_factor else "0 = never kill"
-        )
-        row = _settings_row(box, "PRIORITY SWITCH", "SORT_DESC")
-        row.prop(self, "priority_switch_minutes")
-        row.label(
-            text="min left: stays"
-            if self.priority_switch_minutes
-            else "0 = always switch"
-        )
+        self._rows(right.box().column(align=False), [
+            ("CHUNK SIZE", "RENDER_RESULT", "chunk_size"),
+            ("PRE-RENDER", "SCRIPT", "default_prerender_script"),
+            ("STUCK FRAME", "ERROR", "stuck_frame_factor",
+             ("x usual time: kill" if self.stuck_frame_factor else "0 = never kill",)),
+            ("PRIORITY SWITCH", "SORT_DESC", "priority_switch_minutes",
+             ("min left: stays" if self.priority_switch_minutes else "0 = always switch",)),
+        ])
         return right
 
     def load(self, context) -> None:
@@ -970,9 +960,7 @@ class M_PIPELINE_OT_edit_project(ProjectSettings, bpy.types.Operator):
         try:
             settings.load(context)
         except PipelineError as e:
-            log(e.level, "edit_project", e.message)
-            self.report({e.level}, e.message)
-            return {"CANCELLED"}
+            return report_error(self, "edit_project", e)
         if open_one:
             from ..lib.monitoring import redraw_monitoring
 

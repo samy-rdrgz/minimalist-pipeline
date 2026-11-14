@@ -200,7 +200,11 @@ LD_ARGS = [
     "-c:v", "libx265", "-preset", "fast", "-crf", "22", "-pix_fmt", "yuv420p",
     "-tag:v", "hvc1", "-movflags", "+faststart",
 ]
-_VIDEO_STREAM = re.compile(r"Video: (\w+)[^\n]*?(?:\((\w{4}) /[^\n]*?)?, (\d{2,5})x(\d{2,5})")
+# The light copy's size: MAX_VIDEO_WIDTH wide at most, even (H.265 in
+# yuv420p takes no odd size -- a 3361 px wide render), its height to match.
+LD_SCALE = f"scale='min({MAX_VIDEO_WIDTH},trunc(iw/2)*2)':-2"
+# ffmpeg -i's video stream line: its codec, its tag (hev1...), its size.
+_VIDEO_STREAM = re.compile(r"Video: (\w+)[^\n]*?(?:\((\w{4}) /[^\n]*?)?, (\d{1,5})x(\d{1,5})")
 
 
 def ld_path(video: Path) -> Path:
@@ -216,22 +220,23 @@ def browser_codec(codec: str) -> bool:
     return any(k in codec for k in ("264", "265", "hevc", "avc"))
 
 
-def _video_info(mp4: Path, ffmpeg: str) -> tuple[str, str, int] | None:
-    """(codec, tag, width) of the video's stream, read from ffmpeg's own
-    report (no ffprobe needed); None if unread."""
+def video_info(path: Path | str, ffmpeg: str, timeout: float = 60) -> tuple[str, str, int, int] | None:
+    """(codec, tag, width, height) of a video's or an image's stream, read
+    from ffmpeg's own report (no ffprobe needed); None if unread."""
     try:
         out = subprocess.run(
-            [ffmpeg, "-hide_banner", "-i", str(mp4)],
+            [ffmpeg, "-hide_banner", "-i", str(path)],
+            check=False,  # no output file: ffmpeg always "fails" here
             capture_output=True,
             text=True,
             errors="replace",
-            timeout=60,
+            timeout=timeout,
             stdin=subprocess.DEVNULL,
         ).stderr
     except (OSError, subprocess.SubprocessError):
         return None
     m = _VIDEO_STREAM.search(out)
-    return (m[1], m[2] or "", int(m[3])) if m else None
+    return (m[1], m[2] or "", int(m[3]), int(m[4])) if m else None
 
 
 # Videos read once and found playable as they are, by (path, modification
@@ -258,12 +263,12 @@ def ensure_ld(video: Path, ffmpeg: str) -> Path | None:
         return None
     if key in _PLAYABLE:
         return None
-    info = _video_info(video, ffmpeg)
+    info = video_info(video, ffmpeg)
     if info is None:
         return None
-    codec, tag, width = info
+    codec, tag, width, _ = info
     if width > MAX_VIDEO_WIDTH or not browser_codec(codec):
-        args = ["-vf", f"scale='min({MAX_VIDEO_WIDTH},iw)':-2", *LD_ARGS]
+        args = ["-vf", LD_SCALE, *LD_ARGS]
     elif video.suffix.lower() != ".mp4" or (codec == "hevc" and tag != "hvc1"):
         # Playable as such, but not in a .mov / .mkv, or tagged hev1: put
         # in an mp4 as it is, no re-encode.

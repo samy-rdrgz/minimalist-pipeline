@@ -5,16 +5,17 @@ import os
 import re
 import subprocess
 import time
-from datetime import datetime
 from pathlib import Path
 
 import bpy
 
 from ..lib import (
+    ADDON_PACKAGE,
     AdoptedProcess,
     ConfigCache,
     PipelineError,
     addon_pref,
+    blender_command,
     get_active_project_root,
     get_addon_version,
     get_machine_id,
@@ -28,20 +29,23 @@ from ..lib import (
     read_json_quiet,
     resolve_ffmpeg,
     retry_shared_io,
+    seconds_since,
     to_absolute,
 )
+from .awake import keep_awake
 from .chunks import read_claims
 from .loop import RoleFileWatch, register_farm_loop
+from .stages import add_stage, mark_stage
 
 STALE_WORKER_SECONDS = 15
 
-# How this addon's farm hands out and renders frames: 2, chunks claimed
-# one by one (1.1.0). A worker announces it in its file; the farm host
-# never sends a render to one on another protocol (idle_machines()) --
-# a 1.0.x worker would render the whole range with placeholders, blind to
-# the claims.
-FARM_PROTOCOL = 2
-_old_protocol_logged: set[str] = set()
+# The farm's version: what its requests, jobs and worker files hold. A
+# worker announces it in its file; the farm host never sends a render to
+# one on another protocol (idle_machines()), Worker details says so. Every
+# machine is updated together: nothing reads an older farm's files, this
+# is the farm's one version check (3: 1.2).
+FARM_PROTOCOL = 3
+_other_protocol_logged: set[str] = set()
 
 # A frame taking this many times its usual time is stuck (a hang, not a heavy
 # frame): the worker kills its own render (check_stuck_renders()). Default of
@@ -67,13 +71,10 @@ def _worker_path(as_dir: bool = False) -> Path:
         return ConfigCache.get_path("workers") / f"worker_{id}.json"
 
 
-def _heartbeat_age(heartbeat: str) -> int:
+def _heartbeat_age(heartbeat: str) -> float:
     """Seconds since an ISO heartbeat timestamp; a huge number if unparseable."""
-    try:
-        heartbeat = datetime.fromisoformat(heartbeat)
-        return (now(iso=False) - heartbeat).total_seconds()
-    except Exception:
-        return 10**9
+    age = seconds_since(heartbeat)
+    return 10**9 if age is None else age
 
 
 # Whether *this Blender instance* holds this machine's worker role. Runtime
@@ -86,6 +87,8 @@ _worker_file_watch = RoleFileWatch("worker")
 def _set_this_instance_worker(value: bool) -> None:
     global _this_instance_worker
     _this_instance_worker = bool(value)
+    # Every start and end of the role passes here: no idle sleep meanwhile.
+    keep_awake(_this_instance_worker)
 
 
 def this_instance_is_worker() -> bool:
@@ -545,23 +548,70 @@ def scan_workers() -> dict:
     return workers
 
 
-def scan_render_requests(target_uuid: str = "") -> dict:
-    """Return {filename: data} for pending render requests, optionally
-    filtered to target_uuid. Read without a lock (writes are atomic): a
-    lock per request, every tick, only fought with the workers taking them.
-    A request gone (taken) or unreadable since the listing is left out --
-    whoever acts on one re-reads it under its lock (execute_render_request())."""
+# A worker's requests, by kind: a render ("request_<job>_<uuid>.json"), a
+# compile ("compile_..."), each taken by the worker it targets.
+RENDER, COMPILE = "request", "compile"
+
+
+def request_path(kind: str, job_id: str, uuid: str) -> Path:
+    """Worker uuid's request of kind (RENDER, COMPILE) for job_id."""
+    return ConfigCache.get_path("farm_requests") / f"{kind}_{job_id}_{uuid}.json"
+
+
+def _write_request(kind: str, job_id: str, uuid: str, data: dict) -> None:
+    path = request_path(kind, job_id, uuid)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with locked_json(path) as box:
+        box["data"] = data | {"target_uuid": uuid}
+        box["action"] = "to_write"
+
+
+def scan_requests(kind: str, target_uuid: str = "") -> dict:
+    """{filename: data} for pending requests of kind, optionally only
+    target_uuid's. Read without a lock (writes are atomic): a lock per
+    request, every tick, only fought with the workers taking them. A
+    request gone (taken) or unreadable since the listing is left out --
+    whoever acts on one re-reads it under its lock (_take_request())."""
     requests = {}
     path = ConfigCache.get_path("farm_requests")
     if not path.exists():
         return requests
-    for r in path.glob(
-        f"request_*_{target_uuid}.json" if target_uuid else "request_*.json"
-    ):
+    for r in path.glob(f"{kind}_*_{target_uuid}.json" if target_uuid else f"{kind}_*.json"):
         data = read_json_quiet(r)
         if data:
             requests[r.name] = data
     return requests
+
+
+def _next_request(kind: str) -> Path | None:
+    """This worker's next request of kind, None without one."""
+    pending = scan_requests(kind, target_uuid=get_machine_id())
+    return ConfigCache.get_path("farm_requests") / next(iter(pending)) if pending else None
+
+
+# What a worker's file says once its render or compile has exited.
+_IDLE_FIELDS = {
+    "status": "idle",
+    "current_job": None,
+    "current_file": None,
+    "current_pid": None,
+    "current_job_id": None,
+    "current_dispatch_id": None,
+}
+
+
+def _busy_fields(status: str, request: Path, file: str, pid: int, job_id: str, **extra) -> dict:
+    """What a worker's file says while it renders or compiles: the request
+    taken (a name, not this machine's absolute path: a shared file), its
+    file, its process -- so a worker restarted after a crash finds it again
+    (_recover_previous_render())."""
+    return {
+        "status": status,
+        "current_job": request.name,
+        "current_file": file,
+        "current_pid": pid,
+        "current_job_id": job_id,
+    } | extra
 
 
 def idle_machines() -> dict:
@@ -571,21 +621,21 @@ def idle_machines() -> dict:
     Never a worker on another FARM_PROTOCOL (logged once)."""
     targeted = {
         r.get("target_uuid")
-        for r in (*scan_render_requests().values(), *scan_compile_requests().values())
+        for r in (*scan_requests(RENDER).values(), *scan_requests(COMPILE).values())
     }
     idle = {}
     for uuid, w in scan_workers().items():
         if w.get("status") != "idle" or uuid in targeted:
             continue
         if w.get("farm_protocol") != FARM_PROTOCOL:
-            if uuid not in _old_protocol_logged:
-                _old_protocol_logged.add(uuid)
+            if uuid not in _other_protocol_logged:
+                _other_protocol_logged.add(uuid)
                 log(
                     "WARNING",
                     "farm",
                     f"Worker {w.get('user', '?')} ({w.get('machine') or uuid[:8]}) runs "
-                    f"addon {w.get('addon_version') or 'older than 1.1.0'}: no render "
-                    f"sent to it until it's updated.",
+                    f"addon {w.get('addon_version') or '?'}, not this one: no render "
+                    f"sent to it until it's on the same version.",
                 )
             continue
         idle[uuid] = w
@@ -680,7 +730,7 @@ def render_stop_path(job_id: str) -> Path:
 def render_yield_path(job_id: str, uuid: str = "") -> Path:
     """Machine uuid's (this one's by default) "give way" flag for its render
     of job_id: the farm host wants it on a higher-priority job, the render
-    entry exits once its chunk in progress is done
+    entry exits after its frame in progress, its chunk's claim let go
     (queue._give_way_to_priority())."""
     return (
         ConfigCache.get_path("farm_requests")
@@ -700,27 +750,10 @@ def _clear_render_flags(job_id: str) -> None:
 
 def render_request(job_data: dict, uuid: str, cmd_flags: list):
     """Write a render request file targeting worker uuid for this job."""
-    request_path = (
-        ConfigCache.get_path("farm_requests")
-        / f"request_{job_data['job_id']}_{uuid}.json"
-    )
-    request_path.parent.mkdir(parents=True, exist_ok=True)
-    with locked_json(request_path) as box:
-        box["data"] = {"cmd_flags": cmd_flags, "target_uuid": uuid} | job_data
-        box["action"] = "to_write"
+    _write_request(RENDER, job_data["job_id"], uuid, {"cmd_flags": cmd_flags} | job_data)
 
 
 _worker_active_processes: dict[str, subprocess.Popen] = {}
-
-
-def _chunk_size_of(request: dict) -> int:
-    """The request's chunk_size; a request without one comes from a farm
-    host on an older addon (placeholders): refused, its job failed."""
-    if not request.get("chunk_size"):
-        raise PipelineError(
-            "sent by a farm host on an older addon version (no chunks) -- update it"
-        )
-    return int(request["chunk_size"])
 
 
 def execute_render_request() -> dict:
@@ -728,12 +761,9 @@ def execute_render_request() -> dict:
     subprocess. Returns the worker status patch to apply, or {} if idle."""
     global _worker_active_processes
 
-    pending = scan_render_requests(target_uuid=get_machine_id())
-    if not pending:
+    request_path = _next_request(RENDER)
+    if request_path is None:
         return {}
-
-    request_path, data = next(iter(pending.items()))
-    request_path = ConfigCache.get_path("farm_requests") / request_path
 
     with locked_json(request_path) as box:
         if not box["data"]:
@@ -744,59 +774,49 @@ def execute_render_request() -> dict:
         try:
             log_path = request_path.parent / f"{request_path.stem}.log"
             project_root = get_active_project_root()
-            templates_dir = Path(__file__).parent.parent / "templates"
-            entry = templates_dir / "worker_render_entry.py"
             # Closed as soon as the child has its own copy: an open handle
             # keeps Windows from deleting or moving the file.
             _clear_render_flags(data["job_id"])  # a stop left from before
             log_file = open(log_path, "wb")
             with log_file:
                 p = subprocess.Popen(
-                    [
-                        bpy.app.binary_path,
-                        "-b",
-                        str(to_absolute(data["filepath"], project_root)),
-                        "-o",
-                        str(to_absolute(data["output_path"], project_root)),
-                        "-F",
-                        data["output_extension"],
-                    ]
-                    + data["cmd_flags"]
-                    + [
-                        # Otherwise an exception in the entry script still
-                        # exits 0, reported as a successful render.
-                        "--python-exit-code",
-                        "1",
-                        "--python",
-                        str(entry),
-                        "--",
-                        "--job-id",
-                        data["job_id"],
-                        "--preset",
-                        data.get("prerender_script", ""),
-                        # Real (possibly namespaced) module name -- see NOTES.md,
-                        # "CSV batch: the subprocess couldn't import itself".
-                        "--addon-module",
-                        __package__.rsplit(".", 1)[0],
-                        # Each frame it writes, and when: who rendered what,
-                        # time per frame (queue._note_frames()).
-                        "--saved-file",
-                        str(saved_frames_path(data["job_id"], get_machine_id())),
-                        "--dispatch-id",
-                        data.get("dispatch_id") or "",
-                        # Stop after this frame.
-                        "--stop-file",
-                        str(render_stop_path(data["job_id"])),
-                        # Give way to a higher-priority job after this chunk.
-                        "--yield-file",
-                        str(render_yield_path(data["job_id"])),
-                        # Chunks: the job's size, fixed at dispatch -- never
-                        # the project's, which may have changed since.
-                        "--chunk-size",
-                        str(_chunk_size_of(data)),
-                        "--machine",
-                        get_machine_id(),
-                    ],
+                    blender_command(
+                        "worker_render_entry.py",
+                        [
+                            "--job-id",
+                            data["job_id"],
+                            "--preset",
+                            data.get("prerender_script", ""),
+                            "--addon-module",
+                            ADDON_PACKAGE,
+                            # Each frame it writes, and when: who rendered
+                            # what, time per frame (queue._note_frames()).
+                            "--saved-file",
+                            saved_frames_path(data["job_id"], get_machine_id()),
+                            "--dispatch-id",
+                            data.get("dispatch_id") or "",
+                            # Stop after this frame.
+                            "--stop-file",
+                            render_stop_path(data["job_id"]),
+                            # Give way to a higher-priority job after this chunk.
+                            "--yield-file",
+                            render_yield_path(data["job_id"]),
+                            # Chunks: the job's size, fixed at dispatch --
+                            # never the project's, which may have changed.
+                            "--chunk-size",
+                            int(data["chunk_size"]),
+                            "--machine",
+                            get_machine_id(),
+                        ],
+                        blend=to_absolute(data["filepath"], project_root),
+                        flags=[
+                            "-o",
+                            to_absolute(data["output_path"], project_root),
+                            "-F",
+                            data["output_extension"],
+                            *data["cmd_flags"],
+                        ],
+                    ),
                     stdout=log_file,
                     stderr=subprocess.STDOUT,
                     stdin=subprocess.DEVNULL,
@@ -812,7 +832,6 @@ def execute_render_request() -> dict:
             job_id = data.get("job_id")
             log("ERROR", "farm", f"Could not launch render for {job_id}: {e}")
             if job_id:
-                from .queue import mark_stage
 
                 mark_stage(
                     ConfigCache.get_path("farm_actives") / f"{job_id}.json",
@@ -822,17 +841,14 @@ def execute_render_request() -> dict:
 
         _worker_active_processes[data["job_id"]] = p
         box["action"] = "to_delete"
-        return {
-            "status": "render",
-            # A name, not this machine's absolute path (shared file).
-            "current_job": request_path.name,
-            "current_file": data["filepath"],
-            # So a worker restarted after a crash can find this render
-            # again (_recover_previous_render()).
-            "current_pid": p.pid,
-            "current_job_id": data["job_id"],
-            "current_dispatch_id": data.get("dispatch_id"),
-        }
+        return _busy_fields(
+            "render",
+            request_path,
+            data["filepath"],
+            p.pid,
+            data["job_id"],
+            current_dispatch_id=data.get("dispatch_id"),
+        )
 
 
 def worker_tick():
@@ -892,6 +908,12 @@ def local_render_running() -> bool:
     return any(p.poll() is None for p in _worker_active_processes.values())
 
 
+def local_render_jobs() -> list[str]:
+    """job_id of each render this Blender instance, as a worker, runs right
+    now (local_render_running())."""
+    return [j for j, p in _worker_active_processes.items() if p.poll() is None]
+
+
 def scan_worker_processes() -> None:
     """Poll this worker's active render subprocesses; publish last_job_result
     for each one that finished."""
@@ -929,14 +951,7 @@ def scan_worker_processes() -> None:
                 # the job, this saves opening it.
                 result["reason"] = failure_reason(log_path, ret)
         update_worker(
-            {
-                "status": "idle",
-                "current_job": None,
-                "current_pid": None,
-                "current_job_id": None,
-                "current_dispatch_id": None,
-                "last_job_result": result,
-            },
+            _IDLE_FIELDS | {"last_job_result": result},
             count="renders_done" if result.get("success") else "renders_failed",
         )
 
@@ -957,38 +972,9 @@ def scan_worker_processes() -> None:
 _worker_compiles: dict[str, subprocess.Popen] = {}
 
 
-def compile_request_path(job_id: str, uuid: str) -> Path:
-    """Worker uuid's compile request for job_id -- never request_*.json: a
-    worker would take it for a render."""
-    return ConfigCache.get_path("farm_requests") / f"compile_{job_id}_{uuid}.json"
-
-
 def compile_request(job_id: str, uuid: str) -> None:
     """Write a compile request of job_id (a preview) targeting worker uuid."""
-    path = compile_request_path(job_id, uuid)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with locked_json(path) as box:
-        box["data"] = {
-            "job_id": job_id,
-            "target_uuid": uuid,
-            "kind": "preview",
-            "at": now(),
-        }
-        box["action"] = "to_write"
-
-
-def scan_compile_requests(target_uuid: str = "") -> dict:
-    """{filename: data} for pending compile requests, optionally only
-    target_uuid's -- read without a lock, as scan_render_requests()."""
-    requests = {}
-    path = ConfigCache.get_path("farm_requests")
-    if not path.exists():
-        return requests
-    for r in path.glob(f"compile_*_{target_uuid}.json" if target_uuid else "compile_*.json"):
-        data = read_json_quiet(r)
-        if data:
-            requests[r.name] = data
-    return requests
+    _write_request(COMPILE, job_id, uuid, {"job_id": job_id, "kind": "preview", "at": now()})
 
 
 def _compile_job_path(job_id: str) -> Path:
@@ -1010,11 +996,9 @@ def execute_compile_request() -> dict:
     """Take the next compile request targeting this worker and launch its
     ffmpeg (output in the job's own log, popen_logged()). Returns the worker
     status patch to apply, or {} if there was none to run."""
-    pending = scan_compile_requests(target_uuid=get_machine_id())
-    if not pending:
+    request_path = _next_request(COMPILE)
+    if request_path is None:
         return {}
-    name = next(iter(pending))
-    request_path = ConfigCache.get_path("farm_requests") / name
     with locked_json(request_path) as box:
         request = box["data"]
         if not request:
@@ -1040,13 +1024,7 @@ def execute_compile_request() -> dict:
             return {}
     _worker_compiles[job_id] = p
     log("INFO", "farm", f"Compiling {job.get('filepath') or job_id} (preview).")
-    return {
-        "status": "compile",
-        "current_job": name,
-        "current_file": job.get("filepath"),
-        "current_pid": p.pid,
-        "current_job_id": job_id,
-    }
+    return _busy_fields("compile", request_path, job.get("filepath"), p.pid, job_id)
 
 
 def _end_compile(job_id: str, success: bool) -> None:
@@ -1057,13 +1035,7 @@ def _end_compile(job_id: str, success: bool) -> None:
         if not _still_mine(data):
             return
         data.pop("compile_machine", None)
-        data["stage_history"].append(
-            {
-                "stage": "preview_finished" if success else "preview_failed",
-                "at": now(),
-                "machine": get_machine_id(),
-            }
-        )
+        add_stage(data, "preview_finished" if success else "preview_failed", machine=get_machine_id())
         box["action"] = "to_write"
 
 
@@ -1088,18 +1060,8 @@ def scan_compile_processes() -> None:
             # The host sends it out again once this worker is idle.
             log("WARNING", "farm", f"Could not write the end of {job_id}'s compile: {e}")
         update_worker(
-            {
-                "status": "idle",
-                "current_job": None,
-                "current_file": None,
-                "current_pid": None,
-                "current_job_id": None,
-                "last_compile_result": {
-                    "job_id": job_id,
-                    "success": ret == 0,
-                    "at": now(),
-                },
-            }
+            _IDLE_FIELDS
+            | {"last_compile_result": {"job_id": job_id, "success": ret == 0, "at": now()}}
         )
         _worker_compiles.pop(job_id, None)
 

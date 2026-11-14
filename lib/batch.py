@@ -9,7 +9,7 @@ import tempfile
 from pathlib import Path
 
 from .config import prefix_to_parent_folder
-from .core import read_csv
+from .core import ADDON_PACKAGE, blender_command, read_csv
 from .errors import PipelineError
 from .logs import log
 
@@ -81,18 +81,9 @@ def launch_batch_create_entry(
     then reads and deletes request_path (see read_batch_result)."""
     import bpy
 
-    binary = bpy.app.binary_path  # same install, so the addon is importable there too
-    if not binary:
+    # The same install, so the addon is importable there too.
+    if not bpy.app.binary_path:
         raise PipelineError("Could not resolve the running Blender executable.")
-
-    entry = (
-        Path(__file__).resolve().parent.parent / "templates" / "batch_create_entry.py"
-    )
-
-    # Real (possibly namespaced) module name, for the subprocess to
-    # re-enable itself -- see NOTES.md, "CSV batch: the subprocess couldn't
-    # import itself".
-    addon_module = __package__.rsplit(".", 1)[0]
 
     fd, tmp_name = tempfile.mkstemp(suffix=".json", prefix="pipeline_batch_")
     request_path = Path(tmp_name)
@@ -103,7 +94,7 @@ def launch_batch_create_entry(
                     "project_root": str(project_root),
                     "kind": kind,
                     "row": row,
-                    "addon_module": addon_module,
+                    "addon_module": ADDON_PACKAGE,
                 },
                 f,
             )
@@ -112,7 +103,7 @@ def launch_batch_create_entry(
         raise
 
     process = subprocess.Popen(
-        [binary, "-b", "--python", str(entry), "--", str(request_path)],
+        blender_command("batch_create_entry.py", [request_path]),
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )

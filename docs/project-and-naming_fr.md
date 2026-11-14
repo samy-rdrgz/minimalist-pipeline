@@ -139,6 +139,8 @@ Une cellule vide signifie juste "utiliser le repli pour cette colonne" (départe
 
 Les autres clés `farm` ne sont pas dans le dialogue : combien de processus farm locaux à la fois, quand un farm host est considéré en retard / parti, quand les jobs finis et leurs logs sont archivés / supprimés (voir [Rendu](farm_fr.md)).
 
+**Migrate old data** (Edit project, *Maintenance*) : un projet fait avec un addon d'avant la 1.2 se migre une fois, toutes les machines mises à jour -- le panneau Project le rappelle d'ici là. La migration complète ce que les anciennes versions écrivaient comme celle-ci l'écrit, et celle-ci ne lit plus que cette forme : les départements commencés d'un stable et les validations qu'il reportait, les départements d'une note, les liens d'une version un par fichier, le dossier, le fichier source, le shot et la plage de frames d'un rendu (un rendu d'avant la 1.0.11 retrouvé par l'heure de sa fin). Elle lit d'abord et liste ce qu'elle changerait ; chaque fichier modifié est copié avant dans `backup/migration-<date>/` à la racine du projet, à son propre chemin -- une fois vérifiée, supprimer ce seul dossier. Un projet créé par cette version n'a rien à migrer.
+
 <img src="images/project-edit.png" alt="Le dialogue Edit project">
 
 **Version de Blender** : `blender_version` (fixée à la création, modifiable dans Edit project) est le Blender avec lequel le projet est fait. Ouvrir le projet avec un autre majeur.mineur (5.2 pour un projet 4.5 -- 4.5.2 contre 4.5.7 ne compte pas) affiche un popup d'avertissement rouge au démarrage et à l'activation, plus une ligne rouge dans le panneau Project : un fichier sauvé dans un Blender plus récent peut ne pas s'ouvrir, ou pas pareil, dans celui du projet. Laisser vide pour ne jamais avertir.

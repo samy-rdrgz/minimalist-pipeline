@@ -3,13 +3,11 @@
 import bpy
 
 from ..lib import (
-    SIDE_BY_SIDE_WIDTH,
     addon_pref,
     blender_version_mismatch,
-    draw_box_tip,
     get_active_project_root,
-    responsive_layout,
 )
+from ..lib.ui import draw_items, icon_button
 from ..operators import (
     asset_ops,
     browser_ops,
@@ -17,6 +15,7 @@ from ..operators import (
     project_ops,
     shot_ops,
 )
+from ..operators.migration_ops import project_needs_migration
 
 
 class M_PIPELINE_PT_project_panel(bpy.types.Panel):
@@ -83,65 +82,37 @@ class M_PIPELINE_PT_project_panel(bpy.types.Panel):
                     icon="ERROR",
                 )
                 layout.separator()
-            # Side by side when the sidebar is wide enough.
-            new = responsive_layout(context, layout, SIDE_BY_SIDE_WIDTH)
-            new.operator(
-                asset_ops.M_PIPELINE_OT_create_asset.bl_idname,
-                text="New asset",
-                icon="ADD",
-            )
-            new.operator(
-                shot_ops.M_PIPELINE_OT_create_shot.bl_idname,
-                text="New shot",
-                icon="ADD",
-            )
-
-            layout.separator()
-            layout.operator(
-                browser_ops.M_PIPELINE_OT_open_file.bl_idname,
-                text="Open file",
-                icon="FILE_BLEND",
-            )
-            op = layout.operator("wm.open_folder", text="Open folder", icon="BLANK1")
-            op.filepath = str(active_path)
-            op.custom_tooltip = "Open the project's root folder"
-
-            layout.separator()
-            layout.operator(
-                farm_ops.M_PIPELINE_OT_farm_request_render.bl_idname,
-                text="Render",
-                icon="RENDER_RESULT",
-            )
-            layout.operator(
-                "m_pipeline.push_rushes",
-                text="Push rushes to editing",
-                icon="SEQUENCE",
-            )
-
-            layout.separator()
-            layout.operator(
-                "m_pipeline.tracking_monitor",
-                icon="WORKSPACE",
-                text="Project monitoring",
-            )
-            draw_box_tip(
-                layout,
-                context,
-                "Snapshot: an HTML progress page for production, with a "
-                "review spreadsheet inside. Import review reads it back once "
-                "filled in: its notes land on the files.",
-            )
-            prod = responsive_layout(context, layout, SIDE_BY_SIDE_WIDTH)
-            prod.operator(
-                "m_pipeline.export_snapshot",
-                icon="EXPORT",
-                text="Snapshot",
-            )
-            prod.operator(
-                "m_pipeline.import_review",
-                icon="IMPORT",
-                text="Import review",
-            )
+            if project_needs_migration():
+                warn = layout.row()
+                warn.alert = True
+                warn.label(text="Data from an older version: migrate it", icon="ERROR")
+                layout.operator(
+                    "m_pipeline.migrate_data", text="Migrate old data...", icon="FILE_REFRESH"
+                )
+                layout.separator()
+            # A list: side by side when the sidebar is wide enough.
+            draw_items(layout, [
+                [
+                    (asset_ops.M_PIPELINE_OT_create_asset.bl_idname, "New asset", "ADD"),
+                    (shot_ops.M_PIPELINE_OT_create_shot.bl_idname, "New shot", "ADD"),
+                ],
+                None,
+                (browser_ops.M_PIPELINE_OT_open_file.bl_idname, "Open file", "FILE_BLEND"),
+                ("wm.open_folder", "Open folder", "BLANK1",
+                 {"filepath": str(active_path), "custom_tooltip": "Open the project's root folder"}),
+                None,
+                (farm_ops.M_PIPELINE_OT_farm_request_render.bl_idname, "Render", "RENDER_RESULT"),
+                ("m_pipeline.push_rushes", "Push rushes to editing", "SEQUENCE"),
+                None,
+                ("m_pipeline.tracking_monitor", "Project monitoring", "WORKSPACE"),
+                ("tip", "Snapshot: an HTML progress page for production, to review "
+                 "on. Import review reads the review it downloads: its notes "
+                 "land on the files."),
+                [
+                    ("m_pipeline.export_snapshot", "Snapshot", "EXPORT"),
+                    ("m_pipeline.import_review", "Import review", "IMPORT"),
+                ],
+            ], context)
         else:
             others = [
                 item for item in prefs.opened_projects if item.path != str(active_path)
@@ -165,45 +136,22 @@ class M_PIPELINE_PT_project_panel(bpy.types.Panel):
                     row = layout.box().row()
                     row.scale_y = 0.6
                     row.scale_x = 0.8
-                    row.operator(
-                        project_ops.M_PIPELINE_OT_set_active_project.bl_idname,
-                        text=item.name.upper(),
-                        icon="UNPINNED",
-                        emboss=False,
-                    ).project_path_selected = item.path
-                    row.operator(
-                        project_ops.M_PIPELINE_OT_edit_project.bl_idname,
-                        text="",
-                        icon="OPTIONS",
-                        emboss=False,
-                    ).project_path_selected = item.path
-                    row.operator(
-                        project_ops.M_PIPELINE_OT_remove_project.bl_idname,
-                        text="",
-                        icon="PANEL_CLOSE",
-                        emboss=False,
-                    ).project_path_selected = item.path
+                    for op_name, text, icon in (
+                        (project_ops.M_PIPELINE_OT_set_active_project.bl_idname, item.name.upper(), "UNPINNED"),
+                        (project_ops.M_PIPELINE_OT_edit_project.bl_idname, "", "OPTIONS"),
+                        (project_ops.M_PIPELINE_OT_remove_project.bl_idname, "", "PANEL_CLOSE"),
+                    ):
+                        icon_button(row, op_name, icon, text=text, project_path_selected=item.path)
 
                 layout.separator()
 
-            layout.separator()
-            draw_box_tip(
-                layout,
-                context,
-                "A project is one shared folder your whole team works "
-                "from. New project creates that folder and its "
-                "structure. Find existing project points this machine "
-                "at one that already exists (on a shared drive, or a "
-                "teammate's).",
-            )
-
-            layout.operator(
-                project_ops.M_PIPELINE_OT_create_project.bl_idname,
-                text="New project",
-                icon="FILE_NEW",
-            )
-            layout.operator(
-                project_ops.M_PIPELINE_OT_find_project.bl_idname,
-                text="Find existing project",
-                icon="ZOOM_ALL",
-            )
+            draw_items(layout, [
+                None,
+                ("tip", "A project is one shared folder your whole team works "
+                 "from. New project creates that folder and its "
+                 "structure. Find existing project points this machine "
+                 "at one that already exists (on a shared drive, or a "
+                 "teammate's)."),
+                (project_ops.M_PIPELINE_OT_create_project.bl_idname, "New project", "FILE_NEW"),
+                (project_ops.M_PIPELINE_OT_find_project.bl_idname, "Find existing project", "ZOOM_ALL"),
+            ], context)

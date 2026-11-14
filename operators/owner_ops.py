@@ -9,22 +9,23 @@ import bpy
 
 from ..lib import (
     PipelineError,
-    asset_folder_items,
-    get_folder,
-    prefix_items,
-    scan_descriptions,
-    sequence_items,
-    shot_items,
     TrackingStatusCache,
+    asset_folder_items,
     delete_owner,
     find_linked_by,
     get_active_project_root,
+    get_folder,
     linked_by_ready,
     log,
     open_elsewhere,
     owner_render_dirs,
+    prefix_items,
     redraw_monitoring,
+    report_error,
+    scan_descriptions,
+    sequence_items,
     set_monitoring_detail,
+    shot_items,
 )
 
 _LINKS_SHOWN = 6
@@ -106,9 +107,7 @@ class M_PIPELINE_OT_delete_owner(bpy.types.Operator):
         try:
             result = delete_owner(root, owner, _kind(root, owner), self.renders.lower())
         except PipelineError as e:
-            log(e.level, "delete_owner", e.message)
-            self.report({e.level}, e.message)
-            return {"CANCELLED"}
+            return report_error(self, "delete_owner", e)
         TrackingStatusCache.forget(owner)
         log(
             "SUCCESS",

@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 
 id = "minimalist_pipeline"
-version = "1.1.9"
+version = "1.1.10"
 name = "Minimalist Pipeline"
 tagline = "Lightweight file pipeline for solo artists and small teams"
 maintainer = "Samy RODRIGUEZ samy.rodriguez@proton.me"
@@ -26,7 +26,9 @@ files = "Manage project files, versions, tracking, and render farm data"
 # GitHub's own landing page (full of docs/ links that only resolve there)
 # -- excluded here in favor of README_EXTENSION.md, a self-contained stub
 # pointing back to the repo, so the installed package never ships a doc
-# with dead links.
+# with dead links. CHANGELOG.md is the repo's and the release page's: ~100
+# KB nobody reads inside Blender. tests/ and tools/: checks run without
+# Blender (tools/fake_bpy.py), for development only.
 paths_exclude_pattern = [
     "__pycache__/",
     ".*",
@@ -35,10 +37,13 @@ paths_exclude_pattern = [
     "/trailers/",
     "*.blend[1-9]",
     "*.tar.gz",
+    "/CHANGELOG.md",
     "/CODE.md",
     "/NOTES.md",
     "/graph.md",
     "/docs/",
+    "/tests/",
+    "/tools/",
     "/*.code-workspace",
     "/README.md",
     "/README_fr.md",

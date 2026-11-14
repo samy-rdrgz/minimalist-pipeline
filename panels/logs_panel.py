@@ -6,10 +6,11 @@ import threading
 import bpy
 
 from ..lib import (
-    background_work,
     ConfigCache,
+    background_work,
     draw_pager,
     paginate,
+    parse_iso,
     read_log_tail,
     redraw_monitoring,
     rows_that_fit,
@@ -52,10 +53,8 @@ _LINE_UNITS = 1.0
 def _log_time(ts) -> str:
     """ "20/10/2026 15:20:11" -- day before month, always. The raw value if
     it isn't an ISO timestamp (a hand-edited line)."""
-    try:
-        return f"{datetime.datetime.fromisoformat(str(ts)):%d/%m/%Y %H:%M:%S}"
-    except ValueError:
-        return str(ts)
+    at = parse_iso(ts)
+    return f"{at:%d/%m/%Y %H:%M:%S}" if at else str(ts)
 
 
 def load_pipeline_log() -> None:
@@ -147,7 +146,7 @@ def draw_pipeline_logs(state, context, layout) -> None:
             matches=[e for e in _log_cache["entries"] if _matches(state, e, search)],
         )
     matches = _filtered["matches"]
-    per_page = rows_that_fit(context, _LOG_RESERVED_UNITS, _LINE_UNITS)
+    per_page = rows_that_fit(context, _LOG_RESERVED_UNITS, _LINE_UNITS, kind="log")
     page_items, page, pages = paginate("log", matches, per_page, key[1:])
 
     box = layout.box()

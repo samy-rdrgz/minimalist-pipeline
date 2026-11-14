@@ -6,23 +6,25 @@ import bpy
 
 from ..lib import (
     LD_ARGS,
+    LD_SCALE,
     MAX_VIDEO_WIDTH,
     ConfigCache,
-    browser_codec,
-    ld_path,
     PipelineError,
+    browser_codec,
     get_machine_id,
     json_get,
+    ld_path,
     locked_json,
     log,
-    now,
     resolve_ffmpeg,
     run_thumbnail_jobs,
     thumbnail_jobs,
     thumbnail_size,
     to_absolute,
 )
+from ..lib.preview import video_info
 from .dispatch import popen_logged, track_local_processes
+from .stages import add_stage, mark_stage
 
 _EXTENSION_MAP = {
     "PNG": "png",
@@ -99,9 +101,7 @@ def checks_images(job_path: Path):
                     "-",
                 ]
 
-                data["stage_history"].append(
-                    {"stage": "checks_images_start", "at": now()}
-                )
+                add_stage(data, "checks_images_start")
                 box["action"] = "to_write"
 
                 # Read back by scan_processes() (corrupted_frames()). A
@@ -121,13 +121,10 @@ def checks_images(job_path: Path):
                 ]
                 track_local_processes(data, proc)
             else:
-                data["stage_history"].append(
-                    {"stage": "checks_images_failed", "at": now()}
-                )
+                add_stage(data, "checks_images_failed")
                 box["action"] = "to_write"
                 raise PipelineError("FFMPEG is not installed")
     except Exception as e:
-        from .queue import mark_stage
 
         mark_stage(
             job_path, "checks_images_failed"
@@ -164,6 +161,56 @@ def _ffmpeg_preset_to_args(preset: dict) -> list[str]:
     return args + extra
 
 
+# 4:2:0 and 4:2:2 -- yuv420p, the default preset's, H.264 and H.265's
+# usual -- take even sizes only: a render 3361 px wide failed to compile
+# ("Picture width must be an integer multiple of the specified chroma
+# subsampling"). One more column (row), a copy of the last one: nothing of
+# the render lost, nothing resampled. See NOTES.md, "Odd sizes: one more
+# column for the compilation".
+_EVEN_PAD = "pad=ceil(iw/2)*2:ceil(ih/2)*2"  # size unread: black, never a failure
+def _frame_size(frame: str, ffmpeg_bin: str) -> tuple[int, int] | None:
+    """(width, height) of one rendered frame; None if unread."""
+    info = video_info(frame, ffmpeg_bin, timeout=30)
+    return info[2:] if info else None
+
+
+def _even_filter(size: tuple[int, int] | None) -> str:
+    """The filter making the video's size even: a column (row) more, the
+    last one copied (fillborders' smear) -- "" when already even. In RGB
+    first (16 bits: a 16-bit PNG keeps its depth): padded in the JPGs'
+    yuvj420p, the render's own last column came out black too. Size
+    unread: _EVEN_PAD, black, which does nothing on an even size."""
+    if not size:
+        return _EVEN_PAD
+    w, h = size
+    right, bottom = w % 2, h % 2
+    if not (right or bottom):
+        return ""
+    return (
+        f"format=gbrp16le,pad={w + right}:{h + bottom}:0:0,"
+        f"fillborders=right={right}:bottom={bottom}:mode=smear"
+    )
+
+
+def _even_size(preset: dict, args: list[str], size) -> list[str]:
+    """args (_ffmpeg_preset_to_args()'s) with _even_filter(size) as the
+    video's last filter -- after the preset's own -vf, if it has one --
+    unless its pix_fmt keeps every pixel's colour (4:4:4, RGB, grey), which
+    takes any size. The compilation's only: a concat's filter_complex
+    already pads to the project's resolution."""
+    pix = str(preset.get("pix_fmt") or "").lower()
+    even = _even_filter(size)
+    if not even or any(k in pix for k in ("444", "rgb", "gbr", "gray")):
+        return list(args)
+    args = list(args)
+    for flag in ("-vf", "-filter:v"):
+        if flag in args[:-1]:
+            i = args.index(flag) + 1
+            args[i] = f"{args[i]},{even}"
+            return args
+    return ["-vf", even, *args]
+
+
 def _ld_args(width, preset: dict, video: Path) -> list[str]:
     """The compilation's second output, a light copy browsers can play
     (lib/preview.py ld_path()), when the video itself won't: wider than
@@ -179,7 +226,7 @@ def _ld_args(width, preset: dict, video: Path) -> list[str]:
         ld.unlink(missing_ok=True)
         return []
     ld.parent.mkdir(parents=True, exist_ok=True)
-    return ["-vf", f"scale='min({MAX_VIDEO_WIDTH},iw)':-2", *LD_ARGS, str(ld)]
+    return ["-vf", LD_SCALE, *LD_ARGS, str(ld)]
 
 
 def compilation(*, project_root: Path, job_path: Path, compilation_settings: str):
@@ -214,6 +261,14 @@ def compilation(*, project_root: Path, job_path: Path, compilation_settings: str
                     video = video.with_suffix(f".{ext}")
                     stem = data["compiled_output_path"].rsplit(".", 1)[0]
                     data["compiled_output_path"] = f"{stem}.{ext}"
+                first = data["resolved_frame_range"][0]
+                prefix = str(abs_path).split("#")[0]
+                digits = data["output_path"].count("#")
+                extension = _EXTENSION_MAP.get(data["output_extension"], "png")
+                # Its real size, not the job's: odd, one column (row) more.
+                size = _frame_size(
+                    f"{prefix}{int(first):0{digits}d}.{extension}", ffmpeg_bin
+                )
                 cmd = (
                     [
                         ffmpeg_bin,
@@ -221,11 +276,11 @@ def compilation(*, project_root: Path, job_path: Path, compilation_settings: str
                         "-r",
                         str(framerate),
                         "-start_number",
-                        str(data["resolved_frame_range"][0]),
+                        str(first),
                         "-i",
-                        f"{str(abs_path).split('#')[0]}%0{data['output_path'].count('#')}d.{_EXTENSION_MAP.get(data['output_extension'], 'png')}",
+                        f"{prefix}%0{digits}d.{extension}",
                     ]
-                    + list(_ffmpeg_preset_to_args(preset))
+                    + _even_size(preset, _ffmpeg_preset_to_args(preset), size)
                     + [str(video)]
                     # Same pass: the light copy, if the video needs one.
                     + _ld_args(data.get("width"), preset, video)
@@ -238,20 +293,15 @@ def compilation(*, project_root: Path, job_path: Path, compilation_settings: str
                         "local",
                     )
                 ]
-                data["stage_history"].append(
-                    {"stage": "compilation_start", "at": now()}
-                )
+                add_stage(data, "compilation_start")
                 box["action"] = "to_write"
                 track_local_processes(data, proc)
 
             else:
-                data["stage_history"].append(
-                    {"stage": "compilation_failed", "at": now()}
-                )
+                add_stage(data, "compilation_failed")
                 box["action"] = "to_write"
                 raise PipelineError("FFMPEG is not installed")
     except Exception as e:
-        from .queue import mark_stage
 
         mark_stage(
             job_path, "compilation_failed"
@@ -333,7 +383,7 @@ def send_preview_compile(job_path: Path, uuid: str, idle: dict) -> bool:
         compile_request(data["job_id"], uuid)
         idle_worker = idle.pop(uuid, None) or {}
         data["compile_machine"] = uuid
-        history.append({"stage": "preview_start", "at": now(), "machine": uuid})
+        add_stage(data, "preview_start", machine=uuid)
         box["action"] = "to_write"
     log(
         "INFO",
@@ -352,10 +402,10 @@ def check_remote_compile(job_path: Path, data: dict) -> None:
     worker file, as _on_this_render(): a worker takes it under its own
     file's lock, unreadable (None) meanwhile."""
     from .queue import _read_worker, _worker_gone, resume_interrupted_stage
-    from .workers import compile_request_path
+    from .workers import COMPILE, request_path
 
     uuid, job_id = data["compile_machine"], data["job_id"]
-    request = compile_request_path(job_id, uuid)
+    request = request_path(COMPILE, job_id, uuid)
     waiting = request.exists()
     worker = _read_worker(uuid)
     if worker is None:
@@ -392,7 +442,7 @@ def run_preview_compile(job_id: str, project_root: Path) -> None:
             data = box["data"] or {}
             ffmpeg_bin = resolve_ffmpeg()
             if not ffmpeg_bin:
-                data["stage_history"].append({"stage": "preview_failed", "at": now()})
+                add_stage(data, "preview_failed")
                 box["action"] = "to_write"
                 raise PipelineError("FFMPEG is not installed")
 
@@ -403,12 +453,11 @@ def run_preview_compile(job_id: str, project_root: Path) -> None:
                     "local",
                 )
             ]
-            data["stage_history"].append({"stage": "preview_start", "at": now()})
+            add_stage(data, "preview_start")
             box["action"] = "to_write"
             track_local_processes(data, proc)
 
     except Exception as e:
-        from .queue import mark_stage
 
         mark_stage(job_path, "preview_failed")  # separate transaction, actually commits
         log("ERROR", "farm", f"Preview compile failed for {job_id}: {e}")

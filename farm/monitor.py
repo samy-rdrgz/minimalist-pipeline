@@ -19,6 +19,7 @@ from ..lib import (
     locked_json,
     log,
     now,
+    parse_iso,
     process_alive,
     read_json_quiet,
     to_relative,
@@ -277,7 +278,8 @@ def _archive_finished_jobs(hours: float) -> int:
         if stages[-2].get("stage") not in _FINISHED_STAGES:
             continue
         try:
-            if datetime.fromisoformat(stages[-1]["at"]) > limit:
+            at = parse_iso(stages[-1].get("at"))
+            if at is None or at > limit:
                 continue
             archive(job_path)
             moved += 1

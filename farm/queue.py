@@ -16,8 +16,10 @@ from ..lib import (
     log,
     mark_render_to_check,
     now,
+    parse_iso,
     read_json_quiet,
     retry_shared_io,
+    seconds_since,
     to_absolute,
     to_relative,
 )
@@ -45,13 +47,18 @@ from .dispatch import (
     render_dispatch,
     send_render,
 )
+from .pace import ensure_preset_pace, note_preset_pace
 from .post_render import checks_images, compilation, refresh_shot_thumbnail
+from .stages import add_stage, mark_stage
 from .workers import (
+    RENDER,
     frame_seconds,
     idle_machines,
+    local_render_jobs,
     local_render_running,
     parse_saved,
     render_yield_path,
+    request_path,
     scan_workers,
     this_instance_is_worker,
 )
@@ -192,6 +199,10 @@ def read_active_jobs(scan_dir: Path) -> list[tuple[Path, dict]]:
 
 def scan_queue(project_root: Path) -> None:
     """Advance every active job by one step according to its current stage."""
+    try:
+        ensure_preset_pace(project_root)
+    except Exception as e:
+        log("ERROR", "farm", f"Preset pace: {e}")
     jobs = read_active_jobs(ConfigCache.get_path("farm_actives"))
     jobs.sort(
         key=lambda x: (
@@ -241,6 +252,10 @@ def scan_queue(project_root: Path) -> None:
                     from .setup import run_render_setup
 
                     run_render_setup(data["job_id"], config)
+                elif local_render_running():
+                    # Held back by this instance's render of a lower
+                    # priority: it gives way after its frame.
+                    _host_gives_way_for_setup(data, jobs, project_root)
 
             elif stage == "preview_queued":
                 # Pure ffmpeg, not a render job -- long over a whole
@@ -417,11 +432,11 @@ def _render_time_left(data: dict, machines: int, project_root: Path) -> float | 
 
 
 def _give_way_to_priority(jobs: list, idle: dict, project_root: Path) -> None:
-    """Ask machines on lower-priority renders to give way after their chunk
+    """Ask machines on lower-priority renders to give way after their frame
     (render_yield_path()), lowest first, once a higher-priority job has no
     idle machine left -- never for an equal priority, nor a render about to
     end. jobs: scan_queue()'s, highest priority first. See NOTES.md,
-    "Priority: giving way between chunks"."""
+    "Priority: giving way after a frame"."""
     priority = {data.get("job_id"): _priority(data) for _, data in jobs}
     workers = scan_workers()
     busy = {
@@ -482,8 +497,53 @@ def _give_way_to_priority(jobs: list, idle: dict, project_root: Path) -> None:
                 "INFO",
                 "farm",
                 f"Job {fresh.get('job_id')} (priority {level}): {name} gives way "
-                f"after its chunk of {busy[uuid]}.",
+                f"after its frame of {busy[uuid]}.",
             )
+
+
+def _host_gives_way_for_setup(data: dict, jobs: list, project_root: Path) -> None:
+    """A queued job's setup waits for this instance's own render
+    (local_render_running()), and _give_way_to_priority() only acts for a
+    job already set up: a priority-20 job stayed queued behind the host's
+    priority-10 render for its whole length. That render, of a lower
+    priority, is asked to give way after its frame instead
+    (render_yield_path()) -- never for an equal priority, nor a render about
+    to end, as for the other machines. The host then stays off renders
+    while setups wait (scan_queue()): the setup runs on a following tick.
+    See NOTES.md, "Priority: giving way after a frame"."""
+    level = _priority(data)
+    by_id = {d.get("job_id"): (path, d) for path, d in jobs}
+    keep_under = priority_switch_seconds()
+    workers = None
+    for job_id in local_render_jobs():
+        flag = render_yield_path(job_id)
+        if job_id not in by_id or flag.exists():
+            continue
+        path, other = by_id[job_id]
+        if _priority(other) >= level:
+            continue
+        if keep_under:
+            if workers is None:
+                workers = scan_workers()
+            machines = sum(
+                1
+                for w in workers.values()
+                if w.get("status") == "render" and w.get("current_job_id") == job_id
+            )
+            fresh = read_json_quiet(path) or other
+            left = _render_time_left(fresh, machines, project_root)
+            if left is not None and left < keep_under:
+                continue
+        try:
+            flag.touch()
+        except OSError:
+            continue
+        log(
+            "INFO",
+            "farm",
+            f"Job {data.get('job_id')} (priority {level}): this machine gives "
+            f"way after its frame of {job_id}, for its setup.",
+        )
 
 
 # Where a job goes when the process running its *_start stage was lost (a
@@ -547,7 +607,7 @@ def retry_job(data: dict, project_root: Path) -> str | None:
     data.pop("local_processes", None)
     data.pop("frame_check_rounds", None)  # a manual retry starts a fresh count
     data.pop("cancel_requested", None)
-    data["stage_history"].append({"stage": target, "at": now(), "resumed": "retry"})
+    add_stage(data, target, resumed="retry")
     log("INFO", "farm", f"Job {data.get('job_id')}: retried at {target}.")
     return target
 
@@ -581,9 +641,7 @@ def recompile_job(data: dict) -> bool:
     if not recompilable(data):
         return False
     data.pop("to_check_attempts", None)
-    data["stage_history"].append(
-        {"stage": "checks_images_finished", "at": now(), "resumed": "recompile"}
-    )
+    add_stage(data, "checks_images_finished", resumed="recompile")
     log("INFO", "farm", f"Job {data.get('job_id')}: compilation requested again.")
     return True
 
@@ -635,7 +693,7 @@ def resume_interrupted_stage(data: dict, reason: str) -> str | None:
         target = _RESUME_STAGE[stage]
     else:
         return None
-    data["stage_history"].append({"stage": target, "at": now(), "resumed": reason})
+    add_stage(data, target, resumed=reason)
     data.pop("local_processes", None)
     data.pop("compile_machine", None)
     log(
@@ -736,9 +794,7 @@ def _finish_job_processes(job_id: str, procs: list, job_path: Path) -> None:
 
             outcome = "failed" if errors else "finished"
             if not redo:  # else already back at setup_finished
-                data["stage_history"].append(
-                    {"stage": f"{stage.replace('_start', '')}_{outcome}", "at": now()}
-                )
+                add_stage(data, f"{stage.replace('_start', '')}_{outcome}")
             if errors:
                 log(
                     "WARNING",
@@ -760,7 +816,7 @@ def _stage_time(stage_history: list, stage_name: str) -> datetime.datetime | Non
     """Timestamp of the first entry matching stage_name exactly, or None."""
     for entry in stage_history:
         if entry["stage"] == stage_name:
-            return datetime.datetime.fromisoformat(entry["at"])
+            return parse_iso(entry["at"])
     return None
 
 
@@ -768,7 +824,7 @@ def _last_stage_time(stage_history: list, prefix: str) -> datetime.datetime | No
     """Timestamp of the most recent entry whose stage starts with prefix, or None."""
     for entry in reversed(stage_history):
         if entry["stage"].startswith(prefix):
-            return datetime.datetime.fromisoformat(entry["at"])
+            return parse_iso(entry["at"])
     return None
 
 
@@ -815,6 +871,8 @@ def construct_history(job: dict, status):
             entry[key] = job[key]
 
     append_render_history(job["filepath"], entry)
+    # Its preset's pace, for files never rendered with it yet.
+    note_preset_pace(entry)
     # The outcome in the pipeline log too: it showed jobs submitted and
     # sent, never one ending -- only render_history.json knew.
     shot = f" {entry['shot_override']}" if entry.get("shot_override") else ""
@@ -895,11 +953,8 @@ def _worker_gone(worker: dict) -> bool:
     for WORKER_GONE_SECONDS."""
     if not worker:
         return True
-    try:
-        last = datetime.datetime.fromisoformat(worker.get("last_heartbeat", ""))
-    except (TypeError, ValueError):
-        return True
-    return (now(False) - last).total_seconds() > WORKER_GONE_SECONDS
+    age = seconds_since(worker.get("last_heartbeat"))
+    return age is None or age > WORKER_GONE_SECONDS
 
 
 def _drop_pending_request(job_id: str, uuid: str) -> bool:
@@ -907,7 +962,7 @@ def _drop_pending_request(job_id: str, uuid: str) -> bool:
     to be picked up. True if it was (and is now gone); False if the worker
     already took it (it's running), or the request can't be locked this
     tick -- then the caller keeps waiting, as before."""
-    request = ConfigCache.get_path("farm_requests") / f"request_{job_id}_{uuid}.json"
+    request = request_path(RENDER, job_id, uuid)
     if not request.exists():
         return False
     try:
@@ -938,9 +993,7 @@ def _withdraw_requests(job_id: str, machines: list, cancel: bool = False) -> lis
                 if cancel:
                     data["cancel_requested"] = True
                     if not data["used_machines"]:
-                        data["stage_history"].append(
-                            {"stage": "render_failed", "at": now(), "cancelled": True}
-                        )
+                        add_stage(data, "render_failed", cancelled=True)
                 box["action"] = "to_write"
     if dropped:
         log(
@@ -1088,10 +1141,9 @@ def _on_this_render(data: dict) -> tuple[list, list]:
     rendering this job, alive -- or unreadable this tick, can't tell;
     waiting: its request not taken up yet)."""
     job_id = data["job_id"]
-    requests = ConfigCache.get_path("farm_requests")
     rendering, waiting = [], []
     for uuid in data.get("used_machines", []):
-        if (requests / f"request_{job_id}_{uuid}.json").exists():
+        if request_path(RENDER, job_id, uuid).exists():
             waiting.append(uuid)
             continue
         worker = _read_worker(uuid)
@@ -1233,7 +1285,7 @@ def _end_render(job_path: Path, stage: str, **fields) -> dict | None:
         data = box["data"]
         if not data or data["stage_history"][-1]["stage"] != "render_start":
             return data
-        data["stage_history"].append({"stage": stage, "at": now()} | fields)
+        add_stage(data, stage, **fields)
         data.pop("left_machines", None)
         data["rendered_by"] = list(data.get("used_machines", []))
         _note_frames(data)
@@ -1378,12 +1430,8 @@ def _finish_render(job_path: Path, project_root: Path | None) -> dict | None:
             return data
         machines = data.get("used_machines", [])
         for uuid in machines:
-            request = (
-                ConfigCache.get_path("farm_requests")
-                / f"request_{data['job_id']}_{uuid}.json"
-            )
             try:
-                retry_shared_io(request.unlink)
+                retry_shared_io(request_path(RENDER, data["job_id"], uuid).unlink)
             except OSError:
                 pass
         # Kept for construct_history(): used_machines is reset by the next
@@ -1391,7 +1439,7 @@ def _finish_render(job_path: Path, project_root: Path | None) -> dict | None:
         data["rendered_by"] = list(machines)
         _note_frames(data)
         _note_machine_names(data, machines)
-        data["stage_history"].append({"stage": "render_finished", "at": now()})
+        add_stage(data, "render_finished")
         data.pop("left_machines", None)
         box["action"] = "to_write"
     paths = frame_paths(data, project_root) or []
@@ -1477,13 +1525,7 @@ def _send_back_bad_frames(data: dict, corrupted: list[int]) -> bool:
         set(data.get("frames_rerendered") or []) | set(corrupted)
     )
     data["frame_check_rounds"] = data.get("frame_check_rounds", 0) + 1
-    data["stage_history"].append(
-        {
-            "stage": "setup_finished",
-            "at": now(),
-            "resumed": f"{len(corrupted)} frame(s) to render again",
-        }
-    )
+    add_stage(data, "setup_finished", resumed=f"{len(corrupted)} frame(s) to render again")
     data.pop("dispatch_id", None)
     log(
         "WARNING",
@@ -1526,14 +1568,3 @@ def discard_saved_frames(job_id: str) -> None:
                 retry_shared_io(path.unlink)
             except OSError:
                 pass
-
-
-def mark_stage(path, stage):
-    """Append a stage entry to a job file's stage_history (own locked
-    transaction). No-op if the file is gone -- archived from Farm monitoring
-    meanwhile (it raised "'NoneType' object is not subscriptable")."""
-    with locked_json(path) as box:
-        if not box["data"]:
-            return
-        box["data"]["stage_history"].append({"stage": stage, "at": now()})
-        box["action"] = "to_write"
