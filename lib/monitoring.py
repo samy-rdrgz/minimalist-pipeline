@@ -10,6 +10,7 @@ import bpy
 
 from .background import threads_paused
 from .config import get_active_project_root
+from .core import monitoring_detail, set_monitoring_detail
 from .tracking import ProjectScan, TrackingStatusCache
 
 # ID property marking a window's screen with what it shows ("project" or
@@ -30,6 +31,17 @@ _window_kinds: dict = {}
 
 _last_seen: dict = {}
 _last_farm_read = 0.0
+
+# The detail beside the list (see NOTES.md, "Monitoring: the detail beside
+# the list"): what each window's detail is kept under (lib/core.py), the
+# share of the window the detail zone takes -- the last one dragged to, per
+# kind, for the session --, the narrowest window split in two (at UI scale
+# 1: below, the detail replaces the list), and the windows whose detail
+# zone sync_detail_zones() opened.
+DETAIL_KEYS = {"project": ("file", "missing_file"), "farm": ("job", "worker")}
+_detail_share = {"project": 0.45, "farm": 0.45}
+_SPLIT_MIN_WIDTH = 900
+_split_windows: set = set()
 # Whether _monitoring_tick started the farm's refresh timer (for a Farm
 # monitoring window), so it only stops its own.
 _farm_refresh_ours = False
@@ -210,7 +222,7 @@ def _duplicate_window(context, window, kind: str) -> bool:
     kind. False if Blender didn't open one."""
     wm = context.window_manager
     before = {w.as_pointer() for w in wm.windows}
-    area = max(window.screen.areas, key=lambda a: a.width * a.height)
+    area = list_area(window.screen)
     try:
         with (
             context.temp_override(window=window, screen=window.screen, area=area),
@@ -364,7 +376,9 @@ def _monitoring_tick():
 
     if not (project or farm or log):
         _last_seen.clear()
+        _split_windows.clear()
         return None
+    sync_detail_zones()  # a detail zone closed by hand
 
     root = get_active_project_root()
     if project:
@@ -397,6 +411,105 @@ def _monitoring_tick():
             _last_seen["farm"] = seen
             redraw_monitoring("farm")
     return _TICK
+
+
+def _props_areas(screen) -> list:
+    return [a for a in screen.areas if a.type == "PROPERTIES"]
+
+
+def list_area(screen):
+    """A monitoring window's list: its leftmost Properties editor (the
+    biggest area if it has none)."""
+    areas = _props_areas(screen)
+    if areas:
+        return min(areas, key=lambda a: a.x)
+    return max(screen.areas, key=lambda a: a.width * a.height)
+
+
+def monitoring_zone(context) -> str:
+    """Where a monitoring window's panel draws: "list" or "detail" (the
+    rightmost) of a window in two zones, "" in a window of one."""
+    areas = _props_areas(context.screen) if context.screen else []
+    if len(areas) < 2 or context.area is None:
+        return ""
+    right = max(areas, key=lambda a: a.x)
+    return "detail" if context.area.as_pointer() == right.as_pointer() else "list"
+
+
+def detail_shown(kind: str) -> bool:
+    """A detail is open in that kind's window."""
+    return any(monitoring_detail(key) for key in DETAIL_KEYS.get(kind, ()))
+
+
+def request_detail_sync() -> None:
+    """sync_detail_zones() on the next tick -- after the operator that
+    changed a detail, in no window's draw."""
+    if not bpy.app.timers.is_registered(_sync_and_redraw):
+        bpy.app.timers.register(_sync_and_redraw, first_interval=0.0)
+
+
+def _sync_and_redraw() -> None:
+    """Timer: a detail changed -- the zones, then every view of it."""
+    if not sync_detail_zones():
+        redraw_monitoring()
+
+
+def sync_detail_zones() -> bool:
+    """Each monitoring window in two zones while its detail is open and
+    it's wide enough, in one otherwise: the detail zone opened at its
+    kind's last width, closed once the detail is; one closed by hand
+    closes the detail. True (and every monitoring window redrawn) if a
+    zone opened or closed. Main thread (a timer). See NOTES.md,
+    "Monitoring: the detail beside the list"."""
+    changed = False
+    scale = bpy.context.preferences.system.ui_scale or 1.0
+    for window in monitoring_windows():
+        kind = monitoring_kind(window.screen)
+        if kind not in DETAIL_KEYS:
+            continue
+        ptr = window.as_pointer()
+        areas = _props_areas(window.screen)
+        wanted = detail_shown(kind)
+        if len(areas) >= 2:
+            right = max(areas, key=lambda a: a.x)
+            if window.width:
+                _detail_share[kind] = right.width / window.width
+            if not wanted:
+                _area_op(window, right, "area_close")
+                _split_windows.discard(ptr)
+                changed = True
+        elif ptr in _split_windows:
+            # Its detail zone closed by hand: back to the list.
+            _split_windows.discard(ptr)
+            changed = True
+            for key in DETAIL_KEYS[kind]:
+                set_monitoring_detail(key, "", sync=False)
+        elif wanted and areas and window.width >= _SPLIT_MIN_WIDTH * scale:
+            # The new editor takes the smaller part: the detail's, on the
+            # right, as long as it's under half.
+            share = min(max(_detail_share[kind], 0.2), 0.49)
+            if _area_op(window, areas[0], "area_split", direction="VERTICAL", factor=1 - share):
+                _split_windows.add(ptr)
+                changed = True
+    if changed:
+        redraw_monitoring()
+    return changed
+
+
+def _area_op(window, area, name: str, **kwargs) -> bool:
+    """bpy.ops.screen.<name> on that area of that window. False if it
+    failed (said in the log)."""
+    try:
+        with (
+            bpy.context.temp_override(window=window, screen=window.screen, area=area),
+            threads_paused(),
+        ):
+            return "FINISHED" in getattr(bpy.ops.screen, name)(**kwargs)
+    except (RuntimeError, TypeError) as e:
+        from .logs import log
+
+        log("WARNING", "monitoring", f"{name} failed: {e}")
+        return False
 
 
 def memory_prop(store: dict, key: str, prop, default, **kwargs):

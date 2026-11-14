@@ -148,7 +148,9 @@ minimalist_pipeline/
 │   ├── saving.py               # WM_OT_safe_save (Ctrl+S override)
 │   ├── logs.py                 # log(), read_log_tail()
 │   ├── monitoring.py           # Project/Farm monitoring windows: open_monitoring_window(),
-│   │                            #   monitoring_windows(), _monitoring_tick, open_mainfile()
+│   │                            #   monitoring_windows(), _monitoring_tick, open_mainfile();
+│   │                            #   the detail beside the list: sync_detail_zones(),
+│   │                            #   monitoring_zone(), list_area(), DETAIL_KEYS
 │   └── operators.py            # M_PIPELINE_OT_action_popup / text_popup / auto_version
 ├── farm/                      # Render farm: monitor/worker roles, queue, dispatch
 │   ├── __init__.py

@@ -75,10 +75,15 @@ def monitoring_detail(kind: str) -> str:
     return _monitoring_details[kind]
 
 
-def set_monitoring_detail(kind: str, value: str = "") -> None:
+def set_monitoring_detail(kind: str, value: str = "", sync: bool = True) -> None:
     """Show this detail in that window ("" for its list) -- now and when it
-    reopens."""
+    reopens: beside the list in a wide window (lib/monitoring.py
+    sync_detail_zones(), next tick, every view redrawn)."""
     _monitoring_details[kind] = value
+    if sync:
+        from .monitoring import request_detail_sync
+
+        request_detail_sync()
 
 
 def addon_pref(context: bpy.types.Context | None = None):

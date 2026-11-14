@@ -3850,6 +3850,45 @@ around one idea: a list to scan, a panel to read one file.
   unfolded under rows, per-shot hover buttons in the list (the panel has
   every shot's picture).
 
+## Monitoring: the detail beside the list
+
+A detail (a file in Project monitoring, a job or a worker in Farm
+monitoring) replaced the whole list. From 1.2 it opens in a second zone on
+the right of the same window. Tried first outside the addon in Blender
+5.2.3 (docs/plan-1.2.md, phase 2b), what it taught shaped this:
+
+- **One reconciling function**, `sync_detail_zones()` (lib/monitoring.py),
+  never a split in each operator: every window in two zones while its
+  detail is open and it's at least `_SPLIT_MIN_WIDTH` wide, in one
+  otherwise. Run the tick after `set_monitoring_detail()`
+  (`request_detail_sync()`: a timer, never in an operator's own context
+  nor a draw) and by `_monitoring_tick()`. Every way in or out -- a click,
+  Esc, the back arrow, ← / → between files -- only sets the detail.
+- **Which zone is the detail**: the rightmost Properties editor
+  (`monitoring_zone()`), never "the new one": `area_split()` gives the new
+  editor the smaller part, so the factor is `1 - share` with the share
+  kept under half. The new editor copies the old one (Tool tab, no
+  header, no tab column): nothing to set.
+- **Closed by hand** (the border dragged over it): a window in
+  `_split_windows` found with one zone has its detail cleared -- else,
+  back to one zone, it would draw the detail in place of the list. A
+  window found in two zones with no detail (a .blend saved so) is closed.
+- **The width**: the detail's share of the window, read each tick while
+  open, kept per kind for the session (`_detail_share`).
+- **Redrawn when it changes**: a click redrew only the zone clicked in;
+  the request redraws every view, the tick only when a zone opened or
+  closed (every 0.5 s otherwise: the whole table each time).
+- **Drawing**: `_MonitoringPanel.draw()` asks the zone; the list's draws
+  as if no detail were open (`draw_content(detail=False)`), the detail's
+  without one says to click a row. The keys follow the zone under the
+  mouse (`_showing_detail(kind, context)`): pages on the list, scroll and
+  ← / → between files on the detail; Esc closes from either.
+- **A list made narrow** (under `_NAMES_ONLY_WIDTH`, 600 px at scale 1)
+  draws its names only -- a navigator beside a wide detail. Farm's lists
+  are left as they are.
+- `list_area()` replaces "the biggest area" where the list is meant
+  (bringing a window to the front duplicates the list's editor).
+
 ## Snapshots and reviews by month
 
 A project's `snapshots/` filled up flat: an export a day or more, their

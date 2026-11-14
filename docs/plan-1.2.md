@@ -347,6 +347,8 @@ Relevé du 14/11 : le JS est déjà compact (132 fonctions toutes appelées, qua
 
 ### Phase 2b — Le détail à côté de la liste, dans les fenêtres de monitoring
 
+**Codée** (14/11), à tester dans Blender : `sync_detail_zones()` et `monitoring_zone()` (`lib/monitoring.py`), panneaux et raccourcis selon la zone, liste réduite à ses noms sous 600 px (seulement Project monitoring). Détails : NOTES.md, « Monitoring: the detail beside the list ».
+
 **Aujourd'hui :** ouvrir un détail (un fichier dans Project monitoring, un job ou un worker dans Farm monitoring) **remplace** toute la liste, dans la même zone.
 
 **Proposition :** le détail s'ouvre **à droite de la liste**, dans une **deuxième zone** de la même fenêtre, comme le panneau d'un fichier dans la page HTML sur ordinateur.

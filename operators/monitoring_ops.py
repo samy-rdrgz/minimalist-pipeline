@@ -10,6 +10,7 @@ from ..lib import (
     list_fits,
     monitoring_detail,
     monitoring_kind,
+    monitoring_zone,
     neighbour_in_list,
     redraw_monitoring,
     set_monitoring_detail,
@@ -37,15 +38,20 @@ _STILL = ("", "welcome", "settings")
 _WHEEL = ("WHEELUPMOUSE", "WHEELDOWNMOUSE")
 
 
-def _showing_detail(kind: str) -> bool:
+def _showing_detail(kind: str, context=None) -> bool:
+    """A detail open -- and, given context, under the mouse: never in the
+    list's zone of a window in two (the keys follow the zone)."""
+    if context is not None and monitoring_zone(context) == "list":
+        return False
     return any(monitoring_detail(key) for key in _DETAILS[kind])
 
 
 def _in_file_detail(context) -> bool:
-    """Project monitoring on a file's detail (not a file not found)."""
-    return monitoring_kind(context.screen) == "project" and bool(
-        monitoring_detail("file")
-    )
+    """Project monitoring on a file's detail (not a file not found), the
+    mouse over it."""
+    return monitoring_kind(context.screen) == "project" and _showing_detail(
+        "project", context
+    ) and bool(monitoring_detail("file"))
 
 
 def _step_file(context, step: int, to_end: bool) -> bool:
@@ -94,7 +100,7 @@ class M_PIPELINE_OT_monitoring_page(bpy.types.Operator):
         if _in_file_detail(context):
             return True
         kind = monitoring_kind(context.screen)
-        if kind in _STILL or _showing_detail(kind):
+        if kind in _STILL or _showing_detail(kind, context):
             return False
         return kind != "farm" or context.window_manager.pipeline_farm_monitoring.view == "jobs"
 
@@ -129,7 +135,7 @@ class M_PIPELINE_OT_monitoring_switch(bpy.types.Operator):
     @classmethod
     def poll(cls, context):
         kind = monitoring_kind(context.screen)  # the log has one view
-        return kind in ("project", "farm") and not _showing_detail(kind)
+        return kind in ("project", "farm") and not _showing_detail(kind, context)
 
     def execute(self, context):
         kind = monitoring_kind(context.screen)

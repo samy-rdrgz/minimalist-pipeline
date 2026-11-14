@@ -129,6 +129,7 @@ from .libraries import clean_append_and_relink, scan_linked_libraries
 from .logs import archive_log_now, log, read_log_tail, report_error
 from .monitoring import (
     MONITORING_SCREEN_KEY,
+    detail_shown,
     draw_addon_keys,
     draw_pager,
     ensure_monitoring_tick,
@@ -137,6 +138,7 @@ from .monitoring import (
     memory_prop,
     monitoring_kind,
     monitoring_windows,
+    monitoring_zone,
     open_mainfile,
     bring_monitoring_to_front,
     open_monitoring_window,

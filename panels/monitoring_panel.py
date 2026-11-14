@@ -8,12 +8,14 @@ from ..lib import (
     ConfigCache,
     addon_pref,
     any_outdated_links,
+    detail_shown,
     draw_onboarding,
     ensure_monitoring_tick,
     get_active_project_root,
     json_get,
     monitoring_detail,
     monitoring_kind,
+    monitoring_zone,
     region_char_budget,
 )
 from ..operators.migration_ops import project_needs_migration
@@ -53,10 +55,17 @@ class _MonitoringPanel:
         # operator run: the scan and redraws start from here then.
         ensure_monitoring_tick()
         layout = self.layout
+        # A window in two zones: the list left, the detail right (see
+        # NOTES.md, "Monitoring: the detail beside the list").
+        zone = monitoring_zone(context)
         if not get_active_project_root():
             layout.label(text="No active project.", icon="ERROR")
+        elif zone == "detail" and not detail_shown(self.kind):
+            hint = layout.row()
+            hint.active = False
+            hint.label(text="Click a row of the list to see it here.", icon="INFO")
         else:
-            self.draw_content(context, layout)
+            self.draw_content(context, layout, detail=zone != "list")
         # A window's height of blank below: the Tool tab's other panels
         # (Options, Workspace) out of sight, even scrolled.
         spacer = layout.column()
@@ -71,9 +80,9 @@ class M_PIPELINE_PT_monitoring(_MonitoringPanel, bpy.types.Panel):
     bl_idname = "M_PIPELINE_PT_monitoring"
     kind = "project"
 
-    def draw_content(self, context, layout):
+    def draw_content(self, context, layout, detail=True):
         state = context.window_manager.pipeline_monitoring
-        missing = monitoring_detail("missing_file")
+        missing = detail and monitoring_detail("missing_file")
         if missing:
             row = layout.row(align=True)
             row.box().operator(
@@ -83,7 +92,7 @@ class M_PIPELINE_PT_monitoring(_MonitoringPanel, bpy.types.Panel):
                 text=f"File not found in this project: {missing}", icon="ERROR"
             )
             return
-        if monitoring_detail("file"):
+        if detail and monitoring_detail("file"):
             draw_file_details(state, context, layout)
             return
 
@@ -122,11 +131,11 @@ class M_PIPELINE_PT_farm_monitoring(_MonitoringPanel, bpy.types.Panel):
     bl_idname = "M_PIPELINE_PT_farm_monitoring"
     kind = "farm"
 
-    def draw_content(self, context, layout):
-        if monitoring_detail("job"):  # opened from a worker's too: on top
+    def draw_content(self, context, layout, detail=True):
+        if detail and monitoring_detail("job"):  # opened from a worker's too: on top
             draw_farm_job_details(layout.box(), context)
             return
-        if monitoring_detail("worker"):
+        if detail and monitoring_detail("worker"):
             draw_farm_worker_details(layout.box(), context)
             return
 
@@ -161,7 +170,7 @@ class M_PIPELINE_PT_log_monitoring(_MonitoringPanel, bpy.types.Panel):
     bl_idname = "M_PIPELINE_PT_log_monitoring"
     kind = "log"
 
-    def draw_content(self, context, layout):
+    def draw_content(self, context, layout, detail=True):
         state = context.window_manager.pipeline_log_monitoring
         filters = layout.box().split(factor=0.3)
         filters.label(text="Pipeline log", icon="TEXT")

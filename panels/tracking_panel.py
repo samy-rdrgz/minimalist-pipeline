@@ -10,6 +10,7 @@ from ..farm import farm_activity
 from ..lib import (
     APPROVAL_SOURCE,
     local_time,
+    monitoring_zone,
     REVIEW_SOURCE,
     TEAM_REVIEW_SOURCE,
     ConfigCache,
@@ -857,6 +858,8 @@ def draw_file_details(state, context, layout):
 # What Project monitoring's window holds besides its rows (filters,
 # table header, footer, margins), in widget units -- see rows_that_fit().
 _TABLE_RESERVED_UNITS = 6.5
+# Narrower (px at UI scale 1), the list beside a detail shows its names only.
+_NAMES_ONLY_WIDTH = 600
 _TABLE_TIP = (
     "Click a file for its details (Ctrl+click the Project monitoring button: "
     "the file open here). Each department's state since the last stable, "
@@ -965,18 +968,24 @@ def draw_monitor_table(self, context, layout, columns, project_root):
     activity = farm_activity()
     matches, filters = monitor_matches(self, context, project_root, activity)
     FIRST_COLUMN = 0.3
+    # The list's zone narrowed beside a detail: its names only (1.0: no
+    # other column). See NOTES.md, "Monitoring: the detail beside the list".
+    scale = context.preferences.system.ui_scale or 1.0
+    if monitoring_zone(context) == "list" and context.area.width < _NAMES_ONLY_WIDTH * scale:
+        FIRST_COLUMN = 1.0
 
     total = len(matches)
 
     draw_box_tip(layout, context, _TABLE_TIP)
     f_list = layout.box()
-    title_list = f_list.split(factor=FIRST_COLUMN)
+    title_list = f_list.split(factor=FIRST_COLUMN) if FIRST_COLUMN < 1 else f_list.row()
     title_list.active = False
     title_list.label(text="File", icon="RADIOBUT_ON")
-    cells = _equal_cells(title_list.row(), len(columns) + 1)
-    for cell, c in zip(cells, columns):
-        cell.label(text=c.capitalize(), icon="KEYFRAME_HLT")
-    cells[-1].label(text="Farm", icon="RENDER_ANIMATION")
+    if FIRST_COLUMN < 1:
+        cells = _equal_cells(title_list.row(), len(columns) + 1)
+        for cell, c in zip(cells, columns):
+            cell.label(text=c.capitalize(), icon="KEYFRAME_HLT")
+        cells[-1].label(text="Farm", icon="RENDER_ANIMATION")
 
     f_list.separator(factor=1)
 
@@ -1030,7 +1039,7 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None)
     """One file's row of Project monitoring: name (opens its detail), a
     status cell per department column, then its Farm cell."""
     row = f_list.column()
-    split = row.split(factor=first_column)
+    split = row.split(factor=first_column) if first_column < 1 else row
     name = split.row()
     name.alignment = "LEFT"
     # An RTK on a department reds that department; one on none, the name.
@@ -1061,6 +1070,9 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None)
     details = details.row()
     details.active = False
     icon_button(details, "m_pipeline.open_file_version", safe_icon("FILE_ALIAS", "FILE_BLEND"), filepath=str(dir))
+    if first_column >= 1:  # names only
+        f_list.separator(factor=0.5, type="LINE")
+        return
     cells = _equal_cells(split.row(), len(columns) + 1)
     roles = validation_roles()
     top = max((r["level"] for r in roles), default=None)
@@ -1227,10 +1239,13 @@ def _draw_monitor_blank_row(f_list, columns, first_column):
     """Empty row, same height as a file's -- a page's padding."""
     row = f_list.column()
     row.active = False
-    split = row.split(factor=first_column)
-    split.row().label(text="")
-    for cell in _equal_cells(split.row(), len(columns) + 1):  # + "Farm"
-        cell.label(text="", icon="BLANK1")
+    if first_column >= 1:  # names only
+        row.label(text="")
+    else:
+        split = row.split(factor=first_column)
+        split.row().label(text="")
+        for cell in _equal_cells(split.row(), len(columns) + 1):  # + "Farm"
+            cell.label(text="", icon="BLANK1")
     f_list.separator(factor=0.5, type="LINE")
 
 
