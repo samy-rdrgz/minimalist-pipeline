@@ -318,6 +318,19 @@ Le script permet de **supprimer tout le legacy actuel** : `_legacy_carried()`, l
 | 1C.4 | Heartbeats et vie des machines en secondes epoch | `farm/workers.py`, `farm/monitor.py`, `farm/loop.py`, `panels/farm_panel.py` |
 | 1C.5 | Vérifier la lecture et l'affichage des dates avec décalage dans la page HTML | `templates/snapshot/page.js` |
 
+#### 1D — Alléger la page du snapshot
+
+Relevé du 14/11 : le JS est déjà compact (132 fonctions toutes appelées, quasiment aucun doublon). Le gain est surtout sur chaque snapshot exporté, qui embarque toute la page (~170 Ko).
+
+| # | Tâche | Où |
+|---|---|---|
+| 1D.1 | Retirer les règles CSS mortes : `.b-valid`, `.b-old`, `.gr`, `.grab`, `.links` (3 règles), `.no-open` (~0,6 Ko) | `templates/snapshot/page.css` |
+| 1D.2 | Les icônes SVG écrites deux fois (aide et filtres) en `<symbol>` + `<use>`, comme le logo (~1,4 Ko) | `templates/snapshot/page.html` |
+| 1D.3 | Retirer les commentaires du JS et du CSS **à l'export** (les sources restent commentées) : −21 Ko par snapshot, −12 %. Pas de minification, qui demanderait un outil externe | `lib/snapshot_page.py` `render_html()` |
+| — | **Pas maintenant** : le code de la review (~185 lignes, 17 Ko du JS), remplacé par le format en actions de la phase 4 | `page.js` |
+
+À vérifier sur une vraie page exportée, dans un navigateur.
+
 ### Phase 2 — Rangement des snapshots et des reviews
 
 - **Copie de la review** : après un import réussi depuis Blender, copie du fichier original dans `snapshots/reviews/<rôle>/<AAAA-MM>/`, le mois de la review. Le nom contient déjà la date, le rôle et l'auteur. Le même fichier n'est pas recopié ; un fichier différent du même nom reçoit un suffixe ; rien n'est copié si l'import est annulé. *Import review* ouvre son sélecteur sur `snapshots/reviews/`.
