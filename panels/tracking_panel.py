@@ -1043,6 +1043,7 @@ def draw_monitor_table(self, context, layout, columns, project_root):
         for c_layout, c in zip(cells, columns):
             c_layout.label(text=c.capitalize())
         if show_farm:
+            cells[-1].alignment = "RIGHT"
             cells[-1].label(text="Farm", icon="RENDER_ANIMATION")
 
     f_list.separator(factor=1)
@@ -1097,14 +1098,16 @@ def draw_monitor_table(self, context, layout, columns, project_root):
 def _column_widths(width: float, shown: list, departments: int, show_farm: bool, activity: dict) -> tuple:
     """(the names' share of a row, each other column's width, marks alone)
     for a list width px wide (UI scale 1) showing shown: the names as wide
-    as the longest's letters (a quarter to 45 % of the row), the Farm
+    as the longest's letters (up to 45 % of the row), the Farm
     column as its most icons, the departments sharing the rest -- the
     names giving way first. Too narrow even so: the names alone, (1.0, [],
     False). See NOTES.md, "Monitoring: the detail beside the list"."""
     longest = max(
         (len(f.get("file_name", "")) for _, f in shown), default=12
     )
-    names = min(max(_NAME_ICONS_WIDTH + 7 * longest, 0.25 * width), 0.45 * width)
+    # As wide as the names need, no wider: a floor of a quarter of the row
+    # left short names a gap, the departments bunched in the middle.
+    names = min(max(_NAME_ICONS_WIDTH + 8 * longest, _NAME_MIN_WIDTH), 0.45 * width)
     farm = 0
     if show_farm:
         icons = max(
@@ -1337,13 +1340,14 @@ def _draw_farm_cell(cell, dir, file, jobs: list) -> None:
     popup's icon for its stage.
     Details in the tooltips. Then one checkbox marks every render to check
     checked (one by one in the file's details)."""
-    cell.label(text="", icon="BLANK1")
+    # Against the row's right edge.
+    cell.alignment = "RIGHT"
     renders = _to_check_lines(file)
     if not renders and not jobs:
         cell.label(text=" ", icon="BLANK1")
         return
     icons = cell.row(align=True)
-    icons.alignment = "LEFT"
+    icons.alignment = "RIGHT"
     icons.scale_x = 0.9  # icons close together
     # An older render to check comes before the shot's new job.
     items = [(shot, 0, info) for shot, info in renders]

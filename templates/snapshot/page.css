@@ -244,20 +244,26 @@ the next -- all in sight, nothing to scroll sideways. */
 turned 45 degrees); on hover or focus, a capsule with its words, over its
 neighbours. The legend's and the panel's .m, the same diamond, smaller. */
 .cell{position:relative;display:block;width:24px;height:24px;margin:0 auto}
-.cap{position:absolute;left:0;top:0;z-index:2;display:inline-flex;align-items:center;height:24px;max-width:24px;border-radius:12px;
-border:1px solid transparent;overflow:hidden;white-space:nowrap;transition:max-width .28s cubic-bezier(.2,.8,.2,1),padding .28s,box-shadow .2s,background .2s}
+/* Only the words are clipped: a capsule clipped whole (rounded, 24 px)
+cut its diamond's corners in some browsers. */
+.cap{position:absolute;left:0;top:0;z-index:2;display:inline-flex;align-items:center;height:24px;padding:0 1px;border-radius:12px;
+border:1px solid transparent;white-space:nowrap;transition:padding .28s,box-shadow .2s,background .2s}
 .cap .g,.m{position:relative;z-index:1;flex:none;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;line-height:1}
-.cap .g::before,.m::before{content:"";position:absolute;left:4px;top:4px;width:14px;height:14px;border-radius:3px;transform:rotate(45deg);z-index:-1}
-.cap .lab{opacity:0;margin-left:2px;color:var(--ink);font:700 10px/1 var(--mono);letter-spacing:.03em;transition:opacity .18s .06s}
-.cell:hover .cap,.cell:focus-within .cap,.cell.peek .cap{max-width:260px;padding-right:10px;background:var(--sunk);border-color:var(--line);box-shadow:0 6px 16px rgba(0,0,0,.35);z-index:5}
+.cap .g::before,.m::before{content:"";position:absolute;left:4px;top:4px;width:14px;height:14px;border-radius:3px;transform:rotate(45deg);z-index:-1;box-sizing:border-box}
+.cap .lab{display:block;max-width:0;overflow:hidden;opacity:0;margin-left:2px;color:var(--ink);font:700 10px/1 var(--mono);letter-spacing:.03em;
+transition:max-width .28s cubic-bezier(.2,.8,.2,1),opacity .18s .06s}
+.cell:hover .lab,.cell:focus-within .lab,.cell.peek .lab{max-width:240px}
+.cell:hover .cap,.cell:focus-within .cap,.cell.peek .cap{padding-right:10px;background:var(--sunk);border-color:var(--line);box-shadow:0 6px 16px rgba(0,0,0,.35);z-index:5}
 .cell:hover .lab,.cell:focus-within .lab,.cell.peek .lab{opacity:1}
 .cell:focus{outline:none}.cell:focus-visible .cap{outline:2px solid var(--accent);outline-offset:1px}
 .s-todo::before{border:1.5px solid var(--ring)}
-.s-wip::before{border:1.5px solid var(--wip);background:linear-gradient(135deg,transparent 50%,var(--wip) 50%)}
+/* Its half drawn from the border's edge: from inside it, a gap showed. */
+.s-wip::before{border:1.5px solid var(--wip);background:linear-gradient(135deg,transparent 50%,var(--wip) 50%) border-box}
 /* Reworked: the same diamond, opened on its top-left edge, an arrow at the
 stroke's end -- a mask, so its colour follows the theme. */
 .s-rework{font-size:0}
-.s-rework::before{left:0;top:0;width:22px;height:22px;border-radius:0;transform:none;background:var(--wip);
+/* As specific as .cap .g::before, which it overrides. */
+.g.s-rework::before,.m.s-rework::before{left:0;top:0;width:22px;height:22px;border-radius:0;transform:none;background:var(--wip);
 -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-11 -11 22 22'%3E%3Cg transform='rotate(45)'%3E%3Crect x='-6.25' y='-6.25' width='12.5' height='12.5' rx='2.25' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-dasharray='35.9 5.4 4.84'/%3E%3Cpath d='M-6.25 0.3L-8.55 3L-3.95 3Z' fill='black' stroke='black' stroke-width='.5' stroke-linejoin='round'/%3E%3C/g%3E%3C/svg%3E") center/22px 22px no-repeat;
 mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-11 -11 22 22'%3E%3Cg transform='rotate(45)'%3E%3Crect x='-6.25' y='-6.25' width='12.5' height='12.5' rx='2.25' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-dasharray='35.9 5.4 4.84'/%3E%3Cpath d='M-6.25 0.3L-8.55 3L-3.95 3Z' fill='black' stroke='black' stroke-width='.5' stroke-linejoin='round'/%3E%3C/g%3E%3C/svg%3E") center/22px 22px no-repeat}
 .s-done::before{background:var(--done)}

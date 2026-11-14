@@ -3990,9 +3990,11 @@ the right of the same window. Tried first outside the addon in Blender
   mouse (`_showing_detail(kind, context)`): pages on the list, scroll and
   ← / → between files on the detail; Esc closes from either.
 - **What fits in the list** (`_column_widths()`, from the page shown):
-  the names as wide as the longest's letters (`_NAME_ICONS_WIDTH` + 7 px a
-  letter, a quarter to 45 % of the row), the Farm column as its most
-  icons (`_FARM_MIN_WIDTH`, `_FARM_ICON_WIDTH` each), the departments
+  the names as wide as the longest's letters (`_NAME_ICONS_WIDTH` + 8 px a
+  letter, up to 45 % of the row -- a floor of a quarter left short names
+  a gap, the departments bunched in the middle), the Farm column as its
+  most icons (`_FARM_MIN_WIDTH`, `_FARM_ICON_WIDTH` each), against the
+  right edge, the departments
   sharing the rest (`_cells()`: splits by width). Equal shares had the
   first department touching a long name and a block's Farm icons crushed.
   Narrowing, the names give way first, down to `_NAME_MIN_WIDTH` (110 px

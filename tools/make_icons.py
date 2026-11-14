@@ -23,7 +23,6 @@ VAL = (0xA2, 0x1F, 0xF0)
 SUP = (0xD7, 0xB4, 0xFB)
 RTK = (0xC9, 0x44, 0x52)
 RTK_T = (0x99, 0x16, 0x16)
-POST = (0xFF, 0xF2, 0xF2)
 WHITE = (0xFF, 0xFF, 0xFF)
 INK = (0x3B, 0x16, 0x80)
 GREY = (0x8C, 0x8F, 0x96)
@@ -101,6 +100,15 @@ def check(width=5):
     return lambda x, y: a(x, y) or b(x, y)
 
 
+def eye(cx=C, cy=C, w=10, h=6, pupil=2.6):
+    """An eye: an almond (two arcs' lens) and its pupil."""
+    def inside(x, y):
+        dx, dy = (x - cx) / w, (y - cy) / h
+        return abs(dy) <= (1 - dx * dx) and abs(dx) <= 1 and not (math.hypot(x - cx, y - cy) <= pupil + 1.6 and math.hypot(x - cx, y - cy) > pupil)
+
+    return inside
+
+
 # The reworked diamond: open on its top-left edge (135 degrees), the
 # stroke's end an arrowhead -- clockwise, as the page's.
 _GAP = (122, 150)
@@ -117,16 +125,16 @@ MARKS = {
     # Validated: by a role (sup), by the top one (prod).
     "valid": [(SUP, diamond()), (INK, check())],
     "done_top": [(VAL, diamond()), (WHITE, check())],
-    # The stages: waiting on an earlier one (paused), to redo (reworked,
-    # its heart marked).
-    "waiting": [(RING, outline()), (RING, rect(C - 6, C - 7, C - 2, C + 7, 1)), (RING, rect(C + 2, C - 7, C + 6, C + 7, 1))],
-    "to_redo": [(WIP, outline(gap=_GAP)), (WIP, _ARROW), (WIP, diamond(5))],
+    # The stages: waiting on an earlier one (a clock in the diamond), to
+    # redo -- to rework, to check -- (the reworked arrow, an eye in it).
+    "waiting": [(RING, outline()), (RING, segment(C, C, C, C - 10, 4)), (RING, segment(C, C, C + 8, C, 4))],
+    "to_redo": [(WIP, outline(gap=_GAP)), (WIP, _ARROW), (WIP, eye())],
     # A department not required for the file.
     "none": [(GREY, segment(C - 9, C, C + 9, C, 4))],
     # Entries, as the page's post-its: a retake from a validation role
     # (red), from the team (outlined); a note under a role (violet).
     "rtk": [(RTK, rect(8, 18, 56, 46, 6))],
-    "team": [(RTK, rect(8, 18, 56, 46, 6)), (POST, rect(12, 22, 52, 42, 3))],
+    "team": [(RTK, lambda x, y: rect(8, 18, 56, 46, 6)(x, y) and not rect(13, 23, 51, 41, 3)(x, y))],
     "role": [(VAL, rect(8, 18, 56, 46, 6))],
 }
 
