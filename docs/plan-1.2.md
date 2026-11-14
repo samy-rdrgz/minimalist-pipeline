@@ -4,6 +4,31 @@
 
 Hypothèse de départ, validée : **tous les PC sont mis à jour en même temps.** Le code qui gère des machines sur des versions différentes peut donc disparaître.
 
+## 0. Pour reprendre dans une nouvelle conversation
+
+**État du dépôt au 14/11/2026 :**
+- `main` = **1.1.10** publiée (PR #30).
+- La branche `claude/tender-tesla-ov9148` a en plus deux changements **pas encore dans `main`**, notés dans la section `## Unreleased` du CHANGELOG :
+  - `c6f9250` — Farm monitoring : un rendu sur lequel plus aucune machine ne travaille s'affiche « waiting for a worker » ;
+  - `ab5cf25` — la molette tourne les pages des listes Project, Farm (Jobs) et Log.
+  
+  Ces deux changements **n'ont pas encore été testés dans Blender**. Pour la molette, il faut vérifier que le raccourci de l'addon passe bien avant le défilement de Blender (keymap « View2D Buttons List »).
+- Le reste de la branche, c'est ce document.
+- **À décider avant la phase 1** : fusionner d'abord ces deux changements dans `main`, puis partir de `main` pour la phase 1.
+
+**Ordre de travail** : les phases 1 à 6 de la section 3, dans l'ordre. **La phase 1 (simplification) passe avant tout le reste.** Seule la question 1 de la section 4 la concerne (étape 1B.5) ; les autres peuvent attendre les phases suivantes.
+
+**Comment tester sans Blender** (aucun Blender dans les sessions cloud) :
+- **Importer tout l'addon avec un faux `bpy`** : chaque module `bpy*`, `mathutils`, `gpu`, `blf`, `bmesh`… remplacé par un `MagicMock`, sauf `bpy.types`, à remplacer par un module dont chaque attribut est une classe vide (sinon `class X(bpy.types.Panel)` échoue). Puis `import <paquet>` depuis un dossier qui pointe vers le dépôt. Ça attrape les imports cassés et les noms manquants dans les `__init__`.
+- **Tester les fonctions pures directement** (états, voisins dans une liste, priorités, moyennes…), et les commandes ffmpeg en les lançant vraiment sur des frames générées par ffmpeg.
+- **Ruff** : comparer le nombre d'avertissements par règle avant et après, pas viser zéro. Le projet garde volontairement des `except Exception` dans les fonctions qui ne doivent jamais lever d'erreur.
+- **Le détecteur de code dupliqué** (étape 1A.8) : comparer des fenêtres de N lignes de code après normalisation (noms → `N`, textes → `S`, nombres → `0`, sans commentaires ni docstrings).
+
+**Construire un zip de test**, comme `blender --command extension build` :
+- partir des fichiers suivis par git (`git ls-files`) ;
+- appliquer les exclusions de `blender_manifest.toml` : fichiers et dossiers en `.`, `__pycache__/`, `/docs/`, `/NOTES.md`, `/CODE.md`, `/graph.md`, `/README.md`, `/README_fr.md`, les `.zip` à la racine, `*.blend1`… — et `/CHANGELOG.md` une fois l'étape 1B.1 faite ;
+- mettre les fichiers à la racine du zip.
+
 ---
 
 ## 1. Pourquoi l'addon pèse ×3,1 depuis la v1
