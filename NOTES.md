@@ -4684,7 +4684,10 @@ review, the phone and the iPad. What holds across them:
   file's line.
 - **The header is one line**, sticky (`--hdr-h`, the filters' bar under
   it, the columns' names under both): the summary cards made the list
-  start half a screen down. The figures moved to *Breakdown*, a window.
+  start half a screen down. The figures moved to *Breakdown*, a tab after
+  the sections (a window first: many sequences scrolled in it). The
+  glow is fixed to the window and the bars clear until the page scrolls:
+  a short page (all folded) showed the header as a grey band.
 - Fonts: Inter, else the system's (not embedded: 350 KB a page). Icons:
   stand-ins drawn here until Blender's own (to come) replace them.
 - **One player** (`PL`, page.js "the player"): its `<video>` made once

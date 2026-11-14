@@ -44,7 +44,8 @@ it.todos={};it.dnotes={};open.forEach(function(n){if(n.type==='todo'&&n.done===f
 // An open note on a department (a remark, the prod's "n:" one): its grey ◆ too.
 else if(n.type==='note'&&!n.approval)n.deps.forEach(function(d){it.dnotes[d]=(it.dnotes[d]||0)+1;});});
 it.openNotes=open.filter(function(n){return !(n.type==='rtk'&&n.done===false)&&!n.approval;});});
-var tabs=TABS.filter(function(t){return D.some(function(it){return it.tab===t[0];});});
+// The sections present, then Breakdown: the progress by group and department.
+var tabs=TABS.filter(function(t){return D.some(function(it){return it.tab===t[0];});}).concat([['breakdown','Breakdown']]);
 function depsOf(tab){return META.departments[tab==='shot'?'shot':'asset'];}
 function validNow(it,d){return it.ok[d]&&!it.ok[d].old;}
 
@@ -61,6 +62,12 @@ function mark(s){return s?'<i class="m s-'+s+'" title="'+LABEL[s]+'"></i>':'<i c
 // else its state.
 function validAt(it,d){var o=it.ok[d];return it.states[d]==='done'&&o&&!o.old?o:null;}
 function symCls(it,d){var o=validAt(it,d);return o?(o.role===META.role?'s-prod':'s-sup'):'s-'+it.states[d];}
+// Waiting on an earlier stage, to redo since one changed: Project
+// monitoring's marks -- a clock, an eye in the diamond -- in the colour of
+// the state under them.
+var STATE_C={todo:'var(--ring)',wip:'var(--wip)',rework:'var(--wip)',done:'var(--done)'};
+function flagSym(it,d){var f=(it.flags||{})[d]||{},o=validAt(it,d),c=o?'var(--val-f)':STATE_C[it.states[d]]||'var(--ring)';
+return f.waiting?' s-wait" style="--sc:'+c:f.to_redo?' s-redo" style="--sc:'+c:'';}
 // Its capsule's words: the state with its version, the validation, a
 // stage's flag (lib/status.py stage_flags()) with its reason.
 function capWords(it,d){var s=it.states[d],o=it.ok[d],v=validAt(it,d),f=(it.flags||{})[d]||{},w;
@@ -73,14 +80,14 @@ return w;}
 // An open retake on a department: its post-it -- red from a validation
 // role, outlined from the team, their number in it. [html, words].
 function rtkTag(it,d){var r=it.rtk[d];if(!r)return null;var n=(it.rtkNotes[d]||[]).length||1;
-return ['<span class="pi pi-'+(r==='team'?'team':'role')+'">RTK'+(n>1?' '+n:'')+'</span>',
+return ['<span class="pi pi-'+(r==='team'?'team':'role')+'">'+(n>1?n+' ':'')+'RTK</span>',
 (n>1?n+' open retakes':'an open retake')+(r==='team'?' from the team':' from a validation role')];}
 // A department's cell: its symbol, its capsule on hover or focus, its
 // retake's post-it, your review's say. Not required: empty.
 function cell(it,d){if(!it.states[d])return '<span class="cell na" aria-label="'+esc(cap(d))+': not required"></span>';
 var w=capWords(it,d),r=rtkTag(it,d),f=(it.flags||{})[d]||{};
-return '<span class="cell" tabindex="0" aria-label="'+esc(cap(d)+': '+w.toLowerCase()+(r?', '+r[1]:''))+'"><span class="cap'+(f.waiting?' wait':'')+'"><span class="g '+symCls(it,d)+'">'+
-(validAt(it,d)?'✓':'')+'</span><span class="lab">'+esc(w)+'</span></span>'+(r?r[0]:'')+you(it,d)+'</span>';}
+return '<span class="cell" tabindex="0" aria-label="'+esc(cap(d)+': '+w.toLowerCase()+(r?', '+r[1]:''))+'"><span class="cap"><span class="g '+(flagSym(it,d)?flagSym(it,d).slice(1):symCls(it,d))+'">'+
+(validAt(it,d)&&!flagSym(it,d)?'✓':'')+'</span><span class="lab">'+esc(w)+'</span></span>'+(r?r[0]:'')+you(it,d)+'</span>';}
 function okTag(it,d){var o=it.ok[d];if(!o)return '';
 return '<span class="ok'+(o.old?' old':'')+'" title="'+esc(o.tip)+'">✓ '+esc(o.role)+'</span>';}
 function rkTag(it,d){var r=rtkTag(it,d);return r?r[0]:'';}
@@ -142,14 +149,24 @@ var IC={eye:'<path d="M1.5 8s2.4-4.5 6.5-4.5S14.5 8 14.5 8 12.1 12.5 8 12.5 1.5 
 time:'<circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 4.6V8l2.4 1.6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',
 render:'<rect x="1.5" y="3" width="13" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M6.5 5.8v4.4L10.2 8z" fill="currentColor"/>',
 cancel:'<path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
-warn:'<path d="M8 2l6.5 11.5h-13z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M8 6.5v3.2M8 11.6v.1" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>'};
+warn:'<path d="M8 2l6.5 11.5h-13z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M8 6.5v3.2M8 11.6v.1" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>',
+// The player's, after Blender's PLAY, PAUSE, FRAME_PREV / NEXT, REW / FF,
+// FULLSCREEN_ENTER / EXIT.
+play:'<path d="M4.5 2.8v10.4c0 .6.6 1 1.1.7l8-5.2c.5-.3.5-1 0-1.3l-8-5.2c-.5-.4-1.1 0-1.1.6z" fill="currentColor"/>',
+pause:'<rect x="3.5" y="2.5" width="3" height="11" rx="1" fill="currentColor"/><rect x="9.5" y="2.5" width="3" height="11" rx="1" fill="currentColor"/>',
+fprev:'<rect x="3" y="3" width="2" height="10" rx=".8" fill="currentColor"/><path d="M12.5 3.6v8.8c0 .5-.5.8-.9.5L6 8.5c-.4-.3-.4-.8 0-1.1l5.6-4.3c.4-.3.9 0 .9.5z" fill="currentColor"/>',
+fnext:'<rect x="11" y="3" width="2" height="10" rx=".8" fill="currentColor"/><path d="M3.5 3.6v8.8c0 .5.5.8.9.5L10 8.5c.4-.3.4-.8 0-1.1L4.4 3.1c-.4-.3-.9 0-.9.5z" fill="currentColor"/>',
+rew:'<rect x="1.5" y="3" width="2" height="10" rx=".8" fill="currentColor"/><path d="M9 3.8v8.4L4.5 8zM14.5 3.8v8.4L10 8z" fill="currentColor" stroke="currentColor" stroke-width=".8" stroke-linejoin="round"/>',
+ff:'<rect x="12.5" y="3" width="2" height="10" rx=".8" fill="currentColor"/><path d="M7 3.8v8.4L11.5 8zM1.5 3.8v8.4L6 8z" fill="currentColor" stroke="currentColor" stroke-width=".8" stroke-linejoin="round"/>',
+fsin:'<path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>',
+fsout:'<path d="M6 2.5V6H2.5M13.5 6H10V2.5M10 13.5V10h3.5M2.5 10H6v3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>'};
 function ico(n){return '<svg class="ico" viewBox="0 0 16 16" aria-hidden="true">'+IC[n]+'</svg>';}
 function tag(cls,icon,text,tip){return '<span class="tg tg-'+cls+'"'+(tip?' title="'+esc(tip)+'"':'')+'>'+(icon?ico(icon):'')+esc(text)+'</span>';}
 // Under a file's name: a retake on no department, then its renders' tags
 // -- to check, outdated, in the farm (queued, rendering, failed).
 function flags(it){var h='',e=peek(it);
 if(it.genRtks.length){var tm=it.genRtks.every(function(n){return n.team;});
-h+='<span class="inl" title="An open retake on no department: it holds back every department"><span class="pi pi-'+(tm?'team':'role')+'">RTK'+(it.genRtks.length>1?' '+it.genRtks.length:'')+' · WHOLE FILE</span></span>';}
+h+='<span class="inl" title="An open retake on no department: it holds back every department"><span class="pi pi-'+(tm?'team':'role')+'">'+(it.genRtks.length>1?it.genRtks.length+' ':'')+'RTK · WHOLE FILE</span></span>';}
 // A retake on no department in your review: the departments' own ✕ you.
 var gen=answered(it).gen;
 if(e.text.trim()||gen)h+='<span class="inl">'+(noteOnly(e.text)&&!gen?youNote():'<span class="you n" title="A retake on no department, in your review">✕ YOU</span>')+'</span>';
@@ -229,7 +246,7 @@ function avg(a){var n=a.filter(function(x){return x!=null;});return n.length?n.r
 function filtering(){return !!(state.q||state.dep||Object.keys(state.f).some(function(f){return state.f[f];}));}
 var visible=[];
 function drawTabs(){$('seg').innerHTML=tabs.map(function(t){return '<button type="button" data-tab="'+t[0]+'" aria-pressed="'+(t[0]===state.tab)+'">'+t[1]+
-'<span>'+D.filter(function(it){return it.tab===t[0];}).length+'</span></button>';}).join('');
+(t[0]==='breakdown'?'':'<span>'+D.filter(function(it){return it.tab===t[0];}).length+'</span>')+'</button>';}).join('');
 var deps=depsOf(state.tab).filter(function(d){return D.some(function(it){return it.tab===state.tab&&d in it.states;});});
 if(deps.indexOf(state.dep)<0)state.dep='';
 $('depf').innerHTML='<option value="" data-short="All depts.">All departments</option>'+deps.map(function(d){return '<option value="'+esc(d)+'"'+(d===state.dep?' selected':'')+'>'+esc(cap(d))+'</option>';}).join('');
@@ -240,7 +257,7 @@ return it.tab===state.tab&&(!state.dep||state.dep in it.states)&&FILTERS[b.datas
 var rowDeps=[],rowCols='';
 function rowHtml(it){var deps=rowDeps,cols=rowCols;
 // Tinted once this review touched it: where you've been, at a glance.
-return '<div class="row'+(it.omit?' omit':'')+(changes(it)?' rv-mine':'')+(it.i===cur?' sel':'')+'" role="button" tabindex="0" data-i="'+it.i+'" style="--cols:'+cols+'"'+(changes(it)?' title="In your review"':'')+'>'+thumb(it)+
+return '<div class="row'+(it.omit?' omit'+(it.omit.state==='cancelled'?' cancelled':''):'')+(changes(it)?' rv-mine':'')+(it.i===cur?' sel':'')+'" role="button" tabindex="0" data-i="'+it.i+'" style="--cols:'+cols+'"'+(changes(it)?' title="In your review"':'')+'>'+thumb(it)+
 '<span class="r-name">'+nameHtml(it)+'<small>'+subline(it)+'</small><span class="flags">'+flags(it)+'</span></span>'+
 deps.map(function(d){return '<span class="d">'+cell(it,d)+'</span>';}).join('')+
 '<span class="r-pct">'+(it.tracked?dv(it.done,it.valid):'<span class="faint">–</span>')+'</span>'+
@@ -255,6 +272,9 @@ var tmp=document.createElement('div');tmp.innerHTML=rowHtml(D[i]);var n=tmp.firs
 row.className=n.className;if(n.title)row.title=n.title;else row.removeAttribute('title');row.innerHTML=n.innerHTML;
 var grp=row.closest('.group');if(grp)grp.classList.toggle('rv-all',allReviewed(D[i].group));chipCounts();countBar();}
 function render(){chipCounts();
+// Breakdown: the figures in place of the list, no filter to apply.
+document.body.classList.toggle('tab-bd',state.tab==='breakdown');
+if(state.tab==='breakdown'){visible=[];$('list').innerHTML='<div class="bd">'+stats()+'</div>';countBar();return;}
 var items=D.filter(function(it){return match(it);});
 var deps=depsOf(state.tab).filter(function(d){return items.some(function(it){return d in it.states;});});
 // Many departments: narrower columns, never past the page.
@@ -278,7 +298,7 @@ if(un.length&&!state.untracked[key]&&!filt)body+='<button class="untracked" data
 var nv=groupVideos(g).length;
 // A div, not a button: its playlist's ▶ sits in it, after the name.
 return '<div class="group'+(closed?' closed':'')+(allReviewed(g)?' rv-all':'')+'"><div class="g-h" role="button" tabindex="0" aria-expanded="'+!closed+'" data-g="'+esc(g)+'"><span class="g-name"><i class="caret"></i>'+esc(g)+
-(nv?'<button type="button" class="g-play play" data-gplay="'+esc(g)+'" title="Play the '+esc(g)+' videos in a row ('+nv+')" aria-label="Play the '+esc(g)+' videos in a row">▶</button>':'')+'<small>'+plural(all.length,'file')+'</small></span>'+
+(nv?'<button type="button" class="g-play play" data-gplay="'+esc(g)+'" title="Watch the '+esc(g)+' videos in a row ('+nv+')" aria-label="Watch the '+esc(g)+' videos in a row">'+ico('play')+'</button>':'')+'<small>'+plural(all.length,'file')+'</small></span>'+
 (done!=null?'<span class="g-pct">'+dv(done,val)+'</span>':'<span class="g-pct faint">not tracked</span>')+
 '</div><div class="rows">'+(tr.length?head:'')+body+'</div></div>';}).join('');
 // The row or group that had the focus has it again (the keys go on),
@@ -500,14 +520,14 @@ return out.sort(function(p,q){return p.a-q.a;});}
 function plHtml(mode){var many=PL.list.length>1||mode==='wide';
 return '<div class="pv-slot"></div><div class="pv-msg" hidden></div>'+
 '<div class="tl"><div class="tl-in"><i class="tl-fill"></i><span class="tl-marks"></span><i class="tl-head"></i></div><input type="range" class="tl-r" min="0" max="1000" value="0" aria-label="Position"></div>'+
-'<div class="pc">'+(mode==='wide'?'<button type="button" class="vb" data-pv="prevv" aria-label="Previous video">⏮</button>':'')+
-'<button type="button" class="vb" data-pv="-1" aria-label="Previous frame" title="Previous frame (,)">◂</button>'+
-'<button type="button" class="vb play pp" data-pv="pp" aria-label="Play">▶</button>'+
-'<button type="button" class="vb" data-pv="1" aria-label="Next frame" title="Next frame (.)">▸</button>'+
-(mode==='wide'?'<button type="button" class="vb" data-pv="nextv" aria-label="Next video">⏭</button>':'')+
+'<div class="pc">'+(mode==='wide'?'<button type="button" class="vb" data-pv="prevv" aria-label="Previous video" title="Previous video (←)">'+ico('rew')+'</button>':'')+
+'<button type="button" class="vb" data-pv="-1" aria-label="Previous frame" title="Previous frame (,)">'+ico('fprev')+'</button>'+
+'<button type="button" class="vb play pp" data-pv="pp" aria-label="Play">'+ico('play')+'</button>'+
+'<button type="button" class="vb" data-pv="1" aria-label="Next frame" title="Next frame (.)">'+ico('fnext')+'</button>'+
+(mode==='wide'?'<button type="button" class="vb" data-pv="nextv" aria-label="Next video" title="Next video (→)">'+ico('ff')+'</button>':'')+
 '<span class="pf"><b class="pf-n">f–</b><span class="pf-r"></span></span><span class="pc-gap"></span>'+
-(mode==='wide'?'<span class="strip"></span><button type="button" class="vb" data-pv="fs" aria-label="Full screen" title="Full screen">⤢</button>':
-(many?'<span class="pv-at"></span>':'')+'<button type="button" class="btn wl-b" data-pv="wide" title="Watch large: the video, the departments and the notes at their frames">⤢ Watch large</button>')+'</div>';}
+(mode==='wide'?'<span class="strip"></span><button type="button" class="vb" data-pv="fs" aria-label="Full screen" title="Full screen">'+ico('fsin')+'</button>':
+(many?'<span class="pv-at"></span>':'')+'<button type="button" class="btn wl-b" data-pv="wide" title="Watch large: the video, the departments and the notes at their frames">'+ico('fsin')+'Watch large</button>')+'</div>';}
 // A list of videos into a host: the panel's (paused on its first frame,
 // the thumbnail over it) or Watch large's.
 function playerFor(it){var list=allVideos(it);if(!list.length)return null;
@@ -532,7 +552,7 @@ var pn=q('.pf-n');if(pn)pn.textContent=fLabel(v,f);
 var pr=q('.pf-r');if(pr)pr.textContent=(n?' / '+fLabel(v,v.start!=null?v.start+n-1:n):'')+(PL.mode==='wide'?' · '+clock(el.currentTime):'')+(FPS?' · '+FPS+' fps':'');
 var hd=q('.tl-head');if(hd)hd.style.left=pct2+'%';var fl=q('.tl-fill');if(fl)fl.style.width=pct2+'%';
 var rg=q('.tl-r');if(rg&&!PL.seeking)rg.value=Math.round(pct2*10);
-var pp=q('.pp');if(pp){pp.textContent=el.paused?'▶':'❚❚';pp.setAttribute('aria-label',el.paused?'Play':'Pause');}
+var pp=q('.pp');if(pp&&pp.dataset.st!==String(el.paused)){pp.dataset.st=el.paused;pp.innerHTML=ico(el.paused?'play':'pause');pp.setAttribute('aria-label',el.paused?'Play':'Pause');}
 var at=q('.pv-at');if(at)at.textContent=(v.shot?v.shot+' · ':'')+(PL.at+1)+' / '+PL.list.length;
 document.querySelectorAll('.addf').forEach(function(b){b.textContent='+ '+fLabel(v,f);});
 document.querySelectorAll('.addf-l').forEach(function(b){b.textContent=fLabel(v,f);});
@@ -633,12 +653,7 @@ return v==null?'<td class="na">–</td>':'<td style="background:color-mix(in srg
 h+='<div class="st-sec"><h3>'+s[1]+'</h3><div class="st-grid">'+
 bars(s[2],order.map(function(g){return [g,avg(groups[g].map(function(i){return i.done;})),plural(groups[g].length,'file'),avg(groups[g].map(function(i){return i.valid;}))];}))+
 bars('By department',deps.map(function(d){return [cap(d),dep(items,d),'',avg(items.map(function(it){return d in it.states?(validNow(it,d)?1:0):null;}))];}))+grid+'</div></div>';});
-$('stats').innerHTML=scheduleCard()+h+'<p class="weights">'+esc($('weights').textContent)+'</p>';}
-// The Breakdown window: the stats, over the page.
-function breakdown(on){$('bdw').hidden=!on;lockPage('bd',on);if(on)$('bd-x').focus();else $('bdb').focus();}
-$('bdb').addEventListener('click',function(){breakdown(true);});
-$('bd-x').addEventListener('click',function(){breakdown(false);});
-$('bdw').addEventListener('click',function(e){if(e.target===this)breakdown(false);});
+return scheduleCard()+h+'<p class="weights">'+esc($('weights').textContent)+'</p>';}
 
 /* ---------- a file's panel ---------- */
 var cur=null,lastFocus=null,showClosed=false,showNotes=null,editing={};
@@ -692,7 +707,7 @@ function depSummary(it,d){var all=it.notes.filter(function(n){return !n.closed&&
 return [d?LABEL[it.states[d]].toLowerCase():'',r?plural(r,'retake'):'',o?plural(o,'thread'):''].filter(Boolean).join(' · ');}
 // Reviewing, a reply to an open note or RTK: a comment in its thread at
 // import, the retake left open (Fixed says it's done).
-function replyBtn(n){return '<button type="button" class="rp" data-reply="'+esc(n.id)+'" aria-label="Reply" title="Reply in its thread: a retake (still to redo, its department sent back) — or note: a remark">↩</button>';}
+function replyBtn(n){return '<button type="button" class="rp" data-reply="'+esc(n.id)+'" title="Reply in its thread: a retake (still to redo, its department sent back) — or note: a remark">↩ Reply</button>';}
 // A retake, red -- "note:" lines alone a remark, grey (as a department's box).
 function replyBox(n){var r=(peek(D[cur]).replies||{})[n.id];if(r==null&&!editing['r:'+n.id])return '';var nt=noteOnly(r);
 return '<div class="reply-box'+(nt?' as-note':'')+'"><span class="you '+(nt?'nt':'n')+'" title="'+(nt?'A remark in its thread':'A retake in its thread: its department sent back')+'">↩ you</span><textarea rows="1" class="rp-t" data-r="'+esc(n.id)+'" placeholder="Still to redo: what — or note: a remark">'+esc(r||'')+'</textarea></div>';}
@@ -789,7 +804,7 @@ var r=s.getBoundingClientRect(),top=bar.getBoundingClientRect().bottom+40;if(!sa
 p.setAttribute('aria-modal',phone.matches||document.body.classList.contains('panel-full')?'true':'false');
 try{history.replaceState(null,'','#'+encodeURIComponent(it.name));}catch(err){}}
 function refresh(){var y=$('p-body').scrollTop;openPanel(cur);$('p-body').scrollTop=y;renderRow(cur);save();fieldLeft();
-if(!$('wl').hidden){if(PL){PL.marks=marksOf(PL.it,PL.v);drawMarks();}wlSide();}}
+if(PL&&PL.it===D[cur]){PL.marks=marksOf(PL.it,PL.v);drawMarks();}if(!$('wl').hidden)wlSide();}
 // The page held still (fixed where it is, put back once let go): under
 // the full-screen panel (a phone, panel-full), the lightbox, and on a
 // touch screen an open list or menu, the dialog, a field being written
@@ -934,6 +949,8 @@ else if(t.id==='desc-t')e.desc=t.value;
 if(t.dataset.k&&t.dataset.k.indexOf('d:')===0){var dd=t.dataset.k.slice(2),vd=verdict(it,dd),dep=$('p-body').querySelector('.rvb[data-d="'+CSS.escape(dd)+'"]');
 if(dep&&dep.querySelector('.ko-b').classList.contains('as-note')!==(vd==='note')){dep.querySelector('.ko-b').classList.toggle('as-note',vd==='note');
 var y=dep.parentNode.querySelector('.mid .you');if(y)y.outerHTML=you(it,dd);renderRow(cur);}}
+// A [f20] written: its mark on the timeline at once.
+if(PL&&PL.it===it&&t.dataset.k){PL.marks=marksOf(it,PL.v);drawMarks();}
 $('p-flags').innerHTML=flags(it);var row=$('list').querySelector('.row[data-i="'+cur+'"]');
 if(row){var fl=row.querySelector('.flags');if(fl)fl.innerHTML=flags(it);
 // Its tint as you type: a general retake or a description counts once written.
@@ -952,7 +969,6 @@ return;}
 if(!$('wl').hidden){var kk=e.key;if(kk==='Escape')closeWatch();else if(kk===' '&&PL){if(PL.el.paused)PL.el.play();else PL.el.pause();}
 else if(kk===','||kk==='.')stepFrame(kk===','?-1:1);else if(kk==='ArrowLeft'||kk==='ArrowRight')nextVideo(kk==='ArrowLeft'?-1:1);else return;e.preventDefault();return;}
 if(!$('dlg').hidden){if(e.key==='Escape'){$('dlg').hidden=true;e.preventDefault();}return;}
-if(!$('bdw').hidden){if(e.key==='Escape'){breakdown(false);e.preventDefault();}return;}
 // "/": go to a file.
 if(e.key==='/'&&!e.ctrlKey&&!e.metaKey&&!e.altKey){e.preventDefault();$('q').focus();return;}
 if(e.key==='Escape'&&MENUS.some(function(m){return !$(m[1]).hidden;})){closeMenus();return;}
@@ -1105,7 +1121,7 @@ rd.readAsText(file);});});
 try{var kept=JSON.parse(localStorage.getItem(KEY)||'null');if(kept&&kept.files){rv=kept;rv.date=rv.date||'';
 $('author').value=rv.author||'';$('role').value=rv.role||'';sync('role');
 if(summary().files){document.body.classList.add('reviewing');try{if(localStorage.getItem(FOLD)==='1'&&rv.author)document.body.classList.add('rb-folded');}catch(e){}setTimeout(function(){toast('Your review in progress is back (kept in this browser).');},300);}}}catch(e){}
-summaryCards();drawTabs();render();stats();barHeight();
+summaryCards();drawTabs();render();barHeight();
 // A link to a file (#its name) opens it.
 var want=decodeURIComponent(location.hash.slice(1));if(want&&byName[want])jump(byName[want]);
 })();

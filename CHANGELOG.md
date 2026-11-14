@@ -8,10 +8,10 @@ All notable changes to this addon. Dates are release dates.
 
 - Snapshot page, v3 (step 1 of its redesign): dark by default, Blender's
   mood, one colour for one meaning; a one-line header staying in view
-  (Done and Validated per section, *Go to a file…* with /, *Breakdown*
-  -- the progress details in a window --, *Review*); keyframe diamonds
+  (Done and Validated per section, *Go to a file…* with /, *Review*);
+  *Breakdown*, a tab after the sections, the progress details; keyframe diamonds
   for the states, their words in a capsule on hover; retakes as post-its
-  (`RTK 2`); render tags under the name; files set aside faded.
+  (`2 RTK`); Waiting and To redo diamonds (a clock, an eye); render tags under the name; files set aside faded.
 - Snapshot page, step 2: the player in the file's panel, its timeline
   carrying the notes at their frames (a click goes there), frame by
   frame; *Watch large*: the video the whole window, the departments

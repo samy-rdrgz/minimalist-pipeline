@@ -64,7 +64,10 @@ html{-webkit-text-size-adjust:100%}
 page.js -- an app's viewer (Documents, on an iPad) shows and hides its
 status bar at each tap, and the page moved by 20 px each time. */
 :root{--sat:env(safe-area-inset-top,0px)}
-body{margin:0;background:radial-gradient(1200px 500px at 15% -20%,var(--glow) 0%,transparent 70%) no-repeat,var(--bg);color:var(--ink);font:14px/1.45 var(--ui);font-variant-numeric:tabular-nums;padding-top:var(--sat)}
+/* The glow held to the window (fixed): on the body, a short page (all
+folded) pulled it up behind a header drawn as a grey band. */
+html{background:var(--bg)}
+body{margin:0;background:radial-gradient(1200px 500px at 15% -20%,var(--glow) 0%,transparent 70%) fixed no-repeat,var(--bg);color:var(--ink);font:14px/1.45 var(--ui);font-variant-numeric:tabular-nums;padding-top:var(--sat)}
 /* Under an iPad's / a phone's status bar (the page runs under it,
 viewport-fit=cover): a band of the page's background, the page and the
 sticky bar starting below it. 0 wherever nothing covers the page. */
@@ -80,8 +83,10 @@ button:disabled{cursor:default;opacity:.4}
 noscript p{margin:40px auto;max-width:520px;text-align:center}
 
 /* ---------- header: one line, at the top as the page scrolls ---------- */
-.hdr{position:sticky;top:var(--sat);z-index:22;margin:0 -20px;padding:10px 20px;background:color-mix(in srgb,var(--bg) 94%,transparent);
-backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.hdr{position:sticky;top:var(--sat);z-index:22;margin:0 -20px;padding:10px 20px}
+/* A ground under the header and the filters once the list scrolls under
+them; none at the top, on the glow. */
+.hdr.stuck,.hdr.stuck~.sec .bar{background:color-mix(in srgb,var(--bg) 94%,transparent);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
 .top{display:flex;align-items:center;gap:10px 16px;flex-wrap:wrap}
 .title{display:flex;align-items:baseline;gap:8px;min-width:0}
 h1{font:700 18px/1.2 var(--ui);margin:0;letter-spacing:-.01em;overflow-wrap:break-word}
@@ -111,8 +116,8 @@ h1{font:700 18px/1.2 var(--ui);margin:0;letter-spacing:-.01em;overflow-wrap:brea
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:var(--tap);
 padding:0 14px;border-radius:var(--r-btn);border:1px solid var(--line);background:var(--btn);font-weight:600;font-size:13px;white-space:nowrap;text-decoration:none;color:var(--ink);transition:filter .15s,transform .1s}
 .btn:hover{filter:brightness(1.12)}.btn:active{transform:scale(.97)}
-/* The main action: neutral, the page's ink -- violet is a validation. */
-.btn.primary{background:var(--ink);border-color:var(--ink);color:var(--inv)}
+/* Review: violet, found at a glance (it validates). */
+.btn.primary{background:var(--val-f);border-color:var(--val-f);color:#fff}
 .btn.icon{width:var(--tap);padding:0}
 #vidb{cursor:pointer;color:var(--accent)}#vidb input{display:none}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
@@ -171,8 +176,7 @@ h2{font:700 19px/1.25 var(--ui);margin:0}
 #browse{margin-top:0}
 
 /* ---------- toolbar ---------- */
-.bar{position:sticky;top:calc(var(--sat) + var(--hdr-h,56px));z-index:20;background:color-mix(in srgb,var(--bg) 92%,transparent);
-backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);margin:0 -20px;padding:10px 20px;border-bottom:1px solid transparent;transition:border-color .2s}
+.bar{position:sticky;top:calc(var(--sat) + var(--hdr-h,56px));z-index:20;margin:0 -20px;padding:10px 20px;border-bottom:1px solid transparent;transition:border-color .2s}
 .hdr.stuck~.sec .bar{border-bottom-color:var(--line)}
 .bar-in{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .bscroll{display:contents}
@@ -269,20 +273,26 @@ mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='
 .s-done::before{background:var(--done)}
 .s-sup{color:#3B1680}.s-sup::before{background:var(--sup)}
 .s-prod{color:#fff}.s-prod::before{background:var(--val-f)}
-/* Waiting on an earlier stage: the diamond faded, its reason in the capsule. */
-.cap.wait .g{opacity:.45}
+/* Waiting on an earlier stage, to redo: Project monitoring's clock and eye
+in the diamond, the colour of the state under them (--sc, page.js). */
+.g.s-wait::before,.m.s-wait::before,.g.s-redo::before,.m.s-redo::before{left:0;top:0;width:22px;height:22px;border-radius:0;transform:none;background:var(--sc,var(--ring))}
+.g.s-wait::before,.m.s-wait::before{-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-11 -11 22 22'%3E%3Cg transform='rotate(45)'%3E%3Crect x='-6.25' y='-6.25' width='12.5' height='12.5' rx='2.25' fill='none' stroke='black' stroke-width='1.5'/%3E%3C/g%3E%3Cpath d='M0 .4V-4.2M0 .4H3.4' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E") center/22px 22px no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-11 -11 22 22'%3E%3Cg transform='rotate(45)'%3E%3Crect x='-6.25' y='-6.25' width='12.5' height='12.5' rx='2.25' fill='none' stroke='black' stroke-width='1.5'/%3E%3C/g%3E%3Cpath d='M0 .4V-4.2M0 .4H3.4' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E") center/22px 22px no-repeat}
+.g.s-redo::before,.m.s-redo::before{-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-11 -11 22 22'%3E%3Cg transform='rotate(45)'%3E%3Crect x='-6.25' y='-6.25' width='12.5' height='12.5' rx='2.25' fill='none' stroke='black' stroke-width='1.5'/%3E%3C/g%3E%3Ccircle r='2.4' fill='black'/%3E%3C/svg%3E") center/22px 22px no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-11 -11 22 22'%3E%3Cg transform='rotate(45)'%3E%3Crect x='-6.25' y='-6.25' width='12.5' height='12.5' rx='2.25' fill='none' stroke='black' stroke-width='1.5'/%3E%3C/g%3E%3Ccircle r='2.4' fill='black'/%3E%3C/svg%3E") center/22px 22px no-repeat}
+.m.s-redo{--sc:var(--wip)}
 .m.na::before{display:none}
 /* An open retake: a post-it under the diamond's left, straight, on one
 line -- red from a validation role, outlined from the team; their number
 in it. Your review's say: the same shape, neutral, on the right. */
-.pi,.you{position:absolute;bottom:-11px;z-index:4;padding:2px 4px 1px;border-radius:3px;font:800 8px/1 var(--mono);letter-spacing:.04em;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.35);pointer-events:none}
+/* Both the same box (a border, coloured or not): side by side, one size. */
+.pi,.you{position:absolute;bottom:-11px;z-index:4;padding:1px 4px 0;border:1px solid transparent;border-radius:3px;font:800 8px/10px var(--mono);letter-spacing:.04em;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.35);pointer-events:none}
 .pi{left:-10px}
-.pi-role{background:var(--rtk-f);color:#fff}
-.pi-team{background:#FFF2F2;color:var(--rtk-t);box-shadow:0 0 0 1px var(--rtk-f),0 1px 3px rgba(0,0,0,.35)}
-.you{right:-12px;background:var(--mine);color:var(--inv)}
-.you.n{background:var(--rtk-f);color:#fff}
+.pi-role{background:var(--rtk-f);border-color:var(--rtk-f);color:#fff}
+.pi-team{background:#FFF2F2;border-color:var(--rtk-f);color:var(--rtk-t)}
+/* Yours above the diamond, out of the retake's way. */
+.you{top:-9px;bottom:auto;right:-14px;background:var(--mine);border-color:var(--mine);color:var(--inv)}
+.you.n{background:var(--rtk-f);border-color:var(--rtk-f);color:#fff}
 /* Only a remark: outlined, nothing sent back. */
-.you.nt{background:var(--surface);color:var(--ink);box-shadow:0 0 0 1px var(--line2)}
+.you.nt{background:var(--surface);border-color:var(--line2);color:var(--ink)}
 /* In a line of text (legend, panel, export): in place, not pinned. */
 .inl .pi,.inl .you,.help .pi,.help .you{position:static;display:inline-block;vertical-align:1px}
 .ok{font-size:11px;font-weight:600;color:var(--valid);line-height:14px;white-space:nowrap}
@@ -319,7 +329,7 @@ in it. Your review's say: the same shape, neutral, on the right. */
 the review's violet, its edge kept when selected too. */
 .row.rv-mine{background:var(--mine-tint)}
 /* Set aside (On hold, Cancelled): listed, faded, out of the figures. */
-.row.omit>*{opacity:.5}
+.row.omit>*{opacity:.5}.row.cancelled>*{opacity:.28}
 .row.rv-mine:hover{background:var(--accent-bg)}
 /* Every file of the group reviewed: its header too. */
 .group.rv-all>.g-h{background:var(--mine-tint);border-radius:var(--r-lg) var(--r-lg) 0 0}
@@ -699,10 +709,9 @@ body.reviewing.rb-auto.rb-peek .rbar{left:16px;right:16px;width:auto;max-width:n
 .dlg .btn.link{margin-right:auto;border-color:transparent;background:none;color:var(--accent);padding:0 8px}
 .dlg .why{margin:0 0 10px;font-size:12px;color:var(--rtk)}
 .dlg .ask{margin:0 0 16px;font-size:14px;line-height:1.5}
-/* A window over the page (Breakdown): wide, scrolled in itself. */
-.win-in{width:min(1100px,100%);max-height:calc(100dvh - 32px - var(--sat));overflow:auto;overscroll-behavior:contain;padding:18px 22px 22px}
-.win-h{position:sticky;top:-18px;z-index:2;display:flex;align-items:center;justify-content:space-between;margin:-18px -22px 12px;padding:14px 22px;background:var(--surface);border-bottom:1px solid var(--line)}
-.win .card{background:var(--sunk)}
+/* The Breakdown tab: the figures in place of the list, no filter. */
+body.tab-bd .depf,body.tab-bd .chips,body.tab-bd .pick-w{display:none!important}
+.bd .card{background:var(--surface);box-shadow:var(--sh-card)}
 .toast{visibility:hidden;position:fixed;left:50%;top:calc(16px + var(--sat));z-index:70;transform:translate(-50%,-150%);transition:transform .25s;padding:10px 16px;border-radius:12px;
 background:var(--bar-bg);color:var(--bar-ink);font-size:13px;box-shadow:var(--sh-pop);max-width:calc(100% - 24px)}
 .toast.on{visibility:visible;transform:translate(-50%,0)}
@@ -738,6 +747,8 @@ range a blue bar above -- a click goes there. */
 .pc{display:flex;align-items:center;gap:6px;padding:6px 12px 10px;flex-wrap:wrap}
 .vb{display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;padding:0 6px;border-radius:var(--r-btn);border:1px solid var(--line);background:var(--btn);color:var(--ink);font-size:14px}
 .vb.play{width:38px;height:38px;border-radius:50%}
+.vb .ico{width:16px;height:16px;vertical-align:0}
+.g-play .ico{width:10px;height:10px}
 .pf{margin-left:6px;font:700 14px var(--mono);white-space:nowrap}.pf-r{font-weight:400;font-size:12px;color:var(--ink-3)}
 .pc-gap{flex:1}
 .pv-at{font-size:12px;color:var(--ink-3);white-space:nowrap}
@@ -797,7 +808,8 @@ range a blue bar above -- a click goes there. */
 .ft-b{padding:1px 6px;border:0;border-radius:4px;background:var(--btn);color:var(--ink);font:700 11px/16px var(--mono);cursor:pointer}
 .ft-b.rg{background:var(--range);color:#0E1A33}
 .th-a{display:flex;gap:6px;margin-top:6px}
-.th-a button{min-height:28px;padding:0 10px;border:1px solid var(--line);border-radius:var(--r-btn);background:none;color:var(--ink-2);font-size:12px}
+.th-a button{width:auto;height:auto;min-height:28px;padding:0 10px;border:1px solid var(--line);border-radius:var(--r-btn);background:none;color:var(--ink-2);font-size:12px;white-space:nowrap}
+@media (pointer:coarse){.th-a button{min-height:36px}}
 .th-a .fx[aria-pressed="true"]{background:var(--ink);color:var(--inv);border-color:var(--ink)}
 .more-notes{justify-self:start;border:0;background:none;padding:2px 0;color:var(--ink-3);font-size:12px;cursor:pointer}
 .more-notes:hover{color:var(--ink)}
