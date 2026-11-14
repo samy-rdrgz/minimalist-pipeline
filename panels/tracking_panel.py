@@ -7,7 +7,7 @@ import bpy
 import bpy.utils.previews
 
 from ..farm import farm_activity
-from .farm_panel import draw_frame_lookup, job_icon
+from .farm_panel import draw_frame_lookup_button, job_icon
 from ..lib import (
     APPROVAL_SOURCE,
     REVIEW_SOURCE,
@@ -590,7 +590,7 @@ def _draw_last_renders(layout, filepath: str) -> bool:
         )
         for shots, r in grouped
     ]
-    draw_frame_lookup(col, renders)
+    draw_frame_lookup_button(col, f"file:{filepath}", renders)
     return True
 
 

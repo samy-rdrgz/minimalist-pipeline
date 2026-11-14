@@ -1,6 +1,7 @@
 """Pipeline UI panels."""
 
 from .farm_panel import (
+    M_PIPELINE_OT_frame_lookup,
     M_PIPELINE_PT_farm_panel,
     draw_farm_job_details,
     draw_farm_jobs,
@@ -43,6 +44,7 @@ classes = (
     M_PIPELINE_PT_log_monitoring,
     M_PIPELINE_PT_welcome,
     M_PIPELINE_PT_project_settings,
+    M_PIPELINE_OT_frame_lookup,
 )
 
 __all__ = ["classes"]
