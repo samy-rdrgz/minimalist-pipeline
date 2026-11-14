@@ -13,6 +13,7 @@ from ..lib import (
     ensure_monitoring_tick,
     get_active_project_root,
     json_get,
+    list_is_narrow,
     monitoring_detail,
     monitoring_kind,
     monitoring_zone,
@@ -96,9 +97,15 @@ class M_PIPELINE_PT_monitoring(_MonitoringPanel, bpy.types.Panel):
             draw_file_details(state, context, layout)
             return
 
-        filters = layout.box().split(factor=0.3)
-        filters.label(text="Filters", icon="FILTER")
-        filters_btn = filters.row()
+        # Narrowed beside a detail: the filters stacked, three rows.
+        narrow = list_is_narrow(context)
+        if narrow:
+            stack = layout.box().column()
+            filters_btn = stack.row()
+        else:
+            filters = layout.box().split(factor=0.3)
+            filters.label(text="Filters", icon="FILTER")
+            filters_btn = filters.row()
         filters_btn.prop(state, "file_type", expand=True)
 
         if state.file_type == "asset":
@@ -108,7 +115,11 @@ class M_PIPELINE_PT_monitoring(_MonitoringPanel, bpy.types.Panel):
             filters_btn.prop(state, "sequence", text="")
             columns = json_get(ConfigCache.get(), "shots_departments", [])
 
+        if narrow:
+            filters_btn = stack.row()
         filters_btn.prop(state, "search", text="", icon="VIEWZOOM")
+        if narrow:
+            filters_btn = stack.row()
         # Icon only: the property's description is the tooltip.
         filters_btn.prop(state, "only_farm", text="", icon="VIEW_CAMERA_UNSELECTED")
         filters_btn.prop(state, "only_rtk", text="", icon="LOOP_BACK")

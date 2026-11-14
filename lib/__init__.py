@@ -136,6 +136,7 @@ from .monitoring import (
     hide_active_tool_in_monitoring,
     memory_enum,
     memory_prop,
+    list_is_narrow,
     monitoring_kind,
     monitoring_windows,
     monitoring_zone,

@@ -671,9 +671,13 @@ class M_PIPELINE_OT_import_review(bpy.types.Operator):
     filter_glob: bpy.props.StringProperty(default="*.json", options={"HIDDEN"})
 
     def invoke(self, context, event):
-        if not get_active_project_root():
+        root = get_active_project_root()
+        if not root:
             self.report({"ERROR"}, "No active project.")
             return {"CANCELLED"}
+        # The project's root: a review comes from outside (a transfer, a
+        # mail), never from snapshots/reviews/, which keeps those imported.
+        self.filepath = str(root) + os.sep
         context.window_manager.fileselect_add(self)
         return {"RUNNING_MODAL"}
 

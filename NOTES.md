@@ -3866,15 +3866,18 @@ the right of the same window. Tried first outside the addon in Blender
   Esc, the back arrow, ← / → between files -- only sets the detail.
 - **Which zone is the detail**: the rightmost Properties editor
   (`monitoring_zone()`), never "the new one": `area_split()` gives the new
-  editor the smaller part, so the factor is `1 - share` with the share
-  kept under half. The new editor copies the old one (Tool tab, no
-  header, no tab column): nothing to set.
+  editor the smaller part, whichever side that is. Both copy the old
+  editor (Tool tab, no header, no tab column: nothing to set), so the
+  split goes at `1 - share` and the right one is the detail, wider than
+  half or not -- clamping the share under half lost a detail dragged
+  wide.
 - **Closed by hand** (the border dragged over it): a window in
   `_split_windows` found with one zone has its detail cleared -- else,
   back to one zone, it would draw the detail in place of the list. A
   window found in two zones with no detail (a .blend saved so) is closed.
 - **The width**: the detail's share of the window, read each tick while
-  open, kept per kind for the session (`_detail_share`).
+  open (never while it's still 0 wide, just split), kept per kind for the
+  session (`_detail_share`), between 15 and 85 %.
 - **Redrawn when it changes**: a click redrew only the zone clicked in;
   the request redraws every view, the tick only when a zone opened or
   closed (every 0.5 s otherwise: the whole table each time).
@@ -3883,9 +3886,10 @@ the right of the same window. Tried first outside the addon in Blender
   without one says to click a row. The keys follow the zone under the
   mouse (`_showing_detail(kind, context)`): pages on the list, scroll and
   ← / → between files on the detail; Esc closes from either.
-- **A list made narrow** (under `_NAMES_ONLY_WIDTH`, 600 px at scale 1)
-  draws its names only -- a navigator beside a wide detail. Farm's lists
-  are left as they are.
+- **A list made narrow** (`list_is_narrow()`: under `_NAMES_ONLY_WIDTH`,
+  600 px at scale 1) draws its names only -- a navigator beside a wide
+  detail --, its filters stacked on three rows and no legend: side by
+  side they were crushed. Farm's lists are left as they are.
 - `list_area()` replaces "the biggest area" where the list is meant
   (bringing a window to the front duplicates the list's editor).
 
@@ -3913,6 +3917,8 @@ reviews scattered in Downloads. From 1.2 (`lib/snapshot.py`):
   again (`filecmp`, the numbered names too); another file under that
   name: `_1`, `_2`... One picked from `reviews/` itself isn't copied. A
   copy that fails is a log warning, never the import's failure.
+- **Import review's file browser opens at the project's root**: a review
+  comes from outside (a transfer, a mail), never from `reviews/`.
 
 ## Snapshot page: lighter, its sources still commented
 

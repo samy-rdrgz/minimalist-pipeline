@@ -42,6 +42,8 @@ DETAIL_KEYS = {"project": ("file", "missing_file"), "farm": ("job", "worker")}
 _detail_share = {"project": 0.45, "farm": 0.45}
 _SPLIT_MIN_WIDTH = 900
 _split_windows: set = set()
+# Narrower (px at UI scale 1), the list beside a detail shows its names only.
+_NAMES_ONLY_WIDTH = 600
 # Whether _monitoring_tick started the farm's refresh timer (for a Farm
 # monitoring window), so it only stops its own.
 _farm_refresh_ours = False
@@ -436,6 +438,13 @@ def monitoring_zone(context) -> str:
     return "detail" if context.area.as_pointer() == right.as_pointer() else "list"
 
 
+def list_is_narrow(context) -> bool:
+    """The list's zone of a window in two, narrowed under
+    _NAMES_ONLY_WIDTH: its names only, its filters stacked, no legend."""
+    scale = context.preferences.system.ui_scale or 1.0
+    return monitoring_zone(context) == "list" and context.area.width < _NAMES_ONLY_WIDTH * scale
+
+
 def detail_shown(kind: str) -> bool:
     """A detail is open in that kind's window."""
     return any(monitoring_detail(key) for key in DETAIL_KEYS.get(kind, ()))
@@ -472,7 +481,7 @@ def sync_detail_zones() -> bool:
         wanted = detail_shown(kind)
         if len(areas) >= 2:
             right = max(areas, key=lambda a: a.x)
-            if window.width:
+            if window.width and right.width > 10:  # 0 until drawn once
                 _detail_share[kind] = right.width / window.width
             if not wanted:
                 _area_op(window, right, "area_close")
@@ -485,9 +494,10 @@ def sync_detail_zones() -> bool:
             for key in DETAIL_KEYS[kind]:
                 set_monitoring_detail(key, "", sync=False)
         elif wanted and areas and window.width >= _SPLIT_MIN_WIDTH * scale:
-            # The new editor takes the smaller part: the detail's, on the
-            # right, as long as it's under half.
-            share = min(max(_detail_share[kind], 0.2), 0.49)
+            # The split line where the detail's share starts: whichever side
+            # Blender puts its new editor on (the smaller part), the right
+            # one is the detail -- both copy the same editor.
+            share = min(max(_detail_share[kind], 0.15), 0.85)
             if _area_op(window, areas[0], "area_split", direction="VERTICAL", factor=1 - share):
                 _split_windows.add(ptr)
                 changed = True

@@ -10,7 +10,7 @@ from ..farm import farm_activity
 from ..lib import (
     APPROVAL_SOURCE,
     local_time,
-    monitoring_zone,
+    list_is_narrow,
     REVIEW_SOURCE,
     TEAM_REVIEW_SOURCE,
     ConfigCache,
@@ -858,8 +858,6 @@ def draw_file_details(state, context, layout):
 # What Project monitoring's window holds besides its rows (filters,
 # table header, footer, margins), in widget units -- see rows_that_fit().
 _TABLE_RESERVED_UNITS = 6.5
-# Narrower (px at UI scale 1), the list beside a detail shows its names only.
-_NAMES_ONLY_WIDTH = 600
 _TABLE_TIP = (
     "Click a file for its details (Ctrl+click the Project monitoring button: "
     "the file open here). Each department's state since the last stable, "
@@ -970,8 +968,8 @@ def draw_monitor_table(self, context, layout, columns, project_root):
     FIRST_COLUMN = 0.3
     # The list's zone narrowed beside a detail: its names only (1.0: no
     # other column). See NOTES.md, "Monitoring: the detail beside the list".
-    scale = context.preferences.system.ui_scale or 1.0
-    if monitoring_zone(context) == "list" and context.area.width < _NAMES_ONLY_WIDTH * scale:
+    narrow = list_is_narrow(context)
+    if narrow:
         FIRST_COLUMN = 1.0
 
     total = len(matches)
@@ -1027,11 +1025,12 @@ def draw_monitor_table(self, context, layout, columns, project_root):
         status.label(text="No files found with this filter", icon="ERROR")
     else:
         status.label(text=f"{total} file(s) found", icon="BLANK1")
-    legend = footer.row(align=True)
-    legend.alignment = "LEFT"
-    legend.separator(factor=3)
-    for icon, text in _FARM_LEGEND:
-        legend.label(text=text, icon=icon)
+    if not narrow:
+        legend = footer.row(align=True)
+        legend.alignment = "LEFT"
+        legend.separator(factor=3)
+        for icon, text in _FARM_LEGEND:
+            legend.label(text=text, icon=icon)
     draw_pager(pager, page, pages)
 
 

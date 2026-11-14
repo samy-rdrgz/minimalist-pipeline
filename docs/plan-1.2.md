@@ -36,16 +36,11 @@ Dont **+439 lignes de code** pour le script de migration (`lib/migration.py` 307
 ## 0. Pour reprendre dans une nouvelle conversation
 
 **État du dépôt au 14/11/2026 :**
-- `main` = **1.1.10** publiée (PR #30).
-- La branche `claude/tender-tesla-ov9148` a en plus deux changements **pas encore dans `main`**, notés dans la section `## Unreleased` du CHANGELOG :
-  - `c6f9250` — Farm monitoring : un rendu sur lequel plus aucune machine ne travaille s'affiche « waiting for a worker » ;
-  - `ab5cf25` — la molette tourne les pages des listes Project, Farm (Jobs) et Log.
-  
-  Ces deux changements **n'ont pas encore été testés dans Blender**. Pour la molette, il faut vérifier que le raccourci de l'addon passe bien avant le défilement de Blender (keymap « View2D Buttons List »).
-- Le reste de la branche, c'est ce document.
-- **À décider avant la phase 1** : fusionner d'abord ces deux changements dans `main`, puis partir de `main` pour la phase 1.
+- `main` : phases 1 (1A, 1B, 1C, 1D), 2 et 2b faites, pas encore publiées (section `## Unreleased` du CHANGELOG). `main` sur GitHub = ce qui a été poussé par *Sync* depuis la machine locale.
+- **Testé dans Blender** : *Migrate old data* (deux fois, dates comprises, projet `alive`), la 2b (zones, raccourcis), la molette et « waiting for a worker » de la 1.1.10.
+- **Les tests sont dans `tests/`**, suivis par git (exclus du zip par le manifest) : `test_dates.py`, `test_snapshot_folders.py`. `test_migration.py`, perdu, est à réécrire avant la phase 3.
 
-**Ordre de travail** : les phases de la section 3, dans l'ordre (1, 2, 2b, 3, 4, 5, 6). **La phase 1 (simplification) passe avant tout le reste.** Les sorties prévues, 1.2.0 puis 2.0.0, sont décrites en section 5. Les questions encore ouvertes (section 4) ne bloquent pas le début de la phase 1.
+**Ordre de travail** : les phases de la section 3, dans l'ordre (3, 4, 5, 6). Une seule sortie à la fin (section 5).
 
 **Comment tester sans Blender** (aucun Blender dans les sessions cloud) :
 - **Importer tout l'addon avec un faux `bpy`** : chaque module `bpy*`, `mathutils`, `gpu`, `blf`, `bmesh`… remplacé par un `MagicMock`, sauf `bpy.types`, à remplacer par un module dont chaque attribut est une classe vide (sinon `class X(bpy.types.Panel)` échoue). Puis `import <paquet>` depuis un dossier qui pointe vers le dépôt. Ça attrape les imports cassés et les noms manquants dans les `__init__`.
@@ -337,7 +332,7 @@ Relevé du 14/11 : le JS est déjà compact (132 fonctions toutes appelées, qua
 
 ### Phase 2 — Rangement des snapshots et des reviews
 
-**Faite** (14/11) : `month_folder()`, `snapshot_videos_folder()`, `keep_review()`, testés sans Blender (`tests/test_snapshot_folders.py`). Le sélecteur d'*Import review* n'a pas été changé : voir la question 4 ci-dessous.
+**Faite** (14/11) : `month_folder()`, `snapshot_videos_folder()`, `keep_review()`, testés sans Blender (`tests/test_snapshot_folders.py`). Le sélecteur d'*Import review* s'ouvre à la racine du projet (question 4).
 
 - **Copie de la review** : après un import réussi depuis Blender, copie du fichier original dans `snapshots/reviews/<rôle>/<AAAA-MM>/`, le mois de la review. Le nom contient déjà la date, le rôle et l'auteur. Le même fichier n'est pas recopié ; un fichier différent du même nom reçoit un suffixe ; rien n'est copié si l'import est annulé. *Import review* ouvre son sélecteur sur `snapshots/reviews/`.
 - **Snapshots rangés par mois** : `snapshots/2026-11/…html`.
@@ -347,7 +342,7 @@ Relevé du 14/11 : le JS est déjà compact (132 fonctions toutes appelées, qua
 
 ### Phase 2b — Le détail à côté de la liste, dans les fenêtres de monitoring
 
-**Codée** (14/11), à tester dans Blender : `sync_detail_zones()` et `monitoring_zone()` (`lib/monitoring.py`), panneaux et raccourcis selon la zone, liste réduite à ses noms sous 600 px (seulement Project monitoring). Détails : NOTES.md, « Monitoring: the detail beside the list ».
+**Faite** (14/11), testée dans Blender (zones, raccourcis ; la largeur gardée et la liste étroite corrigées ensuite) : `sync_detail_zones()` et `monitoring_zone()` (`lib/monitoring.py`), panneaux et raccourcis selon la zone, liste réduite à ses noms sous 600 px (seulement Project monitoring). Détails : NOTES.md, « Monitoring: the detail beside the list ».
 
 **Aujourd'hui :** ouvrir un détail (un fichier dans Project monitoring, un job ou un worker dans Farm monitoring) **remplace** toute la liste, dans la même zone.
 
@@ -433,21 +428,14 @@ Elle vient en dernier : elle repose sur le moteur d'états (phase 3), et « mes 
 1. ~~Phase 1B.5~~ : **décidé**, un script de migration, avec les sauvegardes dans `backup/` à la racine du projet.
 2. ~~Phase 2b~~ : **vérifié** dans Blender 5.2.3, la découpe et la fermeture de la zone marchent (voir la phase 2b).
 3. ~~Section 5~~ : **décidé**, une seule sortie sur le store, tout ensemble (la migration et le protocole farm 3 en font de toute façon une version qui demande tous les PC à jour).
-4. **Phase 2, le sélecteur d'*Import review*** : le plan le faisait ouvrir sur `snapshots/reviews/`. Pas fait : une review à importer arrive de l'extérieur (Téléchargements, mail), et `reviews/` ne contient que celles déjà importées, gardées par l'addon. Le sélecteur garde donc le dernier dossier utilisé par Blender. **[à confirmer]**
-5. **Phase 2, emporter un seul snapshot** : avec *Folder*, ses vidéos sont maintenant dans `snapshots/videos/`, un dossier plus haut que la page (`../videos`). Il faut emporter tout `snapshots/`, ou choisir les vidéos dans la page (*Choose the videos folder…*). Avant, la page et son `videos/` étaient côte à côte. Le *Zip* n'a pas changé. **[à confirmer]**
+4. ~~Phase 2, le sélecteur d'*Import review*~~ : **décidé**, il s'ouvre à la racine du projet (une review arrive de l'extérieur ; `reviews/` garde celles déjà importées).
+5. ~~Phase 2, emporter un seul snapshot~~ : **sans souci**, les snapshots partent par un transfert (SwissTransfer) qui prend un dossier entier, ou le HTML seul en pièce jointe.
 
 ## 5. Versions et sorties
 
-**Décidé : une seule sortie, tout ensemble.** Le découpage ci-dessous reste comme l'ordre des étapes, pas comme deux publications.
-
-**1.2.0 — plus léger, sans rien changer aux données** : phases 1A et 1B (sauf 1B.5), 2 et 2b.
-- L'addon est allégé et factorisé, l'xlsx et le CHANGELOG sont retirés du zip, les reviews et les snapshots sont rangés, et le détail s'affiche à côté de la liste.
-- Les données du projet restent lisibles par un PC encore en 1.1.10 : tout se teste sans risque.
-
-**2.0.0 — des données qui changent, donc une version majeure** : 1B.5 (migration), 1C (dates avec fuseau), puis les phases 3 à 6.
-- **Les dates avec décalage cassent les anciennes versions.** Une 1.1.x compare les dates lues avec `datetime.now()`, sans fuseau, et Python lève une erreur entre une date avec fuseau et une date sans. Un seul PC oublié en 1.1.x planterait sur le projet.
-- **Le nouveau format de review** n'est pas lisible par les versions précédentes, et la migration réécrit les données.
-- Le choix de 2.0.0 le signale : **tous les PC à jour en même temps, puis la migration lancée une fois.**
+**Décidé : une seule sortie sur le store, tout ensemble**, quand les phases 1 à 6 sont faites.
+- Elle change les données (migration, dates avec fuseau, nouveau format de review, `departments_worked` par session) : une version 1.1.x qui lirait un projet migré se tromperait ou planterait (Python refuse de comparer une date avec fuseau et une date sans).
+- Donc **tous les PC à jour en même temps, puis *Migrate old data* lancé une fois par projet** : à dire dans les notes de version. Le numéro (1.2.0 ou 2.0.0) reste à choisir ; 2.0.0 signalerait mieux ce passage obligé.
 
 **À garder malgré le retrait du code entre versions (1B.4)** : une **seule** vérification de version. Une machine qui n'a pas la même version de la farm que l'hôte est refusée, avec un message clair. Aujourd'hui, c'est `FARM_PROTOCOL` qui le fait. Sans cette vérification, une machine oubliée se comporterait mal sans rien dire, au lieu d'être écartée.
 
