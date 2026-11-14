@@ -13,6 +13,11 @@ from .core import EARLIEST, json_get, parse_iso
 # not started 0. "rtk": validated, with an open RTK.
 PROGRESS_WEIGHTS = {"wip": 33, "rework": 67, "rtk": 67}
 
+# A file set aside (tracking.json "omit"): its words. Kept in the lists,
+# out of the shares done, the filters and the stages. See NOTES.md, "Omit
+# and On hold".
+OMIT_STATES = {"omit": "Omit", "on_hold": "On hold"}
+
 # A state's words, the same everywhere (page.js LABEL too).
 STATE_LABELS = {
     "todo": "Not started",
@@ -32,6 +37,13 @@ def department_state(status: dict, department: str) -> str:
         return "rework" if worked else "done"
     started = department in status.get("started_departments", ())
     return "wip" if worked or started else "todo"
+
+
+def omitted(facts: dict) -> dict | None:
+    """A file's Omit / On hold marker ({"state", "at", "by", "reason"}),
+    None when it counts."""
+    mark = facts.get("omit")
+    return mark if isinstance(mark, dict) and mark.get("state") in OMIT_STATES else None
 
 
 def department_score(state: str, open_rtk: bool, weights: dict) -> float:
@@ -118,7 +130,7 @@ def stage_flags(facts: dict, stages: dict) -> dict[str, dict]:
       it was started then (a frozen version holds it).
     """
     required = [d for d in facts.get("departments_required") or [] if d in stages]
-    if not required:
+    if not required or omitted(facts):
         return {}
     entries = [e for e in facts.get("entries") or [] if isinstance(e, dict)]
     rtks = [e for e in entries if e.get("type") == "rtk"]

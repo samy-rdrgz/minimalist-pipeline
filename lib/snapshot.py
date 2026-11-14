@@ -18,6 +18,7 @@ from .status import (  # noqa: F401 -- PROGRESS_WEIGHTS, progress_weights: re-ex
     department_score,
     department_state,
     file_progress,
+    omitted,
     progress_weights,
 )
 from .preview import LD_DIR, browser_video, ensure_ld, latest_render_dir, render_root
@@ -454,6 +455,8 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
                 for d in status.get("departments_required", [])
             },
             "flags": status.get("flags") or {},
+            # Set aside: listed, out of every share done (lib/status.py).
+            "omit": omitted(status),
             "wip_version": wip_name,
             # Work on top of the last stable (a wip made after it), else none
             # to show: the Blender file column names the stable alone.
@@ -547,7 +550,7 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
             d: department_score(st, d in rtk_departments, weights)
             for d, st in item["departments"].items()
         }
-        item["progress"] = file_progress(item, weights)
+        item["progress"] = None if item["omit"] else file_progress(item, weights)
         # Apart from Done: the share of the required departments the top
         # role (or an equivalent one) validated at the stable shown.
         item["validated"] = {
@@ -558,7 +561,7 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
             for d in item["departments"]
         }
         valid = list(item["validated"].values())
-        item["validation"] = sum(valid) / len(valid) if valid else None
+        item["validation"] = sum(valid) / len(valid) if valid and not item["omit"] else None
         items[kind].append(item)
         notes.extend(threads)
 

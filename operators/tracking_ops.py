@@ -16,6 +16,7 @@ from ..lib import (
     PipelineError,
     ProjectScan,
     set_department_synced,
+    set_file_omit,
     snapshot_videos_folder,
     SnapshotJob,
     TrackingStatusCache,
@@ -1695,6 +1696,48 @@ class M_PIPELINE_OT_toggle_department_approval(bpy.types.Operator):
             return {"CANCELLED"}
         verb = "withdrawn" if approved else "given"
         self.report({"INFO"}, f"{self.department}: {role} validation {verb}.")
+        return {"FINISHED"}
+
+
+class M_PIPELINE_OT_file_omit(bpy.types.Operator):
+    """Set this file aside -- Omit (cut, dropped) or On hold -- or count it
+    again: it stays in the lists, out of the shares done, the filters and
+    the stages."""
+
+    bl_idname = "m_pipeline.file_omit"
+    bl_label = "Omit / On hold"
+    bl_options = {"INTERNAL"}
+
+    filepath: bpy.props.StringProperty(options={"SKIP_SAVE"})
+    state: bpy.props.EnumProperty(
+        name="",
+        items=[
+            ("omit", "Omit", "Out of the project (cut at the edit, dropped)"),
+            ("on_hold", "On hold", "Waiting for a decision"),
+            ("", "Counts", "Back in the project's figures"),
+        ],
+        default="on_hold",
+    )
+    reason: bpy.props.StringProperty(name="Why", options={"SKIP_SAVE"})
+
+    def invoke(self, context, event):
+        mark = (TrackingStatusCache.get(self.filepath) or {}).get("omit") or {}
+        self.state = "" if mark else "on_hold"
+        self.reason = mark.get("reason", "")
+        return context.window_manager.invoke_props_dialog(self, width=420)
+
+    def draw(self, context):
+        col = self.layout.column()
+        col.row().prop(self, "state", expand=True)
+        if self.state:
+            col.prop(self, "reason")
+
+    def execute(self, context):
+        try:
+            set_file_omit(Path(self.filepath), self.state, get_user(context), self.reason)
+        except PipelineError as e:
+            return report_error(self, "omit", e)
+        status_changed(self.filepath)
         return {"FINISHED"}
 
 

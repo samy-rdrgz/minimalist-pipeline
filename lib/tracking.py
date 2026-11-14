@@ -1065,6 +1065,21 @@ def create_stablemeta(
         raise PipelineError(f"Error during creating meta file : {e}")
 
 
+def set_file_omit(filepath: Path, state: str, by: str, reason: str = "") -> None:
+    """Set a file aside, tracking.json's "omit" (lib/status.py OMIT_STATES:
+    "omit", "on_hold"), or count it again (state ""). The marker covers the
+    whole file -- a block's every shot."""
+    path = tracking_json_path(filepath, must_exist=True)
+    with locked_json(path) as box:
+        data = box["data"] or {}
+        if state:
+            data["omit"] = {"state": state, "at": now(), "by": by, "reason": reason.strip()}
+        else:
+            data.pop("omit", None)
+        box["data"] = data
+        box["action"] = "to_write"
+
+
 def set_department_synced(filepath: Path, department: str, by: str, text: str = "") -> None:
     """Still done: department's last update now (tracking.json's
     departments_synced) -- its work holds after an earlier stage changed,

@@ -45,6 +45,10 @@ Un bloc multishot peut taguer une note/todo avec le shot du bloc concerné — v
 - **To redo** (à reprendre) : un département déjà commencé dont une étape précédente a changé après sa dernière mise à jour -- un RTK de cette étape fermé, ou un stable fait avec elle retravaillée -- *To redo: layout changed on 12/11*. Sa dernière mise à jour : un enregistrement dans une session où il était coché comme travaillé, ou **Still done**.
 - **Still done** (File details, sur un département à reprendre, ouvert à tous) : le travail fait tient toujours après le changement -- noté avec qui et quand, et un pourquoi facultatif ; ce n'est pas une validation.
 
+## Omit et On hold
+
+**Écarter un fichier** sans l'archiver (File details, le bouton pause) : *Omit* (coupé au montage, abandonné) ou *On hold* (en attente d'une décision), avec un pourquoi. Il reste dans toutes les listes, grisé avec sa marque, et sort des parts faites (les chiffres du snapshot, le rythme du planning), des filtres Retakes et To validate, et des étapes (ni Waiting ni To redo). Le même bouton le fait compter à nouveau. La marque d'un bloc vaut pour tous ses shots.
+
 ## Fini, puis validé : les rôles de validation
 
 Un département est **fini** (*done*) quand son travail est terminé (la

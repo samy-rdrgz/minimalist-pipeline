@@ -152,6 +152,7 @@ def _item(item: dict, threads: list, roles: list, image) -> dict:
         "states": dict(item["departments"]),
         # Waiting / To redo with their reasons (lib/status.py stage_flags()).
         "flags": item.get("flags") or {},
+        "omit": item.get("omit"),
         "scores": dict(item["scores"]),
         "rtk": _rtk_kinds(threads),
         "ok": {

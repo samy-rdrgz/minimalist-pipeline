@@ -45,6 +45,10 @@ Multishot blocks can tag a note/todo with which shot in the block it's about —
 - **To redo**: a department already started whose earlier stage changed after its last update -- an RTK on that stage closed, or a stable made with it reworked -- *To redo: layout changed on 12/11*. Its last update: a save in a session where it was ticked as worked, or **Still done**.
 - **Still done** (File details, on a department to redo, open to everyone): the work done holds after the change -- recorded with who and when, and an optional why; not a validation.
 
+## Omit and On hold
+
+**Set a file aside** without archiving it (File details, the pause button): *Omit* (cut at the edit, dropped) or *On hold* (waiting for a decision), with a why. It stays in every list, greyed with its mark, and leaves the shares done (the snapshot's figures, the schedule's pace), the Retakes and To validate filters, and the stages (no Waiting, no To redo). The same button counts it again. A block's mark covers all its shots.
+
 ## Done, then validated: validation roles
 
 A department is **done** when its work is finished (the tick next to it --

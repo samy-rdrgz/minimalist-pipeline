@@ -3850,6 +3850,23 @@ around one idea: a list to scan, a panel to read one file.
   unfolded under rows, per-shot hover buttons in the list (the panel has
   every shot's picture).
 
+## Omit and On hold
+
+Archiving was the only way to take a shot out of the figures, and it left
+the lists. From 1.2, tracking.json's `"omit": {"state": "omit" | "on_hold",
+"at", "by", "reason"}` (`set_file_omit()`, File details' pause button,
+`M_PIPELINE_OT_file_omit`):
+
+- `omitted(facts)` (lib/status.py) is the one test: a marker with a known
+  state, else None. The stages skip the file (`stage_flags()` -> {}).
+- Still listed, greyed with its mark (Project monitoring's row, File
+  details' title); out of the Retakes and To validate filters.
+- The snapshot: `item["omit"]`, its `progress` and `validation` None --
+  `average_progress()` already leaves those out, so the totals and the
+  schedule's pace follow with nothing more. The page draws it in 3E.
+- One marker per file: a block's covers its every shot (to take out one
+  shot, change the block's structure).
+
 ## Waiting and To redo
 
 Phase 3C of docs/plan-1.2.md: a department's place in its kind's stages

@@ -301,6 +301,7 @@ from .tracking import (
     wipmeta_add_link,
     wipmeta_add_work,
     set_department_synced,
+    set_file_omit,
 )
 from .versioning import (
     get_last_version_number,

@@ -374,7 +374,7 @@ Relevé du 14/11 : le JS est déjà compact (132 fonctions toutes appelées, qua
 
 ### Phase 3 — Moteur d'états et hiérarchie des départements
 
-**Découpage** : 3A moteur extrait à comportement identique ✅ (`lib/status.py`, `tests/test_status.py`) · 3B `departments_worked` par session et sa migration ✅ · 3C étapes, Waiting, À reprendre, `departments_synced`, « Still done » ✅ (moteur, Project monitoring, File details ; le panneau latéral et la page en 3E) · 3D Omit / On hold · 3E légendes.
+**Découpage** : 3A moteur extrait à comportement identique ✅ (`lib/status.py`, `tests/test_status.py`) · 3B `departments_worked` par session et sa migration ✅ · 3C étapes, Waiting, À reprendre, `departments_synced`, « Still done » ✅ (moteur, Project monitoring, File details ; le panneau latéral et la page en 3E) · 3D Omit / On hold ✅ (Blender, données du snapshot ; la page en 3E) · 3E légendes.
 
 - `lib/status.py` (2.1), branché partout où un état est affiché. On remplace les calculs actuels au lieu d'en ajouter.
 - `department_stages` dans la config, avec le champ « étape » dans Edit project.

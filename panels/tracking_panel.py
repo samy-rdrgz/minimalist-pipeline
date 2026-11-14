@@ -60,7 +60,7 @@ from ..lib import (
     time_key,
     validation_roles,
 )
-from ..lib.status import STATE_LABELS, department_state
+from ..lib.status import OMIT_STATES, STATE_LABELS, department_state, omitted
 from ..lib.ui import icon_button, link_rows
 from .farm_panel import draw_frame_lookup_button, job_icon
 
@@ -709,8 +709,14 @@ def draw_file_details(state, context, layout):
         if is_shot
         else shot_name.upper()
     ) + (f" - {description}" if description else "")
+    mark = omitted(data or {})
+    if mark:
+        # Set aside: said first, its reason with it.
+        why = f": {mark['reason']}" if mark.get("reason") else ""
+        txt = f"[{OMIT_STATES[mark['state']].upper()}{why}]  {txt}"
     row_left = row.box().row(align=True)
     row_left.alignment = "EXPAND"
+    row_left.active = not mark
     row_left.label(text=txt, icon=icon)
 
     row_right = row.box().row(align=False)
@@ -722,6 +728,10 @@ def draw_file_details(state, context, layout):
         is_block = False
     for idname, icon, tooltip, props, shown in (
         ("m_pipeline.edit_description", "GREASEPENCIL", "", {"filepath": filepath}, True),
+        ("m_pipeline.file_omit", "PAUSE",
+         "Set aside: Omit or On hold -- out of the figures and filters, kept in the lists"
+         if not mark else f"{OMIT_STATES[mark['state']]} by {mark.get('by', '?')}: count it again",
+         {"filepath": filepath}, True),
         ("m_pipeline.open_file_version", safe_icon("FILE_ALIAS", "FILE_BLEND"), "", {"filepath": str(filepath)}, True),
         ("wm.open_folder", "FILE_FOLDER", "Open this file's folder", {"filepath": str(filepath)}, True),
         # Pure path work, no resolve() in a draw(): renders/<seq>/<shot> for
@@ -928,6 +938,9 @@ def monitor_matches(self, context, project_root, activity=None) -> tuple:
                 and owner_key(dir) not in activity
             ):
                 continue
+            # A file set aside (Omit / On hold) is in no filter's list.
+            if (self.only_rtk or self.only_to_validate) and omitted(file):
+                continue
             if self.only_rtk and not _has_rtk(file):
                 continue
             if self.only_to_validate and not _to_validate(file, role):
@@ -1048,6 +1061,8 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None)
     """One file's row of Project monitoring: name (opens its detail), a
     status cell per department column, then its Farm cell."""
     row = f_list.column()
+    mark = omitted(file)
+    row.active = not mark  # set aside: greyed, still listed
     split = row.split(factor=first_column) if first_column < 1 else row
     name = split.row()
     name.alignment = "LEFT"
@@ -1064,7 +1079,8 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None)
     )
     # Right-click: its folders, a render.
     icon_button(
-        name, "m_pipeline.tracking_file_details", icon, text=file.get("file_name", "Unknown"),
+        name, "m_pipeline.tracking_file_details", icon,
+        text=file.get("file_name", "Unknown") + (f"  · {OMIT_STATES[mark['state']]}" if mark else ""),
         filepath=str(dir), custom_tooltip=file.get("description", ""), rmb="file",
     )
 
