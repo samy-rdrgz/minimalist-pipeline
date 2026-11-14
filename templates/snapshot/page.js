@@ -535,6 +535,7 @@ var rg=q('.tl-r');if(rg&&!PL.seeking)rg.value=Math.round(pct2*10);
 var pp=q('.pp');if(pp){pp.textContent=el.paused?'▶':'❚❚';pp.setAttribute('aria-label',el.paused?'Play':'Pause');}
 var at=q('.pv-at');if(at)at.textContent=(v.shot?v.shot+' · ':'')+(PL.at+1)+' / '+PL.list.length;
 document.querySelectorAll('.addf').forEach(function(b){b.textContent='+ '+fLabel(v,f);});
+document.querySelectorAll('.addf-l').forEach(function(b){b.textContent=fLabel(v,f);});
 var wf=$('wl-f');if(wf)wf.textContent=fLabel(v,f);}
 function seekFrame(f){if(!PL||!FPS)return;var v=PL.v,k=v.start!=null?f-v.start:f-1;PL.el.pause();PL.el.currentTime=Math.max(0,(k+.5)/FPS);upd();}
 function stepFrame(n){if(!PL||!FPS)return;var el=PL.el;el.pause();var k=Math.max(0,idxOf(el.currentTime)+n),t=(k+.5)/FPS;if(el.duration)t=Math.min(t,el.duration-.5/FPS);el.currentTime=t;upd();}
