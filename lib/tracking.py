@@ -31,17 +31,22 @@ from .config import (
     validation_roles,
 )
 from .core import (
+    EARLIEST,
+    LATEST,
     SCANDIR_TTL,
     StampCache,
     cached_scandir,
+    file_time,
     get_machine_id,
     json_get,
+    local_time,
     locked_json,
     now,
     parse_iso,
     read_json_quiet,
     reads_once,
     resolve_bpy_path,
+    time_key,
 )
 from .errors import PipelineError
 from .logs import log
@@ -715,7 +720,7 @@ def get_last_wipmeta(filepath: Path) -> dict | None:
             continue
 
     if wipmetas:
-        stables = sorted(wipmetas, key=lambda x: x["created_at"], reverse=True)
+        stables = sorted(wipmetas, key=lambda x: time_key(x.get("created_at")), reverse=True)
         return stables[0]
     else:
         return None
@@ -1171,13 +1176,13 @@ def _pipeline_entries(owner: Path) -> list:
 
 def _entry_mtime(entry) -> datetime:
     try:
-        return datetime.fromtimestamp(entry.stat().st_mtime)
-    except (OSError, ValueError, OverflowError):
-        return datetime.max  # unknown: never skipped
+        return file_time(entry.stat().st_mtime) or LATEST
+    except OSError:
+        return LATEST  # unknown: never skipped
 
 
 _DEFAULT_STABLE = {
-    "created_at": datetime.min.isoformat(),
+    "created_at": EARLIEST.isoformat(),
     "departments_validated": {},
     "departments_started": [],
     "conflict_warning": False,
@@ -1249,11 +1254,11 @@ def _collect_folder(asset_dir: Path, entries: list | None = None) -> dict | None
     if entries is None:
         entries = _pipeline_entries(asset_dir)
     last_stable = _latest_stable(entries) or dict(_DEFAULT_STABLE)
-    stable_date = parse_iso(last_stable.get("created_at")) or datetime.min
+    stable_date = parse_iso(last_stable.get("created_at")) or EARLIEST
     skip_before = (
         stable_date - timedelta(seconds=_CLOCK_MARGIN_SECONDS)
-        if stable_date > datetime.min + timedelta(seconds=_CLOCK_MARGIN_SECONDS)
-        else datetime.min
+        if stable_date > EARLIEST + timedelta(seconds=_CLOCK_MARGIN_SECONDS)
+        else EARLIEST
     )
     wipmetas = []
     for entry in entries:
@@ -1356,7 +1361,7 @@ def _status_from_raw(raw: dict) -> dict:
         global_data.get("departments_required", [])
     )
     last_stable = raw["last_stable"]
-    stable_date = parse_iso(last_stable.get("created_at")) or datetime.min
+    stable_date = parse_iso(last_stable.get("created_at")) or EARLIEST
 
     # Departments validated at the latest stable
     validated_departments = {
@@ -1390,7 +1395,9 @@ def _status_from_raw(raw: dict) -> dict:
         "started_departments": sorted(raw.get("started") or []),
         # Its latest version's last save (ISO) -- Project monitoring's
         # "Oldest work" sort.
-        "last_saved_at": max((m.get("edited_at") or "" for m in raw["wipmetas"]), default=""),
+        "last_saved_at": max(
+            (m.get("edited_at") or "" for m in raw["wipmetas"]), key=time_key, default=""
+        ),
         "departments_items": deps_items,
         # Computed here (not in draw()) so a UI redraw -- which Blender
         # fires constantly, e.g. on every mouse move over the viewport --
@@ -1447,7 +1454,7 @@ def department_status_tooltip(data: dict, department: str) -> str:
 
     if validated:
         stable_name = Path(stable["file"]).stem if stable.get("file") else "unknown"
-        stable_date = (stable.get("created_at") or "").replace("T", " ")
+        stable_date = local_time(stable.get("created_at"))
         lines = [
             f"Done as of {stable_name}" + (f" ({stable_date})" if stable_date else "")
         ]
@@ -1475,7 +1482,7 @@ def _approval_lines(data: dict, department: str) -> list[str]:
     previous = (data.get("approvals_previous") or {}).get(department) or {}
     for role, cover, info in department_approvals(data, department):
         if cover == role:
-            when = (info.get("at") or "")[:16].replace("T", " ")
+            when = local_time(info.get("at"))
             since = info.get("carried_from")
             on = f" on {Path(since).stem}, not worked since" if since else ""
             lines.append(f"   {role}: validated by {info.get('by', '?')} ({when}){on}")
@@ -1856,7 +1863,7 @@ def group_entries_by_review(entries: list) -> list[dict]:
             kids = by_parent.get(frontier.pop(), [])
             out.extend(kids)
             frontier.extend(k["id"] for k in kids)
-        return sorted(out, key=lambda e: e["created_at"])
+        return sorted(out, key=lambda e: time_key(e.get("created_at")))
 
     def make_thread(root: dict) -> dict:
         replies = descendants(root["id"])
@@ -1879,11 +1886,12 @@ def group_entries_by_review(entries: list) -> list[dict]:
 
     for review_id, roots in grouped.items():
         threads = [make_thread(root) for root in roots]
-        threads.sort(key=lambda t: t["meta"]["date_end"], reverse=True)
+        threads.sort(key=lambda t: time_key(t["meta"]["date_end"]), reverse=True)
         boxes.append({"review_id": review_id, "threads": threads})
 
     boxes.sort(
-        key=lambda b: max(t["meta"]["date_end"] for t in b["threads"]), reverse=True
+        key=lambda b: max(time_key(t["meta"]["date_end"]) for t in b["threads"]),
+        reverse=True,
     )
     return boxes
 
@@ -1910,8 +1918,8 @@ def _thread_meta(thread_entries: list[dict]) -> dict:
             for e in thread_entries
             if e.get("frame_start") is not None
         },
-        "date_start": min(dates),
-        "date_end": max(dates),
+        "date_start": min(dates, key=time_key),
+        "date_end": max(dates, key=time_key),
     }
 
 

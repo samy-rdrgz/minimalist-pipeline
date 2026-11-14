@@ -16,12 +16,18 @@ All notable changes to this addon. Dates are release dates.
   Project panel says so until then. What older versions wrote is
   completed as this one writes it (a stable's validations carried and
   started departments, a note's departments, links one per file, a
-  render's folder, source file, shot and frames); each file changed is
-  backed up first under `backup/migration-<date>/`. This version reads
-  only that form.
+  render's folder, source file, shot and frames, every date with its
+  time zone); each file changed is backed up first under
+  `backup/migration-<date>/`. This version reads only that form.
 
 ### Changed
 
+- Dates are written with their time zone: someone working from another
+  country, a farm machine in another zone, or the hour that repeats when
+  the clocks go back no longer puts notes, versions and stables out of
+  order, nor makes a worker look silent. Every date is shown in the time
+  zone of the machine (or browser) reading it. Older dates are still read
+  as the reading machine's local time, as before.
 - Farm monitoring's Job details and File details: which machine rendered
   which frame is a button, *Which machine, which frame...*, opening a
   popup with the *Frame* field -- it was always drawn, a debugging aid

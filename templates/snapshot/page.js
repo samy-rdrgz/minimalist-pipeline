@@ -143,6 +143,13 @@ var snapDate=new Date(META.snapshot);
 var DAYS=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function fmtDay(d,year){return d.getDate()+' '+MONTHS[d.getMonth()]+(year?' '+d.getFullYear():'');}
 function two(n){return ('0'+n).slice(-2);}
+// A stored date's day where the page is read: one written with its offset
+// (from 1.2) moved to this time zone, an older one (no offset) as it is.
+function dayOf(d){d=d||'';if(d.length<=10)return d;var t=new Date(d);
+return isNaN(t)?d.slice(0,10):t.getFullYear()+'-'+two(t.getMonth()+1)+'-'+two(t.getDate());}
+// Now as the addon writes it: local time with its offset.
+function isoNow(){var d=new Date(),o=-d.getTimezoneOffset(),a=Math.abs(o);
+return d.getFullYear()+'-'+two(d.getMonth()+1)+'-'+two(d.getDate())+'T'+two(d.getHours())+':'+two(d.getMinutes())+':'+two(d.getSeconds())+(o<0?'-':'+')+two(Math.floor(a/60))+':'+two(a%60);}
 $('h-project').innerHTML=esc(META.project).replace(/([_-])/g,'$1<wbr>');
 $('h-when').textContent=DAYS[snapDate.getDay()]+' '+fmtDay(snapDate,true)+', '+two(snapDate.getHours())+':'+two(snapDate.getMinutes());
 $('h-by').textContent=META.exported_by?'exported by '+META.exported_by:'';
@@ -578,7 +585,7 @@ function replyKind(t){return !(t||'').trim()?'':noteOnly(t)?'note':'rtk';}
 function canReply(n){return reviewing()&&n.id&&!n.closed;}
 // A note's date: while reviewing, how long ago (from today, as the page is
 // read), the date itself in its tooltip; else the date.
-function when(d){var day=(d||'').slice(0,10);if(!reviewing()||!day)return esc(day);
+function when(d){var day=dayOf(d);if(!reviewing()||!day)return esc(day);
 var t=new Date(day+'T00:00:00'),now=new Date();now.setHours(0,0,0,0);var n=Math.round((now-t)/864e5);if(isNaN(n))return esc(day);
 var w=n<=0?'today':n===1?'yesterday':n<14?n+' days ago':n<60?Math.round(n/7)+' weeks ago':n<730?Math.round(n/30.4)+' months ago':Math.round(n/365)+' years ago';
 return '<span title="'+esc(day)+'">'+w+'</span>';}
@@ -943,7 +950,7 @@ if(rv.role!==was){render();if(cur!=null)refresh();rows=exportRows();
 if(!rows.length){$('d-why').hidden=false;$('d-why').textContent='As the team, nothing to send: the team doesn\'t validate -- write a retake or a note.';return;}}
 if(needsRole&&!rv.role){$('d-why').hidden=false;$('d-why').textContent='Pick your role: your validations and retakes are recorded under it.';$('d-role').classList.add('need');sync('d-role');return;}
 var data={format:META.format,schema_version:META.schema_version,project:META.project,snapshot:META.snapshot,author:rv.author,role:rv.role,
-review_date:rv.date,written_at:new Date().toISOString().slice(0,19),rows:rows};
+review_date:rv.date,written_at:isoNow(),rows:rows};
 var text=JSON.stringify(data,null,2),name=reviewName();
 function download(){var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:'application/json'}));a.download=name;
 document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},1000);dl.hidden=true;

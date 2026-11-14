@@ -1,6 +1,5 @@
 """Farm operators: launch/kill the monitor, submit render requests, self as worker, farm monitor UI."""
 
-import datetime
 import os
 from pathlib import Path
 
@@ -33,6 +32,7 @@ from ..farm import (
     worker_rendering,
 )
 from ..lib import (
+    EARLIEST,
     ConfigCache,
     PipelineAction,
     PipelineError,
@@ -253,7 +253,7 @@ class M_PIPELINE_OT_farm_launch_monitor(bpy.types.Operator):
                     data = box["data"] or {}
                     # Heartbeat: mtime or in-file update_tick (see monitor_tick()).
                     last_tick = (
-                        monitor_last_tick(lock_path, data) or datetime.datetime.min
+                        monitor_last_tick(lock_path, data) or EARLIEST
                     )
                     is_stale = monitor_age_status(last_tick) != "running"
 

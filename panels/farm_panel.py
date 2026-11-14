@@ -1,6 +1,5 @@
 """Farm management panel in the 3D View sidebar."""
 
-import datetime
 import re
 from pathlib import Path
 
@@ -34,10 +33,12 @@ from ..lib import (
     get_addon_version,
     get_user,
     monitoring_detail,
+    now,
     paginate,
     parse_iso,
     rows_that_fit,
     split_footer,
+    time_key,
 )
 from ..lib.ui import DETAIL_KEY_COLUMN, details_header, key_value, key_values
 
@@ -490,7 +491,7 @@ def draw_farm_jobs(self, context, layout):
     matches = [j for j in cache["jobs"] if _job_matches(self, j, user)]
     # Newest submit first: the order the reader thread lists files in is
     # arbitrary, it would shuffle jobs between refreshes.
-    matches.sort(key=lambda j: j.get("submitted_at") or "", reverse=True)
+    matches.sort(key=lambda j: time_key(j.get("submitted_at")), reverse=True)
 
     total = len(matches)
     per_page = rows_that_fit(
@@ -615,9 +616,9 @@ def _since(iso: str) -> tuple[str, float | None]:
     at = parse_iso(iso)
     if at is None:
         return "-", None
-    today = at.date() == datetime.date.today()
+    today = at.date() == now(False).date()
     when = f"{at:%H:%M}" if today else f"{at:%d/%m %H:%M}"
-    return when, (datetime.datetime.now() - at).total_seconds()
+    return when, (now(False) - at).total_seconds()
 
 
 _addon_version: list = []
@@ -892,7 +893,7 @@ def draw_farm_workers(context, layout):
     # closed, its machine asleep, off the share) without saying it stopped.
     silent = sorted(
         (monitor_cache.get("silent_workers") or {}).values(),
-        key=lambda m: m.get("last_heartbeat") or "",
+        key=lambda m: time_key(m.get("last_heartbeat")),
         reverse=True,
     )
     # The farm host's row comes first.

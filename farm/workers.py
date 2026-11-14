@@ -71,8 +71,9 @@ def _worker_path(as_dir: bool = False) -> Path:
         return ConfigCache.get_path("workers") / f"worker_{id}.json"
 
 
-def _heartbeat_age(heartbeat: str) -> float:
-    """Seconds since an ISO heartbeat timestamp; a huge number if unparseable."""
+def _heartbeat_age(heartbeat) -> float:
+    """Seconds since a heartbeat (epoch seconds); a huge number if
+    unreadable."""
     age = seconds_since(heartbeat)
     return 10**9 if age is None else age
 
@@ -292,7 +293,7 @@ def launch_worker() -> bool:
             | {
                 "status": "idle",
                 "current_job": None,
-                "last_heartbeat": now(),
+                "last_heartbeat": time.time(),
             }
             | identity
             | _recover_previous_render(data)
@@ -432,7 +433,7 @@ def stop_worker(kill_render: bool) -> str:
         }
         log("INFO", "farm", f"Worker stopped: render of {job_id} interrupted.")
     _worker_active_processes.clear()
-    fields = dict(_STOPPED_FIELDS, last_heartbeat=now())
+    fields = dict(_STOPPED_FIELDS, last_heartbeat=time.time())
     if result:
         fields["last_job_result"] = result
     update_worker(fields)
@@ -488,7 +489,7 @@ def update_worker_heartbeat():
     with locked_json(path) as box:
         if not box["data"]:
             return
-        box["data"]["last_heartbeat"] = now()
+        box["data"]["last_heartbeat"] = time.time()
         box["action"] = "to_write"
 
 
@@ -653,7 +654,7 @@ def update_worker(dict: dict, count: str = ""):
         data = box["data"] or get_user_data(get_user())
         if count:
             dict = dict | {count: int(data.get(count) or 0) + 1}
-        box["data"] = data | dict | {"last_heartbeat": now()}
+        box["data"] = data | dict | {"last_heartbeat": time.time()}
         box["action"] = "to_write"
 
 
@@ -884,7 +885,7 @@ def worker_tick():
                 # "After this frame": once the render has exited, give up the role
                 # instead of picking up the next one.
                 if not worker_rendering():
-                    box["data"] = data | _STOPPED_FIELDS | {"last_heartbeat": now()}
+                    box["data"] = data | _STOPPED_FIELDS | {"last_heartbeat": time.time()}
                     box["action"] = "to_write"
                     stopped = True
             elif data.get("status") != "idle":

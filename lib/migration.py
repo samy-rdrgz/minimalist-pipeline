@@ -15,7 +15,9 @@ writes (main thread: locked_json()). What each step completes:
 - .wipmeta: "linked" one entry per project file.
 - render_history.json: a finished render's "output_path", "source_file",
   "shot_override" (1.0.11, from its folder) and "frame_range_rendered"
-  (from its images' numbers)."""
+  (from its images' numbers).
+- all four: every date and time with its offset (1.2), the local time of
+  the machine migrating."""
 
 import os
 import re
@@ -23,7 +25,7 @@ import shutil
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from .core import locked_json, now, parse_iso, read_json_quiet
+from .core import EARLIEST, file_time, locked_json, now, parse_iso, read_json_quiet, time_key
 from .preview import render_root
 from .snapshot import _folder_frames, _owner_shots
 from .tracking import (
@@ -106,11 +108,9 @@ def _plan_owner(root: Path, owner: Path, is_shot: bool, v_prefix: str) -> list[d
     pipeline = owner / ".pipeline"
     entries = _pipeline_entries(owner)
     tracking = read_json_quiet(pipeline / "tracking.json") or {}
-    out = []
+    found = []  # (path, data, changes): every file read, changed or not
 
-    changed = _migrate_entries(tracking)
-    if changed:
-        out.append({"path": str(pipeline / "tracking.json"), "data": tracking, "changes": changed})
+    found.append((str(pipeline / "tracking.json"), tracking, _migrate_entries(tracking)))
 
     stables = _read_metas(entries, ".stablemeta")
     # Computed from the files as they are, before any is changed: the
@@ -120,19 +120,25 @@ def _plan_owner(root: Path, owner: Path, is_shot: bool, v_prefix: str) -> list[d
         changes = stable_changes.get(entry.path, [])
         if _migrate_linked(data, root):
             changes.append("links one per file")
-        if changes:
-            out.append({"path": entry.path, "data": data, "changes": changes})
+        found.append((entry.path, data, changes))
 
     for entry, data in _read_metas(entries, ".wipmeta"):
-        if _migrate_linked(data, root):
-            out.append({"path": entry.path, "data": data, "changes": ["links one per file"]})
+        found.append((entry.path, data, ["links one per file"] if _migrate_linked(data, root) else []))
 
     history_path = pipeline / "render_history.json"
     history = read_json_quiet(history_path) if history_path.is_file() else None
     if history:
-        changed = _migrate_history(history, root, owner, is_shot, v_prefix)
-        if changed:
-            out.append({"path": str(history_path), "data": history, "changes": changed})
+        found.append((str(history_path), history, _migrate_history(history, root, owner, is_shot, v_prefix)))
+
+    out = []
+    for path, data, changes in found:
+        if not data:
+            continue
+        # Last: the steps above read the dates as found.
+        if _migrate_dates(data):
+            changes = [*changes, "dates with their offset"]
+        if changes:
+            out.append({"path": path, "data": data, "changes": changes})
     return out
 
 
@@ -145,6 +151,34 @@ def _read_metas(entries: list, suffix: str) -> list[tuple]:
             if isinstance(data, dict):
                 out.append((entry, data))
     return out
+
+
+# ---------------------------------------------------------------------------
+# Dates: their offset
+# ---------------------------------------------------------------------------
+
+# A date and time without an offset, as now() wrote them before 1.2. Never a
+# day alone (a schedule's, a review's): no hour to place.
+_NAIVE_TIME = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d+)?)?$")
+
+
+def _migrate_dates(data) -> int:
+    """Every date and time without an offset in data, at any depth, given
+    this machine's -- the local time its readers took it for (written in
+    another time zone, it was already read so). How many changed."""
+    n = 0
+    items = data.items() if isinstance(data, dict) else enumerate(data) if isinstance(data, list) else ()
+    for key, value in list(items):
+        if isinstance(value, (dict, list)):
+            n += _migrate_dates(value)
+        elif isinstance(value, str) and _NAIVE_TIME.match(value):
+            try:
+                at = datetime.fromisoformat(value).astimezone()
+            except (ValueError, OverflowError, OSError):
+                continue
+            data[key] = at.isoformat(timespec="microseconds" if at.microsecond else "seconds")
+            n += 1
+    return n
 
 
 # ---------------------------------------------------------------------------
@@ -196,8 +230,8 @@ def _migrate_stables(entries: list, stables: list, tracking: dict) -> dict:
         if "departments_started" not in data:
             changes["departments_started"] = _started_at(by_date[: i + 1], wipmetas, date)
         if "approvals_carried" not in data:
-            # (Never datetime.min itself: _worked_between() takes a margin off.)
-            start = by_date[i - 1][0] if i else datetime.min + timedelta(days=1)
+            # (Never EARLIEST itself: _worked_between() takes a margin off.)
+            start = by_date[i - 1][0] if i else EARLIEST + timedelta(days=1)
             changes["departments_worked"] = sorted(
                 _worked_between(entries, start, date)
                 | (_rtk_departments(tracking, start, date) if _from_stable(data) else set())
@@ -379,7 +413,7 @@ def _migrate_history(history: dict, root: Path, owner: Path, is_shot: bool, v_pr
             if when is not None:
                 folders.append((when, shot, folder))
     changes = set()
-    for e in sorted(entries, key=lambda e: str(e.get("completed_at") or "")):
+    for e in sorted(entries, key=lambda e: time_key(e.get("completed_at"))):
         if not e.get("output_path"):
             ended = parse_iso(e.get("completed_at"))
             match = None
@@ -422,7 +456,7 @@ def _newest_file(folder: Path) -> datetime | None:
         times = [x.stat().st_mtime for x in os.scandir(folder) if x.is_file()]
     except OSError:
         return None
-    return datetime.fromtimestamp(max(times)) if times else None
+    return file_time(max(times)) if times else None
 
 
 def _source_of(owner: Path, folder: str, root: Path) -> str | None:

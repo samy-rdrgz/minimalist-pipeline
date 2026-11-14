@@ -4316,12 +4316,57 @@ data*), with the deductions those readers made:
 - Checked without Blender by reading a made-up old project with the 1.1.10
   code and the migrated one with this code: the same status, validations
   carried, worked since, started, entry departments; a render before
-  1.0.11 now knows its source file. The 1.2 format changes (dates with
-  their offset, `departments_worked` per session with its date) are to be
-  added as steps here.
+  1.0.11 now knows its source file. The dates' offset is a step here too
+  (see "Dates with their offset"); `departments_worked` per session with
+  its date is still to be added.
+- Run again safely: each step looks for what's still old, so a project
+  migrated before a step was added gets it by running it once more.
 - Kept: `_folder_frames()` (a render folder's range from its images'
   names) also serves a render with no history at all; `ordered_departments()`
   on reading `departments_required`, since Edit project may reorder.
+
+## Dates with their offset
+
+Until 1.2, `now()` wrote local time without a zone: a freelancer abroad, a
+worker in another zone, or the hour daylight saving repeats every October
+put dates out of order -- "worked since the stable", the notes' order, and
+a heartbeat hours off for a 15 s threshold. From 1.2:
+
+- `now()` writes local time **with its offset** (`2026-11-14T10:03:00+01:00`):
+  still readable in the files, never ambiguous.
+- `parse_iso()` is the one reader and always returns an **aware** datetime,
+  in the zone of the machine reading: with an offset, moved there; without
+  one (written before 1.2, or by hand), taken as that machine's local time,
+  as every reader did; epoch seconds (heartbeats) too. All at once, not
+  file by file: Python refuses to compare an aware datetime with a naive
+  one (`TypeError`), so every `datetime.min` / `max` became `EARLIEST` /
+  `LATEST` and every file mtime goes through `file_time()`.
+- At the calendar's ends `astimezone()` overflows (year 1 west of UTC,
+  Windows' `mktime()` before 1970): `_local()` keeps the date as it is,
+  given UTC when it had no zone.
+- **Never sorted or compared as text**: `"10:00+05:00"` is before
+  `"06:00+00:00"`. Sorts use `time_key()` (absent first); a display uses
+  `local_time()`, never the text cut (`[:16]`): written elsewhere, that's
+  another zone's hour.
+- **Heartbeats in epoch seconds** (`time.time()`): a worker's
+  `last_heartbeat`, monitor.lock's `update_tick`. Neither zone nor daylight
+  saving; `seconds_since()` takes both forms. FARM_PROTOCOL stays 3: 1.2 is
+  the first release with it, every machine updated together.
+- **File names** (snapshots, reviews, backups) stay the creator's local
+  time, cut from `now()`: never compared.
+- **The page**: `new Date()` reads an offset; a note's day is the reader's
+  (`dayOf()`), and a review's `written_at` is written as the addon writes
+  (`isoNow()`, it was UTC without its `Z`). A review's date alone is that
+  day's start, local.
+- **The migration** gives every naive date and time its offset
+  (`_migrate_dates()`: any value shaped `YYYY-MM-DDTHH:MM[:SS[.f]]`, at any
+  depth, never a day alone), each with its own date's offset (summer and
+  winter differ), taken on the migrating machine -- the reading every
+  machine made anyway. Readers keep the naive fallback: logs, farm files
+  and old snapshots or reviews aren't migrated.
+- Checked without Blender in four zones (`TZ=` Paris, New York, Tokyo,
+  UTC: tests/test_dates.py): old and new dates mixed in a folder's status,
+  October's repeated hour, the calendar's ends.
 
 ## Refactor 1.2: shared blocks, one way of each thing
 

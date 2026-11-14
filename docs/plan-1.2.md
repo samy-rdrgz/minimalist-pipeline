@@ -1,12 +1,12 @@
 # Plan 1.2 — récapitulatif des modifications
 
-*État au 14/11/2026, à partir de la 1.1.10. Les phases 1A et 1B sont faites (branche `ccr-6d9503b4-xu75ta`, voir « Avancement » ci-dessous) ; le reste fixe les décisions prises et l'architecture retenue. Les points marqués **[à confirmer]** restent à trancher.*
+*État au 14/11/2026, à partir de la 1.1.10. Les phases 1A, 1B et 1C sont faites (dans `main`, voir « Avancement » ci-dessous) ; le reste fixe les décisions prises et l'architecture retenue. Les points marqués **[à confirmer]** restent à trancher.*
 
 Hypothèse de départ, validée : **tous les PC sont mis à jour en même temps.** Le code qui gère des machines sur des versions différentes peut donc disparaître.
 
 ## Avancement
 
-**Phase 1A et 1B faites**, un commit par tâche, à comportement identique (sauf la popup de 1B.3). Vérifié sans Blender : import complet avec un faux `bpy` (`tools/fake_bpy.py`), et pour chaque écran réécrit, la trace des appels d'interface de l'ancien code et du nouveau sur les mêmes données (identiques). La migration a son test : `tests/test_migration.py`.
+**Phase 1A et 1B faites**, un commit par tâche, à comportement identique (sauf la popup de 1B.3). Vérifié sans Blender : import complet avec un faux `bpy` (`tools/fake_bpy.py`), et pour chaque écran réécrit, la trace des appels d'interface de l'ancien code et du nouveau sur les mêmes données (identiques). Les tests sont dans `tests/`, que le `.gitignore` exclut : ils restent sur la machine locale. `tests/test_migration.py`, écrit dans la session cloud, a été perdu pour cette raison (à réécrire) ; `tests/test_dates.py` est là.
 
 | | 1.1.10 | Après la phase 1 |
 |---|---|---|
@@ -25,9 +25,13 @@ Dont **+439 lignes de code** pour le script de migration (`lib/migration.py` 307
 | Factorisations (1A.1, 1A.4 à 1A.7) | −141 | −119 | −4 Ko |
 | Écrans en boucles, fonctions d'affichage (1A.2, 1A.3, 1B.3) | −458 | −389 | −3 Ko |
 
-**Reste de la phase 1 : 1C** (dates avec fuseau), préparée : toutes les lectures de dates passent déjà par `parse_iso()`.
+**1C faite** (dates avec fuseau) : `now()` écrit le décalage ; `parse_iso()` rend toujours une date avec fuseau, ramenée à l'heure locale de la machine qui lit, et lit aussi les anciennes dates et les secondes epoch ; plus aucun tri ni affichage de date par le texte (`time_key()`, `local_time()`) ; heartbeats en secondes epoch ; page HTML (`dayOf()`, `isoNow()`) ; étape de la migration (`_migrate_dates()`). Vérifié sans Blender dans quatre fuseaux (`tests/test_dates.py`). Détails : NOTES.md, « Dates with their offset ».
 
-**Pas encore testé dans Blender** : tout ce qui est ci-dessus, plus les deux changements de la 1.1.10 (« waiting for a worker », la molette). À vérifier en priorité : la popup « Which machine, which frame... » (son champ Frame qui se met à jour), le bouton *Migrate old data* sur une copie d'un vrai projet, et une passe sur chaque écran réécrit (Farm monitoring, File details, Edit project, menu du haut, panneaux Project et File).
+**Reste de la phase 1 : 1D** (alléger la page du snapshot).
+
+**Phase 2b essayée dans Blender 5.2.3** : faisable (voir la phase 2b).
+
+**Testé dans Blender** : *Migrate old data* sur une copie d'un vrai projet, sans erreur visible (avant 1C : à relancer pour les dates). **Pas encore testé dans Blender** : le reste de ce qui est ci-dessus, dont 1C, plus les deux changements de la 1.1.10 (« waiting for a worker », la molette). À vérifier en priorité : la popup « Which machine, which frame... » (son champ Frame qui se met à jour), le bouton *Migrate old data* sur une copie d'un vrai projet, et une passe sur chaque écran réécrit (Farm monitoring, File details, Edit project, menu du haut, panneaux Project et File).
 
 ## 0. Pour reprendre dans une nouvelle conversation
 
@@ -312,11 +316,11 @@ Le script permet de **supprimer tout le legacy actuel** : `_legacy_carried()`, l
 
 | # | Tâche | Où |
 |---|---|---|
-| 1C.1 | `now()` écrit l'heure locale **avec son décalage** | `lib/core.py` |
-| 1C.2 | Toutes les lectures et comparaisons de dates passent par la fonction de 1A.4, qui accepte aussi les anciennes dates sans décalage. **À faire en une fois** : Python refuse de comparer une date avec fuseau et une date sans | partout où il y a `fromisoformat` |
-| 1C.3 | Plus aucune date triée comme du texte | `lib/tracking.py` (`last_saved_at`…), `farm/pace.py`, d'autres à repérer |
-| 1C.4 | Heartbeats et vie des machines en secondes epoch | `farm/workers.py`, `farm/monitor.py`, `farm/loop.py`, `panels/farm_panel.py` |
-| 1C.5 | Vérifier la lecture et l'affichage des dates avec décalage dans la page HTML | `templates/snapshot/page.js` |
+| 1C.1 ✅ | `now()` écrit l'heure locale **avec son décalage** | `lib/core.py` |
+| 1C.2 ✅ | Toutes les lectures et comparaisons de dates passent par la fonction de 1A.4, qui accepte aussi les anciennes dates sans décalage. **À faire en une fois** : Python refuse de comparer une date avec fuseau et une date sans | partout où il y a `fromisoformat` |
+| 1C.3 ✅ | Plus aucune date triée comme du texte | `lib/tracking.py` (`last_saved_at`…), `farm/pace.py`, d'autres à repérer |
+| 1C.4 ✅ | Heartbeats et vie des machines en secondes epoch | `farm/workers.py`, `farm/monitor.py`, `farm/loop.py`, `panels/farm_panel.py` |
+| 1C.5 ✅ | Vérifier la lecture et l'affichage des dates avec décalage dans la page HTML | `templates/snapshot/page.js` |
 
 #### 1D — Alléger la page du snapshot
 

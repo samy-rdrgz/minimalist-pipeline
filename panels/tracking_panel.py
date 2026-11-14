@@ -9,6 +9,7 @@ import bpy.utils.previews
 from ..farm import farm_activity
 from ..lib import (
     APPROVAL_SOURCE,
+    local_time,
     REVIEW_SOURCE,
     TEAM_REVIEW_SOURCE,
     ConfigCache,
@@ -55,6 +56,7 @@ from ..lib import (
     split_footer,
     text_to_lines,
     thumbnail_path,
+    time_key,
     validation_roles,
 )
 from ..lib.ui import icon_button, link_rows
@@ -248,7 +250,7 @@ def _draw_approvals(col, entries: list) -> None:
         )
         op.custom_tooltip = "\n".join(
             f"{e.get('text', '')} -- {e.get('author', '?')}, "
-            f"{(e.get('created_at') or '')[:16].replace('T', ' ')}"
+            f"{local_time(e.get('created_at'))}"
             for e in group
         )
         what = " withdrawn" if withdrawn else ""
@@ -479,8 +481,7 @@ def _get_entry_tooltip(e, filepath):
             text = f"{text}\n\nIn response to a note that cannot be found"
     if e.get("done") is True:
         # Not always stamped -- see NOTES.md, "Entries: two fields".
-        done_at = e.get("done_at")
-        done_at = done_at.replace("T", " ") if done_at else "//"
+        done_at = local_time(e.get("done_at")) or "//"
         text = f"{text}\n\nDone by : {e.get('done_by', '//')}\nAt : {done_at}"
     return text
 
@@ -938,9 +939,9 @@ def monitor_matches(self, context, project_root, activity=None) -> tuple:
     matches.sort(key=lambda m: m[1].get("file_name") or "")
     # Stable sorts: ties stay in name order. No open RTK / never saved last.
     if self.sort == "rtk":
-        matches.sort(key=lambda m: _oldest_open_rtk(m[1]) or "~")
+        matches.sort(key=lambda m: _date_last(_oldest_open_rtk(m[1])))
     elif self.sort == "work":
-        matches.sort(key=lambda m: m[1].get("last_saved_at") or "~")
+        matches.sort(key=lambda m: _date_last(m[1].get("last_saved_at")))
 
     filters = (
         self.file_type,
@@ -1138,7 +1139,7 @@ def _to_check_lines(file: dict) -> list[tuple[str, dict]]:
 
 def _to_check_at(info: dict) -> str:
     """ "2026-10-14 18:04" -- when the render was flagged."""
-    return (info.get("at") or "")[:16].replace("T", " ")
+    return local_time(info.get("at"))
 
 
 # Farm column: one icon per render, Farm monitoring's for its stage
@@ -1241,8 +1242,14 @@ def _oldest_open_rtk(data: dict) -> str:
             for e in data.get("entries") or []
             if e.get("type") == "rtk" and e.get("done") is False
         ),
+        key=time_key,
         default="",
     )
+
+
+def _date_last(value) -> tuple:
+    """Sort key: oldest date first, none last."""
+    return (not value, time_key(value))
 
 
 def _has_rtk(data: dict, department: str | None = None) -> bool:

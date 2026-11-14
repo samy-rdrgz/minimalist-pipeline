@@ -59,7 +59,8 @@ def parse_review_date(value: str) -> datetime | None:
     if not value:
         return None
     try:
-        return datetime.combine(parse_day(value), datetime.min.time())
+        # That day's start, local: comparable with the notes' dates.
+        return datetime.combine(parse_day(value), datetime.min.time()).astimezone()
     except PipelineError:
         pass
     at = parse_iso(value)

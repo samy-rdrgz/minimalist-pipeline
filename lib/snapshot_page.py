@@ -10,7 +10,7 @@ import re
 from pathlib import Path
 
 from .config import covering_role
-from .core import parse_iso
+from .core import parse_iso, time_key
 from .review_import import REVIEW_JSON_FORMAT
 from .snapshot import (
     SCHEMA_VERSION,
@@ -162,7 +162,7 @@ def _item(item: dict, threads: list, roles: list, image) -> dict:
         "outdated": bool(item.get("render_behind")),
         "to_check": bool(item.get("to_check")),
         "farm": _farm_summary(item.get("farm") or []),
-        "notes": [_thread(t) for t in sorted(threads, key=lambda t: t["last_activity"], reverse=True)],
+        "notes": [_thread(t) for t in sorted(threads, key=lambda t: time_key(t["last_activity"]), reverse=True)],
     }
 
 

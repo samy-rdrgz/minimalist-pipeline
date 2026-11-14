@@ -13,7 +13,7 @@ import threading
 import time
 import uuid
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 import bpy
@@ -177,28 +177,55 @@ def list_to_labels(layout, items, first_icon="INFO", next_icon="BLANK1"):
 
 
 def now(iso: bool = True) -> str | datetime:
-    """Current local time: ISO-8601 string (seconds precision) if iso=True,
-    raw datetime otherwise. Local, not UTC -- comparing timestamps across
-    machines assumes their clocks are roughly aligned."""
-    if iso:
-        return datetime.now().isoformat(timespec="seconds")
-    else:
-        return datetime.now()
+    """Current local time with its UTC offset ("2026-11-14T10:03:00+01:00"):
+    ISO-8601 string (seconds precision) if iso=True, aware datetime
+    otherwise. See NOTES.md, "Dates with their offset"."""
+    at = datetime.now().astimezone()
+    return at.isoformat(timespec="seconds") if iso else at
+
+
+# Before / after any date: aware, comparable with parse_iso()'s.
+EARLIEST = datetime.min.replace(tzinfo=timezone.utc)
+LATEST = datetime.max.replace(tzinfo=timezone.utc)
+
+
+def _local(at: datetime) -> datetime:
+    """at in this machine's time zone; one without an offset taken as this
+    machine's local time. Aware, as it was at the ends of the calendar."""
+    try:
+        return at.astimezone()
+    except (OverflowError, OSError, ValueError):
+        return at if at.tzinfo else at.replace(tzinfo=timezone.utc)
 
 
 def parse_iso(value) -> datetime | None:
-    """A stored date or time (ISO 8601) as a datetime; None if absent or
-    unreadable. The one reader of the pipeline's dates."""
-    if not value:
+    """A stored date or time as an aware datetime in this machine's time
+    zone; None if absent or unreadable. The one reader of the pipeline's
+    dates: ISO 8601 with an offset, without one (written before 1.2: this
+    machine's local time), or epoch seconds (heartbeats)."""
+    if not value or isinstance(value, bool):
         return None
+    if isinstance(value, (int, float)):
+        return file_time(value)
     try:
-        return datetime.fromisoformat(str(value))
+        return _local(datetime.fromisoformat(str(value)))
     except ValueError:
+        return None
+
+
+def file_time(timestamp: float) -> datetime | None:
+    """Epoch seconds (a file's mtime, a heartbeat) as parse_iso() gives
+    dates. None if out of range."""
+    try:
+        return datetime.fromtimestamp(timestamp, timezone.utc).astimezone()
+    except (OverflowError, OSError, ValueError):
         return None
 
 
 def iso_timestamp(value) -> float | None:
     """parse_iso() as epoch seconds; None if absent or unreadable."""
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        return float(value)
     at = parse_iso(value)
     try:
         return at.timestamp() if at else None
@@ -206,10 +233,25 @@ def iso_timestamp(value) -> float | None:
         return None
 
 
+def time_key(value) -> float:
+    """Sort key of a stored date: in time order, whatever the offsets --
+    never their text. Absent or unreadable first."""
+    at = iso_timestamp(value)
+    return float("-inf") if at is None else at
+
+
+def local_time(value, fmt: str = "%Y-%m-%d %H:%M") -> str:
+    """A stored date as text, in this machine's time zone -- never its text
+    cut: written elsewhere, that's another zone's hour. The value as it is
+    if unreadable, "" if absent."""
+    at = parse_iso(value)
+    return f"{at:{fmt}}" if at else str(value or "")
+
+
 def seconds_since(value) -> float | None:
     """Seconds from a stored time to now; None if absent or unreadable."""
-    at = parse_iso(value)
-    return (datetime.now() - at).total_seconds() if at else None
+    at = iso_timestamp(value)
+    return time.time() - at if at is not None else None
 
 
 def format_duration(seconds: float) -> str:

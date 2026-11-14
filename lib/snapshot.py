@@ -12,7 +12,7 @@ from .config import (
     covering_role,
     validation_roles,
 )
-from .core import iso_timestamp, json_get, now, parse_iso, read_json_quiet
+from .core import iso_timestamp, json_get, now, parse_iso, read_json_quiet, time_key
 from .preview import LD_DIR, browser_video, ensure_ld, latest_render_dir, render_root
 from .schedule import project_schedule, schedule_progress
 from .thumbnails import (
@@ -561,7 +561,7 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
 
     for k in items:
         items[k].sort(key=lambda i: i["name"])
-    notes.sort(key=lambda n: (n["item"], n["last_activity"]), reverse=False)
+    notes.sort(key=lambda n: (n["item"], time_key(n["last_activity"])))
     meta = dict(meta)
     meta.setdefault("schema_version", SCHEMA_VERSION)
     meta["thumbnail_warnings"] = list(data["thumb_warnings"])

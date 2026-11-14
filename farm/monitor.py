@@ -5,10 +5,11 @@ import hashlib
 import os
 import subprocess
 import time
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 
 from ..lib import (
+    EARLIEST,
     AdoptedProcess,
     ConfigCache,
     PipelineError,
@@ -87,7 +88,7 @@ def launch_monitor(
     with locked_json(path) as box:
         data = box["data"]
         if data:  # lock exists
-            last_tick = monitor_last_tick(path, data) or datetime.min
+            last_tick = monitor_last_tick(path, data) or EARLIEST
             is_stale = monitor_age_status(last_tick) != "running"
 
             if not is_stale:
@@ -105,7 +106,7 @@ def launch_monitor(
 
         # Heartbeat from here on: see monitor_tick() (best-effort rewrite of
         # update_tick + os.utime() on this file).
-        box["data"] = get_user_data(user) | {"start_time": now(), "update_tick": now()}
+        box["data"] = get_user_data(user) | {"start_time": now(), "update_tick": time.time()}
         box["action"] = "to_write"
 
 
@@ -190,7 +191,7 @@ def monitor_tick(project_root: Path):
         with locked_json(path, retries=1, io_attempts=1) as box:
             data = box["data"] or {}
             if data.get("pid") == os.getpid():  # never touch a taken-over lock
-                data["update_tick"] = now()
+                data["update_tick"] = time.time()
                 box["data"] = data
                 box["action"] = "to_write"
     except Exception:

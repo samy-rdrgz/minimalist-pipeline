@@ -15,6 +15,7 @@ from ..lib import (
     StampCache,
     background_work,
     cached_scandir,
+    file_time,
     get_active_project_root,
     json_get,
     log,
@@ -1048,7 +1049,7 @@ def _build_incoming_entry(req: dict) -> dict:
 
 def _newest_tick(mtime: float | None, data: dict | None) -> datetime | None:
     """The newer of monitor.lock's mtime and its content's "update_tick"."""
-    last = datetime.fromtimestamp(mtime) if mtime else None
+    last = file_time(mtime) if mtime else None
     in_file = parse_iso((data or {}).get("update_tick"))
     if in_file:
         last = max(last, in_file) if last else in_file

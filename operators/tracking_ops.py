@@ -10,6 +10,7 @@ import bpy
 from ..farm import archive, farm_activity, request_monitor_refresh
 from ..lib import (
     ConfigCache,
+    local_time,
     PipelineError,
     ProjectScan,
     SnapshotJob,
@@ -68,6 +69,7 @@ from ..lib import (
     text_field,
     text_to_lines,
     thumbnail_size,
+    time_key,
     to_absolute,
     toggle_entry_task,
     tracked_department_flag_items,
@@ -1733,7 +1735,7 @@ class M_PIPELINE_OT_department_rtks(bpy.types.Operator):
                 or (self.department and self.department in entry_departments(e))
             )
         ]
-        rtks.sort(key=lambda e: e.get("created_at") or "", reverse=True)
+        rtks.sort(key=lambda e: time_key(e.get("created_at")), reverse=True)
         _rtks_shown[:] = rtks
         return context.window_manager.invoke_popup(self, width=self._WIDTH)
 
@@ -1753,7 +1755,7 @@ class M_PIPELINE_OT_department_rtks(bpy.types.Operator):
             who = e.get("author") or "?"
             if e.get("role"):
                 who = f"{who} ({e['role']})"
-            when = (e.get("created_at") or "")[:10]
+            when = local_time(e.get("created_at"), "%Y-%m-%d")
             version = Path(e.get("referenced_version") or "").stem
             general = "" if entry_departments(e) else " · on no department"
             head.label(

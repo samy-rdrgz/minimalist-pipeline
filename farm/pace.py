@@ -11,7 +11,15 @@ import os
 import threading
 from pathlib import Path
 
-from ..lib import ConfigCache, format_pace, locked_json, log, now, read_json_quiet
+from ..lib import (
+    ConfigCache,
+    format_pace,
+    locked_json,
+    log,
+    now,
+    read_json_quiet,
+    time_key,
+)
 from ..lib.background import background_work
 from ..lib.tracking import _DATA_ROOTS, _walk_owner_dirs
 
@@ -53,7 +61,7 @@ def _merge(data: dict, found: dict) -> dict:
         mine = presets.get(script) or []
         seen = {(r.get("job_id"), r.get("at")) for r in mine}
         mine += [r for r in records if (r["job_id"], r["at"]) not in seen]
-        mine.sort(key=lambda r: r.get("at") or "")
+        mine.sort(key=lambda r: time_key(r.get("at")))
         presets[script] = mine[-KEEP:]
     data["averages"] = {
         script: {
