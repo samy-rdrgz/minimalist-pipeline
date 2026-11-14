@@ -351,15 +351,23 @@ Relevé du 14/11 : le JS est déjà compact (132 fonctions toutes appelées, qua
   - sur le détail, la molette fait défiler, et ←/→ passent au fichier précédent ou suivant.
 - **Fenêtre trop étroite** pour deux colonnes : on revient au comportement actuel, le détail remplace la liste.
 - La liste garde ses pages calculées sur la hauteur de la fenêtre. Sa largeur réduite oblige seulement les colonnes à se resserrer.
+- **Zone trop étroite** (la bordure tirée loin) : la zone ne garde que sa **première colonne**, sans les colonnes suivantes. Idée venue de l'essai ci-dessous, pour la zone de droite. Le seuil de largeur reste à fixer.
 
-**Points techniques à vérifier en premier, dans Blender :**
-- **Créer la zone** : découper la zone principale avec `bpy.ops.screen.area_split(direction="VERTICAL", factor=…)`, lancé dans le contexte de la fenêtre et de sa zone (`context.temp_override(window=…, area=…)`). La deuxième zone est un deuxième éditeur Properties, sur le même onglet.
-- **La fermer** : `bpy.ops.screen.area_close()`, dans le même contexte.
-- **Savoir quelle zone est le détail** : une zone Blender n'a pas de propriété personnalisée. Il faudra la reconnaître par sa position (la plus à droite des deux) ou par son rang dans `screen.areas`. Chaque panneau dessine alors soit la liste, soit le détail, selon la zone dans laquelle il est.
+**Essai dans Blender 5.2.3 (14/11/2026) : faisable.** Un script hors de l'addon a découpé une fenêtre Project monitoring en deux, affiché la liste à gauche et le détail à droite, puis refermé la zone de droite. Tout a marché. Ce que l'essai a appris :
+- **Créer la zone** : `bpy.ops.screen.area_split(direction="VERTICAL", factor=…)` dans `context.temp_override(window=…, screen=…, area=…)` répond `FINISHED`. La nouvelle zone **reprend tout** de l'ancienne : éditeur Properties, onglet Tool, sans en-tête ni colonne d'onglets. Rien à remettre en forme.
+- **`factor` a un piège** : le nouvel éditeur prend toujours **la plus petite part**. Avec 0.6 il est à droite (40 %), avec 0.3 à gauche (30 %).
+- **Reconnaître le détail par sa position** : la zone Properties la plus à droite (le plus grand `area.x`), jamais « la nouvelle ». Chaque panneau dessine la liste ou le détail selon la zone où il est. Avec une seule zone, rien ne change par rapport à aujourd'hui.
+- **La taille d'une zone n'existe qu'au dessin suivant** : 0×0 juste après le split. La lire dans un timer.
+- **La bordure tirée se relit** (`area.width`) : la largeur choisie peut être retenue.
+- **Ne pas redécouper** une fenêtre qui a déjà deux zones : un deuxième split en crée une troisième.
+- **La fermer** : `bpy.ops.screen.area_close()` sur la zone de droite, dans le même contexte, répond `FINISHED`. Mais **il faut vider le détail en même temps**, sinon la zone qui reste, revenue au dessin normal, affiche le détail à la place de la liste. Même chose quand l'utilisateur ferme la zone lui-même : au dessin, un détail encore ouvert avec une seule zone doit être vidé.
+- **Le redessin doit être demandé** : un clic sur une ligne (`m_pipeline.tracking_file_details`, et les boutons de job et de worker) change le détail sans rien redessiner. Blender ne redessine que la zone cliquée, et la droite attendait le passage de la souris. `set_monitoring_detail()` doit appeler `redraw_monitoring()`, qui passe déjà sur toutes les zones Properties de la fenêtre.
+
+**Encore à vérifier pendant le développement :**
 - **L'interaction avec ce qui existe** : la fenêtre au premier plan, la réouverture sur le détail (Ctrl+clic), les fichiers ouverts par le pipeline qui gardent la fenêtre, le masquage de l'outil actif (voir NOTES.md, « Monitoring windows… »).
-- **Le rafraîchissement de l'affichage ne pose pas de problème** : `redraw_monitoring()` et `status_changed()` (`lib/monitoring.py`) passent déjà sur **toutes** les zones Properties de la fenêtre. La zone de détail sera donc redessinée comme la liste.
 - **Deux fonctions choisissent aujourd'hui « la plus grande zone »** de la fenêtre (`lib/monitoring.py:89`, à l'ouverture, et `:213`, pour la mettre au premier plan). Avec deux zones, elles doivent viser explicitement la liste.
-- **À faire après la phase 1A**, qui aura déjà réécrit les écrans de détail en boucles.
+- **Les raccourcis par zone** (molette, ←/→, Échap) : pas encore essayés.
+- **Un .blend enregistré** avec une fenêtre de monitoring en deux zones, puis rouvert.
 
 ### Phase 3 — Moteur d'états et hiérarchie des départements
 
