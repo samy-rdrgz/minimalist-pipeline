@@ -1100,7 +1100,7 @@ def _column_widths(width: float, shown: list, departments: int, show_farm: bool,
     names giving way first. Too narrow even so: the names alone, (1.0, [],
     False). See NOTES.md, "Monitoring: the detail beside the list"."""
     longest = max(
-        (len(f.get("file_name", "")) + (10 if omitted(f) else 0) for _, f in shown), default=12
+        (len(f.get("file_name", "")) for _, f in shown), default=12
     )
     names = min(max(_NAME_ICONS_WIDTH + 7 * longest, 0.25 * width), 0.45 * width)
     farm = 0
@@ -1186,7 +1186,10 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, shares, jo
     # Right-click: its folders, a render.
     icon_button(
         name, "m_pipeline.tracking_file_details", icon,
-        text=file.get("file_name", "Unknown") + (f"  · {OMIT_STATES[mark['state']]}" if mark else ""),
+        # Set aside: its mark here only with the names alone -- else it's
+        # across the cells.
+        text=file.get("file_name", "Unknown")
+        + (f"  · {OMIT_STATES[mark['state']]}" if mark and first_column >= 1 else ""),
         filepath=str(dir), custom_tooltip=file.get("description", ""), rmb="file",
     )
 
