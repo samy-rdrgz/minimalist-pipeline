@@ -7,22 +7,23 @@ import bpy
 from ..lib import (
     ConfigCache,
     addon_pref,
-    draw_onboarding,
-    region_char_budget,
-    ensure_monitoring_tick,
     any_outdated_links,
+    draw_onboarding,
+    ensure_monitoring_tick,
     get_active_project_root,
     json_get,
     monitoring_detail,
     monitoring_kind,
+    region_char_budget,
 )
-from .logs_panel import draw_pipeline_logs
+from ..operators.migration_ops import project_needs_migration
 from .farm_panel import (
     draw_farm_job_details,
     draw_farm_jobs,
     draw_farm_worker_details,
     draw_farm_workers,
 )
+from .logs_panel import draw_pipeline_logs
 from .tracking_panel import draw_file_details, draw_monitor_table
 
 
@@ -250,6 +251,9 @@ class M_PIPELINE_PT_project_settings(_MonitoringPanel, bpy.types.Panel):
                 col = split.column(align=True)
                 col.operator("m_pipeline.clean_renders", text="Clean old renders...", icon="RENDER_RESULT")
                 col.operator("m_pipeline.delete_owner_pick", text="Delete a shot or an asset...", icon="TRASH")
+                migrate = col.row()
+                migrate.alert = project_needs_migration()
+                migrate.operator("m_pipeline.migrate_data", text="Migrate old data...", icon="FILE_REFRESH")
             layout.separator(factor=2)
             actions = layout.box().row()
             actions.scale_y = 1.2

@@ -7,6 +7,7 @@ import bpy
 from ..farm import load_job_details, request_monitor_refresh
 from ..lib import (
     get_active_project_root,
+    list_fits,
     monitoring_detail,
     monitoring_kind,
     neighbour_in_list,
@@ -31,6 +32,9 @@ _DETAILS = {
 }
 # Windows with no list to page through nor anything to read again.
 _STILL = ("", "welcome", "settings")
+# The wheel's events: pages on a list, the scroll everywhere else
+# (M_PIPELINE_OT_monitoring_page.invoke()).
+_WHEEL = ("WHEELUPMOUSE", "WHEELDOWNMOUSE")
 
 
 def _showing_detail(kind: str) -> bool:
@@ -95,6 +99,13 @@ class M_PIPELINE_OT_monitoring_page(bpy.types.Operator):
         return kind != "farm" or context.window_manager.pipeline_farm_monitoring.view == "jobs"
 
     def invoke(self, context, event):
+        if event.type in _WHEEL:
+            # The wheel turns a list's pages, never a detail's (its notes,
+            # a job's lines scroll) nor a list taller than its window.
+            if _in_file_detail(context) or not list_fits(
+                monitoring_kind(context.screen)
+            ):
+                return {"PASS_THROUGH"}
         self.to_end = self.to_end or event.ctrl
         return self.execute(context)
 

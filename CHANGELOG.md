@@ -2,6 +2,50 @@
 
 All notable changes to this addon. Dates are release dates.
 
+## Unreleased
+
+### Added
+
+- The mouse wheel turns the pages of Project monitoring's list, Farm
+  monitoring's Jobs and the Pipeline log, as Left / Right do -- the
+  window was scrolling into blank space. A detail (a file's notes, a
+  job's lines), the Workers view and a window too small for its list
+  still scroll. Switchable in the preferences (Shortcuts).
+- **Migrate old data** (Edit project > Maintenance): a project from
+  before 1.2 is migrated once, every machine updated first -- the
+  Project panel says so until then. What older versions wrote is
+  completed as this one writes it (a stable's validations carried and
+  started departments, a note's departments, links one per file, a
+  render's folder, source file, shot and frames); each file changed is
+  backed up first under `backup/migration-<date>/`. This version reads
+  only that form.
+
+### Changed
+
+- Farm monitoring's Job details and File details: which machine rendered
+  which frame is a button, *Which machine, which frame...*, opening a
+  popup with the *Frame* field -- it was always drawn, a debugging aid
+  taking room in every job's detail.
+- Farm: a machine on another addon version gets no render (said in the
+  log and in Worker details) -- every machine is updated together.
+- A render's estimate no longer comes from a render made before 1.1.7,
+  whose preset wasn't recorded.
+- Farm monitoring: a render no machine is on any more -- every machine
+  allowed on it failed it (a scene too big for their GPU), or they're
+  busy elsewhere -- reads *waiting for a worker* again, under the
+  Waiting filter, with how many machines failed it; it showed
+  *render_start* as if running. Project monitoring's Farm column too.
+
+### Removed
+
+- Reading what addons before 1.2 wrote, now that *Migrate old data*
+  completes it once.
+- The snapshot's review spreadsheet (.xlsx): the review is made on the
+  snapshot page and sent back as its `.json`, which *Import review*
+  reads as before. The page's ⋯ menu no longer offers the spreadsheet.
+- CHANGELOG.md is no longer inside the addon's package (it stays in the
+  repository and on the release page).
+
 ## 1.1.10 — 06/11/2026
 
 Going through files one by one in Project monitoring, a farm that keeps

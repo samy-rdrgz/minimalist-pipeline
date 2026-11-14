@@ -16,8 +16,10 @@ from ..lib import (
     log,
     mark_render_to_check,
     now,
+    parse_iso,
     read_json_quiet,
     retry_shared_io,
+    seconds_since,
     to_absolute,
     to_relative,
 )
@@ -47,13 +49,16 @@ from .dispatch import (
 )
 from .pace import ensure_preset_pace, note_preset_pace
 from .post_render import checks_images, compilation, refresh_shot_thumbnail
+from .stages import add_stage, mark_stage
 from .workers import (
+    RENDER,
     frame_seconds,
     idle_machines,
     local_render_jobs,
     local_render_running,
     parse_saved,
     render_yield_path,
+    request_path,
     scan_workers,
     this_instance_is_worker,
 )
@@ -602,7 +607,7 @@ def retry_job(data: dict, project_root: Path) -> str | None:
     data.pop("local_processes", None)
     data.pop("frame_check_rounds", None)  # a manual retry starts a fresh count
     data.pop("cancel_requested", None)
-    data["stage_history"].append({"stage": target, "at": now(), "resumed": "retry"})
+    add_stage(data, target, resumed="retry")
     log("INFO", "farm", f"Job {data.get('job_id')}: retried at {target}.")
     return target
 
@@ -636,9 +641,7 @@ def recompile_job(data: dict) -> bool:
     if not recompilable(data):
         return False
     data.pop("to_check_attempts", None)
-    data["stage_history"].append(
-        {"stage": "checks_images_finished", "at": now(), "resumed": "recompile"}
-    )
+    add_stage(data, "checks_images_finished", resumed="recompile")
     log("INFO", "farm", f"Job {data.get('job_id')}: compilation requested again.")
     return True
 
@@ -690,7 +693,7 @@ def resume_interrupted_stage(data: dict, reason: str) -> str | None:
         target = _RESUME_STAGE[stage]
     else:
         return None
-    data["stage_history"].append({"stage": target, "at": now(), "resumed": reason})
+    add_stage(data, target, resumed=reason)
     data.pop("local_processes", None)
     data.pop("compile_machine", None)
     log(
@@ -791,9 +794,7 @@ def _finish_job_processes(job_id: str, procs: list, job_path: Path) -> None:
 
             outcome = "failed" if errors else "finished"
             if not redo:  # else already back at setup_finished
-                data["stage_history"].append(
-                    {"stage": f"{stage.replace('_start', '')}_{outcome}", "at": now()}
-                )
+                add_stage(data, f"{stage.replace('_start', '')}_{outcome}")
             if errors:
                 log(
                     "WARNING",
@@ -815,7 +816,7 @@ def _stage_time(stage_history: list, stage_name: str) -> datetime.datetime | Non
     """Timestamp of the first entry matching stage_name exactly, or None."""
     for entry in stage_history:
         if entry["stage"] == stage_name:
-            return datetime.datetime.fromisoformat(entry["at"])
+            return parse_iso(entry["at"])
     return None
 
 
@@ -823,7 +824,7 @@ def _last_stage_time(stage_history: list, prefix: str) -> datetime.datetime | No
     """Timestamp of the most recent entry whose stage starts with prefix, or None."""
     for entry in reversed(stage_history):
         if entry["stage"].startswith(prefix):
-            return datetime.datetime.fromisoformat(entry["at"])
+            return parse_iso(entry["at"])
     return None
 
 
@@ -952,11 +953,8 @@ def _worker_gone(worker: dict) -> bool:
     for WORKER_GONE_SECONDS."""
     if not worker:
         return True
-    try:
-        last = datetime.datetime.fromisoformat(worker.get("last_heartbeat", ""))
-    except (TypeError, ValueError):
-        return True
-    return (now(False) - last).total_seconds() > WORKER_GONE_SECONDS
+    age = seconds_since(worker.get("last_heartbeat"))
+    return age is None or age > WORKER_GONE_SECONDS
 
 
 def _drop_pending_request(job_id: str, uuid: str) -> bool:
@@ -964,7 +962,7 @@ def _drop_pending_request(job_id: str, uuid: str) -> bool:
     to be picked up. True if it was (and is now gone); False if the worker
     already took it (it's running), or the request can't be locked this
     tick -- then the caller keeps waiting, as before."""
-    request = ConfigCache.get_path("farm_requests") / f"request_{job_id}_{uuid}.json"
+    request = request_path(RENDER, job_id, uuid)
     if not request.exists():
         return False
     try:
@@ -995,9 +993,7 @@ def _withdraw_requests(job_id: str, machines: list, cancel: bool = False) -> lis
                 if cancel:
                     data["cancel_requested"] = True
                     if not data["used_machines"]:
-                        data["stage_history"].append(
-                            {"stage": "render_failed", "at": now(), "cancelled": True}
-                        )
+                        add_stage(data, "render_failed", cancelled=True)
                 box["action"] = "to_write"
     if dropped:
         log(
@@ -1145,10 +1141,9 @@ def _on_this_render(data: dict) -> tuple[list, list]:
     rendering this job, alive -- or unreadable this tick, can't tell;
     waiting: its request not taken up yet)."""
     job_id = data["job_id"]
-    requests = ConfigCache.get_path("farm_requests")
     rendering, waiting = [], []
     for uuid in data.get("used_machines", []):
-        if (requests / f"request_{job_id}_{uuid}.json").exists():
+        if request_path(RENDER, job_id, uuid).exists():
             waiting.append(uuid)
             continue
         worker = _read_worker(uuid)
@@ -1290,7 +1285,7 @@ def _end_render(job_path: Path, stage: str, **fields) -> dict | None:
         data = box["data"]
         if not data or data["stage_history"][-1]["stage"] != "render_start":
             return data
-        data["stage_history"].append({"stage": stage, "at": now()} | fields)
+        add_stage(data, stage, **fields)
         data.pop("left_machines", None)
         data["rendered_by"] = list(data.get("used_machines", []))
         _note_frames(data)
@@ -1435,12 +1430,8 @@ def _finish_render(job_path: Path, project_root: Path | None) -> dict | None:
             return data
         machines = data.get("used_machines", [])
         for uuid in machines:
-            request = (
-                ConfigCache.get_path("farm_requests")
-                / f"request_{data['job_id']}_{uuid}.json"
-            )
             try:
-                retry_shared_io(request.unlink)
+                retry_shared_io(request_path(RENDER, data["job_id"], uuid).unlink)
             except OSError:
                 pass
         # Kept for construct_history(): used_machines is reset by the next
@@ -1448,7 +1439,7 @@ def _finish_render(job_path: Path, project_root: Path | None) -> dict | None:
         data["rendered_by"] = list(machines)
         _note_frames(data)
         _note_machine_names(data, machines)
-        data["stage_history"].append({"stage": "render_finished", "at": now()})
+        add_stage(data, "render_finished")
         data.pop("left_machines", None)
         box["action"] = "to_write"
     paths = frame_paths(data, project_root) or []
@@ -1534,13 +1525,7 @@ def _send_back_bad_frames(data: dict, corrupted: list[int]) -> bool:
         set(data.get("frames_rerendered") or []) | set(corrupted)
     )
     data["frame_check_rounds"] = data.get("frame_check_rounds", 0) + 1
-    data["stage_history"].append(
-        {
-            "stage": "setup_finished",
-            "at": now(),
-            "resumed": f"{len(corrupted)} frame(s) to render again",
-        }
-    )
+    add_stage(data, "setup_finished", resumed=f"{len(corrupted)} frame(s) to render again")
     data.pop("dispatch_id", None)
     log(
         "WARNING",
@@ -1583,14 +1568,3 @@ def discard_saved_frames(job_id: str) -> None:
                 retry_shared_io(path.unlink)
             except OSError:
                 pass
-
-
-def mark_stage(path, stage):
-    """Append a stage entry to a job file's stage_history (own locked
-    transaction). No-op if the file is gone -- archived from Farm monitoring
-    meanwhile (it raised "'NoneType' object is not subscriptable")."""
-    with locked_json(path) as box:
-        if not box["data"]:
-            return
-        box["data"]["stage_history"].append({"stage": stage, "at": now()})
-        box["action"] = "to_write"

@@ -10,7 +10,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from .core import json_get
+from .core import blender_command, json_get
 from .preview import latest_render_dir, render_root
 
 # Longest side, any aspect ratio (a 9:16 render gives 135x240) -- the
@@ -23,7 +23,6 @@ _FRAME_EXTS = {
     ".webp", ".dpx", ".cin", ".hdr", ".jp2",
 }  # fmt: skip
 
-_ENTRY = Path(__file__).resolve().parent.parent / "templates" / "make_thumbnails.py"
 
 
 def thumbnail_size(config: dict) -> int:
@@ -231,17 +230,8 @@ def run_thumbnail_jobs(
             },
             f,
         )
-    cmd = [
-        blender_bin,
-        "-b",
-        "--factory-startup",
-        "--python",
-        str(_ENTRY),
-        "--",
-        str(request),
-    ]
     proc = subprocess.Popen(
-        cmd,
+        blender_command("make_thumbnails.py", [request], factory=True, binary=blender_bin),
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         stdin=subprocess.DEVNULL,

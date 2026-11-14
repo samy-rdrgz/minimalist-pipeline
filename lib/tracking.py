@@ -32,11 +32,13 @@ from .config import (
 )
 from .core import (
     SCANDIR_TTL,
+    StampCache,
     cached_scandir,
     get_machine_id,
     json_get,
     locked_json,
     now,
+    parse_iso,
     read_json_quiet,
     reads_once,
     resolve_bpy_path,
@@ -646,16 +648,6 @@ class RecentFilesCache:
         return [(Path(fp).stem, str(project_path(fp))) for _, fp in ordered]
 
 
-def format_duration(seconds: float) -> str:
-    """Seconds -> compact "XhYY" for display ("Xd YYhZZ" past a day)."""
-    total_minutes = int(seconds // 60)
-    days, rem_minutes = divmod(total_minutes, 24 * 60)
-    hours, minutes = divmod(rem_minutes, 60)
-    if days:
-        return f"{days}d {hours:02d}h{minutes:02d}"
-    return f"{hours}h{minutes:02d}"
-
-
 def create_tracking(filepath: Path, departments: list, description: str = ""):
     """Init or update .pipeline/tracking.json for filepath's asset/shot
     folder. Safe to call again on one that already has one (e.g. adding a
@@ -704,7 +696,6 @@ def get_departments_required(filepath: Path) -> list:
         with locked_json(path, read_only=True) as box:
             data = box["data"] or {}
         required = data.get("departments_required")
-        # Files written before 1.1.0 kept them sorted by name.
         return ordered_departments(required) if required is not None else None
     except Exception as e:
         raise PipelineError(f"Error during reading tracking file : {e}")
@@ -874,31 +865,16 @@ def get_session_worked_departments(filepath: Path) -> list[str]:
 
 
 def _linked_key(file: str) -> str:
-    """Comparable form of a linked entry's file: normpath (an old entry's
-    un-collapsed "../" -- see NOTES.md on resolve_bpy_path() -- must not
-    read as another file) + normcase. Pure string work, no disk access."""
+    """Comparable form of a linked entry's file: normpath ("../" collapsed,
+    see NOTES.md on resolve_bpy_path()) + normcase. Pure string work, no
+    disk access."""
     return os.path.normcase(os.path.normpath(file))
 
 
-def project_links(entries: list[dict], project_root) -> list[dict]:
-    """The {"file"} entries pointing into project_root -- not Blender's own
-    files (its Essentials brushes) a list written before they were left
-    out holds. Pure string work."""
-    root = _path_key(project_root)
-    out = []
-    for d in entries:
-        file = Path(d.get("file") or "")
-        if not str(file) or str(file) == ".":
-            continue
-        path = file if file.is_absolute() else Path(project_root) / file
-        if _is_under(_path_key(path), root):
-            out.append(d)
-    return out
-
 
 def compact_linked(entries: list[dict]) -> list[dict]:
-    """A "linked" list as one {"file"} per linked file, first seen first, an
-    older per-datablock list included; relative paths collapsed. Pure. See
+    """A "linked" list as one {"file"} per linked file, first seen first;
+    relative paths collapsed. Pure. See
     NOTES.md, "Linked libraries: one line per file"."""
     seen = set()
     out = []
@@ -932,8 +908,8 @@ def wipmeta_add_link(filepath: Path, link: list[dict]):
 
 def wipmeta_sync_links(filepath: Path, links: list[dict]) -> int:
     """Add to this version's .wipmeta every file of links
-    (scan_linked_libraries()) it lacks, an older per-datablock list
-    rewritten per file; add-only, nothing written when unchanged. Returns
+    (scan_linked_libraries()) it lacks; add-only, nothing written when
+    unchanged. Returns
     the number added; 0 without a .wipmeta (a -stable file), as
     wipmeta_touch()."""
     return _meta_sync_links(_meta_path(filepath, ".wipmeta"), links)
@@ -956,20 +932,12 @@ def _meta_sync_links(path: Path, links: list[dict]) -> int:
     with locked_json(path) as box:
         data = box["data"] or {}
         current = data.get("linked", [])
-        known = compact_linked(current)
-        merged = compact_linked(known + links)
+        merged = compact_linked(current + links)
         if merged != current:
             data["linked"] = merged
             box["data"] = data
             box["action"] = "to_write"
-    if len(known) < len(current):
-        log(
-            "INFO",
-            "sync_links",
-            f"{path.name}: linked list compacted, "
-            f"{len(current)} -> {len(known)} entries (one per file)",
-        )
-    return len(merged) - len(known)
+    return len(merged) - len(current)
 
 
 def create_stablemeta(
@@ -1069,15 +1037,10 @@ def set_department_validated(filepath: Path, department: str, validated: bool) -
             "Mark at least one version as stable before validating individual departments."
         )
     path = asset_dir / ".pipeline" / (_meta_stem(Path(last["file"])) + ".stablemeta")
-    # A stable made before "departments_started": seeded from every stable's
-    # validations, or recording it here would hide them from then on.
-    seed = None
-    if "departments_started" not in last:
-        seed = _validated_at_any_stable(_pipeline_entries(asset_dir))
     with locked_json(path) as box:
         data = box["data"] or {}
         current = data.setdefault("departments_validated", {})
-        started = set(data.get("departments_started", seed) or [])
+        started = set(data.get("departments_started") or [])
         if validated or current.get(department):
             started.add(department)  # validated once: started, even unvalidated
         current[department] = validated
@@ -1134,24 +1097,9 @@ def set_department_approval(
                 f"{Path(last['file']).stem} was made since {Path(stable_file).stem}, "
                 f"{department} worked: to review again."
             )
-    # A stable made before 1.1.9: the validations it carries, written down
-    # before changing one (withdrawing one of them, say).
-    carried = {}
-    if "approvals_carried" not in last:
-        carried = (
-            _legacy_carried(entries, last, read_json_quiet(asset_dir / ".pipeline" / "tracking.json") or {})
-            if last.get("approvals_previous")
-            else {}
-        )
     path = asset_dir / ".pipeline" / (_meta_stem(Path(last["file"])) + ".stablemeta")
     with locked_json(path) as box:
         data = box["data"] or {}
-        if "approvals_carried" not in data:
-            for d, roles in carried.items():
-                for r, info in roles.items():
-                    data.setdefault("approvals", {}).setdefault(d, {}).setdefault(r, info)
-            data["approvals_carried"] = True
-            box["action"] = "to_write"
         if approved and not (data.get("departments_validated") or {}).get(department):
             raise PipelineError(f"{department} isn't done at {Path(last['file']).stem}.")
         roles = data.setdefault("approvals", {}).setdefault(department, {})
@@ -1231,6 +1179,7 @@ def _entry_mtime(entry) -> datetime:
 _DEFAULT_STABLE = {
     "created_at": datetime.min.isoformat(),
     "departments_validated": {},
+    "departments_started": [],
     "conflict_warning": False,
 }
 
@@ -1261,9 +1210,8 @@ def _latest_meta(entries: list, suffix: str) -> dict | None:
         data = read_json_quiet(Path(entry.path))
         if not data:
             continue
-        try:
-            created = datetime.fromisoformat(data["created_at"])
-        except (KeyError, TypeError, ValueError):
+        created = parse_iso(data.get("created_at"))
+        if created is None:
             continue
         if best_date is None or created > best_date:
             best, best_date = data, created
@@ -1301,10 +1249,7 @@ def _collect_folder(asset_dir: Path, entries: list | None = None) -> dict | None
     if entries is None:
         entries = _pipeline_entries(asset_dir)
     last_stable = _latest_stable(entries) or dict(_DEFAULT_STABLE)
-    try:
-        stable_date = datetime.fromisoformat(last_stable.get("created_at") or "")
-    except ValueError:
-        stable_date = datetime.min
+    stable_date = parse_iso(last_stable.get("created_at")) or datetime.min
     skip_before = (
         stable_date - timedelta(seconds=_CLOCK_MARGIN_SECONDS)
         if stable_date > datetime.min + timedelta(seconds=_CLOCK_MARGIN_SECONDS)
@@ -1317,67 +1262,12 @@ def _collect_folder(asset_dir: Path, entries: list | None = None) -> dict | None
         data = read_json_quiet(Path(entry.path))
         if data:
             wipmetas.append(data)
-    started = last_stable.get("departments_started")
-    if started is None:  # a stable made before they were recorded
-        started = _started_before(entries, tracking, last_stable, wipmetas, stable_date)
-    carried = {}
-    if "approvals_carried" not in last_stable and last_stable.get("approvals_previous"):
-        carried = _legacy_carried(entries, last_stable, tracking)
     return {
         "tracking": tracking,
         "last_stable": last_stable,
         "wipmetas": wipmetas,
-        "started": started,
-        # A stable made before 1.1.9: the validations it would have carried.
-        "carried": carried,
+        "started": last_stable.get("departments_started") or [],
     }
-
-
-def _validated_at_any_stable(entries: list) -> set[str]:
-    """Departments validated at any of a folder's stables (one read each)."""
-    validated = set()
-    for entry in entries:
-        if entry.name.endswith(".stablemeta"):
-            data = read_json_quiet(Path(entry.path)) or {}
-            validated |= {
-                d for d, v in (data.get("departments_validated") or {}).items() if v
-            }
-    return validated
-
-
-def _started_before(
-    entries: list, tracking: dict, last_stable: dict, wipmetas: list, stable_date
-) -> list[str]:
-    """ "departments_started" for a latest stable that predates it: those
-    validated at any stable, or worked in a version before the latest one.
-    Only read for the required departments neither validated at the latest
-    stable nor worked since -- the one case it changes (they aren't "not
-    started" then): the older stables, then the older wipmetas, newest
-    first, until each of them is found."""
-    validated = {
-        d for d, v in last_stable.get("departments_validated", {}).items() if v
-    }
-    worked = _worked_departments(wipmetas, stable_date)
-    left = {
-        d
-        for d in tracking.get("departments_required", [])
-        if d not in validated and d not in worked
-    }
-    if not left:
-        return []
-    started = _validated_at_any_stable(entries)
-    older = sorted(
-        (e for e in entries if e.name.endswith(".wipmeta")),
-        key=_entry_mtime,
-        reverse=True,
-    )
-    for entry in older:
-        if left <= started:
-            break
-        data = read_json_quiet(Path(entry.path)) or {}
-        for deps_list in (data.get("departments_worked") or {}).values():
-            started.update(deps_list)
-    return sorted(started)
 
 
 def _worked_departments(wipmetas: list, stable_date: datetime) -> dict[str, list[dict]]:
@@ -1385,10 +1275,8 @@ def _worked_departments(wipmetas: list, stable_date: datetime) -> dict[str, list
     stable_date (the latest stable's)."""
     worked: dict[str, list[dict]] = {}
     for meta in wipmetas:
-        meta_date_str = meta.get("edited_at", "")
-        if not meta_date_str:
-            continue
-        if datetime.fromisoformat(meta_date_str) <= stable_date:
+        edited = parse_iso(meta.get("edited_at"))
+        if edited is None or edited <= stable_date:
             continue  # at or before the latest stable, ignored
         # departments_worked : {session_id: [dep1, dep2, ...]}
         for deps_list in meta.get("departments_worked", {}).values():
@@ -1411,51 +1299,20 @@ def _stablemeta_of(entries: list, stable_file: str) -> dict | None:
     return None
 
 
-def _rtk_departments(tracking: dict, start: datetime, end: datetime) -> set[str]:
-    """Departments with an RTK opened or closed after start, up to end -- a
-    general one (no department) counts for each required department."""
-    out = set()
-    for e in tracking.get("entries") or []:
-        if e.get("type") != "rtk":
-            continue
-        dates = []
-        for key in ("created_at", "done_at"):
-            try:
-                dates.append(datetime.fromisoformat(e.get(key) or ""))
-            except (TypeError, ValueError):
-                pass
-        if any(start < d <= end for d in dates):
-            out |= set(entry_departments(e) or tracking.get("departments_required") or [])
-    return out
-
-
-def _worked_since(
-    entries: list, start: datetime, end: datetime, tracking: dict
-) -> set[str]:
+def _worked_since(entries: list, start: datetime, end: datetime) -> set[str]:
     """Departments worked after start, up to end: the wipmetas edited
-    between and each stable made between's departments_worked; through a
-    stable made from a stable before 1.1.9 (none recorded), those an RTK was
-    opened or closed on meanwhile."""
+    between and each stable made between's departments_worked (a stable
+    made from a stable has no wipmeta of its own)."""
     worked = _worked_between(entries, start, end)
-    blind = False
     for entry in entries:
         if not entry.name.endswith(".stablemeta"):
             continue
         if _entry_mtime(entry) < start - timedelta(seconds=_CLOCK_MARGIN_SECONDS):
             continue
         data = read_json_quiet(Path(entry.path)) or {}
-        try:
-            at = datetime.fromisoformat(data.get("created_at") or "")
-        except ValueError:
-            continue
-        if not start < at <= end:
-            continue
-        if "approvals_carried" in data:
+        at = parse_iso(data.get("created_at"))
+        if at and start < at <= end:
             worked |= set(data.get("departments_worked") or [])
-        elif "-stable." in (data.get("created_from") or "-stable."):
-            blind = True
-    if blind:
-        worked |= _rtk_departments(tracking, start, end)
     return worked
 
 
@@ -1468,11 +1325,8 @@ def _worked_between(entries: list, start: datetime, end: datetime) -> set[str]:
         if not entry.name.endswith(".wipmeta") or _entry_mtime(entry) < skip_before:
             continue
         meta = read_json_quiet(Path(entry.path)) or {}
-        try:
-            edited = datetime.fromisoformat(meta.get("edited_at") or "")
-        except ValueError:
-            continue
-        if start < edited <= end:
+        edited = parse_iso(meta.get("edited_at"))
+        if edited and start < edited <= end:
             for deps_list in (meta.get("departments_worked") or {}).values():
                 worked.update(deps_list)
     return worked
@@ -1486,66 +1340,23 @@ def worked_since_stable(asset_dir: Path, stable_file: str, entries: list | None 
         entries = _pipeline_entries(Path(asset_dir))
     seen = _stablemeta_of(entries, stable_file)
     last = _latest_stable(entries)
-    try:
-        start = datetime.fromisoformat(seen["created_at"])
-        end = datetime.fromisoformat(last["created_at"])
-    except (KeyError, TypeError, ValueError):
+    start = parse_iso((seen or {}).get("created_at"))
+    end = parse_iso((last or {}).get("created_at"))
+    if start is None or end is None:
         return None
-    tracking = read_json_quiet(Path(asset_dir) / ".pipeline" / "tracking.json") or {}
-    return _worked_since(entries, start, end, tracking)
-
-
-def _legacy_carried(entries: list, last_stable: dict, tracking: dict) -> dict:
-    """For a latest stable made before validations were carried (1.1.9):
-    the last validations of earlier stables of its done departments not
-    worked since -- what it would have carried. Only through stables made
-    from a wip: one made from a stable didn't record what was worked."""
-    previous = last_stable.get("approvals_previous") or {}
-    done = {d for d, v in (last_stable.get("departments_validated") or {}).items() if v}
-    own = last_stable.get("approvals") or {}
-    try:
-        end = datetime.fromisoformat(last_stable.get("created_at") or "")
-    except ValueError:
-        return {}
-    carried: dict[str, dict] = {}
-    worked_cache: dict[str, set | None] = {}
-    for department, roles in previous.items():
-        if department not in done:
-            continue
-        for role, info in roles.items():
-            if role in (own.get(department) or {}):
-                continue
-            file = info.get("file") or ""
-            if file not in worked_cache:
-                seen = _stablemeta_of(entries, file)
-                try:
-                    start = datetime.fromisoformat(seen["created_at"])
-                except (KeyError, TypeError, ValueError):
-                    worked_cache[file] = None
-                    continue
-                worked_cache[file] = _worked_since(entries, start, end, tracking)
-            worked = worked_cache[file]
-            if worked is None or department in worked:
-                continue
-            carried.setdefault(department, {})[role] = {
-                k: v for k, v in info.items() if k != "file"
-            } | {"carried_from": file}
-    return carried
+    return _worked_since(entries, start, end)
 
 
 def _status_from_raw(raw: dict) -> dict:
     """A folder's tracking status from _collect_folder()'s data -- memory
     only, no disk."""
     global_data = dict(raw["tracking"])
-    # The project's order, whatever the file's (sorted by name before 1.1.0).
+    # The project's order, whatever the file's (Edit project may reorder).
     global_data["departments_required"] = ordered_departments(
         global_data.get("departments_required", [])
     )
     last_stable = raw["last_stable"]
-    stable_date_str = last_stable.get("created_at")
-    stable_date = (
-        datetime.fromisoformat(stable_date_str) if stable_date_str else datetime.min
-    )
+    stable_date = parse_iso(last_stable.get("created_at")) or datetime.min
 
     # Departments validated at the latest stable
     validated_departments = {
@@ -1555,14 +1366,13 @@ def _status_from_raw(raw: dict) -> dict:
     # Departments worked on since the latest stable
     worked_departments = _worked_departments(raw["wipmetas"], stable_date)
 
-    # Approved by a validation role at the latest stable -- only while done.
-    # Carried from the stable before when not worked since (a stable made
-    # before 1.1.9: worked out on reading, see _legacy_carried()).
-    approvals = {}
-    for source in (raw.get("carried") or {}, last_stable.get("approvals") or {}):
-        for d, roles in source.items():
-            if d in validated_departments and roles:
-                approvals.setdefault(d, {}).update(roles)
+    # Approved by a validation role at the latest stable (carried from the
+    # stable before when not worked since) -- only while done.
+    approvals = {
+        d: dict(roles)
+        for d, roles in (last_stable.get("approvals") or {}).items()
+        if d in validated_departments and roles
+    }
 
     deps_items = [
         (d, d.capitalize(), "", 2**i)
@@ -1747,8 +1557,9 @@ def copy_entries(from_filepath: Path, to_filepath: Path) -> None:
         raise PipelineError(f"Error copying entries: {e}")
 
 
-# tracking.json path -> (mtime or None, archived, last checked -- time.monotonic())
-_archived_cache: dict[str, tuple[float | None, bool, float]] = {}
+# Same TTL as cached_scandir(): within it, no disk call at all -- the mtime
+# check alone was one network round-trip per shot per call.
+_archived_cache = StampCache(SCANDIR_TTL)
 
 
 def is_block_archived(shot_dir: Path) -> bool:
@@ -1757,28 +1568,17 @@ def is_block_archived(shot_dir: Path) -> bool:
     calls this once per shot in a sequence, and Blender re-invokes the enum
     callbacks that walk sequences/shots on every redraw."""
     tracking_file = shot_dir / ".pipeline" / "tracking.json"
-    key = str(tracking_file)
-    now_t = time.monotonic()
-    cached = _archived_cache.get(key)
-    # Same TTL as cached_scandir(): within it, no disk call at all -- the
-    # mtime check alone was one network round-trip per shot per call.
-    if cached and now_t - cached[2] < SCANDIR_TTL:
-        return cached[1]
-    try:
-        mtime = tracking_file.stat().st_mtime
-    except OSError:
-        _archived_cache[key] = (None, False, now_t)
-        return False
-    if cached and cached[0] == mtime:
-        _archived_cache[key] = (mtime, cached[1], now_t)
-        return cached[1]
-    try:
-        with locked_json(tracking_file, read_only=True, retries=0) as box:
-            archived = bool((box["data"] or {}).get("archived"))
-    except Exception:
-        archived = False
-    _archived_cache[key] = (mtime, archived, now_t)
-    return archived
+
+    def read():
+        try:
+            with locked_json(tracking_file, read_only=True, retries=0) as box:
+                return bool((box["data"] or {}).get("archived"))
+        except Exception:
+            return False
+
+    return _archived_cache.get(
+        str(tracking_file), lambda: tracking_file.stat().st_mtime, read, False
+    )
 
 
 def list_active_blocks(
@@ -1835,27 +1635,20 @@ def active_shot_owners(
 
 
 def entry_departments(e: dict) -> list[str]:
-    """An entry's departments: its "departments" (several, 1.1.0+), else
-    its single "department"; [] for none."""
-    if e.get("departments"):
-        return list(e["departments"])
-    return [e["department"]] if e.get("department") else []
+    """An entry's departments; [] for none."""
+    return list(e.get("departments") or [])
 
 
 def _set_entry_departments(e: dict, departments) -> None:
-    """Store departments on entry e: "department" holds the first -- what
-    an addon before 1.1.0 reads --, "departments" all of them when there
-    are several (a one-department entry stays as it always was)."""
+    """Store departments on entry e, in the project's order; none: no
+    "departments" key."""
     if isinstance(departments, str):
         departments = [departments]
     deps = ordered_departments(
         d for d in dict.fromkeys(departments or []) if d and d != "NONE"
     )
+    e.pop("department", None)
     if deps:
-        e["department"] = deps[0]
-    else:
-        e.pop("department", None)
-    if len(deps) > 1:
         e["departments"] = deps
     else:
         e.pop("departments", None)
@@ -2416,14 +2209,11 @@ def get_linked_libraries(filepath: Path) -> list[dict]:
     file) -- the latest wip's if one exists, else the latest stable's."""
     asset_dir = _owner_dir(Path(filepath))
     wip = get_last_wipmeta(asset_dir)
-    linked = (wip or get_last_stable(asset_dir)).get("linked", [])
-    # An old -stable's list is never rewritten: one entry per datablock.
-    root = get_active_project_root()
-    return project_links(compact_linked(linked), root) if root else compact_linked(linked)
+    return list((wip or get_last_stable(asset_dir)).get("linked", []))
 
 
 # owner folder -> (.pipeline mtime, linked list, last checked -- time.monotonic())
-_linked_cache: dict[str, tuple[float, list, float]] = {}
+_linked_cache = StampCache(SCANDIR_TTL)
 
 
 def get_linked_libraries_cached(filepath: Path) -> list[dict]:
@@ -2431,21 +2221,16 @@ def get_linked_libraries_cached(filepath: Path) -> list[dict]:
     as TrackingStatusCache (a new .wipmeta/.stablemeta bumps it), checked at
     most every SCANDIR_TTL."""
     folder = _owner_dir(Path(filepath))
-    key = str(folder)
-    now_t = time.monotonic()
-    cached = _linked_cache.get(key)
-    if cached and now_t - cached[2] < SCANDIR_TTL:
-        return cached[1]
-    mtime = TrackingStatusCache._pipeline_mtime(folder)
-    if cached and cached[0] == mtime:
-        _linked_cache[key] = (mtime, cached[1], now_t)
-        return cached[1]
-    try:
-        linked = get_linked_libraries(folder)
-    except Exception:
-        linked = []
-    _linked_cache[key] = (mtime, linked, now_t)
-    return linked
+
+    def read():
+        try:
+            return get_linked_libraries(folder)
+        except Exception:
+            return []
+
+    return _linked_cache.get(
+        str(folder), lambda: TrackingStatusCache._pipeline_mtime(folder), read, []
+    )
 
 
 # Inverse links index, target folder key -> linker folders -- built by
@@ -2480,8 +2265,7 @@ def _current_link_files(entries: list, project_root: Path) -> list[str]:
     """The project files an owner links now, as stored: its latest wip's
     list, else its latest stable's (get_linked_libraries()). Thread-safe."""
     meta = _latest_meta(entries, ".wipmeta") or _latest_stable(entries) or {}
-    linked = project_links(compact_linked(meta.get("linked", [])), project_root)
-    return [d["file"] for d in linked]
+    return [d["file"] for d in meta.get("linked", []) if d.get("file")]
 
 
 def _outdated_links_of(root: Path, owners: list, currents: dict, v_prefix: str) -> dict:

@@ -7,80 +7,81 @@ from types import SimpleNamespace
 
 import bpy
 
+from ..farm import archive, farm_activity, request_monitor_refresh
 from ..lib import (
-    draw_box_tip,
-    lines_budget,
-    region_char_budget,
-    text_to_lines,
-    monitoring_detail,
-    set_monitoring_detail,
     ConfigCache,
     PipelineError,
     ProjectScan,
     SnapshotJob,
     TrackingStatusCache,
+    bring_monitoring_to_front,
     build_snapshot,
     clear_render_to_check,
+    copy_videos,
     create_entry,
     delete_entry,
     department_filter_items,
+    draw_box_tip,
     edit_entry,
+    ensure_snapshot_lds,
     entry_departments,
-    ordered_departments,
     entry_version_items,
     file_in_active_project,
     get_active_project_root,
     get_addon_version,
     get_current_departments,
     get_departments_required,
-    get_last_stable,
     get_description,
+    get_last_stable,
     get_session_worked_departments,
     get_user,
     get_user_role,
-    import_review_xlsx,
-    review_import_plan,
+    import_review,
     json_get,
+    lines_budget,
     log,
     memory_enum,
     memory_prop,
+    monitoring_detail,
     monitoring_windows,
-    bring_monitoring_to_front,
-    open_monitoring_window,
-    redraw_monitoring,
     now,
+    open_monitoring_window,
+    ordered_departments,
     prefix_items,
     read_json_quiet,
     read_snapshot_data,
-    review_description_changes,
+    redraw_monitoring,
+    region_char_budget,
+    report_error,
     resolve_ffmpeg,
+    review_description_changes,
+    review_import_plan,
     sequence_items,
     set_department_approval,
     set_department_validated,
     set_description,
+    set_monitoring_detail,
     shot_tag_items,
     snapshot_filename,
+    snapshot_videos,
     status_changed,
     text_field,
+    text_to_lines,
     thumbnail_size,
     to_absolute,
     toggle_entry_task,
     tracked_department_flag_items,
     tracking_json_path,
+    videos_in,
     wipmeta_add_work,
     write_snapshot,
-    copy_videos,
-    ensure_snapshot_lds,
-    snapshot_videos,
-    videos_in,
     zip_videos,
 )
-from ..farm import archive, farm_activity, request_monitor_refresh
-from .rushes_ops import push_checked_renders
 from ..panels import (
     load_file_renders,
     load_file_thumbnail,
 )
+from .rushes_ops import push_checked_renders
 
 _file_department_items_cache: list = []
 
@@ -383,9 +384,7 @@ class M_PIPELINE_OT_create_entry(bpy.types.Operator):
                 )
 
         except PipelineError as e:
-            log(e.level, "create_entry", e.message)
-            self.report({e.level}, e.message)
-            return {"CANCELLED"}
+            return report_error(self, "create_entry", e)
         status_changed(self.filepath)
         self.report({"INFO"}, "Entry created.")
         context.window_manager.pipeline_entry_buffer.clear()
@@ -563,9 +562,7 @@ class M_PIPELINE_OT_edit_entry(bpy.types.Operator):
                 shot=None if self.shot_tag == "NONE" else self.shot_tag,
             )
         except PipelineError as e:
-            log(e.level, "edit_entry", e.message)
-            self.report({e.level}, e.message)
-            return {"CANCELLED"}
+            return report_error(self, "edit_entry", e)
         status_changed(self.filepath)
         self.report({"INFO"}, "Entry updated.")
         return {"FINISHED"}
@@ -623,9 +620,7 @@ class M_PIPELINE_OT_delete_entry(bpy.types.Operator):
         try:
             delete_entry(Path(self.filepath), self.id)
         except PipelineError as e:
-            log(e.level, "delete_entry", e.message)
-            self.report({e.level}, e.message)
-            return {"CANCELLED"}
+            return report_error(self, "delete_entry", e)
         status_changed(self.filepath)
         self.report({"INFO"}, "Entry deleted.")
         return {"FINISHED"}
@@ -649,9 +644,7 @@ class M_PIPELINE_OT_toggle_entry_task(bpy.types.Operator):
         try:
             toggle_entry_task(Path(self.filepath), self.id, get_user(context))
         except PipelineError as e:
-            log(e.level, "toggle_entry_task", e.message)
-            self.report({e.level}, e.message)
-            return {"CANCELLED"}
+            return report_error(self, "toggle_entry_task", e)
         status_changed(self.filepath)
         return {"FINISHED"}
 
@@ -662,16 +655,15 @@ class M_PIPELINE_OT_import_review(bpy.types.Operator):
     bl_idname = "m_pipeline.import_review"
     bl_label = "Import review"
     bl_description = (
-        "Create notes from reviews sent back by production: the .xlsx "
-        "downloaded from a snapshot, or the .json its page's Review makes -- "
-        "several at once (sup's, prod's...). Lines already imported are skipped"
+        "Create notes from reviews sent back by production: the .json a "
+        "snapshot page's Review makes -- several at once (sup's, prod's...). Lines already imported are skipped"
     )
 
     filepath: bpy.props.StringProperty(subtype="FILE_PATH")
     # Several files picked at once (Shift/Ctrl-click in the browser).
     files: bpy.props.CollectionProperty(type=bpy.types.OperatorFileListElement)
     directory: bpy.props.StringProperty(subtype="DIR_PATH")
-    filter_glob: bpy.props.StringProperty(default="*.xlsx;*.json", options={"HIDDEN"})
+    filter_glob: bpy.props.StringProperty(default="*.json", options={"HIDDEN"})
 
     def invoke(self, context, event):
         if not get_active_project_root():
@@ -687,10 +679,10 @@ class M_PIPELINE_OT_import_review(bpy.types.Operator):
         paths = [
             p
             for p in dict.fromkeys(paths)
-            if p.is_file() and p.suffix.lower() in (".xlsx", ".json")
+            if p.is_file() and p.suffix.lower() == ".json"
         ]
         if not paths:
-            self.report({"ERROR"}, "No review (.xlsx or .json) selected.")
+            self.report({"ERROR"}, "No review (.json) selected.")
             return {"CANCELLED"}
         # Each file's plan; one that can't be read or has no valid role is
         # left out, said in the dialog -- the others still go.
@@ -850,7 +842,7 @@ def _run_review_import(self, paths: list[Path]) -> set:
     changes: dict[str, dict] = {}
     for path in paths:
         try:
-            one = import_review_xlsx(path)
+            one = import_review(path)
         except PipelineError as e:
             log(e.level, "review_import", e.message)
             result["skipped"].append((path.name, e.message))
@@ -979,7 +971,7 @@ class M_PIPELINE_OT_review_descriptions(bpy.types.Operator):
     def draw(self, context):
         col = self.layout.column(align=True)
         col.label(text="The review changes these descriptions. Apply them all?")
-        col.label(text="(To leave one out, fix it in the spreadsheet and re-import.)")
+        col.label(text="(To leave one out, change it on the snapshot page and download the review again.)")
         col.separator()
         for change in _description_changes[:_DESCRIPTIONS_SHOWN]:
             col.label(text=change["name"], icon="GREASEPENCIL")
@@ -1035,8 +1027,7 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
     bl_label = "Export snapshot"
     bl_description = (
         "Write one HTML file showing every asset/shot's status and open notes, "
-        "readable offline without Blender, with a review spreadsheet inside "
-        "to send back"
+        "readable offline without Blender, with a review to send back"
     )
 
     filepath: bpy.props.StringProperty(subtype="FILE_PATH")
@@ -1570,9 +1561,7 @@ class M_PIPELINE_OT_edit_description(bpy.types.Operator):
         try:
             set_description(Path(filepath), self.description)
         except PipelineError as e:
-            log(e.level, "edit_description", e.message)
-            self.report({e.level}, e.message)
-            return {"CANCELLED"}
+            return report_error(self, "edit_description", e)
         status_changed(filepath)
         self.report({"INFO"}, "Description updated.")
         return {"FINISHED"}
@@ -1598,9 +1587,7 @@ class M_PIPELINE_OT_toggle_worked_department(bpy.types.Operator):
         try:
             wipmeta_add_work(filepath, sorted(current))
         except PipelineError as e:
-            log(e.level, "toggle_worked_department", e.message)
-            self.report({e.level}, e.message)
-            return {"CANCELLED"}
+            return report_error(self, "toggle_worked_department", e)
         status_changed(filepath)
         return {"FINISHED"}
 
@@ -1636,9 +1623,7 @@ class M_PIPELINE_OT_toggle_validated_department(bpy.types.Operator):
                 filepath, self.department, not current.get(self.department, False)
             )
         except PipelineError as e:
-            log(e.level, "toggle_validated_department", e.message)
-            self.report({e.level}, e.message)
-            return {"CANCELLED"}
+            return report_error(self, "toggle_validated_department", e)
         status_changed(filepath)
         return {"FINISHED"}
 
@@ -1681,9 +1666,7 @@ class M_PIPELINE_OT_toggle_department_approval(bpy.types.Operator):
                 user=get_user(context),
             )
         except PipelineError as e:
-            log(e.level, "toggle_department_approval", e.message)
-            self.report({e.level}, e.message)
-            return {"CANCELLED"}
+            return report_error(self, "toggle_department_approval", e)
         status_changed(filepath)
         if not changed:  # the cache was behind the disk: shown as it is now
             self.report({"INFO"}, f"{self.department}: already as shown now.")
@@ -1880,9 +1863,7 @@ class M_PIPELINE_OT_render_checked(bpy.types.Operator):
                 self.filepath, None if self.all_shots else self.shot
             )
         except PipelineError as e:
-            log(e.level, "render_checked", e.message)
-            self.report({e.level}, e.message)
-            return {"CANCELLED"}
+            return report_error(self, "render_checked", e)
         checklist = context.window_manager.render_checked_departments
         for item in [i for i in checklist if i.validate != i.was_validated]:
             try:

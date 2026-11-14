@@ -7,12 +7,11 @@ import base64
 import hashlib
 import json
 import re
-from datetime import datetime
 from pathlib import Path
 
 from .config import covering_role
+from .core import parse_iso
 from .review_import import REVIEW_JSON_FORMAT
-from .review_sheet import _stem, render_review_xlsx
 from .snapshot import (
     SCHEMA_VERSION,
     _owner_shots,
@@ -31,8 +30,8 @@ _PATH = re.compile(r'<path[^>]*\sd="([^"]+)"')
 
 def render_html(snapshot: dict) -> str:
     """The whole snapshot as one offline HTML page: page.html with the
-    stylesheet, the script, the logo, the wordmark's font, the review
-    spreadsheet and page_data() put in, in one pass (a value is never
+    stylesheet, the script, the logo, the wordmark's font and
+    page_data() put in, in one pass (a value is never
     read again for placeholders)."""
     logo = (PAGE_DIR / "logo.svg").read_text(encoding="utf-8")
     viewbox = _VIEWBOX.search(logo)[1]
@@ -47,13 +46,15 @@ def render_html(snapshot: dict) -> str:
         # The <use> of a symbol draws it from 0 0: its box, not the source's.
         "LOGO_VB0": f"0 0 {width} {height}",
         "LOGO_PATH": _PATH.search(logo)[1],
-        "XLSX": base64.b64encode(render_review_xlsx(snapshot)).decode("ascii"),
-        "XLSX_NAME": _escape(snapshot_filename(snapshot, "xlsx", "review")),
         # Inside <script>: no "</" may close it early.
         "DATA": data.replace("</", "<\\/"),
     }
     shell = (PAGE_DIR / "page.html").read_text(encoding="utf-8")
     return _PLACEHOLDER.sub(lambda m: values[m[1]], shell)
+
+
+def _stem(filename: str | None) -> str | None:
+    return Path(filename).stem if filename else None
 
 
 def _escape(text: str) -> str:
@@ -199,10 +200,8 @@ def _rtk_kinds(threads: list) -> dict:
 
 
 def _day(iso: str) -> str:
-    try:
-        return f"{datetime.fromisoformat(iso):%d/%m/%Y}"
-    except ValueError:
-        return iso
+    at = parse_iso(iso)
+    return f"{at:%d/%m/%Y}" if at else iso
 
 
 def _approval(item: dict, department: str, roles: list) -> dict | None:

@@ -11,7 +11,7 @@ import os
 import threading
 from pathlib import Path
 
-from ..lib import ConfigCache, locked_json, log, now, read_json_quiet
+from ..lib import ConfigCache, format_pace, locked_json, log, now, read_json_quiet
 from ..lib.background import background_work
 from ..lib.tracking import _DATA_ROOTS, _walk_owner_dirs
 
@@ -58,22 +58,12 @@ def _merge(data: dict, found: dict) -> dict:
     data["averages"] = {
         script: {
             "seconds_per_frame": spf,
-            "per_frame": _clock(spf),
+            "per_frame": format_pace(spf),
             "renders": count,
         }
         for script, (spf, count) in sorted(preset_averages(data).items())
     }
     return data
-
-
-def _clock(seconds: float) -> str:
-    """ "1m23s", "45s", "1h02m" -- a pace read by a person."""
-    seconds = round(seconds)
-    if seconds >= 3600:
-        return f"{seconds // 3600}h{seconds % 3600 // 60:02d}m"
-    if seconds >= 60:
-        return f"{seconds // 60}m{seconds % 60:02d}s"
-    return f"{seconds}s"
 
 
 def note_preset_pace(entry: dict) -> None:

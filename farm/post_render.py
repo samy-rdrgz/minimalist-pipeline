@@ -1,7 +1,5 @@
 """Post-render pipeline stages: frame integrity check and video compilation, both via ffmpeg."""
 
-import re
-import subprocess
 from pathlib import Path
 
 import bpy
@@ -11,21 +9,22 @@ from ..lib import (
     LD_SCALE,
     MAX_VIDEO_WIDTH,
     ConfigCache,
-    browser_codec,
-    ld_path,
     PipelineError,
+    browser_codec,
     get_machine_id,
     json_get,
+    ld_path,
     locked_json,
     log,
-    now,
     resolve_ffmpeg,
     run_thumbnail_jobs,
     thumbnail_jobs,
     thumbnail_size,
     to_absolute,
 )
+from ..lib.preview import video_info
 from .dispatch import popen_logged, track_local_processes
+from .stages import add_stage, mark_stage
 
 _EXTENSION_MAP = {
     "PNG": "png",
@@ -102,9 +101,7 @@ def checks_images(job_path: Path):
                     "-",
                 ]
 
-                data["stage_history"].append(
-                    {"stage": "checks_images_start", "at": now()}
-                )
+                add_stage(data, "checks_images_start")
                 box["action"] = "to_write"
 
                 # Read back by scan_processes() (corrupted_frames()). A
@@ -124,13 +121,10 @@ def checks_images(job_path: Path):
                 ]
                 track_local_processes(data, proc)
             else:
-                data["stage_history"].append(
-                    {"stage": "checks_images_failed", "at": now()}
-                )
+                add_stage(data, "checks_images_failed")
                 box["action"] = "to_write"
                 raise PipelineError("FFMPEG is not installed")
     except Exception as e:
-        from .queue import mark_stage
 
         mark_stage(
             job_path, "checks_images_failed"
@@ -174,26 +168,10 @@ def _ffmpeg_preset_to_args(preset: dict) -> list[str]:
 # the render lost, nothing resampled. See NOTES.md, "Odd sizes: one more
 # column for the compilation".
 _EVEN_PAD = "pad=ceil(iw/2)*2:ceil(ih/2)*2"  # size unread: black, never a failure
-_FRAME_SIZE = re.compile(r"Video: [^\n]*?, (\d{1,5})x(\d{1,5})")
-
-
 def _frame_size(frame: str, ffmpeg_bin: str) -> tuple[int, int] | None:
-    """(width, height) of one rendered frame, from ffmpeg's own report (no
-    ffprobe needed); None if unread."""
-    try:
-        out = subprocess.run(
-            [ffmpeg_bin, "-hide_banner", "-i", frame],
-            check=False,  # no output file: ffmpeg always "fails" here
-            capture_output=True,
-            text=True,
-            errors="replace",
-            timeout=30,
-            stdin=subprocess.DEVNULL,
-        ).stderr
-    except (OSError, subprocess.SubprocessError):
-        return None
-    m = _FRAME_SIZE.search(out)
-    return (int(m[1]), int(m[2])) if m else None
+    """(width, height) of one rendered frame; None if unread."""
+    info = video_info(frame, ffmpeg_bin, timeout=30)
+    return info[2:] if info else None
 
 
 def _even_filter(size: tuple[int, int] | None) -> str:
@@ -315,20 +293,15 @@ def compilation(*, project_root: Path, job_path: Path, compilation_settings: str
                         "local",
                     )
                 ]
-                data["stage_history"].append(
-                    {"stage": "compilation_start", "at": now()}
-                )
+                add_stage(data, "compilation_start")
                 box["action"] = "to_write"
                 track_local_processes(data, proc)
 
             else:
-                data["stage_history"].append(
-                    {"stage": "compilation_failed", "at": now()}
-                )
+                add_stage(data, "compilation_failed")
                 box["action"] = "to_write"
                 raise PipelineError("FFMPEG is not installed")
     except Exception as e:
-        from .queue import mark_stage
 
         mark_stage(
             job_path, "compilation_failed"
@@ -410,7 +383,7 @@ def send_preview_compile(job_path: Path, uuid: str, idle: dict) -> bool:
         compile_request(data["job_id"], uuid)
         idle_worker = idle.pop(uuid, None) or {}
         data["compile_machine"] = uuid
-        history.append({"stage": "preview_start", "at": now(), "machine": uuid})
+        add_stage(data, "preview_start", machine=uuid)
         box["action"] = "to_write"
     log(
         "INFO",
@@ -429,10 +402,10 @@ def check_remote_compile(job_path: Path, data: dict) -> None:
     worker file, as _on_this_render(): a worker takes it under its own
     file's lock, unreadable (None) meanwhile."""
     from .queue import _read_worker, _worker_gone, resume_interrupted_stage
-    from .workers import compile_request_path
+    from .workers import COMPILE, request_path
 
     uuid, job_id = data["compile_machine"], data["job_id"]
-    request = compile_request_path(job_id, uuid)
+    request = request_path(COMPILE, job_id, uuid)
     waiting = request.exists()
     worker = _read_worker(uuid)
     if worker is None:
@@ -469,7 +442,7 @@ def run_preview_compile(job_id: str, project_root: Path) -> None:
             data = box["data"] or {}
             ffmpeg_bin = resolve_ffmpeg()
             if not ffmpeg_bin:
-                data["stage_history"].append({"stage": "preview_failed", "at": now()})
+                add_stage(data, "preview_failed")
                 box["action"] = "to_write"
                 raise PipelineError("FFMPEG is not installed")
 
@@ -480,12 +453,11 @@ def run_preview_compile(job_id: str, project_root: Path) -> None:
                     "local",
                 )
             ]
-            data["stage_history"].append({"stage": "preview_start", "at": now()})
+            add_stage(data, "preview_start")
             box["action"] = "to_write"
             track_local_processes(data, proc)
 
     except Exception as e:
-        from .queue import mark_stage
 
         mark_stage(job_path, "preview_failed")  # separate transaction, actually commits
         log("ERROR", "farm", f"Preview compile failed for {job_id}: {e}")

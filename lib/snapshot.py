@@ -1,12 +1,10 @@
 """Production snapshot: one self-contained HTML page of the project's state
-for people outside the studio, with a review spreadsheet embedded in it that
-they fill in and send back (see NOTES.md, "Production snapshot")."""
+for people outside the studio, with a review they write on it and send back (see NOTES.md, "Production snapshot")."""
 
 import base64
 import os
 import re
 import threading
-from datetime import datetime
 from pathlib import Path
 
 from .background import background_work
@@ -14,7 +12,7 @@ from .config import (
     covering_role,
     validation_roles,
 )
-from .core import json_get, now, read_json_quiet
+from .core import iso_timestamp, json_get, now, parse_iso, read_json_quiet
 from .preview import LD_DIR, browser_video, ensure_ld, latest_render_dir, render_root
 from .schedule import project_schedule, schedule_progress
 from .thumbnails import (
@@ -26,8 +24,8 @@ from .thumbnails import (
     thumbnail_size,
 )
 from .tracking import (
-    APPROVAL_SOURCE,
     _DATA_ROOTS,
+    APPROVAL_SOURCE,
     _collect_folder,
     _pipeline_entries,
     _status_from_raw,
@@ -97,30 +95,29 @@ def read_render_state(root: Path, kind: str, owner: Path, v_prefix: str = "v") -
     render_history.json's last finished render of that shot, else the latest
     render folder's name. Pure os/json: thread-safe."""
     history = read_json_quiet(owner / ".pipeline" / "render_history.json") or {}
+    # A render with no output_path names no folder (one from before 1.0.11
+    # the migration couldn't match): not a render to show.
     finished = [
         e
         for e in history.get("entries", [])
-        if isinstance(e, dict) and e.get("status") == "finished"
+        if isinstance(e, dict) and e.get("status") == "finished" and e.get("output_path")
     ]
     base = render_root(root, owner)
     shots = _owner_shots(owner) if kind == "shot" else [""]
     block = len(shots) > 1
 
     def last_render(shot: str, mine: list, folder_dir: Path) -> dict:
-        # An older version's entry (no source_file, no shot_override) after
-        # it may be a newer render of this shot: the folder name knows.
-        if mine and all(e.get("source_file") for e in finished[mine[-1] + 1 :]):
+        if mine:
             last = finished[mine[-1]]
-            output = last.get("output_path")
-            folder = (Path(root) / output).parent if output else None
+            folder = (Path(root) / last["output_path"]).parent
             return {
-                "_when": _finished_at(last.get("completed_at")) or _mtime(folder),
+                "_when": iso_timestamp(last.get("completed_at")) or _mtime(folder),
                 "shot": shot,
-                "file": Path(last["source_file"]).name,
-                "folder": folder.name if folder else None,
-                "path": str(folder) if folder else None,
+                "file": Path(last.get("source_file") or "").name or None,
+                "folder": folder.name,
+                "path": str(folder),
                 "frames": _frame_pair(last.get("frame_range_rendered"))
-                or (_folder_frames(folder) if folder else None),
+                or _folder_frames(folder),
                 # Which machine wrote each frame, and their pace
                 # (farm queue._note_frames()): File details' lookup.
                 "frame_machines": last.get("frame_machines"),
@@ -143,18 +140,14 @@ def read_render_state(root: Path, kind: str, owner: Path, v_prefix: str = "v") -
         mine = [
             i
             for i, e in enumerate(finished)
-            if e.get("source_file") and (not block or e.get("shot_override") == shot)
+            if not block or e.get("shot_override") == shot
         ]
         out.append(last_render(shot, mine, base.with_name(shot) if shot else base))
     if block:
         # The block rendered whole: each shot's last render is the newer of
         # its own and that one, by when it finished (the two folders number
         # their renders apart).
-        mine = [
-            i
-            for i, e in enumerate(finished)
-            if e.get("source_file") and not e.get("shot_override")
-        ]
+        mine = [i for i, e in enumerate(finished) if not e.get("shot_override")]
         whole = last_render("", mine, base)
         if whole["path"]:
             out = [
@@ -164,14 +157,6 @@ def read_render_state(root: Path, kind: str, owner: Path, v_prefix: str = "v") -
     for r in out:
         r.pop("_when", None)
     return out
-
-
-def _finished_at(value) -> float | None:
-    """A history entry's completed_at as a timestamp; None if unreadable."""
-    try:
-        return datetime.fromisoformat(str(value)).timestamp()
-    except ValueError:
-        return None
 
 
 def _mtime(folder) -> float | None:
@@ -593,7 +578,7 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
     }
     schedule = project_schedule(config)
     if schedule:
-        today = datetime.fromisoformat(meta.get("scan_started_at") or now()).date()
+        today = (parse_iso(meta.get("scan_started_at")) or now(iso=False)).date()
         meta["schedule"] = schedule_progress(schedule, today, meta["progress"])
     meta["asset_departments"] = _columns(
         json_get(config, "assets_departments", []), items["asset"]
@@ -631,11 +616,6 @@ def progress_weights(config: dict) -> dict[str, int]:
             value = default
         out[key] = max(0, min(100, value))
     return out
-
-
-def _rtk_on(item: dict, department: str) -> bool:
-    """An open RTK on that department, or on none (a general retake)."""
-    return department in item["rtk_departments"] or item.get("general_rtk", False)
 
 
 def _progress(item: dict, weights: dict) -> float | None:

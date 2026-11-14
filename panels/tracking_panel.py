@@ -7,57 +7,58 @@ import bpy
 import bpy.utils.previews
 
 from ..farm import farm_activity
-from .farm_panel import draw_frame_lookup, job_icon
 from ..lib import (
     APPROVAL_SOURCE,
     REVIEW_SOURCE,
     TEAM_REVIEW_SOURCE,
     ConfigCache,
     ProjectScan,
-    entry_departments,
     TrackingStatusCache,
     WorkTimeCache,
+    any_outdated_links,
+    box_tip_units,
     covering_role,
     department_status_tooltip,
-    open_rtks,
-    open_task_counts,
-    get_user_role,
-    highest_approval,
-    box_tip_units,
     draw_box_tip,
     draw_pager,
+    entry_departments,
     filter_review_boxes,
     find_linked_by,
-    any_outdated_links,
-    outdated_links,
-    format_duration,
+    format_work_time,
     get_active_project_root,
     get_current_departments,
     get_description,
     get_entries,
     get_entries_grouped,
     get_linked_libraries_cached,
-    owner_thumbnail_dirs,
-    render_root,
+    get_user_role,
+    group_renders,
+    highest_approval,
     json_get,
     monitoring_detail,
+    open_rtks,
+    open_task_counts,
+    outdated_links,
+    owner_key,
+    owner_thumbnail_dirs,
     paginate,
     position_in_list,
     project_path,
-    group_renders,
     read_render_state,
-    shots_label,
     region_char_budget,
-    rows_that_fit,
-    split_footer,
-    owner_key,
+    render_root,
     render_to_check_label,
+    rows_that_fit,
     safe_icon,
     shots_in_segment,
+    shots_label,
+    split_footer,
     text_to_lines,
     thumbnail_path,
     validation_roles,
 )
+from ..lib.ui import icon_button, link_rows
+from .farm_panel import draw_frame_lookup_button, job_icon
 
 # Fudge factor: entries end up nested a few columns/rows deep (see
 # _draw_entry), and Blender doesn't expose a sub-layout's resolved width.
@@ -292,35 +293,17 @@ def _draw_entry(e, note, filepath, width: int | None = None):
     row = note.row(align=True)
     body = row.row(align=True)
 
+    # Right-click on its icons: reply, edit, tick, delete.
     if e.get("done") is not None:
-        btn = body.operator(
-            "m_pipeline.toggle_entry_task",
-            text="",
-            icon="CHECKMARK" if e["done"] else "CHECKBOX_DEHLT",
-            emboss=False,
-        )
-        btn.id = e["id"]
-        btn.filepath = filepath
-        btn.rmb = "entry"  # right-click: reply, edit, tick, delete
+        icon = "CHECKMARK" if e["done"] else "CHECKBOX_DEHLT"
+        icon_button(body, "m_pipeline.toggle_entry_task", icon, id=e["id"], filepath=filepath, rmb="entry")
         if e["type"] == "rtk":
             # A validation role's RTK violet (as its notes), the team's orange.
-            body.label(
-                text="", icon=_RTK_ROLE_ICON if e.get("role") else _RTK_TEAM_ICON
-            )
-
+            body.label(text="", icon=_RTK_ROLE_ICON if e.get("role") else _RTK_TEAM_ICON)
     else:
         # A button, not a label: it takes the right-click menu (and a click
         # replies, as the grip on the right).
-        btn = body.operator(
-            "m_pipeline.generic_entry_button",
-            text="",
-            icon=_ROLE_ICON if e.get("role") else "LAYER_USED",
-            emboss=False,
-        )
-        btn.id = e["id"]
-        btn.filepath = filepath
-        btn.custom_tooltip = _get_entry_tooltip(e, filepath)
-        btn.rmb = "entry"
+        _entry_button(body, e, filepath, _ROLE_ICON if e.get("role") else "LAYER_USED")
 
     layout_text = body.column(align=True)
     layout_text.alignment = "LEFT"
@@ -377,34 +360,30 @@ def _draw_entry(e, note, filepath, width: int | None = None):
         f_start = e["frame_start"] + base
         f_end = e["frame_end"] + base if e.get("frame_end") is not None else None
 
-        frames_row.operator(
-            "m_pipeline.current_frame",
-            text=label.format(f_start),
-            emboss=not e.get("done", False),
-        ).frame = f_start
-        if e.get("frame_end"):
+        for frame in (f_start, f_end) if e.get("frame_end") else (f_start,):
             frames_row.operator(
-                "m_pipeline.current_frame",
-                text=label.format(f_end),
-                emboss=not e.get("done", False),
-            ).frame = f_end
+                "m_pipeline.current_frame", text=label.format(frame), emboss=not e.get("done", False)
+            ).frame = frame
         frames_row.separator(factor=0.75)
 
     btn = btns_row.row(align=True)
     btn.alignment = "RIGHT"
     btns = btn.row(align=True)
     btns.scale_x = 0.85
+    _entry_button(btns, e, filepath, safe_icon("GRIP_CORNER_BOTTOM_RIGHT", "GRIP"))
 
-    btn = btns.operator(
+
+def _entry_button(layout, e: dict, filepath: str, icon: str) -> None:
+    """An entry's icon: a click replies, its tooltip its whole text."""
+    icon_button(
+        layout,
         "m_pipeline.generic_entry_button",
-        text="",
-        icon=safe_icon("GRIP_CORNER_BOTTOM_RIGHT", "GRIP"),
-        emboss=False,
+        icon,
+        id=e["id"],
+        filepath=filepath,
+        custom_tooltip=_get_entry_tooltip(e, filepath),
+        rmb="entry",
     )
-    btn.id = e["id"]
-    btn.filepath = filepath
-    btn.custom_tooltip = _get_entry_tooltip(e, filepath)
-    btn.rmb = "entry"
 
 
 def _draw_approval(
@@ -590,7 +569,7 @@ def _draw_last_renders(layout, filepath: str) -> bool:
         )
         for shots, r in grouped
     ]
-    draw_frame_lookup(col, renders)
+    draw_frame_lookup_button(col, f"file:{filepath}", renders)
     return True
 
 
@@ -686,12 +665,7 @@ def draw_file_details(state, context, layout):
 
     row_left = row.box().row(align=True)
     row_left.alignment = "LEFT"
-    row_left.operator(
-        "m_pipeline.tracking_file_details",
-        text="",
-        icon="BACK",
-        emboss=False,
-    )
+    row_left.operator("m_pipeline.tracking_file_details", text="", icon="BACK", emboss=False)
 
     filepath = monitoring_detail("file")
 
@@ -703,22 +677,17 @@ def draw_file_details(state, context, layout):
     # draw_pager()'s label.
     rank, count = position_in_list("project", filepath)
     if count > 1 and rank:
-        prev = row_left.row(align=True)
-        prev.enabled = rank > 1
-        prev.operator(
-            "m_pipeline.monitoring_page", text="", icon="TRIA_LEFT", emboss=False
-        ).step = -1
-        text = f"{rank} / {count}"
-        label = row_left.row(align=True)
-        label.active = False
-        label.ui_units_x = 0.35 * len(text) + 0.6
-        label.alignment = "CENTER"
-        label.label(text=text)
-        nxt = row_left.row(align=True)
-        nxt.enabled = rank < count
-        nxt.operator(
-            "m_pipeline.monitoring_page", text="", icon="TRIA_RIGHT", emboss=False
-        ).step = 1
+        for step, icon in ((-1, "TRIA_LEFT"), (0, ""), (1, "TRIA_RIGHT")):
+            cell = row_left.row(align=True)
+            if step:
+                cell.enabled = rank > 1 if step < 0 else rank < count
+                icon_button(cell, "m_pipeline.monitoring_page", icon, step=step)
+                continue
+            text = f"{rank} / {count}"
+            cell.active = False
+            cell.ui_units_x = 0.35 * len(text) + 0.6
+            cell.alignment = "CENTER"
+            cell.label(text=text)
 
     data = TrackingStatusCache.get(filepath)
     description = get_description(Path(filepath))
@@ -743,60 +712,28 @@ def draw_file_details(state, context, layout):
 
     row_right = row.box().row(align=False)
     row_right.alignment = "RIGHT"
-    row_right.operator(
-        "m_pipeline.edit_description",
-        text="",
-        icon="GREASEPENCIL",
-        emboss=False,
-    ).filepath = filepath
-
-    row_right.operator(
-        "m_pipeline.open_file_version",
-        text="",
-        icon=safe_icon("FILE_ALIAS", "FILE_BLEND"),
-        emboss=False,
-    ).filepath = str(filepath)
-
-    op = row_right.operator("wm.open_folder", text="", icon="FILE_FOLDER", emboss=False)
-    op.filepath = str(filepath)
-    op.custom_tooltip = "Open this file's folder"
-
     root = get_active_project_root()
-    if root:
-        op = row_right.operator(
-            "wm.open_folder", text="", icon="RENDER_STILL", emboss=False
-        )
+    try:
+        is_block = is_shot and len(shots_in_segment(shot_name[len(shot_prefix) :])) > 1
+    except ValueError:
+        is_block = False
+    for idname, icon, tooltip, props, shown in (
+        ("m_pipeline.edit_description", "GREASEPENCIL", "", {"filepath": filepath}, True),
+        ("m_pipeline.open_file_version", safe_icon("FILE_ALIAS", "FILE_BLEND"), "", {"filepath": str(filepath)}, True),
+        ("wm.open_folder", "FILE_FOLDER", "Open this file's folder", {"filepath": str(filepath)}, True),
         # Pure path work, no resolve() in a draw(): renders/<seq>/<shot> for
         # a shot, renders/assets/... for an asset.
-        op.filepath = str(render_root(root, Path(filepath)))
-        op.custom_tooltip = "Open this file's render folder"
-
-    if is_shot:
-        try:
-            is_block = len(shots_in_segment(shot_name[len(shot_prefix) :])) > 1
-        except ValueError:
-            is_block = False
-        if is_block:
-            op = row_right.operator(
-                "m_pipeline.compile_preview",
-                text="",
-                icon="RENDER_ANIMATION",
-                emboss=False,
-            )
-            op.scope = "block"
-            op.filepath = filepath
-            op.custom_tooltip = (
-                "Compile a disposable preview from just this block's own shots."
-            )
-
-        op = row_right.operator(
-            "m_pipeline.compile_preview", text="", icon="SEQUENCE", emboss=False
-        )
-        op.scope = "sequence"
-        op.filepath = filepath
-        op.custom_tooltip = (
-            "Compile a disposable preview from every rendered shot in this sequence."
-        )
+        ("wm.open_folder", "RENDER_STILL", "Open this file's render folder",
+         {"filepath": str(render_root(root, Path(filepath))) if root else ""}, bool(root)),
+        ("m_pipeline.compile_preview", "RENDER_ANIMATION",
+         "Compile a disposable preview from just this block's own shots.",
+         {"scope": "block", "filepath": filepath}, is_block),
+        ("m_pipeline.compile_preview", "SEQUENCE",
+         "Compile a disposable preview from every rendered shot in this sequence.",
+         {"scope": "sequence", "filepath": filepath}, is_shot),
+    ):
+        if shown:
+            icon_button(row_right, idname, icon, tooltip, **props)
 
     total_seconds = WorkTimeCache.get(filepath)
     if total_seconds:
@@ -805,7 +742,7 @@ def draw_file_details(state, context, layout):
         time_row = layout.row()
         time_row.active = False
         time_row.label(
-            text=f"Total work time: {format_duration(total_seconds)}", icon="TIME"
+            text=f"Total work time: {format_work_time(total_seconds)}", icon="TIME"
         )
 
     layout.separator(factor=1)
@@ -878,48 +815,32 @@ def draw_file_details(state, context, layout):
         if linked:
             # One entry per linked file; grouped by folder -- more than one
             # means several versions of the same asset linked.
-            by_folder: dict[Path, list[dict]] = {}
+            by_folder: dict[Path, list[str]] = {}
             for entry in linked:
                 if entry.get("file"):
                     by_folder.setdefault(project_path(entry["file"]).parent, []).append(
-                        entry
+                        Path(entry["file"]).name
                     )
-
-            links_col.label(text="Links to:", icon="LINKED")
             # A link to an older version than its folder's latest stable.
             newer = dict(outdated_links(filepath))
-            for lib_dir, entries in by_folder.items():
-                row = links_col.row(align=True)
-                row.alignment = "LEFT"
-                row.separator(factor=1.5)
-                names = [Path(e["file"]).name for e in entries]
-                old = [n for n in names if n in newer]
-                row.alert = bool(old)
-                op = row.operator(
+            link_rows(links_col, "Links to:", [
+                (
                     "m_pipeline.tracking_file_details",
-                    text=f"{lib_dir.name} ({len(entries)})"
-                    if len(entries) > 1
-                    else lib_dir.name,
-                    icon="LIBRARY_DATA_BROKEN" if old else "BLANK1",
-                    emboss=False,
+                    f"{lib_dir.name} ({len(names)})" if len(names) > 1 else lib_dir.name,
+                    "LIBRARY_DATA_BROKEN" if any(n in newer for n in names) else "BLANK1",
+                    {
+                        "filepath": str(lib_dir),
+                        "custom_tooltip": "\n".join(f"{n} -> {newer[n]} available" if n in newer else n for n in names),
+                        "alert": any(n in newer for n in names),
+                    },
                 )
-                op.filepath = str(lib_dir)
-                op.custom_tooltip = "\n".join(
-                    f"{n} -> {newer[n]} available" if n in newer else n for n in names
-                )
+                for lib_dir, names in by_folder.items()
+            ])
         if linked_by:
-            links_col.label(text="Linked by:", icon="LINKED")
-            for folder in linked_by:
-                row = links_col.row(align=True)
-                row.alignment = "LEFT"
-                row.separator(factor=1.5)
-                op = row.operator(
-                    "m_pipeline.tracking_file_details",
-                    text=folder.name,
-                    icon="BLANK1",
-                    emboss=False,
-                )
-                op.filepath = str(folder)
+            link_rows(links_col, "Linked by:", [
+                ("m_pipeline.tracking_file_details", folder.name, "BLANK1", {"filepath": str(folder)})
+                for folder in linked_by
+            ])
 
     layout.separator(factor=1)
     _draw_renders_to_check(layout, filepath, data)
@@ -940,8 +861,8 @@ _TABLE_TIP = (
     "the file open here). Each department's state since the last stable, "
     "legend at the bottom. Farm: renders in the farm or waiting to be checked "
     "-- that filter, and RTK (open retakes), narrow the list. Right-click a "
-    "file's name: its render folder, its folder, a render. Left / Right "
-    "turn pages, Tab switches assets / shots, Esc goes back."
+    "file's name: its render folder, its folder, a render. The wheel or "
+    "Left / Right turn pages, Tab switches assets / shots, Esc goes back."
 )
 _TO_CHECK_TIP = (
     "A farm render waits here until someone has watched it. Checked asks which "
@@ -1059,7 +980,9 @@ def draw_monitor_table(self, context, layout, columns, project_root):
     f_list.separator(factor=1)
 
     per_page = rows_that_fit(
-        context, _TABLE_RESERVED_UNITS + box_tip_units(context, _TABLE_TIP)
+        context,
+        _TABLE_RESERVED_UNITS + box_tip_units(context, _TABLE_TIP),
+        kind="project",
     )
     shown, page, pages = paginate(
         "project", matches, per_page, filters, key=lambda m: str(m[0])
@@ -1120,15 +1043,11 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None)
         if self.file_type == "asset"
         else TYPE_ICON.get("sh", "OUTLINER_OB_CAMERA")
     )
-    op = name.operator(
-        "m_pipeline.tracking_file_details",
-        text=file.get("file_name", "Unknown"),
-        icon=icon,
-        emboss=False,
+    # Right-click: its folders, a render.
+    icon_button(
+        name, "m_pipeline.tracking_file_details", icon, text=file.get("file_name", "Unknown"),
+        filepath=str(dir), custom_tooltip=file.get("description", ""), rmb="file",
     )
-    op.filepath = str(dir)
-    op.custom_tooltip = file.get("description", "")
-    op.rmb = "file"  # right-click: its folders, a render
 
     details = name.row()
     details.alignment = "RIGHT"
@@ -1136,18 +1055,11 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None)
         # A retake on no department: its own button, as a department's cell.
         gen = details.row()
         gen.alert = True
-        op = gen.operator("m_pipeline.department_rtks", text="", icon="LOOP_BACK", emboss=False)
-        op.folder = str(dir)
-        op.department = ""
-        op.custom_tooltip = "A retake on no department"
+        icon_button(gen, "m_pipeline.department_rtks", "LOOP_BACK", "A retake on no department",
+                    folder=str(dir), department="")
     details = details.row()
     details.active = False
-    details.operator(
-        "m_pipeline.open_file_version",
-        text="",
-        icon=safe_icon("FILE_ALIAS", "FILE_BLEND"),
-        emboss=False,
-    ).filepath = str(dir)
+    icon_button(details, "m_pipeline.open_file_version", safe_icon("FILE_ALIAS", "FILE_BLEND"), filepath=str(dir))
     cells = _equal_cells(split.row(), len(columns) + 1)
     roles = validation_roles()
     top = max((r["level"] for r in roles), default=None)
@@ -1161,25 +1073,7 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None)
             # disabled row disables whatever it holds.
             status = icon_row.row(align=True)
             tooltip = department_status_tooltip(file, c)
-            best = None
-            if (
-                c in file["validated_departments"]
-                and c not in file["worked_departments"]
-            ):
-                # Its highest validation, if any: "Done · prod".
-                best = highest_approval(file, c)
-                text, row_icon = (
-                    (f"Done · {best}", "SOLO_ON") if best else ("Done", "CHECKMARK")
-                )
-            elif c in file["validated_departments"] and c in file["worked_departments"]:
-                text, row_icon = "Done, reworked since", "CHECKBOX_DEHLT"
-            elif c in file["worked_departments"] or c in file.get(
-                "started_departments", ()
-            ):
-                # Worked since, or validated/worked before the latest stable.
-                text, row_icon = "In progress", "CHECKBOX_DEHLT"
-            else:
-                text, row_icon = "Not started", "CHECKBOX_DEHLT"
+            text, row_icon, best = _department_cell(file, c)
             # Icon then text, each its own button in a left-aligned row:
             # one button's text is centred in its cell (both keep the tooltip).
             # Labels as the snapshot page's. An open RTK: clickable, its
@@ -1193,24 +1087,35 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None)
                 button = status.row(align=True)
                 button.alignment = "LEFT"  # its own width, not the cell's
                 button.enabled = under_rtk or (star and t == "")
-                op = button.operator(
-                    "m_pipeline.department_rtks"
-                    if under_rtk
-                    else "m_pipeline.department_status_info",
-                    text=t,
-                    icon=i,
-                    emboss=False,
-                )
-                op.custom_tooltip = tooltip
                 if under_rtk:
-                    op.folder = str(dir)
-                    op.department = c
+                    icon_button(button, "m_pipeline.department_rtks", i, text=t,
+                                custom_tooltip=tooltip, folder=str(dir), department=c)
+                else:
+                    icon_button(button, "m_pipeline.department_status_info", i, tooltip, text=t)
         else:
-            # Not required: "–", as the snapshot and its spreadsheet.
+            # Not required: "–", as the snapshot.
             icon_row.active = False
             icon_row.label(text="–", icon="BLANK1")
     _draw_farm_cell(cells[-1], dir, file, jobs or [])
     f_list.separator(factor=0.5, type="LINE")
+
+
+def _department_cell(file: dict, department: str) -> tuple[str, str, str | None]:
+    """(text, icon, its highest validation) of a department's cell in
+    Project monitoring: done (validated at the latest stable, not worked
+    since -- "Done · prod" once validated by a role), done and reworked
+    since, in progress (worked since, or validated / worked before the
+    latest stable), not started. Labels as the snapshot page's."""
+    validated = department in file["validated_departments"]
+    worked = department in file["worked_departments"]
+    if validated and not worked:
+        best = highest_approval(file, department)
+        return (f"Done · {best}", "SOLO_ON", best) if best else ("Done", "CHECKMARK", None)
+    if validated:
+        return "Done, reworked since", "CHECKBOX_DEHLT", None
+    if worked or department in file.get("started_departments", ()):
+        return "In progress", "CHECKBOX_DEHLT", None
+    return "Not started", "CHECKBOX_DEHLT", None
 
 
 def _equal_cells(layout, count: int) -> list:

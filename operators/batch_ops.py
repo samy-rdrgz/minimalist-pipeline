@@ -19,6 +19,7 @@ from ..lib import (
     parse_shot_batch_csv,
     read_batch_result,
     region_char_budget,
+    report_error,
     sanitize_name,
     shot_batch_exists,
     shots_in_segment,
@@ -120,9 +121,7 @@ class M_PIPELINE_OT_batch_create(bpy.types.Operator):
                 else parse_shot_batch_csv(csv_file)
             )
         except PipelineError as e:
-            log(e.level, "batch_create", e.message)
-            self.report({e.level}, e.message)
-            return {"CANCELLED"}
+            return report_error(self, "batch_create", e)
 
         config = ConfigCache.get()
         naming = config.get("naming", {})

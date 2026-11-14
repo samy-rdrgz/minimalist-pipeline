@@ -22,6 +22,29 @@ from .background import checkpoint
 from .errors import PipelineError
 from .logs import log
 
+# The addon's real (possibly namespaced) module name: "bl_ext.<repo>.
+# minimalist_pipeline" for an extension install. See NOTES.md, "CSV batch:
+# the subprocess couldn't import itself".
+ADDON_PACKAGE = __package__.rsplit(".", 1)[0]
+TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
+
+
+def blender_command(
+    script: str, args=(), *, blend=None, flags=(), factory: bool = False, binary: str = ""
+) -> list[str]:
+    """The command running templates/<script> in a background Blender (this
+    one's binary, or binary): blend opened first with its flags (-o, -F...),
+    an exception in the script exiting 1 (not 0, a success), args after
+    "--". factory: --factory-startup, no addon or preferences loaded."""
+    cmd = [binary or bpy.app.binary_path, "-b"]
+    if blend:
+        cmd.append(str(blend))
+    cmd += [str(f) for f in flags]
+    if factory:
+        cmd.append("--factory-startup")
+    cmd += ["--python-exit-code", "1", "--python", str(TEMPLATES_DIR / script), "--"]
+    return cmd + [str(a) for a in args]
+
 
 def get_addon_version() -> str:
     """This addon's version as "X.Y.Z", read via addon_utils (same source as
@@ -30,12 +53,9 @@ def get_addon_version() -> str:
     Falls back to "0.0.0" rather than raising -- metadata, never worth blocking on."""
     import addon_utils
 
-    # "bl_ext.<repo>.minimalist_pipeline.lib" -> "bl_ext.<repo>.minimalist_pipeline"
-    # (an extension install is namespaced, same as addon_pref() below).
-    addon_name = __package__.rsplit(".", 1)[0]
     try:
         for mod in addon_utils.modules():
-            if mod.__name__ == addon_name:
+            if mod.__name__ == ADDON_PACKAGE:
                 version = mod.bl_info.get("version", (0, 0, 0))
                 return ".".join(str(x) for x in version)
     except Exception:
@@ -65,10 +85,7 @@ def addon_pref(context: bpy.types.Context | None = None):
     """Return addon preferences."""
     try:
         ctx = context or bpy.context
-        pkg = __package__.rsplit(".", 1)[
-            0
-        ]  # "minimalist_pipeline.lib" → "minimalist_pipeline"
-        return ctx.preferences.addons[pkg].preferences
+        return ctx.preferences.addons[ADDON_PACKAGE].preferences
     except Exception:
         return None
 
@@ -167,6 +184,60 @@ def now(iso: bool = True) -> str | datetime:
         return datetime.now().isoformat(timespec="seconds")
     else:
         return datetime.now()
+
+
+def parse_iso(value) -> datetime | None:
+    """A stored date or time (ISO 8601) as a datetime; None if absent or
+    unreadable. The one reader of the pipeline's dates."""
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(str(value))
+    except ValueError:
+        return None
+
+
+def iso_timestamp(value) -> float | None:
+    """parse_iso() as epoch seconds; None if absent or unreadable."""
+    at = parse_iso(value)
+    try:
+        return at.timestamp() if at else None
+    except (OverflowError, OSError, ValueError):
+        return None
+
+
+def seconds_since(value) -> float | None:
+    """Seconds from a stored time to now; None if absent or unreadable."""
+    at = parse_iso(value)
+    return (datetime.now() - at).total_seconds() if at else None
+
+
+def format_duration(seconds: float) -> str:
+    """ "1h02m", "3m05s": a farm time read by a person."""
+    seconds = int(seconds)
+    if seconds >= 3600:
+        return f"{seconds // 3600}h{seconds % 3600 // 60:02d}m"
+    return f"{seconds // 60}m{seconds % 60:02d}s"
+
+
+def format_pace(seconds: float) -> str:
+    """A frame's time: "0.6 s", "12 s", then format_duration() -- "0m00s"
+    said nothing of a fast render."""
+    if seconds < 10:
+        return f"{seconds:.1f} s"
+    if seconds < 60:
+        return f"{seconds:.0f} s"
+    return format_duration(seconds)
+
+
+def format_work_time(seconds: float) -> str:
+    """Seconds -> compact "XhYY" for display ("Xd YYhZZ" past a day)."""
+    total_minutes = int(seconds // 60)
+    days, rem_minutes = divmod(total_minutes, 24 * 60)
+    hours, minutes = divmod(rem_minutes, 60)
+    if days:
+        return f"{days}d {hours:02d}h{minutes:02d}"
+    return f"{hours}h{minutes:02d}"
 
 
 # Corrects a popup's declared width= vs its actual rendered content-area
@@ -458,8 +529,35 @@ def path_reachable(path: str | Path) -> bool:
 
 
 # path -> (mtime or None if missing, entries, last checked at -- time.monotonic())
-_scandir_cache: dict[str, tuple[float | None, list, float]] = {}
+class StampCache:
+    """Values read from disk, read again only once their stamp moves (a
+    file's mtime): {key: (stamp, value, checked at)}. ttl: within it, not
+    even the stamp is checked again -- for draw(), where each check is a
+    network round-trip. An entry is replaced whole: thread-safe enough."""
+
+    def __init__(self, ttl: float = 0.0):
+        self.ttl = ttl
+        self.entries: dict = {}
+
+    def get(self, key, stamp, read, missing=None):
+        """read() for key, kept while stamp() gives the same; stamp()
+        raising OSError: missing. read() must not raise."""
+        now_t = time.monotonic()
+        cached = self.entries.get(key)
+        if cached and self.ttl and now_t - cached[2] < self.ttl:
+            return cached[1]
+        try:
+            st = stamp()
+        except OSError:
+            self.entries[key] = (None, missing, now_t)
+            return missing
+        value = cached[1] if cached and cached[0] == st else read()
+        self.entries[key] = (st, value, now_t)
+        return value
+
+
 SCANDIR_TTL = 2.0
+_scandir_cache = StampCache(SCANDIR_TTL)
 
 
 def cached_scandir(path: Path) -> list:
@@ -469,25 +567,14 @@ def cached_scandir(path: Path) -> list:
     For draw()/enum callbacks only: a listing up to SCANDIR_TTL old must
     never decide what gets written. See NOTES.md, "Popups on a network
     share"."""
-    key = str(path)
-    now_t = time.monotonic()
-    cached = _scandir_cache.get(key)
-    if cached and now_t - cached[2] < SCANDIR_TTL:
-        return cached[1]
-    try:
-        mtime = path.stat().st_mtime
-    except OSError:
-        _scandir_cache[key] = (None, [], now_t)
-        return []
-    if cached and cached[0] == mtime:
-        _scandir_cache[key] = (mtime, cached[1], now_t)
-        return cached[1]
-    try:
-        entries = list(os.scandir(path))
-    except OSError:
-        entries = []
-    _scandir_cache[key] = (mtime, entries, now_t)
-    return entries
+
+    def read():
+        try:
+            return list(os.scandir(path))
+        except OSError:
+            return []
+
+    return _scandir_cache.get(str(path), lambda: path.stat().st_mtime, read, [])
 
 
 def resolve_bpy_path(filepath: str) -> Path:
@@ -658,8 +745,8 @@ def _is_unlock(lockpath: Path) -> bool:
     forever. Only the writer path acts on this to steal a lock; readers never do."""
     try:
         data = json.loads(lockpath.read_text(encoding="utf-8"))
-        age = (now(iso=False) - datetime.fromisoformat(data["at"])).total_seconds()
-        return age > LOCK_STALE_SECONDS
+        age = seconds_since(data["at"])
+        return age is None or age > LOCK_STALE_SECONDS
     except PermissionError:
         # Unreadable *right now* (Windows: being deleted, or another
         # process's handle refuses us) is not corrupt -- treating it as

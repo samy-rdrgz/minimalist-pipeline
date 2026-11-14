@@ -139,6 +139,8 @@ Written under a lock and atomically (temp file then rename), like every other pi
 
 The other `farm` keys aren't in the dialog: how many local farm processes at once, when a farm host counts as stale / gone, when finished jobs and their logs are archived / deleted (see [Rendering](farm.md)).
 
+**Migrate old data** (Edit project, *Maintenance*): a project made with an addon before 1.2 is migrated once, after every machine is updated -- the Project panel says so until then. It completes what older versions wrote as this one writes it, which this version reads only that way: a stable's started departments and the validations it carried, a note's departments, a version's links one per file, a render's folder, source file, shot and frame range (a render from before 1.0.11 found by when it ended). It reads first and lists what it would change; each file changed is copied beforehand into `backup/migration-<date>/` at the project's root, at its own path -- once checked, delete that one folder. A project created by this version has nothing to migrate.
+
 <img src="images/project-edit.png" alt="The Edit project dialog">
 
 **Blender version**: `blender_version` (set at creation, editable in Edit project) is the Blender the project is made with. Opening the project with another major.minor (5.2 for a 4.5 project -- 4.5.2 vs 4.5.7 doesn't count) shows a red warning popup at startup and on activation, plus a red line in the Project panel: a file saved in a newer Blender may not open, or not look the same, in the project's one. Leave it empty to never warn.
