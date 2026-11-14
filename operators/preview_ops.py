@@ -7,7 +7,6 @@ import bpy
 
 from ..farm import request_preview_compile
 from ..lib import (
-    report_error,
     ConfigCache,
     PipelineError,
     get_active_project_root,
@@ -16,6 +15,7 @@ from ..lib import (
     log,
     now,
     parse_filename,
+    report_error,
     resolve_block_sources,
     resolve_sequence_sources,
 )

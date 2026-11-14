@@ -9,7 +9,6 @@ from pathlib import Path
 import bpy
 
 from ..lib import (
-    report_error,
     DEFAULT_ASSET_DEPARTMENTS,
     DEFAULT_SHOT_DEPARTMENTS,
     PROGRESS_WEIGHTS,
@@ -31,6 +30,7 @@ from ..lib import (
     progress_weights,
     project_schedule,
     read_project_config,
+    report_error,
     save_project_data,
     set_active_project_root,
     thumbnail_size,

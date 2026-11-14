@@ -8,24 +8,24 @@ from pathlib import Path
 import bpy
 
 from ..lib import (
-    report_error,
     PipelineError,
-    asset_folder_items,
-    get_folder,
-    prefix_items,
-    scan_descriptions,
-    sequence_items,
-    shot_items,
     TrackingStatusCache,
+    asset_folder_items,
     delete_owner,
     find_linked_by,
     get_active_project_root,
+    get_folder,
     linked_by_ready,
     log,
     open_elsewhere,
     owner_render_dirs,
+    prefix_items,
     redraw_monitoring,
+    report_error,
+    scan_descriptions,
+    sequence_items,
     set_monitoring_detail,
+    shot_items,
 )
 
 _LINKS_SHOWN = 6

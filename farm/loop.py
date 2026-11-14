@@ -11,8 +11,8 @@ from pathlib import Path
 import bpy
 
 from ..lib import (
-    StampCache,
     ConfigCache,
+    StampCache,
     background_work,
     cached_scandir,
     get_active_project_root,

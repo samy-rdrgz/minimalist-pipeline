@@ -7,6 +7,7 @@ from ..lib import (
     blender_version_mismatch,
     get_active_project_root,
 )
+from ..lib.ui import draw_items, icon_button
 from ..operators import (
     asset_ops,
     browser_ops,
@@ -14,7 +15,6 @@ from ..operators import (
     project_ops,
     shot_ops,
 )
-from ..lib.ui import draw_items, icon_button
 from ..operators.migration_ops import project_needs_migration
 
 

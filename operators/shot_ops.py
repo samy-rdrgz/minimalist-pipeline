@@ -4,9 +4,7 @@ from pathlib import Path
 
 import bpy
 
-from ..lib.ui import draw_creation_fields
 from ..lib import (
-    report_error,
     DEFAULT_MULTISHOT_STEP,
     DEFAULT_SHOT_DEPARTMENTS,
     ConfigCache,
@@ -25,12 +23,14 @@ from ..lib import (
     parse_filename,
     path_reachable,
     region_char_budget,
+    report_error,
     shot_department_items,
     shots_in_segment,
     text_field,
     text_to_lines,
     tracking_json_path,
 )
+from ..lib.ui import draw_creation_fields
 
 
 # ---------------------------------------------------------------------------

@@ -4,7 +4,6 @@ same row -- see read_only_indicator() below."""
 import bpy
 
 from ..farm import get_monitor_cache, this_instance_is_worker
-from ..lib.ui import draw_items
 from ..lib import (
     RecentFilesCache,
     addon_pref,
@@ -21,6 +20,7 @@ from ..lib.actions import (
     READ_ONLY_EXPLANATION,
     STABLE_FILE_EXPLANATION,
 )
+from ..lib.ui import draw_items
 
 READ_ONLY_REASON_LABELS = {
     "stable": "Stable version",

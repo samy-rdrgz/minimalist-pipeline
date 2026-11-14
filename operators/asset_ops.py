@@ -2,9 +2,7 @@
 
 import bpy
 
-from ..lib.ui import draw_creation_fields, titled_row
 from ..lib import (
-    report_error,
     DEFAULT_ASSET_DEPARTMENTS,
     ConfigCache,
     PipelineError,
@@ -15,8 +13,10 @@ from ..lib import (
     log,
     path_reachable,
     prefix_to_parent_folder,
+    report_error,
     sanitize_name,
 )
+from ..lib.ui import draw_creation_fields, titled_row
 
 # ---------------------------------------------------------------------------
 # Dynamic enum builders

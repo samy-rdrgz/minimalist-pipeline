@@ -4,7 +4,6 @@ from pathlib import Path
 
 import bpy
 
-from ..lib.ui import choice
 from ..lib import (
     asset_folder_items,
     dir_version_items,
@@ -18,6 +17,7 @@ from ..lib import (
     shot_items,
     version_items,
 )
+from ..lib.ui import choice
 
 # ---------------------------------------------------------------------------
 # Folder resolution helper (used by enum callbacks and _resolve)

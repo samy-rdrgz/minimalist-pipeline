@@ -8,7 +8,6 @@ from pathlib import Path
 import bpy
 
 from ..lib import (
-    report_error,
     ConfigCache,
     PipelineError,
     asset_batch_exists,
@@ -20,6 +19,7 @@ from ..lib import (
     parse_shot_batch_csv,
     read_batch_result,
     region_char_budget,
+    report_error,
     sanitize_name,
     shot_batch_exists,
     shots_in_segment,

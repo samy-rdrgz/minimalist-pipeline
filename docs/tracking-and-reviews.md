@@ -153,7 +153,7 @@ key -- absent, the team's own.
       "text": "Add face shape keys",
       "author": "samy",
       "date": "2026-03-21T09:00:00",
-      "department": "rigging",
+      "departments": ["rigging"],
       "done": false
     }
   ]
@@ -166,7 +166,7 @@ key -- absent, the team's own.
 
 <img src="images/tracking-new-entry.png" alt="The New entry dialog" width="560">
 
-**Several departments**: an entry can be for several departments at once -- tick them in the department menu of the New entry / Edit dialogs. It's one entry with one done state, shown under each of its departments' filter; an open RTK turns each of its departments red (Project monitoring, snapshot); one on no department (a general retake) turns the file's name red instead in Project monitoring; in the snapshot it red-outlines the "n RTK" by the file's name and counts in the file's Done as an RTK on one done department (each department's own Done untouched), and in the review spreadsheet every department cell is red-bordered. Stored as `"departments": ["animation", "lighting"]` next to `"department"` (the first one, what an addon before 1.1.0 reads). A review spreadsheet's department cell takes several too: `layout, lighting` (`,` `;` `/` `+`).
+**Several departments**: an entry can be for several departments at once -- tick them in the department menu of the New entry / Edit dialogs. It's one entry with one done state, shown under each of its departments' filter; an open RTK turns each of its departments red (Project monitoring, snapshot); one on no department (a general retake) turns the file's name red instead in Project monitoring; in the snapshot it red-outlines the "n RTK" by the file's name and counts in the file's Done as an RTK on one done department (each department's own Done untouched). Stored as `"departments": ["animation", "lighting"]` (one department: a list of one).
 
 A finished farm render adds a `to_check` key, until it's marked checked: `{"<shot>": {"render", "video", "at", "job_id"}}` — the shot is `""` for an asset or a single shot, one key per shot for a block.
 

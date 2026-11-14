@@ -11,7 +11,6 @@ All notable changes to this addon. Dates are release dates.
   window was scrolling into blank space. A detail (a file's notes, a
   job's lines), the Workers view and a window too small for its list
   still scroll. Switchable in the preferences (Shortcuts).
-
 - **Migrate old data** (Edit project > Maintenance): a project from
   before 1.2 is migrated once, every machine updated first -- the
   Project panel says so until then. What older versions wrote is
@@ -23,6 +22,10 @@ All notable changes to this addon. Dates are release dates.
 
 ### Changed
 
+- Farm monitoring's Job details and File details: which machine rendered
+  which frame is a button, *Which machine, which frame...*, opening a
+  popup with the *Frame* field -- it was always drawn, a debugging aid
+  taking room in every job's detail.
 - Farm: a machine on another addon version gets no render (said in the
   log and in Worker details) -- every machine is updated together.
 - A render's estimate no longer comes from a render made before 1.1.7,
@@ -35,6 +38,8 @@ All notable changes to this addon. Dates are release dates.
 
 ### Removed
 
+- Reading what addons before 1.2 wrote, now that *Migrate old data*
+  completes it once.
 - The snapshot's review spreadsheet (.xlsx): the review is made on the
   snapshot page and sent back as its `.json`, which *Import review*
   reads as before. The page's ⋯ menu no longer offers the spreadsheet.

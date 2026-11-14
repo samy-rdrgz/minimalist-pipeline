@@ -4322,3 +4322,37 @@ data*), with the deductions those readers made:
 - Kept: `_folder_frames()` (a render folder's range from its images'
   names) also serves a render with no history at all; `ordered_departments()`
   on reading `departments_required`, since Edit project may reorder.
+
+## Refactor 1.2: shared blocks, one way of each thing
+
+Phase 1 of docs/plan-1.2.md, behaviour unchanged but for the frame lookup
+(a popup now). What went where, and how it was checked without Blender:
+
+- **Retirements first** (the xlsx, the code for older addons, the legacy
+  readers): no factoring of code about to go. The farm keeps one version
+  check, `FARM_PROTOCOL` (3 since 1.2): a worker on another one gets no
+  render, said once in the log and in Worker details.
+- **One of each small thing**: `parse_iso()` (the one reader of a stored
+  date: 1C will make it read the offset, in one place), `format_duration()`
+  / `format_pace()` / `format_work_time()`, `video_info()` (ffmpeg -i),
+  `StampCache` (read again once the file changed), `add_stage()` (a job's
+  stage), `blender_command()` (a background Blender), `report_error()` (an
+  operator's PipelineError), `request_path()` / `scan_requests()` (a
+  render's and a preview's requests: one circuit, two kinds).
+- **Screens as lists**: lib/ui.py -- in lib/, not panels/: the top bar menu
+  imports it and panels/__init__ imports the operators. A details view is
+  a list of (label, value[, icon[, alert]]), a falsy row skipped
+  (`key_values()`); a column of buttons a list for `draw_items()`. Only
+  where the lines are known in advance: control flow (the Workers view,
+  the render dialog) stays as code.
+- **Checked by recording the layout**: a fake UILayout logs every label,
+  operator, prop and the enabled / active / alert set on rows; the 1.1.10
+  draw functions and the new ones are run over the same data (jobs,
+  workers, files, entries, menus with every farm status) and their logs
+  compared. Identical, but for the lookup's button. Not kept as tests:
+  they need the old code beside the new.
+- **Kept as tools** (tests/, tools/, out of the package): `fake_bpy.py`
+  (the whole addon imported with a fake bpy), `measure.py` (the package
+  as the extension build makes it), `dupes.py` (duplicated windows of N
+  normalized lines: 21 left of 8 lines, none worth a function),
+  tests/test_migration.py.

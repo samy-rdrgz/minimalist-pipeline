@@ -17,8 +17,8 @@ from ..lib import (
     responsive_layout,
     shots_in_segment,
 )
-from .tracking_panel import ENTRIES_INDENT_FACTOR, draw_tracking_data
 from ..lib.ui import draw_items
+from .tracking_panel import ENTRIES_INDENT_FACTOR, draw_tracking_data
 
 
 class M_PIPELINE_PT_file_panel(bpy.types.Panel):

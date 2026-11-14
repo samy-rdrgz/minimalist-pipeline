@@ -22,15 +22,14 @@ from ..farm import (
 from ..farm.chunks import chunk_frames
 from ..farm.queue import WORKER_GONE_SECONDS
 from ..farm.workers import FARM_PROTOCOL
-from ..lib.ui import DETAIL_KEY_COLUMN, details_header, key_value, key_values
 from ..lib import (
-    format_duration,
-    format_pace,
     ConfigCache,
     addon_pref,
     box_tip_units,
     draw_box_tip,
     draw_pager,
+    format_duration,
+    format_pace,
     get_active_project_root,
     get_addon_version,
     get_user,
@@ -40,6 +39,7 @@ from ..lib import (
     rows_that_fit,
     split_footer,
 )
+from ..lib.ui import DETAIL_KEY_COLUMN, details_header, key_value, key_values
 
 FIRST_COLUMN = 0.4
 # What Farm monitoring's window holds besides the Jobs rows (filters, list

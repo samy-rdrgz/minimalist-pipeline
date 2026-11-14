@@ -5,7 +5,6 @@ from pathlib import Path
 import bpy
 
 from ..lib import (
-    report_error,
     ConfigCache,
     PipelineError,
     TrackingStatusCache,
@@ -18,6 +17,7 @@ from ..lib import (
     get_session_worked_departments,
     json_get,
     parse_filename,
+    report_error,
     save_as,
     scan_linked_libraries,
     wipmeta_add_work,

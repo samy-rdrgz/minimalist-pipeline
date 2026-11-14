@@ -7,24 +7,24 @@ import bpy
 from ..lib import (
     ConfigCache,
     addon_pref,
-    draw_onboarding,
-    region_char_budget,
-    ensure_monitoring_tick,
     any_outdated_links,
+    draw_onboarding,
+    ensure_monitoring_tick,
     get_active_project_root,
     json_get,
     monitoring_detail,
     monitoring_kind,
+    region_char_budget,
 )
-from .logs_panel import draw_pipeline_logs
+from ..operators.migration_ops import project_needs_migration
 from .farm_panel import (
     draw_farm_job_details,
     draw_farm_jobs,
     draw_farm_worker_details,
     draw_farm_workers,
 )
+from .logs_panel import draw_pipeline_logs
 from .tracking_panel import draw_file_details, draw_monitor_table
-from ..operators.migration_ops import project_needs_migration
 
 
 class _MonitoringPanel:
