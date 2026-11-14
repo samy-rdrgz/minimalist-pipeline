@@ -14,7 +14,16 @@ Hypothèse de départ, validée : **tous les PC sont mis à jour en même temps.
 | Lignes Python | 30 426 | 29 731 (−695) |
 | Lignes de code Python (sans commentaires ni docstrings) | 22 835 | 22 008 (−827) |
 
-Dont **+280 lignes** pour le script de migration (`lib/migration.py`, son opérateur), qui reprend l'ancienne logique de lecture pour la jouer une fois : sans lui, la phase 1 retire environ 1 100 lignes de code.
+Dont **+439 lignes de code** pour le script de migration (`lib/migration.py` 307, `operators/migration_ops.py` 132), qui reprend l'ancienne logique de lecture pour la jouer une fois. Hors migration, la phase 1 retire **1 266 lignes de code** (−5,5 %) et 141 Ko.
+
+| Étape | Lignes de code | Lignes Python | Zip brut |
+|---|---|---|---|
+| Retrait xlsx + CHANGELOG (1B.1, 1B.2) | −533 | −627 | −122 Ko |
+| Compat entre versions de l'addon (1B.4) | −12 | −17 | — |
+| Legacy retiré des lecteurs (1B.5) | ≈ −140 | ≈ −170 | — |
+| Script de migration ajouté (1B.5) | +439 | +611 | +25 Ko |
+| Factorisations (1A.1, 1A.4 à 1A.7) | −141 | −119 | −4 Ko |
+| Écrans en boucles, fonctions d'affichage (1A.2, 1A.3, 1B.3) | −458 | −389 | −3 Ko |
 
 **Reste de la phase 1 : 1C** (dates avec fuseau), préparée : toutes les lectures de dates passent déjà par `parse_iso()`.
 
