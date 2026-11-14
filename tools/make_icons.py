@@ -100,15 +100,6 @@ def check(width=5):
     return lambda x, y: a(x, y) or b(x, y)
 
 
-def eye(cx=C, cy=C, w=10, h=6, pupil=2.6):
-    """An eye: an almond (two arcs' lens) and its pupil."""
-    def inside(x, y):
-        dx, dy = (x - cx) / w, (y - cy) / h
-        return abs(dy) <= (1 - dx * dx) and abs(dx) <= 1 and not (math.hypot(x - cx, y - cy) <= pupil + 1.6 and math.hypot(x - cx, y - cy) > pupil)
-
-    return inside
-
-
 # The reworked diamond: open on its top-left edge (135 degrees), the
 # stroke's end an arrowhead -- clockwise, as the page's.
 _GAP = (122, 150)
@@ -126,9 +117,9 @@ MARKS = {
     "valid": [(SUP, diamond()), (INK, check())],
     "done_top": [(VAL, diamond()), (WHITE, check())],
     # The stages: waiting on an earlier one (a clock in the diamond), to
-    # redo -- to rework, to check -- (the reworked arrow, an eye in it).
+    # redo -- to rework, to check -- (the diamond an eye, its pupil).
     "waiting": [(RING, outline()), (RING, segment(C, C, C, C - 10, 4)), (RING, segment(C, C, C + 8, C, 4))],
-    "to_redo": [(WIP, outline(gap=_GAP)), (WIP, _ARROW), (WIP, eye())],
+    "to_redo": [(WIP, outline()), (WIP, lambda x, y: math.hypot(x - C, y - C) <= 6.5)],
     # A department not required for the file.
     "none": [(GREY, segment(C - 9, C, C + 9, C, 4))],
     # Entries, as the page's post-its: a retake from a validation role

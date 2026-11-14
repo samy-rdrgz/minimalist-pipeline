@@ -4632,7 +4632,7 @@ started and Done reworked shared one icon.
   page's keyframe diamonds and post-its in its dark-theme colours (signed
   distances to a rounded square turned 45 degrees): a state's (todo, wip,
   rework, done; valid by a role, done_top by the top one; none, a
-  department not required), the stages' (waiting, to_redo), an entry's
+  department not required), the stages' (waiting a clock, to_redo an eye), an entry's
   (rtk, team, role). Run it again after changing one; the PNGs are
   committed.
 - `lib/icons.py` loads them once in a preview collection (register /
