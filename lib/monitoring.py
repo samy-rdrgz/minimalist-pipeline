@@ -462,13 +462,26 @@ def turn_page(kind: str, step: int, to_end: bool = False) -> None:
     redraw_monitoring(kind)
 
 
-def rows_that_fit(context, reserved_units: float, row_units: float = ROW_UNITS) -> int:
+def rows_that_fit(
+    context, reserved_units: float, row_units: float = ROW_UNITS, kind: str = ""
+) -> int:
     """List rows that fit the window's region once reserved_units (its
     filters, header, footer, margins -- widget units) are taken, never
     under MIN_ROWS. row_units: one row's height (ROW_UNITS, a table row
-    with its separator; a bare label line is about 1)."""
+    with its separator; a bare label line is about 1). kind: a paged
+    list's window, told whether its page fits (list_fits())."""
     unit = 20 * (context.preferences.system.ui_scale or 1.0)  # 0 in background
-    return max(MIN_ROWS, int((context.region.height / unit - reserved_units) / row_units))
+    fit = int((context.region.height / unit - reserved_units) / row_units)
+    if kind:
+        _pages[kind]["fits"] = fit >= MIN_ROWS
+    return max(MIN_ROWS, fit)
+
+
+def list_fits(kind: str) -> bool:
+    """Whether a window's list, as last drawn, fits its window -- under
+    MIN_ROWS the region scrolls, and the wheel is left to it. Unknown (not
+    drawn yet): True."""
+    return _pages[kind].get("fits", True)
 
 
 def paginate(kind: str, items: list, per_page: int, filters: tuple, key=None) -> tuple:
@@ -598,6 +611,29 @@ _KEYMAP_ITEMS = (
         True,
     ),
     ("Next page", "Frames", "EMPTY", _PAGE, "RIGHT_ARROW", (), {"step": 1, "to_end": False}, True),
+    # The wheel: in "View2D Buttons List", where a Properties editor's
+    # scroll is -- the addon's item wins inside the same keymap; poll() and
+    # invoke() hand it back to the scroll outside a list that fits.
+    (
+        "Previous page (wheel)",
+        "View2D Buttons List",
+        "EMPTY",
+        _PAGE,
+        "WHEELUPMOUSE",
+        (),
+        {"step": -1, "to_end": False},
+        True,
+    ),
+    (
+        "Next page (wheel)",
+        "View2D Buttons List",
+        "EMPTY",
+        _PAGE,
+        "WHEELDOWNMOUSE",
+        (),
+        {"step": 1, "to_end": False},
+        True,
+    ),
     (
         "First page",
         "Frames",

@@ -13,7 +13,7 @@ comment.
 
 By theme; the sections below stay in the order they were written.
 
-- **Render farm**: [Farm 1.1.0: chunks replace placeholders](#farm-110-chunks-replace-placeholders) · [Workers: no idle sleep](#workers-no-idle-sleep) · [Stuck frame](#stuck-frame) · [Stopping a worker: after this frame, or now](#stopping-a-worker-after-this-frame-or-now) · [Which machine rendered which frame](#which-machine-rendered-which-frame) · [Time left: per machine, from each frame's time](#time-left-per-machine-from-each-frames-time) · [Crash recovery: resume, don't orphan](#crash-recovery-resume-dont-orphan) · [Re-rendering a file: match the render, not the job](#re-rendering-a-file-match-the-render-not-the-job) · [Farm subprocess output: files, never pipes](#farm-subprocess-output-files-never-pipes) · [Farm popup: worker state, open-folder button, refresh cost](#farm-popup-worker-state-open-folder-button-refresh-cost) · [Farm status: two redraw timers, split by cost](#farm-status-two-redraw-timers-split-by-cost) · [One farm snapshot reader, sync or threaded](#one-farm-snapshot-reader-sync-or-threaded) · [FFmpeg detection: PATH lookup isn't enough, and an override can't silently fall back](#ffmpeg-detection-path-lookup-isnt-enough-and-an-override-cant-silently-fall-back) · [What a real project's export showed (6 machines, a week of production)](#what-a-real-projects-export-showed-6-machines-a-week-of-production) · [Odd sizes: one more column for the compilation](#odd-sizes-one-more-column-for-the-compilation) · [ffmpeg passes: a %, from -progress](#ffmpeg-passes-a--from--progress) · [Priority: giving way after a frame](#priority-giving-way-after-a-frame) · [A failed render says why](#a-failed-render-says-why) · [A share drop-out ended the farm roles for good](#a-share-drop-out-ended-the-farm-roles-for-good) · [Rushes: copies under fixed names, not links](#rushes-copies-under-fixed-names-not-links) · [Estimate before a render starts](#estimate-before-a-render-starts)
+- **Render farm**: [Farm 1.1.0: chunks replace placeholders](#farm-110-chunks-replace-placeholders) · [A render nobody's on: waiting, not running](#a-render-nobodys-on-waiting-not-running) · [Workers: no idle sleep](#workers-no-idle-sleep) · [Stuck frame](#stuck-frame) · [Stopping a worker: after this frame, or now](#stopping-a-worker-after-this-frame-or-now) · [Which machine rendered which frame](#which-machine-rendered-which-frame) · [Time left: per machine, from each frame's time](#time-left-per-machine-from-each-frames-time) · [Crash recovery: resume, don't orphan](#crash-recovery-resume-dont-orphan) · [Re-rendering a file: match the render, not the job](#re-rendering-a-file-match-the-render-not-the-job) · [Farm subprocess output: files, never pipes](#farm-subprocess-output-files-never-pipes) · [Farm popup: worker state, open-folder button, refresh cost](#farm-popup-worker-state-open-folder-button-refresh-cost) · [Farm status: two redraw timers, split by cost](#farm-status-two-redraw-timers-split-by-cost) · [One farm snapshot reader, sync or threaded](#one-farm-snapshot-reader-sync-or-threaded) · [FFmpeg detection: PATH lookup isn't enough, and an override can't silently fall back](#ffmpeg-detection-path-lookup-isnt-enough-and-an-override-cant-silently-fall-back) · [What a real project's export showed (6 machines, a week of production)](#what-a-real-projects-export-showed-6-machines-a-week-of-production) · [Odd sizes: one more column for the compilation](#odd-sizes-one-more-column-for-the-compilation) · [ffmpeg passes: a %, from -progress](#ffmpeg-passes-a--from--progress) · [Priority: giving way after a frame](#priority-giving-way-after-a-frame) · [A failed render says why](#a-failed-render-says-why) · [A share drop-out ended the farm roles for good](#a-share-drop-out-ended-the-farm-roles-for-good) · [Rushes: copies under fixed names, not links](#rushes-copies-under-fixed-names-not-links) · [Estimate before a render starts](#estimate-before-a-render-starts)
 - **Notes, tracking, snapshot**: [Tracking entries](#tracking-entries) · [Entries for several departments](#entries-for-several-departments) · [Validation roles](#validation-roles) · [Entries: two fields only ever guaranteed together, never accessed bare](#entries-two-fields-only-ever-guaranteed-together-never-accessed-bare) · [Edit entry: a note turned task kept no checkbox](#edit-entry-a-note-turned-task-kept-no-checkbox) · [Edit-entry dialog: a stored department can outlive its own enum](#edit-entry-dialog-a-stored-department-can-outlive-its-own-enum) · [Department filter: three different callers, three different "current file"s](#department-filter-three-different-callers-three-different-current-files) · [tracking.json: one path, never created by a write](#trackingjson-one-path-never-created-by-a-write) · [Renders to check: the one before, to compare](#renders-to-check-the-one-before-to-compare) · [Project monitoring's Farm column: the monitor cache, not the project scan](#project-monitorings-farm-column-the-monitor-cache-not-the-project-scan) · [Production snapshot: one HTML file, a spreadsheet inside it](#production-snapshot-one-html-file-a-spreadsheet-inside-it) · [Snapshot width: short state labels, hideable columns](#snapshot-width-short-state-labels-hideable-columns) · [Work time tracking & log rotation](#work-time-tracking--log-rotation) · [A review note is about the render watched](#a-review-note-is-about-the-render-watched) · [A general RTK reds the file's name](#a-general-rtk-reds-the-files-name) · [Entry ids: unique in their file](#entry-ids-unique-in-their-file) · [Snapshot page on an iPad](#snapshot-page-on-an-ipad) · [Review import: this version's reviews only](#review-import-this-versions-reviews-only) · [Small gotchas, out of the docstrings](#small-gotchas-out-of-the-docstrings) · [Outdated links: after the grid, a button only when found](#outdated-links-after-the-grid-a-button-only-when-found) · [Notes & tasks: counts in the title, filters per view](#notes--tasks-counts-in-the-title-filters-per-view) · [Project scan on a share with latency](#project-scan-on-a-share-with-latency) · [Right-click menus on the addon's buttons](#right-click-menus-on-the-addons-buttons) · [Save Incremental: its key, not its button](#save-incremental-its-key-not-its-button)
 - **Shot blocks (multishot), batch**: [Multishot blocks](#multishot-blocks) · [Multishot row list: disabling a button isn't a guard](#multishot-row-list-disabling-a-button-isnt-a-guard) · [Multishot row list, take two: a clean-scene reset invalidates it](#multishot-row-list-take-two-a-clean-scene-reset-invalidates-it) · [_draw_timeline_warnings: a trailing comma turned a string into a 1-tuple](#_draw_timeline_warnings-a-trailing-comma-turned-a-string-into-a-1-tuple) · [CSV batch: the subprocess couldn't import itself](#csv-batch-the-subprocess-couldnt-import-itself)
 - **Versions, saving, files**: [Read-only reason: from a popup on every open to an on-demand menu](#read-only-reason-from-a-popup-on-every-open-to-an-on-demand-menu) · [Top bar read-only indicator: why it sits before the Blender icon](#top-bar-read-only-indicator-why-it-sits-before-the-blender-icon) · [.wipmeta writes tolerate a missing sidecar; the panel doesn't trust the flag alone](#wipmeta-writes-tolerate-a-missing-sidecar-the-panel-doesnt-trust-the-flag-alone) · [Next version number: never from a cached listing](#next-version-number-never-from-a-cached-listing) · [Recent files: derived from the log, not a stored list](#recent-files-derived-from-the-log-not-a-stored-list) · [A version without .wipmeta](#a-version-without-wipmeta) · [The lock follows the file](#the-lock-follows-the-file) · [Work time: only a session that saved](#work-time-only-a-session-that-saved) · [resolve_bpy_path() left "../" uncollapsed in every stored link path](#resolve_bpy_path-left--uncollapsed-in-every-stored-link-path) · [Copy/paste isn't always under bpy.app.tempdir](#copypaste-isnt-always-under-bpyapptempdir) · [Project walk: a stray .pipeline/ hid every asset below it; popup regions must not outlive their popup](#project-walk-a-stray-pipeline-hid-every-asset-below-it-popup-regions-must-not-outlive-their-popup)
@@ -2631,6 +2631,19 @@ that scrolls, like before.
   added to each reserved figure, then taken back: the row it saved fit
   after all, with room below even resized -- 6.5 / 7.5, 5.0 for the
   Workers view; the Pipeline log 7.4 (its lines are about 1 unit).
+- **The wheel turns pages** (1.1.10 and after): a list sized on its
+  window had nothing to scroll to but the blank pushed under the panel.
+  Two more `m_pipeline.monitoring_page` items, WHEELUPMOUSE / DOWN, in
+  "View2D Buttons List" -- where the Properties editor's own scroll is
+  (`view2d.scroll_up/down`): an addon's items go first in a keymap
+  (`wm_keymap_addon_add()`), one whose poll() says no or whose invoke()
+  returns PASS_THROUGH lets the event go on to the scroll. That keymap
+  serves every panel region in Blender: poll() is two lookups (the
+  screen's mark, the detail), no for any other window. Left to the
+  scroll: a detail (notes, a job's lines -- File details' poll() says yes
+  for its arrows, so invoke() hands the wheel back), the Workers view,
+  and a list taller than its window (`list_fits()`: `rows_that_fit(...,
+  kind=)` notes whether it went under MIN_ROWS).
 - **The preferences' page keys**: four share `m_pipeline.monitoring_page`;
   Previous / Next page were found by `{"step": ±1}` alone, which First /
   Last page (`to_end`) match too -- the list showed Ctrl+arrow on all
@@ -2704,6 +2717,26 @@ same keys, no new shortcut in the preferences.
   stepped through.
 - **Never wraps**: the last file's Next does nothing, like the last
   page's.
+
+## A render nobody's on: waiting, not running
+
+Machines that fail a render get no more of it (`failed_machines`); it
+only fails once a chunk failed on 3 machines or no live machine allowed
+on it is left. In between -- a scene too big for every GPU but the
+host's, the host busy on other jobs -- it stayed at `render_start`,
+shown running with nobody on it: 8 jobs "running" with one machine
+rendering.
+
+`loop._nobody_on_it()`, on each full refresh: `render_start`, no claim
+(`_claims_for_jobs()`), no live worker with it as `current_job_id`, no
+request waiting to be taken up (`_requested_jobs()`, one listing of
+requests/) -- the host's own `_on_this_render()` test, from the reader's
+data. The entry gets `no_machine`; `entry_state()` makes it "waiting"
+for the Jobs filter and Project monitoring's Farm column; the row reads
+"waiting for a worker", its frames done and how many machines failed
+it, no time left (nobody renders it). Display only: the queue itself
+doesn't change -- a machine allowed on it still gets it first by
+priority.
 
 ## Workers: no idle sleep
 

@@ -940,8 +940,8 @@ _TABLE_TIP = (
     "the file open here). Each department's state since the last stable, "
     "legend at the bottom. Farm: renders in the farm or waiting to be checked "
     "-- that filter, and RTK (open retakes), narrow the list. Right-click a "
-    "file's name: its render folder, its folder, a render. Left / Right "
-    "turn pages, Tab switches assets / shots, Esc goes back."
+    "file's name: its render folder, its folder, a render. The wheel or "
+    "Left / Right turn pages, Tab switches assets / shots, Esc goes back."
 )
 _TO_CHECK_TIP = (
     "A farm render waits here until someone has watched it. Checked asks which "
@@ -1059,7 +1059,9 @@ def draw_monitor_table(self, context, layout, columns, project_root):
     f_list.separator(factor=1)
 
     per_page = rows_that_fit(
-        context, _TABLE_RESERVED_UNITS + box_tip_units(context, _TABLE_TIP)
+        context,
+        _TABLE_RESERVED_UNITS + box_tip_units(context, _TABLE_TIP),
+        kind="project",
     )
     shown, page, pages = paginate(
         "project", matches, per_page, filters, key=lambda m: str(m[0])
