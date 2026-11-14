@@ -51,12 +51,14 @@ from .pace import ensure_preset_pace, note_preset_pace
 from .post_render import checks_images, compilation, refresh_shot_thumbnail
 from .stages import add_stage, mark_stage
 from .workers import (
+    RENDER,
     frame_seconds,
     idle_machines,
     local_render_jobs,
     local_render_running,
     parse_saved,
     render_yield_path,
+    request_path,
     scan_workers,
     this_instance_is_worker,
 )
@@ -960,7 +962,7 @@ def _drop_pending_request(job_id: str, uuid: str) -> bool:
     to be picked up. True if it was (and is now gone); False if the worker
     already took it (it's running), or the request can't be locked this
     tick -- then the caller keeps waiting, as before."""
-    request = ConfigCache.get_path("farm_requests") / f"request_{job_id}_{uuid}.json"
+    request = request_path(RENDER, job_id, uuid)
     if not request.exists():
         return False
     try:
@@ -1139,10 +1141,9 @@ def _on_this_render(data: dict) -> tuple[list, list]:
     rendering this job, alive -- or unreadable this tick, can't tell;
     waiting: its request not taken up yet)."""
     job_id = data["job_id"]
-    requests = ConfigCache.get_path("farm_requests")
     rendering, waiting = [], []
     for uuid in data.get("used_machines", []):
-        if (requests / f"request_{job_id}_{uuid}.json").exists():
+        if request_path(RENDER, job_id, uuid).exists():
             waiting.append(uuid)
             continue
         worker = _read_worker(uuid)
@@ -1429,12 +1430,8 @@ def _finish_render(job_path: Path, project_root: Path | None) -> dict | None:
             return data
         machines = data.get("used_machines", [])
         for uuid in machines:
-            request = (
-                ConfigCache.get_path("farm_requests")
-                / f"request_{data['job_id']}_{uuid}.json"
-            )
             try:
-                retry_shared_io(request.unlink)
+                retry_shared_io(request_path(RENDER, data["job_id"], uuid).unlink)
             except OSError:
                 pass
         # Kept for construct_history(): used_machines is reset by the next

@@ -548,23 +548,70 @@ def scan_workers() -> dict:
     return workers
 
 
-def scan_render_requests(target_uuid: str = "") -> dict:
-    """Return {filename: data} for pending render requests, optionally
-    filtered to target_uuid. Read without a lock (writes are atomic): a
-    lock per request, every tick, only fought with the workers taking them.
-    A request gone (taken) or unreadable since the listing is left out --
-    whoever acts on one re-reads it under its lock (execute_render_request())."""
+# A worker's requests, by kind: a render ("request_<job>_<uuid>.json"), a
+# compile ("compile_..."), each taken by the worker it targets.
+RENDER, COMPILE = "request", "compile"
+
+
+def request_path(kind: str, job_id: str, uuid: str) -> Path:
+    """Worker uuid's request of kind (RENDER, COMPILE) for job_id."""
+    return ConfigCache.get_path("farm_requests") / f"{kind}_{job_id}_{uuid}.json"
+
+
+def _write_request(kind: str, job_id: str, uuid: str, data: dict) -> None:
+    path = request_path(kind, job_id, uuid)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with locked_json(path) as box:
+        box["data"] = data | {"target_uuid": uuid}
+        box["action"] = "to_write"
+
+
+def scan_requests(kind: str, target_uuid: str = "") -> dict:
+    """{filename: data} for pending requests of kind, optionally only
+    target_uuid's. Read without a lock (writes are atomic): a lock per
+    request, every tick, only fought with the workers taking them. A
+    request gone (taken) or unreadable since the listing is left out --
+    whoever acts on one re-reads it under its lock (_take_request())."""
     requests = {}
     path = ConfigCache.get_path("farm_requests")
     if not path.exists():
         return requests
-    for r in path.glob(
-        f"request_*_{target_uuid}.json" if target_uuid else "request_*.json"
-    ):
+    for r in path.glob(f"{kind}_*_{target_uuid}.json" if target_uuid else f"{kind}_*.json"):
         data = read_json_quiet(r)
         if data:
             requests[r.name] = data
     return requests
+
+
+def _next_request(kind: str) -> Path | None:
+    """This worker's next request of kind, None without one."""
+    pending = scan_requests(kind, target_uuid=get_machine_id())
+    return ConfigCache.get_path("farm_requests") / next(iter(pending)) if pending else None
+
+
+# What a worker's file says once its render or compile has exited.
+_IDLE_FIELDS = {
+    "status": "idle",
+    "current_job": None,
+    "current_file": None,
+    "current_pid": None,
+    "current_job_id": None,
+    "current_dispatch_id": None,
+}
+
+
+def _busy_fields(status: str, request: Path, file: str, pid: int, job_id: str, **extra) -> dict:
+    """What a worker's file says while it renders or compiles: the request
+    taken (a name, not this machine's absolute path: a shared file), its
+    file, its process -- so a worker restarted after a crash finds it again
+    (_recover_previous_render())."""
+    return {
+        "status": status,
+        "current_job": request.name,
+        "current_file": file,
+        "current_pid": pid,
+        "current_job_id": job_id,
+    } | extra
 
 
 def idle_machines() -> dict:
@@ -574,7 +621,7 @@ def idle_machines() -> dict:
     Never a worker on another FARM_PROTOCOL (logged once)."""
     targeted = {
         r.get("target_uuid")
-        for r in (*scan_render_requests().values(), *scan_compile_requests().values())
+        for r in (*scan_requests(RENDER).values(), *scan_requests(COMPILE).values())
     }
     idle = {}
     for uuid, w in scan_workers().items():
@@ -703,14 +750,7 @@ def _clear_render_flags(job_id: str) -> None:
 
 def render_request(job_data: dict, uuid: str, cmd_flags: list):
     """Write a render request file targeting worker uuid for this job."""
-    request_path = (
-        ConfigCache.get_path("farm_requests")
-        / f"request_{job_data['job_id']}_{uuid}.json"
-    )
-    request_path.parent.mkdir(parents=True, exist_ok=True)
-    with locked_json(request_path) as box:
-        box["data"] = {"cmd_flags": cmd_flags, "target_uuid": uuid} | job_data
-        box["action"] = "to_write"
+    _write_request(RENDER, job_data["job_id"], uuid, {"cmd_flags": cmd_flags} | job_data)
 
 
 _worker_active_processes: dict[str, subprocess.Popen] = {}
@@ -721,12 +761,9 @@ def execute_render_request() -> dict:
     subprocess. Returns the worker status patch to apply, or {} if idle."""
     global _worker_active_processes
 
-    pending = scan_render_requests(target_uuid=get_machine_id())
-    if not pending:
+    request_path = _next_request(RENDER)
+    if request_path is None:
         return {}
-
-    request_path, data = next(iter(pending.items()))
-    request_path = ConfigCache.get_path("farm_requests") / request_path
 
     with locked_json(request_path) as box:
         if not box["data"]:
@@ -804,17 +841,14 @@ def execute_render_request() -> dict:
 
         _worker_active_processes[data["job_id"]] = p
         box["action"] = "to_delete"
-        return {
-            "status": "render",
-            # A name, not this machine's absolute path (shared file).
-            "current_job": request_path.name,
-            "current_file": data["filepath"],
-            # So a worker restarted after a crash can find this render
-            # again (_recover_previous_render()).
-            "current_pid": p.pid,
-            "current_job_id": data["job_id"],
-            "current_dispatch_id": data.get("dispatch_id"),
-        }
+        return _busy_fields(
+            "render",
+            request_path,
+            data["filepath"],
+            p.pid,
+            data["job_id"],
+            current_dispatch_id=data.get("dispatch_id"),
+        )
 
 
 def worker_tick():
@@ -917,14 +951,7 @@ def scan_worker_processes() -> None:
                 # the job, this saves opening it.
                 result["reason"] = failure_reason(log_path, ret)
         update_worker(
-            {
-                "status": "idle",
-                "current_job": None,
-                "current_pid": None,
-                "current_job_id": None,
-                "current_dispatch_id": None,
-                "last_job_result": result,
-            },
+            _IDLE_FIELDS | {"last_job_result": result},
             count="renders_done" if result.get("success") else "renders_failed",
         )
 
@@ -945,38 +972,9 @@ def scan_worker_processes() -> None:
 _worker_compiles: dict[str, subprocess.Popen] = {}
 
 
-def compile_request_path(job_id: str, uuid: str) -> Path:
-    """Worker uuid's compile request for job_id -- never request_*.json: a
-    worker would take it for a render."""
-    return ConfigCache.get_path("farm_requests") / f"compile_{job_id}_{uuid}.json"
-
-
 def compile_request(job_id: str, uuid: str) -> None:
     """Write a compile request of job_id (a preview) targeting worker uuid."""
-    path = compile_request_path(job_id, uuid)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with locked_json(path) as box:
-        box["data"] = {
-            "job_id": job_id,
-            "target_uuid": uuid,
-            "kind": "preview",
-            "at": now(),
-        }
-        box["action"] = "to_write"
-
-
-def scan_compile_requests(target_uuid: str = "") -> dict:
-    """{filename: data} for pending compile requests, optionally only
-    target_uuid's -- read without a lock, as scan_render_requests()."""
-    requests = {}
-    path = ConfigCache.get_path("farm_requests")
-    if not path.exists():
-        return requests
-    for r in path.glob(f"compile_*_{target_uuid}.json" if target_uuid else "compile_*.json"):
-        data = read_json_quiet(r)
-        if data:
-            requests[r.name] = data
-    return requests
+    _write_request(COMPILE, job_id, uuid, {"job_id": job_id, "kind": "preview", "at": now()})
 
 
 def _compile_job_path(job_id: str) -> Path:
@@ -998,11 +996,9 @@ def execute_compile_request() -> dict:
     """Take the next compile request targeting this worker and launch its
     ffmpeg (output in the job's own log, popen_logged()). Returns the worker
     status patch to apply, or {} if there was none to run."""
-    pending = scan_compile_requests(target_uuid=get_machine_id())
-    if not pending:
+    request_path = _next_request(COMPILE)
+    if request_path is None:
         return {}
-    name = next(iter(pending))
-    request_path = ConfigCache.get_path("farm_requests") / name
     with locked_json(request_path) as box:
         request = box["data"]
         if not request:
@@ -1028,13 +1024,7 @@ def execute_compile_request() -> dict:
             return {}
     _worker_compiles[job_id] = p
     log("INFO", "farm", f"Compiling {job.get('filepath') or job_id} (preview).")
-    return {
-        "status": "compile",
-        "current_job": name,
-        "current_file": job.get("filepath"),
-        "current_pid": p.pid,
-        "current_job_id": job_id,
-    }
+    return _busy_fields("compile", request_path, job.get("filepath"), p.pid, job_id)
 
 
 def _end_compile(job_id: str, success: bool) -> None:
@@ -1070,18 +1060,8 @@ def scan_compile_processes() -> None:
             # The host sends it out again once this worker is idle.
             log("WARNING", "farm", f"Could not write the end of {job_id}'s compile: {e}")
         update_worker(
-            {
-                "status": "idle",
-                "current_job": None,
-                "current_file": None,
-                "current_pid": None,
-                "current_job_id": None,
-                "last_compile_result": {
-                    "job_id": job_id,
-                    "success": ret == 0,
-                    "at": now(),
-                },
-            }
+            _IDLE_FIELDS
+            | {"last_compile_result": {"job_id": job_id, "success": ret == 0, "at": now()}}
         )
         _worker_compiles.pop(job_id, None)
 

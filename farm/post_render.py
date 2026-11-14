@@ -16,7 +16,6 @@ from ..lib import (
     ld_path,
     locked_json,
     log,
-    now,
     resolve_ffmpeg,
     run_thumbnail_jobs,
     thumbnail_jobs,
@@ -384,7 +383,7 @@ def send_preview_compile(job_path: Path, uuid: str, idle: dict) -> bool:
         compile_request(data["job_id"], uuid)
         idle_worker = idle.pop(uuid, None) or {}
         data["compile_machine"] = uuid
-        history.append({"stage": "preview_start", "at": now(), "machine": uuid})
+        add_stage(data, "preview_start", machine=uuid)
         box["action"] = "to_write"
     log(
         "INFO",
@@ -403,10 +402,10 @@ def check_remote_compile(job_path: Path, data: dict) -> None:
     worker file, as _on_this_render(): a worker takes it under its own
     file's lock, unreadable (None) meanwhile."""
     from .queue import _read_worker, _worker_gone, resume_interrupted_stage
-    from .workers import compile_request_path
+    from .workers import COMPILE, request_path
 
     uuid, job_id = data["compile_machine"], data["job_id"]
-    request = compile_request_path(job_id, uuid)
+    request = request_path(COMPILE, job_id, uuid)
     waiting = request.exists()
     worker = _read_worker(uuid)
     if worker is None:
