@@ -77,11 +77,18 @@ Ajouter « Waiting », « À reprendre » et les stats en direct pendant une rev
 
 **Le fait stocké : la dernière remise à jour de chaque département.** Ce qui posait problème : une fois le RTK du layout fermé, comment dire que l'animation n'a *pas besoin* d'être refaite, sans faire un stable ou un rendu, et sans entrée par RTK, illisible quand il y en a plusieurs ?
 
-La réponse est de ne pas raisonner par RTK, mais avec **une seule date par département et par fichier** :
+La réponse est de ne pas raisonner par RTK, mais avec **une seule date par département et par fichier**, dans le `.pipeline/tracking.json` du dossier :
 
 ```json
-"departments_synced": {"animation": {"at": "2026-11-12T15:02:00", "by": "léa"}}
+"departments_synced": {"animation": {"at": "2026-11-12T15:02:00+01:00", "by": "léa"}}
 ```
+
+**« À reprendre » n'est stocké nulle part**, pas plus que « Waiting ». Le moteur d'états les recalcule à chaque lecture en comparant des dates qui existent déjà :
+- la fermeture des RTK (`done_at`, dans `tracking.json`) ;
+- les stables (`.stablemeta`) ;
+- les sessions de travail par département (`.wipmeta`) ;
+- les rendus par département (`render_history.json`, phase 5) ;
+- `departments_synced`, le seul ajout.
 
 - **« Changement en amont »** = un RTK de l'étape inférieure est fermé, ou un nouveau stable est fait avec cette étape travaillée alors qu'elle était déjà finie. Une simple sauvegarde de travail en cours ne compte pas : sinon la moindre retouche signalerait tout l'aval.
 - **Remise à jour du département**, qui fait disparaître « À reprendre » :
@@ -121,28 +128,82 @@ La réponse est de ne pas raisonner par RTK, mais avec **une seule date par dép
 - Doublons : une action déjà importée est ignorée (identifiant d'action). Un `create` déjà existant est ignoré lui aussi : `shot_batch_exists()` le vérifie déjà.
 - Les reviews de l'ancien format sont refusées, comme aujourd'hui pour une autre version du schéma.
 
+### 2.4 Des dates avec fuseau horaire
+
+**Le constat :** toutes les dates écrites par l'addon sont en **heure locale sans fuseau**. `lib/core.py` `now()` écrit `datetime.now()`, il est appelé 78 fois, et aucun fichier n'utilise `timezone`, `tzinfo` ni `astimezone`. Le commentaire de `now()` le dit lui-même : « Local, not UTC ».
+
+Ce que ça casse aujourd'hui, ou cassera :
+- **Une personne dans un autre fuseau** (un freelance à l'étranger sur le partage) écrit ses dates avec quelques heures d'écart. Les comparaisons d'ordre deviennent fausses : « retravaillé depuis le stable », l'ordre des notes, et demain Waiting et À reprendre, qui reposent entièrement sur cet ordre.
+- **Un worker dans un autre fuseau** paraît mort ou « silencieux » dès sa première seconde : son heartbeat a des heures d'écart, pour un seuil de 15 s.
+- **Le passage à l'heure d'hiver ou d'été**, même dans un seul pays : deux fois par an, une heure se répète ou disparaît, et l'ordre ou les durées calculées dans cette fenêtre sont faux.
+- **Des dates triées comme du texte** (par exemple `max(edited_at)` dans `lib/tracking.py`, le tri par `at` dans `farm/pace.py`) : avec des fuseaux différents, l'ordre alphabétique ne correspond plus à l'ordre réel.
+
+**La solution :**
+- **On écrit l'heure locale avec son décalage** : `2026-11-14T10:03:00+01:00` (`datetime.now().astimezone()`). Elle reste lisible dans les fichiers et ne laisse aucune ambiguïté.
+- **On compare toujours des dates avec fuseau.** Une seule fonction de lecture (celle de la phase 1A) accepte les deux formes :
+  - une date avec décalage est prise telle quelle ;
+  - une ancienne date sans décalage est considérée comme l'heure locale de la machine qui lit, comme aujourd'hui.
+  
+  Il faut le faire **partout d'un coup** : Python refuse de comparer une date avec fuseau et une date sans, ce qui donnerait une erreur.
+- **Plus aucune date triée comme du texte** : on trie les dates lues.
+- **Les heartbeats et le fait d'être en vie passent en secondes epoch** (`time.time()`, comme les réservations de chunks le font déjà) : ils ne dépendent plus ni du fuseau ni du changement d'heure.
+- **Dans la page HTML**, une date avec décalage est lue correctement par `Date`, et s'affiche à l'heure locale de celui qui regarde.
+- **Les noms de fichiers** (snapshots, reviews, dossiers par mois) restent à l'heure locale de celui qui les crée, ce qui est sans risque.
+- Les horloges doivent toujours être à l'heure (synchronisées automatiquement), mais le fuseau de chaque machine n'a plus d'importance.
+
 ---
 
 ## 3. Les phases de travail
 
-### Phase 1 — Nettoyage et factorisation (rien de visible, sauf une popup)
+### Phase 1 — Simplifier le code, avant toute nouvelle fonctionnalité
+
+**On commence par là.** Tant que le code n'est pas allégé, chaque nouvelle fonctionnalité s'ajouterait à des mécaniques en double et à des écrans écrits ligne par ligne.
+
+Méthode :
+- une nouvelle branche, un commit par tâche ;
+- **à comportement identique** : rien ne change à l'écran sauf la popup de 1B.3 ;
+- un test après chaque factorisation ;
+- le poids du zip et le nombre de lignes mesurés avant et après chaque étape.
+
+#### 1A — Factorisations et boucles (en premier)
 
 | # | Tâche | Où |
 |---|---|---|
-| 1.1 | Retirer `CHANGELOG.md` du zip (`paths_exclude_pattern`) | `blender_manifest.toml` |
-| 1.2 | Retirer l'xlsx : générateur, import, lecture | `lib/review_sheet.py`, `lib/review_import.py`, opérateurs, docs |
-| 1.3 | Retirer le code de compatibilité **entre versions de l'addon** : worker sur un ancien protocole, libellés « older addon », demandes sans chunks | `farm/*`, `panels/farm_panel.py`, ~43 endroits repérés |
-| 1.4 | **[à confirmer]** Anciennes **données** de projet (validations d'avant la 1.1.9, historiques sans preset…) : *migration unique* (un bouton dans Maintenance qui réécrit les vieux fichiers, puis on retire les lectures de compatibilité dans la version suivante) **ou** on garde ces lectures | `lib/tracking.py` (`_legacy_carried`…), `farm/loop.py` |
-| 1.5 | **Un seul circuit demande → processus → résultat entre l'hôte et un worker**, en deux variantes (rendu, preview) : on garde les previews sur worker, on supprime la mécanique en double (~80-100 lignes) | `farm/workers.py`, `farm/post_render.py` |
-| 1.6 | Le panneau farm **en boucles** : listes de champs pour les détails d'un job et d'un worker, sur le même principe que les listes connues à l'avance | `panels/farm_panel.py` (1 111 lignes) |
-| 1.7 | « Quelle machine a rendu quelle frame » dans un **bouton + popup** | `panels/farm_panel.py` |
-| 1.8 | Fonctions d'affichage partagées : « libellé + champ » ; « boutons si peu de choix, sinon menu déroulant » (4 fois) ; le bloc description / départements / fichier vierge des fenêtres de création d'asset et de shot | `operators/asset_ops.py`, `shot_ops.py`, `browser_ops.py`, `lib/browser.py` |
-| 1.9 | Une seule version des petites fonctions : lecture d'une date ISO (17 `try/except` + 4 fonctions locales), affichage d'une durée (`_duration`, `format_duration`, `pace._clock`), lecture de la sortie de `ffmpeg -i` (`_video_info`, `_frame_size`) | `lib/core.py` ou `lib/` |
-| 1.10 | Un petit cache commun pour « relire un fichier seulement s'il a changé » (`history`, `preset_pace`, d'autres caches maison) | `farm/loop.py`, `lib/` |
-| 1.11 | Une fonction unique pour ajouter une étape à un job : remplace les 18 `stage_history.append(...)` écrits à la main, en plus de `mark_stage()` | `farm/*` |
-| 1.12 | Vérifier les 5 lancements d'un Blender en arrière-plan (setup, création par lot, vignettes, rendu worker) : une seule fonction si possible | `farm/setup.py`, `lib/batch.py`, `farm/post_render.py`, `farm/workers.py` |
+| 1A.1 | **Un seul circuit demande → processus → résultat entre l'hôte et un worker**, en deux variantes (rendu, preview). On garde les previews sur worker et on supprime la mécanique en double (~80-100 lignes) | `farm/workers.py`, `farm/post_render.py` |
+| 1A.2 | **Les écrans en boucles** : quand on sait à l'avance quelles lignes afficher, une liste de champs (libellé, icône, valeur) parcourue par une boucle, au lieu d'appels écrits un par un. À traiter dans cet ordre, du plus gros au plus petit : | |
+| | – `draw_farm_job_details` (276 lignes), `draw_farm_workers` (196), `draw_farm_jobs` (191), `draw_farm_worker_details` (175) | `panels/farm_panel.py` (1 111 lignes) |
+| | – `draw_file_details` (253), `_draw_entry` (118), `draw_entries` (112), `_draw_monitor_row` (109), `draw_monitor_table` (67) | `panels/tracking_panel.py` |
+| | – la fenêtre Edit project, `draw_settings` (133 lignes, 50 appels d'interface), avec ses réglages sur deux colonnes, facile à décrire en liste | `operators/project_ops.py` |
+| | – le menu du haut (151), le panneau Project (145), le panneau File (126), la fenêtre de rendu (99), l'accueil (91), le plan d'import d'une review (69), le navigateur (61) | `menus/top_bar.py`, `panels/project_panel.py`, `panels/file_panel.py`, `operators/farm_ops.py`, `lib/operators.py`, `operators/tracking_ops.py`, `operators/browser_ops.py` |
+| 1A.3 | **Des fonctions d'affichage partagées** : « libellé + champ » ; « boutons si peu de choix, sinon menu déroulant », écrit 4 fois ; le bloc description / départements / fichier vierge, identique dans la création d'asset et de shot ; les boutons ouvrir le dossier, lire la vidéo et infobulle, répétés dans plusieurs panneaux | `operators/asset_ops.py:82`, `shot_ops.py:345, 410, 592`, `browser_ops.py:88, 102, 139, 211`, `lib/browser.py:281-401`, panneaux |
+| 1A.4 | **Une seule version de chaque petite fonction**, dans `lib/` : | |
+| | – lecture d'une date ISO : remplace 17 `try/except` autour de `fromisoformat` et 4 fonctions locales (`_job_time`, `_timestamp`, `parse_review_date`, `_heartbeat_age`). C'est elle qui gérera le fuseau horaire (1C) | `lib/core.py` |
+| | – affichage d'une durée : `_duration` (farm_panel), `format_duration` (tracking), `pace._clock` | |
+| | – lecture de la sortie de `ffmpeg -i` : `_video_info` (preview), `_frame_size` (post_render) | |
+| 1A.5 | **Un petit cache commun** pour « relire un fichier seulement s'il a changé » (`history`, `preset_pace` dans `farm/loop.py`, et les autres caches maison qui s'y prêtent) | `farm/loop.py`, `lib/` |
+| 1A.6 | **Une fonction unique pour ajouter une étape à un job** : elle remplace les 18 `stage_history.append(...)` écrits à la main, à côté de `mark_stage()` | `farm/*` |
+| 1A.7 | **Les 5 lancements d'un Blender en arrière-plan** (setup, création par lot, vignettes, rendu worker) : une seule fonction si possible, `popen_logged()` en centralise déjà une partie | `farm/setup.py`, `lib/batch.py`, `farm/post_render.py`, `farm/workers.py` |
+| 1A.8 | **Relancer le détecteur de code dupliqué** après 1A.1 à 1A.7, pour vérifier qu'il ne reste rien de notable | — |
 
-Méthode : une nouvelle branche, un commit par tâche, un test après chaque factorisation (le comportement ne doit pas changer), et le poids du zip mesuré avant et après.
+#### 1B — Retraits
+
+| # | Tâche | Où |
+|---|---|---|
+| 1B.1 | Retirer `CHANGELOG.md` du zip (`paths_exclude_pattern`) | `blender_manifest.toml` |
+| 1B.2 | Retirer l'xlsx : générateur, import, lecture (~600 lignes) | `lib/review_sheet.py`, `lib/review_import.py`, opérateurs, docs |
+| 1B.3 | « Quelle machine a rendu quelle frame » dans un **bouton + popup** | `panels/farm_panel.py` |
+| 1B.4 | Retirer le code de compatibilité **entre versions de l'addon** : worker sur un ancien protocole, libellés « older addon », demandes sans chunks | `farm/*`, `panels/farm_panel.py`, ~43 endroits repérés |
+| 1B.5 | **[à confirmer]** Anciennes **données** de projet (validations d'avant la 1.1.9, historiques sans preset…) : soit une *migration unique* (un bouton dans Maintenance qui réécrit les vieux fichiers, puis on retire les lectures de compatibilité dans la version suivante), soit on garde ces lectures | `lib/tracking.py` (`_legacy_carried`…), `farm/loop.py` |
+
+#### 1C — Dates avec fuseau horaire (voir 2.4)
+
+| # | Tâche | Où |
+|---|---|---|
+| 1C.1 | `now()` écrit l'heure locale **avec son décalage** | `lib/core.py` |
+| 1C.2 | Toutes les lectures et comparaisons de dates passent par la fonction de 1A.4, qui accepte aussi les anciennes dates sans décalage. **À faire en une fois** : Python refuse de comparer une date avec fuseau et une date sans | partout où il y a `fromisoformat` |
+| 1C.3 | Plus aucune date triée comme du texte | `lib/tracking.py` (`last_saved_at`…), `farm/pace.py`, d'autres à repérer |
+| 1C.4 | Heartbeats et vie des machines en secondes epoch | `farm/workers.py`, `farm/monitor.py`, `farm/loop.py`, `panels/farm_panel.py` |
+| 1C.5 | Vérifier la lecture et l'affichage des dates avec décalage dans la page HTML | `templates/snapshot/page.js` |
 
 ### Phase 2 — Rangement des snapshots et des reviews
 
@@ -187,12 +248,12 @@ Méthode : une nouvelle branche, un commit par tâche, un test après chaque fac
 
 ## 4. Questions encore ouvertes
 
-1. **Phase 1.4** : migration unique des anciennes données de projet, ou on garde leur lecture ?
+1. **Phase 1B.5** : migration unique des anciennes données de projet, ou on garde leur lecture ?
 2. **2.2** : pour un département de rendu, la remise à jour automatique se fait-elle uniquement par un nouveau rendu tagué ?
 3. **2.2** : le « Toujours valide » est-il ouvert à tous, ou réservé à certains rôles ?
 4. **Phase 2** : les reviews rangées aussi par mois dans `snapshots/reviews/<rôle>/` ? Le nom du fichier commence déjà par la date.
 
 ## 5. Effet attendu sur le poids
 
-- **Phase 1** : −94 Ko (CHANGELOG), environ −600 lignes (xlsx), environ −80 à 100 lignes (previews), les retraits de compatibilité, et le panneau farm en boucles, qui devrait être le plus gros gain, de l'ordre de quelques centaines de lignes (estimation grossière). Le poids sera mesuré avant et après.
+- **Phase 1** : −94 Ko (CHANGELOG), environ −600 lignes (xlsx), environ −80 à 100 lignes (previews), les retraits de compatibilité, et les écrans en boucles, qui devraient être le plus gros gain : panneau farm, File details, Edit project, de l'ordre de quelques centaines de lignes (estimation grossière). Le poids sera mesuré avant et après chaque étape.
 - **Phases 3 à 5** : elles ajoutent du code, surtout le moteur d'états et son jumeau JS. Mais ce moteur *remplace* les calculs d'états répartis aujourd'hui, et le format en actions rend l'import plus simple que l'actuel.
