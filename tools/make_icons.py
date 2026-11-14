@@ -90,6 +90,8 @@ MARKS = {
     # The stages (lib/status.py stage_flags()).
     "waiting": [(BLUE, ring(R, 4)), (BLUE, segment(C, C, C, C - 14, 4)), (BLUE, segment(C, C, C + 10, C, 4))],
     "to_redo": [(ORANGE, arc(R, 5, 60, 360)), (ORANGE, _arrow_head())],
+    # A department not required for the file.
+    "none": [(GREY, segment(C - 9, C, C + 9, C, 4))],
     # Entries: a retake, under a validation role, by the team.
     "rtk": [(RED, disc(R - 4))],
     "role": [(VIOLET, disc(R - 4))],

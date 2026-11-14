@@ -4625,7 +4625,7 @@ started and Done reworked shared one icon.
 - `tools/make_icons.py` draws the add-on's marks into `icons/*.png` (pure
   Python: shapes supersampled, a PNG written by hand), the snapshot
   page's marks in its dark-theme colours: a state's (todo, wip, done,
-  rework, done_top), the stages' (waiting, to_redo), an entry's (rtk,
+  rework, done_top; none, a department not required), the stages' (waiting, to_redo), an entry's (rtk,
   role, team). Run it again after changing one; the PNGs are committed.
 - `lib/icons.py` loads them once in a preview collection (register /
   unregister); a mark is named `"mark:<name>"` wherever an icon name goes,

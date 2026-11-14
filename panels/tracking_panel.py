@@ -1039,7 +1039,7 @@ def draw_monitor_table(self, context, layout, columns, project_root):
     if FIRST_COLUMN < 1:
         cells = _cells(title_list.row(), shares)
         for c_layout, c in zip(cells, columns):
-            c_layout.label(text=c.capitalize(), icon="KEYFRAME_HLT")
+            c_layout.label(text=c.capitalize())
         if show_farm:
             cells[-1].label(text="Farm", icon="RENDER_ANIMATION")
 
@@ -1248,9 +1248,12 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, shares, jo
                 button.enabled = t == ""
                 icon_button(button, "m_pipeline.department_status_info", i, tooltip, text=t)
         else:
-            # Not required: "–", as the snapshot.
-            icon_row.active = False
-            icon_row.label(text="–", icon="BLANK1")
+            # Not required: a grey dash where the marks are (a label's
+            # "–" sat apart from them).
+            status = icon_row.row(align=True)
+            status.alignment = "LEFT"
+            status.enabled = False
+            icon_button(status, "m_pipeline.department_status_info", "mark:none", "Not required for this file")
     if show_farm:
         _draw_farm_cell(cells[-1], dir, file, jobs or [])
     f_list.separator(factor=0.5, type="LINE")
