@@ -1,40 +1,46 @@
 /* The production snapshot page (lib/snapshot_page.py): one file, rendered
-by page.js from the data the export embeds. Palette: every text pair at
-4.5:1 or more in both themes; done green, retake red (the team's own
-orange), validated violet, the rest neutral. */
+by page.js from the data the export embeds. Blender's mood, flat: one
+colour, one meaning -- done green, in progress / reworked orange,
+validated violet, retake red, play and frame ranges blue; your review and
+the main action neutral. See NOTES.md, "Snapshot page v3". */
 :root{
---bg:#f5f5f2;--surface:#fff;--sunk:#eeeeea;--line:#e4e3de;
---ink:#1b1b19;--ink-2:#55554f;--ink-3:#66655f;
---accent:#3249d4;--accent-bg:#e9ecfc;
---done:#2b7a34;--wip:#a87200;--wip-ink:#7a5200;--wip-bg:#fff3d6;
---rtk:#c4282d;--rtk-bg:#fdeaea;--team:#b4500f;--team-bg:#fdeee4;
---valid:#7a3ec2;--valid-bg:#f1e9fb;--on-fill:#fff;
---bar-bg:#1b1b19;--bar-ink:#f5f5f2;--bar-field:#33332f;
---r-sm:3px;--r-md:8px;--r-lg:12px;
---sh-pop:0 10px 40px rgba(0,0,0,.18);
+--bg:#F3F3F1;--surface:#FFFFFF;--sunk:#ECECEE;--head:#FFFFFF;--btn:#ECECEE;--line:#E3E3E0;--line2:#CFCFCB;
+--ink:#18181B;--ink-2:#61656D;--ink-3:#6E727A;--ring:#9A9DA4;--ph:#ECECE9;
+--accent:#18181B;--accent-bg:rgba(0,0,0,.04);
+--done:#00876A;--wip:#B55500;--wip-ink:#B55500;--wip-bg:rgba(181,85,0,.1);
+--rtk:#AB3C48;--rtk-f:#AB3C48;--rtk-t:#991616;--rtk-bg:rgba(171,60,72,.1);--team:#AB3C48;--team-bg:rgba(171,60,72,.1);
+--valid:#8000C0;--val-f:#9900E6;--sup:#E6C7FF;--valid-bg:rgba(153,0,230,.08);--on-fill:#FFFFFF;
+--play:#4772B3;--range:#4772B3;--mine:#18181B;--inv:#FFFFFF;--mine-tint:rgba(0,0,0,.05);--glow:#E2E7F0;
+--bar-bg:#FFFFFF;--bar-ink:#18181B;--bar-field:#ECECEE;
+--sh-card:0 1px 2px rgba(0,0,0,.08);--sh-pop:0 24px 70px rgba(0,0,0,.18);
+--r-sm:3px;--r-btn:7px;--r-md:8px;--r-lg:12px;
 --tap:32px;--bar-h:56px;--pw:540px;
 --display:"MP Display",system-ui,sans-serif;
---ui:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
---mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+--ui:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+--mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
 color-scheme:light dark}
 /* Dark: the system's, unless a theme was chosen in the ⋯ menu
-(html[data-theme], kept by this browser). */
+(html[data-theme], kept by this browser). Both from the same variables. */
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]){
---bg:#131312;--surface:#1c1c1a;--sunk:#262623;--line:#302f2c;
---ink:#edece7;--ink-2:#b5b4ad;--ink-3:#93928b;
---accent:#9fadff;--accent-bg:#232845;
---done:#7dc486;--wip:#e4ae4f;--wip-ink:#f1c67c;--wip-bg:#33280f;
---rtk:#f39494;--rtk-bg:#3b1b1c;--team:#ffab76;--team-bg:#3a2416;
---valid:#c7a4f4;--valid-bg:#2c2142;--on-fill:#1c1c1a;
---bar-bg:#2a2a27;--bar-ink:#edece7;--bar-field:#3a3a36;--sh-pop:0 10px 40px rgba(0,0,0,.6)}}
+--bg:#1B1B1D;--surface:#28282B;--sunk:#2C2C30;--head:#1F1F22;--btn:#3C3C41;--line:#36363B;--line2:#5B5B62;
+--ink:#E8E8EA;--ink-2:#A3A6AD;--ink-3:#8C8F96;--ring:#6E7178;--ph:#2E2E32;
+--accent:#E8E8EA;--accent-bg:rgba(255,255,255,.06);
+--done:#00D4A3;--wip:#E19658;--wip-ink:#E19658;--wip-bg:rgba(225,150,88,.16);
+--rtk:#F08A94;--rtk-f:#C94452;--rtk-t:#991616;--rtk-bg:rgba(201,68,82,.18);--team:#F08A94;--team-bg:rgba(201,68,82,.18);
+--valid:#C99BFA;--val-f:#A21FF0;--sup:#D7B4FB;--valid-bg:rgba(162,31,240,.16);--on-fill:#10201B;
+--play:#4772B3;--range:#74A2FF;--mine:#E8E8EA;--inv:#18181B;--mine-tint:rgba(255,255,255,.07);--glow:#252A35;
+--bar-bg:#1F1F22;--bar-ink:#E8E8EA;--bar-field:#3C3C41;
+--sh-card:0 1px 2px rgba(0,0,0,.3);--sh-pop:0 24px 70px rgba(0,0,0,.45)}}
 :root[data-theme=dark]{
---bg:#131312;--surface:#1c1c1a;--sunk:#262623;--line:#302f2c;
---ink:#edece7;--ink-2:#b5b4ad;--ink-3:#93928b;
---accent:#9fadff;--accent-bg:#232845;
---done:#7dc486;--wip:#e4ae4f;--wip-ink:#f1c67c;--wip-bg:#33280f;
---rtk:#f39494;--rtk-bg:#3b1b1c;--team:#ffab76;--team-bg:#3a2416;
---valid:#c7a4f4;--valid-bg:#2c2142;--on-fill:#1c1c1a;
---bar-bg:#2a2a27;--bar-ink:#edece7;--bar-field:#3a3a36;--sh-pop:0 10px 40px rgba(0,0,0,.6)}
+--bg:#1B1B1D;--surface:#28282B;--sunk:#2C2C30;--head:#1F1F22;--btn:#3C3C41;--line:#36363B;--line2:#5B5B62;
+--ink:#E8E8EA;--ink-2:#A3A6AD;--ink-3:#8C8F96;--ring:#6E7178;--ph:#2E2E32;
+--accent:#E8E8EA;--accent-bg:rgba(255,255,255,.06);
+--done:#00D4A3;--wip:#E19658;--wip-ink:#E19658;--wip-bg:rgba(225,150,88,.16);
+--rtk:#F08A94;--rtk-f:#C94452;--rtk-t:#991616;--rtk-bg:rgba(201,68,82,.18);--team:#F08A94;--team-bg:rgba(201,68,82,.18);
+--valid:#C99BFA;--val-f:#A21FF0;--sup:#D7B4FB;--valid-bg:rgba(162,31,240,.16);--on-fill:#10201B;
+--play:#4772B3;--range:#74A2FF;--mine:#E8E8EA;--inv:#18181B;--mine-tint:rgba(255,255,255,.07);--glow:#252A35;
+--bar-bg:#1F1F22;--bar-ink:#E8E8EA;--bar-field:#3C3C41;
+--sh-card:0 1px 2px rgba(0,0,0,.3);--sh-pop:0 24px 70px rgba(0,0,0,.45)}
 :root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
 /* A finger, not a mouse: every control 44 px. */
 @media (pointer:coarse){:root{--tap:44px}
@@ -58,7 +64,7 @@ html{-webkit-text-size-adjust:100%}
 page.js -- an app's viewer (Documents, on an iPad) shows and hides its
 status bar at each tap, and the page moved by 20 px each time. */
 :root{--sat:env(safe-area-inset-top,0px)}
-body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 var(--ui);font-variant-numeric:tabular-nums;padding-top:var(--sat)}
+body{margin:0;background:radial-gradient(1200px 500px at 15% -20%,var(--glow) 0%,transparent 70%) no-repeat,var(--bg);color:var(--ink);font:14px/1.45 var(--ui);font-variant-numeric:tabular-nums;padding-top:var(--sat)}
 /* Under an iPad's / a phone's status bar (the page runs under it,
 viewport-fit=cover): a band of the page's background, the page and the
 sticky bar starting below it. 0 wherever nothing covers the page. */
@@ -73,18 +79,40 @@ button:disabled{cursor:default;opacity:.4}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
 noscript p{margin:40px auto;max-width:520px;text-align:center}
 
-/* ---------- header ---------- */
-header{padding:22px 0 8px}
-.top{display:flex;align-items:flex-start;gap:14px}
-.title{min-width:0}
-h1{font:700 28px/1.15 var(--ui);margin:0;letter-spacing:-.01em;overflow-wrap:break-word}
-.stamp{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;margin-top:6px;font-size:13px;color:var(--ink-2)}
-.stamp b{color:var(--ink);font-weight:600}
+/* ---------- header: one line, at the top as the page scrolls ---------- */
+.hdr{position:sticky;top:var(--sat);z-index:22;margin:0 -20px;padding:10px 20px;background:color-mix(in srgb,var(--bg) 94%,transparent);
+backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.top{display:flex;align-items:center;gap:10px 16px;flex-wrap:wrap}
+.title{display:flex;align-items:baseline;gap:8px;min-width:0}
+h1{font:700 18px/1.2 var(--ui);margin:0;letter-spacing:-.01em;overflow-wrap:break-word}
+.stamp{font-size:12px;color:var(--ink-3);white-space:nowrap}
+.kpis{display:flex;gap:6px 18px;flex-wrap:wrap}
+.kpi{display:inline-flex;align-items:center;gap:8px;font-size:13px;white-space:nowrap}
+.kl{color:var(--ink-2)}
+.hdr .find{flex:1 1 150px;max-width:280px}
+/* Less room: the date, then the bars give way -- one line still. */
+@media (max-width:1180px){.stamp{display:none}}
+@media (max-width:1020px){.kpi .bar2{display:none}}
+.find .slash{position:absolute;right:8px;top:50%;transform:translateY(-50%);pointer-events:none;opacity:.7}
+.find:focus-within .slash{display:none}
 .age{padding:1px 8px;border-radius:99px;background:var(--wip-bg);color:var(--wip-ink);font-size:12px;font-weight:600}
 .actions{margin-left:auto;display:flex;gap:8px;flex:none}
+/* Done and validated, always both: a double bar, "84 % · 0 %". */
+.dv{display:inline-flex;flex-direction:column;align-items:flex-end;gap:3px}
+.kpi .dv,.g-pct .dv{flex-direction:row-reverse;align-items:center;gap:8px}
+.bar2{position:relative;width:64px;height:4px;border-radius:2px;background:var(--line);overflow:hidden}
+.bar2 i{position:absolute;left:0;top:0;bottom:0;border-radius:2px;background:var(--done)}
+.bar2 i.v{background:var(--val-f)}
+.dvt{font-size:12px;white-space:nowrap;color:var(--ink-2)}.dvt b{color:var(--ink);font-weight:700}
+.vt{color:var(--valid)}
+.dv.big .dvt{font-size:13px}
+@media (prefers-reduced-motion:no-preference){.bar2 i{transform-origin:left;animation:fill .9s cubic-bezier(.2,.8,.2,1) both}}
+@keyframes fill{from{transform:scaleX(0)}}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:var(--tap);
-padding:0 14px;border-radius:99px;border:1px solid var(--line);background:var(--surface);font-weight:600;font-size:13px;white-space:nowrap;text-decoration:none;color:var(--ink)}
-.btn.primary{background:var(--valid);border-color:var(--valid);color:var(--on-fill)}
+padding:0 14px;border-radius:var(--r-btn);border:1px solid var(--line);background:var(--btn);font-weight:600;font-size:13px;white-space:nowrap;text-decoration:none;color:var(--ink);transition:filter .15s,transform .1s}
+.btn:hover{filter:brightness(1.12)}.btn:active{transform:scale(.97)}
+/* The main action: neutral, the page's ink -- violet is a validation. */
+.btn.primary{background:var(--ink);border-color:var(--ink);color:var(--inv)}
 .btn.icon{width:var(--tap);padding:0}
 #vidb{cursor:pointer;color:var(--accent)}#vidb input{display:none}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
@@ -140,11 +168,12 @@ border:1px solid var(--line);border-radius:var(--r-md);box-shadow:var(--sh-pop)}
 /* ---------- sections ---------- */
 h2{font:700 19px/1.25 var(--ui);margin:0}
 .sec{margin-top:36px}
+#browse{margin-top:0}
 
 /* ---------- toolbar ---------- */
-.bar{position:sticky;top:var(--sat);z-index:20;background:color-mix(in srgb,var(--bg) 92%,transparent);
+.bar{position:sticky;top:calc(var(--sat) + var(--hdr-h,56px));z-index:20;background:color-mix(in srgb,var(--bg) 92%,transparent);
 backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);margin:0 -20px;padding:10px 20px;border-bottom:1px solid transparent;transition:border-color .2s}
-.bar.stuck{border-bottom-color:var(--line)}
+.hdr.stuck~.sec .bar{border-bottom-color:var(--line)}
 .bar-in{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .bscroll{display:contents}
 .seg{display:inline-flex;padding:3px;border-radius:99px;background:var(--sunk);flex:none}
@@ -157,8 +186,7 @@ backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);margin:0 -20px;paddi
 tooltip, and the legend): six of them hold on one line. */
 .chipf{display:inline-flex;align-items:center;gap:0;padding:0 10px}
 .chipf .ic{width:15px;height:15px;flex:none}
-.chipf .cl{display:none;margin-left:6px}
-.chipf[aria-pressed="true"] .cl{display:inline}
+.chipf .cl{margin-left:6px}
 .chipf.c-mine .ic,.chipf.c-valid .ic{color:var(--valid)}
 .chipf.c-rtk .ic{color:var(--rtk)}
 .chipf.c-out .ic{color:var(--wip-ink)}
@@ -212,34 +240,58 @@ the next -- all in sight, nothing to scroll sideways. */
 }
 
 /* ---------- state marks ---------- */
-.m{display:inline-block;width:12px;height:12px;border-radius:50%;vertical-align:-1px;flex:none}
-.m.done{background:var(--done)}
-/* done at the last stable, worked on again since: the done ring, an amber heart */
-.m.rework{background:radial-gradient(circle,var(--wip) 0 2.5px,transparent 3px);box-shadow:inset 0 0 0 2.5px var(--done)}
-.m.wip{background:linear-gradient(90deg,var(--wip) 50%,transparent 50%);box-shadow:inset 0 0 0 2px var(--wip)}
-.m.todo{box-shadow:inset 0 0 0 1.5px var(--ink-3)}
-.m.na{width:10px;height:2px;border-radius:1px;background:var(--line);vertical-align:3px}
-/* Under a state, in one slot: an open RTK, who validated, this review. */
-.rk{font-size:11px;font-weight:700;color:var(--rtk);white-space:nowrap;line-height:14px}
-.rk.team{color:var(--team)}
-.rk.todo{color:var(--ink-3)}
-.dias{display:inline-flex;gap:3px}
+/* A department's state: a keyframe diamond (a 14 px square, 3 px corners,
+turned 45 degrees); on hover or focus, a capsule with its words, over its
+neighbours. The legend's and the panel's .m, the same diamond, smaller. */
+.cell{position:relative;display:block;width:24px;height:24px;margin:0 auto}
+.cap{position:absolute;left:0;top:0;z-index:2;display:inline-flex;align-items:center;height:24px;max-width:24px;border-radius:12px;
+border:1px solid transparent;overflow:hidden;white-space:nowrap;transition:max-width .28s cubic-bezier(.2,.8,.2,1),padding .28s,box-shadow .2s,background .2s}
+.cap .g,.m{position:relative;z-index:1;flex:none;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;line-height:1}
+.cap .g::before,.m::before{content:"";position:absolute;left:4px;top:4px;width:14px;height:14px;border-radius:3px;transform:rotate(45deg);z-index:-1}
+.cap .lab{opacity:0;margin-left:2px;color:var(--ink);font:700 10px/1 var(--mono);letter-spacing:.03em;transition:opacity .18s .06s}
+.cell:hover .cap,.cell:focus-within .cap,.cell.peek .cap{max-width:260px;padding-right:10px;background:var(--sunk);border-color:var(--line);box-shadow:0 6px 16px rgba(0,0,0,.35);z-index:5}
+.cell:hover .lab,.cell:focus-within .lab,.cell.peek .lab{opacity:1}
+.cell:focus{outline:none}.cell:focus-visible .cap{outline:2px solid var(--accent);outline-offset:1px}
+.s-todo::before{border:1.5px solid var(--ring)}
+.s-wip::before{border:1.5px solid var(--wip);background:linear-gradient(135deg,transparent 50%,var(--wip) 50%)}
+/* Reworked: the same diamond, opened on its top-left edge, an arrow at the
+stroke's end -- a mask, so its colour follows the theme. */
+.s-rework{font-size:0}
+.s-rework::before{left:0;top:0;width:22px;height:22px;border-radius:0;transform:none;background:var(--wip);
+-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-11 -11 22 22'%3E%3Cg transform='rotate(45)'%3E%3Crect x='-6.25' y='-6.25' width='12.5' height='12.5' rx='2.25' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-dasharray='35.9 5.4 4.84'/%3E%3Cpath d='M-6.25 0.3L-8.55 3L-3.95 3Z' fill='black' stroke='black' stroke-width='.5' stroke-linejoin='round'/%3E%3C/g%3E%3C/svg%3E") center/22px 22px no-repeat;
+mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-11 -11 22 22'%3E%3Cg transform='rotate(45)'%3E%3Crect x='-6.25' y='-6.25' width='12.5' height='12.5' rx='2.25' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-dasharray='35.9 5.4 4.84'/%3E%3Cpath d='M-6.25 0.3L-8.55 3L-3.95 3Z' fill='black' stroke='black' stroke-width='.5' stroke-linejoin='round'/%3E%3C/g%3E%3C/svg%3E") center/22px 22px no-repeat}
+.s-done::before{background:var(--done)}
+.s-sup{color:#3B1680}.s-sup::before{background:var(--sup)}
+.s-prod{color:#fff}.s-prod::before{background:var(--val-f)}
+/* Waiting on an earlier stage: the diamond faded, its reason in the capsule. */
+.cap.wait .g{opacity:.45}
+.m.na::before{display:none}
+/* An open retake: a post-it under the diamond's left, straight, on one
+line -- red from a validation role, outlined from the team; their number
+in it. Your review's say: the same shape, neutral, on the right. */
+.pi,.you{position:absolute;bottom:-11px;z-index:4;padding:2px 4px 1px;border-radius:3px;font:800 8px/1 var(--mono);letter-spacing:.04em;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.35);pointer-events:none}
+.pi{left:-10px}
+.pi-role{background:var(--rtk-f);color:#fff}
+.pi-team{background:#FFF2F2;color:var(--rtk-t);box-shadow:0 0 0 1px var(--rtk-f),0 1px 3px rgba(0,0,0,.35)}
+.you{right:-12px;background:var(--mine);color:var(--inv)}
+.you.n{background:var(--rtk-f);color:#fff}
+/* Only a remark: outlined, nothing sent back. */
+.you.nt{background:var(--surface);color:var(--ink);box-shadow:0 0 0 1px var(--line2)}
+/* In a line of text (legend, panel, export): in place, not pinned. */
+.inl .pi,.inl .you,.help .pi,.help .you{position:static;display:inline-block;vertical-align:1px}
 .ok{font-size:11px;font-weight:600;color:var(--valid);line-height:14px;white-space:nowrap}
 .ok.old{color:var(--ink-3);font-weight:400;text-decoration:line-through}
-.you{display:inline-block;padding:0 5px;border-radius:4px;font-size:11px;font-weight:700;line-height:15px;white-space:nowrap}
-.you.y{background:var(--valid);color:var(--on-fill)}
-.you.n{background:var(--rtk);color:var(--on-fill)}
-/* Only a remark: grey, nothing sent back. */
-.you.nt{background:var(--ink-3);color:var(--surface)}
 
 /* ---------- list ---------- */
-.group{margin-top:10px;background:var(--surface);border-radius:var(--r-lg)}
+.group{margin-top:10px;background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--sh-card)}
 /* A sequence's playlist, between its name and its count. */
 .g-h{cursor:pointer}
-.g-play{display:inline-flex;align-items:center;justify-content:center;vertical-align:2px;width:22px;height:22px;margin-left:8px;padding:0 0 0 1px;border:1px solid var(--line);border-radius:99px;background:var(--surface);color:var(--accent);font-size:8px;line-height:1;position:relative}
+/* Play: the only blue buttons. */
+.play{background:var(--play)!important;border-color:var(--play)!important;color:#fff!important}
+.g-play{display:inline-flex;align-items:center;justify-content:center;vertical-align:2px;width:22px;height:22px;margin-left:8px;padding:0 0 0 1px;border:1px solid var(--line);border-radius:99px;font-size:8px;line-height:1;position:relative}
 .g-play::after{content:"";position:absolute;inset:-11px}
-.g-play:hover{border-color:var(--accent);background:var(--accent-bg)}
-.g-h{display:grid;grid-template-columns:minmax(0,1fr) 160px auto;gap:14px;align-items:center;width:100%;padding:12px 16px;border:0;background:none;text-align:left;min-height:var(--tap)}
+.g-play:hover{filter:brightness(1.15)}
+.g-h{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center;width:100%;padding:12px 16px;border:0;background:none;text-align:left;min-height:var(--tap)}
 .g-name{font-weight:700;font-size:15px}
 .g-name small{font-weight:400;color:var(--ink-3);margin-left:8px;font-size:12px}
 .g-pct{font-size:12px;color:var(--ink-2);white-space:nowrap;text-align:right}
@@ -251,30 +303,33 @@ the next -- all in sight, nothing to scroll sideways. */
 .group.closed .rows{display:none}
 .thead,.row{display:grid;grid-template-columns:var(--cols);gap:12px;align-items:center;padding:8px 16px}
 /* The column names stay under the bar while their group scrolls by. */
-.thead{position:sticky;top:var(--bar-h);z-index:5;background:var(--surface);font-size:11px;color:var(--ink-3);padding-top:6px;padding-bottom:6px;border-bottom:1px solid var(--sunk)}
+.thead{position:sticky;top:calc(var(--sat) + var(--hdr-h,56px) + var(--bar-h));z-index:5;background:var(--surface);font-size:11px;color:var(--ink-3);padding-top:6px;padding-bottom:6px;border-bottom:1px solid var(--sunk)}
 .thead .d{display:block}
-.row{border-top:1px solid var(--sunk);min-height:var(--tap);cursor:pointer}
+.row{border-top:1px solid var(--line);min-height:74px;cursor:pointer;transition:background .15s}
 .thead+.row{border-top:0}
-.row:hover{background:color-mix(in srgb,var(--sunk) 60%,transparent)}
-.row.sel{background:var(--accent-bg)}
+.row:hover{background:var(--accent-bg)}
+.row.sel{background:var(--accent-bg);box-shadow:inset 3px 0 0 var(--ink)}
 /* Touched by this review (validated, withdrawn, a retake, a description):
 the review's violet, its edge kept when selected too. */
-.row.rv-mine{background:color-mix(in srgb,var(--valid-bg) 70%,var(--surface));box-shadow:inset 3px 0 0 var(--valid)}
-.row.rv-mine:hover{background:var(--valid-bg)}
+.row.rv-mine{background:var(--mine-tint)}
+/* Set aside (On hold, Cancelled): listed, faded, out of the figures. */
+.row.omit>*{opacity:.5}
+.row.rv-mine:hover{background:var(--accent-bg)}
 /* Every file of the group reviewed: its header too. */
-.group.rv-all>.g-h{background:color-mix(in srgb,var(--valid-bg) 70%,var(--surface));box-shadow:inset 3px 0 0 var(--valid);border-radius:var(--r-lg) var(--r-lg) 0 0}
+.group.rv-all>.g-h{background:var(--mine-tint);border-radius:var(--r-lg) var(--r-lg) 0 0}
 .group.rv-all.closed>.g-h{border-radius:var(--r-lg)}
-.group.rv-all .thead{background:color-mix(in srgb,var(--valid-bg) 70%,var(--surface));box-shadow:inset 3px 0 0 var(--valid)}
-.rv-mine-k{display:inline-block;width:22px;height:14px;margin-right:8px;vertical-align:-2px;border-radius:3px;background:color-mix(in srgb,var(--valid-bg) 70%,var(--surface));box-shadow:inset 3px 0 0 var(--valid)}
+.rv-mine-k{display:inline-block;width:22px;height:14px;margin-right:8px;vertical-align:-2px;border-radius:3px;background:var(--mine-tint);box-shadow:0 0 0 1px var(--line)}
 .row.rv-mine.sel{background:var(--accent-bg)}
 .group>.rows>.row:last-child,.group>.rows>.untracked:last-child{border-radius:0 0 var(--r-lg) var(--r-lg)}
 .r-name{min-width:0}
 /* A name: its group's prefix quiet, the rest bold, breaking at _ and - */
 .nm-pre{color:var(--ink-3);font-weight:400}
 .nm-main{font-weight:600}
+.r-name{font-family:var(--mono);font-size:13px}
+.r-name small{font-family:var(--ui)}
 .r-name small{display:block;font-size:12px;color:var(--ink-3)}
 .r-name small .nn{color:var(--ink);font-weight:600}
-.r-name small .nn.todo{color:var(--wip-ink)}
+.r-name small .nn.todo{color:var(--ink)}
 .r-name small .sep{font-style:normal}
 .r-name small .farm,.fl-help .farm{display:inline-flex;align-items:center;gap:3px;font-weight:600;white-space:nowrap}
 .farm .ic{width:12px;height:12px;flex:none}
@@ -284,12 +339,18 @@ the review's violet, its edge kept when selected too. */
 .farm.run .ic{animation:farm-pulse 1.6s ease-in-out infinite}
 @keyframes farm-pulse{50%{opacity:.35}}
 @media (prefers-reduced-motion:reduce){.farm.run .ic{animation:none}}
-.flags{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-top:4px}
+.flags{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-top:4px;font-family:var(--ui)}
+/* A render's tag: its icon, a few words; its border says its state. */
+.ico{display:inline-block;width:16px;height:16px;vertical-align:-3px;flex:none}
+.tg{display:inline-flex;align-items:center;gap:4px;padding:0 7px;border-radius:5px;border:1px solid var(--line2);font:600 11px/18px var(--ui);color:var(--ink-2);white-space:nowrap}
+.tg .ico{width:12px;height:12px}
+.tg-wait{border-style:dashed}
+.tg-run{border-color:transparent;background:var(--accent-bg);color:var(--ink)}
+.tg-fail{border-color:transparent;background:var(--rtk-bg);color:var(--rtk)}
+.tg-old{border-color:transparent;background:var(--wip-bg);color:var(--wip-ink)}
 .flags:empty{display:none}
-.d{display:flex;flex-direction:column;align-items:center;gap:5px;text-align:center;min-width:0}
+.d{display:flex;justify-content:center;min-width:0}
 .r-pct{text-align:right;font-size:13px;white-space:nowrap}
-.r-pct .vv{display:block;font-size:12px;color:var(--valid)}
-.r-pct .vv.z{color:var(--ink-3)}
 .dl{display:none}
 .untracked{display:block;width:100%;padding:10px 16px;border:0;border-top:1px solid var(--sunk);background:none;text-align:left;font-size:13px;color:var(--ink-3);min-height:var(--tap)}
 .untracked:hover{color:var(--ink)}
@@ -307,10 +368,10 @@ the review's violet, its edge kept when selected too. */
 weight too (done bold, not started light) -- no mark; rows apart by a
 band of the page's background; the versions left to the panel. */
 .dn{font-weight:400}
-.dn.s-done{color:var(--done);font-weight:700}
-.dn.s-rework{color:var(--done);font-weight:700;text-decoration:underline dotted var(--wip);text-underline-offset:3px}
-.dn.s-wip{color:var(--wip-ink);font-weight:600}
-.dn.s-todo{color:var(--ink-3)}
+.dn.n-done{color:var(--done);font-weight:700}
+.dn.n-rework{color:var(--done);font-weight:700;text-decoration:underline dotted var(--wip);text-underline-offset:3px}
+.dn.n-wip{color:var(--wip-ink);font-weight:600}
+.dn.n-todo{color:var(--ink-3)}
 .row{border-top:6px solid var(--bg)}
 .thead+.row,.rows>.row:first-child{border-top:0}
 .r-name small .vers,.r-name small .vers+.sep{display:none}}
@@ -625,6 +686,10 @@ body.reviewing.rb-auto.rb-peek .rbar{left:16px;right:16px;width:auto;max-width:n
 .dlg .btn.link{margin-right:auto;border-color:transparent;background:none;color:var(--accent);padding:0 8px}
 .dlg .why{margin:0 0 10px;font-size:12px;color:var(--rtk)}
 .dlg .ask{margin:0 0 16px;font-size:14px;line-height:1.5}
+/* A window over the page (Breakdown): wide, scrolled in itself. */
+.win-in{width:min(1100px,100%);max-height:calc(100dvh - 32px - var(--sat));overflow:auto;overscroll-behavior:contain;padding:18px 22px 22px}
+.win-h{position:sticky;top:-18px;z-index:2;display:flex;align-items:center;justify-content:space-between;margin:-18px -22px 12px;padding:14px 22px;background:var(--surface);border-bottom:1px solid var(--line)}
+.win .card{background:var(--sunk)}
 .toast{visibility:hidden;position:fixed;left:50%;top:calc(16px + var(--sat));z-index:70;transform:translate(-50%,-150%);transition:transform .25s;padding:10px 16px;border-radius:12px;
 background:var(--bar-bg);color:var(--bar-ink);font-size:13px;box-shadow:var(--sh-pop);max-width:calc(100% - 24px)}
 .toast.on{visibility:visible;transform:translate(-50%,0)}

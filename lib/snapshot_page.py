@@ -149,6 +149,10 @@ def _item(item: dict, threads: list, roles: list, image) -> dict:
         "render_ref": _render_ref(item.get("renders") or []),
         "versions": _versions(item),
         "stable_v": _short_version(item["name"], item["stable_version"] or ""),
+        # The wip's, when newer than the stable: a state's capsule (page.js).
+        "wip_v": _short_version(item["name"], item["wip_version"])
+        if item.get("wip_version") and item.get("wip_after_stable", True)
+        else "",
         "states": dict(item["departments"]),
         # Waiting / To redo with their reasons (lib/status.py stage_flags()).
         "flags": item.get("flags") or {},
@@ -236,7 +240,8 @@ def _approval(item: dict, department: str, roles: list) -> dict | None:
                 lines.append(f"{role['name']}: covered by {cover}")
             else:
                 lines.append(f"{role['name']}: not validated")
-        return {"role": known[-1][1], "tip": "\n".join(lines), "old": False, "seen": ""}
+        top = known[-1][1]
+        return {"role": top, "by": (approvals.get(top) or {}).get("by", ""), "tip": "\n".join(lines), "old": False, "seen": ""}
     previous = item["approvals_previous"].get(department) or {}
     old = sorted((levels[r], r) for r in previous if r in levels)
     if old:
@@ -244,6 +249,7 @@ def _approval(item: dict, department: str, roles: list) -> dict | None:
         seen = _short_version(item["name"], Path(previous[role].get("file") or "").name)
         return {
             "role": role,
+            "by": previous[role].get("by", ""),
             "tip": f"Validated by {role} on {seen}: a newer stable since, to review again",
             "old": True,
             "seen": seen,

@@ -4654,3 +4654,32 @@ the new window's context, a timer later (`_full_screen()`) -- Alt+F11
 makes it a window again; on Windows, ShowWindow(SW_MAXIMIZE) instead, its
 title bar kept. A window brought to the front by a copy
 (`_duplicate_window()`) keeps the old one's size.
+
+## Snapshot page v3
+
+A redesign made outside (Claude Design, from the brief), applied in
+steps: the base and the list first, then the panel and its player, the
+review, the phone and the iPad. What holds across them:
+
+- **One colour, one meaning**: green done, orange in progress / reworked,
+  violet validation, red retake, blue play and frame ranges only; your
+  review and the main action neutral (the page's ink). The old variable
+  names carry the new values (`--ink` is the text, `--valid` the
+  validation's text, `--val-f` its fill, `--rtk-f` a retake's fill) --
+  the 600 lines of rules followed without being rewritten. Dark and light
+  from the same variables; the system's unless chosen in the ⋯ menu.
+- **A state is a keyframe diamond** (`cell()`): a 14 px square turned 45
+  degrees, drawn in CSS; reworked, a mask (its colour follows the
+  theme). Its words in a capsule stretching over its neighbours on hover
+  or focus (`capWords()`: the state with its version, the validation
+  with who, Waiting / To redo with their reason) -- no room in a cell
+  for words. `wip_v` and an approval's `by` come from snapshot_page.py.
+- **A retake is a post-it** under the diamond (`rtkTag()`), its number
+  in its text: a red ◆, an orange ◆ and a grey ◆ told apart by colour
+  alone. Open todos and notes left the cells: their count is on the
+  file's line.
+- **The header is one line**, sticky (`--hdr-h`, the filters' bar under
+  it, the columns' names under both): the summary cards made the list
+  start half a screen down. The figures moved to *Breakdown*, a window.
+- Fonts: Inter, else the system's (not embedded: 350 KB a page). Icons:
+  stand-ins drawn here until Blender's own (to come) replace them.

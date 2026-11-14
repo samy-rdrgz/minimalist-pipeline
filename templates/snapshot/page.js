@@ -18,9 +18,11 @@ var cap=function(s){return s.charAt(0).toUpperCase()+s.slice(1);};
 var pct=function(v){return v==null?'–':Math.round(v*100)+' %';};
 function isDone(s){return s==='done'||s==='rework';}
 function plural(n,w){return n+' '+w+(n===1?'':'s');}
+// A note's author, nothing when not known (no "unknown").
+function author(n){var a=(n.author||'').trim();return a&&a.toLowerCase()!=='unknown'?esc(a):'';}
 
 /* ---------- images: each stored once (#data images), turned into blob URLs
-once -- short src strings, however often the list is redrawn ---------- */
+once — short src strings, however often the list is redrawn ---------- */
 var urls={};
 function img(id){if(!id)return '';if(urls[id])return urls[id];
 try{var b=atob(DATA.images[id]),a=new Uint8Array(b.length);for(var i=0;i<b.length;i++)a[i]=b.charCodeAt(i);
@@ -54,21 +56,40 @@ var br=function(s){return esc(s).replace(/([_-])/g,'$1<wbr>');};
 return (p?'<span class="nm-pre">'+br(p)+'</span>':'')+'<span class="nm-main">'+br(rest)+'</span>';}
 function thumb(it){return it.thumb?'<button type="button" class="thumb" data-zoom="'+it.i+'" aria-label="'+esc(it.name)+', full size">'+
 '<span class="frame"><img alt="" loading="lazy" src="'+img(it.thumb)+'"></span></button>':'<span class="thumb none"><span class="frame"></span></span>';}
-function mark(s){return s?'<i class="m '+s+'" title="'+LABEL[s]+'"></i>':'<i class="m na" title="Not required"></i>';}
-// Under a department, one ◆ per kind of open entry, its colour saying
-// whose: red a validation role's retake, orange the team's, grey a todo.
-// The details are in its tip and in the file's panel.
-function dia(cls,tip){return '<span class="rk'+cls+'" title="'+tip+'">◆</span>';}
-function rkTag(it,d){var h='',r=it.rtk[d];
-if(r)h+=dia(r==='team'?' team':'','An open retake on '+cap(d)+(r==='team'?', from the team':', from a validation role'));
-else if(it.genRtks.length&&isDone(it.states[d])){var t=it.genRtks.every(function(n){return n.team;});
-h+=dia(t?' team':'','A retake on no department'+(t?', from the team':', from a validation role')+': it counts in Done as one department in RTK');}
-var td=it.todos[d]||0,nt=it.dnotes[d]||0;
-if(td||nt)h+=dia(' todo',[td?plural(td,'open todo'):'',nt?plural(nt,'open note'):''].filter(Boolean).join(', ')+' on '+cap(d));
-return h;}
+function mark(s){return s?'<i class="m s-'+s+'" title="'+LABEL[s]+'"></i>':'<i class="m na" title="Not required"></i>';}
+// A department's symbol: validated (a ✓ in it) by the top role or another,
+// else its state.
+function validAt(it,d){var o=it.ok[d];return it.states[d]==='done'&&o&&!o.old?o:null;}
+function symCls(it,d){var o=validAt(it,d);return o?(o.role===META.role?'s-prod':'s-sup'):'s-'+it.states[d];}
+// Its capsule's words: the state with its version, the validation, a
+// stage's flag (lib/status.py stage_flags()) with its reason.
+function capWords(it,d){var s=it.states[d],o=it.ok[d],v=validAt(it,d),f=(it.flags||{})[d]||{},w;
+w=v?'✓ '+v.role.toUpperCase()+(v.by?' · '+v.by:'')+(it.stable_v?' · on '+it.stable_v:''):
+s==='done'?'DONE'+(it.stable_v?' · stable '+it.stable_v:''):s==='rework'?'REWORKED SINCE '+(it.stable_v||'the stable'):
+s==='wip'?'WIP'+(it.wip_v?' · '+it.wip_v:''):'NOT STARTED';
+if(o&&o.old)w+=' · ✓ '+o.role.toUpperCase()+' on '+o.seen+', to review again';
+if(f.waiting)w+=' · WAITING: '+f.waiting;if(f.to_redo)w+=' · TO REDO: '+f.to_redo;
+return w;}
+// An open retake on a department: its post-it -- red from a validation
+// role, outlined from the team, their number in it. [html, words].
+function rtkTag(it,d){var r=it.rtk[d];if(!r)return null;var n=(it.rtkNotes[d]||[]).length||1;
+return ['<span class="pi pi-'+(r==='team'?'team':'role')+'">RTK'+(n>1?' '+n:'')+'</span>',
+(n>1?n+' open retakes':'an open retake')+(r==='team'?' from the team':' from a validation role')];}
+// A department's cell: its symbol, its capsule on hover or focus, its
+// retake's post-it, your review's say. Not required: empty.
+function cell(it,d){if(!it.states[d])return '<span class="cell na" aria-label="'+esc(cap(d))+': not required"></span>';
+var w=capWords(it,d),r=rtkTag(it,d),f=(it.flags||{})[d]||{};
+return '<span class="cell" tabindex="0" aria-label="'+esc(cap(d)+': '+w.toLowerCase()+(r?', '+r[1]:''))+'"><span class="cap'+(f.waiting?' wait':'')+'"><span class="g '+symCls(it,d)+'">'+
+(validAt(it,d)?'✓':'')+'</span><span class="lab">'+esc(w)+'</span></span>'+(r?r[0]:'')+you(it,d)+'</span>';}
 function okTag(it,d){var o=it.ok[d];if(!o)return '';
 return '<span class="ok'+(o.old?' old':'')+'" title="'+esc(o.tip)+'">✓ '+esc(o.role)+'</span>';}
-function under(it,d){var k=rkTag(it,d);return (k?'<span class="dias">'+k+'</span>':'')+okTag(it,d)+you(it,d);}
+function rkTag(it,d){var r=rtkTag(it,d);return r?r[0]:'';}
+// The same, in a line of text (the compact list, the panel).
+function under(it,d){return '<span class="inl">'+rkTag(it,d)+okTag(it,d)+you(it,d)+'</span>';}
+// Done and validated, always both: a double bar, then "84 % · 0 %".
+function dv(done,val,big){if(done==null)return '<span class="faint">–</span>';var v=META.role&&val!=null;
+return '<span class="dv'+(big?' big':'')+'"><span class="bar2"><i style="width:'+done*100+'%"></i>'+(v?'<i class="v" style="width:'+Math.min(val,done)*100+'%"></i>':'')+'</span>'+
+'<span class="dvt"><b>'+pct(done)+'</b>'+(v?' <span class="vt" title="Validated by '+esc(META.role)+'">· '+pct(val)+'</span>':'')+'</span></span>';}
 
 /* ---------- review state: as the page before (same key, same shape) ---------- */
 var rv={author:'',role:'',date:'',files:{}};
@@ -97,9 +118,9 @@ function verdict(it,d){var e=peek(it),v=e.deps[d];if(v&&sent(v))return v.ok?'ok'
 if(answered(it).deps[d])return 'no';
 return e.all&&!asTeam()&&isDone(it.states[d])?'ok':'';}
 function you(it,d){var v=verdict(it,d);if(!v)return '';
-return v==='ok'?'<span class="you y" title="Validated in your review">✓ you</span>':v==='note'?youNote():
-'<span class="you n" title="Sent back in your review">✕ you</span>';}
-function youNote(){return '<span class="you nt" title="A note in your review: a remark, nothing withdrawn">✎ you</span>';}
+return v==='ok'?'<span class="you y" title="Validated in your review">✓ YOU</span>':v==='note'?youNote():
+'<span class="you n" title="Sent back in your review">✕ YOU</span>';}
+function youNote(){return '<span class="you nt" title="A note in your review: a remark, nothing withdrawn">✎ YOU</span>';}
 // Written, and nothing but "note:" lines.
 function noteOnly(t){return !!(t&&t.trim())&&retakes(t)===0;}
 function notesIn(t){return (t||'').split(NL).filter(function(l){return NOTE_RE.test(l);}).length;}
@@ -116,27 +137,33 @@ c.rt+=retakes(e.text);c.notes+=notesIn(e.text);if(e.desc!==null&&e.desc.trim()&&
 function save(){try{localStorage.setItem(KEY,JSON.stringify(rv));}catch(e){}}
 
 /* ---------- badges: only what the row shows nowhere else ---------- */
+// The small icons of the tags (stand-ins for Blender's, see NOTES.md).
+var IC={eye:'<path d="M1.5 8s2.4-4.5 6.5-4.5S14.5 8 14.5 8 12.1 12.5 8 12.5 1.5 8 1.5 8z" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="8" cy="8" r="2" fill="currentColor"/>',
+time:'<circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M8 4.6V8l2.4 1.6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>',
+render:'<rect x="1.5" y="3" width="13" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M6.5 5.8v4.4L10.2 8z" fill="currentColor"/>',
+cancel:'<path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
+warn:'<path d="M8 2l6.5 11.5h-13z" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M8 6.5v3.2M8 11.6v.1" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/>'};
+function ico(n){return '<svg class="ico" viewBox="0 0 16 16" aria-hidden="true">'+IC[n]+'</svg>';}
+function tag(cls,icon,text,tip){return '<span class="tg tg-'+cls+'"'+(tip?' title="'+esc(tip)+'"':'')+'>'+(icon?ico(icon):'')+esc(text)+'</span>';}
+// Under a file's name: a retake on no department, then its renders' tags
+// -- to check, outdated, in the farm (queued, rendering, failed).
 function flags(it){var h='',e=peek(it);
 if(it.genRtks.length){var tm=it.genRtks.every(function(n){return n.team;});
-h+='<span class="badge '+(tm?'b-team':'b-rtk')+'" title="An open retake on no department: it holds back every department">◆ General RTK'+(it.genRtks.length>1?' ×'+it.genRtks.length:'')+'</span>';}
+h+='<span class="inl" title="An open retake on no department: it holds back every department"><span class="pi pi-'+(tm?'team':'role')+'">RTK'+(it.genRtks.length>1?' '+it.genRtks.length:'')+' · WHOLE FILE</span></span>';}
 // A retake on no department in your review: the departments' own ✕ you.
 var gen=answered(it).gen;
-if(e.text.trim()||gen)h+=noteOnly(e.text)&&!gen?youNote():'<span class="you n" title="A retake on no department, in your review">✕ you</span>';
-if(it.outdated)h+='<span class="badge b-check" title="Rendered from an older version than the last stable">⚠ Render outdated</span>';
-if(it.to_check)h+='<span class="badge b-check" title="Rendered, not checked by the team yet">Render to check</span>';
-if(e.desc!==null&&e.desc.trim()&&e.desc.trim()!==it.desc)h+='<span class="badge b-rev">✎ description</span>';
+if(e.text.trim()||gen)h+='<span class="inl">'+(noteOnly(e.text)&&!gen?youNote():'<span class="you n" title="A retake on no department, in your review">✕ YOU</span>')+'</span>';
+if(it.omit)h+=tag('check','',(it.omit.state==='cancelled'?'Cancelled':'On hold')+(it.omit.reason?': '+it.omit.reason:''),'Set aside: out of the figures');
+if(it.to_check)h+=tag('check','eye','render to check','Rendered, not checked by the team yet');
+if(it.outdated)h+=tag('old','warn','render outdated','Rendered from an older version than the last stable');
+if(it.farm){var k=it.farm.state==='failed'?'fail':it.farm.state==='waiting'?'wait':'run';
+h+=tag(k,k==='fail'?'cancel':k==='wait'?'time':'render','farm '+it.farm.text,'In the farm: '+it.farm.tip);}
+if(e.desc!==null&&e.desc.trim()&&e.desc.trim()!==it.desc)h+=tag('check','','✎ description','Your review changes its description');
 return h;}
-// In the farm: its icon and colour say rendering (blue), queued (amber), failed (red).
-var FARM_IC={run:'<svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-farm"/></svg>',
-wait:'<svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 4.6V8l2.4 1.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-fail:'<svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-old"/></svg>'};
-function farmTag(f){var k=f.state==='failed'?'fail':f.state==='waiting'?'wait':'run';
-return '<span class="farm '+k+'" title="In the farm: '+esc(f.tip)+'">'+FARM_IC[k]+'farm '+esc(f.text)+'</span>';}
 function subline(it){var p=['<span class="vers">'+esc(it.versions||'not saved yet')+'</span>'];
 if(it.shots.length>1)p.push('<span>'+plural(it.shots.length,'shot')+'</span>');
 if(it.openNotes.length){var t=it.openNotes.some(function(n){return n.type==='todo';});
 p.push('<span class="nn'+(t?' todo':'')+'">'+plural(it.openNotes.length,'open note')+'</span>');}
-if(it.farm)p.push(farmTag(it.farm));
 return p.join('<i class="sep"> · </i>');}
 /* ---------- header and summary ---------- */
 var snapDate=new Date(META.snapshot);
@@ -151,8 +178,8 @@ return isNaN(t)?d.slice(0,10):t.getFullYear()+'-'+two(t.getMonth()+1)+'-'+two(t.
 function isoNow(){var d=new Date(),o=-d.getTimezoneOffset(),a=Math.abs(o);
 return d.getFullYear()+'-'+two(d.getMonth()+1)+'-'+two(d.getDate())+'T'+two(d.getHours())+':'+two(d.getMinutes())+':'+two(d.getSeconds())+(o<0?'-':'+')+two(Math.floor(a/60))+':'+two(a%60);}
 $('h-project').innerHTML=esc(META.project).replace(/([_-])/g,'$1<wbr>');
-$('h-when').textContent=DAYS[snapDate.getDay()]+' '+fmtDay(snapDate,true)+', '+two(snapDate.getHours())+':'+two(snapDate.getMinutes());
-$('h-by').textContent=META.exported_by?'exported by '+META.exported_by:'';
+$('h-when').textContent=fmtDay(snapDate,true)+', '+two(snapDate.getHours())+':'+two(snapDate.getMinutes());
+$('h-when').title='Snapshot of '+DAYS[snapDate.getDay()]+' '+fmtDay(snapDate,true)+', '+two(snapDate.getHours())+':'+two(snapDate.getMinutes())+(META.exported_by?', exported by '+META.exported_by:'');
 $('f-ver').textContent='v'+META.addon_version+' · one self-contained file, nothing loaded from the web';
 document.title=META.project+' · snapshot '+fmtDay(snapDate,true);
 (function(){var days=Math.floor((Date.now()-snapDate.getTime())/864e5);
@@ -161,29 +188,25 @@ a.title='This page shows the project as it was then: it may have moved since.';}
 // A Done's pace (done / expected): its band, as a progress spreadsheet's.
 function band(done,exp){if(!exp)return null;var p=done/exp;
 return p>=1.05?['ahead','ahead']:p>=1?['ontrack','on track']:p>=0.9?['slip','slightly behind']:['behind','behind'];}
+// The header's figures, one line: each section's Done and Validated, its
+// pace with a schedule (the Breakdown window has the rest).
 function summaryCards(){var S=META.schedule,exp=S?S.expected:null,h='';
-[['shot','Shots','shot'],['asset','Assets & libraries','file']].forEach(function(s){var done=META.progress[s[0]];if(done==null)return;
-var n=D.filter(function(it){return it.kind===s[0];}).length,val=(META.validation||{})[s[0]],note='';
-if(S){var b=band(done,exp),at=(S.at||{})[s[0]],pts=Math.round((done-exp)*100),cls=b?b[0]:'ontrack';
-var word=pts>=0?'ahead':'behind',days=at?Math.abs(at.days):0;
-note+=pts||days?'<span class="d-'+cls+'">'+(pts>=0?'▲ ':'▼ ')+plural(days,'working day')+' '+word+'</span>':'<span class="d-ontrack">on schedule</span>';
-if(b)note+='<span class="pace p-'+cls+'" title="Done / expected: 105 % and more ahead, 100 to 105 % on track, 90 to 100 % slightly behind, under 90 % behind">Pace '+
-Math.round(done/exp*100)+' %, '+b[1]+'</span>';}
-note+='<span>'+plural(n,s[2])+'</span>';
-h+='<div class="card"><div class="k-label">'+s[1]+'</div><div class="k-row"><span class="k-big">'+Math.round(done*100)+'<small> %</small></span>'+
-(META.role&&val!=null?'<span class="k-valid" title="Validated by '+esc(META.role)+' (or an equivalent role) at the stable shown">'+pct(val)+' validated</span>':'')+'</div>'+
-'<div class="track" title="Done '+pct(done)+(val!=null?' · validated '+pct(val):'')+(S?' · expected '+pct(exp):'')+'"><i class="f" style="width:'+done*100+'%"></i>'+
-(val!=null?'<i class="v" style="width:'+Math.min(val,done)*100+'%"></i>':'')+(S?'<i class="x" style="left:'+exp*100+'%"></i>':'')+'</div>'+
-'<div class="k-note">'+note+'</div></div>';});
-if(S){var a=new Date(S.start),b2=new Date(S.end),y=a.getFullYear()!==b2.getFullYear();
-h+='<div class="card sched"><div class="k-label">Schedule, on '+fmtDay(snapDate)+'</div><div class="k-row"><span class="k-big">Day '+S.elapsed_days+
-'<small> / '+S.total_days+'</small></span><span style="font-size:14px;color:var(--ink-2)">'+pct(exp)+' expected</span></div>'+
-'<div class="track"><i class="f" style="width:'+exp*100+'%"></i></div><div class="ends"><span>'+fmtDay(a,y)+'</span><span>'+fmtDay(b2,y)+'</span></div></div>';}
+[['shot','Shots','shot'],['asset','Assets','file']].forEach(function(s){var done=META.progress[s[0]];if(done==null)return;
+var n=D.filter(function(it){return it.kind===s[0];}).length,val=(META.validation||{})[s[0]],pace='',tip=s[1]+': '+plural(n,s[2])+', done '+pct(done)+(val!=null?', validated '+pct(val):'');
+if(S){var b=band(done,exp),at=(S.at||{})[s[0]],days=at?Math.abs(at.days):0,cls=b?b[0]:'ontrack';
+tip+=', expected '+pct(exp)+(days?', '+plural(days,'working day')+' '+(done>=exp?'ahead':'behind'):'');
+if(b)pace='<span class="pace p-'+cls+'">'+Math.round(done/exp*100)+' %</span>';}
+h+='<span class="kpi" title="'+esc(tip)+'"><span class="kl">'+s[1]+'</span>'+dv(done,val,true)+pace+'</span>';});
 $('summary').innerHTML=h;}
+// The schedule, at the Breakdown's top.
+function scheduleCard(){var S=META.schedule;if(!S)return '';var a=new Date(S.start),b2=new Date(S.end),y=a.getFullYear()!==b2.getFullYear();
+return '<div class="card sched"><div class="k-label">Schedule, on '+fmtDay(snapDate)+'</div><div class="k-row"><span class="k-big">Day '+S.elapsed_days+
+'<small> / '+S.total_days+'</small></span><span style="font-size:14px;color:var(--ink-2)">'+pct(S.expected)+' expected</span></div>'+
+'<div class="track"><i class="f" style="width:'+S.expected*100+'%"></i></div><div class="ends"><span>'+fmtDay(a,y)+'</span><span>'+fmtDay(b2,y)+'</span></div></div>';}
 var W=META.weights;
 $('weights').textContent='Each required department counts the same: not started 0 %, in progress '+W.wip+' %, done but reworked since '+W.rework+
-' %, done with an open RTK '+W.rtk+' %, done 100 %. A file averages its departments -- a retake on no department counts as an RTK on one of its done departments --, a group its files.'+
-(META.role?' Validated, apart: the share of the required departments '+META.role+' (or an equivalent role) validated at the stable shown -- a newer stable needs it again.':'');
+' %, done with an open RTK '+W.rtk+' %, done 100 %. A file averages its departments — a retake on no department counts as an RTK on one of its done departments —, a group its files.'+
+(META.role?' Validated, apart: the share of the required departments '+META.role+' (or an equivalent role) validated at the stable shown — a newer stable needs it again.':'');
 
 /* ---------- the list ---------- */
 var state={tab:tabs.length?tabs[0][0]:'shot',q:'',f:{},dep:'',open:{},untracked:{}};
@@ -217,11 +240,11 @@ return it.tab===state.tab&&(!state.dep||state.dep in it.states)&&FILTERS[b.datas
 var rowDeps=[],rowCols='';
 function rowHtml(it){var deps=rowDeps,cols=rowCols;
 // Tinted once this review touched it: where you've been, at a glance.
-return '<div class="row'+(changes(it)?' rv-mine':'')+(it.i===cur?' sel':'')+'" role="button" tabindex="0" data-i="'+it.i+'" style="--cols:'+cols+'"'+(changes(it)?' title="In your review"':'')+'>'+thumb(it)+
+return '<div class="row'+(it.omit?' omit':'')+(changes(it)?' rv-mine':'')+(it.i===cur?' sel':'')+'" role="button" tabindex="0" data-i="'+it.i+'" style="--cols:'+cols+'"'+(changes(it)?' title="In your review"':'')+'>'+thumb(it)+
 '<span class="r-name">'+nameHtml(it)+'<small>'+subline(it)+'</small><span class="flags">'+flags(it)+'</span></span>'+
-deps.map(function(d){return '<span class="d">'+mark(it.states[d])+under(it,d)+'</span>';}).join('')+
-'<span class="r-pct">'+(it.tracked?Math.round(it.done*100)+' %'+(META.role?'<span class="vv'+(it.valid?'':' z')+'">'+pct(it.valid)+' valid.</span>':''):'<span class="faint">–</span>')+'</span>'+
-(it.tracked?'<span class="dl">'+deps.filter(function(d){return d in it.states;}).map(function(d){return '<span><b class="dn s-'+it.states[d]+'" title="'+LABEL[it.states[d]]+'">'+esc(cap(d))+'</b>'+under(it,d)+'</span>';}).join('')+'</span>':'')+'</div>';}
+deps.map(function(d){return '<span class="d">'+cell(it,d)+'</span>';}).join('')+
+'<span class="r-pct">'+(it.tracked?dv(it.done,it.valid):'<span class="faint">–</span>')+'</span>'+
+(it.tracked?'<span class="dl">'+deps.filter(function(d){return d in it.states;}).map(function(d){return '<span><b class="dn n-'+it.states[d]+'" title="'+LABEL[it.states[d]]+'">'+esc(cap(d))+'</b>'+under(it,d)+'</span>';}).join('')+'</span>':'')+'</div>';}
 // One file's row redrawn in place, the list around it untouched: a ✓ or a
 // ✕ in the panel rebuilt the whole list, and on an iPad that sent the
 // page to the top (the row tapped had the focus, and was gone). The whole
@@ -235,8 +258,8 @@ function render(){chipCounts();
 var items=D.filter(function(it){return match(it);});
 var deps=depsOf(state.tab).filter(function(d){return items.some(function(it){return d in it.states;});});
 // Many departments: narrower columns, never past the page.
-var w=deps.length>7?56:deps.length>5?64:76;
-var cols='112px minmax(0,1fr) '+deps.map(function(){return w+'px';}).join(' ')+' 84px';
+var w=deps.length>7?56:deps.length>5?68:84;
+var cols='104px minmax(0,1fr) '+deps.map(function(){return w+'px';}).join(' ')+' 96px';
 rowDeps=deps;rowCols=cols;
 var groups={},order=[];
 items.forEach(function(it){if(!groups[it.group]){groups[it.group]=[];order.push(it.group);}groups[it.group].push(it);});
@@ -255,16 +278,15 @@ if(un.length&&!state.untracked[key]&&!filt)body+='<button class="untracked" data
 var nv=groupVideos(g).length;
 // A div, not a button: its playlist's ▶ sits in it, after the name.
 return '<div class="group'+(closed?' closed':'')+(allReviewed(g)?' rv-all':'')+'"><div class="g-h" role="button" tabindex="0" aria-expanded="'+!closed+'" data-g="'+esc(g)+'"><span class="g-name"><i class="caret"></i>'+esc(g)+
-(nv?'<button type="button" class="g-play" data-gplay="'+esc(g)+'" title="Play the '+esc(g)+' videos in a row ('+nv+')" aria-label="Play the '+esc(g)+' videos in a row">▶</button>':'')+'<small>'+plural(all.length,'file')+'</small></span>'+
-(done!=null?'<span class="tw"><span class="track"><i class="f" style="width:'+done*100+'%"></i>'+(META.role?'<i class="v" style="width:'+Math.min(val,done)*100+'%"></i>':'')+'</span></span>'+
-'<span class="g-pct"><b>'+pct(done)+'</b>'+(META.role?' · <span style="color:var(--valid)">'+pct(val)+' valid.</span>':'')+'</span>':'<span></span><span class="g-pct faint">not tracked</span>')+
+(nv?'<button type="button" class="g-play play" data-gplay="'+esc(g)+'" title="Play the '+esc(g)+' videos in a row ('+nv+')" aria-label="Play the '+esc(g)+' videos in a row">▶</button>':'')+'<small>'+plural(all.length,'file')+'</small></span>'+
+(done!=null?'<span class="g-pct">'+dv(done,val)+'</span>':'<span class="g-pct faint">not tracked</span>')+
 '</div><div class="rows">'+(tr.length?head:'')+body+'</div></div>';}).join('');
 // The row or group that had the focus has it again (the keys go on),
 // and the page stays where it was if the list is still as long.
 var fe=document.activeElement,fsel=fe&&$('list').contains(fe)?(fe.classList.contains('row')?'.row[data-i="'+fe.dataset.i+'"]':fe.classList.contains('g-h')?'.g-h[data-g="'+CSS.escape(fe.dataset.g)+'"]':null):null,y0=scrollY;
 var others=filt?tabs.filter(function(t){return t[0]!==state.tab;}).map(function(t){return [t,D.filter(function(it){return it.tab===t[0]&&match(it,true);}).length];}).filter(function(x){return x[1];}):[];
 $('list').innerHTML=(h||'<div class="empty">Nothing here.</div>')+others.map(function(x){return '<button class="untracked" data-other="'+x[0][0]+'" style="text-align:center">'+
-plural(x[1],'match')+' in '+x[0][1].toLowerCase()+' ›</button>';}).join('');
+(x[1]===1?'1 match':x[1]+' matches')+' in '+x[0][1].toLowerCase()+' ›</button>';}).join('');
 if(cur!=null){var s=$('list').querySelector('.row[data-i="'+cur+'"]');if(s)s.classList.add('sel');}
 if(fsel){var nf=$('list').querySelector(fsel);if(nf)nf.focus({preventScroll:true});}
 if(lockY==null&&scrollY!==y0)scrollTo(0,y0);
@@ -291,8 +313,9 @@ pick($('depf'));
 document.querySelectorAll('.chipf[data-f]').forEach(function(b){b.addEventListener('click',function(){
 state.f[b.dataset.f]=!state.f[b.dataset.f];b.setAttribute('aria-pressed',!!state.f[b.dataset.f]);render();});});
 var bar=$('bar');
-new IntersectionObserver(function(e){bar.classList.toggle('stuck',e[0].intersectionRatio<1);},{threshold:[1],rootMargin:'-1px 0px 0px 0px'}).observe(bar);
-function barHeight(){document.documentElement.style.setProperty('--bar-h',bar.offsetHeight+'px');}
+addEventListener('scroll',function(){$('hdr').classList.toggle('stuck',scrollY>4);},{passive:true});
+// The header and the filters stay at the top; the column names under them.
+function barHeight(){var r=document.documentElement.style;r.setProperty('--hdr-h',$('hdr').offsetHeight+'px');r.setProperty('--bar-h',bar.offsetHeight+'px');}
 addEventListener('resize',barHeight);
 
 /* ---------- find: filters the list, and jumps to any file ---------- */
@@ -506,10 +529,10 @@ if(v.from!=='local'&&v.from!=='picked'&&V&&V.local){v.from='local';v.src=V.local
 $('lb-in').innerHTML='';
 // A video chosen here is there: then its format is the problem -- an
 // HEVC tagged hev1 (compiled by an older add-on) on Safari, iPhone, iPad.
-$('lb-cap').innerHTML=(v.from==='picked'?'This browser can\'t play this video\'s format (on an iPad or in Safari: an H.265 video compiled by an older add-on -- compile it again).':
+$('lb-cap').innerHTML=(v.from==='picked'?'This browser can\'t play this video\'s format (on an iPad or in Safari: an H.265 video compiled by an older add-on — compile it again).':
 v.from==='zip'?'Video not found. Unzip <code>'+esc(V.base)+'.zip</code> next to this page, into a folder of the same name.':
-v.from==='folder'?'Video not found: no <code>'+esc(V.base)+'</code> folder '+(V.base.indexOf('../')===0?'beside this page\'s folder (keep the snapshots folder whole)':'next to this page')+' -- or this browser can\'t play its format.':
-'Video not found in the project\'s renders -- away from the project, its videos come with the snapshot (Folder or Zip, when exporting) -- or this browser can\'t play its format.')+
+v.from==='folder'?'Video not found: no <code>'+esc(V.base)+'</code> folder '+(V.base.indexOf('../')===0?'beside this page\'s folder (keep the snapshots folder whole)':'next to this page')+' — or this browser can\'t play its format.':
+'Video not found in the project\'s renders — away from the project, its videos come with the snapshot (Folder or Zip, when exporting) — or this browser can\'t play its format.')+
 (v.from==='picked'?'':' '+pickLink('Choose the videos folder…'))+
 '<br><span style="opacity:.7">Looked for <code>'+esc(v.name)+'</code></span>'+(many&&at<list.length-1?'<br><button type="button" class="lbn" data-lb="1" aria-label="Next video">›</button>':'');});}
 $('lb').onclick=function(e){var sb=e.target.closest('[data-step]');if(sb){e.stopPropagation();stepFrame(+sb.dataset.step);return;}var b=e.target.closest('[data-lb]');if(!b)return;e.stopPropagation();if(b.disabled)return;at+=+b.dataset.lb;show();};
@@ -526,7 +549,7 @@ return '<div class="card"><h4>'+title+(exp!=null?'<small>| expected '+pct(exp)+'
 // violet, as the cards and the groups show it.
 var v=META.role&&r[3]!=null;
 return '<span title="'+esc(r[2]||'')+'">'+esc(r[0])+'</span><span class="track"><i class="f" style="width:'+r[1]*100+'%"></i>'+(v?'<i class="v" style="width:'+Math.min(r[3],r[1])*100+'%"></i>':'')+line+'</span><span class="n">'+pct(r[1])+(v?' <span class="vv" title="Validated by '+esc(META.role)+'">'+pct(r[3])+'</span>':'')+'</span>';}).join('')+'</div></div>';}
-[['shot','Shots','By sequence','Sequence'],['asset','Assets & libraries','By prefix','Prefix']].forEach(function(s){
+[['shot','Shots','By sequence','Sequence'],['asset','Assets','By prefix','Prefix']].forEach(function(s){
 var items=D.filter(function(it){return it.kind===s[0]&&it.tracked;});if(!items.length)return;
 var deps=depsOf(s[0]).filter(function(d){return items.some(function(it){return d in it.scores;});});
 var groups={},order=[];items.forEach(function(it){if(!groups[it.group]){groups[it.group]=[];order.push(it.group);}groups[it.group].push(it);});
@@ -537,7 +560,12 @@ return v==null?'<td class="na">–</td>':'<td style="background:color-mix(in srg
 h+='<div class="st-sec"><h3>'+s[1]+'</h3><div class="st-grid">'+
 bars(s[2],order.map(function(g){return [g,avg(groups[g].map(function(i){return i.done;})),plural(groups[g].length,'file'),avg(groups[g].map(function(i){return i.valid;}))];}))+
 bars('By department',deps.map(function(d){return [cap(d),dep(items,d),'',avg(items.map(function(it){return d in it.states?(validNow(it,d)?1:0):null;}))];}))+grid+'</div></div>';});
-$('stats').innerHTML=h+'<p class="weights">'+esc($('weights').textContent)+'</p>';}
+$('stats').innerHTML=scheduleCard()+h+'<p class="weights">'+esc($('weights').textContent)+'</p>';}
+// The Breakdown window: the stats, over the page.
+function breakdown(on){$('bdw').hidden=!on;lockPage('bd',on);if(on)$('bd-x').focus();else $('bdb').focus();}
+$('bdb').addEventListener('click',function(){breakdown(true);});
+$('bd-x').addEventListener('click',function(){breakdown(false);});
+$('bdw').addEventListener('click',function(e){if(e.target===this)breakdown(false);});
 
 /* ---------- a file's panel ---------- */
 var cur=null,lastFocus=null,showClosed=false,showNotes=null,editing={};
@@ -556,7 +584,7 @@ return b.text=out.join(NL);}
 function retakeBox(it,key,text,ph){
 if(it.shots.length<2)return '<textarea rows="1" class="rtk-t" data-k="'+esc(key)+'"'+(key==='gen'?' id="gen-t"':'')+' placeholder="'+esc(ph)+'">'+esc(text)+'</textarea>';
 var b=boxOf(it,key,text);
-return '<div class="rbox"><label class="shotbox"><span>All</span><textarea rows="1" class="rtk-t" data-k="'+esc(key)+'" data-s=""'+(key==='gen'?' id="gen-t"':'')+' placeholder="'+esc(ph)+' -- all its shots">'+esc(b.all)+'</textarea></label>'+
+return '<div class="rbox"><label class="shotbox"><span>All</span><textarea rows="1" class="rtk-t" data-k="'+esc(key)+'" data-s=""'+(key==='gen'?' id="gen-t"':'')+' placeholder="'+esc(ph)+' — all its shots">'+esc(b.all)+'</textarea></label>'+
 '<div class="tags shotbox" data-k="'+esc(key)+'"><span></span><span class="tg-in">'+it.shots.map(function(sh){return '<button type="button" data-shot="'+esc(sh)+'" aria-pressed="'+!!b.open[sh]+'">'+esc(sh)+'</button>';}).join('')+'</span></div>'+
 it.shots.filter(function(sh){return b.open[sh];}).map(function(sh){return '<label class="shotbox"><span>'+esc(sh)+'</span><textarea rows="1" class="rtk-t" data-k="'+esc(key)+'" data-s="'+esc(sh)+'" placeholder="What to fix in '+esc(sh)+'?">'+esc(b.per[sh]||'')+'</textarea></label>';}).join('')+'</div>';}
 function syntax(it){return '<p class="syntax">One retake per line · <code>[f12-40]</code> frames · <code>note:</code> (or <code>n:</code>) a remark, not a retake</p>';}
@@ -572,15 +600,15 @@ if(n.render)tags.push('<span class="tg" title="Written watching this render">▶
 // Fixed under its department).
 var dn=canReply(n)&&(n.type==='todo'||n.type==='rtk')&&n.done===false,on=dn&&!!(peek(D[cur]).fixed||{})[n.id],dl=n.type==='todo'?'Done':'Fixed';
 return '<div class="note'+(n.closed?' closed':'')+(reply?' reply':'')+(n.role?' by-role':'')+(on?' fixed':'')+'"><div class="h">'+type+tags.join('')+
-'<span class="h-r"><span class="who">'+esc(n.author)+' · '+when(n.date)+'</span>'+(!reply&&canReply(n)?replyBtn(n):'')+
+'<span class="h-r"><span class="who">'+[author(n),when(n.date)].filter(Boolean).join(' · ')+'</span>'+(!reply&&canReply(n)?replyBtn(n):'')+
 (dn?'<button type="button" class="fx" data-fix="'+esc(n.id)+'" aria-pressed="'+on+'" aria-label="'+dl+'" title="'+(on?'Marked '+dl.toLowerCase()+' in your review: tap to undo':dl+': marked done when your review is imported')+'">✓</button>':'')+'</span></div><p>'+esc(n.text)+'</p></div>'+
 (n.replies||[]).map(function(r){return noteHtml(Object.assign({closed:n.closed},r),true);}).join('')+(!reply&&canReply(n)?replyBox(n):'');}
 // Reviewing, a reply to an open note or RTK: a comment in its thread at
 // import, the retake left open (Fixed says it's done).
-function replyBtn(n){return '<button type="button" class="rp" data-reply="'+esc(n.id)+'" aria-label="Reply" title="Reply in its thread: a retake (still to redo, its department sent back) -- or note: a remark">↩</button>';}
+function replyBtn(n){return '<button type="button" class="rp" data-reply="'+esc(n.id)+'" aria-label="Reply" title="Reply in its thread: a retake (still to redo, its department sent back) — or note: a remark">↩</button>';}
 // A retake, red -- "note:" lines alone a remark, grey (as a department's box).
 function replyBox(n){var r=(peek(D[cur]).replies||{})[n.id];if(r==null&&!editing['r:'+n.id])return '';var nt=noteOnly(r);
-return '<div class="reply-box'+(nt?' as-note':'')+'"><span class="you '+(nt?'nt':'n')+'" title="'+(nt?'A remark in its thread':'A retake in its thread: its department sent back')+'">↩ you</span><textarea rows="1" class="rp-t" data-r="'+esc(n.id)+'" placeholder="Still to redo: what -- or note: a remark">'+esc(r||'')+'</textarea></div>';}
+return '<div class="reply-box'+(nt?' as-note':'')+'"><span class="you '+(nt?'nt':'n')+'" title="'+(nt?'A remark in its thread':'A retake in its thread: its department sent back')+'">↩ you</span><textarea rows="1" class="rp-t" data-r="'+esc(n.id)+'" placeholder="Still to redo: what — or note: a remark">'+esc(r||'')+'</textarea></div>';}
 function replyKind(t){return !(t||'').trim()?'':noteOnly(t)?'note':'rtk';}
 function canReply(n){return reviewing()&&n.id&&!n.closed;}
 // A note's date: while reviewing, how long ago (from today, as the page is
@@ -591,7 +619,7 @@ var w=n<=0?'today':n===1?'yesterday':n<14?n+' days ago':n<60?Math.round(n/7)+' w
 return '<span title="'+esc(day)+'">'+w+'</span>';}
 // An open RTK; reviewing, a button to say it's fixed (done at import, as you).
 function rtkLine(n){var where=[n.shot,n.frames].filter(Boolean).join(' · '),it=D[cur],fx=reviewing()&&n.id,on=fx&&!!peek(it).fixed&&!!(peek(it).fixed||{})[n.id];
-return '<div class="rtkl'+(n.team?' team':'')+(on?' fixed':'')+'"><span class="rt-t">'+(where?'<b>'+esc(where)+'</b> ':'')+esc(n.text)+'<small>'+(n.team?'team · ':esc(n.role||'')+' · ')+esc(n.author)+' · '+when(n.date)+'</small></span>'+
+return '<div class="rtkl'+(n.team?' team':'')+(on?' fixed':'')+'"><span class="rt-t">'+(where?'<b>'+esc(where)+'</b> ':'')+esc(n.text)+'<small>'+[n.team?'team':esc(n.role||''),author(n),when(n.date)].filter(Boolean).join(' · ')+'</small></span>'+
 (fx?'<span class="rt-b">'+replyBtn(n)+'<button type="button" class="fx" data-fix="'+esc(n.id)+'" aria-pressed="'+on+'" aria-label="Fixed" title="'+(on?'Marked fixed in your review: tap to undo':'Fixed: marked done when your review is imported')+'">✓</button></span>':'')+'</div>'+(fx?replyBox(n):'');}
 // Rendered but nothing to play: say why, quietly, and offer to look elsewhere.
 function noVideo(it){if(!it.renders.some(function(r){return r.folder;})||allVideos(it).length)return '';
@@ -613,7 +641,7 @@ function depHtml(it,d,rv){var s=it.states[d],e=peek(it),v=e.deps[d],o=it.ok[d],v
 var okd=o?(o.old?'<span class="ok old" title="'+esc(o.tip)+'">✓ '+esc(o.role)+' on '+esc(o.seen)+'</span><span class="faint" style="font-size:12px">to review again</span>':
 '<span class="ok" title="'+esc(o.tip)+'">✓ '+esc(o.role)+'</span>'):'';
 return '<div class="dep"><div class="dep-l">'+mark(s)+'<span class="mid"><span class="nm">'+esc(cap(d))+'</span><span class="st">'+LABEL[s]+'</span>'+rkTag(it,d)+okd+you(it,d)+'</span>'+
-'<span class="rvb" data-d="'+esc(d)+'"><button class="ok-b'+(via?' via':'')+'" aria-pressed="'+!!(v&&v.ok)+'"'+(asTeam()?' disabled title="As the team: no validation -- a validation role validates"':isDone(s)?' title="Validate it as your role"':' disabled title="Not done: nothing to validate yet"')+
+'<span class="rvb" data-d="'+esc(d)+'"><button class="ok-b'+(via?' via':'')+'" aria-pressed="'+!!(v&&v.ok)+'"'+(asTeam()?' disabled title="As the team: no validation — a validation role validates"':isDone(s)?' title="Validate it as your role"':' disabled title="Not done: nothing to validate yet"')+
 ' aria-label="Validate '+esc(d)+'">✓</button><button class="ko-b'+(verdict(it,d)==='note'?' as-note':'')+'" aria-pressed="'+!!(v&&v.no)+'" aria-label="Retake '+esc(d)+'" title="Retake: write what to fix (or nothing, to withdraw a validation)">✕</button></span></div>'+
 ((it.rtkNotes[d]||[]).length?'<div class="rtks">'+it.rtkNotes[d].map(rtkLine).join('')+'</div>':'')+
 (rv&&v&&v.no?'<div class="rt">'+retakeBox(it,'d:'+d,v.text,'What to fix in '+d+'? Empty: just withdraw its validation')+syntax(it)+'</div>':'')+'</div>';}
@@ -839,6 +867,9 @@ else if(e.key==='ArrowLeft'||e.key==='ArrowRight'){var nb=$('lb').querySelector(
 else if(e.key===' '&&$('vp-p')&&e.target.type!=='range'){$('vp-p').click();e.preventDefault();}
 else if((e.key===','||e.key==='.')&&$('vp-fr')){stepFrame(e.key===','?-1:1);e.preventDefault();}return;}
 if(!$('dlg').hidden){if(e.key==='Escape'){$('dlg').hidden=true;e.preventDefault();}return;}
+if(!$('bdw').hidden){if(e.key==='Escape'){breakdown(false);e.preventDefault();}return;}
+// "/": go to a file.
+if(e.key==='/'&&!e.ctrlKey&&!e.metaKey&&!e.altKey){e.preventDefault();$('q').focus();return;}
 if(e.key==='Escape'&&MENUS.some(function(m){return !$(m[1]).hidden;})){closeMenus();return;}
 if(cur==null)return;var k=e.key.toLowerCase();
 if(k==='arrowleft')step(-1);else if(k==='arrowright')step(1);else if(k==='escape')closePanel();
@@ -947,7 +978,7 @@ $('d-go').onclick=function(){var share=this.dataset.share;delete this.dataset.sh
 $('author').value=rv.author;$('role').value=rv.role;sync('role');save();
 // The role changed here: what's sent with it (the team sends no validation).
 if(rv.role!==was){render();if(cur!=null)refresh();rows=exportRows();
-if(!rows.length){$('d-why').hidden=false;$('d-why').textContent='As the team, nothing to send: the team doesn\'t validate -- write a retake or a note.';return;}}
+if(!rows.length){$('d-why').hidden=false;$('d-why').textContent='As the team, nothing to send: the team doesn\'t validate — write a retake or a note.';return;}}
 if(needsRole&&!rv.role){$('d-why').hidden=false;$('d-why').textContent='Pick your role: your validations and retakes are recorded under it.';$('d-role').classList.add('need');sync('d-role');return;}
 var data={format:META.format,schema_version:META.schema_version,project:META.project,snapshot:META.snapshot,author:rv.author,role:rv.role,
 review_date:rv.date,written_at:isoNow(),rows:rows};
