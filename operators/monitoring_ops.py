@@ -193,3 +193,42 @@ class M_PIPELINE_OT_monitoring_refresh(bpy.types.Operator):
             load_pipeline_log()
         redraw_monitoring(kind)
         return {"FINISHED"}
+
+
+class M_PIPELINE_OT_monitor_column_toggle(bpy.types.Operator):
+    """Show or hide this column of Project monitoring's list"""
+
+    bl_idname = "m_pipeline.monitor_column_toggle"
+    bl_label = "Show / hide a column"
+    bl_options = {"INTERNAL"}
+
+    column: bpy.props.StringProperty(options={"HIDDEN", "SKIP_SAVE"})
+
+    def execute(self, context):
+        state = context.window_manager.pipeline_monitoring
+        hidden = set(filter(None, state.hidden_columns.split(",")))
+        hidden ^= {self.column}
+        state.hidden_columns = ",".join(sorted(hidden))
+        redraw_monitoring("project")
+        return {"FINISHED"}
+
+
+class M_PIPELINE_MT_monitor_columns(bpy.types.Menu):
+    """Project monitoring's columns, each ticked while shown."""
+
+    bl_idname = "M_PIPELINE_MT_monitor_columns"
+    bl_label = "Columns"
+
+    def draw(self, context):
+        from ..lib import ConfigCache, json_get
+
+        state = context.window_manager.pipeline_monitoring
+        hidden = set(filter(None, state.hidden_columns.split(",")))
+        key = "assets_departments" if state.file_type == "asset" else "shots_departments"
+        for column in [*json_get(ConfigCache.get(), key, []), "farm"]:
+            op = self.layout.operator(
+                "m_pipeline.monitor_column_toggle",
+                text=column.capitalize(),
+                icon="CHECKBOX_DEHLT" if column in hidden else "CHECKBOX_HLT",
+            )
+            op.column = column

@@ -19,7 +19,8 @@ All notable changes to this addon. Dates are release dates.
   beside the list, on the right, in a window wide enough -- drag the
   border between them, click another row to change it, Esc or the back
   arrow to close it. The keys and the wheel act on the side under the
-  mouse; a list made narrow shows its names only. A narrow window keeps
+  mouse; a list made narrow shows its states as icons, then its names
+  only; the filters' eye menu shows or hides each column. A narrow window keeps
   the detail in place of the list.
 - The mouse wheel turns the pages of Project monitoring's list, Farm
   monitoring's Jobs and the Pipeline log, as Left / Right do -- the

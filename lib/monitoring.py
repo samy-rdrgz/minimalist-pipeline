@@ -440,7 +440,8 @@ def monitoring_zone(context) -> str:
 
 def list_is_narrow(context) -> bool:
     """The list's zone of a window in two, narrowed under
-    _NAMES_ONLY_WIDTH: its names only, its filters stacked, no legend."""
+    _NAMES_ONLY_WIDTH: its filters stacked, no legend (its cells fit on
+    their own, panels/tracking_panel.py draw_monitor_table())."""
     scale = context.preferences.system.ui_scale or 1.0
     return monitoring_zone(context) == "list" and context.area.width < _NAMES_ONLY_WIDTH * scale
 

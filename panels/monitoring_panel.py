@@ -130,6 +130,7 @@ class M_PIPELINE_PT_monitoring(_MonitoringPanel, bpy.types.Panel):
             outdated.alert = not state.only_outdated
             outdated.prop(state, "only_outdated", text="", icon="LIBRARY_DATA_BROKEN")
         filters_btn.prop(state, "sort", text="", icon="SORTTIME")
+        filters_btn.menu("M_PIPELINE_MT_monitor_columns", text="", icon="HIDE_OFF")
 
         layout.separator(factor=0.5)
         draw_monitor_table(state, context, layout, columns, get_active_project_root())

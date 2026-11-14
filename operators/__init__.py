@@ -47,6 +47,8 @@ from .monitoring_ops import (
     M_PIPELINE_OT_monitoring_page,
     M_PIPELINE_OT_monitoring_refresh,
     M_PIPELINE_OT_monitoring_switch,
+    M_PIPELINE_OT_monitor_column_toggle,
+    M_PIPELINE_MT_monitor_columns,
 )
 from .preview_ops import M_PIPELINE_OT_compile_preview
 from .project_ops import (
@@ -109,6 +111,8 @@ classes = (
     M_PIPELINE_OT_monitoring_page,
     M_PIPELINE_OT_monitoring_refresh,
     M_PIPELINE_OT_monitoring_switch,
+    M_PIPELINE_OT_monitor_column_toggle,
+    M_PIPELINE_MT_monitor_columns,
     M_PIPELINE_OT_create_project,
     M_PIPELINE_OT_find_project,
     M_PIPELINE_OT_set_active_project,

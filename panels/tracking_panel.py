@@ -875,6 +875,10 @@ def draw_file_details(state, context, layout):
 # table header, footer, margins), in widget units -- see rows_that_fit().
 _TABLE_RESERVED_UNITS = 6.5
 _STACKED_FILTERS_UNITS = 2.0
+# A status cell's width (px at UI scale 1): under the first, its icon
+# alone; under the second, no cell at all (the names alone).
+_CELL_TEXT_WIDTH = 105
+_CELL_ICON_WIDTH = 26
 _TABLE_TIP = (
     "Click a file for its details (Ctrl+click the Project monitoring button: "
     "the file open here). Each department's state since the last stable, "
@@ -986,10 +990,20 @@ def draw_monitor_table(self, context, layout, columns, project_root):
     activity = farm_activity()
     matches, filters = monitor_matches(self, context, project_root, activity)
     FIRST_COLUMN = 0.3
-    # The list's zone narrowed beside a detail: its names only (1.0: no
-    # other column). See NOTES.md, "Monitoring: the detail beside the list".
+    # The columns shown (Filters > the columns menu), then what fits: each
+    # cell's width from their number -- under _CELL_TEXT_WIDTH its icon
+    # alone (its words in the tooltip), under _CELL_ICON_WIDTH the names
+    # alone (1.0: no other column). See NOTES.md, "Monitoring: the detail
+    # beside the list".
+    hidden = set(filter(None, self.hidden_columns.split(",")))
+    columns = [c for c in columns if c not in hidden]
+    show_farm = "farm" not in hidden
     narrow = list_is_narrow(context)
-    if narrow:
+    count = len(columns) + show_farm
+    scale = context.preferences.system.ui_scale or 1.0
+    cell = context.region.width * (1 - FIRST_COLUMN) / max(count, 1) / scale
+    icon_only = cell < _CELL_TEXT_WIDTH
+    if not count or cell < _CELL_ICON_WIDTH:
         FIRST_COLUMN = 1.0
 
     total = len(matches)
@@ -1000,10 +1014,11 @@ def draw_monitor_table(self, context, layout, columns, project_root):
     title_list.active = False
     title_list.label(text="File", icon="RADIOBUT_ON")
     if FIRST_COLUMN < 1:
-        cells = _equal_cells(title_list.row(), len(columns) + 1)
-        for cell, c in zip(cells, columns):
-            cell.label(text=c.capitalize(), icon="KEYFRAME_HLT")
-        cells[-1].label(text="Farm", icon="RENDER_ANIMATION")
+        cells = _equal_cells(title_list.row(), count)
+        for c_layout, c in zip(cells, columns):
+            c_layout.label(text=c.capitalize(), icon="KEYFRAME_HLT")
+        if show_farm:
+            cells[-1].label(text="Farm", icon="RENDER_ANIMATION")
 
     f_list.separator(factor=1)
 
@@ -1020,10 +1035,11 @@ def draw_monitor_table(self, context, layout, columns, project_root):
     )
     for dir, file in shown:
         _draw_monitor_row(
-            self, f_list, dir, file, columns, FIRST_COLUMN, activity.get(owner_key(dir))
+            self, f_list, dir, file, columns, FIRST_COLUMN, activity.get(owner_key(dir)),
+            icon_only=icon_only, show_farm=show_farm,
         )
     for _ in range(per_page - len(shown)):
-        _draw_monitor_blank_row(f_list, columns, FIRST_COLUMN)
+        _draw_monitor_blank_row(f_list, count, FIRST_COLUMN)
 
     footer, pager = split_footer(context, f_list.row())
     # Dimmed, except the legend: its colours are the point.
@@ -1064,7 +1080,8 @@ def draw_monitor_table(self, context, layout, columns, project_root):
     draw_pager(pager, page, pages)
 
 
-def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None):
+def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None,
+                      icon_only=False, show_farm=True):
     """One file's row of Project monitoring: name (opens its detail), a
     status cell per department column, then its Farm cell."""
     row = f_list.column()
@@ -1112,7 +1129,7 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None)
         split.row().label(text=f"{OMIT_STATES[mark['state']]}{why}", icon="PAUSE")
         f_list.separator(factor=0.5, type="LINE")
         return
-    cells = _equal_cells(split.row(), len(columns) + 1)
+    cells = _equal_cells(split.row(), len(columns) + show_farm)
     roles = validation_roles()
     top = max((r["level"] for r in roles), default=None)
     top_roles = {r["name"] for r in roles if r["level"] == top}
@@ -1135,7 +1152,11 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None)
             # Grey, the star in full once validated by the top role
             # ("Done · prod"): what's through stands out.
             star = text.startswith("Done · ") and best in top_roles
-            for t, i in (("", row_icon), (text, "NONE")):
+            # Too narrow for the words: the icon alone, its words first in
+            # the tooltip.
+            if icon_only:
+                tooltip = f"{text}\n\n{tooltip}"
+            for t, i in (("", row_icon),) if icon_only else (("", row_icon), (text, "NONE")):
                 button = status.row(align=True)
                 button.alignment = "LEFT"  # its own width, not the cell's
                 button.enabled = under_rtk or (star and t == "")
@@ -1148,7 +1169,8 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None)
             # Not required: "–", as the snapshot.
             icon_row.active = False
             icon_row.label(text="–", icon="BLANK1")
-    _draw_farm_cell(cells[-1], dir, file, jobs or [])
+    if show_farm:
+        _draw_farm_cell(cells[-1], dir, file, jobs or [])
     f_list.separator(factor=0.5, type="LINE")
 
 
@@ -1276,7 +1298,7 @@ def _video_button(layout, info: dict, label: str) -> None:
     op.custom_tooltip = f"Play {label}" + (f"  ({at})" if at else "")
 
 
-def _draw_monitor_blank_row(f_list, columns, first_column):
+def _draw_monitor_blank_row(f_list, count, first_column):
     """Empty row, same height as a file's -- a page's padding."""
     row = f_list.column()
     row.active = False
@@ -1285,7 +1307,7 @@ def _draw_monitor_blank_row(f_list, columns, first_column):
     else:
         split = row.split(factor=first_column)
         split.row().label(text="")
-        for cell in _equal_cells(split.row(), len(columns) + 1):  # + "Farm"
+        for cell in _equal_cells(split.row(), count):
             cell.label(text="", icon="BLANK1")
     f_list.separator(factor=0.5, type="LINE")
 

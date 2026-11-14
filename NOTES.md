@@ -3977,11 +3977,18 @@ the right of the same window. Tried first outside the addon in Blender
   without one says to click a row. The keys follow the zone under the
   mouse (`_showing_detail(kind, context)`): pages on the list, scroll and
   ← / → between files on the detail; Esc closes from either.
-- **A list made narrow** (`list_is_narrow()`: under `_NAMES_ONLY_WIDTH`,
-  600 px at scale 1) draws its names only -- a navigator beside a wide
-  detail --, its filters stacked on three rows and no legend: side by
-  side they were crushed; their two extra rows are taken off the page
-  (`_STACKED_FILTERS_UNITS`), the footer kept in view. Farm's lists are left as they are.
+- **What fits in the list** (`draw_monitor_table()`): each cell's width
+  from the area's and the number of columns shown -- a fixed width
+  ignored it, and a project with many departments had its words crushed
+  on their icons. Under `_CELL_TEXT_WIDTH` (105 px at scale 1) a cell is
+  its icon alone, its words first in the tooltip; under `_CELL_ICON_WIDTH`
+  (26 px) the names alone. The list's zone narrowed under 600 px
+  (`list_is_narrow()`) also stacks its filters on three rows and drops the
+  legend; those two rows are taken off the page
+  (`_STACKED_FILTERS_UNITS`), the footer kept in view.
+- **Columns shown**: Filters' eye menu (`M_PIPELINE_MT_monitor_columns`,
+  `M_PIPELINE_OT_monitor_column_toggle`) ticks each department and Farm;
+  `hidden_columns` kept in memory for the session, as the other filters.
 - `list_area()` replaces "the biggest area" where the list is meant
   (bringing a window to the front duplicates the list's editor).
 

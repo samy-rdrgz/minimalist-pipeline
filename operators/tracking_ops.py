@@ -1436,6 +1436,11 @@ class PIPELINE_PG_monitoring(bpy.types.PropertyGroup):
         name="",
         description="Order of the list",
     )
+    # Project monitoring's columns hidden (departments, "farm"), comma-
+    # separated -- M_PIPELINE_MT_monitor_columns.
+    hidden_columns: memory_prop(
+        _monitoring_filters, "hidden_columns", bpy.props.StringProperty, "", name=""
+    )
     only_rtk: memory_prop(
         _monitoring_filters,
         "only_rtk",
