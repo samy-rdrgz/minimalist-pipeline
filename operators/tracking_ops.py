@@ -10,9 +10,12 @@ import bpy
 from ..farm import archive, farm_activity, request_monitor_refresh
 from ..lib import (
     ConfigCache,
+    keep_review,
     local_time,
+    month_folder,
     PipelineError,
     ProjectScan,
+    snapshot_videos_folder,
     SnapshotJob,
     TrackingStatusCache,
     bring_monitoring_to_front,
@@ -824,13 +827,16 @@ class M_PIPELINE_OT_import_review_confirm(bpy.types.Operator):
             return {"CANCELLED"}
         pending, _ = _pending_import
         _pending_import.clear()
-        return _run_review_import(self, [path for path, _ in pending])
+        return _run_review_import(self, pending)
 
 
-def _run_review_import(self, paths: list[Path]) -> set:
+def _run_review_import(self, pending: list[tuple[Path, dict]]) -> set:
     """The reviews' import itself, once confirmed, one file after the
-    other: notes, validations, then the description changes' own dialog
-    (a description two reviews change: the later file's, by name)."""
+    other: notes, validations, each kept as sent in snapshots/reviews/
+    (keep_review()), then the description changes' own dialog (a
+    description two reviews change: the later file's, by name)."""
+    paths = [path for path, _ in pending]
+    snapshots = ConfigCache.get_path("snapshots")
     result = {
         "imported": 0,
         "duplicates": 0,
@@ -842,13 +848,19 @@ def _run_review_import(self, paths: list[Path]) -> set:
         "skipped": [],
     }
     changes: dict[str, dict] = {}
-    for path in paths:
+    for path, plan in pending:
         try:
             one = import_review(path)
         except PipelineError as e:
             log(e.level, "review_import", e.message)
             result["skipped"].append((path.name, e.message))
             continue
+        try:
+            kept = keep_review(path, snapshots, plan)
+            if kept:
+                log("INFO", "review_import", f"{path.name} kept as {kept}")
+        except OSError as e:
+            log("WARNING", "review_import", f"{path.name} not kept in reviews/: {e}")
         for label, reason in one["skipped"]:
             log("WARNING", "review_import", f"{path.name}: {label} -- {reason}")
         log(
@@ -1060,9 +1072,9 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
             (
                 "FOLDER",
                 "Folder",
-                "Copy the videos into a videos folder beside the snapshots, to "
-                "take it elsewhere -- kept from one export to the next: only new "
-                "or changed videos are copied",
+                "Copy the videos into snapshots/videos, shared by every snapshot, "
+                "to take the snapshots folder elsewhere -- kept from one export to "
+                "the next: only new or changed videos are copied",
             ),
             (
                 "ZIP",
@@ -1106,11 +1118,11 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
             item.name = name
             item.include = name in ticked
         meta = {"project": json_get(ConfigCache.get(), "project_name") or root.name}
-        # The project's snapshots/ folder, fresh dated name -- the browser
-        # can still go elsewhere.
-        folder = ConfigCache.get_path("snapshots")
+        # The project's snapshots/<YYYY-MM>/, fresh dated name -- the
+        # browser can still go elsewhere.
+        folder = month_folder(ConfigCache.get_path("snapshots"))
         try:
-            folder.mkdir(exist_ok=True)
+            folder.mkdir(parents=True, exist_ok=True)
         except OSError:
             folder = Path(root)
         self.filepath = str(
@@ -1142,7 +1154,7 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
             info.label(text="Played from renders/, on a machine", icon="INFO")
             info.label(text="that reaches the project.", icon="BLANK1")
         elif self.videos_mode == "FOLDER":
-            info.label(text="Their videos, in videos/ beside:", icon="INFO")
+            info.label(text="Their videos, in snapshots/videos/:", icon="INFO")
             info.label(text="only new ones get copied.", icon="BLANK1")
         else:
             info.label(text="Their videos, in a zip named", icon="INFO")
@@ -1196,8 +1208,8 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
         return chosen, bool(self.include_asset_videos)
 
     def _videos_folder(self) -> Path:
-        # Beside the snapshots, shared by all of them.
-        return Path(self.filepath).parent / "videos"
+        # Shared by every snapshot: snapshots/videos/ (snapshot_videos_folder()).
+        return snapshot_videos_folder(Path(self.filepath), ConfigCache.get_path("snapshots"))
 
     def modal(self, context, event):
         if event.type != "TIMER" or not self._job.done:
@@ -1236,7 +1248,10 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
             if self.videos_mode == "ZIP":
                 base = Path(self.filepath).stem
             elif self.videos_mode == "FOLDER":
-                base = "videos"
+                # Relative to the page: "../videos" from a month's folder.
+                base = PurePath(
+                    os.path.relpath(self._videos_folder(), Path(self.filepath).parent)
+                ).as_posix()
                 names = sorted(set(names) | set(there))
             else:
                 self._videos, names = [], []

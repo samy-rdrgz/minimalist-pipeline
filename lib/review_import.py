@@ -1,9 +1,11 @@
 """Import review: a review sent back -- the .json the snapshot page's
 Review makes -- read, planned and written into the project's tracking."""
 
+import filecmp
 import hashlib
 import json
 import re
+import shutil
 from datetime import datetime
 from pathlib import Path
 
@@ -18,9 +20,12 @@ from .errors import PipelineError
 from .schedule import parse_day
 from .snapshot import (
     REVIEW_SOURCE,
+    REVIEWS_DIRNAME,
     SCHEMA_VERSION,
     TEAM_REVIEW_SOURCE,
     TEAM_ROLE,
+    _same_path,
+    month_folder,
     render_of_note,
 )
 from .tracking import (
@@ -71,6 +76,32 @@ def parse_review_date(value: str) -> datetime | None:
 
 # A review written on the snapshot page (_JS's Review): its rows, as JSON.
 REVIEW_JSON_FORMAT = "minimalist-pipeline-review"
+
+
+def keep_review(path: Path, snapshots: Path, plan: dict) -> Path | None:
+    """A copy of an imported review, as it was sent: snapshots/reviews/
+    <role>/<YYYY-MM>/ -- its role ("team", "no-role"), the month of its
+    review date (else now). The same file already there is not copied
+    again; another under the same name gets a number. None for a file
+    already kept there (imported from reviews/). Raises OSError."""
+    path = Path(path)
+    reviews = Path(snapshots) / REVIEWS_DIRNAME
+    if any(_same_path(parent, reviews) for parent in path.parents):
+        return None
+    role = TEAM_ROLE if plan.get("team") else plan.get("role") or "no-role"
+    try:
+        when = read_review(path)["review_date"]
+    except PipelineError:
+        when = None
+    folder = month_folder(reviews / re.sub(r"[^\w\-]+", "_", role), when)
+    target, n = folder / path.name, 1
+    while target.exists():
+        if filecmp.cmp(target, path, shallow=False):
+            return target
+        target, n = folder / f"{path.stem}_{n}{path.suffix}", n + 1
+    folder.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(path, target)
+    return target
 
 
 def read_review(path: Path) -> dict:

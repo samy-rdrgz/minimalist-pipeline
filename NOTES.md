@@ -3850,6 +3850,31 @@ around one idea: a list to scan, a panel to read one file.
   unfolded under rows, per-shot hover buttons in the list (the panel has
   every shot's picture).
 
+## Snapshots and reviews by month
+
+A project's `snapshots/` filled up flat: an export a day or more, their
+reviews scattered in Downloads. From 1.2 (`lib/snapshot.py`):
+
+- **A page goes in `snapshots/<YYYY-MM>/`** (`month_folder()`), the month
+  of its export. The pages of before stay at the root: moved, their
+  relative paths to `videos/` and `renders/` would break. `renders/`'s
+  path is computed from the page at each export, so a month's page finds
+  it on its own.
+- **One `snapshots/videos/`** (`snapshot_videos_folder()`) for every
+  month -- one per month would copy every video again each month. The
+  page reads it at `meta.videos.base`, now its path from the page
+  (`../videos`); a page saved anywhere but a month folder of the
+  project's `snapshots/` (the root included, as before) keeps its
+  `videos/` beside it. Taken elsewhere, the whole `snapshots/` goes: the
+  page's "not found" says so for `../`.
+- **A review imported is kept as sent** (`review_import.keep_review()`),
+  after its import went through -- none on a cancel, none when it failed:
+  `snapshots/reviews/<role>/<YYYY-MM>/` (`team` / `no-role`, the month of
+  its review date, else now's). The same bytes already there: not copied
+  again (`filecmp`, the numbered names too); another file under that
+  name: `_1`, `_2`... One picked from `reviews/` itself isn't copied. A
+  copy that fails is a log warning, never the import's failure.
+
 ## Snapshot page: lighter, its sources still commented
 
 Each snapshot carries the whole page (~177 KB before its data), so every

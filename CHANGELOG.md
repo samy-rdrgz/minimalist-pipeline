@@ -22,6 +22,11 @@ All notable changes to this addon. Dates are release dates.
 
 ### Changed
 
+- Snapshots go in a folder per month, `snapshots/<YYYY-MM>/` (the older
+  ones stay where they are). Their videos (*Folder*) stay in one
+  `snapshots/videos/` shared by every month.
+- Each review imported is kept as sent, in
+  `snapshots/reviews/<role>/<YYYY-MM>/` -- never twice the same file.
 - A snapshot is 23 KB lighter: the page's code goes without its
   comments, and its icons are written once.
 - Dates are written with their time zone: someone working from another

@@ -28,6 +28,9 @@ my_project/
 │   └── sq010/sh010/
 ├── renders/
 ├── snapshots/
+│   ├── 2026-11/
+│   ├── videos/
+│   └── reviews/
 └── exports/
 ```
 

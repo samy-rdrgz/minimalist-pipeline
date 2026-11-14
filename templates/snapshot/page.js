@@ -508,7 +508,7 @@ $('lb-in').innerHTML='';
 // HEVC tagged hev1 (compiled by an older add-on) on Safari, iPhone, iPad.
 $('lb-cap').innerHTML=(v.from==='picked'?'This browser can\'t play this video\'s format (on an iPad or in Safari: an H.265 video compiled by an older add-on -- compile it again).':
 v.from==='zip'?'Video not found. Unzip <code>'+esc(V.base)+'.zip</code> next to this page, into a folder of the same name.':
-v.from==='folder'?'Video not found: no <code>'+esc(V.base)+'</code> folder next to this page -- or this browser can\'t play its format.':
+v.from==='folder'?'Video not found: no <code>'+esc(V.base)+'</code> folder '+(V.base.indexOf('../')===0?'beside this page\'s folder (keep the snapshots folder whole)':'next to this page')+' -- or this browser can\'t play its format.':
 'Video not found in the project\'s renders -- away from the project, its videos come with the snapshot (Folder or Zip, when exporting) -- or this browser can\'t play its format.')+
 (v.from==='picked'?'':' '+pickLink('Choose the videos folder…'))+
 '<br><span style="opacity:.7">Looked for <code>'+esc(v.name)+'</code></span>'+(many&&at<list.length-1?'<br><button type="button" class="lbn" data-lb="1" aria-label="Next video">›</button>':'');});}

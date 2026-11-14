@@ -771,6 +771,34 @@ def write_snapshot(snapshot: dict, filepath: Path) -> Path:
     return Path(filepath)
 
 
+# snapshots/: a folder per month (2026-11/), the pages of before 1.2 left at
+# its root (moved, their paths to the videos would break); one videos/
+# shared by every month, and the reviews imported, kept by role and month.
+# See NOTES.md, "Snapshots and reviews by month".
+SNAPSHOT_VIDEOS = "videos"
+REVIEWS_DIRNAME = "reviews"
+_MONTH = re.compile(r"\d{4}-\d{2}$")
+
+
+def month_folder(snapshots: Path, when=None) -> Path:
+    """snapshots/<YYYY-MM>/ of when (an aware datetime; now if None)."""
+    return Path(snapshots) / f"{(when or now(False)):%Y-%m}"
+
+
+def snapshot_videos_folder(page: Path, snapshots: Path) -> Path:
+    """Where Folder mode copies a page's videos: the project's
+    snapshots/videos/ for a page in one of its month folders, shared by
+    every month; videos/ beside a page saved anywhere else."""
+    folder = Path(page).parent
+    if _MONTH.match(folder.name) and _same_path(folder.parent, snapshots):
+        return Path(snapshots) / SNAPSHOT_VIDEOS
+    return folder / SNAPSHOT_VIDEOS
+
+
+def _same_path(a: Path, b: Path) -> bool:
+    return os.path.normcase(os.path.abspath(a)) == os.path.normcase(os.path.abspath(b))
+
+
 def snapshot_filename(snapshot: dict, ext: str = "html", kind: str = "snapshot") -> str:
     """<project>_<kind>_<YYYY-MM-DD>_<HH-MM>.<ext>, from the scan's start --
     several exports a day never overwrite each other."""

@@ -337,6 +337,8 @@ Relevé du 14/11 : le JS est déjà compact (132 fonctions toutes appelées, qua
 
 ### Phase 2 — Rangement des snapshots et des reviews
 
+**Faite** (14/11) : `month_folder()`, `snapshot_videos_folder()`, `keep_review()`, testés sans Blender (`tests/test_snapshot_folders.py`). Le sélecteur d'*Import review* n'a pas été changé : voir la question 4 ci-dessous.
+
 - **Copie de la review** : après un import réussi depuis Blender, copie du fichier original dans `snapshots/reviews/<rôle>/<AAAA-MM>/`, le mois de la review. Le nom contient déjà la date, le rôle et l'auteur. Le même fichier n'est pas recopié ; un fichier différent du même nom reçoit un suffixe ; rien n'est copié si l'import est annulé. *Import review* ouvre son sélecteur sur `snapshots/reviews/`.
 - **Snapshots rangés par mois** : `snapshots/2026-11/…html`.
   - **Un seul dossier `snapshots/videos/`**, que la page trouve via `../videos` : sinon chaque mois aurait sa propre copie de toutes les vidéos (le mode *Folder* écrit aujourd'hui `videos/` à côté du snapshot, `tracking_ops.py:1207`).
@@ -427,8 +429,10 @@ Elle vient en dernier : elle repose sur le moteur d'états (phase 3), et « mes 
 ## 4. Questions encore ouvertes
 
 1. ~~Phase 1B.5~~ : **décidé**, un script de migration, avec les sauvegardes dans `backup/` à la racine du projet.
-2. **Phase 2b** : le détail à côté de la liste. Il faut vérifier en premier, dans Blender, que la découpe et la fermeture de la zone se font bien depuis l'addon (voir les points techniques).
+2. ~~Phase 2b~~ : **vérifié** dans Blender 5.2.3, la découpe et la fermeture de la zone marchent (voir la phase 2b).
 3. ~~Section 5~~ : **décidé**, une seule sortie sur le store, tout ensemble (la migration et le protocole farm 3 en font de toute façon une version qui demande tous les PC à jour).
+4. **Phase 2, le sélecteur d'*Import review*** : le plan le faisait ouvrir sur `snapshots/reviews/`. Pas fait : une review à importer arrive de l'extérieur (Téléchargements, mail), et `reviews/` ne contient que celles déjà importées, gardées par l'addon. Le sélecteur garde donc le dernier dossier utilisé par Blender. **[à confirmer]**
+5. **Phase 2, emporter un seul snapshot** : avec *Folder*, ses vidéos sont maintenant dans `snapshots/videos/`, un dossier plus haut que la page (`../videos`). Il faut emporter tout `snapshots/`, ou choisir les vidéos dans la page (*Choose the videos folder…*). Avant, la page et son `videos/` étaient côte à côte. Le *Zip* n'a pas changé. **[à confirmer]**
 
 ## 5. Versions et sorties
 
