@@ -6,8 +6,10 @@ from pathlib import Path
 import bpy
 
 from ..lib import (
+    ADDON_PACKAGE,
     ConfigCache,
     PipelineError,
+    blender_command,
     derive_shot_subranges,
     get_active_project_root,
     json_get,
@@ -89,29 +91,13 @@ def run_render_setup(job_id: str, config: dict) -> None:
             add_stage(data, "setup_start")
             box["action"] = "to_write"
 
-            entry = (
-                Path(__file__).resolve().parent.parent
-                / "templates"
-                / "farm_entry_render_setup.py"
-            )
             process = popen_logged(
-                [
-                    resolve_local_binary(config),
-                    "-b",
-                    str(to_absolute(data["filepath"])),
-                    # Exit 1 on an exception in the entry script, not 0.
-                    "--python-exit-code",
-                    "1",
-                    "--python",
-                    str(entry),
-                    "--",
-                    "--job-id",
-                    job_id,
-                    # Real (possibly namespaced) module name -- see NOTES.md,
-                    # "CSV batch: the subprocess couldn't import itself".
-                    "--addon-module",
-                    __package__.rsplit(".", 1)[0],
-                ],
+                blender_command(
+                    "farm_entry_render_setup.py",
+                    ["--job-id", job_id, "--addon-module", ADDON_PACKAGE],
+                    blend=to_absolute(data["filepath"]),
+                    binary=resolve_local_binary(config),
+                ),
                 # The job's log, never a PIPE: see popen_logged().
                 job_id,
                 "setup",

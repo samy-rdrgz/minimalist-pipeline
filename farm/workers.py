@@ -10,10 +10,12 @@ from pathlib import Path
 import bpy
 
 from ..lib import (
+    ADDON_PACKAGE,
     AdoptedProcess,
     ConfigCache,
     PipelineError,
     addon_pref,
+    blender_command,
     get_active_project_root,
     get_addon_version,
     get_machine_id,
@@ -735,59 +737,49 @@ def execute_render_request() -> dict:
         try:
             log_path = request_path.parent / f"{request_path.stem}.log"
             project_root = get_active_project_root()
-            templates_dir = Path(__file__).parent.parent / "templates"
-            entry = templates_dir / "worker_render_entry.py"
             # Closed as soon as the child has its own copy: an open handle
             # keeps Windows from deleting or moving the file.
             _clear_render_flags(data["job_id"])  # a stop left from before
             log_file = open(log_path, "wb")
             with log_file:
                 p = subprocess.Popen(
-                    [
-                        bpy.app.binary_path,
-                        "-b",
-                        str(to_absolute(data["filepath"], project_root)),
-                        "-o",
-                        str(to_absolute(data["output_path"], project_root)),
-                        "-F",
-                        data["output_extension"],
-                    ]
-                    + data["cmd_flags"]
-                    + [
-                        # Otherwise an exception in the entry script still
-                        # exits 0, reported as a successful render.
-                        "--python-exit-code",
-                        "1",
-                        "--python",
-                        str(entry),
-                        "--",
-                        "--job-id",
-                        data["job_id"],
-                        "--preset",
-                        data.get("prerender_script", ""),
-                        # Real (possibly namespaced) module name -- see NOTES.md,
-                        # "CSV batch: the subprocess couldn't import itself".
-                        "--addon-module",
-                        __package__.rsplit(".", 1)[0],
-                        # Each frame it writes, and when: who rendered what,
-                        # time per frame (queue._note_frames()).
-                        "--saved-file",
-                        str(saved_frames_path(data["job_id"], get_machine_id())),
-                        "--dispatch-id",
-                        data.get("dispatch_id") or "",
-                        # Stop after this frame.
-                        "--stop-file",
-                        str(render_stop_path(data["job_id"])),
-                        # Give way to a higher-priority job after this chunk.
-                        "--yield-file",
-                        str(render_yield_path(data["job_id"])),
-                        # Chunks: the job's size, fixed at dispatch -- never
-                        # the project's, which may have changed since.
-                        "--chunk-size",
-                        str(int(data["chunk_size"])),
-                        "--machine",
-                        get_machine_id(),
-                    ],
+                    blender_command(
+                        "worker_render_entry.py",
+                        [
+                            "--job-id",
+                            data["job_id"],
+                            "--preset",
+                            data.get("prerender_script", ""),
+                            "--addon-module",
+                            ADDON_PACKAGE,
+                            # Each frame it writes, and when: who rendered
+                            # what, time per frame (queue._note_frames()).
+                            "--saved-file",
+                            saved_frames_path(data["job_id"], get_machine_id()),
+                            "--dispatch-id",
+                            data.get("dispatch_id") or "",
+                            # Stop after this frame.
+                            "--stop-file",
+                            render_stop_path(data["job_id"]),
+                            # Give way to a higher-priority job after this chunk.
+                            "--yield-file",
+                            render_yield_path(data["job_id"]),
+                            # Chunks: the job's size, fixed at dispatch --
+                            # never the project's, which may have changed.
+                            "--chunk-size",
+                            int(data["chunk_size"]),
+                            "--machine",
+                            get_machine_id(),
+                        ],
+                        blend=to_absolute(data["filepath"], project_root),
+                        flags=[
+                            "-o",
+                            to_absolute(data["output_path"], project_root),
+                            "-F",
+                            data["output_extension"],
+                            *data["cmd_flags"],
+                        ],
+                    ),
                     stdout=log_file,
                     stderr=subprocess.STDOUT,
                     stdin=subprocess.DEVNULL,

@@ -22,6 +22,29 @@ from .background import checkpoint
 from .errors import PipelineError
 from .logs import log
 
+# The addon's real (possibly namespaced) module name: "bl_ext.<repo>.
+# minimalist_pipeline" for an extension install. See NOTES.md, "CSV batch:
+# the subprocess couldn't import itself".
+ADDON_PACKAGE = __package__.rsplit(".", 1)[0]
+TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
+
+
+def blender_command(
+    script: str, args=(), *, blend=None, flags=(), factory: bool = False, binary: str = ""
+) -> list[str]:
+    """The command running templates/<script> in a background Blender (this
+    one's binary, or binary): blend opened first with its flags (-o, -F...),
+    an exception in the script exiting 1 (not 0, a success), args after
+    "--". factory: --factory-startup, no addon or preferences loaded."""
+    cmd = [binary or bpy.app.binary_path, "-b"]
+    if blend:
+        cmd.append(str(blend))
+    cmd += [str(f) for f in flags]
+    if factory:
+        cmd.append("--factory-startup")
+    cmd += ["--python-exit-code", "1", "--python", str(TEMPLATES_DIR / script), "--"]
+    return cmd + [str(a) for a in args]
+
 
 def get_addon_version() -> str:
     """This addon's version as "X.Y.Z", read via addon_utils (same source as
@@ -30,12 +53,9 @@ def get_addon_version() -> str:
     Falls back to "0.0.0" rather than raising -- metadata, never worth blocking on."""
     import addon_utils
 
-    # "bl_ext.<repo>.minimalist_pipeline.lib" -> "bl_ext.<repo>.minimalist_pipeline"
-    # (an extension install is namespaced, same as addon_pref() below).
-    addon_name = __package__.rsplit(".", 1)[0]
     try:
         for mod in addon_utils.modules():
-            if mod.__name__ == addon_name:
+            if mod.__name__ == ADDON_PACKAGE:
                 version = mod.bl_info.get("version", (0, 0, 0))
                 return ".".join(str(x) for x in version)
     except Exception:
@@ -65,10 +85,7 @@ def addon_pref(context: bpy.types.Context | None = None):
     """Return addon preferences."""
     try:
         ctx = context or bpy.context
-        pkg = __package__.rsplit(".", 1)[
-            0
-        ]  # "minimalist_pipeline.lib" → "minimalist_pipeline"
-        return ctx.preferences.addons[pkg].preferences
+        return ctx.preferences.addons[ADDON_PACKAGE].preferences
     except Exception:
         return None
 

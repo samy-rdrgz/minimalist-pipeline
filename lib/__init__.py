@@ -65,6 +65,9 @@ from .config import (
     validation_roles,
 )
 from .core import (
+    ADDON_PACKAGE,
+    TEMPLATES_DIR,
+    blender_command,
     box_tip_units,
     SIDE_BY_SIDE_WIDTH,
     AdoptedProcess,
