@@ -1,6 +1,6 @@
 # Plan 1.2 — récapitulatif des modifications
 
-*État au 14/11/2026, à partir de la 1.1.10 (branche `claude/tender-tesla-ov9148`). Rien n'est codé : ce document fixe les décisions prises et l'architecture retenue. Les points marqués **[à confirmer]** restent à trancher.*
+*État au 14/11/2026, à partir de la 1.1.10 ; roadmap des versions 1.2.0 et 2.0.0 (branche `claude/tender-tesla-ov9148`). Rien n'est codé : ce document fixe les décisions prises et l'architecture retenue. Les points marqués **[à confirmer]** restent à trancher.*
 
 Hypothèse de départ, validée : **tous les PC sont mis à jour en même temps.** Le code qui gère des machines sur des versions différentes peut donc disparaître.
 
@@ -16,7 +16,7 @@ Hypothèse de départ, validée : **tous les PC sont mis à jour en même temps.
 - Le reste de la branche, c'est ce document.
 - **À décider avant la phase 1** : fusionner d'abord ces deux changements dans `main`, puis partir de `main` pour la phase 1.
 
-**Ordre de travail** : les phases 1 à 6 de la section 3, dans l'ordre. **La phase 1 (simplification) passe avant tout le reste.** Seule la question 1 de la section 4 la concerne (étape 1B.5) ; les autres peuvent attendre les phases suivantes.
+**Ordre de travail** : les phases de la section 3, dans l'ordre (1, 2, 2b, 3, 4, 5, 6). **La phase 1 (simplification) passe avant tout le reste.** Les sorties prévues, 1.2.0 puis 2.0.0, sont décrites en section 5. Les questions encore ouvertes (section 4) ne bloquent pas le début de la phase 1.
 
 **Comment tester sans Blender** (aucun Blender dans les sessions cloud) :
 - **Importer tout l'addon avec un faux `bpy`** : chaque module `bpy*`, `mathutils`, `gpu`, `blf`, `bmesh`… remplacé par un `MagicMock`, sauf `bpy.types`, à remplacer par un module dont chaque attribut est une classe vide (sinon `class X(bpy.types.Panel)` échoue). Puis `import <paquet>` depuis un dossier qui pointe vers le dépôt. Ça attrape les imports cassés et les noms manquants dans les `__init__`.
@@ -122,9 +122,10 @@ La réponse est de ne pas raisonner par RTK, mais avec **une seule date par dép
 - **Plusieurs RTK en amont ne posent pas de problème** : la date couvre tous les changements jusqu'à maintenant. Un nouveau changement après cette date fait revenir « À reprendre ».
 - Seuls les départements **commencés** peuvent être « À reprendre ». Un département pas encore commencé partira de toute façon de la dernière version.
 
-**[à confirmer]** Une précision sur la remise à jour automatique. Exemple : le layout de sh010 change, le lighting passe donc en « À reprendre ». Le graphiste lighting ouvre le fichier, retouche une lumière et enregistre. Cette session de travail compte comme remise à jour, et « À reprendre » disparaît, **alors qu'aucun nouveau rendu lighting n'a été fait** avec le nouveau layout.
-- **Règle simple (recommandée)** : une session de travail **ou** un rendu remettent à jour, pour tous les départements. Rien à configurer. Le cas ci-dessus est accepté : le graphiste a travaillé dessus après le changement.
-- **Règle stricte** : pour certains départements (lighting, render…), seul un nouveau rendu tagué remet à jour. Plus juste, mais il faut une liste de « départements de rendu » dans la config.
+**La règle de remise à jour automatique : un enregistrement avec le département coché comme travaillé.** Ni le rendu ni l'incrément ne sont obligatoires dans le pipeline, donc aucun des deux ne peut être la condition.
+- Un département est remis à jour par un **enregistrement** (la date du save), dans une session où il a été **coché comme travaillé**, **après** le changement en amont. Un rendu tagué à son nom compte aussi, mais n'est pas nécessaire.
+- **Le piège dans les données actuelles** : un `.wipmeta` n'a qu'**une** date, `edited_at`, mise à jour à chaque save (`wipmeta_touch()`), alors que `departments_worked` liste les départements **par session**. Exemple : « animation » est coché lundi dans la version v005, le layout change mardi, et quelqu'un enregistre v005 mercredi sans rien cocher. La date du fichier devient mercredi, et l'animation passerait pour remise à jour alors que personne n'y a touché.
+- **La correction** : noter la date du dernier enregistrement **de chaque session**, avec ses départements cochés : `departments_worked: {<session>: {"departments": [...], "saved_at": "..."}}`. Le script de migration (1B.5) convertit les anciens fichiers, en prenant `edited_at` comme date de leurs sessions.
 
 ### 2.3 Une review = une liste d'actions typées (fin du format tableur)
 
@@ -276,10 +277,11 @@ Méthode :
 **Le script : un bouton « Migrer les anciennes données » dans Maintenance**, lancé une fois par projet :
 1. il écrit dans les vieux `.stablemeta` les validations que `_legacy_carried()` calcule ;
 2. il complète les vieilles entrées de `render_history.json` (`source_file`, `shot_override`, `frame_range_rendered`) avec les mêmes déductions qu'aujourd'hui ;
-3. il fait une sauvegarde de chaque fichier avant de le réécrire, et indique ce qu'il a changé ;
+3. il fait une sauvegarde de chaque fichier avant de le réécrire, **jamais à côté du fichier** : tout va dans un seul dossier à la racine du projet, `backup/migration-<AAAA-MM-JJ_HH-MM>/`, qui reprend le chemin relatif de chaque fichier (`backup/migration-…/shots/sq080/sh010/.pipeline/tracking.json`). Une migration vérifiée se nettoie donc en supprimant un seul dossier, sans aller chercher des petits fichiers partout ;
+   - il indique ce qu'il a changé, fichier par fichier ;
 4. il note dans la config du projet qu'il a été lancé.
 
-Dans la version suivante, on retire `_legacy_carried()`, la recherche de secours de `snapshot.py:110` et l'estimation « preset unknown ». On garde la lecture défensive de `_folder_frames()` : elle coûte quelques lignes et sert aussi quand l'historique manque.
+Le script permet de **supprimer tout le legacy actuel** : `_legacy_carried()`, la recherche de secours de `snapshot.py:110`, l'estimation « preset unknown ». Il porte aussi les conversions de format de la 1.2 elle-même (les dates sans décalage de 1C, `departments_worked` avec la date de chaque session, voir 2.2). Le code n'a ensuite plus qu'une seule forme de données à lire. On garde seulement la lecture défensive de `_folder_frames()` : elle coûte quelques lignes et sert aussi quand l'historique manque.
 
 #### 1C — Dates avec fuseau horaire (voir 2.7)
 
@@ -317,6 +319,8 @@ Dans la version suivante, on retire `_legacy_carried()`, la recherche de secours
 - **La fermer** : `bpy.ops.screen.area_close()`, dans le même contexte.
 - **Savoir quelle zone est le détail** : une zone Blender n'a pas de propriété personnalisée. Il faudra la reconnaître par sa position (la plus à droite des deux) ou par son rang dans `screen.areas`. Chaque panneau dessine alors soit la liste, soit le détail, selon la zone dans laquelle il est.
 - **L'interaction avec ce qui existe** : la fenêtre au premier plan, la réouverture sur le détail (Ctrl+clic), les fichiers ouverts par le pipeline qui gardent la fenêtre, le masquage de l'outil actif (voir NOTES.md, « Monitoring windows… »).
+- **Le rafraîchissement de l'affichage ne pose pas de problème** : `redraw_monitoring()` et `status_changed()` (`lib/monitoring.py`) passent déjà sur **toutes** les zones Properties de la fenêtre. La zone de détail sera donc redessinée comme la liste.
+- **Deux fonctions choisissent aujourd'hui « la plus grande zone »** de la fenêtre (`lib/monitoring.py:89`, à l'ouverture, et `:213`, pour la mettre au premier plan). Avec deux zones, elles doivent viser explicitement la liste.
 - **À faire après la phase 1A**, qui aura déjà réécrit les écrans de détail en boucles.
 
 ### Phase 3 — Moteur d'états et hiérarchie des départements
@@ -324,6 +328,7 @@ Dans la version suivante, on retire `_legacy_carried()`, la recherche de secours
 - `lib/status.py` (2.1), branché partout où un état est affiché. On remplace les calculs actuels au lieu d'en ajouter.
 - `department_stages` dans la config, avec le champ « étape » dans Edit project.
 - Les états **Waiting** et **À reprendre** (2.2), et `departments_synced` dans `tracking.json`.
+- `departments_worked` avec la date de chaque session (2.2), écrite à chaque enregistrement. Les anciens fichiers sont convertis par la migration (1B.5).
 - Le bouton **« Toujours done »** dans File details et le panneau latéral, ouvert à tous : comme le travail lui-même, ce n'est pas une validation.
 - **« Omit / On hold »** (2.6) : le marqueur, son bouton dans File details, et son exclusion par le moteur.
 - Les nouvelles marques dans la légende : panneau, Project monitoring, page snapshot.
@@ -371,11 +376,31 @@ Elle vient en dernier : elle repose sur le moteur d'états (phase 3), et « mes 
 
 ## 4. Questions encore ouvertes
 
-1. **Phase 1B.5** : je recommande le **script de migration** plutôt qu'une couche legacy. Le détail et ce qui casserait sans rien faire sont dans 1B.5. À confirmer.
-2. **2.2** : la remise à jour automatique d'un département se fait-elle par une session de travail **ou** un rendu (règle simple, recommandée), ou, pour certains départements, **seulement** par un nouveau rendu (règle stricte) ? L'exemple est dans 2.2.
-3. **Phase 2b** : le détail à côté de la liste. Il faut vérifier en premier, dans Blender, que la découpe et la fermeture de la zone se font bien depuis l'addon (voir les points techniques).
+1. ~~Phase 1B.5~~ : **décidé**, un script de migration, avec les sauvegardes dans `backup/` à la racine du projet.
+2. **Phase 2b** : le détail à côté de la liste. Il faut vérifier en premier, dans Blender, que la découpe et la fermeture de la zone se font bien depuis l'addon (voir les points techniques).
+3. **Section 5** : sortir en deux versions (1.2.0 compatible, puis 2.0.0), ou tout ensemble en 2.0.0 ?
 
-## Écarté, et pourquoi
+## 5. Versions et sorties
+
+Je propose de sortir le plan **en deux versions**, plutôt qu'en un seul bloc.
+
+**1.2.0 — plus léger, sans rien changer aux données** : phases 1A et 1B (sauf 1B.5), 2 et 2b.
+- L'addon est allégé et factorisé, l'xlsx et le CHANGELOG sont retirés du zip, les reviews et les snapshots sont rangés, et le détail s'affiche à côté de la liste.
+- Les données du projet restent lisibles par un PC encore en 1.1.10 : tout se teste sans risque.
+
+**2.0.0 — des données qui changent, donc une version majeure** : 1B.5 (migration), 1C (dates avec fuseau), puis les phases 3 à 6.
+- **Les dates avec décalage cassent les anciennes versions.** Une 1.1.x compare les dates lues avec `datetime.now()`, sans fuseau, et Python lève une erreur entre une date avec fuseau et une date sans. Un seul PC oublié en 1.1.x planterait sur le projet.
+- **Le nouveau format de review** n'est pas lisible par les versions précédentes, et la migration réécrit les données.
+- Le choix de 2.0.0 le signale : **tous les PC à jour en même temps, puis la migration lancée une fois.**
+
+**À garder malgré le retrait du code entre versions (1B.4)** : une **seule** vérification de version. Une machine qui n'a pas la même version de la farm que l'hôte est refusée, avec un message clair. Aujourd'hui, c'est `FARM_PROTOCOL` qui le fait. Sans cette vérification, une machine oubliée se comporterait mal sans rien dire, au lieu d'être écartée.
+
+**Avant chaque sortie :**
+- la doc (EN et FR), le CHANGELOG et NOTES.md à jour ;
+- un test dans Blender des points marqués « à vérifier dans Blender » ;
+- **lire les notes de version de Blender 5.0 à 5.3** : les pages autres que l'API Python 5.3 n'ont pas pu être lues. À noter : `UILayout.label_multiline()` (5.3) pourrait remplacer le passage à la ligne fait à la main, avec l'ancienne méthode gardée pour 4.2 à 5.2.
+
+## 6. Écarté, et pourquoi
 
 | Idée | Pourquoi on ne la fait pas |
 |---|---|
@@ -387,7 +412,7 @@ Elle vient en dernier : elle repose sur le moteur d'états (phase 3), et « mes 
 | Accès client, Slack, comptes utilisateurs | Il faudrait un serveur ; l'addon reste « tout en JSON sur le partage » |
 | Supprimer les previews compilées sur un worker | On les garde (plusieurs previews d'un coup peuvent être longues) ; on factorise seulement leur mécanique (1A.1) |
 
-## 5. Effet attendu sur le poids
+## 7. Effet attendu sur le poids
 
 - **Phase 1** : −94 Ko (CHANGELOG), environ −600 lignes (xlsx), environ −80 à 100 lignes (previews), les retraits de compatibilité, et les écrans en boucles, qui devraient être le plus gros gain : panneau farm, File details, Edit project, de l'ordre de quelques centaines de lignes (estimation grossière). Le poids sera mesuré avant et après chaque étape.
 - **Phases 3 à 5** : elles ajoutent du code, surtout le moteur d'états et son jumeau JS. Mais ce moteur *remplace* les calculs d'états répartis aujourd'hui, et le format en actions rend l'import plus simple que l'actuel.
