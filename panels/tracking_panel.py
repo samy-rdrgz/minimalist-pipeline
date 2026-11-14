@@ -1043,15 +1043,11 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None)
         if self.file_type == "asset"
         else TYPE_ICON.get("sh", "OUTLINER_OB_CAMERA")
     )
-    op = name.operator(
-        "m_pipeline.tracking_file_details",
-        text=file.get("file_name", "Unknown"),
-        icon=icon,
-        emboss=False,
+    # Right-click: its folders, a render.
+    icon_button(
+        name, "m_pipeline.tracking_file_details", icon, text=file.get("file_name", "Unknown"),
+        filepath=str(dir), custom_tooltip=file.get("description", ""), rmb="file",
     )
-    op.filepath = str(dir)
-    op.custom_tooltip = file.get("description", "")
-    op.rmb = "file"  # right-click: its folders, a render
 
     details = name.row()
     details.alignment = "RIGHT"
@@ -1059,18 +1055,11 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None)
         # A retake on no department: its own button, as a department's cell.
         gen = details.row()
         gen.alert = True
-        op = gen.operator("m_pipeline.department_rtks", text="", icon="LOOP_BACK", emboss=False)
-        op.folder = str(dir)
-        op.department = ""
-        op.custom_tooltip = "A retake on no department"
+        icon_button(gen, "m_pipeline.department_rtks", "LOOP_BACK", "A retake on no department",
+                    folder=str(dir), department="")
     details = details.row()
     details.active = False
-    details.operator(
-        "m_pipeline.open_file_version",
-        text="",
-        icon=safe_icon("FILE_ALIAS", "FILE_BLEND"),
-        emboss=False,
-    ).filepath = str(dir)
+    icon_button(details, "m_pipeline.open_file_version", safe_icon("FILE_ALIAS", "FILE_BLEND"), filepath=str(dir))
     cells = _equal_cells(split.row(), len(columns) + 1)
     roles = validation_roles()
     top = max((r["level"] for r in roles), default=None)
@@ -1084,25 +1073,7 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None)
             # disabled row disables whatever it holds.
             status = icon_row.row(align=True)
             tooltip = department_status_tooltip(file, c)
-            best = None
-            if (
-                c in file["validated_departments"]
-                and c not in file["worked_departments"]
-            ):
-                # Its highest validation, if any: "Done · prod".
-                best = highest_approval(file, c)
-                text, row_icon = (
-                    (f"Done · {best}", "SOLO_ON") if best else ("Done", "CHECKMARK")
-                )
-            elif c in file["validated_departments"] and c in file["worked_departments"]:
-                text, row_icon = "Done, reworked since", "CHECKBOX_DEHLT"
-            elif c in file["worked_departments"] or c in file.get(
-                "started_departments", ()
-            ):
-                # Worked since, or validated/worked before the latest stable.
-                text, row_icon = "In progress", "CHECKBOX_DEHLT"
-            else:
-                text, row_icon = "Not started", "CHECKBOX_DEHLT"
+            text, row_icon, best = _department_cell(file, c)
             # Icon then text, each its own button in a left-aligned row:
             # one button's text is centred in its cell (both keep the tooltip).
             # Labels as the snapshot page's. An open RTK: clickable, its
@@ -1116,24 +1087,35 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None)
                 button = status.row(align=True)
                 button.alignment = "LEFT"  # its own width, not the cell's
                 button.enabled = under_rtk or (star and t == "")
-                op = button.operator(
-                    "m_pipeline.department_rtks"
-                    if under_rtk
-                    else "m_pipeline.department_status_info",
-                    text=t,
-                    icon=i,
-                    emboss=False,
-                )
-                op.custom_tooltip = tooltip
                 if under_rtk:
-                    op.folder = str(dir)
-                    op.department = c
+                    icon_button(button, "m_pipeline.department_rtks", i, text=t,
+                                custom_tooltip=tooltip, folder=str(dir), department=c)
+                else:
+                    icon_button(button, "m_pipeline.department_status_info", i, tooltip, text=t)
         else:
-            # Not required: "–", as the snapshot and its spreadsheet.
+            # Not required: "–", as the snapshot.
             icon_row.active = False
             icon_row.label(text="–", icon="BLANK1")
     _draw_farm_cell(cells[-1], dir, file, jobs or [])
     f_list.separator(factor=0.5, type="LINE")
+
+
+def _department_cell(file: dict, department: str) -> tuple[str, str, str | None]:
+    """(text, icon, its highest validation) of a department's cell in
+    Project monitoring: done (validated at the latest stable, not worked
+    since -- "Done · prod" once validated by a role), done and reworked
+    since, in progress (worked since, or validated / worked before the
+    latest stable), not started. Labels as the snapshot page's."""
+    validated = department in file["validated_departments"]
+    worked = department in file["worked_departments"]
+    if validated and not worked:
+        best = highest_approval(file, department)
+        return (f"Done · {best}", "SOLO_ON", best) if best else ("Done", "CHECKMARK", None)
+    if validated:
+        return "Done, reworked since", "CHECKBOX_DEHLT", None
+    if worked or department in file.get("started_departments", ()):
+        return "In progress", "CHECKBOX_DEHLT", None
+    return "Not started", "CHECKBOX_DEHLT", None
 
 
 def _equal_cells(layout, count: int) -> list:
