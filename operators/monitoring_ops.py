@@ -213,6 +213,10 @@ class M_PIPELINE_OT_monitor_column_toggle(bpy.types.Operator):
         return {"FINISHED"}
 
 
+# In hidden_columns: the states' words hidden (no department has a "·").
+WORDS_OFF = "·words"
+
+
 class M_PIPELINE_MT_monitor_columns(bpy.types.Menu):
     """Project monitoring's columns, each ticked while shown."""
 
@@ -232,3 +236,12 @@ class M_PIPELINE_MT_monitor_columns(bpy.types.Menu):
                 icon="CHECKBOX_DEHLT" if column in hidden else "CHECKBOX_HLT",
             )
             op.column = column
+        # The states' words beside their marks: off, the marks alone (the
+        # words stay in the tooltips). Kept with the hidden columns.
+        self.layout.separator()
+        op = self.layout.operator(
+            "m_pipeline.monitor_column_toggle",
+            text="States' words",
+            icon="CHECKBOX_DEHLT" if WORDS_OFF in hidden else "CHECKBOX_HLT",
+        )
+        op.column = WORDS_OFF

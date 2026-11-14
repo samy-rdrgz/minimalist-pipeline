@@ -1030,6 +1030,8 @@ def draw_monitor_table(self, context, layout, columns, project_root):
     FIRST_COLUMN, shares, icon_only = _column_widths(
         context.region.width / scale, shown, len(columns), show_farm, activity
     )
+    # The marks alone, by choice (Filters > the columns menu).
+    icon_only = icon_only or "·words" in hidden
 
     draw_box_tip(layout, context, _TABLE_TIP)
     f_list = layout.box()

@@ -4007,6 +4007,9 @@ the right of the same window. Tried first outside the addon in Blender
 - **Columns shown**: Filters' eye menu (`M_PIPELINE_MT_monitor_columns`,
   `M_PIPELINE_OT_monitor_column_toggle`) ticks each department and Farm;
   `hidden_columns` kept in memory for the session, as the other filters.
+  *States' words* under them: off, the marks alone whatever the width
+  (`WORDS_OFF`, "·words", a token in the same string -- no department
+  name has a "·").
 - `list_area()` replaces "the biggest area" where the list is meant
   (bringing a window to the front duplicates the list's editor).
 
