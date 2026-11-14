@@ -858,6 +858,7 @@ def draw_file_details(state, context, layout):
 # What Project monitoring's window holds besides its rows (filters,
 # table header, footer, margins), in widget units -- see rows_that_fit().
 _TABLE_RESERVED_UNITS = 6.5
+_STACKED_FILTERS_UNITS = 2.0
 _TABLE_TIP = (
     "Click a file for its details (Ctrl+click the Project monitoring button: "
     "the file open here). Each department's state since the last stable, "
@@ -989,7 +990,10 @@ def draw_monitor_table(self, context, layout, columns, project_root):
 
     per_page = rows_that_fit(
         context,
-        _TABLE_RESERVED_UNITS + box_tip_units(context, _TABLE_TIP),
+        _TABLE_RESERVED_UNITS
+        + box_tip_units(context, _TABLE_TIP)
+        # The filters stacked on three rows (monitoring_panel.py): two more.
+        + (_STACKED_FILTERS_UNITS if narrow else 0),
         kind="project",
     )
     shown, page, pages = paginate(
