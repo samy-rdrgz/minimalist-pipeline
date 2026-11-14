@@ -8,7 +8,7 @@ from pathlib import Path
 
 import bpy
 
-from ..lib.status import parse_stages, stages_text
+from ..lib.status import departments_text, parse_departments
 from ..lib import (
     DEFAULT_ASSET_DEPARTMENTS,
     DEFAULT_SHOT_DEPARTMENTS,
@@ -577,23 +577,16 @@ class ProjectSettings:
     tags: bpy.props.StringProperty(name="", default="stable")
 
     assets_departments: bpy.props.StringProperty(
-        name="", default="modeling,texturing,rigging,tech"
+        name="", default="modeling,texturing,rigging,tech",
+        description="The departments, in order: a comma between them. Stages: a > b, c > d "
+        "-- a department after a > waits for the ones before it and is to redo when "
+        "they change; a comma, the same stage (in parallel). Commas only: no stages",
     )
     shots_departments: bpy.props.StringProperty(
-        name="", default="layout,animation,lighting,render"
-    )
-    # Stage order (docs/plan-1.2.md 2.2): "layout > animation > fx, lighting".
-    assets_stages: bpy.props.StringProperty(
-        name="",
-        description="Which department comes after which: a > b > c, a comma for the "
-        "same stage (in parallel). A department waits for the ones before it, and is "
-        "to redo when they change. Empty: no stages",
-    )
-    shots_stages: bpy.props.StringProperty(
-        name="",
-        description="Which department comes after which: a > b > c, a comma for the "
-        "same stage (in parallel). A department waits for the ones before it, and is "
-        "to redo when they change. Empty: no stages",
+        name="", default="layout,animation,lighting,render",
+        description="The departments, in order: a comma between them. Stages: a > b, c > d "
+        "-- a department after a > waits for the ones before it and is to redo when "
+        "they change; a comma, the same stage (in parallel). Commas only: no stages",
     )
     validation_roles: bpy.props.StringProperty(
         name="",
@@ -675,9 +668,7 @@ class ProjectSettings:
             ("LIBRARY PREFIX", "TOOL_SETTINGS", "library_prefixes"),
             ("VERSION TAGS", "BOOKMARKS", "tags"),
             ("ASSETS DEPARTMENTS", "COPY_ID", "assets_departments"),
-            ("ASSETS STAGES", "SORTSIZE", "assets_stages"),
             ("SHOTS DEPARTMENTS", "COPY_ID", "shots_departments"),
-            ("SHOTS STAGES", "SORTSIZE", "shots_stages"),
         ])
         all_pf = self.asset_prefixes + "," + self.library_prefixes
         _example(
@@ -771,15 +762,14 @@ class ProjectSettings:
         self.library_prefixes = self._list_to_csv(structure.get("library_prefixes", []))
         self.project_folders = self._list_to_csv(structure.get("project_folders", []))
         self.tags = self._list_to_csv(config.get("tags", ["stable"]))
-        self.assets_departments = self._list_to_csv(
-            config.get("assets_departments", DEFAULT_ASSET_DEPARTMENTS),
-        )
-        self.shots_departments = self._list_to_csv(
-            config.get("shots_departments", DEFAULT_SHOT_DEPARTMENTS),
-        )
+        # One field each: the list and its stages (lib/status.py).
         stages = config.get("department_stages") or {}
-        self.assets_stages = stages_text(stages.get("assets"))
-        self.shots_stages = stages_text(stages.get("shots"))
+        self.assets_departments = departments_text(
+            config.get("assets_departments", DEFAULT_ASSET_DEPARTMENTS), stages.get("assets")
+        )
+        self.shots_departments = departments_text(
+            config.get("shots_departments", DEFAULT_SHOT_DEPARTMENTS), stages.get("shots")
+        )
         self.validation_roles = ",".join(
             f"{r['name']}:{r['level']}" for r in validation_roles(config)
         )
@@ -827,19 +817,12 @@ class ProjectSettings:
                     "library_prefixes": self._csv_to_list(self.library_prefixes),
                 },
                 "tags": self._csv_to_list(self.tags),
-                "assets_departments": self._csv_to_list(self.assets_departments),
-                "shots_departments": self._csv_to_list(self.shots_departments),
+                "assets_departments": parse_departments(self.assets_departments)[0],
+                "shots_departments": parse_departments(self.shots_departments)[0],
                 "validation_roles": self._roles_from_csv(self.validation_roles),
-                # Only the departments each kind has: a typo left out.
                 "department_stages": {
-                    kind: {
-                        d: s for d, s in parse_stages(text).items()
-                        if d in [x.lower() for x in self._csv_to_list(deps)]
-                    }
-                    for kind, text, deps in (
-                        ("assets", self.assets_stages, self.assets_departments),
-                        ("shots", self.shots_stages, self.shots_departments),
-                    )
+                    "assets": parse_departments(self.assets_departments)[1],
+                    "shots": parse_departments(self.shots_departments)[1],
                 },
                 # "farm": only stuck_frame_factor, priority_switch_minutes,
                 # chunk_size and default_prerender_script are edited here, the

@@ -75,23 +75,30 @@ def file_progress(item: dict, weights: dict) -> float | None:
 # ---------------------------------------------------------------------------
 
 
-def parse_stages(text: str) -> dict[str, int]:
-    """Edit project's stage order, "layout > animation > fx, lighting >
-    render", as {department: stage} from 1 -- a comma: the same stage (in
-    parallel). Empty: no stages."""
-    stages = {}
+def parse_departments(text: str) -> tuple[list[str], dict[str, int]]:
+    """Edit project's departments field, "layout > animation > fx,
+    lighting > render": the departments as written, and their stages
+    {department: stage} from 1 -- ">" the next stage, "," the same one (in
+    parallel). Commas only (one stage): no stages, {}."""
+    departments, stages = [], {}
     for i, part in enumerate(p for p in str(text or "").split(">") if p.strip()):
         for d in part.split(","):
-            if d.strip():
-                stages[d.strip().lower()] = i + 1
-    return stages
+            d = d.strip()
+            if d and d.lower() not in stages:
+                departments.append(d)
+                stages[d.lower()] = i + 1
+    return departments, stages if len(set(stages.values())) > 1 else {}
 
 
-def stages_text(stages: dict) -> str:
-    """parse_stages()'s text back from {department: stage}."""
+def departments_text(departments: list, stages: dict) -> str:
+    """parse_departments()'s field back: by stage, each stage's in the
+    list's order; commas only without stages. One the stages leave out
+    goes with the first."""
+    if not stages:
+        return ", ".join(str(d) for d in departments)
     by_stage: dict[int, list] = {}
-    for d, s in (stages or {}).items():
-        by_stage.setdefault(int(s), []).append(d)
+    for d in departments:
+        by_stage.setdefault(int(stages.get(str(d).lower(), 1)), []).append(str(d))
     return " > ".join(", ".join(by_stage[s]) for s in sorted(by_stage))
 
 

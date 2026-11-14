@@ -51,11 +51,14 @@ def main() -> None:
     old = {"file": "b.blend", "edited_at": "2026-11-11T12:00:00+00:00", "departments_worked": {"x": ["anim"]}}
     assert list(tracking._worked_departments([old], tuesday)) == ["anim"]
     # Stages: Waiting and To redo.
-    assert status.parse_stages("Layout > anim > fx, light > render") == {
-        "layout": 1, "anim": 2, "fx": 3, "light": 3, "render": 4}
-    assert status.stages_text({"layout": 1, "anim": 2, "fx": 3, "light": 3}) == "layout > anim > fx, light"
-    assert status.parse_stages("") == {}
-    stages = status.parse_stages("layout > anim > fx, light")
+    deps, stages = status.parse_departments("Layout > anim > fx, light > render")
+    assert deps == ["Layout", "anim", "fx", "light", "render"], deps
+    assert stages == {"layout": 1, "anim": 2, "fx": 3, "light": 3, "render": 4}, stages
+    assert status.departments_text(deps, stages) == "Layout > anim > fx, light > render"
+    assert status.parse_departments("layout, anim,render") == (["layout", "anim", "render"], {})
+    assert status.departments_text(["layout", "anim"], {}) == "layout, anim"
+    assert status.parse_departments("") == ([], {})
+    stages = status.parse_departments("layout > anim > fx, light")[1]
     base = {"departments_required": ["layout", "anim", "fx", "light"],
             "validated_departments": {"layout": True}, "worked_departments": {},
             "started_departments": ["anim"],

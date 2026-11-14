@@ -6,7 +6,8 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
-- Stages (Edit project: `layout > animation > fx, lighting > render`):
+- Stages, written in Edit project's departments field (`layout >
+  animation > fx, lighting > render`; commas only, as before: none):
   a department shows *Waiting* while an earlier stage has an open RTK or
   isn't started, and *To redo* once an earlier stage changed after its
   last update -- until it's saved again as worked, or marked *Still done*

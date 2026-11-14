@@ -39,7 +39,7 @@ Un bloc multishot peut taguer une note/todo avec le shot du bloc concerné — v
 
 ## Étapes : Waiting et À reprendre
 
-**Étapes** (Edit project, *Assets stages* / *Shots stages*) : quel département vient après lequel, `layout > animation > fx, lighting > render` -- une virgule pour des départements en parallèle. Vide : pas d'étapes, rien ne change. Un département absent n'a pas d'étape. Rien n'est jamais bloqué : c'est de l'information.
+**Étapes** (Edit project, dans le champ des départements lui-même) : `layout > animation > fx, lighting > render` -- `>` l'étape suivante, une virgule pour des départements en parallèle. Seulement des virgules (`layout, animation, lighting, render`, comme avant) : pas d'étapes, rien ne change. Rien n'est jamais bloqué : c'est de l'information.
 
 - **Waiting** : une étape précédente a un RTK ouvert, ou n'est pas commencée -- *Waiting: layout RTK*, *Waiting: layout not started*. Affiché à la place de l'état du département dans Project monitoring ; son état propre reste dans l'infobulle.
 - **To redo** (à reprendre) : un département déjà commencé dont une étape précédente a changé après sa dernière mise à jour -- un RTK de cette étape fermé, ou un stable fait avec elle retravaillée -- *To redo: layout changed on 12/11*. Sa dernière mise à jour : un enregistrement dans une session où il était coché comme travaillé, ou **Still done**.

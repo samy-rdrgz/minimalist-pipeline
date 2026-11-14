@@ -3853,8 +3853,10 @@ around one idea: a list to scan, a panel to read one file.
 ## Waiting and To redo
 
 Phase 3C of docs/plan-1.2.md: a department's place in its kind's stages
-(`department_stages` in the config, Edit project's `a > b, c > d`,
-`parse_stages()`), and two states computed on every read, never stored
+(`department_stages` in the config; written in Edit project's departments
+field itself, `a > b, c > d` -- `parse_departments()` / `departments_text()`:
+one field, nothing to type twice or to contradict; commas only, one stage,
+no stages, so older projects read as before), and two states computed on every read, never stored
 (lib/status.py `stage_flags()`, into the status as `flags`):
 
 - **Waiting**: an earlier stage with an open RTK, else one not started --

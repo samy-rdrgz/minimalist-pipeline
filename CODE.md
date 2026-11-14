@@ -149,7 +149,7 @@ minimalist_pipeline/
 │   ├── logs.py                 # log(), read_log_tail()
 │   ├── status.py               # State engine: department_state(), STATE_LABELS,
 │   │                            #   department_score(), file_progress(), progress_weights();
-│   │                            #   parse_stages(), stage_flags() (Waiting / To redo)
+│   │                            #   parse_departments(), departments_text(), stage_flags()
 │   ├── monitoring.py           # Project/Farm monitoring windows: open_monitoring_window(),
 │   │                            #   monitoring_windows(), _monitoring_tick, open_mainfile();
 │   │                            #   the detail beside the list: sync_detail_zones(),
