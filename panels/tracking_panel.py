@@ -1241,6 +1241,8 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, shares, jo
             star = text.startswith("Done · ") and best in top_roles
             if star:
                 row_icon = "mark:done_top"
+            elif best:
+                row_icon = "mark:valid"  # by a lower role
             # Too narrow for the words: the icon alone, its words first in
             # the tooltip.
             if icon_only:
@@ -1312,9 +1314,10 @@ _TO_CHECK_ICON = job_icon("finished")
 _STATES_LEGEND = (
     ("mark:todo", "Not started"),
     ("mark:wip", "In progress"),
-    ("mark:done", "Done"),
-    ("mark:done_top", "Validated"),
     ("mark:rework", "Reworked since"),
+    ("mark:done", "Done"),
+    ("mark:valid", "Validated"),
+    ("mark:done_top", "Validated, top role"),
 )
 _STAGES_LEGEND = (("mark:waiting", "Waiting"), ("mark:to_redo", "To redo"))
 _FARM_LEGEND = (

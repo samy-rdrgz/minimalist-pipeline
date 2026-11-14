@@ -1,6 +1,7 @@
 """Draw the add-on's coloured marks into icons/*.png -- Blender colours no
 icon of its own (see NOTES.md, "Coloured marks"). The snapshot page's
-marks and dark-theme colours (templates/snapshot/page.css). Pure Python:
+keyframe diamonds and post-its, in its dark-theme colours
+(templates/snapshot/page.css). Pure Python:
 
     python3 tools/make_icons.py
 """
@@ -14,28 +15,53 @@ SIZE = 64
 SAMPLES = 4  # per side, per pixel: the edges smoothed
 OUT = Path(__file__).resolve().parent.parent / "icons"
 
-GREEN = (0x7D, 0xC4, 0x86)
-AMBER = (0xE4, 0xAE, 0x4F)
-RED = (0xF3, 0x6B, 0x6B)
-GREY = (0x93, 0x92, 0x8B)
-VIOLET = (0xC7, 0xA4, 0xF4)
-ORANGE = (0xFF, 0xAB, 0x76)
-BLUE = (0x9F, 0xAD, 0xFF)
+# The snapshot page's dark theme (templates/snapshot/page.css).
+DONE = (0x00, 0xD4, 0xA3)
+WIP = (0xE1, 0x96, 0x58)
+RING = (0x9A, 0x9D, 0xA4)
+VAL = (0xA2, 0x1F, 0xF0)
+SUP = (0xD7, 0xB4, 0xFB)
+RTK = (0xC9, 0x44, 0x52)
+RTK_T = (0x99, 0x16, 0x16)
+POST = (0xFF, 0xF2, 0xF2)
+WHITE = (0xFF, 0xFF, 0xFF)
+INK = (0x3B, 0x16, 0x80)
+GREY = (0x8C, 0x8F, 0x96)
 
 C = SIZE / 2
-R = 22  # a mark's radius: Blender's own icons keep a margin too
+H = 15.5  # the diamond's half side: a keyframe, as the page's
+RAD = 6.5  # its corners
+W = 4  # an outline's width
 
 
-def disc(r, cx=C, cy=C):
-    return lambda x, y: math.hypot(x - cx, y - cy) <= r
+def _diamond_dist(x, y, h=H, r=RAD):
+    """Signed distance to the rounded square turned 45 degrees."""
+    u = ((x - C) + (y - C)) / math.sqrt(2)
+    v = ((x - C) - (y - C)) / math.sqrt(2)
+    qx, qy = abs(u) - h + r, abs(v) - h + r
+    return math.hypot(max(qx, 0), max(qy, 0)) + min(max(qx, qy), 0) - r
 
 
-def ring(r, width):
-    return lambda x, y: r - width <= math.hypot(x - C, y - C) <= r
+def diamond(h=H):
+    return lambda x, y: _diamond_dist(x, y, h) <= 0
 
 
-def half(r):
-    return lambda x, y: x <= C and math.hypot(x - C, y - C) <= r
+def outline(width=W, gap=None):
+    """The diamond's outline; gap: (from, to) degrees left open."""
+
+    def inside(x, y):
+        if not -width <= _diamond_dist(x, y) <= 0:
+            return False
+        if gap:
+            a = math.degrees(math.atan2(C - y, x - C)) % 360
+            return not gap[0] <= a <= gap[1]
+        return True
+
+    return inside
+
+
+def lower_half(x, y):
+    return y >= C and _diamond_dist(x, y) <= 0
 
 
 def segment(ax, ay, bx, by, width):
@@ -43,16 +69,6 @@ def segment(ax, ay, bx, by, width):
         dx, dy = bx - ax, by - ay
         t = max(0.0, min(1.0, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy)))
         return math.hypot(x - ax - t * dx, y - ay - t * dy) <= width / 2
-
-    return inside
-
-
-def arc(r, width, start, end):
-    """A ring from start to end degrees, counter-clockwise from 3 o'clock."""
-
-    def inside(x, y):
-        a = math.degrees(math.atan2(C - y, x - C)) % 360
-        return start <= a <= end and r - width <= math.hypot(x - C, y - C) <= r
 
     return inside
 
@@ -70,32 +86,48 @@ def triangle(points):
     return inside
 
 
-def _arrow_head():
-    """The to_redo arc's head: at its end (3 o'clock), pointing on
-    counter-clockwise, into the gap."""
-    mid = R - 2.5
-    px, py = C + mid, C
-    return triangle([(px + 8, py + 1), (px - 8, py + 1), (px, py - 10)])
+def rect(x0, y0, x1, y1, r=4):
+    def inside(x, y):
+        qx = abs(x - (x0 + x1) / 2) - (x1 - x0) / 2 + r
+        qy = abs(y - (y0 + y1) / 2) - (y1 - y0) / 2 + r
+        return math.hypot(max(qx, 0), max(qy, 0)) + min(max(qx, qy), 0) - r <= 0
 
+    return inside
+
+
+def check(width=5):
+    """A ✓ in the diamond."""
+    a, b = segment(C - 8, C + 1, C - 2, C + 7, width), segment(C - 2, C + 7, C + 9, C - 6, width)
+    return lambda x, y: a(x, y) or b(x, y)
+
+
+# The reworked diamond: open on its top-left edge (135 degrees), the
+# stroke's end an arrowhead -- clockwise, as the page's.
+_GAP = (122, 150)
+_TIP = (C - 15.5, C - 3)  # where the stroke ends, left of the gap
+_ARROW = triangle([(_TIP[0] - 7, _TIP[1] + 4), (_TIP[0] + 6, _TIP[1] + 4), (_TIP[0] - 1, _TIP[1] - 8)])
 
 # name -> its layers, drawn in order: (colour, shape).
 MARKS = {
-    # A department's state, as the page's .m marks.
-    "todo": [(GREY, ring(R, 4))],
-    "wip": [(AMBER, ring(R, 4)), (AMBER, half(R))],
-    "done": [(GREEN, disc(R))],
-    "rework": [(GREEN, ring(R, 5)), (AMBER, disc(9))],
-    # Validated by the top role: done, in the validation's violet ring.
-    "done_top": [(VIOLET, ring(R + 6, 4)), (GREEN, disc(R - 3))],
-    # The stages (lib/status.py stage_flags()).
-    "waiting": [(BLUE, ring(R, 4)), (BLUE, segment(C, C, C, C - 14, 4)), (BLUE, segment(C, C, C + 10, C, 4))],
-    "to_redo": [(ORANGE, arc(R, 5, 60, 360)), (ORANGE, _arrow_head())],
+    # A department's state, as the page's keyframe diamonds.
+    "todo": [(RING, outline())],
+    "wip": [(WIP, outline()), (WIP, lower_half)],
+    "rework": [(WIP, outline(gap=_GAP)), (WIP, _ARROW)],
+    "done": [(DONE, diamond())],
+    # Validated: by a role (sup), by the top one (prod).
+    "valid": [(SUP, diamond()), (INK, check())],
+    "done_top": [(VAL, diamond()), (WHITE, check())],
+    # The stages: waiting on an earlier one (paused), to redo (reworked,
+    # its heart marked).
+    "waiting": [(RING, outline()), (RING, rect(C - 6, C - 7, C - 2, C + 7, 1)), (RING, rect(C + 2, C - 7, C + 6, C + 7, 1))],
+    "to_redo": [(WIP, outline(gap=_GAP)), (WIP, _ARROW), (WIP, diamond(5))],
     # A department not required for the file.
     "none": [(GREY, segment(C - 9, C, C + 9, C, 4))],
-    # Entries: a retake, under a validation role, by the team.
-    "rtk": [(RED, disc(R - 4))],
-    "role": [(VIOLET, disc(R - 4))],
-    "team": [(ORANGE, disc(R - 4))],
+    # Entries, as the page's post-its: a retake from a validation role
+    # (red), from the team (outlined); a note under a role (violet).
+    "rtk": [(RTK, rect(8, 18, 56, 46, 6))],
+    "team": [(RTK, rect(8, 18, 56, 46, 6)), (POST, rect(12, 22, 52, 42, 3))],
+    "role": [(VAL, rect(8, 18, 56, 46, 6))],
 }
 
 
