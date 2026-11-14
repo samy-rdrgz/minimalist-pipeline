@@ -512,8 +512,35 @@ def path_reachable(path: str | Path) -> bool:
 
 
 # path -> (mtime or None if missing, entries, last checked at -- time.monotonic())
-_scandir_cache: dict[str, tuple[float | None, list, float]] = {}
+class StampCache:
+    """Values read from disk, read again only once their stamp moves (a
+    file's mtime): {key: (stamp, value, checked at)}. ttl: within it, not
+    even the stamp is checked again -- for draw(), where each check is a
+    network round-trip. An entry is replaced whole: thread-safe enough."""
+
+    def __init__(self, ttl: float = 0.0):
+        self.ttl = ttl
+        self.entries: dict = {}
+
+    def get(self, key, stamp, read, missing=None):
+        """read() for key, kept while stamp() gives the same; stamp()
+        raising OSError: missing. read() must not raise."""
+        now_t = time.monotonic()
+        cached = self.entries.get(key)
+        if cached and self.ttl and now_t - cached[2] < self.ttl:
+            return cached[1]
+        try:
+            st = stamp()
+        except OSError:
+            self.entries[key] = (None, missing, now_t)
+            return missing
+        value = cached[1] if cached and cached[0] == st else read()
+        self.entries[key] = (st, value, now_t)
+        return value
+
+
 SCANDIR_TTL = 2.0
+_scandir_cache = StampCache(SCANDIR_TTL)
 
 
 def cached_scandir(path: Path) -> list:
@@ -523,25 +550,14 @@ def cached_scandir(path: Path) -> list:
     For draw()/enum callbacks only: a listing up to SCANDIR_TTL old must
     never decide what gets written. See NOTES.md, "Popups on a network
     share"."""
-    key = str(path)
-    now_t = time.monotonic()
-    cached = _scandir_cache.get(key)
-    if cached and now_t - cached[2] < SCANDIR_TTL:
-        return cached[1]
-    try:
-        mtime = path.stat().st_mtime
-    except OSError:
-        _scandir_cache[key] = (None, [], now_t)
-        return []
-    if cached and cached[0] == mtime:
-        _scandir_cache[key] = (mtime, cached[1], now_t)
-        return cached[1]
-    try:
-        entries = list(os.scandir(path))
-    except OSError:
-        entries = []
-    _scandir_cache[key] = (mtime, entries, now_t)
-    return entries
+
+    def read():
+        try:
+            return list(os.scandir(path))
+        except OSError:
+            return []
+
+    return _scandir_cache.get(str(path), lambda: path.stat().st_mtime, read, [])
 
 
 def resolve_bpy_path(filepath: str) -> Path:

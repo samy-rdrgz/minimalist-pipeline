@@ -68,6 +68,7 @@ from .core import (
     box_tip_units,
     SIDE_BY_SIDE_WIDTH,
     AdoptedProcess,
+    StampCache,
     addon_pref,
     cached_scandir,
     draw_box_tip,

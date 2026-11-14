@@ -11,6 +11,7 @@ from pathlib import Path
 import bpy
 
 from ..lib import (
+    StampCache,
     ConfigCache,
     background_work,
     cached_scandir,
@@ -508,8 +509,8 @@ def _ffmpeg_progress_for_jobs(requests_dir: Path | None, jobs: list) -> dict:
     return out
 
 
-# render_history.json files already read: path -> (mtime, entries).
-_history_cache: dict[str, tuple] = {}
+# render_history.json files already read: path -> their entries.
+_history_cache = StampCache()
 
 
 def history_pace(
@@ -559,8 +560,8 @@ def history_pace(
     }
 
 
-# preset_pace.json, as last read: (mtime, preset_averages()).
-_averages_cache: list = [None, {}]
+# preset_pace.json, as last read: its preset_averages().
+_averages_cache = StampCache()
 
 
 def _preset_averages(path: Path | None) -> dict:
@@ -568,13 +569,12 @@ def _preset_averages(path: Path | None) -> dict:
     its mtime moves (thread-safe)."""
     from .pace import preset_averages
 
-    try:
-        mtime = os.stat(path).st_mtime if path else None
-    except OSError:
+    if not path:
         return {}
-    if _averages_cache[0] != mtime:
-        _averages_cache[:] = [mtime, preset_averages(read_json_quiet(path) or {})]
-    return _averages_cache[1]
+    return _averages_cache.get(
+        "", lambda: (str(path), os.stat(path).st_mtime),
+        lambda: preset_averages(read_json_quiet(path) or {}), {},
+    )
 
 
 def _history_pace_for_jobs(root: Path, jobs: list, averages: dict | None = None) -> dict:
@@ -590,17 +590,12 @@ def _history_pace_for_jobs(root: Path, jobs: list, averages: dict | None = None)
             continue
         owner = Path(root) / Path(job.get("filepath", "")).parent
         path = owner / ".pipeline" / "render_history.json"
-        try:
-            mtime = os.stat(path).st_mtime
-        except OSError:
-            mtime = None
-        entries = []
-        if mtime is not None:
-            cached = _history_cache.get(str(path))
-            if not cached or cached[0] != mtime:
-                cached = (mtime, (read_json_quiet(path) or {}).get("entries") or [])
-                _history_cache[str(path)] = cached
-            entries = cached[1]
+        entries = _history_cache.get(
+            str(path),
+            lambda path=path: os.stat(path).st_mtime,
+            lambda path=path: (read_json_quiet(path) or {}).get("entries") or [],
+            [],
+        )
         pace = history_pace(
             entries,
             job.get("prerender_script", ""),

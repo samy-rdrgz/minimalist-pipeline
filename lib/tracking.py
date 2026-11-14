@@ -32,6 +32,7 @@ from .config import (
 )
 from .core import (
     SCANDIR_TTL,
+    StampCache,
     cached_scandir,
     get_machine_id,
     json_get,
@@ -1556,8 +1557,9 @@ def copy_entries(from_filepath: Path, to_filepath: Path) -> None:
         raise PipelineError(f"Error copying entries: {e}")
 
 
-# tracking.json path -> (mtime or None, archived, last checked -- time.monotonic())
-_archived_cache: dict[str, tuple[float | None, bool, float]] = {}
+# Same TTL as cached_scandir(): within it, no disk call at all -- the mtime
+# check alone was one network round-trip per shot per call.
+_archived_cache = StampCache(SCANDIR_TTL)
 
 
 def is_block_archived(shot_dir: Path) -> bool:
@@ -1566,28 +1568,17 @@ def is_block_archived(shot_dir: Path) -> bool:
     calls this once per shot in a sequence, and Blender re-invokes the enum
     callbacks that walk sequences/shots on every redraw."""
     tracking_file = shot_dir / ".pipeline" / "tracking.json"
-    key = str(tracking_file)
-    now_t = time.monotonic()
-    cached = _archived_cache.get(key)
-    # Same TTL as cached_scandir(): within it, no disk call at all -- the
-    # mtime check alone was one network round-trip per shot per call.
-    if cached and now_t - cached[2] < SCANDIR_TTL:
-        return cached[1]
-    try:
-        mtime = tracking_file.stat().st_mtime
-    except OSError:
-        _archived_cache[key] = (None, False, now_t)
-        return False
-    if cached and cached[0] == mtime:
-        _archived_cache[key] = (mtime, cached[1], now_t)
-        return cached[1]
-    try:
-        with locked_json(tracking_file, read_only=True, retries=0) as box:
-            archived = bool((box["data"] or {}).get("archived"))
-    except Exception:
-        archived = False
-    _archived_cache[key] = (mtime, archived, now_t)
-    return archived
+
+    def read():
+        try:
+            with locked_json(tracking_file, read_only=True, retries=0) as box:
+                return bool((box["data"] or {}).get("archived"))
+        except Exception:
+            return False
+
+    return _archived_cache.get(
+        str(tracking_file), lambda: tracking_file.stat().st_mtime, read, False
+    )
 
 
 def list_active_blocks(
@@ -2222,7 +2213,7 @@ def get_linked_libraries(filepath: Path) -> list[dict]:
 
 
 # owner folder -> (.pipeline mtime, linked list, last checked -- time.monotonic())
-_linked_cache: dict[str, tuple[float, list, float]] = {}
+_linked_cache = StampCache(SCANDIR_TTL)
 
 
 def get_linked_libraries_cached(filepath: Path) -> list[dict]:
@@ -2230,21 +2221,16 @@ def get_linked_libraries_cached(filepath: Path) -> list[dict]:
     as TrackingStatusCache (a new .wipmeta/.stablemeta bumps it), checked at
     most every SCANDIR_TTL."""
     folder = _owner_dir(Path(filepath))
-    key = str(folder)
-    now_t = time.monotonic()
-    cached = _linked_cache.get(key)
-    if cached and now_t - cached[2] < SCANDIR_TTL:
-        return cached[1]
-    mtime = TrackingStatusCache._pipeline_mtime(folder)
-    if cached and cached[0] == mtime:
-        _linked_cache[key] = (mtime, cached[1], now_t)
-        return cached[1]
-    try:
-        linked = get_linked_libraries(folder)
-    except Exception:
-        linked = []
-    _linked_cache[key] = (mtime, linked, now_t)
-    return linked
+
+    def read():
+        try:
+            return get_linked_libraries(folder)
+        except Exception:
+            return []
+
+    return _linked_cache.get(
+        str(folder), lambda: TrackingStatusCache._pipeline_mtime(folder), read, []
+    )
 
 
 # Inverse links index, target folder key -> linker folders -- built by
