@@ -32,12 +32,25 @@ _PATH = re.compile(r'<path[^>]*\sd="([^"]+)"')
 # line's start; any "/* */" in page.css (no string of it holds one).
 _JS_COMMENTS = re.compile(r"^(?:[ \t]*//[^\n]*|/\*.*?\*/[ \t]*)\n", re.M | re.S)
 _CSS_COMMENTS = re.compile(r"/\*.*?\*/\n?", re.S)
+# Blender's icons (templates/snapshot/icons, tools/clean_icons.py).
+_ICON = re.compile(r'<svg[^>]*\sviewBox="([^"]+)"[^>]*>(.*)</svg>', re.S)
+
+
+def icon_sprite(text: str) -> str:
+    """The Blender icons the page names ("b-play": its file icons/play.svg)
+    as <symbol>s, drawn by <use href="#b-play"> -- those named only."""
+    symbols = []
+    for path in sorted((PAGE_DIR / "icons").glob("*.svg")):
+        if f"b-{path.stem}" in text:
+            view, body = _ICON.search(path.read_text(encoding="utf-8")).groups()
+            symbols.append(f'<symbol id="b-{path.stem}" viewBox="{view}">{body}</symbol>')
+    return '<svg width="0" height="0" style="position:absolute" aria-hidden="true">' + "".join(symbols) + "</svg>"
 
 
 def render_html(snapshot: dict) -> str:
     """The whole snapshot as one offline HTML page: page.html with the
-    stylesheet, the script, the logo, the wordmark's font and
-    page_data() put in, in one pass (a value is never
+    stylesheet, the script, the logo, the wordmark's font, the Blender
+    icons it names and page_data() put in, in one pass (a value is never
     read again for placeholders)."""
     logo = (PAGE_DIR / "logo.svg").read_text(encoding="utf-8")
     viewbox = _VIEWBOX.search(logo)[1]
@@ -56,6 +69,7 @@ def render_html(snapshot: dict) -> str:
         "DATA": data.replace("</", "<\\/"),
     }
     shell = (PAGE_DIR / "page.html").read_text(encoding="utf-8")
+    values["ICONS"] = icon_sprite(shell + values["JS"])
     return _PLACEHOLDER.sub(lambda m: values[m[1]], shell)
 
 

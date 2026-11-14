@@ -243,6 +243,10 @@ The red text itself is a plain `row.label()`, not the button opening the menu: a
 ### UI blocks (`ui.py`)
 Shared drawing, memory only: `key_value()` / `key_values()` (a details line, its key greyed in a narrow column, `DETAIL_KEY_COLUMN`; a list of them, a falsy row skipped), `details_header()`, `icon_button()` (an operator with its properties and tooltip), `link_rows()`, `draw_items()` (a column of buttons from a list: separators, box tips, side by side, greyed), `choice()` (buttons for a few choices, else a menu), `titled_row()`, `draw_creation_fields()` (New asset's and New shot's common fields). A screen known in advance is a list drawn by these, not calls written one by one.
 
+### Snapshot page icons (`templates/snapshot/icons/`, `tools/clean_icons.py`)
+
+`clean_icons.py` turns Blender's icons (Inkscape SVGs in `trailers/icons`) into `templates/snapshot/icons/<name>.svg`; `snapshot_page.icon_sprite()` embeds those the page names (`b-<name>`) as symbols. See NOTES.md, "Snapshot page v3".
+
 ### Coloured marks (`icons.py`, `icons/`, `tools/make_icons.py`)
 
 `tools/make_icons.py` draws `icons/*.png` (pure Python); `register_marks()` loads them into a preview collection, `icon_kw("mark:<name>")` gives a layout call its `icon_value` (Blender's own names pass through as `icon=`). `icon_button()` takes either. See NOTES.md, "Coloured marks".
