@@ -136,8 +136,11 @@ Avec des rendus par département (phase 5), un shot en a plusieurs. **Le rendu p
 
 - **La règle** : le rendu du **département le plus avancé** selon les étapes (2.2). À étape égale, c'est le plus récent. Rien à configurer : la hiérarchie dit déjà quels départements sont « finaux ». Sans étapes définies, c'est le plus récent.
 - Un rendu layout relancé après le lighting **ne remplace donc pas** le lighting dans la lecture de la séquence.
-- **Dans File details et dans la page** : le rendu principal en tête, puis une ligne par département.
-- **Dans `videos/` ou le zip** : uniquement le rendu principal de chaque shot, avec une case « tous les départements » à l'export. Les autres lignes se lisent depuis `renders/` quand le projet est accessible.
+- **Un menu pour basculer entre « Plus haut département » et « Plus récent »**, qui décide quel rendu est le principal :
+  - dans File details et dans la page : c'est un choix de celui qui regarde, retenu par la page dans le navigateur et par Blender pour la session ;
+  - à l'export du snapshot et dans la fenêtre de preview de séquence : il décide quelles vidéos sont emportées ou enchaînées.
+- **Dans File details et dans la page** : le rendu principal en tête, puis une ligne par département. **Un rendu plus récent que le principal**, d'un département plus bas (un rendu animation refait après le render), est **signalé sur la ligne du principal** (« plus récent : animation v007 ») et s'ouvre d'un clic. On voit le rendu « render », sans rater ce qui a été refait depuis.
+- **Dans `videos/` ou le zip** : uniquement le rendu principal de chaque shot, avec une case **« tous les départements »** à l'export. Sans cette case, les autres lignes se lisent depuis `renders/` quand le projet est accessible.
 - **Les anciens rendus sans département** passent après ceux qui en ont un. Un projet entièrement ancien ne change pas : son rendu le plus récent reste le principal.
 
 ### 2.5 L'équipe, l'attribution et « Mon travail »
@@ -282,6 +285,11 @@ Méthode :
 - **Le rendu principal** (2.4) pour ▶, la vignette, la lecture de la séquence, `videos/` et le zip (avec la case « tous les départements » à l'export), et la preview de séquence.
 - *Checked* précoche le département du rendu au lieu de « render ».
 - Un rendu tagué compte comme remise à jour de son département dans le moteur d'états (2.2).
+- **Clean old renders, avec un menu « Garder les N derniers : par département / par version »** :
+  - aujourd'hui, il garde les N rendus les plus récents d'un shot tous départements confondus (`lib/render_clean.py:198`). Avec 3 rendus animation faits après le lighting et « garder 2 », le rendu lighting serait allégé ou supprimé ;
+  - **par département**, le choix par défaut : il garde les N derniers rendus **de chaque département** de chaque shot ;
+  - **par version** : le comportement actuel, les N derniers tous départements confondus ;
+  - dans les deux modes, restent toujours protégés : **le dernier rendu de chaque département**, le rendu principal, chaque « to check » (un par département), les rendus cités par une note ouverte, et ceux que la farm est en train d'écrire. Les anciens rendus sans département forment un groupe à part.
 
 ### Phase 6 — Équipe, attribution et « Mon travail »
 
@@ -307,7 +315,7 @@ Elle vient en dernier : elle repose sur le moteur d'états (phase 3), et « mes 
 
 | Idée | Pourquoi on ne la fait pas |
 |---|---|
-| « Depuis ta dernière visite » | Peu fiable : la date n'aurait été valable que pour une machine. Le journal des sessions dit quand on était connecté, pas ce qu'on a vu, et l'addon ne le relit jamais, par principe |
+| « Depuis ta dernière visite » | Peu fiable et risqué : la date ne vaudrait que pour une machine, et on se fierait à « je n'ai regardé que ce qui était nouveau » au risque de rater des RTK. Le journal des sessions dit quand on était connecté, pas ce qu'on a vu, et l'addon ne le relit jamais, par principe. « Mon travail » (2.5) montre tout ce qui reste à faire, sans notion de nouveauté |
 | Dessiner sur une frame dans la review | Pratique, mais trop lourd à écrire en JS et trop lourd dans le fichier de review |
 | Comparer deux versions côte à côte dans la page | Même raison |
 | Temps estimé contre temps passé, Gantt, échéances par tâche | Conçu pour les producteurs de gros studios ; pour 2 à 5 personnes, le planning global du projet suffit |
