@@ -3982,7 +3982,8 @@ the right of the same window. Tried first outside the addon in Blender
   ignored it, and a project with many departments had its words crushed
   on their icons. Under `_CELL_TEXT_WIDTH` (105 px at scale 1) a cell is
   its icon alone, its words first in the tooltip; under `_CELL_ICON_WIDTH`
-  (26 px) the names alone. The list's zone narrowed under 600 px
+  (40 px: an icon and its margin), or the names' column under
+  `_NAME_MIN_WIDTH` (110 px), the names alone. The list's zone narrowed under 600 px
   (`list_is_narrow()`) also stacks its filters on three rows and drops the
   legend; those two rows are taken off the page
   (`_STACKED_FILTERS_UNITS`), the footer kept in view.

@@ -878,7 +878,9 @@ _STACKED_FILTERS_UNITS = 2.0
 # A status cell's width (px at UI scale 1): under the first, its icon
 # alone; under the second, no cell at all (the names alone).
 _CELL_TEXT_WIDTH = 105
-_CELL_ICON_WIDTH = 26
+_CELL_ICON_WIDTH = 40
+# Narrower, the names' own column: the names alone, all the width.
+_NAME_MIN_WIDTH = 110
 _TABLE_TIP = (
     "Click a file for its details (Ctrl+click the Project monitoring button: "
     "the file open here). Each department's state since the last stable, "
@@ -1003,7 +1005,8 @@ def draw_monitor_table(self, context, layout, columns, project_root):
     scale = context.preferences.system.ui_scale or 1.0
     cell = context.region.width * (1 - FIRST_COLUMN) / max(count, 1) / scale
     icon_only = cell < _CELL_TEXT_WIDTH
-    if not count or cell < _CELL_ICON_WIDTH:
+    names = context.region.width * FIRST_COLUMN / scale
+    if not count or cell < _CELL_ICON_WIDTH or names < _NAME_MIN_WIDTH:
         FIRST_COLUMN = 1.0
 
     total = len(matches)
