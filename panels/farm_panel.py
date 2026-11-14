@@ -21,6 +21,7 @@ from ..farm import (
 from ..farm.chunks import chunk_frames
 from ..farm.queue import WORKER_GONE_SECONDS
 from ..farm.workers import FARM_PROTOCOL
+from ..lib.icons import icon_kw
 from ..lib import (
     ConfigCache,
     addon_pref,
@@ -183,19 +184,20 @@ class M_PIPELINE_PT_farm_panel(bpy.types.Panel):
 
 
 def job_icon(stage: str) -> str:
-    """A job stage's icon -- Farm monitoring's list, and Project monitoring's
-    Farm column."""
+    """A job stage's mark (lib/icons.py, "mark:job_*") -- Farm monitoring's
+    list, and Project monitoring's Farm column: the states' diamonds, the
+    farm's in cyan. Drawn through icon_kw()."""
     if stage == "pending":
-        return "SORTTIME"
+        return "mark:job_pending"
     if stage == "queued":
-        return "DECORATE_ANIMATE"
+        return "mark:job_queued"
     if job_state(stage) == "finished":
-        return "KEYTYPE_JITTER_VEC"
+        return "mark:job_check"
     if stage.endswith("_finished"):
-        return "HANDLETYPE_FREE_VEC"
+        return "mark:job_waiting"
     if stage.endswith("failed"):
-        return "KEYTYPE_EXTREME_VEC"
-    return "KEYTYPE_BREAKDOWN_VEC"
+        return "mark:job_failed"
+    return "mark:job_running"
 
 
 def _pace_source(pace: dict) -> str:
@@ -547,7 +549,7 @@ def draw_farm_jobs(self, context, layout):
         op = name_row.operator(
             "m_pipeline.farm_job_details",
             text=name,
-            icon=job_icon("setup_finished" if j.get("no_machine") else stage),
+            **icon_kw(job_icon("setup_finished" if j.get("no_machine") else stage)),
             emboss=False,
         )
         if stage == "pending":

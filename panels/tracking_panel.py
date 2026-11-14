@@ -643,7 +643,7 @@ def _draw_farm_jobs(layout, filepath: str) -> None:
         row.alignment = "LEFT"
         row.separator(factor=2)  # same indent as _render_row()
         row.alert = job["state"] == "failed"
-        row.label(text=f"{label}   {job['text']}", icon=job_icon(job["stage"]))
+        row.label(text=f"{label}   {job['text']}", **icon_kw(job_icon(job["stage"])))
 
 
 def _render_row(col, text: str):
@@ -887,10 +887,9 @@ def draw_file_details(state, context, layout):
 # table header, footer, margins), in widget units -- see rows_that_fit().
 _TABLE_RESERVED_UNITS = 6.5
 _STACKED_FILTERS_UNITS = 2.0
-# A status cell's width (px at UI scale 1): under the first, its marks
-# alone; under the second (a retake's mark and the state's), no cell at all
-# (the names alone).
-_CELL_TEXT_WIDTH = 105
+# A status cell's width (px at UI scale 1): with its words ("Done, reworked
+# since"), with its marks alone (a retake's mark and the state's).
+_CELL_TEXT_WIDTH = 150
 _CELL_ICON_WIDTH = 48
 # The names' column: its least, then what its icons and buttons take
 # beside a name's letters. The Farm column: its least, then per icon.
@@ -1027,11 +1026,11 @@ def draw_monitor_table(self, context, layout, columns, project_root):
         "project", matches, per_page, filters, key=lambda m: str(m[0])
     )
     # What fits, from the page's own names and Farm icons.
+    # The marks alone, by choice too (Filters > the columns menu).
     FIRST_COLUMN, shares, icon_only = _column_widths(
-        context.region.width / scale, shown, len(columns), show_farm, activity
+        context.region.width / scale, shown, len(columns), show_farm, activity,
+        words="·words" not in hidden,
     )
-    # The marks alone, by choice (Filters > the columns menu).
-    icon_only = icon_only or "·words" in hidden
 
     draw_box_tip(layout, context, _TABLE_TIP)
     f_list = layout.box()
@@ -1095,19 +1094,18 @@ def draw_monitor_table(self, context, layout, columns, project_root):
     draw_pager(pager, page, pages)
 
 
-def _column_widths(width: float, shown: list, departments: int, show_farm: bool, activity: dict) -> tuple:
+def _column_widths(
+    width: float, shown: list, departments: int, show_farm: bool, activity: dict, words: bool = True
+) -> tuple:
     """(the names' share of a row, each other column's width, marks alone)
-    for a list width px wide (UI scale 1) showing shown: the names as wide
-    as the longest's letters (up to 45 % of the row), the Farm
-    column as its most icons, the departments sharing the rest -- the
-    names giving way first. Too narrow even so: the names alone, (1.0, [],
-    False). See NOTES.md, "Monitoring: the detail beside the list"."""
-    longest = max(
-        (len(f.get("file_name", "")) for _, f in shown), default=12
-    )
-    # As wide as the names need, no wider: a floor of a quarter of the row
-    # left short names a gap, the departments bunched in the middle.
-    names = min(max(_NAME_ICONS_WIDTH + 8 * longest, _NAME_MIN_WIDTH), 0.45 * width)
+    for a list width px wide (UI scale 1) showing shown: each department as
+    wide as its content -- its words, else its marks alone (words False:
+    always) --, the Farm column as its most icons, the names the rest (with
+    words, up to 55 % of the row, the cells sharing what's beyond). Too narrow even
+    so: the names alone, (1.0, [], False). See NOTES.md, "Monitoring: the
+    detail beside the list"."""
+    longest = max((len(f.get("file_name", "")) for _, f in shown), default=12)
+    names_need = max(_NAME_MIN_WIDTH, _NAME_ICONS_WIDTH + 8 * longest)
     farm = 0
     if show_farm:
         icons = max(
@@ -1118,15 +1116,24 @@ def _column_widths(width: float, shown: list, departments: int, show_farm: bool,
             default=0,
         )
         farm = max(_FARM_MIN_WIDTH, 30 + _FARM_ICON_WIDTH * icons)
-    if departments and (width - names - farm) / departments < _CELL_ICON_WIDTH:
-        names = max(_NAME_MIN_WIDTH, width - farm - departments * _CELL_ICON_WIDTH)
-    rest = width - names - farm
-    if not (departments or show_farm) or rest < departments * _CELL_ICON_WIDTH or rest <= 0:
-        return 1.0, [], False
     if not departments:
-        return names / width, [rest], False
-    cell = rest / departments
-    return names / width, [cell] * departments + [farm] * show_farm, cell < _CELL_TEXT_WIDTH
+        if not show_farm or width - farm < _NAME_MIN_WIDTH:
+            return 1.0, [], False
+        return (width - farm) / width, [farm], False
+    tries = ((_CELL_TEXT_WIDTH, False, names_need),) if words else ()
+    for cell, icon_only, least in tries + ((_CELL_ICON_WIDTH, True, _NAME_MIN_WIDTH),):
+        names = width - farm - departments * cell
+        if names >= least:
+            break
+    else:
+        return 1.0, [], False
+    # Wide, with their words: the names no wider than they'd ever need, the
+    # cells the rest. Marks alone stay together, the names taking the room.
+    most = max(names_need, 0.55 * width)
+    if not icon_only and names > most:
+        cell += (names - most) / departments
+        names = most
+    return names / width, [cell] * departments + [farm] * show_farm, icon_only
 
 
 def legend_groups(file_type: str, show_farm: bool = True) -> list:
@@ -1364,7 +1371,7 @@ def _draw_farm_cell(cell, dir, file, jobs: list) -> None:
             label = render_to_check_label(shot, item)
             # Embossed: the only clickable ones (play the video).
             op = group.operator(
-                "m_pipeline.open_render_video", text="", icon=_TO_CHECK_ICON
+                "m_pipeline.open_render_video", text="", **icon_kw(_TO_CHECK_ICON)
             )
             op.render = item.get("render") or ""
             op.video = item.get("video") or ""
@@ -1375,7 +1382,7 @@ def _draw_farm_cell(cell, dir, file, jobs: list) -> None:
         group.operator(
             "m_pipeline.department_status_info",
             text="",
-            icon=job_icon(item["stage"]),
+            **icon_kw(job_icon(item["stage"])),
             emboss=False,
         ).custom_tooltip = " ".join(
             part for part in (shot, item["version"], "--", item["text"]) if part

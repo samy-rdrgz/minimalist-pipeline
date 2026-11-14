@@ -26,6 +26,7 @@ RTK_T = (0x99, 0x16, 0x16)
 WHITE = (0xFF, 0xFF, 0xFF)
 INK = (0x3B, 0x16, 0x80)
 GREY = (0x8C, 0x8F, 0x96)
+CYAN = (0x00, 0xC3, 0xC3)  # the farm rendering (the brief keeps it for that)
 
 C = SIZE / 2
 H = 15.5  # the diamond's half side: a keyframe, as the page's
@@ -122,6 +123,15 @@ MARKS = {
     "to_redo": [(WIP, outline()), (WIP, lambda x, y: math.hypot(x - C, y - C) <= 6.5)],
     # A department not required for the file.
     "none": [(GREY, segment(C - 9, C, C + 9, C, 4))],
+    # The farm's jobs, Project monitoring's Farm column and Farm
+    # monitoring: submitted, queued (a clock), between two steps (half),
+    # rendering (full), failed (red, a cross), finished and to check (an eye).
+    "job_pending": [(RING, outline()), (RING, lambda x, y: math.hypot(x - C, y - C) <= 3.5)],
+    "job_queued": [(CYAN, outline()), (CYAN, segment(C, C, C, C - 10, 4)), (CYAN, segment(C, C, C + 8, C, 4))],
+    "job_waiting": [(CYAN, outline()), (CYAN, lower_half)],
+    "job_running": [(CYAN, diamond())],
+    "job_failed": [(RTK, diamond()), (WHITE, segment(C - 6, C - 6, C + 6, C + 6, 4.5)), (WHITE, segment(C - 6, C + 6, C + 6, C - 6, 4.5))],
+    "job_check": [(DONE, outline()), (DONE, lambda x, y: math.hypot(x - C, y - C) <= 6.5)],
     # Entries, as the page's post-its: a retake from a validation role
     # (red), from the team (outlined); a note under a role (violet).
     "rtk": [(RTK, rect(8, 18, 56, 46, 6))],

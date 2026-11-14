@@ -3990,17 +3990,17 @@ the right of the same window. Tried first outside the addon in Blender
   mouse (`_showing_detail(kind, context)`): pages on the list, scroll and
   ← / → between files on the detail; Esc closes from either.
 - **What fits in the list** (`_column_widths()`, from the page shown):
-  the names as wide as the longest's letters (`_NAME_ICONS_WIDTH` + 8 px a
-  letter, up to 45 % of the row -- a floor of a quarter left short names
-  a gap, the departments bunched in the middle), the Farm column as its
-  most icons (`_FARM_MIN_WIDTH`, `_FARM_ICON_WIDTH` each), against the
-  right edge, the departments
-  sharing the rest (`_cells()`: splits by width). Equal shares had the
-  first department touching a long name and a block's Farm icons crushed.
-  Narrowing, the names give way first, down to `_NAME_MIN_WIDTH` (110 px
-  at scale 1). Under `_CELL_TEXT_WIDTH` (105 px) a cell is its marks
-  alone, its words first in the tooltip; under `_CELL_ICON_WIDTH` (48 px:
-  a retake's mark and the state's), the names alone. An open RTK is its
+  each department as wide as its content -- its words (`_CELL_TEXT_WIDTH`,
+  150 px at scale 1: "Done, reworked since"), else its marks alone
+  (`_CELL_ICON_WIDTH`, 48 px: a retake's mark and the state's) --, the
+  Farm column as its most icons (`_FARM_MIN_WIDTH`, `_FARM_ICON_WIDTH`
+  each) against the right edge, the names the rest. The words need the
+  names their room (`_NAME_ICONS_WIDTH` + 8 px a letter); with them the
+  names stop at 55 % of the row, the cells sharing the rest; marks alone
+  stay together, the names taking the room. Under `_NAME_MIN_WIDTH`
+  (110 px) for the names, the names alone. Equal shares (a first try)
+  had the first department touching a long name, then names sized to
+  their letters spread the marks apart for nothing. An open RTK is its
   red mark (clickable: its retakes) before the state's, not the cell in
   alert -- the red emboss covered half of a mark. The list's zone
   narrowed under 600 px (`list_is_narrow()`) also stacks its filters on
@@ -4633,7 +4633,7 @@ started and Done reworked shared one icon.
   distances to a rounded square turned 45 degrees): a state's (todo, wip,
   rework, done; valid by a role, done_top by the top one; none, a
   department not required), the stages' (waiting a clock, to_redo an eye), an entry's
-  (rtk, team, role). Run it again after changing one; the PNGs are
+  (rtk, team, role), the farm's jobs (job_*, cyan: pending, queued, waiting, running; failed red; check green). Run it again after changing one; the PNGs are
   committed.
 - `lib/icons.py` loads them once in a preview collection (register /
   unregister); a mark is named `"mark:<name>"` wherever an icon name goes,
