@@ -1052,6 +1052,13 @@ def draw_monitor_table(self, context, layout, columns, project_root):
         legend = footer.row(align=True)
         legend.alignment = "LEFT"
         legend.separator(factor=3)
+        # The stages' marks, once the project has stages (lib/status.py).
+        if ConfigCache.get().get("department_stages", {}).get(
+            "shots" if self.file_type == "shot" else "assets"
+        ):
+            for icon, text in _STAGES_LEGEND:
+                legend.label(text=text, icon=icon)
+            legend.separator(factor=2)
         for icon, text in _FARM_LEGEND:
             legend.label(text=text, icon=icon)
     draw_pager(pager, page, pages)
@@ -1183,6 +1190,7 @@ def _to_check_at(info: dict) -> str:
 # Farm column: one icon per render, Farm monitoring's for its stage
 # (job_icon()); a render to check is a finished job's.
 _TO_CHECK_ICON = job_icon("finished")
+_STAGES_LEGEND = (("TIME", "Waiting"), ("FILE_REFRESH", "To redo"))
 _FARM_LEGEND = (
     (_TO_CHECK_ICON, "To check"),
     (job_icon("pending"), "Submitted"),

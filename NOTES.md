@@ -3889,6 +3889,10 @@ no stages, so older projects read as before), and two states computed on every r
     it but not worked with it, nor since.
   Only the latest stable is read (`_collect_folder()` reads that one): a
   rework two stables back, never updated since, goes unseen.
+- **Shown** (3E, Blender side): Project monitoring's cell and a footer
+  legend (`_STAGES_LEGEND`, only with stages), File details' tooltip and
+  Still done, the sidebar's Working on toggles (their ✓ a Still done).
+  The page gets `flags` / `omit` in its data, drawn with its redesign.
 - **Still done** writes `departments_synced[d] = {at, by, text}` in
   tracking.json (`set_department_synced()`, File details' button on a
   department to redo): an update by hand, open to all, not a validation.

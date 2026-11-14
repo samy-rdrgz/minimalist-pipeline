@@ -43,7 +43,8 @@ Un bloc multishot peut taguer une note/todo avec le shot du bloc concerné — v
 
 - **Waiting** : une étape précédente a un RTK ouvert, ou n'est pas commencée -- *Waiting: layout RTK*, *Waiting: layout not started*. Affiché à la place de l'état du département dans Project monitoring ; son état propre reste dans l'infobulle.
 - **To redo** (à reprendre) : un département déjà commencé dont une étape précédente a changé après sa dernière mise à jour -- un RTK de cette étape fermé, ou un stable fait avec elle retravaillée -- *To redo: layout changed on 12/11*. Sa dernière mise à jour : un enregistrement dans une session où il était coché comme travaillé, ou **Still done**.
-- **Still done** (File details, sur un département à reprendre, ouvert à tous) : le travail fait tient toujours après le changement -- noté avec qui et quand, et un pourquoi facultatif ; ce n'est pas une validation.
+- **Où** : les cellules de Project monitoring (une légende dans son pied de page dès que le projet a des étapes), les départements de File details, les boutons *Working on* du panneau latéral.
+- **Still done** (File details, ou le ✓ à côté d'un bouton du panneau latéral, sur un département à reprendre, ouvert à tous) : le travail fait tient toujours après le changement -- noté avec qui et quand, et un pourquoi facultatif ; ce n'est pas une validation.
 
 ## Omit et On hold
 

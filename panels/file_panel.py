@@ -78,13 +78,26 @@ class M_PIPELINE_PT_file_panel(bpy.types.Panel):
             col = work.column(align=True)
             col.scale_y = 0.7
 
+            # Waiting / To redo (lib/status.py stage_flags()): said on the
+            # toggle; a department to redo has its Still done beside it.
+            flags = TrackingStatusCache.get(bpy.data.filepath).get("flags") or {}
             for d in required:
-                op = col.operator(
+                flag = flags.get(d) or {}
+                row = col.row(align=True)
+                op = row.operator(
                     "m_pipeline.toggle_worked_department",
-                    text=d,
+                    text=d + (f" · waiting: {flag['waiting']}" if flag.get("waiting")
+                              else f" · to redo: {flag['to_redo']}" if flag.get("to_redo") else ""),
+                    icon="TIME" if flag.get("waiting") else "FILE_REFRESH" if flag.get("to_redo") else "NONE",
                     depress=d in worked,
                 )
                 op.department = d
+                if flag.get("to_redo"):
+                    still = row.operator("m_pipeline.department_still_done", text="", icon="CHECKMARK")
+                    still.filepath = str(Path(bpy.data.filepath).parent)
+                    still.department = d
+                    still.custom_tooltip = (f"To redo: {flag['to_redo']}.\nStill done: the work "
+                                            "done holds -- not a validation")
             draw_box_tip(
                 layout,
                 context,
