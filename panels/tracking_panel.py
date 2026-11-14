@@ -1105,6 +1105,13 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, jobs=None)
     if first_column >= 1:  # names only
         f_list.separator(factor=0.5, type="LINE")
         return
+    if mark:
+        # Set aside: its mark across the cells -- no "not started" left to
+        # read in them.
+        why = f": {mark['reason']}" if mark.get("reason") else ""
+        split.row().label(text=f"{OMIT_STATES[mark['state']]}{why}", icon="PAUSE")
+        f_list.separator(factor=0.5, type="LINE")
+        return
     cells = _equal_cells(split.row(), len(columns) + 1)
     roles = validation_roles()
     top = max((r["level"] for r in roles), default=None)

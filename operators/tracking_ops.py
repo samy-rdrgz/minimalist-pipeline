@@ -1733,7 +1733,10 @@ class M_PIPELINE_OT_file_omit(bpy.types.Operator):
 
     def draw(self, context):
         col = self.layout.column()
-        col.row().prop(self, "state", expand=True)
+        row = col.row(align=True)
+        # Each choice with its words: expand=True drew three empty boxes.
+        for value, label in (("omit", "Omit"), ("on_hold", "On hold"), ("counts", "Counts")):
+            row.prop_enum(self, "state", value, text=label)
         if self.state != "counts":
             col.prop(self, "reason")
 
