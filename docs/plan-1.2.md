@@ -118,6 +118,8 @@ La réponse est de ne pas raisonner par RTK, mais avec **une seule date par dép
    {"type": "description", "file": "...", "old": "...", "new": "..."},
    {"type": "departments", "file": "...", "add": ["fx"], "remove": []},
    {"type": "still_valid", "file": "...", "department": "animation", "text": "..."},
+   {"type": "assign",      "file": "...", "department": "animation", "people": ["tom"]},
+   {"type": "omit",        "file": "...", "state": "omit", "reason": "coupé au montage"},
    {"type": "create",      "kind": "shot", "sequence": "sq080", "name": "sh090", "description": "...",
                            "frame_start": 1001, "frame_end": 1120, "departments": ["layout", "animation"]}
  ]}
@@ -128,7 +130,42 @@ La réponse est de ne pas raisonner par RTK, mais avec **une seule date par dép
 - Doublons : une action déjà importée est ignorée (identifiant d'action). Un `create` déjà existant est ignoré lui aussi : `shot_batch_exists()` le vérifie déjà.
 - Les reviews de l'ancien format sont refusées, comme aujourd'hui pour une autre version du schéma.
 
-### 2.4 Des dates avec fuseau horaire
+### 2.4 Le rendu principal d'un shot
+
+Avec des rendus par département (phase 5), un shot en a plusieurs. **Le rendu principal** est celui qu'on voit et qu'on emporte par défaut : la lecture ▶, la vignette, la lecture de toute une séquence, la copie dans `videos/` ou le zip du snapshot, et la preview de séquence de la farm.
+
+- **La règle** : le rendu du **département le plus avancé** selon les étapes (2.2). À étape égale, c'est le plus récent. Rien à configurer : la hiérarchie dit déjà quels départements sont « finaux ». Sans étapes définies, c'est le plus récent.
+- Un rendu layout relancé après le lighting **ne remplace donc pas** le lighting dans la lecture de la séquence.
+- **Dans File details et dans la page** : le rendu principal en tête, puis une ligne par département.
+- **Dans `videos/` ou le zip** : uniquement le rendu principal de chaque shot, avec une case « tous les départements » à l'export. Les autres lignes se lisent depuis `renders/` quand le projet est accessible.
+- **Les anciens rendus sans département** passent après ceux qui en ont un. Un projet entièrement ancien ne change pas : son rendu le plus récent reste le principal.
+
+### 2.5 L'équipe, l'attribution et « Mon travail »
+
+- **La liste de l'équipe** est dans la config du projet : `"team": ["léa", "tom", ...]`, modifiable dans Edit project.
+- **Le nom d'utilisateur** (dans les préférences, propre à chaque machine) se **choisit dans la liste de l'équipe** du projet actif, avec une entrée « Autre… » pour un nom libre. La liste sert à éviter les fautes de frappe, qui casseraient le filtre « Moi ».
+- **L'attribution se fait par département d'un fichier**, comme une tâche dans Kitsu : sh010 avec layout pour Léa et animation pour Tom. Elle est facultative.
+  - Stockée dans le `tracking.json` du dossier : `"assignees": {"animation": ["tom"]}`.
+  - On attribue dans File details, dans la page HTML (une action de review `assign`) et à la création (dans la page comme en CSV).
+- **Un filtre « Moi »** dans Project monitoring et dans la page. Dans la page, « moi » est le nom saisi pour la review.
+- **La vue « Mon travail »**, calculée par le moteur d'états, pour les départements qui me sont attribués :
+  - ceux **à reprendre** ;
+  - mes **RTK ouverts** ;
+  - ceux **prêts à démarrer** (toutes les étapes précédentes sont finies) ;
+  - mes **rendus à vérifier**.
+- **Pas de tableau de charge par personne**, ni de nombre de tâches, ni de temps par personne. C'est le principe de `docs/design.md` : l'attribution sert à filtrer, pas à compter.
+
+### 2.6 « Omit / On hold » : écarter un shot sans l'archiver
+
+Aujourd'hui, la seule façon d'exclure un shot des stats est de l'archiver, et il disparaît alors des listes.
+
+- **Un marqueur** dans le `tracking.json` du dossier : `"omit": {"state": "omit" | "on_hold", "at", "by", "reason"}`.
+- Le fichier **reste dans l'arborescence et dans les listes**, en grisé, avec son marqueur.
+- Le moteur d'états le **sort** des %, de l'avancement du planning, des filtres RTK / To validate / À reprendre, du calcul des Waiting, et de « Mon travail ».
+- Il se pose et se retire depuis File details, et dans la page via une action de review `omit`.
+- **[à confirmer]** Pour un **bloc** (`sh040-050-060`, un seul fichier) : le marqueur vaut pour tout le bloc, ou peut-il viser un seul de ses shots ?
+
+### 2.7 Des dates avec fuseau horaire
 
 **Le constat :** toutes les dates écrites par l'addon sont en **heure locale sans fuseau**. `lib/core.py` `now()` écrit `datetime.now()`, il est appelé 78 fois, et aucun fichier n'utilise `timezone`, `tzinfo` ni `astimezone`. Le commentaire de `now()` le dit lui-même : « Local, not UTC ».
 
@@ -195,7 +232,7 @@ Méthode :
 | 1B.4 | Retirer le code de compatibilité **entre versions de l'addon** : worker sur un ancien protocole, libellés « older addon », demandes sans chunks | `farm/*`, `panels/farm_panel.py`, ~43 endroits repérés |
 | 1B.5 | **[à confirmer]** Anciennes **données** de projet (validations d'avant la 1.1.9, historiques sans preset…) : soit une *migration unique* (un bouton dans Maintenance qui réécrit les vieux fichiers, puis on retire les lectures de compatibilité dans la version suivante), soit on garde ces lectures | `lib/tracking.py` (`_legacy_carried`…), `farm/loop.py` |
 
-#### 1C — Dates avec fuseau horaire (voir 2.4)
+#### 1C — Dates avec fuseau horaire (voir 2.7)
 
 | # | Tâche | Où |
 |---|---|---|
@@ -219,6 +256,7 @@ Méthode :
 - `department_stages` dans la config, avec le champ « étape » dans Edit project.
 - Les états **Waiting** et **À reprendre** (2.2), et `departments_synced` dans `tracking.json`.
 - Le bouton **« Toujours valide »** dans File details et le panneau latéral.
+- **« Omit / On hold »** (2.6) : le marqueur, son bouton dans File details, et son exclusion par le moteur.
 - Les nouvelles marques dans la légende : panneau, Project monitoring, page snapshot.
 
 ### Phase 4 — La page HTML : nouveau format de review, créations, stats en direct
@@ -241,8 +279,19 @@ Méthode :
 - Stocké dans le job, puis dans `render_history.json`. Le nom des dossiers de rendu ne change pas.
 - **Un « to check » par shot et par département** : un nouveau rendu du même département remplace l'ancien, pas celui d'un autre département. Ça touche la colonne Farm, File details, *Checked* et son Ctrl+clic, le snapshot, les rushes, et la lecture des anciens fichiers (rangés par shot seul, considérés sans département).
 - **Un dernier rendu par département** dans File details et dans le snapshot (« layout v003 · animation v005 · lighting v006 »). Les anciens rendus apparaissent sans département.
+- **Le rendu principal** (2.4) pour ▶, la vignette, la lecture de la séquence, `videos/` et le zip (avec la case « tous les départements » à l'export), et la preview de séquence.
 - *Checked* précoche le département du rendu au lieu de « render ».
 - Un rendu tagué compte comme remise à jour de son département dans le moteur d'états (2.2).
+
+### Phase 6 — Équipe, attribution et « Mon travail »
+
+Elle vient en dernier : elle repose sur le moteur d'états (phase 3), et « mes rendus à vérifier » sur les rendus par département (phase 5).
+
+- La liste `team` dans la config, et son champ dans Edit project.
+- Le nom d'utilisateur dans les préférences : un menu avec la liste de l'équipe, plus « Autre… ».
+- `assignees` par département dans `tracking.json`. On attribue dans File details, dans la page (action `assign`) et à la création (page, CSV).
+- Le filtre « Moi » dans Project monitoring et dans la page.
+- La vue « Mon travail » (2.5).
 
 ---
 
@@ -252,6 +301,19 @@ Méthode :
 2. **2.2** : pour un département de rendu, la remise à jour automatique se fait-elle uniquement par un nouveau rendu tagué ?
 3. **2.2** : le « Toujours valide » est-il ouvert à tous, ou réservé à certains rôles ?
 4. **Phase 2** : les reviews rangées aussi par mois dans `snapshots/reviews/<rôle>/` ? Le nom du fichier commence déjà par la date.
+5. **2.6** : « Omit » sur un bloc : pour tout le bloc, ou par shot du bloc ?
+
+## Écarté, et pourquoi
+
+| Idée | Pourquoi on ne la fait pas |
+|---|---|
+| « Depuis ta dernière visite » | Peu fiable : la date n'aurait été valable que pour une machine. Le journal des sessions dit quand on était connecté, pas ce qu'on a vu, et l'addon ne le relit jamais, par principe |
+| Dessiner sur une frame dans la review | Pratique, mais trop lourd à écrire en JS et trop lourd dans le fichier de review |
+| Comparer deux versions côte à côte dans la page | Même raison |
+| Temps estimé contre temps passé, Gantt, échéances par tâche | Conçu pour les producteurs de gros studios ; pour 2 à 5 personnes, le planning global du projet suffit |
+| Feuilles de temps, quotas, stats ou charge par personne | Contraire au principe de `docs/design.md` : pas de surveillance dans une petite équipe |
+| Accès client, Slack, comptes utilisateurs | Il faudrait un serveur ; l'addon reste « tout en JSON sur le partage » |
+| Supprimer les previews compilées sur un worker | On les garde (plusieurs previews d'un coup peuvent être longues) ; on factorise seulement leur mécanique (1A.1) |
 
 ## 5. Effet attendu sur le poids
 
