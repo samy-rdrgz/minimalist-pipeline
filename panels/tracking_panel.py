@@ -293,35 +293,17 @@ def _draw_entry(e, note, filepath, width: int | None = None):
     row = note.row(align=True)
     body = row.row(align=True)
 
+    # Right-click on its icons: reply, edit, tick, delete.
     if e.get("done") is not None:
-        btn = body.operator(
-            "m_pipeline.toggle_entry_task",
-            text="",
-            icon="CHECKMARK" if e["done"] else "CHECKBOX_DEHLT",
-            emboss=False,
-        )
-        btn.id = e["id"]
-        btn.filepath = filepath
-        btn.rmb = "entry"  # right-click: reply, edit, tick, delete
+        icon = "CHECKMARK" if e["done"] else "CHECKBOX_DEHLT"
+        icon_button(body, "m_pipeline.toggle_entry_task", icon, id=e["id"], filepath=filepath, rmb="entry")
         if e["type"] == "rtk":
             # A validation role's RTK violet (as its notes), the team's orange.
-            body.label(
-                text="", icon=_RTK_ROLE_ICON if e.get("role") else _RTK_TEAM_ICON
-            )
-
+            body.label(text="", icon=_RTK_ROLE_ICON if e.get("role") else _RTK_TEAM_ICON)
     else:
         # A button, not a label: it takes the right-click menu (and a click
         # replies, as the grip on the right).
-        btn = body.operator(
-            "m_pipeline.generic_entry_button",
-            text="",
-            icon=_ROLE_ICON if e.get("role") else "LAYER_USED",
-            emboss=False,
-        )
-        btn.id = e["id"]
-        btn.filepath = filepath
-        btn.custom_tooltip = _get_entry_tooltip(e, filepath)
-        btn.rmb = "entry"
+        _entry_button(body, e, filepath, _ROLE_ICON if e.get("role") else "LAYER_USED")
 
     layout_text = body.column(align=True)
     layout_text.alignment = "LEFT"
@@ -378,34 +360,30 @@ def _draw_entry(e, note, filepath, width: int | None = None):
         f_start = e["frame_start"] + base
         f_end = e["frame_end"] + base if e.get("frame_end") is not None else None
 
-        frames_row.operator(
-            "m_pipeline.current_frame",
-            text=label.format(f_start),
-            emboss=not e.get("done", False),
-        ).frame = f_start
-        if e.get("frame_end"):
+        for frame in (f_start, f_end) if e.get("frame_end") else (f_start,):
             frames_row.operator(
-                "m_pipeline.current_frame",
-                text=label.format(f_end),
-                emboss=not e.get("done", False),
-            ).frame = f_end
+                "m_pipeline.current_frame", text=label.format(frame), emboss=not e.get("done", False)
+            ).frame = frame
         frames_row.separator(factor=0.75)
 
     btn = btns_row.row(align=True)
     btn.alignment = "RIGHT"
     btns = btn.row(align=True)
     btns.scale_x = 0.85
+    _entry_button(btns, e, filepath, safe_icon("GRIP_CORNER_BOTTOM_RIGHT", "GRIP"))
 
-    btn = btns.operator(
+
+def _entry_button(layout, e: dict, filepath: str, icon: str) -> None:
+    """An entry's icon: a click replies, its tooltip its whole text."""
+    icon_button(
+        layout,
         "m_pipeline.generic_entry_button",
-        text="",
-        icon=safe_icon("GRIP_CORNER_BOTTOM_RIGHT", "GRIP"),
-        emboss=False,
+        icon,
+        id=e["id"],
+        filepath=filepath,
+        custom_tooltip=_get_entry_tooltip(e, filepath),
+        rmb="entry",
     )
-    btn.id = e["id"]
-    btn.filepath = filepath
-    btn.custom_tooltip = _get_entry_tooltip(e, filepath)
-    btn.rmb = "entry"
 
 
 def _draw_approval(
