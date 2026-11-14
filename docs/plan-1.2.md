@@ -68,7 +68,7 @@ Ajouter « Waiting », « À reprendre » et les stats en direct pendant une rev
   - les stables et leurs validations ;
   - les RTK avec leurs dates d'ouverture et de fermeture ;
   - les rendus par département ;
-  - les « toujours valide » (voir 2.2).
+  - les « toujours done » (voir 2.2).
   
   Le panneau latéral, le Project monitoring, File details, la colonne Farm et l'export du snapshot l'utilisent tous.
 - **La même fonction en JavaScript dans `page.js`**, alimentée par les mêmes faits, que l'export écrit dans la page. Elle sert aux stats en direct : la page recalcule les états en appliquant la review en cours.
@@ -118,11 +118,13 @@ La réponse est de ne pas raisonner par RTK, mais avec **une seule date par dép
 - **« Changement en amont »** = un RTK de l'étape inférieure est fermé, ou un nouveau stable est fait avec cette étape travaillée alors qu'elle était déjà finie. Une simple sauvegarde de travail en cours ne compte pas : sinon la moindre retouche signalerait tout l'aval.
 - **Remise à jour du département**, qui fait disparaître « À reprendre » :
   - automatique : une session de travail sur ce département, ou un rendu tagué à son nom, après le changement ;
-  - manuelle : **un bouton « Toujours valide »** sur le département, dans File details, le panneau latéral et la page HTML (qui le transmet comme action de review). Il enregistre la date, l'auteur et éventuellement une note.
+  - manuelle : **un bouton « Toujours done »** (« Still done » dans l'interface) sur le département, dans File details, le panneau latéral et la page HTML (qui le transmet comme action de review). Il enregistre la date, l'auteur et éventuellement une note. Ce n'est **pas** « valide » : la validation reste le statut réservé à la prod, et ce bouton ne fait que dire que le travail fait reste bon.
 - **Plusieurs RTK en amont ne posent pas de problème** : la date couvre tous les changements jusqu'à maintenant. Un nouveau changement après cette date fait revenir « À reprendre ».
 - Seuls les départements **commencés** peuvent être « À reprendre ». Un département pas encore commencé partira de toute façon de la dernière version.
 
-**[à confirmer]** Pour un département de rendu (lighting, render), la remise à jour automatique serait-elle *uniquement* un nouveau rendu tagué à son nom, et pas une simple session de travail ?
+**[à confirmer]** Une précision sur la remise à jour automatique. Exemple : le layout de sh010 change, le lighting passe donc en « À reprendre ». Le graphiste lighting ouvre le fichier, retouche une lumière et enregistre. Cette session de travail compte comme remise à jour, et « À reprendre » disparaît, **alors qu'aucun nouveau rendu lighting n'a été fait** avec le nouveau layout.
+- **Règle simple (recommandée)** : une session de travail **ou** un rendu remettent à jour, pour tous les départements. Rien à configurer. Le cas ci-dessus est accepté : le graphiste a travaillé dessus après le changement.
+- **Règle stricte** : pour certains départements (lighting, render…), seul un nouveau rendu tagué remet à jour. Plus juste, mais il faut une liste de « départements de rendu » dans la config.
 
 ### 2.3 Une review = une liste d'actions typées (fin du format tableur)
 
@@ -142,7 +144,7 @@ La réponse est de ne pas raisonner par RTK, mais avec **une seule date par dép
    {"type": "fixed",       "id": "<id d'un RTK>"},
    {"type": "description", "file": "...", "old": "...", "new": "..."},
    {"type": "departments", "file": "...", "add": ["fx"], "remove": []},
-   {"type": "still_valid", "file": "...", "department": "animation", "text": "..."},
+   {"type": "still_done",  "file": "...", "department": "animation", "text": "..."},
    {"type": "assign",      "file": "...", "department": "animation", "people": ["tom"]},
    {"type": "omit",        "file": "...", "state": "omit", "reason": "coupé au montage"},
    {"type": "create",      "kind": "shot", "sequence": "sq080", "name": "sh090", "description": "...",
@@ -191,7 +193,7 @@ Aujourd'hui, la seule façon d'exclure un shot des stats est de l'archiver, et i
 - Le fichier **reste dans l'arborescence et dans les listes**, en grisé, avec son marqueur.
 - Le moteur d'états le **sort** des %, de l'avancement du planning, des filtres RTK / To validate / À reprendre, du calcul des Waiting, et de « Mon travail ».
 - Il se pose et se retire depuis File details, et dans la page via une action de review `omit`.
-- **[à confirmer]** Pour un **bloc** (`sh040-050-060`, un seul fichier) : le marqueur vaut pour tout le bloc, ou peut-il viser un seul de ses shots ?
+- **Un marqueur par fichier** : pour un **bloc** (`sh040-050-060`, un seul fichier), il vaut pour tout le bloc. Pour écarter un seul shot d'un bloc, on modifie la structure du fichier, ce qui est déjà possible.
 
 ### 2.7 Des dates avec fuseau horaire
 
@@ -258,7 +260,26 @@ Méthode :
 | 1B.2 | Retirer l'xlsx : générateur, import, lecture (~600 lignes) | `lib/review_sheet.py`, `lib/review_import.py`, opérateurs, docs |
 | 1B.3 | « Quelle machine a rendu quelle frame » dans un **bouton + popup** | `panels/farm_panel.py` |
 | 1B.4 | Retirer le code de compatibilité **entre versions de l'addon** : worker sur un ancien protocole, libellés « older addon », demandes sans chunks | `farm/*`, `panels/farm_panel.py`, ~43 endroits repérés |
-| 1B.5 | **[à confirmer]** Anciennes **données** de projet (validations d'avant la 1.1.9, historiques sans preset…) : soit une *migration unique* (un bouton dans Maintenance qui réécrit les vieux fichiers, puis on retire les lectures de compatibilité dans la version suivante), soit on garde ces lectures | `lib/tracking.py` (`_legacy_carried`…), `farm/loop.py` |
+| 1B.5 | **Les anciennes données de projet : un script de migration plutôt qu'une couche « legacy »** (détail ci-dessous) | `lib/tracking.py`, `lib/snapshot.py`, Maintenance |
+
+**1B.5 en détail.** Le relevé du code donne **trois vraies lectures d'anciennes données**. Les autres mentions sont du code entre versions de l'addon (1B.4), ou sans rapport (un texte « placeholder », un lien vers une ancienne version d'asset).
+
+| Ancienne donnée | Lue aujourd'hui par | Ce qui casserait si on retirait cette lecture |
+|---|---|---|
+| **Les validations « reportées » d'un stable fait avant la 1.1.9** : ces stables ne notaient pas les validations héritées du stable précédent | `_legacy_carried()`, `lib/tracking.py:1498`, appelée deux fois | **Visible** : des départements validés s'afficheraient non validés sur les fichiers dont le dernier stable date d'avant la 1.1.9, jusqu'au prochain stable |
+| **Les entrées de `render_history.json` sans `source_file` ni `shot_override`** (anciennes versions) | `lib/snapshot.py:110`, recherche du dernier rendu d'un shot | **Visible** : certains shots rendus il y a longtemps afficheraient un mauvais « dernier rendu », ou aucun |
+| **Les rendus d'avant que l'historique note leur plage de frames** | `_folder_frames()`, `lib/snapshot.py:213` : la plage est déduite du nom des images | Mineur : la numérotation des frames dans la page partirait de 1 au lieu de la vraie première frame |
+| Les rendus d'avant la 1.1.7, sans preset noté | `history_pace()` : estimation « preset unknown » | Négligeable : pas d'estimation pour ces fichiers |
+
+**Pourquoi une migration plutôt qu'une couche legacy :** le moteur d'états de la phase 3 deviendrait sinon le principal utilisateur de ces cas particuliers, alors qu'il devrait ne connaître qu'**une seule forme de données**.
+
+**Le script : un bouton « Migrer les anciennes données » dans Maintenance**, lancé une fois par projet :
+1. il écrit dans les vieux `.stablemeta` les validations que `_legacy_carried()` calcule ;
+2. il complète les vieilles entrées de `render_history.json` (`source_file`, `shot_override`, `frame_range_rendered`) avec les mêmes déductions qu'aujourd'hui ;
+3. il fait une sauvegarde de chaque fichier avant de le réécrire, et indique ce qu'il a changé ;
+4. il note dans la config du projet qu'il a été lancé.
+
+Dans la version suivante, on retire `_legacy_carried()`, la recherche de secours de `snapshot.py:110` et l'estimation « preset unknown ». On garde la lecture défensive de `_folder_frames()` : elle coûte quelques lignes et sert aussi quand l'historique manque.
 
 #### 1C — Dates avec fuseau horaire (voir 2.7)
 
@@ -272,18 +293,38 @@ Méthode :
 
 ### Phase 2 — Rangement des snapshots et des reviews
 
-- **Copie de la review** : après un import réussi depuis Blender, copie du fichier original dans `snapshots/reviews/<rôle>/`. Le nom contient déjà la date, le rôle et l'auteur. Le même fichier n'est pas recopié ; un fichier différent du même nom reçoit un suffixe ; rien n'est copié si l'import est annulé. *Import review* ouvre son sélecteur sur `snapshots/reviews/`.
+- **Copie de la review** : après un import réussi depuis Blender, copie du fichier original dans `snapshots/reviews/<rôle>/<AAAA-MM>/`, le mois de la review. Le nom contient déjà la date, le rôle et l'auteur. Le même fichier n'est pas recopié ; un fichier différent du même nom reçoit un suffixe ; rien n'est copié si l'import est annulé. *Import review* ouvre son sélecteur sur `snapshots/reviews/`.
 - **Snapshots rangés par mois** : `snapshots/2026-11/…html`.
   - **Un seul dossier `snapshots/videos/`**, que la page trouve via `../videos` : sinon chaque mois aurait sa propre copie de toutes les vidéos (le mode *Folder* écrit aujourd'hui `videos/` à côté du snapshot, `tracking_ops.py:1207`).
   - Le chemin relatif vers `renders/` est calculé à l'export : les nouveaux snapshots s'adaptent tout seuls.
   - **Les anciens snapshots restent à la racine** : les déplacer casserait leurs chemins vers les vidéos.
+
+### Phase 2b — Le détail à côté de la liste, dans les fenêtres de monitoring
+
+**Aujourd'hui :** ouvrir un détail (un fichier dans Project monitoring, un job ou un worker dans Farm monitoring) **remplace** toute la liste, dans la même zone.
+
+**Proposition :** le détail s'ouvre **à droite de la liste**, dans une **deuxième zone** de la même fenêtre, comme le panneau d'un fichier dans la page HTML sur ordinateur.
+- **Redimensionnable** en tirant la bordure entre les deux zones, comme n'importe quelle zone de Blender. La largeur choisie est retenue pendant la session, par type de fenêtre.
+- **Un clic sur une autre ligne** change le détail sans le fermer. **Échap**, ou un bouton ×, ferme la zone de droite et rend toute la largeur à la liste.
+- **Les raccourcis suivent la zone sous la souris**, ce qui règle tout seul le conflit d'avant :
+  - sur la liste, la molette et ←/→ tournent les pages ;
+  - sur le détail, la molette fait défiler, et ←/→ passent au fichier précédent ou suivant.
+- **Fenêtre trop étroite** pour deux colonnes : on revient au comportement actuel, le détail remplace la liste.
+- La liste garde ses pages calculées sur la hauteur de la fenêtre. Sa largeur réduite oblige seulement les colonnes à se resserrer.
+
+**Points techniques à vérifier en premier, dans Blender :**
+- **Créer la zone** : découper la zone principale avec `bpy.ops.screen.area_split(direction="VERTICAL", factor=…)`, lancé dans le contexte de la fenêtre et de sa zone (`context.temp_override(window=…, area=…)`). La deuxième zone est un deuxième éditeur Properties, sur le même onglet.
+- **La fermer** : `bpy.ops.screen.area_close()`, dans le même contexte.
+- **Savoir quelle zone est le détail** : une zone Blender n'a pas de propriété personnalisée. Il faudra la reconnaître par sa position (la plus à droite des deux) ou par son rang dans `screen.areas`. Chaque panneau dessine alors soit la liste, soit le détail, selon la zone dans laquelle il est.
+- **L'interaction avec ce qui existe** : la fenêtre au premier plan, la réouverture sur le détail (Ctrl+clic), les fichiers ouverts par le pipeline qui gardent la fenêtre, le masquage de l'outil actif (voir NOTES.md, « Monitoring windows… »).
+- **À faire après la phase 1A**, qui aura déjà réécrit les écrans de détail en boucles.
 
 ### Phase 3 — Moteur d'états et hiérarchie des départements
 
 - `lib/status.py` (2.1), branché partout où un état est affiché. On remplace les calculs actuels au lieu d'en ajouter.
 - `department_stages` dans la config, avec le champ « étape » dans Edit project.
 - Les états **Waiting** et **À reprendre** (2.2), et `departments_synced` dans `tracking.json`.
-- Le bouton **« Toujours valide »** dans File details et le panneau latéral.
+- Le bouton **« Toujours done »** dans File details et le panneau latéral, ouvert à tous : comme le travail lui-même, ce n'est pas une validation.
 - **« Omit / On hold »** (2.6) : le marqueur, son bouton dans File details, et son exclusion par le moteur.
 - Les nouvelles marques dans la légende : panneau, Project monitoring, page snapshot.
 
@@ -293,7 +334,7 @@ Méthode :
 - Dans la page :
   - **« + shot » par séquence, « + asset » par préfixe** : nom (validé avec les règles de nommage exportées dans la page), description, plage de frames, départements requis. Le futur shot ou asset apparaît en « prévu » jusqu'à l'import. Tout le monde peut créer ; l'auteur et le rôle sont notés.
   - **Ajouter ou retirer des départements requis** sur un fichier existant.
-  - **« Toujours valide »** sur un département « À reprendre ».
+  - **« Toujours done »** sur un département « À reprendre ».
   - **Stats en direct** : les %, les compteurs et les états recalculés par le moteur JS en appliquant la review en cours (« avec ta review : 64 % (+3) »).
 - Le jumeau JS du moteur et les cas de test communs.
 
@@ -330,11 +371,9 @@ Elle vient en dernier : elle repose sur le moteur d'états (phase 3), et « mes 
 
 ## 4. Questions encore ouvertes
 
-1. **Phase 1B.5** : migration unique des anciennes données de projet, ou on garde leur lecture ?
-2. **2.2** : pour un département de rendu, la remise à jour automatique se fait-elle uniquement par un nouveau rendu tagué ?
-3. **2.2** : le « Toujours valide » est-il ouvert à tous, ou réservé à certains rôles ?
-4. **Phase 2** : les reviews rangées aussi par mois dans `snapshots/reviews/<rôle>/` ? Le nom du fichier commence déjà par la date.
-5. **2.6** : « Omit » sur un bloc : pour tout le bloc, ou par shot du bloc ?
+1. **Phase 1B.5** : je recommande le **script de migration** plutôt qu'une couche legacy. Le détail et ce qui casserait sans rien faire sont dans 1B.5. À confirmer.
+2. **2.2** : la remise à jour automatique d'un département se fait-elle par une session de travail **ou** un rendu (règle simple, recommandée), ou, pour certains départements, **seulement** par un nouveau rendu (règle stricte) ? L'exemple est dans 2.2.
+3. **Phase 2b** : le détail à côté de la liste. Il faut vérifier en premier, dans Blender, que la découpe et la fermeture de la zone se font bien depuis l'addon (voir les points techniques).
 
 ## Écarté, et pourquoi
 
