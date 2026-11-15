@@ -6,6 +6,17 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- Snapshot page, the notes in review: a thread one line, opened in place
+  (its replies, *Reply*, *Mark fixed*); an author's notes of a day under
+  one header; a bar to show the open ones, all, or yours, newest first or
+  by frame; *Whole file* first; a department one line (state, what's
+  open, who it's assigned to, ✓ ✕); ✕ opens a box under it -- *Retake* or
+  *Note*, a block's shots as buttons, the frame shown --, what you add
+  listed on top with a × to take it back; *Reply* has its own box and
+  *Reply* button; *File settings* folded at the end; the figures with
+  your review after a pencil, their tip on a tap too.
+- *Migrate old data*: a note id found twice made unique (Fixed marked
+  every note sharing it).
 - Export snapshot: *Every department* takes each shot's other departments'
   last renders too (Folder, Zip), not only its main one.
 - A render preset per department, `<department>_default.py`, made with

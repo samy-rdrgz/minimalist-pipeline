@@ -5009,3 +5009,48 @@ Phase 6 of docs/plan-1.2.md.
   read by `parse_batch_assignees()` in the creation's own process
   (`templates/batch_create_entry.py`), after the file is made. *My work*,
   planned as a view, is the *Me* filter: no view of its own.
+
+## Notes in review: one line a thread, the box under its header
+
+The snapshot page's notes (v4 of its design, docs/snapshot-ui v4): a file
+with 11 notes and 4 departments was a 1 900 px panel; now 1 450 with the
+box open and a thread unfolded.
+
+- **A thread is a `<details>`**: its line (kind, frames, shot, text, who
+  and when, replies) opens it -- keyboard and screen readers for free. Its
+  buttons call `preventDefault()` so they act without folding it. Open by
+  default with a reply of the last 7 days or one of yours; a click is
+  kept per file and note (`mp-snapshot:notes-open`), never the default
+  opening (a `toggle` would fire on render too).
+- **What a reviewer writes stays the review's text.** The box (`openCmp()`,
+  one at a time, `editing.cmp`) holds a draft; *Add* appends its lines to
+  `e.deps[d].text` / `e.text` exactly as the old boxes wrote them
+  (`[sh040] [f12] note: ...`), so the export, `fromActions()`, the
+  timeline's marks and the import are unchanged. Each line shows as a
+  row of its own, × removes that line. *Note* adds `note:` after the
+  tags; typed `note:` at the start switches to Note.
+- **A note keeps a ✓.** `{ok:1, text:"note: ..."}`: exported as the
+  validation plus the notes, read back the same way. A retake still
+  replaces the ✓ (it withdraws it at import).
+- **A block's shot is the line's `[sh020]`** -- the buttons only edit
+  and follow it (the line under the caret), no state of their own: the
+  per-shot boxes are gone.
+- **Nothing written on a department, *Add retake* sends it back with no
+  text** -- the old empty ✕, shown as "(no text) · sent back".
+- **Replies have a draft too** (`editing['r:<id>']`), sent by *Reply*;
+  Retake / Note as the box. Several replies to one thread in one review
+  are lines of the same reply.
+- **Mine** = written or answered by you (the review's name), or fixed
+  in your review.
+- **The figures with your review** (`withReview()`): Blender's grease
+  pencil instead of an arrow, shown only when the review moves them; the
+  tip floats over the page (`lvShow()`) -- a header clipped it -- and a
+  tap opens it, no hover on a touch screen.
+- **Class names**: `.lb`, `.seg`, `.rp`, `.rc`, `.tags`, `.tg`, `.you`,
+  `.empty` were taken (the lightbox, the tabs, the recap...): the notes
+  use `.onl`, `.nseg`, `.rpl`, `.rcn`, `.tgs`, `.tf`/`.ts`, `.yt`,
+  `.blank`.
+- **Ids found twice**: older versions gave the same id to the same words
+  written in the same second (four empty RTKs of a review): Fixed marked
+  the four. *Migrate old data* gives the duplicates ids of their own
+  (`_migrate_ids()`), the first keeping its id -- its replies point to it.

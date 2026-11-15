@@ -41,6 +41,7 @@ from .tracking import (
     _path_key,
     _pipeline_entries,
     _stablemeta_of,
+    _unique_entry_id,
     _walk_owner_dirs,
     _worked_between,
     compact_linked,
@@ -197,7 +198,7 @@ def _plan_owner(root: Path, owner: Path, is_shot: bool, v_prefix: str) -> list[d
     tracking = read_json_quiet(pipeline / "tracking.json") or {}
     found = []  # (path, data, changes): every file read, changed or not
 
-    found.append((str(pipeline / "tracking.json"), tracking, _migrate_entries(tracking)))
+    found.append((str(pipeline / "tracking.json"), tracking, _migrate_entries(tracking) + _migrate_ids(tracking)))
 
     stables = _read_metas(entries, ".stablemeta")
     # Computed from the files as they are, before any is changed: the
@@ -322,6 +323,25 @@ def _migrate_entries(tracking: dict) -> list[str]:
             e["departments"] = deps
         n += 1
     return ["entry departments"] if n else []
+
+
+def _migrate_ids(tracking: dict) -> list[str]:
+    """An id found twice made unique (notes written by older versions, the
+    same words at the same second): the first keeps it -- its replies point
+    to it --, the others get one of their own. The page's Fixed and Reply
+    find a note by its id."""
+    entries = [e for e in tracking.get("entries") or [] if isinstance(e, dict)]
+    taken, seen, n = {e.get("id") for e in entries}, set(), 0
+    for i, e in enumerate(entries):
+        old = e.get("id")
+        if not old:
+            continue
+        if old in seen:
+            e["id"] = _unique_entry_id(f"{old}#{i}{e.get('created_at', '')}", taken)
+            taken.add(e["id"])
+            n += 1
+        seen.add(old)
+    return ["entry ids made unique"] if n else []
 
 
 # ---------------------------------------------------------------------------

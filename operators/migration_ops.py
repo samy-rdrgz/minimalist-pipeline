@@ -29,6 +29,7 @@ _pending: dict = {}
 # What a change is called in the dialog, in its order.
 _CHANGES = (
     ("entry departments", "notes and tasks: their departments as a list"),
+    ("entry ids made unique", "notes and tasks: an id found twice made unique"),
     ("stable: departments started", "stables: the departments started so far"),
     ("stable: validations carried", "stables: the validations they carried"),
     ("links one per file", "versions: their links, one per file"),

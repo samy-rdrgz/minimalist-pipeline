@@ -121,42 +121,58 @@ la prod -- sur la version qu'il a vue.
   combien de fichiers (un clic : la même fenêtre, pour les changer) et
   *Send…* ; le menu ⋯ *Clear this review…* et *Leave the review*. Dans
   le panneau d'un fichier, un département *To redo* a *Still done* (son
-  travail tient toujours), et un bloc *File* en bas change ses
+  travail tient toujours), et *File settings*, replié en bas, change ses
   départements requis et l'écarte (*Active*, *On hold*, *Cancelled*, avec
   un pourquoi) -- envoyés avec la review, ouverts à tous les rôles ; chaque séquence
   (ou préfixe) a *+ shot* (ou *+ asset*) : son numéro ou son nom, ses
   images, sa description et ses départements requis, vérifiés selon le
   nommage du projet, affiché prévu dans son groupe jusqu'à ce que
   l'import le crée ; et les chiffres suivent pendant qu'on écrit -- par
-  section, groupe et fichier, « → 32 % · 6 % -1 » : ce que la review en
+  section, groupe et fichier, après un crayon : ce que la review en
   ferait ; un ✓ à côté de chaque département (le
-  valider pour votre rôle -- seulement s'il est fini) et un ✗ (une case
-  pour les retakes, un par ligne : `[sh020]` en début de ligne pour un
-  shot d'un bloc, `[f12-40]` pour ses frames, `note:` pour une remarque
-  plutôt qu'un retake (seulement des remarques : ✎ you en gris, la
-  validation laissée telle quelle) -- pour un bloc, une case pour tous ses shots et
-  une par shot, ouverte par son bouton, chacune de ses lignes réécrite
-  avec son tag `[sh020]` ; laissée
-  vide, elle retire une validation) ; une ligne *All done* au-dessus
-  des départements (son ✓ valide tous ceux qui sont finis) et une ligne
-  *Whole file* en dessous (son ✕ ouvre un retake sur aucun département),
-  avec les mêmes boutons ; *✎ Edit the description* sous celle-ci. La liste
-  montre ce que vous avez fait sous chaque département (✓ you, ✕ you) ;
-  *Last render* et *Blender file* s'effacent du panneau pendant la
-  review. Touches : ← → (fichiers), Échap (fermer), V (all done), X
-  (retake général), Échap ou Ctrl+Entrée dans un champ (en sortir).
-  Une RTK ouverte -- de la prod ou de l'équipe -- a *✓ Fixed* à côté en
-  review (un todo ouvert, *✓ Done*) : marquée, elle passe à fait à l'import de la review, au nom de
-  son auteur (une déjà faite depuis, ou disparue, est laissée telle
-  quelle ; réimporter ne change rien). *↩ Reply*, à côté et sous une
-  note ouverte, écrit une réponse : ajoutée au fil de cette note à
-  l'import, sous votre rôle -- lue comme la case d'un département : un
-  retake (« encore à reprendre »), en rouge, sauf si chaque ligne est
-  `note:`, une remarque, en gris. Une réponse retake renvoie le
-  département de la note comme ✕ (✕ you, sa validation retirée à
-  l'import ; sans département : le ✕ you du fichier) et est importée en
-  RTK sur lui ; la RTK à laquelle elle répond reste ouverte (*✓ Fixed*
-  dit qu'elle est faite).
+  valider pour votre rôle -- seulement s'il est fini) et un ✕. Chaque
+  département tient sur une ligne : sa marque, son nom, ce que dit votre
+  review (✓ you, ✕ you), son état et ce qui est ouvert dessus (« not
+  started · 2 RTK · 1 note · 1 closed »), à qui il est attribué (un rond
+  en pointillés s'il n'y a personne : son menu vous met en premier, puis
+  l'équipe, puis *Nobody*), ✓ et ✕. **✕ ouvre une case sous l'en-tête du
+  département** : *Retake* ou *Note* (ou `note:` tapé au début), un par
+  ligne, `[f12-40]` pour des frames ; sur un bloc, *On All / sh010 /
+  sh020…* -- la même chose que le `[sh020]` en début de ligne, l'un change
+  l'autre --, *+ f12* place la frame affichée après lui. *Add retake*
+  (Ctrl+Entrée, ⌘↵ sur Mac) ajoute les lignes et laisse la case ouverte
+  pour la suivante ; sans rien écrire, le département est renvoyé sans
+  texte (sa validation retirée) ; *Cancel* ou Échap la ferme. Ce que vous
+  avez ajouté s'affiche au-dessus des fils du département, une ligne
+  chacun avec ✕ YOU / NOTE · YOU et une × pour le retirer. Une note garde
+  votre ✓ ; un retake le remplace. *Whole file* vient en premier : son ✕
+  écrit un retake sur aucun département (X), son ✓ valide tous les
+  départements finis (V). *✎ Edit the description* au-dessus. **Les
+  notes** : une ligne par fil -- type (RTK, TODO, NOTE), frames (un clic y
+  va), shot, texte, qui et quand --, un clic l'ouvre (ses réponses,
+  *Reply*, *Mark fixed*) ; au survol, les deux en icônes. Un fil est
+  ouvert par défaut s'il a une réponse de moins de 7 jours ou une des
+  vôtres ; ensuite comme vous l'avez laissé. Les notes d'un même auteur
+  le même jour partagent un en-tête. La barre au-dessus : *Open* (les
+  fermés repliés sous « N closed », à la fin de leur département), *All*,
+  *Mine* (les vôtres, ceux auxquels vous avez répondu ou que vous avez
+  corrigés) ; *Newest* ou *By frame* -- gardés par le navigateur. *Reply*
+  ouvre une case sous le dernier message du fil : *Retake* (« encore à
+  reprendre » : son département renvoyé comme par ✕, importé en RTK sur
+  lui) ou *Note* (une remarque) ; envoyée, elle s'affiche ↩ YOU, avec une
+  × pour la retirer. *Mark fixed* (un todo ouvert : *Mark done*) la barre
+  avec ✓ FIXED · YOU : faite à l'import, au nom de son auteur (une déjà
+  faite depuis, ou disparue, est laissée telle quelle ; réimporter ne
+  change rien) ; un nouveau clic l'annule. La RTK à laquelle on répond
+  reste ouverte. *File settings*, replié à la fin : les départements
+  requis et la mise de côté. Les chiffres que votre review change
+  s'affichent après un crayon (with you 33 % · 5 %), leur bulle -- au
+  survol ou d'un tap -- dit ce qu'ils sont aujourd'hui. La liste montre ce
+  que vous avez fait sous chaque département (✓ you, ✕ you) ; *Last
+  render* et *Blender file* s'effacent du panneau pendant la review.
+  Touches : ← → (fichiers), Échap (fermer), V (all done), X (case du
+  fichier entier), R (répondre au fil sélectionné) ; dans une case,
+  Ctrl+Entrée ajoute, Échap annule.
   Pour la relire : *Your review*, parmi les filtres (ou *Show the changes* dans *Send your review*), ne montre que les fichiers que la review a touchés.
   *Send…* ouvre *Send your review* : votre
   nom, votre rôle (obligatoire dès qu'elle contient un retake ou une

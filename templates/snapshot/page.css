@@ -542,19 +542,10 @@ body.resizing .wrap,body.resizing .panel{transition:none!important}
 .p-block h4{margin:0 0 6px;font-size:13px;font-weight:600;color:var(--ink-2)}
 .p-block h4 .h-sub{font-weight:400;color:var(--ink-3);margin-left:6px;font-size:12px}
 .dep{padding:4px 0}
-.dep-l{display:flex;align-items:center;gap:10px;min-height:var(--tap)}
-.dep .mid{flex:1;display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px;min-width:0}
 .dep .nm{font-weight:600;min-width:96px}
 .major .dep .nm{font-size:15px}
-.dep .st{font-size:13px;color:var(--ink-2)}
 .dep .ok,.dep .rk{font-size:12px}
 .rvb{display:none;gap:6px;flex:none}
-.rvb-gap{display:inline-block;width:36px}
-/* "All done" and "Whole file": rows like a department's, quieter names. */
-.dep.all .nm,.dep.whole .nm{font-weight:600;color:var(--ink-2)}
-.dep.all{padding-bottom:6px;margin-bottom:2px;border-bottom:1px dashed var(--line)}
-.dep.whole{margin-top:4px;padding-top:8px;border-top:1px dashed var(--line)}
-/* Their blank where a department has its diamond: the names in one column. */
 .desc-edit{display:block;border:0;background:none;padding:0;margin:-6px 0 8px;min-height:var(--tap);color:var(--ink-3);font-size:12px}
 .desc-edit:hover{color:var(--accent)}
 body.reviewing .rvb{display:inline-flex}
@@ -569,8 +560,6 @@ transition:box-shadow .15s,transform .1s,background .15s}
 .rvb .ok-b.via{background:var(--valid-bg)}
 .rvb .ko-b[aria-pressed="true"]{background:var(--rtk-f);color:#fff}
 .rvb .ko-b.as-note[aria-pressed="true"]{background:var(--ink-3);border-color:var(--ink-3);color:var(--surface)}
-@media (pointer:coarse){.rvb button{width:44px;height:44px}.rvb-gap{width:44px}}
-.dep:has(.ko-b.as-note) .rtk-t{border-color:var(--line)}
 .rtks{margin:6px 0 0 22px;display:grid;gap:4px}
 .rtkl{font-size:13px;padding:6px 10px;border-radius:6px;background:var(--rtk-bg);color:var(--ink)}
 .rtkl.team{background:var(--team-bg)}
@@ -593,34 +582,10 @@ background:none;color:var(--ink-3);font-size:14px;line-height:1;cursor:pointer}
 .note .h .fx{margin:-4px -6px -4px 0}
 @media (pointer:coarse){.rp,.fx{width:36px;height:36px}}
 .note .h .rp{margin:-4px -6px -4px 0}
-.reply-box{display:flex;align-items:flex-start;gap:8px;margin:6px 0 2px 22px}
-.reply-box .you{flex:none;margin-top:9px}
-.reply-box.as-note textarea{border-color:var(--line)}
-.reply-box textarea{flex:1;min-height:36px;padding:8px 10px;border:1px solid var(--rtk);border-radius:6px;background:var(--surface);resize:none;font-size:13px;line-height:1.4}
 .rtkl.fixed .rt-t{opacity:.55;text-decoration:line-through;text-decoration-color:color-mix(in srgb,currentColor 50%,transparent)}
-.rt{margin-top:6px}
 textarea{display:block;width:100%;min-height:36px;max-height:50vh;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface);font-size:13px;
 field-sizing:content;overflow:auto;resize:none}
 textarea:focus{border-color:var(--accent);outline:none}
-textarea.rtk-t{border-color:var(--rtk)}
-.syntax{margin:4px 0 0;font-size:11px;color:var(--ink-3)}
-.syntax code{font:11px var(--mono);color:var(--ink-2)}
-.tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
-.tags span{font-size:12px;color:var(--ink-3);align-self:center;margin-right:2px}
-.tags button{min-height:calc(var(--tap) - 6px);padding:0 9px;border:1px solid var(--line);border-radius:var(--r-btn);background:var(--surface);font-size:12px;color:var(--ink-2)}
-.tags button:hover{border-color:var(--rtk);color:var(--rtk)}
-.tags button[aria-pressed="true"]{border-color:var(--rtk);color:var(--rtk);background:var(--rtk-bg);font-weight:600}
-/* A block's retake: a box for all its shots, then one per shot opened. */
-/* Everything under a department lines up with its name; a block's
-boxes share one column of labels (All, sh040...), one edge, one width. */
-.rt{margin-left:22px}
-.rbox{display:grid;gap:6px}
-.shotbox{display:grid;grid-template-columns:44px minmax(0,1fr);gap:8px;align-items:start;margin:0}
-.shotbox>span:first-child{padding-top:8px;font-size:12px;font-weight:700;color:var(--rtk)}
-.shotbox textarea{min-height:36px;margin:0}
-.tags.shotbox{margin:0}
-.tg-in{display:flex;flex-wrap:wrap;gap:4px}
-.rbox+.syntax{margin-left:52px}
 .fold{display:flex;align-items:center;gap:6px;border:0;background:none;padding:0;min-height:var(--tap);color:var(--ink-2);font-size:13px;font-weight:600}
 .fold::before{content:"";width:6px;height:6px;border:solid var(--ink-3);border-width:0 2px 2px 0;transform:rotate(-45deg);transition:transform .15s}
 .fold[aria-expanded="true"]::before{transform:rotate(45deg)}
@@ -844,41 +809,6 @@ range a blue bar above -- a click goes there. */
 .pv-wide .pv-slot,.pv-wide .pv-msg{grid-area:1/1/2/2;margin:0}.pv-wide .tl{grid-row:2}.pv-wide .pc{grid-row:3}.wl-side{grid-area:4/1/5/2;border-left:0}
 .strip{max-width:100%;order:9;flex-basis:100%}}
 
-/* ---------- a file's threads, under their department ---------- */
-.ths{display:grid;gap:10px;margin:8px 0 4px 34px}
-.th{display:flex;gap:10px;align-items:flex-start}
-.th.reply{margin-left:34px;padding-left:12px;border-left:2px solid var(--line)}
-.th.closed{opacity:.6}.th.fixed p{text-decoration:line-through;opacity:.7}
-.av{flex:none;display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:var(--btn);color:var(--ink);font:700 12px var(--ui)}
-.th.reply .av{width:20px;height:20px;font-size:10px}
-.th-b{min-width:0;flex:1}
-.th-h{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;font-size:12px}
-.th-h b{font-weight:600;color:var(--ink)}.th-h .who{color:var(--ink-3)}
-.th p{margin:3px 0 0;font-size:13px;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere}
-.th-t{margin-top:3px;font-size:11px;color:var(--ink-3)}
-.tt{padding:1px 5px;border-radius:4px;font:800 9px/14px var(--mono);letter-spacing:.04em}
-.tt-rtk{background:var(--rtk-f);color:#fff}.tt-todo{background:var(--wip);color:var(--on-fill)}.tt-note{background:var(--btn);color:var(--ink)}
-.tt.done{background:none;color:var(--ink-3);box-shadow:inset 0 0 0 1px var(--line2)}
-.ft-b{padding:1px 6px;border:0;border-radius:4px;background:var(--btn);color:var(--ink);font:700 11px/16px var(--mono);cursor:pointer}
-.ft-b.rg{background:var(--range);color:#0E1A33}
-.thr{display:grid;gap:10px}
-.av.none{visibility:hidden}
-/* Fixed: a small toggle in the thread's head; Reply: a quiet field under
-the thread (page.js noteHtml()). */
-.fx2{height:18px;padding:0 6px;border:1px dashed var(--line2);border-radius:4px;background:none;color:var(--ink-3);font:600 11px/16px var(--ui);cursor:pointer}
-.fx2:hover{color:var(--ink);border-style:solid}
-.fx2[aria-pressed="true"]{background:var(--val-f);border:1px solid var(--val-f);color:#fff}
-@media (pointer:coarse){.fx2{height:28px;padding:0 10px}}
-.rp-ghost{display:flex;align-items:center;gap:6px;width:calc(100% - 36px);margin:-4px 0 0 36px;min-height:30px;padding:0 10px;border:1px solid transparent;border-radius:var(--r-btn);
-background:color-mix(in srgb,var(--field) 60%,transparent);color:var(--ink-3);font-size:12px;text-align:left;cursor:text}
-.rp-ghost:hover,.rp-ghost:focus-visible{border-color:var(--line2);color:var(--ink-2)}
-.rp-ghost .ico{width:12px;height:12px;opacity:.7}
-.more-notes{justify-self:start;border:0;background:none;padding:2px 0;color:var(--ink-3);font-size:12px;cursor:pointer}
-.more-notes:hover{color:var(--ink)}
-/* Your retake: under its department, bordered in your colour. */
-.rt.mine textarea{border-color:var(--mine)!important}
-.syntax .addf{margin-right:8px;padding:1px 8px;border:1px solid var(--mine);border-radius:5px;background:none;color:var(--ink);font:700 11px/18px var(--mono);cursor:pointer}
-.dep .dep-l .cell{margin:0 8px 0 0;flex:none}
 
 /* ---------- send the review ---------- */
 .dlg-in.send{width:min(680px,100%);max-height:calc(100dvh - 32px - var(--sat));display:flex;flex-direction:column}
@@ -999,10 +929,14 @@ html,.p-body,.wl-side,.recap,.menu-pop,.pick-pop,.strip{scrollbar-color:var(--li
 .dlg .row3 input,.dlg .row2 input{min-width:0;width:100%}
 
 /* "With your review": the figures the review would give, in its colour. */
-.wr{display:inline-flex;align-items:baseline;gap:4px;padding:1px 7px;border-radius:var(--r-btn);background:var(--valid-bg);color:var(--ink);font-size:12px;white-space:nowrap}
-.wr b{font-weight:700}.wr small{color:var(--valid);font-weight:700}.wv{color:var(--valid)}
+.lv{position:relative;display:inline-flex;align-items:center;gap:5px;font-size:12px;padding:2px 8px 2px 6px;border-radius:10px;background:var(--accent-bg);color:var(--ink-2);white-space:nowrap;cursor:help}
+.lv .ico{width:13px;height:13px;color:var(--valid)}
+.lv i{font-style:normal;color:var(--ink-3)}
+.lv strong{color:var(--ink);font-weight:700}
+.lv em{font-style:normal;color:var(--valid)}
+.lv-tip{white-space:pre;position:fixed;z-index:80;pointer-events:none;padding:6px 9px;border-radius:6px;background:var(--surface);color:var(--ink);box-shadow:var(--sh-pop);border:1px solid var(--line);font-size:12px;font-weight:400;line-height:1.5}
 .g-pct{display:inline-flex;align-items:center;gap:10px}
-.p-kpi .wr{margin-left:8px}
+.p-kpi .lv{margin-left:8px}
 /* A render's other departments' last ones, under it (renders by department). */
 .renders .rd{color:var(--ink-3);font-size:12px}
 .renders .rd.main{color:var(--ink);font-weight:600}
@@ -1018,3 +952,145 @@ Assign mode, the team to tick under it (page.js depHtml()). */
 .asg-b:hover{color:var(--ink)}
 .asg-pop{min-width:180px}
 .asg-pop .ck{display:inline-block;width:18px;color:var(--valid);font-weight:700}
+
+/* ---------- a file's notes (v4): one line a thread, opened in place ---------- */
+/* A department: one line, 52 px at least; its summary cut by "…". */
+.dep{padding:2px 0;border-top:1px solid var(--line)}
+.dep:first-child{border-top:0}
+.dh{display:flex;align-items:center;gap:10px;min-height:52px}
+.dh .cell{margin:0;flex:none}
+.dh .nm{flex:none;font-size:15px;font-weight:600;min-width:0}
+.dh .inl{flex:none;display:inline-flex;gap:4px}
+.dh .sm{flex:1;min-width:0;font-size:12px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dh .sm b{color:var(--ink-2);font-weight:600}
+.dh .sm .ok{font-size:12px;color:var(--valid)}
+.dh .sm .ok.old{color:var(--ink-3)}
+.dh .wf{flex:none;display:inline-flex;width:28px;justify-content:center;color:var(--rtk)}
+.dh .wf .ico{width:18px;height:18px}
+.dep.whole .nm{color:var(--ink)}
+.lk{border:0;background:none;padding:0;font:inherit;font-size:12px;color:var(--ink-3);text-decoration:underline;text-decoration-color:var(--line2);text-underline-offset:3px;cursor:pointer}
+.lk:hover{color:var(--ink)}
+/* ✓ / ✕: a 36 px disc, a 44 px target. */
+.dh .rvb{gap:8px}
+.dh .rvb button{position:relative;width:36px;height:36px;border-radius:50%}
+.dh .rvb button::after{content:"";position:absolute;inset:-4px}
+.dh .rvb button[disabled]{opacity:.3;cursor:default}
+@media (pointer:coarse){.dh .rvb button{width:40px;height:40px}}
+/* Assigned: a pill (initial, name); nobody, a dashed ring. */
+.asg{position:relative;flex:none;height:36px;min-width:36px;border-radius:18px;border:1px dashed var(--line2);background:transparent;color:var(--ink-3);display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:0;font:inherit;font-size:12px}
+button.asg{cursor:pointer}
+button.asg::after{content:"";position:absolute;inset:-4px}
+.asg .ico{width:15px;height:15px}
+.asg.set{border-style:solid;border-color:var(--line);padding:0 10px 0 4px;color:var(--ink-2)}
+.asg .an{max-width:9em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.asg.chg{border-color:var(--valid);color:var(--valid)}
+button.asg:hover{color:var(--ink);border-color:var(--ink-3)}
+.asg .av{width:26px;height:26px;font-size:11px}
+.asg-pop{min-width:200px}
+.asg-pop>button{display:flex;align-items:center;gap:8px}
+.asg-pop>button[aria-checked="true"]{background:var(--play);color:#fff}
+.asg-pop .nob{color:var(--ink-3)}
+.asg-pop .av{width:22px;height:22px;font-size:10px}
+.av{flex:none;display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--btn);color:var(--ink);font:700 10px var(--ui)}
+.av.none{visibility:hidden}
+/* The notes' bar: which, in what order. */
+.nbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0 2px}
+.nbar .sp,.trow .sp,.cf .sp{flex:1}
+.nseg{display:inline-flex;padding:2px;border-radius:9px;background:var(--sunk);border:1px solid var(--line)}
+.nseg button{display:inline-flex;align-items:center;gap:5px;min-height:28px;padding:0 10px;border:0;border-radius:7px;background:transparent;color:var(--ink-3);font:inherit;font-size:12px;cursor:pointer}
+.nseg button b{font-weight:600;color:var(--ink-2)}
+.nseg button[aria-pressed="true"],.nseg button[aria-pressed="true"] b{background:var(--play);color:#fff}
+.nseg .ico{width:13px;height:13px}
+@media (pointer:coarse){.nseg button{min-height:36px}}
+/* Threads: under the name, one line each. */
+.ths{display:flex;flex-direction:column;gap:2px;margin:0 0 6px 38px}
+.ths:empty{display:none}
+details.th{border-radius:8px;transition:background .15s}
+details.th[open]{background:var(--accent-bg)}
+details.th>summary{list-style:none;display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;column-gap:8px;min-height:38px;padding:3px 8px;border-radius:8px;cursor:pointer}
+details.th>summary::-webkit-details-marker{display:none}
+details.th>summary:hover{background:var(--accent-bg)}
+details.th[open]>summary:hover{background:none}
+.tgs{display:inline-flex;align-items:center;gap:4px}
+.tx{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:14px}
+.tx.blank{font-style:italic;color:var(--ink-3)}
+details[open]>summary .tx{white-space:pre-wrap;overflow-wrap:anywhere}
+.meta{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-3);white-space:nowrap}
+.meta .rcn,.meta .clo{display:inline-flex;align-items:center;gap:3px;color:var(--ink-2)}
+.meta .ico{width:12px;height:12px}
+.tacts{display:inline-flex;align-items:center;gap:2px;max-width:0;overflow:hidden;opacity:0;transition:max-width .25s cubic-bezier(.2,.8,.2,1),opacity .15s}
+summary:hover .tacts,summary:focus-within .tacts{max-width:70px;opacity:1}
+details[open]>summary .tacts{display:none}
+@media (hover:none){.tacts{max-width:90px;opacity:1}.tacts .mini{width:44px;height:44px}}
+.mini{flex:none;width:30px;height:30px;border:0;border-radius:7px;background:transparent;color:var(--ink-3);display:inline-flex;align-items:center;justify-content:center;font-size:13px;cursor:pointer}
+.mini:hover{background:var(--btn);color:var(--ink)}
+.mini .ico{width:15px;height:15px}
+.mini.fix:hover,.mini.fix.on{color:var(--done)}
+.tb{padding:0 8px 10px 44px;display:flex;flex-direction:column;gap:8px}
+.rpl{display:grid;grid-template-columns:22px minmax(0,1fr);gap:8px;padding-left:10px;border-left:2px solid var(--line)}
+.rpl .who{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:12px;color:var(--ink-3)}
+.rpl .who b{color:var(--ink-2);font-weight:600}
+.rpl .who .mini{width:22px;height:22px;margin-left:auto}
+.rpl .rx{font-size:13px;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere}
+.rp-w{display:flex;flex-direction:column;gap:6px;min-width:0}
+.rp-t{font-size:16px;border-color:var(--rtk)}
+.rp-t.note{border-color:var(--line2)}
+.ta{display:flex;align-items:center;gap:6px}
+.act{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:0 12px;border-radius:16px;border:1px solid var(--line2);background:transparent;color:var(--ink-2);font:inherit;font-size:12px;cursor:pointer}
+.act .ico{width:13px;height:13px}
+.act:hover{color:var(--ink);border-color:var(--ink-3)}
+.act.fix{border-color:var(--done);color:var(--done)}
+/* Kinds and targets. */
+.tp{display:inline-flex;align-items:center;height:18px;font:800 9px var(--mono);letter-spacing:.05em;padding:0 5px;border-radius:4px}
+.tp-role{background:var(--rtk-f);color:#FFF}
+.tp-team{background:var(--rtk-bg);color:var(--rtk);box-shadow:inset 0 0 0 1px var(--rtk-f)}
+.tp-todo{background:var(--wip-bg);color:var(--wip);box-shadow:inset 0 0 0 1px var(--wip)}
+.tp-note{background:var(--btn);color:var(--ink-2)}
+.tf,.ts{display:inline-flex;align-items:center;height:20px;font:600 11px var(--mono);padding:0 6px;border-radius:5px;border:0;cursor:pointer}
+.tf{color:var(--range);background:transparent;box-shadow:inset 0 0 0 1px var(--range)}
+.ts{color:var(--ink-2);background:var(--btn)}
+/* Fixed in your review: struck through, in place until sent; closed
+earlier: under "N closed", the same. */
+.th.fixed .tx,.th.closed .tx{text-decoration:line-through;color:var(--ink-3)}
+.th.fixed .tgs,.th.closed .tgs{opacity:.55}
+.clos{display:flex;flex-direction:column;gap:2px}
+.clos>.lk{align-self:flex-start;margin:4px 8px}
+/* One author, one day: one header. */
+.ag{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-3);padding:8px 8px 2px}
+.ag b{color:var(--ink-2);font-weight:600}
+.ag-body{padding-left:22px;display:flex;flex-direction:column;gap:2px}
+/* What your review adds: on top, tinted, × to take it back. */
+.my{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;min-height:38px;padding:3px 8px;border-radius:8px;background:var(--rtk-bg)}
+.my.n{background:var(--mine-tint)}
+.yt{display:inline-flex;align-items:center;gap:3px;height:18px;padding:0 5px;border-radius:4px;font:800 9px var(--ui);letter-spacing:.04em;white-space:nowrap}
+.yt-ko{background:var(--rtk-f);color:#FFF}
+.yt-fix{background:var(--done);color:var(--on-fill)}
+.yt-note{color:var(--ink);box-shadow:inset 0 0 0 1px var(--line2)}
+/* The box to write in, under its header: red a retake, grey a note. */
+.cmp{display:flex;flex-direction:column;gap:8px;margin:0 0 8px 38px;padding:10px;border:1.5px solid var(--rtk-f);border-radius:10px;background:var(--surface)}
+.cmp.note{border-color:var(--line2)}
+.trow{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.trow .onl{font-size:12px;color:var(--ink-3);margin-right:2px}
+.pk{min-height:28px;padding:0 9px;border:1px solid var(--line);border-radius:7px;background:var(--sunk);color:var(--ink-2);font:600 12px var(--mono);cursor:pointer}
+.pk[aria-pressed="true"]{background:var(--play);border-color:var(--play);color:#fff}
+.pk.f{background:transparent;border-color:var(--range);color:var(--range)}
+@media (pointer:coarse){.pk{min-height:36px}}
+.tseg{display:inline-flex;padding:2px;border-radius:8px;background:var(--sunk);border:1px solid var(--line)}
+.tseg button{min-height:26px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:var(--ink-3);font:inherit;font-size:12px;cursor:pointer}
+.tseg button[aria-pressed="true"]{background:var(--btn);color:var(--ink)}
+.cmp:not(.note) .tseg [data-kind="rtk"][aria-pressed="true"],.rp-w .tseg [data-rkind="rtk"][aria-pressed="true"]{background:var(--rtk-f);color:#fff}
+.cmp textarea{font-size:16px;min-height:52px;border-color:var(--line)}
+.cf{display:flex;align-items:center;gap:6px}
+.cf .hint{flex:1 1 0;min-width:0;font-size:11px;color:var(--ink-3)}
+.cf kbd{font:600 10px var(--mono);padding:1px 4px;border:1px solid var(--line2);border-radius:4px}
+.btn.ghost{background:transparent;border-color:transparent!important;box-shadow:none}
+.btn.ko{background:var(--rtk-f);color:#fff}
+/* File settings: folded, at the end. */
+.fset{margin:10px 0 4px;border:1px dashed var(--line2);border-radius:10px}
+.fset-b{display:flex;align-items:center;gap:8px;width:100%;min-height:44px;padding:0 12px;border:0;background:none;color:var(--ink-2);font:inherit;font-size:13px;text-align:left;cursor:pointer}
+.fset-b b{font-weight:600;color:var(--ink);white-space:nowrap}
+.fset-b .sm{flex:1;min-width:0;font-size:12px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fset-b .chev{transition:transform .15s}
+.fset.on .fset-b .chev{transform:rotate(90deg)}
+.fset-c{padding:0 12px 12px}
+@media (max-width:560px){.ths,.cmp{margin-left:0}.dh .nm{flex:1 1 auto}.dh .sm{flex-basis:100%;order:9}.dh{flex-wrap:wrap;row-gap:0;padding-bottom:6px}}

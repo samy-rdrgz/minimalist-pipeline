@@ -31,7 +31,9 @@ Dont **+439 lignes de code** pour le script de migration (`lib/migration.py` 307
 
 **Phase 2b essayée dans Blender 5.2.3** : faisable (voir la phase 2b).
 
-**Phases 5 et 6** (15/11) : la 6 est faite (équipe, attribution, filtre « Moi » ; « Mon travail » n'est que ce filtre, pas une vue). La 5 est faite sauf la case « tous les départements » à l'export et « Rename preset » ; le menu « Plus haut département / Plus récent » est abandonné (2.4). Les presets de rendu sont en Python seulement (un `<département>_default.py` par département sans preset).
+**Phases 5 et 6** (15/11) : la 6 est faite (équipe, attribution, filtre « Moi » ; « Mon travail » n'est que ce filtre, pas une vue). La 5 est faite (la case « tous les départements » à l'export comprise) sauf « Rename preset » ; le menu « Plus haut département / Plus récent » est abandonné (2.4). Les presets de rendu sont en Python seulement (un `<département>_default.py` par département sans preset).
+
+**Page snapshot v4** (15/11) : les notes en review (un fil = une ligne qui se déplie, la case d'écriture sous l'en-tête du département, Whole file en tête, la barre Open / All / Mine, File settings replié, les chiffres avec la review après un crayon).
 
 **Décidé le 15/11 (session cloud) : la page HTML devient l'interface principale de suivi du projet**, en live, servie par Blender (2.8, phase 4b). Le prototype est `tools/live_prototype.py` (4b.0), à essayer dans Blender. **Project monitoring est voué à disparaître**, mais seulement une fois la page live éprouvée : ce qui y a été ajouté (filtre « Moi », légendes, marques RTK) reste d'ici là ; les nouveautés de suivi vont dans la page.
 
@@ -48,7 +50,7 @@ Dont **+439 lignes de code** pour le script de migration (`lib/migration.py` 307
 - **Testé dans Blender** : *Migrate old data* (deux fois, dates comprises, projet `alive`), la 2b (zones, raccourcis), la molette et « waiting for a worker » de la 1.1.10.
 - **Les tests sont dans `tests/`**, suivis par git (exclus du zip par le manifest) : `test_dates.py`, `test_snapshot_folders.py`. `test_migration.py`, perdu, est à réécrire avant la phase 3.
 
-**Ordre de travail** : finir la 5 (case « tous les départements », Rename preset), essayer le prototype 4b.0 dans Blender, puis 4b. La 5b (le son) en tout dernier. Une seule sortie à la fin, la 2.0.0 (section 5).
+**Ordre de travail** : finir la 5 (Rename preset), essayer le prototype 4b.0 dans Blender, puis 4b. La 5b (le son) en tout dernier. Une seule sortie à la fin, la 2.0.0 (section 5).
 
 **Comment tester sans Blender** (aucun Blender dans les sessions cloud) :
 - **Importer tout l'addon avec un faux `bpy`** : chaque module `bpy*`, `mathutils`, `gpu`, `blf`, `bmesh`… remplacé par un `MagicMock`, sauf `bpy.types`, à remplacer par un module dont chaque attribut est une classe vide (sinon `class X(bpy.types.Panel)` échoue). Puis `import <paquet>` depuis un dossier qui pointe vers le dépôt. Ça attrape les imports cassés et les noms manquants dans les `__init__`.

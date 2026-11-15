@@ -116,40 +116,54 @@ it saw.
   who, as what and how many files (a click: the same window, to change
   them) and *Send…*; the ⋯ menu *Clear this review…* and *Leave the
   review*. In a file's panel, a department *To redo* has *Still done* (its
-  work holds), and a *File* block at the bottom changes its departments
+  work holds), and *File settings*, folded at the bottom, change its departments
   required and sets it aside (*Active*, *On hold*, *Cancelled*, with a
   why) -- sent with the review, open to any role; each sequence (or prefix) has
   *+ shot* (or *+ asset*): its number or name, frames, description and
   departments required, checked against the project's naming, shown
   planned in its group until the import creates it; and the figures follow
-  as you write -- by each section, group and file, "→ 32 % · 6 % -1": what
+  as you write -- by each section, group and file, after a pencil: what
   the review would make of them; a ✓ by each department (validate it as your
-  role -- a done one only) and a ✗ (a box for the retakes, one per line:
-  `[sh020]` at its start for one shot of a block, `[f12-40]` for its
-  frames, `note:` for a remark instead of a retake (nothing but
-  remarks: grey ✎ you, the validation left as it is) -- for a block, a box
-  for all its shots and one per shot, opened by its button, each line of
-  it written back with its `[sh020]` tag;
-  left empty, it withdraws a validation); an *All done* row above the
-  departments (its ✓ validates every done one) and a *Whole file* row
-  under them (its ✕ opens a retake on no department), with the same
-  buttons; *✎ Edit the description* under it. The
-  list shows what you did under each department (✓ you, ✕ you); the
-  panel's *Last render* and *Blender file* step aside while reviewing.
-  An open RTK -- the prod's or the team's -- has *✓ Fixed* beside it while
-  reviewing (an open todo, *✓ Done*): marked, it's done once the review is imported, as its
-  author (one done since, or gone, is left as it is; importing again
-  changes nothing). *↩ Reply*, beside it and under an open note, writes
-  a reply, in that note's thread at import, under your role -- read as a
-  department's box: a retake ("still to redo"), red, unless every line
-  is `note:`, a remark, grey. A retake reply sends the note's department
-  back as ✕ would (✕ you, its validation withdrawn at import; no
-  department: the whole file's ✕ you) and is imported as an RTK on it;
-  the RTK answered stays open (*✓ Fixed* says it's done).
+  role -- a done one only) and a ✕. Each department is one line: its mark,
+  its name, what your review says of it (✓ you, ✕ you), its state and
+  what's open on it ("not started · 2 RTK · 1 note · 1 closed"), who it's
+  assigned to (a dashed ring when nobody: its menu has you first, the
+  team, *Nobody*), ✓ and ✕. **✕ opens a box under the department's
+  header**: *Retake* or *Note* (or `note:` typed at its start), one per
+  line, `[f12-40]` for frames; on a block, *On All / sh010 / sh020…* --
+  the same as the `[sh020]` at the line's start, either one changes the
+  other --, *+ f12* puts the frame shown after it. *Add retake* (Ctrl+Enter,
+  ⌘↵ on a Mac) adds the lines and leaves the box open for the next one;
+  nothing written, the department is sent back with no text (its
+  validation withdrawn); *Cancel* or Esc closes it. What you added sits on
+  top of the department's threads, one line each with ✕ YOU / NOTE · YOU
+  and a × to take it back. A note keeps your ✓; a retake replaces it.
+  *Whole file* comes first: its ✕ writes a retake on no department (X),
+  its ✓ validates every done department (V). *✎ Edit the description*
+  above. **The notes**: one line per thread -- kind (RTK, TODO, NOTE),
+  frames (a click goes there), shot, text, who and when --, a click opens
+  it (its replies, *Reply*, *Mark fixed*); on hover the two as icons.
+  One open by default has a reply of the last 7 days or one of yours;
+  then as you left it. An author's notes of a day share one header. The
+  bar above them: *Open* (the closed ones folded under "N closed", at the
+  end of their department), *All*, *Mine* (yours, those you answered or
+  fixed); *Newest* or *By frame* -- kept by the browser. *Reply* opens a
+  box under the thread's last message: *Retake* ("still to redo": its
+  department sent back as ✕ would, imported as an RTK on it) or *Note*
+  (a remark); sent, it shows as ↩ YOU, × to take it back. *Mark fixed*
+  (an open todo: *Mark done*) strikes it through with ✓ FIXED · YOU: done
+  at import, as its author (one done since, or gone, is left as it is;
+  importing again changes nothing); again, it's undone. The RTK answered
+  stays open. *File settings*, folded at the end: the departments
+  required and set aside. The figures your review moves show by the
+  pencil (with you 33 % · 5 %), their tip -- hover or a tap -- says what
+  they are now. The list shows what you did under each department (✓
+  you, ✕ you); the panel's *Last render* and *Blender file* step aside
+  while reviewing.
   To go over it: *Your review*, among the filters (or *Show the changes* in *Send your review*),
   shows only the files the review touched.
-  Keys: ← → (files), Esc (close), V (all done), X (general retake), Esc
-  or Ctrl+Enter in a box (leave it). *Send…* opens *Send your review*: your
+  Keys: ← → (files), Esc (close), V (all done), X (whole file's box), R
+  (reply to the thread focused); in a box Ctrl+Enter adds, Esc cancels. *Send…* opens *Send your review*: your
   name, your role (required as soon as it holds a retake or a
   validation) and the review date; then file by file what it holds, with
   the list's symbols (✓ a department validated, ✕ a retake and its
