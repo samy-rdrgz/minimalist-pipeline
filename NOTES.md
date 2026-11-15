@@ -4751,3 +4751,10 @@ review, the phone and the iPad. What holds across them:
 - The stuck header and filters carry the page's glow, fixed: a plain
   ground showed its edges over the glow.
 - Behind a video, the node editor's dotted ground (`.pv-slot`), not black.
+- **Phone and tablet** (step 4): the compact list (container query, the
+  list under 760 px -- a phone, or beside a wide panel) keeps the
+  diamonds, 30 px each, the columns named by `initials()`; the Done
+  column and the tags go (the panel has them). A tablet opens a file the
+  whole screen (`tablet`, not kept: the panel over the list hid its
+  columns). A finger's first tap on a diamond shows its words (`.peek`),
+  the second opens the file.

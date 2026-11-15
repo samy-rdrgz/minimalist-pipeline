@@ -235,16 +235,22 @@ border:1px solid var(--line);border-radius:var(--r-md);box-shadow:var(--sh-pop);
 kbd{display:inline-block;min-width:22px;padding:0 5px;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;font:600 11px/18px var(--ui);text-align:center;background:var(--surface)}
 /* The filters together: on a line of their own on a phone. */
 .chips{display:contents}
-/* A phone: kind, department and search on a line, the filters' icons on
-the next -- all in sight, nothing to scroll sideways. */
+/* A phone: the kinds and the department on a line, the filters on the
+next -- their icon and count, scrolled sideways, their name in their
+label. The header compact: the name and Review, the figures under. */
 @media (max-width:640px){
 .bar{margin:0 -16px;padding:8px 16px}
 .bar-in{gap:6px}
 .seg button{padding:0 9px}
-.find{max-width:none;flex:1 1 44px;order:1}
-.chips{display:flex;gap:6px;flex-basis:100%;order:2;justify-content:space-between}
-.chips .chipf{padding:0 8px;flex:1 1 auto;justify-content:center}
+.chips{display:flex;gap:6px;flex-basis:100%;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:0 16px}
+.chips::-webkit-scrollbar{display:none}
+.chips .chipf{padding:0 10px;flex:none}.chips .chipf .cl{display:none}
 .chips .chipf[hidden]{display:none}
+.hdr{margin:0 -16px;padding:8px 16px}
+.top{gap:8px 10px}.title{flex:1}h1{font-size:17px}.stamp{display:none}
+.kpis{order:3;flex-basis:100%;gap:4px 14px}
+.hdr .find{order:4;flex-basis:100%;max-width:none}
+.rv-sum{max-width:44vw}
 }
 
 /* ---------- state marks ---------- */
@@ -387,24 +393,17 @@ the right -- into the thread. */
 .empty{padding:28px;text-align:center;color:var(--ink-3)}
 /* Narrow -- a phone, or the list beside a wide panel -- the compact rows. */
 #list{container-type:inline-size}
+/* Narrow -- a phone, or the list beside a wide panel: compact rows, 58 px
+-- a small picture, the name and one line, then each department's
+diamond in 30 px with its post-it; the columns named by their initials. */
 @container (max-width:760px){
-.g-h{grid-template-columns:minmax(0,1fr) auto}.g-h .tw{grid-column:1/-1;order:3}
-.thead{display:none}
-.row{grid-template-columns:104px minmax(0,1fr) auto;gap:6px 12px}
-.row .d{display:none}
-.dl{display:flex;flex-wrap:wrap;gap:6px 14px;grid-column:1/-1;font-size:13px;color:var(--ink-2)}
-.dl>span{display:inline-flex;align-items:center;gap:5px}
-/* Compact: the department's name in its state's colour, told apart by
-weight too (done bold, not started light) -- no mark; rows apart by a
-band of the page's background; the versions left to the panel. */
-.dn{font-weight:400}
-.dn.n-done{color:var(--done);font-weight:700}
-.dn.n-rework{color:var(--done);font-weight:700;text-decoration:underline dotted var(--wip);text-underline-offset:3px}
-.dn.n-wip{color:var(--wip-ink);font-weight:600}
-.dn.n-todo{color:var(--ink-3)}
-.row{border-top:6px solid var(--bg)}
-.thead+.row,.rows>.row:first-child{border-top:0}
-.r-name small .vers,.r-name small .vers+.sep{display:none}}
+.g-h{grid-template-columns:minmax(0,1fr) auto}
+.thead,.row{grid-template-columns:52px minmax(0,1fr) repeat(var(--n),30px);gap:4px 8px;padding-left:12px;padding-right:12px}
+.thead>span:last-child,.row .r-pct,.row .flags,.dl{display:none}
+.thead .d{font-size:0;text-align:center}.thead .d::after{content:attr(data-ini);font-size:11px}
+.row{min-height:58px;padding-top:7px;padding-bottom:7px}
+.r-name{font-size:12px}.r-name small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .cell{margin:0}}
 
 .badge{display:inline-flex;align-items:center;gap:5px;padding:1px 8px;border-radius:var(--r-btn);font-size:12px;font-weight:600;white-space:nowrap;line-height:18px;border:1px solid transparent}
 .b-rtk{background:var(--rtk-bg);color:var(--rtk)}
@@ -487,11 +486,9 @@ body.resizing .wrap,body.resizing .panel{transition:none!important}
 .p-kpi{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 6px;flex-basis:100%;margin-top:2px}
 .p-head>.flags{flex-basis:100%;margin-top:0}
 .p-kpi:empty{display:none}
-.p-kpi .kd{font-size:24px;font-weight:700;line-height:1}
-.p-kpi .kd small{font-size:14px;font-weight:600}
-.p-kpi .kv{margin-left:10px;font-size:16px;font-weight:700;color:var(--valid)}
-.p-kpi .kl{font-size:12px;color:var(--ink-2)}
-.p-kpi .track{flex:1 0 100%;height:6px;margin-top:6px}
+.p-kpi .dv{flex-direction:row-reverse;align-items:center;gap:10px;width:100%}
+.p-kpi .bar2{flex:1;width:auto;height:5px}
+.p-kpi .dvt{font-size:14px}
 .p-head small{color:var(--ink-3);font-size:12px}
 .p-body{overflow:auto;padding:16px 18px 24px;flex:1;overscroll-behavior:contain}
 .p-media{padding-bottom:6px}
@@ -637,11 +634,13 @@ label: value lines under the only rule of the panel. */
 .keys{flex:1;display:flex;flex-wrap:wrap;justify-content:center;gap:2px 12px;font-size:11px;color:var(--ink-3)}
 .keys .rk2{display:none}
 body.reviewing .keys .rk2{display:inline}
-@media (pointer:coarse){.keys{visibility:hidden}.p-foot .btn{flex:1}}
+@media (pointer:coarse){.keys{visibility:hidden}.p-foot .btn{flex:1;min-height:48px}}
 /* A phone: no footer -- ‹ › in the header, or a swipe sideways. */
 .mnav{display:none!important;font-size:20px}
 .mnav:disabled{opacity:.3}
-@media (max-width:640px){.p-foot{display:none}#p-link{display:none}.mnav{display:inline-flex!important}.p-head{gap:6px;padding-right:10px}
+/* A phone: Previous / Next at the bottom, under the thumb. */
+@media (max-width:640px){.p-foot .keys{display:none}#p-link{display:none}.p-head{gap:6px;padding-right:10px}
+.p-foot{padding-bottom:calc(8px + env(safe-area-inset-bottom))}
 .p-body{padding-bottom:calc(24px + env(safe-area-inset-bottom))}}
 
 /* ---------- lightbox (picture or video) ---------- */
@@ -917,3 +916,6 @@ filled once on. */
 .th-a button{background:var(--btn);color:var(--ink)}
 .th-a .fx[aria-pressed="true"]{background:var(--sel);color:#fff}
 @media (pointer:coarse){.rvb button{width:44px;height:44px}}
+
+/* Scrollbars in the page's colours (the system's showed white on dark). */
+html,.p-body,.wl-side,.recap,.menu-pop,.pick-pop,.strip{scrollbar-color:var(--line2) transparent;scrollbar-width:thin}

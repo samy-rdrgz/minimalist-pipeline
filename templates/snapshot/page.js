@@ -293,7 +293,7 @@ var items=D.filter(function(it){return match(it);});
 var deps=depsOf(state.tab).filter(function(d){return items.some(function(it){return d in it.states;});});
 // Many departments: narrower columns, never past the page.
 var w=deps.length>7?56:deps.length>5?68:84;
-var cols='104px minmax(0,1fr) '+deps.map(function(){return w+'px';}).join(' ')+' 96px';
+var cols='104px minmax(0,1fr) '+deps.map(function(){return w+'px';}).join(' ')+' 96px;--n:'+deps.length;
 rowDeps=deps;rowCols=cols;
 var groups={},order=[];
 items.forEach(function(it){if(!groups[it.group]){groups[it.group]=[];order.push(it.group);}groups[it.group].push(it);});
@@ -305,7 +305,8 @@ var key=state.tab+g,closed=state.open[key]===false||(state.open[key]===undefined
 // The untracked shown: back in their place, by name -- not after the rest.
 var rows=state.untracked[key]||filt?all:tr;
 if(!closed)rows.forEach(function(it){visible.push(it.i);});
-var head='<div class="thead" style="--cols:'+cols+'"><span></span><span></span>'+deps.map(function(d){return '<span class="d" title="'+esc(cap(d))+'">'+esc(cap(d))+'</span>';}).join('')+
+var ini=initials(deps);
+var head='<div class="thead" style="--cols:'+cols+'"><span></span><span></span>'+deps.map(function(d){return '<span class="d" title="'+esc(cap(d))+'" data-ini="'+esc(ini[d])+'">'+esc(cap(d))+'</span>';}).join('')+
 '<span style="text-align:right">Done</span></div>';
 var body=rows.map(rowHtml).join('');
 if(un.length&&!state.untracked[key]&&!filt)body+='<button class="untracked" data-g="'+esc(g)+'">+ '+plural(un.length,'file')+' with no tracked department</button>';
@@ -333,6 +334,11 @@ function flipCap(e){var c=e.target.closest&&e.target.closest('.cell');if(!c)retu
 var r=c.getBoundingClientRect(),p=$('panel'),edge=cur!=null&&!p.hidden&&!document.body.classList.contains('panel-full')?p.getBoundingClientRect().left:innerWidth;
 c.classList.toggle('flip',r.left+lab.scrollWidth+48>edge-8);}
 document.addEventListener('mouseover',flipCap);document.addEventListener('focusin',flipCap);
+// A finger: a first tap on a diamond stretches it into its words, a
+// second one (or a tap elsewhere on the row) opens the file.
+document.addEventListener('click',function(e){if(!touchPin.matches)return;var c=e.target.closest('#list .cell[tabindex]');
+document.querySelectorAll('.cell.peek').forEach(function(x){if(x!==c)x.classList.remove('peek');});
+if(!c||c.classList.contains('peek'))return;e.stopPropagation();e.preventDefault();flipCap({target:c});c.classList.add('peek');},true);
 $('list').addEventListener('click',function(e){var t;
 if(e.target.closest('[data-zoom]'))return;
 if((t=e.target.closest('[data-other]')))return setTab(t.dataset.other);
@@ -347,6 +353,9 @@ if((t=e.target.closest('.g-h'))){state.open[state.tab+t.dataset.g]=t.parentNode.
 $('list').addEventListener('mousedown',function(e){if(touchPin.matches&&e.target.closest('.row,.g-h'))e.preventDefault();});
 $('list').addEventListener('keydown',function(e){var r=e.target.closest('.row');
 if(e.target.classList.contains('g-h')&&(e.key==='Enter'||e.key===' ')){e.preventDefault();e.target.click();return;}if(r&&(e.key==='Enter'||e.key===' ')){e.preventDefault();openPanel(+r.dataset.i);}});
+// A compact list's column names: each department's first letter, more of
+// it where an earlier one took it (Layout L, Lighting Li).
+function initials(deps){var out={},seen={};deps.forEach(function(d){var n=1,c;do{c=d.charAt(0).toUpperCase()+d.slice(1,n);n++;}while(seen[c]&&n<=d.length);seen[c]=1;out[d]=c;});return out;}
 function setTab(t){state.tab=t;drawTabs();render();}
 $('seg').addEventListener('click',function(e){var b=e.target.closest('button');if(b)setTab(b.dataset.tab);});
 $('depf').addEventListener('change',function(){state.dep=this.value;this.classList.toggle('on',!!state.dep);render();});
@@ -770,15 +779,16 @@ threads(it,d)+(rv&&v&&v.no?'<div class="rt mine">'+retakeBox(it,'d:'+d,v.text,'W
 function openPanel(i){
 // The notes' fold is the page's, not a file's: kept from one file to the
 // next, back to its default (open, folded in review) when review starts or ends.
-var it=D[i],same=cur===i;if(!same){showClosed=false;editing={};}cur=i;$('p-open').hidden=true;if(!lastFocus)lastFocus=document.activeElement;
+var it=D[i],same=cur===i;if(!same){showClosed=false;editing={};}cur=i;$('p-open').hidden=true;
+// A tablet: the file the whole screen -- a panel over the list hid its columns.
+if(tablet.matches&&!document.body.classList.contains('panel-full'))setFull(true,false);if(!lastFocus)lastFocus=document.activeElement;
 var rv=reviewing(),e=peek(it);if(showNotes===null)showNotes=!rv;
 $('p-title').innerHTML=nameHtml(it);var nv=allVideos(it).length;$('p-play').hidden=true;$('p-play').title=nv>1?'Play the '+nv+' shots in a row':'Play the render';
 $('p-sub').textContent=[it.kind==='shot'?'Shot':it.root==='library'?'Library':'Asset',it.versions,it.shots.length>1?plural(it.shots.length,'shot'):''].filter(Boolean).join(' · ');
 // First what it is and how far along, big; then its departments; the
 // rest after, quieter.
-$('p-kpi').innerHTML=it.tracked?'<span class="kd">'+Math.round(it.done*100)+'<small> %</small></span><span class="kl">done</span>'+
-(META.role?'<span class="kv">'+pct(it.valid)+'</span><span class="kl">validated</span>':'')+
-'<span class="track"><i class="f" style="width:'+it.done*100+'%"></i>'+(META.role?'<i class="v" style="width:'+Math.min(it.valid,it.done)*100+'%"></i>':'')+'</span>':'';
+// Done and validated, as everywhere: the double bar, "84 % · 0 %".
+$('p-kpi').innerHTML=it.tracked?dv(it.done,it.valid,true):'';
 $('p-flags').innerHTML=flags(it);
 var deps=depsOf(it.kind).filter(function(d){return d in it.states;});
 var nvid=allVideos(it).length;
@@ -877,6 +887,7 @@ $('p-body').addEventListener('input',function(){if(document.body.classList.conta
 // The last file shown: the window edge's tab brings it back.
 var lastShown=null;
 function closePanel(){if(cur==null)return;closeWatch();if(PL)PL.el.pause();lastShown=cur;$('p-open').hidden=false;cur=null;
+if(tablet.matches){var pf=false;try{pf=!!localStorage.getItem(PF_KEY);}catch(e){}setFull(pf,false);}
 // A field of it left for good: hidden with the panel, iOS kept its focus
 // (no focusout), the page stayed held -- nothing scrolled or answered.
 var f=document.activeElement;if(f&&f.closest&&f.closest('.panel')&&f.blur)f.blur();clearTimeout(fieldT);lockPage('field',false);
@@ -903,7 +914,7 @@ $('panel').addEventListener('touchend',function(e){if(!t0)return;var t=e.changed
 if(Math.abs(dx)>70&&Math.abs(dx)>2*Math.abs(dy))step(dx<0?1:-1);else if(t0.top&&dy>90&&dy>2*Math.abs(dx))closePanel();t0=null;});
 // Focus stays in the open panel.
 // The panel over the whole screen: a phone, a tablet upright.
-var phone=matchMedia('(max-width:900px)');
+var phone=matchMedia('(max-width:900px)'),tablet=matchMedia('(pointer:coarse) and (min-width:641px)');
 // The panel's width, dragged by its left edge -- kept by this browser.
 var PW_KEY='mp-snapshot:panel-width',PW_DEF=540;
 function maxWidth(){return Math.min(innerWidth-360,innerWidth*0.8);}
