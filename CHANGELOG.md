@@ -171,6 +171,11 @@ All notable changes to this addon. Dates are release dates.
 
 ### Changed
 
+- The farm's version check moves on (protocol 4): a machine left on 1.1.x
+  gets no render from a 2.0 farm, and the other way round -- update every
+  machine, then *Migrate old data*.
+- *Auto-launch worker* starts a few seconds after Blender, and tries again
+  a few times: it didn't always start.
 - A review's `.json` is a list of typed actions (validate, unvalidate,
   rtk, note, reply, fixed, description), no longer the spreadsheet's
   rows: reviews from an older snapshot are refused -- export it again.

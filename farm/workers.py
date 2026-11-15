@@ -43,8 +43,9 @@ STALE_WORKER_SECONDS = 15
 # worker announces it in its file; the farm host never sends a render to
 # one on another protocol (idle_machines()), Worker details says so. Every
 # machine is updated together: nothing reads an older farm's files, this
-# is the farm's one version check (3: 1.2).
-FARM_PROTOCOL = 3
+# is the farm's one version check (3: 1.2; 4: 2.0 -- its dates carry their
+# offset, which 1.1.x can't read: a machine left on it must get no job).
+FARM_PROTOCOL = 4
 _other_protocol_logged: set[str] = set()
 
 # A frame taking this many times its usual time is stuck (a hang, not a heavy

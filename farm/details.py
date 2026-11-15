@@ -6,8 +6,8 @@ from pathlib import Path
 
 from ..lib import ConfigCache, format_duration, format_pace, get_addon_version, get_active_project_root, now, parse_iso, read_json_quiet
 from .chunks import chunk_frames
-from .monitor import REMOVABLE_STAGES, get_monitor_cache
-from .queue import RETRYABLE_STAGES, failed_stage, machine_for_frame, recompilable
+from .monitor import get_monitor_cache
+from .queue import failed_stage, recompilable
 from .workers import FARM_PROTOCOL
 
 

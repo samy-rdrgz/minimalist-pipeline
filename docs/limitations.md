@@ -4,7 +4,7 @@
 
 ---
 
-- `auto_worker_on_open` (auto-launching the worker) only triggers on Blender startup and on active-project switch, not continuously.
+- `auto_worker_on_open` (auto-launching the worker) only triggers on Blender startup (a few seconds in, tried again a few times) and on active-project switch, not continuously.
 - Per-shot casting JSON (a fixed list of the asset versions built into a shot, with build/rebuild and diff) is part of the roadmap but not yet implemented — see `CODE.md`.
 - **Only Ctrl+S is guarded**, not the File menu's Save button or the top bar's save icon: those call `bpy.ops.wm.save_mainfile()` directly, bypassing the read-only/stable checks entirely (see "Want to save" in `graph.md`). Ctrl+S remains the safe way to save. A "READ-ONLY" indicator in the top bar (next to File/Edit/Render, same row as those risky buttons — see [Interface](interface.md#top-bar-menu)) warns before the click happens; it doesn't block it. See [Versions: wip and stable](versions.md#versions-wip-and-stable) for what the guard normally does. A version saved that way (Save As, Save Incremental) gets its missing `.wipmeta` on its next save or open, so it stays tracked.
 - **Save Incremental**: its shortcut (Ctrl+Alt+S, or the one you set) runs the addon's Increment in the project -- Blender's own would copy a `-stable` tag onto the next number, a stable nobody marked. The File menu's *Save Incremental* button still runs Blender's; outside the project, the shortcut too.

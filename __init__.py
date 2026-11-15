@@ -192,21 +192,38 @@ def _deferred_project_check():
         print(e)
 
 
+AUTO_WORKER_DELAY = 5.0  # seconds after startup, then between tries
+AUTO_WORKER_TRIES = 4
+_auto_worker_tries = [0]
+
+
 def _deferred_auto_worker():
     """Launch the worker role at startup when auto_worker_on_open is on and
-    a project is active -- after _deferred_project_check, never in
-    background mode (a headless worker launches through
-    worker_render_entry.py)."""
+    a project is active -- a few seconds in, tried again a few times: at
+    once, the project's share or its config often wasn't ready yet and it
+    didn't start. Never in background mode (a headless worker launches
+    through worker_render_entry.py)."""
     if bpy.app.background:
-        return
+        return None
     try:
         prefs = lib.addon_pref()
-        if prefs and prefs.auto_worker_on_open and prefs.active_project_root:
-            from .farm.workers import launch_worker
+        if not (prefs and prefs.auto_worker_on_open and prefs.active_project_root):
+            return None
+        from .farm.workers import is_blender_worker, launch_worker
 
-            launch_worker()
+        if not is_blender_worker() and launch_worker() is False:
+            lib.log("INFO", "farm", "Auto worker: another Blender on this machine is its worker.")
+            return None
+        if is_blender_worker():
+            return None
+        why = "not started"
     except Exception as e:
-        print(e)
+        why = str(e)
+    _auto_worker_tries[0] += 1
+    if _auto_worker_tries[0] >= AUTO_WORKER_TRIES:
+        lib.log("WARNING", "farm", f"Auto worker: {why} -- gave up after {AUTO_WORKER_TRIES} tries.")
+        return None
+    return AUTO_WORKER_DELAY
 
 
 def _deferred_onboarding():
@@ -275,7 +292,8 @@ def register():
         lib.hide_active_tool_in_monitoring()
         bpy.app.timers.register(_deferred_keymap, first_interval=0.1)
         bpy.app.timers.register(_deferred_project_check, first_interval=0.05)
-        bpy.app.timers.register(_deferred_auto_worker, first_interval=0.1)
+        _auto_worker_tries[0] = 0
+        bpy.app.timers.register(_deferred_auto_worker, first_interval=AUTO_WORKER_DELAY)
         # Fires last -- see NOTES.md, "Addon register()".
         bpy.app.timers.register(_deferred_onboarding, first_interval=0.5)
 

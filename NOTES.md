@@ -4610,8 +4610,10 @@ a heartbeat hours off for a 15 s threshold. From 1.2:
   another zone's hour.
 - **Heartbeats in epoch seconds** (`time.time()`): a worker's
   `last_heartbeat`, monitor.lock's `update_tick`. Neither zone nor daylight
-  saving; `seconds_since()` takes both forms. FARM_PROTOCOL stays 3: 1.2 is
-  the first release with it, every machine updated together.
+  saving; `seconds_since()` takes both forms. FARM_PROTOCOL 4 since 2.0: 1.1.10
+  already said 3 (the check shipped with it), and a 1.1.x machine can't
+  read a date with its offset -- left on it, it must get no render, not
+  fail on one.
 - **File names** (snapshots, reviews, backups) stay the creator's local
   time, cut from `now()`: never compared.
 - **The page**: `new Date()` reads an offset; a note's day is the reader's
@@ -4635,7 +4637,7 @@ Phase 1 of docs/plan-1.2.md, behaviour unchanged but for the frame lookup
 
 - **Retirements first** (the xlsx, the code for older addons, the legacy
   readers): no factoring of code about to go. The farm keeps one version
-  check, `FARM_PROTOCOL` (3 since 1.2): a worker on another one gets no
+  check, `FARM_PROTOCOL` (3 in 1.1.10, 4 since 2.0): a worker on another one gets no
   render, said once in the log and in Worker details.
 - **One of each small thing**: `parse_iso()` (the one reader of a stored
   date: 1C will make it read the offset, in one place), `format_duration()`
@@ -5169,6 +5171,11 @@ measures in the plan).
   review's key, its title are the project's).
 - **Opening**: page.html's `#boot` (the project's name, a line moving,
   shown only after 0.3 s) covers the page until page.js has drawn it.
+- **Auto-launch worker waits** 5 s after Blender starts, then tries again
+  every 5 s, 4 times (`_deferred_auto_worker()`): launched at 0.1 s, the
+  project's share or its config often wasn't there yet and the machine
+  stayed no worker. Another Blender already this machine's worker: said
+  once, not tried again.
 - **Details on demand** (`farm/details.py`: `job_detail()`,
   `worker_detail()`, `job_path()`): read when a job or a machine is
   opened, again at each new version while open (`farmDetails()`) -- a

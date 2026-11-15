@@ -18,7 +18,6 @@ from ..farm import (
     recompilable,
     this_instance_is_worker,
 )
-from ..farm.chunks import chunk_frames
 from ..farm.queue import WORKER_GONE_SECONDS
 from ..farm.workers import FARM_PROTOCOL
 from ..lib.icons import icon_kw
@@ -31,10 +30,8 @@ from ..lib import (
     format_duration,
     format_pace,
     get_active_project_root,
-    get_addon_version,
     get_user,
     monitoring_detail,
-    now,
     paginate,
     parse_iso,
     rows_that_fit,
@@ -46,7 +43,6 @@ from ..lib import (
 )
 from ..lib.ui import DETAIL_KEY_COLUMN, details_header, draw_legend, key_value, key_values
 from ..farm.details import (
-    NOT_SET_UP as _NOT_SET_UP,
     addon_version_once as _my_addon_version,
     chunk_label as _chunk_label,
     claim_progress as _claim_progress,
