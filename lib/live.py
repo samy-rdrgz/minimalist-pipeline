@@ -323,9 +323,11 @@ def _turn(sh: _Shared) -> None:
             pending.result["version"] = sh.version
             pending.done.set()
         _reader["in_pass"] = []
-    elif clock - _reader["farm_at"] > 1.0:
+    elif clock - _reader["farm_at"] > 1.0 and clock - sh.last_seen < IDLE_AFTER:
+        # The farm moves on its own -- looked at only while a page is open:
+        # with none (its tab closed), nothing but this check every turn.
         _reader["farm_at"] = clock
-        _rebuild(sh, force=False)  # the farm moves on its own
+        _rebuild(sh, force=False)
     if (thread is None or not thread.is_alive()) and _reader["result"] is None and (
         clock - _reader["at"] >= READ_EVERY and clock - sh.last_seen < IDLE_AFTER
         or sh.data is None

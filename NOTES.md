@@ -5153,3 +5153,10 @@ measures in the plan).
   has it (`DATA.farm` is the live page's only). Its data from the monitor
   cache (memory), compared each second with the farm's activity: a new
   version when a job moves.
+- **No page open, almost nothing runs**: no request for 30 s (the tab
+  closed: its long poll comes back every 20 s while open) and neither the
+  passes over the project nor the farm's comparison run; what's left is
+  the timer's turn every 0.1 s (a few comparisons) and the server's thread
+  asleep on its socket. Not worth stopping the server for -- and a page
+  opened again finds it there. A heartbeat stopping it was set aside in
+  the plan (2.8).
