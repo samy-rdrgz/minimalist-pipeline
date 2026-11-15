@@ -824,6 +824,8 @@ h+='<dl class="view-only facts"><dt>Last render</dt><dd>'+rendersHtml(it)+noVide
 // The player's video kept as the panel is redrawn (moved, not made again).
 if(PL&&PL.host&&PL.mode==='panel'&&PL.it===it)document.body.appendChild(PL.el).hidden=true;
 $('p-body').innerHTML=h;$('p-body').querySelectorAll('textarea').forEach(grow);
+// Another file: its content fades in (not at each redraw of the same one).
+if(!same){var pb=$('p-body');pb.classList.remove('swap');void pb.offsetWidth;pb.classList.add('swap');}
 if(nvid){if(PL&&PL.it!==it&&$('wl').hidden){PL.el.pause();PL=null;}
 if($('wl').hidden){playerFor(it);PL.el.hidden=false;mount($('pv'),'panel');}else $('pv').innerHTML='<div class="pv-away">In Watch large</div>';}
 document.body.classList.add('panel-open');lockPage('panel',phone.matches||document.body.classList.contains('panel-full'));fitBar();var p=$('panel');p.hidden=false;
@@ -1210,6 +1212,8 @@ rd.readAsText(file);})();}
 try{var kept=JSON.parse(localStorage.getItem(KEY)||'null');if(kept&&kept.files){rv=kept;rv.date=rv.date||'';
 $('author').value=rv.author||'';$('role').value=rv.role||'';sync('role');
 if(summary().files){document.body.classList.add('reviewing');try{if(localStorage.getItem(FOLD)==='1'&&rv.author)document.body.classList.add('rb-folded');}catch(e){}setTimeout(function(){toast('Your review in progress is back (kept in this browser).');},300);}}}catch(e){}
+// The opening's motions (page.css "small motions"), once: not at each redraw.
+document.body.classList.add('intro');setTimeout(function(){document.body.classList.remove('intro');},1400);
 summaryCards();drawTabs();render();barHeight();
 // A link to a file (#its name) opens it.
 var want=decodeURIComponent(location.hash.slice(1));if(want&&byName[want])jump(byName[want]);

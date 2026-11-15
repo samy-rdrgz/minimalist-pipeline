@@ -106,14 +106,31 @@ h1{font:700 18px/1.2 var(--ui);margin:0;letter-spacing:-.01em;overflow-wrap:brea
 /* Done and validated, always both: a double bar, "84 % · 0 %". */
 .dv{display:inline-flex;flex-direction:column;align-items:flex-end;gap:3px}
 .kpi .dv,.g-pct .dv{flex-direction:row-reverse;align-items:center;gap:8px}
-.bar2{position:relative;width:64px;height:4px;border-radius:2px;background:var(--line);overflow:hidden}
-.bar2 i{position:absolute;left:0;top:0;bottom:0;border-radius:2px;background:var(--done)}
-.bar2 i.v{background:var(--val-f)}
+/* Two thin tracks, done over validated: the violet laid on the green
+read poorly in the dark. */
+.bar2{position:relative;width:64px;height:7px;background:linear-gradient(var(--line),var(--line)) 0 0/100% 3px no-repeat,linear-gradient(var(--line),var(--line)) 0 100%/100% 2px no-repeat}
+.bar2 i{position:absolute;left:0;top:0;height:3px;border-radius:2px;background:var(--done)}
+.bar2 i.v{top:auto;bottom:0;height:2px;background:var(--val-f)}
 .dvt{font-size:12px;white-space:nowrap;color:var(--ink-2)}.dvt b{color:var(--ink);font-weight:700}
 .vt{color:var(--valid)}
 .dv.big .dvt{font-size:13px}
-@media (prefers-reduced-motion:no-preference){.bar2 i{transform-origin:left;animation:fill .9s cubic-bezier(.2,.8,.2,1) both}}
+/* ---------- small motions: on the page's opening, then on what changes ---------- */
+@media (prefers-reduced-motion:no-preference){
+body.intro .bar2 i{transform-origin:left;animation:fill .9s cubic-bezier(.2,.8,.2,1) both}
+body.intro .group{animation:fadeUp .5s cubic-bezier(.2,.8,.2,1) both}
+body.intro .group:nth-child(2){animation-delay:.05s}body.intro .group:nth-child(3){animation-delay:.1s}body.intro .group:nth-child(n+4){animation-delay:.15s}
+.dlg:not([hidden]) .dlg-in,.menu-pop:not([hidden]),.pick-pop{animation:pop .16s ease-out both}
+.p-body.swap{animation:fadeIn .2s ease-out}
+.wl:not([hidden]){animation:fadeIn .2s ease-out}
+.tl-marks>*{animation:fadeIn .25s ease-out both}
+.pi,.you{transition:transform .15s}
+.chipf,.seg button,.segb button,.st-go button{transition:background .15s,color .15s,filter .15s}
+.rvb button[aria-pressed="true"]{animation:press .2s ease-out}}
 @keyframes fill{from{transform:scaleX(0)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}}
+@keyframes fadeIn{from{opacity:0}}
+@keyframes pop{from{opacity:0;transform:scale(.96)}}
+@keyframes press{50%{transform:scale(.9)}}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:var(--tap);
 padding:0 14px;border-radius:var(--r-btn);border:1px solid var(--line);background:var(--btn);font-weight:600;font-size:13px;white-space:nowrap;text-decoration:none;color:var(--ink);transition:filter .15s,transform .1s}
 .btn:hover{filter:brightness(1.12)}.btn:active{transform:scale(.97)}
@@ -299,18 +316,18 @@ in the diamond, the colour of the state under them (--sc, page.js). */
 line -- red from a validation role, outlined from the team; their number
 in it. Your review's say: the same shape, neutral, on the right. */
 /* Both the same box (a border, coloured or not): side by side, one size. */
-.pi,.you{position:absolute;bottom:-11px;z-index:4;padding:1px 4px 0;border:1px solid transparent;border-radius:3px;font:800 8px/10px var(--mono);letter-spacing:.04em;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.35);pointer-events:none}
-.pi{left:-10px}
+.pi,.you{position:absolute;bottom:-15px;left:50%;transform:translateX(-50%);z-index:4;padding:1px 4px 0;border:1px solid transparent;border-radius:3px;font:800 8px/10px var(--mono);letter-spacing:.04em;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.35);pointer-events:none}
 .pi-role{background:var(--rtk-f);border-color:var(--rtk-f);color:#fff}
 /* The team's: a light red ground, not white. */
-.pi-team{background:#F4C5CA;border-color:var(--rtk-f);color:var(--rtk-t)}
+.pi-team{background:#F4C5CA;color:var(--rtk-t)}
 /* Yours above the diamond, out of the retake's way. */
-.you{top:-9px;bottom:auto;right:-14px;background:var(--mine);border-color:var(--mine);color:var(--inv)}
+/* Both on the diamond's axis, clear of it: the retake under, yours above. */
+.you{top:-14px;bottom:auto;background:var(--mine);border-color:var(--mine);color:var(--inv)}
 .you.n{background:var(--rtk-f);border-color:var(--rtk-f);color:#fff}
 /* Only a remark: outlined, nothing sent back. */
 .you.nt{background:var(--surface);border-color:var(--line2);color:var(--ink)}
 /* In a line of text (legend, panel, export): in place, not pinned. */
-.inl .pi,.inl .you,.help .pi,.help .you{position:static;display:inline-block;vertical-align:1px}
+.inl .pi,.inl .you,.help .pi,.help .you{position:static;display:inline-block;vertical-align:1px;transform:none}
 .ok{font-size:11px;font-weight:600;color:var(--valid);line-height:14px;white-space:nowrap}
 .ok.old{color:var(--ink-3);font-weight:400;text-decoration:line-through}
 

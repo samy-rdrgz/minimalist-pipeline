@@ -4758,3 +4758,12 @@ review, the phone and the iPad. What holds across them:
   whole screen (`tablet`, not kept: the panel over the list hid its
   columns). A finger's first tap on a diamond shows its words (`.peek`),
   the second opens the file.
+- **Post-its on the diamond's axis**, clear of it: the retake under, your
+  say above, both centred (`translateX(-50%)`); the team's without
+  outline. The double bar is two tracks (done 3 px, validated 2 px under):
+  the violet laid over the green read poorly in the dark.
+- **Small motions** (all off under prefers-reduced-motion): the groups
+  rise and the bars fill at the page's opening only (`body.intro`, 1.4 s:
+  a filter redraws the list, it shouldn't replay); dialogs and menus pop,
+  another file's panel fades in (`.swap`), Watch large fades, a ✓ / ✕
+  pressed in.
