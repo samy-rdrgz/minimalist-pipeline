@@ -755,6 +755,8 @@ function nextVideo(n){var at=PL.at+n;if(at>=0&&at<PL.list.length){load(at);PL.el
 if(PL.mode!=='wide')return false;var g=groupFiles(),k=g.indexOf(PL.it)+n;while(g[k]&&!allVideos(g[k]).length)k+=n;
 if(!g[k])return false;openPanel(g[k].i);var p=playerFor(g[k]);if(n<0)load(p.list.length-1);mount($('wl-pv'),'wide');wlSide();p.el.play();return true;}
 function wire(P){var el=P.el;
+// Its box takes the video's own shape.
+el.addEventListener('loadedmetadata',function(){if(el.videoWidth&&el.videoHeight)el.style.setProperty('--ar',el.videoWidth+'/'+el.videoHeight);});
 ['timeupdate','play','pause','seeked','loadedmetadata'].forEach(function(k){el.addEventListener(k,function(){if(PL!==P)return;if(k==='loadedmetadata')drawMarks();upd();});});
 if(el.requestVideoFrameCallback){var tick=function(){if(PL===P&&!el.paused)upd();el.requestVideoFrameCallback(tick);};el.requestVideoFrameCallback(tick);}
 el.addEventListener('ended',function(){if(PL===P&&!nextVideo(1))upd();});

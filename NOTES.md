@@ -4831,6 +4831,10 @@ review, the phone and the iPad. What holds across them:
   frames ("f12", "f12-30", lib/snapshot.py `_frames_label()`) on the
   video's shot or on none, and this review's `[f12]` lines; placed from
   the render's first frame (`start`) -- none when it's unknown.
+- **The player takes the video's shape** (`--ar`, set at `loadedmetadata`
+  from its size): a panoramic render filled a 16:9 box with black above
+  and below. Held between 96 px high (a very wide one) and 70 % of the
+  screen's height (a tall one); Watch large keeps filling its space.
 - **Watch large** writes a retake at the frame shown: Enter adds `[fN]
   text` as a line of the department picked (its name in the column) --
   the review's own syntax, nothing new to import.
