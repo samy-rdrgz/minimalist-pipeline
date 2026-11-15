@@ -198,6 +198,9 @@ def _item(item: dict, threads: list, roles: list, image) -> dict:
         },
         "done": item["progress"],
         "valid": item.get("validation"),
+        # Its departments the top role validated at the stable shown: the
+        # Breakdown's validated share (it.ok is the highest mark, any role).
+        "validated": sorted(d for d, v in (item.get("validated") or {}).items() if v),
         "shots": shots,
         "thumb": image(item.get("thumbnail")),
         "shot_thumbs": [

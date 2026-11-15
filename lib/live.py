@@ -655,8 +655,9 @@ def _farm_action(raw: dict) -> dict:
 
 def _farm_submit(action: str, raw: dict) -> dict:
     """The page's Render: a file sent to the farm as the Render dialog
-    sends it ("file", "preset", "priority", "mode" all / single, "shots"
-    of a block ticked), or its sequence's preview ("sequence")."""
+    sends it ("file", "preset", "priority", "mode" all / single, "start"
+    / "end" frames -- absolute, empty: the file's --, "shots" of a block
+    ticked), or its sequence's preview ("sequence")."""
     from ..farm.monitor import job_request
     from ..operators.farm_ops import _NO_SCRIPT
     from ..operators.preview_ops import dropped_message, request_sequence_preview
@@ -690,6 +691,19 @@ def _farm_submit(action: str, raw: dict) -> dict:
         shots = sorted({int(d) for x in raw["shots"] if (d := re.sub(r"\D", "", str(x)))})
         if not shots:
             return {"ok": False, "error": "no shot ticked"}
+    # The frames: the file's own, or absolute ones (the dialog's "a").
+    frames = []
+    for key in ("start", "end"):
+        value = str(raw.get(key) or "").strip()
+        if not value:
+            frames.append("n")
+            continue
+        try:
+            frames.append(f"a{int(value)}")
+        except ValueError:
+            return {"ok": False, "error": f"{key} frame {value!r} isn't a number"}
+    if all(f != "n" for f in frames) and int(frames[0][1:]) > int(frames[1][1:]):
+        return {"ok": False, "error": "the start frame is after the end one"}
     job_request(
         filepath,
         user=user,
@@ -697,6 +711,7 @@ def _farm_submit(action: str, raw: dict) -> dict:
         render_mode="single" if raw.get("mode") == "single" else "all",
         increment=True,
         prerender_script="" if preset == _NO_SCRIPT else preset,
+        overrided_frame_range=tuple(frames),
         only_shots=shots,
     )
     log("INFO", "live", f"Live page: {filepath.name} sent to the farm")

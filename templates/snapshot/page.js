@@ -101,18 +101,21 @@ function under(it,d){return '<span class="inl">'+rkTag(it,d)+okTag(it,d)+you(it,
 // (MPStatus, templates/snapshot/status.js -- lib/status.py's twin): its
 // retakes, fixes, replies, departments, set aside, and its validations
 // when made as the top role. null figures: set aside.
-function reviewed(it){var e=rv.files[it.file];if(!e||!it.tracked&&!Object.keys(e.req||{}).length)return {done:it.done,valid:it.valid};
+function reviewState(it){var e=rv.files[it.file];if(!e||!it.tracked&&!Object.keys(e.req||{}).length)return null;
 var team=asTeam(),states={};Object.keys(it.states).forEach(function(d){states[d]=it.states[d];});
 Object.keys(e.req||{}).forEach(function(d){if(e.req[d]){if(!(d in states))states[d]='todo';}else delete states[d];});
-if(e.omit?e.omit.state:(it.omit||{}).state)return {done:null,valid:null};
+if(e.omit?e.omit.state:(it.omit||{}).state)return {omit:true};
 var fixed=e.fixed||{},an=answered(it).deps,rtk=[];
 Object.keys(states).forEach(function(d){var open=(it.rtkNotes[d]||[]).some(function(n){return !fixed[n.id];}),v=e.deps[d];
 if(open||an[d]||(v&&sent(v)&&!v.ok&&retakes(v.text||'')>0))rtk.push(d);});
 var gen=it.genRtks.some(function(n){return !fixed[n.id];})||retakes(e.text||'')>0;
-var done=MPStatus.fileProgress({departments:states,rtk_departments:rtk,general_rtk:gen},W);
-var top=!team&&rv.role===META.role,vals=Object.keys(states).map(function(d){var v=top?verdict(it,d):'';
-if(v==='ok')return 1;if(v==='no')return 0;var o=it.ok[d];return o&&!o.old&&o.role===META.role?1:0;});
+var top=!team&&rv.role===META.role;
+return {states:states,rtk:rtk,gen:gen,ok:function(d){var v=top?verdict(it,d):'';if(v==='ok')return 1;if(v==='no')return 0;return baseOk(it,d);}};}
+function reviewed(it){var r=reviewState(it);if(!r)return {done:it.done,valid:it.valid};if(r.omit)return {done:null,valid:null};
+var done=MPStatus.fileProgress({departments:r.states,rtk_departments:r.rtk,general_rtk:r.gen},W),vals=Object.keys(r.states).map(r.ok);
 return {done:done,valid:vals.length?vals.reduce(function(s,x){return s+x;},0)/vals.length:null};}
+// Validated by the top role (or an equivalent one) at the stable shown.
+function baseOk(it,d){if(it.validated)return it.validated.indexOf(d)>=0?1:0;var o=it.ok[d];return o&&!o.old&&o.role===META.role?1:0;}
 // A list's figures with the review: its files as reviewed, the new ones
 // planned in it (nothing started yet).
 function reviewedOf(list,planned){var r=list.map(reviewed),z=planned.map(function(c){return c.departments.length?0:null;});
@@ -315,11 +318,6 @@ if(b)pace='<span class="pace p-'+cls+'">'+Math.round(done/exp*100)+' %</span>';}
 var mine=D.filter(function(it){return it.kind===s[0];}),plan=(rv.creates||[]).filter(function(c){return c.kind===s[0];});
 h+='<span class="kpi" title="'+esc(tip)+'"><span class="kl">'+s[1]+'</span>'+dv(done,val,true)+pace+withReview({done:done,valid:val},reviewedOf(mine,plan),true)+'</span>';});
 $('summary').innerHTML=h;}
-// The schedule, at the Breakdown's top.
-function scheduleCard(){var S=META.schedule;if(!S)return '';var a=new Date(S.start),b2=new Date(S.end),y=a.getFullYear()!==b2.getFullYear();
-return '<div class="card sched"><div class="k-label">Schedule, on '+fmtDay(snapDate)+'</div><div class="k-row"><span class="k-big">Day '+S.elapsed_days+
-'<small> / '+S.total_days+'</small></span><span style="font-size:14px;color:var(--ink-2)">'+pct(S.expected)+' expected</span></div>'+
-'<div class="track"><i class="f" style="width:'+S.expected*100+'%"></i></div><div class="ends"><span>'+fmtDay(a,y)+'</span><span>'+fmtDay(b2,y)+'</span></div></div>';}
 var W=META.weights;
 $('weights').textContent='Each required department counts the same: not started 0 %, in progress '+W.wip+' %, done but reworked since '+W.rework+
 ' %, done with an open RTK '+W.rtk+' %, done 100 %. A file averages its departments — a retake on no department counts as an RTK on one of its done departments —, a group its files.'+
@@ -387,8 +385,9 @@ if(gp)gp.outerHTML=gPct(g,all,avg(tr.map(function(x){return x.done;})),avg(tr.ma
 function render(){chipCounts();barFade();
 // Breakdown: the figures in place of the list, no filter to apply.
 document.body.classList.toggle('tab-bd',state.tab==='breakdown'||state.tab==='farm');
+$('sch-bar').innerHTML=state.tab==='breakdown'?schedPill():'';
 if(state.tab==='breakdown'){visible=[];$('list').innerHTML='<div class="bd">'+stats()+'</div>';countBar();return;}
-if(state.tab==='farm'){visible=[];$('list').innerHTML=farmHtml();countBar();return;}
+if(state.tab==='farm'){visible=[];$('list').innerHTML=farmHtml();growBars();countBar();return;}
 var items=D.filter(function(it){return match(it);});
 var deps=depsOf(state.tab).filter(function(d){return items.some(function(it){return d in it.states||peek(it).req[d];});});
 // Many departments: narrower columns, never past the page.
@@ -825,27 +824,96 @@ PL.marks=marksOf(it,PL.v);drawMarks();refresh();var ta=$('wl-ta');if(ta)ta.focus
 // A sequence's files, each one's videos in its shots' order, one after the other.
 function groupVideos(g){return D.filter(function(it){return it.tab===state.tab&&it.group===g&&match(it);}).reduce(function(out,it){return out.concat(allVideos(it));},[]);}
 
-/* ---------- progress details ---------- */
-function stats(){var S=META.schedule,exp=S?S.expected:null,h='';
-var line=exp!=null?'<i class="x" style="left:'+exp*100+'%"></i>':'';
-function bars(title,rows){rows=rows.filter(function(r){return r[1]!=null;});if(!rows.length)return '';
-return '<div class="card"><h4>'+title+(exp!=null?'<small>| expected '+pct(exp)+'</small>':'')+'</h4><div class="hb">'+rows.map(function(r){
-// [label, done, tip, validated]: the validated share over the done one, in
-// violet, as the cards and the groups show it.
-var v=META.role&&r[3]!=null;
-return '<span title="'+esc(r[2]||'')+'">'+esc(r[0])+'</span><span class="track"><i class="f" style="width:'+r[1]*100+'%"></i>'+(v?'<i class="v" style="width:'+Math.min(r[3],r[1])*100+'%"></i>':'')+line+'</span><span class="n">'+pct(r[1])+(v?' <span class="vv" title="Validated by '+esc(META.role)+'">'+pct(r[3])+'</span>':'')+'</span>';}).join('')+'</div></div>';}
-[['shot','Shots','By sequence','Sequence'],['asset','Assets','By prefix','Prefix']].forEach(function(s){
-var items=D.filter(function(it){return it.kind===s[0]&&it.tracked;});if(!items.length)return;
-var deps=depsOf(s[0]).filter(function(d){return items.some(function(it){return d in it.scores;});});
+/* ---------- progress details: the Breakdown ---------- */
+// Per type: five figures, then one table -- groups × departments, their
+// totals on the right and in the All row --, a switch for what a cell
+// says (% · Status · Count · RTK & notes), kept in this browser. A cell
+// opens the list filtered on its group and department.
+var BD_MODES=[['pct','%'],['status','Status'],['count','Count'],['notes','RTK & notes','RTK']],bdMode='pct';
+try{bdMode=localStorage.getItem('mp-snapshot:bd-mode')||'pct';}catch(err){}
+function setAside(it){return !!(it.omit&&it.omit.state);}
+// A file read as it is, or as your review would leave it.
+function bdView(it,withRv){var r=withRv&&reviewState(it);
+if(!r)return {states:it.states,rtk:function(d){return !!it.rtk[d];},ok:function(d){return baseOk(it,d);},score:function(d){return it.scores[d];},done:it.done,valid:it.valid};
+if(r.omit)return null;var f=reviewed(it);
+return {states:r.states,rtk:function(d){return r.rtk.indexOf(d)>=0;},ok:r.ok,score:function(d){return MPStatus.departmentScore(r.states[d],r.rtk.indexOf(d)>=0,W);},done:f.done,valid:f.valid};}
+// A cell's figures over files, on department d ('' : all theirs).
+function bdSum(list,d,withRv){var c={files:0,req:0,v:0,dn:0,w:0,t:0,rtk:0,wait:0,notes:0,sc:[],vs:[]};
+list.forEach(function(it){var x=bdView(it,withRv);if(!x)return;var ds=d?(d in x.states?[d]:[]):Object.keys(x.states);if(!ds.length)return;
+c.files++;var waits=false,rks={},nt={},lone=0;
+ds.forEach(function(k){var st=x.states[k],ok=x.ok(k),rk=x.rtk(k);c.req++;
+if(ok)c.v++;else if(st==='done'&&!rk)c.dn++;else if(st==='wip'||st==='rework'||st==='done')c.w++;else c.t++;
+// A thread on several departments: once in a total.
+var ns=it.rtkNotes[k]||[];if(ns.length)ns.forEach(function(n){rks[n.id]=1;});else if(it.rtk[k])lone++;if(((it.flags||{})[k]||{}).waiting)waits=true;
+it.openNotes.forEach(function(n){if(n.deps.indexOf(k)>=0)nt[n.id]=1;});
+if(d){c.sc.push(x.score(k));c.vs.push(ok);}});
+if(waits)c.wait++;c.rtk+=Object.keys(rks).length+lone;c.notes+=Object.keys(nt).length;
+if(!d){c.rtk+=it.genRtks.length;c.notes+=it.openNotes.filter(function(n){return !n.deps.length;}).length;c.sc.push(x.done);c.vs.push(x.valid);}});
+c.p=avg(c.sc);c.pv=META.role?avg(c.vs):null;return c;}
+function bdTip(g,d,c){return g+' · '+(d?cap(d):'every department')+': '+c.v+c.dn+' done of '+c.req+(META.role?', '+c.v+' validated':'')+(c.rtk?', '+plural(c.rtk,'open RTK'):'')+(c.wait?', '+c.wait+' waiting':'')+(c.notes?', '+plural(c.notes,'open note'):'')+(c.p!=null?' -- '+pct(c.p)+' done':'');}
+function bdCell(c,r,attrs,tip){if(!c.req)return '<span class="mx-c na" aria-label="not required">–</span>';
+var h='',chg=function(a,b){return a!=null&&b!=null&&Math.round(a*100)!==Math.round(b*100);};
+if(bdMode==='pct'){var v=c.pv||0;h='<span class="sb"><i class="sv" style="flex:'+v+'"></i><i class="sd" style="flex:'+Math.max(0,(c.p||0)-v)+'"></i><i style="flex:'+Math.max(0,1-(c.p||0))+'"></i></span>'+
+(r&&(chg(r.p,c.p)||chg(r.pv,c.pv))?'<span class="mx-t mx-r2"><b>✎ '+pct(r.p||0)+'</b>'+(r.pv?' · '+pct(r.pv):'')+'</span>':'<span class="mx-t"><b>'+pct(c.p||0)+'</b>'+(c.pv?'<span class="mx-v">· '+pct(c.pv)+'</span>':'')+'</span>');
+if(r&&(chg(r.p,c.p)||chg(r.pv,c.pv)))tip+='\nWith your review: '+pct(r.p||0)+(r.pv!=null?' · '+pct(r.pv)+' validated':'');}
+else if(bdMode==='status')h='<span class="sb st"><i class="sv" style="flex:'+c.v+'"></i><i class="sd" style="flex:'+c.dn+'"></i><i class="sw" style="flex:'+c.w+'"></i><i style="flex:'+c.t+'"></i></span>';
+else if(bdMode==='count'){var cc=r&&(r.v+r.dn!==c.v+c.dn||r.v!==c.v),x=cc?r:c;h='<span class="mx-t'+(cc?' mx-r2':'')+'"><b>'+(cc?'✎ ':'')+(x.v+x.dn)+'</b>/'+x.req+(x.v?'<span class="mx-v">· '+x.v+' ✓</span>':'')+'</span>';
+if(cc)tip+='\nWith your review: '+(r.v+r.dn)+'/'+r.req+(r.v?', '+r.v+' validated':'');}
+else h='<span class="mx-t bdgs">'+(c.rtk?'<span class="bdg rk">'+c.rtk+' RTK</span>':'')+(c.wait?'<span class="bdg wt">'+ico('time')+c.wait+'</span>':'')+(c.notes?'<span class="bdg nt">'+ico('text')+c.notes+'</span>':'')+(c.rtk||c.wait||c.notes?'':'<span class="faint">·</span>')+'</span>';
+return '<button type="button" class="mx-c" '+attrs+' title="'+esc(tip)+'">'+h+'</button>';}
+function bdLegend(){var k={pct:'<i class="lg sd"></i>done'+(META.role?'<i class="lg sv"></i>validated':'')+'<span>in progress counts '+W.wip+' %, reworked '+W.rework+' %</span>',
+status:(META.role?'<i class="lg sv"></i>validated':'')+'<i class="lg sd"></i>done<i class="lg sw"></i>in progress · reworked · done with an open RTK<i class="lg"></i>not started',
+count:'<span>done / required'+(META.role?', ✓ validated':'')+'</span>',notes:'<span class="bdg rk">2 RTK</span>open retakes<span class="bdg wt">'+ico('time')+'3</span>files waiting<span class="bdg nt">'+ico('text')+'4</span>open notes'}[bdMode];
+return '<div class="mx-k">'+k+'<span class="sp"></span><span>click a cell → the list, filtered</span></div>';}
+function bdTable(kind,label,items,deps,groups,order){var rv0=reviewing(),many=deps.length>7;
+var sw='<div class="seg mx-sw" role="group" aria-label="What a cell says">'+BD_MODES.map(function(m){return '<button type="button" data-bdm="'+m[0]+'" aria-pressed="'+(bdMode===m[0])+'"><span class="full">'+m[1]+'</span><span class="ab">'+(m[2]||m[1])+'</span></button>';}).join('')+'</div>';
+var cols='minmax(7em,150px) repeat('+deps.length+','+(many?'minmax(96px,1fr)':'minmax(0,1fr)')+') minmax(84px,'+(bdMode==='notes'?'160px':'110px')+')';
+var row=function(name,sub,list,tot){var all=bdSum(list,'',false);
+return '<div class="mx-r'+(tot?' tot':'')+'"><span class="mx-n"><b>'+esc(name)+'</b><small>'+sub+'</small><small class="np">'+(all.p!=null?pct(all.p):'')+'</small></span>'+
+deps.map(function(d){var c=bdSum(list,d,false);return bdCell(c,rv0?bdSum(list,d,true):null,'data-bdg="'+esc(tot?'':name)+'" data-bdd="'+esc(d)+'" data-bdk="'+kind+'"',bdTip(name,d,c));}).join('')+
+'<span class="ttc">'+bdCell(all,rv0?bdSum(list,'',true):null,'data-bdg="'+esc(tot?'':name)+'" data-bdd="" data-bdk="'+kind+'"',bdTip(name,'',all))+'</span></div>';};
+return '<div class="card mx'+(many?' many':'')+'" data-m="'+bdMode+'"><div class="mx-top"><strong>'+label+' × department</strong><span class="sp"></span>'+sw+'</div>'+
+'<div class="mx-sc"><div class="mx-in" style="--cols:'+cols+';--colsm:minmax(4.5em,72px) repeat('+deps.length+',minmax(0,1fr))"><div class="mx-h"><span></span>'+deps.map(function(d){return '<span><span class="full">'+esc(cap(d))+'</span><span class="ab">'+esc(d.slice(0,3).toUpperCase())+'</span></span>';}).join('')+'<span class="ttc">Total</span></div>'+
+order.map(function(g){return row(g,plural(groups[g].length,'file'),groups[g]);}).join('')+row('All',plural(items.length,'file'),items,true)+'</div></div>'+bdLegend()+'</div>';}
+// The five figures of a type.
+function bdTiles(kind,items){var S=META.schedule,exp=S?S.expected:null,done=META.progress[kind],val=(META.validation||{})[kind],h='';
+if(done==null)done=avg(items.map(function(it){return it.done;}));
+var tile=function(cls,icon,label,big,sub,extra){return '<div class="bk-t'+(cls?' '+cls:'')+'"><span class="kl">'+icon+label+'</span><span class="kv">'+big+'</span>'+(extra||'')+'<span class="ks">'+sub+'</span></div>';};
+var pts=exp!=null&&done!=null?Math.round((done-exp)*100):null;
+h+=tile('','','Done',pct(done||0),pts==null?'the mean of '+plural(items.length,'file'):pts===0?'on schedule':Math.abs(pts)+' point'+(Math.abs(pts)===1?'':'s')+' '+(pts>0?'ahead of':'behind')+' schedule',
+'<span class="bk-tr"><i class="sd" style="width:'+(done||0)*100+'%"></i>'+(exp!=null?'<i class="exp" style="left:'+exp*100+'%" title="Expected: '+pct(exp)+'"></i>':'')+'</span>');
+var nv=0;items.forEach(function(it){nv+=Object.keys(it.states).filter(function(d){return baseOk(it,d);}).length;});
+var mine=reviewing()?withReview({done:done,valid:val},reviewedOf(items,(rv.creates||[]).filter(function(c){return c.kind===kind;})),true):'';
+h+=META.role?tile('vl','','Validated',pct(val||0),nv?plural(nv,'department')+' validated by '+esc(META.role):'nothing validated yet','<span class="bk-tr"><i class="sv" style="width:'+(val||0)*100+'%"></i></span>'+mine):tile('','','Validated','–','no validation role in the project');
+var rt=0,rf=0,gen=0;items.forEach(function(it){var n=bdSum([it],'',false).rtk;rt+=n;if(n)rf++;gen+=it.genRtks.length;});
+h+=tile(rt?'hot':'','<span class="bdg rk">RTK</span>','open',rt,rt?'in '+plural(rf,'file')+(gen?' · '+gen+' general':''):'none open');
+var wt=items.filter(function(it){return Object.keys(it.flags||{}).some(function(d){return (it.flags[d]||{}).waiting;});}).length;
+h+=tile('',ico('time'),'Waiting',wt,wt===1?'file waiting on an earlier stage':'files waiting on an earlier stage');
+if(kind==='shot'){var tc=items.filter(function(it){return it.to_check;}).length,fm=items.filter(function(it){return it.farm;}).length;
+h+=tile('rn',ico('render'),'Renders',tc,'to check'+(fm?' · '+fm+' on the farm':''));}
+return '<div class="bk-row k'+(kind==='shot'?5:4)+'">'+h+'</div>';}
+function schedPill(){var S=META.schedule;if(!S)return '';
+return '<span class="sch" title="Schedule: '+esc(fmtDay(new Date(S.start),true))+' to '+esc(fmtDay(new Date(S.end),true))+', on '+esc(fmtDay(snapDate))+'"><span class="sl">Schedule</span><b>Day '+S.elapsed_days+'</b><small>/ '+S.total_days+'</small><span class="bk-tr"><i class="sch-f" style="width:'+S.expected*100+'%"></i></span><span>'+pct(S.expected)+' <span class="full">expected</span><span class="ab">exp.</span></span></span>';}
+var bdMore=false;
+function bdCounted(){var t=function(l,v){return '<span class="wt"><span>'+l+'</span><b>'+v+'</b></span>';};
+return '<div class="hic'+(bdMore?' on':'')+'"><button type="button" class="hic-b" id="bd-more" aria-expanded="'+bdMore+'">'+ico('help')+'<b>How it\'s counted</b><span class="wts">'+t('not started',0)+t('in progress',W.wip)+t('reworked',W.rework)+t('done + open RTK',W.rtk)+t('done',100)+'</span>'+
+'<span class="sm">a file = the mean of its departments'+(META.role?' · validated apart ('+esc(META.role)+', at the stable shown)':'')+'</span><span class="mo">More <span class="chev">▸</span></span></button>'+(bdMore?'<p class="weights">'+esc($('weights').textContent)+'</p>':'')+'</div>';}
+function stats(){var h='<div class="sch-m">'+schedPill()+'</div>';
+[['shot','Shots','Sequence'],['asset','Assets','Prefix']].forEach(function(s){
+var all=D.filter(function(it){return it.kind===s[0]&&it.tracked;});if(!all.length)return;
+var items=all.filter(function(it){return !setAside(it);}),out={};all.forEach(function(it){if(setAside(it))out[it.omit.state]=(out[it.omit.state]||0)+1;});
+var aside=Object.keys(out).map(function(k){return out[k]+' '+(k==='on_hold'?'on hold':k);}).join(' · ');
+var deps=depsOf(s[0]).filter(function(d){return items.some(function(it){return d in it.states;});});
 var groups={},order=[];items.forEach(function(it){if(!groups[it.group]){groups[it.group]=[];order.push(it.group);}groups[it.group].push(it);});
-var dep=function(list,d){return avg(list.map(function(it){return d in it.scores?it.scores[d]:null;}));};
-var grid='<div class="card hm-card"><h4>'+s[3]+' × department</h4><table class="hm"><thead><tr><th></th>'+deps.map(function(d){return '<th>'+esc(cap(d))+'</th>';}).join('')+
-'</tr></thead><tbody>'+order.map(function(g){return '<tr><th>'+esc(g)+'</th>'+deps.map(function(d){var v=dep(groups[g],d);
-return v==null?'<td class="na">–</td>':'<td style="background:color-mix(in srgb,var(--done) '+Math.round(6+v*44)+'%,var(--surface))" title="'+esc(g+', '+cap(d)+': '+pct(v))+'">'+pct(v)+'</td>';}).join('')+'</tr>';}).join('')+'</tbody></table></div>';
-h+='<div class="st-sec"><h3>'+s[1]+'</h3><div class="st-grid">'+
-bars(s[2],order.map(function(g){return [g,avg(groups[g].map(function(i){return i.done;})),plural(groups[g].length,'file'),avg(groups[g].map(function(i){return i.valid;}))];}))+
-bars('By department',deps.map(function(d){return [cap(d),dep(items,d),'',avg(items.map(function(it){return d in it.states?(validNow(it,d)?1:0):null;}))];}))+grid+'</div></div>';});
-return scheduleCard()+h+'<p class="weights">'+esc($('weights').textContent)+'</p>';}
+h+='<div class="st-sec"><h3>'+s[1]+' <small>'+plural(items.length,'file')+(aside?' · '+aside+', not counted':'')+'</small></h3>'+bdTiles(s[0],items)+(deps.length?bdTable(s[0],s[2],items,deps,groups,order):'')+'</div>';});
+return h+bdCounted();}
+// A cell: the list, filtered on its group (its files' names start with it) and department.
+$('list').addEventListener('click',function(e){var b=e.target.closest('.bd [data-bdm]');
+if(b){bdMode=b.dataset.bdm;keep('bd-mode',bdMode);return render();}
+if(e.target.closest('#bd-more')){bdMore=!bdMore;return render();}
+if(!(b=e.target.closest('.bd .mx-c[data-bdk]')))return;
+var g=b.dataset.bdg;state.tab=b.dataset.bdk;state.dep=b.dataset.bdd;state.q=g?(g+'_').toLowerCase():'';$('q').value=state.q;
+if(bdMode==='notes'&&b.querySelector('.bdg.rk'))state.f.rtk=true;drawTabs();render();scrollTo(0,0);});
 
 /* ---------- a file's panel ---------- */
 var cur=null,lastFocus=null,showClosed=false,showNotes=null,editing={};
@@ -1303,7 +1371,7 @@ if(t.classList.contains('ok-b')){if(v&&v.ok)delete e.deps[d];else e.deps[d]={ok:
 else openCmp('d:'+d);}});
 $('p-body').addEventListener('change',function(ev){var t=ev.target;if(t.dataset&&t.dataset.rf==='preset'){rform(D[cur]).preset=t.value;return;}if(!t.dataset||t.dataset.vline==null)return;var it=D[cur],k=t.dataset.vline;
 pickVersion(it,k,t.value===''?null:((it.live.versions||{})[k]||[])[+t.value]);});
-$('p-body').addEventListener('input',function(ev){var t=ev.target,it=D[cur],e=entry(it);if(t.tagName!=='TEXTAREA'&&t.id!=='om-why')return;if(t.tagName==='TEXTAREA')grow(t);
+$('p-body').addEventListener('input',function(ev){var t=ev.target,it=D[cur],e=entry(it);if(t.dataset&&t.dataset.rfn){rform(it)[t.dataset.rfn]=t.value.trim();return;}if(t.tagName!=='TEXTAREA'&&t.id!=='om-why')return;if(t.tagName==='TEXTAREA')grow(t);
 // The box being written: kept as typed, its shot buttons following the
 // line; "note:" typed at its start makes it a note.
 if(t.classList.contains('cmp-t')&&editing.cmp){var c=editing.cmp;c.text=t.value;c.at=t.selectionStart;
@@ -1621,7 +1689,7 @@ function jobRow(j,st){var it=j.key&&byKey[j.key],p=j.total?j.done/j.total:0,live
 var row=function(k,v){return v?'<dt>'+k+'</dt><dd>'+v+'</dd>':'';};
 return '<details class="job"'+(JOPEN[j.id]?' open':'')+' data-job="'+esc(j.id)+'"><summary><i class="m '+(st[2]==='fail'?'s-fail':'s-'+st[2])+'"></i>'+
 '<span class="jf">'+esc(j.file)+'</span><span class="js">'+esc([j.shot,j.text].filter(Boolean).join(' · '))+'</span>'+
-'<span class="jp">'+(j.total?'<span class="bar2"><i style="width:'+p*100+'%"></i></span><small>'+j.done+'/'+j.total+(j.left?' · '+dur(j.left)+' left':'')+'</small>':'')+'</span>'+
+'<span class="jp">'+(j.total?'<span class="bar2'+(st[0]==='running'?' run':'')+'"><i data-w="'+p*100+'" style="width:'+(JW[j.id]!=null?JW[j.id]:p*100)+'%"></i></span><small>'+j.done+'/'+j.total+(j.left?' · '+dur(j.left)+' left':'')+'</small>':'')+'</span>'+
 '<span class="jm">'+[j.machines?plural(j.machines,'machine'):'',esc(j.user),fmtDate(j.at)].filter(Boolean).join(' · ')+'</span></summary>'+
 '<div class="jd"><dl>'+row('Stage',esc(j.text))+row('Preset',esc([j.preset,j.department].filter(Boolean).join(' · ')))+row('Frames',j.range?esc(j.range.join('-'))+(j.total?' · '+j.done+'/'+j.total+' rendered':''):'')+
 row('Machines',esc((j.names||[]).join(', ')))+row('Sent',[esc(j.user),fmtDate(j.at)].filter(Boolean).join(' · '))+
@@ -1629,6 +1697,9 @@ row('Priority',live&&!j.pending?'<span class="prio"><button type="button" class=
 row('Job',esc(j.id))+'</dl><div class="ta">'+(it?'<button type="button" class="act" data-goto="'+it.i+'">Open its file details</button>':'')+
 (live?'<button type="button" class="act ko" data-farm="cancel">Cancel</button>':'')+(st[0]==='failed'?'<button type="button" class="act fix" data-farm="retry">Retry</button>':'')+
 (st[0]==='failed'||st[0]==='finished'?'<button type="button" class="act" data-farm="archive">Archive</button>':'')+'</div></div></details>';}
+// A job's bar drawn at its last width, then grown to the new one.
+var JW={};function growBars(){var bs=$('list').querySelectorAll('.job[data-job] .bar2 i[data-w]');
+requestAnimationFrame(function(){bs.forEach(function(i){var id=i.closest('.job').dataset.job;i.style.width=i.dataset.w+'%';JW[id]=+i.dataset.w;});});}
 function farmPost(action,job,value){return livePost('farm',{action:action,job_id:job||'',value:value}).then(function(res){
 toast(res.ok?'Done.':'Not done: '+(res.error||'?'));}).catch(function(){toast('Blender doesn\'t answer.');});}
 $('list').addEventListener('click',function(e){var b=e.target.closest('.farm [data-goto]');if(b){e.preventDefault();return jump(D[+b.dataset.goto]);}
@@ -1653,18 +1724,19 @@ function itemAt(key){return key&&byKey[key];}
 // Render: the file sent to the farm as the Render dialog sends it -- its
 // version, preset, priority, mode, a block's shots --, or its sequence's
 // preview. Kept per file while the page is open.
-function rform(it){var F=DATA.farm||{};return RF[it.file]=RF[it.file]||{ver:it.stable?'stable':'last',preset:F.preset||'',prio:10,mode:'all',off:{}};}
+function rform(it){var F=DATA.farm||{};return RF[it.file]=RF[it.file]||{ver:it.stable?'stable':'last',preset:F.preset||'',prio:10,mode:'all',off:{},start:'',end:''};}
 function renderHtml(it){var F=DATA.farm||{},f=rform(it),seg=function(k,v,l){return '<button type="button" data-rf="'+k+'" data-v="'+v+'" aria-pressed="'+(f[k]===v)+'">'+l+'</button>';};
 var job=(F.jobs||[]).filter(function(j){return j.key===(it.live||{}).key&&(j.state==='running'||j.state==='waiting');})[0];
 var b='';if(it.stable&&it.stable!==it.file)b+='<div class="st-l">Version</div><div class="segb om">'+seg('ver','stable','Last stable · '+esc(it.stable_v||''))+seg('ver','last','Last · '+esc(it.wip_v||''))+'</div>';
 b+='<div class="st-l">Preset</div><select class="rsel" data-rf="preset" aria-label="Pre-render preset">'+(F.presets||[]).map(function(p){return '<option value="'+esc(p[0])+'"'+(p[0]===f.preset?' selected':'')+'>'+esc(p[1])+'</option>';}).join('')+'</select>';
+b+='<div class="st-l">Frames <small>empty: the file\'s own</small></div><div class="rrow rfr"><label>Start <input type="number" class="rnum" data-rfn="start" value="'+esc(f.start)+'" placeholder="file\'s"></label><label>End <input type="number" class="rnum" data-rfn="end" value="'+esc(f.end)+'" placeholder="file\'s"></label></div>';
 b+='<div class="rrow"><span class="prio"><span class="st-l">Priority</span><button type="button" class="mini" data-rprio="-1" aria-label="Lower">−</button><b>'+f.prio+'</b><button type="button" class="mini" data-rprio="1" aria-label="Higher">+</button></span>'+
 '<div class="segb om">'+seg('mode','all','All machines')+seg('mode','single','Single')+'</div></div>';
 if(it.shots.length>1)b+='<div class="st-l">Shots</div><div class="req">'+it.shots.map(function(x){return '<button type="button" data-rshot="'+esc(x)+'" aria-pressed="'+!f.off[x]+'">'+esc(x)+'</button>';}).join('')+'</div>';
 b+='<div class="ta"><button type="button" class="act fix" id="r-send">'+ico('render')+'Send to the farm</button>'+(it.kind==='shot'&&it.group?'<button type="button" class="act" id="r-prev" title="Each shot\'s latest video of '+esc(it.group)+', end to end">Preview '+esc(it.group)+'</button>':'')+'</div>';
 return fold2('rnd-t',rndOpen,'render','Render',job?'in the farm: '+esc(job.text)+(job.total?' · '+job.done+'/'+job.total:''):'send it to the farm',b);}
 function renderSend(it,preview){var f=rform(it),body=preview?{action:'preview',sequence:it.group,priority:f.prio}:
-{action:'render',file:f.ver==='stable'&&it.stable?it.stable:it.file,preset:f.preset,priority:f.prio,mode:f.mode,shots:it.shots.length>1?it.shots.filter(function(x){return !f.off[x];}):null};
+{action:'render',file:f.ver==='stable'&&it.stable?it.stable:it.file,preset:f.preset,priority:f.prio,mode:f.mode,start:f.start,end:f.end,shots:it.shots.length>1?it.shots.filter(function(x){return !f.off[x];}):null};
 return livePost('farm',body).then(function(res){toast(res.ok?'Sent: '+res.sent+'.'+(res.note?' '+res.note:''):'Not sent: '+(res.error||'?'));}).catch(function(){toast('Blender doesn\'t answer.');});}
 function linksHtml(it){var L=it.live,links=L.links||[],by=L.linked_by||[];if(!links.length&&!by.length)return '';var old=links.filter(function(x){return x.newer;}).length;
 var to=function(t,file){return t?'<button type="button" class="lk" data-goto="'+t.i+'">'+esc(t.name)+'</button>':'<span>'+esc(file)+'</span>';};

@@ -5169,6 +5169,10 @@ measures in the plan).
   review's key, its title are the project's).
 - **Opening**: page.html's `#boot` (the project's name, a line moving,
   shown only after 0.3 s) covers the page until page.js has drawn it.
+- **A job's bar grows** from its last width (`JW`, `growBars()`): the tab
+  is drawn again at each new version, a bar drawn at its new width would
+  jump. Frames on the Render form: absolute only (the dialog's "a"), the
+  relative modes left to Blender.
 - **Render from the page** (`_farm_submit()`): `job_request()` /
   `request_sequence_preview()` as the Render dialog calls them, the
   preset checked against the dialog's own list (`_presets()`), a block's
@@ -5187,3 +5191,27 @@ measures in the plan).
   (`farm_add_self_worker` / `farm_kill_self_worker`, a render stopped now
   -- the page asks first). A job's priority, its machines' names, its
   preset and frame range added to the monitor cache's entries for it.
+
+## Breakdown (snapshot page v4)
+
+The Breakdown tab: per section five figures, then one sequence × department
+table with a switch (`stats()`, `bdTiles()`, `bdTable()`, page.js).
+
+- **One table, its totals in it**, not three cards repeating the same
+  percentages: the right column a group's, the All row a department's.
+- **A cell's figures** (`bdSum()`): its files, required departments,
+  validated / done / in progress / not started, open RTK, files waiting,
+  open notes. *%* is the mean of the departments' scores (a group's
+  Total: of its files' Done), the same as the list's; *Status* counts
+  done with an open RTK as in progress (orange), not as done. A thread on
+  several departments counts once in a total -- by id --, once in each of
+  its departments' cells.
+- **Validated is the top role's** (`item["validated"]`, now on the page:
+  `baseOk()`): `it.ok` is the highest mark of any role, it counted a
+  supervisor's ✓. `reviewState()` split out of `reviewed()`: a cell reads
+  each department as your review would leave it.
+- **A click filters the list** with what exists: the department picker and
+  the search, `<group>_` (a file's name starts with its sequence or
+  prefix) -- no filter of its own to undo.
+- **Waiting** is a stage flag (an earlier stage not done, or under RTK),
+  not only an RTK: said "waiting on an earlier stage".

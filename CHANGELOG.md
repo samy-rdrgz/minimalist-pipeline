@@ -17,6 +17,12 @@ All notable changes to this addon. Dates are release dates.
   your review after a pencil, their tip on a tap too; *+ f12* twice on two
   frames, a range; a file reassigned in your review says so under its
   name.
+- Snapshot page, Breakdown: per section five figures (Done with the
+  schedule's mark, Validated, open RTK, Waiting, renders to check), then
+  one sequence × department table with its totals and a switch -- %,
+  Status, Count, RTK & notes --; a cell opens the list filtered on it;
+  the schedule on the tabs' line; *How it's counted* folded. It replaces
+  the three cards per section and the shaded grid.
 - *Open in browser* (Project panel, Pipeline menu): the project's page
   served by Blender to this machine's browser, kept up to date -- the
   snapshot's page, live; a pill says connected, Blender busy or
@@ -30,7 +36,7 @@ All notable changes to this addon. Dates are release dates.
   detail with its priority, Cancel, Retry, Archive; this machine made a
   worker or not, every machine listed (this one, the host, the silent
   ones); a file sent to the farm from its panel (version, preset,
-  priority, mode, a block's shots) or its sequence's preview. It follows
+  priority, mode, its frames, a block's shots) or its sequence's preview. It follows
   the project made active, and says the project is being read while it
   is.
 - Snapshot page: *Mark fixed* on a thread whose open retake is a reply
