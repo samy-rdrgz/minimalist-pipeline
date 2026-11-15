@@ -5054,3 +5054,26 @@ box open and a thread unfolded.
   written in the same second (four empty RTKs of a review): Fixed marked
   the four. *Migrate old data* gives the duplicates ids of their own
   (`_migrate_ids()`), the first keeping its id -- its replies point to it.
+
+## Rename preset
+
+A render preset's name gives its renders' department (`preset_department()`),
+so a preset named before 1.2 (`hd_final`) leaves its renders with none.
+Renaming it by hand would break what cites the name: the config's
+`farm.default_prerender_script`, each `render_history.json` entry's
+`prerender_script` (the pace of the next renders, `history_pace()`), the
+keys of `preset_pace.json`, and a job in the farm -- its file name is a
+hash of the preset's name (`farm/monitor.py _file_key()`).
+
+- **One tool in Edit project** (`rename_preset()`, `lib/presets.py`),
+  rather than a migration step: reusable for a new department or a typo.
+- **Refused while the farm has a job file** (incomings, actives,
+  requests), not just a running one: a failed job not archived would be
+  lost too.
+- **Old renders get the new department only when asked**: a preset may
+  have served several departments before; the entries and their folder's
+  `.department` (what `main_render_dir()` ranks by) are then written,
+  never one that already has one.
+- **Said, never changed by the migration**: the name is the user's to
+  choose; *Migrate old data* and Edit project list the presets giving no
+  department.

@@ -5,6 +5,7 @@ falls back to a single collection, never blocks creation. Shot scaffolding
 (camera + CAM/SET/ASSETS) isn't user-scriptable -- fixed, baked into the addon."""
 
 import importlib.util
+import re
 import shutil
 from pathlib import Path
 
@@ -241,3 +242,131 @@ def derive_shot_subranges(
             {"shot_number": shot_number, "frame_start": frame, "frame_end": frame_end}
         )
     return ranges, absorbed
+
+
+# ---------------------------------------------------------------------------
+# Render presets: their name gives their renders' department, so renaming
+# one updates everything that cites it. See NOTES.md, "Rename preset".
+# ---------------------------------------------------------------------------
+
+_PRESET_NAME = re.compile(r"[A-Za-z0-9][\w\-]*")
+
+
+def presets_without_department(presets_dir: Path, departments) -> list[str]:
+    """The render presets (.py, under presets_dir) whose name gives no
+    department: their renders have none."""
+    from .status import preset_department
+
+    try:
+        names = sorted(p.stem for p in Path(presets_dir).glob("*.py") if p.name != "asset_file_preset.py")
+    except OSError:
+        return []
+    return [n for n in names if not preset_department(n, departments)]
+
+
+def farm_jobs_waiting(root: Path) -> int:
+    """Jobs in the project's farm -- sent, queued, rendering, failed but
+    not archived: a job's file is named after its preset, a rename would
+    lose it."""
+    queue = Path(root) / "config" / ".farm" / "queue"
+    n = 0
+    for sub in ("incomings", "actives", "requests"):
+        try:
+            n += sum(1 for p in (queue / sub).iterdir() if p.suffix == ".json")
+        except OSError:
+            pass
+    return n
+
+
+def preset_rename_problem(root: Path, old: str, new: str) -> str:
+    """Why old can't be renamed new ("" if it can)."""
+    presets = Path(root) / "config" / "presets"
+    if not old or not (presets / f"{old}.py").is_file():
+        return f"No preset {old!r}."
+    if not _PRESET_NAME.fullmatch(new or ""):
+        return "A name of letters, digits, _ and - only."
+    if new == old:
+        return "Same name."
+    if (presets / f"{new}.py").exists() or new == "asset_file_preset":
+        return f"{new}.py already exists."
+    jobs = farm_jobs_waiting(root)
+    if jobs:
+        return f"{jobs} job(s) in the farm: rename once it's empty (a job is found by its preset's name)."
+    return ""
+
+
+def rename_preset(root: Path, old: str, new: str, departments, old_renders: bool = False) -> dict:
+    """Rename config/presets/<old>.py <new>.py and every place that cites
+    it: the config's farm.default_prerender_script, each render_history.json
+    entry's prerender_script, preset_pace.json's keys. old_renders: the
+    renders it made with no department get the one the new name gives
+    (entry and DEPARTMENT_FILE) -- right only if the preset always served
+    that department. Raises PipelineError (preset_rename_problem()).
+    Returns {"histories", "renders", "departments", "pace", "default"}."""
+    from .config import get_config_filepath
+    from .core import locked_json
+    from .preview import DEPARTMENT_FILE
+    from .status import preset_department
+    from .tracking import _DATA_ROOTS, _walk_owner_dirs
+
+    root = Path(root)
+    problem = preset_rename_problem(root, old, new)
+    if problem:
+        raise PipelineError(problem, "WARNING")
+    presets = root / "config" / "presets"
+    (presets / f"{old}.py").rename(presets / f"{new}.py")
+    out = {"histories": 0, "renders": 0, "departments": 0, "pace": False, "default": False}
+    dep = preset_department(new, departments)
+
+    with locked_json(get_config_filepath(root)) as box:
+        farm = (box["data"] or {}).get("farm") or {}
+        if farm.get("default_prerender_script") == old:
+            farm["default_prerender_script"] = new
+            box["action"] = "to_write"
+            out["default"] = True
+
+    for top in _DATA_ROOTS:
+        for owner in _walk_owner_dirs(root / top):
+            path = owner / ".pipeline" / "render_history.json"
+            if not path.is_file():
+                continue
+            with locked_json(path) as box:
+                entries = [e for e in (box["data"] or {}).get("entries") or [] if isinstance(e, dict)]
+                mine = [e for e in entries if e.get("prerender_script") == old]
+                for e in mine:
+                    e["prerender_script"] = new
+                    if old_renders and dep and not e.get("department"):
+                        e["department"] = dep
+                        out["departments"] += 1
+                        if e.get("status") == "finished" and e.get("output_path"):
+                            marker = (root / e["output_path"]).parent / DEPARTMENT_FILE
+                            try:
+                                if marker.parent.is_dir() and not marker.exists():
+                                    marker.write_text(dep, encoding="utf-8")
+                            except OSError as err:
+                                log("WARNING", "preset_rename", f"{marker}: not written: {err}")
+                if mine:
+                    box["action"] = "to_write"
+                    out["histories"] += 1
+                    out["renders"] += len(mine)
+
+    pace = root / "config" / ".farm" / "preset_pace.json"
+    if pace.is_file():
+        with locked_json(pace) as box:
+            data = box["data"] or {}
+            for key in ("presets", "averages"):
+                part = data.get(key)
+                if isinstance(part, dict) and old in part:
+                    moved = part.pop(old)
+                    if isinstance(moved, list) and isinstance(part.get(new), list):
+                        moved = part[new] + moved
+                    part.setdefault(new, moved)
+                    box["action"] = "to_write"
+                    out["pace"] = True
+    log(
+        "INFO",
+        "preset_rename",
+        f"Render preset {old} renamed {new}: {out['renders']} render(s) in {out['histories']} file(s)"
+        + (f", {out['departments']} given the department {dep}" if out["departments"] else ""),
+    )
+    return out

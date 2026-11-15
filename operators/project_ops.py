@@ -41,6 +41,9 @@ from ..lib import (
     warn_blender_version_mismatch,
 )
 from ..lib.migration import migration_record
+from ..lib.presets import presets_without_department, preset_rename_problem, rename_preset
+from ..lib.core import cached_scandir
+from ..lib.status import preset_department
 from .farm_ops import (
     _NO_SCRIPT,
     _stable_enum_items,
@@ -800,7 +803,8 @@ class ProjectSettings:
 
         # Farm
         right.separator()
-        self._rows(right.box().column(align=False), [
+        farm = right.box().column(align=False)
+        self._rows(farm, [
             ("CHUNK SIZE", "RENDER_RESULT", "chunk_size"),
             ("PRE-RENDER", "SCRIPT", "default_prerender_script"),
             ("STUCK FRAME", "ERROR", "stuck_frame_factor",
@@ -808,7 +812,34 @@ class ProjectSettings:
             ("PRIORITY SWITCH", "SORT_DESC", "priority_switch_minutes",
              ("min left: stays" if self.priority_switch_minutes else "0 = always switch",)),
         ])
+        self._draw_presets(farm)
         return right
+
+    def _departments(self) -> list[str]:
+        """The departments as typed in the fields, not yet saved."""
+        return [*parse_departments(self.shots_departments)[0], *parse_departments(self.assets_departments)[0]]
+
+    def _draw_presets(self, box) -> None:
+        """The render presets whose name gives no department, and Rename
+        preset -- the name is what gives a render its department."""
+        root = self.project_path_selected
+        if not root:
+            return
+        names = [
+            Path(e.name).stem
+            for e in cached_scandir(Path(root) / "config" / "presets")
+            if e.name.endswith(".py") and e.name != "asset_file_preset.py"
+        ]
+        loose = sorted(n for n in names if not preset_department(n, self._departments()))
+        row = box.row()
+        if loose:
+            warn = row.row()
+            warn.alert = True
+            warn.label(text=f"No department: {', '.join(loose)}", icon="ERROR")
+        else:
+            row.label(text="")
+        op = row.operator("m_pipeline.rename_preset", text="Rename preset…", icon="GREASEPENCIL")
+        op.project_root = root
 
     def load(self, context) -> None:
         """The fields from project_path_selected's config. Raises
@@ -1110,6 +1141,103 @@ class M_PIPELINE_OT_edit_project(ProjectSettings, bpy.types.Operator):
         for level, message in out:
             self.report({level}, message)
         return {"CANCELLED"} if out and out[0][0] == "ERROR" else {"FINISHED"}
+
+
+_rename_items: list = []
+
+
+def _rename_preset_items(self, context):
+    root = Path(self.project_root) if self.project_root else None
+    names = sorted(
+        Path(e.name).stem
+        for e in (cached_scandir(root / "config" / "presets") if root else [])
+        if e.name.endswith(".py") and e.name != "asset_file_preset.py"
+    )
+    return _stable_enum_items(_rename_items, [(n, n, "") for n in names] or [("", "No render preset", "")])
+
+
+class M_PIPELINE_OT_rename_preset(bpy.types.Operator):
+    """Rename a render preset, and everything citing it: its name gives its
+    renders' department."""
+
+    bl_idname = "m_pipeline.rename_preset"
+    bl_label = "Rename preset"
+    bl_description = (
+        "Rename a render preset and every place citing it -- the default "
+        "pre-render script, the renders' history, the farm's paces. Its name "
+        "gives its renders' department: lighting_hd, lighting's"
+    )
+    bl_options = {"INTERNAL"}
+
+    project_root: bpy.props.StringProperty(options={"HIDDEN"})
+    old: bpy.props.EnumProperty(name="Preset", items=_rename_preset_items)
+    new: bpy.props.StringProperty(name="New name")
+    old_renders: bpy.props.BoolProperty(
+        name="Its past renders too",
+        default=False,
+        description=(
+            "Its renders made so far, with no department, get the one the new "
+            "name gives -- right only if this preset always served that department"
+        ),
+    )
+
+    def _departments(self, context) -> list[str]:
+        settings = context.window_manager.pipeline_project_settings
+        if settings.project_path_selected == self.project_root:
+            return settings._departments()
+        config = read_project_config(self.project_root)
+        return [*(config.get("shots_departments") or []), *(config.get("assets_departments") or [])]
+
+    def invoke(self, context, event):
+        if not self.project_root:
+            return {"CANCELLED"}
+        # The first one giving no department, to start with: the reason to rename.
+        loose = presets_without_department(Path(self.project_root) / "config" / "presets", self._departments(context))
+        if loose:
+            self.old = loose[0]
+        self.new = self.old
+        return context.window_manager.invoke_props_dialog(self, width=420, confirm_text="Rename")
+
+    def draw(self, context):
+        col = self.layout.column()
+        col.prop(self, "old")
+        col.prop(self, "new")
+        deps = self._departments(context)
+        was, dep = preset_department(self.old, deps), preset_department(self.new, deps)
+        info = col.column(align=True)
+        info.active = False
+        info.label(text=f"Its renders: {was or 'no department'}  ->  {dep or 'no department'}", icon="RENDER_RESULT")
+        info.label(text="A name starting with a department gives it: lighting_hd, lighting's.", icon="BLANK1")
+        sub = col.row()
+        sub.enabled = bool(dep) and dep != was
+        sub.prop(self, "old_renders", text=f"Its past renders are {dep or 'a department'}'s too")
+        tip = col.column(align=True)
+        tip.active = False
+        tip.scale_y = 0.8
+        tip.label(text="Updated too: the default pre-render script, every render's", icon="INFO")
+        tip.label(text="history, the farm's paces. Refused while the farm has jobs.", icon="BLANK1")
+
+    def execute(self, context):
+        new = self.new.strip()
+        problem = preset_rename_problem(self.project_root, self.old, new)
+        if problem:
+            self.report({"WARNING"}, problem)
+            return {"CANCELLED"}
+        try:
+            out = rename_preset(self.project_root, self.old, new, self._departments(context), self.old_renders)
+        except (PipelineError, OSError) as e:
+            self.report({"ERROR"}, f"Rename preset: {getattr(e, 'message', e)}")
+            return {"CANCELLED"}
+        settings = context.window_manager.pipeline_project_settings
+        if settings.project_path_selected == self.project_root and out["default"]:
+            # Its picker's items re-read: the default follows the new name.
+            try:
+                settings.default_prerender_script = new
+            except TypeError:
+                pass
+        ConfigCache.invalidate()
+        self.report({"INFO"}, f"{self.old} renamed {new}: {out['renders']} render(s) in its history updated.")
+        return {"FINISHED"}
 
 
 class M_PIPELINE_OT_save_project_settings(bpy.types.Operator):

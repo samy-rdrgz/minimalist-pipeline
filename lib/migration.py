@@ -80,11 +80,12 @@ def plan_migration(root: Path, v_prefix: str = "v") -> dict:
         for change in f["changes"]:
             counts[change] = counts.get(change, 0) + 1
     presets = _plan_presets(root)
+    loose = presets.pop("loose")
     if presets["json"]:
         counts["render presets: .json to .py"] = len(presets["json"])
     if presets["departments"]:
         counts["render presets: one per department"] = len(presets["departments"])
-    return {"files": files, "owners": owners, "counts": counts, "presets": presets}
+    return {"files": files, "owners": owners, "counts": counts, "presets": presets, "loose_presets": loose}
 
 
 def apply_migration(root: Path, plan: dict) -> dict:
@@ -137,7 +138,9 @@ def _plan_presets(root: Path) -> dict:
         if str(d).strip()
     )
     missing = [d for d in departments if not any(preset_department(n, [d]) == d for n in stems)]
-    return {"json": jsons, "departments": missing}
+    # Said, not changed: Edit project's Rename preset gives them one.
+    loose = sorted(n for n in set(stems) if not preset_department(n, list(departments)))
+    return {"json": jsons, "departments": missing, "loose": loose}
 
 
 def _preset_py(overrides: dict, name: str) -> str:

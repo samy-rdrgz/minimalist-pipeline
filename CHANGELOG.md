@@ -17,6 +17,11 @@ All notable changes to this addon. Dates are release dates.
   your review after a pencil, their tip on a tap too; *+ f12* twice on two
   frames, a range; a file reassigned in your review says so under its
   name.
+- Edit project: *Rename preset…* renames a render preset and everything
+  citing it (default pre-render script, renders' history, the farm's
+  paces), its past renders optionally given the new name's department;
+  the presets whose name gives no department are flagged there and by
+  *Migrate old data*.
 - *Migrate old data*: a note id found twice made unique (Fixed marked
   every note sharing it).
 - Export snapshot: *Every department* takes each shot's other departments'

@@ -110,6 +110,13 @@ class M_PIPELINE_OT_migrate_data_confirm(bpy.types.Operator):
     def draw(self, context):
         plan = _pending["plan"]
         col = self.layout.column(align=True)
+        loose = plan.get("loose_presets") or []
+        if loose:
+            # Said, not changed: a name is the user's to choose.
+            warn = col.column(align=True)
+            warn.label(text=f"{len(loose)} render preset(s) give no department: {', '.join(loose)}.", icon="ERROR")
+            warn.label(text="Their renders have none: Edit project > Rename preset.", icon="BLANK1")
+            col.separator()
         if not plan["files"] and not any((plan.get("presets") or {}).values()):
             col.label(text=f"{plan['owners']} asset(s) and shot(s) read: nothing to change.", icon="CHECKMARK")
             return
