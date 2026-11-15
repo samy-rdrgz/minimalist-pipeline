@@ -132,6 +132,7 @@ def _meta(snapshot: dict) -> dict:
         "progress": meta.get("progress") or {},
         "validation": meta.get("validation") or {},
         "naming": meta.get("naming") or {},
+        "team": meta.get("team") or [],
         "departments": {
             "shot": meta.get("shot_departments") or [],
             "asset": meta.get("asset_departments") or [],
@@ -177,6 +178,7 @@ def _item(item: dict, threads: list, roles: list, image) -> dict:
         "states": dict(item["departments"]),
         # Waiting / To redo with their reasons (lib/status.py stage_flags()).
         "flags": item.get("flags") or {},
+        "assignees": item.get("assignees") or {},
         "omit": item.get("omit"),
         "scores": dict(item["scores"]),
         "rtk": _rtk_kinds(threads),

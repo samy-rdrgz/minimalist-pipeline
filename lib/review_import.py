@@ -39,6 +39,7 @@ from .tracking import (
     get_departments_required,
     set_department_approval,
     set_department_synced,
+    set_department_assignees,
     set_departments_required,
     set_file_omit,
     tracking_json_path,
@@ -106,6 +107,8 @@ def keep_review(path: Path, snapshots: Path, plan: dict) -> Path | None:
 #   departments            {file, add, remove}: the departments required
 #   omit                   {file, state, reason}: on_hold / cancelled, ""
 #                          counted again
+#   assign                 {file, department, people}: who it's assigned
+#                          to, all of them ([] none)
 #   create                 {file (its name), kind, sequence + shot or prefix
 #                          + name, description, frame_start, frame_end,
 #                          departments}: a new shot or asset, made by the CSV
@@ -113,10 +116,10 @@ def keep_review(path: Path, snapshots: Path, plan: dict) -> Path | None:
 # See NOTES.md, "Review: typed actions".
 ACTION_TYPES = (
     "validate", "unvalidate", "rtk", "note", "reply", "fixed", "description",
-    "still_done", "departments", "omit", "create",
+    "still_done", "departments", "omit", "assign", "create",
 )
 # Changes to a file anyone may send (no role needed: none is a validation).
-_FILE_CHANGES = ("still_done", "departments", "omit")
+_FILE_CHANGES = ("still_done", "departments", "omit", "assign")
 
 
 def _text(value) -> str:
@@ -162,6 +165,10 @@ def _action(raw) -> dict | None:
         pick = lambda k: [_text(d).lower() for d in raw.get(k) or [] if _text(d)] if isinstance(raw.get(k), list) else []  # noqa: E731
         a.update(add=pick("add"), remove=pick("remove"))
         return a if a["add"] or a["remove"] else None
+    if t == "assign":
+        people = raw.get("people") if isinstance(raw.get("people"), list) else []
+        a.update(department=_text(raw.get("department")).lower(), people=[_text(p).lower() for p in people if _text(p)])
+        return a if a["department"] else None
     if t == "omit":
         a.update(state=_text(raw.get("state")), reason=_text(raw.get("reason")))
         return a if a["state"] in ("", "on_hold", "cancelled") else None
@@ -567,6 +574,11 @@ def import_review(path: Path) -> dict:
                 elif a["type"] == "departments":
                     if not set_departments_required(filepath, a["add"], a["remove"]):
                         continue  # as asked already
+                elif a["type"] == "assign":
+                    if a["department"] not in get_departments_required(filepath):
+                        result["skipped"].append((label, f"{a['department']} not required"))
+                        continue
+                    set_department_assignees(filepath, a["department"], a["people"])
                 else:
                     set_file_omit(filepath, a["state"], author, a["reason"])
                 result["changed"] += 1

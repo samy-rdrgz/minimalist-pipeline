@@ -129,10 +129,16 @@ var rv={author:'',role:'',date:'',files:{},creates:[]};
 var KEY='mp-review:'+META.project+':'+META.snapshot;
 // synced: Still done per department; req: a department required added
 // (true) or removed (false); omit: {state, reason} set aside or counted again.
-function entry(it){var e=rv.files[it.file]||(rv.files[it.file]={deps:{},all:false,text:'',desc:null});e.fixed=e.fixed||{};e.replies=e.replies||{};e.synced=e.synced||{};e.req=e.req||{};return e;}
-function peek(it){var e=rv.files[it.file]||{deps:{},all:false,text:'',desc:null,fixed:{},replies:{}};e.synced=e.synced||{};e.req=e.req||{};return e;}
-// A file's own changes in the review: still done, departments, set aside.
-function fileChanges(it,e){return Object.keys(e.synced||{}).length+Object.keys(e.req||{}).length+(omitChanged(it,e)?1:0);}
+function entry(it){var e=rv.files[it.file]||(rv.files[it.file]={deps:{},all:false,text:'',desc:null});e.fixed=e.fixed||{};e.replies=e.replies||{};e.synced=e.synced||{};e.req=e.req||{};e.assign=e.assign||{};return e;}
+function peek(it){var e=rv.files[it.file]||{deps:{},all:false,text:'',desc:null,fixed:{},replies:{}};e.synced=e.synced||{};e.req=e.req||{};e.assign=e.assign||{};return e;}
+// A file's own changes in the review: still done, departments, set aside,
+// who a department is assigned to.
+function fileChanges(it,e){return Object.keys(e.synced||{}).length+Object.keys(e.req||{}).length+(omitChanged(it,e)?1:0)+Object.keys(e.assign||{}).length;}
+// Who a department is assigned to: as the review leaves it.
+function people(it,d){var e=peek(it);return d in e.assign?e.assign[d]:((it.assignees||{})[d]||[]);}
+// Me: the review's name (Review asks it), lower case as the team's.
+function me(){return (rv.author||'').trim().toLowerCase();}
+function mineDeps(it){var m=me();return m?Object.keys(it.states).filter(function(d){return people(it,d).indexOf(m)>=0;}):[];}
 function omitChanged(it,e){return !!e.omit&&(e.omit.state!==((it.omit||{}).state||'')||(e.omit.state&&e.omit.reason!==((it.omit||{}).reason||'')));}
 // The open notes this review replies to with a retake (anything but
 // "note:" lines): still to redo -- their departments sent back as a ✕
@@ -302,7 +308,9 @@ farm:function(it){return !!it.farm;},
 tovalid:function(it,d){return d?isDone(it.states[d])&&!validNow(it,d):Object.keys(it.states).some(function(x){return isDone(it.states[x])&&!validNow(it,x);});},
 todo:function(it,d){return d?it.states[d]&&!isDone(it.states[d]):it.tracked&&it.done<100;},
 // What this review touched: validated, withdrawn, retakes, a description.
-mine:function(it){return changes(it)>0;}};
+mine:function(it){return changes(it)>0;},
+// A department assigned to me (the review's name), or the one picked.
+me:function(it,d){var m=mineDeps(it);return d?m.indexOf(d)>=0:m.length>0;}};
 function match(it,anyTab){
 if(!anyTab&&it.tab!==state.tab)return false;
 if(state.q&&it.name.toLowerCase().indexOf(state.q)<0)return false;
@@ -318,7 +326,9 @@ var deps=depsOf(state.tab).filter(function(d){return D.some(function(it){return 
 if(deps.indexOf(state.dep)<0)state.dep='';
 $('depf').innerHTML='<option value="" data-short="All depts.">All departments</option>'+deps.map(function(d){return '<option value="'+esc(d)+'"'+(d===state.dep?' selected':'')+'>'+esc(cap(d))+'</option>';}).join('');
 $('depf').classList.toggle('on',!!state.dep);sync('depf');}
-function chipCounts(){var fb=document.querySelector('.chipf[data-f="farm"]');if(fb)fb.hidden=!D.some(function(it){return it.farm;});document.querySelectorAll('.chipf[data-f]').forEach(function(b){b.querySelector('b').textContent=D.filter(function(it){
+function chipCounts(){var fb=document.querySelector('.chipf[data-f="farm"]');if(fb)fb.hidden=!D.some(function(it){return it.farm;});
+// Me: only with a team (Edit project).
+var fm=document.querySelector('.chipf[data-f="me"]');if(fm)fm.hidden=!(META.team||[]).length;document.querySelectorAll('.chipf[data-f]').forEach(function(b){b.querySelector('b').textContent=D.filter(function(it){
 return it.tab===state.tab&&(!state.dep||state.dep in it.states)&&FILTERS[b.dataset.f](it,state.dep);}).length;});}
 // A row of the list (render(): its departments' columns).
 var rowDeps=[],rowCols='';
@@ -458,6 +468,7 @@ $('seg').addEventListener('click',function(e){var b=e.target.closest('button');i
 $('depf').addEventListener('change',function(){state.dep=this.value;this.classList.toggle('on',!!state.dep);render();});
 pick($('depf'));
 document.querySelectorAll('.chipf[data-f]').forEach(function(b){b.addEventListener('click',function(){
+if(b.dataset.f==='me'&&!me()&&!state.f.me){toast('Me: your name first -- Review asks it.');return;}
 state.f[b.dataset.f]=!state.f[b.dataset.f];b.setAttribute('aria-pressed',!!state.f[b.dataset.f]);render();
 if(state.f[b.dataset.f])b.scrollIntoView({inline:'nearest',block:'nearest'});barFade();});});
 // The filters' line: faded on a side where some are scrolled out of
@@ -843,6 +854,9 @@ return (reply?'':'<div class="thr">')+'<div class="th'+(n.closed?' closed':'')+(
 // tracks, else under Whole file -- one place each.
 function homeOf(it,n){var d=n.deps.filter(function(x){return x in it.states;})[0];return d||'';}
 var closedOpen={};
+// The panel's review mode: Assign (the team to tick) or not -- kept from
+// one file to the next.
+var AMODE=false;function assignMode(){return AMODE&&reviewing()&&(META.team||[]).length>0;}function setAssignMode(on){AMODE=on;}
 function threads(it,d){var all=it.notes.filter(function(n){return !n.approval&&homeOf(it,n)===d;}),open=all.filter(function(n){return !n.closed;}),closed=all.filter(function(n){return n.closed;});
 var h=open.map(function(n){return noteHtml(n);}).join('');
 if(closed.length){var k=d||'·';if(closedOpen[k])h+=closed.map(function(n){return noteHtml(n);}).join('');
@@ -886,10 +900,15 @@ var okd=o?(o.old?'<span class="ok old" title="'+esc(o.tip)+'">✓ '+esc(o.role)+
 '<span class="ok" title="'+esc(o.tip)+'">✓ '+esc(o.role)+'</span>'):'';
 // To redo (an earlier stage changed): Still done says its work holds.
 var redo=((it.flags||{})[d]||{}).to_redo,sd=redo&&rv?'<button type="button" class="sd-b" data-sync="'+esc(d)+'" aria-pressed="'+!!e.synced[d]+'" title="To redo: '+esc(redo)+'. Still done: the work done holds -- not a validation">'+ico('check')+'Still done</button>':'';
-var fw=capWords(it,d)[1];
-return '<div class="dep"><div class="dep-l">'+cell(it,d,true)+'<span class="mid"><span class="nm">'+esc(cap(d))+'</span><span class="st">'+esc(depSummary(it,d))+'</span><span class="inl">'+you(it,d)+'</span>'+okd+sd+(fw?'<span class="fw">'+esc(fw)+'</span>':'')+'</span>'+
-'<span class="rvb" data-d="'+esc(d)+'"><button class="ok-b'+(via?' via':'')+'" aria-pressed="'+!!(v&&v.ok)+'"'+(asTeam()?' disabled title="As the team: no validation — a validation role validates"':isDone(s)?' title="Validate it as your role"':' disabled title="Not done: nothing to validate yet"')+
-' aria-label="Validate '+esc(d)+'">✓</button><button class="ko-b'+(verdict(it,d)==='note'?' as-note':'')+'" aria-pressed="'+!!(v&&v.no)+'" aria-label="Retake '+esc(d)+'" title="Retake: write what to fix (or nothing, to withdraw a validation)">✕</button></span></div>'+
+var fw=capWords(it,d)[1],pp=people(it,d),chg=d in e.assign,am=rv&&assignMode();
+// Who it's assigned to; reviewing in Assign mode, the team to tick in
+// place of ✓ / ✕ (the review's assign action).
+var asg=pp.length||chg?'<span class="asg'+(chg?' chg':'')+'" title="Assigned to">'+ico('user')+esc(pp.join(', ')||'nobody')+'</span>':'';
+var team=am?'<div class="req asg-row">'+(META.team||[]).concat(pp.filter(function(p){return (META.team||[]).indexOf(p)<0;})).map(function(p){
+return '<button type="button" data-asg="'+esc(d)+'" data-p="'+esc(p)+'" aria-pressed="'+(pp.indexOf(p)>=0)+'">'+esc(p)+'</button>';}).join('')+'</div>':'';
+return '<div class="dep'+(am?' assigning':'')+'"><div class="dep-l">'+cell(it,d,true)+'<span class="mid"><span class="nm">'+esc(cap(d))+'</span><span class="st">'+esc(depSummary(it,d))+'</span><span class="inl">'+you(it,d)+'</span>'+okd+sd+asg+(fw?'<span class="fw">'+esc(fw)+'</span>':'')+'</span>'+
+(am?'':'<span class="rvb" data-d="'+esc(d)+'"><button class="ok-b'+(via?' via':'')+'" aria-pressed="'+!!(v&&v.ok)+'"'+(asTeam()?' disabled title="As the team: no validation — a validation role validates"':isDone(s)?' title="Validate it as your role"':' disabled title="Not done: nothing to validate yet"')+
+' aria-label="Validate '+esc(d)+'">✓</button><button class="ko-b'+(verdict(it,d)==='note'?' as-note':'')+'" aria-pressed="'+!!(v&&v.no)+'" aria-label="Retake '+esc(d)+'" title="Retake: write what to fix (or nothing, to withdraw a validation)">✕</button></span>')+'</div>'+team+
 threads(it,d)+(rv&&v&&v.no?'<div class="rt mine">'+retakeBox(it,'d:'+d,v.text,'What to fix in '+d+'? Empty: just withdraw its validation')+syntax(it,'d:'+d)+'</div>':'')+'</div>';}
 function openPanel(i){
 // The notes' fold is the page's, not a file's: kept from one file to the
@@ -926,8 +945,11 @@ if(rv)h+='<button type="button" class="desc-edit" id="add-desc">✎ '+(it.desc?'
 // every done one, V) on top, "Whole file" (✕ a retake on no department,
 // X) at the bottom -- with the open ones on no department.
 var anyDone=deps.some(function(d){return isDone(it.states[d]);}),genOpen=editing.gen||!!e.text;
-h+='<div class="p-block major">'+
-(rv&&anyDone&&!asTeam()?'<div class="dep all"><div class="dep-l"><span class="cell na"></span><span class="mid"><span class="nm">All done</span><span class="st">validate every done department<span class="kh"> · V</span></span></span>'+
+// Reviewing with a team: Retake (✓ / ✕) or Assign (the team to tick).
+var modes=rv&&(META.team||[]).length?'<div class="segb am" role="group" aria-label="Review mode">'+[['','Validate · retake'],['1','Assign']].map(function(m){
+return '<button type="button" data-amode="'+m[0]+'" aria-pressed="'+(assignMode()===!!m[0])+'">'+m[1]+'</button>';}).join('')+'</div>':'';
+h+='<div class="p-block major">'+modes+
+(rv&&anyDone&&!asTeam()&&!assignMode()?'<div class="dep all"><div class="dep-l"><span class="cell na"></span><span class="mid"><span class="nm">All done</span><span class="st">validate every done department<span class="kh"> · V</span></span></span>'+
 '<span class="rvb"><button class="ok-b" id="allok" aria-pressed="'+e.all+'" aria-label="Validate every done department">✓</button><span class="rvb-gap"></span></span></div></div>':'')+
 (deps.length?deps.map(function(d){return depHtml(it,d,rv);}).join(''):'<p class="faint">No department tracked on this file.</p>')+
 (rv||it.notes.some(function(n){return !n.approval&&!n.closed&&homeOf(it,n)==='';})?'<div class="dep whole"><div class="dep-l"><span class="cell na"></span><span class="mid"><span class="nm">Whole file</span><span class="st">'+esc(['a retake on no department',depSummary(it,'')].filter(Boolean).join(' · '))+(rv?'<span class="kh"> · X</span>':'')+'</span></span>'+
@@ -1089,6 +1111,11 @@ if(b.open[sh]){var ta3=$('p-body').querySelector('textarea[data-k="'+CSS.escape(
 if((t=ev.target.closest('[data-closed]'))){closedOpen[t.dataset.closed]=!closedOpen[t.dataset.closed];return refresh();}
 if((t=ev.target.closest('[data-sync]'))){var se=entry(it);if(se.synced[t.dataset.sync])delete se.synced[t.dataset.sync];else se.synced[t.dataset.sync]=1;return refresh();}
 // A department required or not: back to as it was, or changed.
+if((t=ev.target.closest('[data-amode]'))){setAssignMode(!!t.dataset.amode);return refresh();}
+if((t=ev.target.closest('[data-asg]'))){var ae=entry(it),ad=t.dataset.asg,ap=t.dataset.p,now3=people(it,ad).slice(),was3=((it.assignees||{})[ad]||[]).slice();
+if(now3.indexOf(ap)>=0)now3.splice(now3.indexOf(ap),1);else now3.push(ap);
+// Back to as it was: no change left to send.
+if(now3.slice().sort().join()===was3.slice().sort().join())delete ae.assign[ad];else ae.assign[ad]=now3;refresh();if(state.f.me)render();return;}
 if((t=ev.target.closest('[data-req]'))){var re=entry(it),rd=t.dataset.req,was=rd in it.states,now2=rd in re.req?re.req[rd]:was;
 if(!now2===was)delete re.req[rd];else re.req[rd]=!now2;refresh();render();return;}
 if((t=ev.target.closest('[data-omit]'))){var oe=entry(it),cur0=oe.omit||{state:(it.omit||{}).state||'',reason:(it.omit||{}).reason||''};
@@ -1275,7 +1302,8 @@ replies(e).forEach(function(id){out.push({type:'reply',file:f,to:id,text:e.repli
 Object.keys(e.synced||{}).forEach(function(d){out.push({type:'still_done',file:f,department:d,text:''});});
 var add=Object.keys(e.req||{}).filter(function(d){return e.req[d];}),rem=Object.keys(e.req||{}).filter(function(d){return !e.req[d];});
 if(add.length||rem.length)out.push({type:'departments',file:f,add:add,remove:rem});
-if(omitChanged(it,e))out.push({type:'omit',file:f,state:e.omit.state,reason:e.omit.state?e.omit.reason||'':''});});
+if(omitChanged(it,e))out.push({type:'omit',file:f,state:e.omit.state,reason:e.omit.state?e.omit.reason||'':''});
+Object.keys(e.assign||{}).forEach(function(d){out.push({type:'assign',file:f,department:d,people:e.assign[d]});});});
 (rv.creates||[]).forEach(function(c){out.push(Object.assign({type:'create',file:c.label},c));});return out;}
 // A review file read back into the page: its actions as the boxes,
 // ✓ / ✕, replies and fixes they came from.
@@ -1291,7 +1319,8 @@ else if(a.type==='fixed')e.fixed[a.id]=1;
 else if(a.type==='description')e.desc=a.new;
 else if(a.type==='still_done')e.synced[a.department]=1;
 else if(a.type==='departments'){(a.add||[]).forEach(function(d){e.req[d]=true;});(a.remove||[]).forEach(function(d){e.req[d]=false;});}
-else if(a.type==='omit')e.omit={state:a.state||'',reason:a.reason||''};});
+else if(a.type==='omit')e.omit={state:a.state||'',reason:a.reason||''};
+else if(a.type==='assign')e.assign[a.department]=a.people||[];});
 (actions||[]).forEach(function(a){if(a.type==='create'){var c=Object.assign({},a);delete c.type;delete c.file;c.label=a.file;rv.creates.push(c);}});return Object.keys(unknown).length;}
 // <project>_review_<YYYY-MM-DD_HH-MM>_<role>_<author>.json: two reviewers'
 // files side by side on a drive, never one over the other.
@@ -1321,6 +1350,7 @@ if(n('fixed'))parts.push('<span class="rc-x">'+ico('check')+n('fixed')+' fixed</
 if(n('reply'))parts.push('<span class="rc-x">'+ico('reply')+n('reply')+(n('reply')>1?' replies':' reply')+'</span>');
 acts.forEach(function(a){if(a.type==='still_done')parts.push('<span class="rc-x">'+ico('check')+esc(cap(a.department))+': still done</span>');
 else if(a.type==='departments')parts.push('<span class="rc-x">'+ico('filter')+esc([a.add.length?'+ '+a.add.map(cap).join(', '):'',a.remove.length?'− '+a.remove.map(cap).join(', '):''].filter(Boolean).join(' · '))+'</span>');
+else if(a.type==='assign')parts.push('<span class="rc-x">'+ico('user')+esc(cap(a.department))+' → '+esc((a.people||[]).join(', ')||'nobody')+'</span>');
 else if(a.type==='omit')parts.push('<span class="rc-x">'+ico('time')+esc(a.state==='on_hold'?'On hold':a.state==='cancelled'?'Cancelled':'Active again')+(a.reason?': '+a.reason:'')+'</span>');});
 return '<div class="rc"><b class="rc-n">'+(it?nameHtml(it):esc(f))+'</b><span class="rc-p">'+parts.join('')+'</span></div>';}).join('');}
 function openSend(){var rows=exportActions();

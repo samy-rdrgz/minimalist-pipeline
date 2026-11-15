@@ -526,6 +526,8 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
                 for d in status.get("departments_required", [])
             },
             "flags": status.get("flags") or {},
+            # Who each department is assigned to (Edit project's team).
+            "assignees": status.get("assignees") or {},
             # Set aside: listed, out of every share done (lib/status.py).
             "omit": omitted(status),
             "wip_version": wip_name,
@@ -655,6 +657,7 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
     meta["validation_roles"] = roles
     meta["validation_role"] = top_role
     # What a new shot or asset may be called, created from the page.
+    meta["team"] = list(config.get("team") or [])
     meta["naming"] = {
         "sequence": json_get(config, "naming.sequence", {"prefix": "sq", "digits": 3}),
         "shot": json_get(config, "naming.shot", {"prefix": "sh", "digits": 3}),

@@ -55,7 +55,8 @@ Un bloc multishot peut taguer une note/todo avec le shot du bloc concerné — v
 **L'équipe** (Edit project → *Team*, les noms séparés par une virgule) : chacun choisit son nom d'utilisateur dedans (Préférences ou la fenêtre d'accueil, le bouton de l'équipe à côté du champ du nom ; un nom absent de l'équipe est signalé), et les départements d'un fichier sont attribués à ses membres.
 
 - **Attribuer** (File details, le bouton de l'équipe à côté d'un département, ouvert à tous) : cocher pour qui c'est -- le layout de sh010 à Léa, son animation à Tom. Facultatif, une affaire de filtre : rien n'est compté à partir de là (pas de charge par personne, voir [Choix de conception](design_fr.md)). Stocké dans `tracking.json` : `"assignees": {"animation": ["tom"]}`.
-- **Moi** (les filtres de Project monitoring, l'icône personne) : seulement les fichiers avec un département qui t'est attribué.
+- **Moi** (les filtres de Project monitoring, l'icône personne -- celle de l'équipe quand il est éteint) : seulement les fichiers avec un département qui t'est attribué.
+- **Sur la page du snapshot** : à qui chaque département est attribué, sous son nom ; *Me* parmi les filtres (ton nom dans la review). En review, le panneau du fichier bascule entre *Validate · retake* et *Assign* : en Assign, chaque département montre l'équipe à cocher à la place de ✓ / ✕ -- envoyé comme action `assign`, appliqué à l'import comme le ferait File details.
 
 ## Fini, puis validé : les rôles de validation
 
