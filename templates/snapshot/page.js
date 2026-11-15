@@ -169,7 +169,7 @@ reply:'<path d="M6 4L2.5 7.5 6 11M2.5 7.5H10a3.5 3.5 0 0 1 3.5 3.5V12" fill="non
 // file in templates/snapshot/icons), else the stand-in above.
 var BI={play:'b-play',pause:'b-pause',fprev:'b-frame_prev',fnext:'b-frame_next',rew:'b-rew',ff:'b-ff',eye:'b-hide_off',
 trash:'b-trash',import:'b-import',export:'b-export',user:'b-user',movie:'b-file_movie',prevk:'b-prev_keyframe',nextk:'b-next_keyframe',link:'b-decorate_linked',
-time:'b-time',render:'b-file_movie',cancel:'b-cancel',warn:'b-status_warning',fsin:'b-fullscreen_enter',fsout:'b-fullscreen_exit',
+time:'b-time',render:'b-render_still',cancel:'b-cancel',warn:'b-status_warning',fsin:'b-fullscreen_enter',fsout:'b-fullscreen_exit',
 review:'b-greasepencil',help:'b-question',filter:'b-filter',search:'b-viewzoom',folder:'b-file_folder',check:'b-checkmark',team:'b-community',reply:'b-file_parent'};
 function ico(n){return BI[n]&&document.getElementById(BI[n])?'<svg class="ico bi-'+n+'" aria-hidden="true"><use href="#'+BI[n]+'"/></svg>':
 '<svg class="ico" viewBox="0 0 16 16" aria-hidden="true">'+IC[n]+'</svg>';}
@@ -325,6 +325,12 @@ if(lockY==null&&scrollY!==y0)scrollTo(0,y0);
 countBar();
 // The videos' folder button, next to ?: until one is chosen, while a render has a video.
 $('vidb').hidden=!!PICKED||!D.some(function(it){return it.renders.some(function(r){return r.video;});});}
+// A capsule with no room on its right (the panel, the window's edge):
+// opened to the left -- measured as the pointer or the focus comes.
+function flipCap(e){var c=e.target.closest&&e.target.closest('.cell');if(!c)return;var lab=c.querySelector('.lab');if(!lab)return;
+var r=c.getBoundingClientRect(),p=$('panel'),edge=cur!=null&&!p.hidden&&!document.body.classList.contains('panel-full')?p.getBoundingClientRect().left:innerWidth;
+c.classList.toggle('flip',r.left+lab.scrollWidth+48>edge-8);}
+document.addEventListener('mouseover',flipCap);document.addEventListener('focusin',flipCap);
 $('list').addEventListener('click',function(e){var t;
 if(e.target.closest('[data-zoom]'))return;
 if((t=e.target.closest('[data-other]')))return setTab(t.dataset.other);
@@ -358,7 +364,8 @@ found=D.filter(function(it){return it.name.toLowerCase().indexOf(q)>=0;}).slice(
 if(!found.length){sugg.hidden=true;return;}
 sugg.innerHTML=found.map(function(it,n){return '<li><button type="button" role="option" data-n="'+n+'"><span>'+nameHtml(it)+'</span><small>'+
 TABS.filter(function(t){return t[0]===it.tab;})[0][1]+'</small></button></li>';}).join('');sugg.hidden=false;}
-function pick(n){var it=found[n];if(!it)return;sugg.hidden=true;$('q').blur();jump(it);}
+// Not "pick": the page's selects' pick() (below, same scope) took the name.
+function goTo(n){var it=found[n];if(!it)return;sugg.hidden=true;$('q').blur();jump(it);}
 function jump(it){if(it.tab!==state.tab)setTab(it.tab);var k=state.tab+it.group;if(state.open[k]===false)state.open[k]=true;
 if(!it.tracked)state.untracked[k]=true;render();openPanel(it.i);}
 $('q').addEventListener('input',function(){state.q=this.value.trim().toLowerCase();render();suggest();});
@@ -366,9 +373,9 @@ $('q').addEventListener('focus',suggest);
 $('q').addEventListener('keydown',function(e){var b=sugg.querySelectorAll('button');
 if(e.key==='ArrowDown'||e.key==='ArrowUp'){if(sugg.hidden)return;e.preventDefault();hi=(hi+(e.key==='ArrowDown'?1:-1)+b.length)%b.length;
 b.forEach(function(x,n){x.classList.toggle('hi',n===hi);});}
-else if(e.key==='Enter'){e.preventDefault();pick(hi<0?0:hi);}});
+else if(e.key==='Enter'){e.preventDefault();goTo(hi<0?0:hi);}});
 sugg.addEventListener('mousedown',function(e){e.preventDefault();});
-sugg.addEventListener('click',function(e){var b=e.target.closest('button');if(b)pick(+b.dataset.n);});
+sugg.addEventListener('click',function(e){var b=e.target.closest('button');if(b)goTo(+b.dataset.n);});
 $('q').addEventListener('blur',function(){setTimeout(function(){sugg.hidden=true;},150);});
 
 /* ---------- menus ---------- */
@@ -722,7 +729,7 @@ return [d?LABEL[it.states[d]].toLowerCase():'',r?plural(r,'retake'):'',o?plural(
 function replyBtn(n){return '<button type="button" class="rp" data-reply="'+esc(n.id)+'" title="Reply in its thread: a retake (still to redo, its department sent back) — or note: a remark">'+ico('reply')+'Reply</button>';}
 // A retake, red -- "note:" lines alone a remark, grey (as a department's box).
 function replyBox(n){var r=(peek(D[cur]).replies||{})[n.id];if(r==null&&!editing['r:'+n.id])return '';var nt=noteOnly(r);
-return '<div class="reply-box'+(nt?' as-note':'')+'"><span class="you '+(nt?'nt':'n')+'" title="'+(nt?'A remark in its thread':'A retake in its thread: its department sent back')+'">↩ you</span><textarea rows="1" class="rp-t" data-r="'+esc(n.id)+'" placeholder="Still to redo: what — or note: a remark">'+esc(r||'')+'</textarea></div>';}
+return '<div class="reply-box'+(nt?' as-note':'')+'"><span class="inl"><span class="you '+(nt?'nt':'n')+'" title="'+(nt?'A remark in its thread':'A retake in its thread: its department sent back')+'">↩ YOU</span></span><textarea rows="1" class="rp-t" data-r="'+esc(n.id)+'" placeholder="Still to redo: what — or note: a remark">'+esc(r||'')+'</textarea></div>';}
 function replyKind(t){return !(t||'').trim()?'':noteOnly(t)?'note':'rtk';}
 function canReply(n){return reviewing()&&n.id&&!n.closed;}
 // A note's date: while reviewing, how long ago (from today, as the page is
@@ -757,7 +764,7 @@ threads(it,d)+(rv&&v&&v.no?'<div class="rt mine">'+retakeBox(it,'d:'+d,v.text,'W
 function openPanel(i){
 // The notes' fold is the page's, not a file's: kept from one file to the
 // next, back to its default (open, folded in review) when review starts or ends.
-var it=D[i],same=cur===i;if(!same){showClosed=false;editing={};}cur=i;if(!lastFocus)lastFocus=document.activeElement;
+var it=D[i],same=cur===i;if(!same){showClosed=false;editing={};}cur=i;$('p-open').hidden=true;if(!lastFocus)lastFocus=document.activeElement;
 var rv=reviewing(),e=peek(it);if(showNotes===null)showNotes=!rv;
 $('p-title').innerHTML=nameHtml(it);var nv=allVideos(it).length;$('p-play').hidden=true;$('p-play').title=nv>1?'Play the '+nv+' shots in a row':'Play the render';
 $('p-sub').textContent=[it.kind==='shot'?'Shot':it.root==='library'?'Library':'Asset',it.versions,it.shots.length>1?plural(it.shots.length,'shot'):''].filter(Boolean).join(' · ');
@@ -861,7 +868,9 @@ if(VV){VV.addEventListener('resize',fitKb);VV.addEventListener('scroll',fitKb);}
 document.addEventListener('focusin',function(){if(!coarse.matches)return;fitKb();setTimeout(fitKb,350);});
 document.addEventListener('focusout',function(){setTimeout(fitKb,80);});
 $('p-body').addEventListener('input',function(){if(document.body.classList.contains('kb'))revealField();});
-function closePanel(){if(cur==null)return;closeWatch();if(PL)PL.el.pause();cur=null;
+// The last file shown: the window edge's tab brings it back.
+var lastShown=null;
+function closePanel(){if(cur==null)return;closeWatch();if(PL)PL.el.pause();lastShown=cur;$('p-open').hidden=false;cur=null;
 // A field of it left for good: hidden with the panel, iOS kept its focus
 // (no focusout), the page stayed held -- nothing scrolled or answered.
 var f=document.activeElement;if(f&&f.closest&&f.closest('.panel')&&f.blur)f.blur();clearTimeout(fieldT);lockPage('field',false);
@@ -870,7 +879,8 @@ setTimeout(function(){if(cur==null)p.hidden=true;},220);document.querySelectorAl
 try{history.replaceState(null,'',location.pathname+location.search);}catch(err){}
 if(lastFocus)lastFocus.focus({preventScroll:true});lastFocus=null;}
 function step(n){var pos=visible.indexOf(cur);if(pos<0)return;var j=visible[pos+n];if(j!=null){openPanel(j);$('p-body').scrollTop=0;}}
-$('p-close').addEventListener('click',closePanel);$('scrim').addEventListener('click',closePanel);
+$('p-close').addEventListener('click',closePanel);$('p-tab').addEventListener('click',closePanel);
+$('p-open').addEventListener('click',function(){if(lastShown!=null)openPanel(lastShown);});$('scrim').addEventListener('click',closePanel);
 $('p-prev').addEventListener('click',function(){step(-1);});$('p-next').addEventListener('click',function(){step(1);});
 $('m-prev').addEventListener('click',function(){step(-1);});$('m-next').addEventListener('click',function(){step(1);});
 $('p-play').addEventListener('click',function(){if(cur!=null)openWatch(true);});

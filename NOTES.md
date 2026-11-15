@@ -4716,3 +4716,14 @@ review, the phone and the iPad. What holds across them:
   first department the file tracks, else *Whole file* -- the separate
   Notes block and the RTK lines under departments made the same RTK
   show twice.
+- **Small things that read like Blender**: the panel's tab on its left
+  edge (`#p-tab`, a sidebar's) hides it; at the window's edge once hidden
+  (`#p-open`), it brings the last file back. Blender's logo in the footer
+  (an add-on's page), its DECORATE_LINKED for the file's link.
+- **A capsule with no room on its right** (the panel beside the list, the
+  window's edge) opens to the left (`flipCap()`, measured on hover or
+  focus: the label's scrollWidth, its max-width 0 as it waits) -- it went
+  under the panel.
+- Two functions named `pick` in one scope (the search's, the selects')
+  -- the second won, a click on a suggestion did nothing: the search's is
+  `goTo()`.

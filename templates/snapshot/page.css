@@ -221,7 +221,10 @@ border:1px solid var(--line);border-radius:var(--r-md);box-shadow:var(--sh-pop);
 .sugg button{display:flex;justify-content:space-between;gap:10px;width:100%;min-height:var(--tap);padding:4px 10px;border:0;border-radius:6px;background:none;text-align:left;font-size:13px}
 .sugg button small{color:var(--ink-3)}
 .sugg button:hover,.sugg button.hi{background:var(--sunk)}
-.help .menu-pop{width:min(360px,calc(100vw - 32px));padding:14px 16px;font-size:13px}
+/* Two columns: the legend grew past a screen's height in one. */
+.help .menu-pop{width:min(760px,calc(100vw - 32px));padding:16px 18px;font-size:13px;columns:2;column-gap:28px}
+.help .hg{break-inside:avoid}
+@media (max-width:700px){.help .menu-pop{columns:1}}
 /* Scrolled in itself: on a touch screen the page under it holds still. */
 @media (pointer:coarse){.help .menu-pop{max-height:calc(100dvh - 100px);overflow:auto}}
 .help h3{margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
@@ -259,6 +262,11 @@ transition:max-width .28s cubic-bezier(.2,.8,.2,1),opacity .18s .06s}
 .cell:hover .lab,.cell:focus-within .lab,.cell.peek .lab{max-width:240px}
 .cell:hover .cap,.cell:focus-within .cap,.cell.peek .cap{padding-right:10px;background:var(--sunk);border-color:var(--line);box-shadow:0 6px 16px rgba(0,0,0,.35);z-index:5}
 .cell:hover .lab,.cell:focus-within .lab,.cell.peek .lab{opacity:1}
+/* No room on the right (the panel, the window's edge): open to the left,
+the diamond where it is (page.js flipCap()). */
+.cell.flip .cap{left:auto;right:0;flex-direction:row-reverse}
+.cell.flip .lab{margin:0 2px 0 0}
+.cell.flip:hover .cap,.cell.flip:focus-within .cap,.cell.flip.peek .cap{padding-right:1px;padding-left:10px}
 .cell:focus{outline:none}.cell:focus-visible .cap{outline:2px solid var(--accent);outline-offset:1px}
 .s-todo::before{border:1.5px solid var(--ring)}
 /* Its half drawn from the border's edge: from inside it, a gap showed. */
@@ -327,15 +335,15 @@ in it. Your review's say: the same shape, neutral, on the right. */
 .row.sel{background:var(--accent-bg);box-shadow:inset 3px 0 0 var(--ink)}
 /* Touched by this review (validated, withdrawn, a retake, a description):
 the review's violet, its edge kept when selected too. */
-.row.rv-mine{background:var(--mine-tint)}
+.row.rv-mine{background:var(--valid-bg);box-shadow:inset 3px 0 0 var(--val-f)}
 /* Set aside (On hold, Cancelled): listed, faded, out of the figures. */
 .row.omit>*{opacity:.5}.row.cancelled>*{opacity:.28}
-.row.rv-mine:hover{background:var(--accent-bg)}
+.row.rv-mine:hover{background:color-mix(in srgb,var(--valid-bg) 70%,var(--accent-bg))}
 /* Every file of the group reviewed: its header too. */
-.group.rv-all>.g-h{background:var(--mine-tint);border-radius:var(--r-lg) var(--r-lg) 0 0}
+.group.rv-all>.g-h{background:var(--valid-bg);box-shadow:inset 3px 0 0 var(--val-f);border-radius:var(--r-lg) var(--r-lg) 0 0}
 .group.rv-all.closed>.g-h{border-radius:var(--r-lg)}
-.rv-mine-k{display:inline-block;width:22px;height:14px;margin-right:8px;vertical-align:-2px;border-radius:3px;background:var(--mine-tint);box-shadow:0 0 0 1px var(--line)}
-.row.rv-mine.sel{background:var(--accent-bg)}
+.rv-mine-k{display:inline-block;width:22px;height:14px;margin-right:8px;vertical-align:-2px;border-radius:3px;background:var(--valid-bg);box-shadow:inset 3px 0 0 var(--val-f)}
+.row.rv-mine.sel{background:var(--valid-bg);box-shadow:inset 3px 0 0 var(--ink)}
 .group>.rows>.row:last-child,.group>.rows>.untracked:last-child{border-radius:0 0 var(--r-lg) var(--r-lg)}
 .r-name{min-width:0}
 /* A name: its group's prefix quiet, the rest bold, breaking at _ and - */
@@ -360,8 +368,9 @@ the review's violet, its edge kept when selected too. */
 .ico{display:inline-block;width:16px;height:16px;vertical-align:-3px;flex:none}
 .tg{display:inline-flex;align-items:center;gap:4px;padding:0 7px;border-radius:5px;border:1px solid var(--line2);font:600 11px/18px var(--ui);color:var(--ink-2);white-space:nowrap}
 .tg .ico{width:12px;height:12px}
-/* Reply: Blender's FILE_PARENT (↰) turned to point back, as ↩. */
-.bi-reply{transform:rotate(-90deg) scaleX(-1)}
+/* Reply: Blender's FILE_PARENT (↰) turned half round, pointing down to
+the right -- into the thread. */
+.bi-reply{transform:rotate(180deg)}
 .tg-wait{border-style:dashed}
 .tg-run{border-color:transparent;background:var(--accent-bg);color:var(--ink)}
 .tg-fail{border-color:transparent;background:var(--rtk-bg);color:var(--rtk)}
@@ -721,6 +730,7 @@ footer{margin:48px 0 40px;font-size:12px;color:var(--ink-3);display:flex;flex-wr
 .brand-f{display:inline-flex;align-items:center;gap:8px;color:var(--ink-2);text-decoration:none}
 .brand-f:hover{color:var(--ink)}
 footer svg{width:24px;height:13px}
+footer .ico{width:15px;height:15px}
 footer .wm{font:400 13px/1 var(--display)}
 /* The bar's and the dialog's fields set their background: the picked
 selects' chevron again on top. */
@@ -841,3 +851,14 @@ range a blue bar above -- a click goes there. */
 .dlg .acts .ico,.th-a .ico{width:14px;height:14px;margin-right:6px}
 #d-clear{color:var(--ink-2)}
 @media (max-width:560px){.dlg .row3{grid-template-columns:1fr 1fr}.dlg .row3 label:first-child{grid-column:1/-1}.rc{grid-template-columns:1fr}}
+
+/* The panel's tab, as a Blender sidebar's: on its left edge, it hides the
+panel; at the window's edge once hidden, it brings the last file back. */
+.p-tab{position:absolute;left:-17px;top:calc(var(--sat) + 64px);z-index:3;display:flex;align-items:center;justify-content:center;width:17px;height:34px;padding:0;
+border:1px solid var(--line);border-right:0;border-radius:7px 0 0 7px;background:var(--surface);color:var(--ink-2);cursor:pointer}
+.p-tab:hover{color:var(--ink)}
+.p-tab .ico{width:11px;height:11px}
+.p-tab.out{position:fixed;left:auto;right:0;z-index:50}
+.p-tab.out .ico{transform:rotate(180deg)}
+@media (max-width:900px){.p-tab{display:none!important}}
+body.panel-full .p-tab:not(.out){display:none}
