@@ -4724,6 +4724,13 @@ started and Done reworked shared one icon.
   Farm monitoring the same rows, the same count -- both drawn in a column
   of the panel (Project monitoring's was the panel's own layout, its rows
   taller on screen than Farm's in a column).
+- Project settings' lines all drawn one way (`ProjectSettings._rows()`,
+  `_cells()`): the label a third, then a grid of `_SLOTS` equal slots --
+  a number one slot, a text field or a menu alone the whole line, a label
+  the rest, a function (read-only values, the week's days) the whole
+  line. Drawn apart, a line's cells shared its width by their number, a
+  number half a line here and a whole one there, and the read-only lines
+  sat in a box of their own.
 - Project settings: a "?" by a field (`_HELP`, `_settings_row(help=)`)
   opens how to fill it, with examples (departments and their stages,
   roles and levels, the team, naming, dates day first).

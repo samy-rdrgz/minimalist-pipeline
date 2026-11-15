@@ -480,6 +480,11 @@ _HELP = {
 }
 
 
+# Project settings' grid: each line's cells on this many equal slots
+# (ProjectSettings._rows()).
+_SLOTS = 3
+
+
 def _settings_row(box, label: str, icon: str, help: str = ""):
     """One Project settings line: a split, its label on the first third
     (with its "?", _HELP[help], when it has one), then each item added
@@ -657,16 +662,50 @@ class ProjectSettings:
     )
 
     def _rows(self, box, rows) -> None:
-        """_settings_row()s: (label, icon, *cells) -- a cell a property of
-        this, (text,) a label, "" an empty one keeping the columns."""
+        """Every Project settings line, one way: _settings_row() (its label
+        a third, its "?"), then its cells on a grid of _SLOTS equal slots --
+        a number one slot, a text field or a menu alone the whole line, a
+        label (text[, icon[, slots]]) the rest of it by default, "" an
+        empty slot, a function (of a layout) the whole line. The same slot
+        the same width on every line, of every box."""
         for label, icon, *cells in rows:
             first = next((c for c in cells if isinstance(c, str) and c), "")
-            row = _settings_row(box, label, icon, first)
-            for cell in cells:
-                if isinstance(cell, tuple) or cell == "":
-                    row.label(text=cell[0] if cell else "")
-                else:
-                    row.prop(self, cell)
+            self._cells(_settings_row(box, label, icon, first), cells)
+
+    def _cells(self, layout, cells) -> None:
+        """cells on _SLOTS slots (_rows()), split once each: a row would
+        size them by their content."""
+        def span(cell, left):
+            if callable(cell):
+                return left
+            if isinstance(cell, tuple):
+                return cell[2] if len(cell) > 2 else left
+            if cell and self.bl_rna.properties[cell].type in ("STRING", "ENUM") and len(cells) == 1:
+                return left
+            return 1
+
+        left = _SLOTS
+        for n, cell in enumerate(cells):
+            width = min(span(cell, left), left)
+            last = n == len(cells) - 1 and width == left
+            if last:
+                target = layout.row(align=True)
+            else:
+                split = layout.split(factor=width / left, align=True)
+                target, layout = split.row(align=True), split
+            left -= width
+            if callable(cell):
+                cell(target)
+            elif isinstance(cell, tuple):
+                target.label(text=cell[0], icon=cell[1] if len(cell) > 1 else "NONE")
+            elif cell:
+                target.prop(self, cell)
+            else:
+                target.label(text="")
+            if last:
+                break
+        else:
+            layout.label(text="")  # the slots left: blank, the grid kept
 
     def draw_settings(self, layout):
         """Left: the project and how it names things. Right: what's tracked
@@ -679,19 +718,19 @@ class ProjectSettings:
         left = columns.column()
         right = columns.column()
 
-        # Read-only
-        box = left.box()
-        for label, icon, value in [
-            ("NAME", "PINNED", self.project_name),
-            ("PATH", "BLANK1", self.project_path_selected),
-        ]:
-            row = _settings_row(box, label, icon)
-            sub = row.box()
-            sub.scale_y = 0.6
-            sub.label(text=value, icon="LOCKED")
+        # Read-only, then the Blender version: on the same grid.
+        def locked(value):
+            def draw(layout):
+                layout.active = False
+                layout.label(text=value, icon="LOCKED")
 
-        row = _settings_row(box, "BLENDER", "BLENDER")
-        row.prop(self, "project_bl_version")
+            return draw
+
+        self._rows(left.box().column(align=False), [
+            ("NAME", "PINNED", locked(self.project_name)),
+            ("PATH", "BLANK1", locked(self.project_path_selected)),
+            ("BLENDER", "BLENDER", "project_bl_version"),
+        ])
 
         # Resolution / FPS
         left.separator()
@@ -704,10 +743,8 @@ class ProjectSettings:
         # Naming
         left.separator()
         box = left.box().column(align=False)
-        row = _settings_row(box, "", "NONE")
-        row.label(text="PREFIX", icon="SYNTAX_OFF")
-        row.label(text="DIGITS", icon="SORTBYEXT")
         self._rows(box, [
+            ("", "NONE", ("PREFIX", "SYNTAX_OFF", 1), ("DIGITS", "SORTBYEXT", 1)),
             ("SEQUENCE", "LAYER_ACTIVE", "sequence_prefix", "sequence_digits"),
             ("SHOT", "LAYER_USED", "shot_prefix", "shot_digits"),
             ("VERSION", "CHECKMARK", "version_prefix", "version_digits"),
@@ -752,9 +789,11 @@ class ProjectSettings:
             ("SCHEDULE", "TIME", "schedule_start", "schedule_end"),
             ("DAYS OFF", "BLANK1", "schedule_days_off"),
         ])
-        week = _settings_row(box, "WORKED DAYS", "BLANK1").row(align=True)
-        for i, name in enumerate(("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")):
-            week.prop(self, "schedule_worked_days", index=i, text=name, toggle=True)
+        def week(layout):
+            for i, name in enumerate(("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")):
+                layout.prop(self, "schedule_worked_days", index=i, text=name, toggle=True)
+
+        self._rows(box, [("WORKED DAYS", "BLANK1", week)])
 
         # Farm
         right.separator()
