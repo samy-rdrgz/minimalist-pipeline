@@ -74,8 +74,8 @@ it saw.
   stable ("★ prod: fixanim, render-ld · v003-stable", each note in its
   tooltip).
 - **Notes under a role**: a note, todo or RTK written by someone with a
-  role carries it (violet mark), and so do the notes imported from a
-  review. An RTK from a role is red in the snapshot, the team's own orange; in Blender its mark is the role's violet, like its notes, the team's orange.
+  role carries it (its tick box or dot violet in Blender), and so do the notes imported from a
+  review. An RTK from a role is red in the snapshot, the team's light red; in Blender, a role's box is violet, the team's Blender's own.
   The *New entry* dialog shows your role in an *As sup* box, on by
   default: untick it to write as the team (a technical note, say).
 - **A review as the team**: *team* in a review's Role (the snapshot

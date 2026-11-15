@@ -292,12 +292,6 @@ def _draw_thread(thread, note, filepath, width: int | None = None):
             col.separator(factor=0.2)
 
 
-# Entry marks: Blender colors no text but red (alert) -- the add-on's
-# marks (lib/icons.py) stand for the snapshot's colors.
-_ROLE_ICON = "mark:role"  # violet: written under a validation role
-_RTK_ROLE_ICON = _ROLE_ICON  # an RTK too: the role's violet, as its notes
-_RTK_TEAM_ICON = "mark:team"  # orange
-
 
 def _draw_entry(e, note, filepath, width: int | None = None):
     """Draw one entry's title/author/action row plus its text body."""
@@ -305,8 +299,15 @@ def _draw_entry(e, note, filepath, width: int | None = None):
     body = row.row(align=True)
 
     # Right-click on its icons: reply, edit, tick, delete.
+    # Written under a validation role: its box, tick and dot violet (the
+    # page's review colour); the team's Blender's own.
+    role = bool(e.get("role"))
     if e.get("done") is not None:
-        icon = "CHECKMARK" if e["done"] else "CHECKBOX_DEHLT"
+        icon = (
+            ("mark:check_role" if role else "CHECKMARK")
+            if e["done"]
+            else ("mark:box_role" if role else "CHECKBOX_DEHLT")
+        )
         icon_button(
             body,
             "m_pipeline.toggle_entry_task",
@@ -315,15 +316,10 @@ def _draw_entry(e, note, filepath, width: int | None = None):
             filepath=filepath,
             rmb="entry",
         )
-        if e["type"] == "rtk":
-            # A validation role's RTK violet (as its notes), the team's orange.
-            body.label(
-                text="", **icon_kw(_RTK_ROLE_ICON if e.get("role") else _RTK_TEAM_ICON)
-            )
     else:
         # A button, not a label: it takes the right-click menu (and a click
         # replies, as the grip on the right).
-        _entry_button(body, e, filepath, _ROLE_ICON if e.get("role") else "LAYER_USED")
+        _entry_button(body, e, filepath, "mark:dot_role" if role else "LAYER_USED")
 
     layout_text = body.column(align=True)
     layout_text.alignment = "LEFT"
@@ -1376,19 +1372,8 @@ def _draw_monitor_row(
             text, row_icon, best = _department_cell(file, c)
             # Icon then text, each its own button in a left-aligned row:
             # one button's text is centred in its cell (both keep the tooltip).
-            # Labels as the snapshot page's. An open RTK: its red mark first,
-            # clickable, its retakes in a popup.
+            # Labels as the snapshot page's.
             status.alignment = "LEFT"
-            if c in rtk:
-                icon_button(
-                    status,
-                    "m_pipeline.department_rtks",
-                    "mark:rtk",
-                    f"Retakes on {c}: click to read them\n\n{tooltip}",
-                    folder=str(dir),
-                    department=c,
-                )
-                status.scale_x = 0.4
             # Grey, the star in full once validated by the top role
             # ("Done · prod"): what's through stands out.
             star = text.startswith("Done · ") and best in top_roles
@@ -1400,6 +1385,9 @@ def _draw_monitor_row(
             # the tooltip.
             if icon_only:
                 tooltip = f"{text}\n\n{tooltip}"
+            # An open RTK: the mark with its red post-it under it (one icon,
+            # tools/make_icons.py), a click shows the retakes.
+            open_rtk = c in rtk and row_icon.startswith("mark:")
             for t, i in (
                 (("", row_icon),) if icon_only else (("", row_icon), (text, "NONE"))
             ):
@@ -1408,6 +1396,16 @@ def _draw_monitor_row(
                 # The mark in its colours (the button does nothing), the
                 # words greyed.
                 button.enabled = t == ""
+                if open_rtk and t == "":
+                    icon_button(
+                        button,
+                        "m_pipeline.department_rtks",
+                        f"{i}_rtk",
+                        f"Retakes on {c}: click to read them\n\n{tooltip}",
+                        folder=str(dir),
+                        department=c,
+                    )
+                    continue
                 icon_button(
                     button, "m_pipeline.department_status_info", i, tooltip, text=t
                 )
@@ -1485,6 +1483,7 @@ _STATES_LEGEND = (
     ("mark:done", "Done"),
     ("mark:valid", "Validated"),
     ("mark:done_top", "Validated, top role"),
+    ("mark:done_rtk", "Open retake (click)"),
 )
 _STAGES_LEGEND = (("mark:waiting", "Waiting"), ("mark:to_redo", "To redo"))
 _FARM_LEGEND = (

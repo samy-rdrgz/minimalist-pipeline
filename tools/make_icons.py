@@ -132,12 +132,27 @@ MARKS = {
     "job_running": [(CYAN, diamond())],
     "job_failed": [(RTK, diamond()), (WHITE, segment(C - 6, C - 6, C + 6, C + 6, 4.5)), (WHITE, segment(C - 6, C + 6, C + 6, C - 6, 4.5))],
     "job_check": [(DONE, outline()), (DONE, lambda x, y: math.hypot(x - C, y - C) <= 6.5)],
-    # Entries, as the page's post-its: a retake from a validation role
-    # (red), from the team (outlined); a note under a role (violet).
+    # A retake on no department, as the page's post-it.
     "rtk": [(RTK, rect(8, 18, 56, 46, 6))],
-    "team": [(RTK, rect(8, 18, 56, 46, 6)), ((0xF4, 0xC5, 0xCA), rect(12, 22, 52, 42, 3))],
-    "role": [(VAL, rect(8, 18, 56, 46, 6))],
 }
+
+
+# An open retake on a department: its state's mark smaller, raised, the
+# retake's red post-it under it -- one icon, as the page's diamond and its
+# post-it (Project monitoring's cells: a mark beside it cut the words).
+def _moved(shape, scale=0.7, dy=-9):
+    return lambda x, y: shape(C + (x - C) / scale, C + (y - C - dy) / scale)
+
+
+_POSTIT = rect(13, 47, 51, 61, 3.5)
+for _state in ("todo", "wip", "rework", "done", "valid", "done_top", "waiting", "to_redo"):
+    MARKS[f"{_state}_rtk"] = [(col, _moved(shape)) for col, shape in MARKS[_state]] + [(RTK, _POSTIT)]
+
+# A note's tick box, done mark and dot when written under a validation
+# role: violet, as the page's review colour (the team's: Blender's own).
+MARKS["box_role"] = [(VAL, lambda x, y: rect(14, 14, 50, 50, 7)(x, y) and not rect(19, 19, 45, 45, 3.5)(x, y))]
+MARKS["check_role"] = [(VAL, lambda x, y: (lambda a, b: a(x, y) or b(x, y))(segment(18, 33, 28, 43, 6), segment(28, 43, 47, 22, 6)))]
+MARKS["dot_role"] = [(VAL, lambda x, y: math.hypot(x - C, y - C) <= 9)]
 
 
 def render(layers) -> bytes:

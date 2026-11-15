@@ -6,6 +6,12 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- Project monitoring: an open retake is a red post-it under its
+  department's mark, one icon, a click lists its retakes (a mark beside
+  it cut the words); a note written under a validation role has its tick
+  box, done mark or dot violet instead of a mark beside it. Farm
+  monitoring and the Pipeline log without a box round their lists, as
+  Project monitoring.
 - Renders by department: a render's department comes from its preset's
   name (`animation_hd` → animation; shown beside each preset in the
   Render dialog and Edit project). Each shot has a render to check per

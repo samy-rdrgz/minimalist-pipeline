@@ -203,7 +203,8 @@ class M_PIPELINE_PT_farm_monitoring(_MonitoringPanel, bpy.types.Panel):
             job_btn.prop(state, "state", expand=True)
             job_btn.prop(state, "only_mine", text="Mine", icon="USER")
 
-        box = layout.box()
+        # No box round the list, as Project monitoring's.
+        box = layout.column()
         if state.view == "jobs":
             draw_farm_jobs(state, context, box)
         else:

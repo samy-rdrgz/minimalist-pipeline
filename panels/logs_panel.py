@@ -149,7 +149,8 @@ def draw_pipeline_logs(state, context, layout) -> None:
     per_page = rows_that_fit(context, _LOG_RESERVED_UNITS, _LINE_UNITS, kind="log")
     page_items, page, pages = paginate("log", matches, per_page, key[1:])
 
-    box = layout.box()
+    # No box round the lines, as Project monitoring's.
+    box = layout.column()
     title = _line(box)
     for cell, text in zip(title, ("Time", "User", "Action", "Message")):
         cell.active = False

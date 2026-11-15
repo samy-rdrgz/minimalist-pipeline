@@ -4675,8 +4675,13 @@ started and Done reworked shared one icon.
   page's keyframe diamonds and post-its in its dark-theme colours (signed
   distances to a rounded square turned 45 degrees): a state's (todo, wip,
   rework, done; valid by a role, done_top by the top one; none, a
-  department not required), the stages' (waiting a clock, to_redo an eye), an entry's
-  (rtk, team, role), the farm's jobs (job_*, cyan: pending, queued, waiting, running; failed red; check green). Run it again after changing one; the PNGs are
+  department not required), the stages' (waiting a clock, to_redo an eye),
+  each with an open retake (`<state>_rtk`: the mark smaller and raised,
+  the red post-it under it -- a separate RTK mark beside it, squeezed
+  with scale_x, cut the cell's words and showed through the hollow
+  ones), a retake on no department (rtk), a note under a validation role
+  (box_role, check_role, dot_role: its tick box, done mark and dot
+  violet -- in place of a role / team mark beside Blender's box), the farm's jobs (job_*, cyan: pending, queued, waiting, running; failed red; check green). Run it again after changing one; the PNGs are
   committed.
 - `lib/icons.py` loads them once in a preview collection (register /
   unregister); a mark is named `"mark:<name>"` wherever an icon name goes,

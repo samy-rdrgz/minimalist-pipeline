@@ -1905,7 +1905,7 @@ class M_PIPELINE_OT_department_rtks(bpy.types.Operator):
             general = "" if entry_departments(e) else " · on no department"
             head.label(
                 text=" · ".join(x for x in (who, when, version) if x) + general,
-                **icon_kw("mark:role" if e.get("role") else "mark:team"),
+                **icon_kw("mark:box_role" if e.get("role") else "CHECKBOX_DEHLT"),
             )
             body = box.column(align=True)
             body.scale_y = 0.8
