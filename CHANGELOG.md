@@ -23,6 +23,15 @@ All notable changes to this addon. Dates are release dates.
   Status, Count, RTK & notes --; a cell opens the list filtered on it;
   the schedule on the tabs' line; *How it's counted* folded. It replaces
   the three cards per section and the shaded grid.
+- Live page, *Share with a phone…* (an icon beside *Open in browser*, the
+  Pipeline menu, the page's ⋯ menu): someone on the studio's network gets
+  the page under their name and role, for an hour, until tonight, a day
+  or a week -- a QR code to scan, or *Copy link*; the accesses listed,
+  each revoked in a click. They review; the farm read only; nothing opened
+  on this machine. The page is served on the network only while one runs.
+- Live page: a render's full video in this machine's player (its light
+  copy is what the page may play).
+- Snapshot page: the player takes the video's own shape.
 - *Open in browser* (Project panel, Pipeline menu): the project's page
   served by Blender to this machine's browser, kept up to date -- the
   snapshot's page, live; a pill says connected, Blender busy or

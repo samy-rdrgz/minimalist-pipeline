@@ -113,6 +113,7 @@ class M_PIPELINE_MT_topbar_menu(bpy.types.Menu):
             None,
             ("m_pipeline.tracking_monitor", "Tracking monitor", "WORKSPACE", {}),
             ("m_pipeline.open_live_page", "Open in browser", "URL", {}),
+            ("m_pipeline.open_live_page", "Share with a phone…", "COMMUNITY", {"tab": "share"}),
             ("m_pipeline.export_snapshot", "Snapshot", "BLANK1", {}),
             ("m_pipeline.import_review", "Import review", "BLANK1", {}),
             *(
