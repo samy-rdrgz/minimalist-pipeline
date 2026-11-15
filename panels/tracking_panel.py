@@ -879,10 +879,15 @@ def draw_file_details(state, context, layout):
         txt.label(text="Departments required:", icon="TAG")
         role = get_user_role(context)
         for d in required:
-            btn = deps_row.row(align=True)
+            # Cells of fixed widths, the line LEFT (not the cells: they'd
+            # shrink to their words): name, validation, Still done, then
+            # who it's assigned to -- lined up whatever a name's length.
+            line = deps_row.row(align=True)
+            line.alignment = "LEFT"
+            btn = line.row(align=True)
+            btn.ui_units_x = 8
             btn.label(text="", icon="BLANK1")
             btn.active = d in validated
-            btn.alignment = "LEFT"
             tooltip = department_status_tooltip(data, d)
             op = btn.operator(
                 "m_pipeline.toggle_validated_department",
@@ -893,17 +898,25 @@ def draw_file_details(state, context, layout):
             op.department = d
             op.filepath = filepath
             op.custom_tooltip = tooltip
+            approval = line.row(align=True)
+            approval.ui_units_x = 6
             if d in validated:
-                _draw_approval(btn, data, d, filepath, role, tooltip)
+                _draw_approval(approval, data, d, filepath, role, tooltip)
+            else:
+                approval.label(text="")
+            still = line.row(align=True)
+            still.ui_units_x = 5
+            if not ((data.get("flags") or {}).get(d) or {}).get("to_redo"):
+                still.label(text="")
             # Who it's assigned to (Edit project's Team): their names, a
             # click picks them.
             people = (data.get("assignees") or {}).get(d) or []
-            assign = btn.row(align=True)
+            assign = line.row(align=True)
             assign.active = bool(people)
             icon_button(
                 assign,
                 "m_pipeline.assign_department",
-                "COMMUNITY",
+                "USER" if people else "COMMUNITY",
                 f"Assigned to {', '.join(people)}: click to change" if people else "Assign it to someone of the team",
                 text=", ".join(people),
                 filepath=filepath,
@@ -911,7 +924,7 @@ def draw_file_details(state, context, layout):
             )
             if ((data.get("flags") or {}).get(d) or {}).get("to_redo"):
                 icon_button(
-                    btn,
+                    still,
                     "m_pipeline.department_still_done",
                     "mark:to_redo",
                     "To redo: "
@@ -1153,8 +1166,9 @@ def draw_monitor_table(self, context, layout, columns, project_root):
     )
 
     draw_box_tip(layout, context, _TABLE_TIP)
-    # A column, as Farm monitoring's list: the same rows, one height.
-    f_list = layout.column()
+    # The panel's own layout, as Farm monitoring's list: in a column, the
+    # rows came closer together than the count expects.
+    f_list = layout
     title_list = f_list.split(factor=FIRST_COLUMN) if FIRST_COLUMN < 1 else f_list.row()
     title_list.active = False
     title_list.label(text="File", icon="RADIOBUT_ON")

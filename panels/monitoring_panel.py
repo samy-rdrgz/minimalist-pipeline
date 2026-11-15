@@ -122,7 +122,10 @@ class M_PIPELINE_PT_monitoring(_MonitoringPanel, bpy.types.Panel):
             icon="VIEW_CAMERA" if state.only_farm else "VIEW_CAMERA_UNSELECTED",
             emboss=False,
         )
-        filters_btn.prop(state, "only_mine", text="", icon="USER", emboss=False)
+        # Everyone's, or mine only: the icon says which.
+        filters_btn.prop(
+            state, "only_mine", text="", icon="USER" if state.only_mine else "COMMUNITY", emboss=False
+        )
         filters_btn.prop(
             state,
             "only_rtk",
@@ -172,14 +175,17 @@ class M_PIPELINE_PT_farm_monitoring(_MonitoringPanel, bpy.types.Panel):
             filters_btn = next_row()
             filters_btn.prop(state, "search", text="", icon="VIEWZOOM")
             filters_btn = next_row()
-            filters_btn.prop(state, "only_mine", text="", icon="USER", emboss=False)
+            filters_btn.prop(
+                state, "only_mine", text="", icon="USER" if state.only_mine else "COMMUNITY", emboss=False
+            )
         # get_path(): a plain join, memoized -- no disk access in draw().
         op = filters_btn.operator("wm.open_folder", text="", icon="FILE_FOLDER", emboss=False)
         op.filepath = str(ConfigCache.get_path("farm"))
         op.custom_tooltip = "Open the farm's folder (config/.farm: queue, workers, logs)"
         end_filters(filters_btn, layout)
-        # No box round the list, as Project monitoring's.
-        box = layout.column()
+        # No box round the list, in the panel's own layout: Project
+        # monitoring's rows, their spacing and count.
+        box = layout
         if state.view == "jobs":
             draw_farm_jobs(state, context, box)
         else:
