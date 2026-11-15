@@ -15,7 +15,7 @@ Soumission (panel "Render", ou bouton par fichier) : priorité (la plus haute pa
 
 <img src="images/farm-render-dialog.png" alt="Le dialogue Render" width="360">
 
-**Presets pré-rendu** : tout fichier `.py` ou `.json` déposé dans `config/presets/` (sauf `asset_file_preset.py`) apparaît dans la liste des presets à la soumission, et chaque worker l'applique juste avant de rendre -- par-dessus les réglages du fichier, sans jamais les sauvegarder dedans. Un `.py` définit `override(scene, job_data)` (`job_data` est le JSON du job, à lire seulement) ; un `.json` est une simple liste de chemins à points depuis la scène :
+**Presets pré-rendu** : tout fichier `.py` ou `.json` déposé dans `config/presets/` (sauf `asset_file_preset.py`) apparaît dans la liste des presets à la soumission, avec **le département de ses rendus**, tiré de son nom : le plus long nom de département par lequel il commence, suivi de `_`, `-` ou de rien, sans tenir compte des majuscules (`animation_hd` → animation, `look_dev_hd` → look_dev, `hd` → aucun). Rien à remplir : nommer les presets d'après leur département. Un rendu avec un département a son propre *to check*, à côté de ceux des autres départements ; chaque worker l'applique juste avant de rendre -- par-dessus les réglages du fichier, sans jamais les sauvegarder dedans. Un `.py` définit `override(scene, job_data)` (`job_data` est le JSON du job, à lire seulement) ; un `.json` est une simple liste de chemins à points depuis la scène :
 
 ```python
 def override(scene, job_data):

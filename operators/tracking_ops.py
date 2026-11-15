@@ -82,6 +82,7 @@ from ..lib import (
     to_absolute,
     toggle_entry_task,
     tracked_department_flag_items,
+    to_check_entries,
     tracking_json_path,
     videos_in,
     wipmeta_add_work,
@@ -1975,6 +1976,17 @@ class M_PIPELINE_OT_render_checked(bpy.types.Operator):
         except PipelineError:
             required = []
         current = get_current_departments(folder)
+        # Ticked first: the departments of the renders checked (their
+        # preset's), else "render".
+        try:
+            entries = to_check_entries(read_json_quiet(tracking_json_path(folder)) or {})
+        except PipelineError:
+            entries = []
+        rendered = {
+            info["department"]
+            for key, info in entries
+            if info["department"] and (self.all_shots or key == self.shot)
+        } or {"render"}
         # Validating needs a stable version (set_department_validated()).
         if not required or "file" not in get_last_stable(folder):
             return self.execute(context)
@@ -1982,7 +1994,7 @@ class M_PIPELINE_OT_render_checked(bpy.types.Operator):
             item = checklist.add()
             item.department = department
             item.was_validated = bool(current.get(department))
-            item.validate = item.was_validated or department == "render"
+            item.validate = item.was_validated or department in rendered
         return context.window_manager.invoke_props_dialog(
             self, width=300, title="Render checked", confirm_text="Mark checked"
         )

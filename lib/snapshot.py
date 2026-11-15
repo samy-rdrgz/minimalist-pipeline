@@ -41,6 +41,7 @@ from .tracking import (
     entry_departments,
     owner_key,
     render_to_check_label,
+    to_check_entries,
 )
 
 # Bumped whenever the review's columns change: the import reads this one
@@ -509,13 +510,11 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
             )
         item["renders"] = renders
         # Rendered, not checked by the team yet / still in the farm.
-        to_check = status.get("to_check")
-        if not isinstance(to_check, dict):
-            to_check = {}
+        # Labelled as the render lines are ("sh040 v002"), its department
+        # aside: matched against them (snapshot_page.py _render_lines()).
         item["to_check"] = [
-            render_to_check_label(shot, info)
-            for shot, info in sorted(to_check.items())
-            if isinstance(info, dict)
+            render_to_check_label(info["shot"], {**info, "department": ""})
+            for _, info in to_check_entries(status if isinstance(status.get("to_check"), dict) else {})
         ]
         item["farm"] = (farm or {}).get(owner_key(owner), [])
         # What the prod must see: a render made from an older .blend than

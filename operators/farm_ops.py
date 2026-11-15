@@ -31,6 +31,7 @@ from ..farm import (
     stop_worker,
     worker_rendering,
 )
+from ..lib.status import preset_department
 from ..lib import (
     EARLIEST,
     ConfigCache,
@@ -109,11 +110,14 @@ def _get_workers_items(self, context):
         )
 
 
-def pre_render_script_items(presets_dir: Path | None) -> list[tuple[str, str, str]]:
+def pre_render_script_items(
+    presets_dir: Path | None, departments=()
+) -> list[tuple[str, str, str]]:
     """The pre-render picker's items: "no script", then every .py/.json
     preset directly under presets_dir (matches apply_custom_preset()'s
     lookup), excluding asset_file_preset.py and the ffmpeg_presets/
-    subfolder."""
+    subfolder -- each with the department its name gives among
+    departments (preset_department()): its renders are that department's."""
     items = [(_NO_SCRIPT, "No pre-render script", "Render with the file's own settings")]
     if presets_dir is None:
         return items
@@ -131,7 +135,13 @@ def pre_render_script_items(presets_dir: Path | None) -> list[tuple[str, str, st
             ):
                 names.add(Path(f.name).stem)
         for name in sorted(names):
-            items.append((name, name, f"Apply preset '{name}' before render."))
+            dep = preset_department(name, departments)
+            items.append((
+                name,
+                f"{name}  ·  {dep}" if dep else name,
+                f"Apply preset '{name}' before render."
+                + (f" Its renders are {dep}'s." if dep else " Its renders have no department."),
+            ))
     except Exception as e:
         log("WARNING", "farm", f"Could not list pre-render presets: {e}")
     return items
@@ -144,7 +154,9 @@ def _get_pre_render_scripts(self, context):
     except Exception as e:
         log("WARNING", "farm", f"Could not list pre-render presets: {e}")
         presets_dir = None
-    return _stable_enum_items(_pre_render_scripts, pre_render_script_items(presets_dir))
+    config = ConfigCache.get() or {}
+    departments = [*json_get(config, "shots_departments", []), *json_get(config, "assets_departments", [])]
+    return _stable_enum_items(_pre_render_scripts, pre_render_script_items(presets_dir, departments))
 
 
 def default_pre_render_script(config: dict, items: list) -> str:

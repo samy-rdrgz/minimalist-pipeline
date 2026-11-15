@@ -54,7 +54,14 @@ def _edited_project_scripts(self, context):
     the active one."""
     root = self.project_path_selected
     presets = Path(root) / "config" / "presets" if root else None
-    return _stable_enum_items(_edited_pre_render_scripts, pre_render_script_items(presets))
+    # The departments as typed in the fields, not yet saved.
+    departments = [
+        *parse_departments(self.shots_departments)[0],
+        *parse_departments(self.assets_departments)[0],
+    ]
+    return _stable_enum_items(
+        _edited_pre_render_scripts, pre_render_script_items(presets, departments)
+    )
 
 # ---------------------------------------------------------------------------
 # Default config template

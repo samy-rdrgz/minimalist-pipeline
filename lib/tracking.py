@@ -2140,11 +2140,13 @@ def mark_render_to_check(
     job_id: str,
     project_root: Path | None = None,
     video: str | None = None,
+    department: str = "",
 ) -> bool:
     """Flag a finished render as waiting for its artist's check, in the
-    owning folder's tracking.json: "to_check" {shot or "": {"render",
-    "video", "at", "job_id"}} -- a block keeps one per shot, a newer render
-    of the same shot replaces the older. Cleared by hand
+    owning folder's tracking.json: "to_check" {to_check_key(): {"render",
+    "video", "at", "job_id", "shot", "department"}} -- one per shot and
+    department, a newer render of the same replacing the older (a render
+    with no department: one per shot, as before 1.2). Cleared by hand
     (clear_render_to_check()). Never raises. False: not written, worth
     retrying; a folder without tracking.json is True (nothing to flag)."""
     try:
@@ -2155,11 +2157,13 @@ def mark_render_to_check(
     try:
         with locked_json(path) as box:
             data = box["data"] or {}
-            data.setdefault("to_check", {})[shot or ""] = {
+            data.setdefault("to_check", {})[to_check_key(shot, department)] = {
                 "render": render_dir,
                 "video": video,
                 "at": now(),
                 "job_id": job_id,
+                "shot": shot or "",
+                "department": department or "",
             }
             box["data"] = data
             box["action"] = "to_write"
@@ -2169,10 +2173,28 @@ def mark_render_to_check(
     return True
 
 
+def to_check_key(shot: str, department: str = "") -> str:
+    """A "to_check" entry's key: the shot ("" an asset or a mono shot),
+    "sh040#animation" with a department."""
+    return f"{shot or ''}#{department}" if department else shot or ""
+
+
+def to_check_entries(data: dict) -> list[tuple[str, dict]]:
+    """tracking.json's renders to check, (key, info) by key -- info's
+    "shot" and "department" filled from the key for an entry written
+    before 1.2 (its key the shot)."""
+    out = []
+    for key, info in sorted(((data or {}).get("to_check") or {}).items()):
+        if isinstance(info, dict):
+            shot, _, dep = str(key).partition("#")
+            out.append((key, {"shot": shot, "department": dep, **info}))
+    return out
+
+
 def clear_render_to_check(filepath: Path | str, shot: str | None = None) -> list[dict]:
-    """Mark a render checked: drop shot's "to_check" entry ("" for an asset
-    or a mono shot), or every one of the folder's if shot is None. Returns
-    the dropped entries ({"render", "video", "at", "job_id"})."""
+    """Mark a render checked: drop the "to_check" entry keyed shot
+    (to_check_key()), or every one of the folder's if shot is None.
+    Returns the dropped entries ({"render", "video", "at", "job_id", ...})."""
     path = tracking_json_path(filepath, must_exist=True)
     with locked_json(path) as box:
         data = box["data"] or {}
@@ -2192,10 +2214,11 @@ def clear_render_to_check(filepath: Path | str, shot: str | None = None) -> list
 
 
 def render_to_check_label(shot: str, info: dict) -> str:
-    """ "sh040 v002-stable_001" -- the render's output folder, prefixed by
-    the shot for a block's."""
+    """ "sh040 animation v002-stable_001" -- the render's output folder,
+    prefixed by the shot for a block's and by its department. shot: the
+    entry's key or its shot (the key's department part dropped)."""
     name = re.split(r"[\\/]", (info.get("render") or "").rstrip("\\/"))[-1] or "?"
-    return f"{shot} {name}" if shot else name
+    return " ".join(x for x in (str(shot).partition("#")[0], info.get("department") or "", name) if x)
 
 
 def find_file_by_name(filename: str) -> Path | None:

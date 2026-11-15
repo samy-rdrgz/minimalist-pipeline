@@ -15,7 +15,7 @@ Submission (the "Render" panel, or a per-file button): priority (higher goes fir
 
 <img src="images/farm-render-dialog.png" alt="The Render dialog" width="360">
 
-**Pre-render presets**: any `.py` or `.json` file dropped in `config/presets/` (except `asset_file_preset.py`) shows up in the submission's preset list, and is applied by each worker right before rendering -- on top of the file's own settings, never saved back into it. A `.py` defines `override(scene, job_data)` (`job_data` is the job's JSON, read-only use); a `.json` is a flat map of dot-notation paths from the scene:
+**Pre-render presets**: any `.py` or `.json` file dropped in `config/presets/` (except `asset_file_preset.py`) shows up in the submission's preset list, with **the department its renders are for**, taken from its name: the longest department name it starts with, followed by `_`, `-` or nothing, any case (`animation_hd` → animation, `look_dev_hd` → look_dev, `hd` → none). Nothing to fill in: name the presets after their department. A render with a department has its own *to check*, next to the other departments'; and is applied by each worker right before rendering -- on top of the file's own settings, never saved back into it. A `.py` defines `override(scene, job_data)` (`job_data` is the job's JSON, read-only use); a `.json` is a flat map of dot-notation paths from the scene:
 
 ```python
 def override(scene, job_data):

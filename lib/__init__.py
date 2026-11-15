@@ -297,6 +297,8 @@ from .tracking import (
     mark_render_to_check,
     owner_key,
     render_to_check_label,
+    to_check_entries,
+    to_check_key,
     set_department_approval,
     set_department_validated,
     set_description,

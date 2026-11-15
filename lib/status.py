@@ -102,6 +102,19 @@ def parse_departments(text: str) -> tuple[list[str], dict[str, int]]:
     return departments, stages if len(set(stages.values())) > 1 else {}
 
 
+def preset_department(preset: str, departments) -> str:
+    """The department a render preset's name gives: the longest of the
+    departments its name starts with, then "_", "-" or nothing, any case
+    ("look_dev_hd": look_dev). "" for none. See NOTES.md, "Renders by
+    department"."""
+    name, best = str(preset or "").lower(), ""
+    for d in departments or ():
+        d = str(d).strip().lower()
+        if d and len(d) > len(best) and name.startswith(d) and name[len(d):len(d) + 1] in ("", "_", "-"):
+            best = d
+    return best
+
+
 def departments_text(departments: list, stages: dict) -> str:
     """parse_departments()'s field back: by stage, each stage's in the
     list's order; commas only without stages. One the stages leave out

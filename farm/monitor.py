@@ -25,6 +25,8 @@ from ..lib import (
     read_json_quiet,
     to_relative,
 )
+from ..lib.config import parse_filename
+from ..lib.status import preset_department
 from .chunks import remove_claims
 from .dispatch import LOG_KEEP_BYTES, compact_log, discard_job_progress
 from .loop import (
@@ -405,6 +407,15 @@ def _file_key(filepath: str, prerender_script: str, shot_override: str = "") -> 
     return hashlib.sha1(key.encode("utf-8")).hexdigest()[:10]
 
 
+def render_department(filepath: str, preset: str) -> str:
+    """The department a render of filepath with preset is for: its name's
+    (preset_department()), among the project's departments of the file's
+    kind. "" for none."""
+    shot = (parse_filename(Path(filepath).name) or {}).get("shot")
+    key = "shots_departments" if shot else "assets_departments"
+    return preset_department(preset, json_get(ConfigCache.get(), key, []) or [])
+
+
 def job_request(
     filepath: Path,
     *,
@@ -432,6 +443,8 @@ def job_request(
             "assigned_machines": assigned_machines,
             "increment": increment,
             "prerender_script": prerender_script,
+            # The department its preset's name gives (render_department()).
+            "department": render_department(str(filepath), prerender_script),
             "overrided_frame_range": overrided_frame_range,
             "shot_override": shot_override,
             "only_shots": only_shots or [],

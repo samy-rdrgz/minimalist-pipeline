@@ -4868,3 +4868,28 @@ done department), `average()` --, put before page.js at the export.
   minus those marked fixed, plus its retakes and replies, a general one;
   validations only when made as the top role -- the figure counts that
   role's. `reviewedOf()` adds the planned new files (nothing started).
+
+## Renders by department
+
+Phase 5 of docs/plan-1.2.md.
+
+- **A render's department comes from its preset's name**
+  (`lib/status.py` `preset_department()`): the longest department name
+  the preset's starts with, then `_`, `-` or nothing, any case. The
+  longest: a department may hold `_` (only the comma splits Edit
+  project's field) -- `look_dev_hd` is look_dev, not look. Nothing to
+  fill in: a field per preset would be one more thing to keep in step.
+  Worked out once, at the request (`farm/monitor.py`
+  `render_department()`, among the departments of the file's kind), and
+  carried by the job, then its `render_history.json` entry and its to
+  check: renaming a preset later changes nothing already rendered.
+- **To check, one per shot and department**: keyed `"sh040#animation"`
+  (`to_check_key()`), its shot and department in the entry too. An entry
+  written before 1.2 is keyed by its shot alone and read as having no
+  department (`to_check_entries()` fills both from the key): no
+  migration. A newer render of the same shot and department replaces the
+  older; another department's stays.
+- The snapshot matches its to check against the render lines by "shot
+  folder" (`snapshot_page.py _render_lines()`): it labels them without
+  their department.
+

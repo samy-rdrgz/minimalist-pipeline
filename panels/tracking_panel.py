@@ -51,6 +51,7 @@ from ..lib import (
     region_char_budget,
     render_root,
     render_to_check_label,
+    to_check_entries,
     rows_that_fit,
     safe_icon,
     shots_in_segment,
@@ -1308,9 +1309,9 @@ def _cells(layout, widths: list) -> list:
 
 
 def _to_check_lines(file: dict) -> list[tuple[str, dict]]:
-    """(shot, info) of every render waiting for a check, by shot."""
-    to_check = file.get("to_check")
-    return sorted(to_check.items()) if isinstance(to_check, dict) else []
+    """(key, info) of every render waiting for a check, by shot and
+    department (to_check_entries())."""
+    return to_check_entries(file) if isinstance(file.get("to_check"), dict) else []
 
 
 def _to_check_at(info: dict) -> str:

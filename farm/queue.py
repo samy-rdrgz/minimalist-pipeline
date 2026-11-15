@@ -662,6 +662,7 @@ def _flag_to_check(job: Path, data: dict, project_root: Path) -> bool:
         data["job_id"],
         project_root,
         video=data.get("compiled_output_path"),
+        department=data.get("department", ""),
     ):
         return True
     with locked_json(job) as box:
@@ -845,6 +846,8 @@ def construct_history(job: dict, status):
         "source_file": job.get("filepath"),
         "output_path": job.get("output_path"),
         "shot_override": job.get("shot_override", ""),
+        # Its preset's department ("" none): a to check and a last render each.
+        "department": job.get("department", ""),
         # used_machines is emptied at the end of every local stage, long
         # before this: rendered_by is its copy from render_finished.
         "machines_used": job.get("rendered_by") or job.get("used_machines", []),

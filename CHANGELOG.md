@@ -6,6 +6,11 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- Renders by department: a render's department comes from its preset's
+  name (`animation_hd` → animation; shown beside each preset in the
+  Render dialog and Edit project). Each shot has a render to check per
+  department -- a newer animation render no longer replaces the lighting
+  one --, and *Checked* ticks the render's department first.
 - Snapshot page, v3 (step 1 of its redesign): dark by default, Blender's
   mood, one colour for one meaning; a one-line header staying in view
   (Done and Validated per section, *Go to a file…* with /, *Review*);
