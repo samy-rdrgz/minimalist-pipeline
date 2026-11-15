@@ -42,8 +42,9 @@ LEVEL_ICONS = {
 # Message length drawn in the list; the whole of it is in the tooltip.
 _SHORT = 160
 
-# Column widths of a log line: time, user, action, then the message.
-_TIME, _USER, _ACTION = 0.16, 0.09, 0.13
+# Column widths of a log line (widget units): time, user, action, then
+# the message.
+_CELLS = (9, 5, 8)
 
 # What the window holds besides its lines (filters, column titles, footer,
 # margins), and one line's height, in widget units -- see rows_that_fit().
@@ -226,12 +227,15 @@ def _full_line(entry: dict) -> str:
 
 
 def _line(layout) -> tuple:
-    """(time, user, action, message) cells of one log line."""
-    time = layout.split(factor=_TIME)
-    cells = [time.row()]
-    rest = time.split(factor=_USER / (1 - _TIME))
-    cells.append(rest.row())
-    rest = rest.split(factor=_ACTION / (1 - _TIME - _USER))
-    cells.append(rest.row())
-    cells.append(rest.row())
+    """(time, user, action, message) cells of one log line: the first three
+    a fixed width (_CELLS, widget units), the message the rest -- splits
+    left the message's start moving with the action's length."""
+    line = layout.row(align=False)
+    cells = []
+    for units in _CELLS:
+        cell = line.row()
+        cell.alignment = "LEFT"
+        cell.ui_units_x = units
+        cells.append(cell)
+    cells.append(line.row())
     return tuple(cells)

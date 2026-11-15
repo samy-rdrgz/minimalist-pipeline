@@ -637,7 +637,7 @@ boxes share one column of labels (All, sh040...), one edge, one width. */
 .note.reply{margin-left:18px}
 .more-notes{border:0;background:none;color:var(--accent);font-size:13px;font-weight:600;padding:0;min-height:var(--tap)}
 .more-notes.quiet{color:var(--ink-3);font-weight:500}
-.renders{display:grid;grid-template-columns:max-content 1fr auto;align-items:center;gap:6px 14px;padding:10px 12px;border-radius:6px;background:var(--sunk);font-size:13px}
+.renders{display:grid;grid-template-columns:max-content max-content max-content 1fr auto;align-items:center;gap:6px 14px;padding:10px 12px;border-radius:6px;background:var(--sunk);font-size:13px}
 .renders .sh{color:var(--ink-2);font-weight:600}
 .renders .bh{color:var(--wip-ink)}
 .renders .bh small,.renders .ss{color:var(--ink-3);font-size:12px;margin-left:6px}
@@ -662,9 +662,9 @@ label: value lines under the only rule of the panel. */
 .vpick input{display:none}
 .lb .vpick{color:inherit}
 @media (max-width:640px){.facts{grid-template-columns:minmax(0,1fr);gap:2px}.facts dt{margin-top:8px}.facts dt:first-child{margin-top:0}}
-.facts .renders{display:grid;grid-template-columns:max-content 1fr auto;align-items:baseline;gap:2px 10px;padding:0;background:none;font-size:12px}
+.facts .renders{display:grid;grid-template-columns:max-content max-content max-content 1fr auto;align-items:baseline;gap:2px 10px;padding:0;background:none;font-size:12px}
 .facts .renders .sh{font-weight:600}
-.renders.one{grid-template-columns:1fr auto}
+.renders.one,.facts .renders.one{grid-template-columns:max-content max-content 1fr auto}
 .facts .fileline{font:11px/1.5 var(--mono);padding:0;background:none;overflow-wrap:anywhere}
 /* Last render and Blender file: one block, no rule between them. */
 .view-only .p-block+.p-block{border-top:0;padding-top:0}
@@ -1004,5 +1004,8 @@ html,.p-body,.wl-side,.recap,.menu-pop,.pick-pop,.strip{scrollbar-color:var(--li
 .g-pct{display:inline-flex;align-items:center;gap:10px}
 .p-kpi .wr{margin-left:8px}
 /* A render's other departments' last ones, under it (renders by department). */
-.renders .oth{display:block;font-size:12px;color:var(--ink-3)}
-.renders .oth.newer{color:var(--wip-ink)}
+.renders .rd{color:var(--ink-3);font-size:12px}
+.renders .rd.main{color:var(--ink);font-weight:600}
+.renders .oth{color:var(--ink-2)}
+.renders .ss.newer{margin:0;color:var(--wip-ink)}
+.renders .rs .ss{margin-left:0}

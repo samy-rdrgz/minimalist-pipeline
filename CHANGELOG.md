@@ -15,8 +15,11 @@ All notable changes to this addon. Dates are release dates.
 - Farm monitoring and the Pipeline log have a *Legend* menu (the jobs'
   marks, the log's levels). The violet tick boxes are Blender's own,
   tinted, at their size; the reworked mark's arrowhead follows its
-  stroke; the farm's job marks in the page's ink, not cyan. File details'
-  render lines start with their buttons.
+  stroke; the farm's job marks in the page's ink, not cyan, in the
+  states' shapes (submitted empty, queued a dot, waiting a clock, in
+  progress half, to check green). File details' render lines start with
+  their buttons; the log's columns line up; the snapshot's *Last render*
+  in columns (department, version, state).
 - Renders by department: a render's department comes from its preset's
   name (`animation_hd` → animation; shown beside each preset in the
   Render dialog and Edit project). Each shot has a render to check per

@@ -623,7 +623,7 @@ def _draw_renders_to_check(layout, filepath: str, data: dict) -> None:
     to_check = _to_check_lines(data)
     if not to_check:
         return
-    col = layout.box().column(align=True)
+    col = layout.box().column(align=False)  # its Checked buttons apart
     title = col.row()
     title.alert = True
     title.label(text="Renders to check:", icon="HIDE_OFF")

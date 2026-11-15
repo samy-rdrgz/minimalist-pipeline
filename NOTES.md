@@ -4686,7 +4686,7 @@ started and Done reworked shared one icon.
   by `tools/tint_icons.py` -- drawn ones never had their size: Firefox
   headless draws the SVGs white on black, their light is the coverage.
   rework's arrowhead sits at the stroke's end, along the edge, into the
-  gap (`_edge_point()`); the farm's jobs (job_*, the page's ink -- a cyan first, which the page never used: pending, queued, waiting, running; failed red; check green). The tinted icons are centred in Blender's 16 px cell (1600 SVG units, `CELL`): its SVGs are cropped to their drawing, and a mark's PNG fills the cell -- stretched to it, the box came out a third too big. dot_role is LAYER_USED, a ring. Run it again after changing one; the PNGs are
+  gap (`_edge_point()`); the farm's jobs (job_*, the page's ink -- a cyan first, which the page never used: submitted empty, queued a dot, waiting between two steps the department's clock, in progress half as wip; failed red; to check filled green as done). Sizes checked against Blender's own drawn the same way: the diamonds about its tick box, a retake alone at the box's width. The tinted icons are centred in Blender's 16 px cell (1600 SVG units, `CELL`): its SVGs are cropped to their drawing, and a mark's PNG fills the cell -- stretched to it, the box came out a third too big. dot_role is LAYER_USED, a ring. Run it again after changing one; the PNGs are
   committed.
 - `lib/icons.py` loads them once in a preview collection (register /
   unregister); a mark is named `"mark:<name>"` wherever an icon name goes,
@@ -4704,6 +4704,11 @@ started and Done reworked shared one icon.
 - A render's line in File details: its buttons first, blanks for the
   missing ones (`_render_row()` slots), then its words -- after them,
   they moved with a department's name.
+- The log's columns a fixed width each (`_CELLS`, ui_units_x): nested
+  splits let the message start move with the action's length.
+- The page's *Last render*: a grid -- [shot] department (the main one
+  bold), version, state, ▶ -- the other departments' last renders on
+  rows of their own in the same columns.
 - The legend (`legend_groups()`): inline when `_legend_width()` fits the
   footer, else a `Legend` menu -- with the states' marks it rarely fits.
 

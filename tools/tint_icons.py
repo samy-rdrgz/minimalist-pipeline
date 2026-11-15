@@ -34,6 +34,8 @@ def _svg(name: str) -> str:
     """The icon's SVG, white, centred in Blender's icon cell (CELL)."""
     svg = (SOURCE / f"blender_icon_{name}.svg").read_text()
     svg = re.sub(r"<sodipodi:namedview\b.*?</sodipodi:namedview>", "", svg, flags=re.S)
+    # Its dimming (an unticked box at 55 %) left out: the colour says enough.
+    svg = re.sub(r'\sopacity="[^"]*"', "", svg)
     w, h = (float(v) for v in re.search(r'viewBox="0 0 ([\d.]+) ([\d.]+)"', svg).groups())
     box = f"{-(CELL - w) / 2} {-(CELL - h) / 2} {CELL} {CELL}"
     svg = re.sub(r'viewBox="[^"]+"', f'viewBox="{box}"', svg, count=1)

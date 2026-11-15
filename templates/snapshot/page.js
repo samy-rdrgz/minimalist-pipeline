@@ -869,13 +869,17 @@ if(!it.renders.length)return '<span class="faint">'+(it.kind==='shot'?'Not rende
 // name or not --, each its ▶ Play (the panel's button plays them all).
 // A single shot or an asset: no shot column, the version where the file's name starts.
 var one=it.shots.length<2&&!it.renders.some(function(r){return r.shots;});
+// Columns: [shot] department · version · state · ▶ -- the main render's
+// department bold, the others' last renders on lines of their own under
+// it ("newer" when made after it); a farm job with no line: "farm".
+var cell=function(c,t,tip){return '<span class="'+c+'"'+(tip?' title="'+esc(tip)+'"':'')+'>'+t+'</span>';};
 return '<div class="renders'+(one?' one':'')+'">'+it.renders.map(function(r,n){var vs=videosOf(it,r),v=vs.length;
 var st=r.status?'<span class="ss'+(r.status.state==='failed'?' fail':'')+'" title="'+esc(r.status.tip)+'">'+esc(r.status.text)+'</span>':'';
-return (one?'':'<span class="sh">'+esc(r.shots||'all shots')+'</span>')+'<span'+(r.behind?' class="bh" title="Rendered from an older version than the last stable">⚠ ':'>')+
-esc(r.folder||r.pending||'not rendered')+(r.department?' <small>'+esc(r.department)+'</small>':'')+(r.behind?'<small>stable is '+esc(it.stable_v)+'</small>':'')+st+
-// Its other departments' last renders, quieter; "newer" when made after it.
-(r.others||[]).map(function(o){return '<span class="oth'+(o.newer?' newer':'')+'">'+esc(o.department||'no department')+' '+esc(o.folder||'')+(o.newer?' · newer':'')+'</span>';}).join('')+'</span>'+
-(v?'<button type="button" class="pl" data-play="'+n+'" title="'+esc(vs[0].name)+'">▶ Play</button>':'<span></span>');}).join('')+'</div>';}
+var main=(one?'':cell('sh',esc(r.shots||'all shots')))+cell('rd main',esc(r.department||(r.pending?'farm':'')))+
+cell(r.behind?'rv bh':'rv',(r.behind?'⚠ ':'')+esc(r.folder||r.pending||'not rendered')+(r.behind?'<small>stable is '+esc(it.stable_v)+'</small>':''),r.behind?'Rendered from an older version than the last stable':'')+
+cell('rs',st)+(v?'<button type="button" class="pl" data-play="'+n+'" title="'+esc(vs[0].name)+'">▶ Play</button>':'<span></span>');
+return main+(r.others||[]).map(function(o){return (one?'':'<span></span>')+cell('rd',esc(o.department||'no department'))+cell('rv oth',esc(o.folder||''))+
+cell('rs',o.newer?'<span class="ss newer" title="Rendered after the main one">newer</span>':'')+'<span></span>';}).join('');}).join('')+'</div>';}
 function depHtml(it,d,rv){var s=it.states[d],e=peek(it),v=e.deps[d],o=it.ok[d],via=!v&&e.all&&isDone(s);
 var okd=o?(o.old?'<span class="ok old" title="'+esc(o.tip)+'">✓ '+esc(o.role)+' on '+esc(o.seen)+'</span><span class="faint" style="font-size:12px">to review again</span>':
 '<span class="ok" title="'+esc(o.tip)+'">✓ '+esc(o.role)+'</span>'):'';

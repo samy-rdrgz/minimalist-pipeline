@@ -141,17 +141,18 @@ MARKS = {
     # A department not required for the file.
     "none": [(GREY, segment(C - 9, C, C + 9, C, 4))],
     # The farm's jobs, Project monitoring's Farm column and Farm
-    # monitoring: submitted, queued (a clock), between two steps (half),
-    # rendering (full), failed (red, a cross), finished and to check (an eye)
-    # -- in the page's ink, as its farm tags.
-    "job_pending": [(RING, outline()), (RING, lambda x, y: math.hypot(x - C, y - C) <= 3.5)],
-    "job_queued": [(INK_L, outline()), (INK_L, segment(C, C, C, C - 10, 4)), (INK_L, segment(C, C, C + 8, C, 4))],
-    "job_waiting": [(INK_L, outline()), (INK_L, lower_half)],
-    "job_running": [(INK_L, diamond())],
+    # monitoring, in the page's ink: submitted (empty), queued (a dot),
+    # waiting between two steps (a clock, as a department waiting), in
+    # progress (half, as wip), failed (red, a cross), finished and to check
+    # (green, as done).
+    "job_pending": [(INK_L, outline())],
+    "job_queued": [(INK_L, outline()), (INK_L, lambda x, y: math.hypot(x - C, y - C) <= 5)],
+    "job_waiting": [(INK_L, outline()), (INK_L, segment(C, C, C, C - 10, 4)), (INK_L, segment(C, C, C + 8, C, 4))],
+    "job_running": [(INK_L, outline()), (INK_L, lower_half)],
     "job_failed": [(RTK, diamond()), (WHITE, segment(C - 6, C - 6, C + 6, C + 6, 4.5)), (WHITE, segment(C - 6, C + 6, C + 6, C - 6, 4.5))],
-    "job_check": [(DONE, outline()), (DONE, lambda x, y: math.hypot(x - C, y - C) <= 6.5)],
+    "job_check": [(DONE, diamond())],
     # A retake on no department, as the page's post-it.
-    "rtk": [(RTK, rect(8, 18, 56, 46, 6))],
+    "rtk": [(RTK, rect(13, 21, 51, 43, 5))],  # the tick box's width
 }
 
 
