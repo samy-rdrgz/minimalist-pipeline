@@ -107,7 +107,10 @@ class M_PIPELINE_PT_project_panel(bpy.types.Panel):
                 ("tip", "Snapshot: an HTML progress page for production, to review "
                  "on. Import review reads the review it downloads: its notes "
                  "land on the files."),
-                ("m_pipeline.open_live_page", "Open in browser", "URL"),
+                ("row", [
+                    ("m_pipeline.open_live_page", "Open in browser", "URL"),
+                    ("m_pipeline.open_live_page", "", "COMMUNITY", {"tab": "share"}),
+                ]),
                 [
                     ("m_pipeline.export_snapshot", "Snapshot", "EXPORT"),
                     ("m_pipeline.import_review", "Import review", "IMPORT"),

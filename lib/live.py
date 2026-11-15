@@ -26,6 +26,7 @@ import os
 import queue
 import re
 import secrets
+import socket
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -92,6 +93,166 @@ class _Pending:
 _actions: queue.SimpleQueue = queue.SimpleQueue()
 _shared: _Shared | None = None
 _server = None
+
+# --- a phone: guests ------------------------------------------------------------
+# An access for someone on the studio's network (a phone, a tablet): their
+# token, name, role, until when -- the page served on this machine's
+# network address too, only while one is valid. See NOTES.md, "Live page:
+# a phone".
+GUEST_MAX_HOURS = 7 * 24
+_guests: dict[str, dict] = {}  # token: {"name", "role", "until" (epoch), "made"}
+_guests_lock = threading.Lock()
+_lan = {"server": None, "ip": "", "error": ""}
+_config_dir: Path | None = None  # Blender's config folder, read on the main thread
+
+
+def _guests_file() -> Path | None:
+    return _config_dir / "minimalist_pipeline_live_guests.json" if _config_dir else None
+
+
+def _load_guests() -> None:
+    path = _guests_file()
+    try:
+        raw = json.loads(path.read_text()) if path and path.is_file() else {}
+    except (OSError, ValueError):
+        raw = {}
+    with _guests_lock:
+        _guests.clear()
+        _guests.update({t: g for t, g in raw.items() if isinstance(g, dict) and g.get("until", 0) > time.time()})
+
+
+def _save_guests() -> None:
+    path = _guests_file()
+    if not path:
+        return
+    with _guests_lock:
+        raw = {t: g for t, g in _guests.items() if g["until"] > time.time()}
+    try:
+        path.write_text(json.dumps(raw))
+    except OSError as e:
+        log("WARNING", "live", f"Live page: guests not saved: {e}")
+
+
+def guest_of(token: str) -> dict | None:
+    """The guest this token is, still valid; None otherwise."""
+    with _guests_lock:
+        for t, g in _guests.items():
+            if hmac.compare_digest(token or "", t):
+                return g if g["until"] > time.time() else None
+    return None
+
+
+def _guest_list() -> list:
+    with _guests_lock:
+        return sorted(
+            ({"token": t, "name": g["name"], "role": g["role"], "until": _iso(g["until"])} for t, g in _guests.items() if g["until"] > time.time()),
+            key=lambda g: g["until"],
+        )
+
+
+def _lan_ip() -> str:
+    """This machine's address on its network (no packet sent: the route a
+    datagram would take). "" when there's none."""
+    probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        probe.connect(("10.255.255.255", 1))
+        ip = probe.getsockname()[0]
+    except OSError:
+        ip = ""
+    finally:
+        probe.close()
+    return "" if ip.startswith("127.") else ip
+
+
+_lan_lock = threading.Lock()
+
+
+def _sync_lan(sh: "_Shared") -> None:
+    """The page on the network while a guest is valid, never otherwise.
+    From Blender's turn and from a request: one at a time."""
+    with _lan_lock:
+        _sync_lan_locked(sh)
+
+
+def _sync_lan_locked(sh: "_Shared") -> None:
+    with _guests_lock:
+        for t in [t for t, g in _guests.items() if g["until"] <= time.time()]:
+            del _guests[t]
+        wanted = bool(_guests)
+    running = _lan["server"]
+    if wanted and running is None and _server is not None:
+        ip = _lan_ip()
+        if not ip:
+            _lan["error"] = "this machine is on no network"
+            return
+        try:
+            server = ThreadingHTTPServer((ip, _server.server_address[1]), _handler(sh))
+        except OSError as e:
+            _lan["error"] = f"not served on {ip}: {e}"
+            log("WARNING", "live", f"Live page: {_lan['error']}")
+            return
+        server.daemon_threads = True
+        threading.Thread(target=server.serve_forever, name="pipeline-live-lan", daemon=True).start()
+        _lan.update(server=server, ip=ip, error="")
+        log("INFO", "live", f"Live page: served on the network too, http://{ip}:{_server.server_address[1]}/ (guests)")
+    elif not wanted and running is not None:
+        running.shutdown()
+        running.server_close()
+        _lan.update(server=None, ip="")
+        log("INFO", "live", "Live page: no guest left, no longer served on the network")
+
+
+def _share(raw: dict, sh: "_Shared") -> dict:
+    """The host's page: a guest made ({"name", "role", "hours" or "eod"}),
+    one revoked ({"revoke": token}), or the list ({}). Answers the list,
+    and for one made its link and QR code."""
+    from datetime import datetime
+
+    from .qr import qr_svg
+
+    out: dict = {}
+    if raw.get("revoke"):
+        with _guests_lock:
+            gone = _guests.pop(str(raw["revoke"]), None)
+        if gone:
+            log("INFO", "live", f"Live page: {gone['name']}'s access revoked")
+        _save_guests()
+    elif raw.get("name"):
+        name = str(raw["name"]).strip()[:40]
+        roles = set((sh.data or {}).get("meta", {}).get("roles") or []) | {"team"}
+        role = str(raw.get("role") or "team")
+        if role not in roles:
+            return {"ok": False, "error": f"no role {role!r} in this project"}
+        if raw.get("hours") == "eod":
+            end = datetime.now().replace(hour=23, minute=59, second=59).timestamp()
+        else:
+            try:
+                end = time.time() + 3600 * max(1, min(GUEST_MAX_HOURS, int(raw.get("hours") or 1)))
+            except (TypeError, ValueError):
+                return {"ok": False, "error": "a duration in hours"}
+        token = secrets.token_urlsafe(18)
+        with _guests_lock:
+            _guests[token] = {"name": name, "role": role, "until": end, "made": time.time()}
+        _save_guests()
+        _sync_lan(sh)
+        if _lan["server"] is None:
+            with _guests_lock:
+                _guests.pop(token, None)
+            _save_guests()
+            return {"ok": False, "error": _lan["error"] or "not served on the network"}
+        link = f"http://{_lan['ip']}:{_server.server_address[1]}/?t={token}"
+        out.update(link=link, qr=qr_svg(link), until=_iso(end), name=name, role=role)
+        log("INFO", "live", f"Live page: an access for {name} ({role}) until {_iso(end)}")
+    return {"ok": True, "guests": _guest_list(), "network": _lan["ip"], **out}
+
+
+def _as_guest(data: dict, token: str, guest: dict) -> dict:
+    """The page's data as a guest gets it: their name, role, token (its
+    videos' path too), marked a guest."""
+    meta = dict(data["meta"])
+    meta["live"] = {**meta["live"], "token": token, "user": guest["name"], "role": guest["role"], "guest": True, "until": _iso(guest["until"])}
+    meta["videos"] = {**(meta.get("videos") or {}), "local": f"media/{token}/renders"}
+    return {**data, "meta": meta}
 _reader = {"thread": None, "result": None, "at": 0.0, "farm_at": 0.0, "cache": {}, "farm": None, "compare": None, "ready": False,
            "waiting": [], "in_pass": []}
 
@@ -307,6 +468,9 @@ def _turn(sh: _Shared) -> None:
             sh.changed.notify_all()
         log("INFO", "live", f"Live page: now {sh.root.name}")
     clock = time.monotonic()
+    if clock - _lan.get("checked", 0.0) > 5.0:
+        _lan["checked"] = clock
+        _sync_lan(sh)  # a guest's access ended: off the network
     page_open = clock - sh.last_seen < IDLE_AFTER
     if page_open:
         # The farm's jobs and machines, read as Farm monitoring does --
@@ -320,8 +484,8 @@ def _turn(sh: _Shared) -> None:
             pending = _actions.get_nowait()
         except queue.Empty:
             break
-        if pending.kind in ("open", "farm"):
-            pending.result = (_open if pending.kind == "open" else _farm_action)(pending.review)
+        if pending.kind in ("open", "farm", "play"):
+            pending.result = {"open": _open, "farm": _farm_action, "play": _play}[pending.kind](pending.review)
             pending.done.set()
             if pending.kind == "farm":
                 from ..farm.loop import refresh_step
@@ -498,6 +662,22 @@ def _open(raw: dict) -> dict:
 
     bpy.app.timers.register(load, first_interval=0.05)
     return {"ok": True, "opened": filepath.name}
+
+
+def _play(raw: dict) -> dict:
+    """A render's video in this machine's own player -- the full one: the
+    page may play its light copy (ld/), never this."""
+    from .preview import _first_mp4
+
+    rel = str(raw.get("video") or "")
+    root = (_shared.root / "renders").resolve()
+    path = (_shared.root / "renders" / rel).resolve()
+    if root not in path.parents or not path.is_file():
+        return {"ok": False, "error": "video not found"}
+    if path.parent.name == "ld":
+        path = _first_mp4(path.parent.parent) or path
+    _with_window(bpy.ops.wm.path_open, filepath=str(path))
+    return {"ok": True, "opened": path.name}
 
 
 FINISHED_SHOWN = 20  # the farm's finished jobs listed, newest first
@@ -824,12 +1004,22 @@ def _handler(sh: _Shared):
             pass
 
         def _allowed(self, token: str) -> bool:
-            # The token: no other site may call us. The Host: no DNS
-            # rebinding (a site's name pointed at 127.0.0.1).
-            port = self.server.server_address[1]
-            if self.headers.get("Host") not in (f"127.0.0.1:{port}", f"localhost:{port}"):
+            """Who's asking: self.guest None (this machine's page) or a
+            guest's -- False for anyone else. The token: no other site may
+            call us. The Host: no DNS rebinding (a site's name pointed at
+            this address). On the network, guests only."""
+            host, port = self.server.server_address[:2]
+            self.guest = None
+            if host == "127.0.0.1":
+                if self.headers.get("Host") not in (f"127.0.0.1:{port}", f"localhost:{port}"):
+                    return False
+                if hmac.compare_digest(token or "", sh.token):
+                    return True
+            elif self.headers.get("Host") != f"{host}:{port}":
                 return False
-            return hmac.compare_digest(token or "", sh.token)
+            self.guest = guest_of(token)
+            self.token = token
+            return self.guest is not None
 
         def _send(self, code: int, body: bytes, kind: str):
             self.send_response(code)
@@ -864,7 +1054,7 @@ def _handler(sh: _Shared):
             q = {k: v[0] for k, v in parse_qs(parsed.query).items()}
             if not self._allowed(q.get("t", "")):
                 return self._send(403, b"forbidden", "text/plain")
-            if parsed.path not in ("/action", "/open", "/farm"):
+            if parsed.path not in ("/action", "/open", "/farm", "/play", "/share"):
                 return self._send(404, b"not found", "text/plain")
             length = int(self.headers.get("Content-Length") or 0)
             if not 0 < length < 4 * 1024 * 1024 or "json" not in (self.headers.get("Content-Type") or ""):
@@ -875,7 +1065,22 @@ def _handler(sh: _Shared):
                 return self._send(400, b"bad request", "text/plain")
             with sh.lock:
                 sh.last_seen = time.monotonic()
-            pending = _Pending(raw if isinstance(raw, dict) else {}, parsed.path.strip("/").replace("action", "review"))
+            raw = raw if isinstance(raw, dict) else {}
+            kind = parsed.path.strip("/").replace("action", "review")
+            if self.guest is not None:
+                # A guest reviews, as themselves; the farm read only;
+                # nothing on this machine (Blender, its player, sharing).
+                if kind in ("open", "play", "share") or kind == "farm" and raw.get("action") not in ("detail", "worker_detail"):
+                    return self._send(403, json.dumps({"ok": False, "error": "not from a guest's page"}).encode(), "application/json")
+                if kind == "review":
+                    raw["author"], raw["role"] = self.guest["name"], self.guest["role"]
+                    for a in raw.get("actions") or []:
+                        if isinstance(a, dict):
+                            a.pop("push", None)
+                    log("INFO", "live", f"Live page: {self.guest['name']} (guest, {self.guest['role']}): {len(raw.get('actions') or [])} action(s)")
+            if kind == "share":
+                return self._send(200, json.dumps(_share(raw, sh)).encode(), "application/json")
+            pending = _Pending(raw, kind)
             _actions.put(pending)
             # Blender's turn, then a pass over the project: the data that
             # shows them. Blender busy longer: the page sends them again
@@ -891,6 +1096,8 @@ def _handler(sh: _Shared):
                 # Being read (opened, another project): a page that says so,
                 # replaced by the project's once its data is there.
                 return self._send(200, _waiting_page(name).encode("utf-8"), "text/html; charset=utf-8")
+            if self.guest is not None:
+                data = _as_guest(data, self.token, self.guest)
             self._send(200, render_page(data).encode("utf-8"), "text/html; charset=utf-8")
 
         def _data(self, since: int):
@@ -901,6 +1108,8 @@ def _handler(sh: _Shared):
                 busy = time.monotonic() - sh.last_tick > BUSY_AFTER
                 head = {"version": sh.version, "busy": busy, "reading": sh.data is None}
                 body = sh.body if sh.version != since else b""
+                if body and self.guest is not None:
+                    body = json.dumps(_as_guest(sh.data, self.token, self.guest), ensure_ascii=False, separators=(",", ":")).encode("utf-8")
             out = json.dumps(head).encode()
             if body:
                 out = out[:-1] + b',"data":' + body + b"}"
@@ -993,6 +1202,9 @@ def start(root: Path) -> str:
     global _shared, _server
     if _server is not None:
         return url()
+    global _config_dir
+    _config_dir = Path(bpy.utils.user_resource("CONFIG", create=True))
+    _load_guests()
     sh = _Shared(Path(root), _token())
     server = None
     for port in PORTS:
@@ -1025,6 +1237,10 @@ def stop() -> bool:
         _shared.changed.notify_all()
     _server.shutdown()
     _server.server_close()
+    if _lan["server"] is not None:
+        _lan["server"].shutdown()
+        _lan["server"].server_close()
+        _lan.update(server=None, ip="")
     _shared, _server = None, None
     if bpy.app.timers.is_registered(_tick):
         bpy.app.timers.unregister(_tick)

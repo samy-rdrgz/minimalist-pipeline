@@ -5236,6 +5236,38 @@ measures in the plan).
   -- the page asks first). A job's priority, its machines' names, its
   preset and frame range added to the monitor cache's entries for it.
 
+## Live page: a phone
+
+Someone on the studio's network reviews on the live page from a phone or a
+tablet: an access made on this machine's page (`_share()`, lib/live.py),
+its link as a QR code (`lib/qr.py`).
+
+- **A guest each**: their token (`secrets.token_urlsafe(18)`: a short link,
+  a small QR code), name, role, end -- in Blender's config folder
+  (`minimalist_pipeline_live_guests.json`), this machine's only. A week at
+  most (`GUEST_MAX_HOURS`); "until tonight" is 23:59 today.
+- **On the network only while one is valid**: a second server on this
+  machine's address (`_lan_ip()`: the route a datagram would take, none
+  sent), same port and handler; `_sync_lan()` every 5 s and at each change
+  closes it when the last access ends. The first one bound on
+  `127.0.0.1` stays this machine's: 0.0.0.0 would collide with it.
+- **Who's asking** (`_allowed()`): on the network, a guest's token only --
+  this machine's token never works there --, the Host checked against the
+  address it's served on. A guest's page and data carry their token, name
+  and role (`_as_guest()`: the videos' path too); what they send is
+  theirs whatever the page says (author and role set by the server, a
+  push to editing dropped). Refused: farm actions (its details read),
+  opening a file, this machine's player, sharing.
+- **The QR code** (`lib/qr.py`): byte mode, error correction M, the
+  smallest version, the mask by the standard's penalty. Checked against
+  the `qrcode` library (system Python): the same matrix for each mask and
+  the same mask chosen, over links like ours. Drawn as an SVG on the page;
+  never in Blender (a popup can't show an image without a preview icon).
+- **Copy link**: `navigator.clipboard` (127.0.0.1 is a secure context),
+  else the link selected for Ctrl+C.
+- **This machine's player** (`/play`, `_play()`): the full video -- a
+  light copy asked for (`ld/`) is swapped for its folder's own.
+
 ## Breakdown (snapshot page v4)
 
 The Breakdown tab: per section five figures, then one sequence × department

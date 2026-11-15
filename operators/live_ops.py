@@ -25,6 +25,12 @@ class M_PIPELINE_OT_open_live_page(bpy.types.Operator):
     file: bpy.props.StringProperty(options={"SKIP_SAVE", "HIDDEN"})
     tab: bpy.props.StringProperty(options={"SKIP_SAVE", "HIDDEN"})
 
+    @classmethod
+    def description(cls, context, properties):
+        if properties.tab == "share":
+            return "Share with a phone: a link and its QR code for someone on this network, with their name, role and how long"
+        return cls.bl_description
+
     def execute(self, context):
         root = get_active_project_root()
         if not root:

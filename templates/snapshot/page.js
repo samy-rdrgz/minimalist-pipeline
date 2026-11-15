@@ -151,7 +151,8 @@ var rv={author:'',role:'',date:'',files:{},creates:[]};
 var LIVE_OUT={busy:false,again:false,sent:{},t:0,after:null,say:'live'};
 // The live page's own state, set before anything draws: the Farm tab's
 // jobs open, the panel's sections folded, the Render form per file.
-var JOB_STATES=[['running','In progress','wip'],['waiting','Waiting','todo'],['failed','Failed','fail'],['finished','Finished','done']],JOPEN={},chkOpen=true,lnkOpen=false,rndOpen=false,RF={},FF={s:'',mine:false,q:''},JD={},WD={},WOPEN={},LKF={},JW={};
+var JOB_STATES=[['running','In progress','wip'],['waiting','Waiting','todo'],['failed','Failed','fail'],['finished','Finished','done']],JOPEN={},chkOpen=true,lnkOpen=false,rndOpen=false,RF={},FF={s:'',mine:false,q:''},JD={},WD={},WOPEN={},LKF={},JW={},
+SHARE_TIMES=[['1','1 hour'],['eod','Until tonight'],['24','1 day'],['168','1 week']];
 var KEY='mp-review:'+META.project+':'+(META.live?'live':META.snapshot);
 // synced: Still done per department; req: a department required added
 // (true) or removed (false); omit: {state, reason} set aside or counted again.
@@ -715,6 +716,7 @@ return '<div class="pv-slot"></div><div class="pv-msg" hidden></div>'+
 // Sound: renders may carry it (docs/plan-1.2.md); muted or not, kept.
 '<button type="button" class="vb snd" data-pv="mute" aria-label="Sound" title="Sound on / off (M)"></button>'+
 '<span class="pf"><b class="pf-n">f–</b><span class="pf-r"></span></span><span class="pc-gap"></span>'+
+(META.live&&!META.live.guest?'<button type="button" class="vb" data-pv="ext" aria-label="Open in this machine\'s player" title="Open in this machine\'s player -- the full video, not the page\'s light copy">'+ico('movie')+'</button>':'')+
 (mode==='wide'?'<span class="strip"></span><button type="button" class="vb" data-pv="fs" aria-label="Full screen" title="Full screen">'+ico('fsin')+'</button>':
 (many?'<span class="pv-at"></span>':'')+'<button type="button" class="btn wl-b" data-pv="wide" title="Watch large: the video, the departments and the notes at their frames">'+ico('fsin')+'Watch large</button>')+'</div>';}
 // A list of videos into a host: the panel's (paused on its first frame,
@@ -778,6 +780,7 @@ if(b.dataset.seek){e.preventDefault();var f=+b.dataset.seek;if(b.dataset.sh){var
 if(PL.el.readyState>=1)seekFrame(f);else PL.el.addEventListener('loadedmetadata',function o(){PL.el.removeEventListener('loadedmetadata',o);seekFrame(f);});return;}
 var a=b.dataset.pv,el=PL.el;
 if(a==='pp'){if(el.paused)el.play();else el.pause();}else if(a==='-1'||a==='1')stepFrame(+a);
+else if(a==='ext'){el.pause();livePost('play',{video:PL.v.name}).then(function(res){toast(res.ok?'Opening '+res.opened+'…':'Not opened: '+(res.error||'?'));}).catch(function(){toast('Blender doesn\'t answer.');});}
 else if(a==='mute')setMuted(!el.muted);else if(a==='prevv')nextVideo(-1);else if(a==='nextv')nextVideo(1);else if(a==='wide')openWatch(false);
 else if(a==='fs'){var f2=$('wl').requestFullscreen||$('wl').webkitRequestFullscreen;if(document.fullscreenElement)document.exitFullscreen();else if(f2)f2.call($('wl'));}});
 document.addEventListener('input',function(e){if(!e.target.classList.contains('tl-r')||!PL)return;PL.seeking=true;var el=PL.el;if(el.duration){el.pause();el.currentTime=e.target.value/1000*el.duration;}});
@@ -1120,7 +1123,7 @@ var it=D[i],same=cur===i;if(!same){showClosed=false;editing={};}cur=i;$('p-open'
 // A tablet: the file the whole screen -- a panel over the list hid its columns.
 if(tablet.matches&&!document.body.classList.contains('panel-full'))setFull(true,false);if(!lastFocus)lastFocus=document.activeElement;
 var rv=reviewing(),e=peek(it);if(showNotes===null)showNotes=!rv;
-$('p-title').innerHTML=nameHtml(it);$('p-blend').hidden=!META.live;var nv=allVideos(it).length;$('p-play').hidden=true;$('p-play').title=nv>1?'Play the '+nv+' shots in a row':'Play the render';
+$('p-title').innerHTML=nameHtml(it);$('p-blend').hidden=!META.live||guest();var nv=allVideos(it).length;$('p-play').hidden=true;$('p-play').title=nv>1?'Play the '+nv+' shots in a row':'Play the render';
 $('p-sub').textContent=[it.kind==='shot'?'Shot':it.root==='library'?'Library':'Asset',it.versions,it.shots.length>1?plural(it.shots.length,'shot'):''].filter(Boolean).join(' · ');
 // First what it is and how far along, big; then its departments; the
 // rest after, quieter.
@@ -1147,7 +1150,7 @@ if(rv)h+='<button type="button" class="desc-edit" id="add-desc">✎ '+(it.desc?'
 // The notes' bar, Whole file (its retakes concern every department),
 // the departments; reviewing, the file's settings folded at the end.
 h+=notesBar(it)+'<div class="p-block major">'+wholeHtml(it,rv)+(deps.length?deps.map(function(d){return depHtml(it,d,rv);}).join(''):'<p class="faint">No department tracked on this file.</p>')+'</div>';
-if(it.live)h+=renderHtml(it)+checksHtml(it)+linksHtml(it);
+if(it.live)h+=(guest()?'':renderHtml(it))+checksHtml(it)+linksHtml(it);
 if(rv)h+=fileSettings(it,e);
 // Where it comes from: at the bottom, out of the way while reviewing.
 h+='<dl class="view-only facts"><dt>Last render</dt><dd>'+rendersHtml(it)+noVideo(it)+'</dd><dt>Blender file</dt><dd class="fileline">'+esc(it.file)+'.blend</dd></dl>';
@@ -1677,7 +1680,8 @@ summaryCards();drawTabs();render();barHeight();
 // Its jobs by state, as Farm monitoring's: a job's file opens its panel;
 // then the machines -- this one, the host, the silent ones.
 function dur(s){if(s==null)return '';s=Math.round(s);return s<90?s+' s':s<5400?Math.round(s/60)+' min':(s/3600).toFixed(1)+' h';}
-function farmHtml(){var F=DATA.farm||{},jobs=F.jobs||[],me=F.me||{},h='<div class="farm">';
+function guest(){return !!(META.live&&META.live.guest);}
+function farmHtml(){var F=DATA.farm||{},jobs=F.jobs||[],me=F.me||{},h='<div class="farm'+(guest()?' ro':'')+'">';
 // This machine first: worker or not, the farm host or not -- a worker in a click.
 h+='<div class="fme"><span class="fme-l">'+ico('render')+'<b>This machine</b> '+(me.worker?'worker'+(me.rendering?' · rendering':' · idle'):'not a worker')+(me.host?' · the farm host':'')+'</span>'+
 '<span class="fme-h">Farm host: '+esc(me.host?'this machine':me.host_name||'none')+' · '+esc(F.status||'unknown')+'</span>'+
@@ -1740,6 +1744,32 @@ livePost('farm',{action:action,job_id:action==='detail'?key:'',value:value}).the
 Object.keys(JOPEN).forEach(function(id){if(JOPEN[id])get(JD,id,'detail');});Object.keys(WOPEN).forEach(function(u){if(WOPEN[u])get(WD,u,'worker_detail',u);});}
 function farmPost(action,job,value,extra){var body={action:action,job_id:job||'',value:value};Object.keys(extra||{}).forEach(function(k){body[k]=extra[k];});
 return livePost('farm',body).then(function(res){toast(res.ok?'Done.'+(res.note?' '+res.note:''):'Not done: '+(res.error||'?'));}).catch(function(){toast('Blender doesn\'t answer.');});}
+/* ---------- live: a phone -- an access for someone on the network ---------- */
+// Their name, role, how long (a week at most): a link and its QR code,
+// Copy link beside; the accesses running, each revoked in a click.
+// An end: its time today, else its day and time.
+function fmtUntil(iso){var d=new Date(iso);if(isNaN(d))return esc(iso||'');var t=two(d.getHours())+':'+two(d.getMinutes());return d.toDateString()===new Date().toDateString()?t:fmtDay(d)+' '+t;}
+function shareDialog(made){var dl=$('dlg');dl.innerHTML='<div class="dlg-in sh-dlg" role="dialog" aria-modal="true" aria-labelledby="sh-t"><h3 id="sh-t">Share with a phone</h3><div id="sh-body"><p class="faint">Reading…</p></div><div class="acts"><button class="btn" data-shx>Done</button></div></div>';dl.hidden=false;
+dl.onclick=function(e){if(e.target===dl||e.target.closest('[data-shx]')){dl.hidden=true;return;}
+var b=e.target.closest('[data-shrev]');if(b)return shareSend({revoke:b.dataset.shrev});
+if(e.target.closest('#sh-make')){var n=$('sh-name').value.trim();if(!n){$('sh-name').focus();return;}return shareSend({name:n,role:$('sh-role').value,hours:$('sh-time').value});}
+if(e.target.closest('#sh-copy'))copyLink($('sh-link').value);};
+shareSend({});}
+function shareSend(body){livePost('share',body).then(function(res){if(!res.ok){toast('Not shared: '+(res.error||'?'));if(!$('sh-body').querySelector('form'))shareDraw(res);return;}shareDraw(res);})
+.catch(function(){toast('Blender doesn\'t answer.');});}
+function shareDraw(res){var roles=['team'].concat((META.roles||[]).filter(function(r){return r!=='team';})),h='';
+if(res.link)h+='<div class="sh-made"><div class="sh-qr">'+res.qr+'</div><div class="sh-info"><b>'+esc(res.name)+'</b> · '+esc(res.role)+'<br><small>until '+fmtUntil(res.until)+'</small>'+
+'<p class="faint">Scan it on the same network (the studio\'s Wi-Fi) -- or send the link:</p><input id="sh-link" readonly value="'+esc(res.link)+'"><button type="button" class="act fix" id="sh-copy">'+ico('link')+'Copy link</button></div></div>';
+h+='<form class="sh-form" onsubmit="return false"><label>Name <input id="sh-name" maxlength="40" placeholder="Who it is for" autocomplete="off"></label>'+
+'<label>Role <select id="sh-role">'+roles.map(function(r){return '<option'+(r==='team'?' selected':'')+'>'+esc(r)+'</option>';}).join('')+'</select></label>'+
+'<label>For <select id="sh-time">'+SHARE_TIMES.map(function(t){return '<option value="'+t[0]+'"'+(t[0]==='eod'?' selected':'')+'>'+t[1]+'</option>';}).join('')+'</select></label>'+
+'<button type="button" class="btn primary" id="sh-make">Make the access</button></form>'+
+'<p class="faint sh-note">They review as that name and role -- notes, validations, assignees; the farm read only; nothing opened on this machine. Blender stays open here for it to work.</p>';
+var g=res.guests||[];if(g.length)h+='<div class="st-l">Running</div>'+g.map(function(x){return '<div class="sh-g"><span><b>'+esc(x.name)+'</b> · '+esc(x.role)+' · until '+fmtUntil(x.until)+'</span><button type="button" class="act ko" data-shrev="'+esc(x.token)+'">Revoke</button></div>';}).join('');
+$('sh-body').innerHTML=h;}
+function copyLink(t){var done=function(){toast('Link copied.');};
+if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(done,function(){var i=$('sh-link');i.select();toast('Selected: copy it with Ctrl+C.');});
+else{var i=$('sh-link');i.select();toast('Selected: copy it with Ctrl+C.');}}
 // Two answers or more: [[label, then, primary]].
 function askMany(text,choices){var dl=$('dlg');dl.innerHTML='<div class="dlg-in" role="alertdialog" aria-modal="true" aria-labelledby="ask-t"><p id="ask-t" class="ask">'+esc(text)+'</p><div class="acts"><button class="btn" data-o="-1">Cancel</button>'+
 choices.map(function(c,n){return '<button class="btn'+(c[2]?' primary':'')+'" data-o="'+n+'">'+esc(c[0])+'</button>';}).join('')+'</div></div>';dl.hidden=false;
@@ -1776,7 +1806,7 @@ function checksHtml(it){var c=it.live.checks||[];if(!c.length)return '';
 return fold2('chk-t',chkOpen,'eye','To check',plural(c.length,'render')+' not watched by the team yet',c.map(function(x){
 return '<div class="chk"><span class="chk-l">'+esc([x.shot,x.department,x.folder].filter(Boolean).join(' · '))+'</span>'+(x.video&&videoSrc(x.video)?'<button type="button" class="act" data-chkplay="'+esc(x.video)+'">'+ico('play')+'Play</button>':'')+
 '<button type="button" class="act fix" data-chk="'+esc(x.key)+'" title="Watched: out of To check">'+ico('check')+'Checked</button></div>';}).join('')+
-'<label class="chk-push"><input type="checkbox" id="chk-push"> Push to editing when checked</label>');}
+(guest()?'':'<label class="chk-push"><input type="checkbox" id="chk-push"> Push to editing when checked</label>'));}
 function itemAt(key){return key&&byKey[key];}
 // Render: the file sent to the farm as the Render dialog sends it -- its
 // version, preset, priority, mode, a block's shots --, or its sequence's
@@ -1866,7 +1896,8 @@ document.addEventListener('focusout',function(){setTimeout(function(){if(pend)ap
 if(META.live)(function(){var T=META.live.token,v=META.live.version||0,st='';document.body.classList.add('live');
 var pill=document.createElement('span');pill.setAttribute('role','status');$('h-when').after(pill);
 function status(s){if(s===st)return;st=s;pill.className='lvp '+s;pill.textContent=s==='on'?'connected':s==='busy'?'Blender busy':'disconnected';
-pill.title=s==='on'?'Served by Blender on this machine, kept up to date':s==='busy'?'Blender is busy (a long task): the page waits for it':'Blender doesn\'t answer (closed, or the page stopped): trying again';}
+if(s==='on'&&guest())pill.textContent='connected · guest until '+fmtUntil(META.live.until);
+pill.title=s==='on'?(guest()?'Served by '+(META.exported_by||'Blender')+'\'s Blender, as '+META.live.user+' ('+META.live.role+')':'Served by Blender on this machine, kept up to date'):s==='busy'?'Blender is busy (a long task): the page waits for it':'Blender doesn\'t answer (closed, or the page stopped): trying again';}
 
 
 function poll(){fetch('data?t='+encodeURIComponent(T)+'&since='+v,{cache:'no-store'}).then(function(r){if(!r.ok)throw r.status;return r.json();})
@@ -1877,7 +1908,8 @@ rv.author=META.live.user||rv.author;rv.role=META.live.role||'team';store();setRe
 var boot=$('boot');if(boot)boot.remove();
 // A link to a file (#its name, its .blend's: any version of it) opens it; #farm, the Farm tab.
 var want=decodeURIComponent(location.hash.slice(1)),wit=want&&(byName[want]||byFile[want]||byName[want.replace(/_v\d+.*$/i,'')]);
-if(wit)jump(wit);else if(want==='farm'&&DATA.farm)setTab('farm');
+if(wit)jump(wit);else if(want==='farm'&&DATA.farm)setTab('farm');else if(want==='share'&&META.live&&!guest())shareDialog();
+var shb=$('sh-open');if(shb){shb.hidden=!META.live||guest();shb.addEventListener('click',function(){closeMenus();shareDialog();});}
 })();
 // The status bar's room (page.css --sat): the largest the screen has had,
 // in this orientation, kept by this browser -- its bar shown or hidden

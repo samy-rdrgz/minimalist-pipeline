@@ -150,6 +150,9 @@ minimalist_pipeline/
 │   ├── status.py               # State engine: department_state(), STATE_LABELS,
 │   │                            #   department_score(), file_progress(), progress_weights();
 │   │                            #   parse_departments(), departments_text(), stage_flags()
+│   ├── live.py                 # the live page: its server (127.0.0.1; the network too while a
+│   │                            #   guest is valid), the reader, the page's actions, the farm tab
+│   ├── qr.py                   # a QR code, pure Python (a guest's link): qr_matrix(), qr_svg()
 │   ├── monitoring.py           # The windows (Pipeline log, welcome, Project settings):
 │   │                            #   open_monitoring_window(), monitoring_windows(),
 │   │                            #   _monitoring_tick, open_mainfile(); paging, keys

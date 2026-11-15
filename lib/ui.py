@@ -30,8 +30,9 @@ def draw_items(layout, items, context=None) -> None:
     """A column of buttons from a list: (operator, text, icon, props) a
     button -- props set on it, "greyed": True for a rarely used one (still
     clickable) --, None a separator, ("tip", text) a box tip, a list of
-    buttons side by side when the region is wide enough. A falsy item (one
-    that doesn't apply) is skipped."""
+    buttons side by side when the region is wide enough, ("row", [buttons])
+    one row whatever the width (an icon-only button stays its icon's
+    size). A falsy item (one that doesn't apply) is skipped."""
     from .core import SIDE_BY_SIDE_WIDTH, draw_box_tip, responsive_layout
 
     for item in items:
@@ -44,6 +45,11 @@ def draw_items(layout, items, context=None) -> None:
                     _item_button(pair, *button)
         elif item and item[0] == "tip":
             draw_box_tip(layout, context, item[1])
+        elif item and item[0] == "row":
+            row = layout.row(align=True)
+            for button in item[1]:
+                if button:
+                    _item_button(row, *button)
         elif item:
             _item_button(layout, *item)
 
