@@ -911,6 +911,7 @@ def draw_file_details(state, context, layout):
             # Who it's assigned to (Edit project's Team): their names, a
             # click picks them.
             people = (data.get("assignees") or {}).get(d) or []
+            line.separator(factor=1.5)  # apart from Still done's cell
             assign = line.row(align=True)
             assign.active = bool(people)
             icon_button(
