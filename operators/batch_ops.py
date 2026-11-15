@@ -3,6 +3,7 @@ its own disposable headless Blender process (see lib/batch.py). Runs as a
 background modal (PASS_THROUGH on every event) so the artist can keep working
 while it processes the queue."""
 
+import json
 from pathlib import Path
 
 import bpy
@@ -48,6 +49,9 @@ class M_PIPELINE_OT_batch_create(bpy.types.Operator):
         description="Select your .csv file.",
         default="",
     )
+    # The rows themselves, as JSON, in place of a CSV: a review's new shots
+    # and assets (lib/review_import.py create_rows()).
+    rows_json: bpy.props.StringProperty(options={"HIDDEN", "SKIP_SAVE"})
 
     _timer = None
     _queue = None
@@ -109,19 +113,21 @@ class M_PIPELINE_OT_batch_create(bpy.types.Operator):
     def execute(self, context):
         project_root = get_active_project_root()
 
-        if not self.csv_path:
+        if self.rows_json:
+            rows = json.loads(self.rows_json)
+        elif not self.csv_path:
             self.report({"ERROR"}, "No CSV file selected.")
             return {"CANCELLED"}
-
-        csv_file = Path(bpy.path.abspath(self.csv_path))
-        try:
-            rows = (
-                parse_asset_batch_csv(csv_file)
-                if self.kind == "asset"
-                else parse_shot_batch_csv(csv_file)
-            )
-        except PipelineError as e:
-            return report_error(self, "batch_create", e)
+        else:
+            csv_file = Path(bpy.path.abspath(self.csv_path))
+            try:
+                rows = (
+                    parse_asset_batch_csv(csv_file)
+                    if self.kind == "asset"
+                    else parse_shot_batch_csv(csv_file)
+                )
+            except PipelineError as e:
+                return report_error(self, "batch_create", e)
 
         config = ConfigCache.get()
         naming = config.get("naming", {})

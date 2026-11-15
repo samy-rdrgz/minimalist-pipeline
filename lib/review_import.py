@@ -12,6 +12,7 @@ from pathlib import Path
 from .config import (
     ConfigCache,
     parse_filename,
+    sanitize_name,
     shots_in_segment,
     validation_roles,
 )
@@ -105,10 +106,14 @@ def keep_review(path: Path, snapshots: Path, plan: dict) -> Path | None:
 #   departments            {file, add, remove}: the departments required
 #   omit                   {file, state, reason}: on_hold / cancelled, ""
 #                          counted again
+#   create                 {file (its name), kind, sequence + shot or prefix
+#                          + name, description, frame_start, frame_end,
+#                          departments}: a new shot or asset, made by the CSV
+#                          batch's engine (lib/batch.py)
 # See NOTES.md, "Review: typed actions".
 ACTION_TYPES = (
     "validate", "unvalidate", "rtk", "note", "reply", "fixed", "description",
-    "still_done", "departments", "omit",
+    "still_done", "departments", "omit", "create",
 )
 # Changes to a file anyone may send (no role needed: none is a validation).
 _FILE_CHANGES = ("still_done", "departments", "omit")
@@ -160,6 +165,23 @@ def _action(raw) -> dict | None:
     if t == "omit":
         a.update(state=_text(raw.get("state")), reason=_text(raw.get("reason")))
         return a if a["state"] in ("", "on_hold", "cancelled") else None
+    if t == "create":
+        kind = _text(raw.get("kind"))
+        deps = raw.get("departments") or []
+        a.update(
+            kind=kind,
+            description=_text(raw.get("description")),
+            departments=[_text(d).lower() for d in deps if _text(d)] if isinstance(deps, list) else [],
+        )
+        if kind == "shot":
+            a.update(sequence=_text(raw.get("sequence")), shot=_text(raw.get("shot")))
+            for k in ("frame_start", "frame_end"):
+                a[k] = int(raw[k]) if str(raw.get(k) or "").isdigit() else None
+            return a if a["sequence"].isdigit() and re.fullmatch(r"\d+(-\d+)*", a["shot"]) else None
+        if kind == "asset":
+            a.update(prefix=_text(raw.get("prefix")).lower(), name=sanitize_name(_text(raw.get("name"))))
+            return a if a["prefix"] and a["name"] != "unnamed" else None
+        return None
     a.update(old=_text(raw.get("old")), new=_text(raw.get("new")))
     return a
 
@@ -304,6 +326,8 @@ def review_import_plan(path: Path, review: dict | None = None) -> dict:
         "fixed": count("fixed"),
         # Still done, departments required, set aside.
         "changes": count(*_FILE_CHANGES),
+        # New shots and assets, made after the import (create_rows()).
+        "creates": count("create"),
         "replies": count("reply"),
         # What the project holds already (a review imported again), left as
         # it is: counted here as the import will tell it.
@@ -630,3 +654,24 @@ def review_description_changes(path: Path) -> list[dict]:
         if new != old:
             changes.append({"name": name, "filepath": str(filepath), "old": old, "new": new})
     return changes
+
+
+def create_rows(review: dict) -> dict:
+    """The review's new shots and assets as the CSV batch's rows ({"asset":
+    [...], "shot": [...]}, lib/batch.py): M_PIPELINE_OT_batch_create makes
+    them, skipping one that exists (the same review imported twice). The
+    reviewer and their role in each one's description."""
+    out = {"asset": [], "shot": []}
+    who = " / ".join(x for x in (review.get("author"), review.get("role")) if x)
+    for a in review["actions"]:
+        if a["type"] != "create":
+            continue
+        description = a["description"] + (f" (asked by {who})" if who else "")
+        row = {"departments": ", ".join(a["departments"]), "description": description.strip()}
+        if a["kind"] == "shot":
+            row.update(sequence=a["sequence"], shot=a["shot"])
+            row.update({k: str(a[k]) for k in ("frame_start", "frame_end") if a[k] is not None})
+        else:
+            row.update(prefix=a["prefix"], name=a["name"])
+        out[a["kind"]].append(row)
+    return out

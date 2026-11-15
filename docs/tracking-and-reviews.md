@@ -110,7 +110,10 @@ it saw.
   review*. In a file's panel, a department *To redo* has *Still done* (its
   work holds), and a *File* block at the bottom changes its departments
   required and sets it aside (*Active*, *On hold*, *Cancelled*, with a
-  why) -- sent with the review, open to any role; a ✓ by each department (validate it as your
+  why) -- sent with the review, open to any role; each sequence (or prefix) has
+  *+ shot* (or *+ asset*): its number or name, frames, description and
+  departments required, checked against the project's naming, shown
+  planned in its group until the import creates it; a ✓ by each department (validate it as your
   role -- a done one only) and a ✗ (a box for the retakes, one per line:
   `[sh020]` at its start for one shot of a block, `[f12-40]` for its
   frames, `note:` for a remark instead of a retake (nothing but

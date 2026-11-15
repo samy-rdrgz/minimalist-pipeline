@@ -947,3 +947,11 @@ html,.p-body,.wl-side,.recap,.menu-pop,.pick-pop,.strip{scrollbar-color:var(--li
 .req button[aria-pressed="true"]{background:var(--sel);border-color:var(--sel);color:#fff}
 .req button.chg{outline:1.5px dashed var(--mine);outline-offset:1px}
 .om-why{display:block;width:100%;min-height:var(--tap);margin-top:8px;padding:0 10px;border:1px solid var(--mine);border-radius:var(--r-btn);background:var(--field);color:var(--ink);font-size:14px}
+
+/* ---------- new shots and assets, planned in the review ---------- */
+.g-new{min-height:24px;margin-left:10px;padding:0 8px;font-size:12px;font-weight:500;vertical-align:1px}
+.row.planned{grid-template-columns:104px minmax(0,1fr) auto;cursor:default;background:repeating-linear-gradient(135deg,transparent 0 8px,var(--accent-bg) 8px 16px)}
+.row.planned .nm-main{font-family:var(--mono);font-style:italic}
+.unplan{width:30px;min-height:30px}
+@container (max-width:760px){.row.planned{grid-template-columns:52px minmax(0,1fr) auto}}
+.dlg .row3 input,.dlg .row2 input{min-width:0;width:100%}

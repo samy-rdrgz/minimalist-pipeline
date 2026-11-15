@@ -597,6 +597,14 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
     meta["fps"] = json_get(config, "default_fps", 30)
     meta["validation_roles"] = roles
     meta["validation_role"] = top_role
+    # What a new shot or asset may be called, created from the page.
+    meta["naming"] = {
+        "sequence": json_get(config, "naming.sequence", {"prefix": "sq", "digits": 3}),
+        "shot": json_get(config, "naming.shot", {"prefix": "sh", "digits": 3}),
+        "asset_prefixes": json_get(config, "structure.asset_prefixes", []),
+        "library_prefixes": json_get(config, "structure.library_prefixes", []),
+        "frame_start": json_get(config, "default_frame_start", 1001),
+    }
     meta["validation"] = {
         k: average_progress(v, "validation") for k, v in items.items()
     }

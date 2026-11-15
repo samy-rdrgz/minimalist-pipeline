@@ -96,7 +96,8 @@ return '<span class="dv'+(big?' big':'')+'"><span class="bar2"><i style="width:'
 '<span class="dvt"><b>'+pct(done)+'</b>'+(v?' <span class="vt" title="Validated by '+esc(META.role)+'">· '+pct(val)+'</span>':'')+'</span></span>';}
 
 /* ---------- review state: as the page before (same key, same shape) ---------- */
-var rv={author:'',role:'',date:'',files:{}};
+// creates: the new shots and assets the review asks for (planned).
+var rv={author:'',role:'',date:'',files:{},creates:[]};
 var KEY='mp-review:'+META.project+':'+META.snapshot;
 // synced: Still done per department; req: a department required added
 // (true) or removed (false); omit: {state, reason} set aside or counted again.
@@ -142,7 +143,7 @@ function summary(){var c={files:0,ok:0,rt:0,out:0,desc:0,fixed:0,replies:0,notes
 Object.keys(e.deps).forEach(function(d){var v=e.deps[d];if(!sent(v))return;if(v.ok)c.ok++;else if(v.text.trim()){c.rt+=retakes(v.text);c.notes+=notesIn(v.text);}else c.out++;});
 var an=answered(it).deps;Object.keys(an).forEach(function(d){if(!e.deps[d]&&!asTeam())c.out++;});
 if(e.all&&!asTeam())Object.keys(it.states).forEach(function(d){if(isDone(it.states[d])&&!e.deps[d]&&!an[d])c.ok++;});
-c.rt+=retakes(e.text);c.notes+=notesIn(e.text);if(e.desc!==null&&e.desc.trim()&&e.desc.trim()!==it.desc)c.desc++;});return c;}
+c.rt+=retakes(e.text);c.notes+=notesIn(e.text);if(e.desc!==null&&e.desc.trim()&&e.desc.trim()!==it.desc)c.desc++;});c.creates=(rv.creates||[]).length;return c;}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(rv));}catch(e){}}
 
 /* ---------- badges: only what the row shows nowhere else ---------- */
@@ -312,10 +313,16 @@ var head='<div class="thead" style="--cols:'+cols+'"><span></span><span></span>'
 '<span style="text-align:right">Done</span></div>';
 var body=rows.map(rowHtml).join('');
 if(un.length&&!state.untracked[key]&&!filt)body+='<button class="untracked" data-g="'+esc(g)+'">+ '+plural(un.length,'file')+' with no tracked department</button>';
+// The new ones this review asks for: planned, until the import makes them.
+body+=(rv.creates||[]).map(function(c,n){return c.tab===state.tab&&c.group===g?'<div class="row planned" style="--cols:'+cols+'"><span class="thumb none"><span class="frame"></span></span>'+
+'<span class="r-name"><span class="nm-main">'+esc(c.label)+'</span><small>planned · new '+c.kind+(c.description?' · '+esc(c.description):'')+'</small></span>'+
+'<button type="button" class="btn icon unplan" data-unplan="'+n+'" title="Drop this new '+c.kind+'" aria-label="Drop this new '+c.kind+'">'+ico('trash')+'</button></div>':'';}).join('');
 var nv=groupVideos(g).length;
 // A div, not a button: its playlist's ▶ sits in it, after the name.
 return '<div class="group'+(closed?' closed':'')+(allReviewed(g)?' rv-all':'')+'"><div class="g-h" role="button" tabindex="0" aria-expanded="'+!closed+'" data-g="'+esc(g)+'"><span class="g-name"><i class="caret"></i>'+esc(g)+
-(nv?'<button type="button" class="g-play play" data-gplay="'+esc(g)+'" title="Watch the '+esc(g)+' videos in a row ('+nv+')" aria-label="Watch the '+esc(g)+' videos in a row">'+ico('play')+'</button>':'')+'<small>'+plural(all.length,'file')+'</small></span>'+
+(nv?'<button type="button" class="g-play play" data-gplay="'+esc(g)+'" title="Watch the '+esc(g)+' videos in a row ('+nv+')" aria-label="Watch the '+esc(g)+' videos in a row">'+ico('play')+'</button>':'')+'<small>'+plural(all.length,'file')+'</small>'+
+// Reviewing: a new shot (a sequence) or asset (a prefix) here.
+(reviewing()&&state.tab!=='breakdown'?'<button type="button" class="btn g-new" data-new="'+esc(g)+'" title="A new '+(state.tab==='shot'?'shot in '+esc(g):'asset '+esc(g)+'_…')+', made at the review\'s import">+ '+(state.tab==='shot'?'shot':'asset')+'</button>':'')+'</span>'+
 (done!=null?'<span class="g-pct">'+dv(done,val)+'</span>':'<span class="g-pct faint">not tracked</span>')+
 '</div><div class="rows">'+(tr.length?head:'')+body+'</div></div>';}).join('');
 // The row or group that had the focus has it again (the keys go on),
@@ -344,6 +351,8 @@ if(!c||c.classList.contains('peek'))return;e.stopPropagation();e.preventDefault(
 $('list').addEventListener('click',function(e){var t;
 if(e.target.closest('[data-zoom]'))return;
 if((t=e.target.closest('[data-other]')))return setTab(t.dataset.other);
+if((t=e.target.closest('[data-new]'))){e.stopPropagation();return newFile(t.dataset.new);}
+if((t=e.target.closest('[data-unplan]'))){rv.creates.splice(+t.dataset.unplan,1);save();render();return;}
 if((t=e.target.closest('[data-gplay]'))){var gf=D.filter(function(x){return x.tab===state.tab&&x.group===t.dataset.gplay&&match(x)&&allVideos(x).length;})[0];
 if(gf){openPanel(gf.i);openWatch(true);}return;}
 if((t=e.target.closest('.row')))return openPanel(+t.dataset.i);
@@ -358,6 +367,33 @@ if(e.target.classList.contains('g-h')&&(e.key==='Enter'||e.key===' ')){e.prevent
 // A compact list's column names: each department's first letter, more of
 // it where an earlier one took it (Layout L, Lighting Li).
 function initials(deps){var out={},seen={};deps.forEach(function(d){var n=1,c;do{c=d.charAt(0).toUpperCase()+d.slice(1,n);n++;}while(seen[c]&&n<=d.length);seen[c]=1;out[d]=c;});return out;}
+// A new shot or asset, from the page: its name checked against the
+// project's naming (META.naming), planned until the review is imported.
+function newFile(g){var N=META.naming||{},shot=state.tab==='shot',SQ=N.sequence||{prefix:'sq',digits:3},SH=N.shot||{prefix:'sh',digits:3};
+var deps=META.departments[shot?'shot':'asset']||[],dl=$('dlg'),pick={};deps.forEach(function(d){pick[d]=true;});
+var pad=function(n,k){n=String(n);while(n.length<k)n='0'+n;return n;};
+dl.innerHTML='<div class="dlg-in start" role="dialog" aria-modal="true" aria-labelledby="nf-t"><h3 id="nf-t">New '+(shot?'shot in '+esc(g):'asset')+'</h3>'+
+(shot?'<div class="row3"><label>Shot<input id="nf-n" inputmode="numeric" placeholder="'+pad(90,SH.digits)+' (or '+pad(90,SH.digits)+'-'+pad(100,SH.digits)+')"></label><label>First frame<input id="nf-a" inputmode="numeric" value="'+esc(N.frame_start||1001)+'"></label><label>Last frame<input id="nf-b" inputmode="numeric" placeholder="optional"></label></div>':
+'<label>Name<input id="nf-n" placeholder="'+esc(g)+'_…"></label>')+
+'<label>Description<input id="nf-d" placeholder="What it is, for the team"></label>'+
+'<div class="st-l">Departments required</div><div class="req" id="nf-deps">'+deps.map(function(d){return '<button type="button" data-dep="'+esc(d)+'" aria-pressed="true">'+esc(cap(d))+'</button>';}).join('')+'</div>'+
+'<p class="st-w" id="nf-name"></p><p class="why" id="nf-why" hidden></p>'+
+'<div class="acts"><button class="btn" id="nf-cancel">Cancel</button><button class="btn primary" id="nf-go">Plan it</button></div></div>';
+dl.hidden=false;dl.onclick=function(e){if(e.target===dl)dl.hidden=true;};$('nf-n').focus();
+// Its name as it'll be: sq030_sh090, ch_bob.
+var label=function(){var v=$('nf-n').value.trim();if(shot){if(!/^\d+(-\d+)*$/.test(v))return '';return g+'_'+SH.prefix+v.split('-').map(function(x){return pad(+x,SH.digits);}).join('-');}
+var nm=v.toLowerCase().replace(/ /g,'-').replace(/[^a-z0-9-]/g,'').replace(/-{2,}/g,'-').replace(/^-|-$/g,'');return nm?g+'_'+nm:'';};
+var show=function(){var l=label();$('nf-name').textContent=l?'Will be '+l:'';};$('nf-n').addEventListener('input',show);
+dl.querySelectorAll('[data-dep]').forEach(function(b){b.onclick=function(){pick[b.dataset.dep]=!pick[b.dataset.dep];b.setAttribute('aria-pressed',String(pick[b.dataset.dep]));};});
+$('nf-cancel').onclick=function(){dl.hidden=true;};
+$('nf-go').onclick=function(){var l=label(),why=$('nf-why');why.hidden=true;
+var no=function(t){why.hidden=false;why.textContent=t;};
+if(!l)return no(shot?'A shot number, or several joined by "-" for a block.':'A name: letters, digits and "-".');
+if(D.some(function(it){return it.name===l;})||rv.creates.some(function(c){return c.label===l;}))return no(l+' exists already.');
+var a=+($('nf-a')||{}).value||null,b=+($('nf-b')||{}).value||null;if(shot&&a&&b&&b<a)return no('The last frame comes after the first.');
+var c={kind:shot?'shot':'asset',tab:state.tab,group:g,label:l,description:$('nf-d').value.trim(),departments:deps.filter(function(d){return pick[d];})};
+if(shot){c.sequence=g.slice(SQ.prefix.length);c.shot=$('nf-n').value.trim();c.frame_start=a;c.frame_end=b;}else{c.prefix=g;c.name=l.slice(g.length+1);}
+rv.creates.push(c);save();dl.hidden=true;render();countBar();toast(l+' planned: made when the review is imported.');};}
 function setTab(t){state.tab=t;drawTabs();render();}
 $('seg').addEventListener('click',function(e){var b=e.target.closest('button');if(b)setTab(b.dataset.tab);});
 $('depf').addEventListener('change',function(){state.dep=this.value;this.classList.toggle('on',!!state.dep);render();});
@@ -1055,7 +1091,7 @@ function countBar(){var c=summary();$('rv-n').textContent=c.files?plural(c.files
 var mb=document.querySelector('.chipf[data-f="mine"]');mb.hidden=!c.files;if(!c.files&&state.f.mine){state.f.mine=false;mb.setAttribute('aria-pressed','false');}
 document.querySelector('#rv-dl .cnt').textContent=c.files||'';$('rv-fabn').textContent=c.files||'';
 // The header while reviewing: who, as what, how much -- then Send.
-$('rv-sum').innerHTML=ico('review')+'<span>'+esc([rv.author||'Your name',rv.role,c.files?plural(c.files,'file'):'nothing yet'].filter(Boolean).join(' · '))+'</span>';}
+$('rv-sum').innerHTML=ico('review')+'<span>'+esc([rv.author||'Your name',rv.role,c.files?plural(c.files,'file'):c.creates?'':'nothing yet',c.creates?c.creates+' new':''].filter(Boolean).join(' · '))+'</span>';}
 // The bar folds into a round button (remembered by this browser), never
 // while it still needs a name.
 var FOLD=KEY+':folded';
@@ -1077,7 +1113,7 @@ $('rv-min').addEventListener('click',function(){if(document.body.classList.conta
 $('rv-fab').addEventListener('click',function(){if(document.body.classList.contains('rb-auto')&&!document.body.classList.contains('rb-folded'))document.body.classList.add('rb-peek');else fold(false);});
 function setReview(on){document.body.classList.toggle('reviewing',on);
 var folded=false;try{folded=localStorage.getItem(FOLD)==='1';}catch(e){}
-document.body.classList.toggle('rb-folded',on&&folded&&!!$('author').value.trim());showNotes=null;editing={};if(on&&!$('author').value&&!matchMedia('(pointer:coarse)').matches)$('author').focus({preventScroll:true});if(cur!=null)openPanel(cur);fitBar();}
+document.body.classList.toggle('rb-folded',on&&folded&&!!$('author').value.trim());showNotes=null;editing={};if(on&&!$('author').value&&!matchMedia('(pointer:coarse)').matches)$('author').focus({preventScroll:true});render();if(cur!=null)openPanel(cur);fitBar();}
 /* Review: start (or go on), first -- who, as what, what to go through. */
 // Each role, said: what reviewing as it does.
 function roleWords(r){return r==='team'?'Retakes and notes: no validation.':r===META.role?'Validates as the top role: what the figures count.':'Validates as '+r+': the top role validates after.';}
@@ -1120,7 +1156,7 @@ dl.hidden=false;$('ask-ok').focus({preventScroll:true});dl.onclick=function(e){i
 $('ask-no').onclick=function(){dl.hidden=true;};$('ask-ok').onclick=function(){dl.hidden=true;then();};}
 // Cleared: what was written for each file, here and in this browser's
 // copy -- the name and the role stay.
-function clearReview(){rv.files={};BOX={};editing={};save();render();if(cur!=null)openPanel(cur);toast('Review cleared.');}
+function clearReview(){rv.files={};rv.creates=[];BOX={};editing={};save();render();if(cur!=null)openPanel(cur);toast('Review cleared.');}
 $('rv-clear').addEventListener('click',function(){closeMenus();if(!summary().files)clearReview();
 else ask('Clear this review? What you wrote here is lost (a downloaded file is kept).','Clear it',clearReview);});
 $('author').addEventListener('input',function(){this.classList.remove('need');rv.author=this.value;save();});
@@ -1158,10 +1194,11 @@ replies(e).forEach(function(id){out.push({type:'reply',file:f,to:id,text:e.repli
 Object.keys(e.synced||{}).forEach(function(d){out.push({type:'still_done',file:f,department:d,text:''});});
 var add=Object.keys(e.req||{}).filter(function(d){return e.req[d];}),rem=Object.keys(e.req||{}).filter(function(d){return !e.req[d];});
 if(add.length||rem.length)out.push({type:'departments',file:f,add:add,remove:rem});
-if(omitChanged(it,e))out.push({type:'omit',file:f,state:e.omit.state,reason:e.omit.state?e.omit.reason||'':''});});return out;}
+if(omitChanged(it,e))out.push({type:'omit',file:f,state:e.omit.state,reason:e.omit.state?e.omit.reason||'':''});});
+(rv.creates||[]).forEach(function(c){out.push(Object.assign({type:'create',file:c.label},c));});return out;}
 // A review file read back into the page: its actions as the boxes,
 // ✓ / ✕, replies and fixes they came from.
-function fromActions(actions){var unknown={};(actions||[]).forEach(function(a){var it=byFile[a.file];if(!it){unknown[a.file]=1;return;}var e=entry(it);
+function fromActions(actions){var unknown={};(actions||[]).forEach(function(a){if(a.type==='create')return;var it=byFile[a.file];if(!it){unknown[a.file]=1;return;}var e=entry(it);
 var tag=function(){return (a.shot?'[sh'+a.shot+'] ':'')+(a.frames?'[f'+a.frames[0]+(a.frames[1]!=null?'-'+a.frames[1]:'')+'] ':'')+(a.type==='note'?'note: ':'');};
 var add=function(t,line){return (t?t.replace(/\s+$/,'')+NL:'')+line;};
 if(a.type==='validate')e.deps[a.department]={ok:1};
@@ -1173,7 +1210,8 @@ else if(a.type==='fixed')e.fixed[a.id]=1;
 else if(a.type==='description')e.desc=a.new;
 else if(a.type==='still_done')e.synced[a.department]=1;
 else if(a.type==='departments'){(a.add||[]).forEach(function(d){e.req[d]=true;});(a.remove||[]).forEach(function(d){e.req[d]=false;});}
-else if(a.type==='omit')e.omit={state:a.state||'',reason:a.reason||''};});return Object.keys(unknown).length;}
+else if(a.type==='omit')e.omit={state:a.state||'',reason:a.reason||''};});
+(actions||[]).forEach(function(a){if(a.type==='create'){var c=Object.assign({},a);delete c.type;delete c.file;c.label=a.file;rv.creates.push(c);}});return Object.keys(unknown).length;}
 // <project>_review_<YYYY-MM-DD_HH-MM>_<role>_<author>.json: two reviewers'
 // files side by side on a drive, never one over the other.
 function slug(t){return String(t||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');}
@@ -1190,6 +1228,7 @@ var SHARE=!!(navigator.share&&navigator.canShare&&matchMedia('(pointer:coarse)')
 function sendRecap(actions){var files=[],by={};actions.forEach(function(a){if(!by[a.file]){by[a.file]=[];files.push(a.file);}by[a.file].push(a);});
 var fl=function(a){return a.frames?'f'+a.frames[0]+(a.frames[1]!=null?'-'+a.frames[1]:'')+' ':'';};
 return files.map(function(f){var it=byFile[f],acts=by[f],parts=[],deps={};
+if(acts[0].type==='create'){var c=acts[0];return '<div class="rc"><b class="rc-n">'+esc(f)+'</b><span class="rc-p"><span class="rc-x">'+ico('review')+'new '+c.kind+(c.frame_start!=null?' · f'+c.frame_start+'-'+(c.frame_end!=null?c.frame_end:'?'):'')+(c.departments.length?' · '+esc(c.departments.map(cap).join(', ')):'')+(c.description?' · '+esc(c.description):'')+'</span></span></div>';}
 acts.forEach(function(a){if(a.type==='validate')deps[a.department]={ok:1};else if(a.type==='unvalidate'){deps[a.department]=deps[a.department]||{no:1,lines:[]};}
 else if((a.type==='rtk'||a.type==='note')){var d=(a.departments||[])[0]||' whole';(deps[d]=deps[d]&&deps[d].lines?deps[d]:{no:1,lines:[]}).lines.push(fl(a)+(a.type==='note'?'note: ':'')+a.text);}});
 Object.keys(deps).forEach(function(d){var v=deps[d],nm=d===' whole'?'Whole file':cap(d);
@@ -1254,13 +1293,13 @@ if(data.format!==META.format){toast('Not a review downloaded from a snapshot pag
 if(data.schema_version!==META.schema_version){toast('This review comes from another version of the snapshot: it can\'t be loaded here.');return;}
 var go=function(){if(summary().files)ask('Replace the review in progress with this one?','Replace it',load);else load();};
 if(data.project!==META.project)ask('This review is for '+data.project+', not '+META.project+'. Load it anyway?','Load it',go);else go();
-function load(){rv={author:data.author||'',role:data.role||'',date:data.review_date||'',files:{}};var unknown=fromActions(data.actions);
+function load(){rv={author:data.author||'',role:data.role||'',date:data.review_date||'',files:{},creates:[]};var unknown=fromActions(data.actions);
 $('author').value=rv.author;$('role').value=rv.role;sync('role');save();setReview(true);render();
 toast('Review of '+(rv.author||'?')+' loaded: '+plural(summary().files,'file')+(unknown?', '+unknown+' not on this page (renamed, or another snapshot)':'')+'.');}};
 rd.readAsText(file);})();}
 
 /* ---------- start ---------- */
-try{var kept=JSON.parse(localStorage.getItem(KEY)||'null');if(kept&&kept.files){rv=kept;rv.date=rv.date||'';
+try{var kept=JSON.parse(localStorage.getItem(KEY)||'null');if(kept&&kept.files){rv=kept;rv.date=rv.date||'';rv.creates=rv.creates||[];
 $('author').value=rv.author||'';$('role').value=rv.role||'';sync('role');
 if(summary().files){document.body.classList.add('reviewing');try{if(localStorage.getItem(FOLD)==='1'&&rv.author)document.body.classList.add('rb-folded');}catch(e){}setTimeout(function(){toast('Your review in progress is back (kept in this browser).');},300);}}}catch(e){}
 // The opening's motions (page.css "small motions"), once: not at each redraw.

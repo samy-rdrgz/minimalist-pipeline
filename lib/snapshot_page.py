@@ -125,6 +125,7 @@ def _meta(snapshot: dict) -> dict:
         "weights": meta.get("progress_weights") or {},
         "progress": meta.get("progress") or {},
         "validation": meta.get("validation") or {},
+        "naming": meta.get("naming") or {},
         "departments": {
             "shot": meta.get("shot_departments") or [],
             "asset": meta.get("asset_departments") or [],

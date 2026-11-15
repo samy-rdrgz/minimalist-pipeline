@@ -4388,7 +4388,16 @@ new}.
 - `create_tracking()` called again on a folder rebuilt its tracking.json
   from five keys -- omit, departments_synced and anything else were lost:
   the rest is kept now.
-- To come (4C, phase 6): create, assign.
+- Phase 4C, create {kind, sequence + shot or prefix + name, description,
+  frame_start, frame_end, departments}: *+ shot* on a sequence, *+ asset*
+  on a prefix while reviewing; the name checked against the project's
+  naming (`META.naming`, from the config) and what exists; planned in its
+  group (striped, `rv.creates`) until the import. The import doesn't make
+  files itself: `create_rows()` turns them into the CSV batch's rows and
+  `M_PIPELINE_OT_batch_create` (its `rows_json`, in place of a CSV) makes
+  them, one disposable Blender each -- one place creates files. The
+  reviewer and their role end its description ("asked by ...").
+- To come (phase 6): assign.
 
 ## Small gotchas, out of the docstrings
 

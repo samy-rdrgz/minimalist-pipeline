@@ -1,6 +1,7 @@
 """Tracking operators: CRUD on note/todo/rtk entries, prod snapshot export and review import, Project monitoring."""
 
 import hashlib
+import json
 import os
 from pathlib import Path, PurePath
 from types import SimpleNamespace
@@ -61,6 +62,8 @@ from ..lib import (
     region_char_budget,
     report_error,
     resolve_ffmpeg,
+    create_rows,
+    read_review,
     review_description_changes,
     review_import_plan,
     sequence_items,
@@ -775,6 +778,7 @@ class M_PIPELINE_OT_import_review_confirm(bpy.types.Operator):
                 + (f", {plan['fixed']} retake(s) fixed" if plan["fixed"] else "")
                 + (f", {plan['replies']} reply(ies)" if plan["replies"] else "")
                 + (f", {plan['changes']} file change(s)" if plan.get("changes") else "")
+                + (f", {plan['creates']} to create" if plan.get("creates") else "")
                 + (f", {len(plan['refused'])} not applied" if plan["refused"] else ""),
             )
             return
@@ -901,11 +905,24 @@ def _run_review_import(self, pending: list[tuple[Path, dict]]) -> set:
                 changes[change["filepath"]] = change
         except PipelineError as e:
             log(e.level, "review_import", e.message)
+    # New shots and assets: made by the CSV batch's engine, one disposable
+    # Blender each, in the background (M_PIPELINE_OT_batch_create).
+    to_create = {"asset": [], "shot": []}
+    for path, _ in pending:
+        try:
+            for kind, rows in create_rows(read_review(path)).items():
+                to_create[kind] += rows
+        except PipelineError as e:
+            log(e.level, "review_import", e.message)
+    for kind, rows in to_create.items():
+        if rows:
+            bpy.ops.m_pipeline.batch_create("EXEC_DEFAULT", kind=kind, rows_json=json.dumps(rows))
+    created = sum(len(r) for r in to_create.values())
     # Notes and validations across the project: the folders changed are
     # read again in the background (ProjectScan reads only those).
     ProjectScan.start(get_active_project_root())
     _description_changes[:] = list(changes.values())
-    if not (any(result.values()) or _description_changes):
+    if not (any(result.values()) or _description_changes or created):
         # Nothing at all: most likely the blank template, not the
         # filled-in one sent back.
         names = ", ".join(p.name for p in paths)
@@ -924,6 +941,8 @@ def _run_review_import(self, pending: list[tuple[Path, dict]]) -> set:
         lines.append(f"{result['replies']} reply(ies) added to their notes")
     if result["changed"]:
         lines.append(f"{result['changed']} file change(s): still done, departments, set aside")
+    if created:
+        lines.append(f"{created} new shot(s) / asset(s): being created in the background")
     # A review imported again: say what was there already, left as it is.
     already = [
         f"{result['duplicates']} note(s) / reply(ies)" if result["duplicates"] else "",
