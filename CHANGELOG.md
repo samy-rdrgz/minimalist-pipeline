@@ -20,7 +20,10 @@ All notable changes to this addon. Dates are release dates.
 - *Open in browser* (Project panel, Pipeline menu): the project's page
   served by Blender to this machine's browser, kept up to date -- the
   snapshot's page, live; a pill says connected, Blender busy or
-  disconnected (it reconnects by itself). Read only for now.
+  disconnected (it reconnects by itself). It reviews as you: what you do
+  on it (validate, retakes, notes, replies, fixed, assignees, file
+  settings, descriptions, new shots) is applied in the project at once,
+  under Blender's user name and role.
 - Edit project: *Rename preset…* renames a render preset and everything
   citing it (default pre-render script, renders' history, the farm's
   paces), its past renders optionally given the new name's department;

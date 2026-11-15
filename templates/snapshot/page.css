@@ -1089,3 +1089,4 @@ earlier: under "N closed", the same. */
 .lvp.on::before{background:var(--done)}
 .lvp.busy{color:var(--wip)}.lvp.busy::before{background:var(--wip)}
 .lvp.off{color:var(--rtk)}.lvp.off::before{background:var(--rtk)}
+body.live #rv-send{display:none}

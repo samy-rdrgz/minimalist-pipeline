@@ -1,7 +1,7 @@
 """The live page (plan 2.8, phase 4b): Blender serves the snapshot page to
-this machine's browser, kept up to date. Read only for now (4b.1): the page
-shows the project as it is, its review is still downloaded and imported.
-See NOTES.md, "Live page".
+this machine's browser, kept up to date; what's done on it (validate, a
+retake, a reply...) sent back as the review's typed actions, applied at
+once as an imported review would be. See NOTES.md, "Live page".
 
 - A server (ThreadingHTTPServer) on 127.0.0.1 only, its token in every
   URL, the Host checked: no other site open in the browser can call it.
@@ -12,6 +12,9 @@ See NOTES.md, "Live page".
   page's data from it (build_snapshot() reads ConfigCache) and bumps the
   version when it changed. The server's threads only hand out what's ready.
 - Videos served from renders/ with Range (to seek), never a path out of it.
+- Actions: POSTed, queued, applied on Blender's turn by import_review()
+  (idempotent: one sent twice changes nothing), then a pass over the
+  project; answered once the data showing them is ready, with its version.
 """
 
 import base64
@@ -19,6 +22,7 @@ import hmac
 import json
 import mimetypes
 import os
+import queue
 import re
 import secrets
 import threading
@@ -63,9 +67,20 @@ class _Shared:
         self.stopped = False
 
 
+class _Pending:
+    """A page's actions, from the server's thread to Blender's turn and back."""
+
+    def __init__(self, review: dict):
+        self.review = review
+        self.done = threading.Event()
+        self.result: dict = {}
+
+
+_actions: queue.SimpleQueue = queue.SimpleQueue()
 _shared: _Shared | None = None
 _server = None
-_reader = {"thread": None, "result": None, "at": 0.0, "farm_at": 0.0, "cache": {}, "farm": None, "compare": None, "ready": False}
+_reader = {"thread": None, "result": None, "at": 0.0, "farm_at": 0.0, "cache": {}, "farm": None, "compare": None, "ready": False,
+           "waiting": [], "in_pass": []}
 
 
 def running() -> bool:
@@ -178,6 +193,14 @@ def _turn(sh: _Shared) -> None:
         sh.root = Path(root)
         _reader.update(cache={}, result=None, compare=None, ready=False)
     clock = time.monotonic()
+    # The page's actions, applied now; answered after the next pass.
+    while True:
+        try:
+            pending = _actions.get_nowait()
+        except queue.Empty:
+            break
+        pending.result = _apply(sh.root, pending.review)
+        _reader["waiting"].append(pending)
     thread = _reader["thread"]
     if _reader["result"] is not None and not (thread and thread.is_alive()):
         cache, changed = _reader["result"]
@@ -185,12 +208,20 @@ def _turn(sh: _Shared) -> None:
         _reader["cache"] = cache
         _reader["ready"] = True
         _rebuild(sh, force=changed)
+        for pending in _reader["in_pass"]:
+            pending.result["version"] = sh.version
+            pending.done.set()
+        _reader["in_pass"] = []
     elif clock - _reader["farm_at"] > 1.0:
         _reader["farm_at"] = clock
         _rebuild(sh, force=False)  # the farm moves on its own
     if (thread is None or not thread.is_alive()) and _reader["result"] is None and (
-        clock - _reader["at"] >= READ_EVERY and clock - sh.last_seen < IDLE_AFTER or sh.data is None
+        clock - _reader["at"] >= READ_EVERY and clock - sh.last_seen < IDLE_AFTER
+        or sh.data is None
+        or _reader["waiting"]
     ):
+        _reader["in_pass"] += _reader["waiting"]
+        _reader["waiting"] = []
         config = ConfigCache.get() or {}
         _reader["at"] = clock
         _reader["thread"] = threading.Thread(
@@ -202,12 +233,71 @@ def _turn(sh: _Shared) -> None:
         _reader["thread"].start()
 
 
+def _with_window(op, *args, **kwargs):
+    """An operator from a timer: no window in its context, give it one."""
+    windows = bpy.context.window_manager.windows
+    if not windows:
+        return op(*args, **kwargs)
+    with bpy.context.temp_override(window=windows[0]):
+        return op(*args, **kwargs)
+
+
+def _apply(root: Path, raw: dict) -> dict:
+    """A page's actions, written into the project as an imported review's
+    (lib/review_import.py: the same checks, the same idempotence), its
+    descriptions and new files too. {"ok", "imported", "validated",
+    "fixed", "replies", "changed", "skipped": [[label, reason]]} or
+    {"ok": False, "error"}."""
+    from .errors import PipelineError
+    from .monitoring import status_changed
+    from .review_import import _action, _review_file, create_rows, import_review, parse_review_date
+    from .snapshot import SCHEMA_VERSION
+    from .tracking import ProjectScan, set_description
+
+    actions = [a for a in map(_action, raw.get("actions") or []) if a]
+    review = {
+        "schema_version": SCHEMA_VERSION,
+        "author": str(raw.get("author") or "").strip(),
+        "role": str(raw.get("role") or "").strip().lower(),
+        "review_date": parse_review_date(str(raw.get("review_date") or "")),
+        "actions": actions,
+    }
+    try:
+        out = import_review(Path("live page"), review)
+    except PipelineError as e:
+        log(e.level, "live", f"Live page: not applied: {e.message}")
+        return {"ok": False, "error": e.message}
+    for a in actions:
+        if a["type"] == "description" and a.get("new") and a["new"] != a["old"]:
+            filepath = _review_file(a["file"])
+            if filepath:
+                try:
+                    set_description(filepath, a["new"])
+                    status_changed(filepath)
+                    out["changed"] += 1
+                except PipelineError as e:
+                    out["skipped"].append((a["file"], e.message))
+    for kind, rows in create_rows(review).items():
+        if rows:
+            _with_window(bpy.ops.m_pipeline.batch_create, "EXEC_DEFAULT", kind=kind, rows_json=json.dumps(rows))
+    ProjectScan.start(root)
+    log(
+        "INFO",
+        "live",
+        f"Live page, {review['author'] or '?'} ({review['role'] or 'team'}): {out['imported']} note(s), "
+        f"{out['validated']} validation(s), {out['fixed']} fixed, {out['replies']} reply(ies), "
+        f"{out['changed']} change(s), {len(out['skipped'])} skipped",
+    )
+    return {"ok": True, **{k: out[k] for k in ("imported", "validated", "fixed", "replies", "changed")},
+            "skipped": [list(s) for s in out["skipped"]]}
+
+
 def _rebuild(sh: _Shared, force: bool) -> None:
     """The page's data from the last pass and the farm's jobs (memory
     only): a new version when it differs."""
     from ..farm.loop import farm_activity
     from .config import ConfigCache
-    from .session import get_user
+    from .session import get_user, get_user_role
 
     if not _reader["ready"]:
         return  # nothing read yet: no empty page
@@ -221,7 +311,8 @@ def _rebuild(sh: _Shared, force: bool) -> None:
         "scan_started_at": now(),
         "exported_by": get_user(bpy.context),
         "addon_version": get_addon_version(),
-        "live": {"token": sh.token},
+        # Who writes from the page: Blender's user and role (Preferences).
+        "live": {"token": sh.token, "user": get_user(bpy.context), "role": get_user_role(bpy.context) or "team"},
         # Played from the project, through the server.
         "videos": {"mode": "live", "base": None, "files": [], "local": f"media/{sh.token}/renders"},
     }
@@ -282,6 +373,31 @@ def _handler(sh: _Shared):
                     self._send(404, b"not found", "text/plain")
             except (BrokenPipeError, ConnectionResetError):
                 pass  # the browser let go (a seek, another video): normal
+
+        def do_POST(self):
+            parsed = urlparse(self.path)
+            q = {k: v[0] for k, v in parse_qs(parsed.query).items()}
+            if not self._allowed(q.get("t", "")):
+                return self._send(403, b"forbidden", "text/plain")
+            if parsed.path != "/action":
+                return self._send(404, b"not found", "text/plain")
+            length = int(self.headers.get("Content-Length") or 0)
+            if not 0 < length < 4 * 1024 * 1024 or "json" not in (self.headers.get("Content-Type") or ""):
+                return self._send(400, b"bad request", "text/plain")
+            try:
+                raw = json.loads(self.rfile.read(length))
+            except ValueError:
+                return self._send(400, b"bad request", "text/plain")
+            with sh.lock:
+                sh.last_seen = time.monotonic()
+            pending = _Pending(raw if isinstance(raw, dict) else {})
+            _actions.put(pending)
+            # Blender's turn, then a pass over the project: the data that
+            # shows them. Blender busy longer: the page sends them again
+            # (applying twice changes nothing).
+            if not pending.done.wait(60):
+                return self._send(504, json.dumps({"ok": False, "error": "Blender didn't answer"}).encode(), "application/json")
+            self._send(200, json.dumps(pending.result).encode(), "application/json")
 
         def _page(self):
             with sh.changed:
@@ -384,7 +500,8 @@ def start(root: Path) -> str:
     server.daemon_threads = True
     threading.Thread(target=server.serve_forever, name="pipeline-live", daemon=True).start()
     _shared, _server = sh, server
-    _reader.update(thread=None, result=None, at=0.0, farm_at=0.0, cache={}, farm=None, compare=None, ready=False)
+    _reader.update(thread=None, result=None, at=0.0, farm_at=0.0, cache={}, farm=None, compare=None, ready=False,
+                   waiting=[], in_pass=[])
     # persistent: kept when a file is opened.
     if not bpy.app.timers.is_registered(_tick):
         bpy.app.timers.register(_tick, first_interval=0.0, persistent=True)

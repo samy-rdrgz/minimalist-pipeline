@@ -5081,9 +5081,9 @@ hash of the preset's name (`farm/monitor.py _file_key()`).
 ## Live page
 
 Blender serves the snapshot page to this machine's browser and keeps it up
-to date (plan 2.8, phase 4b; `lib/live.py`, `operators/live_ops.py`). Read
-only so far (4b.1): its review is still downloaded and imported. Tried
-first with `tools/live_prototype.py` (4b.0, measures in the plan).
+to date (plan 2.8, phase 4b; `lib/live.py`, `operators/live_ops.py`), and
+applies what's done on it. Tried first with `tools/live_prototype.py` (4b.0,
+measures in the plan).
 
 - **One page for both**: `render_page(data)` (`lib/snapshot_page.py`)
   writes the snapshot and serves the live one; `meta.live`
@@ -5115,3 +5115,20 @@ first with `tools/live_prototype.py` (4b.0, measures in the plan).
   video was still being downloaded (112 MB in the prototype).
 - **The review's key** is the project's plus "live", not the data's
   date (which changes with each version).
+- **Actions: the review's, sent as they're made** (4b.2). The live page is
+  always in review, as Blender's user and role (`meta.live`; no role: the
+  team). `save()` -- called after each change -- sends `exportActions()`
+  300 ms later (`liveSend()`), not while the description or a set-aside
+  reason is being typed. Blender applies them with `import_review()`
+  (refactored to take a review already read): the same checks, and
+  idempotent -- a batch sent again after a timeout changes nothing; the
+  descriptions and new files as the import's operator does. The POST is
+  answered after the next pass over the project, with the version that
+  shows them (~1-2 s on the NAS); the page drops them from its review only
+  once that version is in, so the YOU tags never blink off before the
+  real state shows. A change made while a batch is on its way: sent after,
+  the actions already sent left out (`LIVE_OUT.sent`, by file).
+- **A box being written in survives new data**: the composer's and a
+  reply's text live in the page (`editing`), the panel redrawn under them,
+  the focus and caret put back; any other field defers the new data until
+  it's left.

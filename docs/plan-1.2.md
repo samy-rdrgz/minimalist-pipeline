@@ -50,7 +50,7 @@ Dont **+439 lignes de code** pour le script de migration (`lib/migration.py` 307
 - **Testé dans Blender** : *Migrate old data* (deux fois, dates comprises, projet `alive`), la 2b (zones, raccourcis), la molette et « waiting for a worker » de la 1.1.10.
 - **Les tests sont dans `tests/`**, suivis par git (exclus du zip par le manifest) : `test_dates.py`, `test_snapshot_folders.py`. `test_migration.py`, perdu, est à réécrire avant la phase 3.
 
-**Ordre de travail** : 4b.1 (lecture seule) faite le 15/11, à tester dans Blender ; puis 4b.2 (les actions), 4b.3. La 5b (le son) en tout dernier. Une seule sortie à la fin, la 2.0.0 (section 5).
+**Ordre de travail** : 4b.1 (lecture seule) et 4b.2 (les actions, envoyées à chaque changement : la page toujours en review, au nom de l'utilisateur et du rôle de Blender) faites le 15/11, à tester dans Blender ; reste dans 4b.2 l'ouverture d'un fichier depuis la page et le lecteur externe ; puis 4b.3. La 5b (le son) en tout dernier. Une seule sortie à la fin, la 2.0.0 (section 5).
 
 **Comment tester sans Blender** (aucun Blender dans les sessions cloud) :
 - **Importer tout l'addon avec un faux `bpy`** : chaque module `bpy*`, `mathutils`, `gpu`, `blf`, `bmesh`… remplacé par un `MagicMock`, sauf `bpy.types`, à remplacer par un module dont chaque attribut est une classe vide (sinon `class X(bpy.types.Panel)` échoue). Puis `import <paquet>` depuis un dossier qui pointe vers le dépôt. Ça attrape les imports cassés et les noms manquants dans les `__init__`.

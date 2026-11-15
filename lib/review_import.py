@@ -466,14 +466,16 @@ def _note_key(text, shot, f_start, f_end, departments) -> tuple:
     )
 
 
-def import_review(path: Path) -> dict:
+def import_review(path: Path, review: dict | None = None) -> dict:
     """Write a review into the project (review_import_plan() says what),
     each action by its type: the retakes marked fixed closed, the replies
     in their threads, the validations, one entry per rtk / note under its
     role. One already imported is skipped. Returns {"imported",
     "duplicates", "validated", "same_validations", "fixed",
-    "already_fixed", "replies", "changed", "skipped": [(label, reason)]}."""
-    review = read_review(path)
+    "already_fixed", "replies", "changed", "skipped": [(label, reason)]}.
+    review: read_review()'s, already read -- the live page's actions (path
+    a label then)."""
+    review = review or read_review(path)
     plan = review_import_plan(path, review)
     team = plan["team"]
     role = None if team else plan["role"] or None
