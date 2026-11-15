@@ -4704,15 +4704,18 @@ started and Done reworked shared one icon.
 - A render's line in File details: its buttons first, blanks for the
   missing ones (`_render_row()` slots), then its words -- after them,
   they moved with a department's name.
-- The log's columns a fixed width each (`_CELLS`, ui_units_x), expanded:
-  nested splits let the message start move with the action's length, and
-  a LEFT-aligned cell shrinks to its words (a time's digits differ).
+- The log's columns a fixed width each (`_CELLS`, ui_units_x): the line
+  LEFT-aligned, its cells not. In a row that stretches, ui_units_x is only
+  a weight (the columns moved with their words); a LEFT-aligned cell
+  shrinks to its words (a time's digits differ). Nested splits had let
+  the message's start move with the action's length.
 - The three windows drawn by the same functions (`lib/monitoring.py`):
   `monitor_filters()` (one boxed row, its title a sixth; stacked rows
   narrowed beside a detail, `next_row()`), `end_filters()` (full screen,
   the space before the list), `monitor_footer()` (what's shown greyed,
   the legend after it not greyed -- a sibling row, a child can't undo its
-  parent's `active = False` --, bulk buttons at the right of the left
+  parent's `active = False`; its button's row not LEFT, or the menu
+  shrinks to "Leg..." --, bulk buttons at the right of the left
   part, the pager against the edge) and `legend_button()`. Drawn apart,
   each window had drifted: Farm's filters on two rows with their title
   half the width, its legend cut, its buttons moved. Farm's jobs are

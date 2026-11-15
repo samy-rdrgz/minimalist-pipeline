@@ -742,7 +742,6 @@ def monitor_footer(context, layout) -> tuple:
     info = start.row()
     info.active = False
     legend = start.row(align=True)
-    legend.alignment = "LEFT"
     end = parts.row()
     end.alignment = "RIGHT"
     return info, legend, end, pager
@@ -751,8 +750,9 @@ def monitor_footer(context, layout) -> tuple:
 def legend_button(layout, menu: str) -> None:
     """The legend behind a button (a menu, lib/ui.py draw_legend()),
     wide enough for its word."""
-    layout.ui_units_x = 5
-    layout.menu(menu, text="Legend", icon="INFO")
+    button = layout.row()
+    button.ui_units_x = 5  # its word whole, not "Leg..."
+    button.menu(menu, text="Legend", icon="INFO")
 
 
 def draw_pager(layout, page: int, pages: int) -> None:

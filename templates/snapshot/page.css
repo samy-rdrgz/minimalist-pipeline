@@ -68,7 +68,7 @@ status bar at each tap, and the page moved by 20 px each time. */
 /* The glow held to the window (fixed): on the body, a short page (all
 folded) pulled it up behind a header drawn as a grey band. */
 html{background:var(--bg)}
-body{margin:0;background:radial-gradient(1200px 500px at 15% -20%,var(--glow) 0%,transparent 70%) fixed no-repeat,radial-gradient(circle,var(--dot) 1px,transparent 1.4px) 0 0/18px 18px fixed,var(--bg);color:var(--ink);font:14px/1.45 var(--ui);font-variant-numeric:tabular-nums;padding-top:var(--sat)}
+body{margin:0;background:radial-gradient(1200px 500px at 15% -20%,var(--glow) 0%,transparent 70%) fixed no-repeat,radial-gradient(circle,var(--dot) 1.4px,transparent 1.9px) 0 0/28px 28px fixed,var(--bg);color:var(--ink);font:14px/1.45 var(--ui);font-variant-numeric:tabular-nums;padding-top:var(--sat)}
 /* Under an iPad's / a phone's status bar (the page runs under it,
 viewport-fit=cover): a band of the page's background, the page and the
 sticky bar starting below it. 0 wherever nothing covers the page. */
@@ -87,7 +87,7 @@ noscript p{margin:40px auto;max-width:520px;text-align:center}
 .hdr{position:sticky;top:var(--sat);z-index:22;margin:0 -20px;padding:10px 20px}
 /* A ground under the header and the filters once the list scrolls under
 them; none at the top, on the glow. */
-.hdr.stuck,.hdr.stuck~.sec .bar{background:radial-gradient(1200px 500px at 15% -20%,var(--glow) 0%,transparent 70%) fixed no-repeat,radial-gradient(circle,var(--dot) 1px,transparent 1.4px) 0 0/18px 18px fixed,var(--bg)}
+.hdr.stuck,.hdr.stuck~.sec .bar{background:radial-gradient(1200px 500px at 15% -20%,var(--glow) 0%,transparent 70%) fixed no-repeat,radial-gradient(circle,var(--dot) 1.4px,transparent 1.9px) 0 0/28px 28px fixed,var(--bg)}
 .top{display:flex;align-items:center;gap:10px 16px;flex-wrap:wrap}
 .title{display:flex;align-items:baseline;gap:8px;min-width:0}
 h1{font:700 18px/1.2 var(--ui);margin:0;letter-spacing:-.01em;overflow-wrap:break-word}

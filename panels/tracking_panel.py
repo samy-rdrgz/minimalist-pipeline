@@ -1512,7 +1512,6 @@ def _draw_farm_cell(cell, dir, file, jobs: list) -> None:
     icons = cell.row(align=True)
     icons.alignment = "RIGHT"
     icons.scale_x = 0.9  # icons close together
-    icons.scale_y = 0.9  # icons close together
     # An older render to check comes before the shot's new job.
     items = [(shot, 0, info) for shot, info in renders]
     items += [(job["shot"], 1, job) for job in jobs]

@@ -231,10 +231,12 @@ def _line(layout) -> tuple:
     """(time, user, action, message) cells of one log line: the first three
     a fixed width (_CELLS, widget units), the message the rest -- splits
     left the message's start moving with the action's length."""
+    # The line LEFT: each cell keeps its ui_units_x exactly (in a row that
+    # stretches, ui_units_x is only a weight); the cells themselves not
+    # LEFT, or they shrink to their words (a time's digits differ).
     line = layout.row(align=False)
+    line.alignment = "LEFT"
     cells = []
-    # Expanded, not LEFT: a left-aligned cell shrinks to its words, and a
-    # time's digits are not all one width.
     for units in _CELLS:
         cell = line.row()
         cell.ui_units_x = units
