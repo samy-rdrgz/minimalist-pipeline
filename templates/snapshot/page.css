@@ -315,13 +315,15 @@ mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='
 .s-done::before{background:var(--done)}
 .s-sup{color:#3D2340}.s-sup::before{background:var(--sup)}
 .s-prod{color:#fff}.s-prod::before{background:var(--val-f)}
-/* Waiting on an earlier stage, to redo: a mark on the diamond, its state
-whole under it -- a clock top right, an orange dot top left. Validated on
-an older stable: a dashed violet ring round it. */
-.mk{position:absolute;top:-3px;z-index:2;width:11px;height:11px;border-radius:50%;box-sizing:border-box;pointer-events:none}
-.mk-wait{right:-3px;display:flex;align-items:center;justify-content:center;background:var(--surface);border:1.5px solid var(--ink-3);color:var(--ink-2)}
-.mk-wait .ico{width:7px;height:7px}
-.mk-redo{left:0;width:9px;height:9px;top:0;background:var(--wip);box-shadow:0 0 0 2px var(--surface)}
+/* Waiting on an earlier stage, to redo: a clock, an orange arrow in the
+diamond's place, the state a small diamond on its corner (.pz). Validated
+on an older stable: a dashed violet ring round the diamond. */
+.cap .g.fl::before,.m.fl::before{display:none}
+.g.fl,.m.fl{color:var(--ink-2)}.g.fl-redo,.m.fl-redo{color:var(--wip)}
+.fl .fi{width:17px;height:17px}
+.pz{position:absolute;right:-2px;bottom:-2px;width:11px;height:11px;border-radius:50%;background:var(--surface)}
+.pz::before{content:"";position:absolute;left:2.5px;top:2.5px;width:6px;height:6px;border-radius:1.5px;transform:rotate(45deg);box-sizing:border-box}
+.pz.s-rework::before{border:1.5px solid var(--wip);background:linear-gradient(135deg,transparent 50%,var(--wip) 50%) border-box}
 .mk-old{position:absolute;left:1.5px;top:1.5px;width:19px;height:19px;border:1.5px dashed var(--val-f);border-radius:4px;transform:rotate(45deg);box-sizing:border-box;pointer-events:none}
 .m.na::before{display:none}
 /* An open retake: a post-it under the diamond's left, straight, on one
@@ -861,15 +863,16 @@ range a blue bar above -- a click goes there. */
 .ft-b.rg{background:var(--range);color:#0E1A33}
 .thr{display:grid;gap:10px}
 .av.none{visibility:hidden}
-/* A thread's actions: once, under its last reply, on hover or focus --
-always on a touch screen, as icons (page.js noteHtml()). */
-.th-a{display:flex;gap:6px;margin:-4px 0 0 36px}
-.th-a>button{opacity:0;transition:opacity .15s}
-.thr:hover .th-a>button,.thr:focus-within .th-a>button,.th-a>button[aria-pressed="true"]{opacity:1}
-@media (hover:none){.thr .th-a>button{opacity:1;width:32px;min-width:32px;height:32px;padding:0}.th-a .lbl{display:none}}
-.th-a button{width:auto;height:auto;min-height:28px;padding:0 10px;border:1px solid var(--line);border-radius:var(--r-btn);background:none;color:var(--ink-2);font-size:12px;white-space:nowrap}
-@media (pointer:coarse){.th-a button{min-height:36px}}
-.th-a .fx[aria-pressed="true"]{background:var(--val-f);color:#fff;border-color:var(--val-f)}
+/* Fixed: a small toggle in the thread's head; Reply: a quiet field under
+the thread (page.js noteHtml()). */
+.fx2{height:18px;padding:0 6px;border:1px dashed var(--line2);border-radius:4px;background:none;color:var(--ink-3);font:600 11px/16px var(--ui);cursor:pointer}
+.fx2:hover{color:var(--ink);border-style:solid}
+.fx2[aria-pressed="true"]{background:var(--val-f);border:1px solid var(--val-f);color:#fff}
+@media (pointer:coarse){.fx2{height:28px;padding:0 10px}}
+.rp-ghost{display:flex;align-items:center;gap:6px;width:calc(100% - 36px);margin:-4px 0 0 36px;min-height:30px;padding:0 10px;border:1px solid transparent;border-radius:var(--r-btn);
+background:color-mix(in srgb,var(--field) 60%,transparent);color:var(--ink-3);font-size:12px;text-align:left;cursor:text}
+.rp-ghost:hover,.rp-ghost:focus-visible{border-color:var(--line2);color:var(--ink-2)}
+.rp-ghost .ico{width:12px;height:12px;opacity:.7}
 .more-notes{justify-self:start;border:0;background:none;padding:2px 0;color:var(--ink-3);font-size:12px;cursor:pointer}
 .more-notes:hover{color:var(--ink)}
 /* Your retake: under its department, bordered in your colour. */
@@ -895,7 +898,7 @@ always on a touch screen, as icons (page.js noteHtml()). */
 .send-f{display:flex;align-items:center;gap:8px;margin:12px 0 4px;font-size:12px}
 .send-f code{font:12px var(--mono);overflow-wrap:anywhere}
 .send-why{margin:0 0 12px;font-size:12px;color:var(--ink-2)}
-.dlg .acts .ico,.th-a .ico{width:14px;height:14px;margin-right:6px}
+.dlg .acts .ico{width:14px;height:14px;margin-right:6px}
 #d-clear{color:var(--ink-2)}
 @media (max-width:560px){.dlg .row3{grid-template-columns:1fr 1fr}.dlg .row3 label:first-child{grid-column:1/-1}.rc{grid-template-columns:1fr}}
 
@@ -958,7 +961,7 @@ body:not(.reviewing) .rv-only{display:none}
 @media (max-width:560px){.st-go{grid-template-columns:1fr}}
 
 /* ---------- Blender's widgets: an outline, a flat shade under them ---------- */
-.btn,.chipf,.depf,.vb,.rvb button,.th-a button,.segb,.st-go button,.wl-b,.g-play{border:1px solid var(--outline)!important;box-shadow:0 var(--emb-y) 0 var(--emboss)}
+.btn,.chipf,.depf,.vb,.rvb button,.segb,.st-go button,.wl-b,.g-play{border:1px solid var(--outline)!important;box-shadow:0 var(--emb-y) 0 var(--emboss)}
 .segb button{border-left-color:var(--outline)}
 .seg button{min-height:0;height:calc(var(--tap) - 6px);color:var(--ink-2)}
 .seg button[aria-pressed="true"]{background:var(--btn);color:var(--ink);box-shadow:0 var(--emb-y) 0 var(--emboss)}
@@ -969,8 +972,6 @@ filled once on. */
 .rvb button:not(:disabled):hover,.rvb .ko-b:not(:disabled):hover{box-shadow:0 var(--emb-y) 0 var(--emboss);filter:brightness(1.15)}
 .rvb .ok-b[aria-pressed="true"]{background:var(--val-f);color:#fff}
 .rvb .ko-b[aria-pressed="true"]{background:var(--rtk-f);color:#fff}
-.th-a button{background:var(--btn);color:var(--ink)}
-.th-a .fx[aria-pressed="true"]{background:var(--sel);color:#fff}
 @media (pointer:coarse){.rvb button{width:44px;height:44px}}
 
 /* Scrollbars in the page's colours (the system's showed white on dark). */

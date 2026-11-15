@@ -43,7 +43,7 @@ Multishot blocks can tag a note/todo with which shot in the block it's about —
 
 - **Waiting**: an earlier stage has an open RTK, or isn't started -- *Waiting: layout RTK*, *Waiting: layout not started*. Shown instead of the department's state in Project monitoring; its own state stays in the tooltip.
 - **To redo**: a department already started whose earlier stage changed after its last update -- an RTK on that stage closed, or a stable made with it reworked -- *To redo: layout changed on 12/11*. Its last update: a save in a session where it was ticked as worked, or **Still done**.
-- **Where**: Project monitoring's cells (a legend in its footer once the project has stages), File details' departments, the sidebar's *Working on* toggles. On the snapshot page, a small mark on the diamond, its state whole under it: a clock top right (Waiting), an orange dot top left (To redo); the reason under the department's name in the file's panel.
+- **Where**: Project monitoring's cells (a legend in its footer once the project has stages), File details' departments, the sidebar's *Working on* toggles. On the snapshot page, a clock (Waiting) or an orange arrow (To redo) in the diamond's place, the state a small diamond on its corner; the reason under the department's name in the file's panel.
 - **Still done** (File details, or the ✓ beside a toggle in the sidebar, on a department to redo, open to everyone): the work done holds after the change -- recorded with who and when, and an optional why; not a validation.
 
 ## On hold and Cancelled

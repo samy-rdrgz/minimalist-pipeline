@@ -29,10 +29,11 @@ All notable changes to this addon. Dates are release dates.
   per department under its initials), the header and filters compact,
   the file the whole screen with Previous / Next at the bottom, a first
   tap on a diamond for its words.
-- Snapshot page, corrections: Waiting and To redo a mark on the diamond
-  (a clock, an orange dot), its state whole; your review's tags in the
+- Snapshot page, corrections: Waiting and To redo a clock, an orange
+  arrow in the diamond's place, the state a small diamond on it; your review's tags in the
   action's colour (✓ violet, ✕ red), + / − a department required or not
-  any more, Still done in the list; a thread's Reply / Fixed on hover;
+  any more, Still done in the list; a thread's Reply a quiet field under it, Fixed a toggle in its
+  head; a set-aside change shown in the list;
   the filters on one line that scrolls; On hold, Cancelled and untracked
   files hidden until shown, a line per sequence; dates relative, else
   day/month/year; the send window's role as buttons; a planned file's

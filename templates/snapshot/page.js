@@ -59,12 +59,11 @@ function mark(s){return s?'<i class="m s-'+s+'" title="'+LABEL[s]+'"></i>':'<i c
 // else its state.
 function validAt(it,d){var o=it.ok[d];return it.states[d]==='done'&&o&&!o.old?o:null;}
 function symCls(it,d){var o=validAt(it,d);return o?(o.role===META.role?'s-prod':'s-sup'):'s-'+it.states[d];}
-// Waiting on an earlier stage, to redo since one changed: a mark on the
-// diamond (its state whole under it) -- a clock top right, a dot top left.
-// Validated on an older stable: a dashed violet ring round it.
-// Said still done in your review: no to redo mark.
-function marks(it,d){var f=(it.flags||{})[d]||{},o=it.ok[d];
-return (f.waiting?'<span class="mk mk-wait">'+ico('time')+'</span>':'')+(f.to_redo&&!peek(it).synced[d]?'<span class="mk mk-redo"></span>':'')+(o&&o.old?'<span class="mk-old"></span>':'');}
+// Waiting on an earlier stage, to redo since one changed (not said still
+// done in your review): the clock or the arrow in the diamond's place, its
+// state a dot on it. Validated on an older stable: a dashed violet ring.
+function flagOf(it,d){var f=(it.flags||{})[d]||{};return f.waiting?'wait':f.to_redo&&!peek(it).synced[d]?'redo':'';}
+function marks(it,d){var o=it.ok[d];return o&&o.old?'<span class="mk-old"></span>':'';}
 // Its capsule's words, two short lines: the state with its version and
 // the validation; then a stage's flags (lib/status.py stage_flags()).
 function capWords(it,d){var s=it.states[d],o=it.ok[d],v=validAt(it,d),f=(it.flags||{})[d]||{},w;
@@ -86,8 +85,8 @@ function cell(it,d,noYou){var rq=peek(it).req[d];
 if(!it.states[d])return rq?'<span class="cell req-add" tabindex="0" aria-label="'+esc(cap(d))+': required in your review"><span class="cap"><span class="g s-todo"></span><span class="lab">REQUIRED IN YOUR REVIEW</span></span>'+
 (noYou?'':'<span class="you nt" title="Required in your review">+ YOU</span>')+'</span>':'<span class="cell na" aria-label="'+esc(cap(d))+': not required"></span>';
 var w=capWords(it,d),r=rtkTag(it,d);if(rq===false)w=[w[0],'not required any more in your review'];
-return '<span class="cell'+(rq===false?' req-rm':'')+'" tabindex="0" aria-label="'+esc(cap(d)+': '+(w[0]+(w[1]?' · '+w[1]:'')).toLowerCase()+(r?', '+r[1]:''))+'"><span class="cap"><span class="g '+symCls(it,d)+'">'+
-(validAt(it,d)?'✓':'')+marks(it,d)+'</span><span class="lab">'+esc(w[0])+(w[1]?'<span class="l2">'+esc(w[1])+'</span>':'')+'</span></span>'+(r?r[0]:'')+(noYou?'':rq===false?'<span class="you nt" title="Not required any more in your review">− YOU</span>':you(it,d)||(peek(it).synced[d]?'<span class="you sd" title="Still done in your review: its work holds">✓ YOU</span>':''))+'</span>';}
+return '<span class="cell'+(rq===false?' req-rm':'')+'" tabindex="0" aria-label="'+esc(cap(d)+': '+(w[0]+(w[1]?' · '+w[1]:'')).toLowerCase()+(r?', '+r[1]:''))+'"><span class="cap">'+(flagOf(it,d)?'<span class="g fl fl-'+flagOf(it,d)+'"><svg class="fi" viewBox="0 0 16 16"><use href="#i-'+flagOf(it,d)+'"/></svg><i class="pz '+symCls(it,d)+'"></i>':
+'<span class="g '+symCls(it,d)+'">'+(validAt(it,d)?'✓':''))+marks(it,d)+'</span><span class="lab">'+esc(w[0])+(w[1]?'<span class="l2">'+esc(w[1])+'</span>':'')+'</span></span>'+(r?r[0]:'')+(noYou?'':rq===false?'<span class="you nt" title="Not required any more in your review">− YOU</span>':you(it,d)||(peek(it).synced[d]?'<span class="you sd" title="Still done in your review: its work holds">✓ YOU</span>':''))+'</span>';}
 function okTag(it,d){var o=it.ok[d];if(!o)return '';
 return '<span class="ok'+(o.old?' old':'')+'" title="'+esc(o.tip)+'">✓ '+esc(o.role)+'</span>';}
 function rkTag(it,d){var r=rtkTag(it,d);return r?r[0]:'';}
@@ -216,7 +215,11 @@ h+='<span class="inl" title="An open retake on no department: it holds back ever
 // A retake on no department in your review: the departments' own ✕ you.
 var gen=answered(it).gen;
 if(e.text.trim()||gen)h+='<span class="inl">'+(noteOnly(e.text)&&!gen?youNote():'<span class="you n" title="A retake on no department, in your review">✕ YOU</span>')+'</span>';
-if(it.omit)h+=tag('check','',(it.omit.state==='cancelled'?'Cancelled':'On hold')+(it.omit.reason?': '+it.omit.reason:''),'Set aside: out of the figures');
+// Set aside, or changed in your review: as it'll be, ✎ you.
+var om=omitChanged(it,e)?e.omit:it.omit;
+if(om&&om.state)h+=tag('check','',(om.state==='cancelled'?'Cancelled':'On hold')+(om.reason?': '+om.reason:''),'Set aside: out of the figures');
+else if(om)h+=tag('check','','Active again','Counted again in your review');
+if(omitChanged(it,e))h+='<span class="inl"><span class="you nt" title="Set aside or back in your review">✎ YOU</span></span>';
 if(it.to_check)h+=tag('check','eye','render to check','Rendered, not checked by the team yet');
 if(it.outdated)h+=tag('old','warn','render outdated','Rendered from an older version than the last stable');
 if(it.farm){var k=it.farm.state==='failed'?'fail':it.farm.state==='waiting'?'wait':'run';
@@ -321,7 +324,7 @@ return it.tab===state.tab&&(!state.dep||state.dep in it.states)&&FILTERS[b.datas
 var rowDeps=[],rowCols='';
 function rowHtml(it){var deps=rowDeps,cols=rowCols;
 // Tinted once this review touched it: where you've been, at a glance.
-return '<div class="row'+(it.omit?' omit':'')+(changes(it)?' rv-mine':'')+(it.i===cur?' sel':'')+'" role="button" tabindex="0" data-i="'+it.i+'" style="--cols:'+cols+'"'+(changes(it)?' title="In your review"':'')+'>'+thumb(it)+
+return '<div class="row'+((omitChanged(it,peek(it))?peek(it).omit.state:it.omit)?' omit':'')+(changes(it)?' rv-mine':'')+(it.i===cur?' sel':'')+'" role="button" tabindex="0" data-i="'+it.i+'" style="--cols:'+cols+'"'+(changes(it)?' title="In your review"':'')+'>'+thumb(it)+
 '<span class="r-name">'+nameHtml(it)+'<small>'+subline(it)+'</small><span class="flags">'+flags(it)+'</span></span>'+
 deps.map(function(d){return '<span class="d">'+cell(it,d)+'</span>';}).join('')+
 '<span class="r-pct">'+(it.tracked?dv(it.done,it.valid):'<span class="faint">–</span>')+'</span>'+
@@ -825,13 +828,16 @@ var nv=(n.version||'').match(/v\d+(?=\D*$)/),fc=D[cur]?D[cur].wip_v||D[cur].stab
 if(n.render)tags.push('<span title="Written watching this render">▶ '+esc(n.render)+'</span>');else if(n.version&&(!nv||nv[0]!==fc))tags.push('<span title="'+esc(n.version)+'">on '+esc(nv?nv[0]:n.version)+'</span>');
 var dn=canReply(n)&&(n.type==='todo'||n.type==='rtk')&&n.done===false,on=dn&&!!(peek(D[cur]).fixed||{})[n.id],dl=n.type==='todo'?'Done':'Fixed';
 // No author: no pill, no name -- its place kept, the date says enough.
-var acts=!reply&&(canReply(n)||dn)?'<div class="th-a">'+(canReply(n)?replyBtn(n):'')+(dn?'<button type="button" class="fx" data-fix="'+esc(n.id)+'" aria-pressed="'+on+'" aria-label="'+dl+'" title="'+(on?'Marked '+dl.toLowerCase()+' in your review: tap to undo':dl+': marked done when your review is imported')+'">'+ico('check')+'<span class="lbl">'+dl+'</span></button>':'')+'</div>':'';
+// Fixed: a small toggle by its kind; Reply: a quiet field under the
+// thread, a reply box once tapped.
+var fx=dn?'<button type="button" class="fx2" data-fix="'+esc(n.id)+'" aria-pressed="'+on+'" title="'+(on?'Marked '+dl.toLowerCase()+' in your review: tap to undo':dl+': marked done when your review is imported')+'">'+(on?'✓ ':'')+dl+'</button>':'';
+var ghost=!reply&&canReply(n)&&(peek(D[cur]).replies||{})[n.id]==null&&!editing['r:'+n.id]?'<button type="button" class="rp-ghost" data-reply="'+esc(n.id)+'" title="Reply in its thread: a retake (still to redo, its department sent back) — or note: a remark">'+ico('reply')+'Reply…</button>':'';
 return (reply?'':'<div class="thr">')+'<div class="th'+(n.closed?' closed':'')+(reply?' reply':'')+(on?' fixed':'')+'"><span class="av'+(a?'':' none')+'" aria-hidden="true">'+esc((a||'').charAt(0).toUpperCase())+'</span><div class="th-b">'+
 '<div class="th-h">'+(a?'<b>'+a+'</b>':'')+'<span class="who">'+[n.team?'team':esc(n.role||''),fmtDate(n.date)].filter(Boolean).join(' · ')+'</span>'+
-'<span class="tt tt-'+kind+(n.done===true?' done':'')+'">'+(n.done===true?'✓ ':'')+kind.toUpperCase()+'</span>'+ft+'</div>'+
+'<span class="tt tt-'+kind+(n.done===true?' done':'')+'">'+(n.done===true?'✓ ':'')+kind.toUpperCase()+'</span>'+ft+fx+'</div>'+
 '<p>'+esc(n.text)+'</p>'+(tags.length?'<div class="th-t">'+tags.join(' · ')+'</div>':'')+
 '</div></div>'+(n.replies||[]).map(function(r){return noteHtml(Object.assign({closed:n.closed},r),true);}).join('')+
-(reply?'':acts+(canReply(n)?replyBox(n):'')+'</div>');}
+(reply?'':ghost+(canReply(n)?replyBox(n):'')+'</div>');}
 // Where a thread lives in the panel: under its first department the file
 // tracks, else under Whole file -- one place each.
 function homeOf(it,n){var d=n.deps.filter(function(x){return x in it.states;})[0];return d||'';}
@@ -847,7 +853,6 @@ function depSummary(it,d){var all=it.notes.filter(function(n){return !n.closed&&
 return [d?LABEL[it.states[d]].toLowerCase():'',r?plural(r,'retake'):'',o?plural(o,'thread'):''].filter(Boolean).join(' · ');}
 // Reviewing, a reply to an open note or RTK: a comment in its thread at
 // import, the retake left open (Fixed says it's done).
-function replyBtn(n){return '<button type="button" class="rp" data-reply="'+esc(n.id)+'" aria-label="Reply" title="Reply in its thread: a retake (still to redo, its department sent back) — or note: a remark">'+ico('reply')+'<span class="lbl">Reply</span></button>';}
 // A retake, red -- "note:" lines alone a remark, grey (as a department's box).
 function replyBox(n){var r=(peek(D[cur]).replies||{})[n.id];if(r==null&&!editing['r:'+n.id])return '';var nt=noteOnly(r);
 return '<div class="reply-box'+(nt?' as-note':'')+'"><span class="inl"><span class="you '+(nt?'nt':'n')+'" title="'+(nt?'A remark in its thread':'A retake in its thread: its department sent back')+'">↩ YOU</span></span><textarea rows="1" class="rp-t" data-r="'+esc(n.id)+'" placeholder="Still to redo: what — or note: a remark">'+esc(r||'')+'</textarea></div>';}

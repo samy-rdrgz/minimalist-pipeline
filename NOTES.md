@@ -4814,9 +4814,11 @@ review, the phone and the iPad. What holds across them:
 - **v3.1, the corrections after a first export** (`snapshot-ui-v3.1-corrections.md`, the user's):
   - Waiting and To redo were drawn *in place of* the diamond (an outline
     with a clock or a dot): a done department read as not started, a
-    validated one never turned violet. Now a mark *on* it (`marks()`: a
-    clock top right, an orange dot top left, outside the diamond's
-    corner -- on it, it ate the corner), the state whole; the capsule in
+    validated one never turned violet. A small mark on the diamond (a
+    clock, a dot) was tried next: unreadable at that size. Now the other
+    way round (`flagOf()`): a clock, an orange arrow, big, in the
+    diamond's place, the state a small diamond on its corner (`.pz`,
+    the state's own class: filled, half, outlined, violet); the capsule in
     two short lines (`capWords()` returns [state, flags]); the panel says
     the flags under the department's name (`.fw`). Validated on an older
     stable: a dashed violet ring (`.mk-old`), not a struck ✓ sup.
@@ -4825,8 +4827,10 @@ review, the phone and the iPad. What holds across them:
     column shows up for an added one, `peek(it).req`), a green ✓ YOU
     *Still done* (its to redo mark gone). In the panel, one tag, by the
     state (`cell(it, d, noYou)`).
-  - A thread's Reply / Fixed once, under its last reply (`.thr`), on hover
-    or focus -- always, as icons, on a touch screen. A note's .blend only
+  - A thread's Reply a quiet field under it (`.rp-ghost`, a reply box
+    once tapped), Fixed a small toggle in its head (`.fx2`) -- buttons
+    shown on hover were tried first, the user wasn't convinced. A
+    set-aside change shows in the list as it'll be, ✎ YOU. A note's .blend only
     when not the file's current version ("on v004"); no author, no pill.
   - The filters one line at every width, scrolled sideways, faded where
     some are out of sight (`barFade()`; the wheel scrolls it).
@@ -4839,6 +4843,8 @@ review, the phone and the iPad. What holds across them:
     picker (`dateField()`: its own text came out in the US order). The
     send window's role as buttons, like the start's; the last role used
     picked first (`mp-snapshot:role`, else `meta.role`).
+  - The farm filter's icon the page's own (two machines), drawn like the
+    other filters': Blender's RENDER_STILL had another level of detail.
   - A planned file's departments, faint, in their columns. The segmented
     groups (`.segb`) rounded with their outline: square, their corners
     showed. Light fields a light grey (`--field`): white on the white
