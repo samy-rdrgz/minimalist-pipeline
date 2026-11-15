@@ -802,10 +802,10 @@ if(rv)h+='<button type="button" class="desc-edit" id="add-desc">✎ '+(it.desc?'
 // X) at the bottom -- with the open ones on no department.
 var anyDone=deps.some(function(d){return isDone(it.states[d]);}),genOpen=editing.gen||!!e.text;
 h+='<div class="p-block major">'+
-(rv&&anyDone&&!asTeam()?'<div class="dep all"><div class="dep-l"><span class="mid"><span class="nm">All done</span><span class="st">validate every done department<span class="kh"> · V</span></span></span>'+
+(rv&&anyDone&&!asTeam()?'<div class="dep all"><div class="dep-l"><span class="cell na"></span><span class="mid"><span class="nm">All done</span><span class="st">validate every done department<span class="kh"> · V</span></span></span>'+
 '<span class="rvb"><button class="ok-b" id="allok" aria-pressed="'+e.all+'" aria-label="Validate every done department">✓</button><span class="rvb-gap"></span></span></div></div>':'')+
 (deps.length?deps.map(function(d){return depHtml(it,d,rv);}).join(''):'<p class="faint">No department tracked on this file.</p>')+
-(rv||it.notes.some(function(n){return !n.approval&&!n.closed&&homeOf(it,n)==='';})?'<div class="dep whole"><div class="dep-l"><span class="mid"><span class="nm">Whole file</span><span class="st">'+esc(['a retake on no department',depSummary(it,'')].filter(Boolean).join(' · '))+(rv?'<span class="kh"> · X</span>':'')+'</span></span>'+
+(rv||it.notes.some(function(n){return !n.approval&&!n.closed&&homeOf(it,n)==='';})?'<div class="dep whole"><div class="dep-l"><span class="cell na"></span><span class="mid"><span class="nm">Whole file</span><span class="st">'+esc(['a retake on no department',depSummary(it,'')].filter(Boolean).join(' · '))+(rv?'<span class="kh"> · X</span>':'')+'</span></span>'+
 '<span class="rvb"><span class="rvb-gap"></span><button class="ko-b" id="add-gen" aria-pressed="'+genOpen+'" aria-label="A retake on no department">✕</button></span></div>'+
 threads(it,'')+(rv&&genOpen?'<div class="rt mine">'+retakeBox(it,'gen',e.text,'What to fix, on no department in particular?')+syntax(it,'gen')+'</div>':'')+'</div>':'')+
 '</div>';

@@ -11,7 +11,7 @@ the main action neutral. See NOTES.md, "Snapshot page v3". */
 --rtk:#AB3C48;--rtk-f:#AB3C48;--rtk-t:#991616;--rtk-bg:rgba(171,60,72,.1);--team:#AB3C48;--team-bg:rgba(171,60,72,.1);
 --valid:#7A3F7A;--val-f:#8C548C;--sup:#E3CCE3;--valid-bg:rgba(140,84,140,.12);--on-fill:#FFFFFF;
 --play:#4772B3;--range:#4772B3;--mine:#18181B;--inv:#FFFFFF;--mine-tint:rgba(0,0,0,.05);--glow:#E2E7F0;
---bar-bg:#FFFFFF;--bar-ink:#18181B;--bar-field:#ECECEE;--field:#FFFFFF;--outline:#C9C9CC;--emboss:rgba(0,0,0,.08);
+--bar-bg:#FFFFFF;--bar-ink:#18181B;--bar-field:#ECECEE;--field:#FFFFFF;--outline:#C9C9CC;--emboss:rgba(0,0,0,.12);--emb-y:2px;
 --sh-card:0 1px 2px rgba(0,0,0,.08);--sh-pop:0 24px 70px rgba(0,0,0,.18);
 --r-sm:3px;--r-btn:5px;--r-md:6px;--r-lg:8px;
 --sel:#4772B3;
@@ -30,7 +30,7 @@ color-scheme:light dark}
 --rtk:#F08A94;--rtk-f:#C94452;--rtk-t:#991616;--rtk-bg:rgba(201,68,82,.18);--team:#F08A94;--team-bg:rgba(201,68,82,.18);
 --valid:#D2A6D2;--val-f:#8C548C;--sup:#C9A1C9;--valid-bg:#66416233;--on-fill:#10201B;
 --play:#4772B3;--range:#74A2FF;--mine:#E8E8EA;--inv:#18181B;--mine-tint:rgba(255,255,255,.07);--glow:#252A35;
---bar-bg:#1F1F22;--bar-ink:#E8E8EA;--bar-field:#3C3C41;--field:#141416;--outline:#18181A;--emboss:rgba(0,0,0,.35);
+--bar-bg:#1F1F22;--bar-ink:#E8E8EA;--bar-field:#3C3C41;--field:#141416;--outline:#4D4D53;--emboss:rgba(0,0,0,.45);--emb-y:1px;
 --sh-card:0 1px 2px rgba(0,0,0,.3);--sh-pop:0 24px 70px rgba(0,0,0,.45)}}
 :root[data-theme=dark]{
 --bg:#1B1B1D;--surface:#28282B;--sunk:#2C2C30;--head:#1F1F22;--btn:#3C3C41;--line:#36363B;--line2:#5B5B62;
@@ -40,7 +40,7 @@ color-scheme:light dark}
 --rtk:#F08A94;--rtk-f:#C94452;--rtk-t:#991616;--rtk-bg:rgba(201,68,82,.18);--team:#F08A94;--team-bg:rgba(201,68,82,.18);
 --valid:#D2A6D2;--val-f:#8C548C;--sup:#C9A1C9;--valid-bg:#66416233;--on-fill:#10201B;
 --play:#4772B3;--range:#74A2FF;--mine:#E8E8EA;--inv:#18181B;--mine-tint:rgba(255,255,255,.07);--glow:#252A35;
---bar-bg:#1F1F22;--bar-ink:#E8E8EA;--bar-field:#3C3C41;--field:#141416;--outline:#18181A;--emboss:rgba(0,0,0,.35);
+--bar-bg:#1F1F22;--bar-ink:#E8E8EA;--bar-field:#3C3C41;--field:#141416;--outline:#4D4D53;--emboss:rgba(0,0,0,.45);--emb-y:1px;
 --sh-card:0 1px 2px rgba(0,0,0,.3);--sh-pop:0 24px 70px rgba(0,0,0,.45)}
 :root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
 /* A finger, not a mouse: every control 44 px. */
@@ -181,7 +181,7 @@ h2{font:700 19px/1.25 var(--ui);margin:0}
 .hdr.stuck~.sec .bar{border-bottom-color:var(--line)}
 .bar-in{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .bscroll{display:contents}
-.seg{display:inline-flex;gap:2px;flex:none;padding:2px;border-radius:calc(var(--r-btn) + 2px);background:var(--field)}
+.seg{display:inline-flex;align-items:center;gap:2px;flex:none;height:calc(var(--tap) + 2px);padding:0 3px;border-radius:calc(var(--r-btn) + 2px);background:var(--field)}
 .seg button{min-height:calc(var(--tap) - 6px);padding:0 12px;border:0;border-radius:var(--r-btn);background:none;font-weight:600;font-size:13px;color:var(--ink-2)}
 .seg button span{font-weight:400;color:var(--ink-3);margin-left:4px}
 .seg button[aria-pressed="true"]{background:var(--btn);color:var(--ink)}
@@ -517,7 +517,7 @@ body.resizing .wrap,body.resizing .panel{transition:none!important}
 .dep.all .nm,.dep.whole .nm{font-weight:600;color:var(--ink-2)}
 .dep.all{padding-bottom:6px;margin-bottom:2px;border-bottom:1px dashed var(--line)}
 .dep.whole{margin-top:4px;padding-top:8px;border-top:1px dashed var(--line)}
-.dep.all .dep-l,.dep.whole .dep-l{padding-left:22px}
+/* Their blank where a department has its diamond: the names in one column. */
 .desc-edit{display:block;border:0;background:none;padding:0;margin:-6px 0 8px;min-height:var(--tap);color:var(--ink-3);font-size:12px}
 .desc-edit:hover{color:var(--accent)}
 body.reviewing .rvb{display:inline-flex}
@@ -741,8 +741,9 @@ background-position:calc(100% - 17px) 52%,calc(100% - 12px) 52%;background-size:
 
 /* ---------- the player: in the panel, or Watch large ---------- */
 .pv{position:relative;border-radius:10px;overflow:hidden;background:var(--sunk)}
-.pv-slot{background:#000}
-.pv-slot video{display:block;width:100%;aspect-ratio:16/9;object-fit:contain;background:#000;cursor:pointer}
+/* Behind a video: the node editor's dotted ground, as Blender's. */
+.pv-slot{background:radial-gradient(circle,rgba(255,255,255,.09) 1px,transparent 1.4px) 0 0/18px 18px,#1D1D1F}
+.pv-slot video{display:block;width:100%;aspect-ratio:16/9;object-fit:contain;background:transparent;cursor:pointer}
 .pv-msg{padding:16px;font-size:13px;color:var(--ink-2);line-height:1.5}
 .pv-err .pv-slot,.pv-err .tl,.pv-err .pc{display:none}
 .pv-away{padding:28px;text-align:center;color:var(--ink-3);font-size:13px}
@@ -901,15 +902,15 @@ body:not(.reviewing) .rv-only{display:none}
 @media (max-width:560px){.st-go{grid-template-columns:1fr}}
 
 /* ---------- Blender's widgets: an outline, a flat shade under them ---------- */
-.btn,.chipf,.depf,.vb,.rvb button,.th-a button,.segb,.st-go button,.wl-b,.g-play{border:1px solid var(--outline)!important;box-shadow:0 1px 0 var(--emboss)}
+.btn,.chipf,.depf,.vb,.rvb button,.th-a button,.segb,.st-go button,.wl-b,.g-play{border:1px solid var(--outline)!important;box-shadow:0 var(--emb-y) 0 var(--emboss)}
 .segb button{border-left-color:var(--outline)}
-.seg button{min-height:calc(var(--tap) - 4px);color:var(--ink-2)}
-.seg button[aria-pressed="true"]{background:var(--btn);color:var(--ink);box-shadow:0 1px 0 var(--emboss)}
+.seg button{min-height:0;height:calc(var(--tap) - 6px);color:var(--ink-2)}
+.seg button[aria-pressed="true"]{background:var(--btn);color:var(--ink);box-shadow:0 var(--emb-y) 0 var(--emboss)}
 /* ✓ / ✕, Reply, Fixed: Blender's buttons, their mark in its colour,
 filled once on. */
 .rvb button{width:32px;height:32px;background:var(--btn);border-radius:var(--r-btn);font-size:14px}
 .rvb .ok-b{color:var(--valid)}.rvb .ko-b{color:var(--rtk)}
-.rvb button:not(:disabled):hover,.rvb .ko-b:not(:disabled):hover{box-shadow:0 1px 0 var(--emboss);filter:brightness(1.15)}
+.rvb button:not(:disabled):hover,.rvb .ko-b:not(:disabled):hover{box-shadow:0 var(--emb-y) 0 var(--emboss);filter:brightness(1.15)}
 .rvb .ok-b[aria-pressed="true"]{background:var(--val-f);color:#fff}
 .rvb .ko-b[aria-pressed="true"]{background:var(--rtk-f);color:#fff}
 .th-a button{background:var(--btn);color:var(--ink)}

@@ -4738,8 +4738,9 @@ review, the phone and the iPad. What holds across them:
   (`--r-btn` 5 px), no capsule; the kinds as workspace tabs; a pressed
   filter, a picked role in Blender's selection blue (`--sel`); fields
   darker than buttons (`--field`).
-- **Blender's widgets, tried**: an outline (`--outline`) and a flat shade
-  1 px under (`--emboss`) on the buttons, filters, tabs, ✓ / ✕ -- to be
+- **Blender's widgets**: an outline (`--outline`, lighter than the
+  button in the dark theme, as Blender's) and a flat shade under
+  (`--emboss`, `--emb-y`: 1 px dark, 2 px light) on the buttons, filters, tabs, ✓ / ✕ -- to be
   judged on the page. ✓ / ✕, Reply, Fixed: plain buttons, their mark in
   its colour, filled once on (the outlined round ones read as another
   look). The kinds' tabs sit on a dark ground (`--field`), the picked one
@@ -4749,3 +4750,4 @@ review, the phone and the iPad. What holds across them:
   SUP).
 - The stuck header and filters carry the page's glow, fixed: a plain
   ground showed its edges over the glow.
+- Behind a video, the node editor's dotted ground (`.pv-slot`), not black.
