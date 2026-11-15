@@ -11,9 +11,10 @@ the main action neutral. See NOTES.md, "Snapshot page v3". */
 --rtk:#AB3C48;--rtk-f:#AB3C48;--rtk-t:#991616;--rtk-bg:rgba(171,60,72,.1);--team:#AB3C48;--team-bg:rgba(171,60,72,.1);
 --valid:#8000C0;--val-f:#9900E6;--sup:#E6C7FF;--valid-bg:rgba(153,0,230,.08);--on-fill:#FFFFFF;
 --play:#4772B3;--range:#4772B3;--mine:#18181B;--inv:#FFFFFF;--mine-tint:rgba(0,0,0,.05);--glow:#E2E7F0;
---bar-bg:#FFFFFF;--bar-ink:#18181B;--bar-field:#ECECEE;
+--bar-bg:#FFFFFF;--bar-ink:#18181B;--bar-field:#ECECEE;--field:#FFFFFF;
 --sh-card:0 1px 2px rgba(0,0,0,.08);--sh-pop:0 24px 70px rgba(0,0,0,.18);
---r-sm:3px;--r-btn:7px;--r-md:8px;--r-lg:12px;
+--r-sm:3px;--r-btn:5px;--r-md:6px;--r-lg:8px;
+--sel:#4772B3;
 --tap:32px;--bar-h:56px;--pw:540px;
 --display:"MP Display",system-ui,sans-serif;
 --ui:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
@@ -29,7 +30,7 @@ color-scheme:light dark}
 --rtk:#F08A94;--rtk-f:#C94452;--rtk-t:#991616;--rtk-bg:rgba(201,68,82,.18);--team:#F08A94;--team-bg:rgba(201,68,82,.18);
 --valid:#C99BFA;--val-f:#A21FF0;--sup:#D7B4FB;--valid-bg:rgba(162,31,240,.16);--on-fill:#10201B;
 --play:#4772B3;--range:#74A2FF;--mine:#E8E8EA;--inv:#18181B;--mine-tint:rgba(255,255,255,.07);--glow:#252A35;
---bar-bg:#1F1F22;--bar-ink:#E8E8EA;--bar-field:#3C3C41;
+--bar-bg:#1F1F22;--bar-ink:#E8E8EA;--bar-field:#3C3C41;--field:#141416;
 --sh-card:0 1px 2px rgba(0,0,0,.3);--sh-pop:0 24px 70px rgba(0,0,0,.45)}}
 :root[data-theme=dark]{
 --bg:#1B1B1D;--surface:#28282B;--sunk:#2C2C30;--head:#1F1F22;--btn:#3C3C41;--line:#36363B;--line2:#5B5B62;
@@ -39,7 +40,7 @@ color-scheme:light dark}
 --rtk:#F08A94;--rtk-f:#C94452;--rtk-t:#991616;--rtk-bg:rgba(201,68,82,.18);--team:#F08A94;--team-bg:rgba(201,68,82,.18);
 --valid:#C99BFA;--val-f:#A21FF0;--sup:#D7B4FB;--valid-bg:rgba(162,31,240,.16);--on-fill:#10201B;
 --play:#4772B3;--range:#74A2FF;--mine:#E8E8EA;--inv:#18181B;--mine-tint:rgba(255,255,255,.07);--glow:#252A35;
---bar-bg:#1F1F22;--bar-ink:#E8E8EA;--bar-field:#3C3C41;
+--bar-bg:#1F1F22;--bar-ink:#E8E8EA;--bar-field:#3C3C41;--field:#141416;
 --sh-card:0 1px 2px rgba(0,0,0,.3);--sh-pop:0 24px 70px rgba(0,0,0,.45)}
 :root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
 /* A finger, not a mouse: every control 44 px. */
@@ -100,7 +101,7 @@ h1{font:700 18px/1.2 var(--ui);margin:0;letter-spacing:-.01em;overflow-wrap:brea
 @media (max-width:1020px){.kpi .bar2{display:none}}
 .find .slash{position:absolute;right:8px;top:50%;transform:translateY(-50%);pointer-events:none;opacity:.7}
 .find:focus-within .slash{display:none}
-.age{padding:1px 8px;border-radius:99px;background:var(--wip-bg);color:var(--wip-ink);font-size:12px;font-weight:600}
+.age{padding:1px 8px;border-radius:var(--r-btn);background:var(--wip-bg);color:var(--wip-ink);font-size:12px;font-weight:600}
 .actions{margin-left:auto;display:flex;gap:8px;flex:none}
 /* Done and validated, always both: a double bar, "84 % · 0 %". */
 .dv{display:inline-flex;flex-direction:column;align-items:flex-end;gap:3px}
@@ -131,7 +132,7 @@ border:1px solid var(--line);border-radius:var(--r-md);box-shadow:var(--sh-pop);
 .menu-pop small{display:block;color:var(--ink-3)}
 .theme-sw{display:flex;align-items:center;gap:4px;padding:6px 10px;font-size:13px;color:var(--ink-2)}
 .theme-sw>span{flex:1}
-.theme-sw button{min-height:var(--tap);padding:0 10px;border:1px solid var(--line);border-radius:99px;background:none;color:var(--ink);font-size:12px;cursor:pointer}
+.theme-sw button{min-height:var(--tap);padding:0 10px;border:1px solid var(--line);border-radius:var(--r-btn);background:none;color:var(--ink);font-size:12px;cursor:pointer}
 .theme-sw button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--on-fill)}
 /* A select drawn by the page (page.js pick()): a button like the field it
 replaces, its list like the menus. */
@@ -158,7 +159,7 @@ border:1px solid var(--line);border-radius:var(--r-md);box-shadow:var(--sh-pop)}
 .k-valid{color:var(--valid);font-weight:600;font-size:14px}
 .k-note{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;font-size:12px;color:var(--ink-2);margin-top:10px}
 /* A pace's band, as a progress spreadsheet colours it. */
-.pace{padding:0 8px;border-radius:99px;font-weight:600;line-height:18px}
+.pace{padding:0 8px;border-radius:var(--r-btn);font-weight:600;line-height:18px}
 .p-ahead,.p-ontrack{background:color-mix(in srgb,var(--done) 14%,var(--surface));color:var(--done)}
 .p-slip{background:var(--wip-bg);color:var(--wip-ink)}
 .p-behind{background:var(--rtk-bg);color:var(--rtk)}
@@ -180,11 +181,11 @@ h2{font:700 19px/1.25 var(--ui);margin:0}
 .hdr.stuck~.sec .bar{border-bottom-color:var(--line)}
 .bar-in{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .bscroll{display:contents}
-.seg{display:inline-flex;padding:3px;border-radius:99px;background:var(--sunk);flex:none}
-.seg button{min-height:calc(var(--tap) - 6px);padding:0 12px;border:0;border-radius:99px;background:none;font-weight:600;font-size:13px;color:var(--ink-2)}
+.seg{display:inline-flex;gap:2px;flex:none}
+.seg button{min-height:calc(var(--tap) - 6px);padding:0 12px;border:0;border-radius:var(--r-btn);background:none;font-weight:600;font-size:13px;color:var(--ink-2)}
 .seg button span{font-weight:400;color:var(--ink-3);margin-left:4px}
-.seg button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.08)}
-.chipf,.depf{flex:none;white-space:nowrap;min-height:var(--tap);padding:0 12px;border:1px solid var(--line);border-radius:99px;background:var(--surface);font-size:13px;color:var(--ink-2)}
+.seg button[aria-pressed="true"]{background:var(--btn);color:var(--ink)}
+.chipf,.depf{flex:none;white-space:nowrap;min-height:var(--tap);padding:0 12px;border:1px solid transparent;border-radius:var(--r-btn);background:var(--surface);font-size:13px;color:var(--ink-2)}
 .chipf b{font-weight:600;margin-left:5px;color:var(--ink-3)}
 /* An icon and its count, its name only once it filters (and in its
 tooltip, and the legend): six of them hold on one line. */
@@ -213,7 +214,7 @@ background-position:calc(100% - 17px) 52%,calc(100% - 12px) 52%;background-size:
 /* Squeezed down to its glass when the line is full: wider once in use. */
 .find:focus-within{flex-basis:200px}
 .search::placeholder{text-overflow:ellipsis}
-.search{width:100%;min-height:var(--tap);padding:0 12px 0 32px;border:1px solid var(--line);border-radius:99px;
+.search{width:100%;min-height:var(--tap);padding:0 12px 0 32px;border:1px solid var(--line);border-radius:var(--r-btn);
 background:var(--surface) no-repeat 11px 50%/14px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%238d8c86' stroke-width='2'%3E%3Ccircle cx='7' cy='7' r='5'/%3E%3Cpath d='m11 11 4 4'/%3E%3C/svg%3E")}
 /* Search as a jump: the files it matches, one click opens one. */
 .sugg{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:30;margin:0;padding:4px;list-style:none;background:var(--surface);
@@ -253,7 +254,7 @@ neighbours. The legend's and the panel's .m, the same diamond, smaller. */
 .cell{position:relative;display:block;width:24px;height:24px;margin:0 auto}
 /* Only the words are clipped: a capsule clipped whole (rounded, 24 px)
 cut its diamond's corners in some browsers. */
-.cap{position:absolute;left:0;top:0;z-index:2;display:inline-flex;align-items:center;height:24px;padding:0 1px;border-radius:12px;
+.cap{position:absolute;left:0;top:0;z-index:2;display:inline-flex;align-items:center;height:24px;padding:0 1px;border-radius:var(--r-btn);
 border:1px solid transparent;white-space:nowrap;transition:padding .28s,box-shadow .2s,background .2s}
 .cap .g,.m{position:relative;z-index:1;flex:none;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;line-height:1}
 .cap .g::before,.m::before{content:"";position:absolute;left:4px;top:4px;width:14px;height:14px;border-radius:3px;transform:rotate(45deg);z-index:-1;box-sizing:border-box}
@@ -312,7 +313,7 @@ in it. Your review's say: the same shape, neutral, on the right. */
 .g-h{cursor:pointer}
 /* Play: the only blue buttons. */
 .play{background:var(--play)!important;border-color:var(--play)!important;color:#fff!important}
-.g-play{display:inline-flex;align-items:center;justify-content:center;vertical-align:2px;width:22px;height:22px;margin-left:8px;padding:0 0 0 1px;border:1px solid var(--line);border-radius:99px;font-size:8px;line-height:1;position:relative}
+.g-play{display:inline-flex;align-items:center;justify-content:center;vertical-align:2px;width:22px;height:22px;margin-left:8px;padding:0 0 0 1px;border:1px solid var(--line);border-radius:var(--r-btn);font-size:8px;line-height:1;position:relative}
 .g-play::after{content:"";position:absolute;inset:-11px}
 .g-play:hover{filter:brightness(1.15)}
 .g-h{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center;width:100%;padding:12px 16px;border:0;background:none;text-align:left;min-height:var(--tap)}
@@ -403,7 +404,7 @@ band of the page's background; the versions left to the panel. */
 .thead+.row,.rows>.row:first-child{border-top:0}
 .r-name small .vers,.r-name small .vers+.sep{display:none}}
 
-.badge{display:inline-flex;align-items:center;gap:5px;padding:1px 8px;border-radius:99px;font-size:12px;font-weight:600;white-space:nowrap;line-height:18px;border:1px solid transparent}
+.badge{display:inline-flex;align-items:center;gap:5px;padding:1px 8px;border-radius:var(--r-btn);font-size:12px;font-weight:600;white-space:nowrap;line-height:18px;border:1px solid transparent}
 .b-rtk{background:var(--rtk-bg);color:var(--rtk)}
 .b-team{background:var(--team-bg);color:var(--team)}
 .b-check{background:var(--wip-bg);color:var(--wip-ink)}
@@ -521,7 +522,7 @@ body.resizing .wrap,body.resizing .panel{transition:none!important}
 body.reviewing .rvb{display:inline-flex}
 /* ✓ / ✕: round, 36 px (44 under a finger); outlined violet / red, filled
 once on; a ring on hover, pressed in on a click. */
-.rvb button{width:36px;height:36px;padding:0;border-radius:50%;border:1.5px solid var(--val-f);background:none;font-weight:700;font-size:15px;color:var(--valid);
+.rvb button{width:36px;height:36px;padding:0;border-radius:var(--r-btn);border:1.5px solid var(--val-f);background:none;font-weight:700;font-size:15px;color:var(--valid);
 transition:box-shadow .15s,transform .1s,background .15s}
 .rvb .ko-b{border-color:var(--rtk-f);color:var(--rtk)}
 .rvb button:not(:disabled):hover{box-shadow:0 0 0 4px var(--valid-bg)}.rvb .ko-b:not(:disabled):hover{box-shadow:0 0 0 4px var(--rtk-bg)}
@@ -568,7 +569,7 @@ textarea.rtk-t{border-color:var(--rtk)}
 .syntax code{font:11px var(--mono);color:var(--ink-2)}
 .tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
 .tags span{font-size:12px;color:var(--ink-3);align-self:center;margin-right:2px}
-.tags button{min-height:calc(var(--tap) - 6px);padding:0 9px;border:1px solid var(--line);border-radius:99px;background:var(--surface);font-size:12px;color:var(--ink-2)}
+.tags button{min-height:calc(var(--tap) - 6px);padding:0 9px;border:1px solid var(--line);border-radius:var(--r-btn);background:var(--surface);font-size:12px;color:var(--ink-2)}
 .tags button:hover{border-color:var(--rtk);color:var(--rtk)}
 .tags button[aria-pressed="true"]{border-color:var(--rtk);color:var(--rtk);background:var(--rtk-bg);font-weight:600}
 /* A block's retake: a box for all its shots, then one per shot opened. */
@@ -591,7 +592,7 @@ boxes share one column of labels (All, sh040...), one edge, one width. */
 .note .h{display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center;font-size:12px;color:var(--ink-3)}
 /* Who and when, then the note's own actions: one block, never split. */
 .note .h .h-r{margin-left:auto;display:inline-flex;align-items:center;gap:2px;white-space:nowrap}
-.note .tg{font-size:11px;padding:0 6px;border-radius:99px;border:1px solid var(--line);color:var(--ink-2);line-height:16px}
+.note .tg{font-size:11px;padding:0 6px;border-radius:var(--r-btn);border:1px solid var(--line);color:var(--ink-2);line-height:16px}
 .note .tg.role{background:var(--valid-bg);color:var(--valid);border-color:transparent;font-weight:600}
 .note p{margin:4px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
 .note.closed{opacity:.6}
@@ -610,7 +611,7 @@ body.reviewing .view-only{display:none}
 #p-play{background:var(--accent);border-color:var(--accent);color:var(--on-fill);font-size:13px;padding-left:2px}
 #p-play:hover{filter:brightness(1.1)}body.reviewing .review-only{display:flex}
 .vlist{flex-wrap:wrap;gap:2px 4px;margin-top:6px}
-.vlist .pl{min-height:28px;padding:0 8px;border:0;border-radius:99px;background:none;color:var(--accent);font-size:12px;font-weight:600}
+.vlist .pl{min-height:28px;padding:0 8px;border:0;border-radius:var(--r-btn);background:none;color:var(--accent);font-size:12px;font-weight:600}
 .vlist .pl:hover{background:var(--accent-bg)}
 @media (pointer:coarse){.vlist .pl{min-height:var(--tap)}}
 /* Where it comes from: the least read, the quietest -- one block of
@@ -652,7 +653,7 @@ black band coming and going on its sides. */
 .vp{display:flex;flex-direction:column;gap:6px;max-width:100%}
 .vp video{display:block;cursor:pointer;width:100%;height:auto;max-height:none;object-fit:contain;background:transparent}
 .vc{display:flex;align-items:center;gap:6px;color:#ddd;font-size:12px}
-.vb{flex:none;width:30px;height:30px;padding:0;border:0;border-radius:99px;background:none;color:#fff;font-size:12px;line-height:1}
+.vb{flex:none;width:30px;height:30px;padding:0;border:0;border-radius:var(--r-btn);background:none;color:#fff;font-size:12px;line-height:1}
 .vb:hover{background:rgba(255,255,255,.14)}
 .vb:disabled{opacity:.3}
 .vr{flex:1;min-width:60px;height:16px;margin:0 4px;accent-color:#fff;cursor:pointer}
@@ -665,10 +666,10 @@ black band coming and going on its sides. */
 @media (pointer:coarse){.vb{width:40px;height:40px}}
 .lb p{margin:0;max-width:560px;color:#ddd;font-size:13px;text-align:center}
 .lb p code{font:12px var(--mono);color:#fff;overflow-wrap:anywhere}
-.lb .lbn{width:36px;height:36px;border:0;border-radius:99px;background:rgba(255,255,255,.14);color:#fff;font-size:18px;vertical-align:middle}
+.lb .lbn{width:36px;height:36px;border:0;border-radius:var(--r-btn);background:rgba(255,255,255,.14);color:#fff;font-size:18px;vertical-align:middle}
 .lb .lbn:disabled{opacity:.3}
 .lb p b{color:#fff}
-.lb .x{position:absolute;top:calc(12px + var(--sat));right:12px;width:40px;height:40px;border:0;border-radius:99px;background:rgba(255,255,255,.14);color:#fff;font-size:16px}
+.lb .x{position:absolute;top:calc(12px + var(--sat));right:12px;width:40px;height:40px;border:0;border-radius:var(--r-btn);background:rgba(255,255,255,.14);color:#fff;font-size:16px}
 
 /* ---------- review bar, sending dialog, toast ---------- */
 .rbar{position:fixed;left:50%;bottom:16px;z-index:45;transform:translate(-50%,150%);visibility:hidden;transition:transform .2s;
@@ -677,7 +678,7 @@ box-shadow:var(--sh-pop);border:1px solid color-mix(in srgb,var(--bar-ink) 12%,t
 body.reviewing .rbar{visibility:visible;transform:translate(-50%,0)}
 @media (min-width:901px){body.panel-open .rbar{left:calc((100% - min(var(--pw),100%))/2)}}
 .rbar .lbl{font-size:12px;opacity:.75;padding-left:8px}
-.rbar input,.rbar select,.rbar .pick{min-height:var(--tap);border-radius:99px;border:0;padding:0 12px;background:var(--bar-field);color:var(--bar-ink)}
+.rbar input,.rbar select,.rbar .pick{min-height:var(--tap);border-radius:var(--r-btn);border:0;padding:0 12px;background:var(--bar-field);color:var(--bar-ink)}
 .rbar input{width:130px}
 .rbar input::placeholder{color:color-mix(in srgb,var(--bar-ink) 55%,transparent)}
 .need{box-shadow:0 0 0 2px var(--rtk)!important}
@@ -749,7 +750,7 @@ range a blue bar above -- a click goes there. */
 .tl{position:relative;height:22px;margin:6px 12px 0}
 .tl-in{position:absolute;left:0;right:0;top:10px;height:3px;border-radius:2px;background:var(--line2)}
 .tl-fill{position:absolute;left:0;top:0;bottom:0;border-radius:2px;background:var(--ink)}
-.tl-head{position:absolute;top:50%;width:11px;height:11px;margin:-5.5px 0 0 -5.5px;border-radius:50%;background:var(--ink);pointer-events:none}
+.tl-head{position:absolute;top:50%;width:6px;height:14px;margin:-7px 0 0 -3px;border-radius:2px;background:var(--ink);pointer-events:none}
 .tl-marks>*{position:absolute;z-index:3;cursor:pointer}
 .tl-mk{top:50%;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:2px;background:var(--rtk-f);transform:rotate(45deg)}
 .tl-mk.nt{background:var(--ink-2)}
@@ -758,7 +759,7 @@ range a blue bar above -- a click goes there. */
 .tl-r{position:absolute;inset:0;z-index:2;width:100%;height:100%;margin:0;opacity:0;cursor:pointer}
 .pc{display:flex;align-items:center;gap:6px;padding:6px 12px 10px;flex-wrap:wrap}
 .vb{display:inline-flex;align-items:center;justify-content:center;min-width:34px;height:34px;padding:0 6px;border-radius:var(--r-btn);border:1px solid var(--line);background:var(--btn);color:var(--ink);font-size:14px}
-.vb.play{width:38px;height:38px;border-radius:50%}
+.vb.play{width:38px;height:38px}
 .vb .ico{width:16px;height:16px;vertical-align:0}
 .g-play .ico{width:10px;height:10px}
 .pf{margin-left:6px;font:700 14px var(--mono);white-space:nowrap}.pf-r{font-weight:400;font-size:12px;color:var(--ink-3)}
@@ -862,3 +863,11 @@ border:1px solid var(--line);border-right:0;border-radius:7px 0 0 7px;background
 .p-tab.out .ico{transform:rotate(180deg)}
 @media (max-width:900px){.p-tab{display:none!important}}
 body.panel-full .p-tab:not(.out){display:none}
+
+/* Blender's look: a pressed filter in its selection blue, as a toggled
+button; the fields dark. */
+.chipf,.depf{background-color:var(--btn)}
+.chipf[aria-pressed="true"],.chipf.c-rtk[aria-pressed="true"],.chipf.c-mine[aria-pressed="true"],.chipf.c-valid[aria-pressed="true"],.chipf.c-out[aria-pressed="true"],.depf.on{background:var(--sel);border-color:var(--sel);color:#fff}
+.chipf[aria-pressed="true"] .ic{color:#fff}
+.search,.dlg input,.dlg select,.dlg .pick,.wl-w textarea,.p-body textarea{background-color:var(--field)!important;border-color:transparent}
+.search{border-radius:var(--r-btn)}

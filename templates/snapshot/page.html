@@ -30,7 +30,7 @@
 <li><span class="you y">✓ YOU</span><span class="you n">✕ YOU</span>Your review, not sent yet: validated, a retake</li><li><span class="you nt">✎ YOU</span>A remark (<code>note:</code>), nothing sent back</li><li><span class="you n">↩ YOU</span>Your reply in a note's thread: red a retake, outlined a remark</li><li><span class="rv-mine-k"></span>A file your review touched</li></ul>
 </div><div class="hg"><h3>Filters</h3><ul class="fl-help"><li><span class="chipf c-mine"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-review"/></svg></span>Your review</li><li><span class="chipf c-rtk"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-rtk"/></svg></span>Retakes</li><li><span class="chipf c-notes"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-notes"/></svg></span>Open notes</li><li><span class="chipf c-out"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-old"/></svg></span>Render outdated</li><li><span class="chipf c-valid"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-valid"/></svg></span>To validate</li><li><span class="chipf c-farm"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-farm"/></svg></span>In the farm: <span class="farm run">rendering</span>, <span class="farm wait">queued</span>, <span class="farm fail">failed</span></li><li><span class="chipf c-todo"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-wip"/></svg></span>Not finished</li></ul>
 </div><div class="hg"><h3 class="kh">Keys</h3><ul class="kh">
-<li><kbd>←</kbd><kbd>→</kbd>Previous / next file</li><li><kbd>Esc</kbd>Close the file, or leave a field</li><li><kbd>,</kbd><kbd>.</kbd>A video: one frame back / on</li>
+<li><kbd>←</kbd><kbd>→</kbd>Previous / next file</li><li><kbd>Esc</kbd>Close the file, or leave a field</li><li><kbd>,</kbd><kbd>.</kbd>A video: one frame back / on</li><li><kbd>Space</kbd>A video: play / pause<kbd>M</kbd>sound</li>
 <li><kbd>V</kbd>While reviewing: validate every done department</li><li><kbd>X</kbd>While reviewing: write a general retake</li>
 <li><kbd>Ctrl</kbd>+<kbd>Enter</kbd>Done writing</li></ul>
 </div><div class="hg"><h3>Done</h3><p id="weights"></p></div></div></div>
@@ -68,7 +68,7 @@
 <img id="hover" alt="">
 <div class="lb" id="lb" hidden><button class="x" id="lb-x" aria-label="Close">✕</button><div id="lb-in"></div><p id="lb-cap"></p></div>
 <div class="toast" id="toast" role="status"></div>
-<button class="p-tab out" id="p-open" hidden title="Show the last file's details again" aria-label="Show the details"><svg class="ico" aria-hidden="true"><use href="#b-disclosure_tri_right"/></svg></button>
+<button class="p-tab out" id="p-open" hidden title="Show the last file's details again" aria-label="Show the details"><svg class="ico" aria-hidden="true"><use href="#b-rightarrow_thin"/></svg></button>
 <div class="wl" id="wl" role="dialog" aria-modal="true" aria-labelledby="wl-t" hidden>
 <div class="wl-top"><button class="btn" id="wl-x"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 2.5V6H2.5M13.5 6H10V2.5M10 13.5V10h3.5M2.5 10H6v3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Back to the panel <kbd class="kh">Esc</kbd></button><b class="wl-t" id="wl-t"></b><span class="wl-s" id="wl-s"></span></div>
 <div class="wl-main"><div class="pv" id="wl-pv"></div><aside class="wl-side" id="wl-side"></aside></div>
@@ -77,7 +77,7 @@
 
 <div class="scrim" id="scrim"></div>
 <aside class="panel" id="panel" role="dialog" aria-modal="true" aria-labelledby="p-title" hidden>
-<button class="p-tab" id="p-tab" title="Hide the details (Esc)" aria-label="Hide the details"><svg class="ico" aria-hidden="true"><use href="#b-disclosure_tri_right"/></svg></button>
+<button class="p-tab" id="p-tab" title="Hide the details (Esc)" aria-label="Hide the details"><svg class="ico" aria-hidden="true"><use href="#b-rightarrow_thin"/></svg></button>
 <div class="p-resize" id="p-resize" role="separator" aria-orientation="vertical" aria-label="Panel width: drag, or ← → once focused — past its widest, the whole page; double click for the default" tabindex="0"></div>
 <div class="p-head"><div class="t"><b id="p-title"></b><small id="p-sub"></small></div>
 <button class="btn icon mnav" id="m-prev" aria-label="Previous file">‹</button><button class="btn icon mnav" id="m-next" aria-label="Next file">›</button>

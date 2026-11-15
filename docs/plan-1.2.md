@@ -31,6 +31,8 @@ Dont **+439 lignes de code** pour le script de migration (`lib/migration.py` 307
 
 **Phase 2b essayée dans Blender 5.2.3** : faisable (voir la phase 2b).
 
+**Page snapshot, refonte v3** (maquette Claude Design, `docs/` du brief) : étape 1 faite (palette sombre façon Blender, en-tête sur une ligne, losanges keyframe, post-its, Breakdown en onglet), étape 2 faite (lecteur dans le panneau, timeline avec les notes à leurs images, Watch large, fils sous leur département), étape 3 en cours (fenêtre d'envoi faite ; fenêtre de démarrage et résumé dans l'en-tête à venir), étape 4 à venir (téléphone, iPad). Icônes : celles de Blender (`trailers/icons` → `tools/clean_icons.py`). Les marques de Project monitoring reprennent les losanges de la page.
+
 **Testé dans Blender** : *Migrate old data* sur une copie d'un vrai projet, sans erreur visible (avant 1C : à relancer pour les dates). **Pas encore testé dans Blender** : le reste de ce qui est ci-dessus, dont 1C, plus les deux changements de la 1.1.10 (« waiting for a worker », la molette). À vérifier en priorité : la popup « Which machine, which frame... » (son champ Frame qui se met à jour), le bouton *Migrate old data* sur une copie d'un vrai projet, et une passe sur chaque écran réécrit (Farm monitoring, File details, Edit project, menu du haut, panneaux Project et File).
 
 ## 0. Pour reprendre dans une nouvelle conversation
@@ -414,6 +416,17 @@ Relevé du 14/11 : le JS est déjà compact (132 fonctions toutes appelées, qua
   - **par département**, le choix par défaut : il garde les N derniers rendus **de chaque département** de chaque shot ;
   - **par version** : le comportement actuel, les N derniers tous départements confondus ;
   - dans les deux modes, restent toujours protégés : **le dernier rendu de chaque département**, le rendu principal, chaque « to check » (un par département), les rendus cités par une note ouverte, et ceux que la farm est en train d'écrire. Les anciens rendus sans département forment un groupe à part.
+
+### Phase 5b — Le son des rendus
+
+Décidé : le son vient **des fichiers de shot** (bandes son du séquenceur, speakers). Le son du montage seul (animatic) viendra plus tard, si besoin.
+
+- **Au rendu**, le worker fait un mixdown du son de la scène sur la plage du shot (`bpy.ops.sound.mixdown`, sans interface), à côté des images : `renders/<seq>/<shot>/<version>/<nom>.flac`. Rien quand la scène n'a pas de son.
+- **À la compilation**, ffmpeg l'intègre au mp4 (AAC) ; les previews de séquence, qui mettent les mp4 bout à bout, gardent le son en continu (un silence pour un shot sans son).
+- Les copies légères (`ld/`) et les vidéos du snapshot gardent le son.
+- **La page** : le lecteur a déjà son bouton son (M), gardé par le navigateur ; rien d'autre à faire.
+- **Blender** : le son joue dans *Play* des rendus (lecteur système), rien à ajouter.
+- À vérifier : la durée du son égale à celle des images (fps, plage), et un bloc rendu en entier puis découpé par shot.
 
 ### Phase 6 — Équipe, attribution et « Mon travail »
 
