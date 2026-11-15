@@ -5150,9 +5150,29 @@ measures in the plan).
 - **The farm, a tab of the same page** (`_farm_data()`, `farmHtml()`),
   not a page of its own on another port: one server, one token, one
   connection, and a job's file is a link to its panel. The snapshot never
-  has it (`DATA.farm` is the live page's only). Its data from the monitor
-  cache (memory), compared each second with the farm's activity: a new
-  version when a job moves.
+  has it (`DATA.farm` is the live page's only; `applyData()` takes it
+  too -- left out, the tab stayed as first loaded: an archived job, a
+  worker made, shown only on reload). Its data from the monitor cache
+  (memory), compared every 0.5 s with the farm's activity: a new version
+  when a job moves.
+- **The live page reads the farm itself**: the monitor cache is read
+  again (`farm.loop.refresh_step()`) only by Farm monitoring's window
+  timer -- closed, the cache stood still, other machines never showed.
+  While a page is open, `_turn()` calls the same step (every 2 s, at once
+  after a Farm-tab action).
+- **Another project made active**: the data dropped (`sh.data = None`,
+  the version bumped), `/data` says `"reading"` and the page reloads onto
+  the waiting page (`_waiting_page()`, also what `/` serves before the
+  first pass), which reloads once the data is there; a pass of the old
+  project finishing late is dropped (its result carries its root).
+  `meta.live.root` changed under an open page: it reloads too (its
+  review's key, its title are the project's).
+- **Opening**: page.html's `#boot` (the project's name, a line moving,
+  shown only after 0.3 s) covers the page until page.js has drawn it.
+- **Render from the page** (`_farm_submit()`): `job_request()` /
+  `request_sequence_preview()` as the Render dialog calls them, the
+  preset checked against the dialog's own list (`_presets()`), a block's
+  shots given by name, their numbers sent as `only_shots`.
 - **No page open, almost nothing runs**: no request for 30 s (the tab
   closed: its long poll comes back every 20 s while open) and neither the
   passes over the project nor the farm's comparison run; what's left is

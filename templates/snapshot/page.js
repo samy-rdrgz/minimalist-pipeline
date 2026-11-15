@@ -146,6 +146,9 @@ return '<span class="dv'+(big?' big':'')+'"><span class="bar2"><i style="width:'
 var rv={author:'',role:'',date:'',files:{},creates:[]};
 // Live: what's on its way to Blender (liveSend()).
 var LIVE_OUT={busy:false,again:false,sent:{},t:0,after:null,say:'live'};
+// The live page's own state, set before anything draws: the Farm tab's
+// jobs open, the panel's sections folded, the Render form per file.
+var JOB_STATES=[['running','In progress','wip'],['waiting','Waiting','todo'],['failed','Failed','fail'],['finished','Finished','done']],JOPEN={},chkOpen=true,lnkOpen=false,rndOpen=false,RF={};
 var KEY='mp-review:'+META.project+':'+(META.live?'live':META.snapshot);
 // synced: Still done per department; req: a department required added
 // (true) or removed (false); omit: {state, reason} set aside or counted again.
@@ -1070,7 +1073,7 @@ if(rv)h+='<button type="button" class="desc-edit" id="add-desc">✎ '+(it.desc?'
 // The notes' bar, Whole file (its retakes concern every department),
 // the departments; reviewing, the file's settings folded at the end.
 h+=notesBar(it)+'<div class="p-block major">'+wholeHtml(it,rv)+(deps.length?deps.map(function(d){return depHtml(it,d,rv);}).join(''):'<p class="faint">No department tracked on this file.</p>')+'</div>';
-if(it.live)h+=checksHtml(it)+linksHtml(it);
+if(it.live)h+=renderHtml(it)+checksHtml(it)+linksHtml(it);
 if(rv)h+=fileSettings(it,e);
 // Where it comes from: at the bottom, out of the way while reviewing.
 h+='<dl class="view-only facts"><dt>Last render</dt><dd>'+rendersHtml(it)+noVideo(it)+'</dd><dt>Blender file</dt><dd class="fileline">'+esc(it.file)+'.blend</dd></dl>';
@@ -1257,6 +1260,11 @@ if((t=ev.target.closest('[data-ns]'))){NF.s=t.dataset.ns;keep('notes-sort',NF.s)
 if(ev.target.closest('#fset')){fsetOpen=!fsetOpen;return refresh();}
 if(ev.target.closest('#chk-t')){chkOpen=!chkOpen;return refresh();}
 if(ev.target.closest('#lnk-t')){lnkOpen=!lnkOpen;return refresh();}
+if(ev.target.closest('#rnd-t')){rndOpen=!rndOpen;return refresh();}
+if((t=ev.target.closest('[data-rf][data-v]'))){rform(it)[t.dataset.rf]=t.dataset.v;return refresh();}
+if((t=ev.target.closest('[data-rprio]'))){var rf0=rform(it);rf0.prio=Math.max(0,Math.min(100,rf0.prio+(+t.dataset.rprio)));return refresh();}
+if((t=ev.target.closest('[data-rshot]'))){var off=rform(it).off;if(off[t.dataset.rshot])delete off[t.dataset.rshot];else off[t.dataset.rshot]=1;return refresh();}
+if((t=ev.target.closest('#r-send,#r-prev'))){t.disabled=true;renderSend(it,t.id==='r-prev').then(function(){t.disabled=false;});return;}
 if((t=ev.target.closest('[data-goto]')))return jump(D[+t.dataset.goto]);
 // A render to check: watched in the player; Checked, sent to Blender at once.
 if((t=ev.target.closest('[data-chkplay]'))){var V2=it.live.versions||{},wv=t.dataset.chkplay;Object.keys(V2).some(function(k){var hit=V2[k].filter(function(x){return x.video===wv;})[0];if(hit)pickVersion(it,k,hit);return !!hit;});return;}
@@ -1293,7 +1301,7 @@ if(ev.target.closest('#allok'))return validateAll();
 if((t=ev.target.closest('.rvb button'))&&!t.disabled){var d=t.parentNode.dataset.d,e=entry(it),v=e.deps[d];
 if(t.classList.contains('ok-b')){if(v&&v.ok)delete e.deps[d];else e.deps[d]={ok:1};refresh();}
 else openCmp('d:'+d);}});
-$('p-body').addEventListener('change',function(ev){var t=ev.target;if(!t.dataset||t.dataset.vline==null)return;var it=D[cur],k=t.dataset.vline;
+$('p-body').addEventListener('change',function(ev){var t=ev.target;if(t.dataset&&t.dataset.rf==='preset'){rform(D[cur]).preset=t.value;return;}if(!t.dataset||t.dataset.vline==null)return;var it=D[cur],k=t.dataset.vline;
 pickVersion(it,k,t.value===''?null:((it.live.versions||{})[k]||[])[+t.value]);});
 $('p-body').addEventListener('input',function(ev){var t=ev.target,it=D[cur],e=entry(it);if(t.tagName!=='TEXTAREA'&&t.id!=='om-why')return;if(t.tagName==='TEXTAREA')grow(t);
 // The box being written: kept as typed, its shot buttons following the
@@ -1592,10 +1600,8 @@ summaryCards();drawTabs();render();barHeight();
 // is being written in (once left). Disconnected: tried again every 2 s.
 /* ---------- live: the Farm tab ---------- */
 // Its jobs by state, as Farm monitoring's: a job's file opens its panel;
-// then the machines. Read only for now.
-var JOB_STATES=[['running','In progress','wip'],['waiting','Waiting','todo'],['failed','Failed','fail'],['finished','Finished','done']];
+// then the machines -- this one, the host, the silent ones.
 function dur(s){if(s==null)return '';s=Math.round(s);return s<90?s+' s':s<5400?Math.round(s/60)+' min':(s/3600).toFixed(1)+' h';}
-var JOPEN={};
 function farmHtml(){var F=DATA.farm||{},jobs=F.jobs||[],me=F.me||{},h='<div class="farm">';
 // This machine first: worker or not, the farm host or not -- a worker in a click.
 var mine=(F.workers||[]).filter(function(w){return w.mine;})[0];
@@ -1605,8 +1611,9 @@ h+='<div class="fme"><span class="fme-l">'+ico('render')+'<b>This machine</b> '+
 JOB_STATES.forEach(function(st){var js=jobs.filter(function(j){return j.state===st[0];});if(!js.length)return;
 h+='<section class="fgrp"><h3>'+st[1]+' <span>'+js.length+'</span></h3>'+js.map(function(j){return jobRow(j,st);}).join('')+'</section>';});
 if(!jobs.length)h+='<p class="faint">No job in the farm.</p>';
-var W=F.workers||[];if(W.length)h+='<section class="fgrp"><h3>Machines <span>'+W.length+'</span></h3>'+W.map(function(w){
-return '<div class="job wk"><i class="m '+(w.file?'s-wip':w.status==='idle'?'s-done':'s-todo')+'"></i><span class="jf">'+esc(w.name)+'</span><span class="js">'+esc([w.status,w.file].filter(Boolean).join(' · '))+'</span></div>';}).join('')+'</section>';
+var W=F.workers||[];h+='<section class="fgrp"><h3>Machines <span>'+W.length+'</span></h3>'+(W.length?W.map(function(w){var sl=w.status==='silent';
+return '<div class="job wk'+(sl?' sl':'')+'"><i class="m '+(sl?'na':w.file?'s-wip':w.status==='idle'?'s-done':'s-todo')+'"></i><span class="jf">'+esc(w.name)+'</span>'+
+'<span class="js">'+(w.mine?'<span class="tg">this machine</span>':'')+(w.host?'<span class="tg">farm host</span>':'')+(sl?'silent since '+fmtDate(w.since)+' -- crashed, closed or asleep?':esc([w.status,w.file].filter(Boolean).join(' · ')))+'</span></div>';}).join(''):'<p class="faint">No worker: Make it a worker above, on each machine that renders.</p>')+'</section>';
 return h+'</div>';}
 // A job: one line that opens on its detail -- what, where, by whom -- and
 // what Farm monitoring does to it: priority, cancel, retry, archive.
@@ -1619,7 +1626,7 @@ return '<details class="job"'+(JOPEN[j.id]?' open':'')+' data-job="'+esc(j.id)+'
 '<div class="jd"><dl>'+row('Stage',esc(j.text))+row('Preset',esc([j.preset,j.department].filter(Boolean).join(' · ')))+row('Frames',j.range?esc(j.range.join('-'))+(j.total?' · '+j.done+'/'+j.total+' rendered':''):'')+
 row('Machines',esc((j.names||[]).join(', ')))+row('Sent',[esc(j.user),fmtDate(j.at)].filter(Boolean).join(' · '))+
 row('Priority',live&&!j.pending?'<span class="prio"><button type="button" class="mini" data-prio="-1" aria-label="Lower">−</button><b>'+j.priority+'</b><button type="button" class="mini" data-prio="1" aria-label="Higher">+</button><small>higher goes first</small></span>':esc(String(j.priority)))+
-row('Job',esc(j.id))+'</dl><div class="ta">'+(it?'<button type="button" class="act" data-goto="'+it.i+'">Open its panel</button>':'')+
+row('Job',esc(j.id))+'</dl><div class="ta">'+(it?'<button type="button" class="act" data-goto="'+it.i+'">Open its file details</button>':'')+
 (live?'<button type="button" class="act ko" data-farm="cancel">Cancel</button>':'')+(st[0]==='failed'?'<button type="button" class="act fix" data-farm="retry">Retry</button>':'')+
 (st[0]==='failed'||st[0]==='finished'?'<button type="button" class="act" data-farm="archive">Archive</button>':'')+'</div></div></details>';}
 function farmPost(action,job,value){return livePost('farm',{action:action,job_id:job||'',value:value}).then(function(res){
@@ -1636,7 +1643,6 @@ farmPost(act,id);});
 // To check: the renders the team hasn't watched -- ▶ in the player,
 // Checked takes one off (pushed to the edit if ticked); open by default.
 // Linked files: what it links (a newer stable said), what links it.
-var chkOpen=true,lnkOpen=false;
 function fold2(id,open,icon,title,sum,body){return '<div class="fset'+(open?' on':'')+'"><button type="button" class="fset-b" id="'+id+'" aria-expanded="'+open+'">'+ico(icon)+'<b>'+title+'</b><span class="sm">'+sum+'</span><span class="chev" aria-hidden="true">▸</span></button>'+(open?'<div class="fset-c">'+body+'</div>':'')+'</div>';}
 function checksHtml(it){var c=it.live.checks||[];if(!c.length)return '';
 return fold2('chk-t',chkOpen,'eye','To check',plural(c.length,'render')+' not watched by the team yet',c.map(function(x){
@@ -1644,6 +1650,22 @@ return '<div class="chk"><span class="chk-l">'+esc([x.shot,x.department,x.folder
 '<button type="button" class="act fix" data-chk="'+esc(x.key)+'" title="Watched: out of To check">'+ico('check')+'Checked</button></div>';}).join('')+
 '<label class="chk-push"><input type="checkbox" id="chk-push"> Push to editing when checked</label>');}
 function itemAt(key){return key&&byKey[key];}
+// Render: the file sent to the farm as the Render dialog sends it -- its
+// version, preset, priority, mode, a block's shots --, or its sequence's
+// preview. Kept per file while the page is open.
+function rform(it){var F=DATA.farm||{};return RF[it.file]=RF[it.file]||{ver:it.stable?'stable':'last',preset:F.preset||'',prio:10,mode:'all',off:{}};}
+function renderHtml(it){var F=DATA.farm||{},f=rform(it),seg=function(k,v,l){return '<button type="button" data-rf="'+k+'" data-v="'+v+'" aria-pressed="'+(f[k]===v)+'">'+l+'</button>';};
+var job=(F.jobs||[]).filter(function(j){return j.key===(it.live||{}).key&&(j.state==='running'||j.state==='waiting');})[0];
+var b='';if(it.stable&&it.stable!==it.file)b+='<div class="st-l">Version</div><div class="segb om">'+seg('ver','stable','Last stable · '+esc(it.stable_v||''))+seg('ver','last','Last · '+esc(it.wip_v||''))+'</div>';
+b+='<div class="st-l">Preset</div><select class="rsel" data-rf="preset" aria-label="Pre-render preset">'+(F.presets||[]).map(function(p){return '<option value="'+esc(p[0])+'"'+(p[0]===f.preset?' selected':'')+'>'+esc(p[1])+'</option>';}).join('')+'</select>';
+b+='<div class="rrow"><span class="prio"><span class="st-l">Priority</span><button type="button" class="mini" data-rprio="-1" aria-label="Lower">−</button><b>'+f.prio+'</b><button type="button" class="mini" data-rprio="1" aria-label="Higher">+</button></span>'+
+'<div class="segb om">'+seg('mode','all','All machines')+seg('mode','single','Single')+'</div></div>';
+if(it.shots.length>1)b+='<div class="st-l">Shots</div><div class="req">'+it.shots.map(function(x){return '<button type="button" data-rshot="'+esc(x)+'" aria-pressed="'+!f.off[x]+'">'+esc(x)+'</button>';}).join('')+'</div>';
+b+='<div class="ta"><button type="button" class="act fix" id="r-send">'+ico('render')+'Send to the farm</button>'+(it.kind==='shot'&&it.group?'<button type="button" class="act" id="r-prev" title="Each shot\'s latest video of '+esc(it.group)+', end to end">Preview '+esc(it.group)+'</button>':'')+'</div>';
+return fold2('rnd-t',rndOpen,'render','Render',job?'in the farm: '+esc(job.text)+(job.total?' · '+job.done+'/'+job.total:''):'send it to the farm',b);}
+function renderSend(it,preview){var f=rform(it),body=preview?{action:'preview',sequence:it.group,priority:f.prio}:
+{action:'render',file:f.ver==='stable'&&it.stable?it.stable:it.file,preset:f.preset,priority:f.prio,mode:f.mode,shots:it.shots.length>1?it.shots.filter(function(x){return !f.off[x];}):null};
+return livePost('farm',body).then(function(res){toast(res.ok?'Sent: '+res.sent+'.'+(res.note?' '+res.note:''):'Not sent: '+(res.error||'?'));}).catch(function(){toast('Blender doesn\'t answer.');});}
 function linksHtml(it){var L=it.live,links=L.links||[],by=L.linked_by||[];if(!links.length&&!by.length)return '';var old=links.filter(function(x){return x.newer;}).length;
 var to=function(t,file){return t?'<button type="button" class="lk" data-goto="'+t.i+'">'+esc(t.name)+'</button>':'<span>'+esc(file)+'</span>';};
 return fold2('lnk-t',lnkOpen,'link','Linked files',[plural(links.length,'link'),old?old+' to update':'','linked by '+by.length].filter(Boolean).join(' · '),
@@ -1695,11 +1717,13 @@ function applyData(nd){var a=document.activeElement,box=a&&a.classList&&(a.class
 // A box to write in kept as it was (its text is the page's); any other
 // field: once left.
 if(!box&&a&&a.matches&&a.matches('textarea,input:not([type=checkbox]):not([type=radio])')){pend=nd;return;}pend=null;
+// Another project made active in Blender: its page, as it loads.
+if(nd.meta.live&&META.live&&nd.meta.live.root!==META.live.root)return location.reload();
 var curFile=cur!=null&&D[cur]?D[cur].file:null,plFile=PL&&PL.it?PL.it.file:null,y=scrollY;
 // The file shown gone (archived, renamed): its panel closed first.
 if(curFile&&!nd.items.some(function(x){return x.file===curFile;})){closePanel();curFile=null;}
 Object.keys(nd.images||{}).forEach(function(k){DATA.images[k]=nd.images[k];});
-DATA.items=nd.items;DATA.meta=nd.meta;META=nd.meta;D=nd.items;W=META.weights;prepare();
+DATA.items=nd.items;DATA.meta=nd.meta;DATA.farm=nd.farm;META=nd.meta;D=nd.items;W=META.weights;prepare();
 if(PL&&plFile&&byFile[plFile])PL.it=byFile[plFile];
 // What was sent, now shown by the data: out of your review, before drawing.
 if(LIVE_OUT.after&&(META.live.version||0)>=LIVE_OUT.after.v){var fn=LIVE_OUT.after.fn;LIVE_OUT.after=null;fn(true);}
@@ -1714,10 +1738,11 @@ pill.title=s==='on'?'Served by Blender on this machine, kept up to date':s==='bu
 
 
 function poll(){fetch('data?t='+encodeURIComponent(T)+'&since='+v,{cache:'no-store'}).then(function(r){if(!r.ok)throw r.status;return r.json();})
-.then(function(d){status(d.busy?'busy':'on');if(d.data&&d.version!==v){v=d.version;applyData(d.data);}poll();})
+.then(function(d){if(d.reading)return location.reload();status(d.busy?'busy':'on');if(d.data&&d.version!==v){v=d.version;applyData(d.data);}poll();})
 .catch(function(){status('off');setTimeout(poll,2000);});}
 status('on');poll();
 rv.author=META.live.user||rv.author;rv.role=META.live.role||'team';store();setReview(true);countBar();if(Object.keys(rv.files).length||(rv.creates||[]).length)liveSend();})();
+var boot=$('boot');if(boot)boot.remove();
 // A link to a file (#its name) opens it.
 var want=decodeURIComponent(location.hash.slice(1));if(want&&byName[want])jump(byName[want]);
 })();

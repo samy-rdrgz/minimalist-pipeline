@@ -773,25 +773,38 @@ def _refresh_tick() -> float:
     itself: every _REFRESH_INTERVAL it starts a background read
     (_read_farm_snapshot()), and applies + redraws once one has finished."""
     try:
-        result = _refresh_reader.take()
-        if result is not None and result[0] == "ok":
-            _apply_farm_snapshot(result[1])
-            _redraw_sidebars()
-        if (
-            not _refresh_reader.busy()
-            and time.monotonic() - _refresh_reader.started_at >= _REFRESH_INTERVAL
-        ):
-            paths = _farm_paths()
-            if paths:
-                _refresh_reader.start(
-                    _read_farm_snapshot,
-                    paths,
-                    _scanned_mtimes(),
-                    list(_jobs_scan_cache["actives_raw"]),
-                )
+        refresh_step()
     except Exception:
         pass
     return 0.25
+
+
+def refresh_step(soon: bool = False) -> bool:
+    """_refresh_tick()'s turn, the live page's too (lib/live.py: its Farm
+    tab, Farm monitoring closed): the last read applied, the next one
+    started every _REFRESH_INTERVAL -- soon: at once (an action just done).
+    True when a read was applied."""
+    if soon:
+        _refresh_reader.started_at = 0.0
+    applied = False
+    result = _refresh_reader.take()
+    if result is not None and result[0] == "ok":
+        _apply_farm_snapshot(result[1])
+        _redraw_sidebars()
+        applied = True
+    if (
+        not _refresh_reader.busy()
+        and time.monotonic() - _refresh_reader.started_at >= _REFRESH_INTERVAL
+    ):
+        paths = _farm_paths()
+        if paths:
+            _refresh_reader.start(
+                _read_farm_snapshot,
+                paths,
+                _scanned_mtimes(),
+                list(_jobs_scan_cache["actives_raw"]),
+            )
+    return applied
 
 
 def _status_tick() -> float:

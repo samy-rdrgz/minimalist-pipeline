@@ -19,6 +19,7 @@ once as an imported review would be. See NOTES.md, "Live page".
 
 import base64
 import hmac
+import html
 import json
 import mimetypes
 import os
@@ -267,10 +268,10 @@ def _read(root, cache, config, v_prefix, extras):
             # Links to a newer stable: one listing per folder linked.
             currents = {k: e.get("links") or [] for k, e in new.items()}
             extras = _live_extras(root, new, _outdated_links_of(root, [Path(k) for k in new], currents, v_prefix))
-        _reader["result"] = (new, changed, extras)
+        _reader["result"] = (root, new, changed, extras)
     except Exception as e:  # never die silently: the next pass tries again
         log("WARNING", "live", f"Live page: project not read: {e!r}")
-        _reader["result"] = (cache, False, extras)
+        _reader["result"] = (root, cache, False, extras)
 
 
 # --- the main thread -------------------------------------------------------------
@@ -296,10 +297,23 @@ def _turn(sh: _Shared) -> None:
 
     root = get_active_project_root()
     if root and Path(root) != sh.root:
-        # Another project made active: the page follows it.
+        # Another project made active: the page follows it -- told it's
+        # being read (it reloads on the waiting page), then its data.
         sh.root = Path(root)
-        _reader.update(cache={}, result=None, compare=None, ready=False, extras=None)
+        _reader.update(cache={}, result=None, compare=None, farm=None, ready=False, extras=None, at=0.0)
+        with sh.changed:
+            sh.version += 1
+            sh.data, sh.body = None, b""
+            sh.changed.notify_all()
+        log("INFO", "live", f"Live page: now {sh.root.name}")
     clock = time.monotonic()
+    page_open = clock - sh.last_seen < IDLE_AFTER
+    if page_open:
+        # The farm's jobs and machines, read as Farm monitoring does --
+        # its window closed, nothing else would read them.
+        from ..farm.loop import refresh_step
+
+        refresh_step()
     # The page's actions, applied now; answered after the next pass.
     while True:
         try:
@@ -309,13 +323,18 @@ def _turn(sh: _Shared) -> None:
         if pending.kind in ("open", "farm"):
             pending.result = (_open if pending.kind == "open" else _farm_action)(pending.review)
             pending.done.set()
-            _reader["farm_at"] = 0.0  # the farm's change shown at the next turn
+            if pending.kind == "farm":
+                from ..farm.loop import refresh_step
+
+                refresh_step(soon=True)  # the farm read again now: its change shown
             continue
         pending.result = _apply(sh.root, pending.review)
         _reader["waiting"].append(pending)
     thread = _reader["thread"]
+    if _reader["result"] is not None and not (thread and thread.is_alive()) and _reader["result"][0] != sh.root:
+        _reader["result"] = None  # the project before: dropped
     if _reader["result"] is not None and not (thread and thread.is_alive()):
-        cache, changed, _reader["extras"] = _reader["result"]
+        _, cache, changed, _reader["extras"] = _reader["result"]
         _reader["result"] = None
         _reader["cache"] = cache
         _reader["ready"] = True
@@ -324,13 +343,13 @@ def _turn(sh: _Shared) -> None:
             pending.result["version"] = sh.version
             pending.done.set()
         _reader["in_pass"] = []
-    elif clock - _reader["farm_at"] > 1.0 and clock - sh.last_seen < IDLE_AFTER:
+    elif clock - _reader["farm_at"] > 0.5 and page_open:
         # The farm moves on its own -- looked at only while a page is open:
         # with none (its tab closed), nothing but this check every turn.
         _reader["farm_at"] = clock
         _rebuild(sh, force=False)
     if (thread is None or not thread.is_alive()) and _reader["result"] is None and (
-        clock - _reader["at"] >= READ_EVERY and clock - sh.last_seen < IDLE_AFTER
+        clock - _reader["at"] >= READ_EVERY and page_open
         or sh.data is None
         or _reader["waiting"]
     ):
@@ -488,7 +507,8 @@ def _farm_data(root: Path) -> dict:
     """The Farm tab's: {"status", "jobs": [{"id", "file", "key" (its
     folder under the project: the page's link to it), "shot", "state",
     "text", "done", "total", "left", "machines", "user", "at"}], "workers":
-    [{"name", "status", "file"}]}, from the monitor cache. Memory only."""
+    [{"name", "status", "file", "mine", "host", "since"}], "me", "presets",
+    "preset"}, from the monitor cache. Memory only."""
     from ..farm.loop import _STAGE_WORDS, entry_state
     from ..farm.monitor import get_monitor_cache
 
@@ -527,17 +547,29 @@ def _farm_data(root: Path) -> dict:
         }
         (finished if state == "finished" else jobs).append(row)
     finished.sort(key=lambda r: r["at"], reverse=True)
-    workers = [
-        {
-            "name": f"{w.get('user')} ({w.get('machine') or uuid[:8]})" if w.get("user") else w.get("machine") or uuid[:8],
-            "status": w.get("status") or "",
-            "file": Path(w.get("current_file") or "").stem,
-        }
-        for uuid, w in sorted((cache.get("workers") or {}).items(), key=lambda kv: str(kv[1].get("user") or ""))
-        if isinstance(w, dict)
-    ]
     from ..farm.monitor import is_blender_monitor
     from ..farm.workers import is_blender_worker, worker_rendering
+    from .core import get_machine_id
+
+    mine = get_machine_id() or ""
+    host = cache.get("lock_machine") or ""
+    silent = cache.get("silent_workers") or {}
+    workers = [
+        {
+            "name": _machine({"workers": {uuid: w}}, uuid),
+            "status": "silent" if uuid in silent else w.get("status") or "",
+            "file": Path(w.get("current_file") or "").stem,
+            "mine": uuid == mine,
+            "host": bool(host) and (w.get("machine") or uuid[:8]) == host,
+            # Silent: its last heartbeat -- crashed, closed, asleep?
+            "since": _iso(w.get("last_heartbeat")) if uuid in silent else "",
+        }
+        for uuid, w in sorted(
+            [*(cache.get("workers") or {}).items(), *((u, w) for u, w in silent.items() if u not in (cache.get("workers") or {}))],
+            key=lambda kv: (kv[0] not in (cache.get("workers") or {}), str(kv[1].get("user") or "")),
+        )
+        if isinstance(w, dict)
+    ]
 
     me = {
         "worker": is_blender_worker(),
@@ -550,7 +582,27 @@ def _farm_data(root: Path) -> dict:
         "jobs": jobs + finished[:FINISHED_SHOWN],
         "workers": workers,
         "me": me,
+        **_presets(),
     }
+
+
+def _presets() -> dict:
+    """The page's Render form: {"presets": [[name, label]], "preset"
+    (the project's default)} -- the Render dialog's picker."""
+    from ..operators.farm_ops import _get_pre_render_scripts, default_pre_render_script
+    from .config import ConfigCache
+
+    items = [list(i[:2]) for i in _get_pre_render_scripts(None, bpy.context)]
+    return {"presets": items, "preset": default_pre_render_script(ConfigCache.get() or {}, [tuple(i) for i in items])}
+
+
+def _iso(value) -> str:
+    """A heartbeat (an epoch, or already a date) as the page's dates."""
+    if isinstance(value, (int, float)):
+        from datetime import datetime
+
+        return datetime.fromtimestamp(value).astimezone().isoformat(timespec="seconds")
+    return str(value or "")
 
 
 def _machine(cache: dict, uuid: str) -> str:
@@ -562,12 +614,17 @@ def _farm_action(raw: dict) -> dict:
     """The Farm tab's buttons, as Farm monitoring's: "cancel", "retry",
     "archive" a job, its "priority" (the job file's: the queue reads it
     each tick), "worker" this machine (on / off: a render it's on stopped
-    now -- the page asked first)."""
+    now -- the page asked first); "render" / "preview": _farm_submit()."""
     from .config import ConfigCache
     from .core import locked_json
     from .errors import PipelineError
 
     action, job = str(raw.get("action") or ""), str(raw.get("job_id") or "")
+    if action in ("render", "preview"):
+        try:
+            return _farm_submit(action, raw)
+        except PipelineError as e:
+            return {"ok": False, "error": e.message}
     ops = {
         "cancel": bpy.ops.m_pipeline.farm_cancel_job,
         "retry": bpy.ops.m_pipeline.farm_retry_job,
@@ -596,6 +653,56 @@ def _farm_action(raw: dict) -> dict:
     return {"ok": False, "error": f"unknown action {action!r}"}
 
 
+def _farm_submit(action: str, raw: dict) -> dict:
+    """The page's Render: a file sent to the farm as the Render dialog
+    sends it ("file", "preset", "priority", "mode" all / single, "shots"
+    of a block ticked), or its sequence's preview ("sequence")."""
+    from ..farm.monitor import job_request
+    from ..operators.farm_ops import _NO_SCRIPT
+    from ..operators.preview_ops import dropped_message, request_sequence_preview
+    from .config import get_active_project_root
+    from .review_import import _review_file
+    from .session import get_user
+
+    user = get_user(bpy.context)
+    try:
+        priority = max(0, min(100, int(raw.get("priority", 10))))
+    except (TypeError, ValueError):
+        priority = 10
+    if action == "preview":
+        sequence = str(raw.get("sequence") or "")
+        if not sequence or "/" in sequence or not (get_active_project_root() / "shots" / sequence).is_dir():
+            return {"ok": False, "error": f"no sequence {sequence!r}"}
+        dropped: list = []
+        if not request_sequence_preview(sequence, user, priority, dropped):
+            return {"ok": False, "error": f"nothing rendered yet in {sequence}"}
+        log("INFO", "live", f"Live page: preview of {sequence} requested")
+        return {"ok": True, "sent": f"preview of {sequence}", "note": dropped_message(dropped)}
+    filepath = _review_file(str(raw.get("file") or ""))
+    if not filepath or not filepath.is_file():
+        return {"ok": False, "error": "file not found"}
+    names = {n for n, _ in _presets()["presets"]}
+    preset = str(raw.get("preset") or "")
+    if preset not in names:
+        return {"ok": False, "error": f"no preset {preset!r}"}
+    shots = None
+    if isinstance(raw.get("shots"), list):
+        shots = sorted({int(d) for x in raw["shots"] if (d := re.sub(r"\D", "", str(x)))})
+        if not shots:
+            return {"ok": False, "error": "no shot ticked"}
+    job_request(
+        filepath,
+        user=user,
+        priority=priority,
+        render_mode="single" if raw.get("mode") == "single" else "all",
+        increment=True,
+        prerender_script="" if preset == _NO_SCRIPT else preset,
+        only_shots=shots,
+    )
+    log("INFO", "live", f"Live page: {filepath.name} sent to the farm")
+    return {"ok": True, "sent": filepath.name}
+
+
 def _rebuild(sh: _Shared, force: bool) -> None:
     """The page's data from the last pass and the farm's jobs (memory
     only): a new version when it differs."""
@@ -617,7 +724,8 @@ def _rebuild(sh: _Shared, force: bool) -> None:
         "exported_by": get_user(bpy.context),
         "addon_version": get_addon_version(),
         # Who writes from the page: Blender's user and role (Preferences).
-        "live": {"token": sh.token, "user": get_user(bpy.context), "role": get_user_role(bpy.context) or "team"},
+        # root: another project made active, the page reloads.
+        "live": {"token": sh.token, "user": get_user(bpy.context), "role": get_user_role(bpy.context) or "team", "root": str(sh.root)},
         # Played from the project, through the server.
         "videos": {"mode": "live", "base": None, "files": [], "local": f"media/{sh.token}/renders"},
     }
@@ -707,11 +815,12 @@ def _handler(sh: _Shared):
             self._send(200, json.dumps(pending.result).encode(), "application/json")
 
         def _page(self):
-            with sh.changed:
-                sh.changed.wait_for(lambda: sh.data is not None or sh.stopped, timeout=30)
-                data = sh.data
+            with sh.lock:
+                data, name = sh.data, sh.root.name
             if data is None:
-                return self._send(503, b"The project is still being read: reload in a moment.", "text/plain")
+                # Being read (opened, another project): a page that says so,
+                # replaced by the project's once its data is there.
+                return self._send(200, _waiting_page(name).encode("utf-8"), "text/html; charset=utf-8")
             self._send(200, render_page(data).encode("utf-8"), "text/html; charset=utf-8")
 
         def _data(self, since: int):
@@ -720,7 +829,7 @@ def _handler(sh: _Shared):
             with sh.changed:
                 sh.changed.wait_for(lambda: sh.version != since or sh.stopped, timeout=POLL)
                 busy = time.monotonic() - sh.last_tick > BUSY_AFTER
-                head = {"version": sh.version, "busy": busy}
+                head = {"version": sh.version, "busy": busy, "reading": sh.data is None}
                 body = sh.body if sh.version != since else b""
             out = json.dumps(head).encode()
             if body:
@@ -764,6 +873,26 @@ def _handler(sh: _Shared):
                     left -= len(block)
 
     return Handler
+
+
+def _waiting_page(project: str) -> str:
+    """While the project is read: its name, a line moving, then the page."""
+    name = html.escape(project)
+    return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>{name} live</title>
+<style>:root{{color-scheme:light dark;--bg:#f6f5f2;--fg:#24211d;--mu:#8a847b;--ac:#e0702e}}
+@media (prefers-color-scheme:dark){{:root{{--bg:#1c1b19;--fg:#ecebe8;--mu:#8f8a82}}}}
+body{{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--bg);color:var(--fg);font:14px/1.4 system-ui,sans-serif}}
+.b{{text-align:center;padding:0 16px}}h1{{font-size:20px;font-weight:600;margin:0 0 6px}}p{{margin:0;color:var(--mu)}}
+.l{{width:180px;height:3px;margin:18px auto 0;border-radius:2px;background:color-mix(in srgb,var(--mu) 25%,transparent);overflow:hidden}}
+.l i{{display:block;width:40%;height:100%;border-radius:2px;background:var(--ac);animation:m 1.1s ease-in-out infinite alternate}}
+@keyframes m{{from{{transform:translateX(-10%)}}to{{transform:translateX(160%)}}}}
+@media (prefers-reduced-motion:reduce){{.l i{{animation:none;width:100%;opacity:.5}}}}</style></head>
+<body><div class="b" role="status"><h1>{name}</h1><p>Blender is reading the project…</p><div class="l"><i></i></div></div>
+<script>var T=new URLSearchParams(location.search).get("t")||"";
+function go(v){{fetch("data?t="+encodeURIComponent(T)+"&since="+v,{{cache:"no-store"}}).then(function(r){{if(!r.ok)throw r.status;return r.json();}})
+.then(function(d){{if(!d.reading)location.reload();else go(d.version);}}).catch(function(){{setTimeout(function(){{go(v);}},2000);}});}}go(-1);</script>
+</body></html>"""
 
 
 # --- start / stop -------------------------------------------------------------------------

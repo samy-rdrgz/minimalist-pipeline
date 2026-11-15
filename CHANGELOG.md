@@ -28,7 +28,11 @@ All notable changes to this addon. Dates are release dates.
   ticked), its linked files and what links it, and every version of its
   renders to watch; a Farm tab, the farm's jobs and machines -- a job's
   detail with its priority, Cancel, Retry, Archive; this machine made a
-  worker or not.
+  worker or not, every machine listed (this one, the host, the silent
+  ones); a file sent to the farm from its panel (version, preset,
+  priority, mode, a block's shots) or its sequence's preview. It follows
+  the project made active, and says the project is being read while it
+  is.
 - Snapshot page: *Mark fixed* on a thread whose open retake is a reply
   (still to redo): it was offered on the first entry only.
 - Edit project: *Rename preset…* renames a render preset and everything
