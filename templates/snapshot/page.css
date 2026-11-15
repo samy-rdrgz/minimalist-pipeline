@@ -1178,7 +1178,7 @@ body.live #rv-send{display:none}
 .sch-b{display:none!important}.sch-m{display:block;margin-bottom:12px}.sch-m .sch{display:flex;width:100%;box-sizing:border-box}.sch-m .bk-tr{flex:1}}
 .rfr label{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink-3)}
 .rnum{width:7em;min-height:30px;padding:0 8px;border:1px solid var(--outline);border-radius:var(--r-btn);background:var(--btn);color:var(--ink);font:12px var(--mono)}
-.rfr{margin-top:4px}.st-l small{font-weight:400;color:var(--ink-3);margin-left:6px}
+.rfr{margin-top:4px}.rf-t{display:block;margin-top:10px;padding:0;border:0;background:none;color:var(--ink-2);font:inherit;font-size:12px;cursor:pointer}.rf-t small{color:var(--ink-3);margin-left:4px}.st-l small{font-weight:400;color:var(--ink-3);margin-left:6px}
 /* A job's progress: grows from its last width; a sheen runs while it renders. */
 .job .bar2 i{transition:width .8s cubic-bezier(.2,.7,.3,1)}
 .job .bar2.run{overflow:hidden}

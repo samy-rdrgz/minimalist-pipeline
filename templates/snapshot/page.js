@@ -1336,6 +1336,7 @@ if(ev.target.closest('#chk-t')){chkOpen=!chkOpen;return refresh();}
 if(ev.target.closest('#lnk-t')){lnkOpen=!lnkOpen;return refresh();}
 if(ev.target.closest('#rnd-t')){rndOpen=!rndOpen;return refresh();}
 if((t=ev.target.closest('[data-rf][data-v]'))){rform(it)[t.dataset.rf]=t.dataset.v;return refresh();}
+if(ev.target.closest('[data-rft]')){var rf1=rform(it);rf1.frames=!(rf1.frames||rf1.start||rf1.end);if(!rf1.frames){rf1.start='';rf1.end='';}return refresh();}
 if((t=ev.target.closest('[data-rprio]'))){var rf0=rform(it);rf0.prio=Math.max(0,Math.min(100,rf0.prio+(+t.dataset.rprio)));return refresh();}
 if((t=ev.target.closest('[data-rshot]'))){var off=rform(it).off;if(off[t.dataset.rshot])delete off[t.dataset.rshot];else off[t.dataset.rshot]=1;return refresh();}
 if((t=ev.target.closest('#r-send,#r-prev'))){t.disabled=true;renderSend(it,t.id==='r-prev').then(function(){t.disabled=false;});return;}
@@ -1785,7 +1786,9 @@ function renderHtml(it){var F=DATA.farm||{},f=rform(it),seg=function(k,v,l){retu
 var job=(F.jobs||[]).filter(function(j){return j.key===(it.live||{}).key&&(j.state==='running'||j.state==='waiting');})[0];
 var b='';if(it.stable&&it.stable!==it.file)b+='<div class="st-l">Version</div><div class="segb om">'+seg('ver','stable','Last stable · '+esc(it.stable_v||''))+seg('ver','last','Last · '+esc(it.wip_v||''))+'</div>';
 b+='<div class="st-l">Preset</div><select class="rsel" data-rf="preset" aria-label="Pre-render preset">'+(F.presets||[]).map(function(p){return '<option value="'+esc(p[0])+'"'+(p[0]===f.preset?' selected':'')+'>'+esc(p[1])+'</option>';}).join('')+'</select>';
-b+='<div class="st-l">Frames <small>empty: the file\'s own</small></div><div class="rrow rfr"><label>Start <input type="number" class="rnum" data-rfn="start" value="'+esc(f.start)+'" placeholder="file\'s"></label><label>End <input type="number" class="rnum" data-rfn="end" value="'+esc(f.end)+'" placeholder="file\'s"></label></div>';
+// Frames: rarely changed -- folded, open by itself once one is set.
+var fo=f.frames||f.start||f.end;b+='<button type="button" class="rf-t" data-rft aria-expanded="'+!!fo+'">'+(fo?'▾':'▸')+' Frames <small>'+(f.start||f.end?esc((f.start||'file\'s')+' – '+(f.end||'file\'s')):'the file\'s own')+'</small></button>'+
+(fo?'<div class="rrow rfr"><label>Start <input type="number" class="rnum" data-rfn="start" value="'+esc(f.start)+'" placeholder="file\'s"></label><label>End <input type="number" class="rnum" data-rfn="end" value="'+esc(f.end)+'" placeholder="file\'s"></label><small class="faint">frame numbers, as in Blender</small></div>':'');
 b+='<div class="rrow"><span class="prio"><span class="st-l">Priority</span><button type="button" class="mini" data-rprio="-1" aria-label="Lower">−</button><b>'+f.prio+'</b><button type="button" class="mini" data-rprio="1" aria-label="Higher">+</button></span>'+
 '<div class="segb om">'+seg('mode','all','All machines')+seg('mode','single','Single')+'</div></div>';
 if(it.shots.length>1)b+='<div class="st-l">Shots</div><div class="req">'+it.shots.map(function(x){return '<button type="button" data-rshot="'+esc(x)+'" aria-pressed="'+!f.off[x]+'">'+esc(x)+'</button>';}).join('')+'</div>';
