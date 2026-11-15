@@ -1870,8 +1870,9 @@ function poll(){fetch('data?t='+encodeURIComponent(T)+'&since='+v,{cache:'no-sto
 status('on');poll();
 rv.author=META.live.user||rv.author;rv.role=META.live.role||'team';store();setReview(true);countBar();if(Object.keys(rv.files).length||(rv.creates||[]).length)liveSend();})();
 var boot=$('boot');if(boot)boot.remove();
-// A link to a file (#its name) opens it.
-var want=decodeURIComponent(location.hash.slice(1));if(want&&byName[want])jump(byName[want]);
+// A link to a file (#its name, its .blend's: any version of it) opens it; #farm, the Farm tab.
+var want=decodeURIComponent(location.hash.slice(1)),wit=want&&(byName[want]||byFile[want]||byName[want.replace(/_v\d+.*$/i,'')]);
+if(wit)jump(wit);else if(want==='farm'&&DATA.farm)setTab('farm');
 })();
 // The status bar's room (page.css --sat): the largest the screen has had,
 // in this orientation, kept by this browser -- its bar shown or hidden

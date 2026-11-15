@@ -2,6 +2,8 @@
 kept up to date (lib/live.py, NOTES.md "Live page")."""
 
 import webbrowser
+from pathlib import Path
+from urllib.parse import quote
 
 import bpy
 
@@ -18,6 +20,11 @@ class M_PIPELINE_OT_open_live_page(bpy.types.Operator):
         "up to date as the project changes -- on this machine only"
     )
 
+    # Where it opens: a file's details (its .blend's path or name), or a tab
+    # ("farm"). Empty: the list.
+    file: bpy.props.StringProperty(options={"SKIP_SAVE", "HIDDEN"})
+    tab: bpy.props.StringProperty(options={"SKIP_SAVE", "HIDDEN"})
+
     def execute(self, context):
         root = get_active_project_root()
         if not root:
@@ -28,7 +35,8 @@ class M_PIPELINE_OT_open_live_page(bpy.types.Operator):
         except OSError as e:
             self.report({"ERROR"}, f"Live page not started: {e}")
             return {"CANCELLED"}
-        webbrowser.open(url)
+        anchor = Path(self.file).stem if self.file else self.tab
+        webbrowser.open(f"{url}#{quote(anchor)}" if anchor else url)
         self.report({"INFO"}, f"Live page: {url}")
         return {"FINISHED"}
 
