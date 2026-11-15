@@ -26,7 +26,7 @@ RTK_T = (0x99, 0x16, 0x16)
 WHITE = (0xFF, 0xFF, 0xFF)
 INK = (0x3D, 0x23, 0x40)
 GREY = (0x8C, 0x8F, 0x96)
-CYAN = (0x00, 0xC3, 0xC3)  # the farm rendering (the brief keeps it for that)
+INK_L = (0xE8, 0xE8, 0xEA)  # the farm's jobs: the page's ink (--accent), not a colour of their own
 
 C = SIZE / 2
 H = 15.5  # the diamond's half side: a keyframe, as the page's
@@ -142,11 +142,12 @@ MARKS = {
     "none": [(GREY, segment(C - 9, C, C + 9, C, 4))],
     # The farm's jobs, Project monitoring's Farm column and Farm
     # monitoring: submitted, queued (a clock), between two steps (half),
-    # rendering (full), failed (red, a cross), finished and to check (an eye).
+    # rendering (full), failed (red, a cross), finished and to check (an eye)
+    # -- in the page's ink, as its farm tags.
     "job_pending": [(RING, outline()), (RING, lambda x, y: math.hypot(x - C, y - C) <= 3.5)],
-    "job_queued": [(CYAN, outline()), (CYAN, segment(C, C, C, C - 10, 4)), (CYAN, segment(C, C, C + 8, C, 4))],
-    "job_waiting": [(CYAN, outline()), (CYAN, lower_half)],
-    "job_running": [(CYAN, diamond())],
+    "job_queued": [(INK_L, outline()), (INK_L, segment(C, C, C, C - 10, 4)), (INK_L, segment(C, C, C + 8, C, 4))],
+    "job_waiting": [(INK_L, outline()), (INK_L, lower_half)],
+    "job_running": [(INK_L, diamond())],
     "job_failed": [(RTK, diamond()), (WHITE, segment(C - 6, C - 6, C + 6, C + 6, 4.5)), (WHITE, segment(C - 6, C + 6, C + 6, C - 6, 4.5))],
     "job_check": [(DONE, outline()), (DONE, lambda x, y: math.hypot(x - C, y - C) <= 6.5)],
     # A retake on no department, as the page's post-it.
@@ -165,10 +166,6 @@ _POSTIT = rect(13, 47, 51, 61, 3.5)
 for _state in ("todo", "wip", "rework", "done", "valid", "done_top", "waiting", "to_redo"):
     MARKS[f"{_state}_rtk"] = [(col, _moved(shape)) for col, shape in MARKS[_state]] + [(RTK, _POSTIT)]
 
-# A note's dot when written under a validation role: violet, as the
-# page's review colour (its tick boxes: Blender's own, tinted --
-# tools/tint_icons.py).
-MARKS["dot_role"] = [(VAL, lambda x, y: math.hypot(x - C, y - C) <= 9)]
 
 
 def render(layers) -> bytes:

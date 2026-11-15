@@ -146,28 +146,38 @@ def draw_entries(box, filepath, filters=None, width: int | None = None):
             wide = width is not None and width > 80
             if wide:  # a monitoring window: sized, not stretched across it
                 filters_row.alignment = "LEFT"
-            # The filters in a menu, as the legend's (M_PIPELINE_MT_entry_filters,
-            # reading them through the context): the button says which are on.
-            on = [
-                "done hidden" if filters.entries_hide_done else "",
-                filters.entries_department_filter
-                if filters.entries_department_filter not in ("", "ALL")
-                else "",
-                f"since {filters.entries_min_version}"
-                if filters.entries_min_version
-                else "",
-            ]
-            on = [x for x in on if x]
-            filters_row.context_pointer_set("mp_entry_filters", filters)
-            menu = filters_row.row()
-            menu.active = bool(on)
-            menu.menu(
-                "M_PIPELINE_MT_entry_filters",
-                text=" · ".join(on) if on else "Filters",
-                icon="FILTER",
+            # Hide done first, the one switched most (done RTKs, to check a
+            # render against): not greyed out. Each in a box, one height.
+            done = filters_row.box()
+            done.prop(
+                filters,
+                "entries_hide_done",
+                text="Hide done",
+                icon="HIDE_ON" if filters.entries_hide_done else "HIDE_OFF",
+                emboss=False,
+            )
+            others = filters_row.row(align=True)
+            others.active = False
+            department = others.box()
+            department.prop(
+                filters,
+                "entries_department_filter",
+                text="",
+                emboss=False,
+                icon="TAG",
+            )
+            version = others.box()
+            version.prop(
+                filters,
+                "entries_min_version",
+                text="Since version",
+                emboss=False,
+                icon="CON_TRANSFORM_CACHE",
             )
             if wide:
-                menu.ui_units_x = 10
+                done.ui_units_x = 6
+                department.ui_units_x = 9
+                version.ui_units_x = 8
             box.separator()
 
         review_boxes = filter_review_boxes(
@@ -567,16 +577,22 @@ def _draw_last_renders(layout, filepath: str) -> bool:
             _render_row(col, f"{label}not rendered").active = False
             continue
         dep = f"  ·  {r['department']}" if r.get("department") else ""
-        row = _render_row(col, label + r["folder"] + dep)
-        _video_button(row, {"render": r["path"]}, label + r["folder"])
-        _folder_button(row, r["path"])
+        _render_row(
+            col,
+            label + r["folder"] + dep,
+            lambda row, r=r: _video_button(row, {"render": r["path"]}, label + r["folder"]),
+            lambda row, r=r: _folder_button(row, r["path"]),
+        )
         # The other departments' last renders, under the main one.
         for o in r.get("others") or []:
-            text = f"      {o['department'] or 'no department'}  {o['folder']}" + ("  (newer)" if o["newer"] else "")
-            row = _render_row(col, text)
+            text = f"   {o['folder']}  ·  {o['department'] or 'no department'}" + ("  (newer)" if o["newer"] else "")
+            row = _render_row(
+                col,
+                text,
+                lambda row, o=o: _video_button(row, {"render": o["path"]}, f"{label}{o['folder']}"),
+                lambda row, o=o: _folder_button(row, o["path"]),
+            )
             row.active = bool(o["newer"])
-            _video_button(row, {"render": o["path"]}, f"{label}{o['folder']}")
-            _folder_button(row, o["path"])
     # Which machine wrote frame n -- from render_history.json, there once the
     # job is archived and gone from Farm monitoring.
     renders = [
@@ -624,18 +640,20 @@ def _draw_renders_to_check(layout, filepath: str, data: dict) -> None:
     )
     for shot, info in to_check:
         label = render_to_check_label(shot, info)
-        row = _render_row(col, f"{label}   {_to_check_at(info)}")
-        _video_button(row, info, label)
-        if info.get("render"):
+
+        def previous(row, info=info, label=label):
             op = row.operator(
                 "m_pipeline.open_render_video", text="", icon="FRAME_PREV", emboss=False
             )
             op.render = info["render"]
             op.previous = True
             op.custom_tooltip = f"Play the render before {label}, to compare"
+
+        # project_path(): plain join, no disk access in a draw().
+        buttons = [lambda row, info=info, label=label: _video_button(row, info, label)]
         if info.get("render"):
-            # project_path(): plain join, no disk access in a draw().
-            _folder_button(row, str(project_path(info["render"])))
+            buttons += [previous, lambda row, info=info: _folder_button(row, str(project_path(info["render"])))]
+        row = _render_row(col, f"{label}   {_to_check_at(info)}", *buttons, slots=3)
         row.separator(factor=1.5)
         op = row.operator("m_pipeline.render_checked", text="Checked", icon="CHECKMARK")
         op.filepath = filepath
@@ -660,10 +678,17 @@ def _draw_farm_jobs(layout, filepath: str) -> None:
         row.label(text=f"{label}   {job['text']}", **icon_kw(job_icon(job["stage"])))
 
 
-def _render_row(col, text: str):
+def _render_row(col, text: str, *buttons, slots: int = 2):
+    """A render's line: its buttons first (each a function of the row),
+    blanks for the missing ones up to slots, then its words -- the words
+    aligned whatever a department's name. Returns the row."""
     row = col.row(align=True)
     row.alignment = "LEFT"
     row.separator(factor=2)
+    for draw in buttons:
+        draw(row)
+    for _ in range(slots - len(buttons)):
+        row.label(text="", icon="BLANK1")
     row.label(text=text)
     return row
 
@@ -1242,28 +1267,6 @@ def legend_groups(file_type: str, show_farm: bool = True) -> list:
         + [("Stages", _STAGES_LEGEND)] * bool(stages)
         + [("Farm", _FARM_LEGEND)] * show_farm
     )
-
-
-class M_PIPELINE_MT_entry_filters(bpy.types.Menu):
-    """A file's notes' filters (draw_entries()), as the legend's menu."""
-
-    bl_idname = "M_PIPELINE_MT_entry_filters"
-    bl_label = "Notes filters"
-
-    def draw(self, context):
-        filters = getattr(context, "mp_entry_filters", None)
-        if filters is None:
-            return
-        layout = self.layout
-        for title, prop, text, icon in (
-            ("Show", "entries_hide_done", "Hide done", "HIDE_ON"),
-            ("Department", "entries_department_filter", "", "TAG"),
-            ("Version", "entries_min_version", "Since version", "CON_TRANSFORM_CACHE"),
-        ):
-            heading = layout.row()
-            heading.active = False
-            heading.label(text=title)
-            layout.prop(filters, prop, text=text, icon=icon)
 
 
 def _legend_width(groups: list) -> float:

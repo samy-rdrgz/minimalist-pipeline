@@ -5,6 +5,7 @@ import threading
 
 import bpy
 
+from ..lib.ui import draw_legend
 from ..lib import (
     ConfigCache,
     background_work,

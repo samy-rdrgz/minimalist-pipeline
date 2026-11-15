@@ -4686,7 +4686,7 @@ started and Done reworked shared one icon.
   by `tools/tint_icons.py` -- drawn ones never had their size: Firefox
   headless draws the SVGs white on black, their light is the coverage.
   rework's arrowhead sits at the stroke's end, along the edge, into the
-  gap (`_edge_point()`); the farm's jobs (job_*, cyan: pending, queued, waiting, running; failed red; check green). Run it again after changing one; the PNGs are
+  gap (`_edge_point()`); the farm's jobs (job_*, the page's ink -- a cyan first, which the page never used: pending, queued, waiting, running; failed red; check green). The tinted icons are centred in Blender's 16 px cell (1600 SVG units, `CELL`): its SVGs are cropped to their drawing, and a mark's PNG fills the cell -- stretched to it, the box came out a third too big. dot_role is LAYER_USED, a ring. Run it again after changing one; the PNGs are
   committed.
 - `lib/icons.py` loads them once in a preview collection (register /
   unregister); a mark is named `"mark:<name>"` wherever an icon name goes,
@@ -4698,11 +4698,12 @@ started and Done reworked shared one icon.
 - The Farm column keeps the keyframe types' diamonds: Farm monitoring's
   own, the same meaning in both windows.
 - A legend in a menu (`lib/ui.py draw_legend()`): Project monitoring's
-  when its footer has no room, Farm monitoring's jobs, the log's levels;
-  a file's notes' filters in a menu too (`M_PIPELINE_MT_entry_filters`,
-  the filters object through `context_pointer_set("mp_entry_filters")`:
-  the sidebar's and the monitoring window's are not the same object), the
-  button saying which are on.
+  when its footer has no room, Farm monitoring's jobs, the log's levels.
+  The notes' filters in such a menu were tried and dropped: worse than
+  the row of filters.
+- A render's line in File details: its buttons first, blanks for the
+  missing ones (`_render_row()` slots), then its words -- after them,
+  they moved with a department's name.
 - The legend (`legend_groups()`): inline when `_legend_width()` fits the
   footer, else a `Legend` menu -- with the states' marks it rarely fits.
 

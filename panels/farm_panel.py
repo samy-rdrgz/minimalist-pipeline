@@ -46,7 +46,7 @@ from ..lib.ui import DETAIL_KEY_COLUMN, details_header, draw_legend, key_value, 
 FIRST_COLUMN = 0.4
 # What Farm monitoring's window holds besides the Jobs rows (filters, list
 # header, footer, margins), in widget units -- see rows_that_fit().
-_JOBS_RESERVED_UNITS = 5.5  # no box round the list any more
+_JOBS_RESERVED_UNITS = 3.5  # no box round the list any more
 # Same for the Workers view: one row of filters, no footer.
 _WORKERS_RESERVED_UNITS = 5.0
 

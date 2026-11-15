@@ -22,16 +22,20 @@ SOURCE = REPO / "trailers" / "icons"
 TINTED = {
     "box_role": ("checkbox_dehlt", VAL),
     "check_role": ("checkmark", VAL),  # as CHECKMARK, a done one
+    "dot_role": ("layer_used", VAL),
 }
+# Blender's icon cell, in its SVGs' units: each SVG is cropped to its
+# drawing (checkbox 1200, layer_used 800) and centred in it -- a mark's
+# PNG fills the cell, so the SVG is put back in the middle of one.
+CELL = 1600
 
 
 def _svg(name: str) -> str:
-    """The icon's SVG, white, its frame square (a wider one centred)."""
+    """The icon's SVG, white, centred in Blender's icon cell (CELL)."""
     svg = (SOURCE / f"blender_icon_{name}.svg").read_text()
     svg = re.sub(r"<sodipodi:namedview\b.*?</sodipodi:namedview>", "", svg, flags=re.S)
     w, h = (float(v) for v in re.search(r'viewBox="0 0 ([\d.]+) ([\d.]+)"', svg).groups())
-    side = max(w, h)
-    box = f'{-(side - w) / 2} {-(side - h) / 2} {side} {side}'
+    box = f"{-(CELL - w) / 2} {-(CELL - h) / 2} {CELL} {CELL}"
     svg = re.sub(r'viewBox="[^"]+"', f'viewBox="{box}"', svg, count=1)
     return re.sub(r'(height|width)="[\d.]+"', f'\\1="{SIZE}"', svg)
 
