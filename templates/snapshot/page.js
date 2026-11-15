@@ -1595,20 +1595,43 @@ summaryCards();drawTabs();render();barHeight();
 // then the machines. Read only for now.
 var JOB_STATES=[['running','In progress','wip'],['waiting','Waiting','todo'],['failed','Failed','fail'],['finished','Finished','done']];
 function dur(s){if(s==null)return '';s=Math.round(s);return s<90?s+' s':s<5400?Math.round(s/60)+' min':(s/3600).toFixed(1)+' h';}
-function farmHtml(){var F=DATA.farm||{},jobs=F.jobs||[],h='<div class="farm">';
-h+='<div class="farm-st">'+ico('render')+'Farm host: <b>'+esc(F.status||'unknown')+'</b> · '+plural((F.workers||[]).length,'machine')+'</div>';
+var JOPEN={};
+function farmHtml(){var F=DATA.farm||{},jobs=F.jobs||[],me=F.me||{},h='<div class="farm">';
+// This machine first: worker or not, the farm host or not -- a worker in a click.
+var mine=(F.workers||[]).filter(function(w){return w.mine;})[0];
+h+='<div class="fme"><span class="fme-l">'+ico('render')+'<b>This machine</b> '+(me.worker?'worker'+(me.rendering?' · rendering':' · idle'):'not a worker')+(me.host?' · the farm host':'')+'</span>'+
+'<span class="fme-h">Farm host: '+esc(me.host?'this machine':me.host_name||'none')+' · '+esc(F.status||'unknown')+'</span>'+
+'<button type="button" class="act'+(me.worker?'':' fix')+'" data-farm="worker" data-v="'+(me.worker?'':'1')+'">'+(me.worker?'Stop being a worker':'Make it a worker')+'</button></div>';
 JOB_STATES.forEach(function(st){var js=jobs.filter(function(j){return j.state===st[0];});if(!js.length)return;
-h+='<section class="fgrp"><h3>'+st[1]+' <span>'+js.length+'</span></h3>'+js.map(function(j){var it=j.key&&byKey[j.key],p=j.total?j.done/j.total:0;
-return '<div class="job"><i class="m '+(st[2]==='fail'?'s-fail':'s-'+st[2])+'"></i>'+
-(it?'<button type="button" class="lk jf" data-goto="'+it.i+'" title="Open its panel">'+esc(j.file)+'</button>':'<span class="jf">'+esc(j.file)+'</span>')+
-'<span class="js">'+esc([j.shot,j.text].filter(Boolean).join(' · '))+'</span>'+
-'<span class="jp">'+(j.total?'<span class="bar2"><i style="width:'+p*100+'%"></i></span><small>'+j.done+'/'+j.total+(j.left?' · '+dur(j.left)+' left':'')+'</small>':'')+'</span>'+
-'<span class="jm">'+[j.machines?plural(j.machines,'machine'):'',esc(j.user),fmtDate(j.at)].filter(Boolean).join(' · ')+'</span></div>';}).join('')+'</section>';});
+h+='<section class="fgrp"><h3>'+st[1]+' <span>'+js.length+'</span></h3>'+js.map(function(j){return jobRow(j,st);}).join('')+'</section>';});
 if(!jobs.length)h+='<p class="faint">No job in the farm.</p>';
 var W=F.workers||[];if(W.length)h+='<section class="fgrp"><h3>Machines <span>'+W.length+'</span></h3>'+W.map(function(w){
-return '<div class="job wk"><i class="m '+(w.status==='rendering'||w.file?'s-wip':w.status==='idle'?'s-done':'s-todo')+'"></i><span class="jf">'+esc(w.name)+'</span><span class="js">'+esc([w.status,w.file].filter(Boolean).join(' · '))+'</span></div>';}).join('')+'</section>';
+return '<div class="job wk"><i class="m '+(w.file?'s-wip':w.status==='idle'?'s-done':'s-todo')+'"></i><span class="jf">'+esc(w.name)+'</span><span class="js">'+esc([w.status,w.file].filter(Boolean).join(' · '))+'</span></div>';}).join('')+'</section>';
 return h+'</div>';}
-$('list').addEventListener('click',function(e){var b=e.target.closest('.farm [data-goto]');if(b)jump(D[+b.dataset.goto]);});
+// A job: one line that opens on its detail -- what, where, by whom -- and
+// what Farm monitoring does to it: priority, cancel, retry, archive.
+function jobRow(j,st){var it=j.key&&byKey[j.key],p=j.total?j.done/j.total:0,live=st[0]==='running'||st[0]==='waiting';
+var row=function(k,v){return v?'<dt>'+k+'</dt><dd>'+v+'</dd>':'';};
+return '<details class="job"'+(JOPEN[j.id]?' open':'')+' data-job="'+esc(j.id)+'"><summary><i class="m '+(st[2]==='fail'?'s-fail':'s-'+st[2])+'"></i>'+
+'<span class="jf">'+esc(j.file)+'</span><span class="js">'+esc([j.shot,j.text].filter(Boolean).join(' · '))+'</span>'+
+'<span class="jp">'+(j.total?'<span class="bar2"><i style="width:'+p*100+'%"></i></span><small>'+j.done+'/'+j.total+(j.left?' · '+dur(j.left)+' left':'')+'</small>':'')+'</span>'+
+'<span class="jm">'+[j.machines?plural(j.machines,'machine'):'',esc(j.user),fmtDate(j.at)].filter(Boolean).join(' · ')+'</span></summary>'+
+'<div class="jd"><dl>'+row('Stage',esc(j.text))+row('Preset',esc([j.preset,j.department].filter(Boolean).join(' · ')))+row('Frames',j.range?esc(j.range.join('-'))+(j.total?' · '+j.done+'/'+j.total+' rendered':''):'')+
+row('Machines',esc((j.names||[]).join(', ')))+row('Sent',[esc(j.user),fmtDate(j.at)].filter(Boolean).join(' · '))+
+row('Priority',live&&!j.pending?'<span class="prio"><button type="button" class="mini" data-prio="-1" aria-label="Lower">−</button><b>'+j.priority+'</b><button type="button" class="mini" data-prio="1" aria-label="Higher">+</button><small>higher goes first</small></span>':esc(String(j.priority)))+
+row('Job',esc(j.id))+'</dl><div class="ta">'+(it?'<button type="button" class="act" data-goto="'+it.i+'">Open its panel</button>':'')+
+(live?'<button type="button" class="act ko" data-farm="cancel">Cancel</button>':'')+(st[0]==='failed'?'<button type="button" class="act fix" data-farm="retry">Retry</button>':'')+
+(st[0]==='failed'||st[0]==='finished'?'<button type="button" class="act" data-farm="archive">Archive</button>':'')+'</div></div></details>';}
+function farmPost(action,job,value){return livePost('farm',{action:action,job_id:job||'',value:value}).then(function(res){
+toast(res.ok?'Done.':'Not done: '+(res.error||'?'));}).catch(function(){toast('Blender doesn\'t answer.');});}
+$('list').addEventListener('click',function(e){var b=e.target.closest('.farm [data-goto]');if(b){e.preventDefault();return jump(D[+b.dataset.goto]);}
+var sm=e.target.closest('.farm details.job>summary');if(sm&&!e.target.closest('button')){var dj=sm.parentNode;JOPEN[dj.dataset.job]=!dj.open;}
+var j=e.target.closest('.farm [data-job]'),id=j?j.dataset.job:'',job=(DATA.farm.jobs||[]).filter(function(x){return x.id===id;})[0];
+if((b=e.target.closest('[data-prio]'))&&job){e.preventDefault();var pv=Math.max(0,job.priority+(+b.dataset.prio));job.priority=pv;b.parentNode.querySelector('b').textContent=pv;return farmPost('priority',id,pv);}
+if(!(b=e.target.closest('.farm [data-farm]')))return;e.preventDefault();var act=b.dataset.farm;
+if(act==='worker'){var on=!!b.dataset.v,me=DATA.farm.me||{};if(!on&&me.rendering)return ask('This machine is rendering: stop its render now? Its frame in progress is lost, sent to another machine.','Stop now',function(){farmPost('worker','',false);});return farmPost('worker','',on);}
+if(act==='cancel')return ask('Cancel the render of '+job.file+'?','Cancel it',function(){farmPost('cancel',id);});
+farmPost(act,id);});
 /* ---------- live: the panel's own sections ---------- */
 // To check: the renders the team hasn't watched -- ▶ in the player,
 // Checked takes one off (pushed to the edit if ticked); open by default.

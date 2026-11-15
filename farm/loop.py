@@ -1027,6 +1027,11 @@ def _build_job_entry(
         "output_dir": str(output_dir) if output_dir else "",
         "user": job.get("user", ""),
         "submitted_at": job["stage_history"][0]["at"],
+        # The live page's job detail (lib/live.py _farm_data()).
+        "priority": job.get("priority", 10),
+        "prerender_script": job.get("prerender_script", ""),
+        "department": job.get("department", ""),
+        "frame_range": job.get("resolved_frame_range"),
     }
 
 
@@ -1044,6 +1049,9 @@ def _build_incoming_entry(req: dict) -> dict:
         "shot_override": req.get("shot_override", ""),
         "user": req.get("user", ""),
         "submitted_at": req["submitted_at"],
+        "priority": req.get("priority", 10),
+        "prerender_script": req.get("prerender_script", ""),
+        "department": req.get("department", ""),
     }
 
 

@@ -5160,3 +5160,10 @@ measures in the plan).
   asleep on its socket. Not worth stopping the server for -- and a page
   opened again finds it there. A heartbeat stopping it was set aside in
   the plan (2.8).
+- **The Farm tab acts too** (`/farm`, `_farm_action()`): cancel, retry,
+  archive through Farm monitoring's own operators; the priority written in
+  the job's file, which the queue reads at each tick (Farm monitoring has
+  no way to change it yet); this machine a worker or not
+  (`farm_add_self_worker` / `farm_kill_self_worker`, a render stopped now
+  -- the page asks first). A job's priority, its machines' names, its
+  preset and frame range added to the monitor cache's entries for it.

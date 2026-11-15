@@ -1099,15 +1099,24 @@ body.live #rv-send{display:none}
 .vsel select{flex:1;min-width:0;min-height:32px;padding:0 8px;border:1px solid var(--outline);border-radius:var(--r-btn);background:var(--btn);color:var(--ink);font:12px var(--mono)}
 /* The Farm tab (live). */
 .farm{display:flex;flex-direction:column;gap:14px}
-.farm-st{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-2)}
-.farm-st .ico{width:14px;height:14px}
 .fgrp{background:var(--surface);border-radius:var(--r-lg);padding:6px 14px 10px;box-shadow:var(--sh-card)}
 .fgrp h3{margin:8px 0 6px;font-size:13px;font-weight:600}.fgrp h3 span{color:var(--ink-3);font-weight:400}
-.job{display:grid;grid-template-columns:20px minmax(140px,1.2fr) minmax(0,1fr) minmax(120px,1fr) auto;align-items:center;gap:12px;min-height:40px;border-top:1px solid var(--line)}
-.job:first-of-type{border-top:0}
-.job.wk{grid-template-columns:20px minmax(140px,1.2fr) minmax(0,3fr)}
-.job .jf{font:600 13px var(--mono);text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.job{border-top:1px solid var(--line)}.fgrp h3+.job{border-top:0}
+/* Fixed columns: lined up from one job to the next. */
+.job>summary,.job.wk{list-style:none;display:grid;grid-template-columns:20px minmax(0,15em) minmax(0,14em) minmax(120px,1fr) minmax(0,15em);align-items:center;gap:12px;min-height:40px;cursor:pointer}
+.job>summary::-webkit-details-marker{display:none}
+.job.wk{grid-template-columns:20px minmax(0,15em) minmax(0,1fr);cursor:default}
+.job[open]>summary{background:var(--accent-bg);border-radius:6px}
+.job .jf{font:600 13px var(--mono);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .job .js,.job .jm{font-size:12px;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.job .jm{text-align:right}
 .job .jp{display:flex;align-items:center;gap:8px}.job .jp .bar2{flex:1}.job .jp small{font-size:11px;color:var(--ink-3);white-space:nowrap}
+.jd{padding:8px 0 12px 32px}
+.jd dl{display:grid;grid-template-columns:7em minmax(0,1fr);gap:4px 12px;margin:0 0 10px;font-size:12px}
+.jd dt{color:var(--ink-3)}.jd dd{margin:0;overflow-wrap:anywhere}
+.prio{display:inline-flex;align-items:center;gap:6px}.prio b{min-width:2ch;text-align:center}.prio small{color:var(--ink-3)}
+.act.ko{border-color:var(--rtk-f);color:var(--rtk)}
+.fme{display:flex;align-items:center;gap:8px 16px;flex-wrap:wrap;padding:10px 14px;background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--sh-card);font-size:13px}
+.fme .ico{width:14px;height:14px}.fme-l{display:inline-flex;align-items:center;gap:6px}.fme-h{flex:1;color:var(--ink-3);font-size:12px}
 .m.s-fail::before{background:var(--rtk-f)}
-@media (max-width:700px){.job{grid-template-columns:20px 1fr;row-gap:2px;padding:6px 0}.job .js,.job .jp,.job .jm{grid-column:2}}
+@media (max-width:700px){.job>summary,.job.wk{grid-template-columns:20px 1fr;row-gap:2px;padding:6px 0}.job .js,.job .jp,.job .jm{grid-column:2;text-align:left}.jd{padding-left:0}}

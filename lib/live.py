@@ -306,9 +306,10 @@ def _turn(sh: _Shared) -> None:
             pending = _actions.get_nowait()
         except queue.Empty:
             break
-        if pending.kind == "open":
-            pending.result = _open(pending.review)
+        if pending.kind in ("open", "farm"):
+            pending.result = (_open if pending.kind == "open" else _farm_action)(pending.review)
             pending.done.set()
+            _reader["farm_at"] = 0.0  # the farm's change shown at the next turn
             continue
         pending.result = _apply(sh.root, pending.review)
         _reader["waiting"].append(pending)
@@ -515,6 +516,14 @@ def _farm_data(root: Path) -> dict:
             "machines": len(j.get("machines") or []),
             "user": j.get("user") or "",
             "at": j.get("submitted_at") or "",
+            # Its detail on the page.
+            "stage": stage,
+            "priority": j.get("priority", 10),
+            "preset": j.get("prerender_script") or "",
+            "department": j.get("department") or "",
+            "range": j.get("frame_range"),
+            "names": [_machine(cache, u) for u in j.get("machines") or []],
+            "pending": stage == "pending",
         }
         (finished if state == "finished" else jobs).append(row)
     finished.sort(key=lambda r: r["at"], reverse=True)
@@ -527,7 +536,64 @@ def _farm_data(root: Path) -> dict:
         for uuid, w in sorted((cache.get("workers") or {}).items(), key=lambda kv: str(kv[1].get("user") or ""))
         if isinstance(w, dict)
     ]
-    return {"status": cache.get("status") or "unknown", "jobs": jobs + finished[:FINISHED_SHOWN], "workers": workers}
+    from ..farm.monitor import is_blender_monitor
+    from ..farm.workers import is_blender_worker, worker_rendering
+
+    me = {
+        "worker": is_blender_worker(),
+        "rendering": worker_rendering(),
+        "host": is_blender_monitor(),
+        "host_name": " ".join(x for x in (cache.get("lock_user") or "", f"({cache.get('lock_machine')})" if cache.get("lock_machine") else "") if x),
+    }
+    return {
+        "status": cache.get("status") or "unknown",
+        "jobs": jobs + finished[:FINISHED_SHOWN],
+        "workers": workers,
+        "me": me,
+    }
+
+
+def _machine(cache: dict, uuid: str) -> str:
+    w = (cache.get("workers") or {}).get(uuid) or {}
+    return f"{w['user']} ({w.get('machine') or uuid[:8]})" if w.get("user") else w.get("machine") or uuid[:8]
+
+
+def _farm_action(raw: dict) -> dict:
+    """The Farm tab's buttons, as Farm monitoring's: "cancel", "retry",
+    "archive" a job, its "priority" (the job file's: the queue reads it
+    each tick), "worker" this machine (on / off: a render it's on stopped
+    now -- the page asked first)."""
+    from .config import ConfigCache
+    from .core import locked_json
+    from .errors import PipelineError
+
+    action, job = str(raw.get("action") or ""), str(raw.get("job_id") or "")
+    ops = {
+        "cancel": bpy.ops.m_pipeline.farm_cancel_job,
+        "retry": bpy.ops.m_pipeline.farm_retry_job,
+        "archive": bpy.ops.m_pipeline.farm_archive_job,
+    }
+    try:
+        if action in ops and job:
+            done = _with_window(ops[action], "EXEC_DEFAULT", job_id=job)
+            return {"ok": "FINISHED" in done}
+        if action == "priority" and job:
+            path = ConfigCache.get_path("farm_actives") / f"{job}.json"
+            if not path.is_file():
+                return {"ok": False, "error": "not in the queue yet: try again in a moment"}
+            with locked_json(path) as box:
+                data = box["data"] or {}
+                data["priority"] = max(0, min(100, int(raw.get("value", 10))))
+                box["action"] = "to_write"
+            log("INFO", "live", f"Live page: job {job} priority {data['priority']}")
+            return {"ok": True}
+        if action == "worker":
+            op = bpy.ops.m_pipeline.farm_add_self_worker if raw.get("value") else bpy.ops.m_pipeline.farm_kill_self_worker
+            done = _with_window(op, "EXEC_DEFAULT")
+            return {"ok": "FINISHED" in done}
+    except (PipelineError, RuntimeError, ValueError, OSError) as e:
+        return {"ok": False, "error": getattr(e, "message", None) or str(e)}
+    return {"ok": False, "error": f"unknown action {action!r}"}
 
 
 def _rebuild(sh: _Shared, force: bool) -> None:
@@ -620,7 +686,7 @@ def _handler(sh: _Shared):
             q = {k: v[0] for k, v in parse_qs(parsed.query).items()}
             if not self._allowed(q.get("t", "")):
                 return self._send(403, b"forbidden", "text/plain")
-            if parsed.path not in ("/action", "/open"):
+            if parsed.path not in ("/action", "/open", "/farm"):
                 return self._send(404, b"not found", "text/plain")
             length = int(self.headers.get("Content-Length") or 0)
             if not 0 < length < 4 * 1024 * 1024 or "json" not in (self.headers.get("Content-Type") or ""):
@@ -631,7 +697,7 @@ def _handler(sh: _Shared):
                 return self._send(400, b"bad request", "text/plain")
             with sh.lock:
                 sh.last_seen = time.monotonic()
-            pending = _Pending(raw if isinstance(raw, dict) else {}, "open" if parsed.path == "/open" else "review")
+            pending = _Pending(raw if isinstance(raw, dict) else {}, parsed.path.strip("/").replace("action", "review"))
             _actions.put(pending)
             # Blender's turn, then a pass over the project: the data that
             # shows them. Blender busy longer: the page sends them again
