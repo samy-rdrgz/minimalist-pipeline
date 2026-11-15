@@ -29,6 +29,7 @@ from .farm_ops import (
 )
 from .file_ops import M_PIPELINE_OT_increment_version
 from .team_ops import classes as team_classes
+from .live_ops import classes as live_classes
 from .migration_ops import M_PIPELINE_OT_migrate_data, M_PIPELINE_OT_migrate_data_confirm
 from .owner_ops import M_PIPELINE_OT_delete_owner, M_PIPELINE_OT_delete_owner_pick
 from .render_clean_ops import (
@@ -189,6 +190,7 @@ classes = (
     M_PIPELINE_OT_remove_entry_line,
     M_PIPELINE_OT_generic_entry_button,
     *team_classes,
+    *live_classes,
 )
 
 __all__ = ["classes"]

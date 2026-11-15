@@ -48,16 +48,22 @@ def icon_sprite(text: str) -> str:
 
 
 def render_html(snapshot: dict) -> str:
-    """The whole snapshot as one offline HTML page: page.html with the
-    stylesheet, the script, the logo, the wordmark's font, the Blender
-    icons it names and page_data() put in, in one pass (a value is never
-    read again for placeholders)."""
+    """The whole snapshot as one offline HTML page (render_page())."""
+    return render_page(page_data(snapshot))
+
+
+def render_page(data: dict) -> str:
+    """page.html with the stylesheet, the script, the logo, the wordmark's
+    font, the Blender icons it names and data (page_data()) put in, in one
+    pass (a value is never read again for placeholders). The live page's
+    too (lib/live.py)."""
     logo = (PAGE_DIR / "logo.svg").read_text(encoding="utf-8")
     viewbox = _VIEWBOX.search(logo)[1]
     width, height = viewbox.split()[2:]
-    data = json.dumps(page_data(snapshot), ensure_ascii=False, separators=(",", ":"))
+    title = f"{data['meta'].get('project') or 'Project'} {'live' if data['meta'].get('live') else 'snapshot'}"
+    data = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
     values = {
-        "TITLE": _escape(f"{snapshot['meta'].get('project') or 'Project'} snapshot"),
+        "TITLE": _escape(title),
         "CSS": _CSS_COMMENTS.sub("", (PAGE_DIR / "page.css").read_text(encoding="utf-8")),
         # The state engine's twin (lib/status.py), then the page.
         "JS": _JS_COMMENTS.sub(
@@ -152,6 +158,8 @@ def _meta(snapshot: dict) -> dict:
         "videos": meta.get("videos"),
         # Its videos' frame rate: the player's frame number (page.js).
         "fps": meta.get("fps"),
+        # Served by Blender (lib/live.py): {"token", "version"}; None, a file.
+        "live": meta.get("live"),
     }
 
 

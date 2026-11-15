@@ -1082,3 +1082,10 @@ earlier: under "N closed", the same. */
 .fset.on .fset-b .chev{transform:rotate(90deg)}
 .fset-c{padding:0 12px 12px}
 @media (max-width:560px){.ths,.cmp{margin-left:0}.dh .nm{flex:1 1 auto}.dh .sm{flex-basis:100%;order:9}.dh{flex-wrap:wrap;row-gap:0;padding-bottom:6px}}
+
+/* ---------- the live page: served by Blender (lib/live.py) ---------- */
+.lvp{display:inline-flex;align-items:center;gap:5px;margin-left:8px;padding:1px 8px 1px 6px;border-radius:10px;font-size:11px;font-weight:600;white-space:nowrap;background:var(--accent-bg);color:var(--ink-2)}
+.lvp::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--ink-3)}
+.lvp.on::before{background:var(--done)}
+.lvp.busy{color:var(--wip)}.lvp.busy::before{background:var(--wip)}
+.lvp.off{color:var(--rtk)}.lvp.off::before{background:var(--rtk)}

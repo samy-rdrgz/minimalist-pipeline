@@ -1,0 +1,409 @@
+"""The live page (plan 2.8, phase 4b): Blender serves the snapshot page to
+this machine's browser, kept up to date. Read only for now (4b.1): the page
+shows the project as it is, its review is still downloaded and imported.
+See NOTES.md, "Live page".
+
+- A server (ThreadingHTTPServer) on 127.0.0.1 only, its token in every
+  URL, the Host checked: no other site open in the browser can call it.
+- Its state in this module, not bpy.app.driver_namespace -- emptied when
+  a file is opened, which left the prototype's server orphaned on its port.
+- A reader thread goes over the project while a page is open (two stats a
+  folder, a folder changed read again); the main thread's timer builds the
+  page's data from it (build_snapshot() reads ConfigCache) and bumps the
+  version when it changed. The server's threads only hand out what's ready.
+- Videos served from renders/ with Range (to seek), never a path out of it.
+"""
+
+import base64
+import hmac
+import json
+import mimetypes
+import os
+import re
+import secrets
+import threading
+import time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from urllib.parse import parse_qs, unquote, urlparse
+
+import bpy
+
+from .core import get_addon_version, now
+from .logs import log
+from .preview import browser_video
+from .snapshot import _video_name, build_snapshot, read_render_state
+from .snapshot_page import page_data, render_page
+from .status import project_stages
+from .thumbnails import owner_shot_render_dirs, owner_thumbnail_dirs, thumbnail_path
+from .tracking import _DATA_ROOTS, _collect_folder, _pipeline_entries, _walk_owner_dirs
+
+PORTS = range(8765, 8776)  # fixed: a page left open finds its server again
+TICK = 0.1  # the main thread's turn
+READ_EVERY = 4.0  # seconds between two passes over the project...
+IDLE_AFTER = 30.0  # ...while a page asked for something this recently
+BUSY_AFTER = 1.5  # no turn for this long: the page says "Blender busy"
+POLL = 20.0  # a page waiting for news is answered after this, news or not
+CHUNK = 64 * 1024
+
+
+class _Shared:
+    """What the main thread prepares and the server's threads hand out."""
+
+    def __init__(self, root: Path, token: str):
+        self.root = root
+        self.token = token
+        self.lock = threading.Lock()
+        self.changed = threading.Condition(self.lock)
+        self.version = 0
+        self.data = None  # page_data(), as the page loads it
+        self.body = b""  # the same, encoded: /data
+        self.last_tick = time.monotonic()
+        self.last_seen = time.monotonic()  # a page's last request
+        self.stopped = False
+
+
+_shared: _Shared | None = None
+_server = None
+_reader = {"thread": None, "result": None, "at": 0.0, "farm_at": 0.0, "cache": {}, "farm": None, "compare": None, "ready": False}
+
+
+def running() -> bool:
+    return _server is not None
+
+
+def url() -> str:
+    if not _server:
+        return ""
+    return f"http://127.0.0.1:{_server.server_address[1]}/?t={_shared.token}"
+
+
+# --- the reader thread ---------------------------------------------------------
+
+
+def _b64(path: Path) -> str | None:
+    try:
+        return base64.b64encode(path.read_bytes()).decode("ascii")
+    except OSError:
+        return None
+
+
+def read_live(root: Path, cache: dict, config: dict, v_prefix: str) -> tuple[dict, bool]:
+    """Every tracked folder as read_snapshot_data() gives it, a folder read
+    again only when its .pipeline/, its tracking.json or its own listing
+    (a .blend saved) changed since cache. Returns (cache, changed). Pure
+    os/json: thread-safe."""
+    out, changed = {}, False
+    for top in _DATA_ROOTS:
+        kind = "shot" if top == "shots" else "asset"
+        mtimes: dict = {}
+        for owner in _walk_owner_dirs(root / top, mtimes=mtimes):
+            key = str(owner)
+            try:
+                stamp = (os.stat(owner / ".pipeline").st_mtime, mtimes.get(key), os.stat(owner).st_mtime)
+            except OSError:
+                continue
+            old = cache.get(key)
+            if old and old["stamp"] == stamp:
+                out[key] = old
+                continue
+            raw = _collect_folder(owner, _pipeline_entries(owner))
+            if raw is None:
+                continue
+            try:
+                blends = [e.name for e in os.scandir(owner) if e.name.endswith(".blend")]
+            except OSError:
+                blends = []
+            renders, thumb, shot_thumbs = None, None, []
+            if not raw["tracking"].get("archived"):
+                renders = read_render_state(root, kind, owner, v_prefix, project_stages(config, f"{kind}s"))
+                for r in renders:
+                    for x in (r, *(r.get("others") or [])):
+                        x["video"] = _video_name(root, browser_video(Path(x["path"])) if x.get("path") else None)
+                thumb = next((b for d in owner_thumbnail_dirs(root, owner) if (b := _b64(thumbnail_path(d)))), None)
+                found = [(label, _b64(thumbnail_path(d))) for label, d in owner_shot_render_dirs(root, owner)]
+                shot_thumbs = found if any(b for _, b in found) else []
+            out[key] = {
+                "stamp": stamp, "kind": kind, "owner": owner, "raw": raw, "blends": blends,
+                "renders": renders, "thumb": thumb, "shot_thumbs": shot_thumbs,
+            }
+            changed = True
+    return out, changed or set(out) != set(cache)
+
+
+def _as_data(cache: dict) -> dict:
+    """read_live()'s cache as read_snapshot_data()'s result."""
+    entries = list(cache.values())
+    return {
+        "raws": [(e["kind"], e["owner"], e["raw"], e["blends"]) for e in entries],
+        "renders": {str(e["owner"]): e["renders"] for e in entries if e["renders"] is not None},
+        "thumbs": {str(e["owner"]): e["thumb"] for e in entries if e["thumb"]},
+        "shot_thumbs": {str(e["owner"]): e["shot_thumbs"] for e in entries if e["shot_thumbs"]},
+        "thumb_warnings": [],
+    }
+
+
+def _read(root, cache, config, v_prefix):
+    try:
+        _reader["result"] = read_live(root, cache, config, v_prefix)
+    except Exception as e:  # never die silently: the next pass tries again
+        log("WARNING", "live", f"Live page: project not read: {e!r}")
+        _reader["result"] = (cache, False)
+
+
+# --- the main thread -------------------------------------------------------------
+
+
+def _tick():
+    """Blender's turn: a pass started while a page is open, its result
+    turned into the page's data, the version bumped when it changed."""
+    sh = _shared
+    if sh is None or sh.stopped:
+        return None
+    try:
+        _turn(sh)
+    except Exception as e:
+        log("WARNING", "live", f"Live page: {e!r}")
+    with sh.lock:
+        sh.last_tick = time.monotonic()
+    return TICK
+
+
+def _turn(sh: _Shared) -> None:
+    from .config import ConfigCache, get_active_project_root
+
+    root = get_active_project_root()
+    if root and Path(root) != sh.root:
+        # Another project made active: the page follows it.
+        sh.root = Path(root)
+        _reader.update(cache={}, result=None, compare=None, ready=False)
+    clock = time.monotonic()
+    thread = _reader["thread"]
+    if _reader["result"] is not None and not (thread and thread.is_alive()):
+        cache, changed = _reader["result"]
+        _reader["result"] = None
+        _reader["cache"] = cache
+        _reader["ready"] = True
+        _rebuild(sh, force=changed)
+    elif clock - _reader["farm_at"] > 1.0:
+        _reader["farm_at"] = clock
+        _rebuild(sh, force=False)  # the farm moves on its own
+    if (thread is None or not thread.is_alive()) and _reader["result"] is None and (
+        clock - _reader["at"] >= READ_EVERY and clock - sh.last_seen < IDLE_AFTER or sh.data is None
+    ):
+        config = ConfigCache.get() or {}
+        _reader["at"] = clock
+        _reader["thread"] = threading.Thread(
+            target=_read,
+            args=(sh.root, dict(_reader["cache"]), config, (config.get("naming") or {}).get("version", {}).get("prefix", "v")),
+            daemon=True,
+            name="pipeline-live-read",
+        )
+        _reader["thread"].start()
+
+
+def _rebuild(sh: _Shared, force: bool) -> None:
+    """The page's data from the last pass and the farm's jobs (memory
+    only): a new version when it differs."""
+    from ..farm.loop import farm_activity
+    from .config import ConfigCache
+    from .session import get_user
+
+    if not _reader["ready"]:
+        return  # nothing read yet: no empty page
+    farm = farm_activity()
+    if not force and farm == _reader["farm"]:
+        return
+    _reader["farm"] = farm
+    config = ConfigCache.get() or {}
+    meta = {
+        "project": config.get("project_name") or sh.root.name,
+        "scan_started_at": now(),
+        "exported_by": get_user(bpy.context),
+        "addon_version": get_addon_version(),
+        "live": {"token": sh.token},
+        # Played from the project, through the server.
+        "videos": {"mode": "live", "base": None, "files": [], "local": f"media/{sh.token}/renders"},
+    }
+    data = page_data(build_snapshot(_as_data(_reader["cache"]), config, meta, farm=farm))
+    # Compared without its date: a pass finding nothing new is no news.
+    compare = json.dumps({**data, "meta": {**data["meta"], "snapshot": ""}}, ensure_ascii=False, separators=(",", ":"))
+    if compare == _reader["compare"]:
+        return
+    _reader["compare"] = compare
+    with sh.changed:
+        sh.version += 1
+        data["meta"]["live"]["version"] = sh.version
+        sh.data = data
+        sh.body = json.dumps(data, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+        sh.changed.notify_all()
+
+
+# --- the server's threads -------------------------------------------------------------
+
+
+def _handler(sh: _Shared):
+    class Handler(BaseHTTPRequestHandler):
+        def log_message(self, *args):
+            pass
+
+        def _allowed(self, token: str) -> bool:
+            # The token: no other site may call us. The Host: no DNS
+            # rebinding (a site's name pointed at 127.0.0.1).
+            port = self.server.server_address[1]
+            if self.headers.get("Host") not in (f"127.0.0.1:{port}", f"localhost:{port}"):
+                return False
+            return hmac.compare_digest(token or "", sh.token)
+
+        def _send(self, code: int, body: bytes, kind: str):
+            self.send_response(code)
+            self.send_header("Content-Type", kind)
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(body)
+
+        def do_GET(self):
+            parsed = urlparse(self.path)
+            q = {k: v[0] for k, v in parse_qs(parsed.query).items()}
+            media = re.match(r"/media/([^/]+)/(.+)$", parsed.path)
+            if not self._allowed(media[1] if media else q.get("t", "")):
+                return self._send(403, b"forbidden", "text/plain")
+            with sh.lock:
+                sh.last_seen = time.monotonic()
+            try:
+                if parsed.path == "/":
+                    self._page()
+                elif parsed.path == "/data":
+                    self._data(int(q.get("since", -1)))
+                elif media:
+                    self._media(unquote(media[2]))
+                else:
+                    self._send(404, b"not found", "text/plain")
+            except (BrokenPipeError, ConnectionResetError):
+                pass  # the browser let go (a seek, another video): normal
+
+        def _page(self):
+            with sh.changed:
+                sh.changed.wait_for(lambda: sh.data is not None or sh.stopped, timeout=30)
+                data = sh.data
+            if data is None:
+                return self._send(503, b"The project is still being read: reload in a moment.", "text/plain")
+            self._send(200, render_page(data).encode("utf-8"), "text/html; charset=utf-8")
+
+        def _data(self, since: int):
+            # Long poll: answered as soon as there's a new version, else
+            # after POLL -- with "busy" if Blender has had no turn for a while.
+            with sh.changed:
+                sh.changed.wait_for(lambda: sh.version != since or sh.stopped, timeout=POLL)
+                busy = time.monotonic() - sh.last_tick > BUSY_AFTER
+                head = {"version": sh.version, "busy": busy}
+                body = sh.body if sh.version != since else b""
+            out = json.dumps(head).encode()
+            if body:
+                out = out[:-1] + b',"data":' + body + b"}"
+            self._send(200, out, "application/json")
+
+        def _media(self, rel: str):
+            base = (sh.root / "renders").resolve()
+            path = (sh.root / rel).resolve()
+            if base not in path.parents or not path.is_file():
+                return self._send(404, b"not found", "text/plain")
+            size = path.stat().st_size
+            start, end = 0, size - 1
+            ask = re.match(r"bytes=(\d*)-(\d*)$", self.headers.get("Range", ""))
+            if ask and (ask[1] or ask[2]):
+                if ask[1]:
+                    start = int(ask[1])
+                    end = min(int(ask[2]), size - 1) if ask[2] else size - 1
+                else:  # bytes=-N: the last N
+                    start = max(size - int(ask[2]), 0)
+                if start >= size or start > end:
+                    self.send_response(416)
+                    self.send_header("Content-Range", f"bytes */{size}")
+                    self.end_headers()
+                    return
+            self.send_response(206 if ask else 200)
+            self.send_header("Content-Type", mimetypes.guess_type(path.name)[0] or "application/octet-stream")
+            self.send_header("Accept-Ranges", "bytes")
+            self.send_header("Content-Length", str(end - start + 1))
+            if ask:
+                self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
+            self.end_headers()
+            left = end - start + 1
+            with open(path, "rb") as f:
+                f.seek(start)
+                while left > 0:
+                    block = f.read(min(CHUNK, left))
+                    if not block:
+                        break
+                    self.wfile.write(block)
+                    left -= len(block)
+
+    return Handler
+
+
+# --- start / stop -------------------------------------------------------------------------
+
+
+def _token() -> str:
+    """Kept from one Blender session to the next: a page left open
+    reconnects. In Blender's config folder, this machine's only."""
+    folder = Path(bpy.utils.user_resource("CONFIG", create=True))
+    path = folder / "minimalist_pipeline_live_token"
+    try:
+        token = path.read_text().strip()
+        if len(token) >= 20:
+            return token
+    except OSError:
+        pass
+    token = secrets.token_urlsafe(24)
+    try:
+        path.write_text(token)
+    except OSError:
+        pass
+    return token
+
+
+def start(root: Path) -> str:
+    """The server for root, started if it isn't (another project: switched).
+    Returns its URL. Raises OSError when no port is free."""
+    global _shared, _server
+    if _server is not None:
+        return url()
+    sh = _Shared(Path(root), _token())
+    server = None
+    for port in PORTS:
+        try:
+            server = ThreadingHTTPServer(("127.0.0.1", port), _handler(sh))
+            break
+        except OSError:
+            continue
+    if server is None:
+        raise OSError(f"no free port among {PORTS.start}-{PORTS.stop - 1}")
+    server.daemon_threads = True
+    threading.Thread(target=server.serve_forever, name="pipeline-live", daemon=True).start()
+    _shared, _server = sh, server
+    _reader.update(thread=None, result=None, at=0.0, farm_at=0.0, cache={}, farm=None, compare=None, ready=False)
+    # persistent: kept when a file is opened.
+    if not bpy.app.timers.is_registered(_tick):
+        bpy.app.timers.register(_tick, first_interval=0.0, persistent=True)
+    log("INFO", "live", f"Live page served at {url()}")
+    return url()
+
+
+def stop() -> bool:
+    """Stop the server (the addon's unregister() too). False: none ran."""
+    global _shared, _server
+    if _server is None:
+        return False
+    with _shared.changed:
+        _shared.stopped = True
+        _shared.changed.notify_all()
+    _server.shutdown()
+    _server.server_close()
+    _shared, _server = None, None
+    if bpy.app.timers.is_registered(_tick):
+        bpy.app.timers.unregister(_tick)
+    log("INFO", "live", "Live page stopped")
+    return True

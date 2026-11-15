@@ -17,6 +17,10 @@ All notable changes to this addon. Dates are release dates.
   your review after a pencil, their tip on a tap too; *+ f12* twice on two
   frames, a range; a file reassigned in your review says so under its
   name.
+- *Open in browser* (Project panel, Pipeline menu): the project's page
+  served by Blender to this machine's browser, kept up to date -- the
+  snapshot's page, live; a pill says connected, Blender busy or
+  disconnected (it reconnects by itself). Read only for now.
 - Edit project: *Rename preset…* renames a render preset and everything
   citing it (default pre-render script, renders' history, the farm's
   paces), its past renders optionally given the new name's department;

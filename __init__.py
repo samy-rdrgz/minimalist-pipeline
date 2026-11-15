@@ -313,6 +313,14 @@ def unregister():
     except Exception as e:
         print(e)
 
+    # The live page's server: its port freed, its timer gone.
+    try:
+        from .lib import live
+
+        live.stop()
+    except Exception as e:
+        print(e)
+
     try:
         lib.save_project_data(lib.addon_pref())
     except Exception:

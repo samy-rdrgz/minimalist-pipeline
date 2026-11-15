@@ -5077,3 +5077,41 @@ hash of the preset's name (`farm/monitor.py _file_key()`).
 - **Said, never changed by the migration**: the name is the user's to
   choose; *Migrate old data* and Edit project list the presets giving no
   department.
+
+## Live page
+
+Blender serves the snapshot page to this machine's browser and keeps it up
+to date (plan 2.8, phase 4b; `lib/live.py`, `operators/live_ops.py`). Read
+only so far (4b.1): its review is still downloaded and imported. Tried
+first with `tools/live_prototype.py` (4b.0, measures in the plan).
+
+- **One page for both**: `render_page(data)` (`lib/snapshot_page.py`)
+  writes the snapshot and serves the live one; `meta.live`
+  ({"token", "version"}) tells page.js to ask `/data?since=N` -- a long
+  poll answered at once on a new version, else after 20 s, with "busy"
+  when Blender has had no turn for 1.5 s. New data replaces the page's
+  (`applyData()`: `prepare()` makes the items' fields again; the file
+  shown, its video, the review kept), never while a field is being
+  written in: once it's left.
+- **Who does what**: a reader thread goes over the project (two stats a
+  folder; a folder changed read again, its renders and thumbnails with
+  it -- `read_live()`) every 4 s, only while a page asked for something
+  in the last 30 s; the main thread's timer (`persistent`, 0.1 s) builds
+  the data (`build_snapshot()` reads ConfigCache: main thread only, ~6 ms
+  on alive) when the pass found a change or the farm's jobs changed, and
+  bumps the version when the data, its date aside, differs. The server's
+  threads only hand out what's ready.
+- **The server's state lives in the module**, not
+  `bpy.app.driver_namespace`: emptied when a file is opened, it left the
+  prototype's server orphaned on its port. Stopped by the addon's
+  `unregister()`.
+- **Ports 8765-8775, the token kept** (Blender's config folder): a page
+  left open finds its server again after a restart of Blender.
+- **Security**: `127.0.0.1` only; the token in every URL (the videos': in
+  their path, `media/<token>/renders/...`, so the page's relative video
+  paths work as for a snapshot); the Host header checked (DNS
+  rebinding); `/media` serves under `renders/` only.
+- **Videos let go**: a player replaced has its `src` removed -- a paused
+  video was still being downloaded (112 MB in the prototype).
+- **The review's key** is the project's plus "live", not the data's
+  date (which changes with each version).

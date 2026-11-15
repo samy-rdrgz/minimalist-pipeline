@@ -27,7 +27,9 @@ urls[id]=URL.createObjectURL(new Blob([a],{type:'image/jpeg'}));}
 catch(e){urls[id]='data:image/jpeg;base64,'+DATA.images[id];}return urls[id];}
 
 /* ---------- items ---------- */
-var byFile={},byName={};
+// Made again from new data on the live page (applyData()).
+var byFile={},byName={},tabs=[];
+function prepare(){byFile={};byName={};
 D.forEach(function(it,i){it.i=i;byFile[it.file]=it;byName[it.name]=it;
 it.tab=it.root==='library'?'library':it.kind;
 it.tracked=Object.keys(it.states).length>0;
@@ -42,7 +44,8 @@ it.todos={};it.dnotes={};open.forEach(function(n){if(n.type==='todo'&&n.done===f
 else if(n.type==='note'&&!n.approval)n.deps.forEach(function(d){it.dnotes[d]=(it.dnotes[d]||0)+1;});});
 it.openNotes=open.filter(function(n){return !(n.type==='rtk'&&n.done===false)&&!n.approval;});});
 // The sections present, then Breakdown: the progress by group and department.
-var tabs=TABS.filter(function(t){return D.some(function(it){return it.tab===t[0];});}).concat([['breakdown','Breakdown']]);
+tabs=TABS.filter(function(t){return D.some(function(it){return it.tab===t[0];});}).concat([['breakdown','Breakdown']]);}
+prepare();
 function depsOf(tab){return META.departments[tab==='shot'?'shot':'asset'];}
 function validNow(it,d){return it.ok[d]&&!it.ok[d].old;}
 
@@ -139,7 +142,7 @@ return '<span class="dv'+(big?' big':'')+'"><span class="bar2"><i style="width:'
 /* ---------- review state: as the page before (same key, same shape) ---------- */
 // creates: the new shots and assets the review asks for (planned).
 var rv={author:'',role:'',date:'',files:{},creates:[]};
-var KEY='mp-review:'+META.project+':'+META.snapshot;
+var KEY='mp-review:'+META.project+':'+(META.live?'live':META.snapshot);
 // synced: Still done per department; req: a department required added
 // (true) or removed (false); omit: {state, reason} set aside or counted again.
 function entry(it){var e=rv.files[it.file]||(rv.files[it.file]={deps:{},all:false,text:'',desc:null});e.fixed=e.fixed||{};e.replies=e.replies||{};e.synced=e.synced||{};e.req=e.req||{};e.assign=e.assign||{};return e;}
@@ -278,11 +281,15 @@ inp.addEventListener('change',function(){if(inp.value)b.textContent=fmtDay(new D
 function isoNow(){var d=new Date(),o=-d.getTimezoneOffset(),a=Math.abs(o);
 return d.getFullYear()+'-'+two(d.getMonth()+1)+'-'+two(d.getDate())+'T'+two(d.getHours())+':'+two(d.getMinutes())+':'+two(d.getSeconds())+(o<0?'-':'+')+two(Math.floor(a/60))+':'+two(a%60);}
 $('h-project').innerHTML=esc(META.project).replace(/([_-])/g,'$1<wbr>');
-$('h-when').textContent=fmtDay(snapDate,true)+', '+two(snapDate.getHours())+':'+two(snapDate.getMinutes());
-$('h-when').title='Snapshot of '+DAYS[snapDate.getDay()]+' '+fmtDay(snapDate,true)+', '+two(snapDate.getHours())+':'+two(snapDate.getMinutes())+(META.exported_by?', exported by '+META.exported_by:'');
+function stamp(){snapDate=new Date(META.snapshot);var at=two(snapDate.getHours())+':'+two(snapDate.getMinutes());
+// Live: served by Blender, the time of its last change.
+if(META.live){$('h-when').textContent='Live · '+at;$('h-when').title='Served by Blender on this machine, kept up to date: last change at '+at;return;}
+$('h-when').textContent=fmtDay(snapDate,true)+', '+at;
+$('h-when').title='Snapshot of '+DAYS[snapDate.getDay()]+' '+fmtDay(snapDate,true)+', '+at+(META.exported_by?', exported by '+META.exported_by:'');}
+stamp();
 $('f-ver').textContent='v'+META.addon_version+' · one self-contained file, nothing loaded from the web';
-document.title=META.project+' · snapshot '+fmtDay(snapDate,true);
-(function(){var days=Math.floor((Date.now()-snapDate.getTime())/864e5);
+document.title=META.project+(META.live?' · live':' · snapshot '+fmtDay(snapDate,true));
+if(!META.live)(function(){var days=Math.floor((Date.now()-snapDate.getTime())/864e5);
 if(days>=1){var a=$('age');a.hidden=false;a.textContent=days===1?'1 day old':days+' days old';
 a.title='This page shows the project as it was then: it may have moved since.';}})();
 // A Done's pace (done / expected): its band, as a progress spreadsheet's.
@@ -418,7 +425,7 @@ if(fsel){var nf=$('list').querySelector(fsel);if(nf)nf.focus({preventScroll:true
 if(lockY==null&&scrollY!==y0)scrollTo(0,y0);
 countBar();
 // The videos' folder button, next to ?: until one is chosen, while a render has a video.
-$('vidb').hidden=!!PICKED||!D.some(function(it){return it.renders.some(function(r){return r.video;});});}
+$('vidb').hidden=!!META.live||!!PICKED||!D.some(function(it){return it.renders.some(function(r){return r.video;});});}
 // A capsule with no room on its right (the panel, the window's edge):
 // opened to the left -- measured as the pointer or the focus comes.
 function flipCap(e){var c=e.target.closest&&e.target.closest('.cell');if(!c)return;var lab=c.querySelector('.lab');if(!lab)return;
@@ -703,7 +710,8 @@ return '<div class="pv-slot"></div><div class="pv-msg" hidden></div>'+
 // the thumbnail over it) or Watch large's.
 function playerFor(it){var list=allVideos(it);if(!list.length)return null;
 if(PL&&PL.it===it)return PL;
-if(PL)PL.el.pause();
+// The one before let go: paused, the browser would go on downloading it.
+if(PL){PL.el.pause();PL.el.removeAttribute('src');PL.el.load();}
 var el=document.createElement('video');el.playsInline=true;el.preload='metadata';el.muted=MUTED;if(it.thumb)el.poster=img(it.thumb);
 PL={it:it,list:list,at:0,el:el,host:null,mode:'',marks:[]};wire(PL);load(0);return PL;}
 function load(at){var v=PL.list[at];PL.at=at;PL.v=v;PL.marks=marksOf(PL.it,v);PL.el.src=v.src;}
@@ -1552,6 +1560,32 @@ if(summary().files){document.body.classList.add('reviewing');try{if(localStorage
 // The opening's motions (page.css "small motions"), once: not at each redraw.
 document.body.classList.add('intro');setTimeout(function(){document.body.classList.remove('intro');},1400);
 summaryCards();drawTabs();render();barHeight();
+/* ---------- live: served by Blender (lib/live.py) ---------- */
+// The page asks "anything new since version N?"; Blender answers at once
+// when there is, else after 20 s. The new data replaces the page's -- the
+// file shown, its video playing and your review kept; not while a field
+// is being written in (once left). Disconnected: tried again every 2 s.
+var pend=null;
+function applyData(nd){var a=document.activeElement;if(a&&a.matches&&a.matches('textarea,input:not([type=checkbox]):not([type=radio])')){pend=nd;return;}pend=null;
+var curFile=cur!=null&&D[cur]?D[cur].file:null,plFile=PL&&PL.it?PL.it.file:null,y=scrollY;
+// The file shown gone (archived, renamed): its panel closed first.
+if(curFile&&!nd.items.some(function(x){return x.file===curFile;})){closePanel();curFile=null;}
+Object.keys(nd.images||{}).forEach(function(k){DATA.images[k]=nd.images[k];});
+DATA.items=nd.items;DATA.meta=nd.meta;META=nd.meta;D=nd.items;W=META.weights;prepare();
+if(PL&&plFile&&byFile[plFile])PL.it=byFile[plFile];
+cur=curFile&&byFile[curFile]?byFile[curFile].i:null;summaryCards();drawTabs();stamp();render();scrollTo(scrollX,y);
+if(cur!=null)refresh();}
+document.addEventListener('focusout',function(){setTimeout(function(){if(pend)applyData(pend);},0);});
+if(META.live)(function(){var T=META.live.token,v=META.live.version||0,st='';
+var pill=document.createElement('span');pill.setAttribute('role','status');$('h-when').after(pill);
+function status(s){if(s===st)return;st=s;pill.className='lvp '+s;pill.textContent=s==='on'?'connected':s==='busy'?'Blender busy':'disconnected';
+pill.title=s==='on'?'Served by Blender on this machine, kept up to date':s==='busy'?'Blender is busy (a long task): the page waits for it':'Blender doesn\'t answer (closed, or the page stopped): trying again';}
+
+
+function poll(){fetch('data?t='+encodeURIComponent(T)+'&since='+v,{cache:'no-store'}).then(function(r){if(!r.ok)throw r.status;return r.json();})
+.then(function(d){status(d.busy?'busy':'on');if(d.data&&d.version!==v){v=d.version;applyData(d.data);}poll();})
+.catch(function(){status('off');setTimeout(poll,2000);});}
+status('on');poll();})();
 // A link to a file (#its name) opens it.
 var want=decodeURIComponent(location.hash.slice(1));if(want&&byName[want])jump(byName[want]);
 })();
