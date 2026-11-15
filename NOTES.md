@@ -4740,7 +4740,7 @@ review, the phone and the iPad. What holds across them:
   darker than buttons (`--field`).
 - **Blender's widgets**: an outline (`--outline`, lighter than the
   button in the dark theme, as Blender's) and a flat shade under
-  (`--emboss`, `--emb-y`: 1 px dark, 2 px light) on the buttons, filters, tabs, ✓ / ✕ -- to be
+  (`--emboss`, `--emb-y`: 1 px in both themes) on the buttons, filters, tabs, ✓ / ✕ -- to be
   judged on the page. ✓ / ✕, Reply, Fixed: plain buttons, their mark in
   its colour, filled once on (the outlined round ones read as another
   look). The kinds' tabs sit on a dark ground (`--field`), the picked one

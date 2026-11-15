@@ -135,7 +135,7 @@ MARKS = {
     # Entries, as the page's post-its: a retake from a validation role
     # (red), from the team (outlined); a note under a role (violet).
     "rtk": [(RTK, rect(8, 18, 56, 46, 6))],
-    "team": [(RTK, lambda x, y: rect(8, 18, 56, 46, 6)(x, y) and not rect(13, 23, 51, 41, 3)(x, y))],
+    "team": [(RTK, rect(8, 18, 56, 46, 6)), ((0xF4, 0xC5, 0xCA), rect(12, 22, 52, 42, 3))],
     "role": [(VAL, rect(8, 18, 56, 46, 6))],
 }
 

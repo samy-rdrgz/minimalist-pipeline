@@ -11,7 +11,7 @@ the main action neutral. See NOTES.md, "Snapshot page v3". */
 --rtk:#AB3C48;--rtk-f:#AB3C48;--rtk-t:#991616;--rtk-bg:rgba(171,60,72,.1);--team:#AB3C48;--team-bg:rgba(171,60,72,.1);
 --valid:#7A3F7A;--val-f:#8C548C;--sup:#E3CCE3;--valid-bg:rgba(140,84,140,.12);--on-fill:#FFFFFF;
 --play:#4772B3;--range:#4772B3;--mine:#18181B;--inv:#FFFFFF;--mine-tint:rgba(0,0,0,.05);--glow:#E2E7F0;
---bar-bg:#FFFFFF;--bar-ink:#18181B;--bar-field:#ECECEE;--field:#FFFFFF;--outline:#C9C9CC;--emboss:rgba(0,0,0,.12);--emb-y:2px;
+--bar-bg:#FFFFFF;--bar-ink:#18181B;--bar-field:#ECECEE;--field:#FFFFFF;--outline:#C9C9CC;--emboss:rgba(0,0,0,.12);--emb-y:1px;
 --sh-card:0 1px 2px rgba(0,0,0,.08);--sh-pop:0 24px 70px rgba(0,0,0,.18);
 --r-sm:3px;--r-btn:5px;--r-md:6px;--r-lg:8px;
 --sel:#4772B3;
@@ -296,7 +296,8 @@ in it. Your review's say: the same shape, neutral, on the right. */
 .pi,.you{position:absolute;bottom:-11px;z-index:4;padding:1px 4px 0;border:1px solid transparent;border-radius:3px;font:800 8px/10px var(--mono);letter-spacing:.04em;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.35);pointer-events:none}
 .pi{left:-10px}
 .pi-role{background:var(--rtk-f);border-color:var(--rtk-f);color:#fff}
-.pi-team{background:#FFF2F2;border-color:var(--rtk-f);color:var(--rtk-t)}
+/* The team's: a light red ground, not white. */
+.pi-team{background:#F4C5CA;border-color:var(--rtk-f);color:var(--rtk-t)}
 /* Yours above the diamond, out of the retake's way. */
 .you{top:-9px;bottom:auto;right:-14px;background:var(--mine);border-color:var(--mine);color:var(--inv)}
 .you.n{background:var(--rtk-f);border-color:var(--rtk-f);color:#fff}
