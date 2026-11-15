@@ -4892,4 +4892,12 @@ Phase 5 of docs/plan-1.2.md.
 - The snapshot matches its to check against the render lines by "shot
   folder" (`snapshot_page.py _render_lines()`): it labels them without
   their department.
+- **The main render** (`snapshot.py` `_main_first()`, plan 2.4): each
+  shot's render that plays, shows and is copied -- the highest stage's
+  department's last, the newer at the same stage; a render with no
+  department (before 1.2) after any with one; no stages: the newest.
+  `latest=True` takes the newest whatever its department (the switch to
+  come). The other departments' last renders ride along in "others",
+  `newer` when made after the main one -- shown under it (File details,
+  the page). Clean old renders keeps every department's last.
 

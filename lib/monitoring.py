@@ -190,7 +190,9 @@ def _resize_win32(before: set, size: tuple[float, float], tries: int = 20):
                 return None
             if user32.IsZoomed(hwnd):
                 user32.ShowWindow(hwnd, 9)  # SW_RESTORE: a maximized one ignores a size
-            user32.SetWindowPos(hwnd, 0, x, y, w, h, 0x0004 | 0x0010)  # NOZORDER|NOACTIVATE
+            user32.SetWindowPos(
+                hwnd, 0, x, y, w, h, 0x0004 | 0x0010
+            )  # NOZORDER|NOACTIVATE
         except Exception:
             pass
         return None
@@ -449,7 +451,10 @@ def list_is_narrow(context) -> bool:
     _NAMES_ONLY_WIDTH: its filters stacked, no legend (its cells fit on
     their own, panels/tracking_panel.py draw_monitor_table())."""
     scale = context.preferences.system.ui_scale or 1.0
-    return monitoring_zone(context) == "list" and context.area.width < _NAMES_ONLY_WIDTH * scale
+    return (
+        monitoring_zone(context) == "list"
+        and context.area.width < _NAMES_ONLY_WIDTH * scale
+    )
 
 
 def detail_shown(kind: str) -> bool:
@@ -505,7 +510,9 @@ def sync_detail_zones() -> bool:
             # Blender puts its new editor on (the smaller part), the right
             # one is the detail -- both copy the same editor.
             share = min(max(_detail_share[kind], 0.15), 0.85)
-            if _area_op(window, areas[0], "area_split", direction="VERTICAL", factor=1 - share):
+            if _area_op(
+                window, areas[0], "area_split", direction="VERTICAL", factor=1 - share
+            ):
                 _split_windows.add(ptr)
                 changed = True
     if changed:
@@ -600,7 +607,7 @@ def rows_that_fit(
     under MIN_ROWS. row_units: one row's height (ROW_UNITS, a table row
     with its separator; a bare label line is about 1). kind: a paged
     list's window, told whether its page fits (list_fits())."""
-    unit = 20 * (context.preferences.system.ui_scale or 1.0)  # 0 in background
+    unit = 17 * (context.preferences.system.ui_scale or 1.0)  # 0 in background
     fit = int((context.region.height / unit - reserved_units) / row_units)
     if kind:
         _pages[kind]["fits"] = fit >= MIN_ROWS
@@ -740,7 +747,16 @@ _KEYMAP_ITEMS = (
         {"step": -1, "to_end": False},
         True,
     ),
-    ("Next page", "Frames", "EMPTY", _PAGE, "RIGHT_ARROW", (), {"step": 1, "to_end": False}, True),
+    (
+        "Next page",
+        "Frames",
+        "EMPTY",
+        _PAGE,
+        "RIGHT_ARROW",
+        (),
+        {"step": 1, "to_end": False},
+        True,
+    ),
     # The wheel: in "View2D Buttons List", where a Properties editor's
     # scroll is -- the addon's item wins inside the same keymap; poll() and
     # invoke() hand it back to the scroll outside a list that fits.
@@ -784,13 +800,76 @@ _KEYMAP_ITEMS = (
         {"step": 1, "to_end": True},
         True,
     ),
-    ("Back to the list", "Property Editor", "PROPERTIES", "m_pipeline.monitoring_back", "ESC", (), {}, True),
-    ("Switch view", "Property Editor", "PROPERTIES", "m_pipeline.monitoring_switch", "TAB", (), {}, True),
-    ("Refresh", "Property Editor", "PROPERTIES", "m_pipeline.monitoring_refresh", "F5", (), {}, True),
-    ("Project monitoring", "Window", "EMPTY", "m_pipeline.tracking_monitor", "P", ("shift", "alt"), {}, False),
-    ("Farm monitoring", "Window", "EMPTY", "m_pipeline.farm_monitor", "F", ("shift", "alt"), {}, False),
-    ("Pipeline log", "Window", "EMPTY", "m_pipeline.pipeline_logs", "L", ("shift", "alt"), {}, False),
-    ("New entry", "Window", "EMPTY", "m_pipeline.create_entry", "N", ("shift", "alt"), {}, False),
+    (
+        "Back to the list",
+        "Property Editor",
+        "PROPERTIES",
+        "m_pipeline.monitoring_back",
+        "ESC",
+        (),
+        {},
+        True,
+    ),
+    (
+        "Switch view",
+        "Property Editor",
+        "PROPERTIES",
+        "m_pipeline.monitoring_switch",
+        "TAB",
+        (),
+        {},
+        True,
+    ),
+    (
+        "Refresh",
+        "Property Editor",
+        "PROPERTIES",
+        "m_pipeline.monitoring_refresh",
+        "F5",
+        (),
+        {},
+        True,
+    ),
+    (
+        "Project monitoring",
+        "Window",
+        "EMPTY",
+        "m_pipeline.tracking_monitor",
+        "P",
+        ("shift", "alt"),
+        {},
+        False,
+    ),
+    (
+        "Farm monitoring",
+        "Window",
+        "EMPTY",
+        "m_pipeline.farm_monitor",
+        "F",
+        ("shift", "alt"),
+        {},
+        False,
+    ),
+    (
+        "Pipeline log",
+        "Window",
+        "EMPTY",
+        "m_pipeline.pipeline_logs",
+        "L",
+        ("shift", "alt"),
+        {},
+        False,
+    ),
+    (
+        "New entry",
+        "Window",
+        "EMPTY",
+        "m_pipeline.create_entry",
+        "N",
+        ("shift", "alt"),
+        {},
+        False,
+    ),
     (
         "Increment version",
         "Window",

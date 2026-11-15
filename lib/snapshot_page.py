@@ -334,6 +334,8 @@ def _render_lines(item: dict) -> list:
                 # player counts from it (None: unknown, counted from 1).
                 "first": (r.get("frames") or [None])[0],
                 "whole": bool(r.get("whole")),
+                "department": r.get("department") or "",
+                "others": r.get("others") or [],
                 "behind": r["folder"] is not None
                 and r["file_number"] is not None
                 and r["file_number"] < item["stable_number"],

@@ -70,7 +70,9 @@ class _MonitoringPanel:
         # A window's height of blank below: the Tool tab's other panels
         # (Options, Workspace) out of sight, even scrolled.
         spacer = layout.column()
-        spacer.scale_y = context.region.height / (20 * (context.preferences.system.ui_scale or 1.0))
+        spacer.scale_y = context.region.height / (
+            20 * (context.preferences.system.ui_scale or 1.0)
+        )
         spacer.label(text="")
 
 
@@ -103,7 +105,7 @@ class M_PIPELINE_PT_monitoring(_MonitoringPanel, bpy.types.Panel):
             stack = layout.box().column()
             filters_btn = stack.row()
         else:
-            filters = layout.box().split(factor=0.3)
+            filters = layout.box().split(factor=0.15)
             filters.label(text="Filters", icon="FILTER")
             filters_btn = filters.row()
         filters_btn.prop(state, "file_type", expand=True)
@@ -121,20 +123,43 @@ class M_PIPELINE_PT_monitoring(_MonitoringPanel, bpy.types.Panel):
         if narrow:
             filters_btn = stack.row()
         # Icon only: the property's description is the tooltip.
-        filters_btn.prop(state, "only_farm", text="", icon="VIEW_CAMERA_UNSELECTED")
-        filters_btn.prop(state, "only_rtk", text="", icon="LOOP_BACK")
-        filters_btn.prop(state, "only_to_validate", text="", icon="SOLO_OFF")
+        filters_btn.prop(
+            state,
+            "only_farm",
+            text="",
+            icon="VIEW_CAMERA" if state.only_farm else "VIEW_CAMERA_UNSELECTED",
+            emboss=False,
+        )
+        filters_btn.prop(
+            state,
+            "only_rtk",
+            text="",
+            icon="INDIRECT_ONLY_ON" if state.only_rtk else "INDIRECT_ONLY_OFF",
+            emboss=False,
+        )
+        filters_btn.prop(
+            state,
+            "only_to_validate",
+            text="",
+            icon="SOLO_ON" if state.only_to_validate else "SOLO_OFF",
+            emboss=False,
+        )
         # Only once the scan found one: no button for nothing.
         if any_outdated_links(get_active_project_root()):
             outdated = filters_btn.row()
             outdated.alert = not state.only_outdated
             outdated.prop(state, "only_outdated", text="", icon="LIBRARY_DATA_BROKEN")
-        filters_btn.prop(state, "sort", text="", icon="SORTTIME")
+        filters_btn.prop(state, "sort", text="", icon="SORTALPHA")
         filters_btn.menu("M_PIPELINE_MT_monitor_columns", text="", icon="HIDE_OFF")
         # Full screen on / off -- this window's (Alt+F11 too).
-        filters_btn.operator("wm.window_fullscreen_toggle", text="", icon="FULLSCREEN_ENTER")
+        filters_btn.operator(
+            "wm.window_fullscreen_toggle",
+            text="",
+            icon="FULLSCREEN_ENTER",
+            emboss=False,
+        )
 
-        layout.separator(factor=0.5)
+        layout.separator(factor=0.3)
         draw_monitor_table(state, context, layout, columns, get_active_project_root())
 
 
@@ -162,8 +187,15 @@ class M_PIPELINE_PT_farm_monitoring(_MonitoringPanel, bpy.types.Panel):
         # get_path(): a plain join, memoized -- no disk access in draw().
         op = tabs.operator("wm.open_folder", text="", icon="FILE_FOLDER", emboss=False)
         op.filepath = str(ConfigCache.get_path("farm"))
-        op.custom_tooltip = "Open the farm's folder (config/.farm: queue, workers, logs)"
-        tabs.operator("wm.window_fullscreen_toggle", text="", icon="FULLSCREEN_ENTER", emboss=False)
+        op.custom_tooltip = (
+            "Open the farm's folder (config/.farm: queue, workers, logs)"
+        )
+        tabs.operator(
+            "wm.window_fullscreen_toggle",
+            text="",
+            icon="FULLSCREEN_ENTER",
+            emboss=False,
+        )
         if state.view == "jobs":
             job_filters = filter_box.split(factor=0.5)
             job_filters.prop(state, "search", text="", icon="VIEWZOOM")
@@ -231,19 +263,28 @@ class M_PIPELINE_PT_welcome(_MonitoringPanel, bpy.types.Panel):
             # Two lines: the question, then the switch -- on one, the text
             # was cut.
             level = layout.column(align=True)
-            level.label(text="Familiar with the add-on? Advanced hides the tips.", icon="HIDE_OFF")
+            level.label(
+                text="Familiar with the add-on? Advanced hides the tips.",
+                icon="HIDE_OFF",
+            )
             level.row(align=True).prop(prefs, "experience_level", expand=True)
             layout.separator(factor=1)
         # How to start, at hand: a project to make, or one to find.
         actions = layout.box().row()
         actions.scale_y = 1.2
-        actions.operator("m_pipeline.create_project", text="New project", icon="FILE_NEW")
-        actions.operator("m_pipeline.find_project", text="Find existing project", icon="ZOOM_ALL")
+        actions.operator(
+            "m_pipeline.create_project", text="New project", icon="FILE_NEW"
+        )
+        actions.operator(
+            "m_pipeline.find_project", text="Find existing project", icon="ZOOM_ALL"
+        )
         actions.operator("wm.window_close", text="Close", icon="CHECKMARK")
         # A window's height of blank below, as the others: the Tool tab's
         # Options and Workspace out of sight.
         spacer = self.layout.column()
-        spacer.scale_y = context.region.height / (20 * (context.preferences.system.ui_scale or 1.0))
+        spacer.scale_y = context.region.height / (
+            20 * (context.preferences.system.ui_scale or 1.0)
+        )
         spacer.label(text="")
 
 
@@ -259,7 +300,9 @@ class M_PIPELINE_PT_project_settings(_MonitoringPanel, bpy.types.Panel):
         settings = context.window_manager.pipeline_project_settings
         layout = self.layout
         if not settings.project_path_selected:
-            layout.label(text="No project loaded: open Project settings again.", icon="ERROR")
+            layout.label(
+                text="No project loaded: open Project settings again.", icon="ERROR"
+            )
         else:
             right = settings.draw_settings(layout)
             # The active project's upkeep: both act on it, not on another
@@ -273,16 +316,32 @@ class M_PIPELINE_PT_project_settings(_MonitoringPanel, bpy.types.Panel):
                 split = box.split(factor=0.33, align=True)
                 split.label(text="MAINTENANCE", icon="TOOL_SETTINGS")
                 col = split.column(align=True)
-                col.operator("m_pipeline.clean_renders", text="Clean old renders...", icon="RENDER_RESULT")
-                col.operator("m_pipeline.delete_owner_pick", text="Delete a shot or an asset...", icon="TRASH")
+                col.operator(
+                    "m_pipeline.clean_renders",
+                    text="Clean old renders...",
+                    icon="RENDER_RESULT",
+                )
+                col.operator(
+                    "m_pipeline.delete_owner_pick",
+                    text="Delete a shot or an asset...",
+                    icon="TRASH",
+                )
                 migrate = col.row()
                 migrate.alert = project_needs_migration()
-                migrate.operator("m_pipeline.migrate_data", text="Migrate old data...", icon="FILE_REFRESH")
+                migrate.operator(
+                    "m_pipeline.migrate_data",
+                    text="Migrate old data...",
+                    icon="FILE_REFRESH",
+                )
             layout.separator(factor=2)
             actions = layout.box().row()
             actions.scale_y = 1.2
-            actions.operator("m_pipeline.save_project_settings", text="Save", icon="FILE_TICK")
+            actions.operator(
+                "m_pipeline.save_project_settings", text="Save", icon="FILE_TICK"
+            )
             actions.operator("wm.window_close", text="Close", icon="CHECKMARK")
         spacer = self.layout.column()
-        spacer.scale_y = context.region.height / (20 * (context.preferences.system.ui_scale or 1.0))
+        spacer.scale_y = context.region.height / (
+            20 * (context.preferences.system.ui_scale or 1.0)
+        )
         spacer.label(text="")

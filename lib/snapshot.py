@@ -20,6 +20,7 @@ from .status import (  # noqa: F401 -- PROGRESS_WEIGHTS, progress_weights: re-ex
     file_progress,
     omitted,
     progress_weights,
+    project_stages,
 )
 from .preview import LD_DIR, browser_video, ensure_ld, latest_render_dir, render_root
 from .schedule import project_schedule, schedule_progress
@@ -92,12 +93,25 @@ def _owner_shots(owner: Path) -> list[str]:
     return [first] + [f"{m[1]}{n.zfill(len(m[2]))}" for n in rest]
 
 
-def read_render_state(root: Path, kind: str, owner: Path, v_prefix: str = "v") -> list:
+def read_render_state(
+    root: Path,
+    kind: str,
+    owner: Path,
+    v_prefix: str = "v",
+    stages: dict | None = None,
+    latest: bool = False,
+) -> list:
     """What was last rendered for an asset/shot folder, one line per shot:
     [{"shot", "file", "folder", "path", "frames", "frame_machines",
-    "machine_seconds"}], frames its [first, last] (None unknown). From
-    render_history.json's last finished render of that shot, else the latest
-    render folder's name. Pure os/json: thread-safe."""
+    "machine_seconds", "department", "others"}], frames its [first, last]
+    (None unknown). Each shot's main render (_main_first(): its highest
+    stage's department, by stages {department: stage}; latest: the most
+    recent), its other departments' last ones in "others" ({"department",
+    "file", "folder", "path", "newer": made after the main}). From
+    render_history.json's finished renders of that shot, else the latest
+    render folder's name. Pure os/json: thread-safe. See NOTES.md,
+    "Renders by department"."""
+    stages = stages or {}
     history = read_json_quiet(owner / ".pipeline" / "render_history.json") or {}
     # A render with no output_path names no folder (one from before 1.0.11
     # the migration couldn't match): not a render to show.
@@ -110,13 +124,12 @@ def read_render_state(root: Path, kind: str, owner: Path, v_prefix: str = "v") -
     shots = _owner_shots(owner) if kind == "shot" else [""]
     block = len(shots) > 1
 
-    def last_render(shot: str, mine: list, folder_dir: Path) -> dict:
-        if mine:
-            last = finished[mine[-1]]
-            folder = (Path(root) / last["output_path"]).parent
-            return {
+    def one(shot: str, last: dict) -> dict:
+        folder = (Path(root) / last["output_path"]).parent
+        return {
                 "_when": iso_timestamp(last.get("completed_at")) or _mtime(folder),
                 "shot": shot,
+                "department": str(last.get("department") or "").lower(),
                 "file": Path(last.get("source_file") or "").name or None,
                 "folder": folder.name,
                 "path": str(folder),
@@ -126,15 +139,34 @@ def read_render_state(root: Path, kind: str, owner: Path, v_prefix: str = "v") -
                 # (farm queue._note_frames()): File details' lookup.
                 "frame_machines": last.get("frame_machines"),
                 "machine_seconds": last.get("machine_seconds"),
-            }
-        latest = latest_render_dir(folder_dir, v_prefix)
+        }
+
+    def last_render(shot: str, mine: list, folder_dir: Path) -> dict:
+        if mine:
+            # Each department's last: the main one, the others under it.
+            by_dep = {str(finished[i].get("department") or "").lower(): i for i in mine}
+            lasts = [one(shot, finished[i]) for i in by_dep.values()]
+            main = lasts[0]
+            for r in lasts[1:]:
+                if _main_first(r, main, stages, latest):
+                    main = r
+            main["others"] = [
+                {k: r[k] for k in ("department", "file", "folder", "path")}
+                | {"newer": _newer(r, main)}
+                for r in sorted(lasts, key=lambda r: (-stages.get(r["department"], 0), r["department"]))
+                if r is not main
+            ]
+            return main
+        newest = latest_render_dir(folder_dir, v_prefix)
         return {
-            "_when": _mtime(latest),
+            "_when": _mtime(newest),
             "shot": shot,
+            "department": "",
+            "others": [],
             "file": None,
-            "folder": latest.name if latest else None,
-            "path": str(latest) if latest else None,
-            "frames": _folder_frames(latest) if latest else None,
+            "folder": newest.name if newest else None,
+            "path": str(newest) if newest else None,
+            "frames": _folder_frames(newest) if newest else None,
         }
 
     out = []
@@ -155,7 +187,9 @@ def read_render_state(root: Path, kind: str, owner: Path, v_prefix: str = "v") -
         whole = last_render("", mine, base)
         if whole["path"]:
             out = [
-                dict(whole, shot=r["shot"], whole=True) if _newer(whole, r) else r
+                dict(whole, shot=r["shot"], whole=True)
+                if _main_first(whole, r, stages, latest)
+                else r
                 for r in out
             ]
     for r in out:
@@ -188,6 +222,20 @@ def _mtime(folder) -> float | None:
         return os.stat(folder).st_mtime if folder else None
     except OSError:
         return None
+
+
+def _main_first(a: dict, b: dict, stages: dict, latest: bool) -> bool:
+    """Render a the main one rather than b (read_render_state()): one with
+    a department before one without (from before 1.2), then the higher
+    stage's department, then the newer -- latest: the newer only."""
+    if not b.get("path"):
+        return bool(a.get("path"))
+    if not latest and a.get("path"):
+        ka = (bool(a.get("department")), stages.get(a.get("department") or "", 0))
+        kb = (bool(b.get("department")), stages.get(b.get("department") or "", 0))
+        if ka != kb:
+            return ka > kb
+    return _newer(a, b)
 
 
 def _newer(a: dict, b: dict) -> bool:
@@ -372,8 +420,11 @@ def read_snapshot_data(
     thumbnails: {"size", "blender", "ffmpeg"}, None to skip. Returns
     {"raws", "renders", "thumbs", "shot_thumbs", "thumb_warnings"}."""
     raws = read_snapshot_raw(root)
+    config = read_json_quiet(Path(root) / "config" / "project_config.json") or {}
     renders = {
-        str(owner): read_render_state(root, kind, owner, v_prefix)
+        str(owner): read_render_state(
+            root, kind, owner, v_prefix, project_stages(config, f"{kind}s")
+        )
         for kind, owner, raw, _ in raws
         if not raw["tracking"].get("archived")
     }
@@ -382,9 +433,10 @@ def read_snapshot_data(
     # -- its light copy (ld/) when it has one.
     for shots in renders.values():
         for r in shots:
-            r["video"] = _video_name(
-                root, browser_video(Path(r["path"])) if r.get("path") else None
-            )
+            for x in (r, *(r.get("others") or [])):
+                x["video"] = _video_name(
+                    root, browser_video(Path(x["path"])) if x.get("path") else None
+                )
     thumbs, shot_thumbs, warnings = {}, {}, []
     if thumbnails is not None:
         dirs, shot_dirs = {}, {}
@@ -506,6 +558,12 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
                     "file_number": int(m[1]) if m else None,
                     "video": r.get("video"),
                     "frames": r.get("frames"),
+                    # Renders by department: its own, the others' last.
+                    "department": r.get("department") or "",
+                    "others": [
+                        {k: o.get(k) for k in ("department", "folder", "video", "newer")}
+                        for o in r.get("others") or []
+                    ],
                 }
             )
         item["renders"] = renders

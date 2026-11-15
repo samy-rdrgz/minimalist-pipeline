@@ -3,14 +3,14 @@
 import os
 from pathlib import Path
 
+from ..lib.status import project_stages
+
 import bpy
 import bpy.utils.previews
 
 from ..farm import farm_activity
 from ..lib import (
     APPROVAL_SOURCE,
-    local_time,
-    list_is_narrow,
     REVIEW_SOURCE,
     TEAM_REVIEW_SOURCE,
     ConfigCache,
@@ -24,6 +24,7 @@ from ..lib import (
     draw_box_tip,
     draw_pager,
     entry_departments,
+    farm_renders,
     filter_review_boxes,
     find_linked_by,
     format_work_time,
@@ -37,6 +38,8 @@ from ..lib import (
     group_renders,
     highest_approval,
     json_get,
+    list_is_narrow,
+    local_time,
     monitoring_detail,
     open_rtks,
     open_task_counts,
@@ -46,12 +49,10 @@ from ..lib import (
     paginate,
     position_in_list,
     project_path,
-    farm_renders,
     read_render_state,
     region_char_budget,
     render_root,
     render_to_check_label,
-    to_check_entries,
     rows_that_fit,
     safe_icon,
     shots_in_segment,
@@ -60,10 +61,11 @@ from ..lib import (
     text_to_lines,
     thumbnail_path,
     time_key,
+    to_check_entries,
     validation_roles,
 )
-from ..lib.status import OMIT_STATES, STATE_LABELS, department_state, omitted
 from ..lib.icons import icon_kw
+from ..lib.status import OMIT_STATES, STATE_LABELS, department_state, omitted
 from ..lib.ui import icon_button, link_rows
 from .farm_panel import draw_frame_lookup_button, job_icon
 
@@ -196,7 +198,9 @@ def draw_entries(box, filepath, filters=None, width: int | None = None):
         for review_box in _approval_runs(review_boxes):
             reviews_col.separator(factor=1.5)
             if "approvals" in review_box:
-                _draw_approvals(reviews_col.box().column(align=True), review_box["approvals"])
+                _draw_approvals(
+                    reviews_col.box().column(align=True), review_box["approvals"]
+                )
                 continue
             container = reviews_col.box().column(align=True)
 
@@ -303,10 +307,19 @@ def _draw_entry(e, note, filepath, width: int | None = None):
     # Right-click on its icons: reply, edit, tick, delete.
     if e.get("done") is not None:
         icon = "CHECKMARK" if e["done"] else "CHECKBOX_DEHLT"
-        icon_button(body, "m_pipeline.toggle_entry_task", icon, id=e["id"], filepath=filepath, rmb="entry")
+        icon_button(
+            body,
+            "m_pipeline.toggle_entry_task",
+            icon,
+            id=e["id"],
+            filepath=filepath,
+            rmb="entry",
+        )
         if e["type"] == "rtk":
             # A validation role's RTK violet (as its notes), the team's orange.
-            body.label(text="", **icon_kw(_RTK_ROLE_ICON if e.get("role") else _RTK_TEAM_ICON))
+            body.label(
+                text="", **icon_kw(_RTK_ROLE_ICON if e.get("role") else _RTK_TEAM_ICON)
+            )
     else:
         # A button, not a label: it takes the right-click menu (and a click
         # replies, as the grip on the right).
@@ -369,7 +382,9 @@ def _draw_entry(e, note, filepath, width: int | None = None):
 
         for frame in (f_start, f_end) if e.get("frame_end") else (f_start,):
             frames_row.operator(
-                "m_pipeline.current_frame", text=label.format(frame), emboss=not e.get("done", False)
+                "m_pipeline.current_frame",
+                text=label.format(frame),
+                emboss=not e.get("done", False),
             ).frame = frame
         frames_row.separator(factor=0.75)
 
@@ -537,7 +552,8 @@ def load_file_renders(folder: str) -> None:
     owner = Path(folder)
     kind = "shot" if owner.parent.parent == Path(root) / "shots" else "asset"
     v_prefix = json_get(ConfigCache.get(), "naming.version.prefix", "v")
-    renders = read_render_state(Path(root), kind, owner, v_prefix)
+    stages = project_stages(ConfigCache.get(), f"{kind}s")
+    renders = read_render_state(Path(root), kind, owner, v_prefix, stages)
     if any(r["path"] for r in renders):
         _last_renders[folder] = renders
         _farm_renders[folder] = farm_renders(owner)
@@ -564,9 +580,17 @@ def _draw_last_renders(layout, filepath: str) -> bool:
         if not r["path"]:
             _render_row(col, f"{label}not rendered").active = False
             continue
-        row = _render_row(col, label + r["folder"])
+        dep = f"  ·  {r['department']}" if r.get("department") else ""
+        row = _render_row(col, label + r["folder"] + dep)
         _video_button(row, {"render": r["path"]}, label + r["folder"])
         _folder_button(row, r["path"])
+        # The other departments' last renders, under the main one.
+        for o in r.get("others") or []:
+            text = f"      {o['department'] or 'no department'}  {o['folder']}" + ("  (newer)" if o["newer"] else "")
+            row = _render_row(col, text)
+            row.active = bool(o["newer"])
+            _video_button(row, {"render": o["path"]}, f"{label}{o['folder']}")
+            _folder_button(row, o["path"])
     # Which machine wrote frame n -- from render_history.json, there once the
     # job is archived and gone from Farm monitoring.
     renders = [
@@ -581,7 +605,10 @@ def _draw_last_renders(layout, filepath: str) -> bool:
     ]
     # Which render: every farm render of the file, the newest first -- a
     # block's last renders, every shot, before them.
-    choices = [(label, [("", record, seconds)]) for label, record, seconds in _farm_renders.get(filepath, [])]
+    choices = [
+        (label, [("", record, seconds)])
+        for label, record, seconds in _farm_renders.get(filepath, [])
+    ]
     if block:
         choices.insert(0, ("Last renders, every shot", renders))
     draw_frame_lookup_button(col, f"file:{filepath}", renders, choices or None)
@@ -681,7 +708,9 @@ def draw_file_details(state, context, layout):
 
     row_left = row.box().row(align=True)
     row_left.alignment = "LEFT"
-    row_left.operator("m_pipeline.tracking_file_details", text="", icon="BACK", emboss=False)
+    row_left.operator(
+        "m_pipeline.tracking_file_details", text="", icon="BACK", emboss=False
+    )
 
     filepath = monitoring_detail("file")
 
@@ -740,23 +769,59 @@ def draw_file_details(state, context, layout):
     except ValueError:
         is_block = False
     for idname, icon, tooltip, props, shown in (
-        ("m_pipeline.edit_description", "GREASEPENCIL", "", {"filepath": filepath}, True),
-        ("m_pipeline.file_omit", "PAUSE",
-         "Set aside: On hold or Cancelled -- out of the figures and filters, kept in the lists"
-         if not mark else f"{OMIT_STATES[mark['state']]} by {mark.get('by', '?')}: make it active again",
-         {"filepath": filepath}, True),
-        ("m_pipeline.open_file_version", safe_icon("FILE_ALIAS", "FILE_BLEND"), "", {"filepath": str(filepath)}, True),
-        ("wm.open_folder", "FILE_FOLDER", "Open this file's folder", {"filepath": str(filepath)}, True),
+        (
+            "m_pipeline.edit_description",
+            "GREASEPENCIL",
+            "",
+            {"filepath": filepath},
+            True,
+        ),
+        (
+            "m_pipeline.file_omit",
+            "PAUSE",
+            "Set aside: On hold or Cancelled -- out of the figures and filters, kept in the lists"
+            if not mark
+            else f"{OMIT_STATES[mark['state']]} by {mark.get('by', '?')}: make it active again",
+            {"filepath": filepath},
+            True,
+        ),
+        (
+            "m_pipeline.open_file_version",
+            safe_icon("FILE_ALIAS", "FILE_BLEND"),
+            "",
+            {"filepath": str(filepath)},
+            True,
+        ),
+        (
+            "wm.open_folder",
+            "FILE_FOLDER",
+            "Open this file's folder",
+            {"filepath": str(filepath)},
+            True,
+        ),
         # Pure path work, no resolve() in a draw(): renders/<seq>/<shot> for
         # a shot, renders/assets/... for an asset.
-        ("wm.open_folder", "RENDER_STILL", "Open this file's render folder",
-         {"filepath": str(render_root(root, Path(filepath))) if root else ""}, bool(root)),
-        ("m_pipeline.compile_preview", "RENDER_ANIMATION",
-         "Compile a disposable preview from just this block's own shots.",
-         {"scope": "block", "filepath": filepath}, is_block),
-        ("m_pipeline.compile_preview", "SEQUENCE",
-         "Compile a disposable preview from every rendered shot in this sequence.",
-         {"scope": "sequence", "filepath": filepath}, is_shot),
+        (
+            "wm.open_folder",
+            "RENDER_STILL",
+            "Open this file's render folder",
+            {"filepath": str(render_root(root, Path(filepath))) if root else ""},
+            bool(root),
+        ),
+        (
+            "m_pipeline.compile_preview",
+            "RENDER_ANIMATION",
+            "Compile a disposable preview from just this block's own shots.",
+            {"scope": "block", "filepath": filepath},
+            is_block,
+        ),
+        (
+            "m_pipeline.compile_preview",
+            "SEQUENCE",
+            "Compile a disposable preview from every rendered shot in this sequence.",
+            {"scope": "sequence", "filepath": filepath},
+            is_shot,
+        ),
     ):
         if shown:
             icon_button(row_right, idname, icon, tooltip, **props)
@@ -815,10 +880,17 @@ def draw_file_details(state, context, layout):
             if d in validated:
                 _draw_approval(btn, data, d, filepath, role, tooltip)
             if ((data.get("flags") or {}).get(d) or {}).get("to_redo"):
-                icon_button(btn, "m_pipeline.department_still_done", "mark:to_redo",
-                            "To redo: " + data["flags"][d]["to_redo"]
-                            + ".\nStill done: the work done holds -- not a validation",
-                            text="Still done", filepath=filepath, department=d)
+                icon_button(
+                    btn,
+                    "m_pipeline.department_still_done",
+                    "mark:to_redo",
+                    "To redo: "
+                    + data["flags"][d]["to_redo"]
+                    + ".\nStill done: the work done holds -- not a validation",
+                    text="Still done",
+                    filepath=filepath,
+                    department=d,
+                )
     else:
         deps_row = tabl.column()
         deps_row.scale_y = 0.5
@@ -854,24 +926,44 @@ def draw_file_details(state, context, layout):
                     )
             # A link to an older version than its folder's latest stable.
             newer = dict(outdated_links(filepath))
-            link_rows(links_col, "Links to:", [
-                (
-                    "m_pipeline.tracking_file_details",
-                    f"{lib_dir.name} ({len(names)})" if len(names) > 1 else lib_dir.name,
-                    "LIBRARY_DATA_BROKEN" if any(n in newer for n in names) else "BLANK1",
-                    {
-                        "filepath": str(lib_dir),
-                        "custom_tooltip": "\n".join(f"{n} -> {newer[n]} available" if n in newer else n for n in names),
-                        "alert": any(n in newer for n in names),
-                    },
-                )
-                for lib_dir, names in by_folder.items()
-            ])
+            link_rows(
+                links_col,
+                "Links to:",
+                [
+                    (
+                        "m_pipeline.tracking_file_details",
+                        f"{lib_dir.name} ({len(names)})"
+                        if len(names) > 1
+                        else lib_dir.name,
+                        "LIBRARY_DATA_BROKEN"
+                        if any(n in newer for n in names)
+                        else "BLANK1",
+                        {
+                            "filepath": str(lib_dir),
+                            "custom_tooltip": "\n".join(
+                                f"{n} -> {newer[n]} available" if n in newer else n
+                                for n in names
+                            ),
+                            "alert": any(n in newer for n in names),
+                        },
+                    )
+                    for lib_dir, names in by_folder.items()
+                ],
+            )
         if linked_by:
-            link_rows(links_col, "Linked by:", [
-                ("m_pipeline.tracking_file_details", folder.name, "BLANK1", {"filepath": str(folder)})
-                for folder in linked_by
-            ])
+            link_rows(
+                links_col,
+                "Linked by:",
+                [
+                    (
+                        "m_pipeline.tracking_file_details",
+                        folder.name,
+                        "BLANK1",
+                        {"filepath": str(folder)},
+                    )
+                    for folder in linked_by
+                ],
+            )
 
     layout.separator(factor=1)
     _draw_renders_to_check(layout, filepath, data)
@@ -1029,12 +1121,16 @@ def draw_monitor_table(self, context, layout, columns, project_root):
     # What fits, from the page's own names and Farm icons.
     # The marks alone, by choice too (Filters > the columns menu).
     FIRST_COLUMN, shares, icon_only = _column_widths(
-        context.region.width / scale, shown, len(columns), show_farm, activity,
+        context.region.width / scale,
+        shown,
+        len(columns),
+        show_farm,
+        activity,
         words="·words" not in hidden,
     )
 
     draw_box_tip(layout, context, _TABLE_TIP)
-    f_list = layout.box()
+    f_list = layout
     title_list = f_list.split(factor=FIRST_COLUMN) if FIRST_COLUMN < 1 else f_list.row()
     title_list.active = False
     title_list.label(text="File", icon="RADIOBUT_ON")
@@ -1050,12 +1146,19 @@ def draw_monitor_table(self, context, layout, columns, project_root):
 
     for dir, file in shown:
         _draw_monitor_row(
-            self, f_list, dir, file, columns, FIRST_COLUMN, shares, activity.get(owner_key(dir)),
-            icon_only=icon_only, show_farm=show_farm,
+            self,
+            f_list,
+            dir,
+            file,
+            columns,
+            FIRST_COLUMN,
+            shares,
+            activity.get(owner_key(dir)),
+            icon_only=icon_only,
+            show_farm=show_farm,
         )
     for _ in range(per_page - len(shown)):
         _draw_monitor_blank_row(f_list, shares, FIRST_COLUMN)
-
     footer, pager = split_footer(context, f_list.row())
     # Dimmed, except the legend: its colours are the point.
     status = footer.row()
@@ -1096,7 +1199,12 @@ def draw_monitor_table(self, context, layout, columns, project_root):
 
 
 def _column_widths(
-    width: float, shown: list, departments: int, show_farm: bool, activity: dict, words: bool = True
+    width: float,
+    shown: list,
+    departments: int,
+    show_farm: bool,
+    activity: dict,
+    words: bool = True,
 ) -> tuple:
     """(the names' share of a row, each other column's width, marks alone)
     for a list width px wide (UI scale 1) showing shown: each department as
@@ -1165,7 +1273,9 @@ class M_PIPELINE_MT_monitor_legend(bpy.types.Menu):
     def draw(self, context):
         state = context.window_manager.pipeline_monitoring
         hidden = set(filter(None, state.hidden_columns.split(",")))
-        for i, (title, group) in enumerate(legend_groups(state.file_type, "farm" not in hidden)):
+        for i, (title, group) in enumerate(
+            legend_groups(state.file_type, "farm" not in hidden)
+        ):
             if i:
                 self.layout.separator()
             heading = self.layout.row()
@@ -1175,8 +1285,18 @@ class M_PIPELINE_MT_monitor_legend(bpy.types.Menu):
                 self.layout.label(text=text, **icon_kw(icon))
 
 
-def _draw_monitor_row(self, f_list, dir, file, columns, first_column, shares, jobs=None,
-                      icon_only=False, show_farm=True):
+def _draw_monitor_row(
+    self,
+    f_list,
+    dir,
+    file,
+    columns,
+    first_column,
+    shares,
+    jobs=None,
+    icon_only=False,
+    show_farm=True,
+):
     """One file's row of Project monitoring: name (opens its detail), a
     status cell per department column, then its Farm cell."""
     row = f_list.column()
@@ -1198,23 +1318,38 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, shares, jo
     )
     # Right-click: its folders, a render.
     icon_button(
-        name, "m_pipeline.tracking_file_details", icon,
+        name,
+        "m_pipeline.tracking_file_details",
+        icon,
         # Set aside: its mark here only with the names alone -- else it's
         # across the cells.
         text=file.get("file_name", "Unknown")
         + (f"  · {OMIT_STATES[mark['state']]}" if mark and first_column >= 1 else ""),
-        filepath=str(dir), custom_tooltip=file.get("description", ""), rmb="file",
+        filepath=str(dir),
+        custom_tooltip=file.get("description", ""),
+        rmb="file",
     )
 
     details = name.row()
     details.alignment = "RIGHT"
     if general_rtk:
         # A retake on no department: its own button, as a department's cell.
-        icon_button(details, "m_pipeline.department_rtks", "mark:rtk", "A retake on no department",
-                    folder=str(dir), department="")
+        icon_button(
+            details,
+            "m_pipeline.department_rtks",
+            "mark:rtk",
+            "A retake on no department",
+            folder=str(dir),
+            department="",
+        )
     details = details.row()
     details.active = False
-    icon_button(details, "m_pipeline.open_file_version", safe_icon("FILE_ALIAS", "FILE_BLEND"), filepath=str(dir))
+    icon_button(
+        details,
+        "m_pipeline.open_file_version",
+        safe_icon("FILE_ALIAS", "FILE_BLEND"),
+        filepath=str(dir),
+    )
     if first_column >= 1:  # names only
         f_list.separator(factor=0.5, type="LINE")
         return
@@ -1236,6 +1371,7 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, shares, jo
             # tooltip still shown on hover. Never the row itself: a
             # disabled row disables whatever it holds.
             status = icon_row.row(align=True)
+
             tooltip = department_status_tooltip(file, c)
             text, row_icon, best = _department_cell(file, c)
             # Icon then text, each its own button in a left-aligned row:
@@ -1244,9 +1380,15 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, shares, jo
             # clickable, its retakes in a popup.
             status.alignment = "LEFT"
             if c in rtk:
-                icon_button(status, "m_pipeline.department_rtks", "mark:rtk",
-                            f"Retakes on {c}: click to read them\n\n{tooltip}",
-                            folder=str(dir), department=c)
+                icon_button(
+                    status,
+                    "m_pipeline.department_rtks",
+                    "mark:rtk",
+                    f"Retakes on {c}: click to read them\n\n{tooltip}",
+                    folder=str(dir),
+                    department=c,
+                )
+                status.scale_x = 0.4
             # Grey, the star in full once validated by the top role
             # ("Done · prod"): what's through stands out.
             star = text.startswith("Done · ") and best in top_roles
@@ -1258,22 +1400,32 @@ def _draw_monitor_row(self, f_list, dir, file, columns, first_column, shares, jo
             # the tooltip.
             if icon_only:
                 tooltip = f"{text}\n\n{tooltip}"
-            for t, i in (("", row_icon),) if icon_only else (("", row_icon), (text, "NONE")):
+            for t, i in (
+                (("", row_icon),) if icon_only else (("", row_icon), (text, "NONE"))
+            ):
                 button = status.row(align=True)
                 button.alignment = "LEFT"  # its own width, not the cell's
                 # The mark in its colours (the button does nothing), the
                 # words greyed.
                 button.enabled = t == ""
-                icon_button(button, "m_pipeline.department_status_info", i, tooltip, text=t)
+                icon_button(
+                    button, "m_pipeline.department_status_info", i, tooltip, text=t
+                )
         else:
             # Not required: a grey dash where the marks are (a label's
             # "–" sat apart from them).
             status = icon_row.row(align=True)
             status.alignment = "LEFT"
             status.enabled = False
-            icon_button(status, "m_pipeline.department_status_info", "mark:none", "Not required for this file")
+            icon_button(
+                status,
+                "m_pipeline.department_status_info",
+                "mark:none",
+                "Not required for this file",
+            )
     if show_farm:
         _draw_farm_cell(cells[-1], dir, file, jobs or [])
+
     f_list.separator(factor=0.5, type="LINE")
 
 
@@ -1292,7 +1444,11 @@ def _department_cell(file: dict, department: str) -> tuple[str, str, str | None]
         return f"To redo: {flag['to_redo']}", "mark:to_redo", None
     if state == "done":
         best = highest_approval(file, department)
-        return (f"Done · {best}", "mark:done", best) if best else ("Done", "mark:done", None)
+        return (
+            (f"Done · {best}", "mark:done", best)
+            if best
+            else ("Done", "mark:done", None)
+        )
     return STATE_LABELS[state], f"mark:{state}", None
 
 
@@ -1357,6 +1513,7 @@ def _draw_farm_cell(cell, dir, file, jobs: list) -> None:
     icons = cell.row(align=True)
     icons.alignment = "RIGHT"
     icons.scale_x = 0.9  # icons close together
+    icons.scale_y = 0.9  # icons close together
     # An older render to check comes before the shot's new job.
     items = [(shot, 0, info) for shot, info in renders]
     items += [(job["shot"], 1, job) for job in jobs]
@@ -1397,6 +1554,9 @@ def _draw_farm_cell(cell, dir, file, jobs: list) -> None:
             f"{render_to_check_label(shot, info)}  ({_to_check_at(info)})"
             for shot, info in renders
         )
+    sep = icons.row()
+    sep.scale_x = 0.5
+    sep.label(text="", icon="BLANK1")
 
 
 def _video_button(layout, info: dict, label: str) -> None:

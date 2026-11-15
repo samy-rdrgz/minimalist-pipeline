@@ -11,6 +11,11 @@ All notable changes to this addon. Dates are release dates.
   Render dialog and Edit project). Each shot has a render to check per
   department -- a newer animation render no longer replaces the lighting
   one --, and *Checked* ticks the render's department first.
+  Each shot's main render -- what plays and its video in the
+  snapshot -- is its highest stage's department's (the newest without
+  stages); the other departments' last renders are listed under it,
+  *newer* when made after it. Clean old renders keeps each department's
+  last render.
 - Snapshot page, v3 (step 1 of its redesign): dark by default, Blender's
   mood, one colour for one meaning; a one-line header staying in view
   (Done and Validated per section, *Go to a file…* with /, *Review*);

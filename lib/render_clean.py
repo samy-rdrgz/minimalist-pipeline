@@ -130,10 +130,12 @@ def plan_render_clean(
         protected = set(active)
         # Its last renders: kept -- unless one turns out to be a previous
         # file's (below), the fallback by folder name finding it.
+        # Each department's last too (renders by department).
         last = {
-            _key(r["path"])
+            _key(p)
             for r in read_render_state(root, kind, owner, v_prefix)
-            if r.get("path")
+            for p in [r.get("path"), *(o.get("path") for o in r.get("others") or [])]
+            if p
         }
         for info in (tracking.get("to_check") or {}).values():
             if info.get("render"):

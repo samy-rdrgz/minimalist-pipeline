@@ -872,7 +872,9 @@ var one=it.shots.length<2&&!it.renders.some(function(r){return r.shots;});
 return '<div class="renders'+(one?' one':'')+'">'+it.renders.map(function(r,n){var vs=videosOf(it,r),v=vs.length;
 var st=r.status?'<span class="ss'+(r.status.state==='failed'?' fail':'')+'" title="'+esc(r.status.tip)+'">'+esc(r.status.text)+'</span>':'';
 return (one?'':'<span class="sh">'+esc(r.shots||'all shots')+'</span>')+'<span'+(r.behind?' class="bh" title="Rendered from an older version than the last stable">⚠ ':'>')+
-esc(r.folder||r.pending||'not rendered')+(r.behind?'<small>stable is '+esc(it.stable_v)+'</small>':'')+st+'</span>'+
+esc(r.folder||r.pending||'not rendered')+(r.department?' <small>'+esc(r.department)+'</small>':'')+(r.behind?'<small>stable is '+esc(it.stable_v)+'</small>':'')+st+
+// Its other departments' last renders, quieter; "newer" when made after it.
+(r.others||[]).map(function(o){return '<span class="oth'+(o.newer?' newer':'')+'">'+esc(o.department||'no department')+' '+esc(o.folder||'')+(o.newer?' · newer':'')+'</span>';}).join('')+'</span>'+
 (v?'<button type="button" class="pl" data-play="'+n+'" title="'+esc(vs[0].name)+'">▶ Play</button>':'<span></span>');}).join('')+'</div>';}
 function depHtml(it,d,rv){var s=it.states[d],e=peek(it),v=e.deps[d],o=it.ok[d],via=!v&&e.all&&isDone(s);
 var okd=o?(o.old?'<span class="ok old" title="'+esc(o.tip)+'">✓ '+esc(o.role)+' on '+esc(o.seen)+'</span><span class="faint" style="font-size:12px">to review again</span>':
