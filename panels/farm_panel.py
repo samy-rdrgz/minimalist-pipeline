@@ -41,12 +41,12 @@ from ..lib import (
     split_footer,
     time_key,
 )
-from ..lib.ui import DETAIL_KEY_COLUMN, details_header, key_value, key_values
+from ..lib.ui import DETAIL_KEY_COLUMN, details_header, draw_legend, key_value, key_values
 
 FIRST_COLUMN = 0.4
 # What Farm monitoring's window holds besides the Jobs rows (filters, list
 # header, footer, margins), in widget units -- see rows_that_fit().
-_JOBS_RESERVED_UNITS = 7.5
+_JOBS_RESERVED_UNITS = 5.5  # no box round the list any more
 # Same for the Workers view: one row of filters, no footer.
 _WORKERS_RESERVED_UNITS = 5.0
 
@@ -198,6 +198,23 @@ def job_icon(stage: str) -> str:
     if stage.endswith("failed"):
         return "mark:job_failed"
     return "mark:job_running"
+
+
+class M_PIPELINE_MT_farm_legend(bpy.types.Menu):
+    """Farm monitoring's legend: its jobs' marks, as Project monitoring's."""
+
+    bl_idname = "M_PIPELINE_MT_farm_legend"
+    bl_label = "Legend"
+
+    def draw(self, context):
+        draw_legend(self.layout, [("Jobs", (
+            (job_icon("pending"), "Submitted"),
+            (job_icon("queued"), "Queued"),
+            (job_icon("setup_finished"), "Waiting between two steps"),
+            (job_icon("render_start"), "In progress"),
+            (job_icon("render_failed"), "Failed"),
+            (job_icon("finished"), "Finished, to check"),
+        ))])
 
 
 def _pace_source(pace: dict) -> str:
@@ -569,6 +586,11 @@ def draw_farm_jobs(self, context, layout):
 
     footer, pager = split_footer(context, layout.row())
     footer.alignment = "EXPAND"  # the bulk buttons at its right end
+    legend = footer.row()
+    legend.ui_units_x = 5
+    legend.menu("M_PIPELINE_MT_farm_legend", text="Legend", icon="INFO")
+    footer = footer.row()
+    footer.alignment = "EXPAND"
     footer.active = False
     footer.label(
         text=f"{total} job(s){_render_left_label(matches, cache)}"

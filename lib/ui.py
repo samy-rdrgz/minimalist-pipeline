@@ -130,3 +130,18 @@ def draw_creation_fields(layout, op, factor: float) -> None:
     titled_row(layout, "Departments", "COLOR", factor).prop_menu_enum(op, "required_departments")
     titled_row(layout, "Clean file", "FILE_BLANK", factor).prop(op, "create_clean", text="")
     layout.separator(type="LINE", factor=3)
+
+
+def draw_legend(layout, groups: list) -> None:
+    """A legend in a menu (Project / Farm monitoring, the log): each group
+    its greyed title, then its marks with their words. groups: [(title,
+    [(icon, text)])] -- an icon Blender's or a mark."""
+    for i, (title, group) in enumerate(groups):
+        if i:
+            layout.separator()
+        heading = layout.row()
+        heading.active = False
+        heading.label(text=title)
+        for icon, text in group:
+            layout.label(text=text, **icon_kw(icon))
+

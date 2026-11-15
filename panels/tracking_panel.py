@@ -66,7 +66,7 @@ from ..lib import (
 )
 from ..lib.icons import icon_kw
 from ..lib.status import OMIT_STATES, STATE_LABELS, department_state, omitted
-from ..lib.ui import icon_button, link_rows
+from ..lib.ui import draw_legend, icon_button, link_rows
 from .farm_panel import draw_frame_lookup_button, job_icon
 
 # Fudge factor: entries end up nested a few columns/rows deep (see
@@ -146,38 +146,28 @@ def draw_entries(box, filepath, filters=None, width: int | None = None):
             wide = width is not None and width > 80
             if wide:  # a monitoring window: sized, not stretched across it
                 filters_row.alignment = "LEFT"
-            # Hide done first, the one switched most (done RTKs, to check a
-            # render against): not greyed out. Each in a box, one height.
-            done = filters_row.box()
-            done.prop(
-                filters,
-                "entries_hide_done",
-                text="Hide done",
-                icon="HIDE_ON" if filters.entries_hide_done else "HIDE_OFF",
-                emboss=False,
-            )
-            others = filters_row.row(align=True)
-            others.active = False
-            department = others.box()
-            department.prop(
-                filters,
-                "entries_department_filter",
-                text="",
-                emboss=False,
-                icon="TAG",
-            )
-            version = others.box()
-            version.prop(
-                filters,
-                "entries_min_version",
-                text="Since version",
-                emboss=False,
-                icon="CON_TRANSFORM_CACHE",
+            # The filters in a menu, as the legend's (M_PIPELINE_MT_entry_filters,
+            # reading them through the context): the button says which are on.
+            on = [
+                "done hidden" if filters.entries_hide_done else "",
+                filters.entries_department_filter
+                if filters.entries_department_filter not in ("", "ALL")
+                else "",
+                f"since {filters.entries_min_version}"
+                if filters.entries_min_version
+                else "",
+            ]
+            on = [x for x in on if x]
+            filters_row.context_pointer_set("mp_entry_filters", filters)
+            menu = filters_row.row()
+            menu.active = bool(on)
+            menu.menu(
+                "M_PIPELINE_MT_entry_filters",
+                text=" · ".join(on) if on else "Filters",
+                icon="FILTER",
             )
             if wide:
-                done.ui_units_x = 6
-                department.ui_units_x = 9
-                version.ui_units_x = 8
+                menu.ui_units_x = 10
             box.separator()
 
         review_boxes = filter_review_boxes(
@@ -1254,6 +1244,28 @@ def legend_groups(file_type: str, show_farm: bool = True) -> list:
     )
 
 
+class M_PIPELINE_MT_entry_filters(bpy.types.Menu):
+    """A file's notes' filters (draw_entries()), as the legend's menu."""
+
+    bl_idname = "M_PIPELINE_MT_entry_filters"
+    bl_label = "Notes filters"
+
+    def draw(self, context):
+        filters = getattr(context, "mp_entry_filters", None)
+        if filters is None:
+            return
+        layout = self.layout
+        for title, prop, text, icon in (
+            ("Show", "entries_hide_done", "Hide done", "HIDE_ON"),
+            ("Department", "entries_department_filter", "", "TAG"),
+            ("Version", "entries_min_version", "Since version", "CON_TRANSFORM_CACHE"),
+        ):
+            heading = layout.row()
+            heading.active = False
+            heading.label(text=title)
+            layout.prop(filters, prop, text=text, icon=icon)
+
+
 def _legend_width(groups: list) -> float:
     """The width (px at scale 1) the footer needs for the legend inline: its
     words and marks, plus the file count and the pager beside it."""
@@ -1269,16 +1281,7 @@ class M_PIPELINE_MT_monitor_legend(bpy.types.Menu):
     def draw(self, context):
         state = context.window_manager.pipeline_monitoring
         hidden = set(filter(None, state.hidden_columns.split(",")))
-        for i, (title, group) in enumerate(
-            legend_groups(state.file_type, "farm" not in hidden)
-        ):
-            if i:
-                self.layout.separator()
-            heading = self.layout.row()
-            heading.active = False
-            heading.label(text=title)
-            for icon, text in group:
-                self.layout.label(text=text, **icon_kw(icon))
+        draw_legend(self.layout, legend_groups(state.file_type, "farm" not in hidden))
 
 
 def _draw_monitor_row(

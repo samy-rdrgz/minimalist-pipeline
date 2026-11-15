@@ -12,6 +12,10 @@ All notable changes to this addon. Dates are release dates.
   box, done mark or dot violet instead of a mark beside it. Farm
   monitoring and the Pipeline log without a box round their lists, as
   Project monitoring.
+- Farm monitoring and the Pipeline log have a *Legend* menu (the jobs'
+  marks, the log's levels); a file's notes' filters are in a menu, its
+  button saying which are on. The violet tick boxes are Blender's own,
+  tinted; the reworked mark's arrowhead follows its stroke.
 - Renders by department: a render's department comes from its preset's
   name (`animation_hd` → animation; shown beside each preset in the
   Render dialog and Edit project). Each shot has a render to check per

@@ -103,9 +103,26 @@ def check(width=5):
 
 # The reworked diamond: open on its top-left edge (135 degrees), the
 # stroke's end an arrowhead -- clockwise, as the page's.
-_GAP = (122, 150)
-_TIP = (C - 15.5, C - 3)  # where the stroke ends, left of the gap
-_ARROW = triangle([(_TIP[0] - 7, _TIP[1] + 4), (_TIP[0] + 6, _TIP[1] + 4), (_TIP[0] - 1, _TIP[1] - 8)])
+_GAP = (118, 150)
+
+
+def _edge_point(angle):
+    """Where the outline's middle (2 px in) crosses angle (degrees, y up)
+    on the top-left edge."""
+    dx, dy = math.cos(math.radians(angle)), -math.sin(math.radians(angle))
+    t = -(H - W / 2) * math.sqrt(2) / (dx + dy)
+    return C + dx * t, C + dy * t
+
+
+# The arrowhead: from the stroke's end (the gap's lower side), pointing
+# along the edge, up and right -- clockwise -- into the gap.
+_END = _edge_point(_GAP[1])
+_D, _N = (1 / math.sqrt(2), -1 / math.sqrt(2)), (1 / math.sqrt(2), 1 / math.sqrt(2))
+_ARROW = triangle([
+    (_END[0] - _D[0] + _N[0] * 5.5, _END[1] - _D[1] + _N[1] * 5.5),
+    (_END[0] - _D[0] - _N[0] * 5.5, _END[1] - _D[1] - _N[1] * 5.5),
+    (_END[0] + _D[0] * 7.5, _END[1] + _D[1] * 7.5),
+])
 
 # name -> its layers, drawn in order: (colour, shape).
 MARKS = {
@@ -148,10 +165,9 @@ _POSTIT = rect(13, 47, 51, 61, 3.5)
 for _state in ("todo", "wip", "rework", "done", "valid", "done_top", "waiting", "to_redo"):
     MARKS[f"{_state}_rtk"] = [(col, _moved(shape)) for col, shape in MARKS[_state]] + [(RTK, _POSTIT)]
 
-# A note's tick box, done mark and dot when written under a validation
-# role: violet, as the page's review colour (the team's: Blender's own).
-MARKS["box_role"] = [(VAL, lambda x, y: rect(14, 14, 50, 50, 7)(x, y) and not rect(19, 19, 45, 45, 3.5)(x, y))]
-MARKS["check_role"] = [(VAL, lambda x, y: (lambda a, b: a(x, y) or b(x, y))(segment(18, 33, 28, 43, 6), segment(28, 43, 47, 22, 6)))]
+# A note's dot when written under a validation role: violet, as the
+# page's review colour (its tick boxes: Blender's own, tinted --
+# tools/tint_icons.py).
 MARKS["dot_role"] = [(VAL, lambda x, y: math.hypot(x - C, y - C) <= 9)]
 
 

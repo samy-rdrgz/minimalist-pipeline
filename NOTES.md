@@ -4681,7 +4681,12 @@ started and Done reworked shared one icon.
   with scale_x, cut the cell's words and showed through the hollow
   ones), a retake on no department (rtk), a note under a validation role
   (box_role, check_role, dot_role: its tick box, done mark and dot
-  violet -- in place of a role / team mark beside Blender's box), the farm's jobs (job_*, cyan: pending, queued, waiting, running; failed red; check green). Run it again after changing one; the PNGs are
+  violet -- in place of a role / team mark beside Blender's box). The
+  box and the tick are Blender's own (CHECKBOX_DEHLT, CHECKMARK), tinted
+  by `tools/tint_icons.py` -- drawn ones never had their size: Firefox
+  headless draws the SVGs white on black, their light is the coverage.
+  rework's arrowhead sits at the stroke's end, along the edge, into the
+  gap (`_edge_point()`); the farm's jobs (job_*, cyan: pending, queued, waiting, running; failed red; check green). Run it again after changing one; the PNGs are
   committed.
 - `lib/icons.py` loads them once in a preview collection (register /
   unregister); a mark is named `"mark:<name>"` wherever an icon name goes,
@@ -4692,6 +4697,12 @@ started and Done reworked shared one icon.
   enabled so its colours show, the words beside it greyed.
 - The Farm column keeps the keyframe types' diamonds: Farm monitoring's
   own, the same meaning in both windows.
+- A legend in a menu (`lib/ui.py draw_legend()`): Project monitoring's
+  when its footer has no room, Farm monitoring's jobs, the log's levels;
+  a file's notes' filters in a menu too (`M_PIPELINE_MT_entry_filters`,
+  the filters object through `context_pointer_set("mp_entry_filters")`:
+  the sidebar's and the monitoring window's are not the same object), the
+  button saying which are on.
 - The legend (`legend_groups()`): inline when `_legend_width()` fits the
   footer, else a `Legend` menu -- with the states' marks it rarely fits.
 

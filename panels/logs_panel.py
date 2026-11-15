@@ -47,7 +47,7 @@ _TIME, _USER, _ACTION = 0.16, 0.09, 0.13
 # What the window holds besides its lines (filters, column titles, footer,
 # margins), and one line's height, in widget units -- see rows_that_fit().
 _LOG_RESERVED_UNITS = 7.4
-_LINE_UNITS = 1.0
+_LINE_UNITS = 1.15  # a line is 20 px, the unit 17 (rows_that_fit())
 
 
 def _log_time(ts) -> str:
@@ -191,7 +191,23 @@ def draw_pipeline_logs(state, context, layout) -> None:
     if _log_cache["truncated"]:
         shown += " -- latest entries only"
     left.label(text=shown)
+    legend = left.row()
+    legend.active = True
+    legend.ui_units_x = 5
+    legend.menu("M_PIPELINE_MT_log_legend", text="Legend", icon="INFO")
     draw_pager(right, page, pages)
+
+
+class M_PIPELINE_MT_log_legend(bpy.types.Menu):
+    """The Pipeline log's legend: its lines' levels."""
+
+    bl_idname = "M_PIPELINE_MT_log_legend"
+    bl_label = "Legend"
+
+    def draw(self, context):
+        draw_legend(self.layout, [("Levels", tuple(
+            (icon, level.capitalize()) for level, icon in LEVEL_ICONS.items()
+        ))])
 
 
 def _full_line(entry: dict) -> str:
