@@ -4738,3 +4738,14 @@ review, the phone and the iPad. What holds across them:
   (`--r-btn` 5 px), no capsule; the kinds as workspace tabs; a pressed
   filter, a picked role in Blender's selection blue (`--sel`); fields
   darker than buttons (`--field`).
+- **Blender's widgets, tried**: an outline (`--outline`) and a flat shade
+  1 px under (`--emboss`) on the buttons, filters, tabs, ✓ / ✕ -- to be
+  judged on the page. ✓ / ✕, Reply, Fixed: plain buttons, their mark in
+  its colour, filled once on (the outlined round ones read as another
+  look). The kinds' tabs sit on a dark ground (`--field`), the picked one
+  light, as tall as the filters.
+- **A softer violet** (the user's): `--val-f` #8C548C, `--valid-bg`
+  #66416233; the marks of Project monitoring follow (make_icons VAL,
+  SUP).
+- The stuck header and filters carry the page's glow, fixed: a plain
+  ground showed its edges over the glow.

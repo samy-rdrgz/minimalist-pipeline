@@ -9,9 +9,9 @@ the main action neutral. See NOTES.md, "Snapshot page v3". */
 --accent:#18181B;--accent-bg:rgba(0,0,0,.04);
 --done:#00876A;--wip:#B55500;--wip-ink:#B55500;--wip-bg:rgba(181,85,0,.1);
 --rtk:#AB3C48;--rtk-f:#AB3C48;--rtk-t:#991616;--rtk-bg:rgba(171,60,72,.1);--team:#AB3C48;--team-bg:rgba(171,60,72,.1);
---valid:#8000C0;--val-f:#9900E6;--sup:#E6C7FF;--valid-bg:rgba(153,0,230,.08);--on-fill:#FFFFFF;
+--valid:#7A3F7A;--val-f:#8C548C;--sup:#E3CCE3;--valid-bg:rgba(140,84,140,.12);--on-fill:#FFFFFF;
 --play:#4772B3;--range:#4772B3;--mine:#18181B;--inv:#FFFFFF;--mine-tint:rgba(0,0,0,.05);--glow:#E2E7F0;
---bar-bg:#FFFFFF;--bar-ink:#18181B;--bar-field:#ECECEE;--field:#FFFFFF;
+--bar-bg:#FFFFFF;--bar-ink:#18181B;--bar-field:#ECECEE;--field:#FFFFFF;--outline:#C9C9CC;--emboss:rgba(0,0,0,.08);
 --sh-card:0 1px 2px rgba(0,0,0,.08);--sh-pop:0 24px 70px rgba(0,0,0,.18);
 --r-sm:3px;--r-btn:5px;--r-md:6px;--r-lg:8px;
 --sel:#4772B3;
@@ -28,9 +28,9 @@ color-scheme:light dark}
 --accent:#E8E8EA;--accent-bg:rgba(255,255,255,.06);
 --done:#00D4A3;--wip:#E19658;--wip-ink:#E19658;--wip-bg:rgba(225,150,88,.16);
 --rtk:#F08A94;--rtk-f:#C94452;--rtk-t:#991616;--rtk-bg:rgba(201,68,82,.18);--team:#F08A94;--team-bg:rgba(201,68,82,.18);
---valid:#C99BFA;--val-f:#A21FF0;--sup:#D7B4FB;--valid-bg:rgba(162,31,240,.16);--on-fill:#10201B;
+--valid:#D2A6D2;--val-f:#8C548C;--sup:#C9A1C9;--valid-bg:#66416233;--on-fill:#10201B;
 --play:#4772B3;--range:#74A2FF;--mine:#E8E8EA;--inv:#18181B;--mine-tint:rgba(255,255,255,.07);--glow:#252A35;
---bar-bg:#1F1F22;--bar-ink:#E8E8EA;--bar-field:#3C3C41;--field:#141416;
+--bar-bg:#1F1F22;--bar-ink:#E8E8EA;--bar-field:#3C3C41;--field:#141416;--outline:#18181A;--emboss:rgba(0,0,0,.35);
 --sh-card:0 1px 2px rgba(0,0,0,.3);--sh-pop:0 24px 70px rgba(0,0,0,.45)}}
 :root[data-theme=dark]{
 --bg:#1B1B1D;--surface:#28282B;--sunk:#2C2C30;--head:#1F1F22;--btn:#3C3C41;--line:#36363B;--line2:#5B5B62;
@@ -38,9 +38,9 @@ color-scheme:light dark}
 --accent:#E8E8EA;--accent-bg:rgba(255,255,255,.06);
 --done:#00D4A3;--wip:#E19658;--wip-ink:#E19658;--wip-bg:rgba(225,150,88,.16);
 --rtk:#F08A94;--rtk-f:#C94452;--rtk-t:#991616;--rtk-bg:rgba(201,68,82,.18);--team:#F08A94;--team-bg:rgba(201,68,82,.18);
---valid:#C99BFA;--val-f:#A21FF0;--sup:#D7B4FB;--valid-bg:rgba(162,31,240,.16);--on-fill:#10201B;
+--valid:#D2A6D2;--val-f:#8C548C;--sup:#C9A1C9;--valid-bg:#66416233;--on-fill:#10201B;
 --play:#4772B3;--range:#74A2FF;--mine:#E8E8EA;--inv:#18181B;--mine-tint:rgba(255,255,255,.07);--glow:#252A35;
---bar-bg:#1F1F22;--bar-ink:#E8E8EA;--bar-field:#3C3C41;--field:#141416;
+--bar-bg:#1F1F22;--bar-ink:#E8E8EA;--bar-field:#3C3C41;--field:#141416;--outline:#18181A;--emboss:rgba(0,0,0,.35);
 --sh-card:0 1px 2px rgba(0,0,0,.3);--sh-pop:0 24px 70px rgba(0,0,0,.45)}
 :root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
 /* A finger, not a mouse: every control 44 px. */
@@ -87,7 +87,7 @@ noscript p{margin:40px auto;max-width:520px;text-align:center}
 .hdr{position:sticky;top:var(--sat);z-index:22;margin:0 -20px;padding:10px 20px}
 /* A ground under the header and the filters once the list scrolls under
 them; none at the top, on the glow. */
-.hdr.stuck,.hdr.stuck~.sec .bar{background:color-mix(in srgb,var(--bg) 94%,transparent);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.hdr.stuck,.hdr.stuck~.sec .bar{background:radial-gradient(1200px 500px at 15% -20%,var(--glow) 0%,transparent 70%) fixed no-repeat,var(--bg)}
 .top{display:flex;align-items:center;gap:10px 16px;flex-wrap:wrap}
 .title{display:flex;align-items:baseline;gap:8px;min-width:0}
 h1{font:700 18px/1.2 var(--ui);margin:0;letter-spacing:-.01em;overflow-wrap:break-word}
@@ -181,7 +181,7 @@ h2{font:700 19px/1.25 var(--ui);margin:0}
 .hdr.stuck~.sec .bar{border-bottom-color:var(--line)}
 .bar-in{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
 .bscroll{display:contents}
-.seg{display:inline-flex;gap:2px;flex:none}
+.seg{display:inline-flex;gap:2px;flex:none;padding:2px;border-radius:calc(var(--r-btn) + 2px);background:var(--field)}
 .seg button{min-height:calc(var(--tap) - 6px);padding:0 12px;border:0;border-radius:var(--r-btn);background:none;font-weight:600;font-size:13px;color:var(--ink-2)}
 .seg button span{font-weight:400;color:var(--ink-3);margin-left:4px}
 .seg button[aria-pressed="true"]{background:var(--btn);color:var(--ink)}
@@ -280,7 +280,7 @@ stroke's end -- a mask, so its colour follows the theme. */
 -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-11 -11 22 22'%3E%3Cg transform='rotate(45)'%3E%3Crect x='-6.25' y='-6.25' width='12.5' height='12.5' rx='2.25' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-dasharray='35.9 5.4 4.84'/%3E%3Cpath d='M-6.25 0.3L-8.55 3L-3.95 3Z' fill='black' stroke='black' stroke-width='.5' stroke-linejoin='round'/%3E%3C/g%3E%3C/svg%3E") center/22px 22px no-repeat;
 mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-11 -11 22 22'%3E%3Cg transform='rotate(45)'%3E%3Crect x='-6.25' y='-6.25' width='12.5' height='12.5' rx='2.25' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-dasharray='35.9 5.4 4.84'/%3E%3Cpath d='M-6.25 0.3L-8.55 3L-3.95 3Z' fill='black' stroke='black' stroke-width='.5' stroke-linejoin='round'/%3E%3C/g%3E%3C/svg%3E") center/22px 22px no-repeat}
 .s-done::before{background:var(--done)}
-.s-sup{color:#3B1680}.s-sup::before{background:var(--sup)}
+.s-sup{color:#3D2340}.s-sup::before{background:var(--sup)}
 .s-prod{color:#fff}.s-prod::before{background:var(--val-f)}
 /* Waiting on an earlier stage, to redo: Project monitoring's clock and eye
 in the diamond, the colour of the state under them (--sc, page.js). */
@@ -343,6 +343,7 @@ the review's violet, its edge kept when selected too. */
 /* Every file of the group reviewed: its header too. */
 .group.rv-all>.g-h{background:var(--valid-bg);box-shadow:inset 3px 0 0 var(--val-f);border-radius:var(--r-lg) var(--r-lg) 0 0}
 .group.rv-all.closed>.g-h{border-radius:var(--r-lg)}
+.group.rv-all .thead{background:linear-gradient(var(--valid-bg),var(--valid-bg)),var(--surface);box-shadow:inset 3px 0 0 var(--val-f)}
 .rv-mine-k{display:inline-block;width:22px;height:14px;margin-right:8px;vertical-align:-2px;border-radius:3px;background:var(--valid-bg);box-shadow:inset 3px 0 0 var(--val-f)}
 .row.rv-mine.sel{background:var(--valid-bg);box-shadow:inset 3px 0 0 var(--ink)}
 .group>.rows>.row:last-child,.group>.rows>.untracked:last-child{border-radius:0 0 var(--r-lg) var(--r-lg)}
@@ -898,3 +899,19 @@ body:not(.reviewing) .rv-only{display:none}
 .dlg .acts .btn.link{margin-right:auto}
 .dlg .acts label.btn{display:inline-flex;margin-bottom:0;font-size:13px;color:var(--ink);cursor:pointer}
 @media (max-width:560px){.st-go{grid-template-columns:1fr}}
+
+/* ---------- Blender's widgets: an outline, a flat shade under them ---------- */
+.btn,.chipf,.depf,.vb,.rvb button,.th-a button,.segb,.st-go button,.wl-b,.g-play{border:1px solid var(--outline)!important;box-shadow:0 1px 0 var(--emboss)}
+.segb button{border-left-color:var(--outline)}
+.seg button{min-height:calc(var(--tap) - 4px);color:var(--ink-2)}
+.seg button[aria-pressed="true"]{background:var(--btn);color:var(--ink);box-shadow:0 1px 0 var(--emboss)}
+/* ✓ / ✕, Reply, Fixed: Blender's buttons, their mark in its colour,
+filled once on. */
+.rvb button{width:32px;height:32px;background:var(--btn);border-radius:var(--r-btn);font-size:14px}
+.rvb .ok-b{color:var(--valid)}.rvb .ko-b{color:var(--rtk)}
+.rvb button:not(:disabled):hover,.rvb .ko-b:not(:disabled):hover{box-shadow:0 1px 0 var(--emboss);filter:brightness(1.15)}
+.rvb .ok-b[aria-pressed="true"]{background:var(--val-f);color:#fff}
+.rvb .ko-b[aria-pressed="true"]{background:var(--rtk-f);color:#fff}
+.th-a button{background:var(--btn);color:var(--ink)}
+.th-a .fx[aria-pressed="true"]{background:var(--sel);color:#fff}
+@media (pointer:coarse){.rvb button{width:44px;height:44px}}
