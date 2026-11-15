@@ -63,6 +63,37 @@ def install_default_ffmpeg_preset() -> None:
         )
 
 
+def install_department_presets(departments, presets_dir: Path | None = None) -> list[str]:
+    """A render preset per department with none (no preset's name gives it,
+    lib/status.py preset_department()): <department>_default.py from the
+    bundled template, its renders that department's. Never overwrites.
+    presets_dir: the project's config/presets (the active one's by
+    default). Returns the files made. See NOTES.md, "Renders by department"."""
+    from .status import preset_department
+
+    presets_dir = Path(presets_dir) if presets_dir else ConfigCache.get_path("presets")
+    try:
+        existing = [p.stem for p in presets_dir.glob("*.py") if p.name != "asset_file_preset.py"]
+    except OSError:
+        existing = []
+    template = (Path(__file__).resolve().parent.parent / "templates" / "render_preset_default.py").read_text(encoding="utf-8")
+    made = []
+    for d in dict.fromkeys(str(d).strip().lower() for d in departments if str(d).strip()):
+        if any(preset_department(name, [d]) == d for name in existing):
+            continue
+        dest = presets_dir / f"{d}_default.py"
+        try:
+            presets_dir.mkdir(parents=True, exist_ok=True)
+            if not dest.exists():
+                dest.write_text(template.replace("{department}", d), encoding="utf-8")
+                made.append(dest.name)
+        except OSError as e:
+            log("WARNING", "preset_install", f"Render preset {dest.name} not made: {e}")
+    if made:
+        log("INFO", "preset_install", f"Render presets made: {', '.join(made)}")
+    return made
+
+
 def load_preset_module():
     """Load the project's preset script fresh from disk every call.
 

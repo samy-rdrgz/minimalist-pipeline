@@ -36,6 +36,8 @@ _CHANGES = (
     ("render: source file", "renders: the .blend they came from"),
     ("render: shot", "renders: their shot"),
     ("render: frame range", "renders: their frame range"),
+    ("render presets: .json to .py", "render presets: .json rewritten as .py"),
+    ("render presets: one per department", "render presets: one for each department with none"),
 )
 
 
@@ -99,14 +101,15 @@ class M_PIPELINE_OT_migrate_data_confirm(bpy.types.Operator):
     def invoke(self, context, event):
         if not _pending:
             return {"CANCELLED"}
-        n = len(_pending["plan"]["files"])
+        plan = _pending["plan"]
+        n = len(plan["files"]) + sum(len(v) for v in (plan.get("presets") or {}).values())
         text = f"Migrate {n} file(s)" if n else "Note it as migrated"
         return context.window_manager.invoke_props_dialog(self, width=460, confirm_text=text)
 
     def draw(self, context):
         plan = _pending["plan"]
         col = self.layout.column(align=True)
-        if not plan["files"]:
+        if not plan["files"] and not any((plan.get("presets") or {}).values()):
             col.label(text=f"{plan['owners']} asset(s) and shot(s) read: nothing to change.", icon="CHECKMARK")
             return
         col.label(

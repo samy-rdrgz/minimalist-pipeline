@@ -4942,6 +4942,15 @@ Phase 5 of docs/plan-1.2.md.
   department (`to_check_entries()` fills both from the key): no
   migration. A newer render of the same shot and department replaces the
   older; another department's stays.
+- **Render presets: Python only.** The .json (a flat map of scene
+  paths) is read no more -- the user used the .py alone, more supple; the
+  migration rewrites each as the .py doing the same (`_preset_py()`,
+  backed up first). A department with no preset at all (no name giving
+  it) gets `<department>_default.py` from `templates/` -- with the
+  project, on Edit project's save, and by the migration
+  (`install_department_presets()`): never one it has already, so a
+  department with `animation_hd.py` gets nothing, and a default deleted
+  comes back only if the department is left with none.
 - The snapshot matches its to check against the render lines by "shot
   folder" (`snapshot_page.py _render_lines()`): it labels them without
   their department.

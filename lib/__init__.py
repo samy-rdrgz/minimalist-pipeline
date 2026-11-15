@@ -180,6 +180,7 @@ from .presets import (
     derive_shot_subranges,
     install_default_ffmpeg_preset,
     install_default_preset,
+    install_department_presets,
 )
 from .preview import (
     latest_render_dir,

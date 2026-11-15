@@ -15,7 +15,7 @@ Submission (the "Render" panel, or a per-file button): priority (higher goes fir
 
 <img src="images/farm-render-dialog.png" alt="The Render dialog" width="360">
 
-**Pre-render presets**: any `.py` or `.json` file dropped in `config/presets/` (except `asset_file_preset.py`) shows up in the submission's preset list, with **the department its renders are for**, taken from its name: the longest department name it starts with, followed by `_`, `-` or nothing, any case (`animation_hd` → animation, `look_dev_hd` → look_dev, `hd` → none). Nothing to fill in: name the presets after their department. A render with a department has its own *to check*, next to the other departments'; and is applied by each worker right before rendering -- on top of the file's own settings, never saved back into it. A `.py` defines `override(scene, job_data)` (`job_data` is the job's JSON, read-only use); a `.json` is a flat map of dot-notation paths from the scene:
+**Pre-render presets**: any `.py` file dropped in `config/presets/` (except `asset_file_preset.py`) shows up in the submission's preset list, with **the department its renders are for**, taken from its name: the longest department name it starts with, followed by `_`, `-` or nothing, any case (`animation_hd` → animation, `look_dev_hd` → look_dev, `hd` → none). Nothing to fill in: name the presets after their department. A render with a department has its own *to check*, next to the other departments'; and is applied by each worker right before rendering -- on top of the file's own settings, never saved back into it. It defines `override(scene, job_data)` (`job_data` is the job's JSON, read-only use). A department with no preset gets one of its own, `<department>_default.py` (made with the project, and when Edit project adds a department), to copy under other names (`animation_hd.py`, `animation_ld.py`):
 
 ```python
 def override(scene, job_data):
@@ -24,11 +24,7 @@ def override(scene, job_data):
     scene.render.resolution_percentage = 50
 ```
 
-```json
-{"render.engine": "CYCLES", "cycles.samples": 64, "render.resolution_x": 1280, "render.resolution_y": 720}
-```
-
-A preset that can't be applied **fails that machine's render** instead of rendering with the file's own settings (burn-in, full resolution...): a `.py` that raises, a preset name that no longer exists, an unreadable `.json` -- logged as a farm error, the job carries on with its other machines or fails. Only an invalid `.json` key is just skipped (the others still apply). Each worker reads the job without taking its lock: all of a job's machines start at once, and the lock they fought over used to make some of them render without the preset.
+A preset that can't be applied **fails that machine's render** instead of rendering with the file's own settings (burn-in, full resolution...): a `.py` that raises, a preset name that no longer exists -- logged as a farm error, the job carries on with its other machines or fails. (`.json` presets, a flat map of scene paths, are read no more: *Migrate old data* rewrites each as the `.py` doing the same.) Each worker reads the job without taking its lock: all of a job's machines start at once, and the lock they fought over used to make some of them render without the preset.
 
 The preset is also applied once at setup, in that throwaway session (never saved either), to read what the render will actually produce: the output format (what the frame check and compilation look for) and the fps (what the compilation encodes at) come from the file *plus* its preset. Mind version-specific identifiers when workers run different Blender versions: EEVEE is `BLENDER_EEVEE_NEXT` on 4.2–4.5 but `BLENDER_EEVEE` from 5.0 -- a `.py` preset can pick whichever exists.
 

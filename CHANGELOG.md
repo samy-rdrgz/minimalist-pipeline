@@ -6,6 +6,9 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- A render preset per department, `<department>_default.py`, made with
+  the project and when a department is added (Edit project), for one
+  with no preset.
 - The team (Edit project → *Team*): your user name picked from it
   (Preferences, the welcome window); a file's departments assigned to
   its people (File details, the team's button by a department); *Me*
@@ -161,6 +164,9 @@ All notable changes to this addon. Dates are release dates.
   reads as before. The page's ⋯ menu no longer offers the spreadsheet.
 - CHANGELOG.md is no longer inside the addon's package (it stays in the
   repository and on the release page).
+- Render presets in `.json` (a flat map of scene paths): Python presets
+  only. *Migrate old data* rewrites each `.json` as the `.py` doing the
+  same, and gives a department with no preset its default one.
 
 ### Fixed
 

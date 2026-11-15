@@ -113,8 +113,8 @@ def _get_workers_items(self, context):
 def pre_render_script_items(
     presets_dir: Path | None, departments=()
 ) -> list[tuple[str, str, str]]:
-    """The pre-render picker's items: "no script", then every .py/.json
-    preset directly under presets_dir (matches apply_custom_preset()'s
+    """The pre-render picker's items: "no script", then every .py preset
+    directly under presets_dir (matches apply_custom_preset()'s
     lookup), excluding asset_file_preset.py and the ffmpeg_presets/
     subfolder -- each with the department its name gives among
     departments (preset_department()): its renders are that department's."""
@@ -129,7 +129,7 @@ def pre_render_script_items(
             suffix = Path(f.name).suffix
             if (
                 f.is_file()
-                and suffix in (".py", ".json")
+                and suffix == ".py"
                 and f.name != "asset_file_preset.py"
                 and Path(f.name).stem != _NO_SCRIPT
             ):

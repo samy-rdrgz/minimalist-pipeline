@@ -10,6 +10,7 @@ import bpy
 
 from ..lib.status import departments_text, parse_departments
 from ..lib import (
+    install_department_presets,
     project_team,
     DEFAULT_ASSET_DEPARTMENTS,
     DEFAULT_SHOT_DEPARTMENTS,
@@ -207,6 +208,8 @@ class M_PIPELINE_OT_create_project(bpy.types.Operator):
 
         install_default_preset()
         install_default_ffmpeg_preset()
+        # A render preset per department (<department>_default.py).
+        install_department_presets([*config.get("shots_departments", []), *config.get("assets_departments", [])])
 
         # Deferred one timer tick -- see NOTES.md, "Popup-chaining".
         project_root_str = str(project_root)
@@ -963,6 +966,13 @@ class ProjectSettings:
             return [("ERROR", f"Failed to save config: {e}")]
 
         out = []
+        # A department with no render preset yet gets its default one.
+        made = install_department_presets(
+            [*config["shots_departments"], *config["assets_departments"]],
+            Path(self.project_path_selected) / "config" / "presets",
+        )
+        if made:
+            out.append(("INFO", f"Render presets made: {', '.join(made)}"))
         try:
             save_project_data(addon_pref(context))
         except PipelineError as e:

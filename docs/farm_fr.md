@@ -15,7 +15,7 @@ Soumission (panel "Render", ou bouton par fichier) : priorité (la plus haute pa
 
 <img src="images/farm-render-dialog.png" alt="Le dialogue Render" width="360">
 
-**Presets pré-rendu** : tout fichier `.py` ou `.json` déposé dans `config/presets/` (sauf `asset_file_preset.py`) apparaît dans la liste des presets à la soumission, avec **le département de ses rendus**, tiré de son nom : le plus long nom de département par lequel il commence, suivi de `_`, `-` ou de rien, sans tenir compte des majuscules (`animation_hd` → animation, `look_dev_hd` → look_dev, `hd` → aucun). Rien à remplir : nommer les presets d'après leur département. Un rendu avec un département a son propre *to check*, à côté de ceux des autres départements ; chaque worker l'applique juste avant de rendre -- par-dessus les réglages du fichier, sans jamais les sauvegarder dedans. Un `.py` définit `override(scene, job_data)` (`job_data` est le JSON du job, à lire seulement) ; un `.json` est une simple liste de chemins à points depuis la scène :
+**Presets pré-rendu** : tout fichier `.py` déposé dans `config/presets/` (sauf `asset_file_preset.py`) apparaît dans la liste des presets à la soumission, avec **le département de ses rendus**, tiré de son nom : le plus long nom de département par lequel il commence, suivi de `_`, `-` ou de rien, sans tenir compte des majuscules (`animation_hd` → animation, `look_dev_hd` → look_dev, `hd` → aucun). Rien à remplir : nommer les presets d'après leur département. Un rendu avec un département a son propre *to check*, à côté de ceux des autres départements ; chaque worker l'applique juste avant de rendre -- par-dessus les réglages du fichier, sans jamais les sauvegarder dedans. Il définit `override(scene, job_data)` (`job_data` est le JSON du job, à lire seulement). Un département sans preset en reçoit un, `<département>_default.py` (créé avec le projet, et quand Edit project ajoute un département), à copier sous d'autres noms (`animation_hd.py`, `animation_ld.py`) :
 
 ```python
 def override(scene, job_data):
@@ -24,11 +24,7 @@ def override(scene, job_data):
     scene.render.resolution_percentage = 50
 ```
 
-```json
-{"render.engine": "CYCLES", "cycles.samples": 64, "render.resolution_x": 1280, "render.resolution_y": 720}
-```
-
-Un preset qui ne peut pas être appliqué **fait échouer le rendu de cette machine** au lieu de rendre avec les réglages du fichier (burn-in, pleine résolution...) : un `.py` qui plante, un preset qui n'existe plus, un `.json` illisible -- loggé comme erreur farm, le job continue avec ses autres machines ou échoue. Seule une clé `.json` invalide est simplement ignorée (les autres s'appliquent quand même). Chaque worker lit le job sans prendre son verrou : toutes les machines d'un job démarrent en même temps, et le verrou qu'elles se disputaient faisait rendre certaines sans le preset.
+Un preset qui ne peut pas être appliqué **fait échouer le rendu de cette machine** au lieu de rendre avec les réglages du fichier (burn-in, pleine résolution...) : un `.py` qui plante, un preset qui n'existe plus -- loggé comme erreur farm, le job continue avec ses autres machines ou échoue. (Les presets `.json`, une liste de chemins de la scène, ne sont plus lus : *Migrate old data* réécrit chacun en `.py` qui fait la même chose.) Chaque worker lit le job sans prendre son verrou : toutes les machines d'un job démarrent en même temps, et le verrou qu'elles se disputaient faisait rendre certaines sans le preset.
 
 Le preset est aussi appliqué une fois au setup, dans cette session jetable (jamais sauvegardée non plus), pour lire ce que le rendu va vraiment produire : le format de sortie (ce que cherchent la vérification des frames et la compilation) et le fps (celui de l'encodage de la compilation) viennent du fichier *plus* son preset. Attention aux identifiants qui changent selon la version si les workers ne tournent pas tous sur la même : EEVEE s'appelle `BLENDER_EEVEE_NEXT` en 4.2–4.5 mais `BLENDER_EEVEE` à partir de 5.0 -- un preset `.py` peut choisir celui qui existe.
 

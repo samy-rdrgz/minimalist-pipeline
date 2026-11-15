@@ -1242,24 +1242,6 @@ def scan_cancel_requests() -> None:
             r.unlink(missing_ok=True)
 
 
-def _apply_flat_overrides(scene, overrides: dict) -> None:
-    """For .json presets -- dot-notation keys applied directly onto the scene.
-    E.g. {"render.use_stamp": true, "render.image_settings.quality": 95}"""
-    for dotted_key, value in overrides.items():
-        *path, attr = dotted_key.split(".")
-        try:
-            target = scene
-            for part in path:
-                target = getattr(target, part)
-            setattr(target, attr, value)
-        except Exception:
-            log(
-                "WARNING",
-                "farm",
-                f"Invalid render preset key '{dotted_key}' = {value!r}.",
-            )
-
-
 def _read_job_quiet(job_id: str, attempts: int = 10, delay: float = 0.2) -> dict:
     """The active job's file, read without a lock (writes are atomic, see
     read_json_quiet()). A few retries: on Windows a read can be refused
@@ -1282,17 +1264,15 @@ def apply_custom_preset(
     *,
     strict: bool = False,
 ) -> None:
-    """Apply a job's render preset onto scene: a .py (override(scene,
-    job_data)), else a .json of overrides. job_data: the job, else read from
+    """Apply a job's render preset onto scene: its .py's override(scene,
+    job_data). job_data: the job, else read from
     its file without a lock. strict=False (the setup): errors logged; True
     (the render): raises, so the render fails rather than run without it.
     See NOTES.md, "Render preset: read without a lock, fail the render"."""
     if not preset_name:
         return
 
-    base = ConfigCache.get_path("presets") / preset_name
-    py_path = base.with_suffix(".py")
-    json_path = base.with_suffix(".json")
+    py_path = (ConfigCache.get_path("presets") / preset_name).with_suffix(".py")
 
     try:
         if py_path.exists():
@@ -1302,11 +1282,6 @@ def apply_custom_preset(
             module.override(
                 scene, job_data if job_data is not None else _read_job_quiet(job_id)
             )
-        elif json_path.exists():
-            overrides = read_json_quiet(json_path)
-            if overrides is None:
-                raise PipelineError(f"{json_path.name} is unreadable.")
-            _apply_flat_overrides(scene, overrides)
         else:
             raise PipelineError("not found")
     except Exception as e:

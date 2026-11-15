@@ -19,7 +19,11 @@ writes (main thread: locked_json()). What each step completes:
   "shot_override" (1.0.11, from its folder) and "frame_range_rendered"
   (from its images' numbers).
 - all four: every date and time with its offset (1.2), the local time of
-  the machine migrating."""
+  the machine migrating.
+- config/presets: a .json render preset (a flat map of scene paths, read
+  no more) rewritten as the .py doing the same; a department with no
+  render preset given its <department>_default.py (1.2: renders by
+  department, see NOTES.md, "Renders by department")."""
 
 import os
 import re
@@ -74,7 +78,12 @@ def plan_migration(root: Path, v_prefix: str = "v") -> dict:
     for f in files:
         for change in f["changes"]:
             counts[change] = counts.get(change, 0) + 1
-    return {"files": files, "owners": owners, "counts": counts}
+    presets = _plan_presets(root)
+    if presets["json"]:
+        counts["render presets: .json to .py"] = len(presets["json"])
+    if presets["departments"]:
+        counts["render presets: one per department"] = len(presets["departments"])
+    return {"files": files, "owners": owners, "counts": counts, "presets": presets}
 
 
 def apply_migration(root: Path, plan: dict) -> dict:
@@ -99,7 +108,82 @@ def apply_migration(root: Path, plan: dict) -> dict:
             written += 1
         except Exception as e:
             errors.append((str(path), str(e)))
+    written += _apply_presets(root, plan.get("presets") or {}, backup, errors)
     return {"written": written, "backup": str(backup), "errors": errors}
+
+
+# ---------------------------------------------------------------------------
+# Render presets: Python only, one per department
+# ---------------------------------------------------------------------------
+
+
+def _plan_presets(root: Path) -> dict:
+    """{"json": the .json render presets to rewrite as .py, "departments":
+    the project's departments with no preset at all} -- read only."""
+    from .status import preset_department
+
+    folder = root / "config" / "presets"
+    try:
+        names = [p for p in folder.iterdir() if p.is_file()]
+    except OSError:
+        names = []
+    jsons = [str(p) for p in names if p.suffix == ".json"]
+    stems = [p.stem for p in names if p.suffix in (".py", ".json") and p.name != "asset_file_preset.py"]
+    config = read_json_quiet(root / "config" / "project_config.json") or {}
+    departments = dict.fromkeys(
+        str(d).strip().lower()
+        for d in [*(config.get("shots_departments") or []), *(config.get("assets_departments") or [])]
+        if str(d).strip()
+    )
+    missing = [d for d in departments if not any(preset_department(n, [d]) == d for n in stems)]
+    return {"json": jsons, "departments": missing}
+
+
+def _preset_py(overrides: dict, name: str) -> str:
+    """A .json preset's flat map ({"render.engine": "CYCLES"}) as the .py
+    doing the same."""
+    lines = [
+        f'"""Render preset {name}: rewritten from its .json by the 1.2 migration."""',
+        "",
+        "",
+        "def override(scene, job_data):",
+    ]
+    for key, value in overrides.items():
+        *path, attr = str(key).split(".")
+        target = ".".join(["scene", *path])
+        lines.append(f"    {target}.{attr} = {value!r}")
+    if len(lines) == 4:
+        lines.append("    pass")
+    return "\n".join(lines) + "\n"
+
+
+def _apply_presets(root: Path, presets: dict, backup: Path, errors: list) -> int:
+    """_plan_presets()'s changes: each .json backed up, rewritten as .py (a
+    .py of its name already there won before: the .json only removed),
+    then removed; the departments' default presets. Returns files written."""
+    from .presets import install_department_presets
+
+    written = 0
+    for p in presets.get("json") or []:
+        path = Path(p)
+        try:
+            target = backup / path.relative_to(root)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            if not target.exists():
+                shutil.copy2(path, target)
+            py = path.with_suffix(".py")
+            if not py.exists():
+                overrides = read_json_quiet(path)
+                if not isinstance(overrides, dict):
+                    raise ValueError("unreadable")
+                py.write_text(_preset_py(overrides, path.stem), encoding="utf-8")
+                written += 1
+            path.unlink()
+        except Exception as e:
+            errors.append((p, str(e)))
+    if presets.get("departments"):
+        written += len(install_department_presets(presets["departments"], root / "config" / "presets"))
+    return written
 
 
 # ---------------------------------------------------------------------------
