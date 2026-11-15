@@ -106,11 +106,14 @@ def plan_render_clean(
     sequence: str = "",
     v_prefix: str = "v",
     farm_actives: Path | None = None,
+    by_department: bool = True,
 ) -> dict:
     """What a clean would do, per shot or asset render folder: the keep
     newest renders kept, and always its last render, one an open note or "to
     check" names, one the farm writes; a previous file's renders count for
-    none. The rest deleted, or (images_only) only their frames.
+    none -- the keep newest of each department (by_department: their
+    render history's; renders with none a group of their own), else of
+    all. The rest deleted, or (images_only) only their frames.
     {"candidates": [{"group", "owner", "shot_dir", "folder", "path",
     "bytes", "images"}], "kept", "bytes", "groups": {group: [folders,
     bytes]}}. See NOTES.md, "Clean old renders"."""
@@ -148,12 +151,14 @@ def plan_render_clean(
             if e.get("render") and e.get("done") is False
         }
         history = read_json_quiet(owner / ".pipeline" / "render_history.json") or {}
-        finished_at = {}
+        finished_at, department_of = {}, {}
         for e in history.get("entries") or []:
             if isinstance(e, dict) and e.get("output_path") and e.get("status") == "finished":
+                key = _key((root / e["output_path"]).parent)
+                department_of[key] = str(e.get("department") or "").lower()
                 when = iso_timestamp(e.get("completed_at"))
                 if when is not None:
-                    finished_at[_key((root / e["output_path"]).parent)] = when
+                    finished_at[key] = when
         # Made before this file existed: a previous file of the same shot
         # (deleted and made again, a block split...) -- not one of its
         # renders, whatever its number.
@@ -188,7 +193,14 @@ def plan_render_clean(
                 if _key(r[1]) in finished_at or created is None or r[0] >= created
             ]
             previous = [r for r in rows if r not in own]
-            keeping = {_key(r[1]) for r in own[:keep]}
+            # The keep newest of each department (renders with none, or
+            # from before 1.2, a group of their own) -- else of all: three
+            # animation renders made after the lighting one no longer take
+            # its place.
+            groups_of: dict[str, list] = {}
+            for r in own:
+                groups_of.setdefault(department_of.get(_key(r[1]), "") if by_department else "", []).append(r)
+            keeping = {_key(r[1]) for g in groups_of.values() for r in g[:keep]}
             keeping |= {_key(r[1]) for r in own if _key(r[1]) in last}
             if previous and not own and not images_only:
                 # Deleting: a shot's only video left, even a previous file's.

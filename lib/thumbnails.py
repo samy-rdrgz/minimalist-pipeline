@@ -11,7 +11,7 @@ import tempfile
 from pathlib import Path
 
 from .core import blender_command, json_get
-from .preview import latest_render_dir, render_root
+from .preview import main_render_dir, render_root
 
 # Longest side, any aspect ratio (a 9:16 render gives 135x240) -- the
 # project's "thumbnails.size" (Edit project), this when it has none.
@@ -118,7 +118,7 @@ def source_frame(shot_render_dir: Path, v_prefix: str = "v") -> Path | None:
     """Middle frame of the shot's latest render (the first is often a
     hold), skipping empty files -- the placeholders of a render before
     1.1.0, which may still be the latest."""
-    latest = latest_render_dir(shot_render_dir, v_prefix)
+    latest = main_render_dir(shot_render_dir, v_prefix)
     if latest is None:
         return None
     try:

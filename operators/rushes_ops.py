@@ -7,6 +7,7 @@ from pathlib import Path
 import bpy
 
 from ..lib import (
+    main_render_dir,
     ConfigCache,
     get_active_project_root,
     get_user,
@@ -63,11 +64,17 @@ def push_in_background(fn, *args) -> None:
 
 def checked_render_videos(entries: list) -> list[Path]:
     """The videos of renders just marked checked ("to_check" entries:
-    their compiled video, else the first mp4 of their render folder)."""
+    their compiled video, else the first mp4 of their render folder) --
+    each its shot's main render only (main_render_dir()): an animation
+    render checked after the lighting one doesn't replace it in the edit."""
     root = get_active_project_root()
     videos = []
     for info in entries:
         if not isinstance(info, dict):
+            continue
+        folder = root / (info.get("render") or "")
+        if info.get("render") and main_render_dir(folder.parent) not in (None, folder):
+            log("INFO", "rushes", f"{folder.name}: not its shot's main render, not pushed.")
             continue
         video = info.get("video")
         if video and (root / video).is_file():

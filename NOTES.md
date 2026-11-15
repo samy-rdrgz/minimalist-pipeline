@@ -4961,7 +4961,18 @@ Phase 5 of docs/plan-1.2.md.
   `latest=True` takes the newest whatever its department (the switch to
   come). The other departments' last renders ride along in "others",
   `newer` when made after the main one -- shown under it (File details,
-  the page). Clean old renders keeps every department's last.
+  the page). Clean old renders keeps every department's last, and by
+  default the N latest *of each department* (`by_department`; the old way,
+  the N latest of all, *Per version*): three animation renders made
+  after the lighting one took its place.
+- **One main render everywhere**: `lib/preview.py main_render_dir()` (it
+  was latest_render_dir(), by folder name) ranks a shot's render folders
+  by department, from a `.department` file the farm writes in the folder
+  when it finishes a render (`farm/queue.py _mark_department()`) -- no
+  history read: the sequence preview, the assets' videos, the thumbnail
+  (made after the marker), read_render_state()'s fallback. The rushes:
+  a render checked that isn't its shot's main one isn't pushed (the
+  lighting stays in the edit).
 
 ## Team and assignees
 
@@ -4998,4 +5009,3 @@ Phase 6 of docs/plan-1.2.md.
   read by `parse_batch_assignees()` in the creation's own process
   (`templates/batch_create_entry.py`), after the file is made. *My work*,
   planned as a view, is the *Me* filter: no view of its own.
-

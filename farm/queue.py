@@ -8,6 +8,7 @@ import time
 from pathlib import Path
 
 from ..lib import (
+    DEPARTMENT_FILE,
     ConfigCache,
     PipelineError,
     get_active_project_root,
@@ -319,6 +320,7 @@ def scan_queue(project_root: Path) -> None:
                     job, data, project_root
                 ):
                     continue
+                _mark_department(data, project_root)
                 refresh_shot_thumbnail(data, project_root)
                 mark_stage(job, "finished")
                 # A recompile rendered nothing: its render is already in
@@ -644,6 +646,19 @@ def recompile_job(data: dict) -> bool:
     add_stage(data, "checks_images_finished", resumed="recompile")
     log("INFO", "farm", f"Job {data.get('job_id')}: compilation requested again.")
     return True
+
+
+def _mark_department(data: dict, project_root: Path) -> None:
+    """Its department (its preset's) in the render's folder
+    (lib/preview.py DEPARTMENT_FILE): what main_render_dir() ranks by --
+    the sequence preview, the rushes, the thumbnail. Nothing for none."""
+    if not data.get("department") or not data.get("output_path"):
+        return
+    try:
+        folder = to_absolute(Path(data["output_path"]).parent.as_posix(), project_root)
+        (folder / DEPARTMENT_FILE).write_text(data["department"], encoding="utf-8")
+    except OSError as e:
+        log("WARNING", "farm", f"Job {data.get('job_id')}: its department not written in its folder: {e}")
 
 
 # How many ticks compilation_finished retries flagging the render to check

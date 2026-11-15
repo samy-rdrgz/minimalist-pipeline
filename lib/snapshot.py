@@ -22,7 +22,7 @@ from .status import (  # noqa: F401 -- PROGRESS_WEIGHTS, progress_weights: re-ex
     progress_weights,
     project_stages,
 )
-from .preview import LD_DIR, browser_video, ensure_ld, latest_render_dir, render_root
+from .preview import LD_DIR, browser_video, ensure_ld, main_render_dir, render_root
 from .schedule import project_schedule, schedule_progress
 from .thumbnails import (
     owner_shot_render_dirs,
@@ -157,7 +157,7 @@ def read_render_state(
                 if r is not main
             ]
             return main
-        newest = latest_render_dir(folder_dir, v_prefix)
+        newest = main_render_dir(folder_dir, v_prefix)
         return {
             "_when": _mtime(newest),
             "shot": shot,

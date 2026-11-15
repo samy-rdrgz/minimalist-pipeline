@@ -48,7 +48,9 @@ All notable changes to this addon. Dates are release dates.
   snapshot -- is its highest stage's department's (the newest without
   stages); the other departments' last renders are listed under it,
   *newer* when made after it. Clean old renders keeps each department's
-  last render.
+  last render, and its N latest *per department* by default (*Per
+  version*: as before). The sequence preview, the thumbnail and the rushes
+  take the main render too.
 - Snapshot page, v3 (step 1 of its redesign): dark by default, Blender's
   mood, one colour for one meaning; a one-line header staying in view
   (Done and Validated per section, *Go to a file…* with /, *Review*);

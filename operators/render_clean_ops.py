@@ -60,6 +60,14 @@ class M_PIPELINE_OT_clean_renders(bpy.types.Operator):
         ],
         default="IMAGES",
     )
+    per: bpy.props.EnumProperty(
+        name="Kept",
+        items=[
+            ("DEPARTMENT", "Per department", "The latest of each department: an animation render made after the lighting one doesn't take its place"),
+            ("VERSION", "Per version", "The latest whatever their department"),
+        ],
+        default="DEPARTMENT",
+    )
     scope: bpy.props.EnumProperty(
         name="In",
         items=[
@@ -82,6 +90,7 @@ class M_PIPELINE_OT_clean_renders(bpy.types.Operator):
     def draw(self, context):
         col = self.layout.column()
         col.prop(self, "keep")
+        col.prop(self, "per")
         col.prop(self, "mode")
         col.prop(self, "scope")
         if self.scope != "ASSETS":
@@ -89,7 +98,7 @@ class M_PIPELINE_OT_clean_renders(bpy.types.Operator):
         tip = col.column(align=True)
         tip.active = False
         tip.scale_y = 0.8
-        tip.label(text="Their last render, a render a note or 'to check' names,")
+        tip.label(text="Each department's last render, a render a note or 'to check' names,")
         tip.label(text="one the farm is writing: always kept. Nothing done before you confirm.")
 
     def execute(self, context):
@@ -117,6 +126,7 @@ class M_PIPELINE_OT_clean_renders(bpy.types.Operator):
                 sequence,
                 json_get(ConfigCache.get(), "naming.version.prefix", "v"),
                 ConfigCache.get_path("farm_actives"),
+                self.per == "DEPARTMENT",
             ),
             looked,
         )

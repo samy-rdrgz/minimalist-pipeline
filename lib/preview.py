@@ -24,21 +24,53 @@ def render_root(project_root: Path, owner_dir: Path) -> Path:
         return project_root / "renders" / owner_dir.relative_to(project_root)
 
 
-def latest_render_dir(shot_dir: Path, v_prefix: str = "v") -> Path | None:
-    """The shot's most recent render increment folder (v004-stable_002...),
-    read from the folder names (not mtime). None if never rendered.
-    Pure os: thread-safe."""
+# A render's department (its preset's), written in its folder when the farm
+# finishes it: main_render_dir() ranks by it without reading the history.
+DEPARTMENT_FILE = ".department"
+
+
+def render_department(folder: Path) -> str:
+    """The department a render folder was made for (DEPARTMENT_FILE), ""
+    for none -- one from before 1.2, a preset naming none."""
+    try:
+        return (Path(folder) / DEPARTMENT_FILE).read_text(encoding="utf-8").strip().lower()
+    except OSError:
+        return ""
+
+
+def main_render_dir(shot_dir: Path, v_prefix: str = "v", stages: dict | None = None) -> Path | None:
+    """The shot's main render increment folder (v004-stable_002...): of its
+    highest stage's department (stages {department: stage}; the project's
+    for its kind by default), a render with a department before one with
+    none, then the highest version and increment -- read from the folder
+    names, not mtime. None if never rendered. Pure os: thread-safe. See
+    NOTES.md, "Renders by department"."""
     pattern = re.compile(
         rf"^{re.escape(v_prefix)}(?P<num>\d+)(?:-[a-z]+)?_(?P<inc>\d+)$"
     )
+    if stages is None:
+        stages = _stages_for(Path(shot_dir))
     candidates = []
     try:
         for d in Path(shot_dir).iterdir():
             if d.is_dir() and (m := pattern.match(d.name)):
-                candidates.append((int(m["num"]), int(m["inc"]), d))
+                dep = render_department(d)
+                candidates.append((bool(dep), stages.get(dep, 0), int(m["num"]), int(m["inc"]), d))
     except OSError:
         return None
-    return max(candidates)[2] if candidates else None
+    return max(candidates)[4] if candidates else None
+
+
+def _stages_for(render_dir: Path) -> dict:
+    """The project's stages for a render folder's kind (under renders/assets
+    or renders/library: the assets'), {} when it can't tell."""
+    try:
+        from .status import project_stages
+
+        kind = "assets" if {"assets", "library"} & set(render_dir.parts) else "shots"
+        return project_stages(ConfigCache.get(), kind)
+    except Exception:
+        return {}
 
 
 # A render's compiled video: mp4 by default, the ffmpeg preset's
@@ -84,7 +116,7 @@ def _rendered_segments(
         numbers = shots_in_segment(m["seg"])
         if shots is not None and not set(numbers) <= set(shots):
             continue
-        if mp4 := _first_mp4(latest_render_dir(d, v_prefix)):
+        if mp4 := _first_mp4(main_render_dir(d, v_prefix)):
             out.append((numbers, d.name, mp4))
     return out
 
@@ -183,7 +215,7 @@ def latest_asset_videos(project_root: Path, v_prefix: str = "v") -> list[Path]:
         mp4
         for top in ("assets", "library")
         for d in _asset_render_dirs(renders / top, v_prefix)
-        if (mp4 := _first_mp4(latest_render_dir(d, v_prefix)))
+        if (mp4 := _first_mp4(main_render_dir(d, v_prefix)))
     ]
 
 
