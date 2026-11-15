@@ -11,8 +11,8 @@ All notable changes to this addon. Dates are release dates.
   its people (File details, the team's button by a department); *Me*
   among Project monitoring's filters, the files assigned to you.
 - Snapshot page: who each department is assigned to; *Me* among the
-  filters; reviewing, an *Assign* mode -- the team to tick in place of ✓ /
-  ✕, sent with the review and applied at its import.
+  filters; reviewing, a department's names a button, its menu the team
+  to tick -- sent with the review and applied at its import.
 - Project settings: a ? by a field shows how to fill it, with examples
   (departments and stages, validation roles, the team, naming, dates).
 - Project monitoring: an open retake is a red post-it under its

@@ -1014,5 +1014,7 @@ Assign mode, the team to tick under it (page.js depHtml()). */
 .asg{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--ink-2)}
 .asg .ico{width:12px;height:12px}
 .asg.chg{color:var(--valid);font-weight:600}
-.asg-row{margin:6px 0 2px 34px}
-.segb.am{margin:0 0 10px}
+.asg-b{min-height:26px;padding:0 8px;border:1px solid var(--outline);border-radius:var(--r-btn);background:var(--btn);cursor:pointer}
+.asg-b:hover{color:var(--ink)}
+.asg-pop{min-width:180px}
+.asg-pop .ck{display:inline-block;width:18px;color:var(--valid);font-weight:700}

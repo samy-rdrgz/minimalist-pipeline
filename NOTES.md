@@ -4974,10 +4974,13 @@ Phase 6 of docs/plan-1.2.md.
   (docs/design.md): no load per person.
 - **The page** (phase 6, the review side): each item's `assignees`, the
   meta's `team`; `people()` a department's as the review leaves it,
-  `me()` the review's name. Reviewing, a mode (`assignMode()`, kept from
-  file to file): *Assign* puts the team to tick where ✓ / ✕ were -- one
-  set of buttons at a time, not both (the user's worry: too many at
-  once). A change back to what it was is no change (`e.assign` drops it).
+  `me()` the review's name. Reviewing, a department's names are a button,
+  its menu the team to tick (`asgMenu()`, one popover for the page, kept
+  open while ticking: the panel redrawn puts its scroll back, a scroll
+  that closes the lists -- `pickOpenedAt` set first). A mode switching
+  ✓ / ✕ for the team's buttons was tried first: past 4 or 5 names, the
+  team took the panel. A change back to what it was is no change
+  (`e.assign` drops it).
   Sent as `assign {file, department, people}` (all of them, [] none),
   one of `_FILE_CHANGES`: anyone may send it.
 

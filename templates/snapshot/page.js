@@ -854,9 +854,25 @@ return (reply?'':'<div class="thr">')+'<div class="th'+(n.closed?' closed':'')+(
 // tracks, else under Whole file -- one place each.
 function homeOf(it,n){var d=n.deps.filter(function(x){return x in it.states;})[0];return d||'';}
 var closedOpen={};
-// The panel's review mode: Assign (the team to tick) or not -- kept from
-// one file to the next.
-var AMODE=false;function assignMode(){return AMODE&&reviewing()&&(META.team||[]).length>0;}function setAssignMode(on){AMODE=on;}
+// A department's assign menu: the team to tick, open while you tick
+// (closed by a click elsewhere, as the page's lists). One for the page.
+var asgPop=null;
+function asgMenu(it,d,b){if(asgPop&&!asgPop.hidden&&asgPop._d===d){closePicks();return;}closePicks();
+if(!asgPop){asgPop=document.createElement('div');asgPop.className='pick-pop asg-pop';asgPop.setAttribute('role','menu');document.body.appendChild(asgPop);
+asgPop.addEventListener('click',function(ev){var o=ev.target.closest('[data-p]');if(!o)return;ev.stopPropagation();var it2=D[cur],d2=asgPop._d,e2=entry(it2);
+var now=people(it2,d2).slice(),was=((it2.assignees||{})[d2]||[]).slice(),p2=o.dataset.p;
+if(now.indexOf(p2)>=0)now.splice(now.indexOf(p2),1);else now.push(p2);
+// Back to as it was: no change left to send.
+if(now.slice().sort().join()===was.slice().sort().join())delete e2.assign[d2];else e2.assign[d2]=now;
+// The panel redrawn puts its scroll back: a scroll, which closes the
+// lists -- this one just ticked, kept open on its new button.
+pickOpenedAt=Date.now();refresh();if(state.f.me)render();var nb=$('p-body').querySelector('[data-asgmenu="'+CSS.escape(d2)+'"]');if(nb){asgPop._button=nb;nb.setAttribute('aria-expanded','true');place(nb);}fill();});}
+asgPop._d=d;asgPop._button=b;
+function fill(){var pp=people(D[cur],asgPop._d),team=(META.team||[]).concat(pp.filter(function(p){return (META.team||[]).indexOf(p)<0;}));
+asgPop.innerHTML=team.map(function(p){var on=pp.indexOf(p)>=0;return '<button type="button" role="menuitemcheckbox" aria-checked="'+on+'" data-p="'+esc(p)+'"><span class="ck">'+(on?'✓':'')+'</span>'+esc(p)+'</button>';}).join('');}
+fill();place(b);asgPop.hidden=false;b.setAttribute('aria-expanded','true');pickOpenedAt=Date.now();touchHold();}
+function place(b){var r=b.getBoundingClientRect(),up=r.bottom>innerHeight*0.6;
+asgPop.style.left=Math.max(8,Math.min(r.left,innerWidth-208))+'px';asgPop.style.top=up?'':(r.bottom+6)+'px';asgPop.style.bottom=up?(innerHeight-r.top+6)+'px':'';}
 function threads(it,d){var all=it.notes.filter(function(n){return !n.approval&&homeOf(it,n)===d;}),open=all.filter(function(n){return !n.closed;}),closed=all.filter(function(n){return n.closed;});
 var h=open.map(function(n){return noteHtml(n);}).join('');
 if(closed.length){var k=d||'·';if(closedOpen[k])h+=closed.map(function(n){return noteHtml(n);}).join('');
@@ -900,15 +916,14 @@ var okd=o?(o.old?'<span class="ok old" title="'+esc(o.tip)+'">✓ '+esc(o.role)+
 '<span class="ok" title="'+esc(o.tip)+'">✓ '+esc(o.role)+'</span>'):'';
 // To redo (an earlier stage changed): Still done says its work holds.
 var redo=((it.flags||{})[d]||{}).to_redo,sd=redo&&rv?'<button type="button" class="sd-b" data-sync="'+esc(d)+'" aria-pressed="'+!!e.synced[d]+'" title="To redo: '+esc(redo)+'. Still done: the work done holds -- not a validation">'+ico('check')+'Still done</button>':'';
-var fw=capWords(it,d)[1],pp=people(it,d),chg=d in e.assign,am=rv&&assignMode();
-// Who it's assigned to; reviewing in Assign mode, the team to tick in
-// place of ✓ / ✕ (the review's assign action).
-var asg=pp.length||chg?'<span class="asg'+(chg?' chg':'')+'" title="Assigned to">'+ico('user')+esc(pp.join(', ')||'nobody')+'</span>':'';
-var team=am?'<div class="req asg-row">'+(META.team||[]).concat(pp.filter(function(p){return (META.team||[]).indexOf(p)<0;})).map(function(p){
-return '<button type="button" data-asg="'+esc(d)+'" data-p="'+esc(p)+'" aria-pressed="'+(pp.indexOf(p)>=0)+'">'+esc(p)+'</button>';}).join('')+'</div>':'';
-return '<div class="dep'+(am?' assigning':'')+'"><div class="dep-l">'+cell(it,d,true)+'<span class="mid"><span class="nm">'+esc(cap(d))+'</span><span class="st">'+esc(depSummary(it,d))+'</span><span class="inl">'+you(it,d)+'</span>'+okd+sd+asg+(fw?'<span class="fw">'+esc(fw)+'</span>':'')+'</span>'+
-(am?'':'<span class="rvb" data-d="'+esc(d)+'"><button class="ok-b'+(via?' via':'')+'" aria-pressed="'+!!(v&&v.ok)+'"'+(asTeam()?' disabled title="As the team: no validation — a validation role validates"':isDone(s)?' title="Validate it as your role"':' disabled title="Not done: nothing to validate yet"')+
-' aria-label="Validate '+esc(d)+'">✓</button><button class="ko-b'+(verdict(it,d)==='note'?' as-note':'')+'" aria-pressed="'+!!(v&&v.no)+'" aria-label="Retake '+esc(d)+'" title="Retake: write what to fix (or nothing, to withdraw a validation)">✕</button></span>')+'</div>'+team+
+var fw=capWords(it,d)[1],pp=people(it,d),chg=d in e.assign;
+// Who it's assigned to; reviewing with a team, a button: its menu the
+// team to tick (asgMenu(), the review's assign action).
+var asg=rv&&(META.team||[]).length?'<button type="button" class="asg asg-b'+(chg?' chg':'')+'" data-asgmenu="'+esc(d)+'" aria-haspopup="true" title="Assign it: the team to tick">'+ico('user')+esc(pp.join(', ')||'Assign')+' ▾</button>':
+pp.length?'<span class="asg" title="Assigned to">'+ico('user')+esc(pp.join(', '))+'</span>':'';
+return '<div class="dep"><div class="dep-l">'+cell(it,d,true)+'<span class="mid"><span class="nm">'+esc(cap(d))+'</span><span class="st">'+esc(depSummary(it,d))+'</span><span class="inl">'+you(it,d)+'</span>'+okd+sd+asg+(fw?'<span class="fw">'+esc(fw)+'</span>':'')+'</span>'+
+'<span class="rvb" data-d="'+esc(d)+'"><button class="ok-b'+(via?' via':'')+'" aria-pressed="'+!!(v&&v.ok)+'"'+(asTeam()?' disabled title="As the team: no validation — a validation role validates"':isDone(s)?' title="Validate it as your role"':' disabled title="Not done: nothing to validate yet"')+
+' aria-label="Validate '+esc(d)+'">✓</button><button class="ko-b'+(verdict(it,d)==='note'?' as-note':'')+'" aria-pressed="'+!!(v&&v.no)+'" aria-label="Retake '+esc(d)+'" title="Retake: write what to fix (or nothing, to withdraw a validation)">✕</button></span></div>'+
 threads(it,d)+(rv&&v&&v.no?'<div class="rt mine">'+retakeBox(it,'d:'+d,v.text,'What to fix in '+d+'? Empty: just withdraw its validation')+syntax(it,'d:'+d)+'</div>':'')+'</div>';}
 function openPanel(i){
 // The notes' fold is the page's, not a file's: kept from one file to the
@@ -945,11 +960,8 @@ if(rv)h+='<button type="button" class="desc-edit" id="add-desc">✎ '+(it.desc?'
 // every done one, V) on top, "Whole file" (✕ a retake on no department,
 // X) at the bottom -- with the open ones on no department.
 var anyDone=deps.some(function(d){return isDone(it.states[d]);}),genOpen=editing.gen||!!e.text;
-// Reviewing with a team: Retake (✓ / ✕) or Assign (the team to tick).
-var modes=rv&&(META.team||[]).length?'<div class="segb am" role="group" aria-label="Review mode">'+[['','Validate · retake'],['1','Assign']].map(function(m){
-return '<button type="button" data-amode="'+m[0]+'" aria-pressed="'+(assignMode()===!!m[0])+'">'+m[1]+'</button>';}).join('')+'</div>':'';
-h+='<div class="p-block major">'+modes+
-(rv&&anyDone&&!asTeam()&&!assignMode()?'<div class="dep all"><div class="dep-l"><span class="cell na"></span><span class="mid"><span class="nm">All done</span><span class="st">validate every done department<span class="kh"> · V</span></span></span>'+
+h+='<div class="p-block major">'+
+(rv&&anyDone&&!asTeam()?'<div class="dep all"><div class="dep-l"><span class="cell na"></span><span class="mid"><span class="nm">All done</span><span class="st">validate every done department<span class="kh"> · V</span></span></span>'+
 '<span class="rvb"><button class="ok-b" id="allok" aria-pressed="'+e.all+'" aria-label="Validate every done department">✓</button><span class="rvb-gap"></span></span></div></div>':'')+
 (deps.length?deps.map(function(d){return depHtml(it,d,rv);}).join(''):'<p class="faint">No department tracked on this file.</p>')+
 (rv||it.notes.some(function(n){return !n.approval&&!n.closed&&homeOf(it,n)==='';})?'<div class="dep whole"><div class="dep-l"><span class="cell na"></span><span class="mid"><span class="nm">Whole file</span><span class="st">'+esc(['a retake on no department',depSummary(it,'')].filter(Boolean).join(' · '))+(rv?'<span class="kh"> · X</span>':'')+'</span></span>'+
@@ -1111,11 +1123,7 @@ if(b.open[sh]){var ta3=$('p-body').querySelector('textarea[data-k="'+CSS.escape(
 if((t=ev.target.closest('[data-closed]'))){closedOpen[t.dataset.closed]=!closedOpen[t.dataset.closed];return refresh();}
 if((t=ev.target.closest('[data-sync]'))){var se=entry(it);if(se.synced[t.dataset.sync])delete se.synced[t.dataset.sync];else se.synced[t.dataset.sync]=1;return refresh();}
 // A department required or not: back to as it was, or changed.
-if((t=ev.target.closest('[data-amode]'))){setAssignMode(!!t.dataset.amode);return refresh();}
-if((t=ev.target.closest('[data-asg]'))){var ae=entry(it),ad=t.dataset.asg,ap=t.dataset.p,now3=people(it,ad).slice(),was3=((it.assignees||{})[ad]||[]).slice();
-if(now3.indexOf(ap)>=0)now3.splice(now3.indexOf(ap),1);else now3.push(ap);
-// Back to as it was: no change left to send.
-if(now3.slice().sort().join()===was3.slice().sort().join())delete ae.assign[ad];else ae.assign[ad]=now3;refresh();if(state.f.me)render();return;}
+if((t=ev.target.closest('[data-asgmenu]'))){ev.stopPropagation();return asgMenu(it,t.dataset.asgmenu,t);}
 if((t=ev.target.closest('[data-req]'))){var re=entry(it),rd=t.dataset.req,was=rd in it.states,now2=rd in re.req?re.req[rd]:was;
 if(!now2===was)delete re.req[rd];else re.req[rd]=!now2;refresh();render();return;}
 if((t=ev.target.closest('[data-omit]'))){var oe=entry(it),cur0=oe.omit||{state:(it.omit||{}).state||'',reason:(it.omit||{}).reason||''};

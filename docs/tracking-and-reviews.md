@@ -56,7 +56,7 @@ Multishot blocks can tag a note/todo with which shot in the block it's about —
 
 - **Assign** (File details, the team's button by a department, open to all): tick who it's for -- sh010's layout to Léa, its animation to Tom. Optional, a filter's matter: nothing is counted from it (no load per person, see [Design choices](design.md)). Stored in `tracking.json`: `"assignees": {"animation": ["tom"]}`.
 - **Me** (Project monitoring's filters, the person icon -- the team's while off): only the files with a department assigned to you.
-- **On the snapshot page**: who each department is assigned to, under its name; *Me* among the filters (your name in the review). Reviewing, the file's panel switches between *Validate · retake* and *Assign*: in Assign, each department shows the team to tick in place of ✓ / ✕ -- sent as an `assign` action, applied at the import as File details would.
+- **On the snapshot page**: who each department is assigned to, under its name; *Me* among the filters (your name in the review). Reviewing, each department's names are a button: its menu, the team to tick -- sent as an `assign` action, applied at the import as File details would.
 
 ## Done, then validated: validation roles
 
