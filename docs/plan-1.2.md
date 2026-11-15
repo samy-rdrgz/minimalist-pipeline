@@ -1,6 +1,6 @@
 # Plan 1.2 — récapitulatif des modifications
 
-*État au 14/11/2026, à partir de la 1.1.10. Les phases 1A, 1B et 1C sont faites (dans `main`, voir « Avancement » ci-dessous) ; le reste fixe les décisions prises et l'architecture retenue. Les points marqués **[à confirmer]** restent à trancher.*
+*État au 15/11/2026, à partir de la 1.1.10. Les phases 1 à 4 et 6 sont faites, la 5 presque (branche `2.0`, voir « Avancement » ci-dessous) ; le reste fixe les décisions prises et l'architecture retenue. Les points marqués **[à confirmer]** restent à trancher.*
 
 Hypothèse de départ, validée : **tous les PC sont mis à jour en même temps.** Le code qui gère des machines sur des versions différentes peut donc disparaître.
 
@@ -31,18 +31,24 @@ Dont **+439 lignes de code** pour le script de migration (`lib/migration.py` 307
 
 **Phase 2b essayée dans Blender 5.2.3** : faisable (voir la phase 2b).
 
+**Phases 5 et 6** (15/11) : la 6 est faite (équipe, attribution, filtre « Moi » ; « Mon travail » n'est que ce filtre, pas une vue). La 5 est faite sauf la case « tous les départements » à l'export et « Rename preset » ; le menu « Plus haut département / Plus récent » est abandonné (2.4). Les presets de rendu sont en Python seulement (un `<département>_default.py` par département sans preset).
+
+**Décidé le 15/11 (session cloud) : la page HTML devient l'interface principale de suivi du projet**, en live, servie par Blender (2.8, phase 4b). Le prototype est `tools/live_prototype.py` (4b.0), à essayer dans Blender. **Project monitoring est voué à disparaître**, mais seulement une fois la page live éprouvée : ce qui y a été ajouté (filtre « Moi », légendes, marques RTK) reste d'ici là ; les nouveautés de suivi vont dans la page.
+
 **Page snapshot, refonte v3** (maquette Claude Design, `docs/` du brief) : étape 1 faite (palette sombre façon Blender, en-tête sur une ligne, losanges keyframe, post-its, Breakdown en onglet), étape 2 faite (lecteur dans le panneau, timeline avec les notes à leurs images, Watch large, fils sous leur département), étape 3 faite (fenêtres de démarrage et d'envoi, la review dans l'en-tête), étape 4 faite (téléphone, iPad). **Phase 4** : 4A faite (actions typées, schema 8, import par type), 4B faite (Still done, départements requis, On hold / Cancelled depuis la page) ; 4C faite (créer un shot ou un asset depuis la page, créé à l'import par le moteur du CSV) ; 4D faite (stats en direct : `templates/snapshot/status.js`, jumeau de `lib/status.py`, cas communs `tests/status_cases.json`). **La phase 4 est terminée.** Icônes : celles de Blender (`trailers/icons` → `tools/clean_icons.py`). Les marques de Project monitoring reprennent les losanges de la page.
 
 **Testé dans Blender** : *Migrate old data* sur une copie d'un vrai projet, sans erreur visible (avant 1C : à relancer pour les dates). **Pas encore testé dans Blender** : le reste de ce qui est ci-dessus, dont 1C, plus les deux changements de la 1.1.10 (« waiting for a worker », la molette). À vérifier en priorité : la popup « Which machine, which frame... » (son champ Frame qui se met à jour), le bouton *Migrate old data* sur une copie d'un vrai projet, et une passe sur chaque écran réécrit (Farm monitoring, File details, Edit project, menu du haut, panneaux Project et File).
 
 ## 0. Pour reprendre dans une nouvelle conversation
 
-**État du dépôt au 14/11/2026 :**
-- `main` : phases 1 (1A, 1B, 1C, 1D), 2 et 2b faites, pas encore publiées (section `## Unreleased` du CHANGELOG). `main` sur GitHub = ce qui a été poussé par *Sync* depuis la machine locale.
+**État du dépôt au 15/11/2026 :**
+- **`main` = la 1.1.10**, comme sur GitHub. Aucune version ne sort avant la 2.0.0.
+- **La branche `2.0`** a tout le travail de la 2.0 (phases 1 à 6, section `## Unreleased` du CHANGELOG), poussée par *Sync* depuis la machine locale. Les tests dans Blender se font depuis cette branche. Elle sera fusionnée dans `main` à la sortie.
+- La branche `ccr-6d9503b4-xu75ta` (session cloud du 15/11) est reprise dans `2.0` : son plan (2.8, 4b, Rename preset) et son prototype. Ses 1C et 1D, refaites en parallèle, sont écartées (celles de `2.0` sont faites et testées).
 - **Testé dans Blender** : *Migrate old data* (deux fois, dates comprises, projet `alive`), la 2b (zones, raccourcis), la molette et « waiting for a worker » de la 1.1.10.
 - **Les tests sont dans `tests/`**, suivis par git (exclus du zip par le manifest) : `test_dates.py`, `test_snapshot_folders.py`. `test_migration.py`, perdu, est à réécrire avant la phase 3.
 
-**Ordre de travail** : les phases de la section 3, dans l'ordre (3, 4, 5, 6). Une seule sortie à la fin (section 5).
+**Ordre de travail** : finir la 5 (case « tous les départements », Rename preset), essayer le prototype 4b.0 dans Blender, puis 4b. La 5b (le son) en tout dernier. Une seule sortie à la fin, la 2.0.0 (section 5).
 
 **Comment tester sans Blender** (aucun Blender dans les sessions cloud) :
 - **Importer tout l'addon avec un faux `bpy`** : chaque module `bpy*`, `mathutils`, `gpu`, `blf`, `bmesh`… remplacé par un `MagicMock`, sauf `bpy.types`, à remplacer par un module dont chaque attribut est une classe vide (sinon `class X(bpy.types.Panel)` échoue). Puis `import <paquet>` depuis un dossier qui pointe vers le dépôt. Ça attrape les imports cassés et les noms manquants dans les `__init__`.
@@ -190,9 +196,7 @@ Avec des rendus par département (phase 5), un shot en a plusieurs. **Le rendu p
 
 - **La règle** : le rendu du **département le plus avancé** selon les étapes (2.2). À étape égale, c'est le plus récent. Rien à configurer : la hiérarchie dit déjà quels départements sont « finaux ». Sans étapes définies, c'est le plus récent.
 - Un rendu layout relancé après le lighting **ne remplace donc pas** le lighting dans la lecture de la séquence.
-- **Un menu pour basculer entre « Plus haut département » et « Plus récent »**, qui décide quel rendu est le principal :
-  - dans File details et dans la page : c'est un choix de celui qui regarde, retenu par la page dans le navigateur et par Blender pour la session ;
-  - à l'export du snapshot et dans la fenêtre de preview de séquence : il décide quelles vidéos sont emportées ou enchaînées.
+- ~~Un menu « Plus haut département / Plus récent »~~ : **abandonné** (15/11). Le rendu plus récent d'un autre département est déjà signalé sur la ligne du principal (ci-dessous).
 - **Dans File details et dans la page** : le rendu principal en tête, puis une ligne par département. **Un rendu plus récent que le principal**, d'un département plus bas (un rendu animation refait après le render), est **signalé sur la ligne du principal** (« plus récent : animation v007 ») et s'ouvre d'un clic. On voit le rendu « render », sans rater ce qui a été refait depuis.
 - **Dans `videos/` ou le zip** : uniquement le rendu principal de chaque shot, avec une case **« tous les départements »** à l'export. Sans cette case, les autres lignes se lisent depuis `renders/` quand le projet est accessible.
 - **Les anciens rendus sans département** passent après ceux qui en ont un. Un projet entièrement ancien ne change pas : son rendu le plus récent reste le principal.
@@ -204,7 +208,7 @@ Avec des rendus par département (phase 5), un shot en a plusieurs. **Le rendu p
 - **L'attribution se fait par département d'un fichier**, comme une tâche dans Kitsu : sh010 avec layout pour Léa et animation pour Tom. Elle est facultative.
   - Stockée dans le `tracking.json` du dossier : `"assignees": {"animation": ["tom"]}`.
   - On attribue dans File details, dans la page HTML (une action de review `assign`) et à la création (dans la page comme en CSV).
-- **Un filtre « Moi »** dans Project monitoring et dans la page. Dans la page, « moi » est le nom saisi pour la review.
+- **Un filtre « Moi »** dans Project monitoring (fait avant la décision 2.8, gardé jusqu'à 4b.3) et dans la page. Dans un snapshot, « moi » est le nom saisi pour la review ; en live, le nom d'utilisateur de Blender.
 - **La vue « Mon travail »**, calculée par le moteur d'états, pour les départements qui me sont attribués :
   - ceux **à reprendre** ;
   - mes **RTK ouverts** ;
@@ -244,6 +248,36 @@ Ce que ça casse aujourd'hui, ou cassera :
 - **Dans la page HTML**, une date avec décalage est lue correctement par `Date`, et s'affiche à l'heure locale de celui qui regarde.
 - **Les noms de fichiers** (snapshots, reviews, dossiers par mois) restent à l'heure locale de celui qui les crée, ce qui est sans risque.
 - Les horloges doivent toujours être à l'heure (synchronisées automatiquement), mais le fuseau de chaque machine n'a plus d'importance.
+
+### 2.8 La page en live, servie par Blender, à la place de Project monitoring
+
+**Le constat :** pour regarder les playlists et les %, ou faire une review, la page HTML est plus pratique que Project monitoring, limité par le layout de Blender. Mais elle est figée : il faut refaire un snapshot pour la voir à jour (une dizaine par jour), et une review passe par un fichier à importer. Et on maintient deux interfaces qui font presque la même chose.
+
+**La solution :** Blender sert lui-même la page, à la demande (« Open monitor »).
+- **Un petit serveur HTTP dans un thread** (`http.server`, `ThreadingHTTPServer` : rien à installer), qui n'écoute que `127.0.0.1`. Chacun a sa page, servie par son propre Blender.
+- **La même page que le snapshot**, avec deux façons de charger ses données : embarquées (le snapshot hors réseau) ou demandées au serveur (le live). Pas de deuxième page.
+- **Les données viennent du cache de Blender**, sans relire le NAS. Le serveur ne touche jamais au cache ni à `bpy` : un timer de Blender prépare la réponse quand le cache change, avec un numéro de version, et le serveur renvoie la réponse déjà prête. La page demande toutes les quelques secondes « quoi de neuf depuis la version N » et ne reçoit que les changements.
+- **Les actions de la page sont les actions typées de la review (2.3)**, envoyées en POST au lieu d'être écrites dans un fichier. Le serveur les met dans une file, et un timer de Blender les applique avec le même code que l'import d'une review. En plus :
+  - **ouvrir un fichier dans Blender** : si le fichier courant n'est pas sauvegardé, la page pose la question (sauvegarder, ne pas sauvegarder, annuler), au lieu d'un dialogue qui s'ouvrirait dans Blender sans qu'on le voie ;
+  - **lancer le lecteur habituel** sur un rendu ou une playlist, comme ▶ aujourd'hui.
+- **Les vidéos et les images** : une page `http://` ne peut pas lire de liens `file://`. Le serveur sert donc lui-même les fichiers du projet (`/media/<chemin relatif>`) :
+  - avec les requêtes partielles (en-têtes Range), sans lesquelles on ne peut pas se déplacer dans une vidéo ;
+  - en refusant tout chemin hors du projet ;
+  - le trafic avec le NAS est le même qu'aujourd'hui, le passage par le serveur ne coûte qu'une copie en mémoire, par blocs, dans un thread par requête ;
+  - les vidéos ne se chargent qu'au clic (`preload="metadata"`) ;
+  - les formats sont ceux du navigateur (H.264, webm), comme dans le snapshot ; le reste passe par le lecteur externe.
+- **Sécurité** : `127.0.0.1` seulement, un jeton aléatoire dans l'URL, l'en-tête Host vérifié. Sinon, n'importe quel site ouvert dans le navigateur pourrait envoyer des actions à `localhost`.
+- **Connexion** : le serveur vit tant que Blender est ouvert, avec un bouton Stop. Ses timers sont enregistrés en `persistent=True`, sinon l'ouverture d'un fichier les supprime. La page affiche une pastille :
+  - **connecté** ;
+  - **Blender occupé** (rendu local, opération longue) : les actions attendent qu'il soit libre ;
+  - **déconnecté** : actions grisées, reconnexion silencieuse dès que Blender revient, sans recharger la page.
+- **En live, c'est Blender qui calcule les états.** Le jumeau JS du moteur (2.1) ne sert plus qu'au snapshot hors réseau et aux stats « avec ta review ».
+- **Le snapshot figé reste**, pour le hors-réseau : déplacements, superviseur déconnecté.
+
+**Ce que ça change dans Blender :**
+- **Project monitoring est voué à disparaître**, une fois la page live éprouvée. À la fin (4b.3), il se réduit à un résumé et un bouton « Ouvrir dans le navigateur ». D'ici là, **les nouvelles fonctionnalités de suivi du projet vont dans la page, pas dans Project monitoring** : la légende des nouveaux états, le filtre « Moi », « Mon travail », les créations, le rendu par département…
+- **La page doit faire plus que Project monitoring aujourd'hui**, pas seulement autant : tout ce qu'il fait (valider, RTK, notes, ouvrir un fichier, lire les rendus), plus tout ce que la phase 4 ajoute (créations, départements, « Toujours done », assignations, Omit).
+- **Restent dans Blender** : Farm monitoring (pour l'instant), le panneau latéral et File details du fichier ouvert, c'est-à-dire les actions sur la session en cours.
 
 ---
 
@@ -344,6 +378,8 @@ Relevé du 14/11 : le JS est déjà compact (132 fonctions toutes appelées, qua
 
 ### Phase 2b — Le détail à côté de la liste, dans les fenêtres de monitoring
 
+**Avec la page live (2.8)**, elle ne vaudra plus que pour Farm monitoring quand Project monitoring disparaîtra.
+
 **Faite** (14/11), testée dans Blender (zones, raccourcis ; la largeur gardée et la liste étroite corrigées ensuite) : `sync_detail_zones()` et `monitoring_zone()` (`lib/monitoring.py`), panneaux et raccourcis selon la zone, liste réduite à ses noms sous 600 px (seulement Project monitoring). Détails : NOTES.md, « Monitoring: the detail beside the list ».
 
 **Aujourd'hui :** ouvrir un détail (un fichier dans Project monitoring, un job ou un worker dans Farm monitoring) **remplace** toute la liste, dans la même zone.
@@ -398,6 +434,17 @@ Relevé du 14/11 : le JS est déjà compact (132 fonctions toutes appelées, qua
   - **Stats en direct** : les %, les compteurs et les états recalculés par le moteur JS en appliquant la review en cours (« avec ta review : 64 % (+3) »).
 - Le jumeau JS du moteur et les cas de test communs.
 
+### Phase 4b — La page en live, servie par Blender (voir 2.8)
+
+Elle remplace Project monitoring. Ses actions sont celles de la phase 4 ; la lecture seule (4b.1) peut venir avant.
+
+| # | Tâche | Où |
+|---|---|---|
+| 4b.0 | **Essai dans Blender d'abord** : un serveur minimal qui sert une vidéo du NAS avec Range, lue dans la page pendant qu'on travaille dans Blender. Ni la vidéo ni l'interface de Blender ne doivent saccader | — |
+| 4b.1 | **Lecture seule** : le serveur, la réponse préparée depuis le cache, « quoi de neuf depuis la version N », `/media` avec Range, le jeton, la pastille de connexion, « Open monitor » | `lib/live_server.py` (nouveau), `lib/snapshot.py`, `page.js` |
+| 4b.2 | **Les actions** : les actions typées en POST, la file et le timer qui les applique, ouvrir un fichier (avec la question si le fichier courant n'est pas sauvegardé), lancer le lecteur | `lib/live_server.py`, `lib/review_import.py`, `page.js` |
+| 4b.3 | **Tout ce que fait Project monitoring, dans la page**, vérifié point par point ; puis Project monitoring réduit à un résumé et « Ouvrir dans le navigateur », et son code retiré | `panels/tracking_panel.py`, `panels/monitoring_panel.py`, `lib/monitoring.py` |
+
 ### Phase 5 — Rendus par département
 
 - **Le département vient du nom du preset**, sans aucun champ à saisir :
@@ -405,7 +452,14 @@ Relevé du 14/11 : le JS est déjà compact (132 fonctions toutes appelées, qua
   - un nom de département peut contenir `_` (seule la virgule le découpe dans Edit project), d'où le « plus long » : `look_dev_hd` → *look_dev* ;
   - aucun département trouvé : le rendu n'a pas de département ;
   - Edit project affiche, à côté de chaque preset, le département qu'il donne.
-- Stocké dans le job, puis dans `render_history.json`. Le nom des dossiers de rendu ne change pas.
+- **« Rename preset » dans Edit project**, puisque le nom compte désormais. Il renomme le `.py` et met à jour tous les endroits qui le citent :
+  - `farm.default_prerender_script` dans la config ;
+  - `prerender_script` dans chaque `render_history.json`. Les anciens rendus y gagnent leur département, ce qui n'est juste que si le preset a toujours servi au même département : l'outil le demande ;
+  - les clés de `preset_pace.json`, pour garder les moyennes ;
+  - **refusé tant que la farm a des jobs** : le nom du fichier d'un job est un hash qui contient le nom du preset (`farm/monitor.py` `_file_key`).
+  
+  La migration et Edit project signalent les presets qui ne donnent aucun département (« 3 presets ne donnent aucun département : les renommer ? »). Un seul outil, réutilisable plus tard (nouveau département, faute de frappe), plutôt qu'une étape de la migration.
+- Stocké dans le job, puis dans `render_history.json`, et dans un fichier `.department` du dossier de rendu (écrit à la fin du rendu). Le nom des dossiers de rendu ne change pas.
 - **Un « to check » par shot et par département** : un nouveau rendu du même département remplace l'ancien, pas celui d'un autre département. Ça touche la colonne Farm, File details, *Checked* et son Ctrl+clic, le snapshot, les rushes, et la lecture des anciens fichiers (rangés par shot seul, considérés sans département).
 - **Un dernier rendu par département** dans File details et dans le snapshot (« layout v003 · animation v005 · lighting v006 »). Les anciens rendus apparaissent sans département.
 - **Le rendu principal** (2.4) pour ▶, la vignette, la lecture de la séquence, `videos/` et le zip (avec la case « tous les départements » à l'export), et la preview de séquence.
@@ -452,7 +506,7 @@ Elle vient en dernier : elle repose sur le moteur d'états (phase 3), et « mes 
 
 **Décidé : une seule sortie sur le store, tout ensemble**, quand les phases 1 à 6 sont faites.
 - Elle change les données (migration, dates avec fuseau, nouveau format de review, `departments_worked` par session) : une version 1.1.x qui lirait un projet migré se tromperait ou planterait (Python refuse de comparer une date avec fuseau et une date sans).
-- Donc **tous les PC à jour en même temps, puis *Migrate old data* lancé une fois par projet** : à dire dans les notes de version. Le numéro (1.2.0 ou 2.0.0) reste à choisir ; 2.0.0 signalerait mieux ce passage obligé.
+- Donc **tous les PC à jour en même temps, puis *Migrate old data* lancé une fois par projet** : à dire dans les notes de version. **Décidé : 2.0.0**, qui signale ce passage obligé. Aucune version entre la 1.1.10 et la 2.0.0.
 
 **À garder malgré le retrait du code entre versions (1B.4)** : une **seule** vérification de version. Une machine qui n'a pas la même version de la farm que l'hôte est refusée, avec un message clair. Aujourd'hui, c'est `FARM_PROTOCOL` qui le fait. Sans cette vérification, une machine oubliée se comporterait mal sans rien dire, au lieu d'être écartée.
 
