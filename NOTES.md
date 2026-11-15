@@ -4718,8 +4718,13 @@ started and Done reworked shared one icon.
   shrinks to "Leg..." --, bulk buttons at the right of the left
   part, the pager against the edge) and `legend_button()`. Drawn apart,
   each window had drifted: Farm's filters on two rows with their title
-  half the width, its legend cut, its buttons moved. Farm's jobs are
-  counted as Project monitoring's rows (same header, same rows).
+  half the width, its legend cut, its buttons moved. The lists' rows too:
+  `list_row()` (a column, the line under it) and `list_rows()` (how many:
+  `LIST_RESERVED_UNITS`, the tip's, the stacked filters') -- Project and
+  Farm monitoring the same rows, the same count.
+- The log's message cut to what the line has left (`_fit()`, from
+  `region_char_budget()` less the three columns): longer, Blender
+  squeezed the fixed columns before it.
 - The page's *Last render*: a grid -- [shot] department (the main one
   bold), version, state, ▶ -- the other departments' last renders on
   rows of their own in the same columns.

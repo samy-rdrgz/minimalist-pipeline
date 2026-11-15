@@ -58,6 +58,8 @@ from ..lib import (
     shots_in_segment,
     shots_label,
     monitor_footer,
+    list_rows,
+    list_row,
     legend_button,
     text_to_lines,
     thumbnail_path,
@@ -988,10 +990,6 @@ def draw_file_details(state, context, layout):
     layout.separator(factor=2)
 
 
-# What Project monitoring's window holds besides its rows (filters,
-# table header, footer, margins), in widget units -- see rows_that_fit().
-_TABLE_RESERVED_UNITS = 6.5
-_STACKED_FILTERS_UNITS = 2.0
 # A status cell's width (px at UI scale 1): with its words ("Done, reworked
 # since"), with its marks alone (a retake's mark and the state's).
 _CELL_TEXT_WIDTH = 150
@@ -1119,14 +1117,7 @@ def draw_monitor_table(self, context, layout, columns, project_root):
     narrow = list_is_narrow(context)
     scale = context.preferences.system.ui_scale or 1.0
     total = len(matches)
-    per_page = rows_that_fit(
-        context,
-        _TABLE_RESERVED_UNITS
-        + box_tip_units(context, _TABLE_TIP)
-        # The filters stacked on three rows (monitoring_panel.py): two more.
-        + (_STACKED_FILTERS_UNITS if narrow else 0),
-        kind="project",
-    )
+    per_page = list_rows(context, "project", box_tip_units(context, _TABLE_TIP))
     shown, page, pages = paginate(
         "project", matches, per_page, filters, key=lambda m: str(m[0])
     )
@@ -1295,7 +1286,7 @@ def _draw_monitor_row(
 ):
     """One file's row of Project monitoring: name (opens its detail), a
     status cell per department column, then its Farm cell."""
-    row = f_list.column()
+    row = list_row(f_list)
     mark = omitted(file)
     row.active = not mark  # set aside: greyed, still listed
     split = row.split(factor=first_column) if first_column < 1 else row
@@ -1347,14 +1338,12 @@ def _draw_monitor_row(
         filepath=str(dir),
     )
     if first_column >= 1:  # names only
-        f_list.separator(factor=0.5, type="LINE")
         return
     if mark:
         # Set aside: its mark across the cells -- no "not started" left to
         # read in them.
         why = f": {mark['reason']}" if mark.get("reason") else ""
         split.row().label(text=f"{OMIT_STATES[mark['state']]}{why}", icon="PAUSE")
-        f_list.separator(factor=0.5, type="LINE")
         return
     cells = _cells(split.row(), shares)
     roles = validation_roles()
@@ -1423,8 +1412,6 @@ def _draw_monitor_row(
             )
     if show_farm:
         _draw_farm_cell(cells[-1], dir, file, jobs or [])
-
-    f_list.separator(factor=0.5, type="LINE")
 
 
 def _department_cell(file: dict, department: str) -> tuple[str, str, str | None]:
@@ -1570,7 +1557,7 @@ def _video_button(layout, info: dict, label: str) -> None:
 
 def _draw_monitor_blank_row(f_list, shares, first_column):
     """Empty row, same height as a file's -- a page's padding."""
-    row = f_list.column()
+    row = list_row(f_list)
     row.active = False
     if first_column >= 1:  # names only
         row.label(text="")
@@ -1579,7 +1566,6 @@ def _draw_monitor_blank_row(f_list, shares, first_column):
         split.row().label(text="")
         for cell in _cells(split.row(), shares):
             cell.label(text="", icon="BLANK1")
-    f_list.separator(factor=0.5, type="LINE")
 
 
 def _oldest_open_rtk(data: dict) -> str:

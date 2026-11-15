@@ -151,6 +151,8 @@ from .monitoring import (
     rows_that_fit,
     split_footer,
     monitor_filters,
+    list_rows,
+    list_row,
     end_filters,
     monitor_footer,
     legend_button,

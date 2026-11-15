@@ -16,6 +16,7 @@ from ..lib import (
     redraw_monitoring,
     rows_that_fit,
     list_is_narrow,
+    region_char_budget,
     monitor_footer,
     legend_button,
 )
@@ -164,6 +165,9 @@ def draw_pipeline_logs(state, context, layout) -> None:
     box.separator(factor=0.5, type="LINE")
 
     col = box.column(align=True)
+    # The message cut to what's left of the line: longer, it squeezed the
+    # columns before it (the whole of it is in the tooltip, and copied).
+    room = region_char_budget(context, margin=4) - int(sum(_CELLS) * 20 / 7)
     for entry in page_items:
         time, user, action, message = _line(col)
         level = entry.get("level", "")
@@ -174,7 +178,7 @@ def draw_pipeline_logs(state, context, layout) -> None:
         message.alert = level == "error"
         message.alignment = "LEFT"
         op = message.operator(
-            "m_pipeline.copy_log_line", text=entry["_short"], emboss=False
+            "m_pipeline.copy_log_line", text=_fit(entry["_short"], room), emboss=False
         )
         op.text = _full_line(entry)
     for _ in range(per_page - len(page_items)):
@@ -225,6 +229,12 @@ def _full_line(entry: dict) -> str:
         if k not in main and not k.startswith("_")  # _search, _short
     ]
     return "\n".join([first, *extra])
+
+
+def _fit(text: str, chars: int) -> str:
+    """text cut to chars characters ("..." at the end)."""
+    chars = max(chars, 12)
+    return text if len(text) <= chars else text[: chars - 3].rstrip() + "..."
 
 
 def _line(layout) -> tuple:

@@ -37,19 +37,18 @@ from ..lib import (
     now,
     paginate,
     parse_iso,
-    list_is_narrow,
     rows_that_fit,
     monitor_footer,
+    list_rows,
+    list_row,
     legend_button,
     time_key,
 )
 from ..lib.ui import DETAIL_KEY_COLUMN, details_header, draw_legend, key_value, key_values
 
 FIRST_COLUMN = 0.4
-# What Farm monitoring's window holds besides the Jobs rows (filters, list
-# header, footer, margins), in widget units -- see rows_that_fit().
-_JOBS_RESERVED_UNITS = 6.5  # as Project monitoring's: the same header and rows
-# Same for the Workers view: one row of filters, no footer.
+# What Farm monitoring's Workers view holds besides its rows (its Jobs
+# view's: lib/monitoring.py list_rows()): one row of filters, no footer.
 _WORKERS_RESERVED_UNITS = 5.0
 
 
@@ -540,21 +539,11 @@ def draw_farm_jobs(self, context, layout):
     matches.sort(key=lambda j: time_key(j.get("submitted_at")), reverse=True)
 
     total = len(matches)
-    per_page = rows_that_fit(
-        context,
-        _JOBS_RESERVED_UNITS
-        + box_tip_units(context, _JOBS_TIP)
-        # The filters stacked beside a detail (monitoring_panel.py): two rows more.
-        + (2.0 if list_is_narrow(context) else 0),
-        kind="farm",
-    )
+    per_page = list_rows(context, "farm", box_tip_units(context, _JOBS_TIP))
     filters = (self.state, self.only_mine, self.search.strip().lower())
     shown, page, pages = paginate("farm", matches, per_page, filters)
     for j in shown + [None] * (per_page - len(shown)):
-        row = layout.column()
-        # Line *after* the row, never before it inside an aligned column:
-        # that glues it to the text -- same spacing as draw_monitor_table().
-        layout.separator(factor=0.5, type="LINE")
+        row = list_row(layout)  # Project monitoring's rows, one height
         if j is None:  # a page's padding
             row.label(text="", icon="BLANK1")
             continue

@@ -700,6 +700,32 @@ def split_footer(context, layout) -> tuple:
     return left, right
 
 
+# What a monitoring list's window holds besides its rows (filters, the
+# list's tip and column names, footer, margins), in widget units -- the
+# same for Project monitoring and Farm monitoring's views.
+LIST_RESERVED_UNITS = 6.5
+# The filters stacked beside a detail (monitor_filters()): two rows more.
+STACKED_FILTERS_UNITS = 2.0
+
+
+def list_rows(context, kind: str, tip_units: float = 0.0) -> int:
+    """How many rows a monitoring list draws (rows_that_fit()), the same
+    way in each window: its reserved units, its tip's, the stacked
+    filters'."""
+    reserved = LIST_RESERVED_UNITS + tip_units
+    if list_is_narrow(context):
+        reserved += STACKED_FILTERS_UNITS
+    return rows_that_fit(context, reserved, kind=kind)
+
+
+def list_row(layout):
+    """One row of a monitoring list: a column to draw it in, the line
+    under it already there -- every list's rows one height."""
+    row = layout.column()
+    layout.separator(factor=0.5, type="LINE")
+    return row
+
+
 def monitor_filters(context, layout, title: str = "Filters", icon: str = "FILTER"):
     """A monitoring window's filters, the same in each: one boxed row, its
     title a sixth -- stacked rows in a list narrowed beside a detail.
