@@ -1153,7 +1153,8 @@ def draw_monitor_table(self, context, layout, columns, project_root):
     )
 
     draw_box_tip(layout, context, _TABLE_TIP)
-    f_list = layout
+    # A column, as Farm monitoring's list: the same rows, one height.
+    f_list = layout.column()
     title_list = f_list.split(factor=FIRST_COLUMN) if FIRST_COLUMN < 1 else f_list.row()
     title_list.active = False
     title_list.label(text="File", icon="RADIOBUT_ON")

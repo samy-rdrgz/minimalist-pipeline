@@ -4721,7 +4721,12 @@ started and Done reworked shared one icon.
   half the width, its legend cut, its buttons moved. The lists' rows too:
   `list_row()` (a column, the line under it) and `list_rows()` (how many:
   `LIST_RESERVED_UNITS`, the tip's, the stacked filters') -- Project and
-  Farm monitoring the same rows, the same count.
+  Farm monitoring the same rows, the same count -- both drawn in a column
+  of the panel (Project monitoring's was the panel's own layout, its rows
+  taller on screen than Farm's in a column).
+- Project settings: a "?" by a field (`_HELP`, `_settings_row(help=)`)
+  opens how to fill it, with examples (departments and their stages,
+  roles and levels, the team, naming, dates day first).
 - The log's message cut to what the line has left (`_fit()`, from
   `region_char_budget()` less the three columns): longer, Blender
   squeezed the fixed columns before it.

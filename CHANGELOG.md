@@ -10,6 +10,8 @@ All notable changes to this addon. Dates are release dates.
   (Preferences, the welcome window); a file's departments assigned to
   its people (File details, the team's button by a department); *Me*
   among Project monitoring's filters, the files assigned to you.
+- Project settings: a ? by a field shows how to fill it, with examples
+  (departments and stages, validation roles, the team, naming, dates).
 - Project monitoring: an open retake is a red post-it under its
   department's mark, one icon, a click lists its retakes (a mark beside
   it cut the words); a note written under a validation role has its tick

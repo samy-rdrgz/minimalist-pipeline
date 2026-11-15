@@ -440,12 +440,58 @@ def _example(box, text: str) -> None:
     col.label(text=text, icon="BLANK1")
 
 
-def _settings_row(box, label: str, icon: str):
-    """One Project settings line: a split, its label on the first third,
-    then each item added shares the rest equally -- a row would size them
-    by their content, and the columns would drift from line to line."""
+# A field's "?" in Project settings: (title, how to fill it, with examples).
+_HELP = {
+    "project_folders": ("Folders", "Made at the project's root, a comma between them:\n"
+                        "    config, refs, assets, library, shots, renders, exports"),
+    "asset_prefixes": ("Asset prefixes", "An asset's kind, its name's start, a comma between them:\n"
+                       "    ch, pr, env, fx\n-> ch_bob, pr_lamp, env_forest"),
+    "library_prefixes": ("Library prefixes", "The library's kinds, as the assets':\n"
+                         "    mat, gn, tech\n-> mat_wood, gn_scatter"),
+    "tags": ("Version tags", "Words a version may carry after its number:\n"
+             "    stable, approved\n-> sq010_sh010_v003-stable.blend"),
+    "assets_departments": ("Departments", "In their order, a comma between them:\n"
+                           "    modeling, texturing, rigging\n"
+                           "Stages: > between them -- after a >, it waits for the ones\n"
+                           "before it, and is to redo when they change:\n"
+                           "    modeling > texturing, rigging\n"
+                           "A render preset named after one (rigging_hd) is its renders'."),
+    "shots_departments": ("Departments", "In their order, a comma between them:\n"
+                          "    layout, animation, lighting, render\n"
+                          "Stages: > between them -- after a >, it waits for the ones\n"
+                          "before it, and is to redo when they change:\n"
+                          "    layout > animation > fx, lighting > render\n"
+                          "A render preset named after one (animation_hd) is its renders'."),
+    "validation_roles": ("Validation roles", "role:level, a comma between them -- a higher level\n"
+                         "covers the lower ones, the same level is equivalent:\n"
+                         "    sup:1, prod:2\n    sup:1, prod:2, real:2"),
+    "team": ("Team", "Names, a comma between them:\n    léa, tom, sam\n"
+             "Each picks theirs as user name (Preferences); departments\n"
+             "are assigned to them (File details)."),
+    "sequence_prefix": ("Naming", "Each part a prefix, then its number on so many digits:\n"
+                        "    sq + 3 -> sq010    sh + 3 -> sh040    v + 3 -> v003\n"
+                        "-> sq010_sh040_v003.blend; a frame: . + 4 -> name.1001.png"),
+    "shot_prefix": ("Naming", "A shot's prefix and digits: sh + 3 -> sh040.\n"
+                    "A block of shots joins them with -: sq010_sh010-020-030."),
+    "schedule_start": ("Schedule", "First and last day, day first:\n    05/01/2026    30/06/2026\n"
+                       "Both empty: no schedule."),
+    "schedule_days_off": ("Days off", "Public holidays and days off, day first, a comma\n"
+                          "between them:\n    25/12/2026, 01/01/2027"),
+}
+
+
+def _settings_row(box, label: str, icon: str, help: str = ""):
+    """One Project settings line: a split, its label on the first third
+    (with its "?", _HELP[help], when it has one), then each item added
+    shares the rest equally -- a row would size them by their content, and
+    the columns would drift from line to line."""
     split = box.split(factor=0.33, align=True)
-    split.label(text=label, icon=icon)
+    head = split.row(align=True)
+    head.label(text=label, icon=icon)
+    if help in _HELP:
+        title, text = _HELP[help]
+        op = head.operator("m_pipeline.text_popup", text="", icon="QUESTION", emboss=False)
+        op.icon, op.title, op.message = "QUESTION", title, text
     return split
 
 
@@ -614,7 +660,8 @@ class ProjectSettings:
         """_settings_row()s: (label, icon, *cells) -- a cell a property of
         this, (text,) a label, "" an empty one keeping the columns."""
         for label, icon, *cells in rows:
-            row = _settings_row(box, label, icon)
+            first = next((c for c in cells if isinstance(c, str) and c), "")
+            row = _settings_row(box, label, icon, first)
             for cell in cells:
                 if isinstance(cell, tuple) or cell == "":
                     row.label(text=cell[0] if cell else "")
