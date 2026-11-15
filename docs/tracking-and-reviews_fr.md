@@ -43,12 +43,12 @@ Un bloc multishot peut taguer une note/todo avec le shot du bloc concerné — v
 
 - **Waiting** : une étape précédente a un RTK ouvert, ou n'est pas commencée -- *Waiting: layout RTK*, *Waiting: layout not started*. Affiché à la place de l'état du département dans Project monitoring ; son état propre reste dans l'infobulle.
 - **To redo** (à reprendre) : un département déjà commencé dont une étape précédente a changé après sa dernière mise à jour -- un RTK de cette étape fermé, ou un stable fait avec elle retravaillée -- *To redo: layout changed on 12/11*. Sa dernière mise à jour : un enregistrement dans une session où il était coché comme travaillé, ou **Still done**.
-- **Où** : les cellules de Project monitoring (une légende dans son pied de page dès que le projet a des étapes), les départements de File details, les boutons *Working on* du panneau latéral.
+- **Où** : les cellules de Project monitoring (une légende dans son pied de page dès que le projet a des étapes), les départements de File details, les boutons *Working on* du panneau latéral. Sur la page du snapshot, une petite marque sur le losange, son état entier dessous : une horloge en haut à droite (Waiting), un point orange en haut à gauche (To redo) ; la raison sous le nom du département dans le panneau du fichier.
 - **Still done** (File details, ou le ✓ à côté d'un bouton du panneau latéral, sur un département à reprendre, ouvert à tous) : le travail fait tient toujours après le changement -- noté avec qui et quand, et un pourquoi facultatif ; ce n'est pas une validation.
 
 ## On hold et Cancelled
 
-**Écarter un fichier** sans l'archiver (File details, le bouton pause) : *On hold* (en pause, en attente d'une décision) ou *Cancelled* (coupé au montage, abandonné), avec un pourquoi. Il reste dans toutes les listes, grisé avec sa marque, et sort des parts faites (les chiffres du snapshot, le rythme du planning), des filtres Retakes et To validate, et des étapes (ni Waiting ni To redo). Le même bouton le remet *Active*. La marque d'un bloc vaut pour tous ses shots.
+**Écarter un fichier** sans l'archiver (File details, le bouton pause) : *On hold* (en pause, en attente d'une décision) ou *Cancelled* (coupé au montage, abandonné), avec un pourquoi. Il reste dans les listes de Blender, grisé avec sa marque (sur la page du snapshot : masqué, une ligne en bas de sa séquence le montre), et sort des parts faites (les chiffres du snapshot, le rythme du planning), des filtres Retakes et To validate, et des étapes (ni Waiting ni To redo). Le même bouton le remet *Active*. La marque d'un bloc vaut pour tous ses shots.
 
 ## Fini, puis validé : les rôles de validation
 
@@ -149,7 +149,7 @@ la prod -- sur la version qu'il a vue.
   l'import ; sans département : le ✕ you du fichier) et est importée en
   RTK sur lui ; la RTK à laquelle elle répond reste ouverte (*✓ Fixed*
   dit qu'elle est faite).
-  Pour la relire : *Your review*, parmi les filtres (ou *See them* dans *Send your review*), ne montre que les fichiers que la review a touchés.
+  Pour la relire : *Your review*, parmi les filtres (ou *Show the changes* dans *Send your review*), ne montre que les fichiers que la review a touchés.
   *Send…* ouvre *Send your review* : votre
   nom, votre rôle (obligatoire dès qu'elle contient un retake ou une
   validation) et la date de review ; puis fichier par fichier ce qu'elle

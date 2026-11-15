@@ -11,7 +11,7 @@ the main action neutral. See NOTES.md, "Snapshot page v3". */
 --rtk:#AB3C48;--rtk-f:#AB3C48;--rtk-t:#991616;--rtk-bg:rgba(171,60,72,.1);--team:#AB3C48;--team-bg:rgba(171,60,72,.1);
 --valid:#7A3F7A;--val-f:#8C548C;--val-bar:#8C548C;--sup:#E3CCE3;--valid-bg:rgba(140,84,140,.12);--on-fill:#FFFFFF;
 --play:#4772B3;--range:#4772B3;--mine:#18181B;--inv:#FFFFFF;--mine-tint:rgba(0,0,0,.05);--glow:#E2E7F0;
---bar-bg:#FFFFFF;--bar-ink:#18181B;--bar-field:#ECECEE;--field:#FFFFFF;--outline:#C9C9CC;--emboss:rgba(0,0,0,.12);--emb-y:1px;
+--bar-bg:#FFFFFF;--bar-ink:#18181B;--bar-field:#ECECEE;--field:#EEEEF0;--outline:#C9C9CC;--emboss:rgba(0,0,0,.12);--emb-y:1px;
 --sh-card:0 1px 2px rgba(0,0,0,.08);--sh-pop:0 24px 70px rgba(0,0,0,.18);
 --r-sm:3px;--r-btn:5px;--r-md:6px;--r-lg:8px;
 --sel:#4772B3;
@@ -196,7 +196,15 @@ h2{font:700 19px/1.25 var(--ui);margin:0}
 /* ---------- toolbar ---------- */
 .bar{position:sticky;top:calc(var(--sat) + var(--hdr-h,56px));z-index:20;margin:0 -20px;padding:10px 20px;border-bottom:1px solid transparent;transition:border-color .2s}
 .hdr.stuck~.sec .bar{border-bottom-color:var(--line)}
-.bar-in{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+/* One line at every width, scrolled sideways, faded where filters are
+hidden (page.js barFade()); its scrollbar unseen. */
+.bar-in{display:flex;flex-wrap:nowrap;align-items:center;gap:8px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;padding-block:2px;
+scroll-snap-type:x proximity;overscroll-behavior-x:contain}
+.bar-in::-webkit-scrollbar{display:none}
+.bar-in>*>*,.bar-in .chips>*{scroll-snap-align:start}
+.bar-in.more{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 48px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 48px),transparent)}
+.bar-in.scrolled.more{-webkit-mask-image:linear-gradient(90deg,transparent,#000 48px,#000 calc(100% - 48px),transparent);mask-image:linear-gradient(90deg,transparent,#000 48px,#000 calc(100% - 48px),transparent)}
+.bar-in.scrolled:not(.more){-webkit-mask-image:linear-gradient(90deg,transparent,#000 48px);mask-image:linear-gradient(90deg,transparent,#000 48px)}
 .bscroll{display:contents}
 .seg{display:inline-flex;align-items:center;gap:2px;flex:none;height:calc(var(--tap) + 2px);padding:0 3px;border-radius:calc(var(--r-btn) + 2px);background:var(--field)}
 .seg button{min-height:calc(var(--tap) - 6px);padding:0 12px;border:0;border-radius:var(--r-btn);background:none;font-weight:600;font-size:13px;color:var(--ink-2)}
@@ -259,8 +267,6 @@ label. The header compact: the name and Review, the figures under. */
 .bar{margin:0 -16px;padding:8px 16px}
 .bar-in{gap:6px}
 .seg button{padding:0 9px}
-.chips{display:flex;gap:6px;flex-basis:100%;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:0 -16px;padding:0 16px}
-.chips::-webkit-scrollbar{display:none}
 .chips .chipf{padding:0 10px;flex:none}.chips .chipf .cl{display:none}
 .chips .chipf[hidden]{display:none}
 .hdr{margin:0 -16px;padding:8px 16px}
@@ -277,13 +283,17 @@ neighbours. The legend's and the panel's .m, the same diamond, smaller. */
 .cell{position:relative;display:block;width:24px;height:24px;margin:0 auto}
 /* Only the words are clipped: a capsule clipped whole (rounded, 24 px)
 cut its diamond's corners in some browsers. */
-.cap{position:absolute;left:0;top:0;z-index:2;display:inline-flex;align-items:center;height:24px;padding:0 1px;border-radius:var(--r-btn);
+.cap{position:absolute;left:0;top:0;z-index:2;display:inline-flex;align-items:center;min-height:24px;padding:0 1px;border-radius:var(--r-btn);
 border:1px solid transparent;white-space:nowrap;transition:padding .28s,box-shadow .2s,background .2s}
 .cap .g,.m{position:relative;z-index:1;flex:none;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;line-height:1}
 .cap .g::before,.m::before{content:"";position:absolute;left:4px;top:4px;width:14px;height:14px;border-radius:3px;transform:rotate(45deg);z-index:-1;box-sizing:border-box}
 .cap .lab{display:block;max-width:0;overflow:hidden;opacity:0;margin-left:2px;color:var(--ink);font:700 10px/1 var(--mono);letter-spacing:.03em;
 transition:max-width .28s cubic-bezier(.2,.8,.2,1),opacity .18s .06s}
-.cell:hover .lab,.cell:focus-within .lab,.cell.peek .lab{max-width:240px}
+.cell:hover .lab,.cell:focus-within .lab,.cell.peek .lab{max-width:360px}
+/* Its flags' line under the state's, shown with it. */
+.cap .l2{display:none;margin-top:3px;line-height:13px;font-weight:500;letter-spacing:0;color:var(--ink-2)}
+.cell:hover .l2,.cell:focus-within .l2,.cell.peek .l2{display:block}
+.cell:hover .cap,.cell:focus-within .cap,.cell.peek .cap{padding-block:3px}
 .cell:hover .cap,.cell:focus-within .cap,.cell.peek .cap{padding-right:10px;background:var(--sunk);border-color:var(--line);box-shadow:0 6px 16px rgba(0,0,0,.35);z-index:5}
 .cell:hover .lab,.cell:focus-within .lab,.cell.peek .lab{opacity:1}
 /* No room on the right (the panel, the window's edge): open to the left,
@@ -305,31 +315,40 @@ mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='
 .s-done::before{background:var(--done)}
 .s-sup{color:#3D2340}.s-sup::before{background:var(--sup)}
 .s-prod{color:#fff}.s-prod::before{background:var(--val-f)}
-/* Waiting on an earlier stage, to redo: Project monitoring's clock and eye
-in the diamond, the colour of the state under them (--sc, page.js). */
-.g.s-wait::before,.m.s-wait::before,.g.s-redo::before,.m.s-redo::before{left:0;top:0;width:22px;height:22px;border-radius:0;transform:none;background:var(--sc,var(--ring))}
-.g.s-wait::before,.m.s-wait::before{-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-11 -11 22 22'%3E%3Cg transform='rotate(45)'%3E%3Crect x='-6.25' y='-6.25' width='12.5' height='12.5' rx='2.25' fill='none' stroke='black' stroke-width='1.5'/%3E%3C/g%3E%3Cpath d='M0 .4V-4.2M0 .4H3.4' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E") center/22px 22px no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-11 -11 22 22'%3E%3Cg transform='rotate(45)'%3E%3Crect x='-6.25' y='-6.25' width='12.5' height='12.5' rx='2.25' fill='none' stroke='black' stroke-width='1.5'/%3E%3C/g%3E%3Cpath d='M0 .4V-4.2M0 .4H3.4' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E") center/22px 22px no-repeat}
-.g.s-redo::before,.m.s-redo::before{-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-11 -11 22 22'%3E%3Cg transform='rotate(45)'%3E%3Crect x='-6.25' y='-6.25' width='12.5' height='12.5' rx='2.25' fill='none' stroke='black' stroke-width='1.5'/%3E%3C/g%3E%3Ccircle r='2.4' fill='black'/%3E%3C/svg%3E") center/22px 22px no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='-11 -11 22 22'%3E%3Cg transform='rotate(45)'%3E%3Crect x='-6.25' y='-6.25' width='12.5' height='12.5' rx='2.25' fill='none' stroke='black' stroke-width='1.5'/%3E%3C/g%3E%3Ccircle r='2.4' fill='black'/%3E%3C/svg%3E") center/22px 22px no-repeat}
-.m.s-redo{--sc:var(--wip)}
+/* Waiting on an earlier stage, to redo: a mark on the diamond, its state
+whole under it -- a clock top right, an orange dot top left. Validated on
+an older stable: a dashed violet ring round it. */
+.mk{position:absolute;top:-3px;z-index:2;width:11px;height:11px;border-radius:50%;box-sizing:border-box;pointer-events:none}
+.mk-wait{right:-3px;display:flex;align-items:center;justify-content:center;background:var(--surface);border:1.5px solid var(--ink-3);color:var(--ink-2)}
+.mk-wait .ico{width:7px;height:7px}
+.mk-redo{left:0;width:9px;height:9px;top:0;background:var(--wip);box-shadow:0 0 0 2px var(--surface)}
+.mk-old{position:absolute;left:1.5px;top:1.5px;width:19px;height:19px;border:1.5px dashed var(--val-f);border-radius:4px;transform:rotate(45deg);box-sizing:border-box;pointer-events:none}
 .m.na::before{display:none}
 /* An open retake: a post-it under the diamond's left, straight, on one
 line -- red from a validation role, outlined from the team; their number
 in it. Your review's say: the same shape, neutral, on the right. */
 /* Both the same box (a border, coloured or not): side by side, one size. */
-.pi,.you{position:absolute;bottom:-15px;left:50%;transform:translateX(-50%);z-index:4;padding:1px 4px 0;border:1px solid transparent;border-radius:3px;font:800 8px/10px var(--mono);letter-spacing:.04em;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.35);pointer-events:none}
+.pi,.you{position:absolute;bottom:-15px;left:50%;transform:translateX(-50%);z-index:4;box-sizing:border-box;height:14px;padding:0 4px;border:1px solid transparent;border-radius:3px;font:800 9px/12px var(--mono);letter-spacing:.04em;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.35);pointer-events:none}
 .pi-role{background:var(--rtk-f);border-color:var(--rtk-f);color:#fff}
 /* The team's: a light red ground, not white. */
 .pi-team{background:#F4C5CA;color:var(--rtk-t)}
+.pi-gen{letter-spacing:0}
 /* Yours above the diamond, out of the retake's way. */
 /* Both on the diamond's axis, clear of it: the retake under, yours above. */
-.you{top:-14px;bottom:auto;background:var(--mine);border-color:var(--mine);color:var(--inv)}
+.you{top:-14px;bottom:auto;background:var(--val-f);border-color:var(--val-f);color:#fff}
 .you.n{background:var(--rtk-f);border-color:var(--rtk-f);color:#fff}
 /* Only a remark: outlined, nothing sent back. */
 .you.nt{background:var(--surface);border-color:var(--line2);color:var(--ink)}
+/* Still done: its work holds -- green, outlined, not a validation. */
+.you.sd{background:var(--surface);border-color:var(--done);color:var(--done)}
 /* In a line of text (legend, panel, export): in place, not pinned. */
 .inl .pi,.inl .you,.help .pi,.help .you{position:static;display:inline-block;vertical-align:1px;transform:none}
 .ok{font-size:11px;font-weight:600;color:var(--valid);line-height:14px;white-space:nowrap}
-.ok.old{color:var(--ink-3);font-weight:400;text-decoration:line-through}
+.ok.old{color:var(--ink-3);font-weight:400}
+/* A stage's flags, said under the department's name. */
+.cell.req-rm .cap{opacity:.35}
+.cell.req-add .g::before{border-style:dashed}
+.dep .fw{flex-basis:100%;font-size:12px;color:var(--ink-3)}
 
 /* ---------- list ---------- */
 .group{margin-top:10px;background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--sh-card)}
@@ -362,7 +381,8 @@ in it. Your review's say: the same shape, neutral, on the right. */
 the review's violet, its edge kept when selected too. */
 .row.rv-mine{background:var(--valid-bg);box-shadow:inset 3px 0 0 var(--val-f)}
 /* Set aside (On hold, Cancelled): listed, faded, out of the figures. */
-.row.omit>*{opacity:.5}.row.cancelled>*{opacity:.28}
+.row.omit .frame{background-image:repeating-linear-gradient(135deg,transparent 0 6px,color-mix(in srgb,var(--ink) 9%,transparent) 6px 12px)}
+.row.omit .frame img{opacity:.85}
 .row.rv-mine:hover{background:color-mix(in srgb,var(--valid-bg) 70%,var(--accent-bg))}
 /* Every file of the group reviewed: its header too. */
 .group.rv-all>.g-h{background:var(--valid-bg);box-shadow:inset 3px 0 0 var(--val-f);border-radius:var(--r-lg) var(--r-lg) 0 0}
@@ -377,7 +397,7 @@ the review's violet, its edge kept when selected too. */
 .nm-main{font-weight:600}
 .r-name{font-family:var(--mono);font-size:13px}
 .r-name small{font-family:var(--ui)}
-.r-name small{display:block;font-size:12px;color:var(--ink-3)}
+.r-name small{display:block;font-size:12px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .r-name small .nn{color:var(--ink);font-weight:600}
 .r-name small .nn.todo{color:var(--ink)}
 .r-name small .sep{font-style:normal}
@@ -839,10 +859,17 @@ range a blue bar above -- a click goes there. */
 .tt.done{background:none;color:var(--ink-3);box-shadow:inset 0 0 0 1px var(--line2)}
 .ft-b{padding:1px 6px;border:0;border-radius:4px;background:var(--btn);color:var(--ink);font:700 11px/16px var(--mono);cursor:pointer}
 .ft-b.rg{background:var(--range);color:#0E1A33}
-.th-a{display:flex;gap:6px;margin-top:6px}
+.thr{display:grid;gap:10px}
+.av.none{visibility:hidden}
+/* A thread's actions: once, under its last reply, on hover or focus --
+always on a touch screen, as icons (page.js noteHtml()). */
+.th-a{display:flex;gap:6px;margin:-4px 0 0 36px}
+.th-a>button{opacity:0;transition:opacity .15s}
+.thr:hover .th-a>button,.thr:focus-within .th-a>button,.th-a>button[aria-pressed="true"]{opacity:1}
+@media (hover:none){.thr .th-a>button{opacity:1;width:32px;min-width:32px;height:32px;padding:0}.th-a .lbl{display:none}}
 .th-a button{width:auto;height:auto;min-height:28px;padding:0 10px;border:1px solid var(--line);border-radius:var(--r-btn);background:none;color:var(--ink-2);font-size:12px;white-space:nowrap}
 @media (pointer:coarse){.th-a button{min-height:36px}}
-.th-a .fx[aria-pressed="true"]{background:var(--ink);color:var(--inv);border-color:var(--ink)}
+.th-a .fx[aria-pressed="true"]{background:var(--val-f);color:#fff;border-color:var(--val-f)}
 .more-notes{justify-self:start;border:0;background:none;padding:2px 0;color:var(--ink-3);font-size:12px;cursor:pointer}
 .more-notes:hover{color:var(--ink)}
 /* Your retake: under its department, bordered in your colour. */
@@ -909,7 +936,19 @@ body:not(.reviewing) .rv-only{display:none}
 .segb button+button{border-left:1px solid var(--bg)}
 .segb button:first-child{border-radius:var(--r-btn) 0 0 var(--r-btn)}.segb button:last-child{border-radius:0 var(--r-btn) var(--r-btn) 0}
 .segb button[aria-pressed="true"]{background:var(--sel);color:#fff}
+/* Its outline round the whole group: rounded with it, its buttons inside square. */
+.segb{border-radius:var(--r-btn);overflow:hidden}.segb button,.segb button:first-child,.segb button:last-child{border-radius:0}
+/* Set aside: the size of the departments' buttons above it. */
+.segb.om button{min-height:30px;font-size:12px}
 .st-w{margin:6px 0 0;font-size:12px;color:var(--ink-2)}
+.st-hint{margin:2px 0 0;font-size:12px;color:var(--ink-3)}
+/* A date field: the page's button, the system's picker behind it. */
+.datef{position:relative;display:block}
+.datef .dbtn{width:100%;justify-content:flex-start;background:var(--field);font-weight:400;font-size:14px;font-variant-numeric:tabular-nums}
+.dlg .st-l{text-align:left;align-self:start}
+.datef input{position:absolute;left:0;bottom:0;width:100%;height:100%;opacity:0;pointer-events:none}
+.datef input.shown{position:static;opacity:1;pointer-events:auto}
+.segb.need{outline:2px solid var(--rtk);outline-offset:2px}
 .st-go{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .st-go button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:8px 12px;border:1px solid transparent;border-radius:var(--r-btn);background:var(--btn);color:var(--ink);text-align:left;font-size:13px}
 .st-go small{color:var(--ink-2);font-size:11px}
@@ -950,10 +989,12 @@ html,.p-body,.wl-side,.recap,.menu-pop,.pick-pop,.strip{scrollbar-color:var(--li
 
 /* ---------- new shots and assets, planned in the review ---------- */
 .g-new{min-height:24px;margin-left:10px;padding:0 8px;font-size:12px;font-weight:500;vertical-align:1px}
-.row.planned{grid-template-columns:104px minmax(0,1fr) auto;cursor:default;background:repeating-linear-gradient(135deg,transparent 0 8px,var(--accent-bg) 8px 16px)}
+.row.planned{cursor:default;background:repeating-linear-gradient(135deg,transparent 0 8px,var(--accent-bg) 8px 16px)}
+.row.planned .thumb.none .frame{background:none;border:1px dashed var(--outline);box-sizing:border-box}
 .row.planned .nm-main{font-family:var(--mono);font-style:italic}
 .unplan{width:30px;min-height:30px}
-@container (max-width:760px){.row.planned{grid-template-columns:52px minmax(0,1fr) auto}}
+.row.planned .d .cell{opacity:.45}
+.row.planned .unplan{justify-self:end}
 .dlg .row3 input,.dlg .row2 input{min-width:0;width:100%}
 
 /* "With your review": the figures the review would give, in its colour. */

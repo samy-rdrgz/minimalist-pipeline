@@ -43,12 +43,12 @@ Multishot blocks can tag a note/todo with which shot in the block it's about —
 
 - **Waiting**: an earlier stage has an open RTK, or isn't started -- *Waiting: layout RTK*, *Waiting: layout not started*. Shown instead of the department's state in Project monitoring; its own state stays in the tooltip.
 - **To redo**: a department already started whose earlier stage changed after its last update -- an RTK on that stage closed, or a stable made with it reworked -- *To redo: layout changed on 12/11*. Its last update: a save in a session where it was ticked as worked, or **Still done**.
-- **Where**: Project monitoring's cells (a legend in its footer once the project has stages), File details' departments, the sidebar's *Working on* toggles.
+- **Where**: Project monitoring's cells (a legend in its footer once the project has stages), File details' departments, the sidebar's *Working on* toggles. On the snapshot page, a small mark on the diamond, its state whole under it: a clock top right (Waiting), an orange dot top left (To redo); the reason under the department's name in the file's panel.
 - **Still done** (File details, or the ✓ beside a toggle in the sidebar, on a department to redo, open to everyone): the work done holds after the change -- recorded with who and when, and an optional why; not a validation.
 
 ## On hold and Cancelled
 
-**Set a file aside** without archiving it (File details, the pause button): *On hold* (paused, waiting for a decision) or *Cancelled* (cut at the edit, dropped), with a why. It stays in every list, greyed with its mark, and leaves the shares done (the snapshot's figures, the schedule's pace), the Retakes and To validate filters, and the stages (no Waiting, no To redo). The same button makes it *Active* again. A block's mark covers all its shots.
+**Set a file aside** without archiving it (File details, the pause button): *On hold* (paused, waiting for a decision) or *Cancelled* (cut at the edit, dropped), with a why. It stays in Blender's lists, greyed with its mark (on the snapshot page: hidden, a line at the end of its sequence shows it), and leaves the shares done (the snapshot's figures, the schedule's pace), the Retakes and To validate filters, and the stages (no Waiting, no To redo). The same button makes it *Active* again. A block's mark covers all its shots.
 
 ## Done, then validated: validation roles
 
@@ -138,7 +138,7 @@ it saw.
   back as ✕ would (✕ you, its validation withdrawn at import; no
   department: the whole file's ✕ you) and is imported as an RTK on it;
   the RTK answered stays open (*✓ Fixed* says it's done).
-  To go over it: *Your review*, among the filters (or *See them* in *Send your review*),
+  To go over it: *Your review*, among the filters (or *Show the changes* in *Send your review*),
   shows only the files the review touched.
   Keys: ← → (files), Esc (close), V (all done), X (general retake), Esc
   or Ctrl+Enter in a box (leave it). *Send…* opens *Send your review*: your

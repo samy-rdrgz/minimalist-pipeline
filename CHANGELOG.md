@@ -11,7 +11,7 @@ All notable changes to this addon. Dates are release dates.
   (Done and Validated per section, *Go to a file…* with /, *Review*);
   *Breakdown*, a tab after the sections, the progress details; keyframe diamonds
   for the states, their words in a capsule on hover; retakes as post-its
-  (`2 RTK`); Waiting and To redo diamonds (a clock, an eye); render tags under the name; files set aside faded.
+  (`2 RTK`); render tags under the name.
 - Snapshot page, step 2: the player in the file's panel, its timeline
   carrying the notes at their frames (a click goes there), frame by
   frame; *Watch large*: the video the whole window, the departments
@@ -29,6 +29,14 @@ All notable changes to this addon. Dates are release dates.
   per department under its initials), the header and filters compact,
   the file the whole screen with Previous / Next at the bottom, a first
   tap on a diamond for its words.
+- Snapshot page, corrections: Waiting and To redo a mark on the diamond
+  (a clock, an orange dot), its state whole; your review's tags in the
+  action's colour (✓ violet, ✕ red), + / − a department required or not
+  any more, Still done in the list; a thread's Reply / Fixed on hover;
+  the filters on one line that scrolls; On hold, Cancelled and untracked
+  files hidden until shown, a line per sequence; dates relative, else
+  day/month/year; the send window's role as buttons; a planned file's
+  departments shown.
 - Coloured marks for a department's state in Project monitoring (the
   snapshot page's), Waiting and To redo, and the notes' role and team
   marks -- in place of Blender's grey icons and its collection colours.

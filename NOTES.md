@@ -4811,6 +4811,38 @@ review, the phone and the iPad. What holds across them:
   a filter redraws the list, it shouldn't replay); dialogs and menus pop,
   another file's panel fades in (`.swap`), Watch large fades, a ✓ / ✕
   pressed in.
+- **v3.1, the corrections after a first export** (`snapshot-ui-v3.1-corrections.md`, the user's):
+  - Waiting and To redo were drawn *in place of* the diamond (an outline
+    with a clock or a dot): a done department read as not started, a
+    validated one never turned violet. Now a mark *on* it (`marks()`: a
+    clock top right, an orange dot top left, outside the diamond's
+    corner -- on it, it ate the corner), the state whole; the capsule in
+    two short lines (`capWords()` returns [state, flags]); the panel says
+    the flags under the department's name (`.fw`). Validated on an older
+    stable: a dashed violet ring (`.mk-old`), not a struck ✓ sup.
+  - Your review's tags in the action's colour: ✓ YOU violet, ✕ red, ✎ / ↩
+    outlined; + YOU / − YOU a department required or not any more (the
+    column shows up for an added one, `peek(it).req`), a green ✓ YOU
+    *Still done* (its to redo mark gone). In the panel, one tag, by the
+    state (`cell(it, d, noYou)`).
+  - A thread's Reply / Fixed once, under its last reply (`.thr`), on hover
+    or focus -- always, as icons, on a touch screen. A note's .blend only
+    when not the file's current version ("on v004"); no author, no pill.
+  - The filters one line at every width, scrolled sideways, faded where
+    some are out of sight (`barFade()`; the wheel scrolls it).
+  - Set aside and untracked files out of the list until shown
+    (`hiddenFile()`): a line at each group's end says how many and why;
+    shown or not is kept in the browser (`mp-snapshot:hidden`). Shown,
+    in full contrast, a striped picture.
+  - Dates: relative within a week, else dd/mm/yyyy (`fmtDate()`, the whole
+    date in the tooltip); a date field is a button over the system's
+    picker (`dateField()`: its own text came out in the US order). The
+    send window's role as buttons, like the start's; the last role used
+    picked first (`mp-snapshot:role`, else `meta.role`).
+  - A planned file's departments, faint, in their columns. The segmented
+    groups (`.segb`) rounded with their outline: square, their corners
+    showed. Light fields a light grey (`--field`): white on the white
+    window, the name field was invisible.
 
 ## Live figures: the engine's twin
 
