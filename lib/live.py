@@ -478,6 +478,56 @@ def _open(raw: dict) -> dict:
     return {"ok": True, "opened": filepath.name}
 
 
+FINISHED_SHOWN = 20  # the farm's finished jobs listed, newest first
+
+
+def _farm_data(root: Path) -> dict:
+    """The Farm tab's: {"status", "jobs": [{"id", "file", "key" (its
+    folder under the project: the page's link to it), "shot", "state",
+    "text", "done", "total", "left", "machines", "user", "at"}], "workers":
+    [{"name", "status", "file"}]}, from the monitor cache. Memory only."""
+    from ..farm.loop import _STAGE_WORDS, entry_state
+    from ..farm.monitor import get_monitor_cache
+
+    cache = get_monitor_cache()
+    jobs, finished = [], []
+    for j in cache.get("jobs") or []:
+        stage = j.get("stage") or ""
+        path = Path(j.get("filepath") or "")
+        if path.is_absolute():
+            try:
+                path = path.relative_to(root)
+            except ValueError:
+                pass
+        state = entry_state(j)
+        row = {
+            "id": j.get("job_id") or "",
+            "file": path.stem if path.suffix == ".blend" else str(path),
+            "key": path.parent.as_posix() if path.suffix == ".blend" else "",
+            "shot": j.get("shot_override") or "",
+            "state": state,
+            "text": "waiting for a worker" if j.get("no_machine") else _STAGE_WORDS.get(stage, stage.replace("_", " ")),
+            "done": j.get("frames_done") or 0,
+            "total": j.get("frames_total") or 0,
+            "left": j.get("time_left"),
+            "machines": len(j.get("machines") or []),
+            "user": j.get("user") or "",
+            "at": j.get("submitted_at") or "",
+        }
+        (finished if state == "finished" else jobs).append(row)
+    finished.sort(key=lambda r: r["at"], reverse=True)
+    workers = [
+        {
+            "name": f"{w.get('user')} ({w.get('machine') or uuid[:8]})" if w.get("user") else w.get("machine") or uuid[:8],
+            "status": w.get("status") or "",
+            "file": Path(w.get("current_file") or "").stem,
+        }
+        for uuid, w in sorted((cache.get("workers") or {}).items(), key=lambda kv: str(kv[1].get("user") or ""))
+        if isinstance(w, dict)
+    ]
+    return {"status": cache.get("status") or "unknown", "jobs": jobs + finished[:FINISHED_SHOWN], "workers": workers}
+
+
 def _rebuild(sh: _Shared, force: bool) -> None:
     """The page's data from the last pass and the farm's jobs (memory
     only): a new version when it differs."""
@@ -488,9 +538,10 @@ def _rebuild(sh: _Shared, force: bool) -> None:
     if not _reader["ready"]:
         return  # nothing read yet: no empty page
     farm = farm_activity()
-    if not force and farm == _reader["farm"]:
+    jobs = _farm_data(sh.root)
+    if not force and (farm, jobs) == _reader["farm"]:
         return
-    _reader["farm"] = farm
+    _reader["farm"] = (farm, jobs)
     config = ConfigCache.get() or {}
     meta = {
         "project": config.get("project_name") or sh.root.name,
@@ -503,6 +554,8 @@ def _rebuild(sh: _Shared, force: bool) -> None:
         "videos": {"mode": "live", "base": None, "files": [], "local": f"media/{sh.token}/renders"},
     }
     data = page_data(build_snapshot(_as_data(_reader["cache"], _reader.get("extras")), config, meta, farm=farm))
+    # Its Farm tab: the farm as Farm monitoring shows it.
+    data["farm"] = jobs
     # Compared without its date: a pass finding nothing new is no news.
     compare = json.dumps({**data, "meta": {**data["meta"], "snapshot": ""}}, ensure_ascii=False, separators=(",", ":"))
     if compare == _reader["compare"]:

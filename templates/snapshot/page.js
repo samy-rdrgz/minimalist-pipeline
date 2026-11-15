@@ -44,7 +44,9 @@ it.todos={};it.dnotes={};open.forEach(function(n){if(n.type==='todo'&&n.done===f
 else if(n.type==='note'&&!n.approval)n.deps.forEach(function(d){it.dnotes[d]=(it.dnotes[d]||0)+1;});});
 it.openNotes=open.filter(function(n){return !(n.type==='rtk'&&n.done===false)&&!n.approval;});});
 // The sections present, then Breakdown: the progress by group and department.
-tabs=TABS.filter(function(t){return D.some(function(it){return it.tab===t[0];});}).concat([['breakdown','Breakdown']]);}
+tabs=TABS.filter(function(t){return D.some(function(it){return it.tab===t[0];});}).concat([['breakdown','Breakdown']]);
+// Live: the farm too, as Farm monitoring shows it.
+if(DATA.farm)tabs.push(['farm','Farm']);}
 prepare();
 function depsOf(tab){return META.departments[tab==='shot'?'shot':'asset'];}
 function validNow(it,d){return it.ok[d]&&!it.ok[d].old;}
@@ -350,7 +352,7 @@ function avg(a){var n=a.filter(function(x){return x!=null;});return n.length?n.r
 function filtering(){return !!(state.q||state.dep||Object.keys(state.f).some(function(f){return state.f[f];}));}
 var visible=[];
 function drawTabs(){$('seg').innerHTML=tabs.map(function(t){return '<button type="button" data-tab="'+t[0]+'" aria-pressed="'+(t[0]===state.tab)+'">'+t[1]+
-(t[0]==='breakdown'?'':'<span>'+D.filter(function(it){return it.tab===t[0];}).length+'</span>')+'</button>';}).join('');
+(t[0]==='breakdown'?'':t[0]==='farm'?'<span>'+(DATA.farm.jobs||[]).filter(function(j){return j.state!=='finished';}).length+'</span>':'<span>'+D.filter(function(it){return it.tab===t[0];}).length+'</span>')+'</button>';}).join('');
 var deps=depsOf(state.tab).filter(function(d){return D.some(function(it){return it.tab===state.tab&&d in it.states;});});
 if(deps.indexOf(state.dep)<0)state.dep='';
 $('depf').innerHTML='<option value="" data-short="All depts.">All departments</option>'+deps.map(function(d){return '<option value="'+esc(d)+'"'+(d===state.dep?' selected':'')+'>'+esc(cap(d))+'</option>';}).join('');
@@ -381,8 +383,9 @@ var g=D[i].group,all=D.filter(function(it){return it.tab===state.tab&&it.group==
 if(gp)gp.outerHTML=gPct(g,all,avg(tr.map(function(x){return x.done;})),avg(tr.map(function(x){return x.valid;})));}chipCounts();countBar();}
 function render(){chipCounts();barFade();
 // Breakdown: the figures in place of the list, no filter to apply.
-document.body.classList.toggle('tab-bd',state.tab==='breakdown');
+document.body.classList.toggle('tab-bd',state.tab==='breakdown'||state.tab==='farm');
 if(state.tab==='breakdown'){visible=[];$('list').innerHTML='<div class="bd">'+stats()+'</div>';countBar();return;}
+if(state.tab==='farm'){visible=[];$('list').innerHTML=farmHtml();countBar();return;}
 var items=D.filter(function(it){return match(it);});
 var deps=depsOf(state.tab).filter(function(d){return items.some(function(it){return d in it.states||peek(it).req[d];});});
 // Many departments: narrower columns, never past the page.
@@ -1587,6 +1590,25 @@ summaryCards();drawTabs();render();barHeight();
 // when there is, else after 20 s. The new data replaces the page's -- the
 // file shown, its video playing and your review kept; not while a field
 // is being written in (once left). Disconnected: tried again every 2 s.
+/* ---------- live: the Farm tab ---------- */
+// Its jobs by state, as Farm monitoring's: a job's file opens its panel;
+// then the machines. Read only for now.
+var JOB_STATES=[['running','In progress','wip'],['waiting','Waiting','todo'],['failed','Failed','fail'],['finished','Finished','done']];
+function dur(s){if(s==null)return '';s=Math.round(s);return s<90?s+' s':s<5400?Math.round(s/60)+' min':(s/3600).toFixed(1)+' h';}
+function farmHtml(){var F=DATA.farm||{},jobs=F.jobs||[],h='<div class="farm">';
+h+='<div class="farm-st">'+ico('render')+'Farm host: <b>'+esc(F.status||'unknown')+'</b> · '+plural((F.workers||[]).length,'machine')+'</div>';
+JOB_STATES.forEach(function(st){var js=jobs.filter(function(j){return j.state===st[0];});if(!js.length)return;
+h+='<section class="fgrp"><h3>'+st[1]+' <span>'+js.length+'</span></h3>'+js.map(function(j){var it=j.key&&byKey[j.key],p=j.total?j.done/j.total:0;
+return '<div class="job"><i class="m '+(st[2]==='fail'?'s-fail':'s-'+st[2])+'"></i>'+
+(it?'<button type="button" class="lk jf" data-goto="'+it.i+'" title="Open its panel">'+esc(j.file)+'</button>':'<span class="jf">'+esc(j.file)+'</span>')+
+'<span class="js">'+esc([j.shot,j.text].filter(Boolean).join(' · '))+'</span>'+
+'<span class="jp">'+(j.total?'<span class="bar2"><i style="width:'+p*100+'%"></i></span><small>'+j.done+'/'+j.total+(j.left?' · '+dur(j.left)+' left':'')+'</small>':'')+'</span>'+
+'<span class="jm">'+[j.machines?plural(j.machines,'machine'):'',esc(j.user),fmtDate(j.at)].filter(Boolean).join(' · ')+'</span></div>';}).join('')+'</section>';});
+if(!jobs.length)h+='<p class="faint">No job in the farm.</p>';
+var W=F.workers||[];if(W.length)h+='<section class="fgrp"><h3>Machines <span>'+W.length+'</span></h3>'+W.map(function(w){
+return '<div class="job wk"><i class="m '+(w.status==='rendering'||w.file?'s-wip':w.status==='idle'?'s-done':'s-todo')+'"></i><span class="jf">'+esc(w.name)+'</span><span class="js">'+esc([w.status,w.file].filter(Boolean).join(' · '))+'</span></div>';}).join('')+'</section>';
+return h+'</div>';}
+$('list').addEventListener('click',function(e){var b=e.target.closest('.farm [data-goto]');if(b)jump(D[+b.dataset.goto]);});
 /* ---------- live: the panel's own sections ---------- */
 // To check: the renders the team hasn't watched -- ▶ in the player,
 // Checked takes one off (pushed to the edit if ticked); open by default.
@@ -1606,7 +1628,8 @@ return fold2('lnk-t',lnkOpen,'link','Linked files',[plural(links.length,'link'),
 (by.length?'<div class="st-l">Linked by</div>'+by.map(function(k){return '<div class="lnk">'+to(itemAt(k),k)+'</div>';}).join(''):''));}
 // Live: every version with a video, to watch instead of the main render.
 function versionsHtml(it){if(!it.live)return '';var V=it.live.versions||{};
-return it.renders.filter(function(r){return (V[r.shots||'']||[]).length>1||((V[r.shots||'']||[]).length&&V[r.shots||''][0].video!==r.video);}).map(function(r){var k=r.shots||'',o=(PICKV[it.file]||{})[k];
+var seen={};
+return it.renders.filter(function(r){var k=r.shots||'';if(seen[k])return false;seen[k]=1;return (V[k]||[]).length>1||((V[r.shots||'']||[]).length&&V[r.shots||''][0].video!==r.video);}).map(function(r){var k=r.shots||'',o=(PICKV[it.file]||{})[k];
 return '<label class="vsel">'+(k?'<span>'+esc(k)+'</span>':'')+'<select data-vline="'+esc(k)+'" aria-label="Version to watch"><option value="">Main · '+esc([r.folder,r.department].filter(Boolean).join(' · '))+'</option>'+
 V[k].map(function(v,n){return '<option value="'+n+'"'+(o&&o.video===v.video?' selected':'')+'>'+esc([v.folder,v.department,fmtDay(new Date(v.at*1000))].filter(Boolean).join(' · '))+'</option>';}).join('')+'</select></label>';}).join('');}
 function pickVersion(it,line,v){var p=PICKV[it.file]=PICKV[it.file]||{};if(v)p[line]=v;else delete p[line];

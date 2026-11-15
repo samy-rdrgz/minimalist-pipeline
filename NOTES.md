@@ -5147,3 +5147,9 @@ measures in the plan).
 - **Mark fixed closes the thread's open entries**, its first or a reply
   ("still to redo" is an RTK reply): offered on the first entry only, a
   thread answered by a retake had no Fixed at all (`openIds()`).
+- **The farm, a tab of the same page** (`_farm_data()`, `farmHtml()`),
+  not a page of its own on another port: one server, one token, one
+  connection, and a job's file is a link to its panel. The snapshot never
+  has it (`DATA.farm` is the live page's only). Its data from the monitor
+  cache (memory), compared each second with the farm's activity: a new
+  version when a job moves.

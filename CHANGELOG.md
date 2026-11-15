@@ -26,7 +26,8 @@ All notable changes to this addon. Dates are release dates.
   under Blender's user name and role. A file's panel there opens it in
   Blender, lists its renders to check (Checked, pushed to editing if
   ticked), its linked files and what links it, and every version of its
-  renders to watch.
+  renders to watch; a Farm tab, the farm's jobs and machines, a job's
+  file opening its panel.
 - Snapshot page: *Mark fixed* on a thread whose open retake is a reply
   (still to redo): it was offered on the first entry only.
 - Edit project: *Rename preset…* renames a render preset and everything

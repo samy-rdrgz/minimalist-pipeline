@@ -1097,3 +1097,17 @@ body.live #rv-send{display:none}
 .lnk .lf{font:12px var(--mono);color:var(--ink-3)}
 .vsel{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:var(--ink-3)}
 .vsel select{flex:1;min-width:0;min-height:32px;padding:0 8px;border:1px solid var(--outline);border-radius:var(--r-btn);background:var(--btn);color:var(--ink);font:12px var(--mono)}
+/* The Farm tab (live). */
+.farm{display:flex;flex-direction:column;gap:14px}
+.farm-st{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-2)}
+.farm-st .ico{width:14px;height:14px}
+.fgrp{background:var(--surface);border-radius:var(--r-lg);padding:6px 14px 10px;box-shadow:var(--sh-card)}
+.fgrp h3{margin:8px 0 6px;font-size:13px;font-weight:600}.fgrp h3 span{color:var(--ink-3);font-weight:400}
+.job{display:grid;grid-template-columns:20px minmax(140px,1.2fr) minmax(0,1fr) minmax(120px,1fr) auto;align-items:center;gap:12px;min-height:40px;border-top:1px solid var(--line)}
+.job:first-of-type{border-top:0}
+.job.wk{grid-template-columns:20px minmax(140px,1.2fr) minmax(0,3fr)}
+.job .jf{font:600 13px var(--mono);text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.job .js,.job .jm{font-size:12px;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.job .jp{display:flex;align-items:center;gap:8px}.job .jp .bar2{flex:1}.job .jp small{font-size:11px;color:var(--ink-3);white-space:nowrap}
+.m.s-fail::before{background:var(--rtk-f)}
+@media (max-width:700px){.job{grid-template-columns:20px 1fr;row-gap:2px;padding:6px 0}.job .js,.job .jp,.job .jm{grid-column:2}}
