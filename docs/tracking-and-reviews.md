@@ -98,10 +98,16 @@ it saw.
   departments validated by the top role (or one of its level) at the
   stable shown. Done stays the fabrication: 100 % done with nothing
   validated reads 100 % / 0 %.
-- **Review on the page**: *✎ Review*
-  puts a bar at the bottom of the screen -- your name and your role; ›
-  folds it into a round ✎ button, the review's count on it --
-  and, in a file's panel, a ✓ by each department (validate it as your
+- **Review on the page**: *✎ Review* (violet, in the header) opens a
+  window first: *Continue your review* when this browser keeps one; your
+  name, the review date and your role (buttons, a line saying what each
+  does: the team writes retakes and notes, no validation); what to *go
+  through* -- *To validate*, *Open retakes and notes*, *Everything, in
+  order*, *What the filters show* (the filters set for it, its first
+  file opened); *Load a review file…*. While reviewing, the header shows
+  who, as what and how many files (a click: the same window, to change
+  them) and *Send…*; the ⋯ menu *Clear this review…* and *Leave the
+  review*. In a file's panel, a ✓ by each department (validate it as your
   role -- a done one only) and a ✗ (a box for the retakes, one per line:
   `[sh020]` at its start for one shot of a block, `[f12-40]` for its
   frames, `note:` for a remark instead of a retake (nothing but
@@ -124,11 +130,10 @@ it saw.
   back as ✕ would (✕ you, its validation withdrawn at import; no
   department: the whole file's ✕ you) and is imported as an RTK on it;
   the RTK answered stays open (*✓ Fixed* says it's done).
-  To go over it: *Your review*, among the filters (or a click on "n
-  files reviewed" in the review bar, or *See them* before downloading),
+  To go over it: *Your review*, among the filters (or *See them* in *Send your review*),
   shows only the files the review touched.
   Keys: ← → (files), Esc (close), V (all done), X (general retake), Esc
-  or Ctrl+Enter in a box (leave it). *Download* opens *Send your review*: your
+  or Ctrl+Enter in a box (leave it). *Send…* opens *Send your review*: your
   name, your role (required as soon as it holds a retake or a
   validation) and the review date; then file by file what it holds, with
   the list's symbols (✓ a department validated, ✕ a retake and its

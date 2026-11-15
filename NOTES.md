@@ -4727,3 +4727,14 @@ review, the phone and the iPad. What holds across them:
 - Two functions named `pick` in one scope (the search's, the selects')
   -- the second won, a click on a suggestion did nothing: the search's is
   `goTo()`.
+- **The review bar is gone** (it hid the list's last rows): *Review*
+  opens a start window (`openStart()`: continue, or name, date, role as
+  joined buttons, what to go through -- `goThrough()` sets the filters
+  and opens the first file), the header shows who / role / files
+  (`#rv-sum`, the same window) and *Send…* (`openSend()`); *Clear* and
+  *Leave* in the ⋯ menu (`.rv-only`). The bar's fields stay in the page,
+  hidden: `#author`, `#role` are where the code reads them.
+- **Blender's shapes** (the user's screenshots): rounded rectangles
+  (`--r-btn` 5 px), no capsule; the kinds as workspace tabs; a pressed
+  filter, a picked role in Blender's selection blue (`--sel`); fields
+  darker than buttons (`--field`).

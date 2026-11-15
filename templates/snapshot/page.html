@@ -34,9 +34,12 @@
 <li><kbd>V</kbd>While reviewing: validate every done department</li><li><kbd>X</kbd>While reviewing: write a general retake</li>
 <li><kbd>Ctrl</kbd>+<kbd>Enter</kbd>Done writing</li></ul>
 </div><div class="hg"><h3>Done</h3><p id="weights"></p></div></div></div>
-<button class="btn primary" id="rv" title="Review on this page">✎<span class="lbl"> Review</span></button>
+<button class="btn primary" id="rv" title="Review on this page"><svg class="ico" aria-hidden="true"><use href="#b-greasepencil"/></svg><span class="lbl">Review</span></button>
+<span class="rv-on"><button class="btn rv-sum" id="rv-sum" title="Your name, role and date"></button><button class="btn primary" id="rv-send" title="What it holds, then the file to send">Send…</button></span>
 <div class="menu"><button class="btn icon" id="more" aria-haspopup="true" aria-expanded="false" title="More">⋯</button>
 <div class="menu-pop" id="morepop" hidden>
+<button type="button" id="rv-clear" class="rv-only">Clear this review…<small>A downloaded file keeps what it holds</small></button>
+<button type="button" id="rv-exit" class="rv-only">Leave the review<small>Kept in this browser until you come back</small></button>
 <label>Load a review…<small>A .json downloaded from this page, to go on with it</small><input type="file" class="rv-load" accept=".json,application/json"></label>
 <label>Choose the videos folder…<small>Where this snapshot's videos are, to play them</small><input type="file" class="vid-pick" webkitdirectory multiple accept="video/mp4,.mp4"></label>
 <div class="theme-sw" role="group" aria-label="Theme"><span>Theme</span><button type="button" data-theme-set="">System</button><button type="button" data-theme-set="light">Light</button><button type="button" data-theme-set="dark">Dark</button></div>
@@ -101,8 +104,6 @@
 <div class="menu"><button class="btn icon" id="rv-more" aria-haspopup="true" aria-expanded="false" title="More">⋯</button>
 <div class="menu-pop up" id="rv-morepop" hidden>
 <label>Load a review…<small>Goes on with a downloaded .json</small><input type="file" class="rv-load" accept=".json,application/json"></label>
-<button type="button" id="rv-clear">Clear this review<small>A downloaded file keeps what it holds</small></button>
-<button type="button" id="rv-exit">Leave the review<small>Kept in this browser until you come back</small></button>
 </div></div>
 </div>
 

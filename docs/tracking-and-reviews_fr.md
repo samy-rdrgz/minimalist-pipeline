@@ -102,10 +102,17 @@ la prod -- sur la version qu'il a vue.
   requis validés par le rôle le plus haut (ou un de son niveau) au stable
   affiché. Le Done reste la fabrication : 100 % fini sans rien de validé
   donne 100 % / 0 %.
-- **Review dans la page** : *✎ Review*
-  affiche une barre en bas de l'écran -- votre nom et votre rôle ; ›
-  la replie en un bouton rond ✎, avec le compte de la review -- et,
-  dans le panneau d'un fichier, un ✓ à côté de chaque département (le
+- **Review dans la page** : *✎ Review* (violet, dans l'en-tête) ouvre
+  d'abord une fenêtre : *Continue your review* quand le navigateur en
+  garde une ; votre nom, la date de review et votre rôle (des boutons,
+  une ligne disant ce que fait chacun : l'équipe écrit retakes et notes,
+  sans validation) ; ce qu'on veut *parcourir* -- *To validate*, *Open
+  retakes and notes*, *Everything, in order*, *What the filters show*
+  (les filtres réglés pour, son premier fichier ouvert) ; *Load a review
+  file…*. Pendant la review, l'en-tête montre qui, en tant que quoi et
+  combien de fichiers (un clic : la même fenêtre, pour les changer) et
+  *Send…* ; le menu ⋯ *Clear this review…* et *Leave the review*. Dans
+  le panneau d'un fichier, un ✓ à côté de chaque département (le
   valider pour votre rôle -- seulement s'il est fini) et un ✗ (une case
   pour les retakes, un par ligne : `[sh020]` en début de ligne pour un
   shot d'un bloc, `[f12-40]` pour ses frames, `note:` pour une remarque
@@ -133,10 +140,8 @@ la prod -- sur la version qu'il a vue.
   l'import ; sans département : le ✕ you du fichier) et est importée en
   RTK sur lui ; la RTK à laquelle elle répond reste ouverte (*✓ Fixed*
   dit qu'elle est faite).
-  Pour la relire : *Your review*, parmi les filtres (ou un clic sur
-  « n files reviewed » dans la barre de review, ou *See them* avant de
-  télécharger), ne montre que les fichiers que la review a touchés.
-  *Download* ouvre *Send your review* : votre
+  Pour la relire : *Your review*, parmi les filtres (ou *See them* dans *Send your review*), ne montre que les fichiers que la review a touchés.
+  *Send…* ouvre *Send your review* : votre
   nom, votre rôle (obligatoire dès qu'elle contient un retake ou une
   validation) et la date de review ; puis fichier par fichier ce qu'elle
   contient, avec les symboles de la liste (✓ un département validé, ✕ un

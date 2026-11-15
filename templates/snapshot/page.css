@@ -871,3 +871,30 @@ button; the fields dark. */
 .chipf[aria-pressed="true"] .ic{color:#fff}
 .search,.dlg input,.dlg select,.dlg .pick,.wl-w textarea,.p-body textarea{background-color:var(--field)!important;border-color:transparent}
 .search{border-radius:var(--r-btn)}
+
+/* ---------- review: start, and the header while reviewing ---------- */
+/* The floating bar is gone: its fields stay, hidden, as the review's
+memory (page.js reads #author, #role). */
+.rbar,.rfab{display:none!important}
+.rv-on{display:none;gap:8px}body.reviewing .rv-on{display:inline-flex}
+.rv-sum{max-width:min(40vw,320px);font-weight:500}.rv-sum span{overflow:hidden;text-overflow:ellipsis}
+.btn .ico{width:15px;height:15px}
+body:not(.reviewing) .rv-only{display:none}
+.dlg-in.start{width:min(560px,100%)}
+.st-cont{display:flex;align-items:center;gap:12px;width:100%;min-height:56px;padding:8px 14px;justify-content:flex-start;text-align:left}
+.st-cont small{display:block;font-weight:400;color:var(--ink-2)}
+.st-or{margin:12px 0 8px;font-size:12px;color:var(--ink-3)}
+.st-l{margin:12px 0 6px;font-size:12px;color:var(--ink-2)}
+/* Blender's segmented buttons: joined, the one picked in its blue. */
+.segb{display:flex}.segb button{flex:1;min-height:var(--tap);border:0;background:var(--btn);color:var(--ink);font-size:13px}
+.segb button+button{border-left:1px solid var(--bg)}
+.segb button:first-child{border-radius:var(--r-btn) 0 0 var(--r-btn)}.segb button:last-child{border-radius:0 var(--r-btn) var(--r-btn) 0}
+.segb button[aria-pressed="true"]{background:var(--sel);color:#fff}
+.st-w{margin:6px 0 0;font-size:12px;color:var(--ink-2)}
+.st-go{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.st-go button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:8px 12px;border:1px solid transparent;border-radius:var(--r-btn);background:var(--btn);color:var(--ink);text-align:left;font-size:13px}
+.st-go small{color:var(--ink-2);font-size:11px}
+.st-go button[aria-pressed="true"]{background:var(--sel);color:#fff}.st-go button[aria-pressed="true"] small{color:rgba(255,255,255,.8)}
+.dlg .acts .btn.link{margin-right:auto}
+.dlg .acts label.btn{display:inline-flex;margin-bottom:0;font-size:13px;color:var(--ink);cursor:pointer}
+@media (max-width:560px){.st-go{grid-template-columns:1fr}}

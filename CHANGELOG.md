@@ -21,6 +21,10 @@ All notable changes to this addon. Dates are release dates.
 - Snapshot page, step 3: *Send your review*, a window -- who, as what,
   when, then what it holds file by file with the list's symbols, the
   file's name, Clear / Keep reviewing / Download; Blender's own icons.
+  The review starts in a window (continue, or name, date, role and what
+  to go through) and shows in the header (who, as what, Send…): the
+  floating bar at the bottom is gone. Blender's shapes: rounded
+  rectangles, workspace-like tabs, a pressed filter in blue.
 - Coloured marks for a department's state in Project monitoring (the
   snapshot page's), Waiting and To redo, and the notes' role and team
   marks -- in place of Blender's grey icons and its collection colours.

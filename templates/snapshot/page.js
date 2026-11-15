@@ -1023,7 +1023,9 @@ pick($('role'));
 function countBar(){var c=summary();$('rv-n').textContent=c.files?plural(c.files,'file')+' reviewed':'Nothing reviewed yet';$('rv-n').disabled=!c.files;
 // "Your review" among the filters while there's one; off with it.
 var mb=document.querySelector('.chipf[data-f="mine"]');mb.hidden=!c.files;if(!c.files&&state.f.mine){state.f.mine=false;mb.setAttribute('aria-pressed','false');}
-document.querySelector('#rv-dl .cnt').textContent=c.files||'';$('rv-fabn').textContent=c.files||'';}
+document.querySelector('#rv-dl .cnt').textContent=c.files||'';$('rv-fabn').textContent=c.files||'';
+// The header while reviewing: who, as what, how much -- then Send.
+$('rv-sum').innerHTML=ico('review')+'<span>'+esc([rv.author||'Your name',rv.role,c.files?plural(c.files,'file'):'nothing yet'].filter(Boolean).join(' · '))+'</span>';}
 // The bar folds into a round button (remembered by this browser), never
 // while it still needs a name.
 var FOLD=KEY+':folded';
@@ -1046,7 +1048,38 @@ $('rv-fab').addEventListener('click',function(){if(document.body.classList.conta
 function setReview(on){document.body.classList.toggle('reviewing',on);
 var folded=false;try{folded=localStorage.getItem(FOLD)==='1';}catch(e){}
 document.body.classList.toggle('rb-folded',on&&folded&&!!$('author').value.trim());showNotes=null;editing={};if(on&&!$('author').value&&!matchMedia('(pointer:coarse)').matches)$('author').focus({preventScroll:true});if(cur!=null)openPanel(cur);fitBar();}
-$('rv').addEventListener('click',function(){setReview(true);});
+/* Review: start (or go on), first -- who, as what, what to go through. */
+// Each role, said: what reviewing as it does.
+function roleWords(r){return r==='team'?'Retakes and notes: no validation.':r===META.role?'Validates as the top role: what the figures count.':'Validates as '+r+': the top role validates after.';}
+var GO=[['tovalid','To validate','the done departments not validated yet'],['open','Open retakes and notes','what\'s waiting for an answer'],['all','Everything, in order','every file of this tab'],['shown','What the filters show','the list as it is now']];
+function openStart(){var c=summary(),dl=$('dlg'),roles=[].map.call($('role').options,function(o){return o.value;}).filter(Boolean),pickRole=rv.role||'',go='tovalid';
+var kept=c.files>0&&!reviewing();
+dl.innerHTML='<div class="dlg-in start" role="dialog" aria-modal="true" aria-labelledby="st-t"><h3 id="st-t">'+(reviewing()?'Your review':'Review this snapshot')+'</h3>'+
+(kept?'<button type="button" class="btn st-cont" id="st-cont">'+ico('review')+'<span><b>Continue your review</b><small>'+esc([rv.author,rv.role,plural(c.files,'file')].filter(Boolean).join(' · '))+'</small></span></button><p class="st-or">or start again with</p>':'')+
+'<div class="row2"><label>Your name<input id="st-author" value="'+esc(rv.author)+'" autocomplete="name"></label><label>Review date<input id="st-date" type="date" value="'+esc(rv.date||today())+'"></label></div>'+
+'<div class="st-l">Role</div><div class="segb" role="group" aria-label="Role">'+roles.map(function(r){return '<button type="button" data-role="'+esc(r)+'" aria-pressed="'+(r===pickRole)+'">'+esc(r==='team'?'team':r)+'</button>';}).join('')+'</div>'+
+'<p class="st-w" id="st-w">'+(pickRole?esc(roleWords(pickRole)):'Pick the role you review as.')+'</p>'+
+(reviewing()?'':'<div class="st-l">Go through</div><div class="st-go">'+GO.map(function(g){return '<button type="button" data-go="'+g[0]+'" aria-pressed="'+(g[0]===go)+'"><b>'+esc(g[1])+'</b><small>'+esc(g[2])+'</small></button>';}).join('')+'</div>')+
+'<p class="why" id="st-why" hidden></p><div class="acts"><label class="btn link">'+ico('import')+'Load a review file…<input type="file" class="rv-load" accept=".json,application/json" hidden></label>'+
+'<button class="btn" id="st-cancel">Cancel</button><button class="btn primary" id="st-go">'+(reviewing()?'Done':'Start')+'</button></div></div>';
+dl.hidden=false;dl.onclick=function(e){if(e.target===dl)dl.hidden=true;};
+dl.querySelector('.rv-load').addEventListener('change',function(){dl.hidden=true;loadReview(this);});
+$(rv.author||touchPin.matches?'st-go':'st-author').focus({preventScroll:true});
+dl.querySelectorAll('[data-role]').forEach(function(b){b.onclick=function(){pickRole=b.dataset.role;dl.querySelectorAll('[data-role]').forEach(function(x){x.setAttribute('aria-pressed',String(x===b));});$('st-w').textContent=roleWords(pickRole);};});
+dl.querySelectorAll('[data-go]').forEach(function(b){b.onclick=function(){go=b.dataset.go;dl.querySelectorAll('[data-go]').forEach(function(x){x.setAttribute('aria-pressed',String(x===b));});};});
+$('st-cancel').onclick=function(){dl.hidden=true;};
+if($('st-cont'))$('st-cont').onclick=function(){dl.hidden=true;setReview(true);};
+$('st-go').onclick=function(){var a=$('st-author').value.trim();
+if(!a){$('st-why').hidden=false;$('st-why').textContent='Your name: the notes and retakes are signed with it.';$('st-author').focus();return;}
+var was=reviewing();rv.author=a;rv.role=pickRole;rv.date=$('st-date').value;$('author').value=a;$('role').value=pickRole;sync('role');save();dl.hidden=true;
+if(was){countBar();render();if(cur!=null)refresh();return;}
+setReview(true);goThrough(go);};}
+// What to go through: the filters set for it, its first file opened.
+function goThrough(go){if(go!=='shown'){state.f={};state.q='';$('q').value='';if(go==='tovalid')state.f.tovalid=true;else if(go==='open')state.f.notes=true;
+document.querySelectorAll('.chipf[data-f]').forEach(function(b){b.setAttribute('aria-pressed',String(!!state.f[b.dataset.f]));});}
+if(state.tab==='breakdown')setTab(tabs[0][0]);else render();
+if(visible.length)openPanel(visible[0]);else toast('Nothing to go through here: the filters show no file.');}
+$('rv').addEventListener('click',openStart);$('rv-sum').addEventListener('click',openStart);$('rv-send').addEventListener('click',openSend);
 $('rv-exit').addEventListener('click',function(){closeMenus();setReview(false);toast('Review left: it stays in this browser, ✎ Review takes it back.');});
 // Asked in the page, not with confirm(): an app's viewer (Documents, on an
 // iPad) may show no confirm() at all -- it answers no, and nothing was
@@ -1141,7 +1174,8 @@ $('rv-dl').addEventListener('click',openSend);
 function shareFile(text,name){if(!SHARE)return null;
 for(var i=0,types=['application/json','text/plain'];i<types.length;i++){var f=new File([text],name,{type:types[i]});
 try{if(navigator.canShare({files:[f]}))return f;}catch(e){}}return null;}
-document.querySelectorAll('.rv-load').forEach(function(inp){inp.addEventListener('change',function(){var file=this.files[0];this.value='';closeMenus();if(!file)return;
+document.querySelectorAll('.rv-load').forEach(function(inp){inp.addEventListener('change',function(){loadReview(this);});});
+function loadReview(inp){(function(){var file=inp.files[0];inp.value='';closeMenus();if(!file)return;
 var rd=new FileReader();rd.onload=function(){var data;try{data=JSON.parse(rd.result);}catch(e){toast('Not a review file.');return;}
 if(data.format!==META.format){toast('Not a review downloaded from a snapshot page.');return;}
 // Another version's review: refused, as by the import (NOTES.md, "Review import: this version's reviews only").
@@ -1159,7 +1193,7 @@ else e.text=gv;if(row.description)e.desc=row.description;
 String(row.fixed||'').split(/\s+/).filter(Boolean).forEach(function(id){e.fixed[id]=1;});});
 $('author').value=rv.author;$('role').value=rv.role;sync('role');save();setReview(true);render();
 toast('Review of '+(rv.author||'?')+' loaded: '+plural(summary().files,'file')+(unknown?', '+unknown+' not on this page (renamed, or another snapshot)':'')+'.');}};
-rd.readAsText(file);});});
+rd.readAsText(file);})();}
 
 /* ---------- start ---------- */
 try{var kept=JSON.parse(localStorage.getItem(KEY)||'null');if(kept&&kept.files){rv=kept;rv.date=rv.date||'';
