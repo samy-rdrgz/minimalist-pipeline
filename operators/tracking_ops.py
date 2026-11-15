@@ -13,87 +13,56 @@ from ..lib import (
     ConfigCache,
     icon_kw,
     keep_review,
-    local_time,
     month_folder,
     PipelineError,
     ProjectScan,
     set_department_synced,
-    set_file_omit,
     snapshot_videos_folder,
     SnapshotJob,
     TrackingStatusCache,
-    bring_monitoring_to_front,
     build_snapshot,
-    clear_render_to_check,
     copy_videos,
     create_entry,
     delete_entry,
-    department_filter_items,
-    draw_box_tip,
     edit_entry,
     ensure_snapshot_lds,
     entry_departments,
     entry_version_items,
-    file_in_active_project,
     get_active_project_root,
     get_addon_version,
-    get_current_departments,
     get_departments_required,
-    get_description,
-    get_last_stable,
     get_session_worked_departments,
     get_user,
     get_user_role,
     import_review,
     json_get,
-    lines_budget,
     log,
-    memory_enum,
-    memory_prop,
-    monitoring_detail,
-    monitoring_windows,
     now,
-    open_monitoring_window,
     ordered_departments,
-    prefix_items,
     read_json_quiet,
     read_snapshot_data,
-    redraw_monitoring,
-    region_char_budget,
     report_error,
     resolve_ffmpeg,
     create_rows,
     read_review,
     review_description_changes,
     review_import_plan,
-    sequence_items,
-    set_department_approval,
-    set_department_validated,
     set_description,
-    set_monitoring_detail,
     shot_tag_items,
     snapshot_filename,
     snapshot_videos,
     status_changed,
     text_field,
-    text_to_lines,
     thumbnail_size,
-    time_key,
     to_absolute,
     toggle_entry_task,
     tracked_department_flag_items,
-    to_check_entries,
     tracking_json_path,
     videos_in,
     wipmeta_add_work,
     write_snapshot,
     zip_videos,
 )
-from ..panels import (
-    load_file_renders,
-    load_file_thumbnail,
-)
-from .rushes_ops import push_checked_renders
 
 _file_department_items_cache: list = []
 
@@ -1390,257 +1359,6 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class M_PIPELINE_OT_tracking_refresh(bpy.types.Operator):
-    """Re-scan the whole project for Project monitoring."""
-
-    bl_idname = "m_pipeline.tracking_refresh"
-    bl_label = "Refresh"
-    bl_description = (
-        "Re-scan the project's tracking data. The monitoring view otherwise "
-        "shows what was found when it opened -- a full scan costs seconds "
-        "on a network share, too much for every redraw."
-    )
-
-    def execute(self, context):
-        project_root = get_active_project_root()
-        if project_root:
-            # Background scan, never blocks -- the table fills in as it goes.
-            ProjectScan.start(project_root)
-            request_monitor_refresh()  # the Farm column
-        return {"FINISHED"}
-
-
-# Project monitoring's filters: in memory only, like monitoring_detail() -- see
-# memory_prop() (a stale search coming back with a .blend hid files).
-_monitoring_filters: dict = {}
-
-
-class PIPELINE_PG_monitoring(bpy.types.PropertyGroup):
-    """Project monitoring window's filters (WindowManager.pipeline_monitoring),
-    and its file detail's notes/tasks filters -- its own, not the sidebar's."""
-
-    file_type: memory_enum(
-        _monitoring_filters,
-        "file_type",
-        [("asset", "Asset / Library", ""), ("shot", "Shot", "")],
-    )
-    asset_prefix: memory_enum(_monitoring_filters, "asset_prefix", prefix_items)
-    sequence: memory_enum(_monitoring_filters, "sequence", sequence_items)
-    entries_hide_done: memory_prop(
-        _monitoring_filters, "entries_hide_done", bpy.props.BoolProperty, True, name=""
-    )
-    entries_collapse: memory_prop(
-        _monitoring_filters, "entries_collapse", bpy.props.BoolProperty, True, name=""
-    )
-    entries_department_filter: memory_enum(
-        _monitoring_filters, "entries_department_filter", department_filter_items
-    )
-    entries_min_version: memory_prop(
-        _monitoring_filters,
-        "entries_min_version",
-        bpy.props.IntProperty,
-        0,
-        name="",
-        min=0,
-    )
-    only_farm: memory_prop(
-        _monitoring_filters,
-        "only_farm",
-        bpy.props.BoolProperty,
-        False,
-        name="",
-        description=(
-            "Only the files with a render in the farm (queued, in progress, "
-            "failed) or waiting to be checked"
-        ),
-    )
-    sort: memory_enum(
-        _monitoring_filters,
-        "sort",
-        [
-            ("name", "By name", "Sequence and shot, or prefix and name"),
-            (
-                "rtk",
-                "Oldest open RTK first",
-                "Files with an open RTK first, the one waiting longest on top",
-            ),
-            (
-                "work",
-                "Oldest work first",
-                "The file whose latest save is the oldest on top",
-            ),
-        ],
-        name="",
-        description="Order of the list",
-    )
-    # Project monitoring's columns hidden (departments, "farm"), comma-
-    # separated -- M_PIPELINE_MT_monitor_columns.
-    hidden_columns: memory_prop(
-        _monitoring_filters, "hidden_columns", bpy.props.StringProperty, "", name=""
-    )
-    only_mine: memory_prop(
-        _monitoring_filters,
-        "only_mine",
-        bpy.props.BoolProperty,
-        False,
-        name="",
-        description="Only the files with a department assigned to you (File details: the team's icon by a department)",
-    )
-    only_rtk: memory_prop(
-        _monitoring_filters,
-        "only_rtk",
-        bpy.props.BoolProperty,
-        False,
-        name="",
-        description="Only the files with an open RTK",
-    )
-    only_outdated: memory_prop(
-        _monitoring_filters,
-        "only_outdated",
-        bpy.props.BoolProperty,
-        False,
-        name="",
-        description=(
-            "Only the files linking an older version of an asset than its "
-            "latest stable"
-        ),
-    )
-    only_to_validate: memory_prop(
-        _monitoring_filters,
-        "only_to_validate",
-        bpy.props.BoolProperty,
-        False,
-        name="",
-        description=(
-            "Only the files with a done department still to validate -- for "
-            "your validation role (Preferences), else by any role"
-        ),
-    )
-    search: memory_prop(
-        _monitoring_filters,
-        "search",
-        bpy.props.StringProperty,
-        "",
-        name="",
-        description="Filter by file name or description",
-    )
-
-
-def _show_open_file(project_root: Path) -> None:
-    """Project monitoring on the open file's detail -- or, when it isn't a
-    tracked file of the project (unsaved, outside it, no tracking.json),
-    the "not found" view naming it."""
-    filepath = bpy.data.filepath
-    folder = Path(filepath).parent if filepath else None
-    if (
-        folder
-        and file_in_active_project(filepath, str(project_root))
-        and tracking_json_path(folder).is_file()
-    ):
-        set_monitoring_detail("missing_file", "")
-        set_monitoring_detail("file", str(folder))
-        load_file_thumbnail(str(folder))
-        load_file_renders(str(folder))
-    else:
-        set_monitoring_detail("file", "")
-        set_monitoring_detail("missing_file", Path(filepath).name or "unsaved file")
-
-
-class M_PIPELINE_OT_tracking_monitor(bpy.types.Operator):
-    """Open Project monitoring in its own window (panels/monitoring_panel.py)."""
-
-    bl_idname = "m_pipeline.tracking_monitor"
-    bl_label = "Project monitoring"
-    bl_description = (
-        "Open a window listing every file of the project with its tracking "
-        "status. It stays open, resizable, while you work.\n"
-        "Ctrl+click: the open file's details"
-    )
-
-    # Opens on the open file's detail: set by a button (the File panel's
-    # Details), or by invoke() on Ctrl+click.
-    open_file: bpy.props.BoolProperty(options={"SKIP_SAVE", "HIDDEN"})
-
-    def invoke(self, context, event):
-        self.open_file = self.open_file or event.ctrl
-        return self.execute(context)
-
-    def execute(self, context):
-        project_root = get_active_project_root()
-        if not project_root:
-            self.report({"ERROR"}, "No active project.")
-            return {"CANCELLED"}
-
-        result = self._open(context, project_root)
-        # Opens at once on what's already known; ProjectScan refreshes the
-        # whole project in the background (see its docstring) -- a
-        # blocking scan froze Blender for minutes on a network share.
-        # Started after the window: a thread running through window_new()
-        # crashed Blender (see lib/background.py).
-        ProjectScan.start(project_root)
-        request_monitor_refresh()  # the Farm column, same idea
-        return result
-
-    def _open(self, context, project_root):
-        is_open = bool(monitoring_windows("project"))
-        if self.open_file:
-            _show_open_file(Path(project_root))
-        elif not is_open:
-            # Reopens on the file it showed -- read again, it may have changed.
-            set_monitoring_detail("missing_file", "")
-            folder = monitoring_detail("file")
-            # Gone, or another project's (it was active last time).
-            if folder and not (Path(folder).is_dir() and Path(folder).is_relative_to(project_root)):
-                set_monitoring_detail("file", "")
-            elif folder:
-                load_file_thumbnail(folder)
-                load_file_renders(folder)
-
-        if is_open:
-            redraw_monitoring("project")
-            if not bring_monitoring_to_front(context, "project") and not self.open_file:
-                self.report({"INFO"}, "Project monitoring is already open.")
-            return {"FINISHED"}
-        # A search left over from last time would silently hide files.
-        context.window_manager.pipeline_monitoring.search = ""
-
-        if not open_monitoring_window(context, "project", size="full"):
-            self.report({"ERROR"}, "Blender could not open a new window.")
-            return {"CANCELLED"}
-        return {"FINISHED"}
-
-
-class M_PIPELINE_OT_edit_description(bpy.types.Operator):
-    """Edit an asset/shot's free-text description."""
-
-    bl_idname = "m_pipeline.edit_description"
-    bl_label = "Edit description"
-    bl_description = "Edit this asset/shot's description."
-
-    filepath: bpy.props.StringProperty(default="")
-    description: bpy.props.StringProperty()
-
-    def invoke(self, context, event):
-        self.description = get_description(
-            Path(self.filepath if self.filepath else bpy.data.filepath)
-        )
-        return context.window_manager.invoke_props_dialog(self, width=400)
-
-    def draw(self, context):
-        layout = self.layout
-        text_field(layout, self, "description", initial_visible_lines=1)
-
-    def execute(self, context):
-        filepath = self.filepath if self.filepath else bpy.data.filepath
-        try:
-            set_description(Path(filepath), self.description)
-        except PipelineError as e:
-            return report_error(self, "edit_description", e)
-        status_changed(filepath)
-        self.report({"INFO"}, "Description updated.")
-        return {"FINISHED"}
-
-
 class M_PIPELINE_OT_toggle_worked_department(bpy.types.Operator):
     """Toggle one department on/off in the current file's 'worked this
     session' list. Writes straight to .wipmeta on click -- no popup, no
@@ -1663,141 +1381,6 @@ class M_PIPELINE_OT_toggle_worked_department(bpy.types.Operator):
         except PipelineError as e:
             return report_error(self, "toggle_worked_department", e)
         status_changed(filepath)
-        return {"FINISHED"}
-
-
-class M_PIPELINE_OT_toggle_validated_department(bpy.types.Operator):
-    """Toggle one department's validated status directly, without cutting a
-    new -stable version -- for departments (like "render") that aren't tied
-    to editing the file itself. filepath: explicit, since this is also used
-    from the monitoring dashboard on files that aren't the one currently open."""
-
-    bl_idname = "m_pipeline.toggle_validated_department"
-    bl_label = "Toggle department done"
-    bl_description = (
-        "Mark/unmark this department as done (no new stable version needed)."
-    )
-    bl_options = {"INTERNAL"}
-
-    department: bpy.props.StringProperty()
-    filepath: bpy.props.StringProperty(default="")
-    custom_tooltip: bpy.props.StringProperty()
-
-    @classmethod
-    def description(cls, context, properties):
-        if properties.custom_tooltip:
-            return properties.custom_tooltip
-        return "Mark/unmark this department as done (no new stable version needed)."
-
-    def execute(self, context):
-        filepath = Path(self.filepath if self.filepath else bpy.data.filepath)
-        current = get_current_departments(filepath)
-        try:
-            set_department_validated(
-                filepath, self.department, not current.get(self.department, False)
-            )
-        except PipelineError as e:
-            return report_error(self, "toggle_validated_department", e)
-        status_changed(filepath)
-        return {"FINISHED"}
-
-
-class M_PIPELINE_OT_toggle_department_approval(bpy.types.Operator):
-    """Validate a done department for this user's validation role
-    (Preferences > Validation role), or withdraw that validation -- on the
-    latest stable, with a note for the record."""
-
-    bl_idname = "m_pipeline.toggle_department_approval"
-    bl_label = "Toggle department validation"
-    bl_options = {"INTERNAL"}
-
-    department: bpy.props.StringProperty()
-    filepath: bpy.props.StringProperty(default="")
-    custom_tooltip: bpy.props.StringProperty()
-
-    @classmethod
-    def description(cls, context, properties):
-        return (
-            properties.custom_tooltip or "Validate this done department for your role."
-        )
-
-    def execute(self, context):
-        filepath = Path(self.filepath or bpy.data.filepath)
-        role = get_user_role(context)
-        if not role:
-            self.report(
-                {"WARNING"}, "Set your validation role in the preferences first."
-            )
-            return {"CANCELLED"}
-        data = TrackingStatusCache.get(str(filepath))
-        approved = role in (data.get("approvals") or {}).get(self.department, {})
-        try:
-            changed = set_department_approval(
-                filepath,
-                department=self.department,
-                role=role,
-                approved=not approved,
-                user=get_user(context),
-            )
-        except PipelineError as e:
-            return report_error(self, "toggle_department_approval", e)
-        status_changed(filepath)
-        if not changed:  # the cache was behind the disk: shown as it is now
-            self.report({"INFO"}, f"{self.department}: already as shown now.")
-            return {"CANCELLED"}
-        verb = "withdrawn" if approved else "given"
-        self.report({"INFO"}, f"{self.department}: {role} validation {verb}.")
-        return {"FINISHED"}
-
-
-class M_PIPELINE_OT_file_omit(bpy.types.Operator):
-    """Set this file aside -- On hold (paused) or Cancelled (cut, dropped)
-    -- or make it active again: it stays in the lists, out of the shares
-    done, the filters and the stages."""
-
-    bl_idname = "m_pipeline.file_omit"
-    bl_label = "On hold / Cancelled"
-    bl_options = {"INTERNAL"}
-
-    filepath: bpy.props.StringProperty(options={"HIDDEN", "SKIP_SAVE"})
-    custom_tooltip: bpy.props.StringProperty(options={"HIDDEN", "SKIP_SAVE"})
-    state: bpy.props.EnumProperty(
-        name="",
-        items=[
-            ("active", "Active", "In the project's figures, as any file"),
-            ("on_hold", "On hold", "Paused, waiting for a decision"),
-            ("cancelled", "Cancelled", "Out of the project (cut at the edit, dropped)"),
-        ],
-        default="on_hold",
-    )
-    reason: bpy.props.StringProperty(name="Why", options={"SKIP_SAVE"})
-
-    @classmethod
-    def description(cls, context, properties):
-        return properties.custom_tooltip or cls.__doc__
-
-    def invoke(self, context, event):
-        mark = (TrackingStatusCache.get(self.filepath) or {}).get("omit") or {}
-        self.state = "active" if mark else "on_hold"
-        self.reason = mark.get("reason", "")
-        return context.window_manager.invoke_props_dialog(self, width=420)
-
-    def draw(self, context):
-        col = self.layout.column()
-        row = col.row(align=True)
-        # Each choice with its words: expand=True drew three empty boxes.
-        for value, label in (("active", "Active"), ("on_hold", "On hold"), ("cancelled", "Cancelled")):
-            row.prop_enum(self, "state", value, text=label)
-        if self.state != "active":
-            col.prop(self, "reason")
-
-    def execute(self, context):
-        state = "" if self.state == "active" else self.state
-        try:
-            set_file_omit(Path(self.filepath), state, get_user(context), self.reason)
-        except PipelineError as e:
-            return report_error(self, "omit", e)
-        status_changed(self.filepath)
         return {"FINISHED"}
 
 
@@ -1861,84 +1444,6 @@ class M_PIPELINE_OT_department_status_info(bpy.types.Operator):
         return {"CANCELLED"}
 
 
-# The retakes the department_rtks popup shows: read on its click, drawn
-# from memory (an operator's own attributes don't reliably outlive invoke()).
-_rtks_shown: list = []
-
-
-class M_PIPELINE_OT_department_rtks(bpy.types.Operator):
-    """A department under RTK in Project monitoring's grid: its open
-    retakes (and those on no department) in a small popup that closes as
-    the mouse leaves -- without going through File details. No department
-    (the button by a file's name): its general retakes."""
-
-    bl_idname = "m_pipeline.department_rtks"
-    bl_label = ""
-    bl_options = {"INTERNAL"}
-
-    folder: bpy.props.StringProperty(options={"SKIP_SAVE"})
-    department: bpy.props.StringProperty(options={"SKIP_SAVE"})
-    custom_tooltip: bpy.props.StringProperty(options={"SKIP_SAVE"})
-
-    _WIDTH = 460
-
-    @classmethod
-    def description(cls, context, properties):
-        return f"{properties.custom_tooltip}\n\nClick: its retakes".strip()
-
-    def invoke(self, context, event):
-        data = TrackingStatusCache.get(self.folder)
-        rtks = [
-            e
-            for e in data.get("entries") or []
-            if e.get("type") == "rtk"
-            and e.get("done") is False
-            # No department: the general ones only (the button by the name).
-            and (
-                not entry_departments(e)
-                or (self.department and self.department in entry_departments(e))
-            )
-        ]
-        rtks.sort(key=lambda e: time_key(e.get("created_at")), reverse=True)
-        _rtks_shown[:] = rtks
-        return context.window_manager.invoke_popup(self, width=self._WIDTH)
-
-    def draw(self, context):
-        layout = self.layout
-        name = Path(self.folder).name
-        what = self.department or "general"
-        layout.label(text=f"{name} -- {what}: open retakes", icon="LOOP_BACK")
-        if not _rtks_shown:
-            layout.label(text="None any more.", icon="BLANK1")
-        width = region_char_budget(context, width_px=self._WIDTH)
-        for e in _rtks_shown:
-            box = layout.box().column(align=True)
-            head = box.row(align=True)
-            head.active = False
-            head.scale_y = 0.8
-            who = e.get("author") or "?"
-            if e.get("role"):
-                who = f"{who} ({e['role']})"
-            when = local_time(e.get("created_at"), "%Y-%m-%d")
-            version = Path(e.get("referenced_version") or "").stem
-            general = "" if entry_departments(e) else " · on no department"
-            head.label(
-                text=" · ".join(x for x in (who, when, version) if x) + general,
-                **icon_kw("mark:box_role" if e.get("role") else "CHECKBOX_DEHLT"),
-            )
-            body = box.column(align=True)
-            body.scale_y = 0.8
-            text = e.get("text") or ""
-            if e.get("shot"):
-                prefix = json_get(ConfigCache.get(), "naming.shot.prefix", "sh")
-                text = f"[{prefix}{e['shot']}] {text}"
-            for line in text.split("\n"):
-                text_to_lines(body, line, max_width=width, max_lines=lines_budget(line, base=2, cap=6))
-
-    def execute(self, context):
-        return {"FINISHED"}
-
-
 class PIPELINE_PG_department_check_item(bpy.types.PropertyGroup):
     """One of the file's departments in "Checked"'s checklist, validated or
     not after the render was watched -- a checklist row, like the Render
@@ -1948,192 +1453,6 @@ class PIPELINE_PG_department_check_item(bpy.types.PropertyGroup):
     validate: bpy.props.BoolProperty(name="", default=False)
     # Validated before: only a change is written.
     was_validated: bpy.props.BoolProperty(default=False)
-
-
-class M_PIPELINE_OT_render_checked(bpy.types.Operator):
-    """Mark a farm render as checked: it leaves the "To check" column. Asks
-    first which of the file's departments are validated after watching it:
-    all of them, as they are ("render" checked) -- unchecking one
-    unvalidates it."""
-
-    bl_idname = "m_pipeline.render_checked"
-    bl_label = ""
-
-    filepath: bpy.props.StringProperty()
-    shot: bpy.props.StringProperty()
-    all_shots: bpy.props.BoolProperty(options={"SKIP_SAVE"})
-    custom_tooltip: bpy.props.StringProperty()
-    # Checked = watched, not approved: pushing it to the edit is a choice.
-    push_rushes: bpy.props.BoolProperty(
-        name="Push to editing",
-        default=False,
-        description=(
-            "Copy this render's video into editing/rushes/, replacing the "
-            "previous one under the same name (the edit keeps its link)"
-        ),
-        options={"SKIP_SAVE"},
-    )
-
-    @classmethod
-    def description(cls, context, properties):
-        if properties.custom_tooltip:
-            return properties.custom_tooltip
-        return "Mark this render as checked."
-
-    def invoke(self, context, event):
-        # Ctrl+click on one render's Checked (File details): every render
-        # to check of the file, as the list's check mark does.
-        self.all_shots = self.all_shots or event.ctrl
-        # The checklist: every required department, as validated now --
-        # watching the render may call for unvalidating one, not only for
-        # validating "render".
-        checklist = context.window_manager.render_checked_departments
-        checklist.clear()
-        folder = Path(self.filepath)
-        try:
-            required = get_departments_required(folder) or []
-        except PipelineError:
-            required = []
-        current = get_current_departments(folder)
-        # Ticked first: the departments of the renders checked (their
-        # preset's), else "render".
-        try:
-            entries = to_check_entries(read_json_quiet(tracking_json_path(folder)) or {})
-        except PipelineError:
-            entries = []
-        rendered = {
-            info["department"]
-            for key, info in entries
-            if info["department"] and (self.all_shots or key == self.shot)
-        } or {"render"}
-        # Validating needs a stable version (set_department_validated()).
-        if not required or "file" not in get_last_stable(folder):
-            return self.execute(context)
-        for department in required:
-            item = checklist.add()
-            item.department = department
-            item.was_validated = bool(current.get(department))
-            item.validate = item.was_validated or department in rendered
-        return context.window_manager.invoke_props_dialog(
-            self, width=300, title="Render checked", confirm_text="Mark checked"
-        )
-
-    def draw(self, context):
-        draw_box_tip(
-            self.layout,
-            context,
-            "Ticked: validated. Leave them as they are if the render is fine; "
-            "untick a department the render shows isn't right -- it goes back "
-            "to work in progress.",
-            width_px=300,
-        )
-        col = self.layout.column(align=True)
-        col.label(text="Done:")
-        for item in context.window_manager.render_checked_departments:
-            col.prop(item, "validate", text=item.department.upper())
-        self.layout.separator()
-        self.layout.prop(self, "push_rushes", icon="SEQUENCE")
-
-    def execute(self, context):
-        try:
-            checked = clear_render_to_check(
-                self.filepath, None if self.all_shots else self.shot
-            )
-        except PipelineError as e:
-            return report_error(self, "render_checked", e)
-        checklist = context.window_manager.render_checked_departments
-        for item in [i for i in checklist if i.validate != i.was_validated]:
-            try:
-                set_department_validated(
-                    Path(self.filepath), item.department, item.validate
-                )
-            except PipelineError as e:
-                log(e.level, "render_checked", e.message)
-                self.report({e.level}, e.message)
-        # The table only reads the cache: refresh this one folder now.
-        status_changed(self.filepath)
-        for info in checked:
-            if info.get("job_id"):
-                _archive_checked_job(info["job_id"])
-        if self.push_rushes:
-            push_checked_renders(context, checked)
-        checklist.clear()  # filled again by the next invoke()
-        return {"FINISHED"}
-
-
-_VIDEO_EXTS = (".mp4", ".mov", ".mkv", ".webm", ".avi")
-
-
-class M_PIPELINE_OT_open_render_video(bpy.types.Operator):
-    """Play a farm render's compiled video with the system's player."""
-
-    bl_idname = "m_pipeline.open_render_video"
-    bl_label = ""
-
-    render: bpy.props.StringProperty()  # its folder, project-relative
-    video: bpy.props.StringProperty()  # the job's compiled_output_path
-    # The render before this one instead (File details' to check: compare).
-    previous: bpy.props.BoolProperty(options={"SKIP_SAVE"})
-    custom_tooltip: bpy.props.StringProperty()
-
-    @classmethod
-    def description(cls, context, properties):
-        return properties.custom_tooltip or "Play this render's video."
-
-    def execute(self, context):
-        try:
-            video = self._previous() if self.previous else self._find()
-        except (PipelineError, OSError) as e:
-            self.report({"ERROR"}, f"Could not look for the video: {e}")
-            return {"CANCELLED"}
-        if not video:
-            self.report(
-                {"WARNING"},
-                "No earlier render of this shot with a video."
-                if self.previous
-                else "No video found for this render.",
-            )
-            return {"CANCELLED"}
-        return bpy.ops.wm.open_folder(filepath=str(video))
-
-    def _previous(self) -> Path | None:
-        """The video of the render before this one: the newest video of
-        the shot's other render folders that's older than this render's
-        (its folder's time if it has none). On click only: lists them."""
-        if not self.render:
-            return None
-        folder = to_absolute(self.render)
-        if not folder.parent.is_dir():
-            return None
-        current = self._find()
-        limit = (current or folder).stat().st_mtime
-        best = None
-        for sibling in folder.parent.iterdir():
-            if sibling == folder or not sibling.is_dir():
-                continue
-            for f in sibling.iterdir():
-                if f.suffix.lower() not in _VIDEO_EXTS:
-                    continue
-                mtime = f.stat().st_mtime
-                if mtime < limit and (best is None or mtime > best[0]):
-                    best = (mtime, f)
-        return best[1] if best else None
-
-    def _find(self) -> Path | None:
-        """The render's video: the job's compiled one, else the newest video in
-        its folder (flagged before it was recorded). None if there's none."""
-        video = to_absolute(self.video) if self.video else None
-        if video and video.is_file():
-            return video
-        if not self.render:
-            return None
-        # Flagged before the video was recorded: the newest one in the
-        # render's folder.
-        folder = to_absolute(self.render)
-        if not folder.is_dir():
-            return None
-        videos = [f for f in folder.iterdir() if f.suffix.lower() in _VIDEO_EXTS]
-        return max(videos, key=lambda f: f.stat().st_mtime, default=None)
 
 
 def _archive_checked_job(job_id: str) -> None:
@@ -2152,29 +1471,3 @@ def _archive_checked_job(job_id: str) -> None:
         log("WARNING", "render_checked", f"Could not archive {job_id}: {e}")
 
 
-class M_PIPELINE_OT_tracking_file_details(bpy.types.Operator):
-    """Project monitoring: show one tracked file's detail (filepath, its
-    folder), or the list (no filepath: Back). Never a toggle. SKIP_SAVE
-    properties (see NOTES.md, "\"Render\" button opening pre-filled")."""
-
-    bl_idname = "m_pipeline.tracking_file_details"
-    bl_label = ""
-
-    filepath: bpy.props.StringProperty(options={"SKIP_SAVE"})
-    custom_tooltip: bpy.props.StringProperty(options={"SKIP_SAVE"})
-    # Set where a right-click menu is offered (menus/button_context.py).
-    rmb: bpy.props.StringProperty(options={"HIDDEN", "SKIP_SAVE"})
-
-    @classmethod
-    def description(cls, context, properties):
-        if properties.custom_tooltip:
-            return properties.custom_tooltip
-        return "Show tracking details for a selected file."
-
-    def execute(self, context):
-        set_monitoring_detail("missing_file", "")
-        set_monitoring_detail("file", self.filepath)
-        if self.filepath:
-            load_file_thumbnail(self.filepath)
-            load_file_renders(self.filepath)
-        return {"FINISHED"}

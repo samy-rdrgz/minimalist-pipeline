@@ -12,4 +12,4 @@ Les links qui ne sont jamais passés par un import — un fichier migré depuis 
 
 ---
 
-**Voir aussi** : [Versions : wip et stable](versions_fr.md) — un link pointe toujours vers une version stable précise, jamais un "dernier" flottant. · [Interface](interface_fr.md) — c'est dans la fenêtre du monitoring projet, "Links to" / "Linked by", que ces links sont réellement visibles, fichier par fichier.
+**Voir aussi** : [Versions : wip et stable](versions_fr.md) — un link pointe toujours vers une version stable précise, jamais un "dernier" flottant. · [Suivi & reviews](tracking-and-reviews_fr.md) — c'est dans *Linked files*, dans le panneau d'un fichier sur la page en live, que ces links sont visibles, fichier par fichier (une stable plus récente signalée).

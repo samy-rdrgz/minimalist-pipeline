@@ -2,7 +2,6 @@
 
 from .dispatch import render_dispatch
 from .loop import (
-    _refresh_tick,
     entry_state,
     farm_activity,
     get_running_project,
@@ -11,7 +10,6 @@ from .loop import (
     monitor_last_tick,
     refresh_monitor_cache,
     refresh_monitor_status,
-    register_refresh_timer,
     register_status_timer,
     request_monitor_refresh,
     stop_farm_role_for_project,
@@ -21,9 +19,6 @@ from .loop import (
 from .monitor import (
     REMOVABLE_STAGES,
     archive,
-    get_job_details,
-    get_job_details_logs,
-    get_job_details_path,
     get_monitor_cache,
     job_cancel_request,
     job_request,
@@ -42,7 +37,6 @@ from .queue import (
     RETRYABLE_STAGES,
     cancel_pending_renders,
     failed_stage,
-    machine_for_frame,
     recompilable,
     recompile_job,
     retry_job,

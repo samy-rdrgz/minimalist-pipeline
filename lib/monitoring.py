@@ -1,27 +1,26 @@
-"""The monitoring windows -- Project monitoring and Farm monitoring: each a
-Properties editor on its Tool tab, where panels/monitoring_panel.py draws.
+"""The monitoring windows -- the Pipeline log, the welcome, Project
+settings: each a Properties editor on its Tool tab, where
+panels/monitoring_panel.py draws (Project and Farm monitoring: the live
+page now, lib/live.py).
 See NOTES.md, "Monitoring: windows, not popups"."""
 
 import os
 import sys
-import time
 
 import bpy
 
 from .background import threads_paused
-from .config import get_active_project_root
 from .core import monitoring_detail, set_monitoring_detail
-from .tracking import ProjectScan, TrackingStatusCache
+from .tracking import TrackingStatusCache
 
 # ID property marking a window's screen with what it shows ("project" or
 # "farm") -- the panels' poll() reads it, and it survives the .blend being
 # saved with the window open.
 MONITORING_SCREEN_KEY = "m_pipeline_monitoring"
-MONITORING_KINDS = ("project", "farm", "log", "welcome", "settings")
+MONITORING_KINDS = ("log", "welcome", "settings")
 
-# Redraw check, and how often Project monitoring's Farm column is read again.
+# Redraw check.
 _TICK = 0.5
-_FARM_READ_EVERY = 10.0
 
 # Which windows are monitoring windows, by pointer: a window opened by
 # window_new() is the main window's child, and follows it to every workspace
@@ -30,7 +29,6 @@ _FARM_READ_EVERY = 10.0
 _window_kinds: dict = {}
 
 _last_seen: dict = {}
-_last_farm_read = 0.0
 
 # The detail beside the list (see NOTES.md, "Monitoring: the detail beside
 # the list"): what each window's detail is kept under (lib/core.py), the
@@ -44,16 +42,12 @@ _SPLIT_MIN_WIDTH = 900
 _split_windows: set = set()
 # Narrower (px at UI scale 1), the list beside a detail shows its names only.
 _NAMES_ONLY_WIDTH = 600
-# Whether _monitoring_tick started the farm's refresh timer (for a Farm
-# monitoring window), so it only stops its own.
-_farm_refresh_ours = False
 
 
 def monitoring_kind(screen) -> str:
     """What a screen's monitoring window shows, "" for any other screen."""
     value = screen.get(MONITORING_SCREEN_KEY) if screen else None
-    if value is True or value == 1:
-        return "project"  # marked before Farm monitoring had a window
+    # A Project or Farm monitoring window saved with a .blend: none now.
     return value if value in MONITORING_KINDS else ""
 
 
@@ -360,66 +354,12 @@ def stop_monitoring_tick() -> None:
 
 
 def _monitoring_tick():
-    """Redraw the open monitoring windows when what they show changed;
-    Project: scan an unscanned project, re-read the farm every
-    _FARM_READ_EVERY; Farm: keep its refresh timer running. Stops with the
-    last window. See NOTES.md, "Monitoring: windows, not popups"."""
-    global _last_farm_read, _farm_refresh_ours
-    from ..farm import (
-        farm_activity,
-        get_monitor_cache,
-        register_refresh_timer,
-        request_monitor_refresh,
-        unregister_refresh_timer,
-    )
-
-    project = monitoring_windows("project")
-    farm = monitoring_windows("farm")
-    log = monitoring_windows("log")
-
-    if farm:
-        register_refresh_timer()  # no-op while it runs
-        _farm_refresh_ours = True
-    elif _farm_refresh_ours:
-        unregister_refresh_timer()
-        _farm_refresh_ours = False
-
-    if not (project or farm or log):
+    """Keeps going while a monitoring window is open (the log's redraws
+    are its own); stops with the last one. See NOTES.md, "Monitoring:
+    windows, not popups"."""
+    if not monitoring_windows():
         _last_seen.clear()
-        _split_windows.clear()
         return None
-    sync_detail_zones()  # a detail zone closed by hand
-
-    root = get_active_project_root()
-    if project:
-        if root and not ProjectScan.covers(root):
-            ProjectScan.start(root)
-        if time.monotonic() - _last_farm_read >= _FARM_READ_EVERY:
-            _last_farm_read = time.monotonic()
-            request_monitor_refresh()
-        seen = (
-            str(root),
-            ProjectScan.done,
-            ProjectScan.phase,
-            ProjectScan.owners_found,
-            ProjectScan.statuses_done,
-            farm_activity(),
-        )
-        if seen != _last_seen.get("project"):
-            _last_seen["project"] = seen
-            redraw_monitoring("project")
-    if farm:
-        cache = get_monitor_cache()
-        # A farm read replaces the cache's lists: their identity is enough.
-        seen = (
-            str(root),
-            cache.get("status"),
-            id(cache.get("jobs")),
-            id(cache.get("workers")),
-        )
-        if seen != _last_seen.get("farm"):
-            _last_seen["farm"] = seen
-            redraw_monitoring("farm")
     return _TICK
 
 
@@ -640,49 +580,6 @@ def paginate(kind: str, items: list, per_page: int, filters: tuple, key=None) ->
     return items[start : start + per_page], page, pages
 
 
-def neighbour_in_list(
-    kind: str, current: str, order: list, step: int, to_end: bool = False
-) -> str:
-    """The item step (-1 / +1) away from current in a window's list --
-    order: its names as filtered and sorted now --, or its first / last
-    with to_end; "" at either end, or for an item never in the list (a
-    detail opened from a link). current gone from the list since (it no
-    longer matches the filters: just validated under "To validate"): its
-    neighbour in the order the list had, the first still in it. The list's
-    page turned to the item, Esc back on it. See NOTES.md, "File details:
-    previous / next file"."""
-    store = _pages[kind]
-    before = store.get("order") or []
-    store["order"] = order
-    if not order:
-        return ""
-    if to_end:
-        found = order[0 if step < 0 else -1]
-    elif current in order:
-        i = order.index(current) + step
-        found = order[i] if 0 <= i < len(order) else ""
-    elif current in before:
-        listed = set(order)
-        i = before.index(current) + step
-        rest = before[i::step] if i >= 0 else []
-        found = next((k for k in rest if k in listed), "")
-    else:
-        return ""
-    if not found or found == current:
-        return ""
-    per_page = store.get("per_page") or 1
-    store["page"] = order.index(found) // per_page + 1
-    return found
-
-
-def position_in_list(kind: str, current: str) -> tuple:
-    """(rank from 1, count) of current in a window's list as last drawn or
-    stepped through (neighbour_in_list()), (0, count) if it isn't in it.
-    draw()-safe: reads the store."""
-    order = _pages[kind].get("order") or []
-    return (order.index(current) + 1 if current in order else 0), len(order)
-
-
 # "< Page 12 / 34 >" with its spacing, in widget units: the footer's right part.
 _PAGER_UNITS = 8
 
@@ -698,32 +595,6 @@ def split_footer(context, layout) -> tuple:
     right = split.row()
     right.alignment = "RIGHT"
     return left, right
-
-
-# What a monitoring list's window holds besides its rows (filters, the
-# list's tip and column names, footer, margins), in widget units -- the
-# same for Project monitoring and Farm monitoring's views.
-LIST_RESERVED_UNITS = 6.5
-# The filters stacked beside a detail (monitor_filters()): two rows more.
-STACKED_FILTERS_UNITS = 2.0
-
-
-def list_rows(context, kind: str, tip_units: float = 0.0) -> int:
-    """How many rows a monitoring list draws (rows_that_fit()), the same
-    way in each window: its reserved units, its tip's, the stacked
-    filters'."""
-    reserved = LIST_RESERVED_UNITS + tip_units
-    if list_is_narrow(context):
-        reserved += STACKED_FILTERS_UNITS
-    return rows_that_fit(context, reserved, kind=kind)
-
-
-def list_row(layout):
-    """One row of a monitoring list: a column to draw it in, the line
-    under it already there -- every list's rows one height."""
-    row = layout.column()
-    layout.separator(factor=0.5, type="LINE")
-    return row
 
 
 def monitor_filters(context, layout, title: str = "Filters", icon: str = "FILTER"):
@@ -882,26 +753,6 @@ _KEYMAP_ITEMS = (
         True,
     ),
     (
-        "Back to the list",
-        "Property Editor",
-        "PROPERTIES",
-        "m_pipeline.monitoring_back",
-        "ESC",
-        (),
-        {},
-        True,
-    ),
-    (
-        "Switch view",
-        "Property Editor",
-        "PROPERTIES",
-        "m_pipeline.monitoring_switch",
-        "TAB",
-        (),
-        {},
-        True,
-    ),
-    (
         "Refresh",
         "Property Editor",
         "PROPERTIES",
@@ -912,23 +763,23 @@ _KEYMAP_ITEMS = (
         True,
     ),
     (
-        "Project monitoring",
+        "Open in browser",
         "Window",
         "EMPTY",
-        "m_pipeline.tracking_monitor",
+        "m_pipeline.open_live_page",
         "P",
         ("shift", "alt"),
         {},
         False,
     ),
     (
-        "Farm monitoring",
+        "Farm in browser",
         "Window",
         "EMPTY",
-        "m_pipeline.farm_monitor",
+        "m_pipeline.open_live_page",
         "F",
         ("shift", "alt"),
-        {},
+        {"tab": "farm"},
         False,
     ),
     (

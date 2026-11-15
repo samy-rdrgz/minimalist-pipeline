@@ -767,18 +767,6 @@ def _redraw_sidebars() -> None:
                     region.tag_redraw()
 
 
-def _refresh_tick() -> float:
-    """UI-only timer while a Farm monitoring window is open (started and
-    stopped by lib/monitoring.py's _monitoring_tick). Never touches the disk
-    itself: every _REFRESH_INTERVAL it starts a background read
-    (_read_farm_snapshot()), and applies + redraws once one has finished."""
-    try:
-        refresh_step()
-    except Exception:
-        pass
-    return 0.25
-
-
 def refresh_step(soon: bool = False) -> bool:
     """_refresh_tick()'s turn, the live page's too (lib/live.py: its Farm
     tab, Farm monitoring closed): the last read applied, the next one
@@ -1103,14 +1091,6 @@ def monitor_age_status(last_tick: datetime) -> str:
     if age > stale_threshold:
         return "stale"
     return "running"
-
-
-def register_refresh_timer() -> None:
-    """Register _refresh_tick as a persistent Blender timer (UI redraw loop)."""
-    global _registered_tick_fn
-    if _registered_tick_fn is None:
-        _registered_tick_fn = _refresh_tick
-        bpy.app.timers.register(_registered_tick_fn, first_interval=0, persistent=True)
 
 
 def unregister_refresh_timer() -> None:

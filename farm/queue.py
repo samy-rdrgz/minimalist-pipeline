@@ -1130,19 +1130,6 @@ def _machine_name(uuid: str, known: dict) -> str:
     return worker.get("machine") or known.get(uuid) or uuid[:8]
 
 
-def machine_for_frame(record: dict | None, frame: int) -> tuple[str, str] | None:
-    """(uuid, name) of the machine that wrote this frame, from a render's
-    frame_machines (_note_frames()); ("", "unknown") if none is known for
-    it, None if it's out of the render's range. Pure: draw()-safe."""
-    if not record or not record.get("frames"):
-        return None
-    index = frame - int(record.get("start", 0))
-    if not 0 <= index < len(record["frames"]):
-        return None
-    machine = record.get("machines", {}).get(record["frames"][index])
-    return tuple(machine) if machine else ("", "unknown")
-
-
 # Different machines failing one chunk before the render fails: one
 # machine failing is that machine (it gets no more of the job); several,
 # the frames themselves.

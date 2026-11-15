@@ -39,7 +39,7 @@ Nouveau ici ? **[Prise en main](docs/getting-started_fr.md)** détaille un premi
 **Problème résolu** : l'entre-deux entre le chaos artisanal (`vfinale_lavrai02.blend`) et les usines à gaz. Trois parties, chacune utilisable sans les autres :
 
 - **Rangement** — nommage, dossiers, versions, verrouillage léger : la base, sans imposer de workflow artistique.
-- **Suivi et reviews** — notes, retakes, validation par département, monitoring du projet, et un snapshot de production à reviewer hors ligne, même loin du studio.
+- **Suivi et reviews** — notes, retakes, validation par département, une page en live du projet dans le navigateur, et un snapshot de production à reviewer hors ligne, même loin du studio.
 - **Render farm** — chaque machine qui peut ouvrir le projet peut rendre, sans logiciel de farm.
 
 **Ce qu'il ne fera pas**, volontairement : planifier le travail par personne, ni montrer le temps de travail de qui que ce soit (la donnée est enregistrée, jamais affichée — voir [Choix de conception](docs/design_fr.md)). Il reste un outil pour ceux qui font le travail, pas un tableau de bord de chef de production.
@@ -65,9 +65,9 @@ Réglages disponibles dans `Preferences > Add-ons > Minimalist Pipeline` :
 | **Silent auto-increment** | À la première ouverture du fichier dans la journée (déjà sur la dernière version), incrémente en silence au lieu de demander confirmation. |
 | **Auto-launch worker** | Ce poste devient automatiquement worker de rendu quand un projet devient actif (au démarrage de Blender ou en changeant de projet). |
 | **Always open read-only** | Force tous les fichiers du projet en lecture seule à l'ouverture, quel que soit leur état de verrou. Utile sur un poste de review/playblast. |
-| **Experience level** | En *Beginner*, de courtes explications des concepts du pipeline (versions, stable, links...) s'affichent près des boutons et dialogues concernés et dans les fenêtres de monitoring (Jobs et Workers de Farm monitoring, Worker details, Monitoring projet, rendus à vérifier, dialogue Render...) ; *Advanced* les masque. Le premier lancement ouvre aussi une fenêtre de bienvenue une fois, réouvrable à tout moment depuis le "?" du panneau principal. |
+| **Experience level** | En *Beginner*, de courtes explications des concepts du pipeline (versions, stable, links...) s'affichent près des boutons et dialogues concernés et dans le Pipeline log, les rendus à vérifier, le dialogue Render... ; *Advanced* les masque. Le premier lancement ouvre aussi une fenêtre de bienvenue une fois, réouvrable à tout moment depuis le "?" du panneau principal. |
 | **FFmpeg path** | Chemin explicite vers le binaire ffmpeg, pour les cas où Blender ne le trouve pas sur son PATH (ex. Blender lancé via un runtime sandboxé comme celui de Steam — une recherche par PATH ne peut pas contourner un sandbox qui cache entièrement le ffmpeg de l'hôte). Laisser vide pour une détection automatique. |
-| **Shortcuts** | Section repliée. Les touches des fenêtres de monitoring (pages, retour, vue, F5 pour rafraîchir) et Ctrl+S, plus des raccourcis désactivés par défaut pour ouvrir le Monitoring projet, le Monitoring farm, le Pipeline log, ajouter une entrée, incrémenter, marquer stable ou rendre le fichier ouvert depuis n'importe où dans Blender : en cocher un pour l'utiliser, cliquer sa touche pour la changer. |
+| **Shortcuts** | Section repliée. Les touches de la fenêtre Pipeline log (pages, F5 pour rafraîchir) et Ctrl+S, plus des raccourcis désactivés par défaut pour ouvrir la page en live, son onglet Farm, le Pipeline log, ajouter une entrée, incrémenter, marquer stable ou rendre le fichier ouvert depuis n'importe où dans Blender : en cocher un pour l'utiliser, cliquer sa touche pour la changer. |
 
 Session, verrouillage, check des libs périmées et gating read-only tournent toujours dès qu'un projet est actif — pas de toggle pour tout mettre en pause d'un coup. *Silent auto-increment* ne contrôle que le silence (ou pas) de la proposition de version à la première ouverture du jour.
 
@@ -83,7 +83,7 @@ Vue d'ensemble ci-dessous — chaque entrée pointe vers une page dédiée avec 
 - **[Blocs de shots (multishot)](docs/multishot_fr.md)** — un seul fichier pour des cuts caméra sur une animation continue qu'on ne peut pas séparer sans casser les raccords. Se découpe automatiquement en un job de rendu par shot.
 - **[Versions : wip et stable](docs/versions_fr.md)** — publier = tagger `-stable`, pas écraser un fichier. Auto-incrément à l'ouverture et garde à la sauvegarde évitent d'écraser une version stable par erreur.
 - **[Sessions et verrouillage](docs/sessions-and-locking_fr.md)** — qui a quoi d'ouvert, en ce moment ; des verrous qui expirent d'eux-mêmes plutôt que de nécessiter un serveur central arbitre.
-- **[Suivi & revues](docs/tracking-and-reviews_fr.md)** — notes/todos/rtk par asset/shot, validation par département, un monitoring project-wide dans une fenêtre à part, et un snapshot de prod (une page HTML hors ligne sur laquelle faire la review et la renvoyer).
+- **[Suivi & revues](docs/tracking-and-reviews_fr.md)** — notes/todos/rtk par asset/shot, validation par département, la page en live (le projet dans le navigateur, tenu à jour par Blender : review, farm), et un snapshot de prod (une page HTML hors ligne sur laquelle faire la review et la renvoyer).
 - **[Link vs Append](docs/linking_fr.md)** — link est le mode natif du pipeline ; un append est détecté et une action de nettoyage est proposée.
 - **[Rendu (farm)](docs/farm_fr.md)** — un monitor + un nombre quelconque de workers coordonnent les jobs de rendu sur le drive partagé du projet, sans SSH ni serveur.
 
@@ -91,7 +91,7 @@ Vue d'ensemble ci-dessous — chaque entrée pointe vers une page dédiée avec 
 
 ## Interface
 
-Tous les panneaux vivent dans la sidebar de la vue 3D (`N` > onglet **Pipeline**) — Project, Asset, Shot, Tracking, Farm — plus le Monitoring projet et le dashboard farm, chacun dans une fenêtre à part, et un menu "Pipeline" dans la barre du haut pour un accès rapide sans ouvrir la sidebar. Référence complète panneau par panneau : **[docs/interface_fr.md](docs/interface_fr.md)**.
+Tous les panneaux vivent dans la sidebar de la vue 3D (`N` > onglet **Pipeline**) — Project, Asset, Shot, Tracking, Farm — plus la page en live dans le navigateur (*Open in browser*), et un menu "Pipeline" dans la barre du haut pour un accès rapide sans ouvrir la sidebar. Référence complète panneau par panneau : **[docs/interface_fr.md](docs/interface_fr.md)**.
 
 ---
 

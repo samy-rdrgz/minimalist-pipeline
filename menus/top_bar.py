@@ -111,7 +111,6 @@ class M_PIPELINE_MT_topbar_menu(bpy.types.Menu):
             ("m_pipeline.create_shot", "New shot", "BLANK1", {}),
             ("m_pipeline.batch_create", "Batch create from CSV", "BLANK1", {"greyed": True}),
             None,
-            ("m_pipeline.tracking_monitor", "Tracking monitor", "WORKSPACE", {}),
             ("m_pipeline.open_live_page", "Open in browser", "URL", {}),
             ("m_pipeline.export_snapshot", "Snapshot", "BLANK1", {}),
             ("m_pipeline.import_review", "Import review", "BLANK1", {}),
@@ -139,7 +138,7 @@ class M_PIPELINE_MT_topbar_menu(bpy.types.Menu):
             None,
             ("m_pipeline.farm_request_render", "Render", "RENDER_RESULT", {}),
             ("m_pipeline.push_rushes", "Push rushes to editing", "BLANK1", {"greyed": True}),
-            ("m_pipeline.farm_monitor", "Farm monitor", "WORKSPACE", {}),
+            ("m_pipeline.open_live_page", "Farm in browser", "WORKSPACE", {"tab": "farm"}),
             launch and ("m_pipeline.farm_launch_monitor", "Launch farm", "BLANK1", {}),
             stop and ("m_pipeline.farm_kill_monitor", "Stop farm", "BLANK1", {}),
             ("m_pipeline.farm_kill_self_worker", "Stop this worker", "BLANK1", {})

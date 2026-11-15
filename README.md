@@ -39,7 +39,7 @@ New here? **[Getting started](docs/getting-started.md)** walks through a first p
 **Problem solved**: the gap between artisanal chaos (`finalversion_therealone02.blend`) and heavyweight studio machinery. Three parts, each usable without the others:
 
 - **Storage** — naming, folders, versions, light locking: the base, without imposing an artistic workflow.
-- **Tracking & reviews** — notes, retakes, per-department validation, project monitoring, and a production snapshot to review offline, even away from the studio.
+- **Tracking & reviews** — notes, retakes, per-department validation, a live page of the project in the browser, and a production snapshot to review offline, even away from the studio.
 - **Render farm** — every machine that can open the project can render, no farm software.
 
 **What it won't do**, on purpose: plan work per person, or show anyone's work time (the data is logged, never surfaced — see [Design choices](docs/design.md)). It stays a tool for the people doing the work, not a production manager's dashboard.
@@ -65,9 +65,9 @@ Settings available in `Preferences > Add-ons > Minimalist Pipeline`:
 | **Silent auto-increment** | On the first file open of the day (already on the latest version), increment silently instead of asking for confirmation. |
 | **Auto-launch worker** | This machine automatically becomes a render worker when a project becomes active (on Blender startup, or when switching projects). |
 | **Always open read-only** | Forces all project files to open read-only, regardless of their lock state. Useful on a review/playblast machine. |
-| **Experience level** | *Beginner* shows short inline explanations of pipeline concepts (versions, stable, links...) next to the relevant buttons, dialogs and in the monitoring windows (Farm monitoring's Jobs and Workers, Worker details, Project monitoring, Renders to check, the Render dialog...); *Advanced* hides them. First launch also opens a one-time welcome window, reopenable anytime from the main panel header's "?". |
+| **Experience level** | *Beginner* shows short inline explanations of pipeline concepts (versions, stable, links...) next to the relevant buttons, dialogs and in the Pipeline log, Renders to check, the Render dialog...; *Advanced* hides them. First launch also opens a one-time welcome window, reopenable anytime from the main panel header's "?". |
 | **FFmpeg path** | Explicit path to the ffmpeg binary, for setups where Blender doesn't find it on PATH (e.g. launched through a sandboxed runtime such as Steam's — PATH search can't route around a sandbox that hides the host's ffmpeg entirely). Leave blank to auto-detect. |
-| **Shortcuts** | Folded section. The monitoring windows' keys (pages, back, switch view, F5 refresh) and Ctrl+S, plus shortcuts off by default to open Project monitoring, Farm monitoring, the Pipeline log, add an entry, increment, mark as stable or render the open file from anywhere in Blender: tick one to use it, click its key to change it. |
+| **Shortcuts** | Folded section. The Pipeline log window's keys (pages, F5 refresh) and Ctrl+S, plus shortcuts off by default to open the live page, its Farm tab, the Pipeline log, add an entry, increment, mark as stable or render the open file from anywhere in Blender: tick one to use it, click its key to change it. |
 
 Session, locking, library-update checks, and read-only gating always run whenever a project is active — there's no toggle to pause them as a block. *Silent auto-increment* only controls whether the day's-first-open version proposal is silent or asks for confirmation first.
 
@@ -83,7 +83,7 @@ Overview below — each links to a dedicated page with the full explanation, edg
 - **[Shot blocks (multishot)](docs/multishot.md)** — one file for camera cuts on a single continuous piece of animation that can't be split without breaking the seams. Splits automatically into one render job per shot.
 - **[Versions: wip and stable](docs/versions.md)** — publishing = tagging `-stable`, not overwriting a file. Auto-increment on open, and a save guard keep you from silently clobbering a stable version.
 - **[Sessions and locking](docs/sessions-and-locking.md)** — who has what open, right now; locks that self-expire instead of needing a central server to arbitrate.
-- **[Tracking & reviews](docs/tracking-and-reviews.md)** — notes/todos/rtk per asset/shot, per-department validation, project-wide monitoring in a window of its own, and a production snapshot (one offline HTML page to review on and send back).
+- **[Tracking & reviews](docs/tracking-and-reviews.md)** — notes/todos/rtk per asset/shot, per-department validation, the live page (the project in the browser, kept up to date by Blender: review, farm), and a production snapshot (one offline HTML page to review on and send back).
 - **[Link vs Append](docs/linking.md)** — link is the pipeline's native mode; an append gets detected and offered a cleanup.
 - **[Rendering (farm)](docs/farm.md)** — a monitor + any number of workers coordinate render jobs over the shared project drive, no SSH or server required.
 
@@ -91,7 +91,7 @@ Overview below — each links to a dedicated page with the full explanation, edg
 
 ## Interface
 
-All panels live in the 3D viewport sidebar (`N` > **Pipeline** tab) — Project, Asset, Shot, Tracking, Farm — plus Project monitoring and the farm dashboard, each in a window of its own, and a "Pipeline" menu in the top bar for quick access without opening the sidebar. Full panel-by-panel reference: **[docs/interface.md](docs/interface.md)**.
+All panels live in the 3D viewport sidebar (`N` > **Pipeline** tab) — Project, Asset, Shot, Tracking, Farm — plus the live page in the browser (*Open in browser*), and a "Pipeline" menu in the top bar for quick access without opening the sidebar. Full panel-by-panel reference: **[docs/interface.md](docs/interface.md)**.
 
 ---
 

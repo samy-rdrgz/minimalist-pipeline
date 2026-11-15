@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Minimalist Pipeline",
     "author": "Samy Rodriguez",
-    "version": (1, 1, 10),
+    "version": (2, 0, 0),
     "blender": (4, 2, 0),
     "location": "View3D > Sidebar > Pipeline",
     "description": "Lightweight pipeline manager for solo/small team Blender projects.",
@@ -33,9 +33,7 @@ from .menus import (
 from .operators import (
     PIPELINE_PG_department_check_item,
     PIPELINE_PG_farm_list_item,
-    PIPELINE_PG_farm_monitoring,
     PIPELINE_PG_log_monitoring,
-    PIPELINE_PG_monitoring,
     PIPELINE_PG_project_settings,
     PIPELINE_PG_preview_sequence_item,
     PIPELINE_PG_render_subshot_item,
@@ -45,7 +43,6 @@ from .operators import (
 from .operators import classes as operator_classes
 from .panels import classes as panel_classes
 from .panels import unregister_thumbnail_previews
-from .panels.farm_panel import frame_lookup_get, frame_lookup_set, frame_render_items
 
 # Registration order matters: addon_data before anything reading preferences,
 # everything else before the topbar menu that references their operators.
@@ -85,24 +82,10 @@ _WM_PROPS = {
     "render_checked_departments": bpy.props.CollectionProperty(
         type=PIPELINE_PG_department_check_item
     ),
-    # "Which machine rendered frame n": Farm monitoring's job detail and
-    # File details' last render (draw_frame_lookup()).
-    "farm_frame_lookup": bpy.props.IntProperty(
-        name="Frame",
-        description="A frame of the render: which machine wrote it",
-        get=frame_lookup_get,
-        set=frame_lookup_set,
-    ),
-    # Its popup's render, in File details: one of the file's farm renders.
-    "farm_frame_render": bpy.props.EnumProperty(name="Render", items=frame_render_items),
     "file_selected_departments": bpy.props.StringProperty(),
     # The file New entry is for: its lines' shot pickers (a block's shots).
     "entry_target_file": bpy.props.StringProperty(),
     # The monitoring windows' filters (in memory, see lib memory_prop()).
-    "pipeline_monitoring": bpy.props.PointerProperty(type=PIPELINE_PG_monitoring),
-    "pipeline_farm_monitoring": bpy.props.PointerProperty(
-        type=PIPELINE_PG_farm_monitoring
-    ),
     "pipeline_log_monitoring": bpy.props.PointerProperty(
         type=PIPELINE_PG_log_monitoring
     ),

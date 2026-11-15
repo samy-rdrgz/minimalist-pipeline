@@ -1,34 +1,21 @@
-"""The monitoring windows' content (lib/monitoring.py): Project monitoring --
-every tracked file, or one file's detail --, Farm monitoring -- the farm's
-jobs or machines, or one job's detail -- and the Pipeline log."""
+"""The monitoring windows' content (lib/monitoring.py): the Pipeline log,
+the welcome, Project settings. Project and Farm monitoring are the live
+page's now (lib/live.py)."""
 
 import bpy
 
 from ..lib import (
-    ConfigCache,
     addon_pref,
-    any_outdated_links,
-    detail_shown,
     draw_onboarding,
     ensure_monitoring_tick,
     get_active_project_root,
-    json_get,
     monitor_filters,
     end_filters,
-    monitoring_detail,
     monitoring_kind,
-    monitoring_zone,
     region_char_budget,
 )
 from ..operators.migration_ops import project_needs_migration
-from .farm_panel import (
-    draw_farm_job_details,
-    draw_farm_jobs,
-    draw_farm_worker_details,
-    draw_farm_workers,
-)
 from .logs_panel import draw_pipeline_logs
-from .tracking_panel import draw_file_details, draw_monitor_table
 
 
 class _MonitoringPanel:
@@ -57,17 +44,10 @@ class _MonitoringPanel:
         # operator run: the scan and redraws start from here then.
         ensure_monitoring_tick()
         layout = self.layout
-        # A window in two zones: the list left, the detail right (see
-        # NOTES.md, "Monitoring: the detail beside the list").
-        zone = monitoring_zone(context)
         if not get_active_project_root():
             layout.label(text="No active project.", icon="ERROR")
-        elif zone == "detail" and not detail_shown(self.kind):
-            hint = layout.row()
-            hint.active = False
-            hint.label(text="Click a row of the list to see it here.", icon="INFO")
         else:
-            self.draw_content(context, layout, detail=zone != "list")
+            self.draw_content(context, layout, detail=True)
         # A window's height of blank below: the Tool tab's other panels
         # (Options, Workspace) out of sight, even scrolled.
         spacer = layout.column()
@@ -75,121 +55,6 @@ class _MonitoringPanel:
             20 * (context.preferences.system.ui_scale or 1.0)
         )
         spacer.label(text="")
-
-
-class M_PIPELINE_PT_monitoring(_MonitoringPanel, bpy.types.Panel):
-    """Project monitoring window's content."""
-
-    bl_label = "Pipeline: Project monitoring"
-    bl_idname = "M_PIPELINE_PT_monitoring"
-    kind = "project"
-
-    def draw_content(self, context, layout, detail=True):
-        state = context.window_manager.pipeline_monitoring
-        missing = detail and monitoring_detail("missing_file")
-        if missing:
-            row = layout.row(align=True)
-            row.box().operator(
-                "m_pipeline.tracking_file_details", text="", icon="BACK", emboss=False
-            )
-            row.box().label(
-                text=f"File not found in this project: {missing}", icon="ERROR"
-            )
-            return
-        if detail and monitoring_detail("file"):
-            draw_file_details(state, context, layout)
-            return
-
-        # Narrowed beside a detail: the filters stacked, three rows.
-        filters_btn, next_row = monitor_filters(context, layout)
-        filters_btn.prop(state, "file_type", expand=True)
-
-        if state.file_type == "asset":
-            filters_btn.prop(state, "asset_prefix", text="")
-            columns = json_get(ConfigCache.get(), "assets_departments", [])
-        else:
-            filters_btn.prop(state, "sequence", text="")
-            columns = json_get(ConfigCache.get(), "shots_departments", [])
-
-        filters_btn = next_row()
-        filters_btn.prop(state, "search", text="", icon="VIEWZOOM")
-        filters_btn = next_row()
-        # Icon only: the property's description is the tooltip.
-        filters_btn.prop(
-            state,
-            "only_farm",
-            text="",
-            icon="VIEW_CAMERA" if state.only_farm else "VIEW_CAMERA_UNSELECTED",
-            emboss=False,
-        )
-        # Everyone's, or mine only: the icon says which.
-        filters_btn.prop(
-            state, "only_mine", text="", icon="USER" if state.only_mine else "COMMUNITY", emboss=False
-        )
-        filters_btn.prop(
-            state,
-            "only_rtk",
-            text="",
-            icon="INDIRECT_ONLY_ON" if state.only_rtk else "INDIRECT_ONLY_OFF",
-            emboss=False,
-        )
-        filters_btn.prop(
-            state,
-            "only_to_validate",
-            text="",
-            icon="SOLO_ON" if state.only_to_validate else "SOLO_OFF",
-            emboss=False,
-        )
-        # Only once the scan found one: no button for nothing.
-        if any_outdated_links(get_active_project_root()):
-            outdated = filters_btn.row()
-            outdated.alert = not state.only_outdated
-            outdated.prop(state, "only_outdated", text="", icon="LIBRARY_DATA_BROKEN")
-        filters_btn.prop(state, "sort", text="", icon="SORTALPHA")
-        filters_btn.menu("M_PIPELINE_MT_monitor_columns", text="", icon="HIDE_OFF")
-        end_filters(filters_btn, layout)
-        draw_monitor_table(state, context, layout, columns, get_active_project_root())
-
-
-class M_PIPELINE_PT_farm_monitoring(_MonitoringPanel, bpy.types.Panel):
-    """Farm monitoring window's content."""
-
-    bl_label = "Pipeline: Farm monitoring"
-    bl_idname = "M_PIPELINE_PT_farm_monitoring"
-    kind = "farm"
-
-    def draw_content(self, context, layout, detail=True):
-        if detail and monitoring_detail("job"):  # opened from a worker's too: on top
-            draw_farm_job_details(layout.box(), context)
-            return
-        if detail and monitoring_detail("worker"):
-            draw_farm_worker_details(layout.box(), context)
-            return
-
-        state = context.window_manager.pipeline_farm_monitoring
-        # Project monitoring's filters, the same way (monitor_filters()).
-        filters_btn, next_row = monitor_filters(context, layout)
-        filters_btn.prop(state, "view", expand=True)
-        if state.view == "jobs":
-            filters_btn.prop(state, "state", expand=True)
-            filters_btn = next_row()
-            filters_btn.prop(state, "search", text="", icon="VIEWZOOM")
-            filters_btn = next_row()
-            filters_btn.prop(
-                state, "only_mine", text="", icon="USER" if state.only_mine else "COMMUNITY", emboss=False
-            )
-        # get_path(): a plain join, memoized -- no disk access in draw().
-        op = filters_btn.operator("wm.open_folder", text="", icon="FILE_FOLDER", emboss=False)
-        op.filepath = str(ConfigCache.get_path("farm"))
-        op.custom_tooltip = "Open the farm's folder (config/.farm: queue, workers, logs)"
-        end_filters(filters_btn, layout)
-        # No box round the list, in the panel's own layout: Project
-        # monitoring's rows, their spacing and count.
-        box = layout
-        if state.view == "jobs":
-            draw_farm_jobs(state, context, box)
-        else:
-            draw_farm_workers(context, box)
 
 
 class M_PIPELINE_PT_log_monitoring(_MonitoringPanel, bpy.types.Panel):

@@ -12,9 +12,15 @@ from .config import (
     covering_role,
     validation_roles,
 )
-from .core import iso_timestamp, json_get, local_time, now, parse_iso, read_json_quiet, time_key
-from .status import (  # noqa: F401 -- PROGRESS_WEIGHTS, progress_weights: re-exported
-    PROGRESS_WEIGHTS,
+from .core import (
+    iso_timestamp,
+    json_get,
+    now,
+    parse_iso,
+    read_json_quiet,
+    time_key,
+)
+from .status import (
     department_score,
     department_state,
     file_progress,
@@ -195,24 +201,6 @@ def read_render_state(
     for r in out:
         r.pop("_when", None)
     return out
-
-
-def farm_renders(owner: Path) -> list:
-    """Every finished render of an asset/shot folder whose frames' machines
-    were recorded (farm queue._note_frames()), the newest first: [(label,
-    frame_machines, machine_seconds)], label "sh020 v004-stable_002
-    2026-10-12 19:40". File details' frame lookup. Pure os/json."""
-    history = read_json_quiet(owner / ".pipeline" / "render_history.json") or {}
-    out = []
-    for e in history.get("entries", []):
-        if not isinstance(e, dict) or e.get("status") != "finished":
-            continue
-        if not (e.get("frame_machines") or {}).get("frames"):
-            continue
-        folder = Path(e.get("output_path") or "").parent.name
-        label = " ".join(x for x in (e.get("shot_override"), folder, local_time(e.get("completed_at"))) if x)
-        out.append((label, e["frame_machines"], e.get("machine_seconds")))
-    return out[::-1]
 
 
 def _mtime(folder) -> float | None:

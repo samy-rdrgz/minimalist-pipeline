@@ -2,7 +2,7 @@
 
 All notable changes to this addon. Dates are release dates.
 
-## Unreleased
+## 2.0.0
 
 ### Added
 
@@ -224,6 +224,16 @@ All notable changes to this addon. Dates are release dates.
 - Render presets in `.json` (a flat map of scene paths): Python presets
   only. *Migrate old data* rewrites each `.json` as the `.py` doing the
   same, and gives a department with no preset its default one.
+- The Project monitoring and Farm monitoring windows: the live page
+  (*Open in browser*, Shift+Alt+P) covers them -- every file and its
+  departments, a file's notes, renders to check and links; the farm's
+  jobs and machines, their details, retry, cancel, recompile, priority.
+  File details' *Details* opens it on the open file, the Farm panel's
+  header on its Farm tab (Shift+Alt+F). Their window state, keys (Tab,
+  Esc), the frame lookup popup and the per-file work time total go with
+  them; the Pipeline log, the welcome and Project settings keep their
+  windows. The sidebar panels and the top bar menu are unchanged but for
+  these buttons.
 
 ### Fixed
 

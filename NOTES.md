@@ -2470,7 +2470,31 @@ resumed after, a nested pause (`bring_monitoring_to_front()` opening a
 window), a reader stuck past the timeout. Not reproducible here -- the
 crash needs Blender.
 
+## 2.0.0: Project and Farm monitoring go to the live page
+
+The two windows removed once the live page covered them (2.0.0; the `2.0`
+branch keeps them). Their state (`pipeline_monitoring`,
+`pipeline_farm_monitoring`), the two-zone detail, the frame lookup popup,
+the Farm column, the per-file work time and every operator only they
+called went with them -- found by references (names, attributes and
+strings over the whole addon, docstrings and comments aside), loop until
+nothing more; then every import checked against its module, every called
+operator against the registered ones, and every remaining panel's and
+menu's draw() run headless on a project file.
+
+- **Kept**: the windows themselves (`lib/monitoring.py`) for the Pipeline
+  log, the welcome and Project settings -- paging, F5, the keys.
+- **Their entry points**: File details' *Details* opens the live page on
+  the file (`#<file>`: its name or any version's), the Farm panel's header
+  and body on its Farm tab (`#farm`); Shift+Alt+P / Shift+Alt+F do the
+  same.
+- **What the page doesn't do**: open a given version (it opens the last:
+  Blender for the rest -- the page covers the everyday, not every case),
+  become the farm host (the sidebar's Farm panel, the top bar).
+
 ## Monitoring: windows, not popups
+
+(Since 2.0.0: the Pipeline log, the welcome and Project settings only.)
 
 **Project settings (1.1.9)**, kind `"settings"`, the same way: its ~35
 fields were the operator's own properties, which a window's panel can't

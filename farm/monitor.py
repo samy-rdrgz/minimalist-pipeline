@@ -611,21 +611,6 @@ def load_job_details(job_id: str) -> dict | None:
     return None
 
 
-def get_job_details() -> dict:
-    """The job last read by load_job_details()."""
-    return _job_details
-
-
-def get_job_details_path() -> Path | None:
-    """The file load_job_details() read that job from."""
-    return _job_files["path"]
-
-
-def get_job_details_logs() -> list[Path]:
-    """That job's log files, as found by load_job_details()."""
-    return _job_files["logs"]
-
-
 def recover_interrupted_jobs() -> None:
     """Called once at monitor launch, for jobs left at a local *_start stage
     by a previous monitor that went away (crash, kill): adopt the process

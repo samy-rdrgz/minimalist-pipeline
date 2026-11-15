@@ -104,7 +104,6 @@ class M_PIPELINE_PT_project_panel(bpy.types.Panel):
                 (farm_ops.M_PIPELINE_OT_farm_request_render.bl_idname, "Render", "RENDER_RESULT"),
                 ("m_pipeline.push_rushes", "Push rushes to editing", "SEQUENCE"),
                 None,
-                ("m_pipeline.tracking_monitor", "Project monitoring", "WORKSPACE"),
                 ("tip", "Snapshot: an HTML progress page for production, to review "
                  "on. Import review reads the review it downloads: its notes "
                  "land on the files."),

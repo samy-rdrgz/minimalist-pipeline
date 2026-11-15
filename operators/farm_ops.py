@@ -9,7 +9,6 @@ from ..farm import (
     archive,
     cancel_pending_renders,
     failed_stage,
-    forget_worker,
     get_monitor_cache,
     job_cancel_request,
     job_request,
@@ -25,7 +24,6 @@ from ..farm import (
     refresh_monitor_status,
     remove_waiting_job,
     request_monitor_kill,
-    request_worker_stop,
     retry_job,
     scan_workers,
     stop_worker,
@@ -38,31 +36,23 @@ from ..lib import (
     PipelineAction,
     PipelineError,
     asset_folder_items,
-    bring_monitoring_to_front,
     cached_scandir,
     draw_box_tip,
     get_active_project_root,
     get_folder,
-    get_machine_id,
     get_user,
     json_get,
     locked_json,
     log,
-    memory_enum,
-    memory_prop,
     monitoring_detail,
-    monitoring_windows,
-    open_monitoring_window,
     parse_filename,
     prefix_items,
     read_json_quiet,
-    redraw_monitoring,
     report_error,
     resolve_ffmpeg,
     resolve_version_file,
     scan_descriptions,
     sequence_items,
-    set_monitoring_detail,
     set_pending_action,
     shot_items,
     shots_in_segment,
@@ -924,99 +914,6 @@ class M_PIPELINE_OT_farm_kill_self_worker(bpy.types.Operator):
         return {"CANCELLED"}
 
 
-class M_PIPELINE_OT_farm_stop_worker(bpy.types.Operator):
-    """Stop any machine's worker from the Workers tab."""
-
-    bl_idname = "m_pipeline.farm_stop_worker"
-    bl_label = "Stop worker"
-    bl_description = (
-        "Stop this machine's worker. If it's rendering, choose whether its "
-        "render is interrupted or writes its frame in progress first."
-    )
-
-    target_uuid: bpy.props.StringProperty()
-    machine: bpy.props.StringProperty()
-    busy: bpy.props.BoolProperty()
-    kill_render: bpy.props.BoolProperty(
-        description="Scripted call only: interrupt its render in progress"
-    )
-
-    def invoke(self, context, event):
-        if self.target_uuid == get_machine_id():
-            return bpy.ops.m_pipeline.farm_kill_self_worker("INVOKE_DEFAULT")
-        if not self.busy:
-            return self.execute(context)
-        user = get_user(context)
-        uuid, name = self.target_uuid, self.machine or self.target_uuid[:8]
-        set_pending_action(
-            PipelineAction(
-                title=f"Stop worker {name}",
-                message=(
-                    f"{name} is rendering a job right now.\n\n"
-                    "After this frame: the frame it's on is written, then the "
-                    "worker stops -- the job carries on with its other machines "
-                    "(or is sent out again for the frames left).\n"
-                    "Stop now: the render is interrupted, its frame in progress "
-                    "is lost and freed for another machine.\n\n"
-                    "Takes effect on its next tick (about 10 s)."
-                ),
-                severity="warning",
-                choices=[
-                    (
-                        "After this frame",
-                        lambda: request_worker_stop(uuid, False, user),
-                        "Write its frame in progress, then stop the worker.",
-                    ),
-                    (
-                        "Stop now",
-                        lambda: request_worker_stop(uuid, True, user),
-                        "Interrupt its render now and stop the worker.",
-                    ),
-                ],
-            )
-        )
-        return bpy.ops.m_pipeline.action_popup("INVOKE_DEFAULT")
-
-    def execute(self, context):
-        if not self.target_uuid:
-            return {"CANCELLED"}
-        request_worker_stop(self.target_uuid, self.kill_render, get_user(context))
-        self.report(
-            {"INFO"},
-            f"Stop requested for {self.machine or self.target_uuid[:8]} (next tick).",
-        )
-        return {"FINISHED"}
-
-
-class M_PIPELINE_OT_farm_forget_worker(bpy.types.Operator):
-    """Forget a silent worker (Workers tab): delete its file."""
-
-    bl_idname = "m_pipeline.farm_forget_worker"
-    bl_label = "Forget worker"
-    bl_description = (
-        "This machine's worker has been silent for a while (crashed, Blender "
-        "closed, machine asleep or off the share): remove it from the list. "
-        "It shows again as soon as its worker is relaunched."
-    )
-
-    target_uuid: bpy.props.StringProperty()
-    machine: bpy.props.StringProperty()
-
-    def execute(self, context):
-        name = self.machine or self.target_uuid[:8]
-        try:
-            forgotten = forget_worker(self.target_uuid)
-        except Exception as e:
-            self.report({"WARNING"}, f"Could not forget {name}: {e}")
-            return {"CANCELLED"}
-        if not forgotten:
-            self.report({"INFO"}, f"{name} is back: kept.")
-            return {"CANCELLED"}
-        get_monitor_cache().get("silent_workers", {}).pop(self.target_uuid, None)
-        self.report({"INFO"}, f"Worker {name} forgotten.")
-        return {"FINISHED"}
-
-
 class M_PIPELINE_OT_farm_cancel_job(bpy.types.Operator):
     """Cancel a job's in-progress render, on every machine currently working
     on it (Jobs tab) or on just one (Workers tab, via target_uuid)."""
@@ -1217,125 +1114,3 @@ def _redo_job(op, can, redo, refused: str, verb: str, done) -> set:
     return {"FINISHED"}
 
 
-class M_PIPELINE_OT_farm_job_details(bpy.types.Operator):
-    """Farm monitoring: show one job's detail (job_id; reload: read it
-    again), or the list (no job_id: the Back button). Reads the job file
-    here, once per click -- never in draw()."""
-
-    bl_idname = "m_pipeline.farm_job_details"
-    bl_label = ""
-    bl_description = "Show this job's details."
-
-    # SKIP_SAVE, never a toggle: see M_PIPELINE_OT_tracking_file_details.
-    job_id: bpy.props.StringProperty(options={"SKIP_SAVE"})
-    # Set where a right-click menu is offered (menus/button_context.py).
-    rmb: bpy.props.StringProperty(options={"HIDDEN", "SKIP_SAVE"})
-    reload: bpy.props.BoolProperty(options={"SKIP_SAVE"})
-
-    def execute(self, context):
-        if not self.job_id:
-            set_monitoring_detail("job", "")  # Back: the list
-            return {"FINISHED"}
-        if load_job_details(self.job_id) is None:
-            set_monitoring_detail("job", "")
-            self.report({"WARNING"}, "Job file not found (deleted?).")
-            return {"CANCELLED"}
-        set_monitoring_detail("job", self.job_id)
-        return {"FINISHED"}
-
-
-class M_PIPELINE_OT_farm_worker_details(bpy.types.Operator):
-    """Farm monitoring: show one worker's detail (uuid), or the Workers
-    list (no uuid: the Back button). Nothing read: the monitor cache already
-    holds every worker file."""
-
-    bl_idname = "m_pipeline.farm_worker_details"
-    bl_label = ""
-    bl_description = (
-        "Show this worker's details: versions, active since, renders done..."
-    )
-
-    uuid: bpy.props.StringProperty(options={"SKIP_SAVE"})
-
-    def execute(self, context):
-        set_monitoring_detail("job", "")
-        set_monitoring_detail("worker", self.uuid)
-        return {"FINISHED"}
-
-
-# Farm monitoring's filters: in memory only, see memory_prop().
-_farm_filters: dict = {}
-
-
-class PIPELINE_PG_farm_monitoring(bpy.types.PropertyGroup):
-    """Farm monitoring window's filters (WindowManager.pipeline_farm_monitoring)."""
-
-    view: memory_enum(
-        _farm_filters, "view", [("jobs", "Jobs", ""), ("workers", "Workers", "")]
-    )
-    state: memory_enum(
-        _farm_filters,
-        "state",
-        [
-            ("all", "All states", "Every job"),
-            ("running", "Running", "A step in progress: setup, render, frame check, compilation"),
-            (
-                "waiting",
-                "Waiting",
-                "Pending, queued, or between two steps (waiting for a free worker or the farm host)",
-            ),
-            ("finished", "Finished", "Finished jobs"),
-            ("failed", "Failed", "Failed jobs"),
-        ],
-    )
-    only_mine: memory_prop(
-        _farm_filters,
-        "only_mine",
-        bpy.props.BoolProperty,
-        False,
-        name="",
-        description="Only the jobs I submitted",
-    )
-    search: memory_prop(
-        _farm_filters,
-        "search",
-        bpy.props.StringProperty,
-        "",
-        name="",
-        description="Filter by file name or shot",
-    )
-
-
-class M_PIPELINE_OT_farm_monitor(bpy.types.Operator):
-    """Open Farm monitoring in its own window (panels/monitoring_panel.py)."""
-
-    bl_idname = "m_pipeline.farm_monitor"
-    bl_label = "Farm monitoring"
-    bl_description = (
-        "Open a window with the farm's jobs and machines. It stays open, "
-        "resizable, while you work"
-    )
-
-    def execute(self, context):
-        if not get_active_project_root():
-            self.report({"ERROR"}, "No active project.")
-            return {"CANCELLED"}
-
-        if monitoring_windows("farm"):
-            redraw_monitoring("farm")
-            if not bring_monitoring_to_front(context, "farm"):
-                self.report({"INFO"}, "Farm monitoring is already open.")
-            return {"FINISHED"}
-
-        # Reopens on the job it showed -- read again, it has moved on since.
-        job_id = monitoring_detail("job")
-        if job_id and load_job_details(job_id) is None:
-            set_monitoring_detail("job", "")
-        # A search left over from last time would silently hide jobs.
-        context.window_manager.pipeline_farm_monitoring.search = ""
-
-        # The farm's refresh timer: started by the window's tick.
-        if not open_monitoring_window(context, "farm", size="full"):
-            self.report({"ERROR"}, "Blender could not open a new window.")
-            return {"CANCELLED"}
-        return {"FINISHED"}
