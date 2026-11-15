@@ -98,8 +98,13 @@ return '<span class="dv'+(big?' big':'')+'"><span class="bar2"><i style="width:'
 /* ---------- review state: as the page before (same key, same shape) ---------- */
 var rv={author:'',role:'',date:'',files:{}};
 var KEY='mp-review:'+META.project+':'+META.snapshot;
-function entry(it){var e=rv.files[it.file]||(rv.files[it.file]={deps:{},all:false,text:'',desc:null});e.fixed=e.fixed||{};e.replies=e.replies||{};return e;}
-function peek(it){return rv.files[it.file]||{deps:{},all:false,text:'',desc:null,fixed:{},replies:{}};}
+// synced: Still done per department; req: a department required added
+// (true) or removed (false); omit: {state, reason} set aside or counted again.
+function entry(it){var e=rv.files[it.file]||(rv.files[it.file]={deps:{},all:false,text:'',desc:null});e.fixed=e.fixed||{};e.replies=e.replies||{};e.synced=e.synced||{};e.req=e.req||{};return e;}
+function peek(it){var e=rv.files[it.file]||{deps:{},all:false,text:'',desc:null,fixed:{},replies:{}};e.synced=e.synced||{};e.req=e.req||{};return e;}
+// A file's own changes in the review: still done, departments, set aside.
+function fileChanges(it,e){return Object.keys(e.synced||{}).length+Object.keys(e.req||{}).length+(omitChanged(it,e)?1:0);}
+function omitChanged(it,e){return !!e.omit&&(e.omit.state!==((it.omit||{}).state||'')||(e.omit.state&&e.omit.reason!==((it.omit||{}).reason||'')));}
 // The open notes this review replies to with a retake (anything but
 // "note:" lines): still to redo -- their departments sent back as a ✕
 // would ({deps}), the whole file's when they have none (gen).
@@ -110,7 +115,7 @@ if(n.deps.length)n.deps.forEach(function(d){out.deps[d]=1;});else out.gen=true;}
 function replies(e){var r=e.replies||{};return Object.keys(r).filter(function(id){return (r[id]||'').trim();});}
 function changes(it){var e=rv.files[it.file];if(!e)return 0;
 var n=Object.keys(e.deps).filter(function(d){return sent(e.deps[d]);}).length+(e.all&&!asTeam()?1:0)+(e.text.trim()?1:0)+Object.keys(e.fixed||{}).length+replies(e).length;
-if(e.desc!==null&&e.desc.trim()&&e.desc.trim()!==it.desc)n++;return n;}
+if(e.desc!==null&&e.desc.trim()&&e.desc.trim()!==it.desc)n++;return n+fileChanges(it,e);}
 // What this review says of a department: 'ok' (its own ✓, or all done), 'no',
 // 'note' (only "note:" lines: a remark, its validation left as it is), or ''.
 // Written as the team (Role "team", no validation role of that name): its
@@ -133,7 +138,7 @@ function notesIn(t){return (t||'').split(NL).filter(function(l){return NOTE_RE.t
 var NOTE_RE=/^\s*(?:\[[^\]]*\]\s*)*(?:note|n)\s*:/i;
 function retakes(t){return t.split(NL).filter(function(l){var w=l.trim().split(' ').filter(function(x){return x&&x.charAt(0)!=='[';});
 return w.length&&!NOTE_RE.test(l);}).length;}
-function summary(){var c={files:0,ok:0,rt:0,out:0,desc:0,fixed:0,replies:0,notes:0};D.forEach(function(it){if(!changes(it))return;var e=rv.files[it.file];c.files++;c.fixed+=Object.keys(e.fixed||{}).length;c.replies+=replies(e).length;
+function summary(){var c={files:0,ok:0,rt:0,out:0,desc:0,fixed:0,replies:0,notes:0,changes:0};D.forEach(function(it){if(!changes(it))return;var e=rv.files[it.file];c.files++;c.fixed+=Object.keys(e.fixed||{}).length;c.replies+=replies(e).length;c.changes+=fileChanges(it,e);
 Object.keys(e.deps).forEach(function(d){var v=e.deps[d];if(!sent(v))return;if(v.ok)c.ok++;else if(v.text.trim()){c.rt+=retakes(v.text);c.notes+=notesIn(v.text);}else c.out++;});
 var an=answered(it).deps;Object.keys(an).forEach(function(d){if(!e.deps[d]&&!asTeam())c.out++;});
 if(e.all&&!asTeam())Object.keys(it.states).forEach(function(d){if(isDone(it.states[d])&&!e.deps[d]&&!an[d])c.ok++;});
@@ -769,7 +774,9 @@ esc(r.folder||r.pending||'not rendered')+(r.behind?'<small>stable is '+esc(it.st
 function depHtml(it,d,rv){var s=it.states[d],e=peek(it),v=e.deps[d],o=it.ok[d],via=!v&&e.all&&isDone(s);
 var okd=o?(o.old?'<span class="ok old" title="'+esc(o.tip)+'">✓ '+esc(o.role)+' on '+esc(o.seen)+'</span><span class="faint" style="font-size:12px">to review again</span>':
 '<span class="ok" title="'+esc(o.tip)+'">✓ '+esc(o.role)+'</span>'):'';
-return '<div class="dep"><div class="dep-l">'+cell(it,d)+'<span class="mid"><span class="nm">'+esc(cap(d))+'</span><span class="st">'+esc(depSummary(it,d))+'</span>'+okd+'<span class="inl">'+you(it,d)+'</span></span>'+
+// To redo (an earlier stage changed): Still done says its work holds.
+var redo=((it.flags||{})[d]||{}).to_redo,sd=redo&&rv?'<button type="button" class="sd-b" data-sync="'+esc(d)+'" aria-pressed="'+!!e.synced[d]+'" title="To redo: '+esc(redo)+'. Still done: the work done holds -- not a validation">'+ico('check')+'Still done</button>':'';
+return '<div class="dep"><div class="dep-l">'+cell(it,d)+'<span class="mid"><span class="nm">'+esc(cap(d))+'</span><span class="st">'+esc(depSummary(it,d))+'</span>'+okd+sd+'<span class="inl">'+you(it,d)+'</span></span>'+
 '<span class="rvb" data-d="'+esc(d)+'"><button class="ok-b'+(via?' via':'')+'" aria-pressed="'+!!(v&&v.ok)+'"'+(asTeam()?' disabled title="As the team: no validation — a validation role validates"':isDone(s)?' title="Validate it as your role"':' disabled title="Not done: nothing to validate yet"')+
 ' aria-label="Validate '+esc(d)+'">✓</button><button class="ko-b'+(verdict(it,d)==='note'?' as-note':'')+'" aria-pressed="'+!!(v&&v.no)+'" aria-label="Retake '+esc(d)+'" title="Retake: write what to fix (or nothing, to withdraw a validation)">✕</button></span></div>'+
 threads(it,d)+(rv&&v&&v.no?'<div class="rt mine">'+retakeBox(it,'d:'+d,v.text,'What to fix in '+d+'? Empty: just withdraw its validation')+syntax(it,'d:'+d)+'</div>':'')+'</div>';}
@@ -816,6 +823,12 @@ h+='<div class="p-block major">'+
 '<span class="rvb"><span class="rvb-gap"></span><button class="ko-b" id="add-gen" aria-pressed="'+genOpen+'" aria-label="A retake on no department">✕</button></span></div>'+
 threads(it,'')+(rv&&genOpen?'<div class="rt mine">'+retakeBox(it,'gen',e.text,'What to fix, on no department in particular?')+syntax(it,'gen')+'</div>':'')+'</div>':'')+
 '</div>';
+// Reviewing, the file itself: its departments required, set aside or not.
+if(rv){var all=depsOf(it.kind),om=e.omit||{state:(it.omit||{}).state||'',reason:(it.omit||{}).reason||''};
+h+='<div class="p-block filed"><h4>File<span class="h-sub">sent with the review</span></h4><div class="st-l">Departments required</div><div class="req">'+
+all.map(function(d){var on=d in e.req?e.req[d]:d in it.states;return '<button type="button" data-req="'+esc(d)+'" aria-pressed="'+on+'"'+(d in e.req?' class="chg"':'')+'>'+esc(cap(d))+'</button>';}).join('')+'</div>'+
+'<div class="st-l">Set aside</div><div class="segb om">'+[['','Active'],['on_hold','On hold'],['cancelled','Cancelled']].map(function(o){return '<button type="button" data-omit="'+o[0]+'" aria-pressed="'+(om.state===o[0])+'">'+o[1]+'</button>';}).join('')+'</div>'+
+(om.state?'<input class="om-why" id="om-why" placeholder="Why (for the team)" value="'+esc(om.reason||'')+'">':'')+'</div>';}
 // Where it comes from: at the bottom, out of the way while reviewing.
 h+='<dl class="view-only facts"><dt>Last render</dt><dd>'+rendersHtml(it)+noVideo(it)+'</dd><dt>Blender file</dt><dd class="fileline">'+esc(it.file)+'.blend</dd></dl>';
 // The player's video kept as the panel is redrawn (moved, not made again).
@@ -963,6 +976,12 @@ var tog=function(){b.open[sh]=!b.open[sh];if(!b.open[sh])delete b.per[sh];setTex
 if(b.open[sh]&&(b.per[sh]||'').trim()){ask('Drop what you wrote for '+sh+'?','Drop it',tog);return;}tog();
 if(b.open[sh]){var ta3=$('p-body').querySelector('textarea[data-k="'+CSS.escape(key)+'"][data-s="'+CSS.escape(sh)+'"]');if(ta3)ta3.focus({preventScroll:true});}return;}
 if((t=ev.target.closest('[data-closed]'))){closedOpen[t.dataset.closed]=!closedOpen[t.dataset.closed];return refresh();}
+if((t=ev.target.closest('[data-sync]'))){var se=entry(it);if(se.synced[t.dataset.sync])delete se.synced[t.dataset.sync];else se.synced[t.dataset.sync]=1;return refresh();}
+// A department required or not: back to as it was, or changed.
+if((t=ev.target.closest('[data-req]'))){var re=entry(it),rd=t.dataset.req,was=rd in it.states,now2=rd in re.req?re.req[rd]:was;
+if(!now2===was)delete re.req[rd];else re.req[rd]=!now2;return refresh();}
+if((t=ev.target.closest('[data-omit]'))){var oe=entry(it),cur0=oe.omit||{state:(it.omit||{}).state||'',reason:(it.omit||{}).reason||''};
+oe.omit={state:t.dataset.omit,reason:cur0.reason};refresh();var ow=$('om-why');if(ow&&t.dataset.omit)ow.focus({preventScroll:true});return;}
 // "+ f12": the frame shown, at the start of the line being written.
 if((t=ev.target.closest('[data-addf]'))&&PL){var ta4=t.closest('.rt').querySelector('textarea');if(!ta4)return;var f=frameNo(PL.v,PL.el.currentTime),pos=ta4.selectionStart||0,ls=ta4.value.lastIndexOf(NL,pos-1)+1;
 ta4.value=ta4.value.slice(0,ls)+'[f'+f+'] '+ta4.value.slice(ls);ta4.focus();ta4.setSelectionRange(pos+('[f'+f+'] ').length,pos+('[f'+f+'] ').length);ta4.dispatchEvent(new Event('input',{bubbles:true}));return;}
@@ -976,12 +995,13 @@ if((t=ev.target.closest('.rvb button'))&&!t.disabled){var d=t.parentNode.dataset
 if(t.classList.contains('ok-b')){if(v&&v.ok)delete e.deps[d];else e.deps[d]={ok:1};refresh();}
 else{if(v&&v.no)delete e.deps[d];else e.deps[d]={no:1,text:''};refresh();
 if(e.deps[d]){var ta2=$('p-body').querySelector('textarea[data-k="'+CSS.escape('d:'+d)+'"]');if(ta2)ta2.focus({preventScroll:true});}}}});
-$('p-body').addEventListener('input',function(ev){var t=ev.target,it=D[cur],e=entry(it);if(t.tagName!=='TEXTAREA')return;grow(t);
+$('p-body').addEventListener('input',function(ev){var t=ev.target,it=D[cur],e=entry(it);if(t.tagName!=='TEXTAREA'&&t.id!=='om-why')return;if(t.tagName==='TEXTAREA')grow(t);
 if(t.dataset.k){var k=t.dataset.k;if(t.dataset.s==null)setText(it,k,t.value);else{var b=boxOf(it,k,k==='gen'?e.text:(e.deps[k.slice(2)]||{}).text||'');
 if(t.dataset.s)b.per[t.dataset.s]=t.value;else b.all=t.value;setText(it,k,joinBox(it,b));}}else if(t.dataset.r){var was=replyKind(e.replies[t.dataset.r]);e.replies[t.dataset.r]=t.value;
 // Emptied, or turned retake / remark: its department sent back, or not.
 if(was!==replyKind(t.value)){var id=t.dataset.r,at=t.selectionStart;refresh();var nt=$('p-body').querySelector('.rp-t[data-r="'+CSS.escape(id)+'"]');if(nt){nt.focus({preventScroll:true});nt.setSelectionRange(at,at);}return;}}
 else if(t.id==='desc-t')e.desc=t.value;
+else if(t.id==='om-why'&&e.omit)e.omit.reason=t.value;
 // A department's box turning remark-only or back (✎ you / ✕ you): its
 // tag and ✕ in the panel, its cell in the list, the caret kept.
 if(t.dataset.k&&t.dataset.k.indexOf('d:')===0){var dd=t.dataset.k.slice(2),vd=verdict(it,dd),dep=$('p-body').querySelector('.rvb[data-d="'+CSS.escape(dd)+'"]');
@@ -1134,7 +1154,11 @@ if(e.all&&!team)Object.keys(it.states).forEach(function(d){if(isDone(it.states[d
 lines(e.text,[]);
 if(e.desc!==null&&e.desc.trim()&&e.desc.trim()!==it.desc)out.push({type:'description',file:f,old:it.desc||'',new:e.desc.trim()});
 Object.keys(e.fixed||{}).forEach(function(id){out.push({type:'fixed',file:f,id:id});});
-replies(e).forEach(function(id){out.push({type:'reply',file:f,to:id,text:e.replies[id].trim()});});});return out;}
+replies(e).forEach(function(id){out.push({type:'reply',file:f,to:id,text:e.replies[id].trim()});});
+Object.keys(e.synced||{}).forEach(function(d){out.push({type:'still_done',file:f,department:d,text:''});});
+var add=Object.keys(e.req||{}).filter(function(d){return e.req[d];}),rem=Object.keys(e.req||{}).filter(function(d){return !e.req[d];});
+if(add.length||rem.length)out.push({type:'departments',file:f,add:add,remove:rem});
+if(omitChanged(it,e))out.push({type:'omit',file:f,state:e.omit.state,reason:e.omit.state?e.omit.reason||'':''});});return out;}
 // A review file read back into the page: its actions as the boxes,
 // ✓ / ✕, replies and fixes they came from.
 function fromActions(actions){var unknown={};(actions||[]).forEach(function(a){var it=byFile[a.file];if(!it){unknown[a.file]=1;return;}var e=entry(it);
@@ -1146,7 +1170,10 @@ else if(a.type==='rtk'||a.type==='note'){var line=tag()+a.text,d=(a.departments|
 if(d){var v=e.deps[d];if(!v||!v.no)v=e.deps[d]={no:1,text:''};v.text=add(v.text,line);}else e.text=add(e.text,line);}
 else if(a.type==='reply')e.replies[a.to]=String(a.text||'');
 else if(a.type==='fixed')e.fixed[a.id]=1;
-else if(a.type==='description')e.desc=a.new;});return Object.keys(unknown).length;}
+else if(a.type==='description')e.desc=a.new;
+else if(a.type==='still_done')e.synced[a.department]=1;
+else if(a.type==='departments'){(a.add||[]).forEach(function(d){e.req[d]=true;});(a.remove||[]).forEach(function(d){e.req[d]=false;});}
+else if(a.type==='omit')e.omit={state:a.state||'',reason:a.reason||''};});return Object.keys(unknown).length;}
 // <project>_review_<YYYY-MM-DD_HH-MM>_<role>_<author>.json: two reviewers'
 // files side by side on a drive, never one over the other.
 function slug(t){return String(t||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');}
@@ -1172,6 +1199,9 @@ var n=function(t){return acts.filter(function(a){return a.type===t;}).length;};
 if(n('description'))parts.push('<span class="rc-x">'+ico('review')+'description</span>');
 if(n('fixed'))parts.push('<span class="rc-x">'+ico('check')+plural(n('fixed'),'fixed')+'</span>');
 if(n('reply'))parts.push('<span class="rc-x">'+ico('reply')+plural(n('reply'),'reply')+'</span>');
+acts.forEach(function(a){if(a.type==='still_done')parts.push('<span class="rc-x">'+ico('check')+esc(cap(a.department))+': still done</span>');
+else if(a.type==='departments')parts.push('<span class="rc-x">'+ico('filter')+esc([a.add.length?'+ '+a.add.map(cap).join(', '):'',a.remove.length?'− '+a.remove.map(cap).join(', '):''].filter(Boolean).join(' · '))+'</span>');
+else if(a.type==='omit')parts.push('<span class="rc-x">'+ico('time')+esc(a.state==='on_hold'?'On hold':a.state==='cancelled'?'Cancelled':'Active again')+(a.reason?': '+a.reason:'')+'</span>');});
 return '<div class="rc"><b class="rc-n">'+(it?nameHtml(it):esc(f))+'</b><span class="rc-p">'+parts.join('')+'</span></div>';}).join('');}
 function openSend(){var rows=exportActions();
 if(!rows.length){toast('Nothing to send yet: validate or write a retake first.');return;}

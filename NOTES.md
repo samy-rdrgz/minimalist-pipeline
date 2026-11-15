@@ -4379,7 +4379,16 @@ new}.
   block's goes back into its text, as typed.
 - `_action()` drops an action it doesn't understand (an unknown type, a
   missing field) rather than refusing the file.
-- Kept for phase 4B-C: still_done, departments, omit, assign, create.
+- Phase 4B: still_done {department, text}, departments {add, remove},
+  omit {state, reason} -- a file's own changes, open to anyone (no role:
+  none is a validation); the panel's *Still done* on a department to redo
+  and its *File* block while reviewing (the departments required as
+  buttons, set aside or not). `set_departments_required()` refuses a
+  department the project doesn't have for the file's kind.
+- `create_tracking()` called again on a folder rebuilt its tracking.json
+  from five keys -- omit, departments_synced and anything else were lost:
+  the rest is kept now.
+- To come (4C, phase 6): create, assign.
 
 ## Small gotchas, out of the docstrings
 

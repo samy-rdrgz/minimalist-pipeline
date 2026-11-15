@@ -303,6 +303,7 @@ from .tracking import (
     wipmeta_add_link,
     wipmeta_add_work,
     set_department_synced,
+    set_departments_required,
     set_file_omit,
 )
 from .versioning import (

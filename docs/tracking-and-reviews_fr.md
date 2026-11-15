@@ -112,7 +112,10 @@ la prod -- sur la version qu'il a vue.
   file…*. Pendant la review, l'en-tête montre qui, en tant que quoi et
   combien de fichiers (un clic : la même fenêtre, pour les changer) et
   *Send…* ; le menu ⋯ *Clear this review…* et *Leave the review*. Dans
-  le panneau d'un fichier, un ✓ à côté de chaque département (le
+  le panneau d'un fichier, un département *To redo* a *Still done* (son
+  travail tient toujours), et un bloc *File* en bas change ses
+  départements requis et l'écarte (*Active*, *On hold*, *Cancelled*, avec
+  un pourquoi) -- envoyés avec la review, ouverts à tous les rôles ; un ✓ à côté de chaque département (le
   valider pour votre rôle -- seulement s'il est fini) et un ✗ (une case
   pour les retakes, un par ligne : `[sh020]` en début de ligne pour un
   shot d'un bloc, `[f12-40]` pour ses frames, `note:` pour une remarque

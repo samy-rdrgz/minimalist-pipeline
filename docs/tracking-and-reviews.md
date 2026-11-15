@@ -107,7 +107,10 @@ it saw.
   file opened); *Load a review file…*. While reviewing, the header shows
   who, as what and how many files (a click: the same window, to change
   them) and *Send…*; the ⋯ menu *Clear this review…* and *Leave the
-  review*. In a file's panel, a ✓ by each department (validate it as your
+  review*. In a file's panel, a department *To redo* has *Still done* (its
+  work holds), and a *File* block at the bottom changes its departments
+  required and sets it aside (*Active*, *On hold*, *Cancelled*, with a
+  why) -- sent with the review, open to any role; a ✓ by each department (validate it as your
   role -- a done one only) and a ✗ (a box for the retakes, one per line:
   `[sh020]` at its start for one shot of a block, `[f12-40]` for its
   frames, `note:` for a remark instead of a retake (nothing but

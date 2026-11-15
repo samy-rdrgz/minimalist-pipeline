@@ -774,6 +774,7 @@ class M_PIPELINE_OT_import_review_confirm(bpy.types.Operator):
                 f"{len(plan['validations'])} validation change(s)"
                 + (f", {plan['fixed']} retake(s) fixed" if plan["fixed"] else "")
                 + (f", {plan['replies']} reply(ies)" if plan["replies"] else "")
+                + (f", {plan['changes']} file change(s)" if plan.get("changes") else "")
                 + (f", {len(plan['refused'])} not applied" if plan["refused"] else ""),
             )
             return
@@ -852,6 +853,7 @@ def _run_review_import(self, pending: list[tuple[Path, dict]]) -> set:
         "replies": 0,
         "already_fixed": 0,
         "same_validations": 0,
+        "changed": 0,
         "skipped": [],
     }
     changes: dict[str, dict] = {}
@@ -887,6 +889,7 @@ def _run_review_import(self, pending: list[tuple[Path, dict]]) -> set:
             "replies",
             "already_fixed",
             "same_validations",
+            "changed",
         ):
             result[key] += one[key]
         result["skipped"] += [
@@ -919,6 +922,8 @@ def _run_review_import(self, pending: list[tuple[Path, dict]]) -> set:
         lines.append(f"{result['fixed']} retake(s) marked fixed")
     if result["replies"]:
         lines.append(f"{result['replies']} reply(ies) added to their notes")
+    if result["changed"]:
+        lines.append(f"{result['changed']} file change(s): still done, departments, set aside")
     # A review imported again: say what was there already, left as it is.
     already = [
         f"{result['duplicates']} note(s) / reply(ies)" if result["duplicates"] else "",

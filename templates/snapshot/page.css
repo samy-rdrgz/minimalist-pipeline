@@ -936,3 +936,14 @@ filled once on. */
 
 /* Scrollbars in the page's colours (the system's showed white on dark). */
 html,.p-body,.wl-side,.recap,.menu-pop,.pick-pop,.strip{scrollbar-color:var(--line2) transparent;scrollbar-width:thin}
+
+/* ---------- the file's own changes, reviewing ---------- */
+.sd-b{display:inline-flex;align-items:center;gap:5px;min-height:26px;padding:0 9px;border:1px solid var(--outline);border-radius:var(--r-btn);background:var(--btn);color:var(--ink);font-size:12px;box-shadow:0 var(--emb-y) 0 var(--emboss)}
+.sd-b .ico{width:12px;height:12px}
+.sd-b[aria-pressed="true"]{background:var(--sel);border-color:var(--sel);color:#fff}
+.filed .st-l{margin-top:10px}
+.req{display:flex;flex-wrap:wrap;gap:4px}
+.req button{min-height:30px;padding:0 10px;border:1px solid var(--outline);border-radius:var(--r-btn);background:var(--btn);color:var(--ink-2);font-size:12px;box-shadow:0 var(--emb-y) 0 var(--emboss)}
+.req button[aria-pressed="true"]{background:var(--sel);border-color:var(--sel);color:#fff}
+.req button.chg{outline:1.5px dashed var(--mine);outline-offset:1px}
+.om-why{display:block;width:100%;min-height:var(--tap);margin-top:8px;padding:0 10px;border:1px solid var(--mine);border-radius:var(--r-btn);background:var(--field);color:var(--ink);font-size:14px}

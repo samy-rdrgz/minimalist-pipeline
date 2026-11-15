@@ -35,7 +35,11 @@ from .tracking import (
     create_entry,
     entry_departments,
     find_file_by_name,
+    get_departments_required,
     set_department_approval,
+    set_department_synced,
+    set_departments_required,
+    set_file_omit,
     tracking_json_path,
     valid_department,
     worked_since_stable,
@@ -96,8 +100,18 @@ def keep_review(path: Path, snapshots: Path, plan: dict) -> Path | None:
 #   reply                  {file, to, text}: in that note's thread
 #   fixed                  {file, id}: that retake done, as the reviewer
 #   description            {file, old, new}: old the one exported
+#   still_done             {file, department, text}: its work holds, an
+#                          earlier stage changed (not a validation)
+#   departments            {file, add, remove}: the departments required
+#   omit                   {file, state, reason}: on_hold / cancelled, ""
+#                          counted again
 # See NOTES.md, "Review: typed actions".
-ACTION_TYPES = ("validate", "unvalidate", "rtk", "note", "reply", "fixed", "description")
+ACTION_TYPES = (
+    "validate", "unvalidate", "rtk", "note", "reply", "fixed", "description",
+    "still_done", "departments", "omit",
+)
+# Changes to a file anyone may send (no role needed: none is a validation).
+_FILE_CHANGES = ("still_done", "departments", "omit")
 
 
 def _text(value) -> str:
@@ -136,6 +150,16 @@ def _action(raw) -> dict | None:
     if t == "fixed":
         a.update(id=_text(raw.get("id")))
         return a if a["id"] else None
+    if t == "still_done":
+        a.update(department=_text(raw.get("department")).lower(), text=_text(raw.get("text")))
+        return a if a["department"] else None
+    if t == "departments":
+        pick = lambda k: [_text(d).lower() for d in raw.get(k) or [] if _text(d)] if isinstance(raw.get(k), list) else []  # noqa: E731
+        a.update(add=pick("add"), remove=pick("remove"))
+        return a if a["add"] or a["remove"] else None
+    if t == "omit":
+        a.update(state=_text(raw.get("state")), reason=_text(raw.get("reason")))
+        return a if a["state"] in ("", "on_hold", "cancelled") else None
     a.update(old=_text(raw.get("old")), new=_text(raw.get("new")))
     return a
 
@@ -278,6 +302,8 @@ def review_import_plan(path: Path, review: dict | None = None) -> dict:
         "refused": [],
         # Retakes the reviewer marked fixed: closed under their name.
         "fixed": count("fixed"),
+        # Still done, departments required, set aside.
+        "changes": count(*_FILE_CHANGES),
         "replies": count("reply"),
         # What the project holds already (a review imported again), left as
         # it is: counted here as the import will tell it.
@@ -411,7 +437,7 @@ def import_review(path: Path) -> dict:
     in their threads, the validations, one entry per rtk / note under its
     role. One already imported is skipped. Returns {"imported",
     "duplicates", "validated", "same_validations", "fixed",
-    "already_fixed", "replies", "skipped": [(label, reason)]}."""
+    "already_fixed", "replies", "changed", "skipped": [(label, reason)]}."""
     review = read_review(path)
     plan = review_import_plan(path, review)
     team = plan["team"]
@@ -435,6 +461,8 @@ def import_review(path: Path) -> dict:
         "already_fixed": 0,
         # Given already: the plan left them out of its changes.
         "same_validations": plan["validations_known"],
+        # Still done, departments required, set aside.
+        "changed": 0,
         "skipped": list(plan["refused"]),
     }
     # Retakes marked fixed: done, as the reviewer -- one already done, or
@@ -498,6 +526,28 @@ def import_review(path: Path) -> dict:
                 result["replies"] += 1
             except PipelineError as e:
                 result["skipped"].append((f"{name}: reply", e.message))
+    # The file's own changes: still done, its departments, set aside.
+    for name, mine in _by_file(actions, *_FILE_CHANGES).items():
+        filepath = _review_file(name)
+        if not filepath:
+            result["skipped"] += [(f"{name}: {a['type'].replace('_', ' ')}", "file not found") for a in mine]
+            continue
+        for a in mine:
+            label = f"{name}: {a['type'].replace('_', ' ')}"
+            try:
+                if a["type"] == "still_done":
+                    if a["department"] not in get_departments_required(filepath):
+                        result["skipped"].append((label, f"{a['department']} not required"))
+                        continue
+                    set_department_synced(filepath, a["department"], author, a["text"])
+                elif a["type"] == "departments":
+                    if not set_departments_required(filepath, a["add"], a["remove"]):
+                        continue  # as asked already
+                else:
+                    set_file_omit(filepath, a["state"], author, a["reason"])
+                result["changed"] += 1
+            except PipelineError as e:
+                result["skipped"].append((label, e.message))
     for v in plan["validations"]:
         try:
             if set_department_approval(

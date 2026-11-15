@@ -683,7 +683,10 @@ def create_tracking(filepath: Path, departments: list, description: str = ""):
             else:
                 new_description = existing_description
 
+            # The rest kept as it is: rebuilt from five keys, it dropped
+            # omit, departments_synced and any other a later version wrote.
             box["data"] = {
+                **existing,
                 "file_name": name,
                 "created_at": existing.get("created_at", now()),
                 "departments_required": merged_departments,
@@ -1093,6 +1096,29 @@ def set_department_synced(filepath: Path, department: str, by: str, text: str = 
         data.setdefault("departments_synced", {})[department] = entry
         box["data"] = data
         box["action"] = "to_write"
+
+
+def set_departments_required(filepath: Path, add=(), remove=()) -> bool:
+    """The departments required for filepath's folder: add (the project's
+    own for its kind, others refused), remove. In the project's order.
+    False if nothing changed. Raises PipelineError for an unknown one."""
+    kind = "shots_departments" if (parse_filename(Path(filepath).name) or {}).get("shot") else "assets_departments"
+    known = {str(d).lower() for d in ConfigCache.get().get(kind) or []}
+    unknown = [d for d in add if d.lower() not in known]
+    if unknown:
+        raise PipelineError(f"Not a department of the project: {', '.join(unknown)}.")
+    path = tracking_json_path(filepath, must_exist=True)
+    with locked_json(path) as box:
+        data = box["data"] or {}
+        before = list(data.get("departments_required", []))
+        kept = [d for d in before if d not in remove]
+        after = ordered_departments(dict.fromkeys([*kept, *(d.lower() for d in add)]))
+        if after == before:
+            return False  # action "": nothing written
+        data["departments_required"] = after
+        box["data"] = data
+        box["action"] = "to_write"
+    return True
 
 
 def set_department_validated(filepath: Path, department: str, validated: bool) -> None:
