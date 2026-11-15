@@ -177,7 +177,8 @@ def draw_pipeline_logs(state, context, layout) -> None:
         col.label(text="")
 
     left, right = split_footer(context, box)
-    left.active = False
+    footer, left = left, left.row()
+    left.active = False  # the legend, a sibling, not greyed
     left.operator(
         "m_pipeline.pipeline_logs_refresh", text="", icon="FILE_REFRESH", emboss=False
     )
@@ -193,8 +194,7 @@ def draw_pipeline_logs(state, context, layout) -> None:
     if _log_cache["truncated"]:
         shown += " -- latest entries only"
     left.label(text=shown)
-    legend = left.row()
-    legend.active = True
+    legend = footer.row()
     legend.ui_units_x = 5
     legend.menu("M_PIPELINE_MT_log_legend", text="Legend", icon="INFO")
     draw_pager(right, page, pages)
@@ -232,9 +232,10 @@ def _line(layout) -> tuple:
     left the message's start moving with the action's length."""
     line = layout.row(align=False)
     cells = []
+    # Expanded, not LEFT: a left-aligned cell shrinks to its words, and a
+    # time's digits are not all one width.
     for units in _CELLS:
         cell = line.row()
-        cell.alignment = "LEFT"
         cell.ui_units_x = units
         cells.append(cell)
     cells.append(line.row())

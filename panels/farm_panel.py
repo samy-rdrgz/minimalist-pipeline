@@ -590,20 +590,27 @@ def draw_farm_jobs(self, context, layout):
         for op_name, icon in _job_actions(j):
             status.operator(op_name, text="", icon=icon, emboss=False).job_id = j["job_id"]
 
+    # As Project monitoring's footer: the count, then the legend; the bulk
+    # buttons at its right end.
     footer, pager = split_footer(context, layout.row())
-    footer.alignment = "EXPAND"  # the bulk buttons at its right end
-    legend = footer.row()
-    legend.ui_units_x = 5
-    legend.menu("M_PIPELINE_MT_farm_legend", text="Legend", icon="INFO")
-    footer = footer.row()
     footer.alignment = "EXPAND"
-    footer.active = False
-    footer.label(
+    count = footer.row()
+    count.alignment = "LEFT"
+    count.active = False
+    count.label(
         text=f"{total} job(s){_render_left_label(matches, cache)}"
         if total
         else "No job with this filter" if cache["jobs"] else "No job",
         icon="BLANK1",
     )
+    # Not greyed, as Project monitoring's: a sibling of the count.
+    legend = footer.row()
+    legend.alignment = "LEFT"
+    legend.ui_units_x = 5
+    legend.menu("M_PIPELINE_MT_farm_legend", text="Legend", icon="INFO")
+    footer = footer.row()
+    footer.alignment = "EXPAND"
+    footer.active = False
     # Every job of that state, not just this filter's.
     bulk = footer.row(align=True)
     bulk.alignment = "RIGHT"

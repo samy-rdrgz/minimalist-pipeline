@@ -4704,8 +4704,12 @@ started and Done reworked shared one icon.
 - A render's line in File details: its buttons first, blanks for the
   missing ones (`_render_row()` slots), then its words -- after them,
   they moved with a department's name.
-- The log's columns a fixed width each (`_CELLS`, ui_units_x): nested
-  splits let the message start move with the action's length.
+- The log's columns a fixed width each (`_CELLS`, ui_units_x), expanded:
+  nested splits let the message start move with the action's length, and
+  a LEFT-aligned cell shrinks to its words (a time's digits differ).
+- The three windows' footers in one order: what's shown (count, state),
+  greyed, then the *Legend* menu not greyed -- a sibling row, not a child:
+  a child can't undo its parent's `active = False`.
 - The page's *Last render*: a grid -- [shot] department (the main one
   bold), version, state, ▶ -- the other departments' last renders on
   rows of their own in the same columns.

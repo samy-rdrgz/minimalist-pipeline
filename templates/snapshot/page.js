@@ -394,7 +394,8 @@ $('vidb').hidden=!!PICKED||!D.some(function(it){return it.renders.some(function(
 // A capsule with no room on its right (the panel, the window's edge):
 // opened to the left -- measured as the pointer or the focus comes.
 function flipCap(e){var c=e.target.closest&&e.target.closest('.cell');if(!c)return;var lab=c.querySelector('.lab');if(!lab)return;
-var r=c.getBoundingClientRect(),p=$('panel'),edge=cur!=null&&!p.hidden&&!document.body.classList.contains('panel-full')?p.getBoundingClientRect().left:innerWidth;
+// In the panel itself: its right edge, the window's.
+var r=c.getBoundingClientRect(),p=$('panel'),edge=cur!=null&&!p.hidden&&!document.body.classList.contains('panel-full')&&!p.contains(c)?p.getBoundingClientRect().left:innerWidth;
 c.classList.toggle('flip',r.left+lab.scrollWidth+48>edge-8);}
 document.addEventListener('mouseover',flipCap);document.addEventListener('focusin',flipCap);
 // A finger: a first tap on a diamond stretches it into its words, a
