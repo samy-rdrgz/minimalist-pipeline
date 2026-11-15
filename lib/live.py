@@ -509,10 +509,15 @@ def _farm_data(root: Path) -> dict:
     "text", "done", "total", "left", "machines", "user", "at"}], "workers":
     [{"name", "status", "file", "mine", "host", "since"}], "me", "presets",
     "preset"}, from the monitor cache. Memory only."""
+    from ..farm.details import estimate_label, render_left_label
     from ..farm.loop import _STAGE_WORDS, entry_state
-    from ..farm.monitor import get_monitor_cache
+    from ..farm.monitor import REMOVABLE_STAGES, get_monitor_cache
+    from ..farm.queue import RETRYABLE_STAGES
+    from .session import get_user
 
     cache = get_monitor_cache()
+    user = get_user(bpy.context)
+    compiling = cache.get("ffmpeg_progress") or {}
     jobs, finished = [], []
     for j in cache.get("jobs") or []:
         stage = j.get("stage") or ""
@@ -544,6 +549,14 @@ def _farm_data(root: Path) -> dict:
             "range": j.get("frame_range"),
             "names": [_machine(cache, u) for u in j.get("machines") or []],
             "pending": stage == "pending",
+            # Farm monitoring's buttons, where they apply.
+            "retry": stage in RETRYABLE_STAGES,
+            "recompile": stage == "finished" and bool(j.get("output_dir")),
+            "removable": stage == "pending" or stage in REMOVABLE_STAGES,
+            "mine": (j.get("user") or "") == user,
+            # Waiting for a worker: what it'll take, at its last pace.
+            "estimate": estimate_label(j, cache) if j.get("frames_to_render") and stage != "render_start" else "",
+            "compile": compiling.get(j.get("job_id")),
         }
         (finished if state == "finished" else jobs).append(row)
     finished.sort(key=lambda r: r["at"], reverse=True)
@@ -556,6 +569,7 @@ def _farm_data(root: Path) -> dict:
     silent = cache.get("silent_workers") or {}
     workers = [
         {
+            "uuid": uuid,
             "name": _machine({"workers": {uuid: w}}, uuid),
             "status": "silent" if uuid in silent else w.get("status") or "",
             "file": Path(w.get("current_file") or "").stem,
@@ -582,6 +596,8 @@ def _farm_data(root: Path) -> dict:
         "jobs": jobs + finished[:FINISHED_SHOWN],
         "workers": workers,
         "me": me,
+        # The machine time the jobs still need, over the live workers.
+        "left": render_left_label([j for j in cache.get("jobs") or [] if entry_state(j) != "finished"], cache).removeprefix(" - "),
         **_presets(),
     }
 
@@ -629,8 +645,47 @@ def _farm_action(raw: dict) -> dict:
         "cancel": bpy.ops.m_pipeline.farm_cancel_job,
         "retry": bpy.ops.m_pipeline.farm_retry_job,
         "archive": bpy.ops.m_pipeline.farm_archive_job,
+        "recompile": bpy.ops.m_pipeline.farm_recompile_job,
     }
+    from ..farm.details import job_detail, job_path, worker_detail
+
     try:
+        # Read on demand: a job's file, a machine's from the monitor cache.
+        if action == "detail" and job:
+            return {"ok": True, "detail": job_detail(job)}
+        if action == "worker_detail":
+            return {"ok": True, "detail": worker_detail(str(raw.get("value") or ""))}
+        if action == "open" and job:
+            path = job_path(job, str(raw.get("value") or ""))
+            if not path or not path.exists():
+                return {"ok": False, "error": "not found"}
+            _with_window(bpy.ops.wm.path_open, filepath=str(path))
+            return {"ok": True}
+        if action == "remove" and job:
+            from ..farm.monitor import remove_waiting_job
+
+            if not remove_waiting_job(job, bool(raw.get("value"))):
+                return {"ok": False, "error": "it started meanwhile: cancel it instead"}
+            log("INFO", "farm", f"Job {job} removed from the queue from the live page.")
+            return {"ok": True}
+        if action == "archive_all" and raw.get("value") in ("finished", "failed"):
+            done = _with_window(bpy.ops.m_pipeline.farm_archive_jobs, "EXEC_DEFAULT", state=raw["value"])
+            return {"ok": "FINISHED" in done}
+        if action in ("stop_worker", "forget_worker"):
+            from ..farm.workers import forget_worker, request_worker_stop
+            from .core import get_machine_id
+            from .session import get_user
+
+            uuid = str(raw.get("value") or "")
+            if not uuid:
+                return {"ok": False, "error": "no machine"}
+            if action == "forget_worker":
+                return {"ok": True} if forget_worker(uuid) else {"ok": False, "error": "it's back: not forgotten"}
+            if uuid == get_machine_id():
+                done = _with_window(bpy.ops.m_pipeline.farm_kill_self_worker, "EXEC_DEFAULT")
+                return {"ok": "FINISHED" in done}
+            request_worker_stop(uuid, bool(raw.get("now")), get_user(bpy.context))
+            return {"ok": True, "note": "on its next tick (about 10 s)"}
         if action in ops and job:
             done = _with_window(ops[action], "EXEC_DEFAULT", job_id=job)
             return {"ok": "FINISHED" in done}

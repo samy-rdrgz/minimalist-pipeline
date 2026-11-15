@@ -36,7 +36,10 @@ All notable changes to this addon. Dates are release dates.
   detail with its priority, Cancel, Retry, Archive; this machine made a
   worker or not, every machine listed (this one, the host, the silent
   ones); a file sent to the farm from its panel (version, preset,
-  priority, mode, its frames, a block's shots) or its sequence's preview. It follows
+  priority, mode, its frames, a block's shots); a job's whole detail
+  (estimate, chunks, failures, who rendered which frame, stages, logs),
+  Recompile, Remove from queue, Archive all, filters; a machine's detail,
+  Stop, Forget or its sequence's preview. It follows
   the project made active, and says the project is being read while it
   is.
 - Snapshot page: *Mark fixed* on a thread whose open retake is a reply

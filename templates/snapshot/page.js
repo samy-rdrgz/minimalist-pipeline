@@ -151,7 +151,7 @@ var rv={author:'',role:'',date:'',files:{},creates:[]};
 var LIVE_OUT={busy:false,again:false,sent:{},t:0,after:null,say:'live'};
 // The live page's own state, set before anything draws: the Farm tab's
 // jobs open, the panel's sections folded, the Render form per file.
-var JOB_STATES=[['running','In progress','wip'],['waiting','Waiting','todo'],['failed','Failed','fail'],['finished','Finished','done']],JOPEN={},chkOpen=true,lnkOpen=false,rndOpen=false,RF={};
+var JOB_STATES=[['running','In progress','wip'],['waiting','Waiting','todo'],['failed','Failed','fail'],['finished','Finished','done']],JOPEN={},chkOpen=true,lnkOpen=false,rndOpen=false,RF={},FF={s:'',mine:false,q:''},JD={},WD={},WOPEN={},LKF={},JW={};
 var KEY='mp-review:'+META.project+':'+(META.live?'live':META.snapshot);
 // synced: Still done per department; req: a department required added
 // (true) or removed (false); omit: {state, reason} set aside or counted again.
@@ -850,20 +850,24 @@ if(d){c.sc.push(x.score(k));c.vs.push(ok);}});
 if(waits)c.wait++;c.rtk+=Object.keys(rks).length+lone;c.notes+=Object.keys(nt).length;
 if(!d){c.rtk+=it.genRtks.length;c.notes+=it.openNotes.filter(function(n){return !n.deps.length;}).length;c.sc.push(x.done);c.vs.push(x.valid);}});
 c.p=avg(c.sc);c.pv=META.role?avg(c.vs):null;return c;}
+// A split bar: its parts there are only (an empty one kept its 1 px gap: a notch at an end).
+function sbar(parts,cls){return '<span class="sb'+(cls?' '+cls:'')+'">'+parts.filter(function(p){return p[1]>1e-6;}).map(function(p){return '<i class="'+p[0]+'" style="flex:'+p[1]+'"></i>';}).join('')+'</span>';}
 function bdTip(g,d,c){return g+' · '+(d?cap(d):'every department')+': '+c.v+c.dn+' done of '+c.req+(META.role?', '+c.v+' validated':'')+(c.rtk?', '+plural(c.rtk,'open RTK'):'')+(c.wait?', '+c.wait+' waiting':'')+(c.notes?', '+plural(c.notes,'open note'):'')+(c.p!=null?' -- '+pct(c.p)+' done':'');}
 function bdCell(c,r,attrs,tip){if(!c.req)return '<span class="mx-c na" aria-label="not required">–</span>';
 var h='',chg=function(a,b){return a!=null&&b!=null&&Math.round(a*100)!==Math.round(b*100);};
-if(bdMode==='pct'){var v=c.pv||0;h='<span class="sb"><i class="sv" style="flex:'+v+'"></i><i class="sd" style="flex:'+Math.max(0,(c.p||0)-v)+'"></i><i style="flex:'+Math.max(0,1-(c.p||0))+'"></i></span>'+
+if(bdMode==='pct'){var v=c.pv||0;h=sbar([['sv',v],['sd',(c.p||0)-v],['sn',1-(c.p||0)]])+
 (r&&(chg(r.p,c.p)||chg(r.pv,c.pv))?'<span class="mx-t mx-r2"><b>✎ '+pct(r.p||0)+'</b>'+(r.pv?' · '+pct(r.pv):'')+'</span>':'<span class="mx-t"><b>'+pct(c.p||0)+'</b>'+(c.pv?'<span class="mx-v">· '+pct(c.pv)+'</span>':'')+'</span>');
 if(r&&(chg(r.p,c.p)||chg(r.pv,c.pv)))tip+='\nWith your review: '+pct(r.p||0)+(r.pv!=null?' · '+pct(r.pv)+' validated':'');}
-else if(bdMode==='status')h='<span class="sb st"><i class="sv" style="flex:'+c.v+'"></i><i class="sd" style="flex:'+c.dn+'"></i><i class="sw" style="flex:'+c.w+'"></i><i style="flex:'+c.t+'"></i></span>';
+else if(bdMode==='status')h=sbar([['sv',c.v],['sd',c.dn],['sw',c.w],['sn',c.t]],'st');
 else if(bdMode==='count'){var cc=r&&(r.v+r.dn!==c.v+c.dn||r.v!==c.v),x=cc?r:c;h='<span class="mx-t'+(cc?' mx-r2':'')+'"><b>'+(cc?'✎ ':'')+(x.v+x.dn)+'</b>/'+x.req+(x.v?'<span class="mx-v">· '+x.v+' ✓</span>':'')+'</span>';
 if(cc)tip+='\nWith your review: '+(r.v+r.dn)+'/'+r.req+(r.v?', '+r.v+' validated':'');}
 else h='<span class="mx-t bdgs">'+(c.rtk?'<span class="bdg rk">'+c.rtk+' RTK</span>':'')+(c.wait?'<span class="bdg wt">'+ico('time')+c.wait+'</span>':'')+(c.notes?'<span class="bdg nt">'+ico('text')+c.notes+'</span>':'')+(c.rtk||c.wait||c.notes?'':'<span class="faint">·</span>')+'</span>';
 return '<button type="button" class="mx-c" '+attrs+' title="'+esc(tip)+'">'+h+'</button>';}
 function bdLegend(){var k={pct:'<i class="lg sd"></i>done'+(META.role?'<i class="lg sv"></i>validated':'')+'<span>in progress counts '+W.wip+' %, reworked '+W.rework+' %</span>',
 status:(META.role?'<i class="lg sv"></i>validated':'')+'<i class="lg sd"></i>done<i class="lg sw"></i>in progress · reworked · done with an open RTK<i class="lg"></i>not started',
-count:'<span>done / required'+(META.role?', ✓ validated':'')+'</span>',notes:'<span class="bdg rk">2 RTK</span>open retakes<span class="bdg wt">'+ico('time')+'3</span>files waiting<span class="bdg nt">'+ico('text')+'4</span>open notes'}[bdMode];
+count:'<span>done / required</span>'+(META.role?'<span class="mx-v">· 2 ✓</span><span>validated</span>':''),notes:'<span class="bdg rk">2 RTK</span>open retakes<span class="bdg wt">'+ico('time')+'3</span>files waiting<span class="bdg nt">'+ico('text')+'4</span>open notes'}[bdMode];
+// Reviewing: a value in violet after ✎ is the one with your review (now: in its tip).
+if(reviewing()&&(bdMode==='pct'||bdMode==='count'))k+='<span class="lg-rv">✎ 48 %</span><span>with your review -- now, in its tip</span>';
 return '<div class="mx-k">'+k+'<span class="sp"></span><span>click a cell → the list, filtered</span></div>';}
 function bdTable(kind,label,items,deps,groups,order){var rv0=reviewing(),many=deps.length>7;
 var sw='<div class="seg mx-sw" role="group" aria-label="What a cell says">'+BD_MODES.map(function(m){return '<button type="button" data-bdm="'+m[0]+'" aria-pressed="'+(bdMode===m[0])+'"><span class="full">'+m[1]+'</span><span class="ab">'+(m[2]||m[1])+'</span></button>';}).join('')+'</div>';
@@ -1672,44 +1676,94 @@ summaryCards();drawTabs();render();barHeight();
 function dur(s){if(s==null)return '';s=Math.round(s);return s<90?s+' s':s<5400?Math.round(s/60)+' min':(s/3600).toFixed(1)+' h';}
 function farmHtml(){var F=DATA.farm||{},jobs=F.jobs||[],me=F.me||{},h='<div class="farm">';
 // This machine first: worker or not, the farm host or not -- a worker in a click.
-var mine=(F.workers||[]).filter(function(w){return w.mine;})[0];
 h+='<div class="fme"><span class="fme-l">'+ico('render')+'<b>This machine</b> '+(me.worker?'worker'+(me.rendering?' · rendering':' · idle'):'not a worker')+(me.host?' · the farm host':'')+'</span>'+
 '<span class="fme-h">Farm host: '+esc(me.host?'this machine':me.host_name||'none')+' · '+esc(F.status||'unknown')+'</span>'+
 '<button type="button" class="act'+(me.worker?'':' fix')+'" data-farm="worker" data-v="'+(me.worker?'':'1')+'">'+(me.worker?'Stop being a worker':'Make it a worker')+'</button></div>';
-JOB_STATES.forEach(function(st){var js=jobs.filter(function(j){return j.state===st[0];});if(!js.length)return;
-h+='<section class="fgrp"><h3>'+st[1]+' <span>'+js.length+'</span></h3>'+js.map(function(j){return jobRow(j,st);}).join('')+'</section>';});
-if(!jobs.length)h+='<p class="faint">No job in the farm.</p>';
-var W=F.workers||[];h+='<section class="fgrp"><h3>Machines <span>'+W.length+'</span></h3>'+(W.length?W.map(function(w){var sl=w.status==='silent';
-return '<div class="job wk'+(sl?' sl':'')+'"><i class="m '+(sl?'na':w.file?'s-wip':w.status==='idle'?'s-done':'s-todo')+'"></i><span class="jf">'+esc(w.name)+'</span>'+
-'<span class="js">'+(w.mine?'<span class="tg">this machine</span>':'')+(w.host?'<span class="tg">farm host</span>':'')+(sl?'silent since '+fmtDate(w.since)+' -- crashed, closed or asleep?':esc([w.status,w.file].filter(Boolean).join(' · ')))+'</span></div>';}).join(''):'<p class="faint">No worker: Make it a worker above, on each machine that renders.</p>')+'</section>';
+// Filters, as Farm monitoring's: a state, mine, a name; the time left.
+var seg=function(v,l){return '<button type="button" data-ffs="'+v+'" aria-pressed="'+(FF.s===v)+'">'+l+'</button>';};
+h+='<div class="ffl"><div class="seg" role="group" aria-label="State">'+seg('','All')+JOB_STATES.map(function(st){return seg(st[0],st[1]);}).join('')+'</div>'+
+'<button type="button" class="chipf" data-ffm aria-pressed="'+FF.mine+'">'+ico('user')+'<span class="cl">Mine</span></button>'+
+'<input class="ffq" type="search" placeholder="Find a job…" aria-label="Find a job by its file" value="'+esc(FF.q)+'">'+(F.left?'<span class="fleft" title="The machine time the jobs still need, over the live workers">'+esc(F.left)+'</span>':'')+'</div>';
+var shown=jobs.filter(function(j){return (!FF.s||j.state===FF.s)&&(!FF.mine||j.mine)&&(!FF.q||(j.file+' '+j.shot).toLowerCase().indexOf(FF.q)>=0);});
+JOB_STATES.forEach(function(st){var js=shown.filter(function(j){return j.state===st[0];});if(!js.length)return;
+var bulk=st[0]==='finished'||st[0]==='failed'?'<button type="button" class="act mini2" data-farm="archive_all" data-v="'+st[0]+'">Archive all '+st[1].toLowerCase()+' ('+js.length+')</button>':'';
+h+='<section class="fgrp"><h3>'+st[1]+' <span>'+js.length+'</span>'+bulk+'</h3>'+js.map(function(j){return jobRow(j,st);}).join('')+'</section>';});
+if(!shown.length)h+='<p class="faint">'+(jobs.length?'No job matches.':'No job in the farm.')+'</p>';
+var W=F.workers||[];h+='<section class="fgrp"><h3>Machines <span>'+W.length+'</span></h3>'+(W.length?W.map(workerRow).join(''):'<p class="faint">No worker: Make it a worker above, on each machine that renders.</p>')+'</section>';
 return h+'</div>';}
-// A job: one line that opens on its detail -- what, where, by whom -- and
-// what Farm monitoring does to it: priority, cancel, retry, archive.
-function jobRow(j,st){var it=j.key&&byKey[j.key],p=j.total?j.done/j.total:0,live=st[0]==='running'||st[0]==='waiting';
+// A machine: one line, opened on its detail (read from Blender on demand)
+// -- Stop a live one, Forget a silent one.
+function workerRow(w){var sl=w.status==='silent',d=(WD[w.uuid]||{}).d;
+return '<details class="job wk'+(sl?' sl':'')+'"'+(WOPEN[w.uuid]?' open':'')+' data-wk="'+esc(w.uuid)+'"><summary><i class="m '+(sl?'na':w.file?'s-wip':w.status==='idle'?'s-done':'s-todo')+'"></i><span class="jf">'+esc(w.name)+'</span>'+
+'<span class="js">'+(w.mine?'<span class="tg">this machine</span>':'')+(w.host?'<span class="tg">farm host</span>':'')+(sl?'silent since '+fmtDate(w.since)+' -- crashed, closed or asleep?':esc([w.status,w.file].filter(Boolean).join(' · ')))+'</span></summary>'+
+(WOPEN[w.uuid]?'<div class="jd">'+(d?'<dl>'+jdRows(d.rows)+'</dl><div class="ta">'+(d.stop?'<button type="button" class="act ko" data-wstop="'+(d.busy?1:'')+'">Stop</button>':'')+(d.forget?'<button type="button" class="act" data-farm="forget_worker">Forget</button>':'')+'</div>':'<p class="faint">Reading…</p>')+'</div>':'')+'</details>';}
+function jdRows(rows){return rows.map(function(r){return '<dt>'+esc(r[0])+'</dt><dd'+(r[2]?' class="al"':'')+'>'+esc(r[1])+'</dd>';}).join('');}
+// A job: one line that opens on its detail -- what, where, by whom; then,
+// read from its file on demand, what Farm monitoring's details say, who
+// rendered which frame, its logs and stages -- and what's done to it.
+function jobRow(j,st){var it=j.key&&byKey[j.key],p=j.total?j.done/j.total:0,live=st[0]==='running'||st[0]==='waiting',open=JOPEN[j.id],d=(JD[j.id]||{}).d;
 var row=function(k,v){return v?'<dt>'+k+'</dt><dd>'+v+'</dd>':'';};
-return '<details class="job"'+(JOPEN[j.id]?' open':'')+' data-job="'+esc(j.id)+'"><summary><i class="m '+(st[2]==='fail'?'s-fail':'s-'+st[2])+'"></i>'+
-'<span class="jf">'+esc(j.file)+'</span><span class="js">'+esc([j.shot,j.text].filter(Boolean).join(' · '))+'</span>'+
-'<span class="jp">'+(j.total?'<span class="bar2'+(st[0]==='running'?' run':'')+'"><i data-w="'+p*100+'" style="width:'+(JW[j.id]!=null?JW[j.id]:p*100)+'%"></i></span><small>'+j.done+'/'+j.total+(j.left?' · '+dur(j.left)+' left':'')+'</small>':'')+'</span>'+
-'<span class="jm">'+[j.machines?plural(j.machines,'machine'):'',esc(j.user),fmtDate(j.at)].filter(Boolean).join(' · ')+'</span></summary>'+
-'<div class="jd"><dl>'+row('Stage',esc(j.text))+row('Preset',esc([j.preset,j.department].filter(Boolean).join(' · ')))+row('Frames',j.range?esc(j.range.join('-'))+(j.total?' · '+j.done+'/'+j.total+' rendered':''):'')+
+var h='<details class="job"'+(open?' open':'')+' data-job="'+esc(j.id)+'"><summary><i class="m '+(st[2]==='fail'?'s-fail':'s-'+st[2])+'"></i>'+
+'<span class="jf">'+esc(j.file)+'</span><span class="js">'+esc([j.shot,j.text,j.compile!=null?Math.round(j.compile*100)+' %':''].filter(Boolean).join(' · '))+'</span>'+
+'<span class="jp">'+(j.total?'<span class="bar2'+(st[0]==='running'?' run':'')+'"><i data-w="'+p*100+'" style="width:'+(JW[j.id]!=null?JW[j.id]:p*100)+'%"></i></span><small>'+j.done+'/'+j.total+(j.left?' · '+dur(j.left)+' left':'')+'</small>':j.estimate?'<small title="At its last render\'s pace">'+esc(j.estimate)+'</small>':'')+'</span>'+
+'<span class="jm">'+[j.machines?plural(j.machines,'machine'):'',esc(j.user),fmtDate(j.at)].filter(Boolean).join(' · ')+'</span></summary>';
+if(!open)return h+'</details>';
+h+='<div class="jd"><dl>'+row('Stage',esc(j.text))+row('Preset',esc([j.preset,j.department].filter(Boolean).join(' · ')))+row('Frames',j.range?esc(j.range.join('-'))+(j.total?' · '+j.done+'/'+j.total+' rendered':''):'')+
 row('Machines',esc((j.names||[]).join(', ')))+row('Sent',[esc(j.user),fmtDate(j.at)].filter(Boolean).join(' · '))+
 row('Priority',live&&!j.pending?'<span class="prio"><button type="button" class="mini" data-prio="-1" aria-label="Lower">−</button><b>'+j.priority+'</b><button type="button" class="mini" data-prio="1" aria-label="Higher">+</button><small>higher goes first</small></span>':esc(String(j.priority)))+
-row('Job',esc(j.id))+'</dl><div class="ta">'+(it?'<button type="button" class="act" data-goto="'+it.i+'">Open its file details</button>':'')+
-(live?'<button type="button" class="act ko" data-farm="cancel">Cancel</button>':'')+(st[0]==='failed'?'<button type="button" class="act fix" data-farm="retry">Retry</button>':'')+
-(st[0]==='failed'||st[0]==='finished'?'<button type="button" class="act" data-farm="archive">Archive</button>':'')+'</div></div></details>';}
+row('Job',esc(j.id))+(d?jdRows(d.rows):'')+'</dl>';
+if(d&&d.lookup){var L=d.lookup;h+='<div class="flk"><label>Which machine rendered frame <input type="number" class="rnum" data-lk="'+esc(j.id)+'" min="'+L.start+'" max="'+(L.start+L.frames.length-1)+'" value="'+(LKF[j.id]!=null?LKF[j.id]:L.start)+'"></label><span class="flk-r">'+esc(lookupText(L,LKF[j.id]!=null?LKF[j.id]:L.start))+'</span></div>';}
+if(!d)h+='<p class="faint">Reading its file…</p>';
+h+='<div class="ta">'+(it?'<button type="button" class="act" data-goto="'+it.i+'">Open its file details</button>':'')+
+(j.removable?'<button type="button" class="act ko" data-farm="remove">Remove from queue</button>':live?'<button type="button" class="act ko" data-farm="cancel">Cancel</button>':'')+
+(j.retry||d&&d.retry?'<button type="button" class="act fix" data-farm="retry">Retry</button>':'')+(j.recompile||d&&d.recompile?'<button type="button" class="act" data-farm="recompile" title="Make its video again from its frames">Recompile</button>':'')+
+(st[0]==='failed'||st[0]==='finished'?'<button type="button" class="act" data-farm="archive">Archive</button>':'')+
+(d&&d.folder?'<button type="button" class="act" data-open="folder">'+ico('folder')+'Its folder</button>':'')+(d?'<button type="button" class="act" data-open="file">Its job file</button>':'')+
+(d?d.logs.map(function(l,n){return '<button type="button" class="act" data-open="log:'+n+'" title="Open this log">'+ico('text')+esc(l)+'</button>';}).join(''):'')+'</div>';
+if(d&&d.stages.length)h+='<details class="stg"><summary>Stages <span>'+d.stages.length+'</span></summary><dl>'+d.stages.map(function(x){return '<dt>'+esc(x[0])+'</dt><dd>'+esc(x[1])+'</dd>';}).join('')+'</dl></details>';
+return h+'</div></details>';}
+// Who rendered frame f: its machine, the frames around it it wrote too, its pace.
+function lookupText(L,f){f=+f;var i=f-L.start;if(isNaN(f)||i<0||i>=L.frames.length)return 'not in this render ('+L.start+'-'+(L.start+L.frames.length-1)+')';
+var c=L.frames[i],a=i,b=i;while(a>0&&L.frames[a-1]===c)a--;while(b<L.frames.length-1&&L.frames[b+1]===c)b++;var m=L.machines[c]||['machine not recorded',''];
+return [m[0],a===b?'this frame only':'frames '+(L.start+a)+'-'+(L.start+b)+' in a row',m[1]].filter(Boolean).join(' · ');}
 // A job's bar drawn at its last width, then grown to the new one.
-var JW={};function growBars(){var bs=$('list').querySelectorAll('.job[data-job] .bar2 i[data-w]');
-requestAnimationFrame(function(){bs.forEach(function(i){var id=i.closest('.job').dataset.job;i.style.width=i.dataset.w+'%';JW[id]=+i.dataset.w;});});}
-function farmPost(action,job,value){return livePost('farm',{action:action,job_id:job||'',value:value}).then(function(res){
-toast(res.ok?'Done.':'Not done: '+(res.error||'?'));}).catch(function(){toast('Blender doesn\'t answer.');});}
+function growBars(){var bs=$('list').querySelectorAll('.job[data-job] .bar2 i[data-w]');
+requestAnimationFrame(function(){bs.forEach(function(i){var id=i.closest('.job').dataset.job;i.style.width=i.dataset.w+'%';JW[id]=+i.dataset.w;});});
+farmDetails();}
+// The details open, read again once the data has moved (a new version).
+function farmDetails(){if(!META.live)return;var v=META.live.version;
+var get=function(box,key,action,value){var c=box[key]=box[key]||{};if(c.busy||c.v===v)return;c.busy=true;
+livePost('farm',{action:action,job_id:action==='detail'?key:'',value:value}).then(function(res){c.busy=false;c.v=v;c.d=res.detail||null;if(state.tab==='farm')render();}).catch(function(){c.busy=false;});};
+Object.keys(JOPEN).forEach(function(id){if(JOPEN[id])get(JD,id,'detail');});Object.keys(WOPEN).forEach(function(u){if(WOPEN[u])get(WD,u,'worker_detail',u);});}
+function farmPost(action,job,value,extra){var body={action:action,job_id:job||'',value:value};Object.keys(extra||{}).forEach(function(k){body[k]=extra[k];});
+return livePost('farm',body).then(function(res){toast(res.ok?'Done.'+(res.note?' '+res.note:''):'Not done: '+(res.error||'?'));}).catch(function(){toast('Blender doesn\'t answer.');});}
+// Two answers or more: [[label, then, primary]].
+function askMany(text,choices){var dl=$('dlg');dl.innerHTML='<div class="dlg-in" role="alertdialog" aria-modal="true" aria-labelledby="ask-t"><p id="ask-t" class="ask">'+esc(text)+'</p><div class="acts"><button class="btn" data-o="-1">Cancel</button>'+
+choices.map(function(c,n){return '<button class="btn'+(c[2]?' primary':'')+'" data-o="'+n+'">'+esc(c[0])+'</button>';}).join('')+'</div></div>';dl.hidden=false;
+dl.onclick=function(e){var b=e.target.closest('[data-o]');if(e.target!==dl&&!b)return;dl.hidden=true;if(b&&+b.dataset.o>=0)choices[+b.dataset.o][1]();};}
 $('list').addEventListener('click',function(e){var b=e.target.closest('.farm [data-goto]');if(b){e.preventDefault();return jump(D[+b.dataset.goto]);}
-var sm=e.target.closest('.farm details.job>summary');if(sm&&!e.target.closest('button')){var dj=sm.parentNode;JOPEN[dj.dataset.job]=!dj.open;}
+if((b=e.target.closest('.farm [data-ffs]'))){FF.s=b.dataset.ffs;return render();}
+if(e.target.closest('.farm [data-ffm]')){FF.mine=!FF.mine;return render();}
+var sm=e.target.closest('.farm details.job>summary');if(sm&&!e.target.closest('button')){e.preventDefault();var dj=sm.parentNode;
+if(dj.dataset.wk!=null)WOPEN[dj.dataset.wk]=!WOPEN[dj.dataset.wk];else JOPEN[dj.dataset.job]=!JOPEN[dj.dataset.job];return render();}
+var wk=e.target.closest('.farm [data-wk]'),uuid=wk?wk.dataset.wk:'',wd=(WD[uuid]||{}).d;
+if((b=e.target.closest('[data-wstop]'))&&wk){var name=wk.querySelector('.jf').textContent;
+if(!b.dataset.wstop)return farmPost('stop_worker','',uuid);
+return askMany(name+' is rendering right now. After this frame: the frame it\'s on is written, then it stops. Stop now: its frame in progress is lost, freed for another machine.',
+[['After this frame',function(){farmPost('stop_worker','',uuid,{now:false});}],['Stop now',function(){farmPost('stop_worker','',uuid,{now:true});},true]]);}
 var j=e.target.closest('.farm [data-job]'),id=j?j.dataset.job:'',job=(DATA.farm.jobs||[]).filter(function(x){return x.id===id;})[0];
 if((b=e.target.closest('[data-prio]'))&&job){e.preventDefault();var pv=Math.max(0,job.priority+(+b.dataset.prio));job.priority=pv;b.parentNode.querySelector('b').textContent=pv;return farmPost('priority',id,pv);}
+if((b=e.target.closest('.farm [data-open]'))&&id)return farmPost('open',id,b.dataset.open);
 if(!(b=e.target.closest('.farm [data-farm]')))return;e.preventDefault();var act=b.dataset.farm;
 if(act==='worker'){var on=!!b.dataset.v,me=DATA.farm.me||{};if(!on&&me.rendering)return ask('This machine is rendering: stop its render now? Its frame in progress is lost, sent to another machine.','Stop now',function(){farmPost('worker','',false);});return farmPost('worker','',on);}
+if(act==='forget_worker')return farmPost('forget_worker','',uuid);
+if(act==='archive_all')return ask('Archive every '+b.dataset.v+' job?','Archive them',function(){farmPost('archive_all','',b.dataset.v);});
 if(act==='cancel')return ask('Cancel the render of '+job.file+'?','Cancel it',function(){farmPost('cancel',id);});
+if(act==='remove')return ask('Take '+job.file+' out of the queue? Nothing of it rendered yet.','Remove it',function(){farmPost('remove',id,!!job.pending);});
 farmPost(act,id);});
+$('list').addEventListener('input',function(e){var t=e.target;
+if(t.classList.contains('ffq')){FF.q=t.value.trim().toLowerCase();render();var q=$('list').querySelector('.ffq');if(q){q.focus();q.setSelectionRange(q.value.length,q.value.length);}return;}
+if(t.dataset.lk!=null){LKF[t.dataset.lk]=t.value;var L=((JD[t.dataset.lk]||{}).d||{}).lookup;if(L)t.closest('.flk').querySelector('.flk-r').textContent=lookupText(L,t.value);}});
 /* ---------- live: the panel's own sections ---------- */
 // To check: the renders the team hasn't watched -- ▶ in the player,
 // Checked takes one off (pushed to the edit if ticked); open by default.
@@ -1788,7 +1842,7 @@ var pend=null;
 function applyData(nd){var a=document.activeElement,box=a&&a.classList&&(a.classList.contains('cmp-t')?'cmp':a.classList.contains('rp-t')?a.dataset.r:'');
 // A box to write in kept as it was (its text is the page's); any other
 // field: once left.
-if(!box&&a&&a.matches&&a.matches('textarea,input:not([type=checkbox]):not([type=radio])')){pend=nd;return;}pend=null;
+if(!box&&a&&a.matches&&a.matches('textarea,input:not([type=checkbox]):not([type=radio]):not(.ffq)')){pend=nd;return;}pend=null;
 // Another project made active in Blender: its page, as it loads.
 if(nd.meta.live&&META.live&&nd.meta.live.root!==META.live.root)return location.reload();
 var curFile=cur!=null&&D[cur]?D[cur].file:null,plFile=PL&&PL.it?PL.it.file:null,y=scrollY;
@@ -1801,6 +1855,7 @@ if(PL&&plFile&&byFile[plFile])PL.it=byFile[plFile];
 if(LIVE_OUT.after&&(META.live.version||0)>=LIVE_OUT.after.v){var fn=LIVE_OUT.after.fn;LIVE_OUT.after=null;fn(true);}
 cur=curFile&&byFile[curFile]?byFile[curFile].i:null;summaryCards();drawTabs();stamp();render();scrollTo(scrollX,y);
 if(cur!=null)refresh();
+if(a&&a.classList&&a.classList.contains('ffq')){var q2=$('list').querySelector('.ffq');if(q2){q2.focus();q2.setSelectionRange(q2.value.length,q2.value.length);}}
 if(box==='cmp')focusCmp();else if(box){var rt=$('p-body').querySelector('.rp-t[data-r="'+CSS.escape(box)+'"]');if(rt){rt.focus({preventScroll:true});rt.setSelectionRange(rt.value.length,rt.value.length);}}}
 document.addEventListener('focusout',function(){setTimeout(function(){if(pend)applyData(pend);},0);});
 if(META.live)(function(){var T=META.live.token,v=META.live.version||0,st='';document.body.classList.add('live');

@@ -5169,6 +5169,15 @@ measures in the plan).
   review's key, its title are the project's).
 - **Opening**: page.html's `#boot` (the project's name, a line moving,
   shown only after 0.3 s) covers the page until page.js has drawn it.
+- **Details on demand** (`farm/details.py`: `job_detail()`,
+  `worker_detail()`, `job_path()`): read when a job or a machine is
+  opened, again at each new version while open (`farmDetails()`) -- a
+  machine's heartbeat in the tab's data would make a new version every
+  10 s. Moved out of panels/farm_panel.py with the helpers it shared
+  (estimate, time left, chunk labels...), which it imports: Farm
+  monitoring can go, the page keeps them. What to open goes by name
+  ("folder", "file", "log:<n>"), its path found by Blender: the page never
+  sends one.
 - **A job's bar grows** from its last width (`JW`, `growBars()`): the tab
   is drawn again at each new version, a bar drawn at its new width would
   jump. Frames on the Render form: absolute only (the dialog's "a"), the

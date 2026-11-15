@@ -45,6 +45,18 @@ from ..lib import (
     time_key,
 )
 from ..lib.ui import DETAIL_KEY_COLUMN, details_header, draw_legend, key_value, key_values
+from ..farm.details import (
+    NOT_SET_UP as _NOT_SET_UP,
+    addon_version_once as _my_addon_version,
+    chunk_label as _chunk_label,
+    claim_progress as _claim_progress,
+    estimate_label as _estimate_label,
+    machine_label,
+    pace_source as _pace_source,
+    render_left_label as _render_left_label,
+    same_machine_run as _same_machine_run,
+    since as _since,
+)
 
 FIRST_COLUMN = 0.4
 # What Farm monitoring's Workers view holds besides its rows (its Jobs
@@ -218,86 +230,6 @@ class M_PIPELINE_MT_farm_legend(bpy.types.Menu):
         ))])
 
 
-def _pace_source(pace: dict) -> str:
-    """Where an estimate's pace comes from (history_pace(), farm/loop.py):
-    "" for the file's own render with this preset, else said."""
-    basis = pace.get("basis")
-    if basis == "project":
-        n = pace.get("renders") or 0
-        return f"average of {n} {pace.get('preset') or 'default'} render{'s' if n > 1 else ''}"
-    if basis == "other":
-        return f"from a {pace.get('other_preset') or 'default'} render"
-    return ""
-
-
-def _estimate_label(job: dict, cache: dict) -> str:
-    """ "≃ 1h00m with 4 workers" for a job waiting for a worker: its frames
-    at the pace history_pace() (farm/loop.py) found -- the file's last
-    render with this pre-render script, else that script's project
-    average, else the file's last render -- shared by the live workers.
-    "" without any past render to go by."""
-    pace = job.get("history_pace")
-    frames = job.get("frames_to_render") or 0
-    if not pace or not frames:
-        return ""
-    workers = max(1, len(cache.get("workers") or {}))
-    total = frames * pace["seconds_per_frame"] / workers
-    plural = "s" if workers > 1 else ""
-    text = f"≃ {format_duration(total)} with {workers} worker{plural}"
-    source = _pace_source(pace)
-    return f"{text}, {source}" if source else text
-
-
-# Stages before the render: their frames aren't known yet (not set up).
-_NOT_SET_UP = ("pending", "queued", "setup_start")
-
-
-def _render_left_label(jobs: list, cache: dict) -> str:
-    """ " - ≃ 3h20m of rendering left with 4 workers": the machine time the
-    jobs still need -- a render's frames left at its own pace, a job
-    waiting for a worker at its estimate's (_estimate_label()) -- shared by
-    the live workers. The ones it can't tell (not set up yet, nothing timed
-    yet, never rendered before) are counted apart. "" if none's left."""
-    machine_time, unknown = 0.0, 0
-    for j in jobs:
-        stage = j.get("stage", "")
-        if stage == "render_start" and j.get("frames_total"):
-            pace = j.get("seconds_per_frame")
-            if pace:
-                machine_time += (j["frames_total"] - j["frames_done"]) * pace
-            else:
-                unknown += 1
-        elif j.get("frames_to_render"):
-            pace = j.get("history_pace")
-            if pace:
-                machine_time += j["frames_to_render"] * pace["seconds_per_frame"]
-            else:
-                unknown += 1
-        elif stage in _NOT_SET_UP:
-            unknown += 1
-    if not machine_time:
-        return f" - {unknown} not estimated yet" if unknown else ""
-    workers = max(1, len(cache.get("workers") or {}))
-    text = (
-        f" - ≃ {format_duration(machine_time / workers)} of rendering left with "
-        f"{workers} worker{'s' if workers > 1 else ''}"
-    )
-    if unknown:
-        text += f" (+{unknown} not estimated)"
-    return text
-
-
-def machine_label(uuid: str, recorded: str = "") -> str:
-    """A machine as people know it: its worker's user and id ("Alice
-    (a1b2c3d4)") -- a machine is only ever named by its id, no hostname
-    read. Else the name recorded with the render, else the id. Memory
-    only (the monitor cache's workers): draw()-safe."""
-    worker = (get_monitor_cache().get("workers") or {}).get(uuid) or {}
-    if worker.get("user"):
-        return f"{worker['user']} ({worker.get('machine') or uuid[:8]})"
-    return worker.get("machine") or recorded or uuid[:8]
-
-
 # The frame lookup's field, held to the range of the render(s) it's drawn
 # for: WindowManager.farm_frame_lookup reads and writes it through
 # frame_lookup_get()/_set(), draw_frame_lookup() sets the bounds.
@@ -310,18 +242,6 @@ def frame_lookup_get(self) -> int:
 
 def frame_lookup_set(self, value: int) -> None:
     _lookup["value"] = min(max(value, _lookup["min"]), _lookup["max"])
-
-
-def _same_machine_run(record: dict, frame: int) -> tuple[int, int]:
-    """(first, last) of the frames around frame written by the same machine
-    in a row: its chunk, or several of them."""
-    letters, start = record["frames"], int(record.get("start", 0))
-    i = j = frame - start
-    while i > 0 and letters[i - 1] == letters[i]:
-        i -= 1
-    while j < len(letters) - 1 and letters[j + 1] == letters[j]:
-        j += 1
-    return start + i, start + j
 
 
 # What each "Who rendered which frame" button shows, by its key ("job:<id>",
@@ -650,47 +570,6 @@ def _draw_worker_link(layout, worker: dict, icon: str) -> None:
         emboss=False,
     )
     op.uuid = worker.get("uuid", "")
-
-
-def _since(iso: str) -> tuple[str, float | None]:
-    """("21/10 13:41" or "13:41" today, seconds ago) of an ISO time, ("-",
-    None) if there's none."""
-    at = parse_iso(iso)
-    if at is None:
-        return "-", None
-    today = at.date() == now(False).date()
-    when = f"{at:%H:%M}" if today else f"{at:%d/%m %H:%M}"
-    return when, (now(False) - at).total_seconds()
-
-
-_addon_version: list = []
-
-
-def _my_addon_version() -> str:
-    """get_addon_version(), once: it walks addon_utils.modules(), too much
-    for every redraw."""
-    if not _addon_version:
-        _addon_version.append(get_addon_version())
-    return _addon_version[0]
-
-
-def _chunk_label(job: dict, k) -> str:
-    """ "frames 11-15" for chunk k of job (its chunk_size and range)."""
-    try:
-        start, end = (int(x) for x in job["resolved_frame_range"])
-        first, last = chunk_frames(start, end, int(job["chunk_size"]), int(k))
-    except (KeyError, TypeError, ValueError):
-        return f"chunk {k}"
-    return f"frames {first}-{last}"
-
-
-def _claim_progress(claim: dict) -> str:
-    """ "on frame 13" / "starting" from a claim (frame in progress, done)."""
-    if claim.get("frame_in_progress") is not None:
-        return f"on frame {claim['frame_in_progress']}"
-    if claim.get("frames_done"):
-        return f"frame {claim['frames_done'][-1]} done"
-    return "starting"
 
 
 def draw_farm_worker_details(layout, context):
