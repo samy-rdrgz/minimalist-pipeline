@@ -9,7 +9,7 @@ the main action neutral. See NOTES.md, "Snapshot page v3". */
 --accent:#18181B;--accent-bg:rgba(0,0,0,.04);
 --done:#00876A;--wip:#B55500;--wip-ink:#B55500;--wip-bg:rgba(181,85,0,.1);
 --rtk:#AB3C48;--rtk-f:#AB3C48;--rtk-t:#991616;--rtk-bg:rgba(171,60,72,.1);--team:#AB3C48;--team-bg:rgba(171,60,72,.1);
---valid:#7A3F7A;--val-f:#8C548C;--sup:#E3CCE3;--valid-bg:rgba(140,84,140,.12);--on-fill:#FFFFFF;
+--valid:#7A3F7A;--val-f:#8C548C;--val-bar:#8C548C;--sup:#E3CCE3;--valid-bg:rgba(140,84,140,.12);--on-fill:#FFFFFF;
 --play:#4772B3;--range:#4772B3;--mine:#18181B;--inv:#FFFFFF;--mine-tint:rgba(0,0,0,.05);--glow:#E2E7F0;
 --bar-bg:#FFFFFF;--bar-ink:#18181B;--bar-field:#ECECEE;--field:#FFFFFF;--outline:#C9C9CC;--emboss:rgba(0,0,0,.12);--emb-y:1px;
 --sh-card:0 1px 2px rgba(0,0,0,.08);--sh-pop:0 24px 70px rgba(0,0,0,.18);
@@ -28,7 +28,7 @@ color-scheme:light dark}
 --accent:#E8E8EA;--accent-bg:rgba(255,255,255,.06);
 --done:#00D4A3;--wip:#E19658;--wip-ink:#E19658;--wip-bg:rgba(225,150,88,.16);
 --rtk:#F08A94;--rtk-f:#C94452;--rtk-t:#991616;--rtk-bg:rgba(201,68,82,.18);--team:#F08A94;--team-bg:rgba(201,68,82,.18);
---valid:#D2A6D2;--val-f:#8C548C;--sup:#C9A1C9;--valid-bg:#66416233;--on-fill:#10201B;
+--valid:#D2A6D2;--val-f:#8C548C;--val-bar:#B47DB4;--sup:#C9A1C9;--valid-bg:#66416233;--on-fill:#10201B;
 --play:#4772B3;--range:#74A2FF;--mine:#E8E8EA;--inv:#18181B;--mine-tint:rgba(255,255,255,.07);--glow:#252A35;
 --bar-bg:#1F1F22;--bar-ink:#E8E8EA;--bar-field:#3C3C41;--field:#141416;--outline:#4D4D53;--emboss:rgba(0,0,0,.45);--emb-y:1px;
 --sh-card:0 1px 2px rgba(0,0,0,.3);--sh-pop:0 24px 70px rgba(0,0,0,.45)}}
@@ -38,7 +38,7 @@ color-scheme:light dark}
 --accent:#E8E8EA;--accent-bg:rgba(255,255,255,.06);
 --done:#00D4A3;--wip:#E19658;--wip-ink:#E19658;--wip-bg:rgba(225,150,88,.16);
 --rtk:#F08A94;--rtk-f:#C94452;--rtk-t:#991616;--rtk-bg:rgba(201,68,82,.18);--team:#F08A94;--team-bg:rgba(201,68,82,.18);
---valid:#D2A6D2;--val-f:#8C548C;--sup:#C9A1C9;--valid-bg:#66416233;--on-fill:#10201B;
+--valid:#D2A6D2;--val-f:#8C548C;--val-bar:#B47DB4;--sup:#C9A1C9;--valid-bg:#66416233;--on-fill:#10201B;
 --play:#4772B3;--range:#74A2FF;--mine:#E8E8EA;--inv:#18181B;--mine-tint:rgba(255,255,255,.07);--glow:#252A35;
 --bar-bg:#1F1F22;--bar-ink:#E8E8EA;--bar-field:#3C3C41;--field:#141416;--outline:#4D4D53;--emboss:rgba(0,0,0,.45);--emb-y:1px;
 --sh-card:0 1px 2px rgba(0,0,0,.3);--sh-pop:0 24px 70px rgba(0,0,0,.45)}
@@ -106,11 +106,11 @@ h1{font:700 18px/1.2 var(--ui);margin:0;letter-spacing:-.01em;overflow-wrap:brea
 /* Done and validated, always both: a double bar, "84 % · 0 %". */
 .dv{display:inline-flex;flex-direction:column;align-items:flex-end;gap:3px}
 .kpi .dv,.g-pct .dv{flex-direction:row-reverse;align-items:center;gap:8px}
-/* Two thin tracks, done over validated: the violet laid on the green
-read poorly in the dark. */
-.bar2{position:relative;width:64px;height:7px;background:linear-gradient(var(--line),var(--line)) 0 0/100% 3px no-repeat,linear-gradient(var(--line),var(--line)) 0 100%/100% 2px no-repeat}
-.bar2 i{position:absolute;left:0;top:0;height:3px;border-radius:2px;background:var(--done)}
-.bar2 i.v{top:auto;bottom:0;height:2px;background:var(--val-f)}
+/* One bar, the validated share over the done one: a lighter violet with
+an outline of the ground, apart from the green (it read poorly in the dark). */
+.bar2{position:relative;width:64px;height:5px;border-radius:3px;background:var(--line)}
+.bar2 i{position:absolute;left:0;top:0;bottom:0;border-radius:3px;background:var(--done)}
+.bar2 i.v,.track .v{background:var(--val-bar);box-shadow:0 0 0 1.5px var(--surface)}
 .dvt{font-size:12px;white-space:nowrap;color:var(--ink-2)}.dvt b{color:var(--ink);font-weight:700}
 .vt{color:var(--valid)}
 .dv.big .dvt{font-size:13px}

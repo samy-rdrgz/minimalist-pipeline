@@ -4785,8 +4785,9 @@ review, the phone and the iPad. What holds across them:
   the second opens the file.
 - **Post-its on the diamond's axis**, clear of it: the retake under, your
   say above, both centred (`translateX(-50%)`); the team's without
-  outline. The double bar is two tracks (done 3 px, validated 2 px under):
-  the violet laid over the green read poorly in the dark.
+  outline. The double bar stays one bar, the validated share over the done one,
+  in a lighter violet (`--val-bar`) outlined with the ground -- two
+  tracks (a try) split what reads as one figure; Breakdown's too.
 - **Small motions** (all off under prefers-reduced-motion): the groups
   rise and the bars fill at the page's opening only (`body.intro`, 1.4 s:
   a filter redraws the list, it shouldn't replay); dialogs and menus pop,
