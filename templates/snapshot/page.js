@@ -8,9 +8,6 @@ var $=function(id){return document.getElementById(id);};
 var DATA=JSON.parse($('data').textContent),META=DATA.meta,D=DATA.items;
 var TABS=[['shot','Shots'],['asset','Assets'],['library','Libraries']];
 var LABEL={done:'Done',rework:'Done, reworked since',wip:'In progress',todo:'Not started'};
-var OKS=['ok','yes','oui','v','x','✓','✔','valid','validé','valide'],NOS=['no','non'];
-// render_watched: the render watched (not "render": a department can be called that).
-var FIXED=['group','filename','description','description_exported','stable_version','wip_version','render_watched','global','fixed'];
 var NL=String.fromCharCode(10);
 var esc=function(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){
 return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});};
@@ -1110,18 +1107,46 @@ $('author').addEventListener('input',function(){this.classList.remove('need');rv
 $('role').addEventListener('change',function(){this.classList.remove('need');rv.role=this.value;save();sync('role');
 // As the team or not: the ✓ and what's yours change.
 render();if(cur!=null)refresh();});
-function exportRows(){var out=[];D.forEach(function(it){if(!changes(it))return;var e=rv.files[it.file],
-row={filename:it.file,stable_version:it.stable,description_exported:it.desc};if(it.render_ref)row.render_watched=it.render_ref;
-Object.keys(e.deps).forEach(function(d){var v=e.deps[d];if(sent(v))row[d]=v.ok?'ok':(v.text.trim()||'no');});
+// The review as typed actions (lib/review_import.py ACTION_TYPES): what
+// each file's ✓ / ✕, boxes, replies, fixes and description ask. A box's
+// lines read here -- [sh020] [f12-40] at their start, "note:" a remark.
+var BULLET=/^\s*(?:[-*•–]|\d+[.)])\s+/;
+function readLine(l){var rest=l.replace(BULLET,'').trim(),shot='',frames=null,m;
+while((m=/^\[\s*([a-z]*)\s*(\d+)(?:\s*-\s*(\d+))?\s*\]\s*/i.exec(rest))){var w=m[1].toLowerCase();
+if(w==='f'&&!frames&&!(m[3]&&+m[3]<+m[2]))frames=[+m[2],m[3]?+m[3]:null];else if(w&&w!=='f'&&!shot&&!m[3])shot=m[2];else break;rest=rest.slice(m[0].length);}
+var note=/^(?:note|n)\s*:\s*/i.test(rest);rest=rest.replace(/^(?:note|n)\s*:\s*/i,'').trim();
+// Tags alone: nothing to note, the line as typed.
+if(!rest)return {text:l.replace(BULLET,'').trim(),shot:'',frames:null,note:false};
+return {text:rest,shot:shot,frames:frames,note:note};}
+function exportActions(){var out=[],team=asTeam();D.forEach(function(it){if(!changes(it))return;var e=rv.files[it.file],f=it.file,seen=it.stable||'',ref=it.render_ref||'';
+var lines=function(text,deps){(text||'').split(NL).forEach(function(l){if(!l.trim())return;var p=readLine(l);
+out.push({type:p.note?'note':'rtk',file:f,departments:deps,text:p.text,shot:p.shot,frames:p.frames,render:ref});});};
+var said={};
+Object.keys(e.deps).forEach(function(d){var v=e.deps[d];if(!sent(v))return;said[d]=1;
+if(v.ok){out.push({type:'validate',file:f,department:d,seen:seen});return;}
+var t=(v.text||'').trim();
+// A retake withdraws the validation; remarks alone leave it.
+if(!team&&(!t||!noteOnly(t)))out.push({type:'unvalidate',file:f,department:d,seen:seen});
+lines(t,[d]);});
 // A reply to a department's open RTK: still to redo, its validation withdrawn.
-if(!asTeam())Object.keys(answered(it).deps).forEach(function(d){if(!(d in row))row[d]='no';});
-if(e.all&&!asTeam())Object.keys(it.states).forEach(function(d){if(isDone(it.states[d])&&!(d in row))row[d]='ok';});
-if(e.text.trim())row.global=e.text.trim();
-if(e.desc!==null&&e.desc.trim()&&e.desc.trim()!==it.desc)row.description=e.desc.trim();
-// The RTKs marked fixed, by id: closed, as you, at import.
-var fx=Object.keys(e.fixed||{});if(fx.length)row.fixed=fx.join(' ');
-// Replies, one column each: "reply <the note's id>".
-replies(e).forEach(function(id){row['reply '+id]=e.replies[id].trim();});out.push(row);});return out;}
+if(!team)Object.keys(answered(it).deps).forEach(function(d){if(!said[d]){said[d]=1;out.push({type:'unvalidate',file:f,department:d,seen:seen});}});
+if(e.all&&!team)Object.keys(it.states).forEach(function(d){if(isDone(it.states[d])&&!said[d])out.push({type:'validate',file:f,department:d,seen:seen});});
+lines(e.text,[]);
+if(e.desc!==null&&e.desc.trim()&&e.desc.trim()!==it.desc)out.push({type:'description',file:f,old:it.desc||'',new:e.desc.trim()});
+Object.keys(e.fixed||{}).forEach(function(id){out.push({type:'fixed',file:f,id:id});});
+replies(e).forEach(function(id){out.push({type:'reply',file:f,to:id,text:e.replies[id].trim()});});});return out;}
+// A review file read back into the page: its actions as the boxes,
+// ✓ / ✕, replies and fixes they came from.
+function fromActions(actions){var unknown={};(actions||[]).forEach(function(a){var it=byFile[a.file];if(!it){unknown[a.file]=1;return;}var e=entry(it);
+var tag=function(){return (a.shot?'[sh'+a.shot+'] ':'')+(a.frames?'[f'+a.frames[0]+(a.frames[1]!=null?'-'+a.frames[1]:'')+'] ':'')+(a.type==='note'?'note: ':'');};
+var add=function(t,line){return (t?t.replace(/\s+$/,'')+NL:'')+line;};
+if(a.type==='validate')e.deps[a.department]={ok:1};
+else if(a.type==='unvalidate'){if(!e.deps[a.department])e.deps[a.department]={no:1,text:''};}
+else if(a.type==='rtk'||a.type==='note'){var line=tag()+a.text,d=(a.departments||[])[0];
+if(d){var v=e.deps[d];if(!v||!v.no)v=e.deps[d]={no:1,text:''};v.text=add(v.text,line);}else e.text=add(e.text,line);}
+else if(a.type==='reply')e.replies[a.to]=String(a.text||'');
+else if(a.type==='fixed')e.fixed[a.id]=1;
+else if(a.type==='description')e.desc=a.new;});return Object.keys(unknown).length;}
 // <project>_review_<YYYY-MM-DD_HH-MM>_<role>_<author>.json: two reviewers'
 // files side by side on a drive, never one over the other.
 function slug(t){return String(t||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');}
@@ -1135,18 +1160,22 @@ var SHARE=!!(navigator.share&&navigator.canShare&&matchMedia('(pointer:coarse)')
 // Send: who, as what and when; what it holds, file by file, with the
 // list's symbols; the file's name; then the file -- downloaded, or the
 // share sheet on a tablet or a phone. The page itself sends nothing.
-function sendRecap(rows){return rows.map(function(row){var it=byFile[row.filename],parts=[];
-Object.keys(row).forEach(function(k){if(FIXED.indexOf(k)>=0||k.indexOf('reply ')===0)return;var v=String(row[k]);
-parts.push(v==='ok'?'<span class="rc-ok"><span class="m s-prod">✓</span>'+esc(cap(k))+'</span>':
-'<span class="rc-no"><span class="pi pi-role">✕</span>'+esc(cap(k))+(v!=='no'?'<small>'+esc(v.split(NL).join(' · '))+'</small>':'<small>validation withdrawn</small>')+'</span>');});
-if(row.global)parts.push('<span class="rc-no"><span class="pi pi-role">✕</span>Whole file<small>'+esc(row.global.split(NL).join(' · '))+'</small></span>');
-if(row.description)parts.push('<span class="rc-x">'+ico('review')+'description</span>');
-if(row.fixed)parts.push('<span class="rc-x">'+ico('check')+plural(row.fixed.split(' ').length,'fixed')+'</span>');
-var nr=Object.keys(row).filter(function(k){return k.indexOf('reply ')===0;}).length;if(nr)parts.push('<span class="rc-x">'+ico('reply')+plural(nr,'reply')+'</span>');
-return '<div class="rc"><b class="rc-n">'+(it?nameHtml(it):esc(row.filename))+'</b><span class="rc-p">'+parts.join('')+'</span></div>';}).join('');}
-function openSend(){var rows=exportRows();
+function sendRecap(actions){var files=[],by={};actions.forEach(function(a){if(!by[a.file]){by[a.file]=[];files.push(a.file);}by[a.file].push(a);});
+var fl=function(a){return a.frames?'f'+a.frames[0]+(a.frames[1]!=null?'-'+a.frames[1]:'')+' ':'';};
+return files.map(function(f){var it=byFile[f],acts=by[f],parts=[],deps={};
+acts.forEach(function(a){if(a.type==='validate')deps[a.department]={ok:1};else if(a.type==='unvalidate'){deps[a.department]=deps[a.department]||{no:1,lines:[]};}
+else if((a.type==='rtk'||a.type==='note')){var d=(a.departments||[])[0]||' whole';(deps[d]=deps[d]&&deps[d].lines?deps[d]:{no:1,lines:[]}).lines.push(fl(a)+(a.type==='note'?'note: ':'')+a.text);}});
+Object.keys(deps).forEach(function(d){var v=deps[d],nm=d===' whole'?'Whole file':cap(d);
+parts.push(v.ok?'<span class="rc-ok"><span class="m s-prod">✓</span>'+esc(nm)+'</span>':
+'<span class="rc-no"><span class="pi pi-role">✕</span>'+esc(nm)+'<small>'+(v.lines.length?esc(v.lines.join(' · ')):'validation withdrawn')+'</small></span>');});
+var n=function(t){return acts.filter(function(a){return a.type===t;}).length;};
+if(n('description'))parts.push('<span class="rc-x">'+ico('review')+'description</span>');
+if(n('fixed'))parts.push('<span class="rc-x">'+ico('check')+plural(n('fixed'),'fixed')+'</span>');
+if(n('reply'))parts.push('<span class="rc-x">'+ico('reply')+plural(n('reply'),'reply')+'</span>');
+return '<div class="rc"><b class="rc-n">'+(it?nameHtml(it):esc(f))+'</b><span class="rc-p">'+parts.join('')+'</span></div>';}).join('');}
+function openSend(){var rows=exportActions();
 if(!rows.length){toast('Nothing to send yet: validate or write a retake first.');return;}
-var c=summary(),needsRole=rows.some(function(row){return Object.keys(row).some(function(k){return FIXED.indexOf(k)<0||k==='global';});});
+var c=summary(),needsRole=rows.some(function(a){return a.type!=='description';});
 var dl=$('dlg');dl.innerHTML='<div class="dlg-in send" role="dialog" aria-modal="true" aria-labelledby="dlg-t"><div class="send-h"><h3 id="dlg-t">Send your review</h3>'+
 '<span class="faint">'+plural(c.files,'file')+' · '+[c.ok?c.ok+' validated':'',c.rt?plural(c.rt,'retake'):'',c.notes?plural(c.notes,'note'):''].filter(Boolean).join(' · ')+'</span>'+
 '<button class="btn link" id="d-see" title="Only the files this review touched, in the list">See them</button></div>'+
@@ -1167,11 +1196,11 @@ $('d-clear').onclick=function(){ask('Clear this review? What you downloaded keep
 $('d-go').onclick=function(){rv.author=$('d-author').value.trim();var was=rv.role;rv.role=$('d-role').value;rv.date=$('d-date').value;
 $('author').value=rv.author;$('role').value=rv.role;sync('role');save();
 // The role changed here: what's sent with it (the team sends no validation).
-if(rv.role!==was){render();if(cur!=null)refresh();rows=exportRows();
+if(rv.role!==was){render();if(cur!=null)refresh();rows=exportActions();
 if(!rows.length){$('d-why').hidden=false;$('d-why').textContent='As the team, nothing to send: the team doesn\'t validate — write a retake or a note.';return;}}
 if(needsRole&&!rv.role){$('d-why').hidden=false;$('d-why').textContent='Pick your role: your validations and retakes are recorded under it.';$('d-role').classList.add('need');sync('d-role');return;}
 var data={format:META.format,schema_version:META.schema_version,project:META.project,snapshot:META.snapshot,author:rv.author,role:rv.role,
-review_date:rv.date,written_at:isoNow(),rows:rows};
+review_date:rv.date,written_at:isoNow(),actions:rows};
 var text=JSON.stringify(data,null,2),name=reviewName();
 function download(){var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:'application/json'}));a.download=name;
 document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove();},1000);dl.hidden=true;
@@ -1195,15 +1224,7 @@ if(data.format!==META.format){toast('Not a review downloaded from a snapshot pag
 if(data.schema_version!==META.schema_version){toast('This review comes from another version of the snapshot: it can\'t be loaded here.');return;}
 var go=function(){if(summary().files)ask('Replace the review in progress with this one?','Replace it',load);else load();};
 if(data.project!==META.project)ask('This review is for '+data.project+', not '+META.project+'. Load it anyway?','Load it',go);else go();
-function load(){rv={author:data.author||'',role:data.role||'',date:data.review_date||'',files:{}};var unknown=0;
-(data.rows||[]).forEach(function(row){var it=byFile[row.filename];if(!it){unknown++;return;}var e=entry(it);
-Object.keys(row).forEach(function(k){if(FIXED.indexOf(k)>=0)return;
-if(k.indexOf('reply ')===0){e.replies[k.slice(6)]=String(row[k]);return;}var v=String(row[k]).trim(),l=v.toLowerCase();
-if(OKS.indexOf(l)>=0)e.deps[k]={ok:1};else if(NOS.indexOf(l)>=0)e.deps[k]={no:1,text:''};else e.deps[k]={no:1,text:v};});
-var gv=String(row.global||'').trim(),gl=gv.toLowerCase();
-if(OKS.indexOf(gl)>=0)e.all=true;else if(NOS.indexOf(gl)>=0)Object.keys(it.states).forEach(function(d){if(isDone(it.states[d])&&!e.deps[d])e.deps[d]={no:1,text:''};});
-else e.text=gv;if(row.description)e.desc=row.description;
-String(row.fixed||'').split(/\s+/).filter(Boolean).forEach(function(id){e.fixed[id]=1;});});
+function load(){rv={author:data.author||'',role:data.role||'',date:data.review_date||'',files:{}};var unknown=fromActions(data.actions);
 $('author').value=rv.author;$('role').value=rv.role;sync('role');save();setReview(true);render();
 toast('Review of '+(rv.author||'?')+' loaded: '+plural(summary().files,'file')+(unknown?', '+unknown+' not on this page (renamed, or another snapshot)':'')+'.');}};
 rd.readAsText(file);})();}

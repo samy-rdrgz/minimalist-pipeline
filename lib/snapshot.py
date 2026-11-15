@@ -46,7 +46,7 @@ from .tracking import (
 # Bumped whenever the review's columns change: the import reads this one
 # only (review_import._check_schema()). History in NOTES.md, "Review import:
 # this version's reviews only".
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 
 # Entry "source" stamped on every note imported from a review template.
 REVIEW_SOURCE = "prod_review"

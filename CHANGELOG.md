@@ -70,6 +70,9 @@ All notable changes to this addon. Dates are release dates.
 
 ### Changed
 
+- A review's `.json` is a list of typed actions (validate, unvalidate,
+  rtk, note, reply, fixed, description), no longer the spreadsheet's
+  rows: reviews from an older snapshot are refused -- export it again.
 - Snapshots go in a folder per month, `snapshots/<YYYY-MM>/` (the older
   ones stay where they are). Their videos (*Folder*) stay in one
   `snapshots/videos/` shared by every month.

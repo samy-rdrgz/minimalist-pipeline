@@ -4354,7 +4354,32 @@ that could simply be exported again.
 Schema history: 2 hidden `description_exported`; 3 the Role, "valid
 <dept>"; 4 a sheet per section, a cell per department; 5 the render
 watched; 6 `fixed` and `reply <id>` (page only); 7 `render_watched`, no
-longer `render` (a department's possible name).
+longer `render` (a department's possible name); 8 typed actions, no rows
+(see "Review: typed actions").
+
+## Review: typed actions
+
+A review kept the spreadsheet's shape long after the .xlsx went: a row
+per file, a column per department, `reply <id>` columns, cells to
+interpret ("ok" and its nine spellings, "no", text = retakes, `global`).
+From schema 8 it's a list of actions (`ACTION_TYPES`, lib/review_import.py):
+validate / unvalidate {department, seen}, rtk / note {departments, text,
+shot, frames, render}, reply {to, text}, fixed {id}, description {old,
+new}.
+
+- The page writes them (`exportActions()`): a box's lines read there --
+  `[sh020] [f12-40]` at a line's start (`readLine()`), "note:" a remark,
+  a retake withdrawing its department's validation (an `unvalidate`),
+  remarks alone leaving it; *All done* expanded into a `validate` per
+  done department; a reply to a department's RTK withdrawing it too.
+  `fromActions()` reads a file back into the boxes (*Load a review…*).
+- The import is a switch: one loop per type (`_by_file()`), the same
+  checks as before -- the role, the stable seen, a line already
+  imported (`_note_key()`), a note gone. A shot that isn't one of the
+  block's goes back into its text, as typed.
+- `_action()` drops an action it doesn't understand (an unknown type, a
+  missing field) rather than refusing the file.
+- Kept for phase 4B-C: still_done, departments, omit, assign, create.
 
 ## Small gotchas, out of the docstrings
 

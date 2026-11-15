@@ -41,22 +41,6 @@ from .tracking import (
     worked_since_stable,
 )
 
-# A review's row (the page's Review, _JS's FIXED): a cell per department --
-# "ok" validates it for the Role, "no" withdraws that, any other text
-# withdraws it too and makes an RTK of each line ([sh020] [f12-40] at its
-# start). "global": ok = every department done so far, text = an RTK for no
-# department. See NOTES.md, "Validation roles".
-REVIEW_GLOBAL = "global"
-# What reads as "validated" in a department cell, case aside.
-OK_WORDS = ("ok", "yes", "oui", "v", "x", "✓", "✔", "valid", "validé", "valide")
-NO_WORDS = ("no", "non")
-# A row's columns besides the departments' and "global". render_watched:
-# what the reviewer watched (_render_ref()) -- the notes' version; not
-# "render", a department's possible name.
-RENDER_WATCHED = "render_watched"
-_REVIEW_HIDDEN = ("wip_version", "stable_version", "description_exported", RENDER_WATCHED)
-
-
 def parse_review_date(value: str) -> datetime | None:
     """A review's date: a day in a common date format, or ISO. None when
     empty."""
@@ -104,12 +88,63 @@ def keep_review(path: Path, snapshots: Path, plan: dict) -> Path | None:
     return target
 
 
+# What a review asks, one action each (the page's exportActions()):
+#   validate / unvalidate  {file, department, seen}: as the review's role,
+#                          seen the stable it looked at
+#   rtk / note             {file, departments, text, shot, frames, render}:
+#                          a line, its [sh020] [f12-40] read by the page
+#   reply                  {file, to, text}: in that note's thread
+#   fixed                  {file, id}: that retake done, as the reviewer
+#   description            {file, old, new}: old the one exported
+# See NOTES.md, "Review: typed actions".
+ACTION_TYPES = ("validate", "unvalidate", "rtk", "note", "reply", "fixed", "description")
+
+
+def _text(value) -> str:
+    return str(value if value is not None else "").strip()
+
+
+def _action(raw) -> dict | None:
+    """One action, its fields checked and cleaned; None for one not
+    understood (left out)."""
+    if not isinstance(raw, dict) or raw.get("type") not in ACTION_TYPES or not _text(raw.get("file")):
+        return None
+    t, a = raw["type"], {"type": raw["type"], "file": _text(raw["file"])}
+    if t in ("validate", "unvalidate"):
+        a.update(department=_text(raw.get("department")).lower(), seen=_text(raw.get("seen")))
+        return a if a["department"] else None
+    if t in ("rtk", "note"):
+        frames = raw.get("frames")
+        try:
+            frames = (int(frames[0]), int(frames[1]) if frames[1] is not None else None) if frames else None
+        except (TypeError, ValueError, IndexError):
+            frames = None
+        if frames and frames[1] is not None and frames[1] < frames[0]:
+            frames = None
+        deps = raw.get("departments") or []
+        a.update(
+            departments=[_text(d).lower() for d in deps if _text(d)] if isinstance(deps, list) else [],
+            text=_text(raw.get("text")),
+            shot=_text(raw.get("shot")) if str(raw.get("shot") or "").isdigit() else "",
+            frames=frames,
+            render=_text(raw.get("render")),
+        )
+        return a if a["text"] else None
+    if t == "reply":
+        a.update(to=_text(raw.get("to")), text=_text(raw.get("text")))
+        return a if a["to"] and a["text"] else None
+    if t == "fixed":
+        a.update(id=_text(raw.get("id")))
+        return a if a["id"] else None
+    a.update(old=_text(raw.get("old")), new=_text(raw.get("new")))
+    return a
+
+
 def read_review(path: Path) -> dict:
-    """{"schema_version", "author", "role", "review_date", "columns",
-    "rows"} from a review downloaded from the snapshot page: {"format",
-    "schema_version", "author", "role", "review_date", "rows": [{"filename", "stable_version", "description_exported",
-    "render_watched", "description"?, <department>: "ok" / "no" /
-    retakes, "global"?}]}."""
+    """{"schema_version", "author", "role", "review_date", "actions"} from
+    a review downloaded from the snapshot page: {"format",
+    "schema_version", "author", "role", "review_date", "actions": [...]}
+    (ACTION_TYPES), each checked by _action()."""
     try:
         data = json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, ValueError) as e:
@@ -122,22 +157,13 @@ def read_review(path: Path) -> dict:
     if not isinstance(schema, int):
         raise PipelineError(f"{Path(path).name}: no schema_version.")
     _check_schema(path, schema)
-    rows = [
-        {
-            str(k).strip().lower(): str(v).strip()
-            for k, v in row.items()
-            if v is not None
-        }
-        for row in data.get("rows") or []
-        if isinstance(row, dict)
-    ]
+    actions = [a for a in map(_action, data.get("actions") or []) if a]
     return {
         "schema_version": schema,
-        "author": str(data.get("author") or "").strip(),
-        "role": str(data.get("role") or "").strip().lower(),
-        "review_date": parse_review_date(str(data.get("review_date") or "")),
-        "columns": {k for row in rows for k in row},
-        "rows": rows,
+        "author": _text(data.get("author")),
+        "role": _text(data.get("role")).lower(),
+        "review_date": parse_review_date(_text(data.get("review_date"))),
+        "actions": actions,
     }
 
 
@@ -156,18 +182,13 @@ def _check_schema(path: Path, schema: int) -> None:
         )
 
 
-_BULLET = re.compile(r"^\s*(?:[-*•–]|\d+[.)])\s+")
-
-
-def _review_lines(row: dict) -> list[str]:
-    """A row's text cell, one note per line, a typed bullet dropped."""
-    return [
-        line
-        for line in (
-            _BULLET.sub("", l).strip() for l in row.get("text", "").split("\n")
-        )
-        if line
-    ]
+def _by_file(actions: list, *types: str) -> dict:
+    """{file: [its actions of those types, in order]}."""
+    out: dict = {}
+    for a in actions:
+        if a["type"] in types:
+            out.setdefault(a["file"], []).append(a)
+    return out
 
 
 def _file_shots(filepath: Path) -> list[str]:
@@ -183,137 +204,56 @@ def _file_shots(filepath: Path) -> list[str]:
         return []
 
 
-_LINE_TAG = re.compile(r"\s*\[\s*([a-z]*)\s*(\d+)(?:\s*-\s*(\d+))?\s*\]", re.IGNORECASE)
-
-
-def _line_tags(line: str, shots: list[str]) -> tuple[str, str | None, tuple | None]:
-    """A review line's leading tags, in any order: "[sh020]" one shot of
-    the block (shots: its numbers, padded), "[f12-40]" / "[f12]" its
-    frames. -> (text without them, shot, (start, end or None)). A tag that
-    isn't one -- an unknown shot, another word -- ends the scan and stays
-    in the text."""
-    shot_prefix = json_get(ConfigCache.get(), "naming.shot.prefix", "sh").lower()
-    shot = frames = None
-    rest = line
-    while m := _LINE_TAG.match(rest):
-        word, a, b = m[1].lower(), int(m[2]), m[3]
-        if word in (shot_prefix, "sh") and b is None and shot is None:
-            padded = next((s for s in shots if int(s) == a), None)
-            if padded is None:
-                break
-            shot = padded
-        elif word == "f" and frames is None:
-            if b is not None and int(b) < a:
-                break  # [f40-12]: not a range, left in the text
-            frames = (a, int(b) if b else None)
-        else:
-            break
-        rest = rest[m.end() :]
-    rest = rest.strip()
-    if not rest:  # tags alone: nothing to note, keep the line as typed
-        return line, None, None
-    return rest, shot, frames
-
-
-# Not departments, in a review's row.
-# "fixed": the ids of the RTKs the reviewer marked fixed (the page's review,
-# page), space-separated.
-_REVIEW_FIXED = {"group", "filename", "description", "fixed", REVIEW_GLOBAL, *_REVIEW_HIDDEN}
-# "reply <id>": the reviewer's reply to that entry's thread (the page) --
-# a retake on its departments, or "note:" a remark (_reply_kind()).
-REPLY_PREFIX = "reply "
+# "note:" -- or "n:", any case -- at a reply's lines' start: a remark.
+_NOTE_PREFIX = re.compile(r"^(\s*(?:\[[^\]]*\]\s*)*)(?:note|n)\s*:\s*", re.IGNORECASE)
 
 
 def _reply_kind(text: str) -> tuple[str, str]:
     """A reply as it's imported: (type, text). Every line "note:" -- a
-    remark, the prefix dropped; else a retake, "still to redo", as in a
-    department's cell."""
+    remark, the prefix dropped; else a retake, "still to redo"."""
     lines = [line for line in text.splitlines() if line.strip()]
-    if lines and all(_is_note(line) for line in lines):
-        return "note", "\n".join(_drop_note(line) for line in lines)
+    if lines and all(_NOTE_PREFIX.match(line) for line in lines):
+        return "note", "\n".join(_NOTE_PREFIX.sub(r"\1", line, count=1) for line in lines)
     return "rtk", text
 
 
-def _row_replies(row: dict) -> list[tuple[str, str]]:
-    """[(entry id, text)] of a row's replies, empty ones left out."""
-    return [
-        (column[len(REPLY_PREFIX) :].strip(), value.strip())
-        for column, value in row.items()
-        if column.startswith(REPLY_PREFIX) and value.strip()
-    ]
-# "note:" -- or "note :", "n:", any case -- after the line's own tags
-# ([sh020] [f12-40], kept): a remark, not a retake.
-_NOTE_PREFIX = re.compile(r"^(\s*(?:\[[^\]]*\]\s*)*)(?:note|n)\s*:\s*", re.IGNORECASE)
-
-
-def _is_note(line: str) -> bool:
-    return bool(_NOTE_PREFIX.match(line))
-
-
-def _drop_note(line: str) -> str:
-    """The line without its "note:", its tags kept."""
-    return _NOTE_PREFIX.sub(r"\1", line, count=1)
-
-
-def _cell_choice(value: str) -> str:
-    """A v4 department cell: "ok" (a validation word), "no", "text" (any
-    other: retakes -- an "ok" line among others is text too, the retake
-    wins), "" empty."""
-    v = (value or "").strip()
-    if not v:
-        return ""
-    if v.lower() in OK_WORDS:
-        return "ok"
-    if v.lower() in NO_WORDS:
-        return "no"
-    return "text"
-
-
-def _row_actions(row: dict) -> tuple[dict, str, list]:
-    """What a review row asks: ({department: "yes"/"no"} of its own,
-    "yes"/"no"/"" for every department done, [(line, departments, type)]
-    notes to create), from its cell per department and "global"."""
-    wanted, every, notes = {}, "", []
-    for column, value in row.items():
-        if column in _REVIEW_FIXED or column.startswith(REPLY_PREFIX):
-            continue
-        choice = _cell_choice(value)
-        lines = _review_lines({"text": value}) if choice == "text" else []
-        if choice == "ok":
-            wanted[column] = "yes"
-        elif choice == "no" or (
-            # A retake withdraws the validation; "note:" lines alone are a
-            # remark, the validation left as it is.
-            choice == "text" and not all(_is_note(line) for line in lines)
-        ):
-            wanted[column] = "no"
-        if choice == "text":
-            notes += [
-                (line, [column], "rtk") for line in _review_lines({"text": value})
-            ]
-    choice = _cell_choice(row.get(REVIEW_GLOBAL, ""))
-    if choice in ("ok", "no"):
-        every = "yes" if choice == "ok" else "no"
-    elif choice == "text":
-        notes += [
-            (line, [], "rtk") for line in _review_lines({"text": row[REVIEW_GLOBAL]})
-        ]
-    # "note: ..." -- a remark, not a retake.
-    notes = [
-        (_drop_note(line), deps, "note")
-        if _is_note(line)
-        else (line, deps, t)
-        for line, deps, t in notes
-    ]
-    return wanted, every, [n for n in notes if n[0]]
-
-
 def _review_file(name: str) -> Path | None:
-    """The .blend a row's filename names, None if it's gone."""
+    """The .blend an action's file names, None if it's gone."""
     try:
         return find_file_by_name(name if name.endswith(".blend") else f"{name}.blend")
     except PipelineError:  # unknown prefix...
         return None
+
+
+def _notes_of(filepath: Path, notes: list) -> list[dict]:
+    """A file's rtk / note actions as they're imported: {"text",
+    "departments", "type", "shot", "frames", "key", "render"} -- its
+    departments the file's (unknown dropped), its shot one of the block's
+    (else back in its text as typed). The same for the confirm dialog's
+    count and the import, so both tell an already imported one alike."""
+    shots = _file_shots(filepath)
+    prefix = json_get(ConfigCache.get(), "naming.shot.prefix", "sh")
+    out = []
+    for a in notes:
+        departments = []
+        for dep in a["departments"]:
+            try:
+                if valid_department(filepath, dep):
+                    departments.append(dep)
+            except PipelineError:
+                pass
+        text, shot = a["text"], None
+        if a["shot"]:
+            shot = next((s for s in shots if int(s) == int(a["shot"])), None)
+            if shot is None:
+                text = f"[{prefix}{a['shot']}] {text}"
+        frames = a["frames"]
+        key = _note_key(text, shot, *(frames or (None, None)), departments)
+        out.append(
+            {"text": text, "departments": departments, "type": a["type"], "shot": shot,
+             "frames": frames, "key": key, "render": a["render"]}
+        )
+    return out
 
 
 def review_import_plan(path: Path, review: dict | None = None) -> dict:
@@ -326,22 +266,19 @@ def review_import_plan(path: Path, review: dict | None = None) -> dict:
     role = review["role"]
     roles = {r["name"] for r in validation_roles()}
     team = role == TEAM_ROLE and role not in roles
-    actions = [
-        (row, *_row_actions(row))
-        for row in review["rows"]
-        if row.get("filename")
-    ]
+    actions = review["actions"]
+    count = lambda *types: sum(a["type"] in types for a in actions)  # noqa: E731
     plan = {
         "role": role,
         # Written as the team: no role on its notes, no validation.
         "team": team,
         "author": review["author"] or "prod",
-        "notes": sum(len(notes) for _, _, _, notes in actions),
+        "notes": count("rtk", "note"),
         "validations": [],
         "refused": [],
         # Retakes the reviewer marked fixed: closed under their name.
-        "fixed": sum(len(row.get("fixed", "").split()) for row, *_ in actions),
-        "replies": sum(len(_row_replies(row)) for row, *_ in actions),
+        "fixed": count("fixed"),
+        "replies": count("reply"),
         # What the project holds already (a review imported again), left as
         # it is: counted here as the import will tell it.
         "notes_known": 0,
@@ -350,35 +287,33 @@ def review_import_plan(path: Path, review: dict | None = None) -> dict:
         "validations_known": 0,
     }
     author = plan["author"]
-    for row, _, _, notes in actions:
-        ids = row.get("fixed", "").split()
-        replies = _row_replies(row)
-        if not (notes or ids or replies):
-            continue
-        filepath = _review_file(row["filename"])
+    for name, mine in _by_file(actions, "rtk", "note", "fixed", "reply").items():
+        filepath = _review_file(name)
         if not filepath:
             continue
+        notes = [a for a in mine if a["type"] in ("rtk", "note")]
         if notes:
             known = _known_notes(
                 filepath, author, TEAM_REVIEW_SOURCE if team else REVIEW_SOURCE
             )
-            for *_, key in _row_notes(filepath, notes):
-                plan["notes_known"] += key in known
-                known.add(key)
+            for n in _notes_of(filepath, notes):
+                plan["notes_known"] += n["key"] in known
+                known.add(n["key"])
         entries = (read_json_quiet(tracking_json_path(filepath)) or {}).get("entries", [])
         by_id = {e.get("id"): e for e in entries}
-        plan["fixed_done"] += sum(1 for i in ids if (by_id.get(i) or {}).get("done"))
+        plan["fixed_done"] += sum(
+            1 for a in mine if a["type"] == "fixed" and (by_id.get(a["id"]) or {}).get("done")
+        )
         answered = {
             (e.get("response"), e.get("text"))
             for e in entries
             if e.get("response") and e.get("author") == author
         }
         plan["replies_known"] += sum(
-            1 for entry_id, text in replies if (entry_id, _reply_kind(text)[1]) in answered
+            1 for a in mine if a["type"] == "reply" and (a["to"], _reply_kind(a["text"])[1]) in answered
         )
-    wanted_any = any(wanted or every for _, wanted, every, _ in actions)
     # Anything under the role: it must be one (descriptions don't need it).
-    if plan["notes"] or plan["replies"] or wanted_any:
+    if plan["notes"] or plan["replies"] or count("validate", "unvalidate"):
         if not role:
             raise PipelineError(
                 f"{Path(path).name}: no Role chosen at the top -- pick one, then import again."
@@ -389,27 +324,19 @@ def review_import_plan(path: Path, review: dict | None = None) -> dict:
                 f"({', '.join(sorted(roles)) or 'none'}), nor team."
             )
     worked_since: dict = {}
-    for row, wanted, every, _ in actions:
-        name = row["filename"]
-        if not (wanted or every):
-            continue
+    for name, mine in _by_file(actions, "validate", "unvalidate").items():
+        # The last word on a department wins.
+        wanted = {a["department"]: "yes" if a["type"] == "validate" else "no" for a in mine}
+        seen = next((a["seen"] for a in mine if a["seen"]), "")
         filepath = _review_file(name)
         raw = _collect_folder(filepath.parent) if filepath else None
         if not raw:
-            plan["refused"] += [
-                (f"{name}: {d}", "file not found") for d in wanted or ["all"]
-            ]
+            plan["refused"] += [(f"{name}: {d}", "file not found") for d in wanted]
             continue
         status = _status_from_raw(raw)
         done_now = status.get("validated_departments", {})
         given = status.get("approvals") or {}
-        if every:
-            # Each department done now and not given its own value.
-            for d in status.get("departments_required", []):
-                if d in done_now:
-                    wanted.setdefault(d, every)
         current = Path((status.get("stable_info") or {}).get("file") or "").stem
-        seen = row.get("stable_version") or ""
         for department, choice in sorted(wanted.items()):
             label = f"{name}: {department}"
             if choice == "no" and role not in (given.get(department) or {}):
@@ -467,28 +394,6 @@ def _known_notes(filepath: Path, author: str, source: str = REVIEW_SOURCE) -> se
     }
 
 
-def _row_notes(filepath: Path, notes: list) -> list[tuple]:
-    """A row's note lines as they're imported: [(line, departments, type,
-    shot, frames, key)] -- its departments the file's (unknown dropped), its
-    [sh020] [f12-40] tags read. The same for the confirm dialog's count and
-    the import itself, so both tell an already imported line alike."""
-    shots = _file_shots(filepath)
-    out = []
-    for line, wanted_departments, entry_type in notes:
-        # One department, or several: "layout, animation"; unknown dropped.
-        departments = []
-        for dep in wanted_departments:
-            try:
-                if valid_department(filepath, dep):
-                    departments.append(dep)
-            except PipelineError:
-                pass
-        line, shot, frames = _line_tags(line, shots)
-        key = _note_key(line, shot, *(frames or (None, None)), departments)
-        out.append((line, departments, entry_type, shot, frames, key))
-    return out
-
-
 def _note_key(text, shot, f_start, f_end, departments) -> tuple:
     """What makes an imported review line the same as one already there."""
     return (
@@ -501,12 +406,12 @@ def _note_key(text, shot, f_start, f_end, departments) -> tuple:
 
 
 def import_review(path: Path) -> dict:
-    """Write a review into the project (review_import_plan() says what):
-    one entry per note line under its Role, the retakes marked fixed
-    closed, the replies in their threads, the validations. A line already
-    imported is skipped. Returns {"imported", "duplicates", "validated",
-    "same_validations", "fixed", "already_fixed", "replies", "skipped":
-    [(label, reason)]}."""
+    """Write a review into the project (review_import_plan() says what),
+    each action by its type: the retakes marked fixed closed, the replies
+    in their threads, the validations, one entry per rtk / note under its
+    role. One already imported is skipped. Returns {"imported",
+    "duplicates", "validated", "same_validations", "fixed",
+    "already_fixed", "replies", "skipped": [(label, reason)]}."""
     review = read_review(path)
     plan = review_import_plan(path, review)
     team = plan["team"]
@@ -518,6 +423,7 @@ def import_review(path: Path) -> dict:
     date = review["review_date"]
     created_at = date.isoformat(timespec="seconds") if date else None
     review_id = hashlib.sha1(f"{now()}{Path(path).name}".encode()).hexdigest()[:5]
+    actions = review["actions"]
     result = {
         "imported": 0,
         "duplicates": 0,
@@ -533,65 +439,48 @@ def import_review(path: Path) -> dict:
     }
     # Retakes marked fixed: done, as the reviewer -- one already done, or
     # gone since, left as it is.
-    for row in review["rows"]:
-        ids = row.get("fixed", "").split()
-        if not ids or not row.get("filename"):
-            continue
-        filepath = _review_file(row["filename"])
+    for name, mine in _by_file(actions, "fixed").items():
+        filepath = _review_file(name)
         if not filepath:
-            result["skipped"].append(
-                (f"{row['filename']}: {len(ids)} retake(s) fixed", "file not found")
-            )
+            result["skipped"].append((f"{name}: {len(mine)} retake(s) fixed", "file not found"))
             continue
-        for entry_id in ids:
+        for a in mine:
             try:
-                closed = close_entry(filepath, entry_id, author)
+                closed = close_entry(filepath, a["id"], author)
                 if closed:
                     result["fixed"] += 1
                 elif closed is False:
                     result["already_fixed"] += 1
                 else:
-                    result["skipped"].append(
-                        (f"{row['filename']}: retake fixed", "its note is gone")
-                    )
+                    result["skipped"].append((f"{name}: retake fixed", "its note is gone"))
             except PipelineError as e:
-                result["skipped"].append((f"{row['filename']}: retake fixed", e.message))
+                result["skipped"].append((f"{name}: retake fixed", e.message))
     # Replies: each in its entry's thread, a note under the review's role --
     # the retake it answers left open. The same reply from the same author
     # once only (an import run twice).
-    for row in review["rows"]:
-        replies = _row_replies(row)
-        if not replies or not row.get("filename"):
-            continue
-        filepath = _review_file(row["filename"])
+    for name, mine in _by_file(actions, "reply").items():
+        filepath = _review_file(name)
         if not filepath:
-            result["skipped"].append(
-                (f"{row['filename']}: {len(replies)} reply(ies)", "file not found")
-            )
+            result["skipped"].append((f"{name}: {len(mine)} reply(ies)", "file not found"))
             continue
         entries = (read_json_quiet(tracking_json_path(filepath)) or {}).get("entries", [])
         by_id = {e.get("id"): e for e in entries}
-        ids = set(by_id)
         known = {
             (e.get("response"), e.get("text"))
             for e in entries
             if e.get("response") and e.get("author") == author
         }
-        for entry_id, text in replies:
-            if entry_id not in ids:
-                result["skipped"].append(
-                    (f"{row['filename']}: reply {text[:30]}", "its note is gone")
-                )
+        for a in mine:
+            if a["to"] not in by_id:
+                result["skipped"].append((f"{name}: reply {a['text'][:30]}", "its note is gone"))
                 continue
             # A retake answering it is on its departments (none: the whole
             # file's); a "note:" one, a remark.
-            entry_type, text = _reply_kind(text)
-            if (entry_id, text) in known:
+            entry_type, text = _reply_kind(a["text"])
+            if (a["to"], text) in known:
                 result["duplicates"] += 1
                 continue
-            departments = (
-                entry_departments(by_id[entry_id]) if entry_type == "rtk" else []
-            )
+            departments = entry_departments(by_id[a["to"]]) if entry_type == "rtk" else []
             try:
                 create_entry(
                     filepath,
@@ -599,16 +488,16 @@ def import_review(path: Path) -> dict:
                     departments=departments,
                     author=author,
                     type=entry_type,
-                    response=entry_id,
+                    response=a["to"],
                     review_id=review_id,
                     created_at=created_at,
                     source=source,
                     role=role,
                 )
-                known.add((entry_id, text))
+                known.add((a["to"], text))
                 result["replies"] += 1
             except PipelineError as e:
-                result["skipped"].append((f"{row['filename']}: reply", e.message))
+                result["skipped"].append((f"{name}: reply", e.message))
     for v in plan["validations"]:
         try:
             if set_department_approval(
@@ -624,49 +513,38 @@ def import_review(path: Path) -> dict:
                 result["same_validations"] += 1
         except PipelineError as e:
             result["skipped"].append((f"{v['name']}: {v['department']}", e.message))
-    for row in review["rows"]:
-        if not row.get("filename"):
-            continue
-        # One line of a text cell = one entry (see NOTES.md, "Batched review
-        # input, still one entry each"); a typed bullet is dropped.
-        _, _, notes = _row_actions(row)
-        if not notes:
-            continue
-        name = row["filename"]
+    # One rtk / note = one entry (see NOTES.md, "Batched review input, still
+    # one entry each"). The same words on another shot, frames or
+    # department are another one: "[sh170] too dark", "[sh180] too dark".
+    for name, mine in _by_file(actions, "rtk", "note").items():
         filepath = _review_file(name)
         if not filepath:
             result["skipped"].extend(
-                (
-                    f"{name}: {line[:40]}",
-                    "file not found (renamed, branched or archived?)",
-                )
-                for line, _, _ in notes
+                (f"{name}: {a['text'][:40]}", "file not found (renamed, branched or archived?)")
+                for a in mine
             )
             continue
-        # The same words on another shot, frames or department are another
-        # retake: "[sh170] too dark" and "[sh180] too dark" are two.
         known = _known_notes(filepath, author, source)
-        for line, departments, entry_type, shot, frames, key in _row_notes(filepath, notes):
-            if key in known:
+        for n in _notes_of(filepath, mine):
+            if n["key"] in known:
                 result["duplicates"] += 1
                 continue
             # The version the reviewer watched: the one its render was made
             # from (v007-stable_001 -> ..._v007-stable.blend), else the file.
-            render = render_of_note(row.get(RENDER_WATCHED, ""), shot)
+            render = render_of_note(n["render"], n["shot"])
             watched = filepath
             if render:
                 version = render.rsplit("_", 1)[0]
-                watched = filepath.with_name(
-                    f"{filepath.stem.rsplit('_', 1)[0]}_{version}.blend"
-                )
+                watched = filepath.with_name(f"{filepath.stem.rsplit('_', 1)[0]}_{version}.blend")
+            frames = n["frames"]
             try:
                 create_entry(
                     filepath,
-                    text=line,
-                    departments=departments,
+                    text=n["text"],
+                    departments=n["departments"],
                     author=author,
-                    type=entry_type,
-                    shot=shot,
+                    type=n["type"],
+                    shot=n["shot"],
                     f_start=frames[0] if frames else None,
                     f_end=frames[1] if frames else None,
                     review_id=review_id,
@@ -676,39 +554,29 @@ def import_review(path: Path) -> dict:
                     source=source,
                     role=role,
                 )
-                known.add(key)
+                known.add(n["key"])
                 result["imported"] += 1
             except PipelineError as e:
-                result["skipped"].append((f"{name}: {line[:40]}", e.message))
+                result["skipped"].append((f"{name}: {n['text'][:40]}", e.message))
     return result
 
 
 def review_description_changes(path: Path) -> list[dict]:
-    """[{"name", "filepath", "old", "new"}] for every row whose description
-    the prod edited (differs from description_exported) and that still
-    differs from the file's current one; an empty cell is no change."""
-    review = read_review(path)
+    """[{"name", "filepath", "old", "new"}] for every description action
+    the prod changed (new differs from the one exported) that still
+    differs from the file's current one; an empty one is no change."""
     changes, seen = [], set()
-    for row in review["rows"]:
-        name = row.get("filename")
-        new = (row.get("description") or "").strip()
-        if not name or not new or name in seen:
+    for a in read_review(path)["actions"]:
+        name, new = a["file"], a.get("new", "")
+        if a["type"] != "description" or not new or name in seen:
             continue
         seen.add(name)
-        try:
-            filepath = find_file_by_name(
-                name if name.endswith(".blend") else f"{name}.blend"
-            )
-        except PipelineError:
-            filepath = None
+        if new == a["old"]:
+            continue  # untouched by the prod, whatever happened since
+        filepath = _review_file(name)
         if not filepath:
             continue  # reported by import_review() already
-        tracking = read_json_quiet(tracking_json_path(filepath)) or {}
-        old = (tracking.get("description") or "").strip()
-        if new == (row.get("description_exported") or "").strip():
-            continue  # untouched by the prod, whatever happened since
+        old = ((read_json_quiet(tracking_json_path(filepath)) or {}).get("description") or "").strip()
         if new != old:
-            changes.append(
-                {"name": name, "filepath": str(filepath), "old": old, "new": new}
-            )
+            changes.append({"name": name, "filepath": str(filepath), "old": old, "new": new})
     return changes
