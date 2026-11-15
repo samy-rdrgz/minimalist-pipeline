@@ -443,6 +443,8 @@ dl.innerHTML='<div class="dlg-in start" role="dialog" aria-modal="true" aria-lab
 '<label>Name<input id="nf-n" placeholder="'+esc(g)+'_…"></label>')+
 '<label>Description<input id="nf-d" placeholder="What it is, for the team"></label>'+
 '<div class="st-l">Departments required</div><div class="req" id="nf-deps">'+deps.map(function(d){return '<button type="button" data-dep="'+esc(d)+'" aria-pressed="true">'+esc(cap(d))+'</button>';}).join('')+'</div>'+
+// Who it's for (the team): every department ticked assigned to them.
+((META.team||[]).length?'<div class="st-l">Assigned to</div><div class="req" id="nf-who">'+META.team.map(function(p){return '<button type="button" data-who="'+esc(p)+'" aria-pressed="false">'+esc(p)+'</button>';}).join('')+'</div>':'')+
 '<p class="st-w" id="nf-name"></p><p class="why" id="nf-why" hidden></p>'+
 '<div class="acts"><button class="btn" id="nf-cancel">Cancel</button><button class="btn primary" id="nf-go">Plan it</button></div></div>';
 dl.hidden=false;dl.onclick=function(e){if(e.target===dl)dl.hidden=true;};$('nf-n').focus();
@@ -451,6 +453,7 @@ var label=function(){var v=$('nf-n').value.trim();if(shot){if(!/^\d+(-\d+)*$/.te
 var nm=v.toLowerCase().replace(/ /g,'-').replace(/[^a-z0-9-]/g,'').replace(/-{2,}/g,'-').replace(/^-|-$/g,'');return nm?g+'_'+nm:'';};
 var show=function(){var l=label();$('nf-name').textContent=l?'Will be '+l:'';};$('nf-n').addEventListener('input',show);
 dl.querySelectorAll('[data-dep]').forEach(function(b){b.onclick=function(){pick[b.dataset.dep]=!pick[b.dataset.dep];b.setAttribute('aria-pressed',String(pick[b.dataset.dep]));};});
+var who={};dl.querySelectorAll('[data-who]').forEach(function(b){b.onclick=function(){who[b.dataset.who]=!who[b.dataset.who];b.setAttribute('aria-pressed',String(who[b.dataset.who]));};});
 $('nf-cancel').onclick=function(){dl.hidden=true;};
 $('nf-go').onclick=function(){var l=label(),why=$('nf-why');why.hidden=true;
 var no=function(t){why.hidden=false;why.textContent=t;};
@@ -458,6 +461,7 @@ if(!l)return no(shot?'A shot number, or several joined by "-" for a block.':'A n
 if(D.some(function(it){return it.name===l;})||rv.creates.some(function(c){return c.label===l;}))return no(l+' exists already.');
 var a=+($('nf-a')||{}).value||null,b=+($('nf-b')||{}).value||null;if(shot&&a&&b&&b<a)return no('The last frame comes after the first.');
 var c={kind:shot?'shot':'asset',tab:state.tab,group:g,label:l,description:$('nf-d').value.trim(),departments:deps.filter(function(d){return pick[d];})};
+var ppl=Object.keys(who).filter(function(p){return who[p];});c.assignees={};if(ppl.length)c.departments.forEach(function(d){c.assignees[d]=ppl;});
 if(shot){c.sequence=g.slice(SQ.prefix.length);c.shot=$('nf-n').value.trim();c.frame_start=a;c.frame_end=b;}else{c.prefix=g;c.name=l.slice(g.length+1);}
 rv.creates.push(c);save();dl.hidden=true;render();countBar();toast(l+' planned: made when the review is imported.');};}
 // A group's figures, with the review's when it moves them.
@@ -1346,7 +1350,7 @@ var SHARE=!!(navigator.share&&navigator.canShare&&matchMedia('(pointer:coarse)')
 function sendRecap(actions){var files=[],by={};actions.forEach(function(a){if(!by[a.file]){by[a.file]=[];files.push(a.file);}by[a.file].push(a);});
 var fl=function(a){return a.frames?'f'+a.frames[0]+(a.frames[1]!=null?'-'+a.frames[1]:'')+' ':'';};
 return files.map(function(f){var it=byFile[f],acts=by[f],parts=[],deps={};
-if(acts[0].type==='create'){var c=acts[0];return '<div class="rc"><b class="rc-n">'+esc(f)+'</b><span class="rc-p"><span class="rc-x">'+ico('review')+'new '+c.kind+(c.frame_start!=null?' · f'+c.frame_start+'-'+(c.frame_end!=null?c.frame_end:'?'):'')+(c.departments.length?' · '+esc(c.departments.map(cap).join(', ')):'')+(c.description?' · '+esc(c.description):'')+'</span></span></div>';}
+if(acts[0].type==='create'){var c=acts[0];return '<div class="rc"><b class="rc-n">'+esc(f)+'</b><span class="rc-p"><span class="rc-x">'+ico('review')+'new '+c.kind+(c.frame_start!=null?' · f'+c.frame_start+'-'+(c.frame_end!=null?c.frame_end:'?'):'')+(c.departments.length?' · '+esc(c.departments.map(cap).join(', ')):'')+(Object.keys(c.assignees||{}).length?' · → '+esc(c.assignees[Object.keys(c.assignees)[0]].join(', ')):'')+(c.description?' · '+esc(c.description):'')+'</span></span></div>';}
 acts.forEach(function(a){if(a.type==='validate')deps[a.department]={ok:1};else if(a.type==='unvalidate'){deps[a.department]=deps[a.department]||{no:1,lines:[]};}
 else if((a.type==='rtk'||a.type==='note')){var d=(a.departments||[])[0]||' whole';(deps[d]=deps[d]&&deps[d].lines?deps[d]:{no:1,lines:[]}).lines.push(fl(a)+(a.type==='note'?'note: ':'')+a.text);}});
 Object.keys(deps).forEach(function(d){var v=deps[d],nm=d===' whole'?'Whole file':cap(d);

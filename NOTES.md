@@ -4992,4 +4992,10 @@ Phase 6 of docs/plan-1.2.md.
   (`e.assign` drops it).
   Sent as `assign {file, department, people}` (all of them, [] none),
   one of `_FILE_CHANGES`: anyone may send it.
+- **At creation** (phase 6, the end): the CSV's `assignees` column and
+  the page's new shots and assets (*Assigned to*, the team to tick,
+  every department ticked theirs; the create action's `assignees`), both
+  read by `parse_batch_assignees()` in the creation's own process
+  (`templates/batch_create_entry.py`), after the file is made. *My work*,
+  planned as a view, is the *Me* filter: no view of its own.
 

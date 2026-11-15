@@ -111,7 +111,8 @@ def keep_review(path: Path, snapshots: Path, plan: dict) -> Path | None:
 #                          to, all of them ([] none)
 #   create                 {file (its name), kind, sequence + shot or prefix
 #                          + name, description, frame_start, frame_end,
-#                          departments}: a new shot or asset, made by the CSV
+#                          departments, assignees {department: [names]}): a
+#                          new shot or asset, made by the CSV
 #                          batch's engine (lib/batch.py)
 # See NOTES.md, "Review: typed actions".
 ACTION_TYPES = (
@@ -175,10 +176,13 @@ def _action(raw) -> dict | None:
     if t == "create":
         kind = _text(raw.get("kind"))
         deps = raw.get("departments") or []
+        assignees = raw.get("assignees") if isinstance(raw.get("assignees"), dict) else {}
         a.update(
             kind=kind,
             description=_text(raw.get("description")),
             departments=[_text(d).lower() for d in deps if _text(d)] if isinstance(deps, list) else [],
+            assignees={_text(d).lower(): [_text(p).lower() for p in people if _text(p)]
+                       for d, people in assignees.items() if isinstance(people, list)},
         )
         if kind == "shot":
             a.update(sequence=_text(raw.get("sequence")), shot=_text(raw.get("shot")))
@@ -680,6 +684,8 @@ def create_rows(review: dict) -> dict:
             continue
         description = a["description"] + (f" (asked by {who})" if who else "")
         row = {"departments": ", ".join(a["departments"]), "description": description.strip()}
+        if a.get("assignees"):
+            row["assignees"] = a["assignees"]
         if a["kind"] == "shot":
             row.update(sequence=a["sequence"], shot=a["shot"])
             row.update({k: str(a[k]) for k in ("frame_start", "frame_end") if a[k] is not None})

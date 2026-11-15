@@ -58,6 +58,28 @@ def resolve_batch_departments(
     return resolved
 
 
+def parse_batch_assignees(raw, departments: list[str]) -> dict[str, list[str]]:
+    """A row's 'assignees' cell as {department: [names]}, among its
+    departments: "animation:tom, léa; layout:sam", or names alone ("tom")
+    for every department; a dict (the page's) taken as it is. Lower case,
+    each once; a department it doesn't require dropped."""
+    out: dict[str, list[str]] = {}
+    if isinstance(raw, dict):
+        parts = [(str(d), p if isinstance(p, list) else str(p).split(",")) for d, p in raw.items()]
+    else:
+        parts = []
+        for chunk in str(raw or "").split(";"):
+            dep, sep, names = chunk.partition(":")
+            parts.append((dep, names.split(",")) if sep else ("", dep.split(",")))
+    for dep, names in parts:
+        names = [str(n).strip().lower() for n in names if str(n).strip()]
+        dep = dep.strip().lower()
+        for d in [dep] if dep else departments:
+            if d in departments and names:
+                out[d] = list(dict.fromkeys([*out.get(d, []), *names]))
+    return out
+
+
 def asset_batch_exists(
     project_root: Path, prefix: str, name: str, config: dict
 ) -> bool:

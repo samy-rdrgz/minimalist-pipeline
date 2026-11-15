@@ -88,6 +88,10 @@ try:
             description=row.get("description", "") or "",
             timeline=timeline,
         )
+    # Who each department is assigned to (the CSV's 'assignees', the
+    # page's): lib/batch.py parse_batch_assignees().
+    for d, people in lib.parse_batch_assignees(row.get("assignees"), departments).items():
+        lib.set_department_assignees(path, d, people)
     result = {"status": "ok", "message": str(path)}
 except Exception as e:
     result = {"status": "error", "message": str(e)}

@@ -13,6 +13,7 @@ from .batch import (
     parse_shot_batch_csv,
     read_batch_result,
     resolve_batch_departments,
+    parse_batch_assignees,
     shot_batch_exists,
 )
 from .browser import (
