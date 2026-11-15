@@ -1467,6 +1467,14 @@ class PIPELINE_PG_monitoring(bpy.types.PropertyGroup):
     hidden_columns: memory_prop(
         _monitoring_filters, "hidden_columns", bpy.props.StringProperty, "", name=""
     )
+    only_mine: memory_prop(
+        _monitoring_filters,
+        "only_mine",
+        bpy.props.BoolProperty,
+        False,
+        name="",
+        description="Only the files with a department assigned to you (File details: the team's icon by a department)",
+    )
     only_rtk: memory_prop(
         _monitoring_filters,
         "only_rtk",

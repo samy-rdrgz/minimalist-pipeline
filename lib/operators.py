@@ -318,7 +318,9 @@ def draw_onboarding(layout, context, max_width: int = 120, level_hint: bool = Tr
         name_row = name_block.box().row(align=True)
         name_row.alignment = "LEFT"
         name_row.label(text="YOUR NAME:", icon="USER")
-        name_row.prop(prefs, "user_name", text="")
+        from ..operators.team_ops import draw_user_name
+
+        draw_user_name(name_row, prefs)
         hint_row = name_block.box().column(align=True)
         hint_row.active = False
         hint_row.scale_y = 0.5

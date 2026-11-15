@@ -34,6 +34,7 @@ from ..lib import (
     get_entries,
     get_entries_grouped,
     get_linked_libraries_cached,
+    get_user,
     get_user_role,
     group_renders,
     highest_approval,
@@ -53,6 +54,7 @@ from ..lib import (
     region_char_budget,
     render_root,
     render_to_check_label,
+    assigned_to,
     rows_that_fit,
     safe_icon,
     shots_in_segment,
@@ -893,6 +895,20 @@ def draw_file_details(state, context, layout):
             op.custom_tooltip = tooltip
             if d in validated:
                 _draw_approval(btn, data, d, filepath, role, tooltip)
+            # Who it's assigned to (Edit project's Team): their names, a
+            # click picks them.
+            people = (data.get("assignees") or {}).get(d) or []
+            assign = btn.row(align=True)
+            assign.active = bool(people)
+            icon_button(
+                assign,
+                "m_pipeline.assign_department",
+                "COMMUNITY",
+                f"Assigned to {', '.join(people)}: click to change" if people else "Assign it to someone of the team",
+                text=", ".join(people),
+                filepath=filepath,
+                department=d,
+            )
             if ((data.get("flags") or {}).get(d) or {}).get("to_redo"):
                 icon_button(
                     btn,
@@ -1022,6 +1038,7 @@ def monitor_matches(self, context, project_root, activity=None) -> tuple:
     draw_monitor_table() and by File details' previous / next file
     (operators/monitoring_ops.py, _step_file()). activity: farm_activity(),
     when the caller has it."""
+    me = get_user(context)
     # Memory only: ProjectScan fills the cache in the background, the farm
     # column comes from the farm monitor's cache.
     data = TrackingStatusCache.known(Path(project_root))
@@ -1068,6 +1085,8 @@ def monitor_matches(self, context, project_root, activity=None) -> tuple:
                 continue
             if self.only_rtk and not _has_rtk(file):
                 continue
+            if self.only_mine and not assigned_to(file, me):
+                continue
             if self.only_to_validate and not _to_validate(file, role):
                 continue
             if only_outdated and not outdated_links(dir):
@@ -1097,6 +1116,7 @@ def monitor_matches(self, context, project_root, activity=None) -> tuple:
         self.only_farm,
         self.only_rtk,
         self.only_to_validate,
+        self.only_mine,
         only_outdated,
         self.sort,
     )

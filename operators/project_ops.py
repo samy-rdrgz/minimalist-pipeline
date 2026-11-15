@@ -10,6 +10,7 @@ import bpy
 
 from ..lib.status import departments_text, parse_departments
 from ..lib import (
+    project_team,
     DEFAULT_ASSET_DEPARTMENTS,
     DEFAULT_SHOT_DEPARTMENTS,
     PROGRESS_WEIGHTS,
@@ -595,6 +596,12 @@ class ProjectSettings:
         "-- a department after a > waits for the ones before it and is to redo when "
         "they change; a comma, the same stage (in parallel). Commas only: no stages",
     )
+    team: bpy.props.StringProperty(
+        name="",
+        default="",
+        description="The team's names, a comma between them: each one's user name picks "
+        "from them (Preferences), departments are assigned to them (File details)",
+    )
     validation_roles: bpy.props.StringProperty(
         name="",
         default="sup:1,prod:2",
@@ -691,6 +698,7 @@ class ProjectSettings:
             ("THUMBNAILS", "IMAGE_DATA", "thumbnail_size", ""),
             ("SNAPSHOT DONE", "SORTSIZE", "progress_wip", "progress_rework", "progress_rtk"),
             ("VALIDATION ROLES", "SOLO_ON", "validation_roles"),
+            ("TEAM", "COMMUNITY", "team"),
         ])
         box.separator(type="LINE")
         self._rows(box, [
@@ -774,6 +782,7 @@ class ProjectSettings:
         self.assets_departments = departments_text(
             config.get("assets_departments", DEFAULT_ASSET_DEPARTMENTS), stages.get("assets")
         )
+        self.team = ", ".join(project_team(config))
         self.shots_departments = departments_text(
             config.get("shots_departments", DEFAULT_SHOT_DEPARTMENTS), stages.get("shots")
         )
@@ -827,6 +836,7 @@ class ProjectSettings:
                 "assets_departments": parse_departments(self.assets_departments)[0],
                 "shots_departments": parse_departments(self.shots_departments)[0],
                 "validation_roles": self._roles_from_csv(self.validation_roles),
+                "team": project_team({"team": self._csv_to_list(self.team)}),
                 "department_stages": {
                     "assets": parse_departments(self.assets_departments)[1],
                     "shots": parse_departments(self.shots_departments)[1],

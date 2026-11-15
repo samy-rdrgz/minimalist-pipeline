@@ -122,6 +122,7 @@ class M_PIPELINE_PT_monitoring(_MonitoringPanel, bpy.types.Panel):
             icon="VIEW_CAMERA" if state.only_farm else "VIEW_CAMERA_UNSELECTED",
             emboss=False,
         )
+        filters_btn.prop(state, "only_mine", text="", icon="USER", emboss=False)
         filters_btn.prop(
             state,
             "only_rtk",

@@ -50,6 +50,13 @@ Un bloc multishot peut taguer une note/todo avec le shot du bloc concerné — v
 
 **Écarter un fichier** sans l'archiver (File details, le bouton pause) : *On hold* (en pause, en attente d'une décision) ou *Cancelled* (coupé au montage, abandonné), avec un pourquoi. Il reste dans les listes de Blender, grisé avec sa marque (sur la page du snapshot : masqué, une ligne en bas de sa séquence le montre), et sort des parts faites (les chiffres du snapshot, le rythme du planning), des filtres Retakes et To validate, et des étapes (ni Waiting ni To redo). Le même bouton le remet *Active*. La marque d'un bloc vaut pour tous ses shots.
 
+## Équipe et attribution
+
+**L'équipe** (Edit project → *Team*, les noms séparés par une virgule) : chacun choisit son nom d'utilisateur dedans (Préférences ou la fenêtre d'accueil, le bouton de l'équipe à côté du champ du nom ; un nom absent de l'équipe est signalé), et les départements d'un fichier sont attribués à ses membres.
+
+- **Attribuer** (File details, le bouton de l'équipe à côté d'un département, ouvert à tous) : cocher pour qui c'est -- le layout de sh010 à Léa, son animation à Tom. Facultatif, une affaire de filtre : rien n'est compté à partir de là (pas de charge par personne, voir [Choix de conception](design_fr.md)). Stocké dans `tracking.json` : `"assignees": {"animation": ["tom"]}`.
+- **Moi** (les filtres de Project monitoring, l'icône personne) : seulement les fichiers avec un département qui t'est attribué.
+
 ## Fini, puis validé : les rôles de validation
 
 Un département est **fini** (*done*) quand son travail est terminé (la

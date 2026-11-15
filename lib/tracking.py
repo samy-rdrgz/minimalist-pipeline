@@ -1098,6 +1098,37 @@ def set_department_synced(filepath: Path, department: str, by: str, text: str = 
         box["action"] = "to_write"
 
 
+def set_department_assignees(filepath: Path, department: str, people) -> list[str]:
+    """Who department is assigned to on filepath's folder (tracking.json
+    "assignees" {department: [names]}): people, lower case, each once; none
+    clears it. Optional, a filter's matter: nothing is counted from it.
+    Returns them."""
+    people = list(dict.fromkeys(str(p).strip().lower() for p in people if str(p).strip()))
+    path = tracking_json_path(filepath, must_exist=True)
+    with locked_json(path) as box:
+        data = box["data"] or {}
+        assignees = data.get("assignees") or {}
+        if people:
+            assignees[department] = people
+        else:
+            assignees.pop(department, None)
+        if assignees:
+            data["assignees"] = assignees
+        else:
+            data.pop("assignees", None)
+        box["data"] = data
+        box["action"] = "to_write"
+    return people
+
+
+def assigned_to(status: dict, user: str) -> list[str]:
+    """The departments of a file (its tracking data) assigned to user,
+    among those it requires."""
+    assignees = (status or {}).get("assignees") or {}
+    required = (status or {}).get("departments_required") or []
+    return [d for d in required if user and user.lower() in (assignees.get(d) or [])]
+
+
 def set_departments_required(filepath: Path, add=(), remove=()) -> bool:
     """The departments required for filepath's folder: add (the project's
     own for its kind, others refused), remove. In the project's order.

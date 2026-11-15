@@ -50,6 +50,13 @@ Multishot blocks can tag a note/todo with which shot in the block it's about —
 
 **Set a file aside** without archiving it (File details, the pause button): *On hold* (paused, waiting for a decision) or *Cancelled* (cut at the edit, dropped), with a why. It stays in Blender's lists, greyed with its mark (on the snapshot page: hidden, a line at the end of its sequence shows it), and leaves the shares done (the snapshot's figures, the schedule's pace), the Retakes and To validate filters, and the stages (no Waiting, no To redo). The same button makes it *Active* again. A block's mark covers all its shots.
 
+## Team and assignees
+
+**The team** (Edit project → *Team*, names with a comma between them): each one's user name picks from it (Preferences or the welcome window, the team's button by the name field; a name not in the team is flagged), and a file's departments are assigned to its people.
+
+- **Assign** (File details, the team's button by a department, open to all): tick who it's for -- sh010's layout to Léa, its animation to Tom. Optional, a filter's matter: nothing is counted from it (no load per person, see [Design choices](design.md)). Stored in `tracking.json`: `"assignees": {"animation": ["tom"]}`.
+- **Me** (Project monitoring's filters, the person icon): only the files with a department assigned to you.
+
 ## Done, then validated: validation roles
 
 A department is **done** when its work is finished (the tick next to it --

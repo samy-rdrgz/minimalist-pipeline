@@ -124,7 +124,9 @@ class PipelineAddonPreferences(bpy.types.AddonPreferences):
         col_infos = prefs.column()
         col_infos.label(text="User Infos:")
 
-        col_infos.prop(self, "user_name")
+        from .operators.team_ops import draw_user_name
+
+        draw_user_name(col_infos, self, text="User name")
         col_infos.prop(self, "user_role")
         ro = col_infos.column()
         ro.active = False

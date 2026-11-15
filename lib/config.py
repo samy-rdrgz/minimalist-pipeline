@@ -399,6 +399,14 @@ def find_known_project_for_file(filepath: str, opened_projects) -> str | None:
     return None
 
 
+def project_team(config: dict | None = None) -> list[str]:
+    """The project's team (config "team", Edit project): its names, lower
+    case, each once, in their order. [] when none is set. See NOTES.md,
+    "Team and assignees"."""
+    names = (config if config is not None else ConfigCache.get() or {}).get("team") or []
+    return list(dict.fromkeys(str(n).strip().lower() for n in names if str(n).strip()))
+
+
 def ordered_departments(departments) -> list[str]:
     """departments in the project's order -- Edit project's asset
     departments, then its shot ones --, any it doesn't list after them, as

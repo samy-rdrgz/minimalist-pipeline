@@ -4942,3 +4942,22 @@ Phase 5 of docs/plan-1.2.md.
   `newer` when made after the main one -- shown under it (File details,
   the page). Clean old renders keeps every department's last.
 
+## Team and assignees
+
+Phase 6 of docs/plan-1.2.md.
+
+- **The team** is the config's `"team"` (Edit project → *Team*),
+  `project_team()`: lower case, each once. The user name stays a free
+  field (a machine's preference, the logs' author): a menu beside it
+  fills it from the team (`operators/team_ops.py draw_user_name()`), a
+  name not in the team is flagged -- an enum would have needed the
+  project before the name, and a typo there broke the *Me* filter.
+- **Assignees** per department in `tracking.json` (`"assignees":
+  {department: [names]}`, `set_department_assignees()`), read with the
+  rest of the file's data (the status cache copies tracking.json whole).
+  A popup of the team to tick (`m_pipeline.assign_department`), someone
+  assigned who left the team still listed, to untick.
+- **Me** (`only_mine`, Project monitoring): `assigned_to(file, user)`
+  among the departments it requires. Nothing is counted from assignees
+  (docs/design.md): no load per person.
+
