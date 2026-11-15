@@ -1052,14 +1052,14 @@ class M_PIPELINE_OT_review_descriptions(bpy.types.Operator):
         _show_import_summary(f"{self.summary}\nDescriptions left unchanged", self.icon)
 
 
-def _snapshot_scan(root, thumbnails, v_prefix, folder, sequences, assets, ffmpeg):
+def _snapshot_scan(root, thumbnails, v_prefix, folder, sequences, assets, ffmpeg, all_departments):
     """Export snapshot's thread: the project's scan, the videos already in
     the videos folder (none without one), and the light copies made for
     the ticked sequences' videos a browser can't play (ensure_snapshot_lds();
     nothing without ffmpeg)."""
     data = read_snapshot_data(root, thumbnails, v_prefix)
     lds = (
-        ensure_snapshot_lds(data, root, sequences, assets, ffmpeg)
+        ensure_snapshot_lds(data, root, sequences, assets, ffmpeg, all_departments)
         if ffmpeg and (sequences or assets)
         else ([], [])
     )
@@ -1121,6 +1121,15 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
         default=False,
         description="Also every asset/library's latest video",
     )
+    include_all_departments: bpy.props.BoolProperty(
+        name="Every department",
+        default=False,
+        description=(
+            "Each shot's last render of every department, not only its main "
+            "one (the highest department's): played on the page under the "
+            "main one"
+        ),
+    )
 
     _job = None
     _warnings: list = []
@@ -1180,6 +1189,7 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
             box.row(align=True).prop(item, "include", text=item.name)
         box.separator()
         box.prop(self, "include_asset_videos")
+        box.prop(self, "include_all_departments")
         info = box.column(align=True)
         info.active = False
         if self.videos_mode == "NONE":
@@ -1221,6 +1231,7 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
             chosen,
             assets,
             resolve_ffmpeg(),
+            self.include_all_departments,
         )
         # The farm's jobs, fresh by the time the scan is done (seconds).
         request_monitor_refresh()
@@ -1273,7 +1284,7 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
             # relative to the page, on a machine that reaches the project.
             chosen, assets = self._chosen(context)
             self._videos, self._no_video = snapshot_videos(
-                snapshot, self._root, chosen, assets
+                snapshot, self._root, chosen, assets, self.include_all_departments
             )
             names = [name for _mp4, name in self._videos]
             base = None

@@ -312,12 +312,18 @@ def _video_name(root: Path, mp4: Path | None) -> str | None:
 
 
 def ensure_snapshot_lds(
-    data: dict, root: Path, sequences: list[str], assets: bool, ffmpeg: str
+    data: dict,
+    root: Path,
+    sequences: list[str],
+    assets: bool,
+    ffmpeg: str,
+    all_departments: bool = False,
 ) -> tuple[list[str], list[tuple[str, str]]]:
     """A light copy (preview.ensure_ld()) for each video of these sequences
     (and the assets, with them) a browser can't play and that has none yet,
-    its "video" pointed at it. Returns (made, [(video, why)] not made). Disk
-    and ffmpeg: on a thread."""
+    its "video" pointed at it -- the main renders', with all_departments the
+    other departments' last ones too. Returns (made, [(video, why)] not
+    made). Disk and ffmpeg: on a thread."""
     root = Path(root)
     made, failed = [], []
     for kind, owner, raw, _ in data["raws"]:
@@ -330,7 +336,7 @@ def ensure_snapshot_lds(
             wanted = assets
         if not wanted:
             continue
-        for r in data["renders"].get(str(owner), []):
+        for r in _with_others(data["renders"].get(str(owner), []), all_departments):
             name = r.get("video")
             if not name or f"/{LD_DIR}/" in f"/{name}":
                 continue
@@ -346,11 +352,22 @@ def ensure_snapshot_lds(
     return sorted(set(made)), failed
 
 
+def _with_others(renders: list, others: bool) -> list:
+    """The main renders, and with others each one's other departments' last
+    renders after it."""
+    return [x for r in renders for x in (r, *((r.get("others") or []) if others else ()))]
+
+
 def snapshot_videos(
-    snapshot: dict, root: Path, sequences: list[str], assets: bool
+    snapshot: dict,
+    root: Path,
+    sequences: list[str],
+    assets: bool,
+    all_departments: bool = False,
 ) -> tuple[list[tuple[Path, str]], list[str]]:
     """The videos of the last renders the snapshot shows -- its shots' of
-    these sequences, and with assets every asset/library's --, as
+    these sequences, and with assets every asset/library's; their main
+    renders', with all_departments every department's last one --, as
     [(mp4, its path under renders/)], each once: what Export snapshot
     copies or zips, under those names, and what the page plays. Also the
     sequences (and "assets/libraries") with none. No disk access."""
@@ -360,7 +377,7 @@ def snapshot_videos(
         shot = item["kind"] == "shot"
         if not (item["group"] in sequences if shot else assets):
             continue
-        for r in item.get("renders") or []:
+        for r in _with_others(item.get("renders") or [], all_departments):
             name = r.get("video")
             if name and name not in seen:
                 seen.add(name)

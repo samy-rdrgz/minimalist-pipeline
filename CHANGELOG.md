@@ -6,6 +6,8 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- Export snapshot: *Every department* takes each shot's other departments'
+  last renders too (Folder, Zip), not only its main one.
 - A render preset per department, `<department>_default.py`, made with
   the project and when a department is added (Edit project), for one
   with no preset.
