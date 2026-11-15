@@ -562,6 +562,9 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
             "shot_thumbnails": [
                 list(t) for t in data.get("shot_thumbs", {}).get(str(owner), [])
             ],
+            # The live page's own (lib/live.py): its links, its renders to
+            # check, every version's video.
+            "live": (data.get("live") or {}).get(str(owner)),
         }
         # A render's folder is vXXX_YYY: XXX the .blend version rendered,
         # YYY the render increment. The history's source_file says XXX

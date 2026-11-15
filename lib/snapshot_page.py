@@ -168,6 +168,7 @@ def _item(item: dict, threads: list, roles: list, image) -> dict:
     if not shots and item["kind"] == "shot" and "-" in item["name"]:
         shots = _owner_shots(Path(item["name"].split("_", 1)[-1]))
     return {
+        **({"live": item["live"]} if item.get("live") else {}),
         "name": item["name"],
         "kind": item["kind"],
         "root": item.get("root") or ("shots" if item["kind"] == "shot" else "assets"),

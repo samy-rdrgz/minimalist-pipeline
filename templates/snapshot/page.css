@@ -1090,3 +1090,10 @@ earlier: under "N closed", the same. */
 .lvp.busy{color:var(--wip)}.lvp.busy::before{background:var(--wip)}
 .lvp.off{color:var(--rtk)}.lvp.off::before{background:var(--rtk)}
 body.live #rv-send{display:none}
+.chk,.lnk{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-height:38px;padding:2px 0}
+.chk-l{flex:1;min-width:0;font:600 12px var(--mono);color:var(--ink-2)}
+.chk-push{display:flex;align-items:center;gap:6px;margin-top:6px;font-size:12px;color:var(--ink-3)}
+.lnk .lk{font-size:13px;color:var(--ink);text-decoration:none}.lnk .lk:hover{text-decoration:underline}
+.lnk .lf{font:12px var(--mono);color:var(--ink-3)}
+.vsel{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:var(--ink-3)}
+.vsel select{flex:1;min-width:0;min-height:32px;padding:0 8px;border:1px solid var(--outline);border-radius:var(--r-btn);background:var(--btn);color:var(--ink);font:12px var(--mono)}

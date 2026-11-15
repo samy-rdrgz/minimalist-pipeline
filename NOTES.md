@@ -5132,3 +5132,18 @@ measures in the plan).
   reply's text live in the page (`editing`), the panel redrawn under them,
   the focus and caret put back; any other field defers the new data until
   it's left.
+- **What only the live page shows** (`item["live"]`, built by
+  `_live_extras()` in the reader thread): the folder's key (its path under
+  the project), its links (`_current_link_files()`, a newer stable by
+  `_outdated_links_of()`) and what links it (the links inverted), its
+  renders to check (`to_check_entries()`, Checked by its key -- "" for a
+  render of before 1.2), every render version with a video
+  (`VERSIONS_SHOWN` per line, newest first). A snapshot has none of it.
+- **Checked and Open, live only**: "checked" rides with the review's
+  actions (`_checked()`: `clear_render_to_check()`, the job archived, the
+  push), its departments left to the page's ✓ / ✕; "open" has its own
+  route, answered at once -- `{"ask"}` when Blender's file has unsaved
+  changes, then saved or not -- the file loaded on a timer of its own.
+- **Mark fixed closes the thread's open entries**, its first or a reply
+  ("still to redo" is an RTK reply): offered on the first entry only, a
+  thread answered by a retake had no Fixed at all (`openIds()`).

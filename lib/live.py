@@ -35,12 +35,23 @@ import bpy
 
 from .core import get_addon_version, now
 from .logs import log
-from .preview import browser_video
-from .snapshot import _video_name, build_snapshot, read_render_state
+from .preview import browser_video, render_department, render_root
+from .snapshot import _folder_frames, _owner_shots, _video_name, build_snapshot, read_render_state
 from .snapshot_page import page_data, render_page
 from .status import project_stages
 from .thumbnails import owner_shot_render_dirs, owner_thumbnail_dirs, thumbnail_path
-from .tracking import _DATA_ROOTS, _collect_folder, _pipeline_entries, _walk_owner_dirs
+from .tracking import (
+    _DATA_ROOTS,
+    _collect_folder,
+    _current_link_files,
+    _outdated_links_of,
+    _path_key,
+    _pipeline_entries,
+    _walk_owner_dirs,
+    to_check_entries,
+)
+
+VERSIONS_SHOWN = 15  # a shot's render versions offered to watch, newest first
 
 PORTS = range(8765, 8776)  # fixed: a page left open finds its server again
 TICK = 0.1  # the main thread's turn
@@ -70,8 +81,9 @@ class _Shared:
 class _Pending:
     """A page's actions, from the server's thread to Blender's turn and back."""
 
-    def __init__(self, review: dict):
+    def __init__(self, review: dict, kind: str = "review"):
         self.review = review
+        self.kind = kind  # "review" (answered after a pass) or "open" (at once)
         self.done = threading.Event()
         self.result: dict = {}
 
@@ -122,15 +134,18 @@ def read_live(root: Path, cache: dict, config: dict, v_prefix: str) -> tuple[dic
             if old and old["stamp"] == stamp:
                 out[key] = old
                 continue
-            raw = _collect_folder(owner, _pipeline_entries(owner))
+            entries = _pipeline_entries(owner)
+            raw = _collect_folder(owner, entries)
             if raw is None:
                 continue
             try:
                 blends = [e.name for e in os.scandir(owner) if e.name.endswith(".blend")]
             except OSError:
                 blends = []
-            renders, thumb, shot_thumbs = None, None, []
+            renders, thumb, shot_thumbs, versions, checks = None, None, [], {}, []
             if not raw["tracking"].get("archived"):
+                versions = _versions(root, kind, owner, v_prefix)
+                checks = _checks(root, raw["tracking"])
                 renders = read_render_state(root, kind, owner, v_prefix, project_stages(config, f"{kind}s"))
                 for r in renders:
                     for x in (r, *(r.get("others") or [])):
@@ -141,15 +156,102 @@ def read_live(root: Path, cache: dict, config: dict, v_prefix: str) -> tuple[dic
             out[key] = {
                 "stamp": stamp, "kind": kind, "owner": owner, "raw": raw, "blends": blends,
                 "renders": renders, "thumb": thumb, "shot_thumbs": shot_thumbs,
+                "versions": versions, "checks": checks, "links": _current_link_files(entries, root),
             }
             changed = True
     return out, changed or set(out) != set(cache)
 
 
-def _as_data(cache: dict) -> dict:
+def _versions(root: Path, kind: str, owner: Path, v_prefix: str) -> dict:
+    """{line: [{"folder", "department", "video", "first", "at"}]}: each
+    render folder with a video a browser plays, newest first -- line ""
+    the folder's own renders (a shot, a block rendered whole, an asset),
+    a shot's name for a block's shots rendered apart. What the page offers
+    to watch besides the main render. Thread-safe."""
+    base = render_root(root, owner)
+    dirs = [("", base)]
+    shots = _owner_shots(owner) if kind == "shot" else []
+    if len(shots) > 1:
+        dirs += [(s, base.with_name(s)) for s in shots]
+    out = {}
+    for line, folder in dirs:
+        try:
+            found = sorted(
+                (e for e in os.scandir(folder) if e.is_dir() and e.name.startswith(v_prefix)),
+                key=lambda e: e.stat().st_mtime,
+                reverse=True,
+            )
+        except OSError:
+            continue
+        rows = []
+        for e in found:
+            video = _video_name(root, browser_video(Path(e.path)))
+            if not video:
+                continue
+            rows.append({
+                "folder": e.name,
+                "department": render_department(Path(e.path)),
+                "video": video,
+                "first": (_folder_frames(Path(e.path)) or [None])[0],
+                "at": e.stat().st_mtime,
+            })
+            if len(rows) >= VERSIONS_SHOWN:
+                break
+        if rows:
+            out[line] = rows
+    return out
+
+
+def _checks(root: Path, tracking: dict) -> list:
+    """Its renders to check: [{"key", "shot", "department", "folder",
+    "video"}] -- Checked takes one off by its key."""
+    out = []
+    for key, info in to_check_entries(tracking):
+        render = Path(info.get("render") or "")
+        folder = render if render.is_absolute() else Path(root) / render
+        out.append({
+            "key": key,
+            "shot": info.get("shot") or "",
+            "department": info.get("department") or "",
+            "folder": folder.name,
+            "video": _video_name(root, browser_video(folder)) if folder.name else None,
+        })
+    return out
+
+
+def _live_extras(root: Path, cache: dict, outdated: dict) -> dict:
+    """Per folder, what only the live page shows: {"key" (its path under
+    the project), "links": [{"key", "file", "newer"}], "linked_by": [keys],
+    "versions", "checks"}."""
+    rel = {}
+    for key in cache:
+        try:
+            rel[_path_key(Path(key))] = Path(key).relative_to(root).as_posix()
+        except ValueError:
+            pass
+    by_target: dict[str, list[str]] = {}
+    out = {}
+    for key, e in cache.items():
+        me = rel.get(_path_key(Path(key)))
+        newer = dict(outdated.get(key) or [])
+        links = []
+        for f in e.get("links") or []:
+            path = Path(f) if Path(f).is_absolute() else Path(root) / f
+            target = rel.get(_path_key(path.parent), "")
+            links.append({"key": target, "file": path.name, "newer": newer.get(path.name, "")})
+            if target and me:
+                by_target.setdefault(target, []).append(me)
+        out[key] = {"key": me, "links": links, "versions": e.get("versions") or {}, "checks": e.get("checks") or []}
+    for key, extra in out.items():
+        extra["linked_by"] = sorted(set(by_target.get(extra["key"], [])))
+    return out
+
+
+def _as_data(cache: dict, extras: dict | None = None) -> dict:
     """read_live()'s cache as read_snapshot_data()'s result."""
     entries = list(cache.values())
     return {
+        "live": extras or {},
         "raws": [(e["kind"], e["owner"], e["raw"], e["blends"]) for e in entries],
         "renders": {str(e["owner"]): e["renders"] for e in entries if e["renders"] is not None},
         "thumbs": {str(e["owner"]): e["thumb"] for e in entries if e["thumb"]},
@@ -158,12 +260,17 @@ def _as_data(cache: dict) -> dict:
     }
 
 
-def _read(root, cache, config, v_prefix):
+def _read(root, cache, config, v_prefix, extras):
     try:
-        _reader["result"] = read_live(root, cache, config, v_prefix)
+        new, changed = read_live(root, cache, config, v_prefix)
+        if changed or extras is None:
+            # Links to a newer stable: one listing per folder linked.
+            currents = {k: e.get("links") or [] for k, e in new.items()}
+            extras = _live_extras(root, new, _outdated_links_of(root, [Path(k) for k in new], currents, v_prefix))
+        _reader["result"] = (new, changed, extras)
     except Exception as e:  # never die silently: the next pass tries again
         log("WARNING", "live", f"Live page: project not read: {e!r}")
-        _reader["result"] = (cache, False)
+        _reader["result"] = (cache, False, extras)
 
 
 # --- the main thread -------------------------------------------------------------
@@ -191,7 +298,7 @@ def _turn(sh: _Shared) -> None:
     if root and Path(root) != sh.root:
         # Another project made active: the page follows it.
         sh.root = Path(root)
-        _reader.update(cache={}, result=None, compare=None, ready=False)
+        _reader.update(cache={}, result=None, compare=None, ready=False, extras=None)
     clock = time.monotonic()
     # The page's actions, applied now; answered after the next pass.
     while True:
@@ -199,11 +306,15 @@ def _turn(sh: _Shared) -> None:
             pending = _actions.get_nowait()
         except queue.Empty:
             break
+        if pending.kind == "open":
+            pending.result = _open(pending.review)
+            pending.done.set()
+            continue
         pending.result = _apply(sh.root, pending.review)
         _reader["waiting"].append(pending)
     thread = _reader["thread"]
     if _reader["result"] is not None and not (thread and thread.is_alive()):
-        cache, changed = _reader["result"]
+        cache, changed, _reader["extras"] = _reader["result"]
         _reader["result"] = None
         _reader["cache"] = cache
         _reader["ready"] = True
@@ -226,7 +337,13 @@ def _turn(sh: _Shared) -> None:
         _reader["at"] = clock
         _reader["thread"] = threading.Thread(
             target=_read,
-            args=(sh.root, dict(_reader["cache"]), config, (config.get("naming") or {}).get("version", {}).get("prefix", "v")),
+            args=(
+                sh.root,
+                dict(_reader["cache"]),
+                config,
+                (config.get("naming") or {}).get("version", {}).get("prefix", "v"),
+                _reader.get("extras"),
+            ),
             daemon=True,
             name="pipeline-live-read",
         )
@@ -254,7 +371,9 @@ def _apply(root: Path, raw: dict) -> dict:
     from .snapshot import SCHEMA_VERSION
     from .tracking import ProjectScan, set_description
 
-    actions = [a for a in map(_action, raw.get("actions") or []) if a]
+    raw_actions = [a for a in raw.get("actions") or [] if isinstance(a, dict)]
+    checked = _checked([a for a in raw_actions if a.get("type") == "checked"])
+    actions = [a for a in map(_action, raw_actions) if a]
     review = {
         "schema_version": SCHEMA_VERSION,
         "author": str(raw.get("author") or "").strip(),
@@ -265,8 +384,13 @@ def _apply(root: Path, raw: dict) -> dict:
     try:
         out = import_review(Path("live page"), review)
     except PipelineError as e:
-        log(e.level, "live", f"Live page: not applied: {e.message}")
-        return {"ok": False, "error": e.message}
+        if actions:
+            log(e.level, "live", f"Live page: not applied: {e.message}")
+            return {"ok": False, "error": e.message}
+        # Only renders checked: no review to read.
+        out = {"imported": 0, "validated": 0, "fixed": 0, "replies": 0, "changed": 0, "skipped": []}
+    out["changed"] += checked["changed"]
+    out["skipped"] += checked["skipped"]
     for a in actions:
         if a["type"] == "description" and a.get("new") and a["new"] != a["old"]:
             filepath = _review_file(a["file"])
@@ -290,6 +414,68 @@ def _apply(root: Path, raw: dict) -> dict:
     )
     return {"ok": True, **{k: out[k] for k in ("imported", "validated", "fixed", "replies", "changed")},
             "skipped": [list(s) for s in out["skipped"]]}
+
+
+def _checked(actions: list) -> dict:
+    """Renders marked checked from the page ({"file", "key", "push"}): out
+    of "to check", their farm job archived, pushed to the edit if asked --
+    as Render checked does (its departments: the page's ✓ / ✕)."""
+    from ..operators.rushes_ops import push_checked_renders
+    from ..operators.tracking_ops import _archive_checked_job
+    from .errors import PipelineError
+    from .monitoring import status_changed
+    from .review_import import _review_file
+    from .tracking import clear_render_to_check
+
+    out = {"changed": 0, "skipped": []}
+    for a in actions:
+        filepath = _review_file(str(a.get("file") or ""))
+        if not filepath or not isinstance(a.get("key"), str):  # "": a render of before 1.2
+            out["skipped"].append((str(a.get("file")), "render checked: file not found"))
+            continue
+        try:
+            dropped = clear_render_to_check(filepath, str(a["key"]))
+        except PipelineError as e:
+            out["skipped"].append((str(a.get("file")), e.message))
+            continue
+        status_changed(filepath)
+        for info in dropped:
+            if info.get("job_id"):
+                _archive_checked_job(info["job_id"])
+        if dropped and a.get("push"):
+            _with_window(push_checked_renders, bpy.context, dropped)
+        out["changed"] += len(dropped)
+    return out
+
+
+def _open(raw: dict) -> dict:
+    """Open a file of the project in this Blender, as the page asks: its
+    question when the file open has unsaved changes ({"ask": True}), then
+    saved first or not ("save": "save" / "discard"). Opened on a timer of
+    its own: the load replaces every datablock, this turn ends first."""
+    from .review_import import _review_file
+
+    filepath = _review_file(str(raw.get("file") or ""))
+    if not filepath or not filepath.is_file():
+        return {"ok": False, "error": "file not found"}
+    choice = raw.get("save")
+    if bpy.data.is_dirty and choice not in ("save", "discard"):
+        return {"ok": False, "ask": True, "current": Path(bpy.data.filepath).name or "an unsaved file"}
+    if choice == "save":
+        if not bpy.data.filepath:
+            return {"ok": False, "error": "the file open in Blender was never saved: save it there"}
+        _with_window(bpy.ops.wm.save_mainfile)
+
+    def load():
+        try:
+            _with_window(bpy.ops.wm.open_mainfile, filepath=str(filepath))
+            log("INFO", "live", f"Live page: opened {filepath.name}")
+        except Exception as e:
+            log("WARNING", "live", f"Live page: {filepath.name} not opened: {e}")
+        return None
+
+    bpy.app.timers.register(load, first_interval=0.05)
+    return {"ok": True, "opened": filepath.name}
 
 
 def _rebuild(sh: _Shared, force: bool) -> None:
@@ -316,7 +502,7 @@ def _rebuild(sh: _Shared, force: bool) -> None:
         # Played from the project, through the server.
         "videos": {"mode": "live", "base": None, "files": [], "local": f"media/{sh.token}/renders"},
     }
-    data = page_data(build_snapshot(_as_data(_reader["cache"]), config, meta, farm=farm))
+    data = page_data(build_snapshot(_as_data(_reader["cache"], _reader.get("extras")), config, meta, farm=farm))
     # Compared without its date: a pass finding nothing new is no news.
     compare = json.dumps({**data, "meta": {**data["meta"], "snapshot": ""}}, ensure_ascii=False, separators=(",", ":"))
     if compare == _reader["compare"]:
@@ -379,7 +565,7 @@ def _handler(sh: _Shared):
             q = {k: v[0] for k, v in parse_qs(parsed.query).items()}
             if not self._allowed(q.get("t", "")):
                 return self._send(403, b"forbidden", "text/plain")
-            if parsed.path != "/action":
+            if parsed.path not in ("/action", "/open"):
                 return self._send(404, b"not found", "text/plain")
             length = int(self.headers.get("Content-Length") or 0)
             if not 0 < length < 4 * 1024 * 1024 or "json" not in (self.headers.get("Content-Type") or ""):
@@ -390,7 +576,7 @@ def _handler(sh: _Shared):
                 return self._send(400, b"bad request", "text/plain")
             with sh.lock:
                 sh.last_seen = time.monotonic()
-            pending = _Pending(raw if isinstance(raw, dict) else {})
+            pending = _Pending(raw if isinstance(raw, dict) else {}, "open" if parsed.path == "/open" else "review")
             _actions.put(pending)
             # Blender's turn, then a pass over the project: the data that
             # shows them. Blender busy longer: the page sends them again
@@ -501,7 +687,7 @@ def start(root: Path) -> str:
     threading.Thread(target=server.serve_forever, name="pipeline-live", daemon=True).start()
     _shared, _server = sh, server
     _reader.update(thread=None, result=None, at=0.0, farm_at=0.0, cache={}, farm=None, compare=None, ready=False,
-                   waiting=[], in_pass=[])
+                   waiting=[], in_pass=[], extras=None)
     # persistent: kept when a file is opened.
     if not bpy.app.timers.is_registered(_tick):
         bpy.app.timers.register(_tick, first_interval=0.0, persistent=True)

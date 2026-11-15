@@ -23,7 +23,12 @@ All notable changes to this addon. Dates are release dates.
   disconnected (it reconnects by itself). It reviews as you: what you do
   on it (validate, retakes, notes, replies, fixed, assignees, file
   settings, descriptions, new shots) is applied in the project at once,
-  under Blender's user name and role.
+  under Blender's user name and role. A file's panel there opens it in
+  Blender, lists its renders to check (Checked, pushed to editing if
+  ticked), its linked files and what links it, and every version of its
+  renders to watch.
+- Snapshot page: *Mark fixed* on a thread whose open retake is a reply
+  (still to redo): it was offered on the first entry only.
 - Edit project: *Rename preset…* renames a render preset and everything
   citing it (default pre-render script, renders' history, the farm's
   paces), its past renders optionally given the new name's department;

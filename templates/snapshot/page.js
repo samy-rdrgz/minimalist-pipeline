@@ -28,9 +28,9 @@ catch(e){urls[id]='data:image/jpeg;base64,'+DATA.images[id];}return urls[id];}
 
 /* ---------- items ---------- */
 // Made again from new data on the live page (applyData()).
-var byFile={},byName={},tabs=[];
-function prepare(){byFile={};byName={};
-D.forEach(function(it,i){it.i=i;byFile[it.file]=it;byName[it.name]=it;
+var byFile={},byName={},byKey={},tabs=[];
+function prepare(){byFile={};byName={};byKey={};
+D.forEach(function(it,i){it.i=i;byFile[it.file]=it;byName[it.name]=it;if(it.live&&it.live.key)byKey[it.live.key]=it;
 it.tab=it.root==='library'?'library':it.kind;
 it.tracked=Object.keys(it.states).length>0;
 var open=it.notes.filter(function(n){return !n.closed;});
@@ -631,7 +631,9 @@ var V=META.videos||{},path=encodeURI(name);
 if(VNAMES[name])return {src:V.base+'/'+path,from:V.mode};
 return V.local?{src:V.local+'/'+path,from:'local'}:null;}
 // A render line's video, one or none.
-function videosOf(it,r){var s=r.video&&videoSrc(r.video);
+// Live: another version picked to watch (PICKV, by file and line).
+var PICKV={};
+function videosOf(it,r){var o=(PICKV[it.file]||{})[r.shots||''];if(o)r=Object.assign({},r,{video:o.video,folder:o.folder,first:o.first});var s=r.video&&videoSrc(r.video);
 return s?[{file:it.name,shot:r.shots,shots:r.shot_list,first:r.shot_list[0],start:r.first,folder:r.folder,src:s.src,from:s.from,name:r.video}]:[];}
 // Choose the videos' folder: each video known by its path's every tail, so
 // the folder's own name, or one above it, doesn't matter. A phone with no
@@ -855,7 +857,10 @@ function who(n){var a=(n.author||'').trim();return a&&a.toLowerCase()!=='unknown
 function avatar(name){return '<span class="av'+(name?'':' none')+'" aria-hidden="true">'+esc((name||'').charAt(0).toUpperCase())+'</span>';}
 // A note's shot ("010") as the block names it: sh010.
 function shotName(it,s){if(!s)return '';var k=String(s).replace(/^\D+/,'');return it.shots.filter(function(x){return x.replace(/^\D+/,'')===k;})[0]||(/^\d+$/.test(s)?'sh'+s:s);}
-function isRtk(n){return (n.type==='rtk'||n.type==='todo')&&n.done===false;}
+// A thread's open retakes or todos: its first entry or a reply in it (a
+// retake answered "still to redo" is one) -- what Mark fixed closes.
+function openIds(n){return [n].concat(n.replies||[]).filter(function(x){return x.id&&(x.type==='rtk'||x.type==='todo')&&x.done===false;}).map(function(x){return x.id;});}
+function isRtk(n){return openIds(n).length>0;}
 function kindTag(n){var k=n.type==='rtk'?'rtk':n.type==='todo'?'todo':'note';
 return '<span class="tp tp-'+(k==='rtk'?(n.team?'team':'role'):k)+'" title="'+(k==='rtk'?(n.team?'A retake from the team':'A retake from '+esc(n.role||'a validation role')):k==='todo'?'Something to do':'A note')+'">'+k.toUpperCase()+'</span>';}
 function frameTag(f,sh){var m=/f(\d+)(?:-(\d+))?/.exec(f||'');return m?'<button type="button" class="tf" data-seek="'+m[1]+'"'+(sh?' data-sh="'+esc(sh)+'"':'')+' title="Go to this frame">'+esc(f)+'</button>':'';}
@@ -865,7 +870,7 @@ function verOf(it,n){if(n.render)return '<span title="Written watching this rend
 var nv=(n.version||'').match(/v\d+(?=\D*$)/),fc=it.wip_v||it.stable_v;return n.version&&(!nv||nv[0]!==fc)?'<span title="'+esc(n.version)+'">'+esc(nv?nv[0]:n.version)+'</span>':'';}
 function canReply(n){return reviewing()&&n.id&&!n.closed;}
 function fixable(n){return canReply(n)&&isRtk(n);}
-function fixedMine(it,n){return !!(peek(it).fixed||{})[n.id];}
+function fixedMine(it,n){var f=peek(it).fixed||{},ids=openIds(n);return ids.length>0&&ids.every(function(id){return f[id];});}
 function replyMine(it,n){var r=(peek(it).replies||{})[n.id];return r&&r.trim()?r:'';}
 // Mine: written or answered by me, or fixed in my review.
 function mineThread(it,n){var m=me(),is=function(x){return m&&who(x).toLowerCase()===m;};return !!(fixedMine(it,n)||replyMine(it,n)||is(n)||(n.replies||[]).some(is));}
@@ -878,10 +883,10 @@ var meta=fx?'<span class="yt yt-fix">✓ '+dl.toUpperCase()+' · YOU</span>':n.c
 [grouped?'':esc(who(n)),grouped?'':fmtDate(n.date),verOf(it,n)].filter(Boolean).join(' · ');
 if(nr)meta+='<span class="rcn" title="'+nr+(nr>1?' replies':' reply')+'">'+ico('text')+nr+'</span>';
 var acts=rv&&canReply(n)?'<span class="tacts"><button type="button" class="mini" data-reply="'+esc(n.id)+'" aria-label="Reply" title="Reply (R)">'+ico('text')+'</button>'+
-(fixable(n)?'<button type="button" class="mini fix'+(fx?' on':'')+'" data-fix="'+esc(n.id)+'" aria-label="'+(fx?'Undo ':'Mark ')+dl+'" title="'+(fx?'Marked '+dl+' in your review: tap to undo':'Mark '+dl+': done when your review is imported')+'">'+ico(fx?'check':'box')+'</button>':'')+'</span>':'';
+(fixable(n)?'<button type="button" class="mini fix'+(fx?' on':'')+'" data-fix="'+esc(openIds(n).join(','))+'" aria-label="'+(fx?'Undo ':'Mark ')+dl+'" title="'+(fx?'Marked '+dl+' in your review: tap to undo':'Mark '+dl+': done when your review is imported')+'">'+ico(fx?'check':'box')+'</button>':'')+'</span>':'';
 var body=(n.replies||[]).map(function(r){return replyRow(it,r);}).join('')+myReply(it,n)+replyForm(it,n)+
 (rv&&canReply(n)&&!editing['r:'+n.id]?'<div class="ta"><button type="button" class="act" data-reply="'+esc(n.id)+'">'+ico('text')+'Reply</button>'+
-(fixable(n)?'<button type="button" class="act fix'+(fx?' on':'')+'" data-fix="'+esc(n.id)+'">'+ico(fx?'check':'box')+(fx?'Undo '+dl:'Mark '+dl)+'</button>':'')+'</div>':'');
+(fixable(n)?'<button type="button" class="act fix'+(fx?' on':'')+'" data-fix="'+esc(openIds(n).join(','))+'">'+ico(fx?'check':'box')+(fx?'Undo '+dl:'Mark '+dl)+'</button>':'')+'</div>':'');
 var t=(n.text||'').trim();
 return '<details class="th'+(n.closed?' closed':'')+(fx?' fixed':'')+(body?'':' bare')+'" data-th="'+esc(n.id)+'"'+(isOpen(it,n)?' open':'')+'><summary><span class="tgs">'+kindTag(n)+frameTag(n.frames,n.shot)+shotTag(it,n.shot)+'</span>'+
 '<span class="tx'+(t?'':' blank')+'">'+(t?esc(t):'(no text)')+'</span><span class="meta">'+meta+'</span>'+acts+'</summary>'+(body?'<div class="tb">'+body+'</div>':'')+'</details>';}
@@ -1035,7 +1040,7 @@ var it=D[i],same=cur===i;if(!same){showClosed=false;editing={};}cur=i;$('p-open'
 // A tablet: the file the whole screen -- a panel over the list hid its columns.
 if(tablet.matches&&!document.body.classList.contains('panel-full'))setFull(true,false);if(!lastFocus)lastFocus=document.activeElement;
 var rv=reviewing(),e=peek(it);if(showNotes===null)showNotes=!rv;
-$('p-title').innerHTML=nameHtml(it);var nv=allVideos(it).length;$('p-play').hidden=true;$('p-play').title=nv>1?'Play the '+nv+' shots in a row':'Play the render';
+$('p-title').innerHTML=nameHtml(it);$('p-blend').hidden=!META.live;var nv=allVideos(it).length;$('p-play').hidden=true;$('p-play').title=nv>1?'Play the '+nv+' shots in a row':'Play the render';
 $('p-sub').textContent=[it.kind==='shot'?'Shot':it.root==='library'?'Library':'Asset',it.versions,it.shots.length>1?plural(it.shots.length,'shot'):''].filter(Boolean).join(' · ');
 // First what it is and how far along, big; then its departments; the
 // rest after, quieter.
@@ -1054,7 +1059,7 @@ return '<button type="button" data-src="'+(s[1]?img(s[1]):'')+'" aria-pressed="'
 // each shot's video stays one tap away here.
 return (n>1?'<div class="vlist review-only">'+it.renders.map(function(r,k){return [r,k];}).filter(function(x){return videosOf(it,x[0]).length;})
 .sort(function(a,b){return it.shots.indexOf(a[0].shot_list[0])-it.shots.indexOf(b[0].shot_list[0]);})
-.map(function(x){return '<button type="button" class="pl" data-play="'+x[1]+'">▶ '+esc(x[0].shots||'all shots')+'</button>';}).join('')+'</div>':'');})()+'</div>';
+.map(function(x){return '<button type="button" class="pl" data-play="'+x[1]+'">▶ '+esc(x[0].shots||'all shots')+'</button>';}).join('')+'</div>':'');})()+versionsHtml(it)+'</div>';
 // The description first: what the file is.
 if(rv&&(editing.desc||e.desc!==null))h+='<div class="p-block"><h4>Description<span class="h-sub">sent with the review</span></h4><textarea rows="1" id="desc-t" placeholder="What this file is, for the team">'+esc(e.desc!==null?e.desc:it.desc)+'</textarea></div>';
 else{if(it.desc)h+='<p class="desc">'+esc(it.desc)+'</p>';
@@ -1062,6 +1067,7 @@ if(rv)h+='<button type="button" class="desc-edit" id="add-desc">✎ '+(it.desc?'
 // The notes' bar, Whole file (its retakes concern every department),
 // the departments; reviewing, the file's settings folded at the end.
 h+=notesBar(it)+'<div class="p-block major">'+wholeHtml(it,rv)+(deps.length?deps.map(function(d){return depHtml(it,d,rv);}).join(''):'<p class="faint">No department tracked on this file.</p>')+'</div>';
+if(it.live)h+=checksHtml(it)+linksHtml(it);
 if(rv)h+=fileSettings(it,e);
 // Where it comes from: at the bottom, out of the way while reviewing.
 h+='<dl class="view-only facts"><dt>Last render</dt><dd>'+rendersHtml(it)+noVideo(it)+'</dd><dt>Blender file</dt><dd class="fileline">'+esc(it.file)+'.blend</dd></dl>';
@@ -1147,6 +1153,7 @@ $('p-open').addEventListener('click',function(){if(lastShown!=null)openPanel(las
 $('p-prev').addEventListener('click',function(){step(-1);});$('p-next').addEventListener('click',function(){step(1);});
 $('m-prev').addEventListener('click',function(){step(-1);});$('m-next').addEventListener('click',function(){step(1);});
 $('p-play').addEventListener('click',function(){if(cur!=null)openWatch(true);});
+$('p-blend').addEventListener('click',function(){if(cur!=null&&META.live)liveOpen(D[cur].file);});
 $('p-link').addEventListener('click',function(){var u=location.href;
 var ok=function(){toast('Link copied: it opens this file, once this page is where the link points.');};
 if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(u).then(ok,function(){prompt('Link to this file',u);});else prompt('Link to this file',u);});
@@ -1245,6 +1252,14 @@ if((t=ev.target.closest('[data-shotsel]'))){var sb=[].filter.call($('p-body').qu
 if((t=ev.target.closest('[data-nf]'))){NF.f=t.dataset.nf;keep('notes-filter',NF.f);return refresh();}
 if((t=ev.target.closest('[data-ns]'))){NF.s=t.dataset.ns;keep('notes-sort',NF.s);return refresh();}
 if(ev.target.closest('#fset')){fsetOpen=!fsetOpen;return refresh();}
+if(ev.target.closest('#chk-t')){chkOpen=!chkOpen;return refresh();}
+if(ev.target.closest('#lnk-t')){lnkOpen=!lnkOpen;return refresh();}
+if((t=ev.target.closest('[data-goto]')))return jump(D[+t.dataset.goto]);
+// A render to check: watched in the player; Checked, sent to Blender at once.
+if((t=ev.target.closest('[data-chkplay]'))){var V2=it.live.versions||{},wv=t.dataset.chkplay;Object.keys(V2).some(function(k){var hit=V2[k].filter(function(x){return x.video===wv;})[0];if(hit)pickVersion(it,k,hit);return !!hit;});return;}
+if((t=ev.target.closest('[data-chk]'))){t.disabled=true;var push=!!($('chk-push')||{}).checked;
+livePost('action',{author:rv.author,role:rv.role,review_date:isoNow(),actions:[{type:'checked',file:it.file,key:t.dataset.chk,push:push}]})
+.then(function(res){toast(res.ok?'Checked'+(push?', pushed to editing':'')+'.':'Not checked: '+(res.error||'?'));}).catch(function(){t.disabled=false;toast('Blender doesn\'t answer.');});return;}
 if((t=ev.target.closest('[data-rm]'))){var rm=t.dataset.rm.split('|');return takeBack(rm[0],+rm[1]);}
 if((t=ev.target.closest('[data-cmp]'))){if(t.dataset.cmp==='add')cmpAdd();else closeCmp();return;}
 if((t=ev.target.closest('[data-kind]'))&&editing.cmp){editing.cmp.kind=t.dataset.kind;refresh();return focusCmp();}
@@ -1269,12 +1284,14 @@ var fm=/^\[f(\d+)(?:-(\d+))?\]\s*/i.exec(c2.text.slice(at2,b2[1])),was=fm?fm[0].
 c2.text=c2.text.slice(0,at2)+tg+c2.text.slice(at2+was);c2.at=c2.at>=at2+was?c2.at+tg.length-was:c2.at>=at2?at2+tg.length:c2.at;refresh();if(PL&&PL.it===it){PL.marks=marksOf(it,PL.v);drawMarks();}return focusCmp();}
 if(ev.target.closest('#add-gen'))return generalRetake();
 if((t=ev.target.closest('[data-reply]')))return startReply(t.dataset.reply);
-if((t=ev.target.closest('[data-fix]'))){var fe=entry(it);if(fe.fixed[t.dataset.fix])delete fe.fixed[t.dataset.fix];else fe.fixed[t.dataset.fix]=1;refresh();return;}
+if((t=ev.target.closest('[data-fix]'))){var fe=entry(it),fids=t.dataset.fix.split(','),fall=fids.every(function(id){return fe.fixed[id];});fids.forEach(function(id){if(fall)delete fe.fixed[id];else fe.fixed[id]=1;});refresh();return;}
 if(ev.target.closest('#add-desc')){editing.desc=true;entry(it).desc=it.desc;refresh();return $('desc-t').focus({preventScroll:true});}
 if(ev.target.closest('#allok'))return validateAll();
 if((t=ev.target.closest('.rvb button'))&&!t.disabled){var d=t.parentNode.dataset.d,e=entry(it),v=e.deps[d];
 if(t.classList.contains('ok-b')){if(v&&v.ok)delete e.deps[d];else e.deps[d]={ok:1};refresh();}
 else openCmp('d:'+d);}});
+$('p-body').addEventListener('change',function(ev){var t=ev.target;if(!t.dataset||t.dataset.vline==null)return;var it=D[cur],k=t.dataset.vline;
+pickVersion(it,k,t.value===''?null:((it.live.versions||{})[k]||[])[+t.value]);});
 $('p-body').addEventListener('input',function(ev){var t=ev.target,it=D[cur],e=entry(it);if(t.tagName!=='TEXTAREA'&&t.id!=='om-why')return;if(t.tagName==='TEXTAREA')grow(t);
 // The box being written: kept as typed, its shot buttons following the
 // line; "note:" typed at its start makes it a note.
@@ -1570,6 +1587,38 @@ summaryCards();drawTabs();render();barHeight();
 // when there is, else after 20 s. The new data replaces the page's -- the
 // file shown, its video playing and your review kept; not while a field
 // is being written in (once left). Disconnected: tried again every 2 s.
+/* ---------- live: the panel's own sections ---------- */
+// To check: the renders the team hasn't watched -- ▶ in the player,
+// Checked takes one off (pushed to the edit if ticked); open by default.
+// Linked files: what it links (a newer stable said), what links it.
+var chkOpen=true,lnkOpen=false;
+function fold2(id,open,icon,title,sum,body){return '<div class="fset'+(open?' on':'')+'"><button type="button" class="fset-b" id="'+id+'" aria-expanded="'+open+'">'+ico(icon)+'<b>'+title+'</b><span class="sm">'+sum+'</span><span class="chev" aria-hidden="true">▸</span></button>'+(open?'<div class="fset-c">'+body+'</div>':'')+'</div>';}
+function checksHtml(it){var c=it.live.checks||[];if(!c.length)return '';
+return fold2('chk-t',chkOpen,'eye','To check',plural(c.length,'render')+' not watched by the team yet',c.map(function(x){
+return '<div class="chk"><span class="chk-l">'+esc([x.shot,x.department,x.folder].filter(Boolean).join(' · '))+'</span>'+(x.video&&videoSrc(x.video)?'<button type="button" class="act" data-chkplay="'+esc(x.video)+'">'+ico('play')+'Play</button>':'')+
+'<button type="button" class="act fix" data-chk="'+esc(x.key)+'" title="Watched: out of To check">'+ico('check')+'Checked</button></div>';}).join('')+
+'<label class="chk-push"><input type="checkbox" id="chk-push"> Push to editing when checked</label>');}
+function itemAt(key){return key&&byKey[key];}
+function linksHtml(it){var L=it.live,links=L.links||[],by=L.linked_by||[];if(!links.length&&!by.length)return '';var old=links.filter(function(x){return x.newer;}).length;
+var to=function(t,file){return t?'<button type="button" class="lk" data-goto="'+t.i+'">'+esc(t.name)+'</button>':'<span>'+esc(file)+'</span>';};
+return fold2('lnk-t',lnkOpen,'link','Linked files',[plural(links.length,'link'),old?old+' to update':'','linked by '+by.length].filter(Boolean).join(' · '),
+(links.length?'<div class="st-l">Links</div>'+links.map(function(x){return '<div class="lnk">'+to(itemAt(x.key),x.file)+'<span class="lf">'+esc(x.file)+'</span>'+(x.newer?'<span class="tg tg-old" title="A newer stable of it exists">'+ico('warn')+esc(x.newer)+'</span>':'')+'</div>';}).join(''):'')+
+(by.length?'<div class="st-l">Linked by</div>'+by.map(function(k){return '<div class="lnk">'+to(itemAt(k),k)+'</div>';}).join(''):''));}
+// Live: every version with a video, to watch instead of the main render.
+function versionsHtml(it){if(!it.live)return '';var V=it.live.versions||{};
+return it.renders.filter(function(r){return (V[r.shots||'']||[]).length>1||((V[r.shots||'']||[]).length&&V[r.shots||''][0].video!==r.video);}).map(function(r){var k=r.shots||'',o=(PICKV[it.file]||{})[k];
+return '<label class="vsel">'+(k?'<span>'+esc(k)+'</span>':'')+'<select data-vline="'+esc(k)+'" aria-label="Version to watch"><option value="">Main · '+esc([r.folder,r.department].filter(Boolean).join(' · '))+'</option>'+
+V[k].map(function(v,n){return '<option value="'+n+'"'+(o&&o.video===v.video?' selected':'')+'>'+esc([v.folder,v.department,fmtDay(new Date(v.at*1000))].filter(Boolean).join(' · '))+'</option>';}).join('')+'</select></label>';}).join('');}
+function pickVersion(it,line,v){var p=PICKV[it.file]=PICKV[it.file]||{};if(v)p[line]=v;else delete p[line];
+if(PL&&PL.it===it){PL.el.pause();PL.el.removeAttribute('src');PL.el.load();PL=null;}refresh();
+var pl=PL&&PL.it===it?PL:null,want=v?v.video:null;if(pl){for(var k=0;k<pl.list.length;k++)if(!want||pl.list[k].name===want){if(k!==pl.at)load(k);break;}pl.el.play();}}
+function livePost(path,body){return fetch(path+'?t='+encodeURIComponent(META.live.token),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(function(r){return r.json();});}
+// Open a file in Blender: the question when Blender's has unsaved changes.
+function liveOpen(file,save){livePost('open',{file:file,save:save||''}).then(function(res){if(res.ask)return askOpen(file,res.current);
+toast(res.ok?'Opening '+res.opened+' in Blender…':'Not opened: '+res.error);}).catch(function(){toast('Blender doesn\'t answer.');});}
+function askOpen(file,current){var dl=$('dlg');dl.innerHTML='<div class="dlg-in" role="alertdialog" aria-modal="true" aria-labelledby="ask-t"><p id="ask-t" class="ask">'+esc(current)+' has unsaved changes in Blender.</p>'+
+'<div class="acts"><button class="btn" data-o="">Cancel</button><button class="btn" data-o="discard">Don\'t save</button><button class="btn primary" data-o="save">Save, then open</button></div></div>';
+dl.hidden=false;dl.querySelector('[data-o="save"]').focus({preventScroll:true});dl.onclick=function(e){var b=e.target.closest('[data-o]');if(e.target!==dl&&!b)return;dl.hidden=true;if(b&&b.dataset.o)liveOpen(file,b.dataset.o);};}
 /* ---------- live: what you do, sent to Blender ---------- */
 // Applied there as an imported review would be (the same checks; sent
 // twice, it changes nothing): once the data showing it is back, it leaves
