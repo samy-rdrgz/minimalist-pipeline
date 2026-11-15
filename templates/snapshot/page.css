@@ -10,7 +10,7 @@ the main action neutral. See NOTES.md, "Snapshot page v3". */
 --done:#00876A;--wip:#B55500;--wip-ink:#B55500;--wip-bg:rgba(181,85,0,.1);
 --rtk:#AB3C48;--rtk-f:#AB3C48;--rtk-t:#991616;--rtk-bg:rgba(171,60,72,.1);--team:#AB3C48;--team-bg:rgba(171,60,72,.1);
 --valid:#7A3F7A;--val-f:#8C548C;--val-bar:#8C548C;--sup:#E3CCE3;--valid-bg:rgba(140,84,140,.12);--on-fill:#FFFFFF;
---play:#4772B3;--range:#4772B3;--mine:#18181B;--inv:#FFFFFF;--mine-tint:rgba(0,0,0,.05);--glow:#E2E7F0;
+--play:#4772B3;--range:#4772B3;--mine:#18181B;--inv:#FFFFFF;--mine-tint:rgba(0,0,0,.05);--glow:#E2E7F0;--dot:rgba(0,0,0,.09);
 --bar-bg:#FFFFFF;--bar-ink:#18181B;--bar-field:#ECECEE;--field:#EEEEF0;--outline:#C9C9CC;--emboss:rgba(0,0,0,.12);--emb-y:1px;
 --sh-card:0 1px 2px rgba(0,0,0,.08);--sh-pop:0 24px 70px rgba(0,0,0,.18);
 --r-sm:3px;--r-btn:5px;--r-md:6px;--r-lg:8px;
@@ -29,7 +29,7 @@ color-scheme:light dark}
 --done:#00D4A3;--wip:#E19658;--wip-ink:#E19658;--wip-bg:rgba(225,150,88,.16);
 --rtk:#F08A94;--rtk-f:#C94452;--rtk-t:#991616;--rtk-bg:rgba(201,68,82,.18);--team:#F08A94;--team-bg:rgba(201,68,82,.18);
 --valid:#D2A6D2;--val-f:#8C548C;--val-bar:#B47DB4;--sup:#C9A1C9;--valid-bg:#66416233;--on-fill:#10201B;
---play:#4772B3;--range:#74A2FF;--mine:#E8E8EA;--inv:#18181B;--mine-tint:rgba(255,255,255,.07);--glow:#252A35;
+--play:#4772B3;--range:#74A2FF;--mine:#E8E8EA;--inv:#18181B;--mine-tint:rgba(255,255,255,.07);--glow:#252A35;--dot:rgba(255,255,255,.06);
 --bar-bg:#1F1F22;--bar-ink:#E8E8EA;--bar-field:#3C3C41;--field:#141416;--outline:#4D4D53;--emboss:rgba(0,0,0,.45);--emb-y:1px;
 --sh-card:0 1px 2px rgba(0,0,0,.3);--sh-pop:0 24px 70px rgba(0,0,0,.45)}}
 :root[data-theme=dark]{
@@ -39,7 +39,7 @@ color-scheme:light dark}
 --done:#00D4A3;--wip:#E19658;--wip-ink:#E19658;--wip-bg:rgba(225,150,88,.16);
 --rtk:#F08A94;--rtk-f:#C94452;--rtk-t:#991616;--rtk-bg:rgba(201,68,82,.18);--team:#F08A94;--team-bg:rgba(201,68,82,.18);
 --valid:#D2A6D2;--val-f:#8C548C;--val-bar:#B47DB4;--sup:#C9A1C9;--valid-bg:#66416233;--on-fill:#10201B;
---play:#4772B3;--range:#74A2FF;--mine:#E8E8EA;--inv:#18181B;--mine-tint:rgba(255,255,255,.07);--glow:#252A35;
+--play:#4772B3;--range:#74A2FF;--mine:#E8E8EA;--inv:#18181B;--mine-tint:rgba(255,255,255,.07);--glow:#252A35;--dot:rgba(255,255,255,.06);
 --bar-bg:#1F1F22;--bar-ink:#E8E8EA;--bar-field:#3C3C41;--field:#141416;--outline:#4D4D53;--emboss:rgba(0,0,0,.45);--emb-y:1px;
 --sh-card:0 1px 2px rgba(0,0,0,.3);--sh-pop:0 24px 70px rgba(0,0,0,.45)}
 :root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
@@ -68,7 +68,7 @@ status bar at each tap, and the page moved by 20 px each time. */
 /* The glow held to the window (fixed): on the body, a short page (all
 folded) pulled it up behind a header drawn as a grey band. */
 html{background:var(--bg)}
-body{margin:0;background:radial-gradient(1200px 500px at 15% -20%,var(--glow) 0%,transparent 70%) fixed no-repeat,var(--bg);color:var(--ink);font:14px/1.45 var(--ui);font-variant-numeric:tabular-nums;padding-top:var(--sat)}
+body{margin:0;background:radial-gradient(1200px 500px at 15% -20%,var(--glow) 0%,transparent 70%) fixed no-repeat,radial-gradient(circle,var(--dot) 1px,transparent 1.4px) 0 0/18px 18px fixed,var(--bg);color:var(--ink);font:14px/1.45 var(--ui);font-variant-numeric:tabular-nums;padding-top:var(--sat)}
 /* Under an iPad's / a phone's status bar (the page runs under it,
 viewport-fit=cover): a band of the page's background, the page and the
 sticky bar starting below it. 0 wherever nothing covers the page. */
@@ -87,7 +87,7 @@ noscript p{margin:40px auto;max-width:520px;text-align:center}
 .hdr{position:sticky;top:var(--sat);z-index:22;margin:0 -20px;padding:10px 20px}
 /* A ground under the header and the filters once the list scrolls under
 them; none at the top, on the glow. */
-.hdr.stuck,.hdr.stuck~.sec .bar{background:radial-gradient(1200px 500px at 15% -20%,var(--glow) 0%,transparent 70%) fixed no-repeat,var(--bg)}
+.hdr.stuck,.hdr.stuck~.sec .bar{background:radial-gradient(1200px 500px at 15% -20%,var(--glow) 0%,transparent 70%) fixed no-repeat,radial-gradient(circle,var(--dot) 1px,transparent 1.4px) 0 0/18px 18px fixed,var(--bg)}
 .top{display:flex;align-items:center;gap:10px 16px;flex-wrap:wrap}
 .title{display:flex;align-items:baseline;gap:8px;min-width:0}
 h1{font:700 18px/1.2 var(--ui);margin:0;letter-spacing:-.01em;overflow-wrap:break-word}

@@ -57,7 +57,8 @@ from ..lib import (
     safe_icon,
     shots_in_segment,
     shots_label,
-    split_footer,
+    monitor_footer,
+    legend_button,
     text_to_lines,
     thumbnail_path,
     time_key,
@@ -1170,11 +1171,8 @@ def draw_monitor_table(self, context, layout, columns, project_root):
         )
     for _ in range(per_page - len(shown)):
         _draw_monitor_blank_row(f_list, shares, FIRST_COLUMN)
-    footer, pager = split_footer(context, f_list.row())
-    # Dimmed, except the legend: its colours are the point.
-    status = footer.row()
-    status.alignment = "LEFT"
-    status.active = False
+    # Dimmed, except the legend: its colours are the point (monitor_footer()).
+    status, legend, _, pager = monitor_footer(context, f_list)
     # The table is what ProjectScan last found -- refresh on demand.
     if ProjectScan.done:
         status.operator(
@@ -1196,16 +1194,12 @@ def draw_monitor_table(self, context, layout, columns, project_root):
     # The legend in the footer when it fits, else a button: it in a menu.
     groups = legend_groups(self.file_type, show_farm)
     if not narrow and context.region.width / scale >= _legend_width(groups):
-        legend = footer.row(align=True)
-        legend.alignment = "LEFT"
         for _, group in groups:
             legend.separator(factor=2)
             for icon, text in group:
                 legend.label(text=text, **icon_kw(icon))
     else:
-        button = footer.row()
-        button.ui_units_x = 5  # its words, not "Leg..."
-        button.menu("M_PIPELINE_MT_monitor_legend", text="Legend", icon="INFO")
+        legend_button(legend, "M_PIPELINE_MT_monitor_legend")
     draw_pager(pager, page, pages)
 
 

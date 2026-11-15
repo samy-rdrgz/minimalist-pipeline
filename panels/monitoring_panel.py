@@ -13,7 +13,8 @@ from ..lib import (
     ensure_monitoring_tick,
     get_active_project_root,
     json_get,
-    list_is_narrow,
+    monitor_filters,
+    end_filters,
     monitoring_detail,
     monitoring_kind,
     monitoring_zone,
@@ -100,14 +101,7 @@ class M_PIPELINE_PT_monitoring(_MonitoringPanel, bpy.types.Panel):
             return
 
         # Narrowed beside a detail: the filters stacked, three rows.
-        narrow = list_is_narrow(context)
-        if narrow:
-            stack = layout.box().column()
-            filters_btn = stack.row()
-        else:
-            filters = layout.box().split(factor=0.15)
-            filters.label(text="Filters", icon="FILTER")
-            filters_btn = filters.row()
+        filters_btn, next_row = monitor_filters(context, layout)
         filters_btn.prop(state, "file_type", expand=True)
 
         if state.file_type == "asset":
@@ -117,11 +111,9 @@ class M_PIPELINE_PT_monitoring(_MonitoringPanel, bpy.types.Panel):
             filters_btn.prop(state, "sequence", text="")
             columns = json_get(ConfigCache.get(), "shots_departments", [])
 
-        if narrow:
-            filters_btn = stack.row()
+        filters_btn = next_row()
         filters_btn.prop(state, "search", text="", icon="VIEWZOOM")
-        if narrow:
-            filters_btn = stack.row()
+        filters_btn = next_row()
         # Icon only: the property's description is the tooltip.
         filters_btn.prop(
             state,
@@ -151,15 +143,7 @@ class M_PIPELINE_PT_monitoring(_MonitoringPanel, bpy.types.Panel):
             outdated.prop(state, "only_outdated", text="", icon="LIBRARY_DATA_BROKEN")
         filters_btn.prop(state, "sort", text="", icon="SORTALPHA")
         filters_btn.menu("M_PIPELINE_MT_monitor_columns", text="", icon="HIDE_OFF")
-        # Full screen on / off -- this window's (Alt+F11 too).
-        filters_btn.operator(
-            "wm.window_fullscreen_toggle",
-            text="",
-            icon="FULLSCREEN_ENTER",
-            emboss=False,
-        )
-
-        layout.separator(factor=0.3)
+        end_filters(filters_btn, layout)
         draw_monitor_table(state, context, layout, columns, get_active_project_root())
 
 
@@ -179,30 +163,20 @@ class M_PIPELINE_PT_farm_monitoring(_MonitoringPanel, bpy.types.Panel):
             return
 
         state = context.window_manager.pipeline_farm_monitoring
-        filter_box = layout.box()
-        filters = filter_box.split(factor=0.5)
-        filters.label(text="Filters", icon="FILTER")
-        tabs = filters.row()
-        tabs.prop(state, "view", expand=True)
-        # get_path(): a plain join, memoized -- no disk access in draw().
-        op = tabs.operator("wm.open_folder", text="", icon="FILE_FOLDER", emboss=False)
-        op.filepath = str(ConfigCache.get_path("farm"))
-        op.custom_tooltip = (
-            "Open the farm's folder (config/.farm: queue, workers, logs)"
-        )
-        tabs.operator(
-            "wm.window_fullscreen_toggle",
-            text="",
-            icon="FULLSCREEN_ENTER",
-            emboss=False,
-        )
+        # Project monitoring's filters, the same way (monitor_filters()).
+        filters_btn, next_row = monitor_filters(context, layout)
+        filters_btn.prop(state, "view", expand=True)
         if state.view == "jobs":
-            job_filters = filter_box.split(factor=0.5)
-            job_filters.prop(state, "search", text="", icon="VIEWZOOM")
-            job_btn = job_filters.row()
-            job_btn.prop(state, "state", expand=True)
-            job_btn.prop(state, "only_mine", text="Mine", icon="USER")
-
+            filters_btn.prop(state, "state", expand=True)
+            filters_btn = next_row()
+            filters_btn.prop(state, "search", text="", icon="VIEWZOOM")
+            filters_btn = next_row()
+            filters_btn.prop(state, "only_mine", text="", icon="USER", emboss=False)
+        # get_path(): a plain join, memoized -- no disk access in draw().
+        op = filters_btn.operator("wm.open_folder", text="", icon="FILE_FOLDER", emboss=False)
+        op.filepath = str(ConfigCache.get_path("farm"))
+        op.custom_tooltip = "Open the farm's folder (config/.farm: queue, workers, logs)"
+        end_filters(filters_btn, layout)
         # No box round the list, as Project monitoring's.
         box = layout.column()
         if state.view == "jobs":
@@ -220,14 +194,15 @@ class M_PIPELINE_PT_log_monitoring(_MonitoringPanel, bpy.types.Panel):
 
     def draw_content(self, context, layout, detail=True):
         state = context.window_manager.pipeline_log_monitoring
-        filters = layout.box().split(factor=0.3)
-        filters.label(text="Pipeline log", icon="TEXT")
-        row = filters.row()
+        # Project monitoring's filters, the same way (monitor_filters()).
+        row, next_row = monitor_filters(context, layout)
         row.prop(state, "level", expand=True)
+        row = next_row()
         row.prop(state, "action", text="")
         row.prop(state, "user", text="")
+        row = next_row()
         row.prop(state, "search", text="", icon="VIEWZOOM")
-        layout.separator(factor=0.5)
+        end_filters(row, layout)
         draw_pipeline_logs(state, context, layout)
 
 

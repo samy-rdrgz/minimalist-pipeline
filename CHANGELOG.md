@@ -20,6 +20,10 @@ All notable changes to this addon. Dates are release dates.
   progress half, to check green). File details' render lines start with
   their buttons; the log's columns line up; the snapshot's *Last render*
   in columns (department, version, state).
+- Project monitoring, Farm monitoring and the Pipeline log share their
+  filters' row and their footer (count, legend, buttons, pages): one
+  layout drawn by the same functions. The snapshot page's ground is the
+  video area's dots, under its glow.
 - Renders by department: a render's department comes from its preset's
   name (`animation_hd` → animation; shown beside each preset in the
   Render dialog and Edit project). Each shot has a render to check per

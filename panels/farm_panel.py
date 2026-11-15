@@ -37,8 +37,10 @@ from ..lib import (
     now,
     paginate,
     parse_iso,
+    list_is_narrow,
     rows_that_fit,
-    split_footer,
+    monitor_footer,
+    legend_button,
     time_key,
 )
 from ..lib.ui import DETAIL_KEY_COLUMN, details_header, draw_legend, key_value, key_values
@@ -46,10 +48,7 @@ from ..lib.ui import DETAIL_KEY_COLUMN, details_header, draw_legend, key_value, 
 FIRST_COLUMN = 0.4
 # What Farm monitoring's window holds besides the Jobs rows (filters, list
 # header, footer, margins), in widget units -- see rows_that_fit().
-_JOBS_RESERVED_UNITS = 7.5
-# A job's row, in widget units: shorter than a Project monitoring row --
-# 1.9 left rows missing in a tall window, the more the taller.
-_JOB_ROW_UNITS = 1.65
+_JOBS_RESERVED_UNITS = 6.5  # as Project monitoring's: the same header and rows
 # Same for the Workers view: one row of filters, no footer.
 _WORKERS_RESERVED_UNITS = 5.0
 
@@ -543,8 +542,10 @@ def draw_farm_jobs(self, context, layout):
     total = len(matches)
     per_page = rows_that_fit(
         context,
-        _JOBS_RESERVED_UNITS + box_tip_units(context, _JOBS_TIP),
-        _JOB_ROW_UNITS,
+        _JOBS_RESERVED_UNITS
+        + box_tip_units(context, _JOBS_TIP)
+        # The filters stacked beside a detail (monitoring_panel.py): two rows more.
+        + (2.0 if list_is_narrow(context) else 0),
         kind="farm",
     )
     filters = (self.state, self.only_mine, self.search.strip().lower())
@@ -590,26 +591,16 @@ def draw_farm_jobs(self, context, layout):
         for op_name, icon in _job_actions(j):
             status.operator(op_name, text="", icon=icon, emboss=False).job_id = j["job_id"]
 
-    # As Project monitoring's footer: the count, then the legend; the bulk
-    # buttons at its right end.
-    footer, pager = split_footer(context, layout.row())
-    footer.alignment = "EXPAND"
-    count = footer.row()
-    count.alignment = "LEFT"
-    count.active = False
+    # As Project monitoring's footer (monitor_footer()): the count, the
+    # legend, the bulk buttons at the right end.
+    count, legend, footer, pager = monitor_footer(context, layout)
     count.label(
         text=f"{total} job(s){_render_left_label(matches, cache)}"
         if total
         else "No job with this filter" if cache["jobs"] else "No job",
         icon="BLANK1",
     )
-    # Not greyed, as Project monitoring's: a sibling of the count.
-    legend = footer.row()
-    legend.alignment = "LEFT"
-    legend.ui_units_x = 5
-    legend.menu("M_PIPELINE_MT_farm_legend", text="Legend", icon="INFO")
-    footer = footer.row()
-    footer.alignment = "EXPAND"
+    legend_button(legend, "M_PIPELINE_MT_farm_legend")
     footer.active = False
     # Every job of that state, not just this filter's.
     bulk = footer.row(align=True)

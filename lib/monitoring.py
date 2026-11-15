@@ -700,6 +700,61 @@ def split_footer(context, layout) -> tuple:
     return left, right
 
 
+def monitor_filters(context, layout, title: str = "Filters", icon: str = "FILTER"):
+    """A monitoring window's filters, the same in each: one boxed row, its
+    title a sixth -- stacked rows in a list narrowed beside a detail.
+    Returns (row, next_row): next_row() the row to go on with (a new one
+    when stacked, else the same). End it with end_filters()."""
+    if list_is_narrow(context):
+        stack = layout.box().column()
+        rows = [stack.row()]
+
+        def next_row():
+            rows.append(stack.row())
+            return rows[-1]
+
+        return rows[0], next_row
+    split = layout.box().split(factor=0.15)
+    split.label(text=title, icon=icon)
+    row = split.row()
+    return row, lambda: row
+
+
+def end_filters(row, layout) -> None:
+    """The filters' last button, the window's full screen (Alt+F11 too),
+    then the space before the list."""
+    row.operator("wm.window_fullscreen_toggle", text="", icon="FULLSCREEN_ENTER", emboss=False)
+    layout.separator(factor=0.3)
+
+
+def monitor_footer(context, layout) -> tuple:
+    """A monitoring list's footer, the same in each: (info, legend, end,
+    pager) -- info greyed (its refresh, its count, on the left), legend
+    after it not greyed (a sibling: a child can't undo its parent's
+    active = False; legend_button() or the marks inline), end at the right
+    of the left part (bulk buttons), pager against the window's right edge
+    (draw_pager())."""
+    left, pager = split_footer(context, layout.row())
+    left.alignment = "EXPAND"
+    parts = left.split(factor=0.7)
+    start = parts.row()
+    start.alignment = "LEFT"
+    info = start.row()
+    info.active = False
+    legend = start.row(align=True)
+    legend.alignment = "LEFT"
+    end = parts.row()
+    end.alignment = "RIGHT"
+    return info, legend, end, pager
+
+
+def legend_button(layout, menu: str) -> None:
+    """The legend behind a button (a menu, lib/ui.py draw_legend()),
+    wide enough for its word."""
+    layout.ui_units_x = 5
+    layout.menu(menu, text="Legend", icon="INFO")
+
+
 def draw_pager(layout, page: int, pages: int) -> None:
     """ "< Page 2 / 5 >" -- nothing for one page. The arrows:
     m_pipeline.monitoring_page (Ctrl+click: first / last; the arrow keys

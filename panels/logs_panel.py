@@ -15,7 +15,9 @@ from ..lib import (
     read_log_tail,
     redraw_monitoring,
     rows_that_fit,
-    split_footer,
+    list_is_narrow,
+    monitor_footer,
+    legend_button,
 )
 
 # Read on open and on refresh (load_pipeline_log()), on a thread -- never
@@ -148,7 +150,9 @@ def draw_pipeline_logs(state, context, layout) -> None:
             matches=[e for e in _log_cache["entries"] if _matches(state, e, search)],
         )
     matches = _filtered["matches"]
-    per_page = rows_that_fit(context, _LOG_RESERVED_UNITS, _LINE_UNITS, kind="log")
+    # The filters stacked in a narrow window (monitor_filters()): two rows more.
+    reserved = _LOG_RESERVED_UNITS + (2.0 if list_is_narrow(context) else 0)
+    per_page = rows_that_fit(context, reserved, _LINE_UNITS, kind="log")
     page_items, page, pages = paginate("log", matches, per_page, key[1:])
 
     # No box round the lines, as Project monitoring's.
@@ -176,9 +180,8 @@ def draw_pipeline_logs(state, context, layout) -> None:
     for _ in range(per_page - len(page_items)):
         col.label(text="")
 
-    left, right = split_footer(context, box)
-    footer, left = left, left.row()
-    left.active = False  # the legend, a sibling, not greyed
+    # As Project monitoring's footer (monitor_footer()).
+    left, legend, _, right = monitor_footer(context, box)
     left.operator(
         "m_pipeline.pipeline_logs_refresh", text="", icon="FILE_REFRESH", emboss=False
     )
@@ -194,9 +197,7 @@ def draw_pipeline_logs(state, context, layout) -> None:
     if _log_cache["truncated"]:
         shown += " -- latest entries only"
     left.label(text=shown)
-    legend = footer.row()
-    legend.ui_units_x = 5
-    legend.menu("M_PIPELINE_MT_log_legend", text="Legend", icon="INFO")
+    legend_button(legend, "M_PIPELINE_MT_log_legend")
     draw_pager(right, page, pages)
 
 
