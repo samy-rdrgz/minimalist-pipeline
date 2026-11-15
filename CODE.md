@@ -243,6 +243,10 @@ The red text itself is a plain `row.label()`, not the button opening the menu: a
 ### UI blocks (`ui.py`)
 Shared drawing, memory only: `key_value()` / `key_values()` (a details line, its key greyed in a narrow column, `DETAIL_KEY_COLUMN`; a list of them, a falsy row skipped), `details_header()`, `icon_button()` (an operator with its properties and tooltip), `link_rows()`, `draw_items()` (a column of buttons from a list: separators, box tips, side by side, greyed), `choice()` (buttons for a few choices, else a menu), `titled_row()`, `draw_creation_fields()` (New asset's and New shot's common fields). A screen known in advance is a list drawn by these, not calls written one by one.
 
+### The state engine's twin (`templates/snapshot/status.js`)
+
+`MPStatus.departmentScore()` / `fileProgress()` / `average()`: lib/status.py's rules in the page, for its live figures (page.js `reviewed()`, `withReview()`). Shared cases: `tests/status_cases.json`, run by `tests/test_status.py` (`--html <file>`: the twin's own run, in a browser).
+
 ### Snapshot page icons (`templates/snapshot/icons/`, `tools/clean_icons.py`)
 
 `clean_icons.py` turns Blender's icons (Inkscape SVGs in `trailers/icons`) into `templates/snapshot/icons/<name>.svg`; `snapshot_page.icon_sprite()` embeds those the page names (`b-<name>`) as symbols. See NOTES.md, "Snapshot page v3".

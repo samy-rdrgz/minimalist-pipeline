@@ -59,7 +59,13 @@ def render_html(snapshot: dict) -> str:
     values = {
         "TITLE": _escape(f"{snapshot['meta'].get('project') or 'Project'} snapshot"),
         "CSS": _CSS_COMMENTS.sub("", (PAGE_DIR / "page.css").read_text(encoding="utf-8")),
-        "JS": _JS_COMMENTS.sub("", (PAGE_DIR / "page.js").read_text(encoding="utf-8")),
+        # The state engine's twin (lib/status.py), then the page.
+        "JS": _JS_COMMENTS.sub(
+            "",
+            (PAGE_DIR / "status.js").read_text(encoding="utf-8")
+            + "\n"
+            + (PAGE_DIR / "page.js").read_text(encoding="utf-8"),
+        ),
         "FONT": base64.b64encode((PAGE_DIR / "wordmark.ttf").read_bytes()).decode("ascii"),
         "LOGO_VB": viewbox,
         # The <use> of a symbol draws it from 0 0: its box, not the source's.

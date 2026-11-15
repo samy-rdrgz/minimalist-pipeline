@@ -4811,3 +4811,22 @@ review, the phone and the iPad. What holds across them:
   a filter redraws the list, it shouldn't replay); dialogs and menus pop,
   another file's panel fades in (`.swap`), Watch large fades, a ✓ / ✕
   pressed in.
+
+## Live figures: the engine's twin
+
+The page shows what a review would make of the figures, as it's written
+("→ 32 % · 6 % -1" by a section, a group, a file). Not a second guess:
+`templates/snapshot/status.js` (`MPStatus`) is lib/status.py's twin --
+`departmentScore()`, `fileProgress()` (a general retake as an RTK on one
+done department), `average()` --, put before page.js at the export.
+
+- **Same cases, both sides**: `tests/status_cases.json`.
+  `tests/test_status.py` runs them through lib/status.py; with `--html
+  <file>` it writes a page running them through the twin (no JavaScript
+  engine here but a browser): it says OK or the case that fails. Change
+  a rule: change both, add its case.
+- `reviewed(it)` applies the review to a file's facts: departments added
+  (not started) or removed, set aside (out of the figures), RTKs open
+  minus those marked fixed, plus its retakes and replies, a general one;
+  validations only when made as the top role -- the figure counts that
+  role's. `reviewedOf()` adds the planned new files (nothing started).

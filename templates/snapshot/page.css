@@ -955,3 +955,9 @@ html,.p-body,.wl-side,.recap,.menu-pop,.pick-pop,.strip{scrollbar-color:var(--li
 .unplan{width:30px;min-height:30px}
 @container (max-width:760px){.row.planned{grid-template-columns:52px minmax(0,1fr) auto}}
 .dlg .row3 input,.dlg .row2 input{min-width:0;width:100%}
+
+/* "With your review": the figures the review would give, in its colour. */
+.wr{display:inline-flex;align-items:baseline;gap:4px;padding:1px 7px;border-radius:var(--r-btn);background:var(--valid-bg);color:var(--ink);font-size:12px;white-space:nowrap}
+.wr b{font-weight:700}.wr small{color:var(--valid);font-weight:700}.wv{color:var(--valid)}
+.g-pct{display:inline-flex;align-items:center;gap:10px}
+.p-kpi .wr{margin-left:8px}

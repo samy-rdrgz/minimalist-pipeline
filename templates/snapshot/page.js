@@ -90,6 +90,32 @@ return '<span class="ok'+(o.old?' old':'')+'" title="'+esc(o.tip)+'">✓ '+esc(o
 function rkTag(it,d){var r=rtkTag(it,d);return r?r[0]:'';}
 // The same, in a line of text (the compact list, the panel).
 function under(it,d){return '<span class="inl">'+rkTag(it,d)+okTag(it,d)+you(it,d)+'</span>';}
+// "With your review": a file's Done and Validated as if the review went in
+// (MPStatus, templates/snapshot/status.js -- lib/status.py's twin): its
+// retakes, fixes, replies, departments, set aside, and its validations
+// when made as the top role. null figures: set aside.
+function reviewed(it){var e=rv.files[it.file];if(!e||!it.tracked&&!Object.keys(e.req||{}).length)return {done:it.done,valid:it.valid};
+var team=asTeam(),states={};Object.keys(it.states).forEach(function(d){states[d]=it.states[d];});
+Object.keys(e.req||{}).forEach(function(d){if(e.req[d]){if(!(d in states))states[d]='todo';}else delete states[d];});
+if(e.omit?e.omit.state:(it.omit||{}).state)return {done:null,valid:null};
+var fixed=e.fixed||{},an=answered(it).deps,rtk=[];
+Object.keys(states).forEach(function(d){var open=(it.rtkNotes[d]||[]).some(function(n){return !fixed[n.id];}),v=e.deps[d];
+if(open||an[d]||(v&&sent(v)&&!v.ok&&retakes(v.text||'')>0))rtk.push(d);});
+var gen=it.genRtks.some(function(n){return !fixed[n.id];})||retakes(e.text||'')>0;
+var done=MPStatus.fileProgress({departments:states,rtk_departments:rtk,general_rtk:gen},W);
+var top=!team&&rv.role===META.role,vals=Object.keys(states).map(function(d){var v=top?verdict(it,d):'';
+if(v==='ok')return 1;if(v==='no')return 0;var o=it.ok[d];return o&&!o.old&&o.role===META.role?1:0;});
+return {done:done,valid:vals.length?vals.reduce(function(s,x){return s+x;},0)/vals.length:null};}
+// A list's figures with the review: its files as reviewed, the new ones
+// planned in it (nothing started yet).
+function reviewedOf(list,planned){var r=list.map(reviewed),z=planned.map(function(c){return c.departments.length?0:null;});
+return {done:MPStatus.average(r.map(function(x){return x.done;}).concat(z)),valid:MPStatus.average(r.map(function(x){return x.valid;}).concat(z))};}
+// "→ 35 % · 5 % (+2)": shown while reviewing, when the review moves them.
+function withReview(before,after){if(!reviewing()||after.done==null)return '';var d=Math.round((after.done-(before.done||0))*100),v=Math.round((after.valid||0)*100)-Math.round((before.valid||0)*100);
+if(!d&&!v&&Math.round(after.done*100)===Math.round((before.done||0)*100))return '';
+return '<span class="wr" title="With your review">→ <b>'+pct(after.done)+'</b>'+(META.role&&after.valid!=null?' <span class="wv">· '+pct(after.valid)+'</span>':'')+(d?' <small>'+(d>0?'+':'')+d+'</small>':'')+'</span>';}
+// The panel's figures, with the review's.
+function kpiHtml(it){return it.tracked?dv(it.done,it.valid,true)+withReview({done:it.done,valid:it.valid},reviewed(it)):'';}
 // Done and validated, always both: a double bar, then "84 % · 0 %".
 function dv(done,val,big){if(done==null)return '<span class="faint">–</span>';var v=META.role&&val!=null;
 return '<span class="dv'+(big?' big':'')+'"><span class="bar2"><i style="width:'+done*100+'%"></i>'+(v?'<i class="v" style="width:'+Math.min(val,done)*100+'%"></i>':'')+'</span>'+
@@ -230,7 +256,8 @@ var n=D.filter(function(it){return it.kind===s[0];}).length,val=(META.validation
 if(S){var b=band(done,exp),at=(S.at||{})[s[0]],days=at?Math.abs(at.days):0,cls=b?b[0]:'ontrack';
 tip+=', expected '+pct(exp)+(days?', '+plural(days,'working day')+' '+(done>=exp?'ahead':'behind'):'');
 if(b)pace='<span class="pace p-'+cls+'">'+Math.round(done/exp*100)+' %</span>';}
-h+='<span class="kpi" title="'+esc(tip)+'"><span class="kl">'+s[1]+'</span>'+dv(done,val,true)+pace+'</span>';});
+var mine=D.filter(function(it){return it.kind===s[0];}),plan=(rv.creates||[]).filter(function(c){return c.kind===s[0];});
+h+='<span class="kpi" title="'+esc(tip)+'"><span class="kl">'+s[1]+'</span>'+dv(done,val,true)+pace+withReview({done:done,valid:val},reviewedOf(mine,plan))+'</span>';});
 $('summary').innerHTML=h;}
 // The schedule, at the Breakdown's top.
 function scheduleCard(){var S=META.schedule;if(!S)return '';var a=new Date(S.start),b2=new Date(S.end),y=a.getFullYear()!==b2.getFullYear();
@@ -287,7 +314,9 @@ function renderRow(i){var row=$('list').querySelector('.row[data-i="'+i+'"]');
 if(!row||state.f.mine){render();return;}
 var tmp=document.createElement('div');tmp.innerHTML=rowHtml(D[i]);var n=tmp.firstChild;
 row.className=n.className;if(n.title)row.title=n.title;else row.removeAttribute('title');row.innerHTML=n.innerHTML;
-var grp=row.closest('.group');if(grp)grp.classList.toggle('rv-all',allReviewed(D[i].group));chipCounts();countBar();}
+var grp=row.closest('.group');if(grp){grp.classList.toggle('rv-all',allReviewed(D[i].group));
+var g=D[i].group,all=D.filter(function(it){return it.tab===state.tab&&it.group===g&&match(it);}),tr=all.filter(function(it){return it.tracked;}),gp=grp.querySelector('.g-pct');
+if(gp)gp.outerHTML=gPct(g,all,avg(tr.map(function(x){return x.done;})),avg(tr.map(function(x){return x.valid;})));}chipCounts();countBar();}
 function render(){chipCounts();
 // Breakdown: the figures in place of the list, no filter to apply.
 document.body.classList.toggle('tab-bd',state.tab==='breakdown');
@@ -323,7 +352,7 @@ return '<div class="group'+(closed?' closed':'')+(allReviewed(g)?' rv-all':'')+'
 (nv?'<button type="button" class="g-play play" data-gplay="'+esc(g)+'" title="Watch the '+esc(g)+' videos in a row ('+nv+')" aria-label="Watch the '+esc(g)+' videos in a row">'+ico('play')+'</button>':'')+'<small>'+plural(all.length,'file')+'</small>'+
 // Reviewing: a new shot (a sequence) or asset (a prefix) here.
 (reviewing()&&state.tab!=='breakdown'?'<button type="button" class="btn g-new" data-new="'+esc(g)+'" title="A new '+(state.tab==='shot'?'shot in '+esc(g):'asset '+esc(g)+'_…')+', made at the review\'s import">+ '+(state.tab==='shot'?'shot':'asset')+'</button>':'')+'</span>'+
-(done!=null?'<span class="g-pct">'+dv(done,val)+'</span>':'<span class="g-pct faint">not tracked</span>')+
+gPct(g,all,done,val)+
 '</div><div class="rows">'+(tr.length?head:'')+body+'</div></div>';}).join('');
 // The row or group that had the focus has it again (the keys go on),
 // and the page stays where it was if the list is still as long.
@@ -394,6 +423,9 @@ var a=+($('nf-a')||{}).value||null,b=+($('nf-b')||{}).value||null;if(shot&&a&&b&
 var c={kind:shot?'shot':'asset',tab:state.tab,group:g,label:l,description:$('nf-d').value.trim(),departments:deps.filter(function(d){return pick[d];})};
 if(shot){c.sequence=g.slice(SQ.prefix.length);c.shot=$('nf-n').value.trim();c.frame_start=a;c.frame_end=b;}else{c.prefix=g;c.name=l.slice(g.length+1);}
 rv.creates.push(c);save();dl.hidden=true;render();countBar();toast(l+' planned: made when the review is imported.');};}
+// A group's figures, with the review's when it moves them.
+function gPct(g,all,done,val){if(done==null)return '<span class="g-pct faint">not tracked</span>';
+return '<span class="g-pct">'+withReview({done:done,valid:val},reviewedOf(all.filter(function(it){return it.tracked||rv.files[it.file];}),(rv.creates||[]).filter(function(c){return c.tab===state.tab&&c.group===g;})))+dv(done,val)+'</span>';}
 function setTab(t){state.tab=t;drawTabs();render();}
 $('seg').addEventListener('click',function(e){var b=e.target.closest('button');if(b)setTab(b.dataset.tab);});
 $('depf').addEventListener('change',function(){state.dep=this.value;this.classList.toggle('on',!!state.dep);render();});
@@ -828,7 +860,7 @@ $('p-sub').textContent=[it.kind==='shot'?'Shot':it.root==='library'?'Library':'A
 // First what it is and how far along, big; then its departments; the
 // rest after, quieter.
 // Done and validated, as everywhere: the double bar, "84 % · 0 %".
-$('p-kpi').innerHTML=it.tracked?dv(it.done,it.valid,true):'';
+$('p-kpi').innerHTML=kpiHtml(it);
 $('p-flags').innerHTML=flags(it);
 var deps=depsOf(it.kind).filter(function(d){return d in it.states;});
 var nvid=allVideos(it).length;
@@ -1045,7 +1077,7 @@ if(dep&&dep.querySelector('.ko-b').classList.contains('as-note')!==(vd==='note')
 var y=dep.parentNode.querySelector('.mid .you');if(y)y.outerHTML=you(it,dd);renderRow(cur);}}
 // A [f20] written: its mark on the timeline at once.
 if(PL&&PL.it===it&&t.dataset.k){PL.marks=marksOf(it,PL.v);drawMarks();}
-$('p-flags').innerHTML=flags(it);var row=$('list').querySelector('.row[data-i="'+cur+'"]');
+$('p-flags').innerHTML=flags(it);$('p-kpi').innerHTML=kpiHtml(it);var row=$('list').querySelector('.row[data-i="'+cur+'"]');
 if(row){var fl=row.querySelector('.flags');if(fl)fl.innerHTML=flags(it);
 // Its tint as you type: a general retake or a description counts once written.
 row.classList.toggle('rv-mine',changes(it)>0);var grp=row.closest('.group');if(grp)grp.classList.toggle('rv-all',allReviewed(it.group));if(changes(it))row.title='In your review';else row.removeAttribute('title');}
@@ -1090,6 +1122,7 @@ function countBar(){var c=summary();$('rv-n').textContent=c.files?plural(c.files
 // "Your review" among the filters while there's one; off with it.
 var mb=document.querySelector('.chipf[data-f="mine"]');mb.hidden=!c.files;if(!c.files&&state.f.mine){state.f.mine=false;mb.setAttribute('aria-pressed','false');}
 document.querySelector('#rv-dl .cnt').textContent=c.files||'';$('rv-fabn').textContent=c.files||'';
+summaryCards();
 // The header while reviewing: who, as what, how much -- then Send.
 $('rv-sum').innerHTML=ico('review')+'<span>'+esc([rv.author||'Your name',rv.role,c.files?plural(c.files,'file'):c.creates?'':'nothing yet',c.creates?c.creates+' new':''].filter(Boolean).join(' · '))+'</span>';}
 // The bar folds into a round button (remembered by this browser), never

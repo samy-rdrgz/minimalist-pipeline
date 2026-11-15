@@ -119,7 +119,9 @@ la prod -- sur la version qu'il a vue.
   (ou préfixe) a *+ shot* (ou *+ asset*) : son numéro ou son nom, ses
   images, sa description et ses départements requis, vérifiés selon le
   nommage du projet, affiché prévu dans son groupe jusqu'à ce que
-  l'import le crée ; un ✓ à côté de chaque département (le
+  l'import le crée ; et les chiffres suivent pendant qu'on écrit -- par
+  section, groupe et fichier, « → 32 % · 6 % -1 » : ce que la review en
+  ferait ; un ✓ à côté de chaque département (le
   valider pour votre rôle -- seulement s'il est fini) et un ✗ (une case
   pour les retakes, un par ligne : `[sh020]` en début de ligne pour un
   shot d'un bloc, `[f12-40]` pour ses frames, `note:` pour une remarque

@@ -1,0 +1,14 @@
+{"weights": {"wip": 33, "rework": 67, "rtk": 67},
+ "files": [
+  {"name": "all done", "departments": {"a": "done", "b": "done"}, "rtk_departments": [], "general_rtk": false, "progress": 1.0},
+  {"name": "one rtk", "departments": {"a": "done", "b": "done"}, "rtk_departments": ["a"], "general_rtk": false, "progress": 0.835},
+  {"name": "general rtk on done", "departments": {"a": "done", "b": "wip"}, "rtk_departments": [], "general_rtk": true, "progress": 0.5},
+  {"name": "general rtk, no done", "departments": {"a": "wip", "b": "todo"}, "rtk_departments": [], "general_rtk": true, "progress": 0.165},
+  {"name": "general rtk, done ones in rtk", "departments": {"a": "done", "b": "todo"}, "rtk_departments": ["a"], "general_rtk": true, "progress": 0.335},
+  {"name": "rework and rtk on todo", "departments": {"a": "rework", "b": "todo"}, "rtk_departments": ["b"], "general_rtk": false, "progress": 0.335},
+  {"name": "no department", "departments": {}, "rtk_departments": [], "general_rtk": false, "progress": null}
+ ],
+ "averages": [
+  {"values": [1.0, 0.5, null], "average": 0.75},
+  {"values": [null], "average": null}
+ ]}

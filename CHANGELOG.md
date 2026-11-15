@@ -76,7 +76,9 @@ All notable changes to this addon. Dates are release dates.
   The page also sends a file's own changes: *Still done*, its
   departments required, set aside (On hold, Cancelled) -- and new shots
   and assets (*+ shot*, *+ asset*), created at the import by the CSV
-  batch's engine.
+  batch's engine. While reviewing, the figures show what the review would
+  make of them ("→ 32 % · 6 % -1"), worked out by the page's twin of the
+  state engine.
 - Snapshots go in a folder per month, `snapshots/<YYYY-MM>/` (the older
   ones stay where they are). Their videos (*Folder*) stay in one
   `snapshots/videos/` shared by every month.

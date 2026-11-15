@@ -113,7 +113,9 @@ it saw.
   why) -- sent with the review, open to any role; each sequence (or prefix) has
   *+ shot* (or *+ asset*): its number or name, frames, description and
   departments required, checked against the project's naming, shown
-  planned in its group until the import creates it; a ✓ by each department (validate it as your
+  planned in its group until the import creates it; and the figures follow
+  as you write -- by each section, group and file, "→ 32 % · 6 % -1": what
+  the review would make of them; a ✓ by each department (validate it as your
   role -- a done one only) and a ✗ (a box for the retakes, one per line:
   `[sh020]` at its start for one shot of a block, `[f12-40]` for its
   frames, `note:` for a remark instead of a retake (nothing but

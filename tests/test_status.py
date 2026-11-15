@@ -5,6 +5,7 @@ its facts, the shares done. Grows with phase 3 (Waiting, To redo, On hold).
 """
 
 import importlib
+import json
 import sys
 from pathlib import Path
 
@@ -92,7 +93,34 @@ def main() -> None:
     held = dict(base, entries=[rtk], omit={"state": "on_hold", "by": "x", "reason": "edit"})
     assert status.omitted(held)["state"] == "on_hold" and status.stage_flags(held, stages) == {}
     assert status.omitted(dict(base, omit={"state": "nope"})) is None and status.omitted(base) is None
+    # The cases the page's twin runs too (templates/snapshot/status.js).
+    cases = json.loads((Path(__file__).parent / "status_cases.json").read_text())
+    w = cases["weights"]
+    for c in cases["files"]:
+        scores = {d: status.department_score(st, d in c["rtk_departments"], w) for d, st in c["departments"].items()}
+        got = status.file_progress(dict(c, scores=scores), w)
+        assert (got is None and c["progress"] is None) or abs(got - c["progress"]) < 1e-9, (c["name"], got)
+    if "--html" in sys.argv:
+        page = Path(__file__).parent.parent / "templates" / "snapshot" / "status.js"
+        out = Path(sys.argv[sys.argv.index("--html") + 1])
+        out.write_text(_twin_page(page.read_text(), cases))
+        print(f"JS twin's page: {out}")
     print("OK: status")
+
+
+def _twin_page(engine: str, cases: dict) -> str:
+    """A page running the cases through the JS twin: open it in a browser,
+    it says OK or which case fails."""
+    return (
+        "<!doctype html><meta charset=utf-8><body style='font:32px sans-serif'><script>" + engine
+        + "\nvar C=" + json.dumps(cases) + ",bad=[];"
+        + "C.files.forEach(function(c){var g=MPStatus.fileProgress(c,C.weights);"
+        + "if(!(g===null&&c.progress===null)&&!(g!==null&&c.progress!==null&&Math.abs(g-c.progress)<1e-9))bad.push(c.name+': '+g);});"
+        + "C.averages.forEach(function(c){var g=MPStatus.average(c.values);"
+        + "if(!(g===null&&c.average===null)&&!(g!==null&&c.average!==null&&Math.abs(g-c.average)<1e-9))bad.push('average '+JSON.stringify(c.values)+': '+g);});"
+        + "document.body.textContent=bad.length?'FAIL: '+bad.join(' | '):'OK: status twin, '+(C.files.length+C.averages.length)+' cases';"
+        + "</script>"
+    )
 
 
 if __name__ == "__main__":
