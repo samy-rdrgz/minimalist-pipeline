@@ -132,7 +132,8 @@ it saw.
   header**: *Retake* or *Note* (or `note:` typed at its start), one per
   line, `[f12-40]` for frames; on a block, *On All / sh010 / sh020…* --
   the same as the `[sh020]` at the line's start, either one changes the
-  other --, *+ f12* puts the frame shown after it. *Add retake* (Ctrl+Enter,
+  other --, *+ f12* puts the frame shown after it (again on another frame:
+  the range between the two, `[f12-30]`). *Add retake* (Ctrl+Enter,
   ⌘↵ on a Mac) adds the lines and leaves the box open for the next one;
   nothing written, the department is sent back with no text (its
   validation withdrawn); *Cancel* or Esc closes it. What you added sits on
@@ -158,7 +159,7 @@ it saw.
   required and set aside. The figures your review moves show by the
   pencil (with you 33 % · 5 %), their tip -- hover or a tap -- says what
   they are now. The list shows what you did under each department (✓
-  you, ✕ you); the panel's *Last render* and *Blender file* step aside
+  you, ✕ you), and under the file's name who you reassigned; the panel's *Last render* and *Blender file* step aside
   while reviewing.
   To go over it: *Your review*, among the filters (or *Show the changes* in *Send your review*),
   shows only the files the review touched.

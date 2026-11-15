@@ -246,6 +246,9 @@ if(it.outdated)h+=tag('old','warn','render outdated','Rendered from an older ver
 if(it.farm){var k=it.farm.state==='failed'?'fail':it.farm.state==='waiting'?'wait':'run';
 h+=tag(k,k==='fail'?'cancel':k==='wait'?'time':'render','farm '+it.farm.text,'In the farm: '+it.farm.tip);}
 if(e.desc!==null&&e.desc.trim()&&e.desc.trim()!==it.desc)h+=tag('check','','✎ description','Your review changes its description');
+// Who a department is assigned to, changed in your review.
+var ac=Object.keys(e.assign||{}),to=function(d){return cap(d)+' → '+(e.assign[d].join(', ')||'nobody');};
+if(ac.length)h+=tag('check','user',ac.length===1?to(ac[0]):ac.length+' departments reassigned','Assigned in your review: '+ac.map(to).join(' · '));
 return h;}
 function subline(it){var p=['<span class="vers">'+esc(it.versions||'not saved yet')+'</span>'];
 if(it.shots.length>1)p.push('<span>'+plural(it.shots.length,'shot')+'</span>');
@@ -876,7 +879,7 @@ function myReply(it,n){var r=replyMine(it,n);if(!r)return '';var nt=noteOnly(r);
 return '<div class="rpl my-r">'+avatar(rv.author)+'<div><div class="who"><span class="yt '+(nt?'yt-note':'yt-ko')+'" title="'+(nt?'A remark in its thread':'A retake in its thread: still to redo, its department sent back')+'">↩ YOU</span> reply to '+esc(who(n)||'the thread')+
 '<button type="button" class="mini" data-unreply="'+esc(n.id)+'" aria-label="Take your reply back" title="Take it back">✕</button></div><div class="rx">'+esc(r.split(NL).map(function(l){return l.trim()?readLine(l).text:'';}).join(NL).trim())+'</div></div></div>';}
 function replyForm(it,n){var f=editing['r:'+n.id];if(!f)return '';var nt=f.kind==='note';
-return '<div class="rpl rp-f">'+avatar(rv.author)+'<div class="rp-w"><textarea rows="1" class="rp-t'+(nt?' note':'')+'" data-r="'+esc(n.id)+'" placeholder="'+(nt?'A remark, for the team':'Still to redo: what?')+'">'+esc(f.text)+'</textarea>'+
+return '<div class="rpl rp-f">'+avatar(rv.author)+'<div class="rp-w"><textarea rows="1" class="rp-t'+(nt?' is-note':'')+'" data-r="'+esc(n.id)+'" placeholder="'+(nt?'A remark, for the team':'Still to redo: what?')+'">'+esc(f.text)+'</textarea>'+
 '<div class="cf"><span class="tseg" role="group" aria-label="Kind"><button type="button" data-rkind="rtk" data-r="'+esc(n.id)+'" aria-pressed="'+!nt+'" title="Still to redo: its department sent back">Retake</button><button type="button" data-rkind="note" data-r="'+esc(n.id)+'" aria-pressed="'+nt+'" title="A remark, nothing sent back">Note</button></span><span class="sp"></span>'+
 '<button type="button" class="btn ghost" data-rcancel="'+esc(n.id)+'">Cancel</button><button type="button" class="btn'+(nt?'':' ko')+'" data-rsend="'+esc(n.id)+'">Reply</button></div></div></div>';}
 // An author's notes of a day, one after the other: one header, the lines
@@ -915,8 +918,8 @@ return h;}
 // The box to write in, under its header: the block's shots (the line's
 // [sh040], both ways), the frame shown, retake or note.
 function composer(it,key){var c=editing.cmp,nt=c.kind==='note',sh=lineShot(it,c.text,c.at||0);
-var f=PL&&PL.it===it&&PL.v?'<button type="button" class="pk f addf" data-addf title="The frame shown, after the line\'s shot">+ '+esc(fLabel(PL.v,frameNo(PL.v,PL.el.currentTime)))+'</button>':'';
-return '<div class="cmp'+(nt?' note':'')+'" data-k="'+esc(key)+'"><div class="trow">'+(it.shots.length>1?'<span class="onl">On</span>'+[''].concat(it.shots).map(function(s){return '<button type="button" class="pk" data-pk="'+esc(s)+'" aria-pressed="'+(s===sh)+'">'+(s?esc(s):'All')+'</button>';}).join(''):'')+f+
+var f=PL&&PL.it===it&&PL.v?'<button type="button" class="pk f addf" data-addf title="The frame shown, after the line\'s shot -- again on another frame: a range">+ '+esc(fLabel(PL.v,frameNo(PL.v,PL.el.currentTime)))+'</button>':'';
+return '<div class="cmp'+(nt?' is-note':'')+'" data-k="'+esc(key)+'"><div class="trow">'+(it.shots.length>1?'<span class="onl">On</span>'+[''].concat(it.shots).map(function(s){return '<button type="button" class="pk" data-pk="'+esc(s)+'" aria-pressed="'+(s===sh)+'">'+(s?esc(s):'All')+'</button>';}).join(''):'')+f+
 '<span class="sp"></span><span class="tseg" role="group" aria-label="Kind"><button type="button" data-kind="rtk" aria-pressed="'+!nt+'" title="Something to fix: its department sent back">Retake</button><button type="button" data-kind="note" aria-pressed="'+nt+'" title="A remark: nothing sent back, no validation withdrawn">Note</button></span></div>'+
 '<textarea rows="2" class="cmp-t" placeholder="'+(nt?'A remark, for the team':key==='gen'?'What to fix, on no department in particular?':'What to fix in '+esc(key.slice(2))+'?')+'">'+esc(c.text)+'</textarea>'+
 '<div class="cf"><span class="hint"><kbd>'+(MAC?'⌘':'Ctrl')+' ↵</kbd> add · <kbd>Esc</kbd> cancel · one '+(nt?'note':'retake')+' per line</span><button type="button" class="btn ghost" data-cmp="cancel">Cancel</button><button type="button" class="btn'+(nt?'':' ko')+'" data-cmp="add">Add '+(nt?'note':'retake')+'</button></div></div>';}
@@ -1247,9 +1250,11 @@ if((t=ev.target.closest('[data-req]'))){var re=entry(it),rd=t.dataset.req,was=rd
 if(!now2===was)delete re.req[rd];else re.req[rd]=!now2;refresh();render();return;}
 if((t=ev.target.closest('[data-omit]'))){var oe=entry(it),cur0=oe.omit||{state:(it.omit||{}).state||'',reason:(it.omit||{}).reason||''};
 oe.omit={state:t.dataset.omit,reason:cur0.reason};refresh();var ow=$('om-why');if(ow&&t.dataset.omit)ow.focus({preventScroll:true});return;}
-// "+ f12": the frame shown, after the line's shot.
+// "+ f12": the frame shown, after the line's shot; again on another
+// frame, the two a range ([f12-30]); once more, a new start.
 if((t=ev.target.closest('[data-addf]'))&&PL&&editing.cmp){var c2=editing.cmp,f=frameNo(PL.v,PL.el.currentTime),b2=lineAt(c2.text,c2.at),m2=SHOT_RE.exec(c2.text.slice(b2[0],b2[1])),at2=b2[0]+(m2&&it.shots.indexOf(m2[1].toLowerCase())>=0?m2[0].length:0),tg='[f'+f+'] ';
-c2.text=c2.text.slice(0,at2)+tg+c2.text.slice(at2);c2.at=c2.at+(c2.at>=at2?tg.length:0);refresh();if(PL&&PL.it===it){PL.marks=marksOf(it,PL.v);drawMarks();}return focusCmp();}
+var fm=/^\[f(\d+)(?:-(\d+))?\]\s*/i.exec(c2.text.slice(at2,b2[1])),was=fm?fm[0].length:0;if(fm&&!fm[2]&&+fm[1]!==f)tg='[f'+Math.min(+fm[1],f)+'-'+Math.max(+fm[1],f)+'] ';
+c2.text=c2.text.slice(0,at2)+tg+c2.text.slice(at2+was);c2.at=c2.at>=at2+was?c2.at+tg.length-was:c2.at>=at2?at2+tg.length:c2.at;refresh();if(PL&&PL.it===it){PL.marks=marksOf(it,PL.v);drawMarks();}return focusCmp();}
 if(ev.target.closest('#add-gen'))return generalRetake();
 if((t=ev.target.closest('[data-reply]')))return startReply(t.dataset.reply);
 if((t=ev.target.closest('[data-fix]'))){var fe=entry(it);if(fe.fixed[t.dataset.fix])delete fe.fixed[t.dataset.fix];else fe.fixed[t.dataset.fix]=1;refresh();return;}

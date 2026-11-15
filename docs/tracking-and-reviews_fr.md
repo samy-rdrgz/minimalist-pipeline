@@ -139,7 +139,8 @@ la prod -- sur la version qu'il a vue.
   département** : *Retake* ou *Note* (ou `note:` tapé au début), un par
   ligne, `[f12-40]` pour des frames ; sur un bloc, *On All / sh010 /
   sh020…* -- la même chose que le `[sh020]` en début de ligne, l'un change
-  l'autre --, *+ f12* place la frame affichée après lui. *Add retake*
+  l'autre --, *+ f12* place la frame affichée après lui (encore une fois
+  sur une autre frame : la plage entre les deux, `[f12-30]`). *Add retake*
   (Ctrl+Entrée, ⌘↵ sur Mac) ajoute les lignes et laisse la case ouverte
   pour la suivante ; sans rien écrire, le département est renvoyé sans
   texte (sa validation retirée) ; *Cancel* ou Échap la ferme. Ce que vous
@@ -168,7 +169,8 @@ la prod -- sur la version qu'il a vue.
   requis et la mise de côté. Les chiffres que votre review change
   s'affichent après un crayon (with you 33 % · 5 %), leur bulle -- au
   survol ou d'un tap -- dit ce qu'ils sont aujourd'hui. La liste montre ce
-  que vous avez fait sous chaque département (✓ you, ✕ you) ; *Last
+  que vous avez fait sous chaque département (✓ you, ✕ you), et sous le
+  nom du fichier les attributions changées ; *Last
   render* et *Blender file* s'effacent du panneau pendant la review.
   Touches : ← → (fichiers), Échap (fermer), V (all done), X (case du
   fichier entier), R (répondre au fil sélectionné) ; dans une case,

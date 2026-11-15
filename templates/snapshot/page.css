@@ -238,6 +238,8 @@ background-position:calc(100% - 17px) 52%,calc(100% - 12px) 52%;background-size:
 .find{position:relative;flex:1 1 44px;min-width:44px;max-width:240px}
 /* Squeezed down to its glass when the line is full: wider once in use. */
 .find:focus-within{flex-basis:200px}
+/* The header's: as wide typing as not -- the buttons after it stay on their line. */
+.hdr .find:focus-within{flex-basis:150px}
 .search::placeholder{text-overflow:ellipsis}
 .search{width:100%;min-height:var(--tap);padding:0 12px 0 32px;border:1px solid var(--line);border-radius:var(--r-btn);
 background:var(--surface) no-repeat 11px 50%/14px url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%238d8c86' stroke-width='2'%3E%3Ccircle cx='7' cy='7' r='5'/%3E%3Cpath d='m11 11 4 4'/%3E%3C/svg%3E")}
@@ -272,7 +274,7 @@ label. The header compact: the name and Review, the figures under. */
 .hdr{margin:0 -16px;padding:8px 16px}
 .top{gap:8px 10px}.title{flex:1}h1{font-size:17px}.stamp{display:none}
 .kpis{order:3;flex-basis:100%;gap:4px 14px}
-.hdr .find{order:4;flex-basis:100%;max-width:none}
+.hdr .find,.hdr .find:focus-within{order:4;flex-basis:100%;max-width:none}
 .rv-sum{max-width:44vw}
 }
 
@@ -577,11 +579,7 @@ background:none;color:var(--ink-3);font-size:14px;line-height:1;cursor:pointer}
 .fx[aria-pressed="true"]{color:var(--valid);font-weight:700}
 .rtkl.fixed{background:var(--valid-bg)}
 /* A todo said done: the same. */
-.note.fixed{background:var(--valid-bg);border-radius:6px;padding:4px 8px;margin-left:-8px;margin-right:-8px}
-.note.fixed>p{opacity:.55;text-decoration:line-through;text-decoration-color:color-mix(in srgb,currentColor 50%,transparent)}
-.note .h .fx{margin:-4px -6px -4px 0}
 @media (pointer:coarse){.rp,.fx{width:36px;height:36px}}
-.note .h .rp{margin:-4px -6px -4px 0}
 .rtkl.fixed .rt-t{opacity:.55;text-decoration:line-through;text-decoration-color:color-mix(in srgb,currentColor 50%,transparent)}
 textarea{display:block;width:100%;min-height:36px;max-height:50vh;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface);font-size:13px;
 field-sizing:content;overflow:auto;resize:none}
@@ -589,17 +587,7 @@ textarea:focus{border-color:var(--accent);outline:none}
 .fold{display:flex;align-items:center;gap:6px;border:0;background:none;padding:0;min-height:var(--tap);color:var(--ink-2);font-size:13px;font-weight:600}
 .fold::before{content:"";width:6px;height:6px;border:solid var(--ink-3);border-width:0 2px 2px 0;transform:rotate(-45deg);transition:transform .15s}
 .fold[aria-expanded="true"]::before{transform:rotate(45deg)}
-.note{padding:10px 0;border-top:1px solid var(--sunk)}
-.note:first-of-type{border-top:0}
-.note.by-role{box-shadow:inset 3px 0 var(--valid);padding-left:10px}
-.note .h{display:flex;flex-wrap:wrap;gap:4px 6px;align-items:center;font-size:12px;color:var(--ink-3)}
 /* Who and when, then the note's own actions: one block, never split. */
-.note .h .h-r{margin-left:auto;display:inline-flex;align-items:center;gap:2px;white-space:nowrap}
-.note .tg{font-size:11px;padding:0 6px;border-radius:var(--r-btn);border:1px solid var(--line);color:var(--ink-2);line-height:16px}
-.note .tg.role{background:var(--valid-bg);color:var(--valid);border-color:transparent;font-weight:600}
-.note p{margin:4px 0 0;white-space:pre-wrap;overflow-wrap:anywhere}
-.note.closed{opacity:.6}
-.note.reply{margin-left:18px}
 .more-notes{border:0;background:none;color:var(--accent);font-size:13px;font-weight:600;padding:0;min-height:var(--tap)}
 .more-notes.quiet{color:var(--ink-3);font-weight:500}
 .renders{display:grid;grid-template-columns:max-content max-content max-content 1fr auto;align-items:center;gap:6px 14px;padding:10px 12px;border-radius:6px;background:var(--sunk);font-size:13px}
@@ -1034,7 +1022,7 @@ details[open]>summary .tacts{display:none}
 .rpl .rx{font-size:13px;line-height:1.45;white-space:pre-wrap;overflow-wrap:anywhere}
 .rp-w{display:flex;flex-direction:column;gap:6px;min-width:0}
 .rp-t{font-size:16px;border-color:var(--rtk)}
-.rp-t.note{border-color:var(--line2)}
+.rp-t.is-note{border-color:var(--line2)}
 .ta{display:flex;align-items:center;gap:6px}
 .act{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:0 12px;border-radius:16px;border:1px solid var(--line2);background:transparent;color:var(--ink-2);font:inherit;font-size:12px;cursor:pointer}
 .act .ico{width:13px;height:13px}
@@ -1068,7 +1056,7 @@ earlier: under "N closed", the same. */
 .yt-note{color:var(--ink);box-shadow:inset 0 0 0 1px var(--line2)}
 /* The box to write in, under its header: red a retake, grey a note. */
 .cmp{display:flex;flex-direction:column;gap:8px;margin:0 0 8px 38px;padding:10px;border:1.5px solid var(--rtk-f);border-radius:10px;background:var(--surface)}
-.cmp.note{border-color:var(--line2)}
+.cmp.is-note{border-color:var(--line2)}
 .trow{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
 .trow .onl{font-size:12px;color:var(--ink-3);margin-right:2px}
 .pk{min-height:28px;padding:0 9px;border:1px solid var(--line);border-radius:7px;background:var(--sunk);color:var(--ink-2);font:600 12px var(--mono);cursor:pointer}
@@ -1078,7 +1066,7 @@ earlier: under "N closed", the same. */
 .tseg{display:inline-flex;padding:2px;border-radius:8px;background:var(--sunk);border:1px solid var(--line)}
 .tseg button{min-height:26px;padding:0 10px;border:0;border-radius:6px;background:transparent;color:var(--ink-3);font:inherit;font-size:12px;cursor:pointer}
 .tseg button[aria-pressed="true"]{background:var(--btn);color:var(--ink)}
-.cmp:not(.note) .tseg [data-kind="rtk"][aria-pressed="true"],.rp-w .tseg [data-rkind="rtk"][aria-pressed="true"]{background:var(--rtk-f);color:#fff}
+.cmp:not(.is-note) .tseg [data-kind="rtk"][aria-pressed="true"],.rp-w .tseg [data-rkind="rtk"][aria-pressed="true"]{background:var(--rtk-f);color:#fff}
 .cmp textarea{font-size:16px;min-height:52px;border-color:var(--line)}
 .cf{display:flex;align-items:center;gap:6px}
 .cf .hint{flex:1 1 0;min-width:0;font-size:11px;color:var(--ink-3)}

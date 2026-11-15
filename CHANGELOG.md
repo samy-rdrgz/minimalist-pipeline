@@ -14,7 +14,9 @@ All notable changes to this addon. Dates are release dates.
   *Note*, a block's shots as buttons, the frame shown --, what you add
   listed on top with a × to take it back; *Reply* has its own box and
   *Reply* button; *File settings* folded at the end; the figures with
-  your review after a pencil, their tip on a tap too.
+  your review after a pencil, their tip on a tap too; *+ f12* twice on two
+  frames, a range; a file reassigned in your review says so under its
+  name.
 - *Migrate old data*: a note id found twice made unique (Fixed marked
   every note sharing it).
 - Export snapshot: *Every department* takes each shot's other departments'
