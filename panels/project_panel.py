@@ -108,7 +108,7 @@ class M_PIPELINE_PT_project_panel(bpy.types.Panel):
                  "on. Import review reads the review it downloads: its notes "
                  "land on the files."),
                 ("row", [
-                    ("m_pipeline.open_live_page", "Open in browser", "URL"),
+                    ("m_pipeline.open_live_page", "Monitor in browser", "URL"),
                     ("m_pipeline.open_live_page", "", "COMMUNITY", {"tab": "share"}),
                 ]),
                 [

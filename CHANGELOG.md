@@ -52,7 +52,7 @@ All notable changes to this addon. Dates are release dates.
   Status, Count, RTK & notes --; a cell opens the list filtered on it;
   the schedule on the tabs' line; *How it's counted* folded. It replaces
   the three cards per section and the shaded grid.
-- Live page, *Share with a phone…* (an icon beside *Open in browser*, the
+- Live page, *Share with a phone…* (an icon beside *Monitor in browser*, the
   Pipeline menu, the page's ⋯ menu): someone on the studio's network gets
   the page under their name and role, for an hour, until tonight, a day
   or a week -- a QR code to scan, or *Copy link*; the accesses listed,
@@ -72,7 +72,7 @@ All notable changes to this addon. Dates are release dates.
 - Live page: a render's full video in this machine's player (its light
   copy is what the page may play).
 - Snapshot page: the player takes the video's own shape.
-- *Open in browser* (Project panel, Pipeline menu): the project's page
+- *Monitor in browser* (Project panel, Pipeline menu): the project's page
   served by Blender to this machine's browser, kept up to date -- the
   snapshot's page, live; a pill says connected, Blender busy or
   disconnected (it reconnects by itself). It reviews as you: what you do
@@ -274,10 +274,10 @@ All notable changes to this addon. Dates are release dates.
   only. *Migrate old data* rewrites each `.json` as the `.py` doing the
   same, and gives a department with no preset its default one.
 - The Project monitoring and Farm monitoring windows: the live page
-  (*Open in browser*, Shift+Alt+P) covers them -- every file and its
+  (*Monitor in browser*, Shift+Alt+P) covers them -- every file and its
   departments, a file's notes, renders to check and links; the farm's
   jobs and machines, their details, retry, cancel, recompile, priority.
-  File details' *Details* opens it on the open file, the Farm panel's
+  File details' *Details in browser* opens it on the open file, the Farm panel's
   header on its Farm tab (Shift+Alt+F). Their window state, keys (Tab,
   Esc), the frame lookup popup and the per-file work time total go with
   them; the Pipeline log, the welcome and Project settings keep their

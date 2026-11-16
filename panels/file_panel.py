@@ -149,7 +149,7 @@ class M_PIPELINE_PT_file_panel(bpy.types.Panel):
                       "sequence covers the whole sequence."),
             None,
             # Its departments, renders, links: the live page on this file.
-            ("m_pipeline.open_live_page", "Details", "INFO", {"file": here}),
+            ("m_pipeline.open_live_page", "Details in browser", "INFO", {"file": here}),
             ("wm.open_folder", "Open folder", "FOLDER_REDIRECT", {
                 "filepath": str(Path(here).parent), "custom_tooltip": "Open this file's folder",
             }),

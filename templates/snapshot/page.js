@@ -441,8 +441,10 @@ rowDeps.map(function(d){return '<span class="d">'+(c.departments.indexOf(d)>=0?'
 '<button type="button" class="btn icon unplan" data-unplan="'+n+'" title="Drop this new '+c.kind+'" aria-label="Drop this new '+c.kind+'">'+ico('trash')+'</button></div>':'';}).join('');
 var nv=groupVideos(g).length;
 // A div, not a button: its playlist's ▶ sits in it, after the name.
-return '<div class="group'+(closed?' closed':'')+(allReviewed(g)?' rv-all':'')+'"><div class="g-h" role="button" tabindex="0" aria-expanded="'+!closed+'" data-g="'+esc(g)+'"><span class="g-name"><i class="caret"></i>'+esc(g)+
-(nv?'<button type="button" class="g-play play" data-gplay="'+esc(g)+'" title="Watch the '+esc(g)+' videos in a row ('+nv+')" aria-label="Watch the '+esc(g)+' videos in a row">'+ico('play')+'</button>':'')+'<small>'+plural(all.length,'file')+'</small>'+
+return '<div class="group'+(closed?' closed':'')+(allReviewed(g)?' rv-all':'')+'"><div class="g-h" role="button" tabindex="0" aria-expanded="'+!closed+'" data-g="'+esc(g)+'"><span class="g-name"><i class="caret"></i><span class="g-t">'+esc(g)+'</span>'+
+// Fixed slots -- name, play (its room kept without), count --: "+ shot"
+// at the same place from one group to the next.
+(nv?'<button type="button" class="g-play play" data-gplay="'+esc(g)+'" title="Watch the '+esc(g)+' videos in a row ('+nv+')" aria-label="Watch the '+esc(g)+' videos in a row">'+ico('play')+'</button>':'<span class="g-play-x" aria-hidden="true"></span>')+'<small>'+plural(all.length,'file')+'</small>'+
 // Reviewing: a new shot (a sequence) or asset (a prefix) here.
 (reviewing()&&state.tab!=='breakdown'?'<button type="button" class="btn g-new" data-new="'+esc(g)+'" title="A new '+(state.tab==='shot'?'shot in '+esc(g):'asset '+esc(g)+'_…')+', made at the review\'s import">+ '+(state.tab==='shot'?'shot':'asset')+'</button>':'')+'</span>'+
 gPct(g,all,done,val)+
@@ -590,7 +592,10 @@ m._button=b;document.body.appendChild(m);
 function sync(){var o=sel.options[sel.selectedIndex];b.textContent=o?(o.dataset.short||o.textContent):'';
 ['on','need'].forEach(function(c){b.classList.toggle(c,sel.classList.contains(c));});}
 b.onclick=function(e){e.stopPropagation();var open=!m.hidden;if(!b.closest('.menu-pop'))closeMenus();closePicks();if(open)return;
-m.innerHTML=[].map.call(sel.options,function(o,i){return '<button type="button" role="option" data-i="'+i+'" aria-selected="'+(i===sel.selectedIndex)+'">'+esc(o.textContent)+'</button>';}).join('');
+// Versions: the name first, its department and date after, quieter.
+var parts=sel.dataset.pickc==='vp';
+m.innerHTML=[].map.call(sel.options,function(o,i){var t=o.textContent,p=parts?t.split(' · '):[t];
+return '<button type="button" role="option" data-i="'+i+'" aria-selected="'+(i===sel.selectedIndex)+'">'+(p.length>1?'<b>'+esc(p[0])+'</b><span class="pk-s"> · '+esc(p.slice(1).join(' · '))+'</span>':esc(t))+'</button>';}).join('');
 // Fixed, from the button: a scrolling bar or a panel would clip it.
 var r=b.getBoundingClientRect(),up=r.top>innerHeight/2;m.style.left=Math.max(8,Math.min(r.left,innerWidth-Math.max(r.width,200)-8))+'px';m.style.minWidth=r.width+'px';
 m.style.top=up?'':(r.bottom+6)+'px';m.style.bottom=up?(innerHeight-r.top+6)+'px':'';
@@ -626,7 +631,6 @@ MENUS.forEach(function(m){$(m[0]).addEventListener('click',function(e){e.stopPro
 $(m[1]).hidden=!open;this.setAttribute('aria-expanded',open);touchHold();});});
 document.addEventListener('click',function(e){if(!e.target.closest('.menu-pop'))closeMenus();});
 $('help-open').addEventListener('click',function(e){e.stopPropagation();closeMenus();$('helpb').click();});
-$('det-t').setAttribute('aria-pressed',String(DETAILS));$('det-t').addEventListener('click',function(e){e.stopPropagation();setDetails(!DETAILS);});
 // Filters ▾'s list: out of the bar (it scrolls sideways, and would cut it),
 // fixed under its button when it opens.
 (function(){var pop=$('ffpop'),b=$('ffb');document.body.appendChild(pop);
@@ -1926,9 +1930,11 @@ b+='<div class="ta"><button type="button" class="act fix" id="r-send">'+ico('ren
 return (job?'<p class="rd-job">In the farm: '+esc(job.text)+(job.total?' · '+job.done+'/'+job.total:'')+'</p>':'')+b;}
 // Render: a button in the panel's header opening this dialog -- an action
 // with its form, as Blender's Render dialog (not a section to unfold).
-function renderDialog(it){var dl=$('dlg');dl.dataset.kind='render';
+function renderDialog(it){var dl=$('dlg');dl.dataset.kind='render';document.querySelectorAll('.pick-pop.rp').forEach(function(x){x.remove();});
 dl.innerHTML='<div class="dlg-in rnd-dlg" role="dialog" aria-modal="true" aria-labelledby="rd-t"><h3 id="rd-t">Render '+esc(it.name)+'</h3>'+renderHtml(it)+
 '<div class="acts"><button type="button" class="btn" data-rdx>Close</button></div></div>';dl.hidden=false;
+// Its preset: the page's own picker, as everywhere.
+var rs=dl.querySelector('.rsel');if(rs){rs.dataset.pickc='rp';pick(rs);}
 var close=function(){dl.hidden=true;dl.onclick=dl.onchange=dl.oninput=null;delete dl.dataset.kind;};
 dl.onclick=function(ev){var t;if(ev.target===dl||ev.target.closest('[data-rdx]'))return close();
 if((t=ev.target.closest('[data-rf][data-v]'))){rform(it)[t.dataset.rf]=t.dataset.v;return renderDialog(it);}

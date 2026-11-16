@@ -91,7 +91,7 @@ Vue d'ensemble ci-dessous — chaque entrée pointe vers une page dédiée avec 
 
 ## Interface
 
-Tous les panneaux vivent dans la sidebar de la vue 3D (`N` > onglet **Pipeline**) — Project, Asset, Shot, Tracking, Farm — plus la page en live dans le navigateur (*Open in browser*), et un menu "Pipeline" dans la barre du haut pour un accès rapide sans ouvrir la sidebar. Référence complète panneau par panneau : **[docs/interface_fr.md](docs/interface_fr.md)**.
+Tous les panneaux vivent dans la sidebar de la vue 3D (`N` > onglet **Pipeline**) — Project, Asset, Shot, Tracking, Farm — plus la page en live dans le navigateur (*Monitor in browser*), et un menu "Pipeline" dans la barre du haut pour un accès rapide sans ouvrir la sidebar. Référence complète panneau par panneau : **[docs/interface_fr.md](docs/interface_fr.md)**.
 
 ---
 

@@ -17,7 +17,7 @@ Tout ce qui est arrivé depuis la 1.0.0, en résumé. Le détail, version par ve
 
 C'est le gros changement de la 2.0 : **le suivi du projet se fait dans une page web**, au lieu des fenêtres Project monitoring et Farm monitoring.
 
-- ***Open in browser*** (panneau Project, menu Pipeline) : Blender sert la page du projet à votre navigateur, à jour en permanence. Ce que vous y faites (valider, poser un retake, écrire une note, répondre, attribuer, ajouter un shot) est enregistré dans le projet tout de suite, sous votre nom.
+- ***Monitor in browser*** (panneau Project, menu Pipeline) : Blender sert la page du projet à votre navigateur, à jour en permanence. Ce que vous y faites (valider, poser un retake, écrire une note, répondre, attribuer, ajouter un shot) est enregistré dans le projet tout de suite, sous votre nom.
 - **La liste des assets et des shots** : où en est chaque département, les retakes ouverts, les rendus à vérifier, ce qui tourne sur la farm. Filtres par département, retakes, notes ouvertes, « mon travail ». Un clic sur un fichier ouvre son panneau : ses notes, ses rendus à regarder (avec la frame affichée et les notes posées dessus), ses liens, et un bouton pour l'ouvrir dans Blender.
 - **Breakdown** : l'avancement par séquence et par département, en %, en états, en nombre ou en retakes, avec le planning du projet.
 - **Onglet Farm** : les rendus et les machines, envoyer un fichier en rendu, la priorité, annuler, relancer, archiver, savoir quelle machine a rendu quelle frame et combien de temps il reste.

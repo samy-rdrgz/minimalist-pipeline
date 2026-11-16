@@ -763,7 +763,7 @@ _KEYMAP_ITEMS = (
         True,
     ),
     (
-        "Open in browser",
+        "Monitor in browser",
         "Window",
         "EMPTY",
         "m_pipeline.open_live_page",

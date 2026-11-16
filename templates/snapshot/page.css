@@ -4,14 +4,14 @@ colour, one meaning -- done green, in progress / reworked orange,
 validated violet, retake red, play and frame ranges blue; your review and
 the main action neutral. See NOTES.md, "Snapshot page v3". */
 :root{
---bg:#F3F3F1;--surface:#FFFFFF;--sunk:#ECECEE;--head:#FFFFFF;--btn:#ECECEE;--line:#E3E3E0;--line2:#CFCFCB;
---ink:#18181B;--ink-2:#61656D;--ink-3:#6E727A;--ring:#9A9DA4;--ph:#ECECE9;
---accent:#18181B;--accent-bg:rgba(0,0,0,.04);
+--bg:#F2F2F2;--surface:#FFFFFF;--sunk:#EDEDED;--head:#FFFFFF;--btn:#EDEDED;--line:#E2E2E2;--line2:#CECECE;
+--ink:#191919;--ink-2:#666666;--ink-3:#737373;--ring:#9E9E9E;--ph:#EBEBEB;
+--accent:#191919;--accent-bg:rgba(0,0,0,.04);
 --done:#00876A;--wip:#B55500;--wip-ink:#B55500;--wip-bg:rgba(181,85,0,.1);
 --rtk:#AB3C48;--rtk-f:#AB3C48;--rtk-t:#991616;--rtk-bg:rgba(171,60,72,.1);--team:#AB3C48;--team-bg:rgba(171,60,72,.1);
 --valid:#7A3F7A;--val-f:#8C548C;--val-bar:#8C548C;--sup:#E3CCE3;--valid-bg:rgba(140,84,140,.12);--on-fill:#FFFFFF;
---play:#4772B3;--range:#4772B3;--mine:#18181B;--inv:#FFFFFF;--mine-tint:rgba(0,0,0,.05);--glow:#E2E7F0;--dot:rgba(0,0,0,.09);
---bar-bg:#FFFFFF;--bar-ink:#18181B;--bar-field:#ECECEE;--field:#EEEEF0;--outline:#C9C9CC;--emboss:rgba(0,0,0,.12);--emb-y:1px;
+--play:#4772B3;--range:#4772B3;--mine:#191919;--inv:#FFFFFF;--mine-tint:rgba(0,0,0,.05);--glow:#E2E7F0;--dot:rgba(0,0,0,.09);
+--bar-bg:#FFFFFF;--bar-ink:#191919;--bar-field:#EDEDED;--field:#EFEFEF;--outline:#CACACA;--emboss:rgba(0,0,0,.12);--emb-y:1px;
 --sh-card:0 1px 2px rgba(0,0,0,.08);--sh-pop:0 24px 70px rgba(0,0,0,.18);
 --r-sm:3px;--r-btn:5px;--r-md:6px;--r-lg:8px;
 --sel:#4772B3;
@@ -23,24 +23,24 @@ color-scheme:light dark}
 /* Dark: the system's, unless a theme was chosen in the ⋯ menu
 (html[data-theme], kept by this browser). Both from the same variables. */
 @media (prefers-color-scheme:dark){:root:not([data-theme=light]){
---bg:#1B1B1D;--surface:#28282B;--sunk:#2C2C30;--head:#1F1F22;--btn:#3C3C41;--line:#36363B;--line2:#5B5B62;
---ink:#E8E8EA;--ink-2:#A3A6AD;--ink-3:#8C8F96;--ring:#6E7178;--ph:#2E2E32;
---accent:#E8E8EA;--accent-bg:rgba(255,255,255,.06);
+--bg:#1C1C1C;--surface:#292929;--sunk:#2D2D2D;--head:#202020;--btn:#3E3E3E;--line:#383838;--line2:#5D5D5D;
+--ink:#E9E9E9;--ink-2:#A7A7A7;--ink-3:#909090;--ring:#727272;--ph:#2F2F2F;
+--accent:#E9E9E9;--accent-bg:rgba(255,255,255,.06);
 --done:#00D4A3;--wip:#E19658;--wip-ink:#E19658;--wip-bg:rgba(225,150,88,.16);
 --rtk:#F08A94;--rtk-f:#C94452;--rtk-t:#991616;--rtk-bg:rgba(201,68,82,.18);--team:#F08A94;--team-bg:rgba(201,68,82,.18);
 --valid:#D2A6D2;--val-f:#8C548C;--val-bar:#B47DB4;--sup:#C9A1C9;--valid-bg:#66416233;--on-fill:#10201B;
---play:#4772B3;--range:#74A2FF;--mine:#E8E8EA;--inv:#18181B;--mine-tint:rgba(255,255,255,.07);--glow:#252A35;--dot:rgba(255,255,255,.06);
---bar-bg:#1F1F22;--bar-ink:#E8E8EA;--bar-field:#3C3C41;--field:#141416;--outline:#4D4D53;--emboss:rgba(0,0,0,.45);--emb-y:1px;
+--play:#4772B3;--range:#74A2FF;--mine:#E9E9E9;--inv:#191919;--mine-tint:rgba(255,255,255,.07);--glow:#252A35;--dot:rgba(255,255,255,.06);
+--bar-bg:#202020;--bar-ink:#E9E9E9;--bar-field:#3E3E3E;--field:#151515;--outline:#4F4F4F;--emboss:rgba(0,0,0,.45);--emb-y:1px;
 --sh-card:0 1px 2px rgba(0,0,0,.3);--sh-pop:0 24px 70px rgba(0,0,0,.45)}}
 :root[data-theme=dark]{
---bg:#1B1B1D;--surface:#28282B;--sunk:#2C2C30;--head:#1F1F22;--btn:#3C3C41;--line:#36363B;--line2:#5B5B62;
---ink:#E8E8EA;--ink-2:#A3A6AD;--ink-3:#8C8F96;--ring:#6E7178;--ph:#2E2E32;
---accent:#E8E8EA;--accent-bg:rgba(255,255,255,.06);
+--bg:#1C1C1C;--surface:#292929;--sunk:#2D2D2D;--head:#202020;--btn:#3E3E3E;--line:#383838;--line2:#5D5D5D;
+--ink:#E9E9E9;--ink-2:#A7A7A7;--ink-3:#909090;--ring:#727272;--ph:#2F2F2F;
+--accent:#E9E9E9;--accent-bg:rgba(255,255,255,.06);
 --done:#00D4A3;--wip:#E19658;--wip-ink:#E19658;--wip-bg:rgba(225,150,88,.16);
 --rtk:#F08A94;--rtk-f:#C94452;--rtk-t:#991616;--rtk-bg:rgba(201,68,82,.18);--team:#F08A94;--team-bg:rgba(201,68,82,.18);
 --valid:#D2A6D2;--val-f:#8C548C;--val-bar:#B47DB4;--sup:#C9A1C9;--valid-bg:#66416233;--on-fill:#10201B;
---play:#4772B3;--range:#74A2FF;--mine:#E8E8EA;--inv:#18181B;--mine-tint:rgba(255,255,255,.07);--glow:#252A35;--dot:rgba(255,255,255,.06);
---bar-bg:#1F1F22;--bar-ink:#E8E8EA;--bar-field:#3C3C41;--field:#141416;--outline:#4D4D53;--emboss:rgba(0,0,0,.45);--emb-y:1px;
+--play:#4772B3;--range:#74A2FF;--mine:#E9E9E9;--inv:#191919;--mine-tint:rgba(255,255,255,.07);--glow:#252A35;--dot:rgba(255,255,255,.06);
+--bar-bg:#202020;--bar-ink:#E9E9E9;--bar-field:#3E3E3E;--field:#151515;--outline:#4F4F4F;--emboss:rgba(0,0,0,.45);--emb-y:1px;
 --sh-card:0 1px 2px rgba(0,0,0,.3);--sh-pop:0 24px 70px rgba(0,0,0,.45)}
 :root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
 /* A finger, not a mouse: every control 44 px. */
@@ -68,7 +68,7 @@ status bar at each tap, and the page moved by 20 px each time. */
 /* The glow held to the window (fixed): on the body, a short page (all
 folded) pulled it up behind a header drawn as a grey band. */
 html{background:var(--bg)}
-body{margin:0;background:radial-gradient(1200px 500px at 15% -20%,var(--glow) 0%,transparent 70%) fixed no-repeat,radial-gradient(circle,var(--dot) 2px,transparent 2.6px) 0 0/36px 36px fixed,var(--bg);color:var(--ink);font:14px/1.45 var(--ui);font-variant-numeric:tabular-nums;padding-top:var(--sat)}
+body{margin:0;background:radial-gradient(circle,var(--dot) 1.1px,transparent 1.6px) 0 0/28px 28px fixed,var(--bg);color:var(--ink);font:14px/1.45 var(--ui);font-variant-numeric:tabular-nums;padding-top:var(--sat)}
 /* Under an iPad's / a phone's status bar (the page runs under it,
 viewport-fit=cover): a band of the page's background, the page and the
 sticky bar starting below it. 0 wherever nothing covers the page. */
@@ -87,7 +87,7 @@ noscript p{margin:40px auto;max-width:520px;text-align:center}
 .hdr{position:sticky;top:var(--sat);z-index:22;margin:0 -20px;padding:10px 20px}
 /* A ground under the header and the filters once the list scrolls under
 them; none at the top, on the glow. */
-.hdr.stuck,.hdr.stuck~.sec .bar{background:radial-gradient(1200px 500px at 15% -20%,var(--glow) 0%,transparent 70%) fixed no-repeat,radial-gradient(circle,var(--dot) 2px,transparent 2.6px) 0 0/36px 36px fixed,var(--bg)}
+.hdr.stuck,.hdr.stuck~.sec .bar{background:radial-gradient(circle,var(--dot) 1.1px,transparent 1.6px) 0 0/28px 28px fixed,var(--bg)}
 .top{display:flex;align-items:center;gap:10px 16px;flex-wrap:wrap}
 .title{display:flex;align-items:baseline;gap:8px;min-width:0}
 h1{font:700 18px/1.2 var(--ui);margin:0;letter-spacing:-.01em;overflow-wrap:break-word}
@@ -714,7 +714,7 @@ background-position:calc(100% - 17px) 52%,calc(100% - 12px) 52%;background-size:
 /* ---------- the player: in the panel, or Watch large ---------- */
 .pv{position:relative;border-radius:10px;overflow:hidden;background:var(--sunk)}
 /* Behind a video: the node editor's dotted ground, as Blender's. */
-.pv-slot{background:radial-gradient(circle,rgba(255,255,255,.09) 1px,transparent 1.4px) 0 0/18px 18px,#1D1D1F}
+.pv-slot{background:radial-gradient(circle,rgba(255,255,255,.09) 1px,transparent 1.4px) 0 0/18px 18px,#1E1E1E}
 /* The video's own shape (--ar, set once its size is known): a panoramic
    render no longer floats in a 16:9 box; a tall one stops at 70 % of the
    screen's height, a very wide one at 96 px. */
@@ -1304,3 +1304,39 @@ when your review changes them */
 /* File settings: the file's name under the title, on one line */
 .set-dlg h3{margin-bottom:2px}.set-dlg .sd-name{margin:0 0 4px;font:12px var(--mono);color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .set-dlg .st-l{margin:12px 0 6px}
+/* The header: the figures alone (its double bar, squeezed, was a grey stroke) */
+.kpi .bar2{display:none}
+/* The scrollbar's room kept whether the page scrolls or not: a short tab
+(Libraries, Farm) no longer moves the page sideways (Windows' 17 px bar) */
+html{scrollbar-gutter:stable}
+/* A picker's list: the one chosen in the selection's blue (the filters'),
+a version's name before its department and date, Main set apart */
+.pick-pop>button[aria-selected="true"]{background:var(--sel);color:#fff;font-weight:600}
+.pick-pop>button[aria-selected="true"]:hover{background:var(--sel);filter:brightness(1.08)}
+.pick-pop.vp>button b{font-weight:600}.pick-pop.vp>button .pk-s{color:var(--ink-3)}
+.pick-pop.vp>button[aria-selected="true"] .pk-s{color:rgba(255,255,255,.8)}
+.pick-pop.vp>button:first-child{margin-bottom:5px;position:relative}
+.pick-pop.vp>button:first-child::after{content:"";position:absolute;left:6px;right:6px;bottom:-3px;border-bottom:1px solid var(--line)}
+/* A post-it's word in its middle: centred box, the letter-spacing's trail
+balanced */
+.pi,.you{display:inline-flex;align-items:center;justify-content:center;line-height:1;padding:1px 4px 0 calc(4px + .04em)}
+/* A group's header: name, play, count in fixed slots ("+ shot" aligned
+from one group to the next) */
+.g-name{display:inline-flex;align-items:center}
+.g-name .g-t{min-width:4.2em}
+.g-name .g-play,.g-name .g-play-x{flex:none;width:22px;height:22px;margin-left:8px}
+.g-name small{min-width:5.2em}
+/* Render, the dialog: its rows apart, Priority on the line of its buttons */
+.rnd-dlg .rrow{margin-top:12px;align-items:center}
+.rnd-dlg .prio .st-l{margin:0}
+.rnd-dlg .ta{margin-top:16px;display:flex;gap:8px;flex-wrap:wrap}
+/* Validated on an older stable: the violet ring on the diamond's edge, no
+gap (a ground colour there read blue, and hid the violet when small) */
+.cap .g.old::after,.m.old::after{box-shadow:none}
+/* The ⋯ menu: an icon before each entry, to find one without reading */
+.menu-pop>.mi{display:grid;grid-template-columns:16px 1fr;column-gap:10px;align-items:start}
+.menu-pop>.mi>.ico{grid-row:1/3;width:16px;height:16px;margin-top:2px;color:var(--ink-2)}
+.menu-pop>.mi>small{grid-column:2}
+.menu-pop>.mi>input{display:none}
+.menu-pop>.mi[hidden],body:not(.reviewing) .menu-pop>.mi.rv-only{display:none}
+.rnd-dlg .prio .st-l{align-self:center}

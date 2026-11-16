@@ -91,7 +91,7 @@ Overview below — each links to a dedicated page with the full explanation, edg
 
 ## Interface
 
-All panels live in the 3D viewport sidebar (`N` > **Pipeline** tab) — Project, Asset, Shot, Tracking, Farm — plus the live page in the browser (*Open in browser*), and a "Pipeline" menu in the top bar for quick access without opening the sidebar. Full panel-by-panel reference: **[docs/interface.md](docs/interface.md)**.
+All panels live in the 3D viewport sidebar (`N` > **Pipeline** tab) — Project, Asset, Shot, Tracking, Farm — plus the live page in the browser (*Monitor in browser*), and a "Pipeline" menu in the top bar for quick access without opening the sidebar. Full panel-by-panel reference: **[docs/interface.md](docs/interface.md)**.
 
 ---
 

@@ -111,7 +111,7 @@ class M_PIPELINE_MT_topbar_menu(bpy.types.Menu):
             ("m_pipeline.create_shot", "New shot", "BLANK1", {}),
             ("m_pipeline.batch_create", "Batch create from CSV", "BLANK1", {"greyed": True}),
             None,
-            ("m_pipeline.open_live_page", "Open in browser", "URL", {}),
+            ("m_pipeline.open_live_page", "Monitor in browser", "URL", {}),
             ("m_pipeline.open_live_page", "Share with a phone…", "COMMUNITY", {"tab": "share"}),
             ("m_pipeline.export_snapshot", "Snapshot", "BLANK1", {}),
             ("m_pipeline.import_review", "Import review", "BLANK1", {}),

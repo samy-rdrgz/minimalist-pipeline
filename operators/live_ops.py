@@ -14,7 +14,7 @@ class M_PIPELINE_OT_open_live_page(bpy.types.Operator):
     """Open the project's page in the browser, served by Blender and kept up to date"""
 
     bl_idname = "m_pipeline.open_live_page"
-    bl_label = "Open in browser"
+    bl_label = "Monitor in browser"
     bl_description = (
         "The project's page in the browser, served by this Blender and kept "
         "up to date as the project changes -- on this machine only"
@@ -27,6 +27,10 @@ class M_PIPELINE_OT_open_live_page(bpy.types.Operator):
 
     @classmethod
     def description(cls, context, properties):
+        if properties.file:
+            return "This file's details -- departments, notes, renders, links -- in the project's page in the browser, served by this Blender and kept up to date"
+        if properties.tab == "farm":
+            return "The farm -- jobs, machines -- in the project's page in the browser, served by this Blender and kept up to date"
         if properties.tab == "share":
             return "Share with a phone: a link and its QR code for someone on this network, with their name, role and how long"
         return cls.bl_description
