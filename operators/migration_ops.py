@@ -50,8 +50,8 @@ def _department_enum(self, context):
 
 def renamed_for(name: str, department: str) -> str:
     """A preset's name for a department: the department in place of its
-    first word ("default_hd" -> "render_hd"), before it with none ("hd" ->
-    "render_hd")."""
+    first word ("final_hd" -> "lighting_hd"), before it with none ("hd" ->
+    "lighting_hd")."""
     for sep in ("_", "-"):
         if sep in name:
             return f"{department}{sep}{name.split(sep, 1)[1]}"
