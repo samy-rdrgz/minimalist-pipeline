@@ -771,11 +771,11 @@ function fLabel(v,n){return (v.start!=null?'f':'#')+n;}
 // on its shot or on none, then this review's lines ([f12], [f12-30]).
 function marksOf(it,v){var out=[],own=function(sh){return !sh||!v.shots||v.shots.indexOf(sh)>=0||v.shots.indexOf(sh.replace(/^[a-z]+/i,''))>=0;};
 it.notes.forEach(function(n){if(n.closed)return;var m=/f(\d+)(?:-(\d+))?/.exec(n.frames||'');if(!m||!own(n.shot))return;
-out.push({a:+m[1],b:m[2]?+m[2]:null,rtk:n.type==='rtk'&&n.done===false,text:n.text,who:author(n),type:n.type,id:n.id});});
+out.push({a:+m[1],b:m[2]?+m[2]:null,rtk:n.type==='rtk'&&n.done===false,text:n.text,who:author(n),type:n.type,id:n.id,deps:n.deps||[]});});
 var e=peek(it),lines=[];Object.keys(e.deps).forEach(function(d){if(e.deps[d].text)lines=lines.concat(e.deps[d].text.split(NL).map(function(l){return [d,l];}));});
 (e.text||'').split(NL).forEach(function(l){lines.push(['',l]);});
 lines.forEach(function(x){var m=/\[f(\d+)(?:-(\d+))?\]/.exec(x[1]);if(!m)return;
-out.push({a:+m[1],b:m[2]?+m[2]:null,rtk:!noteOnly(x[1]),text:x[1].replace(/\[[^\]]*\]\s*/g,''),who:'you',type:noteOnly(x[1])?'note':'rtk',mine:true});});
+out.push({a:+m[1],b:m[2]?+m[2]:null,rtk:!noteOnly(x[1]),text:x[1].replace(/\[[^\]]*\]\s*/g,''),who:'you',type:noteOnly(x[1])?'note':'rtk',mine:true,deps:x[0]?[x[0]]:[]});});
 return out.sort(function(p,q){return p.a-q.a;});}
 // The controls, by where the player is.
 function plHtml(mode){var many=PL.list.length>1||mode==='wide';
@@ -805,9 +805,11 @@ function mount(host,mode){if(!PL||!host)return;PL.host=host;PL.mode=mode;host.in
 host.classList.toggle('pv-wide',mode==='wide');drawMarks();upd();if(mode==='wide')drawStrip();}
 function q(c){return PL&&PL.host?PL.host.querySelector(c):null;}
 function total(){return PL.el.duration&&FPS?Math.max(1,Math.round(PL.el.duration*FPS)):0;}
+// A note at a frame's departments, as said beside it: none, the whole file.
+function markDeps(m){return (m.deps||[]).length?m.deps.map(cap).join(', '):'whole file';}
 function drawMarks(){var box=q('.tl-marks'),n=total(),v=PL.v;if(!box)return;if(!n||v.start==null){box.innerHTML='';return;}
 var at=function(f){return Math.max(0,Math.min(100,(f-v.start)/n*100));};
-box.innerHTML=PL.marks.map(function(m){var tip=esc(fLabel(v,m.a)+(m.b?'-'+m.b:'')+' · '+m.text+(m.who?' · '+m.who:''));
+box.innerHTML=PL.marks.map(function(m){var tip=esc(fLabel(v,m.a)+(m.b?'-'+m.b:'')+' · '+markDeps(m)+' · '+m.text+(m.who?' · '+m.who:''));
 return m.b?'<i class="tl-rg'+(m.mine?' mine':'')+'" data-seek="'+m.a+'" style="left:'+at(m.a)+'%;width:'+Math.max(.6,at(m.b)-at(m.a))+'%" title="'+tip+'"></i>':
 '<i class="tl-mk'+(m.rtk?'':' nt')+(m.mine?' mine':'')+'" data-seek="'+m.a+'" style="left:'+at(m.a)+'%" title="'+tip+'"></i>';}).join('');}
 // What changes as it plays: the frame, the head, ▶ / ❚❚, the "+ f12" of
@@ -882,7 +884,7 @@ return '<div class="wl-d'+(d===wlDep?' on':'')+'"><button type="button" class="w
 (rv?'<span class="rvb" data-d="'+esc(d)+'"><button class="ok-b" aria-pressed="'+!!(vv&&vv.ok)+'"'+(asTeam()||!isDone(s)?' disabled':'')+' aria-label="Validate '+esc(d)+'">✓</button>'+
 '<button class="ko-b" aria-pressed="'+!!(vv&&vv.no)+'" aria-label="Retake '+esc(d)+'">✕</button></span>':'')+'</div>';}).join('');
 var marks=PL?PL.marks:[];h+='<div class="wl-h"><h4>Notes at frames</h4><small>click to jump</small></div>'+(marks.length?marks.map(function(m){
-return '<button type="button" class="wl-n" data-seek="'+m.a+'"><span class="ft'+(m.b?' rg':m.rtk?'':' nt')+'">'+esc(fLabel(v,m.a)+(m.b?'-'+m.b:''))+'</span>'+esc(m.text)+(m.who?'<small> · '+esc(m.who)+'</small>':'')+'</button>';}).join(''):'<p class="faint">No note at a frame on this video.</p>');
+return '<button type="button" class="wl-n" data-seek="'+m.a+'"><span class="ft'+(m.b?' rg':m.rtk?'':' nt')+'">'+esc(fLabel(v,m.a)+(m.b?'-'+m.b:''))+'</span>'+esc(m.text)+'<small> · '+esc(markDeps(m))+(m.who?' · '+esc(m.who):'')+'</small></button>';}).join(''):'<p class="faint">No note at a frame on this video.</p>');
 if(rv&&wlDep){var inF=wlIn();h+='<div class="wl-w"><div class="wl-wl"><label for="wl-ta">Retake '+(inF!=null?'from '+esc(fLabel(v,inF))+' to ':'at ')+'<span class="addf-l">'+(v?esc(fLabel(v,frameNo(v,PL.el.currentTime))):'')+'</span> on '+esc(cap(wlDep))+'</label>'+
 '<button type="button" class="wl-in" data-wlin aria-pressed="'+(inF!=null)+'" title="'+(inF!=null?'Forget the range\'s start':'A range: its start at the frame shown, its end the frame you\'re on when you add it (I)')+'">'+(inF!=null?'⇤ '+esc(fLabel(v,inF))+' ✕':'⇤ Range from here')+'</button></div>'+
 '<textarea id="wl-ta" rows="3" placeholder="Write while watching — Enter adds it"></textarea></div>';}
