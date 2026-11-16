@@ -51,6 +51,7 @@ from .tracking import (
     _pipeline_entries,
     _walk_owner_dirs,
     to_check_entries,
+    work_times,
 )
 
 VERSIONS_SHOWN = 15  # a shot's render versions offered to watch, newest first
@@ -430,11 +431,12 @@ def _live_extras(root: Path, cache: dict, outdated: dict) -> dict:
     return out
 
 
-def _as_data(cache: dict, extras: dict | None = None) -> dict:
+def _as_data(cache: dict, extras: dict | None = None, work: dict | None = None) -> dict:
     """read_live()'s cache as read_snapshot_data()'s result."""
     entries = list(cache.values())
     return {
         "live": extras or {},
+        "work": work or {},
         "raws": [(e["kind"], e["owner"], e["raw"], e["blends"]) for e in entries],
         "renders": {str(e["owner"]): e["renders"] for e in entries if e["renders"] is not None},
         "thumbs": {str(e["owner"]): e["thumb"] for e in entries if e["thumb"]},
@@ -450,10 +452,14 @@ def _read(root, cache, config, v_prefix, extras):
             # Links to a newer stable: one listing per folder linked.
             currents = {k: e.get("links") or [] for k, e in new.items()}
             extras = _live_extras(root, new, _outdated_links_of(root, [Path(k) for k in new], currents, v_prefix))
-        _reader["result"] = (root, new, changed, extras)
+        # Work time: a session ended elsewhere changes no folder -- its own
+        # news (one stat a pass, the log read again only when it changed).
+        work = work_times(root)
+        changed = changed or work != _reader.get("work")
+        _reader["result"] = (root, new, changed, extras, work)
     except Exception as e:  # never die silently: the next pass tries again
         log("WARNING", "live", f"Live page: project not read: {e!r}")
-        _reader["result"] = (root, cache, False, extras)
+        _reader["result"] = (root, cache, False, extras, _reader.get("work"))
 
 
 # --- the main thread -------------------------------------------------------------
@@ -482,7 +488,7 @@ def _turn(sh: _Shared) -> None:
         # Another project made active: the page follows it -- told it's
         # being read (it reloads on the waiting page), then its data.
         sh.root = Path(root)
-        _reader.update(cache={}, result=None, compare=None, farm=None, ready=False, extras=None, at=0.0)
+        _reader.update(cache={}, result=None, compare=None, farm=None, ready=False, extras=None, work=None, at=0.0)
         with sh.changed:
             sh.version += 1
             sh.data, sh.body = None, b""
@@ -519,7 +525,7 @@ def _turn(sh: _Shared) -> None:
     if _reader["result"] is not None and not (thread and thread.is_alive()) and _reader["result"][0] != sh.root:
         _reader["result"] = None  # the project before: dropped
     if _reader["result"] is not None and not (thread and thread.is_alive()):
-        _, cache, changed, _reader["extras"] = _reader["result"]
+        _, cache, changed, _reader["extras"], _reader["work"] = _reader["result"]
         _reader["result"] = None
         _reader["cache"] = cache
         _reader["ready"] = True
@@ -1000,7 +1006,7 @@ def _rebuild(sh: _Shared, force: bool) -> None:
         # Played from the project, through the server.
         "videos": {"mode": "live", "base": None, "files": [], "local": f"media/{sh.token}/renders"},
     }
-    data = page_data(build_snapshot(_as_data(_reader["cache"], _reader.get("extras")), config, meta, farm=farm))
+    data = page_data(build_snapshot(_as_data(_reader["cache"], _reader.get("extras"), _reader.get("work")), config, meta, farm=farm))
     # Its Farm tab: the farm as Farm monitoring shows it.
     data["farm"] = jobs
     # Compared without its date: a pass finding nothing new is no news.
@@ -1240,7 +1246,7 @@ def start(root: Path) -> str:
     threading.Thread(target=server.serve_forever, name="pipeline-live", daemon=True).start()
     _shared, _server = sh, server
     _reader.update(thread=None, result=None, at=0.0, farm_at=0.0, cache={}, farm=None, compare=None, ready=False,
-                   waiting=[], in_pass=[], extras=None)
+                   waiting=[], in_pass=[], extras=None, work=None)
     # persistent: kept when a file is opened.
     if not bpy.app.timers.is_registered(_tick):
         bpy.app.timers.register(_tick, first_interval=0.0, persistent=True)

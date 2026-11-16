@@ -1166,7 +1166,9 @@ h+=notesBar(it)+'<div class="p-block major">'+wholeHtml(it,rv)+(deps.length?deps
 if(it.live)h+=(guest()?'':renderHtml(it))+checksHtml(it)+linksHtml(it);
 if(rv)h+=fileSettings(it,e);
 // Where it comes from: at the bottom, out of the way while reviewing.
-h+='<dl class="view-only facts"><dt>Last render</dt><dd>'+rendersHtml(it)+noVideo(it)+'</dd><dt>Blender file</dt><dd class="fileline">'+esc(it.file)+'.blend</dd></dl>';
+h+='<dl class="view-only facts"><dt>Last render</dt><dd>'+rendersHtml(it)+noVideo(it)+'</dd><dt>Blender file</dt><dd class="fileline">'+esc(it.file)+'.blend</dd>'+
+// Its logged work time, every version and everyone: the file's, no one's.
+(it.work?'<dt>Work time</dt><dd class="faint" title="Sessions that saved, every version, everyone together">'+dur(it.work)+'</dd>':'')+'</dl>';
 // The player's video kept as the panel is redrawn (moved, not made again).
 if(PL&&PL.host&&PL.mode==='panel'&&PL.it===it)document.body.appendChild(PL.el).hidden=true;
 $('p-body').innerHTML=h;$('p-body').querySelectorAll('textarea').forEach(grow);

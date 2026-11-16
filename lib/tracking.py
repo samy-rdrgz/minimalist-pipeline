@@ -514,6 +514,69 @@ def _session_folder_key(folder) -> str:
         return os.path.normcase(str(folder))
 
 
+# root -> (current log's mtime, archives' names, archives' totals, totals)
+_work_times: dict[str, tuple] = {}
+
+
+def work_times(root: Path) -> dict[str, float]:
+    """Logged work time per asset/shot folder ({_session_folder_key():
+    seconds}), every version and everyone summed -- a file's total, never a
+    person's (docs/design.md). sessions_log.jsonl plus its rotated archives,
+    read again only when the log's mtime or the archives' list changed
+    (archives never change once rotated). A session that never saved isn't
+    work (someone looking, a review). Pure os/json, root explicit: safe on
+    the live page's reader thread. {} if unreadable; never raises."""
+    try:
+        logs = Path(root) / "config" / "logs"
+        log_path = logs / "sessions_log.jsonl"
+        try:
+            mtime = log_path.stat().st_mtime
+        except OSError:
+            mtime = -1.0
+        try:
+            archives = sorted(p.name for p in (logs / "archives").glob("sessions_log_*.jsonl"))
+        except OSError:
+            archives = []
+        key = str(root)
+        old = _work_times.get(key)
+        if old and old[0] == mtime and old[1] == archives:
+            return old[3]
+        if old and old[1] == archives:
+            past = old[2]
+        else:
+            past = _sum_work(root, [logs / "archives" / n for n in archives])
+        current = _sum_work(root, [log_path])
+        totals = {k: past.get(k, 0.0) + current.get(k, 0.0) for k in past.keys() | current.keys()}
+        _work_times[key] = (mtime, archives, past, totals)
+        return totals
+    except Exception:
+        return {}
+
+
+def _sum_work(root: Path, log_paths) -> dict[str, float]:
+    """Sum of session_end durations per folder key across log_paths, the
+    missing or unreadable ones skipped."""
+    totals: dict[str, float] = {}
+    for log_path in log_paths:
+        try:
+            with open(log_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    try:
+                        entry = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if entry.get("action") != "session_end" or entry.get("saved") is False:
+                        continue
+                    fp, duration = entry.get("filepath"), entry.get("duration_seconds")
+                    if not fp or not isinstance(duration, (int, float)):
+                        continue
+                    k = os.path.normcase(to_relative(Path(fp).parent, Path(root)))
+                    totals[k] = totals.get(k, 0.0) + duration
+        except OSError:
+            continue
+    return totals
+
+
 class RecentFilesCache:
     """Last few files this user opened, one per asset/shot, from
     sessions_log.jsonl's session_end lines; the open file is never in it.

@@ -6,6 +6,9 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- Snapshot and live page: a file's work time at the bottom of its panel,
+  small -- every version and everyone together, the sessions that saved
+  (Project monitoring showed it before it was removed).
 - Snapshot page, the notes in review: a thread one line, opened in place
   (its replies, *Reply*, *Mark fixed*); an author's notes of a day under
   one header; a bar to show the open ones, all, or yours, newest first or

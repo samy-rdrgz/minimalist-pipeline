@@ -43,10 +43,12 @@ from .tracking import (
     APPROVAL_SOURCE,
     _collect_folder,
     _pipeline_entries,
+    _session_folder_key,
     _status_from_raw,
     _walk_owner_dirs,
     entry_departments,
     owner_key,
+    work_times,
     render_to_check_label,
     to_check_entries,
 )
@@ -423,7 +425,7 @@ def read_snapshot_data(
     (read_render_state()) and thumbnails, remade first when missing or older
     than their render (one headless Blender, waited on: run it on a thread).
     thumbnails: {"size", "blender", "ffmpeg"}, None to skip. Returns
-    {"raws", "renders", "thumbs", "shot_thumbs", "thumb_warnings"}."""
+    {"raws", "renders", "thumbs", "shot_thumbs", "thumb_warnings", "work"}."""
     raws = read_snapshot_raw(root)
     config = read_json_quiet(Path(root) / "config" / "project_config.json") or {}
     renders = {
@@ -486,6 +488,7 @@ def read_snapshot_data(
         "thumbs": thumbs,
         "shot_thumbs": shot_thumbs,
         "thumb_warnings": warnings,
+        "work": work_times(root),
     }
 
 
@@ -553,6 +556,8 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
             # The live page's own (lib/live.py): its links, its renders to
             # check, every version's video.
             "live": (data.get("live") or {}).get(str(owner)),
+            # Logged work time, every version and everyone (work_times()).
+            "work_seconds": (data.get("work") or {}).get(_session_folder_key(owner)),
         }
         # A render's folder is vXXX_YYY: XXX the .blend version rendered,
         # YYY the render increment. The history's source_file says XXX
