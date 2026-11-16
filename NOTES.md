@@ -5398,8 +5398,17 @@ from outside: in step with the frames by construction.
 - Migration: nothing to do -- old renders have no FLAC nor track; their
   compilation (recompiled) or a preview gives them silence; a job queued
   before (no "sound" key) is with sound.
-- Not checked in Blender yet: `bpy.ops.sound.mixdown`'s options in
-  background (a Blender taking fewer: the format alone, TypeError caught).
+- **The mixdown is a background job** (seen in Blender 5.2.2, -b):
+  `bpy.ops.sound.mixdown` returns FINISHED at once, the file is written
+  after by another thread. `mixdown()` waits for it whole
+  (`_wait_written()`: ffmpeg reads it as long as the range -- a FLAC says
+  its length once closed -- and its size still), MIXDOWN_TIMEOUT at most;
+  a background Blender quitting at the end of its script would cut it
+  short. And one job per Blender: without an event loop, the end of the
+  first is never handled, a second mixdown never starts -- the farm's
+  setup makes one per Blender; tests/blender_sound_check.py runs each case
+  in a Blender of its own. All its options taken (FLAC, S16, STEREO,
+  48000), a hidden name fine.
 
 ## Breakdown (snapshot page v4)
 

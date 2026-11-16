@@ -4,10 +4,11 @@ the job's range, beside the frames. The compilation puts it in the video
 (farm/post_render.py), silence when there's none."""
 
 import os
+import time
 from pathlib import Path
 
 from .logs import log
-from .preview import AUDIO_RATE
+from .preview import AUDIO_RATE, media_info
 
 
 def _strips(scene) -> list:
@@ -64,6 +65,44 @@ def _mixdown(path: str) -> None:
         bpy.ops.sound.mixdown(filepath=path, container="FLAC", codec="FLAC")
 
 
+# How long a mixdown may take to be written whole, at most.
+MIXDOWN_TIMEOUT = 300.0
+
+
+def _wait_written(path: Path, seconds: float, timeout: float | None = None) -> bool:
+    """Wait for the mixdown at path to be written whole: Blender (5.x at
+    least) runs bpy.ops.sound.mixdown as a background job -- it returns
+    FINISHED at once, the file comes after, from another thread, and a
+    background Blender quitting at the end of its script would cut it
+    short. Whole: ffmpeg reads it as long as the range (a FLAC says its
+    length once closed), its size still for a moment; without ffmpeg, its
+    size still for longer. False if it isn't by timeout."""
+    from .core import resolve_ffmpeg  # local: core imports this package's modules
+
+    timeout = MIXDOWN_TIMEOUT if timeout is None else timeout
+    ffmpeg = resolve_ffmpeg()
+    still_for = 0.5 if ffmpeg else 3.0
+    deadline = time.monotonic() + timeout
+    last, since = None, time.monotonic()
+    while time.monotonic() < deadline:
+        time.sleep(0.25)
+        try:
+            size = path.stat().st_size
+        except OSError:
+            continue
+        if size != last:
+            last, since = size, time.monotonic()
+            continue
+        if not size or time.monotonic() - since < still_for:
+            continue
+        if not ffmpeg:
+            return True
+        info = media_info(path, ffmpeg, timeout=30) or {}
+        if info.get("audio") and info.get("duration") and abs(info["duration"] - seconds) < 0.1:
+            return True
+    return False
+
+
 # Why the last mixdown() wrote nothing ("" if it did): the log says it
 # too, but only with a project active -- tests/blender_sound_check.py
 # prints it.
@@ -91,10 +130,20 @@ def mixdown(scene, path: Path, start: int, end: int) -> bool:
             if hasattr(scene, prop):
                 setattr(scene, prop, value)
         tmp = path.with_name(f".{path.stem}.tmp.flac")
+        tmp.unlink(missing_ok=True)
+        fps = scene.render.fps / (scene.render.fps_base or 1.0)
         _mixdown(str(tmp))
-        if not tmp.is_file():
-            raise OSError("the mixdown wrote no file")
-        os.replace(tmp, path)
+        if not _wait_written(tmp, (int(end) - int(start) + 1) / fps):
+            raise OSError("the mixdown wrote no whole file in time" if tmp.exists() else "the mixdown wrote no file")
+        # Windows: the writer may still hold it a moment after its last byte.
+        for _ in range(40):
+            try:
+                os.replace(tmp, path)
+                break
+            except PermissionError:
+                time.sleep(0.25)
+        else:
+            os.replace(tmp, path)
         return True
     except Exception as e:
         last_error = f"{type(e).__name__}: {e}"

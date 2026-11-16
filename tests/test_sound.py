@@ -13,6 +13,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 from types import SimpleNamespace as NS
 
@@ -48,11 +49,15 @@ def check_mixdown(sound, bpy) -> None:
         Path(kw["filepath"]).write_bytes(b"fLaC")
 
     bpy.ops.sound.mixdown = fake_mixdown
+    # The wait for Blender's background job: checked for real below
+    # (check_background_job()); here a file there is a file written.
+    real_wait = sound._wait_written
+    sound._wait_written = lambda path, seconds, timeout=None: path.exists()
 
     def scene(strips=(), objects=(), editor=True):
         ed = NS(strips_all=list(strips)) if editor else None
         return NS(sequence_editor=ed, objects=list(objects), frame_start=1, frame_end=250,
-                  use_preview_range=True, use_audio=True)
+                  use_preview_range=True, use_audio=True, render=NS(fps=24, fps_base=1.0))
 
     strip = NS(type="SOUND", mute=False, sound=object())
     speaker = NS(type="SPEAKER", data=NS(sound=object(), muted=False))
@@ -103,6 +108,50 @@ def check_mixdown(sound, bpy) -> None:
         out.unlink()
         assert sound.mixdown(scene([strip]), out, 1, 10) is False
         assert not any(Path(d).iterdir()), list(Path(d).iterdir())
+    sound._wait_written = real_wait
+
+
+def check_background_job(sound, core, bpy) -> None:
+    """Blender 5.x: the mixdown operator returns at once, the file is
+    written after by another thread -- mixdown() waits for it whole."""
+    import threading
+
+    core.resolve_ffmpeg = lambda: "ffmpeg"
+
+    def write_later(path, seconds, delay):
+        time.sleep(delay)
+        # Slowly, as a long mixdown: a raw header first, then the file.
+        Path(path).write_bytes(b"fLaC\0")
+        time.sleep(0.6)
+        subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", f"sine=d={seconds}:r=48000",
+                        "-ac", "2", "-f", "flac", str(path)], check=True)
+
+    def background(seconds, delay=0.8):
+        def op(**kw):
+            threading.Thread(target=write_later, args=(kw["filepath"], seconds, delay), daemon=True).start()
+            return {"FINISHED"}
+        return op
+
+    sc = NS(sequence_editor=NS(strips_all=[NS(type="SOUND", mute=False, sound=object())]), objects=[],
+            frame_start=1, frame_end=1, use_preview_range=False, use_audio=False, render=NS(fps=24, fps_base=1.001))
+    with tempfile.TemporaryDirectory() as d:
+        out = Path(d) / "sh010.flac"
+        length = 48 / (24 / 1.001)
+        bpy.ops.sound.mixdown = background(length)
+        t = time.monotonic()
+        assert sound.mixdown(sc, out, 25, 72), sound.last_error
+        assert time.monotonic() - t > 1.0, "returned before the file was written"
+        info = sound.media_info(out, "ffmpeg")
+        assert info["audio"] == "flac" and abs(info["duration"] - length) < 0.05, info
+        assert [p.name for p in Path(d).iterdir()] == ["sh010.flac"]
+        # Never whole (a length that isn't the range's): given up at the
+        # timeout, no sound, nothing left.
+        sound.MIXDOWN_TIMEOUT = 3
+        out.unlink()
+        bpy.ops.sound.mixdown = background(0.5, delay=0.1)
+        assert not sound.mixdown(sc, out, 25, 72) and "in time" in sound.last_error, sound.last_error
+        time.sleep(0.5)
+        assert not out.exists()
 
 
 def main() -> None:
@@ -112,7 +161,10 @@ def main() -> None:
 
     fake_bpy.install()
     pkg = fake_bpy.load()
-    check_mixdown(importlib.import_module(f"{pkg.__name__}.lib.sound"), sys.modules["bpy"])
+    sound = importlib.import_module(f"{pkg.__name__}.lib.sound")
+    check_mixdown(sound, sys.modules["bpy"])
+    if shutil.which("ffmpeg"):
+        check_background_job(sound, importlib.import_module(f"{pkg.__name__}.lib.core"), sys.modules["bpy"])
 
     config = importlib.import_module(f"{pkg.__name__}.lib.config")
     post = importlib.import_module(f"{pkg.__name__}.farm.post_render")

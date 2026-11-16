@@ -5,6 +5,9 @@ starting where the tone does. Needs the add-on installed and ffmpeg.
 
     blender -b --python tests/blender_sound_check.py
 
+Each mixdown runs in a Blender of its own (started by this one): a
+background Blender runs one mixdown job.
+
 Prints OK / FAIL per check, and leaves its files in a temporary folder
 (printed) to listen to.
 """
@@ -107,12 +110,69 @@ def diagnose(scene, d):
     print("--- end of diagnosis ---\n")
 
 
-def main():
+ARGS = sys.argv[sys.argv.index("--") + 1 :] if "--" in sys.argv else []
+
+
+def tone_scene(wav):
+    """The scene: the tone as a sound strip on channel 1, from frame 1."""
+    scene = bpy.context.scene
+    editor = scene.sequence_editor or scene.sequence_editor_create()
+    strips = editor.strips if hasattr(editor, "strips") else editor.sequences  # 4.4+ / before
+    strips.new_sound("tone", str(wav), 1, 1)
+    return scene, editor
+
+
+def run_case(base, d):
+    """One mixdown and its compilations, in a Blender of its own: a
+    background Blender runs one mixdown job (the next waits for the end
+    of the first, which only its event loop would handle) -- the farm's
+    setup makes one per Blender too."""
     name = addon()
     lib = importlib.import_module(f"{name}.lib")
     sound = importlib.import_module(f"{name}.lib.sound")
     post = importlib.import_module(f"{name}.farm.post_render")
     preview = importlib.import_module(f"{name}.lib.preview")
+    ffmpeg = lib.resolve_ffmpeg()
+    scene, _ = tone_scene(d / "tone.wav")
+    frames_dir = d / "frames"
+    rate = round(24 / base, 3)
+    scene.render.fps, scene.render.fps_base = 24, base
+    scene.use_audio = True  # the timeline's Mute, left on: the mixdown must still have sound
+    flac = d / f"sh010_{rate}.flac"
+    ok = sound.mixdown(scene, flac, 25, 72)
+    check(f"[{rate} fps] mixdown written", ok and flac.is_file(), str(flac) if ok else getattr(sound, "last_error", "?"))
+    if not flac.is_file():
+        diagnose(scene, d)
+        return
+    info = preview.media_info(flac, ffmpeg)
+    want = 48 / rate
+    check(f"[{rate} fps] its length is the range's", info and abs(info["duration"] - want) < 0.03,
+          f"{info and info['duration']} s, {want:.3f} expected")
+    lead = leading_silence(flac, ffmpeg)
+    check(f"[{rate} fps] it starts at the range's first frame (the tone)", lead < 0.05, f"{lead:.2f} s of silence first")
+    for fmt in ("mp4", "prores_lt"):
+        preset = dict(post.VIDEO_FORMATS[fmt])
+        video = d / f"sh010_{rate}.{preset.get('extension', 'mp4')}"
+        cmd = post.compile_command(
+            ffmpeg_bin=ffmpeg, frames_pattern=str(frames_dir / "f.%05d.png"), first=25, last=72,
+            fps=rate, preset=preset, video=video, width=320, size=(320, 180), audio=flac,
+        )
+        r = subprocess.run(cmd[:1] + ["-v", "error"] + cmd[1:], capture_output=True, text=True)
+        check(f"[{rate} fps] {fmt}: compiled", r.returncode == 0, r.stderr.strip()[-300:])
+        info = preview.media_info(video, ffmpeg) or {}
+        expected = "pcm_s16le" if fmt == "prores_lt" else "aac"
+        check(f"[{rate} fps] {fmt}: its sound ({expected})", info.get("audio") == expected, str(info))
+        if abs((info.get("duration") or 0) - want) > 0.05:
+            check(f"[{rate} fps] {fmt}: its length", False, f"{info.get('duration')} s, {want:.3f} expected")
+        if fmt == "prores_lt":
+            ld = info and preview.media_info(post.ld_path(video), ffmpeg) or {}
+            check(f"[{rate} fps] {fmt}: its light copy has sound (aac)", ld.get("audio") == "aac", str(ld))
+
+
+def main():
+    name = addon()
+    lib = importlib.import_module(f"{name}.lib")
+    sound = importlib.import_module(f"{name}.lib.sound")
     ffmpeg = lib.resolve_ffmpeg()
     if not ffmpeg:
         sys.exit("No ffmpeg: on the PATH, or in the add-on's Preferences, FFmpeg path.")
@@ -121,11 +181,7 @@ def main():
     d = Path(tempfile.mkdtemp(prefix="mp_sound_"))
     wav = d / "tone.wav"
     write_wav(wav)
-
-    scene = bpy.context.scene
-    editor = scene.sequence_editor or scene.sequence_editor_create()
-    strips = editor.strips if hasattr(editor, "strips") else editor.sequences  # 4.4+ / before
-    strips.new_sound("tone", str(wav), 1, 1)  # channel 1, from frame 1
+    scene, editor = tone_scene(wav)
     check("scene with a sound strip: found", sound.scene_has_sound(scene))
 
     # A speaker, in a scene of its own.
@@ -136,60 +192,43 @@ def main():
     other.collection.objects.link(bpy.data.objects.new("spk", spk))
     check("scene with a speaker: found", sound.scene_has_sound(other))
 
-    frames_dir = d / "frames"
-    frames_dir.mkdir()
-    # Frames 25..72: from 1 s (the tone's start at 24 fps) for 2 s.
-    subprocess.run([ffmpeg, "-v", "error", "-f", "lavfi", "-i", "testsrc=size=320x180:rate=24",
-                    "-frames:v", "48", "-start_number", "25", str(frames_dir / "f.%05d.png")], check=True)
-
-    for fps, base in ((24, 1.0), (24, 1.001)):
-        rate = round(fps / base, 3)
-        scene.render.fps, scene.render.fps_base = fps, base
-        scene.use_audio = True  # the timeline's Mute, left on: the mixdown must still have sound
-        flac = d / f"sh010_{rate}.flac"
-        ok = sound.mixdown(scene, flac, 25, 72)
-        check(f"[{rate} fps] mixdown written", ok and flac.is_file(), str(flac) if ok else getattr(sound, "last_error", "?"))
-        if not flac.is_file():
-            diagnose(scene, d)
-            continue
-        info = preview.media_info(flac, ffmpeg)
-        want = 48 / rate
-        check(f"[{rate} fps] its length is the range's", info and abs(info["duration"] - want) < 0.03,
-              f"{info and info['duration']} s, {want:.3f} expected")
-        lead = leading_silence(flac, ffmpeg)
-        check(f"[{rate} fps] it starts at the range's first frame (the tone)", lead < 0.05, f"{lead:.2f} s of silence first")
-
-        for fmt in ("mp4", "prores_lt"):
-            preset = dict(post.VIDEO_FORMATS[fmt])
-            video = d / f"sh010_{rate}.{preset.get('extension', 'mp4')}"
-            cmd = post.compile_command(
-                ffmpeg_bin=ffmpeg, frames_pattern=str(frames_dir / "f.%05d.png"), first=25, last=72,
-                fps=rate, preset=preset, video=video, width=320, size=(320, 180), audio=flac,
-            )
-            r = subprocess.run(cmd[:1] + ["-v", "error"] + cmd[1:], capture_output=True, text=True)
-            check(f"[{rate} fps] {fmt}: compiled", r.returncode == 0, r.stderr.strip()[-300:])
-            info = preview.media_info(video, ffmpeg) or {}
-            expected = "pcm_s16le" if fmt == "prores_lt" else "aac"
-            check(f"[{rate} fps] {fmt}: its sound ({expected})", info.get("audio") == expected, str(info))
-            if fmt == "prores_lt":
-                ld = info and preview.media_info(post.ld_path(video), ffmpeg) or {}
-                check(f"[{rate} fps] {fmt}: its light copy has sound (aac)", ld.get("audio") == "aac", str(ld))
-
     # Its sequencer channel muted: no sound found.
     if hasattr(editor, "channels"):
         editor.channels[1].mute = True
         check("its channel muted: no sound found", not sound.scene_has_sound(scene))
         editor.channels[1].mute = False
 
-    # No sound: no file, the old one removed.
-    editor_strips = list(editor.strips_all if hasattr(editor, "strips_all") else editor.sequences_all)
-    for s in editor_strips:
+    # No sound: no mixdown, a file left from before removed.
+    old = d / "old.flac"
+    old.write_bytes(b"old")
+    for s in list(editor.strips_all if hasattr(editor, "strips_all") else editor.sequences_all):
         s.mute = True
-    flac = d / "sh010_24.0.flac"
-    check("all strips muted: no mixdown, the old file removed", not sound.mixdown(scene, flac, 25, 72) and not flac.exists())
+    check("all strips muted: no mixdown, the old file removed", not sound.mixdown(scene, old, 25, 72) and not old.exists())
+
+    # Frames 25..72: from 1 s (the tone's start at 24 fps) for 2 s.
+    (d / "frames").mkdir()
+    subprocess.run([ffmpeg, "-v", "error", "-f", "lavfi", "-i", "testsrc=size=320x180:rate=24",
+                    "-frames:v", "48", "-start_number", "25", str(d / "frames" / "f.%05d.png")], check=True)
+    for base in (1.0, 1.001):
+        print(f"... mixdown at {round(24 / base, 3)} fps, in a Blender of its own")
+        r = subprocess.run(
+            [bpy.app.binary_path, "-b", "--python", __file__, "--", "--case", str(base), "--dir", str(d)],
+            capture_output=True, text=True, errors="replace",
+        )
+        for line in r.stdout.splitlines():
+            if line.startswith(("OK  ", "FAIL")):
+                print(line)
+                RESULTS.append(line.startswith("OK"))
+            elif line.startswith(("---", "  ", "poll")):
+                print(line)
+        if not any(l.startswith(("OK  ", "FAIL")) for l in r.stdout.splitlines()):
+            check(f"[{round(24 / base, 3)} fps] its Blender ran", False, (r.stderr or r.stdout).strip()[-500:])
 
     print(f"\n{sum(RESULTS)}/{len(RESULTS)} OK. Files: {d}")
     sys.exit(0 if all(RESULTS) else 1)
 
 
+if "--case" in ARGS:
+    run_case(float(ARGS[ARGS.index("--case") + 1]), Path(ARGS[ARGS.index("--dir") + 1]))
+    sys.exit(0)
 main()
