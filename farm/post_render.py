@@ -132,14 +132,44 @@ def checks_images(job_path: Path):
         log("ERROR", "farm", f"Checks images failed for {job_path.stem!s} {e}")
 
 
+# Edit project's Video choice: the compiled video's format, for the edit.
+# "preset": config/presets/ffmpeg_presets/default.json as written there (a
+# project from before the choice keeps it). Whatever the format, the page
+# plays an mp4: a light copy (ld/) is made in the same ffmpeg pass when the
+# video itself isn't one a browser plays (_ld_args()).
+VIDEO_FORMATS = {
+    # H.264, a key frame every 12 and no B-frame: smooth to scrub in an
+    # editing timeline (H.265 isn't), light, played as is by the page.
+    "mp4": {"codec": "libx264", "preset": "medium", "crf": 18, "pix_fmt": "yuv420p",
+            "extra_args": ["-g", "12", "-bf", "0", "-movflags", "+faststart"]},
+    # ProRes 422 LT: what editing software reads best (DaVinci Resolve's free
+    # version on Linux reads no H.264 / H.265 at all); ~100 Mb/s in 1080p.
+    "prores_lt": {"codec": "prores_ks", "pix_fmt": "yuv422p10le", "extension": "mov",
+                  "extra_args": ["-profile:v", "1", "-vendor", "apl0"]},
+}
+
+
+def video_format(config: dict | None = None) -> str:
+    """The project's Video choice: "mp4", "prores_lt" or "preset"."""
+    config = ConfigCache.get() if config is None else config
+    fmt = json_get(config or {}, "video.format", "preset")
+    return fmt if fmt in VIDEO_FORMATS or fmt == "preset" else "preset"
+
+
 def resolve_ffmpeg_preset(preset_name: str | None) -> dict:
-    """Load an ffmpeg compilation preset by name, falling back to default.json."""
+    """The compilation's ffmpeg preset: the project's Video format, unless
+    it says "preset" or a preset is named -- then that preset file, falling
+    back to default.json."""
     name = preset_name or "default"
+    fmt = video_format()
+    if name == "default" and fmt in VIDEO_FORMATS:
+        return dict(VIDEO_FORMATS[fmt])
     presets_dir = ConfigCache.get_path("ffmpeg_presets")
     path = presets_dir / f"{name}.json"
     if not path.exists():
         path = presets_dir / "default.json"
-    with locked_json(path) as box:
+    # Read only: a preset is read here, never written -- no lock to take.
+    with locked_json(path, read_only=True) as box:
         return box["data"] or {}
 
 
@@ -340,7 +370,12 @@ def build_concat_command(
     )
 
     cmd += ["-filter_complex", ";".join(parts), "-map", "[outv]"]
-    cmd += _ffmpeg_preset_to_args(resolve_ffmpeg_preset(compilation_settings))
+    # A sequence preview is for watching (the page, the player): an mp4 a
+    # browser plays -- a ProRes preset (Video: MOV) wouldn't even go in one.
+    preset = resolve_ffmpeg_preset(compilation_settings)
+    if not browser_codec(str(preset.get("codec", ""))) or str(preset.get("extension") or "mp4").lower() != "mp4":
+        preset = VIDEO_FORMATS["mp4"]
+    cmd += _ffmpeg_preset_to_args(preset)
     cmd += [str(output)]
     return cmd
 

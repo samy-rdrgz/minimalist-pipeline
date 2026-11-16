@@ -5330,6 +5330,20 @@ scrolls sideways and cut it); `ffCount()` from `chipCounts()`. The
 header's height followed by a `ResizeObserver` (`barHeight()`). Not tried
 on a touch screen since: Filters ▾ and the dialogs.
 
+## Video for the edit: a format, the light copy in the same pass
+
+`config["video"]["format"]` (Edit project, *Video*): "mp4" (H.264, -g 12,
+no B-frame: long-GOP H.265 is what timelines choke on), "prores_lt"
+(.mov), "preset" (config/presets/ffmpeg_presets/default.json -- a project
+without the key, so one from before doesn't change unasked).
+`resolve_ffmpeg_preset("default")` returns the format's preset; a named
+preset still wins. The light copy for the page (ld/) is the compilation's
+second output in the same ffmpeg run (`_ld_args()`, one read of the
+frames), made when the video isn't one a browser plays -- so no step or
+setting of its own. A sequence preview is always an mp4 a browser plays
+(ProRes can't go in an mp4). The preset file is read read-only now (it
+took a write lock to read).
+
 ## Breakdown (snapshot page v4)
 
 The Breakdown tab: per section five figures, then one sequence × department

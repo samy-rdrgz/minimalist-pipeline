@@ -6,6 +6,12 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- Edit project, *Video*: the video compiled from a render's frames, for
+  the edit -- *MP4 · H.264* (smooth to scrub, light, played as is by the
+  page; new projects), *MOV · ProRes 422 LT* (what editing software reads
+  best; the page plays a light mp4 copy made in the same pass) or *Preset
+  file* (the project's default.json, as before: projects from before keep
+  it). A sequence preview stays an mp4 a browser plays.
 - Snapshot and live page, lighter: the header on one line (the videos
   folder and the legend in ⋯); three filters in the bar, the others under
   *Filters ▾* with how many are on; *Show details* (⋯, kept by the
