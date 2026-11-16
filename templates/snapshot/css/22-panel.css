@@ -1,0 +1,173 @@
+/* ---------- detail panel ---------- */
+.scrim{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.32);opacity:0;pointer-events:none;transition:opacity .2s}
+.scrim.on{opacity:1;pointer-events:auto}
+.panel{position:fixed;z-index:51;top:0;right:0;bottom:0;width:min(var(--pw),100%);background:var(--surface);box-shadow:var(--sh-pop);
+transform:translateX(102%);transition:transform .22s ease;display:flex;flex-direction:column}
+.panel.on{transform:none}
+/* A computer: the panel beside the list, not over it -- the list stays
+live, a click on another row shows that file; wide enough, the list
+moves aside so no row hides under the panel. A phone, a tablet upright: the whole screen. */
+@media (min-width:901px){.scrim{display:none}.panel{box-shadow:-1px 0 0 var(--line),-12px 0 32px rgba(0,0,0,.08)}}
+@media (min-width:1100px){.wrap{transition:margin .22s ease}
+body.panel-open .wrap{margin-left:max(20px,calc((100vw - var(--pw) - 1180px) / 2));margin-right:var(--pw)}
+body.panel-open.panel-full .wrap{margin-left:auto;margin-right:auto}}
+/* Dragged past its widest: the whole page, as on a phone (kept by this
+browser) -- dragged back from its left edge, beside the list again. */
+@media (min-width:901px){body.panel-full .panel{width:100%}body.panel-full .p-resize{left:0}
+body.panel-full.panel-open .rbar{left:50%}body.panel-full.panel-open .rfab{right:16px}}
+@media (max-width:900px){.panel{left:0;width:100%;height:100dvh;transform:translateY(102%)}}
+/* Its left edge: drag it to make the panel wider or narrower (kept by
+this browser), a double click for the default width. */
+.p-resize{position:absolute;left:-5px;top:0;bottom:0;width:10px;z-index:2;cursor:col-resize;touch-action:none}
+@media (pointer:coarse){.p-resize{left:-12px;width:24px}body.panel-full .p-resize{left:0}}
+.p-resize::after{content:"";position:absolute;left:4px;top:0;bottom:0;width:2px;background:transparent;transition:background .15s}
+.p-resize:hover::after,.p-resize:focus-visible::after,body.resizing .p-resize::after{background:var(--accent)}
+body.resizing,body.resizing *{cursor:col-resize!important;user-select:none!important}
+body.resizing .wrap,body.resizing .panel{transition:none!important}
+@media (max-width:900px){.p-resize{display:none}}
+
+.p-head{display:flex;flex-wrap:wrap;align-items:flex-start;gap:8px;padding:calc(12px + var(--sat)) 12px 12px 18px;border-bottom:1px solid var(--line)}
+.p-head .t{min-width:0;flex:1;padding-top:4px}
+.p-head .t>b{display:block;font-size:20px;line-height:1.25;font-weight:400}
+.p-head .t>b .nm-main{font-weight:700}
+/* How far along, under the name: the figure large, the bar under it. */
+.p-kpi{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 6px;flex-basis:100%;margin-top:2px}
+.p-head>.flags{flex-basis:100%;margin-top:0}
+.p-kpi:empty{display:none}
+.p-kpi .dv{flex-direction:row-reverse;align-items:center;gap:10px;width:100%}
+.p-kpi .bar2{flex:1;width:auto;height:5px}
+.p-kpi .dvt{font-size:14px}
+.p-head small{color:var(--ink-3);font-size:12px}
+.p-body{overflow:auto;padding:16px 18px 24px;flex:1;overscroll-behavior:contain}
+.p-media{padding-bottom:6px}
+.big{display:block;width:100%;padding:0;border:0;background:none;cursor:zoom-in}
+.big img{display:block;width:100%;height:auto;max-height:40vh;object-fit:contain;border-radius:5px}
+.shotsel{display:flex;gap:6px;margin-top:8px;overflow-x:auto;scrollbar-width:thin;padding-bottom:4px}
+.shotsel button{flex:0 0 96px;padding:0 0 2px;border:2px solid transparent;border-radius:5px;background:none;font-size:11px;color:var(--ink-2);min-height:var(--tap)}
+.shotsel button .frame{margin-bottom:3px}
+.shotsel button[aria-pressed="true"]{border-color:var(--ink);color:var(--ink);font-weight:600}
+.desc{margin:0 0 14px;font-size:14px;line-height:1.5;white-space:pre-line}
+.p-block{padding:10px 0}
+.p-block h4{margin:0 0 6px;font-size:13px;font-weight:600;color:var(--ink-2)}
+.p-block h4 .h-sub{font-weight:400;color:var(--ink-3);margin-left:6px;font-size:12px}
+.dep{padding:4px 0}
+.dep .nm{font-weight:600;min-width:96px}
+.major .dep .nm{font-size:15px}
+.dep .ok,.dep .rk{font-size:12px}
+.rvb{display:none;gap:6px;flex:none}
+.desc-edit{display:block;border:0;background:none;padding:0;margin:-6px 0 8px;min-height:var(--tap);color:var(--ink-3);font-size:12px}
+.desc-edit:hover{color:var(--accent)}
+body.reviewing .rvb{display:inline-flex}
+/* ✓ / ✕: round, 36 px (44 under a finger); outlined violet / red, filled
+once on; a ring on hover, pressed in on a click. */
+.rvb button{width:36px;height:36px;padding:0;border-radius:var(--r-btn);border:1.5px solid var(--val-f);background:none;font-weight:700;font-size:15px;color:var(--valid);
+transition:box-shadow .15s,transform .1s,background .15s}
+.rvb .ko-b{border-color:var(--rtk-f);color:var(--rtk)}
+.rvb button:not(:disabled):hover{box-shadow:0 0 0 4px var(--valid-bg)}.rvb .ko-b:not(:disabled):hover{box-shadow:0 0 0 4px var(--rtk-bg)}
+.rvb button:not(:disabled):active{transform:scale(.92)}
+.rvb .ok-b[aria-pressed="true"]{background:var(--val-f);color:#fff}
+.rvb .ok-b.via{background:var(--valid-bg)}
+.rvb .ko-b[aria-pressed="true"]{background:var(--rtk-f);color:#fff}
+.rvb .ko-b.as-note[aria-pressed="true"]{background:var(--ink-3);border-color:var(--ink-3);color:var(--surface)}
+.rtks{margin:6px 0 0 22px;display:grid;gap:4px}
+.rtkl{font-size:13px;padding:6px 10px;border-radius:6px;background:var(--rtk-bg);color:var(--ink)}
+.rtkl.team{background:var(--team-bg)}
+.rtkl small{display:block;color:var(--ink-3);font-size:11px}
+/* Reviewing: an open RTK said fixed, done once the review is imported. */
+.rtkl{display:flex;align-items:center;gap:10px}
+.rtkl .rt-t{flex:1;min-width:0}
+.rtkl .rt-b{display:flex;gap:2px;flex:none}
+/* A note's own actions: small and quiet -- the departments' ✓ ✕ lead. */
+.rp,.fx{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;border:0;border-radius:50%;
+background:none;color:var(--ink-3);font-size:14px;line-height:1;cursor:pointer}
+.rp:hover,.fx:hover{background:color-mix(in srgb,var(--ink) 8%,transparent);color:var(--ink)}
+.fx:hover{color:var(--valid)}
+/* Said fixed: the icon violet, the note too -- no filled disc. */
+.fx[aria-pressed="true"]{color:var(--valid);font-weight:700}
+.rtkl.fixed{background:var(--valid-bg)}
+/* A todo said done: the same. */
+@media (pointer:coarse){.rp,.fx{width:36px;height:36px}}
+.rtkl.fixed .rt-t{opacity:.55;text-decoration:line-through;text-decoration-color:color-mix(in srgb,currentColor 50%,transparent)}
+textarea{display:block;width:100%;min-height:36px;max-height:50vh;padding:8px 10px;border:1px solid var(--line);border-radius:6px;background:var(--surface);font-size:13px;
+field-sizing:content;overflow:auto;resize:none}
+textarea:focus{border-color:var(--accent);outline:none}
+.fold{display:flex;align-items:center;gap:6px;border:0;background:none;padding:0;min-height:var(--tap);color:var(--ink-2);font-size:13px;font-weight:600}
+.fold::before{content:"";width:6px;height:6px;border:solid var(--ink-3);border-width:0 2px 2px 0;transform:rotate(-45deg);transition:transform .15s}
+.fold[aria-expanded="true"]::before{transform:rotate(45deg)}
+/* Who and when, then the note's own actions: one block, never split. */
+.more-notes{border:0;background:none;color:var(--accent);font-size:13px;font-weight:600;padding:0;min-height:var(--tap)}
+.more-notes.quiet{color:var(--ink-3);font-weight:500}
+.renders{display:grid;grid-template-columns:max-content max-content max-content 1fr auto;align-items:center;gap:6px 14px;padding:10px 12px;border-radius:6px;background:var(--sunk);font-size:13px}
+.renders .sh{color:var(--ink-2);font-weight:600}
+.renders .bh{color:var(--wip-ink)}
+.renders .bh small,.renders .ss{color:var(--ink-3);font-size:12px;margin-left:6px}
+.renders .ss.fail{color:var(--rtk);font-weight:600}
+.renders .pl{border:0;background:none;padding:0 4px;min-height:24px;color:var(--accent);font-size:12px;font-weight:600}
+.fileline{font:12px/1.5 var(--mono);padding:8px 12px;border-radius:6px;background:var(--sunk);overflow-wrap:anywhere}
+body.reviewing .view-only{display:none}
+.review-only{display:none}
+#p-play{background:var(--accent);border-color:var(--accent);color:var(--on-fill);font-size:13px;padding-left:2px}
+#p-play:hover{filter:brightness(1.1)}body.reviewing .review-only{display:flex}
+.vlist{flex-wrap:wrap;gap:2px 4px;margin-top:6px}
+.vlist .pl{min-height:28px;padding:0 8px;border:0;border-radius:var(--r-btn);background:none;color:var(--accent);font-size:12px;font-weight:600}
+.vlist .pl:hover{background:var(--accent-bg)}
+@media (pointer:coarse){.vlist .pl{min-height:var(--tap)}}
+/* Where it comes from: the least read, the quietest -- one block of
+label: value lines under the only rule of the panel. */
+.facts{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:baseline;gap:6px 14px;margin:14px 0 0;padding-top:14px;border-top:1px solid var(--line);font-size:12px;color:var(--ink-2)}
+.facts dt{color:var(--ink-3)}
+.facts dd{margin:0;min-width:0}
+.novid{margin:4px 0 0;font-size:11px;color:var(--ink-3)}
+.vpick{color:var(--accent);font-weight:600;cursor:pointer;text-decoration:underline;text-underline-offset:2px;white-space:nowrap}
+.vpick input{display:none}
+.lb .vpick{color:inherit}
+@media (max-width:640px){.facts{grid-template-columns:minmax(0,1fr);gap:2px}.facts dt{margin-top:8px}.facts dt:first-child{margin-top:0}}
+.facts .renders{display:grid;grid-template-columns:max-content max-content max-content 1fr auto;align-items:baseline;gap:2px 10px;padding:0;background:none;font-size:12px}
+.facts .renders .sh{font-weight:600}
+.renders.one,.facts .renders.one{grid-template-columns:max-content max-content 1fr auto}
+.facts .fileline{font:11px/1.5 var(--mono);padding:0;background:none;overflow-wrap:anywhere}
+/* Last render and Blender file: one block, no rule between them. */
+.view-only .p-block+.p-block{border-top:0;padding-top:0}
+.p-foot{display:flex;gap:8px;align-items:center;padding:10px 12px calc(10px + env(safe-area-inset-bottom));border-top:1px solid var(--line)}
+.p-foot .btn{flex:none}
+.keys{flex:1;display:flex;flex-wrap:wrap;justify-content:center;gap:2px 12px;font-size:11px;color:var(--ink-3)}
+.keys .rk2{display:none}
+body.reviewing .keys .rk2{display:inline}
+@media (pointer:coarse){.keys{visibility:hidden}.p-foot .btn{flex:1;min-height:48px}}
+/* A phone: no footer -- ‹ › in the header, or a swipe sideways. */
+.mnav{display:none!important;font-size:20px}
+.mnav:disabled{opacity:.3}
+/* A phone: Previous / Next at the bottom, under the thumb. */
+@media (max-width:640px){.p-foot .keys{display:none}#p-link{display:none}.p-head{gap:6px;padding-right:10px}
+.p-foot{padding-bottom:calc(8px + env(safe-area-inset-bottom))}
+.p-body{padding-bottom:calc(24px + env(safe-area-inset-bottom))}}
+
+/* ---------- lightbox (picture or video) ---------- */
+.lb{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:calc(56px + var(--sat)) 20px 20px;background:rgba(10,10,10,.92)}
+.lb img,.lb video{max-width:100%;max-height:calc(100dvh - 140px);border-radius:3px;background:#000}
+/* The video's own controls: one thin row under it. */
+/* Its size set once by page.js (fitPlayer()), from the video's own shape
+and the room there is -- never from its content: the time ticking, or
+the visible height moving under an app's bars, resized it by a hair, a
+black band coming and going on its sides. */
+.vp{display:flex;flex-direction:column;gap:6px;max-width:100%}
+.vp video{display:block;cursor:pointer;width:100%;height:auto;max-height:none;object-fit:contain;background:transparent}
+.vc{display:flex;align-items:center;gap:6px;color:#ddd;font-size:12px}
+.vb{flex:none;width:30px;height:30px;padding:0;border:0;border-radius:var(--r-btn);background:none;color:#fff;font-size:12px;line-height:1}
+.vb:hover{background:rgba(255,255,255,.14)}
+.vb:disabled{opacity:.3}
+.vr{flex:1;min-width:60px;height:16px;margin:0 4px;accent-color:#fff;cursor:pointer}
+.vt{flex:none;font-variant-numeric:tabular-nums;opacity:.8;min-width:72px;text-align:right}
+/* The frame shown, between one frame back and one on. */
+.vf{flex:none;font-variant-numeric:tabular-nums;color:#fff;min-width:44px;text-align:center}
+.vs{width:24px;font-size:14px}
+/* A phone: the frame says where it is, the time steps aside. */
+@media (max-width:520px){.vc:has(.vf) .vt{display:none}}
+@media (pointer:coarse){.vb{width:40px;height:40px}}
+.lb p{margin:0;max-width:560px;color:#ddd;font-size:13px;text-align:center}
+.lb p code{font:12px var(--mono);color:#fff;overflow-wrap:anywhere}
+.lb .lbn{width:36px;height:36px;border:0;border-radius:var(--r-btn);background:rgba(255,255,255,.14);color:#fff;font-size:18px;vertical-align:middle}
+.lb .lbn:disabled{opacity:.3}
+.lb p b{color:#fff}
+.lb .x{position:absolute;top:calc(12px + var(--sat));right:12px;width:40px;height:40px;border:0;border-radius:var(--r-btn);background:rgba(255,255,255,.14);color:#fff;font-size:16px}
+

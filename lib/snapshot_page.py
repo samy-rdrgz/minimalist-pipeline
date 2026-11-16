@@ -1,7 +1,8 @@
 """The production snapshot's page: build_snapshot()'s dict as one offline
 HTML file. Python only shapes the data (page_data()); the page itself --
-templates/snapshot/: page.html, page.css, page.js, the logo and the
-wordmark's font -- draws it in the browser. Pure: thread-safe."""
+templates/snapshot/: page.html, its stylesheet (css/, CSS_PARTS) and its
+script (js/, JS_PARTS), the logo and the wordmark's font -- draws it in the
+browser. Pure: thread-safe."""
 
 import base64
 import hashlib
@@ -22,6 +23,59 @@ from .snapshot import (
 )
 
 PAGE_DIR = Path(__file__).resolve().parent.parent / "templates" / "snapshot"
+
+# The page's sources, in this order, one stylesheet and one script in the
+# page: the script one function -- js/01-data.js opens it, the last part
+# closes it --, after the state engine's twin (00-status.js, lib/status.py)
+# and the words (02-i18n.js, T()), both global. A part's name says what it
+# holds; their order is the page's (a part may use what an earlier one
+# defined, as one file did).
+CSS_PARTS = (
+    "10-base.css",
+    "20-header.css",
+    "21-list.css",
+    "22-panel.css",
+    "23-review-bar.css",
+    "24-player.css",
+    "25-review.css",
+    "30-live.css",
+)
+JS_PARTS = (
+    "00-status.js",
+    "02-i18n.js",
+    "01-data.js",
+    "10-marks.js",
+    "20-review-state.js",
+    "21-badges.js",
+    "22-header.js",
+    "23-list.js",
+    "24-find.js",
+    "25-menus.js",
+    "30-media.js",
+    "31-player.js",
+    "32-watch.js",
+    "40-breakdown.js",
+    "50-panel.js",
+    "51-keys.js",
+    "52-review.js",
+    "60-start.js",
+    "70-live.js",
+    "71-farm.js",
+    "72-bulk.js",
+    "73-share.js",
+    "74-live-panel.js",
+    "75-live-send.js",
+)
+
+
+def _parts(folder: str, names) -> str:
+    """The parts read and put end to end, each on its own lines."""
+    out = []
+    for name in names:
+        text = (PAGE_DIR / folder / name).read_text(encoding="utf-8")
+        out.append(text if text.endswith("\n") else text + "\n")
+    return "".join(out)
+
 
 _PLACEHOLDER = re.compile(r"\{\{([A-Z0-9_]+)\}\}")
 _VIEWBOX = re.compile(r'viewBox="([^"]+)"')
@@ -64,14 +118,8 @@ def render_page(data: dict) -> str:
     data = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
     values = {
         "TITLE": _escape(title),
-        "CSS": _CSS_COMMENTS.sub("", (PAGE_DIR / "page.css").read_text(encoding="utf-8")),
-        # The state engine's twin (lib/status.py), then the page.
-        "JS": _JS_COMMENTS.sub(
-            "",
-            (PAGE_DIR / "status.js").read_text(encoding="utf-8")
-            + "\n"
-            + (PAGE_DIR / "page.js").read_text(encoding="utf-8"),
-        ),
+        "CSS": _CSS_COMMENTS.sub("", _parts("css", CSS_PARTS)),
+        "JS": _JS_COMMENTS.sub("", _parts("js", JS_PARTS)),
         "FONT": base64.b64encode((PAGE_DIR / "wordmark.ttf").read_bytes()).decode("ascii"),
         "LOGO_VB": viewbox,
         # The <use> of a symbol draws it from 0 0: its box, not the source's.

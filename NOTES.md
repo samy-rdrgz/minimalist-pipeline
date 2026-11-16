@@ -5278,3 +5278,39 @@ table with a switch (`stats()`, `bdTiles()`, `bdTable()`, page.js).
   prefix) -- no filter of its own to undo.
 - **Waiting** is a stage flag (an earlier stage not done, or under RTK),
   not only an RTK: said "waiting on an earlier stage".
+
+## Snapshot page in parts (v7, phase 0)
+
+The v7 redesign (guideline and roadmap: the `minimalist-pipeline-ui-v7`
+bundle) starts by cutting the one page.js / page.css into parts, so the
+work that follows touches a file of a few hundred lines, not 2 000.
+
+- **Cut at the sections already there** (the `/* ---------- x ---------- */`
+  banners), in their order: `templates/snapshot/js/` and `css/`,
+  assembled by `render_page()` in `JS_PARTS` / `CSS_PARTS` order
+  (`_parts()`). Nothing moved, nothing renamed: the page that comes out is
+  the old one byte for byte, plus the words' module. Checked against the
+  2.0 export of the same data before the commit.
+- **Flat, not `core/` / `desktop/` / `mobile/`** as in the v7 sources:
+  the classic page's code isn't split that way (its "core" functions
+  build HTML strings and read the DOM), so the folders would have
+  promised a rule the code doesn't keep. The v7 layout comes with the v2
+  page's own code.
+- **Still one function**: `01-data.js` opens the IIFE, `75-live-send.js`
+  closes it; a part may use what an earlier part defined, as one file
+  did. Only `00-status.js` (`MPStatus`) and `02-i18n.js` (`MPI18n`, `T`)
+  are global, before it.
+- **`T()` (02-i18n.js)**: the key is the English sentence; a dictionary a
+  language (`MPI18n.add('fr', {...})`), a missing key gives the English.
+  Values `{n}`, plurals as `"{n} file|{n} files"` chosen by
+  `Intl.PluralRules` (French says "0 fichier"). Language: the one chosen
+  in this browser (`mp-snapshot:lang`), then `meta.lang`, then the
+  browser's, then English. No string goes through it yet: the classic
+  page stays as it is.
+- **Fixture** `tests/fixtures/snapshot_demo.json`: the v7 demo (sequence
+  sq990 and the rest) in `build_snapshot()`'s shape, what `page_data()`
+  reads -- the demo's own JSON is the mockup's shape, not the export's.
+  Renders and farm jobs are not in it.
+- `tests/test_snapshot_page.py`: each part listed is on disk and the
+  reverse, no placeholder left, the fixture renders, the script parses
+  and `T()` answers (Node; skipped without it).

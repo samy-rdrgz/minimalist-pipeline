@@ -1,7 +1,7 @@
 """Draw the add-on's coloured marks into icons/*.png -- Blender colours no
 icon of its own (see NOTES.md, "Coloured marks"). The snapshot page's
 keyframe diamonds and post-its, in its dark-theme colours
-(templates/snapshot/page.css). Pure Python:
+(templates/snapshot/css/10-base.css). Pure Python:
 
     python3 tools/make_icons.py
 """
@@ -15,7 +15,7 @@ SIZE = 64
 SAMPLES = 4  # per side, per pixel: the edges smoothed
 OUT = Path(__file__).resolve().parent.parent / "icons"
 
-# The snapshot page's dark theme (templates/snapshot/page.css).
+# The snapshot page's dark theme (templates/snapshot/css/10-base.css).
 DONE = (0x00, 0xD4, 0xA3)
 WIP = (0xE1, 0x96, 0x58)
 RING = (0x9A, 0x9D, 0xA4)
