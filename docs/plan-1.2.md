@@ -535,3 +535,48 @@ Elle vient en dernier : elle repose sur le moteur d'états (phase 3), et « mes 
 
 - **Phase 1** : −94 Ko (CHANGELOG), environ −600 lignes (xlsx), environ −80 à 100 lignes (previews), les retraits de compatibilité, et les écrans en boucles, qui devraient être le plus gros gain : panneau farm, File details, Edit project, de l'ordre de quelques centaines de lignes (estimation grossière). Le poids sera mesuré avant et après chaque étape.
 - **Phases 3 à 5** : elles ajoutent du code, surtout le moteur d'états et son jumeau JS. Mais ce moteur *remplace* les calculs d'états répartis aujourd'hui, et le format en actions rend l'import plus simple que l'actuel.
+
+---
+
+## 8. Retours du 16/11 sur l'analyse de l'addon
+
+*Relevé sur `release/2.0.0`.*
+
+### 8.1 Simplifications
+
+| # | Sujet | Décision / état |
+|---|---|---|
+| 1 | Fenêtres **Farm monitoring** et **Project monitoring** | **Fait** sur `release/2.0.0` (`0f114cb`, ≈ −4 200 lignes) : la page live les couvre. Restent le log, Welcome et Project settings. La section 2.8 (« Farm monitoring reste pour l'instant ») est donc dépassée |
+| 2 | Farm : « max worker par machine » | **Retiré**, ça n'a plus de sens avec les chunks. *À préciser* : aucun réglage de ce nom dans le code, seulement le détail par machine (`machine_seconds`, qui a rendu quelle frame). L'estimation de temps reste, **simplifiée** : une seule source, la moyenne en s/frame du preset |
+| 3 | Rôles de validation | **Facultatifs et invisibles** tant que le projet n'en déclare pas (8.2). Toujours `sup`/`prod` par défaut sur `release/2.0.0` (`lib/config.py:431`) |
+| 4 | *(point de l'analyse non noté ici)* | À rediscuter : mesurer d'abord ce qu'il coûte en lignes |
+| 5 | `page.js` | **Simplifier les correctifs de cas particuliers** (iPad et autres) : les regrouper, retirer ceux qu'un comportement général couvre |
+| 6 | Temps de travail par fichier | **Retiré** avec Project monitoring (`0f114cb`). Les sessions notent toujours leur durée, donc on peut le réafficher à peu de frais (File details, ou le panneau du fichier dans la page). À trancher : le réafficher ou pas |
+| 7 | Docs | **Synthétiques** : CHANGELOG en quelques lignes utilisateur par version (`docs/whats-new-2.0.md` montre le ton), NOTES.md réduit aux décisions encore valables (le reste est dans l'historique git), docs EN/FR plus courtes |
+| 8 | Migration | **Sortie du zip** à terme : un script autonome dans le dépôt GitHub (`tools/`). `lib/migration.py` dépend de `lib/tracking.py`, donc de `bpy` : le script devra embarquer ses propres lectures et se lancer avec Python seul (`python migrate.py <projet>`) |
+
+### 8.2 Rôles facultatifs : comment
+
+- `DEFAULT_VALIDATION_ROLES` devient vide : sans `validation_roles` dans la config, **un seul niveau** de validation, « validé », par n'importe qui.
+- Partout où un rôle s'affiche ou se choisit (appels à `validation_roles()` / `covering_role()`, le menu de rôle de la page, le rôle de l'utilisateur dans les préférences et dans *Share with a phone*) : rien n'est dessiné quand la liste est vide.
+- Une validation sans rôle est stockée sous une clé neutre, que `covering_role()` considère comme couvrante.
+- Dans Edit project, le champ des rôles passe dans une partie repliée « Avancé ».
+- **Migration** : un projet qui a déjà des validations `sup`/`prod` sans `validation_roles` dans sa config reçoit ces deux rôles écrits explicitement, pour que rien ne change chez lui.
+
+### 8.3 Questions de l'analyse
+
+- **Tests** : en grande partie faits.
+- **Bouton natif File › Save** : confirmé, il ne passe pas par `wm.safe_save` (seul le raccourci est repris, `lib/saving.py`) ; `save_post_handler` tourne quand même. Un fichier ouvert en lecture seule (verrouillé par un autre, ou stable) peut donc être écrasé par le menu. Blender ne permet ni d'annuler une sauvegarde depuis `save_pre`, ni de remplacer son opérateur C. **Proposition** : dans `save_pre`, si la sauvegarde n'est pas passée par le garde et que le fichier est en lecture seule, copier la version sur disque à l'écart ; dans `save_post`, une popup « Sauvegardé par le menu, sans les protections » avec **« Rétablir et incrémenter »** (le contenu actuel part en nouvelle version, l'ancien fichier est remis en place), soit le même résultat que le garde.
+- **Disque déconnecté** : le risque réel est l'écrasement du travail d'un autre. Si le partage tombe plus de 90 s (`LOCK_STALE_SECONDS`), le verrou de l'artiste périme ; un autre peut ouvrir le fichier en écriture et le sauvegarder. Au retour du partage, `refresh_lock()` voit que le verrou n'est plus à lui et renvoie `False` **sans rien dire**, et Ctrl+S sur un fichier non lecture seule **sauvegarde sans revérifier le verrou** (`lib/saving.py`, branche `if not ro`). **Avertissements proposés** dans `heartbeat_30s` : (a) partage injoignable → une fois : « Partage injoignable : ton verrou va expirer, sauvegarde une copie en local si besoin » ; (b) verrou repris par un autre → popup « X a ouvert ce fichier pendant la coupure », et la session passe en lecture seule : Ctrl+S propose alors l'incrément. La pastille « déconnecté » de la page live peut dire la même chose.
+- **Compatibilité Blender 5.3** : à vérifier (4b.0 a déjà tourné sous 5.3 sur Linux). Pas faisable depuis une session cloud (téléchargement de Blender bloqué par le réseau) : en local, ou en autorisant `download.blender.org`.
+
+### 8.4 Idées retenues
+
+| # | Idée | Comment |
+|---|---|---|
+| 1 | **Le son dans les rendus** (phase 5b) | Le principe est décrit en 5b : mixdown du son des fichiers de shot à côté des images, puis intégré au mp4 par ffmpeg. **Ce qui reste à décider** : (a) *où* : une fois par job, dans le setup qui ouvre déjà le `.blend` (`farm_entry_render_setup.py`), pas par chunk ; (b) *une piste toujours présente* : un silence (`anullsrc`) pour un shot sans son, sinon la mise bout à bout des previews de séquence casse ; (c) *le décalage* : son coupé sur la plage du shot, pas depuis la frame 1 ; un bloc rendu d'un coup, découpé par shot avec ffmpeg ; (d) fps fractionnaires (23,976) : vérifier que la durée du son égale celle des images |
+| 2 | **Relink** | Dans le fichier ouvert, pas besoin de le rouvrir : `library_updates()` change le chemin et fait `lib.reload()`. Pour les fichiers **non ouverts** (mettre à jour tous les shots qui lient un asset), il faut bien les ouvrir, mais en tâche de fond (`blender -b`, comme `templates/batch_create_entry.py`) : verrou vérifié, résultat en nouvelle version, jamais par-dessus. Lançable depuis la page (« Linked files » dit déjà qui lie quoi) |
+| 3 | Rendu local / playblast | Rendu local = mettre son PC en worker (*Make it a worker* dans la page) : rien à faire. **Playblast viewport** : impossible sur un worker (`blender -b` n'a pas de viewport). Faisable dans la session de l'artiste : `render.opengl(animation=True)` de la vue 3D vers le dossier de rendu du shot, noté dans `render_history.json` comme un rendu farm, preview compilée par la mécanique existante. Bloque l'interface pendant le playblast |
+| 4 | **Notifications dans la page live** | `applyData()` reçoit chaque nouvelle version des données : la comparer à la précédente et lister ce qui est arrivé pendant que la page est ouverte (rendu fini ou en échec, nouvelle note ou RTK, changement d'état, fichier sauvegardé par un autre). En mémoire seulement, rien d'enregistré : ce n'est pas le « depuis ta dernière visite » écarté en section 6. Notifications système possibles sur `127.0.0.1` (contexte sûr pour le navigateur) ; pour un invité en `http://` sur le réseau, seulement dans la page |
+| 6 | **Clean old versions** | Sur le modèle de Clean old renders : garder les N dernières wip par fichier. Toujours protégés : les stables, les versions liées par d'autres fichiers, les fichiers ouverts ou verrouillés, les versions citées par une note ouverte. Plus sensible que les rendus : liste à valider avant suppression |
+| 7 | Bibliothèque d'assets Blender (glisser-déposer) | **+** vignettes, catalogues, glisser-déposer en link ou append. **−** il faut marquer chaque asset dans son fichier et le sauvegarder ; la bibliothèque pointe sur un dossier, donc montre aussi les wip et les anciens stables sauf si on ne marque que le dernier stable ; chaque PC doit ajouter le chemin dans les préférences (l'addon peut le faire : `preferences.filepaths.asset_libraries.new()`) ; indexation lente sur un partage la première fois. Les liens créés ainsi pointent sur les mêmes fichiers : la détection des liens périmés marche telle quelle. **Piste peu coûteuse** : *Mark as stable* marque la collection principale comme asset et retire la marque du stable précédent ; la bibliothèque du projet est ajoutée automatiquement. À essayer plus tard |
