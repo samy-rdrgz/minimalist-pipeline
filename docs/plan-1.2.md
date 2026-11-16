@@ -550,7 +550,7 @@ Elle vient en dernier : elle repose sur le moteur d'états (phase 3), et « mes 
 | 2 | Farm : « max worker par machine », protections | Le max de workers par machine est **retiré depuis longtemps**. Reste la **simplification des protections** : on garde celles qui protègent les images (frames bloquées, frames corrompues renvoyées, reprise après plantage, coupure du partage, causes d'échec). **Piste principale** : la préemption par priorité (`_give_way_to_priority()`, `_machines_short()`, `_render_time_left()`, `priority_switch_seconds()`, les drapeaux « yield » des workers, ≈ 200 lignes dans `farm/queue.py` + `farm/workers.py`) : avec les chunks, un job prioritaire prend chaque machine au chunk suivant, sans interrompre une frame. Ensuite, `_host_gives_way_for_setup()` (≈ 70 lignes). À mesurer et décider avant d'y toucher. L'estimation de temps reste, **simplifiée** : une seule source, la moyenne en s/frame du preset |
 | 3 | Rôles de validation | **Facultatifs, par projet** : un projet sans `validation_roles` dans sa config n'a qu'une validation simple, sans rôle, et rien n'en parle dans l'interface ; un projet qui en déclare garde le système actuel (8.2). Toujours `sup`/`prod` par défaut sur `release/2.0.0` (`lib/config.py:431`) |
 | 4 | *(oublié)* | **Abandonné** |
-| 5 | `page.js` | **Simplifier les correctifs de cas particuliers** (iPad et autres) : les regrouper, retirer ceux qu'un comportement général couvre |
+| 5 | `page.js` / `page.css` : garde-fous tactiles et iOS | **Diagnostiqué** (8.5) : peu de poids, beaucoup de complexité. Une seule vraie correction à la racine, à essayer sur l'iPad |
 | 6 | Temps de travail par fichier | **Fait** : réaffiché en bas du panneau d'un fichier dans la page (snapshot et live), en petit, après *Blender file*. `work_times()` (`lib/tracking.py`) : les `session_end` qui ont sauvegardé, toutes versions et tout le monde ; lu dans le thread du live (un `stat` par passe, le journal relu seulement s'il a changé). `tests/test_work_time.py` |
 | 7 | Docs | **Synthétiques** : CHANGELOG en quelques lignes utilisateur par version (`docs/whats-new-2.0.md` montre le ton), NOTES.md réduit aux décisions encore valables (le reste est dans l'historique git), docs EN/FR plus courtes |
 | 8 | Migration | **Sortie du zip** à terme : un script autonome dans le dépôt GitHub (`tools/`). `lib/migration.py` dépend de `lib/tracking.py`, donc de `bpy` : le script devra embarquer ses propres lectures et se lancer avec Python seul (`python migrate.py <projet>`) |
@@ -580,3 +580,35 @@ Elle vient en dernier : elle repose sur le moteur d'états (phase 3), et « mes 
 | 4 | **Notifications dans la page live** | `applyData()` reçoit chaque nouvelle version des données : la comparer à la précédente et lister ce qui est arrivé pendant que la page est ouverte (rendu fini ou en échec, nouvelle note ou RTK, changement d'état, fichier sauvegardé par un autre). En mémoire seulement, rien d'enregistré : ce n'est pas le « depuis ta dernière visite » écarté en section 6. **Jamais ce qu'on vient de faire soi-même** : écarté si son auteur est l'utilisateur de la page (`META.live.user` : note, validation, sauvegarde), et tout changement venu d'une action que la page vient d'envoyer (elle connaît la version des données qui lui répond). Un rendu qu'on a lancé, lui, est notifié quand il finit ou échoue : ça arrive plus tard, sans nous. Notifications système possibles sur `127.0.0.1` (contexte sûr pour le navigateur) ; pour un invité en `http://` sur le réseau, seulement dans la page |
 | 6 | **Clean old versions** | Sur le modèle de Clean old renders : garder les N dernières wip par fichier. Toujours protégés : les stables, les versions liées par d'autres fichiers, les fichiers ouverts ou verrouillés, les versions citées par une note ouverte. Plus sensible que les rendus : liste à valider avant suppression |
 | 7 | Bibliothèque d'assets Blender | **Pas pour l'instant.** Pour mémoire : + vignettes, catalogues, glisser-déposer ; − marquer chaque asset, wip et anciens stables visibles, chemin à ajouter sur chaque PC, indexation lente sur un partage. Piste si un jour : *Mark as stable* marque l'asset et démarque le stable précédent |
+
+### 8.5 Diagnostic : les garde-fous tactiles et iOS de la page
+
+*Mesuré sur `release/2.0.0` : `page.js` 217 Ko (dont 13 % de commentaires, retirés à la publication), `page.css` 96 Ko.*
+
+**Le poids : faible.** ≈ 11 Ko de `page.js` (5 %) et ≈ 5 Ko de `page.css`. Ce qui pèse dans la page, c'est le panneau d'un fichier (55 Ko), la review (26 Ko), la liste (21 Ko), le lecteur (16 Ko).
+
+| Bloc (`page.js`) | Taille | Nature | Verdict |
+|---|---|---|---|
+| A. `lockPage()` et ses 6 raisons (`panel`, `lb`, `pop`, `dlg`, `field`, plus le tap avant une case), le `field` tenu 450 ms, `typing`, l'observateur du dialogue | 3,8 Ko, 14 appels | **contournement iOS** : la page défile derrière les calques fixes (focus d'un champ, vidéo lancée, menu ouvert) | **à retirer par la correction à la racine** |
+| B. Menus et listes : `touchHold()`, fermeture au scroll sauf 400 ms après ouverture, au `resize` seulement si la largeur change | 1,2 Ko | contournement iOS | idem, en grande partie |
+| `fitKb()`, `revealField()` (`visualViewport`, `body.kb`, `--vv-h`) | ≈ 1 Ko | le clavier d'iOS ne réduit pas la page | **à garder** |
+| G. `--sat` : la barre d'état de l'app Documents, qui apparaît et disparaît à chaque tap | 0,9 Ko JS + ≈ 4 Ko CSS (`--sat` dans 19 règles) | **propre à Documents by Readdle** (le snapshot hors ligne sur iPad) | à garder tant que ce cas existe ; sinon `env(safe-area-inset-top)` seul |
+| F. `grow()` : hauteur des zones de texte | 0,7 Ko | Safari n'a pas `field-sizing` | à garder (déjà sauté quand le navigateur sait faire) |
+| `renderRow()` : une ligne redessinée, pas toute la liste | — | né d'un bug iPad, mais plus rapide partout | à garder |
+| C. Premier tap qui déplie un losange, E. swipe sur le panneau, H. panneau plein écran sur tablette, I. feuille de partage | ≈ 3,5 Ko | **fonctionnalités** tactiles, pas des contournements | à garder |
+| Tailles de doigt (`--tap`, boutons 36–48 px sous `pointer:coarse`) | ≈ 1 Ko CSS | normal | à garder |
+
+**Le vrai coût : la complexité.** NOTES.md, « Snapshot page on an iPad », montre des correctifs empilés : `pinPage()` (remettre la page après qu'iOS l'a déplacée, d'où des sauts), remplacé par `lockPage()` (la figer avant), complété par la case tenue dès le tap, puis le `blur` forcé à la fermeture parce que le verrou ne se relâchait plus. Six raisons de figer la page, des délais (60, 350, 400, 450 ms), un `MutationObserver`, et chaque nouvel écran fixe doit penser à `lockPage()`.
+
+**La cause commune : c'est le document qui défile.** iOS fait défiler le document pour amener un champ en vue, au lancement d'une vidéo, au focus d'une option. **Correction à la racine proposée** : le document ne défile plus (`html, body { height: 100%; overflow: hidden }`), la liste défile dans son propre conteneur (`.wrap`, `overflow: auto`, `overscroll-behavior: contain`). Il n'y a alors plus rien à figer :
+- **retirés** : `lockPage()` et ses 14 appels, `touchHold()`, `fieldLeft()` et ses délais, l'observateur du dialogue, la case tenue dès le tap, le `blur` de `closePanel()`, la garde des 400 ms : ≈ 4 à 5 Ko et surtout tout le jeu des verrous ;
+- **à adapter** : 17 endroits qui lisent ou bougent le défilement de la fenêtre (`scrollY` ×7, `scrollTo` ×5, `scrollBy`, 5 écouteurs `scroll`) passent sur le conteneur ; les trois en-têtes collants (`.hdr`, `.bar`, `.thead`) collent dans le conteneur ;
+- **reste** : `fitKb()` (le clavier), `--sat` (Documents), `grow()`.
+- **Risque** : iOS peut encore décaler la *visual viewport* au focus d'un champ quand le clavier monte, même sans document qui défile ; `fitKb()` est fait pour ça, mais **ça ne se vérifie que sur un vrai iPad** (Safari et Documents), pas depuis une session cloud.
+
+**Petits nettoyages sans risque**, à faire de toute façon :
+- une seule requête média tactile (`TOUCH`) au lieu de `touchPin`, `coarse` et trois `matchMedia('(pointer:coarse)')` écrits sur place ;
+- la section iPad de NOTES.md réduite aux règles qui restent vraies (8.1, point 7).
+
+**Question à trancher** : le snapshot hors ligne sur iPad dans Documents reste-t-il un usage ? Avec la page live et *Share with a phone*, l'iPad au studio passe par Safari. Si Documents ne sert plus qu'en déplacement, voire plus du tout, `--sat` et le `confirm()` remplacé par `ask()` deviennent des cas à part.
+
