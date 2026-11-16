@@ -1965,7 +1965,7 @@ function itemAt(key){return key&&byKey[key];}
 // Render: the file sent to the farm as the Render dialog sends it -- its
 // version, preset, priority, mode, a block's shots --, or its sequence's
 // preview. Kept per file while the page is open.
-function rform(it){var F=DATA.farm||{};return RF[it.file]=RF[it.file]||{ver:it.stable?'stable':'last',preset:F.preset||'',prio:10,mode:'all',off:{},start:'',end:''};}
+function rform(it){var F=DATA.farm||{};return RF[it.file]=RF[it.file]||{ver:it.stable?'stable':'last',preset:F.preset||'',prio:10,mode:'all',sound:'on',off:{},start:'',end:''};}
 function renderHtml(it){var F=DATA.farm||{},f=rform(it),seg=function(k,v,l){return '<button type="button" data-rf="'+k+'" data-v="'+v+'" aria-pressed="'+(f[k]===v)+'">'+l+'</button>';};
 var job=(F.jobs||[]).filter(function(j){return j.key===(it.live||{}).key&&(j.state==='running'||j.state==='waiting');})[0];
 var b='';if(it.stable&&it.stable!==it.file)b+='<div class="st-l">Version</div><div class="segb om">'+seg('ver','stable','Last stable · '+esc(it.stable_v||''))+seg('ver','last','Last · '+esc(it.wip_v||''))+'</div>';
@@ -1977,7 +1977,8 @@ b+='<div class="st-l">Preset</div>'+((F.presets||[]).length?'<select class="rsel
 var fo=f.frames||f.start||f.end;b+='<button type="button" class="rf-t" data-rft aria-expanded="'+!!fo+'">'+(fo?'▾':'▸')+' Frames <small>'+(f.start||f.end?esc((f.start||'file\'s')+' – '+(f.end||'file\'s')):'the file\'s own')+'</small></button>'+
 (fo?'<div class="rrow rfr"><label>Start <input type="number" class="rnum" data-rfn="start" value="'+esc(f.start)+'" placeholder="file\'s"></label><label>End <input type="number" class="rnum" data-rfn="end" value="'+esc(f.end)+'" placeholder="file\'s"></label><small class="faint">frame numbers, as in Blender</small></div>':'');
 b+='<div class="rrow"><span class="prio"><span class="st-l">Priority</span><button type="button" class="mini" data-rprio="-1" aria-label="Lower">−</button><b>'+f.prio+'</b><button type="button" class="mini" data-rprio="1" aria-label="Higher">+</button></span>'+
-'<div class="segb om">'+seg('mode','all','All machines')+seg('mode','single','Single')+'</div></div>';
+'<div class="segb om">'+seg('mode','all','All machines')+seg('mode','single','Single')+'</div></div>'+
+'<div class="rrow" title="The scene\'s own sound (sequencer, speakers), in the video"><div class="segb om">'+seg('sound','on','With sound')+seg('sound','off','Without sound')+'</div></div>';
 if(it.shots.length>1)b+='<div class="st-l">Shots</div><div class="req">'+it.shots.map(function(x){return '<button type="button" data-rshot="'+esc(x)+'" aria-pressed="'+!f.off[x]+'">'+esc(x)+'</button>';}).join('')+'</div>';
 b+='<div class="ta"><button type="button" class="act fix" id="r-send">'+ico('render')+'Send to the farm</button>'+(it.kind==='shot'&&it.group?'<button type="button" class="act" id="r-prev" title="Each shot\'s latest video of '+esc(it.group)+', end to end">Preview '+esc(it.group)+'</button>':'')+'</div>';
 return (job?'<p class="rd-job">In the farm: '+esc(job.text)+(job.total?' · '+job.done+'/'+job.total:'')+'</p>':'')+b;}
@@ -1998,7 +1999,7 @@ if((t=ev.target.closest('#r-send,#r-prev'))){t.disabled=true;renderSend(it,t.id=
 dl.onchange=function(ev){if(ev.target.dataset&&ev.target.dataset.rf==='preset')rform(it).preset=ev.target.value;};
 dl.oninput=function(ev){if(ev.target.dataset&&ev.target.dataset.rfn)rform(it)[ev.target.dataset.rfn]=ev.target.value.trim();};}
 function renderSend(it,preview){var f=rform(it),body=preview?{action:'preview',sequence:it.group,priority:f.prio}:
-{action:'render',file:f.ver==='stable'&&it.stable?it.stable:it.file,preset:f.preset,priority:f.prio,mode:f.mode,start:f.start,end:f.end,shots:it.shots.length>1?it.shots.filter(function(x){return !f.off[x];}):null};
+{action:'render',file:f.ver==='stable'&&it.stable?it.stable:it.file,preset:f.preset,priority:f.prio,mode:f.mode,sound:f.sound!=='off',start:f.start,end:f.end,shots:it.shots.length>1?it.shots.filter(function(x){return !f.off[x];}):null};
 return livePost('farm',body).then(function(res){toast(res.ok?'Sent: '+res.sent+'.'+(res.note?' '+res.note:''):'Not sent: '+(res.error||'?'));}).catch(function(){toast('Blender doesn\'t answer.');});}
 function linksHtml(it){var L=it.live,links=L.links||[],by=L.linked_by||[];if(!links.length&&!by.length)return '';var old=links.filter(function(x){return x.newer;}).length;
 var to=function(t,file){return t?'<button type="button" class="lk" data-goto="'+t.i+'">'+esc(t.name)+'</button>':'<span>'+esc(file)+'</span>';};

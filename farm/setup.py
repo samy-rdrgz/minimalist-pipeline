@@ -266,9 +266,15 @@ def run_render_setup_entry(job_id: str) -> None:
         # The sound beside the frames, named as the video: made below, out
         # of the job's lock. The compilation takes it if it's there,
         # silence if not (farm/post_render.py).
+        # Submitted without sound (the Render dialog's Sound off): none
+        # made, a video without a track -- one left from before removed.
         audio = output_path.parent / f"{clean_name}_{output_path.parent.name}.flac"
-        data["audio_path"] = to_relative(str(audio), project_root)
-        sound = (audio, frame_start, frame_end)
+        if data.get("sound", True):
+            data["audio_path"] = to_relative(str(audio), project_root)
+            sound = (audio, frame_start, frame_end)
+        else:
+            data["audio_path"] = ""
+            audio.unlink(missing_ok=True)
         box["action"] = "to_write"
     if sound:
         # Same session, the preset applied: the fps the render will have.
@@ -337,6 +343,7 @@ def _split_into_shot_jobs(
                 prerender_script=data.get("prerender_script", "default"),
                 overrided_frame_range=(f"a{resolved[0]}", f"a{resolved[1]}"),
                 shot_override=shot_label,
+                sound=data.get("sound", True),
             )
             split_into.append(shot_label)
         except PipelineError as e:

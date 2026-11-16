@@ -62,6 +62,12 @@ def check_mixdown(sound, bpy) -> None:
     assert sound.scene_has_sound(scene([strip]))
     assert sound.scene_has_sound(scene(objects=[speaker]))
     assert not sound.scene_has_sound(scene(objects=[NS(type="SPEAKER", data=NS(sound=object(), muted=True))]))
+    # Its channel muted (the sequencer's channels): no sound either.
+    chan = NS(sequence_editor=NS(strips_all=[NS(type="SOUND", mute=False, sound=object(), channel=2)],
+                                 channels=[NS(mute=False), NS(mute=False), NS(mute=True)]), objects=[])
+    assert not sound.scene_has_sound(chan)
+    chan.sequence_editor.channels[2].mute = False
+    assert sound.scene_has_sound(chan)
     # Before Blender 4.4: sequences_all.
     assert sound.scene_has_sound(NS(sequence_editor=NS(sequences_all=[strip]), objects=[]))
 
@@ -174,6 +180,19 @@ def main() -> None:
         assert "lavfi" not in cmd and str(flacs["exact"]) not in cmd
         run(cmd)
         assert "audio" not in _streams(out / "mute.mp4")
+
+        # Submitted without sound: no track, the mixdown there or not.
+        cmd = post.compile_command(ffmpeg_bin="ffmpeg", frames_pattern=str(frames / "f.%05d.png"), first=1001,
+                                   last=1030, fps=fps, preset=post.resolve_ffmpeg_preset("default"),
+                                   video=out / "off.mp4", audio=flacs["exact"], sound=False)
+        assert "lavfi" not in cmd and str(flacs["exact"]) not in cmd
+        run(cmd)
+        assert "audio" not in _streams(out / "off.mp4")
+        # ...and its sequence preview still has one (silence there).
+        prev0 = out / "off_preview.mp4"
+        run(post.build_concat_command([out / "off.mp4", out / "sh_exact.mp4"], prev0,
+                                      json.loads(cfg.read_text()), "default", "ffmpeg"))
+        assert _streams(prev0)["audio"][0] == "aac"
 
         # ProRes: PCM in the .mov, AAC in its light copy, both its length.
         mov = out / "sh_pr.mov"

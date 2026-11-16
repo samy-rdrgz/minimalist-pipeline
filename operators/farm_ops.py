@@ -445,6 +445,13 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
         default="n",
     )  # type: ignore
 
+    sound: bpy.props.BoolProperty(
+        name="Sound",
+        description="The scene's own sound (sequencer sound strips, speakers) "
+        "in the video, over the rendered range. Off: a video without sound",
+        default=True,
+    )  # type: ignore
+
     pre_render_script: bpy.props.EnumProperty(
         items=_get_pre_render_scripts,
         name="Pre render script",
@@ -492,6 +499,7 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
             "can join at any time. Single: one machine renders the whole range. "
             "Highest priority goes first. Increment: a new render folder rather "
             "than replacing the last one. No assigned machine: any worker. "
+            "Sound: the scene's own, in the video. "
             "Pre-render script: a preset from config/presets applied first.",
             width_px=300,
         )
@@ -518,6 +526,7 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
         row2.prop(self, "frame_end", text="")
 
         col.separator()
+        col.prop(self, "sound")
         col.prop_menu_enum(
             self, "assigned_machines", text="Assigned machines (empty: auto)"
         )
@@ -701,6 +710,7 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
             ),
             overrided_frame_range=(start, end),
             only_shots=sorted(only) if only else None,
+            sound=self.sound,
         )
 
     def _populate_subshots(self, context) -> None:

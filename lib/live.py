@@ -1018,6 +1018,7 @@ def _farm_submit(action: str, raw: dict) -> dict:
         prerender_script="" if preset == _NO_SCRIPT else preset,
         overrided_frame_range=tuple(frames),
         only_shots=shots,
+        sound=raw.get("sound") is not False,
     )
     log("INFO", "live", f"Live page: {filepath.name} sent to the farm")
     return {"ok": True, "sent": filepath.name}

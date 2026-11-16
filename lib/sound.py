@@ -23,10 +23,25 @@ def _strips(scene) -> list:
     return []
 
 
+def _channel_muted(scene, strip) -> bool:
+    """The strip's sequencer channel muted (Blender 3.3+'s channels; channel N at index N)."""
+    try:
+        return bool(scene.sequence_editor.channels[strip.channel].mute)
+    except (AttributeError, IndexError, TypeError):
+        return False
+
+
 def scene_has_sound(scene) -> bool:
-    """A sound strip not muted, or a speaker with a sound and not muted."""
+    """A sound strip not muted (nor its channel), or a speaker with a sound
+    and not muted. The timeline's Mute (the scene's use_audio) isn't
+    looked at: mixdown() turns it off for the render."""
     for strip in _strips(scene):
-        if getattr(strip, "type", "") == "SOUND" and not getattr(strip, "mute", False) and getattr(strip, "sound", None):
+        if (
+            getattr(strip, "type", "") == "SOUND"
+            and not getattr(strip, "mute", False)
+            and getattr(strip, "sound", None)
+            and not _channel_muted(scene, strip)
+        ):
             return True
     for ob in getattr(scene, "objects", []):
         data = getattr(ob, "data", None)

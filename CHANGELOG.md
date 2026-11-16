@@ -15,7 +15,10 @@ All notable changes to this addon. Dates are release dates.
   AAC in an mp4, PCM in a ProRes .mov, its light copy too. A shot without
   sound gets silence, so a sequence preview keeps every shot's sound in
   its place (an old render without a track: silence too). The page's
-  player already had its sound button (M).
+  player already had its sound button (M). *Sound*, on by default, in
+  Blender's Render dialog and the page's (*With / Without sound*): off, a
+  video without sound. The timeline's Mute doesn't silence a render; a
+  muted strip, channel or speaker stays out.
 - Edit project, *Video*: the video compiled from a render's frames, for
   the edit -- *MP4 · H.264* (smooth to scrub, light, played as is by the
   page; new projects), *MOV · ProRes 422 LT* (what editing software reads

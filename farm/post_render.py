@@ -294,15 +294,17 @@ def _sound(frames: int, fps) -> list[str]:
 def compile_command(
     *, ffmpeg_bin: str, frames_pattern: str, first: int, last: int, fps,
     preset: dict, video: Path, width=None, size=None, audio: Path | None = None,
+    sound: bool = True,
 ) -> list[str]:
     """The compilation's ffmpeg command: frames first..last at fps into
     video, its sound -- audio (the render's mixdown) if it's a file, else
-    silence -- and its light copy if it needs one, in one pass."""
+    silence; none at all with sound False (submitted without) -- and its
+    light copy if it needs one, in one pass."""
     if audio is not None and Path(audio).is_file():
         sound_in = ["-i", str(audio)]
     else:
         sound_in = ["-f", "lavfi", "-i", SILENCE]
-    codec = audio_codec_args(preset, video.suffix)
+    codec = audio_codec_args(preset, video.suffix) if sound else ["-an"]
     sound = [] if "-an" in codec else _sound(last - first + 1, fps)
     return (
         [ffmpeg_bin, "-y", "-r", str(fps), "-start_number", str(first), "-i", frames_pattern]
@@ -367,6 +369,7 @@ def compilation(*, project_root: Path, job_path: Path, compilation_settings: str
                     width=data.get("width"),
                     size=size,
                     audio=to_absolute(audio, project_root) if audio else None,
+                    sound=data.get("sound", True),
                 )
                 proc = [
                     (

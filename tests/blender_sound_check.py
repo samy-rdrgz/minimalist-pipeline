@@ -129,6 +129,12 @@ def main():
                 ld = info and preview.media_info(post.ld_path(video), ffmpeg) or {}
                 check(f"[{rate} fps] {fmt}: its light copy has sound (aac)", ld.get("audio") == "aac", str(ld))
 
+    # Its sequencer channel muted: no sound found.
+    if hasattr(editor, "channels"):
+        editor.channels[1].mute = True
+        check("its channel muted: no sound found", not sound.scene_has_sound(scene))
+        editor.channels[1].mute = False
+
     # No sound: no file, the old one removed.
     editor_strips = list(editor.strips_all if hasattr(editor, "strips_all") else editor.sequences_all)
     for s in editor_strips:

@@ -5357,6 +5357,15 @@ from outside: in step with the frames by construction.
   A block rendered whole: the whole range. Set for the mixdown only (never
   saved): the range, no preview range, and `use_audio` False -- the
   timeline's Mute mutes the mixdown too.
+- **Mutes**: the timeline's *Mute* (Playback popover; `scene.use_audio`,
+  True = muted, the whole scene) is a working convenience -- turned off
+  for the mixdown. A muted strip, a muted sequencer channel, a muted
+  speaker: left out, as Blender's own mixdown does.
+- **Sound, an option of the submit** (`job_request(sound=)`, default on;
+  Blender's Render dialog *Sound*, the page's *With / Without sound*),
+  carried by a block's shot jobs. Off: no mixdown (a FLAC left from
+  before removed), no track at all in the video (`-an`) -- a sequence
+  preview gives it silence like an old render.
 - **No sound in the scene** (no strip nor speaker not muted): no file, one
   left from a render before removed. A mixdown that fails: a warning in
   the log, no file -- the render isn't failed for it.
@@ -5375,6 +5384,9 @@ from outside: in step with the frames by construction.
   than its picture, the filter filling the rest with silence.
 - **ensure_ld()** (snapshot's light copies) maps the sound too: AAC copied,
   anything else (a .mov's PCM) made AAC.
+- Migration: nothing to do -- old renders have no FLAC nor track; their
+  compilation (recompiled) or a preview gives them silence; a job queued
+  before (no "sound" key) is with sound.
 - Not checked in Blender yet: `bpy.ops.sound.mixdown`'s options in
   background (a Blender taking fewer: the format alone, TypeError caught).
 
