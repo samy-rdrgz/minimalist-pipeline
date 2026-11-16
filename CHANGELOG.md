@@ -38,7 +38,7 @@ All notable changes to this addon. Dates are release dates.
 - Snapshot page, reviewing: *Departments of several files* -- one required
   or not on every file, a sequence's or prefix's, or those with another.
 - *Migrate old data* proposes a department for each render preset whose
-  name gives none, renaming it (`default_hd` -> `render_hd`) as *Rename
+  name gives none, renaming it (`final_hd` -> `lighting_hd`) as *Rename
   preset* does; kept by default.
 - Live page: a render's full video in this machine's player (its light
   copy is what the page may play).
