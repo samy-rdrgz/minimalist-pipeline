@@ -462,3 +462,46 @@ Elle vient en dernier : elle repose sur le moteur d'états (phase 3), et « mes 
 
 - **Phase 1** : −94 Ko (CHANGELOG), environ −600 lignes (xlsx), environ −80 à 100 lignes (previews), les retraits de compatibilité, et les écrans en boucles, qui devraient être le plus gros gain : panneau farm, File details, Edit project, de l'ordre de quelques centaines de lignes (estimation grossière). Le poids sera mesuré avant et après chaque étape.
 - **Phases 3 à 5** : elles ajoutent du code, surtout le moteur d'états et son jumeau JS. Mais ce moteur *remplace* les calculs d'états répartis aujourd'hui, et le format en actions rend l'import plus simple que l'actuel.
+
+---
+
+## 8. Retours du 16/11 sur l'analyse de l'addon
+
+### 8.1 Simplifications
+
+| # | Sujet | Décision |
+|---|---|---|
+| 1 | Fenêtres **Farm monitoring** et **Project monitoring** dans Blender | **Retirées**, la page HTML les remplace (≈ 1 400 lignes : `panels/monitoring_panel.py`, `lib/monitoring.py`, `operators/monitoring_ops.py`, une partie de `panels/farm_panel.py`). **Prérequis** : la page est aujourd'hui une photo prise à l'export, pas une vue en direct ; il faut d'abord la page live (8.4), sinon on perd l'état de la farm en temps réel. Les parties 3C/3E prévues pour Project monitoring ne se font que dans la page |
+| 2 | Farm : limite de workers par machine | **Retirée**, les chunks répartissent déjà le travail. L'estimation de temps reste, **simplifiée** (une seule source : la moyenne s/frame du preset) |
+| 3 | Rôles de validation | **Facultatifs et invisibles** tant que le projet n'en déclare pas (8.2) |
+| 4 | *(à préciser : le point de l'analyse n'est pas noté ici)* | À rediscuter : mesurer d'abord ce qu'il coûte en lignes |
+| 5 | `page.js` | **Simplifier les correctifs de cas particuliers** (iPad et autres) : les regrouper, retirer ceux qu'un comportement général couvre |
+| 6 | Temps de travail | Affiché **par fichier** (total de tout le monde), pas par personne. À trancher : le garder dans File details (coût faible, `WorkTimeCache` existe) ou le retirer s'il ne sert à personne. Ne pas l'ajouter à la page |
+| 7 | Docs | **Synthétiques** : CHANGELOG en quelques lignes utilisateur par version, NOTES.md réduit aux décisions encore valables (le reste est dans l'historique git), docs EN/FR plus courtes. Volumes actuels : NOTES 297 Ko, CHANGELOG 99 Ko, CODE 92 Ko, `docs/` 286 Ko |
+| 8 | Migration | **Sortie du zip** à terme : un script externe dans le dépôt GitHub (`tools/`), autonome. `lib/migration.py` dépend aujourd'hui de `lib/tracking.py` (donc de `bpy`) : le script devra embarquer ses propres lectures, et se lancer avec Python seul (`python migrate_1_2.py <projet>`) |
+
+### 8.2 Rôles facultatifs : comment
+
+- `DEFAULT_VALIDATION_ROLES` devient vide (`lib/config.py:423`) : sans `validation_roles` dans la config, **un seul niveau** de validation, « validé », par n'importe qui.
+- Partout où un rôle s'affiche ou se choisit (≈ 36 appels à `validation_roles()` / `covering_role()`, plus le menu de rôle de `page.js:858`) : rien n'est dessiné quand la liste est vide.
+- Une validation sans rôle est stockée sous une clé neutre ; `covering_role()` la considère comme couvrante.
+- Dans Edit project, le champ des rôles passe dans une partie repliée « Avancé ».
+- **Migration** : un projet qui a déjà des validations `sup`/`prod` sans `validation_roles` dans sa config reçoit ces deux rôles écrits explicitement, pour que rien ne change chez lui.
+
+### 8.3 Questions de l'analyse
+
+- **Tests** : en grande partie faits.
+- **Bouton natif File › Save** : confirmé, il ne passe pas par `wm.safe_save` (seul le raccourci est repris, `lib/saving.py`) ; `save_post_handler` tourne quand même. Un fichier ouvert en lecture seule (verrouillé par un autre, ou stable) peut donc être écrasé par le menu. Blender ne permet ni d'annuler une sauvegarde depuis `save_pre`, ni de remplacer son opérateur C. **Proposition** : dans `save_pre`, si la sauvegarde n'est pas passée par le garde et que le fichier est en lecture seule, copier la version sur disque à l'écart ; dans `save_post`, une popup « Sauvegardé par le menu, sans les protections » avec **« Rétablir et incrémenter »** (le contenu actuel part en nouvelle version, l'ancien fichier est remis en place) — le même résultat que le garde.
+- **Disque déconnecté** : le risque réel est l'écrasement du travail d'un autre. Si le partage tombe plus de 90 s (`LOCK_STALE_SECONDS`), le verrou de l'artiste périme ; un autre peut ouvrir le fichier en écriture et le sauvegarder. Au retour du partage, `refresh_lock()` voit que le verrou n'est plus à lui et renvoie `False` **sans rien dire**, et Ctrl+S sur un fichier non lecture seule **sauvegarde sans revérifier le verrou** (`lib/saving.py`, branche `if not ro`). **Avertissements proposés** dans `heartbeat_30s` : (a) partage injoignable → une fois : « Partage injoignable : ton verrou va expirer, sauvegarde une copie en local si besoin » ; (b) verrou repris par un autre → popup « X a ouvert ce fichier pendant la coupure », et la session passe en lecture seule : Ctrl+S propose alors l'incrément.
+- **Compatibilité Blender 5.3** : à vérifier. Pas faisable depuis une session cloud (téléchargement de Blender bloqué par le réseau) : en local, ou en autorisant `download.blender.org`.
+
+### 8.4 Idées retenues
+
+| # | Idée | Comment |
+|---|---|---|
+| 1 | **Son en fin de rendu** | Côté Blender d'abord : la boucle farm relit déjà l'état des jobs dans chaque Blender (`farm/loop.py`) ; quand un job lancé par cette machine passe à fini ou en échec, un son (module `aud`, livré avec Blender) et un message. Une case dans les préférences. Peu de code. Plus tard, le même son dans la page live |
+| 2 | **Relink** | Dans le fichier ouvert, pas besoin de le rouvrir : `library_updates()` change le chemin et fait `lib.reload()`. Pour les fichiers **non ouverts** (mettre à jour tous les shots qui lient un asset), il faut bien les ouvrir, mais en tâche de fond (`blender -b`, comme `templates/batch_create_entry.py`) : verrou vérifié, résultat en nouvelle version, jamais par-dessus |
+| 3 | Rendu local / playblast | Rendu local = mettre son PC en worker : rien à faire. **Playblast viewport** : impossible sur un worker (`blender -b` n'a pas de viewport). Faisable dans la session de l'artiste : `render.opengl(animation=True)` de la vue 3D vers le dossier de rendu du shot, noté dans `render_history.json` comme un rendu farm, preview compilée par la mécanique existante. Bloque l'interface pendant le playblast |
+| 4 | **Notifications dans la page live** | La page note ce qu'elle reçoit pendant qu'elle est ouverte (nouveau rendu, nouvelle note, changement d'état). En mémoire seulement, rien d'enregistré : ce n'est pas le « depuis ta dernière visite » écarté en section 6. Prérequis : une page live. Pistes : Blender sert la page sur `localhost` (un petit serveur HTTP dans un thread), ou la page relit le dossier du projet via l'API File System Access, déjà utilisée pour les vidéos (Chrome/Edge seulement, pas Safari/iPad) |
+| 6 | **Clean old versions** | Sur le modèle de Clean old renders : garder les N dernières wip par fichier. Toujours protégés : les stables, les versions liées par d'autres fichiers, les fichiers ouverts ou verrouillés, les versions citées par une note ouverte. Plus sensible que les rendus : liste à valider avant suppression |
+| 7 | Bibliothèque d'assets Blender (glisser-déposer) | **+** vignettes, catalogues, glisser-déposer en link ou append. **−** il faut marquer chaque asset dans son fichier et le sauvegarder ; la bibliothèque pointe sur un dossier, donc montre aussi les wip et les anciens stables sauf si on ne marque que le dernier stable ; chaque PC doit ajouter le chemin dans les préférences (l'addon peut le faire : `preferences.filepaths.asset_libraries.new()`) ; indexation lente sur un partage la première fois. Les liens créés ainsi pointent sur les mêmes fichiers : la détection des liens périmés marche telle quelle. **Piste peu coûteuse** : *Mark as stable* marque la collection principale comme asset et retire la marque du stable précédent ; la bibliothèque du projet est ajoutée automatiquement. À essayer plus tard |
