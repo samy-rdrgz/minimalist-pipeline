@@ -152,7 +152,7 @@ var LIVE_OUT={busy:false,again:false,sent:{},t:0,after:null,say:'live'};
 // The live page's own state, set before anything draws: the Farm tab's
 // jobs open, the panel's sections folded, the Render form per file.
 var JOB_STATES=[['running','In progress','wip'],['waiting','Waiting','todo'],['failed','Failed','fail'],['finished','Finished','done']],JOPEN={},chkOpen=true,lnkOpen=false,rndOpen=false,RF={},FF={s:'',mine:false,q:''},JD={},WD={},WOPEN={},LKF={},JW={},
-SHARE_TIMES=[['1','1 hour'],['eod','Until tonight'],['24','1 day'],['168','1 week']];
+SHARE_IP='',SHARE_TIMES=[['1','1 hour'],['eod','Until tonight'],['24','1 day'],['168','1 week']];
 var KEY='mp-review:'+META.project+':'+(META.live?'live':META.snapshot);
 // synced: Still done per department; req: a department required added
 // (true) or removed (false); omit: {state, reason} set aside or counted again.
@@ -364,12 +364,19 @@ function chipCounts(){var fb=document.querySelector('.chipf[data-f="farm"]');if(
 var fm=document.querySelector('.chipf[data-f="me"]');if(fm)fm.hidden=!(META.team||[]).length;document.querySelectorAll('.chipf[data-f]').forEach(function(b){b.querySelector('b').textContent=D.filter(function(it){
 return it.tab===state.tab&&(!state.dep||state.dep in it.states)&&FILTERS[b.dataset.f](it,state.dep);}).length;});}
 // A row of the list (render(): its departments' columns).
-var rowDeps=[],rowCols='';
+var rowDeps=[],rowCols='',rowFarm=false;
+// A file's farm at a glance: its job's state (a click: the Farm tab on it),
+// a render to check (a click: its panel, on To check).
+function farmCell(it){var h='';
+if(it.farm){var k=it.farm.state==='failed'?'fail':it.farm.state==='waiting'?'wait':'run';
+h+='<button type="button" class="fcb fc-'+k+'" data-farmof="'+esc(it.file)+'" title="In the farm: '+esc(it.farm.tip)+'" aria-label="In the farm: '+esc(it.farm.text)+'">'+ico(k==='fail'?'cancel':k==='wait'?'time':'render')+'</button>';}
+if(it.to_check)h+='<button type="button" class="fcb fc-chk" data-tocheck="'+it.i+'" title="A render to check: watch it" aria-label="A render to check">'+ico('eye')+'</button>';
+return h;}
 function rowHtml(it){var deps=rowDeps,cols=rowCols;
 // Tinted once this review touched it: where you've been, at a glance.
 return '<div class="row'+((omitChanged(it,peek(it))?peek(it).omit.state:it.omit)?' omit':'')+(changes(it)?' rv-mine':'')+(it.i===cur?' sel':'')+'" role="button" tabindex="0" data-i="'+it.i+'" style="--cols:'+cols+'"'+(changes(it)?' title="In your review"':'')+'>'+thumb(it)+
 '<span class="r-name">'+nameHtml(it)+'<small>'+subline(it)+'</small><span class="flags">'+flags(it)+'</span></span>'+
-deps.map(function(d){return '<span class="d">'+cell(it,d)+'</span>';}).join('')+
+deps.map(function(d){return '<span class="d">'+cell(it,d)+'</span>';}).join('')+(rowFarm?'<span class="fc">'+farmCell(it)+'</span>':'')+
 '<span class="r-pct">'+(it.tracked?dv(it.done,it.valid):'<span class="faint">–</span>')+'</span>'+
 (it.tracked?'<span class="dl">'+deps.filter(function(d){return d in it.states;}).map(function(d){return '<span><b class="dn n-'+it.states[d]+'" title="'+LABEL[it.states[d]]+'">'+esc(cap(d))+'</b>'+under(it,d)+'</span>';}).join('')+'</span>':'')+'</div>';}
 // One file's row redrawn in place, the list around it untouched: a ✓ or a
@@ -393,7 +400,9 @@ var items=D.filter(function(it){return match(it);});
 var deps=depsOf(state.tab).filter(function(d){return items.some(function(it){return d in it.states||peek(it).req[d];});});
 // Many departments: narrower columns, never past the page.
 var w=deps.length>7?56:deps.length>5?68:84;
-var cols='104px minmax(0,1fr) '+deps.map(function(){return w+'px';}).join(' ')+' 96px;--n:'+deps.length;
+// The Farm column: once a file of the list is in the farm or has a render to check.
+rowFarm=items.some(function(it){return it.farm||it.to_check;});
+var cols='104px minmax(0,1fr) '+deps.map(function(){return w+'px';}).join(' ')+(rowFarm?' 56px':'')+' 96px;--n:'+deps.length;
 rowDeps=deps;rowCols=cols;
 var groups={},order=[];
 items.forEach(function(it){if(!groups[it.group]){groups[it.group]=[];order.push(it.group);}groups[it.group].push(it);});
@@ -407,7 +416,7 @@ var rows=shown?all:act;
 if(!closed)rows.forEach(function(it){visible.push(it.i);});
 var ini=initials(deps);
 var head='<div class="thead" style="--cols:'+cols+'"><span></span><span></span>'+deps.map(function(d){return '<span class="d" title="'+esc(cap(d))+'" data-ini="'+esc(ini[d])+'">'+esc(cap(d))+'</span>';}).join('')+
-'<span style="text-align:right">Done</span></div>';
+(rowFarm?'<span class="fc-h" title="In the farm, or a render to check">Farm</span>':'')+'<span style="text-align:right">Done</span></div>';
 var body=rows.map(rowHtml).join('');
 if(un.length&&!filt)body+='<button class="untracked" data-hid="'+(shown?'0':'1')+'" data-g="'+esc(g)+'">'+un.length+' hidden · '+esc(hiddenWhy(un))+' · '+(shown?'hide ⌃':'show ⌄')+'</button>';
 // The new ones this review asks for: planned, until the import makes them.
@@ -462,6 +471,10 @@ if((t=e.target.closest('.g-h'))){state.open[state.tab+t.dataset.g]=t.parentNode.
 // A touch screen: a tap on a row or a group's name doesn't take the focus
 // (iPad Safari gives it to anything with a tabindex) -- nothing focused
 // in the list to lose when it's redrawn.
+$('list').addEventListener('click',function(e){var b=e.target.closest('[data-tocheck],[data-farmof]');if(!b)return;e.stopPropagation();e.preventDefault();
+if(b.dataset.tocheck!=null){chkOpen=true;openPanel(+b.dataset.tocheck);setTimeout(function(){var c=$('chk-t');if(c)c.scrollIntoView({block:'start',behavior:'smooth'});},60);return;}
+if(!DATA.farm){var fi=byFile[b.dataset.farmof];if(fi)openPanel(fi.i);return;}// a snapshot: no Farm tab
+FF.q=b.dataset.farmof.toLowerCase();FF.s='';setTab('farm');},true);
 $('list').addEventListener('mousedown',function(e){if(touchPin.matches&&e.target.closest('.row,.g-h'))e.preventDefault();});
 $('list').addEventListener('keydown',function(e){var r=e.target.closest('.row');
 if(e.target.classList.contains('g-h')&&(e.key==='Enter'||e.key===' ')){e.preventDefault();e.target.click();return;}if(r&&(e.key==='Enter'||e.key===' ')){e.preventDefault();openPanel(+r.dataset.i);}});
@@ -1744,6 +1757,33 @@ livePost('farm',{action:action,job_id:action==='detail'?key:'',value:value}).the
 Object.keys(JOPEN).forEach(function(id){if(JOPEN[id])get(JD,id,'detail');});Object.keys(WOPEN).forEach(function(u){if(WOPEN[u])get(WD,u,'worker_detail',u);});}
 function farmPost(action,job,value,extra){var body={action:action,job_id:job||'',value:value};Object.keys(extra||{}).forEach(function(k){body[k]=extra[k];});
 return livePost('farm',body).then(function(res){toast(res.ok?'Done.'+(res.note?' '+res.note:''):'Not done: '+(res.error||'?'));}).catch(function(){toast('Blender doesn\'t answer.');});}
+/* ---------- several files' departments at once (review) ---------- */
+// A department required, or not, on every file of a kind -- or those of a
+// sequence / prefix, or those with another department --: what File
+// settings does to one, done to each (your review; the live page sends it).
+function bulkTargets(o){return D.filter(function(it){if(it.kind!==o.kind)return false;if(o.scope==='group'&&it.group!==o.group)return false;
+if(o.scope==='with'&&!(o.other in it.states))return false;var e=peek(it),has=o.dep in e.req?e.req[o.dep]:o.dep in it.states;return has!==o.on;});}
+function bulkDialog(){var tab=state.tab==='asset'||state.tab==='library'?'asset':'shot',o={kind:tab,dep:depsOf(tab)[0]||'',on:true,scope:'all',group:'',other:''};
+var dl=$('dlg');var draw=function(){var deps=depsOf(o.kind),groups=[],seen={};D.forEach(function(it){if(it.kind===o.kind&&!seen[it.group]){seen[it.group]=1;groups.push(it.group);}});
+if(deps.indexOf(o.dep)<0)o.dep=deps[0]||'';if(o.scope==='group'&&groups.indexOf(o.group)<0)o.group=groups[0]||'';if(o.scope==='with'&&(deps.indexOf(o.other)<0||o.other===o.dep))o.other=deps.filter(function(d){return d!==o.dep;})[0]||'';
+var opt=function(list,v,lab){return list.map(function(x){return '<option value="'+esc(x)+'"'+(x===v?' selected':'')+'>'+esc(lab?lab(x):x)+'</option>';}).join('');};
+var n=bulkTargets(o).length;
+dl.innerHTML='<div class="dlg-in sh-dlg" role="dialog" aria-modal="true" aria-labelledby="bk-t"><h3 id="bk-t">Departments of several files</h3><form class="sh-form" onsubmit="return false">'+
+'<label>Files <select data-bk="kind">'+opt(['shot','asset'],o.kind,function(k){return k==='shot'?'Shots':'Assets';})+'</select></label>'+
+'<label>Department <select data-bk="dep">'+opt(deps,o.dep,cap)+'</select></label>'+
+'<label>Make it <select data-bk="on">'+opt(['1','0'],o.on?'1':'0',function(v){return v==='1'?'required':'not required';})+'</select></label>'+
+'<label>On <select data-bk="scope">'+opt(['all','group','with'],o.scope,function(v){return v==='all'?'every file':v==='group'?(o.kind==='shot'?'a sequence':'a prefix'):'the files with…';})+'</select></label>'+
+(o.scope==='group'?'<label>'+(o.kind==='shot'?'Sequence':'Prefix')+' <select data-bk="group">'+opt(groups,o.group)+'</select></label>':'')+
+(o.scope==='with'?'<label>With <select data-bk="other">'+opt(deps.filter(function(d){return d!==o.dep;}),o.other,cap)+'</select></label>':'')+
+'</form><p class="sh-note">'+(n?plural(n,'file')+' to change -- in your review'+(META.live?', sent to Blender a moment after':', sent with it')+'; File settings shows each.':'Nothing to change: every one of them already is.')+'</p>'+
+'<div class="acts"><button class="btn" data-bkx>Cancel</button><button class="btn primary" data-bkgo'+(n?'':' disabled')+'>'+(o.on?'Require':'Make not required')+(n?' on '+plural(n,'file'):'')+'</button></div></div>';};
+draw();dl.hidden=false;
+dl.onchange=function(e){var k=e.target.dataset.bk;if(!k)return;o[k]=k==='on'?e.target.value==='1':e.target.value;draw();};
+dl.onclick=function(e){if(e.target===dl||e.target.closest('[data-bkx]')){dl.hidden=true;dl.onchange=null;return;}
+if(!e.target.closest('[data-bkgo]'))return;var list=bulkTargets(o);
+list.forEach(function(it){var re=entry(it),was=o.dep in it.states;if(o.on===was)delete re.req[o.dep];else re.req[o.dep]=o.on;});
+dl.hidden=true;dl.onchange=null;save();render();if(cur!=null)refresh();toast(cap(o.dep)+(o.on?' required':' not required')+' on '+plural(list.length,'file')+'.');};}
+var bkb=$('bulk-dep');if(bkb)bkb.addEventListener('click',function(){closeMenus();bulkDialog();});
 /* ---------- live: a phone -- an access for someone on the network ---------- */
 // Their name, role, how long (a week at most): a link and its QR code,
 // Copy link beside; the accesses running, each revoked in a click.
@@ -1752,20 +1792,23 @@ function fmtUntil(iso){var d=new Date(iso);if(isNaN(d))return esc(iso||'');var t
 function shareDialog(made){var dl=$('dlg');dl.innerHTML='<div class="dlg-in sh-dlg" role="dialog" aria-modal="true" aria-labelledby="sh-t"><h3 id="sh-t">Share with a phone</h3><div id="sh-body"><p class="faint">Reading…</p></div><div class="acts"><button class="btn" data-shx>Done</button></div></div>';dl.hidden=false;
 dl.onclick=function(e){if(e.target===dl||e.target.closest('[data-shx]')){dl.hidden=true;return;}
 var b=e.target.closest('[data-shrev]');if(b)return shareSend({revoke:b.dataset.shrev});
-if(e.target.closest('#sh-make')){var n=$('sh-name').value.trim();if(!n){$('sh-name').focus();return;}return shareSend({name:n,role:$('sh-role').value,hours:$('sh-time').value});}
+if(e.target.closest('#sh-make')){var n=$('sh-name').value.trim();if(!n){$('sh-name').focus();return;}var ipSel=$('sh-ip');if(ipSel)SHARE_IP=ipSel.value;return shareSend({name:n,role:$('sh-role').value,hours:$('sh-time').value,ip:SHARE_IP});}
 if(e.target.closest('#sh-copy'))copyLink($('sh-link').value);};
 shareSend({});}
-function shareSend(body){livePost('share',body).then(function(res){if(!res.ok){toast('Not shared: '+(res.error||'?'));if(!$('sh-body').querySelector('form'))shareDraw(res);return;}shareDraw(res);})
-.catch(function(){toast('Blender doesn\'t answer.');});}
+function shareSend(body){var late=setTimeout(function(){var b=$('sh-body');if(b&&!b.querySelector('form'))b.innerHTML='<p class="faint">Blender doesn\'t answer -- busy, or this page is open in many tabs (each holds a connection): close the others.</p>';},10000);
+livePost('share',body).then(function(res){clearTimeout(late);if(!res.ok){toast('Not shared: '+(res.error||'?'));if(!$('sh-body').querySelector('form'))shareDraw(res);return;}shareDraw(res);})
+.catch(function(){clearTimeout(late);toast('Blender doesn\'t answer.');});}
 function shareDraw(res){var roles=['team'].concat((META.roles||[]).filter(function(r){return r!=='team';})),h='';
 if(res.link)h+='<div class="sh-made"><div class="sh-qr">'+res.qr+'</div><div class="sh-info"><b>'+esc(res.name)+'</b> · '+esc(res.role)+'<br><small>until '+fmtUntil(res.until)+'</small>'+
-'<p class="faint">Scan it on the same network (the studio\'s Wi-Fi) -- or send the link:</p><input id="sh-link" readonly value="'+esc(res.link)+'"><button type="button" class="act fix" id="sh-copy">'+ico('link')+'Copy link</button></div></div>';
+'<p class="faint">'+(res.via==='Tailscale'?'Scan it on a phone with Tailscale on, wherever it is':'Scan it on the same network (the studio\'s Wi-Fi)')+' -- or send the link:</p><input id="sh-link" readonly value="'+esc(res.link)+'"><button type="button" class="act fix" id="sh-copy">'+ico('link')+'Copy link</button></div></div>';
 h+='<form class="sh-form" onsubmit="return false"><label>Name <input id="sh-name" maxlength="40" placeholder="Who it is for" autocomplete="off"></label>'+
 '<label>Role <select id="sh-role">'+roles.map(function(r){return '<option'+(r==='team'?' selected':'')+'>'+esc(r)+'</option>';}).join('')+'</select></label>'+
+(function(){var ad=res.addresses||[];if(ad.length)SHARE_IP=SHARE_IP&&ad.some(function(a){return a.ip===SHARE_IP;})?SHARE_IP:ad[0].ip;
+return ad.length>1?'<label>Reached through <select id="sh-ip">'+ad.map(function(a){return '<option value="'+esc(a.ip)+'"'+(a.ip===SHARE_IP?' selected':'')+'>'+esc(a.kind)+' · '+esc(a.ip)+'</option>';}).join('')+'</select></label>':'';})()+
 '<label>For <select id="sh-time">'+SHARE_TIMES.map(function(t){return '<option value="'+t[0]+'"'+(t[0]==='eod'?' selected':'')+'>'+t[1]+'</option>';}).join('')+'</select></label>'+
 '<button type="button" class="btn primary" id="sh-make">Make the access</button></form>'+
 '<p class="faint sh-note">They review as that name and role -- notes, validations, assignees; the farm read only; nothing opened on this machine. Blender stays open here for it to work.</p>';
-var g=res.guests||[];if(g.length)h+='<div class="st-l">Running</div>'+g.map(function(x){return '<div class="sh-g"><span><b>'+esc(x.name)+'</b> · '+esc(x.role)+' · until '+fmtUntil(x.until)+'</span><button type="button" class="act ko" data-shrev="'+esc(x.token)+'">Revoke</button></div>';}).join('');
+var g=res.guests||[];if(g.length)h+='<div class="st-l">Running</div>'+g.map(function(x){return '<div class="sh-g"><span><b>'+esc(x.name)+'</b> · '+esc(x.role)+' · until '+fmtUntil(x.until)+(x.ip?' <small class="faint">'+esc(x.ip)+'</small>':'')+'</span><button type="button" class="act ko" data-shrev="'+esc(x.token)+'">Revoke</button></div>';}).join('');
 $('sh-body').innerHTML=h;}
 function copyLink(t){var done=function(){toast('Link copied.');};
 if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(done,function(){var i=$('sh-link');i.select();toast('Selected: copy it with Ctrl+C.');});
@@ -1900,9 +1943,15 @@ if(s==='on'&&guest())pill.textContent='connected · guest until '+fmtUntil(META.
 pill.title=s==='on'?(guest()?'Served by '+(META.exported_by||'Blender')+'\'s Blender, as '+META.live.user+' ('+META.live.role+')':'Served by Blender on this machine, kept up to date'):s==='busy'?'Blender is busy (a long task): the page waits for it':'Blender doesn\'t answer (closed, or the page stopped): trying again';}
 
 
-function poll(){fetch('data?t='+encodeURIComponent(T)+'&since='+v,{cache:'no-store'}).then(function(r){if(!r.ok)throw r.status;return r.json();})
+// A tab in the background asks nothing: the browser gives a server 6
+// connections, each tab's wait for news holds one -- tabs piling up (each
+// Blender button opens one) left a click waiting. Back in front, it asks again.
+var ab=null,polling=false;
+function poll(){if(document.hidden){polling=false;return;}polling=true;ab=window.AbortController?new AbortController():null;
+fetch('data?t='+encodeURIComponent(T)+'&since='+v,{cache:'no-store',signal:ab?ab.signal:undefined}).then(function(r){if(!r.ok)throw r.status;return r.json();})
 .then(function(d){if(d.reading)return location.reload();status(d.busy?'busy':'on');if(d.data&&d.version!==v){v=d.version;applyData(d.data);}poll();})
-.catch(function(){status('off');setTimeout(poll,2000);});}
+.catch(function(e){if(e&&e.name==='AbortError'){polling=false;return;}status('off');setTimeout(poll,2000);});}
+document.addEventListener('visibilitychange',function(){if(document.hidden){if(ab)ab.abort();}else if(!polling)poll();});
 status('on');poll();
 rv.author=META.live.user||rv.author;rv.role=META.live.role||'team';store();setReview(true);countBar();if(Object.keys(rv.files).length||(rv.creates||[]).length)liveSend();})();
 var boot=$('boot');if(boot)boot.remove();

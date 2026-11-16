@@ -29,6 +29,17 @@ All notable changes to this addon. Dates are release dates.
   or a week -- a QR code to scan, or *Copy link*; the accesses listed,
   each revoked in a click. They review; the farm read only; nothing opened
   on this machine. The page is served on the network only while one runs.
+- Live page: the guest's address chosen when this machine has more than
+  one -- the local network, or Tailscale (a phone with it on, from
+  anywhere). A tab in the background stops asking for news: piled-up tabs
+  held the browser's connections and left a click waiting.
+- Snapshot page: a *Farm* column in the list -- a job's state (to the Farm
+  tab), a render to check (to its file's *To check*).
+- Snapshot page, reviewing: *Departments of several files* -- one required
+  or not on every file, a sequence's or prefix's, or those with another.
+- *Migrate old data* proposes a department for each render preset whose
+  name gives none, renaming it (`default_hd` -> `render_hd`) as *Rename
+  preset* does; kept by default.
 - Live page: a render's full video in this machine's player (its light
   copy is what the page may play).
 - Snapshot page: the player takes the video's own shape.
