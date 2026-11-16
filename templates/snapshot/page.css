@@ -1367,3 +1367,12 @@ part ringed */
 .wl-wl{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .wl-in{flex:none;min-height:24px;padding:0 8px;border:1px solid var(--outline);border-radius:var(--r-btn);background:var(--btn);color:var(--ink-2);font:11px var(--mono);cursor:pointer}
 .wl-in[aria-pressed="true"]{background:var(--sel);border-color:var(--sel);color:#fff}
+/* A name on one line (page.js mq()): cut with "…", scrolled to its end and
+back while hovered */
+.mq{display:block;max-width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.mq>span{display:inline}.mq.go>span{display:inline-block}
+.mq.go{text-overflow:clip}
+.mq.go>span{animation:mq var(--mqt,3s) ease-in-out .35s infinite alternate}
+@keyframes mq{from{transform:none}to{transform:translateX(var(--mq,0))}}
+@media (prefers-reduced-motion:reduce){.mq.go>span{animation:none}.mq.go{text-overflow:ellipsis}}
+.st-i{min-width:0}.st-i .mq{width:100%;text-align:center}.mq.go{text-align:left}

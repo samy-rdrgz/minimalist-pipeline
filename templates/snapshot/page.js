@@ -769,6 +769,14 @@ function frameNo(v,t){return v.start!=null?v.start+idxOf(t):idxOf(t)+1;}
 function fLabel(v,n){return (v.start!=null?'f':'#')+n;}
 // The frames tagged on a video: the file's open notes ("f12", "f12-30")
 // on its shot or on none, then this review's lines ([f12], [f12-30]).
+// A name on one line, cut with "…"; hovered (or focused), it scrolls to
+// its end and back (mqGo()) -- a long block's name no longer wraps and
+// lifts its picture out of line.
+function mq(t){return '<span class="mq"><span>'+esc(t)+'</span></span>';}
+function mqGo(host,on){var o=host&&host.querySelector&&host.querySelector('.mq');if(!o)return;var d=o.scrollWidth-o.clientWidth;
+if(on&&d>2){o.style.setProperty('--mq',-d+'px');o.style.setProperty('--mqt',(1.2+d/28).toFixed(1)+'s');o.classList.add('go');}else o.classList.remove('go');}
+['mouseover','focusin'].forEach(function(ev){document.addEventListener(ev,function(e){var h=e.target.closest&&e.target.closest('.st-i,.shotsel button');if(h)mqGo(h,true);});});
+['mouseout','focusout'].forEach(function(ev){document.addEventListener(ev,function(e){var h=e.target.closest&&e.target.closest('.st-i,.shotsel button');if(h&&!(e.relatedTarget&&h.contains(e.relatedTarget)))mqGo(h,false);});});
 function marksOf(it,v){var out=[],own=function(sh){return !sh||!v.shots||v.shots.indexOf(sh)>=0||v.shots.indexOf(sh.replace(/^[a-z]+/i,''))>=0;};
 it.notes.forEach(function(n){if(n.closed)return;var m=/f(\d+)(?:-(\d+))?/.exec(n.frames||'');if(!m||!own(n.shot))return;
 out.push({a:+m[1],b:m[2]?+m[2]:null,rtk:n.type==='rtk'&&n.done===false,text:n.text,who:author(n),type:n.type,id:n.id,deps:n.deps||[]});});
@@ -871,7 +879,7 @@ if(PL)PL.el.pause();var pv=$('pv');if(pv&&PL&&PL.it===D[cur])mount(pv,'panel');}
 // The group's files along the bottom: a click plays one.
 function drawStrip(){var st=q('.strip');if(!st)return;var g=groupFiles();
 st.innerHTML='<span class="st-l">'+esc(PL.it.group)+' · '+plural(g.length,PL.it.kind==='shot'?'shot':'file')+'</span>'+g.map(function(x){var has=allVideos(x).length;
-return '<button type="button" class="st-i'+(x===PL.it?' on':'')+'" data-wlf="'+x.i+'"'+(has?'':' disabled')+' title="'+esc(x.name)+(has?'':' · no video')+'"><span class="frame">'+(x.thumb?'<img alt="" src="'+img(x.thumb)+'">':'')+'</span>'+esc(x.name.slice(x.group.length+1)||x.name)+'</button>';}).join('');
+return '<button type="button" class="st-i'+(x===PL.it?' on':'')+'" data-wlf="'+x.i+'"'+(has?'':' disabled')+' title="'+esc(x.name)+(has?'':' · no video')+'"><span class="frame">'+(x.thumb?'<img alt="" src="'+img(x.thumb)+'">':'')+'</span>'+mq(x.name.slice(x.group.length+1)||x.name)+'</button>';}).join('');
 var on=st.querySelector('.on');if(on)on.scrollIntoView({block:'nearest',inline:'center'});}
 // The right column: the departments with ✓ / ✕, the notes at their
 // frames (a click goes there), a retake written at the frame shown.
@@ -1232,7 +1240,7 @@ var h='<div class="p-media">'+(nvid?'<div class="pv" id="pv"></div>':it.thumb?'<
 return (it.thumb&&!it.shot_thumbs.some(function(s){return s[1]===it.thumb;})?[['whole block',it.thumb]]:[]).concat(it.shot_thumbs).map(function(s){
 // One card per shot: its picture and name -- a click plays it (shows it,
 // without a video) --, and the version of it to watch under them.
-return '<div class="sc"><button type="button" data-shot="'+esc(s[0])+'" data-src="'+(s[1]?img(s[1]):'')+'" aria-pressed="'+(!!s[1]&&s[1]===it.thumb)+'"'+(s[1]?'':' disabled')+' title="'+esc(nvid?'Play '+s[0]:s[0])+'"><span class="frame">'+(s[1]?'<img alt="" src="'+img(s[1])+'">':'')+(nvid&&s[1]?'<span class="sc-play" aria-hidden="true">▶</span>':'')+'</span>'+esc(s[0])+(s[1]?'':' · not rendered')+'</button>'+
+return '<div class="sc"><button type="button" data-shot="'+esc(s[0])+'" data-src="'+(s[1]?img(s[1]):'')+'" aria-pressed="'+(!!s[1]&&s[1]===it.thumb)+'"'+(s[1]?'':' disabled')+' title="'+esc(nvid?'Play '+s[0]:s[0])+'"><span class="frame">'+(s[1]?'<img alt="" src="'+img(s[1])+'">':'')+(nvid&&s[1]?'<span class="sc-play" aria-hidden="true">▶</span>':'')+'</span>'+mq(s[0]+(s[1]?'':' · not rendered'))+'</button>'+
 (byShot[s[0]]?vSelect(it,byShot[s[0]],true):'')+'</div>';}).join('');})()+'</div>':'')+
 (function(){var n=allVideos(it).length;
 // The file's videos: ▶ in the header. Reviewing, Last render is folded:
