@@ -5314,3 +5314,71 @@ work that follows touches a file of a few hundred lines, not 2 000.
 - `tests/test_snapshot_page.py`: each part listed is on disk and the
   reverse, no placeholder left, the fixture renders, the script parses
   and `T()` answers (Node; skipped without it).
+
+## Snapshot page v7: Blender's icons for the mockup's
+
+The v7 mockup draws its own pictograms (`i-*` in its sprite). The rule:
+**Blender's own icon wherever one says the same thing**; the page's own
+only for what Blender has no word for -- the states (diamonds, their
+corners, the note's bubble) and a few others below. Each icon taken is
+Blender's SVG (`release/datafiles/icons_svg/` in Blender's repository),
+cleaned by `tools/clean_icons.py` into `templates/snapshot/icons/`; the
+export embeds only those the page names (`icon_sprite()`).
+
+| Mockup | Blender |
+|---|---|
+| `i-tri` | `DISCLOSURE_TRI_DOWN` |
+| `i-up` | `TRIA_UP` |
+| `i-down` | `TRIA_DOWN` |
+| `i-left` | `TRIA_LEFT` |
+| `i-right` | `TRIA_RIGHT` |
+| `i-search` | `VIEWZOOM` |
+| `i-filter` | `FILTER` |
+| `i-folder` | `FILE_FOLDER` |
+| `i-film` | `FILE_MOVIE` |
+| `i-play` | `PLAY` |
+| `i-pause` | `PAUSE` |
+| `i-fprev` | `FRAME_PREV` |
+| `i-fnext` | `FRAME_NEXT` |
+| `i-vprev` | `BACK` |
+| `i-vnext` | `FORWARD` |
+| `i-check` | `CHECKMARK` |
+| `i-x` | `X` |
+| `i-plus` | `ADD` |
+| `i-eye` | `HIDE_OFF` |
+| `i-pencil` | `GREASEPENCIL` |
+| `i-info` | `INFO` |
+| `i-q` | `QUESTION` |
+| `i-warn` | `ERROR` |
+| `i-file` | `FILE` |
+| `i-cam` | `CAMERA_DATA` |
+| `i-cube` | `ASSET_MANAGER` |
+| `i-chart` | `SPREADSHEET` |
+| `i-link` | `LINKED` |
+| `i-copy` | `COPYDOWN` |
+| `i-gear` | `PREFERENCES` |
+| `i-blend` | `BLENDER` |
+| `i-full` | `FULLSCREEN_ENTER` |
+| `i-big` | `WINDOW` |
+| `i-snd` | `MUTE_IPO_ON` |
+| `i-mute` | `MUTE_IPO_OFF` |
+| `i-reply` | `FILE_PARENT` |
+| `i-undo` | `LOOP_BACK` |
+| `i-send` | `EXPORT` |
+| `i-outl` | `OUTLINER` |
+| `i-hour` | `SORTTIME` |
+| `i-user` | `USER` |
+| `i-ext` | `URL` |
+| `i-render` | `RENDER_ANIMATION` |
+| `i-loop` | `FILE_REFRESH` |
+
+Kept the page's own: `i-note` (a note's bubble: a state's mark, Blender
+has none), `i-bell` (What's new: Blender has no bell). Dropped: `i-seq`,
+`i-in` (never used). Questions still open (version previous / next,
+the machine's player, Loop): `docs/snapshot-v7-questions.md`.
+
+- **The classic page too**: `TEXT` and `PREVIEW_RANGE`, named in page.js
+  `BI` but missing from icons/, drew the stand-ins (`IC`); they are
+  Blender's now.
+- Blender's SVGs weigh more than the mockup's drawn paths (the sprite
+  about +25 KB for the 44): still far under the page's budget.
