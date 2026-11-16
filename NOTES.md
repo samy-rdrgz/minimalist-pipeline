@@ -5411,7 +5411,10 @@ from outside: in step with the frames by construction.
   compositing (no File Output node written), a colour strip over the
   sequencer so the sequencer's output -- not the 3D scene -- is what's
   rendered; then ffmpeg takes the sound out to the FLAC. Synchronous. The
-  setup never saves the file: nothing stays.
+  setup never saves the file: nothing stays. Checked in Blender 5.2.2
+  (tests/blender_sound_check.py, 29/29): ~0.2 s for 48 frames, the
+  sound 2.02 s for 2.00 (the movie writer's last packet; the compilation
+  cuts it to the frames).
 
 ## Breakdown (snapshot page v4)
 
