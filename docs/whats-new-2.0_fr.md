@@ -48,6 +48,7 @@ C'est le gros changement de la 2.0 : **le suivi du projet se fait dans une page 
 - **Rendus par département** : le preset de rendu dit à quel département il sert (`animation_hd`, `lighting_hd`…), et chaque département a ses propres rendus à vérifier.
 - **Previews de séquence** : les vidéos des shots mises bout à bout, compilées sur une machine libre.
 - **Rushes pour le montage** : *Push rushes to editing* copie la dernière vidéo de chaque shot dans `editing/rushes/`, sous un nom fixe : le montage voit la nouvelle version sans rien relier.
+- **Le son dans les rendus** : celui du fichier de shot (séquenceur, speakers) va dans sa vidéo et dans les previews de séquence.
 - **Copie légère** de chaque vidéo pour le navigateur, et le H.265 lu aussi sur téléphone et tablette.
 - Un worker empêche sa machine de se mettre en veille pendant un rendu, et se lance quelques secondes après Blender s'il est réglé pour.
 - Rendre un asset ou un fichier de bibliothèque fonctionne aussi.

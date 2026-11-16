@@ -477,6 +477,8 @@ Elle remplace Project monitoring. Ses actions sont celles de la phase 4 ; la lec
 
 ### Phase 5b — Le son des rendus
 
+**Fait le 16/11** (testé avec ffmpeg, pas encore dans Blender : le mixdown en arrière-plan reste à vérifier). Le mixdown se fait au **setup** du job (une fois par job, la plage du job), pas par le worker ; un shot sans son reçoit un silence ; PCM dans un `.mov` (DaVinci Resolve gratuit sous Linux ne lit pas l'AAC). Voir NOTES.md, « The renders' sound ».
+
 Décidé : le son vient **des fichiers de shot** (bandes son du séquenceur, speakers). Le son du montage seul (animatic) viendra plus tard, si besoin.
 
 - **Au rendu**, le worker fait un mixdown du son de la scène sur la plage du shot (`bpy.ops.sound.mixdown`, sans interface), à côté des images : `renders/<seq>/<shot>/<version>/<nom>.flac`. Rien quand la scène n'a pas de son.

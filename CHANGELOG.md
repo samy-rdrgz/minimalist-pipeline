@@ -9,6 +9,13 @@ All notable changes to this addon. Dates are release dates.
 - Live page, a tour for a beginner (Blender's Experience level, a guest
   too): a few steps pointing at the page's parts, shown once in a browser,
   again from More › Tour of the page.
+- Sound in the renders: the shot file's own (sequencer sound strips,
+  speakers), mixed down by the farm's render setup over the job's range
+  (a FLAC beside the frames) and put in the video by the compilation --
+  AAC in an mp4, PCM in a ProRes .mov, its light copy too. A shot without
+  sound gets silence, so a sequence preview keeps every shot's sound in
+  its place (an old render without a track: silence too). The page's
+  player already had its sound button (M).
 - Edit project, *Video*: the video compiled from a render's frames, for
   the edit -- *MP4 · H.264* (smooth to scrub, light, played as is by the
   page; new projects), *MOV · ProRes 422 LT* (what editing software reads

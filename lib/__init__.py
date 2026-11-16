@@ -184,6 +184,8 @@ from .preview import (
     render_root,
     resolve_block_sources,
     resolve_sequence_sources,
+    AAC_ARGS,
+    AUDIO_RATE,
     LD_ARGS,
     LD_SCALE,
     MAX_VIDEO_WIDTH,
@@ -193,10 +195,12 @@ from .preview import (
     ensure_ld,
     is_video,
     ld_path,
+    media_info,
     videos_in,
     zip_videos,
 )
 from .rushes import RUSHES_DIR, push_rushes, push_sequence_rushes
+from .sound import mixdown, scene_has_sound
 from .saving import WM_OT_safe_save
 from .session import (
     close_session,

@@ -15,6 +15,7 @@ from ..lib import (
     json_get,
     locked_json,
     log,
+    mixdown,
     parse_filename,
     render_root,
     shots_in_segment,
@@ -159,6 +160,7 @@ def run_render_setup_entry(job_id: str) -> None:
     (_split_into_shot_jobs()); otherwise resolves and writes back the output
     path and frame range."""
     job_path = ConfigCache.get_path("farm_actives") / f"{job_id}.json"
+    sound = None
     with locked_json(job_path) as box:
         data = box["data"] or {}
         scene = bpy.context.scene
@@ -261,7 +263,16 @@ def run_render_setup_entry(job_id: str) -> None:
             scene.render.resolution_x * scene.render.resolution_percentage / 100
         )
         data["output_extension"] = scene.render.image_settings.file_format
+        # The sound beside the frames, named as the video: made below, out
+        # of the job's lock. The compilation takes it if it's there,
+        # silence if not (farm/post_render.py).
+        audio = output_path.parent / f"{clean_name}_{output_path.parent.name}.flac"
+        data["audio_path"] = to_relative(str(audio), project_root)
+        sound = (audio, frame_start, frame_end)
         box["action"] = "to_write"
+    if sound:
+        # Same session, the preset applied: the fps the render will have.
+        mixdown(scene, *sound)
 
 
 def _split_into_shot_jobs(

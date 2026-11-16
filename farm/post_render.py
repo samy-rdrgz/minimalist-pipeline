@@ -5,6 +5,8 @@ from pathlib import Path
 import bpy
 
 from ..lib import (
+    AAC_ARGS,
+    AUDIO_RATE,
     LD_ARGS,
     LD_SCALE,
     MAX_VIDEO_WIDTH,
@@ -22,7 +24,7 @@ from ..lib import (
     thumbnail_size,
     to_absolute,
 )
-from ..lib.preview import video_info
+from ..lib.preview import media_info, video_info
 from .dispatch import popen_logged, track_local_processes
 from .stages import add_stage, mark_stage
 
@@ -241,12 +243,13 @@ def _even_size(preset: dict, args: list[str], size) -> list[str]:
     return ["-vf", even, *args]
 
 
-def _ld_args(width, preset: dict, video: Path) -> list[str]:
+def _ld_args(width, preset: dict, video: Path, sound: list[str] = ()) -> list[str]:
     """The compilation's second output, a light copy browsers can play
     (lib/preview.py ld_path()), when the video itself won't: wider than
     MAX_VIDEO_WIDTH, a codec they don't play (ProRes, DNxHR...), or not an
     mp4. [] when it plays as is -- a light copy left from before, now
-    stale, removed."""
+    stale, removed. sound: the video's maps and audio filter (_sound()),
+    its codec here AAC."""
     ld = ld_path(video)
     if (
         (width or 0) <= MAX_VIDEO_WIDTH
@@ -256,7 +259,60 @@ def _ld_args(width, preset: dict, video: Path) -> list[str]:
         ld.unlink(missing_ok=True)
         return []
     ld.parent.mkdir(parents=True, exist_ok=True)
-    return ["-vf", LD_SCALE, *LD_ARGS, str(ld)]
+    audio = [*sound, *AAC_ARGS] if sound else []
+    return ["-vf", LD_SCALE, *LD_ARGS, *audio, str(ld)]
+
+
+# A shot rendered without sound: silence, as long as its frames.
+SILENCE = f"anullsrc=r={AUDIO_RATE}:cl=stereo"
+
+
+def audio_codec_args(preset: dict, ext: str) -> list[str]:
+    """The video's sound codec: the preset's "audio_args" if it has some
+    (["-an"]: none), PCM in a .mov (the edit's -- DaVinci Resolve's free
+    version on Linux reads no AAC), Opus in a .webm, else AAC."""
+    if "audio_args" in preset:
+        return [str(a) for a in preset["audio_args"]]
+    ext = ext.lower().lstrip(".")
+    if ext == "mov":
+        return ["-c:a", "pcm_s16le"]
+    if ext == "webm":
+        return ["-c:a", "libopus", "-b:a", "160k"]
+    return list(AAC_ARGS)
+
+
+def _sound(frames: int, fps) -> list[str]:
+    """An output's maps and audio filter: the picture (input 0), the sound
+    (input 1) at AUDIO_RATE, padded with silence or cut to the sample to
+    last as the frames do -- a mixdown a little short or long (fps, range)
+    never shifts the next shot of a preview."""
+    samples = round(int(frames) * AUDIO_RATE / float(fps))
+    return ["-map", "0:v:0", "-map", "1:a:0",
+            "-af", f"aresample={AUDIO_RATE},apad,atrim=end_sample={samples}"]
+
+
+def compile_command(
+    *, ffmpeg_bin: str, frames_pattern: str, first: int, last: int, fps,
+    preset: dict, video: Path, width=None, size=None, audio: Path | None = None,
+) -> list[str]:
+    """The compilation's ffmpeg command: frames first..last at fps into
+    video, its sound -- audio (the render's mixdown) if it's a file, else
+    silence -- and its light copy if it needs one, in one pass."""
+    if audio is not None and Path(audio).is_file():
+        sound_in = ["-i", str(audio)]
+    else:
+        sound_in = ["-f", "lavfi", "-i", SILENCE]
+    codec = audio_codec_args(preset, video.suffix)
+    sound = [] if "-an" in codec else _sound(last - first + 1, fps)
+    return (
+        [ffmpeg_bin, "-y", "-r", str(fps), "-start_number", str(first), "-i", frames_pattern]
+        + (sound_in if sound else [])
+        + _even_size(preset, _ffmpeg_preset_to_args(preset), size)
+        + (sound + codec if sound else codec)
+        + [str(video)]
+        # Same pass: the light copy, if the video needs one.
+        + _ld_args(width, preset, video, sound)
+    )
 
 
 def compilation(*, project_root: Path, job_path: Path, compilation_settings: str):
@@ -299,21 +355,18 @@ def compilation(*, project_root: Path, job_path: Path, compilation_settings: str
                 size = _frame_size(
                     f"{prefix}{int(first):0{digits}d}.{extension}", ffmpeg_bin
                 )
-                cmd = (
-                    [
-                        ffmpeg_bin,
-                        "-y",
-                        "-r",
-                        str(framerate),
-                        "-start_number",
-                        str(first),
-                        "-i",
-                        f"{prefix}%0{digits}d.{extension}",
-                    ]
-                    + _even_size(preset, _ffmpeg_preset_to_args(preset), size)
-                    + [str(video)]
-                    # Same pass: the light copy, if the video needs one.
-                    + _ld_args(data.get("width"), preset, video)
+                audio = data.get("audio_path")
+                cmd = compile_command(
+                    ffmpeg_bin=ffmpeg_bin,
+                    frames_pattern=f"{prefix}%0{digits}d.{extension}",
+                    first=int(first),
+                    last=int(data["resolved_frame_range"][1]),
+                    fps=framerate,
+                    preset=preset,
+                    video=video,
+                    width=data.get("width"),
+                    size=size,
+                    audio=to_absolute(audio, project_root) if audio else None,
                 )
                 proc = [
                     (
@@ -350,7 +403,9 @@ def build_concat_command(
     (re-encodes each to the project's resolution/fps), not the concat
     demuxer's -c copy. ffmpeg_bin: resolved by the caller (resolve_ffmpeg()),
     not re-resolved here -- there'd be no single place left asserting it was
-    actually found."""
+    actually found. The sound follows: each input's own, silence for one
+    without (rendered before the sound, or its preset's "-an") -- read
+    here, one ffmpeg report per input."""
     res = json_get(config, "resolution", {"x": 1920, "y": 1080})
     width, height = int(res.get("x", 1920)), int(res.get("y", 1080))
     fps = json_get(config, "default_fps", 30)
@@ -364,20 +419,36 @@ def build_concat_command(
         f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,setsar=1,fps={fps}[v{i}]"
         for i in range(len(inputs))
     ]
+    for i, p in enumerate(inputs):
+        parts.append(f"{_concat_sound(i, media_info(p, ffmpeg_bin, timeout=30))}[a{i}]")
     parts.append(
-        "".join(f"[v{i}]" for i in range(len(inputs)))
-        + f"concat=n={len(inputs)}:v=1:a=0[outv]"
+        "".join(f"[v{i}][a{i}]" for i in range(len(inputs)))
+        + f"concat=n={len(inputs)}:v=1:a=1[outv][outa]"
     )
 
-    cmd += ["-filter_complex", ";".join(parts), "-map", "[outv]"]
+    cmd += ["-filter_complex", ";".join(parts), "-map", "[outv]", "-map", "[outa]"]
     # A sequence preview is for watching (the page, the player): an mp4 a
     # browser plays -- a ProRes preset (Video: MOV) wouldn't even go in one.
     preset = resolve_ffmpeg_preset(compilation_settings)
     if not browser_codec(str(preset.get("codec", ""))) or str(preset.get("extension") or "mp4").lower() != "mp4":
         preset = VIDEO_FORMATS["mp4"]
-    cmd += _ffmpeg_preset_to_args(preset)
+    cmd += _ffmpeg_preset_to_args(preset) + AAC_ARGS
     cmd += [str(output)]
     return cmd
+
+
+def _concat_sound(i: int, media: dict | None) -> str:
+    """Input i's sound for the concat filter: its own, or silence. Cut to
+    the input's duration rounded down (ffmpeg reports it to the
+    hundredth): never longer than its picture -- the next shot's would
+    start late -- the filter itself filling a sound shorter with silence
+    (all but the last input)."""
+    duration = (media or {}).get("duration")
+    cut = f",atrim=duration={int(duration * 100) / 100:.2f}" if duration else ""
+    norm = f"aresample={AUDIO_RATE},aformat=sample_fmts=fltp:channel_layouts=stereo"
+    if media and media.get("audio"):
+        return f"[{i}:a:0]{norm}{cut}"
+    return f"{SILENCE},{norm}{cut or ',atrim=duration=0.04'}"
 
 
 def preview_command(data: dict, project_root: Path, ffmpeg_bin: str) -> list[str]:

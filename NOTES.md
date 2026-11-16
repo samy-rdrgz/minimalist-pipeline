@@ -5344,6 +5344,40 @@ setting of its own. A sequence preview is always an mp4 a browser plays
 (ProRes can't go in an mp4). The preset file is read read-only now (it
 took a write lock to read).
 
+## The renders' sound (phase 5b)
+
+The shot file's own sound (sequencer sound strips, speakers), never a file
+from outside: in step with the frames by construction.
+- **The render setup mixes it down** (lib/sound.py `mixdown()`), once per
+  job, out of the job's lock, in the same session as the preset applied
+  (its fps): `bpy.ops.sound.mixdown` to a FLAC 16-bit stereo 48 kHz over
+  the job's range, beside the frames, named as the video
+  (`<shot>_<v003_001>.flac`, `data["audio_path"]`). A block split into
+  shots: each shot's job has its own setup, its own range -- its own cut.
+  A block rendered whole: the whole range. Set for the mixdown only (never
+  saved): the range, no preview range, and `use_audio` False -- the
+  timeline's Mute mutes the mixdown too.
+- **No sound in the scene** (no strip nor speaker not muted): no file, one
+  left from a render before removed. A mixdown that fails: a warning in
+  the log, no file -- the render isn't failed for it.
+- **The compilation** (`compile_command()`) always gives the video a
+  track: the FLAC, or `anullsrc` silence when there's none. Cut to the
+  sample (`apad,atrim=end_sample=`) to frames / fps: a mixdown a little
+  short or long never shifts the next shot of a preview (checked at
+  23.976: within a millisecond). AAC in an mp4, PCM in a .mov (DaVinci
+  Resolve's free version on Linux reads no AAC), Opus in a .webm; a
+  preset's `"audio_args"` replaces that (`["-an"]`: none). The light copy
+  in the same pass gets AAC.
+- **Sequence previews**: the concat filter takes v=1:a=1, so every input
+  needs a sound -- an old render has none: silence for it, each input read
+  first (`media_info()`, one ffmpeg report). Each sound cut to its input's
+  duration rounded down (ffmpeg says it to the hundredth): never longer
+  than its picture, the filter filling the rest with silence.
+- **ensure_ld()** (snapshot's light copies) maps the sound too: AAC copied,
+  anything else (a .mov's PCM) made AAC.
+- Not checked in Blender yet: `bpy.ops.sound.mixdown`'s options in
+  background (a Blender taking fewer: the format alone, TypeError caught).
+
 ## Breakdown (snapshot page v4)
 
 The Breakdown tab: per section five figures, then one sequence × department

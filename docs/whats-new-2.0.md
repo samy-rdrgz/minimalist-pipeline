@@ -48,6 +48,7 @@ The big change in 2.0: **you follow the project in a web page**, instead of the 
 - **Renders by department**: the render preset says which department it serves (`animation_hd`, `lighting_hd`…), and each department has its own renders to check.
 - **Sequence previews**: the shots' videos put end to end, compiled on a free machine.
 - **Rushes for editing**: *Push rushes to editing* copies each shot's latest video into `editing/rushes/` under a fixed name: the edit picks up the new version with no relinking.
+- **Sound in the renders**: the shot file's own sound (sequencer, speakers) goes in its video and in the sequence previews.
 - **A light copy** of each video for the browser, and H.265 plays on phones and tablets too.
 - A worker keeps its machine awake while it renders, and starts a few seconds after Blender when set to.
 - Rendering an asset or a library file works too.
