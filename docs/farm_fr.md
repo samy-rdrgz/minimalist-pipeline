@@ -82,4 +82,4 @@ Toute la farm se coordonne sur le drive partagé du projet, sans SSH ni connexio
 
 ---
 
-**Voir aussi** : [Suivi & reviews](tracking-and-reviews_fr.md) pour l'onglet Farm de la page en live (jobs et machines) · [Sessions et verrouillage](sessions-and-locking_fr.md) pour le pattern heartbeat/expiration que suivent aussi les workers et le monitor. Une compilation H.265 (le `libx265` du preset par défaut) est taguée `hvc1`, sauf si les `extra_args` du preset fixent leur propre `-tag` : Safari, iPhone, iPad et QuickTime refusent le `hev1` qu'ffmpeg met par défaut -- recompiler une vidéo plus ancienne pour la lire là.
+**Voir aussi** : [Suivi & reviews](tracking-and-reviews_fr.md) pour l'onglet Farm de la page en live (jobs et machines) · [Sessions et verrouillage](sessions-and-locking_fr.md) pour le pattern heartbeat/expiration que suivent aussi les workers et le monitor. Une compilation H.265 (le `libx265` du preset par défaut) est taguée `hvc1`, sauf si les `extra_args` du preset fixent leur propre `-tag` : certains navigateurs, appareils et lecteurs refusent le `hev1` qu'ffmpeg met par défaut -- recompiler une vidéo plus ancienne pour la lire là.

@@ -55,15 +55,17 @@ All notable changes to this addon. Dates are release dates.
   Status, Count, RTK & notes --; a cell opens the list filtered on it;
   the schedule on the tabs' line; *How it's counted* folded. It replaces
   the three cards per section and the shaded grid.
-- Live page, *Share with a phone…* (an icon beside *Monitor in browser*, the
-  Pipeline menu, the page's ⋯ menu): someone on the studio's network gets
-  the page under their name and role, for an hour, until tonight, a day
-  or a week -- a QR code to scan, or *Copy link*; the accesses listed,
-  each revoked in a click. They review; the farm read only; nothing opened
-  on this machine. The page is served on the network only while one runs.
-- Live page: the guest's address chosen when this machine has more than
-  one -- the local network, or Tailscale (a phone with it on, from
-  anywhere). A tab in the background stops asking for news: piled-up tabs
+- Live page, remote access, secondary to *Monitor in browser* (*Share
+  with a phone…*: an icon beside it, the Pipeline menu, the page's ⋯
+  menu): someone gets the page on another device under their name and
+  role, for an hour, until tonight, a day or a week -- a QR code to scan,
+  or *Copy link*; the accesses listed, each revoked in a click. They
+  review; the farm read only; nothing opened on this machine. The page is
+  served on the network only while one runs, at the address chosen when
+  this machine has more than one. Combined with a VPN (Tailscale, for
+  example), it gives easy remote monitoring of the project and the farm
+  from outside the studio.
+- Live page: a tab in the background stops asking for news: piled-up tabs
   held the browser's connections and left a click waiting.
 - Snapshot page: a *Farm* column in the list -- a job's state (to the Farm
   tab), a render to check (to its file's *To check*).
@@ -592,15 +594,16 @@ review one file -- lighter to read on a computer and on a phone.
   choice, the sequences ticked and *Assets & libraries* are remembered.
   *Choose the videos folder…* (a folder button next to ? until one is
   chosen, ⋯ menu, or under a render with nothing to play) reads them from
-  any folder, whatever its name -- the project's `renders/` too: in
-  Chrome or Edge it opens only the videos it needs, by their paths.
+  any folder, whatever its name -- the project's `renders/` too: in a
+  browser that allows it, it opens only the videos it needs, by their
+  paths.
 - The logo moved to the footer, "Created by minimalist pipeline", and
   opens the add-on's page on extensions.blender.org.
 - A retake on no department (general RTK) counts in a file's Done as an
   RTK on one of its done departments, no longer on every one of them;
   each department's own Done leaves it out.
-- H.265 videos play on iPad, iPhone and Safari: the compilation tags
-  them `hvc1` (ffmpeg's `hev1` was refused there). Recompile an older
+- H.265 videos play on more browsers and devices: the compilation tags
+  them `hvc1` (ffmpeg's `hev1` was refused by some). Recompile an older
   one to play it. The page says when a video is there but its format
   can't be played, instead of "not found".
 - Tablets: upright (up to 900 px wide), a file's panel takes the whole
@@ -610,8 +613,8 @@ review one file -- lighter to read on a computer and on a phone.
   while writing in the panel the review bar and Previous / Next step
   aside for the on-screen keyboard.
 - **A light copy for browsers**, in the render's folder, `ld/`: when its
-  video is wider than 8192 px (a panoramic render: browsers on a PC or
-  an iPad refuse it) or in a codec they don't play (ProRes, DNxHR...),
+  video is wider than 8192 px (a panoramic render: browsers refuse it,
+  on a computer as on a tablet) or in a codec they don't play (ProRes, DNxHR...),
   the farm's compilation writes an H.265 copy at most 8192 px wide in the
   same pass. The snapshot plays and carries it; the full one stays for
   the edit (rushes, previews, thumbnails never see `ld/`). A job set up
@@ -670,13 +673,13 @@ review one file -- lighter to read on a computer and on a phone.
 ### Tablets
 
 - **The panel over the whole page, on demand**: dragging the panel's left
-  edge past its widest makes it fill the page (an iPad upright: the list
+  edge past its widest makes it fill the page (a tablet upright: the list
   beside it was too narrow), kept by the browser; dragged back from its
   left edge, it's beside the list again (a double click: the default
   width). A wider edge to grab with a finger.
 - **Theme: System / Light / Dark** in the ⋯ menu, kept by the browser --
   applied before the page shows, no flash of the other one.
-- **Nothing hides under an iPad's status bar** any more (battery,
+- **Nothing hides under a tablet's status bar** any more (battery,
   network, time, where the page runs under it -- full screen, or an app's
   viewer): the top bar, the panel's header, the video player, the
   dialogs and messages start below it.
@@ -685,8 +688,8 @@ review one file -- lighter to read on a computer and on a phone.
   (a download lands wherever the browser, or the app showing the page,
   keeps its own: hard to find in an app's viewer). A cancelled share
   leaves the dialog open; a failed one downloads instead.
-- **The page holds still under a finger** (iPad, in Safari or an app's
-  viewer such as Documents): under an open list or menu, the dialogs,
+- **The page holds still under a finger** (a tablet, in its browser or an
+  app's viewer): under an open list or menu, the dialogs,
   the video player, the panel taking the whole screen, and while
   writing -- back where it was once closed, nothing scrolled by the
   browser or put back after it. A ✓ or ✕ in the panel redraws only that

@@ -159,7 +159,7 @@ _PROBES = ("192.168.255.255", "10.255.255.255", "172.31.255.255", "1.1.1.1", "10
 
 def _addresses() -> list[dict]:
     """This machine's addresses a phone may reach: [{"ip", "kind"}] --
-    "local network" (the studio's Wi-Fi), "Tailscale" (100.64.0.0/10:
+    "local network" (the studio's Wi-Fi), "VPN" (100.64.0.0/10, Tailscale's and other mesh VPNs':
     the phone on Tailscale too, from anywhere), "network" otherwise."""
     import ipaddress
 
@@ -176,7 +176,7 @@ def _addresses() -> list[dict]:
         if ip.startswith("127.") or ip == "0.0.0.0" or any(a["ip"] == ip for a in out):
             continue
         addr = ipaddress.ip_address(ip)
-        kind = "Tailscale" if addr in ipaddress.ip_network("100.64.0.0/10") else "local network" if addr.is_private else "network"
+        kind = "VPN" if addr in ipaddress.ip_network("100.64.0.0/10") else "local network" if addr.is_private else "network"
         out.append({"ip": ip, "kind": kind})
     # The local network first: a phone on the studio's Wi-Fi needs nothing more.
     return sorted(out, key=lambda a: a["kind"] != "local network")

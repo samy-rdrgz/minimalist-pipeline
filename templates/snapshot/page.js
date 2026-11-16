@@ -852,7 +852,7 @@ el.addEventListener('error',function(){if(PL!==P)return;var v=P.v,V=META.videos;
 if(v.from!=='local'&&v.from!=='picked'&&V&&V.local){v.from='local';v.src=V.local+'/'+encodeURI(v.name);el.src=v.src;return;}
 // Said in place of the picture, the controls left out.
 var m=q('.pv-msg');if(!m)return;P.host.classList.add('pv-err');m.hidden=false;
-m.innerHTML=(v.from==='picked'?'This browser can\'t play this video\'s format (on an iPad or in Safari: an H.265 video compiled by an older add-on — compile it again).':
+m.innerHTML=(v.from==='picked'?'This browser can\'t play this video\'s format (on some browsers and tablets: an H.265 video compiled by an older add-on — compile it again).':
 v.from==='zip'?'Video not found. Unzip <code>'+esc(V.base)+'.zip</code> next to this page, into a folder of the same name.':
 v.from==='folder'?'Video not found: no <code>'+esc(V.base)+'</code> folder '+(V.base.indexOf('../')===0?'beside this page\'s folder (keep the snapshots folder whole)':'next to this page')+' — or this browser can\'t play its format.':
 'Video not found in the project\'s renders — away from the project, its videos come with the snapshot (Folder or Zip, when exporting) — or this browser can\'t play its format.')+
@@ -1739,7 +1739,7 @@ var dl=$('dlg');dl.innerHTML='<div class="dlg-in send" role="dialog" aria-modal=
 '<div class="st-l">Role</div><div class="segb" id="d-role" role="group" aria-label="Role">'+roleList().map(function(r){return '<button type="button" data-role="'+esc(r)+'" aria-pressed="'+(r===rv.role)+'">'+esc(r)+'</button>';}).join('')+'</div>'+
 '<div class="recap">'+sendRecap(rows)+'</div>'+
 '<p class="send-f">'+ico('export')+'<code id="d-name"></code></p>'+
-'<p class="send-why">The page sends nothing itself: download the file and send it to the studio (mail, SwissTransfer).'+(SHARE?' Here, the share sheet opens: Save to Files, AirDrop, Mail…':' On an iPad, the share sheet opens.')+'</p>'+
+'<p class="send-why">The page sends nothing itself: download the file and send it to the studio (mail, a file transfer service).'+(SHARE?' Here, the share sheet opens: save it, or send it from another app.':' On a tablet, the share sheet opens.')+'</p>'+
 '<p class="why" id="d-why" hidden></p><div class="acts"><button class="btn link" id="d-clear">'+ico('trash')+'Clear this review…</button><button class="btn" id="d-cancel">Keep reviewing</button>'+
 '<button class="btn primary" id="d-go">'+ico('export')+(SHARE?'Save or send…':'Download')+'</button></div></div>';
 var dRole=rv.role;
@@ -1911,7 +1911,7 @@ livePost('share',body).then(function(res){clearTimeout(late);if(!res.ok){toast('
 .catch(function(){clearTimeout(late);toast('Blender doesn\'t answer.');});}
 function shareDraw(res){var roles=['team'].concat((META.roles||[]).filter(function(r){return r!=='team';})),h='';
 if(res.link)h+='<div class="sh-made"><div class="sh-qr">'+res.qr+'</div><div class="sh-info"><b>'+esc(res.name)+'</b> · '+esc(res.role)+'<br><small>until '+fmtUntil(res.until)+'</small>'+
-'<p class="faint">'+(res.via==='Tailscale'?'Scan it on a phone with Tailscale on, wherever it is':'Scan it on the same network (the studio\'s Wi-Fi)')+' -- or send the link:</p><input id="sh-link" readonly value="'+esc(res.link)+'"><button type="button" class="act fix" id="sh-copy">'+ico('link')+'Copy link</button></div></div>';
+'<p class="faint">'+(res.via==='VPN'?'Scan it on a device on the same VPN, wherever it is -- the project and the farm watched from outside the studio':'Scan it on the same network (the studio\'s Wi-Fi)')+' -- or send the link:</p><input id="sh-link" readonly value="'+esc(res.link)+'"><button type="button" class="act fix" id="sh-copy">'+ico('link')+'Copy link</button></div></div>';
 h+='<form class="sh-form" onsubmit="return false"><label>Name <input id="sh-name" maxlength="40" placeholder="Who it is for" autocomplete="off"></label>'+
 '<label>Role <select id="sh-role">'+roles.map(function(r){return '<option'+(r==='team'?' selected':'')+'>'+esc(r)+'</option>';}).join('')+'</select></label>'+
 (function(){var ad=res.addresses||[];if(ad.length)SHARE_IP=SHARE_IP&&ad.some(function(a){return a.ip===SHARE_IP;})?SHARE_IP:ad[0].ip;

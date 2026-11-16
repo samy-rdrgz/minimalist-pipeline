@@ -21,12 +21,12 @@ C'est le gros changement de la 2.0 : **le suivi du projet se fait dans une page 
 - **La liste des assets et des shots** : où en est chaque département, les retakes ouverts, les rendus à vérifier, ce qui tourne sur la farm. Filtres par département, retakes, notes ouvertes, « mon travail ». Un clic sur un fichier ouvre son panneau : ses notes, ses rendus à regarder (avec la frame affichée et les notes posées dessus), ses liens, et un bouton pour l'ouvrir dans Blender.
 - **Breakdown** : l'avancement par séquence et par département, en %, en états, en nombre ou en retakes, avec le planning du projet.
 - **Onglet Farm** : les rendus et les machines, envoyer un fichier en rendu, la priorité, annuler, relancer, archiver, savoir quelle machine a rendu quelle frame et combien de temps il reste.
-- **Partager avec un téléphone** : quelqu'un sur le réseau du studio (ou par Tailscale) reçoit un QR code ou un lien, valable d'une heure à une semaine, sous son nom et son rôle. Il fait sa review depuis son téléphone ou sa tablette ; rien ne s'ouvre sur votre machine, et vous coupez l'accès en un clic.
 - **Thème clair / sombre**, et la page s'adapte aux tablettes et aux téléphones.
+- **Accès à distance, secondaire** : quelqu'un reçoit la même page par un QR code ou un lien, valable d'une heure à une semaine, sous son nom et son rôle ; rien ne s'ouvre sur votre machine, et vous coupez l'accès en un clic. Combiné avec un VPN (type Tailscale), cela permet d'avoir facilement un monitoring extérieur et distant du projet et de la farm.
 
 ## Les reviews
 
-- **Le snapshot de prod** : une page HTML autonome du projet (vignettes, vidéos, notes, avancement), à envoyer à quelqu'un d'extérieur au studio. Elle s'ouvre sans Blender et sans réseau, même sur iPad.
+- **Le snapshot de prod** : une page HTML autonome du projet (vignettes, vidéos, notes, avancement), à envoyer à quelqu'un d'extérieur au studio. Elle s'ouvre sans Blender et sans réseau, même sur tablette.
 - **Faire la review dans la page même**, live ou snapshot : ✓ / ✕ par département, retakes avec leurs frames, notes, réponses, « marquer corrigé ». Pour un snapshot, la review se télécharge en un fichier, et *Import review* l'applique au projet (plusieurs à la fois si besoin).
 - **Done et validé** : l'équipe coche *Done* quand un département est fini ; des rôles de validation (sup, prod…) valident ensuite. Les notes et retakes d'un rôle sont marqués comme tels.
 - **Changer les départements de plusieurs fichiers d'un coup** (tous les shots, une séquence, un préfixe, ceux qui ont déjà un département donné).
@@ -48,7 +48,7 @@ C'est le gros changement de la 2.0 : **le suivi du projet se fait dans une page 
 - **Rendus par département** : le preset de rendu dit à quel département il sert (`animation_hd`, `lighting_hd`…), et chaque département a ses propres rendus à vérifier.
 - **Previews de séquence** : les vidéos des shots mises bout à bout, compilées sur une machine libre.
 - **Rushes pour le montage** : *Push rushes to editing* copie la dernière vidéo de chaque shot dans `editing/rushes/`, sous un nom fixe : le montage voit la nouvelle version sans rien relier.
-- **Copie légère** de chaque vidéo pour le navigateur, et le H.265 lu sur iPhone et iPad.
+- **Copie légère** de chaque vidéo pour le navigateur, et le H.265 lu aussi sur téléphone et tablette.
 - Un worker empêche sa machine de se mettre en veille pendant un rendu, et se lance quelques secondes après Blender s'il est réglé pour.
 - Rendre un asset ou un fichier de bibliothèque fonctionne aussi.
 
