@@ -82,8 +82,8 @@ return [w,[f.waiting?'waiting: '+f.waiting:'',f.to_redo?'redo: '+f.to_redo:''].f
 // An open retake on a department: its post-it -- red from a validation
 // role, outlined from the team, their number in it. [html, words].
 function rtkTag(it,d){var r=it.rtk[d];if(!r)return null;var n=(it.rtkNotes[d]||[]).length||1;
-return ['<span class="pi pi-'+(r==='team'?'team':'role')+'">'+(n>1?n+' ':'')+'RTK</span>',
-(n>1?n+' open retakes':'an open retake')+(r==='team'?' from the team':' from a validation role')];}
+var dn=it.dnotes[d];return ['<span class="pi pi-'+(r==='team'?'team':'role')+(dn?' has-n':'')+'">'+(n>1?n+' ':'')+'RTK</span>',
+(n>1?n+' open retakes':'an open retake')+(r==='team'?' from the team':' from a validation role')+(dn?', and '+(dn>1?dn+' open notes':'an open note'):'')];}
 // An open note on a department (not a retake): a quiet post-it in the
 // same place -- a retake's wins the room, the note said in its words.
 function noteTag(it,d){var n=it.dnotes[d];if(!n)return null;
@@ -321,7 +321,7 @@ function summaryCards(){var S=META.schedule,exp=S?S.expected:null,h='';
 var n=D.filter(function(it){return it.kind===s[0];}).length,val=(META.validation||{})[s[0]],pace='',tip=s[1]+': '+plural(n,s[2])+', done '+pct(done)+(val!=null?', validated '+pct(val):'');
 if(S){var b=band(done,exp),at=(S.at||{})[s[0]],days=at?Math.abs(at.days):0,cls=b?b[0]:'ontrack';
 tip+=', expected '+pct(exp)+(days?', '+plural(days,'working day')+' '+(done>=exp?'ahead':'behind'):'');
-if(b)pace='<span class="pace p-'+cls+'">'+Math.round(done/exp*100)+' %</span>';}
+}
 var mine=D.filter(function(it){return it.kind===s[0];}),plan=(rv.creates||[]).filter(function(c){return c.kind===s[0];});
 h+='<span class="kpi" title="'+esc(tip)+'"><span class="kl">'+s[1]+'</span>'+dv(done,val,true)+pace+withReview({done:done,valid:val},reviewedOf(mine,plan),true)+'</span>';});
 $('summary').innerHTML=h;}
@@ -583,13 +583,13 @@ function pick(sel){if(sel._pick)return sel._pick;
 var w=document.createElement('span'),b=document.createElement('button'),m=document.createElement('div');
 w.className='pick-w';b.type='button';b.className=sel.className+' pick';b.setAttribute('aria-haspopup','listbox');b.setAttribute('aria-expanded','false');
 if(sel.getAttribute('aria-label'))b.setAttribute('aria-label',sel.getAttribute('aria-label'));
-m.className='pick-pop';m.hidden=true;m.setAttribute('role','listbox');
+m.className='pick-pop'+(sel.dataset.pickc?' '+sel.dataset.pickc:'');m.hidden=true;m.setAttribute('role','listbox');
 sel.parentNode.insertBefore(w,sel);w.appendChild(sel);w.appendChild(b);sel.hidden=true;sel.tabIndex=-1;
 // Its list in the body: a bar moved by a transform would carry it off.
 m._button=b;document.body.appendChild(m);
 function sync(){var o=sel.options[sel.selectedIndex];b.textContent=o?(o.dataset.short||o.textContent):'';
 ['on','need'].forEach(function(c){b.classList.toggle(c,sel.classList.contains(c));});}
-b.onclick=function(e){e.stopPropagation();var open=!m.hidden;closeMenus();closePicks();if(open)return;
+b.onclick=function(e){e.stopPropagation();var open=!m.hidden;if(!b.closest('.menu-pop'))closeMenus();closePicks();if(open)return;
 m.innerHTML=[].map.call(sel.options,function(o,i){return '<button type="button" role="option" data-i="'+i+'" aria-selected="'+(i===sel.selectedIndex)+'">'+esc(o.textContent)+'</button>';}).join('');
 // Fixed, from the button: a scrolling bar or a panel would clip it.
 var r=b.getBoundingClientRect(),up=r.top>innerHeight/2;m.style.left=Math.max(8,Math.min(r.left,innerWidth-Math.max(r.width,200)-8))+'px';m.style.minWidth=r.width+'px';
@@ -599,7 +599,7 @@ m.style.top=up?'':(r.bottom+6)+'px';m.style.bottom=up?(innerHeight-r.top+6)+'px'
 m.hidden=false;b.setAttribute('aria-expanded','true');pickOpenedAt=Date.now();touchHold();
 if(!touchPin.matches)(m.querySelector('[aria-selected="true"]')||m.firstChild).focus({preventScroll:true});};
 m.onclick=function(e){var o=e.target.closest('[data-i]');if(!o)return;e.stopPropagation();sel.selectedIndex=+o.dataset.i;closePicks();
-sel.dispatchEvent(new Event('change'));sync();if(!touchPin.matches)b.focus({preventScroll:true});};
+sel.dispatchEvent(new Event('change',{bubbles:true}));sync();if(!touchPin.matches)b.focus({preventScroll:true});};
 m.onkeydown=function(e){var f=[].slice.call(m.children),k=f.indexOf(document.activeElement);
 if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();var n=f[Math.max(0,Math.min(f.length-1,k+(e.key==='ArrowDown'?1:-1)))];if(n)n.focus({preventScroll:true});}
 else if(e.key==='Escape'||e.key==='Tab'){if(e.key==='Escape'){e.preventDefault();e.stopPropagation();}closePicks();b.focus({preventScroll:true});}};
@@ -1156,7 +1156,7 @@ all.map(function(d){var on=d in e.req?e.req[d]:d in it.states;return '<button ty
 '<div class="st-l">Set aside</div><div class="segb om">'+[['','Active'],['on_hold','On hold'],['cancelled','Cancelled']].map(function(o){return '<button type="button" data-omit="'+o[0]+'" aria-pressed="'+(om.state===o[0])+'">'+o[1]+'</button>';}).join('')+'</div>'+
 (om.state?'<input class="om-why" id="om-why" placeholder="Why (for the team)" value="'+esc(om.reason||'')+'">':'');}
 function settingsDialog(it){var dl=$('dlg'),e=entry(it);dl.dataset.kind='settings';
-dl.innerHTML='<div class="dlg-in set-dlg" role="dialog" aria-modal="true" aria-labelledby="sd-t"><h3 id="sd-t">File settings · '+esc(it.name)+'</h3>'+settingsHtml(it,e)+
+dl.innerHTML='<div class="dlg-in set-dlg" role="dialog" aria-modal="true" aria-labelledby="sd-t"><h3 id="sd-t">File settings</h3><p class="sd-name" title="'+esc(it.name)+'">'+esc(it.name)+'</p>'+settingsHtml(it,e)+
 '<p class="faint sd-note">In your review: '+(META.live?'sent to Blender a moment after':'sent with it')+'.</p><div class="acts"><button type="button" class="btn" data-sdx>Done</button></div></div>';dl.hidden=false;
 var close=function(){dl.hidden=true;dl.onclick=dl.oninput=null;delete dl.dataset.kind;refresh();};
 dl.onclick=function(ev){var t;if(ev.target===dl||ev.target.closest('[data-sdx]'))return close();
@@ -1193,7 +1193,7 @@ return '<div class="sc"><button type="button" data-shot="'+esc(s[0])+'" data-src
 // each shot's video stays one tap away here.
 return (n>1&&!it.shot_thumbs.length?'<div class="vlist review-only">'+it.renders.map(function(r,k){return [r,k];}).filter(function(x){return videosOf(it,x[0]).length;})
 .sort(function(a,b){return it.shots.indexOf(a[0].shot_list[0])-it.shots.indexOf(b[0].shot_list[0]);})
-.map(function(x){return '<button type="button" class="pl" data-play="'+x[1]+'">▶ '+esc(x[0].shots||'all shots')+'</button>';}).join('')+'</div>':'');})()+(DETAILS?versionsHtml(it):'')+'</div>';
+.map(function(x){return '<button type="button" class="pl" data-play="'+x[1]+'">▶ '+esc(x[0].shots||'all shots')+'</button>';}).join('')+'</div>':'');})()+versionsHtml(it)+'</div>';
 // The description first: what the file is.
 if(rv&&(editing.desc||e.desc!==null))h+='<div class="p-block"><h4>Description<span class="h-sub">sent with the review</span></h4><textarea rows="1" id="desc-t" placeholder="What this file is, for the team">'+esc(e.desc!==null?e.desc:it.desc)+'</textarea></div>';
 else{if(it.desc)h+='<p class="desc">'+esc(it.desc)+'</p>';
@@ -1208,12 +1208,18 @@ if(it.live)h+=checksHtml(it)+(DETAILS||linksToUpdate(it)?linksHtml(it):'');
 // one line -- how many shots, which versions.
 var lr=rendersHtml(it)+noVideo(it);if(it.shot_thumbs.length>1){var lf={};it.renders.forEach(function(r){if(r.folder)lf[r.folder]=1;});
 lr='<button type="button" class="rf-t" data-lrfold aria-expanded="'+LROPEN+'">'+(LROPEN?'▾':'▸')+' '+plural(it.shot_thumbs.length,'shot')+(Object.keys(lf).length?' <small>'+esc(Object.keys(lf).slice(0,3).join(', '))+(Object.keys(lf).length>3?'…':'')+'</small>':'')+'</button>'+(LROPEN?lr:'');}
-if(DETAILS)h+='<dl class="view-only facts"><dt>Last render</dt><dd>'+lr+'</dd><dt>Blender file</dt><dd class="fileline">'+esc(it.file)+'.blend</dd>'+
+if(DETAILS)h+='<dl class="facts"><dt>Last render</dt><dd>'+lr+'</dd><dt>Blender file</dt><dd class="fileline">'+esc(it.file)+'.blend</dd>'+
 // Its logged work time, every version and everyone: the file's, no one's.
 (it.work?'<dt>Work time</dt><dd class="faint" title="Sessions that saved, every version, everyone together">'+dur(it.work)+'</dd>':'')+'</dl>';
+// The details, from here too: where one looks for more.
+h+='<button type="button" class="det-b" data-det aria-pressed="'+DETAILS+'">'+(DETAILS?'▾ Fewer details':'▸ More details <small>versions, links, last render, .blend, work time</small>')+'</button>';
 // The player's video kept as the panel is redrawn (moved, not made again).
 if(PL&&PL.host&&PL.mode==='panel'&&PL.it===it)document.body.appendChild(PL.el).hidden=true;
+document.querySelectorAll('.pick-pop.vp').forEach(function(x){x.remove();});
 $('p-body').innerHTML=h;$('p-body').querySelectorAll('textarea').forEach(grow);
+// Versions to watch: the page's own picker, as the department's (its list
+// made again with the panel).
+$('p-body').querySelectorAll('select[data-vline]').forEach(pick);
 // Another file: its content fades in (not at each redraw of the same one).
 if(!same){var pb=$('p-body');pb.classList.remove('swap');void pb.offsetWidth;pb.classList.add('swap');}
 if(nvid){if(PL&&PL.it!==it&&$('wl').hidden){PL.el.pause();PL=null;}
@@ -1388,6 +1394,7 @@ if((t=ev.target.closest('[data-play]'))){var vv=videosOf(it,it.renders[+t.datase
 for(var k=0;k<p.list.length;k++)if(p.list[k].name===vv.name){if(k!==p.at)load(k);break;}p.el.play();var pv=$('pv');if(pv)pv.scrollIntoView({block:'nearest'});return;}
 if(ev.target.closest('#bigb'))return lightbox('<img alt="" src="'+$('bigimg').src+'">',esc(it.name));
 if(ev.target.closest('[data-vfold]')){VOPEN=!VOPEN;return refresh();}
+if(ev.target.closest('[data-det]'))return setDetails(!DETAILS);
 if(ev.target.closest('[data-lrfold]')){LROPEN=!LROPEN;return refresh();}
 if((t=ev.target.closest('.shotsel button'))){t.closest('.shotsel').querySelectorAll('button').forEach(function(x){x.setAttribute('aria-pressed',x===t);});
 // With a player: that shot's video, playing (the strip is the shots'
@@ -1966,7 +1973,7 @@ function setDetails(on){DETAILS=on;try{localStorage.setItem(DET_KEY,on?'1':'');}
 function vLines(it){if(!it.live)return [];var V=it.live.versions||{},seen={};
 return it.renders.filter(function(r){var k=r.shots||'';if(seen[k])return false;seen[k]=1;return (V[k]||[]).length>1||((V[k]||[]).length&&V[k][0].video!==r.video);});}
 function vSelect(it,r,short){var V=it.live.versions||{},k=r.shots||'',o=(PICKV[it.file]||{})[k];
-return '<select data-vline="'+esc(k)+'" aria-label="'+esc((k?k+': ':'')+'version to watch')+'"><option value="">'+(short?'Main':'Main · '+esc([r.folder,r.department].filter(Boolean).join(' · ')))+'</option>'+
+return '<select class="verpick'+(short?' sm':'')+'" data-pickc="vp" data-vline="'+esc(k)+'" aria-label="'+esc((k?k+': ':'')+'version to watch')+'"><option value="">'+(short?'Main':'Main · '+esc([r.folder,r.department].filter(Boolean).join(' · ')))+'</option>'+
 V[k].map(function(v,n){return '<option value="'+n+'"'+(o&&o.video===v.video?' selected':'')+'>'+esc([v.folder,v.department,fmtDay(new Date(v.at*1000))].filter(Boolean).join(' · '))+'</option>';}).join('')+'</select>';}
 function versionsHtml(it){var inStrip={};(it.shot_thumbs||[]).forEach(function(t){inStrip[t[0]]=1;});
 var lines=vLines(it).filter(function(r){return !inStrip[r.shots||''];}).map(function(r){var k=r.shots||'';return '<label class="vsel">'+(k?'<span>'+esc(k)+'</span>':'')+vSelect(it,r)+'</label>';});
