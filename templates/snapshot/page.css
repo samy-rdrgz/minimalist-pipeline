@@ -1363,3 +1363,7 @@ part ringed */
 .help .pi.has-n{position:relative;bottom:auto;left:auto}
 /* With a mouse: the assign button the size of its row's check and cross */
 @media (pointer:fine){.asg{height:28px;min-width:28px;border-radius:14px}.asg .ico{width:13px;height:13px}.asg .av{width:20px;height:20px;font-size:10px}.asg.set{padding:0 8px 0 3px}}
+/* Watch large: a range's start beside the retake's label */
+.wl-wl{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.wl-in{flex:none;min-height:24px;padding:0 8px;border:1px solid var(--outline);border-radius:var(--r-btn);background:var(--btn);color:var(--ink-2);font:11px var(--mono);cursor:pointer}
+.wl-in[aria-pressed="true"]{background:var(--sel);border-color:var(--sel);color:#fff}

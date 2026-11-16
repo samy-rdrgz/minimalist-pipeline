@@ -883,21 +883,30 @@ return '<div class="wl-d'+(d===wlDep?' on':'')+'"><button type="button" class="w
 '<button class="ko-b" aria-pressed="'+!!(vv&&vv.no)+'" aria-label="Retake '+esc(d)+'">✕</button></span>':'')+'</div>';}).join('');
 var marks=PL?PL.marks:[];h+='<div class="wl-h"><h4>Notes at frames</h4><small>click to jump</small></div>'+(marks.length?marks.map(function(m){
 return '<button type="button" class="wl-n" data-seek="'+m.a+'"><span class="ft'+(m.b?' rg':m.rtk?'':' nt')+'">'+esc(fLabel(v,m.a)+(m.b?'-'+m.b:''))+'</span>'+esc(m.text)+(m.who?'<small> · '+esc(m.who)+'</small>':'')+'</button>';}).join(''):'<p class="faint">No note at a frame on this video.</p>');
-if(rv&&wlDep)h+='<div class="wl-w"><label for="wl-ta">Retake at <span class="addf-l">'+(v?esc(fLabel(v,frameNo(v,PL.el.currentTime))):'')+'</span> on '+esc(cap(wlDep))+'</label>'+
-'<textarea id="wl-ta" rows="3" placeholder="Write while watching — Enter adds it"></textarea></div>';
+if(rv&&wlDep){var inF=wlIn();h+='<div class="wl-w"><div class="wl-wl"><label for="wl-ta">Retake '+(inF!=null?'from '+esc(fLabel(v,inF))+' to ':'at ')+'<span class="addf-l">'+(v?esc(fLabel(v,frameNo(v,PL.el.currentTime))):'')+'</span> on '+esc(cap(wlDep))+'</label>'+
+'<button type="button" class="wl-in" data-wlin aria-pressed="'+(inF!=null)+'" title="'+(inF!=null?'Forget the range\'s start':'A range: its start at the frame shown, its end the frame you\'re on when you add it (I)')+'">'+(inF!=null?'⇤ '+esc(fLabel(v,inF))+' ✕':'⇤ Range from here')+'</button></div>'+
+'<textarea id="wl-ta" rows="3" placeholder="Write while watching — Enter adds it"></textarea></div>';}
 else if(!rv)h+='<p class="faint wl-hint">Review to validate, send back and write at a frame.</p>';
 $('wl-side').innerHTML=h;}
+// Watch large, a range: its start (a frame of the video shown), set by
+// "⇤ Range from here" or I; Enter writes from it to the frame shown, then
+// forgets it. Another video forgets it too.
+var WLIN=null;
+function wlIn(){return WLIN&&PL&&PL.v&&WLIN.name===PL.v.name?WLIN.f:null;}
+function wlInToggle(){if(!PL||!PL.v)return;WLIN=wlIn()!=null?null:{f:frameNo(PL.v,PL.el.currentTime),name:PL.v.name};wlSide();}
 $('wl-x').addEventListener('click',closeWatch);
 $('wl').addEventListener('click',function(ev){var t;
 if((t=ev.target.closest('[data-wlf]'))){var x=D[+t.dataset.wlf];openPanel(x.i);var p=playerFor(x);mount($('wl-pv'),'wide');wlSide();p.el.play();return;}
 if((t=ev.target.closest('[data-wld]'))){wlDep=t.dataset.wld;wlSide();var ta=$('wl-ta');if(ta)ta.focus();return;}
+if(ev.target.closest('[data-wlin]')){wlInToggle();var ta2=$('wl-ta');if(ta2)ta2.focus({preventScroll:true});return;}
 if((t=ev.target.closest('.rvb button'))&&!t.disabled){var it=D[cur],d=t.parentNode.dataset.d,e=entry(it),v=e.deps[d];
 if(t.classList.contains('ok-b')){if(v&&v.ok)delete e.deps[d];else e.deps[d]={ok:1};}else{if(v&&v.no)delete e.deps[d];else e.deps[d]={no:1,text:''};wlDep=d;}
 refresh();}});
 // Enter adds the line at the frame shown to the department's retake.
 $('wl').addEventListener('keydown',function(ev){var t=ev.target;if(t.id!=='wl-ta'||ev.key!=='Enter'||ev.shiftKey)return;ev.preventDefault();ev.stopPropagation();
 var txt=t.value.trim();if(!txt||!PL||!wlDep)return;var it=D[cur],e=entry(it),v=e.deps[wlDep],f=frameNo(PL.v,PL.el.currentTime);
-if(!v||!v.no)v=e.deps[wlDep]={no:1,text:''};v.text=(v.text?v.text.replace(/\s+$/,'')+NL:'')+'[f'+f+'] '+txt;t.value='';
+var a0=wlIn(),fr=a0==null||a0===f?'f'+f:'f'+Math.min(a0,f)+'-'+Math.max(a0,f);WLIN=null;
+if(!v||!v.no)v=e.deps[wlDep]={no:1,text:''};v.text=(v.text?v.text.replace(/\s+$/,'')+NL:'')+'['+fr+'] '+txt;t.value='';
 PL.marks=marksOf(it,PL.v);drawMarks();refresh();var ta=$('wl-ta');if(ta)ta.focus();});
 // A sequence's files, each one's videos in its shots' order, one after the other.
 function groupVideos(g){return D.filter(function(it){return it.tab===state.tab&&it.group===g&&match(it);}).reduce(function(out,it){return out.concat(allVideos(it));},[]);}
@@ -1517,7 +1526,7 @@ else if(e.key==='ArrowLeft'||e.key==='ArrowRight'){var nb=$('lb').querySelector(
 return;}
 // Watch large: Esc back to the panel; Space, , . and ← → the videos.
 if(!$('wl').hidden){var kk=e.key;if(kk==='Escape')closeWatch();else if(kk===' '&&PL){if(PL.el.paused)PL.el.play();else PL.el.pause();}
-else if(kk===','||kk==='.')stepFrame(kk===','?-1:1);else if(kk==='m'&&PL)setMuted(!PL.el.muted);else if(kk==='ArrowLeft'||kk==='ArrowRight')nextVideo(kk==='ArrowLeft'?-1:1);else return;e.preventDefault();return;}
+else if(kk===','||kk==='.')stepFrame(kk===','?-1:1);else if(kk==='m'&&PL)setMuted(!PL.el.muted);else if((kk==='i'||kk==='I')&&reviewing()&&wlDep)wlInToggle();else if(kk==='ArrowLeft'||kk==='ArrowRight')nextVideo(kk==='ArrowLeft'?-1:1);else return;e.preventDefault();return;}
 if(!$('dlg').hidden){if(e.key==='Escape'){$('dlg').hidden=true;e.preventDefault();}return;}
 // "/": go to a file.
 if(e.key==='/'&&!e.ctrlKey&&!e.metaKey&&!e.altKey){e.preventDefault();$('q').focus();return;}
