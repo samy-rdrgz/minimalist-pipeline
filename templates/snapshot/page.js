@@ -558,7 +558,7 @@ sugg.addEventListener('click',function(e){var b=e.target.closest('button');if(b)
 $('q').addEventListener('blur',function(){setTimeout(function(){sugg.hidden=true;},150);});
 
 /* ---------- menus ---------- */
-var MENUS=[['more','morepop'],['helpb','helppop'],['rv-more','rv-morepop']];
+var MENUS=[['more','morepop'],['helpb','helppop'],['rv-more','rv-morepop'],['newsb','newspop']];
 // A select drawn by the page: the system's own list takes no style. The
 // select stays, hidden, holding the value -- its change event, its
 // options, untouched; sync() after setting it from code.
@@ -1757,7 +1757,7 @@ function farmDetails(){if(!META.live)return;var v=META.live.version;
 var get=function(box,key,action,value){var c=box[key]=box[key]||{};if(c.busy||c.v===v)return;c.busy=true;
 livePost('farm',{action:action,job_id:action==='detail'?key:'',value:value}).then(function(res){c.busy=false;c.v=v;c.d=res.detail||null;if(state.tab==='farm')render();}).catch(function(){c.busy=false;});};
 Object.keys(JOPEN).forEach(function(id){if(JOPEN[id])get(JD,id,'detail');});Object.keys(WOPEN).forEach(function(u){if(WOPEN[u])get(WD,u,'worker_detail',u);});}
-function farmPost(action,job,value,extra){var body={action:action,job_id:job||'',value:value};Object.keys(extra||{}).forEach(function(k){body[k]=extra[k];});
+function farmPost(action,job,value,extra){var body={action:action,job_id:job||'',value:value};if(job)MINE_J[job]=Date.now();Object.keys(extra||{}).forEach(function(k){body[k]=extra[k];});
 return livePost('farm',body).then(function(res){toast(res.ok?'Done.'+(res.note?' '+res.note:''):'Not done: '+(res.error||'?'));}).catch(function(){toast('Blender doesn\'t answer.');});}
 /* ---------- several files' departments at once (review) ---------- */
 // A department required, or not, on every file of a kind -- or those of a
@@ -1905,9 +1905,10 @@ function liveFlush(){if(LIVE_OUT.busy){LIVE_OUT.again=true;return;}
 var a=document.activeElement;if(a&&(a.id==='desc-t'||a.id==='om-why'))return;
 var acts=exportActions().filter(function(x){return !(LIVE_OUT.sent[x.file]||{})[JSON.stringify(x)];});if(!acts.length)return;
 var snap={},creates=(rv.creates||[]).map(function(c){return c.label;});Object.keys(rv.files).forEach(function(f){snap[f]=JSON.stringify(rv.files[f]);});
-LIVE_OUT.busy=true;liveSay('sending…');
+LIVE_OUT.busy=true;liveSay('sending…');acts.forEach(function(x){MINE_F[x.file]='sent';});
 fetch('action?t='+encodeURIComponent(META.live.token),{method:'POST',headers:{'Content-Type':'application/json'},
 body:JSON.stringify({author:rv.author,role:rv.role,review_date:isoNow(),actions:acts})}).then(function(r){return r.json();}).then(function(res){LIVE_OUT.busy=false;
+acts.forEach(function(x){if(res.ok)MINE_F[x.file]=res.version||0;else delete MINE_F[x.file];});
 if(!res.ok){liveSay('not sent');toast('Not applied by Blender: '+(res.error||'no answer')+' -- sent again in a moment.');setTimeout(liveSend,4000);return;}
 var done=function(quiet){Object.keys(snap).forEach(function(f){if(!rv.files[f])return;
 if(JSON.stringify(rv.files[f])===snap[f]){delete rv.files[f];delete LIVE_OUT.sent[f];}
@@ -1916,8 +1917,52 @@ rv.creates=(rv.creates||[]).filter(function(c){return creates.indexOf(c.label)<0
 if((META.live.version||0)>=res.version)done();else LIVE_OUT.after={v:res.version,fn:done};
 if(res.skipped&&res.skipped.length)toast('Blender left out: '+res.skipped.map(function(x){return x[0]+' ('+x[1]+')';}).join(', '));
 if(LIVE_OUT.again){LIVE_OUT.again=false;liveSend();}})
-.catch(function(){LIVE_OUT.busy=false;liveSay('not sent');setTimeout(liveSend,4000);});}
+.catch(function(){LIVE_OUT.busy=false;acts.forEach(function(x){delete MINE_F[x.file];});liveSay('not sent');setTimeout(liveSend,4000);});}
 document.addEventListener('focusout',function(e){if(META.live&&e.target&&(e.target.id==='desc-t'||e.target.id==='om-why'))liveSend();});
+/* ---------- live: what arrived while the page was open ---------- */
+// The data before and after each pass compared: a note, a retake or a
+// reply, a validation, a render finished or failed. Never what you did
+// yourself -- written under your name; on a file whose actions this page
+// just sent, until the data answering them is in (MINE_F); a farm job you
+// just acted on (MINE_J). A department done or a new version say nothing:
+// the data doesn't say who, your own save would be news to you. In memory
+// only, gone with the page: not "since your last visit" (plan, section 6).
+var NEWS=[],NEWS_N=0,MINE_F={},MINE_J={};
+function byMe(a){var m=((META.live&&META.live.user)||rv.author||'').trim().toLowerCase();a=(a||'').trim().toLowerCase();return !!a&&a===m;}
+function itemOf(s){return byName[s]||byFile[s]||byName[String(s).replace(/_v\d+.*$/i,'')];}
+function newsOf(oldD,oldF,nd){var out=[],old={},v=(nd.meta.live&&nd.meta.live.version)||0;oldD.forEach(function(x){old[x.name]=x;});
+nd.items.forEach(function(it){var o=old[it.name];if(!o)return;// a new file: its own news, from whoever made it
+var mf=MINE_F[o.file];if(mf!=null){if(mf!=='sent'&&v>=mf)delete MINE_F[o.file];return;}
+var seen={};(o.notes||[]).forEach(function(t){seen[t.id]=1;(t.replies||[]).forEach(function(r){seen[r.id]=1;});});
+(it.notes||[]).forEach(function(t){[t].concat(t.replies||[]).forEach(function(e,k){if(!e.id||seen[e.id]||e.approval||byMe(e.author))return;
+out.push({name:it.name,kind:e.type==='rtk'?'rtk':'note',text:(k?'Reply':e.type==='rtk'?'Retake':'Note')+' by '+(e.author||'?')+(e.deps&&e.deps.length?' · '+e.deps.map(cap).join(', '):''),quote:e.text||''});});});
+Object.keys(it.ok||{}).forEach(function(d){var a=it.ok[d],b=(o.ok||{})[d];
+if(a&&!a.old&&(!b||b.old||b.role!==a.role||b.by!==a.by)&&!byMe(a.by))out.push({name:it.name,kind:'ok',text:cap(d)+' validated by '+(a.by||'?')+(a.role?' ('+a.role+')':'')});});});
+var oj={};((oldF||{}).jobs||[]).forEach(function(j){oj[j.id]=j;});
+((nd.farm||{}).jobs||[]).forEach(function(j){var p=oj[j.id];if(!p||p.state===j.state||(j.state!=='finished'&&j.state!=='failed'))return;
+if(MINE_J[j.id]&&Date.now()-MINE_J[j.id]<30000)return;
+// Yours too: it ends long after you sent it, without you.
+out.push({name:j.file,job:j.id,kind:j.state==='failed'?'fail':'render',text:(j.state==='failed'?'Render failed':'Render finished')+(j.shot?' · '+j.shot:'')+(j.department?' · '+j.department:'')+(j.mine?' · yours':j.user?' · '+j.user:'')});});
+return out;}
+function pushNews(list){if(!list.length)return;var t=new Date(),at=('0'+t.getHours()).slice(-2)+':'+('0'+t.getMinutes()).slice(-2);
+list.forEach(function(n){n.at=at;});NEWS=list.slice().reverse().concat(NEWS).slice(0,60);NEWS_N+=list.length;newsBadge();if(!$('newspop').hidden)newsDraw();
+var first=list[0],it=itemOf(first.name),nm=it?it.name:first.name;
+toast(list.length>1?list.length+' new: '+nm+' · '+first.text+'…':nm+' · '+first.text);
+// The system's own, the page in the background (and allowed).
+if(document.hidden&&window.Notification&&Notification.permission==='granted')try{
+new Notification(list.length>1?list.length+' new · '+(META.project||''):nm,{body:list.length>1?list.map(function(n){return n.name+' · '+n.text;}).slice(0,4).join('\n'):first.text+(first.quote?'\n'+first.quote.slice(0,120):''),tag:'mp-news'});}catch(e){}}
+function newsBadge(){var n=$('newsn');n.hidden=!NEWS_N;n.textContent=NEWS_N>9?'9+':String(NEWS_N);}
+var NEWS_IC={rtk:'rtk',note:'note',ok:'ok',render:'ok',fail:'fail'};
+function newsDraw(){var m=$('newspop'),can=window.Notification&&window.isSecureContext&&Notification.permission==='default';
+m.innerHTML=(NEWS.length?NEWS.map(function(n,k){var it=itemOf(n.name);
+return '<button type="button" class="news-i k-'+NEWS_IC[n.kind]+'" data-news="'+k+'"><span class="news-h"><b>'+esc(it?it.name:n.name)+'</b><span class="faint">'+n.at+'</span></span>'+esc(n.text)+
+(n.quote?'<small>'+esc(n.quote.length>140?n.quote.slice(0,140)+'…':n.quote)+'</small>':'')+'</button>';}).join(''):'<p class="faint news-0">Nothing new since this page opened: notes, retakes, validations and renders done by others show up here.</p>')+
+'<div class="news-f">'+(can?'<button type="button" class="btn link" id="news-sys">Notify me in the system too</button>':'')+(NEWS.length?'<button type="button" class="btn link" id="news-clr">Clear</button>':'')+'</div>';}
+$('newsb').addEventListener('click',function(){NEWS_N=0;newsBadge();newsDraw();});
+$('newspop').addEventListener('click',function(e){var b=e.target.closest('[data-news]'),n=b&&NEWS[+b.dataset.news];
+if(e.target.id==='news-clr'){e.stopPropagation();NEWS=[];newsDraw();return;}
+if(e.target.id==='news-sys'){e.stopPropagation();Notification.requestPermission().then(newsDraw);return;}
+if(!n)return;closeMenus();var it=itemOf(n.name);if(it){jump(it);openPanel(it.i);}else if(n.job&&DATA.farm){FF.q=String(n.name).toLowerCase();FF.s='';setTab('farm');}});
 var pend=null;
 function applyData(nd){var a=document.activeElement,box=a&&a.classList&&(a.classList.contains('cmp-t')?'cmp':a.classList.contains('rp-t')?a.dataset.r:'');
 // A box to write in kept as it was (its text is the page's); any other
@@ -1929,7 +1974,8 @@ var curFile=cur!=null&&D[cur]?D[cur].file:null,plFile=PL&&PL.it?PL.it.file:null,
 // The file shown gone (archived, renamed): its panel closed first.
 if(curFile&&!nd.items.some(function(x){return x.file===curFile;})){closePanel();curFile=null;}
 Object.keys(nd.images||{}).forEach(function(k){DATA.images[k]=nd.images[k];});
-DATA.items=nd.items;DATA.meta=nd.meta;DATA.farm=nd.farm;META=nd.meta;D=nd.items;W=META.weights;prepare();
+var oldD=D,oldF=DATA.farm;DATA.items=nd.items;DATA.meta=nd.meta;DATA.farm=nd.farm;META=nd.meta;D=nd.items;W=META.weights;prepare();
+if(META.live)pushNews(newsOf(oldD,oldF,nd));
 if(PL&&plFile&&byFile[plFile])PL.it=byFile[plFile];
 // What was sent, now shown by the data: out of your review, before drawing.
 if(LIVE_OUT.after&&(META.live.version||0)>=LIVE_OUT.after.v){var fn=LIVE_OUT.after.fn;LIVE_OUT.after=null;fn(true);}
@@ -1938,7 +1984,7 @@ if(cur!=null)refresh();
 if(a&&a.classList&&a.classList.contains('ffq')){var q2=$('list').querySelector('.ffq');if(q2){q2.focus();q2.setSelectionRange(q2.value.length,q2.value.length);}}
 if(box==='cmp')focusCmp();else if(box){var rt=$('p-body').querySelector('.rp-t[data-r="'+CSS.escape(box)+'"]');if(rt){rt.focus({preventScroll:true});rt.setSelectionRange(rt.value.length,rt.value.length);}}}
 document.addEventListener('focusout',function(){setTimeout(function(){if(pend)applyData(pend);},0);});
-if(META.live)(function(){var T=META.live.token,v=META.live.version||0,st='';document.body.classList.add('live');
+if(META.live)(function(){var T=META.live.token,v=META.live.version||0,st='';document.body.classList.add('live');$('newsm').hidden=false;
 var pill=document.createElement('span');pill.setAttribute('role','status');$('h-when').after(pill);
 function status(s){if(s===st)return;st=s;pill.className='lvp '+s;pill.textContent=s==='on'?'connected':s==='busy'?'Blender busy':'disconnected';
 if(s==='on'&&guest())pill.textContent='connected · guest until '+fmtUntil(META.live.until);

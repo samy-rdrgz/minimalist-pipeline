@@ -5279,6 +5279,21 @@ its link as a QR code (`lib/qr.py`).
 - **This machine's player** (`/play`, `_play()`): the full video -- a
   light copy asked for (`ld/`) is swapped for its folder's own.
 
+## Live page: what arrived
+
+`newsOf()` (page.js) compares the data before and after each pass:
+new note / reply ids, a validation's mark (`it.ok`) new or by someone
+else, a farm job turning finished or failed. Never one's own: an author
+equal to `META.live.user`; a file whose actions the page sent
+(`MINE_F[file]` = "sent", then the version answering them -- the whole
+file skipped until data of that version is in, a teammate's change in
+that same pass with it); a job acted on from the page (`MINE_J`, 30 s).
+A department done or a new version: not news, the data doesn't say who
+(one's own save would be). System notifications only where the browser
+allows them (a secure context: 127.0.0.1, not a guest on the LAN), on
+a click (*Notify me in the system too*), the page hidden. In memory: not
+"since your last visit" (plan, section 6).
+
 ## Breakdown (snapshot page v4)
 
 The Breakdown tab: per section five figures, then one sequence × department

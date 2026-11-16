@@ -1213,3 +1213,16 @@ body.live #rv-send{display:none}
 .fcb{display:inline-grid;place-items:center;width:26px;height:26px;padding:0;border:0;border-radius:6px;background:none;color:var(--ink-3);cursor:pointer}
 .fcb:hover,.fcb:focus-visible{background:var(--accent-bg)}.fcb .ico{width:16px;height:16px}
 .fc-run{color:var(--wip)}.fc-fail{color:var(--rtk)}.fc-wait{color:var(--ink-3)}.fc-chk{color:var(--play)}
+/* What arrived while the live page was open (page.js newsOf()) */
+#newsb{position:relative}
+.news-n{position:absolute;top:2px;right:2px;min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--rtk);color:#fff;font:600 10px/16px var(--sans,inherit);text-align:center}
+.news-pop{width:min(340px,calc(100vw - 32px));max-height:min(70vh,520px);overflow:auto}
+.news-pop>.news-i{display:block;border-left:3px solid var(--line);border-radius:0 6px 6px 0;margin:2px 0;font-size:12px;color:var(--ink-2)}
+.news-i .news-h{display:flex;justify-content:space-between;gap:8px;color:var(--ink);font-size:13px}
+.news-i small{margin-top:2px;overflow-wrap:anywhere}
+.news-i.k-rtk,.news-i.k-fail{border-left-color:var(--rtk)}
+.news-i.k-ok{border-left-color:var(--done)}
+.news-0{margin:6px 10px;font-size:12px}
+.news-f{display:flex;justify-content:space-between;gap:8px;padding:4px 6px 0}.news-f:empty{display:none}
+.news-f .btn.link{min-height:32px;padding:0 8px;border-color:transparent;background:none;color:var(--accent);font-size:12px}
+@media (max-width:640px){.news-pop{position:fixed;left:16px;right:16px;top:calc(var(--sat) + var(--hdr-h,56px));width:auto}}

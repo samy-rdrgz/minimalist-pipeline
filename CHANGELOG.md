@@ -6,6 +6,12 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- Live page: what arrived while it was open, behind a bell in the header
+  -- notes, retakes and replies, validations, renders finished or
+  failed; a toast as they come, a click opens the file, the system's own
+  notification when the page is in the background (if allowed). Never
+  what you did yourself: your name, or the answer to what the page just
+  sent. In memory only.
 - Snapshot and live page: a file's work time at the bottom of its panel,
   small -- every version and everyone together, the sessions that saved
   (Project monitoring showed it before it was removed).
