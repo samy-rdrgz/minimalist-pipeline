@@ -64,12 +64,20 @@ def _mixdown(path: str) -> None:
         bpy.ops.sound.mixdown(filepath=path, container="FLAC", codec="FLAC")
 
 
+# Why the last mixdown() wrote nothing ("" if it did): the log says it
+# too, but only with a project active -- tests/blender_sound_check.py
+# prints it.
+last_error = ""
+
+
 def mixdown(scene, path: Path, start: int, end: int) -> bool:
     """The scene's sound from frame start to end, to path (a .flac):
     written beside then renamed, never left half-written. Without sound,
     no file -- one left from a render before removed. True if written.
     Never raises: a render without its sound is still a render (its video
     gets silence)."""
+    global last_error
+    last_error = ""
     path = Path(path)
     try:
         if not scene_has_sound(scene):
@@ -89,6 +97,7 @@ def mixdown(scene, path: Path, start: int, end: int) -> bool:
         os.replace(tmp, path)
         return True
     except Exception as e:
+        last_error = f"{type(e).__name__}: {e}"
         log("WARNING", "farm", f"No sound for {path.name}: {e}")
         try:
             path.with_name(f".{path.stem}.tmp.flac").unlink(missing_ok=True)

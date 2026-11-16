@@ -62,6 +62,51 @@ def leading_silence(path, ffmpeg):
     return 0.0
 
 
+_DIAGNOSED = []
+
+
+def diagnose(scene, d):
+    """The mixdown failed: what this Blender's operator takes, and which
+    call works -- printed for the add-on to follow."""
+    if _DIAGNOSED:
+        return
+    _DIAGNOSED.append(1)
+    import traceback
+
+    op = bpy.ops.sound.mixdown
+    print("\n--- diagnosis ---")
+    try:
+        print("poll:", op.poll())
+    except Exception as e:
+        print("poll raised:", e)
+    try:
+        for prop in op.get_rna_type().properties:
+            items = [i.identifier for i in getattr(prop, "enum_items", [])]
+            print(f"  {prop.identifier}: {prop.type}" + (f" {items}" if items else f" = {getattr(prop, 'default', '')}"))
+    except Exception as e:
+        print("properties unread:", e)
+    variants = [
+        ("flac full", dict(container="FLAC", codec="FLAC", format="S16", channels="STEREO", mixrate=48000)),
+        ("flac minimal", dict(container="FLAC", codec="FLAC")),
+        ("flac S16 only", dict(container="FLAC", codec="FLAC", format="S16")),
+        ("wav pcm", dict(container="WAV", codec="PCM", format="S16")),
+        ("defaults", {}),
+    ]
+    for name, kw in variants:
+        for prefix in ("", "."):
+            ext = ".wav" if kw.get("container") == "WAV" else ".flac"
+            out = d / f"{prefix}diag_{name.replace(' ', '_')}{ext}"
+            before = set(p.name for p in d.iterdir())
+            try:
+                res = op(filepath=str(out), **kw)
+                err = ""
+            except Exception as e:
+                res, err = None, "".join(traceback.format_exception_only(type(e), e)).strip()
+            new_files = sorted(set(p.name for p in d.iterdir()) - before)
+            print(f"  {name:14} {'hidden ' if prefix else 'visible'}: {res} {err} -> new files {new_files}")
+    print("--- end of diagnosis ---\n")
+
+
 def main():
     name = addon()
     lib = importlib.import_module(f"{name}.lib")
@@ -103,8 +148,9 @@ def main():
         scene.use_audio = True  # the timeline's Mute, left on: the mixdown must still have sound
         flac = d / f"sh010_{rate}.flac"
         ok = sound.mixdown(scene, flac, 25, 72)
-        check(f"[{rate} fps] mixdown written", ok and flac.is_file(), str(flac))
+        check(f"[{rate} fps] mixdown written", ok and flac.is_file(), str(flac) if ok else getattr(sound, "last_error", "?"))
         if not flac.is_file():
+            diagnose(scene, d)
             continue
         info = preview.media_info(flac, ffmpeg)
         want = 48 / rate
