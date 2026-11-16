@@ -18,6 +18,8 @@ tags = ["Pipeline", "Render", "System"]
 
 [permissions]
 files = "Manage project files, versions, tracking, and render farm data"
+network = "Serve the project page to browsers on this machine and its LAN"
+clipboard = "Copy pipeline log entries to the clipboard"
 
 [build]
 # Declaring this section replaces Blender's own default exclude list
