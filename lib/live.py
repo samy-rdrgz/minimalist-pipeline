@@ -102,7 +102,7 @@ _server = None
 GUEST_MAX_HOURS = 7 * 24
 _guests: dict[str, dict] = {}  # token: {"name", "role", "until" (epoch), "made"}
 _guests_lock = threading.Lock()
-_lan = {"server": None, "ip": "", "error": ""}
+_lan = {"servers": {}, "error": ""}  # {ip: server}: one per address a guest uses
 _config_dir: Path | None = None  # Blender's config folder, read on the main thread
 
 
@@ -145,23 +145,40 @@ def guest_of(token: str) -> dict | None:
 def _guest_list() -> list:
     with _guests_lock:
         return sorted(
-            ({"token": t, "name": g["name"], "role": g["role"], "until": _iso(g["until"])} for t, g in _guests.items() if g["until"] > time.time()),
+            ({"token": t, "name": g["name"], "role": g["role"], "until": _iso(g["until"]), "ip": g.get("ip", "")} for t, g in _guests.items() if g["until"] > time.time()),
             key=lambda g: g["until"],
         )
 
 
-def _lan_ip() -> str:
-    """This machine's address on its network (no packet sent: the route a
-    datagram would take). "" when there's none."""
-    probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    try:
-        probe.connect(("10.255.255.255", 1))
-        ip = probe.getsockname()[0]
-    except OSError:
-        ip = ""
-    finally:
-        probe.close()
-    return "" if ip.startswith("127.") else ip
+# Where a datagram to each would leave from: the local network's address,
+# and Tailscale's (100.100.100.100 is its own DNS) when it runs. No packet
+# is sent -- a UDP socket only picks its route.
+_PROBES = ("192.168.255.255", "10.255.255.255", "172.31.255.255", "1.1.1.1", "100.100.100.100")
+
+
+def _addresses() -> list[dict]:
+    """This machine's addresses a phone may reach: [{"ip", "kind"}] --
+    "local network" (the studio's Wi-Fi), "Tailscale" (100.64.0.0/10:
+    the phone on Tailscale too, from anywhere), "network" otherwise."""
+    import ipaddress
+
+    out = []
+    for target in _PROBES:
+        probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            probe.connect((target, 1))
+            ip = probe.getsockname()[0]
+        except OSError:
+            continue
+        finally:
+            probe.close()
+        if ip.startswith("127.") or ip == "0.0.0.0" or any(a["ip"] == ip for a in out):
+            continue
+        addr = ipaddress.ip_address(ip)
+        kind = "Tailscale" if addr in ipaddress.ip_network("100.64.0.0/10") else "local network" if addr.is_private else "network"
+        out.append({"ip": ip, "kind": kind})
+    # The local network first: a phone on the studio's Wi-Fi needs nothing more.
+    return sorted(out, key=lambda a: a["kind"] != "local network")
 
 
 _lan_lock = threading.Lock()
@@ -178,28 +195,27 @@ def _sync_lan_locked(sh: "_Shared") -> None:
     with _guests_lock:
         for t in [t for t, g in _guests.items() if g["until"] <= time.time()]:
             del _guests[t]
-        wanted = bool(_guests)
-    running = _lan["server"]
-    if wanted and running is None and _server is not None:
-        ip = _lan_ip()
-        if not ip:
-            _lan["error"] = "this machine is on no network"
-            return
+        wanted = {g.get("ip") for g in _guests.values() if g.get("ip")}
+    servers = _lan["servers"]
+    for ip in [ip for ip in servers if ip not in wanted]:
+        server = servers.pop(ip)
+        server.shutdown()
+        server.server_close()
+        log("INFO", "live", f"Live page: no guest left on {ip}, no longer served there")
+    if _server is None:
+        return
+    for ip in wanted - set(servers):
         try:
             server = ThreadingHTTPServer((ip, _server.server_address[1]), _handler(sh))
         except OSError as e:
             _lan["error"] = f"not served on {ip}: {e}"
             log("WARNING", "live", f"Live page: {_lan['error']}")
-            return
+            continue
         server.daemon_threads = True
-        threading.Thread(target=server.serve_forever, name="pipeline-live-lan", daemon=True).start()
-        _lan.update(server=server, ip=ip, error="")
-        log("INFO", "live", f"Live page: served on the network too, http://{ip}:{_server.server_address[1]}/ (guests)")
-    elif not wanted and running is not None:
-        running.shutdown()
-        running.server_close()
-        _lan.update(server=None, ip="")
-        log("INFO", "live", "Live page: no guest left, no longer served on the network")
+        threading.Thread(target=server.serve_forever, name=f"pipeline-live-{ip}", daemon=True).start()
+        servers[ip] = server
+        _lan["error"] = ""
+        log("INFO", "live", f"Live page: served on http://{ip}:{_server.server_address[1]}/ too (guests)")
 
 
 def _share(raw: dict, sh: "_Shared") -> dict:
@@ -230,20 +246,25 @@ def _share(raw: dict, sh: "_Shared") -> dict:
                 end = time.time() + 3600 * max(1, min(GUEST_MAX_HOURS, int(raw.get("hours") or 1)))
             except (TypeError, ValueError):
                 return {"ok": False, "error": "a duration in hours"}
+        addresses = [a["ip"] for a in _addresses()]
+        ip = str(raw.get("ip") or (addresses[0] if addresses else ""))
+        if ip not in addresses:
+            return {"ok": False, "error": "this machine is on no network" if not addresses else f"{ip} isn't one of this machine's addresses"}
         token = secrets.token_urlsafe(18)
         with _guests_lock:
-            _guests[token] = {"name": name, "role": role, "until": end, "made": time.time()}
+            _guests[token] = {"name": name, "role": role, "until": end, "made": time.time(), "ip": ip}
         _save_guests()
         _sync_lan(sh)
-        if _lan["server"] is None:
+        if ip not in _lan["servers"]:
             with _guests_lock:
                 _guests.pop(token, None)
             _save_guests()
-            return {"ok": False, "error": _lan["error"] or "not served on the network"}
-        link = f"http://{_lan['ip']}:{_server.server_address[1]}/?t={token}"
-        out.update(link=link, qr=qr_svg(link), until=_iso(end), name=name, role=role)
+            return {"ok": False, "error": _lan["error"] or f"not served on {ip}"}
+        link = f"http://{ip}:{_server.server_address[1]}/?t={token}"
+        via = next((a["kind"] for a in _addresses() if a["ip"] == ip), "")
+        out.update(link=link, qr=qr_svg(link), until=_iso(end), name=name, role=role, via=via)
         log("INFO", "live", f"Live page: an access for {name} ({role}) until {_iso(end)}")
-    return {"ok": True, "guests": _guest_list(), "network": _lan["ip"], **out}
+    return {"ok": True, "guests": _guest_list(), "addresses": _addresses(), **out}
 
 
 def _as_guest(data: dict, token: str, guest: dict) -> dict:
@@ -1237,10 +1258,10 @@ def stop() -> bool:
         _shared.changed.notify_all()
     _server.shutdown()
     _server.server_close()
-    if _lan["server"] is not None:
-        _lan["server"].shutdown()
-        _lan["server"].server_close()
-        _lan.update(server=None, ip="")
+    for server in _lan["servers"].values():
+        server.shutdown()
+        server.server_close()
+    _lan["servers"].clear()
     _shared, _server = None, None
     if bpy.app.timers.is_registered(_tick):
         bpy.app.timers.unregister(_tick)

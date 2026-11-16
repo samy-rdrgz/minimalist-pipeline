@@ -5239,6 +5239,17 @@ its link as a QR code (`lib/qr.py`).
   the `qrcode` library (system Python): the same matrix for each mask and
   the same mask chosen, over links like ours. Drawn as an SVG on the page;
   never in Blender (a popup can't show an image without a preview icon).
+- **Which address** (`_addresses()`): where a datagram to the local
+  networks, a public address and Tailscale's own DNS (100.100.100.100)
+  would leave from -- no packet sent, no interface listing (none in the
+  standard library, `ip`/`ipconfig` output differs by system and
+  language). The first guess (the default route) was Tailscale's with an
+  exit node on: a phone without it couldn't reach it. A guest keeps the
+  address it was made for; one server per address in use.
+- **Background tabs ask nothing**: a browser gives a server 6 connections,
+  each tab's long poll holds one -- each Blender button opening a tab, the
+  share dialog's request waited. Hidden, a tab aborts its poll; shown, it
+  asks again. The dialog says so after 10 s rather than "Reading…".
 - **Copy link**: `navigator.clipboard` (127.0.0.1 is a secure context),
   else the link selected for Ctrl+C.
 - **This machine's player** (`/play`, `_play()`): the full video -- a

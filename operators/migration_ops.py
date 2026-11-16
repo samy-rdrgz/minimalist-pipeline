@@ -25,6 +25,44 @@ from ..lib.tracking import ProjectScan, TrackingStatusCache
 
 # The plan waiting for its confirm dialog (see NOTES.md, "Popup-chaining").
 _pending: dict = {}
+# The department menu's items, kept: Blender holds on to the strings an
+# items callback returned (see operators/farm_ops.py _stable_enum_items()).
+_KEEP = "__keep__"
+_department_items: list = []
+
+
+def _departments_of(root) -> list[str]:
+    config = ConfigCache.get() or {}
+    return list(dict.fromkeys(
+        str(d).strip().lower()
+        for d in [*json_get(config, "shots_departments", []), *json_get(config, "assets_departments", [])]
+        if str(d).strip()
+    ))
+
+
+def _department_enum(self, context):
+    items = [(_KEEP, "Keep as is", "Leave its name: its renders keep no department")]
+    items += [(d, d.capitalize(), f"Rename it for {d}: its renders are {d}'s") for d in _departments_of(None)]
+    if _department_items != items:
+        _department_items[:] = items
+    return _department_items
+
+
+def renamed_for(name: str, department: str) -> str:
+    """A preset's name for a department: the department in place of its
+    first word ("default_hd" -> "render_hd"), before it with none ("hd" ->
+    "render_hd")."""
+    for sep in ("_", "-"):
+        if sep in name:
+            return f"{department}{sep}{name.split(sep, 1)[1]}"
+    return f"{department}_{name}"
+
+
+class PIPELINE_PG_preset_rename(bpy.types.PropertyGroup):
+    """A preset whose name gives no department, in Migrate old data: the
+    department to rename it for, or kept."""
+
+    department: bpy.props.EnumProperty(name="", items=_department_enum)
 
 # What a change is called in the dialog, in its order.
 _CHANGES = (
@@ -99,25 +137,42 @@ class M_PIPELINE_OT_migrate_data_confirm(bpy.types.Operator):
     bl_label = "Migrate old data"
     bl_options = {"INTERNAL"}
 
+    renames: bpy.props.CollectionProperty(type=PIPELINE_PG_preset_rename)
+    old_renders: bpy.props.BoolProperty(
+        name="Their past renders too",
+        description="The renders these presets made, with no department, get the new name's: right only if each always served that department",
+        default=False,
+    )
+
     def invoke(self, context, event):
         if not _pending:
             return {"CANCELLED"}
         plan = _pending["plan"]
+        self.renames.clear()
+        for name in plan.get("loose_presets") or []:
+            self.renames.add().name = name
         n = len(plan["files"]) + sum(len(v) for v in (plan.get("presets") or {}).values())
-        text = f"Migrate {n} file(s)" if n else "Note it as migrated"
+        text = f"Migrate {n} file(s)" if n or plan.get("loose_presets") else "Note it as migrated"
         return context.window_manager.invoke_props_dialog(self, width=460, confirm_text=text)
 
     def draw(self, context):
         plan = _pending["plan"]
         col = self.layout.column(align=True)
-        loose = plan.get("loose_presets") or []
-        if loose:
-            # Said, not changed: a name is the user's to choose.
-            warn = col.column(align=True)
-            warn.label(text=f"{len(loose)} render preset(s) give no department: {', '.join(loose)}.", icon="ERROR")
-            warn.label(text="Their renders have none: Edit project > Rename preset.", icon="BLANK1")
+        if self.renames:
+            # A name is the user's to choose: proposed, kept by default.
+            box = col.box().column(align=True)
+            box.label(text="Render presets whose name gives no department (their renders have none):", icon="ERROR")
+            for item in self.renames:
+                row = box.split(factor=0.4, align=True)
+                row.label(text=item.name)
+                right = row.row(align=True)
+                right.prop(item, "department")
+                if item.department != _KEEP:
+                    right.label(text=f"→ {renamed_for(item.name, item.department)}")
+            if any(i.department != _KEEP for i in self.renames):
+                box.prop(self, "old_renders")
             col.separator()
-        if not plan["files"] and not any((plan.get("presets") or {}).values()):
+        if not plan["files"] and not any((plan.get("presets") or {}).values()) and not self.renames:
             col.label(text=f"{plan['owners']} asset(s) and shot(s) read: nothing to change.", icon="CHECKMARK")
             return
         col.label(
@@ -159,12 +214,38 @@ class M_PIPELINE_OT_migrate_data_confirm(bpy.types.Operator):
             _popup("Migrate old data", "\n".join([message, f"{len(result['errors'])} not migrated:", *lines]), "ERROR")
             log("WARNING", "migration", f"{message} {len(result['errors'])} not migrated, by {user}.")
             return {"FINISHED"}  # not noted as done: run it again
+        message += self._renames(root)
         _record(root, user, result["written"])
         log("SUCCESS", "migration", f"{message} By {user}.")
         TrackingStatusCache._cache.clear()
         ProjectScan.start(root)
         _popup("Migrate old data", message)
         return {"FINISHED"}
+
+
+    def _renames(self, root) -> str:
+        """The presets given a department, each as Rename preset does it:
+        " N preset(s) renamed." -- and any refused, said."""
+        from ..lib.errors import PipelineError
+        from ..lib.presets import rename_preset
+
+        done, refused = [], []
+        departments = _departments_of(root)
+        for item in self.renames:
+            if item.department == _KEEP:
+                continue
+            new = renamed_for(item.name, item.department)
+            try:
+                rename_preset(root, item.name, new, departments, old_renders=self.old_renders)
+                done.append(f"{item.name} -> {new}")
+                log("INFO", "migration", f"Render preset {item.name} renamed {new}.")
+            except PipelineError as e:
+                refused.append(f"{item.name}: {e.message}")
+                log("WARNING", "migration", f"Render preset {item.name} not renamed: {e.message}")
+        text = f" {len(done)} render preset(s) renamed." if done else ""
+        if refused:
+            text += " Not renamed: " + "; ".join(refused) + " (Edit project > Rename preset)."
+        return text
 
 
 def project_needs_migration() -> bool:

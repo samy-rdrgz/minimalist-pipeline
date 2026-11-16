@@ -429,7 +429,7 @@ diamond in 30 px with its post-it; the columns named by their initials. */
 @container (max-width:760px){
 .g-h{grid-template-columns:minmax(0,1fr) auto}
 .thead,.row{grid-template-columns:52px minmax(0,1fr) repeat(var(--n),30px);gap:4px 8px;padding-left:12px;padding-right:12px}
-.thead>span:last-child,.row .r-pct,.row .flags,.dl{display:none}
+.thead>span:last-child,.row .r-pct,.row .flags,.dl,.row .fc,.thead .fc-h{display:none}
 .thead .d{font-size:0;text-align:center}.thead .d::after{content:attr(data-ini);font-size:11px}
 .row{min-height:58px;padding-top:7px;padding-bottom:7px}
 .r-name{font-size:12px}.r-name small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -1204,7 +1204,12 @@ body.live #rv-send{display:none}
 #sh-link{width:100%;box-sizing:border-box;min-height:32px;margin-bottom:8px;padding:0 8px;border:1px solid var(--outline);border-radius:var(--r-btn);background:var(--field);color:var(--ink);font:12px var(--mono)}
 .sh-form{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:flex-end}.sh-form label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--ink-3)}
 .sh-form input,.sh-form select{min-height:32px;padding:0 8px;border:1px solid var(--outline);border-radius:var(--r-btn);background:var(--field);color:var(--ink);font:inherit;font-size:13px}
-.sh-form .btn{flex:none;white-space:nowrap;min-height:32px}
+.sh-form .btn{flex:none;white-space:nowrap;box-sizing:border-box;height:32px;min-height:32px;margin:0;padding-block:0}
 @media (max-width:480px){.sh-form label{flex:1 1 100%}.sh-form .btn{flex:1 1 100%}.sh-qr{width:100%}}
 .sh-note{font-size:12px;margin:10px 0 0}.sh-g{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:36px;font-size:13px}
 .farm.ro [data-farm],.farm.ro [data-prio],.farm.ro [data-wstop],.farm.ro [data-open]{display:none}
+/* The list's Farm column. */
+.fc{display:flex;justify-content:center;gap:2px}.fc-h{text-align:center}
+.fcb{display:inline-grid;place-items:center;width:26px;height:26px;padding:0;border:0;border-radius:6px;background:none;color:var(--ink-3);cursor:pointer}
+.fcb:hover,.fcb:focus-visible{background:var(--accent-bg)}.fcb .ico{width:16px;height:16px}
+.fc-run{color:var(--wip)}.fc-fail{color:var(--rtk)}.fc-wait{color:var(--ink-3)}.fc-chk{color:var(--play)}
