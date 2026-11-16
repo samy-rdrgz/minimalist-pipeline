@@ -301,6 +301,11 @@ All notable changes to this addon. Dates are release dates.
 
 ### Fixed
 
+- The farm's time left (Farm monitoring, the page's Farm tab) counted a
+  job waiting for a worker over its whole range, frames already there
+  included: a retry after a failure, corrupted frames to render again
+  (2 frames counted as 100), a render without Increment into its last
+  folder. Only the missing frames count now -- the ones it renders.
 - A file's tracking written again at a creation kept only five of its
   fields: On hold / Cancelled and Still done were lost.
 

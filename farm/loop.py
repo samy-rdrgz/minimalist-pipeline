@@ -329,7 +329,11 @@ def _read_farm_raw(paths: dict, want_jobs: bool, scanned: dict) -> dict:
 
 
 def _frames_for_jobs(root: Path, jobs: list) -> dict:
-    """Rendered-frame counts for the jobs being rendered (thread-safe)."""
+    """Rendered-frame counts for the jobs being rendered, and the ones set
+    up waiting for a worker -- frames already there (a retry, corrupted
+    frames to render again, a render without Increment into its last
+    folder) aren't rendered again, nor counted in the time left
+    (thread-safe)."""
     frames = {}
     for job in jobs:
         try:
@@ -337,7 +341,7 @@ def _frames_for_jobs(root: Path, jobs: list) -> dict:
         except (KeyError, IndexError, TypeError):
             continue
         out = _output_dir(job, root)
-        if stage == "render_start" and out and job.get("resolved_frame_range"):
+        if stage in ("render_start", "setup_finished") and out and job.get("resolved_frame_range"):
             ext = _EXTENSION_MAP.get(job.get("output_extension"), "png")
             frames[job.get("job_id", "")] = _count_rendered_frames(out, ext)
     return frames
@@ -978,13 +982,15 @@ def _build_job_entry(
     resolved = job.get("resolved_frame_range")
     if stage["stage"] == "render_start" and output_dir and resolved:
         frames_total = resolved[1] - resolved[0] + 1
-    # Set up, waiting for a worker: what's to render, for an estimate.
+    frames_done = frames_done or 0
+    # Set up, waiting for a worker: what's to render, for an estimate --
+    # its range less the frames already there (_frames_for_jobs()): the
+    # render only makes the missing ones.
     frames_to_render = (
-        resolved[1] - resolved[0] + 1
+        max(0, resolved[1] - resolved[0] + 1 - frames_done)
         if stage["stage"] == "setup_finished" and resolved
         else 0
     )
-    frames_done = frames_done or 0
 
     # Nothing timed yet (a render's first frames): None, Farm monitoring falls
     # back on elapsed time over progress.

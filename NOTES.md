@@ -5344,6 +5344,17 @@ setting of its own. A sequence preview is always an mp4 a browser plays
 (ProRes can't go in an mp4). The preset file is read read-only now (it
 took a write lock to read).
 
+## Time left: a waiting job's frames already there
+
+`frames_to_render` (a job at setup_finished, waiting for a worker) was its
+whole range: the estimate (estimate_label()) and the farm's total
+(render_left_label()) counted frames the render won't make --
+render_chunk() renders only the missing ones. A job goes back to
+setup_finished with most of its frames done: a retry (render_failed),
+corrupted frames to render again (only those deleted), a render without
+Increment into its last folder. `_frames_for_jobs()` now counts the frames
+of setup_finished jobs too; frames_to_render is the range less them.
+
 ## The renders' sound (phase 5b)
 
 The shot file's own sound (sequencer sound strips, speakers), never a file
