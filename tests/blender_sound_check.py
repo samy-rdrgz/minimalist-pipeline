@@ -122,7 +122,7 @@ def tone_scene(wav):
     return scene, editor
 
 
-def run_case(base, d):
+def run_case(base, d, mute=True):
     """One mixdown and its compilations, in a Blender of its own: a
     background Blender runs one mixdown job (the next waits for the end
     of the first, which only its event loop would handle) -- the farm's
@@ -137,36 +137,50 @@ def run_case(base, d):
     frames_dir = d / "frames"
     rate = round(24 / base, 3)
     scene.render.fps, scene.render.fps_base = 24, base
-    scene.use_audio = True  # the timeline's Mute, left on: the mixdown must still have sound
-    flac = d / f"sh010_{rate}.flac"
+    # The timeline's Mute, left on: the mixdown must still have sound.
+    scene.use_audio = mute
+    tag = f"{rate} fps{', Mute on' if mute else ''}"
+    flac = d / f"sh010_{rate}{'_mute' if mute else ''}.flac"
     ok = sound.mixdown(scene, flac, 25, 72)
-    check(f"[{rate} fps] mixdown written", ok and flac.is_file(), str(flac) if ok else getattr(sound, "last_error", "?"))
+    check(f"[{tag}] mixdown written", ok and flac.is_file(), str(flac) if ok else getattr(sound, "last_error", "?"))
     if not flac.is_file():
         diagnose(scene, d)
         return
     info = preview.media_info(flac, ffmpeg)
     want = 48 / rate
-    check(f"[{rate} fps] its length is the range's", info and abs(info["duration"] - want) < 0.03,
+    check(f"[{tag}] its length is the range's", info and abs(info["duration"] - want) < 0.03,
           f"{info and info['duration']} s, {want:.3f} expected")
     lead = leading_silence(flac, ffmpeg)
-    check(f"[{rate} fps] it starts at the range's first frame (the tone)", lead < 0.05, f"{lead:.2f} s of silence first")
+    check(f"[{tag}] it starts at the range's first frame (the tone)", lead < 0.05, f"{lead:.2f} s of silence first")
+    if lead >= 0.05:
+        print("  --- silent: the scene as the mixdown saw it")
+        editor = scene.sequence_editor
+        for st in (editor.strips_all if hasattr(editor, "strips_all") else editor.sequences_all):
+            snd = getattr(st, "sound", None)
+            print(f"  strip {st.name}: {st.type} channel {st.channel} frames {st.frame_final_start}-{st.frame_final_end} "
+                  f"mute {st.mute} volume {getattr(st, 'volume', '?')} sound {snd and snd.filepath} "
+                  f"samplerate {snd and getattr(snd, 'samplerate', '?')}")
+        print(f"  scene: use_audio {scene.use_audio} audio_volume {getattr(scene, 'audio_volume', '?')} "
+              f"range {scene.frame_start}-{scene.frame_end} fps {scene.render.fps}/{scene.render.fps_base}")
+        opts = bpy.app.build_options
+        print("  build: " + ", ".join(f"{k} {getattr(opts, k)}" for k in ("audaspace", "sdl", "openal", "jack", "coreaudio", "pulseaudio", "wasapi") if hasattr(opts, k)))
     for fmt in ("mp4", "prores_lt"):
         preset = dict(post.VIDEO_FORMATS[fmt])
-        video = d / f"sh010_{rate}.{preset.get('extension', 'mp4')}"
+        video = d / f"{flac.stem}.{preset.get('extension', 'mp4')}"
         cmd = post.compile_command(
             ffmpeg_bin=ffmpeg, frames_pattern=str(frames_dir / "f.%05d.png"), first=25, last=72,
             fps=rate, preset=preset, video=video, width=320, size=(320, 180), audio=flac,
         )
         r = subprocess.run(cmd[:1] + ["-v", "error"] + cmd[1:], capture_output=True, text=True)
-        check(f"[{rate} fps] {fmt}: compiled", r.returncode == 0, r.stderr.strip()[-300:])
+        check(f"[{tag}] {fmt}: compiled", r.returncode == 0, r.stderr.strip()[-300:])
         info = preview.media_info(video, ffmpeg) or {}
         expected = "pcm_s16le" if fmt == "prores_lt" else "aac"
-        check(f"[{rate} fps] {fmt}: its sound ({expected})", info.get("audio") == expected, str(info))
+        check(f"[{tag}] {fmt}: its sound ({expected})", info.get("audio") == expected, str(info))
         if abs((info.get("duration") or 0) - want) > 0.05:
-            check(f"[{rate} fps] {fmt}: its length", False, f"{info.get('duration')} s, {want:.3f} expected")
+            check(f"[{tag}] {fmt}: its length", False, f"{info.get('duration')} s, {want:.3f} expected")
         if fmt == "prores_lt":
             ld = info and preview.media_info(post.ld_path(video), ffmpeg) or {}
-            check(f"[{rate} fps] {fmt}: its light copy has sound (aac)", ld.get("audio") == "aac", str(ld))
+            check(f"[{tag}] {fmt}: its light copy has sound (aac)", ld.get("audio") == "aac", str(ld))
 
 
 def main():
@@ -209,10 +223,11 @@ def main():
     (d / "frames").mkdir()
     subprocess.run([ffmpeg, "-v", "error", "-f", "lavfi", "-i", "testsrc=size=320x180:rate=24",
                     "-frames:v", "48", "-start_number", "25", str(d / "frames" / "f.%05d.png")], check=True)
-    for base in (1.0, 1.001):
-        print(f"... mixdown at {round(24 / base, 3)} fps, in a Blender of its own")
+    for base, mute in ((1.0, True), (1.001, True), (1.0, False)):
+        print(f"... mixdown at {round(24 / base, 3)} fps{', Mute on' if mute else ''}, in a Blender of its own")
         r = subprocess.run(
-            [bpy.app.binary_path, "-b", "--python", __file__, "--", "--case", str(base), "--dir", str(d)],
+            [bpy.app.binary_path, "-b", "--python", __file__, "--", "--case", str(base), "--dir", str(d),
+             "--mute", "1" if mute else "0"],
             capture_output=True, text=True, errors="replace",
         )
         for line in r.stdout.splitlines():
@@ -229,6 +244,7 @@ def main():
 
 
 if "--case" in ARGS:
-    run_case(float(ARGS[ARGS.index("--case") + 1]), Path(ARGS[ARGS.index("--dir") + 1]))
+    run_case(float(ARGS[ARGS.index("--case") + 1]), Path(ARGS[ARGS.index("--dir") + 1]),
+             ARGS[ARGS.index("--mute") + 1] == "1")
     sys.exit(0)
 main()

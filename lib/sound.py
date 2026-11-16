@@ -65,6 +65,26 @@ def _mixdown(path: str) -> None:
         bpy.ops.sound.mixdown(filepath=path, container="FLAC", codec="FLAC")
 
 
+def _evaluate(scene, frame: int) -> None:
+    """The scene evaluated before the mixdown, which reads the evaluated
+    one: a background Blender has no event loop to do it -- the Mute just
+    turned off (applied at evaluation), the strips' sound handles, stayed
+    as they were: the mixdown came out silent (Blender 5.2.2, -b)."""
+    import bpy
+
+    try:
+        scene.frame_set(frame)
+    except Exception:
+        pass
+    try:
+        scene.view_layers[0].depsgraph.update()
+    except Exception:
+        try:
+            bpy.context.view_layer.update()
+        except Exception:
+            pass
+
+
 # How long a mixdown may take to be written whole, at most.
 MIXDOWN_TIMEOUT = 300.0
 
@@ -129,6 +149,7 @@ def mixdown(scene, path: Path, start: int, end: int) -> bool:
         for prop, value in (("use_preview_range", False), ("use_audio", False)):
             if hasattr(scene, prop):
                 setattr(scene, prop, value)
+        _evaluate(scene, int(start))
         tmp = path.with_name(f".{path.stem}.tmp.flac")
         tmp.unlink(missing_ok=True)
         fps = scene.render.fps / (scene.render.fps_base or 1.0)
