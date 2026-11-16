@@ -91,7 +91,8 @@ document.addEventListener('click',e=>{
   if(t.closest('#rv-send')){sendDialog();return}
   if(t.closest('#help-b')){helpDlg();return}
   if(t.closest('[data-dclose]')||t.id==='dlg'){$('#dlg').hidden=true;return}
-  if(t.closest('[data-dcopy]')){const ta=$('#sd-json');(navigator.clipboard?navigator.clipboard.writeText(ta.value):Promise.reject()).then(()=>toast('Revue copiée'),()=>{ta.select();toast('Sélectionnée : Ctrl+C')});return}
+  if(t.closest('[data-rvgo]')){$('#dlg').hidden=true;deliverReview();return}
+  if(t.closest('[data-rvclear]')){if(confirm('Effacer toute la revue en cours ? Un fichier déjà téléchargé garde ce qu\'il contient.')){clearReview();$('#dlg').hidden=true;renderAll();toast('Revue effacée')}return}
   const q=t.closest('[data-quick]');if(q){S.quick=S.quick===q.dataset.quick?null:q.dataset.quick;renderQuick();renderList();return}
   const dp=t.closest('[data-dept]');if(dp){S.dept=S.dept===dp.dataset.dept?null:dp.dataset.dept;renderQuick();renderList();return}
   const mo=t.closest('[data-more]');if(mo){const k=mo.dataset.more;S.more.has(k)?S.more.delete(k):S.more.add(k);renderQuick();renderList();return}
@@ -178,3 +179,4 @@ try{const s=parseFloat(localStorage.getItem('mp-snapshot:scale'));if(s)document.
 new ResizeObserver(()=>drawWires()).observe($('#pbody'));new ResizeObserver(()=>{if(S.ws==='links')drawGraph()}).observe($('#list'));
 document.addEventListener('scroll',e=>{if(!e.target.closest||!e.target.closest('.menu'))closeMenus()},true);addEventListener('resize',closeMenus);
 document.addEventListener('dblclick',e=>{const gn=e.target.closest('[data-gn]');if(gn){const it=items.find(i=>i.name===gn.dataset.gn);S.ws=it.kind;S.sel=it.name;S.tab='plan';S.gFocus=null;renderAll()}});
+document.addEventListener('change',e=>{if(e.target.matches&&e.target.matches('.rv-load')){const f=e.target.files[0];e.target.value='';closeMenus();loadReview(f)}});

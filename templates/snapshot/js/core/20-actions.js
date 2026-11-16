@@ -1,7 +1,7 @@
 /* ---------- Actions de revue (couche partagée) ----------
    Les seules fonctions qui modifient les fichiers. Desktop et mobile les appellent, puis refresh().
    Aucune ne touche au DOM. Chacune correspond à une action de lib/review_import.py (indiquée en fin de ligne). */
-const canVal=(it,d)=>!!S.review&&S.review.role!=='équipe'&&['done','rework'].includes(it.states[d])&&!it.ok[d];
+const canVal=(it,d)=>!!S.review&&S.review.role!==TEAM&&['done','rework'].includes(it.states[d])&&!it.ok[d];
 const rangeStr=()=>S.rangeStart!=null&&S.rangeStart!==S.frame?'f'+Math.min(S.rangeStart,S.frame)+'-'+Math.max(S.rangeStart,S.frame):'f'+S.frame;
 const jobId=()=>'job_'+Math.random().toString(16).slice(2,12);
 const A={
@@ -36,10 +36,6 @@ const A={
     if(it.req)ch.push(`${it.name} · départements requis modifiés`);Object.keys(it.still).forEach(d=>ch.push(`${it.name} · ${LBL[d]} : toujours fini`));
     Object.keys(it.fixed).forEach(()=>ch.push(`${it.name} · note marquée corrigée`));if(it.assign)Object.entries(it.assign).forEach(([d,a])=>ch.push(`${it.name} · ${LBL[d]} → ${a.join(', ')||'personne'}`));
     if(it.descEdit!==undefined)ch.push(`${it.name} · description`)});S.planned.forEach(p=>ch.push(`${p.name} · nouveau ${p.kind==='shot'?'plan':'fichier'}`));return ch},
-  exportJSON(){return JSON.stringify({format:'minimalist-pipeline-review',project:M.project,base:M.snapshot,reviewer:S.review.name,role:S.review.role,date:new Date().toISOString(),
-    items:items.filter(touched).map(it=>({name:it.name,validated:Object.keys(it.mine).filter(d=>it.mine[d]==='val'),notes:it.myNotes.map(({type,deps,text,frames})=>({type,deps,text,frames})),
-      replies:it.myReplies,omit:it.setAside,required:it.req,assign:it.assign||undefined,still_done:Object.keys(it.still),fixed:Object.keys(it.fixed),description:it.descEdit})),
-    create:S.planned.map(({name,kind,desc,deps})=>({name,kind,description:desc,departments:deps}))},null,1)},
   /* Live seulement : envoyé à Blender par POST /farm. */
   queueJob(o){const j={id:jobId(),key:'',shot:'',state:'waiting',text:'queued',done:0,total:0,machines:0,user:M.live.user,at:new Date().toISOString(),stage:'pending',
     priority:10,preset:'',department:'',range:null,names:[],pending:true,retry:false,recompile:false,removable:true,...o};F.jobs.unshift(j);return j},

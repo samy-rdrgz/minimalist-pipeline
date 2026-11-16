@@ -13,8 +13,8 @@ function reviewPop(){
   const p=document.createElement('div');p.className='pop';p.setAttribute('role','dialog');p.setAttribute('aria-label','Démarrer une revue');
   const sh=items.filter(i=>i.kind==='shot');
   p.innerHTML=`<h4>Démarrer une revue</h4>
-    <div class="prop"><span class="k">Nom</span><span class="v"><label class="field" style="flex:1"><input id="rv-name" value="Valerie" aria-label="Votre nom"></label></span></div>
-    <div class="prop"><span class="k">Rôle</span><span class="v"><span class="join full" style="flex:1">${M.roles.map(r=>`<button class="btn" data-role="${r}" aria-pressed="${r===M.role}">${r}</button>`).join('')}<button class="btn" data-role="équipe" aria-pressed="false">équipe</button></span></span></div>
+    <div class="prop"><span class="k">Nom</span><span class="v"><label class="field" style="flex:1"><input id="rv-name" value="${esc(M.live.user||'')}" aria-label="Votre nom"></label></span></div>
+    <div class="prop"><span class="k">Rôle</span><span class="v"><span class="join full" style="flex:1">${M.roles.map(r=>`<button class="btn" data-role="${r}" aria-pressed="${r===M.role}">${r}</button>`).join('')}<button class="btn" data-role="team" aria-pressed="false">team</button></span></span></div>
     <p class="hint" id="rv-help">prod : le rôle le plus haut, vos validations comptent dans les chiffres.</p>
     <div class="prop" style="align-items:start"><span class="k" style="padding-top:5px">Parcours</span><span class="v" style="flex-direction:column;align-items:stretch">
       <button class="btn" data-path="val" aria-pressed="true">À valider <span class="n">${sh.filter(toValidate).length}</span></button>
@@ -22,7 +22,7 @@ function reviewPop(){
       <button class="btn" data-path="" aria-pressed="false">Tout, dans l'ordre</button></span></div>
     <button class="btn primary" id="rv-go">Commencer</button>`;
   slot.appendChild(p);
-  const help={prod:'prod : le rôle le plus haut, vos validations comptent dans les chiffres.',sup:'sup : votre validation compte, la prod peut encore la reprendre.','équipe':'équipe : pas de validation, seulement des retakes et des remarques.'};
+  const help={prod:'prod : le rôle le plus haut, vos validations comptent dans les chiffres.',sup:'sup : votre validation compte, la prod peut encore la reprendre.',team:'team : pas de validation, seulement des retakes et des remarques.'};
   p.addEventListener('click',e=>{
     const r=e.target.closest('[data-role]');if(r){p.querySelectorAll('[data-role]').forEach(b=>b.setAttribute('aria-pressed',b===r));$('#rv-help').textContent=help[r.dataset.role]}
     const pa=e.target.closest('[data-path]');if(pa)p.querySelectorAll('[data-path]').forEach(b=>b.setAttribute('aria-pressed',b===pa));

@@ -4,9 +4,13 @@ function marks(it){
 }
 const fmtDay=sec=>{const d=new Date(sec*1000);return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})};
 const verLab=v=>[v.shot,v.folder,v.dept?(LBL[v.dept]||v.dept):'',v.at?fmtDay(v.at):''].filter(Boolean).join(' · ');
-function shotsHTML(it){if(!it.shots||it.shots.length<2)return '';const c=S.shot[it.name]||'';
-  return `<div class="shotsel"><span class="faint">Plan du bloc</span><span class="join">${['',...it.shots].map(x=>`<button class="btn sm" data-shot="${x}" aria-pressed="${c===x}">${x||'Tous'}</button>`).join('')}</span></div>`}
-const versOf=it=>{const c=S.shot[it.name];return c?it.versions.filter(v=>!v.shot||v.shot===c):it.versions};
+function shotsHTML(it){if(!it.shots||it.shots.length<2)return '';const c=shotOf(it);
+  return `<div class="shotsel"><span class="faint">Plan du bloc</span><span class="join">${['',...it.shots].map(x=>`<button class="btn sm" data-shot="${x}" aria-pressed="${c===x}">${x||'Bloc entier'}</button>`).join('')}</span></div>`}
+/* A block's renders, one shot at a time: the shot chosen ('' its renders made whole), else the first that has any.
+   A and B are always two versions of that same shot. */
+const shotOf=it=>{const c=S.shot[it.name];if(c!=null)return c;const has=s=>it.versions.some(v=>(v.shot||'')===s);
+  return has('')||!it.versions.length?'':((it.shots||[]).find(has)??(it.versions[0].shot||''))};
+const versOf=it=>{const c=shotOf(it);return it.versions.filter(v=>(v.shot||'')===c)};
 /* Comparer A / B : la bascule et le choix de B, sous le choix de version (A). Touche C. */
 function abHTML(it,ctx){const {V,b}=mVer(it);if(V.length<2)return '';
   return `<div class="ctl abrow"><span class="join" role="group" aria-label="Version affichée"><button class="btn" data-ab="A" aria-pressed="${S.m.side==='A'}" title="Version A (C)">A</button><button class="btn" data-ab="B" aria-pressed="${S.m.side==='B'}" title="Version B, même frame (C)">B</button></span>
@@ -23,7 +27,7 @@ function stageHTML(it){
   const V=versOf(it),v=V[mVer(it).i];
   const mk=marks(it).map(f=>{const x=(f.a-1)/(NF-1)*100;return (f.b?`<span class="rng" style="left:${x}%;width:${(f.b-f.a)/(NF-1)*100}%"></span>`:'')+`<button class="mk ${f.rtk?'':'n'}" style="left:${x}%" data-goto="${f.a}" title="${f.rtk?'RTK':'Note'} f${f.a}${f.b?'-'+f.b:''} : ${esc(f.n.text||'(sans texte)')}"></button>`}).join('');
   return `${shotsHTML(it)}<div class="stage ${S.m.side==='B'&&V.length>1?'is-b':''}">${it.thumb?`<img src="${it.thumb}" alt="Image de ${it.name}">`:`<span class="noimg">Pas encore de rendu</span>`}
-      <span class="hud">${V.length>1?`<b class="ab">${S.m.side}</b> `:''}${S.shot[it.name]?S.shot[it.name]+' · ':''}${v?esc(v.folder)+' · ':''}f <span data-f>${S.frame}</span></span></div>
+      <span class="hud">${V.length>1?`<b class="ab">${S.m.side}</b> `:''}${shotOf(it)?shotOf(it)+' · ':''}${v?esc(v.folder)+' · ':''}f <span data-f>${S.frame}</span></span></div>
     <div class="scrub" data-scrub role="slider" tabindex="0" aria-label="Frame" aria-valuemin="1" aria-valuemax="${NF}" aria-valuenow="${S.frame}">${mk}<span class="ph" style="left:${(S.frame-1)/(NF-1)*100}%"></span></div>
     <div class="ctl">
       <span class="join"><button class="btn icon" data-tp="vprev" aria-label="Version précédente" title="Version précédente" ${V.length>1?'':'disabled'}>${ic('b-back')}</button><button class="btn icon" data-tp="fprev" aria-label="Frame précédente" title="Frame précédente (,)">${ic('b-frame_prev')}</button><button class="btn icon play" data-tp="play" aria-label="Lecture" title="Lecture (Espace)">${ic(S.playing?'b-pause':'b-play')}</button><button class="btn icon" data-tp="fnext" aria-label="Frame suivante" title="Frame suivante (.)">${ic('b-frame_next')}</button><button class="btn icon" data-tp="vnext" aria-label="Version suivante" title="Version suivante" ${V.length>1?'':'disabled'}>${ic('b-forward')}</button></span>
@@ -41,7 +45,7 @@ function assignHTML(it,d,ctx){
 }
 function deptHTML(it,d,ctx='p'){
   const x=info(it,d);if(x.base==='na')return '';
-  const f=it.flags[d]||{},rv=S.review,team=rv&&rv.role==='équipe';
+  const f=it.flags[d]||{},rv=S.review,team=rv&&rv.role===TEAM;
   const canVal=rv&&!team&&['done','rework'].includes(it.states[d])&&!it.ok[d]&&!it.mine[d]&&!it.rtk[d];
   const acts=rv?`<span class="acts">${it.mine[d]?`<button class="btn sm tool" data-undo="${d}" title="Reprendre ma modification">${ic('b-loop_back')}Reprendre</button>`:
     `${team?'':`<button class="btn sm ok icon" data-val="${d}" ${canVal?'':'disabled'} aria-label="Valider ${LBL[d]}" title="${canVal?'Valider comme '+rv.role:'Rien de fini à valider'}">${ic('b-checkmark')}</button>`}<button class="btn sm alert" data-rtk="${d}" title="Écrire un retake sous ce département">Retake</button>`}</span>`:'';
@@ -149,7 +153,7 @@ function renderProps(){
   if(S.tab==='plan'){
     const req=DEPTS[it.kind].filter(d=>required(it).includes(d));
     h=`<div class="sec">${stageHTML(it)}${tags?`<div class="pacts tags">${tags}</div>`:''}</div>
-     <div class="sec"><div class="sec-h">Départements<span class="sp"></span>${S.review&&S.review.role!=='équipe'?`<button class="btn sm ok" data-valall title="Valider tous les départements finis (V)">${ic('b-checkmark')}Tout le fini</button>`:''}</div>
+     <div class="sec"><div class="sec-h">Départements<span class="sp"></span>${S.review&&S.review.role!==TEAM?`<button class="btn sm ok" data-valall title="Valider tous les départements finis (V)">${ic('b-checkmark')}Tout le fini</button>`:''}</div>
      ${req.length?req.map(d=>deptHTML(it,d)).join(''):'<span class="faint">Aucun département requis.</span>'}${!S.review?'<p class="faint" style="margin:0;font-size:var(--fs-s)">Passez en Mode revue pour valider, demander un retake ou attribuer.</p>':''}</div>
      <button class="notes-link" data-tab="notes">${ic('i-note')}<span>Notes</span>${nr?`<span class="tag rtk">${nr} RTK</span>`:''}<span class="faint">${nn} ouverte${nn>1?'s':''}</span><span class="sp"></span>${ic('b-tria_right')}</button>`;
   }

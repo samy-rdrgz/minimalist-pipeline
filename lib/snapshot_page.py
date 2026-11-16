@@ -37,6 +37,7 @@ JS_PARTS = (
     "core/05-mode.js",
     "core/10-status.js",
     "core/20-actions.js",
+    "core/30-review-file.js",
     "core/40-player.js",
     "desktop/20-top-tree.js",
     "desktop/21-list.js",

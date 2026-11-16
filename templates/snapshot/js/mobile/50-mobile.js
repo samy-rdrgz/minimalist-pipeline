@@ -48,7 +48,7 @@ function mReview(){
     ${V.length>1?`<div class="m-vers"><button class="m-vchip ${S.m.side==='A'?'on':''}" data-msheet="verA"><b>A</b><span class="lb">${esc(verLab(V[a]))}</span>${ic('b-tria_down')}</button><button class="m-vchip ${S.m.side==='B'?'on':''}" data-msheet="verB"><b>B</b><span class="lb">${esc(verLab(V[b]))}</span>${ic('b-tria_down')}</button></div>
       `:''}<p class="m-hint">${S.m.loop?'Boucle : ce plan se rejoue.':'Lecture : les plans du parcours s\'enchaînent.'}${V.length>1?' A / B : même frame, autre version.':''} Glisser sur l'image : plan suivant.</p>
     <section class="m-sec"><div class="m-sec-h">Départements<span class="sp"></span>${rv?`<button class="btn tool" data-msheet="depts">${ic('b-add')}Département</button>`:''}</div>
-      ${rv&&rv.role!=='équipe'&&req.some(d=>canVal(it,d)&&!it.rtk[d]&&!it.mine[d])?`<button class="btn ok m-wide" data-mvalall>${ic('b-checkmark')}Valider tout le fini</button>`:''}
+      ${rv&&rv.role!==TEAM&&req.some(d=>canVal(it,d)&&!it.rtk[d]&&!it.mine[d])?`<button class="btn ok m-wide" data-mvalall>${ic('b-checkmark')}Valider tout le fini</button>`:''}
       ${req.map(d=>mDept(it,d)).join('')||'<p class="m-hint">Aucun département requis.</p>'}</section>
     <section class="m-sec"><div class="m-sec-h">Notes<span class="n">${notes.length}</span></div>
       ${notes.map(n=>`<div class="m-note">${n.frames?`<button class="ft ${/-/.test(n.frames)?'rg':n.type==='rtk'?'':'nt'}" data-goto="${(String(n.frames).match(/\d+/)||[1])[0]}">${esc(n.frames)}</button>`:`<span class="ft ${n.type==='rtk'?'':'nt'}">${n.type==='rtk'?'RTK':'note'}</span>`}
@@ -59,7 +59,7 @@ function mDept(it,d){
   const x=info(it,d),m=it.mine[d],a=assignOf(it,d),rv=S.review,f=it.flags[d]||{};
   return `<div class="m-dept ${m?'mine':''}"><div class="m-dh">${glyph(x.base,x.corner,x.cnt,x.note)}<span class="nm"><b>${LBL[d]}</b><span class="s ${x.tone}">${esc(x.l)}${x.s?' · '+esc(x.s):''}</span></span>
       ${rv?`<button class="m-as ${a.length?'':'none'} ${it.assign&&d in it.assign?'chg':''}" data-msheet="as:${d}">${ic('b-user')}<span>${a.length?esc(a.join(', ')):'Attribuer'}</span></button>`:a.length?`<span class="m-as ro">${ic('b-user')}<span>${esc(a.join(', '))}</span></span>`:''}</div>
-    ${rv?`<div class="m-da"><button class="btn ok" data-mval="${d}" aria-pressed="${m==='val'}" ${rv.role==='équipe'||!canVal(it,d)?'disabled':''}>${ic('b-checkmark')}${m==='val'?'Validé':'Valider'}</button>
+    ${rv?`<div class="m-da"><button class="btn ok" data-mval="${d}" aria-pressed="${m==='val'}" ${rv.role===TEAM||!canVal(it,d)?'disabled':''}>${ic('b-checkmark')}${m==='val'?'Validé':'Valider'}</button>
       <button class="btn alert" data-mrtk="${d}" aria-pressed="${m==='rtk'}">${ic('b-x')}${m==='rtk'?'Retake · vous':'Retake'}</button>
       ${f.to_redo?`<button class="btn ${it.still[d]?'ok':'tool'} m-span" data-still="${d}" aria-pressed="${!!it.still[d]}">${ic('b-checkmark')}Toujours fini <small>${esc(f.to_redo)}</small></button>`:''}</div>`:''}</div>`;
 }
@@ -111,8 +111,8 @@ function mSheet(){
     h=req.map(d=>opt(`data-mcd="${d}"`,S.m.cdept===d,LBL[d])).join('')+opt('data-mcd=""',!S.m.cdept,'Sans département','tout le plan')}
   if(k==='start'){t='Commencer la revue';
     h=`<label class="field"><input id="m-name" value="${esc(M.live.user||'')}" placeholder="Votre nom" aria-label="Votre nom" autocomplete="name"></label>
-      <span class="join full">${[...M.roles,'équipe'].map(r=>`<button class="btn" data-mrole="${r}" aria-pressed="${r===(S.m.role||M.role||M.roles[0])}">${r}</button>`).join('')}</span>
-      <p class="m-hint">${{prod:'prod : le rôle le plus haut, vos validations comptent dans les chiffres.',sup:'sup : votre validation compte, la prod peut encore la reprendre.','équipe':'équipe : pas de validation, seulement des retakes et des remarques.'}[S.m.role||M.role||M.roles[0]]||''}</p>
+      <span class="join full">${[...M.roles,TEAM].map(r=>`<button class="btn" data-mrole="${r}" aria-pressed="${r===(S.m.role||M.role||M.roles[0])}">${r}</button>`).join('')}</span>
+      <p class="m-hint">${{prod:'prod : le rôle le plus haut, vos validations comptent dans les chiffres.',sup:'sup : votre validation compte, la prod peut encore la reprendre.',team:'team : pas de validation, seulement des retakes et des remarques.'}[S.m.role||M.role||M.roles[0]]||''}</p>
       <div class="m-sec-h">Parcours</div>${Object.entries(mF).map(([x,l])=>opt(`data-mfilter="${x}" data-keep`,S.m.filter===x,l,x===''?'tous les plans, dans l\'ordre':'')).join('')}`;
     foot=`<button class="btn primary m-wide" data-mstart>${ic('b-greasepencil')}Commencer</button>`}
   if(k==='send'){t='Envoyer la revue';const ch=A.changes();
@@ -174,8 +174,7 @@ $('#mob').addEventListener('click',e=>{const t=e.target,q=s=>t.closest(s);let x;
   if(x=q('[data-mrole]')){S.m.role=x.dataset.mrole;mRender();return}
   if(q('[data-mstart]')){S.review={name:$('#m-name').value.trim()||'Anonyme',role:S.m.role||M.role||M.roles[0]};S.m.sheet=null;const f=mSib()[0];if(f&&!mSib().some(i=>i.name===S.sel))S.sel=f.name;mRender();return}
   if(q('[data-mstop]')){S.review=null;S.m.sheet=null;mRender();toast('Revue quittée : vos modifications restent affichées jusqu\'au rechargement');return}
-  if(q('[data-msendgo]')){const json=A.exportJSON();S.m.sheet=null;mRender();
-    if(LIVE){toast('Envoyée à Blender : la revue est importée')}else{try{const u=URL.createObjectURL(new Blob([json],{type:'application/json'}));const a=document.createElement('a');a.href=u;a.download='review_'+S.review.name.toLowerCase()+'.json';a.click();setTimeout(()=>URL.revokeObjectURL(u),2000)}catch(_){}toast('Fichier de revue téléchargé')}return}
+  if(q('[data-msendgo]')){S.m.sheet=null;mRender();deliverReview();return}
   if(x=q('[data-mjob]')){const j=F.jobs.find(y=>y.id===S.m.sheet.slice(4));toast('Envoyé à Blender : '+A.job(x.dataset.mjob,j));S.m.sheet=null;mRender();return}
   if(x=q('[data-mprio]')){const j=F.jobs.find(y=>y.id===S.m.sheet.slice(4));j.priority+=+x.dataset.mprio;mRender();return}
   if(x=q('[data-mrv]')){S.m.rf.ver=x.dataset.mrv;mRender();return}

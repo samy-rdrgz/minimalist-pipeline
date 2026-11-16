@@ -27,7 +27,7 @@ function adapt(r,keyName){
   const L=r.live||{};
   const versions=[];
   if(L.versions)Object.entries(L.versions).forEach(([line,rows])=>rows.forEach(v=>versions.push({shot:line,folder:v.folder,dept:v.department||'',at:v.at||0,video:v.video||null,first:v.first??null})));
-  else(r.renders||[]).filter(l=>l.folder).forEach(l=>versions.push({shot:l.shots||'',folder:l.folder,dept:l.department||'',at:0,video:l.video||null,first:l.first??null,behind:!!l.behind,status:l.status||null}));
+  else(r.renders||[]).filter(l=>l.folder).forEach(l=>versions.push({shot:(l.shot_list||[]).length===1&&!l.whole?l.shot_list[0]:'',folder:l.folder,dept:l.department||'',at:0,video:l.video||null,first:l.first??null,behind:!!l.behind,status:l.status||null}));
   return Object.assign(r,{
     kind:r.kind==='shot'?'shot':'asset',
     stableFile:r.stable||'',stable:r.stable_v||'',wip:r.wip_v||'',render:r.render_ref||'',
