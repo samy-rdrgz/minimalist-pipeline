@@ -6,6 +6,9 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- Live page, a tour for a beginner (Blender's Experience level, a guest
+  too): a few steps pointing at the page's parts, shown once in a browser,
+  again from More › Tour of the page.
 - Edit project, *Video*: the video compiled from a render's frames, for
   the edit -- *MP4 · H.264* (smooth to scrub, light, played as is by the
   page; new projects), *MOV · ProRes 422 LT* (what editing software reads

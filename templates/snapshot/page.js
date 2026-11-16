@@ -74,11 +74,12 @@ function oldMark(it,d){var o=it.ok[d];return o&&o.old?' old':'';}
 // Its capsule's words, two short lines: the state with its version and
 // the validation; then a stage's flags (lib/status.py stage_flags()).
 function capWords(it,d){var s=it.states[d],o=it.ok[d],v=validAt(it,d),f=(it.flags||{})[d]||{},w;
-w=v?'✓ '+v.role.toUpperCase()+(v.by?' · '+v.by:'')+(it.stable_v?' · on '+it.stable_v:''):
-s==='done'?'DONE'+(it.stable_v?' · stable '+it.stable_v:''):s==='rework'?'REWORKED SINCE '+(it.stable_v||'the stable'):
-s==='wip'?'WIP'+(it.wip_v?' · '+it.wip_v:''):'NOT STARTED';
-if(o&&o.old)w+=' · ✓ '+o.role.toUpperCase()+' on '+o.seen+', to review again';
-return [w,[f.waiting?'waiting: '+f.waiting:'',f.to_redo?'redo: '+f.to_redo:''].filter(Boolean).join(' · ')];}
+// Short sentences, not codes: what a newcomer reads on a hover.
+w=v?'Validated by '+v.role+(v.by?' ('+v.by+')':'')+(it.stable_v?' · '+it.stable_v:''):
+s==='done'?'Done'+(it.stable_v?' · stable '+it.stable_v:''):s==='rework'?'Done, worked on again since '+(it.stable_v||'the stable'):
+s==='wip'?'In progress'+(it.wip_v?' · '+it.wip_v:''):'Not started';
+if(o&&o.old)w+=' · validated by '+o.role+' on '+o.seen+': to review again';
+return [w,[f.waiting?'waits for '+f.waiting:'',f.to_redo?'to redo: '+f.to_redo:''].filter(Boolean).join(' · ')];}
 // An open retake on a department: its post-it -- red from a validation
 // role, outlined from the team, their number in it. [html, words].
 function rtkTag(it,d){var r=it.rtk[d];if(!r)return null;var n=(it.rtkNotes[d]||[]).length||1;
@@ -326,7 +327,7 @@ var mine=D.filter(function(it){return it.kind===s[0];}),plan=(rv.creates||[]).fi
 h+='<span class="kpi" title="'+esc(tip)+'"><span class="kl">'+s[1]+'</span>'+dv(done,val,true)+pace+withReview({done:done,valid:val},reviewedOf(mine,plan),true)+'</span>';});
 $('summary').innerHTML=h;}
 var W=META.weights;
-$('weights').textContent='Each required department counts the same: not started 0 %, in progress '+W.wip+' %, done but reworked since '+W.rework+
+if($('weights'))$('weights').textContent='Each required department counts the same: not started 0 %, in progress '+W.wip+' %, done but reworked since '+W.rework+
 ' %, done with an open RTK '+W.rtk+' %, done 100 %. A file averages its departments — a retake on no department counts as an RTK on one of its done departments —, a group its files.'+
 (META.role?' Validated, apart: the share of the required departments '+META.role+' (or an equivalent role) validated at the stable shown — a newer stable needs it again.':'');
 
@@ -631,6 +632,36 @@ MENUS.forEach(function(m){$(m[0]).addEventListener('click',function(e){e.stopPro
 $(m[1]).hidden=!open;this.setAttribute('aria-expanded',open);touchHold();});});
 document.addEventListener('click',function(e){if(!e.target.closest('.menu-pop'))closeMenus();});
 $('help-open').addEventListener('click',function(e){e.stopPropagation();closeMenus();$('helpb').click();});
+/* ---------- the tour: a few steps over the page, for a beginner ---------- */
+// Shown once on the live page when Blender's Experience level is Beginner
+// (a guest too), never again in this browser; More › Tour of the page
+// starts it any time. Each step points at what it speaks of; a step whose
+// part isn't on the page (no review here, no bell) is skipped.
+var TOUR_KEY='mp-snapshot:tour-seen',TOUR=[
+['#list .row .cell:not(.na)','A department: a diamond','Green done, orange in progress, violet validated, an outline not started. Hover it for its words (a tap on a phone). A red RTK under it: a retake to do.'],
+['#bar .bar-in','What needs you','Open retakes, open notes, what\'s done but not validated yet. Filters ▾: a department, outdated renders, what\'s not finished.'],
+['#list .row','A file','Click it: its videos, each department with its notes, its renders to check. ← → go from one file to the next.'],
+['#rv-sum','Your review','In a file: ✓ validates a department, ✕ writes a retake on it. Here they reach Blender at once, under your name.'],
+['#newsb','What arrived','Notes, validations and renders by the others, while this page is open.'],
+['#more','More','The legend and the keys, the theme, sharing this page with a phone -- and this tour again.']],tourAt=-1;
+function tourTarget(sel){return [].filter.call(document.querySelectorAll(sel),function(x){return x.offsetParent!==null&&x.getBoundingClientRect().width>0;})[0];}
+function tourEnd(){document.querySelectorAll('.tour-hl').forEach(function(x){x.classList.remove('tour-hl');});var t=$('tour');if(t)t.remove();tourAt=-1;
+try{localStorage.setItem(TOUR_KEY,'1');}catch(e){}}
+function tourStep(n){document.querySelectorAll('.tour-hl').forEach(function(x){x.classList.remove('tour-hl');});
+while(n<TOUR.length&&!tourTarget(TOUR[n][0]))n++;if(n>=TOUR.length)return tourEnd();tourAt=n;
+var el=tourTarget(TOUR[n][0]),last=!TOUR.slice(n+1).some(function(st){return tourTarget(st[0]);});el.scrollIntoView({block:'nearest'});el.classList.add('tour-hl');
+var b=$('tour');if(!b){b=document.createElement('div');b.id='tour';b.className='tour';b.setAttribute('role','dialog');b.setAttribute('aria-live','polite');document.body.appendChild(b);
+b.addEventListener('click',function(e){var a=e.target.closest('[data-tour]');if(!a)return;e.stopPropagation();if(a.dataset.tour==='next')tourStep(tourAt+1);else tourEnd();});}
+b.innerHTML='<b>'+esc(TOUR[n][1])+'</b><p>'+esc(TOUR[n][2])+'</p><div class="tour-a"><span class="faint">'+(n+1)+' / '+TOUR.length+'</span>'+
+(last?'':'<button type="button" class="btn link" data-tour="skip">Skip</button>')+'<button type="button" class="btn primary" data-tour="'+(last?'end':'next')+'">'+(last?'Done':'Next')+'</button></div>';
+var r=el.getBoundingClientRect(),w=Math.min(320,innerWidth-24),below=r.bottom+12+180<innerHeight;
+b.style.width=w+'px';b.style.left=Math.max(12,Math.min(r.left,innerWidth-w-12))+'px';
+b.style.top=below?(r.bottom+12)+'px':'';b.style.bottom=below?'':(innerHeight-r.top+12)+'px';b.classList.toggle('up',!below);
+b.querySelector('[data-tour="'+(last?'end':'next')+'"]').focus({preventScroll:true});}
+function tourStart(){closeMenus();tourStep(0);}
+document.addEventListener('keydown',function(e){if(tourAt>=0&&e.key==='Escape'){e.stopPropagation();tourEnd();}},true);
+addEventListener('resize',function(){if(tourAt>=0)tourStep(tourAt);});
+$('tour-open').addEventListener('click',function(e){e.stopPropagation();tourStart();});
 // Filters ▾'s list: out of the bar (it scrolls sideways, and would cut it),
 // fixed under its button when it opens.
 (function(){var pop=$('ffpop'),b=$('ffb');document.body.appendChild(pop);
@@ -1919,7 +1950,10 @@ function rform(it){var F=DATA.farm||{};return RF[it.file]=RF[it.file]||{ver:it.s
 function renderHtml(it){var F=DATA.farm||{},f=rform(it),seg=function(k,v,l){return '<button type="button" data-rf="'+k+'" data-v="'+v+'" aria-pressed="'+(f[k]===v)+'">'+l+'</button>';};
 var job=(F.jobs||[]).filter(function(j){return j.key===(it.live||{}).key&&(j.state==='running'||j.state==='waiting');})[0];
 var b='';if(it.stable&&it.stable!==it.file)b+='<div class="st-l">Version</div><div class="segb om">'+seg('ver','stable','Last stable · '+esc(it.stable_v||''))+seg('ver','last','Last · '+esc(it.wip_v||''))+'</div>';
-b+='<div class="st-l">Preset</div><select class="rsel" data-rf="preset" aria-label="Pre-render preset">'+(F.presets||[]).map(function(p){return '<option value="'+esc(p[0])+'"'+(p[0]===f.preset?' selected':'')+'>'+esc(p[1])+'</option>';}).join('')+'</select>';
+// No preset in the project (Edit project's pre-render scripts): said, not
+// an empty list -- the file renders with its own settings.
+b+='<div class="st-l">Preset</div>'+((F.presets||[]).length?'<select class="rsel" data-rf="preset" aria-label="Pre-render preset">'+F.presets.map(function(p){return '<option value="'+esc(p[0])+'"'+(p[0]===f.preset?' selected':'')+'>'+esc(p[1])+'</option>';}).join('')+'</select>':
+'<p class="rd-none">No preset in this project: rendered with the file\'s own settings. <small>Presets: Edit project, in Blender.</small></p>');
 // Frames: rarely changed -- folded, open by itself once one is set.
 var fo=f.frames||f.start||f.end;b+='<button type="button" class="rf-t" data-rft aria-expanded="'+!!fo+'">'+(fo?'▾':'▸')+' Frames <small>'+(f.start||f.end?esc((f.start||'file\'s')+' – '+(f.end||'file\'s')):'the file\'s own')+'</small></button>'+
 (fo?'<div class="rrow rfr"><label>Start <input type="number" class="rnum" data-rfn="start" value="'+esc(f.start)+'" placeholder="file\'s"></label><label>End <input type="number" class="rnum" data-rfn="end" value="'+esc(f.end)+'" placeholder="file\'s"></label><small class="faint">frame numbers, as in Blender</small></div>':'');
@@ -2105,6 +2139,8 @@ document.addEventListener('visibilitychange',function(){if(document.hidden){if(a
 status('on');poll();
 rv.author=META.live.user||rv.author;rv.role=META.live.role||'team';store();setReview(true);countBar();if(Object.keys(rv.files).length||(rv.creates||[]).length)liveSend();})();
 var boot=$('boot');if(boot)boot.remove();
+(function(){var seen=false;try{seen=!!localStorage.getItem(TOUR_KEY);}catch(e){}
+if(META.live&&META.live.beginner&&!seen)setTimeout(function(){if(tourAt<0&&cur==null)tourStart();},900);})();
 // A link to a file (#its name, its .blend's: any version of it) opens it; #farm, the Farm tab.
 var want=decodeURIComponent(location.hash.slice(1)),wit=want&&(byName[want]||byFile[want]||byName[want.replace(/_v\d+.*$/i,'')]);
 if(wit)jump(wit);else if(want==='farm'&&DATA.farm)setTab('farm');else if(want==='share'&&META.live&&!guest())shareDialog();

@@ -268,11 +268,22 @@ def _share(raw: dict, sh: "_Shared") -> dict:
     return {"ok": True, "guests": _guest_list(), "addresses": _addresses(), **out}
 
 
+def _beginner() -> bool:
+    """The addon's Experience level is Beginner (its default). Never raises."""
+    try:
+        from .core import addon_pref
+
+        return getattr(addon_pref(), "experience_level", "BEGINNER") == "BEGINNER"
+    except Exception:
+        return True
+
+
 def _as_guest(data: dict, token: str, guest: dict) -> dict:
     """The page's data as a guest gets it: their name, role, token (its
     videos' path too), marked a guest."""
     meta = dict(data["meta"])
-    meta["live"] = {**meta["live"], "token": token, "user": guest["name"], "role": guest["role"], "guest": True, "until": _iso(guest["until"])}
+    # A guest: new to the page, most often -- its tour shown once on their phone.
+    meta["live"] = {**meta["live"], "token": token, "user": guest["name"], "role": guest["role"], "guest": True, "until": _iso(guest["until"]), "beginner": True}
     meta["videos"] = {**(meta.get("videos") or {}), "local": f"media/{token}/renders"}
     return {**data, "meta": meta}
 _reader = {"thread": None, "result": None, "at": 0.0, "farm_at": 0.0, "cache": {}, "farm": None, "compare": None, "ready": False,
@@ -1037,7 +1048,8 @@ def _rebuild(sh: _Shared, force: bool) -> None:
         "addon_version": get_addon_version(),
         # Who writes from the page: Blender's user and role (Preferences).
         # root: another project made active, the page reloads.
-        "live": {"token": sh.token, "user": get_user(bpy.context), "role": get_user_role(bpy.context) or "team", "root": str(sh.root)},
+        # beginner: the addon's Experience level -- the page's tour shown once.
+        "live": {"token": sh.token, "user": get_user(bpy.context), "role": get_user_role(bpy.context) or "team", "root": str(sh.root), "beginner": _beginner()},
         # Played from the project, through the server.
         "videos": {"mode": "live", "base": None, "files": [], "local": f"media/{sh.token}/renders"},
     }
