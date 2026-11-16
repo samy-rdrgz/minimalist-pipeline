@@ -10,9 +10,8 @@ function v6Click(t){
   const rp=t.closest('[data-rprio]');if(rp){rform(cur()).prio+=+rp.dataset.rprio;renderDlg();return true}
   const rs=t.closest('[data-rshot]');if(rs){const f=rform(cur());f.off[rs.dataset.rshot]=!f.off[rs.dataset.rshot];renderDlg();return true}
   const rpp=t.closest('[data-rpreset]');if(rpp){rform(cur()).preset=rpp.dataset.rpreset;closeMenus();renderDlg();return true}
-  if(t.closest('[data-rprev]')){const it=cur();A.queueJob({file:it.group+'_preview'});$('#dlg').hidden=true;toast('Envoyé à Blender : prévisualisation de '+it.group);renderTop();return true}
-  if(t.closest('[data-rsend]')){const it=cur(),f=rform(it);A.queueJob({file:(f.ver==='stable'&&it.stable?it.name+'_'+it.stable+'-stable':it.file||it.name),priority:f.prio,preset:f.preset==='NONE'?'':f.preset,range:f.start||f.end?[f.start||'…',f.end||'…']:null});
-    $('#dlg').hidden=true;toast('Envoyé à Blender : rendu de '+it.name+' mis en file');renderTop();renderList();return true}
+  if(t.closest('[data-rprev]')){$('#dlg').hidden=true;renderSend(cur(),true);return true}
+  if(t.closest('[data-rsend]')){$('#dlg').hidden=true;renderSend(cur());return true}
   const pa=t.closest('[data-plan]');if(pa){planDlg(pa.dataset.plan,pa.dataset.k);return true}
   const pd=t.closest('[data-pld]');if(pd){pd.setAttribute('aria-pressed',pd.getAttribute('aria-pressed')!=='true');return true}
   const po=t.closest('[data-plok]');if(po){const name=$('#pl-n').value.trim();if(!name)return true;A.plan({name,g:po.dataset.plok,kind:po.dataset.plk,desc:$('#pl-d').value.trim(),deps:[...document.querySelectorAll('[data-pld][aria-pressed=true]')].map(b=>b.dataset.pld)});$('#dlg').hidden=true;refresh();msg(name+' : créé à l\'import de votre revue');return true}
@@ -46,8 +45,11 @@ document.addEventListener('click',e=>{
   if(!t.closest('.menu'))closeMenus();
   if(!t.closest('.pop')&&!t.closest('#rv-open')&&!t.closest('[data-settings]')&&!t.closest('#news-b'))document.querySelectorAll('.pop').forEach(p=>p.remove());
   const a=t.closest('[data-act]');if(a){const k=a.dataset.act;closeMenus();
-    if(k==='videos')toast('Dans le vrai snapshot : choix du dossier des rendus (../../renders)');
-    if(k==='player')toast(LIVE?'Envoyé à Blender : ouvre la vidéo dans le lecteur de cette machine':'Ouvre la vidéo du dossier d\'à côté dans un nouvel onglet');if(k==='blender')toast('Envoyé à Blender : ouverture de '+S.sel);if(k==='folder')toast('Envoyé à Blender : ouvre le dossier');if(k==='log')toast('Envoyé à Blender : ouvre les logs');
+    if(k==='videos')pickVideos();
+    if(k==='player'){const it=cur(),m=it&&mVer(it),v=m&&m.V[m.i];if(LIVE)livePlay(v&&v.video);else if(v&&v.video){const u=videoSrc(v.video);if(u)open(u,'_blank');else toast('Vidéo introuvable : choisissez le dossier des vidéos (Affichage).')}}
+    if(k==='blender'){const it=cur();if(it)liveOpen(it.file)}
+    if(k==='folder')farmPost({action:'open',job_id:S.farmSel,value:'folder'},'ouvre le dossier');
+    if(k==='log')farmPost({action:'open',job_id:S.farmSel,value:'log:0'},'ouvre le log');
     if(k==='copy'){const u=location.href.split('#')[0]+'#'+S.sel;(navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(()=>toast('Lien copié'),()=>toast(u))}
     if(k==='collapse'){items.forEach(i=>S.closed.add(groupOf(i)));renderTree();renderList()}
     if(k==='expand'){S.closed.clear();renderTree();renderList()}
@@ -60,12 +62,12 @@ document.addEventListener('click',e=>{
   const jb=t.closest('[data-job]');if(jb){S.farmSel=jb.dataset.job;document.querySelectorAll('.job.sel').forEach(e=>e.classList.remove('sel'));jb.classList.add('sel');renderProps();if(narrow())document.body.classList.add('props-open');return}
   const wk=t.closest('[data-wk]');if(wk){S.farmSel='w:'+wk.dataset.wk;document.querySelectorAll('.job.sel').forEach(e=>e.classList.remove('sel'));wk.classList.add('sel');renderProps();if(narrow())document.body.classList.add('props-open');return}
   const fa=t.closest('[data-farm]');if(fa){farmAction(fa.dataset.farm,fa);return}
-  const pr=t.closest('[data-prio]');if(pr){const j=F.jobs.find(x=>x.id===S.farmSel);j.priority+=+pr.dataset.prio;renderList();renderProps();return}
+  const pr=t.closest('[data-prio]');if(pr){const j=F.jobs.find(x=>x.id===S.farmSel);if(j)farmPost({action:'priority',job_id:j.id,value:j.priority+(+pr.dataset.prio)},'priorité '+(j.priority+(+pr.dataset.prio)));return}
   const vr=t.closest('[data-ver]');if(vr){S.ver[S.sel]=+vr.dataset.ver;closeMenus();if(S.tab==='files'&&!S.wide)S.tab='plan';renderProps();renderWide();return}
   const ps=t.closest('[data-preset]');if(ps){S.preset=ps.dataset.preset;closeMenus();renderProps();return}
   const as=t.closest('[data-assign]');if(as){const it=cur(),d=as.dataset.assign,a=A.assignToggle(it,d,as.dataset.p);
     closeMenus();refresh();msg(LBL[d]+' : '+(a.join(', ')||'personne'));return}
-  if(t.closest('[data-relink]')){toast('Envoyé à Blender : nouvelles versions -updatelink en arrière-plan');return}
+  if(t.closest('[data-relink]')){toast('Pas encore : mettez à jour les liens depuis Blender (Pipeline › Liens).');return}
   const ga=t.closest('[data-gall]');if(ga){S.gAll=ga.dataset.gall==='1';renderList();return}
   if(t.closest('[data-gclear]')){S.gFocus=null;renderList();return}
   const gn=t.closest('[data-gn]');if(gn){const n=gn.dataset.gn;S.gFocus=S.gFocus===n?null:n;S.sel=n;S.tab='links';renderList();renderProps();renderTree();if(narrow()&&S.gFocus)document.body.classList.add('props-open');return}
@@ -104,11 +106,11 @@ document.addEventListener('click',e=>{
   const row=t.closest('.row[data-n],.tree li[data-n]');if(row){select(row.dataset.n);return}
   const tab=t.closest('[data-tab]');if(tab){S.tab=tab.dataset.tab;renderProps();return}
   const nf=t.closest('[data-nf]');if(nf){S.noteFilter=nf.dataset.nf;refresh();return}
-  const go=t.closest('[data-goto]');if(go){setFrame(+go.dataset.goto);if(S.tab!=='plan'&&!S.wide){S.tab='plan';renderProps()}return}
+  const go=t.closest('[data-goto]');if(go){setFrame(fIdx(+go.dataset.goto));if(S.tab!=='plan'&&!S.wide){S.tab='plan';renderProps()}return}
   const tp=t.closest('[data-tp]');if(tp&&!tp.disabled){const k=tp.dataset.tp;
     if(k==='fprev')setFrame(S.frame-1);if(k==='fnext')setFrame(S.frame+1);if(k==='play')togglePlay();
     if(k==='vprev'||k==='vnext'){const n=versOf(cur()).length;if(n>1){S.ver[S.sel]=((S.ver[S.sel]||0)+(k==='vnext'?1:-1)+n)%n;renderProps();renderWide()}}
-    if(k==='snd'){S.muted=!S.muted;document.querySelectorAll('[data-tp="snd"]').forEach(b=>{b.innerHTML=ic(S.muted?'b-mute_ipo_off':'b-mute_ipo_on');b.setAttribute('aria-pressed',!S.muted)})}
+    if(k==='snd'){S.muted=!S.muted;PV.muted=S.muted;document.querySelectorAll('[data-tp="snd"]').forEach(b=>{b.innerHTML=ic(S.muted?'b-mute_ipo_off':'b-mute_ipo_on');b.setAttribute('aria-pressed',!S.muted)})}
     if(k==='in'){S.rangeStart=S.rangeStart==null?S.frame:null;refresh()}return}
   if(t.closest('[data-wide]')){S.wide=true;renderWide();return}
   if(t.closest('[data-wclose]')){S.wide=false;S.seqPlay=false;if(S.playing)togglePlay();if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});renderWide();renderProps();return}

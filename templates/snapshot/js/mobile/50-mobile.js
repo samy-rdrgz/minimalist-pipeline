@@ -32,7 +32,7 @@ function mReview(){
   const it=cur();if(!it)return '<div class="empty">Aucun fichier.</div>';
   const sib=mSib(),k=sib.findIndex(i=>i.name===it.name),{V,a,b,i}=mVer(it),v=V[i],rv=S.review;
   const mk=marks(it);
-  const mkH=mk.map(f=>{const x=(f.a-1)/(NF-1)*100;return (f.b?`<span class="rng" style="left:${x}%;width:${(f.b-f.a)/(NF-1)*100}%"></span>`:'')+`<button class="mk ${f.rtk?'':'n'}" style="left:${x}%" data-goto="${f.a}" aria-label="${f.rtk?'Retake':'Note'} f${f.a}"></button>`}).join('');
+  const mkH=mk.map(f=>{const x=(fIdx(f.a)-1)/(NF-1)*100;return (f.b?`<span class="rng" style="left:${x}%;width:${(f.b-f.a)/(NF-1)*100}%"></span>`:'')+`<button class="mk ${f.rtk?'':'n'}" style="left:${x}%" data-goto="${f.a}" aria-label="${f.rtk?'Retake':'Note'} f${f.a}"></button>`}).join('');
   const rng=S.rangeStart!=null?`<span class="rng sel" id="rng-sel" style="left:${(Math.min(S.rangeStart,S.frame)-1)/(NF-1)*100}%;width:${Math.abs(S.frame-S.rangeStart)/(NF-1)*100}%"></span>`:'';
   const req=DEPTS[it.kind].filter(d=>required(it).includes(d));
   const notes=[...it.myNotes.map(n=>({...n,mine:true})),...it.notes.filter(n=>!n.done)];
@@ -41,7 +41,7 @@ function mReview(){
       <button class="m-ib" data-mstep="1" aria-label="Plan suivant" ${k<0||k>=sib.length-1?'disabled':''}>${ic('b-tria_right')}</button></div>
     ${it.desc||it.descEdit?`<p class="m-desc">${esc(it.descEdit??it.desc)}</p>`:''}
     <div class="m-player ${S.m.side==='B'&&V.length>1?'is-b':''}" id="m-player">${it.thumb?`<img src="${it.thumb}" alt="Image de ${esc(it.name)}" draggable="false">`:`<span class="noimg">Pas encore de rendu</span>`}
-      <span class="m-hud">${V.length>1?`<b class="ab">${S.m.side}</b>`:''}${v?esc(verLab(v)):'aucune version'}</span><span class="m-fr">f <span data-f>${S.frame}</span></span></div>
+      <span class="m-hud">${V.length>1?`<b class="ab">${S.m.side}</b>`:''}${v?esc(verLab(v)):'aucune version'}</span><span class="m-fr">f <span data-f>${fNo(S.frame)}</span></span></div>
     <div class="scrub big" data-scrub role="slider" tabindex="0" aria-label="Frame" aria-valuemin="1" aria-valuemax="${NF}" aria-valuenow="${S.frame}">${mkH}${rng}<span class="ph" style="left:${(S.frame-1)/(NF-1)*100}%"></span></div>
     <div class="m-tp"><button class="btn icon" data-tp="fprev" aria-label="Frame précédente">${ic('b-frame_prev')}</button><button class="btn icon play" data-tp="play" aria-label="Lecture">${ic(S.playing?'b-pause':'b-play')}</button><button class="btn icon" data-tp="fnext" aria-label="Frame suivante">${ic('b-frame_next')}</button><button class="btn icon" data-mloop aria-pressed="${S.m.loop}" aria-label="Boucler ce plan" title="${S.m.loop?'Rejoue ce plan en boucle':'Enchaîne les plans du parcours'}">${ic('b-file_refresh')}</button>
       ${V.length>1?`<span class="join m-ab" role="group" aria-label="Version affichée"><button class="btn" data-mside="A" aria-pressed="${S.m.side==='A'}">A</button><button class="btn" data-mside="B" aria-pressed="${S.m.side==='B'}">B</button></span>`:''}</div>
@@ -68,7 +68,7 @@ function mComposer(){
   const it=cur(),req=DEPTS[it.kind].filter(d=>required(it).includes(d));if(S.m.cdept&&!req.includes(S.m.cdept))S.m.cdept=null;
   return `<div class="m-comp"><div class="m-cr"><span class="join m-ct"><button class="btn icon" data-mct="rtk" aria-pressed="${S.m.ctype==='rtk'}" aria-label="Retake" title="Retake">${ic('b-x')}</button><button class="btn icon" data-mct="note" aria-pressed="${S.m.ctype==='note'}" aria-label="Remarque" title="Remarque">${ic('i-note')}</button></span>
       <button class="m-chip" data-msheet="cdept"><span>${S.m.cdept?LBL[S.m.cdept]:'Sans dépt.'}</span>${ic('b-tria_down')}</button>
-      <button class="m-chip ${S.rangeStart!=null?'on':''}" data-tp="in" aria-pressed="${S.rangeStart!=null}" title="Une plage : son début ici">${S.rangeStart!=null?'f'+S.rangeStart+' →':'⇤'} f<span data-f>${S.frame}</span></button></div>
+      <button class="m-chip ${S.rangeStart!=null?'on':''}" data-tp="in" aria-pressed="${S.rangeStart!=null}" title="Une plage : son début ici">${S.rangeStart!=null?'f'+S.rangeStart+' →':'⇤'} f<span data-f>${fNo(S.frame)}</span></button></div>
     <div class="m-cr"><label class="field ta"><textarea id="m-ta" rows="1" placeholder="${S.m.ctype==='rtk'?'Retake':'Remarque'} à cette frame…" aria-label="Texte de la note"></textarea></label>
       <button class="btn primary icon m-send" data-msend aria-label="Ajouter à ma revue">${ic('b-export')}</button></div></div>`;
 }
@@ -175,12 +175,12 @@ $('#mob').addEventListener('click',e=>{const t=e.target,q=s=>t.closest(s);let x;
   if(q('[data-mstart]')){S.review={name:$('#m-name').value.trim()||'Anonyme',role:S.m.role||M.role||M.roles[0]};S.m.sheet=null;const f=mSib()[0];if(f&&!mSib().some(i=>i.name===S.sel))S.sel=f.name;mRender();return}
   if(q('[data-mstop]')){S.review=null;S.m.sheet=null;mRender();toast('Revue quittée : vos modifications restent affichées jusqu\'au rechargement');return}
   if(q('[data-msendgo]')){S.m.sheet=null;mRender();deliverReview();return}
-  if(x=q('[data-mjob]')){const j=F.jobs.find(y=>y.id===S.m.sheet.slice(4));toast('Envoyé à Blender : '+A.job(x.dataset.mjob,j));S.m.sheet=null;mRender();return}
-  if(x=q('[data-mprio]')){const j=F.jobs.find(y=>y.id===S.m.sheet.slice(4));j.priority+=+x.dataset.mprio;mRender();return}
+  if(x=q('[data-mjob]')){const j=F.jobs.find(y=>y.id===S.m.sheet.slice(4)),k=x.dataset.mjob;S.m.sheet=null;mRender();if(j)farmPost({action:k,job_id:j.id},{remove:'retiré de la file',archive:'archivé',cancel:'annulé',retry:'relancé',recompile:'recompilation'}[k]+' · '+j.file);return}
+  if(x=q('[data-mprio]')){const j=F.jobs.find(y=>y.id===S.m.sheet.slice(4));if(j)farmPost({action:'priority',job_id:j.id,value:j.priority+(+x.dataset.mprio)},'priorité '+(j.priority+(+x.dataset.mprio)));return}
   if(x=q('[data-mrv]')){S.m.rf.ver=x.dataset.mrv;mRender();return}
   if(x=q('[data-mrp]')){S.m.rf.prio+=+x.dataset.mrp;mRender();return}
-  if(q('[data-mrender]')){const f=S.m.rf,it=items.find(i=>i.name===f.file);A.queueJob({file:f.ver==='stable'&&it.stable?it.name+'_'+it.stable+'-stable':it.file||it.name,priority:f.prio,preset:f.preset==='NONE'?'':f.preset});
-    S.m.sheet=null;mRender();toast('Envoyé à Blender : rendu de '+it.name+' mis en file');return}
+  if(q('[data-mrender]')){const f=S.m.rf,it=items.find(i=>i.name===f.file);S.m.sheet=null;mRender();
+    if(it)farmPost({action:'render',file:f.ver==='stable'&&it.stableFile?it.stableFile:it.file,preset:f.preset,priority:f.prio,mode:'all',start:'',end:'',shots:null});return}
 });
 $('#mob').addEventListener('change',e=>{const r=e.target.closest('[data-mrf]');if(r){S.m.rf[r.dataset.mrf]=r.value;if(r.dataset.mrf==='file')S.m.rf.ver=items.find(i=>i.name===r.value).stable?'stable':'last';mRender()}});
 $('#mob').addEventListener('input',e=>{if(e.target.id==='m-ta'){e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,120)+'px'}});

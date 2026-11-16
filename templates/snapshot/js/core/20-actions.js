@@ -2,8 +2,8 @@
    Les seules fonctions qui modifient les fichiers. Desktop et mobile les appellent, puis refresh().
    Aucune ne touche au DOM. Chacune correspond à une action de lib/review_import.py (indiquée en fin de ligne). */
 const canVal=(it,d)=>!!S.review&&S.review.role!==TEAM&&['done','rework'].includes(it.states[d])&&!it.ok[d];
-const rangeStr=()=>S.rangeStart!=null&&S.rangeStart!==S.frame?'f'+Math.min(S.rangeStart,S.frame)+'-'+Math.max(S.rangeStart,S.frame):'f'+S.frame;
-const jobId=()=>'job_'+Math.random().toString(16).slice(2,12);
+/* The frames written: Blender's numbers (fNo), a range from I to the frame shown. */
+const rangeStr=()=>S.rangeStart!=null&&S.rangeStart!==S.frame?'f'+fNo(Math.min(S.rangeStart,S.frame))+'-'+fNo(Math.max(S.rangeStart,S.frame)):'f'+fNo(S.frame);
 const A={
   validate(it,d){it.mine[d]='val'},                                                         // validate
   toggleVal(it,d){if(it.mine[d]==='val')delete it.mine[d];else it.mine[d]='val'},             // validate / unvalidate
@@ -36,10 +36,4 @@ const A={
     if(it.req)ch.push(`${it.name} · départements requis modifiés`);Object.keys(it.still).forEach(d=>ch.push(`${it.name} · ${LBL[d]} : toujours fini`));
     Object.keys(it.fixed).forEach(()=>ch.push(`${it.name} · note marquée corrigée`));if(it.assign)Object.entries(it.assign).forEach(([d,a])=>ch.push(`${it.name} · ${LBL[d]} → ${a.join(', ')||'personne'}`));
     if(it.descEdit!==undefined)ch.push(`${it.name} · description`)});S.planned.forEach(p=>ch.push(`${p.name} · nouveau ${p.kind==='shot'?'plan':'fichier'}`));return ch},
-  /* Live seulement : envoyé à Blender par POST /farm. */
-  queueJob(o){const j={id:jobId(),key:'',shot:'',state:'waiting',text:'queued',done:0,total:0,machines:0,user:M.live.user,at:new Date().toISOString(),stage:'pending',
-    priority:10,preset:'',department:'',range:null,names:[],pending:true,retry:false,recompile:false,removable:true,...o};F.jobs.unshift(j);return j},
-  job(k,j){if(k==='remove'||k==='archive')j.archived=true;if(k==='cancel'){j.state='failed';j.text='annulé';j.retry=true}
-    if(k==='retry'){j.state='waiting';j.text='queued';j.stage='pending';j.retry=false;j.removable=true}
-    return {remove:'retiré de la file',archive:'archivé',cancel:'annulé',retry:'relancé',recompile:'recompilation'}[k]+' · '+j.file},
 };

@@ -6,6 +6,11 @@ try{const t=localStorage.getItem('mp-snapshot:theme');if(t)S.theme=t}catch(_){}
 setTheme(S.theme);matchMedia('(prefers-color-scheme: light)').addEventListener?.('change',()=>{if(S.theme==='system')setTheme('system')});
 MOB_Q.addEventListener?.('change',()=>renderAll());
 if(!LIVE&&S.ws==='farm')S.ws='shot';
+/* The video follows each view drawn: into the stage it shows. */
+renderProps=(f=>function(){const r=f.apply(this,arguments);mountVideo();return r})(renderProps);
+renderWide=(f=>function(){const r=f.apply(this,arguments);mountVideo();return r})(renderWide);
+mRender=(f=>function(){const r=f.apply(this,arguments);mountVideo();return r})(mRender);
 renderAll();
+liveStart();
 /* For tests and the console: the page's state and actions. */
 window.MPPage={S,items,A,reviewFile,reviewActions,fromActions,refresh,renderAll};

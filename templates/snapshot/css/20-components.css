@@ -498,3 +498,8 @@ button.assign:hover{background:var(--line);color:var(--text)}
 .statusbar .sp{flex:1}
 .statusbar .msg{color:var(--you-t);overflow:hidden;text-overflow:ellipsis}
 .toast{position:fixed;left:50%;bottom:52px;transform:translateX(-50%);z-index:100;max-width:calc(100vw - 24px);padding:var(--sp-5) var(--sp-7);border-radius:var(--r-l);background:var(--ok);color:#fff;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+/* The live pill: Blender busy, or not answering. */
+.live[data-state="busy"] i{background:var(--st-wip)}
+.live[data-state="off"]{color:var(--text-3)}.live[data-state="off"] i{background:var(--st-rtk)}
+/* The player's video: in the stage, the thumbnail's place. */
+.stage .pv,.w-stage .pv,.m-player .pv{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:var(--canvas)}

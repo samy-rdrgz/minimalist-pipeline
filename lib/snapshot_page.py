@@ -39,6 +39,7 @@ JS_PARTS = (
     "core/20-actions.js",
     "core/30-review-file.js",
     "core/40-player.js",
+    "core/42-videos.js",
     "desktop/20-top-tree.js",
     "desktop/21-list.js",
     "desktop/22-detail.js",
@@ -50,6 +51,7 @@ JS_PARTS = (
     "desktop/28-dialogs.js",
     "desktop/29-events.js",
     "mobile/50-mobile.js",
+    "live/60-live.js",
     "boot.js",
 )
 

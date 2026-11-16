@@ -5,13 +5,13 @@ function renderWide(){
   W.hidden=false;const g=groupOf(it),sib=items.filter(i=>i.kind===it.kind&&groupOf(i)===g),V=versOf(it),v=V[mVer(it).i],rv=S.review;
   const req=DEPTS[it.kind].filter(d=>required(it).includes(d));if(!req.includes(S.wdep))S.wdep=req.find(d=>it.mine[d]==='rtk')||req[0]||'';
   const mk=marks(it);
-  const mkH=mk.map(f=>{const x=(f.a-1)/(NF-1)*100;return (f.b?`<span class="rng" style="left:${x}%;width:${(f.b-f.a)/(NF-1)*100}%"></span>`:'')+`<button class="mk ${f.rtk?'':'n'}" style="left:${x}%" data-goto="${f.a}" title="${f.rtk?'RTK':'Note'} f${f.a}${f.b?'-'+f.b:''} : ${esc(f.n.text||'(sans texte)')}"></button>`}).join('');
+  const mkH=mk.map(f=>{const x=(fIdx(f.a)-1)/(NF-1)*100;return (f.b?`<span class="rng" style="left:${x}%;width:${(f.b-f.a)/(NF-1)*100}%"></span>`:'')+`<button class="mk ${f.rtk?'':'n'}" style="left:${x}%" data-goto="${f.a}" title="${f.rtk?'RTK':'Note'} f${f.a}${f.b?'-'+f.b:''} : ${esc(f.n.text||'(sans texte)')}"></button>`}).join('');
   const rng=S.rangeStart!=null?`<span class="rng sel" id="rng-sel" style="left:${(Math.min(S.rangeStart,S.frame)-1)/(NF-1)*100}%;width:${Math.abs(S.frame-S.rangeStart)/(NF-1)*100}%"></span>`:'';
   const dRow=d=>{const x=info(it,d),m=it.mine[d];return `<div class="wd ${d===S.wdep?'on':''}"><button class="wdn" data-wdep="${d}" title="Écrire ses retakes ici">${glyph(x.base,x.corner,x.cnt,x.note)}<span class="nm"><b>${LBL[d]}</b><span class="s ${x.tone}">${esc(x.l)}${x.s?' · '+esc(x.s):''}</span></span></button>
     ${rv?`<span class="join"><button class="btn sm ok icon" data-wok="${d}" aria-pressed="${m==='val'}" ${rv.role===TEAM||!['done','rework'].includes(it.states[d])||it.ok[d]?'disabled':''} aria-label="Valider ${LBL[d]}" title="Valider">${ic('b-checkmark')}</button><button class="btn sm alert icon" data-wko="${d}" aria-pressed="${m==='rtk'}" aria-label="Retake ${LBL[d]}" title="Renvoyer en retake">${ic('b-x')}</button></span>`:''}</div>`};
   const notesAt=mk.length?mk.map(f=>`<button class="wn" data-goto="${f.a}"><span class="ft ${f.b?'rg':f.rtk?'':'nt'}">f${f.a}${f.b?'-'+f.b:''}</span><span class="tx">${esc(f.n.text||'(sans texte)')}<small> · ${esc((f.n.deps||[]).map(d=>LBL[d]||d).join(', ')||'sans département')}${f.n.author?' · '+esc(f.n.author):''}</small></span></button>`).join(''):'<p class="faint" style="margin:0">Aucune note à une frame sur cette vidéo.</p>';
   const writer=rv&&S.wdep?`<div class="ww"><div class="wwl"><span class="join"><button class="btn sm" data-wtype="rtk" aria-pressed="${S.wtype==='rtk'}">Retake</button><button class="btn sm" data-wtype="note" aria-pressed="${S.wtype==='note'}">Remarque</button></span>
-      <span class="lbl">${S.rangeStart!=null?`de <b>f${S.rangeStart}</b> à `:'à '}<b>f<span data-f>${S.frame}</span></b> sur <b>${LBL[S.wdep]}</b></span>
+      <span class="lbl">${S.rangeStart!=null?`de <b>f${fNo(S.rangeStart)}</b> à `:'à '}<b>f<span data-f>${fNo(S.frame)}</span></b> sur <b>${LBL[S.wdep]}</b></span>
       <button class="btn sm ${S.rangeStart!=null?'':'tool'}" data-tp="in" aria-pressed="${S.rangeStart!=null}" title="${S.rangeStart!=null?'Oublier le début de la plage':'Une plage : son début à la frame affichée, sa fin à la frame où vous êtes en ajoutant (I)'}">${S.rangeStart!=null?'⇤ f'+S.rangeStart+' ✕':'⇤ Plage depuis ici'}</button></div>
       <label class="field ta"><textarea id="w-ta" rows="3" placeholder="Écrire en regardant : Entrée ajoute, Maj+Entrée va à la ligne" aria-label="Texte"></textarea></label></div>`
     :!rv?`<p class="faint" style="margin:0">Passez en Mode revue pour valider, renvoyer et écrire à une frame.</p><button class="btn primary" id="rv-open-w">${ic('b-greasepencil')}Mode revue</button>`:'';
@@ -23,7 +23,7 @@ function renderWide(){
       <button class="btn icon" data-act="player" aria-label="Lecteur de cette machine" title="Ouvrir la vidéo originale dans le lecteur de cette machine">${ic('b-url')}</button>
       <button class="btn icon" data-full aria-label="Plein écran" title="Plein écran">${ic('b-fullscreen_enter')}</button></div>
     <div class="w-body"><div class="w-main">
-      <div class="w-stage ${S.m.side==='B'&&V.length>1?'is-b':''}">${it.thumb?`<img src="${it.thumb}" alt="Image de ${it.name}">`:`<span class="noimg">Pas encore de rendu</span>`}<span class="hud">${V.length>1?`<b class="ab">${S.m.side}</b> `:''}${v?esc(v.folder)+' · ':''}f <span data-f>${S.frame}</span></span></div>
+      <div class="w-stage ${S.m.side==='B'&&V.length>1?'is-b':''}">${it.thumb?`<img src="${it.thumb}" alt="Image de ${it.name}">`:`<span class="noimg">Pas encore de rendu</span>`}<span class="hud">${V.length>1?`<b class="ab">${S.m.side}</b> `:''}${v?esc(v.folder)+' · ':''}f <span data-f>${fNo(S.frame)}</span></span></div>
       <div class="w-tl"><div class="scrub big" data-scrub role="slider" tabindex="0" aria-label="Frame" aria-valuemin="1" aria-valuemax="${NF}" aria-valuenow="${S.frame}">${mkH}${rng}<span class="ph" style="left:${(S.frame-1)/(NF-1)*100}%"></span></div>
         <div class="ruler"><span>f1</span><span>f${Math.round(NF/4)}</span><span>f${Math.round(NF/2)}</span><span>f${Math.round(NF*3/4)}</span><span>f${NF}</span></div></div>
       <div class="w-tp"><span class="join"><button class="btn icon" data-tp="vprev" aria-label="Version précédente" title="Version précédente" ${V.length>1?'':'disabled'}>${ic('b-back')}</button>
@@ -32,7 +32,7 @@ function renderWide(){
         <button class="btn icon" data-tp="fnext" aria-label="Frame suivante" title="Frame suivante (.)">${ic('b-frame_next')}</button>
         <button class="btn icon" data-tp="vnext" aria-label="Version suivante" title="Version suivante" ${V.length>1?'':'disabled'}>${ic('b-forward')}</button></span>
         <button class="btn icon" data-tp="snd" aria-label="Son" title="Son (M)" aria-pressed="${!S.muted}">${ic(S.muted?'b-mute_ipo_off':'b-mute_ipo_on')}</button>
-        <span class="bigf">f <span data-f>${S.frame}</span></span>${verHTML(it,'w')}${abHTML(it,'w').replace('ctl abrow','abrow')}<span class="sp"></span>
+        <span class="bigf">f <span data-f>${fNo(S.frame)}</span></span>${verHTML(it,'w')}${abHTML(it,'w').replace('ctl abrow','abrow')}<span class="sp"></span>
         <div class="strip"><span class="faint">${g}</span>${sib.map(i=>`<button class="${i.name===it.name?'cur':''}" data-film="${i.name}" title="${i.name}"><span class="thumb">${i.thumb?`<img src="${i.thumb}" alt="">`:''}</span><span class="fn"><span class="dt" style="background:${DOT[worst(i)]}"></span>${i.kind==='shot'?i.name.replace(i.group+'_',''):i.name}</span></button>`).join('')}</div></div>
     </div>
     <div class="w-side"><div class="sec"><div class="sec-h">Départements<span class="sp"></span>${rv&&rv.role!==TEAM?`<button class="btn sm ok" data-valall title="Valider tous les départements finis (V)">${ic('b-checkmark')}Tout le fini</button>`:''}</div>${req.map(dRow).join('')||'<span class="faint">Aucun département requis.</span>'}</div>
@@ -42,7 +42,7 @@ function renderWide(){
 }
 function wideAdd(){
   const ta=$('#w-ta');if(!ta)return;const txt=ta.value.trim(),it=cur(),d=S.wdep;if(!txt&&S.wtype!=='rtk')return;
-  const fr=S.rangeStart!=null&&S.rangeStart!==S.frame?'f'+Math.min(S.rangeStart,S.frame)+'-'+Math.max(S.rangeStart,S.frame):'f'+S.frame;
+  const fr=rangeStr();
   A.note(it,{type:S.wtype,dept:d,text:txt,frames:fr});S.rangeStart=null;refresh();msg((S.wtype==='rtk'?'Retake':'Remarque')+' à '+fr+' sur '+LBL[d]);$('#w-ta')?.focus();
 }
 

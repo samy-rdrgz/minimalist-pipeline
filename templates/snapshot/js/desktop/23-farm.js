@@ -46,11 +46,11 @@ function renderFarmDetail(H,B){
       <button class="btn" data-act="folder">${ic('b-file_folder')}Son dossier</button><button class="btn" data-act="log">${ic('b-file')}Logs</button></div></div>`;
 }
 function farmAction(k,el){
-  const j=F.jobs.find(x=>x.id===S.farmSel);const say=t=>toast('Envoyé à Blender : '+t);
-  if(k==='worker'){F.me.worker=!F.me.worker;say(F.me.worker?'cette machine devient un worker':'cette machine n\'est plus un worker')}
-  if(k==='archive_all'){F.jobs.forEach(x=>{if(x.state===el.dataset.v)x.archived=true});say('archivage des jobs '+(el.dataset.v==='failed'?'échoués':'finis'))}
-  if(k==='submit'){const it=cur();A.queueJob({file:it.file||it.name,preset:S.preset==='NONE'?'':S.preset});say('rendu de '+(it.file||it.name)+' mis en file')}
-  if(j&&['remove','archive','cancel','retry','recompile'].includes(k))say(A.job(k,j));
-  const w=F.workers.find(x=>'w:'+x.uuid===S.farmSel);if(w){if(k==='forget'){F.workers=F.workers.filter(x=>x!==w);S.farmSel=null;say('machine oubliée')}if(k==='stop')say('arrêt de '+w.name)}
-  renderTop();renderQuick();renderList();renderProps();renderTree();
+  const j=F.jobs.find(x=>x.id===S.farmSel),w=F.workers.find(x=>'w:'+x.uuid===S.farmSel);
+  if(k==='worker')farmPost({action:'worker',value:!F.me.worker},F.me.worker?'cette machine n\'est plus un worker':'cette machine devient un worker');
+  if(k==='archive_all')farmPost({action:'archive_all',value:el.dataset.v},'archivage des jobs '+(el.dataset.v==='failed'?'échoués':'finis'));
+  if(k==='submit'){const it=cur();if(it)renderSend(it)}
+  if(j&&['remove','archive','cancel','retry','recompile'].includes(k))farmPost({action:k,job_id:j.id},{remove:'retiré de la file',archive:'archivé',cancel:'annulé',retry:'relancé',recompile:'recompilation'}[k]+' · '+j.file);
+  if(w&&k==='forget')farmPost({action:'forget_worker',value:w.uuid},'machine oubliée');
+  if(w&&k==='stop')farmPost({action:'stop_worker',value:w.uuid},'arrêt de '+w.name);
 }

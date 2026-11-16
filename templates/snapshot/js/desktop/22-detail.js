@@ -25,14 +25,14 @@ function verHTML(it,ctx){
 }
 function stageHTML(it){
   const V=versOf(it),v=V[mVer(it).i];
-  const mk=marks(it).map(f=>{const x=(f.a-1)/(NF-1)*100;return (f.b?`<span class="rng" style="left:${x}%;width:${(f.b-f.a)/(NF-1)*100}%"></span>`:'')+`<button class="mk ${f.rtk?'':'n'}" style="left:${x}%" data-goto="${f.a}" title="${f.rtk?'RTK':'Note'} f${f.a}${f.b?'-'+f.b:''} : ${esc(f.n.text||'(sans texte)')}"></button>`}).join('');
+  const mk=marks(it).map(f=>{const x=(fIdx(f.a)-1)/(NF-1)*100;return (f.b?`<span class="rng" style="left:${x}%;width:${(f.b-f.a)/(NF-1)*100}%"></span>`:'')+`<button class="mk ${f.rtk?'':'n'}" style="left:${x}%" data-goto="${f.a}" title="${f.rtk?'RTK':'Note'} f${f.a}${f.b?'-'+f.b:''} : ${esc(f.n.text||'(sans texte)')}"></button>`}).join('');
   return `${shotsHTML(it)}<div class="stage ${S.m.side==='B'&&V.length>1?'is-b':''}">${it.thumb?`<img src="${it.thumb}" alt="Image de ${it.name}">`:`<span class="noimg">Pas encore de rendu</span>`}
-      <span class="hud">${V.length>1?`<b class="ab">${S.m.side}</b> `:''}${shotOf(it)?shotOf(it)+' · ':''}${v?esc(v.folder)+' · ':''}f <span data-f>${S.frame}</span></span></div>
+      <span class="hud">${V.length>1?`<b class="ab">${S.m.side}</b> `:''}${shotOf(it)?shotOf(it)+' · ':''}${v?esc(v.folder)+' · ':''}f <span data-f>${fNo(S.frame)}</span></span></div>
     <div class="scrub" data-scrub role="slider" tabindex="0" aria-label="Frame" aria-valuemin="1" aria-valuemax="${NF}" aria-valuenow="${S.frame}">${mk}<span class="ph" style="left:${(S.frame-1)/(NF-1)*100}%"></span></div>
     <div class="ctl">
       <span class="join"><button class="btn icon" data-tp="vprev" aria-label="Version précédente" title="Version précédente" ${V.length>1?'':'disabled'}>${ic('b-back')}</button><button class="btn icon" data-tp="fprev" aria-label="Frame précédente" title="Frame précédente (,)">${ic('b-frame_prev')}</button><button class="btn icon play" data-tp="play" aria-label="Lecture" title="Lecture (Espace)">${ic(S.playing?'b-pause':'b-play')}</button><button class="btn icon" data-tp="fnext" aria-label="Frame suivante" title="Frame suivante (.)">${ic('b-frame_next')}</button><button class="btn icon" data-tp="vnext" aria-label="Version suivante" title="Version suivante" ${V.length>1?'':'disabled'}>${ic('b-forward')}</button></span>
       <span class="join"><button class="btn icon" data-tp="snd" aria-label="Son" title="Son (M)" aria-pressed="${!S.muted}">${ic(S.muted?'b-mute_ipo_off':'b-mute_ipo_on')}</button><button class="btn icon" data-act="player" ${V.length?'':'disabled'} aria-label="Lecteur de cette machine" title="Ouvrir la vidéo originale dans le lecteur de cette machine">${ic('b-url')}</button></span>
-      <span class="fr">f <span data-f>${S.frame}</span> / ${NF}</span></div>
+      <span class="fr">f <span data-f>${fNo(S.frame)}</span> / ${fNo(NF)}</span></div>
     <div class="ctl">${verHTML(it,'p')}<button class="btn" data-wide title="Regarder en grand : la vidéo, les départements et les notes à leurs frames (W)">${ic('b-window')}En grand</button></div>${abHTML(it,'p')}`;
 }
 const assignOf=(it,d)=>(it.assign&&d in it.assign)?it.assign[d]:(it.assignees[d]||[]);
