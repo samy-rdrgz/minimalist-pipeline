@@ -5398,17 +5398,20 @@ from outside: in step with the frames by construction.
 - Migration: nothing to do -- old renders have no FLAC nor track; their
   compilation (recompiled) or a preview gives them silence; a job queued
   before (no "sound" key) is with sound.
-- **The mixdown is a background job** (seen in Blender 5.2.2, -b):
-  `bpy.ops.sound.mixdown` returns FINISHED at once, the file is written
-  after by another thread. `mixdown()` waits for it whole
-  (`_wait_written()`: ffmpeg reads it as long as the range -- a FLAC says
-  its length once closed -- and its size still), MIXDOWN_TIMEOUT at most;
-  a background Blender quitting at the end of its script would cut it
-  short. And one job per Blender: without an event loop, the end of the
-  first is never handled, a second mixdown never starts -- the farm's
-  setup makes one per Blender; tests/blender_sound_check.py runs each case
-  in a Blender of its own. All its options taken (FLAC, S16, STEREO,
-  48000), a hidden name fine.
+- **Rendered, not mixed down** (Blender 5.2.2, -b, checked with
+  tests/blender_sound_probe.py): `bpy.ops.sound.mixdown` writes silence --
+  in a background Blender it never loads the strips' sound
+  (`sound.factory` None), in a script, from a saved file or after an
+  evaluation alike; it's also a background job (returns FINISHED, the
+  file comes after; one per Blender, the end of the first never handled).
+  Blender's movie output mixes the scene (-11.5 dB, the same tone), and
+  so does audaspace (`aud`) -- but that one rebuilds the mix by hand,
+  without animated fades, pan, speakers. So `mixdown()` renders: MKV, no
+  picture (codec NONE, else MPEG4/H264), FLAC sound, 64 px, Workbench, no
+  compositing (no File Output node written), a colour strip over the
+  sequencer so the sequencer's output -- not the 3D scene -- is what's
+  rendered; then ffmpeg takes the sound out to the FLAC. Synchronous. The
+  setup never saves the file: nothing stays.
 
 ## Breakdown (snapshot page v4)
 

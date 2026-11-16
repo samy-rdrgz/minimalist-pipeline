@@ -1,5 +1,5 @@
-"""The renders' sound (phase 5b): the scene's sound found and mixed down
-(lib/sound.py, Blender stood in for), the compilation putting it in the
+"""The renders' sound (phase 5b): the scene's sound found and rendered
+(lib/sound.py, Blender's movie output stood in for), the compilation putting it in the
 video at the frames' length -- silence without one --, the light copy and
 the .mov keeping it, a sequence preview keeping each shot's in its place.
 The ffmpeg part runs for real when there is one.
@@ -13,7 +13,6 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import time
 from pathlib import Path
 from types import SimpleNamespace as NS
 
@@ -41,33 +40,20 @@ def _silences(path: Path) -> list[tuple[float, float]]:
     return list(zip(starts, ends + [None] * (len(starts) - len(ends))))
 
 
-def check_mixdown(sound, bpy) -> None:
-    calls = []
-
-    def fake_mixdown(**kw):
-        calls.append(kw)
-        Path(kw["filepath"]).write_bytes(b"fLaC")
-
-    bpy.ops.sound.mixdown = fake_mixdown
-    # The wait for Blender's background job: checked for real below
-    # (check_background_job()); here a file there is a file written.
-    real_wait = sound._wait_written
-    sound._wait_written = lambda path, seconds, timeout=None: path.exists()
+def check_detection(sound) -> None:
+    """scene_has_sound(): strips, their channel, speakers."""
+    strip = NS(type="SOUND", mute=False, sound=object())
 
     def scene(strips=(), objects=(), editor=True):
-        ed = NS(strips_all=list(strips)) if editor else None
-        return NS(sequence_editor=ed, objects=list(objects), frame_start=1, frame_end=250,
-                  use_preview_range=True, use_audio=True, render=NS(fps=24, fps_base=1.0))
+        return NS(sequence_editor=NS(strips_all=list(strips)) if editor else None, objects=list(objects))
 
-    strip = NS(type="SOUND", mute=False, sound=object())
-    speaker = NS(type="SPEAKER", data=NS(sound=object(), muted=False))
     assert not sound.scene_has_sound(scene(editor=False))
     assert not sound.scene_has_sound(scene([NS(type="SOUND", mute=True, sound=object())]))
     assert not sound.scene_has_sound(scene([NS(type="MOVIE", mute=False)]))
     assert sound.scene_has_sound(scene([strip]))
-    assert sound.scene_has_sound(scene(objects=[speaker]))
+    assert sound.scene_has_sound(scene(objects=[NS(type="SPEAKER", data=NS(sound=object(), muted=False))]))
     assert not sound.scene_has_sound(scene(objects=[NS(type="SPEAKER", data=NS(sound=object(), muted=True))]))
-    # Its channel muted (the sequencer's channels): no sound either.
+    # Its channel muted (the sequencer's channels, channel N at index N).
     chan = NS(sequence_editor=NS(strips_all=[NS(type="SOUND", mute=False, sound=object(), channel=2)],
                                  channels=[NS(mute=False), NS(mute=False), NS(mute=True)]), objects=[])
     assert not sound.scene_has_sound(chan)
@@ -76,82 +62,88 @@ def check_mixdown(sound, bpy) -> None:
     # Before Blender 4.4: sequences_all.
     assert sound.scene_has_sound(NS(sequence_editor=NS(sequences_all=[strip]), objects=[]))
 
-    with tempfile.TemporaryDirectory() as d:
-        out = Path(d) / "sq010_sh010_v003_001.flac"
-        # No sound: no file, one left from before removed.
-        out.write_bytes(b"old")
-        assert sound.mixdown(scene(), out, 1001, 1100) is False and not out.exists() and not calls
-        # Sound: the shot's range, its sound on, written beside then renamed.
-        sc = scene([strip])
-        assert sound.mixdown(sc, out, 1001, 1100) is True and out.read_bytes() == b"fLaC"
-        assert (sc.frame_start, sc.frame_end, sc.use_preview_range, sc.use_audio) == (1001, 1100, False, False)
-        assert calls[-1]["container"] == "FLAC" and calls[-1]["mixrate"] == 48000
-        assert Path(calls[-1]["filepath"]).name.startswith(".") and Path(calls[-1]["filepath"]).parent == out.parent
-        # A Blender that takes fewer options: the format alone.
-        def picky(filepath, container, codec):
-            calls.append({"filepath": filepath})
-            Path(filepath).write_bytes(b"fLaC2")
 
-        def strict(**kw):
-            if "mixrate" in kw:
-                raise TypeError("unexpected keyword")
-            picky(**kw)
-
-        bpy.ops.sound.mixdown = strict
-        assert sound.mixdown(scene([strip]), out, 1, 10) and out.read_bytes() == b"fLaC2"
-        # A mixdown that fails: no sound, no leftover, no exception.
-        def boom(**kw):
-            Path(kw["filepath"]).write_bytes(b"half")
-            raise RuntimeError("Error: no audio device")
-
-        bpy.ops.sound.mixdown = boom
-        out.unlink()
-        assert sound.mixdown(scene([strip]), out, 1, 10) is False
-        assert not any(Path(d).iterdir()), list(Path(d).iterdir())
-    sound._wait_written = real_wait
-
-
-def check_background_job(sound, core, bpy) -> None:
-    """Blender 5.x: the mixdown operator returns at once, the file is
-    written after by another thread -- mixdown() waits for it whole."""
-    import threading
-
+def check_render(sound, core, preview, bpy) -> None:
+    """mixdown(): the scene rendered by Blender's movie output (stood in
+    for: ffmpeg writes the MKV a render would), its sound taken out to a
+    FLAC as long as the range; a colour strip over the sequencer, the
+    render's settings; nothing left beside it; no sound, no file."""
     core.resolve_ffmpeg = lambda: "ffmpeg"
+    renders, covers = [], []
+    state = {"scene": None, "no_track": False, "cover_api": "new"}
 
-    def write_later(path, seconds, delay):
-        time.sleep(delay)
-        # Slowly, as a long mixdown: a raw header first, then the file.
-        Path(path).write_bytes(b"fLaC\0")
-        time.sleep(0.6)
-        subprocess.run(["ffmpeg", "-v", "error", "-y", "-f", "lavfi", "-i", f"sine=d={seconds}:r=48000",
-                        "-ac", "2", "-f", "flac", str(path)], check=True)
+    def render(animation=False):
+        sc = state["scene"]
+        r = sc.render
+        renders.append({"engine": r.engine, "use_compositing": r.use_compositing, "format": r.ffmpeg.format,
+                        "codec": r.ffmpeg.codec, "audio": r.ffmpeg.audio_codec,
+                        "range": (sc.frame_start, sc.frame_end), "use_audio": sc.use_audio})
+        secs = (sc.frame_end - sc.frame_start + 1) / (r.fps / r.fps_base)
+        if state["no_track"]:
+            cmd = ["-f", "lavfi", "-i", f"testsrc=d={secs}:size=64x64"]
+        else:
+            cmd = ["-f", "lavfi", "-i", f"sine=f=440:d={secs}:r=48000", "-c:a", "flac"]
+        subprocess.run(["ffmpeg", "-v", "error", "-y", *cmd, "-f", "matroska", r.filepath], check=True)
+        return {"FINISHED"}
 
-    def background(seconds, delay=0.8):
-        def op(**kw):
-            threading.Thread(target=write_later, args=(kw["filepath"], seconds, delay), daemon=True).start()
-            return {"FINISHED"}
-        return op
+    bpy.ops.render.render = render
 
-    sc = NS(sequence_editor=NS(strips_all=[NS(type="SOUND", mute=False, sound=object())]), objects=[],
-            frame_start=1, frame_end=1, use_preview_range=False, use_audio=False, render=NS(fps=24, fps_base=1.001))
+    def new_effect(**kw):
+        covers.append(kw)
+        if "length" in kw and state["cover_api"] == "old":
+            raise TypeError("length")
+
+    def scene(fps_base=1.0, sounds=True, mute=True):
+        strips = [NS(type="SOUND", mute=False, sound=object(), channel=3)] if sounds else []
+        render_settings = NS(
+            fps=24, fps_base=fps_base, image_settings=NS(file_format="PNG", media_type="IMAGE"),
+            ffmpeg=NS(format="MPEG4", codec="H264", audio_codec="NONE", audio_channels="MONO", audio_mixrate=44100),
+            engine="CYCLES", resolution_x=1920, resolution_y=1080, resolution_percentage=100,
+            use_compositing=True, use_sequencer=False, use_file_extension=True, filepath="//out/")
+        sc = NS(sequence_editor=NS(strips_all=strips, strips=NS(new_effect=new_effect)), objects=[],
+                frame_start=1, frame_end=250, use_preview_range=True, use_audio=mute, render=render_settings)
+        state["scene"] = sc
+        return sc
+
     with tempfile.TemporaryDirectory() as d:
-        out = Path(d) / "sh010.flac"
-        length = 48 / (24 / 1.001)
-        bpy.ops.sound.mixdown = background(length)
-        t = time.monotonic()
+        d = Path(d)
+        out = d / "sq010_sh010_v003_001.flac"
+        # No sound: no render, no file, one left from before removed.
+        out.write_bytes(b"old")
+        assert sound.mixdown(scene(sounds=False), out, 1001, 1100) is False and not out.exists() and not renders
+        # 23.976, the Mute left on: rendered over the range, its sound on.
+        sc = scene(fps_base=1.001)
         assert sound.mixdown(sc, out, 25, 72), sound.last_error
-        assert time.monotonic() - t > 1.0, "returned before the file was written"
-        info = sound.media_info(out, "ffmpeg")
-        assert info["audio"] == "flac" and abs(info["duration"] - length) < 0.05, info
-        assert [p.name for p in Path(d).iterdir()] == ["sh010.flac"]
-        # Never whole (a length that isn't the range's): given up at the
-        # timeout, no sound, nothing left.
-        sound.MIXDOWN_TIMEOUT = 3
+        r = renders[-1]
+        assert r["range"] == (25, 72) and r["use_audio"] is False and r["engine"] == "BLENDER_WORKBENCH", r
+        assert r["format"] == "MKV" and r["codec"] == "NONE" and r["audio"] == "FLAC" and not r["use_compositing"], r
+        assert sc.render.image_settings.media_type == "VIDEO" and sc.render.image_settings.file_format == "FFMPEG"
+        assert covers[-1]["type"] == "COLOR" and covers[-1]["channel"] == 4 and covers[-1]["frame_start"] == 25
+        assert covers[-1]["length"] == 48, covers[-1]
+        info = preview.media_info(out, "ffmpeg")
+        assert info["audio"] == "flac" and abs(info["duration"] - 48 / (24 / 1.001)) < 0.02, info
+        assert sorted(p.name for p in d.iterdir()) == [out.name], list(d.iterdir())
+        # A Blender whose new_effect takes frame_end (before 4.4 / 5.0).
+        state["cover_api"] = "old"
+        assert sound.mixdown(scene(), out, 1, 24) and covers[-1].get("frame_end") == 25, covers[-1]
+        # A render without sound: no file, said why, nothing left.
+        state["no_track"] = True
         out.unlink()
-        bpy.ops.sound.mixdown = background(0.5, delay=0.1)
-        assert not sound.mixdown(sc, out, 25, 72) and "in time" in sound.last_error, sound.last_error
-        time.sleep(0.5)
-        assert not out.exists()
+        assert not sound.mixdown(scene(), out, 1, 24) and "no sound" in sound.last_error, sound.last_error
+        assert not any(d.iterdir()), list(d.iterdir())
+        state["no_track"] = False
+        # No ffmpeg: no sound, said why.
+        core.resolve_ffmpeg = lambda: None
+        assert not sound.mixdown(scene(), out, 1, 24) and "ffmpeg" in sound.last_error
+        core.resolve_ffmpeg = lambda: "ffmpeg"
+
+        # A render that fails: no sound, no exception, nothing left.
+        def boom(**kw):
+            raise RuntimeError("Error: render failed")
+
+        bpy.ops.render.render = boom
+        assert not sound.mixdown(scene(), out, 1, 24) and "render failed" in sound.last_error
+        assert not any(d.iterdir())
 
 
 def main() -> None:
@@ -162,9 +154,10 @@ def main() -> None:
     fake_bpy.install()
     pkg = fake_bpy.load()
     sound = importlib.import_module(f"{pkg.__name__}.lib.sound")
-    check_mixdown(sound, sys.modules["bpy"])
+    check_detection(sound)
     if shutil.which("ffmpeg"):
-        check_background_job(sound, importlib.import_module(f"{pkg.__name__}.lib.core"), sys.modules["bpy"])
+        check_render(sound, importlib.import_module(f"{pkg.__name__}.lib.core"),
+                     importlib.import_module(f"{pkg.__name__}.lib.preview"), sys.modules["bpy"])
 
     config = importlib.import_module(f"{pkg.__name__}.lib.config")
     post = importlib.import_module(f"{pkg.__name__}.farm.post_render")
