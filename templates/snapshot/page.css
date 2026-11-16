@@ -1361,3 +1361,5 @@ part ringed */
 .tour-hl{outline:2px solid var(--sel)!important;outline-offset:3px;border-radius:var(--r-btn)}
 .fl-help .fl-sub{display:block;margin-top:6px;font-size:12px;color:var(--ink-3)}.fl-help .fl-sub b{font-weight:600;color:var(--ink-2)}
 .help .pi.has-n{position:relative;bottom:auto;left:auto}
+/* With a mouse: the assign button the size of its row's check and cross */
+@media (pointer:fine){.asg{height:28px;min-width:28px;border-radius:14px}.asg .ico{width:13px;height:13px}.asg .av{width:20px;height:20px;font-size:10px}.asg.set{padding:0 8px 0 3px}}
