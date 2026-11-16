@@ -5316,6 +5316,20 @@ someone marks it stable. Not checked in Blender yet: file compression
 (save_as's default, not the source's) and indirect libraries (only the
 direct links the meta lists are moved).
 
+## Page: what shows by default
+
+An action with its form opens a dialog from a button in the file's header
+(*Render*, `renderDialog()`; *File settings*, `settingsDialog()`, while
+reviewing) -- `#dlg` with its own onclick / onchange / oninput, cleared on
+close. What's read or written in context stays in the panel (notes,
+description, To check, Linked files, shot cards). *Show details*
+(`DETAILS`, `mp-snapshot:details`) adds the facts and the version list;
+Linked files shows without it when `linksToUpdate()`. *Filters ▾*: its
+list moved to `<body>` at load and placed under its button (`.bar-in`
+scrolls sideways and cut it); `ffCount()` from `chipCounts()`. The
+header's height followed by a `ResizeObserver` (`barHeight()`). Not tried
+on a touch screen since: Filters ▾ and the dialogs.
+
 ## Breakdown (snapshot page v4)
 
 The Breakdown tab: per section five figures, then one sequence × department

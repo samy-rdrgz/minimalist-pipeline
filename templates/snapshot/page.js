@@ -360,6 +360,8 @@ function avg(a){var n=a.filter(function(x){return x!=null;});return n.length?n.r
 function filtering(){return !!(state.q||state.dep||Object.keys(state.f).some(function(f){return state.f[f];}));}
 // visible: the rows shown; navList: every row of the list in its order,
 // folded groups' too -- Previous / Next go through those, unfolding.
+// Show details (⋯): read first, the panel and the menu both use it.
+var DET_KEY='mp-snapshot:details',DETAILS=false;try{DETAILS=localStorage.getItem(DET_KEY)==='1';}catch(e){}
 var visible=[],navList=[];
 function drawTabs(){$('seg').innerHTML=tabs.map(function(t){return '<button type="button" data-tab="'+t[0]+'" aria-pressed="'+(t[0]===state.tab)+'">'+t[1]+
 (t[0]==='breakdown'?'':t[0]==='farm'?'<span>'+(DATA.farm.jobs||[]).filter(function(j){return j.state!=='finished';}).length+'</span>':'<span>'+D.filter(function(it){return it.tab===t[0];}).length+'</span>')+'</button>';}).join('');
@@ -370,7 +372,11 @@ $('depf').classList.toggle('on',!!state.dep);sync('depf');}
 function chipCounts(){var fb=document.querySelector('.chipf[data-f="farm"]');if(fb)fb.hidden=!D.some(function(it){return it.farm;});
 // Me: only with a team (Edit project).
 var fm=document.querySelector('.chipf[data-f="me"]');if(fm)fm.hidden=!(META.team||[]).length;document.querySelectorAll('.chipf[data-f]').forEach(function(b){b.querySelector('b').textContent=D.filter(function(it){
-return it.tab===state.tab&&(!state.dep||state.dep in it.states)&&FILTERS[b.dataset.f](it,state.dep);}).length;});}
+return it.tab===state.tab&&(!state.dep||state.dep in it.states)&&FILTERS[b.dataset.f](it,state.dep);}).length;});ffCount();}
+// Filters ▾: the department and the less used filters, how many are on
+// on its button -- the three most used stay in the bar.
+function ffCount(){var n=(state.dep?1:0);$('ffpop').querySelectorAll('.chipf[data-f]').forEach(function(b){if(state.f[b.dataset.f])n++;});
+var nb=$('ffn');nb.hidden=!n;nb.textContent=n;$('ffb').classList.toggle('on',n>0);}
 // A row of the list (render(): its departments' columns).
 var rowDeps=[],rowCols='',rowFarm=false;
 // A file's farm at a glance: its job's state (a click: the Farm tab on it),
@@ -451,8 +457,7 @@ if(cur!=null){var s=$('list').querySelector('.row[data-i="'+cur+'"]');if(s)s.cla
 if(fsel){var nf=$('list').querySelector(fsel);if(nf)nf.focus({preventScroll:true});}
 if(lockY==null&&scrollY!==y0)scrollTo(0,y0);
 countBar();
-// The videos' folder button, next to ?: until one is chosen, while a render has a video.
-$('vidb').hidden=!!META.live||!!PICKED||!D.some(function(it){return it.renders.some(function(r){return r.video;});});}
+}
 // A capsule with no room on its right (the panel, the window's edge):
 // opened to the left -- measured as the pointer or the focus comes.
 function flipCap(e){var c=e.target.closest&&e.target.closest('.cell');if(!c)return;var lab=c.querySelector('.lab');if(!lab)return;
@@ -525,11 +530,11 @@ function gPct(g,all,done,val){if(done==null)return '<span class="g-pct faint">no
 return '<span class="g-pct">'+withReview({done:done,valid:val},reviewedOf(all.filter(function(it){return it.tracked||rv.files[it.file];}),(rv.creates||[]).filter(function(c){return c.tab===state.tab&&c.group===g;})))+dv(done,val)+'</span>';}
 function setTab(t){state.tab=t;drawTabs();render();barFade();}
 $('seg').addEventListener('click',function(e){var b=e.target.closest('button');if(b)setTab(b.dataset.tab);});
-$('depf').addEventListener('change',function(){state.dep=this.value;this.classList.toggle('on',!!state.dep);render();});
+$('depf').addEventListener('change',function(){state.dep=this.value;this.classList.toggle('on',!!state.dep);render();ffCount();});
 pick($('depf'));
 document.querySelectorAll('.chipf[data-f]').forEach(function(b){b.addEventListener('click',function(){
 if(b.dataset.f==='me'&&!me()&&!state.f.me){toast('Me: your name first -- Review asks it.');return;}
-state.f[b.dataset.f]=!state.f[b.dataset.f];b.setAttribute('aria-pressed',!!state.f[b.dataset.f]);render();
+state.f[b.dataset.f]=!state.f[b.dataset.f];b.setAttribute('aria-pressed',!!state.f[b.dataset.f]);render();ffCount();
 if(state.f[b.dataset.f])b.scrollIntoView({inline:'nearest',block:'nearest'});barFade();});});
 // The filters' line: faded on a side where some are scrolled out of
 // sight; the wheel, over it, scrolls it sideways.
@@ -570,7 +575,7 @@ sugg.addEventListener('click',function(e){var b=e.target.closest('button');if(b)
 $('q').addEventListener('blur',function(){setTimeout(function(){sugg.hidden=true;},150);});
 
 /* ---------- menus ---------- */
-var MENUS=[['more','morepop'],['helpb','helppop'],['rv-more','rv-morepop'],['newsb','newspop']];
+var MENUS=[['more','morepop'],['helpb','helppop'],['rv-more','rv-morepop'],['newsb','newspop'],['ffb','ffpop']];
 // A select drawn by the page: the system's own list takes no style. The
 // select stays, hidden, holding the value -- its change event, its
 // options, untouched; sync() after setting it from code.
@@ -620,6 +625,14 @@ function closeMenus(){MENUS.forEach(function(m){$(m[1]).hidden=true;$(m[0]).setA
 MENUS.forEach(function(m){$(m[0]).addEventListener('click',function(e){e.stopPropagation();var open=$(m[1]).hidden;closeMenus();
 $(m[1]).hidden=!open;this.setAttribute('aria-expanded',open);touchHold();});});
 document.addEventListener('click',function(e){if(!e.target.closest('.menu-pop'))closeMenus();});
+$('help-open').addEventListener('click',function(e){e.stopPropagation();closeMenus();$('helpb').click();});
+$('det-t').setAttribute('aria-pressed',String(DETAILS));$('det-t').addEventListener('click',function(e){e.stopPropagation();setDetails(!DETAILS);});
+// Filters ▾'s list: out of the bar (it scrolls sideways, and would cut it),
+// fixed under its button when it opens.
+(function(){var pop=$('ffpop'),b=$('ffb');document.body.appendChild(pop);
+b.addEventListener('click',function(){if(pop.hidden)return;var r=b.getBoundingClientRect();
+pop.style.left=Math.max(8,Math.min(r.left,innerWidth-pop.offsetWidth-8))+'px';pop.style.top=(r.bottom+6)+'px';});
+addEventListener('resize',function(){if(!pop.hidden)closeMenus();});})();
 
 /* ---------- pictures and videos ---------- */
 var hov=$('hover'),fine=matchMedia('(hover:hover) and (pointer:fine)');
@@ -1133,14 +1146,23 @@ return '<div class="nbar"><div class="nseg" role="group" aria-label="Which notes
 '<div class="nseg" role="group" aria-label="Order"><button type="button" data-ns="new" aria-pressed="'+(NF.s!=='frame')+'">Newest</button><button type="button" data-ns="frame" aria-pressed="'+(NF.s==='frame')+'">'+ico('range')+'By frame</button></div></div>';}
 // Reviewing, the file itself, folded at the end: its departments
 // required, set aside or not.
-function fileSettings(it,e){var all=depsOf(it.kind),om=e.omit||{state:(it.omit||{}).state||'',reason:(it.omit||{}).reason||''},n=all.filter(function(d){return d in e.req?e.req[d]:d in it.states;}).length,chg=Object.keys(e.req).length||omitChanged(it,e);
-var h='<div class="fset'+(fsetOpen?' on':'')+'"><button type="button" class="fset-b" id="fset" aria-expanded="'+fsetOpen+'">'+ico('settings')+'<b>File settings</b>'+(chg?'<span class="inl"><span class="you nt">✎ YOU</span></span>':'')+
-'<span class="sm">sent with the review · '+n+' required · '+(om.state==='on_hold'?'on hold':om.state==='cancelled'?'cancelled':'active')+'</span><span class="chev" aria-hidden="true">▸</span></button>';
-if(fsetOpen)h+='<div class="fset-c"><div class="st-l">Departments required</div><div class="req">'+
+// File settings: a button in the panel's header (while reviewing) opening
+// this dialog -- departments required, set aside --, what it changes in
+// your review a ✎ on the button.
+function settingsChanged(it,e){return Object.keys(e.req).length>0||omitChanged(it,e);}
+function settingsHtml(it,e){var all=depsOf(it.kind),om=e.omit||{state:(it.omit||{}).state||'',reason:(it.omit||{}).reason||''};
+return '<div class="st-l">Departments required</div><div class="req">'+
 all.map(function(d){var on=d in e.req?e.req[d]:d in it.states;return '<button type="button" data-req="'+esc(d)+'" aria-pressed="'+on+'"'+(d in e.req?' class="chg"':'')+'>'+esc(cap(d))+'</button>';}).join('')+'</div>'+
 '<div class="st-l">Set aside</div><div class="segb om">'+[['','Active'],['on_hold','On hold'],['cancelled','Cancelled']].map(function(o){return '<button type="button" data-omit="'+o[0]+'" aria-pressed="'+(om.state===o[0])+'">'+o[1]+'</button>';}).join('')+'</div>'+
-(om.state?'<input class="om-why" id="om-why" placeholder="Why (for the team)" value="'+esc(om.reason||'')+'">':'')+'</div>';
-return h+'</div>';}
+(om.state?'<input class="om-why" id="om-why" placeholder="Why (for the team)" value="'+esc(om.reason||'')+'">':'');}
+function settingsDialog(it){var dl=$('dlg'),e=entry(it);dl.dataset.kind='settings';
+dl.innerHTML='<div class="dlg-in set-dlg" role="dialog" aria-modal="true" aria-labelledby="sd-t"><h3 id="sd-t">File settings · '+esc(it.name)+'</h3>'+settingsHtml(it,e)+
+'<p class="faint sd-note">In your review: '+(META.live?'sent to Blender a moment after':'sent with it')+'.</p><div class="acts"><button type="button" class="btn" data-sdx>Done</button></div></div>';dl.hidden=false;
+var close=function(){dl.hidden=true;dl.onclick=dl.oninput=null;delete dl.dataset.kind;refresh();};
+dl.onclick=function(ev){var t;if(ev.target===dl||ev.target.closest('[data-sdx]'))return close();
+if((t=ev.target.closest('[data-req]'))){var rd=t.dataset.req,was=rd in it.states,now2=rd in e.req?e.req[rd]:was;if(!now2===was)delete e.req[rd];else e.req[rd]=!now2;refresh();render();return settingsDialog(it);}
+if((t=ev.target.closest('[data-omit]'))){var cur0=e.omit||{state:(it.omit||{}).state||'',reason:(it.omit||{}).reason||''};e.omit={state:t.dataset.omit,reason:cur0.reason};refresh();settingsDialog(it);var ow=$('om-why');if(ow&&t.dataset.omit)ow.focus({preventScroll:true});}};
+dl.oninput=function(ev){if(ev.target.id==='om-why'&&e.omit){e.omit.reason=ev.target.value;store();}};}
 function openPanel(i){
 // The notes' fold is the page's, not a file's: kept from one file to the
 // next, back to its default (open, folded in review) when review starts or ends.
@@ -1148,7 +1170,7 @@ var it=D[i],same=cur===i;if(!same){showClosed=false;editing={};}cur=i;$('p-open'
 // A tablet: the file the whole screen -- a panel over the list hid its columns.
 if(tablet.matches&&!document.body.classList.contains('panel-full'))setFull(true,false);if(!lastFocus)lastFocus=document.activeElement;
 var rv=reviewing(),e=peek(it);if(showNotes===null)showNotes=!rv;
-$('p-title').innerHTML=nameHtml(it);$('p-blend').hidden=!META.live||guest();var nv=allVideos(it).length;$('p-play').hidden=true;$('p-play').title=nv>1?'Play the '+nv+' shots in a row':'Play the render';
+$('p-title').innerHTML=nameHtml(it);$('p-blend').hidden=$('p-render').hidden=!META.live||guest();var ps=$('p-set');ps.hidden=!rv;ps.classList.toggle('chg',rv&&settingsChanged(it,e));var nv=allVideos(it).length;$('p-play').hidden=true;$('p-play').title=nv>1?'Play the '+nv+' shots in a row':'Play the render';
 $('p-sub').textContent=[it.kind==='shot'?'Shot':it.root==='library'?'Library':'Asset',it.versions,it.shots.length>1?plural(it.shots.length,'shot'):''].filter(Boolean).join(' · ');
 // First what it is and how far along, big; then its departments; the
 // rest after, quieter.
@@ -1171,7 +1193,7 @@ return '<div class="sc"><button type="button" data-shot="'+esc(s[0])+'" data-src
 // each shot's video stays one tap away here.
 return (n>1&&!it.shot_thumbs.length?'<div class="vlist review-only">'+it.renders.map(function(r,k){return [r,k];}).filter(function(x){return videosOf(it,x[0]).length;})
 .sort(function(a,b){return it.shots.indexOf(a[0].shot_list[0])-it.shots.indexOf(b[0].shot_list[0]);})
-.map(function(x){return '<button type="button" class="pl" data-play="'+x[1]+'">▶ '+esc(x[0].shots||'all shots')+'</button>';}).join('')+'</div>':'');})()+versionsHtml(it)+'</div>';
+.map(function(x){return '<button type="button" class="pl" data-play="'+x[1]+'">▶ '+esc(x[0].shots||'all shots')+'</button>';}).join('')+'</div>':'');})()+(DETAILS?versionsHtml(it):'')+'</div>';
 // The description first: what the file is.
 if(rv&&(editing.desc||e.desc!==null))h+='<div class="p-block"><h4>Description<span class="h-sub">sent with the review</span></h4><textarea rows="1" id="desc-t" placeholder="What this file is, for the team">'+esc(e.desc!==null?e.desc:it.desc)+'</textarea></div>';
 else{if(it.desc)h+='<p class="desc">'+esc(it.desc)+'</p>';
@@ -1179,14 +1201,14 @@ if(rv)h+='<button type="button" class="desc-edit" id="add-desc">✎ '+(it.desc?'
 // The notes' bar, Whole file (its retakes concern every department),
 // the departments; reviewing, the file's settings folded at the end.
 h+=notesBar(it)+'<div class="p-block major">'+wholeHtml(it,rv)+(deps.length?deps.map(function(d){return depHtml(it,d,rv);}).join(''):'<p class="faint">No department tracked on this file.</p>')+'</div>';
-if(it.live)h+=(guest()?'':renderHtml(it))+checksHtml(it)+linksHtml(it);
-if(rv)h+=fileSettings(it,e);
+// Linked files: with Show details, or when a link is to update.
+if(it.live)h+=checksHtml(it)+(DETAILS||linksToUpdate(it)?linksHtml(it):'');
 // Where it comes from: at the bottom, out of the way while reviewing.
 // A block's shots (its cards above play each): its renders folded under
 // one line -- how many shots, which versions.
 var lr=rendersHtml(it)+noVideo(it);if(it.shot_thumbs.length>1){var lf={};it.renders.forEach(function(r){if(r.folder)lf[r.folder]=1;});
 lr='<button type="button" class="rf-t" data-lrfold aria-expanded="'+LROPEN+'">'+(LROPEN?'▾':'▸')+' '+plural(it.shot_thumbs.length,'shot')+(Object.keys(lf).length?' <small>'+esc(Object.keys(lf).slice(0,3).join(', '))+(Object.keys(lf).length>3?'…':'')+'</small>':'')+'</button>'+(LROPEN?lr:'');}
-h+='<dl class="view-only facts"><dt>Last render</dt><dd>'+lr+'</dd><dt>Blender file</dt><dd class="fileline">'+esc(it.file)+'.blend</dd>'+
+if(DETAILS)h+='<dl class="view-only facts"><dt>Last render</dt><dd>'+lr+'</dd><dt>Blender file</dt><dd class="fileline">'+esc(it.file)+'.blend</dd>'+
 // Its logged work time, every version and everyone: the file's, no one's.
 (it.work?'<dt>Work time</dt><dd class="faint" title="Sessions that saved, every version, everyone together">'+dur(it.work)+'</dd>':'')+'</dl>';
 // The player's video kept as the panel is redrawn (moved, not made again).
@@ -1274,6 +1296,8 @@ $('p-prev').addEventListener('click',function(){step(-1);});$('p-next').addEvent
 $('m-prev').addEventListener('click',function(){step(-1);});$('m-next').addEventListener('click',function(){step(1);});
 $('p-play').addEventListener('click',function(){if(cur!=null)openWatch(true);});
 $('p-blend').addEventListener('click',function(){if(cur!=null&&META.live)liveOpen(D[cur].file);});
+$('p-render').addEventListener('click',function(){if(cur!=null&&META.live)renderDialog(D[cur]);});
+$('p-set').addEventListener('click',function(){if(cur!=null)settingsDialog(D[cur]);});
 $('p-link').addEventListener('click',function(){var u=location.href;
 var ok=function(){toast('Link copied: it opens this file, once this page is where the link points.');};
 if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(u).then(ok,function(){prompt('Link to this file',u);});else prompt('Link to this file',u);});
@@ -1379,15 +1403,8 @@ else if(sm){var dt=sm.parentNode;NOPEN[it.file+'|'+dt.dataset.th]=!dt.open;keep(
 if((t=ev.target.closest('[data-shotsel]'))){var sb=[].filter.call($('p-body').querySelectorAll('.shotsel button'),function(x){return x.textContent.indexOf(t.dataset.shotsel)===0;})[0];if(sb)sb.click();return;}
 if((t=ev.target.closest('[data-nf]'))){NF.f=t.dataset.nf;keep('notes-filter',NF.f);return refresh();}
 if((t=ev.target.closest('[data-ns]'))){NF.s=t.dataset.ns;keep('notes-sort',NF.s);return refresh();}
-if(ev.target.closest('#fset')){fsetOpen=!fsetOpen;return refresh();}
 if(ev.target.closest('#chk-t')){chkOpen=!chkOpen;return refresh();}
 if(ev.target.closest('#lnk-t')){lnkOpen=!lnkOpen;return refresh();}
-if(ev.target.closest('#rnd-t')){rndOpen=!rndOpen;return refresh();}
-if((t=ev.target.closest('[data-rf][data-v]'))){rform(it)[t.dataset.rf]=t.dataset.v;return refresh();}
-if(ev.target.closest('[data-rft]')){var rf1=rform(it);rf1.frames=!(rf1.frames||rf1.start||rf1.end);if(!rf1.frames){rf1.start='';rf1.end='';}return refresh();}
-if((t=ev.target.closest('[data-rprio]'))){var rf0=rform(it);rf0.prio=Math.max(0,Math.min(100,rf0.prio+(+t.dataset.rprio)));return refresh();}
-if((t=ev.target.closest('[data-rshot]'))){var off=rform(it).off;if(off[t.dataset.rshot])delete off[t.dataset.rshot];else off[t.dataset.rshot]=1;return refresh();}
-if((t=ev.target.closest('#r-send,#r-prev'))){t.disabled=true;renderSend(it,t.id==='r-prev').then(function(){t.disabled=false;});return;}
 if((t=ev.target.closest('[data-goto]')))return jump(D[+t.dataset.goto]);
 if((t=ev.target.closest('[data-relink]'))){t.disabled=true;return relinkSend(t.dataset.relink.split('\n'));}
 // A render to check: watched in the player; Checked, sent to Blender at once.
@@ -1425,9 +1442,9 @@ if(ev.target.closest('#allok'))return validateAll();
 if((t=ev.target.closest('.rvb button'))&&!t.disabled){var d=t.parentNode.dataset.d,e=entry(it),v=e.deps[d];
 if(t.classList.contains('ok-b')){if(v&&v.ok)delete e.deps[d];else e.deps[d]={ok:1};refresh();}
 else openCmp('d:'+d);}});
-$('p-body').addEventListener('change',function(ev){var t=ev.target;if(t.dataset&&t.dataset.rf==='preset'){rform(D[cur]).preset=t.value;return;}if(!t.dataset||t.dataset.vline==null)return;var it=D[cur],k=t.dataset.vline;
+$('p-body').addEventListener('change',function(ev){var t=ev.target;if(!t.dataset||t.dataset.vline==null)return;var it=D[cur],k=t.dataset.vline;
 pickVersion(it,k,t.value===''?null:((it.live.versions||{})[k]||[])[+t.value]);});
-$('p-body').addEventListener('input',function(ev){var t=ev.target,it=D[cur],e=entry(it);if(t.dataset&&t.dataset.rfn){rform(it)[t.dataset.rfn]=t.value.trim();return;}if(t.tagName!=='TEXTAREA'&&t.id!=='om-why')return;if(t.tagName==='TEXTAREA')grow(t);
+$('p-body').addEventListener('input',function(ev){var t=ev.target,it=D[cur],e=entry(it);if(t.tagName!=='TEXTAREA'&&t.id!=='om-why')return;if(t.tagName==='TEXTAREA')grow(t);
 // The box being written: kept as typed, its shot buttons following the
 // line; "note:" typed at its start makes it a note.
 if(t.classList.contains('cmp-t')&&editing.cmp){var c=editing.cmp;c.text=t.value;c.at=t.selectionStart;
@@ -1899,7 +1916,21 @@ b+='<div class="rrow"><span class="prio"><span class="st-l">Priority</span><butt
 '<div class="segb om">'+seg('mode','all','All machines')+seg('mode','single','Single')+'</div></div>';
 if(it.shots.length>1)b+='<div class="st-l">Shots</div><div class="req">'+it.shots.map(function(x){return '<button type="button" data-rshot="'+esc(x)+'" aria-pressed="'+!f.off[x]+'">'+esc(x)+'</button>';}).join('')+'</div>';
 b+='<div class="ta"><button type="button" class="act fix" id="r-send">'+ico('render')+'Send to the farm</button>'+(it.kind==='shot'&&it.group?'<button type="button" class="act" id="r-prev" title="Each shot\'s latest video of '+esc(it.group)+', end to end">Preview '+esc(it.group)+'</button>':'')+'</div>';
-return fold2('rnd-t',rndOpen,'render','Render',job?'in the farm: '+esc(job.text)+(job.total?' · '+job.done+'/'+job.total:''):'send it to the farm',b);}
+return (job?'<p class="rd-job">In the farm: '+esc(job.text)+(job.total?' · '+job.done+'/'+job.total:'')+'</p>':'')+b;}
+// Render: a button in the panel's header opening this dialog -- an action
+// with its form, as Blender's Render dialog (not a section to unfold).
+function renderDialog(it){var dl=$('dlg');dl.dataset.kind='render';
+dl.innerHTML='<div class="dlg-in rnd-dlg" role="dialog" aria-modal="true" aria-labelledby="rd-t"><h3 id="rd-t">Render '+esc(it.name)+'</h3>'+renderHtml(it)+
+'<div class="acts"><button type="button" class="btn" data-rdx>Close</button></div></div>';dl.hidden=false;
+var close=function(){dl.hidden=true;dl.onclick=dl.onchange=dl.oninput=null;delete dl.dataset.kind;};
+dl.onclick=function(ev){var t;if(ev.target===dl||ev.target.closest('[data-rdx]'))return close();
+if((t=ev.target.closest('[data-rf][data-v]'))){rform(it)[t.dataset.rf]=t.dataset.v;return renderDialog(it);}
+if(ev.target.closest('[data-rft]')){var rf1=rform(it);rf1.frames=!(rf1.frames||rf1.start||rf1.end);if(!rf1.frames){rf1.start='';rf1.end='';}return renderDialog(it);}
+if((t=ev.target.closest('[data-rprio]'))){var rf0=rform(it);rf0.prio=Math.max(0,Math.min(100,rf0.prio+(+t.dataset.rprio)));return renderDialog(it);}
+if((t=ev.target.closest('[data-rshot]'))){var off=rform(it).off;if(off[t.dataset.rshot])delete off[t.dataset.rshot];else off[t.dataset.rshot]=1;return renderDialog(it);}
+if((t=ev.target.closest('#r-send,#r-prev'))){t.disabled=true;renderSend(it,t.id==='r-prev').then(close);}};
+dl.onchange=function(ev){if(ev.target.dataset&&ev.target.dataset.rf==='preset')rform(it).preset=ev.target.value;};
+dl.oninput=function(ev){if(ev.target.dataset&&ev.target.dataset.rfn)rform(it)[ev.target.dataset.rfn]=ev.target.value.trim();};}
 function renderSend(it,preview){var f=rform(it),body=preview?{action:'preview',sequence:it.group,priority:f.prio}:
 {action:'render',file:f.ver==='stable'&&it.stable?it.stable:it.file,preset:f.preset,priority:f.prio,mode:f.mode,start:f.start,end:f.end,shots:it.shots.length>1?it.shots.filter(function(x){return !f.off[x];}):null};
 return livePost('farm',body).then(function(res){toast(res.ok?'Sent: '+res.sent+'.'+(res.note?' '+res.note:''):'Not sent: '+(res.error||'?'));}).catch(function(){toast('Blender doesn\'t answer.');});}
@@ -1915,6 +1946,11 @@ var upBy=me&&behind.length?'<div class="ta"><button type="button" class="act" da
 return fold2('lnk-t',lnkOpen||!!(R&&R.state!=='done'),'link','Linked files',[plural(links.length,'link'),old?old+' to update':'','linked by '+by.length,behind.length?behind.length+' on an older stable':''].filter(Boolean).join(' · '),
 state+(links.length?'<div class="st-l">Links</div>'+links.map(function(x){return '<div class="lnk">'+to(itemAt(x.key),x.file)+'<span class="lf">'+esc(x.file)+'</span>'+(x.newer?'<span class="tg tg-old" title="A newer stable of it exists">'+ico('warn')+esc(x.newer)+'</span>':'')+'</div>';}).join('')+up:'')+
 (by.length?'<div class="st-l">Linked by</div>'+by.map(function(k){return '<div class="lnk">'+to(itemAt(k),k)+(behind.indexOf(k)>=0?'<span class="tg tg-old" title="It links an older stable of this file">'+ico('warn')+'older stable</span>':'')+'</div>';}).join('')+upBy:''));}
+// Something for Update links on this file: one of its links on an older
+// stable, files linking an older stable of it, an update under way or just
+// ended -- Linked files shown then, Show details or not.
+function linksToUpdate(it){var L=it.live||{};if((L.links||[]).some(function(x){return x.newer;})||(DATA.relink||{})[L.key])return true;
+return (L.linked_by||[]).some(function(k){var t=itemAt(k);return t&&t.live&&(t.live.links||[]).some(function(x){return x.key===L.key&&x.newer;});});}
 function relinkSend(files){livePost('relink',{files:files}).then(function(res){
 var sk=(res.skipped||[]).map(function(x){return x[0]+' ('+x[1]+')';}).join(', ');
 toast(res.ok?'Updating '+plural(res.started.length,'file')+' in the background'+(sk?' -- left: '+sk:'')+'.':'Not updated: '+(res.error||sk||'?'));}).catch(function(){toast('Blender doesn\'t answer.');});}
@@ -1922,6 +1958,11 @@ toast(res.ok?'Updating '+plural(res.started.length,'file')+' in the background'+
 // A block's shots: each its select in its card of the strip (shotCards());
 // the rest here -- more than one line folded under one.
 var VOPEN=false,LROPEN=false;
+// Show details (⋯): off, the panel holds what a file needs at a glance --
+// its videos, departments, notes, renders to check, links to update; on,
+// its versions to watch, settings, every link, last render, .blend, work
+// time too. Kept by this browser.
+function setDetails(on){DETAILS=on;try{localStorage.setItem(DET_KEY,on?'1':'');}catch(e){}var b=$('det-t');if(b)b.setAttribute('aria-pressed',String(on));if(cur!=null)refresh();}
 function vLines(it){if(!it.live)return [];var V=it.live.versions||{},seen={};
 return it.renders.filter(function(r){var k=r.shots||'';if(seen[k])return false;seen[k]=1;return (V[k]||[]).length>1||((V[k]||[]).length&&V[k][0].video!==r.video);});}
 function vSelect(it,r,short){var V=it.live.versions||{},k=r.shots||'',o=(PICKV[it.file]||{})[k];

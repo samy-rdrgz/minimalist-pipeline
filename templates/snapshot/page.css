@@ -137,7 +137,7 @@ padding:0 14px;border-radius:var(--r-btn);border:1px solid var(--line);backgroun
 /* Review: violet, found at a glance (it validates). */
 .btn.primary{background:var(--val-f);border-color:var(--val-f);color:#fff}
 .btn.icon{width:var(--tap);padding:0}
-#vidb{cursor:pointer;color:var(--accent)}#vidb input{display:none}
+
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 body.reviewing #rv{display:none}
 .menu{position:relative}
@@ -1258,3 +1258,31 @@ sizes (pointer:coarse). */
 .g-h{padding-top:8px;padding-bottom:8px}
 }
 .facts .rf-t{margin-top:0}
+/* Filters ▾: the department and the less used filters (page.js ffCount()) */
+.ff-m{flex:none}
+.ff-b .ico{width:15px;height:15px}
+.ff-b .ff-car{margin-left:6px;font-size:10px;color:var(--ink-3)}
+.ff-b b{min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--accent);color:var(--surface);font-size:10px;line-height:16px;text-align:center}
+.ff-b.on{border-color:var(--accent);color:var(--accent)}
+.ff-pop{position:fixed;right:auto;min-width:240px;padding:8px;display:flex;flex-direction:column;gap:6px;z-index:45}
+.ff-pop .chipf{width:100%;justify-content:flex-start}
+.ff-pop .chipf b{margin-left:auto}
+.ff-dep{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-3)}
+.ff-dep .depf,.ff-dep .pick{flex:1}
+.menu.help>#helpb{display:none}
+/* ⋯ › Show details: a tick when on */
+#det-t{position:relative;padding-left:30px}
+#det-t::before{content:"";position:absolute;left:10px;top:9px;width:12px;height:12px;border:1.5px solid var(--ink-3);border-radius:3px;box-sizing:border-box}
+#det-t[aria-pressed="true"]::before{content:"✓";border-color:var(--accent);background:var(--accent);color:var(--surface);font-size:9px;line-height:10px;text-align:center;font-weight:800}
+/* Render, a dialog (page.js renderDialog()) */
+.dlg-in.rnd-dlg{width:min(520px,100%);max-height:calc(100dvh - 32px - var(--sat));overflow:auto}
+.rd-job{margin:0 0 8px;padding:6px 10px;border-radius:6px;background:var(--sunk);font-size:12px;color:var(--ink-2)}
+.rnd-dlg .acts{display:flex;justify-content:flex-end;margin-top:14px}
+.ff-pop>.chipf{display:flex;align-items:center;gap:0}
+/* File settings, a dialog (page.js settingsDialog()); its button marked
+when your review changes them */
+#p-set.chg{border-color:var(--val-f)!important;color:var(--valid);position:relative}
+#p-set.chg::after{content:"";position:absolute;top:4px;right:4px;width:7px;height:7px;border-radius:50%;background:var(--val-f)}
+.dlg-in.set-dlg{width:min(480px,100%)}
+.set-dlg .acts{display:flex;justify-content:flex-end;margin-top:14px}
+.sd-note{margin:12px 0 0;font-size:12px}

@@ -6,6 +6,14 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- Snapshot and live page, lighter: the header on one line (the videos
+  folder and the legend in ⋯); three filters in the bar, the others under
+  *Filters ▾* with how many are on; *Show details* (⋯, kept by the
+  browser, off by default) for a file's versions, last render, .blend and
+  work time; *Render* and *File settings* as buttons in the file's header
+  opening a dialog; a block's shots as cards (picture, name, a click plays
+  it, its version under it); an open note on a department marked in the
+  list; denser with a mouse.
 - Live page, *Linked files*: *Update links* -- a file's links moved to
   their latest stables without opening it, in a new version tagged
   `-updatelink` made by a background Blender (never saved over, a stable
