@@ -505,12 +505,23 @@ def _turn(sh: _Shared) -> None:
         from ..farm.loop import refresh_step
 
         refresh_step()
+    # Update links running in the background: one done, its new version
+    # read at once (a pass), its state shown.
+    from . import relink
+
+    if relink.poll():
+        _reader["at"] = 0.0
+        _rebuild(sh, force=True)
     # The page's actions, applied now; answered after the next pass.
     while True:
         try:
             pending = _actions.get_nowait()
         except queue.Empty:
             break
+        if pending.kind == "relink":
+            pending.result = _relink(sh.root, pending.review)
+            pending.done.set()
+            continue
         if pending.kind in ("open", "farm", "play"):
             pending.result = {"open": _open, "farm": _farm_action, "play": _play}[pending.kind](pending.review)
             pending.done.set()
@@ -659,6 +670,27 @@ def _checked(actions: list) -> dict:
             _with_window(push_checked_renders, bpy.context, dropped)
         out["changed"] += len(dropped)
     return out
+
+
+def _relink(root: Path, raw: dict) -> dict:
+    """Update links on the page's files ({"files": [file names]}): each one
+    a new -updatelink version made in the background (lib/relink.py)."""
+    from . import relink
+    from .review_import import _review_file
+
+    owners, unknown = [], []
+    for name in raw.get("files") or []:
+        path = _review_file(str(name))
+        if path is None or not path.is_file():
+            unknown.append([str(name), "file not found"])
+        elif path.parent not in owners:
+            owners.append(path.parent)
+    res = relink.start(root, owners)
+    res["skipped"] = unknown + res["skipped"]
+    res["ok"] = bool(res["started"])
+    if not res["ok"]:
+        res["error"] = "; ".join(f"{n}: {why}" for n, why in res["skipped"]) or "nothing to update"
+    return res
 
 
 def _open(raw: dict) -> dict:
@@ -991,9 +1023,12 @@ def _rebuild(sh: _Shared, force: bool) -> None:
         return  # nothing read yet: no empty page
     farm = farm_activity()
     jobs = _farm_data(sh.root)
-    if not force and (farm, jobs) == _reader["farm"]:
+    from . import relink
+
+    relinks = relink.states()
+    if not force and (farm, jobs, relinks) == _reader["farm"]:
         return
-    _reader["farm"] = (farm, jobs)
+    _reader["farm"] = (farm, jobs, relinks)
     config = ConfigCache.get() or {}
     meta = {
         "project": config.get("project_name") or sh.root.name,
@@ -1009,6 +1044,8 @@ def _rebuild(sh: _Shared, force: bool) -> None:
     data = page_data(build_snapshot(_as_data(_reader["cache"], _reader.get("extras"), _reader.get("work")), config, meta, farm=farm))
     # Its Farm tab: the farm as Farm monitoring shows it.
     data["farm"] = jobs
+    # Update links under way or just ended, by folder (lib/relink.py).
+    data["relink"] = relinks
     # Compared without its date: a pass finding nothing new is no news.
     compare = json.dumps({**data, "meta": {**data["meta"], "snapshot": ""}}, ensure_ascii=False, separators=(",", ":"))
     if compare == _reader["compare"]:
@@ -1081,7 +1118,7 @@ def _handler(sh: _Shared):
             q = {k: v[0] for k, v in parse_qs(parsed.query).items()}
             if not self._allowed(q.get("t", "")):
                 return self._send(403, b"forbidden", "text/plain")
-            if parsed.path not in ("/action", "/open", "/farm", "/play", "/share"):
+            if parsed.path not in ("/action", "/open", "/farm", "/play", "/share", "/relink"):
                 return self._send(404, b"not found", "text/plain")
             length = int(self.headers.get("Content-Length") or 0)
             if not 0 < length < 4 * 1024 * 1024 or "json" not in (self.headers.get("Content-Type") or ""):
@@ -1097,7 +1134,7 @@ def _handler(sh: _Shared):
             if self.guest is not None:
                 # A guest reviews, as themselves; the farm read only;
                 # nothing on this machine (Blender, its player, sharing).
-                if kind in ("open", "play", "share") or kind == "farm" and raw.get("action") not in ("detail", "worker_detail"):
+                if kind in ("open", "play", "share", "relink") or kind == "farm" and raw.get("action") not in ("detail", "worker_detail"):
                     return self._send(403, json.dumps({"ok": False, "error": "not from a guest's page"}).encode(), "application/json")
                 if kind == "review":
                     raw["author"], raw["role"] = self.guest["name"], self.guest["role"]

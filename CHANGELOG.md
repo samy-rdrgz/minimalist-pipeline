@@ -6,6 +6,12 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- Live page, *Linked files*: *Update links* -- a file's links moved to
+  their latest stables without opening it, in a new version tagged
+  `-updatelink` made by a background Blender (never saved over, a stable
+  never touched, a file someone has open left); on an asset, every file
+  that links an older stable of it at once. The new version is a work
+  version: what links it takes it once it's marked stable.
 - Live page: what arrived while it was open, behind a bell in the header
   -- notes, retakes and replies, validations, renders finished or
   failed; a toast as they come, a click opens the file, the system's own

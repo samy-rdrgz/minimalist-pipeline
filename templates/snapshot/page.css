@@ -1226,3 +1226,7 @@ body.live #rv-send{display:none}
 .news-f{display:flex;justify-content:space-between;gap:8px;padding:4px 6px 0}.news-f:empty{display:none}
 .news-f .btn.link{min-height:32px;padding:0 8px;border-color:transparent;background:none;color:var(--accent);font-size:12px}
 @media (max-width:640px){.news-pop{position:fixed;left:16px;right:16px;top:calc(var(--sat) + var(--hdr-h,56px));width:auto}}
+/* Update links' state in Linked files (lib/relink.py) */
+.rl{margin:4px 0 8px;padding:6px 10px;border-radius:6px;font-size:12px;overflow-wrap:anywhere;background:var(--sunk);color:var(--ink-2)}
+.rl.done{background:var(--accent-bg);color:var(--done)}
+.rl.failed{background:var(--rtk-bg);color:var(--rtk)}

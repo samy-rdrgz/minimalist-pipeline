@@ -1359,6 +1359,7 @@ if((t=ev.target.closest('[data-rprio]'))){var rf0=rform(it);rf0.prio=Math.max(0,
 if((t=ev.target.closest('[data-rshot]'))){var off=rform(it).off;if(off[t.dataset.rshot])delete off[t.dataset.rshot];else off[t.dataset.rshot]=1;return refresh();}
 if((t=ev.target.closest('#r-send,#r-prev'))){t.disabled=true;renderSend(it,t.id==='r-prev').then(function(){t.disabled=false;});return;}
 if((t=ev.target.closest('[data-goto]')))return jump(D[+t.dataset.goto]);
+if((t=ev.target.closest('[data-relink]'))){t.disabled=true;return relinkSend(t.dataset.relink.split('\n'));}
 // A render to check: watched in the player; Checked, sent to Blender at once.
 if((t=ev.target.closest('[data-chkplay]'))){var V2=it.live.versions||{},wv=t.dataset.chkplay;Object.keys(V2).some(function(k){var hit=V2[k].filter(function(x){return x.video===wv;})[0];if(hit)pickVersion(it,k,hit);return !!hit;});return;}
 if((t=ev.target.closest('[data-chk]'))){t.disabled=true;var push=!!($('chk-push')||{}).checked;
@@ -1874,9 +1875,19 @@ function renderSend(it,preview){var f=rform(it),body=preview?{action:'preview',s
 return livePost('farm',body).then(function(res){toast(res.ok?'Sent: '+res.sent+'.'+(res.note?' '+res.note:''):'Not sent: '+(res.error||'?'));}).catch(function(){toast('Blender doesn\'t answer.');});}
 function linksHtml(it){var L=it.live,links=L.links||[],by=L.linked_by||[];if(!links.length&&!by.length)return '';var old=links.filter(function(x){return x.newer;}).length;
 var to=function(t,file){return t?'<button type="button" class="lk" data-goto="'+t.i+'">'+esc(t.name)+'</button>':'<span>'+esc(file)+'</span>';};
-return fold2('lnk-t',lnkOpen,'link','Linked files',[plural(links.length,'link'),old?old+' to update':'','linked by '+by.length].filter(Boolean).join(' · '),
-(links.length?'<div class="st-l">Links</div>'+links.map(function(x){return '<div class="lnk">'+to(itemAt(x.key),x.file)+'<span class="lf">'+esc(x.file)+'</span>'+(x.newer?'<span class="tg tg-old" title="A newer stable of it exists">'+ico('warn')+esc(x.newer)+'</span>':'')+'</div>';}).join(''):'')+
-(by.length?'<div class="st-l">Linked by</div>'+by.map(function(k){return '<div class="lnk">'+to(itemAt(k),k)+'</div>';}).join(''):''));}
+// Update links (lib/relink.py): a new -updatelink version made in the
+// background, never over a file nor a stable. Here, this file's own; on
+// a file others link, each of them that still links an older stable of it.
+var R=(DATA.relink||{})[L.key],me=!guest(),behind=by.filter(function(k){var t=itemAt(k);return t&&t.live&&(t.live.links||[]).some(function(x){return x.key===L.key&&x.newer;});});
+var state=R?'<p class="rl '+R.state+'">'+(R.state==='running'?'Updating its links in the background… '+esc(R.message):R.state==='done'?'Made '+esc(R.message):'Not updated: '+esc(R.message))+'</p>':'';
+var up=me&&old&&!(R&&R.state==='running')?'<div class="ta"><button type="button" class="act fix" data-relink="'+esc(it.file)+'" title="A new version, tagged -updatelink, its links on their latest stables -- made in the background, nothing saved over. Not a stable: mark it stable once checked.">'+ico('link')+'Update '+plural(old,'link')+'</button></div>':'';
+var upBy=me&&behind.length?'<div class="ta"><button type="button" class="act" data-relink="'+esc(behind.map(function(k){return itemAt(k).file;}).join('\n'))+'" title="Each of them: a new -updatelink version linking the latest stable of this one, made in the background">'+ico('link')+'Update the '+plural(behind.length,'file')+' on an older stable</button></div>':'';
+return fold2('lnk-t',lnkOpen||!!(R&&R.state!=='done'),'link','Linked files',[plural(links.length,'link'),old?old+' to update':'','linked by '+by.length,behind.length?behind.length+' on an older stable':''].filter(Boolean).join(' · '),
+state+(links.length?'<div class="st-l">Links</div>'+links.map(function(x){return '<div class="lnk">'+to(itemAt(x.key),x.file)+'<span class="lf">'+esc(x.file)+'</span>'+(x.newer?'<span class="tg tg-old" title="A newer stable of it exists">'+ico('warn')+esc(x.newer)+'</span>':'')+'</div>';}).join('')+up:'')+
+(by.length?'<div class="st-l">Linked by</div>'+by.map(function(k){return '<div class="lnk">'+to(itemAt(k),k)+(behind.indexOf(k)>=0?'<span class="tg tg-old" title="It links an older stable of this file">'+ico('warn')+'older stable</span>':'')+'</div>';}).join('')+upBy:''));}
+function relinkSend(files){livePost('relink',{files:files}).then(function(res){
+var sk=(res.skipped||[]).map(function(x){return x[0]+' ('+x[1]+')';}).join(', ');
+toast(res.ok?'Updating '+plural(res.started.length,'file')+' in the background'+(sk?' -- left: '+sk:'')+'.':'Not updated: '+(res.error||sk||'?'));}).catch(function(){toast('Blender doesn\'t answer.');});}
 // Live: every version with a video, to watch instead of the main render.
 function versionsHtml(it){if(!it.live)return '';var V=it.live.versions||{};
 var seen={};
@@ -1974,7 +1985,7 @@ var curFile=cur!=null&&D[cur]?D[cur].file:null,plFile=PL&&PL.it?PL.it.file:null,
 // The file shown gone (archived, renamed): its panel closed first.
 if(curFile&&!nd.items.some(function(x){return x.file===curFile;})){closePanel();curFile=null;}
 Object.keys(nd.images||{}).forEach(function(k){DATA.images[k]=nd.images[k];});
-var oldD=D,oldF=DATA.farm;DATA.items=nd.items;DATA.meta=nd.meta;DATA.farm=nd.farm;META=nd.meta;D=nd.items;W=META.weights;prepare();
+var oldD=D,oldF=DATA.farm;DATA.items=nd.items;DATA.meta=nd.meta;DATA.farm=nd.farm;DATA.relink=nd.relink;META=nd.meta;D=nd.items;W=META.weights;prepare();
 if(META.live)pushNews(newsOf(oldD,oldF,nd));
 if(PL&&plFile&&byFile[plFile])PL.it=byFile[plFile];
 // What was sent, now shown by the data: out of your review, before drawing.
