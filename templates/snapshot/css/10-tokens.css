@@ -1,0 +1,108 @@
+/* Layout : les gris et les widgets de Blender, mais l'espacement d'une page web.
+   Outliner | Liste (séparateurs) | Détail ; « Regarder en grand » recouvre l'écran.
+   ≥1200 trois zones · 860–1200 outliner en tiroir · <860 détail en feuille plein écran. */
+:root{
+  color-scheme:dark;
+  --scale:1;
+  /* ---- Tailles : tout dérive de --unit (4 px × --scale). Rien en px en dur dans les composants,
+     sauf les filets (1 px) et les largeurs de mise en page. Le menu Affichage › Échelle change --scale. */
+  --unit:calc(4px*var(--scale));
+  /* Espacements (padding, margin, gap) */
+  --sp-1:calc(var(--unit)*.5);   /*  2 */
+  --sp-2:var(--unit);            /*  4 */
+  --sp-3:calc(var(--unit)*1.5);  /*  6 */
+  --sp-4:calc(var(--unit)*2);    /*  8 */
+  --sp-5:calc(var(--unit)*2.5);  /* 10 */
+  --sp-6:calc(var(--unit)*3);    /* 12 */
+  --sp-7:calc(var(--unit)*4);    /* 16 */
+  --sp-8:calc(var(--unit)*5);    /* 20 */
+  --sp-9:calc(var(--unit)*6);    /* 24 */
+  --sp-10:calc(var(--unit)*8);   /* 32 */
+  --sp-11:calc(var(--unit)*12);  /* 48 */
+  /* Hauteurs de widget */
+  --h-xs:calc(var(--unit)*4.5);  /* 18 : puce, glyphe */
+  --h-sm:calc(var(--unit)*6);    /* 24 : bouton sm, onglet */
+  --u:calc(var(--unit)*7);       /* 28 : bouton, champ, ligne de menu */
+  --h-lg:calc(var(--unit)*9);    /* 36 : en-tête d'area, topbar */
+  --h-touch:44px;                /* cible tactile minimale (mobile), ne suit pas --scale */
+  /* Arrondis */
+  --r-xs:calc(var(--unit)*.5);   /*  2 : barres, repères */
+  --r-s:calc(var(--unit)*.75);   /*  3 : badges, kbd */
+  --r:calc(var(--unit)*1.25);    /*  5 : widgets (comme Blender) */
+  --r-l:calc(var(--unit)*2);     /*  8 : box, panneaux, menus */
+  --r-xl:calc(var(--unit)*2.5);  /* 10 : dialogues, feuilles */
+  --r-pill:999px;
+  /* Texte */
+  --fs-xs:calc(10.5px*var(--scale)); --fs-s:calc(11.5px*var(--scale)); --fs:calc(13px*var(--scale)); --fs-l:calc(15px*var(--scale)); --fs-xl:calc(18px*var(--scale));
+  --fs-in:16px;                  /* texte des champs sur mobile : iOS ne zoome pas au-dessus de 16 px */
+  --lh:1.45;
+  --gap:var(--sp-3);
+  /* Chaque couleur = un champ de bpy.context.preferences.themes[0].
+     L'addon les lit à l'export et les écrit ici : un thème Blender perso donne un HTML assorti. */
+  --screen:#161616;      /* user_interface.editor_border (gouttières entre areas) */
+  --area:#2b2b2b;        /* space_properties.space.back */
+  --head:#262626;        /* space_properties.space.header */
+  --box:#303030;         /* user_interface.wcol_box.inner */
+  --box-2:#353535;       /* wcol_box.inner_sel */
+  --line:#3a3a3a;        /* wcol_box.outline */
+  --line-2:#444;         /* wcol_regular.outline (clair) */
+  --line-3:#5a5a5a;      /* wcol_regular.inner (assombri) */
+  --sunk:#232323;        /* space_outliner.space.back (assombri) */
+  --cols:#2f2f2f;        /* space_spreadsheet.space.header */
+  --row-hover:#323232;   /* space_outliner.row_alternate (éclairci) */
+  --row-sel:#334d80;     /* space_outliner.selected_highlight */
+  --stripe-a:#2b2b2b;    /* space_outliner.space.back */
+  --stripe-b:#282828;    /* space_outliner.row_alternate */
+  --canvas:#1d1d1d;      /* space_node.space.back */
+  --dot:#363636;         /* space_node.grid */
+  --btn:#545454;         /* wcol_regular.inner */
+  --btn-hi:#636363;      /* wcol_regular.inner (survol, +6 %) */
+  --btn-line:#3d3d3d;    /* wcol_regular.outline */
+  --tool:#3d3d3d;        /* wcol_tool.inner */
+  --tool-hi:#474747;
+  --field:#1d1d1d;       /* wcol_text.inner */
+  --track:#1c1c1c;       /* wcol_progress.inner */
+  --sel:#4772b3;         /* wcol_regular.inner_sel */
+  --sel-hi:#7aa2e0;      /* wcol_regular.inner_sel (éclairci) */
+  --sel-line:#3a5e96;
+  --sel-hover:#5280c2;
+  --sel-soft:#2a3a55;
+  --menu:rgba(24,24,24,.98);  /* wcol_menu_back.inner */
+  --menu-line:#2e2e2e;        /* wcol_menu_back.outline */
+  --overlay:rgba(38,38,38,.92); /* wcol_tooltip.inner */
+  --text:#e6e6e6;        /* wcol_regular.text */
+  --text-2:#b3b3b3;      /* space_properties.space.text */
+  --text-3:#858585;      /* space_properties.space.text (atténué) */
+  --on-sel:#ffffff;      /* wcol_regular.text_sel */
+  --play:#2c4a78; --play-hi:#365a91; --play-line:#38609a; --play-t:#dbe7ff;   /* space_sequencer.movie_strip */
+  --alert:#6e2f33; --alert-hi:#7d363b; --alert-line:#5a2528; --alert-t:#ffdadc; /* user_interface.wcol_state.inner_changed (rouge) */
+  --ok:#3a5a49; --ok-hi:#446854; --ok-line:#2f4a3c; --ok-t:#daf3e5;
+  --you-bg:#22314a; --you-line:#2f4566; --you-t:#b3cfff;
+  --rtk-t:#f4a1a5; --wip-t:#efc68c; --live-t:#9fdcbc;
+  --node:#303030;        /* space_node.node_backdrop */
+  --node-asset:#24607f;  /* space_node.converter_node */
+  --node-shot:#4a3f2a;   /* space_node.output_node (adouci) */
+  --node-old:#5a2a30;    /* space_node.output_node */
+  --node-edge:#1a1a1a; --sock:#a1a1a1; --wire-edge:#111; --wire:#9a9a9a;
+  /* États : space_action.keyframe_* adoucis */
+  --st-todo:#5c5c5c; --st-wip:#e0a24a; --st-done:#5fb88a; --st-val:#b88ad4; --st-sup:#d6bfe6; --st-old:#8d7c98; --st-rtk:#e5575f; --st-you:#6ea4ff; --st-wait:#9a9a9a;
+  --shadow:rgba(0,0,0,.5);
+  --ui:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+:root[data-ui="light"]{
+  color-scheme:light;
+  --screen:#8c8c8c; --area:#d6d6d6; --head:#cbcbcb; --box:#e2e2e2; --box-2:#ececec; --line:#bcbcbc; --line-2:#adadad; --line-3:#9a9a9a;
+  --sunk:#c6c6c6; --cols:#cfcfcf; --row-hover:#dedede; --row-sel:#a9bfe3; --stripe-a:#d6d6d6; --stripe-b:#cecece;
+  --canvas:#b8b8b8; --dot:#a6a6a6; --btn:#f0f0f0; --btn-hi:#ffffff; --btn-line:#9c9c9c; --tool:#dcdcdc; --tool-hi:#e8e8e8;
+  --field:#fafafa; --track:#c2c2c2; --sel:#5680c2; --sel-hi:#3d66a8; --sel-line:#4670b0; --sel-hover:#6a91cf; --sel-soft:#c4d4ee;
+  --menu:rgba(238,238,238,.98); --menu-line:#b5b5b5; --overlay:rgba(232,232,232,.95);
+  --text:#1b1b1b; --text-2:#3e3e3e; --text-3:#6a6a6a; --on-sel:#ffffff;
+  --play:#c7d7f1; --play-hi:#b6cbec; --play-line:#8fa9d6; --play-t:#1d3a6b;
+  --alert:#efc2c4; --alert-hi:#e8b0b3; --alert-line:#d39a9d; --alert-t:#6b1a20;
+  --ok:#c4e3d1; --ok-hi:#b2dbc3; --ok-line:#93c4a8; --ok-t:#1c4a31;
+  --you-bg:#d3e0f5; --you-line:#9fb8e0; --you-t:#2557ad;
+  --rtk-t:#b32f38; --wip-t:#8a5a10; --live-t:#1f6b45;
+  --node:#e6e6e6; --node-asset:#86b6cf; --node-shot:#d8c49a; --node-old:#e2a4a9; --node-edge:#8a8a8a; --sock:#6a6a6a; --wire-edge:#f5f5f5; --wire:#5a5a5a;
+  --st-todo:#9a9a9a; --st-wip:#d48a1c; --st-done:#3f9e6f; --st-val:#9a62c0; --st-sup:#b893d4; --st-old:#8a7395; --st-rtk:#d43d46; --st-you:#2f6fe0; --st-wait:#8a8a8a;
+  --shadow:rgba(0,0,0,.18);
+}

@@ -1,7 +1,7 @@
 """The snapshot page's sources put together (lib/snapshot_page.py
 render_page()): the demo fixture rendered, every part listed is there and every file of css/ and js/
 is listed, the page has no placeholder left, its script parses, and T()
-(js/02-i18n.js) says the English, the French, values and plurals. The
+(js/core/01-i18n.js) says the English, the French, values and plurals. The
 script's checks need Node; without it they are skipped (said so).
 
     python3 tests/test_snapshot_page.py
@@ -25,7 +25,8 @@ def main() -> None:
     fake_bpy.install()
     page = importlib.import_module(f"{fake_bpy.load().__name__}.lib.snapshot_page")
     for folder, parts in (("css", page.CSS_PARTS), ("js", page.JS_PARTS)):
-        on_disk = {p.name for p in (page.PAGE_DIR / folder).iterdir() if p.is_file()}
+        base = page.PAGE_DIR / folder
+        on_disk = {p.relative_to(base).as_posix() for p in base.rglob("*") if p.is_file()}
         assert len(set(parts)) == len(parts), f"{folder}: a part listed twice"
         assert set(parts) == on_disk, (folder, sorted(set(parts) ^ on_disk))
     demo = json.loads((Path(__file__).parent / "fixtures" / "snapshot_demo.json").read_text(encoding="utf-8"))
@@ -36,12 +37,12 @@ def main() -> None:
     if not node:
         print("OK: snapshot page (Node not found: its script not run)")
         return
-    js = page._JS_COMMENTS.sub("", page._parts("js", page.JS_PARTS))
+    js = "(()=>{\n" + page._parts("js", page.JS_PARTS) + "})();\n"
     with tempfile.TemporaryDirectory() as tmp:
         src = Path(tmp) / "page.js"
         src.write_text(js, encoding="utf-8")
         subprocess.run([node, "--check", str(src)], check=True)
-        i18n = (page.PAGE_DIR / "js" / "02-i18n.js").read_text(encoding="utf-8")
+        i18n = (page.PAGE_DIR / "js" / "core" / "01-i18n.js").read_text(encoding="utf-8")
         cases = [
             ["en", "Opening…", None, "Opening…"],
             ["fr", "Opening…", None, "Ouverture…"],

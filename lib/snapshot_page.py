@@ -24,47 +24,32 @@ from .snapshot import (
 
 PAGE_DIR = Path(__file__).resolve().parent.parent / "templates" / "snapshot"
 
-# The page's sources, in this order, one stylesheet and one script in the
-# page: the script one function -- js/01-data.js opens it, the last part
-# closes it --, after the state engine's twin (00-status.js, lib/status.py)
-# and the words (02-i18n.js, T()), both global. A part's name says what it
-# holds; their order is the page's (a part may use what an earlier one
-# defined, as one file did).
-CSS_PARTS = (
-    "10-base.css",
-    "20-header.css",
-    "21-list.css",
-    "22-panel.css",
-    "23-review-bar.css",
-    "24-player.css",
-    "25-review.css",
-    "30-live.css",
-)
+# The page's sources, in this order (templates/snapshot/css/, js/): one
+# stylesheet and one script in the page, the script inside one function
+# (page.html). js/core/ holds the data, the state and the actions, shared
+# by the desktop's views (js/desktop/) and the phone's (js/mobile/); the
+# component sheet (kit/, tools/snapshot_kit.py) is built from the same
+# parts, without the events and the start.
+CSS_PARTS = ("10-tokens.css", "20-components.css", "30-mobile.css")
 JS_PARTS = (
-    "00-status.js",
-    "02-i18n.js",
-    "01-data.js",
-    "10-marks.js",
-    "20-review-state.js",
-    "21-badges.js",
-    "22-header.js",
-    "23-list.js",
-    "24-find.js",
-    "25-menus.js",
-    "30-media.js",
-    "31-player.js",
-    "32-watch.js",
-    "40-breakdown.js",
-    "50-panel.js",
-    "51-keys.js",
-    "52-review.js",
-    "60-start.js",
-    "70-live.js",
-    "71-farm.js",
-    "72-bulk.js",
-    "73-share.js",
-    "74-live-panel.js",
-    "75-live-send.js",
+    "core/00-data.js",
+    "core/01-i18n.js",
+    "core/05-mode.js",
+    "core/10-status.js",
+    "core/20-actions.js",
+    "core/40-player.js",
+    "desktop/20-top-tree.js",
+    "desktop/21-list.js",
+    "desktop/22-detail.js",
+    "desktop/23-farm.js",
+    "desktop/24-links.js",
+    "desktop/25-wide.js",
+    "desktop/26-shell.js",
+    "desktop/27-review.js",
+    "desktop/28-dialogs.js",
+    "desktop/29-events.js",
+    "mobile/50-mobile.js",
+    "boot.js",
 )
 
 
@@ -80,11 +65,8 @@ def _parts(folder: str, names) -> str:
 _PLACEHOLDER = re.compile(r"\{\{([A-Z0-9_]+)\}\}")
 _VIEWBOX = re.compile(r'viewBox="([^"]+)"')
 _PATH = re.compile(r'<path[^>]*\sd="([^"]+)"')
-# The sources' comments, left out of every page: each on its own lines,
-# never inside a string (page.js has no multi-line string) -- so no
-# minifier needed. A line of page.js starting "//", a block "/* */" at a
-# line's start; any "/* */" in page.css (no string of it holds one).
-_JS_COMMENTS = re.compile(r"^(?:[ \t]*//[^\n]*|/\*.*?\*/[ \t]*)\n", re.M | re.S)
+# The stylesheet's comments, left out of every page (no string of it
+# holds "/*"). The script's stay: its template strings span lines.
 _CSS_COMMENTS = re.compile(r"/\*.*?\*/\n?", re.S)
 # Blender's icons (templates/snapshot/icons, tools/clean_icons.py).
 _ICON = re.compile(r'<svg[^>]*\sviewBox="([^"]+)"[^>]*>(.*)</svg>', re.S)
@@ -119,7 +101,8 @@ def render_page(data: dict) -> str:
     values = {
         "TITLE": _escape(title),
         "CSS": _CSS_COMMENTS.sub("", _parts("css", CSS_PARTS)),
-        "JS": _JS_COMMENTS.sub("", _parts("js", JS_PARTS)),
+        # Kept whole: its template strings may hold a line starting "//".
+        "JS": _parts("js", JS_PARTS),
         "FONT": base64.b64encode((PAGE_DIR / "wordmark.ttf").read_bytes()).decode("ascii"),
         "LOGO_VB": viewbox,
         # The <use> of a symbol draws it from 0 0: its box, not the source's.
