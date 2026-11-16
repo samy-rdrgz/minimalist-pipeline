@@ -316,7 +316,11 @@ on an older stable: a dashed violet ring round the diamond. */
 .pz{position:absolute;right:-2px;bottom:-2px;width:11px;height:11px;border-radius:50%;background:var(--surface)}
 .pz::before{content:"";position:absolute;left:2.5px;top:2.5px;width:6px;height:6px;border-radius:1.5px;transform:rotate(45deg);box-sizing:border-box}
 .pz.s-rework::before{border:1.5px solid var(--wip);background:linear-gradient(135deg,transparent 50%,var(--wip) 50%) border-box}
-.mk-old{position:absolute;left:1.5px;top:1.5px;width:19px;height:19px;border:1.5px dashed var(--val-f);border-radius:4px;transform:rotate(45deg);box-sizing:border-box;pointer-events:none}
+/* Validated on an older stable: a violet ring, the diamond's own size and
+corners (a shadow round an empty copy of it -- a reworked diamond is a
+mask, it would cut a shadow of its own), a ground's gap between. */
+.cap .g.old::after,.m.old::after{content:"";position:absolute;left:4px;top:4px;width:14px;height:14px;border-radius:3px;transform:rotate(45deg);box-sizing:border-box;z-index:-2;pointer-events:none;box-shadow:0 0 0 1.5px var(--surface),0 0 0 3.5px var(--val-f)}
+.pz.old::before{box-shadow:0 0 0 1px var(--surface),0 0 0 2.5px var(--val-f)}
 .m.na::before{display:none}
 /* An open retake: a post-it under the diamond's left, straight, on one
 line -- red from a validation role, outlined from the team; their number
@@ -512,7 +516,7 @@ body.resizing .wrap,body.resizing .panel{transition:none!important}
 .big{display:block;width:100%;padding:0;border:0;background:none;cursor:zoom-in}
 .big img{display:block;width:100%;height:auto;max-height:40vh;object-fit:contain;border-radius:5px}
 .shotsel{display:flex;gap:6px;margin-top:8px;overflow-x:auto;scrollbar-width:thin;padding-bottom:4px}
-.shotsel button{flex:0 0 96px;padding:0 0 2px;border:2px solid transparent;border-radius:5px;background:none;font-size:11px;color:var(--ink-2);min-height:var(--tap)}
+.shotsel button{display:block;width:100%;padding:0 0 2px;border:2px solid transparent;border-radius:5px;background:none;font-size:11px;color:var(--ink-2);min-height:var(--tap)}
 .shotsel button .frame{margin-bottom:3px}
 .shotsel button[aria-pressed="true"]{border-color:var(--ink);color:var(--ink);font-weight:600}
 .desc{margin:0 0 14px;font-size:14px;line-height:1.5;white-space:pre-line}
@@ -1230,3 +1234,27 @@ body.live #rv-send{display:none}
 .rl{margin:4px 0 8px;padding:6px 10px;border-radius:6px;font-size:12px;overflow-wrap:anywhere;background:var(--sunk);color:var(--ink-2)}
 .rl.done{background:var(--accent-bg);color:var(--done)}
 .rl.failed{background:var(--rtk-bg);color:var(--rtk)}
+/* An open note on a department: the retake's post-it, quiet */
+.pi-note{background:var(--surface);border-color:var(--line2);color:var(--ink-2);box-shadow:none}
+/* A block's shot cards: picture and name (a click plays it), its version under */
+.shotsel .sc{flex:0 0 96px;display:flex;flex-direction:column;gap:3px;min-width:0}
+.shotsel .frame{position:relative}
+.sc-play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;text-shadow:0 1px 3px rgba(0,0,0,.6);opacity:0;transition:opacity .12s}
+.shotsel button:hover .sc-play,.shotsel button:focus-visible .sc-play{opacity:1}
+.shotsel .sc select{width:100%;min-width:0;height:22px;padding:0 2px;border:1px solid var(--outline);border-radius:4px;background:var(--btn);color:var(--ink-2);font:10px var(--mono);text-overflow:ellipsis}
+/* With a mouse: denser -- the list's rows, the panel's departments and
+their ✓ ✕, its folded sections, its small buttons. A finger keeps its
+sizes (pointer:coarse). */
+@media (pointer:fine){
+.row{min-height:60px}
+.dh{min-height:40px;gap:8px}
+.dh .rvb{gap:6px}
+.dh .rvb button{width:28px;height:28px;font-size:13px}
+.rvb button{width:28px;height:28px;font-size:13px}
+.p-block{padding:6px 0}
+.fset{margin:6px 0 2px}
+.fset-b{min-height:34px}
+.act{min-height:28px;padding:0 10px}
+.g-h{padding-top:8px;padding-bottom:8px}
+}
+.facts .rf-t{margin-top:0}

@@ -612,3 +612,19 @@ Elle vient en dernier : elle repose sur le moteur d'états (phase 3), et « mes 
 
 **Question à trancher** : le snapshot hors ligne sur iPad dans Documents reste-t-il un usage ? Avec la page live et *Share with a phone*, l'iPad au studio passe par Safari. Si Documents ne sert plus qu'en déplacement, voire plus du tout, `--sat` et le `confirm()` remplacé par `ask()` deviennent des cas à part.
 
+
+### 8.6 La page : hiérarchie, pour un nouvel utilisateur (proposition, à trancher)
+
+*Vu sur le snapshot du 16/11 de lapins_3_oreilles, à 1 600 px de large.*
+
+**Fait le 16/11** : un bloc de shots = une rangée de cartes (vignette et nom, un clic lance ce shot ; sa version dessous en live) au lieu de trois sections ; *Last render* d'un bloc replié sur une ligne ; une note ouverte sur un département = une étiquette NOTE sous son losange (une RTK reste prioritaire) ; l'anneau « validé sur un ancien stable » redessiné (ombre du losange lui-même : alignée, 2 px) ; plus serré à la souris (`pointer:fine` : lignes, départements du panneau, ✓ ✕, sections repliées) ; *Previous / Next* passent par les séquences repliées (et les déplient) ; le bandeau de filtres suit la hauteur de l'en-tête (un `ResizeObserver`, il se décollait) ; un clic dans la liste d'un snapshot ne lève plus d'erreur (`DATA.farm` absent).
+
+**Proposé, par ordre d'effet :**
+
+1. **L'en-tête sur une ligne.** À 1 600 px, il passe sur deux (titre, chiffres, recherche, puis cinq boutons). Dans le menu ⋯ : *Videos folder…* et *?* (légende et raccourcis). Restent : projet et date, chiffres, recherche, la cloche (live), *Review*, ⋯.
+2. **Les filtres : trois visibles, le reste dans un menu.** Restent visibles : *Retakes*, *Open notes*, *To validate*. Dans *Filters ▾* (avec le nombre de filtres actifs) : départements, *Render outdated*, *In the farm*, *Waiting*, *Mine*… Aujourd'hui la barre défile sur le côté et cache la moitié des filtres.
+3. **Un réglage « Details » (⋯ › *Show details*, gardé par le navigateur), éteint par défaut.** Éteint, le panneau montre l'essentiel : lecteur et cartes, départements avec ✓ ✕, notes. Allumé, il ajoute : *Render*, *Linked files*, *File settings*, les versions à regarder, *Last render*, *Blender file*, *Work time*. Un seul interrupteur, plutôt que des ⋯ dans chaque section : on sait où chercher, et l'utilisateur avancé l'allume une fois.
+4. **La ligne des raccourcis en bas du panneau** (← → V X R Esc) : seulement dans la légende (*?*), ou affichée les premières fois puis cachée. Elle prend une ligne à chaque fichier.
+5. **Une aide de démarrage** à la première ouverture (trois phrases : la liste, un losange = un département, *Review* pour valider et noter), refermable, gardée par le navigateur. Le *?* la rouvre.
+
+**À ne pas faire** : des ⋯ par section ou par ligne. Chaque action se cache alors à un endroit différent, ce qui est pire pour un nouvel utilisateur qu'un écran chargé mais stable.

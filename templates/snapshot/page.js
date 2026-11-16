@@ -68,7 +68,9 @@ function symCls(it,d){var o=validAt(it,d);return o?(o.role===META.role?'s-prod':
 // done in your review): the clock or the arrow in the diamond's place, its
 // state a dot on it. Validated on an older stable: a dashed violet ring.
 function flagOf(it,d){var f=(it.flags||{})[d]||{};return f.waiting?'wait':f.to_redo&&!peek(it).synced[d]?'redo':'';}
-function marks(it,d){var o=it.ok[d];return o&&o.old?'<span class="mk-old"></span>':'';}
+// Validated on an older stable (to review again): a violet ring round the
+// diamond -- the diamond's own shadow, so it follows its shape exactly.
+function oldMark(it,d){var o=it.ok[d];return o&&o.old?' old':'';}
 // Its capsule's words, two short lines: the state with its version and
 // the validation; then a stage's flags (lib/status.py stage_flags()).
 function capWords(it,d){var s=it.states[d],o=it.ok[d],v=validAt(it,d),f=(it.flags||{})[d]||{},w;
@@ -82,6 +84,10 @@ return [w,[f.waiting?'waiting: '+f.waiting:'',f.to_redo?'redo: '+f.to_redo:''].f
 function rtkTag(it,d){var r=it.rtk[d];if(!r)return null;var n=(it.rtkNotes[d]||[]).length||1;
 return ['<span class="pi pi-'+(r==='team'?'team':'role')+'">'+(n>1?n+' ':'')+'RTK</span>',
 (n>1?n+' open retakes':'an open retake')+(r==='team'?' from the team':' from a validation role')];}
+// An open note on a department (not a retake): a quiet post-it in the
+// same place -- a retake's wins the room, the note said in its words.
+function noteTag(it,d){var n=it.dnotes[d];if(!n)return null;
+return ['<span class="pi pi-note">'+(n>1?n+' ':'')+'NOTE</span>',n>1?n+' open notes':'an open note'];}
 // A department's cell: its symbol, its capsule on hover or focus, its
 // retake's post-it, your review's say (not in the panel: its own is by
 // the state, noYou). Not required: empty.
@@ -89,12 +95,12 @@ function cell(it,d,noYou,noRtk){var rq=peek(it).req[d];
 // Required or not any more in your review: shown as it'll be, + / − you.
 if(!it.states[d])return rq?'<span class="cell req-add" tabindex="0" aria-label="'+esc(cap(d))+': required in your review"><span class="cap"><span class="g s-todo"></span><span class="lab">REQUIRED IN YOUR REVIEW</span></span>'+
 (noYou?'':'<span class="you nt" title="Required in your review">+ YOU</span>')+'</span>':'<span class="cell na" aria-label="'+esc(cap(d))+': not required"></span>';
-var w=capWords(it,d),r=rtkTag(it,d);if(rq===false)w=[w[0],'not required any more in your review'];
-return '<span class="cell'+(rq===false?' req-rm':'')+'" tabindex="0" aria-label="'+esc(cap(d)+': '+(w[0]+(w[1]?' · '+w[1]:'')).toLowerCase()+(r?', '+r[1]:''))+'"><span class="cap">'+(flagOf(it,d)?'<span class="g fl fl-'+flagOf(it,d)+'"><svg class="fi" viewBox="0 0 16 16"><use href="#i-'+flagOf(it,d)+'"/></svg><i class="pz '+symCls(it,d)+'"></i>':
-'<span class="g '+symCls(it,d)+'">'+(validAt(it,d)?'✓':''))+marks(it,d)+'</span><span class="lab">'+esc(w[0])+(w[1]?'<span class="l2">'+esc(w[1])+'</span>':'')+'</span></span>'+(r&&!noRtk?r[0]:'')+(noYou?'':rq===false?'<span class="you nt" title="Not required any more in your review">− YOU</span>':you(it,d)||(peek(it).synced[d]?'<span class="you sd" title="Still done in your review: its work holds">✓ YOU</span>':''))+'</span>';}
+var w=capWords(it,d),r=rtkTag(it,d),nt=noteTag(it,d);if(rq===false)w=[w[0],'not required any more in your review'];
+return '<span class="cell'+(rq===false?' req-rm':'')+'" tabindex="0" aria-label="'+esc(cap(d)+': '+(w[0]+(w[1]?' · '+w[1]:'')).toLowerCase()+(r?', '+r[1]:'')+(nt?', '+nt[1]:''))+'"><span class="cap">'+(flagOf(it,d)?'<span class="g fl fl-'+flagOf(it,d)+'"><svg class="fi" viewBox="0 0 16 16"><use href="#i-'+flagOf(it,d)+'"/></svg><i class="pz '+symCls(it,d)+oldMark(it,d)+'"></i>':
+'<span class="g '+symCls(it,d)+oldMark(it,d)+'">'+(validAt(it,d)?'✓':''))+'</span><span class="lab">'+esc(w[0])+(w[1]?'<span class="l2">'+esc(w[1])+'</span>':'')+'</span></span>'+(noRtk?'':r?r[0]:nt?nt[0]:'')+(noYou?'':rq===false?'<span class="you nt" title="Not required any more in your review">− YOU</span>':you(it,d)||(peek(it).synced[d]?'<span class="you sd" title="Still done in your review: its work holds">✓ YOU</span>':''))+'</span>';}
 function okTag(it,d){var o=it.ok[d];if(!o)return '';
 return '<span class="ok'+(o.old?' old':'')+'" title="'+esc(o.tip)+'">✓ '+esc(o.role)+'</span>';}
-function rkTag(it,d){var r=rtkTag(it,d);return r?r[0]:'';}
+function rkTag(it,d){var r=rtkTag(it,d)||noteTag(it,d);return r?r[0]:'';}
 // The same, in a line of text (the compact list, the panel).
 function under(it,d){return '<span class="inl">'+rkTag(it,d)+okTag(it,d)+you(it,d)+'</span>';}
 // "With your review": a file's Done and Validated as if the review went in
@@ -352,7 +358,9 @@ for(var f in state.f)if(state.f[f]&&!FILTERS[f](it,state.dep))return false;
 return true;}
 function avg(a){var n=a.filter(function(x){return x!=null;});return n.length?n.reduce(function(s,x){return s+x;},0)/n.length:null;}
 function filtering(){return !!(state.q||state.dep||Object.keys(state.f).some(function(f){return state.f[f];}));}
-var visible=[];
+// visible: the rows shown; navList: every row of the list in its order,
+// folded groups' too -- Previous / Next go through those, unfolding.
+var visible=[],navList=[];
 function drawTabs(){$('seg').innerHTML=tabs.map(function(t){return '<button type="button" data-tab="'+t[0]+'" aria-pressed="'+(t[0]===state.tab)+'">'+t[1]+
 (t[0]==='breakdown'?'':t[0]==='farm'?'<span>'+(DATA.farm.jobs||[]).filter(function(j){return j.state!=='finished';}).length+'</span>':'<span>'+D.filter(function(it){return it.tab===t[0];}).length+'</span>')+'</button>';}).join('');
 var deps=depsOf(state.tab).filter(function(d){return D.some(function(it){return it.tab===state.tab&&d in it.states;});});
@@ -394,8 +402,8 @@ function render(){chipCounts();barFade();
 // Breakdown: the figures in place of the list, no filter to apply.
 document.body.classList.toggle('tab-bd',state.tab==='breakdown'||state.tab==='farm');
 $('sch-bar').innerHTML=state.tab==='breakdown'?schedPill():'';
-if(state.tab==='breakdown'){visible=[];$('list').innerHTML='<div class="bd">'+stats()+'</div>';countBar();return;}
-if(state.tab==='farm'){visible=[];$('list').innerHTML=farmHtml();growBars();countBar();return;}
+if(state.tab==='breakdown'){visible=[];navList=[];$('list').innerHTML='<div class="bd">'+stats()+'</div>';countBar();return;}
+if(state.tab==='farm'){visible=[];navList=[];$('list').innerHTML=farmHtml();growBars();countBar();return;}
 var items=D.filter(function(it){return match(it);});
 var deps=depsOf(state.tab).filter(function(d){return items.some(function(it){return d in it.states||peek(it).req[d];});});
 // Many departments: narrower columns, never past the page.
@@ -406,14 +414,14 @@ var cols='104px minmax(0,1fr) '+deps.map(function(){return w+'px';}).join(' ')+(
 rowDeps=deps;rowCols=cols;
 var groups={},order=[];
 items.forEach(function(it){if(!groups[it.group]){groups[it.group]=[];order.push(it.group);}groups[it.group].push(it);});
-visible=[];var filt=filtering();
+visible=[];navList=[];var filt=filtering();
 var h=order.map(function(g){
 var all=groups[g],tr=all.filter(function(it){return it.tracked;}),un=all.filter(hiddenFile),act=all.filter(function(it){return !hiddenFile(it);});
 var done=avg(tr.map(function(i){return i.done;})),val=avg(tr.map(function(i){return i.valid;}));
 var key=state.tab+g,closed=state.open[key]===false||(state.open[key]===undefined&&!act.length&&!filt),shown=state.showHidden||state.untracked[key]||filt;
 // The hidden shown: back in their place, by name -- not after the rest.
 var rows=shown?all:act;
-if(!closed)rows.forEach(function(it){visible.push(it.i);});
+rows.forEach(function(it){navList.push(it.i);if(!closed)visible.push(it.i);});
 var ini=initials(deps);
 var head='<div class="thead" style="--cols:'+cols+'"><span></span><span></span>'+deps.map(function(d){return '<span class="d" title="'+esc(cap(d))+'" data-ini="'+esc(ini[d])+'">'+esc(cap(d))+'</span>';}).join('')+
 (rowFarm?'<span class="fc-h" title="In the farm, or a render to check">Farm</span>':'')+'<span style="text-align:right">Done</span></div>';
@@ -535,6 +543,10 @@ addEventListener('scroll',function(){$('hdr').classList.toggle('stuck',scrollY>4
 // The header and the filters stay at the top; the column names under them.
 function barHeight(){var r=document.documentElement.style;r.setProperty('--hdr-h',$('hdr').offsetHeight+'px');r.setProperty('--bar-h',bar.offsetHeight+'px');}
 addEventListener('resize',barHeight);
+// The header's height moves without a resize (the live pill, the figures,
+// the review's name, a line wrapping): measured again each time -- the
+// filters stood apart from it, the list showing between.
+if(window.ResizeObserver){var hdrRO=new ResizeObserver(barHeight);hdrRO.observe($('hdr'));hdrRO.observe(bar);}
 
 /* ---------- find: filters the list, and jumps to any file ---------- */
 var sugg=$('sugg'),hi=-1,found=[];
@@ -1148,12 +1160,16 @@ var nvid=allVideos(it).length;
 var h='<div class="p-media">'+(nvid?'<div class="pv" id="pv"></div>':it.thumb?'<button type="button" class="big" id="bigb" aria-label="Full size"><img id="bigimg" alt="" src="'+img(it.thumb)+'"></button>':'<span class="thumb none"><span class="frame"></span></span>')+
 // Each shot's picture; the block's own only when it's none of theirs (its
 // first shot's, most often: the same picture twice).
-(it.shot_thumbs.length?'<div class="shotsel">'+(it.thumb&&!it.shot_thumbs.some(function(s){return s[1]===it.thumb;})?[['whole block',it.thumb]]:[]).concat(it.shot_thumbs).map(function(s){
-return '<button type="button" data-src="'+(s[1]?img(s[1]):'')+'" aria-pressed="'+(!!s[1]&&s[1]===it.thumb)+'"'+(s[1]?'':' disabled')+'><span class="frame">'+(s[1]?'<img alt="" src="'+img(s[1])+'">':'')+'</span>'+esc(s[0])+(s[1]?'':' · not rendered')+'</button>';}).join('')+'</div>':'')+
+(it.shot_thumbs.length?'<div class="shotsel">'+(function(){var byShot={};vLines(it).forEach(function(r){if(r.shots)byShot[r.shots]=r;});
+return (it.thumb&&!it.shot_thumbs.some(function(s){return s[1]===it.thumb;})?[['whole block',it.thumb]]:[]).concat(it.shot_thumbs).map(function(s){
+// One card per shot: its picture and name -- a click plays it (shows it,
+// without a video) --, and the version of it to watch under them.
+return '<div class="sc"><button type="button" data-shot="'+esc(s[0])+'" data-src="'+(s[1]?img(s[1]):'')+'" aria-pressed="'+(!!s[1]&&s[1]===it.thumb)+'"'+(s[1]?'':' disabled')+' title="'+esc(nvid?'Play '+s[0]:s[0])+'"><span class="frame">'+(s[1]?'<img alt="" src="'+img(s[1])+'">':'')+(nvid&&s[1]?'<span class="sc-play" aria-hidden="true">▶</span>':'')+'</span>'+esc(s[0])+(s[1]?'':' · not rendered')+'</button>'+
+(byShot[s[0]]?vSelect(it,byShot[s[0]],true):'')+'</div>';}).join('');})()+'</div>':'')+
 (function(){var n=allVideos(it).length;
 // The file's videos: ▶ in the header. Reviewing, Last render is folded:
 // each shot's video stays one tap away here.
-return (n>1?'<div class="vlist review-only">'+it.renders.map(function(r,k){return [r,k];}).filter(function(x){return videosOf(it,x[0]).length;})
+return (n>1&&!it.shot_thumbs.length?'<div class="vlist review-only">'+it.renders.map(function(r,k){return [r,k];}).filter(function(x){return videosOf(it,x[0]).length;})
 .sort(function(a,b){return it.shots.indexOf(a[0].shot_list[0])-it.shots.indexOf(b[0].shot_list[0]);})
 .map(function(x){return '<button type="button" class="pl" data-play="'+x[1]+'">▶ '+esc(x[0].shots||'all shots')+'</button>';}).join('')+'</div>':'');})()+versionsHtml(it)+'</div>';
 // The description first: what the file is.
@@ -1166,7 +1182,11 @@ h+=notesBar(it)+'<div class="p-block major">'+wholeHtml(it,rv)+(deps.length?deps
 if(it.live)h+=(guest()?'':renderHtml(it))+checksHtml(it)+linksHtml(it);
 if(rv)h+=fileSettings(it,e);
 // Where it comes from: at the bottom, out of the way while reviewing.
-h+='<dl class="view-only facts"><dt>Last render</dt><dd>'+rendersHtml(it)+noVideo(it)+'</dd><dt>Blender file</dt><dd class="fileline">'+esc(it.file)+'.blend</dd>'+
+// A block's shots (its cards above play each): its renders folded under
+// one line -- how many shots, which versions.
+var lr=rendersHtml(it)+noVideo(it);if(it.shot_thumbs.length>1){var lf={};it.renders.forEach(function(r){if(r.folder)lf[r.folder]=1;});
+lr='<button type="button" class="rf-t" data-lrfold aria-expanded="'+LROPEN+'">'+(LROPEN?'▾':'▸')+' '+plural(it.shot_thumbs.length,'shot')+(Object.keys(lf).length?' <small>'+esc(Object.keys(lf).slice(0,3).join(', '))+(Object.keys(lf).length>3?'…':'')+'</small>':'')+'</button>'+(LROPEN?lr:'');}
+h+='<dl class="view-only facts"><dt>Last render</dt><dd>'+lr+'</dd><dt>Blender file</dt><dd class="fileline">'+esc(it.file)+'.blend</dd>'+
 // Its logged work time, every version and everyone: the file's, no one's.
 (it.work?'<dt>Work time</dt><dd class="faint" title="Sessions that saved, every version, everyone together">'+dur(it.work)+'</dd>':'')+'</dl>';
 // The player's video kept as the panel is redrawn (moved, not made again).
@@ -1178,7 +1198,7 @@ if(nvid){if(PL&&PL.it!==it&&$('wl').hidden){PL.el.pause();PL=null;}
 if($('wl').hidden){playerFor(it);PL.el.hidden=false;mount($('pv'),'panel');}else $('pv').innerHTML='<div class="pv-away">In Watch large</div>';}
 document.body.classList.add('panel-open');lockPage('panel',phone.matches||document.body.classList.contains('panel-full'));fitBar();var p=$('panel');p.hidden=false;
 requestAnimationFrame(function(){p.classList.add('on');$('scrim').classList.add('on');});
-var pos=visible.indexOf(i);$('p-prev').disabled=$('m-prev').disabled=pos<=0;$('p-next').disabled=$('m-next').disabled=pos<0||pos>=visible.length-1;
+var pos=navList.indexOf(i);$('p-prev').disabled=$('m-prev').disabled=pos<=0;$('p-next').disabled=$('m-next').disabled=pos<0||pos>=navList.length-1;
 document.querySelectorAll('.row.sel').forEach(function(x){x.classList.remove('sel');});
 var s=$('list').querySelector('.row[data-i="'+i+'"]');if(s){s.classList.add('sel');
 // Beside the list: the file shown stays in sight as ← → go through it
@@ -1245,7 +1265,9 @@ document.body.classList.remove('panel-open','typing','kb');lockPage('panel',fals
 setTimeout(function(){if(cur==null)p.hidden=true;},220);document.querySelectorAll('.row.sel').forEach(function(x){x.classList.remove('sel');});
 try{history.replaceState(null,'',location.pathname+location.search);}catch(err){}
 if(lastFocus)lastFocus.focus({preventScroll:true});lastFocus=null;}
-function step(n){var pos=visible.indexOf(cur);if(pos<0)return;var j=visible[pos+n];if(j!=null){openPanel(j);$('p-body').scrollTop=0;}}
+function step(n){var pos=navList.indexOf(cur);if(pos<0)return;var j=navList[pos+n];if(j==null)return;
+// In a folded group: unfolded, as a jump to it would.
+if(visible.indexOf(j)<0){state.open[state.tab+D[j].group]=true;render();}openPanel(j);$('p-body').scrollTop=0;}
 $('p-close').addEventListener('click',closePanel);$('p-tab').addEventListener('click',closePanel);
 $('p-open').addEventListener('click',function(){if(lastShown!=null)openPanel(lastShown);});$('scrim').addEventListener('click',closePanel);
 $('p-prev').addEventListener('click',function(){step(-1);});$('p-next').addEventListener('click',function(){step(1);});
@@ -1341,7 +1363,15 @@ if(coarse.matches&&ev.target.closest('.rvb .ko-b,#add-gen,[data-reply],#add-desc
 if((t=ev.target.closest('[data-play]'))){var vv=videosOf(it,it.renders[+t.dataset.play])[0],p=playerFor(it);if(!vv||!p)return;
 for(var k=0;k<p.list.length;k++)if(p.list[k].name===vv.name){if(k!==p.at)load(k);break;}p.el.play();var pv=$('pv');if(pv)pv.scrollIntoView({block:'nearest'});return;}
 if(ev.target.closest('#bigb'))return lightbox('<img alt="" src="'+$('bigimg').src+'">',esc(it.name));
-if((t=ev.target.closest('.shotsel button'))){$('bigimg').src=t.dataset.src;t.parentNode.querySelectorAll('button').forEach(function(x){x.setAttribute('aria-pressed',x===t);});return;}
+if(ev.target.closest('[data-vfold]')){VOPEN=!VOPEN;return refresh();}
+if(ev.target.closest('[data-lrfold]')){LROPEN=!LROPEN;return refresh();}
+if((t=ev.target.closest('.shotsel button'))){t.closest('.shotsel').querySelectorAll('button').forEach(function(x){x.setAttribute('aria-pressed',x===t);});
+// With a player: that shot's video, playing (the strip is the shots'
+// list, no ▶ list beside it); without: its picture.
+if(!$('bigimg')){var sk=-1;it.renders.some(function(r,k){if((r.shot_list||[]).indexOf(t.dataset.shot)>=0&&videosOf(it,r).length){sk=k;return true;}return false;});
+if(sk<0)return toast('No video of '+t.dataset.shot+' to play.');var sv=videosOf(it,it.renders[sk])[0],sp=playerFor(it);if(!sv||!sp)return;
+for(var q=0;q<sp.list.length;q++)if(sp.list[q].name===sv.name){if(q!==sp.at)load(q);break;}sp.el.play();return;}
+$('bigimg').src=t.dataset.src;return;}
 // A thread's line: its buttons act, they don't open it; the line itself
 // opens or closes it, kept so in this browser.
 var sm=ev.target.closest('summary');if(sm&&ev.target.closest('button'))ev.preventDefault();
@@ -1830,7 +1860,7 @@ if((b=e.target.closest('[data-wstop]'))&&wk){var name=wk.querySelector('.jf').te
 if(!b.dataset.wstop)return farmPost('stop_worker','',uuid);
 return askMany(name+' is rendering right now. After this frame: the frame it\'s on is written, then it stops. Stop now: its frame in progress is lost, freed for another machine.',
 [['After this frame',function(){farmPost('stop_worker','',uuid,{now:false});}],['Stop now',function(){farmPost('stop_worker','',uuid,{now:true});},true]]);}
-var j=e.target.closest('.farm [data-job]'),id=j?j.dataset.job:'',job=(DATA.farm.jobs||[]).filter(function(x){return x.id===id;})[0];
+var j=e.target.closest('.farm [data-job]'),id=j?j.dataset.job:'',job=((DATA.farm||{}).jobs||[]).filter(function(x){return x.id===id;})[0];
 if((b=e.target.closest('[data-prio]'))&&job){e.preventDefault();var pv=Math.max(0,job.priority+(+b.dataset.prio));job.priority=pv;b.parentNode.querySelector('b').textContent=pv;return farmPost('priority',id,pv);}
 if((b=e.target.closest('.farm [data-open]'))&&id)return farmPost('open',id,b.dataset.open);
 if(!(b=e.target.closest('.farm [data-farm]')))return;e.preventDefault();var act=b.dataset.farm;
@@ -1889,11 +1919,18 @@ function relinkSend(files){livePost('relink',{files:files}).then(function(res){
 var sk=(res.skipped||[]).map(function(x){return x[0]+' ('+x[1]+')';}).join(', ');
 toast(res.ok?'Updating '+plural(res.started.length,'file')+' in the background'+(sk?' -- left: '+sk:'')+'.':'Not updated: '+(res.error||sk||'?'));}).catch(function(){toast('Blender doesn\'t answer.');});}
 // Live: every version with a video, to watch instead of the main render.
-function versionsHtml(it){if(!it.live)return '';var V=it.live.versions||{};
-var seen={};
-return it.renders.filter(function(r){var k=r.shots||'';if(seen[k])return false;seen[k]=1;return (V[k]||[]).length>1||((V[r.shots||'']||[]).length&&V[r.shots||''][0].video!==r.video);}).map(function(r){var k=r.shots||'',o=(PICKV[it.file]||{})[k];
-return '<label class="vsel">'+(k?'<span>'+esc(k)+'</span>':'')+'<select data-vline="'+esc(k)+'" aria-label="Version to watch"><option value="">Main · '+esc([r.folder,r.department].filter(Boolean).join(' · '))+'</option>'+
-V[k].map(function(v,n){return '<option value="'+n+'"'+(o&&o.video===v.video?' selected':'')+'>'+esc([v.folder,v.department,fmtDay(new Date(v.at*1000))].filter(Boolean).join(' · '))+'</option>';}).join('')+'</select></label>';}).join('');}
+// A block's shots: each its select in its card of the strip (shotCards());
+// the rest here -- more than one line folded under one.
+var VOPEN=false,LROPEN=false;
+function vLines(it){if(!it.live)return [];var V=it.live.versions||{},seen={};
+return it.renders.filter(function(r){var k=r.shots||'';if(seen[k])return false;seen[k]=1;return (V[k]||[]).length>1||((V[k]||[]).length&&V[k][0].video!==r.video);});}
+function vSelect(it,r,short){var V=it.live.versions||{},k=r.shots||'',o=(PICKV[it.file]||{})[k];
+return '<select data-vline="'+esc(k)+'" aria-label="'+esc((k?k+': ':'')+'version to watch')+'"><option value="">'+(short?'Main':'Main · '+esc([r.folder,r.department].filter(Boolean).join(' · ')))+'</option>'+
+V[k].map(function(v,n){return '<option value="'+n+'"'+(o&&o.video===v.video?' selected':'')+'>'+esc([v.folder,v.department,fmtDay(new Date(v.at*1000))].filter(Boolean).join(' · '))+'</option>';}).join('')+'</select>';}
+function versionsHtml(it){var inStrip={};(it.shot_thumbs||[]).forEach(function(t){inStrip[t[0]]=1;});
+var lines=vLines(it).filter(function(r){return !inStrip[r.shots||''];}).map(function(r){var k=r.shots||'';return '<label class="vsel">'+(k?'<span>'+esc(k)+'</span>':'')+vSelect(it,r)+'</label>';});
+if(lines.length<2)return lines.join('');var P=PICKV[it.file]||{},picked=Object.keys(P).filter(function(k){return !inStrip[k];}).length;
+return '<button type="button" class="rf-t vfold" data-vfold aria-expanded="'+VOPEN+'">'+(VOPEN?'▾':'▸')+' Versions to watch <small>'+plural(lines.length,'line')+' · '+(picked?picked+' on another version':'main renders')+'</small></button>'+(VOPEN?lines.join(''):'');}
 function pickVersion(it,line,v){var p=PICKV[it.file]=PICKV[it.file]||{};if(v)p[line]=v;else delete p[line];
 if(PL&&PL.it===it){PL.el.pause();PL.el.removeAttribute('src');PL.el.load();PL=null;}refresh();
 var pl=PL&&PL.it===it?PL:null,want=v?v.video:null;if(pl){for(var k=0;k<pl.list.length;k++)if(!want||pl.list[k].name===want){if(k!==pl.at)load(k);break;}pl.el.play();}}
