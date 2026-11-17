@@ -5439,3 +5439,208 @@ table with a switch (`stats()`, `bdTiles()`, `bdTable()`, page.js).
   prefix) -- no filter of its own to undo.
 - **Waiting** is a stage flag (an earlier stage not done, or under RTK),
   not only an RTK: said "waiting on an earlier stage".
+
+## Snapshot page in parts (v7, phase 0)
+
+The v7 redesign (guideline and roadmap: the `minimalist-pipeline-ui-v7`
+bundle) starts by cutting the one page.js / page.css into parts, so the
+work that follows touches a file of a few hundred lines, not 2 000.
+
+- **Cut at the sections already there** (the `/* ---------- x ---------- */`
+  banners), in their order: `templates/snapshot/js/` and `css/`,
+  assembled by `render_page()` in `JS_PARTS` / `CSS_PARTS` order
+  (`_parts()`). Nothing moved, nothing renamed: the page that comes out is
+  the old one byte for byte, plus the words' module. Checked against the
+  2.0 export of the same data before the commit.
+- **Flat, not `core/` / `desktop/` / `mobile/`** as in the v7 sources:
+  the classic page's code isn't split that way (its "core" functions
+  build HTML strings and read the DOM), so the folders would have
+  promised a rule the code doesn't keep. The v7 layout comes with the v2
+  page's own code.
+- **Still one function**: `01-data.js` opens the IIFE, `75-live-send.js`
+  closes it; a part may use what an earlier part defined, as one file
+  did. Only `00-status.js` (`MPStatus`) and `02-i18n.js` (`MPI18n`, `T`)
+  are global, before it.
+- **`T()` (02-i18n.js)**: the key is the English sentence; a dictionary a
+  language (`MPI18n.add('fr', {...})`), a missing key gives the English.
+  Values `{n}`, plurals as `"{n} file|{n} files"` chosen by
+  `Intl.PluralRules` (French says "0 fichier"). Language: the one chosen
+  in this browser (`mp-snapshot:lang`), then `meta.lang`, then the
+  browser's, then English. No string goes through it yet: the classic
+  page stays as it is.
+- **Fixture** `tests/fixtures/snapshot_demo.json`: the v7 demo (sequence
+  sq990 and the rest) in `build_snapshot()`'s shape, what `page_data()`
+  reads -- the demo's own JSON is the mockup's shape, not the export's.
+  Renders and farm jobs are not in it.
+- `tests/test_snapshot_page.py`: each part listed is on disk and the
+  reverse, no placeholder left, the fixture renders, the script parses
+  and `T()` answers (Node; skipped without it).
+
+## Snapshot page v7: Blender's icons for the mockup's
+
+The v7 mockup draws its own pictograms (`i-*` in its sprite). The rule:
+**Blender's own icon wherever one says the same thing**; the page's own
+only for what Blender has no word for -- the states (diamonds, their
+corners, the note's bubble) and a few others below. Each icon taken is
+Blender's SVG (`release/datafiles/icons_svg/` in Blender's repository),
+cleaned by `tools/clean_icons.py` into `templates/snapshot/icons/`; the
+export embeds only those the page names (`icon_sprite()`).
+
+| Mockup | Blender |
+|---|---|
+| `i-tri` | `DISCLOSURE_TRI_DOWN` |
+| `i-up` | `TRIA_UP` |
+| `i-down` | `TRIA_DOWN` |
+| `i-left` | `TRIA_LEFT` |
+| `i-right` | `TRIA_RIGHT` |
+| `i-search` | `VIEWZOOM` |
+| `i-filter` | `FILTER` |
+| `i-folder` | `FILE_FOLDER` |
+| `i-film` | `FILE_MOVIE` |
+| `i-play` | `PLAY` |
+| `i-pause` | `PAUSE` |
+| `i-fprev` | `FRAME_PREV` |
+| `i-fnext` | `FRAME_NEXT` |
+| `i-vprev` | `BACK` |
+| `i-vnext` | `FORWARD` |
+| `i-check` | `CHECKMARK` |
+| `i-x` | `X` |
+| `i-plus` | `ADD` |
+| `i-eye` | `HIDE_OFF` |
+| `i-pencil` | `GREASEPENCIL` |
+| `i-info` | `INFO` |
+| `i-q` | `QUESTION` |
+| `i-warn` | `ERROR` |
+| `i-file` | `FILE` |
+| `i-cam` | `CAMERA_DATA` |
+| `i-cube` | `ASSET_MANAGER` |
+| `i-chart` | `SPREADSHEET` |
+| `i-link` | `LINKED` |
+| `i-copy` | `COPYDOWN` |
+| `i-gear` | `PREFERENCES` |
+| `i-blend` | `BLENDER` |
+| `i-full` | `FULLSCREEN_ENTER` |
+| `i-big` | `WINDOW` |
+| `i-snd` | `MUTE_IPO_ON` |
+| `i-mute` | `MUTE_IPO_OFF` |
+| `i-reply` | `FILE_PARENT` |
+| `i-undo` | `LOOP_BACK` |
+| `i-send` | `EXPORT` |
+| `i-outl` | `OUTLINER` |
+| `i-hour` | `SORTTIME` |
+| `i-user` | `USER` |
+| `i-ext` | `URL` |
+| `i-render` | `RENDER_ANIMATION` |
+| `i-loop` | `FILE_REFRESH` |
+
+Kept the page's own: `i-note` (a note's bubble: a state's mark, Blender
+has none), `i-bell` (What's new: Blender has no bell). Dropped: `i-seq`,
+`i-in` (never used). Questions still open (version previous / next,
+the machine's player, Loop): `docs/snapshot-v7-questions.md`.
+
+- **The classic page too**: `TEXT` and `PREVIEW_RANGE`, named in page.js
+  `BI` but missing from icons/, drew the stand-ins (`IC`); they are
+  Blender's now.
+- Blender's SVGs weigh more than the mockup's drawn paths (the sprite
+  about +25 KB for the 44): still far under the page's budget.
+
+## Snapshot page v7 in place of the classic one
+
+Decided with the user: no beta, no `classic` / `v2` preference -- the v7
+page replaces the classic one at once (2.0.0 isn't out; a browser's
+review kept by a 1.x page may be lost, accepted).
+
+- **The export's own shape, not the mockup's.** The mockup read its own
+  JSON (`toCheck`, `linkedBy`, `versions` as a list...). The page now
+  reads `page_data()` as it is: `core/00-data.js` `loadData()` makes the
+  views' model from it (thumbnails from `images`, `stable_v` / `wip_v`,
+  `to_check`, the render lines -- live, `live.versions` --, the live
+  links by key), and again on each live update with each file's review
+  kept by name. Department names are the project's (`LBL` / `AB` built
+  from them, no table), the schedule and the weights the export's.
+- **Gone from the mockup**: its demo switches (snapshot / live, mobile),
+  its fake What's new, its demo Blender theme (the Blender theme is now
+  `meta.theme`, none yet: Blender's dark), the fake jobs (`A.queueJob`,
+  `A.job`) and the fake player.
+- **The review's file** (`core/30-review-file.js`): the same actions as
+  the classic page wrote (`exportActions()`), from the v7 model (`mine`,
+  `myNotes`, `myReplies`, `fixed`, `still`, `req`, `setAside`, `assign`,
+  `descEdit`, `S.planned`). A ✕ alone is an `unvalidate`; a retake on a
+  department withdraws its validation, a remark doesn't; the team
+  validates nothing. Notes' frames are Blender's numbers. Kept in this
+  browser until sent; loaded back from a file. Checked both ways by
+  `tests/test_snapshot_review.py` (Playwright).
+- **A / B**: two renders of the same shot of a block (or of the block
+  rendered whole), never two shots (`shotOf()`, `versOf()`).
+- **Live**: each change sent by itself, 300 ms after (`liveQueue()`,
+  from `storeReview()`), as the classic page did -- decided with the
+  user over the mockup's Send button. Not while a field is typed in
+  (once left); what went already is never sent again (`LV.sent`); a file
+  whose changes are all applied leaves the review once the data showing
+  them is back (`LV.pend`), one changed meanwhile keeps the rest. The
+  chip says "up to date", "sending…" or "not sent" (retried after 4 s)
+  where Send is in a snapshot.
+- **The player**: one `<video>`, moved into the stage drawn (detail,
+  Watch large, phone) after each draw (`mountVideo()`, wrapped around
+  `renderProps` / `renderWide` / `mRender` in boot.js). Its frames:
+  `S.frame` 1..NF in the video, shown and written `fNo()` -- the
+  render's first frame + n, Blender's -- and read back `fIdx()`.
+- **Signs**: Validate is violet (what it gives), not green (done);
+  reworked since the stable is the done diamond with an arrow back in
+  it, to redo the orange corner -- two signs, as the classic page had.
+
+Still to do: the Blender theme read at the export (`meta.theme`).
+
+## Snapshot page: English first, French second
+
+The mockup was written in French; the page now says everything in
+English through `T()` (js/core/01-i18n.js), French in
+`js/i18n/fr.js`.
+
+- **The key is the English sentence**, values in braces
+  (`T('Render {name}',{name})`), plurals as `"one|many"` chosen by
+  `Intl.PluralRules` (French: 0 and 1 singular). A sentence is one key,
+  never pieces glued together: word order differs between languages
+  (`T('from <b>f{a}</b> to <b>f{b}</b> on <b>{dept}</b>',...)`).
+- **page.html**: English, the words marked `data-t` and the static
+  `title` / `aria-label` / `placeholder` translated once at boot,
+  before anything draws.
+- **The language** (`core/02-lang.js`, after every dictionary): the one
+  chosen in this browser (View > Language, `mp-snapshot:lang`, the page
+  reloads), else Blender's (`meta.lang`: `session.ui_language()`, read
+  on the main thread at the export and by the live page), else the
+  browser's, else English. Dates through `toLocale*()` in that language.
+- **Never translated**: files, departments, roles, prefixes, people,
+  descriptions, notes -- the project's own; and what the server says in
+  English (a job's step, a stage's reason).
+- `tests/test_snapshot_page.py`: every key `T()` is given in the script
+  and every `data-t` text of page.html has its French; a key missing
+  fails the test.
+- Adding a language: `js/i18n/<lang>.js` (`MPI18n.add('<lang>', {...})`)
+  and its part in `JS_PARTS` before `core/02-lang.js`.
+
+The code comments the mockup wrote in French are still French.
+
+## Snapshot page v7 on the 2.0.0 line
+
+The v7 work started from `2.0` (as the handoff said); the line moving on
+was `release/2.0.0` and the session on top of it (sound in the renders,
+Update links, work time, What arrived, the page's polish). Moved onto
+it: the classic page goes, with its polish; what the server learnt in
+that session the v7 page uses --
+
+- **Sound**: the farm's own (`lib/sound.py`, `job_request(sound=)`); the
+  page's Render dialog sends `sound` (on / off) as the classic one did.
+- **Update links** (`lib/relink.py`, `/relink`): the Links tab's button.
+- **Work time**: `page_data()`'s `work`, shown in Files and renders.
+- **What's new**: never one's own doing (`own()`: the author or the
+  validator is this page's user).
+- **Share with a phone** (`js/live/61-share.js`, `/share`, `lib/qr.py`):
+  the classic dialog in v7's widgets -- name, role, VPN or local network,
+  how long; the link, its QR code, Copy link; the accesses running,
+  revoked. View > Share with a phone…, or `#share`. A guest
+  (`meta.live.guest`): `html[data-guest="1"]` hides what acts on this
+  machine (open in Blender, its player, Render, the farm's actions,
+  Update links, Share).
+- **Icons**: only those the page names stay in `templates/snapshot/icons/`
+  (as 2.0.0 did for the classic page).

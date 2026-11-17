@@ -1,127 +1,91 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>{{TITLE}}</title>
-<script>try{var t=localStorage.getItem("mp-snapshot:theme");if(t==="light"||t==="dark")document.documentElement.dataset.theme=t;}catch(e){}</script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>@font-face{font-family:"MP Display";src:url(data:font/ttf;base64,{{FONT}}) format("truetype");font-display:swap}
-{{CSS}}</style>
+{{CSS}}
+</style>
 </head>
 <body>
-<svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="mp" viewBox="{{LOGO_VB}}"><path fill="currentColor" d="{{LOGO_PATH}}"/></symbol><symbol id="i-review" viewBox="0 0 16 16"><path d="M10.5 2.5l3 3L6 13H3v-3z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol><symbol id="i-rtk" viewBox="0 0 16 16"><path d="M8 1.8L14.2 8 8 14.2 1.8 8z" fill="currentColor"/></symbol><symbol id="i-notes" viewBox="0 0 16 16"><path d="M2.5 3.5h11v7h-6l-3 2.5v-2.5h-2z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></symbol><symbol id="i-old" viewBox="0 0 16 16"><path d="M8 2l6.5 11.5h-13z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/><path d="M8 6.5v3.2M8 11.6v.1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></symbol><symbol id="i-valid" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M5.3 8.2l1.9 1.9 3.6-3.8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol><symbol id="i-farm" viewBox="0 0 16 16"><rect x="2.5" y="2.5" width="11" height="4.6" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.6"/><rect x="2.5" y="8.9" width="11" height="4.6" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="5.3" cy="4.8" r="1" fill="currentColor"/><circle cx="5.3" cy="11.2" r="1" fill="currentColor"/></symbol><symbol id="i-wait" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M8 4.6V8l2.4 1.7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol><symbol id="i-redo" viewBox="0 0 16 16"><path d="M12.9 8.6A5 5 0 1 1 11.3 4.2" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M12.2 1.6v3.6H8.6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></symbol><symbol id="i-wip" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M8 2a6 6 0 0 1 0 12z" fill="currentColor"/></symbol></svg>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="mp" viewBox="{{LOGO_VB}}"><path fill="currentColor" d="{{LOGO_PATH}}"/></symbol><symbol id="i-note" viewBox="0 0 16 16"><path d="M2.5 3h11v8H7l-3 2.5V11H2.5z"/></symbol><symbol id="i-bell" viewBox="0 0 16 16"><path d="M8 1.8c2.5 0 4.2 1.9 4.2 4.4v2.6l1.3 2.2H2.5l1.3-2.2V6.2C3.8 3.7 5.5 1.8 8 1.8zM6.2 12.4h3.6a1.8 1.8 0 0 1-3.6 0z"/></symbol></svg>
 {{ICONS}}
 <noscript><p>This snapshot needs JavaScript: open it in a web browser.</p></noscript>
-<div class="boot" id="boot" role="status"><b>{{TITLE}}</b><span>Opening…</span><i></i></div>
-<div class="wrap">
-<header class="hdr" id="hdr">
-<div class="top">
-<div class="title"><h1 id="h-project"></h1><span class="stamp" id="h-when"></span><span class="age" id="age" hidden></span></div>
-<div class="kpis" id="summary"></div>
-<div class="find"><input class="search" id="q" type="search" placeholder="Go to a file…" title="Go to a file by its name (/)" autocomplete="off" aria-controls="sugg" aria-autocomplete="list"><kbd class="slash kh">/</kbd>
-<ul class="sugg" id="sugg" role="listbox" hidden></ul></div>
-<div class="actions">
-<div class="menu help"><button class="btn icon" id="helpb" aria-haspopup="true" aria-expanded="false" title="Legend and keys">?</button>
-<div class="menu-pop" id="helppop" hidden><div class="hg"><h3>States</h3><ul>
-<li><i class="m s-todo"></i>Not started</li><li><i class="m s-wip"></i>In progress</li>
-<li><i class="m s-rework"></i>Done at the last stable, worked on again since</li><li><i class="m s-done"></i>Done</li>
-<li><i class="m s-sup">✓</i><i class="m s-prod">✓</i>Validated: by a role, by the top one</li><li><i class="m na"></i>Not required: an empty cell</li>
-<li><span class="pi pi-role">RTK</span><span class="pi pi-team">2 RTK</span>Open retakes: from a validation role, from the team</li><li><span class="pi pi-note">NOTE</span>An open note on a department<span class="pi pi-role has-n" style="margin-left:8px">RTK</span>a retake, and a note under it</li>
-<li><i class="m fl fl-wait"><svg class="fi" viewBox="0 0 16 16"><use href="#i-wait"/></svg><i class="pz s-done"></i></i>Waiting on an earlier stage<i class="m fl fl-redo" style="margin-left:6px"><svg class="fi" viewBox="0 0 16 16"><use href="#i-redo"/></svg><i class="pz s-wip"></i></i>To redo: an earlier stage changed since — the dot, its state</li>
-<li><i class="m s-done old"></i>Validated on an older stable: to review again</li>
-<li><span class="you y">✓ YOU</span><span class="you n">✕ YOU</span>Your review, not sent yet: validated, a retake</li><li><span class="you nt">✎ YOU</span>A remark (<code>note:</code>), nothing sent back</li><li><span class="you n">↩ YOU</span>Your reply in a note's thread: red a retake, outlined a remark</li><li><span class="rv-mine-k"></span>A file your review touched</li></ul>
-</div><div class="hg"><h3>Filters</h3><ul class="fl-help"><li><span class="chipf c-mine"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-review"/></svg></span>Your review</li><li><span class="chipf c-rtk"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-rtk"/></svg></span>Retakes</li><li><span class="chipf c-notes"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-notes"/></svg></span>Open notes</li><li><span class="chipf c-valid"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-valid"/></svg></span>To validate</li><li class="fl-sub">Under <b>Filters ▾</b>, with how many are on: a department, Me,</li><li><span class="chipf c-farm"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-farm"/></svg></span>In the farm: <span class="farm run">rendering</span>, <span class="farm wait">queued</span>, <span class="farm fail">failed</span></li><li><span class="chipf c-todo"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-wip"/></svg></span>Not finished</li><li><span class="chipf c-out"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-old"/></svg></span>Render outdated</li></ul>
-</div><div class="hg"><h3 class="kh">Keys</h3><ul class="kh">
-<li><kbd>←</kbd><kbd>→</kbd>Previous / next file</li><li><kbd>Esc</kbd>Close the file, or leave a field</li><li><kbd>,</kbd><kbd>.</kbd>A video: one frame back / on</li><li><kbd>Space</kbd>A video: play / pause<kbd>M</kbd>sound</li><li><kbd>I</kbd>Watch large, reviewing: a range's start at the frame shown -- Enter writes up to the frame you're on</li>
-<li><kbd>V</kbd>While reviewing: validate every done department</li><li><kbd>X</kbd>While reviewing: write a general retake</li>
-<li><kbd>Ctrl</kbd>+<kbd>Enter</kbd>Done writing</li></ul>
-</div></div></div>
-<button class="btn primary" id="rv" title="Review on this page"><svg class="ico" aria-hidden="true"><use href="#b-greasepencil"/></svg><span class="lbl">Review</span></button>
-<span class="rv-on"><button class="btn rv-sum" id="rv-sum" title="Your name, role and date"></button><button class="btn primary" id="rv-send" title="What it holds, then the file to send">Send…</button></span>
-<div class="menu news-m" id="newsm" hidden><button class="btn icon" id="newsb" aria-haspopup="true" aria-expanded="false" title="What arrived while this page was open"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 1.5h-15z"/><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M10 20.5h4"/></svg><span class="news-n" id="newsn" hidden></span><span class="sr">What arrived</span></button>
-<div class="menu-pop news-pop" id="newspop" hidden></div></div>
-<div class="menu"><button class="btn icon" id="more" aria-haspopup="true" aria-expanded="false" title="More">⋯</button>
-<div class="menu-pop" id="morepop" hidden>
-<button type="button" id="sh-open" hidden class="mi"><svg class="ico" aria-hidden="true"><use href="#b-community"/></svg>Share with a phone…<small>A link and its QR code for someone on this network</small></button>
-<button type="button" id="bulk-dep" class="mi rv-only"><svg class="ico" aria-hidden="true"><use href="#b-checkmark"/></svg>Departments of several files…<small>Require one, or not, on every file, a sequence, or those with another</small></button>
-<button type="button" id="rv-clear" class="mi rv-only"><svg class="ico" aria-hidden="true"><use href="#b-trash"/></svg>Clear this review…<small>A downloaded file keeps what it holds</small></button>
-<button type="button" id="rv-exit" class="mi rv-only"><svg class="ico" aria-hidden="true"><use href="#b-cancel"/></svg>Leave the review<small>Kept in this browser until you come back</small></button>
-<label class="mi"><svg class="ico" aria-hidden="true"><use href="#b-import"/></svg>Load a review…<small>A .json downloaded from this page, to go on with it</small><input type="file" class="rv-load" accept=".json,application/json"></label>
-<label class="mi"><svg class="ico" aria-hidden="true"><use href="#b-file_folder"/></svg>Choose the videos folder…<small>Where this snapshot's videos are, to play them</small><input type="file" class="vid-pick" webkitdirectory multiple accept="video/mp4,.mp4"></label>
-<button type="button" id="tour-open" class="mi"><svg class="ico" aria-hidden="true"><use href="#b-rightarrow_thin"/></svg>Tour of the page<small>Its parts, one by one: a minute</small></button>
-<button type="button" id="help-open" class="mi"><svg class="ico" aria-hidden="true"><use href="#b-question"/></svg>Legend and keys…<small>What the marks and colours say, the shortcuts</small></button>
-<div class="theme-sw" role="group" aria-label="Theme"><span>Theme</span><button type="button" data-theme-set="">System</button><button type="button" data-theme-set="light">Light</button><button type="button" data-theme-set="dark">Dark</button></div>
-</div></div>
-</div>
-</div>
+<header class="topbar">
+  <button class="btn flat icon only-narrow" id="out-toggle" aria-label="Show the outliner" title="Outliner"><svg class="i"><use href="#b-outliner"/></svg></button>
+  <div class="brand"><b id="p-name"></b><small id="p-date"></small></div><span class="live only-wide live-only" id="p-live" title="Connected to Blender"><i></i>live</span>
+  <div class="ws" role="tablist" aria-label="Spaces" id="ws"></div>
+  <span class="sp"></span>
+  <div class="anchor only-wide">
+    <button class="btn flat" data-menu="m-view" aria-haspopup="true" aria-expanded="false"><span data-t>View</span><svg class="i"><use href="#b-tria_down"/></svg></button>
+    <div class="menu right" id="m-view" hidden role="menu">
+      <div class="menu-h" data-t>Interface scale</div>
+      <button class="mi" role="menuitem" data-scale="0.92"><span class="lbl" data-t>Compact</span><span class="k">0.92</span></button>
+      <button class="mi" role="menuitem" data-scale="1"><span class="lbl" data-t>Normal</span><span class="k">1.00</span></button>
+      <button class="mi" role="menuitem" data-scale="1.15"><span class="lbl" data-t>Large</span><span class="k">1.15</span></button>
+      <div class="msep"></div>
+      <button class="mi" role="menuitem" data-act="collapse"><span class="lbl" data-t>Fold the sequences</span></button>
+      <button class="mi" role="menuitem" data-act="expand"><span class="lbl" data-t>Unfold the sequences</span></button>
+      <div class="msep"></div>
+      <label class="mi" role="menuitem"><svg class="i"><use href="#b-import"/></svg><span class="lbl" data-t>Load a review…</span><input type="file" class="rv-load" accept=".json,application/json" hidden></label>
+      <button class="mi" role="menuitem" data-act="videos"><svg class="i"><use href="#b-file_folder"/></svg><span class="lbl" data-t>Choose the videos folder…</span></button>
+      <div class="msep"></div><div class="menu-h" data-t>Theme</div>
+      <button class="mi" role="menuitem" data-theme="blender"><span class="lbl" data-t>Blender's theme (exported)</span></button>
+      <button class="mi" role="menuitem" data-theme="dark"><span class="lbl" data-t>Dark</span><span class="k">Blender Dark</span></button>
+      <button class="mi" role="menuitem" data-theme="light"><span class="lbl" data-t>Light</span><span class="k">Blender Light</span></button>
+      <button class="mi" role="menuitem" data-theme="system"><span class="lbl" data-t>System</span></button>
+      <div class="msep"></div><div class="menu-h" data-t>Language</div>
+      <button class="mi" role="menuitem" data-lang=""><span class="lbl" data-t>Automatic</span><span class="k" data-t>Blender's, else the browser's</span></button>
+      <button class="mi" role="menuitem" data-lang="en"><span class="lbl">English</span></button>
+      <button class="mi" role="menuitem" data-lang="fr"><span class="lbl">Français</span></button>
+      <div class="msep live-only"></div><button class="mi live-only" role="menuitem" data-act="share"><svg class="i"><use href="#b-community"/></svg><span class="lbl" data-t>Share with a phone…</span></button>
+      <div class="msep"></div><button class="mi" role="menuitem" data-tourstart><span class="lbl" data-t>Guided tour</span></button>
+    </div>
+  </div>
+  <div class="anchor live-only"><button class="btn flat icon" id="news-b" aria-label="What's new" title="What's new since the page opened"><svg class="i"><use href="#i-bell"/></svg><span class="cnt" hidden>0</span></button></div>
+  <div class="anchor"><button class="btn flat icon" id="help-b" aria-label="Legend and keys" title="Legend and keys (?)"><svg class="i"><use href="#b-question"/></svg></button></div>
+  <div class="anchor" id="review-slot"></div>
 </header>
 
-<section class="sec" id="browse">
-<div class="bar" id="bar"><div class="bar-in">
-<div class="bscroll"><div class="seg" role="group" aria-label="Kind" id="seg"></div>
-<span class="chips"><button type="button" class="chipf c-mine" data-f="mine" aria-pressed="false" aria-label="Your review" title="Your review: What this review touched: validated, retakes, descriptions" hidden><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-review"/></svg><span class="cl">Your review</span><b></b></button>
-<button type="button" class="chipf c-rtk" data-f="rtk" aria-pressed="false" aria-label="Retakes" title="Retakes: An open RTK — on the department picked, or on none"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-rtk"/></svg><span class="cl">Retakes</span><b></b></button>
-<button type="button" class="chipf c-notes" data-f="notes" aria-pressed="false" aria-label="Open notes" title="Open notes: An open note, todo or RTK"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-notes"/></svg><span class="cl">Open notes</span><b></b></button>
-<button type="button" class="chipf c-valid" data-f="tovalid" aria-pressed="false" aria-label="To validate" title="To validate: A done department not validated at its stable yet"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-valid"/></svg><span class="cl">To validate</span><b></b></button>
-</span></div>
+<div class="screen">
+  <aside class="area" id="outliner" aria-label="Outliner">
+    <div class="area-head"><label class="field" style="flex:1"><svg class="i"><use href="#b-viewzoom"/></svg><input id="tree-q" placeholder="Filter the tree" aria-label="Filter the tree"></label></div>
+    <div class="area-body"><ul class="tree" id="tree"></ul></div>
+  </aside>
 
-<div class="menu ff-m"><button type="button" class="chipf ff-b" id="ffb" aria-haspopup="true" aria-expanded="false" title="More filters: a department, Me, Render outdated, In the farm, Not finished"><svg class="ico" aria-hidden="true"><use href="#b-filter"/></svg><span class="cl">Filters</span><b id="ffn" hidden></b><span class="ff-car" aria-hidden="true">▾</span></button>
-<div class="menu-pop ff-pop" id="ffpop" hidden><div class="ff-dep"><span>Department</span><select class="depf" id="depf" aria-label="Department"></select></div>
-<button type="button" class="chipf c-me" data-f="me" aria-pressed="false" aria-label="Me" title="Me: a department assigned to you -- your name in the review" hidden><svg class="ico ic" aria-hidden="true"><use href="#b-user"/></svg><span class="cl">Me</span><b></b></button>
-<button type="button" class="chipf c-out" data-f="outdated" aria-pressed="false" aria-label="Render outdated" title="Render outdated: Rendered from an older version than the last stable"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-old"/></svg><span class="cl">Render outdated</span><b></b></button>
-<button type="button" class="chipf c-farm" data-f="farm" aria-pressed="false" aria-label="In the farm" title="In the farm: Rendering, queued or failed" hidden><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-farm"/></svg><span class="cl">In the farm</span><b></b></button>
-<button type="button" class="chipf c-todo" data-f="todo" aria-pressed="false" aria-label="Not finished" title="Not finished: A department not done yet"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><use href="#i-wip"/></svg><span class="cl">Not finished</span><b></b></button>
-</div></div>
-<span class="sch-b" id="sch-bar"></span></div></div>
-<div id="list"></div>
-</section>
+  <section class="area" id="main" aria-label="List">
+    <div class="area-head">
+      <div class="filters" id="quick"></div>
+      <span class="sp"></span>
+      <label class="field" style="flex:1 1 180px;max-width:300px"><svg class="i"><use href="#b-viewzoom"/></svg><input id="q" placeholder="Go to a file…" aria-label="Go to a file"><span class="kbd">/</span></label>
+    </div>
+    <div class="area-body" id="list"></div>
+  </section>
 
-
-<footer><span>Created by</span><a class="brand-f" href="https://extensions.blender.org/add-ons/minimalist-pipeline/" target="_blank" rel="noopener" title="Minimalist Pipeline, the Blender add-on that made this page"><svg viewBox="{{LOGO_VB0}}" aria-hidden="true"><use href="#mp"/></svg><span class="wm">minimalist pipeline</span></a><span class="f-bl"><svg class="ico" aria-hidden="true"><use href="#b-blender"/></svg> a Blender add-on</span><span id="f-ver"></span></footer>
+  <aside class="area" id="props" aria-label="Detail">
+    <div class="area-head" id="p-head"></div>
+    <div class="pwrap"><div class="vtabs" role="tablist" aria-orientation="vertical" id="ptabs"></div><div class="pbody" id="pbody"></div></div>
+  </aside>
 </div>
 
-<img id="hover" alt="">
-<div class="lb" id="lb" hidden><button class="x" id="lb-x" aria-label="Close">✕</button><div id="lb-in"></div><p id="lb-cap"></p></div>
-<div class="toast" id="toast" role="status"></div>
-<button class="p-tab out" id="p-open" hidden title="Show the last file's details again" aria-label="Show the details"><svg class="ico" aria-hidden="true"><use href="#b-rightarrow_thin"/></svg></button>
-<div class="wl" id="wl" role="dialog" aria-modal="true" aria-labelledby="wl-t" hidden>
-<div class="wl-top"><button class="btn" id="wl-x"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 2.5V6H2.5M13.5 6H10V2.5M10 13.5V10h3.5M2.5 10H6v3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Back to the panel <kbd class="kh">Esc</kbd></button><b class="wl-t" id="wl-t"></b><span class="wl-s" id="wl-s"></span></div>
-<div class="wl-main"><div class="pv" id="wl-pv"></div><aside class="wl-side" id="wl-side"></aside></div>
-</div>
+<footer class="statusbar">
+  <span class="keys">
+    <span class="gk"><span class="kbd">↑</span><span class="kbd">↓</span><span data-t>File</span></span>
+    <span class="gk"><span class="kbd">W</span><span data-t>Watch large</span></span>
+    <span class="gk" id="sb-rv"><span class="kbd">V</span><span data-t>Validate the done</span> <span class="kbd">X</span>Retake</span>
+  </span>
+  <span class="msg" id="sb-msg"></span>
+  <span class="sp"></span>
+  <span id="sb-stats"></span>
+</footer>
+<div class="scrim" id="scrim"></div>
+<div id="wide" hidden role="dialog" aria-label="Watch large"></div>
+<div id="mob" class="mob" aria-label="Phone review"></div>
 <div class="dlg" id="dlg" hidden></div>
 
-<div class="scrim" id="scrim"></div>
-<aside class="panel" id="panel" role="dialog" aria-modal="true" aria-labelledby="p-title" hidden>
-<button class="p-tab" id="p-tab" title="Hide the details (Esc)" aria-label="Hide the details"><svg class="ico" aria-hidden="true"><use href="#b-rightarrow_thin"/></svg></button>
-<div class="p-resize" id="p-resize" role="separator" aria-orientation="vertical" aria-label="Panel width: drag, or ← → once focused — past its widest, the whole page; double click for the default" tabindex="0"></div>
-<div class="p-head"><div class="t"><b id="p-title"></b><small id="p-sub"></small></div>
-<button class="btn icon mnav" id="m-prev" aria-label="Previous file">‹</button><button class="btn icon mnav" id="m-next" aria-label="Next file">›</button>
-<button class="btn icon" id="p-play" hidden>▶</button>
-<button class="btn icon" id="p-blend" hidden title="Open it in Blender" aria-label="Open it in Blender"><svg class="ico" aria-hidden="true"><use href="#b-blender"/></svg></button>
-<button class="btn icon" id="p-set" hidden title="File settings: departments required, set aside -- in your review" aria-label="File settings"><svg class="ico" aria-hidden="true"><use href="#b-preferences"/></svg></button>
-<button class="btn icon" id="p-render" hidden title="Render: send it to the farm" aria-label="Render: send it to the farm"><svg class="ico" aria-hidden="true"><use href="#b-render_still"/></svg></button>
-<button class="btn icon" id="p-link" title="Copy a link to this file" aria-label="Copy a link to this file"><svg class="ico" aria-hidden="true"><use href="#b-decorate_linked"/></svg></button>
-<button class="btn icon" id="p-close" aria-label="Close">✕</button>
-<div class="p-kpi" id="p-kpi"></div><div class="flags" id="p-flags"></div></div>
-<div class="p-body" id="p-body"></div>
-<div class="p-foot"><button class="btn" id="p-prev">‹ Previous</button>
-<span class="keys"><span><kbd>←</kbd> <kbd>→</kbd> files</span><span class="rk2"><kbd>V</kbd> validate all</span><span class="rk2"><kbd>X</kbd> retake</span><span class="rk2"><kbd>R</kbd> reply</span><span><kbd>Esc</kbd> close</span></span>
-<button class="btn" id="p-next">Next ›</button></div>
-</aside>
-
-<div class="rbar" role="region" aria-label="Review">
-<button class="btn icon rb-min" id="rv-min" title="Fold the review bar" aria-label="Fold the review bar">›</button>
-<span class="lbl">Reviewer</span>
-<input id="author" placeholder="Your name" autocomplete="name">
-<select id="role" aria-label="Role"><option value="">role…</option></select>
-<button type="button" class="n" id="rv-n" title="Show only what this review touched">Nothing reviewed yet</button>
-<button class="btn dl-b" id="rv-dl" title="Download the review"><span class="dli" aria-hidden="true">⤓</span><span class="dlt">Download</span><span class="cnt"></span></button>
-<div class="menu"><button class="btn icon" id="rv-more" aria-haspopup="true" aria-expanded="false" title="More">⋯</button>
-<div class="menu-pop up" id="rv-morepop" hidden>
-<label>Load a review…<small>Goes on with a downloaded .json</small><input type="file" class="rv-load" accept=".json,application/json"></label>
-</div></div>
-</div>
-
-<button class="rfab" id="rv-fab" title="Review: your name, role, download" aria-label="Open the review bar">✎<span class="cnt2" id="rv-fabn"></span></button>
-
-<script type="application/json" id="data">{{DATA}}</script>
-<script>{{JS}}</script>
+<script id="data" type="application/json">{{DATA}}</script>
+<script>
+(()=>{
+{{JS}}
+})();
+</script>
 </body></html>

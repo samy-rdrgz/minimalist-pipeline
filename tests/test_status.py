@@ -93,7 +93,7 @@ def main() -> None:
     held = dict(base, entries=[rtk], omit={"state": "on_hold", "by": "x", "reason": "edit"})
     assert status.omitted(held)["state"] == "on_hold" and status.stage_flags(held, stages) == {}
     assert status.omitted(dict(base, omit={"state": "nope"})) is None and status.omitted(base) is None
-    # The cases the page's twin runs too (templates/snapshot/status.js).
+    # The cases the page's twin runs too (templates/snapshot/js/core/03-status.js).
     cases = json.loads((Path(__file__).parent / "status_cases.json").read_text())
     w = cases["weights"]
     for c in cases["files"]:
@@ -101,7 +101,7 @@ def main() -> None:
         got = status.file_progress(dict(c, scores=scores), w)
         assert (got is None and c["progress"] is None) or abs(got - c["progress"]) < 1e-9, (c["name"], got)
     if "--html" in sys.argv:
-        page = Path(__file__).parent.parent / "templates" / "snapshot" / "status.js"
+        page = Path(__file__).parent.parent / "templates" / "snapshot" / "js" / "core" / "03-status.js"
         out = Path(sys.argv[sys.argv.index("--html") + 1])
         out.write_text(_twin_page(page.read_text(), cases))
         print(f"JS twin's page: {out}")

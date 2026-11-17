@@ -218,6 +218,7 @@ from .session import (
     session_update,
     set_active_project_root,
     set_opened_as_read_only,
+    ui_language,
     warn_blender_version_mismatch,
 )
 from .review_import import (

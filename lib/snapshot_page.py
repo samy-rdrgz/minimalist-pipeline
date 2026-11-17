@@ -1,7 +1,8 @@
 """The production snapshot's page: build_snapshot()'s dict as one offline
 HTML file. Python only shapes the data (page_data()); the page itself --
-templates/snapshot/: page.html, page.css, page.js, the logo and the
-wordmark's font -- draws it in the browser. Pure: thread-safe."""
+templates/snapshot/: page.html, its stylesheet (css/, CSS_PARTS) and its
+script (js/, JS_PARTS), the logo and the wordmark's font -- draws it in the
+browser. Pure: thread-safe."""
 
 import base64
 import hashlib
@@ -23,14 +24,56 @@ from .snapshot import (
 
 PAGE_DIR = Path(__file__).resolve().parent.parent / "templates" / "snapshot"
 
+# The page's sources, in this order (templates/snapshot/css/, js/): one
+# stylesheet and one script in the page, the script inside one function
+# (page.html). js/core/ holds the data, the state and the actions, shared
+# by the desktop's views (js/desktop/) and the phone's (js/mobile/); the
+# component sheet (kit/, tools/snapshot_kit.py) is built from the same
+# parts, without the events and the start.
+CSS_PARTS = ("10-tokens.css", "20-components.css", "30-mobile.css")
+JS_PARTS = (
+    "core/00-data.js",
+    "core/01-i18n.js",
+    "i18n/fr.js",
+    "core/02-lang.js",
+    "core/03-status.js",
+    "core/05-mode.js",
+    "core/10-status.js",
+    "core/20-actions.js",
+    "core/30-review-file.js",
+    "core/40-player.js",
+    "core/42-videos.js",
+    "desktop/20-top-tree.js",
+    "desktop/21-list.js",
+    "desktop/22-detail.js",
+    "desktop/23-farm.js",
+    "desktop/24-links.js",
+    "desktop/25-wide.js",
+    "desktop/26-shell.js",
+    "desktop/27-review.js",
+    "desktop/28-dialogs.js",
+    "desktop/29-events.js",
+    "mobile/50-mobile.js",
+    "live/60-live.js",
+    "live/61-share.js",
+    "boot.js",
+)
+
+
+def _parts(folder: str, names) -> str:
+    """The parts read and put end to end, each on its own lines."""
+    out = []
+    for name in names:
+        text = (PAGE_DIR / folder / name).read_text(encoding="utf-8")
+        out.append(text if text.endswith("\n") else text + "\n")
+    return "".join(out)
+
+
 _PLACEHOLDER = re.compile(r"\{\{([A-Z0-9_]+)\}\}")
 _VIEWBOX = re.compile(r'viewBox="([^"]+)"')
 _PATH = re.compile(r'<path[^>]*\sd="([^"]+)"')
-# The sources' comments, left out of every page: each on its own lines,
-# never inside a string (page.js has no multi-line string) -- so no
-# minifier needed. A line of page.js starting "//", a block "/* */" at a
-# line's start; any "/* */" in page.css (no string of it holds one).
-_JS_COMMENTS = re.compile(r"^(?:[ \t]*//[^\n]*|/\*.*?\*/[ \t]*)\n", re.M | re.S)
+# The stylesheet's comments, left out of every page (no string of it
+# holds "/*"). The script's stay: its template strings span lines.
 _CSS_COMMENTS = re.compile(r"/\*.*?\*/\n?", re.S)
 # Blender's icons (templates/snapshot/icons, tools/clean_icons.py).
 _ICON = re.compile(r'<svg[^>]*\sviewBox="([^"]+)"[^>]*>(.*)</svg>', re.S)
@@ -64,14 +107,9 @@ def render_page(data: dict) -> str:
     data = json.dumps(data, ensure_ascii=False, separators=(",", ":"))
     values = {
         "TITLE": _escape(title),
-        "CSS": _CSS_COMMENTS.sub("", (PAGE_DIR / "page.css").read_text(encoding="utf-8")),
-        # The state engine's twin (lib/status.py), then the page.
-        "JS": _JS_COMMENTS.sub(
-            "",
-            (PAGE_DIR / "status.js").read_text(encoding="utf-8")
-            + "\n"
-            + (PAGE_DIR / "page.js").read_text(encoding="utf-8"),
-        ),
+        "CSS": _CSS_COMMENTS.sub("", _parts("css", CSS_PARTS)),
+        # Kept whole: its template strings may hold a line starting "//".
+        "JS": _parts("js", JS_PARTS),
         "FONT": base64.b64encode((PAGE_DIR / "wordmark.ttf").read_bytes()).decode("ascii"),
         "LOGO_VB": viewbox,
         # The <use> of a symbol draws it from 0 0: its box, not the source's.
@@ -132,6 +170,8 @@ def _meta(snapshot: dict) -> dict:
         "snapshot": meta.get("scan_started_at") or "",
         "exported_by": meta.get("exported_by") or "",
         "addon_version": meta.get("addon_version") or "",
+        # Blender's interface language: the page's, unless chosen in it.
+        "lang": meta.get("lang") or "",
         "roles": [r["name"] for r in meta.get("validation_roles") or []],
         "role": meta.get("validation_role"),
         "weights": meta.get("progress_weights") or {},
