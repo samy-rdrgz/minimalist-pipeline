@@ -6,6 +6,18 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- The snapshot and live page, redrawn: Blender's grammar (areas, an
+  Outliner, a list, a Detail panel with tabs, a status bar), Blender's
+  own icons, Blender's theme as exported (View › Theme: Blender, Dark,
+  Light, System), the interface scale. Spaces: Shots, Assets, Links (a
+  node graph of who links what), Breakdown and, live, Farm. Watch large:
+  the video, the departments and the notes at their frames, a range
+  written as you watch; A / B: two versions of the same shot at the same
+  frame. A phone gets its own view (a shot at a time; live, the farm).
+  In English, French second (View › Language; Blender's language by
+  default). The review's file and its actions are unchanged; live, each
+  change goes to Blender by itself. Share with a phone, Update links,
+  Render with its sound, What's new: as before, in the new page.
 - Live page, a tour for a beginner (Blender's Experience level, a guest
   too): a few steps pointing at the page's parts, shown once in a browser,
   again from More › Tour of the page.

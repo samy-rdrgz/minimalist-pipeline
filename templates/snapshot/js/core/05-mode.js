@@ -1,14 +1,14 @@
-/* ---------- Mode : snapshot ou live ----------
-   snapshot : le fichier HTML exporté, ouvert hors ligne, avec le dossier des vidéos à côté. Revue seule.
-   live     : la page servie par Blender (lib/live.py). Revue + Farm + actions envoyées à Blender.
-   L'addon n'écrit meta.live qu'en live.
-   Tout ce qui n'existe qu'en live porte la classe .live-only (cachée par le CSS en snapshot). */
+/* ---------- Mode: snapshot or live ----------
+   snapshot: the exported HTML file, opened offline, its videos folder beside it. The review only.
+   live:     the page Blender serves (lib/live.py). The review, the Farm, actions sent to Blender.
+   meta.live is only there live.
+   What only exists live has the class .live-only (hidden by the CSS in a snapshot). */
 const Q=new URLSearchParams(location.search);
 /* meta.live: only on the page Blender serves. */
 const MODE=RAW.meta&&RAW.meta.live?'live':'snapshot',LIVE=MODE==='live';
 if(!M.live)M.live={user:'',role:''};
 document.documentElement.dataset.mode=MODE;
-/* Affichage : desktop (souris, ou tablette en paysage) ou mobile (tactile ET étroit). Même état, mêmes actions. */
+/* View: desktop (a mouse, or a tablet held wide) or phone (touch AND narrow). The same state, the same actions. */
 const MOB_Q=matchMedia('(pointer:coarse) and (max-width:900px)');
 let VIEW=Q.get('view');  // 'mobile' | 'desktop' | null (automatique)
 const isMob=()=>VIEW==='mobile'||(VIEW!=='desktop'&&MOB_Q.matches);

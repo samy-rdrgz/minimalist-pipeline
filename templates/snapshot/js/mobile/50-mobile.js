@@ -1,10 +1,10 @@
-/* ---------- Affichage mobile ----------
-   Tactile ET étroit (< 900 px ; une tablette en paysage reste en desktop). Deux usages seulement :
-   · Revue (snapshot et live) : un plan à la fois, deux versions comparées à la même frame,
-     valider, retake, attribuer, ajouter un département, écrire une note à la frame.
-   · Farm (live seulement) : l'état de la farm, les jobs et leur %, relancer, rendre un plan.
-   Le reste (liens, synthèse, outliner, réglages de fichiers) n'existe pas ici : version bureau.
-   Lit le même état S, les mêmes sélecteurs (info, versOf, marks…) et appelle les mêmes actions A. */
+/* ---------- Phone view ----------
+   Touch AND narrow (< 900 px; a tablet held wide stays desktop). Two uses only:
+   · Review (snapshot and live): a shot at a time, two versions compared at the same frame,
+     validate, retake, assign, add a department, write a note at the frame.
+   · Farm (live only): the farm's state, the jobs and their %, retry, render a shot.
+   The rest (links, breakdown, outliner, file settings) isn't here: the desktop version.
+   Reads the same state S, the same selectors (info, versOf, marks…) and calls the same actions A. */
 const mSib=()=>items.filter(i=>i.kind===S.m.kind&&!omitted(i)&&(!S.m.filter||(S.m.filter==='val'?toValidate(i):S.m.filter==='rtk'?openRtk(i)>0:openNotes(i)>0)));
 const mF={'':T('Everything'),val:T('To validate'),rtk:T('Retakes'),note:T('Notes')};
 const mShort=it=>it.kind==='shot'?it.name.replace(it.group+'_',''):it.name;
@@ -27,7 +27,7 @@ function mRender(){
   const t2=$('#m-ta');if(t2){t2.value=keep;if(foc)t2.focus()}
 }
 
-/* ----- Revue : un plan ----- */
+/* ----- Review: one shot ----- */
 function mReview(){
   const it=cur();if(!it)return '<div class="empty">'+T('No file.')+'</div>';
   const sib=mSib(),k=sib.findIndex(i=>i.name===it.name),{V,a,b,i}=mVer(it),v=V[i],rv=S.review;
@@ -73,7 +73,7 @@ function mComposer(){
       <button class="btn primary icon m-send" data-msend aria-label="${T('Add to my review')}">${ic('b-export')}</button></div></div>`;
 }
 
-/* ----- Farm : surveiller, relancer, rendre ----- */
+/* ----- Farm: watch, retry, render ----- */
 function mFarm(){
   const W=F.workers,act=W.filter(w=>w.status!=='silent'),busy=W.filter(w=>w.file&&w.status!=='silent');
   const st={dead:T('stopped'),running:T('running'),stale:T('stuck'),ok:T('running')}[F.status]||F.status,bad=F.status==='dead'||F.status==='stale';
@@ -89,7 +89,7 @@ function mFarm(){
     <section class="m-sec"><div class="m-sec-h">${T('Machines')}<span class="n">${W.length}</span></div>${W.map(w=>`<div class="m-job ro">${jst(w.status==='silent'?'waiting':w.file?'running':'finished')}<span class="jt"><b>${esc(w.name)}</b><small>${w.status==='silent'?T('silent since {date}',{date:fmtD(w.since)}):esc([w.status,w.file].filter(Boolean).join(' · '))}</small></span></div>`).join('')}</section>`;
 }
 
-/* ----- Feuilles (bottom sheets) : un seul composant pour tous les choix ----- */
+/* ----- Bottom sheets: one component for every choice ----- */
 function mSheet(){
   const k=S.m.sheet,it=cur();let t='',h='',foot='';
   const opt=(attr,on,lbl,sub='',extra='')=>`<button class="m-opt" ${attr} role="menuitemradio" aria-checked="${on}"><span class="ck">${on?ic('b-checkmark'):''}</span><span class="lbl">${lbl}${sub?`<small>${sub}</small>`:''}</span>${extra}</button>`;
@@ -144,9 +144,9 @@ function mSheet(){
     <div class="m-sheet-b">${h}</div>${foot?`<div class="m-sheet-f">${foot}</div>`:''}</div></div>`;
 }
 
-/* ----- Événements mobiles (les data-tp, data-goto, data-unnote, data-still, data-theme sont ceux du desktop) ----- */
+/* ----- Phone events (data-tp, data-goto, data-unnote, data-still, data-theme: the desktop's) ----- */
 function mGo(n,keep){if(!n)return;const it=items.find(i=>i.name===n);if(!it)return;S.sel=n;S.m.kind=it.kind;S.frame=1;S.rangeStart=null;if(S.playing&&!keep)togglePlay();S.m.sheet=null;mRender();$('#m-body').scrollTop=0}
-/* Fin de la vidéo en lecture : boucle, ou plan suivant du parcours (la lecture continue), ou arrêt à la fin. */
+/* The video played to its end: loop, or the path's next shot (playing on), or stop at the end. */
 function mEnd(){if(S.m.loop){setFrame(1);return}const sib=mSib(),k=sib.findIndex(i=>i.name===S.sel),n=sib[k+1];
   if(!n){togglePlay();setFrame(1);toast(T('End of the path'));return}mGo(n.name,true)}
 function mStep(d){const sib=mSib(),k=sib.findIndex(i=>i.name===S.sel),n=sib[k+d];if(n)mGo(n.name)}
@@ -185,7 +185,7 @@ $('#mob').addEventListener('click',e=>{const t=e.target,q=s=>t.closest(s);let x;
 });
 $('#mob').addEventListener('change',e=>{const r=e.target.closest('[data-mrf]');if(r){S.m.rf[r.dataset.mrf]=r.value;if(r.dataset.mrf==='file')S.m.rf.ver=items.find(i=>i.name===r.value).stable?'stable':'last';mRender()}});
 $('#mob').addEventListener('input',e=>{if(e.target.id==='m-ta'){e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,120)+'px'}});
-/* Glisser horizontalement sur l'image : plan suivant / précédent. */
+/* Swipe the picture sideways: next / previous shot. */
 let mSw=null;
 $('#mob').addEventListener('pointerdown',e=>{if(e.target.closest('#m-player'))mSw={x:e.clientX,y:e.clientY}});
 $('#mob').addEventListener('pointerup',e=>{if(!mSw)return;const dx=e.clientX-mSw.x,dy=e.clientY-mSw.y;mSw=null;if(Math.abs(dx)>60&&Math.abs(dy)<50)mStep(dx<0?1:-1)});

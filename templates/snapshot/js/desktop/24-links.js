@@ -1,4 +1,4 @@
-/* ---------- Liens : canvas ---------- */
+/* ---------- Links: canvas ---------- */
 function renderGraph(){
   const L=$('#list');const linked=new Set();items.forEach(i=>{if(i.links.length||i.linkedBy.length)linked.add(i.name)});
   const show=i=>(S.gAll||linked.has(i.name))&&(!S.q||i.name.toLowerCase().includes(S.q));

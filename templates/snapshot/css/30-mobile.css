@@ -1,9 +1,9 @@
-/* ---------- Mode : en snapshot, ce qui demande Blender disparaît ---------- */
+/* ---------- Mode: in a snapshot, what needs Blender is gone ---------- */
 [data-mode="snapshot"] .live-only{display:none!important}
 
-/* ---------- Affichage mobile : tactile ET < 900 px ----------
-   Une colonne, cibles de --h-touch (44 px), rien qui dépende du survol.
-   Mêmes jetons, mêmes composants (.btn, .join, .field, .scrub, .ft, glyphes) : seules les tailles changent. */
+/* ---------- Phone view: touch AND < 900 px ----------
+   One column, --h-touch targets (44 px), nothing that needs a hover.
+   The same tokens, the same components (.btn, .join, .field, .scrub, .ft, glyphs): only the sizes change. */
 #mob{display:none}
 .is-mob,.is-mob body{overflow:hidden;height:100%}
 .is-mob .topbar,.is-mob .screen,.is-mob .statusbar,.is-mob #wide,.is-mob .scrim{display:none!important}
@@ -18,7 +18,7 @@
 .mob .btn:hover{filter:none}
 .m-wide{width:100%;justify-content:center}
 
-/* Barre du haut */
+/* Top bar */
 .m-top{display:flex;align-items:center;gap:var(--sp-3);min-height:calc(var(--h-touch) + var(--sp-4));padding:var(--sp-2) var(--sp-4) var(--sp-2) var(--sp-7);
   padding-top:max(var(--sp-2),env(safe-area-inset-top));background:var(--head);border-bottom:1px solid var(--line);flex:none}
 .m-brand{display:flex;flex-direction:column;min-width:0;line-height:1.25}
@@ -30,7 +30,7 @@
 .m-ib .i{width:18px;height:18px}
 .m-ib .cnt{position:absolute;top:var(--sp-2);right:var(--sp-2);min-width:16px;height:16px;padding:0 var(--sp-2);border-radius:var(--r-pill);background:var(--st-rtk);color:#fff;font:600 var(--fs-xs)/16px var(--ui)}
 
-/* Corps : une colonne qui défile */
+/* Body: one scrolling column */
 .m-body{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:var(--sp-6) var(--sp-7) var(--sp-9);display:flex;flex-direction:column;gap:var(--sp-6)}
 .m-body>*,.m-sheet-b>*{flex:none}
 .m-hint{margin:0;color:var(--text-3);font-size:var(--fs-s)}
@@ -70,7 +70,7 @@
 .m-vchip.on{border-color:var(--sel);color:var(--text)}
 .m-vchip .i{flex:none;opacity:.6}
 
-/* Sections, départements */
+/* Sections, departments */
 .m-sec{display:flex;flex-direction:column;gap:var(--sp-4)}
 .m-sec-h{display:flex;align-items:center;gap:var(--sp-4);min-height:var(--h-sm);font-size:var(--fs-s);font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--text-3)}
 .m-sec-h .n{font-weight:500;letter-spacing:0;color:var(--text-3)}
@@ -102,7 +102,7 @@
 .m-note .tx{flex:1;min-width:0;padding-top:var(--sp-2);overflow-wrap:anywhere}
 .m-note small{display:block;margin-top:var(--sp-1);color:var(--text-3);font-size:var(--fs-s)}
 
-/* Zone d'écriture collée en bas */
+/* The writing box, held at the bottom */
 .m-comp{flex:none;display:flex;flex-direction:column;gap:var(--sp-4);padding:var(--sp-4) var(--sp-6);padding-bottom:max(var(--sp-4),env(safe-area-inset-bottom));background:var(--head);border-top:1px solid var(--line)}
 .m-cr{display:flex;align-items:center;gap:var(--sp-3);min-width:0}
 .m-cr .field{flex:1;min-width:0;padding-block:var(--sp-2)}
@@ -114,7 +114,7 @@
 .m-cr .m-chip:last-child{margin-left:auto;font-family:var(--mono)}
 .m-filters{display:flex;flex-wrap:wrap;gap:var(--sp-3)}
 
-/* Barre du bas : Revue | Farm (live seulement) */
+/* Bottom bar: Review | Farm (live only) */
 .m-nav{flex:none;display:grid;grid-template-columns:1fr 1fr;background:var(--head);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
 .m-nav button{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--sp-1);min-height:calc(var(--h-touch) + var(--sp-5));border:0;background:transparent;color:var(--text-3);font:var(--fs-s) var(--ui)}
 .m-nav button .i{width:18px;height:18px}
@@ -137,7 +137,7 @@
 .m-job small{color:var(--text-3);font-size:var(--fs-s);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .m-job .pc{font:var(--fs-s) var(--mono);color:var(--text-2)}
 
-/* Feuilles du bas : un seul composant pour tous les choix */
+/* Bottom sheets: one component for every choice */
 .m-sheet{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;justify-content:flex-end;background:rgba(0,0,0,.5);animation:m-fade .15s ease-out}
 .m-sheet-in{display:flex;flex-direction:column;max-height:88%;background:var(--area);border-radius:var(--r-xl) var(--r-xl) 0 0;box-shadow:0 -10px 30px var(--shadow);animation:m-up .2s ease-out}
 .m-sheet-h{position:relative;display:flex;align-items:center;gap:var(--sp-4);padding:var(--sp-5) var(--sp-4) var(--sp-3) var(--sp-7);border-bottom:1px solid var(--line)}
@@ -167,11 +167,11 @@
 @keyframes m-up{from{transform:translateY(24px);opacity:.4}}
 @keyframes m-fade{from{opacity:0}}
 @media (prefers-reduced-motion:reduce){.m-sheet,.m-sheet-in{animation:none}}
-/* Sur mobile, les messages passent en haut : le bas est pris par l'écriture et les feuilles. */
+/* On a phone, the messages go to the top: the bottom is the writing box's and the sheets'. */
 .is-mob .toast{bottom:auto;top:calc(var(--h-touch) + var(--sp-7) + env(safe-area-inset-top));max-width:calc(100vw - var(--sp-10))}
-/* Affichage mobile forcé sur un grand écran (démo) : la largeur d'un téléphone, centrée. */
+/* The phone view forced on a large screen (?view=mobile): a phone's width, centred. */
 @media (min-width:600px){.is-mob body{background:var(--screen)}.is-mob #mob{left:50%;right:auto;width:430px;margin-left:-215px;border-inline:1px solid var(--line)}}
-/* Retake / Remarque en deux icônes ; le retake actif en rouge */
+/* Retake / Remark as two icons; the retake on, red */
 .m-ct{flex:none}
 .mob .m-ct .btn[data-mct="rtk"][aria-pressed="true"]{background:var(--alert);border-color:var(--alert-line);color:var(--alert-t)}
 .mob [data-mloop][aria-pressed="true"]{background:var(--sel-soft);border-color:var(--sel);color:var(--text)}

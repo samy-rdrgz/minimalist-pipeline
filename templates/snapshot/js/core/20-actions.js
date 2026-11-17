@@ -1,5 +1,5 @@
 /* ---------- The review's actions (shared by both views) ----------
-   Les seules fonctions qui modifient les fichiers. Desktop et mobile les appellent, puis refresh().
+   The only functions that change the files. Desktop and phone call them, then refresh().
    None touches the DOM. Each is an action of lib/review_import.py (named at the line's end). */
 const canVal=(it,d)=>!!S.review&&S.review.role!==TEAM&&['done','rework'].includes(it.states[d])&&!it.ok[d];
 /* The frames written: Blender's numbers (fNo), a range from I to the frame shown. */

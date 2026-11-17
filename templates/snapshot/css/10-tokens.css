@@ -1,11 +1,11 @@
-/* Layout : les gris et les widgets de Blender, mais l'espacement d'une page web.
-   Outliner | Liste (séparateurs) | Détail ; « Regarder en grand » recouvre l'écran.
-   ≥1200 trois zones · 860–1200 outliner en tiroir · <860 détail en feuille plein écran. */
+/* Layout: Blender's greys and widgets, a web page's spacing.
+   Outliner | List (separators) | Detail; "Watch large" covers the screen.
+   ≥1200 three areas · 860–1200 the outliner a drawer · <860 the detail a full-screen sheet. */
 :root{
   color-scheme:dark;
   --scale:1;
-  /* ---- Tailles : tout dérive de --unit (4 px × --scale). Rien en px en dur dans les composants,
-     sauf les filets (1 px) et les largeurs de mise en page. Le menu Affichage › Échelle change --scale. */
+  /* ---- Sizes: everything from --unit (4 px × --scale). No px written in a component,
+     but the hairlines (1 px) and the layout's widths. View › Interface scale changes --scale. */
   --unit:calc(4px*var(--scale));
   /* Espacements (padding, margin, gap) */
   --sp-1:calc(var(--unit)*.5);   /*  2 */
@@ -23,10 +23,10 @@
   --h-xs:calc(var(--unit)*4.5);  /* 18 : puce, glyphe */
   --h-sm:calc(var(--unit)*6);    /* 24 : bouton sm, onglet */
   --u:calc(var(--unit)*7);       /* 28 : bouton, champ, ligne de menu */
-  --h-lg:calc(var(--unit)*9);    /* 36 : en-tête d'area, topbar */
+  --h-lg:calc(var(--unit)*9);    /* 36: an area's header, the top bar */
   --h-touch:44px;                /* cible tactile minimale (mobile), ne suit pas --scale */
   /* Arrondis */
-  --r-xs:calc(var(--unit)*.5);   /*  2 : barres, repères */
+  --r-xs:calc(var(--unit)*.5);   /*  2: bars, marks */
   --r-s:calc(var(--unit)*.75);   /*  3 : badges, kbd */
   --r:calc(var(--unit)*1.25);    /*  5 : widgets (comme Blender) */
   --r-l:calc(var(--unit)*2);     /*  8 : box, panneaux, menus */
@@ -34,12 +34,12 @@
   --r-pill:999px;
   /* Texte */
   --fs-xs:calc(10.5px*var(--scale)); --fs-s:calc(11.5px*var(--scale)); --fs:calc(13px*var(--scale)); --fs-l:calc(15px*var(--scale)); --fs-xl:calc(18px*var(--scale));
-  --fs-in:16px;                  /* texte des champs sur mobile : iOS ne zoome pas au-dessus de 16 px */
+  --fs-in:16px;                  /* the fields' text on a phone: iOS doesn't zoom at 16 px and over */
   --lh:1.45;
   --gap:var(--sp-3);
-  /* Chaque couleur = un champ de bpy.context.preferences.themes[0].
-     L'addon les lit à l'export et les écrit ici : un thème Blender perso donne un HTML assorti. */
-  --screen:#161616;      /* user_interface.editor_border (gouttières entre areas) */
+  /* Each colour = a field of bpy.context.preferences.themes[0].
+     The export reads them (lib/snapshot_theme.py, meta.theme): a custom Blender theme gives a page to match. */
+  --screen:#161616;      /* user_interface.editor_border (the gutters between areas) */
   --area:#2b2b2b;        /* space_properties.space.back */
   --head:#262626;        /* space_properties.space.header */
   --box:#303030;         /* user_interface.wcol_box.inner */
@@ -49,7 +49,7 @@
   --line-3:#5a5a5a;      /* wcol_regular.inner (assombri) */
   --sunk:#232323;        /* space_outliner.space.back (assombri) */
   --cols:#2f2f2f;        /* space_spreadsheet.space.header */
-  --row-hover:#323232;   /* space_outliner.row_alternate (éclairci) */
+  --row-hover:#323232;   /* space_outliner.row_alternate (lighter) */
   --row-sel:#334d80;     /* space_outliner.selected_highlight */
   --stripe-a:#2b2b2b;    /* space_outliner.space.back */
   --stripe-b:#282828;    /* space_outliner.row_alternate */
@@ -63,7 +63,7 @@
   --field:#1d1d1d;       /* wcol_text.inner */
   --track:#1c1c1c;       /* wcol_progress.inner */
   --sel:#4772b3;         /* wcol_regular.inner_sel */
-  --sel-hi:#7aa2e0;      /* wcol_regular.inner_sel (éclairci) */
+  --sel-hi:#7aa2e0;      /* wcol_regular.inner_sel (lighter) */
   --sel-line:#3a5e96;
   --sel-hover:#5280c2;
   --sel-soft:#2a3a55;
@@ -72,11 +72,11 @@
   --overlay:rgba(38,38,38,.92); /* wcol_tooltip.inner */
   --text:#e6e6e6;        /* wcol_regular.text */
   --text-2:#b3b3b3;      /* space_properties.space.text */
-  --text-3:#858585;      /* space_properties.space.text (atténué) */
+  --text-3:#858585;      /* space_properties.space.text (dimmed) */
   --on-sel:#ffffff;      /* wcol_regular.text_sel */
   --play:#2c4a78; --play-hi:#365a91; --play-line:#38609a; --play-t:#dbe7ff;   /* space_sequencer.movie_strip */
   --alert:#6e2f33; --alert-hi:#7d363b; --alert-line:#5a2528; --alert-t:#ffdadc; /* user_interface.wcol_state.inner_changed (rouge) */
-  --ok:#56406a; --ok-hi:#624a79; --ok-line:#47355a; --ok-t:#efe3f8;   /* Valider : le violet du validé */
+  --ok:#56406a; --ok-hi:#624a79; --ok-line:#47355a; --ok-t:#efe3f8;   /* Validate: the validated violet */
   --you-bg:#22314a; --you-line:#2f4566; --you-t:#b3cfff;
   --rtk-t:#f4a1a5; --wip-t:#efc68c; --live-t:#9fdcbc;
   --node:#303030;        /* space_node.node_backdrop */
@@ -84,8 +84,8 @@
   --node-shot:#4a3f2a;   /* space_node.output_node (adouci) */
   --node-old:#5a2a30;    /* space_node.output_node */
   --node-edge:#1a1a1a; --sock:#a1a1a1; --wire-edge:#111; --wire:#9a9a9a;
-  /* États : space_action.keyframe_* adoucis */
-  --on-st:#1b1b1b;   /* l'encre posée sur une couleur d'état (points, coche, flèche) */
+  /* States: space_action.keyframe_*, softened */
+  --on-st:#1b1b1b;   /* the ink on a state's colour (dots, tick, arrow) */
   --st-todo:#5c5c5c; --st-wip:#e0a24a; --st-done:#5fb88a; --st-val:#b88ad4; --st-sup:#d6bfe6; --st-old:#8d7c98; --st-rtk:#e5575f; --st-you:#6ea4ff; --st-wait:#9a9a9a;
   --shadow:rgba(0,0,0,.5);
   --ui:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;

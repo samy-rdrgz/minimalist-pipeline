@@ -1,4 +1,4 @@
-/* ---------- Regarder en grand ---------- */
+/* ---------- Watch large ---------- */
 function renderWide(){
   const W=$('#wide');if(!S.wide){W.hidden=true;return}
   const it=cur();if(!it||S.ws==='farm'){S.wide=false;W.hidden=true;return}

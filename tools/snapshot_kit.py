@@ -1,4 +1,4 @@
-"""The snapshot page's component sheet (templates/snapshot/kit/): every
+"""The snapshot page's component sheet (tools/snapshot_kit_src/, not shipped): every
 component drawn by the page's own CSS and render functions, measured in
 the browser, with an audit of what falls outside the size tokens. Built
 from the same parts as the page (lib/snapshot_page.py CSS_PARTS /
@@ -46,7 +46,7 @@ def main() -> None:
     data = page.page_data(json.loads(src.read_text(encoding="utf-8")))
     # The farm as the live page adds it (lib/live.py _farm_data()): the demo's.
     data["farm"] = json.loads((REPO / "tests" / "fixtures" / "snapshot_demo_farm.json").read_text(encoding="utf-8"))
-    kit = page.PAGE_DIR / "kit"
+    kit = Path(__file__).resolve().parent / "snapshot_kit_src"
     parts = [p for p in page.JS_PARTS if not p.startswith("desktop/29") and p != "boot.js"]
     js = page._parts("js", parts) + "\n/* ==== kit/kit.js ==== */\n" + (kit / "kit.js").read_text(encoding="utf-8")
     shell = (page.PAGE_DIR / "page.html").read_text(encoding="utf-8")

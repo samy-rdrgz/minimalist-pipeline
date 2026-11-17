@@ -1,4 +1,4 @@
-/* ---------- Détail ---------- */
+/* ---------- Detail ---------- */
 function marks(it){
   const out=[];[...it.notes.filter(n=>!n.done),...it.myNotes].forEach(n=>{if(!n.frames)return;const m=String(n.frames).match(/(\d+)(?:-(\d+))?/);if(m)out.push({a:+m[1],b:m[2]?+m[2]:null,rtk:n.type==='rtk',n})});return out;
 }
@@ -11,7 +11,7 @@ function shotsHTML(it){if(!it.shots||it.shots.length<2)return '';const c=shotOf(
 const shotOf=it=>{const c=S.shot[it.name];if(c!=null)return c;const has=s=>it.versions.some(v=>(v.shot||'')===s);
   return has('')||!it.versions.length?'':((it.shots||[]).find(has)??(it.versions[0].shot||''))};
 const versOf=it=>{const c=shotOf(it);return it.versions.filter(v=>(v.shot||'')===c)};
-/* Comparer A / B : la bascule et le choix de B, sous le choix de version (A). Touche C. */
+/* Compare A / B: the switch and B's pick, under the version's (A). Key C. */
 function abHTML(it,ctx){const {V,b}=mVer(it);if(V.length<2)return '';
   return `<div class="ctl abrow"><span class="join" role="group" aria-label="${T('Version shown')}"><button class="btn" data-ab="A" aria-pressed="${S.m.side==='A'}" title="${T('Version A (C)')}">A</button><button class="btn" data-ab="B" aria-pressed="${S.m.side==='B'}" title="${T('Version B, same frame (C)')}">B</button></span>
     <span class="anchor vpick"><button class="enum" data-menu="m-verb-${ctx}" aria-haspopup="true" aria-expanded="false" title="${T('The version to compare (B)')}"><b class="ab b">B</b><span class="lb">${esc(verLab(V[b]))}</span>${ic('b-tria_down')}</button>

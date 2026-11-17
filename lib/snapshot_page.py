@@ -28,7 +28,7 @@ PAGE_DIR = Path(__file__).resolve().parent.parent / "templates" / "snapshot"
 # stylesheet and one script in the page, the script inside one function
 # (page.html). js/core/ holds the data, the state and the actions, shared
 # by the desktop's views (js/desktop/) and the phone's (js/mobile/); the
-# component sheet (kit/, tools/snapshot_kit.py) is built from the same
+# component sheet (tools/snapshot_kit.py, tools/snapshot_kit_src/) is built from the same
 # parts, without the events and the start.
 CSS_PARTS = ("10-tokens.css", "20-components.css", "30-mobile.css")
 JS_PARTS = (
