@@ -10,11 +10,12 @@ const A={
   validateAll(it){let n=0;required(it).forEach(d=>{if(canVal(it,d)&&!it.rtk[d]&&!it.mine[d]){it.mine[d]='val';n++}});return n},
   undo(it,d){delete it.mine[d];it.myNotes=it.myNotes.filter(n=>n.dept!==d||n.type!=='rtk')},
   toggleRtk(it,d){if(it.mine[d]==='rtk'){A.undo(it,d);return false}it.mine[d]='rtk';return true}, // rtk
-  note(it,{type,dept,text,frames}){                                                         // note (frames, departments)
-    it.myNotes.unshift({type,deps:dept?[dept]:[],dept,text,frames:frames||'',author:S.review.name,date:new Date().toISOString(),replies:[],at:Date.now()});
-    if(type==='rtk'&&dept)it.mine[dept]='rtk'},
+  note(it,{type,dept,deps,text,frames,shot}){                                              // note (frames, departments, a block's shot)
+    deps=deps||(dept?[dept]:[]);
+    it.myNotes.unshift({type,deps,dept:deps[0]||null,text,frames:frames||'',shot:shot||'',author:S.review.name,date:new Date().toISOString(),replies:[],at:Date.now()+Math.random()});
+    if(type==='rtk')deps.forEach(d=>it.mine[d]='rtk')},
   unnote(it,at){const n=it.myNotes.find(x=>String(x.at)===String(at));it.myNotes=it.myNotes.filter(x=>x!==n);
-    if(n&&n.type==='rtk'&&n.dept&&!it.myNotes.some(x=>x.dept===n.dept&&x.type==='rtk'))delete it.mine[n.dept]},
+    if(n&&n.type==='rtk')(n.deps||[n.dept]).filter(Boolean).forEach(d=>{if(!it.myNotes.some(x=>x.type==='rtk'&&(x.deps||[x.dept]).includes(d)))delete it.mine[d]})},
   reply(it,id,text){if(!text)return;(it.myReplies[id]=it.myReplies[id]||[]).push({text,author:S.review.name,date:new Date().toISOString()})}, // reply
   unreply(it,id){it.myReplies[id]?.pop();if(!it.myReplies[id]?.length)delete it.myReplies[id]},
   fixed(it,id){if(it.fixed[id])delete it.fixed[id];else it.fixed[id]=true},                 // fixed

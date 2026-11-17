@@ -105,8 +105,12 @@ svg.g{width:calc(26px*var(--scale));height:var(--h-sm);flex:none;overflow:visibl
   .only-wide{display:none!important}
   .only-phone{display:inline-flex!important}
   .statusbar .keys{display:none}
+  #quick.folded>.join,#quick.folded>.anchor{display:none}
+  .view-a>.btn .lbl{display:none}.view-a>.btn .vic{display:inline-block!important}
 }
-@media (max-width:560px){.brand small{display:none}.ws{margin-left:0}.ws button{padding:0 var(--sp-5)}.ws button .lbl{display:none}}
+.view-a .vic{display:none}
+@media (max-width:560px){.brand small{display:none}.ws{margin-left:0}.ws button{padding:0 var(--sp-5)}.ws button .lbl,.ws .n{display:none}
+  .brand{flex:0 1 auto;min-width:min(9ch,22vw)}.brand b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.topbar{padding-left:var(--sp-4);gap:var(--sp-3)}}
 .scrim{position:fixed;inset:0;z-index:35;background:rgba(0,0,0,.4);display:none}
 body.out-open .scrim{display:block}
 
@@ -116,8 +120,7 @@ body.out-open .scrim{display:block}
 .tree li{height:var(--orh);display:flex;align-items:center;gap:var(--sp-4);padding:0 var(--sp-6);cursor:pointer;white-space:nowrap}
 .tree li:hover{background:var(--row-hover)}
 .tree li.seq{font-weight:500}
-.tree li.seq .tri{color:var(--text-2);transition:transform .12s;width:14px;height:14px}
-.tree li.seq.closed .tri{transform:rotate(-90deg)}
+.tree li.seq .tri{color:var(--text-2);width:14px;height:14px}
 .tree li.it{padding-left:calc(34px*var(--scale))}
 .tree li.sel{background:var(--row-sel)}
 .tree li.om{opacity:.5}
@@ -132,8 +135,9 @@ body.out-open .scrim{display:block}
 .grp{border-bottom:1px solid var(--line)}
 .grp-h{position:sticky;top:0;z-index:3;display:flex;align-items:center;gap:var(--sp-6);padding:var(--sp-6) var(--sp-7);background:var(--area);border-bottom:1px solid var(--line);flex-wrap:wrap}
 .grp-h .ttl{display:flex;align-items:center;gap:var(--sp-4);cursor:pointer;user-select:none;border:0;background:none;padding:0;color:var(--text)}
-.grp-h .ttl .tri{color:var(--text-2);transition:transform .12s}
-.grp.closed .grp-h .ttl .tri{transform:rotate(-90deg)}
+.grp-h .ttl .tri{color:var(--text-2)}
+/* Open / folded: Blender's own two arrows (DOWNARROW_HLT, RIGHTARROW), one shown. */
+.tri.shut,.closed>.tri.open,.grp.closed .tri.open{display:none}.closed>.tri.shut,.grp.closed .tri.shut{display:inline-block}
 .grp.closed .rows{display:none}
 .grp-h b{font-size:var(--fs-l);font-weight:600}
 .grp-h .cnt{color:var(--text-3)}
@@ -246,6 +250,7 @@ body.out-open .scrim{display:block}
 .dept .extra .wait{color:var(--text-2)}.dept .extra .redo{color:var(--wip-t)}
 .form{grid-column:1/-1;display:flex;flex-direction:column;gap:var(--sp-4);padding-top:var(--sp-3)}
 .form .r{display:flex;gap:var(--sp-3);align-items:center;flex-wrap:wrap}
+.form .chips>.faint{font-size:var(--fs-s);min-width:calc(80px*var(--scale))}
 .nt{background:var(--box);border-radius:var(--r-l);padding:var(--sp-5) var(--sp-6);display:flex;flex-direction:column;gap:var(--sp-3);border-left:3px solid transparent}
 .nt.rtk{border-left-color:var(--st-rtk)}.nt.todo{border-left-color:var(--st-wip)}.nt.mine{border-left-color:var(--st-you)}
 .nt.closed{opacity:.55}
@@ -253,7 +258,7 @@ body.out-open .scrim{display:block}
 .nt .h .who{color:var(--text-2);font-weight:500}
 .nt .h .sp{flex:1}
 .nt .t{white-space:pre-wrap;word-break:break-word}
-.nt .t.empty{color:var(--text-3);font-style:italic}
+.nt .t.empty{color:var(--text-3);font-style:italic;padding:0;display:block;text-align:left}
 .nt .rep{margin-left:var(--sp-2);padding-left:var(--sp-6);border-left:1px solid var(--line-2);display:flex;flex-direction:column;gap:var(--sp-3)}
 .nt .rep .h{font-size:var(--fs-s)}
 .nt .f{display:flex;gap:var(--sp-3);justify-content:flex-end}
@@ -362,8 +367,10 @@ button.assign:hover{background:var(--line);color:var(--text)}
 .jbar i{height:5px;border-radius:var(--r-s);background:var(--track);position:relative;overflow:hidden;display:block}
 .jbar i::after{content:"";position:absolute;inset:0 auto 0 0;width:var(--p);background:var(--sel);border-radius:var(--r-s)}
 .jbar.big i{height:8px}
-.jst{width:calc(22px*var(--scale));height:var(--h-sm);border-radius:50%;display:inline-grid;place-items:center;flex:none;vertical-align:middle}
-.jst svg.i{width:12px;height:12px;fill:#151515}
+.jst{width:calc(20px*var(--scale));height:calc(20px*var(--scale));border-radius:50%;display:inline-grid;place-items:center;flex:none;vertical-align:middle}
+.jst svg.i{width:12px;height:12px;fill:#151515;color:#151515}
+/* The play triangle: smaller, and pushed right to its optical centre. */
+.jst.running svg.i{width:9px;height:9px;transform:translateX(1px)}
 @container main (max-width:640px){.job{grid-template-columns:auto minmax(0,1fr)}.job .jbar,.job .meta{grid-column:2}.job .meta{text-align:left}}
 .dl{display:grid;grid-template-columns:34% 1fr;gap:var(--sp-5) var(--sp-6);margin:0}
 .dl dt{color:var(--text-3);text-align:right}.dl dd{margin:0;min-width:0;word-break:break-word;display:flex;align-items:center;gap:var(--sp-3);flex-wrap:wrap}
@@ -430,7 +437,7 @@ button.assign:hover{background:var(--line);color:var(--text)}
 .stab{display:grid;grid-template-columns:minmax(120px,1.2fr) repeat(var(--nd),minmax(70px,1fr)) minmax(70px,1fr);gap:var(--sp-3) var(--sp-4);padding:var(--sp-6) var(--sp-7) var(--sp-7);align-items:center;overflow-x:auto}
 .stab .sh{color:var(--text-3);font-size:var(--fs-s);text-align:center}
 .sn{display:flex;align-items:center;gap:var(--sp-4);height:var(--u);padding:0 var(--sp-3);border:0;border-radius:var(--r);background:none;color:var(--text);cursor:pointer;text-align:left;font:inherit}
-.sn:hover{background:var(--box)}.sn .rot{transform:rotate(-90deg);color:var(--text-3)}
+.sn:hover{background:var(--box)}.sn .rot{color:var(--text-3)}
 #list .kpis{padding:0}
 .kpi .sf{justify-content:flex-end}
 /* Liens canvas */
@@ -439,6 +446,7 @@ button.assign:hover{background:var(--line);color:var(--text)}
 .gcanvas.grab{cursor:grabbing}
 .gview{position:absolute;left:0;top:0;transform-origin:0 0;display:flex;gap:170px;padding:var(--sp-10);align-items:flex-start;width:max-content}
 .gview svg.wires{position:absolute;left:0;top:0;pointer-events:none;overflow:visible}
+.node.fold .nb{display:none}
 .gcol{display:flex;flex-direction:column;gap:var(--sp-8);width:calc(250px*var(--scale));position:relative;z-index:1}
 .gcap{color:var(--text-3);font-size:var(--fs-s);text-transform:uppercase;letter-spacing:.06em}
 .gnode{cursor:pointer}

@@ -42,7 +42,7 @@ function renderTree(){
   const kind=S.ws==='synth'?'shot':S.ws;const vis=items.filter(i=>(S.ws==='links'?(i.links.length||i.linkedBy.length||S.gAll):i.kind===kind)&&(!S.tq||i.name.toLowerCase().includes(S.tq)));
   $('#tree').innerHTML=[...new Set(vis.map(groupOf))].map(g=>{const its=vis.filter(i=>groupOf(i)===g),cl=S.closedTree.has(g);const act=its.filter(i=>!omitted(i)&&i.done!=null);
     const avg=act.length?act.reduce((a,i)=>a+i.done,0)/act.length:null;
-    return `<li class="seq ${cl?'closed':''}" data-tg="${g}">${ic('b-disclosure_tri_down','i tri')}<span class="nm">${g}</span><span class="pc">${pct(avg)}</span></li>`+(cl?'':its.map(i=>
+    return `<li class="seq ${cl?'closed':''}" data-tg="${g}">${ic('b-downarrow_hlt','i tri open')}${ic('b-rightarrow','i tri shut')}<span class="nm">${g}</span><span class="pc">${pct(avg)}</span></li>`+(cl?'':its.map(i=>
       `<li class="it ${(S.ws==='links'?S.gFocus===i.name:S.sel===i.name)?'sel':''} ${omitted(i)?'om':''}" data-n="${i.name}"><span style="width:8px;height:8px;border-radius:50%;flex:none;background:${DOT[worst(i)]}"></span><span class="nm">${i.kind==='shot'?i.name.replace(i.group+'_',''):i.name}</span>${openNotes(i)?`<span class="pc">${ic('i-note')}${openNotes(i)}</span>`:''}</li>`).join(''))}).join('');
   $('#tree').querySelectorAll('.pc svg').forEach(s=>{s.style.width='11px';s.style.height='11px'});
 }

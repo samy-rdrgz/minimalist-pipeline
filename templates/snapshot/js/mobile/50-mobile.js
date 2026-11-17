@@ -1,5 +1,5 @@
 /* ---------- Phone view ----------
-   Touch AND narrow (< 900 px; a tablet held wide stays desktop). Two uses only:
+   Touch AND narrow (< 900 px wide, or < 500 px high: a phone held wide; a tablet held wide stays desktop). Two uses only:
    · Review (snapshot and live): a shot at a time, two versions compared at the same frame,
      validate, retake, assign, add a department, write a note at the frame.
    · Farm (live only): the farm's state, the jobs and their %, retry, render a shot.
@@ -41,7 +41,7 @@ function mReview(){
       <button class="m-ib" data-mstep="1" aria-label="${T('Next shot')}" ${k<0||k>=sib.length-1?'disabled':''}>${ic('b-tria_right')}</button></div>
     ${it.desc||it.descEdit?`<p class="m-desc">${esc(it.descEdit??it.desc)}</p>`:''}
     <div class="m-player ${S.m.side==='B'&&V.length>1?'is-b':''}" id="m-player">${it.thumb?`<img src="${it.thumb}" alt="${T('Picture of {name}',{name:esc(it.name)})}" draggable="false">`:`<span class="noimg">${T('Not rendered yet')}</span>`}
-      <span class="m-hud">${V.length>1?`<b class="ab">${S.m.side}</b>`:''}${v?esc(verLab(v)):'aucune version'}</span><span class="m-fr">f <span data-f>${fNo(S.frame)}</span></span></div>
+      <span class="m-hud">${V.length>1?`<b class="ab">${S.m.side}</b>`:''}${v?esc(verLab(v)):T('no version')}</span><span class="m-fr">f <span data-f>${fNo(S.frame)}</span></span></div>
     <div class="scrub big" data-scrub role="slider" tabindex="0" aria-label="${T(T('Frame'))}" aria-valuemin="1" aria-valuemax="${NF}" aria-valuenow="${S.frame}">${mkH}${rng}<span class="ph" style="left:${(S.frame-1)/(NF-1)*100}%"></span></div>
     <div class="m-tp"><button class="btn icon" data-tp="fprev" aria-label="${T('Previous frame')}">${ic('b-frame_prev')}</button><button class="btn icon play" data-tp="play" aria-label="${T('Play')}">${ic(S.playing?'b-pause':'b-play')}</button><button class="btn icon" data-tp="fnext" aria-label="${T('Next frame')}">${ic('b-frame_next')}</button><button class="btn icon" data-mloop aria-pressed="${S.m.loop}" aria-label="${T('Loop this shot')}" title="${S.m.loop?T('Plays this shot again and again'):T('Plays the path\'s shots one after the other')}">${ic('b-file_refresh')}</button>
       ${V.length>1?`<span class="join m-ab" role="group" aria-label="${T('Version shown')}"><button class="btn" data-mside="A" aria-pressed="${S.m.side==='A'}">A</button><button class="btn" data-mside="B" aria-pressed="${S.m.side==='B'}">B</button></span>`:''}</div>
@@ -129,7 +129,7 @@ function mSheet(){
   if(k&&k.startsWith('job:')){const j=F.jobs.find(x=>x.id===k.slice(4));if(!j){S.m.sheet=null;return ''}
     const live=j.state==='running'||j.state==='waiting',x=JS.find(a=>a[0]===j.state);t=j.file;
     h=`${j.total?`<span class="jbar big"><i style="--p:${j.done/j.total*100}%"></i><span>${j.done} / ${j.total} frames · ${Math.round(j.done/j.total*100)} %</span></span>`:''}
-      <dl class="dl"><dt>${T('State')}</dt><dd>${jst(j.state)} ${x[1]} · ${esc(j.text)}</dd><dt>Machines</dt><dd>${j.names.length?esc(j.names.join(', ')):'aucune'}</dd><dt>${T('Sent')}</dt><dd>${esc(j.user)} · ${fmtD(j.at)}</dd>
+      <dl class="dl"><dt>${T('State')}</dt><dd>${jst(j.state)} ${x[1]} · ${esc(j.text)}</dd><dt>${T('Machines')}</dt><dd>${j.names.length?esc(j.names.join(', ')):T('none')}</dd><dt>${T('Sent')}</dt><dd>${esc(j.user)} · ${fmtD(j.at)}</dd>
       <dt>${T('Priority')}</dt><dd>${live&&!j.pending?`<span class="prio"><button class="btn icon" data-mprio="-1" aria-label="${T('Lower')}">−</button><b>${j.priority}</b><button class="btn icon" data-mprio="1" aria-label="${T('Higher')}">+</button></span>`:j.priority}</dd></dl>`;
     foot=`${j.retry?'<button class="btn primary m-wide" data-mjob="retry">'+T('Retry')+'</button>':''}${j.removable?'<button class="btn alert m-wide" data-mjob="remove">'+T('Remove from the queue')+'</button>':live?'<button class="btn alert m-wide" data-mjob="cancel">'+T('Cancel the render')+'</button>':''}${j.state==='failed'||j.state==='finished'?'<button class="btn m-wide" data-mjob="archive">'+T('Archive')+'</button>':''}`}
   if(k==='render'){t=T('Render a shot');const f=S.m.rf=S.m.rf||{file:it.name,ver:it.stable?'stable':'last',preset:S.preset,prio:10};const rf=items.find(i=>i.name===f.file)||it;

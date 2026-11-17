@@ -2,7 +2,7 @@
 function marks(it){
   const out=[];[...it.notes.filter(n=>!n.done),...it.myNotes].forEach(n=>{if(!n.frames)return;const m=String(n.frames).match(/(\d+)(?:-(\d+))?/);if(m)out.push({a:+m[1],b:m[2]?+m[2]:null,rtk:n.type==='rtk',n})});return out;
 }
-const fmtDay=sec=>{const d=new Date(sec*1000);return d.toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})};
+const fmtDay=sec=>{const d=new Date(sec*1000);return d.toLocaleDateString(LOCALE(),{day:'2-digit',month:'2-digit'})};
 const verLab=v=>[v.shot,v.folder,v.dept?(LBL[v.dept]||v.dept):'',v.at?fmtDay(v.at):''].filter(Boolean).join(' · ');
 function shotsHTML(it){if(!it.shots||it.shots.length<2)return '';const c=shotOf(it);
   return `<div class="shotsel"><span class="faint">${T('Shot of the block')}</span><span class="join">${['',...it.shots].map(x=>`<button class="btn sm" data-shot="${x}" aria-pressed="${c===x}">${x||T('Whole block')}</button>`).join('')}</span></div>`}
@@ -31,7 +31,7 @@ function stageHTML(it){
     <div class="scrub" data-scrub role="slider" tabindex="0" aria-label="${T('Frame')}" aria-valuemin="1" aria-valuemax="${NF}" aria-valuenow="${S.frame}">${mk}<span class="ph" style="left:${(S.frame-1)/(NF-1)*100}%"></span></div>
     <div class="ctl">
       <span class="join"><button class="btn icon" data-tp="vprev" aria-label="${T('Previous version')}" title="${T('Previous version')}" ${V.length>1?'':'disabled'}>${ic('b-back')}</button><button class="btn icon" data-tp="fprev" aria-label="${T('Previous frame')}" title="${T('Previous frame (,)')}">${ic('b-frame_prev')}</button><button class="btn icon play" data-tp="play" aria-label="${T('Play')}" title="${T('Play (Space)')}">${ic(S.playing?'b-pause':'b-play')}</button><button class="btn icon" data-tp="fnext" aria-label="${T('Next frame')}" title="${T('Next frame (.)')}">${ic('b-frame_next')}</button><button class="btn icon" data-tp="vnext" aria-label="${T('Next version')}" title="${T('Next version')}" ${V.length>1?'':'disabled'}>${ic('b-forward')}</button></span>
-      <span class="join"><button class="btn icon" data-tp="snd" aria-label="${T('Sound')}" title="${T('Sound (M)')}" aria-pressed="${!S.muted}">${ic(S.muted?'b-mute_ipo_off':'b-mute_ipo_on')}</button><button class="btn icon" data-act="player" ${V.length?'':'disabled'} aria-label="${T('This machine\'s player')}" title="${T('Open the original video in this machine\'s player')}">${ic('b-url')}</button></span>
+      <span class="join"><button class="btn icon" data-tp="snd" aria-label="${T('Sound')}" title="${T('Sound (M)')}" aria-pressed="${!S.muted}">${ic(S.muted?'b-mute_ipo_off':'b-mute_ipo_on')}</button><button class="btn icon" data-act="player" ${V.length?'':'disabled'} aria-label="${T('This machine\'s player')}" title="${T('Open the original video in this machine\'s player')}">${ic('b-file_movie')}</button></span>
       <span class="fr">f <span data-f>${fNo(S.frame)}</span> / ${fNo(NF)}</span></div>
     <div class="ctl">${verHTML(it,'p')}<button class="btn" data-wide title="${T('Watch large: the video, the departments and the notes at their frames (W)')}">${ic('b-window')}${T('Watch large')}</button></div>${abHTML(it,'p')}`;
 }
@@ -53,12 +53,18 @@ function deptHTML(it,d,ctx='p'){
   const frm=S.form&&S.form.dept===d?formHTML(d):'';
   return `<div class="dept">${glyph(x.base,x.corner,x.cnt,x.note)}<span class="nm"><b>${LBL[d]}</b><span class="s ${x.tone}">${esc(x.l)}${x.s?' · '+esc(x.s):''}</span></span>${acts}<span class="extra">${assignHTML(it,d,ctx)}${ex}${stillHTML(it,d)}</span>${frm}</div>`;
 }
+/* A note being written: under a department (d) or none; the block's shot shown, if one is. */
+function newForm(d){const it=cur(),c=it&&it.shots&&it.shots.length>1?shotOf(it):'';return {dept:d,type:'rtk',deps:d?[d]:[],shots:c?[c]:[]}}
 function formHTML(d){
-  const types=[['rtk','Retake'],['note',T('Remark')]];
-  return `<div class="form"><span class="join">${types.map(([k,l])=>`<button class="btn sm" data-ftype="${k}" aria-pressed="${S.form.type===k}">${l}</button>`).join('')}</span>
-    <label class="field ta"><textarea id="f-txt" rows="2" placeholder="${S.form.type==='rtk'?(d?T('What\'s wrong on {dept}…',{dept:LBL[d]}):T('What\'s wrong…')):T('A remark, nothing sent back…')}" aria-label="${T('Text')}"></textarea></label>
-    <div class="r"><label class="field" style="width:calc(110px*var(--scale))"><span class="faint">f</span><input id="f-fr" value="${S.rangeStart!=null?Math.min(S.rangeStart,S.frame)+'-'+Math.max(S.rangeStart,S.frame):S.frame}" aria-label="${T('Frame or range')}"></label>
-    <span class="faint" style="font-size:var(--fs-s)">${T('Ctrl+Enter')}</span><span style="flex:1"></span><button class="btn sm" data-fcancel>${T('Cancel')}</button><button class="btn sm ${S.form.type==='rtk'?'alert':'primary'}" data-fok>${T('Write')}</button></div></div>`;
+  const types=[['rtk','Retake'],['note',T('Remark')]],it=cur(),f=S.form,deps=DEPTS[it.kind].filter(x=>required(it).includes(x)),sh=it.shots&&it.shots.length>1?it.shots:[];
+  // Which departments, which shots of a block: several of each (a note per shot).
+  const chips=deps.length?`<div class="r chips"><span class="faint">${T('Departments')}</span>${deps.map(x=>`<button class="btn sm" data-fdep="${x}" aria-pressed="${f.deps.includes(x)}">${esc(LBL[x])}</button>`).join('')}</div>`:'';
+  const shots=sh.length?`<div class="r chips"><span class="faint">${T('Shots')}</span><button class="btn sm" data-fshot="" aria-pressed="${!f.shots.length}">${T('Whole block')}</button>${sh.map(x=>`<button class="btn sm" data-fshot="${esc(x)}" aria-pressed="${f.shots.includes(x)}">${esc(x)}</button>`).join('')}</div>`:'';
+  return `<div class="form"><span class="join">${types.map(([k,l])=>`<button class="btn sm" data-ftype="${k}" aria-pressed="${f.type===k}">${l}</button>`).join('')}</span>
+    ${chips}${shots}
+    <label class="field ta"><textarea id="f-txt" rows="2" placeholder="${f.type==='rtk'?(f.deps.length===1?T('What\'s wrong on {dept}…',{dept:LBL[f.deps[0]]}):T('What\'s wrong…')):T('A remark, nothing sent back…')}" aria-label="${T('Text')}"></textarea></label>
+    <div class="r"><label class="field" style="width:calc(110px*var(--scale))"><span class="faint">f</span><input id="f-fr" value="${S.rangeStart!=null?fNo(Math.min(S.rangeStart,S.frame))+'-'+fNo(Math.max(S.rangeStart,S.frame)):fNo(S.frame)}" aria-label="${T('Frame or range')}"></label>
+    <span class="faint" style="font-size:var(--fs-s)">${T('Ctrl+Enter')}</span><span style="flex:1"></span><button class="btn sm" data-fcancel>${T('Cancel')}</button><button class="btn sm ${f.type==='rtk'?'alert':'primary'}" data-fok>${T('Write')}</button></div></div>`;
 }
 function notesHTML(it){
   let ns=[...it.myNotes.map(n=>({...n,mine:1})),...it.notes];if(S.noteFilter==='open')ns=ns.filter(n=>!n.done);

@@ -9,7 +9,7 @@ const MODE=RAW.meta&&RAW.meta.live?'live':'snapshot',LIVE=MODE==='live';
 if(!M.live)M.live={user:'',role:''};
 document.documentElement.dataset.mode=MODE;
 /* View: desktop (a mouse, or a tablet held wide) or phone (touch AND narrow). The same state, the same actions. */
-const MOB_Q=matchMedia('(pointer:coarse) and (max-width:900px)');
+const MOB_Q=matchMedia('(pointer:coarse) and (max-width:900px), (pointer:coarse) and (max-height:500px)');
 let VIEW=Q.get('view');  // 'mobile' | 'desktop' | null (automatique)
 const isMob=()=>VIEW==='mobile'||(VIEW!=='desktop'&&MOB_Q.matches);
 function setView(v){VIEW=v;S.m.sheet=null;renderAll()}

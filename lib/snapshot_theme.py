@@ -6,13 +6,14 @@ machine to another. read_theme() needs bpy: main thread only; the rest is
 pure (tests/test_snapshot_theme.py)."""
 
 # css variable -> the theme's field, as "area.attribute" under
-# preferences.themes[0] (the first that exists wins).
+# preferences.themes[0] (the first that exists wins). A field with an alpha
+# under 1 (outliner.row_alternate: white at 2 %) is laid on its ground,
+# OVER's, else --area.
 FIELDS = {
     "--screen": ("user_interface.editor_border", "user_interface.editor_outline"),
     "--area": ("properties.space.back",),
     "--head": ("properties.space.header",),
     "--box": ("user_interface.wcol_box.inner",),
-    "--box-2": ("user_interface.wcol_box.inner_sel",),
     "--line": ("user_interface.wcol_box.outline",),
     "--btn": ("user_interface.wcol_regular.inner",),
     "--btn-line": ("user_interface.wcol_regular.outline",),
@@ -31,8 +32,11 @@ FIELDS = {
     "--play": ("sequence_editor.movie_strip",),
     "--node-asset": ("node_editor.converter_node",),
 }
+# What a see-through field is laid on.
+OVER = {"--stripe-b": "--stripe-a", "--row-sel": "--stripe-a", "--dot": "--canvas"}
 # Derived: (variable, from, lightness change) -- a hover 6 % lighter...
 DERIVED = (
+    ("--box-2", "--box", 0.03),
     ("--btn-hi", "--btn", 0.06),
     ("--tool-hi", "--tool", 0.06),
     ("--sel-hover", "--sel", 0.06),
@@ -49,6 +53,13 @@ def hex_color(rgb) -> str:
     """A theme colour (floats 0..1, alpha ignored) as #rrggbb."""
     r, g, b = (max(0, min(255, round(float(c) * 255))) for c in list(rgb)[:3])
     return f"#{r:02x}{g:02x}{b:02x}"
+
+
+def blend(rgba, ground: str) -> str:
+    """A colour with its alpha laid on ground (#rrggbb)."""
+    c = list(rgba)
+    a = float(c[3]) if len(c) > 3 else 1.0
+    return hex_color(float(x) * a + g * (1 - a) for x, g in zip(c[:3], _rgb(ground)))
 
 
 def _rgb(hex_: str) -> tuple:
@@ -80,7 +91,8 @@ def theme_vars(get) -> dict:
         for path in paths:
             value = get(path)
             if value is not None:
-                out[var] = hex_color(value)
+                ground = out.get(OVER.get(var, "--area"))
+                out[var] = blend(value, ground) if ground and var != "--area" else hex_color(value)
                 break
     for var, base, amount in DERIVED:
         if base in out:

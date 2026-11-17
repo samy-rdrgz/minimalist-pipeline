@@ -15,7 +15,8 @@ function validateAll(){const it=cur();if(!it||!S.review||S.review.role===TEAM)re
   refresh();msg(n?T('{n} department validated on {name}|{n} departments validated on {name}',{n,name:it.name}):T('Nothing done to validate on {name}',{name:it.name}))}
 function submitForm(){
   const it=cur(),f=S.form,t=$('#f-txt').value.trim(),fr=$('#f-fr').value.trim().replace(/^f/,'');
-  A.note(it,{type:f.type,dept:f.dept,text:t,frames:fr?'f'+fr:''});S.form=null;S.rangeStart=null;refresh();msg(f.type==='rtk'?T('Retake written on {name}',{name:it.name}):T('Remark written on {name}',{name:it.name}));
+  const shots=f.shots.length?f.shots:[''];
+  shots.forEach(x=>A.note(it,{type:f.type,deps:f.deps,text:t,frames:fr?'f'+fr:'',shot:digits(x)}));S.form=null;S.rangeStart=null;refresh();msg(f.type==='rtk'?T('Retake written on {name}',{name:it.name}):T('Remark written on {name}',{name:it.name}));
 }
 function sendDialog(){
   const ch=A.changes(),acts=reviewActions(),team=asTeam();

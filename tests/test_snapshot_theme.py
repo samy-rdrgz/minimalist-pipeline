@@ -1,5 +1,5 @@
 """Blender's theme as the snapshot page's colours (lib/snapshot_theme.py):
-a fake theme's fields read, the derived ones computed, a theme whose text
+a fake theme's fields read, the derived ones computed, a see-through field laid on its ground, a theme whose text
 wouldn't read refused, and the page given them (meta.theme).
 
     python3 tests/test_snapshot_theme.py
@@ -26,6 +26,7 @@ def main() -> None:
     assert round(th.contrast("#000000", "#ffffff"), 1) == 21.0
     grey = (0.17, 0.17, 0.17, 1.0)
     theme = NS(
+        outliner=NS(space=NS(back=grey), row_alternate=(1, 1, 1, 0.024)),
         properties=NS(space=NS(back=grey, header=(0.15, 0.15, 0.15), text=(0.7, 0.7, 0.7))),
         user_interface=NS(wcol_regular=NS(inner=(0.33, 0.33, 0.33, 1), inner_sel=(0.28, 0.45, 0.7, 1), text=(0.9, 0.9, 0.9), text_sel=(1, 1, 1), outline=(0.24, 0.24, 0.24))),
     )
@@ -40,6 +41,7 @@ def main() -> None:
 
     v = th.theme_vars(get)
     assert v["--area"] == "#2b2b2b" and v["--sel"] == "#4773b2", v
+    assert v["--stripe-b"] == th.blend((1, 1, 1, 0.024), v["--stripe-a"]) == "#303030", "see-through: on its ground, not white"
     assert v["--btn-hi"] == th.shade(v["--btn"], 0.06) and "--canvas" not in v
     theme.user_interface.wcol_regular.text = (0.2, 0.2, 0.2)
     assert th.theme_vars(get) == {}, "dark text on a dark ground: refused"

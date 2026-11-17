@@ -4,10 +4,11 @@ function renderGraph(){
   const show=i=>(S.gAll||linked.has(i.name))&&(!S.q||i.name.toLowerCase().includes(S.q));
   const assets=items.filter(i=>i.kind==='asset'&&show(i)),shots=items.filter(i=>i.kind==='shot'&&show(i));
   const focus=S.gFocus,near=new Set();if(focus){const f=items.find(i=>i.name===focus);near.add(focus);f.links.forEach(l=>near.add(l.name));f.linkedBy.forEach(n=>near.add(n))}
-  const node=i=>{const dim=focus&&!near.has(i.name);
-    return `<div class="node gnode ${i.kind==='shot'?'shot':''} ${focus===i.name?'cur':''} ${dim?'dim':''}" data-gn="${i.name}" data-k="${i.kind}" title="${i.name}">
+  // Folded to its title unless it's the one clicked or one of its links (or all unfolded): the columns stay short.
+  const node=i=>{const dim=focus&&!near.has(i.name),fold=!S.gOpen&&!(focus&&near.has(i.name));
+    return `<div class="node gnode ${i.kind==='shot'?'shot':''} ${focus===i.name?'cur':''} ${dim?'dim':''} ${fold?'fold':''}" data-gn="${i.name}" data-k="${i.kind}" title="${i.name}">
       <div class="nh">${ic(i.kind==='shot'?'b-camera_data':'b-asset_manager')}<span>${i.name}</span><span class="dt" style="background:${DOT[worst(i)]}"></span></div><div class="nb">
-      ${i.links.map(l=>`<div class="sock in ${l.newer?'bad':''}" data-gi="${l.name}"><i></i>${l.name} · ${verOf(l.file)}${l.newer?' (ancien)':''}</div>`).join('')}
+      ${i.links.map(l=>`<div class="sock in ${l.newer?'bad':''}" data-gi="${l.name}"><i></i>${l.name} · ${verOf(l.file)}${l.newer?' ('+T('older')+')':''}</div>`).join('')}
       ${i.linkedBy.length?`<div class="sock out" data-go="${i.name}"><i></i>${T('linked by {n}',{n:i.linkedBy.length})}</div>`:''}
       ${!i.links.length&&!i.linkedBy.length?'<div class="sock faint">'+T('no link')+'</div>':''}</div></div>`};
   const groups=[...new Set(shots.map(i=>i.group))];
@@ -17,6 +18,7 @@ function renderGraph(){
     </div>
     <div class="gtools tl"><span class="dim">${T('{n} linked files of {total}',{n:linked.size,total:items.length})}</span>${nOld?`<span class="tag rtk">${T('{n} link to an older stable|{n} links to an older stable',{n:nOld})}</span>`:''}
       <span class="join"><button class="btn sm" data-gall="0" aria-pressed="${!S.gAll}">${T('Linked files')}</button><button class="btn sm" data-gall="1" aria-pressed="${!!S.gAll}">${T('All')}</button></span>
+      <button class="btn sm" data-gopen aria-pressed="${!!S.gOpen}" title="${T('Show every node\'s links, not only the clicked one\'s')}">${T('Unfold all')}</button>
       ${focus?`<button class="btn sm" data-gclear>${ic('b-x')}${esc(focus)}</button>`:''}</div>
     <div class="gtools br"><span class="join"><button class="btn sm icon" data-gz="-1" aria-label="${T('Zoom out')}" title="${T('Zoom out')}">−</button><button class="btn sm" data-gz="0" title="${T('See everything')}">${Math.round(S.g.z*100)} %</button><button class="btn sm icon" data-gz="1" aria-label="${T('Zoom in')}" title="${T('Zoom in')}">+</button></span></div>
     <div class="ghint">${T('Drag the background: move · wheel: zoom · click: its links · double click: the file')}</div></div>`;
@@ -34,10 +36,10 @@ function layoutGraph(){
     const sk=g=>{const xs=shots.filter(n=>itm(n).group===g).map(n=>bs[n]).filter(x=>x<1e6);return xs.length?xs.reduce((a,b)=>a+b,0)/xs.length:1e6};
     seqs.sort((a,b)=>sk(a)-sk(b));shots.sort((a,b)=>seqs.indexOf(itm(a).group)-seqs.indexOf(itm(b).group)||bs[a]-bs[b]);shots.forEach((n,i)=>sOrder[n]=i);
   }
-  const W=Math.max(...nodes.map(n=>n.offsetWidth),200),GX=200,GY=18,CAP=34,x2=W+GX;let y=CAP,center={};
+  const W=Math.max(...nodes.map(n=>n.offsetWidth),200),GX=200,GY=S.gOpen?18:8,CAP=34,x2=W+GX;let y=CAP,center={};
   v.querySelectorAll('.gcap').forEach(c=>c.remove());
   const cap=(t,x,yy)=>{const c=document.createElement('div');c.className='gcap';c.textContent=t;c.style.left=x+'px';c.style.top=yy+'px';v.appendChild(c)};
-  let lastG=null;shots.forEach(n=>{const g=itm(n).group;if(g!==lastG){if(lastG)y+=16;cap(g,x2,y-24);lastG=g}const e=by(n);e.style.left=x2+'px';e.style.top=y+'px';center[n]=y+e.offsetHeight/2;y+=e.offsetHeight+GY});
+  let lastG=null;shots.forEach(n=>{const g=itm(n).group;if(g!==lastG){if(lastG)y+=S.gOpen?16:28;cap(g,x2,y-24);lastG=g}const e=by(n);e.style.left=x2+'px';e.style.top=y+'px';center[n]=y+e.offsetHeight/2;y+=e.offsetHeight+GY});
   const tgt={};assets.forEach(n=>{const e=by(n),c=itm(n).linkedBy.filter(x=>x in center).map(x=>center[x]);tgt[n]=(c.length?c.reduce((a,b)=>a+b,0)/c.length:1e9)-e.offsetHeight/2});
   let ya=CAP;cap('Assets',0,CAP-24);assets.forEach(n=>{const e=by(n);const t=tgt[n]>=1e8?ya:Math.max(ya,tgt[n]);e.style.left='0px';e.style.top=t+'px';ya=t+e.offsetHeight+GY});
   v.style.width=(x2+W+20)+'px';v.style.height=(Math.max(y,ya)+20)+'px';
@@ -52,7 +54,10 @@ function centerG(n){const c=$('#gcanvas'),e=document.querySelector(`[data-gn="${
   const cr=c.getBoundingClientRect(),er=e.getBoundingClientRect();S.g.x+=cr.left+cr.width/2-(er.left+er.width/2);S.g.y+=cr.top+cr.height/2-(er.top+er.height/2);applyG()}
 function drawGraph(){
   const box=$('#gview');if(!box)return;const R=box.getBoundingClientRect(),z=S.g.z;let p='';const focus=S.gFocus;
-  const pt=e=>{const r=e.getBoundingClientRect();return [(r.left+r.width/2-R.left)/z,(r.top+r.height/2-R.top)/z]};
+  // A folded node's sockets are hidden: its wires meet its title's edge (in: left, out: right).
+  const pt=e=>{const nd=e.closest('.node');if(nd.classList.contains('fold')){const r=nd.querySelector('.nh').getBoundingClientRect(),out=!!e.closest('.out');
+      return [((out?r.right:r.left)-R.left)/z,(r.top+r.height/2-R.top)/z]}
+    const r=e.getBoundingClientRect();return [(r.left+r.width/2-R.left)/z,(r.top+r.height/2-R.top)/z]};
   box.querySelectorAll('[data-gi]').forEach(n=>{const src=n.dataset.gi,o=box.querySelector(`[data-go="${src}"] i`);if(!o)return;
     const tgt=n.closest('[data-gn]').dataset.gn,hot=!focus||focus===src||focus===tgt;
     const [x1,y1]=pt(o),[x2,y2]=pt(n.querySelector('i'));const no=o.closest('.node'),nn=n.closest('.node');

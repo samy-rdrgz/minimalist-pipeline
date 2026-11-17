@@ -1,7 +1,7 @@
 /* ---------- Farm ---------- */
 /* A job's states: words, colour (the states' own), icon. */
 const JS=[['running',T('In progress'),'var(--st-you)','b-play'],['waiting',T('Waiting'),'var(--st-wait)','b-sorttime'],['failed',T('Failed'),'var(--st-rtk)','b-x'],['finished',T('Finished'),'var(--st-done)','b-checkmark']];
-const jst=s=>{const x=JS.find(a=>a[0]===s)||JS[1];return `<span class="jst" style="background:${x[2]}" title="${x[1]}">${ic(x[3])}</span>`};
+const jst=s=>{const x=JS.find(a=>a[0]===s)||JS[1];return `<span class="jst ${x[0]}" style="background:${x[2]}" title="${x[1]}">${ic(x[3])}</span>`};
 const jobItem=j=>items.find(i=>j.file.startsWith(i.name+'_'));
 function farmJobs(){return F.jobs.filter(j=>!j.archived&&(!S.ff.s||j.state===S.ff.s)&&(!S.ff.mine||j.user===M.live.user)&&(!S.ff.q||(j.file+' '+j.shot).toLowerCase().includes(S.ff.q)))}
 function renderFarmQuick(){

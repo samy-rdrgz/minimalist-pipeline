@@ -14,9 +14,15 @@ function mountVideo(){const st=stageEl(),c=curVideo();
   FIRST=c.v.first??null;
   const img=st.querySelector('img,.noimg');if(img)img.hidden=true;
   if(PV.parentNode!==st)st.insertBefore(PV,st.firstChild);
-  if(PV.dataset.src!==c.src){const t=PV.dataset.src?(S.frame-1+.5)/FPS():0;PV.dataset.src=c.src;PV.src=c.src;PV.currentTime=t}
-  PV.muted=S.muted;syncFrame()}
-PV.addEventListener('loadedmetadata',()=>{if(PV.duration&&isFinite(PV.duration)){NF=Math.max(2,Math.round(PV.duration*FPS()));refreshPlayerUI()}});
+  if(PV.dataset.src!==c.src){const t=PV.dataset.src?(S.frame-1+.5)/FPS():0;PV.dataset.src=c.src;PV.src=c.src;PV.currentTime=t;
+    // A / B, another version: it goes on playing if it was.
+    if(S.playing)PV.play().catch(()=>{S.playing=false;syncPlay()})}
+  fitStage(st);PV.muted=S.muted;syncFrame()}
+/* The stage takes the video's shape: between AR_MIN (tall) and AR_MAX (scope), 16:9 until known. */
+const AR_MIN=4/5,AR_MAX=2.4,ARS={};
+function fitStage(st){const r=ARS[PV.dataset.src];if(st&&!st.classList.contains('w-stage'))st.style.aspectRatio=r?String(Math.min(AR_MAX,Math.max(AR_MIN,r))):''}
+PV.addEventListener('loadedmetadata',()=>{if(PV.videoWidth&&PV.videoHeight){ARS[PV.dataset.src]=PV.videoWidth/PV.videoHeight;fitStage(PV.parentNode)}
+  if(PV.duration&&isFinite(PV.duration)){NF=Math.max(2,Math.round(PV.duration*FPS()));refreshPlayerUI()}});
 PV.addEventListener('error',()=>{if(PV.dataset.src){toast(T('Video not found: choose the videos folder (View).'));PV.removeAttribute('src');delete PV.dataset.src;PV.remove();FIRST=null}});
 PV.addEventListener('ended',()=>{S.playing=false;syncPlay();if(isMob()){mEnd();return}if(S.seqPlay&&S.wide)seqNext()});
 const tickV=()=>{if(!PV.paused){S.frame=Math.min(NF,Math.floor(PV.currentTime*FPS()+1e-3)+1);syncFrame()}PV.requestVideoFrameCallback?PV.requestVideoFrameCallback(tickV):null};
