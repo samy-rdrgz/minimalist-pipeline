@@ -172,6 +172,8 @@ def _meta(snapshot: dict) -> dict:
         "addon_version": meta.get("addon_version") or "",
         # Blender's interface language: the page's, unless chosen in it.
         "lang": meta.get("lang") or "",
+        # Blender's theme: {css variable: colour} (lib/snapshot_theme.py), {} none.
+        "theme": meta.get("theme") or {},
         "roles": [r["name"] for r in meta.get("validation_roles") or []],
         "role": meta.get("validation_role"),
         "weights": meta.get("progress_weights") or {},

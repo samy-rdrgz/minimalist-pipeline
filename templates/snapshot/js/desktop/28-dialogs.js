@@ -60,7 +60,10 @@ function setTheme(t){S.theme=t;try{localStorage.setItem('mp-snapshot:theme',t)}c
   closeMenus();if(S.ws==='links')requestAnimationFrame(drawGraph);
 }
 /* Blender's theme, read at the export (meta.theme: {css variable: colour}); none, Blender's dark. */
-function applyBlenderTheme(){document.documentElement.dataset.ui='dark';Object.entries(M.theme||{}).forEach(([k,v])=>document.documentElement.style.setProperty(k,v))}
+function applyBlenderTheme(){const t=M.theme||{},a=t['--area'];let light=false;
+  if(a&&/^#[0-9a-f]{6}$/i.test(a)){const n=parseInt(a.slice(1),16);light=(.2126*(n>>16)+.7152*(n>>8&255)+.0722*(n&255))/255>.5}
+  document.documentElement.removeAttribute('style');document.documentElement.style.setProperty('--scale',S.scaleV||1);
+  document.documentElement.dataset.ui=light?'light':'dark';Object.entries(M.theme||{}).forEach(([k,v])=>document.documentElement.style.setProperty(k,v))}
 function planDlg(g,kind){
   const its=items.filter(i=>i.kind===kind&&groupOf(i)===g);let next='';
   if(kind==='shot'){const nums=its.flatMap(i=>[i.name,...(i.shots||[]).map(s=>g+'_'+s)]).map(n=>+(n.match(/sh(\d+)/)||[])[1]||0).concat(S.planned.filter(p=>p.g===g).map(p=>+(p.name.match(/sh(\d+)/)||[])[1]||0));next=g+'_sh'+String(Math.max(0,...nums)+10).padStart(3,'0')}

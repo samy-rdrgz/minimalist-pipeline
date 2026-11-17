@@ -5589,7 +5589,7 @@ review kept by a 1.x page may be lost, accepted).
   reworked since the stable is the done diamond with an arrow back in
   it, to redo the orange corner -- two signs, as the classic page had.
 
-Still to do: the Blender theme read at the export (`meta.theme`).
+Blender's theme: see "Snapshot page: Blender's theme".
 
 ## Snapshot page: English first, French second
 
@@ -5644,3 +5644,15 @@ that session the v7 page uses --
   Update links, Share).
 - **Icons**: only those the page names stay in `templates/snapshot/icons/`
   (as 2.0.0 did for the classic page).
+
+## Snapshot page: Blender's theme
+
+`lib/snapshot_theme.py read_theme()` (main thread: the export's modal,
+the live page's rebuild) reads `preferences.themes[0]` into the page's
+variables (`FIELDS`: each one's field, as 10-tokens.css names it), the
+derived ones computed (`DERIVED`: a hover 6 % lighter...), sent as
+`meta.theme`. The page's default theme is "Blender": those variables on
+`:root`, light or dark by the ground's lightness; none (an old snapshot,
+a theme refused), Blender's dark. A theme whose text wouldn't read on its
+ground (contrast under 4.5:1) is refused whole. The states' colours never
+follow it. tests/test_snapshot_theme.py.

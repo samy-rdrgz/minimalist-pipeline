@@ -65,6 +65,7 @@ from ..lib import (
     write_snapshot,
     zip_videos,
 )
+from ..lib.snapshot_theme import read_theme
 
 _file_department_items_cache: list = []
 
@@ -1241,6 +1242,8 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
                 "exported_by": get_user(context),
                 "addon_version": get_addon_version(),
                 "lang": ui_language(),
+                # Blender's theme, the page's colours (lib/snapshot_theme.py).
+                "theme": read_theme(),
             }
             data, there, (self._lds_made, self._lds_failed) = self._job.result
             try:
