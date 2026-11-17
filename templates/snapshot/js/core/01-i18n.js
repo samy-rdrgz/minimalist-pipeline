@@ -23,11 +23,3 @@ var forms=s.split('|');if(forms.length>1)s=forms[one(vars&&vars.n)?0:1];
 return vars?s.replace(/\{(\w+)\}/g,function(m,k){return k in vars?String(vars[k]):m;}):s;}
 return {T:T,add:add,use:use,choose:choose,pick:pick,get lang(){return lang;},langs:function(){return Object.keys(DICTS);}};})();
 var T=MPI18n.T;
-// French: the second language. Its keys, the English used by the page.
-MPI18n.add('fr',{
-'Opening…':'Ouverture…',
-'{n} file|{n} files':'{n} fichier|{n} fichiers'
-});
-// Every dictionary in: the language (the page's meta.lang once read,
-// MPI18n.use(MPI18n.pick(META))).
-MPI18n.use(MPI18n.pick(null));

@@ -14,11 +14,11 @@ function v6Click(t){
   if(t.closest('[data-rsend]')){$('#dlg').hidden=true;renderSend(cur());return true}
   const pa=t.closest('[data-plan]');if(pa){planDlg(pa.dataset.plan,pa.dataset.k);return true}
   const pd=t.closest('[data-pld]');if(pd){pd.setAttribute('aria-pressed',pd.getAttribute('aria-pressed')!=='true');return true}
-  const po=t.closest('[data-plok]');if(po){const name=$('#pl-n').value.trim();if(!name)return true;A.plan({name,g:po.dataset.plok,kind:po.dataset.plk,desc:$('#pl-d').value.trim(),deps:[...document.querySelectorAll('[data-pld][aria-pressed=true]')].map(b=>b.dataset.pld)});$('#dlg').hidden=true;refresh();msg(name+' : créé à l\'import de votre revue');return true}
+  const po=t.closest('[data-plok]');if(po){const name=$('#pl-n').value.trim();if(!name)return true;A.plan({name,g:po.dataset.plok,kind:po.dataset.plk,desc:$('#pl-d').value.trim(),deps:[...document.querySelectorAll('[data-pld][aria-pressed=true]')].map(b=>b.dataset.pld)});$('#dlg').hidden=true;refresh();msg(T('{name}: made when your review is imported',{name}));return true}
   const pu=t.closest('[data-unplan]');if(pu){A.unplan(+pu.dataset.unplan);refresh();return true}
   if(t.closest('[data-bulk]')){closeMenus();bulkDlg();return true}
   const bk=t.closest('[data-bk]');if(bk){const o=S.bulk;const k=bk.dataset.bk,v=bk.dataset.v;if(k==='kind'){o.kind=v;o.g='';o.d=DEPTS[v][0]}else if(k==='on')o.on=v==='1';else o[k]=v;bulkDlg();return true}
-  if(t.closest('[data-bkok]')){const o=S.bulk;let n=0;items.filter(i=>i.kind===o.kind&&(!o.g||groupOf(i)===o.g)).forEach(i=>{if(required(i).includes(o.d)===o.on)return;A.setReq(i,o.d,o.on);n++});$('#dlg').hidden=true;refresh();msg(n+' fichiers : '+LBL[o.d]+(o.on?' requis':' non requis'));return true}
+  if(t.closest('[data-bkok]')){const o=S.bulk;let n=0;items.filter(i=>i.kind===o.kind&&(!o.g||groupOf(i)===o.g)).forEach(i=>{if(required(i).includes(o.d)===o.on)return;A.setReq(i,o.d,o.on);n++});$('#dlg').hidden=true;refresh();msg(o.on?T('{n} files: {dept} required',{n,dept:LBL[o.d]}):T('{n} files: {dept} not required',{n,dept:LBL[o.d]}));return true}
   if(t.closest('[data-desc]')){S.editDesc=true;renderProps();setTimeout(()=>$('#desc-in')?.focus(),0);return true}
   if(t.closest('[data-descok]')){const it=cur(),v=$('#desc-in').value.trim();A.desc(it,v);S.editDesc=false;refresh();return true}
   if(t.closest('[data-desccancel]')){S.editDesc=false;renderProps();return true}
@@ -28,29 +28,30 @@ function v6Click(t){
   return false;
 }
 function helpDlg(){
-  const L=[['todo',null,'À faire','pas commencé'],['wip',null,'En cours','points'],['done',null,'Fini','plein'],['rework',null,'Fini, repris','repris depuis le stable : la flèche dans le losange'],['done','redo','À refaire','une étape d\'avant a changé : le coin orange'],
-    ['done','wait','En attente','une étape d\'avant n\'est pas prête'],['sup',null,'Validé sup','coche, clair'],['val',null,'Validé prod','coche, le rôle le plus haut'],['old',null,'À revoir','validé sur un ancien stable'],
-    ['wip','rtk','Retake ouvert','le chiffre : combien de RTK'],['val','rtk','Validé, puis retake','les combinaisons se lisent coin + forme'],['val','you','Vous : validé','pas encore envoyé'],['done','you-rtk','Vous : retake','pas encore envoyé'],['done',null,'Note ouverte','bulle en bas à droite','n'],['na',null,'Non requis','tiret']];
+  const L=[['todo',null,T('To do'),T('not started')],['wip',null,T('In progress'),T('dots')],['done',null,T('Done'),T('full')],['rework',null,T('Done, reworked'),T('reworked since the stable: the arrow in the diamond')],['done','redo',T('To redo'),T('an earlier stage changed: the orange corner')],
+    ['done','wait',T('Waiting'),T('an earlier stage isn\'t ready')],['sup',null,T('Validated by a role'),T('tick, light')],['val',null,T('Validated by the top role'),T('tick, {role}',{role:M.role||''})],['old',null,T('To review again'),T('validated on an older stable')],
+    ['wip','rtk',T('Open retake'),T('the number: how many RTK')],['val','rtk',T('Validated, then a retake'),T('read the corner with the shape')],['val','you',T('You: validated'),T('not sent yet')],['done','you-rtk',T('You: retake'),T('not sent yet')],['done',null,T('Open note'),T('bubble at the bottom right'),'n'],['na',null,T('Not required'),T('dash')]];
   const dl=$('#dlg');dl.hidden=false;
-  dl.innerHTML=`<div class="dlg-in" role="dialog" aria-modal="true" aria-labelledby="hl-t"><h3 id="hl-t">Légende et raccourcis</h3>
-    <p class="faint" style="margin:0">Le losange dit l'état, le coin dit ce qui s'y ajoute. Le texte à côté répète toujours l'information.</p>
+  dl.innerHTML=`<div class="dlg-in" role="dialog" aria-modal="true" aria-labelledby="hl-t"><h3 id="hl-t">${T('Legend and keys')}</h3>
+    <p class="faint" style="margin:0">${T('The diamond says the state, the corner what comes on top. The words beside it always say it again.')}</p>
     <ul class="legend-list">${L.map(([b,c,l,s,n])=>`<li>${glyph(b,c,2,!!n)}<span>${l}<small>${s}</small></span></li>`).join('')}</ul>
-    <div class="sec-h">Raccourcis</div>
-    <ul class="legend-list" style="gap:6px">${[['↑ ↓','fichier précédent / suivant'],['/','aller à un fichier'],['W','regarder en grand'],['← →','en grand : fichier précédent / suivant'],[', .','une frame en arrière / en avant'],['Espace','lecture'],['C','comparer : version A / version B, même frame'],['M','son'],['I','en grand, en revue : début d\'une plage'],['V','en revue : valider tout le fini'],['X','en revue : retake ou remarque sans département'],['R','répondre'],['Ctrl+Entrée','fin de saisie'],['Échap','fermer']].map(([k,l])=>`<li style="grid-template-columns:110px 1fr"><span class="kbd" style="justify-self:start">${k}</span><span>${l}</span></li>`).join('')}</ul>
-    <div class="acts"><button class="btn" data-tourstart>Visite guidée</button><span style="flex:1"></span><button class="btn" data-dclose>Fermer</button></div></div>`;
+    <div class="sec-h">${T('Keys')}</div>
+    <ul class="legend-list" style="gap:6px">${[['↑ ↓',T('previous / next file')],['/',T('go to a file')],['W',T('watch large')],['← →',T('large: previous / next file')],[', .',T('one frame back / on')],[T('Space'),T('play')],['C',T('compare: version A / version B, same frame')],['M',T('sound')],['I',T('large, reviewing: a range\'s start')],['V',T('reviewing: validate all the done')],['X',T('reviewing: a retake or remark on no department')],['R',T('reply')],[T('Ctrl+Enter'),T('done writing')],[T('Esc'),T('close')]].map(([k,l])=>`<li style="grid-template-columns:110px 1fr"><span class="kbd" style="justify-self:start">${k}</span><span>${l}</span></li>`).join('')}</ul>
+    <div class="acts"><button class="btn" data-tourstart>${T('Guided tour')}</button><span style="flex:1"></span><button class="btn" data-dclose>${T('Close')}</button></div></div>`;
 }
 document.addEventListener('click',e=>{
   const t=e.target;
+  const lg=t.closest('[data-lang]');if(lg){MPI18n.choose(lg.dataset.lang);location.reload();return}
   const mb=t.closest('[data-menu]');if(mb){const m=document.getElementById(mb.dataset.menu);const o=m.hidden;closeMenus();m.hidden=!o;mb.setAttribute('aria-expanded',o);if(o)placeMenu(mb,m);return}
   if(!t.closest('.menu'))closeMenus();
   if(!t.closest('.pop')&&!t.closest('#rv-open')&&!t.closest('[data-settings]')&&!t.closest('#news-b'))document.querySelectorAll('.pop').forEach(p=>p.remove());
   const a=t.closest('[data-act]');if(a){const k=a.dataset.act;closeMenus();
     if(k==='videos')pickVideos();
-    if(k==='player'){const it=cur(),m=it&&mVer(it),v=m&&m.V[m.i];if(LIVE)livePlay(v&&v.video);else if(v&&v.video){const u=videoSrc(v.video);if(u)open(u,'_blank');else toast('Vidéo introuvable : choisissez le dossier des vidéos (Affichage).')}}
+    if(k==='player'){const it=cur(),m=it&&mVer(it),v=m&&m.V[m.i];if(LIVE)livePlay(v&&v.video);else if(v&&v.video){const u=videoSrc(v.video);if(u)open(u,'_blank');else toast(T('Video not found: choose the videos folder (View).'))}}
     if(k==='blender'){const it=cur();if(it)liveOpen(it.file)}
-    if(k==='folder')farmPost({action:'open',job_id:S.farmSel,value:'folder'},'ouvre le dossier');
-    if(k==='log')farmPost({action:'open',job_id:S.farmSel,value:'log:0'},'ouvre le log');
-    if(k==='copy'){const u=location.href.split('#')[0]+'#'+S.sel;(navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(()=>toast('Lien copié'),()=>toast(u))}
+    if(k==='folder')farmPost({action:'open',job_id:S.farmSel,value:'folder'},T('opens the folder'));
+    if(k==='log')farmPost({action:'open',job_id:S.farmSel,value:'log:0'},T('opens the log'));
+    if(k==='copy'){const u=location.href.split('#')[0]+'#'+S.sel;(navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(()=>toast(T('Link copied')),()=>toast(u))}
     if(k==='collapse'){items.forEach(i=>S.closed.add(groupOf(i)));renderTree();renderList()}
     if(k==='expand'){S.closed.clear();renderTree();renderList()}
     if(k==='clear'){S.quick=null;S.q='';S.more.clear();S.dept=null;$('#q').value='';renderQuick();renderList()}
@@ -62,12 +63,12 @@ document.addEventListener('click',e=>{
   const jb=t.closest('[data-job]');if(jb){S.farmSel=jb.dataset.job;document.querySelectorAll('.job.sel').forEach(e=>e.classList.remove('sel'));jb.classList.add('sel');renderProps();if(narrow())document.body.classList.add('props-open');return}
   const wk=t.closest('[data-wk]');if(wk){S.farmSel='w:'+wk.dataset.wk;document.querySelectorAll('.job.sel').forEach(e=>e.classList.remove('sel'));wk.classList.add('sel');renderProps();if(narrow())document.body.classList.add('props-open');return}
   const fa=t.closest('[data-farm]');if(fa){farmAction(fa.dataset.farm,fa);return}
-  const pr=t.closest('[data-prio]');if(pr){const j=F.jobs.find(x=>x.id===S.farmSel);if(j)farmPost({action:'priority',job_id:j.id,value:j.priority+(+pr.dataset.prio)},'priorité '+(j.priority+(+pr.dataset.prio)));return}
+  const pr=t.closest('[data-prio]');if(pr){const j=F.jobs.find(x=>x.id===S.farmSel);if(j)farmPost({action:'priority',job_id:j.id,value:j.priority+(+pr.dataset.prio)},T('priority {n}',{n:j.priority+(+pr.dataset.prio)}));return}
   const vr=t.closest('[data-ver]');if(vr){S.ver[S.sel]=+vr.dataset.ver;closeMenus();if(S.tab==='files'&&!S.wide)S.tab='plan';renderProps();renderWide();return}
   const ps=t.closest('[data-preset]');if(ps){S.preset=ps.dataset.preset;closeMenus();renderProps();return}
   const as=t.closest('[data-assign]');if(as){const it=cur(),d=as.dataset.assign,a=A.assignToggle(it,d,as.dataset.p);
-    closeMenus();refresh();msg(LBL[d]+' : '+(a.join(', ')||'personne'));return}
-  if(t.closest('[data-relink]')){toast('Pas encore : mettez à jour les liens depuis Blender (Pipeline › Liens).');return}
+    closeMenus();refresh();msg(LBL[d]+': '+(a.join(', ')||T('nobody')));return}
+  if(t.closest('[data-relink]')){toast(T('Not yet: update the links from Blender.'));return}
   const ga=t.closest('[data-gall]');if(ga){S.gAll=ga.dataset.gall==='1';renderList();return}
   if(t.closest('[data-gclear]')){S.gFocus=null;renderList();return}
   const gn=t.closest('[data-gn]');if(gn){const n=gn.dataset.gn;S.gFocus=S.gFocus===n?null:n;S.sel=n;S.tab='links';renderList();renderProps();renderTree();if(narrow()&&S.gFocus)document.body.classList.add('props-open');return}
@@ -77,7 +78,7 @@ document.addEventListener('click',e=>{
   const wt=t.closest('[data-wtype]');if(wt){const tx=$('#w-ta')?.value||'';S.wtype=wt.dataset.wtype;renderWide();if($('#w-ta')){$('#w-ta').value=tx;$('#w-ta').focus()}return}
   const sl=t.closest('[data-still]');if(sl){A.still(cur(),sl.dataset.still);refresh();return}
   const fx=t.closest('[data-fix]');if(fx){A.fixed(cur(),fx.dataset.fix);refresh();return}
-  const zm=t.closest('[data-zoom]');if(zm){const it=items.find(i=>i.name===zm.dataset.zoom);const dl=$('#dlg');dl.hidden=false;dl.innerHTML=`<div class="dlg-in zoom" role="dialog" aria-modal="true" aria-label="${it.name}, en grand"><img src="${it.thumb}" alt="${it.name}"><div class="acts"><span class="mono" style="flex:1">${it.name}</span><button class="btn" data-dclose>Fermer</button></div></div>`;return}
+  const zm=t.closest('[data-zoom]');if(zm){const it=items.find(i=>i.name===zm.dataset.zoom);const dl=$('#dlg');dl.hidden=false;dl.innerHTML=`<div class="dlg-in zoom" role="dialog" aria-modal="true" aria-label="${T('{name}, large',{name:it.name})}"><img src="${it.thumb}" alt="${it.name}"><div class="acts"><span class="mono" style="flex:1">${it.name}</span><button class="btn" data-dclose>${T('Close')}</button></div></div>`;return}
   const sm=t.closest('[data-smode]');if(sm){S.smode=sm.dataset.smode;renderList();return}
   const sg=t.closest('[data-sgo]');if(sg){S.ws=sg.dataset.skind;S.closed.clear();S.q='';$('#q').value='';const f=items.find(i=>i.kind===S.ws&&groupOf(i)===sg.dataset.sgo);S.sel=f.name;S.tab='plan';renderAll();document.querySelector(`.grp[data-g="${CSS.escape(sg.dataset.sgo)}"]`)?.scrollIntoView({block:'start'});return}
   const gz=t.closest('[data-gz]');if(gz){const k=+gz.dataset.gz;if(k)zoomG(k>0?1.25:.8);else fitG();drawGraph();return}
@@ -89,20 +90,20 @@ document.addEventListener('click',e=>{
   const ws=t.closest('[data-ws]');if(ws){S.ws=ws.dataset.ws;S.quick=null;S.dept=null;if((S.ws==='shot'||S.ws==='asset')&&cur()?.kind!==S.ws)S.sel=items.find(i=>i.kind===S.ws).name;if(S.ws==='links')S.tab='links';else if(S.tab==='links'&&S.ws!=='synth')S.tab='plan';renderAll();return}
   if(t.closest('#rv-open')){reviewPop();return}
   if(t.closest('#rv-open-w')){S.wide=false;renderWide();setTimeout(reviewPop,0);return}
-  if(t.closest('#rv-stop')){S.review=null;S.form=null;S.reply=null;if(S.quick==='mine')S.quick=null;renderAll();msg('Mode revue quitté : vos modifications restent affichées jusqu\'au rechargement.');return}
+  if(t.closest('#rv-stop')){S.review=null;S.form=null;S.reply=null;if(S.quick==='mine')S.quick=null;renderAll();msg(T('Review left: your changes are kept in this browser.'));return}
   if(t.closest('#rv-send')){sendDialog();return}
   if(t.closest('#help-b')){helpDlg();return}
   if(t.closest('[data-dclose]')||t.id==='dlg'){$('#dlg').hidden=true;return}
   if(t.closest('[data-rvgo]')){$('#dlg').hidden=true;deliverReview();return}
-  if(t.closest('[data-rvclear]')){if(confirm('Effacer toute la revue en cours ? Un fichier déjà téléchargé garde ce qu\'il contient.')){clearReview();$('#dlg').hidden=true;renderAll();toast('Revue effacée')}return}
+  if(t.closest('[data-rvclear]')){if(confirm(T('Clear the whole review in progress? A file already downloaded keeps what it holds.'))){clearReview();$('#dlg').hidden=true;renderAll();toast(T('Review cleared'))}return}
   const q=t.closest('[data-quick]');if(q){S.quick=S.quick===q.dataset.quick?null:q.dataset.quick;renderQuick();renderList();return}
   const dp=t.closest('[data-dept]');if(dp){S.dept=S.dept===dp.dataset.dept?null:dp.dataset.dept;renderQuick();renderList();return}
   const mo=t.closest('[data-more]');if(mo){const k=mo.dataset.more;S.more.has(k)?S.more.delete(k):S.more.add(k);renderQuick();renderList();return}
   const fo=t.closest('[data-fold]');if(fo){const g=fo.dataset.fold;S.closed.has(g)?S.closed.delete(g):S.closed.add(g);renderTree();renderList();return}
-  const sq=t.closest('[data-seq]');if(sq){const f=visible().find(i=>i.group===sq.dataset.seq)||items.find(i=>i.group===sq.dataset.seq);S.sel=f.name;S.wide=true;S.frame=1;S.seqPlay=true;renderAll();if(!S.playing)togglePlay();msg('Lecture de '+sq.dataset.seq+' : les plans s\'enchaînent');return}
+  const sq=t.closest('[data-seq]');if(sq){const f=visible().find(i=>i.group===sq.dataset.seq)||items.find(i=>i.group===sq.dataset.seq);S.sel=f.name;S.wide=true;S.frame=1;S.seqPlay=true;renderAll();if(!S.playing)togglePlay();msg(T('Playing {seq}: the shots one after the other',{seq:sq.dataset.seq}));return}
   const tr=t.closest('.heat tr[data-g]');if(tr){S.ws='shot';S.closed.clear();S.sel=items.find(i=>i.group===tr.dataset.g).name;renderAll();return}
   const fl=t.closest('[data-film]');if(fl){select(fl.dataset.film,{open:false});return}
-  const gf=t.closest('[data-goto-file]');if(gf){const n=gf.dataset.gotoFile,it=items.find(i=>i.name===n);if(it){if(it.kind!==S.ws){S.ws=it.kind;S.sel=n;S.tab='plan';renderAll()}else select(n,{open:false})}else toast(n+' n\'est pas dans ce snapshot');return}
+  const gf=t.closest('[data-goto-file]');if(gf){const n=gf.dataset.gotoFile,it=items.find(i=>i.name===n);if(it){if(it.kind!==S.ws){S.ws=it.kind;S.sel=n;S.tab='plan';renderAll()}else select(n,{open:false})}else toast(T('{name} isn\'t in this snapshot',{name:n}));return}
   const row=t.closest('.row[data-n],.tree li[data-n]');if(row){select(row.dataset.n);return}
   const tab=t.closest('[data-tab]');if(tab){S.tab=tab.dataset.tab;renderProps();return}
   const nf=t.closest('[data-nf]');if(nf){S.noteFilter=nf.dataset.nf;refresh();return}
@@ -115,7 +116,7 @@ document.addEventListener('click',e=>{
   if(t.closest('[data-wide]')){S.wide=true;renderWide();return}
   if(t.closest('[data-wclose]')){S.wide=false;S.seqPlay=false;if(S.playing)togglePlay();if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});renderWide();renderProps();return}
   const wsS=t.closest('[data-wstep]');if(wsS){step(+wsS.dataset.wstep);return}
-  if(t.closest('[data-full]')){const W=$('#wide');(document.fullscreenElement?document.exitFullscreen():W.requestFullscreen?.())?.catch?.(()=>toast('Plein écran indisponible ici'));return}
+  if(t.closest('[data-full]')){const W=$('#wide');(document.fullscreenElement?document.exitFullscreen():W.requestFullscreen?.())?.catch?.(()=>toast(T('Full screen not available here')));return}
   const v=t.closest('[data-val]');if(v&&!v.disabled){A.validate(cur(),v.dataset.val);refresh();return}
   if(t.closest('[data-valall]')){validateAll();return}
   const u=t.closest('[data-undo]');if(u){A.undo(cur(),u.dataset.undo);refresh();return}
@@ -132,13 +133,13 @@ document.addEventListener('click',e=>{
   const st=t.closest('[data-settings]');if(st){settingsPop(st);return}
   const rq=t.closest('[data-req]');if(rq&&!rq.disabled){const it=cur();A.toggleReq(it,rq.dataset.req);rq.setAttribute('aria-pressed',required(it).includes(rq.dataset.req));renderList();renderTop();renderQuick();return}
   const om=t.closest('[data-omit]');if(om&&!om.disabled){const it=cur();A.omit(it,om.dataset.omit);document.querySelector('.pop.set')?.remove();refresh();return}
-  if(t.closest('[data-checked]')){cur().toCheck=false;refresh();msg('Vu : '+S.sel+' sort de « à vérifier »');return}
+  if(t.closest('[data-checked]')){const it=cur();it.toCheck=false;if(LIVE)liveChecked(it);refresh();msg(T('Checked: {name} is no longer "to check"',{name:S.sel}));return}
   if(t.closest('#pp-prev')){step(-1);return}if(t.closest('#pp-next')){step(1);return}
   if(t.closest('#pp-close')){document.body.classList.remove('props-open');return}
   if(t.closest('#out-toggle')){document.body.classList.toggle('out-open');return}
   if(t.closest('#scrim')){document.body.classList.remove('out-open');return}
 });
-document.addEventListener('change',e=>{if(e.target.id==='notif-sys'){S.notifSys=e.target.checked;if(S.notifSys){if(!window.Notification){S.notifSys=false;e.target.checked=false;toast('Ce navigateur ne propose pas de notifications');return}Promise.resolve(Notification.requestPermission()).then(p=>{if(p!=='granted'){S.notifSys=false;e.target.checked=false;toast('Notifications refusées ici : la cloche reste à jour')}}).catch(()=>{S.notifSys=false;e.target.checked=false})}}
+document.addEventListener('change',e=>{if(e.target.id==='notif-sys'){S.notifSys=e.target.checked;if(S.notifSys){if(!window.Notification){S.notifSys=false;e.target.checked=false;toast(T('This browser has no notifications'));return}Promise.resolve(Notification.requestPermission()).then(p=>{if(p!=='granted'){S.notifSys=false;e.target.checked=false;toast(T('Notifications refused here: the bell stays up to date'))}}).catch(()=>{S.notifSys=false;e.target.checked=false})}}
   const rn=e.target.closest&&e.target.closest('[data-rfn]');if(rn)rform(cur())[rn.dataset.rfn]=e.target.value});
 document.addEventListener('input',e=>{if(e.target.id==='om-why'){A.omitReason(cur(),e.target.value);renderList()}});
 document.addEventListener('keydown',e=>{

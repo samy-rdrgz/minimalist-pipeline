@@ -17,7 +17,7 @@ function mountVideo(){const st=stageEl(),c=curVideo();
   if(PV.dataset.src!==c.src){const t=PV.dataset.src?(S.frame-1+.5)/FPS():0;PV.dataset.src=c.src;PV.src=c.src;PV.currentTime=t}
   PV.muted=S.muted;syncFrame()}
 PV.addEventListener('loadedmetadata',()=>{if(PV.duration&&isFinite(PV.duration)){NF=Math.max(2,Math.round(PV.duration*FPS()));refreshPlayerUI()}});
-PV.addEventListener('error',()=>{if(PV.dataset.src){toast('Vidéo introuvable : choisissez le dossier des vidéos (Affichage).');PV.removeAttribute('src');delete PV.dataset.src;PV.remove();FIRST=null}});
+PV.addEventListener('error',()=>{if(PV.dataset.src){toast(T('Video not found: choose the videos folder (View).'));PV.removeAttribute('src');delete PV.dataset.src;PV.remove();FIRST=null}});
 PV.addEventListener('ended',()=>{S.playing=false;syncPlay();if(isMob()){mEnd();return}if(S.seqPlay&&S.wide)seqNext()});
 const tickV=()=>{if(!PV.paused){S.frame=Math.min(NF,Math.floor(PV.currentTime*FPS()+1e-3)+1);syncFrame()}PV.requestVideoFrameCallback?PV.requestVideoFrameCallback(tickV):null};
 if(PV.requestVideoFrameCallback)PV.requestVideoFrameCallback(tickV);else PV.addEventListener('timeupdate',()=>{S.frame=Math.min(NF,Math.floor(PV.currentTime*FPS()+1e-3)+1);syncFrame()});
@@ -42,8 +42,8 @@ function sx(s,x){const r=s.getBoundingClientRect();setFrame(Math.round(1+(x-r.le
 
 
 /* ---------- Comparer A / B ----------
-   Deux versions du même fichier, la même frame. A = S.ver[nom] (le choix de version habituel), B = S.m.b[nom].
-   S.m.side dit laquelle on regarde. Partagé par le bureau (détail, En grand) et le mobile. */
+   Two versions of the same file (the same shot), the same frame. A = S.ver[name] (the usual version pick), B = S.m.b[name].
+   S.m.side says which one is shown. Shared by the desktop (detail, Watch large) and the phone. */
 S.m={tab:'review',side:'A',b:{},filter:'',kind:'shot',sheet:null,ctype:'rtk',cdept:null,loop:false};
 function mVer(it){const V=versOf(it),a=Math.min(S.ver[it.name]||0,Math.max(0,V.length-1));
   let b=S.m.b[it.name];if(b==null||b>=V.length)b=V.length>1?(a===0?1:0):a;return {V,a,b,i:S.m.side==='B'&&V.length>1?b:a}}

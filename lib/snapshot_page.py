@@ -34,6 +34,8 @@ CSS_PARTS = ("10-tokens.css", "20-components.css", "30-mobile.css")
 JS_PARTS = (
     "core/00-data.js",
     "core/01-i18n.js",
+    "i18n/fr.js",
+    "core/02-lang.js",
     "core/03-status.js",
     "core/05-mode.js",
     "core/10-status.js",
@@ -167,6 +169,8 @@ def _meta(snapshot: dict) -> dict:
         "snapshot": meta.get("scan_started_at") or "",
         "exported_by": meta.get("exported_by") or "",
         "addon_version": meta.get("addon_version") or "",
+        # Blender's interface language: the page's, unless chosen in it.
+        "lang": meta.get("lang") or "",
         "roles": [r["name"] for r in meta.get("validation_roles") or []],
         "role": meta.get("validation_role"),
         "weights": meta.get("progress_weights") or {},

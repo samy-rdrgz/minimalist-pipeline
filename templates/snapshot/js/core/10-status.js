@@ -1,4 +1,4 @@
-/* ---------- Glyphe d'état : une forme de base + un badge de coin + un libellé ---------- */
+/* ---------- A state's glyph: a base shape, a corner badge, its words ---------- */
 const BASE={todo:['--st-todo',''],wip:['--st-wip','dots'],done:['--st-done',''],rework:['--st-done','back'],val:['--st-val','check'],sup:['--st-sup','check'],old:['--st-old','check']};
 function glyph(base,corner,cnt,note){
   if(base==='na')return `<svg class="g" viewBox="0 0 22 22" aria-hidden="true"><path d="M6 12h8" style="stroke:var(--line-3)" stroke-width="2" stroke-linecap="round"/></svg>`;
@@ -21,23 +21,23 @@ function glyph(base,corner,cnt,note){
 const required=it=>it.req?Object.keys(it.req).filter(d=>it.req[d]):Object.keys(it.states);
 const rtkNotes=(it,d)=>it.notes.filter(n=>n.type==='rtk'&&!n.done&&(d==null?true:n.deps.includes(d)));
 function info(it,d){
-  if(!required(it).includes(d))return {base:'na',l:'Non requis',s:'',tone:''};
+  if(!required(it).includes(d))return {base:'na',l:T('Not required'),s:'',tone:''};
   const st=it.states[d]||'todo',ok=it.ok[d],mine=it.mine[d],f=it.flags[d]||{};
-  let base=st==='todo'?'todo':st==='wip'?'wip':st==='rework'?'rework':'done',l={todo:'À faire',wip:'En cours',done:'Fini',rework:'Fini, repris'}[st]||'À faire';
-  if(ok){base=ok.old?'old':ok.role===M.role?'val':'sup';l=ok.old?'À revoir':'Validé '+ok.role}
+  let base=st==='todo'?'todo':st==='wip'?'wip':st==='rework'?'rework':'done',l={todo:T('To do'),wip:T('In progress'),done:T('Done'),rework:T('Done, reworked')}[st]||T('To do');
+  if(ok){base=ok.old?'old':ok.role===M.role?'val':'sup';l=ok.old?T('To review again'):T('Validated {role}',{role:ok.role})}
   let corner=null,cnt=0,s='',tone='';
   const rn=rtkNotes(it,d).length,rk=it.rtk[d];
-  if(st==='rework'&&!ok)s='repris depuis le stable';
-  if(f.to_redo){corner='redo';s='à refaire : '+f.to_redo;tone='redo'}
-  if(f.waiting){corner='wait';s='attend : '+f.waiting;tone='wait'}
-  if(rk||rn){corner='rtk';cnt=rn||1;s=(rn||1)+' RTK · '+(rk==='role'?'rôle':'équipe');tone='rtk'}
-  if(mine==='val'){base=S.review&&S.review.role!==M.role?'sup':'val';l='Validé '+(S.review?S.review.role:'');corner='you';s='vous · pas encore envoyé';tone='you'}
-  if(mine==='rtk'){corner='you-rtk';s='vous : retake';tone='you'}
+  if(st==='rework'&&!ok)s=T('reworked since the stable');
+  if(f.to_redo){corner='redo';s=T('to redo: {why}',{why:f.to_redo});tone='redo'}
+  if(f.waiting){corner='wait';s=T('waiting: {why}',{why:f.waiting});tone='wait'}
+  if(rk||rn){corner='rtk';cnt=rn||1;s=T('{n} RTK · {who}',{n:rn||1,who:rk==='role'?T('role'):T('team')});tone='rtk'}
+  if(mine==='val'){base=S.review&&S.review.role!==M.role?'sup':'val';l=T('Validated {role}',{role:S.review?S.review.role:''});corner='you';s=T('you · not sent yet');tone='you'}
+  if(mine==='rtk'){corner='you-rtk';s=T('you: retake');tone='you'}
   const nn=it.notes.filter(n=>n.type!=='rtk'&&!n.done&&n.deps.includes(d)).length+it.myNotes.filter(n=>n.type!=='rtk'&&n.dept===d).length;
-  if(nn&&!s)s=nn+' note'+(nn>1?'s':'');
+  if(nn&&!s)s=T('{n} note|{n} notes',{n:nn});
   return {base,corner,cnt,l,s,tone,note:nn>0};
 }
-const cellHTML=(it,d)=>{const x=info(it,d);return `<span class="cell ${x.base==='na'?'na':''}" title="${LBL[d]} : ${esc(x.l)}${x.s?' · '+esc(x.s):''}">${glyph(x.base,x.corner,x.cnt,x.note)}<span class="ab">${AB[d]}</span><span class="tx"><span class="l">${esc(x.l)}</span>${x.s?`<span class="s ${x.tone}">${esc(x.s)}</span>`:''}</span></span>`};
+const cellHTML=(it,d)=>{const x=info(it,d);return `<span class="cell ${x.base==='na'?'na':''}" title="${LBL[d]}: ${esc(x.l)}${x.s?' · '+esc(x.s):''}">${glyph(x.base,x.corner,x.cnt,x.note)}<span class="ab">${AB[d]}</span><span class="tx"><span class="l">${esc(x.l)}</span>${x.s?`<span class="s ${x.tone}">${esc(x.s)}</span>`:''}</span></span>`};
 const openRtk=it=>rtkNotes(it).length+it.myNotes.filter(n=>n.type==='rtk').length;
 const openNotes=it=>it.notes.filter(n=>!n.done).length+it.myNotes.length;
 const omitted=it=>(it.setAside!==undefined?it.setAside:it.omit)?.state;

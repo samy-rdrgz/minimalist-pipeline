@@ -1,6 +1,7 @@
 """The snapshot page's sources put together (lib/snapshot_page.py
 render_page()): the demo fixture rendered, every part listed is there and every file of css/ and js/
-is listed, the page has no placeholder left, its script parses, and T()
+is listed, the page has no placeholder left, every word T() says has
+its French (js/i18n/fr.js), its script parses, and T()
 (js/core/01-i18n.js) says the English, the French, values and plurals. The
 script's checks need Node; without it they are skipped (said so).
 
@@ -33,6 +34,16 @@ def main() -> None:
     html = page.render_html(demo)
     assert '"name":"sq990_sh010"' in html, "the fixture's files not in the page"
     assert not re.search(r"\{\{[A-Z0-9_]+\}\}", html), "a placeholder left"
+    # Every word the page says has its French (js/i18n/fr.js): the keys of
+    # T('...') in the script, the data-t texts and labels of page.html.
+    fr_keys = set(re.findall(r"^'((?:[^'\\]|\\.)*)':", (page.PAGE_DIR / "js" / "i18n" / "fr.js").read_text(encoding="utf-8"), re.M))
+    script = page._parts("js", [p for p in page.JS_PARTS if not p.startswith("i18n/")])
+    script = re.sub(r"/\*.*?\*/|^\s*//[^\n]*", "", script, flags=re.S | re.M)
+    used = set(re.findall(r"\bT\('((?:[^'\\]|\\.)*)'", script))
+    shell = (page.PAGE_DIR / "page.html").read_text(encoding="utf-8")
+    used |= {t.strip().replace("'", "\\'") for t in re.findall(r"data-t>([^<]+)<", shell)}
+    missing = sorted(k for k in used if k not in fr_keys)
+    assert not missing, f"no French for: {missing}"
     node = shutil.which("node")
     if not node:
         print("OK: snapshot page (Node not found: its script not run)")
@@ -42,17 +53,19 @@ def main() -> None:
         src = Path(tmp) / "page.js"
         src.write_text(js, encoding="utf-8")
         subprocess.run([node, "--check", str(src)], check=True)
-        i18n = (page.PAGE_DIR / "js" / "core" / "01-i18n.js").read_text(encoding="utf-8")
+        i18n = (page.PAGE_DIR / "js" / "core" / "01-i18n.js").read_text(encoding="utf-8") + (
+            page.PAGE_DIR / "js" / "i18n" / "fr.js"
+        ).read_text(encoding="utf-8")
         cases = [
-            ["en", "Opening…", None, "Opening…"],
-            ["fr", "Opening…", None, "Ouverture…"],
+            ["en", "Cancel", None, "Cancel"],
+            ["fr", "Cancel", None, "Annuler"],
             ["fr", "Not in the dictionary", None, "Not in the dictionary"],
             ["en", "{n} file|{n} files", {"n": 1}, "1 file"],
             ["en", "{n} file|{n} files", {"n": 0}, "0 files"],
             ["fr", "{n} file|{n} files", {"n": 0}, "0 fichier"],
             ["fr", "{n} file|{n} files", {"n": 3}, "3 fichiers"],
             ["en", "Sent to Blender: {what}", {"what": "sq030_sh040"}, "Sent to Blender: sq030_sh040"],
-            ["de", "Opening…", None, "Opening…"],
+            ["de", "Cancel", None, "Cancel"],
         ]
         run = Path(tmp) / "i18n.js"
         run.write_text(

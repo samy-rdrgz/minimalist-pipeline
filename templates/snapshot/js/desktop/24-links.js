@@ -8,18 +8,18 @@ function renderGraph(){
     return `<div class="node gnode ${i.kind==='shot'?'shot':''} ${focus===i.name?'cur':''} ${dim?'dim':''}" data-gn="${i.name}" data-k="${i.kind}" title="${i.name}">
       <div class="nh">${ic(i.kind==='shot'?'b-camera_data':'b-asset_manager')}<span>${i.name}</span><span class="dt" style="background:${DOT[worst(i)]}"></span></div><div class="nb">
       ${i.links.map(l=>`<div class="sock in ${l.newer?'bad':''}" data-gi="${l.name}"><i></i>${l.name} · ${verOf(l.file)}${l.newer?' (ancien)':''}</div>`).join('')}
-      ${i.linkedBy.length?`<div class="sock out" data-go="${i.name}"><i></i>lié par ${i.linkedBy.length}</div>`:''}
-      ${!i.links.length&&!i.linkedBy.length?'<div class="sock faint">aucun lien</div>':''}</div></div>`};
+      ${i.linkedBy.length?`<div class="sock out" data-go="${i.name}"><i></i>${T('linked by {n}',{n:i.linkedBy.length})}</div>`:''}
+      ${!i.links.length&&!i.linkedBy.length?'<div class="sock faint">'+T('no link')+'</div>':''}</div></div>`};
   const groups=[...new Set(shots.map(i=>i.group))];
   const nOld=items.reduce((a,i)=>a+i.links.filter(l=>l.newer).length,0);
   L.innerHTML=`<div class="gcanvas" id="gcanvas"><div class="gview" id="gview"><svg class="wires" id="gwires"></svg>
       ${[...assets,...shots].map(node).join('')}
     </div>
-    <div class="gtools tl"><span class="dim">${linked.size} fichiers liés sur ${items.length}</span>${nOld?`<span class="tag rtk">${nOld} lien${nOld>1?'s':''} vers un ancien stable</span>`:''}
-      <span class="join"><button class="btn sm" data-gall="0" aria-pressed="${!S.gAll}">Fichiers liés</button><button class="btn sm" data-gall="1" aria-pressed="${!!S.gAll}">Tous</button></span>
+    <div class="gtools tl"><span class="dim">${T('{n} linked files of {total}',{n:linked.size,total:items.length})}</span>${nOld?`<span class="tag rtk">${T('{n} link to an older stable|{n} links to an older stable',{n:nOld})}</span>`:''}
+      <span class="join"><button class="btn sm" data-gall="0" aria-pressed="${!S.gAll}">${T('Linked files')}</button><button class="btn sm" data-gall="1" aria-pressed="${!!S.gAll}">${T('All')}</button></span>
       ${focus?`<button class="btn sm" data-gclear>${ic('b-x')}${esc(focus)}</button>`:''}</div>
-    <div class="gtools br"><span class="join"><button class="btn sm icon" data-gz="-1" aria-label="Dézoomer" title="Dézoomer">−</button><button class="btn sm" data-gz="0" title="Tout voir">${Math.round(S.g.z*100)} %</button><button class="btn sm icon" data-gz="1" aria-label="Zoomer" title="Zoomer">+</button></span></div>
-    <div class="ghint">Glisser le fond : se déplacer · molette : zoomer · clic : ses liens · double clic : sa fiche</div></div>`;
+    <div class="gtools br"><span class="join"><button class="btn sm icon" data-gz="-1" aria-label="${T('Zoom out')}" title="${T('Zoom out')}">−</button><button class="btn sm" data-gz="0" title="${T('See everything')}">${Math.round(S.g.z*100)} %</button><button class="btn sm icon" data-gz="1" aria-label="${T('Zoom in')}" title="${T('Zoom in')}">+</button></span></div>
+    <div class="ghint">${T('Drag the background: move · wheel: zoom · click: its links · double click: the file')}</div></div>`;
   layoutGraph();applyG();if(!S.g.init){S.g.init=true;requestAnimationFrame(()=>fitG())}else requestAnimationFrame(drawGraph);
 }
 function layoutGraph(){

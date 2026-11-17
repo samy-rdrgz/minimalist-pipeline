@@ -1,6 +1,6 @@
-/* ---------- Actions de revue (couche partagée) ----------
+/* ---------- The review's actions (shared by both views) ----------
    Les seules fonctions qui modifient les fichiers. Desktop et mobile les appellent, puis refresh().
-   Aucune ne touche au DOM. Chacune correspond à une action de lib/review_import.py (indiquée en fin de ligne). */
+   None touches the DOM. Each is an action of lib/review_import.py (named at the line's end). */
 const canVal=(it,d)=>!!S.review&&S.review.role!==TEAM&&['done','rework'].includes(it.states[d])&&!it.ok[d];
 /* The frames written: Blender's numbers (fNo), a range from I to the frame shown. */
 const rangeStr=()=>S.rangeStart!=null&&S.rangeStart!==S.frame?'f'+fNo(Math.min(S.rangeStart,S.frame))+'-'+fNo(Math.max(S.rangeStart,S.frame)):'f'+fNo(S.frame);
@@ -28,12 +28,12 @@ const A={
   omitReason(it,r){it.setAside={...(it.setAside||it.omit||{}),reason:r}},
   desc(it,v){if(v!==it.desc)it.descEdit=v;else delete it.descEdit},                         // description
   plan(p){S.planned.push(p)},unplan(i){S.planned.splice(i,1)},                              // create (shot / asset)
-  /* Ce que la revue contient : le résumé lisible et le fichier à importer dans Blender. */
-  changes(){const ch=[];items.filter(touched).forEach(it=>{Object.entries(it.mine).forEach(([d,v])=>ch.push(`${it.name} · ${LBL[d]} : ${v==='val'?'validé':'retake'}`));
+  /* What the review holds, in words. */
+  changes(){const ch=[];items.filter(touched).forEach(it=>{Object.entries(it.mine).forEach(([d,v])=>ch.push(`${it.name} · ${LBL[d]}: ${v==='val'?T('validated'):T('retake')}`));
     it.myNotes.forEach(n=>ch.push(`${it.name} · ${n.type==='rtk'?'retake':'remarque'}${n.dept?' '+LBL[n.dept]:''}${n.frames?' '+n.frames:''}`));
-    Object.values(it.myReplies).flat().forEach(()=>ch.push(`${it.name} · réponse`));
-    if(it.setAside!==undefined)ch.push(`${it.name} · ${it.setAside&&it.setAside.state?(it.setAside.state==='cancelled'?'annulé':'en pause'):'actif à nouveau'}`);
-    if(it.req)ch.push(`${it.name} · départements requis modifiés`);Object.keys(it.still).forEach(d=>ch.push(`${it.name} · ${LBL[d]} : toujours fini`));
-    Object.keys(it.fixed).forEach(()=>ch.push(`${it.name} · note marquée corrigée`));if(it.assign)Object.entries(it.assign).forEach(([d,a])=>ch.push(`${it.name} · ${LBL[d]} → ${a.join(', ')||'personne'}`));
-    if(it.descEdit!==undefined)ch.push(`${it.name} · description`)});S.planned.forEach(p=>ch.push(`${p.name} · nouveau ${p.kind==='shot'?'plan':'fichier'}`));return ch},
+    Object.values(it.myReplies).flat().forEach(()=>ch.push(`${it.name} · ${T('reply')}`));
+    if(it.setAside!==undefined)ch.push(`${it.name} · ${it.setAside&&it.setAside.state?(it.setAside.state==='cancelled'?T('cancelled'):T('on hold')):T('active again')}`);
+    if(it.req)ch.push(`${it.name} · ${T('required departments changed')}`);Object.keys(it.still).forEach(d=>ch.push(`${it.name} · ${LBL[d]}: ${T('still done')}`));
+    Object.keys(it.fixed).forEach(()=>ch.push(`${it.name} · ${T('note marked fixed')}`));if(it.assign)Object.entries(it.assign).forEach(([d,a])=>ch.push(`${it.name} · ${LBL[d]} → ${a.join(', ')||T('nobody')}`));
+    if(it.descEdit!==undefined)ch.push(`${it.name} · description`)});S.planned.forEach(p=>ch.push(`${p.name} · ${p.kind==='shot'?T('new shot'):T('new file')}`));return ch},
 };

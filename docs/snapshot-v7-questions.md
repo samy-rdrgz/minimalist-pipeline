@@ -128,5 +128,7 @@ icons ». Restent à trancher :
     avec un téléphone » (accès invité + QR), « Mettre à jour les liens »
     (pas de route live). **L'option son du rendu est faite** : le son de la
     scène est maintenant dans la vidéo, sauf si on le coupe.
-24. **Langue.** Tous les textes de la maquette sont en français, alors
-    que l'addon est en anglais. Passage par `T()` à faire (gros lot).
+24. **Langue.** **Fait :** tout passe par `T()`, anglais de référence,
+    français dans `js/i18n/fr.js`, langue de Blender à l'export, menu
+    Affichage › Langue. Restent en français les commentaires du code
+    venus de la maquette.

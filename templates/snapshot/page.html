@@ -11,52 +11,56 @@
 {{ICONS}}
 <noscript><p>This snapshot needs JavaScript: open it in a web browser.</p></noscript>
 <header class="topbar">
-  <button class="btn flat icon only-narrow" id="out-toggle" aria-label="Afficher l'outliner" title="Outliner"><svg class="i"><use href="#b-outliner"/></svg></button>
-  <div class="brand"><b id="p-name"></b><small id="p-date"></small></div><span class="live only-wide live-only" id="p-live" title="Connecté à Blender"><i></i>live</span>
-  <div class="ws" role="tablist" aria-label="Espaces de travail" id="ws"></div>
+  <button class="btn flat icon only-narrow" id="out-toggle" aria-label="Show the outliner" title="Outliner"><svg class="i"><use href="#b-outliner"/></svg></button>
+  <div class="brand"><b id="p-name"></b><small id="p-date"></small></div><span class="live only-wide live-only" id="p-live" title="Connected to Blender"><i></i>live</span>
+  <div class="ws" role="tablist" aria-label="Spaces" id="ws"></div>
   <span class="sp"></span>
   <div class="anchor only-wide">
-    <button class="btn flat" data-menu="m-view" aria-haspopup="true" aria-expanded="false">Affichage<svg class="i"><use href="#b-tria_down"/></svg></button>
+    <button class="btn flat" data-menu="m-view" aria-haspopup="true" aria-expanded="false"><span data-t>View</span><svg class="i"><use href="#b-tria_down"/></svg></button>
     <div class="menu right" id="m-view" hidden role="menu">
-      <div class="menu-h">Échelle de l'interface</div>
-      <button class="mi" role="menuitem" data-scale="0.92"><span class="lbl">Compacte</span><span class="k">0.92</span></button>
-      <button class="mi" role="menuitem" data-scale="1"><span class="lbl">Normale</span><span class="k">1.00</span></button>
-      <button class="mi" role="menuitem" data-scale="1.15"><span class="lbl">Grande</span><span class="k">1.15</span></button>
+      <div class="menu-h" data-t>Interface scale</div>
+      <button class="mi" role="menuitem" data-scale="0.92"><span class="lbl" data-t>Compact</span><span class="k">0.92</span></button>
+      <button class="mi" role="menuitem" data-scale="1"><span class="lbl" data-t>Normal</span><span class="k">1.00</span></button>
+      <button class="mi" role="menuitem" data-scale="1.15"><span class="lbl" data-t>Large</span><span class="k">1.15</span></button>
       <div class="msep"></div>
-      <button class="mi" role="menuitem" data-act="collapse"><span class="lbl">Replier les séquences</span></button>
-      <button class="mi" role="menuitem" data-act="expand"><span class="lbl">Déplier les séquences</span></button>
+      <button class="mi" role="menuitem" data-act="collapse"><span class="lbl" data-t>Fold the sequences</span></button>
+      <button class="mi" role="menuitem" data-act="expand"><span class="lbl" data-t>Unfold the sequences</span></button>
       <div class="msep"></div>
-      <label class="mi" role="menuitem"><svg class="i"><use href="#b-import"/></svg><span class="lbl">Charger une revue…</span><input type="file" class="rv-load" accept=".json,application/json" hidden></label>
-      <button class="mi" role="menuitem" data-act="videos"><svg class="i"><use href="#b-file_folder"/></svg><span class="lbl">Choisir le dossier des vidéos…</span></button>
-      <div class="msep"></div><div class="menu-h">Thème</div>
-      <button class="mi" role="menuitem" data-theme="blender"><span class="lbl">Thème de Blender (exporté)</span><span class="k">démo</span></button>
-      <button class="mi" role="menuitem" data-theme="dark"><span class="lbl">Sombre</span><span class="k">Blender Dark</span></button>
-      <button class="mi" role="menuitem" data-theme="light"><span class="lbl">Clair</span><span class="k">Blender Light</span></button>
-      <button class="mi" role="menuitem" data-theme="system"><span class="lbl">Système</span></button>
-            <div class="msep"></div><button class="mi" role="menuitem" data-tourstart><span class="lbl">Visite guidée</span></button>
+      <label class="mi" role="menuitem"><svg class="i"><use href="#b-import"/></svg><span class="lbl" data-t>Load a review…</span><input type="file" class="rv-load" accept=".json,application/json" hidden></label>
+      <button class="mi" role="menuitem" data-act="videos"><svg class="i"><use href="#b-file_folder"/></svg><span class="lbl" data-t>Choose the videos folder…</span></button>
+      <div class="msep"></div><div class="menu-h" data-t>Theme</div>
+      <button class="mi" role="menuitem" data-theme="blender"><span class="lbl" data-t>Blender's theme (exported)</span></button>
+      <button class="mi" role="menuitem" data-theme="dark"><span class="lbl" data-t>Dark</span><span class="k">Blender Dark</span></button>
+      <button class="mi" role="menuitem" data-theme="light"><span class="lbl" data-t>Light</span><span class="k">Blender Light</span></button>
+      <button class="mi" role="menuitem" data-theme="system"><span class="lbl" data-t>System</span></button>
+      <div class="msep"></div><div class="menu-h" data-t>Language</div>
+      <button class="mi" role="menuitem" data-lang=""><span class="lbl" data-t>Automatic</span><span class="k" data-t>Blender's, else the browser's</span></button>
+      <button class="mi" role="menuitem" data-lang="en"><span class="lbl">English</span></button>
+      <button class="mi" role="menuitem" data-lang="fr"><span class="lbl">Français</span></button>
+      <div class="msep"></div><button class="mi" role="menuitem" data-tourstart><span class="lbl" data-t>Guided tour</span></button>
     </div>
   </div>
-  <div class="anchor live-only"><button class="btn flat icon" id="news-b" aria-label="Quoi de neuf" title="Quoi de neuf depuis l'ouverture de la page"><svg class="i"><use href="#i-bell"/></svg><span class="cnt" hidden>0</span></button></div>
-  <div class="anchor"><button class="btn flat icon" id="help-b" aria-label="Légende et raccourcis" title="Légende et raccourcis (?)"><svg class="i"><use href="#b-question"/></svg></button></div>
+  <div class="anchor live-only"><button class="btn flat icon" id="news-b" aria-label="What's new" title="What's new since the page opened"><svg class="i"><use href="#i-bell"/></svg><span class="cnt" hidden>0</span></button></div>
+  <div class="anchor"><button class="btn flat icon" id="help-b" aria-label="Legend and keys" title="Legend and keys (?)"><svg class="i"><use href="#b-question"/></svg></button></div>
   <div class="anchor" id="review-slot"></div>
 </header>
 
 <div class="screen">
   <aside class="area" id="outliner" aria-label="Outliner">
-    <div class="area-head"><label class="field" style="flex:1"><svg class="i"><use href="#b-viewzoom"/></svg><input id="tree-q" placeholder="Filtrer l'arborescence" aria-label="Filtrer l'arborescence"></label></div>
+    <div class="area-head"><label class="field" style="flex:1"><svg class="i"><use href="#b-viewzoom"/></svg><input id="tree-q" placeholder="Filter the tree" aria-label="Filter the tree"></label></div>
     <div class="area-body"><ul class="tree" id="tree"></ul></div>
   </aside>
 
-  <section class="area" id="main" aria-label="Liste">
+  <section class="area" id="main" aria-label="List">
     <div class="area-head">
       <div class="filters" id="quick"></div>
       <span class="sp"></span>
-      <label class="field" style="flex:1 1 180px;max-width:300px"><svg class="i"><use href="#b-viewzoom"/></svg><input id="q" placeholder="Aller à un fichier…" aria-label="Aller à un fichier"><span class="kbd">/</span></label>
+      <label class="field" style="flex:1 1 180px;max-width:300px"><svg class="i"><use href="#b-viewzoom"/></svg><input id="q" placeholder="Go to a file…" aria-label="Go to a file"><span class="kbd">/</span></label>
     </div>
     <div class="area-body" id="list"></div>
   </section>
 
-  <aside class="area" id="props" aria-label="Détail">
+  <aside class="area" id="props" aria-label="Detail">
     <div class="area-head" id="p-head"></div>
     <div class="pwrap"><div class="vtabs" role="tablist" aria-orientation="vertical" id="ptabs"></div><div class="pbody" id="pbody"></div></div>
   </aside>
@@ -64,17 +68,17 @@
 
 <footer class="statusbar">
   <span class="keys">
-    <span class="gk"><span class="kbd">↑</span><span class="kbd">↓</span>Fichier</span>
-    <span class="gk"><span class="kbd">W</span>Regarder en grand</span>
-    <span class="gk" id="sb-rv"><span class="kbd">V</span>Valider les finis <span class="kbd">X</span>Retake</span>
+    <span class="gk"><span class="kbd">↑</span><span class="kbd">↓</span><span data-t>File</span></span>
+    <span class="gk"><span class="kbd">W</span><span data-t>Watch large</span></span>
+    <span class="gk" id="sb-rv"><span class="kbd">V</span><span data-t>Validate the done</span> <span class="kbd">X</span>Retake</span>
   </span>
   <span class="msg" id="sb-msg"></span>
   <span class="sp"></span>
   <span id="sb-stats"></span>
 </footer>
 <div class="scrim" id="scrim"></div>
-<div id="wide" hidden role="dialog" aria-label="Regarder en grand"></div>
-<div id="mob" class="mob" aria-label="Revue mobile"></div>
+<div id="wide" hidden role="dialog" aria-label="Watch large"></div>
+<div id="mob" class="mob" aria-label="Phone review"></div>
 <div class="dlg" id="dlg" hidden></div>
 
 <script id="data" type="application/json">{{DATA}}</script>

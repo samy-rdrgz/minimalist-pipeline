@@ -47,6 +47,21 @@ def get_user_data(user: str = "unknown") -> dict:
     }
 
 
+def ui_language() -> str:
+    """Blender's interface language ("fr_FR", "en_US"...), "" when it
+    follows the system's or can't be read: the snapshot page speaks it
+    (meta.lang; the page's own pick, then the browser's, come first /
+    after -- templates/snapshot/js/core/02-lang.js). Main thread."""
+    try:
+        view = bpy.context.preferences.view
+        if not getattr(view, "use_translate_interface", True):
+            return "en_US"
+        lang = str(getattr(view, "language", "") or "")
+        return "" if lang == "DEFAULT" else lang
+    except Exception:  # noqa: BLE001 -- no preferences (background): none
+        return ""
+
+
 def get_user(context=None) -> str:
     """Current user login for logging: prefs.user_name, or "unknown" if
     unset. No OS-login fallback -- see NOTES.md, "Addon register()";

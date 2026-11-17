@@ -980,7 +980,7 @@ def _rebuild(sh: _Shared, force: bool) -> None:
     only): a new version when it differs."""
     from ..farm.loop import farm_activity
     from .config import ConfigCache
-    from .session import get_user, get_user_role
+    from .session import get_user, get_user_role, ui_language
 
     if not _reader["ready"]:
         return  # nothing read yet: no empty page
@@ -995,6 +995,7 @@ def _rebuild(sh: _Shared, force: bool) -> None:
         "scan_started_at": now(),
         "exported_by": get_user(bpy.context),
         "addon_version": get_addon_version(),
+        "lang": ui_language(),
         # Who writes from the page: Blender's user and role (Preferences).
         # root: another project made active, the page reloads.
         "live": {"token": sh.token, "user": get_user(bpy.context), "role": get_user_role(bpy.context) or "team", "root": str(sh.root)},

@@ -5455,3 +5455,33 @@ phone too), carried to a block's per-shot jobs.
   videos end to end) stays silent.
 - Not checked in a real Blender here (no Blender in the dev container):
   the ffmpeg command was.
+
+## Snapshot page: English first, French second
+
+The mockup was written in French; the page now says everything in
+English through `T()` (js/core/01-i18n.js), French in
+`js/i18n/fr.js`.
+
+- **The key is the English sentence**, values in braces
+  (`T('Render {name}',{name})`), plurals as `"one|many"` chosen by
+  `Intl.PluralRules` (French: 0 and 1 singular). A sentence is one key,
+  never pieces glued together: word order differs between languages
+  (`T('from <b>f{a}</b> to <b>f{b}</b> on <b>{dept}</b>',...)`).
+- **page.html**: English, the words marked `data-t` and the static
+  `title` / `aria-label` / `placeholder` translated once at boot,
+  before anything draws.
+- **The language** (`core/02-lang.js`, after every dictionary): the one
+  chosen in this browser (View > Language, `mp-snapshot:lang`, the page
+  reloads), else Blender's (`meta.lang`: `session.ui_language()`, read
+  on the main thread at the export and by the live page), else the
+  browser's, else English. Dates through `toLocale*()` in that language.
+- **Never translated**: files, departments, roles, prefixes, people,
+  descriptions, notes -- the project's own; and what the server says in
+  English (a job's step, a stage's reason).
+- `tests/test_snapshot_page.py`: every key `T()` is given in the script
+  and every `data-t` text of page.html has its French; a key missing
+  fails the test.
+- Adding a language: `js/i18n/<lang>.js` (`MPI18n.add('<lang>', {...})`)
+  and its part in `JS_PARTS` before `core/02-lang.js`.
+
+The code comments the mockup wrote in French are still French.
