@@ -507,3 +507,16 @@ button.assign:hover{background:var(--line);color:var(--text)}
 .rv-sync{display:inline-flex;align-items:center;gap:var(--sp-3);height:var(--h-sm);padding:0 var(--sp-5);font-size:var(--fs-s);color:var(--text-2)}
 .rv-sync::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--st-done)}
 .rv-sync[data-state="busy"]::before{background:var(--st-wip)}.rv-sync[data-state="off"]::before{background:var(--st-rtk)}
+/* Live, a guest (Share with a phone): reviews as themselves -- the farm read only, nothing opened or rendered on this machine. */
+[data-guest="1"] :is([data-act="blender"],[data-act="player"],[data-act="share"],[data-act="folder"],[data-act="log"],[data-render],[data-farm],[data-prio],[data-relink],[data-mjob],[data-mprio],[data-msheet="render"]){display:none!important}
+/* Share with a phone: the access made (its QR code, its link), the form, the accesses running. */
+.sh-dlg{width:min(520px,100%)}
+.sh-made{display:flex;gap:var(--sp-7);align-items:flex-start;padding:var(--sp-6);border-radius:var(--r-l);background:var(--box)}
+.sh-qr{flex:none;width:164px;height:164px;padding:var(--sp-3);border-radius:var(--r);background:#fff}
+.sh-qr svg{display:block;width:100%;height:100%}
+.sh-info{display:flex;flex-direction:column;gap:var(--sp-4);min-width:0;flex:1}.sh-info p{margin:0}
+.sh-form{display:flex;flex-direction:column;gap:var(--sp-4)}
+.sh-g{display:flex;align-items:center;gap:var(--sp-5);justify-content:space-between;padding:var(--sp-3) 0;border-top:1px solid var(--line)}
+@media (max-width:560px){.sh-made{flex-direction:column;align-items:center}}
+.field select{flex:1;min-width:0;height:100%;border:0;background:transparent;color:inherit;font:inherit}
+.field select option{background:var(--field);color:var(--text)}

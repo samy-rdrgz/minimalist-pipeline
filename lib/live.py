@@ -51,6 +51,7 @@ from .tracking import (
     _pipeline_entries,
     _walk_owner_dirs,
     to_check_entries,
+    work_times,
 )
 
 VERSIONS_SHOWN = 15  # a shot's render versions offered to watch, newest first
@@ -158,7 +159,7 @@ _PROBES = ("192.168.255.255", "10.255.255.255", "172.31.255.255", "1.1.1.1", "10
 
 def _addresses() -> list[dict]:
     """This machine's addresses a phone may reach: [{"ip", "kind"}] --
-    "local network" (the studio's Wi-Fi), "Tailscale" (100.64.0.0/10:
+    "local network" (the studio's Wi-Fi), "VPN" (100.64.0.0/10, Tailscale's and other mesh VPNs':
     the phone on Tailscale too, from anywhere), "network" otherwise."""
     import ipaddress
 
@@ -175,7 +176,7 @@ def _addresses() -> list[dict]:
         if ip.startswith("127.") or ip == "0.0.0.0" or any(a["ip"] == ip for a in out):
             continue
         addr = ipaddress.ip_address(ip)
-        kind = "Tailscale" if addr in ipaddress.ip_network("100.64.0.0/10") else "local network" if addr.is_private else "network"
+        kind = "VPN" if addr in ipaddress.ip_network("100.64.0.0/10") else "local network" if addr.is_private else "network"
         out.append({"ip": ip, "kind": kind})
     # The local network first: a phone on the studio's Wi-Fi needs nothing more.
     return sorted(out, key=lambda a: a["kind"] != "local network")
@@ -267,11 +268,22 @@ def _share(raw: dict, sh: "_Shared") -> dict:
     return {"ok": True, "guests": _guest_list(), "addresses": _addresses(), **out}
 
 
+def _beginner() -> bool:
+    """The addon's Experience level is Beginner (its default). Never raises."""
+    try:
+        from .core import addon_pref
+
+        return getattr(addon_pref(), "experience_level", "BEGINNER") == "BEGINNER"
+    except Exception:
+        return True
+
+
 def _as_guest(data: dict, token: str, guest: dict) -> dict:
     """The page's data as a guest gets it: their name, role, token (its
     videos' path too), marked a guest."""
     meta = dict(data["meta"])
-    meta["live"] = {**meta["live"], "token": token, "user": guest["name"], "role": guest["role"], "guest": True, "until": _iso(guest["until"])}
+    # A guest: new to the page, most often -- its tour shown once on their phone.
+    meta["live"] = {**meta["live"], "token": token, "user": guest["name"], "role": guest["role"], "guest": True, "until": _iso(guest["until"]), "beginner": True}
     meta["videos"] = {**(meta.get("videos") or {}), "local": f"media/{token}/renders"}
     return {**data, "meta": meta}
 _reader = {"thread": None, "result": None, "at": 0.0, "farm_at": 0.0, "cache": {}, "farm": None, "compare": None, "ready": False,
@@ -430,11 +442,12 @@ def _live_extras(root: Path, cache: dict, outdated: dict) -> dict:
     return out
 
 
-def _as_data(cache: dict, extras: dict | None = None) -> dict:
+def _as_data(cache: dict, extras: dict | None = None, work: dict | None = None) -> dict:
     """read_live()'s cache as read_snapshot_data()'s result."""
     entries = list(cache.values())
     return {
         "live": extras or {},
+        "work": work or {},
         "raws": [(e["kind"], e["owner"], e["raw"], e["blends"]) for e in entries],
         "renders": {str(e["owner"]): e["renders"] for e in entries if e["renders"] is not None},
         "thumbs": {str(e["owner"]): e["thumb"] for e in entries if e["thumb"]},
@@ -450,10 +463,14 @@ def _read(root, cache, config, v_prefix, extras):
             # Links to a newer stable: one listing per folder linked.
             currents = {k: e.get("links") or [] for k, e in new.items()}
             extras = _live_extras(root, new, _outdated_links_of(root, [Path(k) for k in new], currents, v_prefix))
-        _reader["result"] = (root, new, changed, extras)
+        # Work time: a session ended elsewhere changes no folder -- its own
+        # news (one stat a pass, the log read again only when it changed).
+        work = work_times(root)
+        changed = changed or work != _reader.get("work")
+        _reader["result"] = (root, new, changed, extras, work)
     except Exception as e:  # never die silently: the next pass tries again
         log("WARNING", "live", f"Live page: project not read: {e!r}")
-        _reader["result"] = (root, cache, False, extras)
+        _reader["result"] = (root, cache, False, extras, _reader.get("work"))
 
 
 # --- the main thread -------------------------------------------------------------
@@ -482,7 +499,7 @@ def _turn(sh: _Shared) -> None:
         # Another project made active: the page follows it -- told it's
         # being read (it reloads on the waiting page), then its data.
         sh.root = Path(root)
-        _reader.update(cache={}, result=None, compare=None, farm=None, ready=False, extras=None, at=0.0)
+        _reader.update(cache={}, result=None, compare=None, farm=None, ready=False, extras=None, work=None, at=0.0)
         with sh.changed:
             sh.version += 1
             sh.data, sh.body = None, b""
@@ -499,12 +516,23 @@ def _turn(sh: _Shared) -> None:
         from ..farm.loop import refresh_step
 
         refresh_step()
+    # Update links running in the background: one done, its new version
+    # read at once (a pass), its state shown.
+    from . import relink
+
+    if relink.poll():
+        _reader["at"] = 0.0
+        _rebuild(sh, force=True)
     # The page's actions, applied now; answered after the next pass.
     while True:
         try:
             pending = _actions.get_nowait()
         except queue.Empty:
             break
+        if pending.kind == "relink":
+            pending.result = _relink(sh.root, pending.review)
+            pending.done.set()
+            continue
         if pending.kind in ("open", "farm", "play"):
             pending.result = {"open": _open, "farm": _farm_action, "play": _play}[pending.kind](pending.review)
             pending.done.set()
@@ -519,7 +547,7 @@ def _turn(sh: _Shared) -> None:
     if _reader["result"] is not None and not (thread and thread.is_alive()) and _reader["result"][0] != sh.root:
         _reader["result"] = None  # the project before: dropped
     if _reader["result"] is not None and not (thread and thread.is_alive()):
-        _, cache, changed, _reader["extras"] = _reader["result"]
+        _, cache, changed, _reader["extras"], _reader["work"] = _reader["result"]
         _reader["result"] = None
         _reader["cache"] = cache
         _reader["ready"] = True
@@ -653,6 +681,27 @@ def _checked(actions: list) -> dict:
             _with_window(push_checked_renders, bpy.context, dropped)
         out["changed"] += len(dropped)
     return out
+
+
+def _relink(root: Path, raw: dict) -> dict:
+    """Update links on the page's files ({"files": [file names]}): each one
+    a new -updatelink version made in the background (lib/relink.py)."""
+    from . import relink
+    from .review_import import _review_file
+
+    owners, unknown = [], []
+    for name in raw.get("files") or []:
+        path = _review_file(str(name))
+        if path is None or not path.is_file():
+            unknown.append([str(name), "file not found"])
+        elif path.parent not in owners:
+            owners.append(path.parent)
+    res = relink.start(root, owners)
+    res["skipped"] = unknown + res["skipped"]
+    res["ok"] = bool(res["started"])
+    if not res["ok"]:
+        res["error"] = "; ".join(f"{n}: {why}" for n, why in res["skipped"]) or "nothing to update"
+    return res
 
 
 def _open(raw: dict) -> dict:
@@ -986,9 +1035,12 @@ def _rebuild(sh: _Shared, force: bool) -> None:
         return  # nothing read yet: no empty page
     farm = farm_activity()
     jobs = _farm_data(sh.root)
-    if not force and (farm, jobs) == _reader["farm"]:
+    from . import relink
+
+    relinks = relink.states()
+    if not force and (farm, jobs, relinks) == _reader["farm"]:
         return
-    _reader["farm"] = (farm, jobs)
+    _reader["farm"] = (farm, jobs, relinks)
     config = ConfigCache.get() or {}
     meta = {
         "project": config.get("project_name") or sh.root.name,
@@ -998,13 +1050,16 @@ def _rebuild(sh: _Shared, force: bool) -> None:
         "lang": ui_language(),
         # Who writes from the page: Blender's user and role (Preferences).
         # root: another project made active, the page reloads.
-        "live": {"token": sh.token, "user": get_user(bpy.context), "role": get_user_role(bpy.context) or "team", "root": str(sh.root)},
+        # beginner: the addon's Experience level -- the page's tour shown once.
+        "live": {"token": sh.token, "user": get_user(bpy.context), "role": get_user_role(bpy.context) or "team", "root": str(sh.root), "beginner": _beginner()},
         # Played from the project, through the server.
         "videos": {"mode": "live", "base": None, "files": [], "local": f"media/{sh.token}/renders"},
     }
-    data = page_data(build_snapshot(_as_data(_reader["cache"], _reader.get("extras")), config, meta, farm=farm))
+    data = page_data(build_snapshot(_as_data(_reader["cache"], _reader.get("extras"), _reader.get("work")), config, meta, farm=farm))
     # Its Farm tab: the farm as Farm monitoring shows it.
     data["farm"] = jobs
+    # Update links under way or just ended, by folder (lib/relink.py).
+    data["relink"] = relinks
     # Compared without its date: a pass finding nothing new is no news.
     compare = json.dumps({**data, "meta": {**data["meta"], "snapshot": ""}}, ensure_ascii=False, separators=(",", ":"))
     if compare == _reader["compare"]:
@@ -1077,7 +1132,7 @@ def _handler(sh: _Shared):
             q = {k: v[0] for k, v in parse_qs(parsed.query).items()}
             if not self._allowed(q.get("t", "")):
                 return self._send(403, b"forbidden", "text/plain")
-            if parsed.path not in ("/action", "/open", "/farm", "/play", "/share"):
+            if parsed.path not in ("/action", "/open", "/farm", "/play", "/share", "/relink"):
                 return self._send(404, b"not found", "text/plain")
             length = int(self.headers.get("Content-Length") or 0)
             if not 0 < length < 4 * 1024 * 1024 or "json" not in (self.headers.get("Content-Type") or ""):
@@ -1093,7 +1148,7 @@ def _handler(sh: _Shared):
             if self.guest is not None:
                 # A guest reviews, as themselves; the farm read only;
                 # nothing on this machine (Blender, its player, sharing).
-                if kind in ("open", "play", "share") or kind == "farm" and raw.get("action") not in ("detail", "worker_detail"):
+                if kind in ("open", "play", "share", "relink") or kind == "farm" and raw.get("action") not in ("detail", "worker_detail"):
                     return self._send(403, json.dumps({"ok": False, "error": "not from a guest's page"}).encode(), "application/json")
                 if kind == "review":
                     raw["author"], raw["role"] = self.guest["name"], self.guest["role"]
@@ -1242,7 +1297,7 @@ def start(root: Path) -> str:
     threading.Thread(target=server.serve_forever, name="pipeline-live", daemon=True).start()
     _shared, _server = sh, server
     _reader.update(thread=None, result=None, at=0.0, farm_at=0.0, cache={}, farm=None, compare=None, ready=False,
-                   waiting=[], in_pass=[], extras=None)
+                   waiting=[], in_pass=[], extras=None, work=None)
     # persistent: kept when a file is opened.
     if not bpy.app.timers.is_registered(_tick):
         bpy.app.timers.register(_tick, first_interval=0.0, persistent=True)

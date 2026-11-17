@@ -9,12 +9,19 @@ from pathlib import Path
 
 from .background import background_work
 from .config import (
+    RELINK_TAG,
     covering_role,
     validation_roles,
 )
-from .core import iso_timestamp, json_get, local_time, now, parse_iso, read_json_quiet, time_key
-from .status import (  # noqa: F401 -- PROGRESS_WEIGHTS, progress_weights: re-exported
-    PROGRESS_WEIGHTS,
+from .core import (
+    iso_timestamp,
+    json_get,
+    now,
+    parse_iso,
+    read_json_quiet,
+    time_key,
+)
+from .status import (
     department_score,
     department_state,
     file_progress,
@@ -37,10 +44,12 @@ from .tracking import (
     APPROVAL_SOURCE,
     _collect_folder,
     _pipeline_entries,
+    _session_folder_key,
     _status_from_raw,
     _walk_owner_dirs,
     entry_departments,
     owner_key,
+    work_times,
     render_to_check_label,
     to_check_entries,
 )
@@ -195,24 +204,6 @@ def read_render_state(
     for r in out:
         r.pop("_when", None)
     return out
-
-
-def farm_renders(owner: Path) -> list:
-    """Every finished render of an asset/shot folder whose frames' machines
-    were recorded (farm queue._note_frames()), the newest first: [(label,
-    frame_machines, machine_seconds)], label "sh020 v004-stable_002
-    2026-10-12 19:40". File details' frame lookup. Pure os/json."""
-    history = read_json_quiet(owner / ".pipeline" / "render_history.json") or {}
-    out = []
-    for e in history.get("entries", []):
-        if not isinstance(e, dict) or e.get("status") != "finished":
-            continue
-        if not (e.get("frame_machines") or {}).get("frames"):
-            continue
-        folder = Path(e.get("output_path") or "").parent.name
-        label = " ".join(x for x in (e.get("shot_override"), folder, local_time(e.get("completed_at"))) if x)
-        out.append((label, e["frame_machines"], e.get("machine_seconds")))
-    return out[::-1]
 
 
 def _mtime(folder) -> float | None:
@@ -435,7 +426,7 @@ def read_snapshot_data(
     (read_render_state()) and thumbnails, remade first when missing or older
     than their render (one headless Blender, waited on: run it on a thread).
     thumbnails: {"size", "blender", "ffmpeg"}, None to skip. Returns
-    {"raws", "renders", "thumbs", "shot_thumbs", "thumb_warnings"}."""
+    {"raws", "renders", "thumbs", "shot_thumbs", "thumb_warnings", "work"}."""
     raws = read_snapshot_raw(root)
     config = read_json_quiet(Path(root) / "config" / "project_config.json") or {}
     renders = {
@@ -498,6 +489,7 @@ def read_snapshot_data(
         "thumbs": thumbs,
         "shot_thumbs": shot_thumbs,
         "thumb_warnings": warnings,
+        "work": work_times(root),
     }
 
 
@@ -523,7 +515,7 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
             continue
         name = status.get("file_name") or owner.name
         wips = [
-            (int(m[1]), b) for b in blends if (m := version_re.search(b)) and not m[2]
+            (int(m[1]), b) for b in blends if (m := version_re.search(b)) and m[2] in (None, f"-{RELINK_TAG}")
         ]
         stable_file = (status.get("stable_info") or {}).get("file")
         stable_name = Path(stable_file).name if stable_file else None
@@ -565,6 +557,8 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
             # The live page's own (lib/live.py): its links, its renders to
             # check, every version's video.
             "live": (data.get("live") or {}).get(str(owner)),
+            # Logged work time, every version and everyone (work_times()).
+            "work_seconds": (data.get("work") or {}).get(_session_folder_key(owner)),
         }
         # A render's folder is vXXX_YYY: XXX the .blend version rendered,
         # YYY the render increment. The history's source_file says XXX

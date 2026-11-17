@@ -12,4 +12,4 @@ On file open, the addon also compares every linked library against the latest `-
 
 ---
 
-**See also**: [Versions: wip and stable](versions.md) — a link always points at a specific stable version, never a floating "latest". · [Interface](interface.md) — the project monitoring window's "Links to" / "Linked by" is where these links are actually visible, file by file.
+**See also**: [Versions: wip and stable](versions.md) — a link always points at a specific stable version, never a floating "latest". · [Tracking & reviews](tracking-and-reviews.md) — the live page's *Linked files*, in a file's panel, is where these links are visible, file by file (a newer stable said).

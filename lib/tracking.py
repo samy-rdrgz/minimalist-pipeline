@@ -17,7 +17,6 @@ from .actions import PipelineAction, set_pending_action
 from .background import background_work, checkpoint
 from .config import (
     ConfigCache,
-    covering_role,
     file_in_active_project,
     get_active_project_root,
     get_base_filename,
@@ -39,7 +38,6 @@ from .core import (
     file_time,
     get_machine_id,
     json_get,
-    local_time,
     locked_json,
     now,
     parse_iso,
@@ -501,15 +499,8 @@ class ProjectScan:
 
 
 def _shown_first() -> tuple[tuple[str, ...], str]:
-    """(data roots, sequence or prefix) Project monitoring shows now -- the
-    scan reads them first. Main thread."""
-    try:
-        state = bpy.context.window_manager.pipeline_monitoring
-        if state.file_type == "shot":
-            return ("shots",), "" if state.sequence in ("all", "NONE") else state.sequence
-        return ("assets", "library"), "" if state.asset_prefix in ("all", "NONE") else state.asset_prefix
-    except Exception:  # no window manager yet, or not registered
-        return ("shots",), ""
+    """(data roots, sequence or prefix) the scan reads first: the shots."""
+    return ("shots",), ""
 
 
 def _session_folder_key(folder) -> str:
@@ -523,81 +514,67 @@ def _session_folder_key(folder) -> str:
         return os.path.normcase(str(folder))
 
 
-class WorkTimeCache:
-    """Total logged work time (session_end duration, everyone summed) per
-    asset/shot folder -- total only, never per-person (see design.md).
-    Rebuilt in one pass over sessions_log.jsonl on its mtime change."""
+# root -> (current log's mtime, archives' names, archives' totals, totals)
+_work_times: dict[str, tuple] = {}
 
-    _cache: dict[str, float] = {}
-    _mtime: float = -1.0
-    # Archives (sessions_log_*.jsonl) are rotated out once and never touched
-    # again (see NOTES.md, "Rotation trigger") -- cached separately, keyed on
-    # which archive files exist, so a session_end (which only ever changes
-    # the *current* log) doesn't force a full re-read of every past archive
-    # too, just because they share get()'s own invalidation signal.
-    _archives_cache: dict[str, float] = {}
-    _archives_signature: frozenset[str] | None = None
 
-    _checked_at: float = -1e9
-
-    @classmethod
-    def get(cls, folder) -> float:
-        """Total seconds for folder, across every version and everyone --
-        live log plus rotated archives/sessions_log_*.jsonl (see NOTES.md).
-        0.0 if unreadable. Never raises: read by draw()."""
-        now_t = time.monotonic()
-        if now_t - cls._checked_at < SCANDIR_TTL:
-            # Read by draw() on every redraw: re-stat the log at most every
-            # SCANDIR_TTL (a network round-trip each on a share).
-            return cls._cache.get(_session_folder_key(folder), 0.0)
-        cls._checked_at = now_t
-        log_path = ConfigCache.get_path("sessions_log_file")
+def work_times(root: Path) -> dict[str, float]:
+    """Logged work time per asset/shot folder ({_session_folder_key():
+    seconds}), every version and everyone summed -- a file's total, never a
+    person's (docs/design.md). sessions_log.jsonl plus its rotated archives,
+    read again only when the log's mtime or the archives' list changed
+    (archives never change once rotated). A session that never saved isn't
+    work (someone looking, a review). Pure os/json, root explicit: safe on
+    the live page's reader thread. {} if unreadable; never raises."""
+    try:
+        logs = Path(root) / "config" / "logs"
+        log_path = logs / "sessions_log.jsonl"
         try:
             mtime = log_path.stat().st_mtime
         except OSError:
-            mtime = -1.0  # still worth checking archives, not just 0.0
-        if mtime != cls._mtime:
-            archive_paths = list(
-                ConfigCache.get_path("logs_archives").glob("sessions_log_*.jsonl")
-            )
-            signature = frozenset(p.name for p in archive_paths)
-            if signature != cls._archives_signature:
-                cls._archives_cache = cls._scan(archive_paths)
-                cls._archives_signature = signature
-            current = cls._scan([log_path])
-            cls._cache = {
-                k: cls._archives_cache.get(k, 0.0) + current.get(k, 0.0)
-                for k in cls._archives_cache.keys() | current.keys()
-            }
-            cls._mtime = mtime
-        return cls._cache.get(_session_folder_key(folder), 0.0)
-
-    @staticmethod
-    def _scan(log_paths) -> dict[str, float]:
-        """Sum session_end duration_seconds per folder (Path(filepath).parent)
-        across every given log file. Missing/unreadable files are skipped.
-        A session never saved isn't work (someone looking, a review): left
-        out -- a line from before "saved" was logged still counts."""
-        totals: dict[str, float] = {}
-        for log_path in log_paths:
-            try:
-                with open(log_path, "r", encoding="utf-8") as f:
-                    for line in f:
-                        try:
-                            entry = json.loads(line)
-                        except json.JSONDecodeError:
-                            continue
-                        if entry.get("action") != "session_end":
-                            continue
-                        fp = entry.get("filepath")
-                        duration = entry.get("duration_seconds")
-                        if not fp or duration is None or entry.get("saved") is False:
-                            continue
-                        key = _session_folder_key(Path(fp).parent)
-                        totals[key] = totals.get(key, 0.0) + duration
-            except OSError:
-                continue
+            mtime = -1.0
+        try:
+            archives = sorted(p.name for p in (logs / "archives").glob("sessions_log_*.jsonl"))
+        except OSError:
+            archives = []
+        key = str(root)
+        old = _work_times.get(key)
+        if old and old[0] == mtime and old[1] == archives:
+            return old[3]
+        if old and old[1] == archives:
+            past = old[2]
+        else:
+            past = _sum_work(root, [logs / "archives" / n for n in archives])
+        current = _sum_work(root, [log_path])
+        totals = {k: past.get(k, 0.0) + current.get(k, 0.0) for k in past.keys() | current.keys()}
+        _work_times[key] = (mtime, archives, past, totals)
         return totals
+    except Exception:
+        return {}
+
+
+def _sum_work(root: Path, log_paths) -> dict[str, float]:
+    """Sum of session_end durations per folder key across log_paths, the
+    missing or unreadable ones skipped."""
+    totals: dict[str, float] = {}
+    for log_path in log_paths:
+        try:
+            with open(log_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    try:
+                        entry = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if entry.get("action") != "session_end" or entry.get("saved") is False:
+                        continue
+                    fp, duration = entry.get("filepath"), entry.get("duration_seconds")
+                    if not fp or not isinstance(duration, (int, float)):
+                        continue
+                    k = os.path.normcase(to_relative(Path(fp).parent, Path(root)))
+                    totals[k] = totals.get(k, 0.0) + duration
+        except OSError:
+            continue
+    return totals
 
 
 class RecentFilesCache:
@@ -914,7 +891,6 @@ def _linked_key(file: str) -> str:
     return os.path.normcase(os.path.normpath(file))
 
 
-
 def compact_linked(entries: list[dict]) -> list[dict]:
     """A "linked" list as one {"file"} per linked file, first seen first;
     relative paths collapsed. Pure. See
@@ -1121,14 +1097,6 @@ def set_department_assignees(filepath: Path, department: str, people) -> list[st
     return people
 
 
-def assigned_to(status: dict, user: str) -> list[str]:
-    """The departments of a file (its tracking data) assigned to user,
-    among those it requires."""
-    assignees = (status or {}).get("assignees") or {}
-    required = (status or {}).get("departments_required") or []
-    return [d for d in required if user and user.lower() in (assignees.get(d) or [])]
-
-
 def set_departments_required(filepath: Path, add=(), remove=()) -> bool:
     """The departments required for filepath's folder: add (the project's
     own for its kind, others refused), remove. In the project's order.
@@ -1150,29 +1118,6 @@ def set_departments_required(filepath: Path, add=(), remove=()) -> bool:
         box["data"] = data
         box["action"] = "to_write"
     return True
-
-
-def set_department_validated(filepath: Path, department: str, validated: bool) -> None:
-    """Toggle one department's validated status directly (e.g. "render",
-    not tied to file content), mutating the *latest* .stablemeta in place.
-    Raises PipelineError if the asset has no stable version yet -- nothing
-    to mutate until create_stablemeta() has run at least once."""
-    asset_dir = _owner_dir(Path(filepath))
-    last = get_last_stable(asset_dir)
-    if "file" not in last:
-        raise PipelineError(
-            "Mark at least one version as stable before validating individual departments."
-        )
-    path = asset_dir / ".pipeline" / (_meta_stem(Path(last["file"])) + ".stablemeta")
-    with locked_json(path) as box:
-        data = box["data"] or {}
-        current = data.setdefault("departments_validated", {})
-        started = set(data.get("departments_started") or [])
-        if validated or current.get(department):
-            started.add(department)  # validated once: started, even unvalidated
-        current[department] = validated
-        data["departments_started"] = sorted(started)
-        box["action"] = "to_write"
 
 
 def _carried_approvals(stable: dict) -> dict:
@@ -1255,29 +1200,6 @@ def set_department_approval(
         source=APPROVAL_SOURCE,
     )
     return True
-
-
-
-def department_approvals(data: dict, department: str) -> list[tuple[str, str | None, dict]]:
-    """(role, covering role, its info) for every validation role of the
-    project, for one department of a TrackingStatusCache status -- covering
-    None when not covered. Memory only."""
-    approvals = (data.get("approvals") or {}).get(department) or {}
-    roles = validation_roles()
-    out = []
-    for role in roles:
-        cover = covering_role(approvals, role["name"], roles)
-        out.append((role["name"], cover, approvals.get(cover) or {}))
-    return out
-
-
-def highest_approval(data: dict, department: str) -> str | None:
-    """The highest-level role that approved this department at the latest
-    stable (done there), None if none did."""
-    approvals = (data.get("approvals") or {}).get(department) or {}
-    levels = {r["name"]: r["level"] for r in validation_roles()}
-    known = [(levels[r], r) for r in approvals if r in levels]
-    return max(known)[1] if known else None
 
 
 # Margin when comparing a file's mtime (stamped by the file server or the
@@ -1556,15 +1478,6 @@ def _status_from_raw(raw: dict) -> dict:
     return status
 
 
-def get_current_departments(filepath: Path) -> dict:
-    """Return {department: validated_since_last_stable} for the owning asset."""
-    data = TrackingStatusCache.get(filepath=str(filepath))
-    if data:
-        return data.get("validated_departments", {})
-    else:
-        return {}
-
-
 def open_rtks(data: dict) -> tuple[set[str], bool]:
     """A status dict's open RTKs: (the departments they're on, whether one
     is on no department -- a general retake, said on the file itself)."""
@@ -1585,75 +1498,6 @@ def open_task_counts(data: dict) -> tuple[int, int]:
             rtk += e.get("type") == "rtk"
             todo += e.get("type") == "todo"
     return rtk, todo
-
-
-def department_status_tooltip(data: dict, department: str) -> str:
-    """Hover text for one department's status cell, from
-    TrackingStatusCache's worked_departments / validated_departments /
-    stable_info: the stable it was validated with, and who worked it in
-    which version since."""
-    validated = department in data.get("validated_departments", {})
-    worked = data.get("worked_departments", {}).get(department, [])
-    stable = data.get("stable_info") or {}
-
-    if validated:
-        stable_name = Path(stable["file"]).stem if stable.get("file") else "unknown"
-        stable_date = local_time(stable.get("created_at"))
-        lines = [
-            f"Done as of {stable_name}" + (f" ({stable_date})" if stable_date else "")
-        ]
-        lines += _approval_lines(data, department)
-    else:
-        lines = ["Not done for the current stable version."]
-        if department in data.get("started_departments", ()):
-            lines.append("Done or worked on before it: in progress.")
-
-    flag = (data.get("flags") or {}).get(department) or {}
-    if flag.get("waiting"):
-        lines.insert(0, f"Waiting: {flag['waiting']}.")
-    if flag.get("to_redo"):
-        lines.insert(0, f"To redo: {flag['to_redo']} -- after its last update."
-                     " Still done tells it holds.")
-    elif (data.get("departments_synced") or {}).get(department):
-        s = data["departments_synced"][department]
-        lines.append(f"Still done ({s.get('by', '?')}, {local_time(s.get('at'))})"
-                     + (f": {s['text']}" if s.get("text") else ""))
-
-    if worked:
-        lines.append("")
-        lines.append("Worked since in:")
-        for w in worked:
-            by = f" by {w['by']}" if w.get("by") else ""
-            lines.append(f"   {Path(w['file']).stem}{by}")
-
-    return "\n".join(lines)
-
-
-def _approval_lines(data: dict, department: str) -> list[str]:
-    """A done department's validation roles, for its tooltip: who validated
-    it at this stable, which role covers another, the last validation of an
-    earlier stable still to review again."""
-    lines = []
-    previous = (data.get("approvals_previous") or {}).get(department) or {}
-    for role, cover, info in department_approvals(data, department):
-        if cover == role:
-            when = local_time(info.get("at"))
-            since = info.get("carried_from")
-            on = f" on {Path(since).stem}, not worked since" if since else ""
-            lines.append(f"   {role}: validated by {info.get('by', '?')} ({when}){on}")
-        elif cover:
-            lines.append(f"   {role}: covered by {cover} ({info.get('by', '?')})")
-        elif role in previous:
-            seen = Path(previous[role].get("file") or "").stem or "an earlier stable"
-            lines.append(f"   {role}: validated on {seen} -- to review again")
-        else:
-            lines.append(f"   {role}: not validated")
-    return ["", "Validation:"] + lines if lines else []
-
-
-def get_description(filepath: Path) -> str:
-    """Return the owning asset/shot's free-text description, or "" if none."""
-    return TrackingStatusCache.get(filepath=str(filepath)).get("description", "")
 
 
 def set_description(filepath: Path, description: str) -> None:
@@ -2390,35 +2234,6 @@ def clean_libraries(linked: list[dict], libs: list[str]) -> list[dict]:
     return linked
 
 
-def get_linked_libraries(filepath: Path) -> list[dict]:
-    """This asset/shot's own linked-libraries list ({file} dicts, one per
-    file) -- the latest wip's if one exists, else the latest stable's."""
-    asset_dir = _owner_dir(Path(filepath))
-    wip = get_last_wipmeta(asset_dir)
-    return list((wip or get_last_stable(asset_dir)).get("linked", []))
-
-
-# owner folder -> (.pipeline mtime, linked list, last checked -- time.monotonic())
-_linked_cache = StampCache(SCANDIR_TTL)
-
-
-def get_linked_libraries_cached(filepath: Path) -> list[dict]:
-    """get_linked_libraries() for draw(): keyed on the same .pipeline/ mtime
-    as TrackingStatusCache (a new .wipmeta/.stablemeta bumps it), checked at
-    most every SCANDIR_TTL."""
-    folder = _owner_dir(Path(filepath))
-
-    def read():
-        try:
-            return get_linked_libraries(folder)
-        except Exception:
-            return []
-
-    return _linked_cache.get(
-        str(folder), lambda: TrackingStatusCache._pipeline_mtime(folder), read, []
-    )
-
-
 # Inverse links index, target folder key -> linker folders -- built by
 # ProjectScan, read by find_linked_by().
 _linked_by_index: dict[str, set[str]] = {}
@@ -2481,18 +2296,6 @@ def _outdated_links_of(root: Path, owners: list, currents: dict, v_prefix: str) 
             if newest and os.path.normcase(newest) != os.path.normcase(path.name):
                 out.setdefault(key, []).append((path.name, newest))
     return out
-
-
-def outdated_links(folder) -> list[tuple[str, str]]:
-    """[(linked file name, latest stable name)] of an owner folder's links to
-    an older version, as the last project scan found. Memory only."""
-    return _outdated_links.get(str(_owner_dir(Path(folder))), [])
-
-
-def any_outdated_links(project_root: Path) -> bool:
-    """Whether the last scan of project_root found a link to an older
-    version anywhere. Memory only."""
-    return _outdated_project == str(project_root) and bool(_outdated_links)
 
 
 def linked_by_ready(project_root: Path) -> bool:

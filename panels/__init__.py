@@ -1,13 +1,7 @@
 """Pipeline UI panels."""
 
 from .farm_panel import (
-    M_PIPELINE_MT_farm_legend,
-    M_PIPELINE_OT_frame_lookup,
     M_PIPELINE_PT_farm_panel,
-    draw_farm_job_details,
-    draw_farm_jobs,
-    draw_farm_worker_details,
-    draw_farm_workers,
 )
 from .file_panel import M_PIPELINE_PT_file_panel
 from .logs_panel import (
@@ -18,23 +12,15 @@ from .logs_panel import (
     log_values,
 )
 from .monitoring_panel import (
-    M_PIPELINE_PT_farm_monitoring,
     M_PIPELINE_PT_log_monitoring,
     M_PIPELINE_PT_welcome,
     M_PIPELINE_PT_project_settings,
-    M_PIPELINE_PT_monitoring,
 )
 from .project_panel import M_PIPELINE_PT_project_panel
 from .tracking_panel import (
-    M_PIPELINE_MT_monitor_legend,
     TYPE_ICON,
     draw_entries,
-    draw_file_details,
-    draw_monitor_table,
     draw_tracking_data,
-    load_file_renders,
-    load_file_thumbnail,
-    monitor_matches,
     unregister_thumbnail_previews,
 )
 
@@ -42,14 +28,9 @@ classes = (
     M_PIPELINE_PT_file_panel,
     M_PIPELINE_PT_project_panel,
     M_PIPELINE_PT_farm_panel,
-    M_PIPELINE_PT_monitoring,
-    M_PIPELINE_PT_farm_monitoring,
     M_PIPELINE_PT_log_monitoring,
     M_PIPELINE_PT_welcome,
     M_PIPELINE_PT_project_settings,
-    M_PIPELINE_OT_frame_lookup,
-    M_PIPELINE_MT_monitor_legend,
-    M_PIPELINE_MT_farm_legend,
     M_PIPELINE_MT_log_legend,
 )
 

@@ -5,7 +5,8 @@ document.querySelectorAll('[data-lang]').forEach(b=>b.setAttribute('aria-checked
 restoreReview();
 /* A link to a file (#its name, or its .blend's: any version of it) opens it; #farm, the Farm. */
 {const h=decodeURIComponent(location.hash.slice(1)),it=h&&(items.find(i=>i.name===h||i.file===h||i.stableFile===h)||items.find(i=>i.name===h.replace(/_v\d+.*$/i,'')));
-  if(it){S.sel=it.name;S.ws=it.kind}else if(h==='farm'&&LIVE)S.ws='farm'}
+  if(it){S.sel=it.name;S.ws=it.kind}else if(h==='farm'&&LIVE)S.ws='farm';else if(h==='share'&&LIVE&&!guest())setTimeout(shareDialog,0)}
+document.documentElement.dataset.guest=guest()?'1':'';
 try{const t=localStorage.getItem('mp-snapshot:theme');if(t)S.theme=t}catch(_){}
 setTheme(S.theme);matchMedia('(prefers-color-scheme: light)').addEventListener?.('change',()=>{if(S.theme==='system')setTheme('system')});
 MOB_Q.addEventListener?.('change',()=>renderAll());

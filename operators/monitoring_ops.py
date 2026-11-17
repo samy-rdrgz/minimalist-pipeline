@@ -1,36 +1,13 @@
-"""Navigation inside the monitoring windows (lib/monitoring.py): turning a
-list's page, switching its view, going back from a detail, refreshing --
-their buttons, and the keys register_monitoring_keymap() binds."""
+"""Navigation inside the monitoring windows (lib/monitoring.py) -- the
+Pipeline log's: turning its list's page, reading it again; their buttons,
+and the keys register_monitoring_keymap() binds. Project and Farm
+monitoring are the live page's now (lib/live.py)."""
 
 import bpy
 
-from ..farm import load_job_details, request_monitor_refresh
-from ..lib import (
-    get_active_project_root,
-    list_fits,
-    monitoring_detail,
-    monitoring_kind,
-    monitoring_zone,
-    neighbour_in_list,
-    redraw_monitoring,
-    set_monitoring_detail,
-    turn_page,
-)
-from ..panels import (
-    load_file_renders,
-    load_file_thumbnail,
-    load_pipeline_log,
-    monitor_matches,
-)
+from ..lib import list_fits, monitoring_kind, redraw_monitoring, turn_page
+from ..panels import load_pipeline_log
 
-# What each window's detail is kept under (see lib/core.py); the log has none.
-_DETAILS = {
-    "project": ("file", "missing_file"),
-    "farm": ("job", "worker"),
-    "log": (),
-    "welcome": (),
-    "settings": (),
-}
 # Windows with no list to page through nor anything to read again.
 _STILL = ("", "welcome", "settings")
 # The wheel's events: pages on a list, the scroll everywhere else
@@ -38,47 +15,8 @@ _STILL = ("", "welcome", "settings")
 _WHEEL = ("WHEELUPMOUSE", "WHEELDOWNMOUSE")
 
 
-def _showing_detail(kind: str, context=None) -> bool:
-    """A detail open -- and, given context, under the mouse: never in the
-    list's zone of a window in two (the keys follow the zone)."""
-    if context is not None and monitoring_zone(context) == "list":
-        return False
-    return any(monitoring_detail(key) for key in _DETAILS[kind])
-
-
-def _in_file_detail(context) -> bool:
-    """Project monitoring on a file's detail (not a file not found), the
-    mouse over it."""
-    return monitoring_kind(context.screen) == "project" and _showing_detail(
-        "project", context
-    ) and bool(monitoring_detail("file"))
-
-
-def _step_file(context, step: int, to_end: bool) -> bool:
-    """File details: the previous / next file of Project monitoring's list,
-    with its filters and sort (Ctrl: the first / last). False when there's
-    none (an end of the list, a file outside it)."""
-    root = get_active_project_root()
-    if not root:
-        return False
-    matches, _filters = monitor_matches(
-        context.window_manager.pipeline_monitoring, context, root
-    )
-    current = monitoring_detail("file")
-    found = neighbour_in_list(
-        "project", current, [str(d) for d, _ in matches], step, to_end
-    )
-    if not found:
-        return False
-    set_monitoring_detail("file", found)
-    load_file_thumbnail(found)
-    load_file_renders(found)
-    return True
-
-
 class M_PIPELINE_OT_monitoring_page(bpy.types.Operator):
-    """Previous / next page of a monitoring window's list -- in Project
-    monitoring's file detail, the previous / next file of its list."""
+    """Previous / next page of a monitoring window's list."""
 
     bl_idname = "m_pipeline.monitoring_page"
     bl_label = "Change page"
@@ -88,90 +26,29 @@ class M_PIPELINE_OT_monitoring_page(bpy.types.Operator):
 
     @classmethod
     def description(cls, context, properties):
-        what = "file" if context and _in_file_detail(context) else "page"
         if properties.step < 0:
-            return f"Previous {what}.\nCtrl+click: the first"
-        return f"Next {what}.\nCtrl+click: the last"
+            return "Previous page.\nCtrl+click: the first"
+        return "Next page.\nCtrl+click: the last"
 
     @classmethod
     def poll(cls, context):
-        # Its window's list only: the arrow keys do nothing elsewhere. A
-        # file's detail: its list's files.
-        if _in_file_detail(context):
-            return True
-        kind = monitoring_kind(context.screen)
-        if kind in _STILL or _showing_detail(kind, context):
-            return False
-        return kind != "farm" or context.window_manager.pipeline_farm_monitoring.view == "jobs"
+        # Its window's list only: the arrow keys do nothing elsewhere.
+        return monitoring_kind(context.screen) not in _STILL
 
     def invoke(self, context, event):
-        if event.type in _WHEEL:
-            # The wheel turns a list's pages, never a detail's (its notes,
-            # a job's lines scroll) nor a list taller than its window.
-            if _in_file_detail(context) or not list_fits(
-                monitoring_kind(context.screen)
-            ):
-                return {"PASS_THROUGH"}
+        # The wheel turns a list's pages, never a list taller than its window.
+        if event.type in _WHEEL and not list_fits(monitoring_kind(context.screen)):
+            return {"PASS_THROUGH"}
         self.to_end = self.to_end or event.ctrl
         return self.execute(context)
 
     def execute(self, context):
-        kind = monitoring_kind(context.screen)
-        if _in_file_detail(context):
-            if not _step_file(context, self.step, self.to_end):
-                return {"CANCELLED"}
-            redraw_monitoring(kind)
-            return {"FINISHED"}
-        turn_page(kind, self.step, self.to_end)
-        return {"FINISHED"}
-
-
-class M_PIPELINE_OT_monitoring_switch(bpy.types.Operator):
-    """Project monitoring: assets <-> shots. Farm monitoring: jobs <-> workers (Tab)."""
-
-    bl_idname = "m_pipeline.monitoring_switch"
-    bl_label = "Switch view"
-
-    @classmethod
-    def poll(cls, context):
-        kind = monitoring_kind(context.screen)  # the log has one view
-        return kind in ("project", "farm") and not _showing_detail(kind, context)
-
-    def execute(self, context):
-        kind = monitoring_kind(context.screen)
-        wm = context.window_manager
-        if kind == "project":
-            state = wm.pipeline_monitoring
-            state.file_type = "asset" if state.file_type == "shot" else "shot"
-        else:
-            state = wm.pipeline_farm_monitoring
-            state.view = "workers" if state.view == "jobs" else "jobs"
-        redraw_monitoring(kind)
-        return {"FINISHED"}
-
-
-class M_PIPELINE_OT_monitoring_back(bpy.types.Operator):
-    """Back from a monitoring window's detail to its list (Esc)."""
-
-    bl_idname = "m_pipeline.monitoring_back"
-    bl_label = "Back to the list"
-
-    @classmethod
-    def poll(cls, context):
-        kind = monitoring_kind(context.screen)
-        return bool(kind) and _showing_detail(kind)
-
-    def execute(self, context):
-        kind = monitoring_kind(context.screen)
-        for key in _DETAILS[kind]:
-            set_monitoring_detail(key, "")
-        redraw_monitoring(kind)
+        turn_page(monitoring_kind(context.screen), self.step, self.to_end)
         return {"FINISHED"}
 
 
 class M_PIPELINE_OT_monitoring_refresh(bpy.types.Operator):
-    """Read a monitoring window's content again (F5): the project scanned,
-    the farm read, the job shown reloaded, the log read."""
+    """Read a monitoring window's content again (F5): the log."""
 
     bl_idname = "m_pipeline.monitoring_refresh"
     bl_label = "Refresh"
@@ -181,67 +58,6 @@ class M_PIPELINE_OT_monitoring_refresh(bpy.types.Operator):
         return monitoring_kind(context.screen) not in _STILL
 
     def execute(self, context):
-        kind = monitoring_kind(context.screen)
-        if kind == "project":
-            return bpy.ops.m_pipeline.tracking_refresh()
-        if kind == "farm":
-            job_id = monitoring_detail("job")
-            if job_id:
-                load_job_details(job_id)
-            request_monitor_refresh()
-        else:
-            load_pipeline_log()
-        redraw_monitoring(kind)
+        load_pipeline_log()
+        redraw_monitoring(monitoring_kind(context.screen))
         return {"FINISHED"}
-
-
-class M_PIPELINE_OT_monitor_column_toggle(bpy.types.Operator):
-    """Show or hide this column of Project monitoring's list"""
-
-    bl_idname = "m_pipeline.monitor_column_toggle"
-    bl_label = "Show / hide a column"
-    bl_options = {"INTERNAL"}
-
-    column: bpy.props.StringProperty(options={"HIDDEN", "SKIP_SAVE"})
-
-    def execute(self, context):
-        state = context.window_manager.pipeline_monitoring
-        hidden = set(filter(None, state.hidden_columns.split(",")))
-        hidden ^= {self.column}
-        state.hidden_columns = ",".join(sorted(hidden))
-        redraw_monitoring("project")
-        return {"FINISHED"}
-
-
-# In hidden_columns: the states' words hidden (no department has a "·").
-WORDS_OFF = "·words"
-
-
-class M_PIPELINE_MT_monitor_columns(bpy.types.Menu):
-    """Project monitoring's columns, each ticked while shown."""
-
-    bl_idname = "M_PIPELINE_MT_monitor_columns"
-    bl_label = "Columns"
-
-    def draw(self, context):
-        from ..lib import ConfigCache, json_get
-
-        state = context.window_manager.pipeline_monitoring
-        hidden = set(filter(None, state.hidden_columns.split(",")))
-        key = "assets_departments" if state.file_type == "asset" else "shots_departments"
-        for column in [*json_get(ConfigCache.get(), key, []), "farm"]:
-            op = self.layout.operator(
-                "m_pipeline.monitor_column_toggle",
-                text=column.capitalize(),
-                icon="CHECKBOX_DEHLT" if column in hidden else "CHECKBOX_HLT",
-            )
-            op.column = column
-        # The states' words beside their marks: off, the marks alone (the
-        # words stay in the tooltips). Kept with the hidden columns.
-        self.layout.separator()
-        op = self.layout.operator(
-            "m_pipeline.monitor_column_toggle",
-            text="States' words",
-            icon="CHECKBOX_DEHLT" if WORDS_OFF in hidden else "CHECKBOX_HLT",
-        )
-        op.column = WORDS_OFF

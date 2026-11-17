@@ -277,16 +277,6 @@ def format_pace(seconds: float) -> str:
     return format_duration(seconds)
 
 
-def format_work_time(seconds: float) -> str:
-    """Seconds -> compact "XhYY" for display ("Xd YYhZZ" past a day)."""
-    total_minutes = int(seconds // 60)
-    days, rem_minutes = divmod(total_minutes, 24 * 60)
-    hours, minutes = divmod(rem_minutes, 60)
-    if days:
-        return f"{days}d {hours:02d}h{minutes:02d}"
-    return f"{hours}h{minutes:02d}"
-
-
 # Corrects a popup's declared width= vs its actual rendered content-area
 # width -- see NOTES.md, "Text wrapping in panels". Recalibrate this one
 # constant if popup text still looks off, never the per-call-site formula.
@@ -428,16 +418,6 @@ def draw_box_tip(
         scale_y=0.8,
         icon=icon,
     )
-
-
-def box_tip_units(context: bpy.types.Context, text: str) -> float:
-    """Widget units a draw_box_tip() of text takes -- 0 unless Beginner (it
-    draws nothing then): for a monitoring window's rows_that_fit(), so its
-    list still fits with the tip above it."""
-    pref = addon_pref(context)
-    if not pref or getattr(pref, "experience_level", "BEGINNER") != "BEGINNER":
-        return 0.0
-    return lines_budget(text) * 0.8 + 1.0
 
 
 def get_machine_id(context: bpy.types.Context | None = None) -> str:

@@ -2,10 +2,52 @@
 
 All notable changes to this addon. Dates are release dates.
 
-## Unreleased
+## 2.0.0
 
 ### Added
 
+- Live page, a tour for a beginner (Blender's Experience level, a guest
+  too): a few steps pointing at the page's parts, shown once in a browser,
+  again from More › Tour of the page.
+- Sound in the renders: the shot file's own (sequencer sound strips,
+  speakers), mixed down by the farm's render setup over the job's range
+  (a FLAC beside the frames) and put in the video by the compilation --
+  AAC in an mp4, PCM in a ProRes .mov, its light copy too. A shot without
+  sound gets silence, so a sequence preview keeps every shot's sound in
+  its place (an old render without a track: silence too). The page's
+  player already had its sound button (M). *Sound*, on by default, in
+  Blender's Render dialog and the page's (*With / Without sound*): off, a
+  video without sound. The timeline's Mute doesn't silence a render; a
+  muted strip, channel or speaker stays out.
+- Edit project, *Video*: the video compiled from a render's frames, for
+  the edit -- *MP4 · H.264* (smooth to scrub, light, played as is by the
+  page; new projects), *MOV · ProRes 422 LT* (what editing software reads
+  best; the page plays a light mp4 copy made in the same pass) or *Preset
+  file* (the project's default.json, as before: projects from before keep
+  it). A sequence preview stays an mp4 a browser plays.
+- Snapshot and live page, lighter: the header on one line (the videos
+  folder and the legend in ⋯); three filters in the bar, the others under
+  *Filters ▾* with how many are on; *Show details* (⋯, kept by the
+  browser, off by default) for a file's versions, last render, .blend and
+  work time; *Render* and *File settings* as buttons in the file's header
+  opening a dialog; a block's shots as cards (picture, name, a click plays
+  it, its version under it); an open note on a department marked in the
+  list; denser with a mouse.
+- Live page, *Linked files*: *Update links* -- a file's links moved to
+  their latest stables without opening it, in a new version tagged
+  `-updatelink` made by a background Blender (never saved over, a stable
+  never touched, a file someone has open left); on an asset, every file
+  that links an older stable of it at once. The new version is a work
+  version: what links it takes it once it's marked stable.
+- Live page: what arrived while it was open, behind a bell in the header
+  -- notes, retakes and replies, validations, renders finished or
+  failed; a toast as they come, a click opens the file, the system's own
+  notification when the page is in the background (if allowed). Never
+  what you did yourself: your name, or the answer to what the page just
+  sent. In memory only.
+- Snapshot and live page: a file's work time at the bottom of its panel,
+  small -- every version and everyone together, the sessions that saved
+  (Project monitoring showed it before it was removed).
 - Snapshot page, the notes in review: a thread one line, opened in place
   (its replies, *Reply*, *Mark fixed*); an author's notes of a day under
   one header; a bar to show the open ones, all, or yours, newest first or
@@ -23,15 +65,17 @@ All notable changes to this addon. Dates are release dates.
   Status, Count, RTK & notes --; a cell opens the list filtered on it;
   the schedule on the tabs' line; *How it's counted* folded. It replaces
   the three cards per section and the shaded grid.
-- Live page, *Share with a phone…* (an icon beside *Open in browser*, the
-  Pipeline menu, the page's ⋯ menu): someone on the studio's network gets
-  the page under their name and role, for an hour, until tonight, a day
-  or a week -- a QR code to scan, or *Copy link*; the accesses listed,
-  each revoked in a click. They review; the farm read only; nothing opened
-  on this machine. The page is served on the network only while one runs.
-- Live page: the guest's address chosen when this machine has more than
-  one -- the local network, or Tailscale (a phone with it on, from
-  anywhere). A tab in the background stops asking for news: piled-up tabs
+- Live page, remote access, secondary to *Monitor in browser* (*Share
+  with a phone…*: an icon beside it, the Pipeline menu, the page's ⋯
+  menu): someone gets the page on another device under their name and
+  role, for an hour, until tonight, a day or a week -- a QR code to scan,
+  or *Copy link*; the accesses listed, each revoked in a click. They
+  review; the farm read only; nothing opened on this machine. The page is
+  served on the network only while one runs, at the address chosen when
+  this machine has more than one. Combined with a VPN (Tailscale, for
+  example), it gives easy remote monitoring of the project and the farm
+  from outside the studio.
+- Live page: a tab in the background stops asking for news: piled-up tabs
   held the browser's connections and left a click waiting.
 - Snapshot page: a *Farm* column in the list -- a job's state (to the Farm
   tab), a render to check (to its file's *To check*).
@@ -43,7 +87,7 @@ All notable changes to this addon. Dates are release dates.
 - Live page: a render's full video in this machine's player (its light
   copy is what the page may play).
 - Snapshot page: the player takes the video's own shape.
-- *Open in browser* (Project panel, Pipeline menu): the project's page
+- *Monitor in browser* (Project panel, Pipeline menu): the project's page
   served by Blender to this machine's browser, kept up to date -- the
   snapshot's page, live; a pill says connected, Blender busy or
   disconnected (it reconnects by itself). It reviews as you: what you do
@@ -244,9 +288,24 @@ All notable changes to this addon. Dates are release dates.
 - Render presets in `.json` (a flat map of scene paths): Python presets
   only. *Migrate old data* rewrites each `.json` as the `.py` doing the
   same, and gives a department with no preset its default one.
+- The Project monitoring and Farm monitoring windows: the live page
+  (*Monitor in browser*, Shift+Alt+P) covers them -- every file and its
+  departments, a file's notes, renders to check and links; the farm's
+  jobs and machines, their details, retry, cancel, recompile, priority.
+  File details' *Details in browser* opens it on the open file, the Farm panel's
+  header on its Farm tab (Shift+Alt+F). Their window state, keys (Tab,
+  Esc), the frame lookup popup and the per-file work time total go with
+  them; the Pipeline log, the welcome and Project settings keep their
+  windows. The sidebar panels and the top bar menu are unchanged but for
+  these buttons.
 
 ### Fixed
 
+- The farm's time left (Farm monitoring, the page's Farm tab) counted a
+  job waiting for a worker over its whole range, frames already there
+  included: a retry after a failure, corrupted frames to render again
+  (2 frames counted as 100), a render without Increment into its last
+  folder. Only the missing frames count now -- the ones it renders.
 - A file's tracking written again at a creation kept only five of its
   fields: On hold / Cancelled and Still done were lost.
 
@@ -550,15 +609,16 @@ review one file -- lighter to read on a computer and on a phone.
   choice, the sequences ticked and *Assets & libraries* are remembered.
   *Choose the videos folder…* (a folder button next to ? until one is
   chosen, ⋯ menu, or under a render with nothing to play) reads them from
-  any folder, whatever its name -- the project's `renders/` too: in
-  Chrome or Edge it opens only the videos it needs, by their paths.
+  any folder, whatever its name -- the project's `renders/` too: in a
+  browser that allows it, it opens only the videos it needs, by their
+  paths.
 - The logo moved to the footer, "Created by minimalist pipeline", and
   opens the add-on's page on extensions.blender.org.
 - A retake on no department (general RTK) counts in a file's Done as an
   RTK on one of its done departments, no longer on every one of them;
   each department's own Done leaves it out.
-- H.265 videos play on iPad, iPhone and Safari: the compilation tags
-  them `hvc1` (ffmpeg's `hev1` was refused there). Recompile an older
+- H.265 videos play on more browsers and devices: the compilation tags
+  them `hvc1` (ffmpeg's `hev1` was refused by some). Recompile an older
   one to play it. The page says when a video is there but its format
   can't be played, instead of "not found".
 - Tablets: upright (up to 900 px wide), a file's panel takes the whole
@@ -568,8 +628,8 @@ review one file -- lighter to read on a computer and on a phone.
   while writing in the panel the review bar and Previous / Next step
   aside for the on-screen keyboard.
 - **A light copy for browsers**, in the render's folder, `ld/`: when its
-  video is wider than 8192 px (a panoramic render: browsers on a PC or
-  an iPad refuse it) or in a codec they don't play (ProRes, DNxHR...),
+  video is wider than 8192 px (a panoramic render: browsers refuse it,
+  on a computer as on a tablet) or in a codec they don't play (ProRes, DNxHR...),
   the farm's compilation writes an H.265 copy at most 8192 px wide in the
   same pass. The snapshot plays and carries it; the full one stays for
   the edit (rushes, previews, thumbnails never see `ld/`). A job set up
@@ -628,13 +688,13 @@ review one file -- lighter to read on a computer and on a phone.
 ### Tablets
 
 - **The panel over the whole page, on demand**: dragging the panel's left
-  edge past its widest makes it fill the page (an iPad upright: the list
+  edge past its widest makes it fill the page (a tablet upright: the list
   beside it was too narrow), kept by the browser; dragged back from its
   left edge, it's beside the list again (a double click: the default
   width). A wider edge to grab with a finger.
 - **Theme: System / Light / Dark** in the ⋯ menu, kept by the browser --
   applied before the page shows, no flash of the other one.
-- **Nothing hides under an iPad's status bar** any more (battery,
+- **Nothing hides under a tablet's status bar** any more (battery,
   network, time, where the page runs under it -- full screen, or an app's
   viewer): the top bar, the panel's header, the video player, the
   dialogs and messages start below it.
@@ -643,8 +703,8 @@ review one file -- lighter to read on a computer and on a phone.
   (a download lands wherever the browser, or the app showing the page,
   keeps its own: hard to find in an app's viewer). A cancelled share
   leaves the dialog open; a failed one downloads instead.
-- **The page holds still under a finger** (iPad, in Safari or an app's
-  viewer such as Documents): under an open list or menu, the dialogs,
+- **The page holds still under a finger** (a tablet, in its browser or an
+  app's viewer): under an open list or menu, the dialogs,
   the video player, the panel taking the whole screen, and while
   writing -- back where it was once closed, nothing scrolled by the
   browser or put back after it. A ✓ or ✕ in the panel redraws only that

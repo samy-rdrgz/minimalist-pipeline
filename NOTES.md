@@ -2470,7 +2470,31 @@ resumed after, a nested pause (`bring_monitoring_to_front()` opening a
 window), a reader stuck past the timeout. Not reproducible here -- the
 crash needs Blender.
 
+## 2.0.0: Project and Farm monitoring go to the live page
+
+The two windows removed once the live page covered them (2.0.0; the `2.0`
+branch keeps them). Their state (`pipeline_monitoring`,
+`pipeline_farm_monitoring`), the two-zone detail, the frame lookup popup,
+the Farm column, the per-file work time and every operator only they
+called went with them -- found by references (names, attributes and
+strings over the whole addon, docstrings and comments aside), loop until
+nothing more; then every import checked against its module, every called
+operator against the registered ones, and every remaining panel's and
+menu's draw() run headless on a project file.
+
+- **Kept**: the windows themselves (`lib/monitoring.py`) for the Pipeline
+  log, the welcome and Project settings -- paging, F5, the keys.
+- **Their entry points**: File details' *Details* opens the live page on
+  the file (`#<file>`: its name or any version's), the Farm panel's header
+  and body on its Farm tab (`#farm`); Shift+Alt+P / Shift+Alt+F do the
+  same.
+- **What the page doesn't do**: open a given version (it opens the last:
+  Blender for the rest -- the page covers the everyday, not every case),
+  become the farm host (the sidebar's Farm panel, the top bar).
+
 ## Monitoring: windows, not popups
+
+(Since 2.0.0: the Pipeline log, the welcome and Project settings only.)
 
 **Project settings (1.1.9)**, kind `"settings"`, the same way: its ~35
 fields were the operator's own properties, which a window's panel can't
@@ -5255,6 +5279,143 @@ its link as a QR code (`lib/qr.py`).
 - **This machine's player** (`/play`, `_play()`): the full video -- a
   light copy asked for (`ld/`) is swapped for its folder's own.
 
+## Live page: what arrived
+
+`newsOf()` (page.js) compares the data before and after each pass:
+new note / reply ids, a validation's mark (`it.ok`) new or by someone
+else, a farm job turning finished or failed. Never one's own: an author
+equal to `META.live.user`; a file whose actions the page sent
+(`MINE_F[file]` = "sent", then the version answering them -- the whole
+file skipped until data of that version is in, a teammate's change in
+that same pass with it); a job acted on from the page (`MINE_J`, 30 s).
+A department done or a new version: not news, the data doesn't say who
+(one's own save would be). System notifications only where the browser
+allows them (a secure context: 127.0.0.1, not a guest on the LAN), on
+a click (*Notify me in the system too*), the page hidden. In memory: not
+"since your last visit" (plan, section 6).
+
+## Update links: a -updatelink version
+
+From the live page (`/relink`, never a guest's): `lib/relink.py`
+`relink_plan()` takes the folder's newest version (any tag), its meta's
+`linked` (.stablemeta for a stable, else .wipmeta), the links whose
+folder has a newer -stable (`_outdated_links_of()`, the page's own
+rule); the next number, tagged `-updatelink`. A live lock on the source:
+left (relinking would fork the work in progress). `start()` runs
+`templates/relink_entry.py` on the source in `blender -b
+--factory-startup` -- no addon there, so none of its load/save handlers
+(session, lock, auto-version, wipmeta sync) -- which repoints each
+library whose resolved path is an old one, `reload()`s it and
+`save_as_mainfile(copy=True)` to the new name: the source untouched.
+`poll()`, on the live page's turn, reads the result back and writes the
+new version's .wipmeta (`create_wipmeta()`, `creation_mode` "relink",
+no `departments_worked`: not work). `RELINK_TAG` is added to the naming
+regexes whatever the project's `tags`; the snapshot counts a
+-updatelink as a wip. Not a stable: what links the file takes it once
+someone marks it stable. Not checked in Blender yet: file compression
+(save_as's default, not the source's) and indirect libraries (only the
+direct links the meta lists are moved).
+
+## Page: what shows by default
+
+An action with its form opens a dialog from a button in the file's header
+(*Render*, `renderDialog()`; *File settings*, `settingsDialog()`, while
+reviewing) -- `#dlg` with its own onclick / onchange / oninput, cleared on
+close. What's read or written in context stays in the panel (notes,
+description, To check, Linked files, shot cards). *Show details*
+(`DETAILS`, `mp-snapshot:details`) adds the facts and the version list;
+Linked files shows without it when `linksToUpdate()`. *Filters ▾*: its
+list moved to `<body>` at load and placed under its button (`.bar-in`
+scrolls sideways and cut it); `ffCount()` from `chipCounts()`. The
+header's height followed by a `ResizeObserver` (`barHeight()`). Not tried
+on a touch screen since: Filters ▾ and the dialogs.
+
+## Video for the edit: a format, the light copy in the same pass
+
+`config["video"]["format"]` (Edit project, *Video*): "mp4" (H.264, -g 12,
+no B-frame: long-GOP H.265 is what timelines choke on), "prores_lt"
+(.mov), "preset" (config/presets/ffmpeg_presets/default.json -- a project
+without the key, so one from before doesn't change unasked).
+`resolve_ffmpeg_preset("default")` returns the format's preset; a named
+preset still wins. The light copy for the page (ld/) is the compilation's
+second output in the same ffmpeg run (`_ld_args()`, one read of the
+frames), made when the video isn't one a browser plays -- so no step or
+setting of its own. A sequence preview is always an mp4 a browser plays
+(ProRes can't go in an mp4). The preset file is read read-only now (it
+took a write lock to read).
+
+## Time left: a waiting job's frames already there
+
+`frames_to_render` (a job at setup_finished, waiting for a worker) was its
+whole range: the estimate (estimate_label()) and the farm's total
+(render_left_label()) counted frames the render won't make --
+render_chunk() renders only the missing ones. A job goes back to
+setup_finished with most of its frames done: a retry (render_failed),
+corrupted frames to render again (only those deleted), a render without
+Increment into its last folder. `_frames_for_jobs()` now counts the frames
+of setup_finished jobs too; frames_to_render is the range less them.
+
+## The renders' sound (phase 5b)
+
+The shot file's own sound (sequencer sound strips, speakers), never a file
+from outside: in step with the frames by construction.
+- **The render setup mixes it down** (lib/sound.py `mixdown()`), once per
+  job, out of the job's lock, in the same session as the preset applied
+  (its fps): `bpy.ops.sound.mixdown` to a FLAC 16-bit stereo 48 kHz over
+  the job's range, beside the frames, named as the video
+  (`<shot>_<v003_001>.flac`, `data["audio_path"]`). A block split into
+  shots: each shot's job has its own setup, its own range -- its own cut.
+  A block rendered whole: the whole range. Set for the mixdown only (never
+  saved): the range, no preview range, and `use_audio` False -- the
+  timeline's Mute mutes the mixdown too.
+- **Mutes**: the timeline's *Mute* (Playback popover; `scene.use_audio`,
+  True = muted, the whole scene) is a working convenience -- turned off
+  for the mixdown. A muted strip, a muted sequencer channel, a muted
+  speaker: left out, as Blender's own mixdown does.
+- **Sound, an option of the submit** (`job_request(sound=)`, default on;
+  Blender's Render dialog *Sound*, the page's *With / Without sound*),
+  carried by a block's shot jobs. Off: no mixdown (a FLAC left from
+  before removed), no track at all in the video (`-an`) -- a sequence
+  preview gives it silence like an old render.
+- **No sound in the scene** (no strip nor speaker not muted): no file, one
+  left from a render before removed. A mixdown that fails: a warning in
+  the log, no file -- the render isn't failed for it.
+- **The compilation** (`compile_command()`) always gives the video a
+  track: the FLAC, or `anullsrc` silence when there's none. Cut to the
+  sample (`apad,atrim=end_sample=`) to frames / fps: a mixdown a little
+  short or long never shifts the next shot of a preview (checked at
+  23.976: within a millisecond). AAC in an mp4, PCM in a .mov (DaVinci
+  Resolve's free version on Linux reads no AAC), Opus in a .webm; a
+  preset's `"audio_args"` replaces that (`["-an"]`: none). The light copy
+  in the same pass gets AAC.
+- **Sequence previews**: the concat filter takes v=1:a=1, so every input
+  needs a sound -- an old render has none: silence for it, each input read
+  first (`media_info()`, one ffmpeg report). Each sound cut to its input's
+  duration rounded down (ffmpeg says it to the hundredth): never longer
+  than its picture, the filter filling the rest with silence.
+- **ensure_ld()** (snapshot's light copies) maps the sound too: AAC copied,
+  anything else (a .mov's PCM) made AAC.
+- Migration: nothing to do -- old renders have no FLAC nor track; their
+  compilation (recompiled) or a preview gives them silence; a job queued
+  before (no "sound" key) is with sound.
+- **Rendered, not mixed down** (Blender 5.2.2, -b, checked with
+  tests/blender_sound_probe.py): `bpy.ops.sound.mixdown` writes silence --
+  in a background Blender it never loads the strips' sound
+  (`sound.factory` None), in a script, from a saved file or after an
+  evaluation alike; it's also a background job (returns FINISHED, the
+  file comes after; one per Blender, the end of the first never handled).
+  Blender's movie output mixes the scene (-11.5 dB, the same tone), and
+  so does audaspace (`aud`) -- but that one rebuilds the mix by hand,
+  without animated fades, pan, speakers. So `mixdown()` renders: MKV, no
+  picture (codec NONE, else MPEG4/H264), FLAC sound, 64 px, Workbench, no
+  compositing (no File Output node written), a colour strip over the
+  sequencer so the sequencer's output -- not the 3D scene -- is what's
+  rendered; then ffmpeg takes the sound out to the FLAC. Synchronous. The
+  setup never saves the file: nothing stays. Checked in Blender 5.2.2
+  (tests/blender_sound_check.py, 29/29): ~0.2 s for 48 frames, the
+  sound 2.02 s for 2.00 (the movie writer's last packet; the compilation
+  cuts it to the frames).
+
 ## Breakdown (snapshot page v4)
 
 The Breakdown tab: per section five figures, then one sequence × department
@@ -5428,33 +5589,7 @@ review kept by a 1.x page may be lost, accepted).
   reworked since the stable is the done diamond with an arrow back in
   it, to redo the orange corner -- two signs, as the classic page had.
 
-Still to do: every string in French (the mockup's) to go through `T()`
-with English as the reference; the Blender theme and language read at
-the export (`meta.theme`, `meta.lang`); Update links (no live route
-yet); the render's sound option (not sent: the farm has no such
-setting); the Share with a phone dialog of the classic page.
-
-## Render: the scene's sound in the video, or not
-
-Until now a farm render's video had no sound at all: the frames, and
-ffmpeg putting them together. Now the job has `sound` (on by default;
-Render's Sound box in Blender, Sound in the page's Render dialog, on the
-phone too), carried to a block's per-shot jobs.
-
-- **Mixed down at setup** (`farm/setup.py` `mixdown_audio()`): the setup
-  session already has the scene open, with the preset applied; Blender's
-  own `sound.mixdown` over the frames rendered, as a WAV next to the
-  frames (`<name>_audio.wav`, `audio_path` in the job). Nothing when the
-  scene has no sound (`scene_has_sound()`: a sound strip not muted, a
-  speaker with a sound) or when the job asks for none; a failure is
-  logged and the video is made without -- a render never fails for its
-  sound.
-- **Put in at compilation** (`farm/post_render.py`): the WAV as a second
-  input, AAC 192k, `-shortest`; without one, `-an` (no stray audio
-  stream). The light copy gets it too. A sequence's preview (several
-  videos end to end) stays silent.
-- Not checked in a real Blender here (no Blender in the dev container):
-  the ffmpeg command was.
+Still to do: the Blender theme read at the export (`meta.theme`).
 
 ## Snapshot page: English first, French second
 
@@ -5485,3 +5620,27 @@ English through `T()` (js/core/01-i18n.js), French in
   and its part in `JS_PARTS` before `core/02-lang.js`.
 
 The code comments the mockup wrote in French are still French.
+
+## Snapshot page v7 on the 2.0.0 line
+
+The v7 work started from `2.0` (as the handoff said); the line moving on
+was `release/2.0.0` and the session on top of it (sound in the renders,
+Update links, work time, What arrived, the page's polish). Moved onto
+it: the classic page goes, with its polish; what the server learnt in
+that session the v7 page uses --
+
+- **Sound**: the farm's own (`lib/sound.py`, `job_request(sound=)`); the
+  page's Render dialog sends `sound` (on / off) as the classic one did.
+- **Update links** (`lib/relink.py`, `/relink`): the Links tab's button.
+- **Work time**: `page_data()`'s `work`, shown in Files and renders.
+- **What's new**: never one's own doing (`own()`: the author or the
+  validator is this page's user).
+- **Share with a phone** (`js/live/61-share.js`, `/share`, `lib/qr.py`):
+  the classic dialog in v7's widgets -- name, role, VPN or local network,
+  how long; the link, its QR code, Copy link; the accesses running,
+  revoked. View > Share with a phone…, or `#share`. A guest
+  (`meta.live.guest`): `html[data-guest="1"]` hides what acts on this
+  machine (open in Blender, its player, Render, the farm's actions,
+  Update links, Share).
+- **Icons**: only those the page names stay in `templates/snapshot/icons/`
+  (as 2.0.0 did for the classic page).

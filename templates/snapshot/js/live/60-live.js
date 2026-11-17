@@ -51,12 +51,14 @@ document.addEventListener('focusout',()=>setTimeout(()=>{if(LIVE&&!typing())live
 /* A render marked checked (live): out of "to check", as Render checked does in Blender. */
 function liveChecked(it){const keys=((it.live||{}).checks||[]).map(c=>c.key);if(!keys.length)return;
   livePost('action',{author:M.live.user,role:M.live.role,review_date:isoNow(),actions:keys.map(key=>({type:'checked',file:it.file,key,push:false}))}).then(res=>{if(!res.ok)toast(T('Not applied by Blender: {error} -- sent again in a moment.',{error:res.error||T('no answer')}))}).catch(noAnswer)}
+/* Never one's own doing: what this user wrote or validated isn't news to them. */
+const own=who=>!!who&&String(who).toLowerCase()===String(M.live.user||'').toLowerCase();
 /* What changed between two passes, for What's new: a note, a render, a validation. */
 function newsOf(before,after){const old={};before.forEach(i=>old[i.name]=i);
   after.forEach(it=>{const o=old[it.name];if(!o)return;
-    const seen=new Set((o.notes||[]).map(n=>n.id));(it.notes||[]).filter(n=>!seen.has(n.id)).forEach(n=>pushNews(n.type==='rtk'?'rtk':'note',it.name,n.type==='rtk'?T('{who} wrote a retake',{who:n.author||'?'}):T('{who} wrote a note',{who:n.author||'?'}),(n.deps||[]).map(d=>LBL[d]).join(', ')+(n.frames?' · '+n.frames:'')+': '+n.text));
+    const seen=new Set((o.notes||[]).map(n=>n.id));(it.notes||[]).filter(n=>!seen.has(n.id)&&!own(n.author)).forEach(n=>pushNews(n.type==='rtk'?'rtk':'note',it.name,n.type==='rtk'?T('{who} wrote a retake',{who:n.author||'?'}):T('{who} wrote a note',{who:n.author||'?'}),(n.deps||[]).map(d=>LBL[d]).join(', ')+(n.frames?' · '+n.frames:'')+': '+n.text));
     if(it.render&&it.render!==o.render)pushNews('render',it.name,T('New render'),it.render);
-    Object.keys(it.ok||{}).forEach(d=>{const a=it.ok[d],b=(o.ok||{})[d];if(a&&!a.old&&(!b||b.old||b.role!==a.role))pushNews('ok',it.name,T('{who} validated',{who:a.by||'?'}),LBL[d]+' · '+a.role)})})}
+    Object.keys(it.ok||{}).forEach(d=>{const a=it.ok[d],b=(o.ok||{})[d];if(a&&!a.old&&!own(a.by)&&(!b||b.old||b.role!==a.role))pushNews('ok',it.name,T('{who} validated',{who:a.by||'?'}),LBL[d]+' · '+a.role)})})}
 /* New data from Blender: the views drawn again, the selection and the review kept. A field being typed in: once left. */
 let pendData=null;
 function applyData(nd){const a=document.activeElement;if(a&&a.matches&&a.matches('textarea,input:not([type=checkbox]):not([type=radio])')){pendData=nd;return}pendData=null;
@@ -77,6 +79,6 @@ function poll(){if(document.hidden){polling=false;return}polling=true;liveAb=win
     .then(d=>{if(d.reading)return location.reload();liveStatus(d.busy?'busy':'on');if(d.data&&d.version!==(M.live.version||0))applyData(d.data);poll()})
     .catch(e=>{if(e&&e.name==='AbortError'){polling=false;return}liveStatus('off');setTimeout(poll,2000)})}
 function liveStart(){if(!LIVE)return;
-  if(!S.review&&M.live.user)S.review={name:M.live.user,role:M.live.role||TEAM};
+  if(!S.review&&M.live.user){S.review={name:M.live.user,role:M.live.role||TEAM};renderAll()}
   document.addEventListener('visibilitychange',()=>{if(document.hidden){if(liveAb)liveAb.abort()}else if(!polling)poll()});
   liveStatus('on');poll();liveQueue()}

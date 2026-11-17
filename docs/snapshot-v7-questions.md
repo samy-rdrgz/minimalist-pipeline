@@ -124,10 +124,10 @@ icons ». Restent à trancher :
     les rendus commencent à 1001. La page écrit maintenant les numéros de
     Blender (1001…) dès que le rendu donne sa première frame. Les notes
     déjà écrites en numéros relatifs tombent hors de la timeline.
-23. **Ce que la v7 n'a pas encore** (la classique l'avait) : « Partager
-    avec un téléphone » (accès invité + QR), « Mettre à jour les liens »
-    (pas de route live). **L'option son du rendu est faite** : le son de la
-    scène est maintenant dans la vidéo, sauf si on le coupe.
+23. **Ce que la v7 n'avait pas encore** (la classique l'avait). **Fait :**
+    « Partager avec un téléphone » (accès invité + QR, mode invité),
+    « Mettre à jour les liens » (route `/relink` de la branche 2.0.0), le
+    son au rendu (celui de la farm, testé dans Blender 5.2.2).
 24. **Langue.** **Fait :** tout passe par `T()`, anglais de référence,
     français dans `js/i18n/fr.js`, langue de Blender à l'export, menu
     Affichage › Langue. Restent en français les commentaires du code

@@ -477,6 +477,8 @@ Elle remplace Project monitoring. Ses actions sont celles de la phase 4 ; la lec
 
 ### Phase 5b — Le son des rendus
 
+**Fait et vérifié dans Blender 5.2.2 le 16/11** (tests/blender_sound_check.py, 29/29 : 24 et 23.976 fps, Mute laissé activé, mp4, ProRes et sa copie légère). Le son passe par le **rendu vidéo de Blender** (MKV, son FLAC, strip couleur par-dessus le séquenceur : ~0,2 s), `bpy.ops.sound.mixdown` écrivant du silence en arrière-plan. Il se fait au **setup** du job (une fois par job, la plage du job), pas par le worker ; un shot sans son reçoit un silence ; PCM dans un `.mov` (DaVinci Resolve gratuit sous Linux ne lit pas l'AAC). Voir NOTES.md, « The renders' sound ».
+
 Décidé : le son vient **des fichiers de shot** (bandes son du séquenceur, speakers). Le son du montage seul (animatic) viendra plus tard, si besoin.
 
 - **Au rendu**, le worker fait un mixdown du son de la scène sur la plage du shot (`bpy.ops.sound.mixdown`, sans interface), à côté des images : `renders/<seq>/<shot>/<version>/<nom>.flac`. Rien quand la scène n'a pas de son.
@@ -535,3 +537,98 @@ Elle vient en dernier : elle repose sur le moteur d'états (phase 3), et « mes 
 
 - **Phase 1** : −94 Ko (CHANGELOG), environ −600 lignes (xlsx), environ −80 à 100 lignes (previews), les retraits de compatibilité, et les écrans en boucles, qui devraient être le plus gros gain : panneau farm, File details, Edit project, de l'ordre de quelques centaines de lignes (estimation grossière). Le poids sera mesuré avant et après chaque étape.
 - **Phases 3 à 5** : elles ajoutent du code, surtout le moteur d'états et son jumeau JS. Mais ce moteur *remplace* les calculs d'états répartis aujourd'hui, et le format en actions rend l'import plus simple que l'actuel.
+
+---
+
+## 8. Retours du 16/11 sur l'analyse de l'addon
+
+*Relevé sur `release/2.0.0`.*
+
+### 8.1 Simplifications
+
+| # | Sujet | Décision / état |
+|---|---|---|
+| 1 | Fenêtres **Farm monitoring** et **Project monitoring** | **Fait** sur `release/2.0.0` (`0f114cb`, ≈ −4 200 lignes) : la page live les couvre. Restent le log, Welcome et Project settings. La section 2.8 (« Farm monitoring reste pour l'instant ») est donc dépassée |
+| 2 | Farm | **On n'y touche pas pour l'instant.** Le max de workers par machine est retiré depuis longtemps. Pour plus tard : la préemption par priorité (`_give_way_to_priority()` et ses aides, ≈ 200 lignes) ne sert plus si les chunks sont petits (un job prioritaire prend chaque machine au chunk suivant) ; puis `_host_gives_way_for_setup()` (≈ 70 lignes). L'estimation de temps reste, à simplifier (une seule source : la moyenne en s/frame du preset) |
+| 3 | Rôles de validation | **Facultatifs, par projet** : un projet sans `validation_roles` dans sa config n'a qu'une validation simple, sans rôle, et rien n'en parle dans l'interface ; un projet qui en déclare garde le système actuel (8.2). Toujours `sup`/`prod` par défaut sur `release/2.0.0` (`lib/config.py:431`) |
+| 4 | *(oublié)* | **Abandonné** |
+| 5 | `page.js` / `page.css` : garde-fous tactiles et iOS | **Diagnostiqué** (8.5) : peu de poids, beaucoup de complexité. Une seule vraie correction à la racine, à essayer sur l'iPad |
+| 6 | Temps de travail par fichier | **Fait** : réaffiché en bas du panneau d'un fichier dans la page (snapshot et live), en petit, après *Blender file*. `work_times()` (`lib/tracking.py`) : les `session_end` qui ont sauvegardé, toutes versions et tout le monde ; lu dans le thread du live (un `stat` par passe, le journal relu seulement s'il a changé). `tests/test_work_time.py` |
+| 7 | Docs | **Synthétiques** : CHANGELOG en quelques lignes utilisateur par version (`docs/whats-new-2.0.md` montre le ton), NOTES.md réduit aux décisions encore valables (le reste est dans l'historique git), docs EN/FR plus courtes |
+| 8 | Migration | **Sortie du zip** à terme : un script autonome dans le dépôt GitHub (`tools/`). `lib/migration.py` dépend de `lib/tracking.py`, donc de `bpy` : le script devra embarquer ses propres lectures et se lancer avec Python seul (`python migrate.py <projet>`) |
+
+### 8.2 Rôles facultatifs : comment
+
+- `DEFAULT_VALIDATION_ROLES` devient vide : sans `validation_roles` dans la config, **un seul niveau** de validation, « validé », par n'importe qui.
+- Partout où un rôle s'affiche ou se choisit (appels à `validation_roles()` / `covering_role()`, le menu de rôle de la page, le rôle de l'utilisateur dans les préférences et dans *Share with a phone*) : rien n'est dessiné quand la liste est vide.
+- Une validation sans rôle est stockée sous une clé neutre, que `covering_role()` considère comme couvrante.
+- Dans Edit project, le champ des rôles passe dans une partie repliée « Avancé ».
+- **Migration** : un projet qui a déjà des validations `sup`/`prod` sans `validation_roles` dans sa config reçoit ces deux rôles écrits explicitement, pour que rien ne change chez lui.
+
+### 8.3 Questions de l'analyse
+
+- **Tests** : en grande partie faits.
+- **Bouton natif File › Save** : confirmé, il ne passe pas par `wm.safe_save` (seul le raccourci est repris, `lib/saving.py`) ; `save_post_handler` tourne quand même. Un fichier ouvert en lecture seule (verrouillé par un autre, ou stable) peut donc être écrasé par le menu. Blender ne permet ni d'annuler une sauvegarde depuis `save_pre`, ni de remplacer son opérateur C. **Proposition** : dans `save_pre`, si la sauvegarde n'est pas passée par le garde et que le fichier est en lecture seule, copier la version sur disque à l'écart ; dans `save_post`, une popup « Sauvegardé par le menu, sans les protections » avec **« Rétablir et incrémenter »** (le contenu actuel part en nouvelle version, l'ancien fichier est remis en place), soit le même résultat que le garde.
+- **Disque déconnecté** : le risque réel est l'écrasement du travail d'un autre. Si le partage tombe plus de 90 s (`LOCK_STALE_SECONDS`), le verrou de l'artiste périme ; un autre peut ouvrir le fichier en écriture et le sauvegarder. Au retour du partage, `refresh_lock()` voit que le verrou n'est plus à lui et renvoie `False` **sans rien dire**, et Ctrl+S sur un fichier non lecture seule **sauvegarde sans revérifier le verrou** (`lib/saving.py`, branche `if not ro`). **Avertissements proposés** dans `heartbeat_30s` : (a) partage injoignable → une fois : « Partage injoignable : ton verrou va expirer, sauvegarde une copie en local si besoin » ; (b) verrou repris par un autre → popup « X a ouvert ce fichier pendant la coupure », et la session passe en lecture seule : Ctrl+S propose alors l'incrément. La pastille « déconnecté » de la page live peut dire la même chose.
+- **Compatibilité Blender 5.3** : à vérifier (4b.0 a déjà tourné sous 5.3 sur Linux). Pas faisable depuis une session cloud (téléchargement de Blender bloqué par le réseau) : en local, ou en autorisant `download.blender.org`.
+
+### 8.4 Idées retenues
+
+| # | Idée | Comment |
+|---|---|---|
+| 1 | **Le son dans les rendus** (phase 5b) | **Décidé : le son de la scène Blender** (bandes son du séquenceur, speakers), pas un fichier externe : calé par construction sur les frames rendues, et propre à chaque fichier (un département qui change le son le voit dans son rendu). Un fichier externe (le son du montage) demanderait de savoir où chaque shot tombe dans le montage, et ne suivrait pas un shot rallongé ; à garder pour plus tard, seulement pour les previews de séquence si besoin. **Comment** : (a) le mixdown une fois par job, dans le setup qui ouvre déjà le `.blend` (`farm_entry_render_setup.py`), pas par chunk ; (b) une piste toujours présente : un silence (`anullsrc`) pour un shot sans son, sinon la mise bout à bout des previews de séquence casse ; (c) le son coupé sur la plage du shot ; un bloc rendu d'un coup, découpé par shot avec ffmpeg ; (d) fps fractionnaires (23,976) : vérifier que la durée du son égale celle des images |
+| 2 | **Relink** | **Fait** (page live, *Linked files*) : *Update N links* sur un fichier, et sur un asset *Update the N files on an older stable* (ceux qui lient un ancien stable de lui). Chaque fichier : une nouvelle version **`-updatelink`** tirée de sa dernière version (wip ou stable), faite dans un Blender en arrière-plan (`--factory-startup`, sans l'addon : ni session, ni verrou, ni auto-version), jamais par-dessus. Un fichier ouvert par quelqu'un (verrou) est laissé, et dit. Son `.wipmeta` : les liens mis à jour, `creation_mode` « relink », aucun département travaillé (pas de travail, pas de « À reprendre » en aval). L'état (en cours, fait, échec et pourquoi) s'affiche dans la section. `updatelink` est toujours un tag connu du nommage, quelle que soit la liste `tags` du projet ; une `-updatelink` compte comme une wip (version courante, page) et **n'est pas un stable** : ce qui lie le fichier la prend une fois marquée stable. `lib/relink.py`, `templates/relink_entry.py`, `tests/test_relink.py`. **À essayer dans Blender** : le script de relink n'a pas pu tourner ici (pas de Blender en session cloud). À prévoir : *Mark as stable* depuis la page |
+| 3 | Rendu local / playblast | Rendu local = mettre son PC en worker (*Make it a worker*). **Playblast = un preset de rendu, rien de plus** : Workbench (ou EEVEE à peu d'échantillons), rendu par la farm comme n'importe quel preset. Rien à coder dans l'addon ; au plus un exemple de preset dans `templates/` |
+| 4 | **Notifications dans la page live** | **Fait** (page live) : une cloche dans l'en-tête, son compteur, la liste de ce qui est arrivé pendant que la page est ouverte (un clic ouvre le fichier), un toast à l'arrivée, et les notifications du système si la page est en arrière-plan et qu'on l'a permis (*Notify me in the system too*, `127.0.0.1` seulement : un invité en `http://` sur le réseau n'est pas un contexte sûr). **Notifié** : une note, une retake, une réponse ; une validation (qui, quel rôle) ; un rendu fini ou en échec, le sien compris (il arrive plus tard, sans nous). **Jamais** : ce qui est écrit sous son nom ; un changement sur un fichier dont la page vient d'envoyer les actions, jusqu'à la version des données qui leur répond ; un job sur lequel on vient d'agir depuis la page (30 s). **Pas notifié** : un département passé à done, une nouvelle version — les données ne disent pas qui, sa propre sauvegarde serait une nouvelle. En mémoire seulement : pas le « depuis ta dernière visite » écarté en section 6. Essayé dans Chromium avec un faux serveur live (bureau et téléphone) ; à essayer avec Blender |
+| 6 | **Clean old versions** | Sur le modèle de Clean old renders : garder les N dernières wip par fichier. Toujours protégés : les stables, les versions liées par d'autres fichiers, les fichiers ouverts ou verrouillés, les versions citées par une note ouverte. Plus sensible que les rendus : liste à valider avant suppression |
+| 7 | Bibliothèque d'assets Blender | **Pas pour l'instant.** Pour mémoire : + vignettes, catalogues, glisser-déposer ; − marquer chaque asset, wip et anciens stables visibles, chemin à ajouter sur chaque PC, indexation lente sur un partage. Piste si un jour : *Mark as stable* marque l'asset et démarque le stable précédent |
+
+### 8.5 Diagnostic : les garde-fous tactiles et iOS de la page
+
+*Mesuré sur `release/2.0.0` : `page.js` 217 Ko (dont 13 % de commentaires, retirés à la publication), `page.css` 96 Ko.*
+
+**Le poids : faible.** ≈ 11 Ko de `page.js` (5 %) et ≈ 5 Ko de `page.css`. Ce qui pèse dans la page, c'est le panneau d'un fichier (55 Ko), la review (26 Ko), la liste (21 Ko), le lecteur (16 Ko).
+
+| Bloc (`page.js`) | Taille | Nature | Verdict |
+|---|---|---|---|
+| A. `lockPage()` et ses 6 raisons (`panel`, `lb`, `pop`, `dlg`, `field`, plus le tap avant une case), le `field` tenu 450 ms, `typing`, l'observateur du dialogue | 3,8 Ko, 14 appels | **contournement iOS** : la page défile derrière les calques fixes (focus d'un champ, vidéo lancée, menu ouvert) | **à retirer par la correction à la racine** |
+| B. Menus et listes : `touchHold()`, fermeture au scroll sauf 400 ms après ouverture, au `resize` seulement si la largeur change | 1,2 Ko | contournement iOS | idem, en grande partie |
+| `fitKb()`, `revealField()` (`visualViewport`, `body.kb`, `--vv-h`) | ≈ 1 Ko | le clavier d'iOS ne réduit pas la page | **à garder** |
+| G. `--sat` : la barre d'état de l'app Documents, qui apparaît et disparaît à chaque tap | 0,9 Ko JS + ≈ 4 Ko CSS (`--sat` dans 19 règles) | **propre à Documents by Readdle** (le snapshot hors ligne sur iPad) | à garder tant que ce cas existe ; sinon `env(safe-area-inset-top)` seul |
+| F. `grow()` : hauteur des zones de texte | 0,7 Ko | Safari n'a pas `field-sizing` | à garder (déjà sauté quand le navigateur sait faire) |
+| `renderRow()` : une ligne redessinée, pas toute la liste | — | né d'un bug iPad, mais plus rapide partout | à garder |
+| C. Premier tap qui déplie un losange, E. swipe sur le panneau, H. panneau plein écran sur tablette, I. feuille de partage | ≈ 3,5 Ko | **fonctionnalités** tactiles, pas des contournements | à garder |
+| Tailles de doigt (`--tap`, boutons 36–48 px sous `pointer:coarse`) | ≈ 1 Ko CSS | normal | à garder |
+
+**Le vrai coût : la complexité.** NOTES.md, « Snapshot page on an iPad », montre des correctifs empilés : `pinPage()` (remettre la page après qu'iOS l'a déplacée, d'où des sauts), remplacé par `lockPage()` (la figer avant), complété par la case tenue dès le tap, puis le `blur` forcé à la fermeture parce que le verrou ne se relâchait plus. Six raisons de figer la page, des délais (60, 350, 400, 450 ms), un `MutationObserver`, et chaque nouvel écran fixe doit penser à `lockPage()`.
+
+**La cause commune : c'est le document qui défile.** iOS fait défiler le document pour amener un champ en vue, au lancement d'une vidéo, au focus d'une option. **Correction à la racine proposée** : le document ne défile plus (`html, body { height: 100%; overflow: hidden }`), la liste défile dans son propre conteneur (`.wrap`, `overflow: auto`, `overscroll-behavior: contain`). Il n'y a alors plus rien à figer :
+- **retirés** : `lockPage()` et ses 14 appels, `touchHold()`, `fieldLeft()` et ses délais, l'observateur du dialogue, la case tenue dès le tap, le `blur` de `closePanel()`, la garde des 400 ms : ≈ 4 à 5 Ko et surtout tout le jeu des verrous ;
+- **à adapter** : 17 endroits qui lisent ou bougent le défilement de la fenêtre (`scrollY` ×7, `scrollTo` ×5, `scrollBy`, 5 écouteurs `scroll`) passent sur le conteneur ; les trois en-têtes collants (`.hdr`, `.bar`, `.thead`) collent dans le conteneur ;
+- **reste** : `fitKb()` (le clavier), `--sat` (Documents), `grow()`.
+- **Risque** : iOS peut encore décaler la *visual viewport* au focus d'un champ quand le clavier monte, même sans document qui défile ; `fitKb()` est fait pour ça, mais **ça ne se vérifie que sur un vrai iPad** (Safari et Documents), pas depuis une session cloud.
+
+**Petits nettoyages sans risque**, à faire de toute façon :
+- une seule requête média tactile (`TOUCH`) au lieu de `touchPin`, `coarse` et trois `matchMedia('(pointer:coarse)')` écrits sur place ;
+- la section iPad de NOTES.md réduite aux règles qui restent vraies (8.1, point 7).
+
+**Question à trancher** : le snapshot hors ligne sur iPad dans Documents reste-t-il un usage ? Avec la page live et *Share with a phone*, l'iPad au studio passe par Safari. Si Documents ne sert plus qu'en déplacement, voire plus du tout, `--sat` et le `confirm()` remplacé par `ask()` deviennent des cas à part.
+
+
+### 8.6 La page : hiérarchie, pour un nouvel utilisateur (proposition, à trancher)
+
+*Vu sur le snapshot du 16/11 de lapins_3_oreilles, à 1 600 px de large.*
+
+**Fait le 16/11** : un bloc de shots = une rangée de cartes (vignette et nom, un clic lance ce shot ; sa version dessous en live) au lieu de trois sections ; *Last render* d'un bloc replié sur une ligne ; une note ouverte sur un département = une étiquette NOTE sous son losange (une RTK reste prioritaire) ; l'anneau « validé sur un ancien stable » redessiné (ombre du losange lui-même : alignée, 2 px) ; plus serré à la souris (`pointer:fine` : lignes, départements du panneau, ✓ ✕, sections repliées) ; *Previous / Next* passent par les séquences repliées (et les déplient) ; le bandeau de filtres suit la hauteur de l'en-tête (un `ResizeObserver`, il se décollait) ; un clic dans la liste d'un snapshot ne lève plus d'erreur (`DATA.farm` absent).
+
+**Fait le 16/11 (1, 2, 3, et les fenêtres d'action)** : l'en-tête sur une ligne de 1 280 à 1 920 px (*Videos folder…* et *Legend and keys…* dans ⋯) ; *Retakes*, *Open notes*, *To validate* dans la barre, le reste dans *Filters ▾* (département, Me, Render outdated, In the farm, Not finished ; le nombre de filtres actifs sur le bouton) ; *Show details* (⋯, gardé par le navigateur, éteint par défaut : sans lui, ni *Last render* / *Blender file* / *Work time*, ni la liste des versions hors cartes ; *Linked files* seulement quand il y a quelque chose à mettre à jour) ; **une action avec un formulaire = un bouton qui ouvre une fenêtre** : *Render* (icône dans l'en-tête du panneau, live) et *File settings* (⚙, pendant une review, un point quand ta review les change). Restent dans le panneau ce qui se lit ou s'écrit en contexte : notes et retakes (sous leur département), description, *To check*, *Linked files*, les cartes des shots avec leur version.
+
+**Proposé à l'origine, par ordre d'effet :**
+
+1. **L'en-tête sur une ligne.** À 1 600 px, il passe sur deux (titre, chiffres, recherche, puis cinq boutons). Dans le menu ⋯ : *Videos folder…* et *?* (légende et raccourcis). Restent : projet et date, chiffres, recherche, la cloche (live), *Review*, ⋯.
+2. **Les filtres : trois visibles, le reste dans un menu.** Restent visibles : *Retakes*, *Open notes*, *To validate*. Dans *Filters ▾* (avec le nombre de filtres actifs) : départements, *Render outdated*, *In the farm*, *Waiting*, *Mine*… Aujourd'hui la barre défile sur le côté et cache la moitié des filtres.
+3. **Un réglage « Details » (⋯ › *Show details*, gardé par le navigateur), éteint par défaut.** Éteint, le panneau montre l'essentiel : lecteur et cartes, départements avec ✓ ✕, notes. Allumé, il ajoute : *Render*, *Linked files*, *File settings*, les versions à regarder, *Last render*, *Blender file*, *Work time*. Un seul interrupteur, plutôt que des ⋯ dans chaque section : on sait où chercher, et l'utilisateur avancé l'allume une fois.
+4. **La ligne des raccourcis en bas du panneau** (← → V X R Esc) : seulement dans la légende (*?*), ou affichée les premières fois puis cachée. Elle prend une ligne à chaque fichier.
+5. **Une aide de démarrage** à la première ouverture (trois phrases : la liste, un losange = un département, *Review* pour valider et noter), refermable, gardée par le navigateur. Le *?* la rouvre.
+
+**À ne pas faire** : des ⋯ par section ou par ligne. Chaque action se cache alors à un endroit différent, ce qui est pire pour un nouvel utilisateur qu'un écran chargé mais stable.

@@ -432,8 +432,9 @@ def job_request(
 ) -> None:
     """Submit a render job request, picked up by scan_requests(). shot_override
     (e.g. "sh045") routes output to shots/<sequence>/<shot_override>/.
-    only_shots restricts a block's split to these shot numbers. sound: the
-    scene's sound in the video (mixed down at setup, farm/setup.py)."""
+    only_shots restricts a block's split to these shot numbers. sound:
+    the scene's sound in the video (farm/setup.py), False for a video
+    without any."""
 
     assigned_machines = assigned_machines if assigned_machines is not None else []
     try:
@@ -612,21 +613,6 @@ def load_job_details(job_id: str) -> dict | None:
             )
             return data
     return None
-
-
-def get_job_details() -> dict:
-    """The job last read by load_job_details()."""
-    return _job_details
-
-
-def get_job_details_path() -> Path | None:
-    """The file load_job_details() read that job from."""
-    return _job_files["path"]
-
-
-def get_job_details_logs() -> list[Path]:
-    """That job's log files, as found by load_job_details()."""
-    return _job_files["logs"]
 
 
 def recover_interrupted_jobs() -> None:

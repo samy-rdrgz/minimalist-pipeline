@@ -102,6 +102,9 @@ DEFAULT_CONFIG = {
     "assets_departments": DEFAULT_ASSET_DEPARTMENTS,
     "shots_departments": DEFAULT_SHOT_DEPARTMENTS,
     "thumbnails": {"size": 240},
+    # The compiled video (farm/post_render.py VIDEO_FORMATS): an mp4 smooth
+    # to edit; a project from before has none -- its preset file stays.
+    "video": {"format": "mp4"},
     "farm": {
         "max_concurrent_local": 1,
         "stale_monitor_seconds": 90,
@@ -562,6 +565,18 @@ class ProjectSettings:
         description="Pre-render script the Render dialog starts with",
     )  # type: ignore
 
+    video_format: bpy.props.EnumProperty(
+        name="",
+        items=[
+            ("mp4", "MP4 · H.264", "Smooth to scrub in an editing timeline, light, played as is by the page"),
+            ("prores_lt", "MOV · ProRes 422 LT", "What editing software reads best (Resolve's free version on Linux "
+             "reads no H.264); about 100 Mb/s in 1080p. The page plays a light mp4 copy, made in the same pass"),
+            ("preset", "Preset file", "config/presets/ffmpeg_presets/default.json, as written there"),
+        ],
+        default="mp4",
+        description="The video compiled from a render's frames, for the edit; the page always plays an mp4",
+    )  # type: ignore
+
     chunk_size: bpy.props.IntProperty(
         name="",
         min=1,
@@ -805,6 +820,7 @@ class ProjectSettings:
         right.separator()
         farm = right.box().column(align=False)
         self._rows(farm, [
+            ("VIDEO", "FILE_MOVIE", "video_format"),
             ("CHUNK SIZE", "RENDER_RESULT", "chunk_size"),
             ("PRE-RENDER", "SCRIPT", "default_prerender_script"),
             ("STUCK FRAME", "ERROR", "stuck_frame_factor",
@@ -873,6 +889,8 @@ class ProjectSettings:
         self.chunk_size = max(
             1, int((config.get("farm") or {}).get("chunk_size", 5) or 5)
         )
+        fmt = (config.get("video") or {}).get("format", "preset")
+        self.video_format = fmt if fmt in ("mp4", "prores_lt", "preset") else "preset"
         stuck = (config.get("farm") or {}).get("stuck_frame_factor", 5)
         self.stuck_frame_factor = max(0, int(5 if stuck is None else stuck))
         switch = (config.get("farm") or {}).get("priority_switch_minutes", 3)
@@ -977,6 +995,7 @@ class ProjectSettings:
                 },
                 "thumbnails": (config.get("thumbnails") or {})
                 | {"size": self.thumbnail_size},
+                "video": (config.get("video") or {}) | {"format": self.video_format},
                 "snapshot": (config.get("snapshot") or {})
                 | {
                     "progress": {

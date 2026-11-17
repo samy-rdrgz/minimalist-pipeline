@@ -48,6 +48,7 @@ document.addEventListener('click',e=>{
   const a=t.closest('[data-act]');if(a){const k=a.dataset.act;closeMenus();
     if(k==='videos')pickVideos();
     if(k==='player'){const it=cur(),m=it&&mVer(it),v=m&&m.V[m.i];if(LIVE)livePlay(v&&v.video);else if(v&&v.video){const u=videoSrc(v.video);if(u)open(u,'_blank');else toast(T('Video not found: choose the videos folder (View).'))}}
+    if(k==='share'){shareDialog();return}
     if(k==='blender'){const it=cur();if(it)liveOpen(it.file)}
     if(k==='folder')farmPost({action:'open',job_id:S.farmSel,value:'folder'},T('opens the folder'));
     if(k==='log')farmPost({action:'open',job_id:S.farmSel,value:'log:0'},T('opens the log'));
@@ -68,7 +69,7 @@ document.addEventListener('click',e=>{
   const ps=t.closest('[data-preset]');if(ps){S.preset=ps.dataset.preset;closeMenus();renderProps();return}
   const as=t.closest('[data-assign]');if(as){const it=cur(),d=as.dataset.assign,a=A.assignToggle(it,d,as.dataset.p);
     closeMenus();refresh();msg(LBL[d]+': '+(a.join(', ')||T('nobody')));return}
-  if(t.closest('[data-relink]')){toast(T('Not yet: update the links from Blender.'));return}
+  if(t.closest('[data-relink]')){const it=cur();if(it)relinkSend([it.file]);return}
   const ga=t.closest('[data-gall]');if(ga){S.gAll=ga.dataset.gall==='1';renderList();return}
   if(t.closest('[data-gclear]')){S.gFocus=null;renderList();return}
   const gn=t.closest('[data-gn]');if(gn){const n=gn.dataset.gn;S.gFocus=S.gFocus===n?null:n;S.sel=n;S.tab='links';renderList();renderProps();renderTree();if(narrow()&&S.gFocus)document.body.classList.add('props-open');return}

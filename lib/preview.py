@@ -232,11 +232,20 @@ LD_ARGS = [
     "-c:v", "libx265", "-preset", "fast", "-crf", "22", "-pix_fmt", "yuv420p",
     "-tag:v", "hvc1", "-movflags", "+faststart",
 ]
+# Every video carries a sound track (phase 5b): the render's mixdown
+# (lib/sound.py), else silence -- a sequence preview puts them end to end,
+# a track missing in one would leave it out of all. At this rate, AAC in
+# an mp4 (the light copy's, the browsers'), PCM in a .mov (the edit's).
+AUDIO_RATE = 48000
+AAC_ARGS = ["-c:a", "aac", "-b:a", "192k"]
 # The light copy's size: MAX_VIDEO_WIDTH wide at most, even (H.265 in
 # yuv420p takes no odd size -- a 3361 px wide render), its height to match.
 LD_SCALE = f"scale='min({MAX_VIDEO_WIDTH},trunc(iw/2)*2)':-2"
 # ffmpeg -i's video stream line: its codec, its tag (hev1...), its size.
 _VIDEO_STREAM = re.compile(r"Video: (\w+)[^\n]*?(?:\((\w{4}) /[^\n]*?)?, (\d{1,5})x(\d{1,5})")
+# Its sound stream's codec, and the file's duration.
+_AUDIO_STREAM = re.compile(r"Stream #[^\n]*?Audio: (\w+)")
+_DURATION = re.compile(r"Duration: (\d+):(\d\d):(\d\d(?:\.\d+)?)")
 
 
 def ld_path(video: Path) -> Path:
@@ -252,11 +261,10 @@ def browser_codec(codec: str) -> bool:
     return any(k in codec for k in ("264", "265", "hevc", "avc"))
 
 
-def video_info(path: Path | str, ffmpeg: str, timeout: float = 60) -> tuple[str, str, int, int] | None:
-    """(codec, tag, width, height) of a video's or an image's stream, read
-    from ffmpeg's own report (no ffprobe needed); None if unread."""
+def _report(path: Path | str, ffmpeg: str, timeout: float) -> str | None:
+    """ffmpeg's own report on a file (no ffprobe needed); None if unread."""
     try:
-        out = subprocess.run(
+        return subprocess.run(
             [ffmpeg, "-hide_banner", "-i", str(path)],
             check=False,  # no output file: ffmpeg always "fails" here
             capture_output=True,
@@ -267,8 +275,33 @@ def video_info(path: Path | str, ffmpeg: str, timeout: float = 60) -> tuple[str,
         ).stderr
     except (OSError, subprocess.SubprocessError):
         return None
-    m = _VIDEO_STREAM.search(out)
+
+
+def _video_of(report: str | None) -> tuple[str, str, int, int] | None:
+    m = _VIDEO_STREAM.search(report or "")
     return (m[1], m[2] or "", int(m[3]), int(m[4])) if m else None
+
+
+def video_info(path: Path | str, ffmpeg: str, timeout: float = 60) -> tuple[str, str, int, int] | None:
+    """(codec, tag, width, height) of a video's or an image's stream, read
+    from ffmpeg's own report; None if unread."""
+    return _video_of(_report(path, ffmpeg, timeout))
+
+
+def media_info(path: Path | str, ffmpeg: str, timeout: float = 60) -> dict | None:
+    """A video's streams: {"video": video_info()'s tuple or None, "audio":
+    its sound's codec ("" without one), "duration": seconds or None}. None
+    if unread."""
+    report = _report(path, ffmpeg, timeout)
+    if report is None:
+        return None
+    audio = _AUDIO_STREAM.search(report)
+    d = _DURATION.search(report)
+    return {
+        "video": _video_of(report),
+        "audio": audio[1] if audio else "",
+        "duration": int(d[1]) * 3600 + int(d[2]) * 60 + float(d[3]) if d else None,
+    }
 
 
 # Videos read once and found playable as they are, by (path, modification
@@ -279,9 +312,9 @@ _PLAYABLE: set = set()
 def ensure_ld(video: Path, ffmpeg: str) -> Path | None:
     """The video's light copy (ld_path()), made now if the video needs one
     and it's missing or older: too wide, a codec browsers don't play, or
-    playable but not as it is -- in a .mov, or H.265 tagged hev1 (then
-    just put in an mp4, no re-encode). None when the
-    video plays as is, or can't be read. Raises subprocess.CalledProcessError
+    playable but not as it is -- in a .mov, H.265 tagged hev1, a sound
+    other than AAC (then put in an mp4, the picture not re-encoded). Its
+    sound goes with it. None when the video plays as is, or can't be read. Raises subprocess.CalledProcessError
     / OSError if making it fails."""
     video, ld = Path(video), ld_path(video)
     try:
@@ -295,17 +328,22 @@ def ensure_ld(video: Path, ffmpeg: str) -> Path | None:
         return None
     if key in _PLAYABLE:
         return None
-    info = video_info(video, ffmpeg)
+    media = media_info(video, ffmpeg)
+    info = media and media["video"]
     if info is None:
         return None
     codec, tag, width, _ = info
+    # Its sound kept: AAC copied as it is, anything else (a .mov's PCM)
+    # made AAC -- an mp4's sound browsers play.
+    audio = media["audio"]
+    sound = ["-map", "0:a:0?", *(["-c:a", "copy"] if audio == "aac" else AAC_ARGS)]
     if width > MAX_VIDEO_WIDTH or not browser_codec(codec):
-        args = ["-vf", LD_SCALE, *LD_ARGS]
-    elif video.suffix.lower() != ".mp4" or (codec == "hevc" and tag != "hvc1"):
-        # Playable as such, but not in a .mov / .mkv, or tagged hev1: put
-        # in an mp4 as it is, no re-encode.
+        args = ["-map", "0:v:0", "-vf", LD_SCALE, *LD_ARGS, *sound]
+    elif video.suffix.lower() != ".mp4" or (codec == "hevc" and tag != "hvc1") or audio not in ("", "aac"):
+        # Playable as such, but not in a .mov / .mkv, tagged hev1, or a
+        # sound browsers don't play: put in an mp4, the picture as it is.
         tag_args = ["-tag:v", "hvc1"] if codec == "hevc" else []
-        args = ["-map", "0:v", "-c", "copy", *tag_args, "-movflags", "+faststart"]
+        args = ["-map", "0:v:0", "-c:v", "copy", *tag_args, *sound, "-movflags", "+faststart"]
     else:
         _PLAYABLE.add(key)
         return None

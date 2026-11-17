@@ -55,6 +55,7 @@ JS_PARTS = (
     "desktop/29-events.js",
     "mobile/50-mobile.js",
     "live/60-live.js",
+    "live/61-share.js",
     "boot.js",
 )
 
@@ -250,6 +251,8 @@ def _item(item: dict, threads: list, roles: list, image) -> dict:
         "to_check": bool(item.get("to_check")),
         "farm": _farm_summary(item.get("farm") or []),
         "notes": [_thread(t) for t in sorted(threads, key=lambda t: time_key(t["last_activity"]), reverse=True)],
+        # Seconds: shown small at the panel's bottom (page.js dur()).
+        "work": round(item["work_seconds"]) if item.get("work_seconds") else 0,
     }
 
 

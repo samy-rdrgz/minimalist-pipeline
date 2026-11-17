@@ -17,16 +17,16 @@ Everything that came since 1.0.0, in short. The details, version by version, are
 
 The big change in 2.0: **you follow the project in a web page**, instead of the Project monitoring and Farm monitoring windows.
 
-- ***Open in browser*** (Project panel, Pipeline menu): Blender serves the project's page to your browser, always up to date. What you do there (validate, add a retake, write a note, reply, assign, add a shot) is saved in the project at once, under your name.
+- ***Monitor in browser*** (Project panel, Pipeline menu): Blender serves the project's page to your browser, always up to date. What you do there (validate, add a retake, write a note, reply, assign, add a shot) is saved in the project at once, under your name.
 - **The list of assets and shots**: where each department stands, open retakes, renders to check, what's on the farm. Filters by department, retakes, open notes, "my work". A click on a file opens its panel: its notes, its renders to watch (the frame shown, the notes placed on it), its links, and a button to open it in Blender.
 - **Breakdown**: progress per sequence and per department, as %, states, counts or retakes, with the project's schedule.
 - **Farm tab**: the renders and the machines; send a file to render, set its priority, cancel, retry, archive; see which machine rendered which frame and how long is left.
-- **Share with a phone**: someone on the studio's network (or through Tailscale) gets a QR code or a link, valid from an hour to a week, under their name and role. They review from their phone or tablet; nothing opens on your machine, and you cut the access in a click.
 - **Light / dark theme**, and the page fits tablets and phones.
+- **Remote access, secondary**: someone gets the same page through a QR code or a link, valid from an hour to a week, under their name and role; nothing opens on your machine, and you cut the access in a click. Combined with a VPN (Tailscale, for example), it gives easy remote monitoring of the project and the farm from outside the studio.
 
 ## Reviews
 
-- **The production snapshot**: a self-contained HTML page of the project (thumbnails, videos, notes, progress) to send to someone outside the studio. It opens without Blender and without a network, iPad included.
+- **The production snapshot**: a self-contained HTML page of the project (thumbnails, videos, notes, progress) to send to someone outside the studio. It opens without Blender and without a network, on a tablet too.
 - **Review in the page itself**, live or snapshot: ✓ / ✕ per department, retakes with their frames, notes, replies, "mark fixed". From a snapshot the review downloads as one file, and *Import review* applies it to the project (several at once if needed).
 - **Done and validated**: the team ticks *Done* when a department is finished; validation roles (sup, prod…) then validate. A role's notes and retakes are marked as such.
 - **Change the departments of many files at once** (every shot, a sequence, a prefix, those that already have a given department).
@@ -48,7 +48,8 @@ The big change in 2.0: **you follow the project in a web page**, instead of the 
 - **Renders by department**: the render preset says which department it serves (`animation_hd`, `lighting_hd`…), and each department has its own renders to check.
 - **Sequence previews**: the shots' videos put end to end, compiled on a free machine.
 - **Rushes for editing**: *Push rushes to editing* copies each shot's latest video into `editing/rushes/` under a fixed name: the edit picks up the new version with no relinking.
-- **A light copy** of each video for the browser, and H.265 plays on iPhone and iPad.
+- **Sound in the renders**: the shot file's own sound (sequencer, speakers) goes in its video and in the sequence previews.
+- **A light copy** of each video for the browser, and H.265 plays on phones and tablets too.
 - A worker keeps its machine awake while it renders, and starts a few seconds after Blender when set to.
 - Rendering an asset or a library file works too.
 
