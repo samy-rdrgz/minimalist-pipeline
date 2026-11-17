@@ -503,3 +503,7 @@ button.assign:hover{background:var(--line);color:var(--text)}
 .live[data-state="off"]{color:var(--text-3)}.live[data-state="off"] i{background:var(--st-rtk)}
 /* The player's video: in the stage, the thumbnail's place. */
 .stage .pv,.w-stage .pv,.m-player .pv{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:var(--canvas)}
+/* Live: the review sent as it's made, its state where Send is in a snapshot. */
+.rv-sync{display:inline-flex;align-items:center;gap:var(--sp-3);height:var(--h-sm);padding:0 var(--sp-5);font-size:var(--fs-s);color:var(--text-2)}
+.rv-sync::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--st-done)}
+.rv-sync[data-state="busy"]::before{background:var(--st-wip)}.rv-sync[data-state="off"]::before{background:var(--st-rtk)}

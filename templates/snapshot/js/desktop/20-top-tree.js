@@ -6,7 +6,7 @@ function renderTop(){
   $('#p-name').textContent=M.project;$('#p-live').title='Connecté à Blender · '+M.live.user;$('#p-date').textContent=(LIVE?'live · ':'snapshot du ')+fmtD(M.snapshot)+' · '+M.exported_by;
   const n2=items.filter(touched).length;
   $('#review-slot').innerHTML=!S.review?`<button class="btn primary" id="rv-open" aria-haspopup="dialog">${ic('b-greasepencil')}<span class="only-wide">Mode revue</span></button>`:
-    `<span class="review-chip"><span class="who">${esc(S.review.name)} · ${S.review.role}</span><button class="btn primary" id="rv-send" title="Ce qu'elle contient, puis le fichier à envoyer">${ic('b-export')}<span class="only-wide">Envoyer…</span><span class="n">${n2}</span></button><button class="btn flat icon" id="rv-stop" aria-label="Quitter le mode revue" title="Quitter le mode revue">${ic('b-x')}</button></span>`;
+    `<span class="review-chip"><span class="who">${esc(S.review.name)} · ${S.review.role}</span>${LIVE?`<span class="rv-sync" data-state="${LV.say==='à jour'?'ok':LV.say==='envoi…'?'busy':'off'}" title="Chaque changement part tout seul dans Blender">${LV.say}</span>`:`<button class="btn primary" id="rv-send" title="Ce qu'elle contient, puis le fichier à envoyer">${ic('b-export')}<span class="only-wide">Envoyer…</span><span class="n">${n2}</span></button>`}<button class="btn flat icon" id="rv-stop" aria-label="Quitter le mode revue" title="Quitter le mode revue">${ic('b-x')}</button></span>`;
 }
 function reviewPop(){
   const slot=$('#review-slot');if(slot.querySelector('.pop')){slot.querySelector('.pop').remove();return}

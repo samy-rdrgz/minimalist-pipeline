@@ -66,7 +66,8 @@ const RV_KEY='mp-review:'+M.project+':'+(LIVE?'live':M.snapshot);
 const RV_FIELDS=['mine','myNotes','myReplies','setAside','req','assign','still','fixed','descEdit'];
 function storeReview(){try{const files={};items.forEach(it=>{if(touched(it)){const o={};RV_FIELDS.forEach(k=>{if(it[k]!==undefined)o[k]=it[k]});files[it.name]=o}});
   if(!S.review&&!Object.keys(files).length&&!S.planned.length)localStorage.removeItem(RV_KEY);
-  else localStorage.setItem(RV_KEY,JSON.stringify({review:S.review,planned:S.planned,files}))}catch(_){}}
+  else localStorage.setItem(RV_KEY,JSON.stringify({review:S.review,planned:S.planned,files}))}catch(_){}
+  if(typeof liveQueue==='function')liveQueue()}
 function restoreReview(){try{const r=JSON.parse(localStorage.getItem(RV_KEY)||'null');if(!r)return;S.review=r.review||null;S.planned=r.planned||[];
   items.forEach(it=>{const o=(r.files||{})[it.name];if(o)Object.assign(it,o)})}catch(_){}}
 function clearReview(){items.forEach(it=>Object.assign(it,fresh(),{descEdit:undefined}));S.planned=[];storeReview()}

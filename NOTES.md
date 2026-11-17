@@ -5411,10 +5411,14 @@ review kept by a 1.x page may be lost, accepted).
   `tests/test_snapshot_review.py` (Playwright).
 - **A / B**: two renders of the same shot of a block (or of the block
   rendered whole), never two shots (`shotOf()`, `versOf()`).
-- **Live**: the review is sent when Send is pressed (the classic page
-  sent each change after 300 ms): v7's chip counts what's waiting, the
-  dialog lists it. Sent, it leaves the page once the data showing it is
-  back (`LV.after`).
+- **Live**: each change sent by itself, 300 ms after (`liveQueue()`,
+  from `storeReview()`), as the classic page did -- decided with the
+  user over the mockup's Send button. Not while a field is typed in
+  (once left); what went already is never sent again (`LV.sent`); a file
+  whose changes are all applied leaves the review once the data showing
+  them is back (`LV.pend`), one changed meanwhile keeps the rest. The
+  chip says "up to date", "sending…" or "not sent" (retried after 4 s)
+  where Send is in a snapshot.
 - **The player**: one `<video>`, moved into the stage drawn (detail,
   Watch large, phone) after each draw (`mountVideo()`, wrapped around
   `renderProps` / `renderWide` / `mRender` in boot.js). Its frames:

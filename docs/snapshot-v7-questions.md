@@ -119,14 +119,14 @@ icons ». Restent à trancher :
 
 21. **Envoi en live : bouton ou automatique ?** La page classique envoyait
     chaque changement à Blender 300 ms après. La maquette v7 a un bouton
-    « Envoyer… ». J'ai gardé le bouton (on voit ce qui part). À confirmer.
+    « Envoyer… ». **Décidé :** automatique. Fait.
 22. **Frames des notes.** La démo a des notes en `f12`, `f5-20` alors que
     les rendus commencent à 1001. La page écrit maintenant les numéros de
     Blender (1001…) dès que le rendu donne sa première frame. Les notes
     déjà écrites en numéros relatifs tombent hors de la timeline.
 23. **Ce que la v7 n'a pas encore** (la classique l'avait) : « Partager
     avec un téléphone » (accès invité + QR), « Mettre à jour les liens »
-    (pas de route live), l'option son du rendu (la farm n'a pas ce
-    réglage).
+    (pas de route live). **L'option son du rendu est faite** : le son de la
+    scène est maintenant dans la vidéo, sauf si on le coupe.
 24. **Langue.** Tous les textes de la maquette sont en français, alors
     que l'addon est en anglais. Passage par `T()` à faire (gros lot).

@@ -30,7 +30,7 @@ function sendDialog(){
 }
 /* The review out: to Blender (live), else its file -- the share sheet on a tablet or a phone, else downloaded. */
 function deliverReview(){const data=reviewFile();if(!data.actions.length)return;
-  if(LIVE){liveSendReview();return}
+  if(LIVE){liveQueue();return}
   const text=JSON.stringify(data,null,2),name=reviewName();
   const download=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:'application/json'}));a.download=name;
     document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);toast('Téléchargé ('+name+') : Importer une revue le lit.')};

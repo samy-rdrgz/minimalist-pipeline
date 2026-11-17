@@ -16,7 +16,7 @@ function mRender(){
   const n2=items.filter(touched).length+S.planned.length,nn=NEWS.length-newsSeen;
   R.innerHTML=`<header class="m-top"><span class="m-brand"><b>${esc(M.project)}</b><small>${LIVE?'live':'snapshot du '+fmtD(M.snapshot)}${S.review?' · '+esc(S.review.name)+' · '+S.review.role:''}</small></span><span class="sp"></span>
       ${LIVE?`<button class="m-ib" data-msheet="news" aria-label="Quoi de neuf">${ic('i-bell')}${nn?`<span class="cnt">${nn}</span>`:''}</button>`:''}
-      ${S.review?`<button class="btn primary" data-msheet="send">${ic('b-export')}Envoyer<span class="n">${n2}</span></button>`:''}
+      ${S.review&&LIVE?`<span class="rv-sync" data-state="${LV.say==='à jour'?'ok':LV.say==='envoi…'?'busy':'off'}">${LV.say}</span>`:''}${S.review&&!LIVE?`<button class="btn primary" data-msheet="send">${ic('b-export')}Envoyer<span class="n">${n2}</span></button>`:''}
       <button class="m-ib" data-msheet="menu" aria-label="Menu">${ic('b-preferences')}</button></header>
     <main class="m-body" id="m-body">${S.m.tab==='farm'?mFarm():mReview()}</main>
     ${S.m.tab==='review'?mComposer():''}
