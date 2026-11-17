@@ -17,7 +17,7 @@ function livePlay(video){if(!video)return toast('Pas de vidéo pour ce rendu.');
 function farmPost(body,say){return livePost('farm',body).then(res=>{toast(res.ok?'Envoyé à Blender : '+(say||res.sent||body.action)+(res.note?' · '+res.note:''):'Pas fait : '+(res.error||'?'));return res}).catch(noAnswer)}
 function renderSend(it,preview){const f=rform(it);
   if(preview)return farmPost({action:'preview',sequence:it.group,priority:f.prio},'prévisualisation de '+it.group);
-  return farmPost({action:'render',file:f.ver==='stable'&&it.stableFile?it.stableFile:it.file,preset:f.preset,priority:f.prio,mode:f.mode,start:f.start,end:f.end,
+  return farmPost({action:'render',file:f.ver==='stable'&&it.stableFile?it.stableFile:it.file,preset:f.preset,priority:f.prio,mode:f.mode,start:f.start,end:f.end,sound:f.sound!=='off',
     shots:it.shots&&it.shots.length>1?it.shots.filter(x=>!f.off[x]):null})}
 /* The review to Blender: applied as an imported one would be. Once the data showing it is back, it leaves the review. */
 let LV={after:0};

@@ -427,6 +427,11 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
         description="Always use a new output folder (force_all)",
         default=True,
     )
+    sound: bpy.props.BoolProperty(
+        name="Sound",
+        description="The scene's sound (sequencer strips, speakers) in the video",
+        default=True,
+    )
     assigned_machines: bpy.props.EnumProperty(
         items=_get_workers_items,
         name="Target Machine",
@@ -502,13 +507,15 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
             "can join at any time. Single: one machine renders the whole range. "
             "Highest priority goes first. Increment: a new render folder rather "
             "than replacing the last one. No assigned machine: any worker. "
-            "Pre-render script: a preset from config/presets applied first.",
+            "Pre-render script: a preset from config/presets applied first. "
+            "Sound: the scene's sound in the video.",
             width_px=300,
         )
         row = col.row(align=False)
         row.prop(self, "priority")
         row.prop(self, "render_mode", text="")
         row.prop(self, "increment")
+        row.prop(self, "sound")
 
         col.separator()
         if is_block:
@@ -711,6 +718,7 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
             ),
             overrided_frame_range=(start, end),
             only_shots=sorted(only) if only else None,
+            sound=self.sound,
         )
 
     def _populate_subshots(self, context) -> None:

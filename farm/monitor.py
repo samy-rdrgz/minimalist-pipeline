@@ -428,10 +428,12 @@ def job_request(
     overrided_frame_range: tuple[str, str] = ("n", "n"),
     shot_override: str = "",
     only_shots: list[int] | None = None,
+    sound: bool = True,
 ) -> None:
     """Submit a render job request, picked up by scan_requests(). shot_override
     (e.g. "sh045") routes output to shots/<sequence>/<shot_override>/.
-    only_shots restricts a block's split to these shot numbers."""
+    only_shots restricts a block's split to these shot numbers. sound: the
+    scene's sound in the video (mixed down at setup, farm/setup.py)."""
 
     assigned_machines = assigned_machines if assigned_machines is not None else []
     try:
@@ -448,6 +450,7 @@ def job_request(
             "overrided_frame_range": overrided_frame_range,
             "shot_override": shot_override,
             "only_shots": only_shots or [],
+            "sound": bool(sound),
             "file_frame_range": (0, 0),
             "resolved_frame_range": (0, 0),
         }

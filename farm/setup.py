@@ -153,6 +153,34 @@ def resolve_override_range(
     return result
 
 
+def scene_has_sound(scene) -> bool:
+    """A sound strip in the sequencer, or a speaker with a sound."""
+    seq = getattr(scene, "sequence_editor", None)
+    strips = getattr(seq, "sequences_all", None) or getattr(seq, "strips_all", None) or [] if seq else []
+    if any(getattr(s, "type", "") == "SOUND" and not getattr(s, "mute", False) for s in strips):
+        return True
+    return any(o.type == "SPEAKER" and getattr(o.data, "sound", None) for o in scene.objects)
+
+
+def mixdown_audio(scene, frame_start: int, frame_end: int, path: Path) -> Path | None:
+    """The scene's sound over frame_start..frame_end as a WAV (Blender's own
+    mixdown); None without any sound, or when it fails (logged: the video is
+    made without). Runs in the setup's headless session, never saved."""
+    if not scene_has_sound(scene):
+        return None
+    start, end = scene.frame_start, scene.frame_end
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        scene.frame_start, scene.frame_end = int(frame_start), int(frame_end)
+        bpy.ops.sound.mixdown(filepath=str(path), check_existing=False, container="WAV", codec="PCM", format="S16")
+        return path if path.is_file() and path.stat().st_size > 44 else None
+    except Exception as e:  # noqa: BLE001 -- the render goes on, without sound
+        log("WARNING", "farm", f"Sound mixdown failed, the video will have none: {e}")
+        return None
+    finally:
+        scene.frame_start, scene.frame_end = start, end
+
+
 def run_render_setup_entry(job_id: str) -> None:
     """Entry point run inside the headless setup subprocess. If shot_override
     isn't set, checks whether this is really a multishot block and splits it
@@ -261,6 +289,13 @@ def run_render_setup_entry(job_id: str) -> None:
             scene.render.resolution_x * scene.render.resolution_percentage / 100
         )
         data["output_extension"] = scene.render.image_settings.file_format
+        # The scene's sound, over the frames rendered, for the compilation
+        # to put in the video -- unless the job asks for none ("sound").
+        data["audio_path"] = ""
+        if data.get("sound", True):
+            audio = mixdown_audio(scene, frame_start, frame_end, output_path.parent / f"{clean_name}_audio.wav")
+            if audio:
+                data["audio_path"] = to_relative(str(audio), project_root)
         box["action"] = "to_write"
 
 
@@ -326,6 +361,7 @@ def _split_into_shot_jobs(
                 prerender_script=data.get("prerender_script", "default"),
                 overrided_frame_range=(f"a{resolved[0]}", f"a{resolved[1]}"),
                 shot_override=shot_label,
+                sound=data.get("sound", True),
             )
             split_into.append(shot_label)
         except PipelineError as e:

@@ -5429,3 +5429,25 @@ with English as the reference; the Blender theme and language read at
 the export (`meta.theme`, `meta.lang`); Update links (no live route
 yet); the render's sound option (not sent: the farm has no such
 setting); the Share with a phone dialog of the classic page.
+
+## Render: the scene's sound in the video, or not
+
+Until now a farm render's video had no sound at all: the frames, and
+ffmpeg putting them together. Now the job has `sound` (on by default;
+Render's Sound box in Blender, Sound in the page's Render dialog, on the
+phone too), carried to a block's per-shot jobs.
+
+- **Mixed down at setup** (`farm/setup.py` `mixdown_audio()`): the setup
+  session already has the scene open, with the preset applied; Blender's
+  own `sound.mixdown` over the frames rendered, as a WAV next to the
+  frames (`<name>_audio.wav`, `audio_path` in the job). Nothing when the
+  scene has no sound (`scene_has_sound()`: a sound strip not muted, a
+  speaker with a sound) or when the job asks for none; a failure is
+  logged and the video is made without -- a render never fails for its
+  sound.
+- **Put in at compilation** (`farm/post_render.py`): the WAV as a second
+  input, AAC 192k, `-shortest`; without one, `-an` (no stray audio
+  stream). The light copy gets it too. A sequence's preview (several
+  videos end to end) stays silent.
+- Not checked in a real Blender here (no Blender in the dev container):
+  the ffmpeg command was.

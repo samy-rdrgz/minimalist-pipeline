@@ -269,6 +269,10 @@ def compilation(*, project_root: Path, job_path: Path, compilation_settings: str
                 size = _frame_size(
                     f"{prefix}{int(first):0{digits}d}.{extension}", ffmpeg_bin
                 )
+                # The scene's sound, mixed down at setup (farm/setup.py
+                # mixdown_audio()): none if the job asked for none.
+                audio = to_absolute(data["audio_path"], project_root) if data.get("audio_path") else None
+                with_audio = bool(audio and Path(audio).is_file())
                 cmd = (
                     [
                         ffmpeg_bin,
@@ -280,7 +284,9 @@ def compilation(*, project_root: Path, job_path: Path, compilation_settings: str
                         "-i",
                         f"{prefix}%0{digits}d.{extension}",
                     ]
+                    + (["-i", str(audio)] if with_audio else [])
                     + _even_size(preset, _ffmpeg_preset_to_args(preset), size)
+                    + (["-c:a", "aac", "-b:a", "192k", "-shortest"] if with_audio else ["-an"])
                     + [str(video)]
                     # Same pass: the light copy, if the video needs one.
                     + _ld_args(data.get("width"), preset, video)

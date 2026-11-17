@@ -136,6 +136,7 @@ function mSheet(){
     h=`<label class="m-lab">Fichier<select class="m-select" data-mrf="file">${[...new Set(items.map(groupOf))].map(g=>`<optgroup label="${esc(g)}">${items.filter(i=>groupOf(i)===g).map(i=>`<option value="${i.name}" ${i.name===f.file?'selected':''}>${esc(i.name)}</option>`).join('')}</optgroup>`).join('')}</select></label>
       <div class="m-lab">Version<span class="join full">${rf.stable?`<button class="btn" data-mrv="stable" aria-pressed="${f.ver==='stable'}">Stable · ${esc(rf.stable)}</button>`:''}<button class="btn" data-mrv="last" aria-pressed="${f.ver==='last'||!rf.stable}">Dernière · ${esc(rf.wip||rf.stable||'')}</button></span></div>
       <label class="m-lab">Script avant rendu<select class="m-select" data-mrf="preset">${F.presets.map(p=>`<option value="${esc(p[0])}" ${p[0]===f.preset?'selected':''}>${esc(p[1])}</option>`).join('')}</select></label>
+      <label class="m-lab">Son<select class="m-select" data-mrf="sound"><option value="on" ${f.sound!=='off'?'selected':''}>Avec le son</option><option value="off" ${f.sound==='off'?'selected':''}>Sans le son</option></select></label>
       <div class="m-lab">Priorité<span class="prio"><button class="btn icon" data-mrp="-1" aria-label="Baisser">−</button><b>${f.prio}</b><button class="btn icon" data-mrp="1" aria-label="Monter">+</button><span class="m-hint">la plus haute passe d'abord</span></span></div>
       <p class="m-hint">Frames, machines, son, plans d'un bloc : version bureau.</p>`;
     foot=`<button class="btn primary m-wide" data-mrender>${ic('b-export')}Envoyer à la farm</button>`}
@@ -180,7 +181,7 @@ $('#mob').addEventListener('click',e=>{const t=e.target,q=s=>t.closest(s);let x;
   if(x=q('[data-mrv]')){S.m.rf.ver=x.dataset.mrv;mRender();return}
   if(x=q('[data-mrp]')){S.m.rf.prio+=+x.dataset.mrp;mRender();return}
   if(q('[data-mrender]')){const f=S.m.rf,it=items.find(i=>i.name===f.file);S.m.sheet=null;mRender();
-    if(it)farmPost({action:'render',file:f.ver==='stable'&&it.stableFile?it.stableFile:it.file,preset:f.preset,priority:f.prio,mode:'all',start:'',end:'',shots:null});return}
+    if(it)farmPost({action:'render',file:f.ver==='stable'&&it.stableFile?it.stableFile:it.file,preset:f.preset,priority:f.prio,mode:'all',start:'',end:'',sound:f.sound!=='off',shots:null});return}
 });
 $('#mob').addEventListener('change',e=>{const r=e.target.closest('[data-mrf]');if(r){S.m.rf[r.dataset.mrf]=r.value;if(r.dataset.mrf==='file')S.m.rf.ver=items.find(i=>i.name===r.value).stable?'stable':'last';mRender()}});
 $('#mob').addEventListener('input',e=>{if(e.target.id==='m-ta'){e.target.style.height='auto';e.target.style.height=Math.min(e.target.scrollHeight,120)+'px'}});
