@@ -5382,3 +5382,50 @@ the machine's player, Loop): `docs/snapshot-v7-questions.md`.
   Blender's now.
 - Blender's SVGs weigh more than the mockup's drawn paths (the sprite
   about +25 KB for the 44): still far under the page's budget.
+
+## Snapshot page v7 in place of the classic one
+
+Decided with the user: no beta, no `classic` / `v2` preference -- the v7
+page replaces the classic one at once (2.0.0 isn't out; a browser's
+review kept by a 1.x page may be lost, accepted).
+
+- **The export's own shape, not the mockup's.** The mockup read its own
+  JSON (`toCheck`, `linkedBy`, `versions` as a list...). The page now
+  reads `page_data()` as it is: `core/00-data.js` `loadData()` makes the
+  views' model from it (thumbnails from `images`, `stable_v` / `wip_v`,
+  `to_check`, the render lines -- live, `live.versions` --, the live
+  links by key), and again on each live update with each file's review
+  kept by name. Department names are the project's (`LBL` / `AB` built
+  from them, no table), the schedule and the weights the export's.
+- **Gone from the mockup**: its demo switches (snapshot / live, mobile),
+  its fake What's new, its demo Blender theme (the Blender theme is now
+  `meta.theme`, none yet: Blender's dark), the fake jobs (`A.queueJob`,
+  `A.job`) and the fake player.
+- **The review's file** (`core/30-review-file.js`): the same actions as
+  the classic page wrote (`exportActions()`), from the v7 model (`mine`,
+  `myNotes`, `myReplies`, `fixed`, `still`, `req`, `setAside`, `assign`,
+  `descEdit`, `S.planned`). A ✕ alone is an `unvalidate`; a retake on a
+  department withdraws its validation, a remark doesn't; the team
+  validates nothing. Notes' frames are Blender's numbers. Kept in this
+  browser until sent; loaded back from a file. Checked both ways by
+  `tests/test_snapshot_review.py` (Playwright).
+- **A / B**: two renders of the same shot of a block (or of the block
+  rendered whole), never two shots (`shotOf()`, `versOf()`).
+- **Live**: the review is sent when Send is pressed (the classic page
+  sent each change after 300 ms): v7's chip counts what's waiting, the
+  dialog lists it. Sent, it leaves the page once the data showing it is
+  back (`LV.after`).
+- **The player**: one `<video>`, moved into the stage drawn (detail,
+  Watch large, phone) after each draw (`mountVideo()`, wrapped around
+  `renderProps` / `renderWide` / `mRender` in boot.js). Its frames:
+  `S.frame` 1..NF in the video, shown and written `fNo()` -- the
+  render's first frame + n, Blender's -- and read back `fIdx()`.
+- **Signs**: Validate is violet (what it gives), not green (done);
+  reworked since the stable is the done diamond with an arrow back in
+  it, to redo the orange corner -- two signs, as the classic page had.
+
+Still to do: every string in French (the mockup's) to go through `T()`
+with English as the reference; the Blender theme and language read at
+the export (`meta.theme`, `meta.lang`); Update links (no live route
+yet); the render's sound option (not sent: the farm has no such
+setting); the Share with a phone dialog of the classic page.

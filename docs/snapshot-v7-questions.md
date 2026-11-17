@@ -2,7 +2,7 @@
 
 Relevées en lisant `HANDOFF.md`, la guideline / roadmap et les sources de la
 maquette v7, et en faisant la phase 0. Chaque point : le constat, puis une
-proposition. Rien n'est tranché.
+proposition, et la décision quand elle est prise.
 
 ## Structure du chantier
 
@@ -15,6 +15,7 @@ proposition. Rien n'est tranché.
    en phase 0, sans plus y toucher) et `templates/snapshot_v2/` = les sources
    de la maquette, qui deviennent la v2. `render_page()` choisit l'arbre
    selon la préférence.
+   **Décidé :** pas de bêta. La page v7 remplace directement la classique.
    *Fait en phase 0 :* le découpage à plat (`js/NN-nom.js`, `css/NN-nom.css`)
    aux séparateurs existants. La page classique ne suit pas la règle
    `core/` / `desktop/`, donc ces dossiers auraient été trompeurs.
@@ -32,7 +33,9 @@ proposition. Rien n'est tranché.
    `review_base`… absents de la démo. La roadmap ne prévoit de changement de
    format qu'en phase 6 (liens). La page classique ne peut pas lire la démo
    (fixture de la phase 0 convertie à la main, sans rendus ni farm).
-   *Proposition :* une phase 0.5 « contrat de données » : un seul format,
+   **Décidé :** la page lit le format de l'addon (`page_data()`), traduit
+   pour les vues dans `core/00-data.js`. Fait.
+   *Proposition d'origine :* une phase 0.5 « contrat de données » : un seul format,
    écrit par `page_data()` et documenté, `SCHEMA_VERSION` + 1 une seule fois,
    et la démo régénérée depuis un vrai export.
 
@@ -63,20 +66,21 @@ proposition. Rien n'est tranché.
 
 8. **Vert = « fini » mais aussi le bouton « Valider ».** P2 : vert = fini,
    violet = validé. §5 : bouton valider vert. On clique du vert pour obtenir
-   du violet. *Proposition :* bouton Valider violet (ou neutre avec la
-   coche violette).
+   du violet. **Fait :** bouton Valider violet.
 
 9. **Un même coin orange ↻ pour deux choses différentes** : « repris depuis
    le stable » (`rework`, un état de base dans `lib/status.py`) et « à
    refaire » (`flags.to_redo`, une étape d'avant a changé). La page actuelle
-   les distingue (losange ouvert vs flèche). *Proposition :* garder deux
-   signes, ou assumer la fusion et le dire dans la légende.
+   les distingue (losange ouvert vs flèche). **Fait :** deux signes. Repris
+   = losange vert avec une flèche dedans ; à refaire = coin orange.
 
 10. **Couleurs en dur hors `:root`** malgré la règle : dans le JS de la
     maquette (`10-status.js` : `#2a1d08`, `#0d1d3a`, `#1b1b1b` ;
     `23-farm.js` : `#6ea4ff`, `#9a9a9a`, `#e5575f`, `#5fb88a` ;
     `28-dialogs.js`). *Proposition :* passer par `var(--st-*)` dès la
     phase 1, l'audit de la feuille de composants doit aussi lire le JS.
+    *En partie fait :* l'encre des glyphes passe par `--on-st`. Restent la
+    Farm et les dialogues.
 
 11. **Couleurs d'état fixes, mais « votre revue » = bleu de sélection.** Si
     `--sel` suit le thème Blender, le coin « vous » change de couleur d'un
@@ -85,8 +89,8 @@ proposition. Rien n'est tranché.
 12. **Clés de stockage.** La roadmap dit de garder `mp-snapshot:theme` ; la
     maquette écrit `snap-theme` et `snap3-scale`. Une revue en cours est
     gardée sous `mp-review:<projet>:<snapshot>` : si la v2 change de clé, les
-    revues en cours sont perdues au passage. *Proposition :* garder toutes
-    les clés `mp-*` existantes.
+    revues en cours sont perdues au passage. **Décidé :** pas grave (2.0.0
+    pas publiée). Les clés restent préfixées `mp-`.
 
 ## Icônes (consigne : celles de Blender d'abord)
 
@@ -94,7 +98,7 @@ Correspondance faite : voir `NOTES.md`, « Snapshot page v7: Blender's
 icons ». Restent à trancher :
 
 13. **Farm : deux icônes.** Onglet du haut `i-film` (FILE_MOVIE), onglet
-    mobile `i-render`. *Proposition :* RENDER_ANIMATION partout.
+    mobile `i-render`. **Fait :** RENDER_ANIMATION partout.
 14. **Version précédente / suivante** : la maquette dessine ⏪ ⏩, soit
     REW / FF dans Blender, qui veulent dire « aller au début / à la fin »,
     juste à côté de frame -1 / +1. Mis BACK / FORWARD (← →).
@@ -110,3 +114,19 @@ icons ». Restent à trancher :
     bulle sous le losange). Autre piste : TEXT.
 20. **Sablier** : `SORTTIME` était déjà dans `icons/` (identique à celui
     envoyé).
+
+## Nouveaux points (port de la maquette)
+
+21. **Envoi en live : bouton ou automatique ?** La page classique envoyait
+    chaque changement à Blender 300 ms après. La maquette v7 a un bouton
+    « Envoyer… ». J'ai gardé le bouton (on voit ce qui part). À confirmer.
+22. **Frames des notes.** La démo a des notes en `f12`, `f5-20` alors que
+    les rendus commencent à 1001. La page écrit maintenant les numéros de
+    Blender (1001…) dès que le rendu donne sa première frame. Les notes
+    déjà écrites en numéros relatifs tombent hors de la timeline.
+23. **Ce que la v7 n'a pas encore** (la classique l'avait) : « Partager
+    avec un téléphone » (accès invité + QR), « Mettre à jour les liens »
+    (pas de route live), l'option son du rendu (la farm n'a pas ce
+    réglage).
+24. **Langue.** Tous les textes de la maquette sont en français, alors
+    que l'addon est en anglais. Passage par `T()` à faire (gros lot).

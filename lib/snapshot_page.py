@@ -34,6 +34,7 @@ CSS_PARTS = ("10-tokens.css", "20-components.css", "30-mobile.css")
 JS_PARTS = (
     "core/00-data.js",
     "core/01-i18n.js",
+    "core/03-status.js",
     "core/05-mode.js",
     "core/10-status.js",
     "core/20-actions.js",
