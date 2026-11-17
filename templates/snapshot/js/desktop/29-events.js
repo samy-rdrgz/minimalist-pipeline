@@ -28,7 +28,7 @@ function v6Click(t){
   return false;
 }
 function helpDlg(){
-  const L=[['todo',null,'À faire','pas commencé'],['wip',null,'En cours','points'],['done',null,'Fini','plein'],['done','redo','Fini, repris','repris depuis le stable, ou à refaire : l\'amont a changé'],
+  const L=[['todo',null,'À faire','pas commencé'],['wip',null,'En cours','points'],['done',null,'Fini','plein'],['rework',null,'Fini, repris','repris depuis le stable : la flèche dans le losange'],['done','redo','À refaire','une étape d\'avant a changé : le coin orange'],
     ['done','wait','En attente','une étape d\'avant n\'est pas prête'],['sup',null,'Validé sup','coche, clair'],['val',null,'Validé prod','coche, le rôle le plus haut'],['old',null,'À revoir','validé sur un ancien stable'],
     ['wip','rtk','Retake ouvert','le chiffre : combien de RTK'],['val','rtk','Validé, puis retake','les combinaisons se lisent coin + forme'],['val','you','Vous : validé','pas encore envoyé'],['done','you-rtk','Vous : retake','pas encore envoyé'],['done',null,'Note ouverte','bulle en bas à droite','n'],['na',null,'Non requis','tiret']];
   const dl=$('#dlg');dl.hidden=false;

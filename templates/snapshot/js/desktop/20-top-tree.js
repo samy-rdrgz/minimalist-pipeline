@@ -1,7 +1,7 @@
 /* ---------- Topbar ---------- */
 function renderTop(){
   const n=k=>items.filter(i=>i.kind===k).length;
-  $('#ws').innerHTML=[['shot','Plans','b-camera_data',n('shot')],['asset','Assets','b-asset_manager',n('asset')],['links','Liens','b-linked',''],['synth','Synthèse','b-spreadsheet',''],...(LIVE?[['farm','Farm','b-file_movie',F.jobs.filter(j=>!j.archived&&(j.state==='running'||j.state==='waiting')).length]]:[])]
+  $('#ws').innerHTML=[['shot','Plans','b-camera_data',n('shot')],['asset','Assets','b-asset_manager',n('asset')],['links','Liens','b-linked',''],['synth','Synthèse','b-spreadsheet',''],...(LIVE?[['farm','Farm','b-render_animation',F.jobs.filter(j=>!j.archived&&(j.state==='running'||j.state==='waiting')).length]]:[])]
     .map(([k,l,i,c])=>`<button role="tab" data-ws="${k}" aria-selected="${S.ws===k}" title="${l}">${ic(i)}<span class="lbl">${l}</span>${c!==''?`<span class="n">${c}</span>`:''}</button>`).join('');
   $('#p-name').textContent=M.project;$('#p-live').title='Connecté à Blender · '+M.live.user;$('#p-date').textContent=(LIVE?'live · ':'snapshot du ')+fmtD(M.snapshot)+' · '+M.exported_by;
   const n2=items.filter(touched).length;
@@ -35,7 +35,7 @@ function reviewPop(){
 /* ---------- Outliner ---------- */
 function renderTree(){
   if(S.ws==='farm'){const n=s=>F.jobs.filter(j=>!j.archived&&(!s||j.state===s)).length;
-    $('#tree').innerHTML=[['','Tous les jobs'],...JS].map(([k,l])=>`<li class="it ${S.ff.s===k?'sel':''}" data-ffs="${k}" style="padding-left:12px">${k?jst(k):ic('b-file_movie')}<span class="nm" style="font-family:var(--ui);font-size:var(--fs)">${l}</span><span class="pc">${n(k)}</span></li>`).join('')
+    $('#tree').innerHTML=[['','Tous les jobs'],...JS].map(([k,l])=>`<li class="it ${S.ff.s===k?'sel':''}" data-ffs="${k}" style="padding-left:12px">${k?jst(k):ic('b-render_animation')}<span class="nm" style="font-family:var(--ui);font-size:var(--fs)">${l}</span><span class="pc">${n(k)}</span></li>`).join('')
       +`<li class="it" data-ffm style="padding-left:12px">${ic('b-user')}<span class="nm" style="font-family:var(--ui);font-size:var(--fs)">Les miens</span><span class="pc">${F.jobs.filter(j=>!j.archived&&j.user===M.live.user).length}</span></li>`;
     $('#tree').querySelectorAll('.jst').forEach(e=>{e.style.width='16px';e.style.height='16px'});return}
   const kind=S.ws==='synth'?'shot':S.ws;const vis=items.filter(i=>(S.ws==='links'?(i.links.length||i.linkedBy.length||S.gAll):i.kind===kind)&&(!S.tq||i.name.toLowerCase().includes(S.tq)));
