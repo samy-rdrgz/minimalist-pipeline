@@ -328,6 +328,10 @@ All notable changes to this addon. Dates are release dates.
 
 ### Fixed
 
+- Snapshot and live page: a render the history lists but whose folder is
+  gone (renders/ cleaned, a project copied without it) is no longer shown;
+  with no render left, the player is off (no frames, no play, the
+  thumbnail alone) instead of counting 120 frames over the thumbnail.
 - The farm's time left (Farm monitoring, the page's Farm tab) counted a
   job waiting for a worker over its whole range, frames already there
   included: a retry after a failure, corrupted frames to render again

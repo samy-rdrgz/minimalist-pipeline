@@ -5,6 +5,11 @@ const FPS=()=>+M.fps||24;
 let FIRST=null;
 const fNo=i=>FIRST!=null?FIRST+i-1:i;
 const fIdx=n=>FIRST!=null?n-FIRST+1:n;
+/* Nothing rendered (or its folders gone): no frames to go through -- the transport, the scrub
+   and the frame number off, the thumbnail alone. */
+const rendered=it=>!!(it&&versOf(it).length);
+const pOff=it=>rendered(it)?'':'disabled';
+const curRendered=()=>rendered(typeof cur==='function'?cur():null);
 const PV=document.createElement('video');PV.playsInline=true;PV.preload='auto';PV.className='pv';
 PV.muted=S.muted;
 function curVideo(){const it=typeof cur==='function'?cur():null;if(!it)return null;const m=mVer(it),v=m.V[m.i];return v&&v.video?{it,v,src:videoSrc(v.video)}:null}
@@ -34,14 +39,14 @@ function syncFrame(){document.querySelectorAll('[data-f]').forEach(e=>e.textCont
 function syncPlay(){document.querySelectorAll('[data-tp="play"]').forEach(b=>b.innerHTML=ic(S.playing?'b-pause':'b-play'))}
 /* The frame count known once the video says its length: what was drawn with the old count, again. */
 function refreshPlayerUI(){if(isMob())mRender();else{renderProps();if(S.wide)renderWide()}}
-function setFrame(f){S.frame=Math.min(NF,Math.max(1,f));if(PV.parentNode&&PV.dataset.src){PV.pause();S.playing=false;syncPlay();PV.currentTime=(S.frame-1+.5)/FPS()}syncFrame()}
+function setFrame(f){if(!curRendered())return;S.frame=Math.min(NF,Math.max(1,f));if(PV.parentNode&&PV.dataset.src){PV.pause();S.playing=false;syncPlay();PV.currentTime=(S.frame-1+.5)/FPS()}syncFrame()}
 /* No video: the thumbnail, its frames counted at the project's rate. */
-let playT;function togglePlay(){S.playing=!S.playing;clearInterval(playT);
+let playT;function togglePlay(){clearInterval(playT);if(!curRendered()){S.playing=false;syncPlay();return}S.playing=!S.playing;
   if(PV.parentNode&&PV.dataset.src){if(S.playing){if(S.frame>=NF)PV.currentTime=0;PV.play().catch(()=>{S.playing=false;syncPlay()})}else PV.pause();syncPlay();return}
   if(S.playing)playT=setInterval(()=>{if(S.frame>=NF){if(isMob()){mEnd();return}if(S.seqPlay&&S.wide){seqNext();return}setFrame(1)}else{S.frame++;syncFrame()}},1000/FPS());
   syncPlay()}
 let drag=null;
-document.addEventListener('pointerdown',e=>{const s=e.target.closest('[data-scrub]');if(!s||e.target.closest('.mk'))return;drag=s;s.setPointerCapture(e.pointerId);sx(s,e.clientX)});
+document.addEventListener('pointerdown',e=>{const s=e.target.closest('[data-scrub]:not(.off)');if(!s||e.target.closest('.mk'))return;drag=s;s.setPointerCapture(e.pointerId);sx(s,e.clientX)});
 document.addEventListener('pointermove',e=>{if(drag)sx(drag,e.clientX)});
 document.addEventListener('pointerup',()=>drag=null);
 function sx(s,x){const r=s.getBoundingClientRect();setFrame(Math.round(1+(x-r.left)/r.width*(NF-1)))}

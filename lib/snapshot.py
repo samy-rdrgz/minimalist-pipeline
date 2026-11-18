@@ -117,8 +117,8 @@ def read_render_state(
     stage's department, by stages {department: stage}; latest: the most
     recent), its other departments' last ones in "others" ({"department",
     "file", "folder", "path", "newer": made after the main}). From
-    render_history.json's finished renders of that shot, else the latest
-    render folder's name. Pure os/json: thread-safe. See NOTES.md,
+    render_history.json's finished renders of that shot whose folder is
+    still there, else the latest render folder's name. Pure os/json: thread-safe. See NOTES.md,
     "Renders by department"."""
     stages = stages or {}
     history = read_json_quiet(owner / ".pipeline" / "render_history.json") or {}
@@ -151,10 +151,17 @@ def read_render_state(
         }
 
     def last_render(shot: str, mine: list, folder_dir: Path) -> dict:
-        if mine:
-            # Each department's last: the main one, the others under it.
-            by_dep = {str(finished[i].get("department") or "").lower(): i for i in mine}
-            lasts = [one(shot, finished[i]) for i in by_dep.values()]
+        # Each department's last whose folder is still there (renders/
+        # cleaned, or a project copied without it: the history says more
+        # than the disk has).
+        by_dep: dict[str, int] = {}
+        for i in reversed(mine):
+            dep = str(finished[i].get("department") or "").lower()
+            if dep not in by_dep and (Path(root) / finished[i]["output_path"]).parent.is_dir():
+                by_dep[dep] = i
+        if by_dep:
+            # The main one, the others under it.
+            lasts = [one(shot, finished[i]) for i in sorted(by_dep.values())]
             main = lasts[0]
             for r in lasts[1:]:
                 if _main_first(r, main, stages, latest):

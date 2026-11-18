@@ -3,7 +3,7 @@
    None touches the DOM. Each is an action of lib/review_import.py (named at the line's end). */
 const canVal=(it,d)=>!!S.review&&S.review.role!==TEAM&&['done','rework'].includes(it.states[d])&&!it.ok[d];
 /* The frames written: Blender's numbers (fNo), a range from I to the frame shown. */
-const rangeStr=()=>S.rangeStart!=null&&S.rangeStart!==S.frame?'f'+fNo(Math.min(S.rangeStart,S.frame))+'-'+fNo(Math.max(S.rangeStart,S.frame)):'f'+fNo(S.frame);
+const rangeStr=()=>!curRendered()?'':S.rangeStart!=null&&S.rangeStart!==S.frame?'f'+fNo(Math.min(S.rangeStart,S.frame))+'-'+fNo(Math.max(S.rangeStart,S.frame)):'f'+fNo(S.frame);
 const A={
   validate(it,d){it.mine[d]='val'},                                                         // validate
   toggleVal(it,d){if(it.mine[d]==='val')delete it.mine[d];else it.mine[d]='val'},             // validate / unvalidate

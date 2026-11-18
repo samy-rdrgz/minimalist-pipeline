@@ -230,6 +230,7 @@ body.out-open .scrim{display:block}
 .stage .novid{position:absolute;left:8px;right:8px;bottom:8px;display:flex;align-items:center;gap:var(--sp-4);padding:var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-5);border-radius:var(--r);background:var(--overlay);font-size:var(--fs-s);flex-wrap:wrap}
 .stage .novid .sp{flex:1}
 .scrub{position:relative;height:var(--h-sm);background:var(--field);border-radius:var(--r);box-shadow:inset 0 1px 2px rgba(0,0,0,.35);cursor:pointer;touch-action:none}
+.scrub.off{opacity:.35;cursor:default;pointer-events:none}.scrub.off .ph{display:none}
 .scrub .rng{position:absolute;top:7px;bottom:7px;background:rgba(229,87,95,.3);border-radius:var(--r-xs)}
 .scrub .rng.sel{background:rgba(110,164,255,.35)}
 .scrub .mk{position:absolute;top:50%;width:9px;height:9px;margin:calc(-1*var(--sp-2)) 0 0 calc(-1*var(--sp-2));background:var(--st-rtk);transform:rotate(45deg);border:0;padding:0;cursor:pointer}

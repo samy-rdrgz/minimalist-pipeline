@@ -12,7 +12,7 @@ function renderWide(){
   const notesAt=mk.length?mk.map(f=>`<button class="wn" data-goto="${f.a}"><span class="ft ${f.b?'rg':f.rtk?'':'nt'}">f${f.a}${f.b?'-'+f.b:''}</span><span class="tx">${esc(f.n.text||T('(no text)'))}<small> · ${esc((f.n.deps||[]).map(d=>LBL[d]||d).join(', ')||T('no department'))}${f.n.author?' · '+esc(f.n.author):''}</small></span></button>`).join(''):'<p class="faint" style="margin:0">'+T('No note at a frame on this video.')+'</p>';
   const writer=rv&&S.wdep?`<div class="ww"><div class="wwl"><span class="join"><button class="btn sm" data-wtype="rtk" aria-pressed="${S.wtype==='rtk'}">Retake</button><button class="btn sm" data-wtype="note" aria-pressed="${S.wtype==='note'}">${T('Remark')}</button></span>
       <span class="lbl">${S.rangeStart!=null?T('from <b>f{a}</b> to <b>f{b}</b> on <b>{dept}</b>',{a:fNo(S.rangeStart),b:`<span data-f>${fNo(S.frame)}</span>`,dept:LBL[S.wdep]}):T('at <b>f{b}</b> on <b>{dept}</b>',{b:`<span data-f>${fNo(S.frame)}</span>`,dept:LBL[S.wdep]})}</span>
-      <button class="btn sm ${S.rangeStart!=null?'':'tool'}" data-tp="in" aria-pressed="${S.rangeStart!=null}" title="${S.rangeStart!=null?T('Forget the range\'s start'):T('A range: its start at the frame shown, its end where you are when you add (I)')}">${S.rangeStart!=null?'⇤ f'+S.rangeStart+' ✕':'⇤ '+T('Range from here')}</button></div>
+      <button class="btn sm ${S.rangeStart!=null?'':'tool'}" data-tp="in" ${pOff(it)} aria-pressed="${S.rangeStart!=null}" title="${S.rangeStart!=null?T('Forget the range\'s start'):T('A range: its start at the frame shown, its end where you are when you add (I)')}">${S.rangeStart!=null?'⇤ f'+S.rangeStart+' ✕':'⇤ '+T('Range from here')}</button></div>
       <label class="field ta"><textarea id="w-ta" rows="3" placeholder="${T('Write as you watch: Enter adds, Shift+Enter goes to a new line')}" aria-label="${T('Text')}"></textarea></label></div>`
     :!rv?`<p class="faint" style="margin:0">${T('Start a review to validate, send back and write at a frame.')}</p><button class="btn primary" id="rv-open-w">${ic('b-greasepencil')}${T('Review')}</button>`:'';
   W.innerHTML=`<div class="w-head"><button class="btn icon" data-wclose aria-label="${T('Close')}" title="${T('Close (Esc)')}">${ic('b-x')}</button>
@@ -24,12 +24,12 @@ function renderWide(){
       <button class="btn icon" data-full aria-label="${T('Full screen')}" title="${T('Full screen')}">${ic('b-fullscreen_enter')}</button></div>
     <div class="w-body"><div class="w-main">
       <div class="w-stage ${S.m.side==='B'&&V.length>1?'is-b':''}">${it.thumb?`<img src="${it.thumb}" alt="${T('Picture of {name}',{name:it.name})}">`:`<span class="noimg">${T('Not rendered yet')}</span>`}<span class="hud">${V.length>1?`<b class="ab">${S.m.side}</b> `:''}${v?esc(v.folder)+' · ':''}f <span data-f>${fNo(S.frame)}</span></span></div>
-      <div class="w-tl"><div class="scrub big" data-scrub role="slider" tabindex="0" aria-label="Frame" aria-valuemin="1" aria-valuemax="${NF}" aria-valuenow="${S.frame}">${mkH}${rng}<span class="ph" style="left:${(S.frame-1)/(NF-1)*100}%"></span></div>
+      <div class="w-tl"><div class="scrub big ${rendered(it)?'':'off'}" data-scrub role="slider" tabindex="0" aria-label="Frame" aria-valuemin="1" aria-valuemax="${NF}" aria-valuenow="${S.frame}">${mkH}${rng}<span class="ph" style="left:${(S.frame-1)/(NF-1)*100}%"></span></div>
         <div class="ruler"><span>f1</span><span>f${Math.round(NF/4)}</span><span>f${Math.round(NF/2)}</span><span>f${Math.round(NF*3/4)}</span><span>f${NF}</span></div></div>
       <div class="w-tp"><span class="join"><button class="btn icon" data-tp="vprev" aria-label="${T('Previous version')}" title="${T('Previous version')}" ${V.length>1?'':'disabled'}>${ic('b-back')}</button>
-        <button class="btn icon" data-tp="fprev" aria-label="${T('Previous frame')}" title="${T('Previous frame (,)')}">${ic('b-frame_prev')}</button>
-        <button class="btn icon play" data-tp="play" aria-label="${T('Play')}" title="${T('Play (Space)')}">${ic(S.playing?'b-pause':'b-play')}</button>
-        <button class="btn icon" data-tp="fnext" aria-label="${T('Next frame')}" title="${T('Next frame (.)')}">${ic('b-frame_next')}</button>
+        <button class="btn icon" data-tp="fprev" ${pOff(it)} aria-label="${T('Previous frame')}" title="${T('Previous frame (,)')}">${ic('b-frame_prev')}</button>
+        <button class="btn icon play" data-tp="play" ${pOff(it)} aria-label="${T('Play')}" title="${T('Play (Space)')}">${ic(S.playing?'b-pause':'b-play')}</button>
+        <button class="btn icon" data-tp="fnext" ${pOff(it)} aria-label="${T('Next frame')}" title="${T('Next frame (.)')}">${ic('b-frame_next')}</button>
         <button class="btn icon" data-tp="vnext" aria-label="${T('Next version')}" title="${T('Next version')}" ${V.length>1?'':'disabled'}>${ic('b-forward')}</button></span>
         <button class="btn icon" data-tp="snd" aria-label="${T('Sound')}" title="${T('Sound (M)')}" aria-pressed="${!S.muted}">${ic(S.muted?'b-mute_ipo_off':'b-mute_ipo_on')}</button>
         <span class="bigf">f <span data-f>${fNo(S.frame)}</span></span>${verHTML(it,'w')}${abHTML(it,'w').replace('ctl abrow','abrow')}<span class="sp"></span>
@@ -44,6 +44,6 @@ function renderWide(){
 function wideAdd(){
   const ta=$('#w-ta');if(!ta)return;const txt=ta.value.trim(),it=cur(),d=S.wdep;if(!txt&&S.wtype!=='rtk')return;
   const fr=rangeStr();
-  A.note(it,{type:S.wtype,dept:d,text:txt,frames:fr});S.rangeStart=null;refresh();msg(S.wtype==='rtk'?T('Retake at {frames} on {dept}',{frames:fr,dept:LBL[d]}):T('Remark at {frames} on {dept}',{frames:fr,dept:LBL[d]}));$('#w-ta')?.focus();
+  A.note(it,{type:S.wtype,dept:d,text:txt,frames:fr});S.rangeStart=null;refresh();msg(S.wtype==='rtk'?T('Retake at {frames} on {dept}',{frames:fr||'—',dept:LBL[d]}):T('Remark at {frames} on {dept}',{frames:fr||'—',dept:LBL[d]}));$('#w-ta')?.focus();
 }
 

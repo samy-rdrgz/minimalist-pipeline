@@ -56,6 +56,18 @@ def main() -> None:
     assert r["department"] == "", r
     r = snapshot.read_render_state(root, "shot", owner, "v", {})[0]
     assert r["department"] == "animation", r  # no stages: the newest with a department
+    # A render whose folder is gone (renders/ cleaned, a project copied
+    # without it): not shown; its department's older one still there is.
+    import shutil
+    later = root / "renders" / "sq010" / "sh010" / "v009_001"
+    entries.append({"status": "finished", "department": "lighting", "completed_at": "2026-11-14T10:00:00+01:00",
+                    "output_path": (later / "f_####.png").relative_to(root).as_posix(), "source_file": "sq010_sh010_v009.blend"})
+    (owner / ".pipeline" / "render_history.json").write_text(json.dumps({"entries": entries}))
+    r = snapshot.read_render_state(root, "shot", owner, "v", stages)[0]
+    assert r["department"] == "lighting" and r["folder"] == "v002_001", r
+    shutil.rmtree(root / "renders")
+    r = snapshot.read_render_state(root, "shot", owner, "v", stages)[0]
+    assert r["folder"] is None and r["path"] is None and not r["others"], r  # nothing left: no render
     print("OK: render departments")
 
 
