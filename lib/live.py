@@ -1059,7 +1059,6 @@ def _rebuild(sh: _Shared, force: bool) -> None:
     from ..farm.loop import farm_activity
     from .config import ConfigCache
     from .session import get_user, get_user_role, ui_language
-    from .snapshot_theme import read_theme
 
     if not _reader["ready"]:
         return  # nothing read yet: no empty page
@@ -1078,7 +1077,6 @@ def _rebuild(sh: _Shared, force: bool) -> None:
         "exported_by": get_user(bpy.context),
         "addon_version": get_addon_version(),
         "lang": ui_language(),
-        "theme": read_theme(),
         # Who writes from the page: Blender's user and role (Preferences).
         # root: another project made active, the page reloads.
         # beginner: the addon's Experience level -- the page's tour shown once.

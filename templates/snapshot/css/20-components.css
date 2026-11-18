@@ -329,6 +329,7 @@ body.out-open .scrim{display:block}
 .vtab{width:calc(36px*var(--scale));height:var(--h-lg);display:grid;place-items:center;border:0;border-radius:var(--r-l);background:none;color:var(--text-3);cursor:pointer;position:relative}
 .vtab:hover{background:var(--row-hover);color:var(--text)}
 .vtab[aria-selected="true"]{background:var(--box-2);color:#fff}
+[data-ui="light"] .vtab[aria-selected="true"]{color:var(--text)}
 .vtab .cnt{position:absolute;right:1px;top:1px;min-width:15px;height:15px;padding:0 var(--sp-2);border-radius:var(--r-l);background:var(--line-3);color:#fff;font-size:var(--fs-xs);line-height:15px;text-align:center}
 .vtab .cnt.r{background:var(--st-rtk)}
 .pbody{padding:var(--sp-7)}

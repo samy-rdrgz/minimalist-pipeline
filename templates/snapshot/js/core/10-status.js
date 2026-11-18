@@ -49,7 +49,7 @@ function worst(it){
   if(ds.every(d=>it.ok[d]||it.mine[d]==='val'))return 'val';if(ds.every(d=>['done','rework'].includes(it.states[d])))return 'done';
   if(ds.some(d=>it.states[d]!=='todo'))return 'wip';return 'todo';
 }
-const DOT={omit:'#555',rtk:'#e5575f',val:'#b88ad4',done:'#5fb88a',wip:'#e0a24a',todo:'#5c5c5c'};
+const DOT={omit:'var(--line-3)',rtk:'var(--st-rtk)',val:'var(--st-val)',done:'var(--st-done)',wip:'var(--st-wip)',todo:'var(--st-todo)'};
 const valOf=it=>{const ds=required(it);if(!ds.length)return it.valid;return ds.filter(d=>it.ok[d]||it.mine[d]==='val').length/ds.length};
 const me=()=>(S.review&&S.review.name)||M.live.user;
 function visible(){

@@ -5596,8 +5596,7 @@ review kept by a 1.x page may be lost, accepted).
   kept by name. Department names are the project's (`LBL` / `AB` built
   from them, no table), the schedule and the weights the export's.
 - **Gone from the mockup**: its demo switches (snapshot / live, mobile),
-  its fake What's new, its demo Blender theme (the Blender theme is now
-  `meta.theme`, none yet: Blender's dark), the fake jobs (`A.queueJob`,
+  its fake What's new, its demo Blender theme (now a fixed blue theme), the fake jobs (`A.queueJob`,
   `A.job`) and the fake player.
 - **The review's file** (`core/30-review-file.js`): the same actions as
   the classic page wrote (`exportActions()`), from the v7 model (`mine`,
@@ -5626,7 +5625,7 @@ review kept by a 1.x page may be lost, accepted).
   reworked since the stable is the done diamond with an arrow back in
   it, to redo the orange corner -- two signs, as the classic page had.
 
-Blender's theme: see "Snapshot page: Blender's theme".
+The theme: see "Snapshot page: the blue theme".
 
 ## Snapshot page: English first, French second
 
@@ -5682,14 +5681,16 @@ that session the v7 page uses --
 - **Icons**: only those the page names stay in `templates/snapshot/icons/`
   (as 2.0.0 did for the classic page).
 
-## Snapshot page: Blender's theme
+## Snapshot page: the blue theme
 
-`lib/snapshot_theme.py read_theme()` (main thread: the export's modal,
-the live page's rebuild) reads `preferences.themes[0]` into the page's
-variables (`FIELDS`: each one's field, as 10-tokens.css names it), the
-derived ones computed (`DERIVED`: a hover 6 % lighter...), sent as
-`meta.theme`. The page's default theme is "Blender": those variables on
-`:root`, light or dark by the ground's lightness; none (an old snapshot,
-a theme refused), Blender's dark. A theme whose text wouldn't read on its
-ground (contrast under 4.5:1) is refused whole. The states' colours never
-follow it. tests/test_snapshot_theme.py.
+The page no longer reads Blender's theme (lib/snapshot_theme.py is gone):
+one fixed palette, 60 / 30 / 10, dark and a light derived from it
+(View › Theme: Dark, Light, System; an old "blender" choice reads as
+Dark). 60 %: neutral greys (outliner, list, detail). 30 %: a night-blue
+tint (--t1..t3) on the top bar and the selection only. 10 %: the bright
+blue --brand (#639bff, the "done" blue) on the main button, the active
+space, the selected row's rail, the section marks. States: done blue,
+validated pink, in progress yellow, retake orange, "you" turquoise.
+The values live in css/10-tokens.css; where the tints go, in
+css/25-theme.css. Both match the reference page and UI kit; buttons
+keep Blender's own icons.

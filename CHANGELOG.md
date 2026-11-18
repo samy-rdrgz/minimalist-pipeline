@@ -8,8 +8,8 @@ All notable changes to this addon. Dates are release dates.
 
 - The snapshot and live page, redrawn: Blender's grammar (areas, an
   Outliner, a list, a Detail panel with tabs, a status bar), Blender's
-  own icons, Blender's theme as exported (View › Theme: Blender, Dark,
-  Light, System), the interface scale. Spaces: Shots, Assets, Links (a
+  own icons, a fixed blue theme, dark or light (View › Theme: Dark,
+  Light, System), resizable panels, the interface scale. Spaces: Shots, Assets, Links (a
   node graph of who links what), Breakdown and, live, Farm. Watch large:
   the video, the departments and the notes at their frames, a range
   written as you watch; A / B: two versions of the same shot at the same

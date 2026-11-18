@@ -52,4 +52,4 @@ function loadData(raw){
 loadData(RAW);
 const first=items.find(i=>i.kind==='shot')||items[0];
 const S={ws:first?first.kind:'shot',sel:first?first.name:'',quick:null,more:new Set(),dept:null,q:'',tq:'',tab:'plan',closed:new Set(),review:null,noteFilter:'open',frame:1,playing:false,muted:true,
-  form:null,reply:null,rangeStart:null,wide:false,closedTree:new Set(),ver:{},wdep:null,wtype:'rtk',g:{x:0,y:0,z:1,init:false},smode:'done',shot:{},seqPlay:false,planned:[],showAside:{},theme:'blender',notifSys:false,editDesc:false,weights:false,scaleV:1,bulk:null,ff:{s:'',mine:false,q:''},farmSel:null,preset:F.preset||'NONE',gAll:false,gFocus:null};
+  form:null,reply:null,rangeStart:null,wide:false,closedTree:new Set(),ver:{},wdep:null,wtype:'rtk',g:{x:0,y:0,z:1,init:false},smode:'done',shot:{},seqPlay:false,planned:[],showAside:{},theme:'dark',notifSys:false,editDesc:false,weights:false,scaleV:1,bulk:null,ff:{s:'',mine:false,q:''},farmSel:null,preset:F.preset||'NONE',gAll:false,gFocus:null};

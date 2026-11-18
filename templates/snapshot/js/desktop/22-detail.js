@@ -112,8 +112,8 @@ function drawWires(){
   const link=(o,n,c)=>{if(!o||!n)return;const a=o.getBoundingClientRect(),b=n.getBoundingClientRect();
     const x1=a.left+a.width/2-R.left,y1=a.top+a.height/2-R.top,x2=b.left+b.width/2-R.left,y2=b.top+b.height/2-R.top;
     const no=o.closest('.node').getBoundingClientRect(),nn=n.closest('.node').getBoundingClientRect();const ym=(Math.min(no.bottom,nn.bottom)+Math.max(no.top,nn.top))/2-R.top;
-    const d=wirePath(x1,y1,x2,y2,ym);p+=`<path d="${d}" fill="none" stroke="#111" stroke-width="4.5"/><path d="${d}" fill="none" stroke="${c}" stroke-width="2.4"/>`};
-  box.querySelectorAll('[data-i]').forEach(n=>{const k=n.dataset.i,c=n.classList.contains('bad')?'#e5575f':'#8a8a8a';
+    const d=wirePath(x1,y1,x2,y2,ym);p+=`<path d="${d}" fill="none" style="stroke:var(--wire-edge)" stroke-width="4.5"/><path d="${d}" fill="none" style="stroke:${c}" stroke-width="2.4"/>`};
+  box.querySelectorAll('[data-i]').forEach(n=>{const k=n.dataset.i,c=n.classList.contains('bad')?'var(--st-rtk)':'var(--wire)';
     link(k.startsWith('by:')?box.querySelector('[data-o="__cur"] i'):box.querySelector(`[data-o="${k}"] i`),n.querySelector('i'),c)});
   const w=$('#wires');if(w)w.innerHTML=p;
 }

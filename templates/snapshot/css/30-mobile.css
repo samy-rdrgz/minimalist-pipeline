@@ -54,7 +54,7 @@
 .m-hud,.m-fr{position:absolute;display:inline-flex;align-items:center;gap:var(--sp-3);padding:var(--sp-1) var(--sp-4);border-radius:var(--r);background:rgba(0,0,0,.62);color:#eee;font:var(--fs-s) var(--mono);max-width:calc(100% - var(--sp-9))}
 .m-hud{left:var(--sp-4);top:var(--sp-4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .m-fr{right:var(--sp-4);bottom:var(--sp-4)}
-b.ab{display:inline-grid;place-items:center;width:var(--h-xs);height:var(--h-xs);border-radius:var(--r-s);background:var(--play);color:var(--play-t);font:600 var(--fs-s) var(--ui);flex:none}
+b.ab{display:inline-grid;place-items:center;width:var(--h-xs);height:var(--h-xs);border-radius:var(--r-s);background:var(--brand);color:var(--on-brand);font:600 var(--fs-s) var(--ui);flex:none}
 .is-b b.ab,.m-vchip:nth-child(2) b{background:var(--st-wip);color:#241703}
 .mob .scrub.big{height:calc(var(--h-touch) - var(--sp-4))}
 .mob .scrub .mk{width:12px;height:12px;margin:-6px 0 0 -6px}
@@ -65,7 +65,7 @@ b.ab{display:inline-grid;place-items:center;width:var(--h-xs);height:var(--h-xs)
 .mob .m-ab .btn:last-child[aria-pressed="true"]{background:var(--st-wip);color:#241703;border-color:var(--st-wip)}
 .m-vers{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-4)}
 .m-vchip{display:flex;align-items:center;gap:var(--sp-3);min-width:0;min-height:var(--h-touch);padding:0 var(--sp-4);background:var(--field);border:1px solid var(--line);border-radius:var(--r);color:var(--text-2);text-align:left;font:var(--fs-s) var(--mono)}
-.m-vchip b{display:inline-grid;place-items:center;width:var(--h-xs);height:var(--h-xs);border-radius:var(--r-s);background:var(--play);color:var(--play-t);font:600 var(--fs-s) var(--ui);flex:none}
+.m-vchip b{display:inline-grid;place-items:center;width:var(--h-xs);height:var(--h-xs);border-radius:var(--r-s);background:var(--brand);color:var(--on-brand);font:600 var(--fs-s) var(--ui);flex:none}
 .m-vchip .lb{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .m-vchip.on{border-color:var(--sel);color:var(--text)}
 .m-vchip .i{flex:none;opacity:.6}

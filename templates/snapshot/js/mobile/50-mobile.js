@@ -122,7 +122,7 @@ function mSheet(){
   if(k==='news'){t=T('What\'s new');newsSeen=NEWS.length;const IC={rtk:'--st-rtk',render:'--st-done',ok:'--st-val'};
     h=NEWS.length?NEWS.map(x=>`<button class="m-opt" data-mgo="${x.n}"><span class="dt" style="background:var(${IC[x.k]})"></span><span class="lbl"><span class="mono">${esc(x.n)}</span> · ${esc(x.h)}<small>${esc(x.x)} · ${x.at}</small></span></button>`).join(''):'<p class="m-hint">'+T('Nothing new since the page opened.')+'</p>'}
   if(k==='menu'){t='Menu';
-    h=`<div class="m-sec-h">${T('Theme')}</div><span class="join full">${[['dark',T('Dark')],['light',T('Light')],['blender','Blender'],['system',T('System')]].map(([x,l])=>`<button class="btn" data-theme="${x}" aria-pressed="${S.theme===x}">${l}</button>`).join('')}</span>
+    h=`<div class="m-sec-h">${T('Theme')}</div><span class="join full">${[['dark',T('Dark')],['light',T('Light')],['system',T('System')]].map(([x,l])=>`<button class="btn" data-theme="${x}" aria-pressed="${S.theme===x}">${l}</button>`).join('')}</span>
       <div class="m-sec-h">${T('Legend')}</div><ul class="legend-list">${[['done',null,T('Done')],['wip','rtk',T('Open retake')],['val',null,T('Validated by the top role')],['done','wait',T('Waiting')],['rework',null,T('Done, reworked')],['done','redo',T('To redo')],['val','you',T('You: validated')],['done','you-rtk',T('You: retake')],['done',null,T('Open note'),'n']].map(([b,c,l,n])=>`<li>${glyph(b,c,1,!!n)}<span>${l}</span></li>`).join('')}</ul>
       <p class="m-hint">${T('Links, breakdown, file settings and more filters: the desktop version.')}</p>`;
     foot=`${S.review?'<button class="btn m-wide" data-mstop>'+T('Leave the review')+'</button>':''}<button class="btn m-wide" data-mview="desktop">${T('Desktop version')}</button>`}

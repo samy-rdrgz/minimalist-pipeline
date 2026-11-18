@@ -30,7 +30,7 @@ PAGE_DIR = Path(__file__).resolve().parent.parent / "templates" / "snapshot"
 # by the desktop's views (js/desktop/) and the phone's (js/mobile/); the
 # component sheet (tools/snapshot_kit.py, tools/snapshot_kit_src/) is built from the same
 # parts, without the events and the start.
-CSS_PARTS = ("10-tokens.css", "20-components.css", "30-mobile.css")
+CSS_PARTS = ("10-tokens.css", "20-components.css", "22-panes.css", "25-theme.css", "30-mobile.css")
 JS_PARTS = (
     "core/00-data.js",
     "core/01-i18n.js",
@@ -53,6 +53,7 @@ JS_PARTS = (
     "desktop/27-review.js",
     "desktop/28-dialogs.js",
     "desktop/29-events.js",
+    "desktop/30-panes.js",
     "mobile/50-mobile.js",
     "live/60-live.js",
     "live/61-share.js",
@@ -172,8 +173,6 @@ def _meta(snapshot: dict) -> dict:
         "addon_version": meta.get("addon_version") or "",
         # Blender's interface language: the page's, unless chosen in it.
         "lang": meta.get("lang") or "",
-        # Blender's theme: {css variable: colour} (lib/snapshot_theme.py), {} none.
-        "theme": meta.get("theme") or {},
         "roles": [r["name"] for r in meta.get("validation_roles") or []],
         "role": meta.get("validation_role"),
         "weights": meta.get("progress_weights") or {},

@@ -62,8 +62,8 @@ function drawGraph(){
     const tgt=n.closest('[data-gn]').dataset.gn,hot=!focus||focus===src||focus===tgt;
     const [x1,y1]=pt(o),[x2,y2]=pt(n.querySelector('i'));const no=o.closest('.node'),nn=n.closest('.node');
     const ym=((Math.min(no.getBoundingClientRect().bottom,nn.getBoundingClientRect().bottom)+Math.max(no.getBoundingClientRect().top,nn.getBoundingClientRect().top))/2-R.top)/z;
-    const c=n.classList.contains('bad')?'#e5575f':'#9a9a9a',d=wirePath(x1,y1,x2,y2,ym);
-    p+=`<path d="${d}" fill="none" stroke="#111" stroke-width="4.5" opacity="${hot?1:.25}"/><path d="${d}" fill="none" stroke="${c}" stroke-width="2.4" opacity="${hot?1:.18}"/>`});
+    const c=n.classList.contains('bad')?'var(--st-rtk)':'var(--wire)',d=wirePath(x1,y1,x2,y2,ym);
+    p+=`<path d="${d}" fill="none" style="stroke:var(--wire-edge)" stroke-width="4.5" opacity="${hot?1:.25}"/><path d="${d}" fill="none" style="stroke:${c}" stroke-width="2.4" opacity="${hot?1:.18}"/>`});
   const w=$('#gwires');w.setAttribute('width',box.offsetWidth);w.setAttribute('height',box.offsetHeight);w.innerHTML=p;
 }
 let gDrag=null;

@@ -54,16 +54,12 @@ function tour(n){document.querySelectorAll('.tour-hl').forEach(e=>e.classList.re
   b.innerHTML=`<b>${TOUR[n][1]}</b><p>${TOUR[n][2]}</p><div class="acts"><span class="faint">${n+1} / ${TOUR.length}</span><span style="flex:1"></span>${n<TOUR.length-1?'<button class="btn sm flat" data-tour="end">'+T('Skip')+'</button><button class="btn sm primary" data-tour="next">'+T('Next')+'</button>':'<button class="btn sm primary" data-tour="end">'+T('Done')+'</button>'}</div>`;
   document.body.appendChild(b);const w=b.offsetWidth,h=b.offsetHeight;let x=Math.min(Math.max(8,r.left),innerWidth-w-8),y=r.bottom+10;if(y+h>innerHeight-8)y=Math.max(8,r.top-h-10);b.style.left=x+'px';b.style.top=y+'px';
 }
-function setTheme(t){S.theme=t;try{localStorage.setItem('mp-snapshot:theme',t)}catch(_){}
+function setTheme(t){if(t==='blender')t='dark';  // Blender's theme, offered by the first 2.0 builds: the blue one now
+  S.theme=t;try{localStorage.setItem('mp-snapshot:theme',t)}catch(_){}
   const sys=matchMedia('(prefers-color-scheme: light)').matches;const ui=t==='light'||(t==='system'&&sys)?'light':'dark';
-  document.documentElement.dataset.ui=ui;if(t==='blender')applyBlenderTheme();else document.documentElement.removeAttribute('style'),document.documentElement.style.setProperty('--scale',S.scaleV||1);
+  document.documentElement.dataset.ui=ui;document.documentElement.removeAttribute('style');document.documentElement.style.setProperty('--scale',S.scaleV||1);
   closeMenus();if(S.ws==='links')requestAnimationFrame(drawGraph);
 }
-/* Blender's theme, read at the export (meta.theme: {css variable: colour}); none, Blender's dark. */
-function applyBlenderTheme(){const t=M.theme||{},a=t['--area'];let light=false;
-  if(a&&/^#[0-9a-f]{6}$/i.test(a)){const n=parseInt(a.slice(1),16);light=(.2126*(n>>16)+.7152*(n>>8&255)+.0722*(n&255))/255>.5}
-  document.documentElement.removeAttribute('style');document.documentElement.style.setProperty('--scale',S.scaleV||1);
-  document.documentElement.dataset.ui=light?'light':'dark';Object.entries(M.theme||{}).forEach(([k,v])=>document.documentElement.style.setProperty(k,v))}
 function planDlg(g,kind){
   const its=items.filter(i=>i.kind===kind&&groupOf(i)===g);let next='';
   if(kind==='shot'){const nums=its.flatMap(i=>[i.name,...(i.shots||[]).map(s=>g+'_'+s)]).map(n=>+(n.match(/sh(\d+)/)||[])[1]||0).concat(S.planned.filter(p=>p.g===g).map(p=>+(p.name.match(/sh(\d+)/)||[])[1]||0));next=g+'_sh'+String(Math.max(0,...nums)+10).padStart(3,'0')}
