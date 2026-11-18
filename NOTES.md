@@ -5694,3 +5694,17 @@ validated pink, in progress yellow, retake orange, "you" turquoise.
 The values live in css/10-tokens.css; where the tints go, in
 css/25-theme.css. Both match the reference page and UI kit; buttons
 keep Blender's own icons.
+
+## Legacy: what 1.x still reads (lib/legacy.py)
+
+The 1.x forms 2.0 keeps writing beside its own, in one file, to remove
+whole once no 1.x is left (delete it and its calls: grep "legacy.").
+Only one: a stable's done departments, `departments_done` (2.0) and
+`departments_validated` (1.x). `stable_written()` on every .stablemeta
+written (create_stablemeta(), set_approval()), the old key equal to the
+new; `stable_read()` on every one read (_latest_meta(), _stablemeta_of(),
+set_approval()): the two differing means a 1.x wrote it last, the old
+key's values win. The migration keeps both (_migrate_done()). Everything
+else 2.0 migrates a 1.1.10 already reads (dates with their offset,
+sessions with their date, .py render presets: a 1.1.10 tries the .py
+first).

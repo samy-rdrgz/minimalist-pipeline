@@ -90,9 +90,10 @@ def main() -> None:
         s1 = json.loads((pipe / "ch_bob_v001-stable_001.stablemeta").read_text())
         s2 = json.loads((pipe / "ch_bob_v002-stable_001.stablemeta").read_text())
         # Renamed (2.0), read as found before: the started departments above
-        # came from departments_validated.
-        assert s1["departments_done"] == {"modeling": True} and "departments_validated" not in s1, s1
-        assert s2["departments_done"] == {"modeling": True, "shading": True} and "departments_validated" not in s2, s2
+        # came from departments_validated -- kept beside it, equal, for 1.x
+        # builds (lib/legacy.py).
+        assert s1["departments_done"] == s1["departments_validated"] == {"modeling": True}, s1
+        assert s2["departments_done"] == s2["departments_validated"] == {"modeling": True, "shading": True}, s2
         assert s1["departments_started"] == ["modeling"], s1
         assert s2["departments_started"] == ["modeling", "shading"], s2
         assert s2["departments_worked"] == ["shading"], s2
@@ -108,12 +109,18 @@ def main() -> None:
         again = migration.plan_migration(root)
         assert again["files"] == [], again["files"]
 
-        # Both names on one stable (validated by a build reading the new
-        # one before the project was migrated): the new one wins.
+        # Legacy (lib/legacy.py): both names differing, a 1.x wrote it last
+        # (it only knows the old one): its values win, both made equal.
         both = {"departments_validated": {"modeling": True, "shading": False}, "departments_done": {"shading": True}}
         assert migration._migrate_done(both)
-        assert both == {"departments_done": {"modeling": True, "shading": True}}, both
+        assert both == {"departments_done": {"modeling": True, "shading": False},
+                        "departments_validated": {"modeling": True, "shading": False}}, both
         assert not migration._migrate_done(both)
+        legacy = importlib.import_module(f"{pkg.__name__}.lib.legacy")
+        v1_made = legacy.stable_read({"departments_validated": {"layout": True}})
+        assert v1_made["departments_done"] == {"layout": True}, v1_made  # a stable a 1.x made
+        written = legacy.stable_written({"departments_done": {"layout": False}})
+        assert written["departments_validated"] == {"layout": False}, written
         assert migration.migration_done({"data_migrations": {"2.0": {}}})
         assert not migration.migration_done({"data_migrations": {"1.2": {}}})  # a 2.0 build's earlier run: offered again
     print("OK: migration")

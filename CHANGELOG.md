@@ -257,7 +257,11 @@ All notable changes to this addon. Dates are release dates.
   `departments_validated`, a name kept from before validation roles: it
   has meant Done since 1.1.2). *Migrate old data* renames it in every
   `.stablemeta`; a project migrated by an earlier 2.0 build is offered
-  the migration again (nothing else in it changes).
+  the migration again (nothing else in it changes). The old name is
+  still written beside it, equal, so a 1.1.x on the same project (a team
+  updating one machine at a time, or going back) reads its stables; a
+  stable a 1.1.x changed last is read as it left it (`lib/legacy.py`,
+  to remove once no 1.x is left).
 - The farm's version check moves on (protocol 4): a machine left on 1.1.x
   gets no render from a 2.0 farm, and the other way round -- update every
   machine, then *Migrate old data*.

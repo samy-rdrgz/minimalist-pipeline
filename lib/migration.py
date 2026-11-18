@@ -13,7 +13,8 @@ writes (main thread: locked_json()). What each step completes:
   before it); "departments_worked" and the validations it carried
   ("approvals_carried", 1.1.9); "linked" one entry per project file;
   "departments_validated" renamed "departments_done" (2.0: it has meant
-  Done since 1.1.2, validations being "approvals").
+  Done since 1.1.2, validations being "approvals"), the old name kept
+  beside it for 1.x builds (lib/legacy.py).
 - .wipmeta: "linked" one entry per project file; each session's
   "departments_worked" with its date (1.2: {"departments", "saved_at",
   "by"}).
@@ -33,6 +34,7 @@ import shutil
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from . import legacy
 from .core import EARLIEST, file_time, locked_json, now, parse_iso, read_json_quiet, time_key
 from .preview import render_root
 from .snapshot import _folder_frames, _owner_shots
@@ -410,18 +412,15 @@ def _done_of(data: dict) -> dict:
 
 
 def _migrate_done(data: dict) -> bool:
-    """departments_validated renamed departments_done (2.0). Both there (a
-    stable validated by a build reading the new name before it was
-    migrated): the new one wins for each department it has."""
+    """departments_validated renamed departments_done (2.0), the old name
+    kept beside it, equal, while 1.x builds may read the project
+    (lib/legacy.py). Both there and differing: a 1.x wrote it last, its
+    values win (legacy.stable_read()). False when nothing changes."""
     if "departments_validated" not in data:
         return False
-    old = data.pop("departments_validated")
-    new = data.get("departments_done")
-    merged = dict(old) if isinstance(old, dict) else {}
-    if isinstance(new, dict):
-        merged.update(new)
-    data["departments_done"] = merged
-    return True
+    before = (data.get("departments_done"), data.get("departments_validated"))
+    legacy.stable_written(legacy.stable_read(data))
+    return (data.get("departments_done"), data.get("departments_validated")) != before
 
 
 def _from_stable(data: dict) -> bool:

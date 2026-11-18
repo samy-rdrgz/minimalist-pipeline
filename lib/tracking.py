@@ -46,6 +46,7 @@ from .core import (
     resolve_bpy_path,
     time_key,
 )
+from . import legacy
 from .errors import PipelineError
 from .status import project_stages, stage_flags
 from .logs import log
@@ -1038,7 +1039,7 @@ def create_stablemeta(
         path.parent.mkdir(parents=True, exist_ok=True)
 
         with locked_json(path) as box:
-            box["data"] = data
+            box["data"] = legacy.stable_written(data)
             box["action"] = "to_write"
     except Exception as e:
         raise PipelineError(f"Error during creating meta file : {e}")
@@ -1171,7 +1172,7 @@ def set_department_approval(
             )
     path = asset_dir / ".pipeline" / (_meta_stem(Path(last["file"])) + ".stablemeta")
     with locked_json(path) as box:
-        data = box["data"] or {}
+        data = legacy.stable_read(box["data"] or {})
         if approved and not (data.get("departments_done") or {}).get(department):
             raise PipelineError(f"{department} isn't done at {Path(last['file']).stem}.")
         roles = data.setdefault("approvals", {}).setdefault(department, {})
@@ -1183,6 +1184,7 @@ def set_department_approval(
             roles.pop(role)
             if not roles:
                 data["approvals"].pop(department)
+        box["data"] = legacy.stable_written(data)
         box["action"] = "to_write"
     stem = Path(last["file"]).stem
     create_entry(
@@ -1259,6 +1261,8 @@ def _latest_meta(entries: list, suffix: str) -> dict | None:
         data = read_json_quiet(Path(entry.path))
         if not data:
             continue
+        if suffix == ".stablemeta":
+            legacy.stable_read(data)
         created = parse_iso(data.get("created_at"))
         if created is None:
             continue
@@ -1347,7 +1351,7 @@ def _stablemeta_of(entries: list, stable_file: str) -> dict | None:
         if entry.name.endswith(".stablemeta"):
             meta_stem = entry.name.removesuffix(".stablemeta")
             if stem == meta_stem or stem.endswith("_" + meta_stem):
-                return read_json_quiet(Path(entry.path))
+                return legacy.stable_read(read_json_quiet(Path(entry.path)))
     return None
 
 
