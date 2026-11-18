@@ -379,6 +379,7 @@ body.out-open .scrim{display:block}
 .stage .novid{position:absolute;left:8px;right:8px;bottom:8px;display:flex;align-items:center;gap:var(--sp-4);padding:var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-5);border-radius:var(--r);background:var(--overlay);font-size:var(--fs-s);flex-wrap:wrap}
 .stage .novid .sp{flex:1}
 .scrub{position:relative;height:var(--h-sm);background:var(--field);border-radius:var(--r);box-shadow:inset 0 1px 2px rgba(0,0,0,.35);cursor:pointer;touch-action:none}
+.scrub.off{opacity:.35;cursor:default;pointer-events:none}.scrub.off .ph{display:none}
 .scrub .rng{position:absolute;top:7px;bottom:7px;background:rgba(229,87,95,.3);border-radius:var(--r-xs)}
 .scrub .rng.sel{background:rgba(110,164,255,.35)}
 .scrub .mk{position:absolute;top:50%;width:9px;height:9px;margin:calc(-1*var(--sp-2)) 0 0 calc(-1*var(--sp-2));background:var(--st-rtk);transform:rotate(45deg);border:0;padding:0;cursor:pointer}
@@ -1977,7 +1978,7 @@ const cur=()=>items.find(i=>i.name===S.sel);
    None touches the DOM. Each is an action of lib/review_import.py (named at the line's end). */
 const canVal=(it,d)=>!!S.review&&S.review.role!==TEAM&&['done','rework'].includes(it.states[d])&&!it.ok[d];
 /* The frames written: Blender's numbers (fNo), a range from I to the frame shown. */
-const rangeStr=()=>S.rangeStart!=null&&S.rangeStart!==S.frame?'f'+fNo(Math.min(S.rangeStart,S.frame))+'-'+fNo(Math.max(S.rangeStart,S.frame)):'f'+fNo(S.frame);
+const rangeStr=()=>!curRendered()?'':S.rangeStart!=null&&S.rangeStart!==S.frame?'f'+fNo(Math.min(S.rangeStart,S.frame))+'-'+fNo(Math.max(S.rangeStart,S.frame)):'f'+fNo(S.frame);
 const A={
   validate(it,d){it.mine[d]='val'},                                                         // validate
   toggleVal(it,d){if(it.mine[d]==='val')delete it.mine[d];else it.mine[d]='val'},             // validate / unvalidate
@@ -2092,6 +2093,11 @@ const FPS=()=>+M.fps||24;
 let FIRST=null;
 const fNo=i=>FIRST!=null?FIRST+i-1:i;
 const fIdx=n=>FIRST!=null?n-FIRST+1:n;
+/* Nothing rendered (or its folders gone): no frames to go through -- the transport, the scrub
+   and the frame number off, the thumbnail alone. */
+const rendered=it=>!!(it&&versOf(it).length);
+const pOff=it=>rendered(it)?'':'disabled';
+const curRendered=()=>rendered(typeof cur==='function'?cur():null);
 const PV=document.createElement('video');PV.playsInline=true;PV.preload='auto';PV.className='pv';
 PV.muted=S.muted;
 function curVideo(){const it=typeof cur==='function'?cur():null;if(!it)return null;const m=mVer(it),v=m.V[m.i];return v&&v.video?{it,v,src:videoSrc(v.video)}:null}
@@ -2121,14 +2127,14 @@ function syncFrame(){document.querySelectorAll('[data-f]').forEach(e=>e.textCont
 function syncPlay(){document.querySelectorAll('[data-tp="play"]').forEach(b=>b.innerHTML=ic(S.playing?'b-pause':'b-play'))}
 /* The frame count known once the video says its length: what was drawn with the old count, again. */
 function refreshPlayerUI(){if(isMob())mRender();else{renderProps();if(S.wide)renderWide()}}
-function setFrame(f){S.frame=Math.min(NF,Math.max(1,f));if(PV.parentNode&&PV.dataset.src){PV.pause();S.playing=false;syncPlay();PV.currentTime=(S.frame-1+.5)/FPS()}syncFrame()}
+function setFrame(f){if(!curRendered())return;S.frame=Math.min(NF,Math.max(1,f));if(PV.parentNode&&PV.dataset.src){PV.pause();S.playing=false;syncPlay();PV.currentTime=(S.frame-1+.5)/FPS()}syncFrame()}
 /* No video: the thumbnail, its frames counted at the project's rate. */
-let playT;function togglePlay(){S.playing=!S.playing;clearInterval(playT);
+let playT;function togglePlay(){clearInterval(playT);if(!curRendered()){S.playing=false;syncPlay();return}S.playing=!S.playing;
   if(PV.parentNode&&PV.dataset.src){if(S.playing){if(S.frame>=NF)PV.currentTime=0;PV.play().catch(()=>{S.playing=false;syncPlay()})}else PV.pause();syncPlay();return}
   if(S.playing)playT=setInterval(()=>{if(S.frame>=NF){if(isMob()){mEnd();return}if(S.seqPlay&&S.wide){seqNext();return}setFrame(1)}else{S.frame++;syncFrame()}},1000/FPS());
   syncPlay()}
 let drag=null;
-document.addEventListener('pointerdown',e=>{const s=e.target.closest('[data-scrub]');if(!s||e.target.closest('.mk'))return;drag=s;s.setPointerCapture(e.pointerId);sx(s,e.clientX)});
+document.addEventListener('pointerdown',e=>{const s=e.target.closest('[data-scrub]:not(.off)');if(!s||e.target.closest('.mk'))return;drag=s;s.setPointerCapture(e.pointerId);sx(s,e.clientX)});
 document.addEventListener('pointermove',e=>{if(drag)sx(drag,e.clientX)});
 document.addEventListener('pointerup',()=>drag=null);
 function sx(s,x){const r=s.getBoundingClientRect();setFrame(Math.round(1+(x-r.left)/r.width*(NF-1)))}
@@ -2328,12 +2334,12 @@ function stageHTML(it){
   const V=versOf(it),v=V[mVer(it).i];
   const mk=marks(it).map(f=>{const x=(fIdx(f.a)-1)/(NF-1)*100;return (f.b?`<span class="rng" style="left:${x}%;width:${(f.b-f.a)/(NF-1)*100}%"></span>`:'')+`<button class="mk ${f.rtk?'':'n'}" style="left:${x}%" data-goto="${f.a}" title="${f.rtk?'RTK':T('Note')} f${f.a}${f.b?'-'+f.b:''} : ${esc(f.n.text||T('(no text)'))}"></button>`}).join('');
   return `${shotsHTML(it)}<div class="stage ${S.m.side==='B'&&V.length>1?'is-b':''}">${it.thumb?`<img src="${it.thumb}" alt="${T('Picture of {name}',{name:it.name})}">`:`<span class="noimg">${T('Not rendered yet')}</span>`}
-      <span class="hud">${V.length>1?`<b class="ab">${S.m.side}</b> `:''}${shotOf(it)?shotOf(it)+' · ':''}${v?esc(v.folder)+' · ':''}f <span data-f>${fNo(S.frame)}</span></span></div>
-    <div class="scrub" data-scrub role="slider" tabindex="0" aria-label="${T('Frame')}" aria-valuemin="1" aria-valuemax="${NF}" aria-valuenow="${S.frame}">${mk}<span class="ph" style="left:${(S.frame-1)/(NF-1)*100}%"></span></div>
+      <span class="hud">${V.length>1?`<b class="ab">${S.m.side}</b> `:''}${shotOf(it)?shotOf(it)+' · ':''}${v?esc(v.folder)+' · f <span data-f>'+fNo(S.frame)+'</span>':T('Not rendered yet')}</span></div>
+    <div class="scrub ${rendered(it)?'':'off'}" data-scrub role="slider" tabindex="0" aria-label="${T('Frame')}" aria-valuemin="1" aria-valuemax="${NF}" aria-valuenow="${S.frame}">${mk}<span class="ph" style="left:${(S.frame-1)/(NF-1)*100}%"></span></div>
     <div class="ctl">
-      <span class="join"><button class="btn icon" data-tp="vprev" aria-label="${T('Previous version')}" title="${T('Previous version')}" ${V.length>1?'':'disabled'}>${ic('b-back')}</button><button class="btn icon" data-tp="fprev" aria-label="${T('Previous frame')}" title="${T('Previous frame (,)')}">${ic('b-frame_prev')}</button><button class="btn icon play" data-tp="play" aria-label="${T('Play')}" title="${T('Play (Space)')}">${ic(S.playing?'b-pause':'b-play')}</button><button class="btn icon" data-tp="fnext" aria-label="${T('Next frame')}" title="${T('Next frame (.)')}">${ic('b-frame_next')}</button><button class="btn icon" data-tp="vnext" aria-label="${T('Next version')}" title="${T('Next version')}" ${V.length>1?'':'disabled'}>${ic('b-forward')}</button></span>
+      <span class="join"><button class="btn icon" data-tp="vprev" aria-label="${T('Previous version')}" title="${T('Previous version')}" ${V.length>1?'':'disabled'}>${ic('b-back')}</button><button class="btn icon" data-tp="fprev" ${pOff(it)} aria-label="${T('Previous frame')}" title="${T('Previous frame (,)')}">${ic('b-frame_prev')}</button><button class="btn icon play" data-tp="play" ${pOff(it)} aria-label="${T('Play')}" title="${T('Play (Space)')}">${ic(S.playing?'b-pause':'b-play')}</button><button class="btn icon" data-tp="fnext" ${pOff(it)} aria-label="${T('Next frame')}" title="${T('Next frame (.)')}">${ic('b-frame_next')}</button><button class="btn icon" data-tp="vnext" aria-label="${T('Next version')}" title="${T('Next version')}" ${V.length>1?'':'disabled'}>${ic('b-forward')}</button></span>
       <span class="join"><button class="btn icon" data-tp="snd" aria-label="${T('Sound')}" title="${T('Sound (M)')}" aria-pressed="${!S.muted}">${ic(S.muted?'b-mute_ipo_off':'b-mute_ipo_on')}</button><button class="btn icon" data-act="player" ${V.length?'':'disabled'} aria-label="${T('This machine\'s player')}" title="${T('Open the original video in this machine\'s player')}">${ic('b-file_movie')}</button></span>
-      <span class="fr">f <span data-f>${fNo(S.frame)}</span> / ${fNo(NF)}</span></div>
+      ${rendered(it)?`<span class="fr">f <span data-f>${fNo(S.frame)}</span> / ${fNo(NF)}</span>`:''}</div>
     <div class="ctl">${verHTML(it,'p')}<button class="btn" data-wide title="${T('Watch large: the video, the departments and the notes at their frames (W)')}">${ic('b-window')}${T('Watch large')}</button></div>${abHTML(it,'p')}`;
 }
 const assignOf=(it,d)=>(it.assign&&d in it.assign)?it.assign[d]:(it.assignees[d]||[]);
@@ -2364,7 +2370,7 @@ function formHTML(d){
   return `<div class="form"><span class="join">${types.map(([k,l])=>`<button class="btn sm" data-ftype="${k}" aria-pressed="${f.type===k}">${l}</button>`).join('')}</span>
     ${chips}${shots}
     <label class="field ta"><textarea id="f-txt" rows="2" placeholder="${f.type==='rtk'?(f.deps.length===1?T('What\'s wrong on {dept}…',{dept:LBL[f.deps[0]]}):T('What\'s wrong…')):T('A remark, nothing sent back…')}" aria-label="${T('Text')}"></textarea></label>
-    <div class="r"><label class="field" style="width:calc(110px*var(--scale))"><span class="faint">f</span><input id="f-fr" value="${S.rangeStart!=null?fNo(Math.min(S.rangeStart,S.frame))+'-'+fNo(Math.max(S.rangeStart,S.frame)):fNo(S.frame)}" aria-label="${T('Frame or range')}"></label>
+    <div class="r"><label class="field" style="width:calc(110px*var(--scale))"><span class="faint">f</span><input id="f-fr" value="${!rendered(it)?'':S.rangeStart!=null?fNo(Math.min(S.rangeStart,S.frame))+'-'+fNo(Math.max(S.rangeStart,S.frame)):fNo(S.frame)}" aria-label="${T('Frame or range')}"></label>
     <span class="faint" style="font-size:var(--fs-s)">${T('Ctrl+Enter')}</span><span style="flex:1"></span><button class="btn sm" data-fcancel>${T('Cancel')}</button><button class="btn sm ${f.type==='rtk'?'alert':'primary'}" data-fok>${T('Write')}</button></div></div>`;
 }
 function notesHTML(it){
@@ -2621,7 +2627,7 @@ function renderWide(){
   const notesAt=mk.length?mk.map(f=>`<button class="wn" data-goto="${f.a}"><span class="ft ${f.b?'rg':f.rtk?'':'nt'}">f${f.a}${f.b?'-'+f.b:''}</span><span class="tx">${esc(f.n.text||T('(no text)'))}<small> · ${esc((f.n.deps||[]).map(d=>LBL[d]||d).join(', ')||T('no department'))}${f.n.author?' · '+esc(f.n.author):''}</small></span></button>`).join(''):'<p class="faint" style="margin:0">'+T('No note at a frame on this video.')+'</p>';
   const writer=rv&&S.wdep?`<div class="ww"><div class="wwl"><span class="join"><button class="btn sm" data-wtype="rtk" aria-pressed="${S.wtype==='rtk'}">Retake</button><button class="btn sm" data-wtype="note" aria-pressed="${S.wtype==='note'}">${T('Remark')}</button></span>
       <span class="lbl">${S.rangeStart!=null?T('from <b>f{a}</b> to <b>f{b}</b> on <b>{dept}</b>',{a:fNo(S.rangeStart),b:`<span data-f>${fNo(S.frame)}</span>`,dept:LBL[S.wdep]}):T('at <b>f{b}</b> on <b>{dept}</b>',{b:`<span data-f>${fNo(S.frame)}</span>`,dept:LBL[S.wdep]})}</span>
-      <button class="btn sm ${S.rangeStart!=null?'':'tool'}" data-tp="in" aria-pressed="${S.rangeStart!=null}" title="${S.rangeStart!=null?T('Forget the range\'s start'):T('A range: its start at the frame shown, its end where you are when you add (I)')}">${S.rangeStart!=null?'⇤ f'+S.rangeStart+' ✕':'⇤ '+T('Range from here')}</button></div>
+      <button class="btn sm ${S.rangeStart!=null?'':'tool'}" data-tp="in" ${pOff(it)} aria-pressed="${S.rangeStart!=null}" title="${S.rangeStart!=null?T('Forget the range\'s start'):T('A range: its start at the frame shown, its end where you are when you add (I)')}">${S.rangeStart!=null?'⇤ f'+S.rangeStart+' ✕':'⇤ '+T('Range from here')}</button></div>
       <label class="field ta"><textarea id="w-ta" rows="3" placeholder="${T('Write as you watch: Enter adds, Shift+Enter goes to a new line')}" aria-label="${T('Text')}"></textarea></label></div>`
     :!rv?`<p class="faint" style="margin:0">${T('Start a review to validate, send back and write at a frame.')}</p><button class="btn primary" id="rv-open-w">${ic('b-greasepencil')}${T('Review')}</button>`:'';
   W.innerHTML=`<div class="w-head"><button class="btn icon" data-wclose aria-label="${T('Close')}" title="${T('Close (Esc)')}">${ic('b-x')}</button>
@@ -2633,12 +2639,12 @@ function renderWide(){
       <button class="btn icon" data-full aria-label="${T('Full screen')}" title="${T('Full screen')}">${ic('b-fullscreen_enter')}</button></div>
     <div class="w-body"><div class="w-main">
       <div class="w-stage ${S.m.side==='B'&&V.length>1?'is-b':''}">${it.thumb?`<img src="${it.thumb}" alt="${T('Picture of {name}',{name:it.name})}">`:`<span class="noimg">${T('Not rendered yet')}</span>`}<span class="hud">${V.length>1?`<b class="ab">${S.m.side}</b> `:''}${v?esc(v.folder)+' · ':''}f <span data-f>${fNo(S.frame)}</span></span></div>
-      <div class="w-tl"><div class="scrub big" data-scrub role="slider" tabindex="0" aria-label="Frame" aria-valuemin="1" aria-valuemax="${NF}" aria-valuenow="${S.frame}">${mkH}${rng}<span class="ph" style="left:${(S.frame-1)/(NF-1)*100}%"></span></div>
+      <div class="w-tl"><div class="scrub big ${rendered(it)?'':'off'}" data-scrub role="slider" tabindex="0" aria-label="Frame" aria-valuemin="1" aria-valuemax="${NF}" aria-valuenow="${S.frame}">${mkH}${rng}<span class="ph" style="left:${(S.frame-1)/(NF-1)*100}%"></span></div>
         <div class="ruler"><span>f1</span><span>f${Math.round(NF/4)}</span><span>f${Math.round(NF/2)}</span><span>f${Math.round(NF*3/4)}</span><span>f${NF}</span></div></div>
       <div class="w-tp"><span class="join"><button class="btn icon" data-tp="vprev" aria-label="${T('Previous version')}" title="${T('Previous version')}" ${V.length>1?'':'disabled'}>${ic('b-back')}</button>
-        <button class="btn icon" data-tp="fprev" aria-label="${T('Previous frame')}" title="${T('Previous frame (,)')}">${ic('b-frame_prev')}</button>
-        <button class="btn icon play" data-tp="play" aria-label="${T('Play')}" title="${T('Play (Space)')}">${ic(S.playing?'b-pause':'b-play')}</button>
-        <button class="btn icon" data-tp="fnext" aria-label="${T('Next frame')}" title="${T('Next frame (.)')}">${ic('b-frame_next')}</button>
+        <button class="btn icon" data-tp="fprev" ${pOff(it)} aria-label="${T('Previous frame')}" title="${T('Previous frame (,)')}">${ic('b-frame_prev')}</button>
+        <button class="btn icon play" data-tp="play" ${pOff(it)} aria-label="${T('Play')}" title="${T('Play (Space)')}">${ic(S.playing?'b-pause':'b-play')}</button>
+        <button class="btn icon" data-tp="fnext" ${pOff(it)} aria-label="${T('Next frame')}" title="${T('Next frame (.)')}">${ic('b-frame_next')}</button>
         <button class="btn icon" data-tp="vnext" aria-label="${T('Next version')}" title="${T('Next version')}" ${V.length>1?'':'disabled'}>${ic('b-forward')}</button></span>
         <button class="btn icon" data-tp="snd" aria-label="${T('Sound')}" title="${T('Sound (M)')}" aria-pressed="${!S.muted}">${ic(S.muted?'b-mute_ipo_off':'b-mute_ipo_on')}</button>
         <span class="bigf">f <span data-f>${fNo(S.frame)}</span></span>${verHTML(it,'w')}${abHTML(it,'w').replace('ctl abrow','abrow')}<span class="sp"></span>
@@ -2653,7 +2659,7 @@ function renderWide(){
 function wideAdd(){
   const ta=$('#w-ta');if(!ta)return;const txt=ta.value.trim(),it=cur(),d=S.wdep;if(!txt&&S.wtype!=='rtk')return;
   const fr=rangeStr();
-  A.note(it,{type:S.wtype,dept:d,text:txt,frames:fr});S.rangeStart=null;refresh();msg(S.wtype==='rtk'?T('Retake at {frames} on {dept}',{frames:fr,dept:LBL[d]}):T('Remark at {frames} on {dept}',{frames:fr,dept:LBL[d]}));$('#w-ta')?.focus();
+  A.note(it,{type:S.wtype,dept:d,text:txt,frames:fr});S.rangeStart=null;refresh();msg(S.wtype==='rtk'?T('Retake at {frames} on {dept}',{frames:fr||'—',dept:LBL[d]}):T('Remark at {frames} on {dept}',{frames:fr||'—',dept:LBL[d]}));$('#w-ta')?.focus();
 }
 
 /* ---------- Status ---------- */
@@ -2930,8 +2936,8 @@ function mReview(){
     ${it.desc||it.descEdit?`<p class="m-desc">${esc(it.descEdit??it.desc)}</p>`:''}
     <div class="m-player ${S.m.side==='B'&&V.length>1?'is-b':''}" id="m-player">${it.thumb?`<img src="${it.thumb}" alt="${T('Picture of {name}',{name:esc(it.name)})}" draggable="false">`:`<span class="noimg">${T('Not rendered yet')}</span>`}
       <span class="m-hud">${V.length>1?`<b class="ab">${S.m.side}</b>`:''}${v?esc(verLab(v)):T('no version')}</span><span class="m-fr">f <span data-f>${fNo(S.frame)}</span></span></div>
-    <div class="scrub big" data-scrub role="slider" tabindex="0" aria-label="${T(T('Frame'))}" aria-valuemin="1" aria-valuemax="${NF}" aria-valuenow="${S.frame}">${mkH}${rng}<span class="ph" style="left:${(S.frame-1)/(NF-1)*100}%"></span></div>
-    <div class="m-tp"><button class="btn icon" data-tp="fprev" aria-label="${T('Previous frame')}">${ic('b-frame_prev')}</button><button class="btn icon play" data-tp="play" aria-label="${T('Play')}">${ic(S.playing?'b-pause':'b-play')}</button><button class="btn icon" data-tp="fnext" aria-label="${T('Next frame')}">${ic('b-frame_next')}</button><button class="btn icon" data-mloop aria-pressed="${S.m.loop}" aria-label="${T('Loop this shot')}" title="${S.m.loop?T('Plays this shot again and again'):T('Plays the path\'s shots one after the other')}">${ic('b-file_refresh')}</button>
+    <div class="scrub big ${rendered(it)?'':'off'}" data-scrub role="slider" tabindex="0" aria-label="${T(T('Frame'))}" aria-valuemin="1" aria-valuemax="${NF}" aria-valuenow="${S.frame}">${mkH}${rng}<span class="ph" style="left:${(S.frame-1)/(NF-1)*100}%"></span></div>
+    <div class="m-tp"><button class="btn icon" data-tp="fprev" ${pOff(it)} aria-label="${T('Previous frame')}">${ic('b-frame_prev')}</button><button class="btn icon play" data-tp="play" ${pOff(it)} aria-label="${T('Play')}">${ic(S.playing?'b-pause':'b-play')}</button><button class="btn icon" data-tp="fnext" ${pOff(it)} aria-label="${T('Next frame')}">${ic('b-frame_next')}</button><button class="btn icon" data-mloop aria-pressed="${S.m.loop}" aria-label="${T('Loop this shot')}" title="${S.m.loop?T('Plays this shot again and again'):T('Plays the path\'s shots one after the other')}">${ic('b-file_refresh')}</button>
       ${V.length>1?`<span class="join m-ab" role="group" aria-label="${T('Version shown')}"><button class="btn" data-mside="A" aria-pressed="${S.m.side==='A'}">A</button><button class="btn" data-mside="B" aria-pressed="${S.m.side==='B'}">B</button></span>`:''}</div>
     ${V.length>1?`<div class="m-vers"><button class="m-vchip ${S.m.side==='A'?'on':''}" data-msheet="verA"><b>A</b><span class="lb">${esc(verLab(V[a]))}</span>${ic('b-tria_down')}</button><button class="m-vchip ${S.m.side==='B'?'on':''}" data-msheet="verB"><b>B</b><span class="lb">${esc(verLab(V[b]))}</span>${ic('b-tria_down')}</button></div>
       `:''}<p class="m-hint">${S.m.loop?T('Loop: this shot plays again.'):T('Play: the path\'s shots one after the other.')}${V.length>1?' '+T('A / B: same frame, another version.'):''} ${T('Swipe the picture: next shot.')}</p>
@@ -2956,7 +2962,7 @@ function mComposer(){
   const it=cur(),req=DEPTS[it.kind].filter(d=>required(it).includes(d));if(S.m.cdept&&!req.includes(S.m.cdept))S.m.cdept=null;
   return `<div class="m-comp"><div class="m-cr"><span class="join m-ct"><button class="btn icon" data-mct="rtk" aria-pressed="${S.m.ctype==='rtk'}" aria-label="Retake" title="Retake">${ic('b-x')}</button><button class="btn icon" data-mct="note" aria-pressed="${S.m.ctype==='note'}" aria-label="${T('Remark')}" title="${T('Remark')}">${ic('i-note')}</button></span>
       <button class="m-chip" data-msheet="cdept"><span>${S.m.cdept?LBL[S.m.cdept]:T('No dept.')}</span>${ic('b-tria_down')}</button>
-      <button class="m-chip ${S.rangeStart!=null?'on':''}" data-tp="in" aria-pressed="${S.rangeStart!=null}" title="${T('A range: its start here')}">${S.rangeStart!=null?'f'+S.rangeStart+' →':'⇤'} f<span data-f>${fNo(S.frame)}</span></button></div>
+      <button class="m-chip ${S.rangeStart!=null?'on':''}" data-tp="in" ${pOff(it)} aria-pressed="${S.rangeStart!=null}" title="${T('A range: its start here')}">${S.rangeStart!=null?'f'+S.rangeStart+' →':'⇤'} f<span data-f>${fNo(S.frame)}</span></button></div>
     <div class="m-cr"><label class="field ta"><textarea id="m-ta" rows="1" placeholder="${S.m.ctype==='rtk'?T('Retake at this frame…'):T('Remark at this frame…')}" aria-label="${T('The note\'s text')}"></textarea></label>
       <button class="btn primary icon m-send" data-msend aria-label="${T('Add to my review')}">${ic('b-export')}</button></div></div>`;
 }
