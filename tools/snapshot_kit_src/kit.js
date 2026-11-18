@@ -103,7 +103,7 @@ const RULES=[['Espacements','Uniquement --sp-1 à --sp-11. Dans une box : --sp-6
  ['Hauteurs','Widget 28 (--u), petit 24 (--h-sm), en-tête 36 (--h-lg). Mobile : 44 (--h-touch) partout où l\'on touche.'],
  ['Arrondis','5 (--r) pour les widgets comme Blender, 8 (--r-l) pour les box et menus, 10 (--r-xl) pour dialogues et feuilles.'],
  ['Texte','13 courant, 11.5 secondaire, 15 titres de zone, 18 titres de page. Mono pour les noms de fichiers et les frames.'],
- ['Couleurs','Jamais de couleur en dur dans un composant : une variable, liée à un champ du thème Blender. Les états ont leurs couleurs fixes.'],
+ ['Couleurs','Jamais de couleur en dur dans un composant : une variable de 10-tokens.css (sombre et clair). Les états ont leurs couleurs fixes.'],
  ['Snapshot / live','Ce qui demande Blender porte .live-only. En snapshot : pas de Farm, pas de Rendre, pas d\'ouverture dans Blender, pas de cloche.'],
  ['Bureau / mobile','Mobile si tactile ET < 900 px. Mêmes actions (A.*), mêmes sélecteurs ; l\'affichage seul change.']];
 
@@ -115,7 +115,7 @@ function renderKit(){
   const row=(t,g)=>{const v=g==='fs'?TV[t.n]:TV[t.n];const vis=g==='sp'?`<span class="k-bar" style="width:${v*3}px"></span>`:g==='h'?`<span class="k-hbox" style="height:${v}px"></span>`:g==='r'?`<span class="k-box" style="border-radius:${v}px"></span>`:`<span style="font-size:${v}px;color:var(--text)">Plan sq030_sh040</span>`;
     return `<div class="k-tr"><code>${t.n}</code><span class="f">${esc(t.v)}</span><span class="px">${r1(v)} px</span><span class="vis">${vis}${t.c?`<span style="margin-left:var(--sp-5)">${esc(t.c)}</span>`:''}</span></div>`};
   $('#k-sp').innerHTML=G.sp.map(t=>row(t,'sp')).join('');$('#k-h').innerHTML=G.h.map(t=>row(t,'h')).join('');$('#k-r').innerHTML=G.r.map(t=>row(t,'r')).join('');$('#k-fs').innerHTML=G.fs.map(t=>row(t,'fs')).join('');
-  let grp='';$('#k-col').innerHTML=`<table class="k-ctab"><tr><th>Variable</th><th>Sombre</th><th>Clair</th><th class="hide-s">Champ du thème Blender</th></tr>${KT.color.map(t=>{const gg=t.n.startsWith('--st-')?'États (fixes)':t.n.startsWith('--node')||['--sock','--wire','--wire-edge'].includes(t.n)?'Nodes':/^--(play|alert|ok|you|rtk-t|wip-t|live-t)/.test(t.n)?'Accents':'Interface';
+  let grp='';$('#k-col').innerHTML=`<table class="k-ctab"><tr><th>Variable</th><th>Sombre</th><th>Clair</th><th class="hide-s">Rôle</th></tr>${KT.color.map(t=>{const gg=t.n.startsWith('--st-')?'États (fixes)':t.n.startsWith('--node')||['--sock','--wire','--wire-edge'].includes(t.n)?'Nodes':/^--(play|alert|ok|you|rtk-t|wip-t|live-t)/.test(t.n)?'Accents':'Interface';
     const h=gg!==grp?`<tr class="k-grp"><td colspan="4">${gg}</td></tr>`:'';grp=gg;
     return h+`<tr><td class="m">${t.n}</td><td class="m"><span class="k-sw" style="background:${t.dark}"></span>${t.dark}</td><td class="m"><span class="k-sw" style="background:${t.light||t.dark}"></span>${t.light||'='}</td><td class="hide-s">${esc(t.c||'')}</td></tr>`}).join('')}</table>`;
   $('#k-desk').innerHTML=DESK.map((s,i)=>card(s,i,'d')).join('');DESK.forEach(s=>s.after&&s.after());
@@ -150,7 +150,7 @@ function audit(SAME){
     +box('Hauteurs de widgets en bureau','Toutes les hauteurs rencontrées : il en faut le moins possible (idéal : 24 et 28).',hrows,'')
     +box('Tailles encore en px dans le CSS','Padding, marges, gaps, arrondis et polices écrits en dur au lieu d\'un jeton.',hard,'Aucune.')
     +box('Icônes et repères en px','Hauteurs fixes de petits éléments (icônes, pastilles, barres). Candidats à des jetons --ic-*.',icons,'Aucun.')
-    +box('Couleurs en dur','Hors des variables : elles ne suivront pas le thème Blender.',hex,'Aucune.');
+    +box('Couleurs en dur','Hors des variables : elles ne suivront pas le thème sombre / clair.',hex,'Aucune.');
   $('#k-toc').innerHTML=`<a href="#audit" class="h">Audit</a><a href="#fond" class="h">Fondations</a><a href="#desk" class="h">Bureau</a>${DESK.map((s,i)=>`<a href="#d${i}">${s.n}${document.querySelector('#d'+i+' [data-w].w')?'<span class="w">●</span>':''}</a>`).join('')}<a href="#mobi" class="h">Mobile</a>${MOBC.map((s,i)=>`<a href="#m${i}">${s.n}${document.querySelector('#m'+i+' [data-w].w')?'<span class="w">●</span>':''}</a>`).join('')}<a href="#regles" class="h">Règles</a>`;
 }
 document.addEventListener('click',e=>{const t=e.target.closest('[data-ktheme]');if(t){document.querySelectorAll('[data-ktheme]').forEach(b=>b.setAttribute('aria-pressed',b===t));setTheme(t.dataset.ktheme);requestAnimationFrame(specAll)}
