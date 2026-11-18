@@ -101,7 +101,7 @@ function linksHTML(it){
     `<div class="nodes-wrap"><div class="nodes" id="nodes"><svg class="wires" id="wires"></svg>${ins.length?`<div class="ncol">${ins.map(nodeA).join('')}</div>`:''}<div class="ncol">${target}</div>${by.length?`<div class="ncol">${by.map(nodeB).join('')}</div>`:''}</div></div>`;
   return `<div class="sec"><div class="sec-h">${T('Links')}<span class="sp"></span><span class="faint" style="text-transform:none;letter-spacing:0">${T('{n} linked · linked by {m}',{n:ins.length,m:by.length})}</span></div>
     ${graph}<p class="faint" style="margin:0;font-size:var(--fs-s)">${T('Red wire: a newer stable exists. Click a node: opens the file.')}</p>
-    ${old?`<div class="pacts"><button class="btn primary live-only" data-relink title="${T('Makes an -updatelink version linking the last stables, in the background, overwriting nothing')}">${ic('b-linked')}${T('Update the links ({n})',{n:old})}</button></div>`:''}</div>`;
+    ${old?`<div class="pacts"><button class="btn primary live-only" data-relink title="${T('Makes a -relink version linking the last stables, without opening it, overwriting nothing')}">${ic('b-linked')}${T('Update the links ({n})',{n:old})}</button></div>`:''}</div>`;
 }
 function wirePath(x1,y1,x2,y2,ym){
   if(x2>=x1-4){const dx=Math.max(30,(x2-x1)*.5);return `M${x1},${y1} C${x1+dx},${y1} ${x2-dx},${y2} ${x2},${y2}`}
@@ -139,6 +139,8 @@ function headHTML(it){
     <button class="btn flat icon" data-act="copy" aria-label="${T('Copy a link to this file')}" title="${T('Copy a link to this file')}">${ic('b-linked')}</button>
     <span class="anchor"><button class="btn flat icon" data-settings aria-label="${T('File settings')}" title="${T('Settings: required departments, set aside')}">${ic('b-preferences')}</button></span>
     <button class="btn flat icon live-only" data-act="blender" aria-label="${T('Open in Blender')}" title="${T('Open in Blender')}">${ic('b-blender')}</button>
+    <button class="btn flat icon live-only" data-act="blendfolder" aria-label="${T('Open its folder')}" title="${T('Its folder: the .blend\'s, in this machine\'s file browser')}">${ic('b-file_folder')}</button>
+    ${(it.versions||[]).length?`<button class="btn flat icon live-only" data-act="renderfolder" aria-label="${T('Open its render folder')}" title="${T('Its render folder, in this machine\'s file browser')}">${ic('b-render_result')}</button>`:''}
     <span class="join"><button class="btn icon" id="pp-prev" aria-label="${T('Previous file')}" title="${T('Previous (↑)')}">${ic('b-tria_up')}</button><button class="btn icon" id="pp-next" aria-label="${T('Next file')}" title="${T('Next (↓)')}">${ic('b-tria_down')}</button></span>
     <button class="btn flat icon only-phone" id="pp-close" aria-label="${T('Close')}" title="${T('Close (Esc)')}">${ic('b-x')}</button>`;
 }

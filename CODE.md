@@ -257,6 +257,9 @@ Shared drawing, memory only: `key_value()` / `key_values()` (a details line, its
 
 `tools/make_icons.py` draws `icons/*.png` (pure Python); `register_marks()` loads them into a preview collection, `icon_kw("mark:<name>")` gives a layout call its `icon_value` (Blender's own names pass through as `icon=`). `icon_button()` takes either. See NOTES.md, "Coloured marks".
 
+### Reading a .blend (`blendfile.py`)
+`blendfile.read(path)` → `Blend` (`.libraries` with each path's position, `.linked` names per library, `.local` names, `.kind`), no Blender, any thread; `blendfile.write_copy(src, dst, {pos: (size, bytes)})`. Used by Update links (`relink.py`). See NOTES.md, "Reading a .blend without Blender".
+
 ### Migration (`migration.py`, `operators/migration_ops.py`)
 `plan_migration(root)` (read only, thread-safe) → `apply_migration(root, plan)` (each file backed up under `backup/migration-<date>/` first); `migration_done(config)` / `data_migrations` in the config. What older versions wrote, completed once with the deductions their readers made: an entry's single `department`, a stable's `departments_validated` renamed `departments_done` (`_migrate_done()`), its `departments_started` / `departments_worked` / carried validations (`_legacy_carried()`, `_worked_since()` as they were), `linked` one per project file, a render's `output_path` / `source_file` / `shot_override` / `frame_range_rendered`, every date and time with its offset (`_migrate_dates()`). `M_PIPELINE_OT_migrate_data` (Edit project > Maintenance; the Project panel says so while `project_needs_migration()`). See NOTES.md, "Migration 1.2: one form of data".
 - `parse_filename(filename)` — returns `{prefix, name/sequence/shot, number, tag}` or None

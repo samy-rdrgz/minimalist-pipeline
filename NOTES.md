@@ -5302,27 +5302,56 @@ allows them (a secure context: 127.0.0.1, not a guest on the LAN), on
 a click (*Notify me in the system too*), the page hidden. In memory: not
 "since your last visit" (plan, section 6).
 
-## Update links: a -updatelink version
+## Update links: a -relink version
 
 From the live page (`/relink`, never a guest's): `lib/relink.py`
 `relink_plan()` takes the folder's newest version (any tag), its meta's
 `linked` (.stablemeta for a stable, else .wipmeta), the links whose
 folder has a newer -stable (`_outdated_links_of()`, the page's own
-rule); the next number, tagged `-updatelink`. A live lock on the source:
-left (relinking would fork the work in progress). `start()` runs
-`templates/relink_entry.py` on the source in `blender -b
---factory-startup` -- no addon there, so none of its load/save handlers
-(session, lock, auto-version, wipmeta sync) -- which repoints each
-library whose resolved path is an old one, `reload()`s it and
-`save_as_mainfile(copy=True)` to the new name: the source untouched.
-`poll()`, on the live page's turn, reads the result back and writes the
-new version's .wipmeta (`create_wipmeta()`, `creation_mode` "relink",
-no `departments_worked`: not work). `RELINK_TAG` is added to the naming
-regexes whatever the project's `tags`; the snapshot counts a
--updatelink as a wip. Not a stable: what links the file takes it once
-someone marks it stable. Not checked in Blender yet: file compression
-(save_as's default, not the source's) and indirect libraries (only the
-direct links the meta lists are moved).
+rule); the next number, tagged `-relink`. A live lock on the source:
+left (relinking would fork the work in progress). `start()` runs `_run()`
+in a thread: the source's library blocks read (lib/blendfile.py, below),
+each direct library whose resolved path is an old one of the plan
+repointed in a copy -- when the newer stable still holds every name the
+file links from it, else kept and said. `poll()`, on the live page's
+turn, writes the new version's .wipmeta (`create_wipmeta()`,
+`creation_mode` "relink", its links -- a kept one as it was -- no
+`departments_worked`: not work). `RELINK_TAGS` ("relink", and
+"updatelink" from the first 2.0 builds) are added to the naming regexes
+whatever the project's `tags`; the snapshot counts them as wips. Not a
+stable: what links the file takes it once someone marks it stable.
+
+- Rejected since: a background Blender opening the source
+  (`templates/relink_entry.py`, removed) -- a scene of several GB loaded
+  in full to change a path, one Blender per file.
+- Indirect libraries left as they are: Blender finds them again through
+  the direct ones when it opens the file.
+
+## Reading a .blend without Blender
+
+`lib/blendfile.py`. A .blend is a header (`BLENDER-v402`: pointer size,
+endianness, version; Blender 5: `BLENDER17-01v0500`, 64-bit block lengths)
+then blocks -- code, length, old address, struct index, count -- and a DNA1
+block describing every struct (names, types, sizes). Read: the blocks'
+headers one after the other, the data skipped (seek) except the few
+wanted: libraries (`LI`, their path), linked data placeholders (`ID`, a
+name and the address of the library it comes from), the file's own data
+(any ID block: its name, its library pointer 0). The DNA is parsed once
+per Blender version (files share it).
+
+- Compressed (gzip; zstd since 3.0) can't be skipped through: read whole,
+  through `zstandard` (bundled with Blender). Still no Blender, but the
+  slow case.
+- Written: a copy, a library's path changed in place in its fixed
+  `char[1024]` -- the same length, nothing else moves. A compressed source
+  written uncompressed: its "compress" setting is in the file (`GLOB`),
+  Blender compresses it again on its next save. Rejected: writing zstd
+  back -- Blender reads its own seekable frames, a plain stream untested.
+- Data found by name: Blender relinks a placeholder `OBbob` from its
+  library by that name. So a library can be swapped when the new file has
+  every name the old one was linked for -- checked before.
+- Checked in Blender 4.2 on real files (plain and zstd): the -relink copy
+  opens with its linked objects from the new stables.
 
 ## Page: what shows by default
 

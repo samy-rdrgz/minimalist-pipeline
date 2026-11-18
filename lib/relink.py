@@ -1,30 +1,32 @@
 """Update links: a file's outdated links moved to their latest stables
-without opening it, in a new version tagged -updatelink (plan 8.4).
+without opening it, in a new version tagged -relink (plan 8.4).
 
 - The source is the file's newest version, wip or stable; the new one is
-  the next number, "<name>_v006-updatelink.blend" -- never saved over, a
+  the next number, "<name>_v006-relink.blend" -- never saved over, a
   stable never touched. Not a stable itself: what links this file takes
   it once someone marks it stable (a person checks the relink broke
   nothing).
 - A version someone has open to work on (a live lock) is left: relinking
   it would fork their work.
-- Done in a disposable background Blender (templates/relink_entry.py,
-  --factory-startup: none of the addon's handlers there -- no session, no
-  lock, no auto-version), this Blender never waits for it: poll() on its
-  timer reads the result, then writes the new version's .wipmeta (its
-  links, creation_mode "relink"). No work session: no department worked,
-  no work time, nothing "to redo" downstream.
+- No Blender: the source's library blocks read and the copy's paths
+  written straight in the file (lib/blendfile.py), in a thread -- a scene
+  of several GB in a moment (a compressed one is read whole). Before a
+  library moves, the newer stable is read too: it must still hold every
+  piece of data the file links from it (by name, as Blender finds linked
+  data), else that link is kept and said. poll() on the live page's turn
+  writes the new version's .wipmeta (its links, creation_mode "relink").
+  No work session: no department worked, no work time, nothing "to redo"
+  downstream. See NOTES.md, "Reading a .blend without Blender".
 """
 
-import json
 import os
-import subprocess
-import tempfile
+import threading
 import time
 from pathlib import Path
 
+from . import blendfile
 from .config import RELINK_TAG, ConfigCache, parse_filename
-from .core import blender_command, json_get, read_json_quiet
+from .core import json_get, read_json_quiet
 from .logs import log
 from .tracking import (
     _meta_path,
@@ -91,8 +93,8 @@ def relink_plan(root: Path, owner: Path) -> dict:
 
 
 def start(root: Path, owners: list[Path]) -> dict:
-    """Update links on each owner (a background Blender each, not waited
-    on). Returns {"started": [names], "skipped": [[name, why]]}."""
+    """Update links on each owner (a thread each, not waited on). Returns
+    {"started": [names], "skipped": [[name, why]]}."""
     started, skipped = [], []
     for owner in owners:
         key = _key(root, owner)
@@ -104,25 +106,14 @@ def start(root: Path, owners: list[Path]) -> dict:
         if plan["error"]:
             skipped.append([owner.name, plan["error"]])
             continue
-        fd, tmp = tempfile.mkstemp(suffix=".json", prefix="pipeline_relink_")
-        request = Path(tmp)
-        with open(fd, "w", encoding="utf-8") as f:
-            json.dump({"out": str(plan["out"]), "mapping": plan["mapping"]}, f)
-        try:
-            proc = subprocess.Popen(
-                blender_command("relink_entry.py", [request], blend=plan["source"], factory=True),
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-        except OSError as e:
-            request.unlink(missing_ok=True)
-            skipped.append([owner.name, f"Blender not started: {e}"])
-            continue
-        _jobs[key] = {
+        job = {
             "state": "running", "message": f"{plan['source'].name} → {plan['out'].name}",
-            "file": plan["out"].stem, "at": time.monotonic(), "proc": proc, "request": request,
-            "source": plan["source"], "out": plan["out"], "linked": plan["linked"],
+            "file": plan["out"].stem, "at": time.monotonic(), "result": None,
+            "source": plan["source"], "out": plan["out"], "linked": plan["linked"], "mapping": plan["mapping"], "root": Path(root),
         }
+        job["thread"] = threading.Thread(target=_run, args=(job,), daemon=True, name="pipeline-relink")
+        _jobs[key] = job
+        job["thread"].start()
         log("INFO", "relink", f"Update links: {plan['source'].name} -> {plan['out'].name} ({len(plan['mapping'])} link(s))")
         started.append(owner.name)
     return {"started": started, "skipped": skipped}
@@ -139,28 +130,93 @@ def poll() -> bool:
                 del _jobs[key]
                 changed = True
             continue
-        if job["proc"].poll() is None:
+        if job["result"] is None:
             continue
-        result = read_json_quiet(job["request"]) or {}
-        job["request"].unlink(missing_ok=True)
+        result = job["result"]
         out = job["out"]
         if result.get("status") == "ok" and out.is_file():
             try:
-                create_wipmeta(filepath=out, original_filepath=job["source"], creation_mode="relink", linked=job["linked"])
+                kept = {os.path.normcase(k) for k in result.get("kept") or []}
+                linked = [_kept_link(d, job["mapping"], kept, job["root"]) for d in job["linked"]]
+                create_wipmeta(filepath=out, original_filepath=job["source"], creation_mode="relink", linked=linked)
                 job.update(state="done", message=f"{out.name}: {result.get('message', '')}")
                 log("SUCCESS", "relink", f"Update links: {out.name} ({result.get('message', '')})")
             except Exception as e:
                 job.update(state="failed", message=f"{out.name} saved, its .wipmeta not: {e}")
                 log("WARNING", "relink", job["message"])
         else:
-            why = result.get("message") or f"Blender exited with {job['proc'].returncode}"
+            why = result.get("message") or "not updated"
             job.update(state="failed", message=why)
             log("WARNING", "relink", f"Update links: {job['source'].name} not updated: {why}")
-        for k in ("proc", "request", "source", "out", "linked"):
+        for k in ("thread", "result", "source", "out", "linked", "mapping", "root"):
             job.pop(k, None)
         job["at"] = clock
         changed = True
     return changed
+
+
+def _run(job: dict) -> None:
+    """The work, in a thread: the source's libraries read, those of the
+    mapping repointed (when their new stable still has what's linked from
+    them), the copy written. Sets job["result"]: {"status", "message",
+    "kept": [old paths left as they were]}."""
+    try:
+        source, out = Path(job["source"]), Path(job["out"])
+        if out.exists():
+            raise blendfile.BlendError(f"{out.name} exists already")
+        mapping = {os.path.normcase(os.path.normpath(o)): Path(n) for o, n in job["mapping"]}
+        blend = blendfile.read(source)
+        paths, done, kept = {}, [], []
+        has: dict[str, set] = {}
+        for lib in blend.libraries:
+            if not lib["direct"]:
+                continue
+            old = blendfile.resolve(lib["raw"], source.parent)
+            new = mapping.get(os.path.normcase(os.path.normpath(str(old))))
+            if new is None:
+                continue
+            key = os.path.normcase(str(new))
+            if key not in has:
+                b = blendfile.read(new)
+                has[key] = b.local.union(*b.linked.values())
+            missing = sorted(blend.linked.get(lib["old"], set()) - has[key])
+            if missing:
+                kept.append(str(old))
+                shown = ", ".join(m[2:] for m in missing[:4]) + ("..." if len(missing) > 4 else "")
+                done.append(f"{old.name} kept: {new.name} has no {shown}")
+                continue
+            if lib["raw"].startswith(b"//"):
+                nb = ("//" + os.path.relpath(new, out.parent).replace("\\", "/")).encode("utf-8")
+            else:
+                nb = str(new).encode("utf-8")
+            if len(nb) >= lib["size"]:
+                kept.append(str(old))
+                done.append(f"{old.name} kept: path too long")
+                continue
+            paths[lib["pos"]] = (lib["size"], nb)
+            done.append(f"{old.name} -> {new.name}")
+        if not paths:
+            raise blendfile.BlendError("; ".join(done) or "none of its libraries is one of the links to update")
+        blendfile.write_copy(source, out, paths)
+        moved = len(paths)
+        job["result"] = {"status": "ok", "message": f"{moved} link(s): " + "; ".join(done), "kept": kept}
+    except Exception as e:  # said on the page, never lost in a thread
+        job["result"] = {"status": "error", "message": str(e)}
+
+
+def _kept_link(entry: dict, mapping: list, kept: set, root: Path) -> dict:
+    """A link of the new version's list put back to its old file when the
+    relink kept it (its new stable lost linked data)."""
+    for old, new in mapping:
+        if os.path.normcase(old) not in kept:
+            continue
+        try:
+            if entry.get("file") == Path(new).relative_to(root).as_posix():
+                return {"file": Path(old).relative_to(root).as_posix()}
+        except ValueError:
+            if entry.get("file") == str(new):
+                return {"file": str(old)}
+    return entry
 
 
 def states() -> dict:

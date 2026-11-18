@@ -47,10 +47,16 @@ All notable changes to this addon. Dates are release dates.
   list; denser with a mouse.
 - Live page, *Linked files*: *Update links* -- a file's links moved to
   their latest stables without opening it, in a new version tagged
-  `-updatelink` made by a background Blender (never saved over, a stable
-  never touched, a file someone has open left); on an asset, every file
-  that links an older stable of it at once. The new version is a work
-  version: what links it takes it once it's marked stable.
+  `-relink`: its library paths rewritten straight in a copy of the .blend
+  (lib/blendfile.py, no Blender: a heavy scene in a moment), never saved
+  over, a stable never touched, a file someone has open left; a link kept
+  when its newer stable lost data the file links (by name), said why. On
+  an asset, every file that links an older stable of it at once. The new
+  version is a work version: what links it takes it once it's marked
+  stable. (`-updatelink`, its name in the first 2.0 builds, still read.)
+- Live page, a file's folders: two icons beside *Open in Blender* open
+  its .blend's folder and its render folder in this machine's file
+  browser.
 - Live page: what arrived while it was open, behind a bell in the header
   -- notes, retakes and replies, validations, renders finished or
   failed; a toast as they come, a click opens the file, the system's own

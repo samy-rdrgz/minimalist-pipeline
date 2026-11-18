@@ -50,6 +50,8 @@ document.addEventListener('click',e=>{
     if(k==='player'){const it=cur(),m=it&&mVer(it),v=m&&m.V[m.i];if(LIVE)livePlay(v&&v.video);else if(v&&v.video){const u=videoSrc(v.video);if(u)open(u,'_blank');else toast(T('Video not found: choose the videos folder (View).'))}}
     if(k==='share'){shareDialog();return}
     if(k==='blender'){const it=cur();if(it)liveOpen(it.file)}
+    if(k==='blendfolder'){const it=cur();if(it)liveFolder({folder:'blend',file:it.file})}
+    if(k==='renderfolder'){const it=cur(),m=it&&mVer(it),v=m&&m.V[m.i];if(it)liveFolder({folder:'render',file:it.file,path:v&&v.video?v.video.split('/').slice(0,-1).join('/'):''})}
     if(k==='folder')farmPost({action:'open',job_id:S.farmSel,value:'folder'},T('opens the folder'));
     if(k==='log')farmPost({action:'open',job_id:S.farmSel,value:'log:0'},T('opens the log'));
     if(k==='copy'){const u=location.href.split('#')[0]+'#'+S.sel;(navigator.clipboard?navigator.clipboard.writeText(u):Promise.reject()).then(()=>toast(T('Link copied')),()=>toast(u))}

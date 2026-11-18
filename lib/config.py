@@ -93,7 +93,9 @@ def get_active_project_root() -> Path | None:
 # A version made by Update links (lib/relink.py): the file's newest version
 # with its links on their latest stables. Always a tag the naming knows,
 # whatever the project lists in "tags": a work version, not a stable.
-RELINK_TAG = "updatelink"
+# "updatelink": its name in the first 2.0 builds, still read.
+RELINK_TAG = "relink"
+RELINK_TAGS = (RELINK_TAG, "updatelink")
 
 
 class ConfigCache:
@@ -151,7 +153,7 @@ class ConfigCache:
         )
         prefixes = "|".join(prefixes)
         version_prefix = json_get(config, "naming.version.prefix", "v")
-        tags = "|".join(dict.fromkeys([*json_get(config, "tags", ["stable"]), RELINK_TAG]))
+        tags = "|".join(dict.fromkeys([*json_get(config, "tags", ["stable"]), *RELINK_TAGS]))
 
         pattern_str = (
             rf"^(?P<prefix>{prefixes})"
@@ -169,7 +171,7 @@ class ConfigCache:
         sequence_prefix = json_get(config, "naming.sequence.prefix", "sq")
         shot_prefix = json_get(config, "naming.shot.prefix", "sh")
         version_prefix = json_get(config, "naming.version.prefix", "v")
-        tags = "|".join(dict.fromkeys([*json_get(config, "tags", ["stable"]), RELINK_TAG]))
+        tags = "|".join(dict.fromkeys([*json_get(config, "tags", ["stable"]), *RELINK_TAGS]))
 
         pattern_str = (
             rf"^{sequence_prefix}(?P<sequence>\d+)"

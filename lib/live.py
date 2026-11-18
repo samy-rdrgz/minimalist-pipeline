@@ -685,7 +685,7 @@ def _checked(actions: list) -> dict:
 
 def _relink(root: Path, raw: dict) -> dict:
     """Update links on the page's files ({"files": [file names]}): each one
-    a new -updatelink version made in the background (lib/relink.py)."""
+    a new -relink version, written without opening it (lib/relink.py)."""
     from . import relink
     from .review_import import _review_file
 
@@ -711,6 +711,8 @@ def _open(raw: dict) -> dict:
     its own: the load replaces every datablock, this turn ends first."""
     from .review_import import _review_file
 
+    if raw.get("folder"):
+        return _open_folder(raw)
     filepath = _review_file(str(raw.get("file") or ""))
     if not filepath or not filepath.is_file():
         return {"ok": False, "error": "file not found"}
@@ -732,6 +734,33 @@ def _open(raw: dict) -> dict:
 
     bpy.app.timers.register(load, first_interval=0.05)
     return {"ok": True, "opened": filepath.name}
+
+
+def _open_folder(raw: dict) -> dict:
+    """A file's folder in this machine's file browser: its .blend's
+    ("folder": "blend"), or its renders' ("render": the render the page
+    shows, "path" under renders/ -- else the file's whole render folder).
+    Never a folder out of the project's."""
+    from .review_import import _review_file
+
+    root = _shared.root
+    filepath = _review_file(str(raw.get("file") or ""))
+    if raw.get("folder") == "render":
+        renders = (root / "renders").resolve()
+        rel = str(raw.get("path") or "")
+        target = (renders / rel).resolve() if rel else None
+        if target is None or renders not in target.parents or not target.is_dir():
+            target = render_root(root, filepath.parent) if filepath else None
+        if target is None or not target.is_dir():
+            return {"ok": False, "error": "nothing rendered yet"}
+        if target.name == "ld":
+            target = target.parent  # a light copy's folder: the render's own
+    else:
+        if not filepath or not filepath.is_file():
+            return {"ok": False, "error": "file not found"}
+        target = filepath.parent
+    _with_window(bpy.ops.wm.path_open, filepath=str(target))
+    return {"ok": True, "opened": target.name}
 
 
 def _play(raw: dict) -> dict:

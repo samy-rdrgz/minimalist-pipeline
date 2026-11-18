@@ -12,6 +12,8 @@ function askOpen(file,current){const dl=$('#dlg');dl.hidden=false;
     <div class="acts"><button class="btn" data-dclose>${T('Cancel')}</button><span style="flex:1"></span><button class="btn" data-open-save="discard">${T('Don\'t save')}</button><button class="btn primary" data-open-save="save">${T('Save, then open')}</button></div></div>`;
   dl.querySelector('[data-open-save="save"]').focus({preventScroll:true});
   dl.onclick=e=>{const b=e.target.closest('[data-open-save]');if(!b)return;dl.hidden=true;dl.onclick=null;liveOpen(file,b.dataset.openSave)}}
+/* A file's folder in this machine's file browser: its .blend's, its render's. */
+function liveFolder(body){livePost('open',body).then(res=>toast(res.ok?sentSay(T('opens the folder')):T('Not opened: {error}',{error:res.error}))).catch(noAnswer)}
 /* A render's full video in this machine's player. */
 function livePlay(video){if(!video)return toast(T('No video for this render.'));livePost('play',{video}).then(res=>toast(res.ok?sentSay(T('opens the video in this machine\'s player')):T('Not opened: {error}',{error:res.error}))).catch(noAnswer)}
 /* The farm: a job's or a machine's action, a render, a sequence's preview. */

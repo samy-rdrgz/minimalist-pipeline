@@ -9,7 +9,7 @@ from pathlib import Path
 
 from .background import background_work
 from .config import (
-    RELINK_TAG,
+    RELINK_TAGS,
     covering_role,
     validation_roles,
 )
@@ -515,7 +515,7 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
             continue
         name = status.get("file_name") or owner.name
         wips = [
-            (int(m[1]), b) for b in blends if (m := version_re.search(b)) and m[2] in (None, f"-{RELINK_TAG}")
+            (int(m[1]), b) for b in blends if (m := version_re.search(b)) and m[2] in (None, *(f"-{t}" for t in RELINK_TAGS))
         ]
         stable_file = (status.get("stable_info") or {}).get("file")
         stable_name = Path(stable_file).name if stable_file else None

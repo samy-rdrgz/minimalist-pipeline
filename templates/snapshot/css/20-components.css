@@ -516,7 +516,7 @@ button.assign:hover{background:var(--line);color:var(--text)}
 .rv-sync::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--st-done)}
 .rv-sync[data-state="busy"]::before{background:var(--st-wip)}.rv-sync[data-state="off"]::before{background:var(--st-rtk)}
 /* Live, a guest (Share with a phone): reviews as themselves -- the farm read only, nothing opened or rendered on this machine. */
-[data-guest="1"] :is([data-act="blender"],[data-act="player"],[data-act="share"],[data-act="folder"],[data-act="log"],[data-render],[data-farm],[data-prio],[data-relink],[data-mjob],[data-mprio],[data-msheet="render"]){display:none!important}
+[data-guest="1"] :is([data-act="blender"],[data-act="blendfolder"],[data-act="renderfolder"],[data-act="player"],[data-act="share"],[data-act="folder"],[data-act="log"],[data-render],[data-farm],[data-prio],[data-relink],[data-mjob],[data-mprio],[data-msheet="render"]){display:none!important}
 /* Share with a phone: the access made (its QR code, its link), the form, the accesses running. */
 .sh-dlg{width:min(520px,100%)}
 .sh-made{display:flex;gap:var(--sp-7);align-items:flex-start;padding:var(--sp-6);border-radius:var(--r-l);background:var(--box)}

@@ -37,6 +37,6 @@ function shareDraw(res){const roles=[TEAM,...(M.roles||[]).filter(r=>r!==TEAM)],
   $('#sh-body').innerHTML=h}
 function copyShareLink(t){const sel=()=>{$('#sh-link').select();toast(T('Selected: copy it with Ctrl+C.'))};
   if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(t).then(()=>toast(T('Link copied')),sel);else sel()}
-/* Update links (lib/relink.py): a new -updatelink version made in the background, its links on their latest stables. */
+/* Update links (lib/relink.py): a new -relink version, written without opening the file, its links on their latest stables. */
 function relinkSend(files){livePost('relink',{files}).then(res=>{const sk=(res.skipped||[]).map(x=>x[0]+' ('+x[1]+')').join(', ');
   toast(res.ok?T('Updating {n} file in the background|Updating {n} files in the background',{n:(res.started||[]).length})+(sk?' -- '+T('left: {what}',{what:sk}):''):T('Not updated: {error}',{error:res.error||sk||'?'}))}).catch(noAnswer)}
