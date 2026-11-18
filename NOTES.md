@@ -3143,7 +3143,8 @@ video: it then counts as newer.
 
 ## Validation roles
 
-"Done" (the old "validated", data unchanged: `departments_validated`) says
+"Done" (the old "validated"; its data `departments_validated`, renamed
+`departments_done` in 2.0 by *Migrate old data*) says
 the work is finished; graphists needed a second word, a role's sign-off
 (sup, prod...) -- finished technically isn't accepted by production.
 
@@ -4605,6 +4606,13 @@ data*), with the deductions those readers made:
   its date is still to be added.
 - Run again safely: each step looks for what's still old, so a project
   migrated before a step was added gets it by running it once more.
+- 2.0: a stable's `departments_validated` renamed `departments_done` (it
+  has meant Done since validation roles, 1.1.2). The readers know only
+  the new name; the migration's own deductions (started, carried) read
+  either, as found (`_done_of()`). Both on one stable (validated by a
+  build reading the new name before migrating): the new one wins. The
+  marker moved from "1.2" to "2.0" so a project an earlier 2.0 build
+  migrated is offered it again -- the other steps find nothing to do.
 - Kept: `_folder_frames()` (a render folder's range from its images'
   names) also serves a render with no history at all; `ordered_departments()`
   on reading `departments_required`, since Edit project may reorder.

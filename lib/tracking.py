@@ -1013,7 +1013,7 @@ def create_stablemeta(
             "file": str(to_relative(filepath)),
             "created_from": str(to_relative(original_filepath)),
             "created_at": nw,
-            "departments_validated": {
+            "departments_done": {
                 d: d in departments for d in get_departments_required(filepath)
             },
             # Validated or worked on at any point so far, cumulative: what
@@ -1172,7 +1172,7 @@ def set_department_approval(
     path = asset_dir / ".pipeline" / (_meta_stem(Path(last["file"])) + ".stablemeta")
     with locked_json(path) as box:
         data = box["data"] or {}
-        if approved and not (data.get("departments_validated") or {}).get(department):
+        if approved and not (data.get("departments_done") or {}).get(department):
             raise PipelineError(f"{department} isn't done at {Path(last['file']).stem}.")
         roles = data.setdefault("approvals", {}).setdefault(department, {})
         if approved == (role in roles):
@@ -1227,7 +1227,7 @@ def _entry_mtime(entry) -> datetime:
 
 _DEFAULT_STABLE = {
     "created_at": EARLIEST.isoformat(),
-    "departments_validated": {},
+    "departments_done": {},
     "departments_started": [],
     "conflict_warning": False,
 }
@@ -1412,7 +1412,7 @@ def _status_from_raw(raw: dict) -> dict:
 
     # Departments validated at the latest stable
     validated_departments = {
-        d: v for d, v in last_stable.get("departments_validated", {}).items() if v
+        d: v for d, v in last_stable.get("departments_done", {}).items() if v
     }
 
     # Departments worked on since the latest stable

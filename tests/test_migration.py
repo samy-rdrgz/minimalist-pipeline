@@ -1,6 +1,6 @@
 """Migrate old data (lib/migration.py) on a made-up project in the old
-forms, without Blender: what each step completes, the backups, and a
-second run finding nothing.
+forms, without Blender: what each step completes, the backups, a second
+run finding nothing, and a stable already half renamed (departments_done).
 
     python3 tests/test_migration.py
 """
@@ -73,6 +73,7 @@ def main() -> None:
             assert "stable: departments started" in changes[name], changes
             assert "stable: validations carried" in changes[name], changes
             assert "dates with their offset" in changes[name], changes
+            assert "stable: departments_done" in changes[name], changes
         assert changes["ch_bob_v002.wipmeta"] == ["sessions with their date", "dates with their offset"], changes
 
         result = migration.apply_migration(root, plan)
@@ -88,6 +89,10 @@ def main() -> None:
         assert e1["created_at"][19:] and e2["created_at"] == "2026-10-01T11:00:00+02:00", tracking
         s1 = json.loads((pipe / "ch_bob_v001-stable_001.stablemeta").read_text())
         s2 = json.loads((pipe / "ch_bob_v002-stable_001.stablemeta").read_text())
+        # Renamed (2.0), read as found before: the started departments above
+        # came from departments_validated.
+        assert s1["departments_done"] == {"modeling": True} and "departments_validated" not in s1, s1
+        assert s2["departments_done"] == {"modeling": True, "shading": True} and "departments_validated" not in s2, s2
         assert s1["departments_started"] == ["modeling"], s1
         assert s2["departments_started"] == ["modeling", "shading"], s2
         assert s2["departments_worked"] == ["shading"], s2
@@ -102,6 +107,15 @@ def main() -> None:
 
         again = migration.plan_migration(root)
         assert again["files"] == [], again["files"]
+
+        # Both names on one stable (validated by a build reading the new
+        # one before the project was migrated): the new one wins.
+        both = {"departments_validated": {"modeling": True, "shading": False}, "departments_done": {"shading": True}}
+        assert migration._migrate_done(both)
+        assert both == {"departments_done": {"modeling": True, "shading": True}}, both
+        assert not migration._migrate_done(both)
+        assert migration.migration_done({"data_migrations": {"2.0": {}}})
+        assert not migration.migration_done({"data_migrations": {"1.2": {}}})  # a 2.0 build's earlier run: offered again
     print("OK: migration")
 
 

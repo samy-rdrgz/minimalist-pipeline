@@ -87,7 +87,7 @@ class M_PIPELINE_OT_increment_version(bpy.types.Operator):
         self.worked_departments = set(get_session_worked_departments(filepath))
 
         old_stable = get_last_stable(Path(bpy.data.filepath).parent)[
-            "departments_validated"
+            "departments_done"
         ]
         if old_stable:
             old_stable = [d for d in old_stable if old_stable[d]]

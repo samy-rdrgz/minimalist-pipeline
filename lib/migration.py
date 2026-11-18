@@ -11,7 +11,9 @@ writes (main thread: locked_json()). What each step completes:
 - tracking.json: an entry's single "department" -> "departments" (1.1.0).
 - .stablemeta: "departments_started" (validated at any stable or worked
   before it); "departments_worked" and the validations it carried
-  ("approvals_carried", 1.1.9); "linked" one entry per project file.
+  ("approvals_carried", 1.1.9); "linked" one entry per project file;
+  "departments_validated" renamed "departments_done" (2.0: it has meant
+  Done since 1.1.2, validations being "approvals").
 - .wipmeta: "linked" one entry per project file; each session's
   "departments_worked" with its date (1.2: {"departments", "saved_at",
   "by"}).
@@ -49,7 +51,9 @@ from .tracking import (
 )
 
 # This migration's name, in the config's "data_migrations" once run.
-MIGRATION = "1.2"
+# "2.0": a project migrated by a 2.0 build before departments_done ("1.2")
+# is offered it again -- every step finds what's already done and skips it.
+MIGRATION = "2.0"
 BACKUP_DIRNAME = "backup"
 
 
@@ -211,6 +215,8 @@ def _plan_owner(root: Path, owner: Path, is_shot: bool, v_prefix: str) -> list[d
         changes = stable_changes.get(entry.path, [])
         if _migrate_linked(data, root):
             changes.append("links one per file")
+        if _migrate_done(data):
+            changes.append("stable: departments_done")
         found.append((entry.path, data, changes))
 
     for entry, data in _read_metas(entries, ".wipmeta"):
@@ -394,6 +400,30 @@ def _migrate_stables(entries: list, stables: list, tracking: dict) -> dict:
     return out
 
 
+def _done_of(data: dict) -> dict:
+    """A stable's done departments, read as found: departments_done, or
+    departments_validated before 2.0 (the same thing, its older name)."""
+    done = data.get("departments_done")
+    if not isinstance(done, dict):
+        done = data.get("departments_validated")
+    return done if isinstance(done, dict) else {}
+
+
+def _migrate_done(data: dict) -> bool:
+    """departments_validated renamed departments_done (2.0). Both there (a
+    stable validated by a build reading the new name before it was
+    migrated): the new one wins for each department it has."""
+    if "departments_validated" not in data:
+        return False
+    old = data.pop("departments_validated")
+    new = data.get("departments_done")
+    merged = dict(old) if isinstance(old, dict) else {}
+    if isinstance(new, dict):
+        merged.update(new)
+    data["departments_done"] = merged
+    return True
+
+
 def _from_stable(data: dict) -> bool:
     """Made from a stable (none recorded what was worked then); unknown
     counts as one."""
@@ -405,7 +435,7 @@ def _started_at(stables_so_far: list, wipmetas: list, date: datetime) -> list[st
     by then: what made a department "started" (create_stablemeta())."""
     started = set()
     for _, _, data in stables_so_far:
-        started |= {d for d, v in (data.get("departments_validated") or {}).items() if v}
+        started |= {d for d, v in _done_of(data).items() if v}
     limit = date + timedelta(seconds=_CLOCK_MARGIN_SECONDS)
     for meta in wipmetas:
         for session in worked_sessions(meta):
@@ -454,7 +484,7 @@ def _legacy_carried(entries: list, stable: dict, tracking: dict) -> dict:
     validations of earlier stables of its done departments not worked
     since -- what it would have carried."""
     previous = stable.get("approvals_previous") or {}
-    done = {d for d, v in (stable.get("departments_validated") or {}).items() if v}
+    done = {d for d, v in _done_of(stable).items() if v}
     own = stable.get("approvals") or {}
     end = parse_iso(stable.get("created_at"))
     if end is None:

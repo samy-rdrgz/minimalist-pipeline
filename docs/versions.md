@@ -45,14 +45,14 @@ Every asset/shot has a `.pipeline/` folder next to its `.blend` files, holding o
   "file": "assets/ch/ch_bob/ch_bob_v005-stable.blend",
   "created_from": "assets/ch/ch_bob/ch_bob_v004.blend",
   "created_at": "2026-03-26T10:00:00",
-  "departments_validated": {"modeling": true, "rigging": true, "texturing": false},
+  "departments_done": {"modeling": true, "rigging": true, "texturing": false},
   "approvals": {"modeling": {"prod": {"by": "marie", "at": "2026-03-27T15:12:00"}}},
   "linked": [],
   "conflict_warning": ""
 }
 ```
 
-This is the file that serves as the reference point: the whole "what's been touched since the last stable" calculation (shown in the Tracking panel and on the live page) compares the `.wipmeta` files newer than `created_at` against this `departments_validated`. `approvals`: the departments a validation role signed off on this version (see [Tracking & reviews](tracking-and-reviews.md#done-then-validated-validation-roles)); the next stable keeps those of the departments not worked since (each with `carried_from`) and the last ones of the others in `approvals_previous`, to review again. `departments_worked` (1.1.9): what was worked since the stable before -- the `.wipmeta` files between, plus the *Worked on* ticks of the dialog. Made straight from a stable (open the last stable, a small fix, Increment as stable), those ticks are the only record: no `.wipmeta` in between. Tick the department you touched, or its validation stays.
+This is the file that serves as the reference point: the whole "what's been touched since the last stable" calculation (shown in the Tracking panel and on the live page) compares the `.wipmeta` files newer than `created_at` against this `departments_done` (`departments_validated` before 2.0, renamed by *Migrate old data*). `approvals`: the departments a validation role signed off on this version (see [Tracking & reviews](tracking-and-reviews.md#done-then-validated-validation-roles)); the next stable keeps those of the departments not worked since (each with `carried_from`) and the last ones of the others in `approvals_previous`, to review again. `departments_worked` (1.1.9): what was worked since the stable before -- the `.wipmeta` files between, plus the *Worked on* ticks of the dialog. Made straight from a stable (open the last stable, a small fix, Increment as stable), those ticks are the only record: no `.wipmeta` in between. Tick the department you touched, or its validation stays.
 
 ---
 

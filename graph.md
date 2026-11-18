@@ -36,10 +36,10 @@ all -- forcing a new -stable version just to flip one off/on doesn't fit.
 
 ```
 ├── draw() : get_current_departments(file) for depress=True state (reads
-│   TrackingStatusCache -> latest .stablemeta's departments_validated)
+│   TrackingStatusCache -> latest .stablemeta's departments_done)
 └── click : m_pipeline.toggle_validated_department(department=d, filepath=file)
       -> set_department_validated(file, d, not current) -- mutates the
-         *latest* .stablemeta's departments_validated in place
+         *latest* .stablemeta's departments_done in place
       ├── no .stablemeta exists yet (asset never marked stable) :
       │     PipelineError -- "Mark at least one version as stable before
       │     validating individual departments." (nothing to mutate)
@@ -48,9 +48,9 @@ all -- forcing a new -stable version just to flip one off/on doesn't fit.
 ```
 
 Note: `create_stablemeta()` (see "Increment version / Mark as stable" below)
-already rebuilds departments_validated from scratch on every new -stable
+already rebuilds departments_done from scratch on every new -stable
 version, using only what's checked in that dialog at the time -- this isn't
-a new fragility, `departments_validated` was already a rolling status to
+a new fragility, `departments_done` was already a rolling status to
 reconfirm each time, not an immutable historical snapshot.
 
 ---

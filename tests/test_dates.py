@@ -119,7 +119,7 @@ def run() -> None:
         (pipe / "chr_bob_v002-stable_001.stablemeta").write_text(json.dumps({
             "file": "chr_bob_v002-stable_001.blend",
             "created_at": stable_at.astimezone(timezone(timedelta(hours=-5))).isoformat(),
-            "departments_validated": {"modeling": True},
+            "departments_done": {"modeling": True},
             "departments_started": ["modeling"],
         }))
         (pipe / "chr_bob_v003.wipmeta").write_text(json.dumps({

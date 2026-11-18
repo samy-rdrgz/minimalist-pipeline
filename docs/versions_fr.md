@@ -45,14 +45,14 @@ Chaque asset/shot a un dossier `.pipeline/` à côté de ses fichiers `.blend`, 
   "file": "assets/ch/ch_bob/ch_bob_v005-stable.blend",
   "created_from": "assets/ch/ch_bob/ch_bob_v004.blend",
   "created_at": "2026-03-26T10:00:00",
-  "departments_validated": {"modeling": true, "rigging": true, "texturing": false},
+  "departments_done": {"modeling": true, "rigging": true, "texturing": false},
   "approvals": {"modeling": {"prod": {"by": "marie", "at": "2026-03-27T15:12:00"}}},
   "linked": [],
   "conflict_warning": ""
 }
 ```
 
-C'est ce fichier qui sert de point de référence : tout le calcul "qu'est-ce qui a été retouché depuis le dernier stable" (affiché dans le panneau Tracking et sur la page en live) compare les `.wipmeta` postérieurs à `created_at` contre ce `departments_validated`. `approvals` : les départements qu'un rôle de validation a validés sur cette version (voir [Suivi & revues](tracking-and-reviews_fr.md#fini-puis-validé--les-rôles-de-validation)) ; le stable suivant garde celles des départements non retravaillés depuis (chacune avec `carried_from`) et les dernières des autres dans `approvals_previous`, à revoir. `departments_worked` (1.1.9) : ce qui a été travaillé depuis le stable précédent -- les `.wipmeta` entre les deux, plus les cases *Worked on* du dialogue. Fait directement depuis un stable (ouvrir le dernier stable, une petite retouche, Increment en stable), ces cases sont la seule trace : aucun `.wipmeta` entre les deux. Cochez le département retouché, sinon sa validation reste.
+C'est ce fichier qui sert de point de référence : tout le calcul "qu'est-ce qui a été retouché depuis le dernier stable" (affiché dans le panneau Tracking et sur la page en live) compare les `.wipmeta` postérieurs à `created_at` contre ce `departments_done` (`departments_validated` avant la 2.0, renommé par *Migrate old data*). `approvals` : les départements qu'un rôle de validation a validés sur cette version (voir [Suivi & revues](tracking-and-reviews_fr.md#fini-puis-validé--les-rôles-de-validation)) ; le stable suivant garde celles des départements non retravaillés depuis (chacune avec `carried_from`) et les dernières des autres dans `approvals_previous`, à revoir. `departments_worked` (1.1.9) : ce qui a été travaillé depuis le stable précédent -- les `.wipmeta` entre les deux, plus les cases *Worked on* du dialogue. Fait directement depuis un stable (ouvrir le dernier stable, une petite retouche, Increment en stable), ces cases sont la seule trace : aucun `.wipmeta` entre les deux. Cochez le département retouché, sinon sa validation reste.
 
 ---
 
