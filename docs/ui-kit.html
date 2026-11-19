@@ -228,7 +228,9 @@ svg.g{width:calc(26px*var(--scale));height:var(--h-sm);flex:none;overflow:visibl
 .topbar{display:flex;align-items:center;gap:var(--sp-5);min-height:calc(48px*var(--scale));padding:0 var(--sp-5) 0 var(--sp-7);background:var(--head);border-radius:var(--r-xl);flex:none;min-width:0}
 .brand{display:flex;flex-direction:column;line-height:1.2;min-width:0}
 .brand b{font-weight:600;font-size:var(--fs-l)}
-.brand small{color:var(--text-3);font-size:var(--fs-s);white-space:nowrap}
+.brand small{color:var(--text-3);font-size:var(--fs-s);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand{flex:0 1 auto}
 .ws{display:flex;gap:var(--sp-1);padding:var(--sp-2);background:var(--sunk);border-radius:var(--r-l);margin-left:var(--sp-5);overflow-x:auto;scrollbar-width:none;flex:none;max-width:100%}
 .ws button{height:var(--u);padding:0 var(--sp-7);border:0;border-radius:var(--r);background:none;color:var(--text-2);cursor:pointer;display:inline-flex;align-items:center;gap:var(--sp-4);white-space:nowrap}
 .ws button:hover{color:var(--text)}
@@ -248,6 +250,9 @@ svg.g{width:calc(26px*var(--scale));height:var(--h-sm);flex:none;overflow:visibl
 .area-body{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain}
 #outliner{grid-area:out}#main{grid-area:main}#props{grid-area:props}
 .only-narrow,.only-phone{display:none!important}
+/* The buttons that fold a side (30-panes.js): from 861 px, not on a phone. */
+@media (max-width:860px){.only-mid{display:none!important}}
+.is-mob .only-mid{display:none!important}
 @media (max-width:1200px){
   .screen{grid-template-columns:minmax(0,1fr) calc(380px*var(--scale));grid-template-areas:"main props"}
   #outliner{position:fixed;z-index:40;left:max(6px,env(safe-area-inset-left,0px));top:calc(60px*var(--scale));bottom:40px;width:min(calc(260px*var(--scale)),82vw);box-shadow:8px 0 30px rgba(0,0,0,.55);transform:translateX(-112%);transition:transform .16s}
@@ -690,7 +695,6 @@ button.assign:hover{background:var(--line);color:var(--text)}
 .field select option{background:var(--field);color:var(--text)}
 /* A popover placed by its button (placePop()): fixed, held inside the window. */
 .pop.fx{position:fixed;z-index:200;top:0;left:0;right:auto;max-height:calc(100vh - 16px);overflow:auto}
-.area-head:has(.pop){z-index:35}
 /* ---------- Switch: an on / off setting (the phone's sheets too) ----------
    A whole row is the button (role="switch", aria-checked); the track at its right. */
 .tg{position:relative;width:calc(30px*var(--scale));height:calc(18px*var(--scale));border-radius:var(--r-pill);background:var(--track);border:1px solid var(--line-2);flex:none;transition:background .15s,border-color .15s}
@@ -730,6 +734,14 @@ html.vv #wide,html.vv.is-mob #mob{top:var(--vv-top,0px);bottom:auto;height:var(-
 /* View › Interface scale: the slider in its menu row. */
 .mi.scale-r{cursor:default;gap:var(--sp-5)}.mi.scale-r:hover{background:none;color:var(--text)}
 .mi.scale-r input{flex:1;min-width:0;accent-color:var(--sel)}
+/* ---------- One line, scrolled sideways ----------
+   A row of choices (a button group, the filters, the spaces) never wraps: it scrolls sideways, a fade on the
+   side where more is hidden (sxFade(), .sx-l / .sx-r), a mouse wheel scrolling it too. */
+.join,.filters{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;overscroll-behavior-x:contain}
+.join::-webkit-scrollbar,.filters::-webkit-scrollbar,.ws::-webkit-scrollbar{display:none}
+.filters{min-width:0;flex:0 1 auto}
+.sx-l,.sx-r{--fl:#000;--fr:#000;-webkit-mask-image:linear-gradient(to right,var(--fl),#000 calc(28px*var(--scale)),#000 calc(100% - 28px*var(--scale)),var(--fr));mask-image:linear-gradient(to right,var(--fl),#000 calc(28px*var(--scale)),#000 calc(100% - 28px*var(--scale)),var(--fr))}
+.sx-l{--fl:transparent}.sx-r{--fr:transparent}
 /* Resizable side panels (desktop, 1200 px and over): drag the edge; past the minimum the panel
    folds away and a tab brings it back; a double-click: the default width. */
 .pz-h{position:fixed;z-index:60;width:10px;cursor:col-resize;touch-action:none;display:none}
@@ -784,10 +796,10 @@ body.pz-dragging,body.pz-dragging *{cursor:col-resize!important;user-select:none
 /* Buttons: flat, no relief, no shadow, no gradient */
 .btn{box-shadow:none;background-image:none;border-color:var(--btn-line)}
 .btn.flat{border-color:transparent}
-.btn.primary,.btn[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:var(--on-brand);font-weight:600}
+.btn.primary,.btn[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:var(--on-brand)}
+/* Primary in bold; pressed not: a choice made doesn't change its button's width (nor move its row). */
+.btn.primary{font-weight:600}
 .btn.primary:hover{background:var(--brand-hi);border-color:var(--brand-hi)}
-.btn.ok{border-color:var(--ok-line)}
-.btn.alert{border-color:var(--alert-line)}
 .join>.btn+.btn{border-left-color:rgba(0,0,0,.28)}
 .field{box-shadow:none}
 .field:focus-within{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-a24)}
@@ -802,7 +814,8 @@ body.pz-dragging,body.pz-dragging *{cursor:col-resize!important;user-select:none
 /* Menus in front */
 .grp-h:has(.menu:not([hidden])){z-index:25}
 .row:has(.menu:not([hidden])),.anchor:has(.menu:not([hidden])){position:relative;z-index:40}
-.area-head:has(.menu:not([hidden])){z-index:35}
+/* A menu or a popover open in an area's header: that header in front of the other areas (their headers are z 10 too). */
+:is(#main,#outliner,#props) .area-head:is(:has(.menu:not([hidden])),:has(.pop)){z-index:35}
 
 /* Detail and breakdown */
 .ptabs button[aria-selected="true"]{border-bottom-color:var(--brand)}
@@ -819,6 +832,16 @@ body.pz-dragging,body.pz-dragging *{cursor:col-resize!important;user-select:none
 .m-nav button[aria-selected="true"]::before{background:var(--brand)}
 .m-dept.mine{border-color:var(--you-line)}
 .m-sec-h::before{content:"";width:3px;height:11px;border-radius:var(--r-xs);background:var(--brand);flex:none}
+/* Validate and Retake, not pressed: a plain button (opaque, no tint, no outline), their mark in the state's
+   colour -- the checkmark pink, Retake's diamond orange (the tags' mark). Pressed: the state's colour, solid. */
+.btn.ok,.btn.alert{background:var(--btn);border-color:var(--btn-line);color:var(--text)}
+.btn.ok:hover,.btn.alert:hover{background:var(--btn-hi)}
+.btn.ok:disabled:hover,.btn.alert:disabled:hover{background:var(--btn)}
+.btn.ok svg.i{fill:var(--st-val)}.btn.alert svg.i{fill:var(--st-rtk)}
+.btn.ok:not(:has(svg))::before,.btn.alert:not(:has(svg))::before{content:"";width:calc(6px*var(--scale));height:calc(6px*var(--scale));border-radius:1px;transform:rotate(45deg);flex:none;background:var(--st-rtk)}
+.btn.ok:not(:has(svg))::before{background:var(--st-val)}
+.btn.ok[aria-pressed="true"] svg.i,.btn.alert[aria-pressed="true"] svg.i{fill:#fff}
+.btn.ok[aria-pressed="true"]::before,.btn.alert[aria-pressed="true"]::before{background:#fff}
 /* Pressed buttons that mean something: Validate stays pink, Retake orange */
 .btn.ok[aria-pressed="true"]{background:var(--st-val);border-color:var(--st-val);color:#fff}
 .btn.alert[aria-pressed="true"]{background:var(--st-rtk);border-color:var(--st-rtk);color:#fff}
@@ -997,7 +1020,7 @@ b.ab{display:inline-grid;place-items:center;width:var(--h-xs);height:var(--h-xs)
 @media (min-width:600px){.is-mob body{background:var(--screen)}.is-mob #mob{left:50%;right:auto;width:430px;margin-left:-215px;border-inline:1px solid var(--line)}}
 /* Retake / Remark as two icons; the retake on, red */
 .m-ct{flex:none}
-.mob .m-ct .btn[data-mct="rtk"][aria-pressed="true"]{background:var(--alert);border-color:var(--alert-line);color:var(--alert-t)}
+.mob .m-ct .btn[data-mct="rtk"][aria-pressed="true"]{background:var(--st-rtk);border-color:var(--st-rtk);color:#fff}
 .mob [data-mloop][aria-pressed="true"]{background:var(--sel-soft);border-color:var(--sel);color:var(--text)}
 /* A / B en bureau : B en orange, autour de l'image aussi */
 b.ab.b{background:var(--st-wip);color:#241703}
@@ -1218,7 +1241,10 @@ function img(id){if(!id)return '';if(URLS[id])return URLS[id];const b64=IMG[id];
   try{const b=atob(b64),a=new Uint8Array(b.length);for(let i=0;i<b.length;i++)a[i]=b.charCodeAt(i);URLS[id]=URL.createObjectURL(new Blob([a],{type:'image/jpeg'}))}
   catch(_){URLS[id]='data:image/jpeg;base64,'+b64}return URLS[id]}
 /* Dates in the page's language: 16/11 19:10. */
-const fmtD=iso=>{const d=new Date(iso);return isNaN(d)?'':d.toLocaleDateString(LOCALE(),{day:'2-digit',month:'2-digit'})+' '+d.toLocaleTimeString(LOCALE(),{hour:'2-digit',minute:'2-digit'})};
+/* Dates and times: day before month, a 24-hour clock, in every language (English as British English writes them). */
+const DTL=()=>LOCALE()==='en'?'en-GB':LOCALE();
+const HM={hour:'2-digit',minute:'2-digit',hourCycle:'h23'};
+const fmtD=iso=>{const d=new Date(iso);return isNaN(d)?'':d.toLocaleDateString(DTL(),{day:'2-digit',month:'2-digit'})+' '+d.toLocaleTimeString(DTL(),HM)};
 const LOCALE=()=>typeof MPI18n!=='undefined'?MPI18n.lang:'en';
 /* The frames a video has when it says nothing (no fps, no length known yet). */
 let NF=120;
@@ -1434,6 +1460,10 @@ MPI18n.add('fr',{
 'from':'de',
 'Full screen not available here':'Plein écran indisponible ici',
 'Full screen':'Plein écran',
+'Hide the detail: the list on the whole width':'Cacher le détail : la liste sur toute la largeur',
+'Show the detail':'Afficher le détail',
+'The detail on the whole width':'Le détail sur toute la largeur',
+'Show the list again':'Réafficher la liste',
 'Minimalist Pipeline, the Blender add-on that made this page':'Minimalist Pipeline, l\'add-on Blender qui a fait cette page',
 'Full screen: the video alone':'Plein écran : la vidéo seule',
 'Leave full screen (Esc)':'Quitter le plein écran (Échap)',
@@ -2373,7 +2403,7 @@ function renderSynth(){
 function marks(it){
   const out=[];[...it.notes.filter(n=>!n.done),...it.myNotes].forEach(n=>{if(!n.frames)return;const m=String(n.frames).match(/(\d+)(?:-(\d+))?/);if(m)out.push({a:+m[1],b:m[2]?+m[2]:null,rtk:n.type==='rtk',n})});return out;
 }
-const fmtDay=sec=>{const d=new Date(sec*1000);return d.toLocaleDateString(LOCALE(),{day:'2-digit',month:'2-digit'})};
+const fmtDay=sec=>{const d=new Date(sec*1000);return d.toLocaleDateString(DTL(),{day:'2-digit',month:'2-digit'})};
 const verLab=v=>[v.shot,v.folder,v.dept?(LBL[v.dept]||v.dept):'',v.at?fmtDay(v.at):''].filter(Boolean).join(' · ');
 function shotsHTML(it){if(!it.shots||it.shots.length<2)return '';const c=shotOf(it);
   return `<div class="shotsel"><span class="faint">${T('Shot of the block')}</span><span class="join">${['',...it.shots].map(x=>`<button class="btn sm" data-shot="${x}" aria-pressed="${c===x}">${x||T('Whole block')}</button>`).join('')}</span></div>`}
@@ -2513,6 +2543,7 @@ function headHTML(it){
     <button class="btn flat icon live-only" data-act="blendfolder" aria-label="${T('Open its folder')}" title="${T('Its folder: the .blend\'s, in this machine\'s file browser')}">${ic('b-file_folder')}</button>
     ${(it.versions||[]).length?`<button class="btn flat icon live-only" data-act="renderfolder" aria-label="${T('Open its render folder')}" title="${T('Its render folder, in this machine\'s file browser')}">${ic('b-render_result')}</button>`:''}
     <span class="join"><button class="btn icon" id="pp-prev" aria-label="${T('Previous file')}" title="${T('Previous (↑)')}">${ic('b-tria_up')}</button><button class="btn icon" id="pp-next" aria-label="${T('Next file')}" title="${T('Next (↓)')}">${ic('b-tria_down')}</button></span>
+    <button class="btn flat icon only-mid" data-pmax aria-label="${T('The detail on the whole width')}"></button>
     <button class="btn flat icon only-phone" id="pp-close" aria-label="${T('Close')}" title="${T('Close (Esc)')}">${ic('b-x')}</button>`;
 }
 function renderProps(){
@@ -2520,7 +2551,7 @@ function renderProps(){
   if(S.ws==='farm'){TB.hidden=true;renderFarmDetail(H,B);return}
   TB.hidden=false;const it=cur();
   if(!it){H.innerHTML='<span class="phead"><span class="pname">'+T('Nothing selected')+'</span></span>';TB.innerHTML='';B.innerHTML='<div class="empty">'+T('Pick a file in the list.')+'</div>';return}
-  H.innerHTML=headHTML(it);
+  H.innerHTML=headHTML(it);window.MPPanes&&MPPanes.sync();
   const nr=openRtk(it),nn=openNotes(it),nl=it.links.length+it.linkedBy.length,lo=it.links.some(l=>l.newer);
   TB.innerHTML=[['plan',it.kind==='shot'?'b-camera_data':'b-asset_manager',it.kind==='shot'?T('Shot'):T('Asset')],['notes','i-note',T('Notes'),nn,nr?'r':''],['links','b-linked',T('Links'),nl,lo?'r':''],['files','b-file',T('Files and renders')]]
     .map(([k,i,l,n,c])=>`<button class="vtab" role="tab" data-tab="${k}" aria-selected="${S.tab===k}" title="${l}" aria-label="${l}">${ic(i)}${n?`<span class="cnt ${c||''}">${n}</span>`:''}</button>`).join('');
@@ -2847,7 +2878,7 @@ function renderDlg(){
 }
 const NEWS=[];let newsSeen=0;
 /* What's new (live): a change seen in the data Blender sends (applyData()). */
-function pushNews(k,n,h,x){NEWS.unshift({k,n,h,x,at:new Date().toLocaleTimeString(LOCALE(),{hour:'2-digit',minute:'2-digit'})});renderNewsBtn();
+function pushNews(k,n,h,x){NEWS.unshift({k,n,h,x,at:new Date().toLocaleTimeString(DTL(),HM)});renderNewsBtn();
   if(S.notifSys&&window.Notification&&Notification.permission==='granted'){try{new Notification(n+' · '+h,{body:x})}catch(_){}}}
 function renderNewsBtn(){if(isMob()){if(!S.m.sheet)mRender();return}const b=$('#news-b');if(!b)return;const n=NEWS.length-newsSeen;b.querySelector('.cnt').textContent=n;b.querySelector('.cnt').hidden=!n}
 function newsPop(btn){const old=document.querySelector('.pop.news');if(old){old.remove();return}newsSeen=NEWS.length;renderNewsBtn();
@@ -2910,8 +2941,10 @@ function bulkDlg(){
     <p class="dim" style="margin:0">${T('{n} file of {total} changes.|{n} files of {total} change.',{n,total:pool.length})}</p>
     <div class="acts"><button class="btn" data-dclose>${T('Cancel')}</button><button class="btn primary" data-bkok ${n?'':'disabled'}>${T('Apply to {n} file|Apply to {n} files',{n})}</button></div></div>`;
 }
-/* ---------- Resizable side panels (desktop, 1200 px and over) ----------
-   Widths kept per browser (pz-v1). Nothing on a phone, nor under 1200 px. */
+/* ---------- Resizable side panels ----------
+   1200 px and over: the outliner and the detail; 861 to 1200 (a tablet held upright): the detail. Widths kept
+   per browser (pz-v1). Either side can take the whole width: the list folded (the detail alone, MPPanes.main())
+   or the detail folded (the list alone, MPPanes.props()). Nothing on a phone, nor under 861 px. */
 (function(){
   var clamp=function(v,a,b){return Math.max(a,Math.min(b,v))};
   var screen=document.querySelector('.screen'),outl=document.getElementById('outliner'),props=document.getElementById('props');
@@ -2920,8 +2953,8 @@ function bulkDlg(){
 
   var R={out:{min:180,max:420,def:230,el:outl,side:'l'},props:{min:320,max:680,def:420,el:props,side:'r'}};
   var pz; try{pz=JSON.parse(localStorage.getItem('pz-v1'))}catch(e){}
-  pz=Object.assign({out:{w:230,open:true},props:{w:420,open:true}},pz||{});
-  var wide=window.matchMedia('(min-width:1201px)');
+  pz=Object.assign({out:{w:230,open:true},props:{w:420,open:true},main:{open:true}},pz||{});
+  var wide=window.matchMedia('(min-width:1201px)'),mid=window.matchMedia('(min-width:861px)');
   var paneCss=document.createElement('style');paneCss.id='panes-live';document.head.appendChild(paneCss);
   var chev={l:'M4 2l4 4-4 4',r:'M8 2 4 6l4 4'};
   var H={},TAB={};
@@ -2953,18 +2986,35 @@ function bulkDlg(){
   if(resetBtn)resetBtn.addEventListener('click',function(){pz={out:{w:R.out.def,open:true},props:{w:R.props.def,open:true}};apply()});
 
   function apply(live){
-    var o=pz.out,p=pz.props,cols=[],areas=[];
-    if(o.open){cols.push('calc('+o.w+'px*var(--scale))');areas.push('out')}
-    cols.push('minmax(0,1fr)');areas.push('main');
-    if(p.open){cols.push('calc('+p.w+'px*var(--scale))');areas.push('props')}
-    paneCss.textContent='@media (min-width:1201px){.screen{grid-template-columns:'+cols.join(' ')+'!important;grid-template-areas:"'+areas.join(' ')+'"!important}'+
-      (o.open?'':'#outliner{display:none!important}')+(p.open?'':'#props{display:none!important}')+'}';
-    if(!live)try{localStorage.setItem('pz-v1',JSON.stringify({out:{w:o.w,open:o.open},props:{w:p.w,open:p.open}}))}catch(e){}
-    place();
+    var o=pz.out,p=pz.props,m=pz.main;if(!m.open)p.open=true;
+    // The grid at a width: the outliner (1200 px and over), the list, the detail -- the whole width to the one left.
+    function grid(withOut){var cols=[],areas=[];
+      if(withOut&&o.open){cols.push('calc('+o.w+'px*var(--scale))');areas.push('out')}
+      if(m.open){cols.push('minmax(0,1fr)');areas.push('main')}
+      if(p.open){cols.push(m.open?'calc('+p.w+'px*var(--scale))':'minmax(0,1fr)');areas.push('props')}
+      return '.screen{grid-template-columns:'+cols.join(' ')+'!important;grid-template-areas:"'+areas.join(' ')+'"!important}'+
+        (withOut&&!o.open?'#outliner{display:none!important}':'')+(p.open?'':'#props{display:none!important}')+(m.open?'':'#main{display:none!important}')}
+    paneCss.textContent='@media (min-width:1201px){'+grid(true)+'}@media (min-width:861px) and (max-width:1200px){'+grid(false)+'}';
+    if(!live)try{localStorage.setItem('pz-v1',JSON.stringify({out:{w:o.w,open:o.open},props:{w:p.w,open:p.open},main:{open:m.open}}))}catch(e){}
+    place();sync();
   }
+  // The buttons that fold a side: the list's (in its header), the detail's (in its header, drawn with it).
+  function sync(){var b=document.getElementById('pz-side');if(b){var open=pz.props.open;b.setAttribute('aria-pressed',String(!open));
+      b.title=b.ariaLabel=open?T('Hide the detail: the list on the whole width'):T('Show the detail');
+      b.innerHTML='<svg class="i"><use href="#b-'+(open?'tria_right':'tria_left')+'"/></svg>'}
+    document.querySelectorAll('[data-pmax]').forEach(function(x){x.setAttribute('aria-pressed',String(!pz.main.open));
+      x.title=x.ariaLabel=pz.main.open?T('The detail on the whole width'):T('Show the list again');
+      x.innerHTML='<svg class="i"><use href="#b-'+(pz.main.open?'fullscreen_enter':'fullscreen_exit')+'"/></svg>'})}
+  window.MPPanes={
+    main:function(){pz.main.open=!pz.main.open;apply()},
+    props:function(){pz.props.open=!pz.props.open;if(!pz.props.open)pz.main.open=true;else if(pz.props.w<R.props.min)pz.props.w=R.props.def;apply()},
+    sync:sync
+  };
   function place(){
-    var on=wide.matches&&!isMob(),sr=screen.getBoundingClientRect(),gap=parseFloat(getComputedStyle(screen).columnGap)||0;
+    var sr=screen.getBoundingClientRect(),gap=parseFloat(getComputedStyle(screen).columnGap)||0;
     ['out','props'].forEach(function(k){
+      // The outliner's handle from 1200 px, the detail's from 861; none while the list is folded.
+      var on=(k==='out'?wide.matches:mid.matches)&&!isMob()&&pz.main.open;
       var h=H[k],b=TAB[k],open=pz[k].open,el=R[k].el;
       h.style.display=on&&open?'block':'none';
       b.style.display=on&&!open?'flex':'none';
@@ -2975,7 +3025,7 @@ function bulkDlg(){
     });
   }
   window.addEventListener('resize',place);
-  if(wide.addEventListener)wide.addEventListener('change',place);
+  if(wide.addEventListener){wide.addEventListener('change',place);mid.addEventListener('change',place)}
   if(window.ResizeObserver)new ResizeObserver(place).observe(screen);
   apply();
 })();
@@ -3268,7 +3318,7 @@ let SHARE_IP='';
 const SHARE_TIMES=()=>[['1',T('1 hour')],['eod',T('Until tonight')],['24',T('1 day')],['168',T('1 week')]];
 /* An end: its time today, else its day and time. */
 function fmtUntil(iso){const d=new Date(iso);if(isNaN(d))return esc(iso||'');
-  return d.toDateString()===new Date().toDateString()?d.toLocaleTimeString(LOCALE(),{hour:'2-digit',minute:'2-digit'}):fmtD(iso)}
+  return d.toDateString()===new Date().toDateString()?d.toLocaleTimeString(DTL(),HM):fmtD(iso)}
 function shareDialog(){const dl=$('#dlg');dl.hidden=false;
   dl.innerHTML=`<div class="dlg-in sh-dlg" role="dialog" aria-modal="true" aria-labelledby="sh-t"><h3 id="sh-t">${T('Share with a phone')}</h3><div id="sh-body"><p class="faint">${T('Reading…')}</p></div>
     <div class="acts"><span style="flex:1"></span><button class="btn" data-dclose>${T('Done')}</button></div></div>`;

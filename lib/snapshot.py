@@ -43,6 +43,9 @@ from .tracking import (
     _DATA_ROOTS,
     APPROVAL_SOURCE,
     _collect_folder,
+    _current_link_files,
+    _outdated_links_of,
+    _path_key,
     _pipeline_entries,
     _session_folder_key,
     _status_from_raw,
@@ -426,6 +429,36 @@ def shots_label(shots: list, every: list) -> str:
     )
 
 
+def folder_links(root: Path, currents: dict, outdated: dict) -> dict:
+    """Per folder (currents: {owner key: the project files it links, as
+    stored}), its links as the page draws them: {"key" (its path under the
+    project), "links": [{"key", "file", "newer"}], "linked_by": [keys]};
+    outdated: _outdated_links_of()'s. The snapshot's and the live page's.
+    Pure."""
+    rel = {}
+    for key in currents:
+        try:
+            rel[_path_key(Path(key))] = Path(key).relative_to(root).as_posix()
+        except ValueError:
+            pass
+    by_target: dict[str, list[str]] = {}
+    out = {}
+    for key, files in currents.items():
+        me = rel.get(_path_key(Path(key)))
+        newer = dict(outdated.get(key) or [])
+        links = []
+        for f in files:
+            path = Path(f) if Path(f).is_absolute() else Path(root) / f
+            target = rel.get(_path_key(path.parent), "")
+            links.append({"key": target, "file": path.name, "newer": newer.get(path.name, "")})
+            if target and me:
+                by_target.setdefault(target, []).append(me)
+        out[key] = {"key": me, "links": links}
+    for extra in out.values():
+        extra["linked_by"] = sorted(set(by_target.get(extra["key"], [])))
+    return out
+
+
 def read_snapshot_data(
     root: Path, thumbnails: dict | None = None, v_prefix: str = "v"
 ) -> dict:
@@ -490,6 +523,16 @@ def read_snapshot_data(
             found = [(label, encoded(d)) for label, d in shots]
             if any(b64 for _, b64 in found):
                 shot_thumbs[owner] = found
+    # Who links what (the Links tab): each folder's latest metadata, one
+    # listing per folder linked for a newer stable.
+    currents = {
+        str(owner): _current_link_files(_pipeline_entries(owner), root)
+        for _, owner, raw, _ in raws
+        if not raw["tracking"].get("archived")
+    }
+    links = folder_links(
+        root, currents, _outdated_links_of(root, [Path(k) for k in currents], currents, v_prefix)
+    )
     return {
         "raws": raws,
         "renders": renders,
@@ -497,6 +540,7 @@ def read_snapshot_data(
         "shot_thumbs": shot_thumbs,
         "thumb_warnings": warnings,
         "work": work_times(root),
+        "live": links,
     }
 
 

@@ -8,7 +8,7 @@ let SHARE_IP='';
 const SHARE_TIMES=()=>[['1',T('1 hour')],['eod',T('Until tonight')],['24',T('1 day')],['168',T('1 week')]];
 /* An end: its time today, else its day and time. */
 function fmtUntil(iso){const d=new Date(iso);if(isNaN(d))return esc(iso||'');
-  return d.toDateString()===new Date().toDateString()?d.toLocaleTimeString(LOCALE(),{hour:'2-digit',minute:'2-digit'}):fmtD(iso)}
+  return d.toDateString()===new Date().toDateString()?d.toLocaleTimeString(DTL(),HM):fmtD(iso)}
 function shareDialog(){const dl=$('#dlg');dl.hidden=false;
   dl.innerHTML=`<div class="dlg-in sh-dlg" role="dialog" aria-modal="true" aria-labelledby="sh-t"><h3 id="sh-t">${T('Share with a phone')}</h3><div id="sh-body"><p class="faint">${T('Reading…')}</p></div>
     <div class="acts"><span style="flex:1"></span><button class="btn" data-dclose>${T('Done')}</button></div></div>`;

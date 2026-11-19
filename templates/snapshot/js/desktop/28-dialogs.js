@@ -33,7 +33,7 @@ function renderDlg(){
 }
 const NEWS=[];let newsSeen=0;
 /* What's new (live): a change seen in the data Blender sends (applyData()). */
-function pushNews(k,n,h,x){NEWS.unshift({k,n,h,x,at:new Date().toLocaleTimeString(LOCALE(),{hour:'2-digit',minute:'2-digit'})});renderNewsBtn();
+function pushNews(k,n,h,x){NEWS.unshift({k,n,h,x,at:new Date().toLocaleTimeString(DTL(),HM)});renderNewsBtn();
   if(S.notifSys&&window.Notification&&Notification.permission==='granted'){try{new Notification(n+' · '+h,{body:x})}catch(_){}}}
 function renderNewsBtn(){if(isMob()){if(!S.m.sheet)mRender();return}const b=$('#news-b');if(!b)return;const n=NEWS.length-newsSeen;b.querySelector('.cnt').textContent=n;b.querySelector('.cnt').hidden=!n}
 function newsPop(btn){const old=document.querySelector('.pop.news');if(old){old.remove();return}newsSeen=NEWS.length;renderNewsBtn();

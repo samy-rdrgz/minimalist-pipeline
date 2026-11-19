@@ -1,5 +1,7 @@
-/* ---------- Resizable side panels (desktop, 1200 px and over) ----------
-   Widths kept per browser (pz-v1). Nothing on a phone, nor under 1200 px. */
+/* ---------- Resizable side panels ----------
+   1200 px and over: the outliner and the detail; 861 to 1200 (a tablet held upright): the detail. Widths kept
+   per browser (pz-v1). Either side can take the whole width: the list folded (the detail alone, MPPanes.main())
+   or the detail folded (the list alone, MPPanes.props()). Nothing on a phone, nor under 861 px. */
 (function(){
   var clamp=function(v,a,b){return Math.max(a,Math.min(b,v))};
   var screen=document.querySelector('.screen'),outl=document.getElementById('outliner'),props=document.getElementById('props');
@@ -8,8 +10,8 @@
 
   var R={out:{min:180,max:420,def:230,el:outl,side:'l'},props:{min:320,max:680,def:420,el:props,side:'r'}};
   var pz; try{pz=JSON.parse(localStorage.getItem('pz-v1'))}catch(e){}
-  pz=Object.assign({out:{w:230,open:true},props:{w:420,open:true}},pz||{});
-  var wide=window.matchMedia('(min-width:1201px)');
+  pz=Object.assign({out:{w:230,open:true},props:{w:420,open:true},main:{open:true}},pz||{});
+  var wide=window.matchMedia('(min-width:1201px)'),mid=window.matchMedia('(min-width:861px)');
   var paneCss=document.createElement('style');paneCss.id='panes-live';document.head.appendChild(paneCss);
   var chev={l:'M4 2l4 4-4 4',r:'M8 2 4 6l4 4'};
   var H={},TAB={};
@@ -41,18 +43,35 @@
   if(resetBtn)resetBtn.addEventListener('click',function(){pz={out:{w:R.out.def,open:true},props:{w:R.props.def,open:true}};apply()});
 
   function apply(live){
-    var o=pz.out,p=pz.props,cols=[],areas=[];
-    if(o.open){cols.push('calc('+o.w+'px*var(--scale))');areas.push('out')}
-    cols.push('minmax(0,1fr)');areas.push('main');
-    if(p.open){cols.push('calc('+p.w+'px*var(--scale))');areas.push('props')}
-    paneCss.textContent='@media (min-width:1201px){.screen{grid-template-columns:'+cols.join(' ')+'!important;grid-template-areas:"'+areas.join(' ')+'"!important}'+
-      (o.open?'':'#outliner{display:none!important}')+(p.open?'':'#props{display:none!important}')+'}';
-    if(!live)try{localStorage.setItem('pz-v1',JSON.stringify({out:{w:o.w,open:o.open},props:{w:p.w,open:p.open}}))}catch(e){}
-    place();
+    var o=pz.out,p=pz.props,m=pz.main;if(!m.open)p.open=true;
+    // The grid at a width: the outliner (1200 px and over), the list, the detail -- the whole width to the one left.
+    function grid(withOut){var cols=[],areas=[];
+      if(withOut&&o.open){cols.push('calc('+o.w+'px*var(--scale))');areas.push('out')}
+      if(m.open){cols.push('minmax(0,1fr)');areas.push('main')}
+      if(p.open){cols.push(m.open?'calc('+p.w+'px*var(--scale))':'minmax(0,1fr)');areas.push('props')}
+      return '.screen{grid-template-columns:'+cols.join(' ')+'!important;grid-template-areas:"'+areas.join(' ')+'"!important}'+
+        (withOut&&!o.open?'#outliner{display:none!important}':'')+(p.open?'':'#props{display:none!important}')+(m.open?'':'#main{display:none!important}')}
+    paneCss.textContent='@media (min-width:1201px){'+grid(true)+'}@media (min-width:861px) and (max-width:1200px){'+grid(false)+'}';
+    if(!live)try{localStorage.setItem('pz-v1',JSON.stringify({out:{w:o.w,open:o.open},props:{w:p.w,open:p.open},main:{open:m.open}}))}catch(e){}
+    place();sync();
   }
+  // The buttons that fold a side: the list's (in its header), the detail's (in its header, drawn with it).
+  function sync(){var b=document.getElementById('pz-side');if(b){var open=pz.props.open;b.setAttribute('aria-pressed',String(!open));
+      b.title=b.ariaLabel=open?T('Hide the detail: the list on the whole width'):T('Show the detail');
+      b.innerHTML='<svg class="i"><use href="#b-'+(open?'tria_right':'tria_left')+'"/></svg>'}
+    document.querySelectorAll('[data-pmax]').forEach(function(x){x.setAttribute('aria-pressed',String(!pz.main.open));
+      x.title=x.ariaLabel=pz.main.open?T('The detail on the whole width'):T('Show the list again');
+      x.innerHTML='<svg class="i"><use href="#b-'+(pz.main.open?'fullscreen_enter':'fullscreen_exit')+'"/></svg>'})}
+  window.MPPanes={
+    main:function(){pz.main.open=!pz.main.open;apply()},
+    props:function(){pz.props.open=!pz.props.open;if(!pz.props.open)pz.main.open=true;else if(pz.props.w<R.props.min)pz.props.w=R.props.def;apply()},
+    sync:sync
+  };
   function place(){
-    var on=wide.matches&&!isMob(),sr=screen.getBoundingClientRect(),gap=parseFloat(getComputedStyle(screen).columnGap)||0;
+    var sr=screen.getBoundingClientRect(),gap=parseFloat(getComputedStyle(screen).columnGap)||0;
     ['out','props'].forEach(function(k){
+      // The outliner's handle from 1200 px, the detail's from 861; none while the list is folded.
+      var on=(k==='out'?wide.matches:mid.matches)&&!isMob()&&pz.main.open;
       var h=H[k],b=TAB[k],open=pz[k].open,el=R[k].el;
       h.style.display=on&&open?'block':'none';
       b.style.display=on&&!open?'flex':'none';
@@ -63,7 +82,7 @@
     });
   }
   window.addEventListener('resize',place);
-  if(wide.addEventListener)wide.addEventListener('change',place);
+  if(wide.addEventListener){wide.addEventListener('change',place);mid.addEventListener('change',place)}
   if(window.ResizeObserver)new ResizeObserver(place).observe(screen);
   apply();
 })();

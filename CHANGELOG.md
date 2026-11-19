@@ -26,6 +26,11 @@ All notable changes to this addon. Dates are release dates.
   settings; View › Interface scale a slider (0.5 to 1.5). On a touch
   screen: no keyboard keys shown, the page under the system's bar, the
   keyboard raising only the bottom of the page.
+- Snapshot page: the links exported in a snapshot (its Links tab); the live
+  page follows the project's preferences (its team...) without waiting for
+  a file to change; times on a 24-hour clock, the day before the month;
+  rows of choices on one line, scrolled sideways; the list or the detail
+  folded to give the other the whole width (a tablet held upright too).
 - Live page, a tour for a beginner (Blender's Experience level, a guest
   too): a few steps pointing at the page's parts, shown once in a browser,
   again from More › Tour of the page.

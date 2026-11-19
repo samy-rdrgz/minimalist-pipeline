@@ -2,7 +2,7 @@
 function marks(it){
   const out=[];[...it.notes.filter(n=>!n.done),...it.myNotes].forEach(n=>{if(!n.frames)return;const m=String(n.frames).match(/(\d+)(?:-(\d+))?/);if(m)out.push({a:+m[1],b:m[2]?+m[2]:null,rtk:n.type==='rtk',n})});return out;
 }
-const fmtDay=sec=>{const d=new Date(sec*1000);return d.toLocaleDateString(LOCALE(),{day:'2-digit',month:'2-digit'})};
+const fmtDay=sec=>{const d=new Date(sec*1000);return d.toLocaleDateString(DTL(),{day:'2-digit',month:'2-digit'})};
 const verLab=v=>[v.shot,v.folder,v.dept?(LBL[v.dept]||v.dept):'',v.at?fmtDay(v.at):''].filter(Boolean).join(' · ');
 function shotsHTML(it){if(!it.shots||it.shots.length<2)return '';const c=shotOf(it);
   return `<div class="shotsel"><span class="faint">${T('Shot of the block')}</span><span class="join">${['',...it.shots].map(x=>`<button class="btn sm" data-shot="${x}" aria-pressed="${c===x}">${x||T('Whole block')}</button>`).join('')}</span></div>`}
@@ -142,6 +142,7 @@ function headHTML(it){
     <button class="btn flat icon live-only" data-act="blendfolder" aria-label="${T('Open its folder')}" title="${T('Its folder: the .blend\'s, in this machine\'s file browser')}">${ic('b-file_folder')}</button>
     ${(it.versions||[]).length?`<button class="btn flat icon live-only" data-act="renderfolder" aria-label="${T('Open its render folder')}" title="${T('Its render folder, in this machine\'s file browser')}">${ic('b-render_result')}</button>`:''}
     <span class="join"><button class="btn icon" id="pp-prev" aria-label="${T('Previous file')}" title="${T('Previous (↑)')}">${ic('b-tria_up')}</button><button class="btn icon" id="pp-next" aria-label="${T('Next file')}" title="${T('Next (↓)')}">${ic('b-tria_down')}</button></span>
+    <button class="btn flat icon only-mid" data-pmax aria-label="${T('The detail on the whole width')}"></button>
     <button class="btn flat icon only-phone" id="pp-close" aria-label="${T('Close')}" title="${T('Close (Esc)')}">${ic('b-x')}</button>`;
 }
 function renderProps(){
@@ -149,7 +150,7 @@ function renderProps(){
   if(S.ws==='farm'){TB.hidden=true;renderFarmDetail(H,B);return}
   TB.hidden=false;const it=cur();
   if(!it){H.innerHTML='<span class="phead"><span class="pname">'+T('Nothing selected')+'</span></span>';TB.innerHTML='';B.innerHTML='<div class="empty">'+T('Pick a file in the list.')+'</div>';return}
-  H.innerHTML=headHTML(it);
+  H.innerHTML=headHTML(it);window.MPPanes&&MPPanes.sync();
   const nr=openRtk(it),nn=openNotes(it),nl=it.links.length+it.linkedBy.length,lo=it.links.some(l=>l.newer);
   TB.innerHTML=[['plan',it.kind==='shot'?'b-camera_data':'b-asset_manager',it.kind==='shot'?T('Shot'):T('Asset')],['notes','i-note',T('Notes'),nn,nr?'r':''],['links','b-linked',T('Links'),nl,lo?'r':''],['files','b-file',T('Files and renders')]]
     .map(([k,i,l,n,c])=>`<button class="vtab" role="tab" data-tab="${k}" aria-selected="${S.tab===k}" title="${l}" aria-label="${l}">${ic(i)}${n?`<span class="cnt ${c||''}">${n}</span>`:''}</button>`).join('');

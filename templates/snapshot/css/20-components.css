@@ -77,7 +77,9 @@ svg.g{width:calc(26px*var(--scale));height:var(--h-sm);flex:none;overflow:visibl
 .topbar{display:flex;align-items:center;gap:var(--sp-5);min-height:calc(48px*var(--scale));padding:0 var(--sp-5) 0 var(--sp-7);background:var(--head);border-radius:var(--r-xl);flex:none;min-width:0}
 .brand{display:flex;flex-direction:column;line-height:1.2;min-width:0}
 .brand b{font-weight:600;font-size:var(--fs-l)}
-.brand small{color:var(--text-3);font-size:var(--fs-s);white-space:nowrap}
+.brand small{color:var(--text-3);font-size:var(--fs-s);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand{flex:0 1 auto}
 .ws{display:flex;gap:var(--sp-1);padding:var(--sp-2);background:var(--sunk);border-radius:var(--r-l);margin-left:var(--sp-5);overflow-x:auto;scrollbar-width:none;flex:none;max-width:100%}
 .ws button{height:var(--u);padding:0 var(--sp-7);border:0;border-radius:var(--r);background:none;color:var(--text-2);cursor:pointer;display:inline-flex;align-items:center;gap:var(--sp-4);white-space:nowrap}
 .ws button:hover{color:var(--text)}
@@ -97,6 +99,9 @@ svg.g{width:calc(26px*var(--scale));height:var(--h-sm);flex:none;overflow:visibl
 .area-body{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain}
 #outliner{grid-area:out}#main{grid-area:main}#props{grid-area:props}
 .only-narrow,.only-phone{display:none!important}
+/* The buttons that fold a side (30-panes.js): from 861 px, not on a phone. */
+@media (max-width:860px){.only-mid{display:none!important}}
+.is-mob .only-mid{display:none!important}
 @media (max-width:1200px){
   .screen{grid-template-columns:minmax(0,1fr) calc(380px*var(--scale));grid-template-areas:"main props"}
   #outliner{position:fixed;z-index:40;left:max(6px,env(safe-area-inset-left,0px));top:calc(60px*var(--scale));bottom:40px;width:min(calc(260px*var(--scale)),82vw);box-shadow:8px 0 30px rgba(0,0,0,.55);transform:translateX(-112%);transition:transform .16s}
@@ -539,7 +544,6 @@ button.assign:hover{background:var(--line);color:var(--text)}
 .field select option{background:var(--field);color:var(--text)}
 /* A popover placed by its button (placePop()): fixed, held inside the window. */
 .pop.fx{position:fixed;z-index:200;top:0;left:0;right:auto;max-height:calc(100vh - 16px);overflow:auto}
-.area-head:has(.pop){z-index:35}
 /* ---------- Switch: an on / off setting (the phone's sheets too) ----------
    A whole row is the button (role="switch", aria-checked); the track at its right. */
 .tg{position:relative;width:calc(30px*var(--scale));height:calc(18px*var(--scale));border-radius:var(--r-pill);background:var(--track);border:1px solid var(--line-2);flex:none;transition:background .15s,border-color .15s}
@@ -579,3 +583,11 @@ html.vv #wide,html.vv.is-mob #mob{top:var(--vv-top,0px);bottom:auto;height:var(-
 /* View › Interface scale: the slider in its menu row. */
 .mi.scale-r{cursor:default;gap:var(--sp-5)}.mi.scale-r:hover{background:none;color:var(--text)}
 .mi.scale-r input{flex:1;min-width:0;accent-color:var(--sel)}
+/* ---------- One line, scrolled sideways ----------
+   A row of choices (a button group, the filters, the spaces) never wraps: it scrolls sideways, a fade on the
+   side where more is hidden (sxFade(), .sx-l / .sx-r), a mouse wheel scrolling it too. */
+.join,.filters{flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;overscroll-behavior-x:contain}
+.join::-webkit-scrollbar,.filters::-webkit-scrollbar,.ws::-webkit-scrollbar{display:none}
+.filters{min-width:0;flex:0 1 auto}
+.sx-l,.sx-r{--fl:#000;--fr:#000;-webkit-mask-image:linear-gradient(to right,var(--fl),#000 calc(28px*var(--scale)),#000 calc(100% - 28px*var(--scale)),var(--fr));mask-image:linear-gradient(to right,var(--fl),#000 calc(28px*var(--scale)),#000 calc(100% - 28px*var(--scale)),var(--fr))}
+.sx-l{--fl:transparent}.sx-r{--fr:transparent}

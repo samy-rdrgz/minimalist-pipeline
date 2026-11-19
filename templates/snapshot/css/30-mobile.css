@@ -173,7 +173,7 @@ b.ab{display:inline-grid;place-items:center;width:var(--h-xs);height:var(--h-xs)
 @media (min-width:600px){.is-mob body{background:var(--screen)}.is-mob #mob{left:50%;right:auto;width:430px;margin-left:-215px;border-inline:1px solid var(--line)}}
 /* Retake / Remark as two icons; the retake on, red */
 .m-ct{flex:none}
-.mob .m-ct .btn[data-mct="rtk"][aria-pressed="true"]{background:var(--alert);border-color:var(--alert-line);color:var(--alert-t)}
+.mob .m-ct .btn[data-mct="rtk"][aria-pressed="true"]{background:var(--st-rtk);border-color:var(--st-rtk);color:#fff}
 .mob [data-mloop][aria-pressed="true"]{background:var(--sel-soft);border-color:var(--sel);color:var(--text)}
 /* A / B en bureau : B en orange, autour de l'image aussi */
 b.ab.b{background:var(--st-wip);color:#241703}

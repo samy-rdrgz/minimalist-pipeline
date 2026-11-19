@@ -16,7 +16,10 @@ function img(id){if(!id)return '';if(URLS[id])return URLS[id];const b64=IMG[id];
   try{const b=atob(b64),a=new Uint8Array(b.length);for(let i=0;i<b.length;i++)a[i]=b.charCodeAt(i);URLS[id]=URL.createObjectURL(new Blob([a],{type:'image/jpeg'}))}
   catch(_){URLS[id]='data:image/jpeg;base64,'+b64}return URLS[id]}
 /* Dates in the page's language: 16/11 19:10. */
-const fmtD=iso=>{const d=new Date(iso);return isNaN(d)?'':d.toLocaleDateString(LOCALE(),{day:'2-digit',month:'2-digit'})+' '+d.toLocaleTimeString(LOCALE(),{hour:'2-digit',minute:'2-digit'})};
+/* Dates and times: day before month, a 24-hour clock, in every language (English as British English writes them). */
+const DTL=()=>LOCALE()==='en'?'en-GB':LOCALE();
+const HM={hour:'2-digit',minute:'2-digit',hourCycle:'h23'};
+const fmtD=iso=>{const d=new Date(iso);return isNaN(d)?'':d.toLocaleDateString(DTL(),{day:'2-digit',month:'2-digit'})+' '+d.toLocaleTimeString(DTL(),HM)};
 const LOCALE=()=>typeof MPI18n!=='undefined'?MPI18n.lang:'en';
 /* The frames a video has when it says nothing (no fps, no length known yet). */
 let NF=120;

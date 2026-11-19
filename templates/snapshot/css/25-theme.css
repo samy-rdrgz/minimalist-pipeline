@@ -38,10 +38,10 @@
 /* Buttons: flat, no relief, no shadow, no gradient */
 .btn{box-shadow:none;background-image:none;border-color:var(--btn-line)}
 .btn.flat{border-color:transparent}
-.btn.primary,.btn[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:var(--on-brand);font-weight:600}
+.btn.primary,.btn[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:var(--on-brand)}
+/* Primary in bold; pressed not: a choice made doesn't change its button's width (nor move its row). */
+.btn.primary{font-weight:600}
 .btn.primary:hover{background:var(--brand-hi);border-color:var(--brand-hi)}
-.btn.ok{border-color:var(--ok-line)}
-.btn.alert{border-color:var(--alert-line)}
 .join>.btn+.btn{border-left-color:rgba(0,0,0,.28)}
 .field{box-shadow:none}
 .field:focus-within{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-a24)}
@@ -56,7 +56,8 @@
 /* Menus in front */
 .grp-h:has(.menu:not([hidden])){z-index:25}
 .row:has(.menu:not([hidden])),.anchor:has(.menu:not([hidden])){position:relative;z-index:40}
-.area-head:has(.menu:not([hidden])){z-index:35}
+/* A menu or a popover open in an area's header: that header in front of the other areas (their headers are z 10 too). */
+:is(#main,#outliner,#props) .area-head:is(:has(.menu:not([hidden])),:has(.pop)){z-index:35}
 
 /* Detail and breakdown */
 .ptabs button[aria-selected="true"]{border-bottom-color:var(--brand)}
@@ -73,6 +74,16 @@
 .m-nav button[aria-selected="true"]::before{background:var(--brand)}
 .m-dept.mine{border-color:var(--you-line)}
 .m-sec-h::before{content:"";width:3px;height:11px;border-radius:var(--r-xs);background:var(--brand);flex:none}
+/* Validate and Retake, not pressed: a plain button (opaque, no tint, no outline), their mark in the state's
+   colour -- the checkmark pink, Retake's diamond orange (the tags' mark). Pressed: the state's colour, solid. */
+.btn.ok,.btn.alert{background:var(--btn);border-color:var(--btn-line);color:var(--text)}
+.btn.ok:hover,.btn.alert:hover{background:var(--btn-hi)}
+.btn.ok:disabled:hover,.btn.alert:disabled:hover{background:var(--btn)}
+.btn.ok svg.i{fill:var(--st-val)}.btn.alert svg.i{fill:var(--st-rtk)}
+.btn.ok:not(:has(svg))::before,.btn.alert:not(:has(svg))::before{content:"";width:calc(6px*var(--scale));height:calc(6px*var(--scale));border-radius:1px;transform:rotate(45deg);flex:none;background:var(--st-rtk)}
+.btn.ok:not(:has(svg))::before{background:var(--st-val)}
+.btn.ok[aria-pressed="true"] svg.i,.btn.alert[aria-pressed="true"] svg.i{fill:#fff}
+.btn.ok[aria-pressed="true"]::before,.btn.alert[aria-pressed="true"]::before{background:#fff}
 /* Pressed buttons that mean something: Validate stays pink, Retake orange */
 .btn.ok[aria-pressed="true"]{background:var(--st-val);border-color:var(--st-val);color:#fff}
 .btn.alert[aria-pressed="true"]{background:var(--st-rtk);border-color:var(--st-rtk);color:#fff}

@@ -145,6 +145,8 @@ document.addEventListener('click',e=>{
   if(t.closest('[data-checked]')){const it=cur();it.toCheck=false;if(LIVE)liveChecked(it);refresh();msg(T('Checked: {name} is no longer "to check"',{name:S.sel}));return}
   if(t.closest('#pp-prev')){step(-1);return}if(t.closest('#pp-next')){step(1);return}
   if(t.closest('#pp-close')){document.body.classList.remove('props-open');return}
+  if(t.closest('#pz-side')){MPPanes.props();return}
+  if(t.closest('[data-pmax]')){MPPanes.main();return}
   if(t.closest('#out-toggle')){document.body.classList.toggle('out-open');return}
   if(t.closest('#scrim')){document.body.classList.remove('out-open');return}
 });
@@ -200,3 +202,12 @@ new ResizeObserver(()=>drawWires()).observe($('#pbody'));new ResizeObserver(()=>
 document.addEventListener('scroll',e=>{if(!e.target.closest||!e.target.closest('.menu'))closeMenus()},true);addEventListener('resize',()=>{closeMenus();document.querySelectorAll('.pop.fx').forEach(p=>p.remove())});
 document.addEventListener('dblclick',e=>{const gn=e.target.closest('[data-gn]');if(gn){const it=items.find(i=>i.name===gn.dataset.gn);S.ws=it.kind;S.sel=it.name;S.tab='plan';S.gFocus=null;renderAll()}});
 document.addEventListener('change',e=>{if(e.target.matches&&e.target.matches('.rv-load')){const f=e.target.files[0];e.target.value='';closeMenus();loadReview(f)}});
+
+/* A row scrolled sideways (.join, .filters, .ws): a fade on the side where more is hidden; a mouse wheel scrolls it. */
+const SX='.join,.filters,.ws';
+function sxFade(el){const l=el.scrollLeft>1,r=el.scrollLeft+el.clientWidth<el.scrollWidth-1;el.classList.toggle('sx-l',l);el.classList.toggle('sx-r',r)}
+let sxT=0;const sxAll=()=>{if(sxT)return;sxT=requestAnimationFrame(()=>{sxT=0;document.querySelectorAll(SX).forEach(sxFade)})};
+document.addEventListener('scroll',e=>{if(e.target.matches&&e.target.matches(SX))sxFade(e.target)},true);
+document.addEventListener('wheel',e=>{const el=e.target.closest&&e.target.closest(SX);if(!el||el.scrollWidth<=el.clientWidth+1||Math.abs(e.deltaX)>Math.abs(e.deltaY))return;
+  e.preventDefault();el.scrollLeft+=e.deltaY},{passive:false});
+new MutationObserver(sxAll).observe(document.body,{childList:true,subtree:true});addEventListener('resize',sxAll);sxAll();

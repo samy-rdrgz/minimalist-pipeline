@@ -38,7 +38,7 @@ import bpy
 from .core import get_addon_version, now
 from .logs import log
 from .preview import browser_video, render_department, render_root
-from .snapshot import _folder_frames, _owner_shots, _video_name, build_snapshot, read_render_state
+from .snapshot import _folder_frames, _owner_shots, _video_name, build_snapshot, folder_links, read_render_state
 from .snapshot_page import page_data, render_page
 from .status import project_stages
 from .thumbnails import owner_shot_render_dirs, owner_thumbnail_dirs, thumbnail_path
@@ -47,7 +47,6 @@ from .tracking import (
     _collect_folder,
     _current_link_files,
     _outdated_links_of,
-    _path_key,
     _pipeline_entries,
     _walk_owner_dirs,
     to_check_entries,
@@ -417,28 +416,11 @@ def _checks(root: Path, tracking: dict) -> list:
 def _live_extras(root: Path, cache: dict, outdated: dict) -> dict:
     """Per folder, what only the live page shows: {"key" (its path under
     the project), "links": [{"key", "file", "newer"}], "linked_by": [keys],
-    "versions", "checks"}."""
-    rel = {}
-    for key in cache:
-        try:
-            rel[_path_key(Path(key))] = Path(key).relative_to(root).as_posix()
-        except ValueError:
-            pass
-    by_target: dict[str, list[str]] = {}
-    out = {}
+    "versions", "checks"} -- the links as a snapshot has them
+    (lib/snapshot.py folder_links())."""
+    out = folder_links(root, {k: e.get("links") or [] for k, e in cache.items()}, outdated)
     for key, e in cache.items():
-        me = rel.get(_path_key(Path(key)))
-        newer = dict(outdated.get(key) or [])
-        links = []
-        for f in e.get("links") or []:
-            path = Path(f) if Path(f).is_absolute() else Path(root) / f
-            target = rel.get(_path_key(path.parent), "")
-            links.append({"key": target, "file": path.name, "newer": newer.get(path.name, "")})
-            if target and me:
-                by_target.setdefault(target, []).append(me)
-        out[key] = {"key": me, "links": links, "versions": e.get("versions") or {}, "checks": e.get("checks") or []}
-    for key, extra in out.items():
-        extra["linked_by"] = sorted(set(by_target.get(extra["key"], [])))
+        out[key].update(versions=e.get("versions") or {}, checks=e.get("checks") or [])
     return out
 
 
@@ -1067,10 +1049,19 @@ def _rebuild(sh: _Shared, force: bool) -> None:
     from . import relink
 
     relinks = relink.states()
-    if not force and (farm, jobs, relinks) == _reader["farm"]:
-        return
-    _reader["farm"] = (farm, jobs, relinks)
     config = ConfigCache.get() or {}
+    # The project's preferences (its team, roles, departments...) and this
+    # Blender's user and role: changed in Blender, the page follows on the
+    # next turn -- not only once a file changes.
+    prefs = (
+        json.dumps(config, sort_keys=True, default=str),
+        get_user(bpy.context),
+        get_user_role(bpy.context),
+        ui_language(),
+    )
+    if not force and (farm, jobs, relinks, prefs) == _reader["farm"]:
+        return
+    _reader["farm"] = (farm, jobs, relinks, prefs)
     meta = {
         "project": config.get("project_name") or sh.root.name,
         "scan_started_at": now(),
