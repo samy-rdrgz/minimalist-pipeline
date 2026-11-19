@@ -29,7 +29,9 @@ def main() -> None:
     assert formats.kind_of("/p/a/.pipeline/v003-stable.stablemeta") == "stablemeta"
     assert formats.kind_of("/p/config/project_config.json") == "project_config"
     assert formats.kind_of("/p/config/.farm/queue/actives/abc.json") is None
-    assert formats.version_of({"entries": []}) == 0  # before 2.0
+    assert formats.version_of({"entries": []}) == "1.x"
+    assert formats.too_new("/a/tracking.json", {"format_version": "2.0"}) is None
+    assert formats.too_new("/a/tracking.json", {"format_version": "2.10"}) == "2.10"
 
     with tempfile.TemporaryDirectory() as d:
         t = Path(d) / "tracking.json"
@@ -42,7 +44,7 @@ def main() -> None:
         core.write_json_atomic(other, {"a": 1})
         assert json.loads(other.read_text(encoding="utf-8")) == {"a": 1}
 
-        t.write_text(json.dumps({"format_version": 99, "entries": [], "new": 1}), encoding="utf-8")
+        t.write_text(json.dumps({"format_version": "9.0", "entries": [], "new": 1}), encoding="utf-8")
         with core.locked_json(t, read_only=True) as box:
             assert box["data"]["new"] == 1  # still read
         try:

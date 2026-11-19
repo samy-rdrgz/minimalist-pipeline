@@ -1013,7 +1013,7 @@ class ProjectSettings:
             config_file.parent.mkdir(parents=True, exist_ok=True)
             newer = formats.too_new(config_file, config)
             if newer is not None:
-                return [("ERROR", f"This project's settings were written by a newer Minimalist Pipeline (format {newer}): update the addon first.")]
+                return [("ERROR", f"This project's settings were written by a newer Minimalist Pipeline ({newer}): update the addon first.")]
             write_json_atomic(config_file, config)
             ConfigCache.invalidate()
         except Exception as e:

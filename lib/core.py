@@ -913,7 +913,7 @@ def locked_json(path: Path, read_only=False, retries: int = 10, io_attempts: int
             # A newer addon's form: rewriting it would drop what this one doesn't know.
             raise PipelineError(
                 f"{Path(path).name} was written by a newer Minimalist Pipeline "
-                f"(format {newer}, this one knows {formats.current(path)}): update the addon on this machine."
+                f"(form of {newer}, this one knows {formats.current(path)}): update the addon on this machine."
             )
         box = {"data": data, "action": ""}
         yield box

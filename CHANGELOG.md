@@ -6,12 +6,12 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
-- Every project file says the form it's written in: `"format_version"`
+- Every project file says the form it's written in: `"format_version": "2.0"`, the addon version that form came with,
   in project_config.json, tracking.json, .stablemeta, .wipmeta,
   render_history.json, preset_pace.json, rushes.json, session and farm
   worker files (lib/formats.py). An addon never rewrites a file a newer
   one wrote: it says to update instead of dropping what it doesn't know.
-  Files with no key were written before 2.0.
+  Files with no key were written by a 1.x.
 - Tests run on every push (GitHub Actions); `python3 tools/run_tests.py`
   runs them all locally. The bug report asks where it happened (page,
   live, phone, farm) and for the browser.
