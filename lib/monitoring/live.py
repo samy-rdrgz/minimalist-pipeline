@@ -887,8 +887,19 @@ def _presets() -> dict:
     from ...operators.farm_ops import _get_pre_render_scripts, default_pre_render_script
     from ..config import ConfigCache
 
-    items = [list(i[:2]) for i in _get_pre_render_scripts(None, bpy.context)]
-    return {"presets": items, "preset": default_pre_render_script(ConfigCache.get() or {}, [tuple(i) for i in items])}
+    from .status import preset_department
+
+    config = ConfigCache.get() or {}
+    items = [list(i[:2]) for i in _get_pre_render_scripts(None, bpy.context) if i]
+    departments = [*(config.get("shots_departments") or []), *(config.get("assets_departments") or [])]
+    return {
+        "presets": items,
+        "preset": default_pre_render_script(config, [tuple(i) for i in items]),
+        # The department each preset's name gives, and the one set for each department
+        # (Project settings > By department): the form's preset follows its department.
+        "preset_deps": {n: preset_department(n, departments) for n, _ in items},
+        "dept_presets": (config.get("farm") or {}).get("department_presets") or {},
+    }
 
 
 def _iso(value) -> str:
@@ -1048,9 +1059,22 @@ def _farm_submit(action: str, raw: dict) -> dict:
         overrided_frame_range=tuple(frames),
         only_shots=shots,
         sound=raw.get("sound") is not False,
+        # The department picked in the form ("" none); absent (an older page): its preset's name's.
+        department=_render_department(filepath, raw.get("department")),
     )
     log("INFO", "live", f"Live page: {filepath.name} sent to the farm")
     return {"ok": True, "sent": filepath.name}
+
+
+def _render_department(filepath: Path, picked) -> str | None:
+    """The department the page's Render form picked, if one of the file's
+    kind's ("" none); None (an older page, no field): its preset's name's."""
+    from ...operators.farm_ops import _file_departments
+
+    if not isinstance(picked, str):
+        return None
+    picked = picked.strip().lower()
+    return picked if picked in [d.lower() for d in _file_departments(str(filepath))] else ""
 
 
 def _rebuild(sh: _Shared, force: bool) -> None:

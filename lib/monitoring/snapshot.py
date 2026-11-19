@@ -85,6 +85,7 @@ def read_snapshot_raw(root: Path) -> list[tuple[str, Path, dict, list[str]]]:
             raw = _collect_folder(owner, _pipeline_entries(owner))
             if raw is None:
                 continue
+            raw["render_presets"] = _render_presets(owner)
             try:
                 blends = [
                     e.name for e in os.scandir(owner) if e.name.endswith(".blend")
@@ -93,6 +94,21 @@ def read_snapshot_raw(root: Path) -> list[tuple[str, Path, dict, list[str]]]:
                 blends = []
             out.append((kind, owner, raw, blends))
     return out
+
+
+def _render_presets(owner: Path) -> dict:
+    """The Render form's start for this folder: {"department": its last
+    render's, "by": {department: the preset its last render for it used}}
+    (render_history.json, finished and failed renders). Pure os/json."""
+    by, last = {}, ""
+    for e in (read_json_quiet(owner / ".pipeline" / "render_history.json") or {}).get("entries") or []:
+        if not isinstance(e, dict) or e.get("status") == "split":
+            continue
+        d = str(e.get("department") or "").lower()
+        last = d
+        if d:
+            by[d] = e.get("prerender_script") or ""
+    return {"department": last, "by": by}
 
 
 def _owner_shots(owner: Path) -> list[str]:
@@ -580,6 +596,7 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
             # assets/, library/ or shots/: the page's tab, the videos zip's folder.
             "root": next((p for p in reversed(owner.parts) if p in _DATA_ROOTS), kind),
             "description": status.get("description", ""),
+            "render_presets": raw.get("render_presets") or {},
             "departments_required": list(status.get("departments_required", [])),
             "departments": {
                 d: department_state(status, d)

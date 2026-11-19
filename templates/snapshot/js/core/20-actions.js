@@ -208,3 +208,36 @@ function wordsOf(field, say = msg) {
   say(T('Write what to change first.'));
   return null;
 }
+/* The Render form (desktop and phone): the department picked, then its preset. A department
+   starts on the preset that file was last rendered with for it, else the department's own
+   (Project settings > By department), else <department>_default, else the first its name
+   gives, else none. The form opens on the department of the file's last render. */
+const NO_SCRIPT = 'NONE';
+const hasPreset = n => F.presets.some(p => p[0] === n);
+function deptPreset(it, d) {
+  if (!d) return hasPreset(F.preset) ? F.preset : NO_SCRIPT;
+  const last = ((it.rp || {}).by || {})[d];
+  if (last !== undefined && hasPreset(last || NO_SCRIPT)) return last || NO_SCRIPT;
+  const own = (F.dept_presets || {})[d];
+  if (own && hasPreset(own)) return own;
+  if (hasPreset(d + '_default')) return d + '_default';
+  const p = F.presets.find(p => (F.preset_deps || {})[p[0]] === d);
+  return p ? p[0] : NO_SCRIPT;
+}
+function startDept(it) {
+  const d = (it.rp || {}).department || '';
+  return (DEPTS[it.kind] || []).includes(d) ? d : '';
+}
+/* The presets, the department's first (its name's, or set for it). */
+function presetsFor(d) {
+  if (!d) return F.presets;
+  const own = (F.dept_presets || {})[d];
+  const mine = F.presets.filter(
+    p => p[0] !== NO_SCRIPT && (p[0] === own || (F.preset_deps || {})[p[0]] === d)
+  );
+  return [
+    ...F.presets.filter(p => p[0] === NO_SCRIPT),
+    ...mine,
+    ...F.presets.filter(p => p[0] !== NO_SCRIPT && !mine.includes(p))
+  ];
+}

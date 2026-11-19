@@ -57,7 +57,8 @@ const RF = {};
 const rform = it =>
   (RF[it.name] = RF[it.name] || {
     ver: it.stable ? 'stable' : 'last',
-    preset: S.preset,
+    dept: startDept(it),
+    preset: deptPreset(it, startDept(it)),
     prio: 10,
     mode: 'all',
     sound: 'on',
@@ -80,8 +81,15 @@ function renderDlg() {
   dl.innerHTML = `<div class="dlg-in rnd" role="dialog" aria-modal="true" aria-labelledby="rd-t"><h3 id="rd-t">${ic('b-render_animation')} ${T('Render {name}', { name: esc(it.name) })}</h3>
     ${job ? `<p class="tag check" style="align-self:flex-start">${T('Already in the farm: {what}', { what: esc(job.text) + (job.total ? ' · ' + job.done + '/' + job.total : '') })}</p>` : ''}
     <div class="prop"><span class="k">${T('Version')}</span><span class="v"><span class="join full" style="flex:1">${it.stable ? seg('ver', 'stable', T('Last stable · {v}', { v: esc(it.stable) })) : ''}${seg('ver', 'last', T('Latest · {v}', { v: esc(it.wip || it.stable || '') }))}</span></span></div>
+    <div class="prop"><span class="k">${T('Department')}</span><span class="v"><span class="anchor" style="flex:1;min-width:0"><button class="enum" style="width:100%" data-menu="m-rdept" aria-haspopup="true" aria-expanded="false"><span class="lb">${f.dept ? esc(f.dept) : T('No department')}</span>${ic('b-tria_down')}</button>
+      <div class="menu" id="m-rdept" hidden role="menu">${['', ...(DEPTS[it.kind] || [])].map(d => `<button class="mi" data-rdept="${esc(d)}"><span class="ck">${d === f.dept ? ic('b-checkmark') : ''}</span><span class="lbl">${d ? esc(d) : T('No department')}</span></button>`).join('')}</div></span></span></div>
     <div class="prop"><span class="k">${T('Pre-render script')}</span><span class="v"><span class="anchor" style="flex:1;min-width:0"><button class="enum" style="width:100%" data-menu="m-rpreset" aria-haspopup="true" aria-expanded="false"><span class="lb">${esc(pr[1])}</span>${ic('b-tria_down')}</button>
-      <div class="menu" id="m-rpreset" hidden role="menu">${F.presets.map(p => `<button class="mi" data-rpreset="${esc(p[0])}"><span class="ck">${p[0] === f.preset ? ic('b-checkmark') : ''}</span><span class="lbl">${esc(p[1])}</span></button>`).join('')}</div></span></span></div>
+      <div class="menu" id="m-rpreset" hidden role="menu">${presetsFor(f.dept)
+        .map(
+          p =>
+            `<button class="mi" data-rpreset="${esc(p[0])}"><span class="ck">${p[0] === f.preset ? ic('b-checkmark') : ''}</span><span class="lbl">${esc(p[1])}</span></button>`
+        )
+        .join('')}</div></span></span></div>
     <div class="prop"><span class="k">Frames</span><span class="v">${f.frames ? `<label class="field" style="width:96px"><span class="faint">${T('from')}</span><input data-rfn="start" value="${esc(f.start)}" placeholder="${T('file')}" aria-label="${T('First frame')}"></label><label class="field" style="width:96px"><span class="faint">${T('to')}</span><input data-rfn="end" value="${esc(f.end)}" placeholder="${T('file')}" aria-label="${T('Last frame')}"></label><button class="btn sm flat" data-rft>${T("the file's own")}</button>` : `<span class="dim">${T("the file's own")}</span><button class="btn sm tool" data-rft>${T('Choose')}</button>`}</span></div>
     <div class="prop"><span class="k">${T('Priority')}</span><span class="v"><span class="prio"><button class="btn sm icon" data-rprio="-1" aria-label="${T('Lower')}">−</button><b>${f.prio}</b><button class="btn sm icon" data-rprio="1" aria-label="${T('Higher')}">+</button><span class="faint">${T('the highest goes first')}</span></span></span></div>
     <div class="prop"><span class="k">${T('Machines')}</span><span class="v"><span class="join">${seg('mode', 'all', T('All'))}${seg('mode', 'single', T('Only one'))}</span></span></div>

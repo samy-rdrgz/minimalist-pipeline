@@ -73,6 +73,15 @@ function v6Click(t) {
     renderDlg();
     return true;
   }
+  const rdp = t.closest('[data-rdept]');
+  if (rdp) {
+    const f = rform(cur());
+    f.dept = rdp.dataset.rdept;
+    f.preset = deptPreset(cur(), f.dept);
+    closeMenus();
+    renderDlg();
+    return true;
+  }
   const rpp = t.closest('[data-rpreset]');
   if (rpp) {
     rform(cur()).preset = rpp.dataset.rpreset;

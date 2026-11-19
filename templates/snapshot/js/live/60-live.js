@@ -81,6 +81,7 @@ function renderSend(it, preview) {
   return farmPost({
     action: 'render',
     file: f.ver === 'stable' && it.stableFile ? it.stableFile : it.file,
+    department: f.dept || '',
     preset: f.preset,
     priority: f.prio,
     mode: f.mode,

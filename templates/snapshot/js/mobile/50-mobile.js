@@ -342,7 +342,8 @@ function mSheet() {
     const f = (S.m.rf = S.m.rf || {
       file: it.name,
       ver: it.stable ? 'stable' : 'last',
-      preset: S.preset,
+      dept: startDept(it),
+      preset: deptPreset(it, startDept(it)),
       prio: 10
     });
     const rf = items.find(i => i.name === f.file) || it;
@@ -360,7 +361,12 @@ function mSheet() {
       )
       .join('')}</select></label>
       <div class="m-lab">${T('Version')}<span class="join full">${rf.stable ? `<button class="btn" data-mrv="stable" aria-pressed="${f.ver === 'stable'}">Stable · ${esc(rf.stable)}</button>` : ''}<button class="btn" data-mrv="last" aria-pressed="${f.ver === 'last' || !rf.stable}">${T('Latest · {v}', { v: esc(rf.wip || rf.stable || '') })}</button></span></div>
-      <label class="m-lab">${T('Pre-render script')}<select class="m-select" data-mrf="preset">${F.presets.map(p => `<option value="${esc(p[0])}" ${p[0] === f.preset ? 'selected' : ''}>${esc(p[1])}</option>`).join('')}</select></label>
+      <label class="m-lab">${T('Department')}<select class="m-select" data-mrf="dept">${['', ...(DEPTS[rf.kind] || [])].map(d => `<option value="${esc(d)}" ${d === f.dept ? 'selected' : ''}>${d ? esc(d) : T('No department')}</option>`).join('')}</select></label>
+      <label class="m-lab">${T('Pre-render script')}<select class="m-select" data-mrf="preset">${presetsFor(
+        f.dept
+      )
+        .map(p => `<option value="${esc(p[0])}" ${p[0] === f.preset ? 'selected' : ''}>${esc(p[1])}</option>`)
+        .join('')}</select></label>
       <label class="m-lab">${T('Sound')}<select class="m-select" data-mrf="sound"><option value="on" ${f.sound !== 'off' ? 'selected' : ''}>${T('With sound')}</option><option value="off" ${f.sound === 'off' ? 'selected' : ''}>${T('Without sound')}</option></select></label>
       <div class="m-lab">${T('Priority')}<span class="prio"><button class="btn icon" data-mrp="-1" aria-label="${T('Lower')}">−</button><b>${f.prio}</b><button class="btn icon" data-mrp="1" aria-label="${T('Higher')}">+</button><span class="m-hint">${T('the highest goes first')}</span></span></div>
       <p class="m-hint">${T("Frames, machines, a block's shots: the desktop version.")}</p>`;
@@ -598,6 +604,7 @@ $('#mob').addEventListener('click', e => {
       farmPost({
         action: 'render',
         file: f.ver === 'stable' && it.stableFile ? it.stableFile : it.file,
+        department: f.dept || '',
         preset: f.preset,
         priority: f.prio,
         mode: 'all',
@@ -613,7 +620,12 @@ $('#mob').addEventListener('change', e => {
   const r = e.target.closest('[data-mrf]');
   if (r) {
     S.m.rf[r.dataset.mrf] = r.value;
-    if (r.dataset.mrf === 'file') S.m.rf.ver = items.find(i => i.name === r.value).stable ? 'stable' : 'last';
+    const rf = items.find(i => i.name === S.m.rf.file);
+    if (r.dataset.mrf === 'file') {
+      S.m.rf.ver = rf.stable ? 'stable' : 'last';
+      S.m.rf.dept = startDept(rf);
+    }
+    if (r.dataset.mrf === 'file' || r.dataset.mrf === 'dept') S.m.rf.preset = deptPreset(rf, S.m.rf.dept);
     mRender();
   }
 });

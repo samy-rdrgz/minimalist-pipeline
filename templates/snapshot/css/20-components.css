@@ -861,6 +861,13 @@ body.out-open .scrim {
   align-items: center;
   padding: 0 var(--sp-7);
 }
+/* A long department name: cut, whole in its tooltip -- never into its neighbour. */
+.cols .cd {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .cols {
   min-height: var(--u);
   color: var(--text-3);

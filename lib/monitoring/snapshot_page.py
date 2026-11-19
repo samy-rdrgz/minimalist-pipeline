@@ -219,6 +219,8 @@ def _item(item: dict, threads: list, roles: list, image) -> dict:
         "file": _stem(item["current_version"]) or item["name"],
         "stable": _stem(item["stable_version"]) or "",
         "render_ref": _render_ref(item.get("renders") or []),
+        # The Render form's start: its last render's department, each department's last preset.
+        "rp": item.get("render_presets") or {},
         "versions": _versions(item),
         "stable_v": _short_version(item["name"], item["stable_version"] or ""),
         # The wip's, when newer than the stable: a state's capsule (page.js).
