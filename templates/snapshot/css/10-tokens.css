@@ -1,145 +1,226 @@
 /* Layout: Blender's greys and widgets, a web page's spacing.
    Outliner | List (separators) | Detail; "Watch large" covers the screen.
    ≥1200 three areas · 860–1200 the outliner a drawer · <860 the detail a full-screen sheet. */
-:root{
-  color-scheme:dark;
-  --scale:1;
+:root {
+  color-scheme: dark;
+  --scale: 1;
   /* ---- Sizes: everything from --unit (4 px × --scale). No px written in a component,
      but the hairlines (1 px) and the layout's widths. View › Interface scale changes --scale. */
-  --unit:calc(4px*var(--scale));
+  --unit: calc(4px * var(--scale));
   /* Spacing (padding, margin, gap) */
-  --sp-1:calc(var(--unit)*.5);   /*  2 */
-  --sp-2:var(--unit);            /*  4 */
-  --sp-3:calc(var(--unit)*1.5);  /*  6 */
-  --sp-4:calc(var(--unit)*2);    /*  8 */
-  --sp-5:calc(var(--unit)*2.5);  /* 10 */
-  --sp-6:calc(var(--unit)*3);    /* 12 */
-  --sp-7:calc(var(--unit)*4);    /* 16 */
-  --sp-8:calc(var(--unit)*5);    /* 20 */
-  --sp-9:calc(var(--unit)*6);    /* 24 */
-  --sp-10:calc(var(--unit)*8);   /* 32 */
-  --sp-11:calc(var(--unit)*12);  /* 48 */
+  --sp-1: calc(var(--unit) * 0.5); /*  2 */
+  --sp-2: var(--unit); /*  4 */
+  --sp-3: calc(var(--unit) * 1.5); /*  6 */
+  --sp-4: calc(var(--unit) * 2); /*  8 */
+  --sp-5: calc(var(--unit) * 2.5); /* 10 */
+  --sp-6: calc(var(--unit) * 3); /* 12 */
+  --sp-7: calc(var(--unit) * 4); /* 16 */
+  --sp-8: calc(var(--unit) * 5); /* 20 */
+  --sp-9: calc(var(--unit) * 6); /* 24 */
+  --sp-10: calc(var(--unit) * 8); /* 32 */
+  --sp-11: calc(var(--unit) * 12); /* 48 */
   /* Widget heights */
-  --h-xs:calc(var(--unit)*4.5);  /* 18: chip, glyph */
-  --h-sm:calc(var(--unit)*6);    /* 24: small button, tab */
-  --u:calc(var(--unit)*7);       /* 28: button, field, menu row */
-  --h-lg:calc(var(--unit)*9);    /* 36: an area's header, the top bar */
-  --h-touch:44px;                /* a finger's smallest target (phone), doesn't follow --scale */
+  --h-xs: calc(var(--unit) * 4.5); /* 18: chip, glyph */
+  --h-sm: calc(var(--unit) * 6); /* 24: small button, tab */
+  --u: calc(var(--unit) * 7); /* 28: button, field, menu row */
+  --h-lg: calc(var(--unit) * 9); /* 36: an area's header, the top bar */
+  --h-touch: 44px; /* a finger's smallest target (phone), doesn't follow --scale */
   /* Radii */
-  --r-xs:calc(var(--unit)*.5);   /*  2: bars, marks */
-  --r-s:calc(var(--unit)*.75);   /*  3: badges, kbd */
-  --r:calc(var(--unit)*1.25);    /*  5: widgets (as Blender's) */
-  --r-l:calc(var(--unit)*2);     /*  8: boxes, panels, menus */
-  --r-xl:calc(var(--unit)*2.5);  /* 10: dialogs, sheets */
-  --r-pill:999px;
+  --r-xs: calc(var(--unit) * 0.5); /*  2: bars, marks */
+  --r-s: calc(var(--unit) * 0.75); /*  3: badges, kbd */
+  --r: calc(var(--unit) * 1.25); /*  5: widgets (as Blender's) */
+  --r-l: calc(var(--unit) * 2); /*  8: boxes, panels, menus */
+  --r-xl: calc(var(--unit) * 2.5); /* 10: dialogs, sheets */
+  --r-pill: 999px;
   /* Text */
-  --fs-xs:calc(10.5px*var(--scale)); --fs-s:calc(11.5px*var(--scale)); --fs:calc(13px*var(--scale)); --fs-l:calc(15px*var(--scale)); --fs-xl:calc(18px*var(--scale));
-  --fs-in:16px;                  /* the fields' text on a phone: iOS doesn't zoom at 16 px and over */
-  --lh:1.45;
-  --gap:var(--sp-3);
+  --fs-xs: calc(10.5px * var(--scale));
+  --fs-s: calc(11.5px * var(--scale));
+  --fs: calc(13px * var(--scale));
+  --fs-l: calc(15px * var(--scale));
+  --fs-xl: calc(18px * var(--scale));
+  --fs-in: 16px; /* the fields' text on a phone: iOS doesn't zoom at 16 px and over */
+  --lh: 1.45;
+  --gap: var(--sp-3);
   /* ---- Colours: the blue theme, 60 / 30 / 10, a fixed palette (Blender's theme isn't read).
      60 % neutral greys (grounds, panels) · 30 % night-blue tints (top bar, selection) · 10 % bright
      blue (the main action, the active tab) -- the "Done" state's blue too. "You" (your changes not
      sent yet) has its own colour, turquoise (--st-you), to read on a done diamond: always solid, never a tint. Each variable says its role. */
   /* 10 %: the brand */
-  --brand:#639bff;       /* main button, active tab, selection rail, focus */
-  --brand-hi:#7fadff;    /* the main button hovered */
-  --on-brand:#ffffff;    /* text on the bright blue */
-  --brand-a14:rgba(99,155,255,.14); /* a light brand ground */
-  --brand-a24:rgba(99,155,255,.24); /* focus halo, a header's tag */
-  --brand-a40:rgba(99,155,255,.4);  /* the rail's glow, a range selected */
+  --brand: #639bff; /* main button, active tab, selection rail, focus */
+  --brand-hi: #7fadff; /* the main button hovered */
+  --on-brand: #ffffff; /* text on the bright blue */
+  --brand-a14: rgba(99, 155, 255, 0.14); /* a light brand ground */
+  --brand-a24: rgba(99, 155, 255, 0.24); /* focus halo, a header's tag */
+  --brand-a40: rgba(99, 155, 255, 0.4); /* the rail's glow, a range selected */
   /* 30 %: night-blue tints, on the brand's own hue (a greener blue read as teal beside it) */
-  --t1:#152033;          /* top bar, selected row */
-  --t2:#1b2a42;          /* buttons on a tint */
-  --t3:#22354f;          /* hovered on a tint */
-  --t-line:#283d5c;      /* lines on a tint */
-  --t-text:#dfe7f4;      /* text on a tint */
-  --t-text-2:#a3b4cd;    /* secondary text on a tint */
+  --t1: #152033; /* top bar, selected row */
+  --t2: #1b2a42; /* buttons on a tint */
+  --t3: #22354f; /* hovered on a tint */
+  --t-line: #283d5c; /* lines on a tint */
+  --t-text: #dfe7f4; /* text on a tint */
+  --t-text-2: #a3b4cd; /* secondary text on a tint */
   /* 60 %: neutral greys */
-  --screen:#0f0f10;      /* ground, gutters between areas */
-  --area:#18191a;        /* panels */
-  --head:#18191a;        /* a panel's header */
-  --glass:rgba(24,25,26,.88);       /* sequence headers, glass */
-  --glass-head:rgba(24,25,26,.86);  /* the panels' headers, glass */
-  --row-line:rgba(255,255,255,.04); /* between the list's rows */
-  --toast-line:rgba(255,255,255,.08);
-  --box:#212224;         /* cards */
-  --box-2:#292a2c;       /* cards, second level */
-  --line:#252628;        /* lines */
-  --line-2:#303234;      /* marked lines */
-  --line-3:#474a4d;      /* fields' borders, dashes */
-  --sunk:#121313;        /* hollows (tracks, timeline) */
-  --cols:#18191a;        /* columns' header */
-  --row-hover:#1f2021;   /* a row hovered */
-  --row-sel:var(--t1);   /* the selected row */
-  --stripe-a:#18191a;    /* even row (outliner) */
-  --stripe-b:#161617;    /* odd row (outliner) */
-  --canvas:#121313;      /* nodes' and preview's ground */
-  --dot:#242627;         /* the dot pattern */
-  --btn:#27292a;         /* buttons */
-  --btn-hi:#2f3133;      /* a button hovered */
-  --btn-line:#27292a;    /* a button's border */
-  --tool:#212324;        /* tools */
-  --tool-hi:#2b2d2f;     /* a tool hovered */
-  --field:#121313;       /* fields */
-  --track:#0d0e0e;       /* sliders' tracks */
-  --sel:var(--brand);    /* selection = the brand */
-  --sel-hi:var(--brand-hi);
-  --sel-line:var(--brand);
-  --sel-hover:var(--brand-hi);
-  --sel-soft:var(--t2);  /* soft selection = a tint */
-  --menu:rgba(28,30,31,.88);      /* menus and popovers, glass */
-  --menu-line:rgba(255,255,255,.07); /* a menu's border */
-  --overlay:rgba(15,15,16,.6);    /* a dialog's veil */
-  --text:#ededee;        /* text */
-  --text-2:#b5b8ba;      /* secondary text */
-  --text-3:#8a8f93;      /* faint text */
-  --on-sel:#ffffff;      /* text on the selection */
-  --play:#27292a; --play-hi:#2f3133; --play-line:#27292a; --play-t:#ededee;   /* the play button */
+  --screen: #0f0f10; /* ground, gutters between areas */
+  --area: #18191a; /* panels */
+  --head: #18191a; /* a panel's header */
+  --glass: rgba(24, 25, 26, 0.88); /* sequence headers, glass */
+  --glass-head: rgba(24, 25, 26, 0.86); /* the panels' headers, glass */
+  --row-line: rgba(255, 255, 255, 0.04); /* between the list's rows */
+  --toast-line: rgba(255, 255, 255, 0.08);
+  --box: #212224; /* cards */
+  --box-2: #292a2c; /* cards, second level */
+  --line: #252628; /* lines */
+  --line-2: #303234; /* marked lines */
+  --line-3: #474a4d; /* fields' borders, dashes */
+  --sunk: #121313; /* hollows (tracks, timeline) */
+  --cols: #18191a; /* columns' header */
+  --row-hover: #1f2021; /* a row hovered */
+  --row-sel: var(--t1); /* the selected row */
+  --stripe-a: #18191a; /* even row (outliner) */
+  --stripe-b: #161617; /* odd row (outliner) */
+  --canvas: #121313; /* nodes' and preview's ground */
+  --dot: #242627; /* the dot pattern */
+  --btn: #27292a; /* buttons */
+  --btn-hi: #2f3133; /* a button hovered */
+  --btn-line: #27292a; /* a button's border */
+  --tool: #212324; /* tools */
+  --tool-hi: #2b2d2f; /* a tool hovered */
+  --field: #121313; /* fields */
+  --track: #0d0e0e; /* sliders' tracks */
+  --sel: var(--brand); /* selection = the brand */
+  --sel-hi: var(--brand-hi);
+  --sel-line: var(--brand);
+  --sel-hover: var(--brand-hi);
+  --sel-soft: var(--t2); /* soft selection = a tint */
+  --menu: rgba(28, 30, 31, 0.88); /* menus and popovers, glass */
+  --menu-line: rgba(255, 255, 255, 0.07); /* a menu's border */
+  --overlay: rgba(15, 15, 16, 0.6); /* a dialog's veil */
+  --text: #ededee; /* text */
+  --text-2: #b5b8ba; /* secondary text */
+  --text-3: #8a8f93; /* faint text */
+  --on-sel: #ffffff; /* text on the selection */
+  --play: #27292a;
+  --play-hi: #2f3133;
+  --play-line: #27292a;
+  --play-t: #ededee; /* the play button */
   /* Accents, from the states */
-  --alert:rgba(240,128,10,.14); --alert-hi:rgba(240,128,10,.22); --alert-line:rgba(240,128,10,.34); --alert-t:#f8c691; /* retake (orange) */
-  --ok:rgba(250,62,149,.16); --ok-hi:rgba(250,62,149,.26); --ok-line:rgba(250,62,149,.32); --ok-t:#fdb2d5;            /* validated (pink) */
-  --you-line:#215450; --you-t:#9df0e3;   /* "you": not sent yet (turquoise; the solid one is --st-you) */
-  --rtk-t:#f7b978;       /* retake count */
-  --wip-t:#fceca1;       /* in progress text */
-  --live-t:#b1cdff;      /* the live pill */
+  --alert: rgba(240, 128, 10, 0.14);
+  --alert-hi: rgba(240, 128, 10, 0.22);
+  --alert-line: rgba(240, 128, 10, 0.34);
+  --alert-t: #f8c691; /* retake (orange) */
+  --ok: rgba(250, 62, 149, 0.16);
+  --ok-hi: rgba(250, 62, 149, 0.26);
+  --ok-line: rgba(250, 62, 149, 0.32);
+  --ok-t: #fdb2d5; /* validated (pink) */
+  --you-line: #215450;
+  --you-t: #9df0e3; /* "you": not sent yet (turquoise; the solid one is --st-you) */
+  --rtk-t: #f7b978; /* retake count */
+  --wip-t: #fceca1; /* in progress text */
+  --live-t: #b1cdff; /* the live pill */
   /* Nodes */
-  --node:#212224;        /* a node */
-  --node-asset:#24344f;  /* an asset's node (blue) */
-  --node-shot:#463f22;   /* a shot's node (yellow) */
-  --node-old:#3a2140;    /* an outdated node (violet) */
-  --node-edge:#0d0e0e; --sock:#8a8d93; --wire-edge:#0d0e0e; --wire:#47494d; /* borders, sockets, wires */
+  --node: #212224; /* a node */
+  --node-asset: #24344f; /* an asset's node (blue) */
+  --node-shot: #463f22; /* a shot's node (yellow) */
+  --node-old: #3a2140; /* an outdated node (violet) */
+  --node-edge: #0d0e0e;
+  --sock: #8a8d93;
+  --wire-edge: #0d0e0e;
+  --wire: #47494d; /* borders, sockets, wires */
   /* States (their meaning doesn't change with the theme) */
-  --on-st:#14161a;       /* the ink on a state's colour (dots, tick, arrow) */
-  --st-todo:#777777;     /* to do */
-  --st-wait:#8f8a84;     /* waiting */
-  --st-done:#639bff;     /* done = the brand's blue */
-  --st-val:#fa3e95;      /* validated prod */
-  --st-sup:#eabfcb;      /* validated sup */
-  --st-old:#813f81;      /* to review: validated on an older stable */
-  --st-wip:#fadf63;      /* in progress */
-  --st-rtk:#f0800a;      /* retake */
-  --st-you:#3fd3c0;      /* you, not sent yet */
-  --shadow:rgba(0,0,0,.55);
-  --ui:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif; --mono:"JetBrains Mono",ui-monospace,Menlo,Consolas,monospace;
+  --on-st: #14161a; /* the ink on a state's colour (dots, tick, arrow) */
+  --st-todo: #777777; /* to do */
+  --st-wait: #8f8a84; /* waiting */
+  --st-done: #639bff; /* done = the brand's blue */
+  --st-val: #fa3e95; /* validated prod */
+  --st-sup: #eabfcb; /* validated sup */
+  --st-old: #813f81; /* to review: validated on an older stable */
+  --st-wip: #fadf63; /* in progress */
+  --st-rtk: #f0800a; /* retake */
+  --st-you: #3fd3c0; /* you, not sent yet */
+  --shadow: rgba(0, 0, 0, 0.55);
+  --ui: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
 }
-:root[data-ui="light"]{
-  color-scheme:light;
-  --brand:#2f6fe0; --brand-hi:#4a84ec; --on-brand:#ffffff; --brand-a14:rgba(47,111,224,.12); --brand-a24:rgba(47,111,224,.22); --brand-a40:rgba(47,111,224,.36);
-  --t1:#dbe6f4; --t2:#cbdaee; --t3:#bccfe8; --t-line:#b3c7e2; --t-text:#12233a; --t-text-2:#3f5874;
-  --screen:#c8cacd; --area:#eceded; --head:#eceded; --glass:rgba(236,237,237,.88); --glass-head:rgba(236,237,237,.86); --row-line:rgba(0,0,0,.05); --toast-line:rgba(0,0,0,.08); --box:#f6f6f7; --box-2:#ffffff;
-  --line:#dcdddf; --line-2:#cfd0d3; --line-3:#aeb0b4; --sunk:#e1e2e4; --cols:#eceded; --row-hover:#e4e5e7;
-  --stripe-a:#eceded; --stripe-b:#e7e8e9; --canvas:#dfe0e2; --dot:#c9cbce;
-  --btn:#ffffff; --btn-hi:#f4f5f6; --btn-line:#c9cbce; --tool:#e4e5e7; --tool-hi:#dcdddf; --field:#ffffff; --track:#d4d6d9;
-  --menu:rgba(250,250,251,.92); --menu-line:rgba(0,0,0,.1); --overlay:rgba(40,42,46,.35);
-  --text:#16181b; --text-2:#3e4247; --text-3:#6b7077; --on-sel:#ffffff;
-  --play:#ffffff; --play-hi:#f4f5f6; --play-line:#c9cbce; --play-t:#16181b;
-  --alert:rgba(214,106,0,.12); --alert-hi:rgba(214,106,0,.2); --alert-line:rgba(214,106,0,.4); --alert-t:#8a4300;
-  --ok:rgba(217,38,122,.1); --ok-hi:rgba(217,38,122,.18); --ok-line:rgba(217,38,122,.36); --ok-t:#9c1255;
-  --you-line:#7fd3c8; --you-t:#0b6e63;
-  --rtk-t:#b35500; --wip-t:#7a6200; --live-t:#2f6fe0;
-  --node:#f6f6f7; --node-asset:#c6d8f2; --node-shot:#eadfb6; --node-old:#e6c9e6; --node-edge:#aeb0b4; --sock:#6b7077; --wire-edge:#ffffff; --wire:#8a8e94;
-  --st-todo:#9a9a9a; --st-wait:#a39e98; --st-done:#2f6fe0; --st-val:#d9267a; --st-sup:#e3a9bd; --st-old:#8a4a8a;
-  --st-wip:#e3b800; --st-rtk:#d96a00; --st-you:#14a896;
-  --shadow:rgba(0,0,0,.18);
+:root[data-ui='light'] {
+  color-scheme: light;
+  --brand: #2f6fe0;
+  --brand-hi: #4a84ec;
+  --on-brand: #ffffff;
+  --brand-a14: rgba(47, 111, 224, 0.12);
+  --brand-a24: rgba(47, 111, 224, 0.22);
+  --brand-a40: rgba(47, 111, 224, 0.36);
+  --t1: #dbe6f4;
+  --t2: #cbdaee;
+  --t3: #bccfe8;
+  --t-line: #b3c7e2;
+  --t-text: #12233a;
+  --t-text-2: #3f5874;
+  --screen: #c8cacd;
+  --area: #eceded;
+  --head: #eceded;
+  --glass: rgba(236, 237, 237, 0.88);
+  --glass-head: rgba(236, 237, 237, 0.86);
+  --row-line: rgba(0, 0, 0, 0.05);
+  --toast-line: rgba(0, 0, 0, 0.08);
+  --box: #f6f6f7;
+  --box-2: #ffffff;
+  --line: #dcdddf;
+  --line-2: #cfd0d3;
+  --line-3: #aeb0b4;
+  --sunk: #e1e2e4;
+  --cols: #eceded;
+  --row-hover: #e4e5e7;
+  --stripe-a: #eceded;
+  --stripe-b: #e7e8e9;
+  --canvas: #dfe0e2;
+  --dot: #c9cbce;
+  --btn: #ffffff;
+  --btn-hi: #f4f5f6;
+  --btn-line: #c9cbce;
+  --tool: #e4e5e7;
+  --tool-hi: #dcdddf;
+  --field: #ffffff;
+  --track: #d4d6d9;
+  --menu: rgba(250, 250, 251, 0.92);
+  --menu-line: rgba(0, 0, 0, 0.1);
+  --overlay: rgba(40, 42, 46, 0.35);
+  --text: #16181b;
+  --text-2: #3e4247;
+  --text-3: #6b7077;
+  --on-sel: #ffffff;
+  --play: #ffffff;
+  --play-hi: #f4f5f6;
+  --play-line: #c9cbce;
+  --play-t: #16181b;
+  --alert: rgba(214, 106, 0, 0.12);
+  --alert-hi: rgba(214, 106, 0, 0.2);
+  --alert-line: rgba(214, 106, 0, 0.4);
+  --alert-t: #8a4300;
+  --ok: rgba(217, 38, 122, 0.1);
+  --ok-hi: rgba(217, 38, 122, 0.18);
+  --ok-line: rgba(217, 38, 122, 0.36);
+  --ok-t: #9c1255;
+  --you-line: #7fd3c8;
+  --you-t: #0b6e63;
+  --rtk-t: #b35500;
+  --wip-t: #7a6200;
+  --live-t: #2f6fe0;
+  --node: #f6f6f7;
+  --node-asset: #c6d8f2;
+  --node-shot: #eadfb6;
+  --node-old: #e6c9e6;
+  --node-edge: #aeb0b4;
+  --sock: #6b7077;
+  --wire-edge: #ffffff;
+  --wire: #8a8e94;
+  --st-todo: #9a9a9a;
+  --st-wait: #a39e98;
+  --st-done: #2f6fe0;
+  --st-val: #d9267a;
+  --st-sup: #e3a9bd;
+  --st-old: #8a4a8a;
+  --st-wip: #e3b800;
+  --st-rtk: #d96a00;
+  --st-you: #14a896;
+  --shadow: rgba(0, 0, 0, 0.18);
 }
