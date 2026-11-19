@@ -698,6 +698,11 @@ def _open(raw: dict) -> dict:
         return _open_folder(raw)
     if raw.get("snapshot"):
         return _open_snapshot_export()
+    if raw.get("progress"):
+        # Breakdown's reload: a pass over the project now, today's progress point
+        # with it (_rebuild()); the page gets both with the new data.
+        _reader["at"] = 0.0
+        return {"ok": True, "opened": "progress"}
     filepath = _review_file(str(raw.get("file") or ""))
     if not filepath or not filepath.is_file():
         return {"ok": False, "error": "file not found"}

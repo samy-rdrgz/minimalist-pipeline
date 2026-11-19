@@ -223,6 +223,7 @@ function overTime() {
   const deps = DEPTS[o.kind] || [];
   const head = `<div class="ot-h"><b>${T('Over time')}</b><span class="join">${['shot', 'asset'].map(k => `<button class="btn sm" data-otk="${k}" aria-pressed="${o.kind === k}">${k === 'shot' ? T('Shots') : T('Assets')}</button>`).join('')}</span>
     <span class="anchor"><button class="enum" data-menu="m-otd" aria-haspopup="true" aria-expanded="false"><span class="lb">${o.dept ? esc(LBL[o.dept]) : T('All departments')}</span>${ic('b-tria_down')}</button><div class="menu" id="m-otd" hidden role="menu">${['', ...deps].map(d => `<button class="mi" data-otd="${esc(d)}"><span class="ck">${d === o.dept ? ic('b-checkmark') : ''}</span><span class="lbl">${d ? esc(LBL[d]) : T('All departments')}</span></button>`).join('')}</div></span>
+    <button class="btn flat icon live-only" data-otreload aria-label="${T('Read the project again')}" title="${T("Read the project again: today's point brought up to date")}">${ic('b-file_refresh')}</button>
     <span class="ot-lg"><i style="--c:var(--st-done)"></i>${T('Done')}<i style="--c:var(--st-val)"></i>${T('Validated')}</span></div>`;
   if (pts.length < 2)
     return `<div class="ot">${head}<p class="faint ot-empty">${T('One point a day, from the snapshots and the live page: the curve starts with the second day.')}</p></div>`;

@@ -3348,6 +3348,7 @@ button.assign:hover {
     [data-act="player"],
     [data-act="share"],
     [data-act="snapshot"],
+    [data-otreload],
     [data-act="folder"],
     [data-act="log"],
     [data-render],

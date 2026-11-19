@@ -598,6 +598,14 @@ document.addEventListener('click', e => {
     renderList();
     return;
   }
+  if (t.closest('[data-otreload]')) {
+    livePost('open', { progress: 1 })
+      .then(r =>
+        toast(r.ok ? T('Reading the project again…') : T('Not updated: {error}', { error: r.error }))
+      )
+      .catch(noAnswer);
+    return;
+  }
   const otd = t.closest('[data-otd]');
   if (otd) {
     S.ot.dept = otd.dataset.otd;
