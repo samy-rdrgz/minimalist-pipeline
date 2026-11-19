@@ -11,7 +11,9 @@
   var R={out:{min:180,max:420,def:230,el:outl,side:'l'},props:{min:320,max:680,def:420,el:props,side:'r'}};
   var pz; try{pz=JSON.parse(localStorage.getItem('pz-v1'))}catch(e){}
   pz=Object.assign({out:{w:230,open:true},props:{w:420,open:true},main:{open:true}},pz||{});
-  var wide=window.matchMedia('(min-width:1201px)'),mid=window.matchMedia('(min-width:861px)');
+  var wide=window.matchMedia('(min-width:1201px)'),mid=window.matchMedia('(min-width:861px)'),port=window.matchMedia('(orientation:portrait)');
+  // The list folds only on a screen held upright (a tablet): side by side, the detail has room enough.
+  function mOpen(){return pz.main.open||!port.matches}
   var paneCss=document.createElement('style');paneCss.id='panes-live';document.head.appendChild(paneCss);
   var chev={l:'M4 2l4 4-4 4',r:'M8 2 4 6l4 4'};
   var H={},TAB={};
@@ -45,13 +47,14 @@
   function apply(live){
     var o=pz.out,p=pz.props,m=pz.main;if(!m.open)p.open=true;
     // The grid at a width: the outliner (1200 px and over), the list, the detail -- the whole width to the one left.
-    function grid(withOut){var cols=[],areas=[];
+    function grid(withOut,mo){var cols=[],areas=[],m={open:mo};
       if(withOut&&o.open){cols.push('calc('+o.w+'px*var(--scale))');areas.push('out')}
       if(m.open){cols.push('minmax(0,1fr)');areas.push('main')}
       if(p.open){cols.push(m.open?'calc('+p.w+'px*var(--scale))':'minmax(0,1fr)');areas.push('props')}
       return '.screen{grid-template-columns:'+cols.join(' ')+'!important;grid-template-areas:"'+areas.join(' ')+'"!important}'+
         (withOut&&!o.open?'#outliner{display:none!important}':'')+(p.open?'':'#props{display:none!important}')+(m.open?'':'#main{display:none!important}')}
-    paneCss.textContent='@media (min-width:1201px){'+grid(true)+'}@media (min-width:861px) and (max-width:1200px){'+grid(false)+'}';
+    paneCss.textContent='@media (min-width:1201px) and (orientation:landscape){'+grid(true,true)+'}@media (min-width:1201px) and (orientation:portrait){'+grid(true,pz.main.open)+'}'+
+      '@media (min-width:861px) and (max-width:1200px) and (orientation:landscape){'+grid(false,true)+'}@media (min-width:861px) and (max-width:1200px) and (orientation:portrait){'+grid(false,pz.main.open)+'}';
     if(!live)try{localStorage.setItem('pz-v1',JSON.stringify({out:{w:o.w,open:o.open},props:{w:p.w,open:p.open},main:{open:m.open}}))}catch(e){}
     place();sync();
   }
@@ -71,7 +74,7 @@
     var sr=screen.getBoundingClientRect(),gap=parseFloat(getComputedStyle(screen).columnGap)||0;
     ['out','props'].forEach(function(k){
       // The outliner's handle from 1200 px, the detail's from 861; none while the list is folded.
-      var on=(k==='out'?wide.matches:mid.matches)&&!isMob()&&pz.main.open;
+      var on=(k==='out'?wide.matches:mid.matches)&&!isMob()&&mOpen();
       var h=H[k],b=TAB[k],open=pz[k].open,el=R[k].el;
       h.style.display=on&&open?'block':'none';
       b.style.display=on&&!open?'flex':'none';
@@ -82,7 +85,7 @@
     });
   }
   window.addEventListener('resize',place);
-  if(wide.addEventListener){wide.addEventListener('change',place);mid.addEventListener('change',place)}
+  if(wide.addEventListener){wide.addEventListener('change',place);mid.addEventListener('change',place);port.addEventListener('change',place)}
   if(window.ResizeObserver)new ResizeObserver(place).observe(screen);
   apply();
 })();

@@ -67,6 +67,7 @@ function applyData(nd){const a=document.activeElement;if(a&&a.matches&&a.matches
   if(nd.meta.live&&M.live&&nd.meta.live.root!==M.live.root)return location.reload();
   const before=items.map(i=>({name:i.name,notes:i.notes,render:i.render,ok:i.ok}));
   loadData(nd);newsOf(before,items);
+  if(S.review&&S.review.auto&&M.live.user)S.review={name:M.live.user,role:M.live.role||TEAM,auto:true};
   if(!items.some(i=>i.name===S.sel)&&items[0])S.sel=items[0].name;
   if(LV.pend&&(M.live.version||0)>=LV.pend.v){const fn=LV.pend.fn;LV.pend=null;fn()}
   renderAll()}
@@ -81,6 +82,7 @@ function poll(){if(document.hidden){polling=false;return}polling=true;liveAb=win
     .then(d=>{if(d.reading)return location.reload();liveStatus(d.busy?'busy':'on');if(d.data&&d.version!==(M.live.version||0))applyData(d.data);poll()})
     .catch(e=>{if(e&&e.name==='AbortError'){polling=false;return}liveStatus('off');setTimeout(poll,2000)})}
 function liveStart(){if(!LIVE)return;
-  if(!S.review&&M.live.user){S.review={name:M.live.user,role:M.live.role||TEAM};renderAll()}
+  /* Who writes is Blender's user and role (team when none is set there), not a review this browser kept from another page. */
+  if(M.live.user&&(!S.review||S.review.auto||M.live.guest)){S.review={name:M.live.user,role:M.live.role||TEAM,auto:true};renderAll()}
   document.addEventListener('visibilitychange',()=>{if(document.hidden){if(liveAb)liveAb.abort()}else if(!polling)poll()});
   liveStatus('on');poll();liveQueue()}

@@ -16,6 +16,7 @@ from ..lib import (
     month_folder,
     PipelineError,
     ProjectScan,
+    set_department_done,
     set_department_synced,
     snapshot_videos_folder,
     SnapshotJob,
@@ -1424,6 +1425,33 @@ class M_PIPELINE_OT_department_still_done(bpy.types.Operator):
             set_department_synced(Path(self.filepath), self.department, get_user(context), self.text)
         except PipelineError as e:
             return report_error(self, "still_done", e)
+        status_changed(self.filepath)
+        return {"FINISHED"}
+
+
+class M_PIPELINE_OT_department_mark_done(bpy.types.Operator):
+    """Mark a department done, or not done, on the latest stable -- no new
+    stable version: one forgotten when the stable was made, or work not
+    tied to the file. Undone, its validations there go with it."""
+
+    bl_idname = "m_pipeline.department_mark_done"
+    bl_label = "Done on the stable"
+    bl_options = {"INTERNAL"}
+
+    filepath: bpy.props.StringProperty(options={"HIDDEN", "SKIP_SAVE"})
+    department: bpy.props.StringProperty(options={"HIDDEN", "SKIP_SAVE"})
+    done: bpy.props.BoolProperty(default=True, options={"HIDDEN", "SKIP_SAVE"})
+    custom_tooltip: bpy.props.StringProperty(options={"HIDDEN", "SKIP_SAVE"})
+
+    @classmethod
+    def description(cls, context, properties):
+        return properties.custom_tooltip or cls.__doc__
+
+    def execute(self, context):
+        try:
+            set_department_done(Path(self.filepath), self.department, self.done)
+        except PipelineError as e:
+            return report_error(self, "department_mark_done", e)
         status_changed(self.filepath)
         return {"FINISHED"}
 

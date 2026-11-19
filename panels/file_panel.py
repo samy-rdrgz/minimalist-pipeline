@@ -81,7 +81,12 @@ class M_PIPELINE_PT_file_panel(bpy.types.Panel):
 
             # Waiting / To redo (lib/status.py stage_flags()): said on the
             # toggle; a department to redo has its Still done beside it.
-            flags = TrackingStatusCache.get(bpy.data.filepath).get("flags") or {}
+            status = TrackingStatusCache.get(bpy.data.filepath)
+            flags = status.get("flags") or {}
+            # Done on the latest stable, ticked here (no new version): one
+            # forgotten when the stable was made.
+            stable = Path((status.get("stable_info") or {}).get("file") or "").stem
+            done_now = status.get("validated_departments") or {}
             for d in required:
                 flag = flags.get(d) or {}
                 row = col.row(align=True)
@@ -93,6 +98,17 @@ class M_PIPELINE_PT_file_panel(bpy.types.Panel):
                     depress=d in worked,
                 )
                 op.department = d
+                if stable:
+                    is_done = bool(done_now.get(d))
+                    mark = row.operator("m_pipeline.department_mark_done", text="",
+                                        icon="CHECKBOX_HLT" if is_done else "CHECKBOX_DEHLT")
+                    mark.filepath = str(Path(bpy.data.filepath).parent)
+                    mark.department = d
+                    mark.done = not is_done
+                    mark.custom_tooltip = (f"{d}: done on {stable}. Click: not done any more (its "
+                                           "validations there go)" if is_done else
+                                           f"{d}: not done on {stable}. Click: done there, no new "
+                                           "stable version (forgotten when it was made)")
                 if flag.get("to_redo"):
                     still = row.operator("m_pipeline.department_still_done", text="", icon="CHECKMARK")
                     still.filepath = str(Path(bpy.data.filepath).parent)

@@ -101,6 +101,8 @@ svg.g{width:calc(26px*var(--scale));height:var(--h-sm);flex:none;overflow:visibl
 .only-narrow,.only-phone{display:none!important}
 /* The buttons that fold a side (30-panes.js): from 861 px, not on a phone. */
 @media (max-width:860px){.only-mid{display:none!important}}
+/* The detail on the whole width: only on a screen held upright (side by side, the detail has its room). */
+@media (orientation:landscape){.only-port{display:none!important}}
 .is-mob .only-mid{display:none!important}
 @media (max-width:1200px){
   .screen{grid-template-columns:minmax(0,1fr) calc(380px*var(--scale));grid-template-areas:"main props"}
@@ -573,6 +575,8 @@ button.assign:hover{background:var(--line);color:var(--text)}
 /* What's visible above a phone's keyboard (fitViewport()): the page keeps its top, only its bottom rises. */
 html.vv body{position:fixed;left:0;right:0;top:var(--vv-top,0px);height:var(--vv-h,100%)}
 html.vv #wide,html.vv.is-mob #mob{top:var(--vv-top,0px);bottom:auto;height:var(--vv-h,100%)}
+/* The keyboard open: no footer (the room goes to what's being written). */
+html.kb .statusbar,html.kb .m-foot,html.kb .m-nav{display:none!important}
 /* A name on one line (25-wide.js mq()): cut with "…", scrolled to its end and back while hovered, or shown. */
 .mq{display:block;min-width:0;max-width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
 .mq>span{display:inline}.mq.go>span{display:inline-block;animation:mq var(--mqt,3s) ease-in-out .35s infinite alternate}

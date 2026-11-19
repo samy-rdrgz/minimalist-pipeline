@@ -1075,6 +1075,33 @@ def set_department_synced(filepath: Path, department: str, by: str, text: str = 
         box["action"] = "to_write"
 
 
+def set_department_done(filepath: Path, department: str, done: bool) -> bool:
+    """Mark one department done (or not) on the *latest* stable, in place --
+    no new stable version: one forgotten when the stable was made, or work
+    not tied to the file ("render"). Undone, its validations at that stable
+    go with it (they validated a done department). False if nothing
+    changed. Raises PipelineError without a stable version yet."""
+    asset_dir = _owner_dir(Path(filepath))
+    last = get_last_stable(asset_dir)
+    if "file" not in last:
+        raise PipelineError("No stable version yet: make one before marking departments done.")
+    path = asset_dir / ".pipeline" / (_meta_stem(Path(last["file"])) + ".stablemeta")
+    with locked_json(path) as box:
+        data = legacy.stable_read(box["data"] or {})
+        current = data.setdefault("departments_done", {})
+        if bool(current.get(department)) == done:
+            return False
+        current[department] = done
+        started = set(data.get("departments_started") or [])
+        started.add(department)  # done once: started, even undone
+        data["departments_started"] = sorted(started)
+        if not done:
+            (data.get("approvals") or {}).pop(department, None)
+        box["data"] = legacy.stable_written(data)
+        box["action"] = "to_write"
+    return True
+
+
 def set_department_assignees(filepath: Path, department: str, people) -> list[str]:
     """Who department is assigned to on filepath's folder (tracking.json
     "assignees" {department: [names]}): people, lower case, each once; none

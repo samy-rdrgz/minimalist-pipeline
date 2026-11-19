@@ -46,12 +46,13 @@ function assignHTML(it,d,ctx){
 function deptHTML(it,d,ctx='p'){
   const x=info(it,d);if(x.base==='na')return '';
   const f=it.flags[d]||{},rv=S.review,team=rv&&rv.role===TEAM;
-  const canVal=rv&&!team&&['done','rework'].includes(it.states[d])&&!it.ok[d]&&!it.mine[d]&&!it.rtk[d];
+  const canVal=rv&&!team&&isDone(stOf(it,d))&&!it.ok[d]&&!it.mine[d]&&!it.rtk[d];
+  const mk=rv&&(d in it.marked||canMark(it,d))?`<button class="btn sm ${d in it.marked?'':'tool'}" data-mark="${d}" aria-pressed="${d in it.marked}" title="${T('Done at {stable}: forgotten when it was made, no new version',{stable:esc(it.stable||'')})}">${ic('b-checkmark')}${T('Mark done')}</button>`:'';
   const acts=rv?`<span class="acts">${it.mine[d]?`<button class="btn sm tool" data-undo="${d}" title="${T('Take my change back')}">${ic('b-loop_back')}${T('Take back')}</button>`:
     `${team?'':`<button class="btn sm ok icon" data-val="${d}" ${canVal?'':'disabled'} aria-label="${T('Validate {dept}',{dept:LBL[d]})}" title="${canVal?T('Validate as {role}',{role:rv.role}):T('Nothing done to validate')}">${ic('b-checkmark')}</button>`}<button class="btn sm alert" data-rtk="${d}" title="${T('Write a retake under this department')}">Retake</button>`}</span>`:'';
   const ex=[f.waiting&&x.tone!=='wait'?`<span class="wait">${ic('b-sorttime')} ${T('waiting: {why}',{why:esc(f.waiting)})}</span>`:'',f.to_redo&&x.tone!=='redo'?`<span class="redo">↻ ${T('to redo: {why}',{why:esc(f.to_redo)})}</span>`:'',it.ok[d]&&!it.mine[d]?`<span class="faint">${T('validated by')} ${esc(it.ok[d].by)} (${it.ok[d].role})</span>`:''].filter(Boolean).join('');
   const frm=S.form&&S.form.dept===d?formHTML(d):'';
-  return `<div class="dept">${glyph(x.base,x.corner,x.cnt,x.note)}<span class="nm"><b>${LBL[d]}</b><span class="s ${x.tone}">${esc(x.l)}${x.s?' · '+esc(x.s):''}</span></span>${acts}<span class="extra">${assignHTML(it,d,ctx)}${ex}${stillHTML(it,d)}</span>${frm}</div>`;
+  return `<div class="dept">${glyph(x.base,x.corner,x.cnt,x.note)}<span class="nm"><b>${LBL[d]}</b><span class="s ${x.tone}">${esc(x.l)}${x.s?' · '+esc(x.s):''}</span></span>${acts}<span class="extra">${assignHTML(it,d,ctx)}${ex}${stillHTML(it,d)}${mk}</span>${frm}</div>`;
 }
 /* A note being written: under a department (d) or none; the block's shot shown, if one is. */
 function newForm(d){const it=cur(),c=it&&it.shots&&it.shots.length>1?shotOf(it):'';return {dept:d,type:'rtk',deps:d?[d]:[],shots:c?[c]:[]}}
@@ -142,7 +143,7 @@ function headHTML(it){
     <button class="btn flat icon live-only" data-act="blendfolder" aria-label="${T('Open its folder')}" title="${T('Its folder: the .blend\'s, in this machine\'s file browser')}">${ic('b-file_folder')}</button>
     ${(it.versions||[]).length?`<button class="btn flat icon live-only" data-act="renderfolder" aria-label="${T('Open its render folder')}" title="${T('Its render folder, in this machine\'s file browser')}">${ic('b-render_result')}</button>`:''}
     <span class="join"><button class="btn icon" id="pp-prev" aria-label="${T('Previous file')}" title="${T('Previous (↑)')}">${ic('b-tria_up')}</button><button class="btn icon" id="pp-next" aria-label="${T('Next file')}" title="${T('Next (↓)')}">${ic('b-tria_down')}</button></span>
-    <button class="btn flat icon only-mid" data-pmax aria-label="${T('The detail on the whole width')}"></button>
+    <button class="btn flat icon only-mid only-port" data-pmax aria-label="${T('The detail on the whole width')}"></button>
     <button class="btn flat icon only-phone" id="pp-close" aria-label="${T('Close')}" title="${T('Close (Esc)')}">${ic('b-x')}</button>`;
 }
 function renderProps(){

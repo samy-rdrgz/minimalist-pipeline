@@ -61,8 +61,14 @@ function tour(n){document.querySelectorAll('.tour-hl').forEach(e=>e.classList.re
 }
 /* A phone's keyboard: the page set to what stays visible above it (visualViewport), so the keyboard raises the
    bottom only (the writing box) and the top stays where it is -- not the whole page pushed up. */
-function fitViewport(){const vv=window.visualViewport,R=document.documentElement;if(!vv||!matchMedia('(pointer:coarse)').matches){R.classList.remove('vv');return}
-  R.classList.add('vv');R.style.setProperty('--vv-h',vv.height+'px');R.style.setProperty('--vv-top',vv.offsetTop+'px')}
+/* A touch screen's keyboard open (the visible part much shorter than the window, a field focused): the page held to what's
+   visible -- only the bottom pushed up, not the whole window -- and the footer hidden. Nothing changes otherwise: a body
+   held fixed all the time would stop the page scrolling and the menus placed by it. */
+function fitViewport(){const vv=window.visualViewport,R=document.documentElement,a=document.activeElement;
+  const kb=!!vv&&matchMedia('(pointer:coarse)').matches&&vv.height<innerHeight*0.85&&!!a&&a.matches&&a.matches('textarea,input:not([type=checkbox]):not([type=radio]):not([type=range]),[contenteditable]');
+  R.classList.toggle('vv',kb);R.classList.toggle('kb',kb);
+  if(kb){R.style.setProperty('--vv-h',vv.height+'px');R.style.setProperty('--vv-top',vv.offsetTop+'px')}else{R.style.removeProperty('--vv-h');R.style.removeProperty('--vv-top')}}
+['focusin','focusout'].forEach(ev=>document.addEventListener(ev,()=>setTimeout(fitViewport,60)));
 if(window.visualViewport){visualViewport.addEventListener('resize',fitViewport);visualViewport.addEventListener('scroll',fitViewport)}
 function setTheme(t){if(t==='blender')t='dark';  // Blender's theme, offered by the first 2.0 builds: the blue one now
   S.theme=t;try{localStorage.setItem('mp-snapshot:theme',t)}catch(_){}

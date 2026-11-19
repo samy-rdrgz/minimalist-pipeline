@@ -275,10 +275,10 @@ def _short_version(name: str, filename: str) -> str:
 
 
 def _rtk_kinds(threads: list) -> dict:
-    """{department: "role" | "team"} for every department with an open RTK
-    -- "role" as soon as one comes from a validation role (red), "team"
+    """{department: who} for every department with an open RTK: the
+    validation roles that gave one ("prod", "prod, sup": red), else "team"
     when all are the team's own (orange)."""
-    out: dict[str, str] = {}
+    roles: dict[str, list] = {}
     for t in threads:
         if t["closed"]:
             continue
@@ -286,8 +286,10 @@ def _rtk_kinds(threads: list) -> dict:
             if e["type"] != "rtk" or e["done"] is not False:
                 continue
             for d in e["departments"]:
-                out[d] = "role" if e.get("role") or out.get(d) == "role" else "team"
-    return out
+                got = roles.setdefault(d, [])
+                if e.get("role") and e["role"] not in got:
+                    got.append(e["role"])
+    return {d: ", ".join(got) or "team" for d, got in roles.items()}
 
 
 def _day(iso: str) -> str:

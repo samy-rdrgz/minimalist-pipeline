@@ -61,6 +61,7 @@ function mDept(it,d){
       ${rv?`<button class="m-as ${a.length?'':'none'} ${it.assign&&d in it.assign?'chg':''}" data-msheet="as:${d}">${ic('b-user')}<span>${a.length?esc(a.join(', ')):T('Assign')}</span></button>`:a.length?`<span class="m-as ro">${ic('b-user')}<span>${esc(a.join(', '))}</span></span>`:''}</div>
     ${rv?`<div class="m-da"><button class="btn ok" data-mval="${d}" aria-pressed="${m==='val'}" ${rv.role===TEAM||!canVal(it,d)?'disabled':''}>${ic('b-checkmark')}${m==='val'?T('Validated'):T('Validate')}</button>
       <button class="btn alert" data-mrtk="${d}" aria-pressed="${m==='rtk'}">${ic('b-x')}${m==='rtk'?T('Retake · you'):'Retake'}</button>
+      ${d in it.marked||canMark(it,d)?`<button class="btn ${d in it.marked?'ok':'tool'} m-span" data-mark="${d}" aria-pressed="${d in it.marked}">${ic('b-checkmark')}${T('Mark done')} <small>${esc(it.stable||'')}</small></button>`:''}
       ${f.to_redo?`<button class="btn ${it.still[d]?'ok':'tool'} m-span" data-still="${d}" aria-pressed="${!!it.still[d]}">${ic('b-checkmark')}${T('Still done')} <small>${esc(f.to_redo)}</small></button>`:''}</div>`:''}</div>`;
 }
 function mComposer(){
@@ -111,14 +112,14 @@ function mSheet(){
     h=req.map(d=>opt(`data-mcd="${d}"`,S.m.cdept===d,LBL[d])).join('')+opt('data-mcd=""',!S.m.cdept,T('No department'),T('the whole shot'))}
   if(k==='start'){t=T('Start the review');
     h=`<label class="field"><input id="m-name" value="${esc(M.live.user||'')}" placeholder="${T('Your name')}" aria-label="${T('Your name')}" autocomplete="name"></label>
-      <span class="join full">${[...M.roles,TEAM].map(r=>`<button class="btn" data-mrole="${r}" aria-pressed="${r===(S.m.role||M.role||M.roles[0])}">${r}</button>`).join('')}</span>
-      <p class="m-hint">${esc(roleHelp(S.m.role||M.role||M.roles[0]||TEAM))}</p>
+      <span class="join full">${[...M.roles,TEAM].map(r=>`<button class="btn" data-mrole="${r}" aria-pressed="${r===(S.m.role||role0())}">${r}</button>`).join('')}</span>
+      <p class="m-hint">${esc(roleHelp(S.m.role||role0()))}</p>
       <div class="m-sec-h">${T('Path')}</div>${Object.entries(mF).map(([x,l])=>opt(`data-mfilter="${x}" data-keep`,S.m.filter===x,l,x===''?T('every shot, in order'):'')).join('')}`;
     foot=`<button class="btn primary m-wide" data-mstart>${ic('b-greasepencil')}${T('Start')}</button>`}
   if(k==='send'){t=T('Send the review');const ch=A.changes();
     h=`<p class="m-hint">${esc(S.review.name)} · ${S.review.role} · ${T('{n} change|{n} changes',{n:ch.length})}</p>${ch.length?`<ul class="m-list">${ch.map(c=>`<li>${esc(c)}</li>`).join('')}</ul>`:'<p class="m-hint">'+T('Nothing in this review yet.')+'</p>'}
       <p class="m-hint">${LIVE?T('Sent straight to Blender, which imports it.'):T('The file {name}, to import in Blender: Pipeline › Import review.',{name:esc(reviewName())})}</p>`;
-    foot=`<button class="btn m-wide" data-mstop>${T('Leave the review')}</button><button class="btn primary m-wide" data-msendgo ${ch.length?'':'disabled'}>${ic('b-export')}${LIVE?T('Send to Blender'):T('Download the file')}</button>`}
+    foot=`${ch.length&&!LIVE?`<button class="btn m-wide" data-rvclear>${T('Clear the review…')}</button>`:''}<button class="btn m-wide" data-mstop>${T('Leave the review')}</button><button class="btn primary m-wide" data-msendgo ${ch.length?'':'disabled'}>${ic('b-export')}${LIVE?T('Send to Blender'):T('Download the file')}</button>`}
   if(k==='news'){t=T('What\'s new');newsSeen=NEWS.length;const IC={rtk:'--st-rtk',render:'--st-done',ok:'--st-val'};
     h=NEWS.length?NEWS.map(x=>`<button class="m-opt" data-mgo="${x.n}"><span class="dt" style="background:var(${IC[x.k]})"></span><span class="lbl"><span class="mono">${esc(x.n)}</span> · ${esc(x.h)}<small>${esc(x.x)} · ${x.at}</small></span></button>`).join(''):'<p class="m-hint">'+T('Nothing new since the page opened.')+'</p>'}
   if(k==='menu'){t='Menu';
@@ -171,10 +172,10 @@ $('#mob').addEventListener('click',e=>{const t=e.target,q=s=>t.closest(s);let x;
   if(x=q('[data-mval]')){if(x.disabled)return;A.toggleVal(cur(),x.dataset.mval);mRender();return}
   if(q('[data-mvalall]')){const n=A.validateAll(cur());mRender();toast(T('{n} department validated|{n} departments validated',{n}));return}
   if(x=q('[data-mrtk]')){const d=x.dataset.mrtk;if(A.toggleRtk(cur(),d)){S.m.ctype='rtk';S.m.cdept=d;mRender();$('#m-ta')?.focus()}else mRender();return}
-  if(q('[data-msend]')){const it=cur(),ta=$('#m-ta'),txt=ta.value.trim();if(!txt&&S.m.ctype!=='rtk'){ta.focus();return}
+  if(q('[data-msend]')){const it=cur(),ta=$('#m-ta'),txt=ta.value.trim();if(!txt){ta.focus();toast(T('Write what to change first.'));return}
     A.note(it,{type:S.m.ctype,dept:S.m.cdept,text:txt,frames:rangeStr()});ta.value='';S.rangeStart=null;mRender();toast(S.m.ctype==='rtk'?T('Retake added to your review'):T('Remark added to your review'));return}
   if(x=q('[data-mrole]')){S.m.role=x.dataset.mrole;mRender();return}
-  if(q('[data-mstart]')){S.review={name:$('#m-name').value.trim()||T('Anonymous'),role:S.m.role||M.role||M.roles[0]};S.m.sheet=null;const f=mSib()[0];if(f&&!mSib().some(i=>i.name===S.sel))S.sel=f.name;mRender();return}
+  if(q('[data-mstart]')){S.review={name:$('#m-name').value.trim()||T('Anonymous'),role:S.m.role||role0()};S.m.sheet=null;const f=mSib()[0];if(f&&!mSib().some(i=>i.name===S.sel))S.sel=f.name;mRender();return}
   if(q('[data-mstop]')){S.review=null;S.m.sheet=null;mRender();toast(T('Review left: your changes are kept in this browser.'));return}
   if(q('[data-msendgo]')){S.m.sheet=null;mRender();deliverReview();return}
   if(x=q('[data-mjob]')){const j=F.jobs.find(y=>y.id===S.m.sheet.slice(4)),k=x.dataset.mjob;S.m.sheet=null;mRender();if(j)farmPost({action:k,job_id:j.id},JOB_SAY[k]()+' · '+j.file);return}

@@ -10,16 +10,18 @@ function renderTop(){
 }
 /* A role, in a sentence: what its validation does (the top one counts in the figures). */
 function roleHelp(r){return r===TEAM?T('{role}: no validation, only retakes and remarks.',{role:r}):r===M.role?T('{role}: the top role, your validations count in the figures.',{role:r}):T('{role}: your validation counts, {top} can still take it back.',{role:r,top:M.role})}
+/* The role a review starts on: live, Blender's own (team when none); a snapshot, the top one. */
+const role0=()=>LIVE?(M.live.role||TEAM):(M.role||M.roles[0]||TEAM);
 /* Started from the top bar, or from Watch large (it stays open, on the file watched). */
 function reviewPop(btn){
   const old=document.querySelector('.pop.rv');if(old){old.remove();return}
   btn=btn||$('#rv-open');const host=S.wide?$('#wide'):$('#review-slot');
   const p=document.createElement('div');p.className='pop rv';p.setAttribute('role','dialog');p.setAttribute('aria-label',T('Start a review'));
-  const sh=items.filter(i=>i.kind==='shot');
+  const sh=items.filter(i=>i.kind==='shot'),r0=role0();
   p.innerHTML=`<h4>${T('Start a review')}</h4>
     <div class="prop"><span class="k">${T('Name')}</span><span class="v"><label class="field" style="flex:1"><input id="rv-name" value="${esc(M.live.user||'')}" aria-label="${T('Your name')}"></label></span></div>
-    <div class="prop"><span class="k">${T('Role')}</span><span class="v"><span class="join full" style="flex:1">${M.roles.map(r=>`<button class="btn" data-role="${r}" aria-pressed="${r===M.role}">${r}</button>`).join('')}<button class="btn" data-role="team" aria-pressed="false">team</button></span></span></div>
-    <p class="hint" id="rv-help">${esc(roleHelp(M.role))}</p>
+    <div class="prop"><span class="k">${T('Role')}</span><span class="v"><span class="join full" style="flex:1">${M.roles.map(r=>`<button class="btn" data-role="${r}" aria-pressed="${r===r0}">${r}</button>`).join('')}<button class="btn" data-role="team" aria-pressed="${r0===TEAM}">team</button></span></span></div>
+    <p class="hint" id="rv-help">${esc(roleHelp(r0))}</p>
     <div class="prop" style="align-items:start"><span class="k" style="padding-top:5px">${T('Path')}</span><span class="v" style="flex-direction:column;align-items:stretch">
       <button class="btn" data-path="val" aria-pressed="true">${T('To validate')} <span class="n">${sh.filter(toValidate).length}</span></button>
       <button class="btn" data-path="rtk" aria-pressed="false">${T('Open retakes')} <span class="n">${sh.filter(i=>openRtk(i)).length}</span></button>

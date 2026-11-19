@@ -15,6 +15,7 @@ function validateAll(){const it=cur();if(!it||!S.review||S.review.role===TEAM)re
   refresh();msg(n?T('{n} department validated on {name}|{n} departments validated on {name}',{n,name:it.name}):T('Nothing done to validate on {name}',{name:it.name}))}
 function submitForm(){
   const it=cur(),f=S.form,t=$('#f-txt').value.trim(),fr=$('#f-fr').value.trim().replace(/^f/,'');
+  if(!t){$('#f-txt').focus();msg(T('Write what to change first.'));return}
   const shots=f.shots.length?f.shots:[''];
   shots.forEach(x=>A.note(it,{type:f.type,deps:f.deps,text:t,frames:fr?'f'+fr:'',shot:digits(x)}));S.form=null;S.rangeStart=null;refresh();msg(f.type==='rtk'?T('Retake written on {name}',{name:it.name}):T('Remark written on {name}',{name:it.name}));
 }
@@ -26,7 +27,7 @@ function sendDialog(){
     ${ch.length?`<ul>${ch.map(c=>`<li>${esc(c)}</li>`).join('')}</ul>`:`<p class="dim" style="margin:0">${T('Nothing in this review yet.')}</p>`}
     ${team&&ch.length&&!acts.length?`<p class="dim" style="margin:0">${T('As the team, nothing to send: the team doesn\'t validate -- write a retake or a remark.')}</p>`:''}
     <p class="faint" style="margin:0;font-size:var(--fs-s)">${LIVE?T('Applied in Blender at once, as an imported review.'):T('The file {name}, to import in Blender: Pipeline › Import review.',{name:`<span class="mono">${esc(reviewName())}</span>`})}</p>
-    <div class="acts"><button class="btn" data-rvclear ${ch.length?'':'disabled'}>${T('Clear the review…')}</button><span style="flex:1"></span><button class="btn" data-dclose>${T('Go on reviewing')}</button>
+    <div class="acts"><button class="btn" data-rvclear ${ch.length?'':'disabled'} title="${T('Clear the whole review in progress? A file already downloaded keeps what it holds.')}">${T('Clear the review…')}</button><span style="flex:1"></span><button class="btn" data-dclose>${T('Go on reviewing')}</button>
     <button class="btn primary" data-rvgo ${acts.length?'':'disabled'}>${ic('b-export')}${LIVE?T('Send to Blender'):T('Download')}</button></div></div>`;
 }
 /* The review out: to Blender (live), else its file -- the share sheet on a tablet or a phone, else downloaded. */

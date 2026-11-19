@@ -1,7 +1,7 @@
 /* ---------- The list ---------- */
 function renderQuick(){if(S.ws==='farm'){renderFarmQuick();return}if(S.ws==='links'){$('#quick').innerHTML=`<span class="dim">${T('Who links what: assets → shots')}</span>`;return}
-  const pool=items.filter(i=>i.kind===(S.ws==='asset'?'asset':'shot'));
-  const q=[];if(S.review)q.push(['mine',T('My review'),pool.filter(touched).length,glyph('val','you')]);
+  const pool=items.filter(i=>i.kind===(S.ws==='asset'?'asset':'shot'));if(LIVE&&S.quick==='mine')S.quick=null;
+  const q=[];if(S.review&&!LIVE)q.push(['mine',T('My review'),pool.filter(touched).length,glyph('val','you')]);
   q.push(['rtk',T('Retakes'),pool.filter(i=>openRtk(i)).length,glyph('done','rtk',1)],['notes',T('Notes'),pool.filter(i=>openNotes(i)).length,ic('i-note')],['val',T('To validate'),pool.filter(toValidate).length,glyph('done')]);
   const nm=S.more.size+(S.dept?1:0);
   // On a narrow screen the filters fold behind one button (the active ones counted on it).

@@ -29,17 +29,19 @@ function v6Click(t){
   if(t.closest('[data-weights]')){S.weights=!S.weights;renderList();return true}
   return false;
 }
+/* A touch screen, no keyboard to speak of: no keys shown. */
+const TOUCH=()=>matchMedia('(hover:none) and (pointer:coarse)').matches;
 function helpDlg(){
   const L=[['todo',null,T('To do'),T('not started')],['wip',null,T('In progress'),T('dots')],['done',null,T('Done'),T('full')],['rework',null,T('Done, reworked'),T('reworked since the stable: the arrow in the diamond')],['done','redo',T('To redo'),T('an earlier stage changed: the orange corner')],
     ['done','wait',T('Waiting'),T('an earlier stage isn\'t ready')],['sup',null,T('Validated by a role'),T('tick, light')],['val',null,T('Validated by the top role'),T('tick, {role}',{role:M.role||''})],['old',null,T('To review again'),T('validated on an older stable')],
     ['wip','rtk',T('Open retake'),T('the number: how many RTK')],['val','rtk',T('Validated, then a retake'),T('read the corner with the shape')],['val','you',T('You: validated'),T('not sent yet')],['done','you-rtk',T('You: retake'),T('not sent yet')],['done',null,T('Open note'),T('bubble at the bottom right'),'n'],['na',null,T('Not required'),T('dash')]];
   const dl=$('#dlg');dl.hidden=false;
-  dl.innerHTML=`<div class="dlg-in" role="dialog" aria-modal="true" aria-labelledby="hl-t"><h3 id="hl-t">${T('Legend and keys')}</h3>
+  dl.innerHTML=`<div class="dlg-in" role="dialog" aria-modal="true" aria-labelledby="hl-t"><h3 id="hl-t">${TOUCH()?T('Legend'):T('Legend and keys')}</h3>
     <p class="faint" style="margin:0">${T('The diamond says the state, the corner what comes on top. The words beside it always say it again.')}</p>
     <ul class="legend-list">${L.map(([b,c,l,s,n])=>`<li>${glyph(b,c,2,!!n)}<span>${l}<small>${s}</small></span></li>`).join('')}</ul>
-    <div class="sec-h">${T('Keys')}</div>
+    <div class="legend-keys"><div class="sec-h">${T('Keys')}</div>
     <ul class="legend-list" style="gap:6px">${[['↑ ↓',T('previous / next file')],['/',T('go to a file')],['W',T('watch large')],['← →',T('large: previous / next file')],[', .',T('one frame back / on')],[T('Space'),T('play')],['C',T('compare: version A / version B, same frame')],['M',T('sound')],['I',T('large, reviewing: a range\'s start')],['V',T('reviewing: validate all the done')],['X',T('reviewing: a retake or remark on no department')],['R',T('reply')],[T('Ctrl+Enter'),T('done writing')],[T('Esc'),T('close')]].map(([k,l])=>`<li style="grid-template-columns:110px 1fr"><span class="kbd" style="justify-self:start">${k}</span><span>${l}</span></li>`).join('')}</ul>
-    <div class="acts"><button class="btn" data-tourstart>${T('Guided tour')}</button><span style="flex:1"></span><button class="btn" data-dclose>${T('Close')}</button></div></div>`;
+    </div><div class="acts"><button class="btn" data-tourstart>${T('Guided tour')}</button><span style="flex:1"></span><button class="btn" data-dclose>${T('Close')}</button></div></div>`;
 }
 document.addEventListener('click',e=>{
   const t=e.target;
@@ -83,6 +85,7 @@ document.addEventListener('click',e=>{
   const wk2=t.closest('[data-wko]');if(wk2){const d=wk2.dataset.wko;A.toggleRtk(cur(),d);S.wdep=d;S.wtype='rtk';refresh();$('#w-ta')?.focus();return}
   const wt=t.closest('[data-wtype]');if(wt){const tx=$('#w-ta')?.value||'';S.wtype=wt.dataset.wtype;renderWide();if($('#w-ta')){$('#w-ta').value=tx;$('#w-ta').focus()}return}
   const sl=t.closest('[data-still]');if(sl){A.still(cur(),sl.dataset.still);refresh();return}
+  const mkb=t.closest('[data-mark]');if(mkb){A.mark(cur(),mkb.dataset.mark);refresh();return}
   const fx=t.closest('[data-fix]');if(fx){A.fixed(cur(),fx.dataset.fix);refresh();return}
   const zm=t.closest('[data-zoom]');if(zm){const it=items.find(i=>i.name===zm.dataset.zoom);const dl=$('#dlg');dl.hidden=false;dl.innerHTML=`<div class="dlg-in zoom" role="dialog" aria-modal="true" aria-label="${T('{name}, large',{name:it.name})}"><img src="${it.thumb}" alt="${it.name}"><div class="acts"><span class="mono" style="flex:1">${it.name}</span><button class="btn" data-dclose>${T('Close')}</button></div></div>`;return}
   const sm=t.closest('[data-smode]');if(sm){S.smode=sm.dataset.smode;renderList();return}
@@ -100,7 +103,7 @@ document.addEventListener('click',e=>{
   if(t.closest('#help-b')){helpDlg();return}
   if(t.closest('[data-dclose]')||t.id==='dlg'){$('#dlg').hidden=true;return}
   if(t.closest('[data-rvgo]')){$('#dlg').hidden=true;deliverReview();return}
-  if(t.closest('[data-rvclear]')){if(confirm(T('Clear the whole review in progress? A file already downloaded keeps what it holds.'))){clearReview();$('#dlg').hidden=true;renderAll();toast(T('Review cleared'))}return}
+  if(t.closest('[data-rvclear]')){if(!twice(t.closest('[data-rvclear]'),T('Sure? Click again: all cleared')))return;clearReview();$('#dlg').hidden=true;if(S.m)S.m.sheet=null;renderAll();toast(T('Review cleared'));return}
   if(t.closest('[data-qfold]')){S.qFold=S.qFold===false;renderQuick();return}
   const q=t.closest('[data-quick]');if(q){S.quick=S.quick===q.dataset.quick?null:q.dataset.quick;renderQuick();renderList();return}
   const dp=t.closest('[data-dept]');if(dp){S.dept=S.dept===dp.dataset.dept?null:dp.dataset.dept;renderQuick();renderList();return}

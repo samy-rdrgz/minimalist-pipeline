@@ -1,7 +1,9 @@
 /* ---------- The review's actions (shared by both views) ----------
    The only functions that change the files. Desktop and phone call them, then refresh().
    None touches the DOM. Each is an action of lib/review_import.py (named at the line's end). */
-const canVal=(it,d)=>!!S.review&&S.review.role!==TEAM&&['done','rework'].includes(it.states[d])&&!it.ok[d];
+const canVal=(it,d)=>!!S.review&&S.review.role!==TEAM&&isDone(stOf(it,d))&&!it.ok[d];
+/* Done on the stable, no new version: one forgotten when it was made. Anyone reviewing may (it's not a validation). */
+const canMark=(it,d)=>!!S.review&&!!it.stableFile&&!omitted(it)&&!isDone(it.states[d]||'todo');
 /* The frames written: Blender's numbers (fNo), a range from I to the frame shown. */
 const rangeStr=()=>!curRendered()?'':S.rangeStart!=null&&S.rangeStart!==S.frame?'f'+fNo(Math.min(S.rangeStart,S.frame))+'-'+fNo(Math.max(S.rangeStart,S.frame)):'f'+fNo(S.frame);
 const A={
@@ -19,6 +21,7 @@ const A={
   reply(it,id,text){if(!text)return;(it.myReplies[id]=it.myReplies[id]||[]).push({text,author:S.review.name,date:new Date().toISOString()})}, // reply
   unreply(it,id){it.myReplies[id]?.pop();if(!it.myReplies[id]?.length)delete it.myReplies[id]},
   fixed(it,id){if(it.fixed[id])delete it.fixed[id];else it.fixed[id]=true},                 // fixed
+  mark(it,d){if(d in it.marked){delete it.marked[d];if(it.mine[d]==='val')delete it.mine[d]}else it.marked[d]=!isDone(it.states[d]||'todo')}, // done
   still(it,d){if(it.still[d])delete it.still[d];else it.still[d]=true},                     // still_done
   assignToggle(it,d,p){let a=[...assignOf(it,d)];a=!p?[]:a.includes(p)?a.filter(x=>x!==p):[...a,p];  // assign
     it.assign=it.assign||{};it.assign[d]=a;
@@ -34,7 +37,7 @@ const A={
     it.myNotes.forEach(n=>ch.push(`${it.name} · ${n.type==='rtk'?'retake':'remarque'}${n.dept?' '+LBL[n.dept]:''}${n.frames?' '+n.frames:''}`));
     Object.values(it.myReplies).flat().forEach(()=>ch.push(`${it.name} · ${T('reply')}`));
     if(it.setAside!==undefined)ch.push(`${it.name} · ${it.setAside&&it.setAside.state?(it.setAside.state==='cancelled'?T('cancelled'):T('on hold')):T('active again')}`);
-    if(it.req)ch.push(`${it.name} · ${T('required departments changed')}`);Object.keys(it.still).forEach(d=>ch.push(`${it.name} · ${LBL[d]}: ${T('still done')}`));
+    if(it.req)ch.push(`${it.name} · ${T('required departments changed')}`);Object.keys(it.still).forEach(d=>ch.push(`${it.name} · ${LBL[d]}: ${T('still done')}`));Object.entries(it.marked||{}).forEach(([d,v])=>ch.push(`${it.name} · ${LBL[d]}: ${v?T('done on the stable'):T('not done')}`));
     Object.keys(it.fixed).forEach(()=>ch.push(`${it.name} · ${T('note marked fixed')}`));if(it.assign)Object.entries(it.assign).forEach(([d,a])=>ch.push(`${it.name} · ${LBL[d]} → ${a.join(', ')||T('nobody')}`));
     if(it.descEdit!==undefined)ch.push(`${it.name} · description`)});S.planned.forEach(p=>ch.push(`${p.name} · ${p.kind==='shot'?T('new shot'):T('new file')}`));return ch},
 };

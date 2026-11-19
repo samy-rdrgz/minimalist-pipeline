@@ -24,7 +24,7 @@ const LOCALE=()=>typeof MPI18n!=='undefined'?MPI18n.lang:'en';
 /* The frames a video has when it says nothing (no fps, no length known yet). */
 let NF=120;
 /* What a review left on a file (A.*): fresh for each file, kept across live updates by name. */
-const fresh=()=>({mine:{},myNotes:[],myReplies:{},setAside:undefined,req:null,assign:null,still:{},fixed:{}});
+const fresh=()=>({marked:{},mine:{},myNotes:[],myReplies:{},setAside:undefined,req:null,assign:null,still:{},fixed:{}});
 /* One file of page_data() as the views read it. */
 function adapt(r,keyName){
   const L=r.live||{};
@@ -42,7 +42,7 @@ function adapt(r,keyName){
 }
 /* The whole data in: first load, then each live update (the review left on each file kept). */
 function loadData(raw){
-  const kept={};items.forEach(it=>{kept[it.name]={mine:it.mine,myNotes:it.myNotes,myReplies:it.myReplies,setAside:it.setAside,req:it.req,assign:it.assign,still:it.still,fixed:it.fixed,descEdit:it.descEdit}});
+  const kept={};items.forEach(it=>{kept[it.name]={marked:it.marked,mine:it.mine,myNotes:it.myNotes,myReplies:it.myReplies,setAside:it.setAside,req:it.req,assign:it.assign,still:it.still,fixed:it.fixed,descEdit:it.descEdit}});
   Object.assign(IMG,raw.images||{});
   Object.keys(M).forEach(k=>delete M[k]);Object.assign(M,raw.meta||{});
   DEPTS.shot=(M.departments||{}).shot||[];DEPTS.asset=(M.departments||{}).asset||[];

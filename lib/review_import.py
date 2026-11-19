@@ -38,6 +38,7 @@ from .tracking import (
     find_file_by_name,
     get_departments_required,
     set_department_approval,
+    set_department_done,
     set_department_synced,
     set_department_assignees,
     set_departments_required,
@@ -102,6 +103,8 @@ def keep_review(path: Path, snapshots: Path, plan: dict) -> Path | None:
 #   reply                  {file, to, text}: in that note's thread
 #   fixed                  {file, id}: that retake done, as the reviewer
 #   description            {file, old, new}: old the one exported
+#   done                   {file, department, done}: that department done
+#                          (or not) on the latest stable, no new version
 #   still_done             {file, department, text}: its work holds, an
 #                          earlier stage changed (not a validation)
 #   departments            {file, add, remove}: the departments required
@@ -117,10 +120,10 @@ def keep_review(path: Path, snapshots: Path, plan: dict) -> Path | None:
 # See NOTES.md, "Review: typed actions".
 ACTION_TYPES = (
     "validate", "unvalidate", "rtk", "note", "reply", "fixed", "description",
-    "still_done", "departments", "omit", "assign", "create",
+    "still_done", "departments", "omit", "assign", "create", "done",
 )
 # Changes to a file anyone may send (no role needed: none is a validation).
-_FILE_CHANGES = ("still_done", "departments", "omit", "assign")
+_FILE_CHANGES = ("done", "still_done", "departments", "omit", "assign")
 
 
 def _text(value) -> str:
@@ -159,6 +162,9 @@ def _action(raw) -> dict | None:
     if t == "fixed":
         a.update(id=_text(raw.get("id")))
         return a if a["id"] else None
+    if t == "done":
+        a.update(department=_text(raw.get("department")).lower(), done=raw.get("done") is not False)
+        return a if a["department"] else None
     if t == "still_done":
         a.update(department=_text(raw.get("department")).lower(), text=_text(raw.get("text")))
         return a if a["department"] else None
@@ -385,6 +391,9 @@ def review_import_plan(path: Path, review: dict | None = None) -> dict:
                 f"({', '.join(sorted(roles)) or 'none'}), nor team."
             )
     worked_since: dict = {}
+    # Done on the stable by this same review (a "done" action, applied
+    # first): validated with it.
+    marked = {(a["file"], a["department"]) for a in actions if a["type"] == "done" and a["done"]}
     for name, mine in _by_file(actions, "validate", "unvalidate").items():
         # The last word on a department wins.
         wanted = {a["department"]: "yes" if a["type"] == "validate" else "no" for a in mine}
@@ -415,7 +424,7 @@ def review_import_plan(path: Path, review: dict | None = None) -> dict:
                 plan["refused"].append(
                     (label, f"{current} made since {seen}, {department} worked: to review again")
                 )
-            elif choice == "yes" and department not in done_now:
+            elif choice == "yes" and department not in done_now and (name, department) not in marked:
                 plan["refused"].append((label, "not done (yet, or any more)"))
             else:
                 plan["validations"].append(
@@ -572,7 +581,13 @@ def import_review(path: Path, review: dict | None = None) -> dict:
         for a in mine:
             label = f"{name}: {a['type'].replace('_', ' ')}"
             try:
-                if a["type"] == "still_done":
+                if a["type"] == "done":
+                    if a["department"] not in get_departments_required(filepath):
+                        result["skipped"].append((label, f"{a['department']} not required"))
+                        continue
+                    if not set_department_done(filepath, a["department"], a["done"]):
+                        continue  # as asked already
+                elif a["type"] == "still_done":
                     if a["department"] not in get_departments_required(filepath):
                         result["skipped"].append((label, f"{a['department']} not required"))
                         continue

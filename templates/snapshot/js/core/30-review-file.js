@@ -1,6 +1,6 @@
 /* ---------- The review as a file: what lib/review_import.py reads ----------
    The changes a review left on the files (A.*) written as its actions
-   (REVIEW_JSON_FORMAT: validate, unvalidate, rtk, note, reply, fixed, still_done,
+   (REVIEW_JSON_FORMAT: validate, unvalidate, rtk, note, reply, fixed, done, still_done,
    departments, assign, omit, description, create), read back from one, and kept
    in this browser until sent. No DOM here. */
 const TEAM='team';
@@ -29,6 +29,7 @@ function reviewActions(){const out=[],team=asTeam();
     if(it.descEdit!==undefined&&String(it.descEdit).trim()&&it.descEdit.trim()!==(it.desc||''))out.push({type:'description',file:f,old:it.desc||'',new:it.descEdit.trim()});
     Object.keys(it.fixed).forEach(id=>out.push({type:'fixed',file:f,id}));
     Object.entries(it.myReplies).forEach(([id,rs])=>{const t=rs.map(r=>r.text).join('\n').trim();if(t)out.push({type:'reply',file:f,to:id,text:t})});
+    Object.keys(it.marked).forEach(d=>out.push({type:'done',file:f,department:d,done:it.marked[d]}));
     Object.keys(it.still).forEach(d=>out.push({type:'still_done',file:f,department:d,text:''}));
     if(it.req){const now=Object.keys(it.states),add=Object.keys(it.req).filter(d=>it.req[d]&&!now.includes(d)),rem=Object.keys(it.req).filter(d=>!it.req[d]&&now.includes(d));
       if(add.length||rem.length)out.push({type:'departments',file:f,add,remove:rem})}
@@ -56,6 +57,7 @@ function fromActions(actions){const by={},unknown=new Set();items.forEach(it=>{b
     else if(a.type==='reply')it.myReplies[a.to]=[{text:String(a.text||''),author:S.review?S.review.name:'',date:isoNow()}];
     else if(a.type==='fixed')it.fixed[a.id]=true;
     else if(a.type==='description')it.descEdit=a.new;
+    else if(a.type==='done')it.marked[a.department]=a.done!==false;
     else if(a.type==='still_done')it.still[a.department]=true;
     else if(a.type==='departments'){(a.add||[]).forEach(d=>A.setReq(it,d,true));(a.remove||[]).forEach(d=>A.setReq(it,d,false))}
     else if(a.type==='omit')it.setAside={state:a.state||'',reason:a.reason||''};
@@ -63,7 +65,7 @@ function fromActions(actions){const by={},unknown=new Set();items.forEach(it=>{b
   return [...unknown]}
 /* Kept in this browser until sent: who reviews, and each file's changes. */
 const RV_KEY='mp-review:'+M.project+':'+(LIVE?'live':M.snapshot);
-const RV_FIELDS=['mine','myNotes','myReplies','setAside','req','assign','still','fixed','descEdit'];
+const RV_FIELDS=['marked','mine','myNotes','myReplies','setAside','req','assign','still','fixed','descEdit'];
 function storeReview(){try{const files={};items.forEach(it=>{if(touched(it)){const o={};RV_FIELDS.forEach(k=>{if(it[k]!==undefined)o[k]=it[k]});files[it.name]=o}});
   if(!S.review&&!Object.keys(files).length&&!S.planned.length)localStorage.removeItem(RV_KEY);
   else localStorage.setItem(RV_KEY,JSON.stringify({review:S.review,planned:S.planned,files}))}catch(_){}

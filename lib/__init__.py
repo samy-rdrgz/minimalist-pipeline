@@ -305,6 +305,7 @@ from .tracking import (
     tracking_json_path,
     wipmeta_add_link,
     wipmeta_add_work,
+    set_department_done,
     set_department_synced,
     set_departments_required,
     set_file_omit,

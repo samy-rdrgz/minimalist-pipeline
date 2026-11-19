@@ -18,11 +18,14 @@ function glyph(base,corner,cnt,note){
   if(note)s+=`<path d="M13.6 14.6h6.6a1.3 1.3 0 0 1 1.3 1.3v3.2a1.3 1.3 0 0 1-1.3 1.3h-3.6l-2.2 1.7v-1.7h-.8a1.3 1.3 0 0 1-1.3-1.3v-3.2a1.3 1.3 0 0 1 1.3-1.3z" style="fill:var(--text-2);stroke:var(--area)" stroke-width="1.3"/>`;
   return s+'</svg>';
 }
+/* A department's state, a review's "done on the stable" (marked) over it. */
+const isDone=st=>st==='done'||st==='rework';
+const stOf=(it,d)=>{const m=(it.marked||{})[d],st=it.states[d]||'todo';return m===true&&!isDone(st)?'done':m===false&&isDone(st)?'wip':st};
 const required=it=>it.req?Object.keys(it.req).filter(d=>it.req[d]):Object.keys(it.states);
 const rtkNotes=(it,d)=>it.notes.filter(n=>n.type==='rtk'&&!n.done&&(d==null?true:n.deps.includes(d)));
 function info(it,d){
   if(!required(it).includes(d))return {base:'na',l:T('Not required'),s:'',tone:''};
-  const st=it.states[d]||'todo',ok=it.ok[d],mine=it.mine[d],f=it.flags[d]||{};
+  const st=stOf(it,d),ok=it.ok[d],mine=it.mine[d],f=it.flags[d]||{};
   let base=st==='todo'?'todo':st==='wip'?'wip':st==='rework'?'rework':'done',l={todo:T('To do'),wip:T('In progress'),done:T('Done'),rework:T('Done, reworked')}[st]||T('To do');
   if(ok){base=ok.old?'old':ok.role===M.role?'val':'sup';l=ok.old?T('To review again'):T('Validated {role}',{role:ok.role})}
   let corner=null,cnt=0,s='',tone='';
@@ -30,7 +33,8 @@ function info(it,d){
   if(st==='rework'&&!ok)s=T('reworked since the stable');
   if(f.to_redo){corner='redo';s=T('to redo: {why}',{why:f.to_redo});tone='redo'}
   if(f.waiting){corner='wait';s=T('waiting: {why}',{why:f.waiting});tone='wait'}
-  if(rk||rn){corner='rtk';cnt=rn||1;s=T('{n} RTK · {who}',{n:rn||1,who:rk==='role'?T('role'):T('team')});tone='rtk'}
+  if(rk||rn){corner='rtk';cnt=rn||1;s=T('{n} RTK · {who}',{n:rn||1,who:rk&&rk!=='team'?rk:T('team')});tone='rtk'}
+  if(d in (it.marked||{})&&!mine){corner='you';s=it.marked[d]?T('you: done on the stable, not sent yet'):T('you: not done, not sent yet');tone='you'}
   if(mine==='val'){base=S.review&&S.review.role!==M.role?'sup':'val';l=T('Validated {role}',{role:S.review?S.review.role:''});corner='you';s=T('you · not sent yet');tone='you'}
   if(mine==='rtk'){corner='you-rtk';s=T('you: retake');tone='you'}
   const nn=it.notes.filter(n=>n.type!=='rtk'&&!n.done&&n.deps.includes(d)).length+it.myNotes.filter(n=>n.type!=='rtk'&&n.dept===d).length;
@@ -42,7 +46,7 @@ const openRtk=it=>rtkNotes(it).length+it.myNotes.filter(n=>n.type==='rtk').lengt
 const openNotes=it=>it.notes.filter(n=>!n.done).length+it.myNotes.length;
 const omitted=it=>(it.setAside!==undefined?it.setAside:it.omit)?.state;
 const toValidate=it=>!omitted(it)&&required(it).some(d=>['done','rework'].includes(it.states[d])&&!it.ok[d]&&!it.rtk[d]&&!it.mine[d]);
-const touched=it=>Object.keys(it.mine).length||it.myNotes.length||Object.keys(it.myReplies).length||it.setAside!==undefined||it.req||it.assign||Object.keys(it.still).length||Object.keys(it.fixed).length||it.descEdit!==undefined;
+const touched=it=>Object.keys(it.marked||{}).length||Object.keys(it.mine).length||it.myNotes.length||Object.keys(it.myReplies).length||it.setAside!==undefined||it.req||it.assign||Object.keys(it.still).length||Object.keys(it.fixed).length||it.descEdit!==undefined;
 function worst(it){
   if(omitted(it))return 'omit';const ds=required(it);
   if(ds.some(d=>it.rtk[d]||it.mine[d]==='rtk'))return 'rtk';if(!ds.length)return 'todo';
