@@ -3614,6 +3614,25 @@ html.kb .m-nav {
 .mq.go {
   text-overflow: clip;
 }
+/* The same for any text cut with "…" (25-wide.js cutOf()): its content wrapped, scrolled while hovered. */
+.pan-in {
+  display: inline;
+}
+.pan-go {
+  text-overflow: clip !important;
+}
+.pan-go > .pan-in {
+  display: inline-block;
+  animation: mq var(--mqt, 3s) ease-in-out 0.35s infinite alternate;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pan-go > .pan-in {
+    animation: none;
+  }
+  .pan-go {
+    text-overflow: ellipsis !important;
+  }
+}
 @keyframes mq {
   from {
     transform: none;

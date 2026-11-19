@@ -147,6 +147,47 @@ function mqGo(host, on) {
       mqGo(h, false);
   })
 );
+/* Any text cut with "…" anywhere in the page (a header, a label, a name in a list): hovered -- or
+   tapped, on a touch screen -- it scrolls to its end and back, as the strip's names do; its
+   whole text never out of reach. No markup needed: the cut element found from what the pointer
+   is on (itself or one of its 3 parents, its CSS saying ellipsis), its content wrapped once. */
+function cutOf(el) {
+  for (let i = 0; el && el.nodeType === 1 && i < 4; i++, el = el.parentElement) {
+    if (el.closest('.mq, svg')) return null; // the strip's own, or a drawing
+    if (el.classList.contains('pan-go')) return el; // scrolling already (its "…" off meanwhile)
+    const cs = getComputedStyle(el);
+    // A flex or grid box laid out by its children: not wrapped (its gaps and icons would move).
+    if (cs.textOverflow === 'ellipsis' && el.scrollWidth - el.clientWidth > 2)
+      return /flex|grid/.test(cs.display) ? null : el;
+  }
+  return null;
+}
+let panned = null;
+function panStop() {
+  if (panned) panned.classList.remove('pan-go');
+  panned = null;
+}
+document.addEventListener('pointerover', e => {
+  const el = cutOf(e.target);
+  if (el === panned) return;
+  panStop();
+  if (!el) return;
+  let w = el.firstElementChild;
+  if (!(w && w.classList.contains('pan-in') && el.childNodes.length === 1)) {
+    w = document.createElement('span');
+    w.className = 'pan-in';
+    while (el.firstChild) w.appendChild(el.firstChild);
+    el.appendChild(w);
+  }
+  const d = el.scrollWidth - el.clientWidth;
+  el.style.setProperty('--mq', -d + 'px');
+  el.style.setProperty('--mqt', (1.2 + d / 28).toFixed(1) + 's');
+  el.classList.add('pan-go');
+  panned = el;
+});
+document.addEventListener('pointerout', e => {
+  if (panned && !(e.relatedTarget && panned.contains(e.relatedTarget))) panStop();
+});
 function wideAdd() {
   const ta = $('#w-ta');
   if (!ta) return;
