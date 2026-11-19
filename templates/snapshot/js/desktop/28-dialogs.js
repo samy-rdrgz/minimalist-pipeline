@@ -221,9 +221,7 @@ if (window.visualViewport) {
 function setTheme(t) {
   if (t === 'blender') t = 'dark'; // Blender's theme, offered by the first 2.0 builds: the blue one now
   S.theme = t;
-  try {
-    localStorage.setItem('mp-snapshot:theme', t);
-  } catch (_) {}
+  LS.set('mp-snapshot:theme', t);
   const sys = matchMedia('(prefers-color-scheme: light)').matches;
   const ui = t === 'light' || (t === 'system' && sys) ? 'light' : 'dark';
   document.documentElement.dataset.ui = ui;

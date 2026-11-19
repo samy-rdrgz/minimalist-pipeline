@@ -527,12 +527,8 @@ $('#mob').addEventListener('click', e => {
   if (q('[data-msend]')) {
     const it = cur(),
       ta = $('#m-ta'),
-      txt = ta.value.trim();
-    if (!txt) {
-      ta.focus();
-      toast(T('Write what to change first.'));
-      return;
-    }
+      txt = wordsOf(ta, toast);
+    if (!txt) return;
     A.note(it, { type: S.m.ctype, dept: S.m.cdept, text: txt, frames: rangeStr() });
     ta.value = '';
     S.rangeStart = null;
@@ -546,7 +542,7 @@ $('#mob').addEventListener('click', e => {
     return;
   }
   if (q('[data-mstart]')) {
-    S.review = { name: $('#m-name').value.trim() || T('Anonymous'), role: S.m.role || role0() };
+    startReview($('#m-name').value, S.m.role);
     S.m.sheet = null;
     const f = mSib()[0];
     if (f && !mSib().some(i => i.name === S.sel)) S.sel = f.name;

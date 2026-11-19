@@ -138,10 +138,10 @@
   --st-rtk: #f0800a; /* retake */
   --st-you: #3fd3c0; /* you, not sent yet */
   --shadow: rgba(0, 0, 0, 0.55);
-  --ui: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
-  --mono: 'JetBrains Mono', ui-monospace, Menlo, Consolas, monospace;
+  --ui: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
 }
-:root[data-ui='light'] {
+:root[data-ui="light"] {
   color-scheme: light;
   --brand: #2f6fe0;
   --brand-hi: #4a84ec;

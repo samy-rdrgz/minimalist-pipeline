@@ -52,13 +52,9 @@ function validateAll() {
 function submitForm() {
   const it = cur(),
     f = S.form,
-    t = $('#f-txt').value.trim(),
+    t = wordsOf($('#f-txt')),
     fr = $('#f-fr').value.trim().replace(/^f/, '');
-  if (!t) {
-    $('#f-txt').focus();
-    msg(T('Write what to change first.'));
-    return;
-  }
+  if (!t) return;
   const shots = f.shots.length ? f.shots : [''];
   shots.forEach(x =>
     A.note(it, { type: f.type, deps: f.deps, text: t, frames: fr ? 'f' + fr : '', shot: digits(x) })

@@ -264,14 +264,14 @@ function storeReview() {
         files[it.name] = o;
       }
     });
-    if (!S.review && !Object.keys(files).length && !S.planned.length) localStorage.removeItem(RV_KEY);
-    else localStorage.setItem(RV_KEY, JSON.stringify({ review: S.review, planned: S.planned, files }));
+    const empty = !S.review && !Object.keys(files).length && !S.planned.length;
+    LS.set(RV_KEY, empty ? '' : JSON.stringify({ review: S.review, planned: S.planned, files }));
   } catch (_) {}
   if (typeof liveQueue === 'function') liveQueue();
 }
 function restoreReview() {
   try {
-    const r = JSON.parse(localStorage.getItem(RV_KEY) || 'null');
+    const r = JSON.parse(LS.get(RV_KEY) || 'null');
     if (!r) return;
     S.review = r.review || null;
     S.planned = r.planned || [];

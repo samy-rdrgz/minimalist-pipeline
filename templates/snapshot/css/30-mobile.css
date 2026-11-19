@@ -1,5 +1,5 @@
 /* ---------- Mode: in a snapshot, what needs Blender is gone ---------- */
-[data-mode='snapshot'] .live-only {
+[data-mode="snapshot"] .live-only {
   display: none !important;
 }
 
@@ -304,7 +304,7 @@ b.ab {
   justify-content: center;
   font-weight: 600;
 }
-.mob .m-ab .btn:last-child[aria-pressed='true'] {
+.mob .m-ab .btn:last-child[aria-pressed="true"] {
   background: var(--st-wip);
   color: #241703;
   border-color: var(--st-wip);
@@ -616,11 +616,11 @@ b.ab {
   width: 18px;
   height: 18px;
 }
-.m-nav button[aria-selected='true'] {
+.m-nav button[aria-selected="true"] {
   color: var(--text);
 }
-.m-nav button[aria-selected='true']::before {
-  content: '';
+.m-nav button[aria-selected="true"]::before {
+  content: "";
   position: absolute;
   top: 0;
   left: 30%;
@@ -742,7 +742,7 @@ b.ab {
   border-bottom: 1px solid var(--line);
 }
 .m-sheet-h::before {
-  content: '';
+  content: "";
   position: absolute;
   top: var(--sp-3);
   left: 50%;
@@ -795,7 +795,7 @@ b.ab {
 .m-opt:active {
   background: var(--row-hover);
 }
-.m-opt[aria-checked='true']:not(.sw) {
+.m-opt[aria-checked="true"]:not(.sw) {
   background: var(--sel-soft);
 }
 .m-opt .ck {
@@ -834,7 +834,7 @@ b.ab {
   width: 18px;
   height: 18px;
 }
-.m-opt[aria-checked='true'] .tg::after {
+.m-opt[aria-checked="true"] .tg::after {
   transform: translateX(16px);
 }
 .m-grp {
@@ -925,12 +925,12 @@ b.ab {
 .m-ct {
   flex: none;
 }
-.mob .m-ct .btn[data-mct='rtk'][aria-pressed='true'] {
+.mob .m-ct .btn[data-mct="rtk"][aria-pressed="true"] {
   background: var(--st-rtk);
   border-color: var(--st-rtk);
   color: #fff;
 }
-.mob [data-mloop][aria-pressed='true'] {
+.mob [data-mloop][aria-pressed="true"] {
   background: var(--sel-soft);
   border-color: var(--sel);
   color: var(--text);
@@ -964,7 +964,7 @@ b.ab.b {
   gap: var(--sp-3);
   min-width: 0;
 }
-.btn[data-ab='B'][aria-pressed='true'] {
+.btn[data-ab="B"][aria-pressed="true"] {
   background: var(--st-wip);
   border-color: var(--st-wip);
   color: #241703;

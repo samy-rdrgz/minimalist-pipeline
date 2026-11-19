@@ -712,10 +712,7 @@ document.addEventListener('click', e => {
   if (mo) {
     const k = mo.dataset.more;
     S.more.has(k) ? S.more.delete(k) : S.more.add(k);
-    if (k === 'tracked')
-      try {
-        localStorage.setItem('mp-snapshot:tracked', S.more.has(k) ? '1' : '');
-      } catch (_) {}
+    if (k === 'tracked') LS.set('mp-snapshot:tracked', S.more.has(k) ? '1' : '');
     renderQuick();
     renderList();
     return;
@@ -950,12 +947,8 @@ document.addEventListener('click', e => {
   const ns = t.closest('[data-nesave]');
   if (ns) {
     const k = ns.dataset.nesave,
-      v = $('#ne-txt').value.trim();
-    if (!v) {
-      $('#ne-txt').focus();
-      msg(T('Write what to change first.'));
-      return;
-    }
+      v = wordsOf($('#ne-txt'));
+    if (!v) return;
     const it = cur();
     if (k[0] === 'm' && !it.notes.some(x => x.id === k)) A.editMine(it, k.slice(1), v);
     else if (/^r.+:\d+$/.test(k) && !sentEntry(it, k)) {
@@ -1246,9 +1239,7 @@ $('#tree-q').addEventListener('input', e => {
 function setScale(s) {
   S.scaleV = s;
   document.documentElement.style.setProperty('--scale', s);
-  try {
-    localStorage.setItem('mp-snapshot:scale', s);
-  } catch (_) {}
+  LS.set('mp-snapshot:scale', s);
   const i = $('#scale-in');
   if (i) {
     i.value = s;

@@ -150,14 +150,10 @@ function mqGo(host, on) {
 function wideAdd() {
   const ta = $('#w-ta');
   if (!ta) return;
-  const txt = ta.value.trim(),
+  const txt = wordsOf(ta),
     it = cur(),
     d = S.wdep;
-  if (!txt) {
-    ta.focus();
-    msg(T('Write what to change first.'));
-    return;
-  }
+  if (!txt) return;
   const fr = rangeStr();
   A.note(it, { type: S.wtype, dept: d, text: txt, frames: fr });
   S.rangeStart = null;

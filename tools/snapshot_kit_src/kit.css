@@ -323,7 +323,7 @@ code {
   color: var(--rtk-t);
 }
 .kt .bad::before {
-  content: '⚠ ';
+  content: "⚠ ";
 }
 .kc.wide .kc-b {
   grid-template-columns: 1fr;

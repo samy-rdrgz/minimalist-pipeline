@@ -46,7 +46,7 @@
 .ws button:hover {
   color: var(--t-text);
 }
-.ws button[aria-selected='true'] {
+.ws button[aria-selected="true"] {
   background: var(--brand);
   color: var(--on-brand);
   box-shadow: none;
@@ -55,7 +55,7 @@
 .ws button {
   font-weight: 500;
 }
-.ws button[aria-selected='true'] .n {
+.ws button[aria-selected="true"] .n {
   color: inherit;
   opacity: 0.7;
 }
@@ -89,7 +89,7 @@
 }
 /* The blur on a pseudo-element: a backdrop-filter on the parent would capture the fixed menus. */
 :is(#main .area-head, #outliner .area-head, #props .area-head, .grp-h, .wsec)::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
   z-index: -1;
@@ -133,7 +133,7 @@
   border-color: transparent;
 }
 .btn.primary,
-.btn[aria-pressed='true'] {
+.btn[aria-pressed="true"] {
   background: var(--brand);
   border-color: var(--brand);
   color: var(--on-brand);
@@ -199,11 +199,11 @@
 }
 
 /* Detail and breakdown */
-.ptabs button[aria-selected='true'] {
+.ptabs button[aria-selected="true"] {
   border-bottom-color: var(--brand);
 }
 .sec-h::before {
-  content: '';
+  content: "";
   width: 3px;
   height: 11px;
   border-radius: var(--r-xs);
@@ -232,17 +232,17 @@
   background: var(--t1);
   border-bottom-color: var(--t-line);
 }
-.m-nav button[aria-selected='true'] {
+.m-nav button[aria-selected="true"] {
   color: var(--brand-hi);
 }
-.m-nav button[aria-selected='true']::before {
+.m-nav button[aria-selected="true"]::before {
   background: var(--brand);
 }
 .m-dept.mine {
   border-color: var(--you-line);
 }
 .m-sec-h::before {
-  content: '';
+  content: "";
   width: 3px;
   height: 11px;
   border-radius: var(--r-xs);
@@ -273,7 +273,7 @@
 }
 .btn.ok:not(:has(svg))::before,
 .btn.alert:not(:has(svg))::before {
-  content: '';
+  content: "";
   width: calc(6px * var(--scale));
   height: calc(6px * var(--scale));
   border-radius: 1px;
@@ -284,21 +284,21 @@
 .btn.ok:not(:has(svg))::before {
   background: var(--st-val);
 }
-.btn.ok[aria-pressed='true'] svg.i,
-.btn.alert[aria-pressed='true'] svg.i {
+.btn.ok[aria-pressed="true"] svg.i,
+.btn.alert[aria-pressed="true"] svg.i {
   fill: #fff;
 }
-.btn.ok[aria-pressed='true']::before,
-.btn.alert[aria-pressed='true']::before {
+.btn.ok[aria-pressed="true"]::before,
+.btn.alert[aria-pressed="true"]::before {
   background: #fff;
 }
 /* Pressed buttons that mean something: Validate stays pink, Retake orange */
-.btn.ok[aria-pressed='true'] {
+.btn.ok[aria-pressed="true"] {
   background: var(--st-val);
   border-color: var(--st-val);
   color: #fff;
 }
-.btn.alert[aria-pressed='true'] {
+.btn.alert[aria-pressed="true"] {
   background: var(--st-rtk);
   border-color: var(--st-rtk);
   color: #fff;

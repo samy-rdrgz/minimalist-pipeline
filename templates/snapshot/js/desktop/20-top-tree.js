@@ -33,16 +33,6 @@ function renderTop() {
     ? `<button class="btn primary" id="rv-open" aria-haspopup="dialog">${ic('b-greasepencil')}<span class="only-wide">${T('Review')}</span></button>`
     : `<span class="review-chip"><span class="who">${esc(S.review.name)} · ${S.review.role}</span>${LIVE ? `<span class="rv-sync" data-state="${LV.say}" title="${T('Each change goes to Blender by itself')}">${SAY[LV.say]()}</span>` : `<button class="btn primary" id="rv-send" title="${T('What it holds, then the file to send')}">${ic('b-export')}<span class="only-wide">${T('Send…')}</span><span class="n">${n2}</span></button>`}<button class="btn flat icon" id="rv-stop" aria-label="${T('Leave the review')}" title="${T('Leave the review')}">${ic('b-x')}</button></span>`;
 }
-/* A role, in a sentence: what its validation does (the top one counts in the figures). */
-function roleHelp(r) {
-  return r === TEAM
-    ? T('{role}: no validation, only retakes and remarks.', { role: r })
-    : r === M.role
-      ? T('{role}: the top role, your validations count in the figures.', { role: r })
-      : T('{role}: your validation counts, {top} can still take it back.', { role: r, top: M.role });
-}
-/* The role a review starts on: live, Blender's own (team when none); a snapshot, the top one. */
-const role0 = () => (LIVE ? M.live.role || TEAM : M.role || M.roles[0] || TEAM);
 /* Started from the top bar, or from Watch large (it stays open, on the file watched). */
 function reviewPop(btn) {
   const old = document.querySelector('.pop.rv');
@@ -78,10 +68,7 @@ function reviewPop(btn) {
     const pa = e.target.closest('[data-path]');
     if (pa) p.querySelectorAll('[data-path]').forEach(b => b.setAttribute('aria-pressed', b === pa));
     if (e.target.closest('#rv-go')) {
-      S.review = {
-        name: $('#rv-name').value.trim() || T('Anonymous'),
-        role: p.querySelector('[data-role][aria-pressed=true]').dataset.role
-      };
+      startReview($('#rv-name').value, p.querySelector('[data-role][aria-pressed=true]').dataset.role);
       S.quick = p.querySelector('[data-path][aria-pressed=true]').dataset.path || null;
       if (!S.wide) {
         S.ws = 'shot';

@@ -185,3 +185,26 @@ const A = {
     return ch;
   }
 };
+
+/* A role, in a sentence: what its validation does (the top one counts in the figures). */
+function roleHelp(r) {
+  return r === TEAM
+    ? T('{role}: no validation, only retakes and remarks.', { role: r })
+    : r === M.role
+      ? T('{role}: the top role, your validations count in the figures.', { role: r })
+      : T('{role}: your validation counts, {top} can still take it back.', { role: r, top: M.role });
+}
+/* The role a review starts on: live, Blender's own (team when none); a snapshot, the top one. */
+const role0 = () => (LIVE ? M.live.role || TEAM : M.role || M.roles[0] || TEAM);
+/* Reviewing from now on, as name (Anonymous if none) in role. */
+function startReview(name, role) {
+  S.review = { name: (name || '').trim() || T('Anonymous'), role: role || role0() };
+}
+/* A field's words, trimmed; none: the field focused, the reader told (say: msg, or toast on a phone), null. */
+function wordsOf(field, say = msg) {
+  const v = (field?.value || '').trim();
+  if (v) return v;
+  field?.focus();
+  say(T('Write what to change first.'));
+  return null;
+}

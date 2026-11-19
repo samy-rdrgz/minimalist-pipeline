@@ -166,16 +166,14 @@
       grid(false, pz.main.open) +
       '}';
     if (!live)
-      try {
-        localStorage.setItem(
-          'pz-v1',
-          JSON.stringify({
-            out: { w: o.w, open: o.open },
-            props: { w: p.w, open: p.open },
-            main: { open: m.open }
-          })
-        );
-      } catch (e) {}
+      LS.set(
+        'pz-v1',
+        JSON.stringify({
+          out: { w: o.w, open: o.open },
+          props: { w: p.w, open: p.open },
+          main: { open: m.open }
+        })
+      );
     place();
     sync();
   }

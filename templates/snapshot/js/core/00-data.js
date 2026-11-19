@@ -7,6 +7,23 @@ const M = {},
   items = [],
   F = { status: '', jobs: [], workers: [], me: {}, left: '', presets: [], preset: '' };
 const $ = s => document.querySelector(s);
+/* This browser's storage, never throwing (a private window, storage blocked): get → null;
+   set with nothing ('' or null) removes the key. */
+const LS = {
+  get(k) {
+    try {
+      return localStorage.getItem(k);
+    } catch (_) {
+      return null;
+    }
+  },
+  set(k, v) {
+    try {
+      if (v == null || v === '') localStorage.removeItem(k);
+      else localStorage.setItem(k, v);
+    } catch (_) {}
+  }
+};
 const esc = s =>
   String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 const ic = (id, cls = 'i') => `<svg class="${cls}" aria-hidden="true"><use href="#${id}"/></svg>`;
@@ -200,6 +217,4 @@ const S = {
   gFocus: null
 };
 /* Tracked only (Filters): remembered by this browser. */
-try {
-  if (localStorage.getItem('mp-snapshot:tracked')) S.more.add('tracked');
-} catch (_) {}
+if (LS.get('mp-snapshot:tracked')) S.more.add('tracked');

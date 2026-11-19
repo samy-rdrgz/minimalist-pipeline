@@ -82,7 +82,7 @@ svg.g {
 .btn:hover {
   background: var(--btn-hi);
 }
-.btn[aria-pressed='true'] {
+.btn[aria-pressed="true"] {
   background: var(--sel);
   color: #fff;
   border-color: var(--sel-line);
@@ -238,7 +238,7 @@ svg.g {
   color: var(--text);
 }
 .tag::before {
-  content: '';
+  content: "";
   width: calc(6px * var(--scale));
   height: calc(6px * var(--scale));
   margin: 0 var(--sp-1);
@@ -308,7 +308,7 @@ svg.g {
   min-width: 20px;
 }
 .bar i::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0 auto 0 0;
   width: var(--p);
@@ -507,7 +507,7 @@ svg.g {
 .ws button:hover {
   color: var(--text);
 }
-.ws button[aria-selected='true'] {
+.ws button[aria-selected="true"] {
   background: var(--box-2);
   color: var(--text);
   box-shadow: 0 1px 0 rgba(0, 0, 0, 0.3);
@@ -537,7 +537,7 @@ svg.g {
 }
 /* The review's mark: the glyph's "you" corner, the same solid colour. */
 .review-chip .who::before {
-  content: '';
+  content: "";
   width: calc(8px * var(--scale));
   height: calc(8px * var(--scale));
   border-radius: 50%;
@@ -552,7 +552,7 @@ svg.g {
   display: grid;
   gap: var(--gap);
   grid-template-columns: calc(230px * var(--scale)) minmax(0, 1fr) calc(420px * var(--scale));
-  grid-template-areas: 'out main props';
+  grid-template-areas: "out main props";
 }
 .area {
   background: var(--area);
@@ -613,7 +613,7 @@ svg.g {
 @media (max-width: 1200px) {
   .screen {
     grid-template-columns: minmax(0, 1fr) calc(380px * var(--scale));
-    grid-template-areas: 'main props';
+    grid-template-areas: "main props";
   }
   #outliner {
     position: fixed;
@@ -636,7 +636,7 @@ svg.g {
 @media (max-width: 860px) {
   .screen {
     grid-template-columns: minmax(0, 1fr);
-    grid-template-areas: 'main';
+    grid-template-areas: "main";
   }
   #props {
     position: fixed;
@@ -854,10 +854,9 @@ body.out-open .scrim {
 .cols,
 .row {
   display: grid;
-  grid-template-columns: calc(100px * var(--scale)) minmax(160px, 1fr) repeat(
-      var(--nd),
-      calc(98px * var(--scale))
-    ) calc(124px * var(--scale));
+  grid-template-columns:
+    calc(100px * var(--scale)) minmax(160px, 1fr) repeat(var(--nd), calc(98px * var(--scale)))
+    calc(124px * var(--scale));
   column-gap: var(--sp-6);
   align-items: center;
   padding: 0 var(--sp-7);
@@ -885,7 +884,7 @@ body.out-open .scrim {
   background: var(--row-sel);
 }
 .row.sel::before {
-  content: '';
+  content: "";
   position: absolute;
   left: 0;
   top: 0;
@@ -1212,7 +1211,7 @@ body.out-open .scrim {
 .ptabs button:hover {
   color: var(--text);
 }
-.ptabs button[aria-selected='true'] {
+.ptabs button[aria-selected="true"] {
   color: var(--text);
   border-bottom-color: var(--sel);
 }
@@ -1935,11 +1934,11 @@ body.out-open .scrim {
   background: var(--row-hover);
   color: var(--text);
 }
-.vtab[aria-selected='true'] {
+.vtab[aria-selected="true"] {
   background: var(--box-2);
   color: #fff;
 }
-[data-ui='light'] .vtab[aria-selected='true'] {
+[data-ui="light"] .vtab[aria-selected="true"] {
   color: var(--text);
 }
 .vtab .cnt {
@@ -2164,7 +2163,7 @@ button.assign:hover {
   display: block;
 }
 .jbar i::after {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0 auto 0 0;
   width: var(--p);
@@ -2605,7 +2604,7 @@ button.assign:hover {
   min-width: 0;
 }
 .sf::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0 auto 0 0;
   width: var(--p, 0);
@@ -2652,7 +2651,7 @@ button.assign:hover {
 }
 .sf .v::before,
 .sf .lab::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;
@@ -3186,13 +3185,13 @@ button.assign:hover {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
 }
 /* The live pill: Blender busy, or not answering. */
-.live[data-state='busy'] i {
+.live[data-state="busy"] i {
   background: var(--st-wip);
 }
-.live[data-state='off'] {
+.live[data-state="off"] {
   color: var(--text-3);
 }
-.live[data-state='off'] i {
+.live[data-state="off"] i {
   background: var(--st-rtk);
 }
 /* The player's video: in the stage, the thumbnail's place. */
@@ -3217,36 +3216,36 @@ button.assign:hover {
   color: var(--text-2);
 }
 .rv-sync::before {
-  content: '';
+  content: "";
   width: 7px;
   height: 7px;
   border-radius: 50%;
   background: var(--st-done);
 }
-.rv-sync[data-state='busy']::before {
+.rv-sync[data-state="busy"]::before {
   background: var(--st-wip);
 }
-.rv-sync[data-state='off']::before {
+.rv-sync[data-state="off"]::before {
   background: var(--st-rtk);
 }
 /* Live, a guest (Share with a phone): reviews as themselves -- the farm read only, nothing opened or rendered on this machine. */
-[data-guest='1']
+[data-guest="1"]
   :is(
-    [data-act='blender'],
-    [data-act='blendfolder'],
-    [data-act='renderfolder'],
-    [data-act='player'],
-    [data-act='share'],
-    [data-act='snapshot'],
-    [data-act='folder'],
-    [data-act='log'],
+    [data-act="blender"],
+    [data-act="blendfolder"],
+    [data-act="renderfolder"],
+    [data-act="player"],
+    [data-act="share"],
+    [data-act="snapshot"],
+    [data-act="folder"],
+    [data-act="log"],
     [data-render],
     [data-farm],
     [data-prio],
     [data-relink],
     [data-mjob],
     [data-mprio],
-    [data-msheet='render']
+    [data-msheet="render"]
   ) {
   display: none !important;
 }
@@ -3342,7 +3341,7 @@ button.assign:hover {
     border-color 0.15s;
 }
 .tg::after {
-  content: '';
+  content: "";
   position: absolute;
   top: 1px;
   left: 1px;
@@ -3354,11 +3353,11 @@ button.assign:hover {
     transform 0.15s,
     background 0.15s;
 }
-[aria-checked='true'] > .tg {
+[aria-checked="true"] > .tg {
   background: var(--sel);
   border-color: var(--sel);
 }
-[aria-checked='true'] > .tg::after {
+[aria-checked="true"] > .tg::after {
   transform: translateX(calc(12px * var(--scale)));
   background: #fff;
 }
@@ -3427,7 +3426,7 @@ button.assign:hover {
 }
 .brand-f .wm {
   font:
-    400 var(--fs) / 1 'MP Display',
+    400 var(--fs) / 1 "MP Display",
     var(--ui);
 }
 .brand-f .v {
