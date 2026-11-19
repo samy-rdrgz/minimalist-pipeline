@@ -42,7 +42,8 @@ from ..lib import (
 )
 from ..lib.migration import migration_record
 from ..lib.presets import presets_without_department, preset_rename_problem, rename_preset
-from ..lib.core import cached_scandir
+from ..lib.core import cached_scandir, write_json_atomic
+from ..lib import formats
 from ..lib.status import preset_department
 from .farm_ops import (
     _NO_SCRIPT,
@@ -198,7 +199,7 @@ class M_PIPELINE_OT_create_project(bpy.types.Operator):
 
         config_file = get_config_filepath(project_root)
         try:
-            config_file.write_text(json.dumps(config, indent=4), encoding="utf-8")
+            write_json_atomic(config_file, config)
         except Exception as e:
             self.report({"ERROR"}, f"Failed to write config: {e}")
             return {"CANCELLED"}
@@ -1010,7 +1011,10 @@ class ProjectSettings:
         try:
             config_file = get_config_filepath(self.project_path_selected)
             config_file.parent.mkdir(parents=True, exist_ok=True)
-            config_file.write_text(json.dumps(config, indent=4), encoding="utf-8")
+            newer = formats.too_new(config_file, config)
+            if newer is not None:
+                return [("ERROR", f"This project's settings were written by a newer Minimalist Pipeline (format {newer}): update the addon first.")]
+            write_json_atomic(config_file, config)
             ConfigCache.invalidate()
         except Exception as e:
             return [("ERROR", f"Failed to save config: {e}")]

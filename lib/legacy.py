@@ -10,7 +10,9 @@ Only one so far: a stable's done departments, "departments_done" since
   both equal, so the two differing means a 1.x wrote it last (it only knows
   the old key): the old key's values win.
 
-To drop it once no 1.x is left: delete this file and its calls
+Kept through 2.1 and 2.2, no longer written from 2.3 (announced in the
+CHANGELOG): a team has two minor versions to update every machine.
+To drop it: delete this file and its calls
 (grep "legacy."), and tests/test_migration.py's legacy part.
 """
 

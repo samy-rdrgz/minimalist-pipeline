@@ -6,6 +6,18 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- Every project file says the form it's written in: `"format_version"`
+  in project_config.json, tracking.json, .stablemeta, .wipmeta,
+  render_history.json, preset_pace.json, rushes.json, session and farm
+  worker files (lib/formats.py). An addon never rewrites a file a newer
+  one wrote: it says to update instead of dropping what it doesn't know.
+  Files with no key were written before 2.0.
+- Tests run on every push (GitHub Actions); `python3 tools/run_tests.py`
+  runs them all locally. The bug report asks where it happened (page,
+  live, phone, farm) and for the browser.
+- The 1.x key beside 2.0's in a .stablemeta (`departments_validated`) is
+  still written through 2.1 and 2.2, and no longer from 2.3: two minor
+  versions to update every machine of a team.
 - The page: your own notes, sent already, can be edited or deleted again
   (the review's `edit` / `delete` actions; only by their author).
 - Live: View › Export a snapshot…, the export opened in Blender.

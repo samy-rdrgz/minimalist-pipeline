@@ -19,6 +19,7 @@ from pathlib import Path
 import bpy
 
 from .background import checkpoint
+from . import formats
 from .errors import PipelineError
 from .logs import log
 
@@ -874,6 +875,7 @@ def write_json_atomic(path: Path, data, attempts: int = 5) -> None:
     attempts: tries for the replace (retry_shared_io()). Raises if it
     fails, the .tmp removed."""
     tmp = path.with_suffix(path.suffix + ".tmp")
+    data = formats.stamp(path, data)  # its "format_version" (lib/formats.py)
     tmp.write_text(json.dumps(data, indent=4), encoding="utf-8")
     try:
         retry_shared_io(os.replace, tmp, path, attempts=attempts)
@@ -906,6 +908,13 @@ def locked_json(path: Path, read_only=False, retries: int = 10, io_attempts: int
             data = json.loads(path.read_text(encoding="utf-8"))
         except FileNotFoundError:
             data = None
+        newer = None if read_only else formats.too_new(path, data)
+        if newer is not None:
+            # A newer addon's form: rewriting it would drop what this one doesn't know.
+            raise PipelineError(
+                f"{Path(path).name} was written by a newer Minimalist Pipeline "
+                f"(format {newer}, this one knows {formats.current(path)}): update the addon on this machine."
+            )
         box = {"data": data, "action": ""}
         yield box
         if box["action"] != "" and read_only:
