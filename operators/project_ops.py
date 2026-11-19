@@ -849,7 +849,9 @@ class ProjectSettings:
             for e in cached_scandir(Path(root) / "config" / "presets")
             if e.name.endswith(".py") and e.name != "asset_file_preset.py"
         ]
-        loose = sorted(n for n in names if not preset_department(n, self._departments()))
+        # Set for a department (By department…): it has one, whatever its name.
+        assigned = set(((read_project_config(root) or {}).get("farm") or {}).get("department_presets", {}).values())
+        loose = sorted(n for n in names if n not in assigned and not preset_department(n, self._departments()))
         row = box.row()
         if loose:
             warn = row.row()
