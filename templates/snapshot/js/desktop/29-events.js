@@ -6,6 +6,8 @@ function v6Click(t){
   const shs=t.closest('[data-shot]');if(shs){S.shot[S.sel]=shs.dataset.shot;S.ver[S.sel]=0;renderProps();renderWide();return true}
   if(t.closest('[data-render]')){renderDlg();return true}
   const rf=t.closest('[data-rf]');if(rf){rform(cur())[rf.dataset.rf]=rf.dataset.v;renderDlg();return true}
+  const rsw=t.closest('[data-rfsw]');if(rsw){const f=rform(cur());f.sound=f.sound==='off'?'on':'off';renderDlg();return true}
+  const ns=t.closest('#notif-sys');if(ns){notifSys(ns,!S.notifSys);return true}
   if(t.closest('[data-rft]')){const f=rform(cur());f.frames=!f.frames;if(!f.frames){f.start='';f.end=''}renderDlg();return true}
   const rp=t.closest('[data-rprio]');if(rp){rform(cur()).prio+=+rp.dataset.rprio;renderDlg();return true}
   const rs=t.closest('[data-rshot]');if(rs){const f=rform(cur());f.off[rs.dataset.rshot]=!f.off[rs.dataset.rshot];renderDlg();return true}
@@ -44,7 +46,7 @@ document.addEventListener('click',e=>{
   const lg=t.closest('[data-lang]');if(lg){MPI18n.choose(lg.dataset.lang);location.reload();return}
   const mb=t.closest('[data-menu]');if(mb){const m=document.getElementById(mb.dataset.menu);const o=m.hidden;closeMenus();m.hidden=!o;mb.setAttribute('aria-expanded',o);if(o)placeMenu(mb,m);return}
   if(!t.closest('.menu'))closeMenus();
-  if(!t.closest('.pop')&&!t.closest('#rv-open')&&!t.closest('[data-settings]')&&!t.closest('#news-b'))document.querySelectorAll('.pop').forEach(p=>p.remove());
+  if(!t.closest('.pop')&&!t.closest('#rv-open,#rv-open-w')&&!t.closest('[data-settings]')&&!t.closest('#news-b'))document.querySelectorAll('.pop').forEach(p=>p.remove());
   const a=t.closest('[data-act]');if(a){const k=a.dataset.act;closeMenus();
     if(k==='videos')pickVideos();
     if(k==='player'){const it=cur(),m=it&&mVer(it),v=m&&m.V[m.i];if(LIVE)livePlay(v&&v.video);else if(v&&v.video){const u=videoSrc(v.video);if(u)open(u,'_blank');else toast(T('Video not found: choose the videos folder (View).'))}}
@@ -90,10 +92,9 @@ document.addEventListener('click',e=>{
   const vb=t.closest('[data-verb]');if(vb){S.m.b[S.sel]=+vb.dataset.verb;S.m.side='B';closeMenus();refresh();return}
   const dv=t.closest('[data-demo-view]');if(dv){closeMenus();setView(dv.dataset.demoView);return}
   if(v6Click(t))return;
-  const sc=t.closest('[data-scale]');if(sc){setScale(+sc.dataset.scale);closeMenus();return}
   const ws=t.closest('[data-ws]');if(ws){S.ws=ws.dataset.ws;S.quick=null;S.dept=null;if((S.ws==='shot'||S.ws==='asset')&&cur()?.kind!==S.ws)S.sel=items.find(i=>i.kind===S.ws).name;if(S.ws==='links')S.tab='links';else if(S.tab==='links'&&S.ws!=='synth')S.tab='plan';renderAll();return}
-  if(t.closest('#rv-open')){reviewPop();return}
-  if(t.closest('#rv-open-w')){S.wide=false;renderWide();setTimeout(reviewPop,0);return}
+  if(t.closest('#rv-open')){reviewPop(t.closest('#rv-open'));return}
+  if(t.closest('#rv-open-w')){reviewPop(t.closest('#rv-open-w'));return}
   if(t.closest('#rv-stop')){S.review=null;S.form=null;S.reply=null;if(S.quick==='mine')S.quick=null;renderAll();msg(T('Review left: your changes are kept in this browser.'));return}
   if(t.closest('#rv-send')){sendDialog();return}
   if(t.closest('#help-b')){helpDlg();return}
@@ -119,9 +120,9 @@ document.addEventListener('click',e=>{
     if(k==='snd'){S.muted=!S.muted;PV.muted=S.muted;document.querySelectorAll('[data-tp="snd"]').forEach(b=>{b.innerHTML=ic(S.muted?'b-mute_ipo_off':'b-mute_ipo_on');b.setAttribute('aria-pressed',!S.muted)})}
     if(k==='in'){S.rangeStart=S.rangeStart==null?S.frame:null;refresh()}return}
   if(t.closest('[data-wide]')){S.wide=true;renderWide();return}
-  if(t.closest('[data-wclose]')){S.wide=false;S.seqPlay=false;if(S.playing)togglePlay();if(document.fullscreenElement)document.exitFullscreen().catch(()=>{});renderWide();renderProps();return}
+  if(t.closest('[data-wclose]')){wideFull(false);S.wide=false;S.seqPlay=false;if(S.playing)togglePlay();renderWide();renderProps();return}
   const wsS=t.closest('[data-wstep]');if(wsS){step(+wsS.dataset.wstep);return}
-  if(t.closest('[data-full]')){const W=$('#wide');(document.fullscreenElement?document.exitFullscreen():W.requestFullscreen?.())?.catch?.(()=>toast(T('Full screen not available here')));return}
+  if(t.closest('[data-full]')){wideFull(!S.wfull);return}
   const v=t.closest('[data-val]');if(v&&!v.disabled){A.validate(cur(),v.dataset.val);refresh();return}
   if(t.closest('[data-valall]')){validateAll();return}
   const u=t.closest('[data-undo]');if(u){A.undo(cur(),u.dataset.undo);refresh();return}
@@ -139,7 +140,7 @@ document.addEventListener('click',e=>{
   const ur=t.closest('[data-unreply]');if(ur){A.unreply(cur(),ur.dataset.unreply);refresh();return}
   const un=t.closest('[data-unnote]');if(un){A.unnote(cur(),un.dataset.unnote);refresh();return}
   const st=t.closest('[data-settings]');if(st){settingsPop(st);return}
-  const rq=t.closest('[data-req]');if(rq&&!rq.disabled){const it=cur();A.toggleReq(it,rq.dataset.req);rq.setAttribute('aria-pressed',required(it).includes(rq.dataset.req));renderList();renderTop();renderQuick();return}
+  const rq=t.closest('[data-req]');if(rq&&!rq.disabled){const it=cur();A.toggleReq(it,rq.dataset.req);rq.setAttribute('aria-checked',required(it).includes(rq.dataset.req));renderList();renderTop();renderQuick();return}
   const om=t.closest('[data-omit]');if(om&&!om.disabled){const it=cur();A.omit(it,om.dataset.omit);document.querySelector('.pop.set')?.remove();refresh();return}
   if(t.closest('[data-checked]')){const it=cur();it.toCheck=false;if(LIVE)liveChecked(it);refresh();msg(T('Checked: {name} is no longer "to check"',{name:S.sel}));return}
   if(t.closest('#pp-prev')){step(-1);return}if(t.closest('#pp-next')){step(1);return}
@@ -147,7 +148,11 @@ document.addEventListener('click',e=>{
   if(t.closest('#out-toggle')){document.body.classList.toggle('out-open');return}
   if(t.closest('#scrim')){document.body.classList.remove('out-open');return}
 });
-document.addEventListener('change',e=>{if(e.target.id==='notif-sys'){S.notifSys=e.target.checked;if(S.notifSys){if(!window.Notification){S.notifSys=false;e.target.checked=false;toast(T('This browser has no notifications'));return}Promise.resolve(Notification.requestPermission()).then(p=>{if(p!=='granted'){S.notifSys=false;e.target.checked=false;toast(T('Notifications refused here: the bell stays up to date'))}}).catch(()=>{S.notifSys=false;e.target.checked=false})}}
+/* What's new, Notify me in the system too: a switch, turned back off if the browser says no. */
+function notifSys(b,on){const set=v=>{S.notifSys=v;b.setAttribute('aria-checked',v)};set(on);if(!on)return;
+  if(!window.Notification){set(false);toast(T('This browser has no notifications'));return}
+  Promise.resolve(Notification.requestPermission()).then(p=>{if(p!=='granted'){set(false);toast(T('Notifications refused here: the bell stays up to date'))}}).catch(()=>set(false))}
+document.addEventListener('change',e=>{
   const rn=e.target.closest&&e.target.closest('[data-rfn]');if(rn)rform(cur())[rn.dataset.rfn]=e.target.value});
 document.addEventListener('input',e=>{if(e.target.id==='om-why'){A.omitReason(cur(),e.target.value);renderList()}});
 document.addEventListener('keydown',e=>{
@@ -157,6 +162,7 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Escape'&&tourAt>=0){tour(-1);return}
   if(e.key==='Escape'){
     if(!$('#dlg').hidden){$('#dlg').hidden=true;return}
+    if(S.wfull&&!document.querySelector('.pop')){wideFull(false);return}
     if(S.form||S.reply){S.form=null;S.reply=null;refresh();return}
     if(document.querySelector('.pop')){document.querySelectorAll('.pop').forEach(p=>p.remove());return}
     closeMenus();if(typing){e.target.blur();return}
@@ -185,9 +191,12 @@ document.addEventListener('keydown',e=>{
 $('#q').addEventListener('input',e=>{S.q=e.target.value.trim().toLowerCase();S.ff.q=S.q;renderList()});
 $('#q').addEventListener('keydown',e=>{if(e.key==='Enter'){const f=visible()[0];if(f){select(f.name);e.target.blur()}}});
 $('#tree-q').addEventListener('input',e=>{S.tq=e.target.value.trim().toLowerCase();renderTree()});
-function setScale(s){S.scaleV=s;document.documentElement.style.setProperty('--scale',s);try{localStorage.setItem('mp-snapshot:scale',s)}catch(_){};requestAnimationFrame(drawWires)}
-try{const s=parseFloat(localStorage.getItem('mp-snapshot:scale'));if(s)document.documentElement.style.setProperty('--scale',s)}catch(_){}
+/* View › Interface scale: a slider, 0.5 to 1.5 in nine steps. */
+function setScale(s){S.scaleV=s;document.documentElement.style.setProperty('--scale',s);try{localStorage.setItem('mp-snapshot:scale',s)}catch(_){};
+  const i=$('#scale-in');if(i){i.value=s;$('#scale-v').textContent=s.toFixed(2)}requestAnimationFrame(drawWires)}
+try{const s=parseFloat(localStorage.getItem('mp-snapshot:scale'));if(s>=.5&&s<=1.5)setScale(s)}catch(_){}
+$('#scale-in').addEventListener('input',e=>setScale(+e.target.value));
 new ResizeObserver(()=>drawWires()).observe($('#pbody'));new ResizeObserver(()=>{if(S.ws==='links')drawGraph()}).observe($('#list'));
-document.addEventListener('scroll',e=>{if(!e.target.closest||!e.target.closest('.menu'))closeMenus()},true);addEventListener('resize',closeMenus);
+document.addEventListener('scroll',e=>{if(!e.target.closest||!e.target.closest('.menu'))closeMenus()},true);addEventListener('resize',()=>{closeMenus();document.querySelectorAll('.pop.fx').forEach(p=>p.remove())});
 document.addEventListener('dblclick',e=>{const gn=e.target.closest('[data-gn]');if(gn){const it=items.find(i=>i.name===gn.dataset.gn);S.ws=it.kind;S.sel=it.name;S.tab='plan';S.gFocus=null;renderAll()}});
 document.addEventListener('change',e=>{if(e.target.matches&&e.target.matches('.rv-load')){const f=e.target.files[0];e.target.value='';closeMenus();loadReview(f)}});

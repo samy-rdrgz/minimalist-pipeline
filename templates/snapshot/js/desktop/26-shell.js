@@ -1,6 +1,6 @@
 /* ---------- Status ---------- */
 function renderStatus(){
-  $('#sb-stats').innerHTML=`${T('Shots {done} done · {valid} validated',{done:pct(M.progress.shot),valid:pct(M.validation.shot)})} <span class="faint">· Assets ${pct(M.progress.asset)} · ${pct(M.validation.asset)} · Minimalist Pipeline ${M.addon_version}</span>`;
+  $('#sb-stats').innerHTML=`${T('Shots {done} done · {valid} validated',{done:pct(M.progress.shot),valid:pct(M.validation.shot)})} <span class="faint">· Assets ${pct(M.progress.asset)} · ${pct(M.validation.asset)}</span>`;$('#sb-ver').textContent=M.addon_version||'';
   $('#sb-rv').style.display=S.review?'':'none';
 }
 let mt;function msg(t){if(isMob())return toast(t);$('#sb-msg').textContent=t;clearTimeout(mt);mt=setTimeout(()=>$('#sb-msg').textContent='',7000)}

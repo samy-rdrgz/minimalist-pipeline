@@ -51,12 +51,11 @@ function loadReview(file){if(!file)return;const rd=new FileReader();rd.onload=()
 function settingsPop(btn){
   const old=document.querySelector('.pop.set');if(old){old.remove();return}
   const it=cur(),p=document.createElement('div');p.className='pop set';const om=(it.setAside!==undefined?it.setAside:it.omit)||{};const dis=S.review?'':'disabled';
-  p.style.right='auto';p.style.left='0';
   p.innerHTML=`<h4>${T('File settings')}</h4><p class="hint">${S.review?T('Sent with your review.'):T('Start a review to change them.')}</p>
-    <div class="sec-h">${T('Required departments')}</div><span class="join full">${DEPTS[it.kind].map(d=>`<button class="btn sm" data-req="${d}" aria-pressed="${required(it).includes(d)}" ${dis}>${AB[d]}</button>`).join('')}</span>
+    <div class="sec-h">${T('Required departments')}</div><div class="swis">${DEPTS[it.kind].map(d=>`<button class="swi" role="switch" data-req="${d}" aria-checked="${required(it).includes(d)}" ${dis}><span class="lbl">${esc(LBL[d])}</span><span class="tg"></span></button>`).join('')}</div>
     <div class="sec-h">${T('Set aside')}</div><span class="join full">${[['',T('Active')],['on_hold',T('On hold')],['cancelled',T('Cancelled')]].map(([k,l])=>`<button class="btn sm" data-omit="${k}" aria-pressed="${(om.state||'')===k}" ${dis}>${l}</button>`).join('')}</span>
     ${om.state?`<label class="field"><input id="om-why" value="${esc(om.reason||'')}" placeholder="${T('Why (for the team)')}" ${dis} aria-label="${T('Reason')}"></label>`:''}
     <p class="hint">${T('Set aside: out of the figures, still in the list.')}</p>`;
-  btn.parentElement.appendChild(p);
+  btn.parentElement.appendChild(p);placePop(p,btn);
 }
 

@@ -1,6 +1,11 @@
 /* ---------- Dialogs and popovers ---------- */
 function placeMenu(b,m){m.classList.add('fx');m.style.left='0px';m.style.top='0px';const r=b.getBoundingClientRect(),w=m.offsetWidth,h=m.offsetHeight;
   let x=m.classList.contains('right')?r.right-w:r.left;x=Math.max(8,Math.min(x,innerWidth-w-8));let y=r.bottom+4;if(y+h>innerHeight-8)y=Math.max(8,r.top-h-4);m.style.left=x+'px';m.style.top=y+'px'}
+/* A popover by its button: under it, its right edge on the button's, held inside the window (a button at the
+   window's right edge or left edge alike); above it when there's no room below. */
+function placePop(p,b){p.classList.add('fx');const r=b.getBoundingClientRect(),w=p.offsetWidth,h=p.offsetHeight;
+  let x=r.right-w;if(x<8)x=r.left;x=Math.max(8,Math.min(x,innerWidth-w-8));let y=r.bottom+8;if(y+h>innerHeight-8)y=r.top-h-8>=8?r.top-h-8:Math.max(8,innerHeight-8-h);
+  p.style.left=x+'px';p.style.top=y+'px'}
 const stillHTML=(it,d)=>{const f=it.flags[d]||{};if(!S.review||!f.to_redo)return it.still&&it.still[d]?'<span class="tag you">'+T('still done · you')+'</span>':'';
   return `<button class="btn sm ${it.still[d]?'':'tool'}" data-still="${d}" aria-pressed="${!!it.still[d]}" title="${T('To redo: {why}. Still done: the work holds, it\'s not a validation',{why:esc(f.to_redo)})}">${ic('b-checkmark')}${T('Still done')}</button>`};
 const fixHTML=(it,n)=>{if(!S.review||n.mine||n.done||n.type==='note')return '';const on=!!it.fixed[n.id];
@@ -22,7 +27,7 @@ function renderDlg(){
     <div class="prop"><span class="k">Frames</span><span class="v">${f.frames?`<label class="field" style="width:96px"><span class="faint">${T('from')}</span><input data-rfn="start" value="${esc(f.start)}" placeholder="${T('file')}" aria-label="${T('First frame')}"></label><label class="field" style="width:96px"><span class="faint">${T('to')}</span><input data-rfn="end" value="${esc(f.end)}" placeholder="${T('file')}" aria-label="${T('Last frame')}"></label><button class="btn sm flat" data-rft>${T('the file\'s own')}</button>`:`<span class="dim">${T('the file\'s own')}</span><button class="btn sm tool" data-rft>${T('Choose')}</button>`}</span></div>
     <div class="prop"><span class="k">${T('Priority')}</span><span class="v"><span class="prio"><button class="btn sm icon" data-rprio="-1" aria-label="${T('Lower')}">−</button><b>${f.prio}</b><button class="btn sm icon" data-rprio="1" aria-label="${T('Higher')}">+</button><span class="faint">${T('the highest goes first')}</span></span></span></div>
     <div class="prop"><span class="k">${T('Machines')}</span><span class="v"><span class="join">${seg('mode','all',T('All'))}${seg('mode','single',T('Only one'))}</span></span></div>
-    <div class="prop"><span class="k">${T('Sound')}</span><span class="v"><span class="join" title="${T('The scene\'s sound (sequencer, speakers) in the video')}">${seg('sound','on',T('With sound'))}${seg('sound','off',T('Without sound'))}</span></span></div>
+    <div class="prop"><span class="k">${T('Sound')}</span><span class="v"><button class="swi" role="switch" data-rfsw="sound" aria-checked="${f.sound!=='off'}" title="${T('The scene\'s sound (sequencer, speakers) in the video')}"><span class="lbl">${f.sound!=='off'?T('With sound'):T('Without sound')}</span><span class="tg"></span></button></span></div>
     ${it.shots&&it.shots.length>1?`<div class="prop"><span class="k">${T('Shots')}</span><span class="v"><span class="join">${it.shots.map(x=>`<button class="btn sm" data-rshot="${x}" aria-pressed="${!f.off[x]}">${x}</button>`).join('')}</span></span></div>`:''}
     <div class="acts">${it.kind==='shot'?`<button class="btn" data-rprev title="${T('The last videos of each shot of {seq}, end to end',{seq:it.group})}">${T('Preview {seq}',{seq:it.group})}</button>`:''}<span style="flex:1"></span><button class="btn" data-dclose>${T('Cancel')}</button><button class="btn primary" data-rsend>${ic('b-export')}${T('Send to the farm')}</button></div></div>`;
 }
@@ -35,8 +40,8 @@ function newsPop(btn){const old=document.querySelector('.pop.news');if(old){old.
   const p=document.createElement('div');p.className='pop news';p.setAttribute('role','dialog');p.setAttribute('aria-label',T('What\'s new'));
   const IC={rtk:'--st-rtk',note:'--text-2',render:'--st-done',ok:'--st-val'};
   p.innerHTML=`<h4>${T('What\'s new')}</h4>${NEWS.length?NEWS.map(x=>`<button class="newsi" data-goto-file="${x.n}"><span class="dt" style="background:var(${IC[x.k]})"></span><span class="tx"><span class="h"><b>${esc(x.n)}</b><span class="faint">${x.at}</span></span>${esc(x.h)}<small>${esc(x.x)}</small></span></button>`).join(''):`<p class="hint">${T('Nothing new since the page opened: notes, retakes, validations and renders come here.')}</p>`}
-    <label class="check"><input type="checkbox" id="notif-sys" ${S.notifSys?'checked':''}> ${T('Notify me in the system too')}</label>`;
-  btn.parentElement.appendChild(p);
+    <button class="swi" role="switch" id="notif-sys" aria-checked="${!!S.notifSys}"><span class="lbl">${T('Notify me in the system too')}</span><span class="tg"></span></button>`;
+  btn.parentElement.appendChild(p);placePop(p,btn);
 }
 const TOUR=[['#ws',T('The spaces'),T('Shots, Assets, Links, Breakdown and Farm: a click changes the whole page.')],
   ['#quick',T('The filters'),T('Retakes, notes, to validate: a click filters the list. "Filters" opens the rest.')],
@@ -54,10 +59,15 @@ function tour(n){document.querySelectorAll('.tour-hl').forEach(e=>e.classList.re
   b.innerHTML=`<b>${TOUR[n][1]}</b><p>${TOUR[n][2]}</p><div class="acts"><span class="faint">${n+1} / ${TOUR.length}</span><span style="flex:1"></span>${n<TOUR.length-1?'<button class="btn sm flat" data-tour="end">'+T('Skip')+'</button><button class="btn sm primary" data-tour="next">'+T('Next')+'</button>':'<button class="btn sm primary" data-tour="end">'+T('Done')+'</button>'}</div>`;
   document.body.appendChild(b);const w=b.offsetWidth,h=b.offsetHeight;let x=Math.min(Math.max(8,r.left),innerWidth-w-8),y=r.bottom+10;if(y+h>innerHeight-8)y=Math.max(8,r.top-h-10);b.style.left=x+'px';b.style.top=y+'px';
 }
+/* A phone's keyboard: the page set to what stays visible above it (visualViewport), so the keyboard raises the
+   bottom only (the writing box) and the top stays where it is -- not the whole page pushed up. */
+function fitViewport(){const vv=window.visualViewport,R=document.documentElement;if(!vv||!matchMedia('(pointer:coarse)').matches){R.classList.remove('vv');return}
+  R.classList.add('vv');R.style.setProperty('--vv-h',vv.height+'px');R.style.setProperty('--vv-top',vv.offsetTop+'px')}
+if(window.visualViewport){visualViewport.addEventListener('resize',fitViewport);visualViewport.addEventListener('scroll',fitViewport)}
 function setTheme(t){if(t==='blender')t='dark';  // Blender's theme, offered by the first 2.0 builds: the blue one now
   S.theme=t;try{localStorage.setItem('mp-snapshot:theme',t)}catch(_){}
   const sys=matchMedia('(prefers-color-scheme: light)').matches;const ui=t==='light'||(t==='system'&&sys)?'light':'dark';
-  document.documentElement.dataset.ui=ui;document.documentElement.removeAttribute('style');document.documentElement.style.setProperty('--scale',S.scaleV||1);
+  document.documentElement.dataset.ui=ui;document.documentElement.removeAttribute('style');document.documentElement.style.setProperty('--scale',S.scaleV||1);fitViewport();
   closeMenus();if(S.ws==='links')requestAnimationFrame(drawGraph);
 }
 function planDlg(g,kind){

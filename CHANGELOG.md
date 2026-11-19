@@ -18,6 +18,14 @@ All notable changes to this addon. Dates are release dates.
   default). The review's file and its actions are unchanged; live, each
   change goes to Blender by itself. Share with a phone, Update links,
   Render with its sound, What's new: as before, in the new page.
+- Snapshot page: the add-on's logo and a link to its page in the status
+  bar; the player takes the video's (or picture's) shape, its height held
+  between a min and a max; Watch large's full screen shows the video alone;
+  a review started from Watch large stays there; popovers held inside the
+  window; tags as opaque chips with a state mark; switches for on / off
+  settings; View › Interface scale a slider (0.5 to 1.5). On a touch
+  screen: no keyboard keys shown, the page under the system's bar, the
+  keyboard raising only the bottom of the page.
 - Live page, a tour for a beginner (Blender's Experience level, a guest
   too): a few steps pointing at the page's parts, shown once in a browser,
   again from More › Tour of the page.

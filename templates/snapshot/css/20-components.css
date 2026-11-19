@@ -2,7 +2,8 @@
 html,body{height:100%}
 html{background:var(--screen)}
 body{margin:0;background:var(--screen);color:var(--text);font:400 var(--fs)/1.45 var(--ui);-webkit-font-smoothing:antialiased;overflow:hidden;
-  padding-left:max(var(--sp-3),env(safe-area-inset-left,0px));padding-right:max(var(--sp-3),env(safe-area-inset-right,0px));padding-block:var(--sp-3);display:flex;flex-direction:column;gap:var(--gap)}
+  padding-left:max(var(--sp-3),env(safe-area-inset-left,0px));padding-right:max(var(--sp-3),env(safe-area-inset-right,0px));
+  padding-top:max(var(--sp-3),env(safe-area-inset-top,0px));padding-bottom:max(var(--sp-3),env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:var(--gap)}
 button,input,textarea{font:inherit;color:inherit}
 :focus-visible{outline:2px solid var(--sel);outline-offset:1px}
 .mono{font-family:var(--mono);font-size:var(--fs-s)}
@@ -37,13 +38,16 @@ svg.g{width:calc(26px*var(--scale));height:var(--h-sm);flex:none;overflow:visibl
 .field input::placeholder,.field textarea::placeholder{color:var(--text-3)}
 .field.ta{height:auto;padding:var(--sp-4) var(--sp-5);align-items:flex-start}
 .kbd{display:inline-flex;align-items:center;height:var(--h-xs);padding:0 var(--sp-3);border-radius:var(--r);background:var(--btn);border:1px solid var(--btn-line);font:var(--fs-s) var(--mono);color:var(--text)}
-.tag{display:inline-flex;align-items:center;gap:var(--sp-2);height:var(--h-xs);padding:0 var(--sp-4);border-radius:var(--r);font-size:var(--fs-s);white-space:nowrap;background:var(--line);color:var(--text-2)}
-.tag svg.i{width:12px;height:12px}
-.tag.rtk{background:rgba(229,87,95,.15);color:var(--rtk-t)}
-.tag.check{background:rgba(224,162,74,.14);color:var(--wip-t)}
-.tag.you{background:rgba(110,164,255,.15);color:var(--you-t)}
-.tag.fail{background:rgba(229,87,95,.15);color:var(--rtk-t)}
-.tag.omit{background:var(--line);color:var(--text-2);border:1px dashed var(--line-3)}
+/* A tag: a fact about the file, not clicked. An opaque chip (the dialogs' grounds) and a solid mark
+   in its state's colour, the glyphs' diamond -- or its icon in that colour. Never a tint, never an outline. */
+.tag{--c:var(--st-todo);display:inline-flex;align-items:center;gap:var(--sp-3);height:var(--h-xs);padding:0 var(--sp-4) 0 var(--sp-3);border-radius:var(--r-s);font-size:var(--fs-s);font-weight:500;white-space:nowrap;background:var(--box-2);color:var(--text)}
+.tag::before{content:"";width:calc(6px*var(--scale));height:calc(6px*var(--scale));margin:0 var(--sp-1);border-radius:1px;background:var(--c);transform:rotate(45deg);flex:none}
+.tag:has(>svg.i)::before{display:none}
+.tag svg.i{width:12px;height:12px;fill:var(--c)}
+.tag.rtk,.tag.fail{--c:var(--st-rtk)}
+.tag.check{--c:var(--st-wip)}
+.tag.you{--c:var(--st-you)}
+.tag.omit{color:var(--text-2)}.tag.omit::before{background:none;box-shadow:inset 0 0 0 1.5px var(--st-todo)}
 .chip-frame{display:inline-flex;align-items:center;height:var(--h-xs);padding:0 var(--sp-4);border-radius:var(--r);border:0;background:var(--line);color:var(--text-2);font:var(--fs-s) var(--mono);cursor:pointer}
 .chip-frame:hover{background:var(--sel);color:#fff}
 .bar{display:grid;grid-template-columns:auto 1fr calc(34px*var(--scale));align-items:center;gap:var(--sp-4);font-size:var(--fs-s);color:var(--text-3);font-variant-numeric:tabular-nums;white-space:nowrap}
@@ -80,8 +84,10 @@ svg.g{width:calc(26px*var(--scale));height:var(--h-sm);flex:none;overflow:visibl
 .ws button[aria-selected="true"]{background:var(--box-2);color:var(--text);box-shadow:0 1px 0 rgba(0,0,0,.3)}
 .ws .n{color:var(--text-3);font-variant-numeric:tabular-nums}
 .topbar .sp{flex:1}
-.review-chip{display:flex;align-items:center;gap:var(--sp-4);padding:var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-6);border-radius:var(--r-l);background:var(--you-bg);border:1px solid var(--you-line);white-space:nowrap}
-.review-chip .who{color:var(--you-t)}
+.review-chip{display:flex;align-items:center;gap:var(--sp-4);padding:var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-5);border-radius:var(--r-l);background:var(--box-2);border:1px solid var(--line-2);white-space:nowrap}
+.review-chip .who{display:inline-flex;align-items:center;gap:var(--sp-3);color:var(--text)}
+/* The review's mark: the glyph's "you" corner, the same solid colour. */
+.review-chip .who::before{content:"";width:calc(8px*var(--scale));height:calc(8px*var(--scale));border-radius:50%;background:var(--st-you);flex:none}
 
 /* ---------- Screen ---------- */
 .screen{flex:1;min-height:0;display:grid;gap:var(--gap);grid-template-columns:calc(230px*var(--scale)) minmax(0,1fr) calc(420px*var(--scale));grid-template-areas:"out main props"}
@@ -223,7 +229,8 @@ body.out-open .scrim{display:block}
 .sec-h{display:flex;align-items:center;gap:var(--sp-4);color:var(--text-2);font-size:var(--fs-s);text-transform:uppercase;letter-spacing:.06em;font-weight:500}
 .sec-h .sp{flex:1}
 .sec-h .btn{text-transform:none;letter-spacing:0}
-.stage{position:relative;aspect-ratio:16/9;max-width:100%;border-radius:var(--r-l);overflow:hidden;background:var(--canvas);background-image:radial-gradient(circle,var(--dot) 1px,transparent 1.4px);background-size:16px 16px}
+/* The stage takes the video's (else the picture's) shape (--ar, 40-player.js fitStage()), its height held between a min and a max. */
+.stage{position:relative;aspect-ratio:var(--ar,16/9);min-height:calc(120px*var(--scale));max-height:min(62vh,calc(560px*var(--scale)));max-width:100%;border-radius:var(--r-l);overflow:hidden;background:var(--canvas);background-image:radial-gradient(circle,var(--dot) 1px,transparent 1.4px);background-size:16px 16px}
 .stage img{width:100%;height:100%;object-fit:contain;display:block}
 .stage .hud{position:absolute;left:10px;top:8px;font:var(--fs-s) var(--mono);color:#ddd;text-shadow:0 1px 2px #000}
 .stage .noimg{position:absolute;inset:0;display:grid;place-items:center;color:var(--text-3)}
@@ -264,7 +271,7 @@ body.out-open .scrim{display:block}
 .nt .rep .h{font-size:var(--fs-s)}
 .nt .f{display:flex;gap:var(--sp-3);justify-content:flex-end}
 .type{font:600 10px/1 var(--ui);letter-spacing:.05em;padding:var(--sp-2) var(--sp-3);border-radius:var(--r-s);text-transform:uppercase}
-.type.rtk{background:rgba(229,87,95,.2);color:var(--rtk-t)}.type.note{background:var(--btn-line);color:var(--text-2)}.type.todo{background:rgba(224,162,74,.16);color:var(--wip-t)}
+.type.rtk{background:var(--st-rtk);color:#fff}.type.note{background:var(--line-3);color:var(--text)}.type.todo{background:var(--st-wip);color:var(--on-st)}
 .legend-list{display:flex;flex-direction:column;gap:var(--sp-5);margin:0;padding:0;list-style:none}
 .legend-list li{display:grid;grid-template-columns:28px 1fr;gap:var(--sp-5);align-items:center}
 .legend-list small{display:block;color:var(--text-3);font-size:var(--fs-s)}
@@ -318,7 +325,7 @@ body.out-open .scrim{display:block}
 .grp.closed .grp-h{border-bottom:0}
 .grp-h b{color:var(--text)}
 .cols{background:var(--cols)}
-.live{display:inline-flex;align-items:center;gap:var(--sp-3);height:22px;padding:0 var(--sp-5);border-radius:var(--r-xl);background:rgba(95,184,138,.14);color:var(--live-t);font-size:var(--fs-s);white-space:nowrap}
+.live{display:inline-flex;align-items:center;gap:var(--sp-3);height:22px;padding:0 var(--sp-5);border-radius:var(--r-xl);background:var(--t2);color:var(--live-t);font-size:var(--fs-s);white-space:nowrap}
 .live i{width:7px;height:7px;border-radius:50%;background:var(--st-done)}
 #props .area-head{flex-wrap:nowrap;gap:var(--sp-2);padding:var(--sp-4) var(--sp-5) var(--sp-4) var(--sp-7)}
 .phead{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;margin-right:var(--sp-2)}
@@ -530,3 +537,45 @@ button.assign:hover{background:var(--line);color:var(--text)}
 @media (max-width:560px){.sh-made{flex-direction:column;align-items:center}}
 .field select{flex:1;min-width:0;height:100%;border:0;background:transparent;color:inherit;font:inherit}
 .field select option{background:var(--field);color:var(--text)}
+/* A popover placed by its button (placePop()): fixed, held inside the window. */
+.pop.fx{position:fixed;z-index:200;top:0;left:0;right:auto;max-height:calc(100vh - 16px);overflow:auto}
+.area-head:has(.pop){z-index:35}
+/* ---------- Switch: an on / off setting (the phone's sheets too) ----------
+   A whole row is the button (role="switch", aria-checked); the track at its right. */
+.tg{position:relative;width:calc(30px*var(--scale));height:calc(18px*var(--scale));border-radius:var(--r-pill);background:var(--track);border:1px solid var(--line-2);flex:none;transition:background .15s,border-color .15s}
+.tg::after{content:"";position:absolute;top:1px;left:1px;width:calc(14px*var(--scale));height:calc(14px*var(--scale));border-radius:50%;background:var(--text-3);transition:transform .15s,background .15s}
+[aria-checked="true"]>.tg{background:var(--sel);border-color:var(--sel)}
+[aria-checked="true"]>.tg::after{transform:translateX(calc(12px*var(--scale)));background:#fff}
+.swi{display:flex;align-items:center;gap:var(--sp-5);width:100%;min-height:var(--u);padding:0 var(--sp-2) 0 var(--sp-4);border:0;border-radius:var(--r);background:none;color:var(--text);text-align:left;cursor:pointer;font:inherit}
+.swi:hover{background:var(--row-hover)}
+.swi:disabled{opacity:.45;cursor:default}.swi:disabled:hover{background:none}
+.swi .lbl{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.3}
+.swi small{color:var(--text-3);font-size:var(--fs-s)}
+.swis{display:flex;flex-direction:column;gap:var(--sp-1);margin:0 calc(-1*var(--sp-4))}
+.prop .swi{padding-left:0;margin-left:calc(-1*var(--sp-1))}
+/* The statusbar's signature: the add-on's logo and name, a link to its page. */
+.brand-f{display:inline-flex;align-items:center;gap:var(--sp-3);color:var(--text-2);text-decoration:none;flex:none}
+.brand-f:hover{color:var(--text)}
+.brand-f svg{width:calc(22px*var(--scale));height:calc(12px*var(--scale));fill:currentColor}
+.brand-f .wm{font:400 var(--fs) / 1 "MP Display",var(--ui)}
+.brand-f .v{color:var(--text-3);font:var(--fs-xs) var(--mono)}
+/* Watch large, full screen: the video alone, its timeline and transport (no departments, no notes, no strip). */
+#wide.full .w-side,#wide.full .strip,#wide.full .w-head .phead .d,#wide.full .w-head .faint{display:none}
+#wide.full .w-body{display:flex;flex-direction:column;overflow:hidden}
+#wide.full .w-main{flex:1;min-height:0;overflow:hidden}
+#wide.full .w-stage{flex:1;min-height:0;aspect-ratio:auto}
+/* Touch: no keyboard, its keys not shown. */
+@media (hover:none) and (pointer:coarse){.statusbar .keys,.field .kbd,.legend-keys{display:none!important}}
+/* What's visible above a phone's keyboard (fitViewport()): the page keeps its top, only its bottom rises. */
+html.vv body{position:fixed;left:0;right:0;top:var(--vv-top,0px);height:var(--vv-h,100%)}
+html.vv #wide,html.vv.is-mob #mob{top:var(--vv-top,0px);bottom:auto;height:var(--vv-h,100%)}
+/* A name on one line (25-wide.js mq()): cut with "…", scrolled to its end and back while hovered, or shown. */
+.mq{display:block;min-width:0;max-width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.mq>span{display:inline}.mq.go>span{display:inline-block;animation:mq var(--mqt,3s) ease-in-out .35s infinite alternate}
+.mq.go{text-overflow:clip}
+@keyframes mq{from{transform:none}to{transform:translateX(var(--mq,0))}}
+@media (prefers-reduced-motion:reduce){.mq.go>span{animation:none}.mq.go{text-overflow:ellipsis}}
+.strip .fn .mq{flex:1}
+/* View › Interface scale: the slider in its menu row. */
+.mi.scale-r{cursor:default;gap:var(--sp-5)}.mi.scale-r:hover{background:none;color:var(--text)}
+.mi.scale-r input{flex:1;min-width:0;accent-color:var(--sel)}

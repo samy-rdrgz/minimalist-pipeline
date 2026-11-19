@@ -40,7 +40,7 @@
   /* ---- Colours: the blue theme, 60 / 30 / 10, a fixed palette (Blender's theme isn't read).
      60 % neutral greys (grounds, panels) · 30 % night-blue tints (top bar, selection) · 10 % bright
      blue (the main action, the active tab) -- the "Done" state's blue too. "You" (your changes not
-     sent yet) has its own colour, turquoise, to read on a done diamond. Each variable says its role. */
+     sent yet) has its own colour, turquoise (--st-you), to read on a done diamond: always solid, never a tint. Each variable says its role. */
   /* 10 %: the brand */
   --brand:#639bff;       /* main button, active tab, selection rail, focus */
   --brand-hi:#7fadff;    /* the main button hovered */
@@ -99,7 +99,7 @@
   /* Accents, from the states */
   --alert:rgba(240,128,10,.14); --alert-hi:rgba(240,128,10,.22); --alert-line:rgba(240,128,10,.34); --alert-t:#f8c691; /* retake (orange) */
   --ok:rgba(250,62,149,.16); --ok-hi:rgba(250,62,149,.26); --ok-line:rgba(250,62,149,.32); --ok-t:#fdb2d5;            /* validated (pink) */
-  --you-bg:#16302f; --you-line:#215450; --you-t:#9df0e3;   /* "you": not sent yet (turquoise) */
+  --you-line:#215450; --you-t:#9df0e3;   /* "you": not sent yet (turquoise; the solid one is --st-you) */
   --rtk-t:#f7b978;       /* retake count */
   --wip-t:#fceca1;       /* in progress text */
   --live-t:#b1cdff;      /* the live pill */
@@ -136,7 +136,7 @@
   --play:#ffffff; --play-hi:#f4f5f6; --play-line:#c9cbce; --play-t:#16181b;
   --alert:rgba(214,106,0,.12); --alert-hi:rgba(214,106,0,.2); --alert-line:rgba(214,106,0,.4); --alert-t:#8a4300;
   --ok:rgba(217,38,122,.1); --ok-hi:rgba(217,38,122,.18); --ok-line:rgba(217,38,122,.36); --ok-t:#9c1255;
-  --you-bg:#d4f2ee; --you-line:#7fd3c8; --you-t:#0b6e63;
+  --you-line:#7fd3c8; --you-t:#0b6e63;
   --rtk-t:#b35500; --wip-t:#7a6200; --live-t:#2f6fe0;
   --node:#f6f6f7; --node-asset:#c6d8f2; --node-shot:#eadfb6; --node-old:#e6c9e6; --node-edge:#aeb0b4; --sock:#6b7077; --wire-edge:#ffffff; --wire:#8a8e94;
   --st-todo:#9a9a9a; --st-wait:#a39e98; --st-done:#2f6fe0; --st-val:#d9267a; --st-sup:#e3a9bd; --st-old:#8a4a8a;

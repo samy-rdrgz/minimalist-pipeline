@@ -124,7 +124,8 @@ function mSheet(){
   if(k==='menu'){t='Menu';
     h=`<div class="m-sec-h">${T('Theme')}</div><span class="join full">${[['dark',T('Dark')],['light',T('Light')],['system',T('System')]].map(([x,l])=>`<button class="btn" data-theme="${x}" aria-pressed="${S.theme===x}">${l}</button>`).join('')}</span>
       <div class="m-sec-h">${T('Legend')}</div><ul class="legend-list">${[['done',null,T('Done')],['wip','rtk',T('Open retake')],['val',null,T('Validated by the top role')],['done','wait',T('Waiting')],['rework',null,T('Done, reworked')],['done','redo',T('To redo')],['val','you',T('You: validated')],['done','you-rtk',T('You: retake')],['done',null,T('Open note'),'n']].map(([b,c,l,n])=>`<li>${glyph(b,c,1,!!n)}<span>${l}</span></li>`).join('')}</ul>
-      <p class="m-hint">${T('Links, breakdown, file settings and more filters: the desktop version.')}</p>`;
+      <p class="m-hint">${T('Links, breakdown, file settings and more filters: the desktop version.')}</p>
+      <a class="brand-f" href="https://extensions.blender.org/add-ons/minimalist-pipeline/" target="_blank" rel="noopener"><svg viewBox="${document.querySelector('.statusbar .brand-f svg').getAttribute('viewBox')}" aria-hidden="true"><use href="#mp"/></svg><span class="wm">minimalist pipeline</span><span class="v">${esc(M.addon_version||'')}</span></a>`;
     foot=`${S.review?'<button class="btn m-wide" data-mstop>'+T('Leave the review')+'</button>':''}<button class="btn m-wide" data-mview="desktop">${T('Desktop version')}</button>`}
   if(k&&k.startsWith('job:')){const j=F.jobs.find(x=>x.id===k.slice(4));if(!j){S.m.sheet=null;return ''}
     const live=j.state==='running'||j.state==='waiting',x=JS.find(a=>a[0]===j.state);t=j.file;

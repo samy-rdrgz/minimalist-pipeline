@@ -19,9 +19,8 @@
     <button class="btn flat" data-menu="m-view" aria-haspopup="true" aria-expanded="false" aria-label="View" title="View"><svg class="i vic"><use href="#b-preferences"/></svg><span class="lbl" data-t>View</span><svg class="i"><use href="#b-tria_down"/></svg></button>
     <div class="menu right" id="m-view" hidden role="menu">
       <div class="menu-h" data-t>Interface scale</div>
-      <button class="mi" role="menuitem" data-scale="0.92"><span class="lbl" data-t>Compact</span><span class="k">0.92</span></button>
-      <button class="mi" role="menuitem" data-scale="1"><span class="lbl" data-t>Normal</span><span class="k">1.00</span></button>
-      <button class="mi" role="menuitem" data-scale="1.15"><span class="lbl" data-t>Large</span><span class="k">1.15</span></button>
+      <div class="mi scale-r"><input type="range" id="scale-in" min="0.5" max="1.5" step="0.125" value="1" list="scale-ticks" aria-label="Interface scale"><span class="k" id="scale-v">1.00</span></div>
+      <datalist id="scale-ticks"><option value="0.5"></option><option value="0.625"></option><option value="0.75"></option><option value="0.875"></option><option value="1"></option><option value="1.125"></option><option value="1.25"></option><option value="1.375"></option><option value="1.5"></option></datalist>
       <div class="msep"></div>
       <button class="mi" role="menuitem" data-act="collapse"><span class="lbl" data-t>Fold the sequences</span></button>
       <button class="mi" role="menuitem" data-act="expand"><span class="lbl" data-t>Unfold the sequences</span></button>
@@ -75,6 +74,7 @@
   <span class="msg" id="sb-msg"></span>
   <span class="sp"></span>
   <span id="sb-stats"></span>
+  <a class="brand-f" href="https://extensions.blender.org/add-ons/minimalist-pipeline/" target="_blank" rel="noopener" title="Minimalist Pipeline, the Blender add-on that made this page"><svg viewBox="{{LOGO_VB0}}" aria-hidden="true"><use href="#mp"/></svg><span class="wm">minimalist pipeline</span><span class="v" id="sb-ver"></span></a>
 </footer>
 <div class="scrim" id="scrim"></div>
 <div id="wide" hidden role="dialog" aria-label="Watch large"></div>

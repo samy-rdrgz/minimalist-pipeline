@@ -10,9 +10,11 @@ function renderTop(){
 }
 /* A role, in a sentence: what its validation does (the top one counts in the figures). */
 function roleHelp(r){return r===TEAM?T('{role}: no validation, only retakes and remarks.',{role:r}):r===M.role?T('{role}: the top role, your validations count in the figures.',{role:r}):T('{role}: your validation counts, {top} can still take it back.',{role:r,top:M.role})}
-function reviewPop(){
-  const slot=$('#review-slot');if(slot.querySelector('.pop')){slot.querySelector('.pop').remove();return}
-  const p=document.createElement('div');p.className='pop';p.setAttribute('role','dialog');p.setAttribute('aria-label',T('Start a review'));
+/* Started from the top bar, or from Watch large (it stays open, on the file watched). */
+function reviewPop(btn){
+  const old=document.querySelector('.pop.rv');if(old){old.remove();return}
+  btn=btn||$('#rv-open');const host=S.wide?$('#wide'):$('#review-slot');
+  const p=document.createElement('div');p.className='pop rv';p.setAttribute('role','dialog');p.setAttribute('aria-label',T('Start a review'));
   const sh=items.filter(i=>i.kind==='shot');
   p.innerHTML=`<h4>${T('Start a review')}</h4>
     <div class="prop"><span class="k">${T('Name')}</span><span class="v"><label class="field" style="flex:1"><input id="rv-name" value="${esc(M.live.user||'')}" aria-label="${T('Your name')}"></label></span></div>
@@ -23,12 +25,12 @@ function reviewPop(){
       <button class="btn" data-path="rtk" aria-pressed="false">${T('Open retakes')} <span class="n">${sh.filter(i=>openRtk(i)).length}</span></button>
       <button class="btn" data-path="" aria-pressed="false">${T('Everything, in order')}</button></span></div>
     <button class="btn primary" id="rv-go">${T('Start')}</button>`;
-  slot.appendChild(p);
+  host.appendChild(p);if(btn)placePop(p,btn);
   p.addEventListener('click',e=>{
     const r=e.target.closest('[data-role]');if(r){p.querySelectorAll('[data-role]').forEach(b=>b.setAttribute('aria-pressed',b===r));$('#rv-help').textContent=roleHelp(r.dataset.role)}
     const pa=e.target.closest('[data-path]');if(pa)p.querySelectorAll('[data-path]').forEach(b=>b.setAttribute('aria-pressed',b===pa));
     if(e.target.closest('#rv-go')){S.review={name:$('#rv-name').value.trim()||T('Anonymous'),role:p.querySelector('[data-role][aria-pressed=true]').dataset.role};
-      S.quick=p.querySelector('[data-path][aria-pressed=true]').dataset.path||null;S.ws='shot';const f=visible()[0];if(f)S.sel=f.name;p.remove();renderAll();msg(T('Reviewing: V validates the done departments, X writes a retake.'))}
+      S.quick=p.querySelector('[data-path][aria-pressed=true]').dataset.path||null;if(!S.wide){S.ws='shot';const f=visible()[0];if(f)S.sel=f.name}p.remove();renderAll();msg(T('Reviewing: V validates the done departments, X writes a retake.'))}
   });
   setTimeout(()=>$('#rv-name')?.select(),0);
 }

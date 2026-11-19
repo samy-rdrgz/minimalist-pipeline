@@ -9,6 +9,8 @@
 .topbar .btn:hover{background:var(--t3)}
 .topbar .btn.flat{background:transparent;border-color:transparent}
 .topbar .btn.primary{background:var(--brand);border-color:var(--brand);color:var(--on-brand)}
+.topbar .review-chip{background:var(--t2);border-color:var(--t-line)}
+.topbar .review-chip .who{color:var(--t-text)}
 .ws{background:rgba(0,0,0,.22)}
 .ws button{color:var(--t-text-2)}
 .ws button:hover{color:var(--t-text)}
@@ -18,7 +20,7 @@
 /* Sticky headers, glass */
 .grp-h{background:var(--glass);color:var(--text);border-bottom-color:var(--line)}
 .grp-h .faint{color:var(--text-3)}.grp-h .dim{color:var(--text-2)}
-.grp-h .tag{background:var(--brand-a24);color:var(--brand-hi);border-color:transparent}
+.grp-h .tag{background:var(--area)}
 #main .area-head,#outliner .area-head,#props .area-head{background:var(--glass-head);border-bottom-color:var(--line);position:relative;z-index:10}
 .wsec{background:var(--glass-head);z-index:5}
 /* The blur on a pseudo-element: a backdrop-filter on the parent would capture the fixed menus. */
