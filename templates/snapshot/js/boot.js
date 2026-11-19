@@ -1,7 +1,7 @@
 /* The page's own words (page.html): its data-t texts and its labels, in the page's language. */
 document.querySelectorAll('[data-t]').forEach(e=>{e.textContent=T(e.textContent.trim())});
 document.querySelectorAll('body [title],body [aria-label],body [placeholder]').forEach(e=>['title','aria-label','placeholder'].forEach(a=>{const v=e.getAttribute(a);if(v)e.setAttribute(a,T(v))}));
-document.querySelectorAll('[data-lang]').forEach(b=>b.setAttribute('aria-checked',String(b.dataset.lang===(()=>{try{return localStorage.getItem('mp-snapshot:lang')||''}catch(_){return ''}})())));
+document.querySelectorAll('[data-lang]').forEach(b=>b.setAttribute('aria-checked',String(b.dataset.lang===(()=>{try{return new URLSearchParams(location.search).get('lang')||localStorage.getItem('mp-snapshot:lang')||''}catch(_){return ''}})())));
 restoreReview();
 /* A link to a file (#its name, or its .blend's: any version of it) opens it; #farm, the Farm. */
 {const h=decodeURIComponent(location.hash.slice(1)),it=h&&(items.find(i=>i.name===h||i.file===h||i.stableFile===h)||items.find(i=>i.name===h.replace(/_v\d+.*$/i,'')));

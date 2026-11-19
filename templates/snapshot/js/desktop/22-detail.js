@@ -50,9 +50,11 @@ function deptHTML(it,d,ctx='p'){
   const mk=rv&&(d in it.marked||canMark(it,d))?`<button class="btn sm ${d in it.marked?'':'tool'}" data-mark="${d}" aria-pressed="${d in it.marked}" title="${T('Done at {stable}: forgotten when it was made, no new version',{stable:esc(it.stable||'')})}">${ic('b-checkmark')}${T('Mark done')}</button>`:'';
   const acts=rv?`<span class="acts">${it.mine[d]?`<button class="btn sm tool" data-undo="${d}" title="${T('Take my change back')}">${ic('b-loop_back')}${T('Take back')}</button>`:
     `${team?'':`<button class="btn sm ok icon" data-val="${d}" ${canVal?'':'disabled'} aria-label="${T('Validate {dept}',{dept:LBL[d]})}" title="${canVal?T('Validate as {role}',{role:rv.role}):T('Nothing done to validate')}">${ic('b-checkmark')}</button>`}<button class="btn sm alert" data-rtk="${d}" title="${T('Write a retake under this department')}">Retake</button>`}</span>`:'';
-  const ex=[f.waiting&&x.tone!=='wait'?`<span class="wait">${ic('b-sorttime')} ${T('waiting: {why}',{why:esc(f.waiting)})}</span>`:'',f.to_redo&&x.tone!=='redo'?`<span class="redo">↻ ${T('to redo: {why}',{why:esc(f.to_redo)})}</span>`:'',it.ok[d]&&!it.mine[d]?`<span class="faint">${T('validated by')} ${esc(it.ok[d].by)} (${it.ok[d].role})</span>`:''].filter(Boolean).join('');
+  const ex=[f.waiting&&x.tone!=='wait'?`<span class="wait">${ic('b-sorttime')} ${T('waiting: {why}',{why:esc(f.waiting)})}</span>`:'',f.to_redo&&x.tone!=='redo'?`<span class="redo">↻ ${T('to redo: {why}',{why:esc(f.to_redo)})}</span>`:''].filter(Boolean).join('');
+  // Who validated, said once with the role: "Validated prod · valerie".
+  const lab=it.ok[d]&&!it.mine[d]&&it.ok[d].by?x.l+' · '+it.ok[d].by:x.l;
   const frm=S.form&&S.form.dept===d?formHTML(d):'';
-  return `<div class="dept">${glyph(x.base,x.corner,x.cnt,x.note)}<span class="nm"><b>${LBL[d]}</b><span class="s ${x.tone}">${esc(x.l)}${x.s?' · '+esc(x.s):''}</span></span>${acts}<span class="extra">${assignHTML(it,d,ctx)}${ex}${stillHTML(it,d)}${mk}</span>${frm}</div>`;
+  return `<div class="dept">${glyph(x.base,x.corner,x.cnt,x.note)}<span class="nm"><b>${LBL[d]}</b><span class="s ${x.tone}">${esc(lab)}${x.s?' · '+esc(x.s):''}</span></span>${acts}<span class="extra">${assignHTML(it,d,ctx)}${ex}${stillHTML(it,d)}${mk}</span>${frm}</div>`;
 }
 /* A note being written: under a department (d) or none; the block's shot shown, if one is. */
 function newForm(d){const it=cur(),c=it&&it.shots&&it.shots.length>1?shotOf(it):'';return {dept:d,type:'rtk',deps:d?[d]:[],shots:c?[c]:[]}}
@@ -80,13 +82,16 @@ function noteHTML(it,n){
   const reps=[...(n.replies||[]),...(it.myReplies[n.id]||[]).map(r=>({...r,mine:1}))];
   const rf=S.reply===n.id?`<div class="form"><label class="field ta"><textarea id="r-txt" rows="2" placeholder="${T('Your reply…')}" aria-label="${T('Reply')}"></textarea></label><div class="r"><span style="flex:1"></span><button class="btn sm" data-rcancel>${T('Cancel')}</button><button class="btn sm primary" data-rok="${n.id}">${T('Reply')}</button></div></div>`:'';
   const who=n.type==='rtk'?(n.team?T('team'):n.role||T('team')):'';
-  return `<div class="nt ${n.type} ${n.done?'closed':''} ${n.mine?'mine':''}">
+  const key=n.mine?'m'+n.at:n.id,ed=!n.mine&&n.id in it.edits?it.edits[n.id]:undefined,del=ed===null,own=n.mine||ownNote(n);
+  const txt=typeof ed==='string'?ed:n.text;
+  const ef=S.nedit===key?`<div class="form"><label class="field ta"><textarea id="ne-txt" rows="3" aria-label="${T('Text')}">${esc(txt||'')}</textarea></label><div class="r"><span style="flex:1"></span><button class="btn sm" data-necancel>${T('Cancel')}</button><button class="btn sm primary" data-nesave="${esc(key)}">${T('Save')}</button></div></div>`:'';
+  return `<div class="nt ${n.type} ${n.done?'closed':''} ${n.mine?'mine':''} ${del?'gone':''} ${ed!==undefined?'chg':''}">
     <div class="h"><span class="type ${n.type}">${n.type==='rtk'?'RTK':n.type==='todo'?T('to do'):'note'}</span>${(n.deps||[]).length?n.deps.map(d=>LBL[d]||d).join(', '):'<span>'+T('no department')+'</span>'}${who?`<span>· ${esc(who)}</span>`:''}
       ${n.frames?`<button class="chip-frame" data-goto="${parseInt(String(n.frames).replace(/\D+/,''))}" title="${T('Go to {frame}',{frame:esc(n.frames)})}">${esc(n.frames)}</button>`:''}${n.mine?'<span class="tag you">'+T('you')+'</span>':''}<span class="sp"></span><span class="who">${esc(n.author&&n.author!=='unknown'?n.author:'')}</span><span>${fmtD(n.date)}</span>${n.done?'<span>· '+T('closed')+'</span>':''}</div>
-    <div class="t ${n.text?'':'empty'}">${n.text?esc(n.text):T('(no text)')}</div>
+    ${ef||`<div class="t ${txt?'':'empty'}">${txt?esc(txt):T('(no text)')}${ed!==undefined?` <span class="tag you">${del?T('deleted, not sent yet'):T('edited, not sent yet')}</span>`:''}</div>`}
     ${reps.length?`<div class="rep">${reps.map(r=>`<div><div class="h"><span class="who">${esc(r.author)}</span><span>${fmtD(r.date)}</span>${r.mine?`<span class="tag you">${T('you')}</span><button class="btn sm flat" data-unreply="${n.id}" title="${T('Take my reply back')}">${ic('b-loop_back')}</button>`:''}</div><div class="t">${esc(r.text)}</div></div>`).join('')}</div>`:''}
     ${rf}
-    <div class="f">${fixHTML(it,n)}${n.mine?`<button class="btn sm flat" data-unnote="${n.at}" title="${T('Take back')}">${ic('b-loop_back')}${T('Take back')}</button>`:''}${!n.mine&&S.reply!==n.id?`<button class="btn sm flat" data-reply="${n.id}" ${S.review?'':'disabled'} title="${S.review?T('Reply (R)'):T('Start a review to reply')}">${ic('b-file_parent')}${T('Reply')}</button>`:''}</div>
+    <div class="f">${fixHTML(it,n)}${own&&!ef&&!del?`<button class="btn sm flat" data-nedit="${esc(key)}" title="${T('Change its words')}">${ic('b-greasepencil')}${T('Edit')}</button>`:''}${own&&!n.mine&&!ef&&ed===undefined?`<button class="btn sm flat" data-ndel="${esc(n.id)}" title="${T('Delete this note (and its replies)')}">${ic('b-x')}${T('Delete')}</button>`:''}${ed!==undefined?`<button class="btn sm flat" data-neundo="${esc(n.id)}" title="${T('Take my change back')}">${ic('b-loop_back')}${T('Take back')}</button>`:''}${n.mine?`<button class="btn sm flat" data-unnote="${n.at}" title="${T('Take back')}">${ic('b-loop_back')}${T('Take back')}</button>`:''}${!n.mine&&S.reply!==n.id?`<button class="btn sm flat" data-reply="${n.id}" ${S.review?'':'disabled'} title="${S.review?T('Reply (R)'):T('Start a review to reply')}">${ic('b-file_parent')}${T('Reply')}</button>`:''}</div>
   </div>`;
 }
 const verOf=f=>(String(f).match(/_(v\d+(?:-stable)?)\.blend$/)||[])[1]||f;

@@ -23,14 +23,14 @@ function mountVideo(){const st=stageEl(),c=curVideo();
     // A / B, another version: it goes on playing if it was.
     if(S.playing)PV.play().catch(()=>{S.playing=false;syncPlay()})}
   fitStage(st);PV.muted=S.muted;syncFrame()}
-/* The stage takes the video's shape, else its picture's: between AR_MIN (tall) and AR_MAX (scope), 16:9 until
+/* The stage takes the video's shape, else its picture's: between AR_MIN (tall) and AR_MAX (a panorama, 4:1), 16:9 until
    known (--ar); the CSS holds its height between a min and a max. Watch large's stage fills its area. */
-const AR_MIN=4/5,AR_MAX=2.4,ARS={};
-function fitStage(st){if(!st||st.classList.contains('w-stage'))return;const img=st.querySelector('img');
+const AR_MIN=4/5,AR_MAX=4,ARS={};
+function fitStage(st){if(!st)return;const img=st.querySelector('img');
   let r=PV.parentNode===st&&PV.dataset.src?ARS[PV.dataset.src]:null;if(!r&&img&&img.naturalWidth&&img.naturalHeight)r=img.naturalWidth/img.naturalHeight;
   if(r)st.style.setProperty('--ar',String(Math.min(AR_MAX,Math.max(AR_MIN,r))));else st.style.removeProperty('--ar')}
 /* A picture loaded after its stage was drawn: the stage takes its shape (no video yet). */
-document.addEventListener('load',e=>{const t=e.target;if(t.tagName==='IMG'&&t.parentNode&&t.parentNode.matches&&t.parentNode.matches('.stage,.m-player'))fitStage(t.parentNode)},true);
+document.addEventListener('load',e=>{const t=e.target;if(t.tagName==='IMG'&&t.parentNode&&t.parentNode.matches&&t.parentNode.matches('.stage,.m-player,.w-stage'))fitStage(t.parentNode)},true);
 PV.addEventListener('loadedmetadata',()=>{if(PV.videoWidth&&PV.videoHeight){ARS[PV.dataset.src]=PV.videoWidth/PV.videoHeight;fitStage(PV.parentNode)}
   if(PV.duration&&isFinite(PV.duration)){NF=Math.max(2,Math.round(PV.duration*FPS()));refreshPlayerUI()}});
 PV.addEventListener('error',()=>{if(PV.dataset.src){toast(T('Video not found: choose the videos folder (View).'));PV.removeAttribute('src');delete PV.dataset.src;PV.remove();FIRST=null}});

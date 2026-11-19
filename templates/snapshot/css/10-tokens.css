@@ -48,13 +48,13 @@
   --brand-a14:rgba(99,155,255,.14); /* a light brand ground */
   --brand-a24:rgba(99,155,255,.24); /* focus halo, a header's tag */
   --brand-a40:rgba(99,155,255,.4);  /* the rail's glow, a range selected */
-  /* 30 %: night-blue tints */
-  --t1:#14232e;          /* top bar, selected row */
-  --t2:#1a2d3a;          /* buttons on a tint */
-  --t3:#203849;          /* hovered on a tint */
-  --t-line:#243e52;      /* lines on a tint */
-  --t-text:#dfeaf1;      /* text on a tint */
-  --t-text-2:#a1b8c9;    /* secondary text on a tint */
+  /* 30 %: night-blue tints, on the brand's own hue (a greener blue read as teal beside it) */
+  --t1:#152033;          /* top bar, selected row */
+  --t2:#1b2a42;          /* buttons on a tint */
+  --t3:#22354f;          /* hovered on a tint */
+  --t-line:#283d5c;      /* lines on a tint */
+  --t-text:#dfe7f4;      /* text on a tint */
+  --t-text-2:#a3b4cd;    /* secondary text on a tint */
   /* 60 %: neutral greys */
   --screen:#0f0f10;      /* ground, gutters between areas */
   --area:#18191a;        /* panels */

@@ -237,7 +237,7 @@ body.out-open .scrim{display:block}
 .sec-h .sp{flex:1}
 .sec-h .btn{text-transform:none;letter-spacing:0}
 /* The stage takes the video's (else the picture's) shape (--ar, 40-player.js fitStage()), its height held between a min and a max. */
-.stage{position:relative;aspect-ratio:var(--ar,16/9);min-height:calc(120px*var(--scale));max-height:min(62vh,calc(560px*var(--scale)));max-width:100%;border-radius:var(--r-l);overflow:hidden;background:var(--canvas);background-image:radial-gradient(circle,var(--dot) 1px,transparent 1.4px);background-size:16px 16px}
+.stage{position:relative;aspect-ratio:var(--ar,16/9);min-height:calc(90px*var(--scale));max-height:min(62vh,calc(560px*var(--scale)));max-width:100%;border-radius:var(--r-l);overflow:hidden;background:var(--canvas);background-image:radial-gradient(circle,var(--dot) 1px,transparent 1.4px);background-size:16px 16px}
 .stage img{width:100%;height:100%;object-fit:contain;display:block}
 .stage .hud{position:absolute;left:10px;top:8px;font:var(--fs-s) var(--mono);color:#ddd;text-shadow:0 1px 2px #000}
 .stage .noimg{position:absolute;inset:0;display:grid;place-items:center;color:var(--text-3)}
@@ -328,7 +328,7 @@ body.out-open .scrim{display:block}
 .topbar{gap:var(--sp-4)}
 #list{background:var(--sunk);padding:var(--sp-6);display:flex;flex-direction:column;gap:var(--sp-6)}
 .grp{border:1px solid var(--line);border-radius:var(--r-xl);background:var(--area);overflow:clip;flex:none}
-.grp-h{background:var(--line);border-bottom:1px solid var(--line-2);top:-12px;padding:var(--sp-5) var(--sp-7)}
+.grp-h{background:var(--line);border-bottom:1px solid var(--line-2);top:calc(-1*var(--sp-6));padding:var(--sp-5) var(--sp-7)}
 .grp.closed .grp-h{border-bottom:0}
 .grp-h b{color:var(--text)}
 .cols{background:var(--cols)}
@@ -440,16 +440,21 @@ button.assign:hover{background:var(--line);color:var(--text)}
 .ft.rg{background:var(--st-you);color:#0e1a33}.ft.nt{background:var(--line-3)}
 .ww{display:flex;flex-direction:column;gap:var(--sp-4);padding:var(--sp-6);border-radius:var(--r-l);background:var(--box);border:1px solid var(--btn-line)}
 .wwl{display:flex;align-items:center;gap:var(--sp-4);flex-wrap:wrap}.wwl .lbl{flex:1;min-width:120px;color:var(--text-2)}.wwl b{color:var(--text);font-weight:500}
-@media (max-width:980px){.w-body{display:flex;flex-direction:column;overflow:auto}.w-main,.w-side{flex:none}.w-main{overflow:visible}.w-stage{flex:none;aspect-ratio:16/9}.strip{max-width:100%;width:100%}}
+@media (max-width:980px){.w-body{display:flex;flex-direction:column;overflow:auto}.w-main,.w-side{flex:none}.w-main{overflow:visible}.w-stage{flex:none;aspect-ratio:var(--ar,16/9);max-height:70vh}.strip{max-width:100%;width:100%}}
 /* Breakdown */
 .sbar{display:flex;align-items:center;gap:var(--sp-6);flex-wrap:wrap;padding:0 var(--sp-2)}
 .sbar .faint{font-size:var(--fs-s)}
 .sf{position:relative;display:flex;align-items:center;justify-content:flex-end;gap:var(--sp-4);height:var(--u);padding:0 var(--sp-5);border-radius:var(--r);background:var(--field);box-shadow:inset 0 1px 2px rgba(0,0,0,.35);overflow:hidden;font-variant-numeric:tabular-nums;color:var(--text);font-size:var(--fs-s);min-width:0}
-.sf::before{content:"";position:absolute;inset:0 auto 0 0;width:var(--p,0);background:var(--c);opacity:.5}
+.sf::before{content:"";position:absolute;inset:0 auto 0 0;width:var(--p,0);background:var(--c)}
 .sf>*{position:relative}.sf{z-index:0}.sf::before{z-index:-1}
 .sf .lab{margin-right:auto;color:var(--text-2)}
 .sf.na{color:var(--text-3);justify-content:center;background:transparent;box-shadow:none;border:1px dashed var(--line)}
-.sf.hot{color:#ffd7d9}
+.sf .v{font-weight:600;color:#151515;background:rgba(255,255,255,.9);padding:1px var(--sp-4);border-radius:999px;line-height:1.3}
+.sf.in .v{background:transparent;margin-right:calc(100% - var(--p) - var(--sp-3))}
+.sf.in .lab.on~.v{margin-right:calc(100% - var(--p) - var(--sp-3))}
+#quick>.dim{white-space:nowrap}
+.sx-hint{flex:1 1 0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sf .lab.on{color:#151515;font-weight:500}
 .stab{display:grid;grid-template-columns:minmax(120px,1.2fr) repeat(var(--nd),minmax(70px,1fr)) minmax(70px,1fr);gap:var(--sp-3) var(--sp-4);padding:var(--sp-6) var(--sp-7) var(--sp-7);align-items:center;overflow-x:auto}
 .stab .sh{color:var(--text-3);font-size:var(--fs-s);text-align:center}
 .sn{display:flex;align-items:center;gap:var(--sp-4);height:var(--u);padding:0 var(--sp-3);border:0;border-radius:var(--r);background:none;color:var(--text);cursor:pointer;text-align:left;font:inherit}
@@ -468,6 +473,8 @@ button.assign:hover{background:var(--line);color:var(--text)}
 .gcap{color:var(--text-3);font-size:var(--fs-s);text-transform:uppercase;letter-spacing:.06em}
 .gnode{cursor:pointer}
 .gtools{position:absolute;z-index:3;display:flex;align-items:center;gap:var(--sp-4);flex-wrap:wrap;padding:var(--sp-3) var(--sp-4);border-radius:var(--r-l);background:var(--overlay);border:1px solid var(--line);box-shadow:0 4px 14px rgba(0,0,0,.4);cursor:default}
+/* Over the canvas: glass, its blur like the menus'. */
+.gtools{background:var(--menu);-webkit-backdrop-filter:blur(6px) saturate(120%);backdrop-filter:blur(6px) saturate(120%)}
 .gtools.tl{left:12px;top:12px;right:12px;width:max-content;max-width:calc(100% - 24px)}
 .gtools.br{right:12px;bottom:12px}
 .ghint{position:absolute;left:12px;bottom:14px;color:var(--text-3);font-size:var(--fs-s);pointer-events:none;max-width:calc(100% - 160px)}
@@ -533,7 +540,7 @@ button.assign:hover{background:var(--line);color:var(--text)}
 .rv-sync::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--st-done)}
 .rv-sync[data-state="busy"]::before{background:var(--st-wip)}.rv-sync[data-state="off"]::before{background:var(--st-rtk)}
 /* Live, a guest (Share with a phone): reviews as themselves -- the farm read only, nothing opened or rendered on this machine. */
-[data-guest="1"] :is([data-act="blender"],[data-act="blendfolder"],[data-act="renderfolder"],[data-act="player"],[data-act="share"],[data-act="folder"],[data-act="log"],[data-render],[data-farm],[data-prio],[data-relink],[data-mjob],[data-mprio],[data-msheet="render"]){display:none!important}
+[data-guest="1"] :is([data-act="blender"],[data-act="blendfolder"],[data-act="renderfolder"],[data-act="player"],[data-act="share"],[data-act="snapshot"],[data-act="folder"],[data-act="log"],[data-render],[data-farm],[data-prio],[data-relink],[data-mjob],[data-mprio],[data-msheet="render"]){display:none!important}
 /* Share with a phone: the access made (its QR code, its link), the form, the accesses running. */
 .sh-dlg{width:min(520px,100%)}
 .sh-made{display:flex;gap:var(--sp-7);align-items:flex-start;padding:var(--sp-6);border-radius:var(--r-l);background:var(--box)}
@@ -605,3 +612,6 @@ html.kb .statusbar,html.kb .m-foot,html.kb .m-nav{display:none!important}
 .node .sock .mult{margin-left:auto;padding-right:var(--sp-2);color:var(--text-3);font-weight:500;font-family:var(--mono,inherit)}
 .gcap-b{display:inline-flex;align-items:center;gap:var(--sp-2);border:0;background:none;padding:0;cursor:pointer;font:inherit;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;font-size:var(--fs-s);position:absolute}
 .gcap-b:hover{color:var(--text)}.gcap-b svg{width:10px;height:10px;fill:currentColor}
+/* A note of mine sent already, changed in this review: deleted (struck through) or edited (the new words shown). */
+.nt.gone .t,.nt.gone .h{text-decoration:line-through;opacity:.55}
+.nt.gone .t .tag{text-decoration:none}

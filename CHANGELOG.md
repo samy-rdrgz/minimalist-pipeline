@@ -6,6 +6,11 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- The page: your own notes, sent already, can be edited or deleted again
+  (the review's `edit` / `delete` actions; only by their author).
+- Live: View › Export a snapshot…, the export opened in Blender.
+- Filters › Tracked only: hides the files with no department (kept by
+  the browser).
 - Done on the stable again, with no new stable version (a department
   forgotten when the stable was made): a checkbox by each department in
   the File panel's Working on, a Mark done button in the page's detail

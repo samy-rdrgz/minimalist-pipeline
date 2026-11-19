@@ -74,6 +74,16 @@ def main() -> None:
         a = review_import._action({"type": "done", "file": "ch_bob", "department": "rig", "done": False})
         assert a["done"] is False, a
         assert review_import._action({"type": "done", "file": "ch_bob"}) is None
+
+        # A note's words changed by the page (the review's "edit"), its author kept.
+        (owner / ".pipeline" / "tracking.json").write_text(json.dumps({"entries": [
+            {"id": "a1b2c", "type": "note", "text": "too dark", "author": "léa", "departments": []}]}), encoding="utf-8")
+        assert tracking.set_entry_text(blend, "a1b2c", " too dark, the left side ", "léa")
+        e = json.loads((owner / ".pipeline" / "tracking.json").read_text(encoding="utf-8"))["entries"][0]
+        assert e["text"] == "too dark, the left side" and e["author"] == "léa" and e["edited_by"] == "léa", e
+        assert not tracking.set_entry_text(blend, "a1b2c", "too dark, the left side", "léa")
+        assert review_import._action({"type": "edit", "file": "ch_bob", "id": "a1b2c", "text": ""}) is None
+        assert review_import._action({"type": "delete", "file": "ch_bob", "id": "a1b2c"}) == {"type": "delete", "file": "ch_bob", "id": "a1b2c"}
     print("ok")
 
 

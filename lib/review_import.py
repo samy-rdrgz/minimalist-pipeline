@@ -39,6 +39,8 @@ from .tracking import (
     get_departments_required,
     set_department_approval,
     set_department_done,
+    set_entry_text,
+    delete_entry,
     set_department_synced,
     set_department_assignees,
     set_departments_required,
@@ -103,6 +105,9 @@ def keep_review(path: Path, snapshots: Path, plan: dict) -> Path | None:
 #   reply                  {file, to, text}: in that note's thread
 #   fixed                  {file, id}: that retake done, as the reviewer
 #   description            {file, old, new}: old the one exported
+#   edit                   {file, id, text}: that note's words, by its author
+#   delete                 {file, id}: that note gone (its replies with it),
+#                          by its author
 #   done                   {file, department, done}: that department done
 #                          (or not) on the latest stable, no new version
 #   still_done             {file, department, text}: its work holds, an
@@ -120,7 +125,7 @@ def keep_review(path: Path, snapshots: Path, plan: dict) -> Path | None:
 # See NOTES.md, "Review: typed actions".
 ACTION_TYPES = (
     "validate", "unvalidate", "rtk", "note", "reply", "fixed", "description",
-    "still_done", "departments", "omit", "assign", "create", "done",
+    "still_done", "departments", "omit", "assign", "create", "done", "edit", "delete",
 )
 # Changes to a file anyone may send (no role needed: none is a validation).
 _FILE_CHANGES = ("done", "still_done", "departments", "omit", "assign")
@@ -160,6 +165,12 @@ def _action(raw) -> dict | None:
         a.update(to=_text(raw.get("to")), text=_text(raw.get("text")))
         return a if a["to"] and a["text"] else None
     if t == "fixed":
+        a.update(id=_text(raw.get("id")))
+        return a if a["id"] else None
+    if t == "edit":
+        a.update(id=_text(raw.get("id")), text=_text(raw.get("text")))
+        return a if a["id"] and a["text"] else None
+    if t == "delete":
         a.update(id=_text(raw.get("id")))
         return a if a["id"] else None
     if t == "done":
@@ -342,7 +353,7 @@ def review_import_plan(path: Path, review: dict | None = None) -> dict:
         # Retakes the reviewer marked fixed: closed under their name.
         "fixed": count("fixed"),
         # Still done, departments required, set aside.
-        "changes": count(*_FILE_CHANGES),
+        "changes": count(*_FILE_CHANGES, "edit", "delete"),
         # New shots and assets, made after the import (create_rows()).
         "creates": count("create"),
         "replies": count("reply"),
@@ -572,6 +583,31 @@ def import_review(path: Path, review: dict | None = None) -> dict:
                 result["replies"] += 1
             except PipelineError as e:
                 result["skipped"].append((f"{name}: reply", e.message))
+    # A note's words changed or the note deleted: its author's alone.
+    for name, mine in _by_file(actions, "edit", "delete").items():
+        filepath = _review_file(name)
+        if not filepath:
+            result["skipped"] += [(f"{name}: {a['type']}", "file not found") for a in mine]
+            continue
+        by_id = {e.get("id"): e for e in (read_json_quiet(tracking_json_path(filepath)) or {}).get("entries", [])}
+        for a in mine:
+            label = f"{name}: {a['type']} {a['id']}"
+            e = by_id.get(a["id"])
+            if not e:
+                if a["type"] == "edit":
+                    result["skipped"].append((label, "that note is gone"))
+                continue  # deleted already
+            if (e.get("author") or "").strip().lower() != (author or "").strip().lower():
+                result["skipped"].append((label, f"written by {e.get('author') or '?'}: only its author changes it"))
+                continue
+            try:
+                if a["type"] == "delete":
+                    delete_entry(filepath, a["id"])
+                elif not set_entry_text(filepath, a["id"], a["text"], author):
+                    continue
+                result["changed"] += 1
+            except PipelineError as err:
+                result["skipped"].append((label, err.message))
     # The file's own changes: still done, its departments, set aside.
     for name, mine in _by_file(actions, *_FILE_CHANGES).items():
         filepath = _review_file(name)

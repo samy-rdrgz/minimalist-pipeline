@@ -14,7 +14,9 @@
 .ws{background:rgba(0,0,0,.22)}
 .ws button{color:var(--t-text-2)}
 .ws button:hover{color:var(--t-text)}
-.ws button[aria-selected="true"]{background:var(--brand);color:var(--on-brand);font-weight:600;box-shadow:none}
+.ws button[aria-selected="true"]{background:var(--brand);color:var(--on-brand);box-shadow:none}
+/* One weight selected or not: a bolder word is wider, the tabs beside it moved a few pixels. */
+.ws button{font-weight:500}
 .ws button[aria-selected="true"] .n{color:inherit;opacity:.7}
 
 /* Sticky headers, glass */
@@ -25,7 +27,7 @@
 .wsec{background:var(--glass-head);z-index:5}
 /* The blur on a pseudo-element: a backdrop-filter on the parent would capture the fixed menus. */
 :is(#main .area-head,#outliner .area-head,#props .area-head,.grp-h,.wsec)::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;border-radius:inherit;
-  -webkit-backdrop-filter:blur(8px) saturate(120%);backdrop-filter:blur(8px) saturate(120%)}
+  -webkit-backdrop-filter:blur(5px) saturate(120%);backdrop-filter:blur(5px) saturate(120%)}
 .wsec{position:sticky}
 
 /* Selection: a tint and a bright rail, the list's only glow */
@@ -50,8 +52,8 @@
 .mi:hover .k{color:var(--on-sel);opacity:.7}
 
 /* Glass: what floats */
-.menu,.pop{background:var(--menu);border-color:var(--menu-line);-webkit-backdrop-filter:blur(10px) saturate(120%);backdrop-filter:blur(10px) saturate(120%);box-shadow:0 18px 50px -12px var(--shadow)}
-.toast{background:var(--menu);color:var(--text);border:1px solid var(--toast-line);-webkit-backdrop-filter:blur(10px) saturate(120%);backdrop-filter:blur(10px) saturate(120%)}
+.menu,.pop{background:var(--menu);border-color:var(--menu-line);-webkit-backdrop-filter:blur(6px) saturate(120%);backdrop-filter:blur(6px) saturate(120%);box-shadow:0 18px 50px -12px var(--shadow)}
+.toast{background:var(--menu);color:var(--text);border:1px solid var(--toast-line);-webkit-backdrop-filter:blur(6px) saturate(120%);backdrop-filter:blur(6px) saturate(120%)}
 
 /* Menus in front */
 .grp-h:has(.menu:not([hidden])){z-index:25}

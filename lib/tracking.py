@@ -1835,6 +1835,25 @@ def edit_entry(
         raise PipelineError(f"Error during editing file entries : {e}")
 
 
+def set_entry_text(filepath: Path, id: str, text: str, editor: str) -> bool:
+    """An entry's words changed (matched by id), editor stamped as
+    edited_by/edited_at -- everything else kept. False when they were
+    already those. Raises PipelineError when no such entry."""
+    text = text.strip()
+    path = tracking_json_path(filepath, must_exist=True)
+    with locked_json(path) as box:
+        data = box["data"] or {}
+        entry = next((e for e in data.get("entries") or [] if e.get("id") == id), None)
+        if entry is None:
+            raise PipelineError("No entry found with this ID.")
+        if entry.get("text") == text:
+            return False
+        entry.update(text=text, edited_by=editor, edited_at=now())
+        box["data"] = data
+        box["action"] = "to_write"
+    return True
+
+
 def delete_entry(filepath: Path, id: str):
     """Remove an entry (matched by id) from the owning asset's tracking.json,
     along with every reply that (transitively) answers it. Deleting only the

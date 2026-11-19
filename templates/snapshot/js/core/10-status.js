@@ -46,7 +46,7 @@ const openRtk=it=>rtkNotes(it).length+it.myNotes.filter(n=>n.type==='rtk').lengt
 const openNotes=it=>it.notes.filter(n=>!n.done).length+it.myNotes.length;
 const omitted=it=>(it.setAside!==undefined?it.setAside:it.omit)?.state;
 const toValidate=it=>!omitted(it)&&required(it).some(d=>['done','rework'].includes(it.states[d])&&!it.ok[d]&&!it.rtk[d]&&!it.mine[d]);
-const touched=it=>Object.keys(it.marked||{}).length||Object.keys(it.mine).length||it.myNotes.length||Object.keys(it.myReplies).length||it.setAside!==undefined||it.req||it.assign||Object.keys(it.still).length||Object.keys(it.fixed).length||it.descEdit!==undefined;
+const touched=it=>Object.keys(it.edits||{}).length||Object.keys(it.marked||{}).length||Object.keys(it.mine).length||it.myNotes.length||Object.keys(it.myReplies).length||it.setAside!==undefined||it.req||it.assign||Object.keys(it.still).length||Object.keys(it.fixed).length||it.descEdit!==undefined;
 function worst(it){
   if(omitted(it))return 'omit';const ds=required(it);
   if(ds.some(d=>it.rtk[d]||it.mine[d]==='rtk'))return 'rtk';if(!ds.length)return 'todo';
@@ -68,6 +68,7 @@ function visible(){
     if(S.more.has('farm')&&!it.farm)return false;
     if(S.more.has('unfinished')&&!required(it).some(d=>!['done','rework'].includes(it.states[d])))return false;
     if(S.more.has('outdated')&&!it.outdated)return false;
+    if(S.more.has('tracked')&&!required(it).length)return false;
     return true;
   });
 }

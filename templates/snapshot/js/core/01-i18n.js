@@ -10,7 +10,8 @@ var MPI18n=(function(){
 'use strict';
 var DICTS={en:{}},lang='en',KEY='mp-snapshot:lang';
 function base(l){return String(l||'').toLowerCase().split(/[-_]/)[0];}
-function pick(meta){var want=[];try{want.push(localStorage.getItem(KEY));}catch(e){}
+// The address's ?lang= first: a browser storing nothing for a file opened from disk still keeps it over the reload.
+function pick(meta){var want=[];try{want.push(new URLSearchParams(location.search).get('lang'));}catch(e){}try{want.push(localStorage.getItem(KEY));}catch(e){}
 want.push(meta&&meta.lang);(navigator.languages||[navigator.language]).forEach(function(l){want.push(l);});
 for(var i=0;i<want.length;i++){var b=base(want[i]);if(b&&DICTS[b])return b;}return 'en';}
 function add(l,dict){l=base(l);DICTS[l]=DICTS[l]||{};Object.keys(dict).forEach(function(k){DICTS[l][k]=dict[k];});}

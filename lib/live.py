@@ -695,6 +695,8 @@ def _open(raw: dict) -> dict:
 
     if raw.get("folder"):
         return _open_folder(raw)
+    if raw.get("snapshot"):
+        return _open_snapshot_export()
     filepath = _review_file(str(raw.get("file") or ""))
     if not filepath or not filepath.is_file():
         return {"ok": False, "error": "file not found"}
@@ -716,6 +718,22 @@ def _open(raw: dict) -> dict:
 
     bpy.app.timers.register(load, first_interval=0.05)
     return {"ok": True, "opened": filepath.name}
+
+
+def _open_snapshot_export() -> dict:
+    """The snapshot's export, asked from the page: its dialog opened in
+    this Blender (videos, where to), confirmed there. On a timer: a file
+    browser wants Blender's own turn."""
+
+    def show():
+        try:
+            _with_window(bpy.ops.m_pipeline.export_snapshot, "INVOKE_DEFAULT")
+        except Exception as e:
+            log("WARNING", "live", f"Live page: the snapshot's export not opened: {e}")
+        return None
+
+    bpy.app.timers.register(show, first_interval=0.05)
+    return {"ok": True, "opened": "snapshot"}
 
 
 def _open_folder(raw: dict) -> dict:

@@ -24,7 +24,7 @@ const LOCALE=()=>typeof MPI18n!=='undefined'?MPI18n.lang:'en';
 /* The frames a video has when it says nothing (no fps, no length known yet). */
 let NF=120;
 /* What a review left on a file (A.*): fresh for each file, kept across live updates by name. */
-const fresh=()=>({marked:{},mine:{},myNotes:[],myReplies:{},setAside:undefined,req:null,assign:null,still:{},fixed:{}});
+const fresh=()=>({edits:{},marked:{},mine:{},myNotes:[],myReplies:{},setAside:undefined,req:null,assign:null,still:{},fixed:{}});
 /* One file of page_data() as the views read it. */
 function adapt(r,keyName){
   const L=r.live||{};
@@ -42,7 +42,7 @@ function adapt(r,keyName){
 }
 /* The whole data in: first load, then each live update (the review left on each file kept). */
 function loadData(raw){
-  const kept={};items.forEach(it=>{kept[it.name]={marked:it.marked,mine:it.mine,myNotes:it.myNotes,myReplies:it.myReplies,setAside:it.setAside,req:it.req,assign:it.assign,still:it.still,fixed:it.fixed,descEdit:it.descEdit}});
+  const kept={};items.forEach(it=>{kept[it.name]={edits:it.edits,marked:it.marked,mine:it.mine,myNotes:it.myNotes,myReplies:it.myReplies,setAside:it.setAside,req:it.req,assign:it.assign,still:it.still,fixed:it.fixed,descEdit:it.descEdit}});
   Object.assign(IMG,raw.images||{});
   Object.keys(M).forEach(k=>delete M[k]);Object.assign(M,raw.meta||{});
   DEPTS.shot=(M.departments||{}).shot||[];DEPTS.asset=(M.departments||{}).asset||[];
@@ -56,3 +56,5 @@ loadData(RAW);
 const first=items.find(i=>i.kind==='shot')||items[0];
 const S={ws:first?first.kind:'shot',sel:first?first.name:'',quick:null,more:new Set(),dept:null,q:'',tq:'',tab:'plan',closed:new Set(),review:null,noteFilter:'open',frame:1,playing:false,muted:true,
   form:null,reply:null,rangeStart:null,wide:false,wfull:false,closedTree:new Set(),ver:{},wdep:null,wtype:'rtk',g:{x:0,y:0,z:1,init:false},smode:'done',shot:{},seqPlay:false,planned:[],showAside:{},theme:'dark',notifSys:false,editDesc:false,weights:false,scaleV:1,bulk:null,ff:{s:'',mine:false,q:''},farmSel:null,preset:F.preset||'NONE',gAll:false,gFocus:null};
+/* Tracked only (Filters): remembered by this browser. */
+try{if(localStorage.getItem('mp-snapshot:tracked'))S.more.add('tracked')}catch(_){}
