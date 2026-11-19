@@ -1,5 +1,5 @@
 """The form each kind of project file is written in, in the file itself:
-"format_version", the addon version that form came with ("2.0"). Not
+"format_version", the addon version that form came with ("2.0.0"). Not
 bumped with every release: only when a kind's form changes in a way an
 older addon would misread -- then to that release's version, and
 lib/migration.py taught the step. Stamped by write_json_atomic() (so by
@@ -19,15 +19,15 @@ KEY = "format_version"
 
 # kind: (file name pattern, version this addon writes)
 FORMATS: dict[str, tuple[str, str]] = {
-    "project_config": (r"project_config\.json", "2.0"),
-    "tracking": (r"tracking\.json", "2.0"),
-    "stablemeta": (r".+\.stablemeta", "2.0"),
-    "wipmeta": (r".+\.wipmeta", "2.0"),
-    "render_history": (r"render_history\.json", "2.0"),
-    "preset_pace": (r"preset_pace\.json", "2.0"),
-    "rushes": (r"rushes\.json", "2.0"),
-    "session": (r"\.session_\d+\.json", "2.0"),
-    "farm_worker": (r"worker_[0-9a-f-]+\.json", "2.0"),
+    "project_config": (r"project_config\.json", "2.0.0"),
+    "tracking": (r"tracking\.json", "2.0.0"),
+    "stablemeta": (r".+\.stablemeta", "2.0.0"),
+    "wipmeta": (r".+\.wipmeta", "2.0.0"),
+    "render_history": (r"render_history\.json", "2.0.0"),
+    "preset_pace": (r"preset_pace\.json", "2.0.0"),
+    "rushes": (r"rushes\.json", "2.0.0"),
+    "session": (r"\.session_\d+\.json", "2.0.0"),
+    "farm_worker": (r"worker_[0-9a-f-]+\.json", "2.0.0"),
 }
 
 _COMPILED = [(k, re.compile(r"(^|/)" + p + r"\Z"), v) for k, (p, v) in FORMATS.items()]

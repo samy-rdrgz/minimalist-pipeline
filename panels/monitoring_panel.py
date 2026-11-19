@@ -174,6 +174,11 @@ class M_PIPELINE_PT_project_settings(_MonitoringPanel, bpy.types.Panel):
                     text="Delete a shot or an asset...",
                     icon="TRASH",
                 )
+                col.operator(
+                    "m_pipeline.revert_review",
+                    text="Revert a review...",
+                    icon="LOOP_BACK",
+                )
                 migrate = col.row()
                 migrate.alert = project_needs_migration()
                 migrate.operator(

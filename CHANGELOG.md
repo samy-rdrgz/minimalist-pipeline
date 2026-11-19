@@ -6,7 +6,15 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
-- Every project file says the form it's written in: `"format_version": "2.0"`, the addon version that form came with,
+- Revert a review (Project settings > Maintenance): an imported review's
+  changes put back -- its notes and replies taken out, the notes it
+  deleted back, its validations, done, assignees, departments and set
+  aside as they were. Read from `<review>.revert.json`, written beside the
+  review kept in snapshots/reviews/ at each import: what the files it
+  touched held before and after (lib/monitoring/review_revert.py).
+  Anything changed since is left as it is, and named; the files a review
+  created are listed, not deleted.
+- Every project file says the form it's written in: `"format_version": "2.0.0"`, the addon version that form came with,
   in project_config.json, tracking.json, .stablemeta, .wipmeta,
   render_history.json, preset_pace.json, rushes.json, session and farm
   worker files (lib/formats.py). An addon never rewrites a file a newer
