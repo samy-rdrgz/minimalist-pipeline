@@ -29,6 +29,8 @@ function v6Click(t){
   if(t.closest('[data-weights]')){S.weights=!S.weights;renderQuick();renderList();return true}
   return false;
 }
+/* A sent entry of a file, a note or a reply, by its id. */
+const sentEntry=(it,id)=>{for(const n of it.notes){if(n.id===id)return n;const r=(n.replies||[]).find(x=>x.id===id);if(r)return r}return null};
 /* A touch screen, no keyboard to speak of: no keys shown. */
 const TOUCH=()=>matchMedia('(hover:none) and (pointer:coarse)').matches;
 function helpDlg(){
@@ -80,6 +82,8 @@ document.addEventListener('click',e=>{
   const ga=t.closest('[data-gall]');if(ga){S.gAll=ga.dataset.gall==='1';renderList();return}
   if(t.closest('[data-gopen]')){S.gOpen=!S.gOpen;renderList();return}
   if(t.closest('[data-gclear]')){S.gFocus=null;renderList();return}
+  const gs=t.closest('[data-gsort]');if(gs){S.gSort=gs.dataset.gsort;renderList();return}
+  if(t.closest('[data-gwires]')){S.gWires=!S.gWires;renderList();return}
   if(t.closest('[data-gseqall]')){S.gSeqAll=!S.gSeqAll;if(!S.gSeqAll)S.gSeq=new Set();renderList();return}
   const gq=t.closest('[data-gseq]');if(gq){const g=gq.dataset.gseq;if(!S.gSeq)S.gSeq=new Set();if(S.gSeq.has(g)||gq.classList.contains('gcap-b')){S.gSeq.delete(g);
       const f=items.find(i=>i.name===S.gFocus);if(f&&f.kind==='shot'&&f.group===g)S.gFocus=null}else S.gSeq.add(g);renderList();return}
@@ -147,9 +151,12 @@ document.addEventListener('click',e=>{
   const ur=t.closest('[data-unreply]');if(ur){A.unreply(cur(),ur.dataset.unreply);refresh();return}
   const ne=t.closest('[data-nedit]');if(ne){S.nedit=ne.dataset.nedit;refresh();const ta=document.getElementById('ne-txt');if(ta){ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length)}return}
   if(t.closest('[data-necancel]')){S.nedit=null;refresh();return}
+  /* The key: m<at> a note not sent, r<note id>:<k> a reply not sent, else a sent entry's id (a note or a reply). */
   const ns=t.closest('[data-nesave]');if(ns){const k=ns.dataset.nesave,v=$('#ne-txt').value.trim();if(!v){$('#ne-txt').focus();msg(T('Write what to change first.'));return}
-    const it=cur();if(k[0]==='m')A.editMine(it,k.slice(1),v);else{const n=it.notes.find(x=>x.id===k);A.edit(it,k,n&&n.text===v?undefined:v)}S.nedit=null;refresh();return}
-  const nd=t.closest('[data-ndel]');if(nd){if(!twice(nd,T('Sure? Click again')))return;A.edit(cur(),nd.dataset.ndel,null);refresh();return}
+    const it=cur();if(k[0]==='m'&&!it.notes.some(x=>x.id===k))A.editMine(it,k.slice(1),v);
+    else if(/^r.+:\d+$/.test(k)&&!sentEntry(it,k)){const [id,n]=k.slice(1).split(':');const r=(it.myReplies[id]||[])[+n];if(r)r.text=v}
+    else{const e=sentEntry(it,k);A.edit(it,k,e&&e.text===v?undefined:v)}S.nedit=null;refresh();return}
+  const nd=t.closest('[data-ndel]');if(nd){if(!twice(nd,T('Sure? Click again')))return;A.edit(cur(),nd.dataset.ndel,null);S.nedit=null;refresh();return}
   const nu=t.closest('[data-neundo]');if(nu){A.edit(cur(),nu.dataset.neundo,undefined);refresh();return}
   const un=t.closest('[data-unnote]');if(un){A.unnote(cur(),un.dataset.unnote);refresh();return}
   const st=t.closest('[data-settings]');if(st){settingsPop(st);return}

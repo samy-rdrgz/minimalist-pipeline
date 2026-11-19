@@ -78,20 +78,27 @@ function notesHTML(it){
       ${S.review?`<button class="btn sm" data-gen title="${T('A retake or a remark on no department (X)')}">${ic('b-add')}${T('Note')}</button>`:''}</div>${gen}
     ${ns.length?ns.map(n=>noteHTML(it,n)).join(''):`<span class="faint">${S.noteFilter==='all'?T('No note.'):S.noteFilter==='frame'?T('No note at a frame.'):T('No open note.')}</span>`}</div>`;
 }
+/* An entry of mine, sent or not (a note, a reply): a small pencil by its date opens it to edit, Delete inside (asked twice).
+   Sent ones change through the review (edit / delete, by their author); not sent yet, they change at once. */
+function entryEd(it,e,key){const ed=!e.mine&&e.id&&e.id in it.edits?it.edits[e.id]:undefined;return {key,ed,del:ed===null,txt:typeof ed==='string'?ed:e.text,own:e.mine||ownNote(e)}}
+const penHTML=x=>x.own&&!x.del&&S.nedit!==x.key?`<button class="btn flat icon xs" data-nedit="${esc(x.key)}" aria-label="${T('Edit')}" title="${T('Edit (or delete)')}">${ic('b-greasepencil')}</button>`:'';
+const edFormHTML=(x,sent)=>`<div class="form"><label class="field ta"><textarea id="ne-txt" rows="3" aria-label="${T('Text')}">${esc(x.txt||'')}</textarea></label><div class="r">${sent?`<button class="btn sm alert" data-ndel="${esc(x.key)}" title="${T('Delete it (a note: its replies too)')}">${ic('b-x')}${T('Delete')}</button>`:''}<span style="flex:1"></span><button class="btn sm" data-necancel>${T('Cancel')}</button><button class="btn sm primary" data-nesave="${esc(x.key)}">${T('Save')}</button></div></div>`;
+const edSay=x=>x.ed!==undefined?` <span class="tag you">${x.del?T('deleted, not sent yet'):T('edited, not sent yet')}</span><button class="btn flat icon xs" data-neundo="${esc(x.key)}" aria-label="${T('Take my change back')}" title="${T('Take my change back')}">${ic('b-loop_back')}</button>`:'';
 function noteHTML(it,n){
-  const reps=[...(n.replies||[]),...(it.myReplies[n.id]||[]).map(r=>({...r,mine:1}))];
+  const reps=[...(n.replies||[]),...(it.myReplies[n.id]||[]).map((r,k)=>({...r,mine:1,rk:k}))];
   const rf=S.reply===n.id?`<div class="form"><label class="field ta"><textarea id="r-txt" rows="2" placeholder="${T('Your reply…')}" aria-label="${T('Reply')}"></textarea></label><div class="r"><span style="flex:1"></span><button class="btn sm" data-rcancel>${T('Cancel')}</button><button class="btn sm primary" data-rok="${n.id}">${T('Reply')}</button></div></div>`:'';
   const who=n.type==='rtk'?(n.team?T('team'):n.role||T('team')):'';
-  const key=n.mine?'m'+n.at:n.id,ed=!n.mine&&n.id in it.edits?it.edits[n.id]:undefined,del=ed===null,own=n.mine||ownNote(n);
-  const txt=typeof ed==='string'?ed:n.text;
-  const ef=S.nedit===key?`<div class="form"><label class="field ta"><textarea id="ne-txt" rows="3" aria-label="${T('Text')}">${esc(txt||'')}</textarea></label><div class="r"><span style="flex:1"></span><button class="btn sm" data-necancel>${T('Cancel')}</button><button class="btn sm primary" data-nesave="${esc(key)}">${T('Save')}</button></div></div>`:'';
-  return `<div class="nt ${n.type} ${n.done?'closed':''} ${n.mine?'mine':''} ${del?'gone':''} ${ed!==undefined?'chg':''}">
+  const x=entryEd(it,n,n.mine?'m'+n.at:n.id);
+  const repHTML=r=>{const y=entryEd(it,r,r.mine?'r'+n.id+':'+r.rk:r.id);
+    return `<div class="${y.del?'gone':''}"><div class="h"><span class="who">${esc(r.author)}</span><span>${fmtD(r.date)}</span>${r.mine?`<span class="tag you">${T('you')}</span><button class="btn flat icon xs" data-unreply="${n.id}" title="${T('Take my reply back')}">${ic('b-loop_back')}</button>`:''}${penHTML(y)}</div>
+      ${S.nedit===y.key?edFormHTML(y,!r.mine):`<div class="t">${esc(y.txt)}${edSay(y)}</div>`}</div>`};
+  return `<div class="nt ${n.type} ${n.done?'closed':''} ${n.mine?'mine':''} ${x.del?'gone':''} ${x.ed!==undefined?'chg':''}">
     <div class="h"><span class="type ${n.type}">${n.type==='rtk'?'RTK':n.type==='todo'?T('to do'):'note'}</span>${(n.deps||[]).length?n.deps.map(d=>LBL[d]||d).join(', '):'<span>'+T('no department')+'</span>'}${who?`<span>· ${esc(who)}</span>`:''}
-      ${n.frames?`<button class="chip-frame" data-goto="${parseInt(String(n.frames).replace(/\D+/,''))}" title="${T('Go to {frame}',{frame:esc(n.frames)})}">${esc(n.frames)}</button>`:''}${n.mine?'<span class="tag you">'+T('you')+'</span>':''}<span class="sp"></span><span class="who">${esc(n.author&&n.author!=='unknown'?n.author:'')}</span><span>${fmtD(n.date)}</span>${n.done?'<span>· '+T('closed')+'</span>':''}</div>
-    ${ef||`<div class="t ${txt?'':'empty'}">${txt?esc(txt):T('(no text)')}${ed!==undefined?` <span class="tag you">${del?T('deleted, not sent yet'):T('edited, not sent yet')}</span>`:''}</div>`}
-    ${reps.length?`<div class="rep">${reps.map(r=>`<div><div class="h"><span class="who">${esc(r.author)}</span><span>${fmtD(r.date)}</span>${r.mine?`<span class="tag you">${T('you')}</span><button class="btn sm flat" data-unreply="${n.id}" title="${T('Take my reply back')}">${ic('b-loop_back')}</button>`:''}</div><div class="t">${esc(r.text)}</div></div>`).join('')}</div>`:''}
+      ${n.frames?`<button class="chip-frame" data-goto="${parseInt(String(n.frames).replace(/\D+/,''))}" title="${T('Go to {frame}',{frame:esc(n.frames)})}">${esc(n.frames)}</button>`:''}${n.mine?'<span class="tag you">'+T('you')+'</span>':''}<span class="sp"></span><span class="who">${esc(n.author&&n.author!=='unknown'?n.author:'')}</span><span>${fmtD(n.date)}</span>${n.done?'<span>· '+T('closed')+'</span>':''}${penHTML(x)}</div>
+    ${S.nedit===x.key?edFormHTML(x,!n.mine):`<div class="t ${x.txt?'':'empty'}">${x.txt?esc(x.txt):T('(no text)')}${edSay(x)}</div>`}
+    ${reps.length?`<div class="rep">${reps.map(repHTML).join('')}</div>`:''}
     ${rf}
-    <div class="f">${fixHTML(it,n)}${own&&!ef&&!del?`<button class="btn sm flat" data-nedit="${esc(key)}" title="${T('Change its words')}">${ic('b-greasepencil')}${T('Edit')}</button>`:''}${own&&!n.mine&&!ef&&ed===undefined?`<button class="btn sm flat" data-ndel="${esc(n.id)}" title="${T('Delete this note (and its replies)')}">${ic('b-x')}${T('Delete')}</button>`:''}${ed!==undefined?`<button class="btn sm flat" data-neundo="${esc(n.id)}" title="${T('Take my change back')}">${ic('b-loop_back')}${T('Take back')}</button>`:''}${n.mine?`<button class="btn sm flat" data-unnote="${n.at}" title="${T('Take back')}">${ic('b-loop_back')}${T('Take back')}</button>`:''}${!n.mine&&S.reply!==n.id?`<button class="btn sm flat" data-reply="${n.id}" ${S.review?'':'disabled'} title="${S.review?T('Reply (R)'):T('Start a review to reply')}">${ic('b-file_parent')}${T('Reply')}</button>`:''}</div>
+    <div class="f">${fixHTML(it,n)}${n.mine?`<button class="btn sm flat" data-unnote="${n.at}" title="${T('Take back')}">${ic('b-loop_back')}${T('Take back')}</button>`:''}${!n.mine&&S.reply!==n.id?`<button class="btn sm flat" data-reply="${n.id}" ${S.review?'':'disabled'} title="${S.review?T('Reply (R)'):T('Start a review to reply')}">${ic('b-file_parent')}${T('Reply')}</button>`:''}</div>
   </div>`;
 }
 const verOf=f=>(String(f).match(/_(v\d+(?:-stable)?)\.blend$/)||[])[1]||f;

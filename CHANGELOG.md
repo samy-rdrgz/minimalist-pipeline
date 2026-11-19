@@ -15,6 +15,9 @@ All notable changes to this addon. Dates are release dates.
   forgotten when the stable was made): a checkbox by each department in
   the File panel's Working on, a Mark done button in the page's detail
   and on the phone (the review's `done` action).
+- Links: no wire at rest, the hovered or clicked node's only (All
+  wires: every one); assets by type (their prefix) or by links; an asset
+  clicked, the shots show its socket alone.
 - Links: a sequence of several shots folds into one group node, the way
   a Blender group node does. Its inputs are the assets its shots link,
   each shown once with ×n, so one wire stands for n. Click it to

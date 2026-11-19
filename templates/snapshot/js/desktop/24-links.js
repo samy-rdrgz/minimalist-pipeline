@@ -21,15 +21,19 @@ function renderGraph(){
     GMAP[o.name]=o;shown.push(o)});
   // Where a shot is drawn: itself, or its folded sequence.
   const at={};shown.forEach(o=>{if(o.grp)o.shots.forEach(i=>at[i.name]=o.name);else at[o.name]=o.name});GMAP.__at=at;
+  // An asset clicked: the shots show only its socket (the others counted), not every file they link.
+  const fA=focus&&(items.find(x=>x.name===focus)||{}).kind==='asset'?focus:null;
+  const only=(ls,i)=>{if(!fA||i.kind==='asset')return [ls,0];const k=ls.filter(l=>l.name===fA);return [k,ls.length-k.length]};
+  const more=n=>n?`<div class="sock faint more">${T('+ {n} other|+ {n} others',{n})}</div>`:'';
   const node=i=>{const dim=focus&&!near.has(i.name)&&!(i.grp&&i.shots.some(x=>near.has(x.name))),fold=!S.gOpen&&!(focus&&(near.has(i.name)||i.grp&&i.shots.some(x=>near.has(x.name))));
     if(i.grp){const w=worstOf(i.shots);
       return `<div class="node gnode shot grp ${dim?'dim':''} ${fold?'fold':''}" data-gn="${esc(i.name)}" data-gseq="${esc(i.group)}" data-k="shot" title="${esc(T('{seq}: {n} shots, folded -- click to unfold',{seq:i.group,n:i.shots.length}))}">
         <div class="nh">${ic('b-outliner')}<span>${esc(i.group)}</span><span class="gcount">${T('{n} shots',{n:i.shots.length})}</span><span class="dt" style="background:${DOT[w]}"></span></div><div class="nb">
-        ${i.links.map(l=>`<div class="sock in ${l.bad?'bad':''}" data-gi="${esc(l.name)}"><i></i>${esc(l.name)}${l.n>1?` <b class="mult">×${l.n}</b>`:''}</div>`).join('')}
+        ${(([ls,m])=>ls.map(l=>`<div class="sock in ${l.bad?'bad':''}" data-gi="${esc(l.name)}"><i></i>${esc(l.name)}${l.n>1?` <b class="mult">×${l.n}</b>`:''}</div>`).join('')+more(m))(only(i.links,i))}
         ${!i.links.length?'<div class="sock faint">'+T('no link')+'</div>':''}</div></div>`}
     return `<div class="node gnode ${i.kind==='shot'?'shot':''} ${focus===i.name?'cur':''} ${dim?'dim':''} ${fold?'fold':''}" data-gn="${i.name}" data-k="${i.kind}" title="${i.name}">
       <div class="nh">${ic(i.kind==='shot'?'b-camera_data':'b-asset_manager')}<span>${i.name}</span><span class="dt" style="background:${DOT[worst(i)]}"></span></div><div class="nb">
-      ${i.links.map(l=>`<div class="sock in ${l.newer?'bad':''}" data-gi="${l.name}"><i></i>${l.name} · ${verOf(l.file)}${l.newer?' ('+T('older')+')':''}</div>`).join('')}
+      ${(([ls,m])=>ls.map(l=>`<div class="sock in ${l.newer?'bad':''}" data-gi="${l.name}"><i></i>${l.name} · ${verOf(l.file)}${l.newer?' ('+T('older')+')':''}</div>`).join('')+more(m))(only(i.links,i))}
       ${i.linkedBy.length?`<div class="sock out" data-go="${i.name}"><i></i>${T('linked by {n}',{n:i.linkedBy.length})}</div>`:''}
       ${!i.links.length&&!i.linkedBy.length?'<div class="sock faint">'+T('no link')+'</div>':''}</div></div>`};
   const nOld=items.reduce((a,i)=>a+i.links.filter(l=>l.newer).length,0),nGrp=groups.filter(g=>shots.filter(i=>i.group===g).length>1).length;
@@ -38,6 +42,8 @@ function renderGraph(){
     </div>
     <div class="gtools tl"><span class="dim">${T('{n} linked files of {total}',{n:linked.size,total:items.length})}</span>${nOld?`<span class="tag rtk">${T('{n} link to an older stable|{n} links to an older stable',{n:nOld})}</span>`:''}
       <span class="join"><button class="btn sm" data-gall="0" aria-pressed="${!S.gAll}">${T('Linked files')}</button><button class="btn sm" data-gall="1" aria-pressed="${!!S.gAll}">${T('All')}</button></span>
+      <span class="join" title="${T('How the assets are ordered')}"><button class="btn sm" data-gsort="type" aria-pressed="${S.gSort!=='links'}">${T('By type')}</button><button class="btn sm" data-gsort="links" aria-pressed="${S.gSort==='links'}">${T('By links')}</button></span>
+      <button class="btn sm" data-gwires aria-pressed="${!!S.gWires}" title="${T('Every wire, not only the hovered or clicked node\'s')}">${T('All wires')}</button>
       ${nGrp?`<button class="btn sm" data-gseqall aria-pressed="${!S.gSeqAll}" title="${T('A sequence as one node: the assets its shots link, each once')}">${ic('b-outliner')}${T('Sequences grouped')}</button>`:''}
       <button class="btn sm" data-gopen aria-pressed="${!!S.gOpen}" title="${T('Show every node\'s links, not only the clicked one\'s')}">${T('Unfold all')}</button>
       ${focus?`<button class="btn sm" data-gclear>${ic('b-x')}${esc(focus)}</button>`:''}</div>
@@ -58,7 +64,9 @@ function layoutGraph(){
   const users=n=>[...new Set(itm(n).linkedBy.map(x=>at[x]).filter(Boolean))];
   let sOrder={},aOrder={};shots.forEach((n,i)=>sOrder[n]=i);assets.forEach((n,i)=>aOrder[n]=i);
   const bary=(list,adj,ord)=>{const r={};list.forEach(n=>{const a=adj(n).filter(x=>x in ord);r[n]=a.length?a.reduce((s,x)=>s+ord[x],0)/a.length:1e6+(ord[n]||0)});return r};
-  for(let k=0;k<6;k++){
+  const byType=S.gSort!=='links',pre=n=>n.split('_')[0];
+  if(byType){assets.sort((a,b)=>pre(a).localeCompare(pre(b))||a.localeCompare(b));shots.sort((a,b)=>seqs.indexOf(itm(a).group)-seqs.indexOf(itm(b).group)||String(a).localeCompare(String(b)))}
+  else for(let k=0;k<6;k++){
     const ba=bary(assets,users,sOrder);assets.sort((a,b)=>ba[a]-ba[b]);assets.forEach((n,i)=>aOrder[n]=i);
     const bs=bary(shots,n=>itm(n).links.map(l=>l.name),aOrder);
     const sk=g=>{const xs=shots.filter(n=>itm(n).group===g).map(n=>bs[n]).filter(x=>x<1e6);return xs.length?xs.reduce((a,b)=>a+b,0)/xs.length:1e6};
@@ -71,6 +79,9 @@ function layoutGraph(){
   let lastG=null;shots.forEach(n=>{const o=itm(n),g=o.group;if(g!==lastG){if(lastG)y+=S.gOpen?16:28;
       const many=!o.grp&&shots.filter(x=>itm(x).group===g).length>1&&!S.gSeqAll;if(!o.grp)cap(g,x2,y-24,many?g:null);else y-=12;lastG=g}
     const e=by(n);e.style.left=x2+'px';e.style.top=y+'px';center[n]=y+e.offsetHeight/2;y+=e.offsetHeight+GY});
+  if(byType){// By type: the assets in their prefix's block, one under the other, as the shots in their sequence's.
+    let ya=CAP,lp=null;assets.forEach(n=>{if(pre(n)!==lp){if(lp)ya+=S.gOpen?16:28;cap(pre(n),0,ya-24);lp=pre(n)}const e=by(n);e.style.left='0px';e.style.top=ya+'px';ya+=e.offsetHeight+GY});
+    v.style.width=(x2+W+20)+'px';v.style.height=(Math.max(y,ya)+20)+'px';return}
   const tgt={};assets.forEach(n=>{const e=by(n),c=users(n).filter(x=>x in center).map(x=>center[x]);tgt[n]=(c.length?c.reduce((a,b)=>a+b,0)/c.length:1e9)-e.offsetHeight/2});
   // Each as near its target as the others leave room for: pushed down from the top, pushed up from the bottom, the mean
   // of both, then no overlap -- a crowd around a target spreads both ways instead of all below it.
@@ -96,8 +107,10 @@ function drawGraph(){
   const pt=e=>{const nd=e.closest('.node');if(nd.classList.contains('fold')){const r=nd.querySelector('.nh').getBoundingClientRect(),out=!!e.closest('.out');
       return [((out?r.right:r.left)-R.left)/z,(r.top+r.height/2-R.top)/z]}
     const r=e.getBoundingClientRect();return [(r.left+r.width/2-R.left)/z,(r.top+r.height/2-R.top)/z]};
+  // At rest, no wire (All wires: every one): the hovered node's, else the clicked one's -- a shot's own, or its folded sequence's.
+  const act=S.gHover||focus,actG=act&&GMAP.__at?GMAP.__at[act]:null,on=(a,b)=>a===act||b===act||(actG&&b===actG);
   box.querySelectorAll('[data-gi]').forEach(n=>{const src=n.dataset.gi,o=box.querySelector(`[data-go="${src}"] i`);if(!o)return;
-    const tgt=n.closest('[data-gn]').dataset.gn,hot=!focus||focus===src||focus===tgt;
+    const tgt=n.closest('[data-gn]').dataset.gn,hot=act?on(src,tgt):!!S.gWires;if(!S.gWires&&!hot)return;
     const [x1,y1]=pt(o),[x2,y2]=pt(n.querySelector('i'));const no=o.closest('.node'),nn=n.closest('.node');
     const ym=((Math.min(no.getBoundingClientRect().bottom,nn.getBoundingClientRect().bottom)+Math.max(no.getBoundingClientRect().top,nn.getBoundingClientRect().top))/2-R.top)/z;
     const c=n.classList.contains('bad')?'var(--st-rtk)':'var(--wire)',d=wirePath(x1,y1,x2,y2,ym);
@@ -111,3 +124,5 @@ document.addEventListener('pointerup',()=>{if(gDrag){gDrag=null;$('#gcanvas')?.c
 document.addEventListener('wheel',e=>{const c=e.target.closest('#gcanvas');if(!c)return;e.preventDefault();const r=c.getBoundingClientRect();
   if(e.ctrlKey||Math.abs(e.deltaY)>Math.abs(e.deltaX)&&!e.shiftKey)zoomG(Math.exp(-e.deltaY*.0015),e.clientX-r.left,e.clientY-r.top);else{S.g.x-=e.deltaX;S.g.y-=e.deltaY;applyG()}},{passive:false});
 
+/* Hovered, a node shows its wires (none drawn at rest). */
+document.addEventListener('pointerover',e=>{const n=e.target.closest&&e.target.closest('#gview .gnode');const k=n?n.dataset.gn:null;if(k!==S.gHover){S.gHover=k;drawGraph()}});

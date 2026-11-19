@@ -454,7 +454,8 @@ button.assign:hover{background:var(--line);color:var(--text)}
 .sf.in .lab.on~.v{margin-right:calc(100% - var(--p) - var(--sp-3))}
 #quick>.dim{white-space:nowrap}
 .sx-hint{flex:1 1 0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.sf .lab.on{color:#151515;font-weight:500}
+.sf .lab{color:#151515;font-weight:500;background:rgba(255,255,255,.9);padding:1px var(--sp-4);border-radius:999px;line-height:1.3;margin-left:calc(-1*var(--sp-2))}
+.sf .lab.on{background:transparent}
 .stab{display:grid;grid-template-columns:minmax(120px,1.2fr) repeat(var(--nd),minmax(70px,1fr)) minmax(70px,1fr);gap:var(--sp-3) var(--sp-4);padding:var(--sp-6) var(--sp-7) var(--sp-7);align-items:center;overflow-x:auto}
 .stab .sh{color:var(--text-3);font-size:var(--fs-s);text-align:center}
 .sn{display:flex;align-items:center;gap:var(--sp-4);height:var(--u);padding:0 var(--sp-3);border:0;border-radius:var(--r);background:none;color:var(--text);cursor:pointer;text-align:left;font:inherit}
@@ -615,3 +616,6 @@ html.kb .statusbar,html.kb .m-foot,html.kb .m-nav{display:none!important}
 /* A note of mine sent already, changed in this review: deleted (struck through) or edited (the new words shown). */
 .nt.gone .t,.nt.gone .h{text-decoration:line-through;opacity:.55}
 .nt.gone .t .tag{text-decoration:none}
+.btn.icon.xs{width:calc(20px*var(--scale));height:calc(20px*var(--scale));min-height:0;padding:0;opacity:.6}
+.btn.icon.xs:hover{opacity:1}.btn.icon.xs svg{width:calc(12px*var(--scale));height:calc(12px*var(--scale))}
+.nt .rep .gone .t{text-decoration:line-through;opacity:.55}.nt .rep .gone .t .tag{text-decoration:none}

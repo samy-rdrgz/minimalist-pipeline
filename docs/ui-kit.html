@@ -605,7 +605,8 @@ button.assign:hover{background:var(--line);color:var(--text)}
 .sf.in .lab.on~.v{margin-right:calc(100% - var(--p) - var(--sp-3))}
 #quick>.dim{white-space:nowrap}
 .sx-hint{flex:1 1 0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.sf .lab.on{color:#151515;font-weight:500}
+.sf .lab{color:#151515;font-weight:500;background:rgba(255,255,255,.9);padding:1px var(--sp-4);border-radius:999px;line-height:1.3;margin-left:calc(-1*var(--sp-2))}
+.sf .lab.on{background:transparent}
 .stab{display:grid;grid-template-columns:minmax(120px,1.2fr) repeat(var(--nd),minmax(70px,1fr)) minmax(70px,1fr);gap:var(--sp-3) var(--sp-4);padding:var(--sp-6) var(--sp-7) var(--sp-7);align-items:center;overflow-x:auto}
 .stab .sh{color:var(--text-3);font-size:var(--fs-s);text-align:center}
 .sn{display:flex;align-items:center;gap:var(--sp-4);height:var(--u);padding:0 var(--sp-3);border:0;border-radius:var(--r);background:none;color:var(--text);cursor:pointer;text-align:left;font:inherit}
@@ -766,6 +767,9 @@ html.kb .statusbar,html.kb .m-foot,html.kb .m-nav{display:none!important}
 /* A note of mine sent already, changed in this review: deleted (struck through) or edited (the new words shown). */
 .nt.gone .t,.nt.gone .h{text-decoration:line-through;opacity:.55}
 .nt.gone .t .tag{text-decoration:none}
+.btn.icon.xs{width:calc(20px*var(--scale));height:calc(20px*var(--scale));min-height:0;padding:0;opacity:.6}
+.btn.icon.xs:hover{opacity:1}.btn.icon.xs svg{width:calc(12px*var(--scale));height:calc(12px*var(--scale))}
+.nt .rep .gone .t{text-decoration:line-through;opacity:.55}.nt .rep .gone .t .tag{text-decoration:none}
 /* Resizable side panels (desktop, 1200 px and over): drag the edge; past the minimum the panel
    folds away and a tab brings it back (1.5 times the top bar's height, easy to hit); a double-click: the default width. */
 .pz-h{position:fixed;z-index:60;width:10px;cursor:col-resize;touch-action:none;display:none}
@@ -1845,6 +1849,14 @@ MPI18n.add('fr',{
 'in Blender':'dans Blender',
 'Tracked only':'Suivis seulement',
 'hides the files with no department':'masque les fichiers sans département',
+'Edit (or delete)':'Modifier (ou supprimer)',
+'Delete it (a note: its replies too)':'La supprimer (une note : ses réponses aussi)',
+'+ {n} other|+ {n} others':'+ {n} autre|+ {n} autres',
+'How the assets are ordered':'L\'ordre des assets',
+'By type':'Par type',
+'By links':'Par liens',
+'All wires':'Tous les fils',
+'Every wire, not only the hovered or clicked node\'s':'Tous les fils, pas seulement ceux du nœud survolé ou cliqué',
 'Write what to change first.':'Écris d\'abord ce qu\'il faut changer.',
 'Text':'Texte',
 'That folder could not be read.':'Ce dossier n\'a pas pu être lu.',
@@ -2467,11 +2479,11 @@ function renderSynth(){
       <div class="stab" style="--nd:${dl.length}"><span class="sh"></span>${dl.map(d=>`<span class="sh">${LBL[d]}</span>`).join('')}<span class="sh">${T('Total')}</span>
       ${groups.map(g=>{const its=pool.filter(i=>groupOf(i)===g);return `<button class="sn" data-sgo="${g}" data-skind="${kind}" title="${T('Open {name}',{name:g})}">${ic('b-rightarrow','i rot')}<span class="mono">${g}</span><span class="faint">${its.length}</span></button>${dl.map(d=>field(sumCell(its,d))).join('')}${field(sumCell(its,null))}`}).join('')}</div></div>`};
   // The figure in black: on the bar's colour when it reaches it, else on a small white pill (a small share).
-  const bar=(p,c,l)=>`<span class="sf ${p>=IN?'in':''}" style="--p:${p*100}%;--c:${c}"><span class="lab ${p>=.3?'on':''}">${l}</span><b class="v">${pct(p)}</b></span>`;
+  const bar=(p,c,l)=>`<span class="sf ${p>=IN?'in':''}" style="--p:${p*100}%;--c:${c}"><span class="lab ${p>=.45?'on':''}">${l}</span><b class="v">${pct(p)}</b></span>`;
   const kp=(t,p,v)=>`<div class="kpi"><span class="t">${t}</span>${bar(p,'var(--st-done)',T('Done'))}${bar(v,'var(--st-val)',T('Validated'))}</div>`;
   L.innerHTML=`<div class="kpis">${kp(T('Shots'),M.progress.shot,M.validation.shot)}${kp(T('Assets'),M.progress.asset,M.validation.asset)}
     <div class="kpi"><span class="t">${T('Open retakes')}</span><span class="big">${items.reduce((a,i)=>a+openRtk(i),0)}</span><span class="faint">${T('on {n} file|on {n} files',{n:items.filter(openRtk).length})}</span></div>
-    ${M.schedule?`<div class="kpi"><span class="t">${T('Schedule · day {d} / {total}',{d:M.schedule.elapsed_days,total:M.schedule.total_days})}</span><span class="sf sch ${M.progress.shot>=IN?'in':''}" style="--p:${M.progress.shot*100}%;--c:var(--st-done);--e:${M.schedule.expected*100}%" title="${T('The line: where the shots should be today')}"><span class="lab ${M.progress.shot>=.3?'on':''}">${T('Shots done')}</span><b class="v">${pct(M.progress.shot)}</b><i class="mk2"></i></span><span class="faint">${T('expected {pct}',{pct:pct(M.schedule.expected)})} · ${M.progress.shot<M.schedule.expected?'<span class="bad">'+T('{n} points behind',{n:Math.round((M.schedule.expected-M.progress.shot)*100)})+'</span>':T('on time')}</span></div>`:''}
+    ${M.schedule?`<div class="kpi"><span class="t">${T('Schedule · day {d} / {total}',{d:M.schedule.elapsed_days,total:M.schedule.total_days})}</span><span class="sf sch ${M.progress.shot>=IN?'in':''}" style="--p:${M.progress.shot*100}%;--c:var(--st-done);--e:${M.schedule.expected*100}%" title="${T('The line: where the shots should be today')}"><span class="lab ${M.progress.shot>=.45?'on':''}">${T('Shots done')}</span><b class="v">${pct(M.progress.shot)}</b><i class="mk2"></i></span><span class="faint">${T('expected {pct}',{pct:pct(M.schedule.expected)})} · ${M.progress.shot<M.schedule.expected?'<span class="bad">'+T('{n} points behind',{n:Math.round((M.schedule.expected-M.progress.shot)*100)})+'</span>':T('on time')}</span></div>`:''}
     <div class="kpi"><span class="t">${T('Set aside')}</span><span class="big">${items.filter(omitted).length}</span><span class="faint">${T('on hold or cancelled, out of the figures')}</span></div></div>
   ${S.weights?`<p class="weights">${T('A department counts 0 % not started, {wip} % in progress, {rework} % reworked, {rtk} % done with an open retake, 100 % done. A file is the mean of its required departments, a sequence the mean of its files. Files set aside don\'t count. Validated is counted apart: by the role {role}, on the stable shown.',{wip:(M.weights||{}).wip??33,rework:(M.weights||{}).rework??67,rtk:(M.weights||{}).rtk??67,role:esc(M.role)})}</p>`:''}
   ${table('shot',T('Shots'))}${table('asset',T('Assets'))}`;
@@ -2557,20 +2569,27 @@ function notesHTML(it){
       ${S.review?`<button class="btn sm" data-gen title="${T('A retake or a remark on no department (X)')}">${ic('b-add')}${T('Note')}</button>`:''}</div>${gen}
     ${ns.length?ns.map(n=>noteHTML(it,n)).join(''):`<span class="faint">${S.noteFilter==='all'?T('No note.'):S.noteFilter==='frame'?T('No note at a frame.'):T('No open note.')}</span>`}</div>`;
 }
+/* An entry of mine, sent or not (a note, a reply): a small pencil by its date opens it to edit, Delete inside (asked twice).
+   Sent ones change through the review (edit / delete, by their author); not sent yet, they change at once. */
+function entryEd(it,e,key){const ed=!e.mine&&e.id&&e.id in it.edits?it.edits[e.id]:undefined;return {key,ed,del:ed===null,txt:typeof ed==='string'?ed:e.text,own:e.mine||ownNote(e)}}
+const penHTML=x=>x.own&&!x.del&&S.nedit!==x.key?`<button class="btn flat icon xs" data-nedit="${esc(x.key)}" aria-label="${T('Edit')}" title="${T('Edit (or delete)')}">${ic('b-greasepencil')}</button>`:'';
+const edFormHTML=(x,sent)=>`<div class="form"><label class="field ta"><textarea id="ne-txt" rows="3" aria-label="${T('Text')}">${esc(x.txt||'')}</textarea></label><div class="r">${sent?`<button class="btn sm alert" data-ndel="${esc(x.key)}" title="${T('Delete it (a note: its replies too)')}">${ic('b-x')}${T('Delete')}</button>`:''}<span style="flex:1"></span><button class="btn sm" data-necancel>${T('Cancel')}</button><button class="btn sm primary" data-nesave="${esc(x.key)}">${T('Save')}</button></div></div>`;
+const edSay=x=>x.ed!==undefined?` <span class="tag you">${x.del?T('deleted, not sent yet'):T('edited, not sent yet')}</span><button class="btn flat icon xs" data-neundo="${esc(x.key)}" aria-label="${T('Take my change back')}" title="${T('Take my change back')}">${ic('b-loop_back')}</button>`:'';
 function noteHTML(it,n){
-  const reps=[...(n.replies||[]),...(it.myReplies[n.id]||[]).map(r=>({...r,mine:1}))];
+  const reps=[...(n.replies||[]),...(it.myReplies[n.id]||[]).map((r,k)=>({...r,mine:1,rk:k}))];
   const rf=S.reply===n.id?`<div class="form"><label class="field ta"><textarea id="r-txt" rows="2" placeholder="${T('Your reply…')}" aria-label="${T('Reply')}"></textarea></label><div class="r"><span style="flex:1"></span><button class="btn sm" data-rcancel>${T('Cancel')}</button><button class="btn sm primary" data-rok="${n.id}">${T('Reply')}</button></div></div>`:'';
   const who=n.type==='rtk'?(n.team?T('team'):n.role||T('team')):'';
-  const key=n.mine?'m'+n.at:n.id,ed=!n.mine&&n.id in it.edits?it.edits[n.id]:undefined,del=ed===null,own=n.mine||ownNote(n);
-  const txt=typeof ed==='string'?ed:n.text;
-  const ef=S.nedit===key?`<div class="form"><label class="field ta"><textarea id="ne-txt" rows="3" aria-label="${T('Text')}">${esc(txt||'')}</textarea></label><div class="r"><span style="flex:1"></span><button class="btn sm" data-necancel>${T('Cancel')}</button><button class="btn sm primary" data-nesave="${esc(key)}">${T('Save')}</button></div></div>`:'';
-  return `<div class="nt ${n.type} ${n.done?'closed':''} ${n.mine?'mine':''} ${del?'gone':''} ${ed!==undefined?'chg':''}">
+  const x=entryEd(it,n,n.mine?'m'+n.at:n.id);
+  const repHTML=r=>{const y=entryEd(it,r,r.mine?'r'+n.id+':'+r.rk:r.id);
+    return `<div class="${y.del?'gone':''}"><div class="h"><span class="who">${esc(r.author)}</span><span>${fmtD(r.date)}</span>${r.mine?`<span class="tag you">${T('you')}</span><button class="btn flat icon xs" data-unreply="${n.id}" title="${T('Take my reply back')}">${ic('b-loop_back')}</button>`:''}${penHTML(y)}</div>
+      ${S.nedit===y.key?edFormHTML(y,!r.mine):`<div class="t">${esc(y.txt)}${edSay(y)}</div>`}</div>`};
+  return `<div class="nt ${n.type} ${n.done?'closed':''} ${n.mine?'mine':''} ${x.del?'gone':''} ${x.ed!==undefined?'chg':''}">
     <div class="h"><span class="type ${n.type}">${n.type==='rtk'?'RTK':n.type==='todo'?T('to do'):'note'}</span>${(n.deps||[]).length?n.deps.map(d=>LBL[d]||d).join(', '):'<span>'+T('no department')+'</span>'}${who?`<span>· ${esc(who)}</span>`:''}
-      ${n.frames?`<button class="chip-frame" data-goto="${parseInt(String(n.frames).replace(/\D+/,''))}" title="${T('Go to {frame}',{frame:esc(n.frames)})}">${esc(n.frames)}</button>`:''}${n.mine?'<span class="tag you">'+T('you')+'</span>':''}<span class="sp"></span><span class="who">${esc(n.author&&n.author!=='unknown'?n.author:'')}</span><span>${fmtD(n.date)}</span>${n.done?'<span>· '+T('closed')+'</span>':''}</div>
-    ${ef||`<div class="t ${txt?'':'empty'}">${txt?esc(txt):T('(no text)')}${ed!==undefined?` <span class="tag you">${del?T('deleted, not sent yet'):T('edited, not sent yet')}</span>`:''}</div>`}
-    ${reps.length?`<div class="rep">${reps.map(r=>`<div><div class="h"><span class="who">${esc(r.author)}</span><span>${fmtD(r.date)}</span>${r.mine?`<span class="tag you">${T('you')}</span><button class="btn sm flat" data-unreply="${n.id}" title="${T('Take my reply back')}">${ic('b-loop_back')}</button>`:''}</div><div class="t">${esc(r.text)}</div></div>`).join('')}</div>`:''}
+      ${n.frames?`<button class="chip-frame" data-goto="${parseInt(String(n.frames).replace(/\D+/,''))}" title="${T('Go to {frame}',{frame:esc(n.frames)})}">${esc(n.frames)}</button>`:''}${n.mine?'<span class="tag you">'+T('you')+'</span>':''}<span class="sp"></span><span class="who">${esc(n.author&&n.author!=='unknown'?n.author:'')}</span><span>${fmtD(n.date)}</span>${n.done?'<span>· '+T('closed')+'</span>':''}${penHTML(x)}</div>
+    ${S.nedit===x.key?edFormHTML(x,!n.mine):`<div class="t ${x.txt?'':'empty'}">${x.txt?esc(x.txt):T('(no text)')}${edSay(x)}</div>`}
+    ${reps.length?`<div class="rep">${reps.map(repHTML).join('')}</div>`:''}
     ${rf}
-    <div class="f">${fixHTML(it,n)}${own&&!ef&&!del?`<button class="btn sm flat" data-nedit="${esc(key)}" title="${T('Change its words')}">${ic('b-greasepencil')}${T('Edit')}</button>`:''}${own&&!n.mine&&!ef&&ed===undefined?`<button class="btn sm flat" data-ndel="${esc(n.id)}" title="${T('Delete this note (and its replies)')}">${ic('b-x')}${T('Delete')}</button>`:''}${ed!==undefined?`<button class="btn sm flat" data-neundo="${esc(n.id)}" title="${T('Take my change back')}">${ic('b-loop_back')}${T('Take back')}</button>`:''}${n.mine?`<button class="btn sm flat" data-unnote="${n.at}" title="${T('Take back')}">${ic('b-loop_back')}${T('Take back')}</button>`:''}${!n.mine&&S.reply!==n.id?`<button class="btn sm flat" data-reply="${n.id}" ${S.review?'':'disabled'} title="${S.review?T('Reply (R)'):T('Start a review to reply')}">${ic('b-file_parent')}${T('Reply')}</button>`:''}</div>
+    <div class="f">${fixHTML(it,n)}${n.mine?`<button class="btn sm flat" data-unnote="${n.at}" title="${T('Take back')}">${ic('b-loop_back')}${T('Take back')}</button>`:''}${!n.mine&&S.reply!==n.id?`<button class="btn sm flat" data-reply="${n.id}" ${S.review?'':'disabled'} title="${S.review?T('Reply (R)'):T('Start a review to reply')}">${ic('b-file_parent')}${T('Reply')}</button>`:''}</div>
   </div>`;
 }
 const verOf=f=>(String(f).match(/_(v\d+(?:-stable)?)\.blend$/)||[])[1]||f;
@@ -2740,15 +2759,19 @@ function renderGraph(){
     GMAP[o.name]=o;shown.push(o)});
   // Where a shot is drawn: itself, or its folded sequence.
   const at={};shown.forEach(o=>{if(o.grp)o.shots.forEach(i=>at[i.name]=o.name);else at[o.name]=o.name});GMAP.__at=at;
+  // An asset clicked: the shots show only its socket (the others counted), not every file they link.
+  const fA=focus&&(items.find(x=>x.name===focus)||{}).kind==='asset'?focus:null;
+  const only=(ls,i)=>{if(!fA||i.kind==='asset')return [ls,0];const k=ls.filter(l=>l.name===fA);return [k,ls.length-k.length]};
+  const more=n=>n?`<div class="sock faint more">${T('+ {n} other|+ {n} others',{n})}</div>`:'';
   const node=i=>{const dim=focus&&!near.has(i.name)&&!(i.grp&&i.shots.some(x=>near.has(x.name))),fold=!S.gOpen&&!(focus&&(near.has(i.name)||i.grp&&i.shots.some(x=>near.has(x.name))));
     if(i.grp){const w=worstOf(i.shots);
       return `<div class="node gnode shot grp ${dim?'dim':''} ${fold?'fold':''}" data-gn="${esc(i.name)}" data-gseq="${esc(i.group)}" data-k="shot" title="${esc(T('{seq}: {n} shots, folded -- click to unfold',{seq:i.group,n:i.shots.length}))}">
         <div class="nh">${ic('b-outliner')}<span>${esc(i.group)}</span><span class="gcount">${T('{n} shots',{n:i.shots.length})}</span><span class="dt" style="background:${DOT[w]}"></span></div><div class="nb">
-        ${i.links.map(l=>`<div class="sock in ${l.bad?'bad':''}" data-gi="${esc(l.name)}"><i></i>${esc(l.name)}${l.n>1?` <b class="mult">×${l.n}</b>`:''}</div>`).join('')}
+        ${(([ls,m])=>ls.map(l=>`<div class="sock in ${l.bad?'bad':''}" data-gi="${esc(l.name)}"><i></i>${esc(l.name)}${l.n>1?` <b class="mult">×${l.n}</b>`:''}</div>`).join('')+more(m))(only(i.links,i))}
         ${!i.links.length?'<div class="sock faint">'+T('no link')+'</div>':''}</div></div>`}
     return `<div class="node gnode ${i.kind==='shot'?'shot':''} ${focus===i.name?'cur':''} ${dim?'dim':''} ${fold?'fold':''}" data-gn="${i.name}" data-k="${i.kind}" title="${i.name}">
       <div class="nh">${ic(i.kind==='shot'?'b-camera_data':'b-asset_manager')}<span>${i.name}</span><span class="dt" style="background:${DOT[worst(i)]}"></span></div><div class="nb">
-      ${i.links.map(l=>`<div class="sock in ${l.newer?'bad':''}" data-gi="${l.name}"><i></i>${l.name} · ${verOf(l.file)}${l.newer?' ('+T('older')+')':''}</div>`).join('')}
+      ${(([ls,m])=>ls.map(l=>`<div class="sock in ${l.newer?'bad':''}" data-gi="${l.name}"><i></i>${l.name} · ${verOf(l.file)}${l.newer?' ('+T('older')+')':''}</div>`).join('')+more(m))(only(i.links,i))}
       ${i.linkedBy.length?`<div class="sock out" data-go="${i.name}"><i></i>${T('linked by {n}',{n:i.linkedBy.length})}</div>`:''}
       ${!i.links.length&&!i.linkedBy.length?'<div class="sock faint">'+T('no link')+'</div>':''}</div></div>`};
   const nOld=items.reduce((a,i)=>a+i.links.filter(l=>l.newer).length,0),nGrp=groups.filter(g=>shots.filter(i=>i.group===g).length>1).length;
@@ -2757,6 +2780,8 @@ function renderGraph(){
     </div>
     <div class="gtools tl"><span class="dim">${T('{n} linked files of {total}',{n:linked.size,total:items.length})}</span>${nOld?`<span class="tag rtk">${T('{n} link to an older stable|{n} links to an older stable',{n:nOld})}</span>`:''}
       <span class="join"><button class="btn sm" data-gall="0" aria-pressed="${!S.gAll}">${T('Linked files')}</button><button class="btn sm" data-gall="1" aria-pressed="${!!S.gAll}">${T('All')}</button></span>
+      <span class="join" title="${T('How the assets are ordered')}"><button class="btn sm" data-gsort="type" aria-pressed="${S.gSort!=='links'}">${T('By type')}</button><button class="btn sm" data-gsort="links" aria-pressed="${S.gSort==='links'}">${T('By links')}</button></span>
+      <button class="btn sm" data-gwires aria-pressed="${!!S.gWires}" title="${T('Every wire, not only the hovered or clicked node\'s')}">${T('All wires')}</button>
       ${nGrp?`<button class="btn sm" data-gseqall aria-pressed="${!S.gSeqAll}" title="${T('A sequence as one node: the assets its shots link, each once')}">${ic('b-outliner')}${T('Sequences grouped')}</button>`:''}
       <button class="btn sm" data-gopen aria-pressed="${!!S.gOpen}" title="${T('Show every node\'s links, not only the clicked one\'s')}">${T('Unfold all')}</button>
       ${focus?`<button class="btn sm" data-gclear>${ic('b-x')}${esc(focus)}</button>`:''}</div>
@@ -2777,7 +2802,9 @@ function layoutGraph(){
   const users=n=>[...new Set(itm(n).linkedBy.map(x=>at[x]).filter(Boolean))];
   let sOrder={},aOrder={};shots.forEach((n,i)=>sOrder[n]=i);assets.forEach((n,i)=>aOrder[n]=i);
   const bary=(list,adj,ord)=>{const r={};list.forEach(n=>{const a=adj(n).filter(x=>x in ord);r[n]=a.length?a.reduce((s,x)=>s+ord[x],0)/a.length:1e6+(ord[n]||0)});return r};
-  for(let k=0;k<6;k++){
+  const byType=S.gSort!=='links',pre=n=>n.split('_')[0];
+  if(byType){assets.sort((a,b)=>pre(a).localeCompare(pre(b))||a.localeCompare(b));shots.sort((a,b)=>seqs.indexOf(itm(a).group)-seqs.indexOf(itm(b).group)||String(a).localeCompare(String(b)))}
+  else for(let k=0;k<6;k++){
     const ba=bary(assets,users,sOrder);assets.sort((a,b)=>ba[a]-ba[b]);assets.forEach((n,i)=>aOrder[n]=i);
     const bs=bary(shots,n=>itm(n).links.map(l=>l.name),aOrder);
     const sk=g=>{const xs=shots.filter(n=>itm(n).group===g).map(n=>bs[n]).filter(x=>x<1e6);return xs.length?xs.reduce((a,b)=>a+b,0)/xs.length:1e6};
@@ -2790,6 +2817,9 @@ function layoutGraph(){
   let lastG=null;shots.forEach(n=>{const o=itm(n),g=o.group;if(g!==lastG){if(lastG)y+=S.gOpen?16:28;
       const many=!o.grp&&shots.filter(x=>itm(x).group===g).length>1&&!S.gSeqAll;if(!o.grp)cap(g,x2,y-24,many?g:null);else y-=12;lastG=g}
     const e=by(n);e.style.left=x2+'px';e.style.top=y+'px';center[n]=y+e.offsetHeight/2;y+=e.offsetHeight+GY});
+  if(byType){// By type: the assets in their prefix's block, one under the other, as the shots in their sequence's.
+    let ya=CAP,lp=null;assets.forEach(n=>{if(pre(n)!==lp){if(lp)ya+=S.gOpen?16:28;cap(pre(n),0,ya-24);lp=pre(n)}const e=by(n);e.style.left='0px';e.style.top=ya+'px';ya+=e.offsetHeight+GY});
+    v.style.width=(x2+W+20)+'px';v.style.height=(Math.max(y,ya)+20)+'px';return}
   const tgt={};assets.forEach(n=>{const e=by(n),c=users(n).filter(x=>x in center).map(x=>center[x]);tgt[n]=(c.length?c.reduce((a,b)=>a+b,0)/c.length:1e9)-e.offsetHeight/2});
   // Each as near its target as the others leave room for: pushed down from the top, pushed up from the bottom, the mean
   // of both, then no overlap -- a crowd around a target spreads both ways instead of all below it.
@@ -2815,8 +2845,10 @@ function drawGraph(){
   const pt=e=>{const nd=e.closest('.node');if(nd.classList.contains('fold')){const r=nd.querySelector('.nh').getBoundingClientRect(),out=!!e.closest('.out');
       return [((out?r.right:r.left)-R.left)/z,(r.top+r.height/2-R.top)/z]}
     const r=e.getBoundingClientRect();return [(r.left+r.width/2-R.left)/z,(r.top+r.height/2-R.top)/z]};
+  // At rest, no wire (All wires: every one): the hovered node's, else the clicked one's -- a shot's own, or its folded sequence's.
+  const act=S.gHover||focus,actG=act&&GMAP.__at?GMAP.__at[act]:null,on=(a,b)=>a===act||b===act||(actG&&b===actG);
   box.querySelectorAll('[data-gi]').forEach(n=>{const src=n.dataset.gi,o=box.querySelector(`[data-go="${src}"] i`);if(!o)return;
-    const tgt=n.closest('[data-gn]').dataset.gn,hot=!focus||focus===src||focus===tgt;
+    const tgt=n.closest('[data-gn]').dataset.gn,hot=act?on(src,tgt):!!S.gWires;if(!S.gWires&&!hot)return;
     const [x1,y1]=pt(o),[x2,y2]=pt(n.querySelector('i'));const no=o.closest('.node'),nn=n.closest('.node');
     const ym=((Math.min(no.getBoundingClientRect().bottom,nn.getBoundingClientRect().bottom)+Math.max(no.getBoundingClientRect().top,nn.getBoundingClientRect().top))/2-R.top)/z;
     const c=n.classList.contains('bad')?'var(--st-rtk)':'var(--wire)',d=wirePath(x1,y1,x2,y2,ym);
@@ -2830,6 +2862,8 @@ document.addEventListener('pointerup',()=>{if(gDrag){gDrag=null;$('#gcanvas')?.c
 document.addEventListener('wheel',e=>{const c=e.target.closest('#gcanvas');if(!c)return;e.preventDefault();const r=c.getBoundingClientRect();
   if(e.ctrlKey||Math.abs(e.deltaY)>Math.abs(e.deltaX)&&!e.shiftKey)zoomG(Math.exp(-e.deltaY*.0015),e.clientX-r.left,e.clientY-r.top);else{S.g.x-=e.deltaX;S.g.y-=e.deltaY;applyG()}},{passive:false});
 
+/* Hovered, a node shows its wires (none drawn at rest). */
+document.addEventListener('pointerover',e=>{const n=e.target.closest&&e.target.closest('#gview .gnode');const k=n?n.dataset.gn:null;if(k!==S.gHover){S.gHover=k;drawGraph()}});
 /* ---------- Watch large ---------- */
 function renderWide(){
   const W=$('#wide');if(!S.wide){W.hidden=true;return}
@@ -3578,7 +3612,7 @@ const DESK=[
  {n:'Tree',c:'.tree',m:'.tree li',d:()=>`<div class="area" style="height:300px;width:260px"><div class="area-body"><ul class="tree" id="tree"></ul></div></div>`,after:()=>{S.tq='sq0';renderTree();S.tq=''},r:['Folded apart from the list.']},
  {n:'Property',c:'.prop',m:'.prop',wide:1,d:()=>`<div style="max-width:520px">${filesHTML(it1)}</div>`,r:['The label on the left (fixed width), the value and its action on the right.']},
  {n:'Link nodes',c:'.node',m:'.node',wide:1,d:()=>`<div style="max-width:620px" id="pbody">${linksHTML(as1)}</div>`,after:()=>requestAnimationFrame(drawWires),r:['Header colour = type (asset / shot / older stable).','Bézier wires, never over a node.']},
- {n:'Links: graph nodes',c:'.gnode .grp',m:'.gnode',wide:1,d:gNodes,r:['An asset: its out socket, linked by n. A shot: an in socket per asset it links, red when an older stable.','Folded to its title (the default, unless clicked or linked to the one clicked): the wires meet its title\'s edge.','A sequence of several shots folded into a group node, as Blender\'s: each asset once, ×n its shots -- one wire for n. Clicked, it unfolds.','Assets level with the middle of what links them: the most shared ones in the middle.']},
+ {n:'Links: graph nodes',c:'.gnode .grp',m:'.gnode',wide:1,d:gNodes,r:['No wire at rest: the hovered node\'s, else the clicked one\'s (All wires: every one). By type: the assets in their prefix\'s block; by links: by barycentre.','An asset clicked: the shots show its socket alone, + n others.','An asset: its out socket, linked by n. A shot: an in socket per asset it links, red when an older stable.','Folded to its title (the default, unless clicked or linked to the one clicked): the wires meet its title\'s edge.','A sequence of several shots folded into a group node, as Blender\'s: each asset once, ×n its shots -- one wire for n. Clicked, it unfolds.','Assets level with the middle of what links them: the most shared ones in the middle.']},
  {n:'Farm job',c:'.job',m:'.job',wide:1,d:()=>`<div class="jobs" style="max-width:620px">${jobRow(job)}${jobRow(jobF)}</div>`,r:['State (dot) · file · % · machines. Live only.']},
  {n:'Popover',c:'.pop',m:'.pop',st:1,d:()=>`<div class="pop news" style="width:320px"><h4>What\'s new</h4><button class="newsi"><span class="dt" style="background:var(--st-rtk)"></span><span class="tx"><span class="h"><b>sq990_sh010</b><span class="faint">19:40</span></span>léa wrote a retake<small>Animation · f40</small></span></button><p class="hint">Notes, retakes, validations and renders come here.</p></div>`,r:['Placed by its button, held inside the window; closed by a click outside and Esc.']},
  {n:'Dialog',c:'.dlg-in',m:'.dlg-in,.dlg-in .prop',st:1,wide:1,d:()=>`<div id="k-dlg"></div>`,after:()=>{renderDlg();$('#k-dlg').innerHTML=$('#dlg').innerHTML;$('#dlg').hidden=true;$('#dlg').innerHTML=''},r:['A title, settings in .prop rows, actions at the bottom right; Esc closes.']},
