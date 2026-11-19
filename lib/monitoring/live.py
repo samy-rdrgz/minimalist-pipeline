@@ -41,6 +41,7 @@ from ..preview import browser_video, render_department, render_root
 from .snapshot import _folder_frames, _owner_shots, _video_name, build_snapshot, folder_links, read_render_state
 from .snapshot_page import page_data, render_page
 from .status import project_stages
+from . import progress_log
 from ..thumbnails import owner_shot_render_dirs, owner_thumbnail_dirs, thumbnail_path
 from .tracking import (
     _DATA_ROOTS,
@@ -1117,7 +1118,11 @@ def _rebuild(sh: _Shared, force: bool) -> None:
         # Played from the project, through the server.
         "videos": {"mode": "live", "base": None, "files": [], "local": f"media/{sh.token}/renders"},
     }
-    data = page_data(build_snapshot(_as_data(_reader["cache"], _reader.get("extras"), _reader.get("work")), config, meta, farm=farm))
+    snap = build_snapshot(_as_data(_reader["cache"], _reader.get("extras"), _reader.get("work")), config, meta, farm=farm)
+    # Today's progress point while the page runs (written only when it changes), the days for the page.
+    progress_log.record_today(sh.root, snap)
+    snap["meta"]["history"] = progress_log.days(sh.root)
+    data = page_data(snap)
     # Its Farm tab: the farm as Farm monitoring shows it.
     data["farm"] = jobs
     # Update links under way or just ended, by folder (lib/relink.py).

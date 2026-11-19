@@ -1098,6 +1098,110 @@ body.out-open .scrim {
 }
 
 /* ---------- Breakdown ---------- */
+/* Over time (Breakdown): Done and Validated a day at a time. */
+.ot {
+  margin: 0 var(--sp-7) var(--sp-7);
+  background: var(--box);
+  border: 1px solid var(--line);
+  border-radius: var(--r-l);
+  padding: var(--sp-6) var(--sp-7);
+}
+.ot-h {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-6);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-4);
+}
+.ot-lg {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-3);
+  color: var(--text-2);
+  font-size: var(--fs-s);
+}
+.ot-lg i,
+.ot-tip i {
+  display: inline-block;
+  width: 10px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--c);
+  margin-left: var(--sp-4);
+  vertical-align: middle;
+}
+.ot-empty {
+  margin: var(--sp-4) 0;
+}
+.ot-box {
+  position: relative;
+}
+.ot-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: calc(240px * var(--scale));
+  overflow: visible;
+}
+.ot-grid {
+  stroke: var(--line);
+  stroke-width: 1;
+}
+.ot-ax {
+  fill: var(--text-3);
+  font-size: 11px;
+}
+.ot-l {
+  fill: none;
+  stroke: var(--c);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.ot-end,
+.ot-hv circle {
+  fill: var(--c);
+  stroke: var(--box);
+  stroke-width: 2;
+}
+.ot-lab {
+  fill: var(--text);
+  font-size: 12px;
+  font-weight: 500;
+}
+.ot-tip[hidden],
+.ot-hv[hidden] {
+  display: none; /* hidden isn't honoured on an SVG element */
+}
+.ot-x {
+  stroke: var(--text-3);
+  stroke-width: 1;
+  stroke-dasharray: 2 3;
+}
+.ot-tip {
+  position: absolute;
+  top: 0;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--sp-3) var(--sp-5);
+  background: var(--menu, var(--box));
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  font-size: var(--fs-s);
+  color: var(--text-2);
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+.ot-tip b {
+  color: var(--text);
+}
+.ot-tip i {
+  margin-left: 0;
+  margin-right: var(--sp-3);
+}
 .kpis {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(calc(200px * var(--scale)), 1fr));

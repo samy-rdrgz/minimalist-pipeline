@@ -2,6 +2,10 @@
 // missing here: the English. Never translated: files, departments,
 // roles, prefixes, people (the project's own).
 MPI18n.add('fr',{
+'Over time':'Au fil du temps',
+'All departments':'Tous les départements',
+'One point a day, from the snapshots and the live page: the curve starts with the second day.':'Un point par jour, pris des snapshots et de la page live : la courbe commence au deuxième jour.',
+'now':'maintenant',
 '(no text)':'(sans texte)',
 '1 day':'1 jour',
 '1 hour':'1 heure',

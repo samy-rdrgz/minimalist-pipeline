@@ -592,6 +592,19 @@ document.addEventListener('click', e => {
     dl.innerHTML = `<div class="dlg-in zoom" role="dialog" aria-modal="true" aria-label="${T('{name}, large', { name: it.name })}"><img src="${it.thumb}" alt="${it.name}"><div class="acts"><span class="mono" style="flex:1">${it.name}</span><button class="btn" data-dclose>${T('Close')}</button></div></div>`;
     return;
   }
+  const otk = t.closest('[data-otk]');
+  if (otk) {
+    S.ot = { kind: otk.dataset.otk, dept: '' };
+    renderList();
+    return;
+  }
+  const otd = t.closest('[data-otd]');
+  if (otd) {
+    S.ot.dept = otd.dataset.otd;
+    closeMenus();
+    renderList();
+    return;
+  }
   const sm = t.closest('[data-smode]');
   if (sm) {
     S.smode = sm.dataset.smode;
@@ -1333,3 +1346,11 @@ document.addEventListener(
 new MutationObserver(sxAll).observe(document.body, { childList: true, subtree: true });
 addEventListener('resize', sxAll);
 sxAll();
+
+/* Over time's hover (Breakdown). */
+document.addEventListener('pointermove', e => {
+  if (e.target.closest && e.target.closest('.ot-box')) otHover(e);
+});
+document.addEventListener('pointerout', e => {
+  if (e.target.closest && e.target.closest('.ot-box') && !e.relatedTarget?.closest?.('.ot-box')) otLeave(e);
+});

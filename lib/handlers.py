@@ -267,6 +267,15 @@ def heartbeat_30s() -> float:
     if bpy.app.background:
         return 30
     session_update()
+    # Once a day per project: yesterday's progress point, exact (lib/monitoring/progress_log.py).
+    root = get_active_project_root()
+    if root:
+        try:
+            from .monitoring.progress_log import check_yesterday
+
+            check_yesterday(root)
+        except Exception as e:
+            log("WARNING", "progress", f"Progress not checked: {e}")
     filepath = bpy.data.filepath
     if (
         filepath

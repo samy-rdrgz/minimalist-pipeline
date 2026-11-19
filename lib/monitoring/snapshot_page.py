@@ -178,6 +178,8 @@ def _meta(snapshot: dict) -> dict:
         "weights": meta.get("progress_weights") or {},
         "progress": meta.get("progress") or {},
         "validation": meta.get("validation") or {},
+        # One point a day (progress_log.py): Breakdown's Over time.
+        "history": meta.get("history") or {},
         "naming": meta.get("naming") or {},
         "team": meta.get("team") or [],
         "departments": {

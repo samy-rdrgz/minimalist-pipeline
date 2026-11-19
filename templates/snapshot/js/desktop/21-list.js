@@ -192,5 +192,113 @@ function renderSynth() {
     ${M.schedule ? `<div class="kpi"><span class="t">${T('Schedule · day {d} / {total}', { d: M.schedule.elapsed_days, total: M.schedule.total_days })}</span><span class="sf sch ${M.progress.shot >= IN ? 'in' : ''}" style="--p:${M.progress.shot * 100}%;--c:var(--st-done);--e:${M.schedule.expected * 100}%" title="${T('The line: where the shots should be today')}"><span class="lab ${M.progress.shot >= 0.45 ? 'on' : ''}">${T('Shots done')}</span><b class="v">${pct(M.progress.shot)}</b><i class="mk2"></i></span><span class="faint">${T('expected {pct}', { pct: pct(M.schedule.expected) })} · ${M.progress.shot < M.schedule.expected ? '<span class="bad">' + T('{n} points behind', { n: Math.round((M.schedule.expected - M.progress.shot) * 100) }) + '</span>' : T('on time')}</span></div>` : ''}
     <div class="kpi"><span class="t">${T('Set aside')}</span><span class="big">${items.filter(omitted).length}</span><span class="faint">${T('on hold or cancelled, out of the figures')}</span></div></div>
   ${S.weights ? `<p class="weights">${T("A department counts 0 % not started, {wip} % in progress, {rework} % reworked, {rtk} % done with an open retake, 100 % done. A file is the mean of its required departments, a sequence the mean of its files. Files set aside don't count. Validated is counted apart: by the role {role}, on the stable shown.", { wip: (M.weights || {}).wip ?? 33, rework: (M.weights || {}).rework ?? 67, rtk: (M.weights || {}).rtk ?? 67, role: esc(M.role) })}</p>` : ''}
-  ${table('shot', T('Shots'))}${table('asset', T('Assets'))}`;
+  ${overTime()}${table('shot', T('Shots'))}${table('asset', T('Assets'))}`;
+}
+/* Over time: one point a day (lib/monitoring/progress_log.py), Done and Validated of the shots
+   or the assets, all or one department; today's from the page's own figures when not logged yet. */
+function otPoints() {
+  const o = S.ot,
+    key = o.kind === 'shot' ? 'shots' : 'assets';
+  const pts = Object.entries(M.history || {})
+    .map(([day, p]) => {
+      const k = (p || {})[key] || {},
+        x = o.dept ? (k.departments || {})[o.dept] || {} : k;
+      return { day, done: x.done ?? null, val: x.validated ?? null };
+    })
+    .filter(p => p.done != null || p.val != null);
+  const today = new Date().toISOString().slice(0, 10);
+  if (!o.dept && !pts.some(p => p.day === today) && M.progress[o.kind] != null)
+    pts.push({ day: today, done: M.progress[o.kind], val: M.validation[o.kind] ?? null, now: true });
+  return pts.sort((a, b) => (a.day < b.day ? -1 : 1));
+}
+function overTime() {
+  const o = S.ot,
+    pts = otPoints(),
+    W = 720,
+    H = 200,
+    pl = 40,
+    pr = 92,
+    pt = 12,
+    pb = 26;
+  const deps = DEPTS[o.kind] || [];
+  const head = `<div class="ot-h"><b>${T('Over time')}</b><span class="join">${['shot', 'asset'].map(k => `<button class="btn sm" data-otk="${k}" aria-pressed="${o.kind === k}">${k === 'shot' ? T('Shots') : T('Assets')}</button>`).join('')}</span>
+    <span class="anchor"><button class="enum" data-menu="m-otd" aria-haspopup="true" aria-expanded="false"><span class="lb">${o.dept ? esc(LBL[o.dept]) : T('All departments')}</span>${ic('b-tria_down')}</button><div class="menu" id="m-otd" hidden role="menu">${['', ...deps].map(d => `<button class="mi" data-otd="${esc(d)}"><span class="ck">${d === o.dept ? ic('b-checkmark') : ''}</span><span class="lbl">${d ? esc(LBL[d]) : T('All departments')}</span></button>`).join('')}</div></span>
+    <span class="ot-lg"><i style="--c:var(--st-done)"></i>${T('Done')}<i style="--c:var(--st-val)"></i>${T('Validated')}</span></div>`;
+  if (pts.length < 2)
+    return `<div class="ot">${head}<p class="faint ot-empty">${T('One point a day, from the snapshots and the live page: the curve starts with the second day.')}</p></div>`;
+  const t0 = Date.parse(pts[0].day),
+    t1 = Date.parse(pts[pts.length - 1].day),
+    X = d => pl + ((Date.parse(d) - t0) / (t1 - t0 || 1)) * (W - pl - pr),
+    Y = v => pt + (1 - v) * (H - pt - pb);
+  const line = k =>
+    pts
+      .filter(p => p[k] != null)
+      .map((p, i) => (i ? 'L' : 'M') + X(p.day).toFixed(1) + ' ' + Y(p[k]).toFixed(1))
+      .join(' ');
+  const last = k => [...pts].reverse().find(p => p[k] != null);
+  const fmt = d => new Date(d + 'T12:00:00').toLocaleDateString(DTL(), { day: 'numeric', month: 'short' });
+  const ticks = [0, Math.floor((pts.length - 1) / 2), pts.length - 1].filter((v, i, a) => a.indexOf(v) === i);
+  // The two end labels never on each other: pushed apart when closer than a line.
+  const ld = last('done'),
+    lv = last('val');
+  let yd = ld ? Y(ld.done) : 0,
+    yv = lv ? Y(lv.val) : 0;
+  if (ld && lv && Math.abs(yd - yv) < 14) {
+    const m = (yd + yv) / 2,
+      up = yd <= yv ? -7 : 7;
+    yd = m + up;
+    yv = m - up;
+  }
+  const svg = `<svg class="ot-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${T('Over time')}">
+    ${[0, 0.5, 1].map(v => `<line class="ot-grid" x1="${pl}" x2="${W - pr}" y1="${Y(v)}" y2="${Y(v)}"/><text class="ot-ax" x="${pl - 6}" y="${Y(v) + 4}" text-anchor="end">${v * 100} %</text>`).join('')}
+    ${ticks.map(i => `<text class="ot-ax" x="${X(pts[i].day)}" y="${H - 6}" text-anchor="${i === 0 ? 'start' : i === pts.length - 1 ? 'end' : 'middle'}">${fmt(pts[i].day)}</text>`).join('')}
+    <path class="ot-l" style="--c:var(--st-val)" d="${line('val')}"/><path class="ot-l" style="--c:var(--st-done)" d="${line('done')}"/>
+    ${ld ? `<circle class="ot-end" style="--c:var(--st-done)" cx="${X(ld.day)}" cy="${Y(ld.done)}" r="4"/><text class="ot-lab" x="${X(ld.day) + 10}" y="${yd + 4}">${T('Done')} ${pct(ld.done)}</text>` : ''}
+    ${lv ? `<circle class="ot-end" style="--c:var(--st-val)" cx="${X(lv.day)}" cy="${Y(lv.val)}" r="4"/><text class="ot-lab" x="${X(lv.day) + 10}" y="${yv + 4}">${T('Validated')} ${pct(lv.val)}</text>` : ''}
+    <g class="ot-hv" hidden><line class="ot-x" y1="${pt}" y2="${H - pb}"/><circle class="ot-d" style="--c:var(--st-done)" r="4"/><circle class="ot-v" style="--c:var(--st-val)" r="4"/></g>
+    <rect class="ot-hit" x="${pl}" y="0" width="${W - pl - pr}" height="${H}" fill="transparent"/></svg>`;
+  OT.pts = pts;
+  OT.geo = { X, Y, W, pl, pr };
+  return `<div class="ot">${head}<div class="ot-box">${svg}<div class="ot-tip" hidden></div></div></div>`;
+}
+const OT = {};
+/* The hover: the nearest day's two figures, a line through them. */
+function otHover(e) {
+  const box = e.target.closest('.ot-box');
+  if (!box || !OT.pts) return;
+  const svg = box.querySelector('svg'),
+    r = svg.getBoundingClientRect(),
+    g = OT.geo,
+    x = ((e.clientX - r.left) / r.width) * g.W;
+  let best = OT.pts[0];
+  OT.pts.forEach(p => {
+    if (Math.abs(g.X(p.day) - x) < Math.abs(g.X(best.day) - x)) best = p;
+  });
+  const hv = svg.querySelector('.ot-hv'),
+    tip = box.querySelector('.ot-tip'),
+    bx = g.X(best.day);
+  hv.hidden = false;
+  hv.querySelector('.ot-x').setAttribute('x1', bx);
+  hv.querySelector('.ot-x').setAttribute('x2', bx);
+  [
+    ['.ot-d', best.done],
+    ['.ot-v', best.val]
+  ].forEach(([c, v]) => {
+    const el = hv.querySelector(c);
+    el.style.display = v == null ? 'none' : '';
+    if (v != null) {
+      el.setAttribute('cx', bx);
+      el.setAttribute('cy', g.Y(v));
+    }
+  });
+  tip.hidden = false;
+  tip.innerHTML = `<b>${new Date(best.day + 'T12:00:00').toLocaleDateString(DTL(), { weekday: 'short', day: 'numeric', month: 'short' })}${best.now ? ' · ' + T('now') : ''}</b><span><i style="--c:var(--st-done)"></i>${T('Done')} <b>${pct(best.done)}</b></span><span><i style="--c:var(--st-val)"></i>${T('Validated')} <b>${pct(best.val)}</b></span>`;
+  const left = (bx / g.W) * r.width;
+  tip.style.left = Math.min(Math.max(left + 12, 0), r.width - tip.offsetWidth) + 'px';
+}
+function otLeave(e) {
+  const box = e.target.closest('.ot-box');
+  if (!box) return;
+  box.querySelector('.ot-hv').hidden = true;
+  box.querySelector('.ot-tip').hidden = true;
 }

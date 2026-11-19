@@ -28,6 +28,7 @@ FORMATS: dict[str, tuple[str, str]] = {
     "rushes": (r"rushes\.json", "2.0.0"),
     "session": (r"\.session_\d+\.json", "2.0.0"),
     "farm_worker": (r"worker_[0-9a-f-]+\.json", "2.0.0"),
+    "progress": (r"logs/progress\.json", "2.0.0"),
 }
 
 _COMPILED = [(k, re.compile(r"(^|/)" + p + r"\Z"), v) for k, (p, v) in FORMATS.items()]

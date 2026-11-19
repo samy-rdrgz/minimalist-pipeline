@@ -6,6 +6,15 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- Breakdown: Over time, the shots' or the assets' Done and Validated a
+  day at a time, all departments or one (a line each, its figure at the
+  end, a day's on hover). From config/logs/progress.json, one point a day
+  (lib/monitoring/progress_log.py): today's written by a snapshot export
+  and while the live page runs; the day before's made exact by the first
+  Blender of the next day on the project -- the project as it is then,
+  put on the day of its last change (Monday's first launch writes
+  Friday's evening).
+- The page's Render form, as Blender's: a department, then its preset.
 - Render: a department to pick, then its preset. The preset starts on
   the one that shot was last rendered with for that department (its
   render_history.json), else the department's own -- set in Project

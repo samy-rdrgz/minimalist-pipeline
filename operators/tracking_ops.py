@@ -9,7 +9,7 @@ from types import SimpleNamespace
 import bpy
 
 from ..farm import archive, farm_activity, request_monitor_refresh
-from ..lib.monitoring import review_revert
+from ..lib.monitoring import progress_log, review_revert
 from ..lib import (
     ConfigCache,
     icon_kw,
@@ -1257,6 +1257,9 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
             data, there, (self._lds_made, self._lds_failed) = self._job.result
             try:
                 snapshot = build_snapshot(data, config, meta, farm=farm_activity())
+                # Today's progress point, then the days so far for the page (progress_log.py).
+                progress_log.record_today(self._root, snapshot)
+                snapshot["meta"]["history"] = progress_log.days(self._root)
             except Exception as e:
                 context.window_manager.event_timer_remove(self._timer)
                 log("ERROR", "snapshot", f"Snapshot failed: {e}")
