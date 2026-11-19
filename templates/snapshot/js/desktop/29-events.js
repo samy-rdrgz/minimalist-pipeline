@@ -79,6 +79,9 @@ document.addEventListener('click',e=>{
   const ga=t.closest('[data-gall]');if(ga){S.gAll=ga.dataset.gall==='1';renderList();return}
   if(t.closest('[data-gopen]')){S.gOpen=!S.gOpen;renderList();return}
   if(t.closest('[data-gclear]')){S.gFocus=null;renderList();return}
+  if(t.closest('[data-gseqall]')){S.gSeqAll=!S.gSeqAll;if(!S.gSeqAll)S.gSeq=new Set();renderList();return}
+  const gq=t.closest('[data-gseq]');if(gq){const g=gq.dataset.gseq;if(!S.gSeq)S.gSeq=new Set();if(S.gSeq.has(g)||gq.classList.contains('gcap-b')){S.gSeq.delete(g);
+      const f=items.find(i=>i.name===S.gFocus);if(f&&f.kind==='shot'&&f.group===g)S.gFocus=null}else S.gSeq.add(g);renderList();return}
   const gn=t.closest('[data-gn]');if(gn){const n=gn.dataset.gn;S.gFocus=S.gFocus===n?null:n;S.sel=n;S.tab='links';renderList();renderProps();renderTree();if(narrow()&&S.gFocus)document.body.classList.add('props-open');return}
   const wd=t.closest('[data-wdep]');if(wd){S.wdep=wd.dataset.wdep;renderWide();$('#w-ta')?.focus();return}
   const wo=t.closest('[data-wok]');if(wo&&!wo.disabled){A.toggleVal(cur(),wo.dataset.wok);refresh();return}
@@ -203,7 +206,7 @@ try{const s=parseFloat(localStorage.getItem('mp-snapshot:scale'));if(s>=.5&&s<=1
 $('#scale-in').addEventListener('input',e=>setScale(+e.target.value));
 new ResizeObserver(()=>drawWires()).observe($('#pbody'));new ResizeObserver(()=>{if(S.ws==='links')drawGraph()}).observe($('#list'));
 document.addEventListener('scroll',e=>{if(!e.target.closest||!e.target.closest('.menu'))closeMenus()},true);addEventListener('resize',()=>{closeMenus();document.querySelectorAll('.pop.fx').forEach(p=>p.remove())});
-document.addEventListener('dblclick',e=>{const gn=e.target.closest('[data-gn]');if(gn){const it=items.find(i=>i.name===gn.dataset.gn);S.ws=it.kind;S.sel=it.name;S.tab='plan';S.gFocus=null;renderAll()}});
+document.addEventListener('dblclick',e=>{const gn=e.target.closest('[data-gn]');if(gn){const it=items.find(i=>i.name===gn.dataset.gn);if(!it)return;S.ws=it.kind;S.sel=it.name;S.tab='plan';S.gFocus=null;renderAll()}});
 document.addEventListener('change',e=>{if(e.target.matches&&e.target.matches('.rv-load')){const f=e.target.files[0];e.target.value='';closeMenus();loadReview(f)}});
 
 /* A row scrolled sideways (.join, .filters, .ws): a fade on the side where more is hidden; a mouse wheel scrolls it. */

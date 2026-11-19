@@ -6,6 +6,15 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- Done on the stable again, with no new stable version (a department
+  forgotten when the stable was made): a checkbox by each department in
+  the File panel's Working on, a Mark done button in the page's detail
+  and on the phone (the review's `done` action).
+- Links: a sequence of several shots folds into one group node, the way
+  a Blender group node does. Its inputs are the assets its shots link,
+  each shown once with ×n, so one wire stands for n. Click it to
+  unfold; its caption folds it back. Assets sit level with the middle
+  of what links them, spread both up and down.
 - The snapshot and live page, redrawn: Blender's grammar (areas, an
   Outliner, a list, a Detail panel with tabs, a status bar), Blender's
   own icons, a fixed blue theme, dark or light (View › Theme: Dark,

@@ -595,3 +595,12 @@ html.kb .statusbar,html.kb .m-foot,html.kb .m-nav{display:none!important}
 .filters{min-width:0;flex:0 1 auto}
 .sx-l,.sx-r{--fl:#000;--fr:#000;-webkit-mask-image:linear-gradient(to right,var(--fl),#000 calc(28px*var(--scale)),#000 calc(100% - 28px*var(--scale)),var(--fr));mask-image:linear-gradient(to right,var(--fl),#000 calc(28px*var(--scale)),#000 calc(100% - 28px*var(--scale)),var(--fr))}
 .sx-l{--fl:transparent}.sx-r{--fr:transparent}
+
+/* Links: a sequence folded into one group node (Blender's group node: its own header colour, a frame); its caption, unfolded, folds it back. */
+.node.grp{box-shadow:0 4px 12px rgba(0,0,0,.5),0 0 0 1px var(--node-edge),0 0 0 4px var(--area),0 0 0 5px var(--line-3)}
+.node.grp .nh{background:var(--node-grp,var(--node-shot));filter:saturate(.7) brightness(.9)}
+.node.grp .gcount{margin-left:auto;color:var(--text-3);font-size:var(--fs-s);font-weight:400;flex:none}
+.node.grp .nh .dt{margin-left:var(--sp-3)}
+.node .sock .mult{margin-left:auto;padding-right:var(--sp-2);color:var(--text-3);font-weight:500;font-family:var(--mono,inherit)}
+.gcap-b{display:inline-flex;align-items:center;gap:var(--sp-2);border:0;background:none;padding:0;cursor:pointer;font:inherit;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;font-size:var(--fs-s);position:absolute}
+.gcap-b:hover{color:var(--text)}.gcap-b svg{width:10px;height:10px;fill:currentColor}
