@@ -324,6 +324,12 @@ def rename_preset(root: Path, old: str, new: str, departments, old_renders: bool
             farm["default_prerender_script"] = new
             box["action"] = "to_write"
             out["default"] = True
+        # Presets by department (the Render dialog's starting one) follow it too.
+        by_dept = farm.get("department_presets") or {}
+        for d, name in by_dept.items():
+            if name == old:
+                by_dept[d] = new
+                box["action"] = "to_write"
 
     for top in _DATA_ROOTS:
         for owner in _walk_owner_dirs(root / top):

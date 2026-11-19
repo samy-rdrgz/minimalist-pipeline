@@ -6,6 +6,14 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- Render: a department to pick, then its preset. The preset starts on
+  the one that shot was last rendered with for that department (its
+  render_history.json), else the department's own -- set in Project
+  settings > By department… (a popup, one row per department), else
+  `<department>_default`, else the first whose name gives it. The
+  department picked is the render's, whatever its preset's name: a
+  preset can be called anything. The dialog starts on the department of
+  the file's last render.
 - Revert a review (Project settings > Maintenance): an imported review's
   changes put back -- its notes and replies taken out, the notes it
   deleted back, its validations, done, assignees, departments and set

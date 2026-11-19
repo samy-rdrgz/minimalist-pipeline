@@ -22,6 +22,7 @@ from ..lib import (
     find_project_root,
     get_addon_version,
     get_config_filepath,
+    locked_json,
     get_user,
     install_default_ffmpeg_preset,
     install_default_preset,
@@ -49,6 +50,7 @@ from .farm_ops import (
     _NO_SCRIPT,
     _stable_enum_items,
     default_pre_render_script,
+    department_preset,
     pre_render_script_items,
 )
 
@@ -855,6 +857,8 @@ class ProjectSettings:
             warn.label(text=f"No department: {', '.join(loose)}", icon="ERROR")
         else:
             row.label(text="")
+        op = row.operator("m_pipeline.department_presets", text="By department…", icon="PRESET")
+        op.project_root = root
         op = row.operator("m_pipeline.rename_preset", text="Rename preset…", icon="GREASEPENCIL")
         op.project_root = root
 
@@ -1260,6 +1264,83 @@ class M_PIPELINE_OT_rename_preset(bpy.types.Operator):
                 pass
         ConfigCache.invalidate()
         self.report({"INFO"}, f"{self.old} renamed {new}: {out['renders']} render(s) in its history updated.")
+        return {"FINISHED"}
+
+
+# Presets by department: the project the popup edits, and each row's menu
+# items kept (Blender holds their strings, see _stable_enum_items()).
+_dp = {"root": "", "items": {}}
+
+
+def _dp_items(self, context):
+    """A department's row: no script, its presets first (its name's), the others."""
+    root = Path(_dp["root"]) if _dp["root"] else None
+    items = pre_render_script_items(root / "config" / "presets" if root else None, [self.department])
+    mine = [i for i in items[1:] if preset_department(i[0], [self.department])]
+    rest = [i for i in items[1:] if i not in mine]
+    out = [items[0], *mine, *([None] if mine and rest else []), *rest]
+    return _stable_enum_items(_dp["items"].setdefault(self.department, []), out)
+
+
+class PIPELINE_PG_department_preset(bpy.types.PropertyGroup):
+    department: bpy.props.StringProperty()
+    preset: bpy.props.EnumProperty(name="Preset", items=_dp_items)
+
+
+class M_PIPELINE_OT_department_presets(bpy.types.Operator):
+    """The preset each department's renders start from, in the Render dialog
+    (a shot's own last one for that department comes first)"""
+
+    bl_idname = "m_pipeline.department_presets"
+    bl_label = "Presets by department"
+    bl_options = {"INTERNAL"}
+
+    project_root: bpy.props.StringProperty(options={"HIDDEN"})
+    rows: bpy.props.CollectionProperty(type=PIPELINE_PG_department_preset)
+
+    def invoke(self, context, event):
+        if not self.project_root:
+            return {"CANCELLED"}
+        _dp["root"] = self.project_root
+        config = read_project_config(self.project_root) or {}
+        self.rows.clear()
+        deps = [*(config.get("shots_departments") or []), *(config.get("assets_departments") or [])]
+        for d in dict.fromkeys(deps):
+            row = self.rows.add()
+            row.department = d
+            items = _dp_items(row, context)
+            try:
+                row.preset = department_preset(config, d, items)
+            except TypeError:
+                pass
+        return context.window_manager.invoke_props_dialog(self, width=460, confirm_text="Save")
+
+    def draw(self, context):
+        col = self.layout.column(align=True)
+        if not self.rows:
+            col.label(text="No department in this project yet.", icon="INFO")
+        for row in self.rows:
+            split = col.split(factor=0.35, align=True)
+            split.label(text=row.department)
+            split.prop(row, "preset", text="")
+        tip = self.layout.column(align=True)
+        tip.active = False
+        tip.scale_y = 0.8
+        tip.label(text="Render: a department picked starts on its preset here --", icon="INFO")
+        tip.label(text="unless that shot was last rendered with another one for it.", icon="BLANK1")
+
+    def execute(self, context):
+        chosen = {r.department: ("" if r.preset == _NO_SCRIPT else r.preset) for r in self.rows}
+        try:
+            with locked_json(get_config_filepath(self.project_root)) as box:
+                data = box["data"] or {}
+                data.setdefault("farm", {})["department_presets"] = {d: p for d, p in chosen.items() if p}
+                box["data"], box["action"] = data, "to_write"
+        except (PipelineError, OSError) as e:
+            self.report({"ERROR"}, f"Presets by department: {getattr(e, 'message', e)}")
+            return {"CANCELLED"}
+        ConfigCache.invalidate()
+        self.report({"INFO"}, "Presets by department saved.")
         return {"FINISHED"}
 
 

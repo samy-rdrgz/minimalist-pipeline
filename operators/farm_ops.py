@@ -146,14 +146,87 @@ def _get_pre_render_scripts(self, context):
         presets_dir = None
     config = ConfigCache.get() or {}
     departments = [*json_get(config, "shots_departments", []), *json_get(config, "assets_departments", [])]
-    return _stable_enum_items(_pre_render_scripts, pre_render_script_items(presets_dir, departments))
+    items = pre_render_script_items(presets_dir, departments)
+    # The picked department's presets first (its name's, or set for it), then the others.
+    dept = getattr(self, "department", _NO_DEPT)
+    if dept and dept != _NO_DEPT and len(items) > 1:
+        own = {(json_get(config, "farm.department_presets", {}) or {}).get(dept)}
+        mine = [i for i in items[1:] if i[0] in own or preset_department(i[0], [dept])]
+        if mine:
+            items = [items[0], *mine, None, *[i for i in items[1:] if i not in mine]]
+    return _stable_enum_items(_pre_render_scripts, items)
 
 
 def default_pre_render_script(config: dict, items: list) -> str:
     """config's farm.default_prerender_script (Edit project) if it's still
     one of the picker's items, else _NO_SCRIPT."""
     name = json_get(config, "farm.default_prerender_script", "") or ""
-    return name if name in {item[0] for item in items} else _NO_SCRIPT
+    return name if name in {item[0] for item in items if item} else _NO_SCRIPT
+
+
+_NO_DEPT = "NONE"
+_department_items_cache: list = []
+
+
+def _file_departments(filepath: str) -> list[str]:
+    """The project's departments for filepath's kind (shots' or assets');
+    both, shots first, for no file (the list, mixed)."""
+    config = ConfigCache.get() or {}
+    shots = list(json_get(config, "shots_departments", []) or [])
+    assets = list(json_get(config, "assets_departments", []) or [])
+    if not filepath:
+        return list(dict.fromkeys([*shots, *assets]))
+    is_shot = (parse_filename(Path(filepath).name) or {}).get("shot")
+    return shots if is_shot else assets
+
+
+def _get_departments(self, context):
+    """The Render dialog's department picker: the file's kind's departments."""
+    items = [(_NO_DEPT, "No department", "Its render counts for no department")]
+    items += [(d, d, f"A render for {d}: its to check and last render") for d in _file_departments(self.filepath)]
+    return _stable_enum_items(_department_items_cache, items)
+
+
+def department_preset(config: dict, department: str, items: list) -> str:
+    """The preset a department's renders start from: the one set in Project
+    settings (Presets by department), else <department>_default, else the
+    first whose name gives it, else no script."""
+    names = {i[0] for i in items if i}
+    set_ = (json_get(config, "farm.department_presets", {}) or {}).get(department)
+    if set_ in names:
+        return set_
+    if f"{department}_default" in names:
+        return f"{department}_default"
+    for i in items:
+        if i and i[0] != _NO_SCRIPT and preset_department(i[0], [department]):
+            return i[0]
+    return _NO_SCRIPT
+
+
+def last_render(filepath: str, department: str | None = None) -> dict:
+    """filepath's latest finished render (of department, if given) in its
+    render_history.json, {} if none."""
+    if not filepath:
+        return {}
+    history = read_json_quiet(Path(filepath).parent / ".pipeline" / "render_history.json") or {}
+    for e in reversed(history.get("entries") or []):
+        if e.get("status") == "split":
+            continue
+        if department is None or (e.get("department") or "") == department:
+            return e
+    return {}
+
+
+def _department_changed(self, context):
+    """A department picked: its preset -- the one this file was last
+    rendered with for it, else the department's own (department_preset())."""
+    items = _get_pre_render_scripts(self, context)
+    names = {i[0] for i in items if i}
+    if self.department == _NO_DEPT:
+        self.pre_render_script = default_pre_render_script(ConfigCache.get(), items)
+        return
+    last = last_render(self.filepath, self.department).get("prerender_script")
+    self.pre_render_script = last if last in names else department_preset(ConfigCache.get(), self.department, items)
 
 
 class M_PIPELINE_OT_farm_kill_monitor(bpy.types.Operator):
@@ -452,6 +525,15 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
         default=True,
     )  # type: ignore
 
+    department: bpy.props.EnumProperty(
+        items=_get_departments,
+        name="Department",
+        description="The department this render is for: its to check, its last render. "
+        "Picking one sets its preset",
+        update=_department_changed,
+        options={"SKIP_SAVE"},
+    )  # type: ignore
+
     pre_render_script: bpy.props.EnumProperty(
         items=_get_pre_render_scripts,
         name="Pre render script",
@@ -470,10 +552,12 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
             self.filepath = bpy.data.filepath
         self.project_root = str(get_active_project_root())
         scan_descriptions(get_active_project_root())  # menu tooltips
-        # Every submit starts from the project's preset, never the last one.
-        self.pre_render_script = default_pre_render_script(
-            ConfigCache.get(), _get_pre_render_scripts(self, context)
-        )
+        # Every submit starts from this file's last render's department (its
+        # preset with it: _department_changed()), else the project's preset --
+        # never the dialog's last one.
+        dept = last_render(self.filepath).get("department") or ""
+        self.department = dept if dept and dept in _file_departments(self.filepath) else _NO_DEPT
+        _department_changed(self, context)  # its update may not run from invoke()
         if self.filepath:
             self._populate_subshots(context)
             if event.ctrl:
@@ -531,7 +615,8 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
             self, "assigned_machines", text="Assigned machines (empty: auto)"
         )
         col.separator()
-        # A dropdown, not prop_menu_enum(): shows the script picked.
+        # Department, then its preset (a dropdown, not prop_menu_enum(): shows the one picked).
+        col.prop(self, "department", text="")
         col.prop(self, "pre_render_script", text="")
 
     def _draw_subshots(self, layout, subshots):
@@ -711,6 +796,15 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
             overrided_frame_range=(start, end),
             only_shots=sorted(only) if only else None,
             sound=self.sound,
+            # Picked in the dialog; "" none. A file of another kind (the list,
+            # mixed): what its preset's name gives.
+            department=(
+                ""
+                if self.department == _NO_DEPT
+                else self.department
+                if self.department in _file_departments(filepath)
+                else None
+            ),
         )
 
     def _populate_subshots(self, context) -> None:

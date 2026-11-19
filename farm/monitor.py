@@ -429,12 +429,14 @@ def job_request(
     shot_override: str = "",
     only_shots: list[int] | None = None,
     sound: bool = True,
+    department: str | None = None,
 ) -> None:
     """Submit a render job request, picked up by scan_requests(). shot_override
     (e.g. "sh045") routes output to shots/<sequence>/<shot_override>/.
     only_shots restricts a block's split to these shot numbers. sound:
     the scene's sound in the video (farm/setup.py), False for a video
-    without any."""
+    without any. department: the one the render is for, picked in the
+    Render dialog ("" none); None: the one its preset's name gives."""
 
     assigned_machines = assigned_machines if assigned_machines is not None else []
     try:
@@ -446,8 +448,10 @@ def job_request(
             "assigned_machines": assigned_machines,
             "increment": increment,
             "prerender_script": prerender_script,
-            # The department its preset's name gives (render_department()).
-            "department": render_department(str(filepath), prerender_script),
+            # Picked in the dialog, else the one its preset's name gives (render_department()).
+            "department": (
+                render_department(str(filepath), prerender_script) if department is None else department
+            ),
             "overrided_frame_range": overrided_frame_range,
             "shot_override": shot_override,
             "only_shots": only_shots or [],
