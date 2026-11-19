@@ -600,10 +600,10 @@ button.assign:hover{background:var(--line);color:var(--text)}
 .sf>*{position:relative}.sf{z-index:0}.sf::before{z-index:-1}
 .sf .lab{margin-right:auto;color:var(--text-2)}
 .sf.na{color:var(--text-3);justify-content:center;background:transparent;box-shadow:none;border:1px dashed var(--line)}
-/* A bar's words black, each on a white pill drawn UNDER the coloured fill: where the bar reaches, its colour covers the pill. */
+/* A bar's words black, each on a pill of the bar's own colour: always on its colour, whatever the share. */
 .sf .v,.sf .lab{color:#151515;padding:1px var(--sp-4);border-radius:999px;line-height:1.3}
 .sf .v{font-weight:600}.sf .lab{font-weight:500;margin-left:calc(-1*var(--sp-2))}
-.sf .v::before,.sf .lab::before{content:"";position:absolute;inset:0;border-radius:inherit;background:rgba(255,255,255,.9);z-index:-2}
+.sf .v::before,.sf .lab::before{content:"";position:absolute;inset:0;border-radius:inherit;background:var(--c);z-index:-2}
 
 
 #quick>.dim{white-space:nowrap}
@@ -3607,7 +3607,7 @@ const DESK=[
  {n:'Review in progress',c:'.review-chip',m:'.review-chip',d:()=>`<div class="topbar" style="min-height:0;padding:var(--sp-4)"><span class="review-chip"><span class="who">Valerie · prod</span><button class="btn primary">${ic('b-export')}Send…<span class="n">4</span></button><button class="btn flat icon" aria-label="Leave">${ic('b-x')}</button></span></div>`,r:['The top bar\'s tint; the solid "you" dot, the colour of the glyphs\' corner.']},
  {n:'Assignment',c:'.assign',m:'.assign',d:()=>`<div class="kc-row">${assignHTML(it1,'animation','k')}${assignHTML(it1,'render','k2')}${assignHTML(it3,'lighting','k3')}</div>`,r:['Dashed: nobody. Turquoise: changed in your review.']},
  {n:'Frame chip',c:'.ft',m:'.ft',d:()=>`<div class="kc-row"><span class="ft" data-kv="retake">f42</span><span class="ft rg" data-kv="range">f42-58</span><span class="ft nt" data-kv="note">f12</span></div>`,r:['Orange: a retake, a range too. Grey: a remark. A click goes there.']},
- {n:'Progress',c:'.jbar .sf',m:'.jbar,.sf',d:()=>`<span class="jbar" style="width:280px"><i style="--p:42%"></i><span>40 / 96 frames</span></span><span class="sf in" style="--p:74%;--c:var(--st-done);width:280px"><span class="lab on">Done</span><b class="v">74 %</b></span><span class="sf" style="--p:12%;--c:var(--st-val);width:280px"><span class="lab">Validated</span><b class="v">12 %</b></span>`,r:['Always the figure beside the bar.','The bar solid in its state colour; the figure black, on the bar once it reaches it, else on a small white pill.']},
+ {n:'Progress',c:'.jbar .sf',m:'.jbar,.sf',d:()=>`<span class="jbar" style="width:280px"><i style="--p:42%"></i><span>40 / 96 frames</span></span><span class="sf in" style="--p:74%;--c:var(--st-done);width:280px"><span class="lab on">Done</span><b class="v">74 %</b></span><span class="sf" style="--p:12%;--c:var(--st-val);width:280px"><span class="lab">Validated</span><b class="v">12 %</b></span>`,r:['Always the figure beside the bar.','The bar solid in its state colour; the figure black, on a pill of the bar's own colour.']},
  {n:'Player and transport',c:'.stage .scrub .ctl',m:'.ctl .btn,.ctl .enum,.scrub',same:['.ctl','.btn,.enum'],wide:1,d:()=>`<div style="max-width:520px">${stageHTML(it1)}</div>`,r:['Every transport button the same size; Play dark.','The stage takes the video\'s shape, its height between a min and a max.','Marks: orange diamond = retake, grey = note; a range in orange.']},
  {n:'Department card',c:'.dept',m:'.dept',wide:1,d:()=>`<div style="max-width:520px;display:flex;flex-direction:column;gap:var(--sp-4)">${DEPTS.shot.map(d=>deptHTML(it2,d,'k')).join('')}</div>`,r:['A card per required department; the others aren\'t shown.','Actions aligned right, always in the same place.']},
  {n:'Note',c:'.nt',m:'.nt',wide:1,d:()=>`<div style="max-width:520px">${[...it2.myNotes.map(n=>({...n,mine:1})),...it1.notes.slice(0,2)].map(n=>noteHTML(n.mine?it2:it1,n)).join('')}</div>`,r:['Yours in turquoise until they are sent.']},
