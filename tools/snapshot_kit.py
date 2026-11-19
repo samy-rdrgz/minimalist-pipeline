@@ -48,7 +48,11 @@ def main() -> None:
     data["farm"] = json.loads((REPO / "tests" / "fixtures" / "snapshot_demo_farm.json").read_text(encoding="utf-8"))
     kit = Path(__file__).resolve().parent / "snapshot_kit_src"
     parts = [p for p in page.JS_PARTS if not p.startswith("desktop/29") and p != "boot.js"]
-    js = page._parts("js", parts) + "\n/* ==== kit/kit.js ==== */\n" + (kit / "kit.js").read_text(encoding="utf-8")
+    # The sheet in English, whatever the browser's language: the page's own words as they are written.
+    js = "".join(
+        page._parts("js", [p]) + ("MPI18n.pick = function () { return 'en'; };\n" if p == "core/01-i18n.js" else "")
+        for p in parts
+    ) + "\n/* ==== kit/kit.js ==== */\n" + (kit / "kit.js").read_text(encoding="utf-8")
     shell = (page.PAGE_DIR / "page.html").read_text(encoding="utf-8")
     own = shell[shell.index("<svg width=\"0\""):shell.index("</svg>") + 6]
     logo = (page.PAGE_DIR / "logo.svg").read_text(encoding="utf-8")

@@ -7,7 +7,7 @@
   /* ---- Sizes: everything from --unit (4 px × --scale). No px written in a component,
      but the hairlines (1 px) and the layout's widths. View › Interface scale changes --scale. */
   --unit:calc(4px*var(--scale));
-  /* Espacements (padding, margin, gap) */
+  /* Spacing (padding, margin, gap) */
   --sp-1:calc(var(--unit)*.5);   /*  2 */
   --sp-2:var(--unit);            /*  4 */
   --sp-3:calc(var(--unit)*1.5);  /*  6 */
@@ -19,20 +19,20 @@
   --sp-9:calc(var(--unit)*6);    /* 24 */
   --sp-10:calc(var(--unit)*8);   /* 32 */
   --sp-11:calc(var(--unit)*12);  /* 48 */
-  /* Hauteurs de widget */
-  --h-xs:calc(var(--unit)*4.5);  /* 18 : puce, glyphe */
-  --h-sm:calc(var(--unit)*6);    /* 24 : bouton sm, onglet */
-  --u:calc(var(--unit)*7);       /* 28 : bouton, champ, ligne de menu */
+  /* Widget heights */
+  --h-xs:calc(var(--unit)*4.5);  /* 18: chip, glyph */
+  --h-sm:calc(var(--unit)*6);    /* 24: small button, tab */
+  --u:calc(var(--unit)*7);       /* 28: button, field, menu row */
   --h-lg:calc(var(--unit)*9);    /* 36: an area's header, the top bar */
-  --h-touch:44px;                /* cible tactile minimale (mobile), ne suit pas --scale */
-  /* Arrondis */
+  --h-touch:44px;                /* a finger's smallest target (phone), doesn't follow --scale */
+  /* Radii */
   --r-xs:calc(var(--unit)*.5);   /*  2: bars, marks */
-  --r-s:calc(var(--unit)*.75);   /*  3 : badges, kbd */
-  --r:calc(var(--unit)*1.25);    /*  5 : widgets (comme Blender) */
-  --r-l:calc(var(--unit)*2);     /*  8 : box, panneaux, menus */
-  --r-xl:calc(var(--unit)*2.5);  /* 10 : dialogues, feuilles */
+  --r-s:calc(var(--unit)*.75);   /*  3: badges, kbd */
+  --r:calc(var(--unit)*1.25);    /*  5: widgets (as Blender's) */
+  --r-l:calc(var(--unit)*2);     /*  8: boxes, panels, menus */
+  --r-xl:calc(var(--unit)*2.5);  /* 10: dialogs, sheets */
   --r-pill:999px;
-  /* Texte */
+  /* Text */
   --fs-xs:calc(10.5px*var(--scale)); --fs-s:calc(11.5px*var(--scale)); --fs:calc(13px*var(--scale)); --fs-l:calc(15px*var(--scale)); --fs-xl:calc(18px*var(--scale));
   --fs-in:16px;                  /* the fields' text on a phone: iOS doesn't zoom at 16 px and over */
   --lh:1.45;

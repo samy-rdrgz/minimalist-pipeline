@@ -1,4 +1,4 @@
-/* ==== kit/kit.css : la mise en page de la feuille seulement. Les composants viennent des CSS de la page. ==== */
+/* ==== kit/kit.css: the sheet's own layout only. The components come from the page's CSS. ==== */
 html{height:auto!important;overflow:auto!important}
 body{height:auto!important;overflow:visible!important}
 html,body{margin:0;background:var(--screen);color:var(--text);font:var(--fs)/var(--lh) var(--ui)}
@@ -33,7 +33,7 @@ code{font:var(--fs-s) var(--mono);color:var(--text);background:var(--sunk);paddi
 .k-sw{display:inline-block;width:28px;height:16px;border-radius:var(--r-s);border:1px solid var(--line-2);vertical-align:middle;margin-right:var(--sp-3)}
 .k-grp td{background:var(--sunk);color:var(--text-3);font-weight:600;text-transform:uppercase;letter-spacing:.05em}
 
-/* Fiche d'un composant */
+/* A component's card */
 .kc{margin:0 0 var(--sp-8);background:var(--area);border:1px solid var(--line);border-radius:var(--r-l);overflow:hidden}
 .kc-h{display:flex;align-items:baseline;flex-wrap:wrap;gap:var(--sp-4) var(--sp-6);padding:var(--sp-5) var(--sp-7);border-bottom:1px solid var(--line);background:var(--head)}
 .kc-h b{font-size:var(--fs-l)}
@@ -67,7 +67,7 @@ code{font:var(--fs-s) var(--mono);color:var(--text);background:var(--sunk);paddi
 .ka li{display:flex;gap:var(--sp-4);border-bottom:1px solid var(--line);padding:var(--sp-1) 0}
 .ka li b{color:var(--text);font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
 .ka li span{white-space:nowrap}
-/* Téléphones */
+/* Phones */
 .k-phones{display:flex;flex-wrap:wrap;gap:var(--sp-8);align-items:flex-start}
 .k-phone{width:390px;max-width:100%;border:1px solid var(--line-2);border-radius:28px;overflow:hidden;background:var(--area);box-shadow:0 10px 30px var(--shadow);position:relative}
 .k-phone.mob{display:flex;flex-direction:column;font:var(--fs)/var(--lh) var(--ui)}
