@@ -1,6 +1,6 @@
 /* ---------- The review's actions (shared by both views) ----------
    The only functions that change the files. Desktop and phone call them, then refresh().
-   None touches the DOM. Each is an action of lib/review_import.py (named at the line's end). */
+   None touches the DOM. Each is an action of lib/monitoring/review_import.py (named at the line's end). */
 const canVal=(it,d)=>!!S.review&&S.review.role!==TEAM&&isDone(stOf(it,d))&&!it.ok[d];
 /* Done on the stable, no new version: one forgotten when it was made. Anyone reviewing may (it's not a validation). */
 /* A note sent already that this reviewer wrote: theirs to change or delete. */

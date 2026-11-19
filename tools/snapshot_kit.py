@@ -1,7 +1,7 @@
 """The snapshot page's component sheet (tools/snapshot_kit_src/, not shipped): every
 component drawn by the page's own CSS and render functions, measured in
 the browser, with an audit of what falls outside the size tokens. Built
-from the same parts as the page (lib/snapshot_page.py CSS_PARTS /
+from the same parts as the page (lib/monitoring/snapshot_page.py CSS_PARTS /
 JS_PARTS), without its events and its start. Not part of the addon.
 
     python3 tools/snapshot_kit.py [data.json, default tests/fixtures/snapshot_demo.json] [out.html]
@@ -40,11 +40,11 @@ def main() -> None:
     import fake_bpy
 
     fake_bpy.install()
-    page = importlib.import_module(f"{fake_bpy.load().__name__}.lib.snapshot_page")
+    page = importlib.import_module(f"{fake_bpy.load().__name__}.lib.monitoring.snapshot_page")
     src = Path(sys.argv[1]) if len(sys.argv) > 1 else REPO / "tests" / "fixtures" / "snapshot_demo.json"
     out = Path(sys.argv[2]) if len(sys.argv) > 2 else Path("snapshot_kit.html")
     data = page.page_data(json.loads(src.read_text(encoding="utf-8")))
-    # The farm as the live page adds it (lib/live.py _farm_data()): the demo's.
+    # The farm as the live page adds it (lib/monitoring/live.py _farm_data()): the demo's.
     data["farm"] = json.loads((REPO / "tests" / "fixtures" / "snapshot_demo_farm.json").read_text(encoding="utf-8"))
     kit = Path(__file__).resolve().parent / "snapshot_kit_src"
     parts = [p for p in page.JS_PARTS if not p.startswith("desktop/29") and p != "boot.js"]

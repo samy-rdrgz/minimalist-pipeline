@@ -1,7 +1,7 @@
 """The monitoring windows -- the Pipeline log, the welcome, Project
 settings: each a Properties editor on its Tool tab, where
 panels/monitoring_panel.py draws (Project and Farm monitoring: the live
-page now, lib/live.py).
+page now, lib/monitoring/live.py).
 See NOTES.md, "Monitoring: windows, not popups"."""
 
 import os
@@ -9,8 +9,8 @@ import sys
 
 import bpy
 
-from .background import threads_paused
-from .core import monitoring_detail, set_monitoring_detail
+from ..background import threads_paused
+from ..core import monitoring_detail, set_monitoring_detail
 from .tracking import TrackingStatusCache
 
 # ID property marking a window's screen with what it shows ("project" or
@@ -470,7 +470,7 @@ def _area_op(window, area, name: str, **kwargs) -> bool:
         ):
             return "FINISHED" in getattr(bpy.ops.screen, name)(**kwargs)
     except (RuntimeError, TypeError) as e:
-        from .logs import log
+        from ..logs import log
 
         log("WARNING", "monitoring", f"{name} failed: {e}")
         return False

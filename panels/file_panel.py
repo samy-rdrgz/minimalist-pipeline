@@ -79,7 +79,7 @@ class M_PIPELINE_PT_file_panel(bpy.types.Panel):
             col = work.column(align=True)
             col.scale_y = 0.7
 
-            # Waiting / To redo (lib/status.py stage_flags()): said on the
+            # Waiting / To redo (lib/monitoring/status.py stage_flags()): said on the
             # toggle; a department to redo has its Still done beside it.
             status = TrackingStatusCache.get(bpy.data.filepath)
             flags = status.get("flags") or {}

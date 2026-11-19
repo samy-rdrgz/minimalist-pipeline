@@ -1,4 +1,4 @@
-/* ---------- Live: share with a phone (lib/live.py /share, lib/qr.py) ----------
+/* ---------- Live: share with a phone (lib/monitoring/live.py /share, lib/monitoring/qr.py) ----------
    An access for someone on the studio's network, or on the same VPN: their name, role, how
    long (a week at most) -- a link and its QR code, Copy link beside; the accesses running,
    each revoked in a click. A guest reviews as themselves: the farm read only, nothing opened

@@ -26,7 +26,7 @@ from ..lib import (
     to_relative,
 )
 from ..lib.config import parse_filename
-from ..lib.status import preset_department
+from ..lib.monitoring.status import preset_department
 from .chunks import remove_claims
 from .dispatch import LOG_KEEP_BYTES, compact_log, discard_job_progress
 from .loop import (

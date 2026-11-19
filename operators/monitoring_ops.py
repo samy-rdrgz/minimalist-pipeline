@@ -1,7 +1,7 @@
-"""Navigation inside the monitoring windows (lib/monitoring.py) -- the
+"""Navigation inside the monitoring windows (lib/monitoring/windows.py) -- the
 Pipeline log's: turning its list's page, reading it again; their buttons,
 and the keys register_monitoring_keymap() binds. Project and Farm
-monitoring are the live page's now (lib/live.py)."""
+monitoring are the live page's now (lib/monitoring/live.py)."""
 
 import bpy
 

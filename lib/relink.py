@@ -28,7 +28,7 @@ from . import blendfile
 from .config import RELINK_TAG, ConfigCache, parse_filename
 from .core import json_get, read_json_quiet
 from .logs import log
-from .tracking import (
+from .monitoring.tracking import (
     _meta_path,
     _outdated_links_of,
     create_wipmeta,

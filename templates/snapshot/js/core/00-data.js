@@ -1,4 +1,4 @@
-/* ---------- The data: page_data() (lib/snapshot_page.py), as the views read it ----------
+/* ---------- The data: page_data() (lib/monitoring/snapshot_page.py), as the views read it ----------
    The export's own shape, read once here (and again on each live update, applyData()):
    the views read items, M, DEPTS and F, never the raw data. */
 const RAW=JSON.parse(document.getElementById('data').textContent);

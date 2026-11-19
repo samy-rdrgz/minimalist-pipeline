@@ -9,7 +9,7 @@ import zipfile
 from pathlib import Path
 
 from .config import ConfigCache, json_get, parse_filename, shots_in_segment
-from .tracking import ARCHIVE_DIRNAME
+from .monitoring.tracking import ARCHIVE_DIRNAME
 
 
 def render_root(project_root: Path, owner_dir: Path) -> Path:
@@ -65,7 +65,7 @@ def _stages_for(render_dir: Path) -> dict:
     """The project's stages for a render folder's kind (under renders/assets
     or renders/library: the assets'), {} when it can't tell."""
     try:
-        from .status import project_stages
+        from .monitoring.status import project_stages
 
         kind = "assets" if {"assets", "library"} & set(render_dir.parts) else "shots"
         return project_stages(ConfigCache.get(), kind)
@@ -373,7 +373,7 @@ def browser_video(render_dir: Path | None) -> Path | None:
 
 def zip_videos(videos: list[tuple[Path, str]], zip_path: Path) -> int:
     """Videos [(mp4, name)] into zip_path under their names
-    (lib/snapshot.py snapshot_videos()). Stored, not compressed: an mp4
+    (lib/monitoring/snapshot.py snapshot_videos()). Stored, not compressed: an mp4
     already is. Written beside then renamed, never left half-written.
     Returns how many."""
     zip_path = Path(zip_path)

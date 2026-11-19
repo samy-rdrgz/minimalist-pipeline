@@ -316,7 +316,7 @@ def unregister():
 
     # The live page's server: its port freed, its timer gone.
     try:
-        from .lib import live
+        from .lib.monitoring import live
 
         live.stop()
     except Exception as e:

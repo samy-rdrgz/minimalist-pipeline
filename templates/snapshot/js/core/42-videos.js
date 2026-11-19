@@ -1,5 +1,5 @@
 /* ---------- Videos: where a render's video is played from ----------
-   By its path under renders/ (lib/snapshot.py snapshot_videos()): a folder chosen here first,
+   By its path under renders/ (lib/monitoring/snapshot.py snapshot_videos()): a folder chosen here first,
    then the copy that came with the page (meta.videos: its videos/ folder or zip), then the
    project's renders/ relative to the page; live, through Blender's server. */
 let PICKED=null;

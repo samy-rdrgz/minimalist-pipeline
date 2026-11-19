@@ -10,8 +10,8 @@ import json
 import re
 from pathlib import Path
 
-from .config import covering_role
-from .core import parse_iso, time_key
+from ..config import covering_role
+from ..core import parse_iso, time_key
 from .review_import import REVIEW_JSON_FORMAT
 from .snapshot import (
     SCHEMA_VERSION,
@@ -22,7 +22,7 @@ from .snapshot import (
     snapshot_filename,
 )
 
-PAGE_DIR = Path(__file__).resolve().parent.parent / "templates" / "snapshot"
+PAGE_DIR = Path(__file__).resolve().parents[2] / "templates" / "snapshot"
 
 # The page's sources, in this order (templates/snapshot/css/, js/): one
 # stylesheet and one script in the page, the script inside one function
@@ -100,7 +100,7 @@ def render_page(data: dict) -> str:
     """page.html with the stylesheet, the script, the logo, the wordmark's
     font, the Blender icons it names and data (page_data()) put in, in one
     pass (a value is never read again for placeholders). The live page's
-    too (lib/live.py)."""
+    too (lib/monitoring/live.py)."""
     logo = (PAGE_DIR / "logo.svg").read_text(encoding="utf-8")
     viewbox = _VIEWBOX.search(logo)[1]
     width, height = viewbox.split()[2:]
@@ -199,7 +199,7 @@ def _meta(snapshot: dict) -> dict:
         "videos": meta.get("videos"),
         # Its videos' frame rate: the player's frame number (page.js).
         "fps": meta.get("fps"),
-        # Served by Blender (lib/live.py): {"token", "version"}; None, a file.
+        # Served by Blender (lib/monitoring/live.py): {"token", "version"}; None, a file.
         "live": meta.get("live"),
     }
 
@@ -226,7 +226,7 @@ def _item(item: dict, threads: list, roles: list, image) -> dict:
         if item.get("wip_version") and item.get("wip_after_stable", True)
         else "",
         "states": dict(item["departments"]),
-        # Waiting / To redo with their reasons (lib/status.py stage_flags()).
+        # Waiting / To redo with their reasons (lib/monitoring/status.py stage_flags()).
         "flags": item.get("flags") or {},
         "assignees": item.get("assignees") or {},
         "omit": item.get("omit"),

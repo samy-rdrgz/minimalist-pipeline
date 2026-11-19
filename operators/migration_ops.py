@@ -21,7 +21,7 @@ from ..lib.migration import (
     migration_record,
     plan_migration,
 )
-from ..lib.tracking import ProjectScan, TrackingStatusCache
+from ..lib.monitoring.tracking import ProjectScan, TrackingStatusCache
 
 # The plan waiting for its confirm dialog (see NOTES.md, "Popup-chaining").
 _pending: dict = {}

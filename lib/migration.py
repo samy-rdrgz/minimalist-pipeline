@@ -14,7 +14,7 @@ writes (main thread: locked_json()). What each step completes:
   ("approvals_carried", 1.1.9); "linked" one entry per project file;
   "departments_validated" renamed "departments_done" (2.0: it has meant
   Done since 1.1.2, validations being "approvals"), the old name kept
-  beside it for 1.x builds (lib/legacy.py).
+  beside it for 1.x builds (lib/monitoring/legacy.py).
 - .wipmeta: "linked" one entry per project file; each session's
   "departments_worked" with its date (1.2: {"departments", "saved_at",
   "by"}).
@@ -34,11 +34,11 @@ import shutil
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from . import legacy
+from .monitoring import legacy
 from .core import EARLIEST, file_time, locked_json, now, parse_iso, read_json_quiet, time_key
 from .preview import render_root
-from .snapshot import _folder_frames, _owner_shots
-from .tracking import (
+from .monitoring.snapshot import _folder_frames, _owner_shots
+from .monitoring.tracking import (
     _CLOCK_MARGIN_SECONDS,
     _DATA_ROOTS,
     _is_under,
@@ -128,7 +128,7 @@ def apply_migration(root: Path, plan: dict) -> dict:
 def _plan_presets(root: Path) -> dict:
     """{"json": the .json render presets to rewrite as .py, "departments":
     the project's departments with no preset at all} -- read only."""
-    from .status import preset_department
+    from .monitoring.status import preset_department
 
     folder = root / "config" / "presets"
     try:
@@ -414,7 +414,7 @@ def _done_of(data: dict) -> dict:
 def _migrate_done(data: dict) -> bool:
     """departments_validated renamed departments_done (2.0), the old name
     kept beside it, equal, while 1.x builds may read the project
-    (lib/legacy.py). Both there and differing: a 1.x wrote it last, its
+    (lib/monitoring/legacy.py). Both there and differing: a 1.x wrote it last, its
     values win (legacy.stable_read()). False when nothing changes."""
     if "departments_validated" not in data:
         return False

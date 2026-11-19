@@ -23,7 +23,7 @@ def run() -> None:
     pkg = fake_bpy.load()
     core = sys.modules[f"{pkg.__name__}.lib.core"]
     migration = sys.modules[f"{pkg.__name__}.lib.migration"]
-    tracking = sys.modules[f"{pkg.__name__}.lib.tracking"]
+    tracking = sys.modules[f"{pkg.__name__}.lib.monitoring.tracking"]
     tz = os.environ.get("TZ", "")
 
     # now(): local, with its offset, read back as written.

@@ -1,5 +1,5 @@
 """A department marked done on the latest stable, no new version
-(lib/tracking.py set_department_done(), the review's "done" action): done
+(lib/monitoring/tracking.py set_department_done(), the review's "done" action): done
 written in place (both keys, 2.0 and 1.x), started kept, undone taking its
 validations there with it; nothing written when already as asked; refused
 without a stable. And the review action read back.
@@ -23,8 +23,8 @@ def main() -> None:
     fake_bpy.install()
     pkg = fake_bpy.load()
     config = importlib.import_module(f"{pkg.__name__}.lib.config")
-    tracking = importlib.import_module(f"{pkg.__name__}.lib.tracking")
-    review_import = importlib.import_module(f"{pkg.__name__}.lib.review_import")
+    tracking = importlib.import_module(f"{pkg.__name__}.lib.monitoring.tracking")
+    review_import = importlib.import_module(f"{pkg.__name__}.lib.monitoring.review_import")
     errors = importlib.import_module(f"{pkg.__name__}.lib.errors")
     core = importlib.import_module(f"{pkg.__name__}.lib.core")
     core.get_machine_id = lambda *a, **k: "test-machine"  # a MagicMock isn't JSON

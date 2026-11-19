@@ -1,6 +1,6 @@
 """A farm job's and a machine's details as plain data -- what Farm
 monitoring drew, kept apart from its panel: the live page's Farm tab
-reads them (lib/live.py). Memory and json reads only, no bpy UI."""
+reads them (lib/monitoring/live.py). Memory and json reads only, no bpy UI."""
 
 from pathlib import Path
 

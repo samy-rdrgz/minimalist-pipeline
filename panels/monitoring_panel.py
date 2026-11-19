@@ -1,6 +1,6 @@
-"""The monitoring windows' content (lib/monitoring.py): the Pipeline log,
+"""The monitoring windows' content (lib/monitoring/windows.py): the Pipeline log,
 the welcome, Project settings. Project and Farm monitoring are the live
-page's now (lib/live.py)."""
+page's now (lib/monitoring/live.py)."""
 
 import bpy
 

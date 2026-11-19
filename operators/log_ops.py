@@ -1,4 +1,4 @@
-"""Pipeline log window operators (lib/monitoring.py, kind "log")."""
+"""Pipeline log window operators (lib/monitoring/windows.py, kind "log")."""
 
 import bpy
 

@@ -772,7 +772,7 @@ def _redraw_sidebars() -> None:
 
 
 def refresh_step(soon: bool = False) -> bool:
-    """_refresh_tick()'s turn, the live page's too (lib/live.py: its Farm
+    """_refresh_tick()'s turn, the live page's too (lib/monitoring/live.py: its Farm
     tab, Farm monitoring closed): the last read applied, the next one
     started every _REFRESH_INTERVAL -- soon: at once (an action just done).
     True when a read was applied."""
@@ -1034,7 +1034,7 @@ def _build_job_entry(
         "output_dir": str(output_dir) if output_dir else "",
         "user": job.get("user", ""),
         "submitted_at": job["stage_history"][0]["at"],
-        # The live page's job detail (lib/live.py _farm_data()).
+        # The live page's job detail (lib/monitoring/live.py _farm_data()).
         "priority": job.get("priority", 10),
         "prerender_script": job.get("prerender_script", ""),
         "department": job.get("department", ""),

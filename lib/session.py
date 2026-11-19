@@ -299,7 +299,7 @@ def session_update(saved: bool = False):
 def _log_session_end(data: dict) -> None:
     """Log the session_end summary line (work duration) to sessions_log_file.
     filepath is its own field, not parsed from message -- read back by
-    WorkTimeCache (lib/tracking.py, see NOTES.md)."""
+    WorkTimeCache (lib/monitoring/tracking.py, see NOTES.md)."""
     try:
         opened_at = parse_iso(data["opened_at"])
         last_ping = parse_iso(data["last_ping"])

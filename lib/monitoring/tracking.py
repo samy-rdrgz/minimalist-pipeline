@@ -13,9 +13,9 @@ from pathlib import Path
 
 import bpy
 
-from .actions import PipelineAction, set_pending_action
-from .background import background_work, checkpoint
-from .config import (
+from ..actions import PipelineAction, set_pending_action
+from ..background import background_work, checkpoint
+from ..config import (
     ConfigCache,
     file_in_active_project,
     get_active_project_root,
@@ -29,7 +29,7 @@ from .config import (
     to_relative,
     validation_roles,
 )
-from .core import (
+from ..core import (
     EARLIEST,
     LATEST,
     SCANDIR_TTL,
@@ -47,11 +47,11 @@ from .core import (
     time_key,
 )
 from . import legacy
-from .errors import PipelineError
+from ..errors import PipelineError
 from .status import project_stages, stage_flags
-from .logs import log
-from .session import get_user
-from .versioning import get_last_version_number, get_version_number
+from ..logs import log
+from ..session import get_user
+from ..versioning import get_last_version_number, get_version_number
 
 
 def _meta_stem(filepath: Path) -> str:
@@ -1046,7 +1046,7 @@ def create_stablemeta(
 
 
 def set_file_omit(filepath: Path, state: str, by: str, reason: str = "") -> None:
-    """Set a file aside, tracking.json's "omit" (lib/status.py OMIT_STATES:
+    """Set a file aside, tracking.json's "omit" (lib/monitoring/status.py OMIT_STATES:
     "on_hold", "cancelled"), or count it again (state ""). The marker covers the
     whole file -- a block's every shot."""
     path = tracking_json_path(filepath, must_exist=True)
@@ -1063,7 +1063,7 @@ def set_file_omit(filepath: Path, state: str, by: str, reason: str = "") -> None
 def set_department_synced(filepath: Path, department: str, by: str, text: str = "") -> None:
     """Still done: department's last update now (tracking.json's
     departments_synced) -- its work holds after an earlier stage changed,
-    clearing To redo (lib/status.py stage_flags()). Not a validation."""
+    clearing To redo (lib/monitoring/status.py stage_flags()). Not a validation."""
     path = tracking_json_path(filepath, must_exist=True)
     with locked_json(path) as box:
         data = box["data"] or {}
@@ -1347,7 +1347,7 @@ def _collect_folder(asset_dir: Path, entries: list | None = None) -> dict | None
         "last_stable": last_stable,
         "wipmetas": wipmetas,
         "started": last_stable.get("departments_started") or [],
-        # Its stages' kind (lib/status.py project_stages()): a library's
+        # Its stages' kind (lib/monitoring/status.py project_stages()): a library's
         # are the assets'.
         "kind": "shots" if Path(asset_dir).parts[-3:-2] == ("shots",) else "assets",
     }
@@ -1500,7 +1500,7 @@ def _status_from_raw(raw: dict) -> dict:
         "stable_worked": list(last_stable.get("departments_worked") or []),
         "last_worked_at": last_worked_at,
     }
-    # Waiting / To redo, by the project's stages (lib/status.py).
+    # Waiting / To redo, by the project's stages (lib/monitoring/status.py).
     try:
         config = ConfigCache.get()
     except Exception:
@@ -2374,7 +2374,7 @@ def open_elsewhere(owner: Path) -> list[str]:
     """The .blend files of owner someone has open to work on: a live lock
     (".<name>.blend.lock", see acquire_lock()) next to them. Read-only
     opens take none."""
-    from .core import _is_unlock
+    from ..core import _is_unlock
 
     out = []
     try:
@@ -2392,7 +2392,7 @@ def owner_render_dirs(project_root: Path, owner: Path, kind: str) -> list[Path]:
     """The render folders that are owner's alone: an asset's, a shot's -- a
     block's each shot no other active block owns, and the block rendered
     whole. Those that exist."""
-    from .preview import render_root
+    from ..preview import render_root
 
     base = render_root(project_root, owner)
     dirs = [base]

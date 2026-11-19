@@ -12,7 +12,7 @@ from pathlib import Path
 
 from .core import iso_timestamp, read_json_quiet
 from .preview import is_video, render_root
-from .snapshot import _FRAME_FILE, _owner_shots, read_render_state, read_snapshot_raw
+from .monitoring.snapshot import _FRAME_FILE, _owner_shots, read_render_state, read_snapshot_raw
 
 # Left in a folder lightened to its video: when it was rendered, as its
 # frames said -- the video's own date moves (a remux, a copy).

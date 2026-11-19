@@ -21,8 +21,8 @@ def main() -> None:
 
     fake_bpy.install()
     pkg = fake_bpy.load()
-    snap = importlib.import_module(f"{pkg.__name__}.lib.snapshot")
-    rev = importlib.import_module(f"{pkg.__name__}.lib.review_import")
+    snap = importlib.import_module(f"{pkg.__name__}.lib.monitoring.snapshot")
+    rev = importlib.import_module(f"{pkg.__name__}.lib.monitoring.review_import")
 
     with tempfile.TemporaryDirectory() as d:
         snapshots = Path(d) / "snapshots"

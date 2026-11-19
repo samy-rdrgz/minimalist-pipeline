@@ -16,8 +16,8 @@ def main() -> None:
 
     fake_bpy.install()
     pkg = fake_bpy.load().__name__
-    status = importlib.import_module(f"{pkg}.lib.status")
-    tracking = importlib.import_module(f"{pkg}.lib.tracking")
+    status = importlib.import_module(f"{pkg}.lib.monitoring.status")
+    tracking = importlib.import_module(f"{pkg}.lib.monitoring.tracking")
     deps = ["layout", "look_dev", "look", "animation", "render"]
     for preset, want in {
         "look_dev_hd": "look_dev", "LOOK-x": "look", "animation": "animation",
@@ -37,7 +37,7 @@ def main() -> None:
     assert tracking.render_to_check_label("", {"render": "r/v3"}) == "v3"
     # The main render: the highest stage's department, else the newest.
     import json, tempfile
-    snapshot = importlib.import_module(f"{pkg}.lib.snapshot")
+    snapshot = importlib.import_module(f"{pkg}.lib.monitoring.snapshot")
     root = Path(tempfile.mkdtemp())
     owner = root / "shots" / "sq010" / "sq010_sh010"
     (owner / ".pipeline").mkdir(parents=True)

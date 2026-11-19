@@ -7,13 +7,13 @@ import re
 import threading
 from pathlib import Path
 
-from .background import background_work
-from .config import (
+from ..background import background_work
+from ..config import (
     RELINK_TAGS,
     covering_role,
     validation_roles,
 )
-from .core import (
+from ..core import (
     iso_timestamp,
     json_get,
     now,
@@ -29,9 +29,9 @@ from .status import (
     progress_weights,
     project_stages,
 )
-from .preview import LD_DIR, browser_video, ensure_ld, main_render_dir, render_root
+from ..preview import LD_DIR, browser_video, ensure_ld, main_render_dir, render_root
 from .schedule import project_schedule, schedule_progress
-from .thumbnails import (
+from ..thumbnails import (
     owner_shot_render_dirs,
     owner_thumbnail_dirs,
     run_thumbnail_jobs,
@@ -588,7 +588,7 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
             "flags": status.get("flags") or {},
             # Who each department is assigned to (Edit project's team).
             "assignees": status.get("assignees") or {},
-            # Set aside: listed, out of every share done (lib/status.py).
+            # Set aside: listed, out of every share done (lib/monitoring/status.py).
             "omit": omitted(status),
             "wip_version": wip_name,
             # Work on top of the last stable (a wip made after it), else none
@@ -605,7 +605,7 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
             "shot_thumbnails": [
                 list(t) for t in data.get("shot_thumbs", {}).get(str(owner), [])
             ],
-            # The live page's own (lib/live.py): its links, its renders to
+            # The live page's own (lib/monitoring/live.py): its links, its renders to
             # check, every version's video.
             "live": (data.get("live") or {}).get(str(owner)),
             # Logged work time, every version and everyone (work_times()).
@@ -927,7 +927,7 @@ def snapshot_filename(snapshot: dict, ext: str = "html", kind: str = "snapshot")
 
 
 def render_html(snapshot: dict) -> str:
-    """The whole snapshot as one offline HTML page (lib/snapshot_page.py)."""
+    """The whole snapshot as one offline HTML page (lib/monitoring/snapshot_page.py)."""
     from .snapshot_page import render_html as page  # it imports this module
 
     return page(snapshot)

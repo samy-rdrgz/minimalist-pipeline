@@ -78,11 +78,11 @@ def monitoring_detail(kind: str) -> str:
 
 def set_monitoring_detail(kind: str, value: str = "", sync: bool = True) -> None:
     """Show this detail in that window ("" for its list) -- now and when it
-    reopens: beside the list in a wide window (lib/monitoring.py
+    reopens: beside the list in a wide window (lib/monitoring/windows.py
     sync_detail_zones(), next tick, every view redrawn)."""
     _monitoring_details[kind] = value
     if sync:
-        from .monitoring import request_detail_sync
+        from .monitoring.windows import request_detail_sync
 
         request_detail_sync()
 

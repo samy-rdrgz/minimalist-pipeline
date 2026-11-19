@@ -1,4 +1,4 @@
-// The state engine's twin (lib/status.py): a department's score, a file's
+// The state engine's twin (lib/monitoring/status.py): a department's score, a file's
 // Done -- the same rules, so the page can work out the figures a review
 // would give (page.js "with your review"). The cases both run:
 // tests/status_cases.json (tests/test_status.py).

@@ -8,7 +8,7 @@ from pathlib import Path
 
 import bpy
 
-from ..lib.status import departments_text, parse_departments
+from ..lib.monitoring.status import departments_text, parse_departments
 from ..lib import (
     install_department_presets,
     project_team,
@@ -44,7 +44,7 @@ from ..lib.migration import migration_record
 from ..lib.presets import presets_without_department, preset_rename_problem, rename_preset
 from ..lib.core import cached_scandir, write_json_atomic
 from ..lib import formats
-from ..lib.status import preset_department
+from ..lib.monitoring.status import preset_department
 from .farm_ops import (
     _NO_SCRIPT,
     _stable_enum_items,
@@ -589,7 +589,7 @@ class ProjectSettings:
         ),
     )
 
-    # Snapshot "Done" weights, see PROGRESS_WEIGHTS (lib/snapshot.py).
+    # Snapshot "Done" weights, see PROGRESS_WEIGHTS (lib/monitoring/snapshot.py).
     progress_wip: bpy.props.IntProperty(
         name="WIP",
         min=0,
@@ -916,7 +916,7 @@ class ProjectSettings:
         self.library_prefixes = self._list_to_csv(structure.get("library_prefixes", []))
         self.project_folders = self._list_to_csv(structure.get("project_folders", []))
         self.tags = self._list_to_csv(config.get("tags", ["stable"]))
-        # One field each: the list and its stages (lib/status.py).
+        # One field each: the list and its stages (lib/monitoring/status.py).
         stages = config.get("department_stages") or {}
         self.assets_departments = departments_text(
             config.get("assets_departments", DEFAULT_ASSET_DEPARTMENTS), stages.get("assets")
@@ -1124,7 +1124,7 @@ class M_PIPELINE_OT_edit_project(ProjectSettings, bpy.types.Operator):
     def invoke(self, context, event):
         # A window, like the welcome: it stays while edited. The dialog only
         # if Blender couldn't open one.
-        from ..lib.monitoring import (
+        from ..lib.monitoring.windows import (
             bring_monitoring_to_front,
             monitoring_windows,
             open_monitoring_window,
@@ -1142,7 +1142,7 @@ class M_PIPELINE_OT_edit_project(ProjectSettings, bpy.types.Operator):
         except PipelineError as e:
             return report_error(self, "edit_project", e)
         if open_one:
-            from ..lib.monitoring import redraw_monitoring
+            from ..lib.monitoring.windows import redraw_monitoring
 
             redraw_monitoring("settings")
             bring_monitoring_to_front(context, "settings")

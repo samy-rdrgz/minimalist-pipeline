@@ -1,4 +1,4 @@
-/* ---------- Live: the page Blender serves (lib/live.py) ----------
+/* ---------- Live: the page Blender serves (lib/monitoring/live.py) ----------
    Its data kept up to date (/data, waited on), the review sent (/action), the farm's
    and the files' actions (/farm, /open, /play). Each says what it sent, then what Blender did. */
 function livePost(path,body){return fetch(path+'?t='+encodeURIComponent(M.live.token||''),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(r=>r.json())}

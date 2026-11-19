@@ -1,6 +1,6 @@
 """The snapshot page's review, there and back: changes made in the page
 (its A.* actions, as a click makes them) written as the review's file,
-read by lib/review_import.py read_review() without losing one; kept
+read by lib/monitoring/review_import.py read_review() without losing one; kept
 across a reload; loaded back into the page (fromActions()) as the same
 actions. Needs Node and Playwright (a browser); skipped without them.
 
@@ -44,8 +44,8 @@ def main() -> None:
 
     fake_bpy.install()
     pkg = fake_bpy.load().__name__
-    page = importlib.import_module(f"{pkg}.lib.snapshot_page")
-    review_import = importlib.import_module(f"{pkg}.lib.review_import")
+    page = importlib.import_module(f"{pkg}.lib.monitoring.snapshot_page")
+    review_import = importlib.import_module(f"{pkg}.lib.monitoring.review_import")
     demo = json.loads((Path(__file__).parent / "fixtures" / "snapshot_demo.json").read_text(encoding="utf-8"))
     with tempfile.TemporaryDirectory() as tmp:
         html, js, rv = Path(tmp) / "page.html", Path(tmp) / "run.js", Path(tmp) / "review.json"

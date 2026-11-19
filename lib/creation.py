@@ -18,7 +18,7 @@ from .config import (
 )
 from .errors import PipelineError
 from .presets import apply_asset_preset, build_shot_scene
-from .tracking import create_tracking, create_wipmeta
+from .monitoring.tracking import create_tracking, create_wipmeta
 
 # Default per-shot spacing for a multi-shot block with no frame_end/
 # frame_duration -- also shot_ops.py's own "add row" default.

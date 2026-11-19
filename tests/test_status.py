@@ -1,4 +1,4 @@
-"""The state engine (lib/status.py), without Blender: each state from
+"""The state engine (lib/monitoring/status.py), without Blender: each state from
 its facts, the shares done. Grows with phase 3 (Waiting, To redo, On hold).
 
     python3 tests/test_status.py
@@ -16,7 +16,7 @@ def main() -> None:
     import fake_bpy
 
     fake_bpy.install()
-    status = importlib.import_module(f"{fake_bpy.load().__name__}.lib.status")
+    status = importlib.import_module(f"{fake_bpy.load().__name__}.lib.monitoring.status")
     facts = {
         "validated_departments": {"layout": True, "anim": True},
         "worked_departments": {"anim": [{}], "fx": [{}]},

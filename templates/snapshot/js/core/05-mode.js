@@ -1,6 +1,6 @@
 /* ---------- Mode: snapshot or live ----------
    snapshot: the exported HTML file, opened offline, its videos folder beside it. The review only.
-   live:     the page Blender serves (lib/live.py). The review, the Farm, actions sent to Blender.
+   live:     the page Blender serves (lib/monitoring/live.py). The review, the Farm, actions sent to Blender.
    meta.live is only there live.
    What only exists live has the class .live-only (hidden by the CSS in a snapshot). */
 const Q=new URLSearchParams(location.search);

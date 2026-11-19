@@ -4,8 +4,8 @@ be by now (the snapshot's pace). Pure date arithmetic, no bpy."""
 import math
 from datetime import date, datetime, timedelta
 
-from .core import json_get
-from .errors import PipelineError
+from ..core import json_get
+from ..errors import PipelineError
 
 
 def parse_day(value: str) -> date:

@@ -35,13 +35,13 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 import bpy
 
-from .core import get_addon_version, now
-from .logs import log
-from .preview import browser_video, render_department, render_root
+from ..core import get_addon_version, now
+from ..logs import log
+from ..preview import browser_video, render_department, render_root
 from .snapshot import _folder_frames, _owner_shots, _video_name, build_snapshot, folder_links, read_render_state
 from .snapshot_page import page_data, render_page
 from .status import project_stages
-from .thumbnails import owner_shot_render_dirs, owner_thumbnail_dirs, thumbnail_path
+from ..thumbnails import owner_shot_render_dirs, owner_thumbnail_dirs, thumbnail_path
 from .tracking import (
     _DATA_ROOTS,
     _collect_folder,
@@ -270,7 +270,7 @@ def _share(raw: dict, sh: "_Shared") -> dict:
 def _beginner() -> bool:
     """The addon's Experience level is Beginner (its default). Never raises."""
     try:
-        from .core import addon_pref
+        from ..core import addon_pref
 
         return getattr(addon_pref(), "experience_level", "BEGINNER") == "BEGINNER"
     except Exception:
@@ -417,7 +417,7 @@ def _live_extras(root: Path, cache: dict, outdated: dict) -> dict:
     """Per folder, what only the live page shows: {"key" (its path under
     the project), "links": [{"key", "file", "newer"}], "linked_by": [keys],
     "versions", "checks"} -- the links as a snapshot has them
-    (lib/snapshot.py folder_links())."""
+    (lib/monitoring/snapshot.py folder_links())."""
     out = folder_links(root, {k: e.get("links") or [] for k, e in cache.items()}, outdated)
     for key, e in cache.items():
         out[key].update(versions=e.get("versions") or {}, checks=e.get("checks") or [])
@@ -474,7 +474,7 @@ def _tick():
 
 
 def _turn(sh: _Shared) -> None:
-    from .config import ConfigCache, get_active_project_root
+    from ..config import ConfigCache, get_active_project_root
 
     root = get_active_project_root()
     if root and Path(root) != sh.root:
@@ -495,12 +495,12 @@ def _turn(sh: _Shared) -> None:
     if page_open:
         # The farm's jobs and machines, read as Farm monitoring does --
         # its window closed, nothing else would read them.
-        from ..farm.loop import refresh_step
+        from ...farm.loop import refresh_step
 
         refresh_step()
     # Update links running in the background: one done, its new version
     # read at once (a pass), its state shown.
-    from . import relink
+    from .. import relink
 
     if relink.poll():
         _reader["at"] = 0.0
@@ -519,7 +519,7 @@ def _turn(sh: _Shared) -> None:
             pending.result = {"open": _open, "farm": _farm_action, "play": _play}[pending.kind](pending.review)
             pending.done.set()
             if pending.kind == "farm":
-                from ..farm.loop import refresh_step
+                from ...farm.loop import refresh_step
 
                 refresh_step(soon=True)  # the farm read again now: its change shown
             continue
@@ -578,12 +578,12 @@ def _with_window(op, *args, **kwargs):
 
 def _apply(root: Path, raw: dict) -> dict:
     """A page's actions, written into the project as an imported review's
-    (lib/review_import.py: the same checks, the same idempotence), its
+    (lib/monitoring/review_import.py: the same checks, the same idempotence), its
     descriptions and new files too. {"ok", "imported", "validated",
     "fixed", "replies", "changed", "skipped": [[label, reason]]} or
     {"ok": False, "error"}."""
-    from .errors import PipelineError
-    from .monitoring import status_changed
+    from ..errors import PipelineError
+    from .windows import status_changed
     from .review_import import _action, _review_file, create_rows, import_review, parse_review_date
     from .snapshot import SCHEMA_VERSION
     from .tracking import ProjectScan, set_description
@@ -637,10 +637,10 @@ def _checked(actions: list) -> dict:
     """Renders marked checked from the page ({"file", "key", "push"}): out
     of "to check", their farm job archived, pushed to the edit if asked --
     as Render checked does (its departments: the page's ✓ / ✕)."""
-    from ..operators.rushes_ops import push_checked_renders
-    from ..operators.tracking_ops import _archive_checked_job
-    from .errors import PipelineError
-    from .monitoring import status_changed
+    from ...operators.rushes_ops import push_checked_renders
+    from ...operators.tracking_ops import _archive_checked_job
+    from ..errors import PipelineError
+    from .windows import status_changed
     from .review_import import _review_file
     from .tracking import clear_render_to_check
 
@@ -668,7 +668,7 @@ def _checked(actions: list) -> dict:
 def _relink(root: Path, raw: dict) -> dict:
     """Update links on the page's files ({"files": [file names]}): each one
     a new -relink version, written without opening it (lib/relink.py)."""
-    from . import relink
+    from .. import relink
     from .review_import import _review_file
 
     owners, unknown = [], []
@@ -766,7 +766,7 @@ def _open_folder(raw: dict) -> dict:
 def _play(raw: dict) -> dict:
     """A render's video in this machine's own player -- the full one: the
     page may play its light copy (ld/), never this."""
-    from .preview import _first_mp4
+    from ..preview import _first_mp4
 
     rel = str(raw.get("video") or "")
     root = (_shared.root / "renders").resolve()
@@ -788,11 +788,11 @@ def _farm_data(root: Path) -> dict:
     "text", "done", "total", "left", "machines", "user", "at"}], "workers":
     [{"name", "status", "file", "mine", "host", "since"}], "me", "presets",
     "preset"}, from the monitor cache. Memory only."""
-    from ..farm.details import estimate_label, render_left_label
-    from ..farm.loop import _STAGE_WORDS, entry_state
-    from ..farm.monitor import REMOVABLE_STAGES, get_monitor_cache
-    from ..farm.queue import RETRYABLE_STAGES
-    from .session import get_user
+    from ...farm.details import estimate_label, render_left_label
+    from ...farm.loop import _STAGE_WORDS, entry_state
+    from ...farm.monitor import REMOVABLE_STAGES, get_monitor_cache
+    from ...farm.queue import RETRYABLE_STAGES
+    from ..session import get_user
 
     cache = get_monitor_cache()
     user = get_user(bpy.context)
@@ -839,9 +839,9 @@ def _farm_data(root: Path) -> dict:
         }
         (finished if state == "finished" else jobs).append(row)
     finished.sort(key=lambda r: r["at"], reverse=True)
-    from ..farm.monitor import is_blender_monitor
-    from ..farm.workers import is_blender_worker, worker_rendering
-    from .core import get_machine_id
+    from ...farm.monitor import is_blender_monitor
+    from ...farm.workers import is_blender_worker, worker_rendering
+    from ..core import get_machine_id
 
     mine = get_machine_id() or ""
     host = cache.get("lock_machine") or ""
@@ -884,8 +884,8 @@ def _farm_data(root: Path) -> dict:
 def _presets() -> dict:
     """The page's Render form: {"presets": [[name, label]], "preset"
     (the project's default)} -- the Render dialog's picker."""
-    from ..operators.farm_ops import _get_pre_render_scripts, default_pre_render_script
-    from .config import ConfigCache
+    from ...operators.farm_ops import _get_pre_render_scripts, default_pre_render_script
+    from ..config import ConfigCache
 
     items = [list(i[:2]) for i in _get_pre_render_scripts(None, bpy.context)]
     return {"presets": items, "preset": default_pre_render_script(ConfigCache.get() or {}, [tuple(i) for i in items])}
@@ -910,9 +910,9 @@ def _farm_action(raw: dict) -> dict:
     "archive" a job, its "priority" (the job file's: the queue reads it
     each tick), "worker" this machine (on / off: a render it's on stopped
     now -- the page asked first); "render" / "preview": _farm_submit()."""
-    from .config import ConfigCache
-    from .core import locked_json
-    from .errors import PipelineError
+    from ..config import ConfigCache
+    from ..core import locked_json
+    from ..errors import PipelineError
 
     action, job = str(raw.get("action") or ""), str(raw.get("job_id") or "")
     if action in ("render", "preview"):
@@ -926,7 +926,7 @@ def _farm_action(raw: dict) -> dict:
         "archive": bpy.ops.m_pipeline.farm_archive_job,
         "recompile": bpy.ops.m_pipeline.farm_recompile_job,
     }
-    from ..farm.details import job_detail, job_path, worker_detail
+    from ...farm.details import job_detail, job_path, worker_detail
 
     try:
         # Read on demand: a job's file, a machine's from the monitor cache.
@@ -941,7 +941,7 @@ def _farm_action(raw: dict) -> dict:
             _with_window(bpy.ops.wm.path_open, filepath=str(path))
             return {"ok": True}
         if action == "remove" and job:
-            from ..farm.monitor import remove_waiting_job
+            from ...farm.monitor import remove_waiting_job
 
             if not remove_waiting_job(job, bool(raw.get("value"))):
                 return {"ok": False, "error": "it started meanwhile: cancel it instead"}
@@ -951,9 +951,9 @@ def _farm_action(raw: dict) -> dict:
             done = _with_window(bpy.ops.m_pipeline.farm_archive_jobs, "EXEC_DEFAULT", state=raw["value"])
             return {"ok": "FINISHED" in done}
         if action in ("stop_worker", "forget_worker"):
-            from ..farm.workers import forget_worker, request_worker_stop
-            from .core import get_machine_id
-            from .session import get_user
+            from ...farm.workers import forget_worker, request_worker_stop
+            from ..core import get_machine_id
+            from ..session import get_user
 
             uuid = str(raw.get("value") or "")
             if not uuid:
@@ -992,12 +992,12 @@ def _farm_submit(action: str, raw: dict) -> dict:
     sends it ("file", "preset", "priority", "mode" all / single, "start"
     / "end" frames -- absolute, empty: the file's --, "shots" of a block
     ticked), or its sequence's preview ("sequence")."""
-    from ..farm.monitor import job_request
-    from ..operators.farm_ops import _NO_SCRIPT
-    from ..operators.preview_ops import dropped_message, request_sequence_preview
-    from .config import get_active_project_root
+    from ...farm.monitor import job_request
+    from ...operators.farm_ops import _NO_SCRIPT
+    from ...operators.preview_ops import dropped_message, request_sequence_preview
+    from ..config import get_active_project_root
     from .review_import import _review_file
-    from .session import get_user
+    from ..session import get_user
 
     user = get_user(bpy.context)
     try:
@@ -1056,15 +1056,15 @@ def _farm_submit(action: str, raw: dict) -> dict:
 def _rebuild(sh: _Shared, force: bool) -> None:
     """The page's data from the last pass and the farm's jobs (memory
     only): a new version when it differs."""
-    from ..farm.loop import farm_activity
-    from .config import ConfigCache
-    from .session import get_user, get_user_role, ui_language
+    from ...farm.loop import farm_activity
+    from ..config import ConfigCache
+    from ..session import get_user, get_user_role, ui_language
 
     if not _reader["ready"]:
         return  # nothing read yet: no empty page
     farm = farm_activity()
     jobs = _farm_data(sh.root)
-    from . import relink
+    from .. import relink
 
     relinks = relink.states()
     config = ConfigCache.get() or {}

@@ -36,7 +36,7 @@ from .session import (
     set_active_project_root,
     set_opened_as_read_only,
 )
-from .tracking import check_library_update, wipmeta_touch
+from .monitoring.tracking import check_library_update, wipmeta_touch
 
 # ---------------------------------------------------------------------------
 # Handlers

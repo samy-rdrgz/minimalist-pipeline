@@ -129,7 +129,7 @@ def main() -> None:
 
         # The snapshot has the links too (its Links tab): the shot links bob and the lamp, each a newer stable.
         from importlib import import_module
-        snap = import_module(relink.__name__.rsplit(".", 1)[0] + ".snapshot")
+        snap = import_module(relink.__name__.rsplit(".", 1)[0] + ".monitoring.snapshot")
         for owner in (shot, bob, lamp):
             (owner / ".pipeline").mkdir(exist_ok=True)
             (owner / ".pipeline" / "tracking.json").write_text("{}", encoding="utf-8")
