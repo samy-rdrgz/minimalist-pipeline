@@ -210,6 +210,10 @@ def _meta(snapshot: dict) -> dict:
         "fps": meta.get("fps"),
         # Served by Blender (lib/monitoring/live.py): {"token", "version"}; None, a file.
         "live": meta.get("live"),
+        # Live: who has which file open (the Farm tab's machines); a first read
+        # under way, {"done", "total"} folders: the figures still partial.
+        **({"presence": meta["presence"]} if meta.get("presence") else {}),
+        **({"reading": meta["reading"]} if meta.get("reading") else {}),
     }
 
 

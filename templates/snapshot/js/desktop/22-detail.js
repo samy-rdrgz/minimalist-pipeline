@@ -392,5 +392,5 @@ function renderProps() {
   if (S.tab === 'renders') h = rendersHTML(it);
   B.innerHTML = h;
   if (S.tab === 'links') requestAnimationFrame(drawWires);
-  if (S.tab === 'versions') requestAnimationFrame(drawChain);
+  if (S.tab === 'versions' || S.tab === 'renders') requestAnimationFrame(drawChain);
 }

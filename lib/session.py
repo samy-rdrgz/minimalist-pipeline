@@ -347,6 +347,55 @@ def close_session(session_file: Path | None = None):
         _log_session_end(data)
 
 
+_ALIVE = 90  # seconds since a session's last ping: still open (it pings every 30)
+
+
+def _owner_key(filepath: str) -> tuple:
+    """A file's shot or asset: its folder and the one above it, by name --
+    each machine mounts the project its own way (S:\\..., /mnt/...)."""
+    parts = Path(str(filepath).replace("\\", "/")).parent.parts
+    return tuple(p.lower() for p in parts[-2:])
+
+
+def open_elsewhere(filepath: str, root: Path | None = None, pid: int | None = None, machine: str | None = None) -> list:
+    """Who else has this file's shot or asset open now -- any version of it,
+    in another Blender (another machine, or this one's other instance):
+    [{"user", "machine", "file" (the .blend's name)}]. Before opening it: two
+    people on one shot, two versions worked apart (the same file: its lock
+    opens it read-only already). Pure os/json; never raises."""
+    from .core import read_json_quiet
+
+    try:
+        root = Path(root or get_active_project_root())
+        pid = os.getpid() if pid is None else pid
+        machine = get_machine_id() if machine is None else machine
+        files = sorted((root / "config" / ".sessions").glob(".session_*.json"))
+    except Exception:
+        return []
+    key = _owner_key(filepath)
+    out = []
+    for f in files:
+        data = read_json_quiet(f)
+        if not isinstance(data, dict) or not data.get("filepath"):
+            continue
+        if data.get("pid") == pid and data.get("uuid") == machine:
+            continue  # this Blender
+        age = seconds_since(data.get("last_ping"))
+        if age is None or age > _ALIVE or _owner_key(data["filepath"]) != key:
+            continue
+        out.append({
+            "user": data.get("user") or "",
+            "machine": data.get("machine") or str(data.get("uuid") or "")[:8],
+            "file": Path(str(data["filepath"]).replace("\\", "/")).name,
+        })
+    return out
+
+
+def elsewhere_text(others: list) -> str:
+    """One line: who has it open, on which machine, which version."""
+    return ", ".join(f"{o['user'] or '?'} ({o['machine']}, {o['file']})" for o in others)
+
+
 def scan_sessions():
     """Scan for orphan session files and log crashes. Called from
     post_load_handler; never raises (close_session() is itself safe)."""

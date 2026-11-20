@@ -3237,6 +3237,25 @@ button.assign:hover {
   flex-direction: column;
   gap: var(--sp-2);
 }
+/* Live › Open: who else has the shot open. */
+.dlg-in ul.ask-who {
+  list-style: none;
+  padding: 0;
+  color: var(--text);
+}
+.ask-who li {
+  display: flex;
+  gap: var(--sp-4);
+  align-items: center;
+}
+.ask-who li > svg {
+  color: var(--rtk-t);
+  flex: none;
+}
+.dlg-in > p {
+  margin: 0;
+  font-size: var(--fs-s);
+}
 .dlg-in textarea {
   width: 100%;
   min-height: 150px;
@@ -4041,8 +4060,7 @@ html.kb .m-nav {
 .vn.cf .vd {
   background: var(--st-rtk);
 }
-.vb,
-.rb {
+.vb {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -4075,15 +4093,21 @@ html.kb .m-nav {
 .tag.warn {
   color: var(--rtk-t);
 }
-/* Detail › Render history: a line a render, latest first. */
+/* Detail › Render history: a version's node, a line a render inside it. */
 .rh {
   display: flex;
-  gap: var(--sp-5);
+  gap: var(--sp-4);
   align-items: flex-start;
-  margin-bottom: var(--sp-4);
+  padding-top: var(--sp-4);
+  margin-top: var(--sp-3);
+  border-top: 1px solid var(--line);
 }
 .rh > .jst {
-  margin-top: 8px;
+  margin-top: 2px;
+}
+.rl {
+  flex: 1;
+  min-width: 0;
 }
 /* Farm › Machines: a node each, its files open, its worker. */
 .mnodes {
@@ -4156,4 +4180,48 @@ html.kb .m-nav {
 .mn-w .jst {
   width: 14px;
   height: 14px;
+}
+
+/* Live › the first read under way: a line along the top, what's read so far. */
+#readbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 60;
+  height: 3px;
+  background: color-mix(in srgb, var(--text-3) 25%, transparent);
+  pointer-events: none;
+}
+#readbar > i {
+  display: block;
+  height: 100%;
+  background: var(--brand);
+  transition: width 0.6s ease;
+}
+#readbar > span {
+  position: fixed;
+  bottom: calc(40px * var(--scale)); /* above the status bar: the tabs stay clear */
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 3px var(--sp-5);
+  border-radius: 999px;
+  background: var(--head);
+  border: 1px solid var(--line);
+  color: var(--text-2);
+  font-size: var(--fs-s);
+  white-space: nowrap;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+@media (max-width: 520px) {
+  #readbar > span {
+    white-space: normal;
+    text-align: center;
+    width: calc(100% - 32px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #readbar > i {
+    transition: none;
+  }
 }

@@ -5790,3 +5790,34 @@ looks for, not "activity_until": a Blender 2.0 run before the migration
 writes that one too, for its last 30 days only. A day's finished figures and its activity are
 written apart, each keeping the other (record() merges, has_figures()).
 Counted in files, not hours: the sessions log knows no department.
+
+## Live page: the first read in batches
+
+Opened, the live page used to wait for the whole project (every folder's
+metas, render state, thumbnails, links, then work times and rushes) on a
+waiting page. Now the first pass (no page yet, `_reader["ready"]` false)
+publishes what it has read: read_live() lists the folders first (the
+total), then calls on_progress before each one; _read() keeps a copy of
+what's read after FIRST_BATCH (1 s: a small project shows no batch), then
+every BATCH_EVERY (2 s). Blender's turn makes a page of it
+(_rebuild(partial=...)): its folders only, links without "a newer stable"
+(that listing waits for the whole read), no work times, no rushes, meta
+"reading" {done, total} -- the page shows a line along the top, the count
+above the status bar, "partial" by the figures. Nothing is logged from a
+batch: today's progress point (progress_log.record_today) is the whole
+project's, written by the first whole pass only. The farm's own news waits
+for it too (_rebuild() returns early until ready). Later passes read only
+what changed: no batches.
+
+## Open: its shot already open elsewhere
+
+Before opening a file -- the page's Open in Blender (POST /open), the Open
+project file dialogs -- session.open_elsewhere() looks at
+config/.sessions/: another Blender (another machine, or this one's other
+instance) pinged in the last 90 s with a file of the same shot or asset
+open, any version (its folder and the one above, by name: each machine
+mounts the project its own way). The page asks (Open all the same:
+"anyway"); the dialog shows a red line; a direct open asks to confirm. A
+warning, never a lock: the same file has its lock already (opened
+read-only); two versions of one shot is what this catches -- worked apart,
+a conflict later.

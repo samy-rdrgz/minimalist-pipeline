@@ -10,11 +10,13 @@ function livePost(path, body) {
 }
 const noAnswer = () => toast(T("Blender doesn't answer."));
 const sentSay = what => T('Sent to Blender: {what}', { what });
-/* Open a file in Blender: the question first when Blender's own has unsaved changes. */
-function liveOpen(file, save) {
-  livePost('open', { file, save: save || '' })
+/* Open a file in Blender: the questions first -- its shot or asset open in another
+   Blender (open all the same?), Blender's own file with unsaved changes. */
+function liveOpen(file, save, anyway) {
+  livePost('open', { file, save: save || '', anyway: anyway ? 1 : 0 })
     .then(res => {
-      if (res.ask) return askOpen(file, res.current);
+      if (res.elsewhere) return askElsewhere(file, res);
+      if (res.ask) return askOpen(file, res.current, anyway);
       toast(
         res.ok
           ? sentSay(T('opening {file}', { file: res.opened }))
@@ -23,7 +25,22 @@ function liveOpen(file, save) {
     })
     .catch(noAnswer);
 }
-function askOpen(file, current) {
+function askElsewhere(file, res) {
+  const dl = $('#dlg');
+  dl.hidden = false;
+  dl.innerHTML = `<div class="dlg-in" role="alertdialog" aria-modal="true" aria-labelledby="ask-t"><h3 id="ask-t">${esc(T('Already open elsewhere'))}</h3>
+    <ul class="ask-who">${res.elsewhere.map(o => `<li>${ic('b-error')}<span>${T('{who} on {machine}: {file}', { who: `<b>${esc(o.user || '?')}</b>`, machine: `<span class="mono">${esc(o.machine)}</span>`, file: `<span class="mono">${esc(o.file)}</span>` })}</span></li>`).join('')}</ul>
+    <p class="faint">${esc(T('Two people on one shot: two versions worked apart, a conflict to merge later. The same file opens read-only (its lock).'))}</p>
+    <div class="acts"><button class="btn" data-dclose>${T('Cancel')}</button><span style="flex:1"></span><button class="btn primary" data-open-anyway>${T('Open all the same')}</button></div></div>`;
+  dl.querySelector('[data-dclose]').focus({ preventScroll: true });
+  dl.onclick = e => {
+    if (!e.target.closest('[data-open-anyway]')) return;
+    dl.hidden = true;
+    dl.onclick = null;
+    liveOpen(file, '', true);
+  };
+}
+function askOpen(file, current, anyway) {
   const dl = $('#dlg');
   dl.hidden = false;
   dl.innerHTML = `<div class="dlg-in" role="alertdialog" aria-modal="true" aria-labelledby="ask-t"><h3 id="ask-t">${esc(T('{file} has unsaved changes in Blender', { file: current }))}</h3>
@@ -34,7 +51,7 @@ function askOpen(file, current) {
     if (!b) return;
     dl.hidden = true;
     dl.onclick = null;
-    liveOpen(file, b.dataset.openSave);
+    liveOpen(file, b.dataset.openSave, anyway);
   };
 }
 /* A file's folder in this machine's file browser: its .blend's, its render's. */
@@ -260,6 +277,7 @@ function applyData(nd) {
   if (S.review && S.review.auto && M.live.user)
     S.review = { name: M.live.user, role: M.live.role || TEAM, auto: true };
   if (!items.some(i => i.name === S.sel) && items[0]) S.sel = items[0].name;
+  readingSay();
   if (LV.pend && (M.live.version || 0) >= LV.pend.v) {
     const fn = LV.pend.fn;
     LV.pend = null;
@@ -330,8 +348,27 @@ function liveStart() {
     } else if (!polling) poll();
   });
   liveStatus('on');
+  readingSay();
   poll();
   liveQueue();
+}
+/* The first read under way (M.reading, {done, total} folders): the page shown at once,
+   filling in batch after batch -- a line along the top, the count by "live", the
+   figures said partial until the whole project is read. */
+function readingSay() {
+  const r = M.reading;
+  let bar = $('#readbar');
+  document.documentElement.classList.toggle('reading', !!r);
+  if (!r) return bar && bar.remove();
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.id = 'readbar';
+    bar.setAttribute('role', 'status');
+    bar.innerHTML = '<i></i><span></span>';
+    document.body.appendChild(bar);
+  }
+  bar.firstChild.style.width = Math.round((100 * r.done) / (r.total || 1)) + '%';
+  bar.lastChild.textContent = T('Reading the project: {done} / {total} folders · figures partial', r);
 }
 /* Into the edit (editing/rushes/): one render's video, whatever its version -- or every
    sequence's and asset's latest (pushAllDlg()). Copied by Blender on a thread: refused

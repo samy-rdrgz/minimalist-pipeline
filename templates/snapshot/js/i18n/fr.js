@@ -2,6 +2,14 @@
 // missing here: the English. Never translated: files, departments,
 // roles, prefixes, people (the project's own).
 MPI18n.add('fr',{
+'Reading the project: {done} / {total} folders · figures partial':'Lecture du projet : {done} / {total} dossiers · chiffres partiels',
+'partial':'partiel',
+'Already open elsewhere':'Déjà ouvert ailleurs',
+'{who} on {machine}: {file}':'{who} sur {machine} : {file}',
+'Two people on one shot: two versions worked apart, a conflict to merge later. The same file opens read-only (its lock).':'Deux personnes sur un même plan : deux versions travaillées chacune de son côté, un conflit à fusionner ensuite. Le même fichier, lui, s\'ouvre en lecture seule (son verrou).',
+'Open all the same':'Ouvrir quand même',
+'{n} render|{n} renders':'{n} rendu|{n} rendus',
+'By version rendered, the latest on top.':'Par version rendue, la plus récente en haut.',
 '{what}: no headway lately, no projection.':'{what} : pas d’avancée ces derniers temps, pas de projection.',
 '{what}: not within a year at this pace, too far to date.':'{what} : pas dans l’année à ce rythme, trop loin pour dater.',
 '{what}: not before {when}; the slower pace dates nothing.':'{what} : pas avant {when} ; au rythme le plus lent, rien de daté.',

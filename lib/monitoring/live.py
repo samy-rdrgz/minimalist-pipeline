@@ -62,6 +62,8 @@ READ_EVERY = 4.0  # seconds between two passes over the project...
 IDLE_AFTER = 30.0  # ...while a page asked for something this recently
 BUSY_AFTER = 1.5  # no turn for this long: the page says "Blender busy"
 POLL = 20.0  # a page waiting for news is answered after this, news or not
+FIRST_BATCH = 1.0  # the first read: a page of what's read after this long (a small project: none)...
+BATCH_EVERY = 2.0  # ...then again this often, until it's whole
 CHUNK = 64 * 1024
 
 
@@ -287,8 +289,10 @@ def _as_guest(data: dict, token: str, guest: dict) -> dict:
     meta["live"] = {**meta["live"], "token": token, "user": guest["name"], "role": guest["role"], "guest": True, "until": _iso(guest["until"]), "beginner": True, "farm": bool(guest.get("farm"))}
     meta["videos"] = {**(meta.get("videos") or {}), "local": f"media/{token}/renders"}
     return {**data, "meta": meta}
+# partial: the first read's latest batch, (root, cache, done, total), for the
+# page while the rest is read; progress: (done, total) for the waiting page.
 _reader = {"thread": None, "result": None, "at": 0.0, "farm_at": 0.0, "cache": {}, "farm": None, "compare": None, "ready": False,
-           "waiting": [], "in_pass": []}
+           "waiting": [], "in_pass": [], "partial": None, "progress": None}
 
 
 def running() -> bool:
@@ -311,50 +315,56 @@ def _b64(path: Path) -> str | None:
         return None
 
 
-def read_live(root: Path, cache: dict, config: dict, v_prefix: str) -> tuple[dict, bool]:
+def read_live(root: Path, cache: dict, config: dict, v_prefix: str, on_progress=None) -> tuple[dict, bool]:
     """Every tracked folder as read_snapshot_data() gives it, a folder read
     again only when its .pipeline/, its tracking.json or its own listing
-    (a .blend saved) changed since cache. Returns (cache, changed). Pure
-    os/json: thread-safe."""
+    (a .blend saved) changed since cache. Returns (cache, changed).
+    on_progress(out, done, total): before each folder, what's read so far
+    -- the first read's batches. Pure os/json: thread-safe."""
     out, changed = {}, False
-    for top in _DATA_ROOTS:
-        kind = "shot" if top == "shots" else "asset"
-        mtimes: dict = {}
-        for owner in _walk_owner_dirs(root / top, mtimes=mtimes):
-            key = str(owner)
-            try:
-                stamp = (os.stat(owner / ".pipeline").st_mtime, mtimes.get(key), os.stat(owner).st_mtime)
-            except OSError:
-                continue
-            old = cache.get(key)
-            if old and old["stamp"] == stamp:
-                out[key] = old
-                continue
-            entries = _pipeline_entries(owner)
-            raw = _collect_folder(owner, entries)
-            if raw is None:
-                continue
-            try:
-                blends = [e.name for e in os.scandir(owner) if e.name.endswith(".blend")]
-            except OSError:
-                blends = []
-            renders, thumb, shot_thumbs, versions, checks = None, None, [], {}, []
-            if not raw["tracking"].get("archived"):
-                versions = _versions(root, kind, owner, v_prefix)
-                checks = _checks(root, raw["tracking"])
-                renders = read_render_state(root, kind, owner, v_prefix, project_stages(config, f"{kind}s"))
-                for r in renders:
-                    for x in (r, *(r.get("others") or [])):
-                        x["video"] = _video_name(root, browser_video(Path(x["path"])) if x.get("path") else None)
-                thumb = next((b for d in owner_thumbnail_dirs(root, owner) if (b := _b64(thumbnail_path(d)))), None)
-                found = [(label, _b64(thumbnail_path(d))) for label, d in owner_shot_render_dirs(root, owner)]
-                shot_thumbs = found if any(b for _, b in found) else []
-            out[key] = {
-                "stamp": stamp, "kind": kind, "owner": owner, "raw": raw, "blends": blends,
-                "renders": renders, "thumb": thumb, "shot_thumbs": shot_thumbs,
-                "versions": versions, "checks": checks, "links": _current_link_files(entries, root),
-            }
-            changed = True
+    mtimes: dict = {}
+    owners = [
+        ("shot" if top == "shots" else "asset", owner)
+        for top in _DATA_ROOTS
+        for owner in _walk_owner_dirs(root / top, mtimes=mtimes)
+    ]
+    for i, (kind, owner) in enumerate(owners):
+        if on_progress:
+            on_progress(out, i, len(owners))
+        key = str(owner)
+        try:
+            stamp = (os.stat(owner / ".pipeline").st_mtime, mtimes.get(key), os.stat(owner).st_mtime)
+        except OSError:
+            continue
+        old = cache.get(key)
+        if old and old["stamp"] == stamp:
+            out[key] = old
+            continue
+        entries = _pipeline_entries(owner)
+        raw = _collect_folder(owner, entries)
+        if raw is None:
+            continue
+        try:
+            blends = [e.name for e in os.scandir(owner) if e.name.endswith(".blend")]
+        except OSError:
+            blends = []
+        renders, thumb, shot_thumbs, versions, checks = None, None, [], {}, []
+        if not raw["tracking"].get("archived"):
+            versions = _versions(root, kind, owner, v_prefix)
+            checks = _checks(root, raw["tracking"])
+            renders = read_render_state(root, kind, owner, v_prefix, project_stages(config, f"{kind}s"))
+            for r in renders:
+                for x in (r, *(r.get("others") or [])):
+                    x["video"] = _video_name(root, browser_video(Path(x["path"])) if x.get("path") else None)
+            thumb = next((b for d in owner_thumbnail_dirs(root, owner) if (b := _b64(thumbnail_path(d)))), None)
+            found = [(label, _b64(thumbnail_path(d))) for label, d in owner_shot_render_dirs(root, owner)]
+            shot_thumbs = found if any(b for _, b in found) else []
+        out[key] = {
+            "stamp": stamp, "kind": kind, "owner": owner, "raw": raw, "blends": blends,
+            "renders": renders, "thumb": thumb, "shot_thumbs": shot_thumbs,
+            "versions": versions, "checks": checks, "links": _current_link_files(entries, root),
+        }
+        changed = True
     return out, changed or set(out) != set(cache)
 
 
@@ -441,9 +451,22 @@ def _as_data(cache: dict, extras: dict | None = None, work: dict | None = None, 
     }
 
 
-def _read(root, cache, config, v_prefix, extras):
+def _read(root, cache, config, v_prefix, extras, first=False):
+    """A pass over the project (the reader's thread). The first one (no page
+    yet): what it has read published as it goes -- a batch after
+    FIRST_BATCH, then every BATCH_EVERY -- the page shown at once, filling
+    in. See NOTES.md, "Live page: the first read in batches"."""
+    started, last = time.monotonic(), [0.0]
+
+    def progress(out, done, total):
+        _reader["progress"] = (done, total)
+        t = time.monotonic()
+        if t - started >= FIRST_BATCH and t - last[0] >= BATCH_EVERY and out:
+            last[0] = t
+            _reader["partial"] = (root, dict(out), done, total)
+
     try:
-        new, changed = read_live(root, cache, config, v_prefix)
+        new, changed = read_live(root, cache, config, v_prefix, on_progress=progress if first else None)
         if changed or extras is None:
             # Links to a newer stable: one listing per folder linked.
             currents = {k: e.get("links") or [] for k, e in new.items()}
@@ -487,7 +510,7 @@ def _turn(sh: _Shared) -> None:
         # Another project made active: the page follows it -- told it's
         # being read (it reloads on the waiting page), then its data.
         sh.root = Path(root)
-        _reader.update(cache={}, result=None, compare=None, farm=None, ready=False, extras=None, work=None, at=0.0)
+        _reader.update(cache={}, result=None, compare=None, farm=None, ready=False, extras=None, work=None, at=0.0, partial=None, progress=None)
         with sh.changed:
             sh.version += 1
             sh.data, sh.body = None, b""
@@ -539,11 +562,19 @@ def _turn(sh: _Shared) -> None:
         _reader["result"] = None
         _reader["cache"] = cache
         _reader["ready"] = True
+        _reader["partial"] = _reader["progress"] = _reader["shown"] = None
         _rebuild(sh, force=changed)
         for pending in _reader["in_pass"]:
             pending.result["version"] = sh.version
             pending.done.set()
         _reader["in_pass"] = []
+    elif not _reader["ready"] and _reader["partial"] is not None:
+        # The first read under way: its latest batch shown, the page filling in.
+        root_of, part, done, total = _reader["partial"]
+        _reader["partial"] = None
+        if root_of == sh.root:
+            _reader["shown"] = part  # a file's history found in it meanwhile
+            _rebuild(sh, force=True, partial=(part, done, total))
     elif clock - _reader["farm_at"] > 0.5 and page_open:
         # The farm moves on its own -- looked at only while a page is open:
         # with none (its tab closed), nothing but this check every turn.
@@ -566,6 +597,7 @@ def _turn(sh: _Shared) -> None:
                 config,
                 (config.get("naming") or {}).get("version", {}).get("prefix", "v"),
                 _reader.get("extras"),
+                not _reader["ready"],
             ),
             daemon=True,
             name="pipeline-live-read",
@@ -694,8 +726,10 @@ def _relink(root: Path, raw: dict) -> dict:
 
 def _open(raw: dict) -> dict:
     """Open a file of the project in this Blender, as the page asks: its
-    question when the file open has unsaved changes ({"ask": True}), then
-    saved first or not ("save": "save" / "discard"). Opened on a timer of
+    question when its shot or asset is open in another Blender
+    ({"elsewhere": [...]}, then "anyway"), when the file open has unsaved
+    changes ({"ask": True}), then saved first or not ("save": "save" /
+    "discard"). Opened on a timer of
     its own: the load replaces every datablock, this turn ends first."""
     from .review_import import _review_file
 
@@ -713,6 +747,14 @@ def _open(raw: dict) -> dict:
     filepath = _review_file(str(raw.get("file") or ""))
     if not filepath or not filepath.is_file():
         return {"ok": False, "error": "file not found"}
+    if not raw.get("anyway"):
+        # Its shot or asset open in another Blender: the page asks first
+        # (open all the same: "anyway").
+        from ..session import open_elsewhere
+
+        others = open_elsewhere(str(filepath), root=_shared.root)
+        if others:
+            return {"ok": False, "elsewhere": others, "file": filepath.name}
     choice = raw.get("save")
     if bpy.data.is_dirty and choice not in ("save", "discard"):
         return {"ok": False, "ask": True, "current": Path(bpy.data.filepath).name or "an unsaved file"}
@@ -815,7 +857,7 @@ def _history(name: str) -> dict:
     thread."""
     from .history import file_history
 
-    for e in list((_reader.get("cache") or {}).values()):
+    for e in list((_reader.get("cache") or _reader.get("shown") or {}).values()):
         owner = Path(e["owner"])
         if ((e.get("raw") or {}).get("tracking") or {}).get("file_name", owner.name) == name or owner.name == name:
             return {"ok": True, **file_history(owner)}
@@ -1210,14 +1252,17 @@ def _render_department(filepath: Path, picked) -> str | None:
     return picked if picked in [d.lower() for d in _file_departments(str(filepath))] else ""
 
 
-def _rebuild(sh: _Shared, force: bool) -> None:
+def _rebuild(sh: _Shared, force: bool, partial: tuple | None = None) -> None:
     """The page's data from the last pass and the farm's jobs (memory
-    only): a new version when it differs."""
+    only): a new version when it differs. partial: (cache, done, total),
+    the first read's batch -- its folders only, no work times, no links to
+    a newer stable yet, nothing logged (today's progress: the whole
+    project's), the page told it's partial (meta "reading")."""
     from ...farm.loop import farm_activity
     from ..config import ConfigCache
     from ..session import get_user, get_user_role, ui_language
 
-    if not _reader["ready"]:
+    if not _reader["ready"] and partial is None:
         return  # nothing read yet: no empty page
     farm = farm_activity()
     jobs = _farm_data(sh.root)
@@ -1236,7 +1281,8 @@ def _rebuild(sh: _Shared, force: bool) -> None:
     )
     if not force and (farm, jobs, relinks, prefs) == _reader["farm"]:
         return
-    _reader["farm"] = (farm, jobs, relinks, prefs)
+    if partial is None:
+        _reader["farm"] = (farm, jobs, relinks, prefs)
     meta = {
         "project": config.get("project_name") or sh.root.name,
         "scan_started_at": now(),
@@ -1253,9 +1299,16 @@ def _rebuild(sh: _Shared, force: bool) -> None:
     side = _reader.get("rushes") or {}
     # Who has which file open (the Farm tab's machines; a file's detail).
     meta["presence"] = side.get("presence") or []
-    snap = build_snapshot(_as_data(_reader["cache"], _reader.get("extras"), _reader.get("work"), side.get("rushes")), config, meta, farm=farm)
+    if partial is None:
+        data = _as_data(_reader["cache"], _reader.get("extras"), _reader.get("work"), side.get("rushes"))
+    else:
+        part, done, total = partial
+        meta["reading"] = {"done": done, "total": total}
+        data = _as_data(part, _live_extras(sh.root, part, {}))
+    snap = build_snapshot(data, config, meta, farm=farm)
     # Today's progress point while the page runs (written only when it changes), the days for the page.
-    progress_log.record_today(sh.root, snap)
+    if partial is None:
+        progress_log.record_today(sh.root, snap)
     snap["meta"]["history"] = progress_log.days(sh.root)
     data = page_data(snap)
     # Its Farm tab: the farm as Farm monitoring shows it.
@@ -1393,6 +1446,8 @@ def _handler(sh: _Shared):
                 sh.changed.wait_for(lambda: sh.version != since or sh.stopped, timeout=POLL)
                 busy = time.monotonic() - sh.last_tick > BUSY_AFTER
                 head = {"version": sh.version, "busy": busy, "reading": sh.data is None}
+                if sh.data is None and _reader.get("progress"):
+                    head["read"] = list(_reader["progress"])  # the waiting page's x / y
                 body = sh.body if sh.version != since else b""
                 if body and self.guest is not None:
                     body = json.dumps(_as_guest(sh.data, self.token, self.guest), ensure_ascii=False, separators=(",", ":")).encode("utf-8")
@@ -1453,10 +1508,10 @@ body{{margin:0;min-height:100vh;display:grid;place-items:center;background:var(-
 .l i{{display:block;width:40%;height:100%;border-radius:2px;background:var(--ac);animation:m 1.1s ease-in-out infinite alternate}}
 @keyframes m{{from{{transform:translateX(-10%)}}to{{transform:translateX(160%)}}}}
 @media (prefers-reduced-motion:reduce){{.l i{{animation:none;width:100%;opacity:.5}}}}</style></head>
-<body><div class="b" role="status"><h1>{name}</h1><p>Blender is reading the project…</p><div class="l"><i></i></div></div>
+<body><div class="b" role="status"><h1>{name}</h1><p id="r">Blender is reading the project…</p><div class="l"><i></i></div></div>
 <script>var T=new URLSearchParams(location.search).get("t")||"";
 function go(v){{fetch("data?t="+encodeURIComponent(T)+"&since="+v,{{cache:"no-store"}}).then(function(r){{if(!r.ok)throw r.status;return r.json();}})
-.then(function(d){{if(!d.reading)location.reload();else go(d.version);}}).catch(function(){{setTimeout(function(){{go(v);}},2000);}});}}go(-1);</script>
+.then(function(d){{if(!d.reading)location.reload();else{{if(d.read&&d.read[1])document.getElementById("r").textContent="Blender is reading the project: "+d.read[0]+" / "+d.read[1];go(d.version);}}}}).catch(function(){{setTimeout(function(){{go(v);}},2000);}});}}go(-1);</script>
 </body></html>"""
 
 

@@ -1,6 +1,7 @@
 /* ---------- Status ---------- */
 function renderStatus() {
   $('#sb-stats').innerHTML =
+    (M.reading ? `<span class="tag warn">${T('partial')}</span> ` : '') +
     `${T('Shots {done} done · {valid} validated', { done: pct(M.progress.shot), valid: pct(M.validation.shot) })} <span class="faint">· Assets ${pct(M.progress.asset)} · ${pct(M.validation.asset)}</span>`;
   $('#sb-ver').textContent = M.addon_version || '';
   $('#sb-rv').style.display = S.review ? '' : 'none';

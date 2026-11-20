@@ -6,6 +6,15 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- The live page opens at once: the project's first read shown as it goes,
+  batch after batch (a line along the top, "Reading the project: 142 / 480
+  folders", the figures said partial), no more waiting for the whole
+  project. Today's progress is logged from the whole read only.
+- Open a file whose shot or asset is open in another Blender (another
+  machine, any version): the page and Blender's Open project file ask
+  first -- who, on which machine, which version. The same file still opens
+  read-only (its lock).
+
 - Farm › Machines, as nodes: each machine (who, its id's start) with the
   project files open in its Blenders (a click opens one in the page) and
   its worker's state -- who works on what, never since when. A file's
@@ -14,8 +23,8 @@ All notable changes to this addon. Dates are release dates.
   (made when, saved last by whom, the departments their sessions worked; a
   stable's done departments, validations and conflict), a version made
   from another than the one before it branching off on the rail; Render
-  history, every render latest first (department, preset, frames, by whom,
-  machine time, how it ended). A snapshot carries them; the live page asks
+  history, grouped by the version rendered on the same rail, the latest on
+  top (department, preset, frames, by whom, machine time, how it ended). A snapshot carries them; the live page asks
   Blender for one file's when its tab opens (POST /history, guests too).
   Files: its latest version saved last by whom, when; work time to the
   half hour.
@@ -25,7 +34,7 @@ All notable changes to this addon. Dates are release dates.
   (Edit project › Schedule). Months, never a day ("100 % between February
   and June 2027"); never a pace going down; Validated never above Done;
   nothing dated past a year from today (too hypothetical); the cones
-  blurring more and more as they go.
+  blurring more and more as they go, sharp a while then fast lost.
 - To do › Oldest first: the files waiting the longest first, one list --
   for a reviewer since their latest stable, to work on since their oldest
   retake still open. An order only: no time shown.

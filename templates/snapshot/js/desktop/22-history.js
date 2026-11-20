@@ -93,16 +93,36 @@ function drawChain() {
   svg.setAttribute('height', R.height);
   svg.innerHTML = p;
 }
+/* Renders: grouped by the version rendered, on the Versions' rail -- a node a version
+   (newest render on top), its renders inside, latest first. An old entry without its
+   source: the version read from its folder's name (v003-stable_002: v003-stable). */
 function rendersHTML(it) {
   const h = histOf(it);
   if (h === 'wait') return `<p class="faint">${T('Reading…')}</p>`;
   if (!h || !h.renders.length) return `<p class="faint">${T('No render.')}</p>`;
   const ok = { finished: 'finished', failed: 'failed', cancelled: 'cancelled' };
   const min = s => (s ? T('{n} min', { n: Math.max(1, Math.round(s / 60)) }) : '');
-  return `<div class="sec"><div class="sec-h">${T('Renders')}<span class="faint">${h.renders.length}</span></div>${h.renders
+  const groups = [],
+    by = {};
+  h.renders.forEach(r => {
+    const v = (r.source && vShort(it, r.source)) || String(r.folder || '').replace(/_\d+$/, '') || '?';
+    if (!by[v]) groups.push((by[v] = { v, rs: [] }));
+    by[v].rs.push(r);
+  });
+  const line =
+    r => `<div class="rh">${jst(ok[r.status] || 'finished')}<div class="rl"><div class="vh"><b class="mono">${esc(r.folder || '')}</b>${r.department ? `<span class="tag">${esc(LBL[r.department] || r.department)}</span>` : ''}${r.status && r.status !== 'finished' ? `<span class="tag ${r.status === 'failed' ? 'fail' : ''}">${esc(r.status)}</span>` : ''}</div>
+        <div class="vm faint">${[dShort(r.at), r.by, r.preset, r.frames ? 'f' + r.frames.join('–') : '', r.shot, min(r.seconds) && T('{t} of machine', { t: min(r.seconds) }), r.machines ? T('{n} machine|{n} machines', { n: r.machines }) : ''].filter(Boolean).map(esc).join(' · ')}</div></div></div>`;
+  const nodes = groups
     .map(
-      r => `<div class="rh">${jst(ok[r.status] || 'finished')}<div class="rb"><div class="vh"><b class="mono">${esc(r.folder || vShort(it, r.source))}</b>${r.department ? `<span class="tag">${esc(LBL[r.department] || r.department)}</span>` : ''}${r.status && r.status !== 'finished' ? `<span class="tag ${r.status === 'failed' ? 'fail' : ''}">${esc(r.status)}</span>` : ''}</div>
-        <div class="vm faint">${[dShort(r.at), r.by, r.preset, r.frames ? 'f' + r.frames.join('–') : '', r.shot, min(r.seconds) && T('{t} of machine', { t: min(r.seconds) }), r.machines ? T('{n} machine|{n} machines', { n: r.machines }) : ''].filter(Boolean).map(esc).join(' · ')}</div></div></div>`
+      (
+        g,
+        i
+      ) => `<div class="vn ${/stable/.test(g.v) ? 'st' : ''}" data-vi="${i}" ${i ? `data-vp="${i - 1}"` : ''}>
+        <span class="vd" aria-hidden="true"></span>
+        <div class="vb"><div class="vh"><b class="mono">${esc(g.v)}</b><span class="faint">${T('{n} render|{n} renders', { n: g.rs.length })}</span></div>${g.rs.map(line).join('')}</div></div>`
     )
-    .join('')}</div>`;
+    .join('');
+  return `<div class="sec"><div class="sec-h">${T('Renders')}<span class="faint">${h.renders.length}</span></div>
+    <p class="faint" style="margin:0;font-size:var(--fs-s)">${T('By version rendered, the latest on top.')}</p>
+    <div class="vchain" id="vchain"><svg class="vwires" aria-hidden="true"></svg>${nodes}</div></div>`;
 }

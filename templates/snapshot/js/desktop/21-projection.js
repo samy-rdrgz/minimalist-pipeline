@@ -111,17 +111,18 @@ function projection() {
   };
   const fmt = t => new Date(t).toLocaleDateString(DTL(), { month: 'short', year: 'numeric' });
   /* The cones the further the blurrier: the same drawing in layers each more blurred
-     (0, 1.2, 3, 6), each seen over its stretch of the way -- masks fading one into the
+     (0, 0.4, 1.2, 3.5, 9: growing ever faster -- sharp a while, then fast lost), each
+     seen over its stretch of the way -- masks fading one into the
      next (they add up to one everywhere), from today (sharp) to the chart's end. */
   const blurred = (marks, x0, x1) => {
     if (!marks) return '';
-    const B = [0, 1.2, 3, 6],
+    const B = [0, 0.4, 1.2, 3.5, 9],
       n = B.length - 1;
     const defs = B.map(
       (b, k) =>
         `<linearGradient id="pjg${k}" gradientUnits="userSpaceOnUse" x1="${x0}" x2="${x1}" y1="0" y2="0">${B.map((_, j) => `<stop offset="${j / n}" stop-color="#fff" stop-opacity="${j === k ? 1 : 0}"/>`).join('')}</linearGradient>
         <mask id="pjm${k}" maskUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="${H}"><rect x="0" y="0" width="${W}" height="${H}" fill="url(#pjg${k})"/>${k === 0 ? `<rect x="0" y="0" width="${x0}" height="${H}" fill="#fff"/>` : ''}${k === n ? `<rect x="${x1}" y="0" width="${W - x1}" height="${H}" fill="#fff"/>` : ''}</mask>
-        ${b ? `<filter id="pjf${k}" x="-10%" y="-30%" width="120%" height="160%"><feGaussianBlur stdDeviation="${b}"/></filter>` : ''}`
+        ${b ? `<filter id="pjf${k}" filterUnits="userSpaceOnUse" x="-30" y="-40" width="${W + 60}" height="${H + 80}"><feGaussianBlur stdDeviation="${b}"/></filter>` : ''}`
     ).join('');
     return `<defs>${defs}</defs>${B.map((b, k) => `<g mask="url(#pjm${k})"><g ${b ? `filter="url(#pjf${k})"` : ''}>${marks}</g></g>`).join('')}`;
   };

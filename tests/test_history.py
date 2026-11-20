@@ -81,6 +81,25 @@ def main() -> None:
         (sessions / ".session_2.json").write_text(json.dumps({
             "user": "tom", "machine": "99ff00aa", "filepath": "/p/x_v001.blend", "last_ping": "2026-01-01T10:00:00+01:00"}), encoding="utf-8")
         assert live.presence(Path(d)) == [{"user": "lea", "machine": "a1b2c3d4", "uuid": "a1b2c3d4-x", "file": "ch_bob_v002", "saved": True}]
+
+    # Its shot open in another Blender (session.open_elsewhere()): any version,
+    # another machine's mount; this Blender's own and a stale one left out.
+    session = importlib.import_module(f"{pkg.__name__}.lib.session")
+    with tempfile.TemporaryDirectory() as d:
+        sessions = Path(d) / "config" / ".sessions"
+        sessions.mkdir(parents=True)
+        fresh = dt.datetime.now().astimezone().isoformat()
+        for i, (user, pid, uuid, fp, ping) in enumerate([
+            ("lea", 11, "aaaa1111", "S:\\proj\\assets\\ch\\ch_bob\\ch_bob_v003.blend", fresh),
+            ("me", 22, "bbbb2222", "/p/assets/ch/ch_bob/ch_bob_v002.blend", fresh),  # this Blender
+            ("tom", 33, "cccc3333", "/p/assets/ch/ch_bob/ch_bob_v001.blend", "2026-01-01T10:00:00+01:00"),
+            ("ana", 44, "dddd4444", "/p/assets/ch/ch_ann/ch_ann_v001.blend", fresh),
+        ]):
+            (sessions / f".session_{i}.json").write_text(json.dumps({
+                "user": user, "pid": pid, "uuid": uuid, "machine": uuid[:4], "filepath": fp, "last_ping": ping}), encoding="utf-8")
+        got = session.open_elsewhere("/mnt/x/assets/ch/ch_bob/ch_bob_v002.blend", root=Path(d), pid=22, machine="bbbb2222")
+        assert got == [{"user": "lea", "machine": "aaaa", "file": "ch_bob_v003.blend"}], got
+        assert session.elsewhere_text(got) == "lea (aaaa, ch_bob_v003.blend)"
     print("OK: history")
 
 
