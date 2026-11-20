@@ -73,9 +73,30 @@ function renderTodoQuick() {
           `<button class="mi" role="menuitemradio" aria-checked="${t.dept === d}" data-tdd="${d}"><span class="ck">${t.dept === d ? ic('b-checkmark') : ''}</span><span class="lbl">${esc(l)}</span></button>`
       )
       .join('')}</div></span>
+    <button class="btn ${t.order === 'old' ? '' : 'tool'}" data-tdo="${t.order === 'old' ? 'seq' : 'old'}" aria-pressed="${t.order === 'old'}" title="${T('Waiting the longest first: for a reviewer since the latest stable, to work on since the oldest open retake')}">${ic('b-sorttime')}${T('Oldest first')}</button>
     ${me() ? `<button class="btn" data-tdme aria-pressed="${t.me}" title="${T('assigned to {who}', { who: me() })}">${ic('b-user')}${T('Me')}</button>` : ''}
     <button class="btn tool icon" data-tdcopy aria-label="${T('Copy')}" title="${T('Copy')} · ${T('This list as text, in the clipboard')}">${ic('b-file')}</button>`;
 }
+/* How long a file's departments have waited, as a key only -- never shown (time watched
+   closely turns sour): waiting for a reviewer, since its latest stable; to work on, since
+   its oldest retake still open, else its latest stable. "" (unknown): last. */
+function todoSince(it, ds) {
+  const stable = /^0001/.test(it.stable_at || '') ? '' : it.stable_at || '';
+  const keys = ds.map(d => {
+    if (toCheck(it, d)) return stable;
+    const r = rtkNotes(it, d)
+      .map(n => n.date || '')
+      .filter(Boolean)
+      .sort()[0];
+    return r || stable;
+  });
+  return keys.filter(Boolean).sort()[0] || '';
+}
+/* The rows, oldest first (To do's order "Oldest first"): one list, no sequence. */
+const todoOldest = rows =>
+  rows
+    .map(r => ({ ...r, since: todoSince(r.it, r.ds) }))
+    .sort((a, b) => (!a.since ? 1 : !b.since ? -1 : a.since < b.since ? -1 : a.since > b.since ? 1 : 0));
 function renderTodo() {
   const L = $('#list'),
     rows = todoFiles(S.td.kind);
@@ -83,9 +104,12 @@ function renderTodo() {
     L.innerHTML = `<div class="empty">${S.td.dept || S.td.me || S.tq ? T('Nothing left to validate here.') : T('Everything is validated.')}</div>`;
     return;
   }
-  L.innerHTML = [...new Set(rows.map(r => groupOf(r.it)))]
-    .map(g => {
-      const its = rows.filter(r => groupOf(r.it) === g);
+  const old = S.td.order === 'old',
+    groups = old
+      ? [[T('Oldest first'), todoOldest(rows)]]
+      : [...new Set(rows.map(r => groupOf(r.it)))].map(g => [g, rows.filter(r => groupOf(r.it) === g)]);
+  L.innerHTML = groups
+    .map(([g, its]) => {
       return `<div class="grp" data-g="${esc(g)}"><div class="grp-h"><b>${esc(g)}</b><span class="cnt">${T('{n} file|{n} files', { n: its.length })}</span></div>
       <div class="rows">${its
         .map(
@@ -119,23 +143,25 @@ function todoText() {
         .filter(Boolean)
         .join(' · ')
     ];
-  [...new Set(rows.map(r => groupOf(r.it)))].forEach(g => {
+  const groups =
+    S.td.order === 'old'
+      ? [[T('Oldest first'), todoOldest(rows)]]
+      : [...new Set(rows.map(r => groupOf(r.it)))].map(g => [g, rows.filter(r => groupOf(r.it) === g)]);
+  groups.forEach(([g, its]) => {
     out.push('', g);
-    rows
-      .filter(r => groupOf(r.it) === g)
-      .forEach(({ it, ds }) =>
-        out.push(
-          '  ' +
-            it.name +
-            ' : ' +
-            ds
-              .map(d => {
-                const why = todoWhy(it, d);
-                return LBL[d] + (why ? ' (' + why + ')' : '');
-              })
-              .join(', ')
-        )
-      );
+    its.forEach(({ it, ds }) =>
+      out.push(
+        '  ' +
+          it.name +
+          ' : ' +
+          ds
+            .map(d => {
+              const why = todoWhy(it, d);
+              return LBL[d] + (why ? ' (' + why + ')' : '');
+            })
+            .join(', ')
+      )
+    );
   });
   return { text: out.join('\n'), n: rows.length };
 }

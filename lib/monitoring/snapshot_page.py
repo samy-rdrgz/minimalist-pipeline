@@ -230,6 +230,7 @@ def _item(item: dict, threads: list, roles: list, image) -> dict:
         "rp": item.get("render_presets") or {},
         "versions": _versions(item),
         "stable_v": _short_version(item["name"], item["stable_version"] or ""),
+        "stable_at": item.get("stable_at") or "",
         # The wip's, when newer than the stable: a state's capsule (page.js).
         "wip_v": _short_version(item["name"], item["wip_version"])
         if item.get("wip_version") and item.get("wip_after_stable", True)

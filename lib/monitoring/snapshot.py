@@ -629,6 +629,8 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
             # to show: the Blender file column names the stable alone.
             "wip_after_stable": wip_n > stable_n,
             "stable_version": stable_name,
+            # When its latest stable was made: the page's "oldest first" (To do).
+            "stable_at": (status.get("stable_info") or {}).get("created_at") or "",
             # What the prod sees and what its notes get anchored on: the
             # most recent of the two (a stable can be newer than any wip).
             "current_version": wip_name

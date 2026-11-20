@@ -6,6 +6,9 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- To do › Oldest first: the files waiting the longest first, one list --
+  for a reviewer since their latest stable, to work on since their oldest
+  retake still open. An order only: no time shown.
 - The page writes to-dos, beside retakes and remarks (the note form, Watch
   large's), and opens a closed retake or to-do again (Reopen; who and when
   kept in the entry): the review's new "todo" and "reopen" actions.

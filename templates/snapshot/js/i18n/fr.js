@@ -2,6 +2,9 @@
 // missing here: the English. Never translated: files, departments,
 // roles, prefixes, people (the project's own).
 MPI18n.add('fr',{
+'By sequence':'Par séquence',
+'Oldest first':'Plus ancien d’abord',
+'Waiting the longest first: for a reviewer since the latest stable, to work on since the oldest open retake':'Ce qui attend depuis le plus longtemps d’abord : une validation depuis la dernière stable, du travail depuis le plus vieux retake ouvert',
 'Open it again: applied when your review is imported':'La rouvrir : appliqué à l’import de ta review',
 'Reopened · you':'Rouverte · toi',
 'Reopen':'Rouvrir',

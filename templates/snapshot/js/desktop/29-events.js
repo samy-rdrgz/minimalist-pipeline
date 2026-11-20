@@ -638,6 +638,12 @@ document.addEventListener('click', e => {
     renderAll();
     return;
   }
+  const tdo = t.closest('[data-tdo]');
+  if (tdo) {
+    S.td.order = tdo.dataset.tdo;
+    renderAll();
+    return;
+  }
   const tds = t.closest('[data-tdst]');
   if (tds) {
     S.td.st = tds.dataset.tdst;
