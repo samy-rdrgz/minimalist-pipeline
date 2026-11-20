@@ -18,6 +18,12 @@ sys.path.insert(0, str(REPO / "tools"))
 
 
 def main() -> None:
+    import os
+    import time
+
+    # Days are the machine's: this test's in the time zone its dates are written in.
+    os.environ["TZ"] = "Europe/Paris"
+    time.tzset()
     import fake_bpy
 
     fake_bpy.install()
@@ -27,7 +33,7 @@ def main() -> None:
     pl = importlib.import_module(f"{pkg.__name__}.lib.monitoring.progress_log")
     migration = importlib.import_module(f"{pkg.__name__}.lib.migration")
 
-    tz = "+01:00"
+    tz = "+02:00"  # Paris in October
     with tempfile.TemporaryDirectory() as d:
         root = Path(d)
         (root / "config").mkdir()
@@ -81,6 +87,28 @@ def main() -> None:
         assert days["2026-10-09"]["rebuilt"] is True
         # Nothing left to rebuild: the plan says so.
         assert pl.rebuild(root, folders, {}, today="2026-10-10") == 0
+
+        # Activity: files worked by department, the sessions' time (one
+        # over midnight split between its two days).
+        logs = root / "config" / "logs"
+        logs.mkdir(parents=True, exist_ok=True)
+        (logs / "sessions_log.jsonl").write_text("\n".join(json.dumps(e) for e in (
+            {"ts": f"2026-10-02T18:00:00{tz}", "user": "lea", "action": "session_end", "duration_seconds": 7200, "saved": True},
+            {"ts": f"2026-10-03T01:00:00{tz}", "user": "tom", "action": "session_end", "duration_seconds": 7200, "saved": True},
+            {"ts": f"2026-10-05T10:00:00{tz}", "user": "ana", "action": "session_end", "duration_seconds": 600, "saved": False},
+        )), encoding="utf-8")
+        n = pl.rebuild_activity(root, folders, today="2026-10-10")
+        days = pl.days(root)
+        assert n == 8, n  # from the first day worked
+        assert days["2026-10-02"]["worked"] == {"assets": {"modeling": 1}}, days["2026-10-02"]
+        assert days["2026-10-02"]["seconds"] == 7200 + 3600 and days["2026-10-02"]["people"] == 2, days["2026-10-02"]
+        assert days["2026-10-03"]["seconds"] == 3600 and days["2026-10-05"]["seconds"] == 0  # not saved: not work
+        assert days["2026-10-04"]["assets"]["done"] == 0.42 and days["2026-10-04"]["worked"] == {}  # figures kept
+        assert pl.read(root)["activity_until"] == "2026-10-09"
+        # The next morning: only the day since, from the metas changed since.
+        assert pl.activity_since(root, "2026-10-10") is None
+        worked, seconds, first, last = pl.activity_since(root, "2026-10-12")
+        assert (first, last) == ("2026-10-10", "2026-10-11"), (first, last)
     print("OK: progress rebuilt")
 
 

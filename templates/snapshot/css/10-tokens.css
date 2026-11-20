@@ -137,6 +137,15 @@
   --st-wip: #fadf63; /* in progress */
   --st-rtk: #f0800a; /* retake */
   --st-you: #3fd3c0; /* you, not sent yet */
+  /* Departments in a chart (Activity): a fixed order, the project's departments in theirs. */
+  --cat-1: #3987e5;
+  --cat-2: #d95926;
+  --cat-3: #199e70;
+  --cat-4: #c98500;
+  --cat-5: #d55181;
+  --cat-6: #0ca30c;
+  --cat-7: #9085e9;
+  --cat-8: #e66767;
   --shadow: rgba(0, 0, 0, 0.55);
   --ui: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace;
@@ -222,5 +231,13 @@
   --st-wip: #e3b800;
   --st-rtk: #d96a00;
   --st-you: #14a896;
+  --cat-1: #2a78d6;
+  --cat-2: #eb6834;
+  --cat-3: #1baf7a;
+  --cat-4: #eda100;
+  --cat-5: #e87ba4;
+  --cat-6: #008300;
+  --cat-7: #6250d6;
+  --cat-8: #e34948;
   --shadow: rgba(0, 0, 0, 0.18);
 }

@@ -70,6 +70,11 @@ def days(root: Path) -> dict:
     return dict(sorted((read(root).get("days") or {}).items()))
 
 
+def has_figures(point) -> bool:
+    """A day's point holds its finished figures (not only its activity)."""
+    return isinstance(point, dict) and ("shots" in point or "assets" in point)
+
+
 _last: dict[str, tuple] = {}  # root: (day, figures) last written by this Blender
 
 
@@ -84,11 +89,12 @@ def record(root: Path, day: str, point: dict, checked: str | None = None) -> boo
         with locked_json(path_of(root)) as box:
             data = box["data"] if isinstance(box["data"], dict) else {}
             known = (data.get("days") or {}).get(day) or {}
-            same = {k: v for k, v in known.items() if k != "at"} == point
+            same = all(known.get(k) == v for k, v in point.items())
             if same and not checked:
                 _last[key] = (day, point)
                 return False
-            data.setdefault("days", {})[day] = {**point, "at": now()}
+            # Its activity, written apart, kept.
+            data.setdefault("days", {})[day] = {**known, **point, "at": now()}
             if checked:
                 data["checked"] = checked
             box["data"], box["action"] = data, "to_write"
@@ -148,6 +154,7 @@ def check_yesterday(root: Path) -> None:
         try:
             _job["raws"] = read_snapshot_raw(Path(root))
             _job["day"] = _last_change_day(Path(root), today)
+            _job["activity"] = activity_since(Path(root), today)
         except Exception as e:
             _job["error"] = str(e)
         _job["done"] = True
@@ -164,6 +171,11 @@ def check_yesterday(root: Path) -> None:
         from .snapshot import build_snapshot
 
         day = _job.get("day")
+        try:
+            if _job.get("activity"):
+                record_activity(Path(root), *_job["activity"])
+        except Exception as e:
+            log("WARNING", "progress", f"Yesterday's activity not logged: {e}")
         try:
             if day:
                 snap = build_snapshot(_job["raws"], ConfigCache.get() or {}, {})
@@ -345,7 +357,7 @@ def rebuild(root: Path, folders: list, config: dict, today: str | None = None) -
                 snap["meta"]["progress"][kind] = average_progress(snap[f"{kind}s"])
                 snap["meta"]["validation"][kind] = average_progress(snap[f"{kind}s"], "validation")
             figs = figures(snap)
-        if key not in logged:
+        if not has_figures(logged.get(key)):
             out[key] = figs
         day += timedelta(days=1)
     if not out:
@@ -355,7 +367,193 @@ def rebuild(root: Path, folders: list, config: dict, today: str | None = None) -
         data = box["data"] if isinstance(box["data"], dict) else {}
         known = data.setdefault("days", {})
         for key, point in out.items():
-            known.setdefault(key, {**point, "at": now(), "rebuilt": True})
+            if not has_figures(known.get(key)):
+                known[key] = {**(known.get(key) or {}), **point, "at": now(), "rebuilt": True}
         data["days"] = dict(sorted(known.items()))
         box["data"], box["action"] = data, "to_write"
     return len(out)
+
+
+# ---------------------------------------------------------------------------
+# Activity: what was worked each day, beside what was finished
+# ---------------------------------------------------------------------------
+# A day's "worked": {"shots"|"assets": {department: files}} -- the shots or
+# assets with a session saved that day with that department ticked (Working
+# on; a session counts on the day of its last save). Its "seconds": the
+# sessions' time that day, everyone's, a session over midnight split
+# between its days (sessions_log.jsonl, the saved ones: work time's rule);
+# "people": how many worked then. Written for the days before today: the
+# first Blender of the day adds those since the last ones written
+# ("activity_until"), reading only the metas changed since; Migrate old
+# data, every day before (rebuild_activity()).
+
+
+def _sessions_of_meta(meta: dict) -> list:
+    """A .wipmeta's or a .stablemeta's sessions: [(saved_at, departments)]."""
+    from . import legacy
+
+    out = []
+    for s in (legacy.wip_read(dict(meta)).get(legacy.SESSIONS) or {}).values():
+        if isinstance(s, dict):
+            out.append((s.get("saved_at"), s.get("departments") or []))
+        elif isinstance(s, list):
+            out.append((meta.get("edited_at"), s))
+    return out
+
+
+def worked_by_day(folders, first: str, last: str) -> dict:
+    """{day: {"shots"|"assets": {department: files}}} from folders [(kind
+    "shot"|"asset", owner, [meta data])], first to last (days, inclusive)."""
+    out: dict = {}
+    for kind, owner, metas in folders:
+        seen = set()
+        for meta in metas:
+            for saved, deps in _sessions_of_meta(meta):
+                day = _day_of(saved)
+                if not day or not first <= day <= last:
+                    continue
+                for d in deps:
+                    if (day, d) in seen:
+                        continue
+                    seen.add((day, d))
+                    per = out.setdefault(day, {}).setdefault(f"{kind}s", {})
+                    per[d] = per.get(d, 0) + 1
+    return out
+
+
+def seconds_by_day(root: Path, first: str, last: str, archives: bool = False) -> dict:
+    """{day: {"seconds", "people"}} from the sessions log (its archives too
+    with archives), first to last."""
+    import json
+    from datetime import timedelta
+
+    from ..core import parse_iso
+
+    logs = Path(root) / "config" / "logs"
+    paths = [logs / "sessions_log.jsonl"]
+    if archives:
+        paths = sorted((logs / "archives").glob("sessions_log_*.jsonl")) + paths
+    secs: dict = {}
+    people: dict = {}
+    for path in paths:
+        try:
+            f = open(path, "r", encoding="utf-8")
+        except OSError:
+            continue
+        with f:
+            for line in f:
+                try:
+                    e = json.loads(line)
+                except ValueError:
+                    continue
+                if e.get("action") != "session_end" or e.get("saved") is False:
+                    continue
+                end, dur = parse_iso(e.get("ts")), e.get("duration_seconds")
+                if end is None or not isinstance(dur, (int, float)) or dur <= 0:
+                    continue
+                start = end - timedelta(seconds=dur)
+                t = start
+                while t < end:
+                    midnight = datetime.combine(t.date() + timedelta(days=1), datetime.min.time(), t.tzinfo)
+                    part = min(end, midnight)
+                    day = t.date().isoformat()
+                    if first <= day <= last:
+                        secs[day] = secs.get(day, 0.0) + (part - t).total_seconds()
+                        people.setdefault(day, set()).add(str(e.get("user") or ""))
+                    t = part
+    return {d: {"seconds": round(s), "people": len(people.get(d) or ())} for d, s in secs.items()}
+
+
+def record_activity(root: Path, worked: dict, seconds: dict, first: str, last: str) -> None:
+    """Each day first to last given its activity (none: nobody worked),
+    "activity_until" moved to last. Days written earlier keep their
+    finished figures."""
+    from datetime import timedelta
+
+    day, end = datetime.fromisoformat(first).date(), datetime.fromisoformat(last).date()
+    path_of(root).parent.mkdir(parents=True, exist_ok=True)
+    with locked_json(path_of(root)) as box:
+        data = box["data"] if isinstance(box["data"], dict) else {}
+        known = data.setdefault("days", {})
+        while day <= end:
+            key = day.isoformat()
+            point = known.setdefault(key, {})
+            point["worked"] = worked.get(key) or {}
+            s = seconds.get(key) or {}
+            point["seconds"] = s.get("seconds", 0)
+            point["people"] = s.get("people", 0)
+            day += timedelta(days=1)
+        data["days"] = dict(sorted(known.items()))
+        if last > (data.get("activity_until") or ""):
+            data["activity_until"] = last
+        box["data"], box["action"] = data, "to_write"
+
+
+def _recent_folders(root: Path, since: str) -> list:
+    """[(kind, owner, [meta data])] of the metas changed since the day
+    since began -- the only ones that can hold a session saved since.
+    Pure os/json: a thread's."""
+    from .tracking import _DATA_ROOTS, _pipeline_entries, _walk_owner_dirs
+
+    start = datetime.fromisoformat(since).timestamp()
+    out = []
+    for top in _DATA_ROOTS:
+        kind = "shot" if top == "shots" else "asset"
+        for owner in _walk_owner_dirs(Path(root) / top):
+            metas = []
+            for entry in _pipeline_entries(owner):
+                if not entry.name.endswith((".wipmeta", ".stablemeta")):
+                    continue
+                try:
+                    if entry.stat().st_mtime < start:
+                        continue
+                except OSError:
+                    continue
+                data = read_json_quiet(Path(entry.path))
+                if isinstance(data, dict):
+                    metas.append(data)
+            if metas:
+                out.append((kind, str(owner), metas))
+    return out
+
+
+def activity_since(root: Path, today: str) -> tuple | None:
+    """The activity of the days since the last written ("activity_until",
+    else the last 30) up to yesterday: (worked, seconds, first, last), None
+    if none to write. Pure os/json: check_yesterday()'s thread."""
+    from datetime import timedelta
+
+    yesterday = (datetime.fromisoformat(today).date() - timedelta(days=1)).isoformat()
+    until = read(root).get("activity_until")
+    first = (
+        (datetime.fromisoformat(until).date() + timedelta(days=1)).isoformat()
+        if until
+        else (datetime.fromisoformat(today).date() - timedelta(days=30)).isoformat()
+    )
+    if first > yesterday:
+        return None
+    return (
+        worked_by_day(_recent_folders(root, first), first, yesterday),
+        seconds_by_day(root, first, yesterday),
+        first,
+        yesterday,
+    )
+
+
+def rebuild_activity(root: Path, folders: list, today: str | None = None) -> int:
+    """Every day's activity before today, from folders [(kind, owner,
+    tracking, [stablemeta data], [wipmeta data])] -- Migrate old data's --
+    and the whole sessions log, archives too. How many days."""
+    from datetime import timedelta
+
+    today = today or datetime.now().date().isoformat()
+    last = (datetime.fromisoformat(today).date() - timedelta(days=1)).isoformat()
+    metas = [(kind, owner, [*stables, *wips]) for kind, owner, _tracking, stables, wips in folders]
+    worked = worked_by_day(metas, "0000", last)
+    seconds = seconds_by_day(root, "0000", last, archives=True)
+    known = [*worked, *seconds]
+    if not known:
+        return 0
+    first = min(known)
+    record_activity(root, worked, seconds, first, last)
+    return (datetime.fromisoformat(last).date() - datetime.fromisoformat(first).date()).days + 1

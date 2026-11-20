@@ -590,6 +590,12 @@ document.addEventListener('click', e => {
     dl.innerHTML = `<div class="dlg-in zoom" role="dialog" aria-modal="true" aria-label="${T('{name}, large', { name: it.name })}"><img src="${it.thumb}" alt="${it.name}"><div class="acts"><span class="mono" style="flex:1">${it.name}</span><button class="btn" data-dclose>${T('Close')}</button></div></div>`;
     return;
   }
+  const actm = t.closest('[data-actm]');
+  if (actm) {
+    S.act = actm.dataset.actm;
+    renderList();
+    return;
+  }
   const otk = t.closest('[data-otk]');
   if (otk) {
     S.ot = { kind: otk.dataset.otk, dept: '' };
@@ -1404,7 +1410,9 @@ sxAll();
 /* Over time's hover (Breakdown). */
 document.addEventListener('pointermove', e => {
   if (e.target.closest && e.target.closest('.ot-box')) otHover(e);
+  if (e.target.closest && e.target.closest('.ac-box')) actHover(e);
 });
 document.addEventListener('pointerout', e => {
   if (e.target.closest && e.target.closest('.ot-box') && !e.relatedTarget?.closest?.('.ot-box')) otLeave(e);
+  if (e.target.closest && e.target.closest('.ac-box') && !e.relatedTarget?.closest?.('.ac-box')) actLeave(e);
 });

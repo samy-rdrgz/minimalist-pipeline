@@ -79,6 +79,7 @@ _CHANGES = (
     ("render presets: one per department", "render presets: one for each department with none"),
     ("sessions with their date, named sessions", "versions: their sessions dated, named sessions"),
     ("progress: days rebuilt", "progress over time: the days before the log, rebuilt"),
+    ("activity: rebuilt", "activity over time (files worked, hours): rebuilt"),
 )
 
 

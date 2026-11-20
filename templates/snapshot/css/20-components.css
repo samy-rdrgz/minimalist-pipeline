@@ -3906,3 +3906,39 @@ html.kb .m-nav {
 .sr-more {
   font-size: var(--fs-s);
 }
+/* Activity (Breakdown): its legend's departments, its bars, the bar hovered. */
+.ac-lg {
+  flex-wrap: wrap;
+  row-gap: 2px;
+}
+.ac-lg span {
+  display: inline-flex;
+  align-items: center;
+}
+.ac-lg i {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  margin: 0 var(--sp-3) 0 var(--sp-6);
+}
+.ac-say {
+  margin: 0 0 var(--sp-4);
+  font-size: var(--fs-s);
+}
+.ac-box {
+  position: relative;
+}
+.ac-b {
+  shape-rendering: crispEdges;
+}
+.ac-hv {
+  fill: var(--row-hover);
+}
+.ac-hv[hidden] {
+  display: none;
+}
+.act .ot-tip i {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}

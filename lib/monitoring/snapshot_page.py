@@ -47,6 +47,7 @@ JS_PARTS = (
     "core/42-videos.js",
     "desktop/20-top-tree.js",
     "desktop/21-list.js",
+    "desktop/21-activity.js",
     "desktop/21-todo.js",
     "desktop/21-export.js",
     "desktop/22-detail.js",

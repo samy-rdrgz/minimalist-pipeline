@@ -94,11 +94,16 @@ def plan_migration(root: Path, v_prefix: str = "v") -> dict:
         counts["render presets: .json to .py"] = len(presets["json"])
     if presets["departments"]:
         counts["render presets: one per department"] = len(presets["departments"])
+    from .monitoring import progress_log
+
     missing = _progress_days_missing(root, history)
     if missing:
         counts["progress: days rebuilt"] = missing
+    activity = not progress_log.read(root).get("activity_until") and bool(history)
+    if activity:
+        counts["activity: rebuilt"] = 1
     return {"files": files, "owners": owners, "counts": counts, "presets": presets, "loose_presets": loose,
-            "progress": history if missing else []}
+            "progress": history if missing or activity else [], "progress_missing": missing, "activity": activity}
 
 
 def _progress_days_missing(root: Path, history: list) -> int:
@@ -116,7 +121,7 @@ def _progress_days_missing(root: Path, history: list) -> int:
     logged = progress_log.days(root)
     day, n = datetime.fromisoformat(first).date(), 0
     while day < today:
-        n += day.isoformat() not in logged
+        n += not progress_log.has_figures(logged.get(day.isoformat()))
         day += timedelta(days=1)
     return n
 
@@ -151,7 +156,10 @@ def apply_migration(root: Path, plan: dict) -> dict:
 
         try:
             config = read_json_quiet(root / "config" / "project_config.json") or {}
-            rebuilt = progress_log.rebuild(root, plan["progress"], config)
+            if plan.get("progress_missing", True):
+                rebuilt = progress_log.rebuild(root, plan["progress"], config)
+            if plan.get("activity", True):
+                progress_log.rebuild_activity(root, plan["progress"])
         except Exception as e:
             errors.append((str(progress_log.path_of(root)), str(e)))
     return {"written": written, "backup": str(backup), "errors": errors, "progress_days": rebuilt}

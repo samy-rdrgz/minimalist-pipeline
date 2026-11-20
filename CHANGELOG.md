@@ -6,6 +6,13 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- Breakdown › Activity, under Over time: what was worked, not only what
+  was finished. Files worked: a bar a day, the shots (or assets) with a
+  session saved that day stacked by the departments ticked (Working on);
+  Time: everyone's saved sessions, hours a day (a session over midnight
+  split). Past four months, a bar a week. Written each morning for the
+  days before (the metas changed since only), every day before by Migrate
+  old data (config/logs/progress.json's "worked", "seconds", "people").
 - Migrate old data rebuilds the progress over time before the log
   began: each day since the project's first change, the project as it
   stood that evening -- the stables made, validations given, sessions

@@ -5774,3 +5774,17 @@ from every folder's latest: 150 folders over two busy years, about ten
 seconds. What isn't dated stays as it is now: the required departments,
 set aside, the project's departments and weights. Days the log holds are
 never replaced; rebuilt ones carry "rebuilt": true.
+
+## Activity over time
+
+progress.json's days also hold what was worked: "worked" ({shots|assets:
+{department: files}}, the folders with a session saved that day with the
+department ticked -- a session counts on the day of its last save),
+"seconds" and "people" (sessions_log.jsonl's saved sessions, work time's
+rule, split at midnight). Only for the days before today: the first
+Blender of the day adds the days since "activity_until", reading only the
+metas changed since (their mtime) -- never every meta; Migrate old data
+writes every day before (rebuild_activity(), the metas it reads anyway
+and the log's archives). A day's finished figures and its activity are
+written apart, each keeping the other (record() merges, has_figures()).
+Counted in files, not hours: the sessions log knows no department.
