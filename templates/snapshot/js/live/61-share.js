@@ -4,7 +4,8 @@
    each revoked in a click. A guest reviews as themselves: the farm read only, nothing opened
    on this machine (.host-only hidden). */
 const guest = () => !!(M.live && M.live.guest);
-let SHARE_IP = '';
+let SHARE_IP = '',
+  SHARE_FARM = false;
 const SHARE_TIMES = () => [
   ['1', T('1 hour')],
   ['eod', T('Until tonight')],
@@ -33,7 +34,19 @@ function shareDialog() {
       }
       const ip = $('#sh-ip');
       if (ip) SHARE_IP = ip.value;
-      return shareSend({ name: n, role: $('#sh-role').value, hours: $('#sh-time').value, ip: SHARE_IP });
+      return shareSend({
+        name: n,
+        role: $('#sh-role').value,
+        hours: $('#sh-time').value,
+        ip: SHARE_IP,
+        farm: SHARE_FARM
+      });
+    }
+    const sf = e.target.closest('[data-shfarm]');
+    if (sf) {
+      SHARE_FARM = sf.dataset.shfarm === '1';
+      dl.querySelectorAll('[data-shfarm]').forEach(b => b.setAttribute('aria-pressed', b === sf));
+      return;
     }
     if (e.target.closest('#sh-copy')) copyShareLink($('#sh-link').value);
   };
@@ -66,7 +79,7 @@ function shareDraw(res) {
   let h = '';
   if (ad.length) SHARE_IP = SHARE_IP && ad.some(a => a.ip === SHARE_IP) ? SHARE_IP : ad[0].ip;
   if (res.link)
-    h += `<div class="sh-made"><div class="sh-qr">${res.qr}</div><div class="sh-info"><span><b>${esc(res.name)}</b> · ${esc(res.role)}</span><small class="faint">${T('until {when}', { when: fmtUntil(res.until) })}</small>
+    h += `<div class="sh-made"><div class="sh-qr">${res.qr}</div><div class="sh-info"><span><b>${esc(res.name)}</b> · ${esc(res.role)}${res.farm ? ' · ' + T('drives the farm') : ''}</span><small class="faint">${T('until {when}', { when: fmtUntil(res.until) })}</small>
     <p class="faint">${res.via === 'VPN' ? T('Scan it on a device on the same VPN, wherever it is -- or send the link:') : T("Scan it on the same network (the studio's Wi-Fi) -- or send the link:")}</p>
     <label class="field"><input id="sh-link" readonly value="${esc(res.link)}" aria-label="${T('Link')}"></label><button class="btn" id="sh-copy">${ic('b-linked')}${T('Copy link')}</button></div></div>`;
   h += `<div class="sh-form">
@@ -76,8 +89,9 @@ function shareDraw(res) {
     <div class="prop"><span class="k">${T('For')}</span><span class="v"><label class="field" style="flex:1"><select id="sh-time">${SHARE_TIMES()
       .map(([v, l]) => `<option value="${v}"${v === 'eod' ? ' selected' : ''}>${l}</option>`)
       .join('')}</select></label></span></div>
+    <div class="prop"><span class="k">${T('Farm')}</span><span class="v"><span class="join full" style="flex:1"><button class="btn" data-shfarm="0" aria-pressed="${!SHARE_FARM}">${T('Read only')}</button><button class="btn" data-shfarm="1" aria-pressed="${SHARE_FARM}" title="${T('Launch and stop it, send renders, change priorities: for yourself, away from the studio')}">${T('Can drive it')}</button></span></span></div>
     <div class="acts"><span style="flex:1"></span><button class="btn primary" id="sh-make">${T('Make the access')}</button></div></div>
-    <p class="hint">${T('They review as that name and role -- notes, validations, assignees; the farm read only; nothing opened on this machine. Blender stays open here for it to work.')}</p>`;
+    <p class="hint">${T('They review as that name and role -- notes, validations, assignees; the farm read only unless they may drive it; nothing opened on this machine. Blender stays open here for it to work.')}</p>`;
   const g = res.guests || [];
   if (g.length)
     h +=
@@ -85,7 +99,7 @@ function shareDraw(res) {
       g
         .map(
           x =>
-            `<div class="sh-g"><span><b>${esc(x.name)}</b> · ${esc(x.role)} · ${T('until {when}', { when: fmtUntil(x.until) })}${x.ip ? ` <small class="faint">${esc(x.ip)}</small>` : ''}</span><button class="btn sm alert" data-shrev="${esc(x.token)}">${T('Revoke')}</button></div>`
+            `<div class="sh-g"><span><b>${esc(x.name)}</b> · ${esc(x.role)}${x.farm ? ' · ' + T('drives the farm') : ''} · ${T('until {when}', { when: fmtUntil(x.until) })}${x.ip ? ` <small class="faint">${esc(x.ip)}</small>` : ''}</span><button class="btn sm alert" data-shrev="${esc(x.token)}">${T('Revoke')}</button></div>`
         )
         .join('');
   $('#sh-body').innerHTML = h;

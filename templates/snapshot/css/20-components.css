@@ -3342,7 +3342,7 @@ button.assign:hover {
 .rv-sync[data-state="off"]::before {
   background: var(--st-rtk);
 }
-/* Live, a guest (Share with a phone): reviews as themselves -- the farm read only, nothing opened or rendered on this machine. */
+/* Live, a guest (Share with a phone): reviews as themselves -- nothing opened or rendered on this machine; the farm read only, unless the access may drive it. */
 [data-guest="1"]
   :is(
     [data-act="blender"],
@@ -3352,14 +3352,17 @@ button.assign:hover {
     [data-act="share"],
     [data-act="snapshot"],
     [data-otreload],
-    [data-farm="launch_monitor"],
-    [data-farm="kill_monitor"],
     [data-act="folder"],
     [data-act="log"],
+    [data-relink]
+  ),
+[data-guest="1"]:not([data-gfarm="1"])
+  :is(
+    [data-farm="launch_monitor"],
+    [data-farm="kill_monitor"],
     [data-render],
     [data-farm],
     [data-prio],
-    [data-relink],
     [data-mjob],
     [data-mprio],
     [data-msheet="render"]
@@ -3837,4 +3840,8 @@ html.kb .m-nav {
 .td-d .s {
   color: var(--text-3);
   font-size: var(--fs-s);
+}
+/* To do's filters: whole, the bar scrolling when narrow (never a button cut). */
+#quick .td-j {
+  flex: none;
 }

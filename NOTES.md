@@ -5721,3 +5721,25 @@ key's values win. The migration keeps both (_migrate_done()). Everything
 else 2.0 migrates a 1.1.10 already reads (dates with their offset,
 sessions with their date, .py render presets: a 1.1.10 tries the .py
 first).
+
+## A worker started again never took a job
+
+1.1.10: Kill this worker, then Add this machine as worker, Blender left
+open -- the worker file written, the machine listed, but no job ever
+taken. farm_tick() returns None once no role is left here (Blender
+drops the timer), but _farm_running_project stayed set, and
+register_farm_loop() only registered a timer when it was None: the
+worker never ticked again. Now farm_tick() forgets the loop when it ends
+(_loop_ended()), and register_farm_loop() checks the timer itself: one
+still there (the worker running while the monitor was stopped and
+launched again) gets the project back, no second timer; none, a new one.
+tests/test_farm_loop.py.
+
+## Share with a phone: an access that drives the farm
+
+A guest's farm is read only -- except an access made with Farm: Can
+drive it ("farm" on the guest, meta.live.farm, data-gfarm on the page):
+launch and stop the farm, render, priorities, cancel and retry. For a
+solo artist away from the studio, following their renders from a
+phone. Never anything opened on the host machine (a job's folder or
+log, Blender, the player): those stay the host's, whatever the access.

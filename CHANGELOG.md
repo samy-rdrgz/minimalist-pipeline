@@ -8,8 +8,12 @@ All notable changes to this addon. Dates are release dates.
 
 - The page's To do tab, before Breakdown: each file's required
   departments not validated yet, with why one waits (waiting, to redo,
-  RTK); shots or assets, one department or all, the ones assigned to me.
-  Copy puts that list in the clipboard as text.
+  RTK); everything, to work on or to validate; shots or assets, one
+  department or all, the ones assigned to me. Copy puts that list in the
+  clipboard as text. On the phone too, a tap opening the file in Review.
+- Share with a phone: an access may drive the farm (launch, stop,
+  renders, priorities) -- an artist away from the studio following their
+  renders. Read only by default; nothing is ever opened on the machine.
 - The live page's Farm tab (desktop and phone): Launch the farm (this
   machine its host; Take the farm over when it's stuck, asked twice) and
   Stop the farm (asked twice: the monitor stops on its next tick, the
@@ -404,6 +408,9 @@ All notable changes to this addon. Dates are release dates.
 
 ### Fixed
 
+- A worker stopped then added again, Blender left open, never took a
+  job: the farm loop's timer, gone with the role, was taken for still
+  running and never registered again.
 - A -stable file saved in place (Save anyway) records its session: who,
   when, and the departments ticked in Working on -- shown on it once
   saved -- in its .stablemeta ("sessions"). It went nowhere: a stable has

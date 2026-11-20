@@ -101,7 +101,7 @@ _server = None
 # network address too, only while one is valid. See NOTES.md, "Live page:
 # a phone".
 GUEST_MAX_HOURS = 7 * 24
-_guests: dict[str, dict] = {}  # token: {"name", "role", "until" (epoch), "made"}
+_guests: dict[str, dict] = {}  # token: {"name", "role", "until" (epoch), "made", "ip", "farm"}
 _guests_lock = threading.Lock()
 _lan = {"servers": {}, "error": ""}  # {ip: server}: one per address a guest uses
 _config_dir: Path | None = None  # Blender's config folder, read on the main thread
@@ -146,7 +146,7 @@ def guest_of(token: str) -> dict | None:
 def _guest_list() -> list:
     with _guests_lock:
         return sorted(
-            ({"token": t, "name": g["name"], "role": g["role"], "until": _iso(g["until"]), "ip": g.get("ip", "")} for t, g in _guests.items() if g["until"] > time.time()),
+            ({"token": t, "name": g["name"], "role": g["role"], "until": _iso(g["until"]), "ip": g.get("ip", ""), "farm": bool(g.get("farm"))} for t, g in _guests.items() if g["until"] > time.time()),
             key=lambda g: g["until"],
         )
 
@@ -220,7 +220,8 @@ def _sync_lan_locked(sh: "_Shared") -> None:
 
 
 def _share(raw: dict, sh: "_Shared") -> dict:
-    """The host's page: a guest made ({"name", "role", "hours" or "eod"}),
+    """The host's page: a guest made ({"name", "role", "hours" or "eod",
+    "farm": may drive the farm -- an artist away, following their renders}),
     one revoked ({"revoke": token}), or the list ({}). Answers the list,
     and for one made its link and QR code."""
     from datetime import datetime
@@ -253,7 +254,7 @@ def _share(raw: dict, sh: "_Shared") -> dict:
             return {"ok": False, "error": "this machine is on no network" if not addresses else f"{ip} isn't one of this machine's addresses"}
         token = secrets.token_urlsafe(18)
         with _guests_lock:
-            _guests[token] = {"name": name, "role": role, "until": end, "made": time.time(), "ip": ip}
+            _guests[token] = {"name": name, "role": role, "until": end, "made": time.time(), "ip": ip, "farm": bool(raw.get("farm"))}
         _save_guests()
         _sync_lan(sh)
         if ip not in _lan["servers"]:
@@ -263,7 +264,7 @@ def _share(raw: dict, sh: "_Shared") -> dict:
             return {"ok": False, "error": _lan["error"] or f"not served on {ip}"}
         link = f"http://{ip}:{_server.server_address[1]}/?t={token}"
         via = next((a["kind"] for a in _addresses() if a["ip"] == ip), "")
-        out.update(link=link, qr=qr_svg(link), until=_iso(end), name=name, role=role, via=via)
+        out.update(link=link, qr=qr_svg(link), until=_iso(end), name=name, role=role, via=via, farm=bool(raw.get("farm")))
         log("INFO", "live", f"Live page: an access for {name} ({role}) until {_iso(end)}")
     return {"ok": True, "guests": _guest_list(), "addresses": _addresses(), **out}
 
@@ -283,7 +284,7 @@ def _as_guest(data: dict, token: str, guest: dict) -> dict:
     videos' path too), marked a guest."""
     meta = dict(data["meta"])
     # A guest: new to the page, most often -- its tour shown once on their phone.
-    meta["live"] = {**meta["live"], "token": token, "user": guest["name"], "role": guest["role"], "guest": True, "until": _iso(guest["until"]), "beginner": True}
+    meta["live"] = {**meta["live"], "token": token, "user": guest["name"], "role": guest["role"], "guest": True, "until": _iso(guest["until"]), "beginner": True, "farm": bool(guest.get("farm"))}
     meta["videos"] = {**(meta.get("videos") or {}), "local": f"media/{token}/renders"}
     return {**data, "meta": meta}
 _reader = {"thread": None, "result": None, "at": 0.0, "farm_at": 0.0, "cache": {}, "farm": None, "compare": None, "ready": False,
@@ -1253,9 +1254,12 @@ def _handler(sh: _Shared):
             raw = raw if isinstance(raw, dict) else {}
             kind = parsed.path.strip("/").replace("action", "review")
             if self.guest is not None:
-                # A guest reviews, as themselves; the farm read only;
-                # nothing on this machine (Blender, its player, sharing).
-                if kind in ("open", "play", "share", "relink") or kind == "farm" and raw.get("action") not in ("detail", "worker_detail"):
+                # A guest reviews, as themselves; the farm read only unless
+                # its access says it may drive it (launch, stop, renders,
+                # priorities); never anything opened on this machine
+                # (Blender, its player, a folder, a log, sharing).
+                farm_ok = ("detail", "worker_detail") if not self.guest.get("farm") else None
+                if kind in ("open", "play", "share", "relink") or kind == "farm" and (raw.get("action") == "open" or farm_ok is not None and raw.get("action") not in farm_ok):
                     return self._send(403, json.dumps({"ok": False, "error": "not from a guest's page"}).encode(), "application/json")
                 if kind == "review":
                     raw["author"], raw["role"] = self.guest["name"], self.guest["role"]

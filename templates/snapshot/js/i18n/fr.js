@@ -2,7 +2,12 @@
 // missing here: the English. Never translated: files, departments,
 // roles, prefixes, people (the project's own).
 MPI18n.add('fr',{
-'Not validated yet, file by file':'Pas encore validé, fichier par fichier',
+'To work on':'À travailler',
+'Read only':'Lecture seule',
+'Can drive it':'Peut la piloter',
+'drives the farm':'pilote la farm',
+'Launch and stop it, send renders, change priorities: for yourself, away from the studio':'La lancer et l’arrêter, envoyer des rendus, changer les priorités : pour toi, loin du studio',
+'They review as that name and role -- notes, validations, assignees; the farm read only unless they may drive it; nothing opened on this machine. Blender stays open here for it to work.':'Cette personne fait sa revue sous ce nom et ce rôle — notes, validations, attributions ; la farm en lecture seule, sauf si elle peut la piloter ; rien ne s\'ouvre sur cette machine. Blender reste ouvert ici pour que ça marche.',
 'This list as text, in the clipboard':'Cette liste en texte, dans le presse-papiers',
 'Copy':'Copier',
 'Copied: {n} file|Copied: {n} files':'Copié : {n} fichier|Copié : {n} fichiers',
@@ -565,7 +570,6 @@ MPI18n.add('fr',{
 'The video large, the departments beside it: retakes written as you watch.':'La vidéo en grand, les départements à côté : on écrit les retakes en regardant.',
 'the whole shot':'tout le plan',
 'Theme':'Thème',
-'They review as that name and role -- notes, validations, assignees; the farm read only; nothing opened on this machine. Blender stays open here for it to work.':'Cette personne fait sa revue sous ce nom et ce rôle — notes, validations, attributions ; la farm en lecture seule ; rien ne s\'ouvre sur cette machine. Blender reste ouvert ici pour que ça marche.',
 'This browser has no notifications':'Ce navigateur ne propose pas de notifications',
 'this machine becomes a worker':'cette machine devient un worker',
 'this machine is no longer a worker':'cette machine n\'est plus un worker',

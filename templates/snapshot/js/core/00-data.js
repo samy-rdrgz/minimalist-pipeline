@@ -201,7 +201,7 @@ const S = {
   g: { x: 0, y: 0, z: 1, init: false },
   smode: 'done',
   ot: { kind: 'shot', dept: '' },
-  td: { kind: 'shot', dept: '', me: false },
+  td: { kind: 'shot', st: '', dept: '', me: false },
   shot: {},
   seqPlay: false,
   planned: [],

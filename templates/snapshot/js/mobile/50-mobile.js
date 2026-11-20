@@ -2,6 +2,7 @@
    Touch AND narrow (< 900 px wide, or < 500 px high: a phone held wide; a tablet held wide stays desktop). Two uses only:
    · Review (snapshot and live): a shot at a time, two versions compared at the same frame,
      validate, retake, assign, add a department, write a note at the frame.
+   · To do: what isn't validated yet, file by file (desktop/21-todo.js), Copy.
    · Farm (live only): the farm's state, the jobs and their %, retry, render a shot.
    The rest (links, breakdown, outliner, file settings) isn't here: the desktop version.
    Reads the same state S, the same selectors (info, versOf, marks…) and calls the same actions A. */
@@ -26,7 +27,7 @@ const mGl = it =>
 
 function mRender() {
   const R = $('#mob');
-  if (!LIVE) S.m.tab = 'review';
+  if (!LIVE && S.m.tab === 'farm') S.m.tab = 'review';
   const ta = $('#m-ta'),
     keep = ta ? ta.value : '',
     foc = document.activeElement === ta,
@@ -37,14 +38,11 @@ function mRender() {
       ${LIVE ? `<button class="m-ib" data-msheet="news" aria-label="${T("What's new")}">${ic('i-bell')}${nn ? `<span class="cnt">${nn}</span>` : ''}</button>` : ''}
       ${S.review && LIVE ? `<span class="rv-sync" data-state="${LV.say}">${SAY[LV.say]()}</span>` : ''}${S.review && !LIVE ? `<button class="btn primary" data-msheet="send">${ic('b-export')}${T('Send')}<span class="n">${n2}</span></button>` : ''}
       <button class="m-ib" data-msheet="menu" aria-label="Menu">${ic('b-preferences')}</button></header>
-    <main class="m-body" id="m-body">${S.m.tab === 'farm' ? mFarm() : mReview()}</main>
+    <main class="m-body" id="m-body">${S.m.tab === 'farm' ? mFarm() : S.m.tab === 'todo' ? mTodo() : mReview()}</main>
     ${S.m.tab === 'review' ? mComposer() : ''}
-    ${
-      LIVE
-        ? `<nav class="m-nav" role="tablist"><button role="tab" data-mtab="review" aria-selected="${S.m.tab === 'review'}">${ic('b-file_movie')}<span>${T('Review')}</span></button>
-      <button role="tab" data-mtab="farm" aria-selected="${S.m.tab === 'farm'}">${ic('b-render_animation')}<span>Farm</span>${F.jobs.some(j => !j.archived && j.state === 'failed') ? '<span class="dot bad"></span>' : ''}</button></nav>`
-        : ''
-    }
+    <nav class="m-nav" role="tablist"><button role="tab" data-mtab="review" aria-selected="${S.m.tab === 'review'}">${ic('b-file_movie')}<span>${T('Review')}</span></button>
+      <button role="tab" data-mtab="todo" aria-selected="${S.m.tab === 'todo'}">${ic('b-checkmark')}<span>${T('To do')}</span></button>
+      ${LIVE ? `<button role="tab" data-mtab="farm" aria-selected="${S.m.tab === 'farm'}">${ic('b-render_animation')}<span>Farm</span>${F.jobs.some(j => !j.archived && j.state === 'failed') ? '<span class="dot bad"></span>' : ''}</button>` : ''}</nav>
     ${S.m.sheet ? mSheet() : ''}`;
   const nb = $('#m-body');
   if (nb) nb.scrollTop = top;
@@ -53,6 +51,46 @@ function mRender() {
     t2.value = keep;
     if (foc) t2.focus();
   }
+}
+
+/* ----- To do: the files not validated yet, a tap opens one in Review ----- */
+function mTodo() {
+  const rows = todoFiles(S.td.kind);
+  return `<span class="join full">${[
+    ['shot', T('Shots')],
+    ['asset', T('Assets')]
+  ]
+    .map(
+      ([k, l]) =>
+        `<button class="btn" data-tdk="${k}" aria-pressed="${S.td.kind === k}">${l}<span class="n">${todoFiles(k).length}</span></button>`
+    )
+    .join('')}</span>
+    <span class="join full">${TD_ST()
+      .map(([k, l]) => `<button class="btn" data-tdst="${k}" aria-pressed="${S.td.st === k}">${l}</button>`)
+      .join('')}</span>
+    <button class="btn m-wide" data-tdcopy>${ic('b-file')}${T('Copy')}</button>
+    ${
+      rows.length
+        ? [...new Set(rows.map(r => groupOf(r.it)))]
+            .map(g => {
+              const its = rows.filter(r => groupOf(r.it) === g);
+              return `<section class="m-sec"><div class="m-sec-h">${esc(g)}<span class="n">${its.length}</span></div>${its
+                .map(
+                  ({ it, ds }) =>
+                    `<button class="m-job m-td" data-mgo="${esc(it.name)}"><span class="gl">${ds
+                      .map(d => {
+                        const x = info(it, d);
+                        return glyph(x.base, x.corner, x.cnt);
+                      })
+                      .join(
+                        ''
+                      )}</span><span class="jt"><b>${esc(mShort(it))}</b><small>${esc(ds.map(d => LBL[d] + (todoWhy(it, d) ? ' (' + todoWhy(it, d) + ')' : '')).join(', '))}</small></span></button>`
+                )
+                .join('')}</section>`;
+            })
+            .join('')
+        : `<div class="empty">${T('Everything is validated.')}</div>`
+    }`;
 }
 
 /* ----- Review: one shot ----- */
@@ -447,8 +485,24 @@ $('#mob').addEventListener('click', e => {
     mStep(+x.dataset.mstep);
     return;
   }
+  if ((x = q('[data-tdk]'))) {
+    S.td.kind = x.dataset.tdk;
+    S.td.dept = '';
+    mRender();
+    return;
+  }
+  if ((x = q('[data-tdst]'))) {
+    S.td.st = x.dataset.tdst;
+    mRender();
+    return;
+  }
+  if (q('[data-tdcopy]')) {
+    const c = todoText();
+    copyText(c.text, T('Copied: {n} file|Copied: {n} files', { n: c.n }));
+    return;
+  }
   if ((x = q('[data-mgo]'))) {
-    if (S.m.tab === 'farm') S.m.tab = 'review';
+    if (S.m.tab !== 'review') S.m.tab = 'review';
     mGo(x.dataset.mgo);
     return;
   }

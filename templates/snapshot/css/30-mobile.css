@@ -969,3 +969,19 @@ b.ab.b {
   border-color: var(--st-wip);
   color: #241703;
 }
+/* To do: a file's departments not validated, their glyphs at the end (the names aligned). */
+.m-td {
+  grid-template-columns: 1fr auto;
+}
+.m-td .gl {
+  order: 2;
+  display: flex;
+  gap: 2px;
+}
+.m-td .gl .g {
+  width: 18px;
+  height: 18px;
+}
+.m-td small {
+  white-space: normal;
+}

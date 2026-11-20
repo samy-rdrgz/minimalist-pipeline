@@ -129,23 +129,41 @@ def farm_tick(project_root: Path, interval: float = 10) -> float | None:
 
     if not monitor and not worker:
         log("INFO", "farm", "Farm loop stopped: no monitor nor worker role left here.")
+        _loop_ended()
         return
 
     return interval
 
 
-def register_farm_loop(project_root: Path, interval: float = 10) -> None:
-    """Register farm_tick as a persistent Blender timer. Raises if this
-    Blender instance is already monitoring another project -- one
-    orchestrator role per Blender process."""
+def _loop_ended() -> None:
+    """The loop's timer is gone (farm_tick returned None): forget it, so a
+    role started again later (Add this machine as worker, Launch the farm)
+    registers a new one. Kept, the next register_farm_loop() took it for
+    still running -- a worker stopped then started again in the same
+    Blender never ticked, so never took a job (see NOTES.md, "A worker
+    started again never took a job")."""
     global _registered_loop_tick_fn, _farm_running_project
-    if _farm_running_project is None:
-        _farm_running_project = project_root
-        _registered_loop_tick_fn = functools.partial(farm_tick, project_root, interval)
-        if not bpy.app.timers.is_registered(_registered_loop_tick_fn):
-            bpy.app.timers.register(
-                _registered_loop_tick_fn, first_interval=1, persistent=True
-            )
+    _registered_loop_tick_fn = None
+    _farm_running_project = None
+
+
+def register_farm_loop(project_root: Path, interval: float = 10) -> None:
+    """Make sure farm_tick runs for project_root: one timer per Blender
+    process, whatever roles it holds. Its timer still there (the worker
+    kept running while the monitor was stopped, then launched again): the
+    project set back on it, no second timer."""
+    global _registered_loop_tick_fn, _farm_running_project
+    running = _registered_loop_tick_fn is not None and bpy.app.timers.is_registered(
+        _registered_loop_tick_fn
+    )
+    if running and _registered_loop_tick_fn.args[0] != project_root:
+        bpy.app.timers.unregister(_registered_loop_tick_fn)  # an earlier project's
+        running = False
+    _farm_running_project = project_root
+    if running:
+        return
+    _registered_loop_tick_fn = functools.partial(farm_tick, project_root, interval)
+    bpy.app.timers.register(_registered_loop_tick_fn, first_interval=1, persistent=True)
 
 
 def refresh_monitor_cache(*, force_rescan: bool = False) -> None:

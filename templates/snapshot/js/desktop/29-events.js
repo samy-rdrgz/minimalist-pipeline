@@ -631,6 +631,12 @@ document.addEventListener('click', e => {
     renderAll();
     return;
   }
+  const tds = t.closest('[data-tdst]');
+  if (tds) {
+    S.td.st = tds.dataset.tdst;
+    renderAll();
+    return;
+  }
   if (t.closest('[data-tdme]')) {
     S.td.me = !S.td.me;
     renderAll();

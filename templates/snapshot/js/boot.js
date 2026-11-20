@@ -42,6 +42,7 @@ restoreReview();
   else if (h === 'share' && LIVE && !guest()) setTimeout(shareDialog, 0);
 }
 document.documentElement.dataset.guest = guest() ? '1' : '';
+document.documentElement.dataset.gfarm = guest() && M.live.farm ? '1' : '';
 try {
   const t = localStorage.getItem('mp-snapshot:theme');
   if (t) S.theme = t;
