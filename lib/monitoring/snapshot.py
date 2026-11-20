@@ -39,6 +39,7 @@ from ..thumbnails import (
     thumbnail_path,
     thumbnail_size,
 )
+from .history import file_history
 from .tracking import (
     _DATA_ROOTS,
     APPROVAL_SOURCE,
@@ -112,6 +113,13 @@ def _render_presets(owner: Path) -> dict:
         if e.get("prerender_script"):
             used.add(str(e["prerender_script"]))
     return {"department": last, "by": by, "used": sorted(used)}
+
+
+def _last_save(raw: dict) -> dict:
+    """{"saved_at", "saved_by"} of a folder's newest save among the
+    .wipmetas its status read (those since its latest stable)."""
+    best = max(raw.get("wipmetas") or [], key=lambda m: time_key(m.get("edited_at")), default=None)
+    return {"saved_at": (best or {}).get("edited_at") or "", "saved_by": (best or {}).get("edited_by") or ""}
 
 
 def _rushes_by_name(root: Path) -> dict:
@@ -573,6 +581,9 @@ def read_snapshot_data(
         "work": work_times(root),
         # What the edit has: rushes.json's, by the rush's name (its file's).
         "rushes": _rushes_by_name(root),
+        # Each folder's history (History tab): carried by a snapshot, asked
+        # for one file at a time by the live page.
+        "history": {str(owner): file_history(owner) for _, owner, raw, _ in raws if not raw["tracking"].get("archived")},
         "live": links,
     }
 
@@ -631,6 +642,8 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
             "stable_version": stable_name,
             # When its latest stable was made: the page's "oldest first" (To do).
             "stable_at": (status.get("stable_info") or {}).get("created_at") or "",
+            # Its latest version's last save (the newest .wipmeta read): who, when.
+            **_last_save(raw),
             # What the prod sees and what its notes get anchored on: the
             # most recent of the two (a stable can be newer than any wip).
             "current_version": wip_name
@@ -647,6 +660,7 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
             # Logged work time, every version and everyone (work_times()).
             "work_seconds": (data.get("work") or {}).get(_session_folder_key(owner)),
             "rush": (data.get("rushes") or {}).get(name),
+            "history": (data.get("history") or {}).get(str(owner)),
         }
         # A render's folder is vXXX_YYY: XXX the .blend version rendered,
         # YYY the render increment. The history's source_file says XXX

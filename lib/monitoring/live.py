@@ -776,6 +776,19 @@ def _open_folder(raw: dict) -> dict:
     return {"ok": True, "opened": target.name}
 
 
+def _history(name: str) -> dict:
+    """A shot's or asset's history (lib/monitoring/history.py), found by its
+    name among the folders the live page read. Pure os/json: the server's
+    thread."""
+    from .history import file_history
+
+    for e in list((_reader.get("cache") or {}).values()):
+        owner = Path(e["owner"])
+        if ((e.get("raw") or {}).get("tracking") or {}).get("file_name", owner.name) == name or owner.name == name:
+            return {"ok": True, **file_history(owner)}
+    return {"ok": False, "error": "file not found"}
+
+
 def _push_rushes(raw: dict) -> dict:
     """Into the edit (editing/rushes/, lib/rushes.py), as the page asks:
     one render's video, whatever its version, wip or stable ({"push":
@@ -1285,7 +1298,7 @@ def _handler(sh: _Shared):
             q = {k: v[0] for k, v in parse_qs(parsed.query).items()}
             if not self._allowed(q.get("t", "")):
                 return self._send(403, b"forbidden", "text/plain")
-            if parsed.path not in ("/action", "/open", "/farm", "/play", "/share", "/relink"):
+            if parsed.path not in ("/action", "/open", "/farm", "/play", "/share", "/relink", "/history"):
                 return self._send(404, b"not found", "text/plain")
             length = int(self.headers.get("Content-Length") or 0)
             if not 0 < length < 4 * 1024 * 1024 or "json" not in (self.headers.get("Content-Type") or ""):
@@ -1314,6 +1327,9 @@ def _handler(sh: _Shared):
                     log("INFO", "live", f"Live page: {self.guest['name']} (guest, {self.guest['role']}): {len(raw.get('actions') or [])} action(s)")
             if kind == "share":
                 return self._send(200, json.dumps(_share(raw, sh)).encode(), "application/json")
+            if kind == "history":
+                # Read only, on this thread: guests too.
+                return self._send(200, json.dumps(_history(str(raw.get("name") or ""))).encode(), "application/json")
             pending = _Pending(raw, kind)
             _actions.put(pending)
             # Blender's turn, then a pass over the project: the data that

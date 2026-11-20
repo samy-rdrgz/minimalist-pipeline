@@ -278,14 +278,13 @@ const rushSay = it =>
     ? T('In the edit since {date}, pushed by {who}', { date: fmtD(it.rush.at), who: it.rush.by || '?' })
     : '';
 function filesHTML(it) {
-  const w = it.work
-    ? Math.floor(it.work / 3600) + ' h ' + String(Math.round((it.work % 3600) / 60)).padStart(2, '0')
-    : '–';
+  // To the half hour: an estimate, not a count to the minute.
+  const w = it.work ? T('about {h} h', { h: Math.max(0.5, Math.round(it.work / 1800) / 2) }) : '–';
   const row = (k, v, btn = '') =>
     `<div class="prop"><span class="k">${k}</span><span class="v"><span class="ro" title="${esc(v)}">${esc(v || '–')}</span>${btn}</span></div>`;
   const pr = F.presets.find(p => p[0] === S.preset) || F.presets[0];
   return `<div class="sec"><div class="sec-h">${T('Files')}</div>
-    ${row(T('Wip file'), it.file ? it.file + '.blend' : '')}${row('Stable', it.stableFile ? it.stableFile + '.blend' : '')}
+    ${row(T('Wip file'), it.file ? it.file + '.blend' : '')}${it.saved && it.saved.by ? row(T('Saved last'), T('{who}, {date}', { who: it.saved.by, date: fmtD(it.saved.at) })) : ''}${row('Stable', it.stableFile ? it.stableFile + '.blend' : '')}
     ${row(T('Work time'), w)}<p class="faint" style="margin:0;font-size:var(--fs-s)">${T('Every session that saved, every version, everyone together.')}</p>
     ${it.shots && it.shots.length ? row(T('Shots of the block'), it.shots.join(' · ')) : ''}</div>
   <div class="sec"><div class="sec-h">${T('Renders')}</div>
@@ -341,7 +340,9 @@ function renderProps() {
     ],
     ['notes', 'i-note', T('Notes'), nn, nr ? 'r' : ''],
     ['links', 'b-linked', T('Links'), nl, lo ? 'r' : ''],
-    ['files', 'b-file', T('Files and renders')]
+    ['files', 'b-file', T('Files and renders')],
+    ['versions', 'b-sorttime', T('Versions')],
+    ['renders', 'b-render_result', T('Render history')]
   ]
     .map(
       ([k, i, l, n, c]) =>
@@ -374,6 +375,9 @@ function renderProps() {
   if (S.tab === 'notes') h = notesHTML(it);
   if (S.tab === 'links') h = linksHTML(it);
   if (S.tab === 'files') h = filesHTML(it);
+  if (S.tab === 'versions') h = versionsHTML(it);
+  if (S.tab === 'renders') h = rendersHTML(it);
   B.innerHTML = h;
   if (S.tab === 'links') requestAnimationFrame(drawWires);
+  if (S.tab === 'versions') requestAnimationFrame(drawChain);
 }

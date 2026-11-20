@@ -52,6 +52,7 @@ JS_PARTS = (
     "desktop/21-todo.js",
     "desktop/21-export.js",
     "desktop/22-detail.js",
+    "desktop/22-history.js",
     "desktop/23-farm.js",
     "desktop/24-links.js",
     "desktop/25-wide.js",
@@ -267,6 +268,10 @@ def _item(item: dict, threads: list, roles: list, image) -> dict:
         "work": round(item["work_seconds"]) if item.get("work_seconds") else 0,
         # In the edit (editing/rushes/): which render, pushed by whom, when.
         "rush": item.get("rush") or None,
+        # The History tab's (a snapshot's; the live page asks for it).
+        **({"hist": item["history"]} if item.get("history") else {}),
+        # Its latest version's last save: by whom, when.
+        "saved": {"by": item.get("saved_by") or "", "at": item.get("saved_at") or ""},
     }
 
 

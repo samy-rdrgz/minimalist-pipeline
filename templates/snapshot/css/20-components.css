@@ -3988,3 +3988,94 @@ html.kb .m-nav {
   border-top: 2px dotted var(--text-3);
   background: none;
 }
+/* Detail › Versions: the chain, newest on top -- nodes on a rail, a branched one's arc. */
+.vchain {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+  padding-left: 26px; /* room for a branch's arc, left of the rail */
+}
+.vwires {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
+}
+.vw {
+  fill: none;
+  stroke: var(--wire);
+  stroke-width: 2;
+}
+.vw.br {
+  stroke: var(--st-rtk);
+  stroke-dasharray: 4 3;
+}
+.vn {
+  position: relative;
+  display: flex;
+  gap: var(--sp-6);
+  align-items: flex-start;
+}
+.vd {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  margin-top: 6px;
+  transform: rotate(45deg);
+  border-radius: 2px;
+  background: var(--st-todo);
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 0 0 3px var(--area);
+}
+.vn.st .vd {
+  background: var(--st-done);
+}
+.vn.cf .vd {
+  background: var(--st-rtk);
+}
+.vb,
+.rb {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--sp-4) var(--sp-5);
+  background: var(--box);
+  border: 1px solid var(--line);
+  border-radius: var(--r-l);
+}
+.vn.cf .vb {
+  border-color: var(--st-rtk);
+}
+.vh {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+}
+.vm {
+  font-size: var(--fs-s);
+  color: var(--text-2);
+}
+.vm.bad {
+  color: var(--rtk-t);
+  display: flex;
+  gap: var(--sp-3);
+  align-items: center;
+}
+.tag.warn {
+  color: var(--rtk-t);
+}
+/* Detail › Render history: a line a render, latest first. */
+.rh {
+  display: flex;
+  gap: var(--sp-5);
+  align-items: flex-start;
+  margin-bottom: var(--sp-4);
+}
+.rh > .jst {
+  margin-top: 8px;
+}

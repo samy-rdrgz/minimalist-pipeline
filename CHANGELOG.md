@@ -6,6 +6,15 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- The file's detail: Versions, the chain of its versions newest on top
+  (made when, saved last by whom, the departments their sessions worked; a
+  stable's done departments, validations and conflict), a version made
+  from another than the one before it branching off on the rail; Render
+  history, every render latest first (department, preset, frames, by whom,
+  machine time, how it ended). A snapshot carries them; the live page asks
+  Blender for one file's when its tab opens (POST /history, guests too).
+  Files: its latest version saved last by whom, when; work time to the
+  half hour.
 - Breakdown › Projection: the days logged, then each figure carried on at
   the pace of its last 30 days up to 100 % (dashed) -- the month it would
   get there said, an estimate -- beside the schedule's even pace and its
