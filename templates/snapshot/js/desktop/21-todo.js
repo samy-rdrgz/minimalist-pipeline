@@ -7,6 +7,14 @@ const toCheck = (it, d) => {
   const x = info(it, d);
   return ['done', 'rework', 'old'].includes(x.base) && x.tone !== 'rtk' && x.tone !== 'redo';
 };
+/* The half shown until one is picked: by the role reviewing (or Blender's, live) --
+   team (no validation) what to work on, the top role what to validate, a role
+   between (a sup: both) everything; no role known, everything. */
+function tdSt() {
+  if (S.td.st != null) return S.td.st;
+  const r = (S.review && S.review.role) || (LIVE && M.live.role) || '';
+  return r === TEAM ? 'work' : r && r === M.role ? 'val' : '';
+}
 const TD_ST = () => [
   ['', T('Everything')],
   ['work', T('To work on')],
@@ -18,7 +26,7 @@ function todoOf(it) {
     d =>
       !(it.ok[d] && !it.ok[d].old) &&
       it.mine[d] !== 'val' &&
-      (!t.st || (t.st === 'val') === toCheck(it, d)) &&
+      (!tdSt() || (tdSt() === 'val') === toCheck(it, d)) &&
       (!t.dept || d === t.dept) &&
       (!t.me || !me() || assignOf(it, d).includes(me()))
   );
@@ -53,7 +61,7 @@ function renderTodoQuick() {
     )
     .join('')}</span>
     <span class="join td-j">${TD_ST()
-      .map(([k, l]) => `<button class="btn" data-tdst="${k}" aria-pressed="${t.st === k}">${l}</button>`)
+      .map(([k, l]) => `<button class="btn" data-tdst="${k}" aria-pressed="${tdSt() === k}">${l}</button>`)
       .join('')}</span>
     <span class="anchor"><button class="btn ${t.dept ? '' : 'tool'}" data-menu="m-tdd" aria-haspopup="true" aria-expanded="false" ${t.dept ? 'aria-pressed="true"' : ''}>${ic('b-filter')}${t.dept ? esc(LBL[t.dept]) : T('All departments')}${ic('b-tria_down')}</button>
     <div class="menu" id="m-tdd" hidden role="menu">${[
@@ -103,7 +111,7 @@ function todoText() {
         T('To do'),
         M.project,
         k === 'shot' ? T('Shots') : T('Assets'),
-        S.td.st && TD_ST().find(x => x[0] === S.td.st)[1],
+        tdSt() && TD_ST().find(x => x[0] === tdSt())[1],
         S.td.dept && LBL[S.td.dept],
         S.td.me && me(),
         fmtD(M.snapshot)

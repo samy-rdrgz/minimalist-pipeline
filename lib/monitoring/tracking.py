@@ -47,6 +47,7 @@ from ..core import (
     time_key,
 )
 from . import legacy
+from .legacy import SESSIONS
 from ..errors import PipelineError
 from .status import project_stages, stage_flags
 from ..logs import log
@@ -735,13 +736,13 @@ def create_wipmeta(
             "created_at": nw,
             "edited_at": nw,
             "edited_by": get_user(),
-            "departments_worked": {},
+            SESSIONS: {},
             "linked": compact_linked(linked),
         }
         path = _meta_path(filepath, ".wipmeta")
         path.parent.mkdir(parents=True, exist_ok=True)
         with locked_json(path) as box:
-            box["data"] = data
+            box["data"] = legacy.wip_written(data)
             box["action"] = "to_write"
     except Exception as e:
         raise PipelineError(f"Error during creating meta file : {e}")
@@ -775,32 +776,48 @@ def ensure_wipmeta(filepath: Path, links: list[dict]) -> bool:
     return True
 
 
-def _work_meta(filepath: Path) -> tuple[Path, str]:
-    """Where this version's sessions are written, and under which key: its
-    .wipmeta's "departments_worked"; a -stable file (no .wipmeta) saved in
-    place, its .stablemeta's "sessions" -- apart from the stablemeta's own
+def _work_meta(filepath: Path) -> tuple[Path, bool]:
+    """Where this version's sessions are written ("sessions"), and whether
+    it's a .wipmeta: its .wipmeta; a -stable file (no .wipmeta) saved in
+    place, its .stablemeta -- apart from the stablemeta's own
     "departments_worked" (worked since the stable before, a list read by
-    the state engine). See NOTES.md, "Sessions on a stable"."""
+    the state engine). See NOTES.md, "Sessions on a stable" and
+    "Sessions: one name"."""
     wip = _meta_path(filepath, ".wipmeta")
     if wip.exists():
-        return wip, "departments_worked"
+        return wip, True
     stable = _meta_path(filepath, ".stablemeta")
     if stable.exists():
-        return stable, "sessions"
-    return wip, "departments_worked"
+        return stable, False
+    return wip, True
+
+
+def _sessions_of(data: dict, is_wip: bool) -> dict:
+    """data's "sessions" (a .wipmeta's as a 1.x may have written it last,
+    lib/monitoring/legacy.py), made if missing."""
+    if is_wip:
+        legacy.wip_read(data)
+    if not isinstance(data.get(SESSIONS), dict):
+        data[SESSIONS] = {}
+    return data[SESSIONS]
+
+
+def _sessions_written(data: dict, is_wip: bool) -> dict:
+    """data about to be written: a .wipmeta's 1.x key kept beside."""
+    return legacy.wip_written(data) if is_wip else data
 
 
 def wipmeta_touch(filepath: Path):
     """Stamp this version's .wipmeta with who/when it was last saved --
-    edited_at/edited_by only, doesn't touch departments_worked or linked.
-    Called from save_post_handler on every save, so M_PIPELINE_OT_auto_version
-    can tell a same-day re-open by a different user from the file's own
-    author. A -stable file saved in place (its Save anyway): its
-    .stablemeta, the save a session of its own even with no department
-    ticked -- who saved it, when. Never raises: handler-called, same rule
-    as check_library_update()."""
+    edited_at/edited_by, and this session's entry (if any) saved now;
+    doesn't touch linked. Called from save_post_handler on every save, so
+    M_PIPELINE_OT_auto_version can tell a same-day re-open by a different
+    user from the file's own author. A -stable file saved in place (its
+    Save anyway): its .stablemeta, the save a session of its own even with
+    no department ticked -- who saved it, when. Never raises:
+    handler-called, same rule as check_library_update()."""
     try:
-        path, key = _work_meta(filepath)
+        path, is_wip = _work_meta(filepath)
     except PipelineError:
         return
     if not path.exists():
@@ -811,15 +828,15 @@ def wipmeta_touch(filepath: Path):
             nw, user = now(), get_user()
             data["edited_at"] = nw
             data["edited_by"] = user
-            sessions = data.get(key) if isinstance(data.get(key), dict) else None
-            if key == "sessions":
-                sessions = data.setdefault("sessions", {}) if sessions is None else sessions
+            sessions = _sessions_of(data, is_wip)
+            if not is_wip:
                 sessions.setdefault(_session_id(), {"departments": [], "by": user})
                 _saved_in_place.add(str(filepath))
             # This session's work, if it recorded some: saved now.
-            mine = (sessions or {}).get(_session_id())
+            mine = sessions.get(_session_id())
             if isinstance(mine, dict):
                 mine["saved_at"] = nw
+            box["data"] = _sessions_written(data, is_wip)
             box["action"] = "to_write"
     except Exception as e:
         log("WARNING", "wipmeta_touch", f"Could not stamp wipmeta: {e}")
@@ -836,17 +853,18 @@ def saved_in_place(filepath: Path) -> bool:
 
 
 def _session_id() -> str:
-    """This Blender session's key in a .wipmeta's departments_worked."""
+    """This Blender session's key in a version's "sessions"."""
     return f"{os.getpid()}_{get_machine_id()}"
 
 
 def worked_sessions(meta: dict) -> list[dict]:
     """A .wipmeta's sessions that recorded work: [{"departments",
-    "saved_at", "by"}], saved_at the session's last save. One written
+    "saved_at", "by"}], saved_at the session's last save -- "sessions",
+    or a 1.x's "departments_worked" (lib/monitoring/legacy.py). One written
     before 1.2 (a bare list, until Migrate old data) gets the file's
     edited_at / edited_by. See NOTES.md, "Sessions with their date"."""
     out = []
-    for entry in (meta.get("departments_worked") or {}).values():
+    for entry in (legacy.wip_read(dict(meta)).get(SESSIONS) or {}).values():
         if isinstance(entry, list):
             entry = {
                 "departments": entry,
@@ -861,68 +879,59 @@ def worked_sessions(meta: dict) -> list[dict]:
 def wipmeta_add_work(
     filepath: Path, departments: list[str] = [], linked_libs: list[str] | None = None
 ):
-    """Record the departments worked this session in this version's .wipmeta
-    and resync its linked libs (linked_libs: pre-captured, once the file is
-    closed). No-op without a .wipmeta (a -stable file), as wipmeta_touch()."""
+    """Record the departments worked this session in this version's
+    "sessions" and, a .wipmeta, resync its linked libs (linked_libs:
+    pre-captured, once the file is closed). A -stable file: in its
+    .stablemeta, its links kept there by stablemeta_sync_links()."""
     id = _session_id()
-    path, key = _work_meta(filepath)
+    path, is_wip = _work_meta(filepath)
     if not path.exists():
         return
-    if key == "sessions":
-        # A -stable file: its session in its .stablemeta (its links kept there by stablemeta_sync_links()).
-        with locked_json(path) as box:
-            data = box["data"] or {}
-            nw, user = now(), get_user()
-            mine = data.setdefault("sessions", {}).setdefault(id, {"by": user})
-            mine.update(departments=list(departments), by=user)
-            mine.setdefault("saved_at", nw)
-            box["action"] = "to_write"
-        _session_worked_cache[str(path)] = list(departments)
-        return
-    else:
-        if linked_libs is None:
-            linked_libs = [
-                to_relative(resolve_bpy_path(lib.filepath))
-                for lib in bpy.data.libraries
-            ]
-        with locked_json(path) as box:
-            data = box["data"] or {}
-            nw, user = now(), get_user()
+    if is_wip and linked_libs is None:
+        linked_libs = [
+            to_relative(resolve_bpy_path(lib.filepath)) for lib in bpy.data.libraries
+        ]
+    with locked_json(path) as box:
+        data = box["data"] or {}
+        nw, user = now(), get_user()
+        mine = _sessions_of(data, is_wip).setdefault(id, {})
+        if not isinstance(mine, dict):  # a bare list, before 1.2
+            mine = _sessions_of(data, is_wip)[id] = {}
+        mine.update(departments=list(departments), by=user)
+        if is_wip:
             data["edited_at"] = nw
             data["edited_by"] = user
-            data.setdefault("departments_worked", {})[id] = {
-                "departments": list(departments),
-                "saved_at": nw,
-                "by": user,
-            }
+            mine["saved_at"] = nw
             data["linked"] = compact_linked(
-                clean_libraries(data["linked"], linked_libs)
+                clean_libraries(data.get("linked", []), linked_libs)
             )
-            box["action"] = "to_write"
-        # Kept in sync here rather than invalidated: this is the only writer
-        # of our own session's entry, so the cache can never go stale under it.
-        _session_worked_cache[str(path)] = list(departments)
+        else:
+            mine.setdefault("saved_at", nw)
+        box["data"] = _sessions_written(data, is_wip)
+        box["action"] = "to_write"
+    # Kept in sync here rather than invalidated: this is the only writer
+    # of our own session's entry, so the cache can never go stale under it.
+    _session_worked_cache[str(path)] = list(departments)
 
 
 def get_session_worked_departments(filepath: Path) -> list[str]:
     """Departments already recorded for *this* session (pid + machine) in
-    filepath's .wipmeta. In-memory cache kept in sync by wipmeta_add_work(),
-    so draw() never hits disk past the first read. [] by default -- an
-    untouched file never claims work that wasn't done. Read by draw():
-    never raises -- [] for anything that isn't a versioned .blend."""
+    filepath's .wipmeta (.stablemeta for a -stable saved in place).
+    In-memory cache kept in sync by wipmeta_add_work(), so draw() never
+    hits disk past the first read. [] by default -- an untouched file
+    never claims work that wasn't done. Read by draw(): never raises --
+    [] for anything that isn't a versioned .blend."""
     try:
-        path, field = _work_meta(filepath)
+        path, is_wip = _work_meta(filepath)
     except PipelineError:
         return []
     key = str(path)
     if key in _session_worked_cache:
         return _session_worked_cache[key]
-    id = _session_id()
     try:
         with locked_json(path, read_only=True) as box:
-            data = box["data"] or {}
-        sessions = data.get(field)
-        entry = (sessions if isinstance(sessions, dict) else {}).get(id) or {}
+            data = dict(box["data"] or {})
+        entry = _sessions_of(data, is_wip).get(_session_id()) or {}
         result = list(entry if isinstance(entry, list) else entry.get("departments") or [])
     except Exception:
         result = []

@@ -3944,7 +3944,7 @@ no stages, so older projects read as before), and two states computed on every r
 A -stable file has no .wipmeta: saved in place (its Save anyway), its
 session was written nowhere -- no who, no when, no department worked.
 Now in its .stablemeta, under "sessions" ({session id: {"departments",
-"saved_at", "by"}}, a .wipmeta's departments_worked's form), the save a
+"saved_at", "by"}}, a .wipmeta's form), the save a
 session even with nothing ticked; its Working on toggles shown once this
 Blender saved it in place (tracking.py _work_meta(), saved_in_place()).
 Apart from the stablemeta's own "departments_worked" (a list: worked
@@ -5743,3 +5743,16 @@ launch and stop the farm, render, priorities, cancel and retry. For a
 solo artist away from the studio, following their renders from a
 phone. Never anything opened on the host machine (a job's folder or
 log, Blender, the player): those stay the host's, whatever the access.
+
+## Sessions: one name
+
+A version's sessions ({session id: {"departments", "saved_at", "by"}}) are
+"sessions" in its .wipmeta, as in a stable's .stablemeta saved in place.
+A .wipmeta had them under "departments_worked" through 1.x -- the name a
+.stablemeta gives something else: the departments worked since the stable
+before (a list, the state engine's). Read in one place
+(tracking.py _sessions_of(), worked_sessions()) through legacy.wip_read():
+a 1.x still working on the project writes the old name only, its sessions
+read; written with the old name beside, equal (legacy.wip_written()),
+through 2.2 -- as "departments_validated" (lib/monitoring/legacy.py).
+Migrate old data renames them.

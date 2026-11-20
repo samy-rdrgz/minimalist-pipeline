@@ -15,9 +15,10 @@ writes (main thread: locked_json()). What each step completes:
   "departments_validated" renamed "departments_done" (2.0: it has meant
   Done since 1.1.2, validations being "approvals"), the old name kept
   beside it for 1.x builds (lib/monitoring/legacy.py).
-- .wipmeta: "linked" one entry per project file; each session's
-  "departments_worked" with its date (1.2: {"departments", "saved_at",
-  "by"}).
+- .wipmeta: "linked" one entry per project file; each session with its
+  date (1.2: {"departments", "saved_at", "by"}), under "sessions" (2.0),
+  the old name "departments_worked" kept beside it for 1.x builds
+  (lib/monitoring/legacy.py).
 - render_history.json: a finished render's "output_path", "source_file",
   "shot_override" (1.0.11, from its folder) and "frame_range_rendered"
   (from its images' numbers).
@@ -28,6 +29,7 @@ writes (main thread: locked_json()). What each step completes:
   render preset given its <department>_default.py (1.2: renders by
   department, see NOTES.md, "Renders by department")."""
 
+import json
 import os
 import re
 import shutil
@@ -224,7 +226,7 @@ def _plan_owner(root: Path, owner: Path, is_shot: bool, v_prefix: str) -> list[d
     for entry, data in _read_metas(entries, ".wipmeta"):
         changes = ["links one per file"] if _migrate_linked(data, root) else []
         if _migrate_sessions(data):
-            changes.append("sessions with their date")
+            changes.append("sessions with their date, named sessions")
         found.append((entry.path, data, changes))
 
     history_path = pipeline / "render_history.json"
@@ -261,10 +263,15 @@ def _read_metas(entries: list, suffix: str) -> list[tuple]:
 
 
 def _migrate_sessions(data: dict) -> bool:
-    """Each session's departments_worked as written now, {"departments",
-    "saved_at", "by"}: a bare list (before 1.2) dated by the file's
-    edited_at / edited_by -- the only date it had."""
-    sessions = data.get("departments_worked")
+    """Each session as written now, {"departments", "saved_at", "by"}: a
+    bare list (before 1.2) dated by the file's edited_at / edited_by -- the
+    only date it had; under "sessions" (2.0), "departments_worked" kept
+    beside it, equal (legacy.wip_written())."""
+    if not isinstance(data.get("departments_worked"), dict) and not isinstance(data.get("sessions"), dict):
+        return False
+    before = (data.get("sessions"), data.get("departments_worked"))
+    before = json.dumps(before, sort_keys=True)
+    sessions = legacy.wip_read(data).get("sessions")
     if not isinstance(sessions, dict):
         return False
     changed = False
@@ -276,7 +283,8 @@ def _migrate_sessions(data: dict) -> bool:
                 "by": data.get("edited_by"),
             }
             changed = True
-    return changed
+    legacy.wip_written(data)
+    return changed or json.dumps((data.get("sessions"), data.get("departments_worked")), sort_keys=True) != before
 
 
 # ---------------------------------------------------------------------------

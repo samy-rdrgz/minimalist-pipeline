@@ -50,13 +50,20 @@ def main() -> None:
         assert tracking.get_session_worked_departments(stable) == ["rig", "shading"]
         assert read()["departments_worked"] == ["rig"]
 
-        # A wip version: its .wipmeta, as before.
+        # A wip version: its .wipmeta's "sessions" (2.0), the 1.x name
+        # "departments_worked" kept beside it, equal (lib/monitoring/legacy.py).
         wip = owner / "ch_bob_v006.blend"
-        (pipe / "v006.wipmeta").write_text(json.dumps({"linked": [], "departments_worked": {}}), encoding="utf-8")
+        # A 1.x's session there already, under the old name only.
+        old = {"departments": ["anim"], "saved_at": "2026-11-01T10:00:00+01:00", "by": "lea"}
+        (pipe / "v006.wipmeta").write_text(json.dumps({"linked": [], "departments_worked": {"1_other": old}}), encoding="utf-8")
         tracking.wipmeta_add_work(wip, ["rig"], linked_libs=[])
         w = json.loads((pipe / "v006.wipmeta").read_text(encoding="utf-8"))
-        assert w["departments_worked"][tracking._session_id()]["departments"] == ["rig"], w
-        assert "sessions" not in w
+        assert w["sessions"][tracking._session_id()]["departments"] == ["rig"], w
+        assert w["sessions"]["1_other"] == old, w
+        assert w["departments_worked"] == w["sessions"], w
+        # The 1.x saves again (its key only): read as it wrote it.
+        w["departments_worked"]["1_other"] = dict(old, departments=["anim", "fx"])
+        assert sorted(d for s in tracking.worked_sessions(w) for d in s["departments"]) == ["anim", "fx", "rig"]
     print("OK: stable sessions")
 
 

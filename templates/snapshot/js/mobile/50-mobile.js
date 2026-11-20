@@ -66,7 +66,7 @@ function mTodo() {
     )
     .join('')}</span>
     <span class="join full">${TD_ST()
-      .map(([k, l]) => `<button class="btn" data-tdst="${k}" aria-pressed="${S.td.st === k}">${l}</button>`)
+      .map(([k, l]) => `<button class="btn" data-tdst="${k}" aria-pressed="${tdSt() === k}">${l}</button>`)
       .join('')}</span>
     <button class="btn m-wide" data-tdcopy>${ic('b-file')}${T('Copy')}</button>
     ${

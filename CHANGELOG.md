@@ -8,7 +8,9 @@ All notable changes to this addon. Dates are release dates.
 
 - The page's To do tab, before Breakdown: each file's required
   departments not validated yet, with why one waits (waiting, to redo,
-  RTK); everything, to work on or to validate; shots or assets, one
+  RTK); everything, to work on or to validate (by default after the
+  role: team to work on, the top role to validate, one between everything);
+  shots or assets, one
   department or all, the ones assigned to me. Copy puts that list in the
   clipboard as text. On the phone too, a tap opening the file in Review.
 - Share with a phone: an access may drive the farm (launch, stop,
@@ -53,9 +55,14 @@ All notable changes to this addon. Dates are release dates.
 - Tests run on every push (GitHub Actions); `python3 tools/run_tests.py`
   runs them all locally. The bug report asks where it happened (page,
   live, phone, farm) and for the browser.
-- The 1.x key beside 2.0's in a .stablemeta (`departments_validated`) is
-  still written through 2.1 and 2.2, and no longer from 2.3: two minor
-  versions to update every machine of a team.
+- The 1.x keys beside 2.0's -- a .stablemeta's `departments_validated`,
+  a .wipmeta's `departments_worked` -- are still written through 2.1 and
+  2.2, and no longer from 2.3: two minor versions to update every machine
+  of a team.
+- A .wipmeta's sessions are named `sessions` (they were
+  `departments_worked`, the name a .stablemeta gives the work since the
+  stable before, a list): the same name as a stable saved in place. Migrate
+  old data renames them; the old name is kept beside, equal, for 1.x.
 - The page: your own notes, sent already, can be edited or deleted again
   (the review's `edit` / `delete` actions; only by their author).
 - Live: View › Export a snapshot…, the export opened in Blender.

@@ -201,7 +201,7 @@ const S = {
   g: { x: 0, y: 0, z: 1, init: false },
   smode: 'done',
   ot: { kind: 'shot', dept: '' },
-  td: { kind: 'shot', st: '', dept: '', me: false },
+  td: { kind: 'shot', st: null, dept: '', me: false }, // st null: tdSt() by the role
   shot: {},
   seqPlay: false,
   planned: [],
