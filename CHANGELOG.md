@@ -71,7 +71,7 @@ All notable changes to this addon. Dates are release dates.
   RTK); everything, to work on or to validate (by default after the
   role: team to work on, the top role to validate, one between everything);
   shots or assets, one
-  department or all, the ones assigned to me. Copy puts that list in the
+  department or all, one person's (mine by default when I'm assigned somewhere, else everyone's). Copy puts that list in the
   clipboard as text. On the phone too, a tap opening the file in Review.
 - Share with a phone: an access may drive the farm (launch, stop,
   renders, priorities) -- an artist away from the studio following their
