@@ -6,6 +6,10 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- Breakdown › Projection: the days logged, then each figure carried on at
+  the pace of its last 30 days up to 100 % (dashed) -- the month it would
+  get there said, an estimate -- beside the schedule's even pace and its
+  end (Edit project › Schedule).
 - To do › Oldest first: the files waiting the longest first, one list --
   for a reviewer since their latest stable, to work on since their oldest
   retake still open. An order only: no time shown.

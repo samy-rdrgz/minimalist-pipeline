@@ -3960,3 +3960,31 @@ html.kb .m-nav {
   background: color-mix(in srgb, var(--brand) 22%, var(--btn));
   color: var(--brand);
 }
+/* Projection (Breakdown): the pace carried on dashed, the schedule's even pace dotted, today. */
+.pj-l {
+  fill: none;
+  stroke: var(--c);
+  stroke-width: 2;
+  stroke-dasharray: 5 4;
+  stroke-linecap: round;
+}
+.pj-even {
+  fill: none;
+  stroke: var(--text-3);
+  stroke-width: 1.5;
+  stroke-dasharray: 1 4;
+  stroke-linecap: round;
+}
+.pj-end,
+.pj-now {
+  stroke: var(--line-3, var(--line));
+  stroke-width: 1;
+}
+.pj-now {
+  stroke-dasharray: 2 3;
+}
+.ot-lg i.pj-sch {
+  height: 0;
+  border-top: 2px dotted var(--text-3);
+  background: none;
+}
