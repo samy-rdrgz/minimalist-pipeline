@@ -272,11 +272,27 @@ def _worker_identity() -> dict:
     }
 
 
-def launch_worker() -> bool:
+def launch_worker(local_only: bool = False) -> bool:
     """Become the worker for this machine. Fails if another live (non-stale)
-    Blender instance already holds the role."""
+    Blender instance already holds the role. local_only: a role for this
+    machine's own renders (Render here, farm/local.py) -- no host sends it
+    anything ("local_only"), given up once they're done ("local_role").
+    Asked as a farm worker while that role holds: it stays, a worker now."""
     worker_path = _worker_path()
     pid = os.getpid()
+
+    with locked_json(worker_path, read_only=True) as box:
+        data = box["data"] or {}
+    if data.get("pid") == pid and data.get("status") != "stopped" and _this_instance_worker:
+        # Already this instance's: only what the role is for changes -- never
+        # its status (a render running stays running).
+        if local_only:
+            update_worker({"local_only": True})
+        elif data.get("local_role"):
+            from .local import local_jobs_in_flight
+
+            update_worker({"local_role": False, "local_only": bool(local_jobs_in_flight())})
+        return True
     identity = _worker_identity()  # runs ffmpeg: outside the file's lock
 
     with locked_json(worker_path) as box:
@@ -295,6 +311,8 @@ def launch_worker() -> bool:
                 "status": "idle",
                 "current_job": None,
                 "last_heartbeat": time.time(),
+                "local_only": local_only,
+                "local_role": local_only,
             }
             | identity
             | _recover_previous_render(data)
@@ -626,9 +644,12 @@ def idle_machines() -> dict:
         for r in (*scan_requests(RENDER).values(), *scan_requests(COMPILE).values())
     }
     idle = {}
+    me = get_machine_id()
     for uuid, w in scan_workers().items():
         if w.get("status") != "idle" or uuid in targeted:
             continue
+        if w.get("local_only") and uuid != me:
+            continue  # kept for its own renders (Render here): no host sends it any
         if w.get("farm_protocol") != FARM_PROTOCOL:
             if uuid not in _other_protocol_logged:
                 _other_protocol_logged.add(uuid)

@@ -430,13 +430,17 @@ def job_request(
     only_shots: list[int] | None = None,
     sound: bool = True,
     department: str | None = None,
-) -> None:
+    local: str = "",
+) -> str:
     """Submit a render job request, picked up by scan_requests(). shot_override
     (e.g. "sh045") routes output to shots/<sequence>/<shot_override>/.
     only_shots restricts a block's split to these shot numbers. sound:
     the scene's sound in the video (farm/setup.py), False for a video
     without any. department: the one the render is for, picked in the
-    Render dialog ("" none); None: the one its preset's name gives."""
+    Render dialog ("" none); None: the one its preset's name gives.
+    local: a machine's id -- rendered there, now, outside the queue
+    (Render here, farm/local.py): written straight into actives/. Returns
+    the request's file name (a render here: its job id)."""
 
     assigned_machines = assigned_machines if assigned_machines is not None else []
     try:
@@ -459,6 +463,11 @@ def job_request(
             "file_frame_range": (0, 0),
             "resolved_frame_range": (0, 0),
         }
+        if local:
+            from .local import local_job_name, write_local_job
+
+            data |= {"local": local, "assigned_machines": [local], "render_mode": "all"}
+            return write_local_job(local_job_name(str(filepath), prerender_script, shot_override, local), data)
         name = f"job_{_file_key(str(filepath), prerender_script, shot_override)}.json"
 
         monitor_request(name, data)
@@ -467,6 +476,9 @@ def job_request(
             "farm",
             f"Job request submitted by {data['user']}: {data['filepath']} (priority={priority}).",
         )
+        return name
+    except PipelineError:
+        raise
     except Exception as e:
         raise PipelineError(f"Failed to submit job request: {e}")
 
@@ -619,12 +631,13 @@ def load_job_details(job_id: str) -> dict | None:
     return None
 
 
-def recover_interrupted_jobs() -> None:
+def recover_interrupted_jobs(local: bool = False) -> None:
     """Called once at monitor launch, for jobs left at a local *_start stage
     by a previous monitor that went away (crash, kill): adopt the process
     by PID if it still runs on this machine, else rewind the job so the
     queue redoes the stage (resume_interrupted_stage()). render_start is
-    the workers' side. See NOTES.md, "Crash recovery"."""
+    the workers' side. local=True: this machine's renders here only (a
+    machine with no host role, farm/local.py). See NOTES.md, "Crash recovery"."""
     from .dispatch import _active_processes
     from .queue import resume_interrupted_stage
 
@@ -638,6 +651,9 @@ def recover_interrupted_jobs() -> None:
                     continue
                 stage = history[-1]["stage"]
                 if not stage.endswith("_start") or stage == "render_start":
+                    continue
+                # A render here: its own machine's (local=True: only those).
+                if (data.get("local") != me) if local else data.get("local") not in (None, "", me):
                     continue
                 if data.get("compile_machine"):
                     continue  # on a worker: check_remote_compile()

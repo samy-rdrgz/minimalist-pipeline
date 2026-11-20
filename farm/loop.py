@@ -126,6 +126,10 @@ def farm_tick(project_root: Path, interval: float = 10) -> float | None:
             worker_tick()
         except Exception as e:
             log("ERROR", "farm", f"Error during worker tick: {e}")
+        # Its renders here (farm/local.py): moved on by this machine itself.
+        from .local import local_tick
+
+        local_tick(project_root, as_host=monitor)
 
     if not monitor and not worker:
         log("INFO", "farm", "Farm loop stopped: no monitor nor worker role left here.")
