@@ -3915,11 +3915,21 @@ html.kb .m-nav {
   display: inline-flex;
   align-items: center;
 }
-.ac-lg i {
-  width: 8px;
-  height: 8px;
-  border-radius: 2px;
-  margin: 0 var(--sp-3) 0 var(--sp-6);
+/* A legend's key: the diamond the chart is made of. */
+.ac-lg i.dm,
+.act .ot-tip i.dm {
+  width: 7px;
+  height: 7px;
+  border-radius: 1px;
+  transform: rotate(45deg);
+  margin: 0 var(--sp-4) 0 var(--sp-6);
+}
+.act .ot-tip i.dm {
+  margin-left: 2px;
+}
+.ac-unit {
+  color: var(--text-2);
+  font-weight: 600;
 }
 .ac-say {
   margin: 0 0 var(--sp-4);
@@ -3928,30 +3938,18 @@ html.kb .m-nav {
 .ac-box {
   position: relative;
 }
-.ac-b {
-  shape-rendering: crispEdges;
-}
 .ac-hv {
   fill: var(--row-hover);
 }
 .ac-hv[hidden] {
   display: none;
 }
-.act .ot-tip i {
-  width: 8px;
-  height: 8px;
-  border-radius: 2px;
+/* Activity's hover, many departments: on two columns, the day across both. */
+.act .ot-tip.two {
+  display: grid;
+  grid-template-columns: auto auto;
+  column-gap: var(--sp-7);
 }
-.ac-rail {
-  fill: var(--field);
-}
-.ac-a {
-  fill: var(--c);
-  fill-opacity: 0.55;
-}
-.ac-al {
-  fill: none;
-  stroke: var(--c);
-  stroke-width: 2;
-  stroke-linejoin: round;
+.act .ot-tip.two > b {
+  grid-column: 1 / -1;
 }

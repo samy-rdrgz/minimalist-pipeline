@@ -7,10 +7,14 @@ All notable changes to this addon. Dates are release dates.
 ### Added
 
 - Breakdown › Activity, under Over time: what was worked, not only what
-  was finished. Files worked: a bar a day, the shots (or assets) with a
-  session saved that day stacked by the departments ticked (Working on);
-  Time: everyone's saved sessions, hours a day (a session over midnight
-  split). Past four months, a bar a week. Written each morning for the
+  was finished -- a column of diamonds a day (the state glyph's shape),
+  each worth some files or some hours: the scale (1, 2, 3, 5, 10…) the one
+  the busiest day fits, said beside ("◆ = 2 files"). An estimate on
+  purpose: work time isn't counted to the minute. Files worked: the shots
+  (or assets) with a session saved that day, by the departments ticked
+  (Working on) -- past 8 departments, the 7 most worked in colour, the
+  rest "Others". Time: everyone's saved sessions (one over midnight
+  split). Past four months, a column a week. Written each morning for the
   days before (the metas changed since only), every day before by Migrate
   old data (config/logs/progress.json's "worked", "seconds", "people").
 - Migrate old data rebuilds the progress over time before the log

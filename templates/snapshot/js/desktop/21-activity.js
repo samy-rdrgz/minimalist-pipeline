@@ -1,9 +1,12 @@
 /* ---------- Breakdown › Activity: what was worked, beside what was finished ----------
    lib/monitoring/progress_log.py's days: "worked" ({shots|assets: {department: files}}, a
    file counted for a department on a day a session with it ticked was saved) and
-   "seconds" (everyone's sessions that day). Two views: Files worked (a bar a day, its
-   departments stacked, each its colour in the project's order) and Time (hours a day).
-   Past four months, a bar a week: a day's mean for files, the week's total for time.
+   "seconds" (everyone's sessions that day). Two views: Files worked and Time, a column of
+   diamonds a day -- the state glyph's shape -- each diamond some files, or some hours:
+   the scale (1, 2, 3, 5, 10…) the one that fits the busiest day. An estimate on purpose,
+   not a count to the minute (work time watched closely turns sour). Departments in
+   colour, the 7 most worked over the whole project past 8 (the rest "Others", grey).
+   Past four months, a column a week: a day's mean for files, the week's total for time.
    Written for the days before today (the next morning's first Blender, Migrate old data). */
 const ACT_WEEKS_AFTER = 120;
 function actDays() {
@@ -44,16 +47,69 @@ function actBuckets(kind) {
   if (week) bars.forEach(b => Object.keys(b.worked).forEach(d => (b.worked[d] /= Math.max(b.n, 1))));
   return { bars, week };
 }
-const actColor = (kind, d) => {
-  const i = (DEPTS[kind] || []).indexOf(d);
-  return i >= 0 && i < 8 ? `var(--cat-${i + 1})` : 'var(--st-todo)';
-};
+/* The departments in colour: all up to 8; past, the 7 most worked over the whole project
+   (worked so far: a colour that doesn't move with the view), in the project's order. */
+const ACT_OTHER = 'var(--st-todo)';
+function actColors(kind) {
+  const deps = DEPTS[kind] || [];
+  let shown = deps;
+  if (deps.length > 8) {
+    const sum = {};
+    Object.values(M.history || {}).forEach(p =>
+      Object.entries(((p || {}).worked || {})[kind + 's'] || {}).forEach(
+        ([d, n]) => (sum[d] = (sum[d] || 0) + n)
+      )
+    );
+    const top = [...deps]
+      .sort((a, b) => (sum[b] || 0) - (sum[a] || 0) || deps.indexOf(a) - deps.indexOf(b))
+      .slice(0, 7);
+    shown = deps.filter(d => top.includes(d));
+  }
+  const c = {};
+  deps.forEach(d => (c[d] = shown.includes(d) ? `var(--cat-${shown.indexOf(d) + 1})` : ACT_OTHER));
+  return { c, shown, others: deps.filter(d => !shown.includes(d)) };
+}
+/* A diamond's worth: the smallest step that fits the busiest column in `room` diamonds. */
+function actStep(top, room, steps) {
+  return steps.find(k => Math.ceil(top / k) <= room) || Math.ceil(top / room);
+}
 const ACT = {};
 function activity() {
   const kind = S.ot.kind,
     mode = S.act,
     { bars, week } = actBuckets(kind),
-    deps = DEPTS[kind] || [];
+    deps = DEPTS[kind] || [],
+    col = actColors(kind);
+  const W = 720,
+    H = 170,
+    pl = 12,
+    pr = 12,
+    pt = 8,
+    pb = 26;
+  const total = b => (mode === 'files' ? Object.values(b.worked).reduce((a, n) => a + n, 0) : b.hours);
+  const slot = bars.length ? (W - pl - pr) / bars.length : 1,
+    // A diamond: as wide as its column allows, never under 6 or over 12 units.
+    fit = Math.max(6, Math.min(12, slot - 2)),
+    room = Math.max(1, Math.floor((H - pt - pb) / fit)),
+    top = Math.max(0, ...bars.map(total)),
+    step = actStep(top, room, mode === 'files' ? [1, 2, 3, 5, 10, 20, 50, 100] : [1, 2, 4, 8, 16, 40, 80]),
+    // Then as big as the busiest column leaves room for (16 at most).
+    size = Math.max(6, Math.min(16, slot - 2, (H - pt - pb) / Math.max(1, Math.ceil(top / step))));
+  const unit =
+    mode === 'files'
+      ? T('◆ = {n} file|◆ = {n} files', { n: step })
+      : T('◆ = {n} hour|◆ = {n} hours', { n: step });
+  const legend =
+    mode === 'files'
+      ? [
+          ...col.shown.map(d => `<span><i class="dm" style="--c:${col.c[d]}"></i>${esc(LBL[d])}</span>`),
+          ...(col.others.length
+            ? [
+                `<span title="${esc(col.others.map(d => LBL[d]).join(', '))}"><i class="dm" style="--c:${ACT_OTHER}"></i>${T('Others')}</span>`
+              ]
+            : [])
+        ].join('')
+      : `<span><i class="dm" style="--c:var(--brand)"></i>${T('Hours')}</span>`;
   const head = `<div class="ot-h"><b>${T('Activity')}</b><span class="join">${[
     ['files', T('Files worked')],
     ['time', T('Time')]
@@ -63,91 +119,61 @@ function activity() {
     mode === 'files'
       ? `<span class="join">${['shot', 'asset'].map(k => `<button class="btn sm" data-otk="${k}" aria-pressed="${kind === k}">${k === 'shot' ? T('Shots') : T('Assets')}</button>`).join('')}</span>`
       : ''
-  }
-    <span class="ot-lg ac-lg">${
-      mode === 'files'
-        ? deps.map(d => `<span><i style="--c:${actColor(kind, d)}"></i>${esc(LBL[d])}</span>`).join('')
-        : `<span><i style="--c:var(--brand)"></i>${T('Hours')}</span>`
-    }</span></div>
-    <p class="faint ac-say">${
+  }<span class="ot-lg ac-lg">${legend}</span></div>
+    <p class="faint ac-say">${bars.length ? `<b class="ac-unit">${unit}</b> · ` : ''}${
       mode === 'files'
         ? week
-          ? T('Files with a session saved, department by department: a day’s mean, week by week.')
-          : T('Files with a session saved that day, department by department (Working on).')
+          ? T('files with a session saved, department by department: a day’s mean, week by week.')
+          : T('files with a session saved that day, department by department (Working on).')
         : week
-          ? T('Everyone’s sessions, saved ones: hours a week.')
-          : T('Everyone’s sessions, saved ones: hours a day.')
+          ? T('everyone’s sessions, saved ones, week by week: an estimate.')
+          : T('everyone’s sessions, saved ones, day by day: an estimate.')
     }</p>`;
   if (!bars.length)
     return `<div class="ot act">${head}<p class="faint ot-empty">${T('Nothing logged yet: written each morning for the day before, and by Migrate old data for the days before.')}</p></div>`;
-  const W = 720,
-    H = 170,
-    pl = 40,
-    pr = 12,
-    pt = 10,
-    pb = 26;
-  const total = b => (mode === 'files' ? Object.values(b.worked).reduce((a, n) => a + n, 0) : b.hours);
-  const top = Math.max(1, ...bars.map(total)),
-    step =
-      top <= 5
-        ? 1
-        : top <= 10
-          ? 2
-          : top <= 25
-            ? 5
-            : top <= 50
-              ? 10
-              : top <= 100
-                ? 20
-                : Math.ceil(top / 50) * 10,
-    max = Math.ceil(top / step) * step;
-  const slot = (W - pl - pr) / bars.length,
-    gap = slot > 6 ? 2 : slot > 3 ? 1 : 0,
-    bw = Math.max(1, slot - gap),
-    Y = v => pt + (1 - v / max) * (H - pt - pb);
-  // Each bar's departments, bottom up: [{c (colour), v, y0, y1}].
-  const segs = bars.map(b =>
-    mode === 'time'
-      ? b.hours
-        ? [{ c: 'var(--brand)', v: b.hours, y0: Y(0), y1: Y(b.hours) }]
-        : []
-      : deps
-          .filter(d => b.worked[d])
-          .reduce((out, d) => {
-            const base = out.length ? out[out.length - 1].top : 0;
-            out.push({
-              c: actColor(kind, d),
-              v: b.worked[d],
-              top: base + b.worked[d],
-              y0: Y(base),
-              y1: Y(base + b.worked[d])
-            });
-            return out;
-          }, [])
-  );
-  const rects = actMarks(ACT_STYLE(), segs, {
-    slot,
-    gap,
-    bw,
-    pl,
-    pt,
-    H,
-    pb,
-    Y,
-    max,
-    order: mode === 'time' ? ['var(--brand)'] : deps.map(d => actColor(kind, d))
-  });
+  const base = H - pb,
+    f = n => n.toFixed(1);
+  // Each column's diamonds, bottom up: its departments in the project's order, "Others"
+  // last; counted on the running total, rounded (the column's total right, a small
+  // department may get none); at least one when anything was done.
+  const marks = bars
+    .map((b, i) => {
+      const parts =
+        mode === 'time'
+          ? [['var(--brand)', b.hours]]
+          : [
+              ...col.shown.filter(d => b.worked[d]).map(d => [col.c[d], b.worked[d]]),
+              [ACT_OTHER, col.others.reduce((a, d) => a + (b.worked[d] || 0), 0)]
+            ].filter(x => x[1]);
+      if (!parts.length) return '';
+      let run = 0,
+        done = 0,
+        out = '';
+      const cx = pl + i * slot + slot / 2,
+        r = (size * 0.86) / 2;
+      parts.forEach(([c, v], k) => {
+        run += v;
+        let upto = Math.round(run / step);
+        if (k === parts.length - 1 && upto === 0) upto = 1;
+        for (; done < upto; done++) {
+          const cy = base - size * (done + 0.5);
+          out += `<path style="fill:${c}" d="M${f(cx)} ${f(cy - r)}L${f(cx + r)} ${f(cy)}L${f(cx)} ${f(cy + r)}L${f(cx - r)} ${f(cy)}Z"/>`;
+        }
+      });
+      return out;
+    })
+    .join('');
   const fmt = d => new Date(d + 'T12:00:00').toLocaleDateString(DTL(), { day: 'numeric', month: 'short' });
   const ticks = [0, Math.floor((bars.length - 1) / 2), bars.length - 1].filter(
     (v, i, a) => a.indexOf(v) === i
   );
-  const svg = `<svg class="ot-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${T('Activity')}">
-    ${[0, max / 2, max].map(v => `<line class="ot-grid" x1="${pl}" x2="${W - pr}" y1="${Y(v)}" y2="${Y(v)}"/><text class="ot-ax" x="${pl - 6}" y="${Y(v) + 4}" text-anchor="end">${Math.round(v * 10) / 10}${mode === 'time' ? ' h' : ''}</text>`).join('')}
+  const svg = `<svg class="ot-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${T('Activity')} · ${esc(unit)}">
+    <line class="ot-grid" x1="${pl}" x2="${W - pr}" y1="${base + 2}" y2="${base + 2}"/>
     ${ticks.map(i => `<text class="ot-ax" x="${pl + i * slot + slot / 2}" y="${H - 6}" text-anchor="${i === 0 ? 'start' : i === bars.length - 1 ? 'end' : 'middle'}">${fmt(bars[i].day)}</text>`).join('')}
-    <rect class="ac-hv" hidden y="${pt}" height="${H - pt - pb}"/>
-    ${rects}
+    <rect class="ac-hv" hidden y="${pt}" height="${H - pt - pb + 4}" rx="4"/>
+    ${marks}
     <rect class="ot-hit" x="${pl}" y="0" width="${W - pl - pr}" height="${H}" fill="transparent"/></svg>`;
-  Object.assign(ACT, { bars, week, kind, mode, geo: { W, pl, slot } });
+  Object.assign(ACT, { bars, week, kind, mode, col, geo: { W, pl, slot } });
   return `<div class="ot act">${head}<div class="ac-box">${svg}<div class="ot-tip" hidden></div></div></div>`;
 }
 /* The hover: the bar under the pointer, its figures. */
@@ -177,20 +203,21 @@ function actHover(e) {
   const n = v => (Math.round(v * 10) / 10).toString();
   let rows;
   if (ACT.mode === 'time')
-    rows = `<span><i style="--c:var(--brand)"></i>${T('{h} h', { h: n(b.hours) })} · ${T('{n} person|{n} people', { n: b.people })}</span>`;
+    rows = `<span><i class="dm" style="--c:var(--brand)"></i>${T('about {h} h', { h: Math.round(b.hours * 2) / 2 })} · ${T('{n} person|{n} people', { n: b.people })}</span>`;
   else {
     const ds = (DEPTS[ACT.kind] || []).filter(d => b.worked[d]).reverse();
     rows = ds.length
       ? ds
           .map(
             d =>
-              `<span><i style="--c:${actColor(ACT.kind, d)}"></i>${esc(LBL[d])} <b>${n(b.worked[d])}</b></span>`
+              `<span><i class="dm" style="--c:${ACT.col.c[d]}"></i>${esc(LBL[d])} <b>${n(b.worked[d])}</b></span>`
           )
           .join('')
       : `<span>${T('Nothing worked')}</span>`;
   }
   tip.hidden = false;
   tip.innerHTML = `<b>${when}</b>${rows}`;
+  tip.classList.toggle('two', (rows.match(/<span>/g) || []).length > 5);
   const left = ((g.pl + (i + 1) * g.slot) / g.W) * r.width;
   tip.style.left = Math.min(Math.max(left + 8, 0), r.width - tip.offsetWidth) + 'px';
 }
@@ -199,82 +226,4 @@ function actLeave(e) {
   if (!box) return;
   box.querySelector('.ac-hv').hidden = true;
   box.querySelector('.ot-tip').hidden = true;
-}
-
-/* The bars' look (one kept once chosen): rail, round, diamond or area. */
-const ACT_STYLE = () => S.actStyle || 'round';
-function actMarks(style, segs, g) {
-  const f = n => n.toFixed(1),
-    X = i => g.pl + i * g.slot + g.gap / 2;
-  if (style === 'area') {
-    // Each department a band through the bars' middles, stacked, its top edge drawn.
-    const cx = i => g.pl + i * g.slot + g.slot / 2,
-      order = [];
-    segs.forEach(ss => ss.forEach(s => !order.includes(s.c) && order.push(s.c)));
-    order.sort((a, b) => g.order.indexOf(a) - g.order.indexOf(b)); // the departments' own order, bottom up
-    const below = segs.map(() => 0);
-    let out = '';
-    order.forEach(c => {
-      const lo = below.slice(),
-        hi = segs.map((ss, i) => lo[i] + ((ss.find(s => s.c === c) || {}).v || 0));
-      const top = hi.map((v, i) => f(cx(i)) + ' ' + f(g.Y(v))).join(' L'),
-        back = lo
-          .map((v, i) => f(cx(i)) + ' ' + f(g.Y(v)))
-          .reverse()
-          .join(' L');
-      out += `<path class="ac-a" style="--c:${c}" d="M${top} L${back} Z"/><path class="ac-al" style="--c:${c}" d="M${top}"/>`;
-      hi.forEach((v, i) => (below[i] = v));
-    });
-    return out;
-  }
-  return segs
-    .map((ss, i) => {
-      const x = X(i),
-        w = g.bw;
-      if (!ss.length)
-        return style === 'rail'
-          ? `<rect class="ac-rail" x="${f(x)}" y="${g.pt}" width="${f(w)}" height="${g.H - g.pt - g.pb}" rx="${Math.min(4, w / 2)}"/>`
-          : '';
-      if (style === 'diamond') {
-        // A file, a diamond: the state glyph's shape, stacked (a week's mean, rounded).
-        const cell = g.Y(0) - g.Y(1),
-          s = Math.min(w, cell) * 0.92;
-        let k = 0,
-          out = '';
-        ss.forEach(seg =>
-          [...Array(Math.round(seg.v))].forEach(() => {
-            const cy = g.Y(0) - cell * (k + 0.5),
-              cxx = x + w / 2,
-              r = s / 2;
-            out += `<path style="fill:${seg.c}" d="M${f(cxx)} ${f(cy - r)}L${f(cxx + r)} ${f(cy)}L${f(cxx)} ${f(cy + r)}L${f(cxx - r)} ${f(cy)}Z"/>`;
-            k++;
-          })
-        );
-        return out;
-      }
-      const gapv = 2,
-        r = Math.min(3, w / 2);
-      let out = '';
-      if (style === 'rail') {
-        const id = 'acr' + i;
-        out += `<clipPath id="${id}"><rect x="${f(x)}" y="${g.pt}" width="${f(w)}" height="${g.H - g.pt - g.pb}" rx="${Math.min(4, w / 2)}"/></clipPath><rect class="ac-rail" x="${f(x)}" y="${g.pt}" width="${f(w)}" height="${g.H - g.pt - g.pb}" rx="${Math.min(4, w / 2)}"/><g clip-path="url(#${id})">`;
-        ss.forEach((seg, k) => {
-          const h = seg.y0 - seg.y1 - (k < ss.length - 1 && seg.y0 - seg.y1 > 3 ? 1 : 0);
-          out += `<rect x="${f(x)}" y="${f(seg.y0 - (seg.y0 - seg.y1))}" width="${f(w)}" height="${f(Math.max(0, h))}" style="fill:${seg.c}"/>`;
-        });
-        return out + '</g>';
-      }
-      // round: the top department rounded, a 2 px surface gap between departments.
-      ss.forEach((seg, k) => {
-        const last = k === ss.length - 1,
-          h = Math.max(0, seg.y0 - seg.y1 - (k ? gapv : 0)),
-          y = seg.y1;
-        if (!last || h < r * 2)
-          out += `<rect x="${f(x)}" y="${f(y)}" width="${f(w)}" height="${f(h)}" style="fill:${seg.c}"/>`;
-        else
-          out += `<path style="fill:${seg.c}" d="M${f(x)} ${f(y + h)}V${f(y + r)}Q${f(x)} ${f(y)} ${f(x + r)} ${f(y)}H${f(x + w - r)}Q${f(x + w)} ${f(y)} ${f(x + w)} ${f(y + r)}V${f(y + h)}Z"/>`;
-      });
-      return out;
-    })
-    .join('');
 }
