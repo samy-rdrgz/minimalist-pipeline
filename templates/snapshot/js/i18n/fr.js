@@ -2,6 +2,14 @@
 // missing here: the English. Never translated: files, departments,
 // roles, prefixes, people (the project's own).
 MPI18n.add('fr',{
+'Stop the farm':'Arrêter la farm',
+'Launch the farm':'Lancer la farm',
+'Take the farm over':'Reprendre la farm',
+'This machine becomes the farm host':'Cette machine devient l’hôte de la farm',
+'Stops the monitor on its next tick; the renders running finish, the queue is kept':'Arrête le moniteur à son prochain passage ; les rendus en cours finissent, la file est gardée',
+'stopping the farm':'arrêt de la farm',
+'launching the farm':'lancement de la farm',
+'Stuck: take it over? Click again':'Bloquée : la reprendre ? Clique encore',
 'Read the project again':'Relire le projet',
 'Read the project again: today\'s point brought up to date':'Relire le projet : le point du jour mis à jour',
 'Reading the project again…':'Relecture du projet…',

@@ -41,7 +41,7 @@ function renderFarm() {
     { dead: T('stopped'), running: T('running'), stale: T('stuck'), ok: T('running') }[F.status] || F.status;
   let h = `<div class="fme">${jst(me.worker ? 'running' : 'waiting')}<span class="t"><b>${me.worker ? (me.rendering ? T('This machine: worker · rendering') : T('This machine: worker · idle')) : T('This machine: not a worker')}</b>
       <span class="faint">${T('Farm host: {host}', { host: esc(me.host ? T('this machine') : me.host_name || T('none')) })} · <span class="${F.status === 'dead' ? 'bad' : ''}">${T('monitor {state}', { state: st })}</span></span></span>
-    <button class="btn ${me.worker ? '' : 'primary'}" data-farm="worker">${me.worker ? T('Stop being a worker') : T('Make it a worker')}</button></div>`;
+    ${monitorBtn()}<button class="btn ${me.worker ? '' : 'primary'}" data-farm="worker">${me.worker ? T('Stop being a worker') : T('Make it a worker')}</button></div>`;
   h += JS.map(([s, l]) => {
     const js = shown.filter(j => j.state === s);
     if (!js.length) return '';
@@ -93,7 +93,22 @@ const JOB_SAY = {
   retry: () => T('retried'),
   recompile: () => T('compiling again')
 };
+/* The farm itself (its monitor), as Farm monitoring's Launch / Kill: launched on this machine,
+   taken over when the one running is stuck, stopped wherever it runs -- asked twice. */
+const farmUp = () => F.status === 'running' || F.status === 'ok';
+const monitorBtn = (cls = '') =>
+  farmUp()
+    ? `<button class="btn alert ${cls}" data-farm="kill_monitor" title="${T('Stops the monitor on its next tick; the renders running finish, the queue is kept')}">${T('Stop the farm')}</button>`
+    : `<button class="btn primary ${cls}" data-farm="launch_monitor" title="${T('This machine becomes the farm host')}">${F.status === 'stale' ? T('Take the farm over') : T('Launch the farm')}</button>`;
 function farmAction(k, el) {
+  if (k === 'kill_monitor') {
+    if (!twice(el, T('Sure? Click again'))) return;
+    farmPost({ action: 'kill_monitor' }, T('stopping the farm'));
+  }
+  if (k === 'launch_monitor') {
+    if (F.status === 'stale' && !twice(el, T('Stuck: take it over? Click again'))) return;
+    farmPost({ action: 'launch_monitor', force: F.status === 'stale' }, T('launching the farm'));
+  }
   const j = F.jobs.find(x => x.id === S.farmSel),
     w = F.workers.find(x => 'w:' + x.uuid === S.farmSel);
   if (k === 'worker')

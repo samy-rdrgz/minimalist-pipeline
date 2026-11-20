@@ -151,6 +151,7 @@ function mFarm() {
   const js = F.jobs.filter(j => !j.archived);
   return `<div class="m-card ${bad ? 'bad' : ''}">${jst(bad ? 'failed' : 'running')}<span class="t"><b>${T('Monitor {state}', { state: st })}</b><small>${T('{n} machine online|{n} machines online', { n: act.length })} · ${T('{n} rendering', { n: busy.length })}${W.length - act.length ? ' · ' + T('{n} silent', { n: W.length - act.length }) : ''}</small>
       ${F.left ? `<small>${esc(F.left)}</small>` : ''}</span></div>
+    <span class="live-only">${monitorBtn('m-wide')}</span>
     <button class="btn primary m-wide" data-msheet="render">${ic('b-render_animation')}${T('Render a shot…')}</button>
     ${JS.map(([s, l]) => {
       const g = js.filter(j => j.state === s);

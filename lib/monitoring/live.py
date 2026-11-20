@@ -995,6 +995,8 @@ def _farm_action(raw: dict) -> dict:
                 box["action"] = "to_write"
             log("INFO", "live", f"Live page: job {job} priority {data['priority']}")
             return {"ok": True}
+        if action in ("launch_monitor", "kill_monitor"):
+            return _farm_monitor(action, bool(raw.get("force")))
         if action == "worker":
             op = bpy.ops.m_pipeline.farm_add_self_worker if raw.get("value") else bpy.ops.m_pipeline.farm_kill_self_worker
             done = _with_window(op, "EXEC_DEFAULT")
@@ -1002,6 +1004,39 @@ def _farm_action(raw: dict) -> dict:
     except (PipelineError, RuntimeError, ValueError, OSError) as e:
         return {"ok": False, "error": getattr(e, "message", None) or str(e)}
     return {"ok": False, "error": f"unknown action {action!r}"}
+
+
+def _farm_monitor(action: str, force: bool) -> dict:
+    """The Farm tab's Launch / Stop the farm, as Farm monitoring's: launched
+    here (force: the page confirmed taking over a stuck one), refused while
+    another runs or without FFmpeg (its checks would fail every job); a
+    stop asked of the monitor, wherever it runs, for its next tick."""
+    from ...farm import launch_monitor, refresh_monitor_status, request_monitor_kill
+    from ...farm.loop import monitor_age_status, monitor_last_tick
+    from ..config import ConfigCache, get_active_project_root
+    from ..core import EARLIEST, read_json_quiet, resolve_ffmpeg
+    from ..session import get_user
+
+    user = get_user(bpy.context)
+    lock = ConfigCache.get_path("monitor_file")
+    data = read_json_quiet(lock) if lock.exists() else None
+    running = data is not None and monitor_age_status(monitor_last_tick(lock, data) or EARLIEST) == "running"
+    if action == "kill_monitor":
+        if data is None:
+            return {"ok": False, "error": "no farm running"}
+        request_monitor_kill(user)
+        log("INFO", "live", f"Live page: farm stop asked by {user}")
+        return {"ok": True, "note": "on its next tick (about 10 s)"}
+    if running:
+        return {"ok": False, "error": f"already running, by {data.get('user', '?')} on {data.get('machine', '?')}"}
+    if data is not None and not force:
+        return {"ok": False, "error": "a stuck farm holds it: take it over"}
+    if not resolve_ffmpeg():
+        return {"ok": False, "error": "FFmpeg not found on this machine (Preferences > FFmpeg path)"}
+    launch_monitor(get_active_project_root(), user, force=data is not None)
+    refresh_monitor_status()
+    log("INFO", "live", f"Live page: farm launched by {user}")
+    return {"ok": True}
 
 
 def _farm_submit(action: str, raw: dict) -> dict:

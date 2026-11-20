@@ -6,6 +6,11 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- The live page's Farm tab (desktop and phone): Launch the farm (this
+  machine its host; Take the farm over when it's stuck, asked twice) and
+  Stop the farm (asked twice: the monitor stops on its next tick, the
+  renders running finish, the queue kept) -- as Farm monitoring's
+  Launch / Kill. Refused without FFmpeg, or while another one runs.
 - Breakdown: Over time, the shots' or the assets' Done and Validated a
   day at a time, all departments or one (a line each, its figure at the
   end, a day's on hover). From config/logs/progress.json, one point a day
