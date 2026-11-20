@@ -105,26 +105,38 @@ function activity() {
     gap = slot > 6 ? 2 : slot > 3 ? 1 : 0,
     bw = Math.max(1, slot - gap),
     Y = v => pt + (1 - v / max) * (H - pt - pb);
-  const rects = bars
-    .map((b, i) => {
-      const x = pl + i * slot + gap / 2;
-      if (mode === 'time')
-        return b.hours
-          ? `<rect class="ac-b" x="${x.toFixed(1)}" y="${Y(b.hours).toFixed(1)}" width="${bw.toFixed(1)}" height="${(Y(0) - Y(b.hours)).toFixed(1)}" style="fill:var(--brand)"/>`
-          : '';
-      let y0 = Y(0),
-        out = '';
-      deps.forEach(d => {
-        const v = b.worked[d];
-        if (!v) return;
-        const h = Y(0) - Y(v),
-          seg = Math.max(0, h - (h > 3 ? 1 : 0)); // a 1 px gap between departments
-        out += `<rect class="ac-b" x="${x.toFixed(1)}" y="${(y0 - h).toFixed(1)}" width="${bw.toFixed(1)}" height="${seg.toFixed(1)}" style="fill:${actColor(kind, d)}"/>`;
-        y0 -= h;
-      });
-      return out;
-    })
-    .join('');
+  // Each bar's departments, bottom up: [{c (colour), v, y0, y1}].
+  const segs = bars.map(b =>
+    mode === 'time'
+      ? b.hours
+        ? [{ c: 'var(--brand)', v: b.hours, y0: Y(0), y1: Y(b.hours) }]
+        : []
+      : deps
+          .filter(d => b.worked[d])
+          .reduce((out, d) => {
+            const base = out.length ? out[out.length - 1].top : 0;
+            out.push({
+              c: actColor(kind, d),
+              v: b.worked[d],
+              top: base + b.worked[d],
+              y0: Y(base),
+              y1: Y(base + b.worked[d])
+            });
+            return out;
+          }, [])
+  );
+  const rects = actMarks(ACT_STYLE(), segs, {
+    slot,
+    gap,
+    bw,
+    pl,
+    pt,
+    H,
+    pb,
+    Y,
+    max,
+    order: mode === 'time' ? ['var(--brand)'] : deps.map(d => actColor(kind, d))
+  });
   const fmt = d => new Date(d + 'T12:00:00').toLocaleDateString(DTL(), { day: 'numeric', month: 'short' });
   const ticks = [0, Math.floor((bars.length - 1) / 2), bars.length - 1].filter(
     (v, i, a) => a.indexOf(v) === i
@@ -187,4 +199,82 @@ function actLeave(e) {
   if (!box) return;
   box.querySelector('.ac-hv').hidden = true;
   box.querySelector('.ot-tip').hidden = true;
+}
+
+/* The bars' look (one kept once chosen): rail, round, diamond or area. */
+const ACT_STYLE = () => S.actStyle || 'round';
+function actMarks(style, segs, g) {
+  const f = n => n.toFixed(1),
+    X = i => g.pl + i * g.slot + g.gap / 2;
+  if (style === 'area') {
+    // Each department a band through the bars' middles, stacked, its top edge drawn.
+    const cx = i => g.pl + i * g.slot + g.slot / 2,
+      order = [];
+    segs.forEach(ss => ss.forEach(s => !order.includes(s.c) && order.push(s.c)));
+    order.sort((a, b) => g.order.indexOf(a) - g.order.indexOf(b)); // the departments' own order, bottom up
+    const below = segs.map(() => 0);
+    let out = '';
+    order.forEach(c => {
+      const lo = below.slice(),
+        hi = segs.map((ss, i) => lo[i] + ((ss.find(s => s.c === c) || {}).v || 0));
+      const top = hi.map((v, i) => f(cx(i)) + ' ' + f(g.Y(v))).join(' L'),
+        back = lo
+          .map((v, i) => f(cx(i)) + ' ' + f(g.Y(v)))
+          .reverse()
+          .join(' L');
+      out += `<path class="ac-a" style="--c:${c}" d="M${top} L${back} Z"/><path class="ac-al" style="--c:${c}" d="M${top}"/>`;
+      hi.forEach((v, i) => (below[i] = v));
+    });
+    return out;
+  }
+  return segs
+    .map((ss, i) => {
+      const x = X(i),
+        w = g.bw;
+      if (!ss.length)
+        return style === 'rail'
+          ? `<rect class="ac-rail" x="${f(x)}" y="${g.pt}" width="${f(w)}" height="${g.H - g.pt - g.pb}" rx="${Math.min(4, w / 2)}"/>`
+          : '';
+      if (style === 'diamond') {
+        // A file, a diamond: the state glyph's shape, stacked (a week's mean, rounded).
+        const cell = g.Y(0) - g.Y(1),
+          s = Math.min(w, cell) * 0.92;
+        let k = 0,
+          out = '';
+        ss.forEach(seg =>
+          [...Array(Math.round(seg.v))].forEach(() => {
+            const cy = g.Y(0) - cell * (k + 0.5),
+              cxx = x + w / 2,
+              r = s / 2;
+            out += `<path style="fill:${seg.c}" d="M${f(cxx)} ${f(cy - r)}L${f(cxx + r)} ${f(cy)}L${f(cxx)} ${f(cy + r)}L${f(cxx - r)} ${f(cy)}Z"/>`;
+            k++;
+          })
+        );
+        return out;
+      }
+      const gapv = 2,
+        r = Math.min(3, w / 2);
+      let out = '';
+      if (style === 'rail') {
+        const id = 'acr' + i;
+        out += `<clipPath id="${id}"><rect x="${f(x)}" y="${g.pt}" width="${f(w)}" height="${g.H - g.pt - g.pb}" rx="${Math.min(4, w / 2)}"/></clipPath><rect class="ac-rail" x="${f(x)}" y="${g.pt}" width="${f(w)}" height="${g.H - g.pt - g.pb}" rx="${Math.min(4, w / 2)}"/><g clip-path="url(#${id})">`;
+        ss.forEach((seg, k) => {
+          const h = seg.y0 - seg.y1 - (k < ss.length - 1 && seg.y0 - seg.y1 > 3 ? 1 : 0);
+          out += `<rect x="${f(x)}" y="${f(seg.y0 - (seg.y0 - seg.y1))}" width="${f(w)}" height="${f(Math.max(0, h))}" style="fill:${seg.c}"/>`;
+        });
+        return out + '</g>';
+      }
+      // round: the top department rounded, a 2 px surface gap between departments.
+      ss.forEach((seg, k) => {
+        const last = k === ss.length - 1,
+          h = Math.max(0, seg.y0 - seg.y1 - (k ? gapv : 0)),
+          y = seg.y1;
+        if (!last || h < r * 2)
+          out += `<rect x="${f(x)}" y="${f(y)}" width="${f(w)}" height="${f(h)}" style="fill:${seg.c}"/>`;
+        else
+          out += `<path style="fill:${seg.c}" d="M${f(x)} ${f(y + h)}V${f(y + r)}Q${f(x)} ${f(y)} ${f(x + r)} ${f(y)}H${f(x + w - r)}Q${f(x + w)} ${f(y)} ${f(x + w)} ${f(y + r)}V${f(y + h)}Z"/>`;
+      });
+      return out;
+    })
+    .join('');
 }

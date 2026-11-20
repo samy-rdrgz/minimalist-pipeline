@@ -1,7 +1,8 @@
 /* ---------- Breakdown › Export: the whole project as a spreadsheet (.xlsx) ----------
    Sequences (the Breakdown's figures, each department done and validated), Shots and
    Assets (a line per file: its figures, each department's state, who it's assigned to),
-   Retakes (every open one) and To validate (each department done waiting for a reviewer).
+   Retakes (every open one), To validate (each department done waiting for a reviewer) and
+   Over time (a line a day: the figures, the hours, the files worked by department).
    As the page shows them: the review going on counted, the page's language. */
 function exportBook() {
   const P = v => (v == null ? null : { v: Math.round(v * 1000) / 1000, pct: true });
@@ -124,12 +125,51 @@ function exportBook() {
           ]);
         })
     );
+  // Over time: a line a day -- the finished figures and what was worked (progress.json).
+  const sd = DEPTS.shot || [],
+    ad = DEPTS.asset || [];
+  const time = [
+    [
+      T('Day'),
+      T('Shots') + ' · ' + T('Done'),
+      T('Shots') + ' · ' + T('Validated'),
+      T('Assets') + ' · ' + T('Done'),
+      T('Assets') + ' · ' + T('Validated'),
+      T('Hours'),
+      T('People'),
+      ...sd.map(d => T('Shots') + ' · ' + LBL[d] + ' · ' + T('files')),
+      ...ad.map(d => T('Assets') + ' · ' + LBL[d] + ' · ' + T('files'))
+    ]
+  ];
+  Object.entries(M.history || {})
+    .sort((a, b) => (a[0] < b[0] ? -1 : 1))
+    .forEach(([day, p]) => {
+      const s = p.shots || {},
+        a = p.assets || {},
+        w = p.worked || {};
+      time.push([
+        day,
+        P(s.done),
+        P(s.validated),
+        P(a.done),
+        P(a.validated),
+        'seconds' in p ? Math.round((p.seconds / 3600) * 10) / 10 : null,
+        'people' in p ? p.people : null,
+        ...sd.map(d => ('worked' in p ? (w.shots || {})[d] || 0 : null)),
+        ...ad.map(d => ('worked' in p ? (w.assets || {})[d] || 0 : null))
+      ]);
+    });
   return [
     { name: T('Sequences'), cols: [10, 14, 7, 9, 10, 12, ...Array(allDeps).fill(14)], rows: seq },
     fileSheet('shot', T('Shots')),
     fileSheet('asset', T('Assets')),
     { name: T('Retakes'), cols: [8, 26, 22, 60, 14, 10, 16, 10], rows: rtk },
-    { name: T('To validate'), cols: [8, 26, 18, 40, 20], rows: val }
+    { name: T('To validate'), cols: [8, 26, 18, 40, 20], rows: val },
+    {
+      name: T('Over time'),
+      cols: [12, 12, 12, 12, 12, 8, 8, ...sd.map(() => 16), ...ad.map(() => 16)],
+      rows: time
+    }
   ];
 }
 function exportBreakdown() {

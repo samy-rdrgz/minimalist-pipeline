@@ -3942,3 +3942,16 @@ html.kb .m-nav {
   height: 8px;
   border-radius: 2px;
 }
+.ac-rail {
+  fill: var(--field);
+}
+.ac-a {
+  fill: var(--c);
+  fill-opacity: 0.55;
+}
+.ac-al {
+  fill: none;
+  stroke: var(--c);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}

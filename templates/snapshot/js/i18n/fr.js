@@ -2,6 +2,9 @@
 // missing here: the English. Never translated: files, departments,
 // roles, prefixes, people (the project's own).
 MPI18n.add('fr',{
+'Day':'Jour',
+'People':'Personnes',
+'files':'fichiers',
 'Activity':'Activité',
 'Files worked':'Fichiers travaillés',
 'Time':'Temps',
