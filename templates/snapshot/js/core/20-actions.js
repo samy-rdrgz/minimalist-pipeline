@@ -87,9 +87,10 @@ const A = {
     it.myReplies[id]?.pop();
     if (!it.myReplies[id]?.length) delete it.myReplies[id];
   },
-  fixed(it, id) {
+  /* An open retake or to-do marked fixed, a closed one opened again (reopen): a second call takes it back. */
+  fixed(it, id, reopen) {
     if (it.fixed[id]) delete it.fixed[id];
-    else it.fixed[id] = true;
+    else it.fixed[id] = reopen ? 'reopen' : true;
   }, // fixed
   /* A note sent already, its author's: its words changed (text), or deleted (null); undefined takes it back. */
   edit(it, id, t) {

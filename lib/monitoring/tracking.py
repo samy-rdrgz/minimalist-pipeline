@@ -2112,6 +2112,27 @@ def close_entry(filepath: Path, id: str, user: str) -> bool | None:
     return None
 
 
+def reopen_entry(filepath: Path, id: str, user: str) -> bool | None:
+    """Open a todo/rtk entry (matched by id) again, as user: its done
+    cleared, who reopened it and when kept. True when it opened it, False
+    when it was open already, None when there's no such todo/rtk.
+    Raises PipelineError if the tracking can't be written."""
+    path = tracking_json_path(filepath, must_exist=True)
+    with locked_json(path) as box:
+        for e in (box["data"] or {}).get("entries", []):
+            if e.get("id") == id and e.get("type") in ("todo", "rtk"):
+                if not e.get("done"):
+                    return False
+                e["done"] = False
+                for k in ("done_by", "done_at"):
+                    e.pop(k, None)
+                e["reopened_by"] = user
+                e["reopened_at"] = now()
+                box["action"] = "to_write"
+                return True
+    return None
+
+
 def mark_render_to_check(
     filepath: Path | str,
     shot: str,

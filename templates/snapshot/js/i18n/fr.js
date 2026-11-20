@@ -2,6 +2,9 @@
 // missing here: the English. Never translated: files, departments,
 // roles, prefixes, people (the project's own).
 MPI18n.add('fr',{
+'Open it again: applied when your review is imported':'La rouvrir : appliqué à l’import de ta review',
+'Reopened · you':'Rouverte · toi',
+'Reopen':'Rouvrir',
 'Push it again':'L’envoyer à nouveau',
 'Push to the edit':'Envoyer au montage',
 'Push to the edit: editing/rushes/, under its name without version':'Envoyer au montage : editing/rushes/, sous son nom sans version',

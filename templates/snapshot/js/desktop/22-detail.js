@@ -125,7 +125,8 @@ function newForm(d) {
 function formHTML(d) {
   const types = [
       ['rtk', 'Retake'],
-      ['note', T('Remark')]
+      ['note', T('Remark')],
+      ['todo', T('To do')]
     ],
     it = cur(),
     f = S.form,

@@ -25,6 +25,7 @@ const out=await p.evaluate(()=>{const {S,items,A,reviewFile}=MPPage;S.review={na
   const it=items.find(i=>i.name==='sq030_sh060'),j=items.find(i=>i.name==='sq030_sh040');
   const [d1,d2]=Object.keys(j.states);A.validate(j,d1);A.note(j,{type:'rtk',dept:d2,text:'the ball goes through',frames:'f12-23'});
   A.note(it,{type:'note',dept:null,text:'nice',frames:'f4'});const n=j.notes.find(x=>!x.closed);A.reply(j,n.id,'fixed it');A.fixed(j,n.id);
+  A.note(it,{type:'todo',dept:null,text:'clean the keys'});const c=it.notes.find(x=>x.done&&x.type!=='note');if(c)A.fixed(it,c.id,true);
   A.still(it,Object.keys(it.states)[0]);A.toggleReq(it,'layout');A.omit(it,'on_hold','client');A.assignToggle(j,d1,'tom');A.desc(j,'New description');
   A.plan({name:'sq030_sh090',g:'sq030',kind:'shot',desc:'new',deps:['layout']});MPPage.refresh();return reviewFile()});
 await p.reload();
@@ -55,8 +56,11 @@ def main() -> None:
         assert not res["errs"], res["errs"]
         out = res["out"]
         types = sorted(a["type"] for a in out["actions"])
-        assert types == sorted(["validate", "unvalidate", "rtk", "note", "reply", "fixed", "still_done",
-                                "departments", "assign", "omit", "description", "create"]), types
+        want = ["validate", "unvalidate", "rtk", "note", "todo", "reply", "fixed", "still_done",
+                "departments", "assign", "omit", "description", "create"]
+        if "reopen" in types:  # a closed retake or to-do in the demo: opened again
+            want.append("reopen")
+        assert types == sorted(want), types
         rv.write_text(json.dumps(out), encoding="utf-8")
         read = review_import.read_review(rv)
         assert len(read["actions"]) == len(out["actions"]), (len(read["actions"]), out["actions"])

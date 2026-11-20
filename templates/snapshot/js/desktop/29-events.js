@@ -578,7 +578,7 @@ document.addEventListener('click', e => {
   }
   const fx = t.closest('[data-fix]');
   if (fx) {
-    A.fixed(cur(), fx.dataset.fix);
+    A.fixed(cur(), fx.dataset.fix, fx.hasAttribute('data-reopen'));
     refresh();
     return;
   }

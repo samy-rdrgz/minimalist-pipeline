@@ -50,7 +50,7 @@ function renderWide() {
     : '<p class="faint" style="margin:0">' + T('No note at a frame on this video.') + '</p>';
   const writer =
     rv && S.wdep
-      ? `<div class="ww"><div class="wwl"><span class="join"><button class="btn sm" data-wtype="rtk" aria-pressed="${S.wtype === 'rtk'}">Retake</button><button class="btn sm" data-wtype="note" aria-pressed="${S.wtype === 'note'}">${T('Remark')}</button></span>
+      ? `<div class="ww"><div class="wwl"><span class="join"><button class="btn sm" data-wtype="rtk" aria-pressed="${S.wtype === 'rtk'}">Retake</button><button class="btn sm" data-wtype="note" aria-pressed="${S.wtype === 'note'}">${T('Remark')}</button><button class="btn sm" data-wtype="todo" aria-pressed="${S.wtype === 'todo'}">${T('To do')}</button></span>
       <span class="lbl">${S.rangeStart != null ? T('from <b>f{a}</b> to <b>f{b}</b> on <b>{dept}</b>', { a: fNo(S.rangeStart), b: `<span data-f>${fNo(S.frame)}</span>`, dept: LBL[S.wdep] }) : T('at <b>f{b}</b> on <b>{dept}</b>', { b: `<span data-f>${fNo(S.frame)}</span>`, dept: LBL[S.wdep] })}</span>
       <button class="btn sm ${S.rangeStart != null ? '' : 'tool'}" data-tp="in" ${pOff(it)} aria-pressed="${S.rangeStart != null}" title="${S.rangeStart != null ? T("Forget the range's start") : T('A range: its start at the frame shown, its end where you are when you add (I)')}">${S.rangeStart != null ? '⇤ f' + S.rangeStart + ' ✕' : '⇤ ' + T('Range from here')}</button></div>
       <label class="field ta"><textarea id="w-ta" rows="3" placeholder="${T('Write as you watch: Enter adds, Shift+Enter goes to a new line')}" aria-label="${T('Text')}"></textarea></label></div>`

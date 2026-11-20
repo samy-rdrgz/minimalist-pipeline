@@ -71,7 +71,7 @@ function reviewActions() {
             }
           });
         out.push({
-          type: n.type === 'rtk' ? 'rtk' : 'note',
+          type: n.type === 'rtk' || n.type === 'todo' ? n.type : 'note',
           file: f,
           departments: deps,
           text: n.text,
@@ -82,7 +82,10 @@ function reviewActions() {
       });
     if (it.descEdit !== undefined && String(it.descEdit).trim() && it.descEdit.trim() !== (it.desc || ''))
       out.push({ type: 'description', file: f, old: it.desc || '', new: it.descEdit.trim() });
-    Object.keys(it.fixed).forEach(id => out.push({ type: 'fixed', file: f, id }));
+    // Marked fixed (true), or open again ('reopen': a retake or to-do closed already).
+    Object.entries(it.fixed).forEach(([id, v]) =>
+      out.push({ type: v === 'reopen' ? 'reopen' : 'fixed', file: f, id })
+    );
     Object.entries(it.myReplies).forEach(([id, rs]) => {
       const t = rs
         .map(r => r.text)
@@ -201,7 +204,7 @@ function fromActions(actions) {
     if (a.type === 'validate') it.mine[a.department] = 'val';
     else if (a.type === 'unvalidate') {
       if (!it.mine[a.department]) it.mine[a.department] = 'rtk';
-    } else if (a.type === 'rtk' || a.type === 'note') {
+    } else if (a.type === 'rtk' || a.type === 'note' || a.type === 'todo') {
       const d = (a.departments || [])[0] || null;
       it.myNotes.unshift({
         type: a.type,
@@ -221,6 +224,7 @@ function fromActions(actions) {
         { text: String(a.text || ''), author: S.review ? S.review.name : '', date: isoNow() }
       ];
     else if (a.type === 'fixed') it.fixed[a.id] = true;
+    else if (a.type === 'reopen') it.fixed[a.id] = 'reopen';
     else if (a.type === 'description') it.descEdit = a.new;
     else if (a.type === 'edit') it.edits[a.id] = String(a.text || '');
     else if (a.type === 'delete') it.edits[a.id] = null;

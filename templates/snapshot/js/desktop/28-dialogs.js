@@ -35,7 +35,12 @@ const stillHTML = (it, d) => {
   return `<button class="btn sm ${it.still[d] ? '' : 'tool'}" data-still="${d}" aria-pressed="${!!it.still[d]}" title="${T("To redo: {why}. Still done: the work holds, it's not a validation", { why: esc(f.to_redo) })}">${ic('b-checkmark')}${T('Still done')}</button>`;
 };
 const fixHTML = (it, n) => {
-  if (!S.review || n.mine || n.done || n.type === 'note') return '';
+  if (!S.review || n.mine || n.type === 'note') return '';
+  if (n.done) {
+    // Closed: opened again (it counts as open once sent).
+    const re = it.fixed[n.id] === 'reopen';
+    return `<button class="btn sm ${re ? '' : 'flat'}" data-fix="${n.id}" data-reopen aria-pressed="${re}" title="${re ? T('Cancel') : T('Open it again: applied when your review is imported')}">${ic('b-loop_back')}${re ? T('Reopened · you') : T('Reopen')}</button>`;
+  }
   const on = !!it.fixed[n.id];
   return `<button class="btn sm ${on ? 'ok' : 'flat'}" data-fix="${n.id}" aria-pressed="${on}" title="${on ? T('Cancel') : n.type === 'rtk' ? T('Mark fixed: applied when your review is imported') : T('Mark done: applied when your review is imported')}">${ic('b-checkmark')}${on ? T('Fixed · you') : n.type === 'rtk' ? T('Mark fixed') : T('Mark done')}</button>`;
 };

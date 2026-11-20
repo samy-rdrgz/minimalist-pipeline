@@ -6,6 +6,9 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- The page writes to-dos, beside retakes and remarks (the note form, Watch
+  large's), and opens a closed retake or to-do again (Reopen; who and when
+  kept in the entry): the review's new "todo" and "reopen" actions.
 - The live page pushes rushes to the edit: any render, wip or stable, from
   its line in the file's detail (its button lit when it's the one in the
   edit, who pushed it and when in its tooltip), and every sequence's and
