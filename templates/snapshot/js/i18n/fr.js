@@ -2,6 +2,17 @@
 // missing here: the English. Never translated: files, departments,
 // roles, prefixes, people (the project's own).
 MPI18n.add('fr',{
+'Kind':'Type',
+'Stable':'Stable',
+'Latest':'Dernière',
+'Retake':'Retake',
+'By':'Par',
+'Date':'Date',
+'Sequences':'Séquences',
+'Open notes':'Notes ouvertes',
+'Downloaded ({name})':'Téléchargé ({name})',
+'Export…':'Exporter…',
+'Sequences, shots, assets, retakes, to validate: a spreadsheet (.xlsx)':'Séquences, shots, assets, retakes, à valider : un tableur (.xlsx)',
 'Search everything':'Tout rechercher',
 'Search everything…':'Tout rechercher…',
 'Search everything (Ctrl+K)':'Tout rechercher (Ctrl+K)',

@@ -6,6 +6,12 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- Breakdown › Export…: the whole project as a spreadsheet (.xlsx, written
+  in the page, offline too): Sequences (done and validated, all and each
+  department, open retakes), Shots and Assets (a line per file: its
+  figures, each department's state and assignees, stable and latest
+  version), Retakes (every open one: text, who, when, frames) and To
+  validate. Header kept in view, filters on.
 - The page's Search everything (Ctrl+K, the magnifier in the top bar; the
   phone's too): every word typed found in a file's name, description,
   notes, retakes, to-dos and replies (their text and author), assignees,

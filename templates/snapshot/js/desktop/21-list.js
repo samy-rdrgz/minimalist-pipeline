@@ -37,7 +37,7 @@ function renderQuick() {
           )
           .join(
             ''
-          )}</span><span class="faint sx-hint" title="${T('Click a sequence: its files, in the list.')}">${T('Click a sequence: its files, in the list.')}</span><button class="btn tool" data-weights aria-expanded="${S.weights}">${ic('b-info')}${T("How it's counted")}</button>`
+          )}</span><span class="faint sx-hint" title="${T('Click a sequence: its files, in the list.')}">${T('Click a sequence: its files, in the list.')}</span><button class="btn tool" data-weights aria-expanded="${S.weights}">${ic('b-info')}${T("How it's counted")}</button><button class="btn tool" data-export title="${T('Sequences, shots, assets, retakes, to validate: a spreadsheet (.xlsx)')}">${ic('b-export')}${T('Export…')}</button>`
       : `<button class="btn qfold only-phone" data-qfold aria-expanded="${S.qFold === false}">${ic('b-filter')}${T('Filters')}${on ? ` <span class="n">${on}</span>` : ''}${ic(S.qFold === false ? 'b-downarrow_hlt' : 'b-rightarrow')}</button><span class="join">${q.map(([k, l, n, g]) => `<button class="btn" data-quick="${k}" aria-pressed="${S.quick === k}">${g.replace('class="g"', 'class="g" style="width:18px;height:18px"')}<span>${l}</span><span class="n">${n}</span></button>`).join('')}</span>
     <span class="anchor"><button class="btn ${nm ? '' : 'tool'}" data-menu="m-more" aria-haspopup="true" aria-expanded="false" ${nm ? 'aria-pressed="true"' : ''}>${ic('b-filter')}${T('Filters')}${nm ? ` <span class="n">${nm}</span>` : ''}${ic('b-tria_down')}</button>
     <div class="menu" id="m-more" hidden role="menu">
@@ -147,27 +147,29 @@ function rowHTML(it) {
 }
 /* A bar's figure sits on its colour from this share up. */
 const IN = 0.62;
+/* A sequence's figures, one department or all (d null): its files' required departments
+   done, validated, their open RTKs; null if none. The Breakdown's cells, its export too. */
+function synthCell(its, d) {
+  const r = its.filter(i => !omitted(i) && (d ? required(i).includes(d) : true));
+  if (!r.length) return null;
+  let n = 0,
+    done = 0,
+    val = 0,
+    rtk = 0;
+  r.forEach(i => {
+    (d ? [d] : required(i)).forEach(x => {
+      n++;
+      if (['done', 'rework'].includes(i.states[x])) done++;
+      if (i.ok[x] || i.mine[x] === 'val') val++;
+      rtk += rtkNotes(i, x).length;
+    });
+  });
+  return n ? { done: done / n, val: val / n, rtk, n: r.length } : null;
+}
 function renderSynth() {
   const L = $('#list'),
     mode = S.smode;
-  const sumCell = (its, d) => {
-    const r = its.filter(i => !omitted(i) && (d ? required(i).includes(d) : true));
-    if (!r.length) return null;
-    const ds = d ? [d] : null;
-    let n = 0,
-      done = 0,
-      val = 0,
-      rtk = 0;
-    r.forEach(i => {
-      (ds || required(i)).forEach(x => {
-        n++;
-        if (['done', 'rework'].includes(i.states[x])) done++;
-        if (i.ok[x] || i.mine[x] === 'val') val++;
-        rtk += rtkNotes(i, x).length;
-      });
-    });
-    return n ? { done: done / n, val: val / n, rtk, n: r.length } : null;
-  };
+  const sumCell = synthCell;
   const field = c => {
     if (!c) return '<span class="sf na">–</span>';
     if (mode === 'rtk') {

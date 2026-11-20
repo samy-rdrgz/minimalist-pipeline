@@ -729,6 +729,10 @@ document.addEventListener('click', e => {
     helpDlg();
     return;
   }
+  if (t.closest('[data-export]')) {
+    exportBreakdown();
+    return;
+  }
   if (t.closest('#search-b')) {
     searchDlg();
     return;
