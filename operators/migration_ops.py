@@ -77,6 +77,8 @@ _CHANGES = (
     ("render: frame range", "renders: their frame range"),
     ("render presets: .json to .py", "render presets: .json rewritten as .py"),
     ("render presets: one per department", "render presets: one for each department with none"),
+    ("sessions with their date, named sessions", "versions: their sessions dated, named sessions"),
+    ("progress: days rebuilt", "progress over time: the days before the log, rebuilt"),
 )
 
 
@@ -172,7 +174,7 @@ class M_PIPELINE_OT_migrate_data_confirm(bpy.types.Operator):
             if any(i.department != _KEEP for i in self.renames):
                 box.prop(self, "old_renders")
             col.separator()
-        if not plan["files"] and not any((plan.get("presets") or {}).values()) and not self.renames:
+        if not plan["files"] and not any((plan.get("presets") or {}).values()) and not self.renames and not plan.get("progress"):
             col.label(text=f"{plan['owners']} asset(s) and shot(s) read: nothing to change.", icon="CHECKMARK")
             return
         col.label(
@@ -207,6 +209,8 @@ class M_PIPELINE_OT_migrate_data_confirm(bpy.types.Operator):
         for f in plan["files"]:
             log("INFO", "migration", f"{f['path']}: {', '.join(f['changes'])}")
         message = f"{result['written']} file(s) migrated."
+        if result.get("progress_days"):
+            message += f" Progress over time: {result['progress_days']} day(s) rebuilt."
         if result["written"]:
             message += f" Backups: {result['backup']}"
         if result["errors"]:

@@ -187,3 +187,175 @@ def _mark_checked(root: Path, today: str) -> None:
             box["data"], box["action"] = data, "to_write"
     except Exception as e:
         log("WARNING", "progress", f"Progress not checked: {e}")
+
+
+# ---------------------------------------------------------------------------
+# The days before the log: rebuilt once, by Migrate old data
+# ---------------------------------------------------------------------------
+# The one place every .stablemeta and .wipmeta of the project is read
+# (lib/migration.py reads them all anyway): each folder as it stood at the
+# end of each day something changed in it -- its stables made by then and
+# the validations given by then, the sessions saved by then, the notes
+# written by then and still open then -- through the state engine and the
+# snapshot's own figures. A day nothing changed holds the day before's
+# figures. The days the log holds already are kept as logged.
+# See NOTES.md, "Progress over time: the days before the log".
+
+
+_seen_at: dict = {}  # a date as written: parsed once (rebuild() reads each many times)
+
+
+def _at(value) -> datetime | None:
+    from ..core import parse_iso
+
+    if not isinstance(value, str):
+        return parse_iso(value)
+    if value not in _seen_at:
+        _seen_at[value] = parse_iso(value)
+    return _seen_at[value]
+
+
+def _end_of(day: str) -> datetime:
+    from datetime import time
+
+    return datetime.combine(datetime.fromisoformat(day).date(), time(23, 59, 59)).astimezone()
+
+
+def _day_of(value) -> str | None:
+    t = _at(value)
+    return t.date().isoformat() if t else None
+
+
+def _folder_at(kind: str, tracking: dict, stables: list, wipmetas: list, end: datetime) -> dict | None:
+    """_collect_folder()'s data for a folder as it stood at end; None if
+    it didn't exist yet."""
+    from . import legacy
+    from .tracking import _DEFAULT_STABLE
+
+    made = _at(tracking.get("created_at"))
+    if made and made > end:
+        return None
+    entries = []
+    for e in tracking.get("entries") or []:
+        at = _at(e.get("created_at"))
+        if at and at > end:
+            continue
+        done_at = _at(e.get("done_at"))
+        if e.get("done") and done_at and done_at > end:
+            e = {**e, "done": False}
+        entries.append(e)
+    past = [s for s in stables if (_at(s.get("created_at")) or end) <= end]
+    last = dict(max(past, key=lambda s: _at(s.get("created_at")) or end)) if past else dict(_DEFAULT_STABLE)
+    last["approvals"] = {
+        d: kept
+        for d, roles in (last.get("approvals") or {}).items()
+        if isinstance(roles, dict)
+        and (kept := {r: i for r, i in roles.items() if not isinstance(i, dict) or (_at(i.get("at")) or end) <= end})
+    }
+    wips = []
+    for meta in wipmetas:
+        made = _at(meta.get("created_at"))
+        if made and made > end:
+            continue
+        sessions = legacy.wip_read(dict(meta)).get(legacy.SESSIONS) or {}
+        kept = {
+            k: s
+            for k, s in sessions.items()
+            if (_at(s.get("saved_at") if isinstance(s, dict) else meta.get("edited_at")) or end) <= end
+        }
+        wips.append({**meta, legacy.SESSIONS: kept, legacy.V1_SESSIONS: dict(kept)})
+    return {
+        "tracking": {**tracking, "entries": entries},
+        "last_stable": last,
+        "wipmetas": wips,
+        "started": last.get("departments_started") or [],
+        "kind": f"{kind}s",
+    }
+
+
+def _change_days(tracking: dict, stables: list, wipmetas: list) -> set[str]:
+    """The days something changed in a folder: made, a note written or
+    closed, a stable made, a validation given, a session saved."""
+    from . import legacy
+
+    out = {_day_of(tracking.get("created_at"))}
+    for e in tracking.get("entries") or []:
+        out |= {_day_of(e.get("created_at")), _day_of(e.get("done_at"))}
+    for s in stables:
+        out.add(_day_of(s.get("created_at")))
+        for roles in (s.get("approvals") or {}).values():
+            for info in (roles or {}).values() if isinstance(roles, dict) else ():
+                if isinstance(info, dict):
+                    out.add(_day_of(info.get("at")))
+    for meta in wipmetas:
+        for s in (legacy.wip_read(dict(meta)).get(legacy.SESSIONS) or {}).values():
+            out.add(_day_of(s.get("saved_at") if isinstance(s, dict) else meta.get("edited_at")))
+    out.discard(None)
+    return out
+
+
+def rebuild(root: Path, folders: list, config: dict, today: str | None = None) -> int:
+    """The days before today the log doesn't hold, rebuilt from folders:
+    [(kind "shot"|"asset", owner Path, tracking, [stablemeta data],
+    [wipmeta data])] -- every one of the project's, as Migrate old data
+    read them. Each folder's state worked out on its own change days only
+    (the snapshot's build, one folder at a time), the project's figures
+    each day from every folder's latest. Main thread (build_snapshot()).
+    How many days written."""
+    from datetime import timedelta
+
+    from .snapshot import average_progress, build_snapshot
+
+    today = today or datetime.now().date().isoformat()
+    _seen_at.clear()
+    timeline = []  # per folder: (kind, [(day, its item that evening, or None)])
+    every = set()
+    for kind, owner, tracking, stables, wips in folders:
+        points = []
+        for day in sorted(d for d in _change_days(tracking, stables, wips) if d < today):
+            raw = _folder_at(kind, tracking, stables, wips, _end_of(day))
+            item = None
+            if raw is not None:
+                built = build_snapshot([(kind, Path(owner), raw, [])], config, {})
+                item = next(iter(built.get(f"{kind}s") or []), None)
+            points.append((day, item))
+        if points:
+            timeline.append((kind, points))
+            every |= {d for d, _ in points}
+    if not every:
+        return 0
+    logged = days(root)
+    out, figs = {}, None
+    at = [0] * len(timeline)  # each folder's next point
+    current = [None] * len(timeline)
+    day = datetime.fromisoformat(min(every)).date()
+    last = datetime.fromisoformat(today).date() - timedelta(days=1)
+    while day <= last:
+        key = day.isoformat()
+        if key in every or figs is None:
+            for n, (_kind, points) in enumerate(timeline):
+                while at[n] < len(points) and points[at[n]][0] <= key:
+                    current[n] = points[at[n]][1]
+                    at[n] += 1
+            snap = {"meta": {"progress": {}, "validation": {}}, "shots": [], "assets": []}
+            for n, (kind, _points) in enumerate(timeline):
+                if current[n] is not None:
+                    snap[f"{kind}s"].append(current[n])
+            for kind in ("shot", "asset"):
+                snap["meta"]["progress"][kind] = average_progress(snap[f"{kind}s"])
+                snap["meta"]["validation"][kind] = average_progress(snap[f"{kind}s"], "validation")
+            figs = figures(snap)
+        if key not in logged:
+            out[key] = figs
+        day += timedelta(days=1)
+    if not out:
+        return 0
+    path_of(root).parent.mkdir(parents=True, exist_ok=True)
+    with locked_json(path_of(root)) as box:
+        data = box["data"] if isinstance(box["data"], dict) else {}
+        known = data.setdefault("days", {})
+        for key, point in out.items():
+            known.setdefault(key, {**point, "at": now(), "rebuilt": True})
+        data["days"] = dict(sorted(known.items()))
+        box["data"], box["action"] = data, "to_write"
+    return len(out)

@@ -5756,3 +5756,21 @@ a 1.x still working on the project writes the old name only, its sessions
 read; written with the old name beside, equal (legacy.wip_written()),
 through 2.2 -- as "departments_validated" (lib/monitoring/legacy.py).
 Migrate old data renames them.
+
+## Progress over time: the days before the log
+
+config/logs/progress.json only starts with 2.0 (a snapshot, the live
+page, the first Blender of the day). The days before are rebuilt once,
+by Migrate old data -- the one place allowed to read every .stablemeta
+and .wipmeta (plan_migration() reads them all anyway; it hands them,
+migrated in memory, to progress_log.rebuild()). Each folder as it stood
+at the end of a day (_folder_at()): its tracking.json if made by then,
+its entries written by then (one closed later: open), its latest stable
+made by then with only the validations given by then, its versions'
+sessions saved by then -- through _status_from_raw() and the snapshot's
+build, so the same rules as today's figures. Worked out for a folder only
+on the days it changed (_change_days()), the project's figures each day
+from every folder's latest: 150 folders over two busy years, about ten
+seconds. What isn't dated stays as it is now: the required departments,
+set aside, the project's departments and weights. Days the log holds are
+never replaced; rebuilt ones carry "rebuilt": true.

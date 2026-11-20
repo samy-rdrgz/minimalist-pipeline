@@ -6,6 +6,12 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- Migrate old data rebuilds the progress over time before the log
+  began: each day since the project's first change, the project as it
+  stood that evening -- the stables made, validations given, sessions
+  saved, retakes open then -- through the state engine. Days already
+  logged are kept; a rebuilt one is marked "rebuilt". The only place every
+  .stablemeta and .wipmeta is read.
 - Breakdown › Export…: the whole project as a spreadsheet (.xlsx, written
   in the page, offline too): Sequences (done and validated, all and each
   department, open retakes), Shots and Assets (a line per file: its

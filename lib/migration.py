@@ -79,10 +79,11 @@ def plan_migration(root: Path, v_prefix: str = "v") -> dict:
     root = Path(root)
     files = []
     owners = 0
+    history: list = []  # every folder's metas as migrated: the progress rebuilt
     for top in _DATA_ROOTS:
         for owner in _walk_owner_dirs(root / top):
             owners += 1
-            files += _plan_owner(root, owner, top == "shots", v_prefix)
+            files += _plan_owner(root, owner, top == "shots", v_prefix, history)
     counts: dict[str, int] = {}
     for f in files:
         for change in f["changes"]:
@@ -93,7 +94,31 @@ def plan_migration(root: Path, v_prefix: str = "v") -> dict:
         counts["render presets: .json to .py"] = len(presets["json"])
     if presets["departments"]:
         counts["render presets: one per department"] = len(presets["departments"])
-    return {"files": files, "owners": owners, "counts": counts, "presets": presets, "loose_presets": loose}
+    missing = _progress_days_missing(root, history)
+    if missing:
+        counts["progress: days rebuilt"] = missing
+    return {"files": files, "owners": owners, "counts": counts, "presets": presets, "loose_presets": loose,
+            "progress": history if missing else []}
+
+
+def _progress_days_missing(root: Path, history: list) -> int:
+    """How many days before today the progress log doesn't hold, from the
+    project's first change (progress_log.rebuild() writes them)."""
+    from .monitoring import progress_log
+
+    first = min(
+        (d for _k, _o, tracking, stables, wips in history for d in progress_log._change_days(tracking, stables, wips)),
+        default=None,
+    )
+    if first is None:
+        return 0
+    today = datetime.now().date()
+    logged = progress_log.days(root)
+    day, n = datetime.fromisoformat(first).date(), 0
+    while day < today:
+        n += day.isoformat() not in logged
+        day += timedelta(days=1)
+    return n
 
 
 def apply_migration(root: Path, plan: dict) -> dict:
@@ -119,7 +144,17 @@ def apply_migration(root: Path, plan: dict) -> dict:
         except Exception as e:
             errors.append((str(path), str(e)))
     written += _apply_presets(root, plan.get("presets") or {}, backup, errors)
-    return {"written": written, "backup": str(backup), "errors": errors}
+    rebuilt = 0
+    if plan.get("progress"):
+        # Last: the files above as written. The one place every meta is read.
+        from .monitoring import progress_log
+
+        try:
+            config = read_json_quiet(root / "config" / "project_config.json") or {}
+            rebuilt = progress_log.rebuild(root, plan["progress"], config)
+        except Exception as e:
+            errors.append((str(progress_log.path_of(root)), str(e)))
+    return {"written": written, "backup": str(backup), "errors": errors, "progress_days": rebuilt}
 
 
 # ---------------------------------------------------------------------------
@@ -203,7 +238,7 @@ def _apply_presets(root: Path, presets: dict, backup: Path, errors: list) -> int
 # ---------------------------------------------------------------------------
 
 
-def _plan_owner(root: Path, owner: Path, is_shot: bool, v_prefix: str) -> list[dict]:
+def _plan_owner(root: Path, owner: Path, is_shot: bool, v_prefix: str, history: list | None = None) -> list[dict]:
     pipeline = owner / ".pipeline"
     entries = _pipeline_entries(owner)
     tracking = read_json_quiet(pipeline / "tracking.json") or {}
@@ -223,7 +258,11 @@ def _plan_owner(root: Path, owner: Path, is_shot: bool, v_prefix: str) -> list[d
             changes.append("stable: departments_done")
         found.append((entry.path, data, changes))
 
-    for entry, data in _read_metas(entries, ".wipmeta"):
+    wips = _read_metas(entries, ".wipmeta")
+    if history is not None:
+        # The same dicts: migrated below, in memory, before the progress is rebuilt.
+        history.append(("shot" if is_shot else "asset", str(owner), tracking, [d for _, d in stables], [d for _, d in wips]))
+    for entry, data in wips:
         changes = ["links one per file"] if _migrate_linked(data, root) else []
         if _migrate_sessions(data):
             changes.append("sessions with their date, named sessions")
