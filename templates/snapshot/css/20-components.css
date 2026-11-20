@@ -3845,3 +3845,64 @@ html.kb .m-nav {
 #quick .td-j {
   flex: none;
 }
+/* Search everything: the field, the files found, each place a word is in, marked. */
+.sr-dlg {
+  width: min(720px, 100%);
+  align-self: flex-start;
+  margin-top: 8vh;
+}
+.sr-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  max-height: 65vh;
+  overflow: auto;
+}
+.sr {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-5) var(--sp-6);
+  border: 1px solid var(--line);
+  border-radius: var(--r-l);
+  background: var(--box);
+  color: var(--text);
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+.sr:hover,
+.sr:focus-visible {
+  background: var(--row-hover);
+}
+.sr-h {
+  display: flex;
+  gap: var(--sp-5);
+  align-items: baseline;
+}
+.sr-l {
+  display: flex;
+  gap: var(--sp-5);
+  font-size: var(--fs-s);
+  min-width: 0;
+}
+.sr-l .k {
+  flex: none;
+  width: calc(150px * var(--scale));
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sr-l .t {
+  color: var(--text-2);
+  min-width: 0;
+}
+.sr mark {
+  background: color-mix(in srgb, var(--brand) 35%, transparent);
+  color: var(--text);
+  border-radius: 2px;
+}
+.sr-more {
+  font-size: var(--fs-s);
+}

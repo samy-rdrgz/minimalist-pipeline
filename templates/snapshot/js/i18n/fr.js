@@ -2,6 +2,16 @@
 // missing here: the English. Never translated: files, departments,
 // roles, prefixes, people (the project's own).
 MPI18n.add('fr',{
+'Search everything':'Tout rechercher',
+'Search everything…':'Tout rechercher…',
+'Search everything (Ctrl+K)':'Tout rechercher (Ctrl+K)',
+'search everything':'tout rechercher',
+'Names, descriptions, notes, replies, assignees, departments, render presets.':'Noms, descriptions, notes, réponses, assignés, départements, presets de rendu.',
+'Nothing found.':'Rien trouvé.',
+'The first {n}: type more words.':'Les {n} premiers : tape d’autres mots.',
+'and {n} more':'et {n} de plus',
+'Render presets':'Presets de rendu',
+'A reply':'Réponse',
 'To work on':'À travailler',
 'Read only':'Lecture seule',
 'Can drive it':'Peut la piloter',

@@ -247,6 +247,7 @@ function helpDlg() {
     <ul class="legend-list" style="gap:6px">${[
       ['↑ ↓', T('previous / next file')],
       ['/', T('go to a file')],
+      ['Ctrl K', T('search everything')],
       ['W', T('watch large')],
       ['← →', T('large: previous / next file')],
       [', .', T('one frame back / on')],
@@ -728,6 +729,15 @@ document.addEventListener('click', e => {
     helpDlg();
     return;
   }
+  if (t.closest('#search-b')) {
+    searchDlg();
+    return;
+  }
+  const sgf = t.closest('[data-sgofile]');
+  if (sgf) {
+    searchGo(sgf.dataset.sgofile, sgf.dataset.stab);
+    return;
+  }
   if (t.closest('[data-dclose]') || t.id === 'dlg') {
     $('#dlg').hidden = true;
     return;
@@ -1134,6 +1144,11 @@ document.addEventListener('input', e => {
 });
 document.addEventListener('keydown', e => {
   const typing = e.target.matches('input,textarea');
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k' && !isMob()) {
+    e.preventDefault();
+    searchDlg();
+    return;
+  }
   if (e.target.id === 'w-ta' && e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault();
     wideAdd();

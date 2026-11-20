@@ -6,6 +6,12 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- The page's Search everything (Ctrl+K, the magnifier in the top bar; the
+  phone's too): every word typed found in a file's name, description,
+  notes, retakes, to-dos and replies (their text and author), assignees,
+  departments and why one waits, the render presets its renders used --
+  accents ignored. Each place found listed under its file, the words
+  marked; a result opens the file on the tab that shows it.
 - The page's To do tab, before Breakdown: each file's required
   departments not validated yet, with why one waits (waiting, to redo,
   RTK); everything, to work on or to validate (by default after the

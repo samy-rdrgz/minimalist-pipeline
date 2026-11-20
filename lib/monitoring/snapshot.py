@@ -98,9 +98,10 @@ def read_snapshot_raw(root: Path) -> list[tuple[str, Path, dict, list[str]]]:
 
 def _render_presets(owner: Path) -> dict:
     """The Render form's start for this folder: {"department": its last
-    render's, "by": {department: the preset its last render for it used}}
+    render's, "by": {department: the preset its last render for it used},
+    "used": every preset its renders used, for the page's search}
     (render_history.json, finished and failed renders). Pure os/json."""
-    by, last = {}, ""
+    by, last, used = {}, "", set()
     for e in (read_json_quiet(owner / ".pipeline" / "render_history.json") or {}).get("entries") or []:
         if not isinstance(e, dict) or e.get("status") == "split":
             continue
@@ -108,7 +109,9 @@ def _render_presets(owner: Path) -> dict:
         last = d
         if d:
             by[d] = e.get("prerender_script") or ""
-    return {"department": last, "by": by}
+        if e.get("prerender_script"):
+            used.add(str(e["prerender_script"]))
+    return {"department": last, "by": by, "used": sorted(used)}
 
 
 def _owner_shots(owner: Path) -> list[str]:

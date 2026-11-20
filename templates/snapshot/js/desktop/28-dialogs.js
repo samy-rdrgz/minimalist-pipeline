@@ -282,3 +282,38 @@ function bulkDlg() {
     <p class="dim" style="margin:0">${T('{n} file of {total} changes.|{n} files of {total} change.', { n, total: pool.length })}</p>
     <div class="acts"><button class="btn" data-dclose>${T('Cancel')}</button><button class="btn primary" data-bkok ${n ? '' : 'disabled'}>${T('Apply to {n} file|Apply to {n} files', { n })}</button></div></div>`;
 }
+/* Search everything (core/25-search.js): Ctrl+K or the top bar; a result opens its file. */
+function searchDlg() {
+  const dl = $('#dlg');
+  dl.hidden = false;
+  dl.innerHTML = `<div class="dlg-in sr-dlg" role="dialog" aria-modal="true" aria-label="${T('Search everything')}">
+    <label class="field"><svg class="i"><use href="#b-viewzoom"/></svg><input id="sr-q" value="${esc(S.sq || '')}" placeholder="${T('Search everything…')}" aria-label="${T('Search everything')}" autocomplete="off"><span class="kbd">Ctrl K</span></label>
+    <div class="sr-list" id="sr-list">${searchResultsHTML(S.sq || '')}</div></div>`;
+  const q = $('#sr-q');
+  q.oninput = () => {
+    S.sq = q.value;
+    $('#sr-list').innerHTML = searchResultsHTML(S.sq);
+  };
+  q.onkeydown = e => {
+    if (e.key === 'Enter') $('#sr-list .sr')?.click();
+  };
+  setTimeout(() => q.select(), 0);
+}
+/* A result: its file, in its list, on the tab that shows what was found. */
+function searchGo(name, tab) {
+  const it = items.find(i => i.name === name);
+  if (!it) return;
+  $('#dlg').hidden = true;
+  S.ws = it.kind;
+  S.q = '';
+  $('#q').value = '';
+  S.quick = null;
+  S.dept = null;
+  S.more.clear();
+  S.closed.delete(groupOf(it));
+  S.tab = tab;
+  if (tab === 'notes') S.noteFilter = 'all';
+  S.sel = name;
+  renderAll();
+  select(name);
+}

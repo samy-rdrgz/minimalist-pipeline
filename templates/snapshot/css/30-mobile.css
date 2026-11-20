@@ -985,3 +985,11 @@ b.ab.b {
 .m-td small {
   white-space: normal;
 }
+/* Search everything on a phone: a place's label above its words. */
+.mob .sr-l {
+  flex-direction: column;
+  gap: 0;
+}
+.mob .sr-l .k {
+  width: auto;
+}

@@ -37,6 +37,7 @@ function mRender() {
   R.innerHTML = `<header class="m-top"><span class="m-brand"><b>${esc(M.project)}</b><small>${LIVE ? 'live' : T('snapshot of {date}', { date: fmtD(M.snapshot) })}${S.review ? ' · ' + esc(S.review.name) + ' · ' + S.review.role : ''}</small></span><span class="sp"></span>
       ${LIVE ? `<button class="m-ib" data-msheet="news" aria-label="${T("What's new")}">${ic('i-bell')}${nn ? `<span class="cnt">${nn}</span>` : ''}</button>` : ''}
       ${S.review && LIVE ? `<span class="rv-sync" data-state="${LV.say}">${SAY[LV.say]()}</span>` : ''}${S.review && !LIVE ? `<button class="btn primary" data-msheet="send">${ic('b-export')}${T('Send')}<span class="n">${n2}</span></button>` : ''}
+      <button class="m-ib" data-msheet="search" aria-label="${T('Search everything')}">${ic('b-viewzoom')}</button>
       <button class="m-ib" data-msheet="menu" aria-label="Menu">${ic('b-preferences')}</button></header>
     <main class="m-body" id="m-body">${S.m.tab === 'farm' ? mFarm() : S.m.tab === 'todo' ? mTodo() : mReview()}</main>
     ${S.m.tab === 'review' ? mComposer() : ''}
@@ -336,6 +337,11 @@ function mSheet() {
         ).join('')
       : '<p class="m-hint">' + T('Nothing new since the page opened.') + '</p>';
   }
+  if (k === 'search') {
+    t = T('Search everything');
+    h = `<label class="field"><input id="sr-q" value="${esc(S.sq || '')}" placeholder="${T('Search everything…')}" autocomplete="off" enterkeyhint="search"></label>
+      <div class="sr-list" id="sr-list">${searchResultsHTML(S.sq || '')}</div>`;
+  }
   if (k === 'menu') {
     t = 'Menu';
     h = `<div class="m-sec-h">${T('Theme')}</div><span class="join full">${[
@@ -456,6 +462,11 @@ $('#mob').addEventListener('click', e => {
   const t = e.target,
     q = s => t.closest(s);
   let x;
+  if ((x = q('[data-sgofile]'))) {
+    S.m.tab = 'review';
+    mGo(x.dataset.sgofile);
+    return;
+  }
   if (t.matches('[data-mclose-bg]') || q('[data-mclose]')) {
     S.m.sheet = null;
     mRender();
@@ -685,6 +696,11 @@ $('#mob').addEventListener('change', e => {
   }
 });
 $('#mob').addEventListener('input', e => {
+  if (e.target.id === 'sr-q') {
+    S.sq = e.target.value;
+    $('#sr-list').innerHTML = searchResultsHTML(S.sq);
+    return;
+  }
   if (e.target.id === 'm-ta') {
     e.target.style.height = 'auto';
     e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
