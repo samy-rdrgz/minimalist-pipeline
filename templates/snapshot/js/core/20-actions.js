@@ -241,3 +241,23 @@ function presetsFor(d) {
     ...F.presets.filter(p => p[0] !== NO_SCRIPT && !mine.includes(p))
   ];
 }
+/* Text into the clipboard, said by a toast; without the clipboard API (a page served
+   over plain http), the old way: a textarea selected, copied. */
+function copyText(text, said) {
+  const old = () => {
+    const a = document.createElement('textarea');
+    a.value = text;
+    a.style.cssText = 'position:fixed;opacity:0';
+    document.body.appendChild(a);
+    a.select();
+    let ok = false;
+    try {
+      ok = document.execCommand('copy');
+    } catch (_) {}
+    a.remove();
+    toast(ok ? said : T('Could not copy: the browser refused'));
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText)
+    navigator.clipboard.writeText(text).then(() => toast(said), old);
+  else old();
+}

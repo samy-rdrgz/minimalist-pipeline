@@ -2,6 +2,13 @@
 // missing here: the English. Never translated: files, departments,
 // roles, prefixes, people (the project's own).
 MPI18n.add('fr',{
+'Not validated yet, file by file':'Pas encore validé, fichier par fichier',
+'This list as text, in the clipboard':'Cette liste en texte, dans le presse-papiers',
+'Copy':'Copier',
+'Copied: {n} file|Copied: {n} files':'Copié : {n} fichier|Copié : {n} fichiers',
+'Could not copy: the browser refused':'Copie impossible : le navigateur a refusé',
+'Nothing left to validate here.':'Plus rien à valider ici.',
+'Everything is validated.':'Tout est validé.',
 'Stop the farm':'Arrêter la farm',
 'Launch the farm':'Lancer la farm',
 'Take the farm over':'Reprendre la farm',

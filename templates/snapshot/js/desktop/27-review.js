@@ -27,7 +27,7 @@ function select(n, { open = true } = {}) {
   document.body.classList.remove('out-open');
 }
 function step(dir) {
-  if (S.ws === 'farm' || S.ws === 'links' || S.ws === 'synth') return;
+  if (S.ws === 'farm' || S.ws === 'links' || S.ws === 'synth' || S.ws === 'todo') return;
   const v = S.wide
     ? items.filter(i => i.kind === cur().kind && groupOf(i) === groupOf(cur()))
     : visible().filter(i => !S.closed.has(groupOf(i)));

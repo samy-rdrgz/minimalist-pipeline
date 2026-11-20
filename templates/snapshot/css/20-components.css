@@ -987,13 +987,16 @@ body.out-open .scrim {
   text-overflow: ellipsis;
   color: var(--text-3);
 }
-.cell .s.rtk {
+.cell .s.rtk,
+.td-d .s.rtk {
   color: var(--rtk-t);
 }
-.cell .s.redo {
+.cell .s.redo,
+.td-d .s.redo {
   color: var(--wip-t);
 }
-.cell .s.wait {
+.cell .s.wait,
+.td-d .s.wait {
   color: var(--text-2);
 }
 .cell .s.you {
@@ -3795,4 +3798,43 @@ html.kb .m-nav {
 }
 .nt .rep .gone .t .tag {
   text-decoration: none;
+}
+/* To do: a line per file, its departments not validated as chips. */
+.row.td {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-7);
+  min-height: var(--u);
+  padding-block: var(--sp-4);
+}
+.row.td .nm {
+  flex: none;
+  width: calc(180px * var(--scale));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.td-ds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3) var(--sp-6);
+  min-width: 0;
+}
+.td-d {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+.td-d .g {
+  width: 18px;
+  height: 18px;
+  flex: none;
+}
+.td-d b {
+  font-weight: 500;
+}
+.td-d .s {
+  color: var(--text-3);
+  font-size: var(--fs-s);
 }

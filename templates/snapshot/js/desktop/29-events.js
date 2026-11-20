@@ -357,10 +357,7 @@ document.addEventListener('click', e => {
     if (k === 'log') farmPost({ action: 'open', job_id: S.farmSel, value: 'log:0' }, T('opens the log'));
     if (k === 'copy') {
       const u = location.href.split('#')[0] + '#' + S.sel;
-      (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(
-        () => toast(T('Link copied')),
-        () => toast(u)
-      );
+      copyText(u, T('Link copied'));
     }
     if (k === 'collapse') {
       items.forEach(i => S.closed.add(groupOf(i)));
@@ -618,6 +615,30 @@ document.addEventListener('click', e => {
     S.smode = sm.dataset.smode;
     renderQuick();
     renderList();
+    return;
+  }
+  const tdk = t.closest('[data-tdk]');
+  if (tdk) {
+    S.td.kind = tdk.dataset.tdk;
+    S.td.dept = '';
+    renderAll();
+    return;
+  }
+  const tdd = t.closest('[data-tdd]');
+  if (tdd) {
+    closeMenus();
+    S.td.dept = tdd.dataset.tdd;
+    renderAll();
+    return;
+  }
+  if (t.closest('[data-tdme]')) {
+    S.td.me = !S.td.me;
+    renderAll();
+    return;
+  }
+  if (t.closest('[data-tdcopy]')) {
+    const c = todoText();
+    copyText(c.text, T('Copied: {n} file|Copied: {n} files', { n: c.n }));
     return;
   }
   const sg = t.closest('[data-sgo]');

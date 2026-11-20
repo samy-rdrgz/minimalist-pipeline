@@ -4,6 +4,10 @@ function renderQuick() {
     renderFarmQuick();
     return;
   }
+  if (S.ws === 'todo') {
+    renderTodoQuick();
+    return;
+  }
   if (S.ws === 'links') {
     $('#quick').innerHTML = `<span class="dim">${T('Who links what: assets → shots')}</span>`;
     return;
@@ -49,6 +53,10 @@ function renderList() {
   L.classList.toggle('graphmode', S.ws === 'links');
   if (S.ws === 'synth') {
     renderSynth();
+    return;
+  }
+  if (S.ws === 'todo') {
+    renderTodo();
     return;
   }
   if (S.ws === 'farm') {

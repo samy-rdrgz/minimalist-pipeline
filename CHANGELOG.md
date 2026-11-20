@@ -6,6 +6,10 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- The page's To do tab, before Breakdown: each file's required
+  departments not validated yet, with why one waits (waiting, to redo,
+  RTK); shots or assets, one department or all, the ones assigned to me.
+  Copy puts that list in the clipboard as text.
 - The live page's Farm tab (desktop and phone): Launch the farm (this
   machine its host; Take the farm over when it's stuck, asked twice) and
   Stop the farm (asked twice: the monitor stops on its next tick, the

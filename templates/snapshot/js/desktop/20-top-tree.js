@@ -5,6 +5,7 @@ function renderTop() {
     ['shot', T('Shots'), 'b-camera_data', n('shot')],
     ['asset', T('Assets'), 'b-asset_manager', n('asset')],
     ['links', T('Links'), 'b-linked', ''],
+    ['todo', T('To do'), 'b-checkmark', ''],
     ['synth', T('Breakdown'), 'b-spreadsheet', ''],
     ...(LIVE
       ? [
@@ -103,7 +104,7 @@ function renderTree() {
       });
     return;
   }
-  const kind = S.ws === 'synth' ? 'shot' : S.ws;
+  const kind = S.ws === 'synth' ? 'shot' : S.ws === 'todo' ? S.td.kind : S.ws;
   const vis = items.filter(
     i =>
       (S.ws === 'links' ? i.links.length || i.linkedBy.length || S.gAll : i.kind === kind) &&
