@@ -3964,9 +3964,15 @@ html.kb .m-nav {
 .pj-l {
   fill: none;
   stroke: var(--c);
-  stroke-width: 2;
+  stroke-width: 1.5;
   stroke-dasharray: 5 4;
   stroke-linecap: round;
+}
+/* The cone between a figure's slower and faster pace. */
+.pj-c {
+  fill: var(--c);
+  fill-opacity: 0.16;
+  stroke: none;
 }
 .pj-even {
   fill: none;

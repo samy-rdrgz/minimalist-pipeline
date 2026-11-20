@@ -2,6 +2,13 @@
 // missing here: the English. Never translated: files, departments,
 // roles, prefixes, people (the project's own).
 MPI18n.add('fr',{
+'{what}: no headway lately, no projection.':'{what} : pas d’avancée ces derniers temps, pas de projection.',
+'{what}: not within a year at this pace, too far to date.':'{what} : pas dans l’année à ce rythme, trop loin pour dater.',
+'{what}: not before {when}; the slower pace dates nothing.':'{what} : pas avant {when} ; au rythme le plus lent, rien de daté.',
+'{what}: 100 % around {when}.':'{what} : 100 % vers {when}.',
+'{what}: 100 % between {a} and {b}.':'{what} : 100 % entre {a} et {b}.',
+'Everyone':'Tout le monde',
+'{who} (me)':'{who} (moi)',
 'not a worker':'pas worker',
 'worker silent since {date}':'worker muet depuis le {date}',
 'worker · rendering {file}':'worker · rendu de {file}',
@@ -32,9 +39,6 @@ MPI18n.add('fr',{
 'Projection':'Projection',
 'Schedule':'Planning',
 'today':'aujourd’hui',
-'At the pace of the last {n} days, Done reaches 100 % around {when}.':'Au rythme des {n} derniers jours, Fait atteint 100 % vers {when}.',
-'Done hasn’t moved over the last {n} days: no projection.':'Fait n’a pas bougé ces {n} derniers jours : pas de projection.',
-'Validated, around {when}.':'Validé, vers {when}.',
 'The schedule ends in {when}.':'Le planning finit en {when}.',
 'A week of points at least: the projection follows the curve.':'Une semaine de points au moins : la projection suit la courbe.',
 'By sequence':'Par séquence',

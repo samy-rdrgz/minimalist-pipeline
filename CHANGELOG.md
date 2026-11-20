@@ -19,10 +19,12 @@ All notable changes to this addon. Dates are release dates.
   Blender for one file's when its tab opens (POST /history, guests too).
   Files: its latest version saved last by whom, when; work time to the
   half hour.
-- Breakdown › Projection: the days logged, then each figure carried on at
-  the pace of its last 30 days up to 100 % (dashed) -- the month it would
-  get there said, an estimate -- beside the schedule's even pace and its
-  end (Edit project › Schedule).
+- Breakdown › Projection: the days logged, then a cone -- each figure
+  carried on between the pace of its last 30 days and of its last 90, a
+  wide cone an uneven pace -- beside the schedule's even pace and its end
+  (Edit project › Schedule). Months, never a day ("100 % between February
+  and June 2027"); never a pace going down; Validated never above Done;
+  nothing dated past a year from today (too hypothetical).
 - To do › Oldest first: the files waiting the longest first, one list --
   for a reviewer since their latest stable, to work on since their oldest
   retake still open. An order only: no time shown.
@@ -122,7 +124,8 @@ All notable changes to this addon. Dates are release dates.
   stable before, a list): the same name as a stable saved in place. Migrate
   old data renames them; the old name is kept beside, equal, for 1.x.
 - The page: your own notes, sent already, can be edited or deleted again
-  (the review's `edit` / `delete` actions; only by their author).
+  (the review's `edit` / `delete` actions). Someone else's too under a
+  validation role (sup, prod...), never the team's.
 - Live: View › Export a snapshot…, the export opened in Blender.
 - Filters › Tracked only: hides the files with no department (kept by
   the browser).

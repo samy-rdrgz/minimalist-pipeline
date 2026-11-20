@@ -169,7 +169,15 @@ function notesHTML(it) {
    Sent ones change through the review (edit / delete, by their author); not sent yet, they change at once. */
 function entryEd(it, e, key) {
   const ed = !e.mine && e.id && e.id in it.edits ? it.edits[e.id] : undefined;
-  return { key, ed, del: ed === null, txt: typeof ed === 'string' ? ed : e.text, own: e.mine || ownNote(e) };
+  // Its author's to change -- or anyone's under a validation role (not the team's).
+  const anyRole = !!(S.review && S.review.role !== TEAM && e.id);
+  return {
+    key,
+    ed,
+    del: ed === null,
+    txt: typeof ed === 'string' ? ed : e.text,
+    own: e.mine || ownNote(e) || anyRole
+  };
 }
 const penHTML = x =>
   x.own && !x.del && S.nedit !== x.key

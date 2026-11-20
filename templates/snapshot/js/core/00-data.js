@@ -202,7 +202,7 @@ const S = {
   smode: 'done',
   ot: { kind: 'shot', dept: '' },
   act: 'files', // Activity: files worked, or time
-  td: { kind: 'shot', st: null, dept: '', me: false }, // st null: tdSt() by the role
+  td: { kind: 'shot', st: null, dept: '', who: null }, // st null: tdSt() by the role
   shot: {},
   seqPlay: false,
   planned: [],

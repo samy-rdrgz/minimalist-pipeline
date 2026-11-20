@@ -599,7 +599,8 @@ def import_review(path: Path, review: dict | None = None) -> dict:
                 result["replies"] += 1
             except PipelineError as e:
                 result["skipped"].append((f"{name}: reply", e.message))
-    # A note's words changed or the note deleted: its author's alone.
+    # A note's words changed or the note deleted: its author's -- or anyone's
+    # under a validation role (sup, prod...); never the team's (no role).
     for name, mine in _by_file(actions, "edit", "delete").items():
         filepath = _review_file(name)
         if not filepath:
@@ -613,8 +614,8 @@ def import_review(path: Path, review: dict | None = None) -> dict:
                 if a["type"] == "edit":
                     result["skipped"].append((label, "that note is gone"))
                 continue  # deleted already
-            if (e.get("author") or "").strip().lower() != (author or "").strip().lower():
-                result["skipped"].append((label, f"written by {e.get('author') or '?'}: only its author changes it"))
+            if role is None and (e.get("author") or "").strip().lower() != (author or "").strip().lower():
+                result["skipped"].append((label, f"written by {e.get('author') or '?'}: only its author, or a validation role, changes it"))
                 continue
             try:
                 if a["type"] == "delete":

@@ -20,6 +20,18 @@ const TD_ST = () => [
   ['work', T('To work on')],
   ['val', T('To validate')]
 ];
+/* Whose departments: everyone assigned somewhere in the project (me among them). */
+function tdPeople() {
+  const all = new Set();
+  items.forEach(it => DEPTS[it.kind].forEach(d => assignOf(it, d).forEach(p => p && all.add(p))));
+  return [...all].sort((a, b) => (a === me() ? -1 : b === me() ? 1 : a.localeCompare(b)));
+}
+/* The person shown until one is picked: me -- when I'm assigned somewhere (else my own
+   name would show an empty list: a prod is seldom assigned), everyone otherwise. */
+function tdWho() {
+  if (S.td.who != null) return S.td.who;
+  return me() && tdPeople().includes(me()) ? me() : '';
+}
 function todoOf(it) {
   const t = S.td;
   return required(it).filter(
@@ -28,7 +40,7 @@ function todoOf(it) {
       it.mine[d] !== 'val' &&
       (!tdSt() || (tdSt() === 'val') === toCheck(it, d)) &&
       (!t.dept || d === t.dept) &&
-      (!t.me || !me() || assignOf(it, d).includes(me()))
+      (!tdWho() || assignOf(it, d).includes(tdWho()))
   );
 }
 function todoFiles(kind) {
@@ -74,7 +86,20 @@ function renderTodoQuick() {
       )
       .join('')}</div></span>
     <button class="btn ${t.order === 'old' ? '' : 'tool'}" data-tdo="${t.order === 'old' ? 'seq' : 'old'}" aria-pressed="${t.order === 'old'}" title="${T('Waiting the longest first: for a reviewer since the latest stable, to work on since the oldest open retake')}">${ic('b-sorttime')}${T('Oldest first')}</button>
-    ${me() ? `<button class="btn" data-tdme aria-pressed="${t.me}" title="${T('assigned to {who}', { who: me() })}">${ic('b-user')}${T('Me')}</button>` : ''}
+    ${
+      tdPeople().length
+        ? `<span class="anchor"><button class="btn ${tdWho() ? '' : 'tool'}" data-menu="m-tdw" aria-haspopup="true" aria-expanded="false" ${tdWho() ? 'aria-pressed="true"' : ''}>${ic('b-user')}${tdWho() ? esc(tdWho()) : T('Everyone')}${ic('b-tria_down')}</button>
+    <div class="menu" id="m-tdw" hidden role="menu">${[
+      ['', T('Everyone')],
+      ...tdPeople().map(p => [p, p === me() ? T('{who} (me)', { who: p }) : p])
+    ]
+      .map(
+        ([p, l]) =>
+          `<button class="mi" role="menuitemradio" aria-checked="${tdWho() === p}" data-tdw="${esc(p)}"><span class="ck">${tdWho() === p ? ic('b-checkmark') : ''}</span><span class="lbl">${esc(l)}</span></button>`
+      )
+      .join('')}</div></span>`
+        : ''
+    }
     <button class="btn tool icon" data-tdcopy aria-label="${T('Copy')}" title="${T('Copy')} · ${T('This list as text, in the clipboard')}">${ic('b-file')}</button>`;
 }
 /* How long a file's departments have waited, as a key only -- never shown (time watched
@@ -101,7 +126,7 @@ function renderTodo() {
   const L = $('#list'),
     rows = todoFiles(S.td.kind);
   if (!rows.length) {
-    L.innerHTML = `<div class="empty">${S.td.dept || S.td.me || S.tq ? T('Nothing left to validate here.') : T('Everything is validated.')}</div>`;
+    L.innerHTML = `<div class="empty">${S.td.dept || tdWho() || S.tq ? T('Nothing left to validate here.') : T('Everything is validated.')}</div>`;
     return;
   }
   const old = S.td.order === 'old',
@@ -137,7 +162,7 @@ function todoText() {
         k === 'shot' ? T('Shots') : T('Assets'),
         tdSt() && TD_ST().find(x => x[0] === tdSt())[1],
         S.td.dept && LBL[S.td.dept],
-        S.td.me && me(),
+        tdWho(),
         fmtD(M.snapshot)
       ]
         .filter(Boolean)

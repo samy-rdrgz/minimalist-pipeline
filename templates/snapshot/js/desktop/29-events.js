@@ -650,8 +650,10 @@ document.addEventListener('click', e => {
     renderAll();
     return;
   }
-  if (t.closest('[data-tdme]')) {
-    S.td.me = !S.td.me;
+  const tdw = t.closest('[data-tdw]');
+  if (tdw) {
+    closeMenus();
+    S.td.who = tdw.dataset.tdw;
     renderAll();
     return;
   }
