@@ -400,6 +400,10 @@ All notable changes to this addon. Dates are release dates.
 
 ### Fixed
 
+- A -stable file saved in place (Save anyway) records its session: who,
+  when, and the departments ticked in Working on -- shown on it once
+  saved -- in its .stablemeta ("sessions"). It went nowhere: a stable has
+  no .wipmeta.
 - Snapshot and live page: a render the history lists but whose folder is
   gone (renders/ cleaned, a project copied without it) is no longer shown;
   with no render left, the player is off (no frames, no play, the

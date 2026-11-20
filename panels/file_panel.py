@@ -18,6 +18,7 @@ from ..lib import (
     shots_in_segment,
 )
 from ..lib.icons import icon_kw
+from ..lib.monitoring.tracking import saved_in_place
 from ..lib.ui import draw_items
 from .tracking_panel import ENTRIES_INDENT_FACTOR, draw_tracking_data
 
@@ -71,7 +72,9 @@ class M_PIPELINE_PT_file_panel(bpy.types.Panel):
         required = TrackingStatusCache.get(bpy.data.filepath).get(
             "departments_required", []
         )
-        if get_opened_as_read_only() != filepath and not is_stable_file and required:
+        # A -stable file saved in place (Save anyway): its work recorded too, in its .stablemeta.
+        editable = get_opened_as_read_only() != filepath and not is_stable_file
+        if (editable or (is_stable_file and saved_in_place(Path(filepath)))) and required:
             layout.separator(factor=0.1)
             worked = get_session_worked_departments(Path(bpy.data.filepath))
             work = responsive_layout(context, layout.box(), 200)

@@ -3939,6 +3939,19 @@ no stages, so older projects read as before), and two states computed on every r
 - tests/test_status.py: each case, the two rules apart, Still done, a
   change older than the stable.
 
+## Sessions on a stable
+
+A -stable file has no .wipmeta: saved in place (its Save anyway), its
+session was written nowhere -- no who, no when, no department worked.
+Now in its .stablemeta, under "sessions" ({session id: {"departments",
+"saved_at", "by"}}, a .wipmeta's departments_worked's form), the save a
+session even with nothing ticked; its Working on toggles shown once this
+Blender saved it in place (tracking.py _work_meta(), saved_in_place()).
+Apart from the stablemeta's own "departments_worked" (a list: worked
+since the stable before), which the state engine reads -- work saved on
+a stable itself isn't rework since it. Its time is the session log's, as
+any file's (sessions_log.jsonl, recent files, work time).
+
 ## Sessions with their date
 
 A `.wipmeta` had one date, `edited_at`, moved by every save

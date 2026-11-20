@@ -775,23 +775,49 @@ def ensure_wipmeta(filepath: Path, links: list[dict]) -> bool:
     return True
 
 
+def _work_meta(filepath: Path) -> tuple[Path, str]:
+    """Where this version's sessions are written, and under which key: its
+    .wipmeta's "departments_worked"; a -stable file (no .wipmeta) saved in
+    place, its .stablemeta's "sessions" -- apart from the stablemeta's own
+    "departments_worked" (worked since the stable before, a list read by
+    the state engine). See NOTES.md, "Sessions on a stable"."""
+    wip = _meta_path(filepath, ".wipmeta")
+    if wip.exists():
+        return wip, "departments_worked"
+    stable = _meta_path(filepath, ".stablemeta")
+    if stable.exists():
+        return stable, "sessions"
+    return wip, "departments_worked"
+
+
 def wipmeta_touch(filepath: Path):
     """Stamp this version's .wipmeta with who/when it was last saved --
     edited_at/edited_by only, doesn't touch departments_worked or linked.
     Called from save_post_handler on every save, so M_PIPELINE_OT_auto_version
     can tell a same-day re-open by a different user from the file's own
-    author. Never raises: handler-called, same rule as check_library_update()."""
-    path = _meta_path(filepath, ".wipmeta")
+    author. A -stable file saved in place (its Save anyway): its
+    .stablemeta, the save a session of its own even with no department
+    ticked -- who saved it, when. Never raises: handler-called, same rule
+    as check_library_update()."""
+    try:
+        path, key = _work_meta(filepath)
+    except PipelineError:
+        return
     if not path.exists():
         return
     try:
         with locked_json(path) as box:
             data = box["data"] or {}
-            nw = now()
+            nw, user = now(), get_user()
             data["edited_at"] = nw
-            data["edited_by"] = get_user()
+            data["edited_by"] = user
+            sessions = data.get(key) if isinstance(data.get(key), dict) else None
+            if key == "sessions":
+                sessions = data.setdefault("sessions", {}) if sessions is None else sessions
+                sessions.setdefault(_session_id(), {"departments": [], "by": user})
+                _saved_in_place.add(str(filepath))
             # This session's work, if it recorded some: saved now.
-            mine = (data.get("departments_worked") or {}).get(_session_id())
+            mine = (sessions or {}).get(_session_id())
             if isinstance(mine, dict):
                 mine["saved_at"] = nw
             box["action"] = "to_write"
@@ -800,6 +826,13 @@ def wipmeta_touch(filepath: Path):
 
 
 _session_worked_cache: dict[str, list[str]] = {}
+_saved_in_place: set[str] = set()  # -stable files this Blender saved in place
+
+
+def saved_in_place(filepath: Path) -> bool:
+    """Whether this Blender saved filepath, a -stable file, in place (its
+    Save anyway): its Working on toggles shown then. Memory only (draw())."""
+    return str(filepath) in _saved_in_place
 
 
 def _session_id() -> str:
@@ -832,8 +865,19 @@ def wipmeta_add_work(
     and resync its linked libs (linked_libs: pre-captured, once the file is
     closed). No-op without a .wipmeta (a -stable file), as wipmeta_touch()."""
     id = _session_id()
-    path = _meta_path(filepath, ".wipmeta")
+    path, key = _work_meta(filepath)
     if not path.exists():
+        return
+    if key == "sessions":
+        # A -stable file: its session in its .stablemeta (its links kept there by stablemeta_sync_links()).
+        with locked_json(path) as box:
+            data = box["data"] or {}
+            nw, user = now(), get_user()
+            mine = data.setdefault("sessions", {}).setdefault(id, {"by": user})
+            mine.update(departments=list(departments), by=user)
+            mine.setdefault("saved_at", nw)
+            box["action"] = "to_write"
+        _session_worked_cache[str(path)] = list(departments)
         return
     else:
         if linked_libs is None:
@@ -867,7 +911,7 @@ def get_session_worked_departments(filepath: Path) -> list[str]:
     untouched file never claims work that wasn't done. Read by draw():
     never raises -- [] for anything that isn't a versioned .blend."""
     try:
-        path = _meta_path(filepath, ".wipmeta")
+        path, field = _work_meta(filepath)
     except PipelineError:
         return []
     key = str(path)
@@ -877,7 +921,8 @@ def get_session_worked_departments(filepath: Path) -> list[str]:
     try:
         with locked_json(path, read_only=True) as box:
             data = box["data"] or {}
-        entry = (data.get("departments_worked") or {}).get(id) or {}
+        sessions = data.get(field)
+        entry = (sessions if isinstance(sessions, dict) else {}).get(id) or {}
         result = list(entry if isinstance(entry, list) else entry.get("departments") or [])
     except Exception:
         result = []
