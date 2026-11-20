@@ -24,7 +24,8 @@ All notable changes to this addon. Dates are release dates.
   wide cone an uneven pace -- beside the schedule's even pace and its end
   (Edit project › Schedule). Months, never a day ("100 % between February
   and June 2027"); never a pace going down; Validated never above Done;
-  nothing dated past a year from today (too hypothetical).
+  nothing dated past a year from today (too hypothetical); the cones
+  blurring more and more as they go.
 - To do › Oldest first: the files waiting the longest first, one list --
   for a reviewer since their latest stable, to work on since their oldest
   retake still open. An order only: no time shown.

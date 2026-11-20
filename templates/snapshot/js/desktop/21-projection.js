@@ -3,8 +3,8 @@
    its last 30 days' and its last 90's (a straight line fitted to each) -- the slower as
    its lower edge, the faster as its upper: a wide cone, an uneven pace. Never down (a
    pace falling: none), Validated never above Done, nothing dated past a year from today
-   (too hypothetical to say). The schedule's even pace dotted, its end marked. Months,
-   never a day: an estimate. */
+   (too hypothetical to say), the cones blurring as they go. The schedule's even pace
+   dotted, its end marked. Months, never a day: an estimate. */
 const PJ_SHORT = 30,
   PJ_LONG = 90,
   PJ_HORIZON = 365; // days: no date past it
@@ -58,8 +58,7 @@ function projection() {
     if (c.hi <= 0) return T('{what}: no headway lately, no projection.', { what: name });
     const soon = reach(c, c.hi),
       late = reach(c, c.lo);
-    if (soon > horizon)
-      return T('{what}: not within a year at this pace, too far to date.', { what: name });
+    if (soon > horizon) return T('{what}: not within a year at this pace, too far to date.', { what: name });
     if (late > horizon)
       return T('{what}: not before {when}; the slower pace dates nothing.', {
         what: name,
@@ -111,6 +110,21 @@ function projection() {
       <path class="pj-l" style="--c:${col}" d="M${up.join(' L')}"/><path class="pj-l" style="--c:${col}" d="M${down.join(' L')}"/>`;
   };
   const fmt = t => new Date(t).toLocaleDateString(DTL(), { month: 'short', year: 'numeric' });
+  /* The cones the further the blurrier: the same drawing in layers each more blurred
+     (0, 1.2, 3, 6), each seen over its stretch of the way -- masks fading one into the
+     next (they add up to one everywhere), from today (sharp) to the chart's end. */
+  const blurred = (marks, x0, x1) => {
+    if (!marks) return '';
+    const B = [0, 1.2, 3, 6],
+      n = B.length - 1;
+    const defs = B.map(
+      (b, k) =>
+        `<linearGradient id="pjg${k}" gradientUnits="userSpaceOnUse" x1="${x0}" x2="${x1}" y1="0" y2="0">${B.map((_, j) => `<stop offset="${j / n}" stop-color="#fff" stop-opacity="${j === k ? 1 : 0}"/>`).join('')}</linearGradient>
+        <mask id="pjm${k}" maskUnits="userSpaceOnUse" x="0" y="0" width="${W}" height="${H}"><rect x="0" y="0" width="${W}" height="${H}" fill="url(#pjg${k})"/>${k === 0 ? `<rect x="0" y="0" width="${x0}" height="${H}" fill="#fff"/>` : ''}${k === n ? `<rect x="${x1}" y="0" width="${W - x1}" height="${H}" fill="#fff"/>` : ''}</mask>
+        ${b ? `<filter id="pjf${k}" x="-10%" y="-30%" width="120%" height="160%"><feGaussianBlur stdDeviation="${b}"/></filter>` : ''}`
+    ).join('');
+    return `<defs>${defs}</defs>${B.map((b, k) => `<g mask="url(#pjm${k})"><g ${b ? `filter="url(#pjf${k})"` : ''}>${marks}</g></g>`).join('')}`;
+  };
   const ticks = [t0, today, t1];
   const sEnd = sch ? Date.parse(sch.end) : 0,
     sStart = sch ? Date.parse(sch.start) : 0,
@@ -121,7 +135,7 @@ function projection() {
     <line class="pj-now" x1="${X(today)}" x2="${X(today)}" y1="${pt}" y2="${H - pb}"/>
     ${sch ? `<path class="pj-even" d="M${X(sStart).toFixed(1)} ${Y(0)} L${X(sTo).toFixed(1)} ${Y(Math.min(1, (sTo - sStart) / (sEnd - sStart || 1)))}"/>` : ''}
     ${sch && sEnd <= t1 ? `<line class="pj-end" x1="${X(sEnd)}" x2="${X(sEnd)}" y1="${pt}" y2="${H - pb}"/><text class="ot-ax" x="${X(sEnd) + 5}" y="${H - pb - 6}">${T('end')} · ${fmt(sEnd)}</text>` : ''}
-    ${val ? cone(val, edge(val, val.lo, dLo), edge(val, val.hi, dHi), 'var(--st-val)') : ''}${cone(done, dLo, dHi, 'var(--st-done)')}
+    ${blurred((val ? cone(val, edge(val, val.lo, dLo), edge(val, val.hi, dHi), 'var(--st-val)') : '') + cone(done, dLo, dHi, 'var(--st-done)'), X(today), X(t1))}
     <path class="ot-l" style="--c:var(--st-val)" d="${line('val')}"/><path class="ot-l" style="--c:var(--st-done)" d="${line('done')}"/>
     </svg>`;
   return `<div class="ot pj">${head}<p class="faint ac-say">${say}</p><div class="pj-box">${svg}</div></div>`;
