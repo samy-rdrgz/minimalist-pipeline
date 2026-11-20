@@ -559,6 +559,7 @@ def history_pace(
         and e.get("status") == "finished"
         and e.get("seconds_per_frame")
         and "prerender_script" in e
+        and "viewport" not in (e.get("tags") or [])  # drawn, not rendered: no pace to go by
     ]
     if shot:
         done.sort(key=lambda e: e.get("shot_override") == shot)  # stable: latest last
@@ -1061,6 +1062,9 @@ def _build_job_entry(
         "prerender_script": job.get("prerender_script", ""),
         "department": job.get("department", ""),
         "frame_range": job.get("resolved_frame_range"),
+        # Render here (farm/local.py): its machine's id; drawn by its 3D view.
+        "local": job.get("local", ""),
+        "viewport": bool(job.get("viewport")),
     }
 
 

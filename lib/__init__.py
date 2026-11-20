@@ -70,6 +70,8 @@ from .core import (
     ADDON_PACKAGE,
     TEMPLATES_DIR,
     blender_command,
+    HEADLESS_ENV,
+    headless,
     EARLIEST,
     LATEST,
     SIDE_BY_SIDE_WIDTH,

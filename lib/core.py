@@ -30,14 +30,28 @@ ADDON_PACKAGE = __package__.rsplit(".", 1)[0]
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
 
 
+# Set in the environment of a Blender with a window that works for the farm
+# (a viewport render, farm/local.py): this addon behaves there as in a
+# background Blender -- no session, lock, auto-version, popup nor timer.
+HEADLESS_ENV = "MINIMALIST_PIPELINE_HEADLESS"
+
+
+def headless() -> bool:
+    """A Blender with no artist at it: background (-b), or one the farm
+    opened with a window for a viewport render (HEADLESS_ENV)."""
+    return bool(bpy.app.background) or os.environ.get(HEADLESS_ENV) == "1"
+
+
 def blender_command(
-    script: str, args=(), *, blend=None, flags=(), factory: bool = False, binary: str = ""
+    script: str, args=(), *, blend=None, flags=(), factory: bool = False, binary: str = "", window: bool = False
 ) -> list[str]:
     """The command running templates/<script> in a background Blender (this
     one's binary, or binary): blend opened first with its flags (-o, -F...),
     an exception in the script exiting 1 (not 0, a success), args after
-    "--". factory: --factory-startup, no addon or preferences loaded."""
-    cmd = [binary or bpy.app.binary_path, "-b"]
+    "--". factory: --factory-startup, no addon or preferences loaded.
+    window: a Blender with its window instead (a viewport render) -- run it
+    with HEADLESS_ENV set, its script quitting by itself."""
+    cmd = [binary or bpy.app.binary_path] + ([] if window else ["-b"])
     if blend:
         cmd.append(str(blend))
     cmd += [str(f) for f in flags]

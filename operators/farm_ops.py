@@ -13,6 +13,8 @@ from ..farm import (
     job_cancel_request,
     job_request,
     job_state,
+    local_jobs_in_flight,
+    reserve_this_machine,
     kill_worker,
     launch_monitor,
     launch_worker,
@@ -40,6 +42,8 @@ from ..lib import (
     draw_box_tip,
     get_active_project_root,
     get_folder,
+    get_machine_id,
+    get_opened_as_read_only,
     get_user,
     json_get,
     locked_json,
@@ -429,6 +433,31 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
     # The "Render this file" shortcut: a keymap item can't hold the open
     # file's path, invoke() reads it.
     current_file: bpy.props.BoolProperty(options={"SKIP_SAVE", "HIDDEN"})
+    # From the file panel's Render: the file open here may be rendered on
+    # this machine (Where). Never from elsewhere: it renders the open file.
+    here_ok: bpy.props.BoolProperty(options={"SKIP_SAVE", "HIDDEN"})
+    where: bpy.props.EnumProperty(
+        name="Where",
+        items=[
+            ("farm", "Farm", "Into the farm's queue: every machine it has, its priorities"),
+            (
+                "local",
+                "Local · playblast",
+                "On this machine, now, outside the farm's queue: the same render "
+                "(its preset, video, history, to check), no host needed. A farm "
+                "render on this machine gives way after its frame",
+            ),
+            (
+                "viewport",
+                "Local · viewport",
+                "On this machine, now: each frame drawn by the file's largest 3D "
+                "view through the camera -- its overlays as they are (rigs, "
+                "bones...). A Blender window opens for it, this one stays free",
+            ),
+        ],
+        default="farm",
+        options={"SKIP_SAVE"},
+    )
 
     file_type: bpy.props.EnumProperty(
         items=[
@@ -587,9 +616,19 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
             "Pre-render script: a preset from config/presets applied first.",
             width_px=300,
         )
+        here = self._here_ok()
+        if here:
+            col.row().prop(self, "where", expand=True)
+            if self.where != "farm" and bpy.data.is_dirty:
+                note = col.row()
+                note.active = False
+                note.label(text="Unsaved changes: saved first (no new version).", icon="FILE_TICK")
+            col.separator()
+        farm = not here or self.where == "farm"
         row = col.row(align=False)
-        row.prop(self, "priority")
-        row.prop(self, "render_mode", text="")
+        if farm:
+            row.prop(self, "priority")
+            row.prop(self, "render_mode", text="")
         row.prop(self, "increment")
 
         col.separator()
@@ -611,9 +650,10 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
 
         col.separator()
         col.prop(self, "sound")
-        col.prop_menu_enum(
-            self, "assigned_machines", text="Assigned machines (empty: auto)"
-        )
+        if farm:
+            col.prop_menu_enum(
+                self, "assigned_machines", text="Assigned machines (empty: auto)"
+            )
         col.separator()
         # Department, then its preset (a dropdown, not prop_menu_enum(): shows the one picked).
         col.prop(self, "department", text="")
@@ -781,7 +821,14 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
         only: set[int] | None = None,
     ) -> None:
         """Submit one render job for filepath. `only` (from the checklist)
-        rides along as this job's only_shots."""
+        rides along as this job's only_shots. Where (the file open here):
+        on this machine, outside the queue (farm/local.py)."""
+        here = self._here_ok() and self.where != "farm"
+        if here:
+            # First: no job left waiting for a machine that can't take it
+            # (another Blender of it is its worker). Kept for nothing, it's
+            # released on the farm loop's next turn.
+            reserve_this_machine()
         job_request(
             filepath,
             user=user,
@@ -805,7 +852,27 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
                 if self.department in _file_departments(filepath)
                 else None
             ),
+            local=get_machine_id() if here else "",
+            viewport=here and self.where == "viewport",
         )
+
+    def _here_ok(self) -> bool:
+        """Where offered: the file panel's Render, of the file open here."""
+        return bool(self.here_ok and self.filepath and bpy.data.filepath) and os.path.normcase(
+            os.path.abspath(self.filepath)
+        ) == os.path.normcase(os.path.abspath(bpy.data.filepath))
+
+    def _save_first(self) -> bool:
+        """Rendered here: the file as it is now -- saved first when it has
+        unsaved changes (a plain save, no new version). False, reported: open
+        read-only, it can't be."""
+        if not bpy.data.is_dirty:
+            return True
+        if get_opened_as_read_only() == bpy.data.filepath:
+            self.report({"ERROR"}, "This file is open read-only: save your changes as a new version first.")
+            return False
+        bpy.ops.wm.save_mainfile()
+        return True
 
     def _populate_subshots(self, context) -> None:
         """Refill window_manager.render_subshots from self.filepath's own
@@ -892,12 +959,18 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
                 self.report({"ERROR"}, "No shot selected to render.")
                 return {"CANCELLED"}
 
+        here = self._here_ok() and self.where != "farm"
+        if here and not self._save_first():
+            return {"CANCELLED"}
         try:
             self._submit_for_filepath(self.filepath, user, start, end, only)
         except PipelineError as e:
             return report_error(self, "farm_request_render", e)
         context.scene.pipeline_farm_list.clear()
-        self.report({"INFO"}, f"Render job submitted: {Path(self.filepath).name}")
+        if here:
+            self.report({"INFO"}, f"Rendering here: {Path(self.filepath).name} (Farm monitoring follows it).")
+        else:
+            self.report({"INFO"}, f"Render job submitted: {Path(self.filepath).name}")
         return {"FINISHED"}
 
     def _resolve(self, context) -> Path | None:
@@ -1202,6 +1275,13 @@ def _redo_job(op, can, redo, refused: str, verb: str, done) -> set:
             archived.rename(job_path)  # archived by hand: back in the queue
         with locked_json(job_path) as box:
             data = box["data"] or {}
+            local = data.get("local")
+            if local and local != get_machine_id():
+                # Render here: only its machine moves it on.
+                op.report({"WARNING"}, f"Rendered on {data.get('machine') or local[:8]} (Local): {verb} it from there.")
+                return {"CANCELLED"}
+            if local:
+                reserve_this_machine()
             result = redo(data)
             if result:
                 box["action"] = "to_write"

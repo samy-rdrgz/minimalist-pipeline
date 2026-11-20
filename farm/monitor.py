@@ -431,6 +431,7 @@ def job_request(
     sound: bool = True,
     department: str | None = None,
     local: str = "",
+    viewport: bool = False,
 ) -> str:
     """Submit a render job request, picked up by scan_requests(). shot_override
     (e.g. "sh045") routes output to shots/<sequence>/<shot_override>/.
@@ -439,7 +440,8 @@ def job_request(
     without any. department: the one the render is for, picked in the
     Render dialog ("" none); None: the one its preset's name gives.
     local: a machine's id -- rendered there, now, outside the queue
-    (Render here, farm/local.py): written straight into actives/. Returns
+    (Render here, farm/local.py): written straight into actives/;
+    viewport, drawn there by the file's 3D view (overlays and all). Returns
     the request's file name (a render here: its job id)."""
 
     assigned_machines = assigned_machines if assigned_machines is not None else []
@@ -467,7 +469,10 @@ def job_request(
             from .local import local_job_name, write_local_job
 
             data |= {"local": local, "assigned_machines": [local], "render_mode": "all"}
-            return write_local_job(local_job_name(str(filepath), prerender_script, shot_override, local), data)
+            if viewport:
+                data["viewport"] = True
+            name = local_job_name(str(filepath), prerender_script, shot_override, local, viewport)
+            return write_local_job(name, data)
         name = f"job_{_file_key(str(filepath), prerender_script, shot_override)}.json"
 
         monitor_request(name, data)

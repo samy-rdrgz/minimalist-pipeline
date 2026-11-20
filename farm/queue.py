@@ -886,6 +886,11 @@ def construct_history(job: dict, status):
         else None,
         "status": status,
     }
+    # Render here (farm/local.py): rendered by its own machine, outside the
+    # queue; viewport: drawn by the 3D view (overlays and all).
+    tags = [t for t in ("local", "viewport") if job.get(t)]
+    if tags:
+        entry["tags"] = tags
     # A block rendered whole because the split couldn't cut it (setup);
     # frames corrupted, rendered again at the end of the frame check
     # (_send_back_bad_frames()).
@@ -902,8 +907,10 @@ def construct_history(job: dict, status):
             entry[key] = job[key]
 
     append_render_history(job["filepath"], entry)
-    # Its preset's pace, for files never rendered with it yet.
-    note_preset_pace(entry)
+    # Its preset's pace, for files never rendered with it yet -- never a
+    # viewport render's: no render engine's pace.
+    if not job.get("viewport"):
+        note_preset_pace(entry)
     # The outcome in the pipeline log too: it showed jobs submitted and
     # sent, never one ending -- only render_history.json knew.
     shot = f" {entry['shot_override']}" if entry.get("shot_override") else ""

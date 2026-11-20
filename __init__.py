@@ -186,7 +186,7 @@ def _deferred_auto_worker():
     once, the project's share or its config often wasn't ready yet and it
     didn't start. Never in background mode (a headless worker launches
     through worker_render_entry.py)."""
-    if bpy.app.background:
+    if lib.headless():
         return None
     try:
         prefs = lib.addon_pref()
@@ -212,10 +212,10 @@ def _deferred_auto_worker():
 def _deferred_onboarding():
     """First launch only: show the welcome popup once, then never again on
     its own (still reachable anytime from the main panel's Help icon).
-    Skipped in background mode (bpy.app.background) -- e.g. the farm's
+    Skipped in background mode (lib.headless()) -- e.g. the farm's
     headless render workers load this addon too, and invoke_popup has no
     window to attach to there."""
-    if bpy.app.background:
+    if lib.headless():
         return
     try:
         prefs = lib.addon_pref()
@@ -252,7 +252,7 @@ def register():
     # Background (farm setup/render, CSV batch subprocesses): no UI, so none
     # of the startup timers below has anything to do -- see NOTES.md,
     # "Addon register()".
-    ui = not bpy.app.background
+    ui = not lib.headless()
     if ui:
         # Deferred one tick -- see NOTES.md, "Addon register()".
         bpy.app.timers.register(lib.refresh_read_only_flag, first_interval=0.0)

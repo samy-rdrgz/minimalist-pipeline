@@ -2254,6 +2254,9 @@ button.assign:hover {
   color: var(--text-2);
   font-size: var(--fs-s);
 }
+.job .s .tag {
+  margin-left: var(--sp-3); /* Render here: local, viewport */
+}
 .job .meta {
   color: var(--text-3);
   font-size: var(--fs-s);

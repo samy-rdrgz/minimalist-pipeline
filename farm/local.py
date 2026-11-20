@@ -33,10 +33,11 @@ _IN_FLIGHT_END = ("finished", "archived", "orphaned", "split_finished")
 _recovered = {"done": False}
 
 
-def local_job_name(filepath: str, prerender_script: str, shot_override: str, machine: str) -> str:
+def local_job_name(filepath: str, prerender_script: str, shot_override: str, machine: str, viewport: bool = False) -> str:
     """job_<hash>.json: its own id, never the farm's for the same file (a
-    render here never stops one sent to the farm, nor the other way)."""
-    key = f"{to_relative(filepath)}|{prerender_script}|{shot_override}|here|{machine}".lower()
+    render here never stops one sent to the farm, nor the other way; nor a
+    viewport render a render)."""
+    key = f"{to_relative(filepath)}|{prerender_script}|{shot_override}|here|{machine}{'|viewport' if viewport else ''}".lower()
     return f"job_{hashlib.sha1(key.encode('utf-8')).hexdigest()[:10]}.json"
 
 

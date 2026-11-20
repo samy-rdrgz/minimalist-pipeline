@@ -15,6 +15,7 @@ from .config import (
     type_by_folder,
 )
 from .core import (
+    headless,
     set_monitoring_detail,
     ADDON_PACKAGE,
     addon_pref,
@@ -68,7 +69,7 @@ def get_user(context=None) -> str:
     prefs.user_name is seeded with a locally-generated placeholder at first
     register(), so this is effectively defensive-only (prefs unreachable)."""
     try:
-        if bpy.app.background:
+        if headless():
             return "cmd"
         prefs = addon_pref(context)
         if prefs:
@@ -250,7 +251,7 @@ def session_update(saved: bool = False):
     after a save -- the session's time counts as work (WorkTimeCache); a
     save to another file saves the work of the session it ends. See
     NOTES.md, "Work time: only a session that saved"."""
-    if bpy.app.background or not bpy.data.filepath:
+    if headless() or not bpy.data.filepath:
         return
     try:
         project_root = get_active_project_root()
@@ -399,7 +400,7 @@ def elsewhere_text(others: list) -> str:
 def scan_sessions():
     """Scan for orphan session files and log crashes. Called from
     post_load_handler; never raises (close_session() is itself safe)."""
-    if bpy.app.background:
+    if headless():
         return
     sessions_dir = ConfigCache.get_path("sessions")
     for session_file in sessions_dir.glob(".session_*.json"):
@@ -468,7 +469,7 @@ def warn_blender_version_mismatch() -> None:
     """Red (critical) popup when the active project expects another Blender
     major.minor than the one running. Never in background mode (farm
     workers, batch subprocesses). Timer-safe: returns None."""
-    if bpy.app.background:
+    if headless():
         return None
     try:
         mismatch = blender_version_mismatch()

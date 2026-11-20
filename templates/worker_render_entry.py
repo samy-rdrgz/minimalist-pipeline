@@ -3,6 +3,7 @@ import importlib
 import os
 import sys
 import time
+import traceback
 
 import addon_utils
 import bpy
@@ -19,6 +20,11 @@ stop_file = argv[argv.index("--stop-file") + 1] if "--stop-file" in argv else ""
 yield_file = argv[argv.index("--yield-file") + 1] if "--yield-file" in argv else ""
 chunk_size = int(argv[argv.index("--chunk-size") + 1])
 machine = argv[argv.index("--machine") + 1]
+# A viewport render (Render here, farm/local.py): this Blender has its
+# window -- each frame drawn by the file's largest 3D view, through the
+# scene's camera, its overlays as the artist left them. Everything else as
+# a render: chunks, claims, the preset, the frames' names.
+VIEWPORT = "--viewport" in argv
 
 # Fresh subprocess: Blender's own extension loader already makes the addon
 # importable, no manual sys.path edit needed here.
@@ -90,8 +96,37 @@ def render_frame(frame: int, final: str) -> None:
     each frame over the last) -- to tmp_file(), then renamed: a file under
     a frame's name is a finished frame."""
     scene.frame_start = scene.frame_end = frame
-    bpy.ops.render.render(animation=True)
+    if VIEWPORT:
+        with bpy.context.temp_override(**viewport_context()):
+            bpy.ops.render.opengl(animation=True, view_context=True)
+    else:
+        bpy.ops.render.render(animation=True)
     lib.retry_shared_io(os.replace, tmp_file(frame), final)
+
+
+_view = {}
+
+
+def viewport_context() -> dict:
+    """The largest 3D view of the file's layout, set to look through the
+    scene's camera (only here: nothing is saved) -- its overlays and shading
+    untouched."""
+    if not _view:
+        if scene.camera is None:
+            raise RuntimeError("No camera in the scene: a viewport render looks through it.")
+        found = [
+            (win, area)
+            for win in bpy.context.window_manager.windows
+            for area in win.screen.areas
+            if area.type == "VIEW_3D"
+        ]
+        if not found:
+            raise RuntimeError("No 3D view in this file's layout: nothing to draw the frames with.")
+        win, area = max(found, key=lambda x: x[1].width * x[1].height)
+        region = next(r for r in area.regions if r.type == "WINDOW")
+        area.spaces.active.region_3d.view_perspective = "CAMERA"
+        _view.update(window=win, screen=win.screen, area=area, region=region)
+    return _view
 
 
 def stop_asked() -> bool:
@@ -200,15 +235,36 @@ def render_chunks() -> str:
     return "nothing left to claim"
 
 
-if saved_file:
-    # A machine that left the render and came back appends to the same
-    # record, same dispatch_id: this line keeps the time it was away out of
-    # its first frame's (frame_seconds() starts again after it).
-    try:
-        with open(saved_file, "a", encoding="utf-8") as f:
-            f.write(f"{dispatch_id} start {time.time():.1f}\n")
-    except OSError:
-        pass
+def main() -> None:
+    if saved_file:
+        # A machine that left the render and came back appends to the same
+        # record, same dispatch_id: this line keeps the time it was away out of
+        # its first frame's (frame_seconds() starts again after it).
+        try:
+            with open(saved_file, "a", encoding="utf-8") as f:
+                f.write(f"{dispatch_id} start {time.time():.1f}\n")
+        except OSError:
+            pass
 
-print(f"Chunks of {job_id}: {render_chunks()}.")
-sys.stdout.flush()
+    print(f"Chunks of {job_id}: {render_chunks()}.")
+    sys.stdout.flush()
+
+
+if VIEWPORT:
+    # Its window up first (a timer runs once Blender's loop does), then out
+    # by itself -- 1 on an error, as --python-exit-code would; never asked
+    # to save (the preset changed the scene).
+    def _run():
+        code = 0
+        try:
+            main()
+        except Exception:
+            traceback.print_exc()
+            code = 1
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os._exit(code)
+
+    bpy.app.timers.register(_run, first_interval=1.0)
+else:
+    main()

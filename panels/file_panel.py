@@ -153,7 +153,7 @@ class M_PIPELINE_PT_file_panel(bpy.types.Panel):
                                   "Increment when you want to work again."),
             None,
             [
-                ("m_pipeline.farm_request_render", "Render", "RENDER_RESULT", {"filepath": here}),
+                ("m_pipeline.farm_request_render", "Render", "RENDER_RESULT", {"filepath": here, "here_ok": True}),
                 block and ("m_pipeline.compile_preview", "Preview block", "SEQUENCE", {
                     "scope": "block", "filepath": here,
                     "custom_tooltip": "Compile a disposable preview from just this block's own shots.",

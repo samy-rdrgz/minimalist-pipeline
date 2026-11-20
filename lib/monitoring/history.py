@@ -88,6 +88,8 @@ def file_history(owner: Path) -> dict:
                 "source": _stem(e.get("source_file")),
                 "folder": out.name if out.name else "",
                 "shot": e.get("shot_override") or "",
+                # Render here: "local", "viewport" (farm/queue.py construct_history()).
+                "tags": [t for t in e.get("tags") or [] if isinstance(t, str)],
             }
         )
     renders.sort(key=lambda r: r["at"], reverse=True)

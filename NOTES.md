@@ -5821,3 +5821,48 @@ mounts the project its own way). The page asks (Open all the same:
 warning, never a lock: the same file has its lock already (opened
 read-only); two versions of one shot is what this catches -- worked apart,
 a conflict later.
+
+## Render here: a farm job of one machine
+
+The file panel's Render, for the file open here, offers Where: Farm,
+Local · playblast, Local · viewport. Local renders it on this machine, now,
+without a farm host and without waiting behind the queue -- an animator
+watching their shot play, a shot rendered without forcing its priority on
+everyone's farm. Never "Single" (one machine of the farm for the whole
+range): a render here is outside the farm.
+
+It is the farm's own job, whole: setup, chunks, the frame check, the video
+and its sound, render_history.json, the department's to check, the
+thumbnail, Retry. Its file holds "local" (the machine's id) and only that
+machine assigned; it is written straight into actives/, queued (no host to
+take it from incoming/), under its own id (job_request(local=...),
+local_job_name(): never the farm's for the same file and preset, nor a
+viewport render's). A render of the open file with unsaved changes saves
+it first: a plain save, no new version (open read-only, refused).
+
+Who moves it on: never the farm host of another machine (scan_queue()
+leaves another's "local" alone, recover_interrupted_jobs() too); this
+machine's farm loop does (local_tick(): scan_queue(local=True), its own
+only) -- or its queue, when this Blender is the farm host. Who renders it:
+this machine as a worker, its worker file the usual one, seen in Farm
+monitoring and the page's Farm tab with a "local" tag: "local_only" while
+it has renders here (idle_machines() on another host skips it,
+machines_for() gives it no farm job), "local_role" when the role was
+started for them (given up once they're done). A worker busy with a farm
+render gives way after its frame (render_yield_path(), as for a higher
+priority): the farm sends the rest of that chunk elsewhere. Retry and
+Recompile of a render here: from its machine only.
+
+Viewport: the same job with "viewport": one chunk (one Blender for the
+whole range), rendered by worker_render_entry.py --viewport in a Blender
+with its window (blender_command(window=True)), the addon in it as in a
+background one (HEADLESS_ENV, core.headless(): no session, lock,
+auto-version, popup). Each frame: render.opengl(view_context=True) from the
+file's largest 3D view, through the scene's camera, its overlays and
+shading as saved -- the artist's own Blender stays free. The preset applies
+as for any render (the artist makes a viewport playblast preset). Its
+history entry is tagged "viewport" (a render here's "local") -- shown on
+the page, nothing else held back (thumbnail, to check, rushes: as any
+render); only the presets' pace leaves it out (history_pace(),
+note_preset_pace()). To try in Blender: the windowed subprocess and
+opengl were not run here (no Blender in a cloud session).

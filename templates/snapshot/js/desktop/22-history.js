@@ -110,7 +110,7 @@ function rendersHTML(it) {
     by[v].rs.push(r);
   });
   const line =
-    r => `<div class="rh">${jst(ok[r.status] || 'finished')}<div class="rl"><div class="vh"><b class="mono">${esc(r.folder || '')}</b>${r.department ? `<span class="tag">${esc(LBL[r.department] || r.department)}</span>` : ''}${r.status && r.status !== 'finished' ? `<span class="tag ${r.status === 'failed' ? 'fail' : ''}">${esc(r.status)}</span>` : ''}</div>
+    r => `<div class="rh">${jst(ok[r.status] || 'finished')}<div class="rl"><div class="vh"><b class="mono">${esc(r.folder || '')}</b>${r.department ? `<span class="tag">${esc(LBL[r.department] || r.department)}</span>` : ''}${r.status && r.status !== 'finished' ? `<span class="tag ${r.status === 'failed' ? 'fail' : ''}">${esc(r.status)}</span>` : ''}${jobTags(r)}</div>
         <div class="vm faint">${[dShort(r.at), r.by, r.preset, r.frames ? 'f' + r.frames.join('–') : '', r.shot, min(r.seconds) && T('{t} of machine', { t: min(r.seconds) }), r.machines ? T('{n} machine|{n} machines', { n: r.machines }) : ''].filter(Boolean).map(esc).join(' · ')}</div></div></div>`;
   const nodes = groups
     .map(

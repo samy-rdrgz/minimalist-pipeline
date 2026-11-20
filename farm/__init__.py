@@ -32,6 +32,7 @@ from .monitor import (
     reset_monitor_cache,
     stop_monitor_loop,
 )
+from .local import local_jobs_in_flight, reserve_this_machine
 from .post_render import checks_images, compilation, run_preview_compile
 from .queue import (
     RETRYABLE_STAGES,

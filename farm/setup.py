@@ -345,6 +345,7 @@ def _split_into_shot_jobs(
                 shot_override=shot_label,
                 sound=data.get("sound", True),
                 local=data.get("local") or "",  # a render here: its shots too
+                viewport=bool(data.get("viewport")),
             )
             split_into.append(shot_label)
         except PipelineError as e:

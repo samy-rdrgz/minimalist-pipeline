@@ -17,6 +17,7 @@ from .config import (
     parse_filename,
 )
 from .core import (
+    headless,
     acquire_lock,
     addon_pref,
     get_machine_id,
@@ -70,7 +71,7 @@ def _propose_project_switch(project_path: str):
         ],
     )
     set_pending_action(action)
-    if not bpy.app.background:
+    if not headless():
         bpy.ops.m_pipeline.action_popup("INVOKE_DEFAULT")
 
 
@@ -94,7 +95,7 @@ def refresh_read_only_flag():
     survive a hot-reload -- see NOTES.md, "Addon register()". Never touches
     locking or triggers auto_version -- this isn't a file-open event."""
     filepath = bpy.data.filepath
-    if not filepath or bpy.app.background:
+    if not filepath or headless():
         return
     project_root = get_active_project_root()
     if not project_root or not file_in_active_project(filepath, str(project_root)):
@@ -149,7 +150,7 @@ def post_load_handler(*args):
         pass
 
     # The file it held is closed: whatever opens now, free it for others.
-    if not bpy.app.background:
+    if not headless():
         _release_held_lock()
 
     if not bpy.data.filepath:
@@ -169,7 +170,7 @@ def post_load_handler(*args):
             _propose_project_switch(other_path)
         return  # unknown file, or user dismissed the switch already -> silence
 
-    if not bpy.app.background:
+    if not headless():
         scan_sessions()
         session_update()
         # Before auto_version: a new version inherits this .wipmeta's
@@ -231,7 +232,7 @@ def save_post_handler(*args):
     filepath = bpy.data.filepath
     if filepath and file_in_active_project(filepath):
         wipmeta_touch(Path(filepath))
-        if bpy.app.background:
+        if headless():
             sync_linked_libraries()
         else:
             _follow_lock(filepath)
@@ -264,7 +265,7 @@ def import_post_handler(import_context, *_extra):
 def heartbeat_30s() -> float:
     """Update session heartbeat every 30 seconds, and refresh the current
     file's lock too if this session is the one holding it."""
-    if bpy.app.background:
+    if headless():
         return 30
     session_update()
     # Once a day per project: yesterday's progress point, exact (lib/monitoring/progress_log.py).
@@ -291,7 +292,7 @@ def register_handlers():
     # Session heartbeat + lock refresh: an artist's interactive session
     # only. A background process (farm, batch) has neither, and its
     # liveness is tracked by PID by whoever launched it.
-    if not bpy.app.background and not bpy.app.timers.is_registered(heartbeat_30s):
+    if not headless() and not bpy.app.timers.is_registered(heartbeat_30s):
         bpy.app.timers.register(heartbeat_30s, persistent=True)
     if post_load_handler not in bpy.app.handlers.load_post:
         bpy.app.handlers.load_post.append(post_load_handler)

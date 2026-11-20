@@ -6,6 +6,16 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- Render here: the file panel's Render offers Where -- Farm, Local ·
+  playblast, Local · viewport. Local renders the open file on this
+  machine, now, outside the farm's queue and without a farm host: the same
+  render (preset, video and sound, history, to check, thumbnail), followed
+  in Farm monitoring with a "local" tag; a farm render on this machine
+  gives way after its frame. Viewport draws each frame with the file's 3D
+  view through the camera, overlays as they are (rigs...), in a Blender
+  window of its own; tagged "viewport" in the render history. Unsaved
+  changes are saved first (no new version).
+
 - The live page opens at once: the project's first read shown as it goes,
   batch after batch (a line along the top, "Reading the project: 142 / 480
   folders", the figures said partial), no more waiting for the whole

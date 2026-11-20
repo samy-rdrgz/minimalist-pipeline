@@ -271,7 +271,9 @@ def render_dispatch(job_path: Path, idle: dict, project_root: Path) -> None:
         _waiting_logged.discard(job_data.get("job_id", ""))
 
         start, end = (int(x) for x in job_data["resolved_frame_range"])
-        size = chunk_size()
+        # A viewport render: one chunk -- one Blender with its window for the
+        # whole range, not one opened per chunk.
+        size = end - start + 1 if job_data.get("viewport") else chunk_size()
         # Frames sent back by the frame check: only their chunks are left.
         missing = missing_frames(job_data, project_root)
         if missing is None:

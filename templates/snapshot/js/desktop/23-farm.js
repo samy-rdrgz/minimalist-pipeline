@@ -28,9 +28,17 @@ function renderFarmQuick() {
     ${F.left ? `<span class="faint" style="font-size:var(--fs-s)" title="${T('The machine time the jobs have left, on the workers alive')}">${esc(F.left)}</span>` : ''}
     <button class="btn tool live-only" data-pushall title="${T("Each shot's latest video, and the assets', into editing/rushes/")}">${ic('b-export')}${T('Push rushes…')}</button>`;
 }
+/* Render here (farm/local.py): rendered by its own machine, outside the queue; viewport, drawn by its 3D view. */
+const jobTags = j =>
+  (j.tags || [])
+    .map(
+      t =>
+        `<span class="tag" title="${t === 'local' ? T('Rendered on its own machine, outside the queue') : T("Drawn by the file's 3D view: its overlays included")}">${t === 'local' ? T('local') : T('viewport')}</span>`
+    )
+    .join('');
 function jobRow(j) {
   const p = j.total ? j.done / j.total : 0;
-  return `<div class="job ${S.farmSel === j.id ? 'sel' : ''}" data-job="${j.id}" tabindex="-1">${jst(j.state)}<span class="jt"><span class="f">${esc(j.file)}</span><span class="s">${esc([j.shot, j.text].filter(Boolean).join(' · '))}${j.priority !== 10 ? ' · ' + T('priority {n}', { n: j.priority }) : ''}</span></span>
+  return `<div class="job ${S.farmSel === j.id ? 'sel' : ''}" data-job="${j.id}" tabindex="-1">${jst(j.state)}<span class="jt"><span class="f">${esc(j.file)}</span><span class="s">${esc([j.shot, j.text].filter(Boolean).join(' · '))}${j.priority !== 10 ? ' · ' + T('priority {n}', { n: j.priority }) : ''}${jobTags(j)}</span></span>
     <span class="jbar">${j.total ? `<i style="--p:${p * 100}%"></i><span>${j.done} / ${j.total} frames</span>` : ''}</span>
     <span class="meta">${[j.machines ? T('{n} machine|{n} machines', { n: j.machines }) : '', esc(j.user), fmtD(j.at)].filter(Boolean).join(' · ')}</span></div>`;
 }
@@ -147,7 +155,7 @@ function machinesHTML() {
   const wk = w =>
     !w
       ? `<span class="faint">${T('not a worker')}</span>`
-      : `<button class="mn-w" data-wk="${w.uuid}">${jst(w.status === 'silent' ? 'waiting' : w.file ? 'running' : 'finished')}<span>${w.status === 'silent' ? T('worker silent since {date}', { date: fmtD(w.since) }) : w.file ? T('worker · rendering {file}', { file: esc(w.file) }) : T('worker · idle')}</span></button>`;
+      : `<button class="mn-w" data-wk="${w.uuid}">${jst(w.status === 'silent' ? 'waiting' : w.file ? 'running' : 'finished')}<span>${w.status === 'silent' ? T('worker silent since {date}', { date: fmtD(w.since) }) : w.file ? T('worker · rendering {file}', { file: esc(w.file) }) : T('worker · idle')}${w.local ? ` <span class="tag" title="${T('Kept for its own renders: the farm sends it nothing meanwhile')}">${T('local')}</span>` : ''}</span></button>`;
   return `<div class="grp"><div class="grp-h"><b>${T('Machines')}</b><span class="cnt">${ms.length}</span><span class="faint" style="font-size:var(--fs-s)">${T('who has which file open, and the workers')}</span></div>
     ${
       ms.length

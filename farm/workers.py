@@ -12,6 +12,7 @@ import bpy
 from ..lib import (
     ADDON_PACKAGE,
     AdoptedProcess,
+    HEADLESS_ENV,
     ConfigCache,
     PipelineError,
     addon_pref,
@@ -801,11 +802,15 @@ def execute_render_request() -> dict:
             # keeps Windows from deleting or moving the file.
             _clear_render_flags(data["job_id"])  # a stop left from before
             log_file = open(log_path, "wb")
+            # A viewport render (Render here): a Blender with its window, the
+            # addon in it as in a background one (headless()).
+            viewport = bool(data.get("viewport"))
             with log_file:
                 p = subprocess.Popen(
                     blender_command(
                         "worker_render_entry.py",
                         [
+                            *(["--viewport"] if viewport else []),
                             "--job-id",
                             data["job_id"],
                             "--preset",
@@ -839,7 +844,9 @@ def execute_render_request() -> dict:
                             data["output_extension"],
                             *data["cmd_flags"],
                         ],
+                        window=viewport,
                     ),
+                    env={**os.environ, HEADLESS_ENV: "1"} if viewport else None,
                     stdout=log_file,
                     stderr=subprocess.STDOUT,
                     stdin=subprocess.DEVNULL,

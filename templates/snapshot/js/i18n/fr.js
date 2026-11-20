@@ -2,6 +2,11 @@
 // missing here: the English. Never translated: files, departments,
 // roles, prefixes, people (the project's own).
 MPI18n.add('fr',{
+'local':'local',
+'viewport':'viewport',
+'Rendered on its own machine, outside the queue':'Rendu sur sa propre machine, hors de la file d\'attente',
+"Drawn by the file's 3D view: its overlays included":'Dessiné par la vue 3D du fichier : overlays compris',
+'Kept for its own renders: the farm sends it nothing meanwhile':'Réservée à ses propres rendus : la farm ne lui envoie rien pendant ce temps',
 'Reading the project: {done} / {total} folders · figures partial':'Lecture du projet : {done} / {total} dossiers · chiffres partiels',
 'partial':'partiel',
 'Already open elsewhere':'Déjà ouvert ailleurs',

@@ -976,6 +976,8 @@ def _farm_data(root: Path) -> dict:
             # Waiting for a worker: what it'll take, at its last pace.
             "estimate": estimate_label(j, cache) if j.get("frames_to_render") and stage != "render_start" else "",
             "compile": compiling.get(j.get("job_id")),
+            # Render here: on its own machine, outside the queue; drawn by its 3D view.
+            "tags": [t for t in ("local", "viewport") if j.get(t)],
         }
         (finished if state == "finished" else jobs).append(row)
     finished.sort(key=lambda r: r["at"], reverse=True)
@@ -994,6 +996,8 @@ def _farm_data(root: Path) -> dict:
             "file": Path(w.get("current_file") or "").stem,
             "mine": uuid == mine,
             "host": bool(host) and (w.get("machine") or uuid[:8]) == host,
+            # Kept for its own renders (Render here): the farm sends it nothing.
+            "local": bool(w.get("local_only")),
             # Silent: its last heartbeat -- crashed, closed, asleep?
             "since": _iso(w.get("last_heartbeat")) if uuid in silent else "",
         }
