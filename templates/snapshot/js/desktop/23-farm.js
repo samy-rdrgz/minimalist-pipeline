@@ -37,10 +37,13 @@ const jobTags = j =>
     )
     .join('');
 function jobRow(j) {
-  const p = j.total ? j.done / j.total : 0;
+  const p = j.total ? j.done / j.total : 0,
+    meta = [j.machines ? T('{n} machine|{n} machines', { n: j.machines }) : '', esc(j.user), fmtD(j.at)]
+      .filter(Boolean)
+      .join(' · ');
   return `<div class="job ${S.farmSel === j.id ? 'sel' : ''}" data-job="${j.id}" tabindex="-1">${jst(j.state)}<span class="jt"><span class="f">${esc(j.file)}</span><span class="s">${esc([j.shot, j.text].filter(Boolean).join(' · '))}${j.priority !== 10 ? ' · ' + T('priority {n}', { n: j.priority }) : ''}${jobTags(j)}</span></span>
     <span class="jbar">${j.total ? `<i style="--p:${p * 100}%"></i><span>${j.done} / ${j.total} frames</span>` : ''}</span>
-    <span class="meta">${[j.machines ? T('{n} machine|{n} machines', { n: j.machines }) : '', esc(j.user), fmtD(j.at)].filter(Boolean).join(' · ')}</span></div>`;
+    <span class="meta" title="${meta}">${meta}</span></div>`;
 }
 function renderFarm() {
   const L = $('#list'),

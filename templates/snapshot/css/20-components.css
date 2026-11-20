@@ -2222,7 +2222,9 @@ button.assign:hover {
 }
 .job {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) minmax(110px, 180px) auto;
+  /* Fixed bar and meta columns: every row's bar at the same place, whatever
+     its meta says (each row is its own grid). */
+  grid-template-columns: auto minmax(0, 1fr) calc(170px * var(--scale)) calc(220px * var(--scale));
   gap: var(--sp-7);
   align-items: center;
   padding: var(--sp-6) var(--sp-7);
@@ -2262,6 +2264,9 @@ button.assign:hover {
   font-size: var(--fs-s);
   text-align: right;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 .jbar {
   display: flex;
