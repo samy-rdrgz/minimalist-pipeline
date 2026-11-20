@@ -153,7 +153,7 @@ function exportBook() {
         P(s.validated),
         P(a.done),
         P(a.validated),
-        'seconds' in p ? Math.round((p.seconds / 3600) * 10) / 10 : null,
+        'seconds' in p ? Math.round(p.seconds / 1800) / 2 : null, // to the half hour: an estimate
         'people' in p ? p.people : null,
         ...sd.map(d => ('worked' in p ? (w.shots || {})[d] || 0 : null)),
         ...ad.map(d => ('worked' in p ? (w.assets || {})[d] || 0 : null))

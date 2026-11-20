@@ -97,6 +97,10 @@ def main() -> None:
             {"ts": f"2026-10-03T01:00:00{tz}", "user": "tom", "action": "session_end", "duration_seconds": 7200, "saved": True},
             {"ts": f"2026-10-05T10:00:00{tz}", "user": "ana", "action": "session_end", "duration_seconds": 600, "saved": False},
         )), encoding="utf-8")
+        # The mornings wrote the last days already (Blender 2.0 before the
+        # migration): the migration still writes every day before.
+        pl.record_activity(root, {}, {}, "2026-10-08", "2026-10-09")
+        assert migration.plan_migration(root)["counts"].get("activity: rebuilt"), "activity taken for done"
         n = pl.rebuild_activity(root, folders, today="2026-10-10")
         days = pl.days(root)
         assert n == 8, n  # from the first day worked
@@ -105,6 +109,7 @@ def main() -> None:
         assert days["2026-10-03"]["seconds"] == 3600 and days["2026-10-05"]["seconds"] == 0  # not saved: not work
         assert days["2026-10-04"]["assets"]["done"] == 0.42 and days["2026-10-04"]["worked"] == {}  # figures kept
         assert pl.read(root)["activity_until"] == "2026-10-09"
+        assert not migration.plan_migration(root)["counts"].get("activity: rebuilt")
         # The next morning: only the day since, from the metas changed since.
         assert pl.activity_since(root, "2026-10-10") is None
         worked, seconds, first, last = pl.activity_since(root, "2026-10-12")

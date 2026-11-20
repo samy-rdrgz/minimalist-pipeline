@@ -464,7 +464,7 @@ def seconds_by_day(root: Path, first: str, last: str, archives: bool = False) ->
     return {d: {"seconds": round(s), "people": len(people.get(d) or ())} for d, s in secs.items()}
 
 
-def record_activity(root: Path, worked: dict, seconds: dict, first: str, last: str) -> None:
+def record_activity(root: Path, worked: dict, seconds: dict, first: str, last: str, rebuilt: bool = False) -> None:
     """Each day first to last given its activity (none: nobody worked),
     "activity_until" moved to last. Days written earlier keep their
     finished figures."""
@@ -486,6 +486,10 @@ def record_activity(root: Path, worked: dict, seconds: dict, first: str, last: s
         data["days"] = dict(sorted(known.items()))
         if last > (data.get("activity_until") or ""):
             data["activity_until"] = last
+        if rebuilt:
+            # Every day before, done: what Migrate old data looks for (the
+            # mornings' own write only covers the days since the last).
+            data["activity_rebuilt"] = now()
         box["data"], box["action"] = data, "to_write"
 
 
@@ -555,5 +559,5 @@ def rebuild_activity(root: Path, folders: list, today: str | None = None) -> int
     if not known:
         return 0
     first = min(known)
-    record_activity(root, worked, seconds, first, last)
+    record_activity(root, worked, seconds, first, last, rebuilt=True)
     return (datetime.fromisoformat(last).date() - datetime.fromisoformat(first).date()).days + 1

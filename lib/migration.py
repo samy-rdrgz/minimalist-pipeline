@@ -99,7 +99,8 @@ def plan_migration(root: Path, v_prefix: str = "v") -> dict:
     missing = _progress_days_missing(root, history)
     if missing:
         counts["progress: days rebuilt"] = missing
-    activity = not progress_log.read(root).get("activity_until") and bool(history)
+    # Not "activity_until": the mornings write it too, for their last 30 days at most.
+    activity = not progress_log.read(root).get("activity_rebuilt") and bool(history)
     if activity:
         counts["activity: rebuilt"] = 1
     return {"files": files, "owners": owners, "counts": counts, "presets": presets, "loose_presets": loose,

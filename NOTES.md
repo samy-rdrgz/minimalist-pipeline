@@ -5785,6 +5785,8 @@ rule, split at midnight). Only for the days before today: the first
 Blender of the day adds the days since "activity_until", reading only the
 metas changed since (their mtime) -- never every meta; Migrate old data
 writes every day before (rebuild_activity(), the metas it reads anyway
-and the log's archives). A day's finished figures and its activity are
+and the log's archives). It marks "activity_rebuilt" -- what the plan
+looks for, not "activity_until": a Blender 2.0 run before the migration
+writes that one too, for its last 30 days only. A day's finished figures and its activity are
 written apart, each keeping the other (record() merges, has_figures()).
 Counted in files, not hours: the sessions log knows no department.
