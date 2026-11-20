@@ -270,6 +270,12 @@ function drawWires() {
   const w = $('#wires');
   if (w) w.innerHTML = p;
 }
+/* What the edit has of a file (editing/rushes/rushes.json): its render, by whom, when. */
+const rushIs = (it, v) => !!(it.rush && v && v.folder && it.rush.render === v.folder.split('/').pop());
+const rushSay = it =>
+  it.rush
+    ? T('In the edit since {date}, pushed by {who}', { date: fmtD(it.rush.at), who: it.rush.by || '?' })
+    : '';
 function filesHTML(it) {
   const w = it.work
     ? Math.floor(it.work / 3600) + ' h ' + String(Math.round((it.work % 3600) / 60)).padStart(2, '0')
@@ -282,7 +288,8 @@ function filesHTML(it) {
     ${row(T('Work time'), w)}<p class="faint" style="margin:0;font-size:var(--fs-s)">${T('Every session that saved, every version, everyone together.')}</p>
     ${it.shots && it.shots.length ? row(T('Shots of the block'), it.shots.join(' · ')) : ''}</div>
   <div class="sec"><div class="sec-h">${T('Renders')}</div>
-    ${it.versions.length ? it.versions.map((v, n) => `<div class="prop"><span class="k">${n === 0 ? T('Last') : ''}</span><span class="v"><span class="ro">${esc(verLab(v))}</span><button class="btn icon" data-ver="${n}" aria-label="${T('Watch')}" title="${T('Watch this version')}">${ic('b-play')}</button><button class="btn icon" data-act="player" aria-label="${T("This machine's player")}" title="${T("Open in this machine's player")}">${ic('b-file_movie')}</button></span></div>`).join('') : '<span class="faint">' + T('No render.') + '</span>'}
+    ${it.versions.length ? it.versions.map((v, n) => `<div class="prop"><span class="k">${n === 0 ? T('Last') : ''}</span><span class="v"><span class="ro">${esc(verLab(v))}</span><button class="btn icon" data-ver="${n}" aria-label="${T('Watch')}" title="${T('Watch this version')}">${ic('b-play')}</button><button class="btn icon" data-act="player" aria-label="${T("This machine's player")}" title="${T("Open in this machine's player")}">${ic('b-file_movie')}</button>${v.video ? `<button class="btn icon live-only ${rushIs(it, v) ? 'rush-on' : ''}" data-push="${n}" aria-pressed="${rushIs(it, v)}" aria-label="${T('Push to the edit')}" title="${rushIs(it, v) ? esc(rushSay(it)) + ' · ' + T('Push it again') : T('Push to the edit: editing/rushes/, under its name without version')}">${ic('b-export')}</button>` : ''}</span></div>`).join('') : '<span class="faint">' + T('No render.') + '</span>'}
+    ${it.rush && !it.versions.some(v => rushIs(it, v)) ? row(T('In the edit'), it.rush.render, '') : ''}
     ${row('Farm', it.farm ? it.farm.text : T('no job'))}</div>
   <div class="pacts live-only"><button class="btn primary" data-render>${ic('b-render_animation')}${T('Render…')}</button></div>`;
 }

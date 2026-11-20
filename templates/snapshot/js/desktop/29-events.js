@@ -735,6 +735,16 @@ document.addEventListener('click', e => {
     helpDlg();
     return;
   }
+  const psh = t.closest('[data-push]');
+  if (psh) {
+    const it = cur();
+    pushRender(it, it && it.versions[+psh.dataset.push]);
+    return;
+  }
+  if (t.closest('[data-pushall]')) {
+    pushAllDlg();
+    return;
+  }
   if (t.closest('[data-export]')) {
     exportBreakdown();
     return;

@@ -333,3 +333,55 @@ function liveStart() {
   poll();
   liveQueue();
 }
+/* Into the edit (editing/rushes/): one render's video, whatever its version -- or every
+   sequence's and asset's latest (pushAllDlg()). Copied by Blender on a thread: refused
+   copies (a rush open in the edit) said in a popup there; the page shows the new rush
+   once read again. */
+function pushRender(it, v) {
+  if (!v || !v.video) return toast(T('No video for this render.'));
+  livePost('open', { push: 'render', path: v.video.split('/').slice(0, -1).join('/') })
+    .then(res =>
+      toast(
+        res.ok
+          ? T('Pushing {name} to the edit…', { name: res.pushing })
+          : T('Not pushed: {error}', { error: res.error })
+      )
+    )
+    .catch(noAnswer);
+}
+function pushAllDlg() {
+  const seqs = [...new Set(items.filter(i => i.kind === 'shot').map(groupOf))].sort();
+  const o = (S.pushAll = S.pushAll || { off: [], assets: true });
+  const dl = $('#dlg');
+  dl.hidden = false;
+  dl.innerHTML = `<div class="dlg-in" role="dialog" aria-modal="true" aria-labelledby="pa-t"><h3 id="pa-t">${T('Push rushes to the edit')}</h3>
+    <p class="faint" style="margin:0">${T("Each shot's latest video, and the assets', into editing/rushes/ under its name without version: the edit keeps its links. Only what changed is copied.")}</p>
+    <div class="prop"><span class="k">${T('Sequences')}</span><span class="v"><span class="chips">${seqs.map(s => `<button class="btn sm" data-paseq="${esc(s)}" aria-pressed="${!o.off.includes(s)}">${esc(s)}</button>`).join('')}</span></span></div>
+    <div class="prop"><span class="k">${T('Assets')}</span><span class="v"><button class="btn sm" data-paasset aria-pressed="${o.assets}">${T('Assets & libraries')}</button></span></div>
+    <div class="acts"><button class="btn" data-dclose>${T('Cancel')}</button><button class="btn primary" data-pago>${ic('b-export')}${T('Push')}</button></div></div>`;
+  dl.onclick = e => {
+    const b = e.target.closest('[data-paseq]');
+    if (b) {
+      const s = b.dataset.paseq;
+      o.off = o.off.includes(s) ? o.off.filter(x => x !== s) : [...o.off, s];
+      b.setAttribute('aria-pressed', !o.off.includes(s));
+      return;
+    }
+    if (e.target.closest('[data-paasset]')) {
+      o.assets = !o.assets;
+      e.target.closest('[data-paasset]').setAttribute('aria-pressed', o.assets);
+      return;
+    }
+    if (e.target.closest('[data-pago]')) {
+      dl.hidden = true;
+      dl.onclick = null;
+      livePost('open', { push: 'all', sequences: seqs.filter(s => !o.off.includes(s)), assets: o.assets })
+        .then(res =>
+          toast(
+            res.ok ? T('Pushing the rushes to the edit…') : T('Not pushed: {error}', { error: res.error })
+          )
+        )
+        .catch(noAnswer);
+    }
+  };
+}

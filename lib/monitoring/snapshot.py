@@ -114,6 +114,18 @@ def _render_presets(owner: Path) -> dict:
     return {"department": last, "by": by, "used": sorted(used)}
 
 
+def _rushes_by_name(root: Path) -> dict:
+    """editing/rushes/rushes.json's entries by their file's name (sq100_sh030,
+    ch_bob): {"render", "by", "at"}. Pure os/json."""
+    from ..rushes import RUSHES_DIR, RUSHES_MANIFEST, _read_manifest
+
+    out = {}
+    for name, e in _read_manifest(Path(root) / RUSHES_DIR / RUSHES_MANIFEST).items():
+        if isinstance(e, dict):
+            out[Path(name).stem] = {"render": e.get("render") or "", "by": e.get("pushed_by") or "", "at": e.get("pushed_at") or ""}
+    return out
+
+
 def _owner_shots(owner: Path) -> list[str]:
     """A shot folder's shots: ["sh040"], or ["sh040", "sh050", "sh060"] for
     a block "sh040-050-060". Name parsing only, no config."""
@@ -559,6 +571,8 @@ def read_snapshot_data(
         "shot_thumbs": shot_thumbs,
         "thumb_warnings": warnings,
         "work": work_times(root),
+        # What the edit has: rushes.json's, by the rush's name (its file's).
+        "rushes": _rushes_by_name(root),
         "live": links,
     }
 
@@ -630,6 +644,7 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
             "live": (data.get("live") or {}).get(str(owner)),
             # Logged work time, every version and everyone (work_times()).
             "work_seconds": (data.get("work") or {}).get(_session_folder_key(owner)),
+            "rush": (data.get("rushes") or {}).get(name),
         }
         # A render's folder is vXXX_YYY: XXX the .blend version rendered,
         # YYY the render increment. The history's source_file says XXX

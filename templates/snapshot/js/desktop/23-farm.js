@@ -25,7 +25,8 @@ function renderFarmQuick() {
   $('#quick').innerHTML =
     `<span class="join">${[['', T('All')], ...JS].map(([k, l]) => `<button class="btn" data-ffs="${k}" aria-pressed="${S.ff.s === k}">${l}<span class="n">${n(k)}</span></button>`).join('')}</span>
     <button class="btn ${S.ff.mine ? '' : 'tool'}" data-ffm aria-pressed="${S.ff.mine}">${ic('b-user')}${T('Mine')}</button>
-    ${F.left ? `<span class="faint" style="font-size:var(--fs-s)" title="${T('The machine time the jobs have left, on the workers alive')}">${esc(F.left)}</span>` : ''}`;
+    ${F.left ? `<span class="faint" style="font-size:var(--fs-s)" title="${T('The machine time the jobs have left, on the workers alive')}">${esc(F.left)}</span>` : ''}
+    <button class="btn tool live-only" data-pushall title="${T("Each shot's latest video, and the assets', into editing/rushes/")}">${ic('b-export')}${T('Push rushes…')}</button>`;
 }
 function jobRow(j) {
   const p = j.total ? j.done / j.total : 0;

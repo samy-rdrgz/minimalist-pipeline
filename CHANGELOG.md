@@ -6,6 +6,11 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- The live page pushes rushes to the edit: any render, wip or stable, from
+  its line in the file's detail (its button lit when it's the one in the
+  edit, who pushed it and when in its tooltip), and every sequence's and
+  asset's latest from the Farm tab (Push rushes…, as in Blender). The
+  page reads editing/rushes/rushes.json: what the edit has, by file.
 - Breakdown › Activity, under Over time: what was worked, not only what
   was finished -- a column of diamonds a day (the state glyph's shape),
   each worth some files or some hours: the scale (1, 2, 3, 5, 10…) the one

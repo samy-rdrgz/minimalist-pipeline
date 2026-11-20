@@ -3354,7 +3354,9 @@ button.assign:hover {
     [data-otreload],
     [data-act="folder"],
     [data-act="log"],
-    [data-relink]
+    [data-relink],
+    [data-push],
+    [data-pushall]
   ),
 [data-guest="1"]:not([data-gfarm="1"])
   :is(
@@ -3952,4 +3954,9 @@ html.kb .m-nav {
 }
 .act .ot-tip.two > b {
   grid-column: 1 / -1;
+}
+/* A render in the edit (editing/rushes/): its push button lit. */
+.btn.rush-on {
+  background: color-mix(in srgb, var(--brand) 22%, var(--btn));
+  color: var(--brand);
 }

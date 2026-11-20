@@ -38,7 +38,7 @@ import bpy
 from ..core import get_addon_version, now
 from ..logs import log
 from ..preview import browser_video, render_department, render_root
-from .snapshot import _folder_frames, _owner_shots, _video_name, build_snapshot, folder_links, read_render_state
+from .snapshot import _folder_frames, _owner_shots, _rushes_by_name, _video_name, build_snapshot, folder_links, read_render_state
 from .snapshot_page import page_data, render_page
 from .status import project_stages
 from . import progress_log
@@ -426,12 +426,13 @@ def _live_extras(root: Path, cache: dict, outdated: dict) -> dict:
     return out
 
 
-def _as_data(cache: dict, extras: dict | None = None, work: dict | None = None) -> dict:
+def _as_data(cache: dict, extras: dict | None = None, work: dict | None = None, rushes: dict | None = None) -> dict:
     """read_live()'s cache as read_snapshot_data()'s result."""
     entries = list(cache.values())
     return {
         "live": extras or {},
         "work": work or {},
+        "rushes": rushes or {},
         "raws": [(e["kind"], e["owner"], e["raw"], e["blends"]) for e in entries],
         "renders": {str(e["owner"]): e["renders"] for e in entries if e["renders"] is not None},
         "thumbs": {str(e["owner"]): e["thumb"] for e in entries if e["thumb"]},
@@ -451,10 +452,13 @@ def _read(root, cache, config, v_prefix, extras):
         # news (one stat a pass, the log read again only when it changed).
         work = work_times(root)
         changed = changed or work != _reader.get("work")
-        _reader["result"] = (root, new, changed, extras, work)
+        # What the edit has (editing/rushes/rushes.json): a push changes no folder either.
+        rushes = _rushes_by_name(root)
+        changed = changed or rushes != _reader.get("rushes")
+        _reader["result"] = (root, new, changed, extras, work, rushes)
     except Exception as e:  # never die silently: the next pass tries again
         log("WARNING", "live", f"Live page: project not read: {e!r}")
-        _reader["result"] = (root, cache, False, extras, _reader.get("work"))
+        _reader["result"] = (root, cache, False, extras, _reader.get("work"), _reader.get("rushes"))
 
 
 # --- the main thread -------------------------------------------------------------
@@ -531,7 +535,7 @@ def _turn(sh: _Shared) -> None:
     if _reader["result"] is not None and not (thread and thread.is_alive()) and _reader["result"][0] != sh.root:
         _reader["result"] = None  # the project before: dropped
     if _reader["result"] is not None and not (thread and thread.is_alive()):
-        _, cache, changed, _reader["extras"], _reader["work"] = _reader["result"]
+        _, cache, changed, _reader["extras"], _reader["work"], _reader["rushes"] = _reader["result"]
         _reader["result"] = None
         _reader["cache"] = cache
         _reader["ready"] = True
@@ -697,6 +701,8 @@ def _open(raw: dict) -> dict:
 
     if raw.get("folder"):
         return _open_folder(raw)
+    if raw.get("push"):
+        return _push_rushes(raw)
     if raw.get("snapshot"):
         return _open_snapshot_export()
     if raw.get("progress"):
@@ -768,6 +774,45 @@ def _open_folder(raw: dict) -> dict:
         target = filepath.parent
     _with_window(bpy.ops.wm.path_open, filepath=str(target))
     return {"ok": True, "opened": target.name}
+
+
+def _push_rushes(raw: dict) -> dict:
+    """Into the edit (editing/rushes/, lib/rushes.py), as the page asks:
+    one render's video, whatever its version, wip or stable ({"push":
+    "render", "path": its folder under renders/}), or every sequence's and
+    asset's latest ({"push": "all", "sequences": [...] or all, "assets"}).
+    On a thread; its outcome in the log, a popup here if a copy was
+    refused (a rush open in the edit)."""
+    from ...operators.rushes_ops import push_in_background
+    from ..config import ConfigCache
+    from ..preview import _first_mp4
+    from ..rushes import push_rushes, push_sequence_rushes
+    from ..session import get_user
+
+    root = _shared.root
+    user = get_user(bpy.context)
+    if raw.get("push") == "all":
+        try:
+            every = sorted(e.name for e in os.scandir(root / "shots") if e.is_dir())
+        except OSError:
+            every = []
+        wanted = raw.get("sequences")
+        sequences = [s for s in every if wanted is None or s in wanted]
+        push_in_background(push_sequence_rushes, root, sequences, bool(raw.get("assets", True)), ConfigCache.get(), user)
+        log("INFO", "live", f"Live page: rushes pushed to editing ({len(sequences)} sequence(s))")
+        return {"ok": True, "pushing": "all"}
+    renders = (root / "renders").resolve()
+    target = (renders / str(raw.get("path") or "")).resolve()
+    if renders not in target.parents or not target.is_dir():
+        return {"ok": False, "error": "render not found"}
+    if target.name == "ld":
+        target = target.parent  # a light copy's: the render's own video
+    mp4 = _first_mp4(target)
+    if mp4 is None:
+        return {"ok": False, "error": "no video in this render"}
+    push_in_background(push_rushes, root, [mp4], user)
+    log("INFO", "live", f"Live page: {target.name} pushed to editing")
+    return {"ok": True, "pushing": target.name}
 
 
 def _play(raw: dict) -> dict:
@@ -1159,7 +1204,7 @@ def _rebuild(sh: _Shared, force: bool) -> None:
         # Played from the project, through the server.
         "videos": {"mode": "live", "base": None, "files": [], "local": f"media/{sh.token}/renders"},
     }
-    snap = build_snapshot(_as_data(_reader["cache"], _reader.get("extras"), _reader.get("work")), config, meta, farm=farm)
+    snap = build_snapshot(_as_data(_reader["cache"], _reader.get("extras"), _reader.get("work"), _reader.get("rushes")), config, meta, farm=farm)
     # Today's progress point while the page runs (written only when it changes), the days for the page.
     progress_log.record_today(sh.root, snap)
     snap["meta"]["history"] = progress_log.days(sh.root)
