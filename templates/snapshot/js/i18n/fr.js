@@ -2,6 +2,15 @@
 // missing here: the English. Never translated: files, departments,
 // roles, prefixes, people (the project's own).
 MPI18n.add('fr',{
+'not a worker':'pas worker',
+'worker silent since {date}':'worker muet depuis le {date}',
+'worker · rendering {file}':'worker · rendu de {file}',
+'worker · idle':'worker · libre',
+'who has which file open, and the workers':'qui a quel fichier ouvert, et les workers',
+'not saved yet':'pas encore sauvé',
+'no file open':'aucun fichier ouvert',
+'No Blender has a project file open, no worker.':'Aucun Blender n’a de fichier du projet ouvert, aucun worker.',
+'Open now':'Ouvert en ce moment',
 'Versions':'Versions',
 'Render history':'Historique de rendu',
 'No version known.':'Aucune version connue.',

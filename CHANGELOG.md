@@ -6,6 +6,10 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- Farm › Machines, as nodes: each machine (who, its id's start) with the
+  project files open in its Blenders (a click opens one in the page) and
+  its worker's state -- who works on what, never since when. A file's
+  detail says who has it open now. Live only (config/.sessions/).
 - The file's detail: Versions, the chain of its versions newest on top
   (made when, saved last by whom, the departments their sessions worked; a
   stable's done departments, validations and conflict), a version made

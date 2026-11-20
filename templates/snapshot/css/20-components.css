@@ -4079,3 +4079,75 @@ html.kb .m-nav {
 .rh > .jst {
   margin-top: 8px;
 }
+/* Farm › Machines: a node each, its files open, its worker. */
+.mnodes {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(calc(230px * var(--scale)), 1fr));
+  gap: var(--sp-6);
+  padding: var(--sp-6) var(--sp-7);
+}
+.mn {
+  display: flex;
+  flex-direction: column;
+  background: var(--box);
+  border: 1px solid var(--line);
+  border-radius: var(--r-l);
+  overflow: hidden;
+}
+.mn.sel {
+  border-color: var(--brand);
+}
+.mn-h {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: var(--sp-4) var(--sp-5);
+  background: var(--head);
+  border-bottom: 1px solid var(--line);
+  min-width: 0;
+}
+.mn-h b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mn-b {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--sp-4) var(--sp-5);
+}
+.mn-f,
+.mn-w {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  min-height: var(--h-sm);
+  padding: 0 var(--sp-3);
+  border: 0;
+  border-radius: var(--r);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-s);
+  text-align: left;
+  cursor: pointer;
+  min-width: 0;
+}
+.mn-f:hover:not([disabled]),
+.mn-w:hover {
+  background: var(--row-hover);
+}
+.mn-f .mono {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.mn-w {
+  color: var(--text-2);
+  margin-top: var(--sp-2);
+}
+.mn-w .jst {
+  width: 14px;
+  height: 14px;
+}

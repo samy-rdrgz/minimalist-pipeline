@@ -50,7 +50,7 @@ function renderFarm() {
   }).join('');
   if (!shown.length)
     h += `<div class="empty">${F.jobs.some(j => !j.archived) ? T('No job matches.') : T('No job in the farm.')}</div>`;
-  h += `<div class="grp"><div class="grp-h"><b>${T('Machines')}</b><span class="cnt">${F.workers.length}</span></div><div class="jobs">${F.workers.map(w => `<div class="job ${S.farmSel === 'w:' + w.uuid ? 'sel' : ''}" data-wk="${w.uuid}">${jst(w.status === 'silent' ? 'waiting' : w.file ? 'running' : 'finished')}<span class="jt"><span class="f">${esc(w.name)}</span><span class="s">${w.status === 'silent' ? T('silent since {date}: crashed, closed or asleep?', { date: fmtD(w.since) }) : esc([w.status, w.file].filter(Boolean).join(' · '))}</span></span></div>`).join('') || `<div class="empty">${T('No worker: "Make it a worker" on each machine that renders.')}</div>`}</div></div>`;
+  h += machinesHTML();
   L.innerHTML = h;
 }
 function renderFarmDetail(H, B) {
@@ -131,4 +131,42 @@ function farmAction(k, el) {
   if (w && k === 'forget') farmPost({ action: 'forget_worker', value: w.uuid }, T('machine forgotten'));
   if (w && k === 'stop')
     farmPost({ action: 'stop_worker', value: w.uuid }, T('stopping {name}', { name: w.name }));
+}
+
+/* Machines: a node each -- its name on top (who, its id's start), the project files open
+   in its Blenders under it (a click: that file), then its worker's state. Every machine
+   with a file open or a worker (lib/monitoring/live.py presence(), the farm's workers);
+   nothing about since when. */
+function machinesHTML() {
+  const by = {};
+  const node = (uuid, label) => (by[uuid] = by[uuid] || { uuid, label, files: [], worker: null });
+  (M.presence || []).forEach(p => node(p.uuid || p.machine, `${p.user} (${p.machine})`).files.push(p));
+  F.workers.forEach(w => (node(w.uuid, w.name).worker = w));
+  const ms = Object.values(by).sort((a, b) => (a.label < b.label ? -1 : 1));
+  const name = f => items.find(i => i.file === f || f.startsWith(i.name + '_'))?.name;
+  const wk = w =>
+    !w
+      ? `<span class="faint">${T('not a worker')}</span>`
+      : `<button class="mn-w" data-wk="${w.uuid}">${jst(w.status === 'silent' ? 'waiting' : w.file ? 'running' : 'finished')}<span>${w.status === 'silent' ? T('worker silent since {date}', { date: fmtD(w.since) }) : w.file ? T('worker · rendering {file}', { file: esc(w.file) }) : T('worker · idle')}</span></button>`;
+  return `<div class="grp"><div class="grp-h"><b>${T('Machines')}</b><span class="cnt">${ms.length}</span><span class="faint" style="font-size:var(--fs-s)">${T('who has which file open, and the workers')}</span></div>
+    ${
+      ms.length
+        ? `<div class="mnodes">${ms
+            .map(
+              m => `<div class="mn ${S.farmSel === 'w:' + m.uuid ? 'sel' : ''}"><div class="mn-h">${ic('b-user')}<b>${esc(m.label)}</b></div>
+        <div class="mn-b">${
+          m.files.length
+            ? m.files
+                .map(f => {
+                  const n = name(f.file);
+                  return `<button class="mn-f" ${n ? `data-sgofile="${esc(n)}" data-stab="plan"` : 'disabled'}>${ic('b-blender')}<span class="mono">${esc(f.file)}</span>${f.saved ? '' : `<span class="faint">${T('not saved yet')}</span>`}</button>`;
+                })
+                .join('')
+            : `<span class="faint">${T('no file open')}</span>`
+        }
+        ${wk(m.worker)}</div></div>`
+            )
+            .join('')}</div>`
+        : `<div class="empty">${T('No Blender has a project file open, no worker.')}</div>`
+    }</div>`;
 }

@@ -453,7 +453,7 @@ def _read(root, cache, config, v_prefix, extras):
         work = work_times(root)
         changed = changed or work != _reader.get("work")
         # What the edit has (editing/rushes/rushes.json): a push changes no folder either.
-        rushes = _rushes_by_name(root)
+        rushes = {"rushes": _rushes_by_name(root), "presence": presence(root)}
         changed = changed or rushes != _reader.get("rushes")
         _reader["result"] = (root, new, changed, extras, work, rushes)
     except Exception as e:  # never die silently: the next pass tries again
@@ -774,6 +774,39 @@ def _open_folder(raw: dict) -> dict:
         target = filepath.parent
     _with_window(bpy.ops.wm.path_open, filepath=str(target))
     return {"ok": True, "opened": target.name}
+
+
+_PRESENCE_ALIVE = 90  # seconds since a session's last ping: still open (it pings every 30)
+
+
+def presence(root: Path) -> list:
+    """Every Blender with a project file open now (config/.sessions/, each
+    session's file): [{"user", "machine" (its id's start), "uuid", "file"
+    (the .blend's name, no extension), "saved" (saved this session)}] --
+    no time: who's on what, not since when. Pure os/json: the reader's
+    thread."""
+    from ..core import read_json_quiet, seconds_since
+
+    out = []
+    try:
+        files = sorted((Path(root) / "config" / ".sessions").glob(".session_*.json"))
+    except OSError:
+        return out
+    for f in files:
+        data = read_json_quiet(f)
+        if not isinstance(data, dict) or not data.get("filepath"):
+            continue
+        age = seconds_since(data.get("last_ping"))
+        if age is None or age > _PRESENCE_ALIVE:
+            continue
+        out.append({
+            "user": data.get("user") or "",
+            "machine": data.get("machine") or str(data.get("uuid") or "")[:8],
+            "uuid": data.get("uuid") or "",
+            "file": Path(str(data["filepath"]).replace("\\", "/")).stem,
+            "saved": bool(data.get("saved")),
+        })
+    return out
 
 
 def _history(name: str) -> dict:
@@ -1217,7 +1250,10 @@ def _rebuild(sh: _Shared, force: bool) -> None:
         # Played from the project, through the server.
         "videos": {"mode": "live", "base": None, "files": [], "local": f"media/{sh.token}/renders"},
     }
-    snap = build_snapshot(_as_data(_reader["cache"], _reader.get("extras"), _reader.get("work"), _reader.get("rushes")), config, meta, farm=farm)
+    side = _reader.get("rushes") or {}
+    # Who has which file open (the Farm tab's machines; a file's detail).
+    meta["presence"] = side.get("presence") or []
+    snap = build_snapshot(_as_data(_reader["cache"], _reader.get("extras"), _reader.get("work"), side.get("rushes")), config, meta, farm=farm)
     # Today's progress point while the page runs (written only when it changes), the days for the page.
     progress_log.record_today(sh.root, snap)
     snap["meta"]["history"] = progress_log.days(sh.root)

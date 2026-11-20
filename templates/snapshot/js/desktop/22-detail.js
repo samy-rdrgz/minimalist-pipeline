@@ -271,6 +271,11 @@ function drawWires() {
   const w = $('#wires');
   if (w) w.innerHTML = p;
 }
+/* Who has a file open now (live): "léa (a1b2c3d4)". */
+const openBy = it =>
+  (M.presence || [])
+    .filter(p => p.file === it.file || p.file.startsWith(it.name + '_'))
+    .map(p => `${p.user} (${p.machine})`);
 /* What the edit has of a file (editing/rushes/rushes.json): its render, by whom, when. */
 const rushIs = (it, v) => !!(it.rush && v && v.folder && it.rush.render === v.folder.split('/').pop());
 const rushSay = it =>
@@ -284,7 +289,7 @@ function filesHTML(it) {
     `<div class="prop"><span class="k">${k}</span><span class="v"><span class="ro" title="${esc(v)}">${esc(v || '–')}</span>${btn}</span></div>`;
   const pr = F.presets.find(p => p[0] === S.preset) || F.presets[0];
   return `<div class="sec"><div class="sec-h">${T('Files')}</div>
-    ${row(T('Wip file'), it.file ? it.file + '.blend' : '')}${it.saved && it.saved.by ? row(T('Saved last'), T('{who}, {date}', { who: it.saved.by, date: fmtD(it.saved.at) })) : ''}${row('Stable', it.stableFile ? it.stableFile + '.blend' : '')}
+    ${row(T('Wip file'), it.file ? it.file + '.blend' : '')}${openBy(it).length ? row(T('Open now'), openBy(it).join(', ')) : ''}${it.saved && it.saved.by ? row(T('Saved last'), T('{who}, {date}', { who: it.saved.by, date: fmtD(it.saved.at) })) : ''}${row('Stable', it.stableFile ? it.stableFile + '.blend' : '')}
     ${row(T('Work time'), w)}<p class="faint" style="margin:0;font-size:var(--fs-s)">${T('Every session that saved, every version, everyone together.')}</p>
     ${it.shots && it.shots.length ? row(T('Shots of the block'), it.shots.join(' · ')) : ''}</div>
   <div class="sec"><div class="sec-h">${T('Renders')}</div>

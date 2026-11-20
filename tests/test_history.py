@@ -2,6 +2,7 @@
 first -- made from which, saved last by whom, their sessions (a 1.x's
 under the old name too), a stable's done departments, validations and
 conflict -- and its renders latest first, a split job's line left out.
+Who has which file open now (the live page's presence()).
 
     python3 tests/test_history.py
 """
@@ -64,6 +65,22 @@ def main() -> None:
         assert [r["status"] for r in h["renders"]] == ["failed", "finished"], h["renders"]
         r = h["renders"][1]
         assert r["folder"] == "v001-stable_001" and r["machines"] == 2 and r["preset"] == "modeling_default", r
+
+    # Who has which file open (live.presence()): a session pinged lately,
+    # its file's name; a stale one (crashed, closed) left out.
+    import datetime as dt
+
+    live = importlib.import_module(f"{pkg.__name__}.lib.monitoring.live")
+    with tempfile.TemporaryDirectory() as d:
+        sessions = Path(d) / "config" / ".sessions"
+        sessions.mkdir(parents=True)
+        fresh = dt.datetime.now().astimezone().isoformat()
+        (sessions / ".session_1.json").write_text(json.dumps({
+            "user": "lea", "machine": "a1b2c3d4", "uuid": "a1b2c3d4-x", "filepath": "S:\\proj\\assets\\ch\\ch_bob\\ch_bob_v002.blend",
+            "last_ping": fresh, "saved": True}), encoding="utf-8")
+        (sessions / ".session_2.json").write_text(json.dumps({
+            "user": "tom", "machine": "99ff00aa", "filepath": "/p/x_v001.blend", "last_ping": "2026-01-01T10:00:00+01:00"}), encoding="utf-8")
+        assert live.presence(Path(d)) == [{"user": "lea", "machine": "a1b2c3d4", "uuid": "a1b2c3d4-x", "file": "ch_bob_v002", "saved": True}]
     print("OK: history")
 
 
