@@ -124,7 +124,7 @@ Written under a lock and atomically (temp file then rename), like every other pi
 }
 ```
 
-**Edit project** (Project panel, Pipeline menu's *Project settings*): a window of its own since 1.1.9, like the Pipeline log -- it stays open while you edit, *Save* writes the config, *Close* leaves without (the dialog only if Blender can't open a window). Left, the project and how it names things (prefixes, folders, tags, departments); right, the snapshot (thumbnails, Done, validation roles, schedule), the farm, and *Maintenance*, for the active project: *Clean old renders* and *Delete a shot or an asset* (picked as in Open file) -- see [Rendering](farm.md). Two columns of settings -- what each one does:
+**Edit project** (Project panel, Pipeline menu's *Project settings*): a window of its own since 1.1.9, like the Pipeline log -- it stays open while you edit, *Save* writes the config, *Close* leaves without (the dialog only if Blender can't open a window). Left, the project and how it names things (prefixes, folders, tags, departments); right, the snapshot (thumbnails, Done, validation roles, schedule), the farm, and *Maintenance*, for the active project: *Clean old renders*, *Delete a shot or an asset* (picked as in Open file), *Migrate old data* and *Revert a review* (an imported review's changes put back) -- see [Rendering](farm.md). Two columns of settings -- what each one does:
 
 | Setting | What it does |
 |---|---|
@@ -133,11 +133,15 @@ Written under a lock and atomically (temp file then rename), like every other pi
 | Naming | Prefix and digits of sequences, shots, versions and frames: the file names, and how they're read back. |
 | Folders, Asset / Library prefixes, Version tags | The project's folder tree, the asset and library kinds, the version tags. |
 | Assets / Shots departments | The departments each new asset or shot requires -- and the order every department list follows. |
-| Thumbnails | Size of the render thumbnails (snapshot, file details). |
+| Thumbnails | Size of the render thumbnails (snapshot, live page). |
 | Snapshot done | How much of a department counts as done in the snapshot: in progress, rework, open RTK. |
+| Validation roles | The roles that sign a department off, lowest to highest (see [Tracking & reviews](tracking-and-reviews.md)). |
+| Team | The team's names: each one's user name picks from it, departments are assigned to them. |
 | Schedule, Days off, Worked days | The production's dates, for the snapshot's expected progress. |
+| Video | The video compiled from a render: *MP4 · H.264*, *MOV · ProRes 422 LT* or *Preset file* (see [Rendering](farm.md)). |
 | Chunk size | Frames per chunk a farm machine takes at a time (see [Rendering](farm.md)). |
 | Pre-render | The pre-render script the Render dialog opens on. |
+| By department…, Rename preset… | Under the presets: each department's own preset (what the Render dialog starts on), and renaming a preset with everything that cites it. |
 | Stuck frame | How many times its usual time a frame may take before its render is stopped (0 = never). |
 | Priority switch | Minutes: a render with less than this left keeps its machines when a higher-priority job wants them (3 by default; 0 = they always move once their chunk is done). |
 

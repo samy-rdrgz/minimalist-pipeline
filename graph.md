@@ -1,12 +1,20 @@
 # Execution flow reference
 
+> **2.0 note.** The Project monitoring and Farm monitoring windows are gone: the live page
+> (`lib/monitoring/live.py`, its `_tick` on the main thread) replaces them. The sections
+> below still describe their redraws and buttons in places -- `m_pipeline.tracking_monitor`,
+> `m_pipeline.tracking_file_details`, `toggle_validated_department`, the Farm column, the
+> farm popup's `_refresh_tick` -- none of which exist any more. `_monitoring_tick`
+> (`lib/monitoring/windows.py`) now only keeps the Pipeline log, welcome and Project settings
+> windows alive. To be rewritten.
+
 Every handler, timer, and cross-cutting operator in the addon, traced against the actual code (not an aspirational design). Each section is a trigger (Blender handler, timer, or operator) and the decision tree it runs. Read `├──`/`└──` as branches of a condition, `│` as "still inside the branch above", `->`/`→` as "then calls / then shows".
 
 ---
 
 ## Worked departments (live toggle, no popup)
 
-Not a handler -- a button row in `asset_panel.py`/`shot_panel.py`, drawn
+Not a handler -- a button row in `file_panel.py`, drawn
 whenever the open file is a tracked asset/shot with required departments.
 Replaces an earlier popup-on-close/quit design (see git history): a modal
 popup queued from `load_pre`/`exit_pre` isn't guaranteed to render -- by

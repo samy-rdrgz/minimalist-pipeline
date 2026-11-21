@@ -16,9 +16,9 @@ Tous les panneaux vivent dans la sidebar de la vue 3D (`N` > onglet **Pipeline**
 
 <br>
 
-## Fenêtres de vue d'ensemble
+## Fenêtres
 
-Accessibles depuis les boutons ci-dessus, pas des panneaux permanents : le journal du pipeline s'ouvre dans une fenêtre à lui. Le Project et le Farm monitoring sont ceux de la page en live (*Monitor in browser*, Maj+Alt+P ; son onglet Farm, Maj+Alt+F) : voir [Suivi & reviews](tracking-and-reviews_fr.md), « Page en live ».
+Accessibles depuis les boutons ci-dessus, pas des panneaux permanents : le journal du pipeline s'ouvre dans une fenêtre à lui. Les fenêtres Project et Farm monitoring de la 1.x n'existent plus (2.0) : la page live les remplace (*Monitor in browser*, Maj+Alt+P ; son onglet Farm, Maj+Alt+F) -- voir [La page live](live-page_fr.md).
 
 - **Pipeline log** (icône dans l'en-tête du panneau Project, à côté des réglages du projet ; aussi dans le menu Pipeline) : une fenêtre à part -- en pages à sa hauteur, les flèches et la molette tournent ses pages, F5 la relit --, le log du projet, du plus récent au plus ancien, filtrable par niveau (tout, warnings, erreurs), action, user et texte ; dates en jour/mois/année. Un clic sur une ligne la copie en entier (date, niveau, user, action, message et tout champ en plus). Le bouton d'archive en bas, à côté du rafraîchissement, déplace tout de suite le log actuel dans `config/logs/archives/` (après confirmation), comme il l'est tout seul une fois à 5 Mo : le log repart vide, rien n'est supprimé.
 

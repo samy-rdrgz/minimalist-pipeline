@@ -34,13 +34,13 @@ Once an asset or shot is in a state others can safely build on, use **Mark as st
 
 ## 5. Leave notes, todos, and fix requests
 
-The **Tracking** panel on any file lets you jot a note, add a todo, or flag something to fix — no spreadsheet, no separate review tool. See [Tracking & reviews](tracking-and-reviews.md).
+The **Notes & tasks** section of the File panel (or a file's detail on the live page) lets you jot a note, add a todo, or flag something to fix — no spreadsheet, no separate review tool. See [Tracking & reviews](tracking-and-reviews.md).
 
 <img src="images/tracking-new-entry.png" alt="The New entry dialog" width="560">
 
 ## 6. Render
 
-Hit **Render** on any file, pick a frame range (or leave the defaults), and submit. Any machine that has the project open with Blender running can pick it up — check progress from the farm dashboard. Nothing to install beyond Blender itself. See [Rendering (farm)](farm.md).
+Hit **Render** on any file, pick a frame range (or leave the defaults), and submit. Any machine that has the project open with Blender running can pick it up — check progress on the live page's Farm tab (*Farm in browser*). Nothing to install beyond Blender itself. See [Rendering (farm)](farm.md).
 
 <img src="images/farm-render-dialog.png" alt="The Render dialog" width="360">
 

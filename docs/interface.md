@@ -16,9 +16,9 @@ All the panels live in the 3D viewport sidebar (`N` > **Pipeline** tab). Each ha
 
 <br>
 
-## Overview windows
+## Windows
 
-Reached from the buttons above, not permanent panels: the Pipeline log opens in a window of its own. Project and Farm monitoring are the live page's (*Monitor in browser*, Shift+Alt+P; its Farm tab, Shift+Alt+F): see [Tracking & reviews](tracking-and-reviews.md), "Live page".
+Reached from the buttons above, not permanent panels: the Pipeline log opens in a window of its own. The Project and Farm monitoring windows of 1.x are gone (2.0): the live page replaces them (*Monitor in browser*, Shift+Alt+P; its Farm tab, Shift+Alt+F) -- see [The live page](live-page.md).
 
 - **Pipeline log** (icon in the Project panel's header, next to the project settings; also in the Pipeline menu): a window of its own -- paged to its height, the arrow keys and the wheel turn its pages, F5 reads it again --, the project's log, newest first, filterable by level (all, warnings, errors), action, user and text; times read day/month/year. Click a line to copy it whole (time, level, user, action, message and any extra field). The archive button at the bottom, next to refresh, moves the current log into `config/logs/archives/` right away (after a confirmation), as it is on its own once it reaches 5 MB: the log starts again empty, nothing is deleted.
 

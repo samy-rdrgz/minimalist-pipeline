@@ -590,11 +590,12 @@ b.ab {
   gap: var(--sp-3);
 }
 
-/* Bottom bar: Review | Farm (live only) */
+/* Bottom bar: Review | To do | Farm (live only): one row, whatever their number */
 .m-nav {
   flex: none;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
   background: var(--head);
   border-top: 1px solid var(--line);
   padding-bottom: env(safe-area-inset-bottom);

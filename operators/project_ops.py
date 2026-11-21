@@ -479,7 +479,7 @@ _HELP = {
                          "    sup:1, prod:2\n    sup:1, prod:2, real:2"),
     "team": ("Team", "Names, a comma between them:\n    léa, tom, sam\n"
              "Each picks theirs as user name (Preferences); departments\n"
-             "are assigned to them (File details)."),
+             "are assigned to them (a file's detail, on the live page)."),
     "sequence_prefix": ("Naming", "Each part a prefix, then its number on so many digits:\n"
                         "    sq + 3 -> sq010    sh + 3 -> sh040    v + 3 -> v003\n"
                         "-> sq010_sh040_v003.blend; a frame: . + 4 -> name.1001.png"),
@@ -675,7 +675,7 @@ class ProjectSettings:
         name="",
         default="",
         description="The team's names, a comma between them: each one's user name picks "
-        "from them (Preferences), departments are assigned to them (File details)",
+        "from them (Preferences), departments are assigned to them (a file's detail, on the live page)",
     )
     validation_roles: bpy.props.StringProperty(
         name="",

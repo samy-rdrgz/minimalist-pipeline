@@ -137,25 +137,44 @@ minimalist_pipeline/
 │   ├── creation.py              # create_asset_file, create_shot_file, resolve_timeline
 │   ├── handlers.py             # load_post/exit_pre/save_post/blend_import_post, heartbeat_30s
 │   ├── session.py              # sessions, project backup, set_active_project_root
-│   ├── tracking.py             # tracking.json / .wipmeta / .stablemeta, entries (incl. shot tag),
-│   │                            #   copy_entries/is_block_archived/list_active_blocks (§5)
 │   ├── libraries.py            # append/link warning logic
 │   ├── versioning.py           # get_version_number, save_as
 │   ├── presets.py              # asset collection preset; shot scaffolding + camera/marker
 │   │                            #   build (build_shot_scene) and read-back (derive_shot_subranges)
 │   ├── preview.py               # multishot preview providers: resolve_block_sources,
-│   │                            #   resolve_sequence_sources
+│   │                            #   resolve_sequence_sources; render_root, render_department
 │   ├── saving.py               # WM_OT_safe_save (Ctrl+S override)
 │   ├── logs.py                 # log(), read_log_tail()
-│   ├── status.py               # State engine: department_state(), STATE_LABELS,
-│   │                            #   department_score(), file_progress(), progress_weights();
-│   │                            #   parse_departments(), departments_text(), stage_flags()
-│   ├── live.py                 # the live page: its server (127.0.0.1; the network too while a
-│   │                            #   guest is valid), the reader, the page's actions, the farm tab
-│   ├── qr.py                   # a QR code, pure Python (a guest's link): qr_matrix(), qr_svg()
-│   ├── monitoring.py           # The windows (Pipeline log, welcome, Project settings):
-│   │                            #   open_monitoring_window(), monitoring_windows(),
-│   │                            #   _monitoring_tick, open_mainfile(); paging, keys
+│   ├── background.py           # reader threads held still while the main thread runs a window
+│   ├── blendfile.py            # a .blend's libraries read, a copy written with its paths changed
+│   ├── formats.py              # "format_version" in every project file
+│   ├── icons.py                # the addon's coloured marks (icons/*.png)
+│   ├── migration.py            # Migrate old data: plan_migration() (read only), apply_migration()
+│   ├── relink.py               # Update links: a file's outdated links moved to their latest stables
+│   ├── render_clean.py         # Clean old renders: which render folders to lighten
+│   ├── rushes.py               # editing rushes: videos copied into editing/rushes/
+│   ├── sound.py                # a render's sound, mixed down from the shot file
+│   ├── thumbnails.py           # one small JPEG per render folder
+│   ├── ui.py                   # small drawing blocks shared by panels and windows
+│   ├── monitoring/             # what the project says about itself, and where it's shown
+│   │   ├── tracking.py         # tracking.json / .wipmeta / .stablemeta, entries (incl. shot tag),
+│   │   │                        #   ProjectScan, TrackingStatusCache, copy_entries (§5)
+│   │   ├── status.py           # State engine: department_state(), department_score(),
+│   │   │                        #   file_progress(), progress_weights(); parse_departments(),
+│   │   │                        #   departments_text(), stage_flags()
+│   │   ├── schedule.py         # working days, schedule_progress()
+│   │   ├── history.py          # a file's Versions and Render history (the page's detail tabs)
+│   │   ├── legacy.py           # the 1.x forms still written beside the 2.0 ones
+│   │   ├── progress_log.py     # config/logs/progress.json: a point a day, the activity
+│   │   ├── snapshot.py         # build_snapshot(): the project's state as one dict
+│   │   ├── snapshot_page.py    # page_data(), render_page(): the page from templates/snapshot/
+│   │   ├── review_import.py    # import_review(): a review's actions applied
+│   │   ├── review_revert.py    # Revert a review: <review>.revert.json written, read back
+│   │   ├── live.py             # the live page: its server (127.0.0.1; the network too while a
+│   │   │                        #   guest is valid), the reader, the page's actions, the farm tab
+│   │   ├── qr.py               # a QR code, pure Python (a guest's link): qr_matrix(), qr_svg()
+│   │   └── windows.py          # the windows (Pipeline log, welcome, Project settings):
+│   │                            #   open_monitoring_window(), _monitoring_tick, paging, keys
 │   └── operators.py            # M_PIPELINE_OT_action_popup / text_popup / auto_version
 ├── farm/                      # Render farm: monitor/worker roles, queue, dispatch
 │   ├── __init__.py
@@ -169,6 +188,11 @@ minimalist_pipeline/
 │   ├── chunks.py                 # a render's chunks and their claims (pure helpers + claim files)
 │   ├── setup.py                  # per-job output path + frame range resolution; a block's own
 │   │                            #   split-at-setup lives here (run_render_setup_entry)
+│   ├── stages.py                 # a job's stage_history: the one way a stage is added
+│   ├── details.py                # a job's and a machine's details as plain data (the Farm tab)
+│   ├── pace.py                   # seconds per frame per pre-render script (estimates)
+│   ├── local.py                  # Render here: a file rendered on this machine, outside the queue
+│   ├── awake.py                  # a worker kept out of idle sleep
 │   └── post_render.py            # ffmpeg checks_images + compilation + preview concat
 ├── operators/
 │   ├── __init__.py            # Exposes `classes` tuple
@@ -180,9 +204,16 @@ minimalist_pipeline/
 │   ├── file_ops.py             # increment_version
 │   ├── log_ops.py              # pipeline_logs popup, its refresh, copy_log_line
 │   ├── browser_ops.py          # open_file, open_file_version
-│   ├── farm_ops.py             # submit render (incl. a block's per-shot checklist),
-│   │                            #   monitor/worker role buttons, farm dashboard
-│   └── tracking_ops.py         # entry CRUD, prod snapshot export / review import, tracking dashboard
+│   ├── farm_ops.py             # submit render (incl. a block's per-shot checklist, Where:
+│   │                            #   farm / local), monitor/worker role buttons
+│   ├── live_ops.py             # open / stop the live page
+│   ├── migration_ops.py        # Migrate old data
+│   ├── monitoring_ops.py       # navigation inside the windows
+│   ├── owner_ops.py            # delete a shot or an asset
+│   ├── render_clean_ops.py     # Clean old renders
+│   ├── rushes_ops.py           # push videos to editing/rushes/
+│   ├── team_ops.py             # the team: picking one's user name
+│   └── tracking_ops.py         # entry CRUD, prod snapshot export / review import / revert
 ├── panels/
 │   ├── __init__.py            # Exposes `classes` tuple
 │   ├── project_panel.py         # own draw_header(): active project name + edit/log/unset buttons
@@ -217,6 +248,18 @@ The red text itself is a plain `row.label()`, not the button opening the menu: a
 **Convention**: each sub-package's `__init__.py` re-exports a `classes` tuple; the root `__init__.py` assembles them with `*lib.classes`, `*panel_classes`, `*operator_classes` — never hand-duplicate a class list, that's exactly how a stale/renamed reference goes unnoticed (happened once already).
 
 ---
+
+> **2.0 note.** The Project monitoring and Farm monitoring windows are gone (the live page,
+> `lib/monitoring/live.py` and `templates/snapshot/`, replaces them), and `lib/` was split
+> (`lib/monitoring/`). The module tree above is up to date; the inventories below still
+> name some functions that no longer exist -- to be rewritten: `_propose_read_only_increment`,
+> `get_pending_library_update`, `get_linked_libraries_cached`, `key_value(s)`, `details_header`,
+> `link_rows`, `_draw_approval`, `_to_validate`, `department_approvals`, `highest_approval`,
+> `_ROLE_ICON`, `m_pipeline.toggle_department_approval`, `_draw_farm_cell`,
+> `set_department_validated`, `m_pipeline.open_render_video`, `m_pipeline.render_checked`,
+> `m_pipeline.tracking_file_details`, `_department_score`, `get_job_details(_path|_logs)`,
+> `draw_farm_job_details`, `draw_farm_workers`, `_refresh_tick` / `register_refresh_timer`,
+> `_ffmpeg_pct`, `_ffmpeg_progress`. The farm's details for the page: `farm/details.py`.
 
 ## lib/ — what's implemented
 

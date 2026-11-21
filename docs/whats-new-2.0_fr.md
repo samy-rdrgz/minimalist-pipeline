@@ -19,9 +19,12 @@ C'est le gros changement de la 2.0 : **le suivi du projet se fait dans une page 
 
 - ***Monitor in browser*** (panneau Project, menu Pipeline) : Blender sert la page du projet à votre navigateur, à jour en permanence. Ce que vous y faites (valider, poser un retake, écrire une note, répondre, attribuer, ajouter un shot) est enregistré dans le projet tout de suite, sous votre nom.
 - **La liste des assets et des shots** : où en est chaque département, les retakes ouverts, les rendus à vérifier, ce qui tourne sur la farm. Filtres par département, retakes, notes ouvertes, « mon travail ». Un clic sur un fichier ouvre son panneau : ses notes, ses rendus à regarder (avec la frame affichée et les notes posées dessus), ses liens, et un bouton pour l'ouvrir dans Blender.
-- **Breakdown** : l'avancement par séquence et par département, en %, en états, en nombre ou en retakes, avec le planning du projet.
-- **Onglet Farm** : les rendus et les machines, envoyer un fichier en rendu, la priorité, annuler, relancer, archiver, savoir quelle machine a rendu quelle frame et combien de temps il reste.
-- **Thème clair / sombre**, et la page s'adapte aux tablettes et aux téléphones.
+- **Breakdown** : l'avancement par séquence et par département, en %, en états, en nombre ou en retakes, avec le planning du projet. Dessous, **Dans le temps** (Fait et Validé jour après jour), **Activité** (fichiers travaillés et heures, l'équipe ensemble, jamais par personne), **Projection** (où mène l'allure, en mois) et **Exporter…** (tout le projet en `.xlsx`).
+- **À faire** : ce qui reste à travailler ou à valider, fichier par fichier, le tien par défaut ; *Copier* en texte.
+- **Tout rechercher** (Ctrl+K) : noms, descriptions, notes, réponses, assignés, départements, presets de rendu.
+- **Onglet Farm** : les rendus et les machines (qui a quel fichier ouvert, l'état de chaque worker), lancer ou arrêter la farm, envoyer un fichier en rendu, la priorité, annuler, relancer, archiver, savoir quelle machine a rendu quelle frame et combien de temps il reste.
+- **Thème clair / sombre**, anglais ou français, et la page s'adapte aux tablettes et aux téléphones.
+- Le tour de chaque onglet, avec des captures : [La page live](live-page_fr.md).
 - **Accès à distance, secondaire** : quelqu'un reçoit la même page par un QR code ou un lien, valable d'une heure à une semaine, sous son nom et son rôle ; rien ne s'ouvre sur votre machine, et vous coupez l'accès en un clic. Combiné avec un VPN (type Tailscale), cela permet d'avoir facilement un monitoring extérieur et distant du projet et de la farm.
 
 ## Les reviews
@@ -64,5 +67,5 @@ C'est le gros changement de la 2.0 : **le suivi du projet se fait dans une page 
 ## Retiré
 
 - Les fenêtres **Project monitoring** et **Farm monitoring** : la page du projet les remplace. Le panneau latéral de Blender garde tout le reste.
-- Le **tableur de review** (.xlsx) : la review se fait dans la page.
+- Le **tableur de review** (.xlsx, à remplir puis réimporter) : la review se fait dans la page. (L'*Exporter…* du Breakdown écrit toujours un `.xlsx`, à lire, pas à importer.)
 - Les presets de rendu en `.json` : seuls les presets Python restent (*Migrate old data* convertit les anciens).

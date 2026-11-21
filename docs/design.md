@@ -61,7 +61,7 @@ Backing out of a popup isn't a silent escape hatch either: dismissing one withou
 
 ## Work duration is logged, never surfaced per person
 
-Every session start/end writes its duration to `sessions_log.jsonl` (see [Sessions and locking](sessions-and-locking.md)) — the data exists, in plain JSONL, per machine and user name. Nothing in the addon reads it back. No panel, no dashboard, no per-person total, anywhere.
+Every session start/end writes its duration to `sessions_log.jsonl` (see [Sessions and locking](sessions-and-locking.md)) — the data exists, in plain JSONL, per machine and user name. The addon only reads it back as totals with no name attached (below): a file's work time, and the team's hours per day in Breakdown › Activity. No per-person total, anywhere.
 
 That's deliberate, not unfinished. Time tracking between people who trust each other creates a surveillance dynamic even without anyone asking for it or any hierarchy behind it — the simple existence of a visible "Alice: 24h32, Bob: 18h15" changes how people work, whether or not anyone ever actually looks at it that way. The addon's target (2-5 people, often friends or a small studio) is exactly the setting where that cost is highest and the upside lowest — nobody here needs a coordinator's dashboard.
 
@@ -69,7 +69,7 @@ There's a second, independent reason beyond the social one: the raw duration is 
 
 The log stays anyway, because logging costs nothing and forecloses nothing: a future per-person, opt-in view is still possible without changing what's already on disk. What's ruled out is a default, always-on breakdown nobody asked to see, appearing as a side effect the day someone adds a panel that reads the file. If that panel ever gets built, it has to be an explicit, opt-in choice — never a side effect of the data already being there.
 
-What isn't ruled out: a plain **total** per asset/shot — every session's duration summed across everyone who touched it, no name attached to any part of the number. That sidesteps both objections above at once: nobody is singled out (no surveillance dynamic to create), and nothing is attributed to a department (no self-toggled data pretending to be precise) — it's just "this took N hours, total, across its whole history", which is real, useful for sanity-checking scope, and already fully computable from `session_end` entries (`filepath` + `duration_seconds`) grouped by asset/shot. Not built yet, but nothing above argues against it.
+What isn't ruled out: a plain **total** per asset/shot — every session's duration summed across everyone who touched it, no name attached to any part of the number. That sidesteps both objections above at once: nobody is singled out (no surveillance dynamic to create), and nothing is attributed to a department (no self-toggled data pretending to be precise) — it's just "this took N hours, total, across its whole history", which is real, useful for sanity-checking scope, and already fully computable from `session_end` entries (`filepath` + `duration_seconds`) grouped by asset/shot. Built in 2.0: a file's work time at the bottom of its panel on the page (to the half hour), and, the same way, the team's hours per day in Breakdown › Activity — everyone together, never split by person.
 
 <br>
 

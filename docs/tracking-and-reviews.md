@@ -8,7 +8,7 @@ Every asset/shot has a `.pipeline/` folder next to its `.blend` files:
 
 - **`tracking.json`**: required departments + a free-text description of what the asset/shot is (set at creation — interactively or via batch CSV, see [Project structure, naming, batch creation](project-and-naming.md)) + a list of entries (`note` / `todo` / `rtk`), each with author, date, its department(s), done/not-done state. Its *Notes & tasks* title (the File panel, a file's detail) shows what's left, folded or not: open RTKs in red, open todos in grey -- notes aren't counted. *Hide done*, first of its filters, brings back the done ones: the retakes to check a render against. A right-click on an entry's icons (its check box or circle, the grip on its right) offers Reply, Edit, Mark done / Reopen and Delete.
 - **`{version}.wipmeta`**: one per work version — creation mode, departments worked on this session, linked libraries. Full details in [Versions: wip and stable](versions.md).
-- **`{version}.stablemeta`**: one per `-stable` version — departments validated at that point. This is the reference point for computing "what's been touched since the last stable", shown throughout the UI. Individual departments can also be validated directly, without cutting a new `-stable` version — buttons next to each department in the Tracking panel/dashboard, for departments (like "render") that aren't tied to editing the file itself. This mutates the *latest* stablemeta's `departments_done` in place; requires at least one `-stable` version to already exist.
+- **`{version}.stablemeta`**: one per `-stable` version — departments validated at that point. This is the reference point for computing "what's been touched since the last stable", shown throughout the UI. Individual departments can also be validated directly, without cutting a new `-stable` version — ✓ beside each department in a file's detail on the live page, for departments (like "render") that aren't tied to editing the file itself. This mutates the *latest* stablemeta's `departments_done` in place; requires at least one `-stable` version to already exist.
 
 **Prod review import** (Project panel or Pipeline menu > *Import review*): reads back the review made on a snapshot's page (the `.json` it downloads, see *Review on the page* below). Each line of a department's box becomes its own retake — several retakes on the same shot go on several lines, each one with its own checkbox. Author and date are the ones given at its download (`prod` and the import day when left empty); each note is anchored on the render the reviewer watched -- the *Last render* the snapshot showed, per shot for a block (`[sh120]` takes sh120's) -- and on the `.blend` version that render was made from (`v007-stable_001` → `..._v007-stable.blend`), not on the latest file: a tag *▶ v007-stable_001* on the note (snapshot) and *Based on: ... (render v007-stable_001)* in its tooltip say which. The review carries that render (a `render_watched` field in its `.json`); a shot never rendered keeps the file's version. Only a review of this add-on version's snapshot is read: one from an older snapshot is refused -- export the snapshot again and review it there. Importing the same file again, or a re-sent one with notes added, never duplicates: lines already imported are skipped. Descriptions edited on the page (*✎ Edit the description*) are applied too, after a dialog listing every change (was / now): all of them, or none — to leave one out, change it on the page and download the review again. Only a description the production changed counts: one changed in the project since the export is never reverted, and an empty one changes nothing. A popup lists what came in and what couldn't (e.g. a file renamed or branched since). Imported entries say so in their tooltip. Each review imported is kept as it was sent, in `snapshots/reviews/<role>/<YYYY-MM>/` (`team`, or `no-role`; the month of its review date): the same file is never copied twice, another one under the same name gets a number.
 
@@ -33,7 +33,7 @@ Every asset/shot has a `.pipeline/` folder next to its `.blend` files:
 
 <img src="images/tracking-snapshot-details.png" alt="The production snapshot: assets and shots">
 
-Every file's status per department, a file's notes, renders and links: the live page above (*Monitor in browser*) -- File details' *Details* opens it on the open file.
+Every file's status per department, a file's notes, renders and links: the live page above (*Monitor in browser*) -- the File panel's *Details in browser* opens it on the open file. Its tabs one by one (To do, Breakdown's Over time, Activity and Projection, Farm, phone): [The live page](live-page.md).
 
 Multishot blocks can tag a note/todo with which shot in the block it's about — see [Shot blocks (multishot)](multishot.md).
 
@@ -48,18 +48,18 @@ Multishot blocks can tag a note/todo with which shot in the block it's about —
 
 - **Waiting**: an earlier stage has an open RTK, or isn't started -- *Waiting: layout RTK*, *Waiting: layout not started*. Shown with the department's state on the page (a clock in its diamond).
 - **To redo**: a department already started whose earlier stage changed after its last update -- an RTK on that stage closed, or a stable made with it reworked -- *To redo: layout changed on 12/11*. Its last update: a save in a session where it was ticked as worked, or **Still done**.
-- **Where**: File details' departments, the sidebar's *Working on* toggles. On the snapshot page, a clock (Waiting) or an orange arrow (To redo) in the diamond's place, the state a small diamond on its corner; the reason under the department's name in the file's panel.
-- **Still done** (File details, or the ✓ beside a toggle in the sidebar, on a department to redo, open to everyone): the work done holds after the change -- recorded with who and when, and an optional why; not a validation.
+- **Where**: a file's departments on the live page, the sidebar's *Working on* toggles. On the snapshot page, a clock (Waiting) or an orange arrow (To redo) in the diamond's place, the state a small diamond on its corner; the reason under the department's name in the file's panel.
+- **Still done** (a file's detail on the live page, or the ✓ beside a toggle in the sidebar, on a department to redo, open to everyone): the work done holds after the change -- recorded with who and when, and an optional why; not a validation.
 
 ## On hold and Cancelled
 
-**Set a file aside** without archiving it (File details, the pause button): *On hold* (paused, waiting for a decision) or *Cancelled* (cut at the edit, dropped), with a why. It stays in Blender's lists, greyed with its mark (on the snapshot page: hidden, a line at the end of its sequence shows it), and leaves the shares done (the snapshot's figures, the schedule's pace), the Retakes and To validate filters, and the stages (no Waiting, no To redo). The same button makes it *Active* again. A block's mark covers all its shots.
+**Set a file aside** without archiving it (a file's detail on the live page, its settings' gear, while reviewing): *On hold* (paused, waiting for a decision) or *Cancelled* (cut at the edit, dropped), with a why. It stays in Blender's lists, greyed with its mark (on the snapshot page: hidden, a line at the end of its sequence shows it), and leaves the shares done (the snapshot's figures, the schedule's pace), the Retakes and To validate filters, and the stages (no Waiting, no To redo). The same button makes it *Active* again. A block's mark covers all its shots.
 
 ## Team and assignees
 
 **The team** (Edit project → *Team*, names with a comma between them): each one's user name picks from it (Preferences or the welcome window, the team's button by the name field; a name not in the team is flagged), and a file's departments are assigned to its people.
 
-- **Assign** (File details, the team's button by a department, open to all): tick who it's for -- sh010's layout to Léa, its animation to Tom. Optional, a filter's matter: nothing is counted from it (no load per person, see [Design choices](design.md)). Stored in `tracking.json`: `"assignees": {"animation": ["tom"]}`.
+- **Assign** (a file's detail on the live page, the names under a department, open to all): tick who it's for -- sh010's layout to Léa, its animation to Tom. Optional, a filter's matter: nothing is counted from it (no load per person, see [Design choices](design.md)). Stored in `tracking.json`: `"assignees": {"animation": ["tom"]}`.
 - **Me** (the page's filters): only the files with a department assigned to you.
 - **On the snapshot page**: who each department is assigned to, under its name; *Me* among the filters (your name in the review). Reviewing, each department's names are a button: its menu, the team to tick -- sent as an `assign` action, applied at the import as File details would.
 
@@ -223,4 +223,4 @@ A finished farm render adds a `to_check` key, until it's marked checked: `{"<sho
 
 ---
 
-**See also**: [Versions: wip and stable](versions.md) for `.wipmeta`/`.stablemeta` · [Interface](interface.md) for the Tracking panel.
+**See also**: [Versions: wip and stable](versions.md) for `.wipmeta`/`.stablemeta` · [Interface](interface.md) for the File panel · [The live page](live-page.md).

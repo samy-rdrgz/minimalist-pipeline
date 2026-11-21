@@ -19,9 +19,12 @@ The big change in 2.0: **you follow the project in a web page**, instead of the 
 
 - ***Monitor in browser*** (Project panel, Pipeline menu): Blender serves the project's page to your browser, always up to date. What you do there (validate, add a retake, write a note, reply, assign, add a shot) is saved in the project at once, under your name.
 - **The list of assets and shots**: where each department stands, open retakes, renders to check, what's on the farm. Filters by department, retakes, open notes, "my work". A click on a file opens its panel: its notes, its renders to watch (the frame shown, the notes placed on it), its links, and a button to open it in Blender.
-- **Breakdown**: progress per sequence and per department, as %, states, counts or retakes, with the project's schedule.
-- **Farm tab**: the renders and the machines; send a file to render, set its priority, cancel, retry, archive; see which machine rendered which frame and how long is left.
-- **Light / dark theme**, and the page fits tablets and phones.
+- **Breakdown**: progress per sequence and per department, as %, states, counts or retakes, with the project's schedule. Under it, **Over time** (Done and Validated day after day), **Activity** (files worked and hours, the team together, never per person), **Projection** (where the pace leads, in months) and **Export…** (the whole project as an `.xlsx`).
+- **To do**: what's left to work on or to validate, file by file, yours by default; *Copy* as text.
+- **Search everything** (Ctrl+K): names, descriptions, notes, replies, assignees, departments, render presets.
+- **Farm tab**: the renders and the machines (who has which file open, each worker's state); launch or stop the farm; send a file to render, set its priority, cancel, retry, archive; see which machine rendered which frame and how long is left.
+- **Light / dark theme**, English or French, and the page fits tablets and phones.
+- A tour of every tab, with screenshots: [The live page](live-page.md).
 - **Remote access, secondary**: someone gets the same page through a QR code or a link, valid from an hour to a week, under their name and role; nothing opens on your machine, and you cut the access in a click. Combined with a VPN (Tailscale, for example), it gives easy remote monitoring of the project and the farm from outside the studio.
 
 ## Reviews
@@ -64,5 +67,5 @@ The big change in 2.0: **you follow the project in a web page**, instead of the 
 ## Removed
 
 - The **Project monitoring** and **Farm monitoring** windows: the project's page replaces them. Blender's sidebar keeps everything else.
-- The **review spreadsheet** (.xlsx): the review is made in the page.
+- The **review spreadsheet** (.xlsx, to fill in and import back): the review is made in the page. (Breakdown's *Export…* still writes an `.xlsx`, to read, not to import.)
 - Render presets in `.json`: only Python presets remain (*Migrate old data* converts the old ones).
