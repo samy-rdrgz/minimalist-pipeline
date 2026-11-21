@@ -134,7 +134,7 @@ function rowHTML(it) {
   if (it.outdated) tags.push(`<span class="tag check">${ic('b-error')}${T('render outdated')}</span>`);
   if (it.farm)
     tags.push(
-      `<span class="tag ${it.farm.state === 'failed' ? 'fail' : ''}" title="${T('In the farm: {what}', { what: esc(it.farm.tip) })}">${ic(it.farm.state === 'waiting' ? 'b-sorttime' : 'b-file_movie')}farm ${esc(it.farm.text)}</span>`
+      `<span class="tag ${it.farm.state === 'failed' ? 'fail' : ''}" title="${T('In the farm: {what}', { what: esc(TS(it.farm.tip)) })}">${ic(it.farm.state === 'waiting' ? 'b-sorttime' : 'b-file_movie')}farm ${esc(TS(it.farm.text))}</span>`
     );
   if (touched(it)) tags.push(`<span class="tag you">${T('you')}</span>`);
   return `<div class="row ${S.sel === it.name ? 'sel' : ''} ${om && om.state ? 'omit' : ''} ${touched(it) ? 'mine' : ''}" data-n="${it.name}" tabindex="-1">

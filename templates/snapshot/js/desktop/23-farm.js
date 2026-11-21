@@ -6,6 +6,18 @@ const JS = [
   ['failed', T('Failed'), 'var(--st-rtk)', 'b-x'],
   ['finished', T('Finished'), 'var(--st-done)', 'b-checkmark']
 ];
+/* The rendering time left (lib/monitoring/live.py, farm/details.py render_left_parts()):
+   {seconds, workers, unknown}, said here in the page's language. */
+const hMin = s => (s >= 3600 ? Math.floor(s / 3600) + ' h ' + String(Math.round((s % 3600) / 60)).padStart(2, '0') : T('{n} min', { n: Math.max(1, Math.round(s / 60)) }));
+const farmLeft = L => {
+  if (!L) return '';
+  if (typeof L === 'string') return L; // a page served by an older Blender
+  if (!L.seconds) return L.unknown ? T('{n} not estimated yet', { n: L.unknown }) : '';
+  return (
+    T('≃ {time} of rendering left with {n} worker|≃ {time} of rendering left with {n} workers', { time: hMin(L.seconds), n: L.workers }) +
+    (L.unknown ? ' ' + T('(+{n} not estimated)', { n: L.unknown }) : '')
+  );
+};
 const jst = s => {
   const x = JS.find(a => a[0] === s) || JS[1];
   return `<span class="jst ${x[0]}" style="background:${x[2]}" title="${x[1]}">${ic(x[3])}</span>`;
@@ -25,7 +37,7 @@ function renderFarmQuick() {
   $('#quick').innerHTML =
     `<span class="join">${[['', T('All')], ...JS].map(([k, l]) => `<button class="btn" data-ffs="${k}" aria-pressed="${S.ff.s === k}">${l}<span class="n">${n(k)}</span></button>`).join('')}</span>
     <button class="btn ${S.ff.mine ? '' : 'tool'}" data-ffm aria-pressed="${S.ff.mine}">${ic('b-user')}${T('Mine')}</button>
-    ${F.left ? `<span class="faint" style="font-size:var(--fs-s)" title="${T('The machine time the jobs have left, on the workers alive')}">${esc(F.left)}</span>` : ''}
+    ${farmLeft(F.left) ? `<span class="faint" style="font-size:var(--fs-s)" title="${T('The machine time the jobs have left, on the workers alive')}">${esc(farmLeft(F.left))}</span>` : ''}
     <button class="btn tool live-only" data-pushall title="${T("Each shot's latest video, and the assets', into editing/rushes/")}">${ic('b-export')}${T('Push rushes…')}</button>`;
 }
 /* Render here (farm/local.py): rendered by its own machine, outside the queue; viewport, drawn by its 3D view. */
@@ -41,7 +53,7 @@ function jobRow(j) {
     meta = [j.machines ? T('{n} machine|{n} machines', { n: j.machines }) : '', esc(j.user), fmtD(j.at)]
       .filter(Boolean)
       .join(' · ');
-  return `<div class="job ${S.farmSel === j.id ? 'sel' : ''}" data-job="${j.id}" tabindex="-1">${jst(j.state)}<span class="jt"><span class="f">${esc(j.file)}</span><span class="s">${esc([j.shot, j.text].filter(Boolean).join(' · '))}${j.priority !== 10 ? ' · ' + T('priority {n}', { n: j.priority }) : ''}${jobTags(j)}</span></span>
+  return `<div class="job ${S.farmSel === j.id ? 'sel' : ''}" data-job="${j.id}" tabindex="-1">${jst(j.state)}<span class="jt"><span class="f">${esc(j.file)}</span><span class="s">${esc([j.shot, TS(j.text)].filter(Boolean).join(' · '))}${j.priority !== 10 ? ' · ' + T('priority {n}', { n: j.priority }) : ''}${jobTags(j)}</span></span>
     <span class="jbar">${j.total ? `<i style="--p:${p * 100}%"></i><span>${j.done} / ${j.total} frames</span>` : ''}</span>
     <span class="meta" title="${meta}">${meta}</span></div>`;
 }
@@ -70,7 +82,7 @@ function renderFarmDetail(H, B) {
     const w = F.workers.find(x => 'w:' + x.uuid === id);
     if (w) {
       H.innerHTML = `<span class="phead"><span class="pname">${esc(w.name)}</span><span class="d">${T('Machine')}</span></span>`;
-      B.innerHTML = `<div class="sec"><dl class="dl"><dt>${T('State')}</dt><dd>${w.status === 'silent' ? T('silent') : esc(w.status)}</dd><dt>${T('Since')}</dt><dd>${fmtD(w.since)}</dd><dt>${T('File')}</dt><dd>${esc(w.file || '–')}</dd><dt>${T('This machine')}</dt><dd>${w.mine ? T('yes') : T('no')}</dd><dt>${T('Host')}</dt><dd>${w.host ? T('yes') : T('no')}</dd></dl>
+      B.innerHTML = `<div class="sec"><dl class="dl"><dt>${T('State')}</dt><dd>${w.status === 'silent' ? T('silent') : esc(TS(w.status))}</dd><dt>${T('Since')}</dt><dd>${fmtD(w.since)}</dd><dt>${T('File')}</dt><dd>${esc(w.file || '–')}</dd><dt>${T('This machine')}</dt><dd>${w.mine ? T('yes') : T('no')}</dd><dt>${T('Host')}</dt><dd>${w.host ? T('yes') : T('no')}</dd></dl>
       <div class="pacts">${w.status !== 'silent' ? `<button class="btn alert" data-farm="stop">${T('Stop')}</button>` : ''}${w.status === 'silent' ? `<button class="btn" data-farm="forget">${T('Forget this machine')}</button>` : ''}</div></div>`;
       return;
     }
@@ -84,9 +96,9 @@ function renderFarmDetail(H, B) {
   const it = jobItem(j),
     live = j.state === 'running' || j.state === 'waiting',
     x = JS.find(a => a[0] === j.state);
-  H.innerHTML = `<span class="phead"><span class="pname">${esc(j.file)}</span><span class="d">${x[1]} · ${esc(j.text)}</span></span>`;
+  H.innerHTML = `<span class="phead"><span class="pname">${esc(j.file)}</span><span class="d">${x[1]} · ${esc(TS(j.text))}</span></span>`;
   B.innerHTML = `<div class="sec">${j.total ? `<span class="jbar big"><i style="--p:${(j.done / j.total) * 100}%"></i><span>${j.done} / ${j.total} frames</span></span>` : ''}
-    <dl class="dl"><dt>${T('State')}</dt><dd>${jst(j.state)} ${esc(j.text)}</dd><dt>${T('Step')}</dt><dd class="mono">${esc(j.stage)}</dd>${j.preset || j.department ? `<dt>${T('Script')}</dt><dd>${esc([j.preset, j.department].filter(Boolean).join(' · '))}</dd>` : ''}
+    <dl class="dl"><dt>${T('State')}</dt><dd>${jst(j.state)} ${esc(TS(j.text))}</dd><dt>${T('Step')}</dt><dd class="mono">${esc(j.stage)}</dd>${j.preset || j.department ? `<dt>${T('Script')}</dt><dd>${esc([j.preset, j.department].filter(Boolean).join(' · '))}</dd>` : ''}
     <dt>${T('Frames')}</dt><dd>${j.range ? j.range.join(' – ') : '–'}${j.shot ? ' · ' + esc(j.shot) : ''}</dd><dt>${T('Machines')}</dt><dd class="mono">${j.names.length ? esc(j.names.join(', ')) : T('none')}</dd>
     <dt>${T('Sent by')}</dt><dd>${esc(j.user)} · ${fmtD(j.at)}</dd>
     <dt>${T('Priority')}</dt><dd>${live && !j.pending ? `<span class="prio"><button class="btn sm icon" data-prio="-1" aria-label="${T('Lower')}">−</button><b>${j.priority}</b><button class="btn sm icon" data-prio="1" aria-label="${T('Higher')}">+</button><span class="faint">${T('the highest goes first')}</span></span>` : j.priority}</dd>

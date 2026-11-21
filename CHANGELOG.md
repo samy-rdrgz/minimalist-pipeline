@@ -6,6 +6,10 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- The phone writes to-dos (a third type in the box), marks a retake fixed
+  or a to-do done, and opens a closed one again (the closed ones folded
+  under the notes, Reopen) -- as the desktop does.
+
 - Render here: the file panel's Render offers Where -- Farm, Local ·
   playblast, Local · viewport. Local renders the open file on this
   machine, now, outside the farm's queue and without a farm host: the same
@@ -514,6 +518,10 @@ All notable changes to this addon. Dates are release dates.
   row (Farm wrapped below). A to-do named as such in the phone's notes,
   What's new and the status line (was "note" / "Remark").
 - Render here's message pointed to Farm monitoring: the Farm tab now.
+- The page in French: the farm's steps ("en rendu", "en attente d'un
+  worker"...), the rendering time left (sent as figures, said by the
+  page), Blender's answers and errors, "moi" and "hors filtre" no longer
+  written in the script; a test keeps French out of it.
 
 - A worker stopped then added again, Blender left open, never took a
   job: the farm loop's timer, gone with the role, was taken for still

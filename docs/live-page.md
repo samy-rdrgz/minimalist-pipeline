@@ -108,7 +108,7 @@ See [Farm](farm.md).
 
 *Share with a phone…* (Pipeline menu, or the icon beside *Monitor in browser*) gives someone a time-limited access with a QR code.
 
-On the phone they get **Review**, **To do** and **Farm** tabs. The farm is read-only unless the access allows driving it (launch, stop, renders, priorities). Nothing is ever opened on the machine serving the page.
+On the phone they get **Review**, **To do** and **Farm** tabs. Reviewing, they write retakes, remarks and to-dos, mark a retake fixed or a to-do done, and reopen a closed one. The farm is read-only unless the access allows driving it (launch, stop, renders, priorities). Nothing is ever opened on the machine serving the page.
 
 ## View menu
 

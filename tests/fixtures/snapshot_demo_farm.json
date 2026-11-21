@@ -496,7 +496,7 @@
 "host": false,
 "host_name": "samyr (fbd54d8e)"
 },
-"left": "≃ 1h40m of rendering left with 3 workers",
+"left": {"seconds": 6000, "workers": 3, "unknown": 2},
 "presets": [
 [
 "NONE",

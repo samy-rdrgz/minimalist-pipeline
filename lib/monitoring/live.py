@@ -944,7 +944,7 @@ def _farm_data(root: Path) -> dict:
     "text", "done", "total", "left", "machines", "user", "at"}], "workers":
     [{"name", "status", "file", "mine", "host", "since"}], "me", "presets",
     "preset"}, from the monitor cache. Memory only."""
-    from ...farm.details import estimate_label, render_left_label
+    from ...farm.details import estimate_label, render_left_parts
     from ...farm.loop import _STAGE_WORDS, entry_state
     from ...farm.monitor import REMOVABLE_STAGES, get_monitor_cache
     from ...farm.queue import RETRYABLE_STAGES
@@ -1036,7 +1036,8 @@ def _farm_data(root: Path) -> dict:
         "workers": workers,
         "me": me,
         # The machine time the jobs still need, over the live workers.
-        "left": render_left_label([j for j in cache.get("jobs") or [] if entry_state(j) != "finished"], cache).removeprefix(" - "),
+        # Said by the page, in its language: {"seconds", "workers", "unknown"}.
+        "left": render_left_parts([j for j in cache.get("jobs") or [] if entry_state(j) != "finished"], cache),
         **_presets(),
     }
 

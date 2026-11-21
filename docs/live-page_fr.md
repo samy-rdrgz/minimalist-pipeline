@@ -113,7 +113,7 @@ Voir [Farm](farm_fr.md).
 
 *Share with a phone…* (menu Pipeline, ou l'icône à côté de *Monitor in browser*) donne à quelqu'un un accès limité dans le temps, avec un QR code.
 
-Sur le téléphone, on a les onglets **Review**, **À faire** et **Farm**. La farm est en lecture seule, sauf si l'accès permet de la piloter (lancer, arrêter, rendus, priorités). Rien n'est jamais ouvert sur la machine qui sert la page.
+Sur le téléphone, on a les onglets **Review**, **À faire** et **Farm**. En review, on y écrit des retakes, des remarques et des à-faire, on marque un retake corrigé ou un à-faire fait, et on rouvre une note fermée. La farm est en lecture seule, sauf si l'accès permet de la piloter (lancer, arrêter, rendus, priorités). Rien n'est jamais ouvert sur la machine qui sert la page.
 
 ## Menu Affichage
 

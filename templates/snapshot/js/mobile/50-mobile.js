@@ -118,9 +118,10 @@ function mReview() {
       ? `<span class="rng sel" id="rng-sel" style="left:${((Math.min(S.rangeStart, S.frame) - 1) / (NF - 1)) * 100}%;width:${(Math.abs(S.frame - S.rangeStart) / (NF - 1)) * 100}%"></span>`
       : '';
   const req = DEPTS[it.kind].filter(d => required(it).includes(d));
-  const notes = [...it.myNotes.map(n => ({ ...n, mine: true })), ...it.notes.filter(n => !n.done)];
+  const notes = [...it.myNotes.map(n => ({ ...n, mine: true })), ...it.notes.filter(n => !n.done)],
+    closed = it.notes.filter(n => n.done && n.type !== 'note');
   return `<div class="m-shotnav"><button class="m-ib" data-mstep="-1" aria-label="${T('Previous shot')}" ${k <= 0 ? 'disabled' : ''}>${ic('b-tria_left')}</button>
-      <button class="m-pick" data-msheet="pick" aria-label="${T('Choose the shot')}"><span class="t"><b>${esc(mShort(it))}</b><small>${esc(groupOf(it))} · ${k < 0 ? 'hors filtre' : k + 1 + ' / ' + sib.length}${S.m.filter ? ' · ' + mF[S.m.filter] : ''}</small></span><span class="gls">${mGl(it)}</span>${ic('b-tria_down')}</button>
+      <button class="m-pick" data-msheet="pick" aria-label="${T('Choose the shot')}"><span class="t"><b>${esc(mShort(it))}</b><small>${esc(groupOf(it))} · ${k < 0 ? T('out of the filter') : k + 1 + ' / ' + sib.length}${S.m.filter ? ' · ' + mF[S.m.filter] : ''}</small></span><span class="gls">${mGl(it)}</span>${ic('b-tria_down')}</button>
       <button class="m-ib" data-mstep="1" aria-label="${T('Next shot')}" ${k < 0 || k >= sib.length - 1 ? 'disabled' : ''}>${ic('b-tria_right')}</button></div>
     ${it.desc || it.descEdit ? `<p class="m-desc">${esc(it.descEdit ?? it.desc)}</p>` : ''}
     <div class="m-player ${S.m.side === 'B' && V.length > 1 ? 'is-b' : ''}" id="m-player">${it.thumb ? `<img src="${it.thumb}" alt="${T('Picture of {name}', { name: esc(it.name) })}" draggable="false">` : `<span class="noimg">${T('Not rendered yet')}</span>`}
@@ -141,11 +142,24 @@ function mReview() {
       ${
         notes
           .map(
-            n => `<div class="m-note">${n.frames ? `<button class="ft ${/-/.test(n.frames) ? 'rg' : n.type === 'rtk' ? '' : 'nt'}" data-goto="${(String(n.frames).match(/\d+/) || [1])[0]}">${esc(n.frames)}</button>` : `<span class="ft ${n.type === 'rtk' ? '' : 'nt'}">${n.type === 'rtk' ? 'RTK' : n.type === 'todo' ? T('to do') : 'note'}</span>`}
-        <span class="tx">${esc(n.text || T('(no text)'))}<small>${esc(((n.deps || []).map(d => LBL[d] || d).join(', ') || T('no department')) + ' · ' + (n.mine ? T('you, not sent yet') : n.author || ''))}</small></span>
+            n => `<div class="m-note">${n.frames ? `<button class="ft ${/-/.test(n.frames) ? 'rg' : n.type === 'rtk' ? '' : 'nt'}" data-goto="${(String(n.frames).match(/\d+/) || [1])[0]}">${esc(n.frames)}</button>` : `<span class="ft ${n.type === 'rtk' ? '' : 'nt'}">${n.type === 'rtk' ? 'RTK' : n.type === 'todo' ? T('to do') : T('note')}</span>`}
+        <span class="tx">${esc(n.text || T('(no text)'))}<small>${esc(((n.deps || []).map(d => LBL[d] || d).join(', ') || T('no department')) + ' · ' + (n.mine ? T('you, not sent yet') : n.author || ''))}</small>${fixHTML(it, n) ? `<span class="m-nf">${fixHTML(it, n)}</span>` : ''}</span>
         ${n.mine ? `<button class="m-ib" data-unnote="${n.at}" aria-label="${T('Remove')}">${ic('b-loop_back')}</button>` : ''}</div>`
           )
           .join('') || '<p class="m-hint">' + T('No open note.') + '</p>'
+      }
+      ${
+        closed.length && S.review
+          ? `<button class="btn flat m-wide" data-mclosed aria-expanded="${!!S.m.closed}">${S.m.closed ? T('Hide the closed ones') : T('{n} closed: show', { n: closed.length })}</button>${
+              S.m.closed
+                ? closed
+                    .map(
+                      n => `<div class="m-note done"><span class="ft nt">${n.type === 'rtk' ? 'RTK' : T('to do')}</span><span class="tx">${esc(n.text || T('(no text)'))}<small>${esc(((n.deps || []).map(d => LBL[d] || d).join(', ') || T('no department')) + ' · ' + (n.author || ''))}</small><span class="m-nf">${fixHTML(it, n)}</span></span></div>`
+                    )
+                    .join('')
+                : ''
+            }`
+          : ''
       }</section>`;
 }
 function mDept(it, d) {
@@ -171,10 +185,10 @@ function mComposer() {
   const it = cur(),
     req = DEPTS[it.kind].filter(d => required(it).includes(d));
   if (S.m.cdept && !req.includes(S.m.cdept)) S.m.cdept = null;
-  return `<div class="m-comp"><div class="m-cr"><span class="join m-ct"><button class="btn icon" data-mct="rtk" aria-pressed="${S.m.ctype === 'rtk'}" aria-label="Retake" title="Retake">${ic('b-x')}</button><button class="btn icon" data-mct="note" aria-pressed="${S.m.ctype === 'note'}" aria-label="${T('Remark')}" title="${T('Remark')}">${ic('i-note')}</button></span>
+  return `<div class="m-comp"><div class="m-cr"><span class="join m-ct"><button class="btn icon" data-mct="rtk" aria-pressed="${S.m.ctype === 'rtk'}" aria-label="Retake" title="Retake">${ic('b-x')}</button><button class="btn icon" data-mct="note" aria-pressed="${S.m.ctype === 'note'}" aria-label="${T('Remark')}" title="${T('Remark')}">${ic('i-note')}</button><button class="btn icon" data-mct="todo" aria-pressed="${S.m.ctype === 'todo'}" aria-label="${T('To do')}" title="${T('To do')}">${ic('b-checkmark')}</button></span>
       <button class="m-chip" data-msheet="cdept"><span>${S.m.cdept ? LBL[S.m.cdept] : T('No dept.')}</span>${ic('b-tria_down')}</button>
       <button class="m-chip ${S.rangeStart != null ? 'on' : ''}" data-tp="in" ${pOff(it)} aria-pressed="${S.rangeStart != null}" title="${T('A range: its start here')}">${S.rangeStart != null ? 'f' + S.rangeStart + ' →' : '⇤'} f<span data-f>${fNo(S.frame)}</span></button></div>
-    <div class="m-cr"><label class="field ta"><textarea id="m-ta" rows="1" placeholder="${S.m.ctype === 'rtk' ? T('Retake at this frame…') : T('Remark at this frame…')}" aria-label="${T("The note's text")}"></textarea></label>
+    <div class="m-cr"><label class="field ta"><textarea id="m-ta" rows="1" placeholder="${S.m.ctype === 'rtk' ? T('Retake at this frame…') : S.m.ctype === 'todo' ? T('To do at this frame…') : T('Remark at this frame…')}" aria-label="${T("The note's text")}"></textarea></label>
       <button class="btn primary icon m-send" data-msend aria-label="${T('Add to my review')}">${ic('b-export')}</button></div></div>`;
 }
 
@@ -189,7 +203,7 @@ function mFarm() {
     bad = F.status === 'dead' || F.status === 'stale';
   const js = F.jobs.filter(j => !j.archived);
   return `<div class="m-card ${bad ? 'bad' : ''}">${jst(bad ? 'failed' : 'running')}<span class="t"><b>${T('Monitor {state}', { state: st })}</b><small>${T('{n} machine online|{n} machines online', { n: act.length })} · ${T('{n} rendering', { n: busy.length })}${W.length - act.length ? ' · ' + T('{n} silent', { n: W.length - act.length }) : ''}</small>
-      ${F.left ? `<small>${esc(F.left)}</small>` : ''}</span></div>
+      ${farmLeft(F.left) ? `<small>${esc(farmLeft(F.left))}</small>` : ''}</span></div>
     <span class="live-only">${monitorBtn('m-wide')}</span>
     <button class="btn primary m-wide" data-msheet="render">${ic('b-render_animation')}${T('Render a shot…')}</button>
     ${JS.map(([s, l]) => {
@@ -202,7 +216,7 @@ function mFarm() {
       )
         .map(j => {
           const p = j.total ? j.done / j.total : 0;
-          return `<button class="m-job" data-msheet="job:${j.id}">${jst(j.state)}<span class="jt"><b>${esc(j.file)}</b><small>${esc([j.text, j.user].filter(Boolean).join(' · '))}</small>
+          return `<button class="m-job" data-msheet="job:${j.id}">${jst(j.state)}<span class="jt"><b>${esc(j.file)}</b><small>${esc([TS(j.text), j.user].filter(Boolean).join(' · '))}</small>
           ${j.total ? `<span class="jbar"><i style="--p:${p * 100}%"></i></span>` : ''}</span><span class="pc">${j.total ? Math.round(p * 100) + ' %' : ''}</span></button>`;
         })
         .join('')}
@@ -378,7 +392,7 @@ function mSheet() {
       x = JS.find(a => a[0] === j.state);
     t = j.file;
     h = `${j.total ? `<span class="jbar big"><i style="--p:${(j.done / j.total) * 100}%"></i><span>${j.done} / ${j.total} frames · ${Math.round((j.done / j.total) * 100)} %</span></span>` : ''}
-      <dl class="dl"><dt>${T('State')}</dt><dd>${jst(j.state)} ${x[1]} · ${esc(j.text)}</dd><dt>${T('Machines')}</dt><dd>${j.names.length ? esc(j.names.join(', ')) : T('none')}</dd><dt>${T('Sent')}</dt><dd>${esc(j.user)} · ${fmtD(j.at)}</dd>
+      <dl class="dl"><dt>${T('State')}</dt><dd>${jst(j.state)} ${x[1]} · ${esc(TS(j.text))}</dd><dt>${T('Machines')}</dt><dd>${j.names.length ? esc(j.names.join(', ')) : T('none')}</dd><dt>${T('Sent')}</dt><dd>${esc(j.user)} · ${fmtD(j.at)}</dd>
       <dt>${T('Priority')}</dt><dd>${live && !j.pending ? `<span class="prio"><button class="btn icon" data-mprio="-1" aria-label="${T('Lower')}">−</button><b>${j.priority}</b><button class="btn icon" data-mprio="1" aria-label="${T('Higher')}">+</button></span>` : j.priority}</dd></dl>`;
     foot = `${j.retry ? '<button class="btn primary m-wide" data-mjob="retry">' + T('Retry') + '</button>' : ''}${j.removable ? '<button class="btn alert m-wide" data-mjob="remove">' + T('Remove from the queue') + '</button>' : live ? '<button class="btn alert m-wide" data-mjob="cancel">' + T('Cancel the render') + '</button>' : ''}${j.state === 'failed' || j.state === 'finished' ? '<button class="btn m-wide" data-mjob="archive">' + T('Archive') + '</button>' : ''}`;
   }
@@ -569,6 +583,11 @@ $('#mob').addEventListener('click', e => {
     $('#m-ta')?.focus();
     return;
   }
+  if (q('[data-mclosed]')) {
+    S.m.closed = !S.m.closed;
+    mRender();
+    return;
+  }
   if ((x = q('[data-mct]'))) {
     S.m.ctype = x.dataset.mct;
     mRender();
@@ -605,7 +624,13 @@ $('#mob').addEventListener('click', e => {
     ta.value = '';
     S.rangeStart = null;
     mRender();
-    toast(S.m.ctype === 'rtk' ? T('Retake added to your review') : T('Remark added to your review'));
+    toast(
+      S.m.ctype === 'rtk'
+        ? T('Retake added to your review')
+        : S.m.ctype === 'todo'
+          ? T('To-do added to your review')
+          : T('Remark added to your review')
+    );
     return;
   }
   if ((x = q('[data-mrole]'))) {

@@ -44,6 +44,13 @@ def main() -> None:
     used |= {t.strip().replace("'", "\\'") for t in re.findall(r"data-t>([^<]+)<", shell)}
     missing = sorted(k for k in used if k not in fr_keys)
     assert not missing, f"no French for: {missing}"
+    # No French written in the script itself, outside the dictionary: a
+    # string with a French letter or word ("hors filtre" once) is the
+    # dictionary's, through T(). Comments aside.
+    french = re.compile(r"[àâçéèêëîïôûùœ]|\b(hors|aucun|votre|fichiers?|filtre|moi|pas encore)\b", re.I)
+    strings = re.findall(r"'((?:[^'\\\n]|\\.)*)'", script)
+    found = sorted({x for x in strings if french.search(x)})
+    assert not found, f"French outside js/i18n/: {found}"
     node = shutil.which("node")
     if not node:
         print("OK: snapshot page (Node not found: its script not run)")

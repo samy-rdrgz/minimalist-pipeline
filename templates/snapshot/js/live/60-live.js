@@ -20,7 +20,7 @@ function liveOpen(file, save, anyway) {
       toast(
         res.ok
           ? sentSay(T('opening {file}', { file: res.opened }))
-          : T('Not opened: {error}', { error: res.error })
+          : T('Not opened: {error}', { error: TS(res.error) })
       );
     })
     .catch(noAnswer);
@@ -58,7 +58,7 @@ function askOpen(file, current, anyway) {
 function liveFolder(body) {
   livePost('open', body)
     .then(res =>
-      toast(res.ok ? sentSay(T('opens the folder')) : T('Not opened: {error}', { error: res.error }))
+      toast(res.ok ? sentSay(T('opens the folder')) : T('Not opened: {error}', { error: TS(res.error) }))
     )
     .catch(noAnswer);
 }
@@ -70,7 +70,7 @@ function livePlay(video) {
       toast(
         res.ok
           ? sentSay(T("opens the video in this machine's player"))
-          : T('Not opened: {error}', { error: res.error })
+          : T('Not opened: {error}', { error: TS(res.error) })
       )
     )
     .catch(noAnswer);
@@ -81,8 +81,8 @@ function farmPost(body, say) {
     .then(res => {
       toast(
         res.ok
-          ? sentSay((say || res.sent || body.action) + (res.note ? ' · ' + res.note : ''))
-          : T('Not done: {error}', { error: res.error || '?' })
+          ? sentSay((say || res.sent || body.action) + (res.note ? ' · ' + TS(res.note) : ''))
+          : T('Not done: {error}', { error: TS(res.error) || '?' })
       );
       return res;
     })
@@ -165,7 +165,7 @@ function liveFlush() {
         liveSay('off');
         toast(
           T('Not applied by Blender: {error} -- sent again in a moment.', {
-            error: res.error || T('no answer')
+            error: TS(res.error) || T('no answer')
           })
         );
         setTimeout(liveQueue, 4000);
@@ -224,7 +224,7 @@ function liveChecked(it) {
       if (!res.ok)
         toast(
           T('Not applied by Blender: {error} -- sent again in a moment.', {
-            error: res.error || T('no answer')
+            error: TS(res.error) || T('no answer')
           })
         );
     })
@@ -383,7 +383,7 @@ function pushRender(it, v) {
       toast(
         res.ok
           ? T('Pushing {name} to the edit…', { name: res.pushing })
-          : T('Not pushed: {error}', { error: res.error })
+          : T('Not pushed: {error}', { error: TS(res.error) })
       )
     )
     .catch(noAnswer);
@@ -417,7 +417,7 @@ function pushAllDlg() {
       livePost('open', { push: 'all', sequences: seqs.filter(s => !o.off.includes(s)), assets: o.assets })
         .then(res =>
           toast(
-            res.ok ? T('Pushing the rushes to the edit…') : T('Not pushed: {error}', { error: res.error })
+            res.ok ? T('Pushing the rushes to the edit…') : T('Not pushed: {error}', { error: TS(res.error) })
           )
         )
         .catch(noAnswer);

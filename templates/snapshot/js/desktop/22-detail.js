@@ -80,7 +80,7 @@ function assignHTML(it, d, ctx) {
       ? `<span class="assign ro" title="${T('Assigned to')}">${ic('b-user')}${esc(a.join(', '))}</span>`
       : '';
   return `<span class="anchor"><button class="assign ${a.length ? '' : 'none'} ${chg ? 'chg' : ''}" data-menu="m-as-${ctx}-${d}" aria-haspopup="true" aria-expanded="false" title="${T('Assign {dept}', { dept: LBL[d] })}">${ic('b-user')}${a.length ? esc(a.join(', ')) : T('Assign')}${ic('b-tria_down')}</button>
-    <div class="menu right" id="m-as-${ctx}-${d}" hidden role="menu"><div class="menu-h">${T('{dept}: assigned to', { dept: LBL[d] })}</div>${M.team.map(p => `<button class="mi" role="menuitemcheckbox" aria-checked="${a.includes(p)}" data-assign="${d}" data-p="${esc(p)}"><span class="ck">${a.includes(p) ? ic('b-checkmark') : ''}</span><span class="lbl">${esc(p)}</span>${p === M.live.user ? '<span class="k">moi</span>' : ''}</button>`).join('')}
+    <div class="menu right" id="m-as-${ctx}-${d}" hidden role="menu"><div class="menu-h">${T('{dept}: assigned to', { dept: LBL[d] })}</div>${M.team.map(p => `<button class="mi" role="menuitemcheckbox" aria-checked="${a.includes(p)}" data-assign="${d}" data-p="${esc(p)}"><span class="ck">${a.includes(p) ? ic('b-checkmark') : ''}</span><span class="lbl">${esc(p)}</span>${p === M.live.user ? '<span class="k">' + T('me') + '</span>' : ''}</button>`).join('')}
     <div class="msep"></div><button class="mi" data-assign="${d}" data-p=""><span class="ck"></span><span class="lbl">${T('Nobody')}</span></button></div></span>`;
 }
 function deptHTML(it, d, ctx = 'p') {
@@ -206,7 +206,7 @@ function noteHTML(it, n) {
       ${S.nedit === y.key ? edFormHTML(y, !r.mine) : `<div class="t">${esc(y.txt)}${edSay(y)}</div>`}</div>`;
   };
   return `<div class="nt ${n.type} ${n.done ? 'closed' : ''} ${n.mine ? 'mine' : ''} ${x.del ? 'gone' : ''} ${x.ed !== undefined ? 'chg' : ''}">
-    <div class="h"><span class="type ${n.type}">${n.type === 'rtk' ? 'RTK' : n.type === 'todo' ? T('to do') : 'note'}</span>${(n.deps || []).length ? n.deps.map(d => LBL[d] || d).join(', ') : '<span>' + T('no department') + '</span>'}${who ? `<span>· ${esc(who)}</span>` : ''}
+    <div class="h"><span class="type ${n.type}">${n.type === 'rtk' ? 'RTK' : n.type === 'todo' ? T('to do') : T('note')}</span>${(n.deps || []).length ? n.deps.map(d => LBL[d] || d).join(', ') : '<span>' + T('no department') + '</span>'}${who ? `<span>· ${esc(who)}</span>` : ''}
       ${n.frames ? `<button class="chip-frame" data-goto="${parseInt(String(n.frames).replace(/\D+/, ''))}" title="${T('Go to {frame}', { frame: esc(n.frames) })}">${esc(n.frames)}</button>` : ''}${n.mine ? '<span class="tag you">' + T('you') + '</span>' : ''}<span class="sp"></span><span class="who">${esc(n.author && n.author !== 'unknown' ? n.author : '')}</span><span>${fmtD(n.date)}</span>${n.done ? '<span>· ' + T('closed') + '</span>' : ''}${penHTML(x)}</div>
     ${S.nedit === x.key ? edFormHTML(x, !n.mine) : `<div class="t ${x.txt ? '' : 'empty'}">${x.txt ? esc(x.txt) : T('(no text)')}${edSay(x)}</div>`}
     ${reps.length ? `<div class="rep">${reps.map(repHTML).join('')}</div>` : ''}
@@ -303,7 +303,7 @@ function filesHTML(it) {
   <div class="sec"><div class="sec-h">${T('Renders')}</div>
     ${it.versions.length ? it.versions.map((v, n) => `<div class="prop"><span class="k">${n === 0 ? T('Last') : ''}</span><span class="v"><span class="ro">${esc(verLab(v))}</span><button class="btn icon" data-ver="${n}" aria-label="${T('Watch')}" title="${T('Watch this version')}">${ic('b-play')}</button><button class="btn icon" data-act="player" aria-label="${T("This machine's player")}" title="${T("Open in this machine's player")}">${ic('b-file_movie')}</button>${v.video ? `<button class="btn icon live-only ${rushIs(it, v) ? 'rush-on' : ''}" data-push="${n}" aria-pressed="${rushIs(it, v)}" aria-label="${T('Push to the edit')}" title="${rushIs(it, v) ? esc(rushSay(it)) + ' · ' + T('Push it again') : T('Push to the edit: editing/rushes/, under its name without version')}">${ic('b-export')}</button>` : ''}</span></div>`).join('') : '<span class="faint">' + T('No render.') + '</span>'}
     ${it.rush && !it.versions.some(v => rushIs(it, v)) ? row(T('In the edit'), it.rush.render, '') : ''}
-    ${row('Farm', it.farm ? it.farm.text : T('no job'))}</div>
+    ${row('Farm', it.farm ? TS(it.farm.text) : T('no job'))}</div>
   <div class="pacts live-only"><button class="btn primary" data-render>${ic('b-render_animation')}${T('Render…')}</button></div>`;
 }
 function headHTML(it) {
@@ -372,7 +372,7 @@ function renderProps() {
       : '',
     it.outdated ? `<span class="tag check">${ic('b-error')}${T('render outdated')}</span>` : '',
     it.farm
-      ? `<span class="tag ${it.farm.state === 'failed' ? 'fail' : ''}">farm ${esc(it.farm.text)}</span>`
+      ? `<span class="tag ${it.farm.state === 'failed' ? 'fail' : ''}">farm ${esc(TS(it.farm.text))}</span>`
       : ''
   ]
     .filter(Boolean)
