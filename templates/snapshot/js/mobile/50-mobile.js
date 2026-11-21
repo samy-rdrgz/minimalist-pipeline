@@ -125,7 +125,7 @@ function mReview() {
     ${it.desc || it.descEdit ? `<p class="m-desc">${esc(it.descEdit ?? it.desc)}</p>` : ''}
     <div class="m-player ${S.m.side === 'B' && V.length > 1 ? 'is-b' : ''}" id="m-player">${it.thumb ? `<img src="${it.thumb}" alt="${T('Picture of {name}', { name: esc(it.name) })}" draggable="false">` : `<span class="noimg">${T('Not rendered yet')}</span>`}
       <span class="m-hud">${V.length > 1 ? `<b class="ab">${S.m.side}</b>` : ''}${v ? esc(verLab(v)) : T('no version')}</span><span class="m-fr">f <span data-f>${fNo(S.frame)}</span></span></div>
-    <div class="scrub big ${rendered(it) ? '' : 'off'}" data-scrub role="slider" tabindex="0" aria-label="${T(T('Frame'))}" aria-valuemin="1" aria-valuemax="${NF}" aria-valuenow="${S.frame}">${mkH}${rng}<span class="ph" style="left:${((S.frame - 1) / (NF - 1)) * 100}%"></span></div>
+    <div class="scrub big ${rendered(it) ? '' : 'off'}" data-scrub role="slider" tabindex="0" aria-label="${T('Frame')}" aria-valuemin="1" aria-valuemax="${NF}" aria-valuenow="${S.frame}">${mkH}${rng}<span class="ph" style="left:${((S.frame - 1) / (NF - 1)) * 100}%"></span></div>
     <div class="m-tp"><button class="btn icon" data-tp="fprev" ${pOff(it)} aria-label="${T('Previous frame')}">${ic('b-frame_prev')}</button><button class="btn icon play" data-tp="play" ${pOff(it)} aria-label="${T('Play')}">${ic(S.playing ? 'b-pause' : 'b-play')}</button><button class="btn icon" data-tp="fnext" ${pOff(it)} aria-label="${T('Next frame')}">${ic('b-frame_next')}</button><button class="btn icon" data-mloop aria-pressed="${S.m.loop}" aria-label="${T('Loop this shot')}" title="${S.m.loop ? T('Plays this shot again and again') : T("Plays the path's shots one after the other")}">${ic('b-file_refresh')}</button>
       ${V.length > 1 ? `<span class="join m-ab" role="group" aria-label="${T('Version shown')}"><button class="btn" data-mside="A" aria-pressed="${S.m.side === 'A'}">A</button><button class="btn" data-mside="B" aria-pressed="${S.m.side === 'B'}">B</button></span>` : ''}</div>
     ${
@@ -137,11 +137,11 @@ function mReview() {
     <section class="m-sec"><div class="m-sec-h">${T('Departments')}<span class="sp"></span>${rv ? `<button class="btn tool" data-msheet="depts">${ic('b-add')}${T('Department')}</button>` : ''}</div>
       ${rv && rv.role !== TEAM && req.some(d => canVal(it, d) && !it.rtk[d] && !it.mine[d]) ? `<button class="btn ok m-wide" data-mvalall>${ic('b-checkmark')}${T('Validate all the done')}</button>` : ''}
       ${req.map(d => mDept(it, d)).join('') || '<p class="m-hint">' + T('No department required.') + '</p>'}</section>
-    <section class="m-sec"><div class="m-sec-h">${T(T('Notes'))}<span class="n">${notes.length}</span></div>
+    <section class="m-sec"><div class="m-sec-h">${T('Notes')}<span class="n">${notes.length}</span></div>
       ${
         notes
           .map(
-            n => `<div class="m-note">${n.frames ? `<button class="ft ${/-/.test(n.frames) ? 'rg' : n.type === 'rtk' ? '' : 'nt'}" data-goto="${(String(n.frames).match(/\d+/) || [1])[0]}">${esc(n.frames)}</button>` : `<span class="ft ${n.type === 'rtk' ? '' : 'nt'}">${n.type === 'rtk' ? 'RTK' : 'note'}</span>`}
+            n => `<div class="m-note">${n.frames ? `<button class="ft ${/-/.test(n.frames) ? 'rg' : n.type === 'rtk' ? '' : 'nt'}" data-goto="${(String(n.frames).match(/\d+/) || [1])[0]}">${esc(n.frames)}</button>` : `<span class="ft ${n.type === 'rtk' ? '' : 'nt'}">${n.type === 'rtk' ? 'RTK' : n.type === 'todo' ? T('to do') : 'note'}</span>`}
         <span class="tx">${esc(n.text || T('(no text)'))}<small>${esc(((n.deps || []).map(d => LBL[d] || d).join(', ') || T('no department')) + ' · ' + (n.mine ? T('you, not sent yet') : n.author || ''))}</small></span>
         ${n.mine ? `<button class="m-ib" data-unnote="${n.at}" aria-label="${T('Remove')}">${ic('b-loop_back')}</button>` : ''}</div>`
           )

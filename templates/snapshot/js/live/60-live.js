@@ -248,7 +248,9 @@ function newsOf(before, after) {
           it.name,
           n.type === 'rtk'
             ? T('{who} wrote a retake', { who: n.author || '?' })
-            : T('{who} wrote a note', { who: n.author || '?' }),
+            : n.type === 'todo'
+              ? T('{who} wrote a to-do', { who: n.author || '?' })
+              : T('{who} wrote a note', { who: n.author || '?' }),
           (n.deps || []).map(d => LBL[d]).join(', ') + (n.frames ? ' · ' + n.frames : '') + ': ' + n.text
         )
       );

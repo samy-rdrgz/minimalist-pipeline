@@ -968,7 +968,7 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
             return report_error(self, "farm_request_render", e)
         context.scene.pipeline_farm_list.clear()
         if here:
-            self.report({"INFO"}, f"Rendering here: {Path(self.filepath).name} (Farm monitoring follows it).")
+            self.report({"INFO"}, f"Rendering here: {Path(self.filepath).name} (Farm in browser follows it).")
         else:
             self.report({"INFO"}, f"Render job submitted: {Path(self.filepath).name}")
         return {"FINISHED"}

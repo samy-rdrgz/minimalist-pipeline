@@ -265,7 +265,7 @@ function layoutGraph() {
     pos[n] = t;
   });
   cap(T('Assets'), 0, CAP - 24);
-  ya = CAP;
+  let ya = CAP;
   assets.forEach(n => {
     const e = by(n);
     e.style.left = '0px';

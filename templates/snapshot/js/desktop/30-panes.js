@@ -10,9 +10,6 @@
     outl = document.getElementById('outliner'),
     props = document.getElementById('props');
   if (!screen || !outl || !props) return;
-  var screen = document.querySelector('.screen'),
-    outl = document.getElementById('outliner'),
-    props = document.getElementById('props');
 
   var R = {
     out: { min: 180, max: 420, def: 230, el: outl, side: 'l' },

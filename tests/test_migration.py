@@ -76,8 +76,23 @@ def main() -> None:
             assert "stable: departments_done" in changes[name], changes
         assert changes["ch_bob_v002.wipmeta"] == ["sessions with their date, named sessions", "dates with their offset"], changes
 
+        # A file written between the preview and its confirm (a note, another
+        # machine): left as it is, not overwritten with what the preview read;
+        # the migration offered again for it.
+        import os
+
+        late = pipe / "ch_bob_v002.wipmeta"
+        kept = late.read_text()
+        st = late.stat()
+        os.utime(late, ns=(st.st_atime_ns, st.st_mtime_ns + 5_000_000_000))
+        partial = migration.apply_migration(root, {**plan, "progress": []})
+        assert [Path(p).name for p, _ in partial["errors"]] == ["ch_bob_v002.wipmeta"], partial
+        assert late.read_text() == kept, "a file changed since the preview overwritten"
+        plan = migration.plan_migration(root)  # its run again: only what's left
+        assert [Path(f["path"]).name for f in plan["files"]] == ["ch_bob_v002.wipmeta"], plan["files"]
+
         result = migration.apply_migration(root, plan)
-        assert not result["errors"] and result["written"] == len(plan["files"]), result
+        assert not result["errors"] and result["written"] == 1, result
         backup = Path(result["backup"])
         assert (backup / "assets/ch/ch_bob/.pipeline/tracking.json").is_file()
         old = json.loads((backup / "assets/ch/ch_bob/.pipeline/tracking.json").read_text())

@@ -699,6 +699,7 @@ MPI18n.add('fr',{
 'to check':'à vérifier',
 'to do':'à faire',
 'To do':'À faire',
+'To do at {frames} on {dept}':'À faire à {frames} sur {dept}',
 'To redo':'À refaire',
 'to redo: {why}':'à refaire : {why}',
 'To redo: {why}. Still done: the work holds, it\'s not a validation':'À refaire : {why}. Toujours fini : le travail fait tient, ce n\'est pas une validation',
@@ -810,5 +811,6 @@ MPI18n.add('fr',{
 '{version} exists':'{version} existe',
 '{who} validated':'{who} a validé',
 '{who} wrote a note':'{who} a écrit une note',
+'{who} wrote a to-do':'{who} a écrit un à-faire',
 '{who} wrote a retake':'{who} a écrit un retake'
 });
