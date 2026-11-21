@@ -118,6 +118,5 @@ Full list with details: **[docs/limitations.md](docs/limitations.md)**.
 | | |
 |---|---|
 | **[docs/](docs/README.md)** | One page per theme above, in more depth, cross-linked. Start here for anything beyond a quick overview. |
-| **[CODE.md](CODE.md)** | Dev-facing reference: module architecture (`lib/`, `farm/`, `operators/`, `panels/`), code patterns, roadmap v0.2–v0.4+. |
-| **[graph.md](graph.md)** | Exhaustive diagram of every handler/timer/operator: what triggers what, in which order, under which conditions. |
-| **[NOTES.md](NOTES.md)** | Dev design notes, feature by feature — the *why*, rejected alternatives, and architecture history that a code comment is too short to hold. Currently covers multishot; more sections land here over time. |
+| **[CODE.md](CODE.md)** | Developer's guide: conventions, module tree, the key flows (handlers, timers, farm, live page), code patterns. |
+| **[NOTES.md](NOTES.md)** | Dev design notes, feature by feature — the *why*, rejected alternatives, and architecture history that a code comment is too short to hold. |

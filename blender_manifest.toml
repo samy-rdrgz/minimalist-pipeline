@@ -30,7 +30,7 @@ clipboard = "Copy pipeline log entries to the clipboard"
 # pointing back to the repo, so the installed package never ships a doc
 # with dead links. CHANGELOG.md is the repo's and the release page's: ~100
 # KB nobody reads inside Blender. tests/ and tools/: checks run without
-# Blender (tools/fake_bpy.py), for development only.
+# Blender (tools/fake_bpy.py), for development only; dev/: working notes.
 paths_exclude_pattern = [
     "__pycache__/",
     ".*",
@@ -42,8 +42,8 @@ paths_exclude_pattern = [
     "/CHANGELOG.md",
     "/CODE.md",
     "/NOTES.md",
-    "/graph.md",
     "/docs/",
+    "/dev/",
     "/tests/",
     "/tools/",
     "/*.code-workspace",

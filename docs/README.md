@@ -22,4 +22,4 @@ The table below is the concept reference instead: one page per theme, for when "
 | Design choices | [design.md](design.md) | [design_fr.md](design_fr.md) |
 | Known current limitations | [limitations.md](limitations.md) | [limitations_fr.md](limitations_fr.md) |
 
-Developer-facing docs (module architecture, exact handler/timer/operator execution order, per-feature design rationale) live at the repo root instead: [CODE.md](../CODE.md), [graph.md](../graph.md), [NOTES.md](../NOTES.md).
+Developer-facing docs (module tree, key flows, per-feature design rationale) live at the repo root instead: [CODE.md](../CODE.md), [NOTES.md](../NOTES.md); working documents in [dev/](../dev/README.md).

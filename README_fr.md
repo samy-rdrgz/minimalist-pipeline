@@ -118,6 +118,5 @@ Liste complète avec détails : **[docs/limitations_fr.md](docs/limitations_fr.m
 | | |
 |---|---|
 | **[docs/](docs/README.md)** | Une page par thème ci-dessus, en plus détaillé, avec des liens croisés. À consulter pour tout ce qui dépasse la vue d'ensemble rapide. |
-| **[CODE.md](CODE.md)** | Référence dev : architecture des modules (`lib/`, `farm/`, `operators/`, `panels/`), patterns de code, roadmap v0.2–v0.4+. |
-| **[graph.md](graph.md)** | Diagramme exhaustif de chaque handler/timer/opérateur : qui déclenche quoi, dans quel ordre, avec quelles conditions. |
-| **[NOTES.md](NOTES.md)** | Notes de conception dev, feature par feature — le *pourquoi*, les alternatives rejetées, et l'historique d'archi qu'un commentaire de code est trop court pour porter. Couvre le multishot pour l'instant ; d'autres sections viendront s'y ajouter. |
+| **[CODE.md](CODE.md)** | Guide dev : conventions, arbre des modules, les flux clés (handlers, timers, farm, page live), patterns de code. |
+| **[NOTES.md](NOTES.md)** | Notes de conception dev, feature par feature — le *pourquoi*, les alternatives rejetées, et l'historique d'archi qu'un commentaire de code est trop court pour porter. |

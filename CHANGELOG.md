@@ -425,6 +425,12 @@ All notable changes to this addon. Dates are release dates.
 
 ### Changed
 
+- Developer docs: CODE.md rewritten as a short guide (module tree, key
+  flows, patterns) without its function-by-function inventory; graph.md
+  removed -- its flows in CODE.md, the farm's stage machine in NOTES.md;
+  the working documents (plan 1.2, the v7 page's questions, the UI kit
+  mock-up) moved from docs/ to dev/, not shipped.
+
 - A stable's Done departments are stored as `departments_done` (was
   `departments_validated`, a name kept from before validation roles: it
   has meant Done since 1.1.2). *Migrate old data* renames it in every

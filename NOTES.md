@@ -3906,7 +3906,7 @@ marker. The field keeps its name "omit" (the code's word for both):
 
 ## Waiting and To redo
 
-Phase 3C of docs/plan-1.2.md: a department's place in its kind's stages
+Phase 3C of dev/plan-1.2.md: a department's place in its kind's stages
 (`department_stages` in the config; written in Edit project's departments
 field itself, `a > b, c > d` -- `parse_departments()` / `departments_text()`:
 one field, nothing to type twice or to contradict; commas only, one stage,
@@ -3996,7 +3996,7 @@ On hold: one place first (3A, behaviour unchanged), `lib/monitoring/status.py`:
 A detail (a file in Project monitoring, a job or a worker in Farm
 monitoring) replaced the whole list. From 1.2 it opens in a second zone on
 the right of the same window. Tried first outside the addon in Blender
-5.2.3 (docs/plan-1.2.md, phase 2b), what it taught shaped this:
+5.2.3 (dev/plan-1.2.md, phase 2b), what it taught shaped this:
 
 - **One reconciling function**, `sync_detail_zones()` (lib/monitoring/windows.py),
   never a split in each operator: every window in two zones while its
@@ -4677,7 +4677,7 @@ a heartbeat hours off for a 15 s threshold. From 1.2:
 
 ## Refactor 1.2: shared blocks, one way of each thing
 
-Phase 1 of docs/plan-1.2.md, behaviour unchanged but for the frame lookup
+Phase 1 of dev/plan-1.2.md, behaviour unchanged but for the frame lookup
 (a popup now). What went where, and how it was checked without Blender:
 
 - **Retirements first** (the xlsx, the code for older addons, the legacy
@@ -4975,7 +4975,7 @@ done department), `average()` --, put before page.js at the export.
 
 ## Renders by department
 
-Phase 5 of docs/plan-1.2.md.
+Phase 5 of dev/plan-1.2.md.
 
 - **A render's department comes from its preset's name**
   (`lib/monitoring/status.py` `preset_department()`): the longest department name
@@ -5027,7 +5027,7 @@ Phase 5 of docs/plan-1.2.md.
 
 ## Team and assignees
 
-Phase 6 of docs/plan-1.2.md.
+Phase 6 of dev/plan-1.2.md.
 
 - **The team** is the config's `"team"` (Edit project → *Team*),
   `project_team()`: lower case, each once. The user name stays a free
@@ -5586,7 +5586,7 @@ export embeds only those the page names (`icon_sprite()`).
 Kept the page's own: `i-note` (a note's bubble: a state's mark, Blender
 has none), `i-bell` (What's new: Blender has no bell). Dropped: `i-seq`,
 `i-in` (never used). Questions still open (version previous / next,
-the machine's player, Loop): `docs/snapshot-v7-questions.md`.
+the machine's player, Loop): `dev/snapshot-v7-questions.md`.
 
 - **The classic page too**: `TEXT` and `PREVIEW_RANGE`, named in page.js
   `BI` but missing from icons/, drew the stand-ins (`IC`); they are
@@ -5866,3 +5866,203 @@ the page, nothing else held back (thumbnail, to check, rushes: as any
 render); only the presets' pace leaves it out (history_pace(),
 note_preset_pace()). To try in Blender: the windowed subprocess and
 opengl were not run here (no Blender in a cloud session).
+
+---
+
+## Farm job: stages and cycles
+
+(Moved here from graph.md, removed in 2.0: the stage machine as `farm/queue.py` runs it.)
+
+Every job file in `config/.farm/queue/actives/` carries a `stage_history`;
+its last entry is the job's stage. The monitor's `scan_queue()` (every
+`farm_tick`, ~10 s) moves each job at most one step, highest `priority`
+first, then oldest. The local stages (setup, frame check, compilation,
+preview) run as subprocesses on the farm host, one at a time
+(`local_slot_busy()`); the render runs on workers, and a preview on one
+with ffmpeg when one is idle. A `*_start` stage
+just waits: `scan_processes()` moves it on once its subprocess exits, or
+`check_render_completion()` for `render_start`. `⟲` marks a way back.
+
+Happy path:
+
+```
+incomings/job_<id>.json
+  -> queued -> setup_start -> setup_finished -> render_start -> render_finished
+  -> checks_images_start -> checks_images_finished -> compilation_start
+  -> compilation_finished -> finished -> archived      (-> archives/ after 24 h)
+```
+
+### Submission and the stage machine
+
+```
+├── submit : job_request() (Render dialog) -> incomings/job_<hash>.json, hash of
+│   file + preset + shot (a re-render of the same shot reuses the id) ;
+│   request_preview_compile() -> same, initial_stage "preview_queued"
+│
+├── scan_requests() (monitor, every tick)
+│   ├── kill_*.json : the monitor stops (request_monitor_kill())
+│   └── job_*.json : a job with this id already in actives/, still in flight ?
+│       ├── yes : stays in incomings/, retried every tick -- goes out by itself
+│       │         once that job ends ("waiting for this shot's job")
+│       └── no  : -> actives/, stage_history = [queued] (or its initial_stage)
+│
+├── queued : local slot free AND this instance's own worker not rendering ?
+│   └── yes : run_render_setup() -> setup_start
+│         (blender -b <file> --python farm_entry_render_setup.py: output path +
+│          increment, resolved_frame_range, fps ; a block: the split)
+│         launch raises -> setup_failed
+│
+├── setup_start : once the setup subprocess exits
+│   ├── exit != 0, or no resolved_frame_range written -> setup_failed
+│   └── else -> setup_finished
+│
+├── setup_finished
+│   ├── split_into (a multishot block) -> split_finished (the setup already
+│   │     submitted one job_request() per shot) -> construct_split_history()
+│   │     -> archived
+│   ├── no idle machine it may use (assigned_machines ; the farm host's own
+│   │     worker is held back while a job is queued) : note_waiting(), stays
+│   └── render_dispatch()
+│       ├── .blend gone -> render_failed ("source file missing")
+│       └── 1 machine if single, else every one ; a new dispatch_id and
+│           chunk_size (farm.chunk_size, fixed for this render) ;
+│           requests/request_<job>_<uuid>.json per machine -> render_start
+│
+├── render_start : check_render_completion() (see "Render: workers and
+│   completion" below)
+│   ├── dead claims freed ; a chunk failed on 3 machines, or the Cancel :
+│   │   machines stopped -> render_failed once none is on it
+│   ├── chunks free : idle machines sent to them ; nobody on it and every
+│   │   allowed worker failed it -> render_failed
+│   └── every frame on disk, no claim -> render_finished
+│
+├── render_finished : local slot free ? checks_images() -> checks_images_start
+│   (ffmpeg -vf showinfo -f null over the sequence) ; no ffmpeg ->
+│   checks_images_failed
+│
+├── checks_images_start : once ffmpeg exits
+│   ├── exit != 0 -> checks_images_failed
+│   ├── frames corrupted (corrupted_frames()), and a round left
+│   │   (MAX_FRAME_CHECK_ROUNDS, 3) ?
+│   │   └── yes : those frames deleted, frame_check_rounds + 1
+│   │             -> setup_finished ("N frame(s) to render again")  ⟲
+│   └── else -> checks_images_finished (frames_corrupted recorded ; bad frames
+│              past the last round are kept, named in a warning)
+│
+├── checks_images_finished : local slot free ? compilation() -> compilation_start
+│   (ffmpeg -> compiled_output_path) ; no ffmpeg -> compilation_failed
+│
+├── compilation_start : once ffmpeg exits -> compilation_finished | compilation_failed
+│
+├── compilation_finished : _flag_to_check() (render flagged "to check" in its
+│   tracking.json ; not written -> retried next tick, given up after 30)
+│   -> refresh_shot_thumbnail() -> finished -> construct_history("finished")
+│   (not for a recompile) -> archived ; .saved records deleted, the log too
+│   (kept if frames were corrupted)
+│
+├── preview_queued : an idle worker with ffmpeg (not this machine) ?
+│   send_preview_compile() -> compile_<job>_<uuid>.json, preview_start
+│   {machine} + compile_machine ; else local slot free ? run_preview_compile()
+│   -> preview_start (ffmpeg concat) | preview_failed
+├── preview_start : here, once ffmpeg exits -> preview_finished |
+│   preview_failed ; on a worker, written by it (scan_compile_processes()),
+│   or ⟲ preview_queued once it's gone / not on it (check_remote_compile())
+├── preview_finished | preview_failed -> archived (log deleted if finished)
+│
+├── setup_failed | render_failed | checks_images_failed | compilation_failed :
+│   construct_history("failed") -> archived
+│
+└── archived : skipped by scan_queue() while its file is unchanged
+    ├── ended well : farm_housekeeping() (hourly) moves it to archives/ after
+    │   farm.auto_archive_hours (24 h)
+    └── failed : stays in actives/ until someone retries or archives it
+```
+
+### Render: workers and completion
+
+```
+├── worker_tick() (each worker, every tick)
+│   ├── stop_<uuid>.json : stop_worker()
+│   │   ├── "Stop now" : render killed (result "stopped") ; the role ends
+│   │   └── "After this frame" : request_<job>_<uuid>.stop written, read by
+│   │       the render before each frame, then the role ends ("stopping")
+│   ├── heartbeat ; cancel_<job>_<uuid>.json : render terminated, result
+│   │   {cancelled}
+│   ├── check_stuck_renders() : frame in progress past stuck_frame_factor x
+│   │   its usual time -> killed, result {stuck}
+│   ├── render subprocess exited : status idle, last_job_result {job_id,
+│   │   dispatch_id, success: exit == 0} -- ONE slot, the next render
+│   │   overwrites it
+│   └── idle : execute_render_request() -- request deleted ; blender -b
+│       <file> -o <output> -s <start> -e <end> --python worker_render_entry.py
+│       --chunk-size <job's> --machine <uuid> -> status "render",
+│       current_job_id, current_dispatch_id ; in that Blender (.blend opened
+│       once, render preset strict), passes over the chunks while a pass
+│       rendered one ; for each chunk k :
+│       ├── every frame on disk (one listing) : next
+│       ├── try_claim() refused (held elsewhere) : next
+│       ├── claimed : frames still missing (stat), for each :
+│       │   ├── .stop there : claim released, exit 0
+│       │   ├── claim gone (freed by the host) : exit 0
+│       │   └── claim updated, rendered (one-frame animation render) to
+│       │       .<machine>_<pid>_#####.tmp, renamed onto the
+│       │       frame, "<dispatch_id> <frame> <time>" appended to the .saved,
+│       │       claim updated
+│       ├── chunk done : claim released
+│       └── a frame fails : exit 1, its claim left for the host
+│       a pass with nothing to claim -> exit 0
+│
+└── check_render_completion() (monitor), every tick : read_claims() and
+    missing_frames() (one listing each)
+    ├── a claim whose machine isn't alive, rendering this job, with the
+    │   claim's pid : freed (its .tmp removed) ; its render failed or got
+    │   stuck -> chunk_failures[k], failed_machines, stuck_frames ;
+    │   stopped / cancelled / lost / gone -> nothing counted
+    ├── chunk_failures[k] on 3 machines -> fail_reason + cancel_requested
+    ├── cancel_requested : requests withdrawn, cancel_<job>_<uuid>.json to
+    │   the machines rendering ; none left on it -> render_failed
+    │   (reason, or cancelled)
+    ├── every frame on disk, no claim : requests left deleted ;
+    │   rendered_by ; _note_frames() (each machine's mean per frame,
+    │   frame_machines) ; .tmp and claims/<job>/ removed -> render_finished
+    ├── no free chunk : requests still waiting withdrawn
+    ├── free chunks, nobody on it, every live allowed worker failed it ->
+    │   render_failed
+    └── free chunks : machines_for() idle machines (assigned, not failed),
+        one per free chunk less those starting or waiting ("single": one,
+        nobody on it) -> send_render(), same dispatch_id and chunk_size
+```
+
+### Ways back
+
+```
+├── bad frames (checks_images_start -> setup_finished) : corrupted --
+│   deleted, rendered again, then the whole frame check again ; at most
+│   MAX_FRAME_CHECK_ROUNDS (3)
+├── Retry button (any *_failed, even from archives/) : retry_job() ->
+│   _RETRY_STAGE, frame_check_rounds and cancel_requested reset
+│   ├── setup_failed -> queued
+│   ├── render_failed -> render_finished if every frame is there, else
+│   │   setup_finished ; chunk_failures, fail_reason reset (failed_machines
+│   │   too if every live allowed worker is in it)
+│   ├── checks_images_failed -> render_finished
+│   └── compilation_failed -> checks_images_finished
+├── Recompile (finished) : recompile_job() -> checks_images_finished
+│   ("recompile") -> the compilation only, no render, no history entry
+├── Cancel button (render_start) : cancel_pending_renders() -- requests not
+│   picked up deleted, cancel_requested set on the job (none left ->
+│   render_failed, cancelled) ; the machines rendering get
+│   cancel_<job>_<uuid>.json ; one machine's cancel (Workers tab): neutral,
+│   the machine in left_machines -- other jobs first, back to this one
+│   only if still idle after them (scan_queue()'s second pass)
+└── crash recovery
+    ├── monitor relaunched : recover_interrupted_jobs() -- a local *_start
+    │   stage (never render_start) whose PID still runs on this machine is
+    │   adopted, else resume_interrupted_stage():
+    │   setup_start -> setup_finished if it got as far as its result, else
+    │   queued ; checks_images_start -> render_finished ; compilation_start
+    │   -> checks_images_finished ; preview_start -> preview_queued
+    └── worker relaunched : _recover_previous_render() -- render PID still
+        alive: adopted (reported "lost" when it ends) ; else last_job_result
+        {lost} right away
+```
