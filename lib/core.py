@@ -78,29 +78,6 @@ def get_addon_version() -> str:
     return "0.0.0"
 
 
-# Which detail the monitoring windows show ("" for their list): "file" its
-# tracked folder, "job" its id, "missing_file" an untracked file asked for.
-# In memory, not WindowManager properties (saved into the .blend).
-_monitoring_details = {"file": "", "job": "", "missing_file": "", "worker": ""}
-
-
-def monitoring_detail(kind: str) -> str:
-    """The detail a monitoring window shows ("file" / "job" / "missing_file"
-    / "worker"), "" for its list."""
-    return _monitoring_details[kind]
-
-
-def set_monitoring_detail(kind: str, value: str = "", sync: bool = True) -> None:
-    """Show this detail in that window ("" for its list) -- now and when it
-    reopens: beside the list in a wide window (lib/monitoring/windows.py
-    sync_detail_zones(), next tick, every view redrawn)."""
-    _monitoring_details[kind] = value
-    if sync:
-        from .monitoring.windows import request_detail_sync
-
-        request_detail_sync()
-
-
 def addon_pref(context: bpy.types.Context | None = None):
     """Return addon preferences."""
     try:

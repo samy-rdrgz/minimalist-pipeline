@@ -105,7 +105,7 @@ const JOB_SAY = {
   retry: () => T('retried'),
   recompile: () => T('compiling again')
 };
-/* The farm itself (its monitor), as Farm monitoring's Launch / Kill: launched on this machine,
+/* The farm itself (its monitor), as the Farm tab's Launch / Kill: launched on this machine,
    taken over when the one running is stuck, stopped wherever it runs -- asked twice. */
 const farmUp = () => F.status === 'running' || F.status === 'ok';
 const monitorBtn = (cls = '') =>

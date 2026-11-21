@@ -169,7 +169,7 @@ def job_files(job_id: str) -> tuple[Path | None, list[Path]]:
 
 
 def job_detail(job_id: str) -> dict | None:
-    """What Farm monitoring's job details show, as data: {"rows": [[key,
+    """What the Farm tab's job details show, as data: {"rows": [[key,
     value, alert]], "stages": [[when, what]], "lookup" (who rendered which
     frame: {"start", "frames" (a letter a frame), "machines": {letter:
     [label, pace]}}), "logs": [names], "folder", "retry", "recompile"}.
@@ -302,7 +302,7 @@ def job_path(job_id: str, what: str) -> Path | None:
 
 
 def worker_detail(uuid: str) -> dict | None:
-    """What Farm monitoring's machine details show, as data: {"rows": [[key,
+    """What the Farm tab's machine details show, as data: {"rows": [[key,
     value, alert]], "stop" (a live worker to stop), "busy", "forget" (a
     silent one), "job" (the job it's on)}. From the monitor cache only."""
     import re

@@ -16,7 +16,6 @@ from .config import (
 )
 from .core import (
     headless,
-    set_monitoring_detail,
     ADDON_PACKAGE,
     addon_pref,
     get_machine_id,
@@ -222,14 +221,10 @@ def set_active_project_root(prefs, new_root: str) -> None:
     )
 
     stop_farm_role_for_project(prefs.active_project_root)
-    if new_root != prefs.active_project_root:
-        # Project monitoring's file detail belongs to the project left.
-        set_monitoring_detail("file", "", sync=False)
-        set_monitoring_detail("missing_file", "", sync=False)
     prefs.active_project_root = new_root
 
     # Keep the monitor cache in sync -- otherwise it shows the previous
-    # project's status/jobs until the next _refresh_tick.
+    # project's status/jobs until the next read.
     if new_root:
         refresh_monitor_cache(force_rescan=True)
     else:
@@ -248,7 +243,7 @@ def set_active_project_root(prefs, new_root: str) -> None:
 
 def session_update(saved: bool = False):
     """Update the session state; never raises (timers and handlers). saved:
-    after a save -- the session's time counts as work (WorkTimeCache); a
+    after a save -- the session's time counts as work (work_times()); a
     save to another file saves the work of the session it ends. See
     NOTES.md, "Work time: only a session that saved"."""
     if headless() or not bpy.data.filepath:
@@ -300,7 +295,7 @@ def session_update(saved: bool = False):
 def _log_session_end(data: dict) -> None:
     """Log the session_end summary line (work duration) to sessions_log_file.
     filepath is its own field, not parsed from message -- read back by
-    WorkTimeCache (lib/monitoring/tracking.py, see NOTES.md)."""
+    work_times() (lib/monitoring/tracking.py, see NOTES.md)."""
     try:
         opened_at = parse_iso(data["opened_at"])
         last_ping = parse_iso(data["last_ping"])

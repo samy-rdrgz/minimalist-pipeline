@@ -266,7 +266,7 @@ class TrackingStatusCache:
 
 
 class ProjectScan:
-    """Background refresh of the whole project for Project monitoring: every
+    """Background refresh of the whole project for the live page: every
     tracked folder's status, and the linked-by index. A reader thread does
     the disk work (pure os/json); a main-thread timer applies its results to
     the caches. Folders whose .pipeline/ is unchanged since last cached cost
@@ -1534,7 +1534,7 @@ def _status_from_raw(raw: dict) -> dict:
         # Validated at an earlier stable, or worked before the latest one:
         # never "not started", even without validation or work since.
         "started_departments": sorted(raw.get("started") or []),
-        # Its latest version's last save (ISO) -- Project monitoring's
+        # Its latest version's last save (ISO) -- the live page's
         # "Oldest work" sort.
         "last_saved_at": max(
             (m.get("edited_at") or "" for m in raw["wipmetas"]), key=time_key, default=""
@@ -1545,7 +1545,7 @@ def _status_from_raw(raw: dict) -> dict:
         # never re-groups/re-sorts entries; only a real tracking.json
         # change (this cache's invalidation trigger) does.
         "entries_grouped": group_entries_by_review(global_data.get("entries", [])),
-        # Last -stable's own identity, exposed as-is for department_status_tooltip().
+        # Last -stable's own identity, exposed as-is (the snapshot, the page).
         "stable_info": {
             "file": last_stable.get("file"),
             "created_at": last_stable.get("created_at"),
@@ -2389,7 +2389,7 @@ def _link_targets(files: list[str], project_root: Path) -> set[str]:
 
 def _current_link_files(entries: list, project_root: Path) -> list[str]:
     """The project files an owner links now, as stored: its latest wip's
-    list, else its latest stable's (get_linked_libraries()). Thread-safe."""
+    list, else its latest stable's. Thread-safe."""
     meta = _latest_meta(entries, ".wipmeta") or _latest_stable(entries) or {}
     return [d["file"] for d in meta.get("linked", []) if d.get("file")]
 

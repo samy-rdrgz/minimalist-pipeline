@@ -15,7 +15,6 @@ from ..lib import (
     read_log_tail,
     redraw_monitoring,
     rows_that_fit,
-    list_is_narrow,
     region_char_budget,
     monitor_footer,
     legend_button,
@@ -151,12 +150,11 @@ def draw_pipeline_logs(state, context, layout) -> None:
             matches=[e for e in _log_cache["entries"] if _matches(state, e, search)],
         )
     matches = _filtered["matches"]
-    # The filters stacked in a narrow window (monitor_filters()): two rows more.
-    reserved = _LOG_RESERVED_UNITS + (2.0 if list_is_narrow(context) else 0)
+    reserved = _LOG_RESERVED_UNITS
     per_page = rows_that_fit(context, reserved, _LINE_UNITS, kind="log")
     page_items, page, pages = paginate("log", matches, per_page, key[1:])
 
-    # No box round the lines, as Project monitoring's.
+    # No box round the lines.
     box = layout.column()
     title = _line(box)
     for cell, text in zip(title, ("Time", "User", "Action", "Message")):
@@ -184,7 +182,7 @@ def draw_pipeline_logs(state, context, layout) -> None:
     for _ in range(per_page - len(page_items)):
         col.label(text="")
 
-    # As Project monitoring's footer (monitor_footer()).
+    # The windows' shared footer (monitor_footer()).
     left, legend, _, right = monitor_footer(context, box)
     left.operator(
         "m_pipeline.pipeline_logs_refresh", text="", icon="FILE_REFRESH", emboss=False

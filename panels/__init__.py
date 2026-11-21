@@ -21,7 +21,6 @@ from .tracking_panel import (
     TYPE_ICON,
     draw_entries,
     draw_tracking_data,
-    unregister_thumbnail_previews,
 )
 
 classes = (

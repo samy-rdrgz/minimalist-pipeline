@@ -187,7 +187,7 @@ def read_render_state(
                 "frames": _frame_pair(last.get("frame_range_rendered"))
                 or _folder_frames(folder),
                 # Which machine wrote each frame, and their pace
-                # (farm queue._note_frames()): File details' lookup.
+                # (farm queue._note_frames()).
                 "frame_machines": last.get("frame_machines"),
                 "machine_seconds": last.get("machine_seconds"),
         }
@@ -333,7 +333,7 @@ def group_renders(renders: list, key: str = "folder") -> list[tuple[list, dict]]
     [(its shots, the render)], in the block's order -- five shots of one
     render are one line, not five. key "folder": the same folder name is
     the same render (a split render writes one per shot -- the snapshot);
-    "path": the very same folder (File details, whose buttons open it)."""
+    "path": the very same folder (the page's buttons open it)."""
     groups: dict = {}
     for r in renders:
         groups.setdefault((r.get(key), bool(r.get("whole"))), (r, []))[1].append(

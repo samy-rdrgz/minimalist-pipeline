@@ -165,7 +165,7 @@ class M_PIPELINE_OT_push_rushes(bpy.types.Operator):
 
 
 def push_checked_renders(context, entries: list) -> None:
-    """Push the renders just marked checked (M_PIPELINE_OT_render_checked)."""
+    """Push the renders just marked checked (a render marked checked on the live page)."""
     videos = checked_render_videos(entries)
     if videos:
         push_in_background(

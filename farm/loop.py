@@ -27,13 +27,12 @@ from ..lib import (
 )
 from .post_render import _EXTENSION_MAP
 
-_registered_tick_fn = None
 _registered_status_tick_fn = None
 _registered_loop_tick_fn = None
 
 _farm_running_project: Path | None = None
 
-# Farm monitoring open: the user is actively watching, keep it snappy.
+# The Farm tab open: the user is actively watching, keep it snappy.
 _REFRESH_INTERVAL = 2.0
 # Always-on header status: the monitor itself only ticks every ~10 s
 # (farm_tick), so polling faster than that only re-reads the same data.
@@ -172,7 +171,7 @@ def register_farm_loop(project_root: Path, interval: float = 10) -> None:
 
 def refresh_monitor_cache(*, force_rescan: bool = False) -> None:
     """Recompute the full monitor snapshot (status + jobs + workers) now, on
-    the calling thread -- what _refresh_tick() does in the background. Call
+    the calling thread -- what refresh_step() does in the background. Call
     on project change so the cache doesn't show the previous project's
     status/jobs. force_rescan also drops the actives/incomings mtime cache,
     in case the new project's dirs share an mtime with the old one's."""
@@ -245,9 +244,8 @@ _oneshot_reader = _BackgroundRead()
 
 def request_monitor_refresh() -> None:
     """refresh_monitor_cache() without blocking: read on a thread, applied
-    by a short-lived timer. For a reader other than Farm monitoring (Project
-    monitoring, the snapshot export); shown on their next redraw -- no
-    region kept, see NOTES.md, "Project walk"."""
+    by a short-lived timer (the snapshot export, the live page); shown on
+    their next redraw -- no region kept, see NOTES.md, "Project walk"."""
     if _oneshot_reader.busy():
         return
     paths = _farm_paths()
@@ -668,7 +666,7 @@ def _nobody_on_it(entry: dict, claims: dict | None, workers: dict, requested: se
 
 
 def entry_state(entry: dict) -> str:
-    """A monitor cache job's state as Farm monitoring shows it: job_state()
+    """A monitor cache job's state as the Farm tab shows it: job_state()
     of its stage, "waiting" for a pending request or a render nobody's on
     (_nobody_on_it())."""
     if entry.get("stage") == "pending" or entry.get("no_machine"):
@@ -795,8 +793,8 @@ def _redraw_sidebars() -> None:
 
 
 def refresh_step(soon: bool = False) -> bool:
-    """_refresh_tick()'s turn, the live page's too (lib/monitoring/live.py: its Farm
-    tab, Farm monitoring closed): the last read applied, the next one
+    """The live page's farm read (lib/monitoring/live.py, its Farm tab): the
+    last read applied, the next one
     started every _REFRESH_INTERVAL -- soon: at once (an action just done).
     True when a read was applied."""
     if soon:
@@ -883,7 +881,7 @@ def _count_rendered_frames(folder: Path, ext: str) -> int:
 
 
 def job_state(stage: str) -> str:
-    """Farm monitoring's state filter bucket for a job stage. preview_finished
+    """the Farm tab's state filter bucket for a job stage. preview_finished
     ends a preview-compile job (§1.6), like finished ends a render's.
     "running": a step actually in progress (*_start); "waiting": between
     steps -- pending, queued, or an intermediate *_finished waiting for a
@@ -897,7 +895,7 @@ def job_state(stage: str) -> str:
     return "waiting"
 
 
-# Project monitoring / snapshot "Farm" column: a job's stage in a few words.
+# A job's stage in a few words: the live page's Farm tab, a file's farm tag.
 _STAGE_WORDS = {
     "pending": "queued",
     "queued": "queued",
@@ -1015,7 +1013,7 @@ def _build_job_entry(
         else 0
     )
 
-    # Nothing timed yet (a render's first frames): None, Farm monitoring falls
+    # Nothing timed yet (a render's first frames): None, the Farm tab falls
     # back on elapsed time over progress.
     seconds = {u: s for u, s in (frame_seconds or {}).items() if s}
     timed = [s for secs in seconds.values() for s in secs]
@@ -1123,17 +1121,6 @@ def monitor_age_status(last_tick: datetime) -> str:
     if age > stale_threshold:
         return "stale"
     return "running"
-
-
-def unregister_refresh_timer() -> None:
-    """Unregister the UI redraw timer. Called when the last Farm monitoring
-    window closes and on file load."""
-    global _registered_tick_fn
-    if _registered_tick_fn is not None and bpy.app.timers.is_registered(
-        _registered_tick_fn
-    ):
-        bpy.app.timers.unregister(_registered_tick_fn)
-    _registered_tick_fn = None
 
 
 def register_status_timer() -> None:

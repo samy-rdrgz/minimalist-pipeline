@@ -1,4 +1,4 @@
-"""Tracking operators: CRUD on note/todo/rtk entries, prod snapshot export and review import, Project monitoring."""
+"""Tracking operators: CRUD on note/todo/rtk entries, prod snapshot export, review import and revert."""
 
 import hashlib
 import json
@@ -57,7 +57,6 @@ from ..lib import (
     text_field,
     thumbnail_size,
     to_absolute,
-    to_check_entries,
     toggle_entry_task,
     tracked_department_flag_items,
     tracking_json_path,
@@ -1489,19 +1488,8 @@ class M_PIPELINE_OT_department_status_info(bpy.types.Operator):
         return {"CANCELLED"}
 
 
-class PIPELINE_PG_department_check_item(bpy.types.PropertyGroup):
-    """One of the file's departments in "Checked"'s checklist, validated or
-    not after the render was watched -- a checklist row, like the Render
-    dialog's shots (a dynamic ENUM_FLAG draws as an empty box in a dialog)."""
-
-    department: bpy.props.StringProperty()
-    validate: bpy.props.BoolProperty(name="", default=False)
-    # Validated before: only a change is written.
-    was_validated: bpy.props.BoolProperty(default=False)
-
-
 def _archive_checked_job(job_id: str) -> None:
-    """A checked render's job leaves Farm monitoring's list too -- if it's
+    """A checked render's job leaves the Farm tab's list too -- if it's
     still in active/ and done. Never raises: the check itself went through."""
     job_path = ConfigCache.get_path("farm_actives") / f"{job_id}.json"
     data = read_json_quiet(job_path)
@@ -1593,7 +1581,7 @@ class M_PIPELINE_OT_revert_review(bpy.types.Operator):
             log("WARNING", "review_revert", f"{label}: {reason}")
         log("INFO", "review_revert", f"{Path(self.review).name}: {out['put_back']} put back, {len(out['skipped'])} left")
         ProjectScan.start(get_active_project_root())  # the folders changed, read again
-        redraw_monitoring("project")
+        redraw_monitoring()
         msg = f"{out['put_back']} change(s) put back"
         if out["skipped"]:
             msg += f", {len(out['skipped'])} left as they are (changed since: see the log)"

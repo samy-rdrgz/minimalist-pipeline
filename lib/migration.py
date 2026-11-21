@@ -284,9 +284,9 @@ def _plan_owner(root: Path, owner: Path, is_shot: bool, v_prefix: str, history: 
         found.append((entry.path, data, changes))
 
     history_path = pipeline / "render_history.json"
-    history = read_json_quiet(history_path) if history_path.is_file() else None
-    if history:
-        found.append((str(history_path), history, _migrate_history(history, root, owner, is_shot, v_prefix)))
+    renders = read_json_quiet(history_path) if history_path.is_file() else None
+    if renders:
+        found.append((str(history_path), renders, _migrate_history(renders, root, owner, is_shot, v_prefix)))
 
     out = []
     for path, data, changes in found:

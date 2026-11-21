@@ -1,7 +1,6 @@
 """The monitoring windows -- the Pipeline log, the welcome, Project
 settings: each a Properties editor on its Tool tab, where
-panels/monitoring_panel.py draws (Project and Farm monitoring: the live
-page now, lib/monitoring/live.py).
+panels/monitoring_panel.py draws.
 See NOTES.md, "Monitoring: windows, not popups"."""
 
 import os
@@ -10,11 +9,10 @@ import sys
 import bpy
 
 from ..background import threads_paused
-from ..core import monitoring_detail, set_monitoring_detail
 from .tracking import TrackingStatusCache
 
-# ID property marking a window's screen with what it shows ("project" or
-# "farm") -- the panels' poll() reads it, and it survives the .blend being
+# ID property marking a window's screen with what it shows (MONITORING_KINDS)
+# -- the panels' poll() reads it, and it survives the .blend being
 # saved with the window open.
 MONITORING_SCREEN_KEY = "m_pipeline_monitoring"
 MONITORING_KINDS = ("log", "welcome", "settings")
@@ -30,18 +28,6 @@ _window_kinds: dict = {}
 
 _last_seen: dict = {}
 
-# The detail beside the list (see NOTES.md, "Monitoring: the detail beside
-# the list"): what each window's detail is kept under (lib/core.py), the
-# share of the window the detail zone takes -- the last one dragged to, per
-# kind, for the session --, the narrowest window split in two (at UI scale
-# 1: below, the detail replaces the list), and the windows whose detail
-# zone sync_detail_zones() opened.
-DETAIL_KEYS = {"project": ("file", "missing_file"), "farm": ("job", "worker")}
-_detail_share = {"project": 0.45, "farm": 0.45}
-_SPLIT_MIN_WIDTH = 900
-_split_windows: set = set()
-# Narrower (px at UI scale 1), the list beside a detail shows its names only.
-_NAMES_ONLY_WIDTH = 600
 
 
 def monitoring_kind(screen) -> str:
@@ -376,106 +362,6 @@ def list_area(screen):
     return max(screen.areas, key=lambda a: a.width * a.height)
 
 
-def monitoring_zone(context) -> str:
-    """Where a monitoring window's panel draws: "list" or "detail" (the
-    rightmost) of a window in two zones, "" in a window of one."""
-    areas = _props_areas(context.screen) if context.screen else []
-    if len(areas) < 2 or context.area is None:
-        return ""
-    right = max(areas, key=lambda a: a.x)
-    return "detail" if context.area.as_pointer() == right.as_pointer() else "list"
-
-
-def list_is_narrow(context) -> bool:
-    """The list's zone of a window in two, narrowed under
-    _NAMES_ONLY_WIDTH: its filters stacked, no legend (its cells fit on
-    their own, panels/tracking_panel.py draw_monitor_table())."""
-    scale = context.preferences.system.ui_scale or 1.0
-    return (
-        monitoring_zone(context) == "list"
-        and context.area.width < _NAMES_ONLY_WIDTH * scale
-    )
-
-
-def detail_shown(kind: str) -> bool:
-    """A detail is open in that kind's window."""
-    return any(monitoring_detail(key) for key in DETAIL_KEYS.get(kind, ()))
-
-
-def request_detail_sync() -> None:
-    """sync_detail_zones() on the next tick -- after the operator that
-    changed a detail, in no window's draw."""
-    if not bpy.app.timers.is_registered(_sync_and_redraw):
-        bpy.app.timers.register(_sync_and_redraw, first_interval=0.0)
-
-
-def _sync_and_redraw() -> None:
-    """Timer: a detail changed -- the zones, then every view of it."""
-    if not sync_detail_zones():
-        redraw_monitoring()
-
-
-def sync_detail_zones() -> bool:
-    """Each monitoring window in two zones while its detail is open and
-    it's wide enough, in one otherwise: the detail zone opened at its
-    kind's last width, closed once the detail is; one closed by hand
-    closes the detail. True (and every monitoring window redrawn) if a
-    zone opened or closed. Main thread (a timer). See NOTES.md,
-    "Monitoring: the detail beside the list"."""
-    changed = False
-    scale = bpy.context.preferences.system.ui_scale or 1.0
-    for window in monitoring_windows():
-        kind = monitoring_kind(window.screen)
-        if kind not in DETAIL_KEYS:
-            continue
-        ptr = window.as_pointer()
-        areas = _props_areas(window.screen)
-        wanted = detail_shown(kind)
-        if len(areas) >= 2:
-            right = max(areas, key=lambda a: a.x)
-            if window.width and right.width > 10:  # 0 until drawn once
-                _detail_share[kind] = right.width / window.width
-            if not wanted:
-                _area_op(window, right, "area_close")
-                _split_windows.discard(ptr)
-                changed = True
-        elif ptr in _split_windows:
-            # Its detail zone closed by hand: back to the list.
-            _split_windows.discard(ptr)
-            changed = True
-            for key in DETAIL_KEYS[kind]:
-                set_monitoring_detail(key, "", sync=False)
-        elif wanted and areas and window.width >= _SPLIT_MIN_WIDTH * scale:
-            # The split line where the detail's share starts: whichever side
-            # Blender puts its new editor on (the smaller part), the right
-            # one is the detail -- both copy the same editor.
-            share = min(max(_detail_share[kind], 0.15), 0.85)
-            if _area_op(
-                window, areas[0], "area_split", direction="VERTICAL", factor=1 - share
-            ):
-                _split_windows.add(ptr)
-                changed = True
-    if changed:
-        redraw_monitoring()
-    return changed
-
-
-def _area_op(window, area, name: str, **kwargs) -> bool:
-    """bpy.ops.screen.<name> on that area of that window. False if it
-    failed (said in the log)."""
-    try:
-        with (
-            bpy.context.temp_override(window=window, screen=window.screen, area=area),
-            threads_paused(),
-        ):
-            return "FINISHED" in getattr(bpy.ops.screen, name)(**kwargs)
-    except (RuntimeError, TypeError) as e:
-        from ..logs import log
-
-        log("WARNING", "monitoring", f"{name} failed: {e}")
-        return False
-
-
 def memory_prop(store: dict, key: str, prop, default, **kwargs):
     """A property drawable with layout.prop() whose value lives in `store`
     (memory) -- a monitoring window's filters: a WindowManager property is
@@ -561,19 +447,15 @@ def list_fits(kind: str) -> bool:
     return _pages[kind].get("fits", True)
 
 
-def paginate(kind: str, items: list, per_page: int, filters: tuple, key=None) -> tuple:
+def paginate(kind: str, items: list, per_page: int, filters: tuple) -> tuple:
     """(items on the page, page, page count) of a window's list: its page
-    clamped to the count, back to 1 when filters changed since. key: an
-    item's name in the list's order, kept for neighbour_in_list() (a
-    detail's previous / next). draw()-safe: writes the store, not the
-    property."""
+    clamped to the count, back to 1 when filters changed since.
+    draw()-safe: writes the store, not the property."""
     store = _pages[kind]
     if store.get("filters") != filters:
         store["filters"] = filters
         store["page"] = 1
     store["per_page"] = per_page
-    if key:
-        store["order"] = [key(i) for i in items]
     pages = store["pages"] = max(1, -(-len(items) // per_page))
     page = store["page"] = max(1, min(store.get("page", 1), pages))
     start = (page - 1) * per_page
@@ -599,18 +481,8 @@ def split_footer(context, layout) -> tuple:
 
 def monitor_filters(context, layout, title: str = "Filters", icon: str = "FILTER"):
     """A monitoring window's filters, the same in each: one boxed row, its
-    title a sixth -- stacked rows in a list narrowed beside a detail.
-    Returns (row, next_row): next_row() the row to go on with (a new one
-    when stacked, else the same). End it with end_filters()."""
-    if list_is_narrow(context):
-        stack = layout.box().column()
-        rows = [stack.row()]
-
-        def next_row():
-            rows.append(stack.row())
-            return rows[-1]
-
-        return rows[0], next_row
+    title a sixth. Returns (row, next_row): next_row() the row to go on
+    with (the same). End it with end_filters()."""
     split = layout.box().split(factor=0.15)
     split.label(text=title, icon=icon)
     row = split.row()

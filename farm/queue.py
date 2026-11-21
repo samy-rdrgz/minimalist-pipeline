@@ -323,7 +323,7 @@ def scan_queue(project_root: Path, local: bool = False) -> None:
                     )
 
             elif stage == "compilation_finished":
-                # Waits for its artist's check in Project monitoring. Never
+                # Waits for its artist's check on the live page. Never
                 # finished without it: a failed write is retried next tick.
                 if data.get("output_path") and not _flag_to_check(
                     job, data, project_root

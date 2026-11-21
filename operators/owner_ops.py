@@ -1,4 +1,4 @@
-"""Delete a shot or an asset the addon's way (File details): out of every
+"""Delete a shot or an asset the addon's way (Project settings › Maintenance): out of every
 list, its folder and renders into old/ -- never by hand, which leaves its
 renders behind for the next file of the same shot (lib/monitoring/tracking.py
 delete_owner())."""
@@ -20,11 +20,9 @@ from ..lib import (
     open_elsewhere,
     owner_render_dirs,
     prefix_items,
-    redraw_monitoring,
     report_error,
     scan_descriptions,
     sequence_items,
-    set_monitoring_detail,
     shot_items,
 )
 
@@ -115,9 +113,6 @@ class M_PIPELINE_OT_delete_owner(bpy.types.Operator):
             f"{owner.name} deleted: folder -> {result['folder']}"
             + (f"; renders: {', '.join(result['renders'])}" if result["renders"] else ""),
         )
-        # Back to the list: the detail shown is gone.
-        set_monitoring_detail("file", "")
-        redraw_monitoring("project")
         self.report({"INFO"}, f"{owner.name} deleted (in old/).")
         return {"FINISHED"}
 

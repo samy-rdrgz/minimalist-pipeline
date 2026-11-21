@@ -11,7 +11,7 @@ def add_stage(data: dict, stage: str, **fields) -> None:
 
 def mark_stage(path, stage: str) -> None:
     """add_stage() to a job file, in its own locked transaction. No-op if
-    the file is gone -- archived from Farm monitoring meanwhile (it raised
+    the file is gone -- archived from the Farm tab meanwhile (it raised
     "'NoneType' object is not subscriptable")."""
     with locked_json(path) as box:
         if not box["data"]:

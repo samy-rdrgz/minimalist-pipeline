@@ -530,7 +530,7 @@ def _turn(sh: _Shared) -> None:
         _sync_lan(sh)  # a guest's access ended: off the network
     page_open = clock - sh.last_seen < IDLE_AFTER
     if page_open:
-        # The farm's jobs and machines, read as Farm monitoring does --
+        # The farm's jobs and machines, read as the Farm tab does --
         # its window closed, nothing else would read them.
         from ...farm.loop import refresh_step
 
@@ -984,7 +984,7 @@ def _farm_data(root: Path) -> dict:
             "range": j.get("frame_range"),
             "names": [_machine(cache, u) for u in j.get("machines") or []],
             "pending": stage == "pending",
-            # Farm monitoring's buttons, where they apply.
+            # the Farm tab's buttons, where they apply.
             "retry": stage in RETRYABLE_STAGES,
             "recompile": stage == "finished" and bool(j.get("output_dir")),
             "removable": stage == "pending" or stage in REMOVABLE_STAGES,
@@ -1077,7 +1077,7 @@ def _machine(cache: dict, uuid: str) -> str:
 
 
 def _farm_action(raw: dict) -> dict:
-    """The Farm tab's buttons, as Farm monitoring's: "cancel", "retry",
+    """The Farm tab's buttons, as the Farm tab's: "cancel", "retry",
     "archive" a job, its "priority" (the job file's: the queue reads it
     each tick), "worker" this machine (on / off: a render it's on stopped
     now -- the page asked first); "render" / "preview": _farm_submit()."""
@@ -1170,7 +1170,7 @@ def _farm_action(raw: dict) -> dict:
 
 
 def _farm_monitor(action: str, force: bool) -> dict:
-    """The Farm tab's Launch / Stop the farm, as Farm monitoring's: launched
+    """The Farm tab's Launch / Stop the farm, as the Farm tab's: launched
     here (force: the page confirmed taking over a stuck one), refused while
     another runs or without FFmpeg (its checks would fail every job); a
     stop asked of the monitor, wherever it runs, for its next tick."""
@@ -1342,7 +1342,7 @@ def _rebuild(sh: _Shared, force: bool, partial: tuple | None = None) -> None:
         progress_log.record_today(sh.root, snap)
     snap["meta"]["history"] = progress_log.days(sh.root)
     data = page_data(snap)
-    # Its Farm tab: the farm as Farm monitoring shows it.
+    # Its Farm tab: the farm as the Farm tab shows it.
     data["farm"] = jobs
     # Update links under way or just ended, by folder (lib/relink.py).
     data["relink"] = relinks

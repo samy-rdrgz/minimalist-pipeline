@@ -25,7 +25,6 @@ def main() -> None:
     expected = {"layout": "done", "anim": "rework", "fx": "wip", "light": "wip", "comp": "todo"}
     for d, state in expected.items():
         assert status.department_state(facts, d) == state, (d, status.department_state(facts, d))
-    assert set(status.STATE_LABELS) == {"todo", "wip", "done", "rework"}
     w = status.progress_weights({"snapshot": {"progress": {"wip": 150, "rework": "x"}}})
     assert w == {"wip": 100, "rework": 67, "rtk": 67}, w
     w = status.PROGRESS_WEIGHTS

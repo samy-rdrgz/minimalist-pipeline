@@ -44,19 +44,17 @@ TYPE_ICON = {
 
 
 def draw_tracking_data(context, box, filepath, required, width: int | None = None):
-    """The File panel's notes & tasks. Its departments: Project monitoring's
+    """The File panel's notes & tasks. Its departments: the live page's
     file detail (the panel's Details button)."""
     if required:
         box.separator(factor=1)
     draw_entries(box, filepath, width=width)
 
 
-def draw_entries(box, filepath, filters=None, width: int | None = None):
-    """Draw a file's entries. filters: the object holding entries_hide_done
-    / entries_department_filter / entries_min_version -- the WindowManager
-    for the sidebar, File details' own operator (see NOTES.md, "Small
-    gotchas, out of the docstrings")."""
-    filters = filters or bpy.context.window_manager
+def draw_entries(box, filepath, width: int | None = None):
+    """Draw a file's entries, filtered by the WindowManager's
+    entries_hide_done / entries_department_filter / entries_min_version."""
+    filters = bpy.context.window_manager
     title = box.column(align=True)
     title_row = title.box().row(align=True)
     # Title on the left with what's left to do (open RTKs red, todos grey,
@@ -411,27 +409,6 @@ def _get_entry_tooltip(e, filepath):
         done_at = local_time(e.get("done_at")) or "//"
         text = f"{text}\n\nDone by : {e.get('done_by', '//')}\nAt : {done_at}"
     return text
-
-
-# File details' thumbnail: loaded when a file is clicked (the details
-# operator's execute()), never in draw() -- nothing on disk while drawing.
-_previews = None
-_preview_ids: dict[str, int] = {}
-# Folder -> read_render_state(), filled on click (load_file_renders()).
-_last_renders: dict[str, list] = {}
-# Folder -> farm_renders(): the frame lookup's renders to pick from.
-_farm_renders: dict[str, list] = {}
-
-
-def unregister_thumbnail_previews() -> None:
-    """Free the thumbnails' preview collection and forget what it held."""
-    global _previews
-    if _previews is not None:
-        bpy.utils.previews.remove(_previews)
-        _previews = None
-    _preview_ids.clear()
-    _last_renders.clear()
-    _farm_renders.clear()
 
 
 def _cells(layout, widths: list) -> list:

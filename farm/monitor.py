@@ -56,7 +56,7 @@ _monitor_cache: dict = {
 
 
 def get_monitor_cache():
-    """Return the module-level monitor snapshot dict (refreshed by _refresh_tick)."""
+    """Return the module-level monitor snapshot dict (refreshed by refresh_step(), the live page's farm read)."""
     return _monitor_cache
 
 
@@ -604,36 +604,6 @@ def remove_waiting_job(job_id: str, pending: bool) -> bool:
             return False
         archive(path)
     return True
-
-
-# The job Farm monitoring shows in detail: read once, on click
-# (load_job_details()), never from draw().
-_job_details: dict = {}
-# Where that job's file was found, and its logs (archive() moves both).
-_job_files: dict = {"path": None, "logs": []}
-
-
-def load_job_details(job_id: str) -> dict | None:
-    """Read a job's file -- active/, else archives/ -- and list its logs
-    into the detail cache. None, cache emptied, if it's in neither."""
-    _job_details.clear()
-    _job_files.update(path=None, logs=[])
-    for folder in ("farm_actives", "farm_archives"):
-        path = ConfigCache.get_path(folder) / f"{job_id}.json"
-        data = read_json_quiet(path)
-        if data:
-            _job_details.update(data)
-            _job_files["path"] = path
-            # request_<job_id>.log (this machine's stages) and
-            # request_<job_id>_<uuid>.log (each worker's render).
-            pattern = f"request_{job_id}*.log"
-            _job_files["logs"] = sorted(
-                log_file
-                for logs in ("farm_requests", "farm_archives")
-                for log_file in ConfigCache.get_path(logs).glob(pattern)
-            )
-            return data
-    return None
 
 
 def recover_interrupted_jobs(local: bool = False) -> None:

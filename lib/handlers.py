@@ -139,15 +139,6 @@ def post_load_handler(*args):
     auto-version); a *different* known project's: propose a switch, stop;
     unknown file: total silence, no popup. *args (unused): load_post's arity
     isn't a contract we control, stays robust either way."""
-    # The farm's refresh timer would tag_redraw() a region the load freed (a
-    # crash): stopped first, restarted by _monitoring_tick. Lazy import: farm
-    # imports lib, not the reverse.
-    try:
-        from ..farm.loop import unregister_refresh_timer
-
-        unregister_refresh_timer()
-    except Exception:
-        pass
 
     # The file it held is closed: whatever opens now, free it for others.
     if not headless():
