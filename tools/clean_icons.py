@@ -1,7 +1,7 @@
 """Blender's icons (SVGs exported from Inkscape, white) into the snapshot
 page's: templates/snapshot/icons/<name>.svg, their Inkscape data and ids
 gone, their white the text's colour (currentColor). The page takes those
-it names (lib/snapshot_page.py icon_sprite()). See NOTES.md, "Snapshot
+it names (lib/monitoring/snapshot_page.py icon_sprite()). See NOTES.md, "Snapshot
 page v3".
 
     python3 tools/clean_icons.py [source folder, default trailers/icons]

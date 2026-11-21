@@ -341,7 +341,7 @@ place that can answer this honestly every time.
 
 The alternative to flagging a branched-out composition `archived` was moving it to an `/old/` folder instead: more honest on disk (a dead block is visibly dead), but riskier against the farm's ~10s-latency pull model — a guard checking "is a job active on this block" can still lose to a worker that already pulled the request. The flag shipped first for that reason: metadata-only, no move, no race.
 
-**Revisited, `/old` shipped instead.** The flag never reached a dropped shot's *renders* — only the composition had an `archived` key. A shot pulled from a block's enumeration left its old output in `renders/<sq>/<sh>/` with nothing marking it dead, so "Preview sequence" (`resolve_sequence_sources()`, filesystem-only by design) kept splicing a dead cut into the compiled preview. `/old` fixes both at once: `archive_folder()` (`lib/tracking.py`) moves a folder into an `old/` sibling, used on the branched-out composition and, per dropped shot, its render folder — skipped if that shot number is still covered by some other active block/shot in the sequence, via `active_shot_owners()` (see below). `resolve_sequence_sources()` needed no change: it only sees `renders/<sq>/`'s direct children, and an archived shot no longer lives there.
+**Revisited, `/old` shipped instead.** The flag never reached a dropped shot's *renders* — only the composition had an `archived` key. A shot pulled from a block's enumeration left its old output in `renders/<sq>/<sh>/` with nothing marking it dead, so "Preview sequence" (`resolve_sequence_sources()`, filesystem-only by design) kept splicing a dead cut into the compiled preview. `/old` fixes both at once: `archive_folder()` (`lib/monitoring/tracking.py`) moves a folder into an `old/` sibling, used on the branched-out composition and, per dropped shot, its render folder — skipped if that shot number is still covered by some other active block/shot in the sequence, via `active_shot_owners()` (see below). `resolve_sequence_sources()` needed no change: it only sees `renders/<sq>/`'s direct children, and an archived shot no longer lives there.
 
 The race above doesn't apply on this path: the move only runs after `create_shot_file()` has already switched the live session to the new file, so the old path is never the one still open. A job already pulled and mid-render against it stays exposed — same as a hand-deleted folder would be, not new risk. Breaking a Blender link still pointing at the moved file is accepted, not a bug: a dead block should fail loudly, not keep resolving as if it were current.
 
@@ -373,7 +373,7 @@ and the old name gave no hint of that at the button.
   for a shot whose marker is missing, or when `self.filepath` isn't
   actually the open file (an explicit, non-default caller — the one real
   call site, `file_panel.py`, always passes the open file).
-- New check, `active_shot_owners()` (`lib/tracking.py`): `{shot_number:
+- New check, `active_shot_owners()` (`lib/monitoring/tracking.py`): `{shot_number:
   owning folder}` across every active file in a sequence. Two other call
   sites reuse it besides the conflict check below — `list_active_blocks()`
   used to be walked by hand for the dropped-shot-renders skip above; now
@@ -421,7 +421,7 @@ the block's full segment.
 The designed mitigation — drop the redundant base filename from `.meta`
 files (`v004.wipmeta` instead of `sq040_sh030-...-080_v004.wipmeta`, since
 the base is already implied by the parent folder) — **is now implemented**
-(`_meta_stem()` in `lib/tracking.py`), ahead of the real UNC-path test this
+(`_meta_stem()` in `lib/monitoring/tracking.py`), ahead of the real UNC-path test this
 was originally left pending on: it turned out to matter on its own, for
 readability of the `.pipeline/` folder, independent of MAX_PATH risk. The
 `.blend` filename itself is untouched — every shot number a block covers
@@ -439,7 +439,7 @@ longest UNC prefix, which is exactly the part this doc can't compute.
 
 ## Tracking entries
 
-Extending the flat note/todo/rtk model in `lib/tracking.py` for review-heavy use: batching several retakes in one pass, telling entries from different sessions/versions apart, and optionally pinning one to a frame.
+Extending the flat note/todo/rtk model in `lib/monitoring/tracking.py` for review-heavy use: batching several retakes in one pass, telling entries from different sessions/versions apart, and optionally pinning one to a frame.
 
 ### Batched review input, still one entry each
 
@@ -498,7 +498,7 @@ The one real gap `context.region.width` has: it's the *panel's* width, not any n
 
 ## Work time tracking & log rotation
 
-Total work time per asset/shot (`WorkTimeCache`, `lib/tracking.py`) and size-based log rotation (`lib/logs.py`) landed together — the second exists because the first turned `sessions_log.jsonl` from a diagnostic trail into something a real feature reads back, which changed what "safe to rotate" means for that one file.
+Total work time per asset/shot (`WorkTimeCache`, `lib/monitoring/tracking.py`) and size-based log rotation (`lib/logs.py`) landed together — the second exists because the first turned `sessions_log.jsonl` from a diagnostic trail into something a real feature reads back, which changed what "safe to rotate" means for that one file.
 
 ### `session_start` was dropped, not left out
 
@@ -567,7 +567,7 @@ click copies it.
 
 ## Recent files: derived from the log, not a stored list
 
-The top bar's "Recent" entries (`RecentFilesCache`, `lib/tracking.py`) don't store anything of their own — they're computed from `sessions_log.jsonl`'s own `session_end` lines, the same file `WorkTimeCache` already reads, on the same mtime-cached full-scan pattern.
+The top bar's "Recent" entries (`RecentFilesCache`, `lib/monitoring/tracking.py`) don't store anything of their own — they're computed from `sessions_log.jsonl`'s own `session_end` lines, the same file `WorkTimeCache` already reads, on the same mtime-cached full-scan pattern.
 
 A plain stored list (e.g. in addon prefs) was the first idea, and the problem with it surfaced immediately: it would need active upkeep (append on open, cap its length, and — the real trap — get cleared or re-scoped on every project switch, or it'd offer to open a file from whatever project was active last). Deriving from the log sidesteps all of that structurally rather than adding code to handle it: `sessions_log.jsonl` already lives inside the *active* project's own `config/logs/`, so reading it can't produce a file from a different project — there's no cross-project list to accidentally leak from, because there's no list.
 
@@ -621,7 +621,7 @@ through the box-wrapped helper, to dodge the same layout break.
 ## `.wipmeta` writes tolerate a missing sidecar; the panel doesn't trust the flag alone
 
 `wipmeta_add_work()`, `wipmeta_add_link()` and `wipmeta_update_libraries()`
-(`lib/tracking.py`) used to raise `PipelineError("Error meta file not
+(`lib/monitoring/tracking.py`) used to raise `PipelineError("Error meta file not
 exists.")` when the target `.wipmeta` was missing — which a `-stable` file
 always is, by design (only a `.stablemeta`). That read like a defensive
 check, but it was reachable through an entirely ordinary flow, not just a
@@ -1248,7 +1248,7 @@ Found and fixed, worst first:
   exactly when a direct child is added/removed/renamed, which is exactly
   what these listings show), and `DirEntry.is_dir()` reads the stat info
   `scandir()` already fetched instead of stat-ing again. `list_active_blocks()`
-  (`lib/tracking.py`) uses it too; `is_block_archived()` got its own
+  (`lib/monitoring/tracking.py`) uses it too; `is_block_archived()` got its own
   mtime-keyed cache alongside it (one `stat()` per call instead of a
   lock+read every time, every shot, every redraw).
 - **`TrackingStatusCache.get()` re-validating on every call.** Even with a
@@ -1743,7 +1743,7 @@ showed then flipped back. Three causes, one per cache layer:
   (memory), until the next scan. A second click inside that window read
   the stale state and wrote the same value again: the first click undone.
   Now every write operator calls `status_changed(filepath)`
-  (`lib/monitoring.py`): that one folder computed again
+  (`lib/monitoring/windows.py`): that one folder computed again
   (`get(force_reload=True)`, a few reads, nothing else), then every
   `VIEW_3D` and `PROPERTIES` area tagged for redraw -- the sidebar and the
   monitoring windows, the views that show a status. Tagging a whole
@@ -1830,7 +1830,7 @@ thread's results). `refresh_monitor_cache()`/`refresh_monitor_status()` now
 run the thread's own pure functions (`_read_farm_snapshot()`,
 `_read_farm_raw()`) inline and apply them the same way; worker files are
 read by one function (`read_workers()`) for both `scan_workers()` and the
-thread. Same cleanup in `lib/tracking.py`: `ProjectScan` had replaced
+thread. Same cleanup in `lib/monitoring/tracking.py`: `ProjectScan` had replaced
 `TrackingStatusCache.get_all()` and `refresh_linked_by_index()`, which
 stayed behind unused with their own copy of the project walk -- removed,
 `ProjectScan` walks through `_walk_owner_dirs()`.
@@ -1861,7 +1861,7 @@ like `_meta_path()` it only accepts a `.blend`.
 
 Production (outside the studio: no Blender, no NAS) needs a picture of the
 project at a given moment and a way to send review notes back.
-`lib/snapshot.py`, Project panel > "Snapshot".
+`lib/monitoring/snapshot.py`, Project panel > "Snapshot".
 
 - **One self-contained HTML file**, CSS/JS inline: sent by mail, opens
   offline. Not Markdown (browsers don't render it), not an XLSX report.
@@ -2446,7 +2446,7 @@ Blender reads the temp_override's context dict -- builds a Python string
 its thread. Blender's bug (a Python allocation outside the GIL), ours to
 stop exposing: no reader thread runs Python while a window opens, closes
 or a file loads. Every `temp_override()` + `bpy.ops` of the addon is in
-`lib/monitoring.py`, all paused.
+`lib/monitoring/windows.py`, all paused.
 
 `lib/background.py`: `threads_paused()` around those `bpy.ops` calls
 (`window_new`, `region_toggle` in the new window, `area_dupli`,
@@ -2482,7 +2482,7 @@ nothing more; then every import checked against its module, every called
 operator against the registered ones, and every remaining panel's and
 menu's draw() run headless on a project file.
 
-- **Kept**: the windows themselves (`lib/monitoring.py`) for the Pipeline
+- **Kept**: the windows themselves (`lib/monitoring/windows.py`) for the Pipeline
   log, the welcome and Project settings -- paging, F5, the keys.
 - **Their entry points**: File details' *Details* opens the live page on
   the file (`#<file>`: its name or any version's), the Farm panel's header
@@ -2699,7 +2699,7 @@ that scrolls, like before.
   wrap (one Options class per mode, more panels in the paint modes) --
   hiding them means re-registering Blender's classes. Pushed out of
   sight instead: a window's height of blank under the panel's content.
-- **The page lives in memory** (`_pages`, lib/monitoring.py), like the
+- **The page lives in memory** (`_pages`, lib/monitoring/windows.py), like the
   filters: a WindowManager property would be saved into the .blend.
   `paginate()` clamps it to the page count (a bigger window, fewer pages),
   keeps that count for `turn_page()`, and goes back to page 1 when the
@@ -3700,7 +3700,7 @@ the addon's preferences can't be read; that case now keeps the role.
 A department's cell went red only for an RTK tagged with it, so a
 general retake (an imported `global` line, an RTK with no department
 ticked) showed nowhere but the RTK filter. Project monitoring reds the
-file's name for it (`open_rtks()`, `lib/tracking.py`: the departments
+file's name for it (`open_rtks()`, `lib/monitoring/tracking.py`: the departments
 plus a "general" flag). First tried as every started department red,
 which hid which work it was about. The snapshot's row already has an
 "n RTK" flag by the name: a general RTK red-outlines that flag
@@ -3802,7 +3802,7 @@ The page grew one request at a time (1.0.10 to 1.1.7) into a table of
 every column at once, a filter bar of three groups, a review box, a
 One file card and a phone mode of its own: everything shown with the same
 weight, every number coloured. It is now drawn in the browser from data
-(`lib/snapshot_page.py` shapes it, `templates/snapshot/page.js` draws it)
+(`lib/monitoring/snapshot_page.py` shapes it, `templates/snapshot/page.js` draws it)
 around one idea: a list to scan, a panel to read one file.
 
 - **Data, not markup.** Python writes `{"meta", "items", "images"}` into
@@ -3894,7 +3894,7 @@ paused or dropped -- the first try, "Omit / On hold / Counts", read as
 three near-synonyms; the dialog's third choice, *Active*, removes the
 marker. The field keeps its name "omit" (the code's word for both):
 
-- `omitted(facts)` (lib/status.py) is the one test: a marker with a known
+- `omitted(facts)` (lib/monitoring/status.py) is the one test: a marker with a known
   state, else None. The stages skip the file (`stage_flags()` -> {}).
 - Still listed, greyed with its mark (Project monitoring's row, File
   details' title); out of the Retakes and To validate filters.
@@ -3911,7 +3911,7 @@ Phase 3C of docs/plan-1.2.md: a department's place in its kind's stages
 field itself, `a > b, c > d` -- `parse_departments()` / `departments_text()`:
 one field, nothing to type twice or to contradict; commas only, one stage,
 no stages, so older projects read as before), and two states computed on every read, never stored
-(lib/status.py `stage_flags()`, into the status as `flags`):
+(lib/monitoring/status.py `stage_flags()`, into the status as `flags`):
 
 - **Waiting**: an earlier stage with an open RTK, else one not started --
   the nearest stage first. Shown in place of the state (its own in the
@@ -3938,6 +3938,19 @@ no stages, so older projects read as before), and two states computed on every r
   both (render) has its own stage in each.
 - tests/test_status.py: each case, the two rules apart, Still done, a
   change older than the stable.
+
+## Sessions on a stable
+
+A -stable file has no .wipmeta: saved in place (its Save anyway), its
+session was written nowhere -- no who, no when, no department worked.
+Now in its .stablemeta, under "sessions" ({session id: {"departments",
+"saved_at", "by"}}, a .wipmeta's form), the save a
+session even with nothing ticked; its Working on toggles shown once this
+Blender saved it in place (tracking.py _work_meta(), saved_in_place()).
+Apart from the stablemeta's own "departments_worked" (a list: worked
+since the stable before), which the state engine reads -- work saved on
+a stable itself isn't rework since it. Its time is the session log's, as
+any file's (sessions_log.jsonl, recent files, work time).
 
 ## Sessions with their date
 
@@ -3966,13 +3979,13 @@ session's own date, so from 1.2:
 A department's state was worked out in two places in Python (the
 snapshot's `_department_state()`, Project monitoring's cell) and its
 words in a third (page.js `LABEL`). Phase 3 adds Waiting, To redo and
-On hold: one place first (3A, behaviour unchanged), `lib/status.py`:
+On hold: one place first (3A, behaviour unchanged), `lib/monitoring/status.py`:
 
 - `department_state(facts, department)`: todo / wip / done / rework from
   the facts `_status_from_raw()` gathers -- validated at the latest
   stable, worked since, started before. `STATE_LABELS` their words.
 - `department_score()`, `progress_weights()`, `file_progress()`: a
-  department's share done and a file's (moved from lib/snapshot.py,
+  department's share done and a file's (moved from lib/monitoring/snapshot.py,
   which re-exports `PROGRESS_WEIGHTS` / `progress_weights`).
 - Pure (no bpy, no disk): tests/test_status.py checks each state from its
   facts. The page still gets each state computed (`item.states`); its JS
@@ -3985,7 +3998,7 @@ monitoring) replaced the whole list. From 1.2 it opens in a second zone on
 the right of the same window. Tried first outside the addon in Blender
 5.2.3 (docs/plan-1.2.md, phase 2b), what it taught shaped this:
 
-- **One reconciling function**, `sync_detail_zones()` (lib/monitoring.py),
+- **One reconciling function**, `sync_detail_zones()` (lib/monitoring/windows.py),
   never a split in each operator: every window in two zones while its
   detail is open and it's at least `_SPLIT_MIN_WIDTH` wide, in one
   otherwise. Run the tick after `set_monitoring_detail()`
@@ -4048,7 +4061,7 @@ the right of the same window. Tried first outside the addon in Blender
 ## Snapshots and reviews by month
 
 A project's `snapshots/` filled up flat: an export a day or more, their
-reviews scattered in Downloads. From 1.2 (`lib/snapshot.py`):
+reviews scattered in Downloads. From 1.2 (`lib/monitoring/snapshot.py`):
 
 - **A page goes in `snapshots/<YYYY-MM>/`** (`month_folder()`), the month
   of its export. The pages of before stay at the root: moved, their
@@ -4387,7 +4400,7 @@ longer `render` (a department's possible name); 8 typed actions, no rows
 A review kept the spreadsheet's shape long after the .xlsx went: a row
 per file, a column per department, `reply <id>` columns, cells to
 interpret ("ok" and its nine spellings, "no", text = retakes, `global`).
-From schema 8 it's a list of actions (`ACTION_TYPES`, lib/review_import.py):
+From schema 8 it's a list of actions (`ACTION_TYPES`, lib/monitoring/review_import.py):
 validate / unvalidate {department, seen}, rtk / note {departments, text,
 shot, frames, render}, reply {to, text}, fixed {id}, description {old,
 new}.
@@ -4743,7 +4756,7 @@ started and Done reworked shared one icon.
   a weight (the columns moved with their words); a LEFT-aligned cell
   shrinks to its words (a time's digits differ). Nested splits had let
   the message's start move with the action's length.
-- The three windows drawn by the same functions (`lib/monitoring.py`):
+- The three windows drawn by the same functions (`lib/monitoring/windows.py`):
   `monitor_filters()` (one boxed row, its title a sixth; stacked rows
   narrowed beside a detail, `next_row()`), `end_filters()` (full screen,
   the space before the list), `monitor_footer()` (what's shown greyed,
@@ -4836,7 +4849,7 @@ review, the phone and the iPad. What holds across them:
   video's events (and `requestVideoFrameCallback`, a frame at a time).
   The lightbox keeps the pictures only.
 - **Marks on the timeline** (`marksOf()`): the file's open notes with
-  frames ("f12", "f12-30", lib/snapshot.py `_frames_label()`) on the
+  frames ("f12", "f12-30", lib/monitoring/snapshot.py `_frames_label()`) on the
   video's shot or on none, and this review's `[f12]` lines; placed from
   the render's first frame (`start`) -- none when it's unknown.
 - **The player takes the video's shape** (`--ar`, set at `loadedmetadata`
@@ -4945,12 +4958,12 @@ review, the phone and the iPad. What holds across them:
 
 The page shows what a review would make of the figures, as it's written
 ("→ 32 % · 6 % -1" by a section, a group, a file). Not a second guess:
-`templates/snapshot/status.js` (`MPStatus`) is lib/status.py's twin --
+`templates/snapshot/status.js` (`MPStatus`) is lib/monitoring/status.py's twin --
 `departmentScore()`, `fileProgress()` (a general retake as an RTK on one
 done department), `average()` --, put before page.js at the export.
 
 - **Same cases, both sides**: `tests/status_cases.json`.
-  `tests/test_status.py` runs them through lib/status.py; with `--html
+  `tests/test_status.py` runs them through lib/monitoring/status.py; with `--html
   <file>` it writes a page running them through the twin (no JavaScript
   engine here but a browser): it says OK or the case that fails. Change
   a rule: change both, add its case.
@@ -4965,7 +4978,7 @@ done department), `average()` --, put before page.js at the export.
 Phase 5 of docs/plan-1.2.md.
 
 - **A render's department comes from its preset's name**
-  (`lib/status.py` `preset_department()`): the longest department name
+  (`lib/monitoring/status.py` `preset_department()`): the longest department name
   the preset's starts with, then `_`, `-` or nothing, any case. The
   longest: a department may hold `_` (only the comma splits Edit
   project's field) -- `look_dev_hd` is look_dev, not look. Nothing to
@@ -5119,11 +5132,11 @@ hash of the preset's name (`farm/monitor.py _file_key()`).
 ## Live page
 
 Blender serves the snapshot page to this machine's browser and keeps it up
-to date (plan 2.8, phase 4b; `lib/live.py`, `operators/live_ops.py`), and
+to date (plan 2.8, phase 4b; `lib/monitoring/live.py`, `operators/live_ops.py`), and
 applies what's done on it. Tried first with `tools/live_prototype.py` (4b.0,
 measures in the plan).
 
-- **One page for both**: `render_page(data)` (`lib/snapshot_page.py`)
+- **One page for both**: `render_page(data)` (`lib/monitoring/snapshot_page.py`)
   writes the snapshot and serves the live one; `meta.live`
   ({"token", "version"}) tells page.js to ask `/data?since=N` -- a long
   poll answered at once on a new version, else after 20 s, with "busy"
@@ -5247,8 +5260,8 @@ measures in the plan).
 ## Live page: a phone
 
 Someone on the studio's network reviews on the live page from a phone or a
-tablet: an access made on this machine's page (`_share()`, lib/live.py),
-its link as a QR code (`lib/qr.py`).
+tablet: an access made on this machine's page (`_share()`, lib/monitoring/live.py),
+its link as a QR code (`lib/monitoring/qr.py`).
 
 - **A guest each**: their token (`secrets.token_urlsafe(18)`: a short link,
   a small QR code), name, role, end -- in Blender's config folder
@@ -5266,7 +5279,7 @@ its link as a QR code (`lib/qr.py`).
   theirs whatever the page says (author and role set by the server, a
   push to editing dropped). Refused: farm actions (its details read),
   opening a file, this machine's player, sharing.
-- **The QR code** (`lib/qr.py`): byte mode, error correction M, the
+- **The QR code** (`lib/monitoring/qr.py`): byte mode, error correction M, the
   smallest version, the mask by the standard's penalty. Checked against
   the `qrcode` library (system Python): the same matrix for each mask and
   the same mask chosen, over links like ours. Drawn as an SVG on the page;
@@ -5671,7 +5684,7 @@ that session the v7 page uses --
 - **Work time**: `page_data()`'s `work`, shown in Files and renders.
 - **What's new**: never one's own doing (`own()`: the author or the
   validator is this page's user).
-- **Share with a phone** (`js/live/61-share.js`, `/share`, `lib/qr.py`):
+- **Share with a phone** (`js/live/61-share.js`, `/share`, `lib/monitoring/qr.py`):
   the classic dialog in v7's widgets -- name, role, VPN or local network,
   how long; the link, its QR code, Copy link; the accesses running,
   revoked. View > Share with a phone…, or `#share`. A guest
@@ -5695,7 +5708,7 @@ The values live in css/10-tokens.css; where the tints go, in
 css/25-theme.css. Both match the reference page and UI kit; buttons
 keep Blender's own icons.
 
-## Legacy: what 1.x still reads (lib/legacy.py)
+## Legacy: what 1.x still reads (lib/monitoring/legacy.py)
 
 The 1.x forms 2.0 keeps writing beside its own, in one file, to remove
 whole once no 1.x is left (delete it and its calls: grep "legacy.").
@@ -5708,3 +5721,148 @@ key's values win. The migration keeps both (_migrate_done()). Everything
 else 2.0 migrates a 1.1.10 already reads (dates with their offset,
 sessions with their date, .py render presets: a 1.1.10 tries the .py
 first).
+
+## A worker started again never took a job
+
+1.1.10: Kill this worker, then Add this machine as worker, Blender left
+open -- the worker file written, the machine listed, but no job ever
+taken. farm_tick() returns None once no role is left here (Blender
+drops the timer), but _farm_running_project stayed set, and
+register_farm_loop() only registered a timer when it was None: the
+worker never ticked again. Now farm_tick() forgets the loop when it ends
+(_loop_ended()), and register_farm_loop() checks the timer itself: one
+still there (the worker running while the monitor was stopped and
+launched again) gets the project back, no second timer; none, a new one.
+tests/test_farm_loop.py.
+
+## Share with a phone: an access that drives the farm
+
+A guest's farm is read only -- except an access made with Farm: Can
+drive it ("farm" on the guest, meta.live.farm, data-gfarm on the page):
+launch and stop the farm, render, priorities, cancel and retry. For a
+solo artist away from the studio, following their renders from a
+phone. Never anything opened on the host machine (a job's folder or
+log, Blender, the player): those stay the host's, whatever the access.
+
+## Sessions: one name
+
+A version's sessions ({session id: {"departments", "saved_at", "by"}}) are
+"sessions" in its .wipmeta, as in a stable's .stablemeta saved in place.
+A .wipmeta had them under "departments_worked" through 1.x -- the name a
+.stablemeta gives something else: the departments worked since the stable
+before (a list, the state engine's). Read in one place
+(tracking.py _sessions_of(), worked_sessions()) through legacy.wip_read():
+a 1.x still working on the project writes the old name only, its sessions
+read; written with the old name beside, equal (legacy.wip_written()),
+through 2.2 -- as "departments_validated" (lib/monitoring/legacy.py).
+Migrate old data renames them.
+
+## Progress over time: the days before the log
+
+config/logs/progress.json only starts with 2.0 (a snapshot, the live
+page, the first Blender of the day). The days before are rebuilt once,
+by Migrate old data -- the one place allowed to read every .stablemeta
+and .wipmeta (plan_migration() reads them all anyway; it hands them,
+migrated in memory, to progress_log.rebuild()). Each folder as it stood
+at the end of a day (_folder_at()): its tracking.json if made by then,
+its entries written by then (one closed later: open), its latest stable
+made by then with only the validations given by then, its versions'
+sessions saved by then -- through _status_from_raw() and the snapshot's
+build, so the same rules as today's figures. Worked out for a folder only
+on the days it changed (_change_days()), the project's figures each day
+from every folder's latest: 150 folders over two busy years, about ten
+seconds. What isn't dated stays as it is now: the required departments,
+set aside, the project's departments and weights. Days the log holds are
+never replaced; rebuilt ones carry "rebuilt": true.
+
+## Activity over time
+
+progress.json's days also hold what was worked: "worked" ({shots|assets:
+{department: files}}, the folders with a session saved that day with the
+department ticked -- a session counts on the day of its last save),
+"seconds" and "people" (sessions_log.jsonl's saved sessions, work time's
+rule, split at midnight). Only for the days before today: the first
+Blender of the day adds the days since "activity_until", reading only the
+metas changed since (their mtime) -- never every meta; Migrate old data
+writes every day before (rebuild_activity(), the metas it reads anyway
+and the log's archives). It marks "activity_rebuilt" -- what the plan
+looks for, not "activity_until": a Blender 2.0 run before the migration
+writes that one too, for its last 30 days only. A day's finished figures and its activity are
+written apart, each keeping the other (record() merges, has_figures()).
+Counted in files, not hours: the sessions log knows no department.
+
+## Live page: the first read in batches
+
+Opened, the live page used to wait for the whole project (every folder's
+metas, render state, thumbnails, links, then work times and rushes) on a
+waiting page. Now the first pass (no page yet, `_reader["ready"]` false)
+publishes what it has read: read_live() lists the folders first (the
+total), then calls on_progress before each one; _read() keeps a copy of
+what's read after FIRST_BATCH (1 s: a small project shows no batch), then
+every BATCH_EVERY (2 s). Blender's turn makes a page of it
+(_rebuild(partial=...)): its folders only, links without "a newer stable"
+(that listing waits for the whole read), no work times, no rushes, meta
+"reading" {done, total} -- the page shows a line along the top, the count
+above the status bar, "partial" by the figures. Nothing is logged from a
+batch: today's progress point (progress_log.record_today) is the whole
+project's, written by the first whole pass only. The farm's own news waits
+for it too (_rebuild() returns early until ready). Later passes read only
+what changed: no batches.
+
+## Open: its shot already open elsewhere
+
+Before opening a file -- the page's Open in Blender (POST /open), the Open
+project file dialogs -- session.open_elsewhere() looks at
+config/.sessions/: another Blender (another machine, or this one's other
+instance) pinged in the last 90 s with a file of the same shot or asset
+open, any version (its folder and the one above, by name: each machine
+mounts the project its own way). The page asks (Open all the same:
+"anyway"); the dialog shows a red line; a direct open asks to confirm. A
+warning, never a lock: the same file has its lock already (opened
+read-only); two versions of one shot is what this catches -- worked apart,
+a conflict later.
+
+## Render here: a farm job of one machine
+
+The file panel's Render, for the file open here, offers Where: Farm,
+Local · playblast, Local · viewport. Local renders it on this machine, now,
+without a farm host and without waiting behind the queue -- an animator
+watching their shot play, a shot rendered without forcing its priority on
+everyone's farm. Never "Single" (one machine of the farm for the whole
+range): a render here is outside the farm.
+
+It is the farm's own job, whole: setup, chunks, the frame check, the video
+and its sound, render_history.json, the department's to check, the
+thumbnail, Retry. Its file holds "local" (the machine's id) and only that
+machine assigned; it is written straight into actives/, queued (no host to
+take it from incoming/), under its own id (job_request(local=...),
+local_job_name(): never the farm's for the same file and preset, nor a
+viewport render's). A render of the open file with unsaved changes saves
+it first: a plain save, no new version (open read-only, refused).
+
+Who moves it on: never the farm host of another machine (scan_queue()
+leaves another's "local" alone, recover_interrupted_jobs() too); this
+machine's farm loop does (local_tick(): scan_queue(local=True), its own
+only) -- or its queue, when this Blender is the farm host. Who renders it:
+this machine as a worker, its worker file the usual one, seen in Farm
+monitoring and the page's Farm tab with a "local" tag: "local_only" while
+it has renders here (idle_machines() on another host skips it,
+machines_for() gives it no farm job), "local_role" when the role was
+started for them (given up once they're done). A worker busy with a farm
+render gives way after its frame (render_yield_path(), as for a higher
+priority): the farm sends the rest of that chunk elsewhere. Retry and
+Recompile of a render here: from its machine only.
+
+Viewport: the same job with "viewport": one chunk (one Blender for the
+whole range), rendered by worker_render_entry.py --viewport in a Blender
+with its window (blender_command(window=True)), the addon in it as in a
+background one (HEADLESS_ENV, core.headless(): no session, lock,
+auto-version, popup). Each frame: render.opengl(view_context=True) from the
+file's largest 3D view, through the scene's camera, its overlays and
+shading as saved -- the artist's own Blender stays free. The preset applies
+as for any render (the artist makes a viewport playblast preset). Its
+history entry is tagged "viewport" (a render here's "local") -- shown on
+the page, nothing else held back (thumbnail, to check, rushes: as any
+render); only the presets' pace leaves it out (history_pace(),
+note_preset_pace()). To try in Blender: the windowed subprocess and
+opengl were not run here (no Blender in a cloud session).

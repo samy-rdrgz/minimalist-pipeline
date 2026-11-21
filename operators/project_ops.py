@@ -8,7 +8,7 @@ from pathlib import Path
 
 import bpy
 
-from ..lib.status import departments_text, parse_departments
+from ..lib.monitoring.status import departments_text, parse_departments
 from ..lib import (
     install_department_presets,
     project_team,
@@ -22,6 +22,7 @@ from ..lib import (
     find_project_root,
     get_addon_version,
     get_config_filepath,
+    locked_json,
     get_user,
     install_default_ffmpeg_preset,
     install_default_preset,
@@ -42,12 +43,14 @@ from ..lib import (
 )
 from ..lib.migration import migration_record
 from ..lib.presets import presets_without_department, preset_rename_problem, rename_preset
-from ..lib.core import cached_scandir
-from ..lib.status import preset_department
+from ..lib.core import cached_scandir, write_json_atomic
+from ..lib import formats
+from ..lib.monitoring.status import preset_department
 from .farm_ops import (
     _NO_SCRIPT,
     _stable_enum_items,
     default_pre_render_script,
+    department_preset,
     pre_render_script_items,
 )
 
@@ -198,7 +201,7 @@ class M_PIPELINE_OT_create_project(bpy.types.Operator):
 
         config_file = get_config_filepath(project_root)
         try:
-            config_file.write_text(json.dumps(config, indent=4), encoding="utf-8")
+            write_json_atomic(config_file, config)
         except Exception as e:
             self.report({"ERROR"}, f"Failed to write config: {e}")
             return {"CANCELLED"}
@@ -588,7 +591,7 @@ class ProjectSettings:
         ),
     )
 
-    # Snapshot "Done" weights, see PROGRESS_WEIGHTS (lib/snapshot.py).
+    # Snapshot "Done" weights, see PROGRESS_WEIGHTS (lib/monitoring/snapshot.py).
     progress_wip: bpy.props.IntProperty(
         name="WIP",
         min=0,
@@ -846,7 +849,9 @@ class ProjectSettings:
             for e in cached_scandir(Path(root) / "config" / "presets")
             if e.name.endswith(".py") and e.name != "asset_file_preset.py"
         ]
-        loose = sorted(n for n in names if not preset_department(n, self._departments()))
+        # Set for a department (By department…): it has one, whatever its name.
+        assigned = set(((read_project_config(root) or {}).get("farm") or {}).get("department_presets", {}).values())
+        loose = sorted(n for n in names if n not in assigned and not preset_department(n, self._departments()))
         row = box.row()
         if loose:
             warn = row.row()
@@ -854,6 +859,8 @@ class ProjectSettings:
             warn.label(text=f"No department: {', '.join(loose)}", icon="ERROR")
         else:
             row.label(text="")
+        op = row.operator("m_pipeline.department_presets", text="By department…", icon="PRESET")
+        op.project_root = root
         op = row.operator("m_pipeline.rename_preset", text="Rename preset…", icon="GREASEPENCIL")
         op.project_root = root
 
@@ -915,7 +922,7 @@ class ProjectSettings:
         self.library_prefixes = self._list_to_csv(structure.get("library_prefixes", []))
         self.project_folders = self._list_to_csv(structure.get("project_folders", []))
         self.tags = self._list_to_csv(config.get("tags", ["stable"]))
-        # One field each: the list and its stages (lib/status.py).
+        # One field each: the list and its stages (lib/monitoring/status.py).
         stages = config.get("department_stages") or {}
         self.assets_departments = departments_text(
             config.get("assets_departments", DEFAULT_ASSET_DEPARTMENTS), stages.get("assets")
@@ -1010,7 +1017,10 @@ class ProjectSettings:
         try:
             config_file = get_config_filepath(self.project_path_selected)
             config_file.parent.mkdir(parents=True, exist_ok=True)
-            config_file.write_text(json.dumps(config, indent=4), encoding="utf-8")
+            newer = formats.too_new(config_file, config)
+            if newer is not None:
+                return [("ERROR", f"This project's settings were written by a newer Minimalist Pipeline ({newer}): update the addon first.")]
+            write_json_atomic(config_file, config)
             ConfigCache.invalidate()
         except Exception as e:
             return [("ERROR", f"Failed to save config: {e}")]
@@ -1120,7 +1130,7 @@ class M_PIPELINE_OT_edit_project(ProjectSettings, bpy.types.Operator):
     def invoke(self, context, event):
         # A window, like the welcome: it stays while edited. The dialog only
         # if Blender couldn't open one.
-        from ..lib.monitoring import (
+        from ..lib.monitoring.windows import (
             bring_monitoring_to_front,
             monitoring_windows,
             open_monitoring_window,
@@ -1138,7 +1148,7 @@ class M_PIPELINE_OT_edit_project(ProjectSettings, bpy.types.Operator):
         except PipelineError as e:
             return report_error(self, "edit_project", e)
         if open_one:
-            from ..lib.monitoring import redraw_monitoring
+            from ..lib.monitoring.windows import redraw_monitoring
 
             redraw_monitoring("settings")
             bring_monitoring_to_front(context, "settings")
@@ -1256,6 +1266,83 @@ class M_PIPELINE_OT_rename_preset(bpy.types.Operator):
                 pass
         ConfigCache.invalidate()
         self.report({"INFO"}, f"{self.old} renamed {new}: {out['renders']} render(s) in its history updated.")
+        return {"FINISHED"}
+
+
+# Presets by department: the project the popup edits, and each row's menu
+# items kept (Blender holds their strings, see _stable_enum_items()).
+_dp = {"root": "", "items": {}}
+
+
+def _dp_items(self, context):
+    """A department's row: no script, its presets first (its name's), the others."""
+    root = Path(_dp["root"]) if _dp["root"] else None
+    items = pre_render_script_items(root / "config" / "presets" if root else None, [self.department])
+    mine = [i for i in items[1:] if preset_department(i[0], [self.department])]
+    rest = [i for i in items[1:] if i not in mine]
+    out = [items[0], *mine, *([None] if mine and rest else []), *rest]
+    return _stable_enum_items(_dp["items"].setdefault(self.department, []), out)
+
+
+class PIPELINE_PG_department_preset(bpy.types.PropertyGroup):
+    department: bpy.props.StringProperty()
+    preset: bpy.props.EnumProperty(name="Preset", items=_dp_items)
+
+
+class M_PIPELINE_OT_department_presets(bpy.types.Operator):
+    """The preset each department's renders start from, in the Render dialog
+    (a shot's own last one for that department comes first)"""
+
+    bl_idname = "m_pipeline.department_presets"
+    bl_label = "Presets by department"
+    bl_options = {"INTERNAL"}
+
+    project_root: bpy.props.StringProperty(options={"HIDDEN"})
+    rows: bpy.props.CollectionProperty(type=PIPELINE_PG_department_preset)
+
+    def invoke(self, context, event):
+        if not self.project_root:
+            return {"CANCELLED"}
+        _dp["root"] = self.project_root
+        config = read_project_config(self.project_root) or {}
+        self.rows.clear()
+        deps = [*(config.get("shots_departments") or []), *(config.get("assets_departments") or [])]
+        for d in dict.fromkeys(deps):
+            row = self.rows.add()
+            row.department = d
+            items = _dp_items(row, context)
+            try:
+                row.preset = department_preset(config, d, items)
+            except TypeError:
+                pass
+        return context.window_manager.invoke_props_dialog(self, width=460, confirm_text="Save")
+
+    def draw(self, context):
+        col = self.layout.column(align=True)
+        if not self.rows:
+            col.label(text="No department in this project yet.", icon="INFO")
+        for row in self.rows:
+            split = col.split(factor=0.35, align=True)
+            split.label(text=row.department)
+            split.prop(row, "preset", text="")
+        tip = self.layout.column(align=True)
+        tip.active = False
+        tip.scale_y = 0.8
+        tip.label(text="Render: a department picked starts on its preset here --", icon="INFO")
+        tip.label(text="unless that shot was last rendered with another one for it.", icon="BLANK1")
+
+    def execute(self, context):
+        chosen = {r.department: ("" if r.preset == _NO_SCRIPT else r.preset) for r in self.rows}
+        try:
+            with locked_json(get_config_filepath(self.project_root)) as box:
+                data = box["data"] or {}
+                data.setdefault("farm", {})["department_presets"] = {d: p for d, p in chosen.items() if p}
+                box["data"], box["action"] = data, "to_write"
+        except (PipelineError, OSError) as e:
+            self.report({"ERROR"}, f"Presets by department: {getattr(e, 'message', e)}")
+            return {"CANCELLED"}
+        ConfigCache.invalidate()
+        self.report({"INFO"}, "Presets by department saved.")
         return {"FINISHED"}
 
 

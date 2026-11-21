@@ -1,12 +1,12 @@
 """The state engine: a department's state, its share done and a file's,
-from the facts lib/tracking.py's _status_from_raw() gathers (validated at
+from the facts lib/monitoring/tracking.py's _status_from_raw() gathers (validated at
 the latest stable, worked since, started before). Pure, no bpy, no disk:
 every view asks it -- the sidebar, Project monitoring, File details, the
 snapshot. Phase 3 of docs/plan-1.2.md grows it (Waiting, To redo, On hold).
 No disk, no bpy call: tests/test_status.py.
 See NOTES.md, "State engine"."""
 
-from .core import EARLIEST, json_get, parse_iso
+from ..core import EARLIEST, json_get, parse_iso
 
 # Share of a department counted as done per state, in % -- the project's
 # "snapshot.progress" (Edit project) overrides each. Validated counts 100,

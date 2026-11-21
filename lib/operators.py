@@ -16,7 +16,7 @@ from .core import (
 from .errors import PipelineError
 from .logs import log, report_error
 from .session import get_user
-from .tracking import create_wipmeta, get_last_wipmeta
+from .monitoring.tracking import create_wipmeta, get_last_wipmeta
 from .versioning import (
     get_last_version_number,
     get_version_number,
@@ -256,7 +256,7 @@ class M_PIPELINE_OT_onboarding_popup(bpy.types.Operator):
     def invoke(self, context, event):
         # onboarding_seen is set by _deferred_onboarding only (the Help icon
         # opens it too). A window like the monitoring ones, else the popup.
-        from .monitoring import (
+        from .monitoring.windows import (
             bring_monitoring_to_front,
             monitoring_windows,
             open_monitoring_window,

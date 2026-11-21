@@ -8,7 +8,7 @@ from pathlib import Path
 
 import bpy
 
-from .core import addon_pref, json_get, locked_json
+from .core import addon_pref, headless, json_get, locked_json
 from .errors import PipelineError
 
 # A new project's departments, and the fallback wherever a config lacks them.
@@ -61,7 +61,7 @@ _daemon_active_project_root = ""
 
 def set_daemon_active_project_root(project_root: str | Path) -> None:
     """Set the project root used by get_active_project_root() in a headless
-    (bpy.app.background) process that never loads an actual .blend file --
+    (headless()) process that never loads an actual .blend file --
     e.g. templates/batch_create_entry.py, which only knows its project via
     the request JSON. No-op guard against None/empty by design: callers
     pass a definite path."""
@@ -71,7 +71,7 @@ def set_daemon_active_project_root(project_root: str | Path) -> None:
 
 def get_active_project_root() -> Path | None:
     """Return the base project path depending of context execution. None if not found."""
-    if bpy.app.background:
+    if headless():
         if _daemon_active_project_root:
             return Path(_daemon_active_project_root)
         if bpy.data.filepath:

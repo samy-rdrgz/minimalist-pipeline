@@ -21,7 +21,7 @@ popup queued from `load_pre`/`exit_pre` isn't guaranteed to render -- by
 └── click : m_pipeline.toggle_worked_department(department=d)
       -> wipmeta_add_work(this_file, toggled_set) -- writes straight to
          .wipmeta AND updates the in-memory cache in the same call, so no
-         redraw ever re-reads the file (see lib/tracking.py's
+         redraw ever re-reads the file (see lib/monitoring/tracking.py's
          _session_worked_cache)
 ```
 
@@ -672,7 +672,7 @@ the project), then stops itself.
 
 ### _monitoring_tick
 
-Every 0.5s while a Project or Farm monitoring window is open (`lib/monitoring.py`;
+Every 0.5s while a Project or Farm monitoring window is open (`lib/monitoring/windows.py`;
 started by `open_monitoring_window()`, or by the window's panel when the
 window came back with a .blend saved with it open). Persistent: a file
 opened by the pipeline keeps the window (`open_mainfile()`: no `load_ui`),

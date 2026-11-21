@@ -50,7 +50,7 @@ class M_PIPELINE_OT_batch_create(bpy.types.Operator):
         default="",
     )
     # The rows themselves, as JSON, in place of a CSV: a review's new shots
-    # and assets (lib/review_import.py create_rows()).
+    # and assets (lib/monitoring/review_import.py create_rows()).
     rows_json: bpy.props.StringProperty(options={"HIDDEN", "SKIP_SAVE"})
 
     _timer = None

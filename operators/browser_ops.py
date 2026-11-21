@@ -17,6 +17,7 @@ from ..lib import (
     shot_items,
     version_items,
 )
+from ..lib.session import elsewhere_text, open_elsewhere
 from ..lib.ui import choice
 
 # ---------------------------------------------------------------------------
@@ -29,8 +30,26 @@ from ..lib.ui import choice
 # ---------------------------------------------------------------------------
 
 
+_ELSEWHERE_TTL = 3.0  # seconds: draw() runs on every redraw, the sessions on a share
+_elsewhere_cache: dict = {"key": None, "at": 0.0, "value": []}
+
+
+def _elsewhere(resolved: Path | None) -> list:
+    """open_elsewhere() for the file a pick resolves to, kept a few seconds."""
+    import time
+
+    if not resolved:
+        return []
+    key = str(resolved.parent)
+    c = _elsewhere_cache
+    if c["key"] != key or time.monotonic() - c["at"] > _ELSEWHERE_TTL:
+        c.update(key=key, at=time.monotonic(), value=open_elsewhere(str(resolved)))
+    return c["value"]
+
+
 def _draw_resolved(layout, resolved: Path | None) -> None:
-    """The file a pick resolves to, greyed -- or none found."""
+    """The file a pick resolves to, greyed -- or none found; and who else
+    has its shot or asset open now, any version (a warning, not a lock)."""
     col = layout.column()
     col.scale_y = 0.6
     col.active = False
@@ -38,6 +57,10 @@ def _draw_resolved(layout, resolved: Path | None) -> None:
         col.label(text=resolved.name, icon="FILE_BLEND")
     else:
         col.label(text="No matching file found.", icon="ERROR")
+    for o in _elsewhere(resolved):
+        row = layout.row()
+        row.alert = True
+        row.label(text=f"Also open: {o['user'] or '?'} on {o['machine']} ({o['file']})", icon="ERROR")
 
 
 class M_PIPELINE_OT_open_file(bpy.types.Operator):
@@ -160,6 +183,16 @@ class M_PIPELINE_OT_open_file_version(bpy.types.Operator):
 
     def invoke(self, context, event):
         if Path(self.filepath).exists() and Path(self.filepath).is_file():
+            others = open_elsewhere(self.filepath)
+            if others:  # its shot or asset open in another Blender: asked first
+                return context.window_manager.invoke_confirm(
+                    self,
+                    event,
+                    title="Already open elsewhere",
+                    message=f"Also open: {elsewhere_text(others)}. Open all the same?",
+                    confirm_text="Open",
+                    icon="ERROR",
+                )
             return self.execute(context)
 
         if not get_active_project_root():

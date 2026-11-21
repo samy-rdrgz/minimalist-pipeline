@@ -13,9 +13,9 @@ from pathlib import Path
 
 import bpy
 
-from .actions import PipelineAction, set_pending_action
-from .background import background_work, checkpoint
-from .config import (
+from ..actions import PipelineAction, set_pending_action
+from ..background import background_work, checkpoint
+from ..config import (
     ConfigCache,
     file_in_active_project,
     get_active_project_root,
@@ -29,7 +29,7 @@ from .config import (
     to_relative,
     validation_roles,
 )
-from .core import (
+from ..core import (
     EARLIEST,
     LATEST,
     SCANDIR_TTL,
@@ -47,11 +47,12 @@ from .core import (
     time_key,
 )
 from . import legacy
-from .errors import PipelineError
+from .legacy import SESSIONS
+from ..errors import PipelineError
 from .status import project_stages, stage_flags
-from .logs import log
-from .session import get_user
-from .versioning import get_last_version_number, get_version_number
+from ..logs import log
+from ..session import get_user
+from ..versioning import get_last_version_number, get_version_number
 
 
 def _meta_stem(filepath: Path) -> str:
@@ -735,13 +736,13 @@ def create_wipmeta(
             "created_at": nw,
             "edited_at": nw,
             "edited_by": get_user(),
-            "departments_worked": {},
+            SESSIONS: {},
             "linked": compact_linked(linked),
         }
         path = _meta_path(filepath, ".wipmeta")
         path.parent.mkdir(parents=True, exist_ok=True)
         with locked_json(path) as box:
-            box["data"] = data
+            box["data"] = legacy.wip_written(data)
             box["action"] = "to_write"
     except Exception as e:
         raise PipelineError(f"Error during creating meta file : {e}")
@@ -775,45 +776,95 @@ def ensure_wipmeta(filepath: Path, links: list[dict]) -> bool:
     return True
 
 
+def _work_meta(filepath: Path) -> tuple[Path, bool]:
+    """Where this version's sessions are written ("sessions"), and whether
+    it's a .wipmeta: its .wipmeta; a -stable file (no .wipmeta) saved in
+    place, its .stablemeta -- apart from the stablemeta's own
+    "departments_worked" (worked since the stable before, a list read by
+    the state engine). See NOTES.md, "Sessions on a stable" and
+    "Sessions: one name"."""
+    wip = _meta_path(filepath, ".wipmeta")
+    if wip.exists():
+        return wip, True
+    stable = _meta_path(filepath, ".stablemeta")
+    if stable.exists():
+        return stable, False
+    return wip, True
+
+
+def _sessions_of(data: dict, is_wip: bool) -> dict:
+    """data's "sessions" (a .wipmeta's as a 1.x may have written it last,
+    lib/monitoring/legacy.py), made if missing."""
+    if is_wip:
+        legacy.wip_read(data)
+    if not isinstance(data.get(SESSIONS), dict):
+        data[SESSIONS] = {}
+    return data[SESSIONS]
+
+
+def _sessions_written(data: dict, is_wip: bool) -> dict:
+    """data about to be written: a .wipmeta's 1.x key kept beside."""
+    return legacy.wip_written(data) if is_wip else data
+
+
 def wipmeta_touch(filepath: Path):
     """Stamp this version's .wipmeta with who/when it was last saved --
-    edited_at/edited_by only, doesn't touch departments_worked or linked.
-    Called from save_post_handler on every save, so M_PIPELINE_OT_auto_version
-    can tell a same-day re-open by a different user from the file's own
-    author. Never raises: handler-called, same rule as check_library_update()."""
-    path = _meta_path(filepath, ".wipmeta")
+    edited_at/edited_by, and this session's entry (if any) saved now;
+    doesn't touch linked. Called from save_post_handler on every save, so
+    M_PIPELINE_OT_auto_version can tell a same-day re-open by a different
+    user from the file's own author. A -stable file saved in place (its
+    Save anyway): its .stablemeta, the save a session of its own even with
+    no department ticked -- who saved it, when. Never raises:
+    handler-called, same rule as check_library_update()."""
+    try:
+        path, is_wip = _work_meta(filepath)
+    except PipelineError:
+        return
     if not path.exists():
         return
     try:
         with locked_json(path) as box:
             data = box["data"] or {}
-            nw = now()
+            nw, user = now(), get_user()
             data["edited_at"] = nw
-            data["edited_by"] = get_user()
+            data["edited_by"] = user
+            sessions = _sessions_of(data, is_wip)
+            if not is_wip:
+                sessions.setdefault(_session_id(), {"departments": [], "by": user})
+                _saved_in_place.add(str(filepath))
             # This session's work, if it recorded some: saved now.
-            mine = (data.get("departments_worked") or {}).get(_session_id())
+            mine = sessions.get(_session_id())
             if isinstance(mine, dict):
                 mine["saved_at"] = nw
+            box["data"] = _sessions_written(data, is_wip)
             box["action"] = "to_write"
     except Exception as e:
         log("WARNING", "wipmeta_touch", f"Could not stamp wipmeta: {e}")
 
 
 _session_worked_cache: dict[str, list[str]] = {}
+_saved_in_place: set[str] = set()  # -stable files this Blender saved in place
+
+
+def saved_in_place(filepath: Path) -> bool:
+    """Whether this Blender saved filepath, a -stable file, in place (its
+    Save anyway): its Working on toggles shown then. Memory only (draw())."""
+    return str(filepath) in _saved_in_place
 
 
 def _session_id() -> str:
-    """This Blender session's key in a .wipmeta's departments_worked."""
+    """This Blender session's key in a version's "sessions"."""
     return f"{os.getpid()}_{get_machine_id()}"
 
 
 def worked_sessions(meta: dict) -> list[dict]:
     """A .wipmeta's sessions that recorded work: [{"departments",
-    "saved_at", "by"}], saved_at the session's last save. One written
+    "saved_at", "by"}], saved_at the session's last save -- "sessions",
+    or a 1.x's "departments_worked" (lib/monitoring/legacy.py). One written
     before 1.2 (a bare list, until Migrate old data) gets the file's
     edited_at / edited_by. See NOTES.md, "Sessions with their date"."""
     out = []
-    for entry in (meta.get("departments_worked") or {}).values():
+    for entry in (legacy.wip_read(dict(meta)).get(SESSIONS) or {}).values():
         if isinstance(entry, list):
             entry = {
                 "departments": entry,
@@ -828,56 +879,59 @@ def worked_sessions(meta: dict) -> list[dict]:
 def wipmeta_add_work(
     filepath: Path, departments: list[str] = [], linked_libs: list[str] | None = None
 ):
-    """Record the departments worked this session in this version's .wipmeta
-    and resync its linked libs (linked_libs: pre-captured, once the file is
-    closed). No-op without a .wipmeta (a -stable file), as wipmeta_touch()."""
+    """Record the departments worked this session in this version's
+    "sessions" and, a .wipmeta, resync its linked libs (linked_libs:
+    pre-captured, once the file is closed). A -stable file: in its
+    .stablemeta, its links kept there by stablemeta_sync_links()."""
     id = _session_id()
-    path = _meta_path(filepath, ".wipmeta")
+    path, is_wip = _work_meta(filepath)
     if not path.exists():
         return
-    else:
-        if linked_libs is None:
-            linked_libs = [
-                to_relative(resolve_bpy_path(lib.filepath))
-                for lib in bpy.data.libraries
-            ]
-        with locked_json(path) as box:
-            data = box["data"] or {}
-            nw, user = now(), get_user()
+    if is_wip and linked_libs is None:
+        linked_libs = [
+            to_relative(resolve_bpy_path(lib.filepath)) for lib in bpy.data.libraries
+        ]
+    with locked_json(path) as box:
+        data = box["data"] or {}
+        nw, user = now(), get_user()
+        mine = _sessions_of(data, is_wip).setdefault(id, {})
+        if not isinstance(mine, dict):  # a bare list, before 1.2
+            mine = _sessions_of(data, is_wip)[id] = {}
+        mine.update(departments=list(departments), by=user)
+        if is_wip:
             data["edited_at"] = nw
             data["edited_by"] = user
-            data.setdefault("departments_worked", {})[id] = {
-                "departments": list(departments),
-                "saved_at": nw,
-                "by": user,
-            }
+            mine["saved_at"] = nw
             data["linked"] = compact_linked(
-                clean_libraries(data["linked"], linked_libs)
+                clean_libraries(data.get("linked", []), linked_libs)
             )
-            box["action"] = "to_write"
-        # Kept in sync here rather than invalidated: this is the only writer
-        # of our own session's entry, so the cache can never go stale under it.
-        _session_worked_cache[str(path)] = list(departments)
+        else:
+            mine.setdefault("saved_at", nw)
+        box["data"] = _sessions_written(data, is_wip)
+        box["action"] = "to_write"
+    # Kept in sync here rather than invalidated: this is the only writer
+    # of our own session's entry, so the cache can never go stale under it.
+    _session_worked_cache[str(path)] = list(departments)
 
 
 def get_session_worked_departments(filepath: Path) -> list[str]:
     """Departments already recorded for *this* session (pid + machine) in
-    filepath's .wipmeta. In-memory cache kept in sync by wipmeta_add_work(),
-    so draw() never hits disk past the first read. [] by default -- an
-    untouched file never claims work that wasn't done. Read by draw():
-    never raises -- [] for anything that isn't a versioned .blend."""
+    filepath's .wipmeta (.stablemeta for a -stable saved in place).
+    In-memory cache kept in sync by wipmeta_add_work(), so draw() never
+    hits disk past the first read. [] by default -- an untouched file
+    never claims work that wasn't done. Read by draw(): never raises --
+    [] for anything that isn't a versioned .blend."""
     try:
-        path = _meta_path(filepath, ".wipmeta")
+        path, is_wip = _work_meta(filepath)
     except PipelineError:
         return []
     key = str(path)
     if key in _session_worked_cache:
         return _session_worked_cache[key]
-    id = _session_id()
     try:
         with locked_json(path, read_only=True) as box:
-            data = box["data"] or {}
-        entry = (data.get("departments_worked") or {}).get(id) or {}
+            data = dict(box["data"] or {})
+        entry = _sessions_of(data, is_wip).get(_session_id()) or {}
         result = list(entry if isinstance(entry, list) else entry.get("departments") or [])
     except Exception:
         result = []
@@ -1046,7 +1100,7 @@ def create_stablemeta(
 
 
 def set_file_omit(filepath: Path, state: str, by: str, reason: str = "") -> None:
-    """Set a file aside, tracking.json's "omit" (lib/status.py OMIT_STATES:
+    """Set a file aside, tracking.json's "omit" (lib/monitoring/status.py OMIT_STATES:
     "on_hold", "cancelled"), or count it again (state ""). The marker covers the
     whole file -- a block's every shot."""
     path = tracking_json_path(filepath, must_exist=True)
@@ -1063,7 +1117,7 @@ def set_file_omit(filepath: Path, state: str, by: str, reason: str = "") -> None
 def set_department_synced(filepath: Path, department: str, by: str, text: str = "") -> None:
     """Still done: department's last update now (tracking.json's
     departments_synced) -- its work holds after an earlier stage changed,
-    clearing To redo (lib/status.py stage_flags()). Not a validation."""
+    clearing To redo (lib/monitoring/status.py stage_flags()). Not a validation."""
     path = tracking_json_path(filepath, must_exist=True)
     with locked_json(path) as box:
         data = box["data"] or {}
@@ -1073,6 +1127,33 @@ def set_department_synced(filepath: Path, department: str, by: str, text: str = 
         data.setdefault("departments_synced", {})[department] = entry
         box["data"] = data
         box["action"] = "to_write"
+
+
+def set_department_done(filepath: Path, department: str, done: bool) -> bool:
+    """Mark one department done (or not) on the *latest* stable, in place --
+    no new stable version: one forgotten when the stable was made, or work
+    not tied to the file ("render"). Undone, its validations at that stable
+    go with it (they validated a done department). False if nothing
+    changed. Raises PipelineError without a stable version yet."""
+    asset_dir = _owner_dir(Path(filepath))
+    last = get_last_stable(asset_dir)
+    if "file" not in last:
+        raise PipelineError("No stable version yet: make one before marking departments done.")
+    path = asset_dir / ".pipeline" / (_meta_stem(Path(last["file"])) + ".stablemeta")
+    with locked_json(path) as box:
+        data = legacy.stable_read(box["data"] or {})
+        current = data.setdefault("departments_done", {})
+        if bool(current.get(department)) == done:
+            return False
+        current[department] = done
+        started = set(data.get("departments_started") or [])
+        started.add(department)  # done once: started, even undone
+        data["departments_started"] = sorted(started)
+        if not done:
+            (data.get("approvals") or {}).pop(department, None)
+        box["data"] = legacy.stable_written(data)
+        box["action"] = "to_write"
+    return True
 
 
 def set_department_assignees(filepath: Path, department: str, people) -> list[str]:
@@ -1320,7 +1401,7 @@ def _collect_folder(asset_dir: Path, entries: list | None = None) -> dict | None
         "last_stable": last_stable,
         "wipmetas": wipmetas,
         "started": last_stable.get("departments_started") or [],
-        # Its stages' kind (lib/status.py project_stages()): a library's
+        # Its stages' kind (lib/monitoring/status.py project_stages()): a library's
         # are the assets'.
         "kind": "shots" if Path(asset_dir).parts[-3:-2] == ("shots",) else "assets",
     }
@@ -1473,7 +1554,7 @@ def _status_from_raw(raw: dict) -> dict:
         "stable_worked": list(last_stable.get("departments_worked") or []),
         "last_worked_at": last_worked_at,
     }
-    # Waiting / To redo, by the project's stages (lib/status.py).
+    # Waiting / To redo, by the project's stages (lib/monitoring/status.py).
     try:
         config = ConfigCache.get()
     except Exception:
@@ -1808,6 +1889,25 @@ def edit_entry(
         raise PipelineError(f"Error during editing file entries : {e}")
 
 
+def set_entry_text(filepath: Path, id: str, text: str, editor: str) -> bool:
+    """An entry's words changed (matched by id), editor stamped as
+    edited_by/edited_at -- everything else kept. False when they were
+    already those. Raises PipelineError when no such entry."""
+    text = text.strip()
+    path = tracking_json_path(filepath, must_exist=True)
+    with locked_json(path) as box:
+        data = box["data"] or {}
+        entry = next((e for e in data.get("entries") or [] if e.get("id") == id), None)
+        if entry is None:
+            raise PipelineError("No entry found with this ID.")
+        if entry.get("text") == text:
+            return False
+        entry.update(text=text, edited_by=editor, edited_at=now())
+        box["data"] = data
+        box["action"] = "to_write"
+    return True
+
+
 def delete_entry(filepath: Path, id: str):
     """Remove an entry (matched by id) from the owning asset's tracking.json,
     along with every reply that (transitively) answers it. Deleting only the
@@ -2007,6 +2107,27 @@ def close_entry(filepath: Path, id: str, user: str) -> bool | None:
                 e["done"] = True
                 e["done_by"] = user
                 e["done_at"] = now()
+                box["action"] = "to_write"
+                return True
+    return None
+
+
+def reopen_entry(filepath: Path, id: str, user: str) -> bool | None:
+    """Open a todo/rtk entry (matched by id) again, as user: its done
+    cleared, who reopened it and when kept. True when it opened it, False
+    when it was open already, None when there's no such todo/rtk.
+    Raises PipelineError if the tracking can't be written."""
+    path = tracking_json_path(filepath, must_exist=True)
+    with locked_json(path) as box:
+        for e in (box["data"] or {}).get("entries", []):
+            if e.get("id") == id and e.get("type") in ("todo", "rtk"):
+                if not e.get("done"):
+                    return False
+                e["done"] = False
+                for k in ("done_by", "done_at"):
+                    e.pop(k, None)
+                e["reopened_by"] = user
+                e["reopened_at"] = now()
                 box["action"] = "to_write"
                 return True
     return None
@@ -2328,7 +2449,7 @@ def open_elsewhere(owner: Path) -> list[str]:
     """The .blend files of owner someone has open to work on: a live lock
     (".<name>.blend.lock", see acquire_lock()) next to them. Read-only
     opens take none."""
-    from .core import _is_unlock
+    from ..core import _is_unlock
 
     out = []
     try:
@@ -2346,7 +2467,7 @@ def owner_render_dirs(project_root: Path, owner: Path, kind: str) -> list[Path]:
     """The render folders that are owner's alone: an asset's, a shot's -- a
     block's each shot no other active block owns, and the block rendered
     whole. Those that exist."""
-    from .preview import render_root
+    from ..preview import render_root
 
     base = render_root(project_root, owner)
     dirs = [base]

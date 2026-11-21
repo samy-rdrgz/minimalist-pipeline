@@ -1,4 +1,4 @@
-"""The snapshot page's sources put together (lib/snapshot_page.py
+"""The snapshot page's sources put together (lib/monitoring/snapshot_page.py
 render_page()): the demo fixture rendered, every part listed is there and every file of css/ and js/
 is listed, the page has no placeholder left, every word T() says has
 its French (js/i18n/fr.js), its script parses, and T()
@@ -24,7 +24,7 @@ def main() -> None:
     import fake_bpy
 
     fake_bpy.install()
-    page = importlib.import_module(f"{fake_bpy.load().__name__}.lib.snapshot_page")
+    page = importlib.import_module(f"{fake_bpy.load().__name__}.lib.monitoring.snapshot_page")
     for folder, parts in (("css", page.CSS_PARTS), ("js", page.JS_PARTS)):
         base = page.PAGE_DIR / folder
         on_disk = {p.relative_to(base).as_posix() for p in base.rglob("*") if p.is_file()}

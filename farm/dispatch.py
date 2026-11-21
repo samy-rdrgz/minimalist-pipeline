@@ -186,14 +186,24 @@ def chunk_size() -> int:
 
 def machines_for(job_data: dict, idle: dict, with_left: bool = False) -> list[str]:
     """The idle machines (idle_machines()) this job may render on: all of
-    them, or only its assigned ones -- never one that failed it
+    them, or only its assigned ones (a render here: its own machine only,
+    farm/local.py; a machine kept for those: none other) -- never one that failed it
     (failed_machines), nor one cancelled off it (left_machines) unless
     with_left: no other job took it this tick."""
     assigned = job_data.get("assigned_machines") or []
     out = set(job_data.get("failed_machines") or [])
     if not with_left:
         out |= set(job_data.get("left_machines") or [])
-    return [uuid for uuid in idle if (not assigned or uuid in assigned) and uuid not in out]
+    local = job_data.get("local")
+    return [
+        uuid
+        for uuid in idle
+        if (not assigned or uuid in assigned)
+        and uuid not in out
+        # A machine kept for its own renders (Render here) takes only those;
+        # a render here, only its machine.
+        and (uuid == local if local else not (idle[uuid] or {}).get("local_only"))
+    ]
 
 
 def send_render(job_data: dict, machines: list, idle: dict) -> None:
@@ -261,7 +271,9 @@ def render_dispatch(job_path: Path, idle: dict, project_root: Path) -> None:
         _waiting_logged.discard(job_data.get("job_id", ""))
 
         start, end = (int(x) for x in job_data["resolved_frame_range"])
-        size = chunk_size()
+        # A viewport render: one chunk -- one Blender with its window for the
+        # whole range, not one opened per chunk.
+        size = end - start + 1 if job_data.get("viewport") else chunk_size()
         # Frames sent back by the frame check: only their chunks are left.
         missing = missing_frames(job_data, project_root)
         if missing is None:

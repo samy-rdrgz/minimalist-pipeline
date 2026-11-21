@@ -70,6 +70,8 @@ from .core import (
     ADDON_PACKAGE,
     TEMPLATES_DIR,
     blender_command,
+    HEADLESS_ENV,
+    headless,
     EARLIEST,
     LATEST,
     SIDE_BY_SIDE_WIDTH,
@@ -128,7 +130,7 @@ from .handlers import (
 )
 from .libraries import clean_append_and_relink, scan_linked_libraries
 from .logs import archive_log_now, log, read_log_tail, report_error
-from .monitoring import (
+from .monitoring.windows import (
     MONITORING_SCREEN_KEY,
     detail_shown,
     draw_addon_keys,
@@ -221,7 +223,7 @@ from .session import (
     ui_language,
     warn_blender_version_mismatch,
 )
-from .review_import import (
+from .monitoring.review_import import (
     import_review,
     keep_review,
     create_rows,
@@ -229,9 +231,9 @@ from .review_import import (
     review_description_changes,
     review_import_plan,
 )
-from .schedule import WORK_WEEK, parse_day, project_schedule
-from .status import PROGRESS_WEIGHTS
-from .snapshot import (
+from .monitoring.schedule import WORK_WEEK, parse_day, project_schedule
+from .monitoring.status import PROGRESS_WEIGHTS
+from .monitoring.snapshot import (
     REVIEW_SOURCE,
     TEAM_REVIEW_SOURCE,
     TEAM_ROLE,
@@ -260,7 +262,7 @@ from .thumbnails import (
     thumbnail_path,
     thumbnail_size,
 )
-from .tracking import (
+from .monitoring.tracking import (
     APPROVAL_SOURCE,
     ProjectScan,
     RecentFilesCache,
@@ -305,6 +307,7 @@ from .tracking import (
     tracking_json_path,
     wipmeta_add_link,
     wipmeta_add_work,
+    set_department_done,
     set_department_synced,
     set_departments_required,
     set_file_omit,

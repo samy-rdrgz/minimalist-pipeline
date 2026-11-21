@@ -3,4 +3,4 @@
 // written at the export), else the browser's, else English. Before any
 // view builds its words.
 MPI18n.use(MPI18n.pick(M));
-document.documentElement.lang=MPI18n.lang;
+document.documentElement.lang = MPI18n.lang;

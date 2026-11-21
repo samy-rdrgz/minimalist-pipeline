@@ -14,10 +14,11 @@ writes (main thread: locked_json()). What each step completes:
   ("approvals_carried", 1.1.9); "linked" one entry per project file;
   "departments_validated" renamed "departments_done" (2.0: it has meant
   Done since 1.1.2, validations being "approvals"), the old name kept
-  beside it for 1.x builds (lib/legacy.py).
-- .wipmeta: "linked" one entry per project file; each session's
-  "departments_worked" with its date (1.2: {"departments", "saved_at",
-  "by"}).
+  beside it for 1.x builds (lib/monitoring/legacy.py).
+- .wipmeta: "linked" one entry per project file; each session with its
+  date (1.2: {"departments", "saved_at", "by"}), under "sessions" (2.0),
+  the old name "departments_worked" kept beside it for 1.x builds
+  (lib/monitoring/legacy.py).
 - render_history.json: a finished render's "output_path", "source_file",
   "shot_override" (1.0.11, from its folder) and "frame_range_rendered"
   (from its images' numbers).
@@ -28,17 +29,18 @@ writes (main thread: locked_json()). What each step completes:
   render preset given its <department>_default.py (1.2: renders by
   department, see NOTES.md, "Renders by department")."""
 
+import json
 import os
 import re
 import shutil
 from datetime import datetime, timedelta
 from pathlib import Path
 
-from . import legacy
+from .monitoring import legacy
 from .core import EARLIEST, file_time, locked_json, now, parse_iso, read_json_quiet, time_key
 from .preview import render_root
-from .snapshot import _folder_frames, _owner_shots
-from .tracking import (
+from .monitoring.snapshot import _folder_frames, _owner_shots
+from .monitoring.tracking import (
     _CLOCK_MARGIN_SECONDS,
     _DATA_ROOTS,
     _is_under,
@@ -77,10 +79,11 @@ def plan_migration(root: Path, v_prefix: str = "v") -> dict:
     root = Path(root)
     files = []
     owners = 0
+    history: list = []  # every folder's metas as migrated: the progress rebuilt
     for top in _DATA_ROOTS:
         for owner in _walk_owner_dirs(root / top):
             owners += 1
-            files += _plan_owner(root, owner, top == "shots", v_prefix)
+            files += _plan_owner(root, owner, top == "shots", v_prefix, history)
     counts: dict[str, int] = {}
     for f in files:
         for change in f["changes"]:
@@ -91,7 +94,37 @@ def plan_migration(root: Path, v_prefix: str = "v") -> dict:
         counts["render presets: .json to .py"] = len(presets["json"])
     if presets["departments"]:
         counts["render presets: one per department"] = len(presets["departments"])
-    return {"files": files, "owners": owners, "counts": counts, "presets": presets, "loose_presets": loose}
+    from .monitoring import progress_log
+
+    missing = _progress_days_missing(root, history)
+    if missing:
+        counts["progress: days rebuilt"] = missing
+    # Not "activity_until": the mornings write it too, for their last 30 days at most.
+    activity = not progress_log.read(root).get("activity_rebuilt") and bool(history)
+    if activity:
+        counts["activity: rebuilt"] = 1
+    return {"files": files, "owners": owners, "counts": counts, "presets": presets, "loose_presets": loose,
+            "progress": history if missing or activity else [], "progress_missing": missing, "activity": activity}
+
+
+def _progress_days_missing(root: Path, history: list) -> int:
+    """How many days before today the progress log doesn't hold, from the
+    project's first change (progress_log.rebuild() writes them)."""
+    from .monitoring import progress_log
+
+    first = min(
+        (d for _k, _o, tracking, stables, wips in history for d in progress_log._change_days(tracking, stables, wips)),
+        default=None,
+    )
+    if first is None:
+        return 0
+    today = datetime.now().date()
+    logged = progress_log.days(root)
+    day, n = datetime.fromisoformat(first).date(), 0
+    while day < today:
+        n += not progress_log.has_figures(logged.get(day.isoformat()))
+        day += timedelta(days=1)
+    return n
 
 
 def apply_migration(root: Path, plan: dict) -> dict:
@@ -117,7 +150,20 @@ def apply_migration(root: Path, plan: dict) -> dict:
         except Exception as e:
             errors.append((str(path), str(e)))
     written += _apply_presets(root, plan.get("presets") or {}, backup, errors)
-    return {"written": written, "backup": str(backup), "errors": errors}
+    rebuilt = 0
+    if plan.get("progress"):
+        # Last: the files above as written. The one place every meta is read.
+        from .monitoring import progress_log
+
+        try:
+            config = read_json_quiet(root / "config" / "project_config.json") or {}
+            if plan.get("progress_missing", True):
+                rebuilt = progress_log.rebuild(root, plan["progress"], config)
+            if plan.get("activity", True):
+                progress_log.rebuild_activity(root, plan["progress"])
+        except Exception as e:
+            errors.append((str(progress_log.path_of(root)), str(e)))
+    return {"written": written, "backup": str(backup), "errors": errors, "progress_days": rebuilt}
 
 
 # ---------------------------------------------------------------------------
@@ -128,7 +174,7 @@ def apply_migration(root: Path, plan: dict) -> dict:
 def _plan_presets(root: Path) -> dict:
     """{"json": the .json render presets to rewrite as .py, "departments":
     the project's departments with no preset at all} -- read only."""
-    from .status import preset_department
+    from .monitoring.status import preset_department
 
     folder = root / "config" / "presets"
     try:
@@ -201,7 +247,7 @@ def _apply_presets(root: Path, presets: dict, backup: Path, errors: list) -> int
 # ---------------------------------------------------------------------------
 
 
-def _plan_owner(root: Path, owner: Path, is_shot: bool, v_prefix: str) -> list[dict]:
+def _plan_owner(root: Path, owner: Path, is_shot: bool, v_prefix: str, history: list | None = None) -> list[dict]:
     pipeline = owner / ".pipeline"
     entries = _pipeline_entries(owner)
     tracking = read_json_quiet(pipeline / "tracking.json") or {}
@@ -221,10 +267,14 @@ def _plan_owner(root: Path, owner: Path, is_shot: bool, v_prefix: str) -> list[d
             changes.append("stable: departments_done")
         found.append((entry.path, data, changes))
 
-    for entry, data in _read_metas(entries, ".wipmeta"):
+    wips = _read_metas(entries, ".wipmeta")
+    if history is not None:
+        # The same dicts: migrated below, in memory, before the progress is rebuilt.
+        history.append(("shot" if is_shot else "asset", str(owner), tracking, [d for _, d in stables], [d for _, d in wips]))
+    for entry, data in wips:
         changes = ["links one per file"] if _migrate_linked(data, root) else []
         if _migrate_sessions(data):
-            changes.append("sessions with their date")
+            changes.append("sessions with their date, named sessions")
         found.append((entry.path, data, changes))
 
     history_path = pipeline / "render_history.json"
@@ -261,10 +311,15 @@ def _read_metas(entries: list, suffix: str) -> list[tuple]:
 
 
 def _migrate_sessions(data: dict) -> bool:
-    """Each session's departments_worked as written now, {"departments",
-    "saved_at", "by"}: a bare list (before 1.2) dated by the file's
-    edited_at / edited_by -- the only date it had."""
-    sessions = data.get("departments_worked")
+    """Each session as written now, {"departments", "saved_at", "by"}: a
+    bare list (before 1.2) dated by the file's edited_at / edited_by -- the
+    only date it had; under "sessions" (2.0), "departments_worked" kept
+    beside it, equal (legacy.wip_written())."""
+    if not isinstance(data.get("departments_worked"), dict) and not isinstance(data.get("sessions"), dict):
+        return False
+    before = (data.get("sessions"), data.get("departments_worked"))
+    before = json.dumps(before, sort_keys=True)
+    sessions = legacy.wip_read(data).get("sessions")
     if not isinstance(sessions, dict):
         return False
     changed = False
@@ -276,7 +331,8 @@ def _migrate_sessions(data: dict) -> bool:
                 "by": data.get("edited_by"),
             }
             changed = True
-    return changed
+    legacy.wip_written(data)
+    return changed or json.dumps((data.get("sessions"), data.get("departments_worked")), sort_keys=True) != before
 
 
 # ---------------------------------------------------------------------------
@@ -414,7 +470,7 @@ def _done_of(data: dict) -> dict:
 def _migrate_done(data: dict) -> bool:
     """departments_validated renamed departments_done (2.0), the old name
     kept beside it, equal, while 1.x builds may read the project
-    (lib/legacy.py). Both there and differing: a 1.x wrote it last, its
+    (lib/monitoring/legacy.py). Both there and differing: a 1.x wrote it last, its
     values win (legacy.stable_read()). False when nothing changes."""
     if "departments_validated" not in data:
         return False

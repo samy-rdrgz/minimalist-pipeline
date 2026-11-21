@@ -10,8 +10,8 @@ import json
 import re
 from pathlib import Path
 
-from .config import covering_role
-from .core import parse_iso, time_key
+from ..config import covering_role
+from ..core import parse_iso, time_key
 from .review_import import REVIEW_JSON_FORMAT
 from .snapshot import (
     SCHEMA_VERSION,
@@ -22,7 +22,7 @@ from .snapshot import (
     snapshot_filename,
 )
 
-PAGE_DIR = Path(__file__).resolve().parent.parent / "templates" / "snapshot"
+PAGE_DIR = Path(__file__).resolve().parents[2] / "templates" / "snapshot"
 
 # The page's sources, in this order (templates/snapshot/css/, js/): one
 # stylesheet and one script in the page, the script inside one function
@@ -40,12 +40,19 @@ JS_PARTS = (
     "core/05-mode.js",
     "core/10-status.js",
     "core/20-actions.js",
+    "core/25-search.js",
+    "core/26-xlsx.js",
     "core/30-review-file.js",
     "core/40-player.js",
     "core/42-videos.js",
     "desktop/20-top-tree.js",
     "desktop/21-list.js",
+    "desktop/21-activity.js",
+    "desktop/21-projection.js",
+    "desktop/21-todo.js",
+    "desktop/21-export.js",
     "desktop/22-detail.js",
+    "desktop/22-history.js",
     "desktop/23-farm.js",
     "desktop/24-links.js",
     "desktop/25-wide.js",
@@ -100,7 +107,7 @@ def render_page(data: dict) -> str:
     """page.html with the stylesheet, the script, the logo, the wordmark's
     font, the Blender icons it names and data (page_data()) put in, in one
     pass (a value is never read again for placeholders). The live page's
-    too (lib/live.py)."""
+    too (lib/monitoring/live.py)."""
     logo = (PAGE_DIR / "logo.svg").read_text(encoding="utf-8")
     viewbox = _VIEWBOX.search(logo)[1]
     width, height = viewbox.split()[2:]
@@ -178,6 +185,8 @@ def _meta(snapshot: dict) -> dict:
         "weights": meta.get("progress_weights") or {},
         "progress": meta.get("progress") or {},
         "validation": meta.get("validation") or {},
+        # One point a day (progress_log.py): Breakdown's Over time.
+        "history": meta.get("history") or {},
         "naming": meta.get("naming") or {},
         "team": meta.get("team") or [],
         "departments": {
@@ -199,8 +208,12 @@ def _meta(snapshot: dict) -> dict:
         "videos": meta.get("videos"),
         # Its videos' frame rate: the player's frame number (page.js).
         "fps": meta.get("fps"),
-        # Served by Blender (lib/live.py): {"token", "version"}; None, a file.
+        # Served by Blender (lib/monitoring/live.py): {"token", "version"}; None, a file.
         "live": meta.get("live"),
+        # Live: who has which file open (the Farm tab's machines); a first read
+        # under way, {"done", "total"} folders: the figures still partial.
+        **({"presence": meta["presence"]} if meta.get("presence") else {}),
+        **({"reading": meta["reading"]} if meta.get("reading") else {}),
     }
 
 
@@ -219,14 +232,17 @@ def _item(item: dict, threads: list, roles: list, image) -> dict:
         "file": _stem(item["current_version"]) or item["name"],
         "stable": _stem(item["stable_version"]) or "",
         "render_ref": _render_ref(item.get("renders") or []),
+        # The Render form's start: its last render's department, each department's last preset.
+        "rp": item.get("render_presets") or {},
         "versions": _versions(item),
         "stable_v": _short_version(item["name"], item["stable_version"] or ""),
+        "stable_at": item.get("stable_at") or "",
         # The wip's, when newer than the stable: a state's capsule (page.js).
         "wip_v": _short_version(item["name"], item["wip_version"])
         if item.get("wip_version") and item.get("wip_after_stable", True)
         else "",
         "states": dict(item["departments"]),
-        # Waiting / To redo with their reasons (lib/status.py stage_flags()).
+        # Waiting / To redo with their reasons (lib/monitoring/status.py stage_flags()).
         "flags": item.get("flags") or {},
         "assignees": item.get("assignees") or {},
         "omit": item.get("omit"),
@@ -254,6 +270,12 @@ def _item(item: dict, threads: list, roles: list, image) -> dict:
         "notes": [_thread(t) for t in sorted(threads, key=lambda t: time_key(t["last_activity"]), reverse=True)],
         # Seconds: shown small at the panel's bottom (page.js dur()).
         "work": round(item["work_seconds"]) if item.get("work_seconds") else 0,
+        # In the edit (editing/rushes/): which render, pushed by whom, when.
+        "rush": item.get("rush") or None,
+        # The History tab's (a snapshot's; the live page asks for it).
+        **({"hist": item["history"]} if item.get("history") else {}),
+        # Its latest version's last save: by whom, when.
+        "saved": {"by": item.get("saved_by") or "", "at": item.get("saved_at") or ""},
     }
 
 
@@ -275,10 +297,10 @@ def _short_version(name: str, filename: str) -> str:
 
 
 def _rtk_kinds(threads: list) -> dict:
-    """{department: "role" | "team"} for every department with an open RTK
-    -- "role" as soon as one comes from a validation role (red), "team"
+    """{department: who} for every department with an open RTK: the
+    validation roles that gave one ("prod", "prod, sup": red), else "team"
     when all are the team's own (orange)."""
-    out: dict[str, str] = {}
+    roles: dict[str, list] = {}
     for t in threads:
         if t["closed"]:
             continue
@@ -286,8 +308,10 @@ def _rtk_kinds(threads: list) -> dict:
             if e["type"] != "rtk" or e["done"] is not False:
                 continue
             for d in e["departments"]:
-                out[d] = "role" if e.get("role") or out.get(d) == "role" else "team"
-    return out
+                got = roles.setdefault(d, [])
+                if e.get("role") and e["role"] not in got:
+                    got.append(e["role"])
+    return {d: ", ".join(got) or "team" for d, got in roles.items()}
 
 
 def _day(iso: str) -> str:

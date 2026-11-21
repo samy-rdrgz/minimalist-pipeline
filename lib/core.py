@@ -19,6 +19,7 @@ from pathlib import Path
 import bpy
 
 from .background import checkpoint
+from . import formats
 from .errors import PipelineError
 from .logs import log
 
@@ -29,14 +30,28 @@ ADDON_PACKAGE = __package__.rsplit(".", 1)[0]
 TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
 
 
+# Set in the environment of a Blender with a window that works for the farm
+# (a viewport render, farm/local.py): this addon behaves there as in a
+# background Blender -- no session, lock, auto-version, popup nor timer.
+HEADLESS_ENV = "MINIMALIST_PIPELINE_HEADLESS"
+
+
+def headless() -> bool:
+    """A Blender with no artist at it: background (-b), or one the farm
+    opened with a window for a viewport render (HEADLESS_ENV)."""
+    return bool(bpy.app.background) or os.environ.get(HEADLESS_ENV) == "1"
+
+
 def blender_command(
-    script: str, args=(), *, blend=None, flags=(), factory: bool = False, binary: str = ""
+    script: str, args=(), *, blend=None, flags=(), factory: bool = False, binary: str = "", window: bool = False
 ) -> list[str]:
     """The command running templates/<script> in a background Blender (this
     one's binary, or binary): blend opened first with its flags (-o, -F...),
     an exception in the script exiting 1 (not 0, a success), args after
-    "--". factory: --factory-startup, no addon or preferences loaded."""
-    cmd = [binary or bpy.app.binary_path, "-b"]
+    "--". factory: --factory-startup, no addon or preferences loaded.
+    window: a Blender with its window instead (a viewport render) -- run it
+    with HEADLESS_ENV set, its script quitting by itself."""
+    cmd = [binary or bpy.app.binary_path] + ([] if window else ["-b"])
     if blend:
         cmd.append(str(blend))
     cmd += [str(f) for f in flags]
@@ -77,11 +92,11 @@ def monitoring_detail(kind: str) -> str:
 
 def set_monitoring_detail(kind: str, value: str = "", sync: bool = True) -> None:
     """Show this detail in that window ("" for its list) -- now and when it
-    reopens: beside the list in a wide window (lib/monitoring.py
+    reopens: beside the list in a wide window (lib/monitoring/windows.py
     sync_detail_zones(), next tick, every view redrawn)."""
     _monitoring_details[kind] = value
     if sync:
-        from .monitoring import request_detail_sync
+        from .monitoring.windows import request_detail_sync
 
         request_detail_sync()
 
@@ -874,6 +889,7 @@ def write_json_atomic(path: Path, data, attempts: int = 5) -> None:
     attempts: tries for the replace (retry_shared_io()). Raises if it
     fails, the .tmp removed."""
     tmp = path.with_suffix(path.suffix + ".tmp")
+    data = formats.stamp(path, data)  # its "format_version" (lib/formats.py)
     tmp.write_text(json.dumps(data, indent=4), encoding="utf-8")
     try:
         retry_shared_io(os.replace, tmp, path, attempts=attempts)
@@ -906,6 +922,13 @@ def locked_json(path: Path, read_only=False, retries: int = 10, io_attempts: int
             data = json.loads(path.read_text(encoding="utf-8"))
         except FileNotFoundError:
             data = None
+        newer = None if read_only else formats.too_new(path, data)
+        if newer is not None:
+            # A newer addon's form: rewriting it would drop what this one doesn't know.
+            raise PipelineError(
+                f"{Path(path).name} was written by a newer Minimalist Pipeline "
+                f"(form of {newer}, this one knows {formats.current(path)}): update the addon on this machine."
+            )
         box = {"data": data, "action": ""}
         yield box
         if box["action"] != "" and read_only:

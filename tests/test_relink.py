@@ -127,6 +127,20 @@ def main() -> None:
         }), encoding="utf-8")
         before = src.read_bytes()
 
+        # The snapshot has the links too (its Links tab): the shot links bob and the lamp, each a newer stable.
+        from importlib import import_module
+        snap = import_module(relink.__name__.rsplit(".", 1)[0] + ".monitoring.snapshot")
+        for owner in (shot, bob, lamp):
+            (owner / ".pipeline").mkdir(exist_ok=True)
+            (owner / ".pipeline" / "tracking.json").write_text("{}", encoding="utf-8")
+        links = snap.read_snapshot_data(root, None, "v")["live"]
+        mine = links[str(shot)]
+        assert mine["key"] == "shots/sq010/sh010", mine
+        assert sorted((l["key"], l["file"], l["newer"]) for l in mine["links"]) == [
+            ("assets/ch/ch_bob", "ch_bob_v001-stable.blend", "ch_bob_v002-stable.blend"),
+            ("assets/pr/pr_lamp", "pr_lamp_v001-stable.blend", "pr_lamp_v002-stable.blend"),
+        ], mine
+
         # Read straight from the file.
         b = blendfile.read(src)
         assert [l["raw"].decode().rsplit("/", 1)[1] for l in b.libraries] == ["ch_bob_v001-stable.blend", "pr_lamp_v001-stable.blend"]

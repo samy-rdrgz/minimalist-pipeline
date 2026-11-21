@@ -28,7 +28,7 @@ def main() -> None:
 
     fake_bpy.install()
     pkg = fake_bpy.load()
-    tracking = importlib.import_module(f"{pkg.__name__}.lib.tracking")
+    tracking = importlib.import_module(f"{pkg.__name__}.lib.monitoring.tracking")
 
     with tempfile.TemporaryDirectory() as d:
         root = Path(d) / "proj"

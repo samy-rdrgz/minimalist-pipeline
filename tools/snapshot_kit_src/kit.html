@@ -1,3 +1,5 @@
+<!doctype html>
+<html lang="en">
 <title>Pipeline UI kit</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
@@ -10,36 +12,36 @@
 {{SPRITE}}
 <div class="kit">
 <header class="k-top">
-  <div class="k-brand"><b>Minimalist Pipeline · composants</b><small>v7 · même CSS et mêmes fonctions de rendu que la page : ce qui s'affiche ici est la page.</small></div>
+  <div class="k-brand"><b>Minimalist Pipeline · components</b><small>v7 · the page's own CSS and render functions: what shows here is the page.</small></div>
   <span class="sp"></span>
-  <span class="join" role="group" aria-label="Thème"><button class="btn sm" data-ktheme="dark" aria-pressed="true">Sombre</button><button class="btn sm" data-ktheme="light" aria-pressed="false">Clair</button></span>
-  <span class="join" role="group" aria-label="Échelle"><button class="btn sm" data-kscale="0.92" aria-pressed="false">0.92</button><button class="btn sm" data-kscale="1" aria-pressed="true">1.00</button><button class="btn sm" data-kscale="1.15" aria-pressed="false">1.15</button></span>
+  <span class="join" role="group" aria-label="Theme"><button class="btn sm" data-ktheme="dark" aria-pressed="true">Dark</button><button class="btn sm" data-ktheme="light" aria-pressed="false">Light</button></span>
+  <span class="join" role="group" aria-label="Scale"><button class="btn sm" data-kscale="0.75" aria-pressed="false">0.75</button><button class="btn sm" data-kscale="1" aria-pressed="true">1.00</button><button class="btn sm" data-kscale="1.25" aria-pressed="false">1.25</button></span>
 </header>
 <nav class="k-toc" id="k-toc"></nav>
 <main class="k-main">
 
 <section class="k-sec" id="audit"><h2>Audit</h2>
-  <p class="k-lead">Calculé à l'ouverture, sur le CSS réellement chargé et sur les composants mesurés plus bas. Chaque ligne est une incohérence à corriger ou à justifier. Il se recalcule quand on change de thème ou d'échelle.</p>
+  <p class="k-lead">Worked out on opening, from the CSS actually loaded and the components measured below. Each line is an inconsistency to fix or to justify. It's worked out again when the theme or the scale changes.</p>
   <div class="k-audit" id="k-audit"></div>
 </section>
 
-<section class="k-sec" id="fond"><h2>Fondations</h2>
-  <p class="k-lead">Une seule unité : <code>--unit</code> = 4 px × <code>--scale</code>. Espacements, hauteurs, arrondis et textes en dérivent ; le menu Affichage › Échelle (0.92 / 1 / 1.15) agrandit tout d'un coup. Seules exceptions : les filets (1 px), les largeurs de mise en page, et <code>--h-touch</code> (44 px fixes, la cible tactile ne dépend pas de l'échelle).</p>
-  <h3>Espacements</h3><div id="k-sp" class="k-scale"></div>
-  <h3>Hauteurs de widget</h3><div id="k-h" class="k-scale"></div>
-  <h3>Arrondis</h3><div id="k-r" class="k-scale"></div>
-  <h3>Texte</h3><div id="k-fs" class="k-scale"></div>
+<section class="k-sec" id="fond"><h2>Foundations</h2>
+  <p class="k-lead">One unit: <code>--unit</code> = 4 px × <code>--scale</code>. Spacing, heights, radii and text come from it; View › Interface scale (a slider, 0.5 to 1.5) resizes everything at once. The only exceptions: hairlines (1 px), the layout's widths, and <code>--h-touch</code> (a fixed 44 px: a finger's target doesn't follow the scale).</p>
+  <h3>Spacing</h3><div id="k-sp" class="k-scale"></div>
+  <h3>Widget heights</h3><div id="k-h" class="k-scale"></div>
+  <h3>Radii</h3><div id="k-r" class="k-scale"></div>
+  <h3>Text</h3><div id="k-fs" class="k-scale"></div>
   <h3>Colours: the blue theme</h3>
   <p class="k-lead">A fixed palette, the blue theme 60 / 30 / 10: 60 % neutral greys, 30 % night-blue tints (top bar, selection), 10 % bright blue -- the "Done" state's. "You" is turquoise, to read on a done diamond. The accents (retake, validated) come from the states' colours; the light theme from the dark one, the same roles.</p>
   <div id="k-col"></div>
 </section>
 
-<section class="k-sec" id="desk"><h2>Composants · bureau</h2><div id="k-desk"></div></section>
-<section class="k-sec" id="mobi"><h2>Composants · mobile</h2>
-  <p class="k-lead">Tactile et étroit (&lt; 900 px). Mêmes jetons, mêmes classes : seules les hauteurs passent à <code>--h-touch</code>. La revue (snapshot et live) et la farm (live) ; rien d'autre.</p>
+<section class="k-sec" id="desk"><h2>Components · desktop</h2><div id="k-desk"></div></section>
+<section class="k-sec" id="mobi"><h2>Components · phone</h2>
+  <p class="k-lead">Touch and narrow (&lt; 900 px). The same tokens, the same classes: only the heights become <code>--h-touch</code>. The review (snapshot and live) and the farm (live); nothing else.</p>
   <div id="k-mob"></div>
 </section>
-<section class="k-sec" id="regles"><h2>Règles de composition</h2><div id="k-rules"></div></section>
+<section class="k-sec" id="regles"><h2>Composition rules</h2><div id="k-rules"></div></section>
 </main>
 </div>
 <div id="mob" class="mob" hidden></div>

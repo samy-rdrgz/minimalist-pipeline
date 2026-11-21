@@ -1,5 +1,5 @@
 """Open the live page: the project's snapshot page served by Blender,
-kept up to date (lib/live.py, NOTES.md "Live page")."""
+kept up to date (lib/monitoring/live.py, NOTES.md "Live page")."""
 
 import webbrowser
 from pathlib import Path
@@ -7,7 +7,8 @@ from urllib.parse import quote
 
 import bpy
 
-from ..lib import get_active_project_root, live
+from ..lib import get_active_project_root
+from ..lib.monitoring import live
 
 
 class M_PIPELINE_OT_open_live_page(bpy.types.Operator):

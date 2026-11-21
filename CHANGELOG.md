@@ -6,6 +6,161 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- Render here: the file panel's Render offers Where -- Farm, Local ·
+  playblast, Local · viewport. Local renders the open file on this
+  machine, now, outside the farm's queue and without a farm host: the same
+  render (preset, video and sound, history, to check, thumbnail), followed
+  in Farm monitoring with a "local" tag; a farm render on this machine
+  gives way after its frame. Viewport draws each frame with the file's 3D
+  view through the camera, overlays as they are (rigs...), in a Blender
+  window of its own; tagged "viewport" in the render history. Unsaved
+  changes are saved first (no new version).
+
+- The live page opens at once: the project's first read shown as it goes,
+  batch after batch (a line along the top, "Reading the project: 142 / 480
+  folders", the figures said partial), no more waiting for the whole
+  project. Today's progress is logged from the whole read only.
+- Open a file whose shot or asset is open in another Blender (another
+  machine, any version): the page and Blender's Open project file ask
+  first -- who, on which machine, which version. The same file still opens
+  read-only (its lock).
+
+- Farm › Machines, as nodes: each machine (who, its id's start) with the
+  project files open in its Blenders (a click opens one in the page) and
+  its worker's state -- who works on what, never since when. A file's
+  detail says who has it open now. Live only (config/.sessions/).
+- The file's detail: Versions, the chain of its versions newest on top
+  (made when, saved last by whom, the departments their sessions worked; a
+  stable's done departments, validations and conflict), a version made
+  from another than the one before it branching off on the rail; Render
+  history, grouped by the version rendered on the same rail, the latest on
+  top (department, preset, frames, by whom, machine time, how it ended). A snapshot carries them; the live page asks
+  Blender for one file's when its tab opens (POST /history, guests too).
+  Files: its latest version saved last by whom, when; work time to the
+  half hour.
+- Breakdown › Projection: the days logged, then a cone -- each figure
+  carried on between the pace of its last 30 days and of its last 90, a
+  wide cone an uneven pace -- beside the schedule's even pace and its end
+  (Edit project › Schedule). Months, never a day ("100 % between February
+  and June 2027"); never a pace going down; Validated never above Done;
+  nothing dated past a year from today (too hypothetical); the cones
+  blurring more and more as they go, sharp a while then fast lost.
+- To do › Oldest first: the files waiting the longest first, one list --
+  for a reviewer since their latest stable, to work on since their oldest
+  retake still open. An order only: no time shown.
+- The page writes to-dos, beside retakes and remarks (the note form, Watch
+  large's), and opens a closed retake or to-do again (Reopen; who and when
+  kept in the entry): the review's new "todo" and "reopen" actions.
+- The live page pushes rushes to the edit: any render, wip or stable, from
+  its line in the file's detail (its button lit when it's the one in the
+  edit, who pushed it and when in its tooltip), and every sequence's and
+  asset's latest from the Farm tab (Push rushes…, as in Blender). The
+  page reads editing/rushes/rushes.json: what the edit has, by file.
+- Breakdown › Activity, under Over time: what was worked, not only what
+  was finished -- a column of diamonds a day (the state glyph's shape),
+  each worth some files or some hours: the scale (1, 2, 3, 5, 10…) the one
+  the busiest day fits, said beside ("◆ = 2 files"). An estimate on
+  purpose: work time isn't counted to the minute. Files worked: the shots
+  (or assets) with a session saved that day, by the departments ticked
+  (Working on) -- past 8 departments, the 7 most worked in colour, the
+  rest "Others". Time: everyone's saved sessions (one over midnight
+  split). Past four months, a column a week. Written each morning for the
+  days before (the metas changed since only), every day before by Migrate
+  old data (config/logs/progress.json's "worked", "seconds", "people").
+- Migrate old data rebuilds the progress over time before the log
+  began: each day since the project's first change, the project as it
+  stood that evening -- the stables made, validations given, sessions
+  saved, retakes open then -- through the state engine. Days already
+  logged are kept; a rebuilt one is marked "rebuilt". The only place every
+  .stablemeta and .wipmeta is read.
+- Breakdown › Export…: the whole project as a spreadsheet (.xlsx, written
+  in the page, offline too): Sequences (done and validated, all and each
+  department, open retakes), Shots and Assets (a line per file: its
+  figures, each department's state and assignees, stable and latest
+  version), Retakes (every open one: text, who, when, frames) and To
+  validate, and Over time (a line a day: the figures, the hours, the
+  files worked by department). Header kept in view, filters on.
+- The page's Search everything (Ctrl+K, the magnifier in the top bar; the
+  phone's too): every word typed found in a file's name, description,
+  notes, retakes, to-dos and replies (their text and author), assignees,
+  departments and why one waits, the render presets its renders used --
+  accents ignored. Each place found listed under its file, the words
+  marked; a result opens the file on the tab that shows it.
+- The page's To do tab, before Breakdown: each file's required
+  departments not validated yet, with why one waits (waiting, to redo,
+  RTK); everything, to work on or to validate (by default after the
+  role: team to work on, the top role to validate, one between everything);
+  shots or assets, one
+  department or all, one person's (mine by default when I'm assigned somewhere, else everyone's). Copy puts that list in the
+  clipboard as text. On the phone too, a tap opening the file in Review.
+- Share with a phone: an access may drive the farm (launch, stop,
+  renders, priorities) -- an artist away from the studio following their
+  renders. Read only by default; nothing is ever opened on the machine.
+- The live page's Farm tab (desktop and phone): Launch the farm (this
+  machine its host; Take the farm over when it's stuck, asked twice) and
+  Stop the farm (asked twice: the monitor stops on its next tick, the
+  renders running finish, the queue kept) -- as Farm monitoring's
+  Launch / Kill. Refused without FFmpeg, or while another one runs.
+- Breakdown: Over time, the shots' or the assets' Done and Validated a
+  day at a time, all departments or one (a line each, its figure at the
+  end, a day's on hover). From config/logs/progress.json, one point a day
+  (lib/monitoring/progress_log.py): today's written by a snapshot export
+  and while the live page runs; the day before's made exact by the first
+  Blender of the next day on the project -- the project as it is then,
+  put on the day of its last change (Monday's first launch writes
+  Friday's evening).
+- The page's Render form, as Blender's: a department, then its preset.
+- Render: a department to pick, then its preset. The preset starts on
+  the one that shot was last rendered with for that department (its
+  render_history.json), else the department's own -- set in Project
+  settings > By department… (a popup, one row per department), else
+  `<department>_default`, else the first whose name gives it. The
+  department picked is the render's, whatever its preset's name: a
+  preset can be called anything. The dialog starts on the department of
+  the file's last render.
+- Revert a review (Project settings > Maintenance): an imported review's
+  changes put back -- its notes and replies taken out, the notes it
+  deleted back, its validations, done, assignees, departments and set
+  aside as they were. Read from `<review>.revert.json`, written beside the
+  review kept in snapshots/reviews/ at each import: what the files it
+  touched held before and after (lib/monitoring/review_revert.py).
+  Anything changed since is left as it is, and named; the files a review
+  created are listed, not deleted.
+- Every project file says the form it's written in: `"format_version": "2.0.0"`, the addon version that form came with,
+  in project_config.json, tracking.json, .stablemeta, .wipmeta,
+  render_history.json, preset_pace.json, rushes.json, session and farm
+  worker files (lib/formats.py). An addon never rewrites a file a newer
+  one wrote: it says to update instead of dropping what it doesn't know.
+  Files with no key were written by a 1.x.
+- Tests run on every push (GitHub Actions); `python3 tools/run_tests.py`
+  runs them all locally. The bug report asks where it happened (page,
+  live, phone, farm) and for the browser.
+- The 1.x keys beside 2.0's -- a .stablemeta's `departments_validated`,
+  a .wipmeta's `departments_worked` -- are still written through 2.1 and
+  2.2, and no longer from 2.3: two minor versions to update every machine
+  of a team.
+- A .wipmeta's sessions are named `sessions` (they were
+  `departments_worked`, the name a .stablemeta gives the work since the
+  stable before, a list): the same name as a stable saved in place. Migrate
+  old data renames them; the old name is kept beside, equal, for 1.x.
+- The page: your own notes, sent already, can be edited or deleted again
+  (the review's `edit` / `delete` actions). Someone else's too under a
+  validation role (sup, prod...), never the team's.
+- Live: View › Export a snapshot…, the export opened in Blender.
+- Filters › Tracked only: hides the files with no department (kept by
+  the browser).
+- Done on the stable again, with no new stable version (a department
+  forgotten when the stable was made): a checkbox by each department in
+  the File panel's Working on, a Mark done button in the page's detail
+  and on the phone (the review's `done` action).
+- Links: no wire at rest, the hovered or clicked node's only (All
+  wires: every one); assets by type (their prefix) or by links; an asset
+  clicked, the shots show its socket alone.
+- Links: a sequence of several shots folds into one group node, the way
+  a Blender group node does. Its inputs are the assets its shots link,
+  each shown once with ×n, so one wire stands for n. Click it to
+  unfold; its caption folds it back. Assets sit level with the middle
+  of what links them, spread both up and down.
 - The snapshot and live page, redrawn: Blender's grammar (areas, an
   Outliner, a list, a Detail panel with tabs, a status bar), Blender's
   own icons, a fixed blue theme, dark or light (View › Theme: Dark,
@@ -18,6 +173,19 @@ All notable changes to this addon. Dates are release dates.
   default). The review's file and its actions are unchanged; live, each
   change goes to Blender by itself. Share with a phone, Update links,
   Render with its sound, What's new: as before, in the new page.
+- Snapshot page: the add-on's logo and a link to its page in the status
+  bar; the player takes the video's (or picture's) shape, its height held
+  between a min and a max; Watch large's full screen shows the video alone;
+  a review started from Watch large stays there; popovers held inside the
+  window; tags as opaque chips with a state mark; switches for on / off
+  settings; View › Interface scale a slider (0.5 to 1.5). On a touch
+  screen: no keyboard keys shown, the page under the system's bar, the
+  keyboard raising only the bottom of the page.
+- Snapshot page: the links exported in a snapshot (its Links tab); the live
+  page follows the project's preferences (its team...) without waiting for
+  a file to change; times on a 24-hour clock, the day before the month;
+  rows of choices on one line, scrolled sideways; the list or the detail
+  folded to give the other the whole width (a tablet held upright too).
 - Live page, a tour for a beginner (Blender's Experience level, a guest
   too): a few steps pointing at the page's parts, shown once in a browser,
   again from More › Tour of the page.
@@ -328,6 +496,13 @@ All notable changes to this addon. Dates are release dates.
 
 ### Fixed
 
+- A worker stopped then added again, Blender left open, never took a
+  job: the farm loop's timer, gone with the role, was taken for still
+  running and never registered again.
+- A -stable file saved in place (Save anyway) records its session: who,
+  when, and the departments ticked in Working on -- shown on it once
+  saved -- in its .stablemeta ("sessions"). It went nowhere: a stable has
+  no .wipmeta.
 - Snapshot and live page: a render the history lists but whose folder is
   gone (renders/ cleaned, a project copied without it) is no longer shown;
   with no render left, the player is off (no frames, no play, the

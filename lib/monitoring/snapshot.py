@@ -7,13 +7,13 @@ import re
 import threading
 from pathlib import Path
 
-from .background import background_work
-from .config import (
+from ..background import background_work
+from ..config import (
     RELINK_TAGS,
     covering_role,
     validation_roles,
 )
-from .core import (
+from ..core import (
     iso_timestamp,
     json_get,
     now,
@@ -29,9 +29,9 @@ from .status import (
     progress_weights,
     project_stages,
 )
-from .preview import LD_DIR, browser_video, ensure_ld, main_render_dir, render_root
+from ..preview import LD_DIR, browser_video, ensure_ld, main_render_dir, render_root
 from .schedule import project_schedule, schedule_progress
-from .thumbnails import (
+from ..thumbnails import (
     owner_shot_render_dirs,
     owner_thumbnail_dirs,
     run_thumbnail_jobs,
@@ -39,10 +39,14 @@ from .thumbnails import (
     thumbnail_path,
     thumbnail_size,
 )
+from .history import file_history
 from .tracking import (
     _DATA_ROOTS,
     APPROVAL_SOURCE,
     _collect_folder,
+    _current_link_files,
+    _outdated_links_of,
+    _path_key,
     _pipeline_entries,
     _session_folder_key,
     _status_from_raw,
@@ -82,6 +86,7 @@ def read_snapshot_raw(root: Path) -> list[tuple[str, Path, dict, list[str]]]:
             raw = _collect_folder(owner, _pipeline_entries(owner))
             if raw is None:
                 continue
+            raw["render_presets"] = _render_presets(owner)
             try:
                 blends = [
                     e.name for e in os.scandir(owner) if e.name.endswith(".blend")
@@ -89,6 +94,43 @@ def read_snapshot_raw(root: Path) -> list[tuple[str, Path, dict, list[str]]]:
             except OSError:
                 blends = []
             out.append((kind, owner, raw, blends))
+    return out
+
+
+def _render_presets(owner: Path) -> dict:
+    """The Render form's start for this folder: {"department": its last
+    render's, "by": {department: the preset its last render for it used},
+    "used": every preset its renders used, for the page's search}
+    (render_history.json, finished and failed renders). Pure os/json."""
+    by, last, used = {}, "", set()
+    for e in (read_json_quiet(owner / ".pipeline" / "render_history.json") or {}).get("entries") or []:
+        if not isinstance(e, dict) or e.get("status") == "split":
+            continue
+        d = str(e.get("department") or "").lower()
+        last = d
+        if d:
+            by[d] = e.get("prerender_script") or ""
+        if e.get("prerender_script"):
+            used.add(str(e["prerender_script"]))
+    return {"department": last, "by": by, "used": sorted(used)}
+
+
+def _last_save(raw: dict) -> dict:
+    """{"saved_at", "saved_by"} of a folder's newest save among the
+    .wipmetas its status read (those since its latest stable)."""
+    best = max(raw.get("wipmetas") or [], key=lambda m: time_key(m.get("edited_at")), default=None)
+    return {"saved_at": (best or {}).get("edited_at") or "", "saved_by": (best or {}).get("edited_by") or ""}
+
+
+def _rushes_by_name(root: Path) -> dict:
+    """editing/rushes/rushes.json's entries by their file's name (sq100_sh030,
+    ch_bob): {"render", "by", "at"}. Pure os/json."""
+    from ..rushes import RUSHES_DIR, RUSHES_MANIFEST, _read_manifest
+
+    out = {}
+    for name, e in _read_manifest(Path(root) / RUSHES_DIR / RUSHES_MANIFEST).items():
+        if isinstance(e, dict):
+            out[Path(name).stem] = {"render": e.get("render") or "", "by": e.get("pushed_by") or "", "at": e.get("pushed_at") or ""}
     return out
 
 
@@ -426,6 +468,36 @@ def shots_label(shots: list, every: list) -> str:
     )
 
 
+def folder_links(root: Path, currents: dict, outdated: dict) -> dict:
+    """Per folder (currents: {owner key: the project files it links, as
+    stored}), its links as the page draws them: {"key" (its path under the
+    project), "links": [{"key", "file", "newer"}], "linked_by": [keys]};
+    outdated: _outdated_links_of()'s. The snapshot's and the live page's.
+    Pure."""
+    rel = {}
+    for key in currents:
+        try:
+            rel[_path_key(Path(key))] = Path(key).relative_to(root).as_posix()
+        except ValueError:
+            pass
+    by_target: dict[str, list[str]] = {}
+    out = {}
+    for key, files in currents.items():
+        me = rel.get(_path_key(Path(key)))
+        newer = dict(outdated.get(key) or [])
+        links = []
+        for f in files:
+            path = Path(f) if Path(f).is_absolute() else Path(root) / f
+            target = rel.get(_path_key(path.parent), "")
+            links.append({"key": target, "file": path.name, "newer": newer.get(path.name, "")})
+            if target and me:
+                by_target.setdefault(target, []).append(me)
+        out[key] = {"key": me, "links": links}
+    for extra in out.values():
+        extra["linked_by"] = sorted(set(by_target.get(extra["key"], [])))
+    return out
+
+
 def read_snapshot_data(
     root: Path, thumbnails: dict | None = None, v_prefix: str = "v"
 ) -> dict:
@@ -490,6 +562,16 @@ def read_snapshot_data(
             found = [(label, encoded(d)) for label, d in shots]
             if any(b64 for _, b64 in found):
                 shot_thumbs[owner] = found
+    # Who links what (the Links tab): each folder's latest metadata, one
+    # listing per folder linked for a newer stable.
+    currents = {
+        str(owner): _current_link_files(_pipeline_entries(owner), root)
+        for _, owner, raw, _ in raws
+        if not raw["tracking"].get("archived")
+    }
+    links = folder_links(
+        root, currents, _outdated_links_of(root, [Path(k) for k in currents], currents, v_prefix)
+    )
     return {
         "raws": raws,
         "renders": renders,
@@ -497,6 +579,12 @@ def read_snapshot_data(
         "shot_thumbs": shot_thumbs,
         "thumb_warnings": warnings,
         "work": work_times(root),
+        # What the edit has: rushes.json's, by the rush's name (its file's).
+        "rushes": _rushes_by_name(root),
+        # Each folder's history (History tab): carried by a snapshot, asked
+        # for one file at a time by the live page.
+        "history": {str(owner): file_history(owner) for _, owner, raw, _ in raws if not raw["tracking"].get("archived")},
+        "live": links,
     }
 
 
@@ -536,6 +624,7 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
             # assets/, library/ or shots/: the page's tab, the videos zip's folder.
             "root": next((p for p in reversed(owner.parts) if p in _DATA_ROOTS), kind),
             "description": status.get("description", ""),
+            "render_presets": raw.get("render_presets") or {},
             "departments_required": list(status.get("departments_required", [])),
             "departments": {
                 d: department_state(status, d)
@@ -544,13 +633,17 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
             "flags": status.get("flags") or {},
             # Who each department is assigned to (Edit project's team).
             "assignees": status.get("assignees") or {},
-            # Set aside: listed, out of every share done (lib/status.py).
+            # Set aside: listed, out of every share done (lib/monitoring/status.py).
             "omit": omitted(status),
             "wip_version": wip_name,
             # Work on top of the last stable (a wip made after it), else none
             # to show: the Blender file column names the stable alone.
             "wip_after_stable": wip_n > stable_n,
             "stable_version": stable_name,
+            # When its latest stable was made: the page's "oldest first" (To do).
+            "stable_at": (status.get("stable_info") or {}).get("created_at") or "",
+            # Its latest version's last save (the newest .wipmeta read): who, when.
+            **_last_save(raw),
             # What the prod sees and what its notes get anchored on: the
             # most recent of the two (a stable can be newer than any wip).
             "current_version": wip_name
@@ -561,11 +654,13 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
             "shot_thumbnails": [
                 list(t) for t in data.get("shot_thumbs", {}).get(str(owner), [])
             ],
-            # The live page's own (lib/live.py): its links, its renders to
+            # The live page's own (lib/monitoring/live.py): its links, its renders to
             # check, every version's video.
             "live": (data.get("live") or {}).get(str(owner)),
             # Logged work time, every version and everyone (work_times()).
             "work_seconds": (data.get("work") or {}).get(_session_folder_key(owner)),
+            "rush": (data.get("rushes") or {}).get(name),
+            "history": (data.get("history") or {}).get(str(owner)),
         }
         # A render's folder is vXXX_YYY: XXX the .blend version rendered,
         # YYY the render increment. The history's source_file says XXX
@@ -883,7 +978,7 @@ def snapshot_filename(snapshot: dict, ext: str = "html", kind: str = "snapshot")
 
 
 def render_html(snapshot: dict) -> str:
-    """The whole snapshot as one offline HTML page (lib/snapshot_page.py)."""
+    """The whole snapshot as one offline HTML page (lib/monitoring/snapshot_page.py)."""
     from .snapshot_page import render_html as page  # it imports this module
 
     return page(snapshot)

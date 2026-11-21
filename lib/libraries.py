@@ -10,7 +10,7 @@ from .actions import PipelineAction, set_pending_action
 from .config import file_in_active_project, parse_filename, to_relative
 from .core import resolve_bpy_path
 from .logs import log
-from .tracking import (
+from .monitoring.tracking import (
     ensure_wipmeta,
     stablemeta_sync_links,
     wipmeta_add_link,

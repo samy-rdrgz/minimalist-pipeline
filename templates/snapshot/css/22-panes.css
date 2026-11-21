@@ -1,14 +1,70 @@
 /* Resizable side panels (desktop, 1200 px and over): drag the edge; past the minimum the panel
-   folds away and a tab brings it back; a double-click: the default width. */
-.pz-h{position:fixed;z-index:60;width:10px;cursor:col-resize;touch-action:none;display:none}
-.pz-h::after{content:"";position:absolute;left:4px;top:50%;width:2px;height:36px;margin-top:-18px;border-radius:2px;background:var(--line-3);opacity:0;transition:opacity .15s,background .15s}
-.pz-h:hover::after,.pz-h.drag::after{opacity:1;background:var(--brand)}
-.pz-h.warn::after{background:var(--text-3)}
-.pz-tab{position:fixed;z-index:60;display:none;align-items:center;justify-content:center;width:16px;height:36px;border:0;cursor:pointer;
-  background:var(--t3);color:var(--t-text);box-shadow:0 6px 20px var(--shadow)}
-.pz-tab:hover{background:var(--brand);color:var(--on-brand)}
-.pz-tab.l{border-radius:0 8px 8px 0}
-.pz-tab.r{border-radius:8px 0 0 8px}
-.pz-tab svg{width:9px;height:9px}
-body.pz-dragging,body.pz-dragging *{cursor:col-resize!important;user-select:none!important}
-.is-mob .pz-h,.is-mob .pz-tab{display:none!important}
+   folds away and a tab brings it back (1.5 times the top bar's height, easy to hit); a double-click: the default width. */
+.pz-h {
+  position: fixed;
+  z-index: 60;
+  width: 10px;
+  cursor: col-resize;
+  touch-action: none;
+  display: none;
+}
+.pz-h::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  top: 50%;
+  width: 2px;
+  height: 36px;
+  margin-top: -18px;
+  border-radius: 2px;
+  background: var(--line-3);
+  opacity: 0;
+  transition:
+    opacity 0.15s,
+    background 0.15s;
+}
+.pz-h:hover::after,
+.pz-h.drag::after {
+  opacity: 1;
+  background: var(--brand);
+}
+.pz-h.warn::after {
+  background: var(--text-3);
+}
+.pz-tab {
+  position: fixed;
+  z-index: 60;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: calc(22px * var(--scale));
+  height: calc(72px * var(--scale));
+  border: 0;
+  cursor: pointer;
+  background: var(--t3);
+  color: var(--t-text);
+  box-shadow: 0 6px 20px var(--shadow);
+}
+.pz-tab:hover {
+  background: var(--brand);
+  color: var(--on-brand);
+}
+.pz-tab.l {
+  border-radius: 0 8px 8px 0;
+}
+.pz-tab.r {
+  border-radius: 8px 0 0 8px;
+}
+.pz-tab svg {
+  width: calc(12px * var(--scale));
+  height: calc(12px * var(--scale));
+}
+body.pz-dragging,
+body.pz-dragging * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+.is-mob .pz-h,
+.is-mob .pz-tab {
+  display: none !important;
+}

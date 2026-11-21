@@ -344,6 +344,8 @@ def _split_into_shot_jobs(
                 overrided_frame_range=(f"a{resolved[0]}", f"a{resolved[1]}"),
                 shot_override=shot_label,
                 sound=data.get("sound", True),
+                local=data.get("local") or "",  # a render here: its shots too
+                viewport=bool(data.get("viewport")),
             )
             split_into.append(shot_label)
         except PipelineError as e:

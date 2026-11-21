@@ -35,19 +35,19 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 import bpy
 
-from .core import get_addon_version, now
-from .logs import log
-from .preview import browser_video, render_department, render_root
-from .snapshot import _folder_frames, _owner_shots, _video_name, build_snapshot, read_render_state
+from ..core import get_addon_version, now
+from ..logs import log
+from ..preview import browser_video, render_department, render_root
+from .snapshot import _folder_frames, _owner_shots, _rushes_by_name, _video_name, build_snapshot, folder_links, read_render_state
 from .snapshot_page import page_data, render_page
 from .status import project_stages
-from .thumbnails import owner_shot_render_dirs, owner_thumbnail_dirs, thumbnail_path
+from . import progress_log
+from ..thumbnails import owner_shot_render_dirs, owner_thumbnail_dirs, thumbnail_path
 from .tracking import (
     _DATA_ROOTS,
     _collect_folder,
     _current_link_files,
     _outdated_links_of,
-    _path_key,
     _pipeline_entries,
     _walk_owner_dirs,
     to_check_entries,
@@ -62,6 +62,8 @@ READ_EVERY = 4.0  # seconds between two passes over the project...
 IDLE_AFTER = 30.0  # ...while a page asked for something this recently
 BUSY_AFTER = 1.5  # no turn for this long: the page says "Blender busy"
 POLL = 20.0  # a page waiting for news is answered after this, news or not
+FIRST_BATCH = 1.0  # the first read: a page of what's read after this long (a small project: none)...
+BATCH_EVERY = 2.0  # ...then again this often, until it's whole
 CHUNK = 64 * 1024
 
 
@@ -101,7 +103,7 @@ _server = None
 # network address too, only while one is valid. See NOTES.md, "Live page:
 # a phone".
 GUEST_MAX_HOURS = 7 * 24
-_guests: dict[str, dict] = {}  # token: {"name", "role", "until" (epoch), "made"}
+_guests: dict[str, dict] = {}  # token: {"name", "role", "until" (epoch), "made", "ip", "farm"}
 _guests_lock = threading.Lock()
 _lan = {"servers": {}, "error": ""}  # {ip: server}: one per address a guest uses
 _config_dir: Path | None = None  # Blender's config folder, read on the main thread
@@ -146,7 +148,7 @@ def guest_of(token: str) -> dict | None:
 def _guest_list() -> list:
     with _guests_lock:
         return sorted(
-            ({"token": t, "name": g["name"], "role": g["role"], "until": _iso(g["until"]), "ip": g.get("ip", "")} for t, g in _guests.items() if g["until"] > time.time()),
+            ({"token": t, "name": g["name"], "role": g["role"], "until": _iso(g["until"]), "ip": g.get("ip", ""), "farm": bool(g.get("farm"))} for t, g in _guests.items() if g["until"] > time.time()),
             key=lambda g: g["until"],
         )
 
@@ -220,7 +222,8 @@ def _sync_lan_locked(sh: "_Shared") -> None:
 
 
 def _share(raw: dict, sh: "_Shared") -> dict:
-    """The host's page: a guest made ({"name", "role", "hours" or "eod"}),
+    """The host's page: a guest made ({"name", "role", "hours" or "eod",
+    "farm": may drive the farm -- an artist away, following their renders}),
     one revoked ({"revoke": token}), or the list ({}). Answers the list,
     and for one made its link and QR code."""
     from datetime import datetime
@@ -253,7 +256,7 @@ def _share(raw: dict, sh: "_Shared") -> dict:
             return {"ok": False, "error": "this machine is on no network" if not addresses else f"{ip} isn't one of this machine's addresses"}
         token = secrets.token_urlsafe(18)
         with _guests_lock:
-            _guests[token] = {"name": name, "role": role, "until": end, "made": time.time(), "ip": ip}
+            _guests[token] = {"name": name, "role": role, "until": end, "made": time.time(), "ip": ip, "farm": bool(raw.get("farm"))}
         _save_guests()
         _sync_lan(sh)
         if ip not in _lan["servers"]:
@@ -263,7 +266,7 @@ def _share(raw: dict, sh: "_Shared") -> dict:
             return {"ok": False, "error": _lan["error"] or f"not served on {ip}"}
         link = f"http://{ip}:{_server.server_address[1]}/?t={token}"
         via = next((a["kind"] for a in _addresses() if a["ip"] == ip), "")
-        out.update(link=link, qr=qr_svg(link), until=_iso(end), name=name, role=role, via=via)
+        out.update(link=link, qr=qr_svg(link), until=_iso(end), name=name, role=role, via=via, farm=bool(raw.get("farm")))
         log("INFO", "live", f"Live page: an access for {name} ({role}) until {_iso(end)}")
     return {"ok": True, "guests": _guest_list(), "addresses": _addresses(), **out}
 
@@ -271,7 +274,7 @@ def _share(raw: dict, sh: "_Shared") -> dict:
 def _beginner() -> bool:
     """The addon's Experience level is Beginner (its default). Never raises."""
     try:
-        from .core import addon_pref
+        from ..core import addon_pref
 
         return getattr(addon_pref(), "experience_level", "BEGINNER") == "BEGINNER"
     except Exception:
@@ -283,11 +286,13 @@ def _as_guest(data: dict, token: str, guest: dict) -> dict:
     videos' path too), marked a guest."""
     meta = dict(data["meta"])
     # A guest: new to the page, most often -- its tour shown once on their phone.
-    meta["live"] = {**meta["live"], "token": token, "user": guest["name"], "role": guest["role"], "guest": True, "until": _iso(guest["until"]), "beginner": True}
+    meta["live"] = {**meta["live"], "token": token, "user": guest["name"], "role": guest["role"], "guest": True, "until": _iso(guest["until"]), "beginner": True, "farm": bool(guest.get("farm"))}
     meta["videos"] = {**(meta.get("videos") or {}), "local": f"media/{token}/renders"}
     return {**data, "meta": meta}
+# partial: the first read's latest batch, (root, cache, done, total), for the
+# page while the rest is read; progress: (done, total) for the waiting page.
 _reader = {"thread": None, "result": None, "at": 0.0, "farm_at": 0.0, "cache": {}, "farm": None, "compare": None, "ready": False,
-           "waiting": [], "in_pass": []}
+           "waiting": [], "in_pass": [], "partial": None, "progress": None}
 
 
 def running() -> bool:
@@ -310,50 +315,56 @@ def _b64(path: Path) -> str | None:
         return None
 
 
-def read_live(root: Path, cache: dict, config: dict, v_prefix: str) -> tuple[dict, bool]:
+def read_live(root: Path, cache: dict, config: dict, v_prefix: str, on_progress=None) -> tuple[dict, bool]:
     """Every tracked folder as read_snapshot_data() gives it, a folder read
     again only when its .pipeline/, its tracking.json or its own listing
-    (a .blend saved) changed since cache. Returns (cache, changed). Pure
-    os/json: thread-safe."""
+    (a .blend saved) changed since cache. Returns (cache, changed).
+    on_progress(out, done, total): before each folder, what's read so far
+    -- the first read's batches. Pure os/json: thread-safe."""
     out, changed = {}, False
-    for top in _DATA_ROOTS:
-        kind = "shot" if top == "shots" else "asset"
-        mtimes: dict = {}
-        for owner in _walk_owner_dirs(root / top, mtimes=mtimes):
-            key = str(owner)
-            try:
-                stamp = (os.stat(owner / ".pipeline").st_mtime, mtimes.get(key), os.stat(owner).st_mtime)
-            except OSError:
-                continue
-            old = cache.get(key)
-            if old and old["stamp"] == stamp:
-                out[key] = old
-                continue
-            entries = _pipeline_entries(owner)
-            raw = _collect_folder(owner, entries)
-            if raw is None:
-                continue
-            try:
-                blends = [e.name for e in os.scandir(owner) if e.name.endswith(".blend")]
-            except OSError:
-                blends = []
-            renders, thumb, shot_thumbs, versions, checks = None, None, [], {}, []
-            if not raw["tracking"].get("archived"):
-                versions = _versions(root, kind, owner, v_prefix)
-                checks = _checks(root, raw["tracking"])
-                renders = read_render_state(root, kind, owner, v_prefix, project_stages(config, f"{kind}s"))
-                for r in renders:
-                    for x in (r, *(r.get("others") or [])):
-                        x["video"] = _video_name(root, browser_video(Path(x["path"])) if x.get("path") else None)
-                thumb = next((b for d in owner_thumbnail_dirs(root, owner) if (b := _b64(thumbnail_path(d)))), None)
-                found = [(label, _b64(thumbnail_path(d))) for label, d in owner_shot_render_dirs(root, owner)]
-                shot_thumbs = found if any(b for _, b in found) else []
-            out[key] = {
-                "stamp": stamp, "kind": kind, "owner": owner, "raw": raw, "blends": blends,
-                "renders": renders, "thumb": thumb, "shot_thumbs": shot_thumbs,
-                "versions": versions, "checks": checks, "links": _current_link_files(entries, root),
-            }
-            changed = True
+    mtimes: dict = {}
+    owners = [
+        ("shot" if top == "shots" else "asset", owner)
+        for top in _DATA_ROOTS
+        for owner in _walk_owner_dirs(root / top, mtimes=mtimes)
+    ]
+    for i, (kind, owner) in enumerate(owners):
+        if on_progress:
+            on_progress(out, i, len(owners))
+        key = str(owner)
+        try:
+            stamp = (os.stat(owner / ".pipeline").st_mtime, mtimes.get(key), os.stat(owner).st_mtime)
+        except OSError:
+            continue
+        old = cache.get(key)
+        if old and old["stamp"] == stamp:
+            out[key] = old
+            continue
+        entries = _pipeline_entries(owner)
+        raw = _collect_folder(owner, entries)
+        if raw is None:
+            continue
+        try:
+            blends = [e.name for e in os.scandir(owner) if e.name.endswith(".blend")]
+        except OSError:
+            blends = []
+        renders, thumb, shot_thumbs, versions, checks = None, None, [], {}, []
+        if not raw["tracking"].get("archived"):
+            versions = _versions(root, kind, owner, v_prefix)
+            checks = _checks(root, raw["tracking"])
+            renders = read_render_state(root, kind, owner, v_prefix, project_stages(config, f"{kind}s"))
+            for r in renders:
+                for x in (r, *(r.get("others") or [])):
+                    x["video"] = _video_name(root, browser_video(Path(x["path"])) if x.get("path") else None)
+            thumb = next((b for d in owner_thumbnail_dirs(root, owner) if (b := _b64(thumbnail_path(d)))), None)
+            found = [(label, _b64(thumbnail_path(d))) for label, d in owner_shot_render_dirs(root, owner)]
+            shot_thumbs = found if any(b for _, b in found) else []
+        out[key] = {
+            "stamp": stamp, "kind": kind, "owner": owner, "raw": raw, "blends": blends,
+            "renders": renders, "thumb": thumb, "shot_thumbs": shot_thumbs,
+            "versions": versions, "checks": checks, "links": _current_link_files(entries, root),
+        }
+        changed = True
     return out, changed or set(out) != set(cache)
 
 
@@ -417,37 +428,21 @@ def _checks(root: Path, tracking: dict) -> list:
 def _live_extras(root: Path, cache: dict, outdated: dict) -> dict:
     """Per folder, what only the live page shows: {"key" (its path under
     the project), "links": [{"key", "file", "newer"}], "linked_by": [keys],
-    "versions", "checks"}."""
-    rel = {}
-    for key in cache:
-        try:
-            rel[_path_key(Path(key))] = Path(key).relative_to(root).as_posix()
-        except ValueError:
-            pass
-    by_target: dict[str, list[str]] = {}
-    out = {}
+    "versions", "checks"} -- the links as a snapshot has them
+    (lib/monitoring/snapshot.py folder_links())."""
+    out = folder_links(root, {k: e.get("links") or [] for k, e in cache.items()}, outdated)
     for key, e in cache.items():
-        me = rel.get(_path_key(Path(key)))
-        newer = dict(outdated.get(key) or [])
-        links = []
-        for f in e.get("links") or []:
-            path = Path(f) if Path(f).is_absolute() else Path(root) / f
-            target = rel.get(_path_key(path.parent), "")
-            links.append({"key": target, "file": path.name, "newer": newer.get(path.name, "")})
-            if target and me:
-                by_target.setdefault(target, []).append(me)
-        out[key] = {"key": me, "links": links, "versions": e.get("versions") or {}, "checks": e.get("checks") or []}
-    for key, extra in out.items():
-        extra["linked_by"] = sorted(set(by_target.get(extra["key"], [])))
+        out[key].update(versions=e.get("versions") or {}, checks=e.get("checks") or [])
     return out
 
 
-def _as_data(cache: dict, extras: dict | None = None, work: dict | None = None) -> dict:
+def _as_data(cache: dict, extras: dict | None = None, work: dict | None = None, rushes: dict | None = None) -> dict:
     """read_live()'s cache as read_snapshot_data()'s result."""
     entries = list(cache.values())
     return {
         "live": extras or {},
         "work": work or {},
+        "rushes": rushes or {},
         "raws": [(e["kind"], e["owner"], e["raw"], e["blends"]) for e in entries],
         "renders": {str(e["owner"]): e["renders"] for e in entries if e["renders"] is not None},
         "thumbs": {str(e["owner"]): e["thumb"] for e in entries if e["thumb"]},
@@ -456,9 +451,22 @@ def _as_data(cache: dict, extras: dict | None = None, work: dict | None = None) 
     }
 
 
-def _read(root, cache, config, v_prefix, extras):
+def _read(root, cache, config, v_prefix, extras, first=False):
+    """A pass over the project (the reader's thread). The first one (no page
+    yet): what it has read published as it goes -- a batch after
+    FIRST_BATCH, then every BATCH_EVERY -- the page shown at once, filling
+    in. See NOTES.md, "Live page: the first read in batches"."""
+    started, last = time.monotonic(), [0.0]
+
+    def progress(out, done, total):
+        _reader["progress"] = (done, total)
+        t = time.monotonic()
+        if t - started >= FIRST_BATCH and t - last[0] >= BATCH_EVERY and out:
+            last[0] = t
+            _reader["partial"] = (root, dict(out), done, total)
+
     try:
-        new, changed = read_live(root, cache, config, v_prefix)
+        new, changed = read_live(root, cache, config, v_prefix, on_progress=progress if first else None)
         if changed or extras is None:
             # Links to a newer stable: one listing per folder linked.
             currents = {k: e.get("links") or [] for k, e in new.items()}
@@ -467,10 +475,13 @@ def _read(root, cache, config, v_prefix, extras):
         # news (one stat a pass, the log read again only when it changed).
         work = work_times(root)
         changed = changed or work != _reader.get("work")
-        _reader["result"] = (root, new, changed, extras, work)
+        # What the edit has (editing/rushes/rushes.json): a push changes no folder either.
+        rushes = {"rushes": _rushes_by_name(root), "presence": presence(root)}
+        changed = changed or rushes != _reader.get("rushes")
+        _reader["result"] = (root, new, changed, extras, work, rushes)
     except Exception as e:  # never die silently: the next pass tries again
         log("WARNING", "live", f"Live page: project not read: {e!r}")
-        _reader["result"] = (root, cache, False, extras, _reader.get("work"))
+        _reader["result"] = (root, cache, False, extras, _reader.get("work"), _reader.get("rushes"))
 
 
 # --- the main thread -------------------------------------------------------------
@@ -492,14 +503,14 @@ def _tick():
 
 
 def _turn(sh: _Shared) -> None:
-    from .config import ConfigCache, get_active_project_root
+    from ..config import ConfigCache, get_active_project_root
 
     root = get_active_project_root()
     if root and Path(root) != sh.root:
         # Another project made active: the page follows it -- told it's
         # being read (it reloads on the waiting page), then its data.
         sh.root = Path(root)
-        _reader.update(cache={}, result=None, compare=None, farm=None, ready=False, extras=None, work=None, at=0.0)
+        _reader.update(cache={}, result=None, compare=None, farm=None, ready=False, extras=None, work=None, at=0.0, partial=None, progress=None)
         with sh.changed:
             sh.version += 1
             sh.data, sh.body = None, b""
@@ -513,12 +524,12 @@ def _turn(sh: _Shared) -> None:
     if page_open:
         # The farm's jobs and machines, read as Farm monitoring does --
         # its window closed, nothing else would read them.
-        from ..farm.loop import refresh_step
+        from ...farm.loop import refresh_step
 
         refresh_step()
     # Update links running in the background: one done, its new version
     # read at once (a pass), its state shown.
-    from . import relink
+    from .. import relink
 
     if relink.poll():
         _reader["at"] = 0.0
@@ -537,7 +548,7 @@ def _turn(sh: _Shared) -> None:
             pending.result = {"open": _open, "farm": _farm_action, "play": _play}[pending.kind](pending.review)
             pending.done.set()
             if pending.kind == "farm":
-                from ..farm.loop import refresh_step
+                from ...farm.loop import refresh_step
 
                 refresh_step(soon=True)  # the farm read again now: its change shown
             continue
@@ -547,15 +558,23 @@ def _turn(sh: _Shared) -> None:
     if _reader["result"] is not None and not (thread and thread.is_alive()) and _reader["result"][0] != sh.root:
         _reader["result"] = None  # the project before: dropped
     if _reader["result"] is not None and not (thread and thread.is_alive()):
-        _, cache, changed, _reader["extras"], _reader["work"] = _reader["result"]
+        _, cache, changed, _reader["extras"], _reader["work"], _reader["rushes"] = _reader["result"]
         _reader["result"] = None
         _reader["cache"] = cache
         _reader["ready"] = True
+        _reader["partial"] = _reader["progress"] = _reader["shown"] = None
         _rebuild(sh, force=changed)
         for pending in _reader["in_pass"]:
             pending.result["version"] = sh.version
             pending.done.set()
         _reader["in_pass"] = []
+    elif not _reader["ready"] and _reader["partial"] is not None:
+        # The first read under way: its latest batch shown, the page filling in.
+        root_of, part, done, total = _reader["partial"]
+        _reader["partial"] = None
+        if root_of == sh.root:
+            _reader["shown"] = part  # a file's history found in it meanwhile
+            _rebuild(sh, force=True, partial=(part, done, total))
     elif clock - _reader["farm_at"] > 0.5 and page_open:
         # The farm moves on its own -- looked at only while a page is open:
         # with none (its tab closed), nothing but this check every turn.
@@ -578,6 +597,7 @@ def _turn(sh: _Shared) -> None:
                 config,
                 (config.get("naming") or {}).get("version", {}).get("prefix", "v"),
                 _reader.get("extras"),
+                not _reader["ready"],
             ),
             daemon=True,
             name="pipeline-live-read",
@@ -596,12 +616,12 @@ def _with_window(op, *args, **kwargs):
 
 def _apply(root: Path, raw: dict) -> dict:
     """A page's actions, written into the project as an imported review's
-    (lib/review_import.py: the same checks, the same idempotence), its
+    (lib/monitoring/review_import.py: the same checks, the same idempotence), its
     descriptions and new files too. {"ok", "imported", "validated",
     "fixed", "replies", "changed", "skipped": [[label, reason]]} or
     {"ok": False, "error"}."""
-    from .errors import PipelineError
-    from .monitoring import status_changed
+    from ..errors import PipelineError
+    from .windows import status_changed
     from .review_import import _action, _review_file, create_rows, import_review, parse_review_date
     from .snapshot import SCHEMA_VERSION
     from .tracking import ProjectScan, set_description
@@ -655,10 +675,10 @@ def _checked(actions: list) -> dict:
     """Renders marked checked from the page ({"file", "key", "push"}): out
     of "to check", their farm job archived, pushed to the edit if asked --
     as Render checked does (its departments: the page's ✓ / ✕)."""
-    from ..operators.rushes_ops import push_checked_renders
-    from ..operators.tracking_ops import _archive_checked_job
-    from .errors import PipelineError
-    from .monitoring import status_changed
+    from ...operators.rushes_ops import push_checked_renders
+    from ...operators.tracking_ops import _archive_checked_job
+    from ..errors import PipelineError
+    from .windows import status_changed
     from .review_import import _review_file
     from .tracking import clear_render_to_check
 
@@ -686,7 +706,7 @@ def _checked(actions: list) -> dict:
 def _relink(root: Path, raw: dict) -> dict:
     """Update links on the page's files ({"files": [file names]}): each one
     a new -relink version, written without opening it (lib/relink.py)."""
-    from . import relink
+    from .. import relink
     from .review_import import _review_file
 
     owners, unknown = [], []
@@ -706,16 +726,35 @@ def _relink(root: Path, raw: dict) -> dict:
 
 def _open(raw: dict) -> dict:
     """Open a file of the project in this Blender, as the page asks: its
-    question when the file open has unsaved changes ({"ask": True}), then
-    saved first or not ("save": "save" / "discard"). Opened on a timer of
+    question when its shot or asset is open in another Blender
+    ({"elsewhere": [...]}, then "anyway"), when the file open has unsaved
+    changes ({"ask": True}), then saved first or not ("save": "save" /
+    "discard"). Opened on a timer of
     its own: the load replaces every datablock, this turn ends first."""
     from .review_import import _review_file
 
     if raw.get("folder"):
         return _open_folder(raw)
+    if raw.get("push"):
+        return _push_rushes(raw)
+    if raw.get("snapshot"):
+        return _open_snapshot_export()
+    if raw.get("progress"):
+        # Breakdown's reload: a pass over the project now, today's progress point
+        # with it (_rebuild()); the page gets both with the new data.
+        _reader["at"] = 0.0
+        return {"ok": True, "opened": "progress"}
     filepath = _review_file(str(raw.get("file") or ""))
     if not filepath or not filepath.is_file():
         return {"ok": False, "error": "file not found"}
+    if not raw.get("anyway"):
+        # Its shot or asset open in another Blender: the page asks first
+        # (open all the same: "anyway").
+        from ..session import open_elsewhere
+
+        others = open_elsewhere(str(filepath), root=_shared.root)
+        if others:
+            return {"ok": False, "elsewhere": others, "file": filepath.name}
     choice = raw.get("save")
     if bpy.data.is_dirty and choice not in ("save", "discard"):
         return {"ok": False, "ask": True, "current": Path(bpy.data.filepath).name or "an unsaved file"}
@@ -734,6 +773,22 @@ def _open(raw: dict) -> dict:
 
     bpy.app.timers.register(load, first_interval=0.05)
     return {"ok": True, "opened": filepath.name}
+
+
+def _open_snapshot_export() -> dict:
+    """The snapshot's export, asked from the page: its dialog opened in
+    this Blender (videos, where to), confirmed there. On a timer: a file
+    browser wants Blender's own turn."""
+
+    def show():
+        try:
+            _with_window(bpy.ops.m_pipeline.export_snapshot, "INVOKE_DEFAULT")
+        except Exception as e:
+            log("WARNING", "live", f"Live page: the snapshot's export not opened: {e}")
+        return None
+
+    bpy.app.timers.register(show, first_interval=0.05)
+    return {"ok": True, "opened": "snapshot"}
 
 
 def _open_folder(raw: dict) -> dict:
@@ -763,10 +818,95 @@ def _open_folder(raw: dict) -> dict:
     return {"ok": True, "opened": target.name}
 
 
+_PRESENCE_ALIVE = 90  # seconds since a session's last ping: still open (it pings every 30)
+
+
+def presence(root: Path) -> list:
+    """Every Blender with a project file open now (config/.sessions/, each
+    session's file): [{"user", "machine" (its id's start), "uuid", "file"
+    (the .blend's name, no extension), "saved" (saved this session)}] --
+    no time: who's on what, not since when. Pure os/json: the reader's
+    thread."""
+    from ..core import read_json_quiet, seconds_since
+
+    out = []
+    try:
+        files = sorted((Path(root) / "config" / ".sessions").glob(".session_*.json"))
+    except OSError:
+        return out
+    for f in files:
+        data = read_json_quiet(f)
+        if not isinstance(data, dict) or not data.get("filepath"):
+            continue
+        age = seconds_since(data.get("last_ping"))
+        if age is None or age > _PRESENCE_ALIVE:
+            continue
+        out.append({
+            "user": data.get("user") or "",
+            "machine": data.get("machine") or str(data.get("uuid") or "")[:8],
+            "uuid": data.get("uuid") or "",
+            "file": Path(str(data["filepath"]).replace("\\", "/")).stem,
+            "saved": bool(data.get("saved")),
+        })
+    return out
+
+
+def _history(name: str) -> dict:
+    """A shot's or asset's history (lib/monitoring/history.py), found by its
+    name among the folders the live page read. Pure os/json: the server's
+    thread."""
+    from .history import file_history
+
+    for e in list((_reader.get("cache") or _reader.get("shown") or {}).values()):
+        owner = Path(e["owner"])
+        if ((e.get("raw") or {}).get("tracking") or {}).get("file_name", owner.name) == name or owner.name == name:
+            return {"ok": True, **file_history(owner)}
+    return {"ok": False, "error": "file not found"}
+
+
+def _push_rushes(raw: dict) -> dict:
+    """Into the edit (editing/rushes/, lib/rushes.py), as the page asks:
+    one render's video, whatever its version, wip or stable ({"push":
+    "render", "path": its folder under renders/}), or every sequence's and
+    asset's latest ({"push": "all", "sequences": [...] or all, "assets"}).
+    On a thread; its outcome in the log, a popup here if a copy was
+    refused (a rush open in the edit)."""
+    from ...operators.rushes_ops import push_in_background
+    from ..config import ConfigCache
+    from ..preview import _first_mp4
+    from ..rushes import push_rushes, push_sequence_rushes
+    from ..session import get_user
+
+    root = _shared.root
+    user = get_user(bpy.context)
+    if raw.get("push") == "all":
+        try:
+            every = sorted(e.name for e in os.scandir(root / "shots") if e.is_dir())
+        except OSError:
+            every = []
+        wanted = raw.get("sequences")
+        sequences = [s for s in every if wanted is None or s in wanted]
+        push_in_background(push_sequence_rushes, root, sequences, bool(raw.get("assets", True)), ConfigCache.get(), user)
+        log("INFO", "live", f"Live page: rushes pushed to editing ({len(sequences)} sequence(s))")
+        return {"ok": True, "pushing": "all"}
+    renders = (root / "renders").resolve()
+    target = (renders / str(raw.get("path") or "")).resolve()
+    if renders not in target.parents or not target.is_dir():
+        return {"ok": False, "error": "render not found"}
+    if target.name == "ld":
+        target = target.parent  # a light copy's: the render's own video
+    mp4 = _first_mp4(target)
+    if mp4 is None:
+        return {"ok": False, "error": "no video in this render"}
+    push_in_background(push_rushes, root, [mp4], user)
+    log("INFO", "live", f"Live page: {target.name} pushed to editing")
+    return {"ok": True, "pushing": target.name}
+
+
 def _play(raw: dict) -> dict:
     """A render's video in this machine's own player -- the full one: the
     page may play its light copy (ld/), never this."""
-    from .preview import _first_mp4
+    from ..preview import _first_mp4
 
     rel = str(raw.get("video") or "")
     root = (_shared.root / "renders").resolve()
@@ -788,11 +928,11 @@ def _farm_data(root: Path) -> dict:
     "text", "done", "total", "left", "machines", "user", "at"}], "workers":
     [{"name", "status", "file", "mine", "host", "since"}], "me", "presets",
     "preset"}, from the monitor cache. Memory only."""
-    from ..farm.details import estimate_label, render_left_label
-    from ..farm.loop import _STAGE_WORDS, entry_state
-    from ..farm.monitor import REMOVABLE_STAGES, get_monitor_cache
-    from ..farm.queue import RETRYABLE_STAGES
-    from .session import get_user
+    from ...farm.details import estimate_label, render_left_label
+    from ...farm.loop import _STAGE_WORDS, entry_state
+    from ...farm.monitor import REMOVABLE_STAGES, get_monitor_cache
+    from ...farm.queue import RETRYABLE_STAGES
+    from ..session import get_user
 
     cache = get_monitor_cache()
     user = get_user(bpy.context)
@@ -836,12 +976,14 @@ def _farm_data(root: Path) -> dict:
             # Waiting for a worker: what it'll take, at its last pace.
             "estimate": estimate_label(j, cache) if j.get("frames_to_render") and stage != "render_start" else "",
             "compile": compiling.get(j.get("job_id")),
+            # Render here: on its own machine, outside the queue; drawn by its 3D view.
+            "tags": [t for t in ("local", "viewport") if j.get(t)],
         }
         (finished if state == "finished" else jobs).append(row)
     finished.sort(key=lambda r: r["at"], reverse=True)
-    from ..farm.monitor import is_blender_monitor
-    from ..farm.workers import is_blender_worker, worker_rendering
-    from .core import get_machine_id
+    from ...farm.monitor import is_blender_monitor
+    from ...farm.workers import is_blender_worker, worker_rendering
+    from ..core import get_machine_id
 
     mine = get_machine_id() or ""
     host = cache.get("lock_machine") or ""
@@ -854,6 +996,8 @@ def _farm_data(root: Path) -> dict:
             "file": Path(w.get("current_file") or "").stem,
             "mine": uuid == mine,
             "host": bool(host) and (w.get("machine") or uuid[:8]) == host,
+            # Kept for its own renders (Render here): the farm sends it nothing.
+            "local": bool(w.get("local_only")),
             # Silent: its last heartbeat -- crashed, closed, asleep?
             "since": _iso(w.get("last_heartbeat")) if uuid in silent else "",
         }
@@ -884,11 +1028,22 @@ def _farm_data(root: Path) -> dict:
 def _presets() -> dict:
     """The page's Render form: {"presets": [[name, label]], "preset"
     (the project's default)} -- the Render dialog's picker."""
-    from ..operators.farm_ops import _get_pre_render_scripts, default_pre_render_script
-    from .config import ConfigCache
+    from ...operators.farm_ops import _get_pre_render_scripts, default_pre_render_script
+    from ..config import ConfigCache
 
-    items = [list(i[:2]) for i in _get_pre_render_scripts(None, bpy.context)]
-    return {"presets": items, "preset": default_pre_render_script(ConfigCache.get() or {}, [tuple(i) for i in items])}
+    from .status import preset_department
+
+    config = ConfigCache.get() or {}
+    items = [list(i[:2]) for i in _get_pre_render_scripts(None, bpy.context) if i]
+    departments = [*(config.get("shots_departments") or []), *(config.get("assets_departments") or [])]
+    return {
+        "presets": items,
+        "preset": default_pre_render_script(config, [tuple(i) for i in items]),
+        # The department each preset's name gives, and the one set for each department
+        # (Project settings > By department): the form's preset follows its department.
+        "preset_deps": {n: preset_department(n, departments) for n, _ in items},
+        "dept_presets": (config.get("farm") or {}).get("department_presets") or {},
+    }
 
 
 def _iso(value) -> str:
@@ -910,9 +1065,9 @@ def _farm_action(raw: dict) -> dict:
     "archive" a job, its "priority" (the job file's: the queue reads it
     each tick), "worker" this machine (on / off: a render it's on stopped
     now -- the page asked first); "render" / "preview": _farm_submit()."""
-    from .config import ConfigCache
-    from .core import locked_json
-    from .errors import PipelineError
+    from ..config import ConfigCache
+    from ..core import locked_json
+    from ..errors import PipelineError
 
     action, job = str(raw.get("action") or ""), str(raw.get("job_id") or "")
     if action in ("render", "preview"):
@@ -926,7 +1081,7 @@ def _farm_action(raw: dict) -> dict:
         "archive": bpy.ops.m_pipeline.farm_archive_job,
         "recompile": bpy.ops.m_pipeline.farm_recompile_job,
     }
-    from ..farm.details import job_detail, job_path, worker_detail
+    from ...farm.details import job_detail, job_path, worker_detail
 
     try:
         # Read on demand: a job's file, a machine's from the monitor cache.
@@ -941,7 +1096,7 @@ def _farm_action(raw: dict) -> dict:
             _with_window(bpy.ops.wm.path_open, filepath=str(path))
             return {"ok": True}
         if action == "remove" and job:
-            from ..farm.monitor import remove_waiting_job
+            from ...farm.monitor import remove_waiting_job
 
             if not remove_waiting_job(job, bool(raw.get("value"))):
                 return {"ok": False, "error": "it started meanwhile: cancel it instead"}
@@ -951,9 +1106,9 @@ def _farm_action(raw: dict) -> dict:
             done = _with_window(bpy.ops.m_pipeline.farm_archive_jobs, "EXEC_DEFAULT", state=raw["value"])
             return {"ok": "FINISHED" in done}
         if action in ("stop_worker", "forget_worker"):
-            from ..farm.workers import forget_worker, request_worker_stop
-            from .core import get_machine_id
-            from .session import get_user
+            from ...farm.workers import forget_worker, request_worker_stop
+            from ..core import get_machine_id
+            from ..session import get_user
 
             uuid = str(raw.get("value") or "")
             if not uuid:
@@ -978,6 +1133,8 @@ def _farm_action(raw: dict) -> dict:
                 box["action"] = "to_write"
             log("INFO", "live", f"Live page: job {job} priority {data['priority']}")
             return {"ok": True}
+        if action in ("launch_monitor", "kill_monitor"):
+            return _farm_monitor(action, bool(raw.get("force")))
         if action == "worker":
             op = bpy.ops.m_pipeline.farm_add_self_worker if raw.get("value") else bpy.ops.m_pipeline.farm_kill_self_worker
             done = _with_window(op, "EXEC_DEFAULT")
@@ -987,17 +1144,50 @@ def _farm_action(raw: dict) -> dict:
     return {"ok": False, "error": f"unknown action {action!r}"}
 
 
+def _farm_monitor(action: str, force: bool) -> dict:
+    """The Farm tab's Launch / Stop the farm, as Farm monitoring's: launched
+    here (force: the page confirmed taking over a stuck one), refused while
+    another runs or without FFmpeg (its checks would fail every job); a
+    stop asked of the monitor, wherever it runs, for its next tick."""
+    from ...farm import launch_monitor, refresh_monitor_status, request_monitor_kill
+    from ...farm.loop import monitor_age_status, monitor_last_tick
+    from ..config import ConfigCache, get_active_project_root
+    from ..core import EARLIEST, read_json_quiet, resolve_ffmpeg
+    from ..session import get_user
+
+    user = get_user(bpy.context)
+    lock = ConfigCache.get_path("monitor_file")
+    data = read_json_quiet(lock) if lock.exists() else None
+    running = data is not None and monitor_age_status(monitor_last_tick(lock, data) or EARLIEST) == "running"
+    if action == "kill_monitor":
+        if data is None:
+            return {"ok": False, "error": "no farm running"}
+        request_monitor_kill(user)
+        log("INFO", "live", f"Live page: farm stop asked by {user}")
+        return {"ok": True, "note": "on its next tick (about 10 s)"}
+    if running:
+        return {"ok": False, "error": f"already running, by {data.get('user', '?')} on {data.get('machine', '?')}"}
+    if data is not None and not force:
+        return {"ok": False, "error": "a stuck farm holds it: take it over"}
+    if not resolve_ffmpeg():
+        return {"ok": False, "error": "FFmpeg not found on this machine (Preferences > FFmpeg path)"}
+    launch_monitor(get_active_project_root(), user, force=data is not None)
+    refresh_monitor_status()
+    log("INFO", "live", f"Live page: farm launched by {user}")
+    return {"ok": True}
+
+
 def _farm_submit(action: str, raw: dict) -> dict:
     """The page's Render: a file sent to the farm as the Render dialog
     sends it ("file", "preset", "priority", "mode" all / single, "start"
     / "end" frames -- absolute, empty: the file's --, "shots" of a block
     ticked), or its sequence's preview ("sequence")."""
-    from ..farm.monitor import job_request
-    from ..operators.farm_ops import _NO_SCRIPT
-    from ..operators.preview_ops import dropped_message, request_sequence_preview
-    from .config import get_active_project_root
+    from ...farm.monitor import job_request
+    from ...operators.farm_ops import _NO_SCRIPT
+    from ...operators.preview_ops import dropped_message, request_sequence_preview
+    from ..config import get_active_project_root
     from .review_import import _review_file
-    from .session import get_user
+    from ..session import get_user
 
     user = get_user(bpy.context)
     try:
@@ -1048,29 +1238,55 @@ def _farm_submit(action: str, raw: dict) -> dict:
         overrided_frame_range=tuple(frames),
         only_shots=shots,
         sound=raw.get("sound") is not False,
+        # The department picked in the form ("" none); absent (an older page): its preset's name's.
+        department=_render_department(filepath, raw.get("department")),
     )
     log("INFO", "live", f"Live page: {filepath.name} sent to the farm")
     return {"ok": True, "sent": filepath.name}
 
 
-def _rebuild(sh: _Shared, force: bool) -> None:
-    """The page's data from the last pass and the farm's jobs (memory
-    only): a new version when it differs."""
-    from ..farm.loop import farm_activity
-    from .config import ConfigCache
-    from .session import get_user, get_user_role, ui_language
+def _render_department(filepath: Path, picked) -> str | None:
+    """The department the page's Render form picked, if one of the file's
+    kind's ("" none); None (an older page, no field): its preset's name's."""
+    from ...operators.farm_ops import _file_departments
 
-    if not _reader["ready"]:
+    if not isinstance(picked, str):
+        return None
+    picked = picked.strip().lower()
+    return picked if picked in [d.lower() for d in _file_departments(str(filepath))] else ""
+
+
+def _rebuild(sh: _Shared, force: bool, partial: tuple | None = None) -> None:
+    """The page's data from the last pass and the farm's jobs (memory
+    only): a new version when it differs. partial: (cache, done, total),
+    the first read's batch -- its folders only, no work times, no links to
+    a newer stable yet, nothing logged (today's progress: the whole
+    project's), the page told it's partial (meta "reading")."""
+    from ...farm.loop import farm_activity
+    from ..config import ConfigCache
+    from ..session import get_user, get_user_role, ui_language
+
+    if not _reader["ready"] and partial is None:
         return  # nothing read yet: no empty page
     farm = farm_activity()
     jobs = _farm_data(sh.root)
-    from . import relink
+    from .. import relink
 
     relinks = relink.states()
-    if not force and (farm, jobs, relinks) == _reader["farm"]:
-        return
-    _reader["farm"] = (farm, jobs, relinks)
     config = ConfigCache.get() or {}
+    # The project's preferences (its team, roles, departments...) and this
+    # Blender's user and role: changed in Blender, the page follows on the
+    # next turn -- not only once a file changes.
+    prefs = (
+        json.dumps(config, sort_keys=True, default=str),
+        get_user(bpy.context),
+        get_user_role(bpy.context),
+        ui_language(),
+    )
+    if not force and (farm, jobs, relinks, prefs) == _reader["farm"]:
+        return
+    if partial is None:
+        _reader["farm"] = (farm, jobs, relinks, prefs)
     meta = {
         "project": config.get("project_name") or sh.root.name,
         "scan_started_at": now(),
@@ -1084,7 +1300,21 @@ def _rebuild(sh: _Shared, force: bool) -> None:
         # Played from the project, through the server.
         "videos": {"mode": "live", "base": None, "files": [], "local": f"media/{sh.token}/renders"},
     }
-    data = page_data(build_snapshot(_as_data(_reader["cache"], _reader.get("extras"), _reader.get("work")), config, meta, farm=farm))
+    side = _reader.get("rushes") or {}
+    # Who has which file open (the Farm tab's machines; a file's detail).
+    meta["presence"] = side.get("presence") or []
+    if partial is None:
+        data = _as_data(_reader["cache"], _reader.get("extras"), _reader.get("work"), side.get("rushes"))
+    else:
+        part, done, total = partial
+        meta["reading"] = {"done": done, "total": total}
+        data = _as_data(part, _live_extras(sh.root, part, {}))
+    snap = build_snapshot(data, config, meta, farm=farm)
+    # Today's progress point while the page runs (written only when it changes), the days for the page.
+    if partial is None:
+        progress_log.record_today(sh.root, snap)
+    snap["meta"]["history"] = progress_log.days(sh.root)
+    data = page_data(snap)
     # Its Farm tab: the farm as Farm monitoring shows it.
     data["farm"] = jobs
     # Update links under way or just ended, by folder (lib/relink.py).
@@ -1161,7 +1391,7 @@ def _handler(sh: _Shared):
             q = {k: v[0] for k, v in parse_qs(parsed.query).items()}
             if not self._allowed(q.get("t", "")):
                 return self._send(403, b"forbidden", "text/plain")
-            if parsed.path not in ("/action", "/open", "/farm", "/play", "/share", "/relink"):
+            if parsed.path not in ("/action", "/open", "/farm", "/play", "/share", "/relink", "/history"):
                 return self._send(404, b"not found", "text/plain")
             length = int(self.headers.get("Content-Length") or 0)
             if not 0 < length < 4 * 1024 * 1024 or "json" not in (self.headers.get("Content-Type") or ""):
@@ -1175,9 +1405,12 @@ def _handler(sh: _Shared):
             raw = raw if isinstance(raw, dict) else {}
             kind = parsed.path.strip("/").replace("action", "review")
             if self.guest is not None:
-                # A guest reviews, as themselves; the farm read only;
-                # nothing on this machine (Blender, its player, sharing).
-                if kind in ("open", "play", "share", "relink") or kind == "farm" and raw.get("action") not in ("detail", "worker_detail"):
+                # A guest reviews, as themselves; the farm read only unless
+                # its access says it may drive it (launch, stop, renders,
+                # priorities); never anything opened on this machine
+                # (Blender, its player, a folder, a log, sharing).
+                farm_ok = ("detail", "worker_detail") if not self.guest.get("farm") else None
+                if kind in ("open", "play", "share", "relink") or kind == "farm" and (raw.get("action") == "open" or farm_ok is not None and raw.get("action") not in farm_ok):
                     return self._send(403, json.dumps({"ok": False, "error": "not from a guest's page"}).encode(), "application/json")
                 if kind == "review":
                     raw["author"], raw["role"] = self.guest["name"], self.guest["role"]
@@ -1187,6 +1420,9 @@ def _handler(sh: _Shared):
                     log("INFO", "live", f"Live page: {self.guest['name']} (guest, {self.guest['role']}): {len(raw.get('actions') or [])} action(s)")
             if kind == "share":
                 return self._send(200, json.dumps(_share(raw, sh)).encode(), "application/json")
+            if kind == "history":
+                # Read only, on this thread: guests too.
+                return self._send(200, json.dumps(_history(str(raw.get("name") or ""))).encode(), "application/json")
             pending = _Pending(raw, kind)
             _actions.put(pending)
             # Blender's turn, then a pass over the project: the data that
@@ -1214,6 +1450,8 @@ def _handler(sh: _Shared):
                 sh.changed.wait_for(lambda: sh.version != since or sh.stopped, timeout=POLL)
                 busy = time.monotonic() - sh.last_tick > BUSY_AFTER
                 head = {"version": sh.version, "busy": busy, "reading": sh.data is None}
+                if sh.data is None and _reader.get("progress"):
+                    head["read"] = list(_reader["progress"])  # the waiting page's x / y
                 body = sh.body if sh.version != since else b""
                 if body and self.guest is not None:
                     body = json.dumps(_as_guest(sh.data, self.token, self.guest), ensure_ascii=False, separators=(",", ":")).encode("utf-8")
@@ -1274,10 +1512,10 @@ body{{margin:0;min-height:100vh;display:grid;place-items:center;background:var(-
 .l i{{display:block;width:40%;height:100%;border-radius:2px;background:var(--ac);animation:m 1.1s ease-in-out infinite alternate}}
 @keyframes m{{from{{transform:translateX(-10%)}}to{{transform:translateX(160%)}}}}
 @media (prefers-reduced-motion:reduce){{.l i{{animation:none;width:100%;opacity:.5}}}}</style></head>
-<body><div class="b" role="status"><h1>{name}</h1><p>Blender is reading the project…</p><div class="l"><i></i></div></div>
+<body><div class="b" role="status"><h1>{name}</h1><p id="r">Blender is reading the project…</p><div class="l"><i></i></div></div>
 <script>var T=new URLSearchParams(location.search).get("t")||"";
 function go(v){{fetch("data?t="+encodeURIComponent(T)+"&since="+v,{{cache:"no-store"}}).then(function(r){{if(!r.ok)throw r.status;return r.json();}})
-.then(function(d){{if(!d.reading)location.reload();else go(d.version);}}).catch(function(){{setTimeout(function(){{go(v);}},2000);}});}}go(-1);</script>
+.then(function(d){{if(!d.reading)location.reload();else{{if(d.read&&d.read[1])document.getElementById("r").textContent="Blender is reading the project: "+d.read[0]+" / "+d.read[1];go(d.version);}}}}).catch(function(){{setTimeout(function(){{go(v);}},2000);}});}}go(-1);</script>
 </body></html>"""
 
 

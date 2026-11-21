@@ -74,7 +74,7 @@ def main() -> None:
             assert "stable: validations carried" in changes[name], changes
             assert "dates with their offset" in changes[name], changes
             assert "stable: departments_done" in changes[name], changes
-        assert changes["ch_bob_v002.wipmeta"] == ["sessions with their date", "dates with their offset"], changes
+        assert changes["ch_bob_v002.wipmeta"] == ["sessions with their date, named sessions", "dates with their offset"], changes
 
         result = migration.apply_migration(root, plan)
         assert not result["errors"] and result["written"] == len(plan["files"]), result
@@ -91,7 +91,7 @@ def main() -> None:
         s2 = json.loads((pipe / "ch_bob_v002-stable_001.stablemeta").read_text())
         # Renamed (2.0), read as found before: the started departments above
         # came from departments_validated -- kept beside it, equal, for 1.x
-        # builds (lib/legacy.py).
+        # builds (lib/monitoring/legacy.py).
         assert s1["departments_done"] == s1["departments_validated"] == {"modeling": True}, s1
         assert s2["departments_done"] == s2["departments_validated"] == {"modeling": True, "shading": True}, s2
         assert s1["departments_started"] == ["modeling"], s1
@@ -103,20 +103,22 @@ def main() -> None:
         assert carried["carried_from"] == "ch_bob_v001-stable_001.blend" and carried["by"] == "ana", s2
         assert core.parse_iso(s1["created_at"]).utcoffset() is not None
         wip = json.loads((pipe / "ch_bob_v002.wipmeta").read_text())
-        session = wip["departments_worked"]["s1"]
+        session = wip["sessions"]["s1"]
         assert session["departments"] == ["shading"] and session["saved_at"] == wip["edited_at"], wip
+        # Renamed (2.0): the old name kept beside it, equal, for 1.x builds.
+        assert wip["departments_worked"] == wip["sessions"], wip
 
         again = migration.plan_migration(root)
         assert again["files"] == [], again["files"]
 
-        # Legacy (lib/legacy.py): both names differing, a 1.x wrote it last
+        # Legacy (lib/monitoring/legacy.py): both names differing, a 1.x wrote it last
         # (it only knows the old one): its values win, both made equal.
         both = {"departments_validated": {"modeling": True, "shading": False}, "departments_done": {"shading": True}}
         assert migration._migrate_done(both)
         assert both == {"departments_done": {"modeling": True, "shading": False},
                         "departments_validated": {"modeling": True, "shading": False}}, both
         assert not migration._migrate_done(both)
-        legacy = importlib.import_module(f"{pkg.__name__}.lib.legacy")
+        legacy = importlib.import_module(f"{pkg.__name__}.lib.monitoring.legacy")
         v1_made = legacy.stable_read({"departments_validated": {"layout": True}})
         assert v1_made["departments_done"] == {"layout": True}, v1_made  # a stable a 1.x made
         written = legacy.stable_written({"departments_done": {"layout": False}})

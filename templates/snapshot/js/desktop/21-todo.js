@@ -1,0 +1,192 @@
+/* ---------- To do: what isn't validated yet, file by file ----------
+   Each file's required departments not validated on the stable shown (nor by the
+   review going on), with why one waits; the files set aside left out. Two halves:
+   to validate (done, nothing asked of it: waits for a reviewer) and to work on (the
+   rest: not done, a retake, to redo). Copy: the same, as text, in the clipboard. */
+const toCheck = (it, d) => {
+  const x = info(it, d);
+  return ['done', 'rework', 'old'].includes(x.base) && x.tone !== 'rtk' && x.tone !== 'redo';
+};
+/* The half shown until one is picked: by the role reviewing (or Blender's, live) --
+   team (no validation) what to work on, the top role what to validate, a role
+   between (a sup: both) everything; no role known, everything. */
+function tdSt() {
+  if (S.td.st != null) return S.td.st;
+  const r = (S.review && S.review.role) || (LIVE && M.live.role) || '';
+  return r === TEAM ? 'work' : r && r === M.role ? 'val' : '';
+}
+const TD_ST = () => [
+  ['', T('Everything')],
+  ['work', T('To work on')],
+  ['val', T('To validate')]
+];
+/* Whose departments: everyone assigned somewhere in the project (me among them). */
+function tdPeople() {
+  const all = new Set();
+  items.forEach(it => DEPTS[it.kind].forEach(d => assignOf(it, d).forEach(p => p && all.add(p))));
+  return [...all].sort((a, b) => (a === me() ? -1 : b === me() ? 1 : a.localeCompare(b)));
+}
+/* The person shown until one is picked: me -- when I'm assigned somewhere (else my own
+   name would show an empty list: a prod is seldom assigned), everyone otherwise. */
+function tdWho() {
+  if (S.td.who != null) return S.td.who;
+  return me() && tdPeople().includes(me()) ? me() : '';
+}
+function todoOf(it) {
+  const t = S.td;
+  return required(it).filter(
+    d =>
+      !(it.ok[d] && !it.ok[d].old) &&
+      it.mine[d] !== 'val' &&
+      (!tdSt() || (tdSt() === 'val') === toCheck(it, d)) &&
+      (!t.dept || d === t.dept) &&
+      (!tdWho() || assignOf(it, d).includes(tdWho()))
+  );
+}
+function todoFiles(kind) {
+  return items
+    .filter(it => it.kind === kind && !omitted(it))
+    .filter(
+      it =>
+        (!S.tq || it.name.toLowerCase().includes(S.tq)) &&
+        (!S.q || (it.name + ' ' + it.desc).toLowerCase().includes(S.q))
+    )
+    .map(it => ({ it, ds: todoOf(it) }))
+    .filter(r => r.ds.length);
+}
+/* Why a department waits, or what holds it: the state engine's words (info()), only those. */
+const todoWhy = (it, d) => {
+  const x = info(it, d);
+  return ['wait', 'redo', 'rtk'].includes(x.tone) ? x.s : '';
+};
+function renderTodoQuick() {
+  const t = S.td,
+    n = k => todoFiles(k).length;
+  $('#quick').classList.remove('folded');
+  $('#quick').innerHTML = `<span class="join td-j">${[
+    ['shot', T('Shots')],
+    ['asset', T('Assets')]
+  ]
+    .map(
+      ([k, l]) =>
+        `<button class="btn" data-tdk="${k}" aria-pressed="${t.kind === k}">${l}<span class="n">${n(k)}</span></button>`
+    )
+    .join('')}</span>
+    <span class="join td-j">${TD_ST()
+      .map(([k, l]) => `<button class="btn" data-tdst="${k}" aria-pressed="${tdSt() === k}">${l}</button>`)
+      .join('')}</span>
+    <span class="anchor"><button class="btn ${t.dept ? '' : 'tool'}" data-menu="m-tdd" aria-haspopup="true" aria-expanded="false" ${t.dept ? 'aria-pressed="true"' : ''}>${ic('b-filter')}${t.dept ? esc(LBL[t.dept]) : T('All departments')}${ic('b-tria_down')}</button>
+    <div class="menu" id="m-tdd" hidden role="menu">${[
+      ['', T('All departments')],
+      ...DEPTS[t.kind].map(d => [d, LBL[d]])
+    ]
+      .map(
+        ([d, l]) =>
+          `<button class="mi" role="menuitemradio" aria-checked="${t.dept === d}" data-tdd="${d}"><span class="ck">${t.dept === d ? ic('b-checkmark') : ''}</span><span class="lbl">${esc(l)}</span></button>`
+      )
+      .join('')}</div></span>
+    <button class="btn ${t.order === 'old' ? '' : 'tool'}" data-tdo="${t.order === 'old' ? 'seq' : 'old'}" aria-pressed="${t.order === 'old'}" title="${T('Waiting the longest first: for a reviewer since the latest stable, to work on since the oldest open retake')}">${ic('b-sorttime')}${T('Oldest first')}</button>
+    ${
+      tdPeople().length
+        ? `<span class="anchor"><button class="btn ${tdWho() ? '' : 'tool'}" data-menu="m-tdw" aria-haspopup="true" aria-expanded="false" ${tdWho() ? 'aria-pressed="true"' : ''}>${ic('b-user')}${tdWho() ? esc(tdWho()) : T('Everyone')}${ic('b-tria_down')}</button>
+    <div class="menu" id="m-tdw" hidden role="menu">${[
+      ['', T('Everyone')],
+      ...tdPeople().map(p => [p, p === me() ? T('{who} (me)', { who: p }) : p])
+    ]
+      .map(
+        ([p, l]) =>
+          `<button class="mi" role="menuitemradio" aria-checked="${tdWho() === p}" data-tdw="${esc(p)}"><span class="ck">${tdWho() === p ? ic('b-checkmark') : ''}</span><span class="lbl">${esc(l)}</span></button>`
+      )
+      .join('')}</div></span>`
+        : ''
+    }
+    <button class="btn tool icon" data-tdcopy aria-label="${T('Copy')}" title="${T('Copy')} · ${T('This list as text, in the clipboard')}">${ic('b-file')}</button>`;
+}
+/* How long a file's departments have waited, as a key only -- never shown (time watched
+   closely turns sour): waiting for a reviewer, since its latest stable; to work on, since
+   its oldest retake still open, else its latest stable. "" (unknown): last. */
+function todoSince(it, ds) {
+  const stable = /^0001/.test(it.stable_at || '') ? '' : it.stable_at || '';
+  const keys = ds.map(d => {
+    if (toCheck(it, d)) return stable;
+    const r = rtkNotes(it, d)
+      .map(n => n.date || '')
+      .filter(Boolean)
+      .sort()[0];
+    return r || stable;
+  });
+  return keys.filter(Boolean).sort()[0] || '';
+}
+/* The rows, oldest first (To do's order "Oldest first"): one list, no sequence. */
+const todoOldest = rows =>
+  rows
+    .map(r => ({ ...r, since: todoSince(r.it, r.ds) }))
+    .sort((a, b) => (!a.since ? 1 : !b.since ? -1 : a.since < b.since ? -1 : a.since > b.since ? 1 : 0));
+function renderTodo() {
+  const L = $('#list'),
+    rows = todoFiles(S.td.kind);
+  if (!rows.length) {
+    L.innerHTML = `<div class="empty">${S.td.dept || tdWho() || S.tq ? T('Nothing left to validate here.') : T('Everything is validated.')}</div>`;
+    return;
+  }
+  const old = S.td.order === 'old',
+    groups = old
+      ? [[T('Oldest first'), todoOldest(rows)]]
+      : [...new Set(rows.map(r => groupOf(r.it)))].map(g => [g, rows.filter(r => groupOf(r.it) === g)]);
+  L.innerHTML = groups
+    .map(([g, its]) => {
+      return `<div class="grp" data-g="${esc(g)}"><div class="grp-h"><b>${esc(g)}</b><span class="cnt">${T('{n} file|{n} files', { n: its.length })}</span></div>
+      <div class="rows">${its
+        .map(
+          ({ it, ds }) =>
+            `<div class="row td ${S.sel === it.name ? 'sel' : ''}" data-n="${esc(it.name)}"><span class="mono nm">${esc(it.name)}</span><span class="td-ds">${ds
+              .map(d => {
+                const x = info(it, d),
+                  why = todoWhy(it, d);
+                return `<span class="td-d" title="${esc(LBL[d])}: ${esc(x.l)}${x.s ? ' · ' + esc(x.s) : ''}">${glyph(x.base, x.corner, x.cnt)}<b>${esc(LBL[d])}</b>${why ? `<span class="s ${x.tone}">${esc(why)}</span>` : ''}</span>`;
+              })
+              .join('')}</span></div>`
+        )
+        .join('')}</div></div>`;
+    })
+    .join('');
+}
+/* What the list shows, as text: a line per file, its departments, why one waits. */
+function todoText() {
+  const k = S.td.kind,
+    rows = todoFiles(k),
+    out = [
+      [
+        T('To do'),
+        M.project,
+        k === 'shot' ? T('Shots') : T('Assets'),
+        tdSt() && TD_ST().find(x => x[0] === tdSt())[1],
+        S.td.dept && LBL[S.td.dept],
+        tdWho(),
+        fmtD(M.snapshot)
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    ];
+  const groups =
+    S.td.order === 'old'
+      ? [[T('Oldest first'), todoOldest(rows)]]
+      : [...new Set(rows.map(r => groupOf(r.it)))].map(g => [g, rows.filter(r => groupOf(r.it) === g)]);
+  groups.forEach(([g, its]) => {
+    out.push('', g);
+    its.forEach(({ it, ds }) =>
+      out.push(
+        '  ' +
+          it.name +
+          ' : ' +
+          ds
+            .map(d => {
+              const why = todoWhy(it, d);
+              return LBL[d] + (why ? ' (' + why + ')' : '');
+            })
+            .join(', ')
+      )
+    );
+  });
+  return { text: out.join('\n'), n: rows.length };
+}

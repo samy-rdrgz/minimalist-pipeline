@@ -66,11 +66,11 @@ def install_default_ffmpeg_preset() -> None:
 
 def install_department_presets(departments, presets_dir: Path | None = None) -> list[str]:
     """A render preset per department with none (no preset's name gives it,
-    lib/status.py preset_department()): <department>_default.py from the
+    lib/monitoring/status.py preset_department()): <department>_default.py from the
     bundled template, its renders that department's. Never overwrites.
     presets_dir: the project's config/presets (the active one's by
     default). Returns the files made. See NOTES.md, "Renders by department"."""
-    from .status import preset_department
+    from .monitoring.status import preset_department
 
     presets_dir = Path(presets_dir) if presets_dir else ConfigCache.get_path("presets")
     try:
@@ -255,7 +255,7 @@ _PRESET_NAME = re.compile(r"[A-Za-z0-9][\w\-]*")
 def presets_without_department(presets_dir: Path, departments) -> list[str]:
     """The render presets (.py, under presets_dir) whose name gives no
     department: their renders have none."""
-    from .status import preset_department
+    from .monitoring.status import preset_department
 
     try:
         names = sorted(p.stem for p in Path(presets_dir).glob("*.py") if p.name != "asset_file_preset.py")
@@ -306,8 +306,8 @@ def rename_preset(root: Path, old: str, new: str, departments, old_renders: bool
     from .config import get_config_filepath
     from .core import locked_json
     from .preview import DEPARTMENT_FILE
-    from .status import preset_department
-    from .tracking import _DATA_ROOTS, _walk_owner_dirs
+    from .monitoring.status import preset_department
+    from .monitoring.tracking import _DATA_ROOTS, _walk_owner_dirs
 
     root = Path(root)
     problem = preset_rename_problem(root, old, new)
@@ -324,6 +324,12 @@ def rename_preset(root: Path, old: str, new: str, departments, old_renders: bool
             farm["default_prerender_script"] = new
             box["action"] = "to_write"
             out["default"] = True
+        # Presets by department (the Render dialog's starting one) follow it too.
+        by_dept = farm.get("department_presets") or {}
+        for d, name in by_dept.items():
+            if name == old:
+                by_dept[d] = new
+                box["action"] = "to_write"
 
     for top in _DATA_ROOTS:
         for owner in _walk_owner_dirs(root / top):

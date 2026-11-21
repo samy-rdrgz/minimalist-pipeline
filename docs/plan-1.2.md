@@ -37,7 +37,7 @@ Dont **+439 lignes de code** pour le script de migration (`lib/migration.py` 307
 
 **Décidé le 15/11 (session cloud) : la page HTML devient l'interface principale de suivi du projet**, en live, servie par Blender (2.8, phase 4b). Le prototype est `tools/live_prototype.py` (4b.0), **essayé le 15/11, concluant** (voir la phase 4b). **Project monitoring est voué à disparaître**, mais seulement une fois la page live éprouvée : ce qui y a été ajouté (filtre « Moi », légendes, marques RTK) reste d'ici là ; les nouveautés de suivi vont dans la page.
 
-**Page snapshot, refonte v3** (maquette Claude Design, `docs/` du brief) : étape 1 faite (palette sombre façon Blender, en-tête sur une ligne, losanges keyframe, post-its, Breakdown en onglet), étape 2 faite (lecteur dans le panneau, timeline avec les notes à leurs images, Watch large, fils sous leur département), étape 3 faite (fenêtres de démarrage et d'envoi, la review dans l'en-tête), étape 4 faite (téléphone, iPad). **Phase 4** : 4A faite (actions typées, schema 8, import par type), 4B faite (Still done, départements requis, On hold / Cancelled depuis la page) ; 4C faite (créer un shot ou un asset depuis la page, créé à l'import par le moteur du CSV) ; 4D faite (stats en direct : `templates/snapshot/status.js`, jumeau de `lib/status.py`, cas communs `tests/status_cases.json`). **La phase 4 est terminée.** Icônes : celles de Blender (`trailers/icons` → `tools/clean_icons.py`). Les marques de Project monitoring reprennent les losanges de la page.
+**Page snapshot, refonte v3** (maquette Claude Design, `docs/` du brief) : étape 1 faite (palette sombre façon Blender, en-tête sur une ligne, losanges keyframe, post-its, Breakdown en onglet), étape 2 faite (lecteur dans le panneau, timeline avec les notes à leurs images, Watch large, fils sous leur département), étape 3 faite (fenêtres de démarrage et d'envoi, la review dans l'en-tête), étape 4 faite (téléphone, iPad). **Phase 4** : 4A faite (actions typées, schema 8, import par type), 4B faite (Still done, départements requis, On hold / Cancelled depuis la page) ; 4C faite (créer un shot ou un asset depuis la page, créé à l'import par le moteur du CSV) ; 4D faite (stats en direct : `templates/snapshot/status.js`, jumeau de `lib/monitoring/status.py`, cas communs `tests/status_cases.json`). **La phase 4 est terminée.** Icônes : celles de Blender (`trailers/icons` → `tools/clean_icons.py`). Les marques de Project monitoring reprennent les losanges de la page.
 
 **Testé dans Blender** : *Migrate old data* sur une copie d'un vrai projet, sans erreur visible (avant 1C : à relancer pour les dates). **Pas encore testé dans Blender** : le reste de ce qui est ci-dessus, dont 1C, plus les deux changements de la 1.1.10 (« waiting for a worker », la molette). À vérifier en priorité : la popup « Which machine, which frame... » (son champ Frame qui se met à jour), le bouton *Migrate old data* sur une copie d'un vrai projet, et une passe sur chaque écran réécrit (Farm monitoring, File details, Edit project, menu du haut, panneaux Project et File).
 
@@ -87,10 +87,10 @@ Côté farm, les protections (causes d'échec, frames bloquées, frames corrompu
 
 On se libère de l'architecture actuelle sur trois points. Ce sont eux qui rendent les nouvelles fonctionnalités simples au lieu de les empiler.
 
-### 2.1 Un moteur d'états unique (`lib/status.py`) et son jumeau dans la page
+### 2.1 Un moteur d'états unique (`lib/monitoring/status.py`) et son jumeau dans la page
 
 **Problème :** l'état d'un département (pas commencé, en cours, fini, validé, retravaillé depuis…) est calculé à plusieurs endroits :
-- en Python : `lib/tracking.py` `_status_from_raw()`, les infobulles des panneaux, la colonne Farm ;
+- en Python : `lib/monitoring/tracking.py` `_status_from_raw()`, les infobulles des panneaux, la colonne Farm ;
 - en JavaScript, dans `page.js`.
 
 Ajouter « Waiting », « À reprendre » et les stats en direct pendant une review à chacun de ces endroits multiplierait les risques d'écart.
@@ -163,7 +163,7 @@ La réponse est de ne pas raisonner par RTK, mais avec **une seule date par dép
 
 ### 2.3 Une review = une liste d'actions typées (fin du format tableur)
 
-**Problème :** le `.json` d'une review garde la forme du tableur xlsx : une ligne par fichier, une colonne par département, des colonnes `reply <id>`, des cellules à interpréter (`page.js` `FIXED`, `lib/review_import.py`, 665 lignes, 27 fonctions). L'xlsx ne sert plus.
+**Problème :** le `.json` d'une review garde la forme du tableur xlsx : une ligne par fichier, une colonne par département, des colonnes `reply <id>`, des cellules à interpréter (`page.js` `FIXED`, `lib/monitoring/review_import.py`, 665 lignes, 27 fonctions). L'xlsx ne sert plus.
 
 **Solution :** un nouveau format de review (nouveau `schema_version`), une simple liste d'actions :
 
@@ -236,7 +236,7 @@ Ce que ça casse aujourd'hui, ou cassera :
 - **Une personne dans un autre fuseau** (un freelance à l'étranger sur le partage) écrit ses dates avec quelques heures d'écart. Les comparaisons d'ordre deviennent fausses : « retravaillé depuis le stable », l'ordre des notes, et demain Waiting et À reprendre, qui reposent entièrement sur cet ordre.
 - **Un worker dans un autre fuseau** paraît mort ou « silencieux » dès sa première seconde : son heartbeat a des heures d'écart, pour un seuil de 15 s.
 - **Le passage à l'heure d'hiver ou d'été**, même dans un seul pays : deux fois par an, une heure se répète ou disparaît, et l'ordre ou les durées calculées dans cette fenêtre sont faux.
-- **Des dates triées comme du texte** (par exemple `max(edited_at)` dans `lib/tracking.py`, le tri par `at` dans `farm/pace.py`) : avec des fuseaux différents, l'ordre alphabétique ne correspond plus à l'ordre réel.
+- **Des dates triées comme du texte** (par exemple `max(edited_at)` dans `lib/monitoring/tracking.py`, le tri par `at` dans `farm/pace.py`) : avec des fuseaux différents, l'ordre alphabétique ne correspond plus à l'ordre réel.
 
 **La solution :**
 - **On écrit l'heure locale avec son décalage** : `2026-11-14T10:03:00+01:00` (`datetime.now().astimezone()`). Elle reste lisible dans les fichiers et ne laisse aucune ambiguïté.
@@ -320,18 +320,18 @@ Méthode :
 | # | Tâche | Où |
 |---|---|---|
 | 1B.1 | Retirer `CHANGELOG.md` du zip (`paths_exclude_pattern`) | `blender_manifest.toml` |
-| 1B.2 | Retirer l'xlsx : générateur, import, lecture (~600 lignes) | `lib/review_sheet.py`, `lib/review_import.py`, opérateurs, docs |
+| 1B.2 | Retirer l'xlsx : générateur, import, lecture (~600 lignes) | `lib/review_sheet.py`, `lib/monitoring/review_import.py`, opérateurs, docs |
 | 1B.3 | « Quelle machine a rendu quelle frame » dans un **bouton + popup** | `panels/farm_panel.py` |
 | 1B.4 | Retirer le code de compatibilité **entre versions de l'addon** : worker sur un ancien protocole, libellés « older addon », demandes sans chunks | `farm/*`, `panels/farm_panel.py`, ~43 endroits repérés |
-| 1B.5 | **Les anciennes données de projet : un script de migration plutôt qu'une couche « legacy »** (détail ci-dessous) | `lib/tracking.py`, `lib/snapshot.py`, Maintenance |
+| 1B.5 | **Les anciennes données de projet : un script de migration plutôt qu'une couche « legacy »** (détail ci-dessous) | `lib/monitoring/tracking.py`, `lib/monitoring/snapshot.py`, Maintenance |
 
 **1B.5 en détail.** Le relevé du code donne **trois vraies lectures d'anciennes données**. Les autres mentions sont du code entre versions de l'addon (1B.4), ou sans rapport (un texte « placeholder », un lien vers une ancienne version d'asset).
 
 | Ancienne donnée | Lue aujourd'hui par | Ce qui casserait si on retirait cette lecture |
 |---|---|---|
-| **Les validations « reportées » d'un stable fait avant la 1.1.9** : ces stables ne notaient pas les validations héritées du stable précédent | `_legacy_carried()`, `lib/tracking.py:1498`, appelée deux fois | **Visible** : des départements validés s'afficheraient non validés sur les fichiers dont le dernier stable date d'avant la 1.1.9, jusqu'au prochain stable |
-| **Les entrées de `render_history.json` sans `source_file` ni `shot_override`** (anciennes versions) | `lib/snapshot.py:110`, recherche du dernier rendu d'un shot | **Visible** : certains shots rendus il y a longtemps afficheraient un mauvais « dernier rendu », ou aucun |
-| **Les rendus d'avant que l'historique note leur plage de frames** | `_folder_frames()`, `lib/snapshot.py:213` : la plage est déduite du nom des images | Mineur : la numérotation des frames dans la page partirait de 1 au lieu de la vraie première frame |
+| **Les validations « reportées » d'un stable fait avant la 1.1.9** : ces stables ne notaient pas les validations héritées du stable précédent | `_legacy_carried()`, `lib/monitoring/tracking.py:1498`, appelée deux fois | **Visible** : des départements validés s'afficheraient non validés sur les fichiers dont le dernier stable date d'avant la 1.1.9, jusqu'au prochain stable |
+| **Les entrées de `render_history.json` sans `source_file` ni `shot_override`** (anciennes versions) | `lib/monitoring/snapshot.py:110`, recherche du dernier rendu d'un shot | **Visible** : certains shots rendus il y a longtemps afficheraient un mauvais « dernier rendu », ou aucun |
+| **Les rendus d'avant que l'historique note leur plage de frames** | `_folder_frames()`, `lib/monitoring/snapshot.py:213` : la plage est déduite du nom des images | Mineur : la numérotation des frames dans la page partirait de 1 au lieu de la vraie première frame |
 | Les rendus d'avant la 1.1.7, sans preset noté | `history_pace()` : estimation « preset unknown » | Négligeable : pas d'estimation pour ces fichiers |
 
 **Pourquoi une migration plutôt qu'une couche legacy :** le moteur d'états de la phase 3 deviendrait sinon le principal utilisateur de ces cas particuliers, alors qu'il devrait ne connaître qu'**une seule forme de données**.
@@ -351,7 +351,7 @@ Le script permet de **supprimer tout le legacy actuel** : `_legacy_carried()`, l
 |---|---|---|
 | 1C.1 ✅ | `now()` écrit l'heure locale **avec son décalage** | `lib/core.py` |
 | 1C.2 ✅ | Toutes les lectures et comparaisons de dates passent par la fonction de 1A.4, qui accepte aussi les anciennes dates sans décalage. **À faire en une fois** : Python refuse de comparer une date avec fuseau et une date sans | partout où il y a `fromisoformat` |
-| 1C.3 ✅ | Plus aucune date triée comme du texte | `lib/tracking.py` (`last_saved_at`…), `farm/pace.py`, d'autres à repérer |
+| 1C.3 ✅ | Plus aucune date triée comme du texte | `lib/monitoring/tracking.py` (`last_saved_at`…), `farm/pace.py`, d'autres à repérer |
 | 1C.4 ✅ | Heartbeats et vie des machines en secondes epoch | `farm/workers.py`, `farm/monitor.py`, `farm/loop.py`, `panels/farm_panel.py` |
 | 1C.5 ✅ | Vérifier la lecture et l'affichage des dates avec décalage dans la page HTML | `templates/snapshot/page.js` |
 
@@ -363,7 +363,7 @@ Relevé du 14/11 : le JS est déjà compact (132 fonctions toutes appelées, qua
 |---|---|---|
 | 1D.1 ✅ | Retirer les règles CSS mortes : `.b-valid`, `.b-old`, `.gr`, `.grab`, `.links` (3 règles), `.no-open` (~0,6 Ko) | `templates/snapshot/page.css` |
 | 1D.2 ✅ | Les icônes SVG écrites deux fois (aide et filtres) en `<symbol>` + `<use>`, comme le logo (~1,4 Ko) | `templates/snapshot/page.html` |
-| 1D.3 ✅ | Retirer les commentaires du JS et du CSS **à l'export** (les sources restent commentées) : −21 Ko par snapshot, −12 %. Pas de minification, qui demanderait un outil externe | `lib/snapshot_page.py` `render_html()` |
+| 1D.3 ✅ | Retirer les commentaires du JS et du CSS **à l'export** (les sources restent commentées) : −21 Ko par snapshot, −12 %. Pas de minification, qui demanderait un outil externe | `lib/monitoring/snapshot_page.py` `render_html()` |
 | — | **Pas maintenant** : le code de la review (~185 lignes, 17 Ko du JS), remplacé par le format en actions de la phase 4 | `page.js` |
 
 **Fait** : −23 Ko par snapshot (177 → 154 Ko hors données, −13 %) : commentaires −22 Ko, icônes −0,6 Ko, CSS morte −0,5 Ko. Vérifié dans Firefox sans interface avec les données d'un vrai snapshot : capture identique au pixel près, et le JS sans commentaires passe le contrôle de syntaxe.
@@ -382,7 +382,7 @@ Relevé du 14/11 : le JS est déjà compact (132 fonctions toutes appelées, qua
 
 **Avec la page live (2.8)**, elle ne vaudra plus que pour Farm monitoring quand Project monitoring disparaîtra.
 
-**Faite** (14/11), testée dans Blender (zones, raccourcis ; la largeur gardée et la liste étroite corrigées ensuite) : `sync_detail_zones()` et `monitoring_zone()` (`lib/monitoring.py`), panneaux et raccourcis selon la zone, liste réduite à ses noms sous 600 px (seulement Project monitoring). Détails : NOTES.md, « Monitoring: the detail beside the list ».
+**Faite** (14/11), testée dans Blender (zones, raccourcis ; la largeur gardée et la liste étroite corrigées ensuite) : `sync_detail_zones()` et `monitoring_zone()` (`lib/monitoring/windows.py`), panneaux et raccourcis selon la zone, liste réduite à ses noms sous 600 px (seulement Project monitoring). Détails : NOTES.md, « Monitoring: the detail beside the list ».
 
 **Aujourd'hui :** ouvrir un détail (un fichier dans Project monitoring, un job ou un worker dans Farm monitoring) **remplace** toute la liste, dans la même zone.
 
@@ -408,17 +408,17 @@ Relevé du 14/11 : le JS est déjà compact (132 fonctions toutes appelées, qua
 
 **Encore à vérifier pendant le développement :**
 - **L'interaction avec ce qui existe** : la fenêtre au premier plan, la réouverture sur le détail (Ctrl+clic), les fichiers ouverts par le pipeline qui gardent la fenêtre, le masquage de l'outil actif (voir NOTES.md, « Monitoring windows… »).
-- **Deux fonctions choisissent aujourd'hui « la plus grande zone »** de la fenêtre (`lib/monitoring.py:89`, à l'ouverture, et `:213`, pour la mettre au premier plan). Avec deux zones, elles doivent viser explicitement la liste.
+- **Deux fonctions choisissent aujourd'hui « la plus grande zone »** de la fenêtre (`lib/monitoring/windows.py:89`, à l'ouverture, et `:213`, pour la mettre au premier plan). Avec deux zones, elles doivent viser explicitement la liste.
 - **Les raccourcis par zone** (molette, ←/→, Échap) : pas encore essayés.
 - **Un .blend enregistré** avec une fenêtre de monitoring en deux zones, puis rouvert.
 
 ### Phase 3 — Moteur d'états et hiérarchie des départements
 
-**Découpage** : 3A moteur extrait à comportement identique ✅ (`lib/status.py`, `tests/test_status.py`) · 3B `departments_worked` par session et sa migration ✅ · 3C étapes, Waiting, À reprendre, `departments_synced`, « Still done » ✅ (moteur, Project monitoring, File details ; le panneau latéral et la page en 3E) · 3D Omit / On hold ✅ (Blender, données du snapshot ; la page en 3E) · 3E légendes : côté Blender ✅ (panneau latéral, légende de Project monitoring) ; la page attend sa refonte (Claude Design), ses données sont déjà exportées (`flags`, `omit`).
+**Découpage** : 3A moteur extrait à comportement identique ✅ (`lib/monitoring/status.py`, `tests/test_status.py`) · 3B `departments_worked` par session et sa migration ✅ · 3C étapes, Waiting, À reprendre, `departments_synced`, « Still done » ✅ (moteur, Project monitoring, File details ; le panneau latéral et la page en 3E) · 3D Omit / On hold ✅ (Blender, données du snapshot ; la page en 3E) · 3E légendes : côté Blender ✅ (panneau latéral, légende de Project monitoring) ; la page attend sa refonte (Claude Design), ses données sont déjà exportées (`flags`, `omit`).
 
 **Ordre décidé ensuite** : ce qui ne touche pas la page d'abord (phases 5 et 6), puis tout le travail sur la page en une fois, avec la refonte : 3E page, phase 4 (review en actions, créations, stats en direct, moteur JS). L'import des actions part avec la nouvelle page : le changer avant casserait les reviews de la page actuelle.
 
-- `lib/status.py` (2.1), branché partout où un état est affiché. On remplace les calculs actuels au lieu d'en ajouter.
+- `lib/monitoring/status.py` (2.1), branché partout où un état est affiché. On remplace les calculs actuels au lieu d'en ajouter.
 - `department_stages` dans la config, avec le champ « étape » dans Edit project.
 - Les états **Waiting** et **À reprendre** (2.2), et `departments_synced` dans `tracking.json`.
 - `departments_worked` avec la date de chaque session (2.2), écrite à chaque enregistrement. Les anciens fichiers sont convertis par la migration (1B.5).
@@ -445,9 +445,9 @@ Elle remplace Project monitoring. Ses actions sont celles de la phase 4 ; la lec
 | 4b.0 | **Essai dans Blender d'abord** : un serveur minimal qui sert une vidéo du NAS avec Range, lue dans la page pendant qu'on travaille dans Blender. Ni la vidéo ni l'interface de Blender ne doivent saccader | — |
 | | **4b.0 essayé le 15/11** (Blender 5.3, Linux, 2 lancements, 36 actions) : clic → résultat affiché médiane 188 ms, dont 155 ms d'attente du tour de Blender (`TICK` 0,25 s : à baisser vers 0,1 s) ; un changement dans Blender affiché en 2 ms (long poll) ; 2 fichiers ouverts depuis la page (0,5–0,6 s), la page restée connectée, la question « non sauvegardé » posée deux fois ; « Occuper Blender 5 s » : pastille orange, les actions attendent puis passent toutes ; le script relancé, la page s'est reconnectée seule. Les 2 échecs sont des saisies (un objet hors du view layer, un chemin faux). Second essai, vraies vidéos du NAS (projet l3o, jusqu'à 200 Mo) : démarrage 140–540 ms, recherche 70–380 ms, lecture 9 à 32 Mo/s ; **pendant « Occuper Blender »**, une vidéo lancée a été servie normalement (1,3 Mo en 0,15 s, démarrage 0,5 s) et aucune n'a coupé : les threads du serveur ne dépendent pas du tour de Blender. Aucun souci vu à l'usage. | |
 | | **Leçons pour 4b.1** : (1) **le serveur rangé dans l'état du module de l'addon, pas dans `bpy.app.driver_namespace`** -- vidé à l'ouverture d'un fichier : après une ouverture depuis la page, relancer le script n'a pas retrouvé l'ancien serveur, resté vivant sur le port 8765 (son timer tournait encore 20 min plus tard), et le nouveau a pris un port au hasard, que la page ouverte ne connaissait pas ; arrêté au `unregister()` de l'addon ; (2) **lâcher la vidéo précédente** (`src` retiré, `load()`) quand on en lance une autre : le navigateur a continué de télécharger deux vidéos quittées pendant 35 s (112 Mo) ; (3) le tour de Blender à 0,1 s, comme au second essai (13–105 ms du clic au résultat ; 0,25 s au premier, 188 ms en médiane). | |
-| 4b.1 | **Lecture seule** : le serveur, la réponse préparée depuis le cache, « quoi de neuf depuis la version N », `/media` avec Range, le jeton, la pastille de connexion, « Open monitor » | `lib/live_server.py` (nouveau), `lib/snapshot.py`, `page.js` |
-| 4b.2 | **Les actions** : les actions typées en POST, la file et le timer qui les applique, ouvrir un fichier (avec la question si le fichier courant n'est pas sauvegardé), lancer le lecteur | `lib/live_server.py`, `lib/review_import.py`, `page.js` |
-| 4b.3 | **Tout ce que fait Project monitoring, dans la page**, vérifié point par point ; puis Project monitoring réduit à un résumé et « Ouvrir dans le navigateur », et son code retiré | `panels/tracking_panel.py`, `panels/monitoring_panel.py`, `lib/monitoring.py` |
+| 4b.1 | **Lecture seule** : le serveur, la réponse préparée depuis le cache, « quoi de neuf depuis la version N », `/media` avec Range, le jeton, la pastille de connexion, « Open monitor » | `lib/live_server.py` (nouveau), `lib/monitoring/snapshot.py`, `page.js` |
+| 4b.2 | **Les actions** : les actions typées en POST, la file et le timer qui les applique, ouvrir un fichier (avec la question si le fichier courant n'est pas sauvegardé), lancer le lecteur | `lib/live_server.py`, `lib/monitoring/review_import.py`, `page.js` |
+| 4b.3 | **Tout ce que fait Project monitoring, dans la page**, vérifié point par point ; puis Project monitoring réduit à un résumé et « Ouvrir dans le navigateur », et son code retiré | `panels/tracking_panel.py`, `panels/monitoring_panel.py`, `lib/monitoring/windows.py` |
 
 ### Phase 5 — Rendus par département
 
@@ -553,9 +553,9 @@ Elle vient en dernier : elle repose sur le moteur d'états (phase 3), et « mes 
 | 3 | Rôles de validation | **Facultatifs, par projet** : un projet sans `validation_roles` dans sa config n'a qu'une validation simple, sans rôle, et rien n'en parle dans l'interface ; un projet qui en déclare garde le système actuel (8.2). Toujours `sup`/`prod` par défaut sur `release/2.0.0` (`lib/config.py:431`) |
 | 4 | *(oublié)* | **Abandonné** |
 | 5 | `page.js` / `page.css` : garde-fous tactiles et iOS | **Diagnostiqué** (8.5) : peu de poids, beaucoup de complexité. Une seule vraie correction à la racine, à essayer sur l'iPad |
-| 6 | Temps de travail par fichier | **Fait** : réaffiché en bas du panneau d'un fichier dans la page (snapshot et live), en petit, après *Blender file*. `work_times()` (`lib/tracking.py`) : les `session_end` qui ont sauvegardé, toutes versions et tout le monde ; lu dans le thread du live (un `stat` par passe, le journal relu seulement s'il a changé). `tests/test_work_time.py` |
+| 6 | Temps de travail par fichier | **Fait** : réaffiché en bas du panneau d'un fichier dans la page (snapshot et live), en petit, après *Blender file*. `work_times()` (`lib/monitoring/tracking.py`) : les `session_end` qui ont sauvegardé, toutes versions et tout le monde ; lu dans le thread du live (un `stat` par passe, le journal relu seulement s'il a changé). `tests/test_work_time.py` |
 | 7 | Docs | **Synthétiques** : CHANGELOG en quelques lignes utilisateur par version (`docs/whats-new-2.0.md` montre le ton), NOTES.md réduit aux décisions encore valables (le reste est dans l'historique git), docs EN/FR plus courtes |
-| 8 | Migration | **Sortie du zip** à terme : un script autonome dans le dépôt GitHub (`tools/`). `lib/migration.py` dépend de `lib/tracking.py`, donc de `bpy` : le script devra embarquer ses propres lectures et se lancer avec Python seul (`python migrate.py <projet>`) |
+| 8 | Migration | **Sortie du zip** à terme : un script autonome dans le dépôt GitHub (`tools/`). `lib/migration.py` dépend de `lib/monitoring/tracking.py`, donc de `bpy` : le script devra embarquer ses propres lectures et se lancer avec Python seul (`python migrate.py <projet>`) |
 
 ### 8.2 Rôles facultatifs : comment
 

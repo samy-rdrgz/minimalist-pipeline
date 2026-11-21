@@ -15,6 +15,7 @@ from .config import (
     type_by_folder,
 )
 from .core import (
+    headless,
     set_monitoring_detail,
     ADDON_PACKAGE,
     addon_pref,
@@ -68,7 +69,7 @@ def get_user(context=None) -> str:
     prefs.user_name is seeded with a locally-generated placeholder at first
     register(), so this is effectively defensive-only (prefs unreachable)."""
     try:
-        if bpy.app.background:
+        if headless():
             return "cmd"
         prefs = addon_pref(context)
         if prefs:
@@ -250,7 +251,7 @@ def session_update(saved: bool = False):
     after a save -- the session's time counts as work (WorkTimeCache); a
     save to another file saves the work of the session it ends. See
     NOTES.md, "Work time: only a session that saved"."""
-    if bpy.app.background or not bpy.data.filepath:
+    if headless() or not bpy.data.filepath:
         return
     try:
         project_root = get_active_project_root()
@@ -299,7 +300,7 @@ def session_update(saved: bool = False):
 def _log_session_end(data: dict) -> None:
     """Log the session_end summary line (work duration) to sessions_log_file.
     filepath is its own field, not parsed from message -- read back by
-    WorkTimeCache (lib/tracking.py, see NOTES.md)."""
+    WorkTimeCache (lib/monitoring/tracking.py, see NOTES.md)."""
     try:
         opened_at = parse_iso(data["opened_at"])
         last_ping = parse_iso(data["last_ping"])
@@ -347,10 +348,59 @@ def close_session(session_file: Path | None = None):
         _log_session_end(data)
 
 
+_ALIVE = 90  # seconds since a session's last ping: still open (it pings every 30)
+
+
+def _owner_key(filepath: str) -> tuple:
+    """A file's shot or asset: its folder and the one above it, by name --
+    each machine mounts the project its own way (S:\\..., /mnt/...)."""
+    parts = Path(str(filepath).replace("\\", "/")).parent.parts
+    return tuple(p.lower() for p in parts[-2:])
+
+
+def open_elsewhere(filepath: str, root: Path | None = None, pid: int | None = None, machine: str | None = None) -> list:
+    """Who else has this file's shot or asset open now -- any version of it,
+    in another Blender (another machine, or this one's other instance):
+    [{"user", "machine", "file" (the .blend's name)}]. Before opening it: two
+    people on one shot, two versions worked apart (the same file: its lock
+    opens it read-only already). Pure os/json; never raises."""
+    from .core import read_json_quiet
+
+    try:
+        root = Path(root or get_active_project_root())
+        pid = os.getpid() if pid is None else pid
+        machine = get_machine_id() if machine is None else machine
+        files = sorted((root / "config" / ".sessions").glob(".session_*.json"))
+    except Exception:
+        return []
+    key = _owner_key(filepath)
+    out = []
+    for f in files:
+        data = read_json_quiet(f)
+        if not isinstance(data, dict) or not data.get("filepath"):
+            continue
+        if data.get("pid") == pid and data.get("uuid") == machine:
+            continue  # this Blender
+        age = seconds_since(data.get("last_ping"))
+        if age is None or age > _ALIVE or _owner_key(data["filepath"]) != key:
+            continue
+        out.append({
+            "user": data.get("user") or "",
+            "machine": data.get("machine") or str(data.get("uuid") or "")[:8],
+            "file": Path(str(data["filepath"]).replace("\\", "/")).name,
+        })
+    return out
+
+
+def elsewhere_text(others: list) -> str:
+    """One line: who has it open, on which machine, which version."""
+    return ", ".join(f"{o['user'] or '?'} ({o['machine']}, {o['file']})" for o in others)
+
+
 def scan_sessions():
     """Scan for orphan session files and log crashes. Called from
     post_load_handler; never raises (close_session() is itself safe)."""
-    if bpy.app.background:
+    if headless():
         return
     sessions_dir = ConfigCache.get_path("sessions")
     for session_file in sessions_dir.glob(".session_*.json"):
@@ -419,7 +469,7 @@ def warn_blender_version_mismatch() -> None:
     """Red (critical) popup when the active project expects another Blender
     major.minor than the one running. Never in background mode (farm
     workers, batch subprocesses). Timer-safe: returns None."""
-    if bpy.app.background:
+    if headless():
         return None
     try:
         mismatch = blender_version_mismatch()

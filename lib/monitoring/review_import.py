@@ -9,15 +9,15 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
-from .config import (
+from ..config import (
     ConfigCache,
     parse_filename,
     sanitize_name,
     shots_in_segment,
     validation_roles,
 )
-from .core import json_get, now, parse_iso, read_json_quiet
-from .errors import PipelineError
+from ..core import json_get, now, parse_iso, read_json_quiet
+from ..errors import PipelineError
 from .schedule import parse_day
 from .snapshot import (
     REVIEW_SOURCE,
@@ -33,11 +33,15 @@ from .tracking import (
     _collect_folder,
     _status_from_raw,
     close_entry,
+    reopen_entry,
     create_entry,
     entry_departments,
     find_file_by_name,
     get_departments_required,
     set_department_approval,
+    set_department_done,
+    set_entry_text,
+    delete_entry,
     set_department_synced,
     set_department_assignees,
     set_departments_required,
@@ -97,11 +101,17 @@ def keep_review(path: Path, snapshots: Path, plan: dict) -> Path | None:
 # What a review asks, one action each (the page's exportActions()):
 #   validate / unvalidate  {file, department, seen}: as the review's role,
 #                          seen the stable it looked at
-#   rtk / note             {file, departments, text, shot, frames, render}:
+#   rtk / note / todo      {file, departments, text, shot, frames, render}:
 #                          a line, its [sh020] [f12-40] read by the page
 #   reply                  {file, to, text}: in that note's thread
 #   fixed                  {file, id}: that retake done, as the reviewer
+#   reopen                 {file, id}: that retake or to-do open again
 #   description            {file, old, new}: old the one exported
+#   edit                   {file, id, text}: that note's words, by its author
+#   delete                 {file, id}: that note gone (its replies with it),
+#                          by its author
+#   done                   {file, department, done}: that department done
+#                          (or not) on the latest stable, no new version
 #   still_done             {file, department, text}: its work holds, an
 #                          earlier stage changed (not a validation)
 #   departments            {file, add, remove}: the departments required
@@ -116,11 +126,11 @@ def keep_review(path: Path, snapshots: Path, plan: dict) -> Path | None:
 #                          batch's engine (lib/batch.py)
 # See NOTES.md, "Review: typed actions".
 ACTION_TYPES = (
-    "validate", "unvalidate", "rtk", "note", "reply", "fixed", "description",
-    "still_done", "departments", "omit", "assign", "create",
+    "validate", "unvalidate", "rtk", "note", "todo", "reply", "fixed", "reopen", "description",
+    "still_done", "departments", "omit", "assign", "create", "done", "edit", "delete",
 )
 # Changes to a file anyone may send (no role needed: none is a validation).
-_FILE_CHANGES = ("still_done", "departments", "omit", "assign")
+_FILE_CHANGES = ("done", "still_done", "departments", "omit", "assign")
 
 
 def _text(value) -> str:
@@ -136,7 +146,7 @@ def _action(raw) -> dict | None:
     if t in ("validate", "unvalidate"):
         a.update(department=_text(raw.get("department")).lower(), seen=_text(raw.get("seen")))
         return a if a["department"] else None
-    if t in ("rtk", "note"):
+    if t in ("rtk", "note", "todo"):
         frames = raw.get("frames")
         try:
             frames = (int(frames[0]), int(frames[1]) if frames[1] is not None else None) if frames else None
@@ -156,9 +166,18 @@ def _action(raw) -> dict | None:
     if t == "reply":
         a.update(to=_text(raw.get("to")), text=_text(raw.get("text")))
         return a if a["to"] and a["text"] else None
-    if t == "fixed":
+    if t in ("fixed", "reopen"):
         a.update(id=_text(raw.get("id")))
         return a if a["id"] else None
+    if t == "edit":
+        a.update(id=_text(raw.get("id")), text=_text(raw.get("text")))
+        return a if a["id"] and a["text"] else None
+    if t == "delete":
+        a.update(id=_text(raw.get("id")))
+        return a if a["id"] else None
+    if t == "done":
+        a.update(department=_text(raw.get("department")).lower(), done=raw.get("done") is not False)
+        return a if a["department"] else None
     if t == "still_done":
         a.update(department=_text(raw.get("department")).lower(), text=_text(raw.get("text")))
         return a if a["department"] else None
@@ -330,13 +349,13 @@ def review_import_plan(path: Path, review: dict | None = None) -> dict:
         # Written as the team: no role on its notes, no validation.
         "team": team,
         "author": review["author"] or "prod",
-        "notes": count("rtk", "note"),
+        "notes": count("rtk", "note", "todo"),
         "validations": [],
         "refused": [],
         # Retakes the reviewer marked fixed: closed under their name.
         "fixed": count("fixed"),
         # Still done, departments required, set aside.
-        "changes": count(*_FILE_CHANGES),
+        "changes": count(*_FILE_CHANGES, "edit", "delete"),
         # New shots and assets, made after the import (create_rows()).
         "creates": count("create"),
         "replies": count("reply"),
@@ -348,11 +367,11 @@ def review_import_plan(path: Path, review: dict | None = None) -> dict:
         "validations_known": 0,
     }
     author = plan["author"]
-    for name, mine in _by_file(actions, "rtk", "note", "fixed", "reply").items():
+    for name, mine in _by_file(actions, "rtk", "note", "todo", "fixed", "reply").items():
         filepath = _review_file(name)
         if not filepath:
             continue
-        notes = [a for a in mine if a["type"] in ("rtk", "note")]
+        notes = [a for a in mine if a["type"] in ("rtk", "note", "todo")]
         if notes:
             known = _known_notes(
                 filepath, author, TEAM_REVIEW_SOURCE if team else REVIEW_SOURCE
@@ -385,6 +404,9 @@ def review_import_plan(path: Path, review: dict | None = None) -> dict:
                 f"({', '.join(sorted(roles)) or 'none'}), nor team."
             )
     worked_since: dict = {}
+    # Done on the stable by this same review (a "done" action, applied
+    # first): validated with it.
+    marked = {(a["file"], a["department"]) for a in actions if a["type"] == "done" and a["done"]}
     for name, mine in _by_file(actions, "validate", "unvalidate").items():
         # The last word on a department wins.
         wanted = {a["department"]: "yes" if a["type"] == "validate" else "no" for a in mine}
@@ -415,7 +437,7 @@ def review_import_plan(path: Path, review: dict | None = None) -> dict:
                 plan["refused"].append(
                     (label, f"{current} made since {seen}, {department} worked: to review again")
                 )
-            elif choice == "yes" and department not in done_now:
+            elif choice == "yes" and department not in done_now and (name, department) not in marked:
                 plan["refused"].append((label, "not done (yet, or any more)"))
             else:
                 plan["validations"].append(
@@ -520,6 +542,20 @@ def import_review(path: Path, review: dict | None = None) -> dict:
                     result["skipped"].append((f"{name}: retake fixed", "its note is gone"))
             except PipelineError as e:
                 result["skipped"].append((f"{name}: retake fixed", e.message))
+    # Retakes and to-dos open again: one open already, or gone, left as it is.
+    for name, mine in _by_file(actions, "reopen").items():
+        filepath = _review_file(name)
+        if not filepath:
+            result["skipped"].append((f"{name}: {len(mine)} reopened", "file not found"))
+            continue
+        for a in mine:
+            try:
+                if reopen_entry(filepath, a["id"], author) is None:
+                    result["skipped"].append((f"{name}: reopened", "its note is gone"))
+                else:
+                    result["changed"] += 1
+            except PipelineError as e:
+                result["skipped"].append((f"{name}: reopened", e.message))
     # Replies: each in its entry's thread, a note under the review's role --
     # the retake it answers left open. The same reply from the same author
     # once only (an import run twice).
@@ -563,6 +599,32 @@ def import_review(path: Path, review: dict | None = None) -> dict:
                 result["replies"] += 1
             except PipelineError as e:
                 result["skipped"].append((f"{name}: reply", e.message))
+    # A note's words changed or the note deleted: its author's -- or anyone's
+    # under a validation role (sup, prod...); never the team's (no role).
+    for name, mine in _by_file(actions, "edit", "delete").items():
+        filepath = _review_file(name)
+        if not filepath:
+            result["skipped"] += [(f"{name}: {a['type']}", "file not found") for a in mine]
+            continue
+        by_id = {e.get("id"): e for e in (read_json_quiet(tracking_json_path(filepath)) or {}).get("entries", [])}
+        for a in mine:
+            label = f"{name}: {a['type']} {a['id']}"
+            e = by_id.get(a["id"])
+            if not e:
+                if a["type"] == "edit":
+                    result["skipped"].append((label, "that note is gone"))
+                continue  # deleted already
+            if role is None and (e.get("author") or "").strip().lower() != (author or "").strip().lower():
+                result["skipped"].append((label, f"written by {e.get('author') or '?'}: only its author, or a validation role, changes it"))
+                continue
+            try:
+                if a["type"] == "delete":
+                    delete_entry(filepath, a["id"])
+                elif not set_entry_text(filepath, a["id"], a["text"], author):
+                    continue
+                result["changed"] += 1
+            except PipelineError as err:
+                result["skipped"].append((label, err.message))
     # The file's own changes: still done, its departments, set aside.
     for name, mine in _by_file(actions, *_FILE_CHANGES).items():
         filepath = _review_file(name)
@@ -572,7 +634,13 @@ def import_review(path: Path, review: dict | None = None) -> dict:
         for a in mine:
             label = f"{name}: {a['type'].replace('_', ' ')}"
             try:
-                if a["type"] == "still_done":
+                if a["type"] == "done":
+                    if a["department"] not in get_departments_required(filepath):
+                        result["skipped"].append((label, f"{a['department']} not required"))
+                        continue
+                    if not set_department_done(filepath, a["department"], a["done"]):
+                        continue  # as asked already
+                elif a["type"] == "still_done":
                     if a["department"] not in get_departments_required(filepath):
                         result["skipped"].append((label, f"{a['department']} not required"))
                         continue
@@ -608,7 +676,7 @@ def import_review(path: Path, review: dict | None = None) -> dict:
     # One rtk / note = one entry (see NOTES.md, "Batched review input, still
     # one entry each"). The same words on another shot, frames or
     # department are another one: "[sh170] too dark", "[sh180] too dark".
-    for name, mine in _by_file(actions, "rtk", "note").items():
+    for name, mine in _by_file(actions, "rtk", "note", "todo").items():
         filepath = _review_file(name)
         if not filepath:
             result["skipped"].extend(

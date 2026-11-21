@@ -16,7 +16,7 @@ from .config import (
 )
 from .core import cached_scandir, json_get, monitoring_detail
 from .logs import log
-from .tracking import ProjectScan, TrackingStatusCache, list_active_blocks
+from .monitoring.tracking import ProjectScan, TrackingStatusCache, list_active_blocks
 
 
 def get_folder(self, context) -> Path | None:

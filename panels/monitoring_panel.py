@@ -1,6 +1,6 @@
-"""The monitoring windows' content (lib/monitoring.py): the Pipeline log,
+"""The monitoring windows' content (lib/monitoring/windows.py): the Pipeline log,
 the welcome, Project settings. Project and Farm monitoring are the live
-page's now (lib/live.py)."""
+page's now (lib/monitoring/live.py)."""
 
 import bpy
 
@@ -173,6 +173,11 @@ class M_PIPELINE_PT_project_settings(_MonitoringPanel, bpy.types.Panel):
                     "m_pipeline.delete_owner_pick",
                     text="Delete a shot or an asset...",
                     icon="TRASH",
+                )
+                col.operator(
+                    "m_pipeline.revert_review",
+                    text="Revert a review...",
+                    icon="LOOP_BACK",
                 )
                 migrate = col.row()
                 migrate.alert = project_needs_migration()

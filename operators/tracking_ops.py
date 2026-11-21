@@ -9,6 +9,7 @@ from types import SimpleNamespace
 import bpy
 
 from ..farm import archive, farm_activity, request_monitor_refresh
+from ..lib.monitoring import progress_log, review_revert
 from ..lib import (
     ConfigCache,
     icon_kw,
@@ -16,6 +17,7 @@ from ..lib import (
     month_folder,
     PipelineError,
     ProjectScan,
+    set_department_done,
     set_department_synced,
     snapshot_videos_folder,
     SnapshotJob,
@@ -835,17 +837,27 @@ def _run_review_import(self, pending: list[tuple[Path, dict]]) -> set:
     changes: dict[str, dict] = {}
     for path, plan in pending:
         try:
-            one = import_review(path)
+            review = read_review(path)
+            before = review_revert.state_before(review)
+            one = import_review(path, review)
         except PipelineError as e:
             log(e.level, "review_import", e.message)
             result["skipped"].append((path.name, e.message))
             continue
+        kept = None
         try:
             kept = keep_review(path, snapshots, plan)
             if kept:
                 log("INFO", "review_import", f"{path.name} kept as {kept}")
         except OSError as e:
             log("WARNING", "review_import", f"{path.name} not kept in reviews/: {e}")
+        # What it changed, to undo it later (Maintenance > Revert a review).
+        try:
+            undo = review_revert.write_revert(kept or path, review, review_revert.changes_since(before))
+            if undo:
+                log("INFO", "review_import", f"{path.name}: its undo in {undo.name}")
+        except OSError as e:
+            log("WARNING", "review_import", f"{path.name}: no undo written: {e}")
         for label, reason in one["skipped"]:
             log("WARNING", "review_import", f"{path.name}: {label} -- {reason}")
         log(
@@ -1245,6 +1257,9 @@ class M_PIPELINE_OT_export_snapshot(bpy.types.Operator):
             data, there, (self._lds_made, self._lds_failed) = self._job.result
             try:
                 snapshot = build_snapshot(data, config, meta, farm=farm_activity())
+                # Today's progress point, then the days so far for the page (progress_log.py).
+                progress_log.record_today(self._root, snapshot)
+                snapshot["meta"]["history"] = progress_log.days(self._root)
             except Exception as e:
                 context.window_manager.event_timer_remove(self._timer)
                 log("ERROR", "snapshot", f"Snapshot failed: {e}")
@@ -1428,6 +1443,33 @@ class M_PIPELINE_OT_department_still_done(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class M_PIPELINE_OT_department_mark_done(bpy.types.Operator):
+    """Mark a department done, or not done, on the latest stable -- no new
+    stable version: one forgotten when the stable was made, or work not
+    tied to the file. Undone, its validations there go with it."""
+
+    bl_idname = "m_pipeline.department_mark_done"
+    bl_label = "Done on the stable"
+    bl_options = {"INTERNAL"}
+
+    filepath: bpy.props.StringProperty(options={"HIDDEN", "SKIP_SAVE"})
+    department: bpy.props.StringProperty(options={"HIDDEN", "SKIP_SAVE"})
+    done: bpy.props.BoolProperty(default=True, options={"HIDDEN", "SKIP_SAVE"})
+    custom_tooltip: bpy.props.StringProperty(options={"HIDDEN", "SKIP_SAVE"})
+
+    @classmethod
+    def description(cls, context, properties):
+        return properties.custom_tooltip or cls.__doc__
+
+    def execute(self, context):
+        try:
+            set_department_done(Path(self.filepath), self.department, self.done)
+        except PipelineError as e:
+            return report_error(self, "department_mark_done", e)
+        status_changed(self.filepath)
+        return {"FINISHED"}
+
+
 class M_PIPELINE_OT_department_status_info(bpy.types.Operator):
     """Read-only tooltip carrier for a department status cell not editable
     where it's drawn (the monitor grid, the sidebar's required departments,
@@ -1474,3 +1516,86 @@ def _archive_checked_job(job_id: str) -> None:
         log("WARNING", "render_checked", f"Could not archive {job_id}: {e}")
 
 
+
+
+def _revert_items(self, context):
+    """The reviews imported, the latest first: one item per .revert.json."""
+    items = []
+    try:
+        for p in review_revert.revert_files(ConfigCache.get_path("snapshots"))[:60]:
+            try:
+                d = review_revert.read_revert(p)
+            except PipelineError:
+                continue
+            s = review_revert.summary(d)
+            n = s["entries_added"] + s["entries_removed"] + s["entries_changed"] + s["values"]
+            when = (d.get("imported_at") or "")[:16].replace("T", " ")
+            state = " · reverted" if d.get("reverted") else ""
+            items.append((str(p), f"{d.get('review', p.name)} · {d.get('author') or '?'} · {when}{state}",
+                          f"{n} change(s) on {s['files']} file(s)"))
+    except OSError:
+        pass
+    _revert_items.cache = items or [("", "No review imported yet", "")]
+    return _revert_items.cache
+
+
+class M_PIPELINE_OT_revert_review(bpy.types.Operator):
+    """Undo an imported review: its notes taken out, its validations, done,
+    assignees and departments as they were -- where nobody changed them
+    since (Project settings' Maintenance)"""
+
+    bl_idname = "m_pipeline.revert_review"
+    bl_label = "Revert a review"
+    bl_options = {"INTERNAL"}
+
+    review: bpy.props.EnumProperty(name="Review", items=_revert_items)
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self, width=520, confirm_text="Revert")
+
+    def draw(self, context):
+        col = self.layout.column()
+        col.prop(self, "review", text="")
+        if not self.review:
+            return
+        try:
+            d = review_revert.read_revert(Path(self.review))
+        except PipelineError as e:
+            col.label(text=e.message, icon="ERROR")
+            return
+        s = review_revert.summary(d)
+        box = col.box().column(align=True)
+        if d.get("reverted"):
+            r = d["reverted"]
+            box.label(text=f"Reverted already, by {r.get('by') or '?'}, {(r.get('at') or '')[:16].replace('T', ' ')}.", icon="INFO")
+            return
+        box.label(text=f"{s['entries_added']} note(s) and reply(ies) taken out", icon="TRASH")
+        if s["entries_removed"]:
+            box.label(text=f"{s['entries_removed']} deleted note(s) put back", icon="LOOP_BACK")
+        if s["entries_changed"]:
+            box.label(text=f"{s['entries_changed']} note(s) as they were (text, fixed)", icon="LOOP_BACK")
+        box.label(text=f"{s['values']} value(s) as they were: validations, done, assignees, departments, set aside",
+                  icon="LOOP_BACK")
+        if s["created"]:
+            box.label(text=f"Not deleted, made by the review: {', '.join(s['created'][:4])}"
+                           + ("..." if len(s["created"]) > 4 else ""), icon="ERROR")
+        col.label(text="Anything changed since it was imported is left as it is.", icon="INFO")
+
+    def execute(self, context):
+        if not self.review:
+            return {"CANCELLED"}
+        try:
+            out = review_revert.apply_revert(Path(self.review), get_user(context))
+        except PipelineError as e:
+            self.report({"ERROR"}, e.message)
+            return {"CANCELLED"}
+        for label, reason in out["skipped"]:
+            log("WARNING", "review_revert", f"{label}: {reason}")
+        log("INFO", "review_revert", f"{Path(self.review).name}: {out['put_back']} put back, {len(out['skipped'])} left")
+        ProjectScan.start(get_active_project_root())  # the folders changed, read again
+        redraw_monitoring("project")
+        msg = f"{out['put_back']} change(s) put back"
+        if out["skipped"]:
+            msg += f", {len(out['skipped'])} left as they are (changed since: see the log)"
+        self.report({"WARNING" if out["skipped"] else "INFO"}, msg + ".")
+        return {"FINISHED"}

@@ -198,13 +198,22 @@ def read_active_jobs(scan_dir: Path) -> list[tuple[Path, dict]]:
     return jobs
 
 
-def scan_queue(project_root: Path) -> None:
-    """Advance every active job by one step according to its current stage."""
-    try:
-        ensure_preset_pace(project_root)
-    except Exception as e:
-        log("ERROR", "farm", f"Preset pace: {e}")
-    jobs = read_active_jobs(ConfigCache.get_path("farm_actives"))
+def scan_queue(project_root: Path, local: bool = False) -> None:
+    """Advance every active job by one step according to its current stage.
+    A render here (farm/local.py, "local": its machine) only on its own
+    machine: the farm host leaves another's alone; local=True, the jobs of
+    this machine's own only -- what it does with no host of its own."""
+    me = get_machine_id()
+    if not local:
+        try:
+            ensure_preset_pace(project_root)
+        except Exception as e:
+            log("ERROR", "farm", f"Preset pace: {e}")
+    jobs = [
+        (p, d)
+        for p, d in read_active_jobs(ConfigCache.get_path("farm_actives"))
+        if (d.get("local") == me if local else d.get("local") in (None, "", me))
+    ]
     jobs.sort(
         key=lambda x: (
             -int(x[1].get("priority", 10) or 0),  # highest priority first
@@ -359,6 +368,8 @@ def scan_queue(project_root: Path) -> None:
             except Exception as e:
                 log("ERROR", "farm", f"Active job error: {e} ({job.name}).")
 
+    if local:
+        return  # the farm's priorities: the host's
     try:
         _give_way_to_priority(jobs, idle, project_root)
     except Exception as e:
@@ -444,7 +455,9 @@ def _give_way_to_priority(jobs: list, idle: dict, project_root: Path) -> None:
     busy = {
         uuid: w.get("current_job_id")
         for uuid, w in workers.items()
-        if w.get("status") == "render" and w.get("current_job_id") in priority
+        if w.get("status") == "render"
+        and w.get("current_job_id") in priority
+        and not w.get("local_only")  # kept for its own renders: nothing to give way to
     }
     if not busy:
         return
@@ -873,6 +886,11 @@ def construct_history(job: dict, status):
         else None,
         "status": status,
     }
+    # Render here (farm/local.py): rendered by its own machine, outside the
+    # queue; viewport: drawn by the 3D view (overlays and all).
+    tags = [t for t in ("local", "viewport") if job.get(t)]
+    if tags:
+        entry["tags"] = tags
     # A block rendered whole because the split couldn't cut it (setup);
     # frames corrupted, rendered again at the end of the frame check
     # (_send_back_bad_frames()).
@@ -889,8 +907,10 @@ def construct_history(job: dict, status):
             entry[key] = job[key]
 
     append_render_history(job["filepath"], entry)
-    # Its preset's pace, for files never rendered with it yet.
-    note_preset_pace(entry)
+    # Its preset's pace, for files never rendered with it yet -- never a
+    # viewport render's: no render engine's pace.
+    if not job.get("viewport"):
+        note_preset_pace(entry)
     # The outcome in the pipeline log too: it showed jobs submitted and
     # sent, never one ending -- only render_history.json knew.
     shot = f" {entry['shot_override']}" if entry.get("shot_override") else ""

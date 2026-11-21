@@ -126,26 +126,48 @@ def farm_tick(project_root: Path, interval: float = 10) -> float | None:
             worker_tick()
         except Exception as e:
             log("ERROR", "farm", f"Error during worker tick: {e}")
+        # Its renders here (farm/local.py): moved on by this machine itself.
+        from .local import local_tick
+
+        local_tick(project_root, as_host=monitor)
 
     if not monitor and not worker:
         log("INFO", "farm", "Farm loop stopped: no monitor nor worker role left here.")
+        _loop_ended()
         return
 
     return interval
 
 
-def register_farm_loop(project_root: Path, interval: float = 10) -> None:
-    """Register farm_tick as a persistent Blender timer. Raises if this
-    Blender instance is already monitoring another project -- one
-    orchestrator role per Blender process."""
+def _loop_ended() -> None:
+    """The loop's timer is gone (farm_tick returned None): forget it, so a
+    role started again later (Add this machine as worker, Launch the farm)
+    registers a new one. Kept, the next register_farm_loop() took it for
+    still running -- a worker stopped then started again in the same
+    Blender never ticked, so never took a job (see NOTES.md, "A worker
+    started again never took a job")."""
     global _registered_loop_tick_fn, _farm_running_project
-    if _farm_running_project is None:
-        _farm_running_project = project_root
-        _registered_loop_tick_fn = functools.partial(farm_tick, project_root, interval)
-        if not bpy.app.timers.is_registered(_registered_loop_tick_fn):
-            bpy.app.timers.register(
-                _registered_loop_tick_fn, first_interval=1, persistent=True
-            )
+    _registered_loop_tick_fn = None
+    _farm_running_project = None
+
+
+def register_farm_loop(project_root: Path, interval: float = 10) -> None:
+    """Make sure farm_tick runs for project_root: one timer per Blender
+    process, whatever roles it holds. Its timer still there (the worker
+    kept running while the monitor was stopped, then launched again): the
+    project set back on it, no second timer."""
+    global _registered_loop_tick_fn, _farm_running_project
+    running = _registered_loop_tick_fn is not None and bpy.app.timers.is_registered(
+        _registered_loop_tick_fn
+    )
+    if running and _registered_loop_tick_fn.args[0] != project_root:
+        bpy.app.timers.unregister(_registered_loop_tick_fn)  # an earlier project's
+        running = False
+    _farm_running_project = project_root
+    if running:
+        return
+    _registered_loop_tick_fn = functools.partial(farm_tick, project_root, interval)
+    bpy.app.timers.register(_registered_loop_tick_fn, first_interval=1, persistent=True)
 
 
 def refresh_monitor_cache(*, force_rescan: bool = False) -> None:
@@ -537,6 +559,7 @@ def history_pace(
         and e.get("status") == "finished"
         and e.get("seconds_per_frame")
         and "prerender_script" in e
+        and "viewport" not in (e.get("tags") or [])  # drawn, not rendered: no pace to go by
     ]
     if shot:
         done.sort(key=lambda e: e.get("shot_override") == shot)  # stable: latest last
@@ -772,7 +795,7 @@ def _redraw_sidebars() -> None:
 
 
 def refresh_step(soon: bool = False) -> bool:
-    """_refresh_tick()'s turn, the live page's too (lib/live.py: its Farm
+    """_refresh_tick()'s turn, the live page's too (lib/monitoring/live.py: its Farm
     tab, Farm monitoring closed): the last read applied, the next one
     started every _REFRESH_INTERVAL -- soon: at once (an action just done).
     True when a read was applied."""
@@ -1034,11 +1057,14 @@ def _build_job_entry(
         "output_dir": str(output_dir) if output_dir else "",
         "user": job.get("user", ""),
         "submitted_at": job["stage_history"][0]["at"],
-        # The live page's job detail (lib/live.py _farm_data()).
+        # The live page's job detail (lib/monitoring/live.py _farm_data()).
         "priority": job.get("priority", 10),
         "prerender_script": job.get("prerender_script", ""),
         "department": job.get("department", ""),
         "frame_range": job.get("resolved_frame_range"),
+        # Render here (farm/local.py): its machine's id; drawn by its 3D view.
+        "local": job.get("local", ""),
+        "viewport": bool(job.get("viewport")),
     }
 
 

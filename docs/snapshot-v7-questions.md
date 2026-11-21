@@ -69,7 +69,7 @@ proposition, et la décision quand elle est prise.
    du violet. **Fait :** bouton Valider violet.
 
 9. **Un même coin orange ↻ pour deux choses différentes** : « repris depuis
-   le stable » (`rework`, un état de base dans `lib/status.py`) et « à
+   le stable » (`rework`, un état de base dans `lib/monitoring/status.py`) et « à
    refaire » (`flags.to_redo`, une étape d'avant a changé). La page actuelle
    les distingue (losange ouvert vs flèche). **Fait :** deux signes. Repris
    = losange vert avec une flèche dedans ; à refaire = coin orange.

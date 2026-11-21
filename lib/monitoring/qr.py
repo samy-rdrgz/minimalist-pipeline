@@ -1,4 +1,4 @@
-"""A QR code, pure Python: the live page's link for a phone (lib/live.py
+"""A QR code, pure Python: the live page's link for a phone (lib/monitoring/live.py
 guests). Byte mode, error correction M, the smallest version that holds the
 text; the mask by the standard's penalty rules. After Nayuki's QR Code
 generator (MIT), reduced to what a link needs. See NOTES.md, "Live page:

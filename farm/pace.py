@@ -21,7 +21,7 @@ from ..lib import (
     time_key,
 )
 from ..lib.background import background_work
-from ..lib.tracking import _DATA_ROOTS, _walk_owner_dirs
+from ..lib.monitoring.tracking import _DATA_ROOTS, _walk_owner_dirs
 
 # Renders kept per preset: recent enough to follow the project's look
 # getting heavier, enough not to hang on one odd shot.

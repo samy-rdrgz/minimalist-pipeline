@@ -1,6 +1,6 @@
 """Delete a shot or an asset the addon's way (File details): out of every
 list, its folder and renders into old/ -- never by hand, which leaves its
-renders behind for the next file of the same shot (lib/tracking.py
+renders behind for the next file of the same shot (lib/monitoring/tracking.py
 delete_owner())."""
 
 from pathlib import Path

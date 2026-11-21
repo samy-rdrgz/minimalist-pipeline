@@ -3,74 +3,303 @@
    30 %: the top bar and the selection. Sequence headers and the detail panel stay grey. */
 
 /* The top bar, a tint */
-.topbar{position:relative;z-index:30;background:var(--t1);color:var(--t-text)}
-.topbar .faint,.topbar .dim{color:var(--t-text-2)}
-.topbar .btn{background:var(--t2);border-color:var(--t2);color:var(--t-text)}
-.topbar .btn:hover{background:var(--t3)}
-.topbar .btn.flat{background:transparent;border-color:transparent}
-.topbar .btn.primary{background:var(--brand);border-color:var(--brand);color:var(--on-brand)}
-.ws{background:rgba(0,0,0,.22)}
-.ws button{color:var(--t-text-2)}
-.ws button:hover{color:var(--t-text)}
-.ws button[aria-selected="true"]{background:var(--brand);color:var(--on-brand);font-weight:600;box-shadow:none}
-.ws button[aria-selected="true"] .n{color:inherit;opacity:.7}
+.topbar {
+  position: relative;
+  z-index: 30;
+  background: var(--t1);
+  color: var(--t-text);
+}
+.topbar .faint,
+.topbar .dim {
+  color: var(--t-text-2);
+}
+.topbar .btn {
+  background: var(--t2);
+  border-color: var(--t2);
+  color: var(--t-text);
+}
+.topbar .btn:hover {
+  background: var(--t3);
+}
+.topbar .btn.flat {
+  background: transparent;
+  border-color: transparent;
+}
+.topbar .btn.primary {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: var(--on-brand);
+}
+.topbar .review-chip {
+  background: var(--t2);
+  border-color: var(--t-line);
+}
+.topbar .review-chip .who {
+  color: var(--t-text);
+}
+.ws {
+  background: rgba(0, 0, 0, 0.22);
+}
+.ws button {
+  color: var(--t-text-2);
+}
+.ws button:hover {
+  color: var(--t-text);
+}
+.ws button[aria-selected="true"] {
+  background: var(--brand);
+  color: var(--on-brand);
+  box-shadow: none;
+}
+/* One weight selected or not: a bolder word is wider, the tabs beside it moved a few pixels. */
+.ws button {
+  font-weight: 500;
+}
+.ws button[aria-selected="true"] .n {
+  color: inherit;
+  opacity: 0.7;
+}
 
 /* Sticky headers, glass */
-.grp-h{background:var(--glass);color:var(--text);border-bottom-color:var(--line)}
-.grp-h .faint{color:var(--text-3)}.grp-h .dim{color:var(--text-2)}
-.grp-h .tag{background:var(--brand-a24);color:var(--brand-hi);border-color:transparent}
-#main .area-head,#outliner .area-head,#props .area-head{background:var(--glass-head);border-bottom-color:var(--line);position:relative;z-index:10}
-.wsec{background:var(--glass-head);z-index:5}
+.grp-h {
+  background: var(--glass);
+  color: var(--text);
+  border-bottom-color: var(--line);
+}
+.grp-h .faint {
+  color: var(--text-3);
+}
+.grp-h .dim {
+  color: var(--text-2);
+}
+.grp-h .tag {
+  background: var(--area);
+}
+#main .area-head,
+#outliner .area-head,
+#props .area-head {
+  background: var(--glass-head);
+  border-bottom-color: var(--line);
+  position: relative;
+  z-index: 10;
+}
+.wsec {
+  background: var(--glass-head);
+  z-index: 5;
+}
 /* The blur on a pseudo-element: a backdrop-filter on the parent would capture the fixed menus. */
-:is(#main .area-head,#outliner .area-head,#props .area-head,.grp-h,.wsec)::before{content:"";position:absolute;inset:0;z-index:-1;pointer-events:none;border-radius:inherit;
-  -webkit-backdrop-filter:blur(8px) saturate(120%);backdrop-filter:blur(8px) saturate(120%)}
-.wsec{position:sticky}
+:is(#main .area-head, #outliner .area-head, #props .area-head, .grp-h, .wsec)::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  border-radius: inherit;
+  -webkit-backdrop-filter: blur(5px) saturate(120%);
+  backdrop-filter: blur(5px) saturate(120%);
+}
+.wsec {
+  position: sticky;
+}
 
 /* Selection: a tint and a bright rail, the list's only glow */
-.row.sel{background:var(--t1)}
-.row.sel::before{background:var(--brand);box-shadow:0 0 12px var(--brand-a40)}
-.row{border-bottom-color:var(--row-line)}
-.tree li.sel{background:var(--t1);box-shadow:inset 2px 0 0 var(--brand)}
-.cols{text-transform:uppercase;letter-spacing:.06em;font-size:var(--fs-xs)}
+.row.sel {
+  background: var(--t1);
+}
+.row.sel::before {
+  background: var(--brand);
+  box-shadow: 0 0 12px var(--brand-a40);
+}
+.row {
+  border-bottom-color: var(--row-line);
+}
+.tree li.sel {
+  background: var(--t1);
+  box-shadow: inset 2px 0 0 var(--brand);
+}
+.cols {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-size: var(--fs-xs);
+}
 
 /* Buttons: flat, no relief, no shadow, no gradient */
-.btn{box-shadow:none;background-image:none;border-color:var(--btn-line)}
-.btn.flat{border-color:transparent}
-.btn.primary,.btn[aria-pressed="true"]{background:var(--brand);border-color:var(--brand);color:var(--on-brand);font-weight:600}
-.btn.primary:hover{background:var(--brand-hi);border-color:var(--brand-hi)}
-.btn.ok{border-color:var(--ok-line)}
-.btn.alert{border-color:var(--alert-line)}
-.join>.btn+.btn{border-left-color:rgba(0,0,0,.28)}
-.field{box-shadow:none}
-.field:focus-within{border-color:var(--brand);box-shadow:0 0 0 3px var(--brand-a24)}
-:focus-visible{outline-color:var(--brand)}
-.mi:hover{color:var(--on-sel)}
-.mi:hover .k{color:var(--on-sel);opacity:.7}
+.btn {
+  box-shadow: none;
+  background-image: none;
+  border-color: var(--btn-line);
+}
+.btn.flat {
+  border-color: transparent;
+}
+.btn.primary,
+.btn[aria-pressed="true"] {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: var(--on-brand);
+}
+/* Primary in bold; pressed not: a choice made doesn't change its button's width (nor move its row). */
+.btn.primary {
+  font-weight: 600;
+}
+.btn.primary:hover {
+  background: var(--brand-hi);
+  border-color: var(--brand-hi);
+}
+.join > .btn + .btn {
+  border-left-color: rgba(0, 0, 0, 0.28);
+}
+.field {
+  box-shadow: none;
+}
+.field:focus-within {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 3px var(--brand-a24);
+}
+:focus-visible {
+  outline-color: var(--brand);
+}
+.mi:hover {
+  color: var(--on-sel);
+}
+.mi:hover .k {
+  color: var(--on-sel);
+  opacity: 0.7;
+}
 
 /* Glass: what floats */
-.menu,.pop{background:var(--menu);border-color:var(--menu-line);-webkit-backdrop-filter:blur(10px) saturate(120%);backdrop-filter:blur(10px) saturate(120%);box-shadow:0 18px 50px -12px var(--shadow)}
-.toast{background:var(--menu);color:var(--text);border:1px solid var(--toast-line);-webkit-backdrop-filter:blur(10px) saturate(120%);backdrop-filter:blur(10px) saturate(120%)}
+.menu,
+.pop {
+  background: var(--menu);
+  border-color: var(--menu-line);
+  -webkit-backdrop-filter: blur(6px) saturate(120%);
+  backdrop-filter: blur(6px) saturate(120%);
+  box-shadow: 0 18px 50px -12px var(--shadow);
+}
+.toast {
+  background: var(--menu);
+  color: var(--text);
+  border: 1px solid var(--toast-line);
+  -webkit-backdrop-filter: blur(6px) saturate(120%);
+  backdrop-filter: blur(6px) saturate(120%);
+}
 
 /* Menus in front */
-.grp-h:has(.menu:not([hidden])){z-index:25}
-.row:has(.menu:not([hidden])),.anchor:has(.menu:not([hidden])){position:relative;z-index:40}
-.area-head:has(.menu:not([hidden])){z-index:35}
+.grp-h:has(.menu:not([hidden])) {
+  z-index: 25;
+}
+.row:has(.menu:not([hidden])),
+.anchor:has(.menu:not([hidden])) {
+  position: relative;
+  z-index: 40;
+}
+/* A menu or a popover open in an area's header: that header in front of the other areas (their headers are z 10 too). */
+:is(#main, #outliner, #props) .area-head:is(:has(.menu:not([hidden])), :has(.pop)) {
+  z-index: 35;
+}
 
 /* Detail and breakdown */
-.ptabs button[aria-selected="true"]{border-bottom-color:var(--brand)}
-.sec-h::before{content:"";width:3px;height:11px;border-radius:var(--r-xs);background:var(--brand);flex:none}
-.nt{border-left-width:0}
-.scrub .rng.sel{background:var(--brand-a40)}
-.kpi{border-color:transparent}
-.kpi:first-child{background:var(--t1);color:var(--t-text)}
-.kpi:first-child .big{color:var(--brand-hi)}
+.ptabs button[aria-selected="true"] {
+  border-bottom-color: var(--brand);
+}
+.sec-h::before {
+  content: "";
+  width: 3px;
+  height: 11px;
+  border-radius: var(--r-xs);
+  background: var(--brand);
+  flex: none;
+}
+.nt {
+  border-left-width: 0;
+}
+.scrub .rng.sel {
+  background: var(--brand-a40);
+}
+.kpi {
+  border-color: transparent;
+}
+.kpi:first-child {
+  background: var(--t1);
+  color: var(--t-text);
+}
+.kpi:first-child .big {
+  color: var(--brand-hi);
+}
 
 /* Phone: the same */
-.m-top{background:var(--t1);border-bottom-color:var(--t-line)}
-.m-nav button[aria-selected="true"]{color:var(--brand-hi)}
-.m-nav button[aria-selected="true"]::before{background:var(--brand)}
-.m-dept.mine{border-color:var(--you-line)}
-.m-sec-h::before{content:"";width:3px;height:11px;border-radius:var(--r-xs);background:var(--brand);flex:none}
+.m-top {
+  background: var(--t1);
+  border-bottom-color: var(--t-line);
+}
+.m-nav button[aria-selected="true"] {
+  color: var(--brand-hi);
+}
+.m-nav button[aria-selected="true"]::before {
+  background: var(--brand);
+}
+.m-dept.mine {
+  border-color: var(--you-line);
+}
+.m-sec-h::before {
+  content: "";
+  width: 3px;
+  height: 11px;
+  border-radius: var(--r-xs);
+  background: var(--brand);
+  flex: none;
+}
+/* Validate and Retake, not pressed: a plain button (opaque, no tint, no outline), their mark in the state's
+   colour -- the checkmark pink, Retake's diamond orange (the tags' mark). Pressed: the state's colour, solid. */
+.btn.ok,
+.btn.alert {
+  background: var(--btn);
+  border-color: var(--btn-line);
+  color: var(--text);
+}
+.btn.ok:hover,
+.btn.alert:hover {
+  background: var(--btn-hi);
+}
+.btn.ok:disabled:hover,
+.btn.alert:disabled:hover {
+  background: var(--btn);
+}
+.btn.ok svg.i {
+  fill: var(--st-val);
+}
+.btn.alert svg.i {
+  fill: var(--st-rtk);
+}
+.btn.ok:not(:has(svg))::before,
+.btn.alert:not(:has(svg))::before {
+  content: "";
+  width: calc(6px * var(--scale));
+  height: calc(6px * var(--scale));
+  border-radius: 1px;
+  transform: rotate(45deg);
+  flex: none;
+  background: var(--st-rtk);
+}
+.btn.ok:not(:has(svg))::before {
+  background: var(--st-val);
+}
+.btn.ok[aria-pressed="true"] svg.i,
+.btn.alert[aria-pressed="true"] svg.i {
+  fill: #fff;
+}
+.btn.ok[aria-pressed="true"]::before,
+.btn.alert[aria-pressed="true"]::before {
+  background: #fff;
+}
 /* Pressed buttons that mean something: Validate stays pink, Retake orange */
-.btn.ok[aria-pressed="true"]{background:var(--st-val);border-color:var(--st-val);color:#fff}
-.btn.alert[aria-pressed="true"]{background:var(--st-rtk);border-color:var(--st-rtk);color:#fff}
+.btn.ok[aria-pressed="true"] {
+  background: var(--st-val);
+  border-color: var(--st-val);
+  color: #fff;
+}
+.btn.alert[aria-pressed="true"] {
+  background: var(--st-rtk);
+  border-color: var(--st-rtk);
+  color: #fff;
+}

@@ -23,7 +23,7 @@ body:
     attributes:
       label: Addon version
       description: Preferences > Get Extensions, or `version` in the installed extension's blender_manifest.toml
-      placeholder: "1.0.6"
+      placeholder: "2.0.0"
     validations:
       required: true
 
@@ -56,6 +56,30 @@ body:
         - Solo, local drive
         - Small team, shared network drive
         - Render farm (monitor/worker) involved
+    validations:
+      required: false
+
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      description: Which part of the addon
+      multiple: true
+      options:
+        - Blender panels / operators
+        - Snapshot page (the exported HTML)
+        - Live page (served by Blender, or a guest's link)
+        - Phone / tablet
+        - Render farm
+        - Project migration (1.x to 2.0)
+    validations:
+      required: false
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and device (for the snapshot or live page)
+      placeholder: "Safari, iPad Pro 11, portrait"
     validations:
       required: false
 
@@ -95,5 +119,16 @@ body:
         the relevant lines from the active project's
         config/logs/pipeline_log.jsonl.
       render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: files
+    attributes:
+      label: Screenshots or files
+      description: >
+        A screenshot, a screen recording, or the file involved (a review
+        .json, a .stablemeta, tracking.json): drag it here. Check it holds
+        nothing private first.
     validations:
       required: false
