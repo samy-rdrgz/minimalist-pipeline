@@ -121,7 +121,15 @@ def _load_guests() -> None:
         raw = {}
     with _guests_lock:
         _guests.clear()
-        _guests.update({t: g for t, g in raw.items() if isinstance(g, dict) and g.get("until", 0) > time.time()})
+        _guests.update({t: g for t, g in raw.items() if isinstance(g, dict) and _until(g) > time.time()})
+
+
+def _until(guest: dict) -> float:
+    """A guest's end (epoch); 0 when the file says nothing readable."""
+    try:
+        return float(guest.get("until") or 0)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def _save_guests() -> None:
@@ -510,7 +518,7 @@ def _turn(sh: _Shared) -> None:
         # Another project made active: the page follows it -- told it's
         # being read (it reloads on the waiting page), then its data.
         sh.root = Path(root)
-        _reader.update(cache={}, result=None, compare=None, farm=None, ready=False, extras=None, work=None, at=0.0, partial=None, progress=None)
+        _reader.update(cache={}, result=None, compare=None, farm=None, ready=False, extras=None, work=None, at=0.0, partial=None, progress=None, shown=None)
         with sh.changed:
             sh.version += 1
             sh.data, sh.body = None, b""
@@ -522,7 +530,7 @@ def _turn(sh: _Shared) -> None:
         _sync_lan(sh)  # a guest's access ended: off the network
     page_open = clock - sh.last_seen < IDLE_AFTER
     if page_open:
-        # The farm's jobs and machines, read as Farm monitoring does --
+        # The farm's jobs and machines, read as the Farm tab does --
         # its window closed, nothing else would read them.
         from ...farm.loop import refresh_step
 
@@ -540,19 +548,27 @@ def _turn(sh: _Shared) -> None:
             pending = _actions.get_nowait()
         except queue.Empty:
             break
-        if pending.kind == "relink":
-            pending.result = _relink(sh.root, pending.review)
-            pending.done.set()
-            continue
-        if pending.kind in ("open", "farm", "play"):
-            pending.result = {"open": _open, "farm": _farm_action, "play": _play}[pending.kind](pending.review)
-            pending.done.set()
-            if pending.kind == "farm":
-                from ...farm.loop import refresh_step
+        # Whatever an action raises, the page is answered (else its request
+        # waits the whole minute) and the rest of the turn still runs.
+        try:
+            if pending.kind == "relink":
+                pending.result = _relink(sh.root, pending.review)
+                pending.done.set()
+                continue
+            if pending.kind in ("open", "farm", "play"):
+                pending.result = {"open": _open, "farm": _farm_action, "play": _play}[pending.kind](pending.review)
+                pending.done.set()
+                if pending.kind == "farm":
+                    from ...farm.loop import refresh_step
 
-                refresh_step(soon=True)  # the farm read again now: its change shown
+                    refresh_step(soon=True)  # the farm read again now: its change shown
+                continue
+            pending.result = _apply(sh.root, pending.review)
+        except Exception as e:
+            log("ERROR", "live", f"Live page: its {pending.kind} action failed: {e!r}")
+            pending.result = {"ok": False, "error": f"failed in Blender: {e}"}
+            pending.done.set()
             continue
-        pending.result = _apply(sh.root, pending.review)
         _reader["waiting"].append(pending)
     thread = _reader["thread"]
     if _reader["result"] is not None and not (thread and thread.is_alive()) and _reader["result"][0] != sh.root:
@@ -928,7 +944,7 @@ def _farm_data(root: Path) -> dict:
     "text", "done", "total", "left", "machines", "user", "at"}], "workers":
     [{"name", "status", "file", "mine", "host", "since"}], "me", "presets",
     "preset"}, from the monitor cache. Memory only."""
-    from ...farm.details import estimate_label, render_left_label
+    from ...farm.details import estimate_label, render_left_parts
     from ...farm.loop import _STAGE_WORDS, entry_state
     from ...farm.monitor import REMOVABLE_STAGES, get_monitor_cache
     from ...farm.queue import RETRYABLE_STAGES
@@ -968,7 +984,7 @@ def _farm_data(root: Path) -> dict:
             "range": j.get("frame_range"),
             "names": [_machine(cache, u) for u in j.get("machines") or []],
             "pending": stage == "pending",
-            # Farm monitoring's buttons, where they apply.
+            # the Farm tab's buttons, where they apply.
             "retry": stage in RETRYABLE_STAGES,
             "recompile": stage == "finished" and bool(j.get("output_dir")),
             "removable": stage == "pending" or stage in REMOVABLE_STAGES,
@@ -1020,7 +1036,8 @@ def _farm_data(root: Path) -> dict:
         "workers": workers,
         "me": me,
         # The machine time the jobs still need, over the live workers.
-        "left": render_left_label([j for j in cache.get("jobs") or [] if entry_state(j) != "finished"], cache).removeprefix(" - "),
+        # Said by the page, in its language: {"seconds", "workers", "unknown"}.
+        "left": render_left_parts([j for j in cache.get("jobs") or [] if entry_state(j) != "finished"], cache),
         **_presets(),
     }
 
@@ -1061,7 +1078,7 @@ def _machine(cache: dict, uuid: str) -> str:
 
 
 def _farm_action(raw: dict) -> dict:
-    """The Farm tab's buttons, as Farm monitoring's: "cancel", "retry",
+    """The Farm tab's buttons, as the Farm tab's: "cancel", "retry",
     "archive" a job, its "priority" (the job file's: the queue reads it
     each tick), "worker" this machine (on / off: a render it's on stopped
     now -- the page asked first); "render" / "preview": _farm_submit()."""
@@ -1070,6 +1087,9 @@ def _farm_action(raw: dict) -> dict:
     from ..errors import PipelineError
 
     action, job = str(raw.get("action") or ""), str(raw.get("job_id") or "")
+    if job and not re.fullmatch(r"job_[A-Za-z0-9_-]+", job):
+        # A job's id names its file: nothing else reaches a path.
+        return {"ok": False, "error": f"no job {job!r}"}
     if action in ("render", "preview"):
         try:
             return _farm_submit(action, raw)
@@ -1098,7 +1118,10 @@ def _farm_action(raw: dict) -> dict:
         if action == "remove" and job:
             from ...farm.monitor import remove_waiting_job
 
-            if not remove_waiting_job(job, bool(raw.get("value"))):
+            # Pending: its request not claimed yet, still in incomings/ (the
+            # page doesn't say; the file does).
+            pending = (ConfigCache.get_path("farm_incomings") / f"{job}.json").is_file()
+            if not remove_waiting_job(job, pending):
                 return {"ok": False, "error": "it started meanwhile: cancel it instead"}
             log("INFO", "farm", f"Job {job} removed from the queue from the live page.")
             return {"ok": True}
@@ -1129,7 +1152,10 @@ def _farm_action(raw: dict) -> dict:
                 return {"ok": False, "error": "not in the queue yet: try again in a moment"}
             with locked_json(path) as box:
                 data = box["data"] or {}
-                data["priority"] = max(0, min(100, int(raw.get("value", 10))))
+                try:
+                    data["priority"] = max(0, min(100, int(raw.get("value", 10))))
+                except (TypeError, ValueError):
+                    return {"ok": False, "error": "a priority is a number"}
                 box["action"] = "to_write"
             log("INFO", "live", f"Live page: job {job} priority {data['priority']}")
             return {"ok": True}
@@ -1145,7 +1171,7 @@ def _farm_action(raw: dict) -> dict:
 
 
 def _farm_monitor(action: str, force: bool) -> dict:
-    """The Farm tab's Launch / Stop the farm, as Farm monitoring's: launched
+    """The Farm tab's Launch / Stop the farm, as the Farm tab's: launched
     here (force: the page confirmed taking over a stuck one), refused while
     another runs or without FFmpeg (its checks would fail every job); a
     stop asked of the monitor, wherever it runs, for its next tick."""
@@ -1196,7 +1222,9 @@ def _farm_submit(action: str, raw: dict) -> dict:
         priority = 10
     if action == "preview":
         sequence = str(raw.get("sequence") or "")
-        if not sequence or "/" in sequence or not (get_active_project_root() / "shots" / sequence).is_dir():
+        root = get_active_project_root()
+        # A folder's name, nothing that climbs out of shots/ (.., \\, /).
+        if not re.fullmatch(r"[\w-]+", sequence) or not root or not (Path(root) / "shots" / sequence).is_dir():
             return {"ok": False, "error": f"no sequence {sequence!r}"}
         dropped: list = []
         if not request_sequence_preview(sequence, user, priority, dropped):
@@ -1315,7 +1343,7 @@ def _rebuild(sh: _Shared, force: bool, partial: tuple | None = None) -> None:
         progress_log.record_today(sh.root, snap)
     snap["meta"]["history"] = progress_log.days(sh.root)
     data = page_data(snap)
-    # Its Farm tab: the farm as Farm monitoring shows it.
+    # Its Farm tab: the farm as the Farm tab shows it.
     data["farm"] = jobs
     # Update links under way or just ended, by folder (lib/relink.py).
     data["relink"] = relinks
@@ -1378,7 +1406,11 @@ def _handler(sh: _Shared):
                 if parsed.path == "/":
                     self._page()
                 elif parsed.path == "/data":
-                    self._data(int(q.get("since", -1)))
+                    try:
+                        since = int(q.get("since", -1))
+                    except ValueError:
+                        return self._send(400, b"bad request", "text/plain")
+                    self._data(since)
                 elif media:
                     self._media(unquote(media[2]))
                 else:
@@ -1393,7 +1425,10 @@ def _handler(sh: _Shared):
                 return self._send(403, b"forbidden", "text/plain")
             if parsed.path not in ("/action", "/open", "/farm", "/play", "/share", "/relink", "/history"):
                 return self._send(404, b"not found", "text/plain")
-            length = int(self.headers.get("Content-Length") or 0)
+            try:
+                length = int(self.headers.get("Content-Length") or 0)
+            except ValueError:
+                length = 0
             if not 0 < length < 4 * 1024 * 1024 or "json" not in (self.headers.get("Content-Type") or ""):
                 return self._send(400, b"bad request", "text/plain")
             try:
@@ -1582,10 +1617,23 @@ def stop() -> bool:
         _shared.changed.notify_all()
     _server.shutdown()
     _server.server_close()
-    for server in _lan["servers"].values():
-        server.shutdown()
-        server.server_close()
-    _lan["servers"].clear()
+    with _lan_lock:
+        for server in _lan["servers"].values():
+            server.shutdown()
+            server.server_close()
+        _lan["servers"].clear()
+    # What the page asked and Blender never turned to: answered now, not
+    # applied on the next start (a cancel, a priority long after).
+    while True:
+        try:
+            pending = _actions.get_nowait()
+        except queue.Empty:
+            break
+        pending.result = {"ok": False, "error": "the live page stopped"}
+        pending.done.set()
+    for pending in _reader["waiting"] + _reader["in_pass"]:
+        pending.done.set()
+    _reader["waiting"], _reader["in_pass"] = [], []
     _shared, _server = None, None
     if bpy.app.timers.is_registered(_tick):
         bpy.app.timers.unregister(_tick)

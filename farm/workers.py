@@ -518,7 +518,7 @@ def read_workers(workers_dir: Path, silent: dict | None = None) -> dict:
     recent heartbeat. Pure os/json, no lock (writes are atomic) -- safe on
     a reader thread (farm.loop._read_farm_raw()). silent: filled with the
     others that never said they stopped -- crashed, closed, asleep, off the
-    share -- for Farm monitoring to show them instead of hiding them."""
+    share -- for the Farm tab to show them instead of hiding them."""
     workers = {}
     try:
         files = [
@@ -826,7 +826,7 @@ def execute_render_request() -> dict:
                             # Stop after this frame.
                             "--stop-file",
                             render_stop_path(data["job_id"]),
-                            # Give way to a higher-priority job after this chunk.
+                            # Give way to a higher-priority job after its frame.
                             "--yield-file",
                             render_yield_path(data["job_id"]),
                             # Chunks: the job's size, fixed at dispatch --
@@ -862,7 +862,6 @@ def execute_render_request() -> dict:
             job_id = data.get("job_id")
             log("ERROR", "farm", f"Could not launch render for {job_id}: {e}")
             if job_id:
-
                 mark_stage(
                     ConfigCache.get_path("farm_actives") / f"{job_id}.json",
                     "render_failed",
@@ -977,7 +976,7 @@ def scan_worker_processes() -> None:
                 "at": now(),
             }
             if ret != 0:
-                # What it died of, for Farm monitoring: its log stays with
+                # What it died of, for the Farm tab: its log stays with
                 # the job, this saves opening it.
                 result["reason"] = failure_reason(log_path, ret)
         update_worker(

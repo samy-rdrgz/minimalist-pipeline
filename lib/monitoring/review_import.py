@@ -550,10 +550,12 @@ def import_review(path: Path, review: dict | None = None) -> dict:
             continue
         for a in mine:
             try:
-                if reopen_entry(filepath, a["id"], author) is None:
+                reopened = reopen_entry(filepath, a["id"], author)
+                if reopened is None:
                     result["skipped"].append((f"{name}: reopened", "its note is gone"))
-                else:
+                elif reopened:
                     result["changed"] += 1
+                # False: open already (another reviewer, an import run twice): nothing changed
             except PipelineError as e:
                 result["skipped"].append((f"{name}: reopened", e.message))
     # Replies: each in its entry's thread, a note under the review's role --

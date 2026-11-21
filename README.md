@@ -4,7 +4,7 @@
 
 Lightweight pipeline Blender addon for solo artists and small teams (2-5), full Blender, no server to install. FFmpeg is the one optional external dependency — used to check and compile renders on the farm, for previews, for thumbnails of multilayer EXRs, and to scale down videos too wide for a browser in a snapshot; everything else works without it.
 
-**Author**: Samy Rodriguez · **Version**: 1.1.10 · **Blender**: 4.2+
+**Author**: Samy Rodriguez · **Version**: 2.0.0 · **Blender**: 4.2+
 
 ---
 
@@ -42,7 +42,7 @@ New here? **[Getting started](docs/getting-started.md)** walks through a first p
 - **Tracking & reviews** — notes, retakes, per-department validation, a live page of the project in the browser, and a production snapshot to review offline, even away from the studio.
 - **Render farm** — every machine that can open the project can render, no farm software.
 
-**What it won't do**, on purpose: plan work per person, or show anyone's work time (the data is logged, never surfaced — see [Design choices](docs/design.md)). It stays a tool for the people doing the work, not a production manager's dashboard.
+**What it won't do**, on purpose: plan work per person, or show anyone's work time (only totals with no name attached: a file's, the team's by day — see [Design choices](docs/design.md)). It stays a tool for the people doing the work, not a production manager's dashboard.
 
 **Philosophy**:
 - **Detect → Inform → Propose → Execute if validated.** The addon never does anything silently, but never blocks work either. Every automation goes through a popup with an explicit choice.
@@ -91,7 +91,7 @@ Overview below — each links to a dedicated page with the full explanation, edg
 
 ## Interface
 
-All panels live in the 3D viewport sidebar (`N` > **Pipeline** tab) — Project, Asset, Shot, Tracking, Farm — plus the live page in the browser (*Monitor in browser*), and a "Pipeline" menu in the top bar for quick access without opening the sidebar. Full panel-by-panel reference: **[docs/interface.md](docs/interface.md)**.
+All panels live in the 3D viewport sidebar (`N` > **Pipeline** tab) — Project, File, Farm — plus the live page in the browser (*Monitor in browser*, see [docs/live-page.md](docs/live-page.md)), and a "Pipeline" menu in the top bar for quick access without opening the sidebar. Full panel-by-panel reference: **[docs/interface.md](docs/interface.md)**.
 
 ---
 
@@ -118,6 +118,5 @@ Full list with details: **[docs/limitations.md](docs/limitations.md)**.
 | | |
 |---|---|
 | **[docs/](docs/README.md)** | One page per theme above, in more depth, cross-linked. Start here for anything beyond a quick overview. |
-| **[CODE.md](CODE.md)** | Dev-facing reference: module architecture (`lib/`, `farm/`, `operators/`, `panels/`), code patterns, roadmap v0.2–v0.4+. |
-| **[graph.md](graph.md)** | Exhaustive diagram of every handler/timer/operator: what triggers what, in which order, under which conditions. |
-| **[NOTES.md](NOTES.md)** | Dev design notes, feature by feature — the *why*, rejected alternatives, and architecture history that a code comment is too short to hold. Currently covers multishot; more sections land here over time. |
+| **[CODE.md](CODE.md)** | Developer's guide: conventions, module tree, the key flows (handlers, timers, farm, live page), code patterns. |
+| **[NOTES.md](NOTES.md)** | Dev design notes, feature by feature — the *why*, rejected alternatives, and architecture history that a code comment is too short to hold. |

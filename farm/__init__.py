@@ -13,7 +13,6 @@ from .loop import (
     register_status_timer,
     request_monitor_refresh,
     stop_farm_role_for_project,
-    unregister_refresh_timer,
     unregister_status_timer,
 )
 from .monitor import (
@@ -23,7 +22,6 @@ from .monitor import (
     job_cancel_request,
     job_request,
     launch_monitor,
-    load_job_details,
     monitor_request,
     register_farm_loop,
     remove_waiting_job,

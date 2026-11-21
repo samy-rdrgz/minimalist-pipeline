@@ -1,8 +1,8 @@
 """The state engine: a department's state, its share done and a file's,
 from the facts lib/monitoring/tracking.py's _status_from_raw() gathers (validated at
 the latest stable, worked since, started before). Pure, no bpy, no disk:
-every view asks it -- the sidebar, Project monitoring, File details, the
-snapshot. Phase 3 of docs/plan-1.2.md grows it (Waiting, To redo, On hold).
+every view asks it -- the sidebar, the snapshot and the live page. Phase 3
+of dev/plan-1.2.md grew it (Waiting, To redo, On hold).
 No disk, no bpy call: tests/test_status.py.
 See NOTES.md, "State engine"."""
 
@@ -17,15 +17,6 @@ PROGRESS_WEIGHTS = {"wip": 33, "rework": 67, "rtk": 67}
 # out of the shares done, the filters and the stages. See NOTES.md, "On
 # hold and Cancelled".
 OMIT_STATES = {"on_hold": "On hold", "cancelled": "Cancelled"}
-
-# A state's words, the same everywhere (page.js LABEL too).
-STATE_LABELS = {
-    "todo": "Not started",
-    "wip": "In progress",
-    "done": "Done",
-    "rework": "Done, reworked since",
-}
-
 
 def department_state(status: dict, department: str) -> str:
     """done / rework (validated at the latest stable, worked since or not),
@@ -83,7 +74,7 @@ def file_progress(item: dict, weights: dict) -> float | None:
 
 
 # ---------------------------------------------------------------------------
-# Stages: Waiting and To redo (docs/plan-1.2.md 2.2)
+# Stages: Waiting and To redo (dev/plan-1.2.md 2.2)
 # ---------------------------------------------------------------------------
 
 

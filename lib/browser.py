@@ -14,7 +14,7 @@ from .config import (
     parse_filename,
     shots_in_segment,
 )
-from .core import cached_scandir, json_get, monitoring_detail
+from .core import cached_scandir, json_get
 from .logs import log
 from .monitoring.tracking import ProjectScan, TrackingStatusCache, list_active_blocks
 
@@ -87,7 +87,7 @@ def scan_descriptions(project_root: Path | None) -> None:
     """Start the background project scan (ProjectScan) unless one already
     covers project_root: it caches every asset/shot's description, which the
     folder and version menus below show as tooltips (_description()). For
-    the dialogs' invoke(); Project monitoring starts the same scan."""
+    the dialogs' invoke(); the live page starts the same scan."""
     if project_root and not ProjectScan.covers(project_root):
         ProjectScan.start(project_root)
 
@@ -328,7 +328,7 @@ def tracked_department_items(self, context):
     TrackingStatusCache, already bitflag-encoded), plus a blank "" option.
     filepath fallback order -- see NOTES.md, "Department filter"."""
     filepath = (
-        getattr(self, "filepath", "") or monitoring_detail("file") or bpy.data.filepath
+        getattr(self, "filepath", "") or bpy.data.filepath
     )
     items = TrackingStatusCache.get(filepath).get("departments_items", [])
     return [("NONE", "—", "No department")] + list(items)
@@ -402,7 +402,7 @@ def shot_tag_items(self, context):
         # cached_scandir(), not glob() -- this enum is re-evaluated many
         # times per redraw of the entry dialogs and the file details popup.
         if target.suffix.lower() != ".blend":
-            # A folder (File details): its name doesn't parse, read the
+            # A folder: its name doesn't parse, read the
             # shot segment off one of its versioned files.
             target = next(
                 (

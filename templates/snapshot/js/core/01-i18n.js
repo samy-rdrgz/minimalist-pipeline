@@ -87,3 +87,11 @@ var MPI18n = (function () {
   };
 })();
 var T = MPI18n.T;
+// A word Blender sent (a farm step, an error, a note): translated when the
+// dictionary has it, else as sent. Never a key of T('...'): the server's.
+// A frame count at its end ("rendering 45/120") kept as it is.
+var TS = function (s) {
+  if (!s) return s;
+  var m = String(s).match(/^(.*?)( \d+\/\d+)$/);
+  return m ? MPI18n.T(m[1]) + m[2] : MPI18n.T(String(s));
+};

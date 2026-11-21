@@ -84,7 +84,7 @@ function renderDlg() {
   const pr = F.presets.find(p => p[0] === f.preset) || F.presets[0];
   dl.hidden = false;
   dl.innerHTML = `<div class="dlg-in rnd" role="dialog" aria-modal="true" aria-labelledby="rd-t"><h3 id="rd-t">${ic('b-render_animation')} ${T('Render {name}', { name: esc(it.name) })}</h3>
-    ${job ? `<p class="tag check" style="align-self:flex-start">${T('Already in the farm: {what}', { what: esc(job.text) + (job.total ? ' · ' + job.done + '/' + job.total : '') })}</p>` : ''}
+    ${job ? `<p class="tag check" style="align-self:flex-start">${T('Already in the farm: {what}', { what: esc(TS(job.text)) + (job.total ? ' · ' + job.done + '/' + job.total : '') })}</p>` : ''}
     <div class="prop"><span class="k">${T('Version')}</span><span class="v"><span class="join full" style="flex:1">${it.stable ? seg('ver', 'stable', T('Last stable · {v}', { v: esc(it.stable) })) : ''}${seg('ver', 'last', T('Latest · {v}', { v: esc(it.wip || it.stable || '') }))}</span></span></div>
     <div class="prop"><span class="k">${T('Department')}</span><span class="v"><span class="anchor" style="flex:1;min-width:0"><button class="enum" style="width:100%" data-menu="m-rdept" aria-haspopup="true" aria-expanded="false"><span class="lb">${f.dept ? esc(f.dept) : T('No department')}</span>${ic('b-tria_down')}</button>
       <div class="menu" id="m-rdept" hidden role="menu">${['', ...(DEPTS[it.kind] || [])].map(d => `<button class="mi" data-rdept="${esc(d)}"><span class="ck">${d === f.dept ? ic('b-checkmark') : ''}</span><span class="lbl">${d ? esc(d) : T('No department')}</span></button>`).join('')}</div></span></span></div>

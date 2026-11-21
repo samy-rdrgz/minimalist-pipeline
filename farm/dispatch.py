@@ -39,7 +39,7 @@ def job_progress_path(job_id: str) -> Path:
     """Where an ffmpeg pass of the job (frame check, compilation, preview)
     writes its progress (-progress): "frame=", "out_time_us=" and
     "progress=continue|end" blocks, about twice a second. Read back by
-    loop._ffmpeg_progress_for_jobs() for Farm monitoring's %."""
+    loop._ffmpeg_progress_for_jobs() for the Farm tab's %."""
     return ConfigCache.get_path("farm_requests") / f"request_{job_id}.progress"
 
 
@@ -220,7 +220,7 @@ def send_render(job_data: dict, machines: list, idle: dict) -> None:
 
 # Jobs whose wait for a machine is already in the log: one line when a job
 # starts waiting, not one per job per tick (it was 99 % of the pipeline log
-# -- Farm monitoring already shows "waiting for a worker"). Memory only.
+# -- the Farm tab already shows "waiting for a worker"). Memory only.
 _waiting_logged: set[str] = set()
 
 

@@ -45,12 +45,14 @@ def estimate_label(job: dict, cache: dict) -> str:
 NOT_SET_UP = ("pending", "queued", "setup_start")
 
 
-def render_left_label(jobs: list, cache: dict) -> str:
-    """ " - ≃ 3h20m of rendering left with 4 workers": the machine time the
-    jobs still need -- a render's frames left at its own pace, a job
-    waiting for a worker at its estimate's (estimate_label()) -- shared by
-    the live workers. The ones it can't tell (not set up yet, nothing timed
-    yet, never rendered before) are counted apart. "" if none's left."""
+def render_left_parts(jobs: list, cache: dict) -> dict:
+    """The rendering time left, for the page to say in its language (the
+    Farm tab's "≃ 3 h 20 of rendering left with 4 workers"): {"seconds"
+    -- the machine time the jobs still need (a render's frames left at its
+    own pace, a job waiting for a worker at its estimate's,
+    estimate_label()) shared by the live workers, 0 when nothing's timed --,
+    "workers", "unknown": the jobs it can't tell (not set up yet, nothing
+    timed yet, never rendered before), counted apart}."""
     machine_time, unknown = 0.0, 0
     for j in jobs:
         stage = j.get("stage", "")
@@ -68,16 +70,8 @@ def render_left_label(jobs: list, cache: dict) -> str:
                 unknown += 1
         elif stage in NOT_SET_UP:
             unknown += 1
-    if not machine_time:
-        return f" - {unknown} not estimated yet" if unknown else ""
     workers = max(1, len(cache.get("workers") or {}))
-    text = (
-        f" - ≃ {format_duration(machine_time / workers)} of rendering left with "
-        f"{workers} worker{'s' if workers > 1 else ''}"
-    )
-    if unknown:
-        text += f" (+{unknown} not estimated)"
-    return text
+    return {"seconds": round(machine_time / workers), "workers": workers, "unknown": unknown}
 
 
 def machine_label(uuid: str, recorded: str = "") -> str:
@@ -169,7 +163,7 @@ def job_files(job_id: str) -> tuple[Path | None, list[Path]]:
 
 
 def job_detail(job_id: str) -> dict | None:
-    """What Farm monitoring's job details show, as data: {"rows": [[key,
+    """What the Farm tab's job details show, as data: {"rows": [[key,
     value, alert]], "stages": [[when, what]], "lookup" (who rendered which
     frame: {"start", "frames" (a letter a frame), "machines": {letter:
     [label, pace]}}), "logs": [names], "folder", "retry", "recompile"}.
@@ -302,7 +296,7 @@ def job_path(job_id: str, what: str) -> Path | None:
 
 
 def worker_detail(uuid: str) -> dict | None:
-    """What Farm monitoring's machine details show, as data: {"rows": [[key,
+    """What the Farm tab's machine details show, as data: {"rows": [[key,
     value, alert]], "stop" (a live worker to stop), "busy", "forget" (a
     silent one), "job" (the job it's on)}. From the monitor cache only."""
     import re

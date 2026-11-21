@@ -124,7 +124,7 @@ Une cellule vide signifie juste "utiliser le repli pour cette colonne" (départe
 }
 ```
 
-**Edit project** (panneau Project, *Project settings* du menu Pipeline) : une fenêtre à part depuis la 1.1.9, comme le Pipeline log -- elle reste ouverte pendant qu'on modifie, *Save* écrit la config, *Close* ferme sans (le dialogue seulement si Blender ne peut pas ouvrir de fenêtre). À gauche, le projet et son nommage (préfixes, dossiers, tags, départements) ; à droite, le snapshot (vignettes, Done, rôles de validation, planning), la farm, et *Maintenance*, pour le projet actif : *Clean old renders* et *Delete a shot or an asset* (choisi comme dans Open file) -- voir [Rendu](farm_fr.md). Les réglages sur deux colonnes -- ce que fait chacun :
+**Edit project** (panneau Project, *Project settings* du menu Pipeline) : une fenêtre à part depuis la 1.1.9, comme le Pipeline log -- elle reste ouverte pendant qu'on modifie, *Save* écrit la config, *Close* ferme sans (le dialogue seulement si Blender ne peut pas ouvrir de fenêtre). À gauche, le projet et son nommage (préfixes, dossiers, tags, départements) ; à droite, le snapshot (vignettes, Done, rôles de validation, planning), la farm, et *Maintenance*, pour le projet actif : *Clean old renders*, *Delete a shot or an asset* (choisi comme dans Open file), *Migrate old data* et *Revert a review* (les changements d'une review importée remis comme avant) -- voir [Rendu](farm_fr.md). Les réglages sur deux colonnes -- ce que fait chacun :
 
 | Réglage | Rôle |
 |---|---|
@@ -133,11 +133,15 @@ Une cellule vide signifie juste "utiliser le repli pour cette colonne" (départe
 | Naming | Préfixe et nombre de chiffres des séquences, shots, versions et frames : les noms de fichiers, et leur relecture. |
 | Folders, Asset / Library prefixes, Version tags | L'arborescence du projet, les types d'assets et de libraries, les tags de version. |
 | Assets / Shots departments | Les départements requis par chaque nouvel asset ou shot -- et l'ordre que suit toute liste de départements. |
-| Thumbnails | Taille des vignettes de rendu (snapshot, détail des fichiers). |
+| Thumbnails | Taille des vignettes de rendu (snapshot, page live). |
 | Snapshot done | La part d'un département comptée comme faite dans le snapshot : en cours, à reprendre, RTK ouverte. |
+| Validation roles | Les rôles qui valident un département, du plus bas au plus haut (voir [Suivi & reviews](tracking-and-reviews_fr.md)). |
+| Team | Les noms de l'équipe : le nom d'utilisateur de chacun s'y choisit, les départements leur sont attribués. |
 | Schedule, Days off, Worked days | Les dates de la production, pour l'avancement attendu du snapshot. |
+| Video | La vidéo compilée d'un rendu : *MP4 · H.264*, *MOV · ProRes 422 LT* ou *Preset file* (voir [Rendu](farm_fr.md)). |
 | Chunk size | Nombre de frames par morceau qu'une machine de la farm prend à la fois (voir [Rendu](farm_fr.md)). |
 | Pre-render | Le script pré-rendu sur lequel s'ouvre le dialogue Render. |
+| By department…, Rename preset… | Sous les presets : le preset propre à chaque département (celui sur lequel s'ouvre le dialogue Render), et le renommage d'un preset avec tout ce qui le cite. |
 | Stuck frame | Combien de fois son temps habituel une frame peut prendre avant que son rendu soit arrêté (0 = jamais). |
 | Priority switch | Minutes : un rendu à qui il reste moins que ça garde ses machines quand un job plus prioritaire les veut (3 par défaut ; 0 = elles partent toujours une fois leur morceau fini). |
 

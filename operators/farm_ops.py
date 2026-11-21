@@ -13,12 +13,10 @@ from ..farm import (
     job_cancel_request,
     job_request,
     job_state,
-    local_jobs_in_flight,
     reserve_this_machine,
     kill_worker,
     launch_monitor,
     launch_worker,
-    load_job_details,
     monitor_age_status,
     monitor_last_tick,
     recompilable,
@@ -48,7 +46,6 @@ from ..lib import (
     json_get,
     locked_json,
     log,
-    monitoring_detail,
     parse_filename,
     prefix_items,
     read_json_quiet,
@@ -968,7 +965,7 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
             return report_error(self, "farm_request_render", e)
         context.scene.pipeline_farm_list.clear()
         if here:
-            self.report({"INFO"}, f"Rendering here: {Path(self.filepath).name} (Farm monitoring follows it).")
+            self.report({"INFO"}, f"Rendering here: {Path(self.filepath).name} (Farm in browser follows it).")
         else:
             self.report({"INFO"}, f"Render job submitted: {Path(self.filepath).name}")
         return {"FINISHED"}
@@ -1177,7 +1174,7 @@ class M_PIPELINE_OT_farm_remove_job(bpy.types.Operator):
 
 
 class M_PIPELINE_OT_farm_archive_jobs(bpy.types.Operator):
-    """Archive every finished, or every failed, job of Farm monitoring."""
+    """Archive every finished, or every failed, job of the farm."""
 
     bl_idname = "m_pipeline.farm_archive_jobs"
     bl_label = "Archive all"
@@ -1292,8 +1289,6 @@ def _redo_job(op, can, redo, refused: str, verb: str, done) -> set:
     if not result:
         op.report({"WARNING"}, refused)
         return {"CANCELLED"}
-    if monitoring_detail("job") == op.job_id:
-        load_job_details(op.job_id)
     op.report({"INFO"}, done(result))
     return {"FINISHED"}
 

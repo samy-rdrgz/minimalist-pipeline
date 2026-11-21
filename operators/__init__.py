@@ -80,7 +80,6 @@ from .tracking_ops import (
     M_PIPELINE_OT_review_descriptions,
     M_PIPELINE_OT_toggle_entry_task,
     M_PIPELINE_OT_toggle_worked_department,
-    PIPELINE_PG_department_check_item,
     PipelineEntryItem,
 )
 
@@ -136,7 +135,6 @@ classes = (
     M_PIPELINE_OT_revert_review,
     M_PIPELINE_OT_import_review_confirm,
     M_PIPELINE_OT_open_file_version,
-    PIPELINE_PG_department_check_item,
     M_PIPELINE_OT_review_descriptions,
     PIPELINE_PG_log_monitoring,
     M_PIPELINE_OT_pipeline_logs,

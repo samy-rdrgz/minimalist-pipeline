@@ -607,7 +607,7 @@ class M_PIPELINE_OT_edit_block_structure(bpy.types.Operator):
                 description=self.description,
                 start_version=int(parsed["number"]) + 1,
             )
-            # Flag first -- Project monitoring's scan (ProjectScan) would
+            # Flag first -- the live page's scan (ProjectScan) would
             # otherwise still pick up the tracking.json once it's moved
             # under old/ below (see NOTES.md, "Branch").
             old_tracking = tracking_json_path(old_path, must_exist=True)

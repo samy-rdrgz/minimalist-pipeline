@@ -85,7 +85,7 @@ def draw_creation_fields(layout, op, factor: float) -> None:
 
 
 def draw_legend(layout, groups: list) -> None:
-    """A legend in a menu (Project / Farm monitoring, the log): each group
+    """A legend in a menu (the Pipeline log's): each group
     its greyed title, then its marks with their words. groups: [(title,
     [(icon, text)])] -- an icon Blender's or a mark."""
     for i, (title, group) in enumerate(groups):

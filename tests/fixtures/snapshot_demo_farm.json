@@ -496,7 +496,7 @@
 "host": false,
 "host_name": "samyr (fbd54d8e)"
 },
-"left": "≈ 1 h 40 de rendu restant",
+"left": {"seconds": 6000, "workers": 3, "unknown": 2},
 "presets": [
 [
 "NONE",

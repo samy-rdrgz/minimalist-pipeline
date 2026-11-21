@@ -328,7 +328,7 @@ document.addEventListener('click', e => {
           toast(
             res.ok
               ? T("Blender opens the snapshot's export: confirm there")
-              : T('Not opened: {error}', { error: res.error || '?' })
+              : T('Not opened: {error}', { error: TS(res.error) || '?' })
           )
         )
         .catch(noAnswer);
@@ -605,7 +605,7 @@ document.addEventListener('click', e => {
   if (t.closest('[data-otreload]')) {
     livePost('open', { progress: 1 })
       .then(r =>
-        toast(r.ok ? T('Reading the project again…') : T('Not updated: {error}', { error: r.error }))
+        toast(r.ok ? T('Reading the project again…') : T('Not updated: {error}', { error: TS(r.error) }))
       )
       .catch(noAnswer);
     return;

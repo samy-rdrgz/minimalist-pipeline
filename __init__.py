@@ -19,7 +19,6 @@ from .farm.loop import (
     refresh_monitor_cache,
     register_status_timer,
     set_running_project,
-    unregister_refresh_timer,
     unregister_status_timer,
 )
 from .lib.saving import override_shortcut, unoverride_shortcut
@@ -31,7 +30,6 @@ from .menus import (
     unregister_topbar_menu,
 )
 from .operators import (
-    PIPELINE_PG_department_check_item,
     PIPELINE_PG_farm_list_item,
     PIPELINE_PG_log_monitoring,
     PIPELINE_PG_project_settings,
@@ -42,7 +40,6 @@ from .operators import (
 )
 from .operators import classes as operator_classes
 from .panels import classes as panel_classes
-from .panels import unregister_thumbnail_previews
 
 # Registration order matters: addon_data before anything reading preferences,
 # everything else before the topbar menu that references their operators.
@@ -77,10 +74,6 @@ _WM_PROPS = {
     # Export snapshot's checklist: the sequences whose videos go with it.
     "snapshot_sequences": bpy.props.CollectionProperty(
         type=PIPELINE_PG_preview_sequence_item
-    ),
-    # "Checked"'s checklist of departments to validate with the render.
-    "render_checked_departments": bpy.props.CollectionProperty(
-        type=PIPELINE_PG_department_check_item
     ),
     "file_selected_departments": bpy.props.StringProperty(),
     # The file New entry is for: its lines' shot pickers (a block's shots).
@@ -295,7 +288,6 @@ def unregister():
     # both read from them -- after unregister_class() is_blender_worker()
     # answered False and nothing was stopped.
     try:
-        unregister_refresh_timer()
         unregister_status_timer()
         lib.stop_monitoring_tick()
         from .farm.loop import _farm_running_project
@@ -336,7 +328,6 @@ def unregister():
     _unregister_props(bpy.types.WindowManager, _WM_PROPS)
     _unregister_props(bpy.types.Scene, _SCENE_PROPS)
     unoverride_shortcut()
-    unregister_thumbnail_previews()
 
 
 if __name__ == "__main__":

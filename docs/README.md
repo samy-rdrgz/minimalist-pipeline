@@ -17,8 +17,9 @@ The table below is the concept reference instead: one page per theme, for when "
 | Tracking & reviews (notes/todos/rtk) | [tracking-and-reviews.md](tracking-and-reviews.md) | [tracking-and-reviews_fr.md](tracking-and-reviews_fr.md) |
 | Link vs Append | [linking.md](linking.md) | [linking_fr.md](linking_fr.md) |
 | Rendering (farm) | [farm.md](farm.md) | [farm_fr.md](farm_fr.md) |
+| The live page: tabs, farm, phone (2.0) | [live-page.md](live-page.md) | [live-page_fr.md](live-page_fr.md) |
 | Interface (panels, windows & popups) | [interface.md](interface.md) | [interface_fr.md](interface_fr.md) |
 | Design choices | [design.md](design.md) | [design_fr.md](design_fr.md) |
 | Known current limitations | [limitations.md](limitations.md) | [limitations_fr.md](limitations_fr.md) |
 
-Developer-facing docs (module architecture, exact handler/timer/operator execution order, per-feature design rationale) live at the repo root instead: [CODE.md](../CODE.md), [graph.md](../graph.md), [NOTES.md](../NOTES.md).
+Developer-facing docs (module tree, key flows, per-feature design rationale) live at the repo root instead: [CODE.md](../CODE.md), [NOTES.md](../NOTES.md); working documents in [dev/](../dev/README.md).

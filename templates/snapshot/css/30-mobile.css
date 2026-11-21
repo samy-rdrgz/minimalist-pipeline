@@ -524,6 +524,19 @@ b.ab {
   color: var(--text-3);
   font-size: var(--fs-s);
 }
+/* Mark fixed / Mark done / Reopen, under the note's text: a finger's height. */
+.m-note .m-nf {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  margin-top: var(--sp-3);
+}
+.m-note .m-nf .btn {
+  min-height: var(--h-touch);
+}
+.m-note.done .tx {
+  color: var(--text-3);
+}
 
 /* The writing box, held at the bottom */
 .m-comp {
@@ -590,11 +603,12 @@ b.ab {
   gap: var(--sp-3);
 }
 
-/* Bottom bar: Review | Farm (live only) */
+/* Bottom bar: Review | To do | Farm (live only): one row, whatever their number */
 .m-nav {
   flex: none;
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
   background: var(--head);
   border-top: 1px solid var(--line);
   padding-bottom: env(safe-area-inset-bottom);

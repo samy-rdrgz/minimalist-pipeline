@@ -202,7 +202,9 @@ function wideAdd() {
   msg(
     S.wtype === 'rtk'
       ? T('Retake at {frames} on {dept}', { frames: fr || '—', dept: LBL[d] })
-      : T('Remark at {frames} on {dept}', { frames: fr || '—', dept: LBL[d] })
+      : S.wtype === 'todo'
+        ? T('To do at {frames} on {dept}', { frames: fr || '—', dept: LBL[d] })
+        : T('Remark at {frames} on {dept}', { frames: fr || '—', dept: LBL[d] })
   );
   $('#w-ta')?.focus();
 }

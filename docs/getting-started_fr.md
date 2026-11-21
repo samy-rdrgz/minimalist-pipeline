@@ -34,13 +34,13 @@ Quand un asset ou un shot est dans un état sur lequel les autres peuvent s'appu
 
 ## 5. Laisser des notes, des todos, des retours à corriger
 
-Le panneau **Tracking** sur n'importe quel fichier permet de noter une remarque, ajouter un todo, ou signaler quelque chose à corriger — pas de feuille de calcul, pas d'outil de revue séparé. Voir [Suivi & revues](tracking-and-reviews_fr.md).
+La section **Notes & tasks** du panneau File (ou le détail d'un fichier sur la page live) permet de noter une remarque, ajouter un todo, ou signaler quelque chose à corriger — pas de feuille de calcul, pas d'outil de revue séparé. Voir [Suivi & revues](tracking-and-reviews_fr.md).
 
 <img src="images/tracking-new-entry.png" alt="Le dialogue New entry" width="560">
 
 ## 6. Rendre
 
-Cliquer **Render** sur n'importe quel fichier, choisir une plage de frames (ou garder les valeurs par défaut), et soumettre. N'importe quel poste avec le projet ouvert et Blender lancé peut prendre le job — suivre la progression depuis le dashboard farm. Rien à installer à part Blender. Voir [Rendu (farm)](farm_fr.md).
+Cliquer **Render** sur n'importe quel fichier, choisir une plage de frames (ou garder les valeurs par défaut), et soumettre. N'importe quel poste avec le projet ouvert et Blender lancé peut prendre le job — suivre la progression dans l'onglet Farm de la page live (*Farm in browser*). Rien à installer à part Blender. Voir [Rendu (farm)](farm_fr.md).
 
 <img src="images/farm-render-dialog.png" alt="Le dialogue Render" width="360">
 

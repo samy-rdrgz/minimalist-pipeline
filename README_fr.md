@@ -4,7 +4,7 @@
 
 Addon Blender de pipeline léger pour artistes solo et petites équipes (2-5), full Blender, sans serveur à installer. FFmpeg est la seule dépendance externe optionnelle — utilisée pour vérifier et compiler les rendus de la farm, pour les previews, pour les vignettes d'EXR multilayer, et pour réduire dans un snapshot les vidéos trop larges pour un navigateur ; tout le reste fonctionne sans.
 
-**Auteur** : Samy Rodriguez · **Version** : 1.1.10 · **Blender** : 4.2+
+**Auteur** : Samy Rodriguez · **Version** : 2.0.0 · **Blender** : 4.2+
 
 ---
 
@@ -42,7 +42,7 @@ Nouveau ici ? **[Prise en main](docs/getting-started_fr.md)** détaille un premi
 - **Suivi et reviews** — notes, retakes, validation par département, une page en live du projet dans le navigateur, et un snapshot de production à reviewer hors ligne, même loin du studio.
 - **Render farm** — chaque machine qui peut ouvrir le projet peut rendre, sans logiciel de farm.
 
-**Ce qu'il ne fera pas**, volontairement : planifier le travail par personne, ni montrer le temps de travail de qui que ce soit (la donnée est enregistrée, jamais affichée — voir [Choix de conception](docs/design_fr.md)). Il reste un outil pour ceux qui font le travail, pas un tableau de bord de chef de production.
+**Ce qu'il ne fera pas**, volontairement : planifier le travail par personne, ni montrer le temps de travail de qui que ce soit (seulement des totaux sans aucun nom : celui d'un fichier, celui de l'équipe par jour — voir [Choix de conception](docs/design_fr.md)). Il reste un outil pour ceux qui font le travail, pas un tableau de bord de chef de production.
 
 **Philosophie** :
 - **Détecter → Informer → Proposer → Exécuter si validé.** L'addon ne fait jamais rien en silence, mais ne bloque jamais non plus le travail. Toute automatisation passe par une popup avec un choix explicite.
@@ -91,7 +91,7 @@ Vue d'ensemble ci-dessous — chaque entrée pointe vers une page dédiée avec 
 
 ## Interface
 
-Tous les panneaux vivent dans la sidebar de la vue 3D (`N` > onglet **Pipeline**) — Project, Asset, Shot, Tracking, Farm — plus la page en live dans le navigateur (*Monitor in browser*), et un menu "Pipeline" dans la barre du haut pour un accès rapide sans ouvrir la sidebar. Référence complète panneau par panneau : **[docs/interface_fr.md](docs/interface_fr.md)**.
+Tous les panneaux vivent dans la sidebar de la vue 3D (`N` > onglet **Pipeline**) — Project, File, Farm — plus la page en live dans le navigateur (*Monitor in browser*, voir [docs/live-page_fr.md](docs/live-page_fr.md)), et un menu "Pipeline" dans la barre du haut pour un accès rapide sans ouvrir la sidebar. Référence complète panneau par panneau : **[docs/interface_fr.md](docs/interface_fr.md)**.
 
 ---
 
@@ -118,6 +118,5 @@ Liste complète avec détails : **[docs/limitations_fr.md](docs/limitations_fr.m
 | | |
 |---|---|
 | **[docs/](docs/README.md)** | Une page par thème ci-dessus, en plus détaillé, avec des liens croisés. À consulter pour tout ce qui dépasse la vue d'ensemble rapide. |
-| **[CODE.md](CODE.md)** | Référence dev : architecture des modules (`lib/`, `farm/`, `operators/`, `panels/`), patterns de code, roadmap v0.2–v0.4+. |
-| **[graph.md](graph.md)** | Diagramme exhaustif de chaque handler/timer/opérateur : qui déclenche quoi, dans quel ordre, avec quelles conditions. |
-| **[NOTES.md](NOTES.md)** | Notes de conception dev, feature par feature — le *pourquoi*, les alternatives rejetées, et l'historique d'archi qu'un commentaire de code est trop court pour porter. Couvre le multishot pour l'instant ; d'autres sections viendront s'y ajouter. |
+| **[CODE.md](CODE.md)** | Guide dev : conventions, arbre des modules, les flux clés (handlers, timers, farm, page live), patterns de code. |
+| **[NOTES.md](NOTES.md)** | Notes de conception dev, feature par feature — le *pourquoi*, les alternatives rejetées, et l'historique d'archi qu'un commentaire de code est trop court pour porter. |

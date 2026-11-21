@@ -6,11 +6,15 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- The phone writes to-dos (a third type in the box), marks a retake fixed
+  or a to-do done, and opens a closed one again (the closed ones folded
+  under the notes, Reopen) -- as the desktop does.
+
 - Render here: the file panel's Render offers Where -- Farm, Local ·
   playblast, Local · viewport. Local renders the open file on this
   machine, now, outside the farm's queue and without a farm host: the same
   render (preset, video and sound, history, to check, thumbnail), followed
-  in Farm monitoring with a "local" tag; a farm render on this machine
+  on the live page's Farm tab with a "local" tag; a farm render on this machine
   gives way after its frame. Viewport draws each frame with the file's 3D
   view through the camera, overlays as they are (rigs...), in a Blender
   window of its own; tagged "viewport" in the render history. Unsaved
@@ -421,6 +425,12 @@ All notable changes to this addon. Dates are release dates.
 
 ### Changed
 
+- Developer docs: CODE.md rewritten as a short guide (module tree, key
+  flows, patterns) without its function-by-function inventory; graph.md
+  removed -- its flows in CODE.md, the farm's stage machine in NOTES.md;
+  the working documents (plan 1.2, the v7 page's questions, the UI kit
+  mock-up) moved from docs/ to dev/, not shipped.
+
 - A stable's Done departments are stored as `departments_done` (was
   `departments_validated`, a name kept from before validation roles: it
   has meant Done since 1.1.2). *Migrate old data* renames it in every
@@ -495,6 +505,29 @@ All notable changes to this addon. Dates are release dates.
   these buttons.
 
 ### Fixed
+
+- The live page's Farm tab: *Remove from the queue* on a job not set up yet
+  always failed ("it started meanwhile") -- the page didn't say it was
+  pending; the server now looks for its file in incomings/.
+- The live page: an action that raised in Blender left its request
+  waiting a whole minute (then 504) and skipped the rest of Blender's
+  turn; it's answered at once with the error. A job id or a sequence name
+  that isn't one (`..`, a path) is refused before any path is made of it;
+  a priority, a `since` or a Content-Length that isn't a number answered,
+  not raised. Stopping the page answers what Blender never turned to,
+  instead of applying it on the next start.
+- Migrate old data: a file written between the preview and its confirm
+  (a note, another machine) was overwritten with what the preview read;
+  it's left as it is and named, the migration offered again for it.
+- A review reopening a note already open no longer counts as a change.
+- The phone's bottom bar on the live page: Review, To do and Farm on one
+  row (Farm wrapped below). A to-do named as such in the phone's notes,
+  What's new and the status line (was "note" / "Remark").
+- Render here's message pointed to Farm monitoring: the Farm tab now.
+- The page in French: the farm's steps ("en rendu", "en attente d'un
+  worker"...), the rendering time left (sent as figures, said by the
+  page), Blender's answers and errors, "moi" and "hors filtre" no longer
+  written in the script; a test keeps French out of it.
 
 - A worker stopped then added again, Blender left open, never took a
   job: the farm loop's timer, gone with the role, was taken for still

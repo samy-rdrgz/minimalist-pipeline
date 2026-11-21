@@ -235,6 +235,7 @@ S.m = {
   sheet: null,
   ctype: 'rtk',
   cdept: null,
+  closed: false, // the notes closed, unfolded (Reopen)
   loop: false
 };
 function mVer(it) {

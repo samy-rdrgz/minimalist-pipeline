@@ -62,7 +62,7 @@ function shareSend(body) {
     .then(res => {
       clearTimeout(late);
       if (!res.ok) {
-        toast(T('Not shared: {error}', { error: res.error || '?' }));
+        toast(T('Not shared: {error}', { error: TS(res.error) || '?' }));
         if (!$('#sh-body').querySelector('.sh-form')) shareDraw(res);
         return;
       }
@@ -123,7 +123,7 @@ function relinkSend(files) {
           ? T('Updating {n} file in the background|Updating {n} files in the background', {
               n: (res.started || []).length
             }) + (sk ? ' -- ' + T('left: {what}', { what: sk }) : '')
-          : T('Not updated: {error}', { error: res.error || sk || '?' })
+          : T('Not updated: {error}', { error: TS(res.error) || sk || '?' })
       );
     })
     .catch(noAnswer);

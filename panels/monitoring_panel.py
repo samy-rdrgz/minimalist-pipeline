@@ -1,6 +1,5 @@
 """The monitoring windows' content (lib/monitoring/windows.py): the Pipeline log,
-the welcome, Project settings. Project and Farm monitoring are the live
-page's now (lib/monitoring/live.py)."""
+the welcome, Project settings."""
 
 import bpy
 
@@ -66,7 +65,7 @@ class M_PIPELINE_PT_log_monitoring(_MonitoringPanel, bpy.types.Panel):
 
     def draw_content(self, context, layout, detail=True):
         state = context.window_manager.pipeline_log_monitoring
-        # Project monitoring's filters, the same way (monitor_filters()).
+        # the live page's filters, the same way (monitor_filters()).
         row, next_row = monitor_filters(context, layout)
         row.prop(state, "level", expand=True)
         row = next_row()

@@ -144,6 +144,12 @@ def apply_migration(root: Path, plan: dict) -> dict:
             if not target.exists():  # a second run the same minute: the first copy
                 shutil.copy2(path, target)
             with locked_json(path) as box:
+                # Written since the preview read it (a note, a save, another
+                # machine): left as it is, not overwritten with the data
+                # read before -- the migration runs again for it.
+                if f.get("mtime") is not None and _mtime(path) != f["mtime"]:
+                    errors.append((str(path), "changed since the preview: run Migrate old data again"))
+                    continue
                 box["data"] = f["data"]
                 box["action"] = "to_write"
             written += 1
@@ -278,9 +284,9 @@ def _plan_owner(root: Path, owner: Path, is_shot: bool, v_prefix: str, history: 
         found.append((entry.path, data, changes))
 
     history_path = pipeline / "render_history.json"
-    history = read_json_quiet(history_path) if history_path.is_file() else None
-    if history:
-        found.append((str(history_path), history, _migrate_history(history, root, owner, is_shot, v_prefix)))
+    renders = read_json_quiet(history_path) if history_path.is_file() else None
+    if renders:
+        found.append((str(history_path), renders, _migrate_history(renders, root, owner, is_shot, v_prefix)))
 
     out = []
     for path, data, changes in found:
@@ -290,8 +296,17 @@ def _plan_owner(root: Path, owner: Path, is_shot: bool, v_prefix: str, history: 
         if _migrate_dates(data):
             changes = [*changes, "dates with their offset"]
         if changes:
-            out.append({"path": path, "data": data, "changes": changes})
+            out.append({"path": path, "data": data, "changes": changes, "mtime": _mtime(path)})
     return out
+
+
+def _mtime(path) -> int | None:
+    """A file's modification time (ns), None when it can't be read: what
+    apply_migration() compares, the file changed since it was read."""
+    try:
+        return os.stat(path).st_mtime_ns
+    except OSError:
+        return None
 
 
 def _read_metas(entries: list, suffix: str) -> list[tuple]:

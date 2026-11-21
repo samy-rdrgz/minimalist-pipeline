@@ -15,7 +15,7 @@ from ..lib import (
 
 
 class M_PIPELINE_PT_farm_panel(bpy.types.Panel):
-    """Farm monitoring."""
+    """The farm: its host, this machine as a worker, the live page's Farm tab."""
 
     bl_label = ""
     bl_idname = "M_PIPELINE_PT_farm_panel"
@@ -32,7 +32,7 @@ class M_PIPELINE_PT_farm_panel(bpy.types.Panel):
     def draw_header(self, context):
         layout = self.layout.row(align=True)
         layout.separator(factor=0.4)
-        # A button opening Farm monitoring, its text left-aligned like a label.
+        # A button opening the live page's Farm tab, its text left-aligned like a label.
         status_row = layout.row(align=True)
         status_row.alignment = "LEFT"
 
