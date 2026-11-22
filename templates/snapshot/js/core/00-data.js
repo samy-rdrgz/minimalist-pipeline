@@ -219,5 +219,9 @@ const S = {
   gAll: false,
   gFocus: null
 };
+/* The list's columns hidden (the eye by the filters): "thumb", "prog", departments -- remembered by this browser. */
+/* Renders marked checked here, by file: out of its renders to check until Blender's data says so too. */
+S.checkedKeys = {};
+S.hideCols = new Set((LS.get('mp-snapshot:cols') || '').split(',').filter(Boolean));
 /* Tracked only (Filters): remembered by this browser. */
 if (LS.get('mp-snapshot:tracked')) S.more.add('tracked');

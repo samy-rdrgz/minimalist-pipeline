@@ -38,7 +38,7 @@ function abHTML(it, ctx) {
   const { V, b } = mVer(it);
   if (V.length < 2) return '';
   return `<div class="ctl abrow"><span class="join" role="group" aria-label="${T('Version shown')}"><button class="btn" data-ab="A" aria-pressed="${S.m.side === 'A'}" title="${T('Version A (C)')}">A</button><button class="btn" data-ab="B" aria-pressed="${S.m.side === 'B'}" title="${T('Version B, same frame (C)')}">B</button></span>
-    <span class="anchor vpick"><button class="enum" data-menu="m-verb-${ctx}" aria-haspopup="true" aria-expanded="false" title="${T('The version to compare (B)')}"><b class="ab b">B</b><span class="lb">${esc(verLab(V[b]))}</span>${ic('b-tria_down')}</button>
+    <span class="anchor vpick"><button class="enum" data-menu="m-verb-${ctx}" aria-haspopup="true" aria-expanded="false" title="${T('The version to compare (B)')}"><b class="ab b">B</b><span class="lb">${esc(verLab(V[b]))}</span>${ic('b-downarrow_hlt')}</button>
     <div class="menu" id="m-verb-${ctx}" hidden role="menu"><div class="menu-h">${T('Compare with')}</div>${V.map((x, n) => `<button class="mi" role="menuitemradio" aria-checked="${n === b}" data-verb="${n}"><span class="ck">${n === b ? ic('b-checkmark') : ''}</span><span class="lbl">${esc(verLab(x))}</span>${n === 0 ? '<span class="k">' + T('latest') + '</span>' : ''}</button>`).join('')}</div></span></div>`;
 }
 function verHTML(it, ctx) {
@@ -47,8 +47,29 @@ function verHTML(it, ctx) {
   const i = Math.min(S.ver[it.name] || 0, V.length - 1);
   if (V.length < 2)
     return `<span class="vro">${ic('b-file_movie')}<span class="lb">${esc(verLab(V[0]))}</span></span>`;
-  return `<span class="anchor vpick"><button class="enum" data-menu="m-ver-${ctx}" aria-haspopup="true" aria-expanded="false" title="${T('The render version to watch (A)')}"><b class="ab">A</b><span class="lb">${esc(verLab(V[i]))}</span><span class="n">${i + 1}/${V.length}</span>${ic('b-tria_down')}</button>
+  return `<span class="anchor vpick"><button class="enum" data-menu="m-ver-${ctx}" aria-haspopup="true" aria-expanded="false" title="${T('The render version to watch (A)')}"><b class="ab">A</b><span class="lb">${esc(verLab(V[i]))}</span><span class="n">${i + 1}/${V.length}</span>${ic('b-downarrow_hlt')}</button>
     <div class="menu" id="m-ver-${ctx}" hidden role="menu"><div class="menu-h">${T('Version to watch')}</div>${V.map((x, n) => `<button class="mi" role="menuitemradio" aria-checked="${n === i}" data-ver="${n}"><span class="ck">${n === i ? ic('b-checkmark') : ''}</span><span class="lbl">${esc(verLab(x))}</span>${n === 0 ? '<span class="k">' + T('latest') + '</span>' : ''}</button>`).join('')}</div></span>`;
+}
+/* Its renders to check: a block of their own (what to watch), Checked… opening the dialog. */
+/* Its renders to check (live: each by its key). One Checked… each: an animation playblast and a
+   lighting render aren't watched by the same people. */
+const checksOf = it => ((it.live || {}).checks || []).filter(c => !(S.checkedKeys[it.name] || []).includes(c.key));
+const checkLabel = c => [c.shot, c.department, c.folder].filter(Boolean).join(' · ');
+function checkHTML(it) {
+  if (!it.toCheck) return '';
+  const l = checksOf(it),
+    btn = key =>
+      `<button class="btn sm primary" data-checked="${esc(key)}" title="${T('Watched: out of "to check", its departments done or validated')}">${ic('b-checkmark')}${T('Checked…')}</button>`;
+  if (l.length < 2)
+    return `<div class="chkbar">${ic('b-hide_off')}<span class="t"><b>${T('Render to check')}</b><small>${l.length ? esc(checkLabel(l[0])) : T('Rendered, not checked by the team yet')}</small></span>${btn(l.length ? l[0].key : '')}</div>`;
+  // Several renders: each row puts its own version in the player.
+  const V = versOf(it),
+    on = V[mVer(it).i],
+    watch = c => {
+      const is = on && (c.shot || '') === shotOf(it) && on.folder === c.folder;
+      return `<button class="btn sm flat" data-ckwatch="${esc(c.key)}" aria-pressed="${!!is}" title="${T('Watch this version')}">${ic('b-play')}${T('Watch')}</button>`;
+    };
+  return `<div class="chkbar">${ic('b-hide_off')}<span class="t"><b>${T('{n} renders to check', { n: l.length })}</b></span>${l.map(c => `<div class="ck1"><span>${esc(checkLabel(c))}</span>${watch(c)}${btn(c.key)}</div>`).join('')}</div>`;
 }
 function stageHTML(it) {
   const V = versOf(it),
@@ -63,13 +84,14 @@ function stageHTML(it) {
     })
     .join('');
   return `${shotsHTML(it)}<div class="stage ${S.m.side === 'B' && V.length > 1 ? 'is-b' : ''}">${it.thumb ? `<img src="${it.thumb}" alt="${T('Picture of {name}', { name: it.name })}">` : `<span class="noimg">${T('Not rendered yet')}</span>`}
-      <span class="hud">${V.length > 1 ? `<b class="ab">${S.m.side}</b> ` : ''}${shotOf(it) ? shotOf(it) + ' · ' : ''}${v ? esc(v.folder) + ' · f <span data-f>' + fNo(S.frame) + '</span>' : T('Not rendered yet')}</span></div>
+      <span class="hud">${V.length > 1 ? `<b class="ab">${S.m.side}</b> ` : ''}${shotOf(it) ? shotOf(it) + ' · ' : ''}${v ? esc(v.folder) + ' · f <span data-f>' + fNo(S.frame) + '</span>' : T('Not rendered yet')}</span>
+      <button class="btn sm w-ov" data-wide title="${T('Watch large: the video, the departments and the notes at their frames (W)')}">${ic('b-window')}${T('Watch large')}</button></div>
     <div class="scrub ${rendered(it) ? '' : 'off'}" data-scrub role="slider" tabindex="0" aria-label="${T('Frame')}" aria-valuemin="1" aria-valuemax="${NF}" aria-valuenow="${S.frame}">${mk}<span class="ph" style="left:${((S.frame - 1) / (NF - 1)) * 100}%"></span></div>
     <div class="ctl">
-      <span class="join"><button class="btn icon" data-tp="vprev" aria-label="${T('Previous version')}" title="${T('Previous version')}" ${V.length > 1 ? '' : 'disabled'}>${ic('b-back')}</button><button class="btn icon" data-tp="fprev" ${pOff(it)} aria-label="${T('Previous frame')}" title="${T('Previous frame (,)')}">${ic('b-frame_prev')}</button><button class="btn icon play" data-tp="play" ${pOff(it)} aria-label="${T('Play')}" title="${T('Play (Space)')}">${ic(S.playing ? 'b-pause' : 'b-play')}</button><button class="btn icon" data-tp="fnext" ${pOff(it)} aria-label="${T('Next frame')}" title="${T('Next frame (.)')}">${ic('b-frame_next')}</button><button class="btn icon" data-tp="vnext" aria-label="${T('Next version')}" title="${T('Next version')}" ${V.length > 1 ? '' : 'disabled'}>${ic('b-forward')}</button></span>
+      <span class="join"><button class="btn icon" data-tp="sprev" aria-label="${T('Previous shot')}" title="${it.kind === 'shot' ? T('Previous shot') : T('Previous file')}" ${stepOff(-1)}>${ic('b-back')}</button><button class="btn icon" data-tp="fprev" ${pOff(it)} aria-label="${T('Previous frame')}" title="${T('Previous frame (,)')}">${ic('b-frame_prev')}</button><button class="btn icon play" data-tp="play" ${pOff(it)} aria-label="${T('Play')}" title="${T('Play (Space)')}">${ic(S.playing ? 'b-pause' : 'b-play')}</button><button class="btn icon" data-tp="fnext" ${pOff(it)} aria-label="${T('Next frame')}" title="${T('Next frame (.)')}">${ic('b-frame_next')}</button><button class="btn icon" data-tp="snext" aria-label="${T('Next shot')}" title="${it.kind === 'shot' ? T('Next shot') : T('Next file')}" ${stepOff(1)}>${ic('b-forward')}</button></span>
       <span class="join"><button class="btn icon" data-tp="snd" aria-label="${T('Sound')}" title="${T('Sound (M)')}" aria-pressed="${!S.muted}">${ic(S.muted ? 'b-mute_ipo_off' : 'b-mute_ipo_on')}</button><button class="btn icon" data-act="player" ${V.length ? '' : 'disabled'} aria-label="${T("This machine's player")}" title="${T("Open the original video in this machine's player")}">${ic('b-file_movie')}</button></span>
       ${rendered(it) ? `<span class="fr">f <span data-f>${fNo(S.frame)}</span> / ${fNo(NF)}</span>` : ''}</div>
-    <div class="ctl">${verHTML(it, 'p')}<button class="btn" data-wide title="${T('Watch large: the video, the departments and the notes at their frames (W)')}">${ic('b-window')}${T('Watch large')}</button></div>${abHTML(it, 'p')}`;
+    <div class="ctl">${verHTML(it, 'p')}</div>${abHTML(it, 'p')}`;
 }
 const assignOf = (it, d) => (it.assign && d in it.assign ? it.assign[d] : it.assignees[d] || []);
 function assignHTML(it, d, ctx) {
@@ -79,7 +101,7 @@ function assignHTML(it, d, ctx) {
     return a.length
       ? `<span class="assign ro" title="${T('Assigned to')}">${ic('b-user')}${esc(a.join(', '))}</span>`
       : '';
-  return `<span class="anchor"><button class="assign ${a.length ? '' : 'none'} ${chg ? 'chg' : ''}" data-menu="m-as-${ctx}-${d}" aria-haspopup="true" aria-expanded="false" title="${T('Assign {dept}', { dept: LBL[d] })}">${ic('b-user')}${a.length ? esc(a.join(', ')) : T('Assign')}${ic('b-tria_down')}</button>
+  return `<span class="anchor"><button class="assign ${a.length ? '' : 'none'} ${chg ? 'chg' : ''}" data-menu="m-as-${ctx}-${d}" aria-haspopup="true" aria-expanded="false" title="${T('Assign {dept}', { dept: LBL[d] })}">${ic('b-user')}${a.length ? esc(a.join(', ')) : T('Assign')}${ic('b-downarrow_hlt')}</button>
     <div class="menu right" id="m-as-${ctx}-${d}" hidden role="menu"><div class="menu-h">${T('{dept}: assigned to', { dept: LBL[d] })}</div>${M.team.map(p => `<button class="mi" role="menuitemcheckbox" aria-checked="${a.includes(p)}" data-assign="${d}" data-p="${esc(p)}"><span class="ck">${a.includes(p) ? ic('b-checkmark') : ''}</span><span class="lbl">${esc(p)}</span>${p === M.live.user ? '<span class="k">' + T('me') + '</span>' : ''}</button>`).join('')}
     <div class="msep"></div><button class="mi" data-assign="${d}" data-p=""><span class="ck"></span><span class="lbl">${T('Nobody')}</span></button></div></span>`;
 }
@@ -98,7 +120,7 @@ function deptHTML(it, d, ctx = 'p') {
     ? `<span class="acts">${
         it.mine[d]
           ? `<button class="btn sm tool" data-undo="${d}" title="${T('Take my change back')}">${ic('b-loop_back')}${T('Take back')}</button>`
-          : `${team ? '' : `<button class="btn sm ok icon" data-val="${d}" ${canVal ? '' : 'disabled'} aria-label="${T('Validate {dept}', { dept: LBL[d] })}" title="${canVal ? T('Validate as {role}', { role: rv.role }) : T('Nothing done to validate')}">${ic('b-checkmark')}</button>`}<button class="btn sm alert" data-rtk="${d}" title="${T('Write a retake under this department')}">Retake</button>`
+          : `${team ? '' : `<button class="btn sm ok icon" data-val="${d}" ${canVal ? '' : 'disabled'} aria-label="${T('Validate {dept}', { dept: LBL[d] })}" title="${canVal ? T('Validate as {role}', { role: rv.role }) : T('Nothing done to validate')}">${ic('b-checkmark')}</button>`}<button class="btn sm cmt" data-rtk="${d}" title="${T('Write under this department: a retake, a remark or a to do')}">${ic('b-greasepencil')}${T('Comment')}</button>`
       }</span>`
     : '';
   const ex = [
@@ -137,17 +159,36 @@ function formHTML(d) {
     ? `<div class="r chips"><span class="faint">${T('Departments')}</span>${deps.map(x => `<button class="btn sm" data-fdep="${x}" aria-pressed="${f.deps.includes(x)}">${esc(LBL[x])}</button>`).join('')}</div>`
     : '';
   const shots = sh.length
-    ? `<div class="r chips"><span class="faint">${T('Shots')}</span><button class="btn sm" data-fshot="" aria-pressed="${!f.shots.length}">${T('Whole block')}</button>${sh.map(x => `<button class="btn sm" data-fshot="${esc(x)}" aria-pressed="${f.shots.includes(x)}">${esc(x)}</button>`).join('')}</div>`
+    ? `<div class="r chips"><span class="faint">${T('Shots')}</span><button class="btn sm" data-fshot="" aria-pressed="${!f.shots.length}" title="${T('No shot named: the note is on every shot of the block')}">${T('All shots')}</button>${sh.map(x => `<button class="btn sm ${f.shots.length ? '' : 'all'}" data-fshot="${esc(x)}" aria-pressed="${!f.shots.length || f.shots.includes(x)}">${esc(x)}</button>`).join('')}</div>`
     : '';
   return `<div class="form"><span class="join">${types.map(([k, l]) => `<button class="btn sm" data-ftype="${k}" aria-pressed="${f.type === k}">${l}</button>`).join('')}</span>
     ${chips}${shots}
     <label class="field ta"><textarea id="f-txt" rows="2" placeholder="${f.type === 'rtk' ? (f.deps.length === 1 ? T("What's wrong on {dept}…", { dept: LBL[f.deps[0]] }) : T("What's wrong…")) : T('A remark, nothing sent back…')}" aria-label="${T('Text')}"></textarea></label>
     <div class="r"><label class="field" style="width:calc(110px*var(--scale))"><span class="faint">f</span><input id="f-fr" value="${!rendered(it) ? '' : S.rangeStart != null ? fNo(Math.min(S.rangeStart, S.frame)) + '-' + fNo(Math.max(S.rangeStart, S.frame)) : fNo(S.frame)}" aria-label="${T('Frame or range')}"></label>
-    <span class="faint" style="font-size:var(--fs-s)">${T('Ctrl+Enter')}</span><span style="flex:1"></span><button class="btn sm" data-fcancel>${T('Cancel')}</button><button class="btn sm ${f.type === 'rtk' ? 'alert' : 'primary'}" data-fok>${T('Write')}</button></div></div>`;
+    <span class="faint" style="font-size:var(--fs-s)">${T('Ctrl+Enter')}</span><span style="flex:1"></span><button class="btn sm" data-fcancel>${T('Cancel')}</button><button class="btn sm wr ${f.type}" data-fok>${T('Write')}</button></div></div>`;
+}
+/* The notes sent together (one review id: a pack imported, a live sitting) under one header --
+   author, role, date, how many -- as Blender draws them; the others as they are. Not when sorted by
+   frame: that order is the point. */
+function notesGrouped(it, ns) {
+  if (S.noteFilter === 'frame') return ns.map(n => noteHTML(it, n)).join('');
+  const by = {};
+  ns.forEach(n => n.rid && !n.mine && (by[n.rid] = (by[n.rid] || 0) + 1));
+  const seen = new Set();
+  return ns
+    .map(n => {
+      if (!n.rid || n.mine || by[n.rid] < 2) return noteHTML(it, n);
+      if (seen.has(n.rid)) return '';
+      seen.add(n.rid);
+      const g = ns.filter(x => x.rid === n.rid && !x.mine);
+      const who = [g[0].author, g[0].role].filter(Boolean).map(esc).join(' · ');
+      return `<div class="rvg"><div class="rvg-h">${ic('b-greasepencil')}<span>${who || T('Sent together')}</span><span class="sp"></span><span>${fmtD(g[g.length - 1].date)}</span><span class="n">${T('{n} note|{n} notes', { n: g.length })}</span></div>${g.map(x => noteHTML(it, { ...x, ingrp: 1 })).join('')}</div>`;
+    })
+    .join('');
 }
 function notesHTML(it) {
   let ns = [...it.myNotes.map(n => ({ ...n, mine: 1 })), ...it.notes];
-  if (S.noteFilter === 'open') ns = ns.filter(n => !n.done);
+  if (S.noteFilter === 'open') ns = ns.filter(n => !n.done && !n.approval);
   if (S.noteFilter === 'frame')
     ns = ns.filter(n => n.frames).sort((a, b) => parseInt(a.frames.slice(1)) - parseInt(b.frames.slice(1)));
   const gen = S.form && S.form.dept === '' ? `<div class="dept">${formHTML('')}</div>` : '';
@@ -163,7 +204,7 @@ function notesHTML(it) {
         )
         .join('')}</span>
       ${S.review ? `<button class="btn sm" data-gen title="${T('A retake or a remark on no department (X)')}">${ic('b-add')}${T('Note')}</button>` : ''}</div>${gen}
-    ${ns.length ? ns.map(n => noteHTML(it, n)).join('') : `<span class="faint">${S.noteFilter === 'all' ? T('No note.') : S.noteFilter === 'frame' ? T('No note at a frame.') : T('No open note.')}</span>`}</div>`;
+    ${ns.length ? notesGrouped(it, ns) : `<span class="faint">${S.noteFilter === 'all' ? T('No note.') : S.noteFilter === 'frame' ? T('No note at a frame.') : T('No open note.')}</span>`}</div>`;
 }
 /* An entry of mine, sent or not (a note, a reply): a small pencil by its date opens it to edit, Delete inside (asked twice).
    Sent ones change through the review (edit / delete, by their author); not sent yet, they change at once. */
@@ -189,7 +230,11 @@ const edSay = x =>
   x.ed !== undefined
     ? ` <span class="tag you">${x.del ? T('deleted, not sent yet') : T('edited, not sent yet')}</span><button class="btn flat icon xs" data-neundo="${esc(x.key)}" aria-label="${T('Take my change back')}" title="${T('Take my change back')}">${ic('b-loop_back')}</button>`
     : '';
+/* A validation's own line (Validated (prod): lighting, …): a record, not a note -- no reply, no edit. */
+const approvalHTML = n =>
+  `<div class="nt appr"><div class="h"><span class="type val">${ic('b-checkmark')}${T('validation')}</span>${(n.deps || []).map(d => LBL[d] || d).join(', ')}${n.role ? `<span>· ${esc(n.role)}</span>` : ''}<span class="sp"></span><span class="who">${esc(n.author || '')}</span><span>${fmtD(n.date)}</span></div><div class="t">${esc(n.text)}</div></div>`;
 function noteHTML(it, n) {
+  if (n.approval && !n.mine) return approvalHTML(n);
   const reps = [
     ...(n.replies || []),
     ...(it.myReplies[n.id] || []).map((r, k) => ({ ...r, mine: 1, rk: k }))
@@ -198,7 +243,8 @@ function noteHTML(it, n) {
     S.reply === n.id
       ? `<div class="form"><label class="field ta"><textarea id="r-txt" rows="2" placeholder="${T('Your reply…')}" aria-label="${T('Reply')}"></textarea></label><div class="r"><span style="flex:1"></span><button class="btn sm" data-rcancel>${T('Cancel')}</button><button class="btn sm primary" data-rok="${n.id}">${T('Reply')}</button></div></div>`
       : '';
-  const who = n.type === 'rtk' ? (n.team ? T('team') : n.role || T('team')) : '';
+  // In a review's box, its author and role are said once, in the box's head.
+  const who = n.ingrp ? '' : n.type === 'rtk' ? (n.team ? T('team') : n.role || T('team')) : '';
   const x = entryEd(it, n, n.mine ? 'm' + n.at : n.id);
   const repHTML = r => {
     const y = entryEd(it, r, r.mine ? 'r' + n.id + ':' + r.rk : r.id);
@@ -206,8 +252,8 @@ function noteHTML(it, n) {
       ${S.nedit === y.key ? edFormHTML(y, !r.mine) : `<div class="t">${esc(y.txt)}${edSay(y)}</div>`}</div>`;
   };
   return `<div class="nt ${n.type} ${n.done ? 'closed' : ''} ${n.mine ? 'mine' : ''} ${x.del ? 'gone' : ''} ${x.ed !== undefined ? 'chg' : ''}">
-    <div class="h"><span class="type ${n.type}">${n.type === 'rtk' ? 'RTK' : n.type === 'todo' ? T('to do') : T('note')}</span>${(n.deps || []).length ? n.deps.map(d => LBL[d] || d).join(', ') : '<span>' + T('no department') + '</span>'}${who ? `<span>· ${esc(who)}</span>` : ''}
-      ${n.frames ? `<button class="chip-frame" data-goto="${parseInt(String(n.frames).replace(/\D+/, ''))}" title="${T('Go to {frame}', { frame: esc(n.frames) })}">${esc(n.frames)}</button>` : ''}${n.mine ? '<span class="tag you">' + T('you') + '</span>' : ''}<span class="sp"></span><span class="who">${esc(n.author && n.author !== 'unknown' ? n.author : '')}</span><span>${fmtD(n.date)}</span>${n.done ? '<span>· ' + T('closed') + '</span>' : ''}${penHTML(x)}</div>
+    <div class="h"><span class="type ${n.type}" ${n.done ? `title="${T('closed')}"` : ''}>${n.done ? ic('b-checkmark') : ''}${n.type === 'rtk' ? 'RTK' : n.type === 'todo' ? T('to do') : T('note')}</span>${(n.deps || []).length ? n.deps.map(d => LBL[d] || d).join(', ') : '<span>' + T('no department') + '</span>'}${who ? `<span>· ${esc(who)}</span>` : ''}
+      ${n.frames ? `<button class="chip-frame" data-goto="${parseInt(String(n.frames).replace(/\D+/, ''))}" title="${T('Go to {frame}', { frame: esc(n.frames) })}">${esc(n.frames)}</button>` : ''}${n.mine ? '<span class="tag you">' + T('you') + '</span>' : ''}<span class="sp"></span><span class="who">${esc(!n.ingrp && n.author && n.author !== 'unknown' ? n.author : '')}</span><span class="${n.ingrp ? 'subd' : ''}">${fmtD(n.date)}</span>${n.done ? '<span>· ' + T('closed') + '</span>' : ''}${penHTML(x)}</div>
     ${S.nedit === x.key ? edFormHTML(x, !n.mine) : `<div class="t ${x.txt ? '' : 'empty'}">${x.txt ? esc(x.txt) : T('(no text)')}${edSay(x)}</div>`}
     ${reps.length ? `<div class="rep">${reps.map(repHTML).join('')}</div>` : ''}
     ${rf}
@@ -290,21 +336,28 @@ const rushSay = it =>
   it.rush
     ? T('In the edit since {date}, pushed by {who}', { date: fmtD(it.rush.at), who: it.rush.by || '?' })
     : '';
+/* The file's facts (its .blend files, who saved last, who has it open, the work time): on top of
+   Versions -- the Files tab they had said again what Versions and Render history say. */
 function filesHTML(it) {
   // To the half hour: an estimate, not a count to the minute.
   const w = it.work ? T('about {h} h', { h: Math.max(0.5, Math.round(it.work / 1800) / 2) }) : '–';
-  const row = (k, v, btn = '') =>
-    `<div class="prop"><span class="k">${k}</span><span class="v"><span class="ro" title="${esc(v)}">${esc(v || '–')}</span>${btn}</span></div>`;
-  const pr = F.presets.find(p => p[0] === S.preset) || F.presets[0];
+  const row = (k, v) =>
+    `<div class="prop"><span class="k">${k}</span><span class="v"><span class="ro" title="${esc(v)}">${esc(v || '–')}</span></span></div>`;
   return `<div class="sec"><div class="sec-h">${T('Files')}</div>
-    ${row(T('Wip file'), it.file ? it.file + '.blend' : '')}${openBy(it).length ? row(T('Open now'), openBy(it).join(', ')) : ''}${it.saved && it.saved.by ? row(T('Saved last'), T('{who}, {date}', { who: it.saved.by, date: fmtD(it.saved.at) })) : ''}${row('Stable', it.stableFile ? it.stableFile + '.blend' : '')}
+    ${it.wip || !it.stableFile ? row(T('Wip file'), it.file ? it.file + '.blend' : '') : ''}${openBy(it).length ? row(T('Open now'), openBy(it).join(', ')) : ''}${it.saved && it.saved.by ? row(T('Saved last'), T('{who}, {date}', { who: it.saved.by, date: fmtD(it.saved.at) })) : ''}${row('Stable', it.stableFile ? it.stableFile + '.blend' : '')}
     ${row(T('Work time'), w)}<p class="faint" style="margin:0;font-size:var(--fs-s)">${T('Every session that saved, every version, everyone together.')}</p>
-    ${it.shots && it.shots.length ? row(T('Shots of the block'), it.shots.join(' · ')) : ''}</div>
-  <div class="sec"><div class="sec-h">${T('Renders')}</div>
-    ${it.versions.length ? it.versions.map((v, n) => `<div class="prop"><span class="k">${n === 0 ? T('Last') : ''}</span><span class="v"><span class="ro">${esc(verLab(v))}</span><button class="btn icon" data-ver="${n}" aria-label="${T('Watch')}" title="${T('Watch this version')}">${ic('b-play')}</button><button class="btn icon" data-act="player" aria-label="${T("This machine's player")}" title="${T("Open in this machine's player")}">${ic('b-file_movie')}</button>${v.video ? `<button class="btn icon live-only ${rushIs(it, v) ? 'rush-on' : ''}" data-push="${n}" aria-pressed="${rushIs(it, v)}" aria-label="${T('Push to the edit')}" title="${rushIs(it, v) ? esc(rushSay(it)) + ' · ' + T('Push it again') : T('Push to the edit: editing/rushes/, under its name without version')}">${ic('b-export')}</button>` : ''}</span></div>`).join('') : '<span class="faint">' + T('No render.') + '</span>'}
-    ${it.rush && !it.versions.some(v => rushIs(it, v)) ? row(T('In the edit'), it.rush.render, '') : ''}
-    ${row('Farm', it.farm ? TS(it.farm.text) : T('no job'))}</div>
-  <div class="pacts live-only"><button class="btn primary" data-render>${ic('b-render_animation')}${T('Render…')}</button></div>`;
+    ${it.shots && it.shots.length ? row(T('Shots of the block'), it.shots.join(' · ')) : ''}</div>`;
+}
+/* Its last renders, to watch or push to the edit, its farm state and Render…: on top of Render history. */
+function lastRendersHTML(it) {
+  const row = (k, v) =>
+    `<div class="prop"><span class="k">${k}</span><span class="v"><span class="ro" title="${esc(v)}">${esc(v || '–')}</span></span></div>`;
+  // Render… in the section's head; the farm a line of its own, never a row like a department's.
+  return `<div class="sec"><div class="sec-h">${T('Last renders')}<span class="sp"></span><button class="btn sm primary live-only" data-render>${ic('b-render_animation')}${T('Render…')}</button></div>
+    ${it.farm ? `<p class="farmline ${it.farm.state === 'failed' ? 'bad' : ''}" title="${esc(TS(it.farm.tip || it.farm.text))}">${ic(it.farm.state === 'waiting' ? 'b-sorttime' : it.farm.state === 'failed' ? 'b-error' : 'b-render_animation')}${T('In the farm: {what}', { what: esc([TS(it.farm.tip || it.farm.text), it.farm.shot, it.farm.version].filter(Boolean).join(' · ')) })}</p>` : ''}
+    ${it.versions.length ? it.versions.map((v, n) => `<div class="prop"><span class="k">${v.dept ? esc(LBL[v.dept] || v.dept) : T('No department')}</span><span class="v"><span class="ro">${esc([v.shot, v.folder, v.at ? fmtDay(v.at) : ''].filter(Boolean).join(' · '))}</span><button class="btn icon" data-ver="${n}" aria-label="${T('Watch')}" title="${T('Watch this version')}">${ic('b-play')}</button><button class="btn icon" data-act="player" aria-label="${T("This machine's player")}" title="${T("Open in this machine's player")}">${ic('b-file_movie')}</button>${v.video ? `<button class="btn icon live-only ${rushIs(it, v) ? 'rush-on' : ''}" data-push="${n}" aria-pressed="${rushIs(it, v)}" aria-label="${T('Push to the edit')}" title="${rushIs(it, v) ? esc(rushSay(it)) + ' · ' + T('Push it again') : T('Push to the edit: editing/rushes/, under its name without version')}">${ic('b-export')}</button>` : ''}</span></div>`).join('') : '<span class="faint">' + T('No render.') + '</span>'}
+    ${it.rush && !it.versions.some(v => rushIs(it, v)) ? row(T('In the edit'), it.rush.render) : ''}
+</div>`;
 }
 function headHTML(it) {
   const d = it.descEdit !== undefined ? it.descEdit : it.desc;
@@ -314,11 +367,10 @@ function headHTML(it) {
   return `<span class="phead"><span class="pname">${it.name}</span>${desc}</span>
     <button class="btn flat icon live-only" data-render aria-label="${T('Render')}" title="${T('Render: send to the farm, with its settings')}">${ic('b-render_animation')}</button>
     <button class="btn flat icon" data-act="copy" aria-label="${T('Copy a link to this file')}" title="${T('Copy a link to this file')}">${ic('b-linked')}</button>
-    <span class="anchor"><button class="btn flat icon" data-settings aria-label="${T('File settings')}" title="${T('Settings: required departments, set aside')}">${ic('b-preferences')}</button></span>
     <button class="btn flat icon live-only" data-act="blender" aria-label="${T('Open in Blender')}" title="${T('Open in Blender')}">${ic('b-blender')}</button>
     <button class="btn flat icon live-only" data-act="blendfolder" aria-label="${T('Open its folder')}" title="${T("Its folder: the .blend's, in this machine's file browser")}">${ic('b-file_folder')}</button>
     ${(it.versions || []).length ? `<button class="btn flat icon live-only" data-act="renderfolder" aria-label="${T('Open its render folder')}" title="${T("Its render folder, in this machine's file browser")}">${ic('b-render_result')}</button>` : ''}
-    <span class="join"><button class="btn icon" id="pp-prev" aria-label="${T('Previous file')}" title="${T('Previous (↑)')}">${ic('b-tria_up')}</button><button class="btn icon" id="pp-next" aria-label="${T('Next file')}" title="${T('Next (↓)')}">${ic('b-tria_down')}</button></span>
+    <span class="join"><button class="btn icon" id="pp-prev" ${stepOff(-1)} aria-label="${T('Previous file')}" title="${T('Previous (↑)')}">${ic('b-tria_up')}</button><button class="btn icon" id="pp-next" ${stepOff(1)} aria-label="${T('Next file')}" title="${T('Next (↓)')}">${ic('b-tria_down')}</button></span>
     <button class="btn flat icon only-mid only-port" data-pmax aria-label="${T('The detail on the whole width')}"></button>
     <button class="btn flat icon only-phone" id="pp-close" aria-label="${T('Close')}" title="${T('Close (Esc)')}">${ic('b-x')}</button>`;
 }
@@ -353,22 +405,20 @@ function renderProps() {
     ],
     ['notes', 'i-note', T('Notes'), nn, nr ? 'r' : ''],
     ['links', 'b-linked', T('Links'), nl, lo ? 'r' : ''],
-    ['files', 'b-file', T('Files and renders')],
-    ['versions', 'b-sorttime', T('Versions')],
+    ['versions', 'b-file_blend', T('Versions')],
     ['renders', 'b-render_result', T('Render history')]
   ]
     .map(
       ([k, i, l, n, c]) =>
         `<button class="vtab" role="tab" data-tab="${k}" aria-selected="${S.tab === k}" title="${l}" aria-label="${l}">${ic(i)}${n ? `<span class="cnt ${c || ''}">${n}</span>` : ''}</button>`
     )
-    .join('');
+    .join('') +
+    // The file's settings, at the bar's foot: apart from the tabs, a popover.
+    `<span class="vsp"></span><span class="anchor"><button class="vtab" data-settings aria-label="${T('File settings')}" title="${T('Settings: required departments, set aside')}">${ic('b-preferences')}</button></span>`;
   const om = it.setAside !== undefined ? it.setAside : it.omit;
   const tags = [
     om && om.state
       ? `<span class="tag omit">${om.state === 'cancelled' ? T('Cancelled') : T('On hold')}${om.reason ? ' · ' + esc(om.reason) : ''}</span>`
-      : '',
-    it.toCheck
-      ? `<span class="tag check">${ic('b-hide_off')}${T('render to check')}</span><button class="btn sm" data-checked title="${T('Checked: no longer "to check"')}">${T('Checked')}</button>`
       : '',
     it.outdated ? `<span class="tag check">${ic('b-error')}${T('render outdated')}</span>` : '',
     it.farm
@@ -380,16 +430,16 @@ function renderProps() {
   let h = '';
   if (S.tab === 'plan') {
     const req = DEPTS[it.kind].filter(d => required(it).includes(d));
-    h = `<div class="sec">${stageHTML(it)}${tags ? `<div class="pacts tags">${tags}</div>` : ''}</div>
+    h = `<div class="sec">${stageHTML(it)}${checkHTML(it)}${tags ? `<div class="pacts tags">${tags}</div>` : ''}</div>
      <div class="sec"><div class="sec-h">${T('Departments')}<span class="sp"></span>${S.review && S.review.role !== TEAM ? `<button class="btn sm ok" data-valall title="${T('Validate every done department (V)')}">${ic('b-checkmark')}${T('All the done')}</button>` : ''}</div>
      ${req.length ? req.map(d => deptHTML(it, d)).join('') : '<span class="faint">' + T('No department required.') + '</span>'}${!S.review ? '<p class="faint" style="margin:0;font-size:var(--fs-s)">' + T('Start a review to validate, ask for a retake or assign.') + '</p>' : ''}</div>
      <button class="notes-link" data-tab="notes">${ic('i-note')}<span>${T('Notes')}</span>${nr ? `<span class="tag rtk">${nr} RTK</span>` : ''}<span class="faint">${T('{n} open', { n: nn })}</span><span class="sp"></span>${ic('b-tria_right')}</button>`;
   }
   if (S.tab === 'notes') h = notesHTML(it);
   if (S.tab === 'links') h = linksHTML(it);
-  if (S.tab === 'files') h = filesHTML(it);
-  if (S.tab === 'versions') h = versionsHTML(it);
-  if (S.tab === 'renders') h = rendersHTML(it);
+  if (S.tab === 'files') S.tab = 'versions'; // the Files tab, merged into these two (a page kept open)
+  if (S.tab === 'versions') h = filesHTML(it) + versionsHTML(it);
+  if (S.tab === 'renders') h = lastRendersHTML(it) + rendersHTML(it);
   B.innerHTML = h;
   if (S.tab === 'links') requestAnimationFrame(drawWires);
   if (S.tab === 'versions' || S.tab === 'renders') requestAnimationFrame(drawChain);

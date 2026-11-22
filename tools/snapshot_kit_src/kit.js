@@ -247,7 +247,10 @@ const DESK = [
             `<button role="tab" aria-selected="${!n}">${ic(i)}<span class="lbl">${l}</span>${c !== '' ? `<span class="n">${c}</span>` : ''}</button>`
         )
         .join('')}</div>`,
-    r: ['A click changes the whole page. In a snapshot, there is no Farm.']
+    r: [
+      'A click changes the whole page. In a snapshot, there is no Farm.',
+      "Blender's: rounded on top, square at the foot; the bar in the panels' grey (--area), the selected tab the bright blue."
+    ]
   },
   {
     n: 'Vertical tabs',
@@ -290,7 +293,7 @@ const DESK = [
     c: '.tag',
     m: '.tag',
     d: () =>
-      `<div class="kc-row"><span class="tag check" data-kv="check">${ic('b-hide_off')}to check</span><span class="tag you" data-kv="you">you</span><span class="tag rtk" data-kv="rtk">2 RTK</span><span class="tag omit" data-kv="omit">On hold</span><span class="tag fail" data-kv="fail">farm failed</span><span class="tag" data-kv="note">${ic('i-note')}3</span></div>`,
+      `<div class="kc-row"><span class="tag tochk" data-kv="to check">${ic('b-hide_off')}to check</span><span class="tag check" data-kv="outdated">${ic('b-error')}render outdated</span><span class="tag you" data-kv="you">you</span><span class="tag rtk" data-kv="rtk">2 RTK</span><span class="tag omit" data-kv="omit">On hold</span><span class="tag fail" data-kv="fail">farm failed</span><span class="tag" data-kv="note">${ic('i-note')}3</span></div>`,
     r: [
       "A tag says a fact about the file; it isn't clicked.",
       "An opaque chip (the dialogs' ground), never a tint, never an outline.",
@@ -314,8 +317,11 @@ const DESK = [
     c: '.review-chip',
     m: '.review-chip',
     d: () =>
-      `<div class="topbar" style="min-height:0;padding:var(--sp-4)"><span class="review-chip"><span class="who">Valerie · prod</span><button class="btn primary">${ic('b-export')}Send…<span class="n">4</span></button><button class="btn flat icon" aria-label="Leave">${ic('b-x')}</button></span></div>`,
-    r: ['The top bar\'s tint; the solid "you" dot, the colour of the glyphs\' corner.']
+      `<div class="topbar" style="padding:var(--sp-4)"><span class="review-chip"><span class="who">Valerie · prod</span><button class="btn primary">${ic('b-export')}Send…<span class="n">4</span></button><button class="btn flat icon" aria-label="Leave">${ic('b-x')}</button></span></div>`,
+    r: [
+      "As the tabs' bar: the panels' grey (--area), no border, but rounded at its four corners.",
+      'The solid "you" dot, the colour of the glyphs\' corner. Live: the sync state in place of Send….'
+    ]
   },
   {
     n: 'Assignment',
@@ -340,8 +346,8 @@ const DESK = [
     d: () =>
       `<span class="jbar" style="width:280px"><i style="--p:42%"></i><span>40 / 96 frames</span></span><span class="sf in" style="--p:74%;--c:var(--st-done);width:280px"><span class="lab on">Done</span><b class="v">74 %</b></span><span class="sf" style="--p:12%;--c:var(--st-val);width:280px"><span class="lab">Validated</span><b class="v">12 %</b></span>`,
     r: [
-      'Always the figure beside the bar.',
-      'The bar solid in its state colour; the figure black, on a white see-through pill over the bar, blurred.'
+      'The bar solid in its state colour; the figure black, on a white see-through pill over the bar, blurred.',
+      "With a mouse, the figure shows on the bar hovered (the list's: on the row hovered or selected); a touch screen shows it always."
     ]
   },
   {
@@ -366,7 +372,8 @@ const DESK = [
       `<div style="max-width:520px;display:flex;flex-direction:column;gap:var(--sp-4)">${DEPTS.shot.map(d => deptHTML(it2, d, 'k')).join('')}</div>`,
     r: [
       "A card per required department; the others aren't shown.",
-      'Actions aligned right, always in the same place.'
+      'Actions aligned right, always in the same place -- shown on the card hovered (with a mouse): faded in, narrowed to nothing at rest so the words keep their width.',
+      'Its second line folds away when it only held buttons (no assignee, nothing waiting or to redo): the card one line at rest.'
     ]
   },
   {
@@ -376,7 +383,10 @@ const DESK = [
     wide: 1,
     d: () =>
       `<div style="max-width:520px">${[...it2.myNotes.map(n => ({ ...n, mine: 1 })), ...it1.notes.slice(0, 2)].map(n => noteHTML(n.mine ? it2 : it1, n)).join('')}</div>`,
-    r: ['Yours in turquoise until they are sent.']
+    r: [
+      'Yours in turquoise until they are sent.',
+      'Its buttons (Fixed, Reply, Take back) and its pen fold in on the note hovered; closing quicker than opening.'
+    ]
   },
   {
     n: 'List: sequence and rows',
@@ -393,7 +403,8 @@ const DESK = [
     },
     r: [
       'Separators between rows, no stripes.',
-      'A lighter sequence header, Play the sequence beside its name.'
+      "The sequence header in its outline's colour, glass (the rows blurred under it, stuck); always one line, its bars shrinking first.",
+      'Play the sequence / + shot on the header hovered; Progress\'s figures on the row hovered or selected.'
     ]
   },
   {
@@ -448,6 +459,60 @@ const DESK = [
     wide: 1,
     d: () => `<div class="jobs" style="max-width:620px">${jobRow(job)}${jobRow(jobF)}</div>`,
     r: ['State (dot) · file · % · machines. Live only.']
+  },
+  {
+    n: 'Top bar',
+    c: '.topbar .tools .ws',
+    m: '.topbar .tb,.ws [role=tab]',
+    wide: 1,
+    d: () =>
+      `<div class="topbar" style="padding:var(--sp-4) var(--sp-5) 0"><div class="brand"><b>demo</b></div><span class="live"><i></i>live</span><div class="tools"><button class="btn flat tb"><span class="lbl">Menu</span></button><button class="btn flat tb">${ic('i-bell', 'i tbi')}<span class="lbl">What's new</span></button><button class="btn flat tb">${ic('b-viewzoom', 'i tbi')}<span class="lbl">Search</span></button><button class="btn flat tb">${ic('b-question', 'i tbi')}<span class="lbl">Legend</span></button></div><div class="ws" role="tablist"><button role="tab" aria-selected="true">${ic('b-camera_data')}<span class="lbl">Shots</span><span class="n">17</span></button><button role="tab" aria-selected="false">${ic('b-asset_manager')}<span class="lbl">Assets</span><span class="n">14</span></button></div><span class="sp"></span><span class="review-chip"><span class="who">Valerie · prod</span></span></div>`,
+    r: [
+      "On the screen's own colour, no box. Everything sits on the tabs' foot.",
+      'Menu, What\'s new, Search, Legend left of the tabs: words while the tabs have their room, icons when they are squeezed (fitTop()).',
+      'The project alone on the left; "live · date · author" is in the status bar.'
+    ]
+  },
+  {
+    n: 'Renders column',
+    c: '.farmc .fj',
+    m: '.farmc',
+    d: () =>
+      `<div class="kc-row" style="gap:var(--sp-9)">${farmCell({ farm: { state: 'running', text: 'rendering 41/72', tip: 'rendering' } })}${farmCell({ farm: { state: 'failed', text: 'failed', tip: 'failed' } })}${farmCell({ toCheck: true, outdated: true })}${farmCell({})}</div>`,
+    r: [
+      "The list's column (Columns shown, or Filters › In the farm / To check / Render outdated): the job in the farm (its frames as a bar), to check, outdated -- a line each.",
+      "The icons alone at rest, the words on the row hovered. Failed and outdated: the retake's orange on the icon; to check: the review's green."
+    ]
+  },
+  {
+    n: 'Render to check',
+    c: '.chkbar',
+    m: '.chkbar .btn',
+    d: () =>
+      `<div style="width:360px;display:flex;flex-direction:column;gap:var(--sp-5)">${checkHTML({ name: 'k1', toCheck: true, live: { checks: [{ key: '#lighting', department: 'lighting', folder: 'v012-stable_001' }] } })}${checkHTML({ name: 'k2', toCheck: true, live: { checks: [{ key: '#animation', department: 'animation', folder: 'v006_003' }, { key: '#lighting', department: 'lighting', folder: 'v006_004' }] } })}</div>`,
+    r: [
+      'In the detail, under the player: what to watch, its Checked… at hand.',
+      "One Checked… per render: an animation playblast and a lighting render aren't watched by the same people."
+    ]
+  },
+  {
+    n: 'Render checked',
+    c: '.dlg-in .swis',
+    m: '.dlg-in .swi',
+    st: 1,
+    wide: 1,
+    d: () => `<div id="k-chk"></div>`,
+    after: () => {
+      checkedDlg('');
+      $('#k-chk').innerHTML = $('#dlg').innerHTML;
+      $('#dlg').hidden = true;
+      $('#dlg').innerHTML = '';
+      S.chk = null;
+    },
+    r: [
+      "As Blender's Render checked: the file's required departments, the render's own ticked -- a done one validated, one not done marked done on the stable.",
+      'Push to editing: live only, unticked by default.'
+    ]
   },
   {
     n: 'Popover',

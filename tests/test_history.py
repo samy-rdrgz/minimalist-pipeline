@@ -49,7 +49,7 @@ def main() -> None:
         write("render_history.json", {"entries": [
             {"completed_at": "2026-10-03T12:00:00+02:00", "status": "finished", "department": "modeling",
              "prerender_script": "modeling_default", "frame_range_rendered": [1, 10], "user": "lea",
-             "duration_seconds": 120, "machines_used": ["a", "b"], "output_path": "/p/renders/assets/ch/ch_bob/v001-stable_001"},
+             "duration_seconds": 120, "machines_used": ["a", "b"], "output_path": "/p/renders/assets/ch/ch_bob/v001-stable_001/ch_bob_v001-stable.#####"},
             {"completed_at": "2026-10-03T12:00:00+02:00", "status": "split"},
             {"completed_at": "2026-10-05T12:00:00+02:00", "status": "failed", "user": "tom", "output_path": ""},
         ]})

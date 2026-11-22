@@ -224,7 +224,9 @@
         h.style.height = r.height + 'px';
         h.style.left = (k === 'out' ? r.right + gap / 2 - 5 : r.left - gap / 2 - 5) + 'px';
       } else {
-        b.style.top = sr.top + sr.height * 0.28 + 'px';
+        // Just under the list's filter bar, out of its way.
+        var fh = document.querySelector('#main .area-head');
+        b.style.top = (fh ? fh.getBoundingClientRect().bottom + 8 : sr.top + 12) + 'px';
         if (k === 'out') {
           b.style.left = sr.left + 'px';
           b.style.right = '';

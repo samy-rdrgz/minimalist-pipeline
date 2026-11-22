@@ -200,6 +200,7 @@ const role0 = () => (LIVE ? M.live.role || TEAM : M.role || M.roles[0] || TEAM);
 /* Reviewing from now on, as name (Anonymous if none) in role. */
 function startReview(name, role) {
   S.review = { name: (name || '').trim() || T('Anonymous'), role: role || role0() };
+  LV.rv = null; // its own review id (live)
 }
 /* A field's words, trimmed; none: the field focused, the reader told (say: msg, or toast on a phone), null. */
 function wordsOf(field, say = msg) {
@@ -229,18 +230,18 @@ function startDept(it) {
   const d = (it.rp || {}).department || '';
   return (DEPTS[it.kind] || []).includes(d) ? d : '';
 }
-/* The presets, the department's first (its name's, or set for it). */
-function presetsFor(d) {
-  if (!d) return F.presets;
-  const own = (F.dept_presets || {})[d];
-  const mine = F.presets.filter(
-    p => p[0] !== NO_SCRIPT && (p[0] === own || (F.preset_deps || {})[p[0]] === d)
-  );
-  return [
-    ...F.presets.filter(p => p[0] === NO_SCRIPT),
-    ...mine,
-    ...F.presets.filter(p => p[0] !== NO_SCRIPT && !mine.includes(p))
-  ];
+/* The presets that fit: a department picked, its own (its name's, or set for it); none, those
+   of no department and those of the file's kind (kind) -- never a shot department's on an asset. */
+function presetsFor(d, kind) {
+  const dep = p => (F.preset_deps || {})[p[0]] || '',
+    none = F.presets.filter(p => p[0] === NO_SCRIPT),
+    rest = F.presets.filter(p => p[0] !== NO_SCRIPT);
+  if (d) {
+    const own = (F.dept_presets || {})[d];
+    return [...none, ...rest.filter(p => p[0] === own || dep(p) === d)];
+  }
+  const fits = DEPTS[kind] || [...DEPTS.shot, ...DEPTS.asset];
+  return [...none, ...rest.filter(p => !dep(p) || fits.includes(dep(p)))];
 }
 /* Text into the clipboard, said by a toast; without the clipboard API (a page served
    over plain http), the old way: a textarea selected, copied. */

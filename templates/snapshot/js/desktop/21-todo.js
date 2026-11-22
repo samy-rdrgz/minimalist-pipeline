@@ -75,7 +75,7 @@ function renderTodoQuick() {
     <span class="join td-j">${TD_ST()
       .map(([k, l]) => `<button class="btn" data-tdst="${k}" aria-pressed="${tdSt() === k}">${l}</button>`)
       .join('')}</span>
-    <span class="anchor"><button class="btn ${t.dept ? '' : 'tool'}" data-menu="m-tdd" aria-haspopup="true" aria-expanded="false" ${t.dept ? 'aria-pressed="true"' : ''}>${ic('b-filter')}${t.dept ? esc(LBL[t.dept]) : T('All departments')}${ic('b-tria_down')}</button>
+    <span class="anchor"><button class="btn ${t.dept ? '' : 'tool'}" data-menu="m-tdd" aria-haspopup="true" aria-expanded="false" ${t.dept ? 'aria-pressed="true"' : ''}>${ic('b-filter')}${t.dept ? esc(LBL[t.dept]) : T('All departments')}${ic('b-downarrow_hlt')}</button>
     <div class="menu" id="m-tdd" hidden role="menu">${[
       ['', T('All departments')],
       ...DEPTS[t.kind].map(d => [d, LBL[d]])
@@ -88,7 +88,7 @@ function renderTodoQuick() {
     <button class="btn ${t.order === 'old' ? '' : 'tool'}" data-tdo="${t.order === 'old' ? 'seq' : 'old'}" aria-pressed="${t.order === 'old'}" title="${T('Waiting the longest first: for a reviewer since the latest stable, to work on since the oldest open retake')}">${ic('b-sorttime')}${T('Oldest first')}</button>
     ${
       tdPeople().length
-        ? `<span class="anchor"><button class="btn ${tdWho() ? '' : 'tool'}" data-menu="m-tdw" aria-haspopup="true" aria-expanded="false" ${tdWho() ? 'aria-pressed="true"' : ''}>${ic('b-user')}${tdWho() ? esc(tdWho()) : T('Everyone')}${ic('b-tria_down')}</button>
+        ? `<span class="anchor"><button class="btn ${tdWho() ? '' : 'tool'}" data-menu="m-tdw" aria-haspopup="true" aria-expanded="false" ${tdWho() ? 'aria-pressed="true"' : ''}>${ic('b-user')}${tdWho() ? esc(tdWho()) : T('Everyone')}${ic('b-downarrow_hlt')}</button>
     <div class="menu" id="m-tdw" hidden role="menu">${[
       ['', T('Everyone')],
       ...tdPeople().map(p => [p, p === me() ? T('{who} (me)', { who: p }) : p])

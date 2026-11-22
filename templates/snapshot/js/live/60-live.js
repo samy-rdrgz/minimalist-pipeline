@@ -138,6 +138,17 @@ const typing = () => {
   );
 };
 const sentKey = a => (a.type === 'create' ? 'create:' + a.file : JSON.stringify(a));
+/* One review id a sitting (NOTES.md, "One review id a sitting"): its notes under one header in
+   Blender and here. A new one when the review starts, and once 15 min old -- taken at a change of the
+   selected file, never in the middle of a file's notes. */
+const RV_TTL = 15 * 60e3;
+function rvIdFor(file) {
+  const now = Date.now();
+  if (!LV.rv || (now - LV.rv.at > RV_TTL && LV.rv.file !== file))
+    LV.rv = { id: Math.floor(Math.random() * 0xffffffff).toString(16).padStart(8, '0'), at: now, file };
+  else LV.rv.file = file;
+  return LV.rv.id;
+}
 function liveFlush() {
   if (LV.busy) {
     LV.again = true;
@@ -158,7 +169,13 @@ function liveFlush() {
   LV.busy = true;
   liveSay('busy');
   const data = reviewFile();
-  livePost('action', { author: data.author, role: data.role, review_date: data.written_at, actions: acts })
+  livePost('action', {
+    author: data.author,
+    role: data.role,
+    review_date: data.written_at,
+    review_id: rvIdFor(S.sel),
+    actions: acts
+  })
     .then(res => {
       LV.busy = false;
       if (!res.ok) {
@@ -188,8 +205,12 @@ function liveFlush() {
         storeReview();
         liveSay('ok');
       };
-      if ((M.live.version || 0) >= (res.version || 0)) done();
-      else LV.pend = { v: res.version, fn: done };
+      if ((M.live.version || 0) >= (res.version || 0)) {
+        // Its data came first (the poll answered before this): drawn with my copy of the
+        // change beside Blender's -- drawn again without it.
+        done();
+        if (!typing()) renderAll();
+      } else LV.pend = { v: res.version, fn: done };
       if (res.skipped && res.skipped.length)
         toast(
           T('Blender left out: {what}', { what: res.skipped.map(x => x[0] + ' (' + x[1] + ')').join(', ') })
@@ -211,14 +232,13 @@ document.addEventListener('focusout', () =>
   }, 0)
 );
 /* A render marked checked (live): out of "to check", as Render checked does in Blender. */
-function liveChecked(it) {
-  const keys = ((it.live || {}).checks || []).map(c => c.key);
+function liveChecked(it, push = false, keys = ((it.live || {}).checks || []).map(c => c.key)) {
   if (!keys.length) return;
   livePost('action', {
     author: M.live.user,
     role: M.live.role,
     review_date: isoNow(),
-    actions: keys.map(key => ({ type: 'checked', file: it.file, key, push: false }))
+    actions: keys.map(key => ({ type: 'checked', file: it.file, key, push }))
   })
     .then(res => {
       if (!res.ok)
@@ -241,7 +261,7 @@ function newsOf(before, after) {
     if (!o) return;
     const seen = new Set((o.notes || []).map(n => n.id));
     (it.notes || [])
-      .filter(n => !seen.has(n.id) && !own(n.author))
+      .filter(n => !seen.has(n.id) && !own(n.author) && !n.approval)
       .forEach(n =>
         pushNews(
           n.type === 'rtk' ? 'rtk' : 'note',

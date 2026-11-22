@@ -364,11 +364,14 @@ _FARM_TEXT = {"waiting": "queued", "failed": "failed"}
 
 def _farm_status(job: dict) -> dict:
     """A job still in the farm: "queued" whatever it waits for, its step
-    ("rendering 45/120", "compiling"...), "failed" -- the exact step in the tip."""
+    ("rendering 45/120", "compiling the video"...), "failed" -- the exact step in the tip;
+    which render (its folder once set up, v003_001, else its .blend's version) and shot."""
     return {
         "state": job["state"],
         "text": _FARM_TEXT.get(job["state"], job["text"]),
         "tip": job["text"],
+        "version": job.get("version") or "",
+        "shot": job.get("shot") or "",
     }
 
 
@@ -479,4 +482,5 @@ def _entry(e: dict) -> dict:
         "review": bool(e.get("from_review")),
         # A validation's own note, for the record: not a note to read.
         "approval": bool(e.get("approval")),
+        "rid": e.get("review_id") or "",
     }

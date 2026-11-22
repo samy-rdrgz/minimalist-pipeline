@@ -119,7 +119,8 @@ const cellHTML = (it, d) => {
   return `<span class="cell ${x.base === 'na' ? 'na' : ''}" title="${LBL[d]}: ${esc(x.l)}${x.s ? ' · ' + esc(x.s) : ''}">${glyph(x.base, x.corner, x.cnt, x.note)}<span class="ab">${AB[d]}</span><span class="tx"><span class="l">${esc(x.l)}</span>${x.s ? `<span class="s ${x.tone}">${esc(x.s)}</span>` : ''}</span></span>`;
 };
 const openRtk = it => rtkNotes(it).length + it.myNotes.filter(n => n.type === 'rtk').length;
-const openNotes = it => it.notes.filter(n => !n.done).length + it.myNotes.length;
+// A validation's own line is a record, not a note: never counted.
+const openNotes = it => it.notes.filter(n => !n.done && !n.approval).length + it.myNotes.length;
 const omitted = it => (it.setAside !== undefined ? it.setAside : it.omit)?.state;
 const toValidate = it =>
   !omitted(it) &&
@@ -174,6 +175,7 @@ function visible() {
       if (S.more.has('farm') && !it.farm) return false;
       if (S.more.has('unfinished') && !required(it).some(d => !['done', 'rework'].includes(it.states[d])))
         return false;
+      if (S.more.has('tocheck') && !it.toCheck) return false;
       if (S.more.has('outdated') && !it.outdated) return false;
       if (S.more.has('tracked') && !required(it).length) return false;
       return true;

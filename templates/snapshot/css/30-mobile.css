@@ -749,6 +749,7 @@ b.ab {
 }
 .m-sheet-h {
   position: relative;
+  touch-action: none; /* pulled down to close (50-mobile.js), not scrolled */
   display: flex;
   align-items: center;
   gap: var(--sp-4);

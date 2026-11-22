@@ -55,12 +55,15 @@ function seqNext() {
     renderWide();
     return;
   }
-  S.frame = 1;
+  // The next one from its start, playing on (the one before ended: paused).
+  S.playing = false;
   select(sib[n + 1].name, { open: false });
+  togglePlay();
 }
 const RF = {};
 const rform = it =>
   (RF[it.name] = RF[it.name] || {
+    // A newer wip than the stable: its own choice; else the stable is the latest.
     ver: it.stable ? 'stable' : 'last',
     dept: startDept(it),
     preset: deptPreset(it, startDept(it)),
@@ -85,11 +88,11 @@ function renderDlg() {
   dl.hidden = false;
   dl.innerHTML = `<div class="dlg-in rnd" role="dialog" aria-modal="true" aria-labelledby="rd-t"><h3 id="rd-t">${ic('b-render_animation')} ${T('Render {name}', { name: esc(it.name) })}</h3>
     ${job ? `<p class="tag check" style="align-self:flex-start">${T('Already in the farm: {what}', { what: esc(TS(job.text)) + (job.total ? ' · ' + job.done + '/' + job.total : '') })}</p>` : ''}
-    <div class="prop"><span class="k">${T('Version')}</span><span class="v"><span class="join full" style="flex:1">${it.stable ? seg('ver', 'stable', T('Last stable · {v}', { v: esc(it.stable) })) : ''}${seg('ver', 'last', T('Latest · {v}', { v: esc(it.wip || it.stable || '') }))}</span></span></div>
-    <div class="prop"><span class="k">${T('Department')}</span><span class="v"><span class="anchor" style="flex:1;min-width:0"><button class="enum" style="width:100%" data-menu="m-rdept" aria-haspopup="true" aria-expanded="false"><span class="lb">${f.dept ? esc(f.dept) : T('No department')}</span>${ic('b-tria_down')}</button>
+    <div class="prop"><span class="k">${T('Version')}</span><span class="v"><span class="join full" style="flex:1">${it.stable ? seg('ver', 'stable', it.wip ? T('Last stable · {v}', { v: esc(it.stable) }) : T('Latest, stable · {v}', { v: esc(it.stable) })) : ''}${it.wip || !it.stable ? seg('ver', 'last', T('Latest · {v}', { v: esc(it.wip || it.stable || '') })) : ''}</span></span></div>
+    <div class="prop"><span class="k">${T('Department')}</span><span class="v"><span class="anchor" style="flex:1;min-width:0"><button class="enum" style="width:100%" data-menu="m-rdept" aria-haspopup="true" aria-expanded="false"><span class="lb">${f.dept ? esc(f.dept) : T('No department')}</span>${ic('b-downarrow_hlt')}</button>
       <div class="menu" id="m-rdept" hidden role="menu">${['', ...(DEPTS[it.kind] || [])].map(d => `<button class="mi" data-rdept="${esc(d)}"><span class="ck">${d === f.dept ? ic('b-checkmark') : ''}</span><span class="lbl">${d ? esc(d) : T('No department')}</span></button>`).join('')}</div></span></span></div>
-    <div class="prop"><span class="k">${T('Pre-render script')}</span><span class="v"><span class="anchor" style="flex:1;min-width:0"><button class="enum" style="width:100%" data-menu="m-rpreset" aria-haspopup="true" aria-expanded="false"><span class="lb">${esc(pr[1])}</span>${ic('b-tria_down')}</button>
-      <div class="menu" id="m-rpreset" hidden role="menu">${presetsFor(f.dept)
+    <div class="prop"><span class="k">${T('Pre-render script')}</span><span class="v"><span class="anchor" style="flex:1;min-width:0"><button class="enum" style="width:100%" data-menu="m-rpreset" aria-haspopup="true" aria-expanded="false"><span class="lb">${esc(pr[1])}</span>${ic('b-downarrow_hlt')}</button>
+      <div class="menu" id="m-rpreset" hidden role="menu">${presetsFor(f.dept, it.kind)
         .map(
           p =>
             `<button class="mi" data-rpreset="${esc(p[0])}"><span class="ck">${p[0] === f.preset ? ic('b-checkmark') : ''}</span><span class="lbl">${esc(p[1])}</span></button>`
@@ -155,7 +158,7 @@ const TOUR = [
     T('A file'),
     T('Each diamond is a department: its shape says its state, its corner what comes on top.')
   ],
-  ['#ptabs', T('The detail'), T('Shot, Notes, Links, Files and renders: the file selected, in tabs.')],
+  ['#ptabs', T('The detail'), T('Shot, Notes, Links, Versions, Render history: the file selected, in tabs.')],
   [
     '[data-wide]',
     T('Watch large'),
@@ -263,6 +266,68 @@ function planDlg(g, kind) {
     <div class="prop"><span class="k">${T('Departments')}</span><span class="v"><span class="join">${DEPTS[kind].map(d => `<button class="btn sm" data-pld="${d}" aria-pressed="true">${LBL[d]}</button>`).join('')}</span></span></div>
     <div class="acts"><button class="btn" data-dclose>${T('Cancel')}</button><button class="btn primary" data-plok="${g}" data-plk="${kind}">${ic('b-add')}${T('Add to my review')}</button></div></div>`;
   setTimeout(() => $('#pl-n').focus(), 0);
+}
+/* Render checked, as in Blender: what watching it says of the file's departments -- ticked, one not done
+   marked done (on the stable), one done validated (a team member can't) -- and its video to the edit (live). */
+function chkRows(it) {
+  return required(it).map(d => {
+    const st = stOf(it, d),
+      done = isDone(st);
+    if (it.ok[d] || it.mine[d] === 'val') return { d, act: '', on: true, s: T('Validated') };
+    if (done) return { d, act: canVal(it, d) ? 'val' : '', on: true, s: canVal(it, d) ? T('Done · ticked: validated') : T('Done') };
+    return { d, act: canMark(it, d) ? 'mark' : '', on: false, s: canMark(it, d) ? info(it, d).l + ' · ' + T('ticked: done') : info(it, d).l };
+  });
+}
+function checkedDlg(key) {
+  const it = cur();
+  if (!it) return;
+  if (!S.chk || S.chk.name !== it.name || (key != null && S.chk.key !== key)) {
+    const c = checksOf(it).find(x => x.key === key);
+    // The render's own department ticked first; "render" without one.
+    const rd = c && c.department ? c.department : 'render';
+    S.chk = { name: it.name, key: key || '', push: false, on: new Set(chkRows(it).filter(r => r.act && r.d === rd).map(r => r.d)) };
+  }
+  const o = S.chk,
+    rows = chkRows(it),
+    c = checksOf(it).find(x => x.key === o.key);
+  const dl = $('#dlg');
+  dl.hidden = false;
+  dl.innerHTML = `<div class="dlg-in" role="dialog" aria-modal="true" aria-labelledby="ck-t"><h3 id="ck-t">${T('Render checked')} · ${esc(it.name)}</h3>
+    ${c ? `<p class="faint" style="margin:0">${esc(checkLabel(c))}</p>` : ''}
+    <div class="sec-h">${T('Departments')}</div>
+    ${rows.length ? `<div class="swis">${rows.map(r => `<button class="swi" role="switch" data-ckd="${r.d}" aria-checked="${r.act ? o.on.has(r.d) : r.on}" ${r.act ? '' : 'disabled'}><span class="lbl">${esc(LBL[r.d])}<small>${esc(r.s)}</small></span><span class="tg"></span></button>`).join('')}</div>` : `<span class="faint">${T('No department required.')}</span>`}
+    <p class="hint">${S.review ? T("Not right? Leave it unticked and write a retake.") : T('Start a review to mark departments done or validate them.')}</p>
+    ${LIVE ? `<div class="swis"><button class="swi" role="switch" data-ckpush aria-checked="${o.push}"><span class="lbl">${T('Push to editing')}<small>${T("Its video into editing/rushes/, replacing the previous one (the edit keeps its link)")}</small></span><span class="tg"></span></button></div>` : ''}
+    <div class="acts"><button class="btn" data-dclose>${T('Cancel')}</button><button class="btn primary" data-ckok>${ic('b-checkmark')}${T('Mark checked')}</button></div></div>`;
+}
+function checkedGo() {
+  const it = cur(),
+    o = S.chk;
+  if (!it || !o) return;
+  const c0 = checksOf(it).find(x => x.key === o.key);
+  let n = 0;
+  chkRows(it).forEach(r => {
+    if (!r.act || !o.on.has(r.d)) return;
+    if (r.act === 'val') A.validate(it, r.d);
+    else A.mark(it, r.d);
+    n++;
+  });
+  // This render only: the file stays to check while another one is.
+  const keys = o.key ? [o.key] : checksOf(it).map(c => c.key);
+  (S.checkedKeys[it.name] = S.checkedKeys[it.name] || []).push(...keys);
+  if (!checksOf(it).length) it.toCheck = false;
+  if (LIVE) liveChecked(it, o.push, keys);
+  S.chk = null;
+  $('#dlg').hidden = true;
+  refresh();
+  const left = checksOf(it).length;
+  msg(
+    (left
+      ? T('Checked: {what} · {n} still to check', { what: c0 ? checkLabel(c0) : it.name, n: left })
+      : T('Checked: {name} is no longer "to check"', { name: it.name })) +
+      (n ? ' · ' + T('{n} department|{n} departments', { n }) : '') +
+      (o.push ? ' · ' + T('pushed to editing') : '')
+  );
 }
 function bulkDlg() {
   const o = (S.bulk = S.bulk || { kind: 'shot', g: '', d: DEPTS.shot[0], on: true });

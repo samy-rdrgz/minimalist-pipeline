@@ -29,7 +29,7 @@ def tokens(css: str) -> dict:
         c = cm.group(1).strip() if cm else ""
         for n, v in re.findall(r"(--[\w-]+):\s*([^;]+);", line):
             v = v.strip()
-            if re.match(r"#|rgba?\(", v):
+            if re.match(r"#|rgba?\(|color-mix\(", v):
                 color.append({"n": n, "dark": v, "light": lv.get(n, ""), "c": c})
             elif re.match(r"--(sp-|h-|u$|r$|r-|fs|unit)", n):
                 size.append({"n": n, "v": v, "c": c})

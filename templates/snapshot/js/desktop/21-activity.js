@@ -139,12 +139,14 @@ function activity() {
   const marks = bars
     .map((b, i) => {
       const parts =
-        mode === 'time'
+        // Nothing that day (a weekend at 0 h): no diamond -- the "at least one" is for a day with some.
+        (mode === 'time'
           ? [['var(--brand)', b.hours]]
           : [
               ...col.shown.filter(d => b.worked[d]).map(d => [col.c[d], b.worked[d]]),
               [ACT_OTHER, col.others.reduce((a, d) => a + (b.worked[d] || 0), 0)]
-            ].filter(x => x[1]);
+            ]
+        ).filter(x => x[1] > 0);
       if (!parts.length) return '';
       let run = 0,
         done = 0,

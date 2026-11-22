@@ -148,13 +148,18 @@ def _get_pre_render_scripts(self, context):
     config = ConfigCache.get() or {}
     departments = [*json_get(config, "shots_departments", []), *json_get(config, "assets_departments", [])]
     items = pre_render_script_items(presets_dir, departments)
-    # The picked department's presets first (its name's, or set for it), then the others.
-    dept = getattr(self, "department", _NO_DEPT)
-    if dept and dept != _NO_DEPT and len(items) > 1:
-        own = {(json_get(config, "farm.department_presets", {}) or {}).get(dept)}
-        mine = [i for i in items[1:] if i[0] in own or preset_department(i[0], [dept])]
-        if mine:
-            items = [items[0], *mine, None, *[i for i in items[1:] if i not in mine]]
+    if self is not None and len(items) > 1:
+        # Only what fits: a department picked, its presets (its name's, or set for it);
+        # none, the presets of no department and those of the file's kind -- never a
+        # shot department's on an asset, nor the other way round.
+        dept = getattr(self, "department", _NO_DEPT)
+        if dept and dept != _NO_DEPT:
+            own = {(json_get(config, "farm.department_presets", {}) or {}).get(dept)}
+            keep = [i for i in items[1:] if i[0] in own or preset_department(i[0], [dept])]
+        else:
+            kind = {d.lower() for d in _file_departments(getattr(self, "filepath", "") or "")}
+            keep = [i for i in items[1:] if preset_department(i[0], departments) in kind | {""}]
+        items = [items[0], *keep]
     return _stable_enum_items(_pre_render_scripts, items)
 
 

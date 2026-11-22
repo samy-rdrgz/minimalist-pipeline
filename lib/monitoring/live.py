@@ -651,6 +651,8 @@ def _apply(root: Path, raw: dict) -> dict:
         "role": str(raw.get("role") or "").strip().lower(),
         "review_date": parse_review_date(str(raw.get("review_date") or "")),
         "actions": actions,
+        # The page's sitting: its notes under one review header (NOTES.md, "One review id a sitting").
+        "review_id": rid if re.fullmatch(r"[0-9a-f]{4,16}", rid := str(raw.get("review_id") or "")) else None,
     }
     try:
         out = import_review(Path("live page"), review)

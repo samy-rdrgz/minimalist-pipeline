@@ -74,5 +74,15 @@ mRender = (f =>
   })(mRender);
 renderAll();
 liveStart();
+/* The tab's icon: Blender's logo in the brand's blue. */
+(() => {
+  const sym = document.getElementById('b-blender');
+  if (!sym) return;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${sym.getAttribute('viewBox')}"><g fill="#639bff">${sym.innerHTML}</g></svg>`,
+    l = document.createElement('link');
+  l.rel = 'icon';
+  l.href = 'data:image/svg+xml,' + encodeURIComponent(svg);
+  document.head.appendChild(l);
+})();
 /* For tests and the console: the page's state and actions. */
 window.MPPage = { S, items, A, reviewFile, reviewActions, fromActions, refresh, renderAll };

@@ -262,6 +262,63 @@ svg.g {
 .tag.check {
   --c: var(--st-wip);
 }
+.tag.tochk {
+  --c: var(--st-you);
+}
+.tag.tochk svg.i {
+  color: var(--st-you);
+}
+/* The detail's renders to check: a block of their own, Checked… at hand. */
+.chkbar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-4);
+  border-radius: var(--r);
+  background: var(--box-2);
+}
+.chkbar {
+  flex-wrap: wrap;
+}
+.chkbar > svg.i {
+  color: var(--st-you);
+  flex: none;
+}
+/* One line per render to check (a playblast, a lighting render: not the same people). */
+.chkbar .ck1 {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  width: 100%;
+  font-size: var(--fs-s);
+  color: var(--text-2);
+}
+.chkbar .ck1 span {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+/* On a note (--box) the flat hover (--row-hover) is darker than its ground. */
+.nt .btn.flat:hover {
+  background: var(--line-2);
+}
+.chkbar .ck1 .btn.flat[aria-pressed="true"] {
+  color: var(--text);
+  border-color: transparent;
+  background: var(--line-2);
+}
+.chkbar .t {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.3;
+}
+.chkbar small {
+  color: var(--text-2);
+  font-size: var(--fs-s);
+  overflow-wrap: anywhere;
+}
 .tag.you {
   --c: var(--st-you);
 }
@@ -318,6 +375,10 @@ svg.g {
 .bar span:last-child {
   text-align: right;
   color: var(--text-2);
+}
+/* A row's bars: the colour says which (Done blue, Validated pink), no word. */
+.bar.bare {
+  grid-template-columns: 1fr calc(34px * var(--scale));
 }
 .menu {
   position: absolute;
@@ -445,14 +506,47 @@ svg.g {
 /* ---------- Topbar ---------- */
 .topbar {
   display: flex;
-  align-items: center;
+  align-items: flex-end; /* everything on the tabs' line: their foot, the bar's */
   gap: var(--sp-5);
-  min-height: calc(48px * var(--scale));
-  padding: 0 var(--sp-5) 0 var(--sp-7);
-  background: var(--head);
-  border-radius: var(--r-xl);
+  padding: 0 var(--sp-3) 0 var(--sp-5);
+  background: var(--screen); /* on the screen itself, no box */
   flex: none;
   min-width: 0;
+}
+/* Menu, What's new, Search, Legend: words when there's room, else icons (.tb-ic, fitTop()). */
+.brand {
+  height: var(--u);
+  justify-content: center;
+}
+.topbar > .live,
+.topbar > #out-toggle {
+  align-self: flex-end;
+  margin-bottom: calc((var(--u) - 22px) / 2);
+}
+.topbar > #out-toggle {
+  margin-bottom: 0;
+}
+.tools {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-1);
+  flex: none;
+}
+.tb .tbi {
+  display: none;
+}
+.topbar.tb-ic .tb .lbl {
+  display: none;
+}
+.topbar.tb-ic .tb .tbi {
+  display: inline-block;
+}
+.topbar.tb-ic .tb:not([data-menu]) {
+  width: var(--u);
+  padding: 0;
+}
+.statusbar .src {
+  color: var(--text-3);
 }
 .brand {
   display: flex;
@@ -477,14 +571,15 @@ svg.g {
   text-overflow: ellipsis;
 }
 .brand {
-  flex: 0 1 auto;
+  flex: none; /* the project's name whole: the tabs scroll first */
 }
 .ws {
   display: flex;
   gap: var(--sp-1);
-  padding: var(--sp-2);
-  background: var(--sunk);
-  border-radius: var(--r-l);
+  padding: var(--sp-2) var(--sp-2) 0;
+  background: var(--area); /* the panels' grey, a step above the screen */
+  border-radius: var(--r-l) var(--r-l) 0 0; /* Blender's: square at the foot */
+  align-self: flex-end;
   margin-left: var(--sp-5);
   overflow-x: auto;
   scrollbar-width: none;
@@ -495,7 +590,7 @@ svg.g {
   height: var(--u);
   padding: 0 var(--sp-7);
   border: 0;
-  border-radius: var(--r);
+  border-radius: var(--r) var(--r) 0 0;
   background: none;
   color: var(--text-2);
   cursor: pointer;
@@ -519,15 +614,18 @@ svg.g {
 .topbar .sp {
   flex: 1;
 }
+/* The review in progress: a bar like the workspaces' tabs (.ws), the same grey, padding and corners. */
 .review-chip {
   display: flex;
   align-items: center;
-  gap: var(--sp-4);
-  padding: var(--sp-2) var(--sp-2) var(--sp-2) var(--sp-5);
+  gap: var(--sp-2);
+  padding: var(--sp-1) var(--sp-1) var(--sp-1) var(--sp-6);
   border-radius: var(--r-l);
-  background: var(--box-2);
-  border: 1px solid var(--line-2);
+  background: var(--area);
   white-space: nowrap;
+}
+.review-chip > .who {
+  margin-right: var(--sp-4);
 }
 .review-chip .who {
   display: inline-flex;
@@ -805,7 +903,8 @@ body.out-open .scrim {
   padding: var(--sp-6) var(--sp-7);
   background: var(--area);
   border-bottom: 1px solid var(--line);
-  flex-wrap: wrap;
+  flex-wrap: nowrap; /* one line always: the bars shrink first */
+  min-width: 0;
 }
 .grp-h .ttl {
   display: flex;
@@ -841,22 +940,35 @@ body.out-open .scrim {
 .grp-h .cnt {
   color: var(--text-3);
 }
+.grp-h > :not(.prog) {
+  flex: none;
+}
 .grp-h .prog {
   display: flex;
   gap: var(--sp-7);
   margin-left: auto;
   align-items: center;
-  flex-wrap: wrap;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 .grp-h .prog .bar {
+  /* Full width (170) while the line has room; shrunk (down to 64) only to keep it on one line. */
   width: calc(170px * var(--scale));
+  flex: 0 1 auto;
+  min-width: calc(64px * var(--scale));
 }
+/* The list's tracks, each optional one a variable (Columns shown, below): the thumbnail, the
+   file, the departments, Progress, Farm -- one left empty drops its track. */
 .cols,
 .row {
+  --c-th: calc(100px * var(--scale));
+  --c-f: minmax(160px, 1fr);
+  /* A department's column gives way (its words cut) before the row overflows. */
+  --c-d: minmax(calc(64px * var(--scale)), calc(98px * var(--scale)));
+  --c-pr: calc(124px * var(--scale));
+  --c-fm: ;
   display: grid;
-  grid-template-columns:
-    calc(100px * var(--scale)) minmax(160px, 1fr) repeat(var(--nd), calc(98px * var(--scale)))
-    calc(124px * var(--scale));
+  grid-template-columns: var(--c-th) var(--c-f) repeat(var(--nd), var(--c-d)) var(--c-pr) var(--c-fm);
   column-gap: var(--sp-6);
   align-items: center;
   padding: 0 var(--sp-7);
@@ -911,6 +1023,21 @@ body.out-open .scrim {
 .row.omit .fname .n,
 .row.omit .cell {
   opacity: 0.5;
+}
+/* Set aside (on hold, cancelled): the whole row hatched. */
+.row.omit {
+  background-image: repeating-linear-gradient(135deg, transparent 0 9px, var(--row-hover) 9px 18px);
+}
+/* Lighter rows: a file's versions on the selected one only; a state's words on the
+   hovered or selected one (the icon says it), when the list is wide enough to show them. */
+.row:not(.sel) .fname .ver {
+  display: none;
+}
+.row .cell .tx {
+  transition: opacity 0.1s;
+}
+.row:not(:hover):not(.sel) .cell .tx {
+  opacity: 0;
 }
 .thumb {
   width: calc(100px * var(--scale));
@@ -1030,13 +1157,13 @@ body.out-open .scrim {
 @container main (max-width:890px) {
   .cols,
   .row {
-    grid-template-columns: calc(96px * var(--scale)) minmax(140px, 1fr) repeat(
-        var(--nd),
-        calc(52px * var(--scale))
-      );
+    --c-th: calc(96px * var(--scale));
+    --c-f: minmax(140px, 1fr);
+    --c-d: calc(52px * var(--scale));
+    --c-pr: ;
   }
   .cols .c-prog,
-  .row .bars {
+  .row .bars:not(.farmc) {
     display: none;
   }
   .thumb {
@@ -1048,9 +1175,6 @@ body.out-open .scrim {
   }
   .cell .tx {
     display: none;
-  }
-  .cell .ab {
-    display: block;
   }
   .cols .cd {
     text-align: center;
@@ -1090,20 +1214,13 @@ body.out-open .scrim {
   .row .cell.na {
     display: none;
   }
-  .grp-h .prog {
-    margin-left: 0;
-    width: 100%;
-  }
-  .grp-h .prog .bar {
-    flex: 1;
-    width: auto;
-  }
 }
 
 /* ---------- Breakdown ---------- */
 /* Over time (Breakdown): Done and Validated a day at a time. */
 .ot {
-  margin: 0 var(--sp-7) var(--sp-7);
+  /* As wide as the tiles and the tables: the list's own padding and gap around it. */
+  margin: 0;
   background: var(--box);
   border: 1px solid var(--line);
   border-radius: var(--r-l);
@@ -1409,6 +1526,25 @@ body.out-open .scrim {
   color: #ddd;
   text-shadow: 0 1px 2px #000;
 }
+/* Watch large: over the video's top right corner, while it's hovered. */
+.stage .w-ov {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  opacity: 0;
+  transition: opacity 0.12s;
+  background: var(--overlay);
+}
+.stage:hover .w-ov,
+.stage .w-ov:focus-visible {
+  opacity: 1;
+}
+@media (hover: none) {
+  .stage .w-ov {
+    opacity: 1;
+  }
+}
 .stage .noimg {
   position: absolute;
   inset: 0;
@@ -1562,6 +1698,13 @@ body.out-open .scrim {
 .dept .extra .wait {
   color: var(--text-2);
 }
+/* Its icon centred on the words (inline, the svg sat on the baseline). */
+.dept .extra .wait,
+.dept .extra .redo {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
 .dept .extra .redo {
   color: var(--wip-t);
 }
@@ -1663,6 +1806,28 @@ body.out-open .scrim {
 .type.todo {
   background: var(--st-wip);
   color: var(--on-st);
+}
+/* A retake / to do closed: done's blue and a check, not its open colour. */
+.nt.closed .type.rtk,
+.nt.closed .type.todo {
+  background: var(--st-done);
+  color: #fff;
+}
+.type .i {
+  width: 10px;
+  height: 10px;
+  margin: -2px 2px -2px -1px;
+  fill: currentColor;
+  vertical-align: middle;
+}
+/* A validation's record: pink, read only. */
+.type.val {
+  background: var(--st-val);
+  color: #fff;
+}
+.nt.appr {
+  border-left-color: var(--st-val);
+  opacity: 0.8;
 }
 .legend-list {
   display: flex;
@@ -1978,7 +2143,7 @@ body.out-open .scrim {
   height: 22px;
   padding: 0 var(--sp-5);
   border-radius: var(--r-xl);
-  background: var(--t2);
+  background: var(--box);
   color: var(--live-t);
   font-size: var(--fs-s);
   white-space: nowrap;
@@ -2778,8 +2943,8 @@ button.assign:hover {
   inset: 0;
   border-radius: inherit;
   background: rgba(255, 255, 255, 0.55);
-  -webkit-backdrop-filter: blur(3px);
-  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(var(--blur));
+  backdrop-filter: blur(var(--blur));
   z-index: -1;
 }
 
@@ -2912,8 +3077,8 @@ button.assign:hover {
 /* Over the canvas: glass, its blur like the menus'. */
 .gtools {
   background: var(--menu);
-  -webkit-backdrop-filter: blur(6px) saturate(120%);
-  backdrop-filter: blur(6px) saturate(120%);
+  -webkit-backdrop-filter: blur(var(--blur)) saturate(120%);
+  backdrop-filter: blur(var(--blur)) saturate(120%);
 }
 .gtools.tl {
   left: 12px;
@@ -4232,4 +4397,256 @@ html.kb .m-nav {
   #readbar > i {
     transition: none;
   }
+}
+
+/* Versions: a small diamond in its state's colour before what was worked, done, validated. */
+.vm .vk {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin: 0 var(--sp-3) 1px 1px;
+  border-radius: 1px;
+  transform: rotate(45deg);
+  vertical-align: middle;
+}
+.vm .vk.wip {
+  background: var(--st-wip);
+}
+.vm .vk.done {
+  background: var(--st-done);
+}
+.vm .vk.val {
+  background: var(--st-val);
+}
+/* Render history: which machine wrote which frame. */
+/* Which machine rendered a frame: the answer, then each machine's frames. */
+.fm-a {
+  margin: 0;
+  min-height: 1.5em;
+  font-size: var(--fs-l, 15px);
+}
+.fm-lg {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  font-size: var(--fs-s);
+}
+.fm-lg li {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-6);
+}
+
+/* Renders (a column): the job in the farm, to check, outdated -- a line each. */
+.farmc .fj {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  font-size: var(--fs-s);
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Failed, outdated: the retake's orange on the icon, the words as the others. */
+#list .farmc .fj svg.i {
+  flex: none;
+}
+/* The sprite's icons paint with currentColor: their colour, not their fill. */
+#list .farmc .fj.chk svg.i {
+  color: var(--st-you);
+}
+#list .farmc .fj.bad svg.i,
+#list .farmc .fj.old svg.i {
+  color: var(--st-rtk);
+}
+.farmc .bar.bare {
+  grid-template-columns: 1fr calc(48px * var(--scale));
+}
+/* Hide the detail (the list on the whole width): a tablet's -- on a desktop, the panel's edge folds it. */
+@media (min-width: 1201px) {
+  #pz-side {
+    display: none !important;
+  }
+}
+
+/* The detail's side bar: the tabs, then the file's settings at its foot. */
+.vtabs .vsp {
+  flex: 1;
+}
+
+/* Last renders: the file's job in the farm, a line under the head (not a row like a department's). */
+.farmline {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin: 0;
+  font-size: var(--fs-s);
+  color: var(--text-2);
+}
+.farmline.bad {
+  color: var(--rtk-t);
+}
+
+/* Columns shown (the eye by the filters): a hidden one's cells gone, its track emptied. */
+#list.nothumb .thumb,
+#list.nothumb .c-th,
+#list.noprog .bars:not(.farmc),
+#list.noprog .c-prog {
+  display: none;
+}
+#list.nothumb .cols,
+#list.nothumb .row {
+  --c-th: ;
+}
+#list.noprog .cols,
+#list.noprog .row {
+  --c-pr: ;
+}
+#list.farmcol .cols,
+#list.farmcol .row {
+  --c-fm: calc(110px * var(--scale));
+}
+@container main (max-width:600px) {
+  #list.nothumb .row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  #list .row .farmc {
+    grid-column: 1/-1;
+  }
+  #list .row .farmc:not(:has(.fj)) {
+    display: none;
+  }
+}
+
+/* ---------- Lighter at rest: details shown on hover (on the row, the header, the card, the note) ----------
+   Only with a mouse: on a touch screen, everything stays shown. Faded in place where the layout must
+   not move; folded (its height to 0, animated) where it would leave an empty band. Closing is quicker
+   than opening (--hk: a transition runs at the time of the state it goes to). */
+@media (hover: hover) {
+  .bars .bar span,
+  .sf .v,
+  .farmc .fj .w,
+  .grp-h .btn.play,
+  .grp-h [data-plan],
+  .tree li .pc,
+  .dept .acts,
+  .dept .extra .anchor:has(.assign.none),
+  .dept .extra .btn,
+  .nt [data-nedit],
+  .nt [data-unreply],
+  .rvg .subd {
+    transition:
+      opacity calc(0.18s * var(--hk, 1)) ease,
+      visibility calc(0.18s * var(--hk, 1));
+  }
+  /* The list: Progress's figures, the Renders column's words (its icons and bar stay). */
+  .row:not(:hover):not(.sel) .bars .bar span,
+  .row:not(:hover):not(.sel) .farmc .fj .w,
+  /* Breakdown: a bar's figure (its pill), on the bar hovered -- the bar says it at rest. */
+  .sf:not(:hover) .v,
+  /* A sequence's header: Play the sequence, + shot. */
+  .grp-h:not(:hover):not(:focus-within) .btn.play,
+  .grp-h:not(:hover):not(:focus-within) [data-plan],
+  /* The outliner: a sequence's figure, a file's notes counted. */
+  .tree li.seq:not(:hover) .pc,
+  .tree li[data-n]:not(:hover):not(.sel) .pc,
+  /* The detail's departments: their buttons. */
+  .dept:not(:hover):not(:focus-within) .acts,
+  .dept:not(:hover):not(:focus-within) .extra .anchor:has(.assign.none),
+  .dept:not(:hover):not(:focus-within) .extra .btn:not([aria-pressed="true"]),
+  /* A note: its pen, a reply's take-back. */
+  .nt:not(:hover):not(:focus-within) [data-nedit],
+  .nt:not(:hover):not(:focus-within) [data-unreply],
+  /* In a review's box: each note's own time (the box's head has the date). */
+  .rvg .nt:not(:hover) .subd {
+    opacity: 0;
+    visibility: hidden;
+    --hk: 0.4;
+  }
+  /* Folded: a department card's second line when it says nothing (no assignee, waiting, to redo,
+     change of mine), a note's buttons (Fixed, Reply, Take back) -- the card or the note one line
+     shorter, opening on hover. The negative margin takes the gap back. */
+  .dept .extra,
+  .nt .f {
+    max-height: calc(120px * var(--scale));
+    transition:
+      max-height calc(0.22s * var(--hk, 1)) ease,
+      opacity calc(0.18s * var(--hk, 1)) ease,
+      margin calc(0.22s * var(--hk, 1)) ease;
+  }
+  .dept:not(:hover):not(:focus-within) .extra:not(:has(.assign:not(.none), .wait, .redo, .btn[aria-pressed="true"])),
+  .nt:not(:hover):not(:focus-within) .f {
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    --hk: 0.4;
+  }
+  .dept:not(:hover):not(:focus-within) .extra:not(:has(.assign:not(.none), .wait, .redo, .btn[aria-pressed="true"])) {
+    margin-top: calc(-1 * var(--sp-2));
+  }
+  /* Narrowed to nothing too, not only faded: a card's buttons beside its words, a note's pen in its
+     header -- left in place, they'd push the words to a second line. */
+  .dept .acts,
+  .dept .extra .anchor:has(.assign.none),
+  .dept .extra .btn,
+  .nt [data-nedit] {
+    max-width: calc(260px * var(--scale));
+    transition:
+      max-width calc(0.22s * var(--hk, 1)) ease,
+      margin calc(0.22s * var(--hk, 1)) ease,
+      padding calc(0.22s * var(--hk, 1)) ease,
+      opacity calc(0.18s * var(--hk, 1)) ease,
+      visibility calc(0.18s * var(--hk, 1));
+  }
+  .dept:not(:hover):not(:focus-within) .acts,
+  .nt:not(:hover):not(:focus-within) [data-nedit] {
+    max-width: 0;
+    overflow: hidden;
+    --hk: 0.4;
+  }
+  /* Beside the words still shown (waiting, to redo): Assign and Mark done take no room, their gap too. */
+  .dept:not(:hover):not(:focus-within) .extra .anchor:has(.assign.none),
+  .dept:not(:hover):not(:focus-within) .extra .btn:not([aria-pressed="true"]) {
+    max-width: 0;
+    overflow: hidden;
+    padding-inline: 0;
+    border-width: 0;
+    margin-right: calc(-1 * var(--sp-5));
+  }
+  .nt:not(:hover):not(:focus-within) .f {
+    margin-top: calc(-1 * var(--sp-3));
+  }
+}
+
+/* Notes sent together (one review id): one box, as Blender's -- its head (who, when, how many),
+   then each note a row in it, a line between them. */
+.rvg {
+  display: flex;
+  flex-direction: column;
+  background: var(--box);
+  border-radius: var(--r-l);
+  padding: var(--sp-4) 0 0;
+}
+.rvg-h {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 0 var(--sp-6) var(--sp-3);
+  font-size: var(--fs-s);
+  color: var(--text-2);
+}
+.rvg-h .sp {
+  flex: 1;
+}
+.rvg-h .n {
+  color: var(--text-3);
+}
+.rvg > .nt {
+  background: transparent;
+  border-radius: 0;
+  border-top: 1px solid var(--line-2);
 }

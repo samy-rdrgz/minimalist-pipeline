@@ -1,5 +1,8 @@
 /* ---------- Topbar ---------- */
 function renderTop() {
+  // Menu › Required departments on several files…: a review's, rare and heavy -- not by the filters.
+  const bulk = $('#m-bulk');
+  if (bulk) bulk.hidden = !S.review;
   const n = k => items.filter(i => i.kind === k).length;
   $('#ws').innerHTML = [
     ['shot', T('Shots'), 'b-camera_data', n('shot')],
@@ -25,6 +28,7 @@ function renderTop() {
     .join('');
   $('#p-name').textContent = M.project;
   $('#p-live').title = T('Connected to Blender · {user}', { user: M.live.user });
+  requestAnimationFrame(fitTop);
   $('#p-date').textContent =
     (LIVE ? 'live · ' + fmtD(M.snapshot) : T('snapshot of {date}', { date: fmtD(M.snapshot) })) +
     ' · ' +
@@ -136,3 +140,15 @@ function renderTree() {
       s.style.height = '11px';
     });
 }
+
+/* The top bar's tools in words while the tabs have their room, else in icons: words first, then
+   icons if the tabs are squeezed (or the bar overflows). */
+function fitTop() {
+  const bar = document.querySelector('.topbar'),
+    ws = $('#ws');
+  if (!bar || !ws) return;
+  bar.classList.remove('tb-ic');
+  if (ws.scrollWidth > ws.clientWidth + 1 || bar.scrollWidth > bar.clientWidth + 1) bar.classList.add('tb-ic');
+}
+if (window.ResizeObserver && document.querySelector('.topbar'))
+  new ResizeObserver(() => fitTop()).observe(document.querySelector('.topbar'));

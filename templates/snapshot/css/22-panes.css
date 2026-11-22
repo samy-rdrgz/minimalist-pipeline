@@ -1,5 +1,5 @@
 /* Resizable side panels (desktop, 1200 px and over): drag the edge; past the minimum the panel
-   folds away and a tab brings it back (1.5 times the top bar's height, easy to hit); a double-click: the default width. */
+   folds away and a small tab under the filter bar brings it back; a double-click: the default width. */
 .pz-h {
   position: fixed;
   z-index: 60;
@@ -37,8 +37,8 @@
   display: none;
   align-items: center;
   justify-content: center;
-  width: calc(22px * var(--scale));
-  height: calc(72px * var(--scale));
+  width: calc(20px * var(--scale));
+  height: calc(32px * var(--scale));
   border: 0;
   cursor: pointer;
   background: var(--t3);

@@ -1,50 +1,11 @@
 /* The blue theme, 60 / 30 / 10: where the tints and the bright blue go.
    The values are in 10-tokens.css (dark and light); here, only where they apply.
-   30 %: the top bar and the selection. Sequence headers and the detail panel stay grey. */
+   30 %: the selection. The top bar, sequence headers and the detail panel stay grey. */
 
-/* The top bar, a tint */
+/* The top bar: grey like the panels (no tint); its workspaces' selected tab, the bright blue. */
 .topbar {
   position: relative;
   z-index: 30;
-  background: var(--t1);
-  color: var(--t-text);
-}
-.topbar .faint,
-.topbar .dim {
-  color: var(--t-text-2);
-}
-.topbar .btn {
-  background: var(--t2);
-  border-color: var(--t2);
-  color: var(--t-text);
-}
-.topbar .btn:hover {
-  background: var(--t3);
-}
-.topbar .btn.flat {
-  background: transparent;
-  border-color: transparent;
-}
-.topbar .btn.primary {
-  background: var(--brand);
-  border-color: var(--brand);
-  color: var(--on-brand);
-}
-.topbar .review-chip {
-  background: var(--t2);
-  border-color: var(--t-line);
-}
-.topbar .review-chip .who {
-  color: var(--t-text);
-}
-.ws {
-  background: rgba(0, 0, 0, 0.22);
-}
-.ws button {
-  color: var(--t-text-2);
-}
-.ws button:hover {
-  color: var(--t-text);
 }
 .ws button[aria-selected="true"] {
   background: var(--brand);
@@ -62,9 +23,9 @@
 
 /* Sticky headers, glass */
 .grp-h {
-  background: var(--glass);
+  background: var(--glass-grp);
   color: var(--text);
-  border-bottom-color: var(--line);
+  border-bottom-color: var(--line-2);
 }
 .grp-h .faint {
   color: var(--text-3);
@@ -79,7 +40,7 @@
 #outliner .area-head,
 #props .area-head {
   background: var(--glass-head);
-  border-bottom-color: var(--line);
+  border-bottom: 0;
   position: relative;
   z-index: 10;
 }
@@ -95,8 +56,8 @@
   z-index: -1;
   pointer-events: none;
   border-radius: inherit;
-  -webkit-backdrop-filter: blur(5px) saturate(120%);
-  backdrop-filter: blur(5px) saturate(120%);
+  -webkit-backdrop-filter: blur(var(--blur)) saturate(120%);
+  backdrop-filter: blur(var(--blur)) saturate(120%);
 }
 .wsec {
   position: sticky;
@@ -172,16 +133,16 @@
 .pop {
   background: var(--menu);
   border-color: var(--menu-line);
-  -webkit-backdrop-filter: blur(6px) saturate(120%);
-  backdrop-filter: blur(6px) saturate(120%);
+  -webkit-backdrop-filter: blur(var(--blur)) saturate(120%);
+  backdrop-filter: blur(var(--blur)) saturate(120%);
   box-shadow: 0 18px 50px -12px var(--shadow);
 }
 .toast {
   background: var(--menu);
   color: var(--text);
   border: 1px solid var(--toast-line);
-  -webkit-backdrop-filter: blur(6px) saturate(120%);
-  backdrop-filter: blur(6px) saturate(120%);
+  -webkit-backdrop-filter: blur(var(--blur)) saturate(120%);
+  backdrop-filter: blur(var(--blur)) saturate(120%);
 }
 
 /* Menus in front */
@@ -268,6 +229,30 @@
 .btn.ok svg.i {
   fill: var(--st-val);
 }
+/* Comment (a department's retake, remark or to do): the pencil in the retake's orange. */
+.btn.cmt svg.i {
+  fill: var(--st-rtk);
+}
+/* Write: the colour of what's written (a retake orange, a remark grey, a to do yellow). */
+.btn.wr {
+  font-weight: 600;
+  border-color: transparent;
+}
+.btn.wr.rtk {
+  background: var(--st-rtk);
+  color: #fff;
+}
+.btn.wr.note {
+  background: var(--line-3);
+  color: var(--text);
+}
+.btn.wr.todo {
+  background: var(--st-wip);
+  color: var(--on-st);
+}
+.btn.wr:hover {
+  filter: brightness(1.1);
+}
 .btn.alert svg.i {
   fill: var(--st-rtk);
 }
@@ -302,4 +287,30 @@
   background: var(--st-rtk);
   border-color: var(--st-rtk);
   color: #fff;
+}
+
+/* A block's note on all its shots: each shot's chip lit, quieter than a shot picked. */
+.btn.all[aria-pressed="true"] {
+  background: var(--brand-a40);
+  border-color: transparent;
+}
+
+/* A quick filter on (the bright blue): its glyph's diamond white, its corner ringed in blue --
+   a blue diamond on the blue read as nothing. */
+.btn[data-quick][aria-pressed="true"] svg.g > path:first-of-type {
+  fill: var(--on-brand) !important;
+}
+.btn[data-quick][aria-pressed="true"] svg.g circle {
+  stroke: var(--brand) !important;
+}
+
+/* A box's header (its outline's colour): its buttons a step above it -- the page's own greys
+   (--btn, --tool, --play) are darker than this header and read as holes in it. */
+.grp-h .btn:not(.flat):not(.primary) {
+  background: color-mix(in srgb, var(--line-3) 55%, var(--line-2));
+  border-color: transparent;
+  color: var(--text);
+}
+.grp-h .btn:not(.flat):not(.primary):hover {
+  background: var(--line-3);
 }

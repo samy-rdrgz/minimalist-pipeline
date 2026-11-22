@@ -2,7 +2,8 @@
 (lib/monitoring/tracking.py set_department_done(), the review's "done" action): done
 written in place (both keys, 2.0 and 1.x), started kept, undone taking its
 validations there with it; nothing written when already as asked; refused
-without a stable. And the review action read back.
+without a stable. And the review action read back; a note's review id
+passed to the page.
 
     python3 tests/test_mark_done.py
 """
@@ -84,6 +85,13 @@ def main() -> None:
         assert not tracking.set_entry_text(blend, "a1b2c", "too dark, the left side", "léa")
         assert review_import._action({"type": "edit", "file": "ch_bob", "id": "a1b2c", "text": ""}) is None
         assert review_import._action({"type": "delete", "file": "ch_bob", "id": "a1b2c"}) == {"type": "delete", "file": "ch_bob", "id": "a1b2c"}
+
+        # The review a note came with, to the page: notes sharing one drawn under one header.
+        snapshot = importlib.import_module(f"{pkg.__name__}.lib.monitoring.snapshot")
+        page = importlib.import_module(f"{pkg.__name__}.lib.monitoring.snapshot_page")
+        d = snapshot._entry_dict({"id": "x", "type": "rtk", "text": "t", "author": "a", "review_id": "3fa9c21e"})
+        assert d["review_id"] == "3fa9c21e" and page._entry(d)["rid"] == "3fa9c21e", d
+        assert snapshot._entry_dict({"id": "y", "type": "note"})["review_id"] == ""
     print("ok")
 
 

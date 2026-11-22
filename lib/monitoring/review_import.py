@@ -507,7 +507,8 @@ def import_review(path: Path, review: dict | None = None) -> dict:
     author = review["author"] or "prod"
     date = review["review_date"]
     created_at = date.isoformat(timespec="seconds") if date else None
-    review_id = hashlib.sha1(f"{now()}{Path(path).name}".encode()).hexdigest()[:5]
+    # The live page's sitting (one id for its changes, renewed by the page), else one per import.
+    review_id = review.get("review_id") or hashlib.sha1(f"{now()}{Path(path).name}".encode()).hexdigest()[:5]
     actions = review["actions"]
     result = {
         "imported": 0,

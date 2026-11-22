@@ -44,6 +44,11 @@ function mountVideo() {
   if (img) img.hidden = true;
   if (PV.parentNode !== st) st.insertBefore(PV, st.firstChild);
   if (PV.dataset.src !== c.src) {
+    // Another version of the same file (A / B): the same frame; another file: its start.
+    if (PV.dataset.item !== c.it.name) {
+      S.frame = 1;
+      PV.dataset.item = c.it.name;
+    }
     const t = PV.dataset.src ? (S.frame - 1 + 0.5) / FPS() : 0;
     PV.dataset.src = c.src;
     PV.src = c.src;
@@ -99,7 +104,7 @@ PV.addEventListener('loadedmetadata', () => {
 });
 PV.addEventListener('error', () => {
   if (PV.dataset.src) {
-    toast(T('Video not found: choose the videos folder (View).'));
+    toast(T('Video not found: choose the videos folder (Menu).'));
     PV.removeAttribute('src');
     delete PV.dataset.src;
     PV.remove();

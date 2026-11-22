@@ -61,30 +61,31 @@
   --t-text-2: #a3b4cd; /* secondary text on a tint */
   /* 60 %: neutral greys */
   --screen: #0f0f10; /* ground, gutters between areas */
-  --area: #18191a; /* panels */
-  --head: #18191a; /* a panel's header */
-  --glass: rgba(24, 25, 26, 0.88); /* sequence headers, glass */
-  --glass-head: rgba(24, 25, 26, 0.86); /* the panels' headers, glass */
+  --area: #1c1d1f; /* panels */
+  --head: #1c1d1f; /* a panel's header */
+  --glass: rgba(28, 29, 31, 0.3); /* sequence headers, glass */
+  --glass-head: rgba(28, 29, 31, 0.3); /* the panels' headers, glass */
+  --glass-grp: color-mix(in srgb, var(--line-2) 70%, transparent); /* a box's header (sequences): its outline's colour, glass */
   --row-line: rgba(255, 255, 255, 0.04); /* between the list's rows */
   --toast-line: rgba(255, 255, 255, 0.08);
-  --box: #212224; /* cards */
-  --box-2: #292a2c; /* cards, second level */
-  --line: #252628; /* lines */
-  --line-2: #303234; /* marked lines */
-  --line-3: #474a4d; /* fields' borders, dashes */
+  --box: #252628; /* cards */
+  --box-2: #2d2e30; /* cards, second level */
+  --line: #292a2c; /* lines */
+  --line-2: #343638; /* marked lines */
+  --line-3: #4b4e51; /* fields' borders, dashes */
   --sunk: #121313; /* hollows (tracks, timeline) */
-  --cols: #18191a; /* columns' header */
-  --row-hover: #1f2021; /* a row hovered */
+  --cols: #1c1d1f; /* columns' header */
+  --row-hover: #232426; /* a row hovered */
   --row-sel: var(--t1); /* the selected row */
-  --stripe-a: #18191a; /* even row (outliner) */
-  --stripe-b: #161617; /* odd row (outliner) */
+  --stripe-a: #1c1d1f; /* even row (outliner) */
+  --stripe-b: #19191b; /* odd row (outliner) */
   --canvas: #121313; /* nodes' and preview's ground */
-  --dot: #242627; /* the dot pattern */
-  --btn: #27292a; /* buttons */
-  --btn-hi: #2f3133; /* a button hovered */
-  --btn-line: #27292a; /* a button's border */
-  --tool: #212324; /* tools */
-  --tool-hi: #2b2d2f; /* a tool hovered */
+  --dot: #28292b; /* the dot pattern */
+  --btn: #2b2d2e; /* buttons */
+  --btn-hi: #333537; /* a button hovered */
+  --btn-line: #2b2d2e; /* a button's border */
+  --tool: #252729; /* tools */
+  --tool-hi: #2f3133; /* a tool hovered */
   --field: #121313; /* fields */
   --track: #0d0e0e; /* sliders' tracks */
   --sel: var(--brand); /* selection = the brand */
@@ -92,16 +93,17 @@
   --sel-line: var(--brand);
   --sel-hover: var(--brand-hi);
   --sel-soft: var(--t2); /* soft selection = a tint */
-  --menu: rgba(28, 30, 31, 0.88); /* menus and popovers, glass */
+  --menu: rgba(32, 34, 35, 0.3); /* menus and popovers, glass */
+  --blur: 20px; /* every glass's blur */
   --menu-line: rgba(255, 255, 255, 0.07); /* a menu's border */
   --overlay: rgba(15, 15, 16, 0.6); /* a dialog's veil */
   --text: #ededee; /* text */
   --text-2: #b5b8ba; /* secondary text */
   --text-3: #8a8f93; /* faint text */
   --on-sel: #ffffff; /* text on the selection */
-  --play: #27292a;
-  --play-hi: #2f3133;
-  --play-line: #27292a;
+  --play: #2b2d2e;
+  --play-hi: #333537;
+  --play-line: #2b2d2e;
   --play-t: #ededee; /* the play button */
   /* Accents, from the states */
   --alert: rgba(240, 128, 10, 0.14);
@@ -118,7 +120,7 @@
   --wip-t: #fceca1; /* in progress text */
   --live-t: #b1cdff; /* the live pill */
   /* Nodes */
-  --node: #212224; /* a node */
+  --node: #252628; /* a node */
   --node-asset: #24344f; /* an asset's node (blue) */
   --node-shot: #463f22; /* a shot's node (yellow) */
   --node-old: #3a2140; /* an outdated node (violet) */
@@ -167,8 +169,8 @@
   --screen: #c8cacd;
   --area: #eceded;
   --head: #eceded;
-  --glass: rgba(236, 237, 237, 0.88);
-  --glass-head: rgba(236, 237, 237, 0.86);
+  --glass: rgba(236, 237, 237, 0.3);
+  --glass-head: rgba(236, 237, 237, 0.3);
   --row-line: rgba(0, 0, 0, 0.05);
   --toast-line: rgba(0, 0, 0, 0.08);
   --box: #f6f6f7;
@@ -190,7 +192,7 @@
   --tool-hi: #dcdddf;
   --field: #ffffff;
   --track: #d4d6d9;
-  --menu: rgba(250, 250, 251, 0.92);
+  --menu: rgba(250, 250, 251, 0.3);
   --menu-line: rgba(0, 0, 0, 0.1);
   --overlay: rgba(40, 42, 46, 0.35);
   --text: #16181b;

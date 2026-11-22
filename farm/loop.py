@@ -905,7 +905,7 @@ _STAGE_WORDS = {
     "render_finished": "frame check next",
     "checks_images_start": "checking frames",
     "checks_images_finished": "compilation next",
-    "compilation_start": "compiling",
+    "compilation_start": "compiling the video",
     "compilation_finished": "finishing",
     "checks_images_failed": "frame check failed",
 }

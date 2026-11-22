@@ -86,7 +86,14 @@ def file_history(owner: Path) -> dict:
                 "seconds": e.get("duration_seconds") or 0,
                 "machines": len(e.get("machines_used") or []) if isinstance(e.get("machines_used"), list) else e.get("machines_used") or 0,
                 "source": _stem(e.get("source_file")),
-                "folder": out.name if out.name else "",
+                # Its folder (v003-stable_001): the farm's output_path ends with the
+                # frames' pattern (sq010_sh010_v003-stable.#####).
+                "folder": (out.parent.name if "#" in out.name else out.name) if str(out) != "." else "",
+                # A frame's seconds on one machine (farm/queue.py _note_frames()).
+                "per_frame": e.get("seconds_per_frame") or None,
+                # Which machine wrote each frame: {"start", "frames" (a letter a frame),
+                # "machines" {letter: [uuid, name]}}.
+                "frame_machines": e.get("frame_machines") if isinstance(e.get("frame_machines"), dict) else None,
                 "shot": e.get("shot_override") or "",
                 # Render here: "local", "viewport" (farm/queue.py construct_history()).
                 "tags": [t for t in e.get("tags") or [] if isinstance(t, str)],

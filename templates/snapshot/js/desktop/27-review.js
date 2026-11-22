@@ -1,6 +1,8 @@
 /* ---------- Selection ---------- */
 const narrow = () => matchMedia('(max-width:860px)').matches;
 function select(n, { open = true } = {}) {
+  // Another file: its video from its start.
+  if (n !== S.sel) S.frame = 1;
   S.sel = n;
   S.form = null;
   S.reply = null;
@@ -26,15 +28,31 @@ function select(n, { open = true } = {}) {
   if (open && narrow() && !S.wide) document.body.classList.add('props-open');
   document.body.classList.remove('out-open');
 }
+/* The files previous / next go through: Watch large, its sequence's; the file's own list, as
+   filtered; any other tab (Links, To do, Breakdown), every file of its kind. */
+function navList() {
+  const it = cur();
+  if (!it || S.ws === 'farm') return [];
+  if (S.wide) return items.filter(i => i.kind === it.kind && groupOf(i) === groupOf(it));
+  if (S.ws === it.kind) {
+    const v = visible().filter(i => !S.closed.has(groupOf(i)));
+    if (v.some(i => i.name === it.name)) return v;
+  }
+  return items.filter(i => i.kind === it.kind);
+}
+/* Whether there's a file that way (the buttons greyed at the ends). */
+function canStep(dir) {
+  const v = navList(),
+    i = v.findIndex(x => x.name === S.sel);
+  return i < 0 ? v.length > 0 : i + dir >= 0 && i + dir < v.length;
+}
+const stepOff = dir => (canStep(dir) ? '' : 'disabled');
 function step(dir) {
-  if (S.ws === 'farm' || S.ws === 'links' || S.ws === 'synth' || S.ws === 'todo') return;
-  const v = S.wide
-    ? items.filter(i => i.kind === cur().kind && groupOf(i) === groupOf(cur()))
-    : visible().filter(i => !S.closed.has(groupOf(i)));
+  const v = navList();
   if (!v.length) return;
   let i = v.findIndex(x => x.name === S.sel);
   i = i < 0 ? 0 : Math.min(v.length - 1, Math.max(0, i + dir));
-  select(v[i].name, { open: false });
+  if (v[i].name !== S.sel) select(v[i].name, { open: false });
 }
 
 /* ---------- Review ---------- */

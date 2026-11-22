@@ -44,13 +44,13 @@ function versionsHTML(it) {
       const dep = d => esc(LBL[d] || d);
       return `<div class="vn ${v.stable ? 'st' : ''} ${v.conflict ? 'cf' : ''}" data-vi="${i}" ${parent != null ? `data-vp="${parent}"` : ''} ${branch ? 'data-branch' : ''}>
         <span class="vd" aria-hidden="true"></span>
-        <div class="vb"><div class="vh"><b class="mono">${esc(vShort(it, v.file))}</b>${v.stable ? `<span class="tag">${T('stable')}</span>` : ''}${branch ? `<span class="tag warn" title="${T('Made from {v}, not from the version before it', { v: esc(vShort(it, v.from)) })}">${T('from {v}', { v: esc(vShort(it, v.from)) })}</span>` : ''}</div>
+        <div class="vb"><div class="vh"><b class="mono">${esc(vShort(it, v.file))}</b>${branch ? `<span class="tag warn" title="${T('Made from {v}, not from the version before it', { v: esc(vShort(it, v.from)) })}">${T('from {v}', { v: esc(vShort(it, v.from)) })}</span>` : ''}</div>
           <div class="vm faint">${[dShort(v.at), v.saved_by && v.saved_at && v.saved_at !== v.at ? T('saved last by {who}, {date}', { who: esc(v.saved_by), date: dShort(v.saved_at) }) : ''].filter(Boolean).join(' · ')}</div>
-          ${worked.length ? `<div class="vm">${T('Worked: {deps}', { deps: worked.map(dep).join(', ') })}${people.length ? ` <span class="faint">· ${people.map(esc).join(', ')}</span>` : ''}</div>` : ''}
-          ${v.stable && v.done.length ? `<div class="vm">${T('Done: {deps}', { deps: v.done.map(dep).join(', ') })}</div>` : ''}
+          ${worked.length ? `<div class="vm"><i class="vk wip"></i>${T('Worked: {deps}', { deps: worked.map(dep).join(', ') })}${people.length ? ` <span class="faint">· ${people.map(esc).join(', ')}</span>` : ''}</div>` : ''}
+          ${v.stable && v.done.length ? `<div class="vm"><i class="vk done"></i>${T('Done: {deps}', { deps: v.done.map(dep).join(', ') })}</div>` : ''}
           ${
             v.stable && Object.keys(v.approvals || {}).length
-              ? `<div class="vm">${T('Validated: {list}', {
+              ? `<div class="vm"><i class="vk val"></i>${T('Validated: {list}', {
                   list: Object.entries(v.approvals)
                     .map(([d, rs]) => dep(d) + ' (' + rs.map(esc).join(', ') + ')')
                     .join(', ')
@@ -109,9 +109,18 @@ function rendersHTML(it) {
     if (!by[v]) groups.push((by[v] = { v, rs: [] }));
     by[v].rs.push(r);
   });
+  // Its time on one machine: a frame's seconds there, every frame; without them, the time it took.
+  const nFr = r => (r.frames ? r.frames[1] - r.frames[0] + 1 : 0),
+    hm = s => (s >= 3600 ? T('{h} h {m}', { h: Math.floor(s / 3600), m: String(Math.round((s % 3600) / 60)).padStart(2, '0') }) : min(s)),
+    took = r =>
+      r.per_frame && nFr(r)
+        ? T('{t} on one machine', { t: hm(r.per_frame * nFr(r)) })
+        : r.seconds
+          ? T('took {t}', { t: hm(r.seconds) })
+          : '';
   const line =
-    r => `<div class="rh">${jst(ok[r.status] || 'finished')}<div class="rl"><div class="vh"><b class="mono">${esc(r.folder || '')}</b>${r.department ? `<span class="tag">${esc(LBL[r.department] || r.department)}</span>` : ''}${r.status && r.status !== 'finished' ? `<span class="tag ${r.status === 'failed' ? 'fail' : ''}">${esc(r.status)}</span>` : ''}${jobTags(r)}</div>
-        <div class="vm faint">${[dShort(r.at), r.by, r.preset, r.frames ? 'f' + r.frames.join('–') : '', r.shot, min(r.seconds) && T('{t} of machine', { t: min(r.seconds) }), r.machines ? T('{n} machine|{n} machines', { n: r.machines }) : ''].filter(Boolean).map(esc).join(' · ')}</div></div></div>`;
+    r => `<div class="rh">${jst(ok[r.status] || 'finished')}<div class="rl"><div class="vh">${r.department ? `<span class="tag">${esc(LBL[r.department] || r.department)}</span>` : ''}${r.status && r.status !== 'finished' ? `<span class="tag ${r.status === 'failed' ? 'fail' : ''}">${esc(r.status)}</span>` : ''}${jobTags(r)}<span class="faint">${esc(dShort(r.at))}</span></div>
+        <div class="vm faint">${[r.by, r.preset, r.frames ? 'f' + r.frames.join('–') : '', r.shot, took(r)].filter(Boolean).map(esc).join(' · ')}</div></div></div>`;
   const nodes = groups
     .map(
       (
@@ -122,7 +131,52 @@ function rendersHTML(it) {
         <div class="vb"><div class="vh"><b class="mono">${esc(g.v)}</b><span class="faint">${T('{n} render|{n} renders', { n: g.rs.length })}</span></div>${g.rs.map(line).join('')}</div></div>`
     )
     .join('');
-  return `<div class="sec"><div class="sec-h">${T('Renders')}<span class="faint">${h.renders.length}</span></div>
+  const fmb = h.renders.some(r => r.frame_machines && r.frame_machines.frames)
+    ? `<span class="sp"></span><button class="btn sm" data-fmopen title="${T('A render, a frame: the machine that rendered it')}">${ic('b-viewzoom')}${T('Which machine…')}</button>`
+    : '';
+  return `<div class="sec"><div class="sec-h">${T('Renders')}<span class="faint">${h.renders.length}</span>${fmb}</div>
     <p class="faint" style="margin:0;font-size:var(--fs-s)">${T('By version rendered, the latest on top.')}</p>
     <div class="vchain" id="vchain"><svg class="vwires" aria-hidden="true"></svg>${nodes}</div></div>`;
+}
+/* Which machine rendered a frame (a render's frame_machines): a render picked, a frame (Blender's
+   number) written -- its machine; under it, each machine's frames counted. */
+function fmDlg() {
+  const it = cur(),
+    h = it && histOf(it);
+  if (!h || h === 'wait') return;
+  const rs = h.renders.filter(r => r.frame_machines && r.frame_machines.frames);
+  if (!rs.length) return;
+  const o = (S.fmq = S.fmq && S.fmq.name === it.name ? S.fmq : { name: it.name, i: 0, f: '' });
+  const r = rs[Math.min(o.i, rs.length - 1)],
+    fm = r.frame_machines,
+    start = +fm.start || 1,
+    end = start + fm.frames.length - 1,
+    name = l => ((fm.machines || {})[l] || [])[1] || ((fm.machines || {})[l] || [])[0] || l,
+    L = Object.keys(fm.machines || {}).sort(),
+    count = l => fm.frames.split(l).length - 1;
+  const lbl = x => [x.folder, x.department && (LBL[x.department] || x.department), x.shot, dShort(x.at)].filter(Boolean).join(' · ');
+  const dl = $('#dlg');
+  dl.hidden = false;
+  dl.innerHTML = `<div class="dlg-in" role="dialog" aria-modal="true" aria-labelledby="fm-t"><h3 id="fm-t">${T('Which machine rendered a frame')}</h3>
+    <div class="prop"><span class="k">${T('Which render')}</span><span class="v"><label class="field" style="flex:1"><select id="fm-r" aria-label="${T('Which render')}">${rs.map((x, k) => `<option value="${k}" ${k === o.i ? 'selected' : ''}>${esc(lbl(x))}</option>`).join('')}</select></label></span></div>
+    <div class="prop"><span class="k">${T('Frame')}</span><span class="v"><label class="field" style="width:calc(120px*var(--scale))"><span class="faint">f</span><input id="fm-f" inputmode="numeric" value="${esc(o.f)}" placeholder="${start}" aria-label="${T('Frame')}"></label><span class="faint">${start} – ${end}</span></span></div>
+    <p class="fm-a" id="fm-a"></p>
+    <ul class="fm-lg">${L.map(l => `<li><span>${esc(name(l))}</span><span class="faint">${T('{n} frame|{n} frames', { n: count(l) })}</span></li>`).join('')}</ul>
+    <div class="acts"><span style="flex:1"></span><button class="btn" data-dclose>${T('Close')}</button></div></div>`;
+  const inp = $('#fm-f'),
+    say = () => {
+      o.f = inp.value.trim();
+      const n = parseInt(o.f.replace(/^f/, ''), 10),
+        a = $('#fm-a');
+      if (!o.f) a.textContent = '';
+      else if (!(n >= start && n <= end)) a.innerHTML = `<span class="faint">${T('Not a frame of this render ({a} – {b}).', { a: start, b: end })}</span>`;
+      else a.innerHTML = `f${n} · <b>${esc(name(fm.frames[n - start]))}</b>`;
+    };
+  inp.oninput = say;
+  $('#fm-r').onchange = e => {
+    o.i = +e.target.value;
+    fmDlg();
+  };
+  say();
+  setTimeout(() => inp.focus(), 0);
 }

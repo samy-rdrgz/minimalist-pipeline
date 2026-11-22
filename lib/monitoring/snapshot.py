@@ -851,6 +851,8 @@ def _entry_dict(e: dict) -> dict:
         "role": e.get("role") or "",
         # Written by a validation, for the record: no note to read.
         "approval": e.get("source") == APPROVAL_SOURCE,
+        # The review it came with: notes sharing one are drawn under one header.
+        "review_id": e.get("review_id") or "",
     }
 
 

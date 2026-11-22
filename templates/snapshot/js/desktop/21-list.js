@@ -39,14 +39,26 @@ function renderQuick() {
             ''
           )}</span><span class="faint sx-hint" title="${T('Click a sequence: its files, in the list.')}">${T('Click a sequence: its files, in the list.')}</span><button class="btn tool" data-weights aria-expanded="${S.weights}">${ic('b-info')}${T("How it's counted")}</button><button class="btn tool" data-export title="${T('Sequences, shots, assets, retakes, to validate: a spreadsheet (.xlsx)')}">${ic('b-export')}${T('Export…')}</button>`
       : `<button class="btn qfold only-phone" data-qfold aria-expanded="${S.qFold === false}">${ic('b-filter')}${T('Filters')}${on ? ` <span class="n">${on}</span>` : ''}${ic(S.qFold === false ? 'b-downarrow_hlt' : 'b-rightarrow')}</button><span class="join">${q.map(([k, l, n, g]) => `<button class="btn" data-quick="${k}" aria-pressed="${S.quick === k}">${g.replace('class="g"', 'class="g" style="width:18px;height:18px"')}<span>${l}</span><span class="n">${n}</span></button>`).join('')}</span>
-    <span class="anchor"><button class="btn ${nm ? '' : 'tool'}" data-menu="m-more" aria-haspopup="true" aria-expanded="false" ${nm ? 'aria-pressed="true"' : ''}>${ic('b-filter')}${T('Filters')}${nm ? ` <span class="n">${nm}</span>` : ''}${ic('b-tria_down')}</button>
+    <span class="anchor"><button class="btn ${nm ? '' : 'tool'}" data-menu="m-more" aria-haspopup="true" aria-expanded="false" ${nm ? 'aria-pressed="true"' : ''}>${ic('b-filter')}${T('Filters')}${nm ? ` <span class="n">${nm}</span>` : ''}${ic('b-downarrow_hlt')}</button>
     <div class="menu" id="m-more" hidden role="menu">
       <div class="menu-h">${T('Department')}</div>
       ${DEPTS[S.ws].map(d => `<button class="mi" role="menuitemradio" aria-checked="${S.dept === d}" data-dept="${d}"><span class="ck">${S.dept === d ? ic('b-checkmark') : ''}</span><span class="lbl">${LBL[d]}</span></button>`).join('')}
       <div class="msep"></div>
-      ${[['me', T('Me'), T('assigned to {who}', { who: me() })], ...(LIVE ? [['farm', T('In the farm'), T('rendering, queued, failed')]] : []), ['unfinished', T('Not finished'), T('a department not done yet')], ['outdated', T('Render outdated'), T('rendered before the last stable')], ['tracked', T('Tracked only'), T('hides the files with no department')]].map(([k, l, h]) => `<button class="mi" role="menuitemcheckbox" aria-checked="${S.more.has(k)}" data-more="${k}"><span class="ck">${S.more.has(k) ? ic('b-checkmark') : ''}</span><span class="lbl">${l}</span><span class="k">${h}</span></button>`).join('')}
+      ${[['me', T('Me'), T('assigned to {who}', { who: me() })], ...(LIVE ? [['farm', T('In the farm'), T('rendering, queued, failed')]] : []), ['tocheck', T('To check'), T('rendered, not checked yet')], ['unfinished', T('Not finished'), T('a department not done yet')], ['outdated', T('Render outdated'), T('rendered before the last stable')], ['tracked', T('Tracked only'), T('hides the files with no department')]].map(([k, l, h]) => `<button class="mi" role="menuitemcheckbox" aria-checked="${S.more.has(k)}" data-more="${k}"><span class="ck">${S.more.has(k) ? ic('b-checkmark') : ''}</span><span class="lbl">${l}</span><span class="k">${h}</span></button>`).join('')}
       ${nm ? '<div class="msep"></div><button class="mi" data-act="clear-more"><span class="ck"></span><span class="lbl">' + T('Clear all') + '</span></button>' : ''}
-    </div></span>${S.review ? `<button class="btn tool" data-bulk title="${T('Make a department required, or not, on several files')}">${ic('b-preferences')}${T('Departments…')}</button>` : ''}`;
+    </div></span>${colsMenu()}`;
+}
+/* The list's columns, shown or not: the thumbnails, each department, Progress (Farm). */
+const shownDepts = kind => DEPTS[kind].filter(d => !S.hideCols.has(d));
+/* Farm: a column of its own, picked in Columns shown ("+farm": hidden unless asked), or by Filters › In the farm. */
+/* Renders: the file's job in the farm, a render to check, one outdated -- shown by the eye, or by the filters on them. */
+const farmCol = () => S.hideCols.has('+farm') || ['farm', 'tocheck', 'outdated'].some(k => S.more.has(k));
+function colsMenu() {
+  const n = S.hideCols.size,
+    mi = (k, l) =>
+      `<button class="mi" role="menuitemcheckbox" aria-checked="${!S.hideCols.has(k)}" data-col="${esc(k)}"><span class="ck">${S.hideCols.has(k) ? '' : ic('b-checkmark')}</span><span class="lbl">${l}</span></button>`;
+  return `<span class="anchor"><button class="btn icon ${n ? '' : 'tool'}" data-menu="m-cols" aria-haspopup="true" aria-expanded="false" ${n ? 'aria-pressed="true"' : ''} aria-label="${T('Columns shown')}" title="${T('Columns shown')}">${ic('b-hide_off')}</button>
+    <div class="menu" id="m-cols" hidden role="menu"><div class="menu-h">${T('Columns shown')}</div>${mi('thumb', T('Thumbnails'))}<div class="msep"></div>${DEPTS[S.ws].map(d => mi(d, esc(LBL[d]))).join('')}<div class="msep"></div>${mi('prog', T('Progress'))}<button class="mi" role="menuitemcheckbox" aria-checked="${farmCol()}" data-col="+farm" title="${T('The farm, to check, outdated')}"><span class="ck">${farmCol() ? ic('b-checkmark') : ''}</span><span class="lbl">${T('Renders')}</span></button></div></span>`;
 }
 function renderList() {
   const L = $('#list');
@@ -67,8 +79,11 @@ function renderList() {
     renderGraph();
     return;
   }
-  const dl = DEPTS[S.ws];
+  const dl = shownDepts(S.ws);
   L.style.setProperty('--nd', dl.length);
+  L.classList.toggle('nothumb', S.hideCols.has('thumb'));
+  L.classList.toggle('noprog', S.hideCols.has('prog'));
+  L.classList.toggle('farmcol', farmCol());
   const vis = visible();
   if (!vis.length) {
     L.innerHTML =
@@ -90,8 +105,8 @@ function renderList() {
         return `<div class="grp ${S.closed.has(g) ? 'closed' : ''}" data-g="${g}">
       <div class="grp-h"><button class="ttl" data-fold="${g}" aria-expanded="${!S.closed.has(g)}">${ic('b-downarrow_hlt', 'i tri open')}${ic('b-rightarrow', 'i tri shut')}<b>${g}</b><span class="cnt">${S.ws === 'shot' ? T('{n} shot|{n} shots', { n: its.length }) : T('{n} file|{n} files', { n: its.length })}</span></button>
         ${S.ws === 'shot' ? `<button class="btn sm play" data-seq="${g}" title="${T('The last videos of {seq}, one after the other', { seq: g })}">${ic('b-play')}${T('Play the sequence')}</button>` : ''}${S.review ? `<button class="btn sm tool" data-plan="${g}" data-k="${S.ws}" title="${S.ws === 'shot' ? T('A new shot in {seq}, made when the review is imported', { seq: g }) : T('A new file {prefix}_…, made when the review is imported', { prefix: g })}">${ic('b-add')}${S.ws === 'shot' ? T('shot') : T('asset')}</button>` : ''}
-        <span class="prog"><span class="bar" style="--p:${(ad || 0) * 100}%;--c:var(--st-done)"><span>${T('Done')}</span><i></i><span>${pct(ad)}</span></span><span class="bar" style="--p:${(av || 0) * 100}%;--c:var(--st-val)"><span>${T('Validated')}</span><i></i><span>${pct(av)}</span></span></span></div>
-      <div class="rows"><div class="cols"><span></span><span>${T('File')}</span>${dl.map(d => `<span class="cd" title="${LBL[d]}">${LBL[d]}</span>`).join('')}<span class="c-prog">${T('Progress')}</span></div>
+        <span class="prog"><span class="bar bare" style="--p:${(ad || 0) * 100}%;--c:var(--st-done)" title="${T('Done')} ${pct(ad)}"><i></i><span>${pct(ad)}</span></span><span class="bar bare" style="--p:${(av || 0) * 100}%;--c:var(--st-val)" title="${T('Validated')} ${pct(av)}"><i></i><span>${pct(av)}</span></span></span></div>
+      <div class="rows"><div class="cols"><span class="c-th"></span><span>${T('File')}</span>${dl.map(d => `<span class="cd" title="${LBL[d]}">${LBL[d]}</span>`).join('')}<span class="c-prog">${T('Progress')}</span>${farmCol() ? `<span class="c-fm">${T('Renders')}</span>` : ''}</div>
       ${its.map(rowHTML).join('')}${S.planned.map((p, n) => (p.g === g && p.kind === S.ws ? plannedRow(p, n) : '')).join('')}${
         hid.length && !filt
           ? `<button class="aside-t" data-aside="${g}">${T('{n} set aside', { n: hid.length })} · ${hid
@@ -105,7 +120,7 @@ function renderList() {
 }
 function plannedRow(p, n) {
   return `<div class="row planned"><span class="thumb"></span><span class="fname"><span class="n">${esc(p.name)}</span>${p.desc ? `<span class="d">${esc(p.desc)}</span>` : ''}<span class="m"><span class="tag you">${T('new · made at the import')}</span></span></span>
-  <span class="depts">${DEPTS[p.kind].map(d => `<span class="cell ${p.deps.includes(d) ? '' : 'na'}">${glyph(p.deps.includes(d) ? 'todo' : 'na')}<span class="ab">${AB[d]}</span><span class="tx"><span class="l">${p.deps.includes(d) ? T('To do') : ''}</span></span></span>`).join('')}</span>
+  <span class="depts">${shownDepts(p.kind).map(d => `<span class="cell ${p.deps.includes(d) ? '' : 'na'}">${glyph(p.deps.includes(d) ? 'todo' : 'na')}<span class="ab">${AB[d]}</span><span class="tx"><span class="l">${p.deps.includes(d) ? T('To do') : ''}</span></span></span>`).join('')}</span>
   <span class="bars"><button class="btn sm flat" data-unplan="${n}" title="${T('Take this new file out of the review')}">${ic('b-x')}${T('Remove')}</button></span></div>`;
 }
 function otherHTML() {
@@ -117,7 +132,7 @@ function otherHTML() {
     : '';
 }
 function rowHTML(it) {
-  const dl = DEPTS[it.kind],
+  const dl = shownDepts(it.kind),
     nn = openNotes(it),
     om = it.setAside !== undefined ? it.setAside : it.omit,
     fv = valOf(it);
@@ -127,12 +142,12 @@ function rowHTML(it) {
       `<span class="tag omit" title="${T('Set aside: out of the figures')}">${om.state === 'cancelled' ? T('Cancelled') : T('On hold')}${om.reason ? ' · ' + esc(om.reason) : ''}</span>`
     );
   if (nn) tags.push(`<span class="tag">${ic('i-note')}${nn}</span>`);
-  if (it.toCheck)
+  if (it.toCheck && !farmCol())
     tags.push(
-      `<span class="tag check" title="${T('Rendered, not checked by the team yet')}">${ic('b-hide_off')}${T('to check')}</span>`
+      `<span class="tag tochk" title="${T('Rendered, not checked by the team yet')}">${ic('b-hide_off')}${T('to check')}</span>`
     );
-  if (it.outdated) tags.push(`<span class="tag check">${ic('b-error')}${T('render outdated')}</span>`);
-  if (it.farm)
+  if (it.outdated && !farmCol()) tags.push(`<span class="tag check">${ic('b-error')}${T('render outdated')}</span>`);
+  if (it.farm && !farmCol())
     tags.push(
       `<span class="tag ${it.farm.state === 'failed' ? 'fail' : ''}" title="${T('In the farm: {what}', { what: esc(TS(it.farm.tip)) })}">${ic(it.farm.state === 'waiting' ? 'b-sorttime' : 'b-file_movie')}farm ${esc(TS(it.farm.text))}</span>`
     );
@@ -142,8 +157,26 @@ function rowHTML(it) {
     <span class="fname"><span class="n" title="${it.name}">${it.name}</span>${it.desc ? `<span class="d" title="${esc(it.desc)}">${esc(it.desc)}</span>` : ''}
       <span class="m"><span class="ver">${[it.wip, it.stable && 'stable ' + it.stable].filter(Boolean).join(' · ')}${it.shots && it.shots.length ? ' · ' + T('{n} shot|{n} shots', { n: it.shots.length }) : ''}</span>${tags.join('')}</span></span>
     <span class="depts">${dl.map(d => cellHTML(it, d)).join('')}</span>
-    <span class="bars"><span class="bar" style="--p:${(it.done || 0) * 100}%;--c:var(--st-done)"><span>${T('Done')}</span><i></i><span>${pct(it.done)}</span></span><span class="bar" style="--p:${(fv || 0) * 100}%;--c:var(--st-val)"><span>${T('Validated')}</span><i></i><span>${pct(fv)}</span></span></span>
+    <span class="bars"><span class="bar bare" style="--p:${(it.done || 0) * 100}%;--c:var(--st-done)" title="${T('Done')} ${pct(it.done)}"><i></i><span>${pct(it.done)}</span></span><span class="bar bare" style="--p:${(fv || 0) * 100}%;--c:var(--st-val)" title="${T('Validated')} ${pct(fv)}"><i></i><span>${pct(fv)}</span></span></span>${farmCol() ? farmCell(it) : ''}
   </div>`;
+}
+/* The Farm column: a file's job -- its state, and while it
+   renders its frames done ("rendering 41/72") as a bar. */
+function farmCell(it) {
+  const f = it.farm,
+    out = [];
+  if (f) {
+    const m = String(f.text || '').match(/(\d+)\/(\d+)/),
+      p = m ? +m[1] / +m[2] : null;
+    out.push(
+      `<span class="fj ${f.state === 'failed' ? 'bad' : ''}" title="${esc(TS(f.tip || f.text))}">${ic(f.state === 'waiting' ? 'b-sorttime' : f.state === 'failed' ? 'b-error' : 'b-render_animation')}<span class="w">${esc(TS(f.text).replace(/\s*\d+\/\d+$/, ''))}</span></span>${p != null ? `<span class="bar bare" style="--p:${p * 100}%;--c:var(--st-done)"><i></i><span>${m[1]}/${m[2]}</span></span>` : ''}`
+    );
+  }
+  if (it.toCheck)
+    out.push(`<span class="fj chk" title="${T('Rendered, not checked by the team yet')}">${ic('b-hide_off')}<span class="w">${T('to check')}</span></span>`);
+  if (it.outdated)
+    out.push(`<span class="fj old" title="${T('rendered before the last stable')}">${ic('b-error')}<span class="w">${T('outdated')}</span></span>`);
+  return `<span class="bars farmc">${out.join('') || '<span class="faint">–</span>'}</span>`;
 }
 /* A bar's figure sits on its colour from this share up. */
 const IN = 0.62;
@@ -202,7 +235,7 @@ function renderSynth() {
     ${M.schedule ? `<div class="kpi"><span class="t">${T('Schedule · day {d} / {total}', { d: M.schedule.elapsed_days, total: M.schedule.total_days })}</span><span class="sf sch ${M.progress.shot >= IN ? 'in' : ''}" style="--p:${M.progress.shot * 100}%;--c:var(--st-done);--e:${M.schedule.expected * 100}%" title="${T('The line: where the shots should be today')}"><span class="lab ${M.progress.shot >= 0.45 ? 'on' : ''}">${T('Shots done')}</span><b class="v">${pct(M.progress.shot)}</b><i class="mk2"></i></span><span class="faint">${T('expected {pct}', { pct: pct(M.schedule.expected) })} · ${M.progress.shot < M.schedule.expected ? '<span class="bad">' + T('{n} points behind', { n: Math.round((M.schedule.expected - M.progress.shot) * 100) }) + '</span>' : T('on time')}</span></div>` : ''}
     <div class="kpi"><span class="t">${T('Set aside')}</span><span class="big">${items.filter(omitted).length}</span><span class="faint">${T('on hold or cancelled, out of the figures')}</span></div></div>
   ${S.weights ? `<p class="weights">${T("A department counts 0 % not started, {wip} % in progress, {rework} % reworked, {rtk} % done with an open retake, 100 % done. A file is the mean of its required departments, a sequence the mean of its files. Files set aside don't count. Validated is counted apart: by the role {role}, on the stable shown.", { wip: (M.weights || {}).wip ?? 33, rework: (M.weights || {}).rework ?? 67, rtk: (M.weights || {}).rtk ?? 67, role: esc(M.role) })}</p>` : ''}
-  ${overTime()}${projection()}${activity()}${table('shot', T('Shots'))}${table('asset', T('Assets'))}`;
+  ${table('shot', T('Shots'))}${table('asset', T('Assets'))}${overTime()}${projection()}${activity()}`;
 }
 /* Over time: one point a day (lib/monitoring/progress_log.py), Done and Validated of the shots
    or the assets, all or one department; today's from the page's own figures when not logged yet. */
@@ -232,7 +265,7 @@ function overTime() {
     pb = 26;
   const deps = DEPTS[o.kind] || [];
   const head = `<div class="ot-h"><b>${T('Over time')}</b><span class="join">${['shot', 'asset'].map(k => `<button class="btn sm" data-otk="${k}" aria-pressed="${o.kind === k}">${k === 'shot' ? T('Shots') : T('Assets')}</button>`).join('')}</span>
-    <span class="anchor"><button class="enum" data-menu="m-otd" aria-haspopup="true" aria-expanded="false"><span class="lb">${o.dept ? esc(LBL[o.dept]) : T('All departments')}</span>${ic('b-tria_down')}</button><div class="menu" id="m-otd" hidden role="menu">${['', ...deps].map(d => `<button class="mi" data-otd="${esc(d)}"><span class="ck">${d === o.dept ? ic('b-checkmark') : ''}</span><span class="lbl">${d ? esc(LBL[d]) : T('All departments')}</span></button>`).join('')}</div></span>
+    <span class="anchor"><button class="enum" data-menu="m-otd" aria-haspopup="true" aria-expanded="false"><span class="lb">${o.dept ? esc(LBL[o.dept]) : T('All departments')}</span>${ic('b-downarrow_hlt')}</button><div class="menu" id="m-otd" hidden role="menu">${['', ...deps].map(d => `<button class="mi" data-otd="${esc(d)}"><span class="ck">${d === o.dept ? ic('b-checkmark') : ''}</span><span class="lbl">${d ? esc(LBL[d]) : T('All departments')}</span></button>`).join('')}</div></span>
     <button class="btn flat icon live-only" data-otreload aria-label="${T('Read the project again')}" title="${T("Read the project again: today's point brought up to date")}">${ic('b-file_refresh')}</button>
     <span class="ot-lg"><i style="--c:var(--st-done)"></i>${T('Done')}<i style="--c:var(--st-val)"></i>${T('Validated')}</span></div>`;
   if (pts.length < 2)

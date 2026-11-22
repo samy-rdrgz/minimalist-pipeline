@@ -2,12 +2,13 @@
    The days logged (Over time's), then a cone: each figure carried on between two paces --
    its last 30 days' and its last 90's (a straight line fitted to each) -- the slower as
    its lower edge, the faster as its upper: a wide cone, an uneven pace. Never down (a
-   pace falling: none), Validated never above Done, nothing dated past a year from today
-   (too hypothetical to say), the cones blurring as they go. The schedule's even pace
+   pace falling: none), Validated never above Done, nothing told further ahead than a quarter
+   of the time the production has run (PJ_AHEAD: past it, too hypothetical), the cones
+   blurring as they go. The schedule's even pace
    dotted, its end marked. Months, never a day: an estimate. */
 const PJ_SHORT = 30,
   PJ_LONG = 90,
-  PJ_HORIZON = 365; // days: no date past it
+  PJ_AHEAD = 0.25; // of the time run so far: no date past it
 /* A figure's pace over its last `days` days: a line fitted to them, {slope (a day), at
    (its value on the last day)}; null with fewer than 7 points. */
 function pjPace(pts, k, days) {
@@ -50,7 +51,8 @@ function projection() {
     return `<div class="ot pj">${head}<p class="faint ot-empty">${T('A week of points at least: the projection follows the curve.')}</p></div>`;
   const month = t => new Date(t).toLocaleDateString(DTL(), { month: 'long', year: 'numeric' });
   const today = Date.parse((pts.filter(p => !p.now).pop() || pts[pts.length - 1]).day),
-    horizon = today + PJ_HORIZON * 864e5;
+    start = Math.min(Date.parse(pts[0].day), sch ? Date.parse(sch.start) : Infinity),
+    horizon = today + Math.max(7 * 864e5, (today - start) * PJ_AHEAD);
   // When a pace reaches 100 % (Infinity: never, at that pace).
   const reach = (c, s) => (s > 0 ? today + ((1 - c.at) / s) * 864e5 : Infinity);
   const range = (c, name) => {
@@ -58,7 +60,7 @@ function projection() {
     if (c.hi <= 0) return T('{what}: no headway lately, no projection.', { what: name });
     const soon = reach(c, c.hi),
       late = reach(c, c.lo);
-    if (soon > horizon) return T('{what}: not within a year at this pace, too far to date.', { what: name });
+    if (soon > horizon) return T('{what}: not by {when} at this pace; further, too far to tell.', { what: name, when: month(horizon) });
     if (late > horizon)
       return T('{what}: not before {when}; the slower pace dates nothing.', {
         what: name,
@@ -81,13 +83,9 @@ function projection() {
     pr = 92,
     pt = 12,
     pb = 26;
-  const soonDone = done.hi > 0 ? reach(done, done.hi) : 0;
-  const t0 = Math.min(Date.parse(pts[0].day), sch ? Date.parse(sch.start) : Infinity),
-    // Done's earliest 100 % and the schedule's end in view, never past the horizon.
-    t1 = Math.min(
-      horizon,
-      Math.max(today + 30 * 864e5, soonDone, sch ? Date.parse(sch.end) : 0) + 20 * 864e5
-    ),
+  const t0 = start,
+    // The cones to the horizon; the chart to the schedule's end if it's further.
+    t1 = Math.max(horizon, sch ? Date.parse(sch.end) : 0) + (horizon - today) * 0.08,
     X = t => pl + ((t - t0) / (t1 - t0 || 1)) * (W - pl - pr),
     Y = v => pt + (1 - v) * (H - pt - pb);
   const line = k =>
@@ -98,7 +96,7 @@ function projection() {
   // A cone's edges, sampled from today to the chart's end; cap: the values it may not
   // pass (Validated's: Done's edges).
   const N = 24,
-    ts = [...Array(N + 1)].map((_, i) => today + ((t1 - today) * i) / N),
+    ts = [...Array(N + 1)].map((_, i) => today + ((horizon - today) * i) / N),
     edge = (c, s, cap) => ts.map((t, i) => Math.min(1, c.at + (s * (t - today)) / 864e5, cap ? cap[i] : 1));
   const dLo = edge(done, done.lo),
     dHi = edge(done, done.hi);
@@ -136,7 +134,7 @@ function projection() {
     <line class="pj-now" x1="${X(today)}" x2="${X(today)}" y1="${pt}" y2="${H - pb}"/>
     ${sch ? `<path class="pj-even" d="M${X(sStart).toFixed(1)} ${Y(0)} L${X(sTo).toFixed(1)} ${Y(Math.min(1, (sTo - sStart) / (sEnd - sStart || 1)))}"/>` : ''}
     ${sch && sEnd <= t1 ? `<line class="pj-end" x1="${X(sEnd)}" x2="${X(sEnd)}" y1="${pt}" y2="${H - pb}"/><text class="ot-ax" x="${X(sEnd) + 5}" y="${H - pb - 6}">${T('end')} · ${fmt(sEnd)}</text>` : ''}
-    ${blurred((val ? cone(val, edge(val, val.lo, dLo), edge(val, val.hi, dHi), 'var(--st-val)') : '') + cone(done, dLo, dHi, 'var(--st-done)'), X(today), X(t1))}
+    ${blurred((val ? cone(val, edge(val, val.lo, dLo), edge(val, val.hi, dHi), 'var(--st-val)') : '') + cone(done, dLo, dHi, 'var(--st-done)'), X(today), X(horizon))}
     <path class="ot-l" style="--c:var(--st-val)" d="${line('val')}"/><path class="ot-l" style="--c:var(--st-done)" d="${line('done')}"/>
     </svg>`;
   return `<div class="ot pj">${head}<p class="faint ac-say">${say}</p><div class="pj-box">${svg}</div></div>`;

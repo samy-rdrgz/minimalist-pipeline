@@ -118,10 +118,10 @@ function mReview() {
       ? `<span class="rng sel" id="rng-sel" style="left:${((Math.min(S.rangeStart, S.frame) - 1) / (NF - 1)) * 100}%;width:${(Math.abs(S.frame - S.rangeStart) / (NF - 1)) * 100}%"></span>`
       : '';
   const req = DEPTS[it.kind].filter(d => required(it).includes(d));
-  const notes = [...it.myNotes.map(n => ({ ...n, mine: true })), ...it.notes.filter(n => !n.done)],
+  const notes = [...it.myNotes.map(n => ({ ...n, mine: true })), ...it.notes.filter(n => !n.done && !n.approval)],
     closed = it.notes.filter(n => n.done && n.type !== 'note');
   return `<div class="m-shotnav"><button class="m-ib" data-mstep="-1" aria-label="${T('Previous shot')}" ${k <= 0 ? 'disabled' : ''}>${ic('b-tria_left')}</button>
-      <button class="m-pick" data-msheet="pick" aria-label="${T('Choose the shot')}"><span class="t"><b>${esc(mShort(it))}</b><small>${esc(groupOf(it))} · ${k < 0 ? T('out of the filter') : k + 1 + ' / ' + sib.length}${S.m.filter ? ' · ' + mF[S.m.filter] : ''}</small></span><span class="gls">${mGl(it)}</span>${ic('b-tria_down')}</button>
+      <button class="m-pick" data-msheet="pick" aria-label="${T('Choose the shot')}"><span class="t"><b>${esc(mShort(it))}</b><small>${esc(groupOf(it))} · ${k < 0 ? T('out of the filter') : k + 1 + ' / ' + sib.length}${S.m.filter ? ' · ' + mF[S.m.filter] : ''}</small></span><span class="gls">${mGl(it)}</span>${ic('b-downarrow_hlt')}</button>
       <button class="m-ib" data-mstep="1" aria-label="${T('Next shot')}" ${k < 0 || k >= sib.length - 1 ? 'disabled' : ''}>${ic('b-tria_right')}</button></div>
     ${it.desc || it.descEdit ? `<p class="m-desc">${esc(it.descEdit ?? it.desc)}</p>` : ''}
     <div class="m-player ${S.m.side === 'B' && V.length > 1 ? 'is-b' : ''}" id="m-player">${it.thumb ? `<img src="${it.thumb}" alt="${T('Picture of {name}', { name: esc(it.name) })}" draggable="false">` : `<span class="noimg">${T('Not rendered yet')}</span>`}
@@ -131,7 +131,7 @@ function mReview() {
       ${V.length > 1 ? `<span class="join m-ab" role="group" aria-label="${T('Version shown')}"><button class="btn" data-mside="A" aria-pressed="${S.m.side === 'A'}">A</button><button class="btn" data-mside="B" aria-pressed="${S.m.side === 'B'}">B</button></span>` : ''}</div>
     ${
       V.length > 1
-        ? `<div class="m-vers"><button class="m-vchip ${S.m.side === 'A' ? 'on' : ''}" data-msheet="verA"><b>A</b><span class="lb">${esc(verLab(V[a]))}</span>${ic('b-tria_down')}</button><button class="m-vchip ${S.m.side === 'B' ? 'on' : ''}" data-msheet="verB"><b>B</b><span class="lb">${esc(verLab(V[b]))}</span>${ic('b-tria_down')}</button></div>
+        ? `<div class="m-vers"><button class="m-vchip ${S.m.side === 'A' ? 'on' : ''}" data-msheet="verA"><b>A</b><span class="lb">${esc(verLab(V[a]))}</span>${ic('b-downarrow_hlt')}</button><button class="m-vchip ${S.m.side === 'B' ? 'on' : ''}" data-msheet="verB"><b>B</b><span class="lb">${esc(verLab(V[b]))}</span>${ic('b-downarrow_hlt')}</button></div>
       `
         : ''
     }<p class="m-hint">${S.m.loop ? T('Loop: this shot plays again.') : T("Play: the path's shots one after the other.")}${V.length > 1 ? ' ' + T('A / B: same frame, another version.') : ''} ${T('Swipe the picture: next shot.')}</p>
@@ -186,7 +186,7 @@ function mComposer() {
     req = DEPTS[it.kind].filter(d => required(it).includes(d));
   if (S.m.cdept && !req.includes(S.m.cdept)) S.m.cdept = null;
   return `<div class="m-comp"><div class="m-cr"><span class="join m-ct"><button class="btn icon" data-mct="rtk" aria-pressed="${S.m.ctype === 'rtk'}" aria-label="Retake" title="Retake">${ic('b-x')}</button><button class="btn icon" data-mct="note" aria-pressed="${S.m.ctype === 'note'}" aria-label="${T('Remark')}" title="${T('Remark')}">${ic('i-note')}</button><button class="btn icon" data-mct="todo" aria-pressed="${S.m.ctype === 'todo'}" aria-label="${T('To do')}" title="${T('To do')}">${ic('b-checkmark')}</button></span>
-      <button class="m-chip" data-msheet="cdept"><span>${S.m.cdept ? LBL[S.m.cdept] : T('No dept.')}</span>${ic('b-tria_down')}</button>
+      <button class="m-chip" data-msheet="cdept"><span>${S.m.cdept ? LBL[S.m.cdept] : T('No dept.')}</span>${ic('b-downarrow_hlt')}</button>
       <button class="m-chip ${S.rangeStart != null ? 'on' : ''}" data-tp="in" ${pOff(it)} aria-pressed="${S.rangeStart != null}" title="${T('A range: its start here')}">${S.rangeStart != null ? 'f' + S.rangeStart + ' →' : '⇤'} f<span data-f>${fNo(S.frame)}</span></button></div>
     <div class="m-cr"><label class="field ta"><textarea id="m-ta" rows="1" placeholder="${S.m.ctype === 'rtk' ? T('Retake at this frame…') : S.m.ctype === 'todo' ? T('To do at this frame…') : T('Remark at this frame…')}" aria-label="${T("The note's text")}"></textarea></label>
       <button class="btn primary icon m-send" data-msend aria-label="${T('Add to my review')}">${ic('b-export')}</button></div></div>`;
@@ -380,7 +380,7 @@ function mSheet() {
         .join('')}</ul>
       <p class="m-hint">${T('Links, breakdown, file settings and more filters: the desktop version.')}</p>
       <a class="brand-f" href="https://extensions.blender.org/add-ons/minimalist-pipeline/" target="_blank" rel="noopener"><svg viewBox="${document.querySelector('.statusbar .brand-f svg').getAttribute('viewBox')}" aria-hidden="true"><use href="#mp"/></svg><span class="wm">minimalist pipeline</span><span class="v">${esc(M.addon_version || '')}</span></a>`;
-    foot = `${S.review ? '<button class="btn m-wide" data-mstop>' + T('Leave the review') + '</button>' : ''}<button class="btn m-wide" data-mview="desktop">${T('Desktop version')}</button>`;
+    foot = `${S.review ? '<button class="btn m-wide" data-mstop>' + T('Leave the review') + '</button>' : ''}${mFsOk() ? `<button class="btn m-wide" data-mfull>${ic(mFsOn() ? 'b-fullscreen_exit' : 'b-fullscreen_enter')}${mFsOn() ? T('Leave full screen') : T('Full screen')}</button>` : ''}<button class="btn m-wide" data-mview="desktop">${T('Desktop version')}</button>`;
   }
   if (k && k.startsWith('job:')) {
     const j = F.jobs.find(x => x.id === k.slice(4));
@@ -419,10 +419,11 @@ function mSheet() {
             .join('')}</optgroup>`
       )
       .join('')}</select></label>
-      <div class="m-lab">${T('Version')}<span class="join full">${rf.stable ? `<button class="btn" data-mrv="stable" aria-pressed="${f.ver === 'stable'}">Stable · ${esc(rf.stable)}</button>` : ''}<button class="btn" data-mrv="last" aria-pressed="${f.ver === 'last' || !rf.stable}">${T('Latest · {v}', { v: esc(rf.wip || rf.stable || '') })}</button></span></div>
+      <div class="m-lab">${T('Version')}<span class="join full">${rf.stable ? `<button class="btn" data-mrv="stable" aria-pressed="${f.ver === 'stable' || !rf.wip}">${rf.wip ? 'Stable · ' + esc(rf.stable) : T('Latest, stable · {v}', { v: esc(rf.stable) })}</button>` : ''}${rf.wip || !rf.stable ? `<button class="btn" data-mrv="last" aria-pressed="${f.ver === 'last' || !rf.stable}">${T('Latest · {v}', { v: esc(rf.wip || rf.stable || '') })}</button>` : ''}</span></div>
       <label class="m-lab">${T('Department')}<select class="m-select" data-mrf="dept">${['', ...(DEPTS[rf.kind] || [])].map(d => `<option value="${esc(d)}" ${d === f.dept ? 'selected' : ''}>${d ? esc(d) : T('No department')}</option>`).join('')}</select></label>
       <label class="m-lab">${T('Pre-render script')}<select class="m-select" data-mrf="preset">${presetsFor(
-        f.dept
+        f.dept,
+        rf.kind
       )
         .map(p => `<option value="${esc(p[0])}" ${p[0] === f.preset ? 'selected' : ''}>${esc(p[1])}</option>`)
         .join('')}</select></label>
@@ -490,6 +491,12 @@ $('#mob').addEventListener('click', e => {
     S.m.sheet = x.dataset.msheet;
     if (S.m.sheet === 'render') S.m.rf = null;
     if (S.m.sheet === 'start') S.m.role = null;
+    mRender();
+    return;
+  }
+  if (q('[data-mfull]')) {
+    mFull(!mFsOn());
+    S.m.sheet = null;
     mRender();
     return;
   }
@@ -648,6 +655,7 @@ $('#mob').addEventListener('click', e => {
   }
   if (q('[data-mstop]')) {
     S.review = null;
+    LV.rv = null; // the next review, its own id
     S.m.sheet = null;
     mRender();
     toast(T('Review left: your changes are kept in this browser.'));
@@ -731,16 +739,63 @@ $('#mob').addEventListener('input', e => {
     e.target.style.height = Math.min(e.target.scrollHeight, 120) + 'px';
   }
 });
-/* Swipe the picture sideways: next / previous shot. */
+/* Swipe the picture sideways: next / previous shot; a sheet's header down: closed. Touch events, not pointer ones: a finger
+   moving a little up or down starts the page's scroll, which cancels the pointer (pointercancel)
+   -- the swipe was lost; the touch still says where it ended. Mostly sideways is enough. */
 let mSw = null;
-$('#mob').addEventListener('pointerdown', e => {
-  if (e.target.closest('#m-player')) mSw = { x: e.clientX, y: e.clientY };
-});
-$('#mob').addEventListener('pointerup', e => {
-  if (!mSw) return;
-  const dx = e.clientX - mSw.x,
-    dy = e.clientY - mSw.y;
-  mSw = null;
-  if (Math.abs(dx) > 60 && Math.abs(dy) < 50) mStep(dx < 0 ? 1 : -1);
-});
-$('#mob').addEventListener('pointercancel', () => (mSw = null));
+$('#mob').addEventListener(
+  'touchstart',
+  e => {
+    const t = e.touches[0];
+    const on = e.touches.length === 1 && (e.target.closest('#m-player') ? 'shot' : e.target.closest('.m-sheet-h') ? 'sheet' : null);
+    mSw = on ? { on, x: t.clientX, y: t.clientY } : null;
+  },
+  { passive: true }
+);
+$('#mob').addEventListener(
+  'touchend',
+  e => {
+    if (!mSw) return;
+    const t = e.changedTouches[0],
+      dx = t.clientX - mSw.x,
+      dy = t.clientY - mSw.y;
+    const on = mSw.on;
+    mSw = null;
+    if (on === 'shot' && Math.abs(dx) > 50 && Math.abs(dx) > 1.5 * Math.abs(dy)) mStep(dx < 0 ? 1 : -1);
+    // A sheet's header (its grab handle) pulled down: closed.
+    if (on === 'sheet' && dy > 60 && dy > 1.5 * Math.abs(dx)) {
+      S.m.sheet = null;
+      mRender();
+    }
+  },
+  { passive: true }
+);
+$('#mob').addEventListener('touchcancel', () => (mSw = null), { passive: true });
+
+/* Full screen by default on the phone: the browser allows it only on a touch, so at the first one
+   (once per page). Left from the menu: remembered, not asked again. No API (iPhone): not offered. */
+const mFsEl = document.documentElement;
+const mFsOk = () => !!(mFsEl.requestFullscreen || mFsEl.webkitRequestFullscreen);
+const mFsOn = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+function mFull(on) {
+  LS.set('mp-snapshot:mfull', on ? '' : '0');
+  try {
+    const p = on
+      ? (mFsEl.requestFullscreen || mFsEl.webkitRequestFullscreen).call(mFsEl, { navigationUI: 'hide' })
+      : (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    if (p && p.catch) p.catch(() => {});
+  } catch (_) {}
+}
+['fullscreenchange', 'webkitfullscreenchange'].forEach(ev =>
+  document.addEventListener(ev, () => {
+    if (isMob() && S.m.sheet === 'menu') mRender();
+  })
+);
+$('#mob').addEventListener(
+  'touchend',
+  function first() {
+    $('#mob').removeEventListener('touchend', first);
+    if (isMob() && mFsOk() && !mFsOn() && LS.get('mp-snapshot:mfull') !== '0') mFull(true);
+  },
+  { passive: true }
+);

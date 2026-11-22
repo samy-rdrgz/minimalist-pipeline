@@ -150,6 +150,23 @@ function v6Click(t) {
     bulkDlg();
     return true;
   }
+  const ckd = t.closest('[data-ckd]');
+  if (ckd && !ckd.disabled) {
+    const s = S.chk.on,
+      d = ckd.dataset.ckd;
+    s.has(d) ? s.delete(d) : s.add(d);
+    checkedDlg();
+    return true;
+  }
+  if (t.closest('[data-ckpush]')) {
+    S.chk.push = !S.chk.push;
+    checkedDlg();
+    return true;
+  }
+  if (t.closest('[data-ckok]')) {
+    checkedGo();
+    return true;
+  }
   if (t.closest('[data-bkok]')) {
     const o = S.bulk;
     let n = 0;
@@ -315,7 +332,7 @@ document.addEventListener('click', e => {
       else if (v && v.video) {
         const u = videoSrc(v.video);
         if (u) open(u, '_blank');
-        else toast(T('Video not found: choose the videos folder (View).'));
+        else toast(T('Video not found: choose the videos folder (Menu).'));
       }
     }
     if (k === 'share') {
@@ -446,7 +463,7 @@ document.addEventListener('click', e => {
   if (vr) {
     S.ver[S.sel] = +vr.dataset.ver;
     closeMenus();
-    if (S.tab === 'files' && !S.wide) S.tab = 'plan';
+    if (S.tab === 'renders' && !S.wide) S.tab = 'plan'; // Last renders' ▶: watched in the player
     renderProps();
     renderWide();
     return;
@@ -728,6 +745,7 @@ document.addEventListener('click', e => {
   }
   if (t.closest('#rv-stop')) {
     S.review = null;
+    LV.rv = null; // the next review, its own id
     S.form = null;
     S.reply = null;
     if (S.quick === 'mine') S.quick = null;
@@ -801,6 +819,23 @@ document.addEventListener('click', e => {
     S.dept = S.dept === dp.dataset.dept ? null : dp.dataset.dept;
     renderQuick();
     renderList();
+    return;
+  }
+  const co = t.closest('[data-col]');
+  if (co) {
+    const k = co.dataset.col;
+    S.hideCols.has(k) ? S.hideCols.delete(k) : S.hideCols.add(k);
+    LS.set('mp-snapshot:cols', [...S.hideCols].join(','));
+    renderQuick();
+    renderList();
+    // The menu stays open: several columns are often changed in a row.
+    const b = document.querySelector('[data-menu="m-cols"]'),
+      m = $('#m-cols');
+    if (b && m) {
+      m.hidden = false;
+      b.setAttribute('aria-expanded', 'true');
+      placeMenu(b, m);
+    }
     return;
   }
   const mo = t.closest('[data-more]');
@@ -891,14 +926,7 @@ document.addEventListener('click', e => {
     if (k === 'fprev') setFrame(S.frame - 1);
     if (k === 'fnext') setFrame(S.frame + 1);
     if (k === 'play') togglePlay();
-    if (k === 'vprev' || k === 'vnext') {
-      const n = versOf(cur()).length;
-      if (n > 1) {
-        S.ver[S.sel] = ((S.ver[S.sel] || 0) + (k === 'vnext' ? 1 : -1) + n) % n;
-        renderProps();
-        renderWide();
-      }
-    }
+    if (k === 'sprev' || k === 'snext') step(k === 'snext' ? 1 : -1);
     if (k === 'snd') {
       S.muted = !S.muted;
       PV.muted = S.muted;
@@ -974,6 +1002,8 @@ document.addEventListener('click', e => {
     if (fsh && !x) S.form.shots = [];
     else if (l.includes(x)) l.splice(l.indexOf(x), 1);
     else l.push(x);
+    // Every shot ticked: the same as All shots (one note, no shot named), not a note per shot.
+    if (fsh && x && S.form.shots.length === (cur().shots || []).length) S.form.shots = [];
     refresh();
     $('#f-txt').value = tx;
     $('#f-txt').focus();
@@ -1101,12 +1131,25 @@ document.addEventListener('click', e => {
     refresh();
     return;
   }
+  if (t.closest('[data-fmopen]')) {
+    fmDlg();
+    return;
+  }
+  const ckw = t.closest('[data-ckwatch]');
+  if (ckw) {
+    const it = cur(),
+      c = it && checksOf(it).find(x => x.key === ckw.dataset.ckwatch);
+    if (!c) return;
+    S.shot[it.name] = c.shot || '';
+    const n = versOf(it).findIndex(v => v.folder === c.folder && (!c.department || !v.dept || v.dept === c.department));
+    S.ver[it.name] = Math.max(0, n);
+    S.m.side = 'A';
+    renderProps();
+    renderWide();
+    return;
+  }
   if (t.closest('[data-checked]')) {
-    const it = cur();
-    it.toCheck = false;
-    if (LIVE) liveChecked(it);
-    refresh();
-    msg(T('Checked: {name} is no longer "to check"', { name: S.sel }));
+    checkedDlg(t.closest('[data-checked]').dataset.checked);
     return;
   }
   if (t.closest('#pp-prev')) {
@@ -1335,7 +1378,8 @@ $('#tree-q').addEventListener('input', e => {
   S.tq = e.target.value.trim().toLowerCase();
   renderTree();
 });
-/* View › Interface scale: a slider, 0.5 to 1.5 in nine steps. */
+/* Menu › Interface scale: a slider, 0.5 to 1.5 in nine steps -- applied once let go (the page
+   drawn again at each step made dragging it jerky), its figure shown while dragging. */
 function setScale(s) {
   S.scaleV = s;
   document.documentElement.style.setProperty('--scale', s);
@@ -1351,7 +1395,8 @@ try {
   const s = parseFloat(localStorage.getItem('mp-snapshot:scale'));
   if (s >= 0.5 && s <= 1.5) setScale(s);
 } catch (_) {}
-$('#scale-in').addEventListener('input', e => setScale(+e.target.value));
+$('#scale-in').addEventListener('input', e => ($('#scale-v').textContent = (+e.target.value).toFixed(2)));
+$('#scale-in').addEventListener('change', e => setScale(+e.target.value));
 new ResizeObserver(() => drawWires()).observe($('#pbody'));
 new ResizeObserver(() => {
   if (S.ws === 'links') drawGraph();

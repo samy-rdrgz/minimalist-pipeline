@@ -124,7 +124,7 @@ const RANK = ['omit', 'val', 'done', 'wip', 'todo', 'rtk'];
 function worstOf(its) {
   return its.map(worst).sort((a, b) => RANK.indexOf(b) - RANK.indexOf(a))[0] || 'todo';
 }
-/* Columns: assets left, shots right by sequence; both sorted by barycentre (a few passes, crossings fewer), then each asset
+/* Columns: assets left (one linked by assets further left), shots right by sequence; both sorted by barycentre (a few passes, crossings fewer), then each asset
    brought level with the middle of what links it -- the most shared ones end up in the middle, their wires short. */
 function layoutGraph() {
   const v = $('#gview');
@@ -180,11 +180,25 @@ function layoutGraph() {
       shots.sort((a, b) => seqs.indexOf(itm(a).group) - seqs.indexOf(itm(b).group) || bs[a] - bs[b]);
       shots.forEach((n, i) => (sOrder[n] = i));
     }
+  // Columns: an asset linked by other assets one column left of them (a material left of the
+  // character using it), the shots on the right -- as deep as the links go.
+  const isA = new Set(assets),
+    lvl = {},
+    level = (n, seen = new Set()) => {
+      if (n in lvl) return lvl[n];
+      if (seen.has(n)) return 1; // a loop: left where it is
+      seen.add(n);
+      const up = itm(n).linkedBy.filter(x => isA.has(x));
+      return (lvl[n] = up.length ? 1 + Math.max(...up.map(x => level(x, seen))) : 1);
+    };
+  assets.forEach(n => level(n));
+  const depth = Math.max(0, ...assets.map(n => lvl[n]));
   const W = Math.max(...nodes.map(n => n.offsetWidth), 200),
     GX = 200,
     GY = S.gOpen ? 18 : 8,
     CAP = 34,
-    x2 = W + GX;
+    colX = l => (depth - l) * (W + GX),
+    x2 = colX(0);
   let y = CAP,
     center = {};
   v.querySelectorAll('.gcap').forEach(c => c.remove());
@@ -217,63 +231,71 @@ function layoutGraph() {
     center[n] = y + e.offsetHeight / 2;
     y += e.offsetHeight + GY;
   });
-  if (byType) {
-    // By type: the assets in their prefix's block, one under the other, as the shots in their sequence's.
-    let ya = CAP,
-      lp = null;
-    assets.forEach(n => {
-      if (pre(n) !== lp) {
-        if (lp) ya += S.gOpen ? 16 : 28;
-        cap(pre(n), 0, ya - 24);
-        lp = pre(n);
-      }
-      const e = by(n);
-      e.style.left = '0px';
-      e.style.top = ya + 'px';
-      ya += e.offsetHeight + GY;
-    });
-    v.style.width = x2 + W + 20 + 'px';
-    v.style.height = Math.max(y, ya) + 20 + 'px';
-    return;
-  }
-  const tgt = {};
-  assets.forEach(n => {
-    const e = by(n),
-      c = users(n)
+  let bottom = y;
+  const h = n => by(n).offsetHeight;
+  // What links an asset, as drawn: shots (or their folded sequences) and assets.
+  const usersOf = n => [...new Set([...users(n), ...itm(n).linkedBy.filter(x => isA.has(x))])];
+  for (let l = 1; l <= depth; l++) {
+    const col = assets.filter(n => lvl[n] === l),
+      x = colX(l);
+    if (byType) {
+      // By type: the assets in their prefix's block, one under the other, as the shots in their sequence's.
+      let ya = CAP,
+        lp = null;
+      col.forEach(n => {
+        if (pre(n) !== lp) {
+          if (lp) ya += S.gOpen ? 16 : 28;
+          cap(pre(n), x, ya - 24);
+          lp = pre(n);
+        }
+        const e = by(n);
+        e.style.left = x + 'px';
+        e.style.top = ya + 'px';
+        center[n] = ya + e.offsetHeight / 2;
+        ya += e.offsetHeight + GY;
+      });
+      bottom = Math.max(bottom, ya);
+      continue;
+    }
+    // By links: each as level as it can be with the middle of what links it, sorted that way.
+    const tgt = {};
+    col.forEach(n => {
+      const c = usersOf(n)
         .filter(x => x in center)
         .map(x => center[x]);
-    tgt[n] = (c.length ? c.reduce((a, b) => a + b, 0) / c.length : 1e9) - e.offsetHeight / 2;
-  });
-  // Each as near its target as the others leave room for: pushed down from the top, pushed up from the bottom, the mean
-  // of both, then no overlap -- a crowd around a target spreads both ways instead of all below it.
-  const h = n => by(n).offsetHeight,
-    want = assets.map(n => tgt[n]),
-    F = [],
-    B = [],
-    pos = {};
-  assets.forEach((n, i) => {
-    const w = want[i] >= 1e8 ? (i ? F[i - 1] + h(assets[i - 1]) + GY : CAP) : want[i];
-    F[i] = Math.max(i ? F[i - 1] + h(assets[i - 1]) + GY : CAP, w);
-  });
-  for (let i = assets.length - 1; i >= 0; i--) {
-    const w = want[i] >= 1e8 ? F[i] : want[i];
-    B[i] = i === assets.length - 1 ? w : Math.min(w, B[i + 1] - h(assets[i]) - GY);
+      tgt[n] = (c.length ? c.reduce((a, b) => a + b, 0) / c.length : 1e9) - h(n) / 2;
+    });
+    if (l > 1) col.sort((a, b) => tgt[a] - tgt[b]);
+    // Each as near its target as the others leave room for: pushed down from the top, pushed up from the bottom, the mean
+    // of both, then no overlap -- a crowd around a target spreads both ways instead of all below it.
+    const want = col.map(n => tgt[n]),
+      F = [],
+      B = [],
+      pos = {};
+    col.forEach((n, i) => {
+      const w = want[i] >= 1e8 ? (i ? F[i - 1] + h(col[i - 1]) + GY : CAP) : want[i];
+      F[i] = Math.max(i ? F[i - 1] + h(col[i - 1]) + GY : CAP, w);
+    });
+    for (let i = col.length - 1; i >= 0; i--) {
+      const w = want[i] >= 1e8 ? F[i] : want[i];
+      B[i] = i === col.length - 1 ? w : Math.min(w, B[i + 1] - h(col[i]) - GY);
+    }
+    col.forEach((n, i) => {
+      let t = Math.max(CAP, (F[i] + B[i]) / 2);
+      if (i) t = Math.max(t, pos[col[i - 1]] + h(col[i - 1]) + GY);
+      pos[n] = t;
+    });
+    cap(l === 1 ? T('Assets') : T('Linked by assets'), x, CAP - 24);
+    col.forEach(n => {
+      const e = by(n);
+      e.style.left = x + 'px';
+      e.style.top = pos[n] + 'px';
+      center[n] = pos[n] + e.offsetHeight / 2;
+      bottom = Math.max(bottom, pos[n] + e.offsetHeight + GY);
+    });
   }
-  assets.forEach((n, i) => {
-    let t = Math.max(CAP, (F[i] + B[i]) / 2);
-    if (i) t = Math.max(t, pos[assets[i - 1]] + h(assets[i - 1]) + GY);
-    pos[n] = t;
-  });
-  cap(T('Assets'), 0, CAP - 24);
-  let ya = CAP;
-  assets.forEach(n => {
-    const e = by(n);
-    e.style.left = '0px';
-    e.style.top = pos[n] + 'px';
-    ya = Math.max(ya, pos[n] + e.offsetHeight + GY);
-  });
   v.style.width = x2 + W + 20 + 'px';
-  v.style.height = Math.max(y, ya) + 20 + 'px';
+  v.style.height = bottom + 20 + 'px';
 }
 function applyG() {
   const v = $('#gview'),
