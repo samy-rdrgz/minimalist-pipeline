@@ -757,6 +757,8 @@ def _open(raw: dict) -> dict:
         return _push_rushes(raw)
     if raw.get("snapshot"):
         return _open_snapshot_export()
+    if raw.get("frame") is not None:
+        return _frame(raw)
     if raw.get("progress"):
         # Breakdown's reload: a pass over the project now, today's progress point
         # with it (_rebuild()); the page gets both with the new data.
@@ -791,6 +793,27 @@ def _open(raw: dict) -> dict:
 
     bpy.app.timers.register(load, first_interval=0.05)
     return {"ok": True, "opened": filepath.name}
+
+
+def _frame(raw: dict) -> dict:
+    """A frame picked on the page (a note's, a retake's) set in this Blender
+    too, when it has that file open (its WIP or its stable); else nothing."""
+    from .review_import import _review_file
+
+    if not bpy.data.filepath:
+        return {"ok": False, "error": "not open"}
+    here = Path(bpy.data.filepath).resolve()
+    files = [_review_file(str(f)) for f in (raw.get("files") or [])[:2] if f]
+    if not any(f and f.resolve() == here for f in files):
+        return {"ok": False, "error": "not open"}
+    try:
+        frame = int(raw["frame"])
+    except (TypeError, ValueError):
+        return {"ok": False, "error": "no frame"}
+    windows = bpy.context.window_manager.windows
+    scene = windows[0].scene if windows else bpy.context.scene
+    scene.frame_set(frame)
+    return {"ok": True, "frame": frame}
 
 
 def _open_snapshot_export() -> dict:

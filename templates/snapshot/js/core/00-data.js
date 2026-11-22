@@ -186,6 +186,9 @@ const S = {
   closed: new Set(),
   review: null,
   noteFilter: 'open',
+  noteVer: {}, // a file's notes of one version only: {name: 'v013-stable'}, '' all
+  wframe: false, // Watch large's notes: at a frame only
+  wnt: '', // Watch large's notes: '' all, 'rtk', 'note', 'todo'
   frame: 1,
   playing: false,
   muted: true,
@@ -194,6 +197,8 @@ const S = {
   rangeStart: null,
   wide: false,
   wfull: false,
+  wside: true, // full screen: the side panel over the video (its tab folds it)
+  whead: true, // full screen: the header (its tab hides it)
   closedTree: new Set(),
   ver: {},
   wdep: null,

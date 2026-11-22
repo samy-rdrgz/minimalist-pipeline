@@ -54,6 +54,17 @@ function askOpen(file, current, anyway) {
     liveOpen(file, b.dataset.openSave, anyway);
   };
 }
+/* A frame picked (a note's, a retake's): this Blender at it too when it has the file open; silent if not. */
+function liveFrame(it, frame) {
+  if (!it || !(frame > 0)) return;
+  livePost('open', { frame, files: [it.file, it.stableFile].filter(Boolean) })
+    .then(res =>
+      res.ok
+        ? toast(T('Blender at f{frame}', { frame: res.frame }))
+        : res.error !== 'not open' && toast(T('Blender not at the frame: {error}', { error: TS(res.error) }))
+    )
+    .catch(() => {});
+}
 /* A file's folder in this machine's file browser: its .blend's, its render's. */
 function liveFolder(body) {
   livePost('open', body)

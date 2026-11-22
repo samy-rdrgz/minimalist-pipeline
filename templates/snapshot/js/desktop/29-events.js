@@ -459,6 +459,25 @@ document.addEventListener('click', e => {
       );
     return;
   }
+  const nv = t.closest('[data-nver]');
+  if (nv) {
+    S.noteVer[S.sel] = nv.dataset.nver;
+    closeMenus();
+    refresh();
+    renderWide();
+    return;
+  }
+  if (t.closest('[data-wframe]')) {
+    S.wframe = !S.wframe;
+    renderWide();
+    return;
+  }
+  const wnt = t.closest('[data-wnt]');
+  if (wnt) {
+    S.wnt = wnt.dataset.wnt;
+    renderWide();
+    return;
+  }
   const vr = t.closest('[data-ver]');
   if (vr) {
     S.ver[S.sel] = +vr.dataset.ver;
@@ -914,6 +933,7 @@ document.addEventListener('click', e => {
   const go = t.closest('[data-goto]');
   if (go) {
     setFrame(fIdx(+go.dataset.goto));
+    if (LIVE) liveFrame(cur(), +go.dataset.goto);
     if (S.tab !== 'plan' && !S.wide) {
       S.tab = 'plan';
       renderProps();
@@ -958,6 +978,12 @@ document.addEventListener('click', e => {
   const wsS = t.closest('[data-wstep]');
   if (wsS) {
     step(+wsS.dataset.wstep);
+    return;
+  }
+  if (t.closest('[data-wside]') || t.closest('[data-whead]')) {
+    if (t.closest('[data-wside]')) S.wside = !S.wside;
+    else S.whead = !S.whead;
+    renderWide();
     return;
   }
   if (t.closest('[data-full]')) {

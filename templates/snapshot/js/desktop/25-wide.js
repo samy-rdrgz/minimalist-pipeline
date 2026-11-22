@@ -13,6 +13,8 @@ function renderWide() {
   }
   W.hidden = false;
   W.classList.toggle('full', !!S.wfull);
+  W.classList.toggle('no-side', !!S.wfull && !S.wside);
+  W.classList.toggle('no-head', !!S.wfull && !S.whead);
   const g = groupOf(it),
     sib = items.filter(i => i.kind === it.kind && groupOf(i) === g),
     V = versOf(it),
@@ -20,13 +22,21 @@ function renderWide() {
     rv = S.review;
   const req = DEPTS[it.kind].filter(d => required(it).includes(d));
   if (!req.includes(S.wdep)) S.wdep = req.find(d => it.mine[d] === 'rtk') || req[0] || '';
-  const mk = marks(it);
+  const mk = marks(it).filter(f => !S.wnt || f.n.type === S.wnt);
+  const wntH = `<span class="join">${[
+    ['', T('All')],
+    ['rtk', 'RTK'],
+    ['note', T('Remarks')],
+    ['todo', T('To do')]
+  ]
+    .map(([k, l]) => `<button class="btn sm" data-wnt="${k}" aria-pressed="${S.wnt === k}">${l}</button>`)
+    .join('')}</span><button class="btn sm icon" data-wframe aria-pressed="${!!S.wframe}" aria-label="${T('At a frame')}" title="${T('Only the notes at a frame')}">${ic('b-keyframe')}</button>${nVerHTML(it, 'w', 1)}`;
   const mkH = mk
     .map(f => {
       const x = ((fIdx(f.a) - 1) / (NF - 1)) * 100;
       return (
         (f.b ? `<span class="rng" style="left:${x}%;width:${((f.b - f.a) / (NF - 1)) * 100}%"></span>` : '') +
-        `<button class="mk ${f.rtk ? '' : 'n'}" style="left:${x}%" data-goto="${f.a}" title="${f.rtk ? 'RTK' : 'Note'} f${f.a}${f.b ? '-' + f.b : ''} : ${esc(f.n.text || T('(no text)'))}"></button>`
+        `<button class="mk ${f.n.type === 'todo' ? 'td' : f.rtk ? '' : 'n'}" style="left:${x}%" data-goto="${f.a}" title="${f.rtk ? 'RTK' : 'Note'} f${f.a}${f.b ? '-' + f.b : ''} : ${esc(f.n.text || T('(no text)'))}"></button>`
       );
     })
     .join('');
@@ -40,14 +50,34 @@ function renderWide() {
     return `<div class="wd ${d === S.wdep ? 'on' : ''}"><button class="wdn" data-wdep="${d}" title="${T('Write your retakes here')}">${glyph(x.base, x.corner, x.cnt, x.note)}<span class="nm"><b>${LBL[d]}</b><span class="s ${x.tone}">${esc(x.l)}${x.s ? ' · ' + esc(x.s) : ''}</span></span></button>
     ${rv ? `<span class="join"><button class="btn sm ok icon" data-wok="${d}" aria-pressed="${m === 'val'}" ${rv.role === TEAM || !isDone(stOf(it, d)) || it.ok[d] ? 'disabled' : ''} aria-label="${T('Validate {dept}', { dept: LBL[d] })}" title="${T('Validate')}">${ic('b-checkmark')}</button><button class="btn sm alert icon" data-wko="${d}" aria-pressed="${m === 'rtk'}" aria-label="${T('Retake {dept}', { dept: LBL[d] })}" title="${T('Send back as a retake')}">${ic('b-x')}</button></span>` : ''}</div>`;
   };
-  const notesAt = mk.length
-    ? mk
-        .map(
-          f =>
-            `<button class="wn" data-goto="${f.a}"><span class="ft ${f.b ? 'rg' : f.rtk ? '' : 'nt'}">f${f.a}${f.b ? '-' + f.b : ''}</span><span class="tx">${esc(f.n.text || T('(no text)'))}<small> · ${esc((f.n.deps || []).map(d => LBL[d] || d).join(', ') || T('no department'))}${f.n.author ? ' · ' + esc(f.n.author) : ''}</small></span></button>`
-        )
+  // A retake / to-do checked off from here (its Mark fixed / done), shown on the row hovered.
+  const wfx = n => {
+    if (!rv || n.mine || n.type === 'note' || n.done) return '';
+    const on = !!it.fixed[n.id];
+    return `<button class="btn sm icon wfx ${on ? 'ok' : 'flat'}" data-fix="${n.id}" aria-pressed="${on}" aria-label="${n.type === 'rtk' ? T('Mark fixed') : T('Mark done')}" title="${on ? T('Cancel') : n.type === 'rtk' ? T('Mark fixed: applied when your review is imported') : T('Mark done: applied when your review is imported')}">${ic('b-checkmark')}</button>`;
+  };
+  // Its open notes, at a frame or not (S.wframe: at a frame only); those at a frame first, by frame.
+  const fr = n => {
+    const m = String(n.frames || '').match(/(\d+)(?:-(\d+))?/);
+    return m ? { a: +m[1], b: m[2] ? +m[2] : null } : null;
+  };
+  const wl = byVer(it, [...it.notes.filter(n => !n.done && !n.approval), ...it.myNotes.map(n => ({ ...n, mine: 1 }))])
+    .filter(n => (!S.wnt || n.type === S.wnt) && (!S.wframe || fr(n)))
+    .map(n => ({ n, f: fr(n) }))
+    .sort((x, y) => (x.f ? x.f.a : 1e9) - (y.f ? y.f.a : 1e9));
+  const ftc = n => (n.type === 'todo' ? 'td' : n.type === 'rtk' ? '' : 'nt');
+  const notesAt = wl.length
+    ? wl
+        .map(({ n, f }) => {
+          const tx = `<span class="tx">${esc(n.text || T('(no text)'))}<small> · ${esc((n.deps || []).map(d => LBL[d] || d).join(', ') || T('no department'))}${n.mine ? ' · ' + esc(T('you, not sent yet')) : n.author ? ' · ' + esc(n.author) : ''}</small></span>`;
+          return `<div class="wnr">${
+            f
+              ? `<button class="wn" data-goto="${f.a}"><span class="ft ${ftc(n)}">f${f.a}${f.b ? '-' + f.b : ''}</span>${tx}</button>`
+              : `<div class="wn nof"><span class="ft ${ftc(n)}" title="${T('No frame')}">—</span>${tx}</div>`
+          }${wfx(n)}</div>`;
+        })
         .join('')
-    : '<p class="faint" style="margin:0">' + T('No note at a frame on this video.') + '</p>';
+    : '<p class="faint" style="margin:0">' + (S.wframe ? T('No note at a frame on this video.') : T('No open note.')) + '</p>';
   const writer =
     rv && S.wdep
       ? `<div class="ww"><div class="wwl"><span class="join"><button class="btn sm" data-wtype="rtk" aria-pressed="${S.wtype === 'rtk'}">Retake</button><button class="btn sm" data-wtype="note" aria-pressed="${S.wtype === 'note'}">${T('Remark')}</button><button class="btn sm" data-wtype="todo" aria-pressed="${S.wtype === 'todo'}">${T('To do')}</button></span>
@@ -77,9 +107,11 @@ function renderWide() {
         <span class="bigf">f <span data-f>${fNo(S.frame)}</span></span>${verHTML(it, 'w')}${abHTML(it, 'w').replace('ctl abrow', 'abrow')}<span class="sp"></span>
         <div class="strip"><span class="faint">${g}</span>${sib.map(i => `<button class="${i.name === it.name ? 'cur' : ''}" data-film="${i.name}" title="${i.name}"><span class="thumb">${i.thumb ? `<img src="${i.thumb}" alt="">` : ''}</span><span class="fn"><span class="dt" style="background:${DOT[worst(i)]}"></span>${mq(i.kind === 'shot' ? i.name.replace(i.group + '_', '') : i.name)}</span></button>`).join('')}</div></div>
     </div>
-    <div class="w-side"><div class="sec"><div class="sec-h">${T('Departments')}<span class="sp"></span>${rv && rv.role !== TEAM ? `<button class="btn sm ok" data-valall title="${T('Validate every done department (V)')}">${ic('b-checkmark')}${T('All the done')}</button>` : ''}</div>${req.map(dRow).join('') || '<span class="faint">' + T('No department required.') + '</span>'}</div>
-      <div class="sec"><div class="sec-h">${T('Notes at their frames')}<span class="sp"></span><span class="faint" style="text-transform:none;letter-spacing:0">${T('click: go there')}</span></div>${notesAt}</div>
-      <div class="sec wsec">${writer}</div></div></div>`;
+    <div class="w-pan"><button class="pz-tab r w-tab" data-wside aria-expanded="${!!S.wside}" aria-label="${S.wside ? T('Fold the panel') : T('Show the panel')}" title="${S.wside ? T('Fold the panel') : T('Show the panel')}">${ic(S.wside ? 'b-tria_right' : 'b-tria_left')}</button>
+    <div class="w-side">${checkHTML(it)}<div class="sec"><div class="sec-h">${T('Departments')}<span class="sp"></span>${rv && rv.role !== TEAM ? `<button class="btn sm ok" data-valall title="${T('Validate every done department (V)')}">${ic('b-checkmark')}${T('All the done')}</button>` : ''}</div>${req.map(dRow).join('') || '<span class="faint">' + T('No department required.') + '</span>'}</div>
+      <div class="sec"><div class="sec-h">${T('Notes')}<span class="sp"></span><span class="faint" style="text-transform:none;letter-spacing:0">${T('a frame: click to go there')}</span></div><div class="wnf">${wntH}</div>${notesAt}</div>
+      <div class="sec wsec">${writer}</div></div></div>
+    <button class="pz-tab w-htab" data-whead aria-expanded="${!!S.whead}" aria-label="${S.whead ? T('Hide the header') : T('Show the header')}" title="${S.whead ? T('Hide the header') : T('Show the header')}">${ic(S.whead ? 'b-tria_up' : 'b-tria_down')}</button></div>`;
   // The strip alone scrolls: scrollIntoView would also scroll the panes around it.
   const st = W.querySelector('.strip'),
     cb = st && st.querySelector('.cur');
@@ -96,10 +128,13 @@ function wideFull(on) {
     d = document,
     fs = d.fullscreenElement || d.webkitFullscreenElement;
   if (on && !fs) {
-    const rq = W.requestFullscreen || W.webkitRequestFullscreen;
+    // The whole page, not #wide alone: its dialogs (Checked…), toasts and popovers live outside it, and
+    // a fullscreen element shows nothing else. #wide covers the page anyway.
+    const R = d.documentElement,
+      rq = R.requestFullscreen || R.webkitRequestFullscreen;
     if (rq)
       try {
-        const p = rq.call(W);
+        const p = rq.call(R);
         if (p && p.catch) p.catch(() => {});
       } catch (_) {}
   }

@@ -2797,6 +2797,22 @@ button.assign:hover {
 .wn:hover {
   background: var(--box);
 }
+.wn.nof {
+  cursor: default;
+}
+.wn.nof:hover {
+  background: none;
+}
+/* A note's row in Watch large: the note (go to its frame) and its check (Mark fixed / done). */
+.wnr {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+}
+.wnr .wfx {
+  flex: none;
+  margin-top: var(--sp-2);
+}
 .wn small {
   color: var(--text-3);
 }
@@ -2814,6 +2830,32 @@ button.assign:hover {
 }
 .ft.nt {
   background: var(--line-3);
+}
+/* A to-do: in progress's yellow, apart from a remark's grey (on the timeline too). */
+.ft.td {
+  background: var(--st-wip);
+  color: #1a1600;
+}
+.scrub .mk.td {
+  background: var(--st-wip);
+}
+/* Watch large's notes: by type, by version -- the version's menu at the type buttons' height. */
+.wnf .enum {
+  height: var(--h-sm);
+  font-size: var(--fs-s);
+  padding: 0 var(--sp-3) 0 var(--sp-4);
+  gap: var(--sp-2);
+}
+/* One row: the type's buttons a little tighter. */
+.wnf .btn.sm:not(.icon) {
+  padding: 0 var(--sp-3);
+}
+/* Watch large's notes: by type, by version. */
+.wnf {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
 }
 .ww {
   display: flex;
@@ -3747,25 +3789,136 @@ button.assign:hover {
   color: var(--text-3);
   font: var(--fs-xs) var(--mono);
 }
-/* Watch large, full screen: the video alone, its timeline and transport (no departments, no notes, no strip). */
-#wide.full .w-side,
+/* Watch large: the side panel's wrapper and the tabs count only in full screen. */
+.w-pan {
+  display: contents;
+}
+#wide .w-tab,
+#wide .w-htab {
+  display: none;
+}
+/* Watch large, full screen: the video, its timeline and transport; the side panel over the video, blurred
+   behind, folded by its tab (S.wside); the header hidden by the tab at the video's top (S.whead). The main
+   area's box goes to the body (display: contents) so the panel and the tab share the video's row. */
+#wide.full .w-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  gap: var(--sp-5);
+  padding: var(--sp-6);
+  background: var(--area);
+  border-radius: var(--r-xl);
+  overflow: hidden;
+}
+#wide.full .w-main {
+  display: contents;
+}
+#wide.full .w-stage {
+  grid-row: 1;
+  grid-column: 1;
+}
+#wide.full .w-tl {
+  grid-row: 2;
+}
+#wide.full .w-tp {
+  grid-row: 3;
+}
+#wide.full .w-pan {
+  position: relative;
+  grid-row: 1;
+  grid-column: 1;
+  justify-self: end;
+  align-self: stretch;
+  z-index: 2;
+  display: flex;
+  align-items: flex-start;
+  min-height: 0;
+  padding-block: var(--sp-4);
+}
+/* The tabs near the corners: the panel's at its top, the header's at the video's top left (its hud lower). */
+#wide.full .w-tab {
+  margin-top: var(--sp-6);
+}
+#wide.full .w-stage .hud {
+  top: calc(20px * var(--scale) + 10px);
+}
+#wide.full .w-side {
+  width: calc(360px * var(--scale));
+  height: 100%;
+  margin-right: var(--sp-4);
+  border-radius: var(--r-l);
+  background: none; /* its glass: .w-pan::before */
+}
+/* The panel's glass on its wrapper's ::before, not on the panel: a backdrop-filter makes its element the
+   box of its fixed descendants -- the version menu then opened inside the panel, cut by it. */
+#wide.full .w-pan::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: var(--sp-4);
+  bottom: var(--sp-4);
+  right: var(--sp-4);
+  width: calc(360px * var(--scale));
+  border-radius: var(--r-l);
+  background: var(--glass);
+  -webkit-backdrop-filter: blur(var(--blur));
+  backdrop-filter: blur(var(--blur));
+  pointer-events: none;
+}
+#wide.full.no-side .w-pan::before {
+  display: none;
+}
+/* Inside the blurred panel, the writer's sticky band takes no ground of its own: its glass and second blur
+   made a solid block over the video. */
+#wide.full .w-side .wsec {
+  background: none;
+  /* No band to fill under it: the panel's own padding is its margin. */
+  padding-bottom: 0;
+  bottom: 0;
+}
+#wide.full .w-side .wsec::before {
+  content: none;
+}
+#wide.full.no-side .w-side {
+  display: none;
+}
+#wide.full .w-tab,
+#wide.full .w-htab {
+  display: flex;
+  position: static;
+}
+#wide.full .w-htab {
+  grid-row: 1;
+  grid-column: 1;
+  justify-self: start;
+  align-self: start;
+  margin-left: var(--sp-6);
+  z-index: 3;
+  width: calc(32px * var(--scale));
+  height: calc(20px * var(--scale));
+  border-radius: 0 0 8px 8px;
+}
+#wide.full.no-head .w-head {
+  display: none;
+}
+/* Folded / hidden: their tab at the screen's edge, not the inner area's. */
+#wide.full.no-side .w-tab {
+  position: fixed;
+  right: 0;
+  top: calc(96px * var(--scale));
+}
+#wide.full.no-head .w-htab {
+  position: fixed;
+  top: 0;
+  left: calc(var(--sp-3) + 2 * var(--sp-6));
+}
+/* Full screen keeps the strip and the long words out. */
 #wide.full .strip,
 #wide.full .w-head .phead .d,
 #wide.full .w-head .faint {
   display: none;
 }
-#wide.full .w-body {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-#wide.full .w-main {
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-}
 #wide.full .w-stage {
-  flex: 1;
   min-height: 0;
   aspect-ratio: auto;
 }
@@ -4538,6 +4691,7 @@ html.kb .m-nav {
   .dept .extra .btn,
   .nt [data-nedit],
   .nt [data-unreply],
+  .wnr .wfx,
   .rvg .subd {
     transition:
       opacity calc(0.18s * var(--hk, 1)) ease,
@@ -4561,6 +4715,8 @@ html.kb .m-nav {
   /* A note: its pen, a reply's take-back. */
   .nt:not(:hover):not(:focus-within) [data-nedit],
   .nt:not(:hover):not(:focus-within) [data-unreply],
+  /* Watch large: a note's check, unless ticked. */
+  .wnr:not(:hover):not(:focus-within) .wfx:not([aria-pressed="true"]),
   /* In a review's box: each note's own time (the box's head has the date). */
   .rvg .nt:not(:hover) .subd {
     opacity: 0;

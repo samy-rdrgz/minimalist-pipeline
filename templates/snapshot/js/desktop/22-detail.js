@@ -1,7 +1,19 @@
 /* ---------- Detail ---------- */
+/* The version a note was written on ("v013-stable"), from its file's name; '' if unknown. */
+const nVer = n => (String(n.version || '').match(/_([a-z]*\d+(?:-stable)?)\.blend$/i) || [])[1] || '';
+/* A file's notes of the version picked (S.noteVer); mine (not sent yet) always. */
+const byVer = (it, ns) => (S.noteVer[it.name] ? ns.filter(n => n.mine || nVer(n) === S.noteVer[it.name]) : ns);
+/* The versions its notes were written on, newest first: a menu when there are two or more. */
+function nVerHTML(it, ctx, short) {
+  const vs = [...new Set(it.notes.map(nVer).filter(Boolean))].sort((a, b) => parseInt(b.replace(/\D+/, '')) - parseInt(a.replace(/\D+/, '')));
+  if (vs.length < 2) return '';
+  const c = vs.includes(S.noteVer[it.name]) ? S.noteVer[it.name] : '';
+  return `<span class="anchor"><button class="enum" data-menu="m-nv-${ctx}" aria-haspopup="true" aria-expanded="false" title="${T('The notes written on one version')}"><span class="lb">${c ? esc(c) : short ? T('Versions') : T('All versions')}</span>${ic('b-downarrow_hlt')}</button>
+    <div class="menu" id="m-nv-${ctx}" hidden role="menu"><div class="menu-h">${T('Notes written on')}</div>${['', ...vs].map(v => `<button class="mi" role="menuitemradio" aria-checked="${v === c}" data-nver="${esc(v)}"><span class="ck">${v === c ? ic('b-checkmark') : ''}</span><span class="lbl">${v ? esc(v) : T('All versions')}</span><span class="k">${it.notes.filter(n => !v || nVer(n) === v).length}</span></button>`).join('')}</div></span>`;
+}
 function marks(it) {
   const out = [];
-  [...it.notes.filter(n => !n.done), ...it.myNotes].forEach(n => {
+  byVer(it, [...it.notes.filter(n => !n.done), ...it.myNotes.map(n => ({ ...n, mine: 1 }))]).forEach(n => {
     if (!n.frames) return;
     const m = String(n.frames).match(/(\d+)(?:-(\d+))?/);
     if (m) out.push({ a: +m[1], b: m[2] ? +m[2] : null, rtk: n.type === 'rtk', n });
@@ -79,7 +91,7 @@ function stageHTML(it) {
       const x = ((fIdx(f.a) - 1) / (NF - 1)) * 100;
       return (
         (f.b ? `<span class="rng" style="left:${x}%;width:${((f.b - f.a) / (NF - 1)) * 100}%"></span>` : '') +
-        `<button class="mk ${f.rtk ? '' : 'n'}" style="left:${x}%" data-goto="${f.a}" title="${f.rtk ? 'RTK' : T('Note')} f${f.a}${f.b ? '-' + f.b : ''} : ${esc(f.n.text || T('(no text)'))}"></button>`
+        `<button class="mk ${f.n.type === 'todo' ? 'td' : f.rtk ? '' : 'n'}" style="left:${x}%" data-goto="${f.a}" title="${f.rtk ? 'RTK' : T('Note')} f${f.a}${f.b ? '-' + f.b : ''} : ${esc(f.n.text || T('(no text)'))}"></button>`
       );
     })
     .join('');
@@ -187,7 +199,7 @@ function notesGrouped(it, ns) {
     .join('');
 }
 function notesHTML(it) {
-  let ns = [...it.myNotes.map(n => ({ ...n, mine: 1 })), ...it.notes];
+  let ns = byVer(it, [...it.myNotes.map(n => ({ ...n, mine: 1 })), ...it.notes]);
   if (S.noteFilter === 'open') ns = ns.filter(n => !n.done && !n.approval);
   if (S.noteFilter === 'frame')
     ns = ns.filter(n => n.frames).sort((a, b) => parseInt(a.frames.slice(1)) - parseInt(b.frames.slice(1)));
@@ -202,7 +214,7 @@ function notesHTML(it) {
           ([k, l]) =>
             `<button class="btn sm" data-nf="${k}" aria-pressed="${S.noteFilter === k}">${l}</button>`
         )
-        .join('')}</span>
+        .join('')}</span>${nVerHTML(it, 'd')}
       ${S.review ? `<button class="btn sm" data-gen title="${T('A retake or a remark on no department (X)')}">${ic('b-add')}${T('Note')}</button>` : ''}</div>${gen}
     ${ns.length ? notesGrouped(it, ns) : `<span class="faint">${S.noteFilter === 'all' ? T('No note.') : S.noteFilter === 'frame' ? T('No note at a frame.') : T('No open note.')}</span>`}</div>`;
 }

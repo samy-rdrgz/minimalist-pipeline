@@ -92,6 +92,29 @@ def main() -> None:
         assert live.stop()
         assert stale.done.is_set() and stale.result["ok"] is False, stale.result
         assert live._actions.empty()
+
+        # A frame picked on the page: set in Blender only when it has that file open.
+        from types import SimpleNamespace
+
+        ri = importlib.import_module(f"{pkg.__name__}.lib.monitoring.review_import")
+        blend = root / "sq010_sh010_v003.blend"
+        blend.write_bytes(b"")
+        ri._review_file = lambda name: blend if name == blend.name else None
+        got = []
+        scene = SimpleNamespace(frame_set=got.append)
+        real_bpy = live.bpy
+        live.bpy = SimpleNamespace(
+            data=SimpleNamespace(filepath=str(blend)),
+            context=SimpleNamespace(window_manager=SimpleNamespace(windows=[SimpleNamespace(scene=scene)]), scene=scene),
+        )
+        try:
+            assert live._frame({"frame": 1020, "files": ["other.blend"]})["ok"] is False and not got
+            assert live._frame({"frame": "1020", "files": [blend.name]}) == {"ok": True, "frame": 1020}
+            assert got == [1020]
+            live.bpy.data.filepath = ""
+            assert live._frame({"frame": 1020, "files": [blend.name]})["ok"] is False
+        finally:
+            live.bpy = real_bpy
     print("OK: live page actions")
 
 
