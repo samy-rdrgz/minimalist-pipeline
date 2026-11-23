@@ -25,6 +25,7 @@ from .status import (
     department_score,
     department_state,
     file_progress,
+    furthest_department,
     omitted,
     progress_weights,
     project_stages,
@@ -631,6 +632,12 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
                 for d in status.get("departments_required", [])
             },
             "flags": status.get("flags") or {},
+            # The Render form's first department (the Render dialog's too).
+            "render_department": furthest_department(
+                status,
+                json_get(config, f"{kind}s_departments", []) or [],
+                project_stages(config, f"{kind}s"),
+            ),
             # Who each department is assigned to (Edit project's team).
             "assignees": status.get("assignees") or {},
             # Set aside: listed, out of every share done (lib/monitoring/status.py).

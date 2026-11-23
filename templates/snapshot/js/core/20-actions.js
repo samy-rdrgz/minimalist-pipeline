@@ -226,8 +226,10 @@ function deptPreset(it, d) {
   const p = F.presets.find(p => (F.preset_deps || {})[p[0]] === d);
   return p ? p[0] : NO_SCRIPT;
 }
+/* The Render form's first department: the furthest one worked or done (lib/monitoring/status.py
+   furthest_department()), else its last render's -- as the Render dialog in Blender. */
 function startDept(it) {
-  const d = (it.rp || {}).department || '';
+  const d = it.rdept || (it.rp || {}).department || '';
   return (DEPTS[it.kind] || []).includes(d) ? d : '';
 }
 /* The presets that fit: a department picked, its own (its name's, or set for it); none, those

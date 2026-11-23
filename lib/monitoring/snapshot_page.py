@@ -241,6 +241,8 @@ def _item(item: dict, threads: list, roles: list, image) -> dict:
         "render_ref": _render_ref(item.get("renders") or []),
         # The Render form's start: its last render's department, each department's last preset.
         "rp": item.get("render_presets") or {},
+        # ...the furthest department worked or done first (status.py furthest_department()).
+        **({"rdept": item["render_department"]} if item.get("render_department") else {}),
         "versions": _versions(item),
         "stable_v": _short_version(item["name"], item["stable_version"] or ""),
         "stable_at": item.get("stable_at") or "",

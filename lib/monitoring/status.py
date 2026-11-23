@@ -192,6 +192,25 @@ def stage_flags(facts: dict, stages: dict) -> dict[str, dict]:
     return flags
 
 
+def furthest_department(facts: dict, departments, stages: dict) -> str:
+    """The department a file's next render is most likely for: of
+    departments (its kind's, in the project's order), those worked since
+    its latest stable, worked at it or done there (its facts, the status
+    _status_from_raw() gives), the furthest along -- the latest stage, then
+    the latest in that order. "" for none. The Render dialog's first one
+    (operators/farm_ops.py), the page's (snapshot.py)."""
+    touched = {
+        str(d).lower()
+        for part in ("worked_departments", "validated_departments", "stable_worked")
+        for d in (facts.get(part) or ())
+    }
+    order = list(departments or ())
+    deps = [d for d in order if str(d).lower() in touched]
+    if not deps:
+        return ""
+    return max(deps, key=lambda d: (stages.get(str(d).lower(), 0), order.index(d)))
+
+
 def project_stages(config: dict, kind: str) -> dict[str, int]:
     """The project's stages for a kind ("shots" / "assets"; a library's
     are the assets'), {} without any."""
