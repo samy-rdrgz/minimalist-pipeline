@@ -202,6 +202,36 @@ def _deferred_auto_worker():
     return AUTO_WORKER_DELAY
 
 
+_auto_live_tries = [0]
+
+
+def _deferred_auto_live():
+    """Open the live page at startup when auto_open_live_page is on and a
+    project is active -- tried a few times as the auto worker is (the
+    project's share not ready yet). Not when this Blender or another one
+    on this machine serves it (live.auto_open())."""
+    if lib.headless():
+        return None
+    try:
+        prefs = lib.addon_pref()
+        if not (prefs and prefs.auto_open_live_page and prefs.active_project_root):
+            return None
+        root = lib.get_active_project_root()
+        if root and (lib.get_config_filepath(root)).is_file():
+            from .lib.monitoring import live
+
+            live.auto_open(root)
+            return None
+        why = "its project not reachable"
+    except Exception as e:
+        why = str(e)
+    _auto_live_tries[0] += 1
+    if _auto_live_tries[0] >= AUTO_WORKER_TRIES:
+        lib.log("WARNING", "live", f"Live page not opened on its own: {why} -- gave up after {AUTO_WORKER_TRIES} tries.")
+        return None
+    return AUTO_WORKER_DELAY
+
+
 def _deferred_onboarding():
     """First launch only: show the welcome popup once, then never again on
     its own (still reachable anytime from the main panel's Help icon).
@@ -270,6 +300,8 @@ def register():
         bpy.app.timers.register(_deferred_project_check, first_interval=0.05)
         _auto_worker_tries[0] = 0
         bpy.app.timers.register(_deferred_auto_worker, first_interval=AUTO_WORKER_DELAY)
+        _auto_live_tries[0] = 0
+        bpy.app.timers.register(_deferred_auto_live, first_interval=AUTO_WORKER_DELAY)
         # Fires last -- see NOTES.md, "Addon register()".
         bpy.app.timers.register(_deferred_onboarding, first_interval=0.5)
 

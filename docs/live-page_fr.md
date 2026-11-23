@@ -8,6 +8,7 @@ Depuis la 2.0, la page live remplace les fenêtres Project monitoring et Farm mo
 - Panneau Project ou menu Pipeline › *Monitor in browser* (Shift+Alt+P).
 - *Farm in browser* du panneau Farm (Shift+Alt+F).
 - *Details in browser* d'un fichier l'ouvre sur ce fichier.
+- Toute seule, avec *Open the live page* coché dans les préférences de l'addon : au démarrage de Blender avec un projet, ou quand un autre projet devient actif -- une fois : pas si ce Blender, ou un autre sur la machine, la sert déjà.
 
 C'est la même page que le [snapshot de production](tracking-and-reviews_fr.md), tenue à jour tant que Blender tourne. Ce qu'elle montre et le fonctionnement d'une review sont décrits dans [Suivi & reviews](tracking-and-reviews_fr.md). Cette page fait le tour de ses onglets.
 

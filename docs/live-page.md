@@ -4,7 +4,7 @@
 
 ---
 
-Since 2.0 the live page replaces the Project monitoring and Farm monitoring windows of 1.x. Blender serves it to your browser (Project panel or Pipeline menu › *Monitor in browser*, Shift+Alt+P; the Farm panel's *Farm in browser*, Shift+Alt+F; a file's *Details in browser* opens it on that file). It is the same page as the [production snapshot](tracking-and-reviews.md), kept up to date while Blender runs. What it shows and how a review works are described in [Tracking & reviews](tracking-and-reviews.md). This page is a tour of its tabs.
+Since 2.0 the live page replaces the Project monitoring and Farm monitoring windows of 1.x. Blender serves it to your browser (Project panel or Pipeline menu › *Monitor in browser*, Shift+Alt+P; the Farm panel's *Farm in browser*, Shift+Alt+F; a file's *Details in browser* opens it on that file). With *Open the live page* ticked in the addon's preferences, it opens by itself when Blender starts with a project, or when another project becomes active -- once: not when this Blender or another one on the machine serves it already. It is the same page as the [production snapshot](tracking-and-reviews.md), kept up to date while Blender runs. What it shows and how a review works are described in [Tracking & reviews](tracking-and-reviews.md). This page is a tour of its tabs.
 
 The screenshots come from the demo project in `tests/fixtures/` (the farm and the history are made up).
 

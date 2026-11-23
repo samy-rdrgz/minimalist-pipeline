@@ -68,6 +68,14 @@ class PipelineAddonPreferences(bpy.types.AddonPreferences):
         default=False,
         update=save_settings,
     )
+    auto_open_live_page: bpy.props.BoolProperty(
+        name="Open the live page",
+        description="Open the project's page in the browser when Blender starts "
+        "with a project active, or when another one becomes active -- once: not "
+        "when this Blender, or another one on this machine, serves it already",
+        default=False,
+        update=save_settings,
+    )
     always_read_only: bpy.props.BoolProperty(
         name="Always open read-only",
         description="Always open project files as read-only, regardless of "
@@ -118,6 +126,7 @@ class PipelineAddonPreferences(bpy.types.AddonPreferences):
 
         col_toggles.prop(self, "silent_auto_increment")
         col_toggles.prop(self, "auto_worker_on_open")
+        col_toggles.prop(self, "auto_open_live_page")
         col_toggles.prop(self, "always_read_only")
         col_toggles.prop(self, "ffmpeg_path")
 

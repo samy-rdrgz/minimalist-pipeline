@@ -1668,6 +1668,56 @@ def start(root: Path) -> str:
     return url()
 
 
+def open_page(root: Path, anchor: str = "") -> str:
+    """The server for root started (start()), its page opened in the
+    browser, on anchor (a file's name, a tab) if given. Returns its URL.
+    Raises OSError when no port is free."""
+    import webbrowser
+    from urllib.parse import quote
+
+    address = start(root)
+    webbrowser.open(f"{address}#{quote(anchor)}" if anchor else address)
+    return address
+
+
+def served_elsewhere() -> bool:
+    """Another Blender on this machine serves the page already: one of
+    PORTS (not this one's) knows this machine's token -- a thumbnail it
+    hasn't is a 404 to it, a 403 to anyone else. Each port asked for an
+    instant, nothing read."""
+    import http.client
+
+    try:
+        token = _token()
+    except OSError:
+        return False
+    own = _server.server_address[1] if _server is not None else None
+    for port in PORTS:
+        if port == own:
+            continue
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=0.3)
+        try:
+            conn.request("GET", f"/thumb/{token}/none")
+            if conn.getresponse().status == 404:
+                return True
+        except OSError:
+            continue
+        finally:
+            conn.close()
+    return False
+
+
+def auto_open(root: Path) -> bool:
+    """The page opened on its own (Preferences > Open the live page): when
+    this Blender doesn't serve it yet and no other one on this machine
+    does -- one tab, not one per Blender. True if it opened."""
+    if running() or served_elsewhere():
+        return False
+    address = open_page(root)
+    log("INFO", "live", f"Live page opened on its own: {address}")
+    return True
+
+
 def stop() -> bool:
     """Stop the server (the addon's unregister() too). False: none ran."""
     global _shared, _server

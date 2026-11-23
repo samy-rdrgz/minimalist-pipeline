@@ -1,9 +1,7 @@
 """Open the live page: the project's snapshot page served by Blender,
 kept up to date (lib/monitoring/live.py, NOTES.md "Live page")."""
 
-import webbrowser
 from pathlib import Path
-from urllib.parse import quote
 
 import bpy
 
@@ -42,12 +40,10 @@ class M_PIPELINE_OT_open_live_page(bpy.types.Operator):
             self.report({"ERROR"}, "No active project.")
             return {"CANCELLED"}
         try:
-            url = live.start(root)
+            url = live.open_page(root, Path(self.file).stem if self.file else self.tab)
         except OSError as e:
             self.report({"ERROR"}, f"Live page not started: {e}")
             return {"CANCELLED"}
-        anchor = Path(self.file).stem if self.file else self.tab
-        webbrowser.open(f"{url}#{quote(anchor)}" if anchor else url)
         self.report({"INFO"}, f"Live page: {url}")
         return {"FINISHED"}
 

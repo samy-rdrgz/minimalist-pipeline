@@ -246,7 +246,7 @@ class M_PIPELINE_OT_onboarding_popup(bpy.types.Operator):
             (
                 "Never rename, move or hand-edit project files, names, "
                 "or the config outside the addon. ALWAYS go through the "
-                "BUTTUNS. The addon assumes it owns the structure; "
+                "BUTTONS. The addon assumes it owns the structure; "
                 "editing it by hand silently breaks the links and the "
                 "tracking."
             ),
@@ -300,7 +300,7 @@ def draw_onboarding(layout, context, max_width: int = 120, level_hint: bool = Tr
     hook = (
         "Minimalist Pipeline NAMES and VERSIONS your files FOR YOU, "
         "proposes actions instead of forcing them, and runs "
-        "entirely from your project folder, NO SERVEUR required."
+        "entirely from your project folder, NO SERVER required."
     )
     text_to_lines(
         col.box(),

@@ -6,6 +6,12 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- Preferences › *Open the live page*: the project's page opens in the
+  browser by itself when Blender starts with a project active (tried a
+  few times, as the auto worker is), or when another project becomes
+  active -- once: not when this Blender or another one on the machine
+  serves it already (an open page follows the new project by itself).
+
 - A shot creation preset, as the assets have one:
   `config/presets/creation/shot_file_preset.py`, run fresh at every shot's
   creation, lays out its collections (CAM / SET / ASSETS by default) and

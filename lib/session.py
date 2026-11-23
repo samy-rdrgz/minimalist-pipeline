@@ -117,6 +117,7 @@ ADDON_SETTINGS = (
     "experience_level",
     "silent_auto_increment",
     "auto_worker_on_open",
+    "auto_open_live_page",
     "always_read_only",
     "ffmpeg_path",
     "onboarding_seen",
@@ -234,6 +235,16 @@ def set_active_project_root(prefs, new_root: str) -> None:
         from ..farm import launch_worker
 
         launch_worker()
+
+    # The live page: one open follows the new project by itself (live.py
+    # _turn()); none open, opened -- Preferences > Open the live page.
+    if new_root and getattr(prefs, "auto_open_live_page", False) and not headless():
+        from .monitoring import live
+
+        try:
+            live.auto_open(Path(new_root))
+        except OSError as e:
+            log("WARNING", "live", f"Live page not opened on its own: {e}")
 
 
 # ---------------------------------------------------------------------------
