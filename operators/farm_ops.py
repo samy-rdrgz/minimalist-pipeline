@@ -29,13 +29,14 @@ from ..farm import (
     stop_worker,
     worker_rendering,
 )
-from ..lib.monitoring.status import preset_department
+from ..lib.monitoring.status import preset_department, project_stages
 from ..lib.presets import render_presets
 from ..lib import (
     EARLIEST,
     ConfigCache,
     PipelineAction,
     PipelineError,
+    TrackingStatusCache,
     asset_folder_items,
     draw_box_tip,
     get_active_project_root,
@@ -191,6 +192,28 @@ def department_preset(config: dict, department: str, items: list) -> str:
         if i and i[0] != _NO_SCRIPT and preset_department(i[0], [department]):
             return i[0]
     return _NO_SCRIPT
+
+
+def furthest_department(filepath: str) -> str:
+    """The department a render of filepath is most likely for: the furthest
+    along -- the latest stage, then the latest in the project's order -- of
+    its kind's departments worked since its latest stable, worked at it or
+    done there. "" for none (a new file)."""
+    if not filepath:
+        return ""
+    status = TrackingStatusCache.get(filepath) or {}
+    touched = {
+        str(d).lower()
+        for part in ("worked_departments", "validated_departments", "stable_worked")
+        for d in (status.get(part) or ())
+    }
+    deps = [d for d in _file_departments(filepath) if str(d).lower() in touched]
+    if not deps:
+        return ""
+    kind = "shots" if (parse_filename(Path(filepath).name) or {}).get("shot") else "assets"
+    stages = project_stages(ConfigCache.get() or {}, kind)
+    order = _file_departments(filepath)
+    return max(deps, key=lambda d: (stages.get(str(d).lower(), 0), order.index(d)))
 
 
 def last_render(filepath: str, department: str | None = None) -> dict:
@@ -567,10 +590,10 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
             self.filepath = bpy.data.filepath
         self.project_root = str(get_active_project_root())
         scan_descriptions(get_active_project_root())  # menu tooltips
-        # Every submit starts from this file's last render's department (its
-        # preset with it: _department_changed()), else the project's preset --
-        # never the dialog's last one.
-        dept = last_render(self.filepath).get("department") or ""
+        # Every submit starts from the furthest department this file has
+        # been worked or done for (its preset with it: _department_changed()),
+        # else its last render's -- never the dialog's last one.
+        dept = furthest_department(self.filepath) or last_render(self.filepath).get("department") or ""
         self.department = dept if dept and dept in _file_departments(self.filepath) else _NO_DEPT
         _department_changed(self, context)  # its update may not run from invoke()
         if self.filepath:

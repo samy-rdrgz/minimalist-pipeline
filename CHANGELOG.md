@@ -432,6 +432,12 @@ All notable changes to this addon. Dates are release dates.
 
 ### Changed
 
+- The Render dialog opens on the furthest department the file was worked
+  or done for -- since its latest stable, or at it: the latest stage, then
+  the latest in Edit project's order (layout worked, layout and animation
+  done: animation), its preset with it; on its last render's department
+  for a file with none.
+
 - The project's presets in folders: `config/presets/render_shots/` and
   `render_assets/` (the render presets of shots and of assets: the Render
   dialog of a shot lists the shots' only), `creation/` (what a new asset
