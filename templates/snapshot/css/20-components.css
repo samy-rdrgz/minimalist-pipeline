@@ -2137,27 +2137,32 @@ body.out-open .scrim {
 .grp-h b {
   color: var(--text);
 }
-/* The rows striped as the outliner's, no line between them; the departments' header the first
-   row's colour. Counted among the rows ("of .row"): the header, a .rows' first child, apart. */
-.cols,
-.rows > .row {
-  border-bottom: 0;
-}
+/* The rows striped as the outliner's, no line between them -- a sequence's files and the farm's
+   jobs alike. The departments' header keeps its own colour and line. Counted among the rows
+   ("of .row"): the header, a .rows' first child, apart. */
 .cols {
-  background: var(--stripe-a);
+  background: var(--cols);
+}
+.rows > .row,
+.jobs > .job {
+  border-bottom: 0;
 }
 /* Colour only: a row set aside keeps its hatching (.row.omit's background-image). Under :where():
    hovered and picked win over the stripes. */
-.rows > .row:where(:nth-child(odd of .row)) {
+.rows > .row:where(:nth-child(odd of .row)),
+.jobs > .job:where(:nth-child(odd of .job)) {
   background-color: var(--stripe-a);
 }
-.rows > .row:where(:nth-child(even of .row)) {
+.rows > .row:where(:nth-child(even of .row)),
+.jobs > .job:where(:nth-child(even of .job)) {
   background-color: var(--stripe-b);
 }
-.rows > .row:hover {
+.rows > .row:hover,
+.jobs > .job:hover {
   background-color: var(--row-hover);
 }
-.rows > .row.sel {
+.rows > .row.sel,
+.jobs > .job.sel {
   background-color: var(--t1);
 }
 .live {
@@ -4713,7 +4718,8 @@ html.kb .m-nav {
   .nt [data-nedit],
   .nt [data-unreply],
   .wnr .wfx,
-  .rvg .subd {
+  .rvg .subd,
+  .job .meta {
     transition:
       opacity calc(0.18s * var(--hk, 1)) ease,
       visibility calc(0.18s * var(--hk, 1));
@@ -4739,7 +4745,9 @@ html.kb .m-nav {
   /* Watch large: a note's check, unless ticked. */
   .wnr:not(:hover):not(:focus-within) .wfx:not([aria-pressed="true"]),
   /* In a review's box: each note's own time (the box's head has the date). */
-  .rvg .nt:not(:hover) .subd {
+  .rvg .nt:not(:hover) .subd,
+  /* The Farm tab: a job's machines, who sent it and when -- its state, its bar and time left stay. */
+  .job:not(:hover):not(.sel) .meta {
     opacity: 0;
     visibility: hidden;
     --hk: 0.4;
