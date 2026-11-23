@@ -9,7 +9,6 @@ from .actions import PipelineAction, get_pending_action
 from .core import (
     addon_pref,
     draw_box_tip,
-    lines_budget,
     region_char_budget,
     text_to_lines,
 )
@@ -211,46 +210,12 @@ class M_PIPELINE_OT_onboarding_popup(bpy.types.Operator):
 
     _POPUP_WIDTH = 650  # invoke_popup()'s own width param, real pixels
 
+    # Short on purpose: read once, at the first launch.
     _SECTIONS = (
-        (
-            "What it does for you.",
-            (
-                "No more final_v2_REAL.blend: it NAMES, sorts and "
-                "VERSIONS your files, RENDERS and COMPILES on the farm, "
-                "and TRACKS, per shot, what's left to do and the "
-                "RETAKES requested."
-            ),
-        ),
-        (
-            "How it works with you.",
-            (
-                "It NEVER acts SILENTLY. It detects, tells you, and "
-                "proposes; YOU DECIDE. And it links assets instead of "
-                "copying them in, so there's always a single source of "
-                "truth."
-            ),
-        ),
-        (
-            "What it needs.",
-            (
-                "Nothing to install and NO NETWORK to configure, but it "
-                "needs a real shared drive (NAS or SMB) to work as a "
-                "team. Do not put the project on Dropbox, Google Drive "
-                "or OneDrive: with those, the other machines may not "
-                "see a lock update right away, and two people can end "
-                "up saving over each other."
-            ),
-        ),
-        (
-            "One rule.",
-            (
-                "Never rename, move or hand-edit project files, names, "
-                "or the config outside the addon. ALWAYS go through the "
-                "BUTTONS. The addon assumes it owns the structure; "
-                "editing it by hand silently breaks the links and the "
-                "tracking."
-            ),
-        ),
+        ("What it does", "Names, versions and tracks your files; renders them on the farm."),
+        ("How", "It proposes, you decide. Assets are linked, never copied."),
+        ("What it needs", "A shared drive (NAS, SMB) -- not Dropbox, Google Drive or OneDrive."),
+        ("One rule", "Never rename, move or edit project files by hand: use the buttons."),
     )
 
     def invoke(self, context, event):
@@ -276,74 +241,81 @@ class M_PIPELINE_OT_onboarding_popup(bpy.types.Operator):
         return {"FINISHED"}
 
 
-def _onboarding_block(col, title: str, icon: str, body: str, max_width: int, muted: bool = False) -> None:
-    """One of the welcome text's sections: its title in a box, its text in
-    the box under it (greyed: muted)."""
-    block = col.column(align=True)
-    block.scale_y = 0.8
-    block.box().label(text=title, icon=icon)
-    text_box = block.box()
-    text_row = text_box.row()
-    text_row.separator(factor=0.7)
-    if muted:
-        text_row.active = False
-    text_to_lines(text_row, body, max_width=max_width, max_lines=lines_budget(body, base=3, cap=8))
-    text_box.separator(factor=0.75)
+def _check(col, ok: bool, text: str) -> None:
+    """One line of the welcome's checks: ticked, or a warning (red)."""
+    row = col.row()
+    row.alert = not ok
+    row.label(text=text, icon="CHECKMARK" if ok else "ERROR")
 
 
 def draw_onboarding(layout, context, max_width: int = 120, level_hint: bool = True) -> None:
-    """The welcome text: in its window (panels/monitoring_panel.py), or the
-    popup when no window could open."""
-    sections = M_PIPELINE_OT_onboarding_popup._SECTIONS
-    col = layout.column(align=True)
-
-    hook = (
-        "Minimalist Pipeline NAMES and VERSIONS your files FOR YOU, "
-        "proposes actions instead of forcing them, and runs "
-        "entirely from your project folder, NO SERVER required."
-    )
-    text_to_lines(
-        col.box(),
-        hook,
-        max_width=max_width,
-        icon="OUTLINER_OB_LIGHT",
-        max_lines=lines_budget(hook, base=3, cap=8),
-    )
-    col.separator(factor=3)
+    """The welcome: a project to start or join, who you are, what's ready
+    (checked, not explained), where to follow the project, the four things
+    to know. In its window (panels/monitoring_panel.py), or the popup when
+    no window could open. Short: read once."""
+    from .config import get_active_project_root
+    from .core import cloud_synced, is_placeholder_name, resolve_ffmpeg
 
     prefs = addon_pref(context)
+    root = get_active_project_root()
+    col = layout.column(align=True)
+
+    # 1. A project: everything else needs one.
+    box = col.box().column(align=True)
+    box.label(text="START", icon="EVENT_RIGHT_ARROW")
+    if root:
+        box.label(text=f"Project: {Path(root).name}", icon="CHECKMARK")
+    else:
+        row = box.row(align=True)
+        row.scale_y = 1.4
+        row.operator("m_pipeline.create_project", text="New project", icon="ADD")
+        row.operator("m_pipeline.find_project", text="Join a project", icon="FILEBROWSER")
+        hint = box.row()
+        hint.active = False
+        hint.label(text="Joining a team: Join a project, never a new one.", icon="INFO")
+    col.separator(factor=2)
+
+    # 2. Who you are: your notes, renders and validations go by it.
     if prefs:
-        name_block = col.column(align=True)
-        name_block.scale_y = 0.8
-        name_row = name_block.box().row(align=True)
-        name_row.alignment = "LEFT"
-        name_row.label(text="YOUR NAME:", icon="USER")
+        box = col.box().column(align=True)
+        box.label(text="YOU", icon="USER")
         from ..operators.team_ops import draw_user_name
 
-        draw_user_name(name_row, prefs)
-        hint_row = name_block.box().column(align=True)
-        hint_row.active = False
-        hint_row.scale_y = 0.5
-        for hint in (
-            "Name used as the author identifier for notes/tasks and rendering requests.",
-            "Pre-filled with a random name - type your own, or change it later in Preferences.",
-        ):
-            text_to_lines(
-                hint_row, hint, icon="BLANK1", max_width=max_width, max_lines=lines_budget(hint, base=2, cap=4)
-            )
-    col.separator(factor=3)
+        placeholder = is_placeholder_name(prefs.user_name)
+        name = box.column(align=True)
+        name.alert = placeholder
+        draw_user_name(name, prefs, text="Name")
+        if placeholder:
+            name.label(text="A random name: type your own.", icon="ERROR")
+        box.prop(prefs, "user_role", text="Validation role")
+        col.separator(factor=2)
 
-    for idx, (title, body) in enumerate(sections):
-        _onboarding_block(col, title.upper(), f"EVENT_NDOF_BUTTON_{idx + 1}", body, max_width, muted=True)
-    col.separator(factor=3)
-    _onboarding_block(
-        col,
-        "HOW TO START.",
-        "EVENT_RIGHT_ARROW",
-        "New Project, then New Asset. Everything else is proposed when it's "
-        "useful, so you don't have to memorize a procedure.",
-        max_width,
-    )
+        # 3. What's ready -- checked, nothing to read when it all is.
+        box = col.box().column(align=True)
+        box.label(text="READY?", icon="CHECKBOX_HLT")
+        _check(box, not placeholder, "Your name")
+        _check(box, bool(root), "A project")
+        _check(box, bool(resolve_ffmpeg()), "FFmpeg (videos)" + ("" if resolve_ffmpeg() else ": set its path in Preferences"))
+        if root:
+            service = cloud_synced(root)
+            _check(box, not service, f"On a shared drive{f': not {service}' if service else ''}")
+        col.separator(factor=2)
+
+        # 4. Where to follow it: the live page.
+        box = col.box().column(align=True)
+        box.label(text="FOLLOW THE PROJECT", icon="URL")
+        row = box.row(align=True)
+        row.enabled = bool(root)
+        row.operator("m_pipeline.open_live_page", text="Monitor in browser", icon="URL")
+        row.operator("m_pipeline.open_live_page", text="Share with a phone", icon="COMMUNITY").tab = "share"
+        box.prop(prefs, "auto_open_live_page")
+        col.separator(factor=2)
+
+    # 5. The four things to know, a line each.
+    box = col.box().column(align=True)
+    box.active = False
+    for title, body in M_PIPELINE_OT_onboarding_popup._SECTIONS:
+        text_to_lines(box, f"{title}: {body}", max_width=max_width, max_lines=2)
     if level_hint:  # the window has the switch itself
         col.box().label(
             text="You're familiar with the add-on? Hide tooltips in the add-on's preferences.",

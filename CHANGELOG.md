@@ -6,6 +6,16 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- The welcome, shorter: New project / Join a project first (joining a
+  team: never a new one), your name (flagged while it's still the
+  random one) and validation role, what's ready (name, project, FFmpeg,
+  a shared drive rather than a Dropbox / Google Drive / OneDrive /
+  iCloud folder), the live page (Monitor in browser, Share with a
+  phone, Open the live page), the four things to know a line each.
+
+- The live page's Render form opens on the furthest department worked or
+  done, as the Render dialog does.
+
 - Preferences › *Open the live page*: the project's page opens in the
   browser by itself when Blender starts with a project active (tried a
   few times, as the auto worker is), or when another project becomes
