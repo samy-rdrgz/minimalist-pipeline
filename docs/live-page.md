@@ -89,7 +89,7 @@ The figures per section, the schedule's pace, the table by sequence (shots, then
 
 <img src="images/live-farm.png" alt="The Farm tab">
 
-The farm's jobs by state: in progress, waiting, failed and finished. The rendering time left is shown above the list, and each render's under its bar. A click on a job opens its detail:
+The farm's jobs by state: in progress, waiting, failed and finished. The queue's rendering time left, and when it should all be done, is in the status bar at the bottom; each render's is under its bar. ↑ ↓ go from job to job. A click on a job opens its detail:
 - its steps, frames, machines and who sent it
 - while it renders: the time left and when it should be done, its time per frame, how long it's been on this step, and each machine's time per frame and the frame it's on
 - what went wrong, as in Blender's job details: a chunk that failed and why (out of memory, crash...), a frame stuck, the machines taken off it

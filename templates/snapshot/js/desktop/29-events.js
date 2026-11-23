@@ -1317,13 +1317,10 @@ document.addEventListener('keydown', e => {
     helpDlg();
     return;
   }
-  if (k === 'ArrowDown' && !S.wide) {
+  if ((k === 'ArrowDown' || k === 'ArrowUp') && !S.wide) {
     e.preventDefault();
-    step(1);
-  }
-  if (k === 'ArrowUp' && !S.wide) {
-    e.preventDefault();
-    step(-1);
+    (S.ws === 'farm' ? farmStep : step)(k === 'ArrowDown' ? 1 : -1);
+    return;
   }
   if (S.wide && k === 'ArrowRight' && !e.target.closest('[data-scrub]')) {
     step(1);

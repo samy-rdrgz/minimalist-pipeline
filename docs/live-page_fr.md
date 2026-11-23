@@ -95,7 +95,7 @@ Les chiffres par section, l'allure du planning, le tableau par séquence (les sh
 
 <img src="images/live-farm.png" alt="L'onglet Farm">
 
-Les jobs de la farm par état : en cours, en attente, en échec et terminés. Le temps de rendu restant est affiché au-dessus de la liste, et celui de chaque rendu sous sa barre. Un clic sur un job ouvre son détail :
+Les jobs de la farm par état : en cours, en attente, en échec et terminés. Le temps de rendu restant de la file, et l'heure à laquelle tout devrait être fini, sont dans la barre d'état en bas ; celui de chaque rendu est sous sa barre. ↑ ↓ passent d'un job à l'autre. Un clic sur un job ouvre son détail :
 - ses étapes, ses frames, ses machines et qui l'a envoyé ;
 - pendant le rendu : le temps restant et l'heure de fin prévue, le temps par frame, depuis combien de temps il est sur cette étape, et pour chaque machine son temps par frame et la frame sur laquelle elle est ;
 - ce qui s'est mal passé, comme dans le détail du job dans Blender : un morceau en échec et pourquoi (manque de mémoire, crash...), une frame bloquée, les machines retirées ;

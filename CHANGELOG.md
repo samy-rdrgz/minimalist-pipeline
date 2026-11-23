@@ -582,6 +582,12 @@ All notable changes to this addon. Dates are release dates.
   job detail (farm/details.py job_detail()), read when the job is
   picked, again every 10 s while it's on.
 
+- The live page's status bar follows the tab: on the Farm tab, the
+  queue's rendering time left and when it should all be done (it pushed
+  the job filters onto two lines above the list), and ↑ ↓ for the jobs;
+  elsewhere the files' keys (the review's only in a review) and the
+  project's progress.
+
 - A shot's departments in the shots' order (Increment version, Mark
   stable, the panels): a department named in both lists, an asset
   "lighting" and a shot "lighting", came first, at its place among the

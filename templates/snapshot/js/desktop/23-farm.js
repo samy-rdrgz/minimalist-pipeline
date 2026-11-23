@@ -45,8 +45,30 @@ function renderFarmQuick() {
   $('#quick').innerHTML =
     `<span class="join">${[['', T('All')], ...JS].map(([k, l]) => `<button class="btn" data-ffs="${k}" aria-pressed="${S.ff.s === k}">${l}<span class="n">${n(k)}</span></button>`).join('')}</span>
     <button class="btn ${S.ff.mine ? '' : 'tool'}" data-ffm aria-pressed="${S.ff.mine}">${ic('b-user')}${T('Mine')}</button>
-    ${farmLeft(F.left) ? `<span class="faint" style="font-size:var(--fs-s)" title="${T('The machine time the jobs have left, on the workers alive')}">${esc(farmLeft(F.left))}</span>` : ''}
     <button class="btn tool live-only" data-pushall title="${T("Each shot's latest video, and the assets', into editing/rushes/")}">${ic('b-export')}${T('Push rushes…')}</button>`;
+  renderStatus(); // the time left, in the status bar: fresh with the farm's data
+}
+/* The queue's rendering time left, for the status bar, with when it should all be done. */
+function farmLeftHTML() {
+  const t = farmLeft(F.left);
+  if (!t) return `<span class="faint">${T('Nothing left to render')}</span>`;
+  const end = F.left && F.left.seconds ? new Date(Date.now() + F.left.seconds * 1000) : null;
+  return `<span title="${T('The machine time the jobs have left, on the workers alive')}">${esc(t)}${end ? ` <span class="faint">· ${T(F.left.unknown ? 'done around {time} at the earliest' : 'done around {time}', { time: String(end.getHours()).padStart(2, '0') + ':' + String(end.getMinutes()).padStart(2, '0') })}</span>` : ''}</span>`;
+}
+/* ↑ ↓ on the Farm tab: the jobs, in the list's order. */
+function farmStep(dir) {
+  const v = JS.flatMap(([s]) => farmJobs().filter(j => j.state === s));
+  if (!v.length) return;
+  let i = v.findIndex(j => j.id === S.farmSel);
+  i = i < 0 ? 0 : Math.min(v.length - 1, Math.max(0, i + dir));
+  S.farmSel = v[i].id;
+  document.querySelectorAll('.job.sel').forEach(e => e.classList.remove('sel'));
+  const row = document.querySelector(`.job[data-job="${v[i].id}"]`);
+  if (row) {
+    row.classList.add('sel');
+    row.scrollIntoView({ block: 'nearest' });
+  }
+  renderProps();
 }
 /* Render here (farm/local.py): rendered by its own machine, outside the queue; viewport, drawn by its 3D view. */
 const jobTags = j =>

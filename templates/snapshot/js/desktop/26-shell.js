@@ -1,10 +1,21 @@
 /* ---------- Status ---------- */
+/* The status bar: the keys of the tab shown (the Farm's: its jobs; the others': the files,
+   the review's), and what's counted on the right -- the farm's rendering time left on the
+   Farm tab, the project's progress elsewhere. */
 function renderStatus() {
-  $('#sb-stats').innerHTML =
-    (M.reading ? `<span class="tag warn">${T('partial')}</span> ` : '') +
-    `${T('Shots {done} done · {valid} validated', { done: pct(M.progress.shot), valid: pct(M.validation.shot) })} <span class="faint">· Assets ${pct(M.progress.asset)} · ${pct(M.validation.asset)}</span>`;
+  const farm = S.ws === 'farm',
+    key = (ks, what) => `<span class="gk">${ks.map(k => `<span class="kbd">${k}</span>`).join('')}<span>${what}</span></span>`;
+  $('#sb-keys').innerHTML = farm
+    ? key(['↑', '↓'], T('Job')) + key(['?'], T('Keys'))
+    : key(['↑', '↓'], T('File')) +
+      key(['W'], T('Watch large')) +
+      (S.review ? key(['V'], T('Validate the done')) + key(['X'], T('Retake')) : '') +
+      key(['?'], T('Keys'));
+  $('#sb-stats').innerHTML = farm
+    ? farmLeftHTML()
+    : (M.reading ? `<span class="tag warn">${T('partial')}</span> ` : '') +
+      `${T('Shots {done} done · {valid} validated', { done: pct(M.progress.shot), valid: pct(M.validation.shot) })} <span class="faint">· Assets ${pct(M.progress.asset)} · ${pct(M.validation.asset)}</span>`;
   $('#sb-ver').textContent = M.addon_version || '';
-  $('#sb-rv').style.display = S.review ? '' : 'none';
 }
 let mt;
 function msg(t) {
@@ -59,6 +70,7 @@ function refresh() {
   renderList();
   renderProps();
   renderWide();
+  renderStatus();
 }
 
 function closeMenus() {
