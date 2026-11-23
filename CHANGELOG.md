@@ -6,6 +6,9 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- The Farm tab says what the farm host is doing right now: "Now: setting
+  up sq010_sh020_v003 · rendering sq030_sh040_v005", or nothing to do.
+
 - The welcome, shorter: New project / Join a project first (joining a
   team: never a new one), your name (flagged while it's still the
   random one) and validation role, what's ready (name, project, FFmpeg,
@@ -554,6 +557,12 @@ All notable changes to this addon. Dates are release dates.
   these buttons.
 
 ### Fixed
+
+- The farm host as its only worker set every job up before rendering any:
+  the first video came last. Holding its worker back while setups wait is
+  for the other machines (set-up jobs ready for them); alone, it goes job
+  by job -- a set-up job rendered as soon as it's free, the next setup
+  after, never both at once.
 
 - A shot's departments in the shots' order (Increment version, Mark
   stable, the panels): a department named in both lists, an asset

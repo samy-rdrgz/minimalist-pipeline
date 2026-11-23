@@ -57,12 +57,24 @@ from .workers import (
     idle_machines,
     local_render_jobs,
     local_render_running,
+    FARM_PROTOCOL,
     parse_saved,
     render_yield_path,
     request_path,
     scan_workers,
     this_instance_is_worker,
 )
+
+
+def _other_farm_workers() -> bool:
+    """Another machine the host may send renders to (alive, on this
+    protocol, not kept for its own renders): a set-up job is worth having
+    ready for it."""
+    me = get_machine_id()
+    return any(
+        uuid != me and not w.get("local_only") and w.get("farm_protocol") == FARM_PROTOCOL
+        for uuid, w in scan_workers().items()
+    )
 
 
 def scan_requests() -> bool:
@@ -228,12 +240,17 @@ def scan_queue(project_root: Path, local: bool = False) -> None:
     except Exception as e:
         log("ERROR", "farm", f"Could not list idle machines: {e}")
         idle = {}
-    if this_instance_is_worker() and any(
-        _job_stage(data) == "queued" for _, data in jobs
-    ):
+    alone = this_instance_is_worker() and not _other_farm_workers()
+    if this_instance_is_worker() and any(_job_stage(data) == "queued" for _, data in jobs) and not alone:
         # A setup waits for this instance's own render to end
         # (local_render_running()): renders of hours held the whole queue
-        # back. Keep it off new renders until the waiting setups are done.
+        # back. Keep it off new renders until the waiting setups are done --
+        # for the other machines.
+        idle.pop(get_machine_id(), None)
+    if alone and any(_job_stage(data) == "setup_start" for _, data in jobs):
+        # The host alone: it renders what's set up first (the first video
+        # sooner), each setup in its turn -- never a render beside a setup
+        # (both load the .blend).
         idle.pop(get_machine_id(), None)
 
     for job, data in jobs:
@@ -255,13 +272,20 @@ def scan_queue(project_root: Path, local: bool = False) -> None:
                 # .blend) unless machines sit idle; ffmpeg stages never wait.
                 # See NOTES.md, "Setup waits for a local render; ffmpeg
                 # stages don't".
-                if not local_slot_busy() and (
+                if alone and get_machine_id() not in idle:
+                    # The host alone, rendering or sent a render: its setup
+                    # after -- sooner for a higher priority (after a frame).
+                    if local_render_running():
+                        _host_gives_way_for_setup(data, jobs, project_root)
+                elif not local_slot_busy() and (
                     not local_render_running()
                     or _setup_unblocks_idle(data, jobs, idle)
                 ):
                     from .setup import run_render_setup
 
                     run_render_setup(data["job_id"], config)
+                    if alone:
+                        idle.pop(get_machine_id(), None)  # no render beside it
                 elif local_render_running():
                     # Held back by this instance's render of a lower
                     # priority: it gives way after its frame.

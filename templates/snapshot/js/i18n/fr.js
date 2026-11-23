@@ -407,6 +407,8 @@ MPI18n.add('fr',{
 'No file matches the filters.':'Aucun fichier ne correspond aux filtres.',
 'No file.':'Aucun fichier.',
 'No job in the farm.':'Aucun job dans la farm.',
+'Now: {what}':'En ce moment : {what}',
+'nothing to do':'rien à faire',
 'No job matches.':'Aucun job ne correspond.',
 'no link':'aucun lien',
 'No note at a frame on this video.':'Aucune note à une frame sur cette vidéo.',

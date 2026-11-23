@@ -1071,6 +1071,7 @@ def _farm_data(root: Path) -> dict:
         "rendering": worker_rendering(),
         "host": is_blender_monitor(),
         "host_name": " ".join(x for x in (cache.get("lock_user") or "", f"({cache.get('lock_machine')})" if cache.get("lock_machine") else "") if x),
+        "host_now": _host_now(jobs, workers),
     }
     return {
         "status": cache.get("status") or "unknown",
@@ -1082,6 +1083,24 @@ def _farm_data(root: Path) -> dict:
         "left": render_left_parts([j for j in cache.get("jobs") or [] if entry_state(j) != "finished"], cache),
         **_presets(),
     }
+
+
+# The stages the farm host runs itself (a Blender or an ffmpeg of its own).
+_HOST_STAGES = ("setup_start", "checks_images_start", "compilation_start")
+
+
+def _host_now(jobs: list, workers: list) -> list[dict]:
+    """What the farm host is doing right now, for the Farm tab's head:
+    [{"what" (_STAGE_WORDS' words, said by the page), "file"}] -- its own
+    steps (a setup, a frame check, a video), its worker's render. [] for
+    nothing."""
+    doing = [
+        {"what": j["text"], "file": j["file"]}
+        for j in jobs
+        if j["stage"] in _HOST_STAGES and "local" not in j["tags"]
+    ]
+    doing += [{"what": "rendering", "file": w["file"]} for w in workers if w["host"] and w["status"] == "rendering"]
+    return doing
 
 
 def _presets() -> dict:

@@ -23,6 +23,9 @@ const jst = s => {
   return `<span class="jst ${x[0]}" style="background:${x[2]}" title="${x[1]}">${ic(x[3])}</span>`;
 };
 const jobItem = j => items.find(i => j.file.startsWith(i.name + '_'));
+/* What the farm host does right now (lib/monitoring/live.py _host_now()): its own steps, its worker's render. */
+const hostNow = d =>
+  (d || []).length ? d.map(x => `${esc(TS(x.what))} <b>${esc(x.file)}</b>`).join(' · ') : T('nothing to do');
 function farmJobs() {
   return F.jobs.filter(
     j =>
@@ -64,7 +67,8 @@ function renderFarm() {
   const st =
     { dead: T('stopped'), running: T('running'), stale: T('stuck'), ok: T('running') }[F.status] || F.status;
   let h = `<div class="fme">${jst(me.worker ? 'running' : 'waiting')}<span class="t"><b>${me.worker ? (me.rendering ? T('This machine: worker · rendering') : T('This machine: worker · idle')) : T('This machine: not a worker')}</b>
-      <span class="faint">${T('Farm host: {host}', { host: esc(me.host ? T('this machine') : me.host_name || T('none')) })} · <span class="${F.status === 'dead' ? 'bad' : ''}">${T('monitor {state}', { state: st })}</span></span></span>
+      <span class="faint">${T('Farm host: {host}', { host: esc(me.host ? T('this machine') : me.host_name || T('none')) })} · <span class="${F.status === 'dead' ? 'bad' : ''}">${T('monitor {state}', { state: st })}</span></span>
+      ${F.status === 'dead' ? '' : `<span class="faint">${T('Now: {what}', { what: hostNow(me.host_now) })}</span>`}</span>
     ${monitorBtn()}<button class="btn ${me.worker ? '' : 'primary'}" data-farm="worker">${me.worker ? T('Stop being a worker') : T('Make it a worker')}</button></div>`;
   h += JS.map(([s, l]) => {
     const js = shown.filter(j => j.state === s);

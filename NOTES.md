@@ -1469,6 +1469,17 @@ render (B gets dispatched to the freed worker in the same tick). Only
 covers a worker in the same instance as the monitor -- a worker in a
 second Blender on the same machine isn't visible from here.
 
+The host's own worker is held back from new renders while a job waits
+for its setup (`scan_queue()`): the setups first, so the other machines
+have set-up jobs to take. **Only with other machines** (`_other_farm_workers()`:
+alive, on this protocol, not kept for their own renders). The host alone
+holding back did every setup before any render -- the same total time,
+the first video last. Alone, it goes job by job: a set-up job rendered
+as soon as it's free, a setup only while it's idle (not rendering, no
+render sent it this tick), never a render beside a setup (both load the
+`.blend`) -- a higher priority waiting still makes it give way after its
+frame.
+
 Exception (`_setup_unblocks_idle()`): machines idle with nothing to take
 -- the running renders single-machine or with no chunk left free, no
 set-up job they may render -- while the host renders for hours. Then
