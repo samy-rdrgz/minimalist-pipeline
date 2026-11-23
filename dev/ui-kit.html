@@ -2378,10 +2378,11 @@ body.out-open .scrim {
      stand out, edge to edge -- a gap above the first one only, under the header. The Farm tab's
      groups alike (the same #list). */
   background: var(--screen);
-  padding: var(--sp-6) 0 0;
+  /* The gutter between areas (--gap), between the blocks and above the first. */
+  padding: var(--gap) 0 0;
   display: flex;
   flex-direction: column;
-  gap: var(--sp-6);
+  gap: var(--gap);
 }
 .grp {
   border: 0;
@@ -2393,7 +2394,7 @@ body.out-open .scrim {
 .grp-h {
   background: var(--line);
   border-bottom: 0; /* no line across the card: its header, the stripes */
-  top: calc(-1 * var(--sp-6));
+  top: calc(-1 * var(--gap)); /* the list's padding above the first block */
   padding: var(--sp-5) var(--sp-7);
 }
 .grp.closed .grp-h {
@@ -2406,6 +2407,10 @@ body.out-open .scrim {
 }
 .grp.closed .grp-h {
   border-radius: var(--r-xl);
+}
+/* Stuck at the list's top (stuckHeads(), on scroll): square, a band across. */
+.grp-h.stuck {
+  border-radius: 0;
 }
 .grp-h b {
   color: var(--text);
@@ -4992,7 +4997,9 @@ html.kb .m-nav {
   .nt [data-unreply],
   .wnr .wfx,
   .rvg .subd,
-  .job .meta {
+  .job .meta,
+  .job .s,
+  .grp-h .bar .bl {
     transition:
       opacity calc(0.18s * var(--hk, 1)) ease,
       visibility calc(0.18s * var(--hk, 1));
@@ -5019,8 +5026,12 @@ html.kb .m-nav {
   .wnr:not(:hover):not(:focus-within) .wfx:not([aria-pressed="true"]),
   /* In a review's box: each note's own time (the box's head has the date). */
   .rvg .nt:not(:hover) .subd,
-  /* The Farm tab: a job's machines, who sent it and when -- its state, its bar and time left stay. */
-  .job:not(:hover):not(.sel) .meta {
+  /* The Farm tab: a job's machines, who sent it and when, and its step's words (its group and its
+     icon say its state) -- its bar and time left stay. */
+  .job:not(:hover):not(.sel) .meta,
+  .job:not(:hover):not(.sel) .s,
+  /* A sequence's header: its bars' names (DONE / VALIDATED), as its buttons. */
+  .grp-h:not(:hover):not(:focus-within) .bar .bl {
     opacity: 0;
     visibility: hidden;
     --hk: 0.4;
@@ -8106,7 +8117,6 @@ MPI18n.add('fr',{
 'done around {time} at the earliest':'fini vers {time} au plus tôt',
 'the job: {left}':'le job : {left}',
 'Problems':'Problèmes',
-'dot at the top left: grey queued, blue rendering, orange failed':'point en haut à gauche : gris en file, bleu en rendu, orange en échec',
 'render up to date ({date})':'rendu à jour ({date})',
 'render older than its last session ({date})':'rendu plus ancien que sa dernière session ({date})',
 'Rendered since its last session':'Rendu depuis sa dernière session',
@@ -8501,10 +8511,8 @@ const BASE = {
   sup: ['--st-sup', 'check'],
   old: ['--st-old', 'check']
 };
-/* rdot: its own render after its latest session (1, a dot) or before (0, the dot faint); none: never rendered.
-   farm: its job in the farm, a dot at the top left -- 'waiting' grey, 'running' blue, 'failed' orange. */
-const FARM_C = { waiting: '--st-wait', running: '--sel', failed: '--st-rtk' };
-function glyph(base, corner, cnt, note, rdot, farm) {
+/* rdot: its own render after its latest session (1, a dot) or before (0, the dot faint); none: never rendered. */
+function glyph(base, corner, cnt, note, rdot) {
   if (base === 'na')
     return `<svg class="g" viewBox="0 0 22 22" aria-hidden="true"><path d="M6 12h8" style="stroke:var(--line-3)" stroke-width="2" stroke-linecap="round"/></svg>`;
   const [c, inner] = BASE[base];
@@ -8536,8 +8544,6 @@ function glyph(base, corner, cnt, note, rdot, farm) {
     if (corner === 'you-rtk')
       s += `<path d="M15.2 3.7 18.8 7.3M18.8 3.7 15.2 7.3" style="stroke:var(--on-st)" stroke-width="1.4" stroke-linecap="round"/>`;
   }
-  if (farm && FARM_C[farm])
-    s += `<circle cx="3.6" cy="5.6" r="2.8" style="fill:var(${FARM_C[farm]});stroke:var(--area)" stroke-width="1.4"/>`;
   if (rdot != null)
     s += `<circle cx="3.6" cy="18.4" r="2.6" style="fill:var(--text);stroke:var(--area)" stroke-width="1.4"${rdot ? '' : ' opacity="0.35"'}/>`;
   if (note)
@@ -8616,18 +8622,13 @@ function info(it, d) {
   const rf = (it.rf || {})[d],
     r = rf ? rf[0] : null,
     rt = rf ? T(rf[0] ? 'render up to date ({date})' : 'render older than its last session ({date})', { date: fmtD(rf[1]) }) : '';
-  // Its job in the farm: on its department's diamond (a job with none: the last required one).
-  const fj = it.farm,
-    fd = fj && (fj.department || required(it).slice(-1)[0]),
-    fm = fj && fd === d ? fj.state : null,
-    ft = fm ? T('In the farm: {what}', { what: TS(fj.tip || fj.text) }) : '';
-  return { base, corner, cnt, l, s, tone, note: nn > 0, r, rt, fm, ft };
+  return { base, corner, cnt, l, s, tone, note: nn > 0, r, rt };
 }
 /* A department's tooltip: its state, what's on top, its render. */
-const cellTitle = (d, x) => `${LBL[d]}: ${esc(x.l)}${x.s ? ' · ' + esc(x.s) : ''}${x.rt ? ' · ' + esc(x.rt) : ''}${x.ft ? ' · ' + esc(x.ft) : ''}`;
+const cellTitle = (d, x) => `${LBL[d]}: ${esc(x.l)}${x.s ? ' · ' + esc(x.s) : ''}${x.rt ? ' · ' + esc(x.rt) : ''}`;
 const cellHTML = (it, d) => {
   const x = info(it, d);
-  return `<span class="cell ${x.base === 'na' ? 'na' : ''}" title="${cellTitle(d, x)}">${glyph(x.base, x.corner, x.cnt, x.note, x.r, x.fm)}<span class="ab">${AB[d]}</span><span class="tx"><span class="l">${esc(x.l)}</span>${x.s ? `<span class="s ${x.tone}">${esc(x.s)}</span>` : ''}</span></span>`;
+  return `<span class="cell ${x.base === 'na' ? 'na' : ''}" title="${cellTitle(d, x)}">${glyph(x.base, x.corner, x.cnt, x.note, x.r)}<span class="ab">${AB[d]}</span><span class="tx"><span class="l">${esc(x.l)}</span>${x.s ? `<span class="s ${x.tone}">${esc(x.s)}</span>` : ''}</span></span>`;
 };
 const openRtk = it => rtkNotes(it).length + it.myNotes.filter(n => n.type === 'rtk').length;
 // A validation's own line is a record, not a note: never counted.
@@ -10205,6 +10206,10 @@ function rowHTML(it) {
       `<span class="tag tochk" title="${T('Rendered, not checked by the team yet')}">${ic('b-hide_off')}${T('to check')}</span>`
     );
   if (it.outdated && !farmCol()) tags.push(`<span class="tag check">${ic('b-error')}${T('render outdated')}</span>`);
+  if (it.farm && !farmCol())
+    tags.push(
+      `<span class="tag ${it.farm.state === 'failed' ? 'fail' : ''}" title="${T('In the farm: {what}', { what: esc(TS(it.farm.tip)) })}">${ic(it.farm.state === 'waiting' ? 'b-sorttime' : 'b-file_movie')}farm ${esc(TS(it.farm.text))}${it.farm.department ? ' · ' + esc(LBL[it.farm.department] || it.farm.department) : ''}</span>`
+    );
   if (touched(it)) tags.push(`<span class="tag you">${T('you')}</span>`);
   return `<div class="row ${S.sel === it.name ? 'sel' : ''} ${om && om.state ? 'omit' : ''} ${touched(it) ? 'mine' : ''}" data-n="${it.name}" tabindex="-1">
     <span class="thumb" ${it.thumb ? `data-zoom="${it.name}" title="${T('See it large')}"` : ''}>${it.thumb ? `<img src="${it.thumb}" alt="" loading="lazy" decoding="async">` : ''}</span>
@@ -10223,7 +10228,7 @@ function farmCell(it) {
     const m = String(f.text || '').match(/(\d+)\/(\d+)/),
       p = m ? +m[1] / +m[2] : null;
     out.push(
-      `<span class="fj ${f.state === 'failed' ? 'bad' : ''}" title="${esc(TS(f.tip || f.text))}">${ic(f.state === 'waiting' ? 'b-sorttime' : f.state === 'failed' ? 'b-error' : 'b-render_animation')}<span class="w">${esc(TS(f.text).replace(/\s*\d+\/\d+$/, ''))}</span></span>${p != null ? `<span class="bar bare" style="--p:${p * 100}%;--c:var(--st-done)"><i></i><span>${m[1]}/${m[2]}</span></span>` : ''}`
+      `<span class="fj ${f.state === 'failed' ? 'bad' : ''}" title="${esc(TS(f.tip || f.text))}">${ic(f.state === 'waiting' ? 'b-sorttime' : f.state === 'failed' ? 'b-error' : 'b-render_animation')}<span class="w">${esc(TS(f.text).replace(/\s*\d+\/\d+$/, ''))}${f.department ? ' · ' + esc(LBL[f.department] || f.department) : ''}</span></span>${p != null ? `<span class="bar bare" style="--p:${p * 100}%;--c:var(--st-done)"><i></i><span>${m[1]}/${m[2]}</span></span>` : ''}`
     );
   }
   if (it.toCheck)
@@ -12856,6 +12861,7 @@ function renderAll() {
   renderQuick();
   renderTree();
   renderList();
+  stuckHeads();
   renderProps();
   renderWide();
   renderStatus();
@@ -12867,6 +12873,7 @@ function refresh() {
   renderQuick();
   renderTree();
   renderList();
+  stuckHeads();
   renderProps();
   renderWide();
   renderStatus();
@@ -12875,6 +12882,29 @@ function refresh() {
 function closeMenus() {
   document.querySelectorAll('.menu').forEach(m => (m.hidden = true));
   document.querySelectorAll('[data-menu]').forEach(b => b.setAttribute('aria-expanded', 'false'));
+}
+
+/* A sequence's header stuck at the list's top: square (.stuck), a band across -- its block
+   scrolled past its top. On scroll, and after each list drawn. */
+function stuckHeads() {
+  const L = $('#list');
+  if (!L) return;
+  const top = L.getBoundingClientRect().top;
+  L.querySelectorAll('.grp > .grp-h').forEach(h => h.classList.toggle('stuck', h.parentElement.getBoundingClientRect().top < top - 0.5));
+}
+{
+  let raf = 0;
+  $('#list')?.addEventListener(
+    'scroll',
+    () => {
+      if (!raf)
+        raf = requestAnimationFrame(() => {
+          raf = 0;
+          stuckHeads();
+        });
+    },
+    { passive: true }
+  );
 }
 /* ---------- Selection ---------- */
 const narrow = () => matchMedia('(max-width: 860px)').matches;

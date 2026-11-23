@@ -634,7 +634,6 @@ MPI18n.add('fr',{
 'done around {time} at the earliest':'fini vers {time} au plus tôt',
 'the job: {left}':'le job : {left}',
 'Problems':'Problèmes',
-'dot at the top left: grey queued, blue rendering, orange failed':'point en haut à gauche : gris en file, bleu en rendu, orange en échec',
 'render up to date ({date})':'rendu à jour ({date})',
 'render older than its last session ({date})':'rendu plus ancien que sa dernière session ({date})',
 'Rendered since its last session':'Rendu depuis sa dernière session',

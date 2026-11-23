@@ -608,17 +608,19 @@ All notable changes to this addon. Dates are release dates.
 - A farm job picked has the same blue rail on its left as a file picked.
 
 - The live page's list: the sequences' blocks edge to edge on the
-  screen's ground (a gap above the first only), their headers the area
-  header's tint (blurred), their rows striped as the outliner's, no line
+  screen's ground, the gutter between them and above the first the one
+  between areas (--gap), their headers the area header's tint (blurred,
+  square once stuck at the top), their rows striped as the outliner's, no line
   between them (the departments' header keeps its own). The Farm tab's
-  groups alike; a job's machines, sender and date shown on the job
-  hovered or picked (its state, bar and time left always). A block's top
+  groups alike; a job's machines, sender, date and step's words shown on
+  the job hovered or picked (its group and icon say its state; its bar
+  and time left always). A block's top
   corners on its header (its blur isn't clipped by the block's radius).
-- A sequence's bars named again (DONE / VALIDATED), their track seen at
-  0 %: the colour never says it alone.
-- A file's job in the farm: a dot at the top left of its department's
-  diamond (grey queued, blue rendering, orange failed; its words in the
-  tooltip, in full in the detail), no more "farm queued" on every row.
+- A sequence's bars named again (DONE / VALIDATED, on the header
+  hovered, as its buttons; their figures and title always), their track
+  seen at 0 %.
+- A file's farm job says its department (the row's tag, the Renders
+  column's words).
 - "To review again" (--st-old) lighter, #a35ca3: it was the only state
   colour under 3:1 on the panels.
 - No white written in the page's CSS any more: the text on the

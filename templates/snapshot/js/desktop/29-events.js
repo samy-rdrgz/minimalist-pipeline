@@ -254,14 +254,13 @@ function helpDlg() {
     ['done', 'you-rtk', T('You: retake'), T('not sent yet')],
     ['done', null, T('Open note'), T('bubble at the bottom right'), 'n'],
     ['done', null, T('Rendered since its last session'), T('dot at the bottom left; faint: its render is older'), '', 1],
-    ['done', null, T('In the farm'), T('dot at the top left: grey queued, blue rendering, orange failed'), '', null, 'running'],
     ['na', null, T('Not required'), T('dash')]
   ];
   const dl = $('#dlg');
   dl.hidden = false;
   dl.innerHTML = `<div class="dlg-in" role="dialog" aria-modal="true" aria-labelledby="hl-t"><h3 id="hl-t">${TOUCH() ? T('Legend') : T('Legend and keys')}</h3>
     <p class="faint" style="margin:0">${T('The diamond says the state, the corner what comes on top. The words beside it always say it again.')}</p>
-    <ul class="legend-list">${L.map(([b, c, l, s, n, r, fm]) => `<li>${glyph(b, c, 2, !!n, r, fm)}<span>${l}<small>${s}</small></span></li>`).join('')}</ul>
+    <ul class="legend-list">${L.map(([b, c, l, s, n, r]) => `<li>${glyph(b, c, 2, !!n, r)}<span>${l}<small>${s}</small></span></li>`).join('')}</ul>
     <div class="legend-keys"><div class="sec-h">${T('Keys')}</div>
     <ul class="legend-list" style="gap:6px">${[
       ['↑ ↓', T('previous / next file')],

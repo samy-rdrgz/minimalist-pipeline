@@ -57,6 +57,7 @@ function renderAll() {
   renderQuick();
   renderTree();
   renderList();
+  stuckHeads();
   renderProps();
   renderWide();
   renderStatus();
@@ -68,6 +69,7 @@ function refresh() {
   renderQuick();
   renderTree();
   renderList();
+  stuckHeads();
   renderProps();
   renderWide();
   renderStatus();
@@ -76,4 +78,27 @@ function refresh() {
 function closeMenus() {
   document.querySelectorAll('.menu').forEach(m => (m.hidden = true));
   document.querySelectorAll('[data-menu]').forEach(b => b.setAttribute('aria-expanded', 'false'));
+}
+
+/* A sequence's header stuck at the list's top: square (.stuck), a band across -- its block
+   scrolled past its top. On scroll, and after each list drawn. */
+function stuckHeads() {
+  const L = $('#list');
+  if (!L) return;
+  const top = L.getBoundingClientRect().top;
+  L.querySelectorAll('.grp > .grp-h').forEach(h => h.classList.toggle('stuck', h.parentElement.getBoundingClientRect().top < top - 0.5));
+}
+{
+  let raf = 0;
+  $('#list')?.addEventListener(
+    'scroll',
+    () => {
+      if (!raf)
+        raf = requestAnimationFrame(() => {
+          raf = 0;
+          stuckHeads();
+        });
+    },
+    { passive: true }
+  );
 }
