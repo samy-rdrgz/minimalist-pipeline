@@ -916,7 +916,7 @@ _STATE_ORDER = {"running": 0, "waiting": 1, "failed": 2}
 def farm_activity() -> dict[str, list[dict]]:
     """Render jobs of the monitor cache that aren't finished -- queued, in
     progress or failed -- by owner folder (lib owner_key()): [{"shot",
-    "stage", "state", "text", "version"}], state entry_state()'s ("waiting"
+    "stage", "state", "text", "department", "version"}], state entry_state()'s ("waiting"
     for a pending request or a render nobody's on), version its render folder once set up ("v003_001"),
     else its .blend's ("v003"); sorted by shot. Memory only: draw()-safe."""
     from .monitor import get_monitor_cache
@@ -947,6 +947,8 @@ def farm_activity() -> dict[str, list[dict]]:
                 "stage": stage,
                 "state": state,
                 "text": text,
+                # Its preset's department: the diamond the list marks.
+                "department": str(job.get("department") or "").lower(),
                 "version": Path(output_dir).name
                 if output_dir
                 else Path(filepath).stem.rsplit("_", 1)[-1],

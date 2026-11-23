@@ -23,7 +23,8 @@
 
 /* Sticky headers, glass */
 .grp-h {
-  background: var(--glass-grp);
+  /* The area header's tint, its blur kept (::before below). */
+  background: var(--glass-head);
   color: var(--text);
   border-bottom-color: var(--line-2);
 }
@@ -242,7 +243,7 @@
 }
 .btn.wr.rtk {
   background: var(--st-rtk);
-  color: #fff;
+  color: var(--on-state);
 }
 .btn.wr.note {
   background: var(--line-3);
@@ -273,22 +274,22 @@
 }
 .btn.ok[aria-pressed="true"] svg.i,
 .btn.alert[aria-pressed="true"] svg.i {
-  fill: #fff;
+  fill: var(--on-state);
 }
 .btn.ok[aria-pressed="true"]::before,
 .btn.alert[aria-pressed="true"]::before {
-  background: #fff;
+  background: var(--on-state);
 }
 /* Pressed buttons that mean something: Validate stays pink, Retake orange */
 .btn.ok[aria-pressed="true"] {
   background: var(--st-val);
   border-color: var(--st-val);
-  color: #fff;
+  color: var(--on-state);
 }
 .btn.alert[aria-pressed="true"] {
   background: var(--st-rtk);
   border-color: var(--st-rtk);
-  color: #fff;
+  color: var(--on-state);
 }
 
 /* A block's note on all its shots: each shot's chip lit, quieter than a shot picked. */

@@ -84,7 +84,7 @@ svg.g {
 }
 .btn[aria-pressed="true"] {
   background: var(--sel);
-  color: #fff;
+  color: var(--on-sel);
   border-color: var(--sel-line);
 }
 .btn:disabled {
@@ -117,7 +117,7 @@ svg.g {
 .btn.primary {
   background: var(--sel);
   border-color: var(--sel-line);
-  color: #fff;
+  color: var(--on-sel);
 }
 .btn.primary:hover {
   background: var(--sel-hover);
@@ -343,7 +343,7 @@ svg.g {
 }
 .chip-frame:hover {
   background: var(--sel);
-  color: #fff;
+  color: var(--on-sel);
 }
 .bar {
   display: grid;
@@ -380,6 +380,16 @@ svg.g {
 .bar.bare {
   grid-template-columns: 1fr calc(34px * var(--scale));
 }
+/* A sequence's header: its bars named (the colour never alone), their track seen at 0 %. */
+.grp-h .bar .bl {
+  color: var(--text-3);
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.grp-h .bar i {
+  background: var(--line-3);
+}
 .menu {
   position: absolute;
   z-index: 60;
@@ -410,7 +420,7 @@ svg.g {
 }
 .mi:hover {
   background: var(--sel);
-  color: #fff;
+  color: var(--on-sel);
 }
 .mi .lbl {
   flex: 1;
@@ -953,9 +963,9 @@ body.out-open .scrim {
 }
 .grp-h .prog .bar {
   /* Full width (170) while the line has room; shrunk (down to 64) only to keep it on one line. */
-  width: calc(170px * var(--scale));
+  width: calc(220px * var(--scale));
   flex: 0 1 auto;
-  min-width: calc(64px * var(--scale));
+  min-width: calc(120px * var(--scale));
 }
 /* The list's tracks, each optional one a variable (Columns shown, below): the thumbnail, the
    file, the departments, Progress, Farm -- one left empty drops its track. */
@@ -1373,7 +1383,7 @@ body.out-open .scrim {
   height: var(--h-lg);
   text-align: center;
   border-radius: var(--r);
-  color: #151515;
+  color: var(--on-st);
   font-weight: 500;
   cursor: pointer;
 }
@@ -1800,7 +1810,7 @@ body.out-open .scrim {
 }
 .type.rtk {
   background: var(--st-rtk);
-  color: #fff;
+  color: var(--on-state);
 }
 .type.note {
   background: var(--line-3);
@@ -1814,7 +1824,7 @@ body.out-open .scrim {
 .nt.closed .type.rtk,
 .nt.closed .type.todo {
   background: var(--st-done);
-  color: #fff;
+  color: var(--on-state);
 }
 .type .i {
   width: 10px;
@@ -1826,7 +1836,7 @@ body.out-open .scrim {
 /* A validation's record: pink, read only. */
 .type.val {
   background: var(--st-val);
-  color: #fff;
+  color: var(--on-state);
 }
 .nt.appr {
   border-left-color: var(--st-val);
@@ -2111,17 +2121,19 @@ body.out-open .scrim {
   gap: var(--sp-4);
 }
 #list {
-  /* Glass, as its header (the areas' heads): the sequences' cards on it, their rows striped. */
-  background: var(--glass-head);
-  padding: var(--sp-6);
+  /* The screen's ground between the sequences' blocks (the gutters between areas): the blocks
+     stand out, edge to edge -- a gap above the first one only, under the header. The Farm tab's
+     groups alike (the same #list). */
+  background: var(--screen);
+  padding: var(--sp-6) 0 0;
   display: flex;
   flex-direction: column;
   gap: var(--sp-6);
 }
 .grp {
-  border: 1px solid var(--line);
+  border: 0;
   border-radius: var(--r-xl);
-  background: transparent;
+  background: var(--area);
   overflow: clip;
   flex: none;
 }
@@ -2219,7 +2231,8 @@ body.out-open .scrim {
   flex-direction: column;
   gap: var(--sp-2);
   padding: var(--sp-5) var(--sp-3);
-  background: var(--sunk);
+  /* The area headers' tint: --sunk read as the screen's ground (the gutters). */
+  background: var(--glass-head);
   border-right: 1px solid var(--line);
   flex: none;
 }
@@ -2244,7 +2257,7 @@ body.out-open .scrim {
 }
 .vtab[aria-selected="true"] {
   background: var(--box-2);
-  color: #fff;
+  color: var(--text);
 }
 [data-ui="light"] .vtab[aria-selected="true"] {
   color: var(--text);
@@ -2258,7 +2271,7 @@ body.out-open .scrim {
   padding: 0 var(--sp-2);
   border-radius: var(--r-l);
   background: var(--line-3);
-  color: #fff;
+  color: var(--text);
   font-size: var(--fs-xs);
   line-height: 15px;
   text-align: center;
@@ -2499,8 +2512,8 @@ button.assign:hover {
 .jst svg.i {
   width: 12px;
   height: 12px;
-  fill: #151515;
-  color: #151515;
+  fill: var(--on-st);
+  color: var(--on-st);
 }
 /* The play triangle: smaller, and pushed right to its optical centre. */
 .jst.running svg.i {
@@ -2848,7 +2861,7 @@ button.assign:hover {
   padding: 1px var(--sp-3);
   border-radius: var(--r);
   background: var(--st-rtk);
-  color: #fff;
+  color: var(--on-state);
   font: 700 10.5px/17px var(--mono);
 }
 .ft.rg {
@@ -2989,7 +3002,7 @@ button.assign:hover {
 /* A bar's words black, each on a white see-through pill over the bar, blurring what's under it: readable whatever the share. */
 .sf .v,
 .sf .lab {
-  color: #151515;
+  color: var(--on-st);
   padding: 1px var(--sp-4);
   border-radius: 999px;
   line-height: 1.3;
@@ -3192,7 +3205,7 @@ button.assign:hover {
 }
 .ft.rg {
   background: var(--st-rtk);
-  color: #fff;
+  color: var(--on-state);
   box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.28);
 }
 .w-side {
@@ -3273,7 +3286,7 @@ button.assign:hover {
   padding: 0 var(--sp-2);
   border-radius: var(--r-l);
   background: var(--st-rtk);
-  color: #fff;
+  color: var(--on-state);
   font-size: var(--fs-xs);
   line-height: 15px;
 }
@@ -3559,7 +3572,7 @@ button.assign:hover {
   padding: var(--sp-5) var(--sp-7);
   border-radius: var(--r-l);
   background: var(--ok);
-  color: #fff;
+  color: var(--on-state);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
 }
 /* The live pill: Blender busy, or not answering. */
@@ -3653,7 +3666,7 @@ button.assign:hover {
   height: 164px;
   padding: var(--sp-3);
   border-radius: var(--r);
-  background: #fff;
+  background: var(--qr-paper);
 }
 .sh-qr svg {
   display: block;
@@ -3745,7 +3758,7 @@ button.assign:hover {
 }
 [aria-checked="true"] > .tg::after {
   transform: translateX(calc(12px * var(--scale)));
-  background: #fff;
+  background: var(--on-sel);
 }
 .swi {
   display: flex;

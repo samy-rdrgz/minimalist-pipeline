@@ -101,6 +101,8 @@
   --text-2: #b5b8ba; /* secondary text */
   --text-3: #8a8f93; /* faint text */
   --on-sel: #ffffff; /* text on the selection */
+  --on-state: #ffffff; /* text on a strong state's colour (retake, validated, done, ok) */
+  --qr-paper: #ffffff; /* a QR code's ground: white, whatever the theme, to be read */
   --play: #2b2d2e;
   --play-hi: #333537;
   --play-line: #2b2d2e;
@@ -135,7 +137,7 @@
   --st-done: #639bff; /* done = the brand's blue */
   --st-val: #fa3e95; /* validated prod */
   --st-sup: #eabfcb; /* validated sup */
-  --st-old: #813f81; /* to review: validated on an older stable */
+  --st-old: #a35ca3; /* to review: validated on an older stable */
   --st-wip: #fadf63; /* in progress */
   --st-rtk: #f0800a; /* retake */
   --st-you: #3fd3c0; /* you, not sent yet */

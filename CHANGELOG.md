@@ -607,11 +607,23 @@ All notable changes to this addon. Dates are release dates.
 
 - A farm job picked has the same blue rail on its left as a file picked.
 
-- The live page's list: on glass, as its header (it was the hollows'
-  colour, --sunk); a sequence's rows striped as the outliner's, no line
+- The live page's list: the sequences' blocks edge to edge on the
+  screen's ground (a gap above the first only), their headers the area
+  header's tint (blurred), their rows striped as the outliner's, no line
   between them (the departments' header keeps its own). The Farm tab's
-  jobs alike, a job's machines, sender and date shown on the job
-  hovered or picked (its state, bar and time left always).
+  groups alike; a job's machines, sender and date shown on the job
+  hovered or picked (its state, bar and time left always). The detail's
+  side tabs the area header's tint (--sunk read as the screen).
+- A sequence's bars named again (DONE / VALIDATED), their track seen at
+  0 %: the colour never says it alone.
+- A file's job in the farm: a dot at the top left of its department's
+  diamond (grey queued, blue rendering, orange failed; its words in the
+  tooltip, in full in the detail), no more "farm queued" on every row.
+- "To review again" (--st-old) lighter, #a35ca3: it was the only state
+  colour under 3:1 on the panels.
+- No white written in the page's CSS any more: the text on the
+  selection --on-sel, on a strong state's colour the new --on-state, a
+  QR code's ground --qr-paper; the dark ink on a state --on-st.
 
 - A shot's departments in the shots' order (Increment version, Mark
   stable, the panels): a department named in both lists, an asset

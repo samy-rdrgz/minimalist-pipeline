@@ -105,7 +105,7 @@ function renderList() {
         return `<div class="grp ${S.closed.has(g) ? 'closed' : ''}" data-g="${g}">
       <div class="grp-h"><button class="ttl" data-fold="${g}" aria-expanded="${!S.closed.has(g)}">${ic('b-downarrow_hlt', 'i tri open')}${ic('b-rightarrow', 'i tri shut')}<b>${g}</b><span class="cnt">${S.ws === 'shot' ? T('{n} shot|{n} shots', { n: its.length }) : T('{n} file|{n} files', { n: its.length })}</span></button>
         ${S.ws === 'shot' ? `<button class="btn sm play" data-seq="${g}" title="${T('The last videos of {seq}, one after the other', { seq: g })}">${ic('b-play')}${T('Play the sequence')}</button>` : ''}${S.review ? `<button class="btn sm tool" data-plan="${g}" data-k="${S.ws}" title="${S.ws === 'shot' ? T('A new shot in {seq}, made when the review is imported', { seq: g }) : T('A new file {prefix}_…, made when the review is imported', { prefix: g })}">${ic('b-add')}${S.ws === 'shot' ? T('shot') : T('asset')}</button>` : ''}
-        <span class="prog"><span class="bar bare" style="--p:${(ad || 0) * 100}%;--c:var(--st-done)" title="${T('Done')} ${pct(ad)}"><i></i><span>${pct(ad)}</span></span><span class="bar bare" style="--p:${(av || 0) * 100}%;--c:var(--st-val)" title="${T('Validated')} ${pct(av)}"><i></i><span>${pct(av)}</span></span></span></div>
+        <span class="prog"><span class="bar" style="--p:${(ad || 0) * 100}%;--c:var(--st-done)" title="${T('Done')} ${pct(ad)}"><span class="bl">${T('Done')}</span><i></i><span>${pct(ad)}</span></span><span class="bar" style="--p:${(av || 0) * 100}%;--c:var(--st-val)" title="${T('Validated')} ${pct(av)}"><span class="bl">${T('Validated')}</span><i></i><span>${pct(av)}</span></span></span></div>
       <div class="rows"><div class="cols"><span class="c-th"></span><span>${T('File')}</span>${dl.map(d => `<span class="cd" title="${LBL[d]}">${LBL[d]}</span>`).join('')}<span class="c-prog">${T('Progress')}</span>${farmCol() ? `<span class="c-fm">${T('Renders')}</span>` : ''}</div>
       ${its.map(rowHTML).join('')}${S.planned.map((p, n) => (p.g === g && p.kind === S.ws ? plannedRow(p, n) : '')).join('')}${
         hid.length && !filt
@@ -147,10 +147,6 @@ function rowHTML(it) {
       `<span class="tag tochk" title="${T('Rendered, not checked by the team yet')}">${ic('b-hide_off')}${T('to check')}</span>`
     );
   if (it.outdated && !farmCol()) tags.push(`<span class="tag check">${ic('b-error')}${T('render outdated')}</span>`);
-  if (it.farm && !farmCol())
-    tags.push(
-      `<span class="tag ${it.farm.state === 'failed' ? 'fail' : ''}" title="${T('In the farm: {what}', { what: esc(TS(it.farm.tip)) })}">${ic(it.farm.state === 'waiting' ? 'b-sorttime' : 'b-file_movie')}farm ${esc(TS(it.farm.text))}</span>`
-    );
   if (touched(it)) tags.push(`<span class="tag you">${T('you')}</span>`);
   return `<div class="row ${S.sel === it.name ? 'sel' : ''} ${om && om.state ? 'omit' : ''} ${touched(it) ? 'mine' : ''}" data-n="${it.name}" tabindex="-1">
     <span class="thumb" ${it.thumb ? `data-zoom="${it.name}" title="${T('See it large')}"` : ''}>${it.thumb ? `<img src="${it.thumb}" alt="" loading="lazy" decoding="async">` : ''}</span>

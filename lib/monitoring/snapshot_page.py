@@ -383,6 +383,8 @@ def _farm_status(job: dict) -> dict:
         "tip": job["text"],
         "version": job.get("version") or "",
         "shot": job.get("shot") or "",
+        # The diamond the list marks (its preset's department).
+        "department": job.get("department") or "",
     }
 
 

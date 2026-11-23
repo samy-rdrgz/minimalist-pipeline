@@ -8,8 +8,10 @@ const BASE = {
   sup: ['--st-sup', 'check'],
   old: ['--st-old', 'check']
 };
-/* rdot: its own render after its latest session (1, a dot) or before (0, the dot faint); none: never rendered. */
-function glyph(base, corner, cnt, note, rdot) {
+/* rdot: its own render after its latest session (1, a dot) or before (0, the dot faint); none: never rendered.
+   farm: its job in the farm, a dot at the top left -- 'waiting' grey, 'running' blue, 'failed' orange. */
+const FARM_C = { waiting: '--st-wait', running: '--sel', failed: '--st-rtk' };
+function glyph(base, corner, cnt, note, rdot, farm) {
   if (base === 'na')
     return `<svg class="g" viewBox="0 0 22 22" aria-hidden="true"><path d="M6 12h8" style="stroke:var(--line-3)" stroke-width="2" stroke-linecap="round"/></svg>`;
   const [c, inner] = BASE[base];
@@ -31,7 +33,7 @@ function glyph(base, corner, cnt, note, rdot) {
     }[corner];
     s += `<circle cx="17" cy="5.5" r="5.2" style="fill:var(${cc});stroke:var(--area)" stroke-width="1.6"/>`;
     if (corner === 'rtk')
-      s += `<text x="17" y="8.3" text-anchor="middle" font-size="8" font-weight="700" font-family="Inter,sans-serif" fill="#fff">${cnt > 9 ? '9+' : cnt || '!'}</text>`;
+      s += `<text x="17" y="8.3" text-anchor="middle" font-size="8" font-weight="700" font-family="Inter,sans-serif" style="fill:var(--on-state)">${cnt > 9 ? '9+' : cnt || '!'}</text>`;
     if (corner === 'wait')
       s += `<path d="M14.6 2.8h4.8M14.6 8.2h4.8M15.2 2.8 17 5.5l-1.8 2.7M18.8 2.8 17 5.5l1.8 2.7" style="stroke:var(--on-st)" stroke-width="1.1" fill="none"/>`;
     if (corner === 'redo')
@@ -41,6 +43,8 @@ function glyph(base, corner, cnt, note, rdot) {
     if (corner === 'you-rtk')
       s += `<path d="M15.2 3.7 18.8 7.3M18.8 3.7 15.2 7.3" style="stroke:var(--on-st)" stroke-width="1.4" stroke-linecap="round"/>`;
   }
+  if (farm && FARM_C[farm])
+    s += `<circle cx="3.6" cy="5.6" r="2.8" style="fill:var(${FARM_C[farm]});stroke:var(--area)" stroke-width="1.4"/>`;
   if (rdot != null)
     s += `<circle cx="3.6" cy="18.4" r="2.6" style="fill:var(--text);stroke:var(--area)" stroke-width="1.4"${rdot ? '' : ' opacity="0.35"'}/>`;
   if (note)
@@ -119,13 +123,18 @@ function info(it, d) {
   const rf = (it.rf || {})[d],
     r = rf ? rf[0] : null,
     rt = rf ? T(rf[0] ? 'render up to date ({date})' : 'render older than its last session ({date})', { date: fmtD(rf[1]) }) : '';
-  return { base, corner, cnt, l, s, tone, note: nn > 0, r, rt };
+  // Its job in the farm: on its department's diamond (a job with none: the last required one).
+  const fj = it.farm,
+    fd = fj && (fj.department || required(it).slice(-1)[0]),
+    fm = fj && fd === d ? fj.state : null,
+    ft = fm ? T('In the farm: {what}', { what: TS(fj.tip || fj.text) }) : '';
+  return { base, corner, cnt, l, s, tone, note: nn > 0, r, rt, fm, ft };
 }
 /* A department's tooltip: its state, what's on top, its render. */
-const cellTitle = (d, x) => `${LBL[d]}: ${esc(x.l)}${x.s ? ' · ' + esc(x.s) : ''}${x.rt ? ' · ' + esc(x.rt) : ''}`;
+const cellTitle = (d, x) => `${LBL[d]}: ${esc(x.l)}${x.s ? ' · ' + esc(x.s) : ''}${x.rt ? ' · ' + esc(x.rt) : ''}${x.ft ? ' · ' + esc(x.ft) : ''}`;
 const cellHTML = (it, d) => {
   const x = info(it, d);
-  return `<span class="cell ${x.base === 'na' ? 'na' : ''}" title="${cellTitle(d, x)}">${glyph(x.base, x.corner, x.cnt, x.note, x.r)}<span class="ab">${AB[d]}</span><span class="tx"><span class="l">${esc(x.l)}</span>${x.s ? `<span class="s ${x.tone}">${esc(x.s)}</span>` : ''}</span></span>`;
+  return `<span class="cell ${x.base === 'na' ? 'na' : ''}" title="${cellTitle(d, x)}">${glyph(x.base, x.corner, x.cnt, x.note, x.r, x.fm)}<span class="ab">${AB[d]}</span><span class="tx"><span class="l">${esc(x.l)}</span>${x.s ? `<span class="s ${x.tone}">${esc(x.s)}</span>` : ''}</span></span>`;
 };
 const openRtk = it => rtkNotes(it).length + it.myNotes.filter(n => n.type === 'rtk').length;
 // A validation's own line is a record, not a note: never counted.
