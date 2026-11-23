@@ -118,7 +118,7 @@ def render_page(data: dict) -> str:
         "CSS": _CSS_COMMENTS.sub("", _parts("css", CSS_PARTS)),
         # Kept whole: its template strings may hold a line starting "//".
         "JS": _parts("js", JS_PARTS),
-        "FONT": base64.b64encode((PAGE_DIR / "wordmark.ttf").read_bytes()).decode("ascii"),
+        "FONT_FACE": _font_face(),
         "LOGO_VB": viewbox,
         # The <use> of a symbol draws it from 0 0: its box, not the source's.
         "LOGO_VB0": f"0 0 {width} {height}",
@@ -129,6 +129,13 @@ def render_page(data: dict) -> str:
     shell = (PAGE_DIR / "page.html").read_text(encoding="utf-8")
     values["ICONS"] = icon_sprite(shell + values["JS"])
     return _PLACEHOLDER.sub(lambda m: values[m[1]], shell)
+
+
+def _font_face() -> str:
+    """The wordmark's @font-face, its font inline: a snapshot opens offline."""
+    font = base64.b64encode((PAGE_DIR / "wordmark.ttf").read_bytes()).decode("ascii")
+    src = "data:font/ttf;base64," + font
+    return '@font-face{font-family:"MP Display";src:url(' + src + ') format("truetype");font-display:swap}'
 
 
 def _stem(filename: str | None) -> str | None:
@@ -148,7 +155,7 @@ def _escape(text: str) -> str:
 def page_data(snapshot: dict) -> dict:
     """What page.js draws: {"meta", "items", "images"}. images: each
     thumbnail once, by the hash of its bytes -- a block's thumbnail is also
-    its first shot's."""
+    its first shot's -- as the URL an <img> shows."""
     meta = snapshot["meta"]
     roles = meta.get("validation_roles") or []
     images: dict[str, str] = {}
@@ -157,7 +164,7 @@ def page_data(snapshot: dict) -> dict:
         if not b64:
             return None
         key = hashlib.sha1(b64.encode("ascii")).hexdigest()[:12]
-        images.setdefault(key, b64)
+        images.setdefault(key, "data:image/jpeg;base64," + b64)
         return key
 
     notes: dict[str, list] = {}

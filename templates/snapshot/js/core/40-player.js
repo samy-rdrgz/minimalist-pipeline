@@ -44,7 +44,7 @@ function mountVideo() {
   if (img) img.hidden = true;
   if (PV.parentNode !== st) st.insertBefore(PV, st.firstChild);
   if (PV.dataset.src !== c.src) {
-    // Another version of the same file (A / B): the same frame; another file: its start.
+    // Another version of the same file (A / B): the same frame; another file, its start.
     if (PV.dataset.item !== c.it.name) {
       S.frame = 1;
       PV.dataset.item = c.it.name;

@@ -161,10 +161,33 @@ def _guest_list() -> list:
         )
 
 
-# Where a datagram to each would leave from: the local network's address,
-# and Tailscale's (100.100.100.100 is its own DNS) when it runs. No packet
-# is sent -- a UDP socket only picks its route.
-_PROBES = ("192.168.255.255", "10.255.255.255", "172.31.255.255", "1.1.1.1", "100.100.100.100")
+# The ranges a studio's network uses, and mesh VPNs' (Tailscale's and
+# others'): the machine's address in each is the one a datagram to that
+# range would leave from. No packet is sent -- a UDP socket only picks its route.
+_VPN = "100.64.0.0/10"
+_RANGES = ("192.168.0.0/16", "10.0.0.0/8", "172.16.0.0/12", _VPN)
+
+
+def _routed_from(range_: str) -> str | None:
+    """This machine's address toward range_ (its last host), if it has a route there."""
+    import ipaddress
+
+    probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        probe.connect((str(ipaddress.ip_network(range_)[-2]), 1))
+        return probe.getsockname()[0]
+    except OSError:
+        return None
+    finally:
+        probe.close()
+
+
+def _host_addresses() -> list[str]:
+    """The addresses this machine's name has (every network it is on, on Windows and macOS)."""
+    try:
+        return [i[4][0] for i in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET)]
+    except OSError:
+        return []
 
 
 def _addresses() -> list[dict]:
@@ -174,19 +197,11 @@ def _addresses() -> list[dict]:
     import ipaddress
 
     out = []
-    for target in _PROBES:
-        probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        try:
-            probe.connect((target, 1))
-            ip = probe.getsockname()[0]
-        except OSError:
-            continue
-        finally:
-            probe.close()
-        if ip.startswith("127.") or ip == "0.0.0.0" or any(a["ip"] == ip for a in out):
+    for ip in [_routed_from(r) for r in _RANGES] + _host_addresses():
+        if not ip or ip.startswith("127.") or ip.startswith("169.254.") or ip == "0.0.0.0" or any(a["ip"] == ip for a in out):
             continue
         addr = ipaddress.ip_address(ip)
-        kind = "VPN" if addr in ipaddress.ip_network("100.64.0.0/10") else "local network" if addr.is_private else "network"
+        kind = "VPN" if addr in ipaddress.ip_network(_VPN) else "local network" if addr.is_private else "network"
         out.append({"ip": ip, "kind": kind})
     # The local network first: a phone on the studio's Wi-Fi needs nothing more.
     return sorted(out, key=lambda a: a["kind"] != "local network")
