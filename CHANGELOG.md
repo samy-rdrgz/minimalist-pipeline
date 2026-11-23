@@ -601,6 +601,9 @@ All notable changes to this addon. Dates are release dates.
   of its own started after its last session; faint, its render is older
   than its last session; none, never rendered. Its tooltip and the
   detail say when; in the legend too.
+  The live page now reads each folder's render history as the snapshot
+  does: it never did, so neither the dots nor the Render form's last
+  preset per department showed there.
 
 - A farm job picked has the same blue rail on its left as a file picked.
 

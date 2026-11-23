@@ -38,7 +38,7 @@ import bpy
 from ..core import get_addon_version, now
 from ..logs import log
 from ..preview import browser_video, render_department, render_root
-from .snapshot import _folder_frames, _owner_shots, _rushes_by_name, _video_name, build_snapshot, folder_links, read_render_state
+from .snapshot import _folder_frames, _owner_shots, _render_presets, _rushes_by_name, _video_name, build_snapshot, folder_links, read_render_state
 from .snapshot_page import page_data, render_page
 from .status import project_stages
 from . import progress_log
@@ -369,6 +369,10 @@ def read_live(root: Path, cache: dict, config: dict, v_prefix: str, on_progress=
         raw = _collect_folder(owner, entries)
         if raw is None:
             continue
+        # Its render history, as read_snapshot_raw() reads it: the Render
+        # form's start and each department's render dot (it read nothing:
+        # neither showed on the live page).
+        raw["render_presets"] = _render_presets(owner)
         try:
             blends = [e.name for e in os.scandir(owner) if e.name.endswith(".blend")]
         except OSError:

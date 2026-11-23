@@ -628,6 +628,7 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
         stable_m = version_re.search(stable_name or "")
         stable_n = int(stable_m[1]) if stable_m else -1
         wip_n, wip_name = max(wips) if wips else (-1, None)
+        fresh_by = render_freshness(status, (raw.get("render_presets") or {}).get("at") or {})
         item = {
             "name": name,
             "kind": kind,
@@ -650,7 +651,12 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
             ),
             # Each department's own render, after its latest session or not:
             # the dot on its diamond (status.py render_freshness()).
-            "render_fresh": render_freshness(status, (raw.get("render_presets") or {}).get("at") or {}),
+            # Keyed as the file's departments are (a render's is lower case).
+            "render_fresh": {
+                d: fresh_by[str(d).lower()]
+                for d in status.get("departments_required", [])
+                if str(d).lower() in fresh_by
+            },
             # Who each department is assigned to (Edit project's team).
             "assignees": status.get("assignees") or {},
             # Set aside: listed, out of every share done (lib/monitoring/status.py).
