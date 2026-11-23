@@ -236,7 +236,7 @@ const sentEntry = (it, id) => {
   return null;
 };
 /* A touch screen, no keyboard to speak of: no keys shown. */
-const TOUCH = () => matchMedia('(hover:none) and (pointer:coarse)').matches;
+const TOUCH = () => matchMedia('(hover: none) and (pointer: coarse)').matches;
 function helpDlg() {
   const L = [
     ['todo', null, T('To do'), T('not started')],

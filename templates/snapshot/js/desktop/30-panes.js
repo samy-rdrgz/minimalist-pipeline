@@ -23,9 +23,9 @@
     { out: { w: 230, open: true }, props: { w: 420, open: true }, main: { open: true } },
     pz || {}
   );
-  var wide = window.matchMedia('(min-width:1201px)'),
-    mid = window.matchMedia('(min-width:861px)'),
-    port = window.matchMedia('(orientation:portrait)');
+  var wide = window.matchMedia('(min-width: 1201px)'),
+    mid = window.matchMedia('(min-width: 861px)'),
+    port = window.matchMedia('(orientation: portrait)');
   // The list folds only on a screen held upright (a tablet): side by side, the detail has room enough.
   function mOpen() {
     return pz.main.open || !port.matches;
@@ -152,14 +152,14 @@
       );
     }
     paneCss.textContent =
-      '@media (min-width:1201px) and (orientation:landscape){' +
+      '@media (min-width: 1201px) and (orientation: landscape){' +
       grid(true, true) +
-      '}@media (min-width:1201px) and (orientation:portrait){' +
+      '}@media (min-width: 1201px) and (orientation: portrait){' +
       grid(true, pz.main.open) +
       '}' +
-      '@media (min-width:861px) and (max-width:1200px) and (orientation:landscape){' +
+      '@media (min-width: 861px) and (max-width: 1200px) and (orientation: landscape){' +
       grid(false, true) +
-      '}@media (min-width:861px) and (max-width:1200px) and (orientation:portrait){' +
+      '}@media (min-width: 861px) and (max-width: 1200px) and (orientation: portrait){' +
       grid(false, pz.main.open) +
       '}';
     if (!live)

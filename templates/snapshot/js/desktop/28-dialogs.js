@@ -214,7 +214,7 @@ function fitViewport() {
     a = document.activeElement;
   const kb =
     !!vv &&
-    matchMedia('(pointer:coarse)').matches &&
+    matchMedia('(pointer: coarse)').matches &&
     vv.height < innerHeight * 0.85 &&
     !!a &&
     a.matches &&
