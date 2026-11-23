@@ -211,6 +211,30 @@ def furthest_department(facts: dict, departments, stages: dict) -> str:
     return max(deps, key=lambda d: (stages.get(str(d).lower(), 0), order.index(d)))
 
 
+def render_freshness(facts: dict, rendered_at: dict) -> dict[str, dict]:
+    """{department: {"fresh": bool, "at": ISO}} for each department with a
+    finished render of its own (rendered_at: {department: when its latest
+    one started}, _render_presets()): fresh when it started after the
+    department's latest session saved -- since the latest stable, else the
+    stable itself when it was worked there (its creation). Nothing to
+    compare with: fresh. A later department's render doesn't count: the
+    page's dot on each department's diamond. See NOTES.md, "A render up to
+    date"."""
+    stable = facts.get("stable_info") or {}
+    stable_worked = {str(d).lower() for d in facts.get("stable_worked") or ()}
+    last_worked = {str(d).lower(): at for d, at in (facts.get("last_worked_at") or {}).items()}
+    out = {}
+    for d, at in (rendered_at or {}).items():
+        started = parse_iso(at)
+        if not started:
+            continue
+        edited = parse_iso(last_worked.get(d)) or (
+            parse_iso(stable.get("created_at")) if d in stable_worked else None
+        )
+        out[d] = {"fresh": not edited or started >= edited, "at": at}
+    return out
+
+
 def project_stages(config: dict, kind: str) -> dict[str, int]:
     """The project's stages for a kind ("shots" / "assets"; a library's
     are the assets'), {} without any."""

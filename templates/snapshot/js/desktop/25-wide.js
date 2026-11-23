@@ -47,7 +47,7 @@ function renderWide() {
   const dRow = d => {
     const x = info(it, d),
       m = it.mine[d];
-    return `<div class="wd ${d === S.wdep ? 'on' : ''}"><button class="wdn" data-wdep="${d}" title="${T('Write your retakes here')}">${glyph(x.base, x.corner, x.cnt, x.note)}<span class="nm"><b>${LBL[d]}</b><span class="s ${x.tone}">${esc(x.l)}${x.s ? ' · ' + esc(x.s) : ''}</span></span></button>
+    return `<div class="wd ${d === S.wdep ? 'on' : ''}"><button class="wdn" data-wdep="${d}" title="${T('Write your retakes here')}">${glyph(x.base, x.corner, x.cnt, x.note, x.r)}<span class="nm"><b>${LBL[d]}</b><span class="s ${x.tone}">${esc(x.l)}${x.s ? ' · ' + esc(x.s) : ''}</span></span></button>
     ${rv ? `<span class="join"><button class="btn sm ok icon" data-wok="${d}" aria-pressed="${m === 'val'}" ${rv.role === TEAM || !isDone(stOf(it, d)) || it.ok[d] ? 'disabled' : ''} aria-label="${T('Validate {dept}', { dept: LBL[d] })}" title="${T('Validate')}">${ic('b-checkmark')}</button><button class="btn sm alert icon" data-wko="${d}" aria-pressed="${m === 'rtk'}" aria-label="${T('Retake {dept}', { dept: LBL[d] })}" title="${T('Send back as a retake')}">${ic('b-x')}</button></span>` : ''}</div>`;
   };
   // A retake / to-do checked off from here (its Mark fixed / done), shown on the row hovered.

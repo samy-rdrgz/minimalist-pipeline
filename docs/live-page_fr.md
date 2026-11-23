@@ -21,7 +21,7 @@ Les captures viennent du projet de démo de `tests/fixtures/` (la farm et l'hist
 <img src="images/live-shots.png" alt="La page live : l'onglet Shots, le détail d'un fichier à droite">
 
 - **À gauche** : l'arbre des séquences et des fichiers, chacun avec son avancement.
-- **Au milieu** : la liste, une ligne par fichier, un losange par département. Pour qu'elle reste légère :
+- **Au milieu** : la liste, une ligne par fichier, un losange par département. Un point en bas à gauche d'un losange : ce département a un rendu à lui fait après sa dernière session ; pâle, son rendu est plus ancien que sa dernière session ; aucun, jamais rendu (l'infobulle dit quand). Pour qu'elle reste légère :
   - les mots d'un état (*Validé · 1 note*) s'affichent sur la ligne survolée ou sélectionnée, le losange dit le reste ; de même les chiffres d'Avancement et les mots de la colonne Rendus (ses icônes restent), *Lire la séquence* / *+ plan* d'une séquence (son en-tête survolé), les chiffres de l'arbre, ceux de Synthèse (la barre survolée), les boutons des départements du détail (la carte survolée) et de ses notes (Répondre, Corrigé, le crayon : la note survolée) -- en fondu ou dépliés, à la souris seulement ;
   - les versions d'un fichier (`v013 · stable v012 · 3 plans`) ne s'affichent que sur la ligne sélectionnée ;
   - *Avancement*, c'est deux barres, Fait en bleu et Validé en rose (leurs mots dans l'infobulle) ;

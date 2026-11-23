@@ -64,10 +64,12 @@
 }
 
 /* Selection: a tint and a bright rail, the list's only glow */
-.row.sel {
+.row.sel,
+.job.sel {
   background: var(--t1);
 }
-.row.sel::before {
+.row.sel::before,
+.job.sel::before {
   background: var(--brand);
   box-shadow: 0 0 12px var(--brand-a40);
 }

@@ -21,7 +21,7 @@ const mGl = it =>
     .filter(d => required(it).includes(d))
     .map(d => {
       const x = info(it, d);
-      return glyph(x.base, x.corner, x.cnt, x.note);
+      return glyph(x.base, x.corner, x.cnt, x.note, x.r);
     })
     .join('');
 
@@ -168,7 +168,7 @@ function mDept(it, d) {
     a = assignOf(it, d),
     rv = S.review,
     f = it.flags[d] || {};
-  return `<div class="m-dept ${m ? 'mine' : ''}"><div class="m-dh">${glyph(x.base, x.corner, x.cnt, x.note)}<span class="nm"><b>${LBL[d]}</b><span class="s ${x.tone}">${esc(x.l)}${x.s ? ' · ' + esc(x.s) : ''}</span></span>
+  return `<div class="m-dept ${m ? 'mine' : ''}"><div class="m-dh">${glyph(x.base, x.corner, x.cnt, x.note, x.r)}<span class="nm"><b>${LBL[d]}</b><span class="s ${x.tone}">${esc(x.l)}${x.s ? ' · ' + esc(x.s) : ''}</span></span>
       ${rv ? `<button class="m-as ${a.length ? '' : 'none'} ${it.assign && d in it.assign ? 'chg' : ''}" data-msheet="as:${d}">${ic('b-user')}<span>${a.length ? esc(a.join(', ')) : T('Assign')}</span></button>` : a.length ? `<span class="m-as ro">${ic('b-user')}<span>${esc(a.join(', '))}</span></span>` : ''}</div>
     ${
       rv
@@ -374,9 +374,10 @@ function mSheet() {
         ['done', 'redo', T('To redo')],
         ['val', 'you', T('You: validated')],
         ['done', 'you-rtk', T('You: retake')],
-        ['done', null, T('Open note'), 'n']
+        ['done', null, T('Open note'), 'n'],
+        ['done', null, T('Rendered since its last session'), '', 1]
       ]
-        .map(([b, c, l, n]) => `<li>${glyph(b, c, 1, !!n)}<span>${l}</span></li>`)
+        .map(([b, c, l, n, r]) => `<li>${glyph(b, c, 1, !!n, r)}<span>${l}</span></li>`)
         .join('')}</ul>
       <p class="m-hint">${T('Links, breakdown, file settings and more filters: the desktop version.')}</p>
       <a class="brand-f" href="https://extensions.blender.org/add-ons/minimalist-pipeline/" target="_blank" rel="noopener"><svg viewBox="${document.querySelector('.statusbar .brand-f svg').getAttribute('viewBox')}" aria-hidden="true"><use href="#mp"/></svg><span class="wm">minimalist pipeline</span><span class="v">${esc(M.addon_version || '')}</span></a>`;

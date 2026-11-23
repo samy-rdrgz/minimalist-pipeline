@@ -596,6 +596,14 @@ All notable changes to this addon. Dates are release dates.
 - The guided tour's box was the dialogs' veil, see-through with no blur:
   now glass, blurred, as the menus.
 
+- A dot at the bottom left of a department's diamond (the list, the
+  file's detail, Watch large, the phone): that department has a render
+  of its own started after its last session; faint, its render is older
+  than its last session; none, never rendered. Its tooltip and the
+  detail say when; in the legend too.
+
+- A farm job picked has the same blue rail on its left as a file picked.
+
 - A shot's departments in the shots' order (Increment version, Mark
   stable, the panels): a department named in both lists, an asset
   "lighting" and a shot "lighting", came first, at its place among the

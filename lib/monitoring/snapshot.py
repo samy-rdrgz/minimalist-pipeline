@@ -5,6 +5,7 @@ import base64
 import os
 import re
 import threading
+from datetime import datetime
 from pathlib import Path
 
 from ..background import background_work
@@ -29,6 +30,7 @@ from .status import (
     omitted,
     progress_weights,
     project_stages,
+    render_freshness,
 )
 from ..preview import LD_DIR, browser_video, ensure_ld, main_render_dir, render_root
 from .schedule import project_schedule, schedule_progress
@@ -102,8 +104,11 @@ def _render_presets(owner: Path) -> dict:
     """The Render form's start for this folder: {"department": its last
     render's, "by": {department: the preset its last render for it used},
     "used": every preset its renders used, for the page's search}
-    (render_history.json, finished and failed renders). Pure os/json."""
-    by, last, used = {}, "", set()
+    (render_history.json, finished and failed renders); and "at":
+    {department: when its latest finished render started} (its end less
+    its duration; its end without one), for status.py render_freshness().
+    Pure os/json."""
+    by, last, used, at = {}, "", set(), {}
     for e in (read_json_quiet(owner / ".pipeline" / "render_history.json") or {}).get("entries") or []:
         if not isinstance(e, dict) or e.get("status") == "split":
             continue
@@ -111,9 +116,14 @@ def _render_presets(owner: Path) -> dict:
         last = d
         if d:
             by[d] = e.get("prerender_script") or ""
+            end = iso_timestamp(e.get("completed_at"))
+            if e.get("status") == "finished" and end:
+                start = end - float(e.get("duration_seconds") or 0)
+                if start > (iso_timestamp(at.get(d)) or 0):
+                    at[d] = datetime.fromtimestamp(start).astimezone().isoformat(timespec="seconds")
         if e.get("prerender_script"):
             used.add(str(e["prerender_script"]))
-    return {"department": last, "by": by, "used": sorted(used)}
+    return {"department": last, "by": by, "used": sorted(used), "at": at}
 
 
 def _last_save(raw: dict) -> dict:
@@ -638,6 +648,9 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
                 json_get(config, f"{kind}s_departments", []) or [],
                 project_stages(config, f"{kind}s"),
             ),
+            # Each department's own render, after its latest session or not:
+            # the dot on its diamond (status.py render_freshness()).
+            "render_fresh": render_freshness(status, (raw.get("render_presets") or {}).get("at") or {}),
             # Who each department is assigned to (Edit project's team).
             "assignees": status.get("assignees") or {},
             # Set aside: listed, out of every share done (lib/monitoring/status.py).

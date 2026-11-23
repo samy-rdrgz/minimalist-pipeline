@@ -15,7 +15,7 @@ The screenshots come from the demo project in `tests/fixtures/` (the farm and th
 <img src="images/live-shots.png" alt="The live page: the Shots tab, a file's detail on the right">
 
 - **Left**: the tree of sequences and files, each with its progress.
-- **Middle**: the list, a row per file, with a diamond per department. To keep it light:
+- **Middle**: the list, a row per file, with a diamond per department. A dot at a diamond's bottom left: that department has a render of its own made after its last session; faint, its render is older than its last session; none, never rendered (the tooltip says when). To keep it light:
   - a state's words (*Validated · 1 note*) show on the row hovered or selected, the diamond says the rest; so do Progress's figures and the Renders column's words (its icons stay), a sequence's *Play the sequence* / *+ shot* (its header hovered), the outliner's figures, Breakdown's figures (the bar hovered), the buttons of the detail's departments (the card hovered) and of its notes (Reply, Fixed, the pen: the note hovered) -- faded or folded in, with a mouse only;
   - a file's versions (`v013 · stable v012 · 3 shots`) show on the selected row only;
   - *Progress* is two bars, Done in blue and Validated in pink (their words in the tooltip);

@@ -999,10 +999,13 @@ body.out-open .scrim {
 .row:hover {
   background: var(--row-hover);
 }
-.row.sel {
+/* A file or a farm job picked: the same tint and rail. */
+.row.sel,
+.job.sel {
   background: var(--row-sel);
 }
-.row.sel::before {
+.row.sel::before,
+.job.sel::before {
   content: "";
   position: absolute;
   left: 0;
@@ -2395,15 +2398,13 @@ button.assign:hover {
   padding: var(--sp-6) var(--sp-7);
   border-bottom: 1px solid var(--row-hover);
   cursor: pointer;
+  position: relative; /* its rail when picked (.job.sel::before) */
 }
 .jobs > .job:last-child {
   border-bottom: 0;
 }
 .job:hover {
   background: var(--row-hover);
-}
-.job.sel {
-  background: var(--row-sel);
 }
 .jt {
   display: flex;

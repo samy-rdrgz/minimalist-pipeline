@@ -2124,6 +2124,19 @@ popup, sends `now`; `_stop_self()` for this machine,
 this machine went through the operator's `execute()` (stopped now),
 another got `now` missing (after its frame).
 
+## A render up to date
+
+The dot on a department's diamond (`glyph()`'s `rdot`, the page's `rf`):
+its own latest finished render (`render_history.json`, that department's,
+`_render_presets()`'s "at") started after its latest session saved
+(`last_worked_at`, since the latest stable; else the stable's creation
+when it was worked there). Started, not finished: a session saved while
+it renders isn't in it. A history entry has no submission time: its
+start is its end less its duration (its end without one). A later
+department's render doesn't count for an earlier one -- a lighting
+render would turn the whole row up to date. Full: up to date; 35 %:
+older; none: never rendered (`status.py render_freshness()`).
+
 ## The live page's job detail
 
 The job rows (`_farm_data()`, every pass) carry what the monitor cache

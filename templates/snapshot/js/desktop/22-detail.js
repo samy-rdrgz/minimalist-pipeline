@@ -148,7 +148,7 @@ function deptHTML(it, d, ctx = 'p') {
   // Who validated, said once with the role: "Validated prod · valerie".
   const lab = it.ok[d] && !it.mine[d] && it.ok[d].by ? x.l + ' · ' + it.ok[d].by : x.l;
   const frm = S.form && S.form.dept === d ? formHTML(d) : '';
-  return `<div class="dept">${glyph(x.base, x.corner, x.cnt, x.note)}<span class="nm"><b>${LBL[d]}</b><span class="s ${x.tone}">${esc(lab)}${x.s ? ' · ' + esc(x.s) : ''}</span></span>${acts}<span class="extra">${assignHTML(it, d, ctx)}${ex}${stillHTML(it, d)}${mk}</span>${frm}</div>`;
+  return `<div class="dept">${glyph(x.base, x.corner, x.cnt, x.note, x.r)}<span class="nm"><b>${LBL[d]}</b><span class="s ${x.tone}">${esc(lab)}${x.s ? ' · ' + esc(x.s) : ''}${x.rt ? ` <span class="faint">· ${esc(x.rt)}</span>` : ''}</span></span>${acts}<span class="extra">${assignHTML(it, d, ctx)}${ex}${stillHTML(it, d)}${mk}</span>${frm}</div>`;
 }
 /* A note being written: under a department (d) or none; the block's shot shown, if one is. */
 function newForm(d) {
