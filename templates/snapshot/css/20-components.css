@@ -2111,7 +2111,8 @@ body.out-open .scrim {
   gap: var(--sp-4);
 }
 #list {
-  background: var(--sunk);
+  /* Glass, as its header (the areas' heads): the sequences' cards on it, their rows striped. */
+  background: var(--glass-head);
   padding: var(--sp-6);
   display: flex;
   flex-direction: column;
@@ -2120,13 +2121,13 @@ body.out-open .scrim {
 .grp {
   border: 1px solid var(--line);
   border-radius: var(--r-xl);
-  background: var(--area);
+  background: transparent;
   overflow: clip;
   flex: none;
 }
 .grp-h {
   background: var(--line);
-  border-bottom: 1px solid var(--line-2);
+  border-bottom: 0; /* no line across the card: its header, the stripes */
   top: calc(-1 * var(--sp-6));
   padding: var(--sp-5) var(--sp-7);
 }
@@ -2136,8 +2137,28 @@ body.out-open .scrim {
 .grp-h b {
   color: var(--text);
 }
+/* The rows striped as the outliner's, no line between them; the departments' header the first
+   row's colour. Counted among the rows ("of .row"): the header, a .rows' first child, apart. */
+.cols,
+.rows > .row {
+  border-bottom: 0;
+}
 .cols {
-  background: var(--cols);
+  background: var(--stripe-a);
+}
+/* Colour only: a row set aside keeps its hatching (.row.omit's background-image). Under :where():
+   hovered and picked win over the stripes. */
+.rows > .row:where(:nth-child(odd of .row)) {
+  background-color: var(--stripe-a);
+}
+.rows > .row:where(:nth-child(even of .row)) {
+  background-color: var(--stripe-b);
+}
+.rows > .row:hover {
+  background-color: var(--row-hover);
+}
+.rows > .row.sel {
+  background-color: var(--t1);
 }
 .live {
   display: inline-flex;

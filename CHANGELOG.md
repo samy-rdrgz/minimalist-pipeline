@@ -607,6 +607,10 @@ All notable changes to this addon. Dates are release dates.
 
 - A farm job picked has the same blue rail on its left as a file picked.
 
+- The live page's list: on glass, as its header (it was the hollows'
+  colour, --sunk); a sequence's rows striped as the outliner's, the
+  departments' header the first row's colour, no line across the card.
+
 - A shot's departments in the shots' order (Increment version, Mark
   stable, the panels): a department named in both lists, an asset
   "lighting" and a shot "lighting", came first, at its place among the
