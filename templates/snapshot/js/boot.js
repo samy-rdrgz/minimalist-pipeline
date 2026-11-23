@@ -17,7 +17,7 @@ document.querySelectorAll('[data-lang]').forEach(b =>
           try {
             return (
               new URLSearchParams(location.search).get('lang') ||
-              localStorage.getItem('mp-snapshot:lang') ||
+              localStorage.getItem('mp-snapshot.lang') ||
               ''
             );
           } catch (_) {
@@ -44,7 +44,7 @@ restoreReview();
 document.documentElement.dataset.guest = guest() ? '1' : '';
 document.documentElement.dataset.gfarm = guest() && M.live.farm ? '1' : '';
 try {
-  const t = localStorage.getItem('mp-snapshot:theme');
+  const t = localStorage.getItem('mp-snapshot.theme');
   if (t) S.theme = t;
 } catch (_) {}
 setTheme(S.theme);
@@ -81,7 +81,7 @@ liveStart();
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${sym.getAttribute('viewBox')}"><g fill="#639bff">${sym.innerHTML}</g></svg>`,
     l = document.createElement('link');
   l.rel = 'icon';
-  l.href = 'data:image/svg+xml,' + encodeURIComponent(svg);
+  l.href = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }));
   document.head.appendChild(l);
 })();
 /* For tests and the console: the page's state and actions. */

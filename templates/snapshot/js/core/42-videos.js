@@ -7,14 +7,20 @@ const VNAMES = () => {
   const s = new Set((M.videos || {}).files || []);
   return s;
 };
+/* The longest tail found: a folder above or below renders/ alike; a file's name alone only from a phone's pick. */
+function pickedFile(name) {
+  if (!PICKED || !name) return null;
+  const parts = name.split('/');
+  for (let k = 0; k < parts.length; k++)
+    if (k < parts.length - 1 || PICKED[' flat']) {
+      const f = PICKED[parts.slice(k).join('/')];
+      if (f) return f;
+    }
+  return null;
+}
 function videoSrc(name) {
   if (!name) return null;
-  const parts = name.split('/');
-  let f = null;
-  // The longest tail found: a folder above or below renders/ alike; a file's name alone only from a phone's pick.
-  if (PICKED)
-    for (let k = 0; k < parts.length && !f; k++)
-      if (k < parts.length - 1 || PICKED[' flat']) f = PICKED[parts.slice(k).join('/')];
+  const f = pickedFile(name);
   if (f) return f.url || (f.url = URL.createObjectURL(f));
   const V = M.videos || {},
     path = encodeURI(name);
@@ -41,7 +47,7 @@ function pickedFiles(files) {
     toast(T('No .mp4 in that folder.'));
     return;
   }
-  const found = allVideoNames().filter(v => (videoSrc(v) || '').startsWith('blob:')).length;
+  const found = allVideoNames().filter(pickedFile).length;
   toast(
     T(
       '{n} video in that folder, {found} for this snapshot.|{n} videos in that folder, {found} for this snapshot.',

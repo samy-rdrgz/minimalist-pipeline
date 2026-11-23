@@ -1,6 +1,18 @@
-/* ---------- The data: page_data() (lib/monitoring/snapshot_page.py), as the views read it ----------
+/* ---------- The data, page_data() (lib/monitoring/snapshot_page.py), as the views read it ----------
    The export's own shape, read once here (and again on each live update, applyData()):
    the views read items, M, DEPTS and F, never the raw data. */
+/* What this browser kept before 2.0.1 (choices, a review under way) under keys
+   "mp-snapshot" / "mp-review", a colon, the rest: moved to the same keys with a dot. */
+try {
+  for (const k of Object.keys(localStorage)) {
+    const i = k.indexOf(':'),
+      head = k.slice(0, i);
+    if (head !== 'mp-snapshot' && head !== 'mp-review') continue;
+    const to = head + '.' + k.slice(i + 1);
+    if (localStorage.getItem(to) == null) localStorage.setItem(to, localStorage.getItem(k));
+    localStorage.removeItem(k);
+  }
+} catch (_) {}
 const RAW = JSON.parse(document.getElementById('data').textContent);
 const M = {},
   DEPTS = { shot: [], asset: [] },
@@ -40,24 +52,10 @@ const AB = new Proxy(
       typeof d === 'string' ? (d.length > 5 ? d.charAt(0).toUpperCase() + d.slice(1, 4) : LBL[d]) : d
   }
 );
-/* Thumbnails: each stored once (images, by hash), a blob URL once. */
-const IMG = {},
-  URLS = {};
-function img(id) {
-  if (!id) return '';
-  if (URLS[id]) return URLS[id];
-  const b64 = IMG[id];
-  if (!b64) return '';
-  try {
-    const b = atob(b64),
-      a = new Uint8Array(b.length);
-    for (let i = 0; i < b.length; i++) a[i] = b.charCodeAt(i);
-    URLS[id] = URL.createObjectURL(new Blob([a], { type: 'image/jpeg' }));
-  } catch (_) {
-    URLS[id] = 'data:image/jpeg;base64,' + b64;
-  }
-  return URLS[id];
-}
+/* Thumbnails: each stored once (images, by hash; lib/monitoring/snapshot_page.py page_data()):
+   a snapshot's inline, the live page's from Blender's server (meta.thumbs). */
+const IMG = {};
+const img = id => (!id || !IMG[id] ? '' : M.thumbs ? M.thumbs + '/' + id : IMG[id]);
 /* Dates in the page's language: 16/11 19:10. */
 /* Dates and times: day before month, a 24-hour clock, in every language (English as British English writes them). */
 const DTL = () => (LOCALE() === 'en' ? 'en-GB' : LOCALE());
@@ -225,8 +223,8 @@ const S = {
   gFocus: null
 };
 /* The list's columns hidden (the eye by the filters): "thumb", "prog", departments -- remembered by this browser. */
-/* Renders marked checked here, by file: out of its renders to check until Blender's data says so too. */
+/* Renders marked checked here, by file, out of its renders to check until Blender's data says so too. */
 S.checkedKeys = {};
-S.hideCols = new Set((LS.get('mp-snapshot:cols') || '').split(',').filter(Boolean));
+S.hideCols = new Set((LS.get('mp-snapshot.cols') || '').split(',').filter(Boolean));
 /* Tracked only (Filters): remembered by this browser. */
-if (LS.get('mp-snapshot:tracked')) S.more.add('tracked');
+if (LS.get('mp-snapshot.tracked')) S.more.add('tracked');

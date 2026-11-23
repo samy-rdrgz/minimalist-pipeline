@@ -78,6 +78,7 @@ class _Shared:
         self.version = 0
         self.data = None  # page_data(), as the page loads it
         self.body = b""  # the same, encoded: /data
+        self.thumbs = {}  # its thumbnails' bytes, by hash: /thumb/<token>/<hash>
         self.last_tick = time.monotonic()
         self.last_seen = time.monotonic()  # a page's last request
         self.stopped = False
@@ -161,10 +162,33 @@ def _guest_list() -> list:
         )
 
 
-# Where a datagram to each would leave from: the local network's address,
-# and Tailscale's (100.100.100.100 is its own DNS) when it runs. No packet
-# is sent -- a UDP socket only picks its route.
-_PROBES = ("192.168.255.255", "10.255.255.255", "172.31.255.255", "1.1.1.1", "100.100.100.100")
+# The ranges a studio's network uses, and mesh VPNs' (Tailscale's and
+# others'): the machine's address in each is the one a datagram to that
+# range would leave from. No packet is sent -- a UDP socket only picks its route.
+_VPN = "100.64.0.0/10"
+_RANGES = ("192.168.0.0/16", "10.0.0.0/8", "172.16.0.0/12", _VPN)
+
+
+def _routed_from(range_: str) -> str | None:
+    """This machine's address toward range_ (its last host), if it has a route there."""
+    import ipaddress
+
+    probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        probe.connect((str(ipaddress.ip_network(range_)[-2]), 1))
+        return probe.getsockname()[0]
+    except OSError:
+        return None
+    finally:
+        probe.close()
+
+
+def _host_addresses() -> list[str]:
+    """The addresses this machine's name has (every network it is on, on Windows and macOS)."""
+    try:
+        return [i[4][0] for i in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET)]
+    except OSError:
+        return []
 
 
 def _addresses() -> list[dict]:
@@ -174,19 +198,11 @@ def _addresses() -> list[dict]:
     import ipaddress
 
     out = []
-    for target in _PROBES:
-        probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        try:
-            probe.connect((target, 1))
-            ip = probe.getsockname()[0]
-        except OSError:
-            continue
-        finally:
-            probe.close()
-        if ip.startswith("127.") or ip == "0.0.0.0" or any(a["ip"] == ip for a in out):
+    for ip in [_routed_from(r) for r in _RANGES] + _host_addresses():
+        if not ip or ip.startswith("127.") or ip.startswith("169.254.") or ip == "0.0.0.0" or any(a["ip"] == ip for a in out):
             continue
         addr = ipaddress.ip_address(ip)
-        kind = "VPN" if addr in ipaddress.ip_network("100.64.0.0/10") else "local network" if addr.is_private else "network"
+        kind = "VPN" if addr in ipaddress.ip_network(_VPN) else "local network" if addr.is_private else "network"
         out.append({"ip": ip, "kind": kind})
     # The local network first: a phone on the studio's Wi-Fi needs nothing more.
     return sorted(out, key=lambda a: a["kind"] != "local network")
@@ -296,6 +312,7 @@ def _as_guest(data: dict, token: str, guest: dict) -> dict:
     # A guest: new to the page, most often -- its tour shown once on their phone.
     meta["live"] = {**meta["live"], "token": token, "user": guest["name"], "role": guest["role"], "guest": True, "until": _iso(guest["until"]), "beginner": True, "farm": bool(guest.get("farm"))}
     meta["videos"] = {**(meta.get("videos") or {}), "local": f"media/{token}/renders"}
+    meta["thumbs"] = f"thumb/{token}"
     return {**data, "meta": meta}
 # partial: the first read's latest batch, (root, cache, done, total), for the
 # page while the rest is read; progress: (done, total) for the waiting page.
@@ -1352,6 +1369,8 @@ def _rebuild(sh: _Shared, force: bool, partial: tuple | None = None) -> None:
         "live": {"token": sh.token, "user": get_user(bpy.context), "role": get_user_role(bpy.context) or "team", "root": str(sh.root), "beginner": _beginner()},
         # Played from the project, through the server.
         "videos": {"mode": "live", "base": None, "files": [], "local": f"media/{sh.token}/renders"},
+        # Thumbnails too, by their hash: none inline in the page.
+        "thumbs": f"thumb/{sh.token}",
     }
     side = _reader.get("rushes") or {}
     # Who has which file open (the Farm tab's machines; a file's detail).
@@ -1367,7 +1386,8 @@ def _rebuild(sh: _Shared, force: bool, partial: tuple | None = None) -> None:
     if partial is None:
         progress_log.record_today(sh.root, snap)
     snap["meta"]["history"] = progress_log.days(sh.root)
-    data = page_data(snap)
+    thumbs: dict[str, bytes] = {}
+    data = page_data(snap, thumbs)
     # Its Farm tab: the farm as the Farm tab shows it.
     data["farm"] = jobs
     # Update links under way or just ended, by folder (lib/relink.py).
@@ -1381,6 +1401,7 @@ def _rebuild(sh: _Shared, force: bool, partial: tuple | None = None) -> None:
         sh.version += 1
         data["meta"]["live"]["version"] = sh.version
         sh.data = data
+        sh.thumbs = thumbs
         sh.body = json.dumps(data, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
         sh.changed.notify_all()
 
@@ -1422,8 +1443,8 @@ def _handler(sh: _Shared):
         def do_GET(self):
             parsed = urlparse(self.path)
             q = {k: v[0] for k, v in parse_qs(parsed.query).items()}
-            media = re.match(r"/media/([^/]+)/(.+)$", parsed.path)
-            if not self._allowed(media[1] if media else q.get("t", "")):
+            media = re.match(r"/(media|thumb)/([^/]+)/(.+)$", parsed.path)
+            if not self._allowed(media[2] if media else q.get("t", "")):
                 return self._send(403, b"forbidden", "text/plain")
             with sh.lock:
                 sh.last_seen = time.monotonic()
@@ -1436,8 +1457,10 @@ def _handler(sh: _Shared):
                     except ValueError:
                         return self._send(400, b"bad request", "text/plain")
                     self._data(since)
+                elif media and media[1] == "thumb":
+                    self._thumb(media[3])
                 elif media:
-                    self._media(unquote(media[2]))
+                    self._media(unquote(media[3]))
                 else:
                     self._send(404, b"not found", "text/plain")
             except (BrokenPipeError, ConnectionResetError):
@@ -1519,6 +1542,19 @@ def _handler(sh: _Shared):
             if body:
                 out = out[:-1] + b',"data":' + body + b"}"
             self._send(200, out, "application/json")
+
+        def _thumb(self, key: str):
+            # Named by the hash of its bytes: never another image at that address.
+            with sh.lock:
+                body = sh.thumbs.get(key)
+            if body is None:
+                return self._send(404, b"not found", "text/plain")
+            self.send_response(200)
+            self.send_header("Content-Type", "image/jpeg")
+            self.send_header("Content-Length", str(len(body)))
+            self.send_header("Cache-Control", "private, max-age=86400, immutable")
+            self.end_headers()
+            self.wfile.write(body)
 
         def _media(self, rel: str):
             base = (sh.root / "renders").resolve()

@@ -1,5 +1,5 @@
 /* ---------- Selection ---------- */
-const narrow = () => matchMedia('(max-width:860px)').matches;
+const narrow = () => matchMedia('(max-width: 860px)').matches;
 function select(n, { open = true } = {}) {
   // Another file: its video from its start.
   if (n !== S.sel) S.frame = 1;
@@ -133,7 +133,7 @@ function deliverReview() {
 }
 /* The share sheet takes it as JSON, else as plain text (same .json name). null: no share sheet. */
 function shareFile(text, name) {
-  if (!(navigator.share && navigator.canShare && matchMedia('(pointer:coarse)').matches)) return null;
+  if (!(navigator.share && navigator.canShare && matchMedia('(pointer: coarse)').matches)) return null;
   for (const type of ['application/json', 'text/plain']) {
     const f = new File([text], name, { type });
     try {

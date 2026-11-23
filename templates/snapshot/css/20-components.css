@@ -3781,9 +3781,7 @@ button.assign:hover {
   fill: currentColor;
 }
 .brand-f .wm {
-  font:
-    400 var(--fs) / 1 "MP Display",
-    var(--ui);
+  font: 600 var(--fs) / 1 var(--ui);
 }
 .brand-f .v {
   color: var(--text-3);

@@ -242,7 +242,7 @@ function fromActions(actions) {
   return [...unknown];
 }
 /* Kept in this browser until sent: who reviews, and each file's changes. */
-const RV_KEY = 'mp-review:' + M.project + ':' + (LIVE ? 'live' : M.snapshot);
+const RV_KEY = 'mp-review.' + M.project + ':' + (LIVE ? 'live' : M.snapshot);
 const RV_FIELDS = [
   'edits',
   'marked',
