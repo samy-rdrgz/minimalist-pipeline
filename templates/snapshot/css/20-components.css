@@ -3307,7 +3307,10 @@ button.assign:hover {
   width: min(320px, calc(100vw - 16px));
   padding: var(--sp-7);
   border-radius: var(--r-xl);
-  background: var(--overlay);
+  /* Glass, as the menus: it was the dialogs' veil (--overlay), see-through with no blur. */
+  background: var(--menu);
+  -webkit-backdrop-filter: blur(var(--blur)) saturate(120%);
+  backdrop-filter: blur(var(--blur)) saturate(120%);
   border: 1px solid var(--sel);
   box-shadow: 0 12px 40px var(--shadow);
   display: flex;

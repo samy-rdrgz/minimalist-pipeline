@@ -593,6 +593,9 @@ All notable changes to this addon. Dates are release dates.
   screen's edge once the header was hidden. Now on the area's top edge
   both ways.
 
+- The guided tour's box was the dialogs' veil, see-through with no blur:
+  now glass, blurred, as the menus.
+
 - A shot's departments in the shots' order (Increment version, Mark
   stable, the panels): a department named in both lists, an asset
   "lighting" and a shot "lighting", came first, at its place among the
