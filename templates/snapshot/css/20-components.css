@@ -3890,6 +3890,8 @@ button.assign:hover {
   grid-column: 1;
   justify-self: start;
   align-self: start;
+  /* Hung from the area's top edge (through its padding), not from the video's. */
+  margin-top: calc(-1 * var(--sp-6));
   margin-left: var(--sp-6);
   z-index: 3;
   width: calc(32px * var(--scale));
@@ -3899,16 +3901,12 @@ button.assign:hover {
 #wide.full.no-head .w-head {
   display: none;
 }
-/* Folded / hidden: their tab at the screen's edge, not the inner area's. */
+/* The panel folded: its tab at the screen's edge. The header's stays on the area's top edge, shown or
+   hidden: the area moves up into the header's place. */
 #wide.full.no-side .w-tab {
   position: fixed;
   right: 0;
   top: calc(96px * var(--scale));
-}
-#wide.full.no-head .w-htab {
-  position: fixed;
-  top: 0;
-  left: calc(var(--sp-3) + 2 * var(--sp-6));
 }
 /* Full screen keeps the strip and the long words out. */
 #wide.full .strip,

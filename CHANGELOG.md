@@ -588,6 +588,11 @@ All notable changes to this addon. Dates are release dates.
   elsewhere the files' keys (the review's only in a review) and the
   project's progress.
 
+- Watch large, full screen: the header's tab hung from the video's top,
+  inside the picture, not from its area's edge; and moved to the
+  screen's edge once the header was hidden. Now on the area's top edge
+  both ways.
+
 - A shot's departments in the shots' order (Increment version, Mark
   stable, the panels): a department named in both lists, an asset
   "lighting" and a shot "lighting", came first, at its place among the
