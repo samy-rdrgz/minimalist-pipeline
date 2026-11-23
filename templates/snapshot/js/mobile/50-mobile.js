@@ -778,7 +778,7 @@ const mFsEl = document.documentElement;
 const mFsOk = () => !!(mFsEl.requestFullscreen || mFsEl.webkitRequestFullscreen);
 const mFsOn = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
 function mFull(on) {
-  LS.set('mp-snapshot:mfull', on ? '' : '0');
+  LS.set('mp-snapshot.mfull', on ? '' : '0');
   try {
     const p = on
       ? (mFsEl.requestFullscreen || mFsEl.webkitRequestFullscreen).call(mFsEl, { navigationUI: 'hide' })
@@ -795,7 +795,7 @@ $('#mob').addEventListener(
   'touchend',
   function first() {
     $('#mob').removeEventListener('touchend', first);
-    if (isMob() && mFsOk() && !mFsOn() && LS.get('mp-snapshot:mfull') !== '0') mFull(true);
+    if (isMob() && mFsOk() && !mFsOn() && LS.get('mp-snapshot.mfull') !== '0') mFull(true);
   },
   { passive: true }
 );

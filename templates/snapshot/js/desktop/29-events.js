@@ -844,7 +844,7 @@ document.addEventListener('click', e => {
   if (co) {
     const k = co.dataset.col;
     S.hideCols.has(k) ? S.hideCols.delete(k) : S.hideCols.add(k);
-    LS.set('mp-snapshot:cols', [...S.hideCols].join(','));
+    LS.set('mp-snapshot.cols', [...S.hideCols].join(','));
     renderQuick();
     renderList();
     // The menu stays open: several columns are often changed in a row.
@@ -861,7 +861,7 @@ document.addEventListener('click', e => {
   if (mo) {
     const k = mo.dataset.more;
     S.more.has(k) ? S.more.delete(k) : S.more.add(k);
-    if (k === 'tracked') LS.set('mp-snapshot:tracked', S.more.has(k) ? '1' : '');
+    if (k === 'tracked') LS.set('mp-snapshot.tracked', S.more.has(k) ? '1' : '');
     renderQuick();
     renderList();
     return;
@@ -1409,7 +1409,7 @@ $('#tree-q').addEventListener('input', e => {
 function setScale(s) {
   S.scaleV = s;
   document.documentElement.style.setProperty('--scale', s);
-  LS.set('mp-snapshot:scale', s);
+  LS.set('mp-snapshot.scale', s);
   const i = $('#scale-in');
   if (i) {
     i.value = s;
@@ -1418,7 +1418,7 @@ function setScale(s) {
   requestAnimationFrame(drawWires);
 }
 try {
-  const s = parseFloat(localStorage.getItem('mp-snapshot:scale'));
+  const s = parseFloat(localStorage.getItem('mp-snapshot.scale'));
   if (s >= 0.5 && s <= 1.5) setScale(s);
 } catch (_) {}
 $('#scale-in').addEventListener('input', e => ($('#scale-v').textContent = (+e.target.value).toFixed(2)));

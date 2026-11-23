@@ -17,7 +17,7 @@ document.querySelectorAll('[data-lang]').forEach(b =>
           try {
             return (
               new URLSearchParams(location.search).get('lang') ||
-              localStorage.getItem('mp-snapshot:lang') ||
+              localStorage.getItem('mp-snapshot.lang') ||
               ''
             );
           } catch (_) {
@@ -44,7 +44,7 @@ restoreReview();
 document.documentElement.dataset.guest = guest() ? '1' : '';
 document.documentElement.dataset.gfarm = guest() && M.live.farm ? '1' : '';
 try {
-  const t = localStorage.getItem('mp-snapshot:theme');
+  const t = localStorage.getItem('mp-snapshot.theme');
   if (t) S.theme = t;
 } catch (_) {}
 setTheme(S.theme);

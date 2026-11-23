@@ -1,6 +1,18 @@
 /* ---------- The data, page_data() (lib/monitoring/snapshot_page.py), as the views read it ----------
    The export's own shape, read once here (and again on each live update, applyData()):
    the views read items, M, DEPTS and F, never the raw data. */
+/* What this browser kept before 2.0.1 (choices, a review under way) under keys
+   "mp-snapshot" / "mp-review", a colon, the rest: moved to the same keys with a dot. */
+try {
+  for (const k of Object.keys(localStorage)) {
+    const i = k.indexOf(':'),
+      head = k.slice(0, i);
+    if (head !== 'mp-snapshot' && head !== 'mp-review') continue;
+    const to = head + '.' + k.slice(i + 1);
+    if (localStorage.getItem(to) == null) localStorage.setItem(to, localStorage.getItem(k));
+    localStorage.removeItem(k);
+  }
+} catch (_) {}
 const RAW = JSON.parse(document.getElementById('data').textContent);
 const M = {},
   DEPTS = { shot: [], asset: [] },
@@ -213,6 +225,6 @@ const S = {
 /* The list's columns hidden (the eye by the filters): "thumb", "prog", departments -- remembered by this browser. */
 /* Renders marked checked here, by file, out of its renders to check until Blender's data says so too. */
 S.checkedKeys = {};
-S.hideCols = new Set((LS.get('mp-snapshot:cols') || '').split(',').filter(Boolean));
+S.hideCols = new Set((LS.get('mp-snapshot.cols') || '').split(',').filter(Boolean));
 /* Tracked only (Filters): remembered by this browser. */
-if (LS.get('mp-snapshot:tracked')) S.more.add('tracked');
+if (LS.get('mp-snapshot.tracked')) S.more.add('tracked');

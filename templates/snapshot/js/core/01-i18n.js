@@ -4,13 +4,13 @@
 // values: T('{n} files', {n: 3}); a plural, the key's "|" forms --
 // T('{n} file|{n} files', {n}). The language: the page's (meta.lang, the
 // export writes Blender's), else the browser's, else English; a choice
-// kept in this browser (mp-snapshot:lang) before them all. Never
+// kept in this browser (mp-snapshot.lang) before them all. Never
 // translated: files, departments, roles, prefixes, people -- the project's.
 var MPI18n = (function () {
   'use strict';
   var DICTS = { en: {} },
     lang = 'en',
-    KEY = 'mp-snapshot:lang';
+    KEY = 'mp-snapshot.lang';
   function base(l) {
     return String(l || '')
       .toLowerCase()

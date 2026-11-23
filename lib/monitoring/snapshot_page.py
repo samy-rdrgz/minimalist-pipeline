@@ -1,7 +1,7 @@
 """The production snapshot's page: build_snapshot()'s dict as one offline
 HTML file. Python only shapes the data (page_data()); the page itself --
 templates/snapshot/: page.html, its stylesheet (css/, CSS_PARTS) and its
-script (js/, JS_PARTS), the logo and the wordmark's font -- draws it in the
+script (js/, JS_PARTS) and the logo -- draws it in the
 browser. Pure: thread-safe."""
 
 import base64

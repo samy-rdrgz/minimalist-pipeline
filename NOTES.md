@@ -4157,7 +4157,7 @@ Seen on a 12.9" iPad, in Documents by Readdle's viewer:
   locked it (phone, full page): that lock stays.
 - **The panel over the whole page**: upright (1024 px) the panel beside
   the list left it too narrow. Dragging its left edge past its widest
-  (`maxWidth()` + 60 px) sets `body.panel-full` (kept, `mp-snapshot:panel-full`):
+  (`maxWidth()` + 60 px) sets `body.panel-full` (kept, `mp-snapshot.panel-full`):
   the panel at 100 %, the page under it locked, `aria-modal`, focus kept
   in it -- a phone's panel, by choice. Its edge, now at the screen's left,
   dragged back under its widest: beside the list again. On a touch screen
@@ -4165,7 +4165,7 @@ Seen on a 12.9" iPad, in Documents by Readdle's viewer:
 - **Theme**: `html[data-theme]` (light / dark), else the system's
   (`prefers-color-scheme`). The dark variables are written twice, for the
   media query (`:root:not([data-theme=light])`) and for `[data-theme=dark]`;
-  page.html's head reads the choice (`mp-snapshot:theme`) before the page
+  page.html's head reads the choice (`mp-snapshot.theme`) before the page
   is drawn -- no flash.
 - **A video zoomed in and out by a hair** (iPad only), black bands on
   its sides: `.vp` was as wide as its content -- the video, capped at
@@ -4259,7 +4259,7 @@ Seen on a 12.9" iPad, in Documents by Readdle's viewer:
   20 px, and the body's padding, the sticky bar, the panel's header...
   with it. `--sat` (page.css) replaces `env(safe-area-inset-top)`: the
   largest inset seen in this orientation (a probe of that height, a
-  ResizeObserver, kept by this browser, `mp-snapshot:safe-top:l` / `:p`),
+  ResizeObserver, kept by this browser, `mp-snapshot.safe-top:l` / `:p`),
   as `max(env(...), Npx)` -- reserved once, nothing moves after.
 - **The player's frame** (1.1.8): a compiled video starts at the job's
   `resolved_frame_range[0]` (post_render `-start_number`), noted in the
@@ -4940,13 +4940,13 @@ review, the phone and the iPad. What holds across them:
     some are out of sight (`barFade()`; the wheel scrolls it).
   - Set aside and untracked files out of the list until shown
     (`hiddenFile()`): a line at each group's end says how many and why;
-    shown or not is kept in the browser (`mp-snapshot:hidden`). Shown,
+    shown or not is kept in the browser (`mp-snapshot.hidden`). Shown,
     in full contrast, a striped picture.
   - Dates: relative within a week, else dd/mm/yyyy (`fmtDate()`, the whole
     date in the tooltip); a date field is a button over the system's
     picker (`dateField()`: its own text came out in the US order). The
     send window's role as buttons, like the start's; the last role used
-    picked first (`mp-snapshot:role`, else `meta.role`).
+    picked first (`mp-snapshot.role`, else `meta.role`).
   - The farm filter's icon the page's own (two machines), drawn like the
     other filters': Blender's RENDER_STILL had another level of detail.
   - A planned file's departments, faint, in their columns. The segmented
@@ -5071,7 +5071,7 @@ box open and a thread unfolded.
   and when, replies) opens it -- keyboard and screen readers for free. Its
   buttons call `preventDefault()` so they act without folding it. Open by
   default with a reply of the last 7 days or one of yours; a click is
-  kept per file and note (`mp-snapshot:notes-open`), never the default
+  kept per file and note (`mp-snapshot.notes-open`), never the default
   opening (a `toggle` would fire on render too).
 - **What a reviewer writes stays the review's text.** The box (`openCmp()`,
   one at a time, `editing.cmp`) holds a draft; *Add* appends its lines to
@@ -5373,7 +5373,7 @@ An action with its form opens a dialog from a button in the file's header
 reviewing) -- `#dlg` with its own onclick / onchange / oninput, cleared on
 close. What's read or written in context stays in the panel (notes,
 description, To check, Linked files, shot cards). *Show details*
-(`DETAILS`, `mp-snapshot:details`) adds the facts and the version list;
+(`DETAILS`, `mp-snapshot.details`) adds the facts and the version list;
 Linked files shows without it when `linksToUpdate()`. *Filters ▾*: its
 list moved to `<body>` at load and placed under its button (`.bar-in`
 scrolls sideways and cut it); `ffCount()` from `chipCounts()`. The
@@ -5515,7 +5515,7 @@ work that follows touches a file of a few hundred lines, not 2 000.
   language (`MPI18n.add('fr', {...})`), a missing key gives the English.
   Values `{n}`, plurals as `"{n} file|{n} files"` chosen by
   `Intl.PluralRules` (French says "0 fichier"). Language: the one chosen
-  in this browser (`mp-snapshot:lang`), then `meta.lang`, then the
+  in this browser (`mp-snapshot.lang`), then `meta.lang`, then the
   browser's, then English. No string goes through it yet: the classic
   page stays as it is.
 - **Fixture** `tests/fixtures/snapshot_demo.json`: the v7 demo (sequence
@@ -5655,7 +5655,7 @@ English through `T()` (js/core/01-i18n.js), French in
   `title` / `aria-label` / `placeholder` translated once at boot,
   before anything draws.
 - **The language** (`core/02-lang.js`, after every dictionary): the one
-  chosen in this browser (View > Language, `mp-snapshot:lang`, the page
+  chosen in this browser (View > Language, `mp-snapshot.lang`, the page
   reloads), else Blender's (`meta.lang`: `session.ui_language()`, read
   on the main thread at the export and by the live page), else the
   browser's, else English. Dates through `toLocale*()` in that language.
@@ -6085,13 +6085,13 @@ What changed, and why, after a first pass on the demo project:
 - **Second pass**: *Departments…* (a department required or not on several files) left the filter bar for the Menu, shown while reviewing: a rare, heavy change, not one to sit by the filters. The *Files* tab is gone: its file facts head Versions, its last renders (watch, player, push to the edit, farm, Render…) head Render history -- the rest it said, those two tabs said too. The file's ⚙ moved from the detail's header to the foot of its side bar. *Hide the detail* is a tablet's (≤ 1200 px): on a desktop the panel's edge folds it, and the tab bringing it back sits just under the list's filter bar, 32 px tall. *Filters › In the farm* turns *Progress* into a *Farm* column (`farmCell()`): the progress bars say nothing about a render.
 - **Phone swipes**: the video's sideways swipe listened to pointer events -- a finger moving a little up or down starts the page's scroll, the browser cancels the pointer (`pointercancel`), the swipe was lost. Touch events now (the touch still says where it ended), mostly sideways enough (1.5 times more than up or down). A sheet's grab handle was drawn with nothing behind it: its header pulled down closes it (`touch-action: none` there).
 - **Versions** has Blender's *file_blend* icon (`icons/file_blend.svg`). Its Files block names a wip only when one is newer than the stable (the same .blend said twice before). *Last renders*: each row named by its department; the file's job in the farm a line of its own under the head, with which render (`_farm_status()` now carries the job's version and shot) -- a *Farm* row read as one more department; *Render…* in the head. The farm's "compiling" says what: "compiling the video".
-- **Columns shown** (the eye by *Filters*): the thumbnails, each department, Progress (Farm), hidden or not, kept by the browser (`mp-snapshot:cols`). A department hidden leaves the grid (`shownDepts()`, `--nd`); the thumbnails' and Progress's tracks are dropped by CSS classes on `#list` (`nothumb`, `noprog`) -- a cell set to `display:none` alone would let the next one slide into its track. The menu stays open after a click: several columns are often changed in a row.
+- **Columns shown** (the eye by *Filters*): the thumbnails, each department, Progress (Farm), hidden or not, kept by the browser (`mp-snapshot.cols`). A department hidden leaves the grid (`shownDepts()`, `--nd`); the thumbnails' and Progress's tracks are dropped by CSS classes on `#list` (`nothumb`, `noprog`) -- a cell set to `display:none` alone would let the next one slide into its track. The menu stays open after a click: several columns are often changed in a row.
 - **Farm, a column of its own** beside Progress (Columns shown, or *Filters › In the farm*), no longer in its place. The list's tracks are CSS variables now (`--c-th`, `--c-f`, `--c-d`, `--c-pr`, `--c-fm`), an empty one dropping its track -- every combination of columns without a rule each; a department's column shrinks (64 to 98 px) before a row overflows.
 - **Render checked, on the page as in Blender**: *Checked* was a bare button beside a tag; it's now a block of its own in the detail (*Render to check*, its renders named, live) and *Checked…* opens the dialog Blender's Render checked had before 2.0 (`checkedDlg()`): the file's required departments, the render's own ticked first (`render` without one) -- a done one validated (not by the team), one not done marked done on the stable; *Push to editing* (live: the `checked` action's `push`). The changes go through the review, as any other. *Filters › To check* lists the files with a render to check; the *to check* / *render outdated* tags are tinted to be seen among the others.
 - **Renders, the column** (was *Farm*): the file's job in the farm, a render to check, one outdated -- a line each, out of the name's tags while it's shown; shown by the eye, or by *Filters › In the farm / To check / Render outdated*. The tinted tag and block (a colour at half, with an outline) undone: the page's style is neither, nowhere.
 - **Renders column, its icons**: failed was in `--rtk-t` (#f7b978, the retake count's pale text), now the retake's orange (`--st-rtk`) on the icon only, outdated too, to check in yellow. The sprite's icons paint with `currentColor`: coloured by `color`, a `fill` on the <svg> does nothing (`.tag svg.i { fill: var(--c) }` has the same flaw).
 - **A Checked… per render**: a file can have several renders to check (sq030_sh010 in the demo: tom's animation playblast, marc's lighting test) -- not watched by the same people, so not one button for all. Each its own (its key, `liveChecked(it, push, keys)`), its dialog ticking its own department; the file stays to check while one is left (`S.checkedKeys` until Blender's data agrees). To check is the review's green (`--st-you`), no colour of its own, apart from in progress's yellow. Each row also has its **Watch**: that render's shot and version into the player (`data-ckwatch`, pressed while it is the one shown) -- two renders, two people, each looks at their own without hunting it in the version menu.
-- **Phone: full screen by default** -- at the first touch (`touchend`: a browser allows full screen only on a user's gesture, never at load), once per page; the ⚙ menu leaves it (`mp-snapshot:mfull` = 0, not asked again) or goes back. Not offered without the API (an iPhone's Safari has it for videos only).
+- **Phone: full screen by default** -- at the first touch (`touchend`: a browser allows full screen only on a user's gesture, never at load), once per page; the ⚙ menu leaves it (`mp-snapshot.mfull` = 0, not asked again) or goes back. Not offered without the API (an iPhone's Safari has it for videos only).
 - **Glass**: `--glass` and `--glass-head` at 0.3 (were 0.88, 0.86), the sticky headers' blur at 20 px (was 5). A grain on the glass was tried and dropped (not liked); blur on all the time -- with nothing under a header it shows nothing anyway.
 - **Glass**: every glass blurs by `--blur` (20 px), the menus and Links' tools too; `--menu` at 0.3. Tried and undone, to see the glass more often: the panels' headers over their bodies, the transport over the video (detail, Watch large), the phone's bars over its content, the status bar floating over the panels (the panels lost their rounded bottom corners under it).
 - **A full row** (all done / all validated) marked in the list: a gradient, then a corner triangle, tried and undone -- the outliner's dot says it already.
