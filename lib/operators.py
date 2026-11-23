@@ -296,7 +296,12 @@ def draw_onboarding(layout, context, max_width: int = 120, level_hint: bool = Tr
         draw_user_name(name, prefs)
         if placeholder:
             name.label(text="A random name: type your own.", icon="ERROR")
-        _field(box, "Validation role").prop(prefs, "user_role", text="")
+        # Optional: only who validates (sup, prod...) needs one -- greyed while empty.
+        role = box.column(align=True)
+        role.active = bool(prefs.user_role)
+        _field(role, "Role (optional)").prop(prefs, "user_role", text="")
+        if not prefs.user_role:
+            _field(role, "").label(text="Only to validate: sup, prod...")
         col.separator(factor=2)
 
         # 3. What's ready -- checked, nothing to read when it all is.
