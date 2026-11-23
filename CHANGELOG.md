@@ -576,6 +576,12 @@ All notable changes to this addon. Dates are release dates.
   when it should be done, the time per frame, how long on this step, and
   each machine's time per frame and the frame it's on.
 
+- A job's detail on the live page also says what went wrong -- a
+  chunk's failure and why, a frame stuck, the job stopped, the machines
+  taken off -- and its steps with the time between them: Blender's own
+  job detail (farm/details.py job_detail()), read when the job is
+  picked, again every 10 s while it's on.
+
 - A shot's departments in the shots' order (Increment version, Mark
   stable, the panels): a department named in both lists, an asset
   "lighting" and a shot "lighting", came first, at its place among the

@@ -2124,6 +2124,18 @@ popup, sends `now`; `_stop_self()` for this machine,
 this machine went through the operator's `execute()` (stopped now),
 another got `now` missing (after its frame).
 
+## The live page's job detail
+
+The job rows (`_farm_data()`, every pass) carry what the monitor cache
+has: the time left, the pace, each machine's pace and frame
+(`_per_machine()`). What only the job file says -- a chunk's failure and
+why, a stuck frame, the steps' times -- comes from `job_detail()`, Blender's
+own job detail, through the farm action "detail" (guests too, read
+only): read when the job is picked, again every 10 s while it's on, once
+for one that's over (`jobMore()`, its `JD` cache). Not in every pass: a
+job file each, on a share, every few seconds, for a detail seen one at
+a time. Its values stay as Blender writes them (English).
+
 ## Which machine rendered which frame
 
 `_note_frames()` turns the `.saved` records into `frame_machines`: one

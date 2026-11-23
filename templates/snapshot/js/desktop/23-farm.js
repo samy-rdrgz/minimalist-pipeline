@@ -112,11 +112,50 @@ function renderFarmDetail(H, B) {
     <dt>${T('Sent by')}</dt><dd>${esc(j.user)} · ${fmtD(j.at)}</dd>
     <dt>${T('Priority')}</dt><dd>${live && !j.pending ? `<span class="prio"><button class="btn sm icon" data-prio="-1" aria-label="${T('Lower')}">−</button><b>${j.priority}</b><button class="btn sm icon" data-prio="1" aria-label="${T('Higher')}">+</button><span class="faint">${T('the highest goes first')}</span></span>` : j.priority}</dd>
     <dt>Job</dt><dd class="mono">${esc(j.id)}</dd></dl>
+    ${jobMore(j)}
     <div class="pacts">${it ? `<button class="btn" data-goto-file="${it.name}">${ic('b-file')}${T('The file')}</button>` : ''}
       ${j.removable ? `<button class="btn alert" data-farm="remove">${T('Remove from the queue')}</button>` : live ? `<button class="btn alert" data-farm="cancel">${T('Cancel')}</button>` : ''}
       ${j.retry ? `<button class="btn primary" data-farm="retry">${T('Retry')}</button>` : ''}${j.recompile ? `<button class="btn" data-farm="recompile">${T('Compile again')}</button>` : ''}
       ${j.state === 'failed' || j.state === 'finished' ? `<button class="btn" data-farm="archive">${T('Archive')}</button>` : ''}
       <button class="btn" data-act="folder">${ic('b-file_folder')}${T('Its folder')}</button><button class="btn" data-act="log">${ic('b-file')}${T('Logs')}</button></div></div>`;
+}
+/* What only its job file says (farm/details.py job_detail(), Blender's own job detail), read on
+   demand (the farm action "detail"): what went wrong -- a chunk's failure and why, a frame stuck,
+   the job stopped -- and its steps, each with the time since the one before. Again every 10 s
+   while it's on; once for one that's over, again when its step changes. */
+const JD = {};
+const PROBLEMS = ['Stopped', 'Why', 'Failed chunk', 'Stuck frame', 'Failed on', 'Corrupted frames', 'Missing shots', 'Taken off', 'Rendered again'];
+function jobMore(j) {
+  if (!LIVE) return '';
+  const key = j.stage + '|' + j.state,
+    c = JD[j.id],
+    on = j.state === 'running' || j.state === 'waiting';
+  if (!c || (!c.busy && (c.key !== key || (on && Date.now() - c.at > 10000)))) {
+    JD[j.id] = { ...(c || {}), key, at: Date.now(), busy: true };
+    livePost('farm', { action: 'detail', job_id: j.id })
+      .then(r => {
+        JD[j.id] = { key, at: Date.now(), d: r.ok ? r.detail : null };
+        if (S.ws === 'farm' && S.farmSel === j.id) renderProps();
+      })
+      .catch(() => (JD[j.id] = { key, at: Date.now(), d: (c || {}).d }));
+  }
+  const d = (JD[j.id] || {}).d;
+  if (!d) return '';
+  const bad = d.rows.filter(r => PROBLEMS.includes(r[0]));
+  return (
+    (bad.length
+      ? `<div class="sec-h">${T('Problems')}</div><dl class="dl">${bad.map(([k, v, a]) => `<dt>${T(k)}</dt><dd class="${a ? 'bad' : ''}">${esc(v)}</dd>`).join('')}</dl>`
+      : '') +
+    (d.stages.length
+      ? `<div class="sec-h">${T('Steps')}<span class="sp"></span><span class="faint" style="text-transform:none;letter-spacing:0">${T('+ the time since the step before')}</span></div>
+    <dl class="dl">${d.stages
+      .map(([when, what]) => {
+        const [at, since] = when.split(' +');
+        return `<dt class="mono">${esc(at)}</dt><dd><span class="mono">${esc(what)}</span>${since ? `<span class="faint">+${esc(since)}</span>` : ''}</dd>`;
+      })
+      .join('')}</dl>`
+      : '')
+  );
 }
 /* A job's times in its detail: left, the pace, how long in this step, the video's compile. */
 function jobTimes(j) {

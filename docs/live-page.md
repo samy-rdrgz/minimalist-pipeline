@@ -92,6 +92,8 @@ The figures per section, the schedule's pace, the table by sequence (shots, then
 The farm's jobs by state: in progress, waiting, failed and finished. The rendering time left is shown above the list, and each render's under its bar. A click on a job opens its detail:
 - its steps, frames, machines and who sent it
 - while it renders: the time left and when it should be done, its time per frame, how long it's been on this step, and each machine's time per frame and the frame it's on
+- what went wrong, as in Blender's job details: a chunk that failed and why (out of memory, crash...), a frame stuck, the machines taken off it
+- its steps, each with the time since the one before
 - its priority (− / +)
 - *Cancel*, *Retry*, *Archive*, *Recompile*, and *Remove from the queue* while nothing has rendered yet
 - its file, folder and logs
