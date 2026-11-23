@@ -425,6 +425,13 @@ All notable changes to this addon. Dates are release dates.
 
 ### Changed
 
+- Windows Defender no longer takes the package or the page's parts for a
+  trojan (Trojan:Win32/MalUri, a false alarm on URI-like text): the live
+  page's thumbnails served by Blender instead of inline, the wordmark's
+  font gone, the page's keys in the browser with a dot (`mp-snapshot.lang`;
+  what a browser kept under the old ones, a review under way included,
+  moved on load), no address written in the code.
+
 - Developer docs: CODE.md rewritten as a short guide (module tree, key
   flows, patterns) without its function-by-function inventory; graph.md
   removed -- its flows in CODE.md, the farm's stage machine in NOTES.md;
