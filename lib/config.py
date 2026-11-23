@@ -421,17 +421,20 @@ def project_team(config: dict | None = None) -> list[str]:
     return list(dict.fromkeys(str(n).strip().lower() for n in names if str(n).strip()))
 
 
-def ordered_departments(departments) -> list[str]:
-    """departments in the project's order -- Edit project's asset
-    departments, then its shot ones --, any it doesn't list after them, as
-    given. As given with no active project to read it from."""
+def ordered_departments(departments, kind: str | None = None) -> list[str]:
+    """departments in the project's order -- Edit project's departments of
+    kind ("shots" / "assets", a file's: its own list first, a department
+    named in both lists at its place there), then the other kind's (assets'
+    first for None) --, any it doesn't list after them, as given. As given
+    with no active project to read it from."""
     deps = list(departments or [])
     try:
-        config = ConfigCache.get()
+        config = ConfigCache.get() or {}
     except Exception:
         return deps
     order = []
-    for key in ("assets_departments", "shots_departments"):
+    keys = ("shots_departments", "assets_departments") if kind == "shots" else ("assets_departments", "shots_departments")
+    for key in keys:
         for d in config.get(key) or []:
             if str(d).lower() not in order:
                 order.append(str(d).lower())

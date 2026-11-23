@@ -3111,11 +3111,13 @@ reader thread, for the jobs at `render_start` only -- Job details lists
 the chunks in progress (machine, frame) from there, never from `draw()`,
 and the job file's `chunk_failures`, `fail_reason`, `left_machines`;
 Worker details its machine's chunk. The pre-render picker's "None" reads
-"No pre-render script" and needs no label; the dialog opens on the
-project's `farm.default_prerender_script` (Edit project) on every
-`invoke()` -- the enum's own memory kept the last pick, or fell back to
-the first item. Edit project lists the presets of the project it edits,
-which isn't always the active one.
+"No pre-render script" and needs no label; the dialog opens, on every
+`invoke()`, on the preset of its department (the one this file was last
+rendered with for it, else Presets by department's), none with no
+department -- the enum's own memory kept the last pick, or fell back to
+the first item. The one project-wide default pre-render script (2.0.0
+and before) is gone: a department each has its own; Edit project drops
+`farm.default_prerender_script` when it saves.
 
 A Retry clears `chunk_failures` and `fail_reason`; `failed_machines` too
 when every live worker allowed on the job is in it (else it would wait
@@ -5133,7 +5135,7 @@ box open and a thread unfolded.
 A render preset's name gives its renders' department (`preset_department()`),
 so a preset named before 1.2 (`hd_final`) leaves its renders with none.
 Renaming it by hand would break what cites the name: the config's
-`farm.default_prerender_script`, each `render_history.json` entry's
+`farm.department_presets`, each `render_history.json` entry's
 `prerender_script` (the pace of the next renders, `history_pace()`), the
 keys of `preset_pace.json`, and a job in the farm -- its file name is a
 hash of the preset's name (`farm/monitor.py _file_key()`).

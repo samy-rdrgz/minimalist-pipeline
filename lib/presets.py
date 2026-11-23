@@ -414,12 +414,12 @@ def rename_preset(root: Path, old: str, new: str, departments, old_renders: bool
     """Rename the render preset old new -- into the folder of the kind its
     new name's department is (render_shots/, render_assets/; preset_kind()),
     else where it was -- and every place that cites
-    it: the config's farm.default_prerender_script, each render_history.json
+    it: the config's farm.department_presets, each render_history.json
     entry's prerender_script, preset_pace.json's keys. old_renders: the
     renders it made with no department get the one the new name gives
     (entry and DEPARTMENT_FILE) -- right only if the preset always served
     that department. Raises PipelineError (preset_rename_problem()).
-    Returns {"histories", "renders", "departments", "pace", "default"}."""
+    Returns {"histories", "renders", "departments", "pace"}."""
     from .config import get_config_filepath
     from .core import locked_json, read_json_quiet
     from .preview import DEPARTMENT_FILE
@@ -438,15 +438,11 @@ def rename_preset(root: Path, old: str, new: str, departments, old_renders: bool
         folder = render_folder(preset_kind(new, shots, assets), root)
         folder.mkdir(parents=True, exist_ok=True)
     src.rename(folder / f"{new}.py")
-    out = {"histories": 0, "renders": 0, "departments": 0, "pace": False, "default": False}
+    out = {"histories": 0, "renders": 0, "departments": 0, "pace": False}
     dep = preset_department(new, departments)
 
     with locked_json(get_config_filepath(root)) as box:
         farm = (box["data"] or {}).get("farm") or {}
-        if farm.get("default_prerender_script") == old:
-            farm["default_prerender_script"] = new
-            box["action"] = "to_write"
-            out["default"] = True
         # Presets by department (the Render dialog's starting one) follow it too.
         by_dept = farm.get("department_presets") or {}
         for d, name in by_dept.items():

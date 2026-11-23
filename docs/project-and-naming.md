@@ -121,7 +121,7 @@ Written under a lock and atomically (temp file then rename), like every other pi
     "schedule": {"start": "2026-09-01", "end": "2027-03-31", "days_off": ["2026-12-25"], "worked_days": [1, 2, 3, 4, 5]}
   },
   "farm": {
-    "chunk_size": 5, "stuck_frame_factor": 5, "default_prerender_script": "",
+    "chunk_size": 5, "stuck_frame_factor": 5,
     "max_concurrent_local": 1, "stale_monitor_seconds": 90, "dead_monitor_seconds": 360,
     "auto_archive_hours": 24, "archive_log_days": 14
   }

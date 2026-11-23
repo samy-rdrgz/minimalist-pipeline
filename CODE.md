@@ -111,7 +111,7 @@ Routing logic: `prefix_to_parent_folder()` in `lib/config.py`. All paths resolve
   "assets_departments": ["modeling", "texturing", "rigging", "tech"],
   "shots_departments": ["layout", "animation", "lighting", "render"],
   "farm": {"max_concurrent_local": 1, "stale_monitor_seconds": 30,
-           "stuck_frame_factor": 5, "chunk_size": 5, "default_prerender_script": "",
+           "stuck_frame_factor": 5, "chunk_size": 5,
            "auto_archive_hours": 24, "archive_log_days": 14}
 }
 ```

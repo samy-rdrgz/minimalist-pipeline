@@ -440,6 +440,11 @@ All notable changes to this addon. Dates are release dates.
   kind); until then they're read where they are. Rename preset moves one
   into the folder of its new department's kind.
 
+- Project settings' Pre-render line gone: each department has its own
+  preset (By department…), and a render with no department starts with
+  none -- the one project-wide default is dropped from the config at the
+  next save.
+
 - Windows Defender no longer takes the package or the page's parts for a
   trojan (Trojan:Win32/MalUri, a false alarm on URI-like text): the live
   page's thumbnails served by Blender instead of inline, the wordmark's
@@ -527,6 +532,11 @@ All notable changes to this addon. Dates are release dates.
   these buttons.
 
 ### Fixed
+
+- A shot's departments in the shots' order (Increment version, Mark
+  stable, the panels): a department named in both lists, an asset
+  "lighting" and a shot "lighting", came first, at its place among the
+  assets'. Each file now follows its own kind's list first.
 
 - The live page's Farm tab: *Remove from the queue* on a job not set up yet
   always failed ("it started meanwhile") -- the page didn't say it was

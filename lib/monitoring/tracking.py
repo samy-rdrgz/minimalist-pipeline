@@ -650,7 +650,8 @@ def create_tracking(filepath: Path, departments: list, description: str = ""):
             # The project's order (Edit project), not the alphabet's: what
             # every list of departments shows them in.
             merged_departments = ordered_departments(
-                dict.fromkeys([*existing.get("departments_required", []), *departments])
+                dict.fromkeys([*existing.get("departments_required", []), *departments]),
+                owner_kind(path.parent.parent),
             )
             existing_description = existing.get("description", "")
             if description and description not in existing_description:
@@ -684,7 +685,7 @@ def get_departments_required(filepath: Path) -> list:
         with locked_json(path, read_only=True) as box:
             data = box["data"] or {}
         required = data.get("departments_required")
-        return ordered_departments(required) if required is not None else None
+        return ordered_departments(required, owner_kind(path.parent.parent)) if required is not None else None
     except Exception as e:
         raise PipelineError(f"Error during reading tracking file : {e}")
 
@@ -1193,7 +1194,7 @@ def set_departments_required(filepath: Path, add=(), remove=()) -> bool:
         data = box["data"] or {}
         before = list(data.get("departments_required", []))
         kept = [d for d in before if d not in remove]
-        after = ordered_departments(dict.fromkeys([*kept, *(d.lower() for d in add)]))
+        after = ordered_departments(dict.fromkeys([*kept, *(d.lower() for d in add)]), kind.split("_")[0])
         if after == before:
             return False  # action "": nothing written
         data["departments_required"] = after
@@ -1403,8 +1404,14 @@ def _collect_folder(asset_dir: Path, entries: list | None = None) -> dict | None
         "started": last_stable.get("departments_started") or [],
         # Its stages' kind (lib/monitoring/status.py project_stages()): a library's
         # are the assets'.
-        "kind": "shots" if Path(asset_dir).parts[-3:-2] == ("shots",) else "assets",
+        "kind": owner_kind(asset_dir),
     }
+
+
+def owner_kind(owner_dir: Path) -> str:
+    """An asset/shot folder's kind: "shots" for shots/<sq>/<sh>/, else
+    "assets" (a library's are the assets')."""
+    return "shots" if Path(owner_dir).parts[-3:-2] == ("shots",) else "assets"
 
 
 def _worked_departments(wipmetas: list, stable_date: datetime) -> dict[str, list[dict]]:
@@ -1490,7 +1497,7 @@ def _status_from_raw(raw: dict) -> dict:
     global_data = dict(raw["tracking"])
     # The project's order, whatever the file's (Edit project may reorder).
     global_data["departments_required"] = ordered_departments(
-        global_data.get("departments_required", [])
+        global_data.get("departments_required", []), raw.get("kind")
     )
     last_stable = raw["last_stable"]
     stable_date = parse_iso(last_stable.get("created_at")) or EARLIEST

@@ -153,12 +153,6 @@ def _get_pre_render_scripts(self, context):
     return _stable_enum_items(_pre_render_scripts, items)
 
 
-def default_pre_render_script(config: dict, items: list) -> str:
-    """config's farm.default_prerender_script (Edit project) if it's still
-    one of the picker's items, else _NO_SCRIPT."""
-    name = json_get(config, "farm.default_prerender_script", "") or ""
-    return name if name in {item[0] for item in items if item} else _NO_SCRIPT
-
 
 _NO_DEPT = "NONE"
 _department_items_cache: list = []
@@ -219,7 +213,7 @@ def _department_changed(self, context):
     items = _get_pre_render_scripts(self, context)
     names = {i[0] for i in items if i}
     if self.department == _NO_DEPT:
-        self.pre_render_script = default_pre_render_script(ConfigCache.get(), items)
+        self.pre_render_script = _NO_SCRIPT  # no department, no department's preset
         return
     last = last_render(self.filepath, self.department).get("prerender_script")
     self.pre_render_script = last if last in names else department_preset(ConfigCache.get(), self.department, items)

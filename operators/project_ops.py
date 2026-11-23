@@ -50,25 +50,9 @@ from .farm_ops import (
     NO_SCRIPT_ITEM,
     _NO_SCRIPT,
     _stable_enum_items,
-    default_pre_render_script,
     department_preset,
     pre_render_script_items,
 )
-
-_edited_pre_render_scripts: list[tuple[str, str, str]] = []
-
-
-def _edited_project_scripts(self, context):
-    """Pre-render presets of the project being edited -- not necessarily
-    the active one."""
-    root = self.project_path_selected
-    # The departments as typed in the fields, not yet saved.
-    departments = [
-        *parse_departments(self.shots_departments)[0],
-        *parse_departments(self.assets_departments)[0],
-    ]
-    items = pre_render_script_items(Path(root), departments) if root else [NO_SCRIPT_ITEM]
-    return _stable_enum_items(_edited_pre_render_scripts, items)
 
 # ---------------------------------------------------------------------------
 # Default config template
@@ -561,12 +545,6 @@ class ProjectSettings:
         ),
     )
 
-    default_prerender_script: bpy.props.EnumProperty(
-        items=_edited_project_scripts,
-        name="",
-        description="Pre-render script the Render dialog starts with",
-    )  # type: ignore
-
     video_format: bpy.props.EnumProperty(
         name="",
         items=[
@@ -824,7 +802,6 @@ class ProjectSettings:
         self._rows(farm, [
             ("VIDEO", "FILE_MOVIE", "video_format"),
             ("CHUNK SIZE", "RENDER_RESULT", "chunk_size"),
-            ("PRE-RENDER", "SCRIPT", "default_prerender_script"),
             ("STUCK FRAME", "ERROR", "stuck_frame_factor",
              ("x usual time: kill" if self.stuck_frame_factor else "0 = never kill",)),
             ("PRIORITY SWITCH", "SORT_DESC", "priority_switch_minutes",
@@ -885,9 +862,6 @@ class ProjectSettings:
         self.schedule_days_off = self._days(schedule.get("days_off", []))
         worked = schedule.get("worked_days", WORK_WEEK)
         self.schedule_worked_days = [d in worked for d in range(1, 8)]
-        self.default_prerender_script = default_pre_render_script(
-            config, _edited_project_scripts(self, context)
-        )
         self.chunk_size = max(
             1, int((config.get("farm") or {}).get("chunk_size", 5) or 5)
         )
@@ -981,19 +955,15 @@ class ProjectSettings:
                     "assets": parse_departments(self.assets_departments)[1],
                     "shots": parse_departments(self.shots_departments)[1],
                 },
-                # "farm": only stuck_frame_factor, priority_switch_minutes,
-                # chunk_size and default_prerender_script are edited here, the
-                # rest stays as read from the loaded config.
-                "farm": (config.get("farm") or {})
+                # "farm": only stuck_frame_factor, priority_switch_minutes and
+                # chunk_size are edited here, the rest stays as read from the
+                # loaded config -- but the one default pre-render script, gone
+                # (each department's own: By department…).
+                "farm": {k: v for k, v in (config.get("farm") or {}).items() if k != "default_prerender_script"}
                 | {
                     "stuck_frame_factor": self.stuck_frame_factor,
                     "priority_switch_minutes": self.priority_switch_minutes,
                     "chunk_size": self.chunk_size,
-                    "default_prerender_script": (
-                        ""
-                        if self.default_prerender_script == _NO_SCRIPT
-                        else self.default_prerender_script
-                    ),
                 },
                 "thumbnails": (config.get("thumbnails") or {})
                 | {"size": self.thumbnail_size},
@@ -1182,8 +1152,8 @@ class M_PIPELINE_OT_rename_preset(bpy.types.Operator):
     bl_idname = "m_pipeline.rename_preset"
     bl_label = "Rename preset"
     bl_description = (
-        "Rename a render preset and every place citing it -- the default "
-        "pre-render script, the renders' history, the farm's paces. Its name "
+        "Rename a render preset and every place citing it -- the presets by "
+        "department, the renders' history, the farm's paces. Its name "
         "gives its renders' department: lighting_hd, lighting's"
     )
     bl_options = {"INTERNAL"}
@@ -1233,7 +1203,7 @@ class M_PIPELINE_OT_rename_preset(bpy.types.Operator):
         tip = col.column(align=True)
         tip.active = False
         tip.scale_y = 0.8
-        tip.label(text="Updated too: the default pre-render script, every render's", icon="INFO")
+        tip.label(text="Updated too: the presets by department, every render's", icon="INFO")
         tip.label(text="history, the farm's paces. Refused while the farm has jobs.", icon="BLANK1")
 
     def execute(self, context):
@@ -1247,13 +1217,6 @@ class M_PIPELINE_OT_rename_preset(bpy.types.Operator):
         except (PipelineError, OSError) as e:
             self.report({"ERROR"}, f"Rename preset: {getattr(e, 'message', e)}")
             return {"CANCELLED"}
-        settings = context.window_manager.pipeline_project_settings
-        if settings.project_path_selected == self.project_root and out["default"]:
-            # Its picker's items re-read: the default follows the new name.
-            try:
-                settings.default_prerender_script = new
-            except TypeError:
-                pass
         ConfigCache.invalidate()
         self.report({"INFO"}, f"{self.old} renamed {new}: {out['renders']} render(s) in its history updated.")
         return {"FINISHED"}

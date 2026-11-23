@@ -1085,9 +1085,9 @@ def _farm_data(root: Path) -> dict:
 
 
 def _presets() -> dict:
-    """The page's Render form: {"presets": [[name, label]], "preset"
-    (the project's default)} -- the Render dialog's picker."""
-    from ...operators.farm_ops import _get_pre_render_scripts, default_pre_render_script
+    """The page's Render form: {"presets": [[name, label]], "preset" (with
+    no department: none)} -- the Render dialog's picker."""
+    from ...operators.farm_ops import _NO_SCRIPT, _get_pre_render_scripts
     from ..config import ConfigCache
 
     from .status import preset_department
@@ -1097,7 +1097,7 @@ def _presets() -> dict:
     departments = [*(config.get("shots_departments") or []), *(config.get("assets_departments") or [])]
     return {
         "presets": items,
-        "preset": default_pre_render_script(config, [tuple(i) for i in items]),
+        "preset": _NO_SCRIPT,
         # The department each preset's name gives, and the one set for each department
         # (Project settings > By department): the form's preset follows its department.
         "preset_deps": {n: preset_department(n, departments) for n, _ in items},
