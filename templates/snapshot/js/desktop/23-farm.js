@@ -128,6 +128,24 @@ const monitorBtn = (cls = '') =>
   farmUp()
     ? `<button class="btn alert ${cls}" data-farm="kill_monitor" title="${T('Stops the monitor on its next tick; the renders running finish, the queue is kept')}">${T('Stop the farm')}</button>`
     : `<button class="btn primary ${cls}" data-farm="launch_monitor" title="${T('This machine becomes the farm host')}">${F.status === 'stale' ? T('Take the farm over') : T('Launch the farm')}</button>`;
+/* A worker on a render: stopped once its frame is written, or now (its frame lost) -- asked in a
+   popup, as Blender's Stop this worker asks (farm_kill_self_worker); go(now) sends it. */
+function askStop(name, file, go) {
+  const dl = $('#dlg');
+  dl.hidden = false;
+  dl.innerHTML = `<div class="dlg-in" role="alertdialog" aria-modal="true" aria-labelledby="ask-t"><h3 id="ask-t">${esc(T('Stop {name}', { name }))}</h3>
+    <p class="faint">${T('It is rendering {file}.', { file: `<span class="mono">${esc(file)}</span>` })}</p>
+    <p class="faint">${esc(T('After this frame: the frame in progress is written, then the worker stops. Stop now: the render is interrupted, its frame lost. Either way its frames left go to the other machines.'))}</p>
+    <div class="acts"><button class="btn" data-dclose>${T('Cancel')}</button><span style="flex:1"></span><button class="btn alert" data-stop-now="1">${T('Stop now')}</button><button class="btn primary" data-stop-now="0">${T('Stop after this frame')}</button></div></div>`;
+  dl.querySelector('[data-stop-now="0"]').focus({ preventScroll: true });
+  dl.onclick = e => {
+    const b = e.target.closest('[data-stop-now]');
+    if (!b) return;
+    dl.hidden = true;
+    dl.onclick = null;
+    go(b.dataset.stopNow === '1');
+  };
+}
 function farmAction(k, el) {
   if (k === 'kill_monitor') {
     if (!twice(el, T('Sure? Click again'))) return;
@@ -139,11 +157,16 @@ function farmAction(k, el) {
   }
   const j = F.jobs.find(x => x.id === S.farmSel),
     w = F.workers.find(x => 'w:' + x.uuid === S.farmSel);
-  if (k === 'worker')
-    farmPost(
-      { action: 'worker', value: !F.me.worker },
-      F.me.worker ? T('this machine is no longer a worker') : T('this machine becomes a worker')
-    );
+  if (k === 'worker') {
+    const off = now =>
+      farmPost(
+        { action: 'worker', value: !F.me.worker, now },
+        F.me.worker ? T('this machine is no longer a worker') : T('this machine becomes a worker')
+      );
+    const mine = F.workers.find(x => x.mine);
+    if (F.me.worker && F.me.rendering) askStop(T('this machine'), (mine && mine.file) || '', off);
+    else off(false);
+  }
   if (k === 'archive_all')
     farmPost(
       { action: 'archive_all', value: el.dataset.v },
@@ -156,8 +179,11 @@ function farmAction(k, el) {
   if (j && ['remove', 'archive', 'cancel', 'retry', 'recompile'].includes(k))
     farmPost({ action: k, job_id: j.id }, JOB_SAY[k]() + ' · ' + j.file);
   if (w && k === 'forget') farmPost({ action: 'forget_worker', value: w.uuid }, T('machine forgotten'));
-  if (w && k === 'stop')
-    farmPost({ action: 'stop_worker', value: w.uuid }, T('stopping {name}', { name: w.name }));
+  if (w && k === 'stop') {
+    const stop = now => farmPost({ action: 'stop_worker', value: w.uuid, now }, T('stopping {name}', { name: w.name }));
+    if (w.file) askStop(w.name, w.file, stop);
+    else stop(false);
+  }
 }
 
 /* Machines: a node each -- its name on top (who, its id's start), the project files open

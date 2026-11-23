@@ -2116,6 +2116,14 @@ hours before a workstation was given back. Two ways now:
 The flag is deleted when the render ends (`_clear_render_flags()`), and by
 `discard_saved_frames()` if a crash left it.
 
+Asked wherever a worker on a render is stopped by hand: Blender's *Stop
+this worker* (`farm_kill_self_worker.invoke()`, a popup), the live page's
+Farm tab (*Stop being a worker* / a machine's *Stop*: `askStop()`, a
+popup, sends `now`; `_stop_self()` for this machine,
+`request_worker_stop()` for another). The page used to send nothing:
+this machine went through the operator's `execute()` (stopped now),
+another got `now` missing (after its frame).
+
 ## Which machine rendered which frame
 
 `_note_frames()` turns the `.saved` records into `frame_machines`: one

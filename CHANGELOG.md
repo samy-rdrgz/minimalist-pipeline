@@ -564,6 +564,12 @@ All notable changes to this addon. Dates are release dates.
   by job -- a set-up job rendered as soon as it's free, the next setup
   after, never both at once.
 
+- Stopping a worker on a render from the live page never asked "after
+  this frame or now?": this machine's stopped now, another machine's
+  after its frame. *Stop being a worker* (Farm tab) and *Stop* (a
+  machine's detail) now ask in a popup while it renders -- *Stop after
+  this frame* / *Stop now* --, as Blender's *Stop this worker* does.
+
 - A shot's departments in the shots' order (Increment version, Mark
   stable, the panels): a department named in both lists, an asset
   "lighting" and a shot "lighting", came first, at its place among the

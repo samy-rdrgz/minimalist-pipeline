@@ -96,7 +96,7 @@ The farm's jobs by state: in progress, waiting, failed and finished. The renderi
 - its file, folder and logs
 
 On top:
-- **This machine**: *Make it a worker* / *Stop being a worker*.
+- **This machine**: *Make it a worker* / *Stop being a worker* -- while it renders, a popup asks: *Stop after this frame* / *Stop now* (see [Farm](farm.md), Stopping a worker).
 - **The farm host**: *Launch the farm*, *Take the farm over* (when it's stuck, asked twice) and *Stop the farm* (asked twice; the renders running finish, the queue is kept).
 
 <img src="images/live-farm-job.png" alt="A job's detail">

@@ -1142,7 +1142,8 @@ def _farm_action(raw: dict) -> dict:
     """The Farm tab's buttons, as the Farm tab's: "cancel", "retry",
     "archive" a job, its "priority" (the job file's: the queue reads it
     each tick), "worker" this machine (on / off: a render it's on stopped
-    now -- the page asked first); "render" / "preview": _farm_submit()."""
+    after its frame or now, as the page's two buttons ask: _stop_self());
+    "render" / "preview": _farm_submit()."""
     from ..config import ConfigCache
     from ..core import locked_json
     from ..errors import PipelineError
@@ -1200,8 +1201,7 @@ def _farm_action(raw: dict) -> dict:
             if action == "forget_worker":
                 return {"ok": True} if forget_worker(uuid) else {"ok": False, "error": "it's back: not forgotten"}
             if uuid == get_machine_id():
-                done = _with_window(bpy.ops.m_pipeline.farm_kill_self_worker, "EXEC_DEFAULT")
-                return {"ok": "FINISHED" in done}
+                return _stop_self(bool(raw.get("now")))
             request_worker_stop(uuid, bool(raw.get("now")), get_user(bpy.context))
             return {"ok": True, "note": "on its next tick (about 10 s)"}
         if action in ops and job:
@@ -1223,12 +1223,26 @@ def _farm_action(raw: dict) -> dict:
         if action in ("launch_monitor", "kill_monitor"):
             return _farm_monitor(action, bool(raw.get("force")))
         if action == "worker":
-            op = bpy.ops.m_pipeline.farm_add_self_worker if raw.get("value") else bpy.ops.m_pipeline.farm_kill_self_worker
-            done = _with_window(op, "EXEC_DEFAULT")
+            if not raw.get("value"):
+                return _stop_self(bool(raw.get("now")))
+            done = _with_window(bpy.ops.m_pipeline.farm_add_self_worker, "EXEC_DEFAULT")
             return {"ok": "FINISHED" in done}
     except (PipelineError, RuntimeError, ValueError, OSError) as e:
         return {"ok": False, "error": getattr(e, "message", None) or str(e)}
     return {"ok": False, "error": f"unknown action {action!r}"}
+
+
+def _stop_self(now: bool) -> dict:
+    """This machine's worker stopped from the page: on a render, after its
+    frame or now (the page's two buttons, Blender's popup's two choices);
+    idle, its role given up (farm_kill_self_worker)."""
+    from ...farm.workers import stop_worker, worker_rendering
+
+    if worker_rendering():
+        outcome = stop_worker(kill_render=now)
+        return {"ok": True, "note": "once its frame is written" if outcome == "draining" else ""}
+    done = _with_window(bpy.ops.m_pipeline.farm_kill_self_worker, "EXEC_DEFAULT")
+    return {"ok": "FINISHED" in done}
 
 
 def _farm_monitor(action: str, force: bool) -> dict:

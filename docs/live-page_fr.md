@@ -102,7 +102,7 @@ Les jobs de la farm par état : en cours, en attente, en échec et terminés. Le
 - son fichier, son dossier et ses logs.
 
 En haut :
-- **Cette machine** : *En faire un worker* / *Ne plus être worker*.
+- **Cette machine** : *En faire un worker* / *Ne plus être un worker* -- pendant qu'elle rend, une popup demande : *Arrêter après cette frame* / *Arrêter maintenant* (voir [Farm](farm_fr.md), Arrêter un worker).
 - **L'hôte de la farm** : *Lancer la farm*, *Reprendre la farm* (si elle est bloquée, demandé deux fois) et *Arrêter la farm* (demandé deux fois ; les rendus en cours finissent, la file est gardée).
 
 <img src="images/live-farm-job.png" alt="Le détail d'un job">
