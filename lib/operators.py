@@ -208,7 +208,7 @@ class M_PIPELINE_OT_onboarding_popup(bpy.types.Operator):
     bl_idname = "m_pipeline.onboarding_popup"
     bl_label = "Welcome"
 
-    _POPUP_WIDTH = 650  # invoke_popup()'s own width param, real pixels
+    _POPUP_WIDTH = 520  # invoke_popup()'s own width param, real pixels
 
     # Short on purpose: read once, at the first launch.
     _SECTIONS = (
@@ -230,7 +230,7 @@ class M_PIPELINE_OT_onboarding_popup(bpy.types.Operator):
         if monitoring_windows("welcome"):
             if bring_monitoring_to_front(context, "welcome"):
                 return {"FINISHED"}
-        elif open_monitoring_window(context, "welcome", size=(0.45, 0.7)):
+        elif open_monitoring_window(context, "welcome", size=(0.36, 0.7)):
             return {"FINISHED"}
         return context.window_manager.invoke_popup(self, width=self._POPUP_WIDTH)
 
@@ -313,10 +313,11 @@ def draw_onboarding(layout, context, max_width: int = 120, level_hint: bool = Tr
         # 4. Where to follow it: the live page.
         box = col.box().column(align=True)
         box.label(text="FOLLOW THE PROJECT", icon="DESKTOP")
-        row = box.row(align=True)
-        row.enabled = bool(root)
-        row.operator("m_pipeline.open_live_page", text="Monitor in browser", icon="DESKTOP")
-        box.prop(prefs, "auto_open_live_page", text="Open it by itself each time Blender starts")
+        row = box.row()
+        button = row.row()
+        button.enabled = bool(root)
+        button.operator("m_pipeline.open_live_page", text="Monitor in browser", icon="URL")
+        row.prop(prefs, "auto_open_live_page", text="Open it by itself each time Blender starts")
         col.separator(factor=2)
 
     # 5. The four things to know, a line each: its title, its words.

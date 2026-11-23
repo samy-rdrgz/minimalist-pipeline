@@ -115,7 +115,7 @@ class M_PIPELINE_PT_welcome(_MonitoringPanel, bpy.types.Panel):
                 icon="HIDE_OFF",
             )
             level.row(align=True).prop(prefs, "experience_level", expand=True)
-            layout.separator(factor=1)
+            layout.separator(factor=2)
         # A project to make or join: START, at the top.
         actions = layout.row()
         actions.scale_y = 1.2
