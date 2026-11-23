@@ -2146,6 +2146,14 @@ body.out-open .scrim {
 .grp.closed .grp-h {
   border-bottom: 0;
 }
+/* Its block's top corners on the header itself: its blur (a backdrop-filter, ::before) isn't
+   clipped by the block's radius. Folded, the header is the whole block. */
+.grp-h {
+  border-radius: var(--r-xl) var(--r-xl) 0 0;
+}
+.grp.closed .grp-h {
+  border-radius: var(--r-xl);
+}
 .grp-h b {
   color: var(--text);
 }
@@ -2231,8 +2239,7 @@ body.out-open .scrim {
   flex-direction: column;
   gap: var(--sp-2);
   padding: var(--sp-5) var(--sp-3);
-  /* The area headers' tint: --sunk read as the screen's ground (the gutters). */
-  background: var(--glass-head);
+  background: var(--sunk);
   border-right: 1px solid var(--line);
   flex: none;
 }

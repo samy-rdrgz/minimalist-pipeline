@@ -612,8 +612,8 @@ All notable changes to this addon. Dates are release dates.
   header's tint (blurred), their rows striped as the outliner's, no line
   between them (the departments' header keeps its own). The Farm tab's
   groups alike; a job's machines, sender and date shown on the job
-  hovered or picked (its state, bar and time left always). The detail's
-  side tabs the area header's tint (--sunk read as the screen).
+  hovered or picked (its state, bar and time left always). A block's top
+  corners on its header (its blur isn't clipped by the block's radius).
 - A sequence's bars named again (DONE / VALIDATED), their track seen at
   0 %: the colour never says it alone.
 - A file's job in the farm: a dot at the top left of its department's
