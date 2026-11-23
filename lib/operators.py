@@ -212,10 +212,10 @@ class M_PIPELINE_OT_onboarding_popup(bpy.types.Operator):
 
     # Short on purpose: read once, at the first launch.
     _SECTIONS = (
-        ("What it does", "Names, versions and tracks your files; renders them on the farm."),
-        ("How", "It proposes, you decide. Assets are linked, never copied."),
-        ("What it needs", "A shared drive (NAS, SMB) -- not Dropbox, Google Drive or OneDrive."),
-        ("One rule", "Never rename, move or edit project files by hand: use the buttons."),
+        ("What it does", "NAMES, VERSIONS and TRACKS your files; RENDERS them on the farm."),
+        ("How", "It PROPOSES, YOU DECIDE. Assets are LINKED, never copied."),
+        ("What it needs", "A SHARED DRIVE (NAS, SMB) -- not Dropbox, Google Drive or OneDrive."),
+        ("One rule", "NEVER rename, move or edit project files BY HAND: use the buttons."),
     )
 
     def invoke(self, context, event):
@@ -242,10 +242,19 @@ class M_PIPELINE_OT_onboarding_popup(bpy.types.Operator):
 
 
 def _check(col, ok: bool, text: str) -> None:
-    """One line of the welcome's checks: ticked, or a warning (red)."""
+    """One line of the welcome's checks: ticked and greyed, or a warning (red)."""
     row = col.row()
     row.alert = not ok
+    row.active = not ok
     row.label(text=text, icon="CHECKMARK" if ok else "ERROR")
+
+
+def _field(col, label: str):
+    """A labelled line of the welcome: the label, then the column its field
+    goes in -- the same split for every one, so they line up."""
+    split = col.split(factor=0.25, align=True)
+    split.label(text=label)
+    return split.column(align=True)
 
 
 def draw_onboarding(layout, context, max_width: int = 120, level_hint: bool = True) -> None:
@@ -282,12 +291,12 @@ def draw_onboarding(layout, context, max_width: int = 120, level_hint: bool = Tr
         from ..operators.team_ops import draw_user_name
 
         placeholder = is_placeholder_name(prefs.user_name)
-        name = box.column(align=True)
+        name = _field(box, "Name")
         name.alert = placeholder
-        draw_user_name(name, prefs, text="Name")
+        draw_user_name(name, prefs)
         if placeholder:
             name.label(text="A random name: type your own.", icon="ERROR")
-        box.prop(prefs, "user_role", text="Validation role")
+        _field(box, "Validation role").prop(prefs, "user_role", text="")
         col.separator(factor=2)
 
         # 3. What's ready -- checked, nothing to read when it all is.
@@ -303,19 +312,19 @@ def draw_onboarding(layout, context, max_width: int = 120, level_hint: bool = Tr
 
         # 4. Where to follow it: the live page.
         box = col.box().column(align=True)
-        box.label(text="FOLLOW THE PROJECT", icon="URL")
+        box.label(text="FOLLOW THE PROJECT", icon="DESKTOP")
         row = box.row(align=True)
         row.enabled = bool(root)
-        row.operator("m_pipeline.open_live_page", text="Monitor in browser", icon="URL")
-        row.operator("m_pipeline.open_live_page", text="Share with a phone", icon="COMMUNITY").tab = "share"
-        box.prop(prefs, "auto_open_live_page")
+        row.operator("m_pipeline.open_live_page", text="Monitor in browser", icon="DESKTOP")
+        box.prop(prefs, "auto_open_live_page", text="Open it by itself each time Blender starts")
         col.separator(factor=2)
 
-    # 5. The four things to know, a line each.
+    # 5. The four things to know, a line each: its title, its words.
     box = col.box().column(align=True)
-    box.active = False
     for title, body in M_PIPELINE_OT_onboarding_popup._SECTIONS:
-        text_to_lines(box, f"{title}: {body}", max_width=max_width, max_lines=2)
+        line = _field(box, title.upper())
+        line.active = False
+        text_to_lines(line, body, max_width=max(40, max_width * 3 // 4), max_lines=2)
     if level_hint:  # the window has the switch itself
         col.box().label(
             text="You're familiar with the add-on? Hide tooltips in the add-on's preferences.",

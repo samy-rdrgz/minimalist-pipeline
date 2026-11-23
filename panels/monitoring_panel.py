@@ -109,22 +109,16 @@ class M_PIPELINE_PT_welcome(_MonitoringPanel, bpy.types.Panel):
         if prefs:
             # Two lines: the question, then the switch -- on one, the text
             # was cut.
-            level = layout.column(align=True)
+            level = layout.box().column(align=True)
             level.label(
                 text="Familiar with the add-on? Advanced hides the tips.",
                 icon="HIDE_OFF",
             )
             level.row(align=True).prop(prefs, "experience_level", expand=True)
             layout.separator(factor=1)
-        # How to start, at hand: a project to make, or one to find.
-        actions = layout.box().row()
+        # A project to make or join: START, at the top.
+        actions = layout.row()
         actions.scale_y = 1.2
-        actions.operator(
-            "m_pipeline.create_project", text="New project", icon="FILE_NEW"
-        )
-        actions.operator(
-            "m_pipeline.find_project", text="Find existing project", icon="ZOOM_ALL"
-        )
         actions.operator("wm.window_close", text="Close", icon="CHECKMARK")
         # A window's height of blank below, as the others: the Tool tab's
         # Options and Workspace out of sight.

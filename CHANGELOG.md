@@ -10,8 +10,8 @@ All notable changes to this addon. Dates are release dates.
   team: never a new one), your name (flagged while it's still the
   random one) and validation role, what's ready (name, project, FFmpeg,
   a shared drive rather than a Dropbox / Google Drive / OneDrive /
-  iCloud folder), the live page (Monitor in browser, Share with a
-  phone, Open the live page), the four things to know a line each.
+  iCloud folder; greyed once ticked), the live page (Monitor in browser,
+  Open the live page), the four things to know a line each.
 
 - The live page's Render form opens on the furthest department worked or
   done, as the Render dialog does.
