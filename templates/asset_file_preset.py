@@ -1,5 +1,6 @@
 """Asset collection preset: executed fresh from disk at every asset creation.
-Edit freely: lives in YOUR project's config/, changes apply live, no restart.
+Edit freely: lives in YOUR project's config/presets/creation/, changes apply
+live, no restart.
 Contract: build_collections(prefix, name) -> Collection, called right before
 save; any exception falls back to a single collection, never blocks creation."""
 

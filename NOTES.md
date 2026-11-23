@@ -5002,6 +5002,28 @@ Phase 5 of dev/plan-1.2.md.
   (`install_department_presets()`): never one it has already, so a
   department with `animation_hd.py` gets nothing, and a default deleted
   comes back only if the department is left with none.
+- **Presets in folders (2.0)**: `config/presets/render_shots/`,
+  `render_assets/` (the render presets of each kind of file), `creation/`
+  (`asset_file_preset.py`, `shot_file_preset.py`), `ffmpeg_presets/`
+  (`lib/presets.py`). A render preset stays known by its name alone --
+  jobs, render history, the config's defaults, the farm's paces cite the
+  name, never a path: `render_preset_path()` finds it in either folder,
+  or still loose in `presets/` (a project not migrated: read as before,
+  never refused). One name, one file: Rename preset refuses a name taken
+  in any folder, and moves the file into the folder of its new
+  department's kind. The folder is the kind: the Render dialog of a shot
+  lists `render_shots/` (and the loose ones), Presets by department a
+  department's kind. Where a loose preset goes (Migrate old data,
+  `preset_kind()`): its name's department's kind, shots first; else the
+  department it's set for (By department…); else shots. A file already
+  there under its name: the loose one left, said in the errors.
+- **The shot preset** (`creation/shot_file_preset.py`,
+  `shot_collections()`): `build_collections(sequence, shots)` lays out the
+  collections and returns the one the cameras go in; the cameras and
+  markers stay the addon's (the shots' split, `derive_shot_subranges()`,
+  reads them). Run again on a file (a shot added to a block): the
+  template reuses what's there. Missing (a project before 2.0), broken or
+  returning no collection: CAM / SET / ASSETS as before, a warning logged.
 - The snapshot matches its to check against the render lines by "shot
   folder" (`snapshot_page.py _render_lines()`): it labels them without
   their department.

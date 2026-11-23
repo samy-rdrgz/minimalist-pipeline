@@ -13,7 +13,11 @@ my_project/
 ├── config/
 │   ├── project_config.json
 │   ├── logs/pipeline_log.jsonl, sessions_log.jsonl
-│   ├── presets/            ← preset Python de collections d'asset, presets ffmpeg
+│   ├── presets/
+│   │   ├── render_shots/   ← presets de rendu des shots (lighting_hd.py : celui du lighting)
+│   │   ├── render_assets/  ← presets de rendu des assets
+│   │   ├── creation/       ← ce que contient un nouveau fichier d'asset ou de shot (asset_file_preset.py, shot_file_preset.py)
+│   │   └── ffmpeg_presets/ ← l'encodage des vidéos
 │   ├── .sessions/          ← qui a quoi d'ouvert, en ce moment
 │   └── .farm/               ← queue de rendu, workers, monitor.lock
 ├── refs/

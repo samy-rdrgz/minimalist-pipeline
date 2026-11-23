@@ -30,13 +30,13 @@ from ..farm import (
     worker_rendering,
 )
 from ..lib.monitoring.status import preset_department
+from ..lib.presets import render_presets
 from ..lib import (
     EARLIEST,
     ConfigCache,
     PipelineAction,
     PipelineError,
     asset_folder_items,
-    cached_scandir,
     draw_box_tip,
     get_active_project_root,
     get_folder,
@@ -66,6 +66,7 @@ _pre_render_scripts: list[tuple[str, str, str]] = []
 # The pre-render picker's "None" item. Never "": Blender draws an item with
 # an empty identifier as a heading in the menu, not as a choice.
 _NO_SCRIPT = "NONE"
+NO_SCRIPT_ITEM = (_NO_SCRIPT, "No pre-render script", "Render with the file's own settings")
 
 
 def _stable_enum_items(cache: list, items: list) -> list:
@@ -102,30 +103,18 @@ def _get_workers_items(self, context):
 
 
 def pre_render_script_items(
-    presets_dir: Path | None, departments=()
+    root: Path | None, departments=(), kind: str | None = None
 ) -> list[tuple[str, str, str]]:
-    """The pre-render picker's items: "no script", then every .py preset
-    directly under presets_dir (matches apply_custom_preset()'s
-    lookup), excluding asset_file_preset.py and the ffmpeg_presets/
-    subfolder -- each with the department its name gives among
-    departments (preset_department()): its renders are that department's."""
-    items = [(_NO_SCRIPT, "No pre-render script", "Render with the file's own settings")]
-    if presets_dir is None:
-        return items
+    """The pre-render picker's items: "no script", then the project's render
+    presets (root's, the active project's for None; lib/presets.py
+    render_presets(), as apply_custom_preset() finds them): kind's ("shot" /
+    "asset"), every one for None -- each with the department its name gives
+    among departments (preset_department()): its renders are that department's."""
+    items = [NO_SCRIPT_ITEM]
     try:
-        names = set()
-        # cached_scandir(): the pickers are re-evaluated on every redraw;
-        # DirEntry.is_file() needs no extra stat.
-        for f in cached_scandir(presets_dir):
-            suffix = Path(f.name).suffix
-            if (
-                f.is_file()
-                and suffix == ".py"
-                and f.name != "asset_file_preset.py"
-                and Path(f.name).stem != _NO_SCRIPT
-            ):
-                names.add(Path(f.name).stem)
-        for name in sorted(names):
+        # Not fresh: the pickers are re-evaluated on every redraw (cached_scandir()).
+        names = sorted(n for n in render_presets(root, kind, fresh=False) if n != _NO_SCRIPT)
+        for name in names:
             dep = preset_department(name, departments)
             items.append((
                 name,
@@ -139,15 +128,16 @@ def pre_render_script_items(
 
 
 def _get_pre_render_scripts(self, context):
-    """The Render dialog's picker: the active project's presets."""
-    try:
-        presets_dir = ConfigCache.get_path("presets")
-    except Exception as e:
-        log("WARNING", "farm", f"Could not list pre-render presets: {e}")
-        presets_dir = None
+    """The Render dialog's picker: the active project's presets for the
+    file's kind (render_shots/ or render_assets/); every one without a
+    dialog (the live page's form)."""
     config = ConfigCache.get() or {}
     departments = [*json_get(config, "shots_departments", []), *json_get(config, "assets_departments", [])]
-    items = pre_render_script_items(presets_dir, departments)
+    filepath = getattr(self, "filepath", "") or ""
+    kind = None
+    if filepath:
+        kind = "shot" if (parse_filename(Path(filepath).name) or {}).get("shot") else "asset"
+    items = pre_render_script_items(None, departments, kind)
     if self is not None and len(items) > 1:
         # Only what fits: a department picked, its presets (its name's, or set for it);
         # none, the presets of no department and those of the file's kind -- never a

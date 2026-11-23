@@ -49,8 +49,10 @@ my_project/
 ├── config/
 │   ├── project_config.json
 │   ├── logs/pipeline_log.jsonl, sessions_log.jsonl, progress.json  ← progress.json: a point a day (Breakdown › Over time, Activity)
-│   ├── presets/
-│   │   ├── asset_file_preset.py         ← user-editable, copied from templates/ at project creation
+│   ├── presets/                         ← lib/presets.py; before 2.0 all loose here (still read, Migrate old data moves them)
+│   │   ├── render_shots/<department>_….py   ← render presets of shot files (their name gives their department)
+│   │   ├── render_assets/<department>_….py  ← render presets of asset files
+│   │   ├── creation/asset_file_preset.py, shot_file_preset.py  ← user-editable, copied from templates/
 │   │   └── ffmpeg_presets/default.json
 │   ├── .sessions/.session_{pid}.json    ← active session files
 │   └── .farm/

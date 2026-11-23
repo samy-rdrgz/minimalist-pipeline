@@ -75,6 +75,7 @@ _CHANGES = (
     ("render: source file", "renders: the .blend they came from"),
     ("render: shot", "renders: their shot"),
     ("render: frame range", "renders: their frame range"),
+    ("presets: into their folders", "presets: into render_shots/, render_assets/ and creation/"),
     ("render presets: .json to .py", "render presets: .json rewritten as .py"),
     ("render presets: one per department", "render presets: one for each department with none"),
     ("sessions with their date, named sessions", "versions: their sessions dated, named sessions"),

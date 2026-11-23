@@ -202,6 +202,11 @@ class ConfigCache:
         dictionary = {
             "config": config,
             "presets": presets,
+            # Render presets by the kind of file they render, the creation
+            # scripts, ffmpeg's (lib/presets.py; before 2.0, all loose in presets/).
+            "presets_render_shots": f"{presets}/render_shots",
+            "presets_render_assets": f"{presets}/render_assets",
+            "presets_creation": f"{presets}/creation",
             "ffmpeg_presets": f"{presets}/ffmpeg_presets",
             "logs": logs,
             "logs_archives": f"{logs}/archives",
@@ -222,7 +227,8 @@ class ConfigCache:
             "pipeline_log_file": f"{logs}/pipeline_log.jsonl",
             "sessions_log_file": f"{logs}/sessions_log.jsonl",
             "monitor_file": f"{farm}/monitor.lock",
-            "asset_preset_file": f"{presets}/asset_file_preset.py",
+            "asset_preset_file": f"{presets}/creation/asset_file_preset.py",
+            "shot_preset_file": f"{presets}/creation/shot_file_preset.py",
             # Production snapshots' default folder (the Snapshot button).
             "snapshots": "snapshots",
         }

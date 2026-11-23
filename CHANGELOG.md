@@ -6,6 +6,13 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- A shot creation preset, as the assets have one:
+  `config/presets/creation/shot_file_preset.py`, run fresh at every shot's
+  creation, lays out its collections (CAM / SET / ASSETS by default) and
+  says which one holds the cameras; the cameras and their markers stay
+  the addon's. A broken one falls back to CAM / SET / ASSETS, never
+  blocks the creation. Installed in every project, opened or new.
+
 - The phone writes to-dos (a third type in the box), marks a retake fixed
   or a to-do done, and opens a closed one again (the closed ones folded
   under the notes, Reopen) -- as the desktop does.
@@ -424,6 +431,14 @@ All notable changes to this addon. Dates are release dates.
   `backup/migration-<date>/`. This version reads only that form.
 
 ### Changed
+
+- The project's presets in folders: `config/presets/render_shots/` and
+  `render_assets/` (the render presets of shots and of assets: the Render
+  dialog of a shot lists the shots' only), `creation/` (what a new asset
+  or shot file holds), `ffmpeg_presets/` as before. Migrate old data moves
+  the ones still loose in `presets/` (a render preset by its department's
+  kind); until then they're read where they are. Rename preset moves one
+  into the folder of its new department's kind.
 
 - Windows Defender no longer takes the package or the page's parts for a
   trojan (Trojan:Win32/MalUri, a false alarm on URI-like text): the live
