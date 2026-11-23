@@ -104,8 +104,7 @@ def render_html(snapshot: dict) -> str:
 
 
 def render_page(data: dict) -> str:
-    """page.html with the stylesheet, the script, the logo, the wordmark's
-    font, the Blender icons it names and data (page_data()) put in, in one
+    """page.html with the stylesheet, the script, the logo, the Blender icons it names and data (page_data()) put in, in one
     pass (a value is never read again for placeholders). The live page's
     too (lib/monitoring/live.py)."""
     logo = (PAGE_DIR / "logo.svg").read_text(encoding="utf-8")
@@ -118,7 +117,6 @@ def render_page(data: dict) -> str:
         "CSS": _CSS_COMMENTS.sub("", _parts("css", CSS_PARTS)),
         # Kept whole: its template strings may hold a line starting "//".
         "JS": _parts("js", JS_PARTS),
-        "FONT_FACE": _font_face(),
         "LOGO_VB": viewbox,
         # The <use> of a symbol draws it from 0 0: its box, not the source's.
         "LOGO_VB0": f"0 0 {width} {height}",
@@ -129,13 +127,6 @@ def render_page(data: dict) -> str:
     shell = (PAGE_DIR / "page.html").read_text(encoding="utf-8")
     values["ICONS"] = icon_sprite(shell + values["JS"])
     return _PLACEHOLDER.sub(lambda m: values[m[1]], shell)
-
-
-def _font_face() -> str:
-    """The wordmark's @font-face, its font inline: a snapshot opens offline."""
-    font = base64.b64encode((PAGE_DIR / "wordmark.ttf").read_bytes()).decode("ascii")
-    src = "data:font/ttf;base64," + font
-    return '@font-face{font-family:"MP Display";src:url(' + src + ') format("truetype");font-display:swap}'
 
 
 def _stem(filename: str | None) -> str | None:
@@ -152,10 +143,12 @@ def _escape(text: str) -> str:
     )
 
 
-def page_data(snapshot: dict) -> dict:
+def page_data(snapshot: dict, thumbs: dict | None = None) -> dict:
     """What page.js draws: {"meta", "items", "images"}. images: each
     thumbnail once, by the hash of its bytes -- a block's thumbnail is also
-    its first shot's -- as the URL an <img> shows."""
+    its first shot's -- as the URL an <img> shows. thumbs (the live page):
+    the thumbnails' bytes put there by hash instead, images only naming
+    them (1), the page asking Blender's server for each (meta.thumbs)."""
     meta = snapshot["meta"]
     roles = meta.get("validation_roles") or []
     images: dict[str, str] = {}
@@ -164,7 +157,12 @@ def page_data(snapshot: dict) -> dict:
         if not b64:
             return None
         key = hashlib.sha1(b64.encode("ascii")).hexdigest()[:12]
-        images.setdefault(key, "data:image/jpeg;base64," + b64)
+        if thumbs is not None:
+            if key not in thumbs:
+                thumbs[key] = base64.b64decode(b64)
+            images[key] = 1
+        else:
+            images.setdefault(key, "data:image/jpeg;base64," + b64)
         return key
 
     notes: dict[str, list] = {}
@@ -217,6 +215,8 @@ def _meta(snapshot: dict) -> dict:
         "fps": meta.get("fps"),
         # Served by Blender (lib/monitoring/live.py): {"token", "version"}; None, a file.
         "live": meta.get("live"),
+        # Live: where the thumbnails are asked for (thumb/<token>), none inline.
+        **({"thumbs": meta["thumbs"]} if meta.get("thumbs") else {}),
         # Live: who has which file open (the Farm tab's machines); a first read
         # under way, {"done", "total"} folders: the figures still partial.
         **({"presence": meta["presence"]} if meta.get("presence") else {}),

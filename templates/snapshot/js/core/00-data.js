@@ -40,9 +40,10 @@ const AB = new Proxy(
       typeof d === 'string' ? (d.length > 5 ? d.charAt(0).toUpperCase() + d.slice(1, 4) : LBL[d]) : d
   }
 );
-/* Thumbnails: each stored once (images, by hash), ready to show (lib/monitoring/snapshot_page.py page_data()). */
+/* Thumbnails: each stored once (images, by hash; lib/monitoring/snapshot_page.py page_data()):
+   a snapshot's inline, the live page's from Blender's server (meta.thumbs). */
 const IMG = {};
-const img = id => (id && IMG[id]) || '';
+const img = id => (!id || !IMG[id] ? '' : M.thumbs ? M.thumbs + '/' + id : IMG[id]);
 /* Dates in the page's language: 16/11 19:10. */
 /* Dates and times: day before month, a 24-hour clock, in every language (English as British English writes them). */
 const DTL = () => (LOCALE() === 'en' ? 'en-GB' : LOCALE());
