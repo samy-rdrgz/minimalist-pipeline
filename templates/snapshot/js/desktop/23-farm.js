@@ -9,6 +9,11 @@ const JS = [
 /* The rendering time left (lib/monitoring/live.py, farm/details.py render_left_parts()):
    {seconds, workers, unknown}, said here in the page's language. */
 const hMin = s => (s >= 3600 ? Math.floor(s / 3600) + ' h ' + String(Math.round((s % 3600) / 60)).padStart(2, '0') : T('{n} min', { n: Math.max(1, Math.round(s / 60)) }));
+/* A frame's time: "8.5 s", "45 s", "2 min 05 s". */
+const secs = s =>
+  s < 60 ? T('{n} s', { n: s < 10 ? s.toFixed(1) : Math.round(s) }) : T('{m} min {s} s', { m: Math.floor(s / 60), s: String(Math.round(s % 60)).padStart(2, '0') });
+/* A render's time left: what its machines' pace says (farm/loop.py _time_left()). */
+const jobLeft = j => (j.left != null && j.state === 'running' && j.total ? T('≃ {time} left', { time: hMin(j.left) }) : '');
 const farmLeft = L => {
   if (!L) return '';
   if (typeof L === 'string') return L; // a page served by an older Blender
@@ -57,7 +62,7 @@ function jobRow(j) {
       .filter(Boolean)
       .join(' · ');
   return `<div class="job ${S.farmSel === j.id ? 'sel' : ''}" data-job="${j.id}" tabindex="-1">${jst(j.state)}<span class="jt"><span class="f">${esc(j.file)}</span><span class="s">${esc([j.shot, TS(j.text)].filter(Boolean).join(' · '))}${j.priority !== 10 ? ' · ' + T('priority {n}', { n: j.priority }) : ''}${jobTags(j)}</span></span>
-    <span class="jbar">${j.total ? `<i style="--p:${p * 100}%"></i><span>${j.done} / ${j.total} frames</span>` : ''}</span>
+    <span class="jbar">${j.total ? `<i style="--p:${p * 100}%"></i><span title="${jobLeft(j)}">${j.done} / ${j.total} frames${jobLeft(j) ? ' · ≃ ' + hMin(j.left) : ''}</span>` : ''}</span>
     <span class="meta" title="${meta}">${meta}</span></div>`;
 }
 function renderFarm() {
@@ -103,7 +108,7 @@ function renderFarmDetail(H, B) {
   H.innerHTML = `<span class="phead"><span class="pname">${esc(j.file)}</span><span class="d">${x[1]} · ${esc(TS(j.text))}</span></span>`;
   B.innerHTML = `<div class="sec">${j.total ? `<span class="jbar big"><i style="--p:${(j.done / j.total) * 100}%"></i><span>${j.done} / ${j.total} frames</span></span>` : ''}
     <dl class="dl"><dt>${T('State')}</dt><dd>${jst(j.state)} ${esc(TS(j.text))}</dd><dt>${T('Step')}</dt><dd class="mono">${esc(j.stage)}</dd>${j.preset || j.department ? `<dt>${T('Script')}</dt><dd>${esc([j.preset, j.department].filter(Boolean).join(' · '))}</dd>` : ''}
-    <dt>${T('Frames')}</dt><dd>${j.range ? j.range.join(' – ') : '–'}${j.shot ? ' · ' + esc(j.shot) : ''}</dd><dt>${T('Machines')}</dt><dd class="mono">${j.names.length ? esc(j.names.join(', ')) : T('none')}</dd>
+    <dt>${T('Frames')}</dt><dd>${j.range ? j.range.join(' – ') : '–'}${j.shot ? ' · ' + esc(j.shot) : ''}</dd>${jobTimes(j)}<dt>${T('Machines')}</dt><dd>${machinesDD(j)}</dd>
     <dt>${T('Sent by')}</dt><dd>${esc(j.user)} · ${fmtD(j.at)}</dd>
     <dt>${T('Priority')}</dt><dd>${live && !j.pending ? `<span class="prio"><button class="btn sm icon" data-prio="-1" aria-label="${T('Lower')}">−</button><b>${j.priority}</b><button class="btn sm icon" data-prio="1" aria-label="${T('Higher')}">+</button><span class="faint">${T('the highest goes first')}</span></span>` : j.priority}</dd>
     <dt>Job</dt><dd class="mono">${esc(j.id)}</dd></dl>
@@ -112,6 +117,35 @@ function renderFarmDetail(H, B) {
       ${j.retry ? `<button class="btn primary" data-farm="retry">${T('Retry')}</button>` : ''}${j.recompile ? `<button class="btn" data-farm="recompile">${T('Compile again')}</button>` : ''}
       ${j.state === 'failed' || j.state === 'finished' ? `<button class="btn" data-farm="archive">${T('Archive')}</button>` : ''}
       <button class="btn" data-act="folder">${ic('b-file_folder')}${T('Its folder')}</button><button class="btn" data-act="log">${ic('b-file')}${T('Logs')}</button></div></div>`;
+}
+/* A job's times in its detail: left, the pace, how long in this step, the video's compile. */
+function jobTimes(j) {
+  const rows = [];
+  if (j.state === 'running' && j.stage === 'render_start') {
+    const end = new Date(Date.now() + (j.left || 0) * 1000);
+    rows.push([
+      T('Time left'),
+      jobLeft(j)
+        ? `≃ ${hMin(j.left)} <span class="faint">· ${T('done around {time}', { time: String(end.getHours()).padStart(2, '0') + ':' + String(end.getMinutes()).padStart(2, '0') })}</span>`
+        : T('not timed yet: after the first frames')
+    ]);
+  }
+  if (j.estimate) rows.push([T('Estimate'), esc(TS(j.estimate))]);
+  if (j.pace) rows.push([T('Per frame'), T('{time} on average', { time: secs(j.pace) })]);
+  if (j.state === 'running' && j.elapsed) rows.push([T('In this step for'), hMin(j.elapsed)]);
+  if (j.compile != null) rows.push([T('Video'), T('compiling · {p}%', { p: Math.round(j.compile * 100) })]);
+  return rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
+}
+/* Its machines, each with its pace and the frame it's on. */
+function machinesDD(j) {
+  const ms = j.per_machine || j.names.map(name => ({ name }));
+  if (!ms.length) return T('none');
+  return ms
+    .map(
+      m =>
+        `<div><span class="mono">${esc(m.name)}</span>${m.pace ? ` <span class="faint">· ${T('{time} a frame', { time: secs(m.pace) })}</span>` : ''}${m.frame != null ? ` <span class="faint">· ${T('on frame {n}', { n: m.frame })}</span>` : ''}</div>`
+    )
+    .join('');
 }
 /* What a job's action did, said after Blender's done it. */
 const JOB_SAY = {
@@ -130,11 +164,18 @@ const monitorBtn = (cls = '') =>
     : `<button class="btn primary ${cls}" data-farm="launch_monitor" title="${T('This machine becomes the farm host')}">${F.status === 'stale' ? T('Take the farm over') : T('Launch the farm')}</button>`;
 /* A worker on a render: stopped once its frame is written, or now (its frame lost) -- asked in a
    popup, as Blender's Stop this worker asks (farm_kill_self_worker); go(now) sends it. */
-function askStop(name, file, go) {
+function askStop(name, file, go, who) {
+  const j = F.jobs.find(x => x.file === file && x.state === 'running'),
+    m = j && (j.per_machine || []).find(x => x.name === who),
+    facts = [
+      m && m.frame != null ? T('on frame {n}', { n: m.frame }) : '',
+      m && m.pace ? T('{time} a frame', { time: secs(m.pace) }) : '',
+      j && jobLeft(j) ? T('the job: {left}', { left: jobLeft(j) }) : ''
+    ].filter(Boolean);
   const dl = $('#dlg');
   dl.hidden = false;
   dl.innerHTML = `<div class="dlg-in" role="alertdialog" aria-modal="true" aria-labelledby="ask-t"><h3 id="ask-t">${esc(T('Stop {name}', { name }))}</h3>
-    <p class="faint">${T('It is rendering {file}.', { file: `<span class="mono">${esc(file)}</span>` })}</p>
+    <p class="faint">${T('It is rendering {file}.', { file: `<span class="mono">${esc(file)}</span>` })}${facts.length ? '<br>' + facts.join(' · ') : ''}</p>
     <p class="faint">${esc(T('After this frame: the frame in progress is written, then the worker stops. Stop now: the render is interrupted, its frame lost. Either way its frames left go to the other machines.'))}</p>
     <div class="acts"><button class="btn" data-dclose>${T('Cancel')}</button><span style="flex:1"></span><button class="btn alert" data-stop-now="1">${T('Stop now')}</button><button class="btn primary" data-stop-now="0">${T('Stop after this frame')}</button></div></div>`;
   dl.querySelector('[data-stop-now="0"]').focus({ preventScroll: true });
@@ -164,7 +205,7 @@ function farmAction(k, el) {
         F.me.worker ? T('this machine is no longer a worker') : T('this machine becomes a worker')
       );
     const mine = F.workers.find(x => x.mine);
-    if (F.me.worker && F.me.rendering) askStop(T('this machine'), (mine && mine.file) || '', off);
+    if (F.me.worker && F.me.rendering) askStop(T('this machine'), (mine && mine.file) || '', off, mine && mine.name);
     else off(false);
   }
   if (k === 'archive_all')
@@ -181,7 +222,7 @@ function farmAction(k, el) {
   if (w && k === 'forget') farmPost({ action: 'forget_worker', value: w.uuid }, T('machine forgotten'));
   if (w && k === 'stop') {
     const stop = now => farmPost({ action: 'stop_worker', value: w.uuid, now }, T('stopping {name}', { name: w.name }));
-    if (w.file) askStop(w.name, w.file, stop);
+    if (w.file) askStop(w.name, w.file, stop, w.name);
     else stop(false);
   }
 }

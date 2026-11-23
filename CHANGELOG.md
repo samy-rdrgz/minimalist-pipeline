@@ -569,6 +569,12 @@ All notable changes to this addon. Dates are release dates.
   after its frame. *Stop being a worker* (Farm tab) and *Stop* (a
   machine's detail) now ask in a popup while it renders -- *Stop after
   this frame* / *Stop now* --, as Blender's *Stop this worker* does.
+  The popup says the frame it's on and its time per frame.
+
+- The live page's Farm tab never showed a render's time left, though
+  Blender sent it: now under each render's bar, and in its detail with
+  when it should be done, the time per frame, how long on this step, and
+  each machine's time per frame and the frame it's on.
 
 - A shot's departments in the shots' order (Increment version, Mark
   stable, the panels): a department named in both lists, an asset

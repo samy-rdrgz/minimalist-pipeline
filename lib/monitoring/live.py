@@ -983,7 +983,9 @@ FINISHED_SHOWN = 20  # the farm's finished jobs listed, newest first
 def _farm_data(root: Path) -> dict:
     """The Farm tab's: {"status", "jobs": [{"id", "file", "key" (its
     folder under the project: the page's link to it), "shot", "state",
-    "text", "done", "total", "left", "machines", "user", "at"}], "workers":
+    "text", "done", "total", "left" (seconds, None not timed), "pace",
+    "elapsed", "per_machine" (_per_machine()), "machines", "user", "at"}],
+    "workers":
     [{"name", "status", "file", "mine", "host", "since"}], "me", "presets",
     "preset"}, from the monitor cache. Memory only."""
     from ...farm.details import estimate_label, render_left_parts
@@ -1034,6 +1036,11 @@ def _farm_data(root: Path) -> dict:
             # Waiting for a worker: what it'll take, at its last pace.
             "estimate": estimate_label(j, cache) if j.get("frames_to_render") and stage != "render_start" else "",
             "compile": compiling.get(j.get("job_id")),
+            # Its pace: seconds a frame (the machines' mean), how long in
+            # this step, each machine's own pace and the frame it's on.
+            "pace": j.get("seconds_per_frame"),
+            "elapsed": j.get("elapsed_seconds") or 0,
+            "per_machine": _per_machine(cache, j),
             # Render here: on its own machine, outside the queue; drawn by its 3D view.
             "tags": [t for t in ("local", "viewport") if j.get(t)],
         }
@@ -1131,6 +1138,21 @@ def _iso(value) -> str:
 
         return datetime.fromtimestamp(value).astimezone().isoformat(timespec="seconds")
     return str(value or "")
+
+
+def _per_machine(cache: dict, job: dict) -> list[dict]:
+    """A job's machines for its detail on the page: [{"name", "pace"
+    (seconds a frame, None not timed yet), "frame" (the one it's on while
+    the job renders, None)}] -- the machines it was given, then any that
+    timed a frame on it."""
+    paces = job.get("machine_seconds") or {}
+    on = {}
+    if job.get("stage") == "render_start":
+        for claim in ((cache.get("claims") or {}).get(job.get("job_id")) or {}).values():
+            if isinstance(claim, dict) and claim.get("machine"):
+                on[claim["machine"]] = claim.get("frame_in_progress")
+    uuids = list(dict.fromkeys([*(job.get("machines") or []), *paces, *on]))
+    return [{"name": _machine(cache, u), "pace": paces.get(u), "frame": on.get(u)} for u in uuids]
 
 
 def _machine(cache: dict, uuid: str) -> str:
