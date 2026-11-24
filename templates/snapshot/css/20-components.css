@@ -3076,8 +3076,26 @@ button.assign:hover {
   z-index: -1;
 }
 
-#quick > .dim {
+/* Breakdown: what a cell's bar says, its colours (in the filters' place). */
+.slg {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-6);
+  color: var(--text-2);
+  font-size: var(--fs-s);
   white-space: nowrap;
+}
+.slg i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: var(--sp-3);
+  border-radius: var(--r-s);
+  vertical-align: -1px;
+}
+.slg i.todo {
+  background: var(--field);
+  box-shadow: inset 0 0 0 1px var(--line);
 }
 .sx-hint {
   flex: 1 1 0;
@@ -4812,8 +4830,9 @@ html.kb .m-nav {
   /* The list: Progress's figures, the Renders column's words (its icons and bar stay). */
   .row:not(:hover):not(.hov):not(.sel) .bars .bar span,
   .row:not(:hover):not(.hov):not(.sel) .farmc .fj .w,
-  /* Breakdown: a bar's figure (its pill), on the bar hovered -- the bar says it at rest. */
-  .sf:not(:hover):not(.hov) .v,
+  /* The head's figures: a bar's figure (its pill), on the bar hovered -- the bar says it at rest. The
+     Breakdown's cells keep theirs: their bar says the states, the figure Done. */
+  .kpi .sf:not(:hover):not(.hov) .v,
   /* A sequence's header: Play the sequence, + shot. */
   .grp-h:not(:hover):not(.hov):not(:focus-within) .btn.play,
   .grp-h:not(:hover):not(.hov):not(:focus-within) [data-plan],

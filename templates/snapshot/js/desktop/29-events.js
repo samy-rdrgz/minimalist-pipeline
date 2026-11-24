@@ -655,13 +655,6 @@ document.addEventListener('click', e => {
     renderList();
     return;
   }
-  const sm = t.closest('[data-smode]');
-  if (sm) {
-    S.smode = sm.dataset.smode;
-    renderQuick();
-    renderList();
-    return;
-  }
   const tdk = t.closest('[data-tdk]');
   if (tdk) {
     S.td.kind = tdk.dataset.tdk;

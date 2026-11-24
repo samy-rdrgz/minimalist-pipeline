@@ -202,7 +202,6 @@ const S = {
   wdep: null,
   wtype: 'rtk',
   g: { x: 0, y: 0, z: 1, init: false },
-  smode: 'done',
   ot: { kind: 'shot', dept: '' },
   act: 'files', // Activity: files worked, or time
   td: { kind: 'shot', st: null, dept: '', who: null }, // st null: tdSt() by the role

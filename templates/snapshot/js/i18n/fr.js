@@ -801,7 +801,6 @@ MPI18n.add('fr',{
 'Blender at f{frame}':'Blender à f{frame}',
 'Blender not at the frame: {error}':'Blender pas à la frame : {error}',
 'Watch':'Regarder',
-'What a cell says':'Ce que dit une case',
 'What it holds, then the file to send':'Ce qu\'elle contient, puis le fichier à envoyer',
 'What it shows':'Ce qu\'il montre',
 'What\'s new since the page opened':'Quoi de neuf depuis l\'ouverture de la page',
@@ -940,5 +939,13 @@ MPI18n.add('fr',{
 'the dot green: not seen by the team yet':'le point vert : pas encore vu par l\'équipe',
 'Whole':'Entier',
 'The farm is stuck':'La farm est bloquée',
-'The farm is stopped':'La farm est arrêtée'
+'The farm is stopped':'La farm est arrêtée',
+'In retake':'En retake',
+'{n} validated':'{n} validé|{n} validés',
+'{n} done':'{n} fini|{n} finis',
+'{n} in retake':'{n} en retake',
+'{n} in progress':'{n} en cours',
+'{n} to do':'{n} à faire',
+'Done {pct}':'Fini {pct}',
+'The bar: each department in one state -- validated, done, in retake (done with an open retake, one or ten), in progress (reworked too), to do (not started, a retake on it or not).':'La barre : chaque département dans un seul état -- validé, fini, en retake (fini avec une retake ouverte, une ou dix), en cours (retravaillé compris), à faire (pas commencé, avec ou sans retake).'
 });

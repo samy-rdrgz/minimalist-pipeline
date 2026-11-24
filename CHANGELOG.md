@@ -6,6 +6,13 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- Live page, Breakdown: one view instead of three modes (Done, Validated,
+  Retakes). A cell's bar shows its departments' states -- validated, done,
+  in retake (done with an open retake, one or ten), in progress (reworked
+  too: being fixed), to do (not started, retake or not) -- its figure the
+  Done the list shows, its tooltip the counts. Their colours in the
+  filters' place.
+
 - Live page, Farm tab: a job's detail says its format, under its frames --
   its images' format and the fps its video compiles at (the scene's, read
   when the farm sets it up), as Blender's job details do.
