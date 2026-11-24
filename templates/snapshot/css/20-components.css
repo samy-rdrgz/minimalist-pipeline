@@ -3954,7 +3954,8 @@ button.assign:hover {
   padding: var(--sp-6);
   background: var(--area);
   border-radius: var(--r-xl);
-  overflow: hidden;
+  /* Not hidden: the header's tab reaches out of it, up to the header. */
+  overflow: visible;
 }
 #wide.full .w-main {
   display: contents;
@@ -5005,6 +5006,7 @@ html.kb .m-nav {
 .sfade.on {
   opacity: 1;
 }
-.is-mob .sfade {
-  display: none;
+.is-mob .sfade,
+#wide.full .sfade {
+  display: none; /* full screen: a glass panel over the video, no ground to fade to */
 }
