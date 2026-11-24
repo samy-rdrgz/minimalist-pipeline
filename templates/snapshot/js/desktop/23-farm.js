@@ -2,7 +2,7 @@
 /* A job's states: words, colour (the states' own), icon. */
 const JS = [
   ['running', T('In progress'), 'var(--st-you)', 'b-play'],
-  ['waiting', T('Waiting'), 'var(--st-wait)', 'b-sorttime'],
+  ['waiting', T('Waiting'), 'var(--st-wait)', 'b-time'],
   ['failed', T('Failed'), 'var(--st-rtk)', 'b-x'],
   ['finished', T('Finished'), 'var(--st-done)', 'b-checkmark']
 ];

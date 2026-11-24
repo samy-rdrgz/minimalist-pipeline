@@ -149,7 +149,7 @@ function rowHTML(it) {
   if (it.outdated && !farmCol()) tags.push(`<span class="tag check">${ic('b-error')}${T('render outdated')}</span>`);
   if (it.farm && !farmCol())
     tags.push(
-      `<span class="tag ${it.farm.state === 'failed' ? 'fail' : ''}" title="${T('In the farm: {what}', { what: esc(TS(it.farm.tip)) })}">${ic(it.farm.state === 'waiting' ? 'b-sorttime' : 'b-file_movie')}farm ${esc(TS(it.farm.text))}${it.farm.department ? ' · ' + esc(LBL[it.farm.department] || it.farm.department) : ''}</span>`
+      `<span class="tag ${it.farm.state === 'failed' ? 'fail' : ''}" title="${T('In the farm: {what}', { what: esc(TS(it.farm.tip)) })}">${ic(it.farm.state === 'waiting' ? 'b-time' : 'b-file_movie')}farm ${esc(TS(it.farm.text))}${it.farm.department ? ' · ' + esc(LBL[it.farm.department] || it.farm.department) : ''}</span>`
     );
   if (touched(it)) tags.push(`<span class="tag you">${T('you')}</span>`);
   return `<div class="row ${S.sel === it.name ? 'sel' : ''} ${om && om.state ? 'omit' : ''} ${touched(it) ? 'mine' : ''}" data-n="${it.name}" tabindex="-1">
@@ -169,7 +169,7 @@ function farmCell(it) {
     const m = String(f.text || '').match(/(\d+)\/(\d+)/),
       p = m ? +m[1] / +m[2] : null;
     out.push(
-      `<span class="fj ${f.state === 'failed' ? 'bad' : ''}" title="${esc(TS(f.tip || f.text))}">${ic(f.state === 'waiting' ? 'b-sorttime' : f.state === 'failed' ? 'b-error' : 'b-render_animation')}<span class="w">${esc(TS(f.text).replace(/\s*\d+\/\d+$/, ''))}${f.department ? ' · ' + esc(LBL[f.department] || f.department) : ''}</span></span>${p != null ? `<span class="bar bare" style="--p:${p * 100}%;--c:var(--st-done)"><i></i><span>${m[1]}/${m[2]}</span></span>` : ''}`
+      `<span class="fj ${f.state === 'failed' ? 'bad' : ''}" title="${esc(TS(f.tip || f.text))}">${ic(f.state === 'waiting' ? 'b-time' : f.state === 'failed' ? 'b-error' : 'b-render_animation')}<span class="w">${esc(TS(f.text).replace(/\s*\d+\/\d+$/, ''))}${f.department ? ' · ' + esc(LBL[f.department] || f.department) : ''}</span></span>${p != null ? `<span class="bar bare" style="--p:${p * 100}%;--c:var(--st-done)"><i></i><span>${m[1]}/${m[2]}</span></span>` : ''}`
     );
   }
   if (it.toCheck)

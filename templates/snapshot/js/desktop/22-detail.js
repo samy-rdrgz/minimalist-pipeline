@@ -153,7 +153,7 @@ function deptHTML(it, d, ctx = 'p') {
     : '';
   const ex = [
     f.waiting && x.tone !== 'wait'
-      ? `<span class="wait">${ic('b-sorttime')} ${T('waiting: {why}', { why: esc(f.waiting) })}</span>`
+      ? `<span class="wait">${ic('b-time')} ${T('waiting: {why}', { why: esc(f.waiting) })}</span>`
       : '',
     f.to_redo && x.tone !== 'redo'
       ? `<span class="redo">↻ ${T('to redo: {why}', { why: esc(f.to_redo) })}</span>`
@@ -382,7 +382,7 @@ function lastRendersHTML(it) {
     `<div class="prop"><span class="k">${k}</span><span class="v"><span class="ro" title="${esc(v)}">${esc(v || '–')}</span></span></div>`;
   // Render… in the section's head; the farm a line of its own, never a row like a department's.
   return `<div class="sec"><div class="sec-h">${T('Last renders')}<span class="sp"></span><button class="btn sm primary live-only" data-render>${ic('b-render_animation')}${T('Render…')}</button></div>
-    ${it.farm ? `<p class="farmline ${it.farm.state === 'failed' ? 'bad' : ''}" title="${esc(TS(it.farm.tip || it.farm.text))}">${ic(it.farm.state === 'waiting' ? 'b-sorttime' : it.farm.state === 'failed' ? 'b-error' : 'b-render_animation')}${T('In the farm: {what}', { what: esc([TS(it.farm.tip || it.farm.text), it.farm.shot, it.farm.version].filter(Boolean).join(' · ')) })}</p>` : ''}
+    ${it.farm ? `<p class="farmline ${it.farm.state === 'failed' ? 'bad' : ''}" title="${esc(TS(it.farm.tip || it.farm.text))}">${ic(it.farm.state === 'waiting' ? 'b-time' : it.farm.state === 'failed' ? 'b-error' : 'b-render_animation')}${T('In the farm: {what}', { what: esc([TS(it.farm.tip || it.farm.text), it.farm.shot, it.farm.version].filter(Boolean).join(' · ')) })}</p>` : ''}
     ${it.versions.length ? it.versions.map((v, n) => `<div class="prop"><span class="k">${v.dept ? esc(LBL[v.dept] || v.dept) : T('No department')}</span><span class="v"><span class="ro">${esc([v.shot, v.folder, v.at ? fmtDay(v.at) : ''].filter(Boolean).join(' · '))}</span><button class="btn icon" data-ver="${n}" aria-label="${T('Watch')}" title="${T('Watch this version')}">${ic('b-play')}</button><button class="btn icon" data-act="player" aria-label="${T("This machine's player")}" title="${T("Open in this machine's player")}">${ic('b-file_movie')}</button>${v.video ? `<button class="btn icon live-only ${rushIs(it, v) ? 'rush-on' : ''}" data-push="${n}" aria-pressed="${rushIs(it, v)}" aria-label="${T('Push to the edit')}" title="${rushIs(it, v) ? esc(rushSay(it)) + ' · ' + T('Push it again') : T('Push to the edit: editing/rushes/, under its name without version')}">${ic('b-export')}</button>` : ''}</span></div>`).join('') : '<span class="faint">' + T('No render.') + '</span>'}
     ${it.rush && !it.versions.some(v => rushIs(it, v)) ? row(T('In the edit'), it.rush.render) : ''}
 </div>`;
