@@ -61,6 +61,7 @@ function renderAll() {
   renderProps();
   renderWide();
   renderStatus();
+  keepHover();
 }
 function refresh() {
   storeReview();
@@ -73,6 +74,33 @@ function refresh() {
   renderProps();
   renderWide();
   renderStatus();
+  keepHover();
+}
+/* What the mouse is on, said again after a redraw (the live page's data, every few seconds):
+   the browser re-reads :hover on the next move only, so what shows on hover hid then came back --
+   a blink under a still mouse. .hov on the new elements under it (CSS: with :hover), until it moves. */
+let PTR = null,
+  HOV = [];
+document.addEventListener(
+  'mousemove',
+  e => {
+    PTR = [e.clientX, e.clientY];
+    if (HOV.length) {
+      HOV.forEach(el => el.classList.remove('hov'));
+      HOV = [];
+    }
+  },
+  { passive: true }
+);
+document.documentElement.addEventListener('mouseleave', () => (PTR = null));
+function keepHover() {
+  if (!PTR) return;
+  for (let el = document.elementFromPoint(PTR[0], PTR[1]); el && el !== document.body; el = el.parentElement) {
+    if (!el.classList.contains('hov')) {
+      el.classList.add('hov');
+      HOV.push(el);
+    }
+  }
 }
 
 function closeMenus() {

@@ -1006,7 +1006,8 @@ body.out-open .scrim {
 .rows > .row:last-child {
   border-bottom: 0;
 }
-.row:hover {
+.row:hover,
+.row.hov {
   background: var(--row-hover);
 }
 /* A file or a farm job picked: the same tint and rail. */
@@ -1049,7 +1050,7 @@ body.out-open .scrim {
 .row .cell .tx {
   transition: opacity 0.1s;
 }
-.row:not(:hover):not(.sel) .cell .tx {
+.row:not(:hover):not(.hov):not(.sel) .cell .tx {
   opacity: 0;
 }
 .thumb {
@@ -2182,8 +2183,8 @@ body.out-open .scrim {
 .jobs > .job:where(:nth-child(even of .job)) {
   background-color: var(--stripe-b);
 }
-.rows > .row:hover,
-.jobs > .job:hover {
+.rows > .row:is(:hover, .hov),
+.jobs > .job:is(:hover, .hov) {
   background-color: var(--row-hover);
 }
 .rows > .row.sel,
@@ -2454,7 +2455,8 @@ button.assign:hover {
 .jobs > .job:last-child {
   border-bottom: 0;
 }
-.job:hover {
+.job:hover,
+.job.hov {
   background: var(--row-hover);
 }
 .jt {
@@ -4759,33 +4761,33 @@ html.kb .m-nav {
       visibility calc(0.18s * var(--hk, 1));
   }
   /* The list: Progress's figures, the Renders column's words (its icons and bar stay). */
-  .row:not(:hover):not(.sel) .bars .bar span,
-  .row:not(:hover):not(.sel) .farmc .fj .w,
+  .row:not(:hover):not(.hov):not(.sel) .bars .bar span,
+  .row:not(:hover):not(.hov):not(.sel) .farmc .fj .w,
   /* Breakdown: a bar's figure (its pill), on the bar hovered -- the bar says it at rest. */
-  .sf:not(:hover) .v,
+  .sf:not(:hover):not(.hov) .v,
   /* A sequence's header: Play the sequence, + shot. */
-  .grp-h:not(:hover):not(:focus-within) .btn.play,
-  .grp-h:not(:hover):not(:focus-within) [data-plan],
+  .grp-h:not(:hover):not(.hov):not(:focus-within) .btn.play,
+  .grp-h:not(:hover):not(.hov):not(:focus-within) [data-plan],
   /* The outliner: a sequence's figure, a file's notes counted. */
-  .tree li.seq:not(:hover) .pc,
-  .tree li[data-n]:not(:hover):not(.sel) .pc,
+  .tree li.seq:not(:hover):not(.hov) .pc,
+  .tree li[data-n]:not(:hover):not(.hov):not(.sel) .pc,
   /* The detail's departments: their buttons. */
-  .dept:not(:hover):not(:focus-within) .acts,
-  .dept:not(:hover):not(:focus-within) .extra .anchor:has(.assign.none),
-  .dept:not(:hover):not(:focus-within) .extra .btn:not([aria-pressed="true"]),
+  .dept:not(:hover):not(.hov):not(:focus-within) .acts,
+  .dept:not(:hover):not(.hov):not(:focus-within) .extra .anchor:has(.assign.none),
+  .dept:not(:hover):not(.hov):not(:focus-within) .extra .btn:not([aria-pressed="true"]),
   /* A note: its pen, a reply's take-back. */
-  .nt:not(:hover):not(:focus-within) [data-nedit],
-  .nt:not(:hover):not(:focus-within) [data-unreply],
+  .nt:not(:hover):not(.hov):not(:focus-within) [data-nedit],
+  .nt:not(:hover):not(.hov):not(:focus-within) [data-unreply],
   /* Watch large: a note's check, unless ticked. */
-  .wnr:not(:hover):not(:focus-within) .wfx:not([aria-pressed="true"]),
+  .wnr:not(:hover):not(.hov):not(:focus-within) .wfx:not([aria-pressed="true"]),
   /* In a review's box: each note's own time (the box's head has the date). */
-  .rvg .nt:not(:hover) .subd,
+  .rvg .nt:not(:hover):not(.hov) .subd,
   /* The Farm tab: a job's machines, who sent it and when, and its step's words (its group and its
      icon say its state) -- its bar and time left stay. */
-  .job:not(:hover):not(.sel) .meta,
-  .job:not(:hover):not(.sel) .s,
+  .job:not(:hover):not(.hov):not(.sel) .meta,
+  .job:not(:hover):not(.hov):not(.sel) .s,
   /* A sequence's header: its bars' names (DONE / VALIDATED), as its buttons. */
-  .grp-h:not(:hover):not(:focus-within) .bar .bl {
+  .grp-h:not(:hover):not(.hov):not(:focus-within) .bar .bl {
     opacity: 0;
     visibility: hidden;
     --hk: 0.4;
@@ -4801,14 +4803,14 @@ html.kb .m-nav {
       opacity calc(0.18s * var(--hk, 1)) ease,
       margin calc(0.22s * var(--hk, 1)) ease;
   }
-  .dept:not(:hover):not(:focus-within) .extra:not(:has(.assign:not(.none), .wait, .redo, .btn[aria-pressed="true"])),
-  .nt:not(:hover):not(:focus-within) .f {
+  .dept:not(:hover):not(.hov):not(:focus-within) .extra:not(:has(.assign:not(.none), .wait, .redo, .btn[aria-pressed="true"])),
+  .nt:not(:hover):not(.hov):not(:focus-within) .f {
     max-height: 0;
     opacity: 0;
     overflow: hidden;
     --hk: 0.4;
   }
-  .dept:not(:hover):not(:focus-within) .extra:not(:has(.assign:not(.none), .wait, .redo, .btn[aria-pressed="true"])) {
+  .dept:not(:hover):not(.hov):not(:focus-within) .extra:not(:has(.assign:not(.none), .wait, .redo, .btn[aria-pressed="true"])) {
     margin-top: calc(-1 * var(--sp-2));
   }
   /* Narrowed to nothing too, not only faded: a card's buttons beside its words, a note's pen in its
@@ -4825,22 +4827,22 @@ html.kb .m-nav {
       opacity calc(0.18s * var(--hk, 1)) ease,
       visibility calc(0.18s * var(--hk, 1));
   }
-  .dept:not(:hover):not(:focus-within) .acts,
-  .nt:not(:hover):not(:focus-within) [data-nedit] {
+  .dept:not(:hover):not(.hov):not(:focus-within) .acts,
+  .nt:not(:hover):not(.hov):not(:focus-within) [data-nedit] {
     max-width: 0;
     overflow: hidden;
     --hk: 0.4;
   }
   /* Beside the words still shown (waiting, to redo): Assign and Mark done take no room, their gap too. */
-  .dept:not(:hover):not(:focus-within) .extra .anchor:has(.assign.none),
-  .dept:not(:hover):not(:focus-within) .extra .btn:not([aria-pressed="true"]) {
+  .dept:not(:hover):not(.hov):not(:focus-within) .extra .anchor:has(.assign.none),
+  .dept:not(:hover):not(.hov):not(:focus-within) .extra .btn:not([aria-pressed="true"]) {
     max-width: 0;
     overflow: hidden;
     padding-inline: 0;
     border-width: 0;
     margin-right: calc(-1 * var(--sp-5));
   }
-  .nt:not(:hover):not(:focus-within) .f {
+  .nt:not(:hover):not(.hov):not(:focus-within) .f {
     margin-top: calc(-1 * var(--sp-3));
   }
 }

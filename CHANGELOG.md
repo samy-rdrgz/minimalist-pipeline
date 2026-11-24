@@ -558,6 +558,9 @@ All notable changes to this addon. Dates are release dates.
 
 ### Fixed
 
+- The live page: what shows on hover blinked at each refresh under a
+  still mouse (the list redrawn, the browser re-reading :hover on the next
+  move only); it's kept on what the mouse is on until it moves.
 - "You" and "to check" turn green (#2fdcae, #0aa57c light), out of the
   done blue's turquoise; a department with a render to check has its
   render dot green.
