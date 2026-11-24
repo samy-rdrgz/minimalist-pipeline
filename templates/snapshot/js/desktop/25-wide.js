@@ -59,10 +59,7 @@ function renderWide() {
       );
     })
     .join('');
-  const rng =
-    S.rangeStart != null
-      ? `<span class="rng sel" id="rng-sel" style="left:${((Math.min(S.rangeStart, S.frame) - 1) / (NF - 1)) * 100}%;width:${(Math.abs(S.frame - S.rangeStart) / (NF - 1)) * 100}%"></span>`
-      : '';
+  const rng = rngSelHTML();
   const dRow = d => {
     const x = info(it, d),
       m = it.mine[d];

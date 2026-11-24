@@ -4,7 +4,6 @@
    its caption folds it back. A shot looked at (the one clicked, or linked to the one clicked) unfolds its sequence. */
 const GRP = 'grp:',
   gKey = g => GRP + g;
-const gIsGrp = n => String(n).startsWith(GRP);
 let GMAP = {};
 function renderGraph() {
   const L = $('#list');

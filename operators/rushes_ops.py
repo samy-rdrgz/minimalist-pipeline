@@ -17,6 +17,7 @@ from ..lib import (
     push_sequence_rushes,
     run_in_background,
 )
+from ..lib.operators import popup
 
 
 def report_push(result: dict) -> str:
@@ -46,15 +47,7 @@ def push_in_background(fn, *args) -> None:
         if not result["failed"]:
             return
         lines = [f"{name}: {reason}" for name, reason in result["failed"]]
-        try:
-            bpy.ops.m_pipeline.text_popup(
-                "INVOKE_DEFAULT",
-                title="Rushes not all pushed",
-                message="\n".join([summary, "", *lines[:12]]),
-                icon="ERROR",
-            )
-        except RuntimeError:
-            pass  # no window to show it in: the log has it
+        popup("Rushes not all pushed", "\n".join([summary, "", *lines[:12]]), "ERROR")
 
     def failed(error):
         log("ERROR", "rushes", f"Push to editing failed: {error}")

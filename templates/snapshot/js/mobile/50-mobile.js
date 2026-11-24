@@ -113,10 +113,7 @@ function mReview() {
       );
     })
     .join('');
-  const rng =
-    S.rangeStart != null
-      ? `<span class="rng sel" id="rng-sel" style="left:${((Math.min(S.rangeStart, S.frame) - 1) / (NF - 1)) * 100}%;width:${(Math.abs(S.frame - S.rangeStart) / (NF - 1)) * 100}%"></span>`
-      : '';
+  const rng = rngSelHTML();
   const req = DEPTS[it.kind].filter(d => required(it).includes(d));
   const notes = [...it.myNotes.map(n => ({ ...n, mine: true })), ...it.notes.filter(n => !n.done && !n.approval)],
     closed = it.notes.filter(n => n.done && n.type !== 'note');

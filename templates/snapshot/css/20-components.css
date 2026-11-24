@@ -1364,10 +1364,6 @@ body.out-open .scrim {
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
-.heat-wrap {
-  overflow-x: auto;
-  padding: 0 var(--sp-7);
-}
 .heat {
   width: 100%;
   min-width: 480px;
@@ -1405,23 +1401,6 @@ body.out-open .scrim {
   color: var(--text-3);
   font-weight: 400;
   cursor: default;
-}
-.heat-legend {
-  display: flex;
-  gap: var(--sp-8);
-  flex-wrap: wrap;
-  padding: var(--sp-6) var(--sp-8) var(--sp-9);
-  color: var(--text-3);
-  font-size: var(--fs-s);
-  align-items: center;
-}
-.heat-legend i {
-  display: inline-block;
-  width: 22px;
-  height: 10px;
-  border-radius: var(--r-xs);
-  margin-right: var(--sp-3);
-  vertical-align: middle;
 }
 
 /* ---------- Detail ---------- */
@@ -1476,20 +1455,6 @@ body.out-open .scrim {
   display: flex;
   flex-direction: column;
   gap: var(--sp-7);
-}
-.pdesc {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-4);
-}
-.pdesc .d {
-  color: var(--text-2);
-}
-.pdesc .m {
-  display: flex;
-  gap: var(--sp-3);
-  flex-wrap: wrap;
-  align-items: center;
 }
 .pacts {
   display: flex;
@@ -1570,23 +1535,6 @@ body.out-open .scrim {
   display: grid;
   place-items: center;
   color: var(--text-3);
-}
-.stage .novid {
-  position: absolute;
-  left: 8px;
-  right: 8px;
-  bottom: 8px;
-  display: flex;
-  align-items: center;
-  gap: var(--sp-4);
-  padding: var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-5);
-  border-radius: var(--r);
-  background: var(--overlay);
-  font-size: var(--fs-s);
-  flex-wrap: wrap;
-}
-.stage .novid .sp {
-  flex: 1;
 }
 .scrub {
   position: relative;
@@ -2300,15 +2248,6 @@ body.out-open .scrim {
 .pbody {
   padding: var(--sp-7);
 }
-.vrow {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-4);
-  flex-wrap: wrap;
-}
-.vrow .sp {
-  flex: 1;
-}
 .vro {
   display: inline-flex;
   align-items: center;
@@ -2576,13 +2515,6 @@ button.assign:hover {
   align-items: center;
   gap: var(--sp-4);
   flex-wrap: wrap;
-}
-.gbar {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-5);
-  flex-wrap: wrap;
-  padding: var(--sp-1) var(--sp-2);
 }
 .nodes.graph {
   align-items: flex-start;
@@ -3043,16 +2975,6 @@ button.assign:hover {
   }
 }
 /* Breakdown */
-.sbar {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-6);
-  flex-wrap: wrap;
-  padding: 0 var(--sp-2);
-}
-.sbar .faint {
-  font-size: var(--fs-s);
-}
 .sf {
   position: relative;
   display: flex;
@@ -3222,14 +3144,6 @@ button.assign:hover {
 }
 .node.fold .nh {
   border-radius: var(--r-l);
-}
-.gcol {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-8);
-  width: calc(250px * var(--scale));
-  position: relative;
-  z-index: 1;
 }
 .gcap {
   color: var(--text-3);
@@ -4095,7 +4009,6 @@ html.vv.is-mob #mob {
 }
 /* The keyboard open: no footer (the room goes to what's being written). */
 html.kb .statusbar,
-html.kb .m-foot,
 html.kb .m-nav {
   display: none !important;
 }

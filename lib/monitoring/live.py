@@ -18,6 +18,7 @@ once as an imported review would be. See NOTES.md, "Live page".
 """
 
 import base64
+import gzip
 import hmac
 import html
 import json
@@ -108,6 +109,21 @@ _guests: dict[str, dict] = {}  # token: {"name", "role", "until" (epoch), "made"
 _guests_lock = threading.Lock()
 _lan = {"servers": {}, "error": ""}  # {ip: server}: one per address a guest uses
 _config_dir: Path | None = None  # Blender's config folder, read on the main thread
+
+# The replies compressed, the last few kept: {(size, hash): gzipped}.
+_GZ: dict = {}
+
+
+def _gzip(body: bytes) -> bytes:
+    """The body gzipped; the last ones kept (the page is the same for every guest until it changes)."""
+    key = (len(body), hash(body))
+    out = _GZ.get(key)
+    if out is None:
+        out = gzip.compress(body, compresslevel=6, mtime=0)
+        if len(_GZ) > 8:
+            _GZ.clear()
+        _GZ[key] = out
+    return out
 
 
 def _guests_file() -> Path | None:
@@ -1516,6 +1532,11 @@ def _handler(sh: _Shared):
         def _send(self, code: int, body: bytes, kind: str):
             self.send_response(code)
             self.send_header("Content-Type", kind)
+            # The page and its data, compressed (about a quarter: a phone on the Wi-Fi opens it faster).
+            if len(body) > 1400 and "gzip" in (self.headers.get("Accept-Encoding") or ""):
+                body = _gzip(body)
+                self.send_header("Content-Encoding", "gzip")
+                self.send_header("Vary", "Accept-Encoding")
             self.send_header("Content-Length", str(len(body)))
             self.send_header("Cache-Control", "no-store")
             self.end_headers()

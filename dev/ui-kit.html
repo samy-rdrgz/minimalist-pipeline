@@ -1617,10 +1617,6 @@ body.out-open .scrim {
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
-.heat-wrap {
-  overflow-x: auto;
-  padding: 0 var(--sp-7);
-}
 .heat {
   width: 100%;
   min-width: 480px;
@@ -1658,23 +1654,6 @@ body.out-open .scrim {
   color: var(--text-3);
   font-weight: 400;
   cursor: default;
-}
-.heat-legend {
-  display: flex;
-  gap: var(--sp-8);
-  flex-wrap: wrap;
-  padding: var(--sp-6) var(--sp-8) var(--sp-9);
-  color: var(--text-3);
-  font-size: var(--fs-s);
-  align-items: center;
-}
-.heat-legend i {
-  display: inline-block;
-  width: 22px;
-  height: 10px;
-  border-radius: var(--r-xs);
-  margin-right: var(--sp-3);
-  vertical-align: middle;
 }
 
 /* ---------- Detail ---------- */
@@ -1729,20 +1708,6 @@ body.out-open .scrim {
   display: flex;
   flex-direction: column;
   gap: var(--sp-7);
-}
-.pdesc {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-4);
-}
-.pdesc .d {
-  color: var(--text-2);
-}
-.pdesc .m {
-  display: flex;
-  gap: var(--sp-3);
-  flex-wrap: wrap;
-  align-items: center;
 }
 .pacts {
   display: flex;
@@ -1823,23 +1788,6 @@ body.out-open .scrim {
   display: grid;
   place-items: center;
   color: var(--text-3);
-}
-.stage .novid {
-  position: absolute;
-  left: 8px;
-  right: 8px;
-  bottom: 8px;
-  display: flex;
-  align-items: center;
-  gap: var(--sp-4);
-  padding: var(--sp-3) var(--sp-3) var(--sp-3) var(--sp-5);
-  border-radius: var(--r);
-  background: var(--overlay);
-  font-size: var(--fs-s);
-  flex-wrap: wrap;
-}
-.stage .novid .sp {
-  flex: 1;
 }
 .scrub {
   position: relative;
@@ -2553,15 +2501,6 @@ body.out-open .scrim {
 .pbody {
   padding: var(--sp-7);
 }
-.vrow {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-4);
-  flex-wrap: wrap;
-}
-.vrow .sp {
-  flex: 1;
-}
 .vro {
   display: inline-flex;
   align-items: center;
@@ -2829,13 +2768,6 @@ button.assign:hover {
   align-items: center;
   gap: var(--sp-4);
   flex-wrap: wrap;
-}
-.gbar {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-5);
-  flex-wrap: wrap;
-  padding: var(--sp-1) var(--sp-2);
 }
 .nodes.graph {
   align-items: flex-start;
@@ -3296,16 +3228,6 @@ button.assign:hover {
   }
 }
 /* Breakdown */
-.sbar {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-6);
-  flex-wrap: wrap;
-  padding: 0 var(--sp-2);
-}
-.sbar .faint {
-  font-size: var(--fs-s);
-}
 .sf {
   position: relative;
   display: flex;
@@ -3475,14 +3397,6 @@ button.assign:hover {
 }
 .node.fold .nh {
   border-radius: var(--r-l);
-}
-.gcol {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-8);
-  width: calc(250px * var(--scale));
-  position: relative;
-  z-index: 1;
 }
 .gcap {
   color: var(--text-3);
@@ -4348,7 +4262,6 @@ html.vv.is-mob #mob {
 }
 /* The keyboard open: no footer (the room goes to what's being written). */
 html.kb .statusbar,
-html.kb .m-foot,
 html.kb .m-nav {
   display: none !important;
 }
@@ -7659,7 +7572,6 @@ MPI18n.add('fr',{
 'worker · idle':'worker · libre',
 'who has which file open, and the workers':'qui a quel fichier ouvert, et les workers',
 'not saved yet':'pas encore sauvé',
-'no file open':'aucun fichier ouvert',
 'No Blender has a project file open, no worker.':'Aucun Blender n’a de fichier du projet ouvert, aucun worker.',
 'Open now':'Ouvert en ce moment',
 'Versions':'Versions',
@@ -8369,9 +8281,6 @@ MPI18n.add('fr',{
 'this machine is no longer a worker':'cette machine n\'est plus un worker',
 'This machine':'Cette machine',
 'this machine':'cette machine',
-'This machine: not a worker':'Cette machine : pas un worker',
-'This machine: worker · idle':'Cette machine : worker · au repos',
-'This machine: worker · rendering':'Cette machine : worker · en rendu',
 'This machine\'s player':'Lecteur de cette machine',
 'This review comes from another version of the snapshot: it can\'t be loaded here.':'Cette revue vient d\'une autre version du snapshot : elle ne peut pas être chargée ici.',
 'This review is for {a}, not {b}. Load it anyway?':'Cette revue est pour {a}, pas {b}. La charger quand même ?',
@@ -8532,7 +8441,6 @@ MPI18n.add('fr',{
 'setup failed':'échec de la préparation',
 'compilation failed':'échec de la compilation',
 'preview failed':'échec de la preview',
-'renders failed':'échec des rendus',
 'orphaned':'orphelin',
 'failed':'en échec',
 'idle':'libre',
@@ -9937,6 +9845,12 @@ function mVer(it) {
   if (b == null || b >= V.length) b = V.length > 1 ? (a === 0 ? 1 : 0) : a;
   return { V, a, b, i: S.m.side === 'B' && V.length > 1 ? b : a };
 }
+
+/* The frames being picked on a big scrub (Watch large, the phone): from the range's start to the frame. */
+const rngSelHTML = () =>
+  S.rangeStart != null
+    ? `<span class="rng sel" id="rng-sel" style="left:${((Math.min(S.rangeStart, S.frame) - 1) / (NF - 1)) * 100}%;width:${(Math.abs(S.frame - S.rangeStart) / (NF - 1)) * 100}%"></span>`
+    : '';
 /* ---------- Videos: where a render's video is played from ----------
    By its path under renders/ (lib/monitoring/snapshot.py snapshot_videos()): a folder chosen here first,
    then the copy that came with the page (meta.videos: its videos/ folder or zip), then the
@@ -12303,7 +12217,6 @@ function machinesHTML() {
    its caption folds it back. A shot looked at (the one clicked, or linked to the one clicked) unfolds its sequence. */
 const GRP = 'grp:',
   gKey = g => GRP + g;
-const gIsGrp = n => String(n).startsWith(GRP);
 let GMAP = {};
 function renderGraph() {
   const L = $('#list');
@@ -12799,10 +12712,7 @@ function renderWide() {
       );
     })
     .join('');
-  const rng =
-    S.rangeStart != null
-      ? `<span class="rng sel" id="rng-sel" style="left:${((Math.min(S.rangeStart, S.frame) - 1) / (NF - 1)) * 100}%;width:${(Math.abs(S.frame - S.rangeStart) / (NF - 1)) * 100}%"></span>`
-      : '';
+  const rng = rngSelHTML();
   const dRow = d => {
     const x = info(it, d),
       m = it.mine[d];
@@ -14301,10 +14211,7 @@ function mReview() {
       );
     })
     .join('');
-  const rng =
-    S.rangeStart != null
-      ? `<span class="rng sel" id="rng-sel" style="left:${((Math.min(S.rangeStart, S.frame) - 1) / (NF - 1)) * 100}%;width:${(Math.abs(S.frame - S.rangeStart) / (NF - 1)) * 100}%"></span>`
-      : '';
+  const rng = rngSelHTML();
   const req = DEPTS[it.kind].filter(d => required(it).includes(d));
   const notes = [...it.myNotes.map(n => ({ ...n, mine: true })), ...it.notes.filter(n => !n.done && !n.approval)],
     closed = it.notes.filter(n => n.done && n.type !== 'note');

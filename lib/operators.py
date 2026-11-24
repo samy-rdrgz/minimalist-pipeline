@@ -154,6 +154,17 @@ class M_PIPELINE_OT_action_popup(bpy.types.Operator):
         return {"FINISHED"}
 
 
+def popup(title: str, message: str, icon: str = "INFO", explanation: str = "") -> None:
+    """The message in M_PIPELINE_OT_text_popup; nothing when there's no window to show it in (the log
+    has it)."""
+    try:
+        bpy.ops.m_pipeline.text_popup(
+            "INVOKE_DEFAULT", title=title, message=message, icon=icon, explanation=explanation
+        )
+    except RuntimeError:
+        pass
+
+
 class M_PIPELINE_OT_text_popup(bpy.types.Operator):
     """Simple modal popup for messages (temporary, replaced by PipelineAction)."""
 

@@ -6,6 +6,9 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- Live page: the page and its data sent compressed (gzip) when the browser
+  takes it: about 180 KB instead of 670 to open it on a phone.
+
 - Live page: a scrolled box fades at its bottom (and its top) while
   something is hidden past the edge: the list, the outliner, the detail,
   Watch large's panel. Under the list's sequence header, over the writer's
