@@ -2391,7 +2391,11 @@ button.assign:hover {
      its meta says (each row is its own grid). */
   grid-template-columns: auto minmax(0, 1fr) calc(170px * var(--scale)) calc(220px * var(--scale));
   gap: var(--sp-7);
-  align-items: center;
+  /* One first line: its icon, its name, its bar, its meta; under it what's said on hover (the step's
+     words) and under the bar its frames. Centred, the name sat above the icon: the hidden words below
+     keep their room. */
+  align-items: start;
+  --jl: calc(20px * var(--scale)); /* the first line's height: the icon's */
   padding: var(--sp-6) var(--sp-7);
   border-bottom: 1px solid var(--row-hover);
   cursor: pointer;
@@ -2412,6 +2416,7 @@ button.assign:hover {
 }
 .job .f {
   font: 500 var(--fs) var(--mono);
+  line-height: var(--jl);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2424,6 +2429,7 @@ button.assign:hover {
   margin-left: var(--sp-3); /* Render here: local, viewport */
 }
 .job .meta {
+  line-height: var(--jl);
   color: var(--text-3);
   font-size: var(--fs-s);
   text-align: right;
@@ -2455,6 +2461,10 @@ button.assign:hover {
   width: var(--p);
   background: var(--sel);
   border-radius: var(--r-s);
+}
+/* A job's bar: on its first line's middle. */
+.job .jbar i {
+  margin-top: calc((var(--jl) - 5px) / 2);
 }
 .jbar.big i {
   height: 8px;
