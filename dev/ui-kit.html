@@ -8604,8 +8604,9 @@ function glyph(base, corner, cnt, note, rdot) {
     if (corner === 'rtk')
       s += `<text x="17" y="8.3" text-anchor="middle" font-size="8" font-weight="700" font-family="Inter,sans-serif" style="fill:var(--on-state)">${cnt > 9 ? '9+' : cnt || '!'}</text>`;
     if (corner === 'wait')
-      // An hourglass: two full triangles tip to tip, their corners rounded (read even small, its outline wasn't).
-      s += `<path d="M15.75 3.22h2.51L17 5.5zM15.75 7.78h2.51L17 5.5z" style="fill:var(--on-st);stroke:var(--on-st)" stroke-width=".9" stroke-linejoin="round"/>`;
+      // A clock's two hands, the badge its face: "not yet" (an hourglass read badly this small; a pause
+      // sign would say "on hold", which is something else).
+      s += `<path d="M17 5.6V3.1M17 5.6h2" style="stroke:var(--on-st)" fill="none" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>`;
     if (corner === 'redo')
       s += `<path d="M19.1 4.4A2.4 2.4 0 1 0 19.4 6.4" style="stroke:var(--on-st)" stroke-width="1.3" fill="none" stroke-linecap="round"/><path d="M19.6 2.7v2.2h-2.2" style="stroke:var(--on-st)" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
     if (corner === 'you')
