@@ -558,6 +558,10 @@ All notable changes to this addon. Dates are release dates.
 
 ### Fixed
 
+- Watch large: with A / B shown (a file with several versions), the strip
+  fell under them on the left; it stays at the line's right, narrowing
+  (it scrolls) before it wraps, at the right then too. Its edges fade
+  where thumbnails hide past them.
 - The Farm tab: this machine's state and its worker switch are its own
   card in Machines (first), the farm's -- host, monitor, what it does,
   Stop the farm -- Machines' head; on top only when the farm is stopped

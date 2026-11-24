@@ -2734,15 +2734,25 @@ button.assign:hover {
   font-variant-numeric: tabular-nums;
   min-width: 4.5ch;
 }
+/* The strip: on the transport's line, at its right, narrowing (it scrolls) before it goes to the
+   next line -- A / B beside the version took its room, it fell under them on the left. Its
+   thumbnails pushed right (an auto margin: a scroll box keeps its start reachable); faded at an
+   edge where more are hidden (--fl / --fr, stripFade()). */
 .strip {
   display: flex;
   gap: var(--sp-3);
   align-items: flex-end;
   overflow-x: auto;
+  flex: 1 1 calc(220px * var(--scale));
+  min-width: 0;
   max-width: min(52vw, 640px);
+  margin-left: auto;
   padding-bottom: var(--sp-1);
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--fl, 0px), #000 calc(100% - var(--fr, 0px)), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 var(--fl, 0px), #000 calc(100% - var(--fr, 0px)), transparent 100%);
 }
 .strip > .faint {
+  margin-left: auto;
   align-self: center;
   font-size: var(--fs-s);
   margin-right: var(--sp-2);

@@ -142,7 +142,20 @@ function renderWide() {
     mqGo(cb, true);
   }
   W._film = key;
-  if (st) W._sl = st.scrollLeft;
+  if (st) {
+    W._sl = st.scrollLeft;
+    stripFade(st);
+  }
+}
+addEventListener('resize', () => {
+  const st = document.querySelector('#wide .strip');
+  if (st) stripFade(st);
+});
+/* A strip's edge faded where thumbnails hide past it: the more to scroll, up to 32 px. */
+function stripFade(st) {
+  const r = st.scrollWidth - st.clientWidth - st.scrollLeft;
+  st.style.setProperty('--fl', Math.min(32, Math.max(0, st.scrollLeft)) + 'px');
+  st.style.setProperty('--fr', Math.min(32, Math.max(0, r)) + 'px');
 }
 /* Full screen: the video alone (its timeline and transport), the window's whole screen where the browser
    allows it (none on an iPhone: the page alone then fills the window). */
@@ -178,7 +191,10 @@ function wideFull(on) {
   W?.addEventListener(
     'scroll',
     e => {
-      if (e.target.classList && e.target.classList.contains('strip')) W._sl = e.target.scrollLeft;
+      if (e.target.classList && e.target.classList.contains('strip')) {
+        W._sl = e.target.scrollLeft;
+        stripFade(e.target);
+      }
     },
     true
   );

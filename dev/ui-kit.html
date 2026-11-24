@@ -2987,15 +2987,25 @@ button.assign:hover {
   font-variant-numeric: tabular-nums;
   min-width: 4.5ch;
 }
+/* The strip: on the transport's line, at its right, narrowing (it scrolls) before it goes to the
+   next line -- A / B beside the version took its room, it fell under them on the left. Its
+   thumbnails pushed right (an auto margin: a scroll box keeps its start reachable); faded at an
+   edge where more are hidden (--fl / --fr, stripFade()). */
 .strip {
   display: flex;
   gap: var(--sp-3);
   align-items: flex-end;
   overflow-x: auto;
+  flex: 1 1 calc(220px * var(--scale));
+  min-width: 0;
   max-width: min(52vw, 640px);
+  margin-left: auto;
   padding-bottom: var(--sp-1);
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--fl, 0px), #000 calc(100% - var(--fr, 0px)), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 var(--fl, 0px), #000 calc(100% - var(--fr, 0px)), transparent 100%);
 }
 .strip > .faint {
+  margin-left: auto;
   align-self: center;
   font-size: var(--fs-s);
   margin-right: var(--sp-2);
@@ -12784,7 +12794,20 @@ function renderWide() {
     mqGo(cb, true);
   }
   W._film = key;
-  if (st) W._sl = st.scrollLeft;
+  if (st) {
+    W._sl = st.scrollLeft;
+    stripFade(st);
+  }
+}
+addEventListener('resize', () => {
+  const st = document.querySelector('#wide .strip');
+  if (st) stripFade(st);
+});
+/* A strip's edge faded where thumbnails hide past it: the more to scroll, up to 32 px. */
+function stripFade(st) {
+  const r = st.scrollWidth - st.clientWidth - st.scrollLeft;
+  st.style.setProperty('--fl', Math.min(32, Math.max(0, st.scrollLeft)) + 'px');
+  st.style.setProperty('--fr', Math.min(32, Math.max(0, r)) + 'px');
 }
 /* Full screen: the video alone (its timeline and transport), the window's whole screen where the browser
    allows it (none on an iPhone: the page alone then fills the window). */
@@ -12820,7 +12843,10 @@ function wideFull(on) {
   W?.addEventListener(
     'scroll',
     e => {
-      if (e.target.classList && e.target.classList.contains('strip')) W._sl = e.target.scrollLeft;
+      if (e.target.classList && e.target.classList.contains('strip')) {
+        W._sl = e.target.scrollLeft;
+        stripFade(e.target);
+      }
     },
     true
   );
