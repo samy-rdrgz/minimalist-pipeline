@@ -13,7 +13,10 @@ function glyph(base, corner, cnt, note, rdot) {
   if (base === 'na')
     return `<svg class="g" viewBox="0 0 22 22" aria-hidden="true"><path d="M6 12h8" style="stroke:var(--line-3)" stroke-width="2" stroke-linecap="round"/></svg>`;
   const [c, inner] = BASE[base];
-  let s = `<svg class="g" viewBox="0 0 22 22" aria-hidden="true"><rect x="4.7" y="6.7" width="10.6" height="10.6" rx="1.6" transform="rotate(45 10 12)" style="fill:var(${c})"/>`;
+  // The diamond cut out where its badges sit (a mask, page.html's gm-*): a real gap whatever the ground
+  // under it -- a stroke of the area's colour showed as a dark ring on a row selected or a grey box.
+  const cut = `gm-${corner ? 1 : 0}${rdot != null ? 1 : 0}${note ? 1 : 0}`;
+  let s = `<svg class="g" viewBox="0 0 22 22" aria-hidden="true"><g mask="url(#${cut})"><rect x="4.7" y="6.7" width="10.6" height="10.6" rx="1.6" transform="rotate(45 10 12)" style="fill:var(${c})"/>`;
   if (inner === 'dots')
     s += `<g style="fill:var(--on-st)"><circle cx="7" cy="12" r="1.15"/><circle cx="10" cy="12" r="1.15"/><circle cx="13" cy="12" r="1.15"/></g>`;
   /* Reworked since its stable: the done diamond, an arrow back in it (to redo, an earlier stage changed: the orange corner). */
@@ -21,6 +24,7 @@ function glyph(base, corner, cnt, note, rdot) {
     s += `<path d="M12.6 10.4H8.4M9.9 8.7 8.2 10.4l1.7 1.7M8.4 10.4h3.4a1.9 1.9 0 0 1 0 3.8H9.6" fill="none" style="stroke:var(--on-st)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`;
   if (inner === 'check')
     s += `<path d="M7 12.2 9.1 14.3 13.2 10.2" fill="none" style="stroke:var(--on-st)" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>`;
+  s += '</g>';
   if (corner) {
     const cc = {
       rtk: '--st-rtk',
@@ -29,12 +33,12 @@ function glyph(base, corner, cnt, note, rdot) {
       you: '--st-you',
       'you-rtk': '--st-you'
     }[corner];
-    s += `<circle cx="17" cy="5.5" r="5.2" style="fill:var(${cc});stroke:var(--area)" stroke-width="1.6"/>`;
+    s += `<circle cx="17" cy="5.5" r="5.2" style="fill:var(${cc})"/>`;
     if (corner === 'rtk')
       s += `<text x="17" y="8.3" text-anchor="middle" font-size="8" font-weight="700" font-family="Inter,sans-serif" style="fill:var(--on-state)">${cnt > 9 ? '9+' : cnt || '!'}</text>`;
     if (corner === 'wait')
-      // An hourglass: two full triangles, tip to tip (read at a glance even small, its outline wasn't).
-      s += `<path d="M14.8 2.9h4.4L17 5.5zM14.8 8.1h4.4L17 5.5z" style="fill:var(--on-st);stroke:var(--on-st)" stroke-width=".6" stroke-linejoin="round"/>`;
+      // An hourglass: two full triangles tip to tip, their corners rounded (read even small, its outline wasn't).
+      s += `<path d="M15.75 3.22h2.51L17 5.5zM15.75 7.78h2.51L17 5.5z" style="fill:var(--on-st);stroke:var(--on-st)" stroke-width=".9" stroke-linejoin="round"/>`;
     if (corner === 'redo')
       s += `<path d="M19.1 4.4A2.4 2.4 0 1 0 19.4 6.4" style="stroke:var(--on-st)" stroke-width="1.3" fill="none" stroke-linecap="round"/><path d="M19.6 2.7v2.2h-2.2" style="stroke:var(--on-st)" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
     if (corner === 'you')
@@ -43,9 +47,9 @@ function glyph(base, corner, cnt, note, rdot) {
       s += `<path d="M15.2 3.7 18.8 7.3M18.8 3.7 15.2 7.3" style="stroke:var(--on-st)" stroke-width="1.4" stroke-linecap="round"/>`;
   }
   if (rdot != null)
-    s += `<circle cx="3.6" cy="18.4" r="2.6" style="fill:var(${rdot === 'chk' ? '--st-you' : '--text'});stroke:var(--area)" stroke-width="1.4"${rdot ? '' : ' opacity="0.35"'}/>`;
+    s += `<circle cx="3.6" cy="18.4" r="2.6" style="fill:var(${rdot === 'chk' ? '--st-you' : '--text'})"${rdot ? '' : ' opacity="0.35"'}/>`;
   if (note)
-    s += `<path d="M13.6 14.6h6.6a1.3 1.3 0 0 1 1.3 1.3v3.2a1.3 1.3 0 0 1-1.3 1.3h-3.6l-2.2 1.7v-1.7h-.8a1.3 1.3 0 0 1-1.3-1.3v-3.2a1.3 1.3 0 0 1 1.3-1.3z" style="fill:var(--text-2);stroke:var(--area)" stroke-width="1.3"/>`;
+    s += `<path d="M13.6 14.6h6.6a1.3 1.3 0 0 1 1.3 1.3v3.2a1.3 1.3 0 0 1-1.3 1.3h-3.6l-2.2 1.7v-1.7h-.8a1.3 1.3 0 0 1-1.3-1.3v-3.2a1.3 1.3 0 0 1 1.3-1.3z" style="fill:var(--text-2)"/>`;
   return s + '</svg>';
 }
 /* A department's state, a review's "done on the stable" (marked) over it. */
