@@ -942,5 +942,6 @@ MPI18n.add('fr',{
 "Online access is off in Blender (Preferences › System › Allow Online Access): this page stays on this machine. Turn it on to share it with a phone -- the accesses below come back with it.":"L'accès en ligne est désactivé dans Blender (Préférences › Système › Allow Online Access) : cette page reste sur cette machine. Activez-le pour la partager avec un téléphone -- les accès ci-dessous reviennent avec lui.",
 "online access is off in Blender's Preferences (System): the page stays on this machine":"l'accès en ligne est désactivé dans les Préférences de Blender (Système) : la page reste sur cette machine",
 'render to check':'rendu à vérifier',
-'the dot green: not seen by the team yet':'le point vert : pas encore vu par l\'équipe'
+'the dot green: not seen by the team yet':'le point vert : pas encore vu par l\'équipe',
+'Whole':'Entier'
 });

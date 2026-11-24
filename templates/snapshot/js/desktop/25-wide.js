@@ -1,4 +1,23 @@
 /* ---------- Watch large ---------- */
+/* The strip's thumbnails: a file each; a block of shots, one per shot, framed together -- a
+   click watches that shot (its own thumbnail when it has one), the block's whole renders first
+   when it has any. */
+const filmHTML = it => i => {
+  const nm = i.kind === 'shot' ? i.name.replace(i.group + '_', '') : i.name,
+    dot = `<span class="dt" style="background:${DOT[worst(i)]}"></span>`,
+    th = src => `<span class="thumb">${src ? `<img src="${src}" alt="">` : ''}</span>`;
+  if (!(i.shots && i.shots.length > 1))
+    return `<button class="${i.name === it.name ? 'cur' : ''}" data-film="${i.name}" title="${i.name}">${th(i.thumb)}<span class="fn">${dot}${mq(nm)}</span></button>`;
+  const own = new Map((i.shot_thumbs || []).map(([l, id]) => [l, img(id)])),
+    on = i.name === it.name ? shotOf(it) : null,
+    whole = i.versions.some(v => !v.shot) ? [''] : [];
+  return `<span class="blk" title="${i.name}"><span class="bn">${dot}${mq(nm)}</span><span class="bs">${[...whole, ...i.shots]
+    .map(
+      s =>
+        `<button class="${on === s ? 'cur' : ''}" data-film="${i.name}" data-fshot="${s}" title="${s ? i.name + ' · ' + s : T('Whole block')}">${th((s && own.get(s)) || i.thumb)}<span class="fn">${s ? mq(s) : T('Whole')}</span></button>`
+    )
+    .join('')}</span></span>`;
+};
 function renderWide() {
   const W = $('#wide');
   if (!S.wide) {
@@ -95,7 +114,7 @@ function renderWide() {
       <button class="btn icon" data-act="player" aria-label="${T("This machine's player")}" title="${T("Open the original video in this machine's player")}">${ic('b-file_movie')}</button>
       <button class="btn icon" data-full aria-pressed="${!!S.wfull}" aria-label="${T('Full screen')}" title="${S.wfull ? T('Leave full screen (Esc)') : T('Full screen: the video alone')}">${ic(S.wfull ? 'b-fullscreen_exit' : 'b-fullscreen_enter')}</button></div>
     <div class="w-body"><div class="w-main">
-      <div class="w-stage ${S.m.side === 'B' && V.length > 1 ? 'is-b' : ''}">${it.thumb ? `<img src="${it.thumb}" alt="${T('Picture of {name}', { name: it.name })}">` : `<span class="noimg">${T('Not rendered yet')}</span>`}<span class="hud">${V.length > 1 ? `<b class="ab">${S.m.side}</b> ` : ''}${v ? esc(v.folder) + ' · ' : ''}f <span data-f>${fNo(S.frame)}</span></span></div>
+      <div class="w-stage ${S.m.side === 'B' && V.length > 1 ? 'is-b' : ''}">${thumbOf(it) ? `<img src="${thumbOf(it)}" alt="${T('Picture of {name}', { name: it.name })}">` : `<span class="noimg">${T('Not rendered yet')}</span>`}<span class="hud">${V.length > 1 ? `<b class="ab">${S.m.side}</b> ` : ''}${v ? esc(v.folder) + ' · ' : ''}f <span data-f>${fNo(S.frame)}</span></span></div>
       <div class="w-tl"><div class="scrub big ${rendered(it) ? '' : 'off'}" data-scrub role="slider" tabindex="0" aria-label="Frame" aria-valuemin="1" aria-valuemax="${NF}" aria-valuenow="${S.frame}">${mkH}${rng}<span class="ph" style="left:${((S.frame - 1) / (NF - 1)) * 100}%"></span></div>
         <div class="ruler"><span>f1</span><span>f${Math.round(NF / 4)}</span><span>f${Math.round(NF / 2)}</span><span>f${Math.round((NF * 3) / 4)}</span><span>f${NF}</span></div></div>
       <div class="w-tp"><span class="join"><button class="btn icon" data-tp="sprev" aria-label="${T('Previous shot')}" title="${it.kind === 'shot' ? T('Previous shot') : T('Previous file')}" ${stepOff(-1)}>${ic('b-back')}</button>
@@ -105,7 +124,7 @@ function renderWide() {
         <button class="btn icon" data-tp="snext" aria-label="${T('Next shot')}" title="${it.kind === 'shot' ? T('Next shot') : T('Next file')}" ${stepOff(1)}>${ic('b-forward')}</button></span>
         <button class="btn icon" data-tp="snd" aria-label="${T('Sound')}" title="${T('Sound (M)')}" aria-pressed="${!S.muted}">${ic(S.muted ? 'b-mute_ipo_off' : 'b-mute_ipo_on')}</button>
         <span class="bigf">f <span data-f>${fNo(S.frame)}</span></span>${verHTML(it, 'w')}${abHTML(it, 'w').replace('ctl abrow', 'abrow')}<span class="sp"></span>
-        <div class="strip"><span class="faint">${g}</span>${sib.map(i => `<button class="${i.name === it.name ? 'cur' : ''}" data-film="${i.name}" title="${i.name}"><span class="thumb">${i.thumb ? `<img src="${i.thumb}" alt="">` : ''}</span><span class="fn"><span class="dt" style="background:${DOT[worst(i)]}"></span>${mq(i.kind === 'shot' ? i.name.replace(i.group + '_', '') : i.name)}</span></button>`).join('')}</div></div>
+        <div class="strip"><span class="faint">${g}</span>${sib.map(filmHTML(it)).join('')}</div></div>
     </div>
     <div class="w-pan"><button class="pz-tab r w-tab" data-wside aria-expanded="${!!S.wside}" aria-label="${S.wside ? T('Fold the panel') : T('Show the panel')}" title="${S.wside ? T('Fold the panel') : T('Show the panel')}">${ic(S.wside ? 'b-tria_right' : 'b-tria_left')}</button>
     <div class="w-side">${checkHTML(it)}<div class="sec"><div class="sec-h">${T('Departments')}<span class="sp"></span>${rv && rv.role !== TEAM ? `<button class="btn sm ok" data-valall title="${T('Validate every done department (V)')}">${ic('b-checkmark')}${T('All the done')}</button>` : ''}</div>${req.map(dRow).join('') || '<span class="faint">' + T('No department required.') + '</span>'}</div>

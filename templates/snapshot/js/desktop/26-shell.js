@@ -106,6 +106,8 @@ function keepHover() {
 function closeMenus() {
   document.querySelectorAll('.menu').forEach(m => (m.hidden = true));
   document.querySelectorAll('[data-menu]').forEach(b => b.setAttribute('aria-expanded', 'false'));
+  // Live data held while a menu was open: now.
+  if (typeof pendData !== 'undefined' && pendData) setTimeout(() => pendData && applyData(pendData), 0);
 }
 
 /* A sequence's header stuck at the list's top: square (.stuck), a band across -- its block

@@ -302,7 +302,7 @@ svg.g {
 .nt .btn.flat:hover {
   background: var(--line-2);
 }
-.chkbar .ck1 .btn.flat[aria-pressed="true"] {
+.chkbar .btn.flat[aria-pressed="true"] {
   color: var(--text);
   border-color: transparent;
   background: var(--line-2);
@@ -2770,6 +2770,36 @@ button.assign:hover {
 }
 .strip .thumb {
   width: 100%;
+}
+/* A block of shots: its thumbnails framed together, under its name. */
+.strip .blk {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding: var(--sp-1) var(--sp-2) 0;
+  border-radius: var(--r-l);
+  background: var(--box);
+}
+.strip .blk .bn {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 0 var(--sp-2);
+  font: 10.5px var(--mono);
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.strip .blk .bs {
+  display: flex;
+  gap: var(--sp-1);
+}
+.strip .blk button {
+  width: calc(64px * var(--scale));
+}
+.strip .blk button:hover {
+  background: var(--box-2);
 }
 .strip .fn {
   display: flex;

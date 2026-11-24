@@ -898,6 +898,17 @@ document.addEventListener('click', e => {
   }
   const fl = t.closest('[data-film]');
   if (fl) {
+    // A block's shot: that one in the player, its latest version.
+    if (fl.dataset.fshot != null) {
+      S.shot[fl.dataset.film] = fl.dataset.fshot;
+      S.ver[fl.dataset.film] = 0;
+      S.m.side = 'A';
+      if (S.sel === fl.dataset.film) {
+        renderProps();
+        renderWide();
+        return;
+      }
+    }
     select(fl.dataset.film, { open: false });
     return;
   }

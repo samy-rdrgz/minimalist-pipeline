@@ -558,6 +558,13 @@ All notable changes to this addon. Dates are release dates.
 
 ### Fixed
 
+- The live page: an open menu (assign, sort…) closed at each data update;
+  the update now waits for it to close, as for a field being typed in.
+- Render to check: Watch stays on the only render left when there's
+  something else to watch (a block's other shots, other versions).
+- Watch large: a block of shots shows a thumbnail per shot in the strip,
+  framed together (and Whole for its renders made whole): a click
+  watches that shot. The stage shows the shot's own thumbnail.
 - The live page: what shows on hover blinked at each refresh under a
   still mouse (the list redrawn, the browser re-reading :hover on the next
   move only); it's kept on what the mouse is on until it moves.

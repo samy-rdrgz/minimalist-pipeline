@@ -41,6 +41,12 @@ const shotOf = it => {
   const has = s => it.versions.some(v => (v.shot || '') === s);
   return has('') || !it.versions.length ? '' : ((it.shots || []).find(has) ?? (it.versions[0].shot || ''));
 };
+/* The picture on the stage: the shot watched's own thumbnail, a block's; else the file's. */
+const thumbOf = it => {
+  const c = shotOf(it),
+    own = c && (it.shot_thumbs || []).find(([l]) => l === c);
+  return (own && img(own[1])) || it.thumb;
+};
 const versOf = it => {
   const c = shotOf(it);
   return it.versions.filter(v => (v.shot || '') === c);
@@ -72,15 +78,16 @@ function checkHTML(it) {
   const l = checksOf(it),
     btn = key =>
       `<button class="btn sm primary" data-checked="${esc(key)}" title="${T('Watched: out of "to check", its departments done or validated')}">${ic('b-checkmark')}${T('Checked…')}</button>`;
-  if (l.length < 2)
-    return `<div class="chkbar">${ic('b-hide_off')}<span class="t"><b>${T('Render to check')}</b><small>${l.length ? esc(checkLabel(l[0])) : T('Rendered, not checked by the team yet')}</small></span>${btn(l.length ? l[0].key : '')}</div>`;
-  // Several renders: each row puts its own version in the player.
+  // Watch puts that render's shot and version in the player: each row's, several renders; the
+  // only one's too, when there's something else to watch -- a block's other shots, other versions.
   const V = versOf(it),
     on = V[mVer(it).i],
     watch = c => {
       const is = on && (c.shot || '') === shotOf(it) && on.folder === c.folder;
       return `<button class="btn sm flat" data-ckwatch="${esc(c.key)}" aria-pressed="${!!is}" title="${T('Watch this version')}">${ic('b-play')}${T('Watch')}</button>`;
     };
+  if (l.length < 2)
+    return `<div class="chkbar">${ic('b-hide_off')}<span class="t"><b>${T('Render to check')}</b><small>${l.length ? esc(checkLabel(l[0])) : T('Rendered, not checked by the team yet')}</small></span>${l.length && ((it.shots || []).length > 1 || V.length > 1) ? watch(l[0]) : ''}${btn(l.length ? l[0].key : '')}</div>`;
   return `<div class="chkbar">${ic('b-hide_off')}<span class="t"><b>${T('{n} renders to check', { n: l.length })}</b></span>${l.map(c => `<div class="ck1"><span>${esc(checkLabel(c))}</span>${watch(c)}${btn(c.key)}</div>`).join('')}</div>`;
 }
 function stageHTML(it) {
@@ -95,7 +102,7 @@ function stageHTML(it) {
       );
     })
     .join('');
-  return `${shotsHTML(it)}<div class="stage ${S.m.side === 'B' && V.length > 1 ? 'is-b' : ''}">${it.thumb ? `<img src="${it.thumb}" alt="${T('Picture of {name}', { name: it.name })}">` : `<span class="noimg">${T('Not rendered yet')}</span>`}
+  return `${shotsHTML(it)}<div class="stage ${S.m.side === 'B' && V.length > 1 ? 'is-b' : ''}">${thumbOf(it) ? `<img src="${thumbOf(it)}" alt="${T('Picture of {name}', { name: it.name })}">` : `<span class="noimg">${T('Not rendered yet')}</span>`}
       <span class="hud">${V.length > 1 ? `<b class="ab">${S.m.side}</b> ` : ''}${shotOf(it) ? shotOf(it) + ' · ' : ''}${v ? esc(v.folder) + ' · f <span data-f>' + fNo(S.frame) + '</span>' : T('Not rendered yet')}</span>
       <button class="btn sm w-ov" data-wide title="${T('Watch large: the video, the departments and the notes at their frames (W)')}">${ic('b-window')}${T('Watch large')}</button></div>
     <div class="scrub ${rendered(it) ? '' : 'off'}" data-scrub role="slider" tabindex="0" aria-label="${T('Frame')}" aria-valuemin="1" aria-valuemax="${NF}" aria-valuenow="${S.frame}">${mk}<span class="ph" style="left:${((S.frame - 1) / (NF - 1)) * 100}%"></span></div>

@@ -555,7 +555,7 @@ svg.g {
 .nt .btn.flat:hover {
   background: var(--line-2);
 }
-.chkbar .ck1 .btn.flat[aria-pressed="true"] {
+.chkbar .btn.flat[aria-pressed="true"] {
   color: var(--text);
   border-color: transparent;
   background: var(--line-2);
@@ -3023,6 +3023,36 @@ button.assign:hover {
 }
 .strip .thumb {
   width: 100%;
+}
+/* A block of shots: its thumbnails framed together, under its name. */
+.strip .blk {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding: var(--sp-1) var(--sp-2) 0;
+  border-radius: var(--r-l);
+  background: var(--box);
+}
+.strip .blk .bn {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 0 var(--sp-2);
+  font: 10.5px var(--mono);
+  color: var(--text-2);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.strip .blk .bs {
+  display: flex;
+  gap: var(--sp-1);
+}
+.strip .blk button {
+  width: calc(64px * var(--scale));
+}
+.strip .blk button:hover {
+  background: var(--box-2);
 }
 .strip .fn {
   display: flex;
@@ -8434,7 +8464,8 @@ MPI18n.add('fr',{
 "Online access is off in Blender (Preferences › System › Allow Online Access): this page stays on this machine. Turn it on to share it with a phone -- the accesses below come back with it.":"L'accès en ligne est désactivé dans Blender (Préférences › Système › Allow Online Access) : cette page reste sur cette machine. Activez-le pour la partager avec un téléphone -- les accès ci-dessous reviennent avec lui.",
 "online access is off in Blender's Preferences (System): the page stays on this machine":"l'accès en ligne est désactivé dans les Préférences de Blender (Système) : la page reste sur cette machine",
 'render to check':'rendu à vérifier',
-'the dot green: not seen by the team yet':'le point vert : pas encore vu par l\'équipe'
+'the dot green: not seen by the team yet':'le point vert : pas encore vu par l\'équipe',
+'Whole':'Entier'
 });
 // The page's language, once every dictionary is in (i18n/*.js): the one
 // chosen in this browser (View > Language), else Blender's (meta.lang,
@@ -11209,6 +11240,12 @@ const shotOf = it => {
   const has = s => it.versions.some(v => (v.shot || '') === s);
   return has('') || !it.versions.length ? '' : ((it.shots || []).find(has) ?? (it.versions[0].shot || ''));
 };
+/* The picture on the stage: the shot watched's own thumbnail, a block's; else the file's. */
+const thumbOf = it => {
+  const c = shotOf(it),
+    own = c && (it.shot_thumbs || []).find(([l]) => l === c);
+  return (own && img(own[1])) || it.thumb;
+};
 const versOf = it => {
   const c = shotOf(it);
   return it.versions.filter(v => (v.shot || '') === c);
@@ -11240,15 +11277,16 @@ function checkHTML(it) {
   const l = checksOf(it),
     btn = key =>
       `<button class="btn sm primary" data-checked="${esc(key)}" title="${T('Watched: out of "to check", its departments done or validated')}">${ic('b-checkmark')}${T('Checked…')}</button>`;
-  if (l.length < 2)
-    return `<div class="chkbar">${ic('b-hide_off')}<span class="t"><b>${T('Render to check')}</b><small>${l.length ? esc(checkLabel(l[0])) : T('Rendered, not checked by the team yet')}</small></span>${btn(l.length ? l[0].key : '')}</div>`;
-  // Several renders: each row puts its own version in the player.
+  // Watch puts that render's shot and version in the player: each row's, several renders; the
+  // only one's too, when there's something else to watch -- a block's other shots, other versions.
   const V = versOf(it),
     on = V[mVer(it).i],
     watch = c => {
       const is = on && (c.shot || '') === shotOf(it) && on.folder === c.folder;
       return `<button class="btn sm flat" data-ckwatch="${esc(c.key)}" aria-pressed="${!!is}" title="${T('Watch this version')}">${ic('b-play')}${T('Watch')}</button>`;
     };
+  if (l.length < 2)
+    return `<div class="chkbar">${ic('b-hide_off')}<span class="t"><b>${T('Render to check')}</b><small>${l.length ? esc(checkLabel(l[0])) : T('Rendered, not checked by the team yet')}</small></span>${l.length && ((it.shots || []).length > 1 || V.length > 1) ? watch(l[0]) : ''}${btn(l.length ? l[0].key : '')}</div>`;
   return `<div class="chkbar">${ic('b-hide_off')}<span class="t"><b>${T('{n} renders to check', { n: l.length })}</b></span>${l.map(c => `<div class="ck1"><span>${esc(checkLabel(c))}</span>${watch(c)}${btn(c.key)}</div>`).join('')}</div>`;
 }
 function stageHTML(it) {
@@ -11263,7 +11301,7 @@ function stageHTML(it) {
       );
     })
     .join('');
-  return `${shotsHTML(it)}<div class="stage ${S.m.side === 'B' && V.length > 1 ? 'is-b' : ''}">${it.thumb ? `<img src="${it.thumb}" alt="${T('Picture of {name}', { name: it.name })}">` : `<span class="noimg">${T('Not rendered yet')}</span>`}
+  return `${shotsHTML(it)}<div class="stage ${S.m.side === 'B' && V.length > 1 ? 'is-b' : ''}">${thumbOf(it) ? `<img src="${thumbOf(it)}" alt="${T('Picture of {name}', { name: it.name })}">` : `<span class="noimg">${T('Not rendered yet')}</span>`}
       <span class="hud">${V.length > 1 ? `<b class="ab">${S.m.side}</b> ` : ''}${shotOf(it) ? shotOf(it) + ' · ' : ''}${v ? esc(v.folder) + ' · f <span data-f>' + fNo(S.frame) + '</span>' : T('Not rendered yet')}</span>
       <button class="btn sm w-ov" data-wide title="${T('Watch large: the video, the departments and the notes at their frames (W)')}">${ic('b-window')}${T('Watch large')}</button></div>
     <div class="scrub ${rendered(it) ? '' : 'off'}" data-scrub role="slider" tabindex="0" aria-label="${T('Frame')}" aria-valuemin="1" aria-valuemax="${NF}" aria-valuenow="${S.frame}">${mk}<span class="ph" style="left:${((S.frame - 1) / (NF - 1)) * 100}%"></span></div>
@@ -12575,6 +12613,25 @@ document.addEventListener('pointerover', e => {
   }
 });
 /* ---------- Watch large ---------- */
+/* The strip's thumbnails: a file each; a block of shots, one per shot, framed together -- a
+   click watches that shot (its own thumbnail when it has one), the block's whole renders first
+   when it has any. */
+const filmHTML = it => i => {
+  const nm = i.kind === 'shot' ? i.name.replace(i.group + '_', '') : i.name,
+    dot = `<span class="dt" style="background:${DOT[worst(i)]}"></span>`,
+    th = src => `<span class="thumb">${src ? `<img src="${src}" alt="">` : ''}</span>`;
+  if (!(i.shots && i.shots.length > 1))
+    return `<button class="${i.name === it.name ? 'cur' : ''}" data-film="${i.name}" title="${i.name}">${th(i.thumb)}<span class="fn">${dot}${mq(nm)}</span></button>`;
+  const own = new Map((i.shot_thumbs || []).map(([l, id]) => [l, img(id)])),
+    on = i.name === it.name ? shotOf(it) : null,
+    whole = i.versions.some(v => !v.shot) ? [''] : [];
+  return `<span class="blk" title="${i.name}"><span class="bn">${dot}${mq(nm)}</span><span class="bs">${[...whole, ...i.shots]
+    .map(
+      s =>
+        `<button class="${on === s ? 'cur' : ''}" data-film="${i.name}" data-fshot="${s}" title="${s ? i.name + ' · ' + s : T('Whole block')}">${th((s && own.get(s)) || i.thumb)}<span class="fn">${s ? mq(s) : T('Whole')}</span></button>`
+    )
+    .join('')}</span></span>`;
+};
 function renderWide() {
   const W = $('#wide');
   if (!S.wide) {
@@ -12671,7 +12728,7 @@ function renderWide() {
       <button class="btn icon" data-act="player" aria-label="${T("This machine's player")}" title="${T("Open the original video in this machine's player")}">${ic('b-file_movie')}</button>
       <button class="btn icon" data-full aria-pressed="${!!S.wfull}" aria-label="${T('Full screen')}" title="${S.wfull ? T('Leave full screen (Esc)') : T('Full screen: the video alone')}">${ic(S.wfull ? 'b-fullscreen_exit' : 'b-fullscreen_enter')}</button></div>
     <div class="w-body"><div class="w-main">
-      <div class="w-stage ${S.m.side === 'B' && V.length > 1 ? 'is-b' : ''}">${it.thumb ? `<img src="${it.thumb}" alt="${T('Picture of {name}', { name: it.name })}">` : `<span class="noimg">${T('Not rendered yet')}</span>`}<span class="hud">${V.length > 1 ? `<b class="ab">${S.m.side}</b> ` : ''}${v ? esc(v.folder) + ' · ' : ''}f <span data-f>${fNo(S.frame)}</span></span></div>
+      <div class="w-stage ${S.m.side === 'B' && V.length > 1 ? 'is-b' : ''}">${thumbOf(it) ? `<img src="${thumbOf(it)}" alt="${T('Picture of {name}', { name: it.name })}">` : `<span class="noimg">${T('Not rendered yet')}</span>`}<span class="hud">${V.length > 1 ? `<b class="ab">${S.m.side}</b> ` : ''}${v ? esc(v.folder) + ' · ' : ''}f <span data-f>${fNo(S.frame)}</span></span></div>
       <div class="w-tl"><div class="scrub big ${rendered(it) ? '' : 'off'}" data-scrub role="slider" tabindex="0" aria-label="Frame" aria-valuemin="1" aria-valuemax="${NF}" aria-valuenow="${S.frame}">${mkH}${rng}<span class="ph" style="left:${((S.frame - 1) / (NF - 1)) * 100}%"></span></div>
         <div class="ruler"><span>f1</span><span>f${Math.round(NF / 4)}</span><span>f${Math.round(NF / 2)}</span><span>f${Math.round((NF * 3) / 4)}</span><span>f${NF}</span></div></div>
       <div class="w-tp"><span class="join"><button class="btn icon" data-tp="sprev" aria-label="${T('Previous shot')}" title="${it.kind === 'shot' ? T('Previous shot') : T('Previous file')}" ${stepOff(-1)}>${ic('b-back')}</button>
@@ -12681,7 +12738,7 @@ function renderWide() {
         <button class="btn icon" data-tp="snext" aria-label="${T('Next shot')}" title="${it.kind === 'shot' ? T('Next shot') : T('Next file')}" ${stepOff(1)}>${ic('b-forward')}</button></span>
         <button class="btn icon" data-tp="snd" aria-label="${T('Sound')}" title="${T('Sound (M)')}" aria-pressed="${!S.muted}">${ic(S.muted ? 'b-mute_ipo_off' : 'b-mute_ipo_on')}</button>
         <span class="bigf">f <span data-f>${fNo(S.frame)}</span></span>${verHTML(it, 'w')}${abHTML(it, 'w').replace('ctl abrow', 'abrow')}<span class="sp"></span>
-        <div class="strip"><span class="faint">${g}</span>${sib.map(i => `<button class="${i.name === it.name ? 'cur' : ''}" data-film="${i.name}" title="${i.name}"><span class="thumb">${i.thumb ? `<img src="${i.thumb}" alt="">` : ''}</span><span class="fn"><span class="dt" style="background:${DOT[worst(i)]}"></span>${mq(i.kind === 'shot' ? i.name.replace(i.group + '_', '') : i.name)}</span></button>`).join('')}</div></div>
+        <div class="strip"><span class="faint">${g}</span>${sib.map(filmHTML(it)).join('')}</div></div>
     </div>
     <div class="w-pan"><button class="pz-tab r w-tab" data-wside aria-expanded="${!!S.wside}" aria-label="${S.wside ? T('Fold the panel') : T('Show the panel')}" title="${S.wside ? T('Fold the panel') : T('Show the panel')}">${ic(S.wside ? 'b-tria_right' : 'b-tria_left')}</button>
     <div class="w-side">${checkHTML(it)}<div class="sec"><div class="sec-h">${T('Departments')}<span class="sp"></span>${rv && rv.role !== TEAM ? `<button class="btn sm ok" data-valall title="${T('Validate every done department (V)')}">${ic('b-checkmark')}${T('All the done')}</button>` : ''}</div>${req.map(dRow).join('') || '<span class="faint">' + T('No department required.') + '</span>'}</div>
@@ -12927,6 +12984,8 @@ function keepHover() {
 function closeMenus() {
   document.querySelectorAll('.menu').forEach(m => (m.hidden = true));
   document.querySelectorAll('[data-menu]').forEach(b => b.setAttribute('aria-expanded', 'false'));
+  // Live data held while a menu was open: now.
+  if (typeof pendData !== 'undefined' && pendData) setTimeout(() => pendData && applyData(pendData), 0);
 }
 
 /* A sequence's header stuck at the list's top: square (.stuck), a band across -- its block
@@ -14902,11 +14961,15 @@ function newsOf(before, after) {
     });
   });
 }
-/* New data from Blender: the views drawn again, the selection and the review kept. A field being typed in: once left. */
+/* New data from Blender: the views drawn again, the selection and the review kept. A field being
+   typed in, a menu open (assign, sort…): once left, closed -- redrawn, it went away under the mouse. */
 let pendData = null;
 function applyData(nd) {
   const a = document.activeElement;
-  if (a && a.matches && a.matches('textarea,input:not([type=checkbox]):not([type=radio])')) {
+  if (
+    (a && a.matches && a.matches('textarea,input:not([type=checkbox]):not([type=radio])')) ||
+    document.querySelector('.menu:not([hidden])')
+  ) {
     pendData = nd;
     return;
   }

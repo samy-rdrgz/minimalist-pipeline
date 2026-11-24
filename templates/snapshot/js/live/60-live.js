@@ -294,11 +294,15 @@ function newsOf(before, after) {
     });
   });
 }
-/* New data from Blender: the views drawn again, the selection and the review kept. A field being typed in: once left. */
+/* New data from Blender: the views drawn again, the selection and the review kept. A field being
+   typed in, a menu open (assign, sort…): once left, closed -- redrawn, it went away under the mouse. */
 let pendData = null;
 function applyData(nd) {
   const a = document.activeElement;
-  if (a && a.matches && a.matches('textarea,input:not([type=checkbox]):not([type=radio])')) {
+  if (
+    (a && a.matches && a.matches('textarea,input:not([type=checkbox]):not([type=radio])')) ||
+    document.querySelector('.menu:not([hidden])')
+  ) {
     pendData = nd;
     return;
   }
