@@ -2721,16 +2721,18 @@ button.assign:hover {
   vertical-align: middle;
 }
 .jst svg.i {
-  width: 12px;
-  height: 12px;
+  /* In proportion to its dot (14 to 20 px, the outliner's 16): the same look at every size. */
+  width: 60%;
+  height: 60%;
   fill: var(--on-st);
   color: var(--on-st);
 }
-/* The play triangle: smaller, and pushed right to its optical centre. */
+/* The play triangle: smaller, and pushed right by the gap between its box's centre and its own
+   (a third of the way from its flat side). */
 .jst.running svg.i {
-  width: 9px;
-  height: 9px;
-  transform: translateX(1px);
+  width: 46%;
+  height: 46%;
+  transform: translateX(12%);
 }
 @container main (max-width:640px) {
   .job {
