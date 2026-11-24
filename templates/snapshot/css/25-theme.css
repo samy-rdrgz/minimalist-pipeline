@@ -264,7 +264,7 @@
   content: "";
   width: calc(6px * var(--scale));
   height: calc(6px * var(--scale));
-  border-radius: 1px;
+  border-radius: 15%; /* the page's diamonds: corners at 15 % of a side */
   transform: rotate(45deg);
   flex: none;
   background: var(--st-rtk);
@@ -300,7 +300,7 @@
 
 /* A quick filter on (the bright blue): its glyph's diamond white, its corner ringed in blue --
    a blue diamond on the blue read as nothing. */
-.btn[data-quick][aria-pressed="true"] svg.g > path:first-of-type {
+.btn[data-quick][aria-pressed="true"] svg.g > rect:first-of-type {
   fill: var(--on-brand) !important;
 }
 .btn[data-quick][aria-pressed="true"] svg.g circle {

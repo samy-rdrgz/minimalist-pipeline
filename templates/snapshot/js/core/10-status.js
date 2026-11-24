@@ -13,7 +13,7 @@ function glyph(base, corner, cnt, note, rdot) {
   if (base === 'na')
     return `<svg class="g" viewBox="0 0 22 22" aria-hidden="true"><path d="M6 12h8" style="stroke:var(--line-3)" stroke-width="2" stroke-linecap="round"/></svg>`;
   const [c, inner] = BASE[base];
-  let s = `<svg class="g" viewBox="0 0 22 22" aria-hidden="true"><path d="M10 4.5 17.5 12 10 19.5 2.5 12z" style="fill:var(${c})"/>`;
+  let s = `<svg class="g" viewBox="0 0 22 22" aria-hidden="true"><rect x="4.7" y="6.7" width="10.6" height="10.6" rx="1.6" transform="rotate(45 10 12)" style="fill:var(${c})"/>`;
   if (inner === 'dots')
     s += `<g style="fill:var(--on-st)"><circle cx="7" cy="12" r="1.15"/><circle cx="10" cy="12" r="1.15"/><circle cx="13" cy="12" r="1.15"/></g>`;
   /* Reworked since its stable: the done diamond, an arrow back in it (to redo, an earlier stage changed: the orange corner). */

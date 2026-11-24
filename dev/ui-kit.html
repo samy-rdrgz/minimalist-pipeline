@@ -499,7 +499,7 @@ svg.g {
   width: calc(6px * var(--scale));
   height: calc(6px * var(--scale));
   margin: 0 var(--sp-1);
-  border-radius: 1px;
+  border-radius: 15%; /* the page's diamonds: corners at 15 % of a side */
   background: var(--c);
   transform: rotate(45deg);
   flex: none;
@@ -1824,6 +1824,7 @@ body.out-open .scrim {
   margin: calc(-1 * var(--sp-2)) 0 0 calc(-1 * var(--sp-2));
   background: var(--st-rtk);
   transform: rotate(45deg);
+  border-radius: 15%; /* the page's diamonds: corners at 15 % of a side */
   border: 0;
   padding: 0;
   cursor: pointer;
@@ -4582,7 +4583,7 @@ html.kb .m-nav {
 .act .ot-tip i.dm {
   width: 7px;
   height: 7px;
-  border-radius: 1px;
+  border-radius: 15%; /* the page's diamonds: corners at 15 % of a side */
   transform: rotate(45deg);
   margin: 0 var(--sp-4) 0 var(--sp-6);
 }
@@ -4689,7 +4690,7 @@ html.kb .m-nav {
   height: 12px;
   margin-top: 6px;
   transform: rotate(45deg);
-  border-radius: 2px;
+  border-radius: 15%; /* the page's diamonds: corners at 15 % of a side */
   background: var(--st-todo);
   position: relative;
   z-index: 1;
@@ -4895,7 +4896,7 @@ html.kb .m-nav {
   width: 7px;
   height: 7px;
   margin: 0 var(--sp-3) 1px 1px;
-  border-radius: 1px;
+  border-radius: 15%; /* the page's diamonds: corners at 15 % of a side */
   transform: rotate(45deg);
   vertical-align: middle;
 }
@@ -5517,7 +5518,7 @@ body.pz-dragging * {
   content: "";
   width: calc(6px * var(--scale));
   height: calc(6px * var(--scale));
-  border-radius: 1px;
+  border-radius: 15%; /* the page's diamonds: corners at 15 % of a side */
   transform: rotate(45deg);
   flex: none;
   background: var(--st-rtk);
@@ -5553,7 +5554,7 @@ body.pz-dragging * {
 
 /* A quick filter on (the bright blue): its glyph's diamond white, its corner ringed in blue --
    a blue diamond on the blue read as nothing. */
-.btn[data-quick][aria-pressed="true"] svg.g > path:first-of-type {
+.btn[data-quick][aria-pressed="true"] svg.g > rect:first-of-type {
   fill: var(--on-brand) !important;
 }
 .btn[data-quick][aria-pressed="true"] svg.g circle {
@@ -8579,7 +8580,7 @@ function glyph(base, corner, cnt, note, rdot) {
   if (base === 'na')
     return `<svg class="g" viewBox="0 0 22 22" aria-hidden="true"><path d="M6 12h8" style="stroke:var(--line-3)" stroke-width="2" stroke-linecap="round"/></svg>`;
   const [c, inner] = BASE[base];
-  let s = `<svg class="g" viewBox="0 0 22 22" aria-hidden="true"><path d="M10 4.5 17.5 12 10 19.5 2.5 12z" style="fill:var(${c})"/>`;
+  let s = `<svg class="g" viewBox="0 0 22 22" aria-hidden="true"><rect x="4.7" y="6.7" width="10.6" height="10.6" rx="1.6" transform="rotate(45 10 12)" style="fill:var(${c})"/>`;
   if (inner === 'dots')
     s += `<g style="fill:var(--on-st)"><circle cx="7" cy="12" r="1.15"/><circle cx="10" cy="12" r="1.15"/><circle cx="13" cy="12" r="1.15"/></g>`;
   /* Reworked since its stable: the done diamond, an arrow back in it (to redo, an earlier stage changed: the orange corner). */
