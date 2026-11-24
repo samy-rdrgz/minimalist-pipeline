@@ -11,7 +11,9 @@ All notable changes to this addon. Dates are release dates.
   in retake (done with an open retake, one or ten), in progress (reworked
   too: being fixed), to do (not started, retake or not) -- its figure the
   Done the list shows, its tooltip the counts. Their colours in the
-  filters' place.
+  filters' place. A second view, Renders: each department's own latest
+  render -- to check, up to date, older than its latest session, never
+  rendered -- its figure the share up to date.
 
 - Live page, Farm tab: a job's detail says its format, under its frames --
   its images' format and the fps its video compiles at (the scene's, read

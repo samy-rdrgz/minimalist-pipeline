@@ -218,6 +218,13 @@ function v6Click(t) {
     renderAll();
     return true;
   }
+  const sv = t.closest('[data-sview]');
+  if (sv) {
+    S.sview = sv.dataset.sview;
+    renderQuick();
+    renderList();
+    return;
+  }
   if (t.closest('[data-weights]')) {
     S.weights = !S.weights;
     renderQuick();

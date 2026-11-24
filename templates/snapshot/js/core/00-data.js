@@ -213,6 +213,7 @@ const S = {
   notifSys: false,
   editDesc: false,
   weights: false,
+  sview: 'prog', // Breakdown: Progress or Renders
   scaleV: 1,
   bulk: null,
   ff: { s: '', mine: false, q: '' },

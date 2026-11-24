@@ -27,7 +27,14 @@ function renderQuick() {
   $('#quick').classList.toggle('folded', S.ws !== 'synth' && S.qFold !== false);
   $('#quick').innerHTML =
     S.ws === 'synth'
-      ? `<span class="slg">${SPARTS.map(([k, , l]) => `<span><i style="background:var(--st-${k})"></i>${T(l)}</span>`).join('')}<span><i class="todo"></i>${T('To do')}</span></span><span class="faint sx-hint" title="${T('Click a sequence: its files, in the list.')}">${T('Click a sequence: its files, in the list.')}</span><button class="btn tool" data-weights aria-expanded="${S.weights}">${ic('b-info')}${T("How it's counted")}</button><button class="btn tool" data-export title="${T('Sequences, shots, assets, retakes, to validate: a spreadsheet (.xlsx)')}">${ic('b-export')}${T('Export…')}</button>`
+      ? `<span class="join">${[
+          ['prog', T('Progress')],
+          ['render', T('Renders')]
+        ]
+          .map(([k, l]) => `<button class="btn" data-sview="${k}" aria-pressed="${S.sview === k}">${l}</button>`)
+          .join('')}</span><span class="slg">${sParts()
+          .map(([k, c, l]) => `<span><i style="background:${c}"></i>${T(l)}</span>`)
+          .join('')}<span><i class="todo"></i>${T(S.sview === 'render' ? 'Not rendered' : 'To do')}</span></span><span class="sp"></span><button class="btn tool" data-weights aria-expanded="${S.weights}">${ic('b-info')}${T("How it's counted")}</button><button class="btn tool" data-export title="${T('Sequences, shots, assets, retakes, to validate: a spreadsheet (.xlsx)')}">${ic('b-export')}${T('Export…')}</button>`
       : `<button class="btn qfold only-phone" data-qfold aria-expanded="${S.qFold === false}">${ic('b-filter')}${T('Filters')}${on ? ` <span class="n">${on}</span>` : ''}${ic(S.qFold === false ? 'b-downarrow_hlt' : 'b-rightarrow')}</button><span class="join">${q.map(([k, l, n, g]) => `<button class="btn" data-quick="${k}" aria-pressed="${S.quick === k}">${g.replace('class="g"', 'class="g" style="width:18px;height:18px"')}<span>${l}</span><span class="n">${n}</span></button>`).join('')}</span>
     <span class="anchor"><button class="btn ${nm ? '' : 'tool'}" data-menu="m-more" aria-haspopup="true" aria-expanded="false" ${nm ? 'aria-pressed="true"' : ''}>${ic('b-filter')}${T('Filters')}${nm ? ` <span class="n">${nm}</span>` : ''}${ic('b-downarrow_hlt')}</button>
     <div class="menu" id="m-more" hidden role="menu">
@@ -191,7 +198,8 @@ function synthCell(its, d) {
     rtk = 0,
     done = 0,
     nd = 0;
-  const parts = { val: 0, done: 0, rtk: 0, wip: 0, todo: 0 };
+  const parts = { val: 0, done: 0, rtk: 0, wip: 0, todo: 0 },
+    rparts = { chk: 0, fresh: 0, old: 0, todo: 0 };
   r.forEach(i => {
     const f = d ? deptScore(i, d) : i.done;
     if (f != null) {
@@ -203,19 +211,34 @@ function synthCell(its, d) {
       if (i.ok[x] || i.mine[x] === 'val') val++;
       rtk += rtkNotes(i, x).length;
       parts[partOf(i, x)]++;
+      rparts[renderOf(i, x)]++;
     });
   });
-  return n ? { done: nd ? done / nd : 0, val: val / n, rtk, n: r.length, parts, np: n } : null;
+  return n ? { done: nd ? done / nd : 0, val: val / n, rtk, n: r.length, parts, rparts, np: n } : null;
 }
 /* A Breakdown cell's bar: each department of its files in one state, left to right -- validated, done, in
    retake (done with an open retake: one or ten, the same), in progress (reworked too: being fixed, no need
    to say retake), the rest to do (not started, a retake on it or not). */
 const SPARTS = [
-  ['val', 'val', 'Validated', '{n} validated'],
-  ['done', 'done', 'Done', '{n} done'],
-  ['rtk', 'rtk', 'In retake', '{n} in retake'],
-  ['wip', 'wip', 'In progress', '{n} in progress']
+  ['val', 'var(--st-val)', 'Validated', '{n} validated'],
+  ['done', 'var(--st-done)', 'Done', '{n} done'],
+  ['rtk', 'var(--st-rtk)', 'In retake', '{n} in retake'],
+  ['wip', 'var(--st-wip)', 'In progress', '{n} in progress']
 ];
+/* Renders: each department's own latest render, as its diamond's dot says it (info(): it.rf, it.rc) -- to
+   check (green), up to date (rendered after its latest session), older than its latest session (faint), the
+   rest never rendered. */
+const RPARTS = [
+  ['chk', 'var(--st-you)', 'To check', '{n} to check'],
+  ['fresh', 'var(--text-2)', 'Up to date', '{n} up to date'],
+  ['old', 'color-mix(in srgb, var(--text-2) 35%, transparent)', 'Outdated', '{n} outdated']
+];
+const sParts = () => (S.sview === 'render' ? RPARTS : SPARTS);
+function renderOf(i, x) {
+  if ((i.rc || []).includes(x)) return 'chk';
+  const rf = (i.rf || {})[x];
+  return rf ? (rf[0] ? 'fresh' : 'old') : 'todo';
+}
 function partOf(i, x) {
   const st = stOf(i, x);
   if (st === 'wip' || st === 'rework') return 'wip';
@@ -225,19 +248,24 @@ function partOf(i, x) {
 }
 function renderSynth() {
   const L = $('#list');
-  // Its departments' states, stacked (SPARTS); its figure, Done as the list counts it.
+  // Progress: its departments' states, stacked (SPARTS), its figure Done as the list counts it. Renders: their
+  // renders (RPARTS), its figure the share up to date (to check too).
+  const rv = S.sview === 'render',
+    P = sParts();
   const field = c => {
     if (!c) return '<span class="sf na">–</span>';
+    const q = rv ? c.rparts : c.parts;
     let at = 0;
-    const stops = SPARTS.flatMap(([k, v]) => {
+    const stops = P.flatMap(([k, col]) => {
       const a = at;
-      at += (c.parts[k] / c.np) * 100;
-      return c.parts[k] ? [`var(--st-${v}) ${a}% ${at}%`] : [];
+      at += (q[k] / c.np) * 100;
+      return q[k] ? [`${col} ${a}% ${at}%`] : [];
     });
-    const tip = [...SPARTS.map(([k, , , t]) => c.parts[k] && T(t, { n: c.parts[k] })), c.parts.todo && T('{n} to do', { n: c.parts.todo })]
+    const f = rv ? (q.chk + q.fresh) / c.np : c.done;
+    const tip = [...P.map(([k, , , t]) => q[k] && T(t, { n: q[k] })), q.todo && T(rv ? '{n} not rendered' : '{n} to do', { n: q.todo })]
       .filter(Boolean)
       .join(' · ');
-    return `<span class="sf" style="--p:${at}%;--c:${stops.length ? `linear-gradient(90deg,${stops.join(',')})` : 'none'}" title="${T('Done {pct}', { pct: pct(c.done) })} · ${tip}"><b class="v">${Math.round(c.done * 100)} %</b></span>`;
+    return `<span class="sf" style="--p:${at}%;--c:${stops.length ? `linear-gradient(90deg,${stops.join(',')})` : 'none'}" title="${T(rv ? 'Rendered up to date {pct}' : 'Done {pct}', { pct: pct(f) })} · ${tip}"><b class="v">${Math.round(f * 100)} %</b></span>`;
   };
   const table = (kind, title) => {
     const dl = DEPTS[kind],

@@ -3077,6 +3077,10 @@ button.assign:hover {
 }
 
 /* Breakdown: what a cell's bar says, its colours (in the filters' place). */
+#quick > .join:has([data-sview]),
+.slg {
+  flex: none; /* the hint gives way, not these */
+}
 .slg {
   display: flex;
   align-items: center;
@@ -3097,12 +3101,8 @@ button.assign:hover {
   background: var(--field);
   box-shadow: inset 0 0 0 1px var(--line);
 }
-.sx-hint {
-  flex: 1 1 0;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+#quick > .sp {
+  flex: 1;
 }
 
 .stab {

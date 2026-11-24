@@ -233,7 +233,6 @@ MPI18n.add('fr',{
 'Clear the filters':'Effacer les filtres',
 'Clear the review…':'Effacer la revue…',
 'Clear the whole review in progress? A file already downloaded keeps what it holds.':'Effacer toute la revue en cours ? Un fichier déjà téléchargé garde ce qu\'il contient.',
-'Click a sequence: its files, in the list.':'Clic sur une séquence : ses fichiers, dans la liste.',
 'Close (Esc)':'Fermer (Échap)',
 'Close':'Fermer',
 'close':'fermer',
@@ -947,5 +946,13 @@ MPI18n.add('fr',{
 '{n} in progress':'{n} en cours',
 '{n} to do':'{n} à faire',
 'Done {pct}':'Fini {pct}',
-'The bar: each department in one state -- validated, done, in retake (done with an open retake, one or ten), in progress (reworked too), to do (not started, a retake on it or not).':'La barre : chaque département dans un seul état -- validé, fini, en retake (fini avec une retake ouverte, une ou dix), en cours (retravaillé compris), à faire (pas commencé, avec ou sans retake).'
+'The bar: each department in one state -- validated, done, in retake (done with an open retake, one or ten), in progress (reworked too), to do (not started, a retake on it or not).':'La barre : chaque département dans un seul état -- validé, fini, en retake (fini avec une retake ouverte, une ou dix), en cours (retravaillé compris), à faire (pas commencé, avec ou sans retake).',
+'Up to date':'À jour',
+'Outdated':'Périmé',
+'Not rendered':'Pas rendu',
+'{n} to check':'{n} à vérifier',
+'{n} up to date':'{n} à jour',
+'{n} outdated':'{n} périmé|{n} périmés',
+'{n} not rendered':'{n} pas rendu|{n} pas rendus',
+'Rendered up to date {pct}':'Rendu à jour {pct}'
 });
