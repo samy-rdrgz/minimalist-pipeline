@@ -573,6 +573,12 @@ All notable changes to this addon. Dates are release dates.
 
 ### Fixed
 
+- Live page: Blender's viewport lagged while a page was open. Twice a
+  second, the page's data read this Blender's farm roles and the Render
+  form's presets from the shared folder on Blender's main thread: on a slow
+  share, up to 0.6 s frozen. Now kept 5 to 10 s, read again at once after a
+  farm action from the page.
+
 - Live page: the folded panels' side tabs sit under the list's sequence
   header, not over it; Watch large's full-screen header tab hangs from the
   header (or the screen's top edge), not from the video's area; a button

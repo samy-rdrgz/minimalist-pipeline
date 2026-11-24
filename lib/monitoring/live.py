@@ -126,6 +126,24 @@ def _gzip(body: bytes) -> bytes:
     return out
 
 
+# What the page's data asks of the shared folder on the main thread, kept a few seconds: this
+# Blender's farm roles (monitor.lock, its worker file) and the Render form's presets (their
+# folder listed). Read at each rebuild -- twice a second while a page is open --, a slow share
+# held Blender's interface up to half a second (tools: the live page's profile). Cleared by the
+# page's farm actions: their change shown at once.
+_SLOW: dict = {}
+SLOW_TTL = {"monitor": 5.0, "worker": 5.0, "presets": 10.0}
+
+
+def _slow(key: str, fn):
+    """fn()'s answer, read again only every SLOW_TTL[key] seconds."""
+    hit = _SLOW.get(key)
+    clock = time.monotonic()
+    if hit is None or clock - hit[0] > SLOW_TTL[key]:
+        hit = _SLOW[key] = (clock, fn())
+    return hit[1]
+
+
 def _guests_file() -> Path | None:
     return _config_dir / "minimalist_pipeline_live_guests.json" if _config_dir else None
 
@@ -618,6 +636,7 @@ def _turn(sh: _Shared) -> None:
                 if pending.kind == "farm":
                     from ...farm.loop import refresh_step
 
+                    _SLOW.clear()  # a role or the farm changed: read again now
                     refresh_step(soon=True)  # the farm read again now: its change shown
                 continue
             pending.result = _apply(sh.root, pending.review)
@@ -1027,7 +1046,8 @@ def _farm_data(root: Path) -> dict:
     "elapsed", "per_machine" (_per_machine()), "machines", "user", "at"}],
     "workers":
     [{"name", "status", "file", "mine", "host", "since"}], "me", "presets",
-    "preset"}, from the monitor cache. Memory only."""
+    "preset"}, from the monitor cache -- memory only, but for its roles and
+    presets, read from the share every few seconds (_slow())."""
     from ...farm.details import estimate_label, render_left_parts
     from ...farm.loop import _STAGE_WORDS, entry_state
     from ...farm.monitor import REMOVABLE_STAGES, get_monitor_cache
@@ -1116,9 +1136,9 @@ def _farm_data(root: Path) -> dict:
     me = {
         # Its machine id: its own card among the Farm tab's Machines.
         "uuid": mine,
-        "worker": is_blender_worker(),
+        "worker": _slow("worker", is_blender_worker),
         "rendering": worker_rendering(),
-        "host": is_blender_monitor(),
+        "host": _slow("monitor", is_blender_monitor),
         "host_name": " ".join(x for x in (cache.get("lock_user") or "", f"({cache.get('lock_machine')})" if cache.get("lock_machine") else "") if x),
         "host_now": _host_now(jobs, workers),
     }
@@ -1130,7 +1150,7 @@ def _farm_data(root: Path) -> dict:
         # The machine time the jobs still need, over the live workers.
         # Said by the page, in its language: {"seconds", "workers", "unknown"}.
         "left": render_left_parts([j for j in cache.get("jobs") or [] if entry_state(j) != "finished"], cache),
-        **_presets(),
+        **_slow("presets", _presets),
     }
 
 
