@@ -1027,6 +1027,9 @@ def _build_job_entry(
         "prerender_script": job.get("prerender_script", ""),
         "department": job.get("department", ""),
         "frame_range": job.get("resolved_frame_range"),
+        # Its images' format and the fps its video compiles at (farm/setup.py), once set up.
+        "output_extension": job.get("output_extension", ""),
+        "fps": job.get("fps"),
         # Render here (farm/local.py): its machine's id; drawn by its 3D view.
         "local": job.get("local", ""),
         "viewport": bool(job.get("viewport")),

@@ -145,7 +145,7 @@ function renderFarmDetail(H, B) {
   H.innerHTML = `<span class="phead"><span class="pname">${esc(j.file)}</span><span class="d">${x[1]} · ${esc(TS(j.text))}</span></span>`;
   B.innerHTML = `<div class="sec">${j.total ? `<span class="jbar big"><i style="--p:${(j.done / j.total) * 100}%"></i><span>${j.done} / ${j.total} frames</span></span>` : ''}
     <dl class="dl"><dt>${T('State')}</dt><dd>${jst(j.state)} ${esc(TS(j.text))}</dd><dt>${T('Step')}</dt><dd class="mono">${esc(j.stage)}</dd>${j.preset || j.department ? `<dt>${T('Script')}</dt><dd>${esc([j.preset, j.department].filter(Boolean).join(' · '))}</dd>` : ''}
-    <dt>${T('Frames')}</dt><dd>${j.range ? j.range.join(' – ') : '–'}${j.shot ? ' · ' + esc(j.shot) : ''}</dd>${jobTimes(j)}<dt>${T('Machines')}</dt><dd>${machinesDD(j)}</dd>
+    <dt>${T('Frames')}</dt><dd>${j.range ? j.range.join(' – ') : '–'}${j.shot ? ' · ' + esc(j.shot) : ''}</dd><dt>${T('Format')}</dt><dd>${j.ext || j.fps ? [esc(j.ext), j.fps ? +(+j.fps).toFixed(3) + ' fps' : ''].filter(Boolean).join(' · ') : '–'}</dd>${jobTimes(j)}<dt>${T('Machines')}</dt><dd>${machinesDD(j)}</dd>
     <dt>${T('Sent by')}</dt><dd>${esc(j.user)} · ${fmtD(j.at)}</dd>
     <dt>${T('Priority')}</dt><dd>${live && !j.pending ? `<span class="prio"><button class="btn sm icon" data-prio="-1" aria-label="${T('Lower')}">−</button><b>${j.priority}</b><button class="btn sm icon" data-prio="1" aria-label="${T('Higher')}">+</button><span class="faint">${T('the highest goes first')}</span></span>` : j.priority}</dd>
     <dt>Job</dt><dd class="mono">${esc(j.id)}</dd></dl>

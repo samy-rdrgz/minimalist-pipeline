@@ -6,6 +6,10 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- Live page, Farm tab: a job's detail says its format, under its frames --
+  its images' format and the fps its video compiles at (the scene's, read
+  when the farm sets it up), as Blender's job details do.
+
 - Live page, Farm tab: a job's icon and name centred in its row; with a
   mouse, its step's words open under the name on hover, pushing it up --
   the row keeps its height.

@@ -1147,6 +1147,9 @@ def _farm_data(root: Path) -> dict:
             "preset": j.get("prerender_script") or "",
             "department": j.get("department") or "",
             "range": j.get("frame_range"),
+            # Its images' format, the fps its video compiles at: known once set up.
+            "ext": j.get("output_extension") or "",
+            "fps": j.get("fps"),
             "names": [_machine(cache, u) for u in j.get("machines") or []],
             "pending": stage == "pending",
             # the Farm tab's buttons, where they apply.

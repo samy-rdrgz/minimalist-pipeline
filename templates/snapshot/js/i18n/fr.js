@@ -299,6 +299,7 @@ MPI18n.add('fr',{
 'For':'Pour',
 'Forget the range\'s start':'Oublier le début de la plage',
 'Forget this machine':'Oublier cette machine',
+'Format':'Format',
 'Frame or range':'Frame ou plage',
 'Frame':'Frame',
 'Frames':'Frames',
