@@ -117,15 +117,15 @@ function renderWide() {
       <div class="w-stage ${S.m.side === 'B' && V.length > 1 ? 'is-b' : ''}">${thumbOf(it) ? `<img src="${thumbOf(it)}" alt="${T('Picture of {name}', { name: it.name })}">` : `<span class="noimg">${T('Not rendered yet')}</span>`}<span class="hud">${V.length > 1 ? `<b class="ab">${S.m.side}</b> ` : ''}${v ? esc(v.folder) + ' · ' : ''}f <span data-f>${fNo(S.frame)}</span></span></div>
       <div class="w-tl"><div class="scrub big ${rendered(it) ? '' : 'off'}" data-scrub role="slider" tabindex="0" aria-label="Frame" aria-valuemin="1" aria-valuemax="${NF}" aria-valuenow="${S.frame}">${mkH}${rng}<span class="ph" style="left:${((S.frame - 1) / (NF - 1)) * 100}%"></span></div>
         <div class="ruler"><span>f1</span><span>f${Math.round(NF / 4)}</span><span>f${Math.round(NF / 2)}</span><span>f${Math.round((NF * 3) / 4)}</span><span>f${NF}</span></div></div>
-      <div class="w-tp"><span class="join"><button class="btn icon" data-tp="sprev" aria-label="${T('Previous shot')}" title="${it.kind === 'shot' ? T('Previous shot') : T('Previous file')}" ${stepOff(-1)}>${ic('b-back')}</button>
+      <div class="w-tp"><div class="w-ctl"><div class="w-row"><span class="join"><button class="btn icon" data-tp="sprev" aria-label="${T('Previous shot')}" title="${it.kind === 'shot' ? T('Previous shot') : T('Previous file')}" ${stepOff(-1)}>${ic('b-back')}</button>
         <button class="btn icon" data-tp="fprev" ${pOff(it)} aria-label="${T('Previous frame')}" title="${T('Previous frame (,)')}">${ic('b-frame_prev')}</button>
         <button class="btn icon play" data-tp="play" ${pOff(it)} aria-label="${T('Play')}" title="${T('Play (Space)')}">${ic(S.playing ? 'b-pause' : 'b-play')}</button>
         <button class="btn icon" data-tp="fnext" ${pOff(it)} aria-label="${T('Next frame')}" title="${T('Next frame (.)')}">${ic('b-frame_next')}</button>
         <button class="btn icon" data-tp="snext" aria-label="${T('Next shot')}" title="${it.kind === 'shot' ? T('Next shot') : T('Next file')}" ${stepOff(1)}>${ic('b-forward')}</button></span>
         <button class="btn icon" data-tp="snd" aria-label="${T('Sound')}" title="${T('Sound (M)')}" aria-pressed="${!S.muted}">${ic(S.muted ? 'b-mute_ipo_off' : 'b-mute_ipo_on')}</button>
-        <span class="bigf">f <span data-f>${fNo(S.frame)}</span></span><span class="sp"></span>
-        <div class="strip"><span class="faint">${g}</span>${sib.map(filmHTML(it)).join('')}</div>
+        <span class="bigf">f <span data-f>${fNo(S.frame)}</span></span></div>
         <div class="w-vab">${verHTML(it, 'w')}${abHTML(it, 'w').replace('ctl abrow', 'abrow')}</div></div>
+        <div class="strip"><span class="faint">${g}</span>${sib.map(filmHTML(it)).join('')}</div></div>
     </div>
     <div class="w-pan"><button class="pz-tab r w-tab" data-wside aria-expanded="${!!S.wside}" aria-label="${S.wside ? T('Fold the panel') : T('Show the panel')}" title="${S.wside ? T('Fold the panel') : T('Show the panel')}">${ic(S.wside ? 'b-tria_right' : 'b-tria_left')}</button>
     <div class="w-side">${checkHTML(it)}<div class="sec"><div class="sec-h">${T('Departments')}<span class="sp"></span>${rv && rv.role !== TEAM ? `<button class="btn sm ok" data-valall title="${T('Validate every done department (V)')}">${ic('b-checkmark')}${T('All the done')}</button>` : ''}</div>${req.map(dRow).join('') || '<span class="faint">' + T('No department required.') + '</span>'}</div>

@@ -2933,7 +2933,20 @@ button.assign:hover {
   height: 100%;
   object-fit: contain;
 }
+/* Depth, as the timeline's: a shadow inside its edge, over the video (which hides the dots). */
+.w-stage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 2px 10px rgba(0, 0, 0, 0.5),
+    inset 0 0 0 1px rgba(0, 0, 0, 0.3);
+  pointer-events: none;
+}
 .w-stage .hud {
+  z-index: 2;
   position: absolute;
   left: 12px;
   top: 10px;
@@ -2976,19 +2989,26 @@ button.assign:hover {
   display: flex;
   align-items: center;
   gap: var(--sp-4);
-  flex-wrap: wrap;
   flex: none;
 }
-.w-tp .sp {
-  flex: 1;
+/* Left, two lines: the transport, then the version (A) and the comparison (B); right, the strip
+   across both. */
+.w-ctl {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  flex: none; /* the strip narrows (it scrolls), not these */
 }
-/* The version (A) and the comparison (B): a line of their own under the transport and the strip. */
-.w-vab {
-  flex-basis: 100%;
+.w-row {
   display: flex;
   align-items: center;
   gap: var(--sp-4);
-  flex-wrap: wrap;
+}
+.w-vab {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  flex-wrap: nowrap;
   min-width: 0;
 }
 .bigf {
@@ -3261,6 +3281,9 @@ button.assign:hover {
     flex: none;
     aspect-ratio: var(--ar, 16/9);
     max-height: 70vh;
+  }
+  .w-tp {
+    flex-wrap: wrap;
   }
   .strip {
     max-width: 100%;
@@ -12787,15 +12810,15 @@ function renderWide() {
       <div class="w-stage ${S.m.side === 'B' && V.length > 1 ? 'is-b' : ''}">${thumbOf(it) ? `<img src="${thumbOf(it)}" alt="${T('Picture of {name}', { name: it.name })}">` : `<span class="noimg">${T('Not rendered yet')}</span>`}<span class="hud">${V.length > 1 ? `<b class="ab">${S.m.side}</b> ` : ''}${v ? esc(v.folder) + ' · ' : ''}f <span data-f>${fNo(S.frame)}</span></span></div>
       <div class="w-tl"><div class="scrub big ${rendered(it) ? '' : 'off'}" data-scrub role="slider" tabindex="0" aria-label="Frame" aria-valuemin="1" aria-valuemax="${NF}" aria-valuenow="${S.frame}">${mkH}${rng}<span class="ph" style="left:${((S.frame - 1) / (NF - 1)) * 100}%"></span></div>
         <div class="ruler"><span>f1</span><span>f${Math.round(NF / 4)}</span><span>f${Math.round(NF / 2)}</span><span>f${Math.round((NF * 3) / 4)}</span><span>f${NF}</span></div></div>
-      <div class="w-tp"><span class="join"><button class="btn icon" data-tp="sprev" aria-label="${T('Previous shot')}" title="${it.kind === 'shot' ? T('Previous shot') : T('Previous file')}" ${stepOff(-1)}>${ic('b-back')}</button>
+      <div class="w-tp"><div class="w-ctl"><div class="w-row"><span class="join"><button class="btn icon" data-tp="sprev" aria-label="${T('Previous shot')}" title="${it.kind === 'shot' ? T('Previous shot') : T('Previous file')}" ${stepOff(-1)}>${ic('b-back')}</button>
         <button class="btn icon" data-tp="fprev" ${pOff(it)} aria-label="${T('Previous frame')}" title="${T('Previous frame (,)')}">${ic('b-frame_prev')}</button>
         <button class="btn icon play" data-tp="play" ${pOff(it)} aria-label="${T('Play')}" title="${T('Play (Space)')}">${ic(S.playing ? 'b-pause' : 'b-play')}</button>
         <button class="btn icon" data-tp="fnext" ${pOff(it)} aria-label="${T('Next frame')}" title="${T('Next frame (.)')}">${ic('b-frame_next')}</button>
         <button class="btn icon" data-tp="snext" aria-label="${T('Next shot')}" title="${it.kind === 'shot' ? T('Next shot') : T('Next file')}" ${stepOff(1)}>${ic('b-forward')}</button></span>
         <button class="btn icon" data-tp="snd" aria-label="${T('Sound')}" title="${T('Sound (M)')}" aria-pressed="${!S.muted}">${ic(S.muted ? 'b-mute_ipo_off' : 'b-mute_ipo_on')}</button>
-        <span class="bigf">f <span data-f>${fNo(S.frame)}</span></span><span class="sp"></span>
-        <div class="strip"><span class="faint">${g}</span>${sib.map(filmHTML(it)).join('')}</div>
+        <span class="bigf">f <span data-f>${fNo(S.frame)}</span></span></div>
         <div class="w-vab">${verHTML(it, 'w')}${abHTML(it, 'w').replace('ctl abrow', 'abrow')}</div></div>
+        <div class="strip"><span class="faint">${g}</span>${sib.map(filmHTML(it)).join('')}</div></div>
     </div>
     <div class="w-pan"><button class="pz-tab r w-tab" data-wside aria-expanded="${!!S.wside}" aria-label="${S.wside ? T('Fold the panel') : T('Show the panel')}" title="${S.wside ? T('Fold the panel') : T('Show the panel')}">${ic(S.wside ? 'b-tria_right' : 'b-tria_left')}</button>
     <div class="w-side">${checkHTML(it)}<div class="sec"><div class="sec-h">${T('Departments')}<span class="sp"></span>${rv && rv.role !== TEAM ? `<button class="btn sm ok" data-valall title="${T('Validate every done department (V)')}">${ic('b-checkmark')}${T('All the done')}</button>` : ''}</div>${req.map(dRow).join('') || '<span class="faint">' + T('No department required.') + '</span>'}</div>
