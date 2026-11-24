@@ -8600,7 +8600,7 @@ function glyph(base, corner, cnt, note, rdot) {
       you: '--st-you',
       'you-rtk': '--st-you'
     }[corner];
-    s += `<circle cx="17" cy="5.5" r="5.2" style="fill:var(${cc})"/>`;
+    s += `<circle cx="17" cy="5.5" r="4.4" style="fill:var(${cc})"/>`; // its gap: to r 6 (page.html's gm-*)
     if (corner === 'rtk')
       s += `<text x="17" y="8.3" text-anchor="middle" font-size="8" font-weight="700" font-family="Inter,sans-serif" style="fill:var(--on-state)">${cnt > 9 ? '9+' : cnt || '!'}</text>`;
     if (corner === 'wait')
@@ -8614,9 +8614,9 @@ function glyph(base, corner, cnt, note, rdot) {
       s += `<path d="M15.2 3.7 18.8 7.3M18.8 3.7 15.2 7.3" style="stroke:var(--on-st)" stroke-width="1.4" stroke-linecap="round"/>`;
   }
   if (rdot != null)
-    s += `<circle cx="3.6" cy="18.4" r="2.6" style="fill:var(${rdot === 'chk' ? '--st-you' : '--text'})"${rdot ? '' : ' opacity="0.35"'}/>`;
+    s += `<circle cx="3.6" cy="18.4" r="1.9" style="fill:var(${rdot === 'chk' ? '--st-you' : '--text'})"${rdot ? '' : ' opacity="0.35"'}/>`;
   if (note)
-    s += `<path d="M13.6 14.6h6.6a1.3 1.3 0 0 1 1.3 1.3v3.2a1.3 1.3 0 0 1-1.3 1.3h-3.6l-2.2 1.7v-1.7h-.8a1.3 1.3 0 0 1-1.3-1.3v-3.2a1.3 1.3 0 0 1 1.3-1.3z" style="fill:var(--text-2)"/>`;
+    s += `<path d="M13.6 14.6h6.6a1.3 1.3 0 0 1 1.3 1.3v3.2a1.3 1.3 0 0 1-1.3 1.3h-3.6l-2.2 1.7v-1.7h-.8a1.3 1.3 0 0 1-1.3-1.3v-3.2a1.3 1.3 0 0 1 1.3-1.3z" transform="matrix(.859 0 0 .827 2.38 3.17)" style="fill:var(--text-2)"/>`; // drawn 0.65 in from its gap's edge
   return s + '</svg>';
 }
 /* A department's state, a review's "done on the stable" (marked) over it. */
