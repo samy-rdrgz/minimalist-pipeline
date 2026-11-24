@@ -5244,17 +5244,21 @@ html.kb .m-nav {
   position: absolute;
   z-index: 5;
   display: block;
-  height: calc(28px * var(--scale));
+  height: calc(64px * var(--scale));
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.18s;
+  /* An eased ramp (about t^2.2), not a straight one: the light end melts in, no edge where it starts. */
+  --ramp: color-mix(in srgb, var(--fg, var(--area)) 0%, transparent) 0%, color-mix(in srgb, var(--fg, var(--area)) 0.6%, transparent) 10%, color-mix(in srgb, var(--fg, var(--area)) 2.8%, transparent) 20%, color-mix(in srgb, var(--fg, var(--area)) 7%, transparent) 30%, color-mix(in srgb, var(--fg, var(--area)) 13%, transparent) 40%, color-mix(in srgb, var(--fg, var(--area)) 22%, transparent) 50%, color-mix(in srgb, var(--fg, var(--area)) 32%, transparent) 60%, color-mix(in srgb, var(--fg, var(--area)) 46%, transparent) 70%, color-mix(in srgb, var(--fg, var(--area)) 61%, transparent) 80%, color-mix(in srgb, var(--fg, var(--area)) 79%, transparent) 90%, color-mix(in srgb, var(--fg, var(--area)) 100%, transparent) 100%;
 }
 .sfade.b {
   background: linear-gradient(to bottom, transparent, var(--fg, var(--area)));
+  background: linear-gradient(to bottom, var(--ramp));
 }
 .sfade.t {
-  height: calc(18px * var(--scale));
+  height: calc(36px * var(--scale));
   background: linear-gradient(to top, transparent, var(--fg, var(--area)));
+  background: linear-gradient(to top, var(--ramp));
 }
 .sfade.on {
   opacity: 1;
