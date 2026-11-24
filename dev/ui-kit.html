@@ -13882,7 +13882,7 @@ function searchGo(name, tab) {
   var paneCss = document.createElement('style');
   paneCss.id = 'panes-live';
   document.head.appendChild(paneCss);
-  var chev = { l: 'M4 2l4 4-4 4', r: 'M8 2 4 6l4 4' };
+  var chev = { l: 'tria_right', r: 'tria_left' };
   var H = {},
     TAB = {};
   ['out', 'props'].forEach(function (k) {
@@ -13900,10 +13900,8 @@ function searchGo(name, tab) {
       'aria-label',
       k === 'out' ? T('Show the outliner again') : T('Show the detail panel again')
     );
-    b.innerHTML =
-      '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="' +
-      chev[R[k].side] +
-      '" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    // The same triangles as every other tab (Watch large's) and the detail's fold button.
+    b.innerHTML = '<svg class="i" aria-hidden="true"><use href="#b-' + chev[R[k].side] + '"/></svg>';
     b.addEventListener('click', function () {
       pz[k].open = true;
       if (pz[k].w < R[k].min) pz[k].w = R[k].def;
