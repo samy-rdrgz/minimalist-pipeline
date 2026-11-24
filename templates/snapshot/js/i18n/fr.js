@@ -656,7 +656,6 @@ MPI18n.add('fr',{
 '{time} on average':'{time} en moyenne',
 'In this step for':'Sur cette étape depuis',
 'Video':'Vidéo',
-'compiling · {p}%':'compilation · {p} %',
 '{time} a frame':'{time} par frame',
 'on frame {n}':'sur la frame {n}',
 'Stop now':'Arrêter maintenant',

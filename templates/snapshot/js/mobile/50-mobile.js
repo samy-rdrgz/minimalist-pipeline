@@ -212,9 +212,11 @@ function mFarm() {
         : g
       )
         .map(j => {
-          const p = j.total ? j.done / j.total : 0;
+          // An ffmpeg pass (frame check, compilation, preview): its own progress, after the frames'.
+          const bar = j.compile != null || j.total,
+            p = j.compile != null ? j.compile : j.total ? j.done / j.total : 0;
           return `<button class="m-job" data-msheet="job:${j.id}">${jst(j.state)}<span class="jt"><b>${esc(j.file)}</b><small>${esc([TS(j.text), j.user].filter(Boolean).join(' · '))}</small>
-          ${j.total ? `<span class="jbar"><i style="--p:${p * 100}%"></i></span>` : ''}</span><span class="pc">${j.total ? Math.round(p * 100) + ' %' : ''}</span></button>`;
+          ${bar ? `<span class="jbar"><i style="--p:${p * 100}%"></i></span>` : ''}</span><span class="pc">${bar ? Math.round(p * 100) + ' %' : ''}</span></button>`;
         })
         .join('')}
         ${s === 'finished' && g.length > 5 ? `<p class="m-hint">${T('and {n} more: the desktop version.', { n: g.length - 5 })}</p>` : ''}</section>`;

@@ -6,6 +6,9 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- Live page, Farm tab: a job in an ffmpeg pass (frame check, compilation,
+  preview) shows that pass's progress bar, on the desktop and the phone.
+
 - Live page: the page and its data sent compressed (gzip) when the browser
   takes it: about 180 KB instead of 670 to open it on a phone.
 

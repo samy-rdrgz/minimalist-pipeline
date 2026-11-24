@@ -89,7 +89,14 @@ function jobRow(j) {
       .filter(Boolean)
       .join(' · ');
   return `<div class="job ${S.farmSel === j.id ? 'sel' : ''}" data-job="${j.id}" tabindex="-1">${jst(j.state)}<span class="jt"><span class="f">${esc(j.file)}</span><span class="s">${esc([j.shot, TS(j.text)].filter(Boolean).join(' · '))}${j.priority !== 10 ? ' · ' + T('priority {n}', { n: j.priority }) : ''}${jobTags(j)}</span></span>
-    <span class="jbar">${j.total ? `<i style="--p:${p * 100}%"></i><span title="${jobLeft(j)}">${j.done} / ${j.total} frames${jobLeft(j) ? ' · ≃ ' + hMin(j.left) : ''}</span>` : ''}</span>
+    <span class="jbar">${
+      // An ffmpeg pass (frame check, compilation, preview): its own progress, after the frames'.
+      j.compile != null
+        ? `<i style="--p:${j.compile * 100}%"></i><span>${esc(TS(j.text))} · ${Math.round(j.compile * 100)} %</span>`
+        : j.total
+          ? `<i style="--p:${p * 100}%"></i><span title="${jobLeft(j)}">${j.done} / ${j.total} frames${jobLeft(j) ? ' · ≃ ' + hMin(j.left) : ''}</span>`
+          : ''
+    }</span>
     <span class="meta" title="${meta}">${meta}</span></div>`;
 }
 function renderFarm() {
@@ -200,7 +207,7 @@ function jobTimes(j) {
   if (j.estimate) rows.push([T('Estimate'), esc(TS(j.estimate))]);
   if (j.pace) rows.push([T('Per frame'), T('{time} on average', { time: secs(j.pace) })]);
   if (j.state === 'running' && j.elapsed) rows.push([T('In this step for'), hMin(j.elapsed)]);
-  if (j.compile != null) rows.push([T('Video'), T('compiling · {p}%', { p: Math.round(j.compile * 100) })]);
+  if (j.compile != null) rows.push([T('Progress'), `${esc(TS(j.text))} · ${Math.round(j.compile * 100)} %`]);
   return rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
 }
 /* Its machines, each with its pace and the frame it's on. */

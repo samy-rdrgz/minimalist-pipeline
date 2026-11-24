@@ -8201,7 +8201,6 @@ MPI18n.add('fr',{
 '{time} on average':'{time} en moyenne',
 'In this step for':'Sur cette étape depuis',
 'Video':'Vidéo',
-'compiling · {p}%':'compilation · {p} %',
 '{time} a frame':'{time} par frame',
 'on frame {n}':'sur la frame {n}',
 'Stop now':'Arrêter maintenant',
@@ -11964,7 +11963,14 @@ function jobRow(j) {
       .filter(Boolean)
       .join(' · ');
   return `<div class="job ${S.farmSel === j.id ? 'sel' : ''}" data-job="${j.id}" tabindex="-1">${jst(j.state)}<span class="jt"><span class="f">${esc(j.file)}</span><span class="s">${esc([j.shot, TS(j.text)].filter(Boolean).join(' · '))}${j.priority !== 10 ? ' · ' + T('priority {n}', { n: j.priority }) : ''}${jobTags(j)}</span></span>
-    <span class="jbar">${j.total ? `<i style="--p:${p * 100}%"></i><span title="${jobLeft(j)}">${j.done} / ${j.total} frames${jobLeft(j) ? ' · ≃ ' + hMin(j.left) : ''}</span>` : ''}</span>
+    <span class="jbar">${
+      // An ffmpeg pass (frame check, compilation, preview): its own progress, after the frames'.
+      j.compile != null
+        ? `<i style="--p:${j.compile * 100}%"></i><span>${esc(TS(j.text))} · ${Math.round(j.compile * 100)} %</span>`
+        : j.total
+          ? `<i style="--p:${p * 100}%"></i><span title="${jobLeft(j)}">${j.done} / ${j.total} frames${jobLeft(j) ? ' · ≃ ' + hMin(j.left) : ''}</span>`
+          : ''
+    }</span>
     <span class="meta" title="${meta}">${meta}</span></div>`;
 }
 function renderFarm() {
@@ -12075,7 +12081,7 @@ function jobTimes(j) {
   if (j.estimate) rows.push([T('Estimate'), esc(TS(j.estimate))]);
   if (j.pace) rows.push([T('Per frame'), T('{time} on average', { time: secs(j.pace) })]);
   if (j.state === 'running' && j.elapsed) rows.push([T('In this step for'), hMin(j.elapsed)]);
-  if (j.compile != null) rows.push([T('Video'), T('compiling · {p}%', { p: Math.round(j.compile * 100) })]);
+  if (j.compile != null) rows.push([T('Progress'), `${esc(TS(j.text))} · ${Math.round(j.compile * 100)} %`]);
   return rows.map(([k, v]) => `<dt>${k}</dt><dd>${v}</dd>`).join('');
 }
 /* Its machines, each with its pace and the frame it's on. */
@@ -14310,9 +14316,11 @@ function mFarm() {
         : g
       )
         .map(j => {
-          const p = j.total ? j.done / j.total : 0;
+          // An ffmpeg pass (frame check, compilation, preview): its own progress, after the frames'.
+          const bar = j.compile != null || j.total,
+            p = j.compile != null ? j.compile : j.total ? j.done / j.total : 0;
           return `<button class="m-job" data-msheet="job:${j.id}">${jst(j.state)}<span class="jt"><b>${esc(j.file)}</b><small>${esc([TS(j.text), j.user].filter(Boolean).join(' · '))}</small>
-          ${j.total ? `<span class="jbar"><i style="--p:${p * 100}%"></i></span>` : ''}</span><span class="pc">${j.total ? Math.round(p * 100) + ' %' : ''}</span></button>`;
+          ${bar ? `<span class="jbar"><i style="--p:${p * 100}%"></i></span>` : ''}</span><span class="pc">${bar ? Math.round(p * 100) + ' %' : ''}</span></button>`;
         })
         .join('')}
         ${s === 'finished' && g.length > 5 ? `<p class="m-hint">${T('and {n} more: the desktop version.', { n: g.length - 5 })}</p>` : ''}</section>`;
