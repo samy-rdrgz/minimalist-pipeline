@@ -60,6 +60,11 @@ VERSIONS_SHOWN = 15  # a shot's render versions offered to watch, newest first
 PORTS = range(8765, 8776)  # fixed: a page left open finds its server again
 TICK = 0.1  # the main thread's turn
 READ_EVERY = 4.0  # seconds between two passes over the project...
+FARM_EVERY = 2.0  # ...and between two looks at the farm (its counters move all the time)
+# Blender rendering on its CPU (a viewport in Cycles on the CPU, a render): every core taken, the
+# page's own work fights it for them -- the interface stuttered. Passes and the farm's looks spaced
+# out by this much meanwhile.
+BUSY_SLOWER = 3.0
 IDLE_AFTER = 30.0  # ...while a page asked for something this recently
 BUSY_AFTER = 1.5  # no turn for this long: the page says "Blender busy"
 POLL = 20.0  # a page waiting for news is answered after this, news or not
@@ -126,13 +131,12 @@ def _gzip(body: bytes) -> bytes:
     return out
 
 
-# What the page's data asks of the shared folder on the main thread, kept a few seconds: this
-# Blender's farm roles (monitor.lock, its worker file) and the Render form's presets (their
-# folder listed). Read at each rebuild -- twice a second while a page is open --, a slow share
+# What the page's data asks of the shared folder on the main thread, kept a few seconds: the
+# Render form's presets (their folder listed). Read at each rebuild -- twice a second while a page is open --, a slow share
 # held Blender's interface up to half a second (tools: the live page's profile). Cleared by the
 # page's farm actions: their change shown at once.
 _SLOW: dict = {}
-SLOW_TTL = {"monitor": 5.0, "worker": 5.0, "presets": 10.0}
+SLOW_TTL = {"presets": 10.0}
 
 
 def _slow(key: str, fn):
@@ -560,11 +564,49 @@ def _read(root, cache, config, v_prefix, extras, first=False):
         changed = changed or work != _reader.get("work")
         # What the edit has (editing/rushes/rushes.json): a push changes no folder either.
         rushes = {"rushes": _rushes_by_name(root), "presence": presence(root)}
+        # The days of the project's progress (config/logs): read here, off Blender's thread.
+        _reader["history"] = progress_log.days(root)
         changed = changed or rushes != _reader.get("rushes")
         _reader["result"] = (root, new, changed, extras, work, rushes)
     except Exception as e:  # never die silently: the next pass tries again
         log("WARNING", "live", f"Live page: project not read: {e!r}")
         _reader["result"] = (root, cache, False, extras, _reader.get("work"), _reader.get("rushes"))
+
+
+def _monitor_mod():
+    from ...farm import monitor
+
+    return monitor
+
+
+def _workers_mod():
+    from ...farm import workers
+
+    return workers
+
+
+def _cpu_busy() -> bool:
+    """Blender rendering on its CPU: a render under way, or a 3D view drawn
+    Rendered by Cycles on the CPU. Never raises (False)."""
+    try:
+        if getattr(bpy.app, "is_job_running", None) and bpy.app.is_job_running("RENDER"):
+            return True
+        prefs = bpy.context.preferences.addons.get("cycles")
+        no_gpu = not prefs or getattr(prefs.preferences, "compute_device_type", "NONE") == "NONE"
+        for window in bpy.context.window_manager.windows:
+            scene = window.scene
+            if scene.render.engine != "CYCLES":
+                continue
+            if not (no_gpu or getattr(scene.cycles, "device", "CPU") == "CPU"):
+                continue
+            for area in window.screen.areas:
+                if area.type == "VIEW_3D" and any(
+                    sp.type == "VIEW_3D" and sp.shading.type == "RENDERED" for sp in area.spaces
+                ):
+                    return True
+    except Exception:
+        pass
+    return False
 
 
 # --- the main thread -------------------------------------------------------------
@@ -593,7 +635,7 @@ def _turn(sh: _Shared) -> None:
         # Another project made active: the page follows it -- told it's
         # being read (it reloads on the waiting page), then its data.
         sh.root = Path(root)
-        _reader.update(cache={}, result=None, compare=None, farm=None, ready=False, extras=None, work=None, at=0.0, partial=None, progress=None, shown=None)
+        _reader.update(cache={}, result=None, compare=None, farm=None, ready=False, extras=None, work=None, at=0.0, partial=None, progress=None, shown=None, history=None)
         with sh.changed:
             sh.version += 1
             sh.data, sh.body = None, b""
@@ -604,6 +646,7 @@ def _turn(sh: _Shared) -> None:
         _lan["checked"] = clock
         _sync_lan(sh)  # a guest's access ended: off the network
     page_open = clock - sh.last_seen < IDLE_AFTER
+    slower = BUSY_SLOWER if page_open and _cpu_busy() else 1.0
     if page_open:
         # The farm's jobs and machines, read as the Farm tab does --
         # its window closed, nothing else would read them.
@@ -667,13 +710,13 @@ def _turn(sh: _Shared) -> None:
         if root_of == sh.root:
             _reader["shown"] = part  # a file's history found in it meanwhile
             _rebuild(sh, force=True, partial=(part, done, total))
-    elif clock - _reader["farm_at"] > 0.5 and page_open:
+    elif clock - _reader["farm_at"] > FARM_EVERY * slower and page_open:
         # The farm moves on its own -- looked at only while a page is open:
         # with none (its tab closed), nothing but this check every turn.
         _reader["farm_at"] = clock
         _rebuild(sh, force=False)
     if (thread is None or not thread.is_alive()) and _reader["result"] is None and (
-        clock - _reader["at"] >= READ_EVERY and page_open
+        clock - _reader["at"] >= READ_EVERY * slower and page_open
         or sh.data is None
         or _reader["waiting"]
     ):
@@ -1047,7 +1090,8 @@ def _farm_data(root: Path) -> dict:
     "workers":
     [{"name", "status", "file", "mine", "host", "since"}], "me", "presets",
     "preset"}, from the monitor cache -- memory only, but for its roles and
-    presets, read from the share every few seconds (_slow())."""
+    presets, read from the share every few seconds (_slow()); its roles, the farm
+    loop's own answers."""
     from ...farm.details import estimate_label, render_left_parts
     from ...farm.loop import _STAGE_WORDS, entry_state
     from ...farm.monitor import REMOVABLE_STAGES, get_monitor_cache
@@ -1106,8 +1150,7 @@ def _farm_data(root: Path) -> dict:
         }
         (finished if state == "finished" else jobs).append(row)
     finished.sort(key=lambda r: r["at"], reverse=True)
-    from ...farm.monitor import is_blender_monitor
-    from ...farm.workers import is_blender_worker, worker_rendering
+    from ...farm.workers import worker_rendering
     from ..core import get_machine_id
 
     mine = get_machine_id() or ""
@@ -1136,9 +1179,10 @@ def _farm_data(root: Path) -> dict:
     me = {
         # Its machine id: its own card among the Farm tab's Machines.
         "uuid": mine,
-        "worker": _slow("worker", is_blender_worker),
+        # The farm loop's own answers, kept up to date by it: no file read here.
+        "worker": _workers_mod()._this_instance_worker,
         "rendering": worker_rendering(),
-        "host": _slow("monitor", is_blender_monitor),
+        "host": _monitor_mod()._last_is_monitor,
         "host_name": " ".join(x for x in (cache.get("lock_user") or "", f"({cache.get('lock_machine')})" if cache.get("lock_machine") else "") if x),
         "host_now": _host_now(jobs, workers),
     }
@@ -1502,7 +1546,7 @@ def _rebuild(sh: _Shared, force: bool, partial: tuple | None = None) -> None:
     # Today's progress point while the page runs (written only when it changes), the days for the page.
     if partial is None:
         progress_log.record_today(sh.root, snap)
-    snap["meta"]["history"] = progress_log.days(sh.root)
+    snap["meta"]["history"] = _reader.get("history") or {}
     thumbs: dict[str, bytes] = {}
     data = page_data(snap, thumbs)
     # Its Farm tab: the farm as the Farm tab shows it.
@@ -1782,7 +1826,7 @@ def start(root: Path) -> str:
     threading.Thread(target=server.serve_forever, name="pipeline-live", daemon=True).start()
     _shared, _server = sh, server
     _reader.update(thread=None, result=None, at=0.0, farm_at=0.0, cache={}, farm=None, compare=None, ready=False,
-                   waiting=[], in_pass=[], extras=None, work=None)
+                   waiting=[], in_pass=[], extras=None, work=None, history=None)
     # persistent: kept when a file is opened.
     if not bpy.app.timers.is_registered(_tick):
         bpy.app.timers.register(_tick, first_interval=0.0, persistent=True)

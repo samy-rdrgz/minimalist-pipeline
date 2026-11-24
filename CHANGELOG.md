@@ -573,11 +573,15 @@ All notable changes to this addon. Dates are release dates.
 
 ### Fixed
 
-- Live page: Blender's viewport lagged while a page was open. Twice a
-  second, the page's data read this Blender's farm roles and the Render
-  form's presets from the shared folder on Blender's main thread: on a slow
-  share, up to 0.6 s frozen. Now kept 5 to 10 s, read again at once after a
-  farm action from the page.
+- Live page: Blender's viewport lagged while a page was open, above all
+  with a viewport rendering in Cycles on the CPU. The page's data, built
+  again twice a second as the farm's counters moved, read the shared folder
+  on Blender's main thread (this Blender's farm roles, the presets, the
+  progress log) and fought Cycles for the cores. Now: the roles from the
+  farm loop's memory, the presets kept 10 s, the progress log read with the
+  project's pass on its own thread, the farm looked at every 2 s -- and
+  while Blender renders on its CPU (a Cycles CPU viewport, a render), the
+  page's passes and farm looks three times less often.
 
 - Live page: the folded panels' side tabs sit under the list's sequence
   header, not over it; Watch large's full-screen header tab hangs from the

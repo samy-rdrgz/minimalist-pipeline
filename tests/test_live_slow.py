@@ -32,13 +32,13 @@ def main() -> None:
         return len(reads)
 
     live._SLOW.clear()
-    assert live._slow("monitor", read) == 1
+    assert live._slow("presets", read) == 1
     clock[0] += 1.0
-    assert live._slow("monitor", read) == 1  # within its time: not read again
-    clock[0] += live.SLOW_TTL["monitor"]
-    assert live._slow("monitor", read) == 2  # its time up: read again
+    assert live._slow("presets", read) == 1  # within its time: not read again
+    clock[0] += live.SLOW_TTL["presets"]
+    assert live._slow("presets", read) == 2  # its time up: read again
     live._SLOW.clear()  # a farm action from the page
-    assert live._slow("monitor", read) == 3
+    assert live._slow("presets", read) == 3
     assert len(reads) == 3
     live.time.monotonic = real
     print("ok")
