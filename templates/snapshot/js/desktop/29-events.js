@@ -254,6 +254,7 @@ function helpDlg() {
     ['done', 'you-rtk', T('You: retake'), T('not sent yet')],
     ['done', null, T('Open note'), T('bubble at the bottom right'), 'n'],
     ['done', null, T('Rendered since its last session'), T('dot at the bottom left; faint: its render is older'), '', 1],
+    ['done', null, T('Render to check'), T('the dot green: not seen by the team yet'), '', 'chk'],
     ['na', null, T('Not required'), T('dash')]
   ];
   const dl = $('#dlg');

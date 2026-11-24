@@ -44,7 +44,7 @@
   /* ---- Colours: the blue theme, 60 / 30 / 10, a fixed palette (Blender's theme isn't read).
      60 % neutral greys (grounds, panels) · 30 % night-blue tints (top bar, selection) · 10 % bright
      blue (the main action, the active tab) -- the "Done" state's blue too. "You" (your changes not
-     sent yet) has its own colour, turquoise (--st-you), to read on a done diamond: always solid, never a tint. Each variable says its role. */
+     sent yet) has its own colour, green (--st-you), to read on a done diamond: always solid, never a tint. Each variable says its role. */
   /* 10 %: the brand */
   --brand: #639bff; /* main button, active tab, selection rail, focus */
   --brand-hi: #7fadff; /* the main button hovered */
@@ -116,8 +116,8 @@
   --ok-hi: rgba(250, 62, 149, 0.26);
   --ok-line: rgba(250, 62, 149, 0.32);
   --ok-t: #fdb2d5; /* validated (pink) */
-  --you-line: #215450;
-  --you-t: #9df0e3; /* "you": not sent yet (turquoise; the solid one is --st-you) */
+  --you-line: #1d5546;
+  --you-t: #a2f2d9; /* "you": not sent yet, a render to check (green; the solid one is --st-you) */
   --rtk-t: #f7b978; /* retake count */
   --wip-t: #fceca1; /* in progress text */
   --live-t: #b1cdff; /* the live pill */
@@ -140,7 +140,7 @@
   --st-old: #a35ca3; /* to review: validated on an older stable */
   --st-wip: #fadf63; /* in progress */
   --st-rtk: #f0800a; /* retake */
-  --st-you: #3fd3c0; /* you, not sent yet */
+  --st-you: #2fdcae; /* you, not sent yet; a render to check */
   /* Departments in a chart (Activity): a fixed order, the project's departments in theirs. */
   --cat-1: #3987e5;
   --cat-2: #d95926;
@@ -213,8 +213,8 @@
   --ok-hi: rgba(217, 38, 122, 0.18);
   --ok-line: rgba(217, 38, 122, 0.36);
   --ok-t: #9c1255;
-  --you-line: #7fd3c8;
-  --you-t: #0b6e63;
+  --you-line: #7fd8bb;
+  --you-t: #086b4f;
   --rtk-t: #b35500;
   --wip-t: #7a6200;
   --live-t: #2f6fe0;
@@ -234,7 +234,7 @@
   --st-old: #8a4a8a;
   --st-wip: #e3b800;
   --st-rtk: #d96a00;
-  --st-you: #14a896;
+  --st-you: #0aa57c;
   --cat-1: #2a78d6;
   --cat-2: #eb6834;
   --cat-3: #1baf7a;

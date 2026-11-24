@@ -2136,6 +2136,9 @@ start is its end less its duration (its end without one). A later
 department's render doesn't count for an earlier one -- a lighting
 render would turn the whole row up to date. Full: up to date; 35 %:
 older; none: never rendered (`status.py render_freshness()`).
+Green (`--st-you`, "to check"'s colour): a render of that department
+to check (tracking.json's `to_check`, its key's department; the page's
+`rc`), whatever its age -- until the team marks it checked.
 
 ## The live page's job detail
 

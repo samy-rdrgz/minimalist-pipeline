@@ -255,6 +255,8 @@ def _item(item: dict, threads: list, roles: list, image) -> dict:
         "flags": item.get("flags") or {},
         # Its own render after its latest session (1) or before (0), with when it started.
         "rf": {d: [1 if r["fresh"] else 0, r["at"]] for d, r in (item.get("render_fresh") or {}).items()},
+        # Its departments with a render to check: their dot green.
+        "rc": list(item.get("to_check_departments") or []),
         "assignees": item.get("assignees") or {},
         "omit": item.get("omit"),
         "scores": dict(item["scores"]),

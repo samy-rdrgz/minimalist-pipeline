@@ -375,7 +375,8 @@ function mSheet() {
         ['val', 'you', T('You: validated')],
         ['done', 'you-rtk', T('You: retake')],
         ['done', null, T('Open note'), 'n'],
-        ['done', null, T('Rendered since its last session'), '', 1]
+        ['done', null, T('Rendered since its last session'), '', 1],
+        ['done', null, T('Render to check'), '', 'chk']
       ]
         .map(([b, c, l, n, r]) => `<li>${glyph(b, c, 1, !!n, r)}<span>${l}</span></li>`)
         .join('')}</ul>

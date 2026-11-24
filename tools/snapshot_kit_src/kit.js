@@ -169,6 +169,7 @@ const legend = [
   ['done', null, 'Open note', 'n'],
   ['done', null, 'Rendered since its last session', '', 1],
   ['done', null, 'Its render older than its last session', '', 0],
+  ['done', null, 'Render to check', '', 'chk'],
   ['na', null, 'Not required']
 ];
 const job = F.jobs.find(j => j.state === 'running'),

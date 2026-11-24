@@ -8,7 +8,7 @@ const BASE = {
   sup: ['--st-sup', 'check'],
   old: ['--st-old', 'check']
 };
-/* rdot: its own render after its latest session (1, a dot) or before (0, the dot faint); none: never rendered. */
+/* rdot: its own render after its latest session (1, a dot) or before (0, the dot faint), to check ('chk', the dot green); none: never rendered. */
 function glyph(base, corner, cnt, note, rdot) {
   if (base === 'na')
     return `<svg class="g" viewBox="0 0 22 22" aria-hidden="true"><path d="M6 12h8" style="stroke:var(--line-3)" stroke-width="2" stroke-linecap="round"/></svg>`;
@@ -42,7 +42,7 @@ function glyph(base, corner, cnt, note, rdot) {
       s += `<path d="M15.2 3.7 18.8 7.3M18.8 3.7 15.2 7.3" style="stroke:var(--on-st)" stroke-width="1.4" stroke-linecap="round"/>`;
   }
   if (rdot != null)
-    s += `<circle cx="3.6" cy="18.4" r="2.6" style="fill:var(--text);stroke:var(--area)" stroke-width="1.4"${rdot ? '' : ' opacity="0.35"'}/>`;
+    s += `<circle cx="3.6" cy="18.4" r="2.6" style="fill:var(${rdot === 'chk' ? '--st-you' : '--text'});stroke:var(--area)" stroke-width="1.4"${rdot ? '' : ' opacity="0.35"'}/>`;
   if (note)
     s += `<path d="M13.6 14.6h6.6a1.3 1.3 0 0 1 1.3 1.3v3.2a1.3 1.3 0 0 1-1.3 1.3h-3.6l-2.2 1.7v-1.7h-.8a1.3 1.3 0 0 1-1.3-1.3v-3.2a1.3 1.3 0 0 1 1.3-1.3z" style="fill:var(--text-2);stroke:var(--area)" stroke-width="1.3"/>`;
   return s + '</svg>';
@@ -116,9 +116,13 @@ function info(it, d) {
     it.myNotes.filter(n => n.type !== 'rtk' && n.dept === d).length;
   if (nn && !s) s = T('{n} note|{n} notes', { n: nn });
   // Its own render, after its latest session or not (snapshot.py render_freshness()): the dot, its words in the tooltip.
+  // A render to check: the dot green, whatever its age.
   const rf = (it.rf || {})[d],
-    r = rf ? rf[0] : null,
-    rt = rf ? T(rf[0] ? 'render up to date ({date})' : 'render older than its last session ({date})', { date: fmtD(rf[1]) }) : '';
+    chk = (it.rc || []).includes(d),
+    r = chk ? 'chk' : rf ? rf[0] : null,
+    rt = [chk ? T('render to check') : '', rf ? T(rf[0] ? 'render up to date ({date})' : 'render older than its last session ({date})', { date: fmtD(rf[1]) }) : '']
+      .filter(Boolean)
+      .join(' · ');
   return { base, corner, cnt, l, s, tone, note: nn > 0, r, rt };
 }
 /* A department's tooltip: its state, what's on top, its render. */

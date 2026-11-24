@@ -558,6 +558,9 @@ All notable changes to this addon. Dates are release dates.
 
 ### Fixed
 
+- "You" and "to check" turn green (#2fdcae, #0aa57c light), out of the
+  done blue's turquoise; a department with a render to check has its
+  render dot green.
 - A department after one in progress read To do: it's Waiting now until
   every earlier stage is done ("anim not done").
 - The live page respects Blender's *Allow Online Access*: off, it's

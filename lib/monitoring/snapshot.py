@@ -718,6 +718,12 @@ def build_snapshot(data, config: dict, meta: dict, farm: dict | None = None) -> 
             render_to_check_label(info["shot"], {**info, "department": ""})
             for _, info in to_check_entries(status if isinstance(status.get("to_check"), dict) else {})
         ]
+        # The departments with a render to check: the dot on their diamond green.
+        checking = {
+            str(info.get("department") or "").lower()
+            for _, info in to_check_entries(status if isinstance(status.get("to_check"), dict) else {})
+        }
+        item["to_check_departments"] = [d for d in item["departments_required"] if str(d).lower() in checking]
         item["farm"] = (farm or {}).get(owner_key(owner), [])
         # What the prod must see: a render made from an older .blend than
         # the last stable -- the picture lags the validated work.
