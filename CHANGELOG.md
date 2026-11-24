@@ -6,6 +6,15 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- Live page: a scrolled box fades at its bottom (and its top) while
+  something is hidden past the edge: the list, the outliner, the detail,
+  Watch large's panel. Under the list's sequence header, over the writer's
+  band.
+
+- Live page: the menus are as tall as their items while the window has
+  room (they scrolled past 420 px); above their button when there's more
+  room there.
+
 - The Farm tab says what the farm host is doing right now: "Now: setting
   up sq010_sh020_v003 · rendering sq030_sh040_v005", or nothing to do.
 
@@ -557,6 +566,12 @@ All notable changes to this addon. Dates are release dates.
   these buttons.
 
 ### Fixed
+
+- Live page: the folded panels' side tabs sit under the list's sequence
+  header, not over it; Watch large's full-screen header tab hangs from the
+  header (or the screen's top edge), not from the video's area; a button
+  alone in its group (the Render form's Version) has its four corners
+  round; the Machines card puts "not saved yet" under the file's name.
 
 - Watch large: on the left two lines -- the transport, then the version
   (A) and the comparison (B) --, the strip on the right across both,

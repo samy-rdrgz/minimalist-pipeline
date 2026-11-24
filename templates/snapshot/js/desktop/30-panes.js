@@ -203,7 +203,8 @@
       else if (pz.props.w < R.props.min) pz.props.w = R.props.def;
       apply();
     },
-    sync: sync
+    sync: sync,
+    place: place
   };
   function place() {
     var sr = screen.getBoundingClientRect(),
@@ -224,9 +225,11 @@
         h.style.height = r.height + 'px';
         h.style.left = (k === 'out' ? r.right + gap / 2 - 5 : r.left - gap / 2 - 5) + 'px';
       } else {
-        // Just under the list's filter bar, out of its way.
-        var fh = document.querySelector('#main .area-head');
-        b.style.top = (fh ? fh.getBoundingClientRect().bottom + 8 : sr.top + 12) + 'px';
+        // Just under the list's filter bar and its stuck sequence header, out of their way.
+        var fh = document.querySelector('#main .area-head'),
+          gh = document.querySelector('#list .grp-h');
+        b.style.top =
+          (fh ? fh.getBoundingClientRect().bottom + (gh ? gh.offsetHeight : 0) + 8 : sr.top + 12) + 'px';
         if (k === 'out') {
           b.style.left = sr.left + 'px';
           b.style.right = '';

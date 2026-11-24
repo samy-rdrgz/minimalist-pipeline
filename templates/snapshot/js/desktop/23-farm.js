@@ -323,7 +323,7 @@ function machinesHTML() {
         <div class="mn-b">${wk(m.worker)}${m.files
           .map(f => {
             const n = name(f.file);
-            return `<button class="mn-f" ${n ? `data-sgofile="${esc(n)}" data-stab="plan"` : 'disabled'}>${ic('b-blender')}<span class="mono">${esc(f.file)}</span>${f.saved ? '' : `<span class="faint">${T('not saved yet')}</span>`}</button>`;
+            return `<button class="mn-f" ${n ? `data-sgofile="${esc(n)}" data-stab="plan"` : 'disabled'}>${ic('b-blender')}<span class="mn-fn"><span class="mono">${esc(f.file)}</span>${f.saved ? '' : `<span class="faint">${T('not saved yet')}</span>`}</span></button>`;
           })
           .join('')}${m.me ? `<span class="mn-act"><button class="btn sm ${me.worker ? '' : 'primary'}" data-farm="worker">${me.worker ? T('Stop being a worker') : T('Make it a worker')}</button></span>` : ''}</div></div>`
             )

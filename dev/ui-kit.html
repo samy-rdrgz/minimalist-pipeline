@@ -420,6 +420,10 @@ svg.g {
 .join > .btn:last-child {
   border-radius: 0 var(--r) var(--r) 0;
 }
+/* Alone in its group (a single choice, the other one not offered): its four corners round. */
+.join > .btn:only-child {
+  border-radius: var(--r);
+}
 .join.full {
   display: flex;
 }
@@ -916,6 +920,7 @@ svg.g {
   grid-template-areas: "out main props";
 }
 .area {
+  position: relative; /* its scroll fades' box */
   background: var(--area);
   border-radius: var(--r-xl);
   min-width: 0;
@@ -2595,7 +2600,7 @@ body.out-open .scrim {
   font-size: var(--fs-s);
 }
 .anchor > .menu {
-  max-height: 60vh;
+  max-height: calc(100vh - 16px);
   overflow: auto;
 }
 .dept .extra {
@@ -2872,7 +2877,7 @@ button.assign:hover {
   bottom: auto;
   width: max-content;
   max-width: calc(100vw - 16px);
-  max-height: min(60vh, 420px);
+  max-height: calc(100vh - 16px); /* placeMenu(): the room on its side */
   overflow: auto;
 }
 .btn.play {
@@ -4286,8 +4291,9 @@ button.assign:hover {
   grid-column: 1;
   justify-self: start;
   align-self: start;
-  /* Hung from the area's top edge (through its padding), not from the video's. */
-  margin-top: calc(-1 * var(--sp-6));
+  /* Hung from the header it shows and hides: from its bottom edge, across the gap and the area's padding;
+     the header hidden, from the screen's top edge. */
+  margin-top: calc(-1 * (var(--sp-6) + var(--gap)));
   margin-left: var(--sp-6);
   z-index: 3;
   width: calc(32px * var(--scale));
@@ -4296,6 +4302,9 @@ button.assign:hover {
 }
 #wide.full.no-head .w-head {
   display: none;
+}
+#wide.full.no-head .w-htab {
+  margin-top: calc(-1 * (var(--sp-6) + max(var(--sp-3), env(safe-area-inset-top, 0px))));
 }
 /* The panel folded: its tab at the screen's edge. The header's stays on the area's top edge, shown or
    hidden: the area moves up into the header's place. */
@@ -4886,6 +4895,14 @@ html.kb .m-nav {
 .mn-w:hover {
   background: var(--row-hover);
 }
+/* The file's name, and under it "not saved yet". */
+.mn-fn {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: var(--sp-2) 0;
+  line-height: 1.3;
+}
 .mn-f .mono {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -5219,6 +5236,30 @@ html.kb .m-nav {
   background: transparent;
   border-radius: 0;
   border-top: 1px solid var(--line-2);
+}
+
+/* Scroll fades (scrollFades()): laid over a scrolled box's edge while something is hidden past it. */
+.sfade {
+  position: absolute;
+  z-index: 5;
+  display: block;
+  height: calc(28px * var(--scale));
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.18s;
+}
+.sfade.b {
+  background: linear-gradient(to bottom, transparent, var(--fg, var(--area)));
+}
+.sfade.t {
+  height: calc(18px * var(--scale));
+  background: linear-gradient(to top, transparent, var(--fg, var(--area)));
+}
+.sfade.on {
+  opacity: 1;
+}
+.is-mob .sfade {
+  display: none;
 }
 /* Resizable side panels (desktop, 1200 px and over): drag the edge; past the minimum the panel
    folds away and a small tab under the filter bar brings it back; a double-click: the default width. */
@@ -12242,7 +12283,7 @@ function machinesHTML() {
         <div class="mn-b">${wk(m.worker)}${m.files
           .map(f => {
             const n = name(f.file);
-            return `<button class="mn-f" ${n ? `data-sgofile="${esc(n)}" data-stab="plan"` : 'disabled'}>${ic('b-blender')}<span class="mono">${esc(f.file)}</span>${f.saved ? '' : `<span class="faint">${T('not saved yet')}</span>`}</button>`;
+            return `<button class="mn-f" ${n ? `data-sgofile="${esc(n)}" data-stab="plan"` : 'disabled'}>${ic('b-blender')}<span class="mn-fn"><span class="mono">${esc(f.file)}</span>${f.saved ? '' : `<span class="faint">${T('not saved yet')}</span>`}</span></button>`;
           })
           .join('')}${m.me ? `<span class="mn-act"><button class="btn sm ${me.worker ? '' : 'primary'}" data-farm="worker">${me.worker ? T('Stop being a worker') : T('Make it a worker')}</button></span>` : ''}</div></div>`
             )
@@ -13405,17 +13446,28 @@ function settingsPop(btn) {
   placePop(p, btn);
 }
 /* ---------- Dialogs and popovers ---------- */
+/* A menu under its button, as tall as its items while the window has the room: above the button when
+   there's more room there; scrolled only past the window's height. */
 function placeMenu(b, m) {
   m.classList.add('fx');
   m.style.left = '0px';
   m.style.top = '0px';
+  m.style.maxHeight = '';
   const r = b.getBoundingClientRect(),
     w = m.offsetWidth,
-    h = m.offsetHeight;
+    h = m.scrollHeight + (m.offsetHeight - m.clientHeight),
+    below = innerHeight - 8 - (r.bottom + 4),
+    above = r.top - 4 - 8;
   let x = m.classList.contains('right') ? r.right - w : r.left;
   x = Math.max(8, Math.min(x, innerWidth - w - 8));
-  let y = r.bottom + 4;
-  if (y + h > innerHeight - 8) y = Math.max(8, r.top - h - 4);
+  let y;
+  if (h <= below || below >= above) {
+    y = r.bottom + 4;
+    if (h > below) m.style.maxHeight = Math.max(120, below) + 'px';
+  } else {
+    if (h > above) m.style.maxHeight = above + 'px';
+    y = r.top - 4 - Math.min(h, above);
+  }
   m.style.left = x + 'px';
   m.style.top = y + 'px';
 }
@@ -13998,7 +14050,8 @@ function searchGo(name, tab) {
       else if (pz.props.w < R.props.min) pz.props.w = R.props.def;
       apply();
     },
-    sync: sync
+    sync: sync,
+    place: place
   };
   function place() {
     var sr = screen.getBoundingClientRect(),
@@ -14019,9 +14072,11 @@ function searchGo(name, tab) {
         h.style.height = r.height + 'px';
         h.style.left = (k === 'out' ? r.right + gap / 2 - 5 : r.left - gap / 2 - 5) + 'px';
       } else {
-        // Just under the list's filter bar, out of its way.
-        var fh = document.querySelector('#main .area-head');
-        b.style.top = (fh ? fh.getBoundingClientRect().bottom + 8 : sr.top + 12) + 'px';
+        // Just under the list's filter bar and its stuck sequence header, out of their way.
+        var fh = document.querySelector('#main .area-head'),
+          gh = document.querySelector('#list .grp-h');
+        b.style.top =
+          (fh ? fh.getBoundingClientRect().bottom + (gh ? gh.offsetHeight : 0) + 8 : sr.top + 12) + 'px';
         if (k === 'out') {
           b.style.left = sr.left + 'px';
           b.style.right = '';
@@ -14041,6 +14096,87 @@ function searchGo(name, tab) {
   if (window.ResizeObserver) new ResizeObserver(place).observe(screen);
   apply();
 })();
+/* ---------- Scroll fades ----------
+   A box that scrolls says what's hidden past its edges: a gradient to its ground at the bottom (and at the
+   top), shown while something is out of sight there. Laid over the box, not a mask on it: a mask would cut
+   the menus and popovers it holds. Under the list's stuck group header (the top) and over the writer's
+   band in Watch large (the bottom), the gradient starts where the content is hidden. */
+const FADE_SEL = '#outliner .area-body, #list, #pbody, #wide .w-main, #wide .w-side';
+function fadeGround(el) {
+  for (let e = el; e && e !== document.documentElement; e = e.parentElement) {
+    const c = getComputedStyle(e).backgroundColor;
+    const m = c && c.match(/rgba?\(([^)]+)\)/);
+    if (m && (m[1].split(',')[3] == null || parseFloat(m[1].split(',')[3]) > 0.05)) return c;
+  }
+  return getComputedStyle(document.body).backgroundColor;
+}
+function scrollFades() {
+  if (isMob()) return;
+  // The side tabs under the list's sequence header: drawn with the list.
+  if (window.MPPanes && MPPanes.place) MPPanes.place();
+  document.querySelectorAll(FADE_SEL).forEach(sc => {
+    let F = sc._fd;
+    const p = sc.parentElement;
+    if (!F || F.t.parentElement !== p) {
+      F = sc._fd = {
+        t: Object.assign(document.createElement('mp-fade'), { className: 'sfade t' }),
+        b: Object.assign(document.createElement('mp-fade'), { className: 'sfade b' })
+      };
+      F.t.setAttribute('aria-hidden', 'true');
+      F.b.setAttribute('aria-hidden', 'true');
+      // At the end of its box: a redraw of the box (morph()) drops them, keeping the rest in place.
+      p.append(F.t, F.b);
+    }
+    const r = sc.getBoundingClientRect();
+    const vis = r.width > 0 && r.height > 0;
+    let top = r.top + sc.clientTop,
+      bot = top + sc.clientHeight;
+    // A stuck header holds the top; the writer's band, held at the bottom, the bottom.
+    const h = sc.querySelector('.grp-h.stuck');
+    if (h) top = Math.max(top, h.getBoundingClientRect().bottom);
+    const band = sc.querySelector(':scope > .wsec');
+    if (band) {
+      const br = band.getBoundingClientRect();
+      if (br.top < bot && br.bottom >= bot - 24) bot = br.top;
+    }
+    const up = vis && sc.scrollTop > 1,
+      down = vis && sc.scrollTop + sc.clientHeight < sc.scrollHeight - 1,
+      g = fadeGround(sc);
+    [
+      [F.t, up, top],
+      [F.b, down, bot]
+    ].forEach(([f, on, y], i) => {
+      f.classList.toggle('on', on);
+      if (!vis) return;
+      const op = f.offsetParent || document.body,
+        o = op.getBoundingClientRect();
+      const hh = f.offsetHeight;
+      f.style.left = r.left + sc.clientLeft - o.left - op.clientLeft + op.scrollLeft + 'px';
+      f.style.width = sc.clientWidth + 'px';
+      f.style.top = (i ? y - hh : y) - o.top - op.clientTop + op.scrollTop + 'px';
+      f.style.setProperty('--fg', g);
+    });
+  });
+}
+{
+  let raf = 0;
+  const later = () => {
+    if (!raf)
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        scrollFades();
+      });
+  };
+  document.addEventListener('scroll', later, { capture: true, passive: true });
+  window.addEventListener('resize', later);
+  // A section opened, a tab changed, a list redrawn: its height changed.
+  // Its own gradients' changes left out (each draw would call the next).
+  new MutationObserver(rs => {
+    if (rs.some(m => !(m.target.classList && m.target.classList.contains('sfade')))) later();
+  }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class', 'hidden', 'open'] });
+  window.MPFades = later;
+  later();
+}
 /* ---------- Phone view ----------
    Touch AND narrow (< 900 px wide, or < 500 px high: a phone held wide; a tablet held wide stays desktop). Two uses only:
    · Review (snapshot and live): a shot at a time, two versions compared at the same frame,

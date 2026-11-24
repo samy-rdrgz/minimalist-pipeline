@@ -61,6 +61,7 @@ JS_PARTS = (
     "desktop/28-dialogs.js",
     "desktop/29-events.js",
     "desktop/30-panes.js",
+    "desktop/31-fades.js",
     "mobile/50-mobile.js",
     "live/60-live.js",
     "live/61-share.js",

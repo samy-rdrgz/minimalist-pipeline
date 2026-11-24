@@ -1,15 +1,26 @@
 /* ---------- Dialogs and popovers ---------- */
+/* A menu under its button, as tall as its items while the window has the room: above the button when
+   there's more room there; scrolled only past the window's height. */
 function placeMenu(b, m) {
   m.classList.add('fx');
   m.style.left = '0px';
   m.style.top = '0px';
+  m.style.maxHeight = '';
   const r = b.getBoundingClientRect(),
     w = m.offsetWidth,
-    h = m.offsetHeight;
+    h = m.scrollHeight + (m.offsetHeight - m.clientHeight),
+    below = innerHeight - 8 - (r.bottom + 4),
+    above = r.top - 4 - 8;
   let x = m.classList.contains('right') ? r.right - w : r.left;
   x = Math.max(8, Math.min(x, innerWidth - w - 8));
-  let y = r.bottom + 4;
-  if (y + h > innerHeight - 8) y = Math.max(8, r.top - h - 4);
+  let y;
+  if (h <= below || below >= above) {
+    y = r.bottom + 4;
+    if (h > below) m.style.maxHeight = Math.max(120, below) + 'px';
+  } else {
+    if (h > above) m.style.maxHeight = above + 'px';
+    y = r.top - 4 - Math.min(h, above);
+  }
   m.style.left = x + 'px';
   m.style.top = y + 'px';
 }

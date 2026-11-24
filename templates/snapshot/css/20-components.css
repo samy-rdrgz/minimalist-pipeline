@@ -167,6 +167,10 @@ svg.g {
 .join > .btn:last-child {
   border-radius: 0 var(--r) var(--r) 0;
 }
+/* Alone in its group (a single choice, the other one not offered): its four corners round. */
+.join > .btn:only-child {
+  border-radius: var(--r);
+}
 .join.full {
   display: flex;
 }
@@ -663,6 +667,7 @@ svg.g {
   grid-template-areas: "out main props";
 }
 .area {
+  position: relative; /* its scroll fades' box */
   background: var(--area);
   border-radius: var(--r-xl);
   min-width: 0;
@@ -2342,7 +2347,7 @@ body.out-open .scrim {
   font-size: var(--fs-s);
 }
 .anchor > .menu {
-  max-height: 60vh;
+  max-height: calc(100vh - 16px);
   overflow: auto;
 }
 .dept .extra {
@@ -2619,7 +2624,7 @@ button.assign:hover {
   bottom: auto;
   width: max-content;
   max-width: calc(100vw - 16px);
-  max-height: min(60vh, 420px);
+  max-height: calc(100vh - 16px); /* placeMenu(): the room on its side */
   overflow: auto;
 }
 .btn.play {
@@ -4033,8 +4038,9 @@ button.assign:hover {
   grid-column: 1;
   justify-self: start;
   align-self: start;
-  /* Hung from the area's top edge (through its padding), not from the video's. */
-  margin-top: calc(-1 * var(--sp-6));
+  /* Hung from the header it shows and hides: from its bottom edge, across the gap and the area's padding;
+     the header hidden, from the screen's top edge. */
+  margin-top: calc(-1 * (var(--sp-6) + var(--gap)));
   margin-left: var(--sp-6);
   z-index: 3;
   width: calc(32px * var(--scale));
@@ -4043,6 +4049,9 @@ button.assign:hover {
 }
 #wide.full.no-head .w-head {
   display: none;
+}
+#wide.full.no-head .w-htab {
+  margin-top: calc(-1 * (var(--sp-6) + max(var(--sp-3), env(safe-area-inset-top, 0px))));
 }
 /* The panel folded: its tab at the screen's edge. The header's stays on the area's top edge, shown or
    hidden: the area moves up into the header's place. */
@@ -4633,6 +4642,14 @@ html.kb .m-nav {
 .mn-w:hover {
   background: var(--row-hover);
 }
+/* The file's name, and under it "not saved yet". */
+.mn-fn {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: var(--sp-2) 0;
+  line-height: 1.3;
+}
 .mn-f .mono {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -4966,4 +4983,28 @@ html.kb .m-nav {
   background: transparent;
   border-radius: 0;
   border-top: 1px solid var(--line-2);
+}
+
+/* Scroll fades (scrollFades()): laid over a scrolled box's edge while something is hidden past it. */
+.sfade {
+  position: absolute;
+  z-index: 5;
+  display: block;
+  height: calc(28px * var(--scale));
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.18s;
+}
+.sfade.b {
+  background: linear-gradient(to bottom, transparent, var(--fg, var(--area)));
+}
+.sfade.t {
+  height: calc(18px * var(--scale));
+  background: linear-gradient(to top, transparent, var(--fg, var(--area)));
+}
+.sfade.on {
+  opacity: 1;
+}
+.is-mob .sfade {
+  display: none;
 }
