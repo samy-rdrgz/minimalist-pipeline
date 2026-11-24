@@ -23,9 +23,14 @@ const farmLeft = L => {
     (L.unknown ? ' ' + T('(+{n} not estimated)', { n: L.unknown }) : '')
   );
 };
+/* A job's state: its dot and its icon drawn in one image, placed and rounded together at any size
+   (a dot and an icon apart each fell on their own half pixel). The play triangle smaller, and pushed
+   right to its optical centre (a third of the way from its flat side). */
 const jst = s => {
-  const x = JS.find(a => a[0] === s) || JS[1];
-  return `<span class="jst ${x[0]}" style="background:${x[2]}" title="${x[1]}">${ic(x[3])}</span>`;
+  const x = JS.find(a => a[0] === s) || JS[1],
+    [w, dx] = x[0] === 'running' ? [9.2, 1.1] : [12, 0],
+    o = (20 - w) / 2;
+  return `<span class="jst ${x[0]}" title="${x[1]}"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="10" style="fill:${x[2]}"/><use href="#${x[3]}" x="${o + dx}" y="${o}" width="${w}" height="${w}"/></svg></span>`;
 };
 const jobItem = j => items.find(i => j.file.startsWith(i.name + '_'));
 /* What the farm host does right now (lib/monitoring/live.py _host_now()): its own steps, its worker's render. */

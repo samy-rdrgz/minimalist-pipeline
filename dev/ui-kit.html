@@ -2714,25 +2714,23 @@ button.assign:hover {
 .jst {
   width: calc(20px * var(--scale));
   height: calc(20px * var(--scale));
-  border-radius: 50%;
-  display: inline-grid;
-  place-items: center;
+  display: inline-block;
   flex: none;
   vertical-align: middle;
 }
-.jst svg.i {
-  /* In proportion to its dot (14 to 20 px, the outliner's 16): the same look at every size. */
-  width: 60%;
-  height: 60%;
+.jst > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.jst use {
   fill: var(--on-st);
   color: var(--on-st);
 }
-/* The play triangle: smaller, and pushed right by the gap between its box's centre and its own
-   (a third of the way from its flat side). */
-.jst.running svg.i {
-  width: 46%;
-  height: 46%;
-  transform: translateX(12%);
+/* The outliner's: 16 px. */
+.tree .jst {
+  width: 16px;
+  height: 16px;
 }
 @container main (max-width:640px) {
   .job {
@@ -4845,6 +4843,7 @@ html.kb .m-nav {
   width: 14px;
   height: 14px;
 }
+
 
 /* Live › the first read under way: a line along the top, what's read so far. */
 #readbar {
@@ -10080,13 +10079,7 @@ function renderTree() {
         )
         .join('') +
       `<li class="it" data-ffm style="padding-left:12px">${ic('b-user')}<span class="nm" style="font-family:var(--ui);font-size:var(--fs)">${T('Mine')}</span><span class="pc">${F.jobs.filter(j => !j.archived && j.user === M.live.user).length}</span></li>`;
-    $('#tree')
-      .querySelectorAll('.jst')
-      .forEach(e => {
-        e.style.width = '16px';
-        e.style.height = '16px';
-      });
-    return;
+    return; // its dots: 16 px (CSS, .tree .jst)
   }
   const kind = S.ws === 'synth' ? 'shot' : S.ws === 'todo' ? S.td.kind : S.ws;
   const vis = items.filter(
@@ -11905,9 +11898,14 @@ const farmLeft = L => {
     (L.unknown ? ' ' + T('(+{n} not estimated)', { n: L.unknown }) : '')
   );
 };
+/* A job's state: its dot and its icon drawn in one image, placed and rounded together at any size
+   (a dot and an icon apart each fell on their own half pixel). The play triangle smaller, and pushed
+   right to its optical centre (a third of the way from its flat side). */
 const jst = s => {
-  const x = JS.find(a => a[0] === s) || JS[1];
-  return `<span class="jst ${x[0]}" style="background:${x[2]}" title="${x[1]}">${ic(x[3])}</span>`;
+  const x = JS.find(a => a[0] === s) || JS[1],
+    [w, dx] = x[0] === 'running' ? [9.2, 1.1] : [12, 0],
+    o = (20 - w) / 2;
+  return `<span class="jst ${x[0]}" title="${x[1]}"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="10" style="fill:${x[2]}"/><use href="#${x[3]}" x="${o + dx}" y="${o}" width="${w}" height="${w}"/></svg></span>`;
 };
 const jobItem = j => items.find(i => j.file.startsWith(i.name + '_'));
 /* What the farm host does right now (lib/monitoring/live.py _host_now()): its own steps, its worker's render. */
