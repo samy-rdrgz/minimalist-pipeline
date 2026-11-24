@@ -45,7 +45,9 @@ function scrollFades() {
     }
     const up = vis && sc.scrollTop > 1,
       down = vis && sc.scrollTop + sc.clientHeight < sc.scrollHeight - 1,
-      g = fadeGround(sc);
+      g = fadeGround(sc),
+      // A scrollbar laid over the content (macOS, overlay scrollbars) takes no width: its lane kept clear.
+      lane = (up || down) && sc.offsetWidth - sc.clientWidth - 2 * sc.clientLeft <= 0 ? 14 : 0;
     [
       [F.t, up, top],
       [F.b, down, bot]
@@ -56,7 +58,7 @@ function scrollFades() {
         o = op.getBoundingClientRect();
       const hh = f.offsetHeight;
       f.style.left = r.left + sc.clientLeft - o.left - op.clientLeft + op.scrollLeft + 'px';
-      f.style.width = sc.clientWidth + 'px';
+      f.style.width = Math.max(0, sc.clientWidth - lane) + 'px';
       f.style.top = (i ? y - hh : y) - o.top - op.clientTop + op.scrollTop + 'px';
       f.style.setProperty('--fg', g);
     });
