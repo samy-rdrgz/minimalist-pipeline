@@ -8600,7 +8600,8 @@ function glyph(base, corner, cnt, note, rdot) {
     if (corner === 'rtk')
       s += `<text x="17" y="8.3" text-anchor="middle" font-size="8" font-weight="700" font-family="Inter,sans-serif" style="fill:var(--on-state)">${cnt > 9 ? '9+' : cnt || '!'}</text>`;
     if (corner === 'wait')
-      s += `<path d="M14.6 2.8h4.8M14.6 8.2h4.8M15.2 2.8 17 5.5l-1.8 2.7M18.8 2.8 17 5.5l1.8 2.7" style="stroke:var(--on-st)" stroke-width="1.1" fill="none"/>`;
+      // An hourglass: two full triangles, tip to tip (read at a glance even small, its outline wasn't).
+      s += `<path d="M14.8 2.9h4.4L17 5.5zM14.8 8.1h4.4L17 5.5z" style="fill:var(--on-st);stroke:var(--on-st)" stroke-width=".6" stroke-linejoin="round"/>`;
     if (corner === 'redo')
       s += `<path d="M19.1 4.4A2.4 2.4 0 1 0 19.4 6.4" style="stroke:var(--on-st)" stroke-width="1.3" fill="none" stroke-linecap="round"/><path d="M19.6 2.7v2.2h-2.2" style="stroke:var(--on-st)" stroke-width="1.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>`;
     if (corner === 'you')
