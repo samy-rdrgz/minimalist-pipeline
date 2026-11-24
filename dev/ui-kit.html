@@ -2884,17 +2884,28 @@ button.assign:hover {
   height: 100%;
   object-fit: contain;
 }
-/* Depth, as the timeline's: a shadow inside its edge, over the video (which hides the dots). */
+/* Depth, as the timeline's: a shadow inside its edge -- under the picture (the video, the thumbnail), on
+   the ground around it. A video shown: that ground plain, as the video's own was (no dots). */
 .w-stage::after {
   content: "";
   position: absolute;
   inset: 0;
-  z-index: 1;
+  z-index: 0;
   border-radius: inherit;
   box-shadow:
     inset 0 2px 10px rgba(0, 0, 0, 0.5),
     inset 0 0 0 1px rgba(0, 0, 0, 0.3);
   pointer-events: none;
+}
+.w-stage > img,
+.w-stage > .pv {
+  z-index: 1;
+}
+#wide .w-stage > .pv {
+  background: none; /* over .stage .pv's: the shadow shows past the picture */
+}
+.w-stage:has(> .pv) {
+  background-image: none;
 }
 .w-stage .hud {
   z-index: 2;
@@ -13015,8 +13026,11 @@ const quiet = fn => {
   }
 };
 const keyOf = n => (n.nodeType === 1 ? n.getAttribute('data-n') || n.getAttribute('data-j') || n.id || '' : '');
+/* The player's <video> (PV, 40-player.js), left where mountVideo() put it: patched like the rest, it was taken
+   out of its stage and put back at each pass -- Firefox redraws a video put back, its picture jumping a
+   quarter of a second every 2 s in Watch large. Not in the new HTML: no position of its own. */
 function morph(a, b) {
-  const an = [...a.childNodes],
+  const an = [...a.childNodes].filter(n => n !== PV),
     bn = [...b.childNodes];
   bn.forEach((y, i) => {
     const x = an[i];

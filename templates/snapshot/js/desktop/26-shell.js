@@ -14,8 +14,11 @@ const quiet = fn => {
   }
 };
 const keyOf = n => (n.nodeType === 1 ? n.getAttribute('data-n') || n.getAttribute('data-j') || n.id || '' : '');
+/* The player's <video> (PV, 40-player.js), left where mountVideo() put it: patched like the rest, it was taken
+   out of its stage and put back at each pass -- Firefox redraws a video put back, its picture jumping a
+   quarter of a second every 2 s in Watch large. Not in the new HTML: no position of its own. */
 function morph(a, b) {
-  const an = [...a.childNodes],
+  const an = [...a.childNodes].filter(n => n !== PV),
     bn = [...b.childNodes];
   bn.forEach((y, i) => {
     const x = an[i];

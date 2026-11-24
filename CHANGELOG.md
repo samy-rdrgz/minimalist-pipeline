@@ -12,6 +12,9 @@ All notable changes to this addon. Dates are release dates.
 - Live page, Farm tab: a job in an ffmpeg pass (frame check, compilation,
   preview) shows that pass's progress bar, on the desktop and the phone.
 
+- Live page, Watch large: the stage's inner shadow under the video and the
+  thumbnail, no longer over them.
+
 - Live page: the page and its data sent compressed (gzip) when the browser
   takes it: about 180 KB instead of 670 to open it on a phone.
 
@@ -591,6 +594,11 @@ All notable changes to this addon. Dates are release dates.
   farm's reads, the config's check and the page's passes each run on a
   thread kept between runs: a new thread every 2 s made Blender's thread
   wait for it to start, tens of ms with Cycles on every core.
+
+- Live page: the video jumped (its picture squeezed a quarter of a second)
+  every 2 s in Watch large on Firefox while the farm rendered. Each pass's
+  redraw took the video out of its stage and put it back; it is now left in
+  place.
 
 - Live page: a page closed or reloaded while answered no longer prints a
   traceback in Blender's console (ConnectionAbortedError).

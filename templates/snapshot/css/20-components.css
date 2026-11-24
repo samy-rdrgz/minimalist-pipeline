@@ -2631,17 +2631,28 @@ button.assign:hover {
   height: 100%;
   object-fit: contain;
 }
-/* Depth, as the timeline's: a shadow inside its edge, over the video (which hides the dots). */
+/* Depth, as the timeline's: a shadow inside its edge -- under the picture (the video, the thumbnail), on
+   the ground around it. A video shown: that ground plain, as the video's own was (no dots). */
 .w-stage::after {
   content: "";
   position: absolute;
   inset: 0;
-  z-index: 1;
+  z-index: 0;
   border-radius: inherit;
   box-shadow:
     inset 0 2px 10px rgba(0, 0, 0, 0.5),
     inset 0 0 0 1px rgba(0, 0, 0, 0.3);
   pointer-events: none;
+}
+.w-stage > img,
+.w-stage > .pv {
+  z-index: 1;
+}
+#wide .w-stage > .pv {
+  background: none; /* over .stage .pv's: the shadow shows past the picture */
+}
+.w-stage:has(> .pv) {
+  background-image: none;
 }
 .w-stage .hud {
   z-index: 2;
