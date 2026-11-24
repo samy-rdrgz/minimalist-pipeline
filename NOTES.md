@@ -6206,14 +6206,3 @@ Watch large in a review: a retake / to-do is ticked off from its row (`.wfx`, th
 
 Watch large's list is every open note, not only those at a frame (they were the only ones, a note without a frame lost there): at a frame first, by frame, then the others with a "—" tag in their type's colour, not clickable; *At a frame* (`S.wframe`) keeps the first ones only. The filters on one row in the panel's 360 px: *At a frame* a keyframe's diamond (`icons/keyframe.svg`), the version menu "Versions" until one is picked. Folded / hidden, the two tabs are `position: fixed` at the screen's edge (right; top), not at the inner area's -- where the eye and the mouse look for them.
 
-
-## Live page: what it costs Blender
-
-`tools/live_profile.py`, run in Blender's Text Editor with the live page
-open: for 30 s it times the page's turn on the main thread (and its farm
-read, its data rebuilt), the project's passes on their thread, each
-request by path (bytes sent after gzip, CPU), and a 50 ms probe timer's
-lateness (a frozen interface); then puts everything back and writes its
-report to the console and the text block "live_profile_report". Run it
-page open and page closed: the difference is the page's cost. Not
-shipped (tools/).
