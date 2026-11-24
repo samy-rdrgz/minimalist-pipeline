@@ -320,7 +320,7 @@ function applyData(nd) {
     LV.pend = null;
     fn();
   }
-  renderAll();
+  quiet(renderAll);
 }
 document.addEventListener('focusout', () =>
   setTimeout(() => {

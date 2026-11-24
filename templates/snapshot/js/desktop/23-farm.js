@@ -157,7 +157,7 @@ function jobMore(j) {
     livePost('farm', { action: 'detail', job_id: j.id })
       .then(r => {
         JD[j.id] = { key, at: Date.now(), d: r.ok ? r.detail : null };
-        if (S.ws === 'farm' && S.farmSel === j.id) renderProps();
+        if (S.ws === 'farm' && S.farmSel === j.id) quiet(renderProps); // patched, not redrawn: no blink
       })
       .catch(() => (JD[j.id] = { key, at: Date.now(), d: (c || {}).d }));
   }

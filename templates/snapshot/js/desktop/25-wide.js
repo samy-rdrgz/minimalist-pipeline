@@ -11,10 +11,11 @@ const filmHTML = it => i => {
   const own = new Map((i.shot_thumbs || []).map(([l, id]) => [l, img(id)])),
     on = i.name === it.name ? shotOf(it) : null,
     whole = i.versions.some(v => !v.shot) ? [''] : [];
-  return `<span class="blk" title="${i.name}"><span class="bn">${dot}${mq(nm)}</span><span class="bs">${[...whole, ...i.shots]
+  // Its name above only while one of its shots is watched; its state's dot by its first one's name.
+  return `<span class="blk ${on != null ? 'on' : ''}" title="${i.name}">${on != null ? `<span class="bn">${mq(nm)}</span>` : ''}<span class="bs">${[...whole, ...i.shots]
     .map(
-      s =>
-        `<button class="${on === s ? 'cur' : ''}" data-film="${i.name}" data-fshot="${s}" title="${s ? i.name + ' · ' + s : T('Whole block')}">${th((s && own.get(s)) || i.thumb)}<span class="fn">${s ? mq(s) : T('Whole')}</span></button>`
+      (s, k) =>
+        `<button class="${on === s ? 'cur' : ''}" data-film="${i.name}" data-fshot="${s}" title="${s ? i.name + ' · ' + s : T('Whole block')}">${th((s && own.get(s)) || i.thumb)}<span class="fn">${k ? '' : dot}${s ? mq(s) : T('Whole')}</span></button>`
     )
     .join('')}</span></span>`;
 };
@@ -131,13 +132,18 @@ function renderWide() {
       <div class="sec"><div class="sec-h">${T('Notes')}<span class="sp"></span><span class="faint" style="text-transform:none;letter-spacing:0">${T('a frame: click to go there')}</span></div><div class="wnf">${wntH}</div>${notesAt}</div>
       <div class="sec wsec">${writer}</div></div></div>
     <button class="pz-tab w-htab" data-whead aria-expanded="${!!S.whead}" aria-label="${S.whead ? T('Hide the header') : T('Show the header')}" title="${S.whead ? T('Hide the header') : T('Show the header')}">${ic(S.whead ? 'b-tria_up' : 'b-tria_down')}</button></div>`;
-  // The strip alone scrolls: scrollIntoView would also scroll the panes around it.
+  // The strip alone scrolls: scrollIntoView would also scroll the panes around it. Centred on
+  // the file (or shot) when it changes, else left where it was scrolled -- redrawn, it came back.
   const st = W.querySelector('.strip'),
-    cb = st && st.querySelector('.cur');
-  if (cb) {
+    cb = st && st.querySelector('.cur'),
+    key = it.name + '|' + shotOf(it);
+  if (st && W._film === key && W._sl != null) st.scrollLeft = W._sl;
+  else if (cb) {
     st.scrollLeft = cb.offsetLeft - st.offsetLeft - (st.clientWidth - cb.offsetWidth) / 2;
     mqGo(cb, true);
   }
+  W._film = key;
+  if (st) W._sl = st.scrollLeft;
 }
 /* Full screen: the video alone (its timeline and transport), the window's whole screen where the browser
    allows it (none on an iPhone: the page alone then fills the window). */
@@ -166,6 +172,27 @@ function wideFull(on) {
       } catch (_) {}
   }
   renderWide();
+}
+/* The strip: its scroll kept for the next draw; the wheel scrolls it sideways (a mouse has no other way). */
+{
+  const W = $('#wide');
+  W?.addEventListener(
+    'scroll',
+    e => {
+      if (e.target.classList && e.target.classList.contains('strip')) W._sl = e.target.scrollLeft;
+    },
+    true
+  );
+  W?.addEventListener(
+    'wheel',
+    e => {
+      const st = e.target.closest && e.target.closest('.strip');
+      if (!st || e.ctrlKey || Math.abs(e.deltaX) > Math.abs(e.deltaY) || st.scrollWidth <= st.clientWidth) return;
+      st.scrollLeft += e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+      e.preventDefault();
+    },
+    { passive: false }
+  );
 }
 /* The browser's full screen left (its Esc, its gesture): the video alone left too. */
 ['fullscreenchange', 'webkitfullscreenchange'].forEach(ev =>

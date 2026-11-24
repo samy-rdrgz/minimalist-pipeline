@@ -1,3 +1,60 @@
+/* ---------- Live updates: the page's areas patched, not redrawn ----------
+   New data from Blender (every pass while the farm renders): each area's HTML is compared with
+   what it shows, and only what changed is changed -- the same elements kept, so what the mouse is
+   on stays :hover (redrawn, what shows on hover blinked), a strip's scroll, an image loaded.
+   QUIET: set by applyData() (60-live.js) around its renderAll(); otherwise innerHTML as usual. */
+let QUIET = false;
+const quiet = fn => {
+  const was = QUIET;
+  QUIET = true;
+  try {
+    fn();
+  } finally {
+    QUIET = was;
+  }
+};
+const keyOf = n => (n.nodeType === 1 ? n.getAttribute('data-n') || n.getAttribute('data-j') || n.id || '' : '');
+function morph(a, b) {
+  const an = [...a.childNodes],
+    bn = [...b.childNodes];
+  bn.forEach((y, i) => {
+    const x = an[i];
+    if (!x) return a.appendChild(y);
+    if (x.nodeType !== y.nodeType || x.nodeName !== y.nodeName || keyOf(x) !== keyOf(y)) return a.replaceChild(y, x);
+    if (x.nodeType !== 1) {
+      if (x.nodeValue !== y.nodeValue) x.nodeValue = y.nodeValue;
+      return;
+    }
+    for (const at of [...x.attributes]) if (!y.hasAttribute(at.name)) x.removeAttribute(at.name);
+    for (const at of [...y.attributes]) if (x.getAttribute(at.name) !== at.value) x.setAttribute(at.name, at.value);
+    morph(x, y);
+  });
+  for (let i = bn.length; i < an.length; i++) an[i].remove();
+}
+{
+  const d = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
+  ['#ws', '#review-slot', '#tree', '#quick', '#list', '#p-head', '#ptabs', '#pbody', '#wide', '#sb-keys', '#sb-stats'].forEach(s => {
+    const el = document.querySelector(s);
+    if (!el) return;
+    Object.defineProperty(el, 'innerHTML', {
+      configurable: true,
+      get() {
+        return d.get.call(this);
+      },
+      set(v) {
+        v = String(v);
+        if (QUIET && v === this._h) return;
+        if (QUIET && this._h != null) {
+          const t = document.createElement('template');
+          t.innerHTML = v;
+          morph(this, t.content);
+        } else d.set.call(this, v);
+        this._h = v;
+      }
+    });
+  });
+}
+
 /* ---------- Status ---------- */
 /* The status bar: the keys of the tab shown (the Farm's: its jobs; the others': the files,
    the review's), and what's counted on the right -- the farm's rendering time left on the

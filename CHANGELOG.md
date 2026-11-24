@@ -558,6 +558,13 @@ All notable changes to this addon. Dates are release dates.
 
 ### Fixed
 
+- The live page still blinked what shows on hover at each update: an
+  update now patches the page's areas -- only what changed, the same
+  elements kept (hover, scroll, images) -- instead of redrawing them;
+  the farm job's detail too, refreshed every 10 s.
+- Watch large: the strip keeps its scroll across updates, and the wheel
+  scrolls it sideways. A block's frame shows its full name only while one
+  of its shots is watched; its state's dot by its first shot's name.
 - The live page: an open menu (assign, sort…) closed at each data update;
   the update now waits for it to close, as for a field being typed in.
 - Render to check: Watch stays on the only render left when there's

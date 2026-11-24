@@ -3030,7 +3030,7 @@ button.assign:hover {
   display: flex;
   flex-direction: column;
   gap: var(--sp-1);
-  padding: var(--sp-1) var(--sp-2) 0;
+  padding: 0 var(--sp-1);
   border-radius: var(--r-l);
   background: var(--box);
 }
@@ -3038,7 +3038,7 @@ button.assign:hover {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-  padding: 0 var(--sp-2);
+  padding: var(--sp-1) var(--sp-2) 0;
   font: 10.5px var(--mono);
   color: var(--text-2);
   white-space: nowrap;
@@ -12003,7 +12003,7 @@ function jobMore(j) {
     livePost('farm', { action: 'detail', job_id: j.id })
       .then(r => {
         JD[j.id] = { key, at: Date.now(), d: r.ok ? r.detail : null };
-        if (S.ws === 'farm' && S.farmSel === j.id) renderProps();
+        if (S.ws === 'farm' && S.farmSel === j.id) quiet(renderProps); // patched, not redrawn: no blink
       })
       .catch(() => (JD[j.id] = { key, at: Date.now(), d: (c || {}).d }));
   }
@@ -12625,10 +12625,11 @@ const filmHTML = it => i => {
   const own = new Map((i.shot_thumbs || []).map(([l, id]) => [l, img(id)])),
     on = i.name === it.name ? shotOf(it) : null,
     whole = i.versions.some(v => !v.shot) ? [''] : [];
-  return `<span class="blk" title="${i.name}"><span class="bn">${dot}${mq(nm)}</span><span class="bs">${[...whole, ...i.shots]
+  // Its name above only while one of its shots is watched; its state's dot by its first one's name.
+  return `<span class="blk ${on != null ? 'on' : ''}" title="${i.name}">${on != null ? `<span class="bn">${mq(nm)}</span>` : ''}<span class="bs">${[...whole, ...i.shots]
     .map(
-      s =>
-        `<button class="${on === s ? 'cur' : ''}" data-film="${i.name}" data-fshot="${s}" title="${s ? i.name + ' · ' + s : T('Whole block')}">${th((s && own.get(s)) || i.thumb)}<span class="fn">${s ? mq(s) : T('Whole')}</span></button>`
+      (s, k) =>
+        `<button class="${on === s ? 'cur' : ''}" data-film="${i.name}" data-fshot="${s}" title="${s ? i.name + ' · ' + s : T('Whole block')}">${th((s && own.get(s)) || i.thumb)}<span class="fn">${k ? '' : dot}${s ? mq(s) : T('Whole')}</span></button>`
     )
     .join('')}</span></span>`;
 };
@@ -12745,13 +12746,18 @@ function renderWide() {
       <div class="sec"><div class="sec-h">${T('Notes')}<span class="sp"></span><span class="faint" style="text-transform:none;letter-spacing:0">${T('a frame: click to go there')}</span></div><div class="wnf">${wntH}</div>${notesAt}</div>
       <div class="sec wsec">${writer}</div></div></div>
     <button class="pz-tab w-htab" data-whead aria-expanded="${!!S.whead}" aria-label="${S.whead ? T('Hide the header') : T('Show the header')}" title="${S.whead ? T('Hide the header') : T('Show the header')}">${ic(S.whead ? 'b-tria_up' : 'b-tria_down')}</button></div>`;
-  // The strip alone scrolls: scrollIntoView would also scroll the panes around it.
+  // The strip alone scrolls: scrollIntoView would also scroll the panes around it. Centred on
+  // the file (or shot) when it changes, else left where it was scrolled -- redrawn, it came back.
   const st = W.querySelector('.strip'),
-    cb = st && st.querySelector('.cur');
-  if (cb) {
+    cb = st && st.querySelector('.cur'),
+    key = it.name + '|' + shotOf(it);
+  if (st && W._film === key && W._sl != null) st.scrollLeft = W._sl;
+  else if (cb) {
     st.scrollLeft = cb.offsetLeft - st.offsetLeft - (st.clientWidth - cb.offsetWidth) / 2;
     mqGo(cb, true);
   }
+  W._film = key;
+  if (st) W._sl = st.scrollLeft;
 }
 /* Full screen: the video alone (its timeline and transport), the window's whole screen where the browser
    allows it (none on an iPhone: the page alone then fills the window). */
@@ -12780,6 +12786,27 @@ function wideFull(on) {
       } catch (_) {}
   }
   renderWide();
+}
+/* The strip: its scroll kept for the next draw; the wheel scrolls it sideways (a mouse has no other way). */
+{
+  const W = $('#wide');
+  W?.addEventListener(
+    'scroll',
+    e => {
+      if (e.target.classList && e.target.classList.contains('strip')) W._sl = e.target.scrollLeft;
+    },
+    true
+  );
+  W?.addEventListener(
+    'wheel',
+    e => {
+      const st = e.target.closest && e.target.closest('.strip');
+      if (!st || e.ctrlKey || Math.abs(e.deltaX) > Math.abs(e.deltaY) || st.scrollWidth <= st.clientWidth) return;
+      st.scrollLeft += e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY;
+      e.preventDefault();
+    },
+    { passive: false }
+  );
 }
 /* The browser's full screen left (its Esc, its gesture): the video alone left too. */
 ['fullscreenchange', 'webkitfullscreenchange'].forEach(ev =>
@@ -12876,6 +12903,63 @@ function wideAdd() {
   );
   $('#w-ta')?.focus();
 }
+/* ---------- Live updates: the page's areas patched, not redrawn ----------
+   New data from Blender (every pass while the farm renders): each area's HTML is compared with
+   what it shows, and only what changed is changed -- the same elements kept, so what the mouse is
+   on stays :hover (redrawn, what shows on hover blinked), a strip's scroll, an image loaded.
+   QUIET: set by applyData() (60-live.js) around its renderAll(); otherwise innerHTML as usual. */
+let QUIET = false;
+const quiet = fn => {
+  const was = QUIET;
+  QUIET = true;
+  try {
+    fn();
+  } finally {
+    QUIET = was;
+  }
+};
+const keyOf = n => (n.nodeType === 1 ? n.getAttribute('data-n') || n.getAttribute('data-j') || n.id || '' : '');
+function morph(a, b) {
+  const an = [...a.childNodes],
+    bn = [...b.childNodes];
+  bn.forEach((y, i) => {
+    const x = an[i];
+    if (!x) return a.appendChild(y);
+    if (x.nodeType !== y.nodeType || x.nodeName !== y.nodeName || keyOf(x) !== keyOf(y)) return a.replaceChild(y, x);
+    if (x.nodeType !== 1) {
+      if (x.nodeValue !== y.nodeValue) x.nodeValue = y.nodeValue;
+      return;
+    }
+    for (const at of [...x.attributes]) if (!y.hasAttribute(at.name)) x.removeAttribute(at.name);
+    for (const at of [...y.attributes]) if (x.getAttribute(at.name) !== at.value) x.setAttribute(at.name, at.value);
+    morph(x, y);
+  });
+  for (let i = bn.length; i < an.length; i++) an[i].remove();
+}
+{
+  const d = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
+  ['#ws', '#review-slot', '#tree', '#quick', '#list', '#p-head', '#ptabs', '#pbody', '#wide', '#sb-keys', '#sb-stats'].forEach(s => {
+    const el = document.querySelector(s);
+    if (!el) return;
+    Object.defineProperty(el, 'innerHTML', {
+      configurable: true,
+      get() {
+        return d.get.call(this);
+      },
+      set(v) {
+        v = String(v);
+        if (QUIET && v === this._h) return;
+        if (QUIET && this._h != null) {
+          const t = document.createElement('template');
+          t.innerHTML = v;
+          morph(this, t.content);
+        } else d.set.call(this, v);
+        this._h = v;
+      }
+    });
+  });
+}
+
 /* ---------- Status ---------- */
 /* The status bar: the keys of the tab shown (the Farm's: its jobs; the others': the files,
    the review's), and what's counted on the right -- the farm's rendering time left on the
@@ -14987,7 +15071,7 @@ function applyData(nd) {
     LV.pend = null;
     fn();
   }
-  renderAll();
+  quiet(renderAll);
 }
 document.addEventListener('focusout', () =>
   setTimeout(() => {
