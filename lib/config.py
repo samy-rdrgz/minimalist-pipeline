@@ -9,6 +9,7 @@ from pathlib import Path
 
 import bpy
 
+from .background import Worker
 from .core import addon_pref, headless, json_get, locked_json
 from .errors import PipelineError
 
@@ -115,7 +116,7 @@ class ConfigCache:
     # On Blender's thread the stat itself goes to a thread of its own: on a slow share it held the
     # interface 0.1 to 0.3 s every _VALIDATE_TTL (the live page's profile). Its answer is used at the
     # next get(): a change seen a check later, at most. Other threads (and no config yet): at once.
-    _stat_job: "threading.Thread | None" = None
+    _stat_job = Worker("pipeline-config-stat")  # a thread kept between checks (lib/background.py)
     _stat_seen: tuple | None = None  # (config file, its mtime or None unreadable), the job's answer
 
     @classmethod
@@ -145,7 +146,7 @@ class ConfigCache:
                 cls._cache = read_project_config(project_root)  # changed: read again (rare)
                 cls._mtime = seen[1]
                 return cls._cache or {}
-            if cls._stat_job is None or not cls._stat_job.is_alive():
+            if not cls._stat_job.busy():
 
                 def stat(path=config_file):
                     try:
@@ -153,8 +154,7 @@ class ConfigCache:
                     except OSError:
                         cls._stat_seen = (path, None)  # out for a moment: the last good config kept
 
-                cls._stat_job = threading.Thread(target=stat, daemon=True, name="pipeline-config-stat")
-                cls._stat_job.start()
+                cls._stat_job.start(stat)
             return cls._cache
         try:
             current_mtime = config_file.stat().st_mtime

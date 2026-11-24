@@ -3,7 +3,6 @@
 import functools
 import os
 import re
-import threading
 import time
 from datetime import datetime
 from pathlib import Path
@@ -13,7 +12,6 @@ import bpy
 from ..lib import (
     ConfigCache,
     StampCache,
-    background_work,
     cached_scandir,
     file_time,
     get_active_project_root,
@@ -25,6 +23,7 @@ from ..lib import (
     read_json_quiet,
     seconds_since,
 )
+from ..lib.background import Worker
 from .post_render import _EXTENSION_MAP
 
 _registered_status_tick_fn = None
@@ -201,45 +200,11 @@ def refresh_monitor_status() -> None:
     )
 
 
-class _BackgroundRead:
-    """One disk read at a time on a daemon thread; the caller polls take()
-    from a bpy.app.timers tick. The function run must be pure I/O -- no bpy
-    -- see _read_farm_raw()."""
-
-    def __init__(self):
-        self._thread = None
-        self._result = None
-        self.started_at = 0.0
-
-    def busy(self) -> bool:
-        return self._thread is not None and self._thread.is_alive()
-
-    def start(self, fn, *args) -> None:
-        def run():
-            try:
-                with background_work():
-                    self._result = ("ok", fn(*args))
-            except Exception as e:  # reported by take()
-                self._result = ("error", e)
-
-        self._result = None
-        self.started_at = time.monotonic()
-        self._thread = threading.Thread(
-            target=run, daemon=True, name="pipeline-farm-read"
-        )
-        self._thread.start()
-
-    def take(self):
-        """("ok", value) / ("error", exc) once the read finished, else None."""
-        if self.busy() or self._result is None:
-            return None
-        result, self._result = self._result, None
-        return result
-
-
-_refresh_reader = _BackgroundRead()
-_status_reader = _BackgroundRead()
-_oneshot_reader = _BackgroundRead()
+# One disk read at a time each, on a thread kept between reads (lib/background.py
+# Worker). The function run must be pure I/O -- no bpy -- see _read_farm_raw().
+_refresh_reader = Worker("pipeline-farm-read")
+_status_reader = Worker("pipeline-farm-status")
+_oneshot_reader = Worker("pipeline-farm-oneshot")
 
 
 def request_monitor_refresh() -> None:

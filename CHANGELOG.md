@@ -584,7 +584,10 @@ All notable changes to this addon. Dates are release dates.
   page's passes and farm looks three times less often. The presets are
   listed by that pass too, and the project's config is checked for changes
   on a thread of its own (it held Blender's interface 0.1 to 0.3 s every
-  2 s on a slow share -- the whole add-on's, not only the page's).
+  2 s on a slow share -- the whole add-on's, not only the page's). The
+  farm's reads, the config's check and the page's passes each run on a
+  thread kept between runs: a new thread every 2 s made Blender's thread
+  wait for it to start, tens of ms with Cycles on every core.
 
 - Live page: a page closed or reloaded while answered no longer prints a
   traceback in Blender's console (ConnectionAbortedError).

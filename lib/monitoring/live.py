@@ -37,6 +37,7 @@ from urllib.parse import parse_qs, unquote, urlparse
 
 import bpy
 
+from ..background import Worker
 from ..core import get_addon_version, now
 from ..logs import log
 from ..preview import browser_video, render_department, render_root
@@ -387,7 +388,10 @@ def _as_guest(data: dict, token: str, guest: dict) -> dict:
     return {**data, "meta": meta}
 # partial: the first read's latest batch, (root, cache, done, total), for the
 # page while the rest is read; progress: (done, total) for the waiting page.
-_reader = {"thread": None, "result": None, "at": 0.0, "farm_at": 0.0, "cache": {}, "farm": None, "compare": None, "ready": False,
+# The project's pass, on a thread kept between passes (lib/background.py Worker): no thread
+# made on Blender's every READ_EVERY. Not counted: a pass never reaches a checkpoint().
+_pass = Worker("pipeline-live-read", counted=False)
+_reader = {"result": None, "at": 0.0, "farm_at": 0.0, "cache": {}, "farm": None, "compare": None, "ready": False,
            "waiting": [], "in_pass": [], "partial": None, "progress": None}
 
 
@@ -704,10 +708,13 @@ def _turn(sh: _Shared) -> None:
             pending.done.set()
             continue
         _reader["waiting"].append(pending)
-    thread = _reader["thread"]
-    if _reader["result"] is not None and not (thread and thread.is_alive()) and _reader["result"][0] != sh.root:
+    reading = _pass.busy()
+    failed = _pass.take()
+    if failed is not None and failed[0] == "error":
+        log("ERROR", "live", f"Live page: the project's pass failed: {failed[1]!r}")
+    if _reader["result"] is not None and not reading and _reader["result"][0] != sh.root:
         _reader["result"] = None  # the project before: dropped
-    if _reader["result"] is not None and not (thread and thread.is_alive()):
+    if _reader["result"] is not None and not reading:
         _, cache, changed, _reader["extras"], _reader["work"], _reader["rushes"] = _reader["result"]
         _reader["result"] = None
         _reader["cache"] = cache
@@ -730,7 +737,7 @@ def _turn(sh: _Shared) -> None:
         # with none (its tab closed), nothing but this check every turn.
         _reader["farm_at"] = clock
         _rebuild(sh, force=False)
-    if (thread is None or not thread.is_alive()) and _reader["result"] is None and (
+    if not _pass.busy() and _reader["result"] is None and (
         clock - _reader["at"] >= READ_EVERY * slower and page_open
         or sh.data is None
         or _reader["waiting"]
@@ -739,20 +746,15 @@ def _turn(sh: _Shared) -> None:
         _reader["waiting"] = []
         config = ConfigCache.get() or {}
         _reader["at"] = clock
-        _reader["thread"] = threading.Thread(
-            target=_read,
-            args=(
-                sh.root,
-                dict(_reader["cache"]),
-                config,
-                (config.get("naming") or {}).get("version", {}).get("prefix", "v"),
-                _reader.get("extras"),
-                not _reader["ready"],
-            ),
-            daemon=True,
-            name="pipeline-live-read",
+        _pass.start(
+            _read,
+            sh.root,
+            dict(_reader["cache"]),
+            config,
+            (config.get("naming") or {}).get("version", {}).get("prefix", "v"),
+            _reader.get("extras"),
+            not _reader["ready"],
         )
-        _reader["thread"].start()
 
 
 def _with_window(op, *args, **kwargs):
@@ -1858,7 +1860,7 @@ def start(root: Path) -> str:
     server.daemon_threads = True
     threading.Thread(target=server.serve_forever, name="pipeline-live", daemon=True).start()
     _shared, _server = sh, server
-    _reader.update(thread=None, result=None, at=0.0, farm_at=0.0, cache={}, farm=None, compare=None, ready=False,
+    _reader.update(result=None, at=0.0, farm_at=0.0, cache={}, farm=None, compare=None, ready=False,
                    waiting=[], in_pass=[], extras=None, work=None, history=None, presets=None)
     # persistent: kept when a file is opened.
     if not bpy.app.timers.is_registered(_tick):
