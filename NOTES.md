@@ -3959,8 +3959,10 @@ one field, nothing to type twice or to contradict; commas only, one stage,
 no stages, so older projects read as before), and two states computed on every read, never stored
 (lib/monitoring/status.py `stage_flags()`, into the status as `flags`):
 
-- **Waiting**: an earlier stage with an open RTK, else one not started --
-  the nearest stage first. Shown in place of the state (its own in the
+- **Waiting**: an earlier stage with an open RTK, else one not started,
+  else one not done yet (in progress: done on the latest stable counts,
+  reworked since or not) -- the nearest stage first. Before, one in
+  progress let the next stage read To do. Shown in place of the state (its own in the
   tooltip); blocks nothing.
 - **To redo**: a started department, an earlier stage changed after its
   last update. Two changes, kept apart -- one rule mixing them hid the

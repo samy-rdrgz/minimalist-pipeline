@@ -124,8 +124,9 @@ def stage_flags(facts: dict, stages: dict) -> dict[str, dict]:
     _status_from_raw() gives) and its kind's stages. Information only,
     nothing is blocked. See NOTES.md, "Waiting and To redo".
 
-    - Waiting: an earlier stage has an open RTK ("layout RTK") or isn't
-      started ("layout not started"), the nearest stage first.
+    - Waiting: an earlier stage has an open RTK ("layout RTK"), isn't
+      started ("layout not started") or isn't done yet ("layout not done"),
+      the nearest stage first.
     - To redo: a started department whose earlier stage changed after its
       last update -- an RTK on it closed, or the latest stable made with it
       worked while this one, already started, wasn't worked with it. Its
@@ -158,9 +159,14 @@ def stage_flags(facts: dict, stages: dict) -> dict[str, dict]:
         if blocking:
             out["waiting"] = f"{blocking} RTK"
         else:
+            # Done: on the latest stable (reworked since, still). Not done
+            # yet, the nearest such stage said: not started, else in progress.
             idle = next((u for u in upstream if department_state(facts, u) == "todo"), None)
+            busy = next((u for u in upstream if department_state(facts, u) == "wip"), None)
             if idle:
                 out["waiting"] = f"{idle} not started"
+            elif busy:
+                out["waiting"] = f"{busy} not done"
         if department_state(facts, d) != "todo":
             # Its own updates since the latest stable (a session, Still done).
             own = max(

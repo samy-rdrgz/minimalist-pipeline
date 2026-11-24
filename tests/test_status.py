@@ -78,6 +78,11 @@ def main() -> None:
     # Saved after, or Still done: up to date.
     later = dict(facts, last_worked_at={"anim": "2026-11-12T08:00:00+00:00"})
     assert "anim" not in status.stage_flags(later, stages)
+    # An earlier stage in progress: waiting too, said so (fx after anim, started).
+    f = status.stage_flags(dict(base, entries=[]), stages)
+    assert f["fx"] == {"waiting": "anim not done"} and f["light"] == {"waiting": "anim not done"}, f
+    done = dict(base, entries=[], validated_departments={"layout": True, "anim": True})
+    assert "fx" not in status.stage_flags(done, stages)
     synced = dict(facts, departments_synced={"anim": {"at": "2026-11-12T08:00:00+00:00", "by": "léa"}})
     assert "anim" not in status.stage_flags(synced, stages)
     # Changed before the latest stable it was started at: the stable holds it.

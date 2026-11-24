@@ -558,6 +558,8 @@ All notable changes to this addon. Dates are release dates.
 
 ### Fixed
 
+- A department after one in progress read To do: it's Waiting now until
+  every earlier stage is done ("anim not done").
 - The live page respects Blender's *Allow Online Access*: off, it's
   still served on this machine, but never on the network -- no access
   for a phone made, the running ones off the network until it's back on
