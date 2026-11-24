@@ -6,6 +6,9 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- Live page, Farm tab: a job's icon and name centred in its row; with a
+  mouse, its step's words open under the name on hover, pushing it up --
+  the row keeps its height.
 - Live page, Farm tab: a job in an ffmpeg pass (frame check, compilation,
   preview) shows that pass's progress bar, on the desktop and the phone.
 

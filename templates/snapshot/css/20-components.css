@@ -2391,11 +2391,11 @@ button.assign:hover {
      its meta says (each row is its own grid). */
   grid-template-columns: auto minmax(0, 1fr) calc(170px * var(--scale)) calc(220px * var(--scale));
   gap: var(--sp-7);
-  /* One first line: its icon, its name, its bar, its meta; under it what's said on hover (the step's
-     words) and under the bar its frames. Centred, the name sat above the icon: the hidden words below
-     keep their room. */
-  align-items: start;
-  --jl: calc(20px * var(--scale)); /* the first line's height: the icon's */
+  /* Centred: its icon, its name, its bar's two lines (the bar, its frames), its meta. Its name's
+     column keeps two lines' room: the step's words, folded at rest (a mouse), push the name up on
+     hover -- the row never changes height. */
+  align-items: center;
+  --jl: calc(20px * var(--scale)); /* a first line's height: the icon's */
   padding: var(--sp-6) var(--sp-7);
   border-bottom: 1px solid var(--row-hover);
   cursor: pointer;
@@ -2414,6 +2414,12 @@ button.assign:hover {
   min-width: 0;
   gap: var(--sp-1);
 }
+.job .jt {
+  justify-content: center;
+  gap: 0; /* the step's words' padding instead: folded with them */
+  align-self: stretch;
+  min-height: calc(var(--jl) + var(--sp-1) + var(--fs-s) * 1.35); /* its name, the step's words */
+}
 .job .f {
   font: 500 var(--fs) var(--mono);
   line-height: var(--jl);
@@ -2424,6 +2430,7 @@ button.assign:hover {
 .job .s {
   color: var(--text-2);
   font-size: var(--fs-s);
+  padding-top: var(--sp-1);
 }
 .job .s .tag {
   margin-left: var(--sp-3); /* Render here: local, viewport */
@@ -2461,10 +2468,6 @@ button.assign:hover {
   width: var(--p);
   background: var(--sel);
   border-radius: var(--r-s);
-}
-/* A job's bar: on its first line's middle. */
-.job .jbar i {
-  margin-top: calc((var(--jl) - 5px) / 2);
 }
 .jbar.big i {
   height: 8px;
@@ -4789,7 +4792,6 @@ html.kb .m-nav {
   .wnr .wfx,
   .rvg .subd,
   .job .meta,
-  .job .s,
   .grp-h .bar .bl {
     transition:
       opacity calc(0.18s * var(--hk, 1)) ease,
@@ -4820,7 +4822,6 @@ html.kb .m-nav {
   /* The Farm tab: a job's machines, who sent it and when, and its step's words (its group and its
      icon say its state) -- its bar and time left stay. */
   .job:not(:hover):not(.hov):not(.sel) .meta,
-  .job:not(:hover):not(.hov):not(.sel) .s,
   /* A sequence's header: its bars' names (DONE / VALIDATED), as its buttons. */
   .grp-h:not(:hover):not(.hov):not(:focus-within) .bar .bl {
     opacity: 0;
@@ -4847,6 +4848,24 @@ html.kb .m-nav {
   }
   .dept:not(:hover):not(.hov):not(:focus-within) .extra:not(:has(.assign:not(.none), .wait, .redo, .btn[aria-pressed="true"])) {
     margin-top: calc(-1 * var(--sp-2));
+  }
+  /* The Farm tab: a job's step's words (its group and its icon say its state), folded -- its name,
+     centred at rest, pushed up on hover; the row's height kept (.job .jt). */
+  .job .s {
+    max-height: calc(var(--fs-s) * 1.35 + var(--sp-1));
+    overflow: hidden;
+    transition:
+      max-height calc(0.22s * var(--hk, 1)) ease,
+      padding calc(0.22s * var(--hk, 1)) ease,
+      opacity calc(0.18s * var(--hk, 1)) ease,
+      visibility calc(0.18s * var(--hk, 1));
+  }
+  .job:not(:hover):not(.hov):not(.sel) .s {
+    max-height: 0;
+    padding-top: 0;
+    opacity: 0;
+    visibility: hidden;
+    --hk: 0.4;
   }
   /* Narrowed to nothing too, not only faded: a card's buttons beside its words, a note's pen in its
      header -- left in place, they'd push the words to a second line. */
