@@ -3024,31 +3024,38 @@ button.assign:hover {
 .strip .thumb {
   width: 100%;
 }
-/* A block of shots: its thumbnails framed together, under its name. */
+/* A block of shots, framed together: its first shot as a file's, the others smaller, its whole
+   name above them while one of its shots is watched or the block hovered (its room kept). */
 .strip .blk {
   flex: none;
   display: flex;
-  flex-direction: column;
+  align-items: flex-end;
   gap: var(--sp-1);
-  padding: 0 var(--sp-1);
   border-radius: var(--r-l);
   background: var(--box);
 }
-.strip .blk .bn {
+.strip .blk .br {
   display: flex;
-  align-items: center;
-  gap: var(--sp-2);
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+.strip .blk .bn {
   padding: var(--sp-1) var(--sp-2) 0;
   font: 10.5px var(--mono);
   color: var(--text-2);
   white-space: nowrap;
   overflow: hidden;
 }
+.strip .blk:not(.on):not(:hover):not(.hov) .bn {
+  visibility: hidden;
+}
 .strip .blk .bs {
   display: flex;
   gap: var(--sp-1);
+  padding-right: var(--sp-1);
 }
-.strip .blk button {
+.strip .blk .bs button {
   width: calc(64px * var(--scale));
 }
 .strip .blk button:hover {
@@ -4844,7 +4851,20 @@ html.kb .m-nav {
 }
 .mn-w {
   color: var(--text-2);
-  margin-top: var(--sp-2);
+}
+.mn-h .tag {
+  flex: none;
+}
+.mn-act {
+  display: flex;
+  margin-top: var(--sp-3);
+}
+.grp-h .mh-farm {
+  font-size: var(--fs-s);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .mn-w .jst {
   width: 14px;
@@ -8465,7 +8485,9 @@ MPI18n.add('fr',{
 "online access is off in Blender's Preferences (System): the page stays on this machine":"l'accès en ligne est désactivé dans les Préférences de Blender (Système) : la page reste sur cette machine",
 'render to check':'rendu à vérifier',
 'the dot green: not seen by the team yet':'le point vert : pas encore vu par l\'équipe',
-'Whole':'Entier'
+'Whole':'Entier',
+'The farm is stuck':'La farm est bloquée',
+'The farm is stopped':'La farm est arrêtée'
 });
 // The page's language, once every dictionary is in (i18n/*.js): the one
 // chosen in this browser (View > Language), else Blender's (meta.lang,
@@ -11939,10 +11961,11 @@ function renderFarm() {
     shown = farmJobs();
   const st =
     { dead: T('stopped'), running: T('running'), stale: T('stuck'), ok: T('running') }[F.status] || F.status;
-  let h = `<div class="fme">${jst(me.worker ? 'running' : 'waiting')}<span class="t"><b>${me.worker ? (me.rendering ? T('This machine: worker · rendering') : T('This machine: worker · idle')) : T('This machine: not a worker')}</b>
-      <span class="faint">${T('Farm host: {host}', { host: esc(me.host ? T('this machine') : me.host_name || T('none')) })} · <span class="${F.status === 'dead' ? 'bad' : ''}">${T('monitor {state}', { state: st })}</span></span>
-      ${F.status === 'dead' ? '' : `<span class="faint">${T('Now: {what}', { what: hostNow(me.host_now) })}</span>`}</span>
-    ${monitorBtn()}<button class="btn ${me.worker ? '' : 'primary'}" data-farm="worker">${me.worker ? T('Stop being a worker') : T('Make it a worker')}</button></div>`;
+  // On top only when the farm needs a hand (stopped, stuck): running, it's said in Machines' head.
+  let h = farmUp()
+    ? ''
+    : `<div class="fme">${jst('failed')}<span class="t"><b>${F.status === 'stale' ? T('The farm is stuck') : T('The farm is stopped')}</b>
+      <span class="faint">${T('Farm host: {host}', { host: esc(me.host ? T('this machine') : me.host_name || T('none')) })} · <span class="bad">${T('monitor {state}', { state: st })}</span></span></span>${monitorBtn()}</div>`;
   h += JS.map(([s, l]) => {
     const js = shown.filter(j => j.state === s);
     if (!js.length) return '';
@@ -12139,33 +12162,38 @@ function farmAction(k, el) {
    with a file open or a worker (lib/monitoring/live.py presence(), the farm's workers);
    nothing about since when. */
 function machinesHTML() {
-  const by = {};
+  const by = {},
+    me = F.me || {},
+    st = { dead: T('stopped'), running: T('running'), stale: T('stuck'), ok: T('running') }[F.status] || F.status;
   const node = (uuid, label) => (by[uuid] = by[uuid] || { uuid, label, files: [], worker: null });
   (M.presence || []).forEach(p => node(p.uuid || p.machine, `${p.user} (${p.machine})`).files.push(p));
   F.workers.forEach(w => (node(w.uuid, w.name).worker = w));
-  const ms = Object.values(by).sort((a, b) => (a.label < b.label ? -1 : 1));
+  // This machine: always its card (the one serving the page), first, with its worker switch.
+  const own = me.uuid || F.workers.find(w => w.mine)?.uuid || 'me';
+  node(own, T('This machine')).me = true;
+  const ms = Object.values(by).sort((a, b) => (a.me ? -1 : b.me ? 1 : a.label < b.label ? -1 : 1));
   const name = f => items.find(i => i.file === f || f.startsWith(i.name + '_'))?.name;
   const wk = w =>
     !w
       ? `<span class="faint">${T('not a worker')}</span>`
       : `<button class="mn-w" data-wk="${w.uuid}">${jst(w.status === 'silent' ? 'waiting' : w.file ? 'running' : 'finished')}<span>${w.status === 'silent' ? T('worker silent since {date}', { date: fmtD(w.since) }) : w.file ? T('worker · rendering {file}', { file: esc(w.file) }) : T('worker · idle')}${w.local ? ` <span class="tag" title="${T('Kept for its own renders: the farm sends it nothing meanwhile')}">${T('local')}</span>` : ''}</span></button>`;
-  return `<div class="grp"><div class="grp-h"><b>${T('Machines')}</b><span class="cnt">${ms.length}</span><span class="faint" style="font-size:var(--fs-s)">${T('who has which file open, and the workers')}</span></div>
+  // Its head: the farm itself -- who hosts it, its monitor, what it does now -- and its switch.
+  const farmNow = farmUp()
+    ? `<span class="faint mh-farm">${T('Farm host: {host}', { host: esc(me.host ? T('this machine') : me.host_name || T('none')) })} · ${T('monitor {state}', { state: st })} · ${T('Now: {what}', { what: hostNow(me.host_now) })}</span><span style="flex:1"></span>${monitorBtn('sm')}`
+    : `<span class="faint" style="font-size:var(--fs-s)">${T('who has which file open, and the workers')}</span>`;
+  return `<div class="grp"><div class="grp-h"><b>${T('Machines')}</b><span class="cnt">${ms.length}</span>${farmNow}</div>
     ${
       ms.length
         ? `<div class="mnodes">${ms
             .map(
-              m => `<div class="mn ${S.farmSel === 'w:' + m.uuid ? 'sel' : ''}"><div class="mn-h">${ic('b-user')}<b>${esc(m.label)}</b></div>
-        <div class="mn-b">${
-          m.files.length
-            ? m.files
-                .map(f => {
-                  const n = name(f.file);
-                  return `<button class="mn-f" ${n ? `data-sgofile="${esc(n)}" data-stab="plan"` : 'disabled'}>${ic('b-blender')}<span class="mono">${esc(f.file)}</span>${f.saved ? '' : `<span class="faint">${T('not saved yet')}</span>`}</button>`;
-                })
-                .join('')
-            : `<span class="faint">${T('no file open')}</span>`
-        }
-        ${wk(m.worker)}</div></div>`
+              // Its worker first (what it renders), then its files open; none open: nothing said.
+              m => `<div class="mn ${S.farmSel === 'w:' + m.uuid ? 'sel' : ''} ${m.me ? 'me' : ''}"><div class="mn-h">${ic('b-user')}<b>${esc(m.label)}</b>${m.me && m.label !== T('This machine') ? `<span class="tag">${T('this machine')}</span>` : ''}</div>
+        <div class="mn-b">${wk(m.worker)}${m.files
+          .map(f => {
+            const n = name(f.file);
+            return `<button class="mn-f" ${n ? `data-sgofile="${esc(n)}" data-stab="plan"` : 'disabled'}>${ic('b-blender')}<span class="mono">${esc(f.file)}</span>${f.saved ? '' : `<span class="faint">${T('not saved yet')}</span>`}</button>`;
+          })
+          .join('')}${m.me ? `<span class="mn-act"><button class="btn sm ${me.worker ? '' : 'primary'}" data-farm="worker">${me.worker ? T('Stop being a worker') : T('Make it a worker')}</button></span>` : ''}</div></div>`
             )
             .join('')}</div>`
         : `<div class="empty">${T('No Blender has a project file open, no worker.')}</div>`
@@ -12625,13 +12653,12 @@ const filmHTML = it => i => {
   const own = new Map((i.shot_thumbs || []).map(([l, id]) => [l, img(id)])),
     on = i.name === it.name ? shotOf(it) : null,
     whole = i.versions.some(v => !v.shot) ? [''] : [];
-  // Its name above only while one of its shots is watched; its state's dot by its first one's name.
-  return `<span class="blk ${on != null ? 'on' : ''}" title="${i.name}">${on != null ? `<span class="bn">${mq(nm)}</span>` : ''}<span class="bs">${[...whole, ...i.shots]
-    .map(
-      (s, k) =>
-        `<button class="${on === s ? 'cur' : ''}" data-film="${i.name}" data-fshot="${s}" title="${s ? i.name + ' · ' + s : T('Whole block')}">${th((s && own.get(s)) || i.thumb)}<span class="fn">${k ? '' : dot}${s ? mq(s) : T('Whole')}</span></button>`
-    )
-    .join('')}</span></span>`;
+  // Its first shot full size, as a file's, its state's dot by its name; the others smaller,
+  // its whole name above them -- while one of its shots is watched, or hovered.
+  const b = (s, k) =>
+    `<button class="${on === s ? 'cur' : ''}" data-film="${i.name}" data-fshot="${s}" title="${s ? i.name + ' · ' + s : T('Whole block')}">${th((s && own.get(s)) || i.thumb)}<span class="fn">${k ? '' : dot}${s ? mq(s) : T('Whole')}</span></button>`;
+  const [first, ...rest] = [...whole, ...i.shots];
+  return `<span class="blk ${on != null ? 'on' : ''}" title="${i.name}">${b(first, 0)}<span class="br"><span class="bn">${mq(nm)}</span><span class="bs">${rest.map((s, k) => b(s, k + 1)).join('')}</span></span></span>`;
 };
 function renderWide() {
   const W = $('#wide');

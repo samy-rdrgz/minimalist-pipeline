@@ -943,5 +943,7 @@ MPI18n.add('fr',{
 "online access is off in Blender's Preferences (System): the page stays on this machine":"l'accès en ligne est désactivé dans les Préférences de Blender (Système) : la page reste sur cette machine",
 'render to check':'rendu à vérifier',
 'the dot green: not seen by the team yet':'le point vert : pas encore vu par l\'équipe',
-'Whole':'Entier'
+'Whole':'Entier',
+'The farm is stuck':'La farm est bloquée',
+'The farm is stopped':'La farm est arrêtée'
 });

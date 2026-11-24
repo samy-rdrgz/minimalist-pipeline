@@ -2771,31 +2771,38 @@ button.assign:hover {
 .strip .thumb {
   width: 100%;
 }
-/* A block of shots: its thumbnails framed together, under its name. */
+/* A block of shots, framed together: its first shot as a file's, the others smaller, its whole
+   name above them while one of its shots is watched or the block hovered (its room kept). */
 .strip .blk {
   flex: none;
   display: flex;
-  flex-direction: column;
+  align-items: flex-end;
   gap: var(--sp-1);
-  padding: 0 var(--sp-1);
   border-radius: var(--r-l);
   background: var(--box);
 }
-.strip .blk .bn {
+.strip .blk .br {
   display: flex;
-  align-items: center;
-  gap: var(--sp-2);
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+.strip .blk .bn {
   padding: var(--sp-1) var(--sp-2) 0;
   font: 10.5px var(--mono);
   color: var(--text-2);
   white-space: nowrap;
   overflow: hidden;
 }
+.strip .blk:not(.on):not(:hover):not(.hov) .bn {
+  visibility: hidden;
+}
 .strip .blk .bs {
   display: flex;
   gap: var(--sp-1);
+  padding-right: var(--sp-1);
 }
-.strip .blk button {
+.strip .blk .bs button {
   width: calc(64px * var(--scale));
 }
 .strip .blk button:hover {
@@ -4591,7 +4598,20 @@ html.kb .m-nav {
 }
 .mn-w {
   color: var(--text-2);
-  margin-top: var(--sp-2);
+}
+.mn-h .tag {
+  flex: none;
+}
+.mn-act {
+  display: flex;
+  margin-top: var(--sp-3);
+}
+.grp-h .mh-farm {
+  font-size: var(--fs-s);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .mn-w .jst {
   width: 14px;

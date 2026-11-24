@@ -93,10 +93,11 @@ function renderFarm() {
     shown = farmJobs();
   const st =
     { dead: T('stopped'), running: T('running'), stale: T('stuck'), ok: T('running') }[F.status] || F.status;
-  let h = `<div class="fme">${jst(me.worker ? 'running' : 'waiting')}<span class="t"><b>${me.worker ? (me.rendering ? T('This machine: worker · rendering') : T('This machine: worker · idle')) : T('This machine: not a worker')}</b>
-      <span class="faint">${T('Farm host: {host}', { host: esc(me.host ? T('this machine') : me.host_name || T('none')) })} · <span class="${F.status === 'dead' ? 'bad' : ''}">${T('monitor {state}', { state: st })}</span></span>
-      ${F.status === 'dead' ? '' : `<span class="faint">${T('Now: {what}', { what: hostNow(me.host_now) })}</span>`}</span>
-    ${monitorBtn()}<button class="btn ${me.worker ? '' : 'primary'}" data-farm="worker">${me.worker ? T('Stop being a worker') : T('Make it a worker')}</button></div>`;
+  // On top only when the farm needs a hand (stopped, stuck): running, it's said in Machines' head.
+  let h = farmUp()
+    ? ''
+    : `<div class="fme">${jst('failed')}<span class="t"><b>${F.status === 'stale' ? T('The farm is stuck') : T('The farm is stopped')}</b>
+      <span class="faint">${T('Farm host: {host}', { host: esc(me.host ? T('this machine') : me.host_name || T('none')) })} · <span class="bad">${T('monitor {state}', { state: st })}</span></span></span>${monitorBtn()}</div>`;
   h += JS.map(([s, l]) => {
     const js = shown.filter(j => j.state === s);
     if (!js.length) return '';
@@ -293,33 +294,38 @@ function farmAction(k, el) {
    with a file open or a worker (lib/monitoring/live.py presence(), the farm's workers);
    nothing about since when. */
 function machinesHTML() {
-  const by = {};
+  const by = {},
+    me = F.me || {},
+    st = { dead: T('stopped'), running: T('running'), stale: T('stuck'), ok: T('running') }[F.status] || F.status;
   const node = (uuid, label) => (by[uuid] = by[uuid] || { uuid, label, files: [], worker: null });
   (M.presence || []).forEach(p => node(p.uuid || p.machine, `${p.user} (${p.machine})`).files.push(p));
   F.workers.forEach(w => (node(w.uuid, w.name).worker = w));
-  const ms = Object.values(by).sort((a, b) => (a.label < b.label ? -1 : 1));
+  // This machine: always its card (the one serving the page), first, with its worker switch.
+  const own = me.uuid || F.workers.find(w => w.mine)?.uuid || 'me';
+  node(own, T('This machine')).me = true;
+  const ms = Object.values(by).sort((a, b) => (a.me ? -1 : b.me ? 1 : a.label < b.label ? -1 : 1));
   const name = f => items.find(i => i.file === f || f.startsWith(i.name + '_'))?.name;
   const wk = w =>
     !w
       ? `<span class="faint">${T('not a worker')}</span>`
       : `<button class="mn-w" data-wk="${w.uuid}">${jst(w.status === 'silent' ? 'waiting' : w.file ? 'running' : 'finished')}<span>${w.status === 'silent' ? T('worker silent since {date}', { date: fmtD(w.since) }) : w.file ? T('worker · rendering {file}', { file: esc(w.file) }) : T('worker · idle')}${w.local ? ` <span class="tag" title="${T('Kept for its own renders: the farm sends it nothing meanwhile')}">${T('local')}</span>` : ''}</span></button>`;
-  return `<div class="grp"><div class="grp-h"><b>${T('Machines')}</b><span class="cnt">${ms.length}</span><span class="faint" style="font-size:var(--fs-s)">${T('who has which file open, and the workers')}</span></div>
+  // Its head: the farm itself -- who hosts it, its monitor, what it does now -- and its switch.
+  const farmNow = farmUp()
+    ? `<span class="faint mh-farm">${T('Farm host: {host}', { host: esc(me.host ? T('this machine') : me.host_name || T('none')) })} · ${T('monitor {state}', { state: st })} · ${T('Now: {what}', { what: hostNow(me.host_now) })}</span><span style="flex:1"></span>${monitorBtn('sm')}`
+    : `<span class="faint" style="font-size:var(--fs-s)">${T('who has which file open, and the workers')}</span>`;
+  return `<div class="grp"><div class="grp-h"><b>${T('Machines')}</b><span class="cnt">${ms.length}</span>${farmNow}</div>
     ${
       ms.length
         ? `<div class="mnodes">${ms
             .map(
-              m => `<div class="mn ${S.farmSel === 'w:' + m.uuid ? 'sel' : ''}"><div class="mn-h">${ic('b-user')}<b>${esc(m.label)}</b></div>
-        <div class="mn-b">${
-          m.files.length
-            ? m.files
-                .map(f => {
-                  const n = name(f.file);
-                  return `<button class="mn-f" ${n ? `data-sgofile="${esc(n)}" data-stab="plan"` : 'disabled'}>${ic('b-blender')}<span class="mono">${esc(f.file)}</span>${f.saved ? '' : `<span class="faint">${T('not saved yet')}</span>`}</button>`;
-                })
-                .join('')
-            : `<span class="faint">${T('no file open')}</span>`
-        }
-        ${wk(m.worker)}</div></div>`
+              // Its worker first (what it renders), then its files open; none open: nothing said.
+              m => `<div class="mn ${S.farmSel === 'w:' + m.uuid ? 'sel' : ''} ${m.me ? 'me' : ''}"><div class="mn-h">${ic('b-user')}<b>${esc(m.label)}</b>${m.me && m.label !== T('This machine') ? `<span class="tag">${T('this machine')}</span>` : ''}</div>
+        <div class="mn-b">${wk(m.worker)}${m.files
+          .map(f => {
+            const n = name(f.file);
+            return `<button class="mn-f" ${n ? `data-sgofile="${esc(n)}" data-stab="plan"` : 'disabled'}>${ic('b-blender')}<span class="mono">${esc(f.file)}</span>${f.saved ? '' : `<span class="faint">${T('not saved yet')}</span>`}</button>`;
+          })
+          .join('')}${m.me ? `<span class="mn-act"><button class="btn sm ${me.worker ? '' : 'primary'}" data-farm="worker">${me.worker ? T('Stop being a worker') : T('Make it a worker')}</button></span>` : ''}</div></div>`
             )
             .join('')}</div>`
         : `<div class="empty">${T('No Blender has a project file open, no worker.')}</div>`

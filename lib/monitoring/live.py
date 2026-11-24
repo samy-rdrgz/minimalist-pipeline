@@ -1098,6 +1098,8 @@ def _farm_data(root: Path) -> dict:
     ]
 
     me = {
+        # Its machine id: its own card among the Farm tab's Machines.
+        "uuid": mine,
         "worker": is_blender_worker(),
         "rendering": worker_rendering(),
         "host": is_blender_monitor(),

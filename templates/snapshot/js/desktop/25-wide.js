@@ -11,13 +11,12 @@ const filmHTML = it => i => {
   const own = new Map((i.shot_thumbs || []).map(([l, id]) => [l, img(id)])),
     on = i.name === it.name ? shotOf(it) : null,
     whole = i.versions.some(v => !v.shot) ? [''] : [];
-  // Its name above only while one of its shots is watched; its state's dot by its first one's name.
-  return `<span class="blk ${on != null ? 'on' : ''}" title="${i.name}">${on != null ? `<span class="bn">${mq(nm)}</span>` : ''}<span class="bs">${[...whole, ...i.shots]
-    .map(
-      (s, k) =>
-        `<button class="${on === s ? 'cur' : ''}" data-film="${i.name}" data-fshot="${s}" title="${s ? i.name + ' · ' + s : T('Whole block')}">${th((s && own.get(s)) || i.thumb)}<span class="fn">${k ? '' : dot}${s ? mq(s) : T('Whole')}</span></button>`
-    )
-    .join('')}</span></span>`;
+  // Its first shot full size, as a file's, its state's dot by its name; the others smaller,
+  // its whole name above them -- while one of its shots is watched, or hovered.
+  const b = (s, k) =>
+    `<button class="${on === s ? 'cur' : ''}" data-film="${i.name}" data-fshot="${s}" title="${s ? i.name + ' · ' + s : T('Whole block')}">${th((s && own.get(s)) || i.thumb)}<span class="fn">${k ? '' : dot}${s ? mq(s) : T('Whole')}</span></button>`;
+  const [first, ...rest] = [...whole, ...i.shots];
+  return `<span class="blk ${on != null ? 'on' : ''}" title="${i.name}">${b(first, 0)}<span class="br"><span class="bn">${mq(nm)}</span><span class="bs">${rest.map((s, k) => b(s, k + 1)).join('')}</span></span></span>`;
 };
 function renderWide() {
   const W = $('#wide');

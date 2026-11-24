@@ -558,6 +558,13 @@ All notable changes to this addon. Dates are release dates.
 
 ### Fixed
 
+- The Farm tab: this machine's state and its worker switch are its own
+  card in Machines (first), the farm's -- host, monitor, what it does,
+  Stop the farm -- Machines' head; on top only when the farm is stopped
+  or stuck, with Launch / Take over. A machine's card says its worker
+  first, then its files open -- no more "no file open".
+- Watch large: a block's first shot is full size, as a file's; its name
+  over the others while one of its shots is watched or it's hovered.
 - The live page still blinked what shows on hover at each update: an
   update now patches the page's areas -- only what changed, the same
   elements kept (hover, scroll, images) -- instead of redrawing them;
