@@ -3,6 +3,7 @@
 import json
 import os
 import re
+import threading
 import time
 from pathlib import Path
 
@@ -111,6 +112,11 @@ class ConfigCache:
     # get() is called many times per redraw: within this window it returns
     # the cached config without a stat (see NOTES.md, "Sidebar redraw").
     _VALIDATE_TTL = 2.0
+    # On Blender's thread the stat itself goes to a thread of its own: on a slow share it held the
+    # interface 0.1 to 0.3 s every _VALIDATE_TTL (the live page's profile). Its answer is used at the
+    # next get(): a change seen a check later, at most. Other threads (and no config yet): at once.
+    _stat_job: "threading.Thread | None" = None
+    _stat_seen: tuple | None = None  # (config file, its mtime or None unreadable), the job's answer
 
     @classmethod
     def get(cls) -> dict:
@@ -127,6 +133,28 @@ class ConfigCache:
             and cls._path == config_file
             and checked_at - cls._checked_at < cls._VALIDATE_TTL
         ):
+            return cls._cache
+        if (
+            cls._cache is not None
+            and cls._path == config_file
+            and threading.current_thread() is threading.main_thread()
+        ):
+            seen, cls._stat_seen = cls._stat_seen, None
+            cls._checked_at = checked_at
+            if seen is not None and seen[0] == config_file and seen[1] is not None and seen[1] != cls._mtime:
+                cls._cache = read_project_config(project_root)  # changed: read again (rare)
+                cls._mtime = seen[1]
+                return cls._cache or {}
+            if cls._stat_job is None or not cls._stat_job.is_alive():
+
+                def stat(path=config_file):
+                    try:
+                        cls._stat_seen = (path, path.stat().st_mtime)
+                    except OSError:
+                        cls._stat_seen = (path, None)  # out for a moment: the last good config kept
+
+                cls._stat_job = threading.Thread(target=stat, daemon=True, name="pipeline-config-stat")
+                cls._stat_job.start()
             return cls._cache
         try:
             current_mtime = config_file.stat().st_mtime
@@ -189,6 +217,7 @@ class ConfigCache:
         cls._mtime = None
         cls._path = None
         cls._checked_at = 0.0
+        cls._stat_seen = None
 
     @classmethod
     def get_path(cls, name: str) -> Path:

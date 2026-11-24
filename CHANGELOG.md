@@ -581,7 +581,13 @@ All notable changes to this addon. Dates are release dates.
   farm loop's memory, the presets kept 10 s, the progress log read with the
   project's pass on its own thread, the farm looked at every 2 s -- and
   while Blender renders on its CPU (a Cycles CPU viewport, a render), the
-  page's passes and farm looks three times less often.
+  page's passes and farm looks three times less often. The presets are
+  listed by that pass too, and the project's config is checked for changes
+  on a thread of its own (it held Blender's interface 0.1 to 0.3 s every
+  2 s on a slow share -- the whole add-on's, not only the page's).
+
+- Live page: a page closed or reloaded while answered no longer prints a
+  traceback in Blender's console (ConnectionAbortedError).
 
 - Live page: the folded panels' side tabs sit under the list's sequence
   header, not over it; Watch large's full-screen header tab hangs from the

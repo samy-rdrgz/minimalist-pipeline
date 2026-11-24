@@ -28,6 +28,7 @@ import queue
 import re
 import secrets
 import socket
+import sys
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -71,6 +72,18 @@ POLL = 20.0  # a page waiting for news is answered after this, news or not
 FIRST_BATCH = 1.0  # the first read: a page of what's read after this long (a small project: none)...
 BATCH_EVERY = 2.0  # ...then again this often, until it's whole
 CHUNK = 64 * 1024
+
+
+class _Server(ThreadingHTTPServer):
+    """The page's server: a page closing (or reloading) while it's answered is
+    no error -- not a traceback in the console each time."""
+
+    daemon_threads = True
+
+    def handle_error(self, request, client_address):
+        if isinstance(sys.exc_info()[1], (ConnectionAbortedError, ConnectionResetError, BrokenPipeError)):
+            return
+        super().handle_error(request, client_address)
 
 
 class _Shared:
@@ -289,7 +302,7 @@ def _sync_lan_locked(sh: "_Shared") -> None:
         return
     for ip in wanted - set(servers):
         try:
-            server = ThreadingHTTPServer((ip, _server.server_address[1]), _handler(sh))
+            server = _Server((ip, _server.server_address[1]), _handler(sh))
         except OSError as e:
             _lan["error"] = f"not served on {ip}: {e}"
             log("WARNING", "live", f"Live page: {_lan['error']}")
@@ -564,8 +577,10 @@ def _read(root, cache, config, v_prefix, extras, first=False):
         changed = changed or work != _reader.get("work")
         # What the edit has (editing/rushes/rushes.json): a push changes no folder either.
         rushes = {"rushes": _rushes_by_name(root), "presence": presence(root)}
-        # The days of the project's progress (config/logs): read here, off Blender's thread.
+        # The days of the project's progress (config/logs) and the Render form's presets (their
+        # folders listed): read here, off Blender's thread.
         _reader["history"] = progress_log.days(root)
+        _reader["presets"] = _presets_of(root, config)
         changed = changed or rushes != _reader.get("rushes")
         _reader["result"] = (root, new, changed, extras, work, rushes)
     except Exception as e:  # never die silently: the next pass tries again
@@ -635,7 +650,7 @@ def _turn(sh: _Shared) -> None:
         # Another project made active: the page follows it -- told it's
         # being read (it reloads on the waiting page), then its data.
         sh.root = Path(root)
-        _reader.update(cache={}, result=None, compare=None, farm=None, ready=False, extras=None, work=None, at=0.0, partial=None, progress=None, shown=None, history=None)
+        _reader.update(cache={}, result=None, compare=None, farm=None, ready=False, extras=None, work=None, at=0.0, partial=None, progress=None, shown=None, history=None, presets=None)
         with sh.changed:
             sh.version += 1
             sh.data, sh.body = None, b""
@@ -679,7 +694,7 @@ def _turn(sh: _Shared) -> None:
                 if pending.kind == "farm":
                     from ...farm.loop import refresh_step
 
-                    _SLOW.clear()  # a role or the farm changed: read again now
+                    _SLOW.clear()  # the farm changed: read again now
                     refresh_step(soon=True)  # the farm read again now: its change shown
                 continue
             pending.result = _apply(sh.root, pending.review)
@@ -1194,7 +1209,8 @@ def _farm_data(root: Path) -> dict:
         # The machine time the jobs still need, over the live workers.
         # Said by the page, in its language: {"seconds", "workers", "unknown"}.
         "left": render_left_parts([j for j in cache.get("jobs") or [] if entry_state(j) != "finished"], cache),
-        **_slow("presets", _presets),
+        # Listed by the project's pass (its thread); before the first, here once.
+        **(_reader.get("presets") or _slow("presets", _presets)),
     }
 
 
@@ -1232,6 +1248,23 @@ def _presets() -> dict:
         "preset": _NO_SCRIPT,
         # The department each preset's name gives, and the one set for each department
         # (Project settings > By department): the form's preset follows its department.
+        "preset_deps": {n: preset_department(n, departments) for n, _ in items},
+        "dept_presets": (config.get("farm") or {}).get("department_presets") or {},
+    }
+
+
+def _presets_of(root: Path, config: dict) -> dict:
+    """_presets() for root, without Blender (the project's pass, on its thread):
+    every preset, as the Render dialog's picker lists them without a file."""
+    from ...operators.farm_ops import _NO_SCRIPT, pre_render_script_items
+
+    from .status import preset_department
+
+    departments = [*(config.get("shots_departments") or []), *(config.get("assets_departments") or [])]
+    items = [list(i[:2]) for i in pre_render_script_items(root, departments, None) if i]
+    return {
+        "presets": items,
+        "preset": _NO_SCRIPT,
         "preset_deps": {n: preset_department(n, departments) for n, _ in items},
         "dept_presets": (config.get("farm") or {}).get("department_presets") or {},
     }
@@ -1816,7 +1849,7 @@ def start(root: Path) -> str:
     server = None
     for port in PORTS:
         try:
-            server = ThreadingHTTPServer(("127.0.0.1", port), _handler(sh))
+            server = _Server(("127.0.0.1", port), _handler(sh))
             break
         except OSError:
             continue
@@ -1826,7 +1859,7 @@ def start(root: Path) -> str:
     threading.Thread(target=server.serve_forever, name="pipeline-live", daemon=True).start()
     _shared, _server = sh, server
     _reader.update(thread=None, result=None, at=0.0, farm_at=0.0, cache={}, farm=None, compare=None, ready=False,
-                   waiting=[], in_pass=[], extras=None, work=None, history=None)
+                   waiting=[], in_pass=[], extras=None, work=None, history=None, presets=None)
     # persistent: kept when a file is opened.
     if not bpy.app.timers.is_registered(_tick):
         bpy.app.timers.register(_tick, first_interval=0.0, persistent=True)
