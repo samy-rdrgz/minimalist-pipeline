@@ -3695,6 +3695,13 @@ button.assign:hover {
 .sh-info p {
   margin: 0;
 }
+.sh-off {
+  margin: 0;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-l);
+  background: var(--sunk);
+  color: var(--text-2);
+}
 .sh-form {
   display: flex;
   flex-direction: column;

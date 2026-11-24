@@ -558,6 +558,10 @@ All notable changes to this addon. Dates are release dates.
 
 ### Fixed
 
+- The live page respects Blender's *Allow Online Access*: off, it's
+  still served on this machine, but never on the network -- no access
+  for a phone made, the running ones off the network until it's back on
+  (their dialog says why).
 - The farm host as its only worker set every job up before rendering any:
   the first video came last. Holding its worker back while setups wait is
   for the other machines (set-up jobs ready for them); alone, it goes job

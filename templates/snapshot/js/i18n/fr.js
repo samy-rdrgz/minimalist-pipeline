@@ -938,5 +938,7 @@ MPI18n.add('fr',{
 'To do at this frame…':'À faire à cette frame…',
 'To-do added to your review':'À-faire ajouté à votre revue',
 'Hide the closed ones':'Masquer les fermées',
-'{n} closed: show':'{n} fermée : afficher|{n} fermées : afficher'
+'{n} closed: show':'{n} fermée : afficher|{n} fermées : afficher',
+"Online access is off in Blender (Preferences › System › Allow Online Access): this page stays on this machine. Turn it on to share it with a phone -- the accesses below come back with it.":"L'accès en ligne est désactivé dans Blender (Préférences › Système › Allow Online Access) : cette page reste sur cette machine. Activez-le pour la partager avec un téléphone -- les accès ci-dessous reviennent avec lui.",
+"online access is off in Blender's Preferences (System): the page stays on this machine":"l'accès en ligne est désactivé dans les Préférences de Blender (Système) : la page reste sur cette machine"
 });

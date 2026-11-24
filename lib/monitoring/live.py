@@ -210,6 +210,18 @@ def _addresses() -> list[dict]:
 
 _lan_lock = threading.Lock()
 
+OFFLINE = "online access is off in Blender's Preferences (System): the page stays on this machine"
+
+
+def online() -> bool:
+    """Blender's Allow Online Access (Preferences > System, or --offline-mode):
+    off, the page is served on this machine only -- 127.0.0.1, never the
+    network a phone reaches it on. Never raises; True on a Blender without it."""
+    try:
+        return bool(getattr(bpy.app, "online_access", True))
+    except Exception:
+        return True
+
 
 def _sync_lan(sh: "_Shared") -> None:
     """The page on the network while a guest is valid, never otherwise.
@@ -223,6 +235,12 @@ def _sync_lan_locked(sh: "_Shared") -> None:
         for t in [t for t, g in _guests.items() if g["until"] <= time.time()]:
             del _guests[t]
         wanted = {g.get("ip") for g in _guests.values() if g.get("ip")}
+    if wanted and not online():
+        # Their accesses kept, unreachable: served again once it's back on.
+        if _lan.get("error") != OFFLINE:
+            log("INFO", "live", "Live page: online access is off, served on this machine only")
+        _lan["error"] = OFFLINE
+        wanted = set()
     servers = _lan["servers"]
     for ip in [ip for ip in servers if ip not in wanted]:
         server = servers.pop(ip)
@@ -261,6 +279,8 @@ def _share(raw: dict, sh: "_Shared") -> dict:
         if gone:
             log("INFO", "live", f"Live page: {gone['name']}'s access revoked")
         _save_guests()
+    elif raw.get("name") and not online():
+        return {"ok": False, "error": OFFLINE, "online": False, "guests": _guest_list(), "addresses": _addresses()}
     elif raw.get("name"):
         name = str(raw["name"]).strip()[:40]
         roles = set((sh.data or {}).get("meta", {}).get("roles") or []) | {"team"}
@@ -292,7 +312,7 @@ def _share(raw: dict, sh: "_Shared") -> dict:
         via = next((a["kind"] for a in _addresses() if a["ip"] == ip), "")
         out.update(link=link, qr=qr_svg(link), until=_iso(end), name=name, role=role, via=via, farm=bool(raw.get("farm")))
         log("INFO", "live", f"Live page: an access for {name} ({role}) until {_iso(end)}")
-    return {"ok": True, "guests": _guest_list(), "addresses": _addresses(), **out}
+    return {"ok": True, "online": online(), "guests": _guest_list(), "addresses": _addresses(), **out}
 
 
 def _beginner() -> bool:

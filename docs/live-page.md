@@ -121,6 +121,8 @@ See [Farm](farm.md).
 
 *Share with a phone…* (Pipeline menu, or the icon beside *Monitor in browser*) gives someone a time-limited access with a QR code.
 
+With Blender's *Allow Online Access* off (Preferences › System, or `--offline-mode`), the page still works on this machine (it never leaves 127.0.0.1) but isn't shared: no access for a phone is made, and the running ones are off the network until it's back on.
+
 On the phone they get **Review**, **To do** and **Farm** tabs. A swipe sideways on the video goes to the next or previous shot; a panel (Render, a version…) closes pulled down by its header. The page goes full screen at the first touch; the ⚙ menu leaves it (remembered) or goes back to it -- not on an iPhone, whose browser doesn't allow it. Reviewing, they write retakes, remarks and to-dos, mark a retake fixed or a to-do done, and reopen a closed one. The farm is read-only unless the access allows driving it (launch, stop, renders, priorities). Nothing is ever opened on the machine serving the page.
 
 ## Menu
