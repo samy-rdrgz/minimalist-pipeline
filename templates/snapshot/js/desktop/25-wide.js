@@ -123,8 +123,9 @@ function renderWide() {
         <button class="btn icon" data-tp="fnext" ${pOff(it)} aria-label="${T('Next frame')}" title="${T('Next frame (.)')}">${ic('b-frame_next')}</button>
         <button class="btn icon" data-tp="snext" aria-label="${T('Next shot')}" title="${it.kind === 'shot' ? T('Next shot') : T('Next file')}" ${stepOff(1)}>${ic('b-forward')}</button></span>
         <button class="btn icon" data-tp="snd" aria-label="${T('Sound')}" title="${T('Sound (M)')}" aria-pressed="${!S.muted}">${ic(S.muted ? 'b-mute_ipo_off' : 'b-mute_ipo_on')}</button>
-        <span class="bigf">f <span data-f>${fNo(S.frame)}</span></span>${verHTML(it, 'w')}${abHTML(it, 'w').replace('ctl abrow', 'abrow')}<span class="sp"></span>
-        <div class="strip"><span class="faint">${g}</span>${sib.map(filmHTML(it)).join('')}</div></div>
+        <span class="bigf">f <span data-f>${fNo(S.frame)}</span></span><span class="sp"></span>
+        <div class="strip"><span class="faint">${g}</span>${sib.map(filmHTML(it)).join('')}</div>
+        <div class="w-vab">${verHTML(it, 'w')}${abHTML(it, 'w').replace('ctl abrow', 'abrow')}</div></div>
     </div>
     <div class="w-pan"><button class="pz-tab r w-tab" data-wside aria-expanded="${!!S.wside}" aria-label="${S.wside ? T('Fold the panel') : T('Show the panel')}" title="${S.wside ? T('Fold the panel') : T('Show the panel')}">${ic(S.wside ? 'b-tria_right' : 'b-tria_left')}</button>
     <div class="w-side">${checkHTML(it)}<div class="sec"><div class="sec-h">${T('Departments')}<span class="sp"></span>${rv && rv.role !== TEAM ? `<button class="btn sm ok" data-valall title="${T('Validate every done department (V)')}">${ic('b-checkmark')}${T('All the done')}</button>` : ''}</div>${req.map(dRow).join('') || '<span class="faint">' + T('No department required.') + '</span>'}</div>

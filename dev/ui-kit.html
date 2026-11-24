@@ -2982,6 +2982,15 @@ button.assign:hover {
 .w-tp .sp {
   flex: 1;
 }
+/* The version (A) and the comparison (B): a line of their own under the transport and the strip. */
+.w-vab {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+  min-width: 0;
+}
 .bigf {
   font: 600 calc(22px * var(--scale)) var(--mono);
   font-variant-numeric: tabular-nums;
@@ -11255,6 +11264,15 @@ const fmtDay = sec => {
   const d = new Date(sec * 1000);
   return d.toLocaleDateString(DTL(), { day: '2-digit', month: '2-digit' });
 };
+/* A version, short (its button, closed): its file's version, its department -- "v004 · Fix anim",
+   its render's number too ("v004 #2") when another of V would read the same; the whole of it
+   (verLab) in its menu and its tip. Folders: vNNN[-stable]_MMM. */
+const verBase = v => [(String(v.folder || '').match(/^v\d+/) || [v.folder])[0], v.dept ? LBL[v.dept] || v.dept : ''].filter(Boolean).join(' · ');
+const verShort = (v, V = []) => {
+  const b = verBase(v),
+    n = String(v.folder || '').match(/_(\d+)$/);
+  return n && V.some(x => x !== v && verBase(x) === b) ? b.replace(/^(v\d+)/, `$1 #${+n[1]}`) : b;
+};
 const verLab = v =>
   [v.shot, v.folder, v.dept ? LBL[v.dept] || v.dept : '', v.at ? fmtDay(v.at) : '']
     .filter(Boolean)
@@ -11287,7 +11305,7 @@ function abHTML(it, ctx) {
   const { V, b } = mVer(it);
   if (V.length < 2) return '';
   return `<div class="ctl abrow"><span class="join" role="group" aria-label="${T('Version shown')}"><button class="btn" data-ab="A" aria-pressed="${S.m.side === 'A'}" title="${T('Version A (C)')}">A</button><button class="btn" data-ab="B" aria-pressed="${S.m.side === 'B'}" title="${T('Version B, same frame (C)')}">B</button></span>
-    <span class="anchor vpick"><button class="enum" data-menu="m-verb-${ctx}" aria-haspopup="true" aria-expanded="false" title="${T('The version to compare (B)')}"><b class="ab b">B</b><span class="lb">${esc(verLab(V[b]))}</span>${ic('b-downarrow_hlt')}</button>
+    <span class="anchor vpick"><button class="enum" data-menu="m-verb-${ctx}" aria-haspopup="true" aria-expanded="false" title="${T('The version to compare (B)')}: ${esc(verLab(V[b]))}"><b class="ab b">B</b><span class="lb">${esc(verShort(V[b], V))}</span>${ic('b-downarrow_hlt')}</button>
     <div class="menu" id="m-verb-${ctx}" hidden role="menu"><div class="menu-h">${T('Compare with')}</div>${V.map((x, n) => `<button class="mi" role="menuitemradio" aria-checked="${n === b}" data-verb="${n}"><span class="ck">${n === b ? ic('b-checkmark') : ''}</span><span class="lbl">${esc(verLab(x))}</span>${n === 0 ? '<span class="k">' + T('latest') + '</span>' : ''}</button>`).join('')}</div></span></div>`;
 }
 function verHTML(it, ctx) {
@@ -11295,8 +11313,8 @@ function verHTML(it, ctx) {
   if (!V.length) return `<span class="vro faint">${T('Not rendered yet')}</span>`;
   const i = Math.min(S.ver[it.name] || 0, V.length - 1);
   if (V.length < 2)
-    return `<span class="vro">${ic('b-file_movie')}<span class="lb">${esc(verLab(V[0]))}</span></span>`;
-  return `<span class="anchor vpick"><button class="enum" data-menu="m-ver-${ctx}" aria-haspopup="true" aria-expanded="false" title="${T('The render version to watch (A)')}"><b class="ab">A</b><span class="lb">${esc(verLab(V[i]))}</span><span class="n">${i + 1}/${V.length}</span>${ic('b-downarrow_hlt')}</button>
+    return `<span class="vro" title="${esc(verLab(V[0]))}">${ic('b-file_movie')}<span class="lb">${esc(verShort(V[0], V))}</span></span>`;
+  return `<span class="anchor vpick"><button class="enum" data-menu="m-ver-${ctx}" aria-haspopup="true" aria-expanded="false" title="${T('The render version to watch (A)')}: ${esc(verLab(V[i]))}"><b class="ab">A</b><span class="lb">${esc(verShort(V[i], V))}</span><span class="n">${i + 1}/${V.length}</span>${ic('b-downarrow_hlt')}</button>
     <div class="menu" id="m-ver-${ctx}" hidden role="menu"><div class="menu-h">${T('Version to watch')}</div>${V.map((x, n) => `<button class="mi" role="menuitemradio" aria-checked="${n === i}" data-ver="${n}"><span class="ck">${n === i ? ic('b-checkmark') : ''}</span><span class="lbl">${esc(verLab(x))}</span>${n === 0 ? '<span class="k">' + T('latest') + '</span>' : ''}</button>`).join('')}</div></span>`;
 }
 /* Its renders to check: a block of their own (what to watch), Checked… opening the dialog. */
@@ -12775,8 +12793,9 @@ function renderWide() {
         <button class="btn icon" data-tp="fnext" ${pOff(it)} aria-label="${T('Next frame')}" title="${T('Next frame (.)')}">${ic('b-frame_next')}</button>
         <button class="btn icon" data-tp="snext" aria-label="${T('Next shot')}" title="${it.kind === 'shot' ? T('Next shot') : T('Next file')}" ${stepOff(1)}>${ic('b-forward')}</button></span>
         <button class="btn icon" data-tp="snd" aria-label="${T('Sound')}" title="${T('Sound (M)')}" aria-pressed="${!S.muted}">${ic(S.muted ? 'b-mute_ipo_off' : 'b-mute_ipo_on')}</button>
-        <span class="bigf">f <span data-f>${fNo(S.frame)}</span></span>${verHTML(it, 'w')}${abHTML(it, 'w').replace('ctl abrow', 'abrow')}<span class="sp"></span>
-        <div class="strip"><span class="faint">${g}</span>${sib.map(filmHTML(it)).join('')}</div></div>
+        <span class="bigf">f <span data-f>${fNo(S.frame)}</span></span><span class="sp"></span>
+        <div class="strip"><span class="faint">${g}</span>${sib.map(filmHTML(it)).join('')}</div>
+        <div class="w-vab">${verHTML(it, 'w')}${abHTML(it, 'w').replace('ctl abrow', 'abrow')}</div></div>
     </div>
     <div class="w-pan"><button class="pz-tab r w-tab" data-wside aria-expanded="${!!S.wside}" aria-label="${S.wside ? T('Fold the panel') : T('Show the panel')}" title="${S.wside ? T('Fold the panel') : T('Show the panel')}">${ic(S.wside ? 'b-tria_right' : 'b-tria_left')}</button>
     <div class="w-side">${checkHTML(it)}<div class="sec"><div class="sec-h">${T('Departments')}<span class="sp"></span>${rv && rv.role !== TEAM ? `<button class="btn sm ok" data-valall title="${T('Validate every done department (V)')}">${ic('b-checkmark')}${T('All the done')}</button>` : ''}</div>${req.map(dRow).join('') || '<span class="faint">' + T('No department required.') + '</span>'}</div>

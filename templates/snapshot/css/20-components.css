@@ -2729,6 +2729,15 @@ button.assign:hover {
 .w-tp .sp {
   flex: 1;
 }
+/* The version (A) and the comparison (B): a line of their own under the transport and the strip. */
+.w-vab {
+  flex-basis: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  flex-wrap: wrap;
+  min-width: 0;
+}
 .bigf {
   font: 600 calc(22px * var(--scale)) var(--mono);
   font-variant-numeric: tabular-nums;

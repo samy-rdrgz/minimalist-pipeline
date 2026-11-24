@@ -24,6 +24,15 @@ const fmtDay = sec => {
   const d = new Date(sec * 1000);
   return d.toLocaleDateString(DTL(), { day: '2-digit', month: '2-digit' });
 };
+/* A version, short (its button, closed): its file's version, its department -- "v004 · Fix anim",
+   its render's number too ("v004 #2") when another of V would read the same; the whole of it
+   (verLab) in its menu and its tip. Folders: vNNN[-stable]_MMM. */
+const verBase = v => [(String(v.folder || '').match(/^v\d+/) || [v.folder])[0], v.dept ? LBL[v.dept] || v.dept : ''].filter(Boolean).join(' · ');
+const verShort = (v, V = []) => {
+  const b = verBase(v),
+    n = String(v.folder || '').match(/_(\d+)$/);
+  return n && V.some(x => x !== v && verBase(x) === b) ? b.replace(/^(v\d+)/, `$1 #${+n[1]}`) : b;
+};
 const verLab = v =>
   [v.shot, v.folder, v.dept ? LBL[v.dept] || v.dept : '', v.at ? fmtDay(v.at) : '']
     .filter(Boolean)
@@ -56,7 +65,7 @@ function abHTML(it, ctx) {
   const { V, b } = mVer(it);
   if (V.length < 2) return '';
   return `<div class="ctl abrow"><span class="join" role="group" aria-label="${T('Version shown')}"><button class="btn" data-ab="A" aria-pressed="${S.m.side === 'A'}" title="${T('Version A (C)')}">A</button><button class="btn" data-ab="B" aria-pressed="${S.m.side === 'B'}" title="${T('Version B, same frame (C)')}">B</button></span>
-    <span class="anchor vpick"><button class="enum" data-menu="m-verb-${ctx}" aria-haspopup="true" aria-expanded="false" title="${T('The version to compare (B)')}"><b class="ab b">B</b><span class="lb">${esc(verLab(V[b]))}</span>${ic('b-downarrow_hlt')}</button>
+    <span class="anchor vpick"><button class="enum" data-menu="m-verb-${ctx}" aria-haspopup="true" aria-expanded="false" title="${T('The version to compare (B)')}: ${esc(verLab(V[b]))}"><b class="ab b">B</b><span class="lb">${esc(verShort(V[b], V))}</span>${ic('b-downarrow_hlt')}</button>
     <div class="menu" id="m-verb-${ctx}" hidden role="menu"><div class="menu-h">${T('Compare with')}</div>${V.map((x, n) => `<button class="mi" role="menuitemradio" aria-checked="${n === b}" data-verb="${n}"><span class="ck">${n === b ? ic('b-checkmark') : ''}</span><span class="lbl">${esc(verLab(x))}</span>${n === 0 ? '<span class="k">' + T('latest') + '</span>' : ''}</button>`).join('')}</div></span></div>`;
 }
 function verHTML(it, ctx) {
@@ -64,8 +73,8 @@ function verHTML(it, ctx) {
   if (!V.length) return `<span class="vro faint">${T('Not rendered yet')}</span>`;
   const i = Math.min(S.ver[it.name] || 0, V.length - 1);
   if (V.length < 2)
-    return `<span class="vro">${ic('b-file_movie')}<span class="lb">${esc(verLab(V[0]))}</span></span>`;
-  return `<span class="anchor vpick"><button class="enum" data-menu="m-ver-${ctx}" aria-haspopup="true" aria-expanded="false" title="${T('The render version to watch (A)')}"><b class="ab">A</b><span class="lb">${esc(verLab(V[i]))}</span><span class="n">${i + 1}/${V.length}</span>${ic('b-downarrow_hlt')}</button>
+    return `<span class="vro" title="${esc(verLab(V[0]))}">${ic('b-file_movie')}<span class="lb">${esc(verShort(V[0], V))}</span></span>`;
+  return `<span class="anchor vpick"><button class="enum" data-menu="m-ver-${ctx}" aria-haspopup="true" aria-expanded="false" title="${T('The render version to watch (A)')}: ${esc(verLab(V[i]))}"><b class="ab">A</b><span class="lb">${esc(verShort(V[i], V))}</span><span class="n">${i + 1}/${V.length}</span>${ic('b-downarrow_hlt')}</button>
     <div class="menu" id="m-ver-${ctx}" hidden role="menu"><div class="menu-h">${T('Version to watch')}</div>${V.map((x, n) => `<button class="mi" role="menuitemradio" aria-checked="${n === i}" data-ver="${n}"><span class="ck">${n === i ? ic('b-checkmark') : ''}</span><span class="lbl">${esc(verLab(x))}</span>${n === 0 ? '<span class="k">' + T('latest') + '</span>' : ''}</button>`).join('')}</div></span>`;
 }
 /* Its renders to check: a block of their own (what to watch), Checked… opening the dialog. */

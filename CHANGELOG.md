@@ -558,6 +558,10 @@ All notable changes to this addon. Dates are release dates.
 
 ### Fixed
 
+- Watch large: the version (A) and the comparison (B) on a line of their
+  own, under the transport and the strip. A version's button, closed,
+  says its file's version and department ("v004 · Fix anim", its render's
+  number when two would read the same); its menu and tip the whole.
 - Watch large: with A / B shown (a file with several versions), the strip
   fell under them on the left; it stays at the line's right, narrowing
   (it scrolls) before it wraps, at the right then too. Its edges fade
