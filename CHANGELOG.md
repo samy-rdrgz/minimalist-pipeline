@@ -609,6 +609,10 @@ All notable changes to this addon. Dates are release dates.
   sequence the mean of its files -- not 100 % done or 0 % (in progress read
   0 %). Its spreadsheet export too.
 
+- Live page: the white pills over the bars (Breakdown, the head's figures)
+  blur what's under them again: the blur sat on a layer of the pill's own,
+  with nothing under it to blur.
+
 - Live page: a page closed or reloaded while answered no longer prints a
   traceback in Blender's console (ConnectionAbortedError).
 

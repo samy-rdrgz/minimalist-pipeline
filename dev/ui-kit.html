@@ -3312,9 +3312,12 @@ button.assign:hover {
   font-weight: 500;
   margin-left: calc(-1 * var(--sp-2));
 }
+/* The blur on the pill itself: on its ::before (a layer of the pill's own), it saw nothing to blur. */
 .sf .v,
 .sf .lab {
   z-index: 0;
+  -webkit-backdrop-filter: blur(var(--blur));
+  backdrop-filter: blur(var(--blur));
 }
 .sf .v::before,
 .sf .lab::before {
@@ -3323,8 +3326,6 @@ button.assign:hover {
   inset: 0;
   border-radius: inherit;
   background: rgba(255, 255, 255, 0.55);
-  -webkit-backdrop-filter: blur(var(--blur));
-  backdrop-filter: blur(var(--blur));
   z-index: -1;
 }
 
