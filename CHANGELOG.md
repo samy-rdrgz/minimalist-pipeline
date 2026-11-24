@@ -604,6 +604,11 @@ All notable changes to this addon. Dates are release dates.
   redraw took the video out of its stage and put it back; it is now left in
   place.
 
+- Live page, Breakdown: Done counted as the list and "How it's counted" say --
+  in progress, reworked and done with an open retake at their weights, a
+  sequence the mean of its files -- not 100 % done or 0 % (in progress read
+  0 %). Its spreadsheet export too.
+
 - Live page: a page closed or reloaded while answered no longer prints a
   traceback in Blender's console (ConnectionAbortedError).
 

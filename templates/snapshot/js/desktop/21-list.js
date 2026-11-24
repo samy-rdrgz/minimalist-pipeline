@@ -180,24 +180,40 @@ function farmCell(it) {
 }
 /* A bar's figure sits on its colour from this share up. */
 const IN = 0.62;
-/* A sequence's figures, one department or all (d null): its files' required departments
-   done, validated, their open RTKs; null if none. The Breakdown's cells, its export too. */
+/* A department's share done, 0..1, as Blender counts it (lib/monitoring/status.py department_score()), from
+   its state as the page shows it: done 1 (the "rtk" weight with an open retake), in progress, reworked
+   their weights, not started 0. */
+function deptScore(i, x) {
+  const w = { wip: 33, rework: 67, rtk: 67, ...(M.weights || {}) },
+    st = i.states[x];
+  if (st === 'done') return rtkNotes(i, x).length ? w.rtk / 100 : 1;
+  return (w[st] || 0) / 100;
+}
+/* A sequence's figures, one department or all (d null): Done, its files' mean -- one department's
+   score, or the file's Done (the mean of its required departments, as the list shows it); Validated,
+   the share of their required departments validated; their open RTKs. Null if none. The Breakdown's
+   cells, its export too. */
 function synthCell(its, d) {
   const r = its.filter(i => !omitted(i) && (d ? required(i).includes(d) : true));
   if (!r.length) return null;
   let n = 0,
-    done = 0,
     val = 0,
-    rtk = 0;
+    rtk = 0,
+    done = 0,
+    nd = 0;
   r.forEach(i => {
+    const f = d ? deptScore(i, d) : i.done;
+    if (f != null) {
+      done += f;
+      nd++;
+    }
     (d ? [d] : required(i)).forEach(x => {
       n++;
-      if (['done', 'rework'].includes(i.states[x])) done++;
       if (i.ok[x] || i.mine[x] === 'val') val++;
       rtk += rtkNotes(i, x).length;
     });
   });
-  return n ? { done: done / n, val: val / n, rtk, n: r.length } : null;
+  return n ? { done: nd ? done / nd : 0, val: val / n, rtk, n: r.length } : null;
 }
 function renderSynth() {
   const L = $('#list'),
