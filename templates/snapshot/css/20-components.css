@@ -5010,24 +5010,6 @@ html.kb .m-nav {
 .sfade.on {
   opacity: 1;
 }
-/* The sticky header's ground over an overlay scrollbar's lane (headOverBar()). */
-.scap {
-  position: absolute;
-  z-index: 6;
-  display: block;
-  overflow: hidden;
-  pointer-events: none;
-}
-.scap[hidden] {
-  display: none;
-}
-.scap > span {
-  position: absolute;
-  box-sizing: border-box;
-  -webkit-backdrop-filter: blur(var(--blur)) saturate(120%);
-  backdrop-filter: blur(var(--blur)) saturate(120%);
-}
-.is-mob .scap,
 .is-mob .sfade,
 #wide.full .sfade {
   display: none; /* full screen: a glass panel over the video, no ground to fade to */
