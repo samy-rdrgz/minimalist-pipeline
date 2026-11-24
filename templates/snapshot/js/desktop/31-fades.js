@@ -34,7 +34,9 @@ function scrollFades() {
     let top = r.top + sc.clientTop,
       bot = top + sc.clientHeight;
     // A stuck header holds the top; the writer's band, held at the bottom, the bottom.
-    const h = sc.querySelector('.grp-h.stuck');
+    // Every group scrolled past is marked stuck: the one held at the top is the last of them.
+    const hs = sc.querySelectorAll('.grp-h.stuck'),
+      h = hs[hs.length - 1];
     if (h) top = Math.max(top, h.getBoundingClientRect().bottom);
     const band = sc.querySelector(':scope > .wsec');
     if (band) {
