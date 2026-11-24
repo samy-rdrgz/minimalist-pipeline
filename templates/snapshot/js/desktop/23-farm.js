@@ -28,9 +28,10 @@ const farmLeft = L => {
    right to its optical centre (a third of the way from its flat side). */
 const jst = s => {
   const x = JS.find(a => a[0] === s) || JS[1],
-    [w, dx] = x[0] === 'running' ? [9.2, 1.1] : [12, 0],
+    bare = x[0] === 'waiting', // waiting: the hourglass alone, in its colour -- no dot to say "nothing yet"
+    [w, dx] = x[0] === 'running' ? [9.2, 1.1] : bare ? [16, 0] : [12, 0],
     o = (20 - w) / 2;
-  return `<span class="jst ${x[0]}" title="${x[1]}"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="10" cy="10" r="10" style="fill:${x[2]}"/><use href="#${x[3]}" x="${o + dx}" y="${o}" width="${w}" height="${w}"/></svg></span>`;
+  return `<span class="jst ${x[0]}" title="${x[1]}"><svg viewBox="0 0 20 20" aria-hidden="true">${bare ? '' : `<circle cx="10" cy="10" r="10" style="fill:${x[2]}"/>`}<use href="#${x[3]}" x="${o + dx}" y="${o}" width="${w}" height="${w}"${bare ? ` style="fill:${x[2]};color:${x[2]}"` : ''}/></svg></span>`;
 };
 const jobItem = j => items.find(i => j.file.startsWith(i.name + '_'));
 /* What the farm host does right now (lib/monitoring/live.py _host_now()): its own steps, its worker's render. */
