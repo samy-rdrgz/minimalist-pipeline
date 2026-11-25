@@ -29,6 +29,9 @@ All notable changes to this addon. Dates are release dates.
 
 ### Changed
 
+- Live page: F5 keeps where you were -- the file selected (or the
+  workspace: Farm, To do, Links, Synthesis) in the address (#its name), the
+  detail's tab for that browser tab. The address is a link to it as well.
 - Live page, Versions: a validation a stable kept from an earlier one (its
   department not worked since) is on a line of its own -- "Still validated: Modeling (prod) · since
   v002-stable", greyed -- apart from the ones given to that stable; a version's date on its
