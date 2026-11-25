@@ -150,6 +150,9 @@ function adapt(r, keyName) {
   });
 }
 /* The whole data in: first load, then each live update (the review left on each file kept). */
+/* Background work the live page started (Update links, pushes...): lib/monitoring/live.py's
+   "tasks", said in the footer. */
+const BG = [];
 function loadData(raw) {
   const kept = {};
   items.forEach(it => {
@@ -182,6 +185,7 @@ function loadData(raw) {
     items.length,
     ...(raw.items || []).map(r => Object.assign(adapt(r, keyName), fresh(), kept[r.name] || {}))
   );
+  BG.splice(0, BG.length, ...(raw.tasks || []));
   const f = raw.farm || {};
   Object.assign(F, { status: '', jobs: [], workers: [], me: {}, left: '', presets: [], preset: '' }, f);
   F.jobs.forEach(j => {

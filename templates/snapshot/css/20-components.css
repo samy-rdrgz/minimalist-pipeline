@@ -3706,6 +3706,42 @@ button.assign:hover {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+/* Background work (Update links, pushes): under way, its spinner; ended, ✓ or ✕. */
+.statusbar .bgt {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  max-width: 40vw;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  cursor: default;
+}
+.statusbar .bgt svg {
+  width: 12px;
+  height: 12px;
+  flex: none;
+}
+.statusbar .bgt.ok {
+  color: var(--text-2);
+}
+.statusbar .bgt.bad {
+  color: var(--rtk-t);
+}
+.statusbar .bgt .spin {
+  width: 10px;
+  height: 10px;
+  flex: none;
+  border-radius: 50%;
+  border: 1.5px solid currentColor;
+  border-right-color: transparent;
+  animation: bgspin 0.9s linear infinite;
+}
+@keyframes bgspin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 .toast {
   position: fixed;
   left: 50%;

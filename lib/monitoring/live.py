@@ -1063,7 +1063,11 @@ def _push_rushes(raw: dict) -> dict:
             every = []
         wanted = raw.get("sequences")
         sequences = [s for s in every if wanted is None or s in wanted]
-        push_in_background(push_sequence_rushes, root, sequences, bool(raw.get("assets", True)), ConfigCache.get(), user)
+        push_in_background(
+            push_sequence_rushes, root, sequences, bool(raw.get("assets", True)), ConfigCache.get(), user,
+            # Its label: the sequences pushed, names (no words to translate).
+            task=", ".join(sequences[:3]) + (f" +{len(sequences) - 3}" if len(sequences) > 3 else "") or "assets",
+        )
         log("INFO", "live", f"Live page: rushes pushed to editing ({len(sequences)} sequence(s))")
         return {"ok": True, "pushing": "all"}
     renders = (root / "renders").resolve()
@@ -1075,7 +1079,7 @@ def _push_rushes(raw: dict) -> dict:
     mp4 = _first_mp4(target)
     if mp4 is None:
         return {"ok": False, "error": "no video in this render"}
-    push_in_background(push_rushes, root, [mp4], user)
+    push_in_background(push_rushes, root, [mp4], user, task=target.name)
     log("INFO", "live", f"Live page: {target.name} pushed to editing")
     return {"ok": True, "pushing": target.name}
 
@@ -1554,7 +1558,14 @@ def _rebuild(sh: _Shared, force: bool, partial: tuple | None = None) -> None:
     jobs = _farm_data(sh.root)
     from .. import relink
 
+    from . import tasks
+
     relinks = relink.states()
+    # Work under way in the background (Update links, pushes): the page's footer.
+    bg = [
+        {"kind": "relink", "label": j.get("file") or k, "state": j["state"], "message": j.get("message") or ""}
+        for k, j in relinks.items()
+    ] + [{x: t[x] for x in ("kind", "label", "state", "message")} for t in tasks.states()]
     config = ConfigCache.get() or {}
     # The project's preferences (its team, roles, departments...) and this
     # Blender's user and role: changed in Blender, the page follows on the
@@ -1565,10 +1576,10 @@ def _rebuild(sh: _Shared, force: bool, partial: tuple | None = None) -> None:
         get_user_role(bpy.context),
         ui_language(),
     )
-    if not force and (farm, jobs, relinks, prefs) == _reader["farm"]:
+    if not force and (farm, jobs, bg, prefs) == _reader["farm"]:
         return
     if partial is None:
-        _reader["farm"] = (farm, jobs, relinks, prefs)
+        _reader["farm"] = (farm, jobs, bg, prefs)
     meta = {
         "project": config.get("project_name") or sh.root.name,
         "scan_started_at": now(),
@@ -1602,8 +1613,8 @@ def _rebuild(sh: _Shared, force: bool, partial: tuple | None = None) -> None:
     data = page_data(snap, thumbs)
     # Its Farm tab: the farm as the Farm tab shows it.
     data["farm"] = jobs
-    # Update links under way or just ended, by folder (lib/relink.py).
-    data["relink"] = relinks
+    # Background work under way or just ended (Update links, pushes): the footer.
+    data["tasks"] = bg
     # Compared without its date: a pass finding nothing new is no news.
     compare = json.dumps({**data, "meta": {**data["meta"], "snapshot": ""}}, ensure_ascii=False, separators=(",", ":"))
     if compare == _reader["compare"]:

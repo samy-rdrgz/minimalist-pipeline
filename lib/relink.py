@@ -182,7 +182,7 @@ def _run(job: dict) -> None:
             missing = sorted(blend.linked.get(lib["old"], set()) - has[key])
             if missing:
                 kept.append(str(old))
-                shown = ", ".join(m[2:] for m in missing[:4]) + ("..." if len(missing) > 4 else "")
+                shown = ", ".join(_id_name(m) for m in missing[:4]) + ("..." if len(missing) > 4 else "")
                 done.append(f"{old.name} kept: {new.name} has no {shown}")
                 continue
             if lib["raw"].startswith(b"//"):
@@ -202,6 +202,18 @@ def _run(job: dict) -> None:
         job["result"] = {"status": "ok", "message": f"{moved} link(s): " + "; ".join(done), "kept": kept}
     except Exception as e:  # said on the page, never lost in a thread
         job["result"] = {"status": "error", "message": str(e)}
+
+
+# An ID's two-letter type (its name's prefix in the file), said in words.
+_ID_TYPES = {"OB": "object", "GR": "collection", "MA": "material", "ME": "mesh", "AC": "action",
+             "NT": "node group", "IM": "image", "WO": "world", "SC": "scene", "CA": "camera",
+             "LA": "light", "AR": "armature", "TE": "texture", "CU": "curve"}
+
+
+def _id_name(m: str) -> str:
+    """ "OBLustre-rig" -> "Lustre-rig (object)": two with one name told apart."""
+    kind = _ID_TYPES.get(m[:2])
+    return f"{m[2:]} ({kind})" if kind else m[2:]
 
 
 def _kept_link(entry: dict, mapping: list, kept: set, root: Path) -> dict:

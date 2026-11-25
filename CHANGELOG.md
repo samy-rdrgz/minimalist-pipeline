@@ -29,6 +29,12 @@ All notable changes to this addon. Dates are release dates.
 
 ### Changed
 
+- Live page, background work in the footer: Update links and pushes of the
+  rushes said while under way (a spinner, how many), then done or failed
+  (✓ / ✕, a toast once, every one with its words in the tooltip) -- a relink
+  refused (the new stable lost data the file links) was in the log only.
+  The data it lacks says its type: "Lustre-rig (object), Lustre-rig
+  (collection)".
 - Live page, Links: an asset whose newer stable the shots don't link yet
   has *Update the files linking it (n)* -- each of those files relinked --
   apart from *Update its links* (its own). The one button relinked the asset
