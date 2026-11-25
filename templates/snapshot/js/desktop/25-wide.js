@@ -88,7 +88,7 @@ function renderWide() {
           const tx = `<span class="tx">${esc(n.text || T('(no text)'))}<small> · ${esc((n.deps || []).map(d => LBL[d] || d).join(', ') || T('no department'))}${n.mine ? ' · ' + esc(T('you, not sent yet')) : n.author ? ' · ' + esc(n.author) : ''}</small></span>`;
           return `<div class="wnr">${
             f
-              ? `<button class="wn" data-goto="${f.a}" ${noteShot(it, n) ? `data-gshot="${esc(noteShot(it, n))}"` : ''}><span class="ft ${ftc(n)}">${noteShot(it, n) && noteShot(it, n) !== shotOf(it) ? esc(noteShot(it, n)) + ' · ' : ''}f${f.a}${f.b ? '-' + f.b : ''}</span>${tx}</button>`
+              ? `<button class="wn" data-goto="${f.a}" ${noteShot(it, n) ? `data-gshot="${esc(noteShot(it, n))}"` : ''}><span class="ft ${ftc(n)}">${noteShot(it, n) ? esc(noteShot(it, n)) + ' · ' : ''}f${f.a}${f.b ? '-' + f.b : ''}</span>${tx}</button>`
               : `<div class="wn nof"><span class="ft ${ftc(n)}" title="${T('No frame')}">—</span>${tx}</div>`
           }${wfx(n)}</div>`;
         })
@@ -97,7 +97,7 @@ function renderWide() {
   const writer =
     rv && S.wdep
       ? `<div class="ww"><div class="wwl"><span class="join"><button class="btn sm" data-wtype="rtk" aria-pressed="${S.wtype === 'rtk'}">Retake</button><button class="btn sm" data-wtype="note" aria-pressed="${S.wtype === 'note'}">${T('Remark')}</button><button class="btn sm" data-wtype="todo" aria-pressed="${S.wtype === 'todo'}">${T('To do')}</button></span>
-      <span class="lbl">${S.rangeStart != null ? T('from <b>f{a}</b> to <b>f{b}</b> on <b>{dept}</b>', { a: fNo(S.rangeStart), b: `<span data-f>${fNo(S.frame)}</span>`, dept: LBL[S.wdep] }) : T('at <b>f{b}</b> on <b>{dept}</b>', { b: `<span data-f>${fNo(S.frame)}</span>`, dept: LBL[S.wdep] })}</span>
+      <span class="lbl">${S.rangeStart != null ? T('from <b>f{a}</b> to <b>f{b}</b> on <b>{dept}</b>', { a: fNo(S.rangeStart), b: `<span data-f>${fNo(S.frame)}</span>`, dept: LBL[S.wdep] }) : T('at <b>f{b}</b> on <b>{dept}</b>', { b: `<span data-f>${fNo(S.frame)}</span>`, dept: LBL[S.wdep] })}${writeShot(it) ? ` · <b>${esc(writeShot(it))}</b>` : ''}</span>
       <button class="btn sm ${S.rangeStart != null ? '' : 'tool'}" data-tp="in" ${pOff(it)} aria-pressed="${S.rangeStart != null}" title="${S.rangeStart != null ? T("Forget the range's start") : T('A range: its start at the frame shown, its end where you are when you add (I)')}">${S.rangeStart != null ? '⇤ f' + S.rangeStart + ' ✕' : '⇤ ' + T('Range from here')}</button></div>
       <label class="field ta"><textarea id="w-ta" rows="3" placeholder="${T('Write as you watch: Enter adds, Shift+Enter goes to a new line')}" aria-label="${T('Text')}"></textarea></label></div>`
       : !rv
@@ -291,7 +291,7 @@ function wideAdd() {
     d = S.wdep;
   if (!txt) return;
   const fr = rangeStr();
-  A.note(it, { type: S.wtype, dept: d, text: txt, frames: fr, shot: it.shots && it.shots.length > 1 ? digits(shotOf(it)) : '' });
+  A.note(it, { type: S.wtype, dept: d, text: txt, frames: fr, shot: digits(writeShot(it)) });
   S.rangeStart = null;
   refresh();
   msg(

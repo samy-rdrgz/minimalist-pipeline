@@ -24,6 +24,8 @@ function v6Click(t) {
   if (shs) {
     S.shot[S.sel] = shs.dataset.shot;
     S.ver[S.sel] = 0;
+    // A note being written: on the shot now watched.
+    if (S.form) S.form.shots = writeShot(cur()) ? [writeShot(cur())] : [];
     renderProps();
     renderWide();
     return true;
@@ -994,6 +996,7 @@ document.addEventListener('click', e => {
       const f = +go.dataset.goto;
       S.shot[it.name] = gs;
       S.ver[it.name] = 0;
+      if (S.form) S.form.shots = [gs];
       if (S.tab !== 'plan' && !S.wide) S.tab = 'plan';
       renderProps();
       renderWide();

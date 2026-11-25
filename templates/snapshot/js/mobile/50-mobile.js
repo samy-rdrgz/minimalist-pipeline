@@ -635,7 +635,7 @@ $('#mob').addEventListener('click', e => {
       ta = $('#m-ta'),
       txt = wordsOf(ta, toast);
     if (!txt) return;
-    A.note(it, { type: S.m.ctype, dept: S.m.cdept, text: txt, frames: rangeStr() });
+    A.note(it, { type: S.m.ctype, dept: S.m.cdept, text: txt, frames: rangeStr(), shot: digits(writeShot(it)) });
     ta.value = '';
     S.rangeStart = null;
     mRender();

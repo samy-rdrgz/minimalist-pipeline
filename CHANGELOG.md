@@ -28,7 +28,11 @@ All notable changes to this addon. Dates are release dates.
   shot's timeline only; its frame clicked (its notes, Watch large's)
   puts that shot's video in the player, then goes to the frame -- the
   shot named before the frame when it isn't the one shown. A note
-  written in Watch large keeps the shot watched.
+  written in Watch large keeps the shot watched; on the whole block's
+  video, the shot its frame falls in (each shot's start from its own
+  renders); written on the phone, the same. Its shot always said before its
+  frame, and in Watch large's writer; a note being written follows the
+  shot picked.
 - Live page, Render to check: a department's renders of a block's shots
   (two or more) checked at once -- "All checked…" on that department's
   line, the dialog's departments as for one.

@@ -18,6 +18,19 @@ const noteShot = (it, n) => {
   const k = +digits(n.shot);
   return it.shots.find(s => +digits(s) === k) || '';
 };
+/* The shot of a block a note written now goes on: the one watched; the whole block's video, the shot
+   the frame shown falls in -- each shot's start known from its own renders (their first frame). '' else. */
+function writeShot(it) {
+  if (!(it && it.shots && it.shots.length > 1)) return '';
+  if (shotOf(it)) return shotOf(it);
+  const f = fNo(S.frame),
+    starts = it.shots
+      .map(s => [s, Math.min(...it.versions.filter(v => v.shot === s && v.first != null).map(v => +v.first))])
+      .filter(([, a]) => isFinite(a))
+      .sort((a, b) => a[1] - b[1]);
+  const at = starts.filter(([, a]) => a <= f).pop();
+  return at ? at[0] : '';
+}
 /* A block's shot shown alone: its marks on the timeline only (another shot's frames aren't in its video). */
 const markHere = (it, n) => {
   const s = noteShot(it, n);
@@ -208,7 +221,7 @@ function deptHTML(it, d, ctx = 'p') {
 /* A note being written: under a department (d) or none; the block's shot shown, if one is. */
 function newForm(d) {
   const it = cur(),
-    c = it && it.shots && it.shots.length > 1 ? shotOf(it) : '';
+    c = writeShot(it);
   return { dept: d, type: 'rtk', deps: d ? [d] : [], shots: c ? [c] : [] };
 }
 function formHTML(d) {
@@ -320,7 +333,7 @@ function noteHTML(it, n) {
   };
   return `<div class="nt ${n.type} ${n.done ? 'closed' : ''} ${n.mine ? 'mine' : ''} ${x.del ? 'gone' : ''} ${x.ed !== undefined ? 'chg' : ''}">
     <div class="h"><span class="type ${n.type}" ${n.done ? `title="${T('closed')}"` : ''}>${n.done ? ic('b-checkmark') : ''}${n.type === 'rtk' ? 'RTK' : n.type === 'todo' ? T('to do') : T('note')}</span>${(n.deps || []).length ? n.deps.map(d => LBL[d] || d).join(', ') : '<span>' + T('no department') + '</span>'}${who ? `<span>· ${esc(who)}</span>` : ''}
-      ${n.frames ? `<button class="chip-frame" data-goto="${parseInt(String(n.frames).replace(/\D+/, ''))}" ${noteShot(it, n) ? `data-gshot="${esc(noteShot(it, n))}"` : ''} title="${T('Go to {frame}', { frame: esc(n.frames) })}${noteShot(it, n) ? ' · ' + esc(noteShot(it, n)) : ''}">${noteShot(it, n) && noteShot(it, n) !== shotOf(it) ? esc(noteShot(it, n)) + ' · ' : ''}${esc(n.frames)}</button>` : ''}${n.mine ? '<span class="tag you">' + T('you') + '</span>' : ''}<span class="sp"></span><span class="who">${esc(!n.ingrp && n.author && n.author !== 'unknown' ? n.author : '')}</span><span class="${n.ingrp ? 'subd' : ''}">${fmtD(n.date)}</span>${n.done ? '<span>· ' + T('closed') + '</span>' : ''}${penHTML(x)}</div>
+      ${n.frames ? `<button class="chip-frame" data-goto="${parseInt(String(n.frames).replace(/\D+/, ''))}" ${noteShot(it, n) ? `data-gshot="${esc(noteShot(it, n))}"` : ''} title="${T('Go to {frame}', { frame: esc(n.frames) })}${noteShot(it, n) ? ' · ' + esc(noteShot(it, n)) : ''}">${noteShot(it, n) ? esc(noteShot(it, n)) + ' · ' : ''}${esc(n.frames)}</button>` : ''}${n.mine ? '<span class="tag you">' + T('you') + '</span>' : ''}<span class="sp"></span><span class="who">${esc(!n.ingrp && n.author && n.author !== 'unknown' ? n.author : '')}</span><span class="${n.ingrp ? 'subd' : ''}">${fmtD(n.date)}</span>${n.done ? '<span>· ' + T('closed') + '</span>' : ''}${penHTML(x)}</div>
     ${S.nedit === x.key ? edFormHTML(x, !n.mine) : `<div class="t ${x.txt ? '' : 'empty'}">${x.txt ? esc(x.txt) : T('(no text)')}${edSay(x)}</div>`}
     ${reps.length ? `<div class="rep">${reps.map(repHTML).join('')}</div>` : ''}
     ${rf}
