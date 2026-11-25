@@ -51,6 +51,13 @@ def _version(name: str, data: dict, stable: bool) -> dict:
                 d: sorted(roles) for d, roles in (data.get("approvals") or {}).items() if isinstance(roles, dict) and roles
             },
             conflict=data.get("conflict_warning") or "",
+            # A validation carried from an earlier stable (its department not worked
+            # since): {department: {role: that stable}} -- said as such, not as new.
+            carried={
+                d: {r: _stem(i.get("carried_from")) for r, i in roles.items() if isinstance(i, dict) and i.get("carried_from")}
+                for d, roles in (data.get("approvals") or {}).items()
+                if isinstance(roles, dict) and any(isinstance(i, dict) and i.get("carried_from") for i in roles.values())
+            },
         )
     else:
         v["mode"] = data.get("creation_mode") or ""

@@ -29,6 +29,10 @@ All notable changes to this addon. Dates are release dates.
 
 ### Changed
 
+- Live page, Versions: a validation a stable kept from an earlier one (its
+  department not worked since) says so -- "Modeling (prod · kept from
+  v002-stable)" -- instead of reading like a new one; a version's date on its
+  name's line.
 - Welcome window: its text column follows Blender's UI scale (it stayed
   900 px wide, cramped at 150-200 %).
 - Blender tooltips brought up to date: a shot's/asset's description shows on

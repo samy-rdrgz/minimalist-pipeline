@@ -4609,12 +4609,20 @@ html.kb .m-nav {
   font-size: var(--fs-s);
   color: var(--text-2);
 }
-/* What changed in a version, said when it was made: its words, in italics. */
+/* What changed in a version, said when it was made: its words, quoted. */
 .vm.vnote {
   color: var(--text);
   font-style: italic;
   white-space: pre-wrap;
   word-break: break-word;
+}
+.vm.vnote::before {
+  content: '« ';
+  color: var(--text-3);
+}
+.vm.vnote::after {
+  content: ' »';
+  color: var(--text-3);
 }
 
 .vm.bad {

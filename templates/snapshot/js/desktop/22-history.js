@@ -53,7 +53,7 @@ function versionsHTML(it) {
             v.stable && Object.keys(v.approvals || {}).length
               ? `<div class="vm"><i class="vk val"></i>${T('Validated: {list}', {
                   list: Object.entries(v.approvals)
-                    .map(([d, rs]) => dep(d) + ' (' + rs.map(esc).join(', ') + ')')
+                    .map(([d, rs]) => dep(d) + ' (' + rs.map(r => ((v.carried || {})[d] || {})[r] ? `${esc(r)} · <span class="faint" style="white-space:nowrap" title="${T('Not worked on since that stable: its validation stays')}">${T('kept from {v}', { v: esc(vShort(it, v.carried[d][r])) })}</span>` : esc(r)).join(', ') + ')')
                     .join(', ')
                 })}</div>`
               : ''

@@ -53,6 +53,8 @@ MPI18n.add('fr',{
 'Worked: {deps}':'Travaillé : {deps}',
 'Done: {deps}':'Fait : {deps}',
 'Validated: {list}':'Validé : {list}',
+'kept from {v}':'repris de {v}',
+'Not worked on since that stable: its validation stays':'Pas retravaillé depuis cette stable : sa validation reste',
 'Conflict: {why}':'Conflit : {why}',
 'two stables made from the same version':'deux stables faites depuis la même version',
 'Newest on top. A version made from another than the one before it branches off: a conflict to look at.':'La plus récente en haut. Une version faite depuis une autre que celle d’avant part en branche : un conflit à regarder.',

@@ -4862,12 +4862,20 @@ html.kb .m-nav {
   font-size: var(--fs-s);
   color: var(--text-2);
 }
-/* What changed in a version, said when it was made: its words, in italics. */
+/* What changed in a version, said when it was made: its words, quoted. */
 .vm.vnote {
   color: var(--text);
   font-style: italic;
   white-space: pre-wrap;
   word-break: break-word;
+}
+.vm.vnote::before {
+  content: '« ';
+  color: var(--text-3);
+}
+.vm.vnote::after {
+  content: ' »';
+  color: var(--text-3);
 }
 
 .vm.bad {
@@ -7850,6 +7858,8 @@ MPI18n.add('fr',{
 'Worked: {deps}':'Travaillé : {deps}',
 'Done: {deps}':'Fait : {deps}',
 'Validated: {list}':'Validé : {list}',
+'kept from {v}':'repris de {v}',
+'Not worked on since that stable: its validation stays':'Pas retravaillé depuis cette stable : sa validation reste',
 'Conflict: {why}':'Conflit : {why}',
 'two stables made from the same version':'deux stables faites depuis la même version',
 'Newest on top. A version made from another than the one before it branches off: a conflict to look at.':'La plus récente en haut. Une version faite depuis une autre que celle d’avant part en branche : un conflit à regarder.',
@@ -12228,7 +12238,7 @@ function versionsHTML(it) {
             v.stable && Object.keys(v.approvals || {}).length
               ? `<div class="vm"><i class="vk val"></i>${T('Validated: {list}', {
                   list: Object.entries(v.approvals)
-                    .map(([d, rs]) => dep(d) + ' (' + rs.map(esc).join(', ') + ')')
+                    .map(([d, rs]) => dep(d) + ' (' + rs.map(r => ((v.carried || {})[d] || {})[r] ? `${esc(r)} · <span class="faint" style="white-space:nowrap" title="${T('Not worked on since that stable: its validation stays')}">${T('kept from {v}', { v: esc(vShort(it, v.carried[d][r])) })}</span>` : esc(r)).join(', ') + ')')
                     .join(', ')
                 })}</div>`
               : ''
