@@ -328,6 +328,13 @@ function machinesHTML() {
     const n = name(f);
     return n ? `<button class="lnk mono" data-sgofile="${esc(n)}" data-stab="plan" title="${T('Open {name}', { name: esc(n) })}">${esc(f)}</button>` : esc(f);
   };
+  // The farm host's card: what it runs itself (a setup, a check, a video) -- without it, an idle
+  // worker there while shots wait reads like a bug.
+  const isHost = m => (m.me && me.host) || m.worker?.host || (!!me.host_name && m.label === me.host_name);
+  const hostLine = () => {
+    const own = (me.host_now || []).filter(x => x.what !== 'rendering');
+    return `<span class="mn-w">${jst(own.length ? 'running' : 'finished')}<span>${T('farm host')}${own.map(x => ` · ${esc(TS(x.what))} ${fileLink(x.file)}`).join('')}</span></span>`;
+  };
   // Its head: the farm itself -- who hosts it, its monitor, what it does now -- and its switch.
   const farmNow = farmUp()
     ? `<span class="faint mh-farm">${T('Farm host: {host}', { host: esc(me.host ? T('this machine') : me.host_name || T('none')) })} · ${T('monitor {state}', { state: st })} · ${T('Now: {what}', { what: hostNow(me.host_now) })}</span><span style="flex:1"></span>${monitorBtn('sm')}`
@@ -339,7 +346,7 @@ function machinesHTML() {
             .map(
               // Its worker first (what it renders), then its files open; none open: nothing said.
               m => `<div class="mn ${S.farmSel === 'w:' + m.uuid ? 'sel' : ''} ${m.me ? 'me' : ''}"><${m.worker ? `button class="mn-h" data-wk="${m.worker.uuid}" title="${T('Its detail')}"` : 'div class="mn-h"'}>${ic('b-user')}<b>${esc(m.label)}</b>${m.me && m.label !== T('This machine') ? `<span class="tag">${T('this machine')}</span>` : ''}</${m.worker ? 'button' : 'div'}>
-        <div class="mn-b">${wk(m.worker)}${m.files
+        <div class="mn-b">${isHost(m) ? hostLine() : ''}${wk(m.worker)}${m.files
           .map(f => {
             const n = name(f.file);
             return `<button class="mn-f" ${n ? `data-sgofile="${esc(n)}" data-stab="plan"` : 'disabled'}>${ic('b-blender')}<span class="mn-fn"><span class="mono">${esc(f.file)}</span>${f.saved ? '' : `<span class="faint">${T('not saved yet')}</span>`}</span></button>`;

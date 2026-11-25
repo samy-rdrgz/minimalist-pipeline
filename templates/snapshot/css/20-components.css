@@ -1775,6 +1775,26 @@ body.out-open .scrim {
 .nt .h .sp {
   flex: 1;
 }
+/* Its author: said while the note is hovered, over its date (no room kept for it). */
+.nt .h .who-d {
+  position: relative;
+}
+.nt:hover > .h .who-d[data-who]::before {
+  content: attr(data-who);
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  white-space: nowrap;
+  padding: 1px var(--sp-2);
+  border-radius: var(--r-s);
+  border: 1px solid var(--line);
+  background: var(--head);
+  color: var(--text);
+  font-weight: 500;
+  box-shadow: var(--shadow);
+  z-index: 5;
+  pointer-events: none;
+}
 .nt .t {
   white-space: pre-wrap;
   word-break: break-word;

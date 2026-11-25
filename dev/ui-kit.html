@@ -2028,6 +2028,26 @@ body.out-open .scrim {
 .nt .h .sp {
   flex: 1;
 }
+/* Its author: said while the note is hovered, over its date (no room kept for it). */
+.nt .h .who-d {
+  position: relative;
+}
+.nt:hover > .h .who-d[data-who]::before {
+  content: attr(data-who);
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  white-space: nowrap;
+  padding: 1px var(--sp-2);
+  border-radius: var(--r-s);
+  border: 1px solid var(--line);
+  background: var(--head);
+  color: var(--text);
+  font-weight: 500;
+  box-shadow: var(--shadow);
+  z-index: 5;
+  pointer-events: none;
+}
 .nt .t {
   white-space: pre-wrap;
   word-break: break-word;
@@ -7772,6 +7792,7 @@ MPI18n.add('fr',{
 'worker silent since {date}':'worker muet depuis le {date}',
 'worker · rendering {file}':'worker · rendu de {file}',
 'worker · idle':'worker · libre',
+'farm host':'hôte de la farm',
 'who has which file open, and the workers':'qui a quel fichier ouvert, et les workers',
 'not saved yet':'pas encore sauvé',
 'No Blender has a project file open, no worker.':'Aucun Blender n’a de fichier du projet ouvert, aucun worker.',
@@ -11918,7 +11939,7 @@ function noteHTML(it, n) {
   };
   return `<div class="nt ${n.type} ${n.done ? 'closed' : ''} ${n.mine ? 'mine' : ''} ${x.del ? 'gone' : ''} ${x.ed !== undefined ? 'chg' : ''}">
     <div class="h"><span class="type ${n.type}" ${n.done ? `title="${T('closed')}"` : ''}>${n.done ? ic('b-checkmark') : ''}${n.type === 'rtk' ? 'RTK' : n.type === 'todo' ? T('to do') : T('note')}</span>${(n.deps || []).length ? n.deps.map(d => LBL[d] || d).join(', ') : '<span>' + T('no department') + '</span>'}${who ? `<span>· ${esc(who)}</span>` : ''}
-      ${!n.frames && noteShot(it, n) ? `<span class="chip-frame" title="${T('Shot of the block')}">${esc(noteShot(it, n))}</span>` : ''}${n.frames ? `<button class="chip-frame" data-goto="${parseInt(String(n.frames).replace(/\D+/, ''))}" ${noteShot(it, n) ? `data-gshot="${esc(noteShot(it, n))}"` : ''} title="${T('Go to {frame}', { frame: esc(n.frames) })}${noteShot(it, n) ? ' · ' + esc(noteShot(it, n)) : ''}">${noteShot(it, n) ? esc(noteShot(it, n)) + ' · ' : ''}${esc(n.frames)}</button>` : ''}${n.mine ? '<span class="tag you">' + T('you') + '</span>' : ''}<span class="sp"></span><span class="who">${esc(!n.ingrp && n.author && n.author !== 'unknown' ? n.author : '')}</span><span class="${n.ingrp ? 'subd' : ''}">${fmtD(n.date)}</span>${n.done ? '<span>· ' + T('closed') + '</span>' : ''}${penHTML(x)}</div>
+      ${!n.frames && noteShot(it, n) ? `<span class="chip-frame" title="${T('Shot of the block')}">${esc(noteShot(it, n))}</span>` : ''}${n.frames ? `<button class="chip-frame" data-goto="${parseInt(String(n.frames).replace(/\D+/, ''))}" ${noteShot(it, n) ? `data-gshot="${esc(noteShot(it, n))}"` : ''} title="${T('Go to {frame}', { frame: esc(n.frames) })}${noteShot(it, n) ? ' · ' + esc(noteShot(it, n)) : ''}">${noteShot(it, n) ? esc(noteShot(it, n)) + ' · ' : ''}${esc(n.frames)}</button>` : ''}${n.mine ? '<span class="tag you">' + T('you') + '</span>' : ''}<span class="sp"></span><span class="who-d" ${!n.ingrp && n.author && n.author !== 'unknown' ? `data-who="${esc(n.author)}"` : ''}><span class="${n.ingrp ? 'subd' : ''}">${fmtD(n.date)}</span></span>${n.done ? '<span>· ' + T('closed') + '</span>' : ''}${penHTML(x)}</div>
     ${S.nedit === x.key ? edFormHTML(x, !n.mine, it) : `<div class="t ${x.txt ? '' : 'empty'}">${x.txt ? esc(x.txt) : T('(no text)')}${edSay(x)}</div>`}
     ${reps.length ? `<div class="rep">${reps.map(repHTML).join('')}</div>` : ''}
     ${rf}
@@ -12621,6 +12642,13 @@ function machinesHTML() {
     const n = name(f);
     return n ? `<button class="lnk mono" data-sgofile="${esc(n)}" data-stab="plan" title="${T('Open {name}', { name: esc(n) })}">${esc(f)}</button>` : esc(f);
   };
+  // The farm host's card: what it runs itself (a setup, a check, a video) -- without it, an idle
+  // worker there while shots wait reads like a bug.
+  const isHost = m => (m.me && me.host) || m.worker?.host || (!!me.host_name && m.label === me.host_name);
+  const hostLine = () => {
+    const own = (me.host_now || []).filter(x => x.what !== 'rendering');
+    return `<span class="mn-w">${jst(own.length ? 'running' : 'finished')}<span>${T('farm host')}${own.map(x => ` · ${esc(TS(x.what))} ${fileLink(x.file)}`).join('')}</span></span>`;
+  };
   // Its head: the farm itself -- who hosts it, its monitor, what it does now -- and its switch.
   const farmNow = farmUp()
     ? `<span class="faint mh-farm">${T('Farm host: {host}', { host: esc(me.host ? T('this machine') : me.host_name || T('none')) })} · ${T('monitor {state}', { state: st })} · ${T('Now: {what}', { what: hostNow(me.host_now) })}</span><span style="flex:1"></span>${monitorBtn('sm')}`
@@ -12632,7 +12660,7 @@ function machinesHTML() {
             .map(
               // Its worker first (what it renders), then its files open; none open: nothing said.
               m => `<div class="mn ${S.farmSel === 'w:' + m.uuid ? 'sel' : ''} ${m.me ? 'me' : ''}"><${m.worker ? `button class="mn-h" data-wk="${m.worker.uuid}" title="${T('Its detail')}"` : 'div class="mn-h"'}>${ic('b-user')}<b>${esc(m.label)}</b>${m.me && m.label !== T('This machine') ? `<span class="tag">${T('this machine')}</span>` : ''}</${m.worker ? 'button' : 'div'}>
-        <div class="mn-b">${wk(m.worker)}${m.files
+        <div class="mn-b">${isHost(m) ? hostLine() : ''}${wk(m.worker)}${m.files
           .map(f => {
             const n = name(f.file);
             return `<button class="mn-f" ${n ? `data-sgofile="${esc(n)}" data-stab="plan"` : 'disabled'}>${ic('b-blender')}<span class="mn-fn"><span class="mono">${esc(f.file)}</span>${f.saved ? '' : `<span class="faint">${T('not saved yet')}</span>`}</span></button>`;

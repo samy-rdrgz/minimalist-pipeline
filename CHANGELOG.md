@@ -24,6 +24,11 @@ All notable changes to this addon. Dates are release dates.
 
 ### Changed
 
+- Live page, a note's head: its author is said while the note is hovered,
+  over its date, instead of taking room on the line -- the head wraps less.
+- Live page, Farm > Machines: the farm host's card says it is the host and
+  what it runs itself (a setup, a frame check, a video), each file a link --
+  an idle worker there while shots wait no longer reads like a bug.
 - Live page, a note's edit: its departments, its frames (typed, the frame
   shown, or none) and a block's shot change too, not only its words --
   a note not sent yet at once, a sent one through the review's edit
