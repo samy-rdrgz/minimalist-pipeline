@@ -44,7 +44,7 @@ def main() -> None:
             "file": "ch_bob_v001-stable.blend", "created_at": "2026-10-03T10:00:00+02:00", "created_from": "ch_bob_v001.blend",
             "departments_validated": {"modeling": True, "rig": False},
             "approvals": {"modeling": {"prod": {"by": "ana", "at": "2026-10-03T12:00:00+02:00"}}},
-            "conflict_warning": "v000 worked apart",
+            "conflict_warning": "v000 worked apart", "note": "rig v2, cam rescaled",
         })
         write("render_history.json", {"entries": [
             {"completed_at": "2026-10-03T12:00:00+02:00", "status": "finished", "department": "modeling",
@@ -62,6 +62,7 @@ def main() -> None:
         assert v2["saved_by"] == "tom" and not v2["stable"], v2
         assert st["stable"] and st["done"] == ["modeling"] and st["approvals"] == {"modeling": ["prod"]}, st
         assert st["conflict"] == "v000 worked apart", st
+        assert st["note"] == "rig v2, cam rescaled" and v1["note"] == "", (st, v1)  # a version's note, none said
         assert [r["status"] for r in h["renders"]] == ["failed", "finished"], h["renders"]
         r = h["renders"][1]
         assert r["folder"] == "v001-stable_001" and r["machines"] == 2 and r["preset"] == "modeling_default", r

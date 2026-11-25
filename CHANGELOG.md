@@ -6,6 +6,11 @@ All notable changes to this addon. Dates are release dates.
 
 ### Added
 
+- **A version's note**: Increment (and Increment as stable) has an optional
+  *What changed* line -- "fixed the arm", "cam rescaled" -- kept in the
+  version's `.wipmeta` / `.stablemeta` (`note`), written in the log, shown
+  in the live page's file detail > Versions. Not asked when the version is
+  proposed on open (nothing changed yet).
 - Live page, New shot (+ shot): Blender's New shot dialog -- the sequence
   and the shot prefix fixed, a row per shot (its number, its start frame),
   + Shot for a block, the end frame; the name it makes, the timeline out of

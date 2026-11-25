@@ -716,6 +716,7 @@ def create_wipmeta(
     original_filepath: Path | None,
     creation_mode: str = "",
     linked: list[dict] | None = None,
+    note: str = "",
 ):
     """Create the .wipmeta for a new work version, inheriting linked libs
     from the previous one -- or taking `linked` as is when given (the
@@ -740,6 +741,10 @@ def create_wipmeta(
             SESSIONS: {},
             "linked": compact_linked(linked),
         }
+        # What changed in this version, said when it was made (Increment's field):
+        # absent when nothing was said.
+        if note.strip():
+            data["note"] = note.strip()
         path = _meta_path(filepath, ".wipmeta")
         path.parent.mkdir(parents=True, exist_ok=True)
         with locked_json(path) as box:
@@ -1023,6 +1028,7 @@ def create_stablemeta(
     conflict_warnings: str,
     linked: list[dict] | None = None,
     worked: list[str] | None = None,
+    note: str = "",
 ):
     """Create the .stablemeta of a -stable version: validated departments,
     the validations carried from the stable before (departments not worked
@@ -1084,6 +1090,8 @@ def create_stablemeta(
             "departments_worked": sorted(worked),
             "approvals_carried": True,
         }
+        if note.strip():
+            data["note"] = note.strip()  # what changed / was fixed (Increment's field)
         if approvals:
             data["approvals"] = approvals
         if approvals_previous:

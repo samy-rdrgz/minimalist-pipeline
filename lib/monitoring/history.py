@@ -39,6 +39,8 @@ def _version(name: str, data: dict, stable: bool) -> dict:
         "saved_at": data.get("edited_at") or "",
         "saved_by": data.get("edited_by") or "",
         "sessions": _sessions(data),
+        # What changed, said when it was made (.wipmeta/.stablemeta "note").
+        "note": str(data.get("note") or ""),
     }
     if stable:
         data = legacy.stable_read(dict(data))
