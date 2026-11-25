@@ -559,9 +559,19 @@ document.addEventListener('click', e => {
     msg(LBL[d] + ': ' + (a.join(', ') || T('nobody')));
     return;
   }
-  if (t.closest('[data-relink]')) {
+  const rl = t.closest('[data-relink]');
+  if (rl) {
     const it = cur();
-    if (it) relinkSend([it.file]);
+    if (!it) return;
+    // "by": every file linking an older version of it -- not it, whose links may be fine.
+    const files =
+      rl.dataset.relink === 'by'
+        ? it.linkedBy
+            .map(n => items.find(i => i.name === n))
+            .filter(o => o && o.links.some(x => x.name === it.name && x.newer))
+            .map(o => o.file)
+        : [it.file];
+    if (files.length) relinkSend(files);
     return;
   }
   const ga = t.closest('[data-gall]');

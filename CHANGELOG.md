@@ -29,6 +29,10 @@ All notable changes to this addon. Dates are release dates.
 
 ### Changed
 
+- Live page, Links: an asset whose newer stable the shots don't link yet
+  has *Update the files linking it (n)* -- each of those files relinked --
+  apart from *Update its links* (its own). The one button relinked the asset
+  itself only: "its links are up to date", nothing done.
 - Live page: F5 keeps where you were -- the file selected (or the
   workspace: Farm, To do, Links, Synthesis) in the address (#its name), the
   detail's tab for that browser tab. The address is a link to it as well.

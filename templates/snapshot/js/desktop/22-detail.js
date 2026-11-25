@@ -376,14 +376,18 @@ function linksHTML(it) {
     const o = byOld(n);
     return `<div class="node shot" data-goto-file="${n}" title="${T('Open {name}', { name: n })}"><div class="nh">${ic('b-camera_data')}<span>${n}</span></div><div class="nb"><div class="sock in ${o ? 'bad' : ''}" data-i="by:${n}"><i></i>${o ? T('links {version} (old)', { version: verOf(o.file) }) : T('up to date')}</div></div></div>`;
   };
-  const old = ins.filter(l => l.newer).length + by.filter(byOld).length;
+  // Its own links behind (it is relinked), and the files linking an older version of it
+  // (each of them relinked): two buttons -- on an updated asset, the second.
+  const own = ins.filter(l => l.newer).length,
+    down = by.filter(byOld).length,
+    old = own + down;
   const graph =
     !ins.length && !by.length
       ? `<div class="empty" style="padding:24px">${T('{name} links no file and no file links it.', { name: it.name })}</div>`
       : `<div class="nodes-wrap"><div class="nodes" id="nodes"><svg class="wires" id="wires"></svg>${ins.length ? `<div class="ncol">${ins.map(nodeA).join('')}</div>` : ''}<div class="ncol">${target}</div>${by.length ? `<div class="ncol">${by.map(nodeB).join('')}</div>` : ''}</div></div>`;
   return `<div class="sec"><div class="sec-h">${T('Links')}<span class="sp"></span><span class="faint" style="text-transform:none;letter-spacing:0">${T('{n} linked · linked by {m}', { n: ins.length, m: by.length })}</span></div>
     ${graph}<p class="faint" style="margin:0;font-size:var(--fs-s)">${T('Red wire: a newer stable exists. Click a node: opens the file.')}</p>
-    ${old ? `<div class="pacts"><button class="btn primary live-only" data-relink title="${T('Makes a -relink version linking the last stables, without opening it, overwriting nothing')}">${ic('b-linked')}${T('Update the links ({n})', { n: old })}</button></div>` : ''}</div>`;
+    ${old ? `<div class="pacts">${own ? `<button class="btn primary live-only" data-relink="self" title="${T('Makes a -relink version linking the last stables, without opening it, overwriting nothing')}">${ic('b-linked')}${T('Update its links ({n})', { n: own })}</button>` : ''}${down ? `<button class="btn ${own ? '' : 'primary'} live-only" data-relink="by" title="${T('Each file linking an older version of {name}: a -relink version of it linking the last stables, without opening it, overwriting nothing', { name: esc(it.name) })}">${ic('b-linked')}${T('Update the files linking it ({n})', { n: down })}</button>` : ''}</div>` : ''}</div>`;
 }
 function wirePath(x1, y1, x2, y2, ym) {
   if (x2 >= x1 - 4) {
