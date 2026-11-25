@@ -44,9 +44,9 @@ function versionsHTML(it) {
       const dep = d => esc(LBL[d] || d);
       return `<div class="vn ${v.stable ? 'st' : ''} ${v.conflict ? 'cf' : ''}" data-vi="${i}" ${parent != null ? `data-vp="${parent}"` : ''} ${branch ? 'data-branch' : ''}>
         <span class="vd" aria-hidden="true"></span>
-        <div class="vb"><div class="vh"><b class="mono">${esc(vShort(it, v.file))}</b>${branch ? `<span class="tag warn" title="${T('Made from {v}, not from the version before it', { v: esc(vShort(it, v.from)) })}">${T('from {v}', { v: esc(vShort(it, v.from)) })}</span>` : ''}</div>
+        <div class="vb"><div class="vh"><b class="mono">${esc(vShort(it, v.file))}</b>${branch ? `<span class="tag warn" title="${T('Made from {v}, not from the version before it', { v: esc(vShort(it, v.from)) })}">${T('from {v}', { v: esc(vShort(it, v.from)) })}</span>` : ''}<span class="vat faint">${dShort(v.at)}</span></div>
           ${v.note ? `<div class="vm vnote">${esc(v.note)}</div>` : ''}
-          <div class="vm faint">${[dShort(v.at), v.saved_by && v.saved_at && v.saved_at !== v.at ? T('saved last by {who}, {date}', { who: esc(v.saved_by), date: dShort(v.saved_at) }) : ''].filter(Boolean).join(' · ')}</div>
+          ${v.saved_by && v.saved_at && v.saved_at !== v.at ? `<div class="vm faint">${T('saved last by {who}, {date}', { who: esc(v.saved_by), date: dShort(v.saved_at) })}</div>` : ''}
           ${worked.length ? `<div class="vm"><i class="vk wip"></i>${T('Worked: {deps}', { deps: worked.map(dep).join(', ') })}${people.length ? ` <span class="faint">· ${people.map(esc).join(', ')}</span>` : ''}</div>` : ''}
           ${v.stable && v.done.length ? `<div class="vm"><i class="vk done"></i>${T('Done: {deps}', { deps: v.done.map(dep).join(', ') })}</div>` : ''}
           ${

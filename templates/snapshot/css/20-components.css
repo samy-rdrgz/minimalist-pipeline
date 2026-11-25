@@ -4600,6 +4600,11 @@ html.kb .m-nav {
   gap: var(--sp-4);
   flex-wrap: wrap;
 }
+/* Its date: on the name's line, against the right. */
+.vh .vat {
+  margin-left: auto;
+  font-size: var(--fs-s);
+}
 .vm {
   font-size: var(--fs-s);
   color: var(--text-2);
