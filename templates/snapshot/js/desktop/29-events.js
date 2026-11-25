@@ -1585,7 +1585,7 @@ document.addEventListener('change', e => {
 });
 
 /* A row scrolled sideways (.join, .filters, .ws): a fade on the side where more is hidden; a mouse wheel scrolls it. */
-const SX = '.join,.filters,.ws';
+const SX = '.join,.filters,.ws,.cx';
 function sxFade(el) {
   const l = el.scrollLeft > 1,
     r = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;

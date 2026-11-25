@@ -31,7 +31,9 @@ All notable changes to this addon. Dates are release dates.
   set_entry_text()). The change shown on the note until sent. Its frames
   after a fixed "f"; a form's departments and shots on one line, scrolled
   sideways. The page's text fields in its own font (the browser's before:
-  their words sat high).
+  their words sat high). The chips scrolled alone, their label kept,
+  faded on the side where more is, room left for the bar. A block's note
+  with no frame says its shot too.
 - Live page, a block: a note written on one of its shots marks that
   shot's timeline only; its frame clicked (its notes, Watch large's)
   puts that shot's video in the player, then goes to the frame -- the

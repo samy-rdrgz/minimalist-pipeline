@@ -236,10 +236,10 @@ function formHTML(d) {
     sh = it.shots && it.shots.length > 1 ? it.shots : [];
   // Which departments, which shots of a block: several of each (a note per shot).
   const chips = deps.length
-    ? `<div class="r chips"><span class="faint">${T('Departments')}</span>${deps.map(x => `<button class="btn sm" data-fdep="${x}" aria-pressed="${f.deps.includes(x)}">${esc(LBL[x])}</button>`).join('')}</div>`
+    ? `<div class="r chips"><span class="faint">${T('Departments')}</span><span class="cx">${deps.map(x => `<button class="btn sm" data-fdep="${x}" aria-pressed="${f.deps.includes(x)}">${esc(LBL[x])}</button>`).join('')}</span></div>`
     : '';
   const shots = sh.length
-    ? `<div class="r chips"><span class="faint">${T('Shots')}</span><button class="btn sm" data-fshot="" aria-pressed="${!f.shots.length}" title="${T('No shot named: the note is on every shot of the block')}">${T('All shots')}</button>${sh.map(x => `<button class="btn sm ${f.shots.length ? '' : 'all'}" data-fshot="${esc(x)}" aria-pressed="${!f.shots.length || f.shots.includes(x)}">${esc(x)}</button>`).join('')}</div>`
+    ? `<div class="r chips"><span class="faint">${T('Shots')}</span><span class="cx"><button class="btn sm" data-fshot="" aria-pressed="${!f.shots.length}" title="${T('No shot named: the note is on every shot of the block')}">${T('All shots')}</button>${sh.map(x => `<button class="btn sm ${f.shots.length ? '' : 'all'}" data-fshot="${esc(x)}" aria-pressed="${!f.shots.length || f.shots.includes(x)}">${esc(x)}</button>`).join('')}</span></div>`
     : '';
   return `<div class="form"><span class="join">${types.map(([k, l]) => `<button class="btn sm" data-ftype="${k}" aria-pressed="${f.type === k}">${l}</button>`).join('')}</span>
     ${chips}${shots}
@@ -311,9 +311,9 @@ const edMoreHTML = it => {
   const f = S.nf;
   if (!f) return '';
   const sh = it.shots && it.shots.length > 1 ? it.shots : [];
-  return `<div class="r chips"><span class="faint">${T('Departments')}</span>${DEPTS[it.kind].map(d => `<button class="btn sm" data-nedep="${d}" aria-pressed="${f.deps.includes(d)}">${esc(LBL[d])}</button>`).join('')}</div>
+  return `<div class="r chips"><span class="faint">${T('Departments')}</span><span class="cx">${DEPTS[it.kind].map(d => `<button class="btn sm" data-nedep="${d}" aria-pressed="${f.deps.includes(d)}">${esc(LBL[d])}</button>`).join('')}</span></div>
     <div class="r chips"><span class="faint">${T('Frames')}</span><label class="field" style="width:130px"><span class="faint mono">f</span><input id="ne-fr" value="${esc(String(f.frames || '').replace(/^f/, ''))}" placeholder="12 · 12-30" aria-label="${T('Frames')}"></label><button class="btn sm flat" data-nefr title="${T('The frame shown')}">${T('Here')} · f${fNo(S.frame)}</button>${f.frames ? `<button class="btn sm flat" data-nefr="" title="${T('No frame')}">${ic('b-x')}</button>` : ''}</div>
-    ${sh.length ? `<div class="r chips"><span class="faint">${T('Shot')}</span><button class="btn sm" data-neshot="" aria-pressed="${!f.shot}" title="${T('No shot named: the note is on every shot of the block')}">${T('All shots')}</button>${sh.map(x => `<button class="btn sm" data-neshot="${esc(x)}" aria-pressed="${f.shot === x}">${esc(x)}</button>`).join('')}</div>` : ''}`;
+    ${sh.length ? `<div class="r chips"><span class="faint">${T('Shot')}</span><span class="cx"><button class="btn sm" data-neshot="" aria-pressed="${!f.shot}" title="${T('No shot named: the note is on every shot of the block')}">${T('All shots')}</button>${sh.map(x => `<button class="btn sm" data-neshot="${esc(x)}" aria-pressed="${f.shot === x}">${esc(x)}</button>`).join('')}</span></div>` : ''}`;
 };
 const edFormHTML = (x, sent, it) =>
   `<div class="form"><label class="field ta"><textarea id="ne-txt" rows="3" aria-label="${T('Text')}">${esc(x.txt || '')}</textarea></label>${it ? edMoreHTML(it) : ''}<div class="r">${sent ? `<button class="btn sm alert" data-ndel="${esc(x.key)}" title="${T('Delete it (a note: its replies too)')}">${ic('b-x')}${T('Delete')}</button>` : ''}<span style="flex:1"></span><button class="btn sm" data-necancel>${T('Cancel')}</button><button class="btn sm primary" data-nesave="${esc(x.key)}">${T('Save')}</button></div></div>`;
@@ -352,7 +352,7 @@ function noteHTML(it, n) {
   };
   return `<div class="nt ${n.type} ${n.done ? 'closed' : ''} ${n.mine ? 'mine' : ''} ${x.del ? 'gone' : ''} ${x.ed !== undefined ? 'chg' : ''}">
     <div class="h"><span class="type ${n.type}" ${n.done ? `title="${T('closed')}"` : ''}>${n.done ? ic('b-checkmark') : ''}${n.type === 'rtk' ? 'RTK' : n.type === 'todo' ? T('to do') : T('note')}</span>${(n.deps || []).length ? n.deps.map(d => LBL[d] || d).join(', ') : '<span>' + T('no department') + '</span>'}${who ? `<span>· ${esc(who)}</span>` : ''}
-      ${n.frames ? `<button class="chip-frame" data-goto="${parseInt(String(n.frames).replace(/\D+/, ''))}" ${noteShot(it, n) ? `data-gshot="${esc(noteShot(it, n))}"` : ''} title="${T('Go to {frame}', { frame: esc(n.frames) })}${noteShot(it, n) ? ' · ' + esc(noteShot(it, n)) : ''}">${noteShot(it, n) ? esc(noteShot(it, n)) + ' · ' : ''}${esc(n.frames)}</button>` : ''}${n.mine ? '<span class="tag you">' + T('you') + '</span>' : ''}<span class="sp"></span><span class="who">${esc(!n.ingrp && n.author && n.author !== 'unknown' ? n.author : '')}</span><span class="${n.ingrp ? 'subd' : ''}">${fmtD(n.date)}</span>${n.done ? '<span>· ' + T('closed') + '</span>' : ''}${penHTML(x)}</div>
+      ${!n.frames && noteShot(it, n) ? `<span class="chip-frame" title="${T('Shot of the block')}">${esc(noteShot(it, n))}</span>` : ''}${n.frames ? `<button class="chip-frame" data-goto="${parseInt(String(n.frames).replace(/\D+/, ''))}" ${noteShot(it, n) ? `data-gshot="${esc(noteShot(it, n))}"` : ''} title="${T('Go to {frame}', { frame: esc(n.frames) })}${noteShot(it, n) ? ' · ' + esc(noteShot(it, n)) : ''}">${noteShot(it, n) ? esc(noteShot(it, n)) + ' · ' : ''}${esc(n.frames)}</button>` : ''}${n.mine ? '<span class="tag you">' + T('you') + '</span>' : ''}<span class="sp"></span><span class="who">${esc(!n.ingrp && n.author && n.author !== 'unknown' ? n.author : '')}</span><span class="${n.ingrp ? 'subd' : ''}">${fmtD(n.date)}</span>${n.done ? '<span>· ' + T('closed') + '</span>' : ''}${penHTML(x)}</div>
     ${S.nedit === x.key ? edFormHTML(x, !n.mine, it) : `<div class="t ${x.txt ? '' : 'empty'}">${x.txt ? esc(x.txt) : T('(no text)')}${edSay(x)}</div>`}
     ${reps.length ? `<div class="rep">${reps.map(repHTML).join('')}</div>` : ''}
     ${rf}

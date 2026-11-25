@@ -89,7 +89,7 @@ function renderWide() {
           return `<div class="wnr">${
             f
               ? `<button class="wn" data-goto="${f.a}" ${noteShot(it, n) ? `data-gshot="${esc(noteShot(it, n))}"` : ''}><span class="ft ${ftc(n)}">${noteShot(it, n) ? esc(noteShot(it, n)) + ' · ' : ''}f${f.a}${f.b ? '-' + f.b : ''}</span>${tx}</button>`
-              : `<div class="wn nof"><span class="ft ${ftc(n)}" title="${T('No frame')}">—</span>${tx}</div>`
+              : `<div class="wn nof"><span class="ft ${ftc(n)}" title="${T('No frame')}">${noteShot(it, n) ? esc(noteShot(it, n)) : '—'}</span>${tx}</div>`
           }${wfx(n)}</div>`;
         })
         .join('')

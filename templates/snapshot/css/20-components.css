@@ -355,7 +355,10 @@ svg.g {
   font: var(--fs-s) var(--mono);
   cursor: pointer;
 }
-.chip-frame:hover {
+span.chip-frame {
+  cursor: default;
+}
+button.chip-frame:hover {
   background: var(--sel);
   color: var(--on-sel);
 }
@@ -1704,14 +1707,36 @@ body.out-open .scrim {
   min-width: calc(80px * var(--scale));
   flex: none;
 }
-/* A row of chips (departments, shots): one line, scrolled sideways when it doesn't fit. */
+/* A row of chips (departments, shots): its label, then the chips on one line, scrolled sideways
+   when they don't fit -- faded on the side where more is hidden (sxFade()), a thin bar under them
+   with room kept for it. */
 .form .r.chips {
   flex-wrap: nowrap;
-  overflow-x: auto;
-  scrollbar-width: thin;
-  padding-bottom: 2px;
 }
 .form .r.chips > * {
+  flex: none;
+}
+.form .r.chips > .cx {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  gap: var(--sp-3);
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: thin;
+}
+/* The label on the chips' line, not in the middle of the line and its bar. */
+.form .r.chips:has(> .cx) {
+  align-items: flex-start;
+}
+.form .r.chips:has(> .cx) > .faint {
+  line-height: var(--h-sm);
+}
+.form .r.chips > .cx:is(.sx-l, .sx-r) {
+  padding-bottom: 10px;
+}
+.form .r.chips > .cx > * {
   flex: none;
 }
 .nt {
