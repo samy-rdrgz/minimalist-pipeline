@@ -1188,6 +1188,19 @@ def _farm_data(root: Path) -> dict:
             "local": bool(w.get("local_only")),
             # Silent: its last heartbeat -- crashed, closed, asleep?
             "since": _iso(w.get("last_heartbeat")) if uuid in silent else "",
+            # Its worker file's identity (farm/workers.py _worker_identity()): the machine's detail.
+            "user": w.get("user") or "",
+            "machine": w.get("machine") or uuid[:8],
+            "blender": w.get("blender_version") or "",
+            "addon": w.get("addon_version") or "",
+            "ffmpeg": bool(w.get("ffmpeg")),
+            "ffmpeg_version": w.get("ffmpeg_version") or "",
+            "protocol": w.get("farm_protocol"),
+            "started": _iso(w.get("started_at")),
+            "beat": _iso(w.get("last_heartbeat")),
+            "done": w.get("renders_done") or 0,
+            "failed": w.get("renders_failed") or 0,
+            "stopping": bool(w.get("stopping")),
         }
         for uuid, w in sorted(
             [*(cache.get("workers") or {}).items(), *((u, w) for u, w in silent.items() if u not in (cache.get("workers") or {}))],

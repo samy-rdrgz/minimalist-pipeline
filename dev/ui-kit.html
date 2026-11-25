@@ -7811,6 +7811,16 @@ MPI18n.add('fr',{
 'worker · rendering {file}':'worker · rendu de {file}',
 'worker · idle':'worker · libre',
 'farm host':'hôte de la farm',
+'User':'Utilisateur',
+'Machine id':'Id machine',
+'Add-on':'Add-on',
+'protocol {n}':'protocole {n}',
+'no -- no video compiled here':'non -- aucune vidéo compilée ici',
+'Worker since':'Worker depuis',
+'Last heartbeat':'Dernier signal',
+'{n} failed':'{n} échoués',
+'Local':'Local',
+'Stopping':'En arrêt',
 'Stop its worker':'Arrêter son worker',
 'Stops its worker on its next tick (about 10 s)':'Arrête son worker à son prochain tick (environ 10 s)',
 'who has which file open, and the workers':'qui a quel fichier ouvert, et les workers',
@@ -12462,7 +12472,7 @@ function renderFarmDetail(H, B) {
     const w = F.workers.find(x => 'w:' + x.uuid === id);
     if (w) {
       H.innerHTML = `<span class="phead"><span class="pname">${esc(w.name)}</span><span class="d">${T('Machine')}</span></span>`;
-      B.innerHTML = `<div class="sec"><dl class="dl"><dt>${T('State')}</dt><dd>${w.status === 'silent' ? T('silent') : esc(TS(w.status))}</dd><dt>${T('Since')}</dt><dd>${fmtD(w.since)}</dd><dt>${T('File')}</dt><dd>${esc(w.file || '–')}</dd><dt>${T('This machine')}</dt><dd>${w.mine ? T('yes') : T('no')}</dd><dt>${T('Host')}</dt><dd>${w.host ? T('yes') : T('no')}</dd></dl>
+      B.innerHTML = `<div class="sec"><dl class="dl"><dt>${T('State')}</dt><dd>${w.status === 'silent' ? T('silent') : esc(TS(w.status))}</dd>${w.since ? `<dt>${T('Since')}</dt><dd title="${fmtAbs(w.since)}">${fmtD(w.since)}</dd>` : ''}<dt>${T('File')}</dt><dd>${esc(w.file || '–')}</dd><dt>${T('This machine')}</dt><dd>${w.mine ? T('yes') : T('no')}</dd><dt>${T('Host')}</dt><dd>${w.host ? T('yes') : T('no')}</dd>${w.user ? `<dt>${T('User')}</dt><dd>${esc(w.user)}</dd>` : ''}${w.machine ? `<dt>${T('Machine id')}</dt><dd class="mono">${esc(w.machine)}</dd>` : ''}${w.blender ? `<dt>Blender</dt><dd>${esc(w.blender)}</dd>` : ''}${w.addon ? `<dt>${T('Add-on')}</dt><dd>${esc(w.addon)}${w.protocol != null ? ` · ${T('protocol {n}', { n: esc(w.protocol) })}` : ''}</dd>` : ''}<dt>ffmpeg</dt><dd>${w.ffmpeg ? esc(w.ffmpeg_version || T('yes')) : `<span class="bad">${T('no -- no video compiled here')}</span>`}</dd>${w.started ? `<dt>${T('Worker since')}</dt><dd title="${fmtAbs(w.started)}">${fmtD(w.started)}</dd>` : ''}${w.beat ? `<dt>${T('Last heartbeat')}</dt><dd title="${fmtAbs(w.beat)}">${fmtD(w.beat)}</dd>` : ''}<dt>${T('Renders')}</dt><dd>${T('{n} done', { n: w.done || 0 })}${w.failed ? ` · <span class="bad">${T('{n} failed', { n: w.failed })}</span>` : ''}</dd>${w.local ? `<dt>${T('Local')}</dt><dd>${T('Kept for its own renders: the farm sends it nothing meanwhile')}</dd>` : ''}${w.stopping ? `<dt>${T('Stopping')}</dt><dd>${T('yes')}</dd>` : ''}</dl>
       <div class="pacts">${w.status !== 'silent' ? `<button class="btn alert" data-farm="stop">${T('Stop')}</button>` : ''}${w.status === 'silent' ? `<button class="btn" data-farm="forget">${T('Forget this machine')}</button>` : ''}</div></div>`;
       return;
     }

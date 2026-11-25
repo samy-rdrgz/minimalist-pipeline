@@ -24,6 +24,9 @@ All notable changes to this addon. Dates are release dates.
 
 ### Changed
 
+- Live page, a machine's detail: what its worker file says too -- user,
+  machine id, Blender and add-on versions, ffmpeg (its version, or none: no
+  video compiled there), worker since, last heartbeat, renders done/failed.
 - Live page, dates: under two weeks old, said relative to today -- today
   its time alone, "yesterday 09:10", then "5 days ago"; older, the date.
   A note's exact date on its hover; exports and "since …" keep the date.
