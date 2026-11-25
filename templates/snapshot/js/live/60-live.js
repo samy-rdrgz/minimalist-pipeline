@@ -310,6 +310,7 @@ function applyData(nd) {
   if (nd.meta.live && M.live && nd.meta.live.root !== M.live.root) return location.reload();
   const before = items.map(i => ({ name: i.name, notes: i.notes, render: i.render, ok: i.ok }));
   loadData(nd);
+  syncChecked();
   newsOf(before, items);
   if (S.review && S.review.auto && M.live.user)
     S.review = { name: M.live.user, role: M.live.role || TEAM, auto: true };

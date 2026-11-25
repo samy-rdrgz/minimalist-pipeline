@@ -24,6 +24,18 @@ All notable changes to this addon. Dates are release dates.
 
 ### Changed
 
+- Live page, a block: a note written on one of its shots marks that
+  shot's timeline only; its frame clicked (its notes, Watch large's)
+  puts that shot's video in the player, then goes to the frame -- the
+  shot named before the frame when it isn't the one shown. A note
+  written in Watch large keeps the shot watched.
+- Live page, Render to check: a department's renders of a block's shots
+  (two or more) checked at once -- "All checked…" on that department's
+  line, the dialog's departments as for one.
+- Live page, To check: a render checked on the page told apart by its
+  folder too, forgotten once Blender's data drops it -- a newer render of
+  the same shot and department showed only after a reload; the file out
+  of the filter meanwhile.
 - Live page, Render checked: a render's departments after its own (an
   animation render: lighting, render) left as they are -- not in what it
   shows.

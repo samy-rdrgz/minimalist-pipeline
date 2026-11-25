@@ -987,6 +987,24 @@ document.addEventListener('click', e => {
   }
   const go = t.closest('[data-goto]');
   if (go) {
+    // A block's note on another shot than the one shown: that shot's video first, then its frame.
+    const gs = go.dataset.gshot,
+      it = cur();
+    if (gs && it && gs !== shotOf(it) && it.versions.some(v => (v.shot || '') === gs)) {
+      const f = +go.dataset.goto;
+      S.shot[it.name] = gs;
+      S.ver[it.name] = 0;
+      if (S.tab !== 'plan' && !S.wide) S.tab = 'plan';
+      renderProps();
+      renderWide();
+      const at = () => {
+        setFrame(fIdx(f));
+        if (LIVE) liveFrame(cur(), f);
+      };
+      if (PV.parentNode && PV.readyState < 1) PV.addEventListener('loadedmetadata', at, { once: true });
+      else at();
+      return;
+    }
     setFrame(fIdx(+go.dataset.goto));
     if (LIVE) liveFrame(cur(), +go.dataset.goto);
     if (S.tab !== 'plan' && !S.wide) {

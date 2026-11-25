@@ -297,6 +297,14 @@ svg.g {
   font-size: var(--fs-s);
   color: var(--text-2);
 }
+.chkbar .ck1.all {
+  color: var(--text);
+  font-weight: 600;
+}
+.chkbar .ck1.all + .ck1:not(.all) {
+  border-top: 1px solid var(--line);
+  padding-top: var(--sp-3);
+}
 .chkbar .ck1 span {
   flex: 1;
   min-width: 0;

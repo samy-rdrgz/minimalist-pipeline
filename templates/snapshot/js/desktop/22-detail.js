@@ -11,10 +11,22 @@ function nVerHTML(it, ctx, short) {
   return `<span class="anchor"><button class="enum" data-menu="m-nv-${ctx}" aria-haspopup="true" aria-expanded="false" title="${T('The notes written on one version')}"><span class="lb">${c ? esc(c) : short ? T('Versions') : T('All versions')}</span>${ic('b-downarrow_hlt')}</button>
     <div class="menu" id="m-nv-${ctx}" hidden role="menu"><div class="menu-h">${T('Notes written on')}</div>${['', ...vs].map(v => `<button class="mi" role="menuitemradio" aria-checked="${v === c}" data-nver="${esc(v)}"><span class="ck">${v === c ? ic('b-checkmark') : ''}</span><span class="lbl">${v ? esc(v) : T('All versions')}</span><span class="k">${it.notes.filter(n => !v || nVer(n) === v).length}</span></button>`).join('')}</div></span>`;
 }
+/* A block's note: the shot of the block it was written on (its "shot", digits), as the label the
+   player picks; '' -- not a block, or written on the whole block. */
+const noteShot = (it, n) => {
+  if (!(it.shots && it.shots.length > 1) || !n.shot) return '';
+  const k = +digits(n.shot);
+  return it.shots.find(s => +digits(s) === k) || '';
+};
+/* A block's shot shown alone: its marks on the timeline only (another shot's frames aren't in its video). */
+const markHere = (it, n) => {
+  const s = noteShot(it, n);
+  return !s || !shotOf(it) || s === shotOf(it);
+};
 function marks(it) {
   const out = [];
   byVer(it, [...it.notes.filter(n => !n.done), ...it.myNotes.map(n => ({ ...n, mine: 1 }))]).forEach(n => {
-    if (!n.frames) return;
+    if (!n.frames || !markHere(it, n)) return;
     const m = String(n.frames).match(/(\d+)(?:-(\d+))?/);
     if (m) out.push({ a: +m[1], b: m[2] ? +m[2] : null, rtk: n.type === 'rtk', n });
   });
@@ -80,7 +92,24 @@ function verHTML(it, ctx) {
 /* Its renders to check: a block of their own (what to watch), Checked… opening the dialog. */
 /* Its renders to check (live: each by its key). One Checked… each: an animation playblast and a
    lighting render aren't watched by the same people. */
-const checksOf = it => ((it.live || {}).checks || []).filter(c => !(S.checkedKeys[it.name] || []).includes(c.key));
+/* A render to check as checked here: its key and its folder -- a newer render of the same shot and
+   department (the same key, another folder) is to check again. */
+const ckId = c => c.key + '|' + (c.folder || '');
+const checksOf = it => ((it.live || {}).checks || []).filter(c => !(S.checkedKeys[it.name] || []).includes(ckId(c)));
+/* After Blender's data: a render checked here and gone from it, forgotten; one it still lists (the check
+   on its way), kept out -- the file out of "to check" when nothing else is (live/60-live.js applyData()). */
+function syncChecked() {
+  items.forEach(it => {
+    const ks = S.checkedKeys[it.name];
+    if (!ks) return;
+    const live = (it.live || {}).checks || [];
+    S.checkedKeys[it.name] = ks.filter(k => live.some(c => ckId(c) === k));
+    if (live.length && !checksOf(it).length) it.toCheck = false;
+  });
+}
+/* The renders a Checked… is for: one (its key), a department's ("d:animation"), all (''). */
+const ckPick = (it, key) =>
+  checksOf(it).filter(c => (!key ? true : key.startsWith('d:') ? (c.department || '') === key.slice(2) : c.key === key));
 const checkLabel = c => [c.shot, c.department, c.folder].filter(Boolean).join(' · ');
 function checkHTML(it) {
   if (!it.toCheck) return '';
@@ -97,7 +126,17 @@ function checkHTML(it) {
     };
   if (l.length < 2)
     return `<div class="chkbar">${ic('b-hide_off')}<span class="t"><b>${T('Render to check')}</b><small>${l.length ? esc(checkLabel(l[0])) : T('Rendered, not checked by the team yet')}</small></span>${l.length && ((it.shots || []).length > 1 || V.length > 1) ? watch(l[0]) : ''}${btn(l.length ? l[0].key : '')}</div>`;
-  return `<div class="chkbar">${ic('b-hide_off')}<span class="t"><b>${T('{n} renders to check', { n: l.length })}</b></span>${l.map(c => `<div class="ck1"><span>${esc(checkLabel(c))}</span>${watch(c)}${btn(c.key)}</div>`).join('')}</div>`;
+  // A block's shots rendered apart: a department's renders all checked at once (its sub-shots').
+  const byDep = {};
+  l.forEach(c => (byDep[c.department || ''] = (byDep[c.department || ''] || 0) + 1));
+  const all = Object.entries(byDep)
+    .filter(([, n]) => n > 1)
+    .map(
+      ([d, n]) =>
+        `<div class="ck1 all"><span>${esc(d ? LBL[d] || d : T('No department'))} · ${T('{n} renders', { n })}</span><button class="btn sm primary" data-checked="d:${esc(d)}" title="${T('Its {n} renders checked at once', { n })}">${ic('b-checkmark')}${T('All checked…')}</button></div>`
+    )
+    .join('');
+  return `<div class="chkbar">${ic('b-hide_off')}<span class="t"><b>${T('{n} renders to check', { n: l.length })}</b></span>${all}${l.map(c => `<div class="ck1"><span>${esc(checkLabel(c))}</span>${watch(c)}${btn(c.key)}</div>`).join('')}</div>`;
 }
 function stageHTML(it) {
   const V = versOf(it),
@@ -281,7 +320,7 @@ function noteHTML(it, n) {
   };
   return `<div class="nt ${n.type} ${n.done ? 'closed' : ''} ${n.mine ? 'mine' : ''} ${x.del ? 'gone' : ''} ${x.ed !== undefined ? 'chg' : ''}">
     <div class="h"><span class="type ${n.type}" ${n.done ? `title="${T('closed')}"` : ''}>${n.done ? ic('b-checkmark') : ''}${n.type === 'rtk' ? 'RTK' : n.type === 'todo' ? T('to do') : T('note')}</span>${(n.deps || []).length ? n.deps.map(d => LBL[d] || d).join(', ') : '<span>' + T('no department') + '</span>'}${who ? `<span>· ${esc(who)}</span>` : ''}
-      ${n.frames ? `<button class="chip-frame" data-goto="${parseInt(String(n.frames).replace(/\D+/, ''))}" title="${T('Go to {frame}', { frame: esc(n.frames) })}">${esc(n.frames)}</button>` : ''}${n.mine ? '<span class="tag you">' + T('you') + '</span>' : ''}<span class="sp"></span><span class="who">${esc(!n.ingrp && n.author && n.author !== 'unknown' ? n.author : '')}</span><span class="${n.ingrp ? 'subd' : ''}">${fmtD(n.date)}</span>${n.done ? '<span>· ' + T('closed') + '</span>' : ''}${penHTML(x)}</div>
+      ${n.frames ? `<button class="chip-frame" data-goto="${parseInt(String(n.frames).replace(/\D+/, ''))}" ${noteShot(it, n) ? `data-gshot="${esc(noteShot(it, n))}"` : ''} title="${T('Go to {frame}', { frame: esc(n.frames) })}${noteShot(it, n) ? ' · ' + esc(noteShot(it, n)) : ''}">${noteShot(it, n) && noteShot(it, n) !== shotOf(it) ? esc(noteShot(it, n)) + ' · ' : ''}${esc(n.frames)}</button>` : ''}${n.mine ? '<span class="tag you">' + T('you') + '</span>' : ''}<span class="sp"></span><span class="who">${esc(!n.ingrp && n.author && n.author !== 'unknown' ? n.author : '')}</span><span class="${n.ingrp ? 'subd' : ''}">${fmtD(n.date)}</span>${n.done ? '<span>· ' + T('closed') + '</span>' : ''}${penHTML(x)}</div>
     ${S.nedit === x.key ? edFormHTML(x, !n.mine) : `<div class="t ${x.txt ? '' : 'empty'}">${x.txt ? esc(x.txt) : T('(no text)')}${edSay(x)}</div>`}
     ${reps.length ? `<div class="rep">${reps.map(repHTML).join('')}</div>` : ''}
     ${rf}

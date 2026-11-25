@@ -88,7 +88,7 @@ function renderWide() {
           const tx = `<span class="tx">${esc(n.text || T('(no text)'))}<small> · ${esc((n.deps || []).map(d => LBL[d] || d).join(', ') || T('no department'))}${n.mine ? ' · ' + esc(T('you, not sent yet')) : n.author ? ' · ' + esc(n.author) : ''}</small></span>`;
           return `<div class="wnr">${
             f
-              ? `<button class="wn" data-goto="${f.a}"><span class="ft ${ftc(n)}">f${f.a}${f.b ? '-' + f.b : ''}</span>${tx}</button>`
+              ? `<button class="wn" data-goto="${f.a}" ${noteShot(it, n) ? `data-gshot="${esc(noteShot(it, n))}"` : ''}><span class="ft ${ftc(n)}">${noteShot(it, n) && noteShot(it, n) !== shotOf(it) ? esc(noteShot(it, n)) + ' · ' : ''}f${f.a}${f.b ? '-' + f.b : ''}</span>${tx}</button>`
               : `<div class="wn nof"><span class="ft ${ftc(n)}" title="${T('No frame')}">—</span>${tx}</div>`
           }${wfx(n)}</div>`;
         })
@@ -291,7 +291,7 @@ function wideAdd() {
     d = S.wdep;
   if (!txt) return;
   const fr = rangeStr();
-  A.note(it, { type: S.wtype, dept: d, text: txt, frames: fr });
+  A.note(it, { type: S.wtype, dept: d, text: txt, frames: fr, shot: it.shots && it.shots.length > 1 ? digits(shotOf(it)) : '' });
   S.rangeStart = null;
   refresh();
   msg(

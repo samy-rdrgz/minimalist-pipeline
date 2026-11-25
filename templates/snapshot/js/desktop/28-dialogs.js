@@ -408,19 +408,26 @@ function chkRows(it, rd) {
 function checkedDlg(key) {
   const it = cur();
   if (!it) return;
+  // Its render(s): one, a department's (a block's shots), all; their department, when they share one.
+  const pick = k => {
+    const cs = ckPick(it, k),
+      deps = [...new Set(cs.map(x => x.department || ''))];
+    return { cs, dep: deps.length === 1 ? deps[0] : '' };
+  };
   if (!S.chk || S.chk.name !== it.name || (key != null && S.chk.key !== key)) {
-    const c = checksOf(it).find(x => x.key === key);
+    const { dep } = pick(key);
     // The render's own department ticked first; "render" without one.
-    const rd = c && c.department ? c.department : 'render';
-    S.chk = { name: it.name, key: key || '', push: false, on: new Set(chkRows(it, c && c.department).filter(r => r.act && r.d === rd).map(r => r.d)) };
+    const rd = dep || 'render';
+    S.chk = { name: it.name, key: key || '', push: false, on: new Set(chkRows(it, dep).filter(r => r.act && r.d === rd).map(r => r.d)) };
   }
   const o = S.chk,
-    c = checksOf(it).find(x => x.key === o.key),
-    rows = chkRows(it, c && c.department);
+    { cs, dep } = pick(o.key),
+    c = cs.length === 1 ? cs[0] : null,
+    rows = chkRows(it, dep);
   const dl = $('#dlg');
   dl.hidden = false;
   dl.innerHTML = `<div class="dlg-in" role="dialog" aria-modal="true" aria-labelledby="ck-t"><h3 id="ck-t">${T('Render checked')} · ${esc(it.name)}</h3>
-    ${c ? `<p class="faint" style="margin:0">${esc(checkLabel(c))}</p>` : ''}
+    ${c ? `<p class="faint" style="margin:0">${esc(checkLabel(c))}</p>` : cs.length > 1 ? `<p class="faint" style="margin:0">${esc(cs.map(checkLabel).join(' · '))}</p>` : ''}
     <div class="sec-h">${T('Departments')}</div>
     ${rows.length ? `<div class="swis">${rows.map(r => `<button class="swi" role="switch" data-ckd="${r.d}" aria-checked="${r.act ? o.on.has(r.d) : r.on}" ${r.act ? '' : 'disabled'}><span class="lbl">${esc(LBL[r.d])}<small>${esc(r.s)}</small></span><span class="tg"></span></button>`).join('')}</div>` : `<span class="faint">${T('No department required.')}</span>`}
     <p class="hint">${S.review ? T("Not right? Leave it unticked and write a retake.") : T('Start a review to mark departments done or validate them.')}</p>
@@ -431,17 +438,20 @@ function checkedGo() {
   const it = cur(),
     o = S.chk;
   if (!it || !o) return;
-  const c0 = checksOf(it).find(x => x.key === o.key);
+  const picked = ckPick(it, o.key),
+    deps = [...new Set(picked.map(x => x.department || ''))],
+    c0 = picked.length === 1 ? picked[0] : null;
   let n = 0;
-  chkRows(it, c0 && c0.department).forEach(r => {
+  chkRows(it, deps.length === 1 ? deps[0] : '').forEach(r => {
     if (!r.act || !o.on.has(r.d)) return;
     if (r.act === 'val') A.validate(it, r.d);
     else A.mark(it, r.d);
     n++;
   });
   // This render only: the file stays to check while another one is.
-  const keys = o.key ? [o.key] : checksOf(it).map(c => c.key);
-  (S.checkedKeys[it.name] = S.checkedKeys[it.name] || []).push(...keys);
+  const done = picked,
+    keys = done.map(c => c.key);
+  (S.checkedKeys[it.name] = S.checkedKeys[it.name] || []).push(...done.map(ckId));
   if (!checksOf(it).length) it.toCheck = false;
   if (LIVE) liveChecked(it, o.push, keys);
   S.chk = null;
