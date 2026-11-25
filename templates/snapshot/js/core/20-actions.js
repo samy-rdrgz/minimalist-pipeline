@@ -92,14 +92,31 @@ const A = {
     if (it.fixed[id]) delete it.fixed[id];
     else it.fixed[id] = reopen ? 'reopen' : true;
   }, // fixed
-  /* A note sent already, its author's: its words changed (text), or deleted (null); undefined takes it back. */
+  /* A note sent already, its author's: changed ({text, deps?, frames?, shot?} -- a plain text before),
+     or deleted (null); undefined takes it back. */
   edit(it, id, t) {
     if (t === undefined) delete it.edits[id];
     else it.edits[id] = t;
   }, // edit / delete
-  editMine(it, at, t) {
+  /* A note of mine not sent yet: its words, and (given) its departments, frames ('' none), shot. */
+  editMine(it, at, t, o = {}) {
     const n = it.myNotes.find(x => String(x.at) === String(at));
-    if (n && t) n.text = t;
+    if (!n || !t) return;
+    n.text = t;
+    if (o.frames !== undefined) n.frames = o.frames;
+    if (o.shot !== undefined) n.shot = o.shot;
+    if (o.deps) {
+      const old = n.deps || [n.dept].filter(Boolean);
+      n.deps = o.deps;
+      n.dept = o.deps[0] || null;
+      // A retake of mine: its departments' "retake (you)" follow it.
+      if (n.type === 'rtk') {
+        old.forEach(d => {
+          if (!it.myNotes.some(x => x.type === 'rtk' && (x.deps || [x.dept]).includes(d))) delete it.mine[d];
+        });
+        o.deps.forEach(d => (it.mine[d] = 'rtk'));
+      }
+    }
   },
   mark(it, d) {
     if (d in it.marked) {

@@ -24,6 +24,11 @@ All notable changes to this addon. Dates are release dates.
 
 ### Changed
 
+- Live page, a note's edit: its departments, its frames (typed, the frame
+  shown, or none) and a block's shot change too, not only its words --
+  a note not sent yet at once, a sent one through the review's edit
+  (Blender's import writes them: lib/monitoring/tracking.py
+  set_entry_text()). The change shown on the note until sent.
 - Live page, a block: a note written on one of its shots marks that
   shot's timeline only; its frame clicked (its notes, Watch large's)
   puts that shot's video in the player, then goes to the frame -- the

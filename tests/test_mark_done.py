@@ -84,6 +84,18 @@ def main() -> None:
         assert e["text"] == "too dark, the left side" and e["author"] == "léa" and e["edited_by"] == "léa", e
         assert not tracking.set_entry_text(blend, "a1b2c", "too dark, the left side", "léa")
         assert review_import._action({"type": "edit", "file": "ch_bob", "id": "a1b2c", "text": ""}) is None
+        # Its departments, frames and shot changed too (the page's edit), or the frames taken off.
+        a = review_import._action({"type": "edit", "file": "ch_bob", "id": "a1b2c", "text": "t",
+                                   "departments": ["Rig"], "frames": [12, 30], "shot": "020"})
+        assert a["departments"] == ["rig"] and a["frames"] == (12, 30) and a["shot"] == "020", a
+        assert "frames" not in review_import._action({"type": "edit", "file": "ch_bob", "id": "a1b2c", "text": "t"})
+        assert tracking.set_entry_text(blend, "a1b2c", "too dark, the left side", "léa",
+                                       departments=["rig"], frames=(12, 30), shot="020")
+        e = json.loads((owner / ".pipeline" / "tracking.json").read_text(encoding="utf-8"))["entries"][0]
+        assert e["departments"] == ["rig"] and (e["frame_start"], e["frame_end"]) == (12, 30) and e["shot"] == "020", e
+        assert tracking.set_entry_text(blend, "a1b2c", "too dark, the left side", "léa", frames=None, shot="")
+        e = json.loads((owner / ".pipeline" / "tracking.json").read_text(encoding="utf-8"))["entries"][0]
+        assert "frame_start" not in e and "frame_end" not in e and "shot" not in e, e
         assert review_import._action({"type": "delete", "file": "ch_bob", "id": "a1b2c"}) == {"type": "delete", "file": "ch_bob", "id": "a1b2c"}
 
         # The review a note came with, to the page: notes sharing one drawn under one header.

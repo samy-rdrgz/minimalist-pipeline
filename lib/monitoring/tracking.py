@@ -1896,10 +1896,24 @@ def edit_entry(
         raise PipelineError(f"Error during editing file entries : {e}")
 
 
-def set_entry_text(filepath: Path, id: str, text: str, editor: str) -> bool:
-    """An entry's words changed (matched by id), editor stamped as
-    edited_by/edited_at -- everything else kept. False when they were
-    already those. Raises PipelineError when no such entry."""
+_KEEP = object()
+
+
+def set_entry_text(
+    filepath: Path,
+    id: str,
+    text: str,
+    editor: str,
+    *,
+    departments: list[str] | None = None,
+    frames=_KEEP,
+    shot: str | None = None,
+) -> bool:
+    """An entry's words changed (matched by id) -- and, given, its
+    departments, its frames ((start, end or None); None: no frame any more)
+    and its shot ("" none) -- editor stamped as edited_by/edited_at,
+    everything else kept. False when they were already those. Raises
+    PipelineError when no such entry."""
     text = text.strip()
     path = tracking_json_path(filepath, must_exist=True)
     with locked_json(path) as box:
@@ -1907,9 +1921,25 @@ def set_entry_text(filepath: Path, id: str, text: str, editor: str) -> bool:
         entry = next((e for e in data.get("entries") or [] if e.get("id") == id), None)
         if entry is None:
             raise PipelineError("No entry found with this ID.")
-        if entry.get("text") == text:
+        before = json.dumps(entry, sort_keys=True)
+        entry["text"] = text
+        if departments is not None:
+            _set_entry_departments(entry, departments)
+        if frames is not _KEEP:
+            for k in ("frame_start", "frame_end", "frame_reference"):
+                entry.pop(k, None)
+            if frames:
+                entry.update(frame_start=frames[0], frame_reference="abs")
+                if frames[1] is not None:
+                    entry["frame_end"] = frames[1]
+        if shot is not None:
+            if shot:
+                entry["shot"] = shot
+            else:
+                entry.pop("shot", None)
+        if json.dumps(entry, sort_keys=True) == before:
             return False
-        entry.update(text=text, edited_by=editor, edited_at=now())
+        entry.update(edited_by=editor, edited_at=now())
         box["data"] = data
         box["action"] = "to_write"
     return True

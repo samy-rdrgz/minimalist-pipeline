@@ -46,6 +46,15 @@ function createOf(p) {
   }
   return o;
 }
+/* An edit as the review writes it: its text, and what else changed (departments, frames, shot). */
+function editAction(f, id, t) {
+  const o = typeof t === 'string' ? { text: t } : t,
+    a = { type: 'edit', file: f, id, text: o.text };
+  if (o.deps) a.departments = o.deps;
+  if (o.frames !== undefined) a.frames = framesOf(o.frames);
+  if (o.shot !== undefined) a.shot = digits(o.shot);
+  return a;
+}
 function reviewActions() {
   const out = [],
     team = asTeam();
@@ -100,7 +109,7 @@ function reviewActions() {
       if (t) out.push({ type: 'reply', file: f, to: id, text: t });
     });
     Object.entries(it.edits || {}).forEach(([id, t]) =>
-      out.push(t === null ? { type: 'delete', file: f, id } : { type: 'edit', file: f, id, text: t })
+      out.push(t === null ? { type: 'delete', file: f, id } : editAction(f, id, t))
     );
     Object.keys(it.marked).forEach(d =>
       out.push({ type: 'done', file: f, department: d, done: it.marked[d] })
@@ -238,7 +247,13 @@ function fromActions(actions) {
     else if (a.type === 'fixed') it.fixed[a.id] = true;
     else if (a.type === 'reopen') it.fixed[a.id] = 'reopen';
     else if (a.type === 'description') it.descEdit = a.new;
-    else if (a.type === 'edit') it.edits[a.id] = String(a.text || '');
+    else if (a.type === 'edit')
+      it.edits[a.id] = {
+        text: String(a.text || ''),
+        ...(a.departments ? { deps: a.departments } : {}),
+        ...('frames' in a ? { frames: framesStr(a.frames) } : {}),
+        ...('shot' in a ? { shot: a.shot || '' } : {})
+      };
     else if (a.type === 'delete') it.edits[a.id] = null;
     else if (a.type === 'done') it.marked[a.department] = a.done !== false;
     else if (a.type === 'still_done') it.still[a.department] = true;

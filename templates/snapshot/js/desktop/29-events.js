@@ -1162,6 +1162,19 @@ document.addEventListener('click', e => {
   const ne = t.closest('[data-nedit]');
   if (ne) {
     S.nedit = ne.dataset.nedit;
+    // A note (not a reply): its departments, frames, shot to change too -- as they'd be sent.
+    const it = cur(),
+      k = S.nedit,
+      n = k[0] === 'm' && !it.notes.some(x => x.id === k) ? it.myNotes.find(x => 'm' + x.at === k) : it.notes.find(x => x.id === k);
+    if (n) {
+      const o = it.edits[k] && typeof it.edits[k] === 'object' ? it.edits[k] : {},
+        sh = o.shot !== undefined ? o.shot : n.shot;
+      S.nf = {
+        deps: [...(o.deps || n.deps || [n.dept].filter(Boolean))],
+        frames: o.frames !== undefined ? o.frames : n.frames || '',
+        shot: noteShot(it, { shot: sh }) || ''
+      };
+    } else S.nf = null;
     refresh();
     const ta = document.getElementById('ne-txt');
     if (ta) {
@@ -1170,7 +1183,24 @@ document.addEventListener('click', e => {
     }
     return;
   }
+  const nde = t.closest('[data-nedep],[data-neshot],[data-nefr]');
+  if (nde && S.nf) {
+    const tx = $('#ne-txt').value,
+      fr = $('#ne-fr') ? $('#ne-fr').value : S.nf.frames;
+    S.nf.frames = fr;
+    if (nde.dataset.nedep != null) {
+      const d = nde.dataset.nedep,
+        l = S.nf.deps;
+      l.includes(d) ? l.splice(l.indexOf(d), 1) : l.push(d);
+      S.nf.deps = DEPTS[cur().kind].filter(x => l.includes(x));
+    } else if (nde.dataset.neshot != null) S.nf.shot = nde.dataset.neshot;
+    else S.nf.frames = nde.dataset.nefr === '' ? '' : rangeStr() || 'f' + fNo(S.frame);
+    refresh();
+    if ($('#ne-txt')) $('#ne-txt').value = tx;
+    return;
+  }
   if (t.closest('[data-necancel]')) {
+    S.nf = null;
     S.nedit = null;
     refresh();
     return;
@@ -1181,15 +1211,33 @@ document.addEventListener('click', e => {
     const k = ns.dataset.nesave,
       v = wordsOf($('#ne-txt'));
     if (!v) return;
-    const it = cur();
-    if (k[0] === 'm' && !it.notes.some(x => x.id === k)) A.editMine(it, k.slice(1), v);
+    const it = cur(),
+      nf = S.nf;
+    // Its frames as typed ("12", "f12-30"); not understood: left as they were.
+    let fr;
+    if (nf) {
+      const raw = ($('#ne-fr') ? $('#ne-fr').value : nf.frames).trim();
+      fr = raw ? framesStr(framesOf(raw)) || undefined : '';
+    }
+    const more = nf ? { deps: nf.deps, frames: fr, shot: digits(nf.shot) } : {};
+    S.nf = null;
+    if (k[0] === 'm' && !it.notes.some(x => x.id === k)) A.editMine(it, k.slice(1), v, more);
     else if (/^r.+:\d+$/.test(k) && !sentEntry(it, k)) {
       const [id, n] = k.slice(1).split(':');
       const r = (it.myReplies[id] || [])[+n];
       if (r) r.text = v;
     } else {
       const e = sentEntry(it, k);
-      A.edit(it, k, e && e.text === v ? undefined : v);
+      if (!nf) A.edit(it, k, e && e.text === v ? undefined : v);
+      else {
+        // Only what differs from the note as sent; nothing: the change taken back.
+        const o = { text: v },
+          same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+        if (!same(more.deps, e.deps || [])) o.deps = more.deps;
+        if (more.frames !== undefined && more.frames !== (e.frames || '')) o.frames = more.frames;
+        if (more.shot !== digits(e.shot || '')) o.shot = more.shot;
+        A.edit(it, k, Object.keys(o).length === 1 && e.text === v ? undefined : Object.keys(o).length === 1 ? v : o);
+      }
     }
     S.nedit = null;
     refresh();

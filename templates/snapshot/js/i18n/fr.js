@@ -470,6 +470,8 @@ MPI18n.add('fr',{
 'Open the original video in this machine\'s player':'Ouvrir la vidéo originale dans le lecteur de cette machine',
 'Open {name}':'Ouvrir {name}',
 'Its detail':'Son détail',
+'Here':'Ici',
+'The frame shown':'La frame affichée',
 '{n} renders':'{n} rendus',
 'Its {n} renders checked at once':'Ses {n} rendus checkés d’un coup',
 'All checked…':'Tous checkés…',
