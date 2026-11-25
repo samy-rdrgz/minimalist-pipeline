@@ -38,7 +38,7 @@ The biggest release so far: the project now lives in a **web page** that Blender
 
 ### Breakdown
 
-- Progress per sequence and per department, as percentages, states, counts or retakes, beside the project's schedule.
+- Progress per sequence and per department — each cell its departments' states (validated, done, in retake, in progress, to do), or a Renders view — beside the project's schedule.
 - **Over time**: Done and Validated, day after day.
 - **Activity**: the files worked and the hours spent each day, the team together, never per person.
 - **Projection**: where the current pace leads, in months, as a cone that widens with uncertainty, looking ahead only a quarter of the time already spent.
@@ -111,3 +111,7 @@ The biggest release so far: the project now lives in a **web page** that Blender
 - The **Project monitoring** and **Farm monitoring** windows: the page replaces them.
 - The **review spreadsheet** to fill in and import back: reviews are made in the page. (*Export…* still writes a spreadsheet, to read.)
 - Render presets in `.json`: only Python presets remain; *Migrate old data* converts the old ones.
+
+---
+
+💬 **Your feedback helps.** Leave a review here. Report a bug or ask for a feature on [GitHub Issues](https://github.com/samy-rdrgz/minimalist-pipeline/issues).
