@@ -312,7 +312,7 @@ const edMoreHTML = it => {
   if (!f) return '';
   const sh = it.shots && it.shots.length > 1 ? it.shots : [];
   return `<div class="r chips"><span class="faint">${T('Departments')}</span>${DEPTS[it.kind].map(d => `<button class="btn sm" data-nedep="${d}" aria-pressed="${f.deps.includes(d)}">${esc(LBL[d])}</button>`).join('')}</div>
-    <div class="r chips"><span class="faint">${T('Frames')}</span><label class="field" style="width:120px"><input id="ne-fr" value="${esc(f.frames)}" placeholder="f12 · f12-30" aria-label="${T('Frames')}"></label><button class="btn sm flat" data-nefr title="${T('The frame shown')}">${T('Here')} · f${fNo(S.frame)}</button>${f.frames ? `<button class="btn sm flat" data-nefr="" title="${T('No frame')}">${ic('b-x')}</button>` : ''}</div>
+    <div class="r chips"><span class="faint">${T('Frames')}</span><label class="field" style="width:130px"><span class="faint mono">f</span><input id="ne-fr" value="${esc(String(f.frames || '').replace(/^f/, ''))}" placeholder="12 · 12-30" aria-label="${T('Frames')}"></label><button class="btn sm flat" data-nefr title="${T('The frame shown')}">${T('Here')} · f${fNo(S.frame)}</button>${f.frames ? `<button class="btn sm flat" data-nefr="" title="${T('No frame')}">${ic('b-x')}</button>` : ''}</div>
     ${sh.length ? `<div class="r chips"><span class="faint">${T('Shot')}</span><button class="btn sm" data-neshot="" aria-pressed="${!f.shot}" title="${T('No shot named: the note is on every shot of the block')}">${T('All shots')}</button>${sh.map(x => `<button class="btn sm" data-neshot="${esc(x)}" aria-pressed="${f.shot === x}">${esc(x)}</button>`).join('')}</div>` : ''}`;
 };
 const edFormHTML = (x, sent, it) =>

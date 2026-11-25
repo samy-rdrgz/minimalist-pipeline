@@ -196,6 +196,8 @@ svg.g {
 .field input,
 .field textarea {
   flex: 1;
+  font: inherit;
+  line-height: normal;
   min-width: 0;
   width: 100%;
   background: none;
@@ -1700,6 +1702,17 @@ body.out-open .scrim {
 .form .chips > .faint {
   font-size: var(--fs-s);
   min-width: calc(80px * var(--scale));
+  flex: none;
+}
+/* A row of chips (departments, shots): one line, scrolled sideways when it doesn't fit. */
+.form .r.chips {
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding-bottom: 2px;
+}
+.form .r.chips > * {
+  flex: none;
 }
 .nt {
   background: var(--box);
