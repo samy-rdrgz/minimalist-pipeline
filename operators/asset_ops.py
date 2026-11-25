@@ -55,6 +55,7 @@ class M_PIPELINE_OT_create_asset(bpy.types.Operator):
     asset_prefix: bpy.props.EnumProperty(items=_get_prefix_items)
     asset_name: bpy.props.StringProperty(name="Name", default="")
     description: bpy.props.StringProperty(
+        name="",
         description="What this asset is, shown in its detail on the live page.",
         default="",
     )
@@ -71,8 +72,12 @@ class M_PIPELINE_OT_create_asset(bpy.types.Operator):
         TITLE_WIDTH = 0.35
         layout = self.layout.column(align=True)
 
-        titled_row(layout, "Prefix", "TAG", TITLE_WIDTH).prop(self, "asset_prefix", text="")
-        titled_row(layout, "Name", "BLANK1", TITLE_WIDTH).prop(self, "asset_name", text="")
+        titled_row(layout, "Prefix", "TAG", TITLE_WIDTH).prop(
+            self, "asset_prefix", text=""
+        )
+        titled_row(layout, "Name", "BLANK1", TITLE_WIDTH).prop(
+            self, "asset_name", text=""
+        )
 
         layout.separator(type="LINE", factor=3)
 

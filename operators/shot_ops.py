@@ -303,17 +303,24 @@ def _draw_shot_conflicts(
         box.prop(op, "confirm_overlap")
 
 
-def _refused_conflict(op, project_root, sq, shots, config, confirm: str, exclude_dir=None) -> bool:
+def _refused_conflict(
+    op, project_root, sq, shots, config, confirm: str, exclude_dir=None
+) -> bool:
     """Whether a shot number refuses the creation (reported): one already
     a mono-shot, or one used elsewhere without op's confirm_overlap ticked
     (its box named confirm)."""
-    blocking, warnings = _classify_shot_conflicts(project_root, sq, shots, config, exclude_dir)
+    blocking, warnings = _classify_shot_conflicts(
+        project_root, sq, shots, config, exclude_dir
+    )
     if blocking:
         n, owner = next(iter(blocking.items()))
         op.report({"ERROR"}, f"Shot {n:03d} already exists as {owner.name}.")
         return True
     if warnings and not op.confirm_overlap:
-        op.report({"ERROR"}, f"Shot number(s) already used elsewhere -- tick '{confirm}' to confirm.")
+        op.report(
+            {"ERROR"},
+            f"Shot number(s) already used elsewhere -- tick '{confirm}' to confirm.",
+        )
         return True
     return False
 
@@ -328,7 +335,7 @@ class M_PIPELINE_OT_create_shot(bpy.types.Operator):
     sequence_number: bpy.props.IntProperty(name="Sequence", default=10, min=0, step=10)
     end_frame: bpy.props.IntProperty(name="End frame", default=1001, min=0, step=1)
     description: bpy.props.StringProperty(
-        name="Description",
+        name="",
         description="What this shot is, shown in its detail on the live page.",
         default="",
     )
@@ -412,7 +419,9 @@ class M_PIPELINE_OT_create_shot(bpy.types.Operator):
                 naming["sequence"]["digits"],
             )
             sq = f"{n_prefix}{self.sequence_number:0{n_digits}d}"
-            if _refused_conflict(self, project_root, sq, shots, config, "Create anyway"):
+            if _refused_conflict(
+                self, project_root, sq, shots, config, "Create anyway"
+            ):
                 return {"CANCELLED"}
 
         # Snapshot before create_clean's read_homefile() below -- see
@@ -581,7 +590,9 @@ class M_PIPELINE_OT_edit_block_structure(bpy.types.Operator):
 
         sq = old_path.parent.parent.name
         config = ConfigCache.get()
-        if _refused_conflict(self, project_root, sq, shots, config, "Branch anyway", old_path.parent):
+        if _refused_conflict(
+            self, project_root, sq, shots, config, "Branch anyway", old_path.parent
+        ):
             return {"CANCELLED"}
 
         # Snapshot before create_clean's read_homefile() below -- see

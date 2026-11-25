@@ -31,14 +31,18 @@ Les captures viennent du projet de démo de `tests/fixtures/` (la farm et l'hist
 - **À droite** : le détail du fichier choisi. Ses onglets latéraux :
   - **Review** : le lecteur et les départements. *Regarder en grand* apparaît en haut à droite de la vidéo quand la souris est dessus. Sous la vidéo, ◂ ▸ passent au plan (ou au fichier) précédent et suivant, les boutons de frame avancent d'une frame. Les *Notes* de *Regarder en grand* (celles ouvertes : retakes, remarques, à-faire ; celles à une frame d'abord) se filtrent par type, par version et aux seules notes à une frame (*Par frame*), les repères de la timeline avec ; en review, un retake ou un à-faire se coche depuis sa ligne (✓ au survol), et un rendu à vérifier a son *Vu…* en haut du panneau. Dans son plein écran, les départements et les notes passent par-dessus la vidéo, floutés derrière : la languette à leur gauche les replie, celle en haut à gauche de la vidéo masque l'en-tête. La frame d'une note ou d'un retake (son repère sur la timeline, son étiquette) y mène ; en live, le Blender qui a ce fichier ouvert y va aussi. En review, chaque département a ✓ (valider) et *Commenter* (un retake, une remarque ou une tâche sous ce département).
   - **Notes** : les fils de discussion du fichier. Un retake ou une tâche fermés passent en bleu avec un ✓. La ligne propre à une validation (*Validated (prod): lighting, …*) est une trace : en rose, pas comptée comme une note, sans réponse. Les notes envoyées ensemble (une review importée, ou une séance sur la page en live) sont regroupées sous un même en-tête -- qui, quand, combien -- comme dans Blender ; en live, une séance est renouvelée au bout de 15 minutes, au fichier sélectionné suivant. Quand les notes ont été écrites sur au moins deux versions, un menu ne garde que celles d'une version (les repères de la timeline aussi).
-  - **Liens** : ce qu'il lie et ce qui le lie.
-  - **Versions** : en haut, ses fichiers (wip, stable, qui a sauvé en dernier, qui l'a ouvert, le temps de travail à la demi-heure) ; puis la chaîne de ses versions, branches et conflits visibles ; un petit losange de la couleur de l'état devant ce qui a été travaillé (jaune), fait (bleu) et validé (rose).
+  - **Liens** : ce qu'il lie et ce qui le lie. *Mettre à jour ses liens* écrit une version `-relink` qui linke les derniers stables ; un asset dont les fichiers qui le linkent n'utilisent pas encore le dernier stable a *Mettre à jour les fichiers qui le linkent (n)*, chacun relinké. En cours, puis fait ou en échec, dans le pied de page (un toast une fois).
+  - **Versions** : en haut, ses fichiers (wip, stable, qui a sauvé en dernier, qui l'a ouvert, le temps de travail à la demi-heure) ; puis la chaîne de ses versions, branches et conflits visibles, chacune avec sa date et sa note (le *What changed* d'Increment) ; un petit losange de la couleur de l'état devant ce qui a été travaillé (jaune), fait (bleu) et validé (rose). Une validation qu'un stable garde d'un plus ancien (son département pas retravaillé depuis) est sur une ligne à elle, grisée : *Toujours validé : Modeling (prod) · depuis v002-stable*.
   - **Historique de rendu** : en haut, ses derniers rendus (▶ en regarder un, l'ouvrir dans le lecteur de cette machine, l'envoyer au montage), son état dans la farm et *Rendu…* ; puis tous ses rendus, regroupés par version. Chaque rendu donne son temps sur une machine (les secondes d'une frame sur une machine, fois ses frames), ses tags *local* / *viewport* pour un *Render here*. *Quelle machine…* (dans l'en-tête) demande un rendu et un numéro de frame et dit quelle machine l'a rendue, le nombre de frames de chaque machine dessous.
   - En bas de la barre, ⚙ les réglages du fichier : ses départements requis, mis de côté.
 
+Dans *Regarder en grand*, *Boucle* / *Suivant* à côté du son : à la fin, la même vidéo encore, ou le plan suivant de la séquence.
+
 *Précédent* / *Suivant* (▲ ▼, ↑ ↓ ; dans *Regarder en grand* ← →) parcourent la liste telle que filtrée, et depuis un autre onglet (Liens, À faire, Breakdown) tous les fichiers du même type. Ils sont grisés au premier et au dernier fichier. La vidéo d'un autre fichier part de sa première frame ; *Lire la séquence* continue de lire d'un plan au suivant.
 
-Une note sur un bloc (un fichier multishot) peut nommer certains de ses plans ou aucun : *Tous les plans*, une seule note sur tous les plans du bloc (sans copie).
+Une note sur un bloc (un fichier multishot) peut nommer certains de ses plans ou aucun : *Tous les plans*, une seule note sur tous les plans du bloc (sans copie). Une note à une frame est sur le plan où tombe cette frame (celui regardé, ou, sur la vidéo du bloc entier, celui dessous) ; un clic sur sa frame met d'abord la vidéo de ce plan dans le lecteur.
+
+F5 garde où tu en étais : le fichier choisi (ou l'onglet : Farm, À faire, Liens, Breakdown) est dans l'adresse, qui sert donc aussi de lien vers lui. Les dates de moins de deux semaines se lisent relatives (*hier 09:10*, *il y a 5 jours*), la date exacte au survol.
 
 La page s'ouvre tout de suite. Pendant que Blender lit le projet, une ligne en haut indique *Reading the project: 142 / 480 folders* et les chiffres sont partiels. Ouvrir un fichier déjà ouvert dans un autre Blender (une autre machine) demande d'abord, en disant qui, sur quelle machine et quelle version.
 
@@ -48,7 +52,7 @@ Depuis la page, tu peux :
 - modifier ou supprimer tes propres notes ;
 - pousser n'importe quel rendu au montage (*rushes*).
 
-Ce que font les autres arrive en **notifications** (la cloche) : des toasts à leur arrivée, et la notification du système quand la page est en arrière-plan.
+Ce que font les autres arrive en **notifications** (la cloche) : des toasts à leur arrivée, et la notification du système quand la page est en arrière-plan. *Quoi de neuf* les liste, une croix par ligne, *Tout effacer* en haut.
 
 ## Recherche (Ctrl+K)
 
@@ -77,7 +81,7 @@ Les départements requis de chaque fichier qui ne sont pas encore validés, avec
 
 <img src="images/live-breakdown.png" alt="Breakdown : chiffres, planning et Dans le temps">
 
-Les chiffres par section, l'allure du planning, le tableau par séquence (les shots, puis les assets), puis :
+Les chiffres par section, l'allure du planning, le tableau par séquence (les shots, puis les assets) : la barre de chaque case, les états de ses départements -- validé, fait, en retake, en cours, à faire --, son chiffre le Fait que compte la liste, les nombres dans son infobulle. La seconde vue, *Rendus* : le dernier rendu propre à chaque département -- à vérifier, à jour, plus ancien que sa dernière session, jamais rendu --, son chiffre la part à jour. Puis :
 
 - **Dans le temps** : Fait et Validé jour après jour, pour tous les départements ou un seul. Les points sont dans `config/logs/progress.json` :
   - Le point du jour est écrit par un export de snapshot et pendant que la page live tourne.
@@ -87,7 +91,7 @@ Les chiffres par section, l'allure du planning, le tableau par séquence (les sh
 - **Projection** : où mène l'allure actuelle. Elle est dessinée comme un cône entre l'allure des 30 derniers jours et celle des 90 derniers, à côté du planning (Edit project › Schedule). Elle donne des mois, jamais un jour, et ne regarde pas plus loin qu'un quart du temps déjà écoulé de la production (trois mois de prod : trois semaines devant) ; au-delà, elle dit seulement que ce ne sera pas d'ici là.
 - **Exporter…** : tout le projet en tableur (`.xlsx`, écrit par la page, hors ligne aussi). Il contient ces feuilles : Séquences, Shots, Assets, Retakes, À valider et Dans le temps.
 
-<img src="images/live-breakdown-activity.png" alt="Breakdown › Activité et le tableau par séquence">
+<img src="images/live-breakdown-activity.png" alt="Breakdown › Activité">
 
 <img src="images/live-breakdown-projection.png" alt="Breakdown › Projection">
 
@@ -104,13 +108,11 @@ Les jobs de la farm par état : en cours, en attente, en échec et terminés. Le
 - *Annuler*, *Relancer*, *Archiver*, *Recompiler*, et *Retirer de la file* tant que rien n'est rendu ;
 - son fichier, son dossier et ses logs.
 
-En haut :
-- **Cette machine** : *En faire un worker* / *Ne plus être un worker* -- pendant qu'elle rend, une popup demande : *Arrêter après cette frame* / *Arrêter maintenant* (voir [Farm](farm_fr.md), Arrêter un worker).
-- **L'hôte de la farm** : *Lancer la farm*, *Reprendre la farm* (si elle est bloquée, demandé deux fois) et *Arrêter la farm* (demandé deux fois ; les rendus en cours finissent, la file est gardée).
+En haut, seulement quand la farm est arrêtée ou bloquée : *Lancer la farm*, *Reprendre la farm* (demandé deux fois). En marche, la ligne de la farm -- son hôte, ce qu'il fait là (*En ce moment : préparation de sq010_sh020_v003 · rendu de sq030_sh040_v005*), *Arrêter la farm* (demandé deux fois ; les rendus en cours finissent, la file est gardée) -- est l'en-tête de Machines.
 
 <img src="images/live-farm-job.png" alt="Le détail d'un job">
 
-**Machines**, sous les jobs : un nœud par machine. Chacun montre qui l'utilise et les fichiers du projet ouverts dans ses Blender (un clic en ouvre un), puis l'état de son worker. On voit qui travaille sur quoi, jamais depuis quand.
+**Machines**, sous les jobs : une carte par machine, celle-ci d'abord, avec *En faire un worker* / *Ne plus être un worker* -- pendant qu'elle rend, une popup demande : *Arrêter après cette frame* / *Arrêter maintenant* (voir [Farm](farm_fr.md), Arrêter un worker). Chaque carte dit l'état de son worker, puis les fichiers du projet ouverts dans ses Blender (un clic en ouvre un). Celle d'une autre machine a *Arrêter son worker* (lu à son prochain passage), ou *Oublier cette machine* une fois silencieuse ; celle de l'hôte de la farm dit ce qu'il fait lui-même (une préparation, une vérification des frames, une vidéo). Le nom d'une machine ouvre son détail : son utilisateur, ses versions de Blender, de l'add-on et de ffmpeg, worker depuis, dernier signe de vie, rendus faits et en échec. On voit qui travaille sur quoi, jamais depuis quand.
 
 <img src="images/live-farm-machines.png" alt="Farm › Machines">
 

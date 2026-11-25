@@ -25,14 +25,18 @@ The screenshots come from the demo project in `tests/fixtures/` (the farm and th
 - **Right**: the selected file's detail. Its side tabs are:
   - **Review**: the player and the departments. *Watch large* appears over the video's top right corner when the mouse is on it. Under the video, ◂ ▸ go to the previous and next shot (or file), the frame buttons step a frame. *Watch large*'s *Notes* (the open ones: retakes, remarks, to-dos; those at a frame first) are filtered by type, by version and to those at a frame (*At a frame*), the timeline's marks with them; reviewing, a retake or a to-do is ticked off from its row (✓ on hover), and a render to check has its *Checked…* at the panel's top. In its full screen, the departments and notes sit over the video, blurred behind: the tab on their left folds them, the tab at the video's top left hides the header. A note's or a retake's frame (its mark on the timeline, its chip) goes there; live, the Blender that has this file open goes to it too. Reviewing, each department has ✓ (validate) and *Comment* (a retake, a remark or a to-do under it).
   - **Notes**: the file's threads. A retake or to-do closed turns blue with a ✓. A validation's own line (*Validated (prod): lighting, …*) is a record: shown pink, not counted as a note, no reply. Notes sent together (a review imported, or a sitting on the live page) are grouped under one header -- who, when, how many -- as in Blender; live, a sitting is renewed after 15 minutes, at the next file selected. With notes written on two versions or more, a menu keeps one version's (the timeline's marks too).
-  - **Links**: what it links and what links it.
-  - **Versions**: on top, its files (wip, stable, who saved last, who has it open, the work time to the half hour); then the chain of its versions, with branches and conflicts shown; a small diamond in its state's colour before what was worked (yellow), done (blue) and validated (pink).
+  - **Links**: what it links and what links it. *Update its links* writes a `-relink` version of it linking the latest stables; an asset with a newer stable the files linking it don't use yet has *Update the files linking it (n)*, each of them relinked. Under way, then done or failed, in the footer (a toast once).
+  - **Versions**: on top, its files (wip, stable, who saved last, who has it open, the work time to the half hour); then the chain of its versions, with branches and conflicts shown, each with its date and its note (Increment's *What changed*); a small diamond in its state's colour before what was worked (yellow), done (blue) and validated (pink). A validation a stable kept from an earlier one (its department not worked since) is on a line of its own, greyed: *Still validated: Modeling (prod) · since v002-stable*.
   - **Render history**: on top, its last renders (▶ watch one, open it in this machine's player, push it to the edit), its farm state and *Render…*; then every render, grouped by version. Each render says its time on one machine (a frame's seconds there, times its frames), its *local* / *viewport* tags for a *Render here*. *Which machine…* (in the head) asks for a render and a frame number and says which machine rendered it, each machine's frames counted under it.
   - At the bar's foot, ⚙ the file's settings: its required departments, set aside.
 
+In *Watch large*, *Loop* / *Next* beside the sound: at the end, the same video again or the sequence's next shot.
+
 *Previous* / *Next* (▲ ▼, ↑ ↓; in *Watch large* ← →) go through the list as filtered, and from any other tab (Links, To do, Breakdown) through every file of the same kind. They are greyed at the first and last file. Another file's video starts at its first frame; *Play the sequence* goes on playing from one shot to the next.
 
-A note on a block (a multishot file) can name some of its shots or none: *All shots*, one note on every shot of the block (no copies made).
+A note on a block (a multishot file) can name some of its shots or none: *All shots*, one note on every shot of the block (no copies made). A note at a frame is on the shot that frame falls in (the one watched, or, on the whole block's video, the one under it); its frame clicked puts that shot's video in the player first.
+
+F5 keeps where you were: the file selected (or the tab: Farm, To do, Links, Breakdown) is in the address, so the address is also a link to it. Dates under two weeks old read relative (*yesterday 09:10*, *5 days ago*), the exact date on hover.
 
 The page opens at once: while Blender reads the project, a line along the top says *Reading the project: 142 / 480 folders* and the figures are partial. Opening a file that is open in another Blender (another machine) asks first, naming who has it, on which machine and which version.
 
@@ -42,7 +46,7 @@ From the page you can:
 - Edit or delete your own notes.
 - Push any render to the edit (*rushes*).
 
-What others do shows up as **notifications** (the bell): toasts as they arrive, and the system notification when the page is in the background.
+What others do shows up as **notifications** (the bell): toasts as they arrive, and the system notification when the page is in the background. *What's new* lists them, a cross per line, *Clear all* on top.
 
 ## Search (Ctrl+K)
 
@@ -71,7 +75,7 @@ Each file's required departments that are not validated yet, with why one waits 
 
 <img src="images/live-breakdown.png" alt="Breakdown: figures, schedule and Over time">
 
-The figures per section, the schedule's pace, the table by sequence (shots, then assets), then:
+The figures per section, the schedule's pace, the table by sequence (shots, then assets): each cell's bar its departments' states -- validated, done, in retake, in progress, to do --, its figure Done as the list counts it, the counts in its tooltip. The second view, *Renders*: each department's own latest render -- to check, up to date, older than its latest session, never rendered --, its figure the share up to date. Then:
 
 - **Over time**: Done and Validated day after day, for all departments or one. The points are in `config/logs/progress.json`:
   - Today's point is written by a snapshot export and while the live page runs.
@@ -81,7 +85,7 @@ The figures per section, the schedule's pace, the table by sequence (shots, then
 - **Projection**: where the current pace leads. It is drawn as a cone between the pace of the last 30 days and that of the last 90, next to the schedule (Edit project › Schedule). It gives months, never a day, and looks no further ahead than a quarter of the time the production has run (three months in: three weeks ahead); past that, it says only that it won't be by then.
 - **Export…**: the whole project as a spreadsheet (`.xlsx`, written by the page, offline too). It has these sheets: Sequences, Shots, Assets, Retakes, To validate and Over time.
 
-<img src="images/live-breakdown-activity.png" alt="Breakdown › Activity and the table by sequence">
+<img src="images/live-breakdown-activity.png" alt="Breakdown › Activity">
 
 <img src="images/live-breakdown-projection.png" alt="Breakdown › Projection">
 
@@ -98,13 +102,11 @@ The farm's jobs by state: in progress, waiting, failed and finished. The queue's
 - *Cancel*, *Retry*, *Archive*, *Recompile*, and *Remove from the queue* while nothing has rendered yet
 - its file, folder and logs
 
-On top:
-- **This machine**: *Make it a worker* / *Stop being a worker* -- while it renders, a popup asks: *Stop after this frame* / *Stop now* (see [Farm](farm.md), Stopping a worker).
-- **The farm host**: *Launch the farm*, *Take the farm over* (when it's stuck, asked twice) and *Stop the farm* (asked twice; the renders running finish, the queue is kept).
+On top, only when the farm is stopped or stuck: *Launch the farm*, *Take the farm over* (asked twice). Running, the farm's line -- its host, what it does now (*Now: setting up sq010_sh020_v003 · rendering sq030_sh040_v005*), *Stop the farm* (asked twice; the renders running finish, the queue is kept) -- heads Machines.
 
 <img src="images/live-farm-job.png" alt="A job's detail">
 
-**Machines**, under the jobs: a node per machine. Each shows who uses it and the project files open in its Blenders (a click opens one), then its worker's state. It shows who works on what, never since when.
+**Machines**, under the jobs: a card per machine, this one first, with *Make it a worker* / *Stop being a worker* -- while it renders, a popup asks: *Stop after this frame* / *Stop now* (see [Farm](farm.md), Stopping a worker). Each card says its worker's state, then the project files open in its Blenders (a click opens one). Another machine's has *Stop its worker* (read on its next tick), or *Forget this machine* once silent; the farm host's says what it runs itself (a setup, a frame check, a video). A machine's name opens its detail: its user, its Blender, add-on and ffmpeg versions, worker since, last heartbeat, renders done and failed. It shows who works on what, never since when.
 
 <img src="images/live-farm-machines.png" alt="Farm › Machines">
 

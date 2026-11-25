@@ -641,7 +641,7 @@ _KEYMAP_ITEMS = (
         "m_pipeline.open_live_page",
         "P",
         ("shift", "alt"),
-        {},
+        {"tab": ""},  # told apart from Farm in browser's
         False,
     ),
     (

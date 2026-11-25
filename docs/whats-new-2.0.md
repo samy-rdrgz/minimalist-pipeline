@@ -19,7 +19,7 @@ The big change in 2.0: **you follow the project in a web page**, instead of the 
 
 - ***Monitor in browser*** (Project panel, Pipeline menu): Blender serves the project's page to your browser, always up to date. What you do there (validate, add a retake, write a note, reply, assign, add a shot) is saved in the project at once, under your name.
 - **The list of assets and shots**: where each department stands, open retakes, renders to check, what's on the farm. Filters by department, retakes, open notes, "my work". A click on a file opens its panel: its notes, its renders to watch (the frame shown, the notes placed on it), its links, and a button to open it in Blender.
-- **Breakdown**: progress per sequence and per department, as %, states, counts or retakes, with the project's schedule. Under it, **Over time** (Done and Validated day after day), **Activity** (files worked and hours, the team together, never per person), **Projection** (where the pace leads, in months) and **Export…** (the whole project as an `.xlsx`).
+- **Breakdown**: progress per sequence and per department -- each cell its departments' states (validated, done, in retake, in progress, to do), or a *Renders* view (to check, up to date, outdated, never rendered) --, with the project's schedule. Under it, **Over time** (Done and Validated day after day), **Activity** (files worked and hours, the team together, never per person), **Projection** (where the pace leads, in months) and **Export…** (the whole project as an `.xlsx`).
 - **To do**: what's left to work on or to validate, file by file, yours by default; *Copy* as text.
 - **Search everything** (Ctrl+K): names, descriptions, notes, replies, assignees, departments, render presets.
 - **Farm tab**: the renders and the machines (who has which file open, each worker's state); launch or stop the farm; send a file to render, set its priority, cancel, retry, archive; see which machine rendered which frame and how long is left.
@@ -59,6 +59,7 @@ The big change in 2.0: **you follow the project in a web page**, instead of the 
 ## In Blender
 
 - **Ctrl+Alt+S** (Save Incremental) runs the addon's increment inside a project.
+- **A note per version**: Increment has an optional *What changed* line ("fixed the arm"), shown in the page's Versions.
 - Right-click menus, shortcuts you can change in the preferences, a "?" help beside the project settings' fields.
 - A welcome window to get started, and the pipeline log in a window of its own.
 - The sidebar no longer lags on a network drive.

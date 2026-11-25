@@ -5357,13 +5357,20 @@ its link as a QR code (`lib/monitoring/qr.py`).
   the `qrcode` library (system Python): the same matrix for each mask and
   the same mask chosen, over links like ours. Drawn as an SVG on the page;
   never in Blender (a popup can't show an image without a preview icon).
-- **Which address** (`_addresses()`): where a datagram to the local
-  networks, a public address and Tailscale's own DNS (100.100.100.100)
-  would leave from -- no packet sent, no interface listing (none in the
-  standard library, `ip`/`ipconfig` output differs by system and
-  language). The first guess (the default route) was Tailscale's with an
-  exit node on: a phone without it couldn't reach it. A guest keeps the
-  address it was made for; one server per address in use.
+- **Which address** (`_addresses()`): where a datagram to each private
+  range and to the mesh VPNs' (100.64.0.0/10) would leave from -- no packet
+  sent --, the addresses the machine's name has (every interface on Windows
+  and macOS), and on Linux each interface's own (`SIOCGIFADDR` over
+  `socket.if_nameindex()`; the name resolves to 127.0.1.1 there). No
+  `ip`/`ipconfig` output parsed (it differs by system and language), no
+  address written in the code (an antivirus heuristic flagged them). The
+  VPN probe alone isn't enough: Tailscale routes its peers one by one
+  (/32s), not its range, so a datagram to the range's last host leaves by
+  the default route -- since 2bc27ba the VPN address was lost on Linux, and
+  the dialog's address choice with it (shown from two). The first guess
+  (the default route) was Tailscale's with an exit node on: a phone
+  without it couldn't reach it. A guest keeps the address it was made for;
+  one server per address in use.
 - **Background tabs ask nothing**: a browser gives a server 6 connections,
   each tab's long poll holds one -- each Blender button opening a tab, the
   share dialog's request waited. Hidden, a tab aborts its poll; shown, it

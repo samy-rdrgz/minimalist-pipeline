@@ -243,6 +243,29 @@ def _host_addresses() -> list[str]:
         return []
 
 
+def _interface_addresses() -> list[str]:
+    """Each network interface's own address, on Linux: its name resolves to 127.0.1.1 there,
+    and a mesh VPN routes its peers one by one, not its whole range (NOTES.md, Share with a phone)."""
+    if not sys.platform.startswith("linux"):
+        return []
+    import fcntl
+    import struct
+
+    out = []
+    probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        for _, name in socket.if_nameindex():
+            try:  # SIOCGIFADDR
+                out.append(socket.inet_ntoa(fcntl.ioctl(probe.fileno(), 0x8915, struct.pack("256s", name.encode()[:15]))[20:24]))
+            except OSError:
+                continue  # down, or no IPv4 address
+    except OSError:
+        pass
+    finally:
+        probe.close()
+    return out
+
+
 def _addresses() -> list[dict]:
     """This machine's addresses a phone may reach: [{"ip", "kind"}] --
     "local network" (the studio's Wi-Fi), "VPN" (100.64.0.0/10, Tailscale's and other mesh VPNs':
@@ -250,7 +273,7 @@ def _addresses() -> list[dict]:
     import ipaddress
 
     out = []
-    for ip in [_routed_from(r) for r in _RANGES] + _host_addresses():
+    for ip in [_routed_from(r) for r in _RANGES] + _host_addresses() + _interface_addresses():
         if not ip or ip.startswith("127.") or ip.startswith("169.254.") or ip == "0.0.0.0" or any(a["ip"] == ip for a in out):
             continue
         addr = ipaddress.ip_address(ip)

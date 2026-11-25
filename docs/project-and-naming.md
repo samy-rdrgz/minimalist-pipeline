@@ -144,7 +144,6 @@ Written under a lock and atomically (temp file then rename), like every other pi
 | Schedule, Days off, Worked days | The production's dates, for the snapshot's expected progress. |
 | Video | The video compiled from a render: *MP4 · H.264*, *MOV · ProRes 422 LT* or *Preset file* (see [Rendering](farm.md)). |
 | Chunk size | Frames per chunk a farm machine takes at a time (see [Rendering](farm.md)). |
-| Pre-render | The pre-render script the Render dialog opens on. |
 | By department…, Rename preset… | Under the presets: each department's own preset (what the Render dialog starts on), and renaming a preset with everything that cites it. |
 | Stuck frame | How many times its usual time a frame may take before its render is stopped (0 = never). |
 | Priority switch | Minutes: a render with less than this left keeps its machines when a higher-priority job wants them (3 by default; 0 = they always move once their chunk is done). |

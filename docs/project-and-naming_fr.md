@@ -144,7 +144,6 @@ Une cellule vide signifie juste "utiliser le repli pour cette colonne" (départe
 | Schedule, Days off, Worked days | Les dates de la production, pour l'avancement attendu du snapshot. |
 | Video | La vidéo compilée d'un rendu : *MP4 · H.264*, *MOV · ProRes 422 LT* ou *Preset file* (voir [Rendu](farm_fr.md)). |
 | Chunk size | Nombre de frames par morceau qu'une machine de la farm prend à la fois (voir [Rendu](farm_fr.md)). |
-| Pre-render | Le script pré-rendu sur lequel s'ouvre le dialogue Render. |
 | By department…, Rename preset… | Sous les presets : le preset propre à chaque département (celui sur lequel s'ouvre le dialogue Render), et le renommage d'un preset avec tout ce qui le cite. |
 | Stuck frame | Combien de fois son temps habituel une frame peut prendre avant que son rendu soit arrêté (0 = jamais). |
 | Priority switch | Minutes : un rendu à qui il reste moins que ça garde ses machines quand un job plus prioritaire les veut (3 par défaut ; 0 = elles partent toujours une fois leur morceau fini). |

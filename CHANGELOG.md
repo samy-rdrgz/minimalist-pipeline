@@ -686,6 +686,14 @@ All notable changes to this addon. Dates are release dates.
 
 ### Fixed
 
+- Live page, Share with a phone: on Linux the VPN address (Tailscale's)
+  was no longer offered -- only the local network's, the *Reached through*
+  choice gone. Each interface's own address is read too
+  (lib/monitoring/live.py `_interface_addresses()`).
+- Preferences › Shortcuts: *Monitor in browser* showed (and changed)
+  *Farm in browser*'s key, Shift Alt F -- the two share an operator, and
+  Monitor's had no property to tell them apart. Its own is Shift Alt P.
+
 - Live page: Blender's viewport lagged while a page was open, above all
   with a viewport rendering in Cycles on the CPU. The page's data, built
   again twice a second as the farm's counters moved, read the shared folder

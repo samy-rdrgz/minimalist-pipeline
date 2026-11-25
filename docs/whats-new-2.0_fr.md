@@ -19,7 +19,7 @@ C'est le gros changement de la 2.0 : **le suivi du projet se fait dans une page 
 
 - ***Monitor in browser*** (panneau Project, menu Pipeline) : Blender sert la page du projet à votre navigateur, à jour en permanence. Ce que vous y faites (valider, poser un retake, écrire une note, répondre, attribuer, ajouter un shot) est enregistré dans le projet tout de suite, sous votre nom.
 - **La liste des assets et des shots** : où en est chaque département, les retakes ouverts, les rendus à vérifier, ce qui tourne sur la farm. Filtres par département, retakes, notes ouvertes, « mon travail ». Un clic sur un fichier ouvre son panneau : ses notes, ses rendus à regarder (avec la frame affichée et les notes posées dessus), ses liens, et un bouton pour l'ouvrir dans Blender.
-- **Breakdown** : l'avancement par séquence et par département, en %, en états, en nombre ou en retakes, avec le planning du projet. Dessous, **Dans le temps** (Fait et Validé jour après jour), **Activité** (fichiers travaillés et heures, l'équipe ensemble, jamais par personne), **Projection** (où mène l'allure, en mois) et **Exporter…** (tout le projet en `.xlsx`).
+- **Breakdown** : l'avancement par séquence et par département -- chaque case les états de ses départements (validé, fait, en retake, en cours, à faire), ou une vue *Rendus* (à vérifier, à jour, dépassé, jamais rendu) --, avec le planning du projet. Dessous, **Dans le temps** (Fait et Validé jour après jour), **Activité** (fichiers travaillés et heures, l'équipe ensemble, jamais par personne), **Projection** (où mène l'allure, en mois) et **Exporter…** (tout le projet en `.xlsx`).
 - **À faire** : ce qui reste à travailler ou à valider, fichier par fichier, le tien par défaut ; *Copier* en texte.
 - **Tout rechercher** (Ctrl+K) : noms, descriptions, notes, réponses, assignés, départements, presets de rendu.
 - **Onglet Farm** : les rendus et les machines (qui a quel fichier ouvert, l'état de chaque worker), lancer ou arrêter la farm, envoyer un fichier en rendu, la priorité, annuler, relancer, archiver, savoir quelle machine a rendu quelle frame et combien de temps il reste.
@@ -59,6 +59,7 @@ C'est le gros changement de la 2.0 : **le suivi du projet se fait dans une page 
 ## Dans Blender
 
 - **Ctrl+Alt+S** (Save Incremental) passe par l'incrément de l'addon dans un projet.
+- **Une note par version** : Increment a une ligne *What changed* facultative (« bras corrigé »), affichée dans les Versions de la page.
 - Des menus clic droit, des raccourcis réglables dans les préférences, une aide « ? » à côté des champs des réglages du projet.
 - Une fenêtre d'accueil pour démarrer, et le journal du pipeline dans sa propre fenêtre.
 - Le panneau latéral ne rame plus sur un disque réseau.
