@@ -30,7 +30,7 @@ function renderTop() {
   $('#p-live').title = T('Connected to Blender · {user}', { user: M.live.user });
   requestAnimationFrame(fitTop);
   $('#p-date').textContent =
-    (LIVE ? 'live · ' + fmtD(M.snapshot) : T('snapshot of {date}', { date: fmtD(M.snapshot) })) +
+    (LIVE ? 'live · ' + fmtD(M.snapshot) : T('snapshot of {date}', { date: fmtAbs(M.snapshot) })) +
     ' · ' +
     M.exported_by;
   const n2 = items.filter(touched).length;

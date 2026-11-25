@@ -483,6 +483,13 @@ document.addEventListener('click', e => {
     if (narrow()) document.body.classList.add('props-open');
     return;
   }
+  const wa = t.closest('[data-wact]');
+  if (wa) {
+    S.farmSel = 'w:' + wa.dataset.wid;
+    farmAction(wa.dataset.wact, wa);
+    renderAll();
+    return;
+  }
   const wk = t.closest('[data-wk]');
   if (wk) {
     S.farmSel = 'w:' + wk.dataset.wk;

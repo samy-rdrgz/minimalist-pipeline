@@ -347,12 +347,12 @@ function noteHTML(it, n) {
     };
   const repHTML = r => {
     const y = entryEd(it, r, r.mine ? 'r' + n.id + ':' + r.rk : r.id);
-    return `<div class="${y.del ? 'gone' : ''}"><div class="h"><span class="who">${esc(r.author)}</span><span>${fmtD(r.date)}</span>${r.mine ? `<span class="tag you">${T('you')}</span><button class="btn flat icon xs" data-unreply="${n.id}" title="${T('Take my reply back')}">${ic('b-loop_back')}</button>` : ''}${penHTML(y)}</div>
+    return `<div class="${y.del ? 'gone' : ''}"><div class="h"><span class="who">${esc(r.author)}</span><span title="${fmtAbs(r.date)}">${fmtD(r.date)}</span>${r.mine ? `<span class="tag you">${T('you')}</span><button class="btn flat icon xs" data-unreply="${n.id}" title="${T('Take my reply back')}">${ic('b-loop_back')}</button>` : ''}${penHTML(y)}</div>
       ${S.nedit === y.key ? edFormHTML(y, !r.mine) : `<div class="t">${esc(y.txt)}${edSay(y)}</div>`}</div>`;
   };
   return `<div class="nt ${n.type} ${n.done ? 'closed' : ''} ${n.mine ? 'mine' : ''} ${x.del ? 'gone' : ''} ${x.ed !== undefined ? 'chg' : ''}">
     <div class="h"><span class="type ${n.type}" ${n.done ? `title="${T('closed')}"` : ''}>${n.done ? ic('b-checkmark') : ''}${n.type === 'rtk' ? 'RTK' : n.type === 'todo' ? T('to do') : T('note')}</span>${(n.deps || []).length ? n.deps.map(d => LBL[d] || d).join(', ') : '<span>' + T('no department') + '</span>'}${who ? `<span>· ${esc(who)}</span>` : ''}
-      ${!n.frames && noteShot(it, n) ? `<span class="chip-frame" title="${T('Shot of the block')}">${esc(noteShot(it, n))}</span>` : ''}${n.frames ? `<button class="chip-frame" data-goto="${parseInt(String(n.frames).replace(/\D+/, ''))}" ${noteShot(it, n) ? `data-gshot="${esc(noteShot(it, n))}"` : ''} title="${T('Go to {frame}', { frame: esc(n.frames) })}${noteShot(it, n) ? ' · ' + esc(noteShot(it, n)) : ''}">${noteShot(it, n) ? esc(noteShot(it, n)) + ' · ' : ''}${esc(n.frames)}</button>` : ''}${n.mine ? '<span class="tag you">' + T('you') + '</span>' : ''}<span class="sp"></span><span class="who-d" ${!n.ingrp && n.author && n.author !== 'unknown' ? `data-who="${esc(n.author)}"` : ''}><span class="${n.ingrp ? 'subd' : ''}">${fmtD(n.date)}</span></span>${n.done ? '<span>· ' + T('closed') + '</span>' : ''}${penHTML(x)}</div>
+      ${!n.frames && noteShot(it, n) ? `<span class="chip-frame" title="${T('Shot of the block')}">${esc(noteShot(it, n))}</span>` : ''}${n.frames ? `<button class="chip-frame" data-goto="${parseInt(String(n.frames).replace(/\D+/, ''))}" ${noteShot(it, n) ? `data-gshot="${esc(noteShot(it, n))}"` : ''} title="${T('Go to {frame}', { frame: esc(n.frames) })}${noteShot(it, n) ? ' · ' + esc(noteShot(it, n)) : ''}">${noteShot(it, n) ? esc(noteShot(it, n)) + ' · ' : ''}${esc(n.frames)}</button>` : ''}${n.mine ? '<span class="tag you">' + T('you') + '</span>' : ''}<span class="sp"></span><span class="who-d" ${!n.ingrp && n.author && n.author !== 'unknown' ? `data-who="${esc(n.author)}"` : ''}><span class="${n.ingrp ? 'subd' : ''}" title="${fmtAbs(n.date)}">${fmtD(n.date)}</span></span>${n.done ? '<span>· ' + T('closed') + '</span>' : ''}${penHTML(x)}</div>
     ${S.nedit === x.key ? edFormHTML(x, !n.mine, it) : `<div class="t ${x.txt ? '' : 'empty'}">${x.txt ? esc(x.txt) : T('(no text)')}${edSay(x)}</div>`}
     ${reps.length ? `<div class="rep">${reps.map(repHTML).join('')}</div>` : ''}
     ${rf}
@@ -433,7 +433,7 @@ const openBy = it =>
 const rushIs = (it, v) => !!(it.rush && v && v.folder && it.rush.render === v.folder.split('/').pop());
 const rushSay = it =>
   it.rush
-    ? T('In the edit since {date}, pushed by {who}', { date: fmtD(it.rush.at), who: it.rush.by || '?' })
+    ? T('In the edit since {date}, pushed by {who}', { date: fmtAbs(it.rush.at), who: it.rush.by || '?' })
     : '';
 /* The file's facts (its .blend files, who saved last, who has it open, the work time): on top of
    Versions -- the Files tab they had said again what Versions and Render history say. */

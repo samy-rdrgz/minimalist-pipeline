@@ -27,6 +27,8 @@ MPI18n.add('fr',{
 'worker · rendering {file}':'worker · rendu de {file}',
 'worker · idle':'worker · libre',
 'farm host':'hôte de la farm',
+'Stop its worker':'Arrêter son worker',
+'Stops its worker on its next tick (about 10 s)':'Arrête son worker à son prochain tick (environ 10 s)',
 'who has which file open, and the workers':'qui a quel fichier ouvert, et les workers',
 'not saved yet':'pas encore sauvé',
 'No Blender has a project file open, no worker.':'Aucun Blender n’a de fichier du projet ouvert, aucun worker.',

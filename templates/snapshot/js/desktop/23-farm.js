@@ -322,7 +322,7 @@ function machinesHTML() {
   const wk = w =>
     !w
       ? `<span class="faint">${T('not a worker')}</span>`
-      : `<span class="mn-w">${jst(w.status === 'silent' ? 'waiting' : w.file ? 'running' : 'finished')}<span>${w.status === 'silent' ? T('worker silent since {date}', { date: fmtD(w.since) }) : w.file ? T('worker · rendering {file}', { file: fileLink(w.file) }) : T('worker · idle')}${w.local ? ` <span class="tag" title="${T('Kept for its own renders: the farm sends it nothing meanwhile')}">${T('local')}</span>` : ''}</span></span>`;
+      : `<span class="mn-w">${jst(w.status === 'silent' ? 'waiting' : w.file ? 'running' : 'finished')}<span>${w.status === 'silent' ? T('worker silent since {date}', { date: fmtAbs(w.since) }) : w.file ? T('worker · rendering {file}', { file: fileLink(w.file) }) : T('worker · idle')}${w.local ? ` <span class="tag" title="${T('Kept for its own renders: the farm sends it nothing meanwhile')}">${T('local')}</span>` : ''}</span></span>`;
   // The file it renders: a click opens that file (its detail), not the machine's.
   const fileLink = f => {
     const n = name(f);
@@ -335,6 +335,12 @@ function machinesHTML() {
     const own = (me.host_now || []).filter(x => x.what !== 'rendering');
     return `<span class="mn-w">${jst(own.length ? 'running' : 'finished')}<span>${T('farm host')}${own.map(x => ` · ${esc(TS(x.what))} ${fileLink(x.file)}`).join('')}</span></span>`;
   };
+  // Another machine's worker: stopped from here (a request it reads on its next tick), or
+  // forgotten once silent.
+  const remoteAct = w =>
+    !w || w.mine
+      ? ''
+      : `<span class="mn-act">${w.status === 'silent' ? `<button class="btn sm" data-wact="forget" data-wid="${esc(w.uuid)}">${T('Forget this machine')}</button>` : `<button class="btn sm alert" data-wact="stop" data-wid="${esc(w.uuid)}" title="${T('Stops its worker on its next tick (about 10 s)')}">${T('Stop its worker')}</button>`}</span>`;
   // Its head: the farm itself -- who hosts it, its monitor, what it does now -- and its switch.
   const farmNow = farmUp()
     ? `<span class="faint mh-farm">${T('Farm host: {host}', { host: esc(me.host ? T('this machine') : me.host_name || T('none')) })} · ${T('monitor {state}', { state: st })} · ${T('Now: {what}', { what: hostNow(me.host_now) })}</span><span style="flex:1"></span>${monitorBtn('sm')}`
@@ -351,7 +357,7 @@ function machinesHTML() {
             const n = name(f.file);
             return `<button class="mn-f" ${n ? `data-sgofile="${esc(n)}" data-stab="plan"` : 'disabled'}>${ic('b-blender')}<span class="mn-fn"><span class="mono">${esc(f.file)}</span>${f.saved ? '' : `<span class="faint">${T('not saved yet')}</span>`}</span></button>`;
           })
-          .join('')}${m.me ? `<span class="mn-act"><button class="btn sm ${me.worker ? '' : 'primary'}" data-farm="worker">${me.worker ? T('Stop being a worker') : T('Make it a worker')}</button></span>` : ''}</div></div>`
+          .join('')}${m.me ? `<span class="mn-act"><button class="btn sm ${me.worker ? '' : 'primary'}" data-farm="worker">${me.worker ? T('Stop being a worker') : T('Make it a worker')}</button></span>` : remoteAct(m.worker)}</div></div>`
             )
             .join('')}</div>`
         : `<div class="empty">${T('No Blender has a project file open, no worker.')}</div>`

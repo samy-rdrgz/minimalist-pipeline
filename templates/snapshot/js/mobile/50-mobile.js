@@ -34,7 +34,7 @@ function mRender() {
     top = $('#m-body')?.scrollTop || 0;
   const n2 = items.filter(touched).length + S.planned.length,
     nn = NEWS.length - newsSeen;
-  R.innerHTML = `<header class="m-top"><span class="m-brand"><b>${esc(M.project)}</b><small>${LIVE ? 'live' : T('snapshot of {date}', { date: fmtD(M.snapshot) })}${S.review ? ' · ' + esc(S.review.name) + ' · ' + S.review.role : ''}</small></span><span class="sp"></span>
+  R.innerHTML = `<header class="m-top"><span class="m-brand"><b>${esc(M.project)}</b><small>${LIVE ? 'live' : T('snapshot of {date}', { date: fmtAbs(M.snapshot) })}${S.review ? ' · ' + esc(S.review.name) + ' · ' + S.review.role : ''}</small></span><span class="sp"></span>
       ${LIVE ? `<button class="m-ib" data-msheet="news" aria-label="${T("What's new")}">${ic('i-bell')}${nn ? `<span class="cnt">${nn}</span>` : ''}</button>` : ''}
       ${S.review && LIVE ? `<span class="rv-sync" data-state="${LV.say}">${SAY[LV.say]()}</span>` : ''}${S.review && !LIVE ? `<button class="btn primary" data-msheet="send">${ic('b-export')}${T('Send')}<span class="n">${n2}</span></button>` : ''}
       <button class="m-ib" data-msheet="search" aria-label="${T('Search everything')}">${ic('b-viewzoom')}</button>
@@ -221,7 +221,7 @@ function mFarm() {
         .join('')}
         ${s === 'finished' && g.length > 5 ? `<p class="m-hint">${T('and {n} more: the desktop version.', { n: g.length - 5 })}</p>` : ''}</section>`;
     }).join('')}
-    <section class="m-sec"><div class="m-sec-h">${T('Machines')}<span class="n">${W.length}</span></div>${W.map(w => `<div class="m-job ro">${jst(w.status === 'silent' ? 'waiting' : w.file ? 'running' : 'finished')}<span class="jt"><b>${esc(w.name)}</b><small>${w.status === 'silent' ? T('silent since {date}', { date: fmtD(w.since) }) : esc([w.status, w.file].filter(Boolean).join(' · '))}</small></span></div>`).join('')}</section>`;
+    <section class="m-sec"><div class="m-sec-h">${T('Machines')}<span class="n">${W.length}</span></div>${W.map(w => `<div class="m-job ro">${jst(w.status === 'silent' ? 'waiting' : w.file ? 'running' : 'finished')}<span class="jt"><b>${esc(w.name)}</b><small>${w.status === 'silent' ? T('silent since {date}', { date: fmtAbs(w.since) }) : esc([w.status, w.file].filter(Boolean).join(' · '))}</small></span></div>`).join('')}</section>`;
 }
 
 /* ----- Bottom sheets: one component for every choice ----- */

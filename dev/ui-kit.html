@@ -7506,13 +7506,31 @@ const img = id => (!id || !IMG[id] ? '' : M.thumbs ? M.thumbs + '/' + id : IMG[i
 /* Dates and times: day before month, a 24-hour clock, in every language (English as British English writes them). */
 const DTL = () => (LOCALE() === 'en' ? 'en-GB' : LOCALE());
 const HM = { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' };
-const fmtD = iso => {
+const fmtAbs = iso => {
   const d = new Date(iso);
   return isNaN(d)
     ? ''
     : d.toLocaleDateString(DTL(), { day: '2-digit', month: '2-digit' }) +
         ' ' +
         d.toLocaleTimeString(DTL(), HM);
+};
+/* Under two weeks old, said relative to today: today its time alone, yesterday "yesterday 09:10",
+   then "5 days ago"; older (or ahead), the date itself (fmtAbs(), for exports and tooltips). */
+const fmtD = iso => {
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  const day = x => Date.UTC(x.getFullYear(), x.getMonth(), x.getDate()),
+    n = Math.round((day(new Date()) - day(d)) / 864e5);
+  if (n < 0 || n >= 14) return fmtAbs(iso);
+  const hm = d.toLocaleTimeString(DTL(), HM);
+  if (n === 0) return hm;
+  let rel;
+  try {
+    rel = new Intl.RelativeTimeFormat(DTL(), { numeric: 'auto' }).format(-n, 'day');
+  } catch (_) {
+    return fmtAbs(iso);
+  }
+  return n === 1 ? rel + ' ' + hm : rel;
 };
 const LOCALE = () => (typeof MPI18n !== 'undefined' ? MPI18n.lang : 'en');
 /* The frames a video has when it says nothing (no fps, no length known yet). */
@@ -7793,6 +7811,8 @@ MPI18n.add('fr',{
 'worker · rendering {file}':'worker · rendu de {file}',
 'worker · idle':'worker · libre',
 'farm host':'hôte de la farm',
+'Stop its worker':'Arrêter son worker',
+'Stops its worker on its next tick (about 10 s)':'Arrête son worker à son prochain tick (environ 10 s)',
 'who has which file open, and the workers':'qui a quel fichier ouvert, et les workers',
 'not saved yet':'pas encore sauvé',
 'No Blender has a project file open, no worker.':'Aucun Blender n’a de fichier du projet ouvert, aucun worker.',
@@ -10320,7 +10340,7 @@ function renderTop() {
   $('#p-live').title = T('Connected to Blender · {user}', { user: M.live.user });
   requestAnimationFrame(fitTop);
   $('#p-date').textContent =
-    (LIVE ? 'live · ' + fmtD(M.snapshot) : T('snapshot of {date}', { date: fmtD(M.snapshot) })) +
+    (LIVE ? 'live · ' + fmtD(M.snapshot) : T('snapshot of {date}', { date: fmtAbs(M.snapshot) })) +
     ' · ' +
     M.exported_by;
   const n2 = items.filter(touched).length;
@@ -11510,7 +11530,7 @@ function exportBook() {
         n.text,
         n.author,
         n.team ? T('team') : n.role || T('team'),
-        n.date ? fmtD(n.date) : '',
+        n.date ? fmtAbs(n.date) : '',
         n.frames || ''
       ])
     )
@@ -11934,12 +11954,12 @@ function noteHTML(it, n) {
     };
   const repHTML = r => {
     const y = entryEd(it, r, r.mine ? 'r' + n.id + ':' + r.rk : r.id);
-    return `<div class="${y.del ? 'gone' : ''}"><div class="h"><span class="who">${esc(r.author)}</span><span>${fmtD(r.date)}</span>${r.mine ? `<span class="tag you">${T('you')}</span><button class="btn flat icon xs" data-unreply="${n.id}" title="${T('Take my reply back')}">${ic('b-loop_back')}</button>` : ''}${penHTML(y)}</div>
+    return `<div class="${y.del ? 'gone' : ''}"><div class="h"><span class="who">${esc(r.author)}</span><span title="${fmtAbs(r.date)}">${fmtD(r.date)}</span>${r.mine ? `<span class="tag you">${T('you')}</span><button class="btn flat icon xs" data-unreply="${n.id}" title="${T('Take my reply back')}">${ic('b-loop_back')}</button>` : ''}${penHTML(y)}</div>
       ${S.nedit === y.key ? edFormHTML(y, !r.mine) : `<div class="t">${esc(y.txt)}${edSay(y)}</div>`}</div>`;
   };
   return `<div class="nt ${n.type} ${n.done ? 'closed' : ''} ${n.mine ? 'mine' : ''} ${x.del ? 'gone' : ''} ${x.ed !== undefined ? 'chg' : ''}">
     <div class="h"><span class="type ${n.type}" ${n.done ? `title="${T('closed')}"` : ''}>${n.done ? ic('b-checkmark') : ''}${n.type === 'rtk' ? 'RTK' : n.type === 'todo' ? T('to do') : T('note')}</span>${(n.deps || []).length ? n.deps.map(d => LBL[d] || d).join(', ') : '<span>' + T('no department') + '</span>'}${who ? `<span>· ${esc(who)}</span>` : ''}
-      ${!n.frames && noteShot(it, n) ? `<span class="chip-frame" title="${T('Shot of the block')}">${esc(noteShot(it, n))}</span>` : ''}${n.frames ? `<button class="chip-frame" data-goto="${parseInt(String(n.frames).replace(/\D+/, ''))}" ${noteShot(it, n) ? `data-gshot="${esc(noteShot(it, n))}"` : ''} title="${T('Go to {frame}', { frame: esc(n.frames) })}${noteShot(it, n) ? ' · ' + esc(noteShot(it, n)) : ''}">${noteShot(it, n) ? esc(noteShot(it, n)) + ' · ' : ''}${esc(n.frames)}</button>` : ''}${n.mine ? '<span class="tag you">' + T('you') + '</span>' : ''}<span class="sp"></span><span class="who-d" ${!n.ingrp && n.author && n.author !== 'unknown' ? `data-who="${esc(n.author)}"` : ''}><span class="${n.ingrp ? 'subd' : ''}">${fmtD(n.date)}</span></span>${n.done ? '<span>· ' + T('closed') + '</span>' : ''}${penHTML(x)}</div>
+      ${!n.frames && noteShot(it, n) ? `<span class="chip-frame" title="${T('Shot of the block')}">${esc(noteShot(it, n))}</span>` : ''}${n.frames ? `<button class="chip-frame" data-goto="${parseInt(String(n.frames).replace(/\D+/, ''))}" ${noteShot(it, n) ? `data-gshot="${esc(noteShot(it, n))}"` : ''} title="${T('Go to {frame}', { frame: esc(n.frames) })}${noteShot(it, n) ? ' · ' + esc(noteShot(it, n)) : ''}">${noteShot(it, n) ? esc(noteShot(it, n)) + ' · ' : ''}${esc(n.frames)}</button>` : ''}${n.mine ? '<span class="tag you">' + T('you') + '</span>' : ''}<span class="sp"></span><span class="who-d" ${!n.ingrp && n.author && n.author !== 'unknown' ? `data-who="${esc(n.author)}"` : ''}><span class="${n.ingrp ? 'subd' : ''}" title="${fmtAbs(n.date)}">${fmtD(n.date)}</span></span>${n.done ? '<span>· ' + T('closed') + '</span>' : ''}${penHTML(x)}</div>
     ${S.nedit === x.key ? edFormHTML(x, !n.mine, it) : `<div class="t ${x.txt ? '' : 'empty'}">${x.txt ? esc(x.txt) : T('(no text)')}${edSay(x)}</div>`}
     ${reps.length ? `<div class="rep">${reps.map(repHTML).join('')}</div>` : ''}
     ${rf}
@@ -12020,7 +12040,7 @@ const openBy = it =>
 const rushIs = (it, v) => !!(it.rush && v && v.folder && it.rush.render === v.folder.split('/').pop());
 const rushSay = it =>
   it.rush
-    ? T('In the edit since {date}, pushed by {who}', { date: fmtD(it.rush.at), who: it.rush.by || '?' })
+    ? T('In the edit since {date}, pushed by {who}', { date: fmtAbs(it.rush.at), who: it.rush.by || '?' })
     : '';
 /* The file's facts (its .blend files, who saved last, who has it open, the work time): on top of
    Versions -- the Files tab they had said again what Versions and Render history say. */
@@ -12636,7 +12656,7 @@ function machinesHTML() {
   const wk = w =>
     !w
       ? `<span class="faint">${T('not a worker')}</span>`
-      : `<span class="mn-w">${jst(w.status === 'silent' ? 'waiting' : w.file ? 'running' : 'finished')}<span>${w.status === 'silent' ? T('worker silent since {date}', { date: fmtD(w.since) }) : w.file ? T('worker · rendering {file}', { file: fileLink(w.file) }) : T('worker · idle')}${w.local ? ` <span class="tag" title="${T('Kept for its own renders: the farm sends it nothing meanwhile')}">${T('local')}</span>` : ''}</span></span>`;
+      : `<span class="mn-w">${jst(w.status === 'silent' ? 'waiting' : w.file ? 'running' : 'finished')}<span>${w.status === 'silent' ? T('worker silent since {date}', { date: fmtAbs(w.since) }) : w.file ? T('worker · rendering {file}', { file: fileLink(w.file) }) : T('worker · idle')}${w.local ? ` <span class="tag" title="${T('Kept for its own renders: the farm sends it nothing meanwhile')}">${T('local')}</span>` : ''}</span></span>`;
   // The file it renders: a click opens that file (its detail), not the machine's.
   const fileLink = f => {
     const n = name(f);
@@ -12649,6 +12669,12 @@ function machinesHTML() {
     const own = (me.host_now || []).filter(x => x.what !== 'rendering');
     return `<span class="mn-w">${jst(own.length ? 'running' : 'finished')}<span>${T('farm host')}${own.map(x => ` · ${esc(TS(x.what))} ${fileLink(x.file)}`).join('')}</span></span>`;
   };
+  // Another machine's worker: stopped from here (a request it reads on its next tick), or
+  // forgotten once silent.
+  const remoteAct = w =>
+    !w || w.mine
+      ? ''
+      : `<span class="mn-act">${w.status === 'silent' ? `<button class="btn sm" data-wact="forget" data-wid="${esc(w.uuid)}">${T('Forget this machine')}</button>` : `<button class="btn sm alert" data-wact="stop" data-wid="${esc(w.uuid)}" title="${T('Stops its worker on its next tick (about 10 s)')}">${T('Stop its worker')}</button>`}</span>`;
   // Its head: the farm itself -- who hosts it, its monitor, what it does now -- and its switch.
   const farmNow = farmUp()
     ? `<span class="faint mh-farm">${T('Farm host: {host}', { host: esc(me.host ? T('this machine') : me.host_name || T('none')) })} · ${T('monitor {state}', { state: st })} · ${T('Now: {what}', { what: hostNow(me.host_now) })}</span><span style="flex:1"></span>${monitorBtn('sm')}`
@@ -12665,7 +12691,7 @@ function machinesHTML() {
             const n = name(f.file);
             return `<button class="mn-f" ${n ? `data-sgofile="${esc(n)}" data-stab="plan"` : 'disabled'}>${ic('b-blender')}<span class="mn-fn"><span class="mono">${esc(f.file)}</span>${f.saved ? '' : `<span class="faint">${T('not saved yet')}</span>`}</span></button>`;
           })
-          .join('')}${m.me ? `<span class="mn-act"><button class="btn sm ${me.worker ? '' : 'primary'}" data-farm="worker">${me.worker ? T('Stop being a worker') : T('Make it a worker')}</button></span>` : ''}</div></div>`
+          .join('')}${m.me ? `<span class="mn-act"><button class="btn sm ${me.worker ? '' : 'primary'}" data-farm="worker">${me.worker ? T('Stop being a worker') : T('Make it a worker')}</button></span>` : remoteAct(m.worker)}</div></div>`
             )
             .join('')}</div>`
         : `<div class="empty">${T('No Blender has a project file open, no worker.')}</div>`
@@ -14722,7 +14748,7 @@ function mRender() {
     top = $('#m-body')?.scrollTop || 0;
   const n2 = items.filter(touched).length + S.planned.length,
     nn = NEWS.length - newsSeen;
-  R.innerHTML = `<header class="m-top"><span class="m-brand"><b>${esc(M.project)}</b><small>${LIVE ? 'live' : T('snapshot of {date}', { date: fmtD(M.snapshot) })}${S.review ? ' · ' + esc(S.review.name) + ' · ' + S.review.role : ''}</small></span><span class="sp"></span>
+  R.innerHTML = `<header class="m-top"><span class="m-brand"><b>${esc(M.project)}</b><small>${LIVE ? 'live' : T('snapshot of {date}', { date: fmtAbs(M.snapshot) })}${S.review ? ' · ' + esc(S.review.name) + ' · ' + S.review.role : ''}</small></span><span class="sp"></span>
       ${LIVE ? `<button class="m-ib" data-msheet="news" aria-label="${T("What's new")}">${ic('i-bell')}${nn ? `<span class="cnt">${nn}</span>` : ''}</button>` : ''}
       ${S.review && LIVE ? `<span class="rv-sync" data-state="${LV.say}">${SAY[LV.say]()}</span>` : ''}${S.review && !LIVE ? `<button class="btn primary" data-msheet="send">${ic('b-export')}${T('Send')}<span class="n">${n2}</span></button>` : ''}
       <button class="m-ib" data-msheet="search" aria-label="${T('Search everything')}">${ic('b-viewzoom')}</button>
@@ -14909,7 +14935,7 @@ function mFarm() {
         .join('')}
         ${s === 'finished' && g.length > 5 ? `<p class="m-hint">${T('and {n} more: the desktop version.', { n: g.length - 5 })}</p>` : ''}</section>`;
     }).join('')}
-    <section class="m-sec"><div class="m-sec-h">${T('Machines')}<span class="n">${W.length}</span></div>${W.map(w => `<div class="m-job ro">${jst(w.status === 'silent' ? 'waiting' : w.file ? 'running' : 'finished')}<span class="jt"><b>${esc(w.name)}</b><small>${w.status === 'silent' ? T('silent since {date}', { date: fmtD(w.since) }) : esc([w.status, w.file].filter(Boolean).join(' · '))}</small></span></div>`).join('')}</section>`;
+    <section class="m-sec"><div class="m-sec-h">${T('Machines')}<span class="n">${W.length}</span></div>${W.map(w => `<div class="m-job ro">${jst(w.status === 'silent' ? 'waiting' : w.file ? 'running' : 'finished')}<span class="jt"><b>${esc(w.name)}</b><small>${w.status === 'silent' ? T('silent since {date}', { date: fmtAbs(w.since) }) : esc([w.status, w.file].filter(Boolean).join(' · '))}</small></span></div>`).join('')}</section>`;
 }
 
 /* ----- Bottom sheets: one component for every choice ----- */

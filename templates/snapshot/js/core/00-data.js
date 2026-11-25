@@ -60,13 +60,31 @@ const img = id => (!id || !IMG[id] ? '' : M.thumbs ? M.thumbs + '/' + id : IMG[i
 /* Dates and times: day before month, a 24-hour clock, in every language (English as British English writes them). */
 const DTL = () => (LOCALE() === 'en' ? 'en-GB' : LOCALE());
 const HM = { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' };
-const fmtD = iso => {
+const fmtAbs = iso => {
   const d = new Date(iso);
   return isNaN(d)
     ? ''
     : d.toLocaleDateString(DTL(), { day: '2-digit', month: '2-digit' }) +
         ' ' +
         d.toLocaleTimeString(DTL(), HM);
+};
+/* Under two weeks old, said relative to today: today its time alone, yesterday "yesterday 09:10",
+   then "5 days ago"; older (or ahead), the date itself (fmtAbs(), for exports and tooltips). */
+const fmtD = iso => {
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  const day = x => Date.UTC(x.getFullYear(), x.getMonth(), x.getDate()),
+    n = Math.round((day(new Date()) - day(d)) / 864e5);
+  if (n < 0 || n >= 14) return fmtAbs(iso);
+  const hm = d.toLocaleTimeString(DTL(), HM);
+  if (n === 0) return hm;
+  let rel;
+  try {
+    rel = new Intl.RelativeTimeFormat(DTL(), { numeric: 'auto' }).format(-n, 'day');
+  } catch (_) {
+    return fmtAbs(iso);
+  }
+  return n === 1 ? rel + ' ' + hm : rel;
 };
 const LOCALE = () => (typeof MPI18n !== 'undefined' ? MPI18n.lang : 'en');
 /* The frames a video has when it says nothing (no fps, no length known yet). */

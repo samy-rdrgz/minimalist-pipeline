@@ -24,6 +24,12 @@ All notable changes to this addon. Dates are release dates.
 
 ### Changed
 
+- Live page, dates: under two weeks old, said relative to today -- today
+  its time alone, "yesterday 09:10", then "5 days ago"; older, the date.
+  A note's exact date on its hover; exports and "since …" keep the date.
+- Live page, Farm > Machines: another machine's card has Stop its worker
+  (a request it reads on its next tick; rendering, asked after this frame
+  or now), or Forget this machine once silent -- no need to open its detail.
 - Live page, a note's head: its author is said while the note is hovered,
   over its date, instead of taking room on the line -- the head wraps less.
 - Live page, Farm > Machines: the farm host's card says it is the host and
