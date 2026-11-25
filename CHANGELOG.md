@@ -24,6 +24,12 @@ All notable changes to this addon. Dates are release dates.
 
 ### Changed
 
+- Welcome window: its text column follows Blender's UI scale (it stayed
+  900 px wide, cramped at 150-200 %).
+- Blender tooltips brought up to date: a shot's/asset's description shows on
+  the live page (no tracking panel), Render sends this file or several from
+  the list, Stop this worker asks after this frame or now, your name drives
+  notes, renders and validations.
 - Live page, a machine's detail: what its worker file says too -- user,
   machine id, Blender and add-on versions, ffmpeg (its version, or none: no
   video compiled there), worker since, last heartbeat, renders done/failed.

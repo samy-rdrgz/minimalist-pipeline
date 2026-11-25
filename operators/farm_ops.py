@@ -422,7 +422,7 @@ class M_PIPELINE_OT_farm_request_render(bpy.types.Operator):
 
     bl_idname = "m_pipeline.farm_request_render"
     bl_label = "Render"
-    bl_description = "Submit this file (or the pending list) to the render farm queue."
+    bl_description = "Send this file, or several picked in the list, to the render farm queue."
 
     # SKIP_SAVE: otherwise Blender remembers the last value across
     # invocations (its redo-panel memory), so the project panel's/top bar's
@@ -1045,7 +1045,7 @@ class M_PIPELINE_OT_farm_kill_self_worker(bpy.types.Operator):
 
     bl_idname = "m_pipeline.farm_kill_self_worker"
     bl_label = "Kill this worker."
-    bl_description = "Remove this computer's worker registration."
+    bl_description = "This computer stops being a farm worker -- rendering, you choose: after this frame, or now."
 
     def invoke(self, context, event):
         if not worker_rendering():

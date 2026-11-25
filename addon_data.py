@@ -47,7 +47,7 @@ class PipelineAddonPreferences(bpy.types.AddonPreferences):
     user_name: bpy.props.StringProperty(
         name="User name",
         default="",
-        description="Your name (used in logs).",
+        description="Your name: your notes, renders, validations and the log go by it.",
         update=save_settings,
     )
 
@@ -99,7 +99,7 @@ class PipelineAddonPreferences(bpy.types.AddonPreferences):
 
     onboarding_seen: bpy.props.BoolProperty(
         name="Onboarding seen",
-        description="Internal: the first-launch popup has already been shown.",
+        description="Internal: the first-launch welcome has already been shown.",
         default=False,
         update=save_settings,
     )

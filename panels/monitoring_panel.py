@@ -87,8 +87,10 @@ class M_PIPELINE_PT_welcome(_MonitoringPanel, bpy.types.Panel):
     def draw(self, context):
         # Read at a line's length whatever the window's width: a centred
         # column, the text wrapped to it.
+        # 900 px at 100 % UI scale: the same column, in words, at any scale.
         width = context.region.width
-        side = (1 - 900 / width) / 2 if width > 900 else 0.0
+        column = 900 * (context.preferences.system.ui_scale or 1.0)
+        side = (1 - column / width) / 2 if width > column else 0.0
         layout = self.layout
         if side:
             # margin | text | margin: each split's first item takes its factor.
@@ -101,7 +103,7 @@ class M_PIPELINE_PT_welcome(_MonitoringPanel, bpy.types.Panel):
         draw_onboarding(
             layout,
             context,
-            max_width=min(120, region_char_budget(context, width_px=None)),
+            max_width=min(120, region_char_budget(context, width_px=None) if not side else int(column / (7.0 * (context.preferences.system.ui_scale or 1.0)))),
             level_hint=False,
         )
         layout.separator(factor=2)

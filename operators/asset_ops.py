@@ -55,7 +55,7 @@ class M_PIPELINE_OT_create_asset(bpy.types.Operator):
     asset_prefix: bpy.props.EnumProperty(items=_get_prefix_items)
     asset_name: bpy.props.StringProperty(name="Name", default="")
     description: bpy.props.StringProperty(
-        description="What this asset is, shown in its tracking panel.",
+        description="What this asset is, shown in its detail on the live page.",
         default="",
     )
     create_clean: bpy.props.BoolProperty(
